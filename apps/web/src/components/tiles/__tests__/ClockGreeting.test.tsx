@@ -99,4 +99,35 @@ describe("ClockGreeting", () => {
     expect(screen.getByText(/12:00/)).toBeDefined();
     expect(screen.getByText(/PM/)).toBeDefined();
   });
+
+  it("www-882: tile wrapper has padding 28", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-29T09:30:00"));
+
+    const { container } = render(<ClockGreeting />);
+    const tile = container.firstChild as HTMLElement;
+
+    expect(tile.style.padding).toBe("28px");
+  });
+
+  it("www-882: date line has font-size 18", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-29T09:30:00"));
+
+    render(<ClockGreeting />);
+
+    const dateEl = screen.getByTestId("clock-date");
+    expect(dateEl.style.fontSize).toBe("18px");
+  });
+
+  it("www-oi9: AM/PM span has non-negative letter-spacing (not inherited -.05em)", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-29T09:30:00"));
+
+    render(<ClockGreeting />);
+
+    const ampm = screen.getByTestId("clock-ampm");
+    // letterSpacing must be explicitly set to break inheritance from the -.05em mono wrapper
+    expect(ampm.style.letterSpacing).toBe("0.02em");
+  });
 });
