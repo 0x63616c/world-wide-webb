@@ -1,211 +1,145 @@
-import { useCallback, useRef, useState } from "react";
+/**
+ * ClimateTile — thin container for the climate tile.
+ *
+ * Owns:
+ *  - trpc.climate.get query with adaptive refetch (paused during cooldown)
+ *  - optimistic setpoint and mode state so the UI responds instantly
+ *  - 5 s cooldown poll-pause after any mutation (same pattern as ControlsTile)
+ *    so HA's desired-window overlay has time to settle before we reconcile
+ *  - debounced setTarget mutation (400 ms) to reduce chatter while dragging
+ *
+ * Mode thresholds (www-6k8):
+ *  - target <= 70  → cool
+ *  - 71–75         → auto
+ *  - target >= 76  → heat
+ */
+
+import { useCallback, useEffect, useRef, useState } from "react";
 import { POLL } from "../../lib/hooks";
 import { trpc } from "../../lib/trpc";
-import { Skeleton, Tile, TileHeader } from "../ui";
+import type { ClimateMode } from "./ClimateTileView";
+import { ClimateTileView } from "./ClimateTileView";
 
-// Design constants (evee-tiles.jsx EClimate)
-const MIN = 65;
-const MAX = 80;
+const COOLDOWN_MS = 5_000;
 
-type Mode = "cool" | "auto" | "heat";
-
-function modeLabel(mode: Mode): string {
-  if (mode === "cool") return "Cooling";
-  if (mode === "heat") return "Heating";
-  return "Auto";
-}
-
-// Derive display mode from setpoint (mirrors design EClimate logic)
-function modeFromTarget(target: number): Mode {
+// Derive display mode from setpoint (www-6k8 thresholds).
+// Exported for unit testing.
+export function modeFromTarget(target: number): ClimateMode {
   if (target <= 70) return "cool";
-  if (target >= 74) return "heat";
+  if (target >= 76) return "heat";
   return "auto";
 }
 
-function ClimateSkeleton() {
-  return (
-    <Tile padding={22}>
-      <Skeleton w="60%" h={20} borderRadius={6} />
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Skeleton w={120} h={92} borderRadius={12} />
-      </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
-        <Skeleton w="33%" h={32} borderRadius={8} />
-        <Skeleton w="33%" h={32} borderRadius={8} />
-        <Skeleton w="33%" h={32} borderRadius={8} />
-      </div>
-      <Skeleton w="100%" h={20} borderRadius={6} />
-    </Tile>
-  );
+// Exported so unit tests can verify adaptive poll behaviour.
+export function makeRefetchInterval(getCooldownUntil: () => number): () => number | false {
+  return () => {
+    if (Date.now() < getCooldownUntil()) return false;
+    return POLL.climate;
+  };
 }
 
 export function ClimateTile() {
-  const query = trpc.climate.get.useQuery(undefined, {
-    refetchInterval: POLL.climate,
-  });
+  const utils = trpc.useUtils();
+
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const cooldownRef = useRef(cooldownUntil);
+  cooldownRef.current = cooldownUntil;
+
+  const refetchInterval = makeRefetchInterval(() => cooldownRef.current);
+
+  const query = trpc.climate.get.useQuery(undefined, { refetchInterval });
 
   const setTargetMutation = trpc.climate.setTarget.useMutation();
   const setModeMutation = trpc.climate.setMode.useMutation();
 
-  // Optimistic local setpoint — tracks slider while dragging; syncs on commit
+  // Optimistic local state cleared after mutation settles or cooldown expires.
   const [localTarget, setLocalTarget] = useState<number | null>(null);
+  const [localMode, setLocalMode] = useState<ClimateMode | null>(null);
+
+  // Debounce ref for slider drags.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const data = query.data;
+  // When cooldown expires, invalidate once to reconcile with live HA state.
+  useEffect(() => {
+    if (cooldownUntil === 0) return;
+    const remaining = cooldownUntil - Date.now();
+    if (remaining <= 0) {
+      void utils.climate.get.invalidate();
+      return;
+    }
+    const timer = setTimeout(() => {
+      void utils.climate.get.invalidate();
+      setLocalTarget(null);
+      setLocalMode(null);
+    }, remaining);
+    return () => clearTimeout(timer);
+  }, [cooldownUntil, utils]);
 
-  // pill label: use live action from HA when not locally overriding
-  const pillLabel =
-    localTarget !== null ? modeLabel(modeFromTarget(localTarget)) : (data?.action ?? "");
-
-  const handleSlider = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const val = parseInt(e.target.value, 10);
+  const handleSetTarget = useCallback(
+    (val: number) => {
       setLocalTarget(val);
+      setLocalMode(modeFromTarget(val));
+      setCooldownUntil(Date.now() + COOLDOWN_MS);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         setTargetMutation.mutate(val, {
-          onSuccess: () => setLocalTarget(null),
-          onError: () => setLocalTarget(null),
+          onSuccess: () => {
+            setLocalTarget(null);
+            setLocalMode(null);
+          },
+          onError: () => {
+            setLocalTarget(null);
+            setLocalMode(null);
+          },
         });
       }, 400);
     },
     [setTargetMutation],
   );
 
-  const handleChip = useCallback(
-    (mode: Mode, presetTarget: number) => {
+  const handleSetMode = useCallback(
+    (mode: ClimateMode, presetTarget: number) => {
       setLocalTarget(presetTarget);
+      setLocalMode(mode);
+      setCooldownUntil(Date.now() + COOLDOWN_MS);
       setModeMutation.mutate(mode, {
-        onSuccess: () => setLocalTarget(null),
-        onError: () => setLocalTarget(null),
+        onSuccess: () => {
+          setLocalTarget(null);
+          setLocalMode(null);
+        },
+        onError: () => {
+          setLocalTarget(null);
+          setLocalMode(null);
+        },
       });
     },
     [setModeMutation],
   );
 
-  if (!data) return <ClimateSkeleton />;
+  if (!query.data) return <ClimateTileView status="loading" />;
 
+  const data = query.data;
   const target = localTarget ?? data.target;
-  const ambient = data.ambient;
-
-  // Derive display mode: prefer server mode, but let local slider override
-  const displayMode: Mode =
-    localTarget !== null ? modeFromTarget(localTarget) : (data.mode as Mode);
-
-  const pct = ((target - MIN) / (MAX - MIN)) * 100;
-  const ambPct = ((ambient - MIN) / (MAX - MIN)) * 100;
+  const mode = localMode ?? (data.mode as ClimateMode);
+  // action pill: when overriding locally, derive a label; otherwise use server value
+  const action =
+    localMode !== null
+      ? localMode === "cool"
+        ? "Cooling"
+        : localMode === "heat"
+          ? "Heating"
+          : "Auto"
+      : (data.action ?? "");
 
   return (
-    <Tile padding={22}>
-      {/* Header */}
-      <TileHeader
-        icon="thermo"
-        title="Climate · A/C"
-        right={
-          <span className="pill on" style={{ padding: "4px 10px" }} data-testid="mode-pill">
-            {pillLabel}
-          </span>
-        }
-      />
-
-      {/* Big setpoint */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <div
-          className="mono"
-          style={{ fontSize: 92, fontWeight: 700, lineHeight: 0.9, letterSpacing: "-0.04em" }}
-          data-testid="setpoint"
-        >
-          {target}
-          <span style={{ fontSize: 30, color: "var(--ink-2)" }}>°F</span>
-        </div>
-      </div>
-
-      {/* Mode chips */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
-        {(
-          [
-            ["cool", "Cool", 68],
-            ["auto", "Auto", 72],
-            ["heat", "Heat", 76],
-          ] as [Mode, string, number][]
-        ).map(([k, label, presetVal]) => (
-          <button
-            key={k}
-            type="button"
-            className={`chip${displayMode === k ? " on" : ""}`}
-            onClick={() => handleChip(k, presetVal)}
-            aria-pressed={displayMode === k}
-            data-testid={`chip-${k}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Slider + ambient "Now" caret */}
-      <div style={{ position: "relative", paddingBottom: 28 }}>
-        <input
-          className="range"
-          type="range"
-          min={MIN}
-          max={MAX}
-          value={target}
-          style={{ "--p": `${pct}%` } as React.CSSProperties}
-          onChange={handleSlider}
-          aria-label="Target temperature"
-          data-testid="slider"
-        />
-        {/* Ambient caret marker */}
-        <div
-          style={{
-            position: "absolute",
-            left: `${ambPct}%`,
-            top: -3,
-            transform: "translateX(-50%)",
-            pointerEvents: "none",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-          }}
-        >
-          <div
-            style={{
-              width: 2,
-              height: 22,
-              background: "rgba(255,255,255,.65)",
-              borderRadius: 1,
-            }}
-          />
-          <span
-            className="mono"
-            style={{ fontSize: 11, color: "var(--ink-2)", whiteSpace: "nowrap", marginTop: 3 }}
-            data-testid="ambient-label"
-          >
-            {Math.round(ambient)}°
-          </span>
-        </div>
-        {/* Range end labels */}
-        <span
-          className="mono"
-          style={{ position: "absolute", left: 0, bottom: 0, fontSize: 12, color: "var(--ink-3)" }}
-        >
-          65°
-        </span>
-        <span
-          className="mono"
-          style={{ position: "absolute", right: 0, bottom: 0, fontSize: 12, color: "var(--ink-3)" }}
-        >
-          80°
-        </span>
-      </div>
-    </Tile>
+    <ClimateTileView
+      status="populated"
+      target={target}
+      ambient={data.ambient}
+      mode={mode}
+      action={action}
+      onSetTarget={handleSetTarget}
+      onSetMode={handleSetMode}
+    />
   );
 }

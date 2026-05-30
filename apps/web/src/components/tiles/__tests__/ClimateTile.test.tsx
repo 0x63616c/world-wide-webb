@@ -13,8 +13,17 @@ const mockUseQuery = vi.fn();
 const mockUseSetTargetMutation = vi.fn(() => ({ mutate: mockSetTargetMutate }));
 const mockUseSetModeMutation = vi.fn(() => ({ mutate: mockSetModeMutate }));
 
+const mockInvalidateClimateGet = vi.fn();
+
 vi.mock("../../../lib/trpc", () => ({
   trpc: {
+    useUtils: () => ({
+      climate: {
+        get: {
+          invalidate: mockInvalidateClimateGet,
+        },
+      },
+    }),
     climate: {
       get: {
         useQuery: (...args: unknown[]) => mockUseQuery(...args),
