@@ -1,11 +1,6 @@
 import { trpc } from "../../lib/trpc";
 import { Icon } from "../Icon";
-
-// 24-bucket fallback traffic so the chart never renders blank
-const FALLBACK_TRAFFIC = Array.from({ length: 24 }, (_, i) => ({
-  d: 0.3 + 0.7 * Math.abs(Math.sin(i * 0.5 + 1)) * (i > 17 || i < 2 ? 1.3 : 0.7),
-  u: 0.18 + 0.5 * Math.abs(Math.cos(i * 0.4)) * 0.6,
-}));
+import { Skeleton } from "../ui/Skeleton";
 
 interface ButterflyChartProps {
   traffic: Array<{ down: number; up: number }>;
@@ -58,22 +53,32 @@ function ButterflyChart({ traffic }: ButterflyChartProps) {
   );
 }
 
+function NetworkSkeleton() {
+  return (
+    <div
+      className="tile"
+      style={{ height: "100%", padding: 22, display: "flex", flexDirection: "column", gap: 12 }}
+    >
+      <Skeleton w="50%" h={20} borderRadius={6} />
+      <Skeleton w="40%" h={26} borderRadius={6} />
+      <Skeleton w="30%" h={14} borderRadius={6} />
+      <div style={{ flex: 1 }}>
+        <Skeleton w="100%" h="100%" borderRadius={6} />
+      </div>
+      <Skeleton w="30%" h={14} borderRadius={6} />
+      <Skeleton w="100%" h={16} borderRadius={6} />
+    </div>
+  );
+}
+
 export function NetworkTile() {
-  const { data, isLoading, isError } = trpc.network.status.useQuery(undefined, {
+  const { data } = trpc.network.status.useQuery(undefined, {
     refetchInterval: 60_000,
   });
 
-  // Graceful placeholders
-  const status = data?.status ?? "Online";
-  const ssid = data?.ssid ?? "—";
-  const down = data?.down ?? "—";
-  const up = data?.up ?? "—";
-  const ping = data?.ping ?? "—";
+  if (!data) return <NetworkSkeleton />;
 
-  const traffic: Array<{ down: number; up: number }> =
-    data?.traffic ?? FALLBACK_TRAFFIC.map((t) => ({ down: t.d, up: t.u }));
-
-  const isOffline = !isLoading && (isError || status === "Offline");
+  const isOffline = data.status === "Offline";
 
   return (
     <div
@@ -142,16 +147,16 @@ export function NetworkTile() {
             color: isOffline ? "var(--ink-3)" : "var(--acc)",
           }}
         >
-          {isLoading ? "…" : status}
+          {data.status}
         </span>
         <span className="mono" style={{ fontSize: 12, color: "var(--ink-3)" }}>
-          {ssid}
+          {data.ssid}
         </span>
       </div>
 
       {/* Download label */}
       <div className="mono" style={{ fontSize: 12.5, color: "var(--acc)", marginBottom: 5 }}>
-        ↓ {down} GB
+        ↓ {data.down} GB
       </div>
 
       {/* Butterfly chart */}
@@ -163,7 +168,7 @@ export function NetworkTile() {
           justifyContent: "center",
         }}
       >
-        <ButterflyChart traffic={traffic} />
+        {data.traffic.length > 0 && <ButterflyChart traffic={data.traffic} />}
       </div>
 
       {/* Upload label */}
@@ -171,13 +176,13 @@ export function NetworkTile() {
         className="mono"
         style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 5, marginBottom: 8 }}
       >
-        ↑ {up} GB
+        ↑ {data.up} GB
       </div>
 
       {/* Footer: SSID + ping */}
       <div className="cap" style={{ display: "flex", justifyContent: "space-between" }}>
-        <span>{ssid}</span>
-        <span>{ping === "—" ? "—" : `${ping}ms`}</span>
+        <span>{data.ssid}</span>
+        <span>{`${data.ping}ms`}</span>
       </div>
     </div>
   );

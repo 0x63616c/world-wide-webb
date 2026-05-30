@@ -1,12 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { Icon } from "../Icon";
-
-/** Placeholder events shown while loading or on error. */
-const PLACEHOLDER = [
-  { name: "Gorgon City", place: "Sound Nightclub", days: 3 },
-  { name: "Chris Lake", place: "Shrine Expo Hall", days: 10 },
-  { name: "Florida 2026", place: "Miami", days: 31 },
-];
+import { Skeleton } from "../ui/Skeleton";
 
 interface EventRow {
   name: string;
@@ -95,14 +89,20 @@ function EventItem({ event, first }: { event: EventRow; first: boolean }) {
   );
 }
 
+function EventsSkeleton() {
+  return (
+    <div style={{ display: "flex", alignItems: "stretch", width: "100%", gap: 12 }}>
+      <Skeleton w="33%" h={72} borderRadius={8} />
+      <Skeleton w="33%" h={72} borderRadius={8} />
+      <Skeleton w="33%" h={72} borderRadius={8} />
+    </div>
+  );
+}
+
 export function EventsTile() {
-  const { data, isLoading, isError } = trpc.events.list.useQuery(undefined, {
+  const { data } = trpc.events.list.useQuery(undefined, {
     refetchInterval: 30 * 60 * 1000, // 30 min
   });
-
-  // Degrade gracefully: show placeholders while loading or on error.
-  const events: EventRow[] = isLoading || isError || !data ? PLACEHOLDER : data;
-  const visible = events.slice(0, 3);
 
   return (
     <div
@@ -125,11 +125,15 @@ export function EventsTile() {
       >
         Upcoming
       </Sec>
-      <div style={{ display: "flex", alignItems: "stretch", width: "100%" }}>
-        {visible.map((e, i) => (
-          <EventItem key={`${e.name}-${e.place}-${e.days}`} event={e} first={i === 0} />
-        ))}
-      </div>
+      {!data ? (
+        <EventsSkeleton />
+      ) : (
+        <div style={{ display: "flex", alignItems: "stretch", width: "100%" }}>
+          {data.slice(0, 3).map((e, i) => (
+            <EventItem key={`${e.name}-${e.place}-${e.days}`} event={e} first={i === 0} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

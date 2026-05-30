@@ -104,19 +104,14 @@ describe("fetchWeatherNow", () => {
     expect(url).toContain("sunset");
   });
 
-  it("returns placeholder data when fetch fails", async () => {
+  it("throws when fetch fails", async () => {
     vi.stubGlobal("fetch", mockFetchFail());
-    const result = await fetchWeatherNow(34.0537, -118.2428);
-    expect(result.city).toBe("Los Angeles");
-    expect(typeof result.temp).toBe("number");
-    expect(typeof result.cond).toBe("string");
+    await expect(fetchWeatherNow(34.0537, -118.2428)).rejects.toThrow();
   });
 
-  it("returns placeholder data on non-OK HTTP response", async () => {
+  it("throws on non-OK HTTP response", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }));
-    const result = await fetchWeatherNow(34.0537, -118.2428);
-    expect(result.city).toBe("Los Angeles");
-    expect(typeof result.temp).toBe("number");
+    await expect(fetchWeatherNow(34.0537, -118.2428)).rejects.toThrow("HTTP 500");
   });
 });
 
@@ -161,11 +156,9 @@ describe("fetchWeatherHourly", () => {
     expect(result[0].ic).toBe("moon");
   });
 
-  it("returns placeholder on fetch error", async () => {
+  it("throws on fetch error", async () => {
     vi.stubGlobal("fetch", mockFetchFail());
-    const result = await fetchWeatherHourly(34.0537, -118.2428);
-    expect(result).toHaveLength(12);
-    expect(result[0].t).toBe("Now");
+    await expect(fetchWeatherHourly(34.0537, -118.2428)).rejects.toThrow();
   });
 
   it("calls Open-Meteo with hourly fields", async () => {

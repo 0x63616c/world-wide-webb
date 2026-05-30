@@ -2,7 +2,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { describe, expect, it } from "vitest";
 
 import type * as schema from "../db/schema";
-import { daysUntil, listEvents, PLACEHOLDER_EVENTS } from "../services/events-service";
+import { daysUntil, listEvents } from "../services/events-service";
 
 type Db = NodePgDatabase<typeof schema>;
 
@@ -70,20 +70,19 @@ describe("listEvents", () => {
     return { select: () => selectFromFn } as unknown as Db;
   };
 
-  it("returns placeholder events when DB returns empty array", async () => {
+  it("returns empty array when DB returns empty array", async () => {
     const db = makeMockDb([]);
     const result = await listEvents(db);
-    expect(result).toEqual(PLACEHOLDER_EVENTS);
+    expect(result).toEqual([]);
   });
 
-  it("returns placeholder events when DB throws", async () => {
+  it("throws when DB throws", async () => {
     const db = {
       select: () => {
         throw new Error("connection refused");
       },
     } as unknown as Db;
-    const result = await listEvents(db);
-    expect(result).toEqual(PLACEHOLDER_EVENTS);
+    await expect(listEvents(db)).rejects.toThrow("connection refused");
   });
 
   it("maps DB rows to {name, place, days} sorted by provided order", async () => {
@@ -114,27 +113,5 @@ describe("listEvents", () => {
     const result = await listEvents(db, now);
 
     expect(result[0].days).toBe(0);
-  });
-});
-
-// ─── PLACEHOLDER_EVENTS shape ────────────────────────────────────────────
-
-describe("PLACEHOLDER_EVENTS", () => {
-  it("has exactly 4 entries", () => {
-    expect(PLACEHOLDER_EVENTS).toHaveLength(4);
-  });
-
-  it("matches the expected events from the design", () => {
-    const names = PLACEHOLDER_EVENTS.map((e) => e.name);
-    expect(names).toContain("Gorgon City");
-    expect(names).toContain("Chris Lake");
-    expect(names).toContain("Florida 2026");
-    expect(names).toContain("John Summit");
-  });
-
-  it("all have non-negative days", () => {
-    for (const e of PLACEHOLDER_EVENTS) {
-      expect(e.days).toBeGreaterThanOrEqual(0);
-    }
   });
 });

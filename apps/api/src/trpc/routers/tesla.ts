@@ -1,5 +1,6 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { getTeslaData, TESLA_PLACEHOLDER } from "../../services/tesla-service";
+import { getTeslaData } from "../../services/tesla-service";
 import { publicProcedure, router } from "../init";
 
 const teslaOutputSchema = z.object({
@@ -24,8 +25,11 @@ export const teslaRouter = router({
     .query(async () => {
       try {
         return await getTeslaData();
-      } catch {
-        return TESLA_PLACEHOLDER;
+      } catch (e) {
+        throw new TRPCError({
+          code: "SERVICE_UNAVAILABLE",
+          message: e instanceof Error ? e.message : "Tesla data unavailable",
+        });
       }
     }),
 });

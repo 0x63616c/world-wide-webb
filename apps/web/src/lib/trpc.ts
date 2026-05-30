@@ -9,7 +9,18 @@ export const trpc = createTRPCReact<AppRouter>();
 export type RouterInputs = inferRouterInputs<AppRouter>;
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
 
-export const queryClient = new QueryClient();
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: true,
+      retryDelay: 5_000,
+      refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: false,
+    },
+  },
+});
 
 // Vite proxies /trpc -> the api (API_PORT, default 4201). Same-origin in prod.
 export const trpcClient = trpc.createClient({

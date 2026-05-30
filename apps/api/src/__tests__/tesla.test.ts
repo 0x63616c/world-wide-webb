@@ -11,7 +11,7 @@ vi.mock("../integrations/homeassistant", () => {
 
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
-import { getTeslaData, TESLA_PLACEHOLDER } from "../services/tesla-service";
+import { getTeslaData } from "../services/tesla-service";
 
 function makeEntity(
   entity_id: string,
@@ -54,21 +54,21 @@ describe("getTeslaData", () => {
     mockStates({}); // default: every entity lookup rejects
   });
 
-  it("returns placeholder when HA is not configured", async () => {
+  it("throws when HA is not configured", async () => {
     vi.mocked(ha.isConfigured).mockReturnValue(false);
-    expect(await getTeslaData()).toEqual(TESLA_PLACEHOLDER);
+    await expect(getTeslaData()).rejects.toThrow("Home Assistant is not configured");
   });
 
-  it("returns placeholder when the battery entity is missing", async () => {
+  it("throws when the battery entity is missing (car asleep/all entities 404)", async () => {
     vi.mocked(ha.isConfigured).mockReturnValue(true);
-    mockStates({}); // every getEntity rejects
-    expect(await getTeslaData()).toEqual(TESLA_PLACEHOLDER);
+    mockStates({}); // every getEntity rejects — allSettled skips them all
+    await expect(getTeslaData()).rejects.toThrow("unavailable");
   });
 
-  it("returns placeholder when the car is asleep (battery unavailable)", async () => {
+  it("throws when the car is asleep (battery state is unavailable)", async () => {
     vi.mocked(ha.isConfigured).mockReturnValue(true);
     mockStates({ "sensor.evee_battery_level": makeEntity(E, "unavailable") });
-    expect(await getTeslaData()).toEqual(TESLA_PLACEHOLDER);
+    await expect(getTeslaData()).rejects.toThrow("unavailable");
   });
 
   it("maps the real Evee entities to TeslaData", async () => {
@@ -86,8 +86,8 @@ describe("getTeslaData", () => {
     expect(data.lat).toBeCloseTo(34.061183);
     expect(data.lon).toBeCloseTo(-118.284533);
     expect(data.place).toBe("Home"); // home -> label
-    // Odometer entity is disabled in the integration -> graceful fallback.
-    expect(data.odo).toBe(TESLA_PLACEHOLDER.odo);
+    // Odometer entity is disabled in the integration -> honest "—" absence.
+    expect(data.odo).toBe("—");
   });
 
   it("treats only 'charging'/'starting' as charging", async () => {
@@ -114,15 +114,15 @@ describe("getTeslaData", () => {
     expect((await getTeslaData()).odo).toBe("24,113");
   });
 
-  it("shows the placeholder odometer (not 0) when the entity reads unknown", async () => {
+  it("shows '—' (not 0) when the odometer entity reads unknown", async () => {
     // The odometer entity exists but the car is asleep, so it reports
-    // "unknown" — must degrade to the placeholder, never a bogus "0".
+    // "unknown" — must show honest "—" absence, never a bogus "0".
     vi.mocked(ha.isConfigured).mockReturnValue(true);
     mockStates({
       ...fullCar,
       "sensor.evee_odometer": makeEntity("sensor.evee_odometer", "unknown"),
     });
-    expect((await getTeslaData()).odo).toBe(TESLA_PLACEHOLDER.odo);
+    expect((await getTeslaData()).odo).toBe("—");
   });
 
   it("titlecases a non-home zone as the place", async () => {
@@ -143,7 +143,7 @@ describe("getTeslaData", () => {
     expect(data.lat).toBeCloseTo(34.09);
   });
 
-  it("falls back per-field when sensors are unavailable but battery is live", async () => {
+  it("defaults to 0 range when range sensor is unavailable but battery is live", async () => {
     vi.mocked(ha.isConfigured).mockReturnValue(true);
     mockStates({
       "sensor.evee_battery_level": makeEntity(E, "55"),
@@ -151,8 +151,8 @@ describe("getTeslaData", () => {
     });
     const data = await getTeslaData();
     expect(data.pct).toBe(55);
-    expect(data.range).toBe(TESLA_PLACEHOLDER.range);
+    expect(data.range).toBe(0); // numeric zero — honest sensor gap, not fabricated
     expect(data.charging).toBe(false); // no charging entity -> default false
-    expect(data.place).toBe(TESLA_PLACEHOLDER.place); // no tracker -> label
+    expect(data.place).toBe("Home"); // no tracker -> env label
   });
 });

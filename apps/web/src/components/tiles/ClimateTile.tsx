@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { POLL } from "../../lib/hooks";
 import { trpc } from "../../lib/trpc";
 import { Icon } from "../Icon";
+import { Skeleton } from "../ui/Skeleton";
 
 // Design constants (evee-tiles.jsx EClimate)
 const MIN = 65;
@@ -22,8 +23,25 @@ function modeFromTarget(target: number): Mode {
   return "auto";
 }
 
-// Fallback defaults when no server data
-const FALLBACK = { target: 70, ambient: 72, mode: "auto" as Mode, action: "Idle" as const };
+function ClimateSkeleton() {
+  return (
+    <div
+      className="tile"
+      style={{ height: "100%", padding: 22, display: "flex", flexDirection: "column" }}
+    >
+      <Skeleton w="60%" h={20} borderRadius={6} />
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Skeleton w={120} h={92} borderRadius={12} />
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
+        <Skeleton w="33%" h={32} borderRadius={8} />
+        <Skeleton w="33%" h={32} borderRadius={8} />
+        <Skeleton w="33%" h={32} borderRadius={8} />
+      </div>
+      <Skeleton w="100%" h={20} borderRadius={6} />
+    </div>
+  );
+}
 
 export function ClimateTile() {
   const query = trpc.climate.get.useQuery(undefined, {
@@ -33,21 +51,11 @@ export function ClimateTile() {
   const setTargetMutation = trpc.climate.setTarget.useMutation();
   const setModeMutation = trpc.climate.setMode.useMutation();
 
-  const data = query.data ?? FALLBACK;
-
   // Optimistic local setpoint — tracks slider while dragging; syncs on commit
   const [localTarget, setLocalTarget] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const target = localTarget ?? data.target;
-  const ambient = data.ambient;
-
-  // Derive display mode: prefer server mode, but let local slider override
-  const displayMode: Mode =
-    localTarget !== null ? modeFromTarget(localTarget) : (data.mode as Mode);
-
-  const pct = ((target - MIN) / (MAX - MIN)) * 100;
-  const ambPct = ((ambient - MIN) / (MAX - MIN)) * 100;
+  const data = query.data;
 
   const handleSlider = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,6 +82,18 @@ export function ClimateTile() {
     },
     [setModeMutation],
   );
+
+  if (!data) return <ClimateSkeleton />;
+
+  const target = localTarget ?? data.target;
+  const ambient = data.ambient;
+
+  // Derive display mode: prefer server mode, but let local slider override
+  const displayMode: Mode =
+    localTarget !== null ? modeFromTarget(localTarget) : (data.mode as Mode);
+
+  const pct = ((target - MIN) / (MAX - MIN)) * 100;
+  const ambPct = ((ambient - MIN) / (MAX - MIN)) * 100;
 
   return (
     <div

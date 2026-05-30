@@ -36,32 +36,15 @@ export function daysUntil(target: Date, now: Date = new Date()): number {
   return Math.max(0, Math.round(diff / (1000 * 60 * 60 * 24)));
 }
 
-/** Placeholder events shown when DB is empty or unreachable. */
-export const PLACEHOLDER_EVENTS: EventRow[] = [
-  { name: "Gorgon City", place: "Sound Nightclub", days: 3 },
-  { name: "Chris Lake", place: "Shrine Expo Hall", days: 10 },
-  { name: "Florida 2026", place: "Miami", days: 31 },
-  { name: "John Summit", place: "Hollywood Palladium", days: 54 },
-];
-
 export async function listEvents(
   db: NodePgDatabase<typeof schema>,
   now: Date = new Date(),
 ): Promise<EventRow[]> {
-  try {
-    const rows = await db.select().from(schema.events).orderBy(asc(schema.events.date));
+  const rows = await db.select().from(schema.events).orderBy(asc(schema.events.date));
 
-    if (rows.length === 0) {
-      return PLACEHOLDER_EVENTS;
-    }
-
-    return rows.map((r) => ({
-      name: r.name,
-      place: r.place,
-      days: daysUntil(r.date, now),
-    }));
-  } catch {
-    // DB unreachable — degrade gracefully to placeholder data.
-    return PLACEHOLDER_EVENTS;
-  }
+  return rows.map((r) => ({
+    name: r.name,
+    place: r.place,
+    days: daysUntil(r.date, now),
+  }));
 }

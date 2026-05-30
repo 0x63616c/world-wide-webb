@@ -26,25 +26,6 @@ export interface NetworkStatus {
 }
 
 // ---------------------------------------------------------------------------
-// Deterministic fallback traffic generation
-// Mirrors NET_TRAF from evee-tiles.jsx so the chart always renders correctly.
-// ---------------------------------------------------------------------------
-
-export function generateFallbackTraffic(): TrafficBucket[] {
-  return Array.from({ length: 24 }, (_, i) => ({
-    d: 0.3 + 0.7 * Math.abs(Math.sin(i * 0.5 + 1)) * (i > 17 || i < 2 ? 1.3 : 0.7),
-    u: 0.18 + 0.5 * Math.abs(Math.cos(i * 0.4)) * 0.6,
-  })).map(({ d, u }) => ({ down: d, up: u }));
-}
-
-/** Fallback ping — a plausible LAN round-trip latency. */
-const FALLBACK_PING_MS = 12;
-
-/** Fallback 24h traffic totals when UniFi is unreachable. */
-const FALLBACK_DOWN_GB = "14.2";
-const FALLBACK_UP_GB = "3.8";
-
-// ---------------------------------------------------------------------------
 // Derive GB string from bytes
 // ---------------------------------------------------------------------------
 
@@ -70,7 +51,7 @@ async function measurePingMs(): Promise<number> {
     });
     return Date.now() - start;
   } catch {
-    return FALLBACK_PING_MS;
+    return 0;
   }
 }
 
@@ -79,53 +60,36 @@ async function measurePingMs(): Promise<number> {
 // ---------------------------------------------------------------------------
 
 /**
- * Fetch network status from UniFi. Degrades gracefully on any error: returns
- * generated traffic series + env SSID so the tile always renders.
+ * Fetch network status from UniFi. Throws on error so the tile shows shimmer.
  */
 export async function getNetworkStatus(clientOverride?: UnifiClient): Promise<NetworkStatus> {
   const client = clientOverride ?? new UnifiClient();
   const ssid = env.WIFI_SSID || "Home";
 
   if (!client.isConfigured()) {
-    return makeFallback(ssid, "Online");
+    throw new Error("UniFi not configured");
   }
 
-  try {
-    const [wanStats, pingMs] = await Promise.all([client.getWanStats(), measurePingMs()]);
+  const [wanStats, pingMs] = await Promise.all([client.getWanStats(), measurePingMs()]);
 
-    if (!wanStats) {
-      // Controller reachable but no gateway found — still show Online.
-      return {
-        status: "Online",
-        ssid,
-        down: FALLBACK_DOWN_GB,
-        up: FALLBACK_UP_GB,
-        ping: pingMs,
-        traffic: generateFallbackTraffic(),
-      };
-    }
-
+  if (!wanStats) {
+    // Controller reachable but no gateway found — report Online with zeros.
     return {
       status: "Online",
       ssid,
-      down: bytesToGbString(wanStats.rxBytes24h),
-      up: bytesToGbString(wanStats.txBytes24h),
+      down: "0.0",
+      up: "0.0",
       ping: pingMs,
-      traffic: generateFallbackTraffic(),
+      traffic: [],
     };
-  } catch {
-    // Network/auth error — degrade gracefully.
-    return makeFallback(ssid, "Online");
   }
-}
 
-function makeFallback(ssid: string, status: "Online" | "Offline"): NetworkStatus {
   return {
-    status,
+    status: "Online",
     ssid,
-    down: FALLBACK_DOWN_GB,
-    up: FALLBACK_UP_GB,
-    ping: FALLBACK_PING_MS,
-    traffic: generateFallbackTraffic(),
+    down: bytesToGbString(wanStats.rxBytes24h),
+    up: bytesToGbString(wanStats.txBytes24h),
+    ping: pingMs,
+    traffic: [],
   };
 }

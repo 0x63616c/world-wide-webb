@@ -142,7 +142,7 @@ describe("NetworkTile", () => {
   });
 
   describe("loading state", () => {
-    test("renders ellipsis placeholder while loading", () => {
+    test("renders skeleton (no status text) while loading", () => {
       mockUseQuery.mockReturnValue({
         data: undefined,
         isLoading: true,
@@ -151,10 +151,12 @@ describe("NetworkTile", () => {
 
       render(<NetworkTile />);
 
-      expect(screen.getByText("…")).toBeInTheDocument();
+      // Skeleton shown — real status text not present
+      expect(screen.queryByText("Online")).not.toBeInTheDocument();
+      expect(screen.queryByText("…")).not.toBeInTheDocument();
     });
 
-    test("renders fallback dashes while loading", () => {
+    test("renders skeleton (no down/up labels) while loading", () => {
       mockUseQuery.mockReturnValue({
         data: undefined,
         isLoading: true,
@@ -163,14 +165,14 @@ describe("NetworkTile", () => {
 
       render(<NetworkTile />);
 
-      // down and up labels show "— GB"
-      expect(screen.getByText(/↓ — GB/)).toBeInTheDocument();
-      expect(screen.getByText(/↑ — GB/)).toBeInTheDocument();
+      // No fake data shown while loading
+      expect(screen.queryByText(/↓/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/↑/)).not.toBeInTheDocument();
     });
   });
 
   describe("error / offline state", () => {
-    test("falls back gracefully on error — does not throw", () => {
+    test("renders skeleton on error — does not throw", () => {
       mockUseQuery.mockReturnValue({
         data: undefined,
         isLoading: false,
@@ -180,7 +182,7 @@ describe("NetworkTile", () => {
       expect(() => render(<NetworkTile />)).not.toThrow();
     });
 
-    test("shows placeholder Online text when error (graceful degradation)", () => {
+    test("renders skeleton (no Online text) when error and no data", () => {
       mockUseQuery.mockReturnValue({
         data: undefined,
         isLoading: false,
@@ -189,10 +191,8 @@ describe("NetworkTile", () => {
 
       render(<NetworkTile />);
 
-      // With no data and error, status falls back to "Online" (designed default)
-      // but the offline indicator replaces the pulsing dot.
-      // The text says "Online" because it's the last-known default.
-      expect(screen.getByText("Online")).toBeInTheDocument();
+      // Skeleton renders, not fallback "Online"
+      expect(screen.queryByText("Online")).not.toBeInTheDocument();
     });
 
     test("renders Offline status when API returns Offline", () => {

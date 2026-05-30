@@ -86,7 +86,7 @@ describe("TeslaTile", () => {
     expect(pill).toHaveClass("amber");
   });
 
-  it("falls back to placeholder data while loading (never blank)", async () => {
+  it("renders skeleton (no fake data) while loading", async () => {
     const useQuery = await getTeslaUseQuery();
     useQuery.mockReturnValue({
       data: undefined,
@@ -96,14 +96,13 @@ describe("TeslaTile", () => {
 
     render(<TeslaTile />);
 
-    // Fallback data should render — tile is never blank
-    expect(screen.getByText("Tesla")).toBeInTheDocument();
-    expect(screen.getByText("a local street")).toBeInTheDocument();
-    // Fallback pct
-    expect(screen.getByText("82%")).toBeInTheDocument();
+    // Real data must NOT be rendered — skeleton shows instead
+    expect(screen.queryByText("Tesla")).not.toBeInTheDocument();
+    expect(screen.queryByText("82%")).not.toBeInTheDocument();
+    expect(screen.queryByText("264 mi")).not.toBeInTheDocument();
   });
 
-  it("falls back to placeholder data on error (never blank)", async () => {
+  it("renders skeleton on error (no fake data)", async () => {
     const useQuery = await getTeslaUseQuery();
     useQuery.mockReturnValue({
       data: undefined,
@@ -113,11 +112,9 @@ describe("TeslaTile", () => {
 
     render(<TeslaTile />);
 
-    // Tile must still render
-    expect(screen.getByText("Tesla")).toBeInTheDocument();
-    expect(screen.getByText("a local street")).toBeInTheDocument();
-    // Fallback range
-    expect(screen.getByText("264 mi")).toBeInTheDocument();
+    // Real data must NOT be rendered
+    expect(screen.queryByText("Tesla")).not.toBeInTheDocument();
+    expect(screen.queryByText("264 mi")).not.toBeInTheDocument();
   });
 
   it("shows Idle pill when not charging", async () => {

@@ -81,34 +81,6 @@ interface OpenMeteoHourlyResponse {
   };
 }
 
-// Placeholder data mirrors wf-kit.jsx DATA.now / DATA.hours for graceful degradation
-const PLACEHOLDER_NOW: WeatherNow = {
-  temp: 74,
-  cond: "Partly Cloudy",
-  hi: 79,
-  lo: 61,
-  feels: 75,
-  hum: 56,
-  wind: 8,
-  sunset: "7:58 PM",
-  city: "Los Angeles",
-};
-
-const PLACEHOLDER_HOURLY: HourlyItem[] = [
-  { t: "Now", temp: 74, feels: 75, ic: "cloud-sun" },
-  { t: "2", temp: 76, feels: 76, ic: "sun" },
-  { t: "3", temp: 78, feels: 78, ic: "sun" },
-  { t: "4", temp: 79, feels: 79, ic: "sun" },
-  { t: "5", temp: 77, feels: 77, ic: "cloud-sun" },
-  { t: "6", temp: 73, feels: 72, ic: "cloud" },
-  { t: "7", temp: 70, feels: 69, ic: "cloud" },
-  { t: "8", temp: 68, feels: 67, ic: "moon" },
-  { t: "9", temp: 66, feels: 65, ic: "moon" },
-  { t: "10", temp: 65, feels: 64, ic: "moon" },
-  { t: "11", temp: 64, feels: 63, ic: "moon" },
-  { t: "12", temp: 63, feels: 62, ic: "moon" },
-];
-
 // Format a Date as "h:mm AM/PM" in the local timezone
 function formatSunset(iso: string): string {
   // Open-Meteo sunset is a local datetime string like "2024-01-01T18:52"
@@ -131,21 +103,16 @@ export async function fetchWeatherNow(lat = env.LAT, lon = env.LON): Promise<Wea
     `&daily=temperature_2m_max,temperature_2m_min,sunset` +
     `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1`;
 
-  let data: OpenMeteoCurrentResponse;
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    data = (await res.json()) as OpenMeteoCurrentResponse;
-  } catch {
-    return PLACEHOLDER_NOW;
-  }
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = (await res.json()) as OpenMeteoCurrentResponse;
 
   const c = data.current;
   return {
     temp: Math.round(c.temperature_2m),
     cond: WEATHER_CODES[c.weather_code] ?? "Unknown",
-    hi: Math.round(data.daily.temperature_2m_max[0] ?? PLACEHOLDER_NOW.hi),
-    lo: Math.round(data.daily.temperature_2m_min[0] ?? PLACEHOLDER_NOW.lo),
+    hi: Math.round(data.daily.temperature_2m_max[0] ?? 0),
+    lo: Math.round(data.daily.temperature_2m_min[0] ?? 0),
     feels: Math.round(c.apparent_temperature),
     hum: Math.round(c.relative_humidity_2m),
     wind: Math.round(c.wind_speed_10m),
@@ -162,14 +129,9 @@ export async function fetchWeatherHourly(lat = env.LAT, lon = env.LON): Promise<
     `&hourly=temperature_2m,apparent_temperature,weather_code,is_day` +
     `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=2`;
 
-  let data: OpenMeteoHourlyResponse;
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    data = (await res.json()) as OpenMeteoHourlyResponse;
-  } catch {
-    return PLACEHOLDER_HOURLY;
-  }
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = (await res.json()) as OpenMeteoHourlyResponse;
 
   // Find the index of the current hour in the hourly time array
   const now = new Date();
@@ -178,7 +140,7 @@ export async function fetchWeatherHourly(lat = env.LAT, lon = env.LON): Promise<
   if (startIdx === -1) startIdx = 0;
 
   const slice = data.hourly.time.slice(startIdx, startIdx + 12);
-  if (slice.length === 0) return PLACEHOLDER_HOURLY;
+  if (slice.length === 0) return [];
 
   return slice.map((timeStr, i) => {
     const idx = startIdx + i;

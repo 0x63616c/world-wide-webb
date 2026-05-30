@@ -17,22 +17,6 @@ export interface TeslaData {
   climate: number;
 }
 
-/** Placeholder used when HA is unconfigured or the car is asleep/unavailable. */
-export const TESLA_PLACEHOLDER: TeslaData = {
-  name: "Model Y",
-  nick: "Evee",
-  pct: 82,
-  charging: true,
-  rate: 25,
-  range: 264,
-  odo: "24,113",
-  locked: true,
-  place: "Home",
-  lat: null,
-  lon: null,
-  climate: 70,
-};
-
 /**
  * Resolve the exact HA entity ids for the car. The Tesla Fleet / tesla_custom
  * integration names every entity `<prefix>_*` (prefix is the car nickname,
@@ -68,41 +52,37 @@ function titleCase(s: string): string {
 }
 
 export async function getTeslaData(): Promise<TeslaData> {
-  if (!ha.isConfigured()) return TESLA_PLACEHOLDER;
+  if (!ha.isConfigured()) throw new Error("Home Assistant is not configured");
 
   const ids = teslaEntityIds();
-  let map: Record<string, HaEntity>;
-  try {
-    const keys = Object.keys(ids) as (keyof typeof ids)[];
-    const results = await Promise.allSettled(keys.map((k) => ha.getEntity(ids[k])));
-    map = {};
-    results.forEach((r, i) => {
-      if (r.status === "fulfilled" && r.value) map[keys[i]] = r.value;
-    });
-  } catch {
-    return TESLA_PLACEHOLDER;
-  }
+  const keys = Object.keys(ids) as (keyof typeof ids)[];
+  const results = await Promise.allSettled(keys.map((k) => ha.getEntity(ids[k])));
+  const map: Record<string, HaEntity> = {};
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled" && r.value) map[keys[i]] = r.value;
+  });
 
   // If we couldn't read even the battery, treat the whole car as unavailable.
-  if (!map.battery || DEAD_STATES.has(map.battery.state)) return TESLA_PLACEHOLDER;
+  if (!map.battery || DEAD_STATES.has(map.battery.state)) {
+    throw new Error("Tesla battery entity unavailable");
+  }
 
-  const pct = Math.round(num(map.battery, TESLA_PLACEHOLDER.pct));
+  const pct = Math.round(num(map.battery, 0));
   // `sensor.<car>_charging` is an enum: starting | charging | stopped | complete | disconnected | no_power
   const chargeState = map.charging?.state ?? "";
   const charging = chargeState === "charging" || chargeState === "starting";
-  const rate = num(map.rate, TESLA_PLACEHOLDER.rate);
-  const range = Math.round(num(map.range, TESLA_PLACEHOLDER.range));
-  const climate = Math.round(num(map.cabin, TESLA_PLACEHOLDER.climate));
+  const rate = num(map.rate, 0);
+  const range = Math.round(num(map.range, 0));
+  const climate = Math.round(num(map.cabin, 0));
 
   // Odometer is often disabled in the integration, or reads unknown/unavailable
-  // while the car sleeps — treat both as no-value and show the placeholder
-  // rather than a bogus "0", consistent with the other stats.
+  // while the car sleeps — honest absence is "—", not a fabricated number.
   const odo =
     map.odometer && !DEAD_STATES.has(map.odometer.state)
       ? Math.round(num(map.odometer, 0)).toLocaleString("en-US")
-      : TESLA_PLACEHOLDER.odo;
+      : "—";
 
-  const locked = map.lock ? map.lock.state === "locked" : TESLA_PLACEHOLDER.locked;
+  const locked = map.lock ? map.lock.state === "locked" : false;
 
   const tracker = map.tracker;
   const latAttr = tracker ? Number(tracker.attributes.latitude) : Number.NaN;

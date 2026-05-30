@@ -2,22 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { POLL } from "../../lib/hooks";
 import { trpc } from "../../lib/trpc";
 import { Icon } from "../Icon";
-
-// Placeholder data for graceful degradation — mirrors weather-service PLACEHOLDER_HOURLY
-const PLACEHOLDER = [
-  { t: "Now", temp: 74, feels: 75, ic: "cloud-sun" },
-  { t: "2", temp: 76, feels: 76, ic: "sun" },
-  { t: "3", temp: 78, feels: 78, ic: "sun" },
-  { t: "4", temp: 79, feels: 79, ic: "sun" },
-  { t: "5", temp: 77, feels: 77, ic: "cloud-sun" },
-  { t: "6", temp: 73, feels: 72, ic: "cloud" },
-  { t: "7", temp: 70, feels: 69, ic: "cloud" },
-  { t: "8", temp: 68, feels: 67, ic: "moon" },
-  { t: "9", temp: 66, feels: 65, ic: "moon" },
-  { t: "10", temp: 65, feels: 64, ic: "moon" },
-  { t: "11", temp: 64, feels: 63, ic: "moon" },
-  { t: "12", temp: 63, feels: 62, ic: "moon" },
-] as const;
+import { Skeleton } from "../ui/Skeleton";
 
 /** useWid — responsive width+height via ResizeObserver */
 function useWid() {
@@ -35,16 +20,32 @@ function useWid() {
   return [ref, size.w, size.h] as const;
 }
 
+function Next12HoursSkeleton() {
+  return (
+    <div
+      className="tile"
+      style={{ height: "100%", padding: 22, display: "flex", flexDirection: "column" }}
+    >
+      <Skeleton w="60%" h={20} borderRadius={6} />
+      <div style={{ flex: 1, marginTop: 16 }}>
+        <Skeleton w="100%" h="100%" borderRadius={8} />
+      </div>
+    </div>
+  );
+}
+
 export function Next12Hours() {
-  const { data, isError } = trpc.weather.hourly.useQuery(undefined, {
+  const { data } = trpc.weather.hourly.useQuery(undefined, {
     refetchInterval: POLL.weather,
     retry: 2,
   });
 
-  // Use real data, fall back to placeholder on error / loading
-  const hours = data ?? PLACEHOLDER;
-
+  // All hooks must be called before any early return.
   const [ref, w, h] = useWid();
+
+  if (!data || data.length === 0) return <Next12HoursSkeleton />;
+
+  const hours = data;
 
   const n = hours.length;
   const feels = hours.map((x) => x.feels);
@@ -110,24 +111,7 @@ export function Next12Hours() {
         </span>
       </div>
 
-      {/* Error notice — shown briefly over placeholder data */}
-      {isError && (
-        <div
-          style={{
-            marginBottom: 8,
-            padding: "4px 10px",
-            borderRadius: 8,
-            background: "rgba(255,255,255,.04)",
-            fontSize: 11,
-            color: "var(--ink-3)",
-          }}
-        >
-          Using cached data
-        </div>
-      )}
-
-      {/* Chart area — always mounted so the ResizeObserver gets a real width;
-          placeholder data renders immediately, real data swaps in on load */}
+      {/* Chart area — mounted after data is confirmed present */}
       <div ref={ref} style={{ position: "relative", flex: 1 }}>
         {w > 0 && (
           <>

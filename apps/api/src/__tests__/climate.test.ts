@@ -53,41 +53,23 @@ describe("getClimate()", () => {
     });
   });
 
-  it("returns fallback when HA is not configured", async () => {
+  it("throws when HA is not configured", async () => {
     mockIsConfigured.mockReturnValue(false);
 
-    const result = await getClimate();
-    expect(result).toEqual({
-      target: 70,
-      ambient: 72,
-      mode: "auto",
-      action: "Idle",
-    });
+    await expect(getClimate()).rejects.toThrow("Home Assistant is not configured");
     expect(mockGetEntities).not.toHaveBeenCalled();
   });
 
-  it("returns fallback when no climate entities found", async () => {
+  it("throws when no climate entities found", async () => {
     mockGetEntities.mockResolvedValueOnce([]);
 
-    const result = await getClimate();
-    expect(result).toEqual({
-      target: 70,
-      ambient: 72,
-      mode: "auto",
-      action: "Idle",
-    });
+    await expect(getClimate()).rejects.toThrow("no climate entities");
   });
 
-  it("returns fallback on HA network error", async () => {
+  it("throws on HA network error", async () => {
     mockGetEntities.mockRejectedValueOnce(new Error("timeout"));
 
-    const result = await getClimate();
-    expect(result).toEqual({
-      target: 70,
-      ambient: 72,
-      mode: "auto",
-      action: "Idle",
-    });
+    await expect(getClimate()).rejects.toThrow("timeout");
   });
 
   it("picks first entity alphabetically when multiple exist", async () => {
@@ -127,7 +109,7 @@ describe("getClimate()", () => {
     expect(result.mode).toBe("cool");
   });
 
-  it("falls back to default target when temperature attribute missing", async () => {
+  it("uses 0 for target when temperature attribute missing (honest sensor gap)", async () => {
     mockGetEntities.mockResolvedValueOnce([
       {
         entity_id: "climate.living_room",
@@ -138,10 +120,10 @@ describe("getClimate()", () => {
     ]);
 
     const result = await getClimate();
-    expect(result.target).toBe(70);
+    expect(result.target).toBe(0);
   });
 
-  it("falls back to default ambient when current_temperature missing", async () => {
+  it("uses 0 for ambient when current_temperature missing (honest sensor gap)", async () => {
     mockGetEntities.mockResolvedValueOnce([
       {
         entity_id: "climate.living_room",
@@ -152,7 +134,7 @@ describe("getClimate()", () => {
     ]);
 
     const result = await getClimate();
-    expect(result.ambient).toBe(72);
+    expect(result.ambient).toBe(0);
   });
 
   it("maps hvac_action idle to Idle action", async () => {
