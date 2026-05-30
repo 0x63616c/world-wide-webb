@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { POLL } from "../../lib/hooks";
 import { trpc } from "../../lib/trpc";
 import { Icon } from "../Icon";
-import { Skeleton } from "../ui/Skeleton";
-import { TileHeader } from "../ui/TileHeader";
+import { Skeleton, Tile, TileHeader } from "../ui";
 
 /** useWid — responsive width+height via ResizeObserver */
 function useWid() {
@@ -23,15 +22,12 @@ function useWid() {
 
 function Next12HoursSkeleton() {
   return (
-    <div
-      className="tile"
-      style={{ height: "100%", padding: 22, display: "flex", flexDirection: "column" }}
-    >
+    <Tile padding={22}>
       <Skeleton w="60%" h={20} borderRadius={6} />
       <div style={{ flex: 1, marginTop: 16 }}>
         <Skeleton w="100%" h="100%" borderRadius={8} />
       </div>
-    </div>
+    </Tile>
   );
 }
 
@@ -67,15 +63,7 @@ export function Next12Hours() {
     .join(" ");
 
   return (
-    <div
-      className="tile"
-      style={{
-        height: "100%",
-        padding: 22,
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
+    <Tile padding={22}>
       {/* Section header */}
       <TileHeader
         icon="cloud"
@@ -203,6 +191,6 @@ export function Next12Hours() {
           </>
         )}
       </div>
-    </div>
+    </Tile>
   );
 }

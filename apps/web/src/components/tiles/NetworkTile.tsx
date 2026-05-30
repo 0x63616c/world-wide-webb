@@ -1,7 +1,5 @@
 import { trpc } from "../../lib/trpc";
-import { Skeleton } from "../ui/Skeleton";
-import { StatusDot } from "../ui/StatusDot";
-import { TileHeader } from "../ui/TileHeader";
+import { Skeleton, StatusDot, Tile, TileHeader } from "../ui";
 
 interface ButterflyChartProps {
   traffic: Array<{ down: number; up: number }>;
@@ -56,10 +54,7 @@ function ButterflyChart({ traffic }: ButterflyChartProps) {
 
 function NetworkSkeleton() {
   return (
-    <div
-      className="tile"
-      style={{ height: "100%", padding: 22, display: "flex", flexDirection: "column", gap: 12 }}
-    >
+    <Tile padding={22} style={{ gap: 12 }}>
       <Skeleton w="50%" h={20} borderRadius={6} />
       <Skeleton w="40%" h={26} borderRadius={6} />
       <Skeleton w="30%" h={14} borderRadius={6} />
@@ -68,7 +63,7 @@ function NetworkSkeleton() {
       </div>
       <Skeleton w="30%" h={14} borderRadius={6} />
       <Skeleton w="100%" h={16} borderRadius={6} />
-    </div>
+    </Tile>
   );
 }
 
@@ -82,15 +77,7 @@ export function NetworkTile() {
   const isOffline = data.status === "Offline";
 
   return (
-    <div
-      className="tile"
-      style={{
-        height: "100%",
-        padding: 22,
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
+    <Tile padding={22}>
       <TileHeader icon="wifi" title="Network" right={<StatusDot online={!isOffline} />} />
 
       {/* Status row — no SSID here, SSID only in footer per design */}
@@ -136,6 +123,6 @@ export function NetworkTile() {
         <span>{data.ssid}</span>
         <span>{`${data.ping}ms`}</span>
       </div>
-    </div>
+    </Tile>
   );
 }

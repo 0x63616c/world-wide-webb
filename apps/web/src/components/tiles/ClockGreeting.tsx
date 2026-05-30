@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../Icon";
+import { Tile } from "../ui";
 
 function useNow(): Date {
   const [now, setNow] = useState(() => new Date());
@@ -32,17 +33,14 @@ export function ClockGreeting() {
   const g = greeting(rawHour);
 
   return (
-    <div
-      className="tile"
+    // padding 28 is design-specified per CC-882 (wider than the standard 22)
+    <Tile
+      padding={28}
       style={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         gap: 16,
         textAlign: "center",
-        padding: 28,
       }}
     >
       {/* Greeting cap in accent */}
@@ -87,6 +85,6 @@ export function ClockGreeting() {
         <Icon name="pin" s={15} c="var(--ink-3)" />
         Home
       </div>
-    </div>
+    </Tile>
   );
 }

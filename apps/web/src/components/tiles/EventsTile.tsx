@@ -1,8 +1,7 @@
-import { POLL } from "@/lib/hooks";
-import { trpc } from "@/lib/trpc";
+import { POLL } from "../../lib/hooks";
+import { trpc } from "../../lib/trpc";
 import { Icon } from "../Icon";
-import { Skeleton } from "../ui/Skeleton";
-import { TileHeader } from "../ui/TileHeader";
+import { Skeleton, Tile, TileHeader } from "../ui";
 
 interface EventRow {
   name: string;
@@ -82,16 +81,7 @@ export function EventsTile() {
   const showSkeleton = isLoading || isError || !data || data.length === 0;
 
   return (
-    <div
-      className="tile"
-      style={{
-        height: "100%",
-        padding: 22,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-      }}
-    >
+    <Tile padding={22} style={{ justifyContent: "center" }}>
       <TileHeader
         icon="calendar"
         title="Upcoming"
@@ -110,6 +100,6 @@ export function EventsTile() {
           ))}
         </div>
       )}
-    </div>
+    </Tile>
   );
 }

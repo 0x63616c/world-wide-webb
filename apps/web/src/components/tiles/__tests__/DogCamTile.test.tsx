@@ -58,10 +58,10 @@ describe("DogCamTile", () => {
       expect(screen.getByText("Dog Cam")).toBeDefined();
     });
 
-    it("tile wrapper has padding 20", () => {
+    it("tile wrapper has padding 22", () => {
       const { container } = renderWithData();
       const tile = container.firstChild as HTMLElement;
-      expect(tile.style.padding).toBe("20px");
+      expect(tile.style.padding).toBe("22px");
     });
   });
 

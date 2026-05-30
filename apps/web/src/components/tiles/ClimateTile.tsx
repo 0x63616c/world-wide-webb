@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { POLL } from "../../lib/hooks";
 import { trpc } from "../../lib/trpc";
-import { Skeleton, TileHeader } from "../ui";
+import { Skeleton, Tile, TileHeader } from "../ui";
 
 // Design constants (evee-tiles.jsx EClimate)
 const MIN = 65;
@@ -24,10 +24,7 @@ function modeFromTarget(target: number): Mode {
 
 function ClimateSkeleton() {
   return (
-    <div
-      className="tile"
-      style={{ height: "100%", padding: 22, display: "flex", flexDirection: "column" }}
-    >
+    <Tile padding={22}>
       <Skeleton w="60%" h={20} borderRadius={6} />
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Skeleton w={120} h={92} borderRadius={12} />
@@ -38,7 +35,7 @@ function ClimateSkeleton() {
         <Skeleton w="33%" h={32} borderRadius={8} />
       </div>
       <Skeleton w="100%" h={20} borderRadius={6} />
-    </div>
+    </Tile>
   );
 }
 
@@ -99,10 +96,7 @@ export function ClimateTile() {
   const ambPct = ((ambient - MIN) / (MAX - MIN)) * 100;
 
   return (
-    <div
-      className="tile"
-      style={{ height: "100%", padding: 22, display: "flex", flexDirection: "column" }}
-    >
+    <Tile padding={22}>
       {/* Header */}
       <TileHeader
         icon="thermo"
@@ -212,6 +206,6 @@ export function ClimateTile() {
           80°
         </span>
       </div>
-    </div>
+    </Tile>
   );
 }

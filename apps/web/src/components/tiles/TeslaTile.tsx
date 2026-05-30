@@ -1,9 +1,7 @@
-import { Icon } from "@/components/Icon";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { Tile } from "@/components/ui/Tile";
-import { TileHeader } from "@/components/ui/TileHeader";
-import { POLL } from "@/lib/hooks";
-import { trpc } from "@/lib/trpc";
+import { POLL } from "../../lib/hooks";
+import { trpc } from "../../lib/trpc";
+import { Icon } from "../Icon";
+import { Skeleton, Stat, Tile, TileHeader } from "../ui";
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
@@ -148,33 +146,6 @@ function TeslaCharge({ charging, rate, pct }: ChargeProps) {
             boxShadow: "0 0 14px var(--acc-line)",
           }}
         />
-      </div>
-    </div>
-  );
-}
-
-// ── Stat block ────────────────────────────────────────────────────────────────
-interface StatProps {
-  label: string;
-  value: string | number;
-  accent?: boolean;
-}
-
-function Stat({ label, value, accent }: StatProps) {
-  return (
-    <div>
-      <div className="cap">{label}</div>
-      <div
-        className="mono"
-        style={{
-          fontSize: 22,
-          fontWeight: 700,
-          marginTop: 5,
-          color: accent ? "var(--acc)" : "var(--ink)",
-          lineHeight: 1,
-        }}
-      >
-        {value}
       </div>
     </div>
   );

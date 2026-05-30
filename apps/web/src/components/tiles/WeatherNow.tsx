@@ -1,7 +1,10 @@
 import { trpc } from "../../lib/trpc";
 import { Icon } from "../Icon";
-import { Skeleton } from "../ui/Skeleton";
-import { TileHeader } from "../ui/TileHeader";
+import { Skeleton, Tile, TileHeader } from "../ui";
+
+// MetricCell uses a smaller type scale (10px cap / 16px mono) than the shared
+// Stat primitive (cap / 22px mono) — kept private to match the design's compact
+// 4-metric footer. Do not replace with shared Stat without a design sign-off.
 
 function MetricCell({ label, value }: { label: string; value: string }) {
   return (
@@ -18,10 +21,7 @@ function MetricCell({ label, value }: { label: string; value: string }) {
 
 function WeatherNowSkeleton() {
   return (
-    <div
-      className="tile"
-      style={{ height: "100%", padding: 22, display: "flex", flexDirection: "column" }}
-    >
+    <Tile padding={22}>
       <Skeleton w="50%" h={20} borderRadius={6} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 20, flex: 1 }}>
@@ -44,7 +44,7 @@ function WeatherNowSkeleton() {
           ))}
         </div>
       </div>
-    </div>
+    </Tile>
   );
 }
 
@@ -117,15 +117,7 @@ export function WeatherNow() {
   const solarEvent = nextSolarEvent(new Date(), data.sunsetIso, data.tomorrowSunriseIso);
 
   return (
-    <div
-      className="tile"
-      style={{
-        height: "100%",
-        padding: 22,
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
+    <Tile padding={22}>
       {/* Header */}
       <TileHeader
         icon="cloud-sun"
@@ -176,6 +168,6 @@ export function WeatherNow() {
         <MetricCell label="Wind" value={`${w.wind} mph`} />
         <MetricCell label={solarEvent.label} value={solarEvent.value} />
       </div>
-    </div>
+    </Tile>
   );
 }
