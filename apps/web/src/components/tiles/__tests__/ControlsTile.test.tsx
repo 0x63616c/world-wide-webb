@@ -8,17 +8,27 @@
  *  3. Shows "cached" hint when the query is in error state.
  *  4. Clicking a tap button calls the toggle mutation with the correct args.
  *  5. Pending state: dimmed appearance when a control has pending=true.
- *  6. Toggle mutation does NOT call setData or cancel on the query cache.
+ *  6. Toggle mutation optimistically flips the group (cancel + setData) for instant feedback.
  *  7. Adaptive refetchInterval: 2000 when any pending, 30000 otherwise.
  */
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ─── mock trpc ────────────────────────────────────────────────────────────────
 
 const mockMutate = vi.fn();
+
+// Shared cache spies so optimistic onMutate side effects are observable.
+const mockCancel = vi.fn();
+const mockGetData = vi.fn();
+const mockSetData = vi.fn();
+const mockInvalidate = vi.fn();
+// Captures the opts passed to useMutation so the mock can drive onMutate.
+let capturedMutationOpts:
+  | { onMutate?: (vars: { key: string; on: boolean }) => unknown }
+  | undefined;
 
 // Capture the refetchInterval passed to useQuery
 let capturedRefetchInterval: number | ((data: unknown) => number) | undefined;
@@ -47,20 +57,24 @@ vi.mock("../../../lib/trpc", () => ({
         },
       },
       toggle: {
-        useMutation: (_opts?: unknown) => ({
-          mutate: (args: unknown) => {
-            mockMutate(args);
-          },
-        }),
+        useMutation: (opts?: { onMutate?: (vars: { key: string; on: boolean }) => unknown }) => {
+          capturedMutationOpts = opts;
+          return {
+            mutate: (args: { key: string; on: boolean }) => {
+              mockMutate(args);
+              capturedMutationOpts?.onMutate?.(args);
+            },
+          };
+        },
       },
     },
     useUtils: () => ({
       controls: {
         list: {
-          cancel: vi.fn(),
-          getData: vi.fn(),
-          setData: vi.fn(),
-          invalidate: vi.fn(),
+          cancel: mockCancel,
+          getData: mockGetData,
+          setData: mockSetData,
+          invalidate: mockInvalidate,
         },
       },
     }),
@@ -358,8 +372,8 @@ describe("ControlsTile", () => {
     });
   });
 
-  describe("toggle mutation does NOT manipulate the query cache", () => {
-    it("toggle mutation does NOT call setData or cancel on the query cache", () => {
+  describe("optimistic toggle (instant feedback)", () => {
+    it("onMutate flips the toggled group on + pending immediately via setData", async () => {
       mockQueryReturn = {
         data: {
           lamps: { on: false, count: 0, sub: "all off", pending: false },
@@ -370,51 +384,25 @@ describe("ControlsTile", () => {
         isError: false,
       };
 
-      // We verify by checking the useMutation opts don't include onMutate/cache manipulators.
-      // The simplest check: after click, mockMutate is called but no side effects on cache mocks.
-      const mockSetData = vi.fn();
-      const mockCancel = vi.fn();
-
-      // Re-mock with spies on the utils
-      vi.doMock("../../../lib/trpc", () => ({
-        trpc: {
-          controls: {
-            list: {
-              useQuery: (_input: unknown, opts?: { refetchInterval?: unknown }) => {
-                capturedRefetchInterval = opts?.refetchInterval as
-                  | number
-                  | ((data: unknown) => number)
-                  | undefined;
-                return mockQueryReturn;
-              },
-            },
-            toggle: {
-              useMutation: (_opts?: unknown) => ({
-                mutate: (args: unknown) => {
-                  mockMutate(args);
-                },
-              }),
-            },
-          },
-          useUtils: () => ({
-            controls: {
-              list: {
-                cancel: mockCancel,
-                getData: vi.fn(),
-                setData: mockSetData,
-                invalidate: vi.fn(),
-              },
-            },
-          }),
-        },
-      }));
-
       render(<ControlsTile />);
       fireEvent.click(screen.getByLabelText("Lamps"));
 
-      // setData and cancel should NOT have been called
-      expect(mockSetData).not.toHaveBeenCalled();
-      expect(mockCancel).not.toHaveBeenCalled();
+      // onMutate awaits cancel() before setData, so flush microtasks first.
+      expect(mockCancel).toHaveBeenCalled();
+      await waitFor(() => expect(mockSetData).toHaveBeenCalled());
+
+      // The updater must flip lamps -> on + pending so the tap responds instantly,
+      // even for unregistered devices with no server-side pending overlay.
+      const updater = mockSetData.mock.calls[0][1] as (old: unknown) => {
+        lamps: { on: boolean; pending: boolean };
+      };
+      const next = updater({
+        lamps: { on: false, count: 0, sub: "all off", pending: false },
+        lights: { on: false, pending: false },
+        fan: { on: false, sub: "", pending: false },
+      });
+      expect(next.lamps.on).toBe(true);
+      expect(next.lamps.pending).toBe(true);
     });
   });
 

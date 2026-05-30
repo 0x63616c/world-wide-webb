@@ -98,9 +98,31 @@ function ETap({ icon, label, on, sub, pending, onToggle }: TapProps) {
 // ─── ControlsTile ─────────────────────────────────────────────────────────────
 
 export function ControlsTile() {
+  const utils = trpc.useUtils();
   const { data } = trpc.controls.list.useQuery({}, { refetchInterval });
 
-  const toggleMutation = trpc.controls.toggle.useMutation();
+  const toggleMutation = trpc.controls.toggle.useMutation({
+    // Optimistic flip so the tap responds instantly even for unregistered
+    // devices (which have no server-side pending overlay). pending:true also
+    // bumps the adaptive refetch to 2s so the real HA state confirms quickly.
+    onMutate: async ({ key, on }) => {
+      await utils.controls.list.cancel({});
+      const prev = utils.controls.list.getData({});
+      utils.controls.list.setData({}, (old) => {
+        if (!old) return old;
+        if (key === "lamps") return { ...old, lamps: { ...old.lamps, on, pending: true } };
+        if (key === "lights") return { ...old, lights: { ...old.lights, on, pending: true } };
+        return { ...old, fan: { ...old.fan, on, pending: true } };
+      });
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev !== undefined) utils.controls.list.setData({}, ctx.prev);
+    },
+    onSettled: () => {
+      utils.controls.list.invalidate({});
+    },
+  });
 
   function handleToggle(key: ControlKey, currentOn: boolean) {
     // Block mutation until the first query resolves — prevents corrupting an empty cache.
