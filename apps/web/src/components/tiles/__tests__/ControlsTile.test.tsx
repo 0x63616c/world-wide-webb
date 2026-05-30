@@ -83,7 +83,7 @@ vi.mock("../../../lib/trpc", () => ({
 
 // ─── import after mock ────────────────────────────────────────────────────────
 
-import { ControlsTile } from "../ControlsTile";
+import { ControlsTile, makeRefetchInterval as makeRefetchIntervalForTest } from "../ControlsTile";
 
 // ─── setup / teardown ────────────────────────────────────────────────────────
 
@@ -100,7 +100,7 @@ describe("ControlsTile", () => {
     beforeEach(() => {
       mockQueryReturn = {
         data: {
-          lamps: { on: true, count: 2, sub: "2 on · warm", pending: false },
+          lamps: { on: true, count: 2, sub: "On", pending: false },
           lights: { on: false, pending: false },
           fan: { on: true, sub: "Medium", pending: false },
         },
@@ -160,7 +160,7 @@ describe("ControlsTile", () => {
     it("www-bh5: fan icon spin is paused when fan is off", () => {
       mockQueryReturn = {
         data: {
-          lamps: { on: false, count: 0, sub: "all off", pending: false },
+          lamps: { on: false, count: 0, sub: "Off", pending: false },
           lights: { on: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
@@ -179,9 +179,11 @@ describe("ControlsTile", () => {
       expect(screen.getByText("Medium")).toBeInTheDocument();
     });
 
-    it("shows lamp sub-label", () => {
+    it("shows lamp sub-label as 'On' when any lamp is on", () => {
       render(<ControlsTile />);
-      expect(screen.getByText("2 on · warm")).toBeInTheDocument();
+      // Sub is now "On"/"Off" only — no count or warmth.
+      const lampsBtn = screen.getByLabelText("Lamps");
+      expect(lampsBtn).toHaveTextContent("On");
     });
   });
 
@@ -209,8 +211,9 @@ describe("ControlsTile", () => {
 
     it("does not render any FALLBACK data", () => {
       render(<ControlsTile />);
-      // These are values that used to come from FALLBACK; must not be present
-      expect(screen.queryByText("2 on · warm")).not.toBeInTheDocument();
+      // Lamps and Lights buttons must not appear when there is no data.
+      expect(screen.queryByLabelText("Lamps")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Lights")).not.toBeInTheDocument();
     });
   });
 
@@ -244,7 +247,7 @@ describe("ControlsTile", () => {
     beforeEach(() => {
       mockQueryReturn = {
         data: {
-          lamps: { on: false, count: 0, sub: "all off", pending: false },
+          lamps: { on: false, count: 0, sub: "Off", pending: false },
           lights: { on: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
@@ -274,7 +277,7 @@ describe("ControlsTile", () => {
     it("calls toggle mutation with lamps on=false when lamps are on and clicked", () => {
       mockQueryReturn = {
         data: {
-          lamps: { on: true, count: 2, sub: "2 on · warm", pending: false },
+          lamps: { on: true, count: 2, sub: "On", pending: false },
           lights: { on: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
@@ -291,7 +294,7 @@ describe("ControlsTile", () => {
     it("renders real data with pending indicator when a control has pending:true", () => {
       mockQueryReturn = {
         data: {
-          lamps: { on: true, count: 1, sub: "1 on", pending: true },
+          lamps: { on: true, count: 1, sub: "On", pending: true },
           lights: { on: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
@@ -310,7 +313,7 @@ describe("ControlsTile", () => {
   describe("adaptive refetch interval", () => {
     it("uses refetchInterval of 2000 when any control has pending:true", () => {
       const pendingData = {
-        lamps: { on: true, count: 1, sub: "1 on", pending: true },
+        lamps: { on: true, count: 1, sub: "On", pending: true },
         lights: { on: false, pending: false },
         fan: { on: false, sub: "", pending: false },
       };
@@ -327,7 +330,7 @@ describe("ControlsTile", () => {
 
     it("uses refetchInterval of 30000 when no controls are pending", () => {
       const idleData = {
-        lamps: { on: true, count: 2, sub: "2 on · warm", pending: false },
+        lamps: { on: true, count: 2, sub: "On", pending: false },
         lights: { on: false, pending: false },
         fan: { on: false, sub: "", pending: false },
       };
@@ -359,7 +362,7 @@ describe("ControlsTile", () => {
     it("renders Controls header via TileHeader (no hand-rolled flex row)", () => {
       mockQueryReturn = {
         data: {
-          lamps: { on: false, count: 0, sub: "all off", pending: false },
+          lamps: { on: false, count: 0, sub: "Off", pending: false },
           lights: { on: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
@@ -372,11 +375,43 @@ describe("ControlsTile", () => {
     });
   });
 
+  describe("www-86l: no-revert cooldown pattern", () => {
+    it("does NOT call invalidate immediately on toggle (cooldown prevents snap-back)", async () => {
+      mockQueryReturn = {
+        data: {
+          lamps: { on: false, count: 0, sub: "Off", pending: false },
+          lights: { on: false, pending: false },
+          fan: { on: false, sub: "", pending: false },
+        },
+        isLoading: false,
+        isError: false,
+      };
+
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("Lamps"));
+
+      // Flush microtasks so onMutate completes.
+      await waitFor(() => expect(mockSetData).toHaveBeenCalled());
+
+      // invalidate must NOT be called immediately after toggle —
+      // the cooldown useEffect handles it after the window expires.
+      expect(mockInvalidate).not.toHaveBeenCalled();
+    });
+
+    it("refetchInterval returns false (pause polling) when cooldown is active", () => {
+      // Simulate an active cooldown by providing a future timestamp.
+      const future = Date.now() + 5_000;
+      const fn = makeRefetchIntervalForTest(() => future);
+      const result = fn({ state: { data: null } });
+      expect(result).toBe(false);
+    });
+  });
+
   describe("optimistic toggle (instant feedback)", () => {
     it("onMutate flips the toggled group on + pending immediately via setData", async () => {
       mockQueryReturn = {
         data: {
-          lamps: { on: false, count: 0, sub: "all off", pending: false },
+          lamps: { on: false, count: 0, sub: "Off", pending: false },
           lights: { on: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
@@ -397,7 +432,7 @@ describe("ControlsTile", () => {
         lamps: { on: boolean; pending: boolean };
       };
       const next = updater({
-        lamps: { on: false, count: 0, sub: "all off", pending: false },
+        lamps: { on: false, count: 0, sub: "Off", pending: false },
         lights: { on: false, pending: false },
         fan: { on: false, sub: "", pending: false },
       });

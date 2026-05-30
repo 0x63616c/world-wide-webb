@@ -151,6 +151,30 @@ function makeSelectChain(rows: unknown[]): SelectChain {
   return new SelectChain(rows);
 }
 
+// Chainable insert mock for db.insert().values().onConflictDoUpdate()
+class InsertChain {
+  values(): this {
+    return this;
+  }
+  returning(): Promise<unknown[]> {
+    return Promise.resolve([]);
+  }
+  onConflictDoUpdate(): Promise<void> {
+    return Promise.resolve();
+  }
+  // biome-ignore lint/suspicious/noThenProperty: intentional thenable for drizzle mock
+  then<R>(
+    onFulfilled: (v: undefined) => R | PromiseLike<R>,
+    onRejected?: (e: unknown) => R | PromiseLike<R>,
+  ): Promise<R> {
+    return Promise.resolve(undefined).then(onFulfilled, onRejected);
+  }
+}
+
+function makeInsertChain(): InsertChain {
+  return new InsertChain();
+}
+
 // Make a deviceState row with typical fields
 function makeDeviceRow(
   overrides: Partial<{
@@ -394,7 +418,7 @@ describe("getControlsState", () => {
 
     expect(state?.lamps.on).toBe(false);
     expect(state?.lamps.count).toBe(0);
-    expect(state?.lamps.sub).toBe("all off");
+    expect(state?.lamps.sub).toBe("Off");
     expect(state?.lights.on).toBe(false);
     expect(state?.fan.on).toBe(false);
   });
@@ -407,6 +431,7 @@ describe("toggleControl", () => {
     vi.resetAllMocks();
     mockCallService.mockResolvedValue(undefined);
     mockCommandDevice.mockResolvedValue({ id: "dev-x", commandId: 1, status: "pending" });
+    mockDbInsert.mockReturnValue(makeInsertChain());
   });
 
   it("throws when HA is not configured", async () => {
@@ -488,7 +513,7 @@ describe("toggleControl", () => {
   it("dispatches a direct HA call for unregistered devices so toggles are never silent no-ops", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntities.mockResolvedValue([]);
-    // No device rows in DB — overlay cannot be written, but the command MUST still reach HA.
+    // No device rows in DB — overlay is auto-upserted, command still reaches HA.
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
     await expect(toggleControl("lamps", true)).resolves.toBeDefined();
@@ -498,6 +523,20 @@ describe("toggleControl", () => {
     expect(mockCallService).toHaveBeenCalledWith("light", "turn_on", {
       entity_id: LAMP_ENTITY_IDS[0],
     });
+  });
+
+  it("www-86l: auto-upserts desired-window overlay for unregistered lamp entities on toggle", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntities.mockResolvedValue([]);
+    // No rows — devices are not pre-seeded in device_state.
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    await toggleControl("lamps", false);
+
+    // db.insert must be called once per lamp entity to write the desired-window overlay.
+    // This ensures getControlsState() holds the desired value during the 5 s window
+    // and does NOT snap back to stale HA state.
+    expect(mockDbInsert).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
   });
 
   it("no-ops gracefully when no fan entities exist", async () => {

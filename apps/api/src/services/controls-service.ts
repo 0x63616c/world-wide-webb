@@ -1,6 +1,6 @@
 import { inArray } from "drizzle-orm";
 
-import { LIGHTS } from "../config/lights";
+import { findLight, LIGHTS } from "../config/lights";
 import { db } from "../db/index";
 import { deviceState } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
@@ -8,13 +8,15 @@ import type { HaEntity } from "../integrations/homeassistant/types";
 import { commandDevice } from "./device-command-service";
 import { mergeDeviceState } from "./device-sync-service";
 
+const DESIRED_WINDOW_MS = 5_000;
+
 // ─── types ───────────────────────────────────────────────────────────────────
 
 export interface LampState {
   on: boolean;
   /** Number of lamp entities currently on. */
   count: number;
-  /** Sub-label, e.g. "2 on · warm". */
+  /** Sub-label. Always "On" or "Off" — no count or warmth. */
   sub: string;
   pending: boolean;
 }
@@ -44,27 +46,6 @@ export type ControlKey = "lamps" | "lights" | "fan";
 /** True when an HA entity state string represents "on". */
 function isOn(entity: HaEntity): boolean {
   return entity.state === "on";
-}
-
-/**
- * Colour-temperature attribute → human label.
- * HA reports color_temp_kelvin (or color_temp in mireds); we produce a simple
- * warm / neutral / cool label.
- */
-function warmthLabel(entity: HaEntity): string {
-  const kelvin = entity.attributes.color_temp_kelvin as number | undefined;
-  if (kelvin === undefined) return "";
-  if (kelvin <= 3000) return "warm";
-  if (kelvin <= 4500) return "neutral";
-  return "cool";
-}
-
-function lampSub(entities: HaEntity[]): string {
-  const onEntities = entities.filter(isOn);
-  const n = onEntities.length;
-  if (n === 0) return "all off";
-  const warmth = onEntities.map(warmthLabel).find(Boolean) ?? "";
-  return warmth ? `${n} on · ${warmth}` : `${n} on`;
 }
 
 /**
@@ -176,11 +157,12 @@ export async function getControlsState(): Promise<ControlsState | null> {
   const fanOn = fanModeOn(fanEntity);
   const fanPending = false;
 
+  const anyLampOn = lampsOn.length > 0;
   return {
     lamps: {
-      on: lampsOn.length > 0,
+      on: anyLampOn,
       count: lampsOn.length,
-      sub: lampSub(lamps),
+      sub: anyLampOn ? "On" : "Off",
       pending: isPending(lamps),
     },
     lights: {
@@ -196,14 +178,14 @@ export async function getControlsState(): Promise<ControlsState | null> {
 }
 
 /**
- * Dispatch an on/off command to HA for each entity, applying the optimistic
- * overlay where possible.
+ * Dispatch an on/off command to HA for each entity, writing a desired-window
+ * overlay for every entity regardless of whether it is pre-seeded in device_state.
  *
- * Registered devices (a matching device_state row) go through commandDevice,
- * which writes desiredState for anti-flicker AND dispatches to HA. Unregistered
- * entities have no DB row so no overlay is possible, but the command MUST still
- * reach HA — we call the service directly. Without this direct path an empty
- * device_state table makes every toggle a silent no-op.
+ * Registered devices go through commandDevice (writes overlay + dispatches).
+ * Unregistered devices are upserted into device_state with the desired overlay
+ * first, then dispatched to HA directly. The upsert guarantees that subsequent
+ * getControlsState calls see the desired value during the cooldown window and
+ * never snap back to stale HA state.
  */
 async function dispatchControls(entityIds: string[], on: boolean): Promise<void> {
   if (entityIds.length === 0) return;
@@ -212,17 +194,51 @@ async function dispatchControls(entityIds: string[], on: boolean): Promise<void>
   try {
     rows = await db.select().from(deviceState).where(inArray(deviceState.entityId, entityIds));
   } catch {
-    // DB unreachable — no overlay, but commands still go to HA below.
     rows = [];
   }
   const rowByEntityId = new Map(rows.map((r) => [r.entityId, r]));
 
   await Promise.all(
-    entityIds.map((entityId) => {
+    entityIds.map(async (entityId) => {
       const row = rowByEntityId.get(entityId);
       if (row) {
         return commandDevice({ id: row.id, action: "setOn", args: { on } });
       }
+
+      // Auto-register with a desired-window overlay so getControlsState holds
+      // the optimistic value during the 5 s window even though this entity was
+      // not pre-seeded in device_state.
+      const entry = findLight(entityId);
+      if (entry) {
+        const now = new Date();
+        const desiredUntil = new Date(now.getTime() + DESIRED_WINDOW_MS);
+        try {
+          await db
+            .insert(deviceState)
+            .values({
+              id: entry.id,
+              kind: entry.kind === "lamp" ? "light" : "switch",
+              entityId: entry.entityId,
+              domain: entry.domain,
+              label: entry.label,
+              desiredState: { on },
+              desiredAtUtc: now,
+              desiredUntilUtc: desiredUntil,
+              available: true,
+            })
+            .onConflictDoUpdate({
+              target: deviceState.entityId,
+              set: {
+                desiredState: { on },
+                desiredAtUtc: now,
+                desiredUntilUtc: desiredUntil,
+              },
+            });
+        } catch {
+          // DB unreachable — overlay cannot be written; command still reaches HA.
+        }
+      }
+
       const domain = entityId.split(".")[0];
       return ha.callService(domain, on ? "turn_on" : "turn_off", { entity_id: entityId });
     }),

@@ -9,7 +9,7 @@ import { publicProcedure, router } from "../init";
 const lampStateSchema = z.object({
   on: z.boolean().describe("True when at least one lamp is on"),
   count: z.number().int().min(0).describe("Number of lamp entities currently on"),
-  sub: z.string().describe('Sub-label, e.g. "2 on · warm"'),
+  sub: z.string().describe('"On" when any lamp is on, "Off" otherwise'),
   pending: z.boolean().describe("True while a command is in-flight and the overlay is active"),
 });
 
