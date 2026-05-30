@@ -20,15 +20,13 @@ vi.mock("../../../lib/trpc", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Minimal real-looking traffic data (no sine-wave generation)
 // ---------------------------------------------------------------------------
 
-function makeFallbackTraffic() {
-  return Array.from({ length: 24 }, (_, i) => ({
-    down: 0.3 + 0.7 * Math.abs(Math.sin(i * 0.5 + 1)),
-    up: 0.18 + 0.5 * Math.abs(Math.cos(i * 0.4)) * 0.6,
-  }));
-}
+const SAMPLE_TRAFFIC = Array.from({ length: 24 }, (_, i) => ({
+  down: i % 3 === 0 ? 0.8 : 0.4,
+  up: i % 4 === 0 ? 0.3 : 0.15,
+}));
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -48,7 +46,7 @@ describe("NetworkTile", () => {
           down: "14.2",
           up: "3.8",
           ping: 12,
-          traffic: makeFallbackTraffic(),
+          traffic: SAMPLE_TRAFFIC,
         },
         isLoading: false,
         isError: false,
@@ -67,7 +65,7 @@ describe("NetworkTile", () => {
           down: "14.2",
           up: "3.8",
           ping: 12,
-          traffic: makeFallbackTraffic(),
+          traffic: SAMPLE_TRAFFIC,
         },
         isLoading: false,
         isError: false,
@@ -79,7 +77,7 @@ describe("NetworkTile", () => {
       expect(screen.getByText(/↑ 3\.8 GB/)).toBeInTheDocument();
     });
 
-    test("renders ssid and ping in footer", () => {
+    test("renders ssid only in footer, not next to status", () => {
       mockUseQuery.mockReturnValue({
         data: {
           status: "Online",
@@ -87,7 +85,7 @@ describe("NetworkTile", () => {
           down: "14.2",
           up: "3.8",
           ping: 12,
-          traffic: makeFallbackTraffic(),
+          traffic: SAMPLE_TRAFFIC,
         },
         isLoading: false,
         isError: false,
@@ -95,9 +93,26 @@ describe("NetworkTile", () => {
 
       render(<NetworkTile />);
 
-      // ssid appears in both the status row and the footer
+      // SSID appears exactly once — in the footer only
       const ssidEls = screen.getAllByText("HomeNet");
-      expect(ssidEls.length).toBeGreaterThanOrEqual(1);
+      expect(ssidEls).toHaveLength(1);
+    });
+
+    test("renders ping in footer", () => {
+      mockUseQuery.mockReturnValue({
+        data: {
+          status: "Online",
+          ssid: "HomeNet",
+          down: "14.2",
+          up: "3.8",
+          ping: 12,
+          traffic: SAMPLE_TRAFFIC,
+        },
+        isLoading: false,
+        isError: false,
+      });
+
+      render(<NetworkTile />);
 
       expect(screen.getByText("12ms")).toBeInTheDocument();
     });
@@ -110,7 +125,7 @@ describe("NetworkTile", () => {
           down: "14.2",
           up: "3.8",
           ping: 12,
-          traffic: makeFallbackTraffic(),
+          traffic: SAMPLE_TRAFFIC,
         },
         isLoading: false,
         isError: false,
@@ -119,8 +134,6 @@ describe("NetworkTile", () => {
       const { container } = render(<NetworkTile />);
 
       // Each bucket wrapper is a relative-positioned div with flex:1.
-      // They live inside the flex chart container which itself is flex-direction:column
-      // inside the flex:1 chart area. Select by the position:relative style.
       const buckets = container.querySelectorAll("[style*='position: relative'][style*='flex: 1']");
       // 24 buckets + the outer chart wrapper also matches (flex:1), so >= 24
       expect(buckets.length).toBeGreaterThanOrEqual(24);
@@ -138,6 +151,27 @@ describe("NetworkTile", () => {
       expect(mockUseQuery).toHaveBeenCalledWith(undefined, {
         refetchInterval: 60_000,
       });
+    });
+
+    test("renders chart skeleton when traffic array is empty", () => {
+      mockUseQuery.mockReturnValue({
+        data: {
+          status: "Online",
+          ssid: "HomeNet",
+          down: "14.2",
+          up: "3.8",
+          ping: 12,
+          traffic: [],
+        },
+        isLoading: false,
+        isError: false,
+      });
+
+      const { container } = render(<NetworkTile />);
+
+      // No bucket divs should be present — empty traffic renders a Skeleton instead of bars
+      const buckets = container.querySelectorAll("[style*='position: relative'][style*='flex: 1']");
+      expect(buckets.length).toBe(0);
     });
   });
 
@@ -191,7 +225,7 @@ describe("NetworkTile", () => {
 
       render(<NetworkTile />);
 
-      // Skeleton renders, not fallback "Online"
+      // Skeleton renders, not invented "Online"
       expect(screen.queryByText("Online")).not.toBeInTheDocument();
     });
 
@@ -203,7 +237,7 @@ describe("NetworkTile", () => {
           down: "0.0",
           up: "0.0",
           ping: 999,
-          traffic: makeFallbackTraffic(),
+          traffic: [],
         },
         isLoading: false,
         isError: false,
