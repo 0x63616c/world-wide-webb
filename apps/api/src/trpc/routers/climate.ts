@@ -24,10 +24,7 @@ export const climateRouter = router({
     .output(ClimateStateOutput)
     .mutation(async ({ input }) => {
       const entityId = await resolveClimateEntityId();
-      if (!entityId) {
-        // Degrade: return fallback with updated target.
-        return { target: input, ambient: 72, mode: "auto" as const, action: "Idle" as const };
-      }
+      if (!entityId) throw new Error("Home Assistant is not configured");
       return setClimateTarget(entityId, input);
     }),
 
@@ -36,9 +33,7 @@ export const climateRouter = router({
     .output(ClimateStateOutput)
     .mutation(async ({ input }) => {
       const entityId = await resolveClimateEntityId();
-      if (!entityId) {
-        return { target: 70, ambient: 72, mode: input, action: "Idle" as const };
-      }
+      if (!entityId) throw new Error("Home Assistant is not configured");
       return setClimateMode(entityId, input);
     }),
 });
