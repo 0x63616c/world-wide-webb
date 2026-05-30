@@ -194,26 +194,36 @@ export async function getControlsState(): Promise<ControlsState | null> {
 }
 
 /**
- * Write optimistic overlay for each entity that has a matching device row.
+ * Dispatch an on/off command to HA for each entity, applying the optimistic
+ * overlay where possible.
  *
- * Looks up DB rows by entity ID and calls commandDevice per device, which
- * writes desiredState to the DB and enqueues the HA dispatch. Entities with
- * no DB row are silently skipped — overlay cannot be written, but the caller
- * still proceeds with the HA call for unregistered devices.
+ * Registered devices (a matching device_state row) go through commandDevice,
+ * which writes desiredState for anti-flicker AND dispatches to HA. Unregistered
+ * entities have no DB row so no overlay is possible, but the command MUST still
+ * reach HA — we call the service directly. Without this direct path an empty
+ * device_state table makes every toggle a silent no-op.
  */
-async function writeOverlaysForDevices(entityIds: string[], on: boolean): Promise<void> {
+async function dispatchControls(entityIds: string[], on: boolean): Promise<void> {
   if (entityIds.length === 0) return;
 
   let rows: (typeof deviceState.$inferSelect)[] = [];
   try {
     rows = await db.select().from(deviceState).where(inArray(deviceState.entityId, entityIds));
   } catch {
-    // DB unreachable — skip overlay, command still goes to HA.
-    return;
+    // DB unreachable — no overlay, but commands still go to HA below.
+    rows = [];
   }
+  const rowByEntityId = new Map(rows.map((r) => [r.entityId, r]));
 
   await Promise.all(
-    rows.map((row) => commandDevice({ id: row.id, action: "setOn", args: { on } })),
+    entityIds.map((entityId) => {
+      const row = rowByEntityId.get(entityId);
+      if (row) {
+        return commandDevice({ id: row.id, action: "setOn", args: { on } });
+      }
+      const domain = entityId.split(".")[0];
+      return ha.callService(domain, on ? "turn_on" : "turn_off", { entity_id: entityId });
+    }),
   );
 }
 
@@ -236,7 +246,7 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
     case "lamps": {
       const lampEntries = LIGHTS.filter((l) => l.kind === "lamp");
       if (lampEntries.length > 0) {
-        await writeOverlaysForDevices(
+        await dispatchControls(
           lampEntries.map((l) => l.entityId),
           on,
         );
@@ -247,7 +257,7 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
     case "lights": {
       const fixtureEntries = LIGHTS.filter((l) => l.kind === "fixture");
       if (fixtureEntries.length > 0) {
-        await writeOverlaysForDevices(
+        await dispatchControls(
           fixtureEntries.map((l) => l.entityId),
           on,
         );
@@ -258,7 +268,7 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
     case "fan": {
       const entities = await ha.getEntities("fan");
       if (entities.length > 0) {
-        await writeOverlaysForDevices([entities[0].entity_id], on);
+        await dispatchControls([entities[0].entity_id], on);
       }
       break;
     }
