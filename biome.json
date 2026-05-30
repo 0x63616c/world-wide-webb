@@ -1,0 +1,67 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noConsole": {
+          "level": "error",
+          "options": { "allow": ["error", "warn"] }
+        },
+        "noFocusedTests": "error"
+      },
+      "correctness": {
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error"
+      },
+      "style": {
+        "useImportType": "error",
+        "useExportType": "error",
+        "noNonNullAssertion": "error",
+        "useThrowOnlyError": "error",
+        "noEnum": "error",
+        "noProcessEnv": "error"
+      },
+      "complexity": {
+        "noBannedTypes": "error"
+      }
+    }
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/*.gen.ts",
+      "!**/.tilt",
+      "!**/coverage",
+      "!**/.claude/settings.json",
+      "!**/.claude/settings.local.json"
+    ]
+  },
+  "overrides": [
+    {
+      "includes": [
+        "**/apps/api/src/env.ts",
+        "**/apps/api/drizzle.config.ts",
+        "**/apps/web/vite.config.ts",
+        "**/scripts/**"
+      ],
+      "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
+    }
+  ]
+}

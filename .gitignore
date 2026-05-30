@@ -1,5 +1,45 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Tilt
+.tilt/
+
+# Vite
+.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Claude Code
+.claude/settings.local.json
+
+# Test coverage
+coverage/
+
+# TypeScript build cache
+*.tsbuildinfo
 
 # Beads / Dolt files (added by bd init)
 .dolt/
-*.db
 .beads-credential-key
