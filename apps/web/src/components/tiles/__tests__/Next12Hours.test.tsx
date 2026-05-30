@@ -128,4 +128,33 @@ describe("Next12Hours", () => {
       expect.objectContaining({ refetchInterval: expect.any(Number) }),
     );
   });
+
+  it("does not pass a retry override — inherits global QueryClient config", () => {
+    mockHourlyQuery.mockReturnValue({
+      data: SAMPLE_HOURS,
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<Next12Hours />);
+
+    const [, opts] = mockHourlyQuery.mock.calls[0];
+    expect(opts).not.toHaveProperty("retry");
+  });
+
+  it("renders feels-like polyline with reduced opacity for subtlety", () => {
+    mockHourlyQuery.mockReturnValue({
+      data: SAMPLE_HOURS,
+      isLoading: false,
+      isError: false,
+    });
+
+    const { container } = render(<Next12Hours />);
+
+    const polyline = container.querySelector("polyline");
+    expect(polyline).not.toBeNull();
+    // opacity attribute or style must be set to dial back the feels line
+    const opacity = polyline?.getAttribute("opacity") ?? polyline?.style.opacity ?? "";
+    expect(parseFloat(opacity)).toBeLessThan(1);
+  });
 });
