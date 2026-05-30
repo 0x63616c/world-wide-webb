@@ -11,15 +11,18 @@
     "test": "vitest run",
     "lint": "bunx biome check .",
     "lint:fix": "bunx biome check --write .",
-    "typecheck": "bun run --filter '*' typecheck"
+    "typecheck": "bun run --filter '*' typecheck",
+    "prepare": "bunx lefthook install --force"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
+    "lefthook": "^2.1.9",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   },
   "trustedDependencies": [
     "@biomejs/biome",
-    "esbuild"
+    "esbuild",
+    "lefthook"
   ]
 }
