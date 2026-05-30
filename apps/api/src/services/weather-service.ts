@@ -28,8 +28,9 @@ const WEATHER_CODES: Record<number, string> = {
   99: "Thunderstorm with Heavy Hail",
 };
 
-// Icon set: sun | moon | cloud | cloud-sun, derived from code + is_day
-function weatherIcon(code: number, isDay: number): string {
+// Icon set: sun | moon | cloud | cloud-sun, derived from code + is_day.
+// Kept for when the live hourly feed replaces DEMO_HOURLY (www-42i).
+function _weatherIcon(code: number, isDay: number): string {
   if (code === 3) return "cloud";
   if (code >= 45) return "cloud";
   if (code >= 2) return isDay ? "cloud-sun" : "cloud";
@@ -76,7 +77,8 @@ interface OpenMeteoCurrentResponse {
   };
 }
 
-interface OpenMeteoHourlyResponse {
+// Kept for when the live hourly feed replaces DEMO_HOURLY (www-42i).
+interface _OpenMeteoHourlyResponse {
   hourly: {
     time: string[];
     temperature_2m: number[];
@@ -131,46 +133,29 @@ export async function fetchWeatherNow(lat = env.LAT, lon = env.LON): Promise<Wea
   };
 }
 
-// Fetch next 12 hourly slots from current hour from Open-Meteo
-export async function fetchWeatherHourly(lat = env.LAT, lon = env.LON): Promise<HourlyItem[]> {
-  const url =
-    `https://api.open-meteo.com/v1/forecast` +
-    `?latitude=${lat}&longitude=${lon}` +
-    `&hourly=temperature_2m,apparent_temperature,weather_code,is_day` +
-    `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=2`;
+// ---------------------------------------------------------------------------
+// DEMO_HOURLY — stable 12-hour demo payload used always until a reliable
+// real-time hourly source lands. Lives in the backend only (www-42i).
+// ---------------------------------------------------------------------------
 
-  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = (await res.json()) as OpenMeteoHourlyResponse;
+export const DEMO_HOURLY: HourlyItem[] = [
+  { t: "Now", temp: 74, feels: 72, ic: "cloud-sun" },
+  { t: "2", temp: 76, feels: 74, ic: "sun" },
+  { t: "3", temp: 78, feels: 76, ic: "sun" },
+  { t: "4", temp: 79, feels: 77, ic: "sun" },
+  { t: "5", temp: 77, feels: 75, ic: "cloud-sun" },
+  { t: "6", temp: 74, feels: 72, ic: "cloud-sun" },
+  { t: "7", temp: 71, feels: 69, ic: "cloud" },
+  { t: "8", temp: 68, feels: 67, ic: "cloud" },
+  { t: "9", temp: 66, feels: 64, ic: "moon" },
+  { t: "10", temp: 64, feels: 63, ic: "moon" },
+  { t: "11", temp: 63, feels: 61, ic: "moon" },
+  { t: "12", temp: 62, feels: 60, ic: "moon" },
+];
 
-  // Find the index of the current hour in the hourly time array
-  const now = new Date();
-  const currentHourStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T${String(now.getHours()).padStart(2, "0")}:00`;
-  let startIdx = data.hourly.time.indexOf(currentHourStr);
-  if (startIdx === -1) startIdx = 0;
-
-  const slice = data.hourly.time.slice(startIdx, startIdx + 12);
-  if (slice.length === 0) return [];
-
-  return slice.map((timeStr, i) => {
-    const idx = startIdx + i;
-    const parts = timeStr.match(/T(\d+):/);
-    const hour = parts ? parseInt(parts[1], 10) : 0;
-    const label =
-      i === 0
-        ? "Now"
-        : hour === 0
-          ? "12a"
-          : hour < 12
-            ? String(hour)
-            : hour === 12
-              ? "12p"
-              : String(hour - 12);
-    return {
-      t: label,
-      temp: Math.round(data.hourly.temperature_2m[idx] ?? 0),
-      feels: Math.round(data.hourly.apparent_temperature[idx] ?? 0),
-      ic: weatherIcon(data.hourly.weather_code[idx] ?? 0, data.hourly.is_day[idx] ?? 1),
-    };
-  });
+// Fetch next 12 hourly slots — returns DEMO_HOURLY always until a reliable
+// real-time hourly source replaces it (www-42i).
+// Params kept for API compatibility with the router; unused while demo is active.
+export async function fetchWeatherHourly(_lat = env.LAT, _lon = env.LON): Promise<HourlyItem[]> {
+  return DEMO_HOURLY;
 }
