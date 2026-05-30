@@ -77,6 +77,9 @@ Smart-home wall-panel dashboard, fixed 1366×1024. `apps/web` renders tiles from
 
 ## Conventions & Patterns
 
-- **ZERO fake/hardcoded/placeholder data** (web + api). On unavailable data a tile shows a shimmer Skeleton and keeps retrying — never an invented number. A repo-wide grep for `FALLBACK`/`PLACEHOLDER` must stay empty.
-- Tiles use the shared `components/ui/` primitives — do not re-inline headers/stats/pills/skeletons.
+- **ZERO fake/hardcoded/placeholder data** (web + api). On unavailable data a tile shows a shimmer Skeleton and keeps retrying — never an invented number. A repo-wide grep for `FALLBACK`/`PLACEHOLDER` (uppercase identifiers) must stay empty. Two files are sanctioned exceptions: `apps/api/src/services/network-service.ts` and `apps/api/src/services/weather-service.ts` hold always-on `DEMO_*` data until real integrations land.
+- **Pre-commit guard enforces the above.** `scripts/check-fake-data.sh` runs via lefthook on every commit — it exits non-zero if staged TS/TSX introduces `FALLBACK`/`PLACEHOLDER` identifiers or `DEMO_`/`demo_` outside the sanctioned files. Lowercase `fallback` as a parameter name and component names like `TilePlaceholder` are not flagged.
+- **Test runner is `bun run test` (vitest).** NEVER run bare `bun test` — Bun's native runner is incompatible with `vi.mock` and produces false failures.
+- Tiles use the shared `components/ui/` primitives — do not re-inline headers/stats/pills/skeletons. Primitives: `TileHeader`, `StatCell`, `Pill`, `Skeleton`, `TileWrapper` (barrel: `apps/web/src/components/ui/index.ts`).
 - Imports at top of file only; no module-global mutable vars; comments explain WHY not HOW.
+- Board is a fixed **1366×1024** wall panel (iPad Pro on Home). Never design for fluid/responsive.

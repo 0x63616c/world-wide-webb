@@ -23,6 +23,15 @@ bd close <id>         # Complete work
 bd dolt push          # Push beads data to remote
 ```
 
+## Invariants (must not regress)
+
+- **No fake/placeholder data.** Tiles show a shimmer Skeleton on unavailable data, never an invented value. `FALLBACK` and `PLACEHOLDER` as uppercase identifiers are banned everywhere. `DEMO_`/`demo_` is allowed only in `apps/api/src/services/network-service.ts`, `apps/api/src/services/weather-service.ts`, and their direct test files. The pre-commit hook (`scripts/check-fake-data.sh` via lefthook) enforces this and will reject the commit.
+- **Use shared UI primitives.** Every tile must use `TileHeader`, `StatCell`, `Pill`, `Skeleton`, `TileWrapper` from `apps/web/src/components/ui/`. Do not re-inline them.
+- **Test runner: `bun run test` only.** Never `bun test` — Bun's native runner breaks `vi.mock` and gives false failures. Always use vitest via `bun run test`.
+- **Fixed 1366×1024 viewport.** This board is a wall panel. Do not add responsive/fluid layout.
+- **`bun`/`bunx` always.** Never `npm`/`npx`.
+- **Repo has a remote.** `git@github.com:0x63616c/control-center.git` — always push before ending a session.
+
 ## Non-Interactive Shell Commands
 
 **ALWAYS use non-interactive flags** with file operations to avoid hanging on confirmation prompts.

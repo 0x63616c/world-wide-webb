@@ -8,3 +8,8 @@ pre-commit:
       # Apply safe auto-fixes and re-stage; || true ensures we never block a commit
       run: bunx biome check --write --no-errors-on-unmatched {staged_files} || true
       stage_fixed: true
+    no-fake-data:
+      glob: "*.{ts,tsx}"
+      # BLOCKING: exits non-zero if staged files introduce fake-data sentinels.
+      # Sanctioned exceptions live in the script itself (network-service, weather-service).
+      run: bash scripts/check-fake-data.sh {staged_files}
