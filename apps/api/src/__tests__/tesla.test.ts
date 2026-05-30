@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../integrations/homeassistant", () => {
   const mockHa = {
     isConfigured: vi.fn(() => false),
-    getEntities: vi.fn(async () => []),
+    getEntity: vi.fn(async () => undefined),
   };
   return { ha: mockHa };
 });
@@ -21,138 +21,127 @@ function makeEntity(
   return { entity_id, state, attributes, last_updated: "2024-01-01T00:00:00Z" };
 }
 
+/** Build a getEntity mock from an entity_id -> entity map (rejects unknown ids). */
+function mockStates(states: Record<string, HaEntity>) {
+  vi.mocked(ha.getEntity).mockImplementation(async (id: string) => {
+    const e = states[id];
+    if (!e) throw new Error(`404 ${id}`);
+    return e;
+  });
+}
+
+// Real "Evee" entity ids (Tesla Fleet integration, evee_ prefix).
+const E = "sensor.evee_battery_level";
+const fullCar: Record<string, HaEntity> = {
+  "sensor.evee_battery_level": makeEntity(E, "61"),
+  "sensor.evee_charging": makeEntity("sensor.evee_charging", "charging", {
+    options: ["starting", "charging", "stopped", "complete", "disconnected", "no_power"],
+  }),
+  "sensor.evee_charge_rate": makeEntity("sensor.evee_charge_rate", "25"),
+  "sensor.evee_battery_range": makeEntity("sensor.evee_battery_range", "169.37"),
+  "sensor.evee_inside_temperature": makeEntity("sensor.evee_inside_temperature", "71.96"),
+  "lock.evee_lock": makeEntity("lock.evee_lock", "locked"),
+  "device_tracker.evee_location": makeEntity("device_tracker.evee_location", "home", {
+    latitude: 34.061183,
+    longitude: -118.284533,
+    source_type: "gps",
+  }),
+};
+
 describe("getTeslaData", () => {
   beforeEach(() => {
     vi.mocked(ha.isConfigured).mockReturnValue(false);
-    vi.mocked(ha.getEntities).mockResolvedValue([]);
+    mockStates({}); // default: every entity lookup rejects
   });
 
   it("returns placeholder when HA is not configured", async () => {
     vi.mocked(ha.isConfigured).mockReturnValue(false);
-    const data = await getTeslaData();
-    expect(data).toEqual(TESLA_PLACEHOLDER);
+    expect(await getTeslaData()).toEqual(TESLA_PLACEHOLDER);
   });
 
-  it("returns placeholder when HA is configured but no tesla entities found", async () => {
+  it("returns placeholder when the battery entity is missing", async () => {
     vi.mocked(ha.isConfigured).mockReturnValue(true);
-    vi.mocked(ha.getEntities).mockResolvedValue([makeEntity("sensor.some_other_sensor", "42")]);
-    const data = await getTeslaData();
-    expect(data).toEqual(TESLA_PLACEHOLDER);
+    mockStates({}); // every getEntity rejects
+    expect(await getTeslaData()).toEqual(TESLA_PLACEHOLDER);
   });
 
-  it("returns placeholder when HA throws a network error", async () => {
+  it("returns placeholder when the car is asleep (battery unavailable)", async () => {
     vi.mocked(ha.isConfigured).mockReturnValue(true);
-    vi.mocked(ha.getEntities).mockRejectedValue(new Error("Network error"));
-    const data = await getTeslaData();
-    expect(data).toEqual(TESLA_PLACEHOLDER);
+    mockStates({ "sensor.evee_battery_level": makeEntity(E, "unavailable") });
+    expect(await getTeslaData()).toEqual(TESLA_PLACEHOLDER);
   });
 
-  it("maps real tesla entities to TeslaData", async () => {
+  it("maps the real Evee entities to TeslaData", async () => {
     vi.mocked(ha.isConfigured).mockReturnValue(true);
-    vi.mocked(ha.getEntities).mockImplementation(async (domain: string) => {
-      if (domain === "sensor") {
-        return [
-          makeEntity("sensor.tesla_model_y_battery", "75", {}),
-          makeEntity("sensor.tesla_model_y_range", "241", {}),
-          makeEntity("sensor.tesla_model_y_odometer", "18500", {}),
-          makeEntity("sensor.tesla_model_y_inside_temp", "68", {}),
-          makeEntity("sensor.tesla_model_y_charge_rate", "30", {}),
-        ];
-      }
-      if (domain === "binary_sensor") {
-        return [makeEntity("binary_sensor.tesla_model_y_charging", "on", {})];
-      }
-      if (domain === "lock") {
-        return [makeEntity("lock.tesla_model_y_lock", "locked", {})];
-      }
-      if (domain === "device_tracker") {
-        return [
-          makeEntity("device_tracker.tesla_model_y", "home", {
-            latitude: 34.0537,
-            longitude: -118.2428,
-            location_name: "Home",
-          }),
-        ];
-      }
-      return [];
-    });
-
+    mockStates(fullCar);
     const data = await getTeslaData();
-
     expect(data.name).toBe("Model Y");
     expect(data.nick).toBe("Evee");
-    expect(data.pct).toBe(75);
+    expect(data.pct).toBe(61);
     expect(data.charging).toBe(true);
-    expect(data.rate).toBe(30);
-    expect(data.range).toBe(241);
-    expect(data.odo).toBe("18,500");
-    expect(data.climate).toBe(68);
+    expect(data.rate).toBe(25);
+    expect(data.range).toBe(169); // rounded
+    expect(data.climate).toBe(72); // 71.96 rounded
     expect(data.locked).toBe(true);
-    expect(data.lat).toBe(34.0537);
-    expect(data.lon).toBe(-118.2428);
-    expect(data.place).toBe("Home");
-  });
-
-  it("maps unlocked state correctly", async () => {
-    vi.mocked(ha.isConfigured).mockReturnValue(true);
-    vi.mocked(ha.getEntities).mockImplementation(async (domain: string) => {
-      if (domain === "lock") {
-        return [makeEntity("lock.tesla_model_y_lock", "unlocked", {})];
-      }
-      if (domain === "sensor") {
-        return [makeEntity("sensor.tesla_battery", "60", {})];
-      }
-      return [];
-    });
-
-    const data = await getTeslaData();
-    expect(data.locked).toBe(false);
-  });
-
-  it("maps not-charging binary sensor correctly", async () => {
-    vi.mocked(ha.isConfigured).mockReturnValue(true);
-    vi.mocked(ha.getEntities).mockImplementation(async (domain: string) => {
-      if (domain === "binary_sensor") {
-        return [makeEntity("binary_sensor.tesla_charging", "off", {})];
-      }
-      if (domain === "sensor") {
-        return [makeEntity("sensor.tesla_battery", "90", {})];
-      }
-      return [];
-    });
-
-    const data = await getTeslaData();
-    expect(data.charging).toBe(false);
-  });
-
-  it("gracefully handles partial entities (only battery present)", async () => {
-    vi.mocked(ha.isConfigured).mockReturnValue(true);
-    vi.mocked(ha.getEntities).mockImplementation(async (domain: string) => {
-      if (domain === "sensor") {
-        return [makeEntity("sensor.tesla_battery", "55", {})];
-      }
-      return [];
-    });
-
-    const data = await getTeslaData();
-    // Battery should come from HA, rest from placeholder
-    expect(data.pct).toBe(55);
-    expect(data.charging).toBe(TESLA_PLACEHOLDER.charging);
-    expect(data.range).toBe(TESLA_PLACEHOLDER.range);
+    expect(data.lat).toBeCloseTo(34.061183);
+    expect(data.lon).toBeCloseTo(-118.284533);
+    expect(data.place).toBe("Home"); // home -> label
+    // Odometer entity is disabled in the integration -> graceful fallback.
     expect(data.odo).toBe(TESLA_PLACEHOLDER.odo);
-    expect(data.place).toBe(TESLA_PLACEHOLDER.place);
   });
 
-  it("formats odometer with commas", async () => {
+  it("treats only 'charging'/'starting' as charging", async () => {
     vi.mocked(ha.isConfigured).mockReturnValue(true);
-    vi.mocked(ha.getEntities).mockImplementation(async (domain: string) => {
-      if (domain === "sensor") {
-        return [makeEntity("sensor.tesla_odometer", "24113", {})];
-      }
-      return [];
+    mockStates({
+      ...fullCar,
+      "sensor.evee_charging": makeEntity("sensor.evee_charging", "disconnected"),
     });
+    expect((await getTeslaData()).charging).toBe(false);
+  });
 
+  it("maps unlocked state", async () => {
+    vi.mocked(ha.isConfigured).mockReturnValue(true);
+    mockStates({ ...fullCar, "lock.evee_lock": makeEntity("lock.evee_lock", "unlocked") });
+    expect((await getTeslaData()).locked).toBe(false);
+  });
+
+  it("uses the real odometer when present, formatted with commas", async () => {
+    vi.mocked(ha.isConfigured).mockReturnValue(true);
+    mockStates({
+      ...fullCar,
+      "sensor.evee_odometer": makeEntity("sensor.evee_odometer", "24113.4"),
+    });
+    expect((await getTeslaData()).odo).toBe("24,113");
+  });
+
+  it("titlecases a non-home zone as the place", async () => {
+    vi.mocked(ha.isConfigured).mockReturnValue(true);
+    mockStates({
+      ...fullCar,
+      "device_tracker.evee_location": makeEntity(
+        "device_tracker.evee_location",
+        "sound_nightclub",
+        {
+          latitude: 34.09,
+          longitude: -118.33,
+        },
+      ),
+    });
     const data = await getTeslaData();
-    expect(data.odo).toBe("24,113");
+    expect(data.place).toBe("Sound Nightclub");
+    expect(data.lat).toBeCloseTo(34.09);
+  });
+
+  it("falls back per-field when sensors are unavailable but battery is live", async () => {
+    vi.mocked(ha.isConfigured).mockReturnValue(true);
+    mockStates({
+      "sensor.evee_battery_level": makeEntity(E, "55"),
+      "sensor.evee_battery_range": makeEntity("sensor.evee_battery_range", "unavailable"),
+    });
+    const data = await getTeslaData();
+    expect(data.pct).toBe(55);
+    expect(data.range).toBe(TESLA_PLACEHOLDER.range);
+    expect(data.charging).toBe(false); // no charging entity -> default false
+    expect(data.place).toBe(TESLA_PLACEHOLDER.place); // no tracker -> label
   });
 });

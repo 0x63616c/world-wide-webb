@@ -25,6 +25,11 @@ export const envSchema = z.object({
   LAT: z.coerce.number().default(34.0537),
   LON: z.coerce.number().default(-118.2428),
   LOCATION_LABEL: z.string().default("Home"),
+
+  // Tesla entity prefix in Home Assistant (Tesla Fleet / tesla_custom integration
+  // names every entity `<prefix>_*`, e.g. sensor.evee_battery_level). The car's
+  // nickname is "Evee".
+  TESLA_ENTITY_PREFIX: z.string().default("evee"),
 });
 
 export const env = envSchema.parse(process.env);
