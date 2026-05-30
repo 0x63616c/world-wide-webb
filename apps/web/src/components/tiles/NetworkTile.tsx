@@ -1,6 +1,7 @@
 import { trpc } from "../../lib/trpc";
-import { Icon } from "../Icon";
 import { Skeleton } from "../ui/Skeleton";
+import { StatusDot } from "../ui/StatusDot";
+import { TileHeader } from "../ui/TileHeader";
 
 interface ButterflyChartProps {
   traffic: Array<{ down: number; up: number }>;
@@ -90,56 +91,10 @@ export function NetworkTile() {
         flexDirection: "column",
       }}
     >
-      {/* Section header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          marginBottom: 16,
-        }}
-      >
-        <div className="sec">
-          <span className="ic">
-            <Icon name="wifi" s={16} c="var(--ink-2)" />
-          </span>
-          <span
-            style={{
-              fontSize: 17.5,
-              fontWeight: 600,
-              letterSpacing: "-0.015em",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Network
-          </span>
-        </div>
-        <span style={{ marginLeft: "auto" }}>
-          {isOffline ? (
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: "#565c66",
-                display: "inline-block",
-              }}
-            />
-          ) : (
-            <span className="dot" role="status" aria-label="Online" />
-          )}
-        </span>
-      </div>
+      <TileHeader icon="wifi" title="Network" right={<StatusDot online={!isOffline} />} />
 
-      {/* Status + SSID line */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          gap: 10,
-          marginBottom: 2,
-        }}
-      >
+      {/* Status row — no SSID here, SSID only in footer per design */}
+      <div style={{ marginBottom: 2 }}>
         <span
           style={{
             fontSize: 26,
@@ -149,17 +104,9 @@ export function NetworkTile() {
         >
           {data.status}
         </span>
-        <span className="mono" style={{ fontSize: 12, color: "var(--ink-3)" }}>
-          {data.ssid}
-        </span>
       </div>
 
-      {/* Download label */}
-      <div className="mono" style={{ fontSize: 12.5, color: "var(--acc)", marginBottom: 5 }}>
-        ↓ {data.down} GB
-      </div>
-
-      {/* Butterfly chart */}
+      {/* Chart area: ↓ label, butterfly bars, ↑ label */}
       <div
         style={{
           flex: 1,
@@ -168,19 +115,24 @@ export function NetworkTile() {
           justifyContent: "center",
         }}
       >
-        {data.traffic.length > 0 && <ButterflyChart traffic={data.traffic} />}
-      </div>
-
-      {/* Upload label */}
-      <div
-        className="mono"
-        style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 5, marginBottom: 8 }}
-      >
-        ↑ {data.up} GB
+        <div className="mono" style={{ fontSize: 12.5, color: "var(--acc)", marginBottom: 5 }}>
+          ↓ {data.down} GB
+        </div>
+        {data.traffic.length > 0 ? (
+          <ButterflyChart traffic={data.traffic} />
+        ) : (
+          <Skeleton w="100%" h={100} borderRadius={6} />
+        )}
+        <div className="mono" style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 5 }}>
+          ↑ {data.up} GB
+        </div>
       </div>
 
       {/* Footer: SSID + ping */}
-      <div className="cap" style={{ display: "flex", justifyContent: "space-between" }}>
+      <div
+        className="cap"
+        style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}
+      >
         <span>{data.ssid}</span>
         <span>{`${data.ping}ms`}</span>
       </div>
