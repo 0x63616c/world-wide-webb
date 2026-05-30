@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { Icon } from "../Icon";
-import { Tile } from "../ui";
+import { ClockGreetingView } from "./ClockGreetingView";
 
 function useNow(): Date {
   const [now, setNow] = useState(() => new Date());
@@ -22,69 +21,23 @@ function greeting(hour: number): string {
 export function ClockGreeting() {
   const d = useNow();
   const rawHour = d.getHours();
-  const ap = rawHour >= 12 ? "PM" : "AM";
-  const H = rawHour % 12 || 12;
-  const m = String(d.getMinutes()).padStart(2, "0");
-  const full = d.toLocaleDateString("en-US", {
+  const ampm = rawHour >= 12 ? "PM" : "AM";
+  const hour12 = rawHour % 12 || 12;
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const fullDate = d.toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
     day: "numeric",
   });
-  const g = greeting(rawHour);
 
   return (
-    // padding 28 is design-specified per CC-882 (wider than the standard 22)
-    <Tile
-      padding={28}
-      style={{
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 16,
-        textAlign: "center",
-      }}
-    >
-      {/* Greeting cap in accent */}
-      <div className="cap acc" style={{ fontSize: 14, letterSpacing: ".2em" }}>
-        {g}
-      </div>
-
-      {/* 96px mono time with AM/PM */}
-      <div
-        className="mono"
-        style={{
-          fontSize: 96,
-          fontWeight: 700,
-          letterSpacing: "-.05em",
-          lineHeight: 0.82,
-        }}
-      >
-        {H}:{m}
-        <span
-          data-testid="clock-ampm"
-          style={{ fontSize: 26, color: "var(--ink-2)", marginLeft: 8, letterSpacing: "0.02em" }}
-        >
-          {ap}
-        </span>
-      </div>
-
-      {/* Full date */}
-      <div data-testid="clock-date" style={{ fontSize: 18, color: "var(--ink-2)" }}>
-        {full}
-      </div>
-
-      {/* Location */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          color: "var(--ink-2)",
-          fontSize: 14.5,
-        }}
-      >
-        <Icon name="pin" s={15} c="var(--ink-3)" />
-        Home
-      </div>
-    </Tile>
+    <ClockGreetingView
+      greeting={greeting(rawHour)}
+      hour12={hour12}
+      minutes={minutes}
+      ampm={ampm}
+      fullDate={fullDate}
+      location="Home"
+    />
   );
 }
