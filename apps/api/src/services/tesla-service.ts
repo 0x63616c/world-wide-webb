@@ -94,10 +94,13 @@ export async function getTeslaData(): Promise<TeslaData> {
   const range = Math.round(num(map.range, TESLA_PLACEHOLDER.range));
   const climate = Math.round(num(map.cabin, TESLA_PLACEHOLDER.climate));
 
-  // Odometer is frequently disabled in the integration — fall back gracefully.
-  const odo = map.odometer
-    ? Math.round(num(map.odometer, 0)).toLocaleString("en-US")
-    : TESLA_PLACEHOLDER.odo;
+  // Odometer is often disabled in the integration, or reads unknown/unavailable
+  // while the car sleeps — treat both as no-value and show the placeholder
+  // rather than a bogus "0", consistent with the other stats.
+  const odo =
+    map.odometer && !DEAD_STATES.has(map.odometer.state)
+      ? Math.round(num(map.odometer, 0)).toLocaleString("en-US")
+      : TESLA_PLACEHOLDER.odo;
 
   const locked = map.lock ? map.lock.state === "locked" : TESLA_PLACEHOLDER.locked;
 

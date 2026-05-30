@@ -114,6 +114,17 @@ describe("getTeslaData", () => {
     expect((await getTeslaData()).odo).toBe("24,113");
   });
 
+  it("shows the placeholder odometer (not 0) when the entity reads unknown", async () => {
+    // The odometer entity exists but the car is asleep, so it reports
+    // "unknown" — must degrade to the placeholder, never a bogus "0".
+    vi.mocked(ha.isConfigured).mockReturnValue(true);
+    mockStates({
+      ...fullCar,
+      "sensor.evee_odometer": makeEntity("sensor.evee_odometer", "unknown"),
+    });
+    expect((await getTeslaData()).odo).toBe(TESLA_PLACEHOLDER.odo);
+  });
+
   it("titlecases a non-home zone as the place", async () => {
     vi.mocked(ha.isConfigured).mockReturnValue(true);
     mockStates({
