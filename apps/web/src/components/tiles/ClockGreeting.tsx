@@ -42,7 +42,7 @@ export function ClockGreeting() {
         justifyContent: "center",
         gap: 16,
         textAlign: "center",
-        padding: 22,
+        padding: 28,
       }}
     >
       {/* Greeting cap in accent */}
@@ -61,11 +61,18 @@ export function ClockGreeting() {
         }}
       >
         {H}:{m}
-        <span style={{ fontSize: 26, color: "var(--ink-2)", marginLeft: 8 }}>{ap}</span>
+        <span
+          data-testid="clock-ampm"
+          style={{ fontSize: 26, color: "var(--ink-2)", marginLeft: 8, letterSpacing: "0.02em" }}
+        >
+          {ap}
+        </span>
       </div>
 
       {/* Full date */}
-      <div style={{ fontSize: 17, color: "var(--ink-2)" }}>{full}</div>
+      <div data-testid="clock-date" style={{ fontSize: 18, color: "var(--ink-2)" }}>
+        {full}
+      </div>
 
       {/* Location */}
       <div
