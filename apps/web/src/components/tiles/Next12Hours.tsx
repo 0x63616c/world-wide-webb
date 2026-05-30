@@ -37,7 +37,6 @@ function Next12HoursSkeleton() {
 export function Next12Hours() {
   const { data } = trpc.weather.hourly.useQuery(undefined, {
     refetchInterval: POLL.weather,
-    retry: 2,
   });
 
   // All hooks must be called before any early return.
@@ -154,19 +153,27 @@ export function Next12Hours() {
                   </g>
                 );
               })}
-              {/* Dotted feels-like polyline */}
+              {/* Dotted feels-like polyline — secondary reference, kept subtle under temp bars */}
               <polyline
                 points={fpts}
                 fill="none"
                 stroke="#6E747D"
-                strokeWidth={1.6}
+                strokeWidth={1}
                 strokeDasharray="2 5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                opacity={0.45}
               />
-              {/* Feels-like dots */}
+              {/* Feels-like dots — smaller to stay secondary */}
               {feels.map((f, i) => (
-                <circle key={hours[i].t} cx={cx(i)} cy={chartH - barH(f)} r={1.7} fill="#6E747D" />
+                <circle
+                  key={hours[i].t}
+                  cx={cx(i)}
+                  cy={chartH - barH(f)}
+                  r={1}
+                  fill="#6E747D"
+                  opacity={0.45}
+                />
               ))}
             </svg>
 
