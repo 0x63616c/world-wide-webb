@@ -1,33 +1,7 @@
 import { trpc } from "../../lib/trpc";
-import { Icon, type IconName } from "../Icon";
+import { Icon } from "../Icon";
 import { Skeleton } from "../ui/Skeleton";
-
-function Sec({
-  icon,
-  children,
-  right,
-}: {
-  icon: IconName;
-  children: React.ReactNode;
-  right?: React.ReactNode;
-}) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-      <Icon name={icon} s={19} c="var(--ink-2)" />
-      <span
-        style={{
-          fontSize: 17.5,
-          fontWeight: 600,
-          letterSpacing: "-0.015em",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {children}
-      </span>
-      {right && <span style={{ marginLeft: "auto" }}>{right}</span>}
-    </div>
-  );
-}
+import { TileHeader } from "../ui/TileHeader";
 
 function MetricCell({ label, value }: { label: string; value: string }) {
   return (
@@ -153,9 +127,11 @@ export function WeatherNow() {
       }}
     >
       {/* Header */}
-      <Sec icon="cloud-sun" right={<span className="cap">{w.city}</span>}>
-        Weather Now
-      </Sec>
+      <TileHeader
+        icon="cloud-sun"
+        title="Weather Now"
+        right={<span className="cap">{w.city}</span>}
+      />
 
       <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 20 }}>
         <Icon name="cloud-sun" s={76} c="var(--ink)" sw={1.3} />

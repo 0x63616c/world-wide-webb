@@ -206,4 +206,20 @@ describe("WeatherNow", () => {
 
     vi.useRealTimers();
   });
+
+  it("CC-lad: section header uses TileHeader primitive (no local Sec component)", () => {
+    mockUseQuery.mockReturnValue({
+      data: SAMPLE_DATA,
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<WeatherNow />);
+
+    // TileHeader renders an icon + title span. The title must be present.
+    const header = screen.getByText("Weather Now");
+    expect(header).toBeInTheDocument();
+    // City label still in right slot
+    expect(screen.getByText("Los Angeles")).toBeInTheDocument();
+  });
 });

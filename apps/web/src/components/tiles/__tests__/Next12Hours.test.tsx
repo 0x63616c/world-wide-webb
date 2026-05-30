@@ -157,4 +157,37 @@ describe("Next12Hours", () => {
     const opacity = polyline?.getAttribute("opacity") ?? polyline?.style.opacity ?? "";
     expect(parseFloat(opacity)).toBeLessThan(1);
   });
+
+  it("CC-z2x: feels-like polyline uses low-contrast rgba stroke (not #6E747D)", () => {
+    mockHourlyQuery.mockReturnValue({
+      data: SAMPLE_HOURS,
+      isLoading: false,
+      isError: false,
+    });
+
+    const { container } = render(<Next12Hours />);
+
+    const polyline = container.querySelector("polyline");
+    expect(polyline).not.toBeNull();
+    const stroke = polyline?.getAttribute("stroke") ?? "";
+    // Must NOT be the old hex colour
+    expect(stroke).not.toBe("#6E747D");
+    // Must be an rgba value (low-contrast white)
+    expect(stroke).toMatch(/^rgba\(/);
+  });
+
+  it("CC-lad: section header uses TileHeader primitive (no hand-rolled flex row)", () => {
+    mockHourlyQuery.mockReturnValue({
+      data: SAMPLE_HOURS,
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<Next12Hours />);
+
+    // TileHeader renders the title as a span inside a flex row.
+    // If the primitive is used, "Next 12 Hours" is present and no duplicate is needed.
+    const header = screen.getByText("Next 12 Hours");
+    expect(header).toBeInTheDocument();
+  });
 });

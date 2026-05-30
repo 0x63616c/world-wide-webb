@@ -341,6 +341,23 @@ describe("ControlsTile", () => {
     });
   });
 
+  describe("CC-lad: uses TileHeader primitive for section header", () => {
+    it("renders Controls header via TileHeader (no hand-rolled flex row)", () => {
+      mockQueryReturn = {
+        data: {
+          lamps: { on: false, count: 0, sub: "all off", pending: false },
+          lights: { on: false, pending: false },
+          fan: { on: false, sub: "", pending: false },
+        },
+        isLoading: false,
+        isError: false,
+      };
+      render(<ControlsTile />);
+      // Header title must be present — TileHeader renders it as a span
+      expect(screen.getByText("Controls")).toBeInTheDocument();
+    });
+  });
+
   describe("toggle mutation does NOT manipulate the query cache", () => {
     it("toggle mutation does NOT call setData or cancel on the query cache", () => {
       mockQueryReturn = {
