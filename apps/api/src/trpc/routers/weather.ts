@@ -11,6 +11,10 @@ const WeatherNowOutput = z.object({
   hum: z.number().describe("Relative humidity %"),
   wind: z.number().describe("Wind speed in mph"),
   sunset: z.string().describe("Sunset time formatted as h:mm AM/PM"),
+  sunsetIso: z.string().describe("Sunset as ISO local datetime for client-side comparison"),
+  sunrise: z.string().describe("Sunrise time formatted as h:mm AM/PM"),
+  sunriseIso: z.string().describe("Sunrise as ISO local datetime for client-side comparison"),
+  tomorrowSunriseIso: z.string().describe("Tomorrow's sunrise ISO local datetime"),
   city: z.string().describe("City label for display"),
 });
 

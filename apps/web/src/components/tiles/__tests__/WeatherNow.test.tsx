@@ -34,6 +34,10 @@ const SAMPLE_DATA = {
   hum: 58,
   wind: 8.3,
   sunset: "7:52 PM",
+  sunsetIso: "2024-06-01T19:52",
+  sunrise: "5:14 AM",
+  sunriseIso: "2024-06-01T05:14",
+  tomorrowSunriseIso: "2024-06-02T05:15",
   city: "Los Angeles",
 };
 
@@ -74,13 +78,11 @@ describe("WeatherNow", () => {
     expect(screen.getByText("Feels")).toBeInTheDocument();
     expect(screen.getByText("Humidity")).toBeInTheDocument();
     expect(screen.getByText("Wind")).toBeInTheDocument();
-    expect(screen.getByText("Sunset")).toBeInTheDocument();
 
     // Metric row values
     expect(screen.getByText("70°")).toBeInTheDocument();
     expect(screen.getByText("58%")).toBeInTheDocument();
     expect(screen.getByText("8 mph")).toBeInTheDocument();
-    expect(screen.getByText("7:52 PM")).toBeInTheDocument();
   });
 
   it("renders skeleton (no temperature text) while loading", () => {
@@ -143,5 +145,65 @@ describe("WeatherNow", () => {
 
     const tile = container.querySelector(".tile") as HTMLElement;
     expect(tile).toBeInTheDocument();
+  });
+
+  // www-iwi: sunset/sunrise swap based on time of day
+  it("shows Sunset cell before sunset time", () => {
+    vi.useFakeTimers();
+    // Set time to before sunset (e.g. 10 AM)
+    vi.setSystemTime(new Date("2024-06-01T10:00:00"));
+
+    mockUseQuery.mockReturnValue({
+      data: SAMPLE_DATA,
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<WeatherNow />);
+
+    expect(screen.getByText("Sunset")).toBeInTheDocument();
+    expect(screen.getByText("7:52 PM")).toBeInTheDocument();
+    expect(screen.queryByText("Sunrise")).not.toBeInTheDocument();
+
+    vi.useRealTimers();
+  });
+
+  it("shows Sunrise cell after sunset time", () => {
+    vi.useFakeTimers();
+    // Set time to after sunset (e.g. 9 PM, after 7:52 PM)
+    vi.setSystemTime(new Date("2024-06-01T21:00:00"));
+
+    mockUseQuery.mockReturnValue({
+      data: SAMPLE_DATA,
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<WeatherNow />);
+
+    expect(screen.getByText("Sunrise")).toBeInTheDocument();
+    expect(screen.getByText("5:15 AM")).toBeInTheDocument();
+    expect(screen.queryByText("Sunset")).not.toBeInTheDocument();
+
+    vi.useRealTimers();
+  });
+
+  it("shows Sunset cell again after next-day sunrise has passed", () => {
+    vi.useFakeTimers();
+    // Set time to next day after tomorrow's sunrise (e.g. 8 AM next day)
+    vi.setSystemTime(new Date("2024-06-02T08:00:00"));
+
+    mockUseQuery.mockReturnValue({
+      data: SAMPLE_DATA,
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<WeatherNow />);
+
+    expect(screen.getByText("Sunset")).toBeInTheDocument();
+    expect(screen.queryByText("Sunrise")).not.toBeInTheDocument();
+
+    vi.useRealTimers();
   });
 });

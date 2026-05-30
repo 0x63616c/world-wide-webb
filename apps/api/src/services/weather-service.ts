@@ -45,6 +45,10 @@ export interface WeatherNow {
   hum: number;
   wind: number;
   sunset: string;
+  sunsetIso: string;
+  sunrise: string;
+  sunriseIso: string;
+  tomorrowSunriseIso: string;
   city: string;
 }
 
@@ -68,6 +72,7 @@ interface OpenMeteoCurrentResponse {
     temperature_2m_max: number[];
     temperature_2m_min: number[];
     sunset: string[];
+    sunrise: string[];
   };
 }
 
@@ -81,10 +86,8 @@ interface OpenMeteoHourlyResponse {
   };
 }
 
-// Format a Date as "h:mm AM/PM" in the local timezone
-function formatSunset(iso: string): string {
-  // Open-Meteo sunset is a local datetime string like "2024-01-01T18:52"
-  // Parse as local time parts directly to avoid timezone drift
+// Format an ISO local datetime "2024-01-01T18:52" as "h:mm AM/PM"
+function formatSolarEvent(iso: string): string {
   const parts = iso.match(/T(\d+):(\d+)/);
   if (!parts) return iso;
   let h = parseInt(parts[1], 10);
@@ -100,14 +103,17 @@ export async function fetchWeatherNow(lat = env.LAT, lon = env.LON): Promise<Wea
     `https://api.open-meteo.com/v1/forecast` +
     `?latitude=${lat}&longitude=${lon}` +
     `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day` +
-    `&daily=temperature_2m_max,temperature_2m_min,sunset` +
-    `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1`;
+    `&daily=temperature_2m_max,temperature_2m_min,sunset,sunrise` +
+    `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=2`;
 
   const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = (await res.json()) as OpenMeteoCurrentResponse;
 
   const c = data.current;
+  const sunsetIso = data.daily.sunset[0] ?? "";
+  const sunriseIso = data.daily.sunrise[0] ?? "";
+  const tomorrowSunriseIso = data.daily.sunrise[1] ?? "";
   return {
     temp: Math.round(c.temperature_2m),
     cond: WEATHER_CODES[c.weather_code] ?? "Unknown",
@@ -116,7 +122,11 @@ export async function fetchWeatherNow(lat = env.LAT, lon = env.LON): Promise<Wea
     feels: Math.round(c.apparent_temperature),
     hum: Math.round(c.relative_humidity_2m),
     wind: Math.round(c.wind_speed_10m),
-    sunset: formatSunset(data.daily.sunset[0] ?? ""),
+    sunset: formatSolarEvent(sunsetIso),
+    sunsetIso,
+    sunrise: formatSolarEvent(sunriseIso),
+    sunriseIso,
+    tomorrowSunriseIso,
     city: "Los Angeles",
   };
 }

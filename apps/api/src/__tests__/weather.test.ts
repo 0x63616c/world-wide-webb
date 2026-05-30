@@ -14,9 +14,10 @@ function makeCurrentResponse() {
       is_day: 1,
     },
     daily: {
-      temperature_2m_max: [80.1],
-      temperature_2m_min: [60.5],
-      sunset: ["2024-06-01T20:07"],
+      temperature_2m_max: [80.1, 81.0],
+      temperature_2m_min: [60.5, 61.0],
+      sunset: ["2024-06-01T20:07", "2024-06-02T20:08"],
+      sunrise: ["2024-06-01T05:14", "2024-06-02T05:15"],
     },
   };
 }
@@ -83,6 +84,10 @@ describe("fetchWeatherNow", () => {
     expect(result.lo).toBe(61);
     expect(result.cond).toBe("Partly Cloudy");
     expect(result.sunset).toBe("8:07 PM");
+    expect(result.sunsetIso).toBe("2024-06-01T20:07");
+    expect(result.sunrise).toBe("5:14 AM");
+    expect(result.sunriseIso).toBe("2024-06-01T05:14");
+    expect(result.tomorrowSunriseIso).toBe("2024-06-02T05:15");
     expect(result.city).toBe("Los Angeles");
   });
 
@@ -102,6 +107,9 @@ describe("fetchWeatherNow", () => {
     expect(url).toContain("wind_speed_10m");
     expect(url).toContain("is_day");
     expect(url).toContain("sunset");
+    expect(url).toContain("sunrise");
+    // Needs 2 forecast days to get tomorrow's sunrise
+    expect(url).toContain("forecast_days=2");
   });
 
   it("throws when fetch fails", async () => {
