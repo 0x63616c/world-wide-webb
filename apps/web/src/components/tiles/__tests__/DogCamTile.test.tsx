@@ -80,10 +80,11 @@ describe("DogCamTile", () => {
       expect(screen.getByText("Backyard Cam")).toBeDefined();
     });
 
-    it("falls back to 'Living Room' when data is undefined", () => {
+    it("renders skeleton (no label text) when data is undefined", () => {
       mockUseQuery.mockReturnValue({ data: undefined, isLoading: false, isError: false });
       render(<DogCamTile />);
-      expect(screen.getByText("Living Room")).toBeDefined();
+      // No hardcoded label should appear; skeleton placeholder is rendered instead
+      expect(screen.queryByText("Living Room")).toBeNull();
     });
 
     it("shows 'Camera offline' when camera is not online", () => {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { trpc } from "../../lib/trpc";
 import { Icon } from "../Icon";
-import { TileHeader } from "../ui";
+import { Skeleton, TileHeader } from "../ui";
 
 /** Format elapsed seconds as HH:MM:SS */
 function formatRec(secs: number): string {
@@ -37,7 +37,7 @@ export function DogCamTile() {
     };
   }, [live]);
 
-  const label = data?.label ?? "Living Room";
+  const label = data?.label ?? null;
   const snapshotUrl = data?.snapshotUrl ?? null;
   const online = data?.online ?? false;
 
@@ -83,7 +83,7 @@ export function DogCamTile() {
         {snapshotUrl ? (
           <img
             src={snapshotUrl}
-            alt={label}
+            alt={label ?? ""}
             style={{
               position: "absolute",
               inset: 0,
@@ -151,7 +151,7 @@ export function DogCamTile() {
               }}
               className="cap"
             >
-              {label}
+              {label ?? <Skeleton w={80} h={12} />}
             </div>
           </>
         ) : (
@@ -171,14 +171,16 @@ export function DogCamTile() {
               gap: 9,
             }}
           >
-            {isLoading ? (
+            {isLoading || !data ? (
               <Icon name="cam" s={30} c="var(--ink-3)" />
             ) : (
               <>
                 <Icon name="cam" s={30} c="var(--ink-2)" />
-                <div style={{ fontSize: 16, fontWeight: 500 }}>{label}</div>
+                <div style={{ fontSize: 16, fontWeight: 500 }}>
+                  {label ?? <Skeleton w={100} h={16} />}
+                </div>
                 <div className="cap">
-                  {online === false && !isLoading ? "Camera offline" : "Tap to view feed"}
+                  {online === false ? "Camera offline" : "Tap to view feed"}
                 </div>
               </>
             )}
