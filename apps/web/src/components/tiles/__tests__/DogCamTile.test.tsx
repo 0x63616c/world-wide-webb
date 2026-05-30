@@ -52,6 +52,19 @@ function renderWithData(overrides?: {
 }
 
 describe("DogCamTile", () => {
+  describe("section header", () => {
+    it("renders the 'Dog Cam' section header", () => {
+      renderWithData();
+      expect(screen.getByText("Dog Cam")).toBeDefined();
+    });
+
+    it("tile wrapper has padding 20", () => {
+      const { container } = renderWithData();
+      const tile = container.firstChild as HTMLElement;
+      expect(tile.style.padding).toBe("20px");
+    });
+  });
+
   describe("covered state (default)", () => {
     it("renders the frosted cover with cam icon, label, and tap prompt", () => {
       renderWithData();
