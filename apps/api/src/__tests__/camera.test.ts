@@ -75,9 +75,8 @@ describe("getCameraInfo", () => {
     expect(result?.entityId).toBe("camera.living_room_dog_cam");
     expect(result?.label).toBe("Living Room Dog Cam");
     expect(result?.online).toBe(true);
-    expect(result?.snapshotUrl).toBe(
-      "http://ha.local:8123/api/camera_proxy/camera.living_room_dog_cam",
-    );
+    // snapshotUrl is null until CC-2x4 wires an authenticated proxy route
+    expect(result?.snapshotUrl).toBeNull();
     expect(result?.streamUrl).toBeNull();
   });
 
