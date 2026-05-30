@@ -71,3 +71,6 @@ bd.db
 
 # Local config (may hold linear.api_key — never commit)
 config.yaml
+
+# Linear pull timestamp (local-only, per-machine)
+last_pull
