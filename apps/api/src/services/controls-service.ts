@@ -1,8 +1,11 @@
+import { inArray } from "drizzle-orm";
+
 import { LIGHTS } from "../config/lights";
 import { db } from "../db/index";
 import { deviceState } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
+import { commandDevice } from "./device-command-service";
 import { mergeDeviceState } from "./device-sync-service";
 
 // ─── types ───────────────────────────────────────────────────────────────────
@@ -191,10 +194,36 @@ export async function getControlsState(): Promise<ControlsState | null> {
 }
 
 /**
+ * Write optimistic overlay for each entity that has a matching device row.
+ *
+ * Looks up DB rows by entity ID and calls commandDevice per device, which
+ * writes desiredState to the DB and enqueues the HA dispatch. Entities with
+ * no DB row are silently skipped — overlay cannot be written, but the caller
+ * still proceeds with the HA call for unregistered devices.
+ */
+async function writeOverlaysForDevices(entityIds: string[], on: boolean): Promise<void> {
+  if (entityIds.length === 0) return;
+
+  let rows: (typeof deviceState.$inferSelect)[] = [];
+  try {
+    rows = await db.select().from(deviceState).where(inArray(deviceState.entityId, entityIds));
+  } catch {
+    // DB unreachable — skip overlay, command still goes to HA.
+    return;
+  }
+
+  await Promise.all(
+    rows.map((row) => commandDevice({ id: row.id, action: "setOn", args: { on } })),
+  );
+}
+
+/**
  * Toggle lamps, lights, or fan on or off.
  *
  * Uses the explicit LIGHTS config to identify entity ids and domains.
- * Lamps toggle the light domain; fixtures toggle the switch domain.
+ * Writes an optimistic overlay to the DB before dispatching to HA so that
+ * subsequent getControlsState calls reflect the desired value immediately
+ * (no flicker while HA catches up).
  * Throws when HA is unconfigured (caller should surface a tRPC error).
  * Returns merged state after dispatching the command.
  */
@@ -203,15 +232,14 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
     throw new Error("Home Assistant is not configured");
   }
 
-  const service = on ? "turn_on" : "turn_off";
-
   switch (key) {
     case "lamps": {
       const lampEntries = LIGHTS.filter((l) => l.kind === "lamp");
       if (lampEntries.length > 0) {
-        await ha.callService("light", service, {
-          entity_id: lampEntries.map((l) => l.entityId),
-        });
+        await writeOverlaysForDevices(
+          lampEntries.map((l) => l.entityId),
+          on,
+        );
       }
       break;
     }
@@ -219,16 +247,10 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
     case "lights": {
       const fixtureEntries = LIGHTS.filter((l) => l.kind === "fixture");
       if (fixtureEntries.length > 0) {
-        // Each fixture lives on its own domain (switch). Group by domain and call once per domain.
-        const byDomain = new Map<string, string[]>();
-        for (const f of fixtureEntries) {
-          const ids = byDomain.get(f.domain) ?? [];
-          ids.push(f.entityId);
-          byDomain.set(f.domain, ids);
-        }
-        for (const [domain, entityIds] of byDomain) {
-          await ha.callService(domain, service, { entity_id: entityIds });
-        }
+        await writeOverlaysForDevices(
+          fixtureEntries.map((l) => l.entityId),
+          on,
+        );
       }
       break;
     }
@@ -236,9 +258,7 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
     case "fan": {
       const entities = await ha.getEntities("fan");
       if (entities.length > 0) {
-        await ha.callService("fan", service, {
-          entity_id: entities[0].entity_id,
-        });
+        await writeOverlaysForDevices([entities[0].entity_id], on);
       }
       break;
     }
