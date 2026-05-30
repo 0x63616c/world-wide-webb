@@ -1,3 +1,6 @@
+# Mac Mini homelab is the dev+prod host; whitelist it so local_resource/local() run.
+allow_k8s_contexts('admin@homelab')
+
 load('ext://uibutton', 'cmd_button', 'location')
 
 update_settings(max_parallel_updates=4)
