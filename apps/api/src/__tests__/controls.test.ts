@@ -38,6 +38,17 @@ vi.mock("../db/index", () => ({
   },
 }));
 
+// ─── mock device-command-service ─────────────────────────────────────────────
+
+const { mockCommandDevice } = vi.hoisted(() => ({
+  mockCommandDevice:
+    vi.fn<(input: { id: string; action: string; args: { on?: boolean } }) => Promise<unknown>>(),
+}));
+
+vi.mock("../services/device-command-service", () => ({
+  commandDevice: mockCommandDevice,
+}));
+
 // ─── import after mock ────────────────────────────────────────────────────────
 
 import { getControlsState, toggleControl } from "../services/controls-service";
@@ -373,6 +384,7 @@ describe("toggleControl", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockCallService.mockResolvedValue(undefined);
+    mockCommandDevice.mockResolvedValue({ id: "dev-x", commandId: 1, status: "pending" });
   });
 
   it("throws when HA is not configured", async () => {
@@ -382,63 +394,89 @@ describe("toggleControl", () => {
     await expect(toggleControl("lamps", true)).rejects.toThrow("Home Assistant is not configured");
   });
 
-  it("calls light.turn_on with all lamp entity ids from config", async () => {
+  it("calls commandDevice for each lamp entity when toggling lamps on", async () => {
     mockIsConfigured.mockReturnValue(true);
-    // toggleControl for "lamps" uses config directly — no getEntities call for lights.
     mockGetEntities.mockResolvedValue([]);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    const lampDeviceRows = [
+      makeDeviceRow({ id: "lamp-1", entityId: "light.living_room_globe" }),
+      makeDeviceRow({ id: "lamp-2", entityId: "light.living_room_corner_lamp" }),
+      makeDeviceRow({ id: "lamp-3", entityId: "light.living_room_floor_lamp" }),
+      makeDeviceRow({ id: "lamp-4", entityId: "light.kitchen_lamp" }),
+      makeDeviceRow({ id: "lamp-5", entityId: "light.bed_lamp_left" }),
+      makeDeviceRow({ id: "lamp-6", entityId: "light.bed_lamp_right" }),
+    ];
+    mockDbSelect.mockReturnValue(makeSelectChain(lampDeviceRows));
 
     await toggleControl("lamps", true);
 
-    // All lamp entity IDs from the LIGHTS config must be included.
-    expect(mockCallService).toHaveBeenCalledWith("light", "turn_on", {
-      entity_id: expect.arrayContaining([
-        "light.living_room_globe",
-        "light.living_room_corner_lamp",
-        "light.living_room_floor_lamp",
-        "light.kitchen_lamp",
-        "light.bed_lamp_left",
-        "light.bed_lamp_right",
-      ]),
+    expect(mockCommandDevice).toHaveBeenCalledTimes(6);
+    expect(mockCommandDevice).toHaveBeenCalledWith({
+      id: "lamp-1",
+      action: "setOn",
+      args: { on: true },
+    });
+    expect(mockCommandDevice).toHaveBeenCalledWith({
+      id: "lamp-6",
+      action: "setOn",
+      args: { on: true },
     });
   });
 
-  it("calls switch.turn_off for lights key (fixtures are on switch domain)", async () => {
+  it("calls commandDevice for each fixture entity when toggling lights off", async () => {
     mockIsConfigured.mockReturnValue(true);
-    // toggleControl for "lights" uses config directly — no getEntities call.
     mockGetEntities.mockResolvedValue([]);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    const fixtureRows = [
+      makeDeviceRow({ id: "fix-1", entityId: "switch.overhead_lights", domain: "switch" }),
+      makeDeviceRow({ id: "fix-2", entityId: "switch.under_cabinet", domain: "switch" }),
+    ];
+    mockDbSelect.mockReturnValue(makeSelectChain(fixtureRows));
 
     await toggleControl("lights", false);
 
-    // Fixtures are on the switch domain — must call switch, not light.
-    expect(mockCallService).toHaveBeenCalledWith("switch", "turn_off", {
-      entity_id: expect.arrayContaining(["switch.overhead_lights", "switch.under_cabinet"]),
+    expect(mockCommandDevice).toHaveBeenCalledTimes(2);
+    expect(mockCommandDevice).toHaveBeenCalledWith({
+      id: "fix-1",
+      action: "setOn",
+      args: { on: false },
+    });
+    expect(mockCommandDevice).toHaveBeenCalledWith({
+      id: "fix-2",
+      action: "setOn",
+      args: { on: false },
     });
   });
 
-  it("calls fan.turn_on with first fan entity", async () => {
+  it("calls commandDevice for the fan device row when toggling fan on", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntities.mockResolvedValue([makeFan("living_room", "off")]);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    const fanRow = makeDeviceRow({
+      id: "fan-db-1",
+      entityId: "fan.living_room",
+      kind: "fan",
+      domain: "fan",
+    });
+    mockDbSelect.mockReturnValue(makeSelectChain([fanRow]));
 
     await toggleControl("fan", true);
 
-    expect(mockCallService).toHaveBeenCalledWith("fan", "turn_on", {
-      entity_id: "fan.living_room",
+    expect(mockCommandDevice).toHaveBeenCalledWith({
+      id: "fan-db-1",
+      action: "setOn",
+      args: { on: true },
     });
   });
 
-  it("calls fan.turn_off with first fan entity", async () => {
+  it("skips commandDevice silently when device row not found in DB", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockGetEntities.mockResolvedValue([makeFan("bedroom", "on", 50)]);
+    mockGetEntities.mockResolvedValue([]);
+    // No device rows in DB — overlay cannot be written, but no crash.
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    await toggleControl("fan", false);
-
-    expect(mockCallService).toHaveBeenCalledWith("fan", "turn_off", {
-      entity_id: "fan.bedroom",
-    });
+    await expect(toggleControl("lamps", true)).resolves.toBeDefined();
+    expect(mockCommandDevice).not.toHaveBeenCalled();
   });
 
   it("no-ops gracefully when no fan entities exist", async () => {
@@ -446,31 +484,39 @@ describe("toggleControl", () => {
     mockGetEntities.mockResolvedValue([]);
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    // Should resolve without throwing; callService must NOT be called.
+    // Should resolve without throwing; commandDevice must NOT be called.
     await expect(toggleControl("fan", true)).resolves.toBeDefined();
-    expect(mockCallService).not.toHaveBeenCalled();
+    expect(mockCommandDevice).not.toHaveBeenCalled();
   });
 
-  it("www-azw: switch-domain fixture turn_on uses switch service, not light", async () => {
+  it("www-azw: switch-domain fixture toggle calls commandDevice, not direct callService", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntities.mockResolvedValue([]);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    const fixtureRows = [
+      makeDeviceRow({ id: "fix-1", entityId: "switch.overhead_lights", domain: "switch" }),
+      makeDeviceRow({ id: "fix-2", entityId: "switch.under_cabinet", domain: "switch" }),
+    ];
+    mockDbSelect.mockReturnValue(makeSelectChain(fixtureRows));
 
     await toggleControl("lights", true);
 
-    // Must call switch.turn_on — never light.turn_on — for switch-domain fixtures.
-    expect(mockCallService).not.toHaveBeenCalledWith("light", expect.anything(), expect.anything());
-    expect(mockCallService).toHaveBeenCalledWith("switch", "turn_on", expect.anything());
+    expect(mockCommandDevice).toHaveBeenCalledTimes(2);
+    // commandDevice handles HA dispatch internally — no direct callService from toggleControl.
+    expect(mockCallService).not.toHaveBeenCalled();
   });
 
-  it("www-azw: switch-domain fixture turn_off uses switch service", async () => {
+  it("www-azw: lamp toggle calls commandDevice, not direct callService", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntities.mockResolvedValue([]);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    await toggleControl("lights", false);
+    const lampRows = [makeDeviceRow({ id: "lamp-1", entityId: "light.living_room_globe" })];
+    mockDbSelect.mockReturnValue(makeSelectChain(lampRows));
 
-    expect(mockCallService).toHaveBeenCalledWith("switch", "turn_off", expect.anything());
+    await toggleControl("lamps", false);
+
+    expect(mockCommandDevice).toHaveBeenCalledTimes(1);
+    expect(mockCallService).not.toHaveBeenCalled();
   });
 });
 
