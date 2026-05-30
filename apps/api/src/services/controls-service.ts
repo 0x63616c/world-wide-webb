@@ -1,5 +1,8 @@
+import { db } from "../db/index";
+import { deviceState } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
+import { mergeDeviceState } from "./device-sync-service";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -9,16 +12,19 @@ export interface LampState {
   count: number;
   /** Sub-label, e.g. "2 on · warm". */
   sub: string;
+  pending: boolean;
 }
 
 export interface LightState {
   on: boolean;
+  pending: boolean;
 }
 
 export interface FanState {
   on: boolean;
   /** Sub-label, e.g. "Medium". */
   sub: string;
+  pending: boolean;
 }
 
 export interface ControlsState {
@@ -28,14 +34,6 @@ export interface ControlsState {
 }
 
 export type ControlKey = "lamps" | "lights" | "fan";
-
-// ─── fallback / placeholder ──────────────────────────────────────────────────
-
-const FALLBACK: ControlsState = {
-  lamps: { on: true, count: 2, sub: "2 on · warm" },
-  lights: { on: false },
-  fan: { on: false, sub: "" },
-};
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -107,14 +105,17 @@ function classifyLights(entities: HaEntity[]): {
 // ─── public API ──────────────────────────────────────────────────────────────
 
 /**
- * Fetch current state of all controllable entities: lamps, lights, fan.
+ * Fetch current merged state of all controllable entities: lamps, lights, fan.
  *
- * Degrades gracefully: when HA is unconfigured or unreachable returns
- * `FALLBACK` so the tile never renders blank.
+ * Returns null when HA is unconfigured or unreachable so the tile renders
+ * shimmer (www-nra rule: no fake data).
+ *
+ * For any device that has an active desired window, the merged state reflects
+ * the desired value with pending=true.
  */
-export async function getControlsState(): Promise<ControlsState> {
+export async function getControlsState(): Promise<ControlsState | null> {
   if (!ha.isConfigured()) {
-    return FALLBACK;
+    return null;
   }
 
   let lightEntities: HaEntity[] = [];
@@ -126,39 +127,79 @@ export async function getControlsState(): Promise<ControlsState> {
       ha.getEntities("fan"),
     ]);
   } catch {
-    return FALLBACK;
+    return null;
   }
 
   const { lamps, lights } = classifyLights(lightEntities);
   const fanEntity = fanEntities[0];
 
-  const lampsOn = lamps.filter(isOn);
-  const anyLightOn = lights.some(isOn);
-  const fanOn = fanEntity ? isOn(fanEntity) : false;
+  // Fetch device rows and build a lookup by entityId for overlay merge.
+  let deviceRows: (typeof deviceState.$inferSelect)[] = [];
+  try {
+    deviceRows = await db.select().from(deviceState);
+  } catch {
+    // DB unreachable — fall through with empty rows (no overlay applied).
+  }
+
+  const now = new Date();
+  const deviceByEntityId = new Map(deviceRows.map((r) => [r.entityId, r]));
+
+  // Compute per-group pending: if ANY device in the group has an active overlay, the group is pending.
+  function isPending(entities: HaEntity[]): boolean {
+    return entities.some((e) => {
+      const row = deviceByEntityId.get(e.entity_id);
+      if (!row) return false;
+      return mergeDeviceState(row, now).pending;
+    });
+  }
+
+  function mergedOn(entity: HaEntity | undefined): boolean {
+    if (!entity) return false;
+    const row = deviceByEntityId.get(entity.entity_id);
+    if (!row) return isOn(entity);
+    const merged = mergeDeviceState(row, now);
+    return merged.state?.on ?? isOn(entity);
+  }
+
+  const lampsOn = lamps.filter((e) => mergedOn(e));
+  const anyLightOn = lights.some((e) => mergedOn(e));
+
+  const fanRow = fanEntity ? deviceByEntityId.get(fanEntity.entity_id) : undefined;
+  const fanMerged = fanRow ? mergeDeviceState(fanRow, now) : null;
+  const fanOn = fanMerged
+    ? (fanMerged.state?.on ?? isOn(fanEntity))
+    : fanEntity
+      ? isOn(fanEntity)
+      : false;
+  const fanPending = fanMerged?.pending ?? false;
 
   return {
     lamps: {
       on: lampsOn.length > 0,
       count: lampsOn.length,
       sub: lampSub(lamps),
+      pending: isPending(lamps),
     },
     lights: {
       on: anyLightOn,
+      pending: isPending(lights),
     },
     fan: {
       on: fanOn,
       sub: fanSub(fanEntity),
+      pending: fanPending,
     },
   };
 }
 
 /**
- * Toggle lamps, lights, or fan.
+ * Toggle lamps, lights, or fan on or off.
  *
  * Resolves the entity list at toggle-time so we always act on current state.
  * Throws when HA is unconfigured (caller should surface a tRPC error).
+ * Returns merged state after dispatching the command.
  */
-export async function toggleControl(key: ControlKey, on: boolean): Promise<void> {
+export async function toggleControl(key: ControlKey, on: boolean): Promise<ControlsState | null> {
   if (!ha.isConfigured()) {
     throw new Error("Home Assistant is not configured");
   }
@@ -169,17 +210,16 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<void>
       const { lamps } = classifyLights(entities);
       const service = on ? "turn_on" : "turn_off";
       if (lamps.length === 0) {
-        // No classified lamp entities — fall back to all lights.
         const all = entities.map((e) => e.entity_id);
         if (all.length > 0) {
           await ha.callService("light", service, { entity_id: all });
         }
-        return;
+      } else {
+        await ha.callService("light", service, {
+          entity_id: lamps.map((e) => e.entity_id),
+        });
       }
-      await ha.callService("light", service, {
-        entity_id: lamps.map((e) => e.entity_id),
-      });
-      return;
+      break;
     }
 
     case "lights": {
@@ -187,27 +227,29 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<void>
       const { lights } = classifyLights(entities);
       const service = on ? "turn_on" : "turn_off";
       if (lights.length === 0) {
-        // No classified ceiling lights — act on all.
         const all = entities.map((e) => e.entity_id);
         if (all.length > 0) {
           await ha.callService("light", service, { entity_id: all });
         }
-        return;
+      } else {
+        await ha.callService("light", service, {
+          entity_id: lights.map((e) => e.entity_id),
+        });
       }
-      await ha.callService("light", service, {
-        entity_id: lights.map((e) => e.entity_id),
-      });
-      return;
+      break;
     }
 
     case "fan": {
       const entities = await ha.getEntities("fan");
-      const service = on ? "turn_on" : "turn_off";
-      if (entities.length === 0) return;
-      await ha.callService("fan", service, {
-        entity_id: entities[0].entity_id,
-      });
-      return;
+      if (entities.length > 0) {
+        const service = on ? "turn_on" : "turn_off";
+        await ha.callService("fan", service, {
+          entity_id: entities[0].entity_id,
+        });
+      }
+      break;
     }
   }
+
+  return getControlsState();
 }

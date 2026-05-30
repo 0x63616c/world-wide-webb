@@ -10,15 +10,18 @@ const lampStateSchema = z.object({
   on: z.boolean().describe("True when at least one lamp is on"),
   count: z.number().int().min(0).describe("Number of lamp entities currently on"),
   sub: z.string().describe('Sub-label, e.g. "2 on · warm"'),
+  pending: z.boolean().describe("True while a command is in-flight and the overlay is active"),
 });
 
 const lightStateSchema = z.object({
   on: z.boolean().describe("True when at least one ceiling/overhead light is on"),
+  pending: z.boolean().describe("True while a command is in-flight and the overlay is active"),
 });
 
 const fanStateSchema = z.object({
   on: z.boolean().describe("True when the fan is running"),
   sub: z.string().describe('Speed label, e.g. "Medium"'),
+  pending: z.boolean().describe("True while a command is in-flight and the overlay is active"),
 });
 
 const controlsStateSchema = z
@@ -27,18 +30,15 @@ const controlsStateSchema = z
     lights: lightStateSchema,
     fan: fanStateSchema,
   })
-  .describe("Snapshot of all controllable entities: lamps, lights, fan");
-
-const toggleOutputSchema = z
-  .object({ success: z.boolean() })
-  .describe("Acknowledgement that the toggle was dispatched to Home Assistant");
+  .nullable()
+  .describe("Snapshot of all controllable entities: lamps, lights, fan. Null when HA unavailable.");
 
 // ─── router ──────────────────────────────────────────────────────────────────
 
 export const controlsRouter = router({
   /**
    * Returns the current on/off state + sub-labels for lamps, lights, and fan.
-   * Degrades to placeholder data when HA is unreachable.
+   * Returns null when HA is unreachable so the tile renders shimmer.
    */
   list: publicProcedure
     .input(z.object({}).optional())
@@ -47,8 +47,8 @@ export const controlsRouter = router({
 
   /**
    * Toggle lamps, lights, or fan on or off.
-   * Optimistic on the client — this mutation is fire-and-confirm; the caller
-   * should re-query `list` to reconcile.
+   * Returns merged state (with pending=true) immediately after dispatching
+   * to HA so the client can update without waiting for the next poll.
    */
   toggle: publicProcedure
     .input(
@@ -57,10 +57,10 @@ export const controlsRouter = router({
         on: z.boolean().describe("Desired state: true = on, false = off"),
       }),
     )
-    .output(toggleOutputSchema)
+    .output(controlsStateSchema)
     .mutation(async ({ input }) => {
       try {
-        await toggleControl(input.key, input.on);
+        return await toggleControl(input.key, input.on);
       } catch (err) {
         throw new TRPCError({
           code: "SERVICE_UNAVAILABLE",
@@ -68,6 +68,5 @@ export const controlsRouter = router({
           cause: err,
         });
       }
-      return { success: true };
     }),
 });

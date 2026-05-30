@@ -2,26 +2,29 @@
  * Controls tile — lamps, ceiling lights, fan + "More" placeholder.
  * Ported from the ETap / ctrl cell in evee-tiles.jsx / Evee Dashboard.html.
  *
- * Data: trpc.controls.list (refetch 30s).
- * Mutations: trpc.controls.toggle with optimistic update + reconcile.
+ * Data: trpc.controls.list (refetch 30s idle, 2s while any control is pending).
+ * Mutations: trpc.controls.toggle — backend owns correctness, no client-side cache manipulation.
  */
 
 import type { RouterOutputs } from "../../lib/trpc";
 import { trpc } from "../../lib/trpc";
 import { Icon } from "../Icon";
+import { Skeleton } from "../ui/Skeleton";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type ControlsState = RouterOutputs["controls"]["list"];
+type ControlsData = NonNullable<RouterOutputs["controls"]["list"]>;
 type ControlKey = "lamps" | "lights" | "fan";
 
-// ─── fallback data ────────────────────────────────────────────────────────────
+// ─── adaptive refetch interval ────────────────────────────────────────────────
 
-const FALLBACK: ControlsState = {
-  lamps: { on: true, count: 2, sub: "2 on · warm" },
-  lights: { on: false },
-  fan: { on: false, sub: "Off" },
-};
+// React Query passes the full Query object; we only care about its state data.
+function refetchInterval(query: { state: { data?: RouterOutputs["controls"]["list"] } }): number {
+  const data = query.state?.data;
+  if (!data) return 30_000;
+  const anyPending = data.lamps.pending || data.lights.pending || data.fan.pending;
+  return anyPending ? 2_000 : 30_000;
+}
 
 // ─── ETap — single control button ─────────────────────────────────────────────
 
@@ -30,15 +33,17 @@ interface TapProps {
   label: string;
   on: boolean;
   sub?: string;
+  pending?: boolean;
   onToggle: () => void;
 }
 
-function ETap({ icon, label, on, sub, onToggle }: TapProps) {
+function ETap({ icon, label, on, sub, pending, onToggle }: TapProps) {
   return (
     <button
       type="button"
       className={`tap${on ? " on" : ""}`}
       onClick={onToggle}
+      data-pending={pending ? "true" : undefined}
       style={{
         padding: 17,
         display: "flex",
@@ -49,6 +54,7 @@ function ETap({ icon, label, on, sub, onToggle }: TapProps) {
         font: "inherit",
         color: "inherit",
         background: "none",
+        opacity: pending ? 0.7 : 1,
       }}
       aria-pressed={on}
       aria-label={label}
@@ -69,7 +75,7 @@ function ETap({ icon, label, on, sub, onToggle }: TapProps) {
             letterSpacing: ".08em",
           }}
         >
-          {on ? (sub ?? "On") : "Off"}
+          {pending ? "…" : on ? (sub ?? "On") : "Off"}
         </div>
       </div>
     </button>
@@ -79,59 +85,9 @@ function ETap({ icon, label, on, sub, onToggle }: TapProps) {
 // ─── ControlsTile ─────────────────────────────────────────────────────────────
 
 export function ControlsTile() {
-  const utils = trpc.useUtils();
+  const { data, isError } = trpc.controls.list.useQuery({}, { refetchInterval });
 
-  const { data, isError } = trpc.controls.list.useQuery({}, { refetchInterval: 30_000 });
-
-  // Use real data, fall back to placeholder on error or during loading.
-  const controls: ControlsState = data ?? FALLBACK;
-
-  const toggleMutation = trpc.controls.toggle.useMutation({
-    // Optimistic: flip the local cache immediately.
-    onMutate: async ({ key, on }) => {
-      await utils.controls.list.cancel();
-      const prev = utils.controls.list.getData({});
-
-      utils.controls.list.setData({}, (old) => {
-        const base = old ?? FALLBACK;
-        if (key === "lamps") {
-          return {
-            ...base,
-            lamps: {
-              ...base.lamps,
-              on,
-              count: on ? Math.max(base.lamps.count, 1) : 0,
-              sub: on ? base.lamps.sub : "all off",
-            },
-          };
-        }
-        if (key === "lights") {
-          return { ...base, lights: { on } };
-        }
-        // fan
-        return {
-          ...base,
-          fan: {
-            ...base.fan,
-            on,
-            sub: on ? (base.fan.sub === "Off" ? "Medium" : base.fan.sub) : "Off",
-          },
-        };
-      });
-
-      return { prev };
-    },
-
-    // Reconcile: on error revert; on success let the next poll refresh.
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.prev !== undefined) {
-        utils.controls.list.setData({}, ctx.prev);
-      }
-    },
-    onSettled: () => {
-      utils.controls.list.invalidate();
-    },
-  });
+  const toggleMutation = trpc.controls.toggle.useMutation();
 
   function handleToggle(key: ControlKey, currentOn: boolean) {
     toggleMutation.mutate({ key, on: !currentOn });
@@ -177,51 +133,82 @@ export function ControlsTile() {
           gap: 13,
         }}
       >
-        <ETap
-          icon="lamp"
-          label="Lamps"
-          on={controls.lamps.on}
-          sub={controls.lamps.sub}
-          onToggle={() => handleToggle("lamps", controls.lamps.on)}
-        />
-
-        <ETap
-          icon="bulb"
-          label="Lights"
-          on={controls.lights.on}
-          onToggle={() => handleToggle("lights", controls.lights.on)}
-        />
-
-        <ETap
-          icon="fan"
-          label="Fan"
-          on={controls.fan.on}
-          sub={controls.fan.sub}
-          onToggle={() => handleToggle("fan", controls.fan.on)}
-        />
-
-        {/* More — dashed placeholder */}
-        <button
-          type="button"
-          style={{
-            borderRadius: 15,
-            border: "1.5px dashed var(--hair-2)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            color: "var(--ink-3)",
-            cursor: "pointer",
-            font: "inherit",
-            background: "none",
-          }}
-          aria-label="More controls"
-        >
-          <Icon name="plus" s={22} c="var(--ink-3)" />
-          <span style={{ fontSize: 13 }}>More</span>
-        </button>
+        {data ? <ControlsGrid data={data} onToggle={handleToggle} /> : <SkeletonGrid />}
       </div>
     </div>
+  );
+}
+
+// ─── ControlsGrid — renders real tap cells ────────────────────────────────────
+
+interface ControlsGridProps {
+  data: ControlsData;
+  onToggle: (key: ControlKey, currentOn: boolean) => void;
+}
+
+function ControlsGrid({ data, onToggle }: ControlsGridProps) {
+  return (
+    <>
+      <ETap
+        icon="lamp"
+        label="Lamps"
+        on={data.lamps.on}
+        sub={data.lamps.sub}
+        pending={data.lamps.pending}
+        onToggle={() => onToggle("lamps", data.lamps.on)}
+      />
+
+      <ETap
+        icon="bulb"
+        label="Lights"
+        on={data.lights.on}
+        pending={data.lights.pending}
+        onToggle={() => onToggle("lights", data.lights.on)}
+      />
+
+      <ETap
+        icon="fan"
+        label="Fan"
+        on={data.fan.on}
+        sub={data.fan.sub}
+        pending={data.fan.pending}
+        onToggle={() => onToggle("fan", data.fan.on)}
+      />
+
+      {/* More — dashed placeholder */}
+      <button
+        type="button"
+        style={{
+          borderRadius: 15,
+          border: "1.5px dashed var(--hair-2)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          color: "var(--ink-3)",
+          cursor: "pointer",
+          font: "inherit",
+          background: "none",
+        }}
+        aria-label="More controls"
+      >
+        <Icon name="plus" s={22} c="var(--ink-3)" />
+        <span style={{ fontSize: 13 }}>More</span>
+      </button>
+    </>
+  );
+}
+
+// ─── SkeletonGrid — shimmer placeholders while data loads ─────────────────────
+
+function SkeletonGrid() {
+  return (
+    <>
+      <Skeleton w="100%" h={80} borderRadius={15} />
+      <Skeleton w="100%" h={80} borderRadius={15} />
+      <Skeleton w="100%" h={80} borderRadius={15} />
+      <Skeleton w="100%" h={80} borderRadius={15} />
+    </>
   );
 }
