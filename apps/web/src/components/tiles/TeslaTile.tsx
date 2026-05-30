@@ -1,5 +1,7 @@
 import { Icon } from "@/components/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Tile } from "@/components/ui/Tile";
+import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
 
 // ── Sub-components ──────────────────────────────────────────────────────────
@@ -13,9 +15,8 @@ interface HeaderProps {
 function TeslaHeader({ nick, place, locked }: HeaderProps) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
-      {/* car chip */}
+      {/* car chip — no extra className needed */}
       <span
-        className="ic"
         style={{
           width: 38,
           height: 38,
@@ -30,7 +31,7 @@ function TeslaHeader({ nick, place, locked }: HeaderProps) {
         <Icon name="car" s={22} c="var(--ink)" />
       </span>
 
-      {/* title + sub */}
+      {/* title + sub — nickname is primary per approved design */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
@@ -41,7 +42,7 @@ function TeslaHeader({ nick, place, locked }: HeaderProps) {
             gap: 8,
           }}
         >
-          Tesla
+          {nick}
           <span
             className="cap"
             style={{
@@ -52,7 +53,7 @@ function TeslaHeader({ nick, place, locked }: HeaderProps) {
               color: "var(--ink-2)",
             }}
           >
-            Model Y
+            MODEL Y
           </span>
         </div>
         <div
@@ -64,7 +65,7 @@ function TeslaHeader({ nick, place, locked }: HeaderProps) {
             textOverflow: "ellipsis",
           }}
         >
-          {nick} · {place}
+          Tesla · {place}
         </div>
       </div>
 
@@ -253,38 +254,33 @@ function Stat({ label, value, accent }: StatProps) {
 // ── Skeleton layout mirroring the real tile structure ────────────────────────
 function TeslaSkeleton() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "100%" }}>
-      <Skeleton w="100%" h={38} borderRadius={11} />
-      <div style={{ flex: 1, minHeight: 140 }}>
-        <Skeleton w="100%" h="100%" borderRadius={14} />
+    <Tile padding={22}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "100%" }}>
+        <Skeleton w="100%" h={38} borderRadius={11} />
+        <div style={{ flex: 1, minHeight: 140 }}>
+          <Skeleton w="100%" h="100%" borderRadius={14} />
+        </div>
+        <Skeleton w="100%" h={32} borderRadius={8} />
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+          <Skeleton w="30%" h={40} borderRadius={6} />
+          <Skeleton w="30%" h={40} borderRadius={6} />
+          <Skeleton w="30%" h={40} borderRadius={6} />
+        </div>
       </div>
-      <Skeleton w="100%" h={32} borderRadius={8} />
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-        <Skeleton w="30%" h={40} borderRadius={6} />
-        <Skeleton w="30%" h={40} borderRadius={6} />
-        <Skeleton w="30%" h={40} borderRadius={6} />
-      </div>
-    </div>
+    </Tile>
   );
 }
 
 // ── Main tile ────────────────────────────────────────────────────────────────
 export function TeslaTile() {
   const { data } = trpc.tesla.get.useQuery(undefined, {
-    refetchInterval: 60_000,
+    refetchInterval: POLL.tesla,
   });
 
   if (!data) return <TeslaSkeleton />;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-        height: "100%",
-      }}
-    >
+    <Tile padding={22} style={{ gap: 16 }}>
       <TeslaHeader nick={data.nick} place={data.place} locked={data.locked} />
 
       {/* map */}
@@ -301,6 +297,6 @@ export function TeslaTile() {
         <Stat label="Odometer" value={data.odo} />
         <Stat label="Cabin" value={`${data.climate}°F`} />
       </div>
-    </div>
+    </Tile>
   );
 }
