@@ -51,6 +51,7 @@ vi.mock("../services/device-command-service", () => ({
 
 // ─── import after mock ────────────────────────────────────────────────────────
 
+import { LAMP_ENTITY_IDS } from "../config/lights";
 import { getControlsState, toggleControl } from "../services/controls-service";
 import { router } from "../trpc/init";
 import { controlsRouter } from "../trpc/routers/controls";
@@ -469,14 +470,19 @@ describe("toggleControl", () => {
     });
   });
 
-  it("skips commandDevice silently when device row not found in DB", async () => {
+  it("dispatches a direct HA call for unregistered devices so toggles are never silent no-ops", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntities.mockResolvedValue([]);
-    // No device rows in DB — overlay cannot be written, but no crash.
+    // No device rows in DB — overlay cannot be written, but the command MUST still reach HA.
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
     await expect(toggleControl("lamps", true)).resolves.toBeDefined();
     expect(mockCommandDevice).not.toHaveBeenCalled();
+    // Every lamp falls back to a direct, config-correct light.turn_on (regression: CC-5yh no-op).
+    expect(mockCallService).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
+    expect(mockCallService).toHaveBeenCalledWith("light", "turn_on", {
+      entity_id: LAMP_ENTITY_IDS[0],
+    });
   });
 
   it("no-ops gracefully when no fan entities exist", async () => {
@@ -506,16 +512,19 @@ describe("toggleControl", () => {
     expect(mockCallService).not.toHaveBeenCalled();
   });
 
-  it("CC-azw: lamp toggle calls commandDevice, not direct callService", async () => {
+  it("CC-azw: registered lamp toggle uses commandDevice overlay, not direct callService", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntities.mockResolvedValue([]);
 
-    const lampRows = [makeDeviceRow({ id: "lamp-1", entityId: "light.living_room_globe" })];
+    // Register ALL lamp entities so each takes the overlay path.
+    const lampRows = LAMP_ENTITY_IDS.map((entityId, i) =>
+      makeDeviceRow({ id: `lamp-${i}`, entityId }),
+    );
     mockDbSelect.mockReturnValue(makeSelectChain(lampRows));
 
     await toggleControl("lamps", false);
 
-    expect(mockCommandDevice).toHaveBeenCalledTimes(1);
+    expect(mockCommandDevice).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
     expect(mockCallService).not.toHaveBeenCalled();
   });
 });
