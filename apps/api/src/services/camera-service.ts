@@ -47,7 +47,9 @@ export async function getCameraInfo(): Promise<CameraInfo | null> {
   return {
     label: friendlyName ?? entity.entity_id,
     online: entity.state !== "unavailable",
-    snapshotUrl: ha.cameraProxyUrl(entity.entity_id),
+    // HA camera proxy requires Bearer auth; the browser <img> tag can't send
+    // auth headers. A proper authenticated proxy route is deferred (www-2x4).
+    snapshotUrl: null,
     streamUrl: null,
     entityId: entity.entity_id,
   };
