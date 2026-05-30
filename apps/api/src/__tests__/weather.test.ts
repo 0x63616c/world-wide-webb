@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEMO_HOURLY, fetchWeatherHourly, fetchWeatherNow } from "../services/weather-service";
+import { fetchWeatherHourly, fetchWeatherNow } from "../services/weather-service";
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -93,18 +93,57 @@ describe("fetchWeatherNow", () => {
   });
 });
 
+// Build a realistic Open-Meteo hourly response spanning 48 hours, starting a
+// few hours before "now" so the current-hour alignment lands mid-array.
+function makeHourlyResponse() {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const base = new Date();
+  base.setMinutes(0, 0, 0);
+  base.setHours(base.getHours() - 3);
+  const time: string[] = [];
+  const temperature_2m: number[] = [];
+  const apparent_temperature: number[] = [];
+  const weather_code: number[] = [];
+  const is_day: number[] = [];
+  for (let i = 0; i < 48; i++) {
+    const d = new Date(base.getTime() + i * 3_600_000);
+    time.push(
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`,
+    );
+    temperature_2m.push(70 + (i % 10));
+    apparent_temperature.push(68 + (i % 10));
+    weather_code.push(i % 3);
+    is_day.push(d.getHours() >= 6 && d.getHours() < 18 ? 1 : 0);
+  }
+  return { hourly: { time, temperature_2m, apparent_temperature, weather_code, is_day } };
+}
+
 describe("fetchWeatherHourly", () => {
-  it("returns 12 items (DEMO_HOURLY)", async () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", mockFetchOk(makeHourlyResponse()));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns 12 items starting at the current hour", async () => {
     const result = await fetchWeatherHourly(34.0537, -118.2428);
     expect(result).toHaveLength(12);
   });
 
-  it("first item is labeled Now", async () => {
+  it("labels the first slot Now and the rest with real clock hours", async () => {
     const result = await fetchWeatherHourly(34.0537, -118.2428);
     expect(result[0].t).toBe("Now");
+    // Subsequent labels are 12-hour clock numbers (1-12), derived from real time.
+    for (const item of result.slice(1)) {
+      const n = Number(item.t);
+      expect(Number.isInteger(n)).toBe(true);
+      expect(n).toBeGreaterThanOrEqual(1);
+      expect(n).toBeLessThanOrEqual(12);
+    }
   });
 
-  it("items include temp, feels, and ic fields", async () => {
+  it("maps temp, feels, and a valid icon for each slot", async () => {
     const result = await fetchWeatherHourly(34.0537, -118.2428);
     for (const item of result) {
       expect(typeof item.temp).toBe("number");
@@ -113,49 +152,8 @@ describe("fetchWeatherHourly", () => {
     }
   });
 
-  it("returns identical reference to DEMO_HOURLY", async () => {
-    const result = await fetchWeatherHourly(34.0537, -118.2428);
-    expect(result).toBe(DEMO_HOURLY);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// DEMO_HOURLY shape — always-on demo payload for the Next12Hours tile
-// ---------------------------------------------------------------------------
-
-describe("DEMO_HOURLY", () => {
-  it("has exactly 12 items", () => {
-    expect(DEMO_HOURLY).toHaveLength(12);
-  });
-
-  it("first item is labeled Now", () => {
-    expect(DEMO_HOURLY[0].t).toBe("Now");
-  });
-
-  it("all items have numeric temp and feels fields", () => {
-    for (const item of DEMO_HOURLY) {
-      expect(typeof item.temp).toBe("number");
-      expect(typeof item.feels).toBe("number");
-    }
-  });
-
-  it("all items have a valid icon value", () => {
-    const validIcons = ["sun", "moon", "cloud", "cloud-sun"];
-    for (const item of DEMO_HOURLY) {
-      expect(validIcons).toContain(item.ic);
-    }
-  });
-
-  it("temperatures are realistic (between 40°F and 110°F for LA)", () => {
-    for (const item of DEMO_HOURLY) {
-      expect(item.temp).toBeGreaterThanOrEqual(40);
-      expect(item.temp).toBeLessThanOrEqual(110);
-    }
-  });
-
-  it("has varied temperatures across the 12 hours (not all identical)", () => {
-    const temps = DEMO_HOURLY.map((h) => h.temp);
-    const unique = new Set(temps);
-    expect(unique.size).toBeGreaterThan(1);
+  it("throws on non-OK HTTP response (tile shimmers, no fake data)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+    await expect(fetchWeatherHourly(34.0537, -118.2428)).rejects.toThrow("HTTP 503");
   });
 });
