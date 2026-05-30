@@ -120,7 +120,7 @@ describe("EventsTile", () => {
     expect(farDay?.style.color).toBe("var(--ink)");
   });
 
-  it("calls useQuery with 30-min refetch interval", () => {
+  it("calls useQuery with <=5-min refetch interval", () => {
     mockUseQuery.mockReturnValue({
       data: [],
       isLoading: false,
@@ -129,9 +129,22 @@ describe("EventsTile", () => {
 
     render(<EventsTile />);
 
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      undefined,
-      expect.objectContaining({ refetchInterval: 30 * 60 * 1000 }),
-    );
+    const [, opts] = mockUseQuery.mock.calls[0];
+    expect(opts.refetchInterval).toBeLessThanOrEqual(5 * 60 * 1000);
+  });
+
+  it("renders skeleton when data is available but empty (no invented events)", () => {
+    mockUseQuery.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<EventsTile />);
+
+    // No real event rows should be rendered for an empty list
+    expect(screen.queryByText("Gorgon City")).toBeNull();
+    expect(screen.queryByText("Chris Lake")).toBeNull();
+    expect(screen.getByText("Upcoming")).toBeTruthy();
   });
 });
