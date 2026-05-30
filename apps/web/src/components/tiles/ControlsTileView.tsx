@@ -177,12 +177,15 @@ function SkeletonGrid() {
 
 export function ControlsTileView(props: ControlsTileViewProps) {
   return (
-    <Tile padding={22}>
+    <Tile padding={20}>
       <TileHeader icon="bulb" title="Controls" />
 
       <div
         style={{
           flex: 1,
+          // minHeight:0 prevents the implicit min-height:auto from causing the
+          // grid to overflow the bottom padding when the flex child expands.
+          minHeight: 0,
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
           gridTemplateRows: "1fr 1fr",

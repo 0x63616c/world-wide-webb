@@ -441,12 +441,12 @@ describe("ControlsTile", () => {
     });
   });
 
-  describe("www-lad: consistency", () => {
-    it("outer tile wrapper has padding 22 (not 20)", () => {
+  describe("www-lqz: consistent padding", () => {
+    it("outer tile wrapper has padding 20 so bottom spacing matches sides", () => {
       mockQueryReturn = { data: undefined, isLoading: true, isError: false };
       const { container } = render(<ControlsTile />);
       const tile = container.firstChild as HTMLElement;
-      expect(tile.style.padding).toBe("22px");
+      expect(tile.style.padding).toBe("20px");
     });
   });
 });

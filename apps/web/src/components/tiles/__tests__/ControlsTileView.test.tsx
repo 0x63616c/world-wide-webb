@@ -118,6 +118,26 @@ describe("ControlsTileView — populated state", () => {
   });
 });
 
+// ─── layout ───────────────────────────────────────────────────────────────────
+
+describe("ControlsTileView — layout", () => {
+  it("tile root has padding 20 so bottom spacing matches sides", () => {
+    const { container } = render(<ControlsTileView {...populatedProps} />);
+    const tile = container.querySelector(".tile") as HTMLElement;
+    expect(tile).not.toBeNull();
+    expect(tile.style.padding).toBe("20px");
+  });
+
+  it("grid container has minHeight 0 to prevent flex overflow past bottom padding", () => {
+    const { container } = render(<ControlsTileView {...populatedProps} />);
+    const tile = container.querySelector(".tile") as HTMLElement;
+    // The grid is the second child of the tile (after TileHeader)
+    const grid = tile?.children[1] as HTMLElement;
+    expect(grid).not.toBeNull();
+    expect(grid.style.minHeight).toBe("0px");
+  });
+});
+
 // ─── callbacks ────────────────────────────────────────────────────────────────
 
 describe("ControlsTileView — onToggle callbacks", () => {
