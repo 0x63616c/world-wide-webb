@@ -53,10 +53,11 @@ describe("TeslaTile", () => {
     // Root element has tile chrome
     expect(container.firstChild).toHaveClass("tile");
 
-    // Header: nickname is primary heading, "Tesla · place" is subtitle
-    expect(screen.getByText("Evee")).toBeInTheDocument();
-    expect(screen.getByText("MODEL Y")).toBeInTheDocument();
-    expect(screen.getByText(/Tesla · Home/i)).toBeInTheDocument();
+    // Header: simplified to just 'Tesla' with lock pill (www-8c2)
+    expect(screen.getByText("Tesla")).toBeInTheDocument();
+    expect(screen.queryByText("MODEL Y")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Tesla · Home/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Evee")).not.toBeInTheDocument();
     expect(screen.getByText("Locked")).toBeInTheDocument();
 
     // Map labels
@@ -100,7 +101,6 @@ describe("TeslaTile", () => {
     render(<TeslaTile />);
 
     // Real data must NOT be rendered — skeleton shows instead
-    expect(screen.queryByText("Evee")).not.toBeInTheDocument();
     expect(screen.queryByText("82%")).not.toBeInTheDocument();
     expect(screen.queryByText("264 mi")).not.toBeInTheDocument();
   });
@@ -116,7 +116,6 @@ describe("TeslaTile", () => {
     render(<TeslaTile />);
 
     // Real data must NOT be rendered
-    expect(screen.queryByText("Evee")).not.toBeInTheDocument();
     expect(screen.queryByText("264 mi")).not.toBeInTheDocument();
   });
 

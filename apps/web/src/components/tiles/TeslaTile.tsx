@@ -1,82 +1,11 @@
 import { Icon } from "@/components/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tile } from "@/components/ui/Tile";
+import { TileHeader } from "@/components/ui/TileHeader";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
 
 // ── Sub-components ──────────────────────────────────────────────────────────
-
-interface HeaderProps {
-  nick: string;
-  place: string;
-  locked: boolean;
-}
-
-function TeslaHeader({ nick, place, locked }: HeaderProps) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
-      {/* car chip — no extra className needed */}
-      <span
-        style={{
-          width: 38,
-          height: 38,
-          borderRadius: 11,
-          background: "var(--nest)",
-          border: "1px solid var(--hair)",
-          display: "grid",
-          placeItems: "center",
-          flexShrink: 0,
-        }}
-      >
-        <Icon name="car" s={22} c="var(--ink)" />
-      </span>
-
-      {/* title + sub — nickname is primary per approved design */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: 19,
-            fontWeight: 600,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          {nick}
-          <span
-            className="cap"
-            style={{
-              fontSize: 10,
-              padding: "2px 7px",
-              border: "1px solid var(--hair)",
-              borderRadius: 6,
-              color: "var(--ink-2)",
-            }}
-          >
-            MODEL Y
-          </span>
-        </div>
-        <div
-          style={{
-            fontSize: 13,
-            color: "var(--ink-3)",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          Tesla · {place}
-        </div>
-      </div>
-
-      {/* lock pill */}
-      <span className={`pill${locked ? "" : " amber"}`}>
-        <Icon name={locked ? "lock" : "unlock"} s={15} />
-        {locked ? "Locked" : "Unlocked"}
-      </span>
-    </div>
-  );
-}
 
 // ── Lo-fi SVG map (exact replica of EMap from design) ───────────────────────
 function TeslaMap() {
@@ -281,7 +210,16 @@ export function TeslaTile() {
 
   return (
     <Tile padding={22} style={{ gap: 16 }}>
-      <TeslaHeader nick={data.nick} place={data.place} locked={data.locked} />
+      <TileHeader
+        icon="car"
+        title="Tesla"
+        right={
+          <span className={`pill${data.locked ? "" : " amber"}`}>
+            <Icon name={data.locked ? "lock" : "unlock"} s={15} />
+            {data.locked ? "Locked" : "Unlocked"}
+          </span>
+        }
+      />
 
       {/* map */}
       <div style={{ flex: 1, minHeight: 140 }}>
