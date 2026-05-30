@@ -62,7 +62,7 @@ describe("ClimateTile — renders with data", () => {
     expect(screen.getByTestId("setpoint")).toHaveTextContent("°F");
   });
 
-  it("shows the mode pill label for Cooling", () => {
+  it("shows the mode pill label for Cooling (from data.action)", () => {
     renderTile();
     expect(screen.getByText("Cooling")).toBeInTheDocument();
   });
@@ -70,6 +70,32 @@ describe("ClimateTile — renders with data", () => {
   it("marks the Cool chip as active", () => {
     renderTile();
     expect(screen.getByTestId("chip-cool")).toHaveClass("on");
+  });
+
+  it("mode pill reflects live action=Heating even when setpoint is in auto range", () => {
+    mockUseQuery.mockReturnValue({
+      data: { target: 72, ambient: 70, mode: "heat", action: "Heating" },
+      isLoading: false,
+      isError: false,
+    });
+    renderTile();
+    expect(screen.getByTestId("mode-pill")).toHaveTextContent("Heating");
+  });
+
+  it("mode pill reflects live action=Idle", () => {
+    mockUseQuery.mockReturnValue({
+      data: { target: 72, ambient: 72, mode: "auto", action: "Idle" },
+      isLoading: false,
+      isError: false,
+    });
+    renderTile();
+    expect(screen.getByTestId("mode-pill")).toHaveTextContent("Idle");
+  });
+
+  it("renders bare icon without an ic wrapper (uses TileHeader)", () => {
+    const { container } = renderTile();
+    // The ic span wrapping is gone — no element with class "ic" should exist
+    expect(container.querySelector(".ic")).not.toBeInTheDocument();
   });
 
   it("shows ambient temperature marker", () => {

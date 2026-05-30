@@ -1,8 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { POLL } from "../../lib/hooks";
 import { trpc } from "../../lib/trpc";
-import { Icon } from "../Icon";
-import { Skeleton } from "../ui/Skeleton";
+import { Skeleton, TileHeader } from "../ui";
 
 // Design constants (evee-tiles.jsx EClimate)
 const MIN = 65;
@@ -57,6 +56,10 @@ export function ClimateTile() {
 
   const data = query.data;
 
+  // pill label: use live action from HA when not locally overriding
+  const pillLabel =
+    localTarget !== null ? modeLabel(modeFromTarget(localTarget)) : (data?.action ?? "");
+
   const handleSlider = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const val = parseInt(e.target.value, 10);
@@ -101,26 +104,15 @@ export function ClimateTile() {
       style={{ height: "100%", padding: 22, display: "flex", flexDirection: "column" }}
     >
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <span className="ic" style={{ width: 26, height: 26, borderRadius: 8 }}>
-          <Icon name="thermo" s={16} c="var(--ink-2)" />
-        </span>
-        <span
-          style={{
-            fontSize: 17.5,
-            fontWeight: 600,
-            letterSpacing: "-0.015em",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Climate · A/C
-        </span>
-        <span style={{ marginLeft: "auto" }}>
-          <span className={"pill on"} style={{ padding: "4px 10px" }}>
-            {modeLabel(displayMode)}
+      <TileHeader
+        icon="thermo"
+        title="Climate · A/C"
+        right={
+          <span className="pill on" style={{ padding: "4px 10px" }} data-testid="mode-pill">
+            {pillLabel}
           </span>
-        </span>
-      </div>
+        }
+      />
 
       {/* Big setpoint */}
       <div
