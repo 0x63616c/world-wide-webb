@@ -3,13 +3,19 @@
  * Ported from the ETap / ctrl cell in evee-tiles.jsx / Evee Dashboard.html.
  *
  * Data: trpc.controls.list (refetch 30s idle, 2s while any control is pending).
+ *   After a toggle the poll is paused for COOLDOWN_MS so the backend's desired-
+ *   window overlay has time to establish before HA confirms — matching evee's
+ *   FanTile cooldown pattern and preventing the snap-back flicker bug.
  * Mutations: trpc.controls.toggle — backend owns correctness, no client-side cache manipulation.
  */
 
+import { useEffect, useRef, useState } from "react";
 import type { RouterOutputs } from "../../lib/trpc";
 import { trpc } from "../../lib/trpc";
 import { Icon } from "../Icon";
 import { Skeleton, Tile, TileHeader } from "../ui";
+
+const COOLDOWN_AFTER_TOGGLE_MS = 5_000;
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -19,11 +25,20 @@ type ControlKey = "lamps" | "lights" | "fan";
 // ─── adaptive refetch interval ────────────────────────────────────────────────
 
 // React Query passes the full Query object; we only care about its state data.
-function refetchInterval(query: { state: { data?: RouterOutputs["controls"]["list"] } }): number {
-  const data = query.state?.data;
-  if (!data) return 30_000;
-  const anyPending = data.lamps.pending || data.lights.pending || data.fan.pending;
-  return anyPending ? 2_000 : 30_000;
+// The cooldownUntil ref is injected by the component so it can be checked inside.
+// Exported for unit testing.
+export function makeRefetchInterval(
+  getCooldownUntil: () => number,
+): (query: { state: { data?: RouterOutputs["controls"]["list"] } }) => number | false {
+  return (query) => {
+    // Pause polling entirely during the cooldown window so the backend's desired-
+    // window overlay is visible before we reconcile with live HA state.
+    if (Date.now() < getCooldownUntil()) return false;
+    const data = query.state?.data;
+    if (!data) return 30_000;
+    const anyPending = data.lamps.pending || data.lights.pending || data.fan.pending;
+    return anyPending ? 2_000 : 30_000;
+  };
 }
 
 // ─── ETap — single control button ─────────────────────────────────────────────
@@ -99,12 +114,33 @@ function ETap({ icon, label, on, sub, pending, onToggle }: TapProps) {
 
 export function ControlsTile() {
   const utils = trpc.useUtils();
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  // Stable ref so the refetch interval callback always reads the latest value
+  // without needing to be recreated (avoids unnecessary query re-subscriptions).
+  const cooldownRef = useRef(cooldownUntil);
+  cooldownRef.current = cooldownUntil;
+
+  const refetchInterval = makeRefetchInterval(() => cooldownRef.current);
+
   const { data } = trpc.controls.list.useQuery({}, { refetchInterval });
 
+  // When cooldown expires, invalidate once to pull fresh HA state.
+  useEffect(() => {
+    if (cooldownUntil === 0) return;
+    const remaining = cooldownUntil - Date.now();
+    if (remaining <= 0) {
+      void utils.controls.list.invalidate({});
+      return;
+    }
+    const timer = setTimeout(() => {
+      void utils.controls.list.invalidate({});
+    }, remaining);
+    return () => clearTimeout(timer);
+  }, [cooldownUntil, utils]);
+
   const toggleMutation = trpc.controls.toggle.useMutation({
-    // Optimistic flip so the tap responds instantly even for unregistered
-    // devices (which have no server-side pending overlay). pending:true also
-    // bumps the adaptive refetch to 2s so the real HA state confirms quickly.
+    // Optimistic flip so the tap responds instantly. pending:true bumps
+    // adaptive refetch to 2s once the cooldown expires.
     onMutate: async ({ key, on }) => {
       await utils.controls.list.cancel({});
       const prev = utils.controls.list.getData({});
@@ -114,14 +150,14 @@ export function ControlsTile() {
         if (key === "lights") return { ...old, lights: { ...old.lights, on, pending: true } };
         return { ...old, fan: { ...old.fan, on, pending: true } };
       });
+      setCooldownUntil(Date.now() + COOLDOWN_AFTER_TOGGLE_MS);
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev !== undefined) utils.controls.list.setData({}, ctx.prev);
     },
-    onSettled: () => {
-      utils.controls.list.invalidate({});
-    },
+    // No invalidate on settled — the cooldown useEffect drives the reconcile
+    // after the window expires, preventing snap-back to stale HA state.
   });
 
   function handleToggle(key: ControlKey, currentOn: boolean) {
