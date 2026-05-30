@@ -105,7 +105,24 @@ describe("ControlsTile", () => {
       expect(screen.getByLabelText("Lamps")).toBeInTheDocument();
       expect(screen.getByLabelText("Lights")).toBeInTheDocument();
       expect(screen.getByLabelText("Fan")).toBeInTheDocument();
-      expect(screen.getByLabelText("More controls")).toBeInTheDocument();
+      // www-bh5: 4th cell is labeled "Scene", not "More"
+      expect(screen.getByLabelText("Scene")).toBeInTheDocument();
+    });
+
+    it("www-bh5: 4th cell shows Scene label text", () => {
+      render(<ControlsTile />);
+      expect(screen.getByText("Scene")).toBeInTheDocument();
+      expect(screen.queryByText("More")).not.toBeInTheDocument();
+    });
+
+    it("www-bh5: fan icon has spin animation running when fan is on", () => {
+      render(<ControlsTile />);
+      // Fan is on in the beforeEach data — the icon wrapper should have spin style.
+      const fanButton = screen.getByLabelText("Fan");
+      // The spinning icon sits inside the fan button; it should have animationPlayState running.
+      const spinEl = fanButton.querySelector("[data-fan-spin]");
+      expect(spinEl).not.toBeNull();
+      expect(spinEl).toHaveStyle({ animationPlayState: "running" });
     });
 
     it("Lamps tap reflects on state", () => {
@@ -124,6 +141,23 @@ describe("ControlsTile", () => {
       render(<ControlsTile />);
       const fan = screen.getByLabelText("Fan");
       expect(fan).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("www-bh5: fan icon spin is paused when fan is off", () => {
+      mockQueryReturn = {
+        data: {
+          lamps: { on: false, count: 0, sub: "all off", pending: false },
+          lights: { on: false, pending: false },
+          fan: { on: false, sub: "", pending: false },
+        },
+        isLoading: false,
+        isError: false,
+      };
+      render(<ControlsTile />);
+      const fanButton = screen.getByLabelText("Fan");
+      const spinEl = fanButton.querySelector("[data-fan-spin]");
+      expect(spinEl).not.toBeNull();
+      expect(spinEl).toHaveStyle({ animationPlayState: "paused" });
     });
 
     it("shows fan sub-label when on", () => {

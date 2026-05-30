@@ -60,7 +60,20 @@ function ETap({ icon, label, on, sub, pending, onToggle }: TapProps) {
       aria-label={label}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <Icon name={icon} s={26} c={on ? "var(--acc)" : "var(--ink-2)"} />
+        {icon === "fan" ? (
+          <span
+            data-fan-spin=""
+            style={{
+              display: "inline-flex",
+              animation: "spin 10s linear infinite",
+              animationPlayState: on ? "running" : "paused",
+            }}
+          >
+            <Icon name="fan" s={26} c={on ? "var(--acc)" : "var(--ink-2)"} />
+          </span>
+        ) : (
+          <Icon name={icon} s={26} c={on ? "var(--acc)" : "var(--ink-2)"} />
+        )}
         <span className="sd" />
       </div>
       <div>
@@ -90,6 +103,8 @@ export function ControlsTile() {
   const toggleMutation = trpc.controls.toggle.useMutation();
 
   function handleToggle(key: ControlKey, currentOn: boolean) {
+    // Block mutation until the first query resolves — prevents corrupting an empty cache.
+    if (!data) return;
     toggleMutation.mutate({ key, on: !currentOn });
   }
 
@@ -186,10 +201,10 @@ function ControlsGrid({ data, onToggle }: ControlsGridProps) {
           font: "inherit",
           background: "none",
         }}
-        aria-label="More controls"
+        aria-label="Scene"
       >
         <Icon name="plus" s={22} c="var(--ink-3)" />
-        <span style={{ fontSize: 13 }}>More</span>
+        <span style={{ fontSize: 13 }}>Scene</span>
       </button>
     </>
   );

@@ -46,15 +46,32 @@ import { controlsRouter } from "../trpc/routers/controls";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-function makeLamp(id: string, state: "on" | "off", kelvin = 2700) {
+/**
+ * Create a lamp entity with an entity_id that matches the LIGHTS config.
+ * All lamps are Hue bulbs on the light.* domain.
+ */
+function makeLamp(entityId: string, state: "on" | "off", kelvin = 2700) {
   return {
-    entity_id: `light.${id}_lamp`,
+    entity_id: entityId,
     state,
-    attributes: { friendly_name: `${id} Lamp`, color_temp_kelvin: kelvin },
+    attributes: { friendly_name: entityId, color_temp_kelvin: kelvin },
     last_updated: new Date().toISOString(),
   };
 }
 
+/**
+ * Create a switch-domain fixture entity matching the LIGHTS config.
+ */
+function makeFixture(entityId: string, state: "on" | "off") {
+  return {
+    entity_id: entityId,
+    state,
+    attributes: { friendly_name: entityId },
+    last_updated: new Date().toISOString(),
+  };
+}
+
+/** Legacy alias — used in tests that only care about fan entities. */
 function makeLight(id: string, state: "on" | "off") {
   return {
     entity_id: `light.${id}_ceiling`,
@@ -181,11 +198,14 @@ describe("getControlsState", () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntities.mockImplementation(async (domain: string) => {
       if (domain === "light") {
+        // Use real entity IDs from the config so resolveEntities() finds them.
         return [
-          makeLamp("living_room", "on", 2700),
-          makeLamp("bedroom", "on", 3000),
-          makeLight("kitchen", "off"),
+          makeLamp("light.living_room_globe", "on", 2700),
+          makeLamp("light.bed_lamp_left", "on", 3000),
         ];
+      }
+      if (domain === "switch") {
+        return [makeFixture("switch.overhead_lights", "off")];
       }
       return [];
     });
@@ -193,32 +213,33 @@ describe("getControlsState", () => {
     const lampRows = [
       makeDeviceRow({
         id: "lamp-1",
-        entityId: "light.living_room_lamp",
+        entityId: "light.living_room_globe",
         kind: "light",
-        label: "Living Room Lamp",
+        label: "Globe",
         reportedState: { on: true },
         available: true,
       }),
       makeDeviceRow({
         id: "lamp-2",
-        entityId: "light.bedroom_lamp",
+        entityId: "light.bed_lamp_left",
         kind: "light",
-        label: "Bedroom Lamp",
+        label: "Bed Left",
         reportedState: { on: true },
         available: true,
       }),
     ];
-    const lightRows = [
+    const fixtureRows = [
       makeDeviceRow({
-        id: "ceil-1",
-        entityId: "light.kitchen_ceiling",
-        kind: "light",
-        label: "Kitchen Ceiling",
+        id: "fix-1",
+        entityId: "switch.overhead_lights",
+        kind: "switch",
+        domain: "switch",
+        label: "Overhead",
         reportedState: { on: false },
         available: true,
       }),
     ];
-    mockDbSelect.mockReturnValue(makeSelectChain([...lampRows, ...lightRows]));
+    mockDbSelect.mockReturnValue(makeSelectChain([...lampRows, ...fixtureRows]));
 
     const state = await getControlsState();
 
@@ -290,6 +311,41 @@ describe("getControlsState", () => {
     expect(state?.fan.sub).toBe("Medium");
   });
 
+  it("www-azw: switch-domain fixtures are visible as 'lights' (not invisible)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntities.mockImplementation(async (domain: string) => {
+      if (domain === "switch") {
+        // overhead_lights is in the LIGHTS config as a fixture.
+        return [makeFixture("switch.overhead_lights", "on")];
+      }
+      return [];
+    });
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    const state = await getControlsState();
+
+    // The fixture must be visible — lights.on should be true.
+    expect(state?.lights.on).toBe(true);
+  });
+
+  it("www-azw: Hue lamps on light.* domain classified as lamps (not fixtures)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntities.mockImplementation(async (domain: string) => {
+      if (domain === "light") {
+        return [makeLamp("light.living_room_globe", "on", 2700)];
+      }
+      return [];
+    });
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    const state = await getControlsState();
+
+    expect(state?.lamps.on).toBe(true);
+    expect(state?.lamps.count).toBe(1);
+    // Fixtures should not accidentally be counted as lamps.
+    expect(state?.lights.on).toBe(false);
+  });
+
   it("reports all off when no entities are on", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntities.mockImplementation(async (domain: string) => {
@@ -326,35 +382,38 @@ describe("toggleControl", () => {
     await expect(toggleControl("lamps", true)).rejects.toThrow("Home Assistant is not configured");
   });
 
-  it("calls light.turn_on with lamp entity ids", async () => {
+  it("calls light.turn_on with all lamp entity ids from config", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockGetEntities.mockResolvedValue([
-      makeLamp("living", "off"),
-      makeLamp("corner", "off"),
-      makeLight("ceiling", "off"),
-    ]);
+    // toggleControl for "lamps" uses config directly — no getEntities call for lights.
+    mockGetEntities.mockResolvedValue([]);
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
     await toggleControl("lamps", true);
 
+    // All lamp entity IDs from the LIGHTS config must be included.
     expect(mockCallService).toHaveBeenCalledWith("light", "turn_on", {
-      entity_id: ["light.living_lamp", "light.corner_lamp"],
+      entity_id: expect.arrayContaining([
+        "light.living_room_globe",
+        "light.living_room_corner_lamp",
+        "light.living_room_floor_lamp",
+        "light.kitchen_lamp",
+        "light.bed_lamp_left",
+        "light.bed_lamp_right",
+      ]),
     });
   });
 
-  it("calls light.turn_off for lights key", async () => {
+  it("calls switch.turn_off for lights key (fixtures are on switch domain)", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockGetEntities.mockResolvedValue([
-      makeLamp("corner", "on"),
-      makeLight("kitchen", "on"),
-      makeLight("living", "on"),
-    ]);
+    // toggleControl for "lights" uses config directly — no getEntities call.
+    mockGetEntities.mockResolvedValue([]);
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
     await toggleControl("lights", false);
 
-    expect(mockCallService).toHaveBeenCalledWith("light", "turn_off", {
-      entity_id: ["light.kitchen_ceiling", "light.living_ceiling"],
+    // Fixtures are on the switch domain — must call switch, not light.
+    expect(mockCallService).toHaveBeenCalledWith("switch", "turn_off", {
+      entity_id: expect.arrayContaining(["switch.overhead_lights", "switch.under_cabinet"]),
     });
   });
 
@@ -391,6 +450,28 @@ describe("toggleControl", () => {
     await expect(toggleControl("fan", true)).resolves.toBeDefined();
     expect(mockCallService).not.toHaveBeenCalled();
   });
+
+  it("www-azw: switch-domain fixture turn_on uses switch service, not light", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntities.mockResolvedValue([]);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    await toggleControl("lights", true);
+
+    // Must call switch.turn_on — never light.turn_on — for switch-domain fixtures.
+    expect(mockCallService).not.toHaveBeenCalledWith("light", expect.anything(), expect.anything());
+    expect(mockCallService).toHaveBeenCalledWith("switch", "turn_on", expect.anything());
+  });
+
+  it("www-azw: switch-domain fixture turn_off uses switch service", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntities.mockResolvedValue([]);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    await toggleControl("lights", false);
+
+    expect(mockCallService).toHaveBeenCalledWith("switch", "turn_off", expect.anything());
+  });
 });
 
 // ─── router (tRPC caller) tests ───────────────────────────────────────────────
@@ -413,7 +494,8 @@ describe("controlsRouter.list", () => {
   it("returns controls state via tRPC caller when HA is configured", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntities.mockImplementation(async (domain: string) => {
-      if (domain === "light") return [makeLamp("lr", "on", 2700)];
+      // Use a real config entity ID so resolveEntities() recognises it as a lamp.
+      if (domain === "light") return [makeLamp("light.living_room_globe", "on", 2700)];
       return [];
     });
     mockDbSelect.mockReturnValue(makeSelectChain([]));
