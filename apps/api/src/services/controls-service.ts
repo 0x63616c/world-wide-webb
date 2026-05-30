@@ -1,3 +1,4 @@
+import { LIGHTS } from "../config/lights";
 import { db } from "../db/index";
 import { deviceState } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
@@ -74,30 +75,25 @@ function fanSub(entity: HaEntity | undefined): string {
   return "High";
 }
 
-// ─── entity resolution ───────────────────────────────────────────────────────
+// ─── config-driven entity resolution ─────────────────────────────────────────
 
 /**
- * Classify light entities into "lamps" (floor/table/accent) vs "lights"
- * (ceiling/overhead/main). Heuristics based on entity id / friendly name.
+ * Resolve lamp and fixture entities from fetched HA entities using the explicit
+ * LIGHTS config. Lamps = Hue light.* kind; fixtures = switch.* kind.
+ *
+ * Only entities listed in config are included — no substring guessing.
  */
-function classifyLights(entities: HaEntity[]): {
-  lamps: HaEntity[];
-  lights: HaEntity[];
-} {
-  const lampKeywords = ["lamp", "floor", "table", "accent", "corner", "side"];
-  const lamps: HaEntity[] = [];
-  const lights: HaEntity[] = [];
+function resolveEntities(
+  lightEntities: HaEntity[],
+  switchEntities: HaEntity[],
+): { lamps: HaEntity[]; lights: HaEntity[] } {
+  const lampEntityIds = new Set(LIGHTS.filter((l) => l.kind === "lamp").map((l) => l.entityId));
+  const fixtureEntityIds = new Set(
+    LIGHTS.filter((l) => l.kind === "fixture").map((l) => l.entityId),
+  );
 
-  for (const e of entities) {
-    const id = e.entity_id.toLowerCase();
-    const name = String(e.attributes.friendly_name ?? "").toLowerCase();
-    const isLamp = lampKeywords.some((k) => id.includes(k) || name.includes(k));
-    if (isLamp) {
-      lamps.push(e);
-    } else {
-      lights.push(e);
-    }
-  }
+  const lamps = lightEntities.filter((e) => lampEntityIds.has(e.entity_id));
+  const lights = switchEntities.filter((e) => fixtureEntityIds.has(e.entity_id));
 
   return { lamps, lights };
 }
@@ -119,18 +115,20 @@ export async function getControlsState(): Promise<ControlsState | null> {
   }
 
   let lightEntities: HaEntity[] = [];
+  let switchEntities: HaEntity[] = [];
   let fanEntities: HaEntity[] = [];
 
   try {
-    [lightEntities, fanEntities] = await Promise.all([
+    [lightEntities, switchEntities, fanEntities] = await Promise.all([
       ha.getEntities("light"),
+      ha.getEntities("switch"),
       ha.getEntities("fan"),
     ]);
   } catch {
     return null;
   }
 
-  const { lamps, lights } = classifyLights(lightEntities);
+  const { lamps, lights } = resolveEntities(lightEntities, switchEntities);
   const fanEntity = fanEntities[0];
 
   // Fetch device rows and build a lookup by entityId for overlay merge.
@@ -195,7 +193,8 @@ export async function getControlsState(): Promise<ControlsState | null> {
 /**
  * Toggle lamps, lights, or fan on or off.
  *
- * Resolves the entity list at toggle-time so we always act on current state.
+ * Uses the explicit LIGHTS config to identify entity ids and domains.
+ * Lamps toggle the light domain; fixtures toggle the switch domain.
  * Throws when HA is unconfigured (caller should surface a tRPC error).
  * Returns merged state after dispatching the command.
  */
@@ -204,37 +203,32 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
     throw new Error("Home Assistant is not configured");
   }
 
+  const service = on ? "turn_on" : "turn_off";
+
   switch (key) {
     case "lamps": {
-      const entities = await ha.getEntities("light");
-      const { lamps } = classifyLights(entities);
-      const service = on ? "turn_on" : "turn_off";
-      if (lamps.length === 0) {
-        const all = entities.map((e) => e.entity_id);
-        if (all.length > 0) {
-          await ha.callService("light", service, { entity_id: all });
-        }
-      } else {
+      const lampEntries = LIGHTS.filter((l) => l.kind === "lamp");
+      if (lampEntries.length > 0) {
         await ha.callService("light", service, {
-          entity_id: lamps.map((e) => e.entity_id),
+          entity_id: lampEntries.map((l) => l.entityId),
         });
       }
       break;
     }
 
     case "lights": {
-      const entities = await ha.getEntities("light");
-      const { lights } = classifyLights(entities);
-      const service = on ? "turn_on" : "turn_off";
-      if (lights.length === 0) {
-        const all = entities.map((e) => e.entity_id);
-        if (all.length > 0) {
-          await ha.callService("light", service, { entity_id: all });
+      const fixtureEntries = LIGHTS.filter((l) => l.kind === "fixture");
+      if (fixtureEntries.length > 0) {
+        // Each fixture lives on its own domain (switch). Group by domain and call once per domain.
+        const byDomain = new Map<string, string[]>();
+        for (const f of fixtureEntries) {
+          const ids = byDomain.get(f.domain) ?? [];
+          ids.push(f.entityId);
+          byDomain.set(f.domain, ids);
         }
-      } else {
-        await ha.callService("light", service, {
-          entity_id: lights.map((e) => e.entity_id),
-        });
+        for (const [domain, entityIds] of byDomain) {
+          await ha.callService(domain, service, { entity_id: entityIds });
+        }
       }
       break;
     }
@@ -242,7 +236,6 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
     case "fan": {
       const entities = await ha.getEntities("fan");
       if (entities.length > 0) {
-        const service = on ? "turn_on" : "turn_off";
         await ha.callService("fan", service, {
           entity_id: entities[0].entity_id,
         });
