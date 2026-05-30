@@ -9,36 +9,28 @@ export interface CameraInfo {
   entityId: string | null;
 }
 
-const FALLBACK: CameraInfo = {
-  label: "Living Room",
-  online: false,
-  snapshotUrl: null,
-  streamUrl: null,
-  entityId: null,
-};
-
 /**
  * Resolves the best camera entity from Home Assistant.
  *
  * Priority:
  *  1. An entity whose id or friendly_name contains "living" or "dog".
  *  2. The first entity in the camera.* domain.
- *  3. Fallback placeholder when HA is unconfigured or unreachable.
+ *  3. null when HA is unconfigured, unreachable, or has no camera entities.
  */
-export async function getCameraInfo(): Promise<CameraInfo> {
+export async function getCameraInfo(): Promise<CameraInfo | null> {
   if (!ha.isConfigured()) {
-    return FALLBACK;
+    return null;
   }
 
   let entities: Awaited<ReturnType<typeof ha.getEntities>>;
   try {
     entities = await ha.getEntities("camera");
   } catch {
-    return FALLBACK;
+    return null;
   }
 
   if (entities.length === 0) {
-    return FALLBACK;
+    return null;
   }
 
   const preferred = entities.find((e) => {
@@ -53,7 +45,7 @@ export async function getCameraInfo(): Promise<CameraInfo> {
   const friendlyName = entity.attributes.friendly_name as string | undefined;
 
   return {
-    label: friendlyName ?? "Living Room",
+    label: friendlyName ?? entity.entity_id,
     online: entity.state !== "unavailable",
     snapshotUrl: ha.cameraProxyUrl(entity.entity_id),
     streamUrl: null,

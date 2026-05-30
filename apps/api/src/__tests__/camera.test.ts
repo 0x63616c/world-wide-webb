@@ -26,49 +26,31 @@ beforeEach(() => {
 });
 
 describe("getCameraInfo", () => {
-  it("returns fallback when HA is not configured", async () => {
+  it("returns null when HA is not configured", async () => {
     mockedHa.isConfigured.mockReturnValue(false);
 
     const result = await getCameraInfo();
 
-    expect(result).toEqual({
-      label: "Living Room",
-      online: false,
-      snapshotUrl: null,
-      streamUrl: null,
-      entityId: null,
-    });
+    expect(result).toBeNull();
     expect(mockedHa.getEntities).not.toHaveBeenCalled();
   });
 
-  it("returns fallback when getEntities throws", async () => {
+  it("returns null when getEntities throws", async () => {
     mockedHa.isConfigured.mockReturnValue(true);
     mockedHa.getEntities.mockRejectedValue(new Error("network error"));
 
     const result = await getCameraInfo();
 
-    expect(result).toEqual({
-      label: "Living Room",
-      online: false,
-      snapshotUrl: null,
-      streamUrl: null,
-      entityId: null,
-    });
+    expect(result).toBeNull();
   });
 
-  it("returns fallback when no camera entities exist", async () => {
+  it("returns null when no camera entities exist", async () => {
     mockedHa.isConfigured.mockReturnValue(true);
     mockedHa.getEntities.mockResolvedValue([]);
 
     const result = await getCameraInfo();
 
-    expect(result).toEqual({
-      label: "Living Room",
-      online: false,
-      snapshotUrl: null,
-      streamUrl: null,
-      entityId: null,
-    });
+    expect(result).toBeNull();
   });
 
   it("prefers entity containing 'living' in entity_id", async () => {
@@ -90,13 +72,13 @@ describe("getCameraInfo", () => {
 
     const result = await getCameraInfo();
 
-    expect(result.entityId).toBe("camera.living_room_dog_cam");
-    expect(result.label).toBe("Living Room Dog Cam");
-    expect(result.online).toBe(true);
-    expect(result.snapshotUrl).toBe(
+    expect(result?.entityId).toBe("camera.living_room_dog_cam");
+    expect(result?.label).toBe("Living Room Dog Cam");
+    expect(result?.online).toBe(true);
+    expect(result?.snapshotUrl).toBe(
       "http://ha.local:8123/api/camera_proxy/camera.living_room_dog_cam",
     );
-    expect(result.streamUrl).toBeNull();
+    expect(result?.streamUrl).toBeNull();
   });
 
   it("prefers entity containing 'dog' in friendly_name", async () => {
@@ -118,8 +100,8 @@ describe("getCameraInfo", () => {
 
     const result = await getCameraInfo();
 
-    expect(result.entityId).toBe("camera.generic_cam_2");
-    expect(result.label).toBe("Dog Camera");
+    expect(result?.entityId).toBe("camera.generic_cam_2");
+    expect(result?.label).toBe("Dog Camera");
   });
 
   it("falls back to first entity when no preferred entity matches", async () => {
@@ -135,9 +117,9 @@ describe("getCameraInfo", () => {
 
     const result = await getCameraInfo();
 
-    expect(result.entityId).toBe("camera.front_door");
-    expect(result.label).toBe("Front Door");
-    expect(result.online).toBe(true);
+    expect(result?.entityId).toBe("camera.front_door");
+    expect(result?.label).toBe("Front Door");
+    expect(result?.online).toBe(true);
   });
 
   it("marks entity with state 'unavailable' as offline", async () => {
@@ -153,8 +135,8 @@ describe("getCameraInfo", () => {
 
     const result = await getCameraInfo();
 
-    expect(result.online).toBe(false);
-    expect(result.entityId).toBe("camera.living_room");
+    expect(result?.online).toBe(false);
+    expect(result?.entityId).toBe("camera.living_room");
   });
 
   it("uses entity_id as label when friendly_name is absent", async () => {
@@ -170,6 +152,6 @@ describe("getCameraInfo", () => {
 
     const result = await getCameraInfo();
 
-    expect(result.label).toBe("Living Room");
+    expect(result?.label).toBe("camera.living_room");
   });
 });
