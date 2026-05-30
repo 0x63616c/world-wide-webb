@@ -80,19 +80,6 @@ export function NetworkTile() {
     <Tile padding={22}>
       <TileHeader icon="wifi" title="Network" right={<StatusDot online={!isOffline} />} />
 
-      {/* Status row — no SSID here, SSID only in footer per design */}
-      <div style={{ marginBottom: 2 }}>
-        <span
-          style={{
-            fontSize: 26,
-            fontWeight: 600,
-            color: isOffline ? "var(--ink-3)" : "var(--acc)",
-          }}
-        >
-          {data.status}
-        </span>
-      </div>
-
       {/* Chart area: ↓ label, butterfly bars, ↑ label */}
       <div
         style={{
