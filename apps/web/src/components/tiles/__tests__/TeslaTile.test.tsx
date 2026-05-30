@@ -119,6 +119,20 @@ describe("TeslaTile", () => {
     expect(screen.queryByText("264 mi")).not.toBeInTheDocument();
   });
 
+  it("www-lad: stat rows use shared Stat primitive (data-stat-value attribute present)", async () => {
+    const useQuery = await getTeslaUseQuery();
+    useQuery.mockReturnValue({
+      data: MOCK_DATA,
+      isLoading: false,
+      isError: false,
+    });
+
+    const { container } = render(<TeslaTile />);
+    // Shared Stat component renders spans with data-stat-value attribute
+    const statValues = container.querySelectorAll("[data-stat-value]");
+    expect(statValues.length).toBeGreaterThanOrEqual(3);
+  });
+
   it("shows Idle pill when not charging", async () => {
     const useQuery = await getTeslaUseQuery();
     useQuery.mockReturnValue({

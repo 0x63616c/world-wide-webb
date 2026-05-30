@@ -417,4 +417,13 @@ describe("ControlsTile", () => {
       expect(mockCancel).not.toHaveBeenCalled();
     });
   });
+
+  describe("www-lad: consistency", () => {
+    it("outer tile wrapper has padding 22 (not 20)", () => {
+      mockQueryReturn = { data: undefined, isLoading: true, isError: false };
+      const { container } = render(<ControlsTile />);
+      const tile = container.firstChild as HTMLElement;
+      expect(tile.style.padding).toBe("22px");
+    });
+  });
 });

@@ -9,8 +9,7 @@
 import type { RouterOutputs } from "../../lib/trpc";
 import { trpc } from "../../lib/trpc";
 import { Icon } from "../Icon";
-import { Skeleton } from "../ui/Skeleton";
-import { TileHeader } from "../ui/TileHeader";
+import { Skeleton, Tile, TileHeader } from "../ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -110,15 +109,7 @@ export function ControlsTile() {
   }
 
   return (
-    <div
-      className="tile"
-      style={{
-        height: "100%",
-        padding: 20,
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
+    <Tile padding={22}>
       {/* Header */}
       <TileHeader icon="bulb" title="Controls" />
 
@@ -134,7 +125,7 @@ export function ControlsTile() {
       >
         {data ? <ControlsGrid data={data} onToggle={handleToggle} /> : <SkeletonGrid />}
       </div>
-    </div>
+    </Tile>
   );
 }
 
