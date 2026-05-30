@@ -53,18 +53,30 @@ bd close <id>         # Complete work
 
 ## Build & Test
 
-_Add your build and test commands here_
+`bun`/`bunx` ALWAYS — never `npm`/`npx`. Monorepo: `apps/web` (React board), `apps/api` (tRPC).
 
 ```bash
-# Example:
-# npm install
-# npm test
+bun run test        # vitest run — the ONLY test runner. NEVER `bun test` (Bun's native runner breaks vi.mock with false failures)
+bun run typecheck   # tsc across all workspaces
+bunx biome check .  # lint/format gate (use `bunx biome check --write .` to auto-fix)
+bun run dev         # tilt up (local dev stack)
 ```
+
+## Workflows
+
+Reusable multi-agent orchestration scripts live in `.claude/workflows/` (run via the Workflow tool: `Workflow({ name: '<n>', args: {...} })`).
+
+- **`ship`** — Factory-Missions-style pipeline for shipping a bd issue/epic end-to-end. Beads is the shared mission state: scope writes a validation contract into the epic's `--design`, each feature becomes a child issue with `--acceptance` + a `milestone-N` label + deps for serial order; it builds → validates → fixes **per milestone**, then hardens and finalizes. Resumable after a crash via `args.resume=<epicId>`.
+  - **Model tiers** (rule: haiku is a good validator but a bad coder, so it never writes code): `opus` scopes, `sonnet` does ALL coding (build/fix/harden), `haiku` runs the adversarial validators + bd/gate bookkeeping.
+  - **Intended use:** scope + approve the plan with Calum first, then launch. Conservative git — commits per feature, no `git push` unless `args.push:true`.
+- **`wf-finish-dashboard.mjs`** (untracked, repo root `.claude/`) — the original one-shot that finished the dashboard; `ship` is its generalization. Kept for reference.
 
 ## Architecture Overview
 
-_Add a brief overview of your project architecture_
+Smart-home wall-panel dashboard, fixed 1366×1024. `apps/web` renders tiles from shared primitives under `apps/web/src/components/ui/`; `apps/api` is a tRPC backend whose services THROW on error/unconfigured (never return constants). The QueryClient retries infinitely so tiles recover from outages.
 
 ## Conventions & Patterns
 
-_Add your project-specific conventions here_
+- **ZERO fake/hardcoded/placeholder data** (web + api). On unavailable data a tile shows a shimmer Skeleton and keeps retrying — never an invented number. A repo-wide grep for `FALLBACK`/`PLACEHOLDER` must stay empty.
+- Tiles use the shared `components/ui/` primitives — do not re-inline headers/stats/pills/skeletons.
+- Imports at top of file only; no module-global mutable vars; comments explain WHY not HOW.
