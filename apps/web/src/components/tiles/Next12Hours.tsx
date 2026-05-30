@@ -3,6 +3,7 @@ import { POLL } from "../../lib/hooks";
 import { trpc } from "../../lib/trpc";
 import { Icon } from "../Icon";
 import { Skeleton } from "../ui/Skeleton";
+import { TileHeader } from "../ui/TileHeader";
 
 /** useWid — responsive width+height via ResizeObserver */
 function useWid() {
@@ -76,39 +77,16 @@ export function Next12Hours() {
       }}
     >
       {/* Section header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          marginBottom: 16,
-        }}
-      >
-        <Icon name="cloud" s={19} c="var(--ink-2)" />
-        <span
-          style={{
-            fontSize: 17.5,
-            fontWeight: 600,
-            letterSpacing: "-.015em",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Next 12 Hours
-        </span>
-        {/* Legend */}
-        <span
-          className="mono"
-          style={{
-            marginLeft: "auto",
-            fontSize: 11,
-            display: "flex",
-            gap: 10,
-          }}
-        >
-          <span style={{ color: "#6E747D" }}>┈ Feels</span>
-          <span style={{ color: "var(--acc)" }}>▮ Temp</span>
-        </span>
-      </div>
+      <TileHeader
+        icon="cloud"
+        title="Next 12 Hours"
+        right={
+          <span className="mono" style={{ fontSize: 11, display: "flex", gap: 10 }}>
+            <span style={{ color: "rgba(255,255,255,0.35)" }}>┈ Feels</span>
+            <span style={{ color: "var(--acc)" }}>▮ Temp</span>
+          </span>
+        }
+      />
 
       {/* Chart area — mounted after data is confirmed present */}
       <div ref={ref} style={{ position: "relative", flex: 1 }}>
@@ -157,7 +135,7 @@ export function Next12Hours() {
               <polyline
                 points={fpts}
                 fill="none"
-                stroke="#6E747D"
+                stroke="rgba(255,255,255,0.18)"
                 strokeWidth={1}
                 strokeDasharray="2 5"
                 strokeLinecap="round"
@@ -171,7 +149,7 @@ export function Next12Hours() {
                   cx={cx(i)}
                   cy={chartH - barH(f)}
                   r={1}
-                  fill="#6E747D"
+                  fill="rgba(255,255,255,0.18)"
                   opacity={0.45}
                 />
               ))}

@@ -10,6 +10,7 @@ import type { RouterOutputs } from "../../lib/trpc";
 import { trpc } from "../../lib/trpc";
 import { Icon } from "../Icon";
 import { Skeleton } from "../ui/Skeleton";
+import { TileHeader } from "../ui/TileHeader";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -119,19 +120,7 @@ export function ControlsTile() {
       }}
     >
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <Icon name="bulb" s={19} c="var(--ink-2)" />
-        <span
-          style={{
-            fontSize: 17.5,
-            fontWeight: 600,
-            letterSpacing: "-.015em",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Controls
-        </span>
-      </div>
+      <TileHeader icon="bulb" title="Controls" />
 
       {/* 2×2 grid */}
       <div
