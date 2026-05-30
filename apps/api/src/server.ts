@@ -1,6 +1,7 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 
 import { env } from "./env";
+import { startDeviceSyncService } from "./services/device-sync-service";
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers/index";
 
@@ -44,3 +45,7 @@ const server = Bun.serve({
 });
 
 console.warn(`API started on port ${server.port} (env=${env.NODE_ENV})`);
+
+// Start the device sync service after the server is ready.
+// Polls HA every 1s to reconcile desired/reported state.
+startDeviceSyncService();
