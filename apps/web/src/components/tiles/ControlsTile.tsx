@@ -85,7 +85,7 @@ function ETap({ icon, label, on, sub, pending, onToggle }: TapProps) {
 // ─── ControlsTile ─────────────────────────────────────────────────────────────
 
 export function ControlsTile() {
-  const { data, isError } = trpc.controls.list.useQuery({}, { refetchInterval });
+  const { data } = trpc.controls.list.useQuery({}, { refetchInterval });
 
   const toggleMutation = trpc.controls.toggle.useMutation();
 
@@ -116,11 +116,6 @@ export function ControlsTile() {
         >
           Controls
         </span>
-        {isError && (
-          <span className="cap" style={{ marginLeft: "auto", color: "var(--ink-3)" }}>
-            cached
-          </span>
-        )}
       </div>
 
       {/* 2×2 grid */}

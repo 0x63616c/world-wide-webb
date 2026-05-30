@@ -99,16 +99,15 @@ describe("ClimateTile — loading state (no data yet)", () => {
     });
   });
 
-  it("renders with fallback defaults (never blank)", () => {
+  it("renders skeleton (no setpoint) while loading", () => {
     renderTile();
-    // Fallback target is 70
-    expect(screen.getByTestId("setpoint")).toHaveTextContent("70");
+    // Skeleton shown — real setpoint must not be present
+    expect(screen.queryByTestId("setpoint")).not.toBeInTheDocument();
   });
 
-  it("shows Auto mode pill for fallback", () => {
+  it("renders skeleton (no slider) while loading", () => {
     renderTile();
-    // Both the pill and the chip show "Auto" — use getAllByText
-    expect(screen.getAllByText("Auto").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByTestId("slider")).not.toBeInTheDocument();
   });
 });
 
@@ -121,9 +120,9 @@ describe("ClimateTile — error state", () => {
     });
   });
 
-  it("still renders the tile without crashing (graceful degradation)", () => {
+  it("renders skeleton without crashing when error and no data", () => {
     renderTile();
-    expect(screen.getByTestId("setpoint")).toHaveTextContent("70");
+    expect(screen.queryByTestId("setpoint")).not.toBeInTheDocument();
   });
 });
 

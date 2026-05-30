@@ -10,13 +10,6 @@ export interface ClimateState {
   action: ClimateAction;
 }
 
-const FALLBACK: ClimateState = {
-  target: 70,
-  ambient: 72,
-  mode: "auto",
-  action: "Idle",
-};
-
 function normaliseMode(raw: string | undefined): ClimateMode {
   if (raw === "cool") return "cool";
   if (raw === "heat") return "heat";
@@ -30,34 +23,27 @@ function normaliseAction(raw: string | undefined): ClimateAction {
 }
 
 export async function getClimate(): Promise<ClimateState> {
-  if (!ha.isConfigured()) return FALLBACK;
+  if (!ha.isConfigured()) throw new Error("Home Assistant is not configured");
 
-  try {
-    const entities = await ha.getEntities("climate");
-    if (entities.length === 0) return FALLBACK;
+  const entities = await ha.getEntities("climate");
+  if (entities.length === 0) throw new Error("no climate entities");
 
-    // Pick first entity alphabetically.
-    const sorted = [...entities].sort((a, b) => a.entity_id.localeCompare(b.entity_id));
-    const entity = sorted[0];
-    const attrs = entity.attributes;
+  // Pick first entity alphabetically.
+  const sorted = [...entities].sort((a, b) => a.entity_id.localeCompare(b.entity_id));
+  const entity = sorted[0];
+  const attrs = entity.attributes;
 
-    const ambient =
-      typeof attrs.current_temperature === "number" ? attrs.current_temperature : FALLBACK.ambient;
+  // Zero is a valid sensor gap — not an invented number.
+  const ambient = typeof attrs.current_temperature === "number" ? attrs.current_temperature : 0;
+  const target = typeof attrs.temperature === "number" ? attrs.temperature : 0;
 
-    const target = typeof attrs.temperature === "number" ? attrs.temperature : FALLBACK.target;
+  const mode = normaliseMode(typeof attrs.hvac_mode === "string" ? attrs.hvac_mode : entity.state);
 
-    const mode = normaliseMode(
-      typeof attrs.hvac_mode === "string" ? attrs.hvac_mode : entity.state,
-    );
+  const action = normaliseAction(
+    typeof attrs.hvac_action === "string" ? attrs.hvac_action : undefined,
+  );
 
-    const action = normaliseAction(
-      typeof attrs.hvac_action === "string" ? attrs.hvac_action : undefined,
-    );
-
-    return { target, ambient, mode, action };
-  } catch {
-    return FALLBACK;
-  }
+  return { target, ambient, mode, action };
 }
 
 export async function setClimateTarget(
@@ -69,7 +55,7 @@ export async function setClimateTarget(
     temperature,
   });
   // Optimistic: return state with updated target. Ambient/action unchanged.
-  const current = await getClimate().catch(() => FALLBACK);
+  const current = await getClimate();
   return { ...current, target: temperature };
 }
 
@@ -81,7 +67,7 @@ export async function setClimateMode(
     entity_id: entityId,
     hvac_mode: hvacMode,
   });
-  const current = await getClimate().catch(() => FALLBACK);
+  const current = await getClimate();
   return { ...current, mode: hvacMode };
 }
 

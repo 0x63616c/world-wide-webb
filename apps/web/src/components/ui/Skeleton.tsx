@@ -1,6 +1,6 @@
 interface SkeletonProps {
   w: number | string;
-  h?: number;
+  h?: number | string;
   borderRadius?: number;
 }
 

@@ -180,9 +180,15 @@ describe("ControlsTile", () => {
       expect(screen.getByText("Controls")).toBeInTheDocument();
     });
 
-    it("shows cached indicator when errored", () => {
+    it("renders skeleton (no real controls) when errored with no data", () => {
       render(<ControlsTile />);
-      expect(screen.getByText("cached")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Lamps")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Fan")).not.toBeInTheDocument();
+    });
+
+    it("does not show cached badge when error (skeleton replaces error display)", () => {
+      render(<ControlsTile />);
+      expect(screen.queryByText("cached")).not.toBeInTheDocument();
     });
   });
 

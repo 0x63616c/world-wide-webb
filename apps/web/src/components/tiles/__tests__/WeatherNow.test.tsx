@@ -83,7 +83,7 @@ describe("WeatherNow", () => {
     expect(screen.getByText("7:52 PM")).toBeInTheDocument();
   });
 
-  it("shows a skeleton while loading and does not render temperature", () => {
+  it("renders skeleton (no temperature text) while loading", () => {
     mockUseQuery.mockReturnValue({
       data: undefined,
       isLoading: true,
@@ -92,8 +92,8 @@ describe("WeatherNow", () => {
 
     render(<WeatherNow />);
 
-    // Header is still visible
-    expect(screen.getByText("Weather Now")).toBeInTheDocument();
+    // Skeleton shown — header title not present (skeleton replaces whole tile)
+    expect(screen.queryByText("Weather Now")).not.toBeInTheDocument();
 
     // Temperature should NOT be rendered
     expect(screen.queryByText(/°$/)).not.toBeInTheDocument();
@@ -102,7 +102,7 @@ describe("WeatherNow", () => {
     expect(screen.queryByText("Partly Cloudy")).not.toBeInTheDocument();
   });
 
-  it("renders graceful fallback placeholder values on error (never blank)", () => {
+  it("renders skeleton on error (no placeholder dashes)", () => {
     mockUseQuery.mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -111,17 +111,10 @@ describe("WeatherNow", () => {
 
     render(<WeatherNow />);
 
-    // Header still present
-    expect(screen.getByText("Weather Now")).toBeInTheDocument();
-
-    // Placeholder dashes displayed instead of blank.
-    // The main temp renders as two text nodes ("--" + "°") inside one element;
-    // the feels metric row also renders "--°" as a single string. Use getAllByText.
-    const tempDashes = screen.getAllByText("--°");
-    expect(tempDashes.length).toBeGreaterThanOrEqual(1);
-
-    // Placeholder city
-    expect(screen.getByText("Los Angeles")).toBeInTheDocument();
+    // Skeleton shown — no fake dash values
+    expect(screen.queryByText("--°")).not.toBeInTheDocument();
+    // "Los Angeles" not present since header is part of the skeleton placeholder too
+    expect(screen.queryByText("Weather Now")).not.toBeInTheDocument();
   });
 
   it("passes refetchInterval 10 minutes to useQuery", () => {
@@ -139,7 +132,7 @@ describe("WeatherNow", () => {
     );
   });
 
-  it("dims the tile on error when no cached data exists", () => {
+  it("renders a .tile container (skeleton) on error", () => {
     mockUseQuery.mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -150,6 +143,5 @@ describe("WeatherNow", () => {
 
     const tile = container.querySelector(".tile") as HTMLElement;
     expect(tile).toBeInTheDocument();
-    expect(tile.style.opacity).toBe("0.55");
   });
 });

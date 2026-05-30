@@ -65,7 +65,7 @@ describe("EventsTile", () => {
     expect(screen.queryByText("Event D")).toBeNull();
   });
 
-  it("falls back to placeholder data while loading", () => {
+  it("renders skeleton (no Gorgon City) while loading", () => {
     mockUseQuery.mockReturnValue({
       data: undefined,
       isLoading: true,
@@ -74,12 +74,11 @@ describe("EventsTile", () => {
 
     render(<EventsTile />);
 
-    // Placeholders are shown — at least one should be visible
-    expect(screen.getByText("Gorgon City")).toBeTruthy();
+    expect(screen.queryByText("Gorgon City")).toBeNull();
     expect(screen.getByText("Upcoming")).toBeTruthy();
   });
 
-  it("falls back to placeholder data on error", () => {
+  it("renders skeleton on error (no Gorgon City placeholder)", () => {
     mockUseQuery.mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -88,7 +87,7 @@ describe("EventsTile", () => {
 
     render(<EventsTile />);
 
-    expect(screen.getByText("Gorgon City")).toBeTruthy();
+    expect(screen.queryByText("Gorgon City")).toBeNull();
     expect(screen.getByText("Upcoming")).toBeTruthy();
   });
 

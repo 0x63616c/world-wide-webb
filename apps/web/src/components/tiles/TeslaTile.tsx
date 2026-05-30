@@ -1,21 +1,6 @@
 import { Icon } from "@/components/Icon";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { trpc } from "@/lib/trpc";
-
-// ── Fallback data (mirrors TESLA_PLACEHOLDER on the API) ────────────────────
-const FALLBACK = {
-  name: "Model Y",
-  nick: "Evee",
-  locked: true,
-  place: "Home",
-  lat: null as number | null,
-  lon: null as number | null,
-  charging: true,
-  rate: 25,
-  pct: 82,
-  range: 264,
-  odo: "24,113",
-  climate: 70,
-};
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
@@ -265,15 +250,31 @@ function Stat({ label, value, accent }: StatProps) {
   );
 }
 
+// ── Skeleton layout mirroring the real tile structure ────────────────────────
+function TeslaSkeleton() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "100%" }}>
+      <Skeleton w="100%" h={38} borderRadius={11} />
+      <div style={{ flex: 1, minHeight: 140 }}>
+        <Skeleton w="100%" h="100%" borderRadius={14} />
+      </div>
+      <Skeleton w="100%" h={32} borderRadius={8} />
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+        <Skeleton w="30%" h={40} borderRadius={6} />
+        <Skeleton w="30%" h={40} borderRadius={6} />
+        <Skeleton w="30%" h={40} borderRadius={6} />
+      </div>
+    </div>
+  );
+}
+
 // ── Main tile ────────────────────────────────────────────────────────────────
 export function TeslaTile() {
-  const { data, isLoading, isError } = trpc.tesla.get.useQuery(undefined, {
+  const { data } = trpc.tesla.get.useQuery(undefined, {
     refetchInterval: 60_000,
   });
 
-  // Graceful degradation: use live data, fall back to placeholder on error/loading
-  const t = data ?? FALLBACK;
-  const stale = isError || (isLoading && !data);
+  if (!data) return <TeslaSkeleton />;
 
   return (
     <div
@@ -282,11 +283,9 @@ export function TeslaTile() {
         flexDirection: "column",
         gap: 16,
         height: "100%",
-        opacity: stale ? 0.7 : 1,
-        transition: "opacity 0.3s ease",
       }}
     >
-      <TeslaHeader nick={t.nick} place={t.place} locked={t.locked} />
+      <TeslaHeader nick={data.nick} place={data.place} locked={data.locked} />
 
       {/* map */}
       <div style={{ flex: 1, minHeight: 140 }}>
@@ -294,13 +293,13 @@ export function TeslaTile() {
       </div>
 
       {/* charging bar */}
-      <TeslaCharge charging={t.charging} rate={t.rate} pct={t.pct} />
+      <TeslaCharge charging={data.charging} rate={data.rate} pct={data.pct} />
 
       {/* stats row */}
       <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 2 }}>
-        <Stat label="Range" value={`${t.range} mi`} accent />
-        <Stat label="Odometer" value={t.odo} />
-        <Stat label="Cabin" value={`${t.climate}°F`} />
+        <Stat label="Range" value={`${data.range} mi`} accent />
+        <Stat label="Odometer" value={data.odo} />
+        <Stat label="Cabin" value={`${data.climate}°F`} />
       </div>
     </div>
   );

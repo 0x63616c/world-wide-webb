@@ -86,7 +86,7 @@ describe("Next12Hours", () => {
     expect(screen.queryByText("Using cached data")).not.toBeInTheDocument();
   });
 
-  it("renders a loading state without crashing — shows header", () => {
+  it("renders skeleton (no hour labels) while loading", () => {
     mockHourlyQuery.mockReturnValue({
       data: undefined,
       isLoading: true,
@@ -95,13 +95,12 @@ describe("Next12Hours", () => {
 
     render(<Next12Hours />);
 
-    // Section header still present
-    expect(screen.getByText("Next 12 Hours")).toBeInTheDocument();
-    // No "Using cached data" notice on first load
+    // Skeleton shown — no real content
+    expect(screen.queryByText("Now")).not.toBeInTheDocument();
     expect(screen.queryByText("Using cached data")).not.toBeInTheDocument();
   });
 
-  it("falls back to placeholder data and shows notice on error", () => {
+  it("renders skeleton on error (no placeholder hour labels)", () => {
     mockHourlyQuery.mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -110,11 +109,9 @@ describe("Next12Hours", () => {
 
     render(<Next12Hours />);
 
-    // Header and error notice present
-    expect(screen.getByText("Next 12 Hours")).toBeInTheDocument();
-    expect(screen.getByText("Using cached data")).toBeInTheDocument();
-    // Placeholder data should be visible (hour labels rendered)
-    expect(screen.getAllByText("Now").length).toBeGreaterThan(0);
+    // Skeleton shown — no "Using cached data" notice, no fake hour data
+    expect(screen.queryByText("Using cached data")).not.toBeInTheDocument();
+    expect(screen.queryByText("Now")).not.toBeInTheDocument();
   });
 
   it("calls the trpc query with a numeric refetch interval", () => {
