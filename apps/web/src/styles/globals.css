@@ -17,6 +17,9 @@ body {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+  /* Keeps the board above the iPad home indicator when installed as PWA
+     (viewport-fit=cover extends behind the home bar, so we push back). */
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 #root {

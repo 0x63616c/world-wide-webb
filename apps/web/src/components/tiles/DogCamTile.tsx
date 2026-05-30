@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { trpc } from "../../lib/trpc";
 import { Icon } from "../Icon";
+import { TileHeader } from "../ui";
 
 /** Format elapsed seconds as HH:MM:SS */
 function formatRec(secs: number): string {
@@ -43,8 +44,9 @@ export function DogCamTile() {
   return (
     <div
       className="tile"
-      style={{ height: "100%", padding: 16, display: "flex", flexDirection: "column" }}
+      style={{ height: "100%", padding: 20, display: "flex", flexDirection: "column" }}
     >
+      <TileHeader icon="cam" title="Dog Cam" />
       {/* Feed shell — fills remaining space */}
       <button
         type="button"
