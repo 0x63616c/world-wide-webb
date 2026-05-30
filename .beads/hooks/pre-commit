@@ -22,3 +22,19 @@ if command -v bd >/dev/null 2>&1; then
   if [ $_bd_exit -ne 0 ]; then exit $_bd_exit; fi
 fi
 # --- END BEADS INTEGRATION v1.0.4 ---
+
+# Run lefthook (biome auto-format). Always exits 0 — never blocks a commit.
+if [ "$LEFTHOOK" != "0" ]; then
+  _lh_dir="$(git rev-parse --show-toplevel)"
+  _lh_os=$(uname | tr '[:upper:]' '[:lower:]')
+  _lh_cpu=$(uname -m | sed 's/aarch64/arm64/;s/x86_64/x64/')
+  if test -n "$LEFTHOOK_BIN"; then
+    "$LEFTHOOK_BIN" run "pre-commit" "$@" || true
+  elif lefthook -h >/dev/null 2>&1; then
+    lefthook run "pre-commit" "$@" || true
+  elif test -f "$_lh_dir/node_modules/lefthook-${_lh_os}-${_lh_cpu}/bin/lefthook"; then
+    "$_lh_dir/node_modules/lefthook-${_lh_os}-${_lh_cpu}/bin/lefthook" run "pre-commit" "$@" || true
+  else
+    bunx lefthook run "pre-commit" "$@" || true
+  fi
+fi
