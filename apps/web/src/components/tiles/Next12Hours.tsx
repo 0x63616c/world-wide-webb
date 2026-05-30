@@ -4,6 +4,10 @@ import { trpc } from "../../lib/trpc";
 import { Icon } from "../Icon";
 import { Skeleton, Tile, TileHeader } from "../ui";
 
+// Width used on first render before ResizeObserver fires, preventing a
+// blank frame on slow mounts (e.g. wall-panel cold start, missing ResizeObserver).
+const CHART_INITIAL_WIDTH = 400;
+
 /** useWid — responsive width+height via ResizeObserver */
 function useWid() {
   const ref = useRef<HTMLDivElement>(null);
@@ -54,7 +58,9 @@ export function Next12Hours() {
   const barH = (val: number) =>
     minBar + ((val - gMin) / (gMax - gMin || 1)) * (chartH - topRes - minBar);
 
-  const colW = w / n;
+  // Use measured width or initial width so the chart is never blank on first paint.
+  const renderW = w || CHART_INITIAL_WIDTH;
+  const colW = renderW / n;
   const cx = (i: number) => (i + 0.5) * colW;
   const barW = colW * 0.44;
 
@@ -76,120 +82,113 @@ export function Next12Hours() {
         }
       />
 
-      {/* Chart area — mounted after data is confirmed present */}
+      {/* Chart area */}
       <div ref={ref} style={{ position: "relative", flex: 1 }}>
-        {w > 0 && (
-          <>
-            <svg
-              width={w}
-              height={chartH}
-              style={{
-                position: "absolute",
-                top: 4,
-                left: 0,
-                overflow: "visible",
-              }}
-              aria-hidden="true"
-            >
-              {hours.map((dd, i) => {
-                const hh = barH(dd.temp);
-                const y = chartH - hh;
-                const first = i === 0;
-                return (
-                  <g key={dd.t}>
-                    <rect
-                      x={cx(i) - barW / 2}
-                      y={y}
-                      width={barW}
-                      height={hh}
-                      rx={4}
-                      fill={first ? "var(--acc)" : "var(--tile-2)"}
-                      stroke={first ? "none" : "var(--hair-2)"}
-                      strokeWidth={1}
-                    />
-                    <text
-                      x={cx(i)}
-                      y={y - 7}
-                      textAnchor="middle"
-                      fill={first ? "var(--acc)" : "var(--ink)"}
-                      style={{ font: "700 11px var(--mono)" }}
-                    >
-                      {dd.temp}°
-                    </text>
-                  </g>
-                );
-              })}
-              {/* Dotted feels-like polyline — secondary reference, kept subtle under temp bars */}
-              <polyline
-                points={fpts}
-                fill="none"
-                stroke="rgba(255,255,255,0.18)"
-                strokeWidth={1}
-                strokeDasharray="2 5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity={0.45}
-              />
-              {/* Feels-like dots — smaller to stay secondary */}
-              {feels.map((f, i) => (
-                <circle
-                  key={hours[i].t}
-                  cx={cx(i)}
-                  cy={chartH - barH(f)}
-                  r={1}
-                  fill="rgba(255,255,255,0.18)"
-                  opacity={0.45}
+        <svg
+          width={renderW}
+          height={chartH}
+          style={{
+            position: "absolute",
+            top: 4,
+            left: 0,
+            overflow: "visible",
+          }}
+          aria-hidden="true"
+        >
+          {hours.map((dd, i) => {
+            const hh = barH(dd.temp);
+            const y = chartH - hh;
+            const first = i === 0;
+            return (
+              <g key={dd.t}>
+                <rect
+                  x={cx(i) - barW / 2}
+                  y={y}
+                  width={barW}
+                  height={hh}
+                  rx={4}
+                  fill={first ? "var(--acc)" : "var(--tile-2)"}
+                  stroke={first ? "none" : "var(--hair-2)"}
+                  strokeWidth={1}
                 />
-              ))}
-            </svg>
+                <text
+                  x={cx(i)}
+                  y={y - 7}
+                  textAnchor="middle"
+                  fill={first ? "var(--acc)" : "var(--ink)"}
+                  style={{ font: "700 11px var(--mono)" }}
+                >
+                  {dd.temp}°
+                </text>
+              </g>
+            );
+          })}
+          {/* Dotted feels-like polyline — secondary reference, kept subtle under temp bars */}
+          <polyline
+            points={fpts}
+            fill="none"
+            stroke="rgba(255,255,255,0.18)"
+            strokeWidth={1}
+            strokeDasharray="2 5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={0.45}
+          />
+          {/* Feels-like dots — smaller to stay secondary */}
+          {feels.map((f, i) => (
+            <circle
+              key={hours[i].t}
+              cx={cx(i)}
+              cy={chartH - barH(f)}
+              r={1}
+              fill="rgba(255,255,255,0.18)"
+              opacity={0.45}
+            />
+          ))}
+        </svg>
 
-            {/* Icon + hour label row */}
+        {/* Icon + hour label row */}
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: 4 + chartH + 6,
+            display: "flex",
+          }}
+        >
+          {hours.map((dd, i) => (
             <div
+              key={dd.t}
               style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                top: 4 + chartH + 6,
+                flex: 1,
                 display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 5,
               }}
             >
-              {hours.map((dd, i) => (
-                <div
-                  key={dd.t}
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 5,
-                  }}
-                >
-                  <Icon
-                    name={
-                      dd.ic === "sun" ||
-                      dd.ic === "moon" ||
-                      dd.ic === "cloud" ||
-                      dd.ic === "cloud-sun"
-                        ? dd.ic
-                        : "sun"
-                    }
-                    s={15}
-                    c={i === 0 ? "var(--acc)" : "var(--ink-3)"}
-                  />
-                  <span
-                    className="mono"
-                    style={{
-                      fontSize: 11,
-                      color: i === 0 ? "var(--acc)" : "var(--ink-3)",
-                    }}
-                  >
-                    {dd.t}
-                  </span>
-                </div>
-              ))}
+              <Icon
+                name={
+                  dd.ic === "sun" || dd.ic === "moon" || dd.ic === "cloud" || dd.ic === "cloud-sun"
+                    ? dd.ic
+                    : "sun"
+                }
+                s={15}
+                c={i === 0 ? "var(--acc)" : "var(--ink-3)"}
+              />
+              <span
+                className="mono"
+                style={{
+                  fontSize: 11,
+                  color: i === 0 ? "var(--acc)" : "var(--ink-3)",
+                }}
+              >
+                {dd.t}
+              </span>
             </div>
-          </>
-        )}
+          ))}
+        </div>
       </div>
     </Tile>
   );

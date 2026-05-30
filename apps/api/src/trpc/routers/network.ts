@@ -15,8 +15,9 @@ const networkStatusSchema = z.object({
   ping: z.number().int().describe("Round-trip latency to gateway in ms"),
   traffic: z
     .array(trafficBucketSchema)
-    .length(24)
-    .describe("24 hourly buckets for the mirrored butterfly chart (index 0 = oldest)"),
+    .describe(
+      "Hourly buckets for the mirrored butterfly chart (index 0 = oldest); 24 when live, 0 when not yet available",
+    ),
 });
 
 export const networkRouter = router({

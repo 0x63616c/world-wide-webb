@@ -190,4 +190,32 @@ describe("Next12Hours", () => {
     const header = screen.getByText("Next 12 Hours");
     expect(header).toBeInTheDocument();
   });
+
+  it("CC-42i: renders SVG bar rects when data is present (chart actually draws)", () => {
+    mockHourlyQuery.mockReturnValue({
+      data: SAMPLE_HOURS,
+      isLoading: false,
+      isError: false,
+    });
+
+    const { container } = render(<Next12Hours />);
+
+    // Each hour gets a <rect> element in the SVG chart.
+    // The ResizeObserver mock gives a non-zero width so the chart renders.
+    const rects = container.querySelectorAll("svg rect");
+    expect(rects.length).toBe(SAMPLE_HOURS.length);
+  });
+
+  it("CC-42i: renders exactly 12 bar rects for 12 data points", () => {
+    mockHourlyQuery.mockReturnValue({
+      data: SAMPLE_HOURS,
+      isLoading: false,
+      isError: false,
+    });
+
+    const { container } = render(<Next12Hours />);
+
+    const rects = container.querySelectorAll("svg rect");
+    expect(rects.length).toBe(12);
+  });
 });

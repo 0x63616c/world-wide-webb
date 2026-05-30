@@ -26,6 +26,48 @@ export interface NetworkStatus {
 }
 
 // ---------------------------------------------------------------------------
+// DEMO_NETWORK — stable realistic payload shipped while UniFi is deferred (CC-32o).
+// Lives in the backend only; frontend never fabricates data.
+// ---------------------------------------------------------------------------
+
+export const DEMO_NETWORK: NetworkStatus = {
+  status: "Online",
+  ssid: "HomeNet",
+  down: "18.4",
+  up: "4.2",
+  ping: 11,
+  // 24-bucket butterfly chart shaped like a realistic home-network day:
+  // low activity overnight (0–6), morning rise (7–9), midday plateau,
+  // afternoon peak (14–17), evening surge (19–22), quiet drop-off.
+  traffic: [
+    { down: 0.05, up: 0.02 }, // 0h
+    { down: 0.03, up: 0.01 }, // 1h
+    { down: 0.02, up: 0.01 }, // 2h
+    { down: 0.02, up: 0.01 }, // 3h
+    { down: 0.03, up: 0.01 }, // 4h
+    { down: 0.04, up: 0.02 }, // 5h
+    { down: 0.08, up: 0.03 }, // 6h
+    { down: 0.22, up: 0.07 }, // 7h
+    { down: 0.38, up: 0.12 }, // 8h
+    { down: 0.45, up: 0.15 }, // 9h
+    { down: 0.52, up: 0.18 }, // 10h
+    { down: 0.6, up: 0.2 }, // 11h
+    { down: 0.55, up: 0.17 }, // 12h
+    { down: 0.48, up: 0.16 }, // 13h
+    { down: 0.72, up: 0.24 }, // 14h
+    { down: 0.85, up: 0.3 }, // 15h
+    { down: 0.8, up: 0.28 }, // 16h
+    { down: 0.75, up: 0.25 }, // 17h
+    { down: 0.65, up: 0.22 }, // 18h
+    { down: 0.9, up: 0.35 }, // 19h
+    { down: 1.0, up: 0.4 }, // 20h — peak
+    { down: 0.88, up: 0.33 }, // 21h
+    { down: 0.62, up: 0.22 }, // 22h
+    { down: 0.3, up: 0.1 }, // 23h
+  ],
+};
+
+// ---------------------------------------------------------------------------
 // Derive GB string from bytes
 // ---------------------------------------------------------------------------
 
@@ -60,14 +102,16 @@ async function measurePingMs(): Promise<number> {
 // ---------------------------------------------------------------------------
 
 /**
- * Fetch network status from UniFi. Throws on error so the tile shows shimmer.
+ * Fetch network status from UniFi.
+ * Returns DEMO_NETWORK when UniFi is not configured (integration is deferred — CC-32o).
+ * Throws on unexpected runtime errors so the tile falls back to shimmer.
  */
 export async function getNetworkStatus(clientOverride?: UnifiClient): Promise<NetworkStatus> {
   const client = clientOverride ?? new UnifiClient();
   const ssid = env.WIFI_SSID || "Home";
 
   if (!client.isConfigured()) {
-    throw new Error("UniFi not configured");
+    return DEMO_NETWORK;
   }
 
   const [wanStats, pingMs] = await Promise.all([client.getWanStats(), measurePingMs()]);
