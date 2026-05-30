@@ -102,6 +102,16 @@ function makeFan(id: string, state: "on" | "off", percentage?: number) {
   };
 }
 
+// evee parity: the "fan" is a climate entity's fan_mode, not a fan.* device.
+function makeClimateFan(id: string, fanMode: "on" | "auto") {
+  return {
+    entity_id: `climate.${id}`,
+    state: "cool",
+    attributes: { friendly_name: id, fan_modes: ["auto", "on"], fan_mode: fanMode },
+    last_updated: new Date().toISOString(),
+  };
+}
+
 // Build a chainable query mock. Every builder method returns a chain
 // that ultimately resolves to `rows` when awaited.
 class SelectChain {
@@ -264,25 +274,37 @@ describe("getControlsState", () => {
 
   it("returns pending:true on a control when desiredUntilUtc is in the future", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockGetEntities.mockImplementation(async () => [makeFan("living_room", "off")]);
+    // Lamps carry the optimistic overlay (fan is climate fan_mode, no overlay).
+    mockGetEntities.mockImplementation(async (domain: string) =>
+      domain === "light"
+        ? [
+            {
+              entity_id: "light.living_room_globe",
+              state: "off",
+              attributes: { friendly_name: "Globe" },
+              last_updated: new Date().toISOString(),
+            },
+          ]
+        : [],
+    );
 
     const future = new Date(Date.now() + 3_000);
-    const fanRow = makeDeviceRow({
-      id: "fan-1",
-      entityId: "fan.living_room",
+    const lampRow = makeDeviceRow({
+      id: "lamp-1",
+      entityId: "light.living_room_globe",
       kind: "light",
-      domain: "fan",
-      label: "Fan",
+      domain: "light",
+      label: "Globe",
       reportedState: { on: false },
       desiredState: { on: true },
       desiredUntilUtc: future,
       available: true,
     });
-    mockDbSelect.mockReturnValue(makeSelectChain([fanRow]));
+    mockDbSelect.mockReturnValue(makeSelectChain([lampRow]));
 
     const state = await getControlsState();
 
-    expect(state?.fan.pending).toBe(true);
+    expect(state?.lamps.pending).toBe(true);
   });
 
   it("returns pending:false and reportedState after desiredUntilUtc expires", async () => {
@@ -309,18 +331,17 @@ describe("getControlsState", () => {
     expect(state?.fan.pending).toBe(false);
   });
 
-  it("reports fan on with speed label", async () => {
+  it("reports fan on from climate fan_mode", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockGetEntities.mockImplementation(async (domain: string) => {
-      if (domain === "fan") return [makeFan("living_room", "on", 50)];
-      return [];
-    });
+    mockGetEntities.mockImplementation(async (domain: string) =>
+      domain === "climate" ? [makeClimateFan("living_room", "on")] : [],
+    );
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
     const state = await getControlsState();
 
     expect(state?.fan.on).toBe(true);
-    expect(state?.fan.sub).toBe("Medium");
+    expect(state?.fan.sub).toBe("On");
   });
 
   it("www-azw: switch-domain fixtures are visible as 'lights' (not invisible)", async () => {
@@ -449,24 +470,18 @@ describe("toggleControl", () => {
     });
   });
 
-  it("calls commandDevice for the fan device row when toggling fan on", async () => {
+  it("calls climate.set_fan_mode when toggling the fan on", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockGetEntities.mockResolvedValue([makeFan("living_room", "off")]);
-
-    const fanRow = makeDeviceRow({
-      id: "fan-db-1",
-      entityId: "fan.living_room",
-      kind: "fan",
-      domain: "fan",
-    });
-    mockDbSelect.mockReturnValue(makeSelectChain([fanRow]));
+    mockGetEntities.mockImplementation(async (domain: string) =>
+      domain === "climate" ? [makeClimateFan("living_room", "auto")] : [],
+    );
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
 
     await toggleControl("fan", true);
 
-    expect(mockCommandDevice).toHaveBeenCalledWith({
-      id: "fan-db-1",
-      action: "setOn",
-      args: { on: true },
+    expect(mockCallService).toHaveBeenCalledWith("climate", "set_fan_mode", {
+      entity_id: "climate.living_room",
+      fan_mode: "on",
     });
   });
 
@@ -564,26 +579,37 @@ describe("controlsRouter.list", () => {
 
   it("returns controls state including pending:true when a device has active desired window", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockGetEntities.mockImplementation(async () => [makeFan("ceiling", "off")]);
+    mockGetEntities.mockImplementation(async (domain: string) =>
+      domain === "light"
+        ? [
+            {
+              entity_id: "light.living_room_globe",
+              state: "off",
+              attributes: { friendly_name: "Globe" },
+              last_updated: new Date().toISOString(),
+            },
+          ]
+        : [],
+    );
 
     const future = new Date(Date.now() + 3_000);
-    const fanRow = makeDeviceRow({
-      id: "fan-1",
-      entityId: "fan.ceiling",
+    const lampRow = makeDeviceRow({
+      id: "lamp-1",
+      entityId: "light.living_room_globe",
       kind: "light",
-      domain: "fan",
-      label: "Fan",
+      domain: "light",
+      label: "Globe",
       reportedState: { on: false },
       desiredState: { on: true },
       desiredUntilUtc: future,
       available: true,
     });
-    mockDbSelect.mockReturnValue(makeSelectChain([fanRow]));
+    mockDbSelect.mockReturnValue(makeSelectChain([lampRow]));
 
     const caller = buildCaller();
     const result = await caller.controls.list({});
 
-    expect(result?.fan.pending).toBe(true);
+    expect(result?.lamps.pending).toBe(true);
   });
 });
 

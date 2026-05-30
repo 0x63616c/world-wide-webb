@@ -67,15 +67,21 @@ function lampSub(entities: HaEntity[]): string {
   return warmth ? `${n} on · ${warmth}` : `${n} on`;
 }
 
+/**
+ * The "fan" is the AC's climate fan_mode, not a fan.* device (evee parity:
+ * ha-service getFanState/turnFanOn). We pick the first climate entity that
+ * advertises a fan_modes list and treat fan_mode === "on" as forced-on.
+ */
+function findFanClimate(climateEntities: HaEntity[]): HaEntity | undefined {
+  return climateEntities.find((e) => Array.isArray(e.attributes.fan_modes));
+}
+
+function fanModeOn(entity: HaEntity | undefined): boolean {
+  return (entity?.attributes.fan_mode as string | undefined) === "on";
+}
+
 function fanSub(entity: HaEntity | undefined): string {
-  if (!entity || !isOn(entity)) return "";
-  const speed = entity.attributes.percentage as number | undefined;
-  if (speed === undefined) {
-    return (entity.attributes.speed as string | undefined) ?? "on";
-  }
-  if (speed <= 33) return "Low";
-  if (speed <= 66) return "Medium";
-  return "High";
+  return fanModeOn(entity) ? "On" : "";
 }
 
 // ─── config-driven entity resolution ─────────────────────────────────────────
@@ -119,20 +125,20 @@ export async function getControlsState(): Promise<ControlsState | null> {
 
   let lightEntities: HaEntity[] = [];
   let switchEntities: HaEntity[] = [];
-  let fanEntities: HaEntity[] = [];
+  let climateEntities: HaEntity[] = [];
 
   try {
-    [lightEntities, switchEntities, fanEntities] = await Promise.all([
+    [lightEntities, switchEntities, climateEntities] = await Promise.all([
       ha.getEntities("light"),
       ha.getEntities("switch"),
-      ha.getEntities("fan"),
+      ha.getEntities("climate"),
     ]);
   } catch {
     return null;
   }
 
   const { lamps, lights } = resolveEntities(lightEntities, switchEntities);
-  const fanEntity = fanEntities[0];
+  const fanEntity = findFanClimate(climateEntities);
 
   // Fetch device rows and build a lookup by entityId for overlay merge.
   let deviceRows: (typeof deviceState.$inferSelect)[] = [];
@@ -165,14 +171,10 @@ export async function getControlsState(): Promise<ControlsState | null> {
   const lampsOn = lamps.filter((e) => mergedOn(e));
   const anyLightOn = lights.some((e) => mergedOn(e));
 
-  const fanRow = fanEntity ? deviceByEntityId.get(fanEntity.entity_id) : undefined;
-  const fanMerged = fanRow ? mergeDeviceState(fanRow, now) : null;
-  const fanOn = fanMerged
-    ? (fanMerged.state?.on ?? isOn(fanEntity))
-    : fanEntity
-      ? isOn(fanEntity)
-      : false;
-  const fanPending = fanMerged?.pending ?? false;
+  // Fan = the climate entity's fan_mode (evee parity). It is not in the lights
+  // device_state registry, so there is no overlay/pending — read fan_mode live.
+  const fanOn = fanModeOn(fanEntity);
+  const fanPending = false;
 
   return {
     lamps: {
@@ -266,9 +268,13 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
     }
 
     case "fan": {
-      const entities = await ha.getEntities("fan");
-      if (entities.length > 0) {
-        await dispatchControls([entities[0].entity_id], on);
+      // evee parity: force the climate fan_mode on/auto via set_fan_mode.
+      const fanEntity = findFanClimate(await ha.getEntities("climate"));
+      if (fanEntity) {
+        await ha.callService("climate", "set_fan_mode", {
+          entity_id: fanEntity.entity_id,
+          fan_mode: on ? "on" : "auto",
+        });
       }
       break;
     }
