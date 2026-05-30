@@ -1,5 +1,5 @@
 import { env } from "../env";
-import { UnifiClient } from "../integrations/unifi";
+import type { UnifiClient } from "../integrations/unifi";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -107,7 +107,14 @@ async function measurePingMs(): Promise<number> {
  * Throws on unexpected runtime errors so the tile falls back to shimmer.
  */
 export async function getNetworkStatus(clientOverride?: UnifiClient): Promise<NetworkStatus> {
-  const client = clientOverride ?? new UnifiClient();
+  // UniFi integration is deferred (CC-32o). Until it lands the production path
+  // always serves demo data so the tile renders even when UNIFI_API_KEY is set
+  // but no working controller exists. Tests drive the real path via clientOverride.
+  if (!clientOverride) {
+    return DEMO_NETWORK;
+  }
+
+  const client = clientOverride;
   const ssid = env.WIFI_SSID || "Home";
 
   if (!client.isConfigured()) {
