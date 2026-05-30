@@ -1,38 +1,13 @@
+import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
 import { Icon } from "../Icon";
 import { Skeleton } from "../ui/Skeleton";
+import { TileHeader } from "../ui/TileHeader";
 
 interface EventRow {
   name: string;
   place: string;
   days: number;
-}
-
-function Sec({
-  icon,
-  children,
-  right,
-}: {
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  right?: React.ReactNode;
-}) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-      {icon}
-      <span
-        style={{
-          fontSize: 17.5,
-          fontWeight: 600,
-          letterSpacing: "-.015em",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {children}
-      </span>
-      {right && <span style={{ marginLeft: "auto" }}>{right}</span>}
-    </div>
-  );
 }
 
 function EventItem({ event, first }: { event: EventRow; first: boolean }) {
@@ -100,9 +75,11 @@ function EventsSkeleton() {
 }
 
 export function EventsTile() {
-  const { data } = trpc.events.list.useQuery(undefined, {
-    refetchInterval: 30 * 60 * 1000, // 30 min
+  const { data, isLoading, isError } = trpc.events.list.useQuery(undefined, {
+    refetchInterval: POLL.events,
   });
+
+  const showSkeleton = isLoading || isError || !data || data.length === 0;
 
   return (
     <div
@@ -115,17 +92,16 @@ export function EventsTile() {
         justifyContent: "center",
       }}
     >
-      <Sec
-        icon={<Icon name="calendar" s={19} c="var(--ink-2)" />}
+      <TileHeader
+        icon="calendar"
+        title="Upcoming"
         right={
           <span className="cap" style={{ display: "flex", alignItems: "center", gap: 3 }}>
             All <Icon name="chevron" s={12} c="var(--ink-3)" />
           </span>
         }
-      >
-        Upcoming
-      </Sec>
-      {!data ? (
+      />
+      {showSkeleton ? (
         <EventsSkeleton />
       ) : (
         <div style={{ display: "flex", alignItems: "stretch", width: "100%" }}>

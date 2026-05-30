@@ -23,5 +23,5 @@ export const POLL = {
   tesla: 60 * 1000,
   controls: 30 * 1000,
   climate: 30 * 1000,
-  events: 30 * 60 * 1000,
+  events: 5 * 60 * 1000,
 } as const;
