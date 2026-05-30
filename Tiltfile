@@ -1,0 +1,108 @@
+load('ext://uibutton', 'cmd_button', 'location')
+
+update_settings(max_parallel_updates=4)
+
+port_web = 4200
+port_api = 4201
+port_postgres = 5432
+
+os.putenv("POSTGRES_PORT", str(port_postgres))
+
+docker_compose("docker-compose.yml")
+
+dc_resource("postgres", labels=["backend"])
+
+# One-shot batch fetch of all dev secrets via `op inject`. The template at
+# tilt/op-secrets.tpl contains only 1Password refs (no secret material) and is
+# safe to commit.
+secrets_raw = str(local("op inject -i tilt/op-secrets.tpl", quiet=True, echo_off=True))
+secrets = {}
+for line in secrets_raw.strip().split("\n"):
+    if "=" in line:
+        k, v = line.split("=", 1)
+        secrets[k] = v
+
+local_resource(
+    "install",
+    cmd="bun install",
+    deps=["package.json", "bun.lock", "apps/api/package.json", "apps/web/package.json", "packages/api/package.json"],
+    allow_parallel=True,
+    labels=["tooling"],
+)
+
+# api: bun --watch owns the file watch. Tilt orchestrates startup, bun handles reloads.
+local_resource(
+    "api",
+    serve_cmd="bun --watch apps/api/src/server.ts",
+    serve_env={
+        "PORT": str(port_api),
+        "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
+        "HA_TOKEN": secrets["HA_TOKEN"],
+        "UNIFI_API_KEY": secrets["UNIFI_API_KEY"],
+        "WIFI_SSID": secrets["WIFI_SSID"],
+        "WIFI_PASSWORD": secrets["WIFI_PASSWORD"],
+    },
+    readiness_probe=probe(
+        http_get=http_get_action(port=port_api, path="/up"),
+        period_secs=1,
+    ),
+    resource_deps=["postgres", "install"],
+    labels=["backend"],
+    links=[
+        link("http://localhost:%d/up" % port_api, "API /up"),
+    ],
+)
+
+# web: Vite owns HMR. No `deps=` — same reasoning as api.
+local_resource(
+    "web",
+    serve_cmd="bun run --cwd apps/web dev --port %d" % port_web,
+    serve_env={
+        "API_PORT": str(port_api),
+    },
+    readiness_probe=probe(
+        http_get=http_get_action(port=port_web, path="/"),
+        period_secs=1,
+    ),
+    resource_deps=["api", "install"],
+    labels=["frontend"],
+    links=[
+        link("http://localhost:%d" % port_web, "Web"),
+    ],
+)
+
+# Drizzle Studio — manual, opt-in.
+local_resource(
+    "drizzle-studio",
+    serve_cmd="bun run --cwd apps/api db:studio",
+    resource_deps=["postgres"],
+    auto_init=False,
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    labels=["tooling"],
+    links=[
+        link("https://local.drizzle.studio", "Drizzle Studio"),
+    ],
+)
+
+# Sidebar buttons.
+cmd_button(
+    name="db-migrate",
+    resource="postgres",
+    argv=["sh", "-c", "bun run --cwd apps/api db:migrate"],
+    text="Migrate DB",
+    icon_name="upgrade",
+    location=location.RESOURCE,
+)
+
+cmd_button(
+    name="db-reset",
+    resource="postgres",
+    argv=[
+        "sh", "-c",
+        "docker compose exec -T postgres psql -U cc -d controlcenter -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' && bun run --cwd apps/api db:migrate",
+    ],
+    text="Reset DB",
+    icon_name="delete_forever",
+    location=location.RESOURCE,
+    requires_confirmation=True,
+)
