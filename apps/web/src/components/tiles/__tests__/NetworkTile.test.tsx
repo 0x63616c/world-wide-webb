@@ -38,7 +38,7 @@ describe("NetworkTile", () => {
   });
 
   describe("renders with real data", () => {
-    test("shows Online status in accent colour", () => {
+    test("does not show standalone Online/Offline status word — status is conveyed by StatusDot only", () => {
       mockUseQuery.mockReturnValue({
         data: {
           status: "Online",
@@ -54,7 +54,8 @@ describe("NetworkTile", () => {
 
       render(<NetworkTile />);
 
-      expect(screen.getByText("Online")).toBeInTheDocument();
+      // The design (EWifiMirror) never shows the status word as text.
+      expect(screen.queryByText("Online")).not.toBeInTheDocument();
     });
 
     test("renders download and upload GB values", () => {
@@ -229,7 +230,7 @@ describe("NetworkTile", () => {
       expect(screen.queryByText("Online")).not.toBeInTheDocument();
     });
 
-    test("renders Offline status when API returns Offline", () => {
+    test("does not show Offline text when API returns Offline — status dot handles it", () => {
       mockUseQuery.mockReturnValue({
         data: {
           status: "Offline",
@@ -245,7 +246,8 @@ describe("NetworkTile", () => {
 
       render(<NetworkTile />);
 
-      expect(screen.getByText("Offline")).toBeInTheDocument();
+      // Status conveyed by StatusDot (online={false}), not a text label.
+      expect(screen.queryByText("Offline")).not.toBeInTheDocument();
     });
   });
 });
