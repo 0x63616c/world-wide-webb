@@ -48,6 +48,7 @@
       "!**/dist",
       "!**/*.gen.ts",
       "!**/.tilt",
+      "!**/.beads",
       "!**/coverage",
       "!**/.claude/settings.json",
       "!**/.claude/settings.local.json"
