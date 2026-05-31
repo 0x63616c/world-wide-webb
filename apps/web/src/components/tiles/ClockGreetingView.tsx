@@ -1,6 +1,6 @@
 import { Icon } from "../Icon";
 import { Tile } from "../ui";
-import { SecondsRing } from "./SecondsRing";
+import { ClockSecondsRing } from "./ClockSecondsRing";
 
 export interface ClockGreetingViewProps {
   greeting: string;
@@ -9,7 +9,7 @@ export interface ClockGreetingViewProps {
   ampm: "AM" | "PM";
   fullDate: string;
   location: string;
-  /** Current seconds (0-59) — when provided, renders the seconds progress ring. */
+  /** When provided (clock is live), renders the smooth seconds progress ring. */
   seconds?: number;
 }
 
@@ -34,7 +34,7 @@ export function ClockGreetingView({
         position: "relative",
       }}
     >
-      {seconds !== undefined && <SecondsRing seconds={seconds} />}
+      {seconds !== undefined && <ClockSecondsRing />}
       {/* Greeting cap in accent */}
       <div className="cap acc" style={{ fontSize: 14, letterSpacing: ".2em" }}>
         {greeting}
