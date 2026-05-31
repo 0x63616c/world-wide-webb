@@ -1,4 +1,6 @@
 export { Chip } from "./Chip";
+export type { ControlTapProps } from "./ControlTap";
+export { ControlTap } from "./ControlTap";
 export { Pill } from "./Pill";
 export { Skeleton } from "./Skeleton";
 export { Stat } from "./Stat";
