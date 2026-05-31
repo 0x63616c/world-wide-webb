@@ -105,17 +105,19 @@ export function ClimateTile() {
     setLocalHigh(null);
   }, []);
 
-  // When cooldown expires, invalidate once to reconcile with live HA state.
+  // When cooldown expires, invalidate to reconcile with live HA state, then clear
+  // the optimistic overlay ONLY AFTER the refetch lands. This is the single owner
+  // of clearing the overlay (www-59u): clearing on mutation-settle instead snapped
+  // the UI back to the stale, refetch-paused query.data for the rest of the cooldown.
   useEffect(() => {
     if (cooldownUntil === 0) return;
     const remaining = cooldownUntil - Date.now();
     if (remaining <= 0) {
-      void utils.climate.get.invalidate();
+      void utils.climate.get.invalidate().then(clearLocal);
       return;
     }
     const timer = setTimeout(() => {
-      void utils.climate.get.invalidate();
-      clearLocal();
+      void utils.climate.get.invalidate().then(clearLocal);
     }, remaining);
     return () => clearTimeout(timer);
   }, [cooldownUntil, utils, clearLocal]);
@@ -128,10 +130,10 @@ export function ClimateTile() {
       startCooldown();
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        setTargetMutation.mutate(val, { onSettled: clearLocal });
+        setTargetMutation.mutate(val);
       }, 400);
     },
-    [setTargetMutation, startCooldown, clearLocal],
+    [setTargetMutation, startCooldown],
   );
 
   const handleSetRange = useCallback(
@@ -141,10 +143,10 @@ export function ClimateTile() {
       startCooldown();
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        setRangeMutation.mutate({ low, high }, { onSettled: clearLocal });
+        setRangeMutation.mutate({ low, high });
       }, 400);
     },
-    [setRangeMutation, startCooldown, clearLocal],
+    [setRangeMutation, startCooldown],
   );
 
   // Hold the latest effective setpoints so a mode switch can seed from them.
@@ -170,9 +172,9 @@ export function ClimateTile() {
         setLocalHigh(null);
       }
       startCooldown();
-      setModeMutation.mutate(nextMode, { onSettled: clearLocal });
+      setModeMutation.mutate(nextMode);
     },
-    [setModeMutation, startCooldown, clearLocal],
+    [setModeMutation, startCooldown],
   );
 
   if (!query.data) return <ClimateTileView status="loading" />;

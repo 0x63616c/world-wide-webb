@@ -449,4 +449,48 @@ describe("ControlsTile", () => {
       expect(tile.style.padding).toBe("20px");
     });
   });
+
+  // ── www-59u: fan-toggle parity with the climate no-snap-back fix ───────────────
+  // The fan shares the cooldown/optimistic pattern. Toggling it must flip the
+  // cache optimistically AND never reconcile on mutation-settle — the cooldown
+  // useEffect is the single owner of the refetch, so the optimistic state survives
+  // until the fresh value lands (no revert-then-reapply window).
+  describe("www-59u: fan toggle does not snap back", () => {
+    beforeEach(() => {
+      mockQueryReturn = {
+        data: {
+          lamps: { on: false, count: 0, sub: "Off", pending: false },
+          lights: { on: false, pending: false },
+          fan: { on: false, sub: "", pending: false },
+        },
+        isLoading: false,
+        isError: false,
+      };
+    });
+
+    it("sends on=true and optimistically flips fan on+pending, with no settle-time reconcile", async () => {
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("Fan"));
+
+      // Intent: turning the fan on (the service maps this to set_fan_mode 'on').
+      expect(mockMutate).toHaveBeenCalledWith({ key: "fan", on: true });
+
+      // onMutate awaits cancel() before setData; flush microtasks.
+      await waitFor(() => expect(mockSetData).toHaveBeenCalled());
+      const updater = mockSetData.mock.calls[0][1] as (old: unknown) => {
+        fan: { on: boolean; pending: boolean };
+      };
+      const next = updater({
+        lamps: { on: false, count: 0, sub: "Off", pending: false },
+        lights: { on: false, pending: false },
+        fan: { on: false, sub: "", pending: false },
+      });
+      expect(next.fan.on).toBe(true);
+      expect(next.fan.pending).toBe(true);
+
+      // No invalidate on settle — the optimistic cache value is not discarded
+      // early, so it survives until the cooldown-driven refetch lands.
+      expect(mockInvalidate).not.toHaveBeenCalled();
+    });
+  });
 });
