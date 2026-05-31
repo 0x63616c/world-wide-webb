@@ -1,16 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { defineTileMeta } from "./__stories__/factory";
+import { defineTileMeta, TILE_STATUS_ARG_TYPE } from "./__stories__/factory";
 import { EventsTileView } from "./EventsTileView";
 
 const meta = {
   // Short display name kept for Storybook nav consistency with the existing "Tiles/Events" path.
   ...defineTileMeta("Events", EventsTileView, ["a11y"]),
   argTypes: {
-    status: {
-      control: "radio",
-      options: ["loading", "error", "populated"],
-    },
+    status: TILE_STATUS_ARG_TYPE,
   },
   args: {
     status: "populated",

@@ -13,9 +13,12 @@ export type HourlyEntry = {
   ic: string;
 };
 
-export type Next12HoursViewProps =
-  | { status: "loading" }
-  | { status: "populated"; hours: HourlyEntry[] };
+// Flat props shape: hours is optional so Storybook can spread args without a
+// discriminated-union wrapper. status="populated" with no hours falls back to skeleton.
+export type Next12HoursViewProps = {
+  status: "loading" | "populated";
+  hours?: HourlyEntry[];
+};
 
 function Next12HoursSkeleton() {
   return (
@@ -48,7 +51,7 @@ export function Next12HoursView(props: Next12HoursViewProps) {
   // All hooks must be called before any early return.
   const [ref, w, h] = useWid();
 
-  if (props.status !== "populated") return <Next12HoursSkeleton />;
+  if (props.status !== "populated" || !props.hours?.length) return <Next12HoursSkeleton />;
 
   const hours = props.hours;
   const n = hours.length;
