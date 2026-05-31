@@ -69,7 +69,11 @@ export const Populated: Story = {
     expect(canvas.getByText("Locked")).toBeInTheDocument();
     expect(canvas.getByText("Idle")).toBeInTheDocument();
     expect(canvas.getByText("80%")).toBeInTheDocument();
-    expect(canvas.getByText("240 mi")).toBeInTheDocument();
+    // Idle: range is muted gray, charge bar is gray (no green glow).
+    const range = canvas.getByText("240 mi");
+    expect(range).toHaveStyle({ color: "var(--ink-2)" });
+    const fill = canvasElement.querySelector("[data-charge-fill]");
+    expect(fill).toHaveStyle({ background: "linear-gradient(90deg,var(--ink-3),var(--ink-2))" });
     expect(canvas.getByText("12,345 mi")).toBeInTheDocument();
     expect(canvas.getByText("72°F")).toBeInTheDocument();
   },
@@ -100,7 +104,11 @@ export const Charging: Story = {
     expect(canvas.getByText(/\+25 mi\/hr/)).toBeInTheDocument();
     expect(canvas.queryByText("Idle")).not.toBeInTheDocument();
     expect(canvas.getByText("55%")).toBeInTheDocument();
-    expect(canvas.getByText("165 mi")).toBeInTheDocument();
+    // Charging: range is green accent, charge bar is the green gradient.
+    const range = canvas.getByText("165 mi");
+    expect(range).toHaveStyle({ color: "var(--acc)" });
+    const fill = canvasElement.querySelector("[data-charge-fill]");
+    expect(fill).toHaveStyle({ background: "linear-gradient(90deg,var(--acc-2),var(--acc))" });
     expect(canvas.getByText("68°F")).toBeInTheDocument();
   },
 };

@@ -47,12 +47,16 @@ function TeslaCharge({ charging, rate, pct }: ChargeProps) {
         }}
       >
         <div
+          data-charge-fill
           style={{
             width: `${pct}%`,
             height: "100%",
-            background: "linear-gradient(90deg,var(--acc-2),var(--acc))",
+            // Green only while charging; gray + no glow when idle.
+            background: charging
+              ? "linear-gradient(90deg,var(--acc-2),var(--acc))"
+              : "linear-gradient(90deg,var(--ink-3),var(--ink-2))",
             borderRadius: 7,
-            boxShadow: "0 0 14px var(--acc-line)",
+            boxShadow: charging ? "0 0 14px var(--acc-line)" : "none",
           }}
         />
       </div>
@@ -132,7 +136,7 @@ export function TeslaTileView(props: TeslaTileViewProps) {
 
       {/* stats row */}
       <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 2 }}>
-        <Stat label="Range" value={`${range} mi`} accent />
+        <Stat label="Range" value={`${range} mi`} accent={charging} muted={!charging} />
         <Stat label="Odometer" value={odo} />
         <Stat label="Cabin" value={`${climate}°F`} />
       </div>

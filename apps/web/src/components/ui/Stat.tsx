@@ -4,10 +4,12 @@ interface StatProps {
   label: string;
   value: ReactNode;
   accent?: boolean;
+  /** Render the value in a muted gray (e.g. an inactive/idle state). Ignored when accent is set. */
+  muted?: boolean;
   sub?: string;
 }
 
-export function Stat({ label, value, accent, sub }: StatProps) {
+export function Stat({ label, value, accent, muted, sub }: StatProps) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <span className="cap">{label}</span>
@@ -17,7 +19,7 @@ export function Stat({ label, value, accent, sub }: StatProps) {
         style={{
           fontSize: 22,
           fontWeight: 700,
-          color: accent ? "var(--acc)" : undefined,
+          color: accent ? "var(--acc)" : muted ? "var(--ink-2)" : undefined,
         }}
       >
         {value}
