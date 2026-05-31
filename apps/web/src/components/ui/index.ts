@@ -1,4 +1,6 @@
 export { Chip } from "./Chip";
+export type { ControlOverflowProps } from "./ControlOverflow";
+export { ControlOverflow } from "./ControlOverflow";
 export type { ControlTapProps } from "./ControlTap";
 export { ControlTap } from "./ControlTap";
 export { Pill } from "./Pill";
