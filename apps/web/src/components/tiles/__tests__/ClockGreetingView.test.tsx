@@ -146,5 +146,24 @@ describe("ClockGreetingView", () => {
       expect(svg).not.toBeNull();
       expect(svg?.getAttribute("style")).toContain("position: absolute");
     });
+
+    it("www-902 review: SVG has negative margin to escape tile padding so stroke aligns with border", () => {
+      // The tile has padding:28. Without margin:-28 the SVG fills only the inner
+      // content box (481x256), causing non-uniform scaling against the 537x312 viewBox.
+      const { container } = render(<ClockGreetingView {...baseProps} seconds={0} />);
+      const svg = container.querySelector("[data-testid='seconds-ring']") as SVGElement | null;
+      expect(svg).not.toBeNull();
+      const style = svg?.getAttribute("style") ?? "";
+      expect(style).toContain("margin: -28px");
+    });
+
+    it("www-902 review: SVG viewBox matches CLOCK_TILE_W x CLOCK_TILE_H from board-layout constants", () => {
+      // Constants must live in board-layout.ts so they track grid changes.
+      const { container } = render(<ClockGreetingView {...baseProps} seconds={0} />);
+      const svg = container.querySelector("[data-testid='seconds-ring']") as SVGElement | null;
+      expect(svg).not.toBeNull();
+      // 537x312 are derived from the 1366x1024 board at 5-col/2-row grid
+      expect(svg?.getAttribute("viewBox")).toBe("0 0 537 312");
+    });
   });
 });
