@@ -1,22 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { defineTileMeta } from "./__stories__/factory";
+import { defineTileMeta, TILE_STATUS_ARG_TYPE } from "./__stories__/factory";
 import type { HourlyEntry } from "./Next12HoursView";
 import { Next12HoursView } from "./Next12HoursView";
-
-// Flat args shape that avoids Storybook's inability to spread a discriminated union.
-// The wrapper maps status + hours back into the correct union variant before rendering.
-type StoryArgs = {
-  status: "loading" | "populated";
-  hours?: HourlyEntry[];
-};
-
-function Next12HoursViewStory({ status, hours }: StoryArgs) {
-  if (status === "populated" && hours) {
-    return <Next12HoursView status="populated" hours={hours} />;
-  }
-  return <Next12HoursView status="loading" />;
-}
 
 // Realistic 12-hour forecast anchored to the current hour — same shape the API returns.
 const SAMPLE_HOURS: HourlyEntry[] = [
@@ -46,7 +32,7 @@ const ICON_VARIETY_HOURS: HourlyEntry[] = [
 ];
 
 const meta = {
-  ...defineTileMeta("Next12HoursView", Next12HoursViewStory),
+  ...defineTileMeta("Next12HoursView", Next12HoursView),
   parameters: {
     layout: "centered",
     // Suppress the global BoardDecorator; the story decorator applies its own e-root wrapper
@@ -56,7 +42,8 @@ const meta = {
   // Apply the board dark-mode CSS classes so the tile renders against the correct dark surface,
   // and constrain to the wall-panel slot dimensions (460×260).
   decorators: [
-    (Story) => (
+    // biome-ignore lint/suspicious/noExplicitAny: Storybook decorator typing is complex
+    (Story: () => any) => (
       <div
         className="e-root"
         style={{ background: "var(--bg)", width: 460, height: 260, overflow: "hidden" }}
@@ -66,17 +53,13 @@ const meta = {
     ),
   ],
   argTypes: {
-    status: {
-      control: { type: "select" },
-      options: ["loading", "populated"],
-      description: "Toggle between skeleton loading state and fully-populated chart.",
-    },
+    status: TILE_STATUS_ARG_TYPE,
     hours: {
       control: "object",
       description: "Array of HourlyEntry objects (only used when status is 'populated').",
     },
   },
-} satisfies Meta<typeof Next12HoursViewStory>;
+} satisfies Meta<typeof Next12HoursView>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

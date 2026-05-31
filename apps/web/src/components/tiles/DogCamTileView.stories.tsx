@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
-import { defineTileMeta } from "./__stories__/factory";
+import { boolArgType, defineTileMeta, TILE_STATUS_ARG_TYPE } from "./__stories__/factory";
 import { DogCamTileView } from "./DogCamTileView";
 
 const meta = {
@@ -16,19 +16,9 @@ const meta = {
     onToggleLive: fn(),
   },
   argTypes: {
-    status: {
-      control: "radio",
-      options: ["populated", "loading", "error"],
-      description: "Data load state — loading/error renders a shimmer cover",
-    },
-    live: {
-      control: "boolean",
-      description: "Whether the live feed overlay is currently visible",
-    },
-    online: {
-      control: "boolean",
-      description: "Whether the camera hardware is reachable",
-    },
+    status: TILE_STATUS_ARG_TYPE,
+    live: boolArgType("Whether the live feed overlay is currently visible"),
+    online: boolArgType("Whether the camera hardware is reachable"),
     snapshotUrl: {
       control: "text",
       description: "Snapshot image URL — null renders the dark gradient background",
