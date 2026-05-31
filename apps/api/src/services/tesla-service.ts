@@ -1,3 +1,4 @@
+import { findPlace } from "../config/places";
 import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
@@ -51,6 +52,19 @@ function titleCase(s: string): string {
     .trim();
 }
 
+/**
+ * Resolve the map-pill place name (CC-6gx): a curated named place wins when the
+ * car's GPS is within its radius, otherwise the HA zone name title-cased. No
+ * coords AND no zone → unknown location, return "" (no fabricated label).
+ */
+function resolvePlace(lat: number | null, lon: number | null, zoneState?: string): string {
+  if (lat !== null && lon !== null) {
+    const match = findPlace(lat, lon);
+    if (match) return match.name;
+  }
+  return zoneState ? titleCase(zoneState) : "";
+}
+
 export async function getTeslaData(): Promise<TeslaData> {
   if (!ha.isConfigured()) throw new Error("Home Assistant is not configured");
 
@@ -89,9 +103,10 @@ export async function getTeslaData(): Promise<TeslaData> {
   const lonAttr = tracker ? Number(tracker.attributes.longitude) : Number.NaN;
   const lat = Number.isFinite(latAttr) ? latAttr : null;
   const lon = Number.isFinite(lonAttr) ? lonAttr : null;
-  // device_tracker state is a zone name ("home", "work", ...) — map home to the label.
-  const place =
-    !tracker || tracker.state === "home" ? env.LOCATION_LABEL : titleCase(String(tracker.state));
+  // Prefer a curated named place when the car's GPS is within its radius (CC-6gx);
+  // otherwise fall back to the raw HA zone name, title-cased. With no tracker and
+  // no coords the location is genuinely unknown — show nothing rather than invent one.
+  const place = resolvePlace(lat, lon, tracker?.state);
 
   return {
     name: "Model Y",

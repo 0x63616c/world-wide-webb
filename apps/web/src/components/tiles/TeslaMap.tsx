@@ -243,22 +243,25 @@ export function TeslaMap({ lat, lon, place }: TeslaMapProps) {
       {/* MapLibre canvas */}
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
 
-      {/* Location pill — top-left overlay */}
-      <span
-        className="pill"
-        style={{
-          position: "absolute",
-          left: 12,
-          top: 12,
-          padding: "4px 10px",
-          fontSize: 12,
-          background: "rgba(30,34,40,0.85)",
-          color: "var(--text-muted, #8a9ab0)",
-          borderColor: "transparent",
-        }}
-      >
-        {place}
-      </span>
+      {/* Location pill — top-left overlay. Hidden when the place is unknown
+          (no GPS match and no zone) rather than showing an empty pill. */}
+      {place && (
+        <span
+          className="pill"
+          style={{
+            position: "absolute",
+            left: 12,
+            top: 12,
+            padding: "4px 10px",
+            fontSize: 12,
+            background: "rgba(30,34,40,0.85)",
+            color: "var(--text-muted, #8a9ab0)",
+            borderColor: "transparent",
+          }}
+        >
+          {place}
+        </span>
+      )}
     </div>
   );
 }
