@@ -1,8 +1,11 @@
 import type { Meta } from "@storybook/react-vite";
 import type { ComponentType } from "react";
+import { TileStatus } from "../EventsTileView";
 
 // biome-ignore lint/suspicious/noExplicitAny: factory accepts any component shape
-type TileMeta<C extends ComponentType<any>> = Pick<Meta<C>, "title" | "component" | "tags">;
+type TileMeta<C extends ComponentType<any>> = Pick<Meta<C>, "title" | "component" | "tags"> & {
+  argTypes?: Record<string, TileArgType>;
+};
 
 // biome-ignore lint/suspicious/noExplicitAny: mirrors Storybook's own argTypes value type
 type TileArgType = Record<string, any>;
@@ -14,7 +17,7 @@ type TileArgType = Record<string, any>;
  */
 export const TILE_STATUS_ARG_TYPE: TileArgType = {
   control: "radio",
-  options: ["loading", "populated", "error"],
+  options: Object.values(TileStatus),
   description: "Data load state — loading/error renders a shimmer skeleton",
 };
 
@@ -42,5 +45,8 @@ export function defineTileMeta<C extends ComponentType<any>>(
     title: `Tiles/${name}`,
     component,
     tags: ["autodocs", ...additionalTags],
+    argTypes: {
+      status: TILE_STATUS_ARG_TYPE,
+    },
   };
 }

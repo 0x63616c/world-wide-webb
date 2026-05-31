@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
-import { boolArgType, defineTileMeta, TILE_STATUS_ARG_TYPE } from "./__stories__/factory";
+import { boolArgType, defineTileMeta } from "./__stories__/factory";
 import { DogCamTileView } from "./DogCamTileView";
 
 const meta = {
@@ -16,7 +16,6 @@ const meta = {
     onToggleLive: fn(),
   },
   argTypes: {
-    status: TILE_STATUS_ARG_TYPE,
     live: boolArgType("Whether the live feed overlay is currently visible"),
     online: boolArgType("Whether the camera hardware is reachable"),
     snapshotUrl: {
