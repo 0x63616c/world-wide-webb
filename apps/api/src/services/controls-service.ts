@@ -1,6 +1,13 @@
 import { inArray } from "drizzle-orm";
-
-import { findLight, LIGHTS, LightKind } from "../config/lights";
+import type { RgbColor } from "../config/lamp-scenes";
+import {
+  BLUE_RGB,
+  LampScene,
+  moodColorForIndex,
+  RED_RGB,
+  WHITE_SCENE_KELVIN,
+} from "../config/lamp-scenes";
+import { findLight, LAMP_ENTITY_IDS, LIGHTS, LightKind } from "../config/lights";
 import { db } from "../db/index";
 import { deviceState } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
@@ -17,6 +24,8 @@ export interface LampState {
   on: boolean;
   /** Number of lamp entities currently on. */
   count: number;
+  /** Average brightness (0..100, rounded) across on-lamps; 0 when none on. */
+  brightness: number;
   /** Sub-label. Always "On" or "Off" — no count or warmth. */
   sub: string;
   pending: boolean;
@@ -65,6 +74,16 @@ export type HaService = (typeof HaService)[keyof typeof HaService];
 /** True when an HA entity state string represents "on". */
 function isOn(entity: HaEntity): boolean {
   return entity.state === "on";
+}
+
+/**
+ * Convert an HA light's `attributes.brightness` (0..255) to a 0..100 pct.
+ * Returns 0 when the attribute is absent/non-numeric (lamp off or no dimmer).
+ */
+function brightnessPct(entity: HaEntity): number {
+  const raw = entity.attributes.brightness;
+  if (typeof raw !== "number") return 0;
+  return Math.round((raw / 255) * 100);
 }
 
 /**
@@ -179,10 +198,15 @@ export async function getControlsState(): Promise<ControlsState | null> {
   const fanPending = false;
 
   const anyLampOn = lampsOn.length > 0;
+  // Average brightness across on-lamps only (off lamps excluded); 0 when none on.
+  const avgBrightness = anyLampOn
+    ? Math.round(lampsOn.reduce((sum, e) => sum + brightnessPct(e), 0) / lampsOn.length)
+    : 0;
   return {
     lamps: {
       on: anyLampOn,
       count: lampsOn.length,
+      brightness: avgBrightness,
       sub: anyLampOn ? "On" : "Off",
       pending: isPending(lamps),
     },
@@ -318,6 +342,79 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
       break;
     }
   }
+
+  return getControlsState();
+}
+
+/**
+ * Build the per-lamp `light.turn_on` params for a scene.
+ *
+ * white/red/blue are uniform across lamps; mood zips a curated palette to the
+ * lamps by index (cycling) so each lamp gets a visibly distinct colour — the
+ * params therefore differ per lamp only for mood.
+ */
+function sceneParamsForLamp(
+  scene: LampScene,
+  entityId: string,
+  index: number,
+): Record<string, unknown> {
+  switch (scene) {
+    case LampScene.White:
+      return { entity_id: entityId, color_temp_kelvin: WHITE_SCENE_KELVIN };
+    case LampScene.Red:
+      return { entity_id: entityId, rgb_color: RED_RGB };
+    case LampScene.Blue:
+      return { entity_id: entityId, rgb_color: BLUE_RGB };
+    case LampScene.Mood: {
+      const rgb: RgbColor = moodColorForIndex(index);
+      return { entity_id: entityId, rgb_color: rgb };
+    }
+  }
+}
+
+/**
+ * Apply a colour scene to every lamp (Hue light.* entities).
+ *
+ * Dispatches one `light.turn_on` per lamp with the scene's colour args. For
+ * "mood" each lamp receives a different palette colour; the others are uniform.
+ * Throws when HA is unconfigured (caller surfaces a tRPC error). Returns the
+ * merged controls state after dispatching, mirroring toggleControl.
+ */
+export async function setLampScene(scene: LampScene): Promise<ControlsState | null> {
+  if (!ha.isConfigured()) {
+    throw new Error("Home Assistant is not configured");
+  }
+
+  await Promise.all(
+    LAMP_ENTITY_IDS.map((entityId, index) =>
+      ha.callService("light", HaService.TurnOn, sceneParamsForLamp(scene, entityId, index)),
+    ),
+  );
+
+  return getControlsState();
+}
+
+/**
+ * Set brightness (0..100 %) on every lamp via `light.turn_on` + brightness_pct.
+ *
+ * The percentage is clamped to the valid range. Throws when HA is unconfigured.
+ * Returns the merged controls state after dispatching.
+ */
+export async function setLampBrightness(pct: number): Promise<ControlsState | null> {
+  if (!ha.isConfigured()) {
+    throw new Error("Home Assistant is not configured");
+  }
+
+  const clamped = Math.min(100, Math.max(0, Math.round(pct)));
+
+  await Promise.all(
+    LAMP_ENTITY_IDS.map((entityId) =>
+      ha.callService("light", HaService.TurnOn, {
+        entity_id: entityId,
+        brightness_pct: clamped,
+      }),
+    ),
+  );
 
   return getControlsState();
 }

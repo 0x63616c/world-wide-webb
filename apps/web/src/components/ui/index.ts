@@ -2,6 +2,8 @@ export { BorderProgressRing } from "./BorderProgressRing";
 export { Chip } from "./Chip";
 export type { ControlTapProps } from "./ControlTap";
 export { ControlTap } from "./ControlTap";
+export type { ModalProps } from "./Modal";
+export { Modal } from "./Modal";
 export { Pill, PillTone } from "./Pill";
 export { Skeleton } from "./Skeleton";
 export { Stat } from "./Stat";

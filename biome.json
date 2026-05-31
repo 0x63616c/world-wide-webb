@@ -46,6 +46,7 @@
       "**",
       "!**/node_modules",
       "!**/dist",
+      "!**/storybook-static",
       "!**/*.gen.ts",
       "!**/.tilt",
       "!**/.beads",

@@ -352,6 +352,15 @@
 .board::-webkit-scrollbar {
   display: none;
 }
+/* Hidden scrollbar for the Modal body — same effect as .board's scrollbar rule
+   but without .board's fixed 1366x1024 sizing, which would blow the body out of
+   the modal panel. */
+.modal-scroll {
+  scrollbar-width: none;
+}
+.modal-scroll::-webkit-scrollbar {
+  display: none;
+}
 .divider {
   height: 1px;
   background: var(--hair);
