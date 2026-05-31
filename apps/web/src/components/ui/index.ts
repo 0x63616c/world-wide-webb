@@ -6,4 +6,5 @@ export { Skeleton } from "./Skeleton";
 export { Stat } from "./Stat";
 export { StatusDot } from "./StatusDot";
 export { Tile } from "./Tile";
+export { TileBoundary } from "./TileBoundary";
 export { TileHeader } from "./TileHeader";
