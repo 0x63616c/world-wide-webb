@@ -5,15 +5,14 @@ import { EventsTileView } from "../EventsTileView";
 import {
   Default,
   Empty,
-  Error as ErrorStory,
+  ErrorEmpty as ErrorStory,
   Loading,
   MultipleEvents,
   UrgentEvents,
 } from "../EventsTileView.stories";
 
 // Verify each story exports the correct args shape and renders without throwing.
-// Play functions in the stories run under the Storybook vitest browser project;
-// these unit tests cover the jsdom rendering path for the same states.
+// These unit tests cover the jsdom rendering path for all story states.
 
 describe("EventsTileView stories", () => {
   it("Loading story exports status=loading", () => {
@@ -42,7 +41,7 @@ describe("EventsTileView stories", () => {
   it("Default story exports populated state with at least one event", () => {
     expect(Default.args?.status).toBe("populated");
     expect(Default.args?.events?.length).toBeGreaterThan(0);
-    const events = Default.args!.events!;
+    const events = Default.args?.events ?? [];
     render(<EventsTileView status="populated" events={events} />);
     // First event name is visible
     expect(screen.getByText(events[0].name)).toBeInTheDocument();
@@ -50,7 +49,7 @@ describe("EventsTileView stories", () => {
 
   it("MultipleEvents story renders only the first 3 events", () => {
     expect(MultipleEvents.args?.status).toBe("populated");
-    const events = MultipleEvents.args!.events!;
+    const events = MultipleEvents.args?.events ?? [];
     expect(events.length).toBeGreaterThan(3);
     render(<EventsTileView status="populated" events={events} />);
     // First 3 visible, 4th should not appear
@@ -60,16 +59,19 @@ describe("EventsTileView stories", () => {
     expect(screen.queryByText(events[3].name)).not.toBeInTheDocument();
   });
 
-  it("UrgentEvents story has a sub-3-day event that renders in accent color", () => {
+  it("UrgentEvents story — all events with days <= 3 render in accent color", () => {
     expect(UrgentEvents.args?.status).toBe("populated");
-    const events = UrgentEvents.args!.events!;
-    const urgentEvent = events.find((e) => e.days <= 3);
-    expect(urgentEvent).toBeDefined();
+    const events = UrgentEvents.args?.events ?? [];
+    const urgentEvents = events.filter((e) => e.days <= 3);
+    // Story must have at least two urgent events (Disclosure + Bicep)
+    expect(urgentEvents.length).toBeGreaterThanOrEqual(2);
     const { container } = render(<EventsTileView status="populated" events={events} />);
     const dayNumbers = container.querySelectorAll(".mono");
-    const urgentEl = Array.from(dayNumbers).find(
-      (el) => el.textContent === String(urgentEvent!.days),
-    ) as HTMLElement | undefined;
-    expect(urgentEl?.style.color).toBe("var(--acc)");
+    for (const urgentEvent of urgentEvents) {
+      const urgentEl = Array.from(dayNumbers).find(
+        (el) => el.textContent === String(urgentEvent.days),
+      ) as HTMLElement | undefined;
+      expect(urgentEl?.style.color).toBe("var(--acc)");
+    }
   });
 });

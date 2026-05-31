@@ -6,7 +6,7 @@ const meta = {
   title: "Tiles/Events",
   component: EventsTileView,
   // Dark board background is applied globally via BoardDecorator in preview.tsx
-  tags: ["autodocs"],
+  tags: ["autodocs", "a11y"],
   argTypes: {
     status: {
       control: "radio",
@@ -47,7 +47,7 @@ export const Empty: Story = {
   },
 };
 
-export const Error: Story = {
+export const ErrorEmpty: Story = {
   args: {
     status: "error",
     events: [],
