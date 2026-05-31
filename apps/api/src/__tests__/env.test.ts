@@ -11,5 +11,4 @@ test("env schema parses with empty environment", () => {
   expect(env.DATABASE_URL).toBe("postgresql://cc:cc@localhost:5432/controlcenter");
   expect(env.LAT).toBe(34.0537);
   expect(env.LON).toBe(-118.2428);
-  expect(env.LOCATION_LABEL).toBe("Home");
 });

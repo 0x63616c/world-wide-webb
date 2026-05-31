@@ -85,7 +85,7 @@ describe("getTeslaData", () => {
     expect(data.locked).toBe(true);
     expect(data.lat).toBeCloseTo(34.061183);
     expect(data.lon).toBeCloseTo(-118.284533);
-    expect(data.place).toBe("Home"); // home -> label
+    expect(data.place).toBe("Home"); // GPS within Home radius -> named place
     // Odometer entity is disabled in the integration -> honest "—" absence.
     expect(data.odo).toBe("—");
   });
@@ -153,6 +153,19 @@ describe("getTeslaData", () => {
     expect(data.pct).toBe(55);
     expect(data.range).toBe(0); // numeric zero — honest sensor gap, not fabricated
     expect(data.charging).toBe(false); // no charging entity -> default false
-    expect(data.place).toBe("Home"); // no tracker -> env label
+    expect(data.place).toBe(""); // no tracker, no coords -> unknown location, no fabricated label
+  });
+
+  it("resolves the named place when GPS is within radius even off a non-home zone", async () => {
+    // Car physically at Home but HA reports a stale/other zone state — GPS wins.
+    vi.mocked(ha.isConfigured).mockReturnValue(true);
+    mockStates({
+      ...fullCar,
+      "device_tracker.evee_location": makeEntity("device_tracker.evee_location", "not_home", {
+        latitude: 34.0537,
+        longitude: -118.2428,
+      }),
+    });
+    expect((await getTeslaData()).place).toBe("Home");
   });
 });

@@ -27,10 +27,10 @@ export const envSchema = z.object({
   WIFI_SSID: z.string().default(""),
   WIFI_PASSWORD: z.string().default(""),
 
-  // Location — Home, Los Angeles.
+  // Location — Home, Los Angeles. The map-pill place name is no longer
+  // an env var; named places live in config/places.ts (www-6gx).
   LAT: z.coerce.number().default(34.0537),
   LON: z.coerce.number().default(-118.2428),
-  LOCATION_LABEL: z.string().default("Home"),
 
   // Tesla entity prefix in Home Assistant (Tesla Fleet / tesla_custom integration
   // names every entity `<prefix>_*`, e.g. sensor.evee_battery_level). The car's
