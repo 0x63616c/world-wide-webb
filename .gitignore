@@ -50,3 +50,6 @@ apps/web/public/maps/*.pmtiles
 # Storybook
 *storybook.log
 storybook-static
+
+# ship workflow scratch + build worktrees
+.claude/worktrees/
