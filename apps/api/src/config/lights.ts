@@ -78,6 +78,15 @@ export const LIGHTS: readonly LightEntry[] = [
     capabilities: HUE_CAPABILITIES,
   },
   {
+    id: "desk",
+    entityId: "light.desk",
+    domain: "light",
+    label: "Desk",
+    room: "Office",
+    kind: "lamp",
+    capabilities: HUE_CAPABILITIES,
+  },
+  {
     id: "bed-left",
     entityId: "light.bed_lamp_left",
     domain: "light",
