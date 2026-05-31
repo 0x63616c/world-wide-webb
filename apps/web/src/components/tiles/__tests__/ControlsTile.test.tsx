@@ -119,14 +119,14 @@ describe("ControlsTile", () => {
       expect(screen.getByLabelText("Lamps")).toBeInTheDocument();
       expect(screen.getByLabelText("Lights")).toBeInTheDocument();
       expect(screen.getByLabelText("Fan")).toBeInTheDocument();
-      // CC-bh5: 4th cell is labeled "Scene", not "More"
-      expect(screen.getByLabelText("Scene")).toBeInTheDocument();
+      // 4th cell is the "more" overflow affordance
+      expect(screen.getByLabelText("More")).toBeInTheDocument();
     });
 
-    it("CC-bh5: 4th cell shows Scene label text", () => {
+    it("4th cell shows more label text", () => {
       render(<ControlsTile />);
-      expect(screen.getByText("Scene")).toBeInTheDocument();
-      expect(screen.queryByText("More")).not.toBeInTheDocument();
+      expect(screen.getByText("more")).toBeInTheDocument();
+      expect(screen.queryByText("Scene")).not.toBeInTheDocument();
     });
 
     it("CC-bh5: fan icon has spin animation running when fan is on", () => {

@@ -12,6 +12,12 @@ export const envSchema = z.object({
   HA_URL: z.string().url().default("http://homeassistant.local:8123"),
   HA_TOKEN: z.string().default(""),
 
+  // The house thermostat entity. HA exposes multiple climate.* entities (e.g. the
+  // Tesla's climate.evee_climate); the Climate tile must target the real wall
+  // thermostat, not the alphabetical-first entity. See bd memory
+  // ha-evee-is-tesla-not-home-climate.
+  CLIMATE_ENTITY_ID: z.string().default("climate.home"),
+
   // UniFi network controller. All optional with safe defaults.
   UNIFI_API_KEY: z.string().default(""),
   UNIFI_CONTROLLER_URL: z.string().url().default("https://192.168.0.1"),

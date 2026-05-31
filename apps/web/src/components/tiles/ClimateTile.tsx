@@ -3,31 +3,43 @@
  *
  * Owns:
  *  - trpc.climate.get query with adaptive refetch (paused during cooldown)
- *  - optimistic setpoint and mode state so the UI responds instantly
+ *  - optimistic mode + setpoint state (single target OR low/high range) so the
+ *    UI responds instantly
  *  - 5 s cooldown poll-pause after any mutation (same pattern as ControlsTile)
- *    so HA's desired-window overlay has time to settle before we reconcile
- *  - debounced setTarget mutation (400 ms) to reduce chatter while dragging
+ *    so HA's desired-window has time to settle before we reconcile
+ *  - debounced setTarget / setRange mutations (400 ms) to reduce chatter while dragging
  *
- * Mode thresholds (CC-6k8):
- *  - target <= 70  → cool
- *  - 71–75         → auto
- *  - target >= 76  → heat
+ * Mode is the user's explicit choice (real HA hvac modes off/cool/heat/heat_cool),
+ * NOT derived from the setpoint. Switching modes seeds sensible setpoints so the
+ * UI has something to show before HA reports the new values.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { POLL } from "../../lib/hooks";
-import { trpc } from "../../lib/trpc";
-import type { ClimateMode } from "./ClimateTileView";
-import { ClimateTileView } from "./ClimateTileView";
+import { type RouterOutputs, trpc } from "../../lib/trpc";
+import { type ClimateMode, ClimateTileView, GAP, MAX, MIN } from "./ClimateTileView";
 
 const COOLDOWN_MS = 5_000;
 
-// Derive display mode from setpoint (CC-6k8 thresholds).
+// Default single setpoint when turning on from `off` (band midpoint).
+const DEFAULT_TARGET = 72;
+
+// Seed a low/high range around a single target (used when switching to heat_cool).
 // Exported for unit testing.
-export function modeFromTarget(target: number): ClimateMode {
-  if (target <= 70) return "cool";
-  if (target >= 76) return "heat";
-  return "auto";
+export function rangeFromTarget(target: number): { low: number; high: number } {
+  let low = Math.max(MIN, target - 3);
+  let high = Math.min(MAX, target + 3);
+  if (high - low < GAP) {
+    high = Math.min(MAX, low + GAP);
+    low = Math.max(MIN, high - GAP);
+  }
+  return { low, high };
+}
+
+// Collapse a range to a single setpoint (used when switching heat_cool → cool/heat).
+// Exported for unit testing.
+export function targetFromRange(low: number, high: number): number {
+  return Math.round((low + high) / 2);
 }
 
 // Exported so unit tests can verify adaptive poll behaviour.
@@ -38,6 +50,32 @@ export function makeRefetchInterval(getCooldownUntil: () => number): () => numbe
   };
 }
 
+function actionLabel(mode: ClimateMode): string {
+  if (mode === "cool") return "Cooling";
+  if (mode === "heat") return "Heating";
+  if (mode === "off") return "Off";
+  return "Idle";
+}
+
+type ServerState = RouterOutputs["climate"]["get"];
+
+// Current effective single/range setpoints from server state (with safe defaults).
+function setpointsOf(data: ServerState): { target: number; low: number; high: number } {
+  if (data.mode === "cool" || data.mode === "heat") {
+    const { low, high } = rangeFromTarget(data.target);
+    return { target: data.target, low, high };
+  }
+  if (data.mode === "heat_cool") {
+    return {
+      target: targetFromRange(data.targetLow, data.targetHigh),
+      low: data.targetLow,
+      high: data.targetHigh,
+    };
+  }
+  const { low, high } = rangeFromTarget(DEFAULT_TARGET);
+  return { target: DEFAULT_TARGET, low, high };
+}
+
 export function ClimateTile() {
   const utils = trpc.useUtils();
 
@@ -46,18 +84,26 @@ export function ClimateTile() {
   cooldownRef.current = cooldownUntil;
 
   const refetchInterval = makeRefetchInterval(() => cooldownRef.current);
-
   const query = trpc.climate.get.useQuery(undefined, { refetchInterval });
 
   const setTargetMutation = trpc.climate.setTarget.useMutation();
+  const setRangeMutation = trpc.climate.setRange.useMutation();
   const setModeMutation = trpc.climate.setMode.useMutation();
 
-  // Optimistic local state cleared after mutation settles or cooldown expires.
-  const [localTarget, setLocalTarget] = useState<number | null>(null);
+  // Optimistic overlay, cleared after a mutation settles or cooldown expires.
   const [localMode, setLocalMode] = useState<ClimateMode | null>(null);
+  const [localTarget, setLocalTarget] = useState<number | null>(null);
+  const [localLow, setLocalLow] = useState<number | null>(null);
+  const [localHigh, setLocalHigh] = useState<number | null>(null);
 
-  // Debounce ref for slider drags.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearLocal = useCallback(() => {
+    setLocalMode(null);
+    setLocalTarget(null);
+    setLocalLow(null);
+    setLocalHigh(null);
+  }, []);
 
   // When cooldown expires, invalidate once to reconcile with live HA state.
   useEffect(() => {
@@ -69,77 +115,93 @@ export function ClimateTile() {
     }
     const timer = setTimeout(() => {
       void utils.climate.get.invalidate();
-      setLocalTarget(null);
-      setLocalMode(null);
+      clearLocal();
     }, remaining);
     return () => clearTimeout(timer);
-  }, [cooldownUntil, utils]);
+  }, [cooldownUntil, utils, clearLocal]);
+
+  const startCooldown = useCallback(() => setCooldownUntil(Date.now() + COOLDOWN_MS), []);
 
   const handleSetTarget = useCallback(
     (val: number) => {
       setLocalTarget(val);
-      setLocalMode(modeFromTarget(val));
-      setCooldownUntil(Date.now() + COOLDOWN_MS);
+      startCooldown();
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        setTargetMutation.mutate(val, {
-          onSuccess: () => {
-            setLocalTarget(null);
-            setLocalMode(null);
-          },
-          onError: () => {
-            setLocalTarget(null);
-            setLocalMode(null);
-          },
-        });
+        setTargetMutation.mutate(val, { onSettled: clearLocal });
       }, 400);
     },
-    [setTargetMutation],
+    [setTargetMutation, startCooldown, clearLocal],
   );
 
-  const handleSetMode = useCallback(
-    (mode: ClimateMode, presetTarget: number) => {
-      setLocalTarget(presetTarget);
-      setLocalMode(mode);
-      setCooldownUntil(Date.now() + COOLDOWN_MS);
-      setModeMutation.mutate(mode, {
-        onSuccess: () => {
-          setLocalTarget(null);
-          setLocalMode(null);
-        },
-        onError: () => {
-          setLocalTarget(null);
-          setLocalMode(null);
-        },
-      });
+  const handleSetRange = useCallback(
+    (low: number, high: number) => {
+      setLocalLow(low);
+      setLocalHigh(high);
+      startCooldown();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        setRangeMutation.mutate({ low, high }, { onSettled: clearLocal });
+      }, 400);
     },
-    [setModeMutation],
+    [setRangeMutation, startCooldown, clearLocal],
+  );
+
+  // Hold the latest effective setpoints so a mode switch can seed from them.
+  const effectiveRef = useRef({ target: DEFAULT_TARGET, low: 0, high: 0 });
+
+  const handleSetMode = useCallback(
+    (nextMode: ClimateMode) => {
+      const { target, low, high } = effectiveRef.current;
+      setLocalMode(nextMode);
+      // Seed the setpoints the new mode needs from the current ones.
+      if (nextMode === "cool" || nextMode === "heat") {
+        setLocalTarget(low && high ? targetFromRange(low, high) : target);
+        setLocalLow(null);
+        setLocalHigh(null);
+      } else if (nextMode === "heat_cool") {
+        const seeded = rangeFromTarget(target);
+        setLocalLow(seeded.low);
+        setLocalHigh(seeded.high);
+        setLocalTarget(null);
+      } else {
+        setLocalTarget(null);
+        setLocalLow(null);
+        setLocalHigh(null);
+      }
+      startCooldown();
+      setModeMutation.mutate(nextMode, { onSettled: clearLocal });
+    },
+    [setModeMutation, startCooldown, clearLocal],
   );
 
   if (!query.data) return <ClimateTileView status="loading" />;
 
   const data = query.data;
-  const target = localTarget ?? data.target;
-  const mode = localMode ?? (data.mode as ClimateMode);
-  // action pill: when overriding locally, derive a label; otherwise use server value
-  const action =
-    localMode !== null
-      ? localMode === "cool"
-        ? "Cooling"
-        : localMode === "heat"
-          ? "Heating"
-          : "Auto"
-      : (data.action ?? "");
+  const server = setpointsOf(data);
+  const mode = localMode ?? data.mode;
+  const target = localTarget ?? server.target;
+  const low = localLow ?? server.low;
+  const high = localHigh ?? server.high;
+  const action = localMode !== null ? actionLabel(mode) : (data.action ?? "");
 
-  return (
-    <ClimateTileView
-      status="populated"
-      target={target}
-      ambient={data.ambient}
-      mode={mode}
-      action={action}
-      onSetTarget={handleSetTarget}
-      onSetMode={handleSetMode}
-    />
-  );
+  // Keep the seed source current for the next mode switch.
+  effectiveRef.current = { target, low, high };
+
+  const common = {
+    status: "populated" as const,
+    ambient: data.ambient,
+    action,
+    onSetMode: handleSetMode,
+    onSetTarget: handleSetTarget,
+    onSetRange: handleSetRange,
+  };
+
+  if (mode === "heat_cool") {
+    return <ClimateTileView {...common} mode="heat_cool" targetLow={low} targetHigh={high} />;
+  }
+  if (mode === "cool" || mode === "heat") {
+    return <ClimateTileView {...common} mode={mode} target={target} />;
+  }
+  return <ClimateTileView {...common} mode="off" />;
 }

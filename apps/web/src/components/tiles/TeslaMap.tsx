@@ -97,25 +97,27 @@ function buildStyle(): maplibregl.StyleSpecification {
 // A CSS-themable teardrop that matches the old SVG pin aesthetic.
 function createPinElement(): HTMLElement {
   const el = document.createElement("div");
+  // Sized large enough to fully contain the halo + the teardrop's drop-shadow,
+  // with overflow visible, so nothing about the marker can be clipped.
   el.style.cssText = `
-    width: 28px;
-    height: 28px;
+    width: 56px;
+    height: 56px;
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: visible;
+    pointer-events: none;
   `;
   el.innerHTML = `
     <div style="
       position:absolute;
-      width:44px;height:44px;
+      inset:0;
       border-radius:50%;
-      background:rgba(91,227,125,.12);
-      top:50%;left:50%;
-      transform:translate(-50%,-50%);
+      background:radial-gradient(circle, rgba(91,227,125,.30) 0%, rgba(91,227,125,.10) 45%, rgba(91,227,125,0) 70%);
     "></div>
     <svg width="24" height="30" viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg"
-         style="position:relative;z-index:1;filter:drop-shadow(0 0 6px rgba(91,227,125,.45))">
+         style="position:relative;z-index:1;overflow:visible;filter:drop-shadow(0 0 6px rgba(91,227,125,.45))">
       <path d="M12 28 C4 18 0 13 0 8 A12 12 0 1 1 24 8 C24 13 20 18 12 28Z" fill="#5be37d"/>
       <circle cx="12" cy="8" r="4.5" fill="#06210F"/>
     </svg>
@@ -172,7 +174,9 @@ export function TeslaMap({ lat, lon, place }: TeslaMapProps) {
         touchZoomRotate: false,
         keyboard: false,
         dragRotate: false,
-        attributionControl: { compact: true },
+        // Private dev wall panel — drop the on-map attribution badge. (OSM/ODbL
+        // attribution would be required if this map were displayed publicly.)
+        attributionControl: false,
       });
     } catch (err) {
       // WebGL unavailable (e.g. a headless/GPU-less context). Degrade to the
@@ -183,6 +187,12 @@ export function TeslaMap({ lat, lon, place }: TeslaMapProps) {
     }
 
     mapRef.current = map;
+
+    // Suppress tile-fetch errors (e.g. pmtiles file missing in dev) — the map
+    // degrades to a dark canvas instead of spamming the console with stack traces.
+    map.on("error", (e) => {
+      console.warn("TeslaMap source error:", e.error?.message ?? e);
+    });
 
     // Add pin only when we have a real location
     if (initLon !== null && initLat !== null) {
@@ -233,18 +243,20 @@ export function TeslaMap({ lat, lon, place }: TeslaMapProps) {
       {/* MapLibre canvas */}
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
 
-      {/* Location pill — bottom-left overlay (single source; no duplicate label) */}
+      {/* Location pill — top-left overlay */}
       <span
-        className="pill on"
+        className="pill"
         style={{
           position: "absolute",
           left: 12,
-          bottom: 12,
+          top: 12,
           padding: "4px 10px",
           fontSize: 12,
+          background: "rgba(30,34,40,0.85)",
+          color: "var(--text-muted, #8a9ab0)",
+          borderColor: "transparent",
         }}
       >
-        <span className="dot" />
         {place}
       </span>
     </div>

@@ -1,39 +1,25 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom";
-import { ClimateTile } from "../ClimateTile";
+import { ClimateTile, rangeFromTarget, targetFromRange } from "../ClimateTile";
 
 // ── Mock the tRPC hooks ──────────────────────────────────────────────────────
-// We mock at the module level so the component never touches the network.
 
 const mockSetTargetMutate = vi.fn();
+const mockSetRangeMutate = vi.fn();
 const mockSetModeMutate = vi.fn();
 
 const mockUseQuery = vi.fn();
-const mockUseSetTargetMutation = vi.fn(() => ({ mutate: mockSetTargetMutate }));
-const mockUseSetModeMutation = vi.fn(() => ({ mutate: mockSetModeMutate }));
-
 const mockInvalidateClimateGet = vi.fn();
 
 vi.mock("../../../lib/trpc", () => ({
   trpc: {
-    useUtils: () => ({
-      climate: {
-        get: {
-          invalidate: mockInvalidateClimateGet,
-        },
-      },
-    }),
+    useUtils: () => ({ climate: { get: { invalidate: mockInvalidateClimateGet } } }),
     climate: {
-      get: {
-        useQuery: (...args: unknown[]) => mockUseQuery(...args),
-      },
-      setTarget: {
-        useMutation: (...args: unknown[]) => mockUseSetTargetMutation(...args),
-      },
-      setMode: {
-        useMutation: (...args: unknown[]) => mockUseSetModeMutation(...args),
-      },
+      get: { useQuery: (...args: unknown[]) => mockUseQuery(...args) },
+      setTarget: { useMutation: () => ({ mutate: mockSetTargetMutate }) },
+      setRange: { useMutation: () => ({ mutate: mockSetRangeMutate }) },
+      setMode: { useMutation: () => ({ mutate: mockSetModeMutate }) },
     },
   },
 }));
@@ -43,180 +29,144 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+const renderTile = () => render(<ClimateTile />);
 
-function renderTile() {
-  return render(<ClimateTile />);
-}
+// ── Pure seed helpers ─────────────────────────────────────────────────────────
 
-// ── Tests ────────────────────────────────────────────────────────────────────
-
-describe("ClimateTile — renders with data", () => {
-  beforeEach(() => {
-    mockUseQuery.mockReturnValue({
-      data: { target: 68, ambient: 72, mode: "cool", action: "Cooling" },
-      isLoading: false,
-      isError: false,
-    });
+describe("seed helpers", () => {
+  it("rangeFromTarget brackets the target and respects the gap", () => {
+    expect(rangeFromTarget(72)).toEqual({ low: 69, high: 75 });
   });
 
-  it("shows the setpoint temperature from server data", () => {
-    renderTile();
-    // setpoint text node contains "68"
-    expect(screen.getByTestId("setpoint")).toHaveTextContent("68");
+  it("rangeFromTarget stays in band at the edges", () => {
+    expect(rangeFromTarget(65)).toEqual({ low: 65, high: 68 });
+    expect(rangeFromTarget(80)).toEqual({ low: 77, high: 80 });
   });
 
-  it("displays the °F suffix", () => {
-    renderTile();
-    expect(screen.getByTestId("setpoint")).toHaveTextContent("°F");
-  });
-
-  it("shows the mode pill label for Cooling (from data.action)", () => {
-    renderTile();
-    expect(screen.getByText("Cooling")).toBeInTheDocument();
-  });
-
-  it("marks the Cool chip as active", () => {
-    renderTile();
-    expect(screen.getByTestId("chip-cool")).toHaveClass("on");
-  });
-
-  it("mode pill reflects live action=Heating even when setpoint is in auto range", () => {
-    mockUseQuery.mockReturnValue({
-      data: { target: 72, ambient: 70, mode: "heat", action: "Heating" },
-      isLoading: false,
-      isError: false,
-    });
-    renderTile();
-    expect(screen.getByTestId("mode-pill")).toHaveTextContent("Heating");
-  });
-
-  it("mode pill reflects live action=Idle", () => {
-    mockUseQuery.mockReturnValue({
-      data: { target: 72, ambient: 72, mode: "auto", action: "Idle" },
-      isLoading: false,
-      isError: false,
-    });
-    renderTile();
-    expect(screen.getByTestId("mode-pill")).toHaveTextContent("Idle");
-  });
-
-  it("renders bare icon without an ic wrapper (uses TileHeader)", () => {
-    const { container } = renderTile();
-    // The ic span wrapping is gone — no element with class "ic" should exist
-    expect(container.querySelector(".ic")).not.toBeInTheDocument();
-  });
-
-  it("shows ambient temperature marker", () => {
-    renderTile();
-    expect(screen.getByTestId("ambient-label")).toHaveTextContent("72°");
-  });
-
-  it("renders 65° and 80° end labels", () => {
-    renderTile();
-    expect(screen.getByText("65°")).toBeInTheDocument();
-    expect(screen.getByText("80°")).toBeInTheDocument();
-  });
-
-  it("sets slider value to target", () => {
-    renderTile();
-    const slider = screen.getByTestId("slider") as HTMLInputElement;
-    expect(slider.value).toBe("68");
+  it("targetFromRange returns the rounded midpoint", () => {
+    expect(targetFromRange(68, 76)).toBe(72);
+    expect(targetFromRange(68, 75)).toBe(72); // 71.5 rounds to 72
   });
 });
 
-describe("ClimateTile — loading state (no data yet)", () => {
+// ── cool (single) ──────────────────────────────────────────────────────────────
+
+describe("ClimateTile — cool (single setpoint)", () => {
   beforeEach(() => {
     mockUseQuery.mockReturnValue({
-      data: undefined,
-      isLoading: true,
-      isError: false,
+      data: { mode: "cool", target: 68, ambient: 72, action: "Cooling" },
     });
   });
 
-  it("renders skeleton (no setpoint) while loading", () => {
+  it("shows the setpoint and °F from server data", () => {
     renderTile();
-    // Skeleton shown — real setpoint must not be present
-    expect(screen.queryByTestId("setpoint")).not.toBeInTheDocument();
+    expect(screen.getByTestId("setpoint")).toHaveTextContent("68");
+    expect(screen.getByTestId("setpoint")).toHaveTextContent("°F");
   });
 
-  it("renders skeleton (no slider) while loading", () => {
+  it("renders a single slider set to target", () => {
     renderTile();
+    expect((screen.getByTestId("slider") as HTMLInputElement).value).toBe("68");
+    expect(screen.queryByTestId("slider-low")).not.toBeInTheDocument();
+  });
+
+  it("marks the Cool button active and shows the live action", () => {
+    renderTile();
+    expect(screen.getByTestId("chip-cool")).toHaveClass("on");
+    expect(screen.getByTestId("mode-pill")).toHaveTextContent("Cooling");
+  });
+
+  it("optimistically updates the setpoint on slider change", () => {
+    renderTile();
+    fireEvent.change(screen.getByTestId("slider"), { target: { value: "75" } });
+    expect(screen.getByTestId("setpoint")).toHaveTextContent("75");
+  });
+});
+
+// ── heat_cool (dual) ────────────────────────────────────────────────────────────
+
+describe("ClimateTile — heat_cool (dual setpoint)", () => {
+  beforeEach(() => {
+    mockUseQuery.mockReturnValue({
+      data: { mode: "heat_cool", targetLow: 68, targetHigh: 76, ambient: 72, action: "Idle" },
+    });
+  });
+
+  it("renders both sliders from server low/high", () => {
+    renderTile();
+    expect((screen.getByTestId("slider-low") as HTMLInputElement).value).toBe("68");
+    expect((screen.getByTestId("slider-high") as HTMLInputElement).value).toBe("76");
+    expect(screen.queryByTestId("slider")).not.toBeInTheDocument();
+  });
+
+  it("commits a clamped range on low drag (never overlaps)", () => {
+    renderTile();
+    fireEvent.change(screen.getByTestId("slider-low"), { target: { value: "79" } });
+    expect(screen.getByTestId("slider-low")).toHaveValue("74"); // high 76 - gap 2
+  });
+});
+
+// ── off ─────────────────────────────────────────────────────────────────────────
+
+describe("ClimateTile — off", () => {
+  beforeEach(() => {
+    mockUseQuery.mockReturnValue({ data: { mode: "off", ambient: 71, action: "Idle" } });
+  });
+
+  it("shows Off and no sliders", () => {
+    renderTile();
+    expect(screen.getByTestId("setpoint")).toHaveTextContent("Off");
+    expect(screen.queryByTestId("slider")).not.toBeInTheDocument();
+    expect(screen.getByTestId("chip-off")).toHaveClass("on");
+  });
+});
+
+// ── loading / error ───────────────────────────────────────────────────────────
+
+describe("ClimateTile — no data", () => {
+  it("renders skeleton when loading", () => {
+    mockUseQuery.mockReturnValue({ data: undefined });
+    renderTile();
+    expect(screen.queryByTestId("setpoint")).not.toBeInTheDocument();
     expect(screen.queryByTestId("slider")).not.toBeInTheDocument();
   });
 });
 
-describe("ClimateTile — error state", () => {
+// ── mode switching ──────────────────────────────────────────────────────────────
+
+describe("ClimateTile — mode switching", () => {
   beforeEach(() => {
     mockUseQuery.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: true,
+      data: { mode: "cool", target: 70, ambient: 72, action: "Cooling" },
     });
   });
 
-  it("renders skeleton without crashing when error and no data", () => {
-    renderTile();
-    expect(screen.queryByTestId("setpoint")).not.toBeInTheDocument();
-  });
-});
-
-describe("ClimateTile — chip interaction", () => {
-  beforeEach(() => {
-    mockUseQuery.mockReturnValue({
-      data: { target: 70, ambient: 72, mode: "auto", action: "Auto" },
-      isLoading: false,
-      isError: false,
-    });
-  });
-
-  it("calls setMode mutation when a chip is clicked", () => {
+  it("calls setMode with the real hvac mode", () => {
     renderTile();
     fireEvent.click(screen.getByTestId("chip-heat"));
     expect(mockSetModeMutate).toHaveBeenCalledWith("heat", expect.any(Object));
   });
 
-  it("optimistically updates displayed setpoint when heat chip is clicked", () => {
+  it("never emits the fake 'auto' mode", () => {
     renderTile();
-    fireEvent.click(screen.getByTestId("chip-heat"));
-    // Heat chip preset is 76
-    expect(screen.getByTestId("setpoint")).toHaveTextContent("76");
+    fireEvent.click(screen.getByTestId("chip-heat_cool"));
+    fireEvent.click(screen.getByTestId("chip-off"));
+    const sent = mockSetModeMutate.mock.calls.map((c) => c[0]);
+    expect(sent).not.toContain("auto");
+    expect(sent).toEqual(["heat_cool", "off"]);
   });
 
-  it("marks clicked chip as active immediately", () => {
+  it("switching to heat_cool seeds a dual track around the current target", () => {
     renderTile();
-    fireEvent.click(screen.getByTestId("chip-heat"));
-    expect(screen.getByTestId("chip-heat")).toHaveClass("on");
-  });
-});
-
-describe("ClimateTile — slider interaction", () => {
-  beforeEach(() => {
-    mockUseQuery.mockReturnValue({
-      data: { target: 70, ambient: 72, mode: "auto", action: "Idle" },
-      isLoading: false,
-      isError: false,
-    });
+    fireEvent.click(screen.getByTestId("chip-heat_cool"));
+    // target 70 -> seeded low/high 67/73
+    expect((screen.getByTestId("slider-low") as HTMLInputElement).value).toBe("67");
+    expect((screen.getByTestId("slider-high") as HTMLInputElement).value).toBe("73");
   });
 
-  it("updates the displayed setpoint when slider changes", () => {
+  it("marks the clicked mode active immediately", () => {
     renderTile();
-    const slider = screen.getByTestId("slider") as HTMLInputElement;
-    fireEvent.change(slider, { target: { value: "75" } });
-    expect(screen.getByTestId("setpoint")).toHaveTextContent("75");
-  });
-
-  it("updates mode pill to Heating when slider is moved above 74", () => {
-    renderTile();
-    const slider = screen.getByTestId("slider") as HTMLInputElement;
-    fireEvent.change(slider, { target: { value: "76" } });
-    expect(screen.getByText("Heating")).toBeInTheDocument();
-  });
-
-  it("updates mode pill to Cooling when slider is moved to 68", () => {
-    renderTile();
-    const slider = screen.getByTestId("slider") as HTMLInputElement;
-    fireEvent.change(slider, { target: { value: "68" } });
-    expect(screen.getByText("Cooling")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("chip-heat_cool"));
+    expect(screen.getByTestId("chip-heat_cool")).toHaveClass("on");
   });
 });

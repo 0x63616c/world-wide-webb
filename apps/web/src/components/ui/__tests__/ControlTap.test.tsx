@@ -121,32 +121,3 @@ describe("ControlTap — bottom line layout", () => {
     expect(labelEl).toBeTruthy();
   });
 });
-
-// ─── onMore affordance ────────────────────────────────────────────────────────
-
-describe("ControlTap — onMore affordance", () => {
-  it("does not render a more button when onMore is not provided", () => {
-    render(<ControlTap icon="lamp" label="Lamps" on={true} onToggle={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: /more/i })).not.toBeInTheDocument();
-  });
-
-  it("renders a '> more' affordance button when onMore is provided", () => {
-    render(<ControlTap icon="lamp" label="Lamps" on={true} onToggle={vi.fn()} onMore={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /more/i })).toBeInTheDocument();
-  });
-
-  it("calls onMore when the more button is clicked", () => {
-    const onMore = vi.fn();
-    render(<ControlTap icon="lamp" label="Lamps" on={true} onToggle={vi.fn()} onMore={onMore} />);
-    fireEvent.click(screen.getByRole("button", { name: /more/i }));
-    expect(onMore).toHaveBeenCalledTimes(1);
-  });
-
-  it("clicking more does not also fire onToggle", () => {
-    const onToggle = vi.fn();
-    const onMore = vi.fn();
-    render(<ControlTap icon="lamp" label="Lamps" on={true} onToggle={onToggle} onMore={onMore} />);
-    fireEvent.click(screen.getByRole("button", { name: /more/i }));
-    expect(onToggle).not.toHaveBeenCalled();
-  });
-});

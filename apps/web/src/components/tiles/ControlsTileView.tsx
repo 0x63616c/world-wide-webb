@@ -3,10 +3,7 @@
  * All data and callbacks come in as props; no trpc or hooks inside.
  */
 
-import { useState } from "react";
-import { Icon } from "../Icon";
 import { ControlTap, Skeleton, Tile, TileHeader } from "../ui";
-import { ControlOverflow } from "../ui/ControlOverflow";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -41,11 +38,6 @@ interface ControlsGridViewProps {
 }
 
 export function ControlsGridView({ data, onToggle }: ControlsGridViewProps) {
-  // Track which control cell has its overflow panel open (null = none)
-  const [openOverflow, setOpenOverflow] = useState<ControlKey | null>(null);
-
-  const closeOverflow = () => setOpenOverflow(null);
-
   return (
     <>
       <ControlTap
@@ -55,7 +47,6 @@ export function ControlsGridView({ data, onToggle }: ControlsGridViewProps) {
         sub={data.lamps.sub}
         pending={data.lamps.pending}
         onToggle={() => onToggle("lamps", data.lamps.on)}
-        onMore={() => setOpenOverflow("lamps")}
       />
 
       <ControlTap
@@ -64,7 +55,6 @@ export function ControlsGridView({ data, onToggle }: ControlsGridViewProps) {
         on={data.lights.on}
         pending={data.lights.pending}
         onToggle={() => onToggle("lights", data.lights.on)}
-        onMore={() => setOpenOverflow("lights")}
       />
 
       <ControlTap
@@ -74,7 +64,6 @@ export function ControlsGridView({ data, onToggle }: ControlsGridViewProps) {
         sub={data.fan.sub}
         pending={data.fan.pending}
         onToggle={() => onToggle("fan", data.fan.on)}
-        onMore={() => setOpenOverflow("fan")}
       />
 
       {/* Scene placeholder — future scene trigger */}
@@ -93,30 +82,11 @@ export function ControlsGridView({ data, onToggle }: ControlsGridViewProps) {
           font: "inherit",
           background: "none",
         }}
-        aria-label="Scene"
+        aria-label="More"
       >
-        <Icon name="plus" s={22} c="var(--ink-3)" />
-        <span style={{ fontSize: 13 }}>Scene</span>
+        <span style={{ fontSize: 22, lineHeight: 1, color: "var(--ink-3)" }}>›</span>
+        <span style={{ fontSize: 13 }}>more</span>
       </button>
-
-      {/* Overflow panel for rename/scene — floats over the grid */}
-      {openOverflow && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 10,
-          }}
-        >
-          <ControlOverflow
-            label={openOverflow.charAt(0).toUpperCase() + openOverflow.slice(1)}
-            open={true}
-            onClose={closeOverflow}
-            onRename={closeOverflow}
-            onScene={closeOverflow}
-          />
-        </div>
-      )}
     </>
   );
 }

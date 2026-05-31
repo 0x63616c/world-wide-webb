@@ -12,102 +12,74 @@ export interface ControlTapProps {
   sub?: string;
   pending?: boolean;
   onToggle: () => void;
-  /** Optional: opens secondary action overflow for rename/scene */
-  onMore?: () => void;
 }
 
-export function ControlTap({ icon, label, on, sub, pending, onToggle, onMore }: ControlTapProps) {
+export function ControlTap({ icon, label, on, sub, pending, onToggle }: ControlTapProps) {
   const statusText = on ? (sub ?? "On") : "Off";
 
   return (
-    <div style={{ position: "relative" }}>
-      <button
-        type="button"
-        className={`tap${on ? " on" : ""}`}
-        onClick={onToggle}
-        data-pending={pending ? "true" : undefined}
-        style={{
-          padding: 17,
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          cursor: "pointer",
-          textAlign: "left",
-          font: "inherit",
-          color: "inherit",
-          background: "none",
-          opacity: pending ? 0.7 : 1,
-        }}
-        aria-pressed={on}
-        aria-label={label}
-      >
-        {/* Top row: icon left, status dot right */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          {icon === "fan" ? (
-            <span
-              data-fan-spin=""
-              style={{
-                display: "inline-flex",
-                animation: "spin 10s linear infinite",
-                animationPlayState: on ? "running" : "paused",
-              }}
-            >
-              <Icon name="fan" s={26} c={on ? "var(--acc)" : "var(--ink-2)"} />
-            </span>
-          ) : (
-            <Icon name={icon} s={26} c={on ? "var(--acc)" : "var(--ink-2)"} />
-          )}
-          <span className="sd" />
-        </div>
-
-        {/* Bottom row: label left, On/Off status right — same baseline */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-          }}
-        >
-          <span style={{ fontSize: 18, fontWeight: 500 }}>{label}</span>
+    <button
+      type="button"
+      className={`tap${on ? " on" : ""}`}
+      onClick={onToggle}
+      data-pending={pending ? "true" : undefined}
+      style={{
+        padding: 17,
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        cursor: "pointer",
+        textAlign: "left",
+        font: "inherit",
+        color: "inherit",
+        background: "none",
+        opacity: pending ? 0.7 : 1,
+      }}
+      aria-pressed={on}
+      aria-label={label}
+    >
+      {/* Top row: icon left, status dot right */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        {icon === "fan" ? (
           <span
-            className="mono"
+            data-fan-spin=""
             style={{
-              fontSize: 12,
-              color: on ? "var(--acc)" : "var(--ink-3)",
-              textTransform: "uppercase",
-              letterSpacing: ".08em",
+              display: "inline-flex",
+              animation: "spin 10s linear infinite",
+              animationPlayState: on ? "running" : "paused",
             }}
           >
-            {statusText}
+            <Icon name="fan" s={26} c={on ? "var(--acc)" : "var(--ink-2)"} />
           </span>
-        </div>
-      </button>
+        ) : (
+          <Icon name={icon} s={26} c={on ? "var(--acc)" : "var(--ink-2)"} />
+        )}
+        <span className="sd" />
+      </div>
 
-      {/* Secondary action affordance — separate button so clicks don't toggle */}
-      {onMore && (
-        <button
-          type="button"
-          aria-label={`More options for ${label}`}
-          onClick={onMore}
+      {/* Bottom row: label left, On/Off status right — same baseline */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+        }}
+      >
+        <span style={{ fontSize: 18, fontWeight: 500 }}>{label}</span>
+        <span
+          className="mono"
           style={{
-            position: "absolute",
-            bottom: 6,
-            right: 6,
-            padding: "2px 6px",
-            borderRadius: 6,
-            border: "none",
-            background: "none",
-            color: "var(--ink-3)",
-            font: "inherit",
-            fontSize: 11,
-            cursor: "pointer",
+            fontSize: 12,
+            color: on ? "var(--acc)" : "var(--ink-3)",
+            textTransform: "uppercase",
+            letterSpacing: ".08em",
           }}
         >
-          {"›"} more
-        </button>
-      )}
-    </div>
+          {statusText}
+        </span>
+      </div>
+    </button>
   );
 }

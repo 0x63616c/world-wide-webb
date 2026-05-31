@@ -33,6 +33,19 @@ local_resource(
     labels=["tooling"],
 )
 
+# db-migrate: one-shot, runs pending Drizzle migrations before the API boots.
+# Gating `api` on this guarantees the schema is current on a fresh/reset DB —
+# otherwise the API starts against an unmigrated schema and the device-sync loop
+# dies on its first heartbeat write. Re-runs on migration-file changes; no-ops
+# when the DB is already up to date.
+local_resource(
+    "db-migrate",
+    cmd="DATABASE_URL='postgresql://cc:cc@localhost:%d/controlcenter' bun run --cwd apps/api db:migrate" % port_postgres,
+    deps=["apps/api/src/db/migrations"],
+    resource_deps=["postgres", "install"],
+    labels=["backend"],
+)
+
 # api: bun --watch owns the file watch. Tilt orchestrates startup, bun handles reloads.
 # Wrapped in the watchdog so a sustained-unhealthy /up (alive but not serving)
 # exits non-zero and Tilt restarts it — no manual UI click on the wall panel.
@@ -51,7 +64,7 @@ local_resource(
         http_get=http_get_action(port=port_api, path="/up"),
         period_secs=1,
     ),
-    resource_deps=["postgres", "install"],
+    resource_deps=["postgres", "install", "db-migrate"],
     labels=["backend"],
     links=[
         link("http://localhost:%d/up" % port_api, "API /up"),

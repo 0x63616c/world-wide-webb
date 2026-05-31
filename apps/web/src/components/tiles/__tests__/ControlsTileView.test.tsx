@@ -50,13 +50,13 @@ describe("ControlsTileView — populated state", () => {
     expect(screen.getByLabelText("Lamps")).toBeInTheDocument();
     expect(screen.getByLabelText("Lights")).toBeInTheDocument();
     expect(screen.getByLabelText("Fan")).toBeInTheDocument();
-    expect(screen.getByLabelText("Scene")).toBeInTheDocument();
+    expect(screen.getByLabelText("More")).toBeInTheDocument();
   });
 
-  it("4th cell shows Scene label text", () => {
+  it("4th cell shows more label text", () => {
     render(<ControlsTileView {...populatedProps} />);
-    expect(screen.getByText("Scene")).toBeInTheDocument();
-    expect(screen.queryByText("More")).not.toBeInTheDocument();
+    expect(screen.getByText("more")).toBeInTheDocument();
+    expect(screen.queryByText("Scene")).not.toBeInTheDocument();
   });
 
   it("Lamps reflects on state via aria-pressed", () => {
@@ -135,69 +135,6 @@ describe("ControlsTileView — layout", () => {
     const grid = tile?.children[1] as HTMLElement;
     expect(grid).not.toBeNull();
     expect(grid.style.minHeight).toBe("0px");
-  });
-});
-
-// ─── overflow interaction ─────────────────────────────────────────────────────
-
-describe("ControlsTileView — overflow", () => {
-  it("no overflow dialog visible by default", () => {
-    render(<ControlsTileView {...populatedProps} />);
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("overflow dialog opens when a '> more' affordance is clicked for Lamps", () => {
-    render(<ControlsTileView {...populatedProps} />);
-    fireEvent.click(screen.getByRole("button", { name: /more.*lamps/i }));
-    const dialog = screen.getByRole("dialog");
-    expect(dialog).toBeInTheDocument();
-    // The overflow heading "Lamps" lives inside the dialog
-    expect(dialog.textContent).toMatch(/Lamps/);
-  });
-
-  it("overflow dialog closes when the close button is clicked", () => {
-    render(<ControlsTileView {...populatedProps} />);
-    fireEvent.click(screen.getByRole("button", { name: /more.*lamps/i }));
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /close/i }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("overflow opens for Fan showing Fan label", () => {
-    render(<ControlsTileView {...populatedProps} />);
-    fireEvent.click(screen.getByRole("button", { name: /more.*fan/i }));
-    const dialog = screen.getByRole("dialog");
-    expect(dialog).toBeInTheDocument();
-    // Fan heading appears inside the dialog
-    expect(dialog.textContent).toMatch(/Fan/);
-  });
-
-  it("opening a second overflow while first is open switches to the new control (Lamps -> Lights)", () => {
-    render(<ControlsTileView {...populatedProps} />);
-    // Open Lamps overflow first
-    fireEvent.click(screen.getByRole("button", { name: /more.*lamps/i }));
-    expect(screen.getByRole("dialog").textContent).toMatch(/Lamps/);
-    // Without closing, click Lights' more button — should replace with Lights overflow
-    fireEvent.click(screen.getByRole("button", { name: /more.*lights/i }));
-    const dialog = screen.getByRole("dialog");
-    // Only one dialog; it should now label Lights
-    expect(dialog.textContent).toMatch(/Lights/);
-    expect(screen.getAllByRole("dialog")).toHaveLength(1);
-  });
-
-  it("clicking the main toggle button while overflow is open still fires onToggle (overflow stays open)", () => {
-    const onToggle = vi.fn();
-    render(<ControlsTileView {...populatedProps} onToggle={onToggle} />);
-    // Open Lamps overflow
-    fireEvent.click(screen.getByRole("button", { name: /more.*lamps/i }));
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    // Click the main Lamps toggle — overflow is separate so onToggle fires
-    // but the overflow panel is NOT auto-closed (close is explicit via the Close button).
-    // This documents the intentional UX: overflow persists until explicitly dismissed.
-    fireEvent.click(screen.getByLabelText("Lamps"));
-    expect(onToggle).toHaveBeenCalledWith("lamps", true);
-    // Overflow stays open; user must explicitly click Close
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 });
 
