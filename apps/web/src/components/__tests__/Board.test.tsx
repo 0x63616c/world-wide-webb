@@ -1,17 +1,13 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// Stub every tile and banner so Board renders without real data dependencies.
+// Mock the entire tile registry so no tile component (or its transitive deps
+// like maplibre-gl) are loaded in jsdom. Board only needs the registry shape.
+vi.mock("../../lib/tile-registry", () => ({
+  TILE_REGISTRY: [],
+  deriveGridAreas: () => '""',
+}));
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
-vi.mock("../tiles/ClimateTile", () => ({ ClimateTile: () => null }));
-vi.mock("../tiles/ClockGreeting", () => ({ ClockGreeting: () => null }));
-vi.mock("../tiles/ControlsTile", () => ({ ControlsTile: () => null }));
-vi.mock("../tiles/DogCamTile", () => ({ DogCamTile: () => null }));
-vi.mock("../tiles/EventsTile", () => ({ EventsTile: () => null }));
-vi.mock("../tiles/NetworkTile", () => ({ NetworkTile: () => null }));
-vi.mock("../tiles/Next12Hours", () => ({ Next12Hours: () => null }));
-vi.mock("../tiles/TeslaTile", () => ({ TeslaTile: () => null }));
-vi.mock("../tiles/WeatherNow", () => ({ WeatherNow: () => null }));
 
 import { Board } from "../Board";
 

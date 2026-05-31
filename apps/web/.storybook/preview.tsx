@@ -1,5 +1,15 @@
 import type { Decorator, Preview } from "@storybook/react-vite";
+import { createElement } from "react";
 import { create } from "storybook/theming/create";
+import {
+  BOARD_H,
+  BOARD_PADDING,
+  BOARD_W,
+  GRID_COLS,
+  GRID_GAP,
+  GRID_ROWS,
+} from "../src/lib/grid-constants";
+import { registryEntryForComponent } from "../src/lib/tile-registry";
 
 // Board CSS — tokens + shimmer keyframes + tile class definitions
 import "../src/styles/globals.css";
@@ -18,16 +28,44 @@ const eveeTheme = create({
   colorSecondary: "#37c95e",
 });
 
-// Wraps every story in the board background so tiles render against the correct
-// dark surface rather than Storybook's default white canvas.
+// Wraps every tile story in the real board grid at its declared gridArea so
+// tiles render at true production footprint — no separate size to maintain.
+// Falls back to a plain dark wrapper for non-tile stories.
 const BoardDecorator: Decorator = (Story, context) => {
-  const useBoardWrapper = context.parameters.boardWrapper !== false;
-  if (!useBoardWrapper) return <Story />;
+  if (context.parameters.boardWrapper === false) return createElement(Story);
 
-  return (
-    <div
-      className="e-root"
-      style={{
+  const entry = registryEntryForComponent(context.component);
+
+  if (entry) {
+    return createElement(
+      "div",
+      {
+        style: {
+          width: BOARD_W,
+          height: BOARD_H,
+          display: "grid",
+          gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+          gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
+          gap: GRID_GAP,
+          padding: BOARD_PADDING,
+          boxSizing: "border-box",
+          background: "var(--bg)",
+        },
+        className: "e-root",
+      },
+      createElement(
+        "div",
+        { style: { gridArea: entry.gridArea, display: "flex", flexDirection: "column" } },
+        createElement(Story),
+      ),
+    );
+  }
+
+  return createElement(
+    "div",
+    {
+      className: "e-root",
+      style: {
         background: "var(--bg)",
         minHeight: "100vh",
         display: "flex",
@@ -35,10 +73,9 @@ const BoardDecorator: Decorator = (Story, context) => {
         justifyContent: "flex-start",
         padding: 20,
         boxSizing: "border-box",
-      }}
-    >
-      <Story />
-    </div>
+      },
+    },
+    createElement(Story),
   );
 };
 

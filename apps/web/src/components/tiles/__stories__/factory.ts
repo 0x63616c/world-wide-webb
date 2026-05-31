@@ -38,6 +38,8 @@ export function boolArgType(description: string): TileArgType {
 
 /**
  * Returns the standard Meta fields shared by every tile story.
+ * Grid sizing is applied automatically by the global BoardDecorator in
+ * preview.tsx via registryEntryForComponent — no per-story config needed.
  * Pass extra tags (e.g. "a11y") in additionalTags to merge with "autodocs".
  */
 // biome-ignore lint/suspicious/noExplicitAny: factory accepts any component shape
