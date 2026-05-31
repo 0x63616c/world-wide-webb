@@ -57,6 +57,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         aria-hidden="true"
         tabIndex={-1}
         data-testid="modal-backdrop"
+        className="modal-backdrop"
         onClick={onClose}
         style={{
           position: "absolute",
@@ -73,6 +74,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={TITLE_ID}
+        className="modal-panel"
         style={{
           position: "relative",
           width: 640,
