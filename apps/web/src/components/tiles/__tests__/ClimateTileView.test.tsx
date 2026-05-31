@@ -7,7 +7,7 @@ import "@testing-library/jest-dom";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ClimateTileViewProps } from "../ClimateTileView";
-import { ClimateTileView, clampHigh, clampLow } from "../ClimateTileView";
+import { ClimateTileView, clampHigh, clampLow, HvacMode } from "../ClimateTileView";
 
 afterEach(cleanup);
 
@@ -69,7 +69,7 @@ describe("ClimateTileView — loading state", () => {
 
 const coolProps: ClimateTileViewProps = {
   status: "populated",
-  mode: "cool",
+  mode: HvacMode.Cool,
   target: 68,
   ambient: 72,
   action: "Cooling",
@@ -117,7 +117,7 @@ describe("ClimateTileView — cool/heat (single setpoint)", () => {
 
 const heatCoolProps: ClimateTileViewProps = {
   status: "populated",
-  mode: "heat_cool",
+  mode: HvacMode.HeatCool,
   targetLow: 68,
   targetHigh: 76,
   ambient: 72,
@@ -177,7 +177,7 @@ describe("ClimateTileView — heat_cool (dual setpoint)", () => {
 describe("ClimateTileView — off", () => {
   const offProps: ClimateTileViewProps = {
     status: "populated",
-    mode: "off",
+    mode: HvacMode.Off,
     ambient: 71,
     action: "Off",
     ...cbs,
@@ -203,10 +203,10 @@ describe("ClimateTileView — mode buttons", () => {
     const onSetMode = vi.fn();
     render(<ClimateTileView {...coolProps} onSetMode={onSetMode} />);
     fireEvent.click(screen.getByTestId("chip-heat"));
-    expect(onSetMode).toHaveBeenCalledWith("heat");
+    expect(onSetMode).toHaveBeenCalledWith(HvacMode.Heat);
     fireEvent.click(screen.getByTestId("chip-heat_cool"));
-    expect(onSetMode).toHaveBeenCalledWith("heat_cool");
+    expect(onSetMode).toHaveBeenCalledWith(HvacMode.HeatCool);
     fireEvent.click(screen.getByTestId("chip-off"));
-    expect(onSetMode).toHaveBeenCalledWith("off");
+    expect(onSetMode).toHaveBeenCalledWith(HvacMode.Off);
   });
 });

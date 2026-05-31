@@ -2,7 +2,7 @@ export { BorderProgressRing } from "./BorderProgressRing";
 export { Chip } from "./Chip";
 export type { ControlTapProps } from "./ControlTap";
 export { ControlTap } from "./ControlTap";
-export { Pill } from "./Pill";
+export { Pill, PillTone } from "./Pill";
 export { Skeleton } from "./Skeleton";
 export { Stat } from "./Stat";
 export { StatusDot } from "./StatusDot";

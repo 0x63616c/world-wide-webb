@@ -1,6 +1,6 @@
 import { env } from "../env";
 import type { UnifiClient } from "../integrations/unifi";
-import { unifi } from "../integrations/unifi";
+import { UnifiStatus, unifi } from "../integrations/unifi";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -13,8 +13,14 @@ export interface TrafficBucket {
   up: number;
 }
 
+export const NetworkConnectivity = {
+  Online: "Online",
+  Offline: "Offline",
+} as const;
+export type NetworkConnectivity = (typeof NetworkConnectivity)[keyof typeof NetworkConnectivity];
+
 export interface NetworkStatus {
-  status: "Online" | "Offline";
+  status: NetworkConnectivity;
   ssid: string;
   /** 2 h download total in GB, formatted as a string (e.g. "1.4"). */
   down: string;
@@ -32,7 +38,7 @@ export interface NetworkStatus {
 // ---------------------------------------------------------------------------
 
 export const DEMO_NETWORK: NetworkStatus = {
-  status: "Online",
+  status: NetworkConnectivity.Online,
   ssid: "world-wide-webb",
   down: "18.4",
   up: "4.2",
@@ -100,7 +106,8 @@ export async function getNetworkStatus(clientOverride?: UnifiClient): Promise<Ne
   const totalUp = buckets.reduce((sum, b) => sum + b.up, 0);
 
   return {
-    status: health.status === "ok" ? "Online" : "Offline",
+    status:
+      health.status === UnifiStatus.Ok ? NetworkConnectivity.Online : NetworkConnectivity.Offline,
     ssid: env.WIFI_SSID || "Home",
     down: bytesToGbString(totalDown),
     up: bytesToGbString(totalUp),

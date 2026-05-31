@@ -1,6 +1,18 @@
 import type { DeviceLightState, DeviceStateValue } from "../db/schema";
 import type { HaEntity } from "../integrations/homeassistant/types";
 
+export const DeviceKind = {
+  Light: "light",
+  Switch: "switch",
+} as const;
+export type DeviceKind = (typeof DeviceKind)[keyof typeof DeviceKind];
+
+export const HaState = {
+  On: "on",
+  Unavailable: "unavailable",
+  Unknown: "unknown",
+} as const;
+
 export interface MappedHaState {
   reported: DeviceStateValue | null;
   available: boolean;
@@ -8,13 +20,13 @@ export interface MappedHaState {
 
 export function mapHaToReported(kind: string, entity: HaEntity | undefined): MappedHaState {
   if (!entity) return { reported: null, available: false };
-  const available = entity.state !== "unavailable" && entity.state !== "unknown";
+  const available = entity.state !== HaState.Unavailable && entity.state !== HaState.Unknown;
   if (!available) return { reported: null, available: false };
 
   switch (kind) {
-    case "light":
-    case "switch": {
-      const light: DeviceLightState = { on: entity.state === "on" };
+    case DeviceKind.Light:
+    case DeviceKind.Switch: {
+      const light: DeviceLightState = { on: entity.state === HaState.On };
       const brightness = entity.attributes.brightness;
       if (typeof brightness === "number") light.brightness = brightness;
       return { reported: light, available };

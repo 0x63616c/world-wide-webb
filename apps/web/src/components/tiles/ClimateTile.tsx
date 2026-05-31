@@ -17,7 +17,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { POLL } from "../../lib/hooks";
 import { type RouterOutputs, trpc } from "../../lib/trpc";
-import { type ClimateMode, ClimateTileView, GAP, MAX, MIN } from "./ClimateTileView";
+import { type ClimateMode, ClimateTileView, GAP, HvacMode, MAX, MIN } from "./ClimateTileView";
+import { TileStatus } from "./EventsTileView";
 
 const COOLDOWN_MS = 5_000;
 
@@ -51,9 +52,9 @@ export function makeRefetchInterval(getCooldownUntil: () => number): () => numbe
 }
 
 function actionLabel(mode: ClimateMode): string {
-  if (mode === "cool") return "Cooling";
-  if (mode === "heat") return "Heating";
-  if (mode === "off") return "Off";
+  if (mode === HvacMode.Cool) return "Cooling";
+  if (mode === HvacMode.Heat) return "Heating";
+  if (mode === HvacMode.Off) return "Off";
   return "Idle";
 }
 
@@ -61,11 +62,11 @@ type ServerState = RouterOutputs["climate"]["get"];
 
 // Current effective single/range setpoints from server state (with safe defaults).
 function setpointsOf(data: ServerState): { target: number; low: number; high: number } {
-  if (data.mode === "cool" || data.mode === "heat") {
+  if (data.mode === HvacMode.Cool || data.mode === HvacMode.Heat) {
     const { low, high } = rangeFromTarget(data.target);
     return { target: data.target, low, high };
   }
-  if (data.mode === "heat_cool") {
+  if (data.mode === HvacMode.HeatCool) {
     return {
       target: targetFromRange(data.targetLow, data.targetHigh),
       low: data.targetLow,
@@ -157,11 +158,11 @@ export function ClimateTile() {
       const { target, low, high } = effectiveRef.current;
       setLocalMode(nextMode);
       // Seed the setpoints the new mode needs from the current ones.
-      if (nextMode === "cool" || nextMode === "heat") {
+      if (nextMode === HvacMode.Cool || nextMode === HvacMode.Heat) {
         setLocalTarget(low && high ? targetFromRange(low, high) : target);
         setLocalLow(null);
         setLocalHigh(null);
-      } else if (nextMode === "heat_cool") {
+      } else if (nextMode === HvacMode.HeatCool) {
         const seeded = rangeFromTarget(target);
         setLocalLow(seeded.low);
         setLocalHigh(seeded.high);
@@ -177,7 +178,7 @@ export function ClimateTile() {
     [setModeMutation, startCooldown],
   );
 
-  if (!query.data) return <ClimateTileView status="loading" />;
+  if (!query.data) return <ClimateTileView status={TileStatus.Loading} />;
 
   const data = query.data;
   const server = setpointsOf(data);
@@ -191,7 +192,7 @@ export function ClimateTile() {
   effectiveRef.current = { target, low, high };
 
   const common = {
-    status: "populated" as const,
+    status: TileStatus.Populated,
     ambient: data.ambient,
     action,
     onSetMode: handleSetMode,
@@ -199,11 +200,13 @@ export function ClimateTile() {
     onSetRange: handleSetRange,
   };
 
-  if (mode === "heat_cool") {
-    return <ClimateTileView {...common} mode="heat_cool" targetLow={low} targetHigh={high} />;
+  if (mode === HvacMode.HeatCool) {
+    return (
+      <ClimateTileView {...common} mode={HvacMode.HeatCool} targetLow={low} targetHigh={high} />
+    );
   }
-  if (mode === "cool" || mode === "heat") {
+  if (mode === HvacMode.Cool || mode === HvacMode.Heat) {
     return <ClimateTileView {...common} mode={mode} target={target} />;
   }
-  return <ClimateTileView {...common} mode="off" />;
+  return <ClimateTileView {...common} mode={HvacMode.Off} />;
 }

@@ -1,11 +1,12 @@
 import { inArray } from "drizzle-orm";
 
-import { findLight, LIGHTS } from "../config/lights";
+import { findLight, LIGHTS, LightKind } from "../config/lights";
 import { db } from "../db/index";
 import { deviceState } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
-import { commandDevice } from "./device-command-service";
+import { commandDevice, DeviceAction } from "./device-command-service";
+import { DeviceKind } from "./device-state-mapping";
 import { mergeDeviceState } from "./device-sync-service";
 
 const DESIRED_WINDOW_MS = 5_000;
@@ -39,7 +40,25 @@ export interface ControlsState {
   fan: FanState;
 }
 
-export type ControlKey = "lamps" | "lights" | "fan";
+export const ControlKey = {
+  Lamps: "lamps",
+  Lights: "lights",
+  Fan: "fan",
+} as const;
+export type ControlKey = (typeof ControlKey)[keyof typeof ControlKey];
+
+export const FanMode = {
+  On: "on",
+  Auto: "auto",
+} as const;
+export type FanMode = (typeof FanMode)[keyof typeof FanMode];
+
+export const HaService = {
+  TurnOn: "turn_on",
+  TurnOff: "turn_off",
+  SetFanMode: "set_fan_mode",
+} as const;
+export type HaService = (typeof HaService)[keyof typeof HaService];
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -58,7 +77,7 @@ function findFanClimate(climateEntities: HaEntity[]): HaEntity | undefined {
 }
 
 function fanModeOn(entity: HaEntity | undefined): boolean {
-  return (entity?.attributes.fan_mode as string | undefined) === "on";
+  return (entity?.attributes.fan_mode as string | undefined) === FanMode.On;
 }
 
 function fanSub(entity: HaEntity | undefined): string {
@@ -77,9 +96,11 @@ function resolveEntities(
   lightEntities: HaEntity[],
   switchEntities: HaEntity[],
 ): { lamps: HaEntity[]; lights: HaEntity[] } {
-  const lampEntityIds = new Set(LIGHTS.filter((l) => l.kind === "lamp").map((l) => l.entityId));
+  const lampEntityIds = new Set(
+    LIGHTS.filter((l) => l.kind === LightKind.Lamp).map((l) => l.entityId),
+  );
   const fixtureEntityIds = new Set(
-    LIGHTS.filter((l) => l.kind === "fixture").map((l) => l.entityId),
+    LIGHTS.filter((l) => l.kind === LightKind.Fixture).map((l) => l.entityId),
   );
 
   const lamps = lightEntities.filter((e) => lampEntityIds.has(e.entity_id));
@@ -202,7 +223,7 @@ async function dispatchControls(entityIds: string[], on: boolean): Promise<void>
     entityIds.map(async (entityId) => {
       const row = rowByEntityId.get(entityId);
       if (row) {
-        return commandDevice({ id: row.id, action: "setOn", args: { on } });
+        return commandDevice({ id: row.id, action: DeviceAction.SetOn, args: { on } });
       }
 
       // Auto-register with a desired-window overlay so getControlsState holds
@@ -217,7 +238,7 @@ async function dispatchControls(entityIds: string[], on: boolean): Promise<void>
             .insert(deviceState)
             .values({
               id: entry.id,
-              kind: entry.kind === "lamp" ? "light" : "switch",
+              kind: entry.kind === LightKind.Lamp ? DeviceKind.Light : DeviceKind.Switch,
               entityId: entry.entityId,
               domain: entry.domain,
               label: entry.label,
@@ -240,7 +261,9 @@ async function dispatchControls(entityIds: string[], on: boolean): Promise<void>
       }
 
       const domain = entityId.split(".")[0];
-      return ha.callService(domain, on ? "turn_on" : "turn_off", { entity_id: entityId });
+      return ha.callService(domain, on ? HaService.TurnOn : HaService.TurnOff, {
+        entity_id: entityId,
+      });
     }),
   );
 }
@@ -261,8 +284,8 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
   }
 
   switch (key) {
-    case "lamps": {
-      const lampEntries = LIGHTS.filter((l) => l.kind === "lamp");
+    case ControlKey.Lamps: {
+      const lampEntries = LIGHTS.filter((l) => l.kind === LightKind.Lamp);
       if (lampEntries.length > 0) {
         await dispatchControls(
           lampEntries.map((l) => l.entityId),
@@ -272,8 +295,8 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
       break;
     }
 
-    case "lights": {
-      const fixtureEntries = LIGHTS.filter((l) => l.kind === "fixture");
+    case ControlKey.Lights: {
+      const fixtureEntries = LIGHTS.filter((l) => l.kind === LightKind.Fixture);
       if (fixtureEntries.length > 0) {
         await dispatchControls(
           fixtureEntries.map((l) => l.entityId),
@@ -283,13 +306,13 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
       break;
     }
 
-    case "fan": {
+    case ControlKey.Fan: {
       // evee parity: force the climate fan_mode on/auto via set_fan_mode.
       const fanEntity = findFanClimate(await ha.getEntities("climate"));
       if (fanEntity) {
-        await ha.callService("climate", "set_fan_mode", {
+        await ha.callService("climate", HaService.SetFanMode, {
           entity_id: fanEntity.entity_id,
-          fan_mode: on ? "on" : "auto",
+          fan_mode: on ? FanMode.On : FanMode.Auto,
         });
       }
       break;

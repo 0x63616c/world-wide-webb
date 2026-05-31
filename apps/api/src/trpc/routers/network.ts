@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getNetworkStatus } from "../../services/network-service";
+import { getNetworkStatus, NetworkConnectivity } from "../../services/network-service";
 import { publicProcedure, router } from "../init";
 
 const trafficBucketSchema = z.object({
@@ -8,7 +8,9 @@ const trafficBucketSchema = z.object({
 });
 
 const networkStatusSchema = z.object({
-  status: z.enum(["Online", "Offline"]).describe("WAN connectivity status"),
+  status: z
+    .enum([NetworkConnectivity.Online, NetworkConnectivity.Offline])
+    .describe("WAN connectivity status"),
   ssid: z.string().describe("Primary Wi-Fi SSID from env WIFI_SSID"),
   down: z.string().describe("24 h WAN download in GB (e.g. '12.4')"),
   up: z.string().describe("24 h WAN upload in GB (e.g. '3.1')"),

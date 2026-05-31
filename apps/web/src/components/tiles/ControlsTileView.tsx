@@ -4,10 +4,16 @@
  */
 
 import { ControlTap, Skeleton, Tile, TileHeader } from "../ui";
+import { TileStatus } from "./EventsTileView";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-export type ControlKey = "lamps" | "lights" | "fan";
+export const ControlKey = {
+  Lamps: "lamps",
+  Lights: "lights",
+  Fan: "fan",
+} as const;
+export type ControlKey = (typeof ControlKey)[keyof typeof ControlKey];
 
 export interface ControlEntry {
   on: boolean;
@@ -22,10 +28,10 @@ export interface ControlsViewData {
 }
 
 export type ControlsTileViewProps =
-  | { status: "loading" }
-  | { status: "error"; error?: string }
+  | { status: typeof TileStatus.Loading }
+  | { status: typeof TileStatus.Error; error?: string }
   | {
-      status: "populated";
+      status: typeof TileStatus.Populated;
       data: ControlsViewData;
       onToggle: (key: ControlKey, currentOn: boolean) => void;
     };
@@ -46,7 +52,7 @@ export function ControlsGridView({ data, onToggle }: ControlsGridViewProps) {
         on={data.lamps.on}
         sub={data.lamps.sub}
         pending={data.lamps.pending}
-        onToggle={() => onToggle("lamps", data.lamps.on)}
+        onToggle={() => onToggle(ControlKey.Lamps, data.lamps.on)}
       />
 
       <ControlTap
@@ -54,7 +60,7 @@ export function ControlsGridView({ data, onToggle }: ControlsGridViewProps) {
         label="Lights"
         on={data.lights.on}
         pending={data.lights.pending}
-        onToggle={() => onToggle("lights", data.lights.on)}
+        onToggle={() => onToggle(ControlKey.Lights, data.lights.on)}
       />
 
       <ControlTap
@@ -63,7 +69,7 @@ export function ControlsGridView({ data, onToggle }: ControlsGridViewProps) {
         on={data.fan.on}
         sub={data.fan.sub}
         pending={data.fan.pending}
-        onToggle={() => onToggle("fan", data.fan.on)}
+        onToggle={() => onToggle(ControlKey.Fan, data.fan.on)}
       />
 
       {/* Scene placeholder — future scene trigger */}
@@ -124,7 +130,7 @@ export function ControlsTileView(props: ControlsTileViewProps) {
           gap: 13,
         }}
       >
-        {props.status === "populated" ? (
+        {props.status === TileStatus.Populated ? (
           <ControlsGridView data={props.data} onToggle={props.onToggle} />
         ) : (
           // Both loading and error show skeletons; error retries automatically via QueryClient

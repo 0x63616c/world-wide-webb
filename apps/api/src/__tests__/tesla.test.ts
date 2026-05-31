@@ -11,7 +11,7 @@ vi.mock("../integrations/homeassistant", () => {
 
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
-import { getTeslaData } from "../services/tesla-service";
+import { ChargeState, getTeslaData, LockState } from "../services/tesla-service";
 
 function makeEntity(
   entity_id: string,
@@ -34,13 +34,13 @@ function mockStates(states: Record<string, HaEntity>) {
 const E = "sensor.evee_battery_level";
 const fullCar: Record<string, HaEntity> = {
   "sensor.evee_battery_level": makeEntity(E, "61"),
-  "sensor.evee_charging": makeEntity("sensor.evee_charging", "charging", {
-    options: ["starting", "charging", "stopped", "complete", "disconnected", "no_power"],
+  "sensor.evee_charging": makeEntity("sensor.evee_charging", ChargeState.Charging, {
+    options: Object.values(ChargeState),
   }),
   "sensor.evee_charge_rate": makeEntity("sensor.evee_charge_rate", "25"),
   "sensor.evee_battery_range": makeEntity("sensor.evee_battery_range", "169.37"),
   "sensor.evee_inside_temperature": makeEntity("sensor.evee_inside_temperature", "71.96"),
-  "lock.evee_lock": makeEntity("lock.evee_lock", "locked"),
+  "lock.evee_lock": makeEntity("lock.evee_lock", LockState.Locked),
   "device_tracker.evee_location": makeEntity("device_tracker.evee_location", "home", {
     latitude: 34.061183,
     longitude: -118.284533,
@@ -94,14 +94,14 @@ describe("getTeslaData", () => {
     vi.mocked(ha.isConfigured).mockReturnValue(true);
     mockStates({
       ...fullCar,
-      "sensor.evee_charging": makeEntity("sensor.evee_charging", "disconnected"),
+      "sensor.evee_charging": makeEntity("sensor.evee_charging", ChargeState.Disconnected),
     });
     expect((await getTeslaData()).charging).toBe(false);
   });
 
   it("maps unlocked state", async () => {
     vi.mocked(ha.isConfigured).mockReturnValue(true);
-    mockStates({ ...fullCar, "lock.evee_lock": makeEntity("lock.evee_lock", "unlocked") });
+    mockStates({ ...fullCar, "lock.evee_lock": makeEntity("lock.evee_lock", LockState.Unlocked) });
     expect((await getTeslaData()).locked).toBe(false);
   });
 

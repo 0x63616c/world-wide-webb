@@ -12,9 +12,14 @@ export class UnifiError extends Error {
   }
 }
 
+export const UnifiStatus = {
+  Ok: "ok",
+  Error: "error",
+} as const;
+export type UnifiStatus = (typeof UnifiStatus)[keyof typeof UnifiStatus];
+
 export interface UnifiHealth {
-  /** "ok" | "error" */
-  status: "ok" | "error";
+  status: UnifiStatus;
   /** WAN interface latency ms (gateway ping), if available. */
   wanLatencyMs: number | null;
 }
@@ -104,9 +109,9 @@ export class UnifiClient {
     const res = await this.legacyRequest<{ data: any[] }>("/stat/health");
     // biome-ignore lint/suspicious/noExplicitAny: API response shape
     const wan = (res.data ?? []).find((s: any) => s.subsystem === "wan");
-    if (!wan) return { status: "error", wanLatencyMs: null };
+    if (!wan) return { status: UnifiStatus.Error, wanLatencyMs: null };
     return {
-      status: wan.status === "ok" ? "ok" : "error",
+      status: wan.status === UnifiStatus.Ok ? UnifiStatus.Ok : UnifiStatus.Error,
       wanLatencyMs: wan.uptime_stats?.WAN?.latency_average ?? null,
     };
   }

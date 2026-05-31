@@ -10,7 +10,22 @@ const DESIRED_WINDOW_MS = 5_000;
 // when rapid toggles fire before a dispatch completes.
 const PER_DEVICE_QUEUE = new Map<string, Promise<unknown>>();
 
-export type DeviceAction = "setOn";
+export const DeviceAction = { SetOn: "setOn" } as const;
+export type DeviceAction = (typeof DeviceAction)[keyof typeof DeviceAction];
+
+export const CommandStatus = {
+  Pending: "pending",
+  Sent: "sent",
+  Confirmed: "confirmed",
+  Failed: "failed",
+  Timeout: "timeout",
+} as const;
+export type CommandStatus = (typeof CommandStatus)[keyof typeof CommandStatus];
+
+export const HaLightService = {
+  TurnOn: "turn_on",
+  TurnOff: "turn_off",
+} as const;
 
 export interface DeviceCommandInput {
   id: string;
@@ -21,7 +36,7 @@ export interface DeviceCommandInput {
 export interface DeviceCommandResult {
   id: string;
   commandId: number;
-  status: "pending" | "sent" | "confirmed" | "failed" | "timeout";
+  status: CommandStatus;
 }
 
 export async function commandDevice(input: DeviceCommandInput): Promise<DeviceCommandResult> {
@@ -48,7 +63,7 @@ export async function commandDevice(input: DeviceCommandInput): Promise<DeviceCo
       deviceId: device.id,
       action: input.action,
       args: input.args,
-      status: "pending",
+      status: CommandStatus.Pending,
       issuedAtUtc: now,
     })
     .returning({ id: deviceCommands.id });
@@ -65,7 +80,7 @@ export async function commandDevice(input: DeviceCommandInput): Promise<DeviceCo
     }
   });
 
-  return { id: device.id, commandId, status: "pending" };
+  return { id: device.id, commandId, status: CommandStatus.Pending };
 }
 
 async function loadDevice(id: string) {
@@ -81,7 +96,7 @@ function applyAction(
   args: { on?: boolean },
 ): DeviceLightState {
   switch (action) {
-    case "setOn": {
+    case DeviceAction.SetOn: {
       if (typeof args.on !== "boolean") throw new Error("setOn requires args.on (boolean)");
       return { on: args.on };
     }
@@ -96,8 +111,8 @@ async function dispatchToHa(
   input: DeviceCommandInput,
 ): Promise<void> {
   switch (input.action) {
-    case "setOn": {
-      const service = input.args.on ? "turn_on" : "turn_off";
+    case DeviceAction.SetOn: {
+      const service = input.args.on ? HaLightService.TurnOn : HaLightService.TurnOff;
       await ha.callService(domain, service, { entity_id: entityId });
       return;
     }
@@ -107,14 +122,14 @@ async function dispatchToHa(
 async function markSent(commandId: number): Promise<void> {
   await db
     .update(deviceCommands)
-    .set({ status: "sent", sentAtUtc: new Date() })
+    .set({ status: CommandStatus.Sent, sentAtUtc: new Date() })
     .where(eq(deviceCommands.id, commandId));
 }
 
 async function markFailed(commandId: number, error: string): Promise<void> {
   await db
     .update(deviceCommands)
-    .set({ status: "failed", error })
+    .set({ status: CommandStatus.Failed, error })
     .where(eq(deviceCommands.id, commandId));
 }
 

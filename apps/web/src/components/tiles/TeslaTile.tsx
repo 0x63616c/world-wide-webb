@@ -1,5 +1,6 @@
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
+import { TileStatus } from "./EventsTileView";
 import { TeslaTileView } from "./TeslaTileView";
 
 export function TeslaTile() {
@@ -7,11 +8,11 @@ export function TeslaTile() {
     refetchInterval: POLL.tesla,
   });
 
-  if (!data) return <TeslaTileView status={isError ? "error" : "loading"} />;
+  if (!data) return <TeslaTileView status={isError ? TileStatus.Error : TileStatus.Loading} />;
 
   return (
     <TeslaTileView
-      status="populated"
+      status={TileStatus.Populated}
       locked={data.locked}
       charging={data.charging}
       rate={data.rate}

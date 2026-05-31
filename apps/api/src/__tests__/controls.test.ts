@@ -45,14 +45,25 @@ const { mockCommandDevice } = vi.hoisted(() => ({
     vi.fn<(input: { id: string; action: string; args: { on?: boolean } }) => Promise<unknown>>(),
 }));
 
-vi.mock("../services/device-command-service", () => ({
-  commandDevice: mockCommandDevice,
-}));
+vi.mock("../services/device-command-service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../services/device-command-service")>();
+  return {
+    ...actual,
+    commandDevice: mockCommandDevice,
+  };
+});
 
 // ─── import after mock ────────────────────────────────────────────────────────
 
 import { LAMP_ENTITY_IDS } from "../config/lights";
-import { getControlsState, toggleControl } from "../services/controls-service";
+import {
+  ControlKey,
+  FanMode,
+  getControlsState,
+  HaService,
+  toggleControl,
+} from "../services/controls-service";
+import { DeviceAction } from "../services/device-command-service";
 import { router } from "../trpc/init";
 import { controlsRouter } from "../trpc/routers/controls";
 
@@ -438,7 +449,9 @@ describe("toggleControl", () => {
     mockIsConfigured.mockReturnValue(false);
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    await expect(toggleControl("lamps", true)).rejects.toThrow("Home Assistant is not configured");
+    await expect(toggleControl(ControlKey.Lamps, true)).rejects.toThrow(
+      "Home Assistant is not configured",
+    );
   });
 
   it("calls commandDevice for each lamp entity when toggling lamps on", async () => {
@@ -455,17 +468,17 @@ describe("toggleControl", () => {
     ];
     mockDbSelect.mockReturnValue(makeSelectChain(lampDeviceRows));
 
-    await toggleControl("lamps", true);
+    await toggleControl(ControlKey.Lamps, true);
 
     expect(mockCommandDevice).toHaveBeenCalledTimes(6);
     expect(mockCommandDevice).toHaveBeenCalledWith({
       id: "lamp-1",
-      action: "setOn",
+      action: DeviceAction.SetOn,
       args: { on: true },
     });
     expect(mockCommandDevice).toHaveBeenCalledWith({
       id: "lamp-6",
-      action: "setOn",
+      action: DeviceAction.SetOn,
       args: { on: true },
     });
   });
@@ -480,17 +493,17 @@ describe("toggleControl", () => {
     ];
     mockDbSelect.mockReturnValue(makeSelectChain(fixtureRows));
 
-    await toggleControl("lights", false);
+    await toggleControl(ControlKey.Lights, false);
 
     expect(mockCommandDevice).toHaveBeenCalledTimes(2);
     expect(mockCommandDevice).toHaveBeenCalledWith({
       id: "fix-1",
-      action: "setOn",
+      action: DeviceAction.SetOn,
       args: { on: false },
     });
     expect(mockCommandDevice).toHaveBeenCalledWith({
       id: "fix-2",
-      action: "setOn",
+      action: DeviceAction.SetOn,
       args: { on: false },
     });
   });
@@ -502,11 +515,11 @@ describe("toggleControl", () => {
     );
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    await toggleControl("fan", true);
+    await toggleControl(ControlKey.Fan, true);
 
-    expect(mockCallService).toHaveBeenCalledWith("climate", "set_fan_mode", {
+    expect(mockCallService).toHaveBeenCalledWith("climate", HaService.SetFanMode, {
       entity_id: "climate.living_room",
-      fan_mode: "on",
+      fan_mode: FanMode.On,
     });
   });
 
@@ -516,11 +529,11 @@ describe("toggleControl", () => {
     // No device rows in DB — overlay is auto-upserted, command still reaches HA.
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    await expect(toggleControl("lamps", true)).resolves.toBeDefined();
+    await expect(toggleControl(ControlKey.Lamps, true)).resolves.toBeDefined();
     expect(mockCommandDevice).not.toHaveBeenCalled();
     // Every lamp falls back to a direct, config-correct light.turn_on (regression: www-5yh no-op).
     expect(mockCallService).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
-    expect(mockCallService).toHaveBeenCalledWith("light", "turn_on", {
+    expect(mockCallService).toHaveBeenCalledWith("light", HaService.TurnOn, {
       entity_id: LAMP_ENTITY_IDS[0],
     });
   });
@@ -531,7 +544,7 @@ describe("toggleControl", () => {
     // No rows — devices are not pre-seeded in device_state.
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    await toggleControl("lamps", false);
+    await toggleControl(ControlKey.Lamps, false);
 
     // db.insert must be called once per lamp entity to write the desired-window overlay.
     // This ensures getControlsState() holds the desired value during the 5 s window
@@ -545,7 +558,7 @@ describe("toggleControl", () => {
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
     // Should resolve without throwing; commandDevice must NOT be called.
-    await expect(toggleControl("fan", true)).resolves.toBeDefined();
+    await expect(toggleControl(ControlKey.Fan, true)).resolves.toBeDefined();
     expect(mockCommandDevice).not.toHaveBeenCalled();
   });
 
@@ -559,7 +572,7 @@ describe("toggleControl", () => {
     ];
     mockDbSelect.mockReturnValue(makeSelectChain(fixtureRows));
 
-    await toggleControl("lights", true);
+    await toggleControl(ControlKey.Lights, true);
 
     expect(mockCommandDevice).toHaveBeenCalledTimes(2);
     // commandDevice handles HA dispatch internally — no direct callService from toggleControl.
@@ -576,7 +589,7 @@ describe("toggleControl", () => {
     );
     mockDbSelect.mockReturnValue(makeSelectChain(lampRows));
 
-    await toggleControl("lamps", false);
+    await toggleControl(ControlKey.Lamps, false);
 
     expect(mockCommandDevice).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
     expect(mockCallService).not.toHaveBeenCalled();
@@ -664,7 +677,7 @@ describe("controlsRouter.toggle", () => {
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
     const caller = buildCaller();
-    const result = await caller.controls.toggle({ key: "fan", on: true });
+    const result = await caller.controls.toggle({ key: ControlKey.Fan, on: true });
 
     // Result should be the merged controls state shape, not { success: true }
     expect(result).toHaveProperty("fan");
@@ -677,8 +690,10 @@ describe("controlsRouter.toggle", () => {
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
     const caller = buildCaller();
-    await expect(caller.controls.toggle({ key: "lamps", on: true })).rejects.toMatchObject({
-      code: "SERVICE_UNAVAILABLE",
-    });
+    await expect(caller.controls.toggle({ key: ControlKey.Lamps, on: true })).rejects.toMatchObject(
+      {
+        code: "SERVICE_UNAVAILABLE",
+      },
+    );
   });
 });

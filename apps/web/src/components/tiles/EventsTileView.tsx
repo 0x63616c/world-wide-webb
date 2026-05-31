@@ -7,7 +7,14 @@ export interface EventRow {
   days: number;
 }
 
-export type EventsTileStatus = "loading" | "error" | "populated";
+export const TileStatus = {
+  Loading: "loading",
+  Error: "error",
+  Populated: "populated",
+} as const;
+export type TileStatus = (typeof TileStatus)[keyof typeof TileStatus];
+
+export type EventsTileStatus = TileStatus;
 
 export interface EventsTileViewProps {
   status: EventsTileStatus;
