@@ -3,6 +3,8 @@ import { useConnectionStatus } from "../lib/useConnectionStatus";
 import { useNotifications } from "../lib/useNotifications";
 
 const NOTIF_ID = "connection-lost";
+// Single source of truth so the DOM and the shared notifications store stay in sync.
+const MESSAGE = "Data is stale. Reconnecting…";
 
 /**
  * Absolutely-positioned banner (top-right inside .board) that surfaces when
@@ -16,7 +18,7 @@ export function ConnectionLostBanner() {
 
   useEffect(() => {
     if (isLost) {
-      raiseNotification({ id: NOTIF_ID, message: "Data is stale. Reconnecting…" });
+      raiseNotification({ id: NOTIF_ID, message: MESSAGE });
     } else {
       clearNotification(NOTIF_ID);
     }
@@ -58,7 +60,7 @@ export function ConnectionLostBanner() {
           flexShrink: 0,
         }}
       />
-      <span>Data is stale — reconnecting</span>
+      <span>{MESSAGE}</span>
     </div>
   );
 }
