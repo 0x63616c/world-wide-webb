@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { DogCamTileView } from "./DogCamTileView";
 
 const meta = {
@@ -14,13 +14,14 @@ const meta = {
     snapshotUrl: null,
     live: false,
     recSecs: 0,
-    onToggleLive: () => {},
+    // fn() makes onToggleLive a storybook/vitest spy so play-function assertions work.
+    onToggleLive: fn(),
   },
   argTypes: {
     status: {
       control: "radio",
-      options: ["populated", "loading"],
-      description: "Data load state — loading renders a shimmer cover",
+      options: ["populated", "loading", "error"],
+      description: "Data load state — loading/error renders a shimmer cover",
     },
     live: {
       control: "boolean",
@@ -88,7 +89,7 @@ export const Offline: Story = {
   },
 };
 
-/** Loading state — spinner/skeleton cover, no label text rendered. */
+/** Loading state — shimmer cover, no label text rendered. */
 export const Loading: Story = {
   args: {
     status: "loading",
@@ -102,6 +103,28 @@ export const Loading: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Dog Cam")).toBeInTheDocument();
     // Feed button is present but no label or tap-prompt text while loading
+    await expect(canvas.getByRole("button")).toBeInTheDocument();
+    await expect(canvas.queryByText(/tap to view feed/i)).not.toBeInTheDocument();
+    await expect(canvas.queryByText(/camera offline/i)).not.toBeInTheDocument();
+    await expect(canvas.queryByText("LIVE")).not.toBeInTheDocument();
+  },
+};
+
+/** Error/empty state — component shows shimmer cover and keeps retrying via QueryClient. */
+export const ErrorEmpty: Story = {
+  name: "Error / empty",
+  args: {
+    status: "error",
+    label: undefined,
+    online: undefined,
+    snapshotUrl: null,
+    live: false,
+    recSecs: 0,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Header still visible; no data rendered while tile retries
+    await expect(canvas.getByText("Dog Cam")).toBeInTheDocument();
     await expect(canvas.getByRole("button")).toBeInTheDocument();
     await expect(canvas.queryByText(/tap to view feed/i)).not.toBeInTheDocument();
     await expect(canvas.queryByText(/camera offline/i)).not.toBeInTheDocument();
@@ -151,7 +174,7 @@ export const WithSnapshot: Story = {
   },
 };
 
-/** Interaction test — clicking the feed button toggles to live state (via spy). */
+/** Interaction test — clicking the feed button fires onToggleLive spy. */
 export const ToggleLiveInteraction: Story = {
   args: {
     status: "populated",
@@ -160,13 +183,15 @@ export const ToggleLiveInteraction: Story = {
     snapshotUrl: null,
     live: false,
     recSecs: 0,
+    // Per-story fn() ensures a fresh spy with no prior call history.
+    onToggleLive: fn(),
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     const btn = canvas.getByRole("button", { name: /view camera feed/i });
     // Verify covered state before click
     await expect(canvas.getByText(/tap to view feed/i)).toBeInTheDocument();
-    // Click fires onToggleLive
+    // Click fires onToggleLive — args.onToggleLive is a storybook/vitest spy (fn())
     await userEvent.click(btn);
     await expect(args.onToggleLive).toHaveBeenCalledTimes(1);
   },
