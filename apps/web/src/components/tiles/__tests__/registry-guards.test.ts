@@ -1,12 +1,13 @@
 /**
  * CI guards for the tile registry.
  * (1) Registry covers every cell of the 12×6 grid with no overlaps or gaps.
- * (2) Every registry entry has a named export in registry.stories.tsx.
+ * (2) Every registry entry's view component has a matching *.stories.tsx file.
+ * (3) tilePixelSize derives the true production footprint for each tile.
  */
-import { composeStories } from "@storybook/react";
 import { describe, expect, it, vi } from "vitest";
 
-// MapLibre (via TeslaTile) calls window.URL.createObjectURL at import time — unavailable in jsdom.
+// MapLibre (via TeslaTile, imported transitively by tile-registry) calls
+// window.URL.createObjectURL at import time — unavailable in jsdom.
 vi.mock("maplibre-gl", () => ({
   default: {
     Map: vi.fn(() => ({
@@ -34,12 +35,11 @@ vi.mock("@protomaps/basemaps", () => ({
   namedFlavor: vi.fn().mockReturnValue({}),
 }));
 
-import { GRID_COLS, GRID_ROWS } from "../../../lib/grid-constants";
+import { GRID_COLS, GRID_ROWS, tilePixelSize } from "../../../lib/grid-constants";
 import { deriveGridAreas, TILE_REGISTRY } from "../../../lib/tile-registry";
-import * as registryStories from "../__stories__/registry.stories";
 
 describe("tile registry — grid coverage", () => {
-  it("all 9 tiles are defined with Stripe-style IDs", () => {
+  it("all tiles are defined with Stripe-style IDs", () => {
     for (const entry of TILE_REGISTRY) {
       expect(entry.id).toMatch(/^tile_[a-z]+$/);
     }
@@ -61,8 +61,7 @@ describe("tile registry — grid coverage", () => {
       }
     }
 
-    const expectedCells = GRID_ROWS * GRID_COLS;
-    expect(coverage.size).toBe(expectedCells);
+    expect(coverage.size).toBe(GRID_ROWS * GRID_COLS);
   });
 
   it("deriveGridAreas produces no '.' cells (all cells are named)", () => {
@@ -81,20 +80,34 @@ describe("tile registry — grid coverage", () => {
 });
 
 describe("tile registry — story coverage", () => {
-  it("every registry entry has a named story export in registry.stories.tsx", () => {
-    // Export keys in registry.stories.tsx must match tile IDs exactly.
-    // composeStories returns a record keyed by the CSF export names.
-    const composed = composeStories(registryStories);
-    const storyKeys = Object.keys(composed);
+  // Enumerate every tile story file at build time (Vite glob).
+  const storyFiles = Object.keys(import.meta.glob("../*.stories.tsx"));
 
-    for (const { id } of TILE_REGISTRY) {
+  it("every registry view component has a matching *.stories.tsx file", () => {
+    for (const { id, viewComponent } of TILE_REGISTRY) {
+      const expectedFile = `${viewComponent.name}.stories.tsx`;
+      const found = storyFiles.some((p) => p.endsWith(`/${expectedFile}`));
       expect(
-        storyKeys,
-        `registry.stories.tsx is missing an export for ${id} — add: export const ${id} = makeRegistryStory(entry("${id}"))`,
-      ).toContain(id);
+        found,
+        `${id}: missing ${expectedFile} — every registry tile needs a stories file`,
+      ).toBe(true);
     }
+  });
+});
 
-    // No phantom entries — every export must correspond to a registry tile
-    expect(storyKeys.length).toBe(TILE_REGISTRY.length);
+describe("tile registry — pixel footprint", () => {
+  it("derives the clock tile (5×2) at its known production size 537×312", () => {
+    expect(tilePixelSize(5, 2)).toEqual({ width: 537, height: 312 });
+  });
+
+  it("gives each registry tile a non-zero footprint that grows with span", () => {
+    for (const { id, cols, rows } of TILE_REGISTRY) {
+      const { width, height } = tilePixelSize(cols, rows);
+      expect(width, `${id} width`).toBeGreaterThan(0);
+      expect(height, `${id} height`).toBeGreaterThan(0);
+    }
+    // A wider/taller span must produce a larger box than a smaller one.
+    expect(tilePixelSize(4, 3).width).toBeGreaterThan(tilePixelSize(3, 3).width);
+    expect(tilePixelSize(4, 3).height).toBeGreaterThan(tilePixelSize(4, 2).height);
   });
 });
