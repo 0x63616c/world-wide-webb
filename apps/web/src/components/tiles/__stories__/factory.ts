@@ -1,25 +1,19 @@
-/**
- * Shared story factory for tile components.
- *
- * Every tile story needs the same meta boilerplate: Storybook path under
- * "Tiles/", autodocs tag, and the component reference. This factory
- * centralises those fields so per-tile story files only declare states.
- *
- * Usage:
- *   import { defineTileMeta, TILE_STATUS_ARG_TYPE, BOOL_ARG_TYPE } from "./__stories__/factory";
- *   const meta = { ...defineTileMeta("MyTileView", MyTileView), ...perTileOverrides };
- */
-
-import type { Meta } from "@storybook/react-vite";
-// ComponentType<any> is intentional: tile components have required props that
-// TypeScript cannot verify at this factory level; callers use satisfies Meta<...>
-// on the assembled meta to catch any mismatches.
+import type { Decorator, Meta } from "@storybook/react-vite";
 import type { ComponentType } from "react";
+import { createElement } from "react";
+import {
+  BOARD_H,
+  BOARD_PADDING,
+  BOARD_W,
+  GRID_COLS,
+  GRID_GAP,
+  GRID_ROWS,
+} from "../../../lib/grid-constants";
+import type { TileRegistryEntry } from "../../../lib/tile-registry";
 
 // biome-ignore lint/suspicious/noExplicitAny: factory accepts any component shape
 type TileMeta<C extends ComponentType<any>> = Pick<Meta<C>, "title" | "component" | "tags">;
 
-// Storybook's ArgType is internal; use a plain record shape that satisfies Meta argTypes.
 // biome-ignore lint/suspicious/noExplicitAny: mirrors Storybook's own argTypes value type
 type TileArgType = Record<string, any>;
 
@@ -56,5 +50,62 @@ export function defineTileMeta<C extends ComponentType<any>>(
     title: `Tiles/${name}`,
     component,
     tags: ["autodocs", ...additionalTags],
+  };
+}
+
+/**
+ * Returns a Storybook decorator that places a story inside the real board grid
+ * at the given gridArea. The container is exactly BOARD_W×BOARD_H so the
+ * CSS grid engine sizes the tile identically to production — no separate pixel
+ * number to maintain, impossible to drift.
+ *
+ * Set parameters.boardWrapper=false on stories using this decorator to opt out
+ * of the global BoardDecorator (which adds its own padding).
+ */
+export function makeGridDecorator(gridArea: string): Decorator {
+  return (Story) =>
+    createElement(
+      "div",
+      {
+        style: {
+          width: BOARD_W,
+          height: BOARD_H,
+          display: "grid",
+          gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+          gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
+          gap: GRID_GAP,
+          padding: BOARD_PADDING,
+          boxSizing: "border-box",
+          background: "var(--bg)",
+        },
+      },
+      createElement(
+        "div",
+        {
+          style: { gridArea, display: "flex", flexDirection: "column" },
+          "data-testid": "tile-grid-cell",
+        },
+        createElement(Story),
+      ),
+    );
+}
+
+/**
+ * Creates a Storybook story object for a registry entry that renders the tile
+ * at its true grid footprint. Suitable for use in registry.stories.tsx.
+ */
+export function makeRegistryStory(entry: TileRegistryEntry) {
+  return {
+    name: `${entry.id} (${entry.cols}×${entry.rows})`,
+    decorators: [makeGridDecorator(entry.gridArea)],
+    parameters: {
+      boardWrapper: false,
+      layout: "fullscreen",
+    },
+    render: () => createElement(entry.component),
+    play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+      const cell = canvasElement.querySelector("[data-testid='tile-grid-cell']");
+      if (!cell) throw new Error(`Grid cell not found for ${entry.id}`);
+    },
   };
 }
