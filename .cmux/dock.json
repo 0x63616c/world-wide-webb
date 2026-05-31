@@ -1,0 +1,18 @@
+{
+  "controls": [
+    {
+      "id": "ship-status",
+      "title": "Ship P0/P1",
+      "command": "bash scripts/ship-status.sh",
+      "cwd": ".",
+      "height": 360
+    },
+    {
+      "id": "storybook",
+      "title": "Storybook",
+      "command": "bun run --cwd apps/web storybook",
+      "cwd": ".",
+      "height": 240
+    }
+  ]
+}
