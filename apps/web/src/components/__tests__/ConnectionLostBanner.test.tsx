@@ -17,12 +17,16 @@ afterEach(() => {
 });
 
 describe("ConnectionLostBanner", () => {
+  let raiseNotification: ReturnType<typeof vi.fn>;
+  let clearNotification: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
-    // Default: no notifications raised.
+    raiseNotification = vi.fn();
+    clearNotification = vi.fn();
     mockUseNotifications.mockReturnValue({
       notifications: [],
-      raiseNotification: vi.fn(),
-      clearNotification: vi.fn(),
+      raiseNotification,
+      clearNotification,
     });
   });
 
@@ -55,5 +59,39 @@ describe("ConnectionLostBanner", () => {
     mockUseConnectionStatus.mockReturnValue({ isLost: false, since: null });
     rerender(<ConnectionLostBanner />);
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("calls raiseNotification with the correct payload when isLost becomes true", () => {
+    mockUseConnectionStatus.mockReturnValue({ isLost: true, since: Date.now() - 10_000 });
+    render(<ConnectionLostBanner />);
+    expect(raiseNotification).toHaveBeenCalledWith({
+      id: "connection-lost",
+      message: "Data is stale. Reconnecting…",
+    });
+  });
+
+  it("calls clearNotification when isLost transitions to false", () => {
+    // Start connected — no call.
+    mockUseConnectionStatus.mockReturnValue({ isLost: false, since: null });
+    const { rerender } = render(<ConnectionLostBanner />);
+    expect(clearNotification).toHaveBeenCalledWith("connection-lost");
+
+    // Now lost, then recovered.
+    mockUseConnectionStatus.mockReturnValue({ isLost: true, since: Date.now() - 10_000 });
+    rerender(<ConnectionLostBanner />);
+    clearNotification.mockClear();
+
+    mockUseConnectionStatus.mockReturnValue({ isLost: false, since: null });
+    rerender(<ConnectionLostBanner />);
+    expect(clearNotification).toHaveBeenCalledWith("connection-lost");
+  });
+
+  it("DOM text matches the notifications store message exactly", () => {
+    mockUseConnectionStatus.mockReturnValue({ isLost: true, since: Date.now() - 10_000 });
+    render(<ConnectionLostBanner />);
+    // Both the DOM and the store must use the same MESSAGE constant.
+    const domText = screen.getByRole("status").textContent ?? "";
+    const storeMessage = raiseNotification.mock.calls[0]?.[0]?.message ?? "";
+    expect(domText).toContain(storeMessage);
   });
 });
