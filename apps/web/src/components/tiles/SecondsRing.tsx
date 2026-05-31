@@ -1,17 +1,16 @@
 // Seconds progress ring traced along the rounded-rect border of the clock tile.
 // Path starts at top-center at :00, sweeps clockwise, completes at :60.
-// Tile dimensions derived from the fixed 1366x1024 board grid (5 cols x 2 rows).
+// Tile dimensions and padding from board-layout.ts — update there if the grid changes.
 
-const TILE_W = 537;
-const TILE_H = 312;
-const RX = 20;
+import { CLOCK_TILE_H, CLOCK_TILE_PADDING, CLOCK_TILE_W, TILE_RX } from "../../lib/board-layout";
+
 const STROKE = 2.5;
 // Half-stroke inset so the stroke sits on the visible tile border
 const INSET = STROKE / 2;
 
-const W = TILE_W - INSET * 2;
-const H = TILE_H - INSET * 2;
-const R = RX - INSET;
+const W = CLOCK_TILE_W - INSET * 2;
+const H = CLOCK_TILE_H - INSET * 2;
+const R = TILE_RX - INSET;
 
 // Perimeter of a rounded rectangle: straight edges + full circle from corners
 const PERIMETER = 2 * (W - 2 * R) + 2 * (H - 2 * R) + 2 * Math.PI * R;
@@ -52,12 +51,15 @@ export function SecondsRing({ seconds }: SecondsRingProps) {
     <svg
       data-testid="seconds-ring"
       aria-hidden="true"
-      viewBox={`0 0 ${TILE_W} ${TILE_H}`}
+      viewBox={`0 0 ${CLOCK_TILE_W} ${CLOCK_TILE_H}`}
       style={{
         position: "absolute",
-        inset: 0,
-        width: "100%",
-        height: "100%",
+        // Negative margin escapes the tile's padding box so the SVG covers the full
+        // 537x312 tile. Without this the SVG fills only the inner content area
+        // (481x256), causing non-uniform X/Y scale factors that distort corner arcs.
+        margin: `-${CLOCK_TILE_PADDING}px`,
+        width: CLOCK_TILE_W,
+        height: CLOCK_TILE_H,
         pointerEvents: "none",
         overflow: "visible",
       }}
