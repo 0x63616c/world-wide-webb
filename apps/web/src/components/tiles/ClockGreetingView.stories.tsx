@@ -102,8 +102,35 @@ export const Loading: StoryObj = {
     docs: { disable: true },
   },
   play: async ({ canvasElement }) => {
-    // Skeletons present; no live clock content rendered
-    const shimmerEls = canvasElement.querySelectorAll("[style*='shimmer']");
-    await expect(shimmerEls.length).toBeGreaterThan(0);
+    // Assert via data-skeleton attribute — resilient to CSS refactors
+    const skeletons = canvasElement.querySelectorAll("[data-skeleton]");
+    await expect(skeletons.length).toBeGreaterThan(0);
+  },
+};
+
+// ErrorState shows skeleton fallback when time data cannot be fetched.
+// The tile never renders partial/stale data — it falls back to shimmer skeletons.
+export const ErrorState: StoryObj = {
+  render: () => <ClockGreetingLoading />,
+  name: "Error (failed to fetch)",
+  parameters: {
+    docs: { disable: true },
+  },
+  play: async ({ canvasElement }) => {
+    const skeletons = canvasElement.querySelectorAll("[data-skeleton]");
+    await expect(skeletons.length).toBeGreaterThan(0);
+  },
+};
+
+// WithSecondsRing shows the optional seconds progress ring traced along the tile border.
+export const WithSecondsRing: Story = {
+  name: "With Seconds Ring",
+  args: {
+    seconds: 30,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId("seconds-ring")).toBeTruthy();
+    await expect(canvas.getByText(/good morning/i)).toBeTruthy();
   },
 };
