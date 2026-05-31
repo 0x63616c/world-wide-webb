@@ -3,7 +3,8 @@ import { expect, within } from "storybook/test";
 import { TeslaTileView } from "./TeslaTileView";
 
 // Storybook stories for TeslaTileView covering all visual states.
-// The @storybook/addon-vitest plugin runs these as component tests.
+// Play functions use storybook/test matchers (browser env); vitest component tests
+// live in __tests__/TeslaTileView.stories.test.tsx via composeStories.
 
 const meta = {
   title: "Tiles/TeslaTileView",
@@ -12,6 +13,8 @@ const meta = {
   parameters: {
     // BoardDecorator in preview.tsx wraps every story in the dark board background.
     layout: "padded",
+    // Stories are visual previews at board dimensions — not integration tests.
+    viewport: { defaultViewport: "board" },
   },
 } satisfies Meta<typeof TeslaTileView>;
 
@@ -26,9 +29,9 @@ export const Loading: Story = {
     const canvas = within(canvasElement);
     // Skeleton state: tile container renders, no header text
     const tile = canvasElement.querySelector(".tile");
-    expect(tile).toBeTruthy();
-    expect(canvas.queryByText("Tesla")).toBeNull();
-    expect(canvas.queryByText(/\d+%/)).toBeNull();
+    expect(tile).not.toBeNull();
+    expect(canvas.queryByText("Tesla")).not.toBeInTheDocument();
+    expect(canvas.queryByText(/\d+%/)).not.toBeInTheDocument();
   },
 };
 
@@ -41,8 +44,8 @@ export const ErrorState: Story = {
     const canvas = within(canvasElement);
     // Error falls through to TeslaSkeleton — same appearance as loading
     const tile = canvasElement.querySelector(".tile");
-    expect(tile).toBeTruthy();
-    expect(canvas.queryByText("Tesla")).toBeNull();
+    expect(tile).not.toBeNull();
+    expect(canvas.queryByText("Tesla")).not.toBeInTheDocument();
   },
 };
 
@@ -64,13 +67,13 @@ export const Populated: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    expect(canvas.getByText("Tesla")).toBeTruthy();
-    expect(canvas.getByText("Locked")).toBeTruthy();
-    expect(canvas.getByText("Idle")).toBeTruthy();
-    expect(canvas.getByText("80%")).toBeTruthy();
-    expect(canvas.getByText("240 mi")).toBeTruthy();
-    expect(canvas.getByText("12,345 mi")).toBeTruthy();
-    expect(canvas.getByText("72°F")).toBeTruthy();
+    expect(canvas.getByText("Tesla")).toBeInTheDocument();
+    expect(canvas.getByText("Locked")).toBeInTheDocument();
+    expect(canvas.getByText("Idle")).toBeInTheDocument();
+    expect(canvas.getByText("80%")).toBeInTheDocument();
+    expect(canvas.getByText("240 mi")).toBeInTheDocument();
+    expect(canvas.getByText("12,345 mi")).toBeInTheDocument();
+    expect(canvas.getByText("72°F")).toBeInTheDocument();
   },
 };
 
@@ -92,15 +95,15 @@ export const Charging: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    expect(canvas.getByText("Tesla")).toBeTruthy();
-    expect(canvas.getByText("Unlocked")).toBeTruthy();
-    // Charging pill renders rate inline
-    expect(canvas.getByText(/Charging/)).toBeTruthy();
-    expect(canvas.getByText(/25 mi\/hr/)).toBeTruthy();
-    expect(canvas.queryByText("Idle")).toBeNull();
-    expect(canvas.getByText("55%")).toBeTruthy();
-    expect(canvas.getByText("165 mi")).toBeTruthy();
-    expect(canvas.getByText("68°F")).toBeTruthy();
+    expect(canvas.getByText("Tesla")).toBeInTheDocument();
+    expect(canvas.getByText("Unlocked")).toBeInTheDocument();
+    // Charging pill renders rate inline as "Charging · +25 mi/hr"
+    expect(canvas.getByText(/Charging/)).toBeInTheDocument();
+    expect(canvas.getByText(/\+25 mi\/hr/)).toBeInTheDocument();
+    expect(canvas.queryByText("Idle")).not.toBeInTheDocument();
+    expect(canvas.getByText("55%")).toBeInTheDocument();
+    expect(canvas.getByText("165 mi")).toBeInTheDocument();
+    expect(canvas.getByText("68°F")).toBeInTheDocument();
   },
 };
 
@@ -124,9 +127,9 @@ export const NoLocation: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     // Tile still renders fully with null coordinates; map defaults to home center
-    expect(canvas.getByText("Tesla")).toBeTruthy();
-    expect(canvas.getByText("Locked")).toBeTruthy();
-    expect(canvas.getByText("91%")).toBeTruthy();
-    expect(canvas.getByText("Location unavailable")).toBeTruthy();
+    expect(canvas.getByText("Tesla")).toBeInTheDocument();
+    expect(canvas.getByText("Locked")).toBeInTheDocument();
+    expect(canvas.getByText("91%")).toBeInTheDocument();
+    expect(canvas.getByText("Location unavailable")).toBeInTheDocument();
   },
 };
