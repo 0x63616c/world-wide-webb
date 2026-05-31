@@ -171,6 +171,34 @@ describe("ControlsTileView — overflow", () => {
     // Fan heading appears inside the dialog
     expect(dialog.textContent).toMatch(/Fan/);
   });
+
+  it("opening a second overflow while first is open switches to the new control (Lamps -> Lights)", () => {
+    render(<ControlsTileView {...populatedProps} />);
+    // Open Lamps overflow first
+    fireEvent.click(screen.getByRole("button", { name: /more.*lamps/i }));
+    expect(screen.getByRole("dialog").textContent).toMatch(/Lamps/);
+    // Without closing, click Lights' more button — should replace with Lights overflow
+    fireEvent.click(screen.getByRole("button", { name: /more.*lights/i }));
+    const dialog = screen.getByRole("dialog");
+    // Only one dialog; it should now label Lights
+    expect(dialog.textContent).toMatch(/Lights/);
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  });
+
+  it("clicking the main toggle button while overflow is open still fires onToggle (overflow stays open)", () => {
+    const onToggle = vi.fn();
+    render(<ControlsTileView {...populatedProps} onToggle={onToggle} />);
+    // Open Lamps overflow
+    fireEvent.click(screen.getByRole("button", { name: /more.*lamps/i }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // Click the main Lamps toggle — overflow is separate so onToggle fires
+    // but the overflow panel is NOT auto-closed (close is explicit via the Close button).
+    // This documents the intentional UX: overflow persists until explicitly dismissed.
+    fireEvent.click(screen.getByLabelText("Lamps"));
+    expect(onToggle).toHaveBeenCalledWith("lamps", true);
+    // Overflow stays open; user must explicitly click Close
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
 });
 
 // ─── callbacks ────────────────────────────────────────────────────────────────

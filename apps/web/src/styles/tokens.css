@@ -27,6 +27,9 @@
   --bg3: var(--nest);
   --line: var(--hair);
   --line2: var(--hair-2);
+  /* Overflow panel surface tokens — layered above the tile surface */
+  --bg-2: var(--tile-2);
+  --bg-3: var(--nest);
 }
 
 * {
