@@ -19,6 +19,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // ─── mock trpc ────────────────────────────────────────────────────────────────
 
 const mockMutate = vi.fn();
+const mockSceneMutate = vi.fn();
+const mockBrightnessMutate = vi.fn();
+let capturedBrightnessOpts: { onMutate?: (vars: { pct: number }) => unknown } | undefined;
 
 // Shared cache spies so optimistic onMutate side effects are observable.
 const mockCancel = vi.fn();
@@ -63,6 +66,20 @@ vi.mock("../../../lib/trpc", () => ({
             mutate: (args: { key: string; on: boolean }) => {
               mockMutate(args);
               capturedMutationOpts?.onMutate?.(args);
+            },
+          };
+        },
+      },
+      setLampScene: {
+        useMutation: () => ({ mutate: mockSceneMutate }),
+      },
+      setLampBrightness: {
+        useMutation: (opts?: { onMutate?: (vars: { pct: number }) => unknown }) => {
+          capturedBrightnessOpts = opts;
+          return {
+            mutate: (args: { pct: number }) => {
+              mockBrightnessMutate(args);
+              capturedBrightnessOpts?.onMutate?.(args);
             },
           };
         },
@@ -491,6 +508,93 @@ describe("ControlsTile", () => {
       // No invalidate on settle — the optimistic cache value is not discarded
       // early, so it survives until the cooldown-driven refetch lands.
       expect(mockInvalidate).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── CC-06x.3: expanded controls modal wiring ─────────────────────────────────
+  describe("CC-06x.3: expanded controls modal", () => {
+    beforeEach(() => {
+      mockQueryReturn = {
+        data: {
+          lamps: { on: true, count: 2, sub: "On", pending: false, brightness: 72 },
+          lights: { on: false, pending: false },
+          fan: { on: false, sub: "", pending: false },
+        },
+        isLoading: false,
+        isError: false,
+      };
+    });
+
+    it("modal is closed until the More button is clicked (no scene buttons yet)", () => {
+      render(<ControlsTile />);
+      expect(screen.queryByRole("button", { name: "White" })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Brightness")).not.toBeInTheDocument();
+    });
+
+    it("clicking More opens the modal: scene buttons + brightness slider appear", () => {
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("More"));
+      expect(screen.getByRole("button", { name: "White" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Mood" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Red" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Blue" })).toBeInTheDocument();
+      expect(screen.getByLabelText("Brightness")).toBeInTheDocument();
+    });
+
+    it("scene button fires setLampScene mutation with the scene id", () => {
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("More"));
+      fireEvent.click(screen.getByRole("button", { name: "Mood" }));
+      expect(mockSceneMutate).toHaveBeenCalledWith({ scene: "mood" });
+    });
+
+    it("brightness slider seeds from data.lamps.brightness", () => {
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("More"));
+      expect((screen.getByLabelText("Brightness") as HTMLInputElement).value).toBe("72");
+    });
+
+    it("brightness slider fires setLampBrightness mutation with the pct", () => {
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("More"));
+      fireEvent.change(screen.getByLabelText("Brightness"), { target: { value: "55" } });
+      expect(mockBrightnessMutate).toHaveBeenCalledWith({ pct: 55 });
+    });
+
+    it("brightness drag optimistically writes the pct into the cache (no snap-back)", async () => {
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("More"));
+      fireEvent.change(screen.getByLabelText("Brightness"), { target: { value: "40" } });
+
+      // onMutate awaits cancel() before setData; flush microtasks.
+      expect(mockCancel).toHaveBeenCalled();
+      await waitFor(() => expect(mockSetData).toHaveBeenCalled());
+      const updater = mockSetData.mock.calls[0][1] as (old: unknown) => {
+        lamps: { brightness: number };
+      };
+      const next = updater({
+        lamps: { on: true, count: 2, sub: "On", pending: false, brightness: 72 },
+        lights: { on: false, pending: false },
+        fan: { on: false, sub: "", pending: false },
+      });
+      expect(next.lamps.brightness).toBe(40);
+      // No early invalidate — the cooldown useEffect owns the reconcile.
+      expect(mockInvalidate).not.toHaveBeenCalled();
+    });
+
+    it("brightness slider is disabled inside the modal when lamps are off", () => {
+      mockQueryReturn = {
+        data: {
+          lamps: { on: false, count: 0, sub: "Off", pending: false },
+          lights: { on: false, pending: false },
+          fan: { on: false, sub: "", pending: false },
+        },
+        isLoading: false,
+        isError: false,
+      };
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("More"));
+      expect(screen.getByLabelText("Brightness")).toBeDisabled();
     });
   });
 });

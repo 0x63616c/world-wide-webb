@@ -19,6 +19,9 @@ export interface ControlEntry {
   on: boolean;
   sub?: string;
   pending?: boolean;
+  /** Lamp brightness 0..100 (avg of on-lamps). Only the lamps entry carries this;
+   *  seeds the expanded modal's brightness slider. */
+  brightness?: number;
 }
 
 export interface ControlsViewData {
@@ -34,6 +37,8 @@ export type ControlsTileViewProps =
       status: typeof TileStatus.Populated;
       data: ControlsViewData;
       onToggle: (key: ControlKey, currentOn: boolean) => void;
+      /** Opens the expanded controls modal — forwarded to the grid's "more" button. */
+      onMore?: () => void;
     };
 
 // ─── ControlsGridView — renders real tap cells ────────────────────────────────
@@ -41,9 +46,14 @@ export type ControlsTileViewProps =
 interface ControlsGridViewProps {
   data: ControlsViewData;
   onToggle: (key: ControlKey, currentOn: boolean) => void;
+  /** Opens the expanded controls modal. Wired to the "more" button's onClick. */
+  onMore?: () => void;
+  /** Suppress the "more" button — set when the grid is reused INSIDE the modal,
+   *  where a second "more" affordance would be redundant/recursive. */
+  hideMore?: boolean;
 }
 
-export function ControlsGridView({ data, onToggle }: ControlsGridViewProps) {
+export function ControlsGridView({ data, onToggle, onMore, hideMore }: ControlsGridViewProps) {
   return (
     <>
       <ControlTap
@@ -72,27 +82,31 @@ export function ControlsGridView({ data, onToggle }: ControlsGridViewProps) {
         onToggle={() => onToggle(ControlKey.Fan, data.fan.on)}
       />
 
-      {/* Scene placeholder — future scene trigger */}
-      <button
-        type="button"
-        style={{
-          borderRadius: 15,
-          border: "1.5px dashed var(--hair-2)",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          color: "var(--ink-3)",
-          cursor: "pointer",
-          font: "inherit",
-          background: "none",
-        }}
-        aria-label="More"
-      >
-        <span style={{ fontSize: 22, lineHeight: 1, color: "var(--ink-3)" }}>›</span>
-        <span style={{ fontSize: 13 }}>more</span>
-      </button>
+      {/* "More" affordance — opens the expanded controls modal. Suppressed via
+          hideMore when this grid is reused inside that modal. */}
+      {!hideMore && (
+        <button
+          type="button"
+          onClick={onMore}
+          style={{
+            borderRadius: 15,
+            border: "1.5px dashed var(--hair-2)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            color: "var(--ink-3)",
+            cursor: "pointer",
+            font: "inherit",
+            background: "none",
+          }}
+          aria-label="More"
+        >
+          <span style={{ fontSize: 22, lineHeight: 1, color: "var(--ink-3)" }}>›</span>
+          <span style={{ fontSize: 13 }}>more</span>
+        </button>
+      )}
     </>
   );
 }
@@ -131,7 +145,7 @@ export function ControlsTileView(props: ControlsTileViewProps) {
         }}
       >
         {props.status === TileStatus.Populated ? (
-          <ControlsGridView data={props.data} onToggle={props.onToggle} />
+          <ControlsGridView data={props.data} onToggle={props.onToggle} onMore={props.onMore} />
         ) : (
           // Both loading and error show skeletons; error retries automatically via QueryClient
           <SkeletonGrid />

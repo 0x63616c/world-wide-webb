@@ -1,7 +1,14 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { ControlKey, getControlsState, toggleControl } from "../../services/controls-service";
+import { LampScene } from "../../config/lamp-scenes";
+import {
+  ControlKey,
+  getControlsState,
+  setLampBrightness,
+  setLampScene,
+  toggleControl,
+} from "../../services/controls-service";
 import { publicProcedure, router } from "../init";
 
 // ─── output schemas ──────────────────────────────────────────────────────────
@@ -9,6 +16,12 @@ import { publicProcedure, router } from "../init";
 const lampStateSchema = z.object({
   on: z.boolean().describe("True when at least one lamp is on"),
   count: z.number().int().min(0).describe("Number of lamp entities currently on"),
+  brightness: z
+    .number()
+    .int()
+    .min(0)
+    .max(100)
+    .describe("Average brightness pct (0..100) across on-lamps; 0 when none on"),
   sub: z.string().describe('"On" when any lamp is on, "Off" otherwise'),
   pending: z.boolean().describe("True while a command is in-flight and the overlay is active"),
 });
@@ -67,6 +80,53 @@ export const controlsRouter = router({
         throw new TRPCError({
           code: "SERVICE_UNAVAILABLE",
           message: err instanceof Error ? err.message : "Toggle failed",
+          cause: err,
+        });
+      }
+    }),
+
+  /**
+   * Apply a colour scene to every lamp. "mood" gives each lamp a distinct
+   * palette colour; white/red/blue are uniform. Returns merged state.
+   */
+  setLampScene: publicProcedure
+    .input(
+      z.object({
+        scene: z
+          .enum([LampScene.White, LampScene.Mood, LampScene.Red, LampScene.Blue])
+          .describe("Lamp colour scene to apply across all lamps"),
+      }),
+    )
+    .output(controlsStateSchema)
+    .mutation(async ({ input }) => {
+      try {
+        return await setLampScene(input.scene);
+      } catch (err) {
+        throw new TRPCError({
+          code: "SERVICE_UNAVAILABLE",
+          message: err instanceof Error ? err.message : "Set lamp scene failed",
+          cause: err,
+        });
+      }
+    }),
+
+  /**
+   * Set brightness (0..100 %) on every lamp. Returns merged state.
+   */
+  setLampBrightness: publicProcedure
+    .input(
+      z.object({
+        pct: z.number().int().min(0).max(100).describe("Lamp brightness percentage, 0..100"),
+      }),
+    )
+    .output(controlsStateSchema)
+    .mutation(async ({ input }) => {
+      try {
+        return await setLampBrightness(input.pct);
+      } catch (err) {
+        throw new TRPCError({
+          code: "SERVICE_UNAVAILABLE",
+          message: err instanceof Error ? err.message : "Set lamp brightness failed",
           cause: err,
         });
       }

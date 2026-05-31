@@ -14,6 +14,7 @@ import type { RouterOutputs } from "../../lib/trpc";
 import { trpc } from "../../lib/trpc";
 import type { ControlKey } from "./ControlsTileView";
 import { ControlsTileView } from "./ControlsTileView";
+import { ExpandedControlsModalView } from "./ExpandedControlsModalView";
 
 const COOLDOWN_AFTER_TOGGLE_MS = 5_000;
 
@@ -46,6 +47,7 @@ export function makeRefetchInterval(
 export function ControlsTile() {
   const utils = trpc.useUtils();
   const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [modalOpen, setModalOpen] = useState(false);
   // Stable ref so the refetch interval callback always reads the latest value
   // without needing to be recreated (avoids unnecessary query re-subscriptions).
   const cooldownRef = useRef(cooldownUntil);
@@ -91,6 +93,29 @@ export function ControlsTile() {
     // after the window expires, preventing snap-back to stale HA state.
   });
 
+  // Lamp scene + brightness — backend owns correctness; on success the cooldown
+  // useEffect will reconcile fresh HA state, so no client-side cache munging here.
+  const sceneMutation = trpc.controls.setLampScene.useMutation({
+    onSuccess: () => setCooldownUntil(Date.now() + COOLDOWN_AFTER_TOGGLE_MS),
+  });
+  const brightnessMutation = trpc.controls.setLampBrightness.useMutation({
+    // Optimistically write the dragged value into the cache and pause polling for
+    // the cooldown window so the slider doesn't snap back to the pre-drag value
+    // before HA reports the new brightness (mirrors the toggle no-revert pattern).
+    onMutate: async ({ pct }) => {
+      await utils.controls.list.cancel({});
+      const prev = utils.controls.list.getData({});
+      utils.controls.list.setData({}, (old) =>
+        old ? { ...old, lamps: { ...old.lamps, brightness: pct } } : old,
+      );
+      setCooldownUntil(Date.now() + COOLDOWN_AFTER_TOGGLE_MS);
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev !== undefined) utils.controls.list.setData({}, ctx.prev);
+    },
+  });
+
   function handleToggle(key: ControlKey, currentOn: boolean) {
     // Block mutation until the first query resolves — prevents corrupting an empty cache.
     if (!data) return;
@@ -99,15 +124,33 @@ export function ControlsTile() {
 
   if (!data) return <ControlsTileView status="loading" />;
 
+  const viewData = {
+    lamps: {
+      on: data.lamps.on,
+      sub: data.lamps.sub,
+      pending: data.lamps.pending,
+      brightness: data.lamps.brightness,
+    },
+    lights: { on: data.lights.on, pending: data.lights.pending },
+    fan: { on: data.fan.on, sub: data.fan.sub, pending: data.fan.pending },
+  };
+
   return (
-    <ControlsTileView
-      status="populated"
-      data={{
-        lamps: { on: data.lamps.on, sub: data.lamps.sub, pending: data.lamps.pending },
-        lights: { on: data.lights.on, pending: data.lights.pending },
-        fan: { on: data.fan.on, sub: data.fan.sub, pending: data.fan.pending },
-      }}
-      onToggle={handleToggle}
-    />
+    <>
+      <ControlsTileView
+        status="populated"
+        data={viewData}
+        onToggle={handleToggle}
+        onMore={() => setModalOpen(true)}
+      />
+      <ExpandedControlsModalView
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        data={viewData}
+        onToggle={handleToggle}
+        onScene={(scene) => sceneMutation.mutate({ scene })}
+        onBrightness={(pct) => brightnessMutation.mutate({ pct })}
+      />
+    </>
   );
 }

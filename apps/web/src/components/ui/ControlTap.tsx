@@ -24,7 +24,9 @@ export function ControlTap({ icon, label, on, sub, pending, onToggle }: ControlT
       onClick={onToggle}
       data-pending={pending ? "true" : undefined}
       style={{
-        padding: 17,
+        // Tighter bottom edge: top/sides 17, bottom 12 so the label + On/Off
+        // row sits closer to the button's bottom edge (used on board + modal).
+        padding: "17px 17px 12px",
         width: "100%",
         height: "100%",
         display: "flex",

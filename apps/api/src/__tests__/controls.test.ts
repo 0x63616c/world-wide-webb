@@ -55,12 +55,15 @@ vi.mock("../services/device-command-service", async (importOriginal) => {
 
 // ─── import after mock ────────────────────────────────────────────────────────
 
+import { LampScene, MOOD_PALETTE } from "../config/lamp-scenes";
 import { LAMP_ENTITY_IDS } from "../config/lights";
 import {
   ControlKey,
   FanMode,
   getControlsState,
   HaService,
+  setLampBrightness,
+  setLampScene,
   toggleControl,
 } from "../services/controls-service";
 import { DeviceAction } from "../services/device-command-service";
@@ -73,11 +76,16 @@ import { controlsRouter } from "../trpc/routers/controls";
  * Create a lamp entity with an entity_id that matches the LIGHTS config.
  * All lamps are Hue bulbs on the light.* domain.
  */
-function makeLamp(entityId: string, state: "on" | "off", kelvin = 2700) {
+function makeLamp(entityId: string, state: "on" | "off", kelvin = 2700, brightness?: number) {
   return {
     entity_id: entityId,
     state,
-    attributes: { friendly_name: entityId, color_temp_kelvin: kelvin },
+    attributes: {
+      friendly_name: entityId,
+      color_temp_kelvin: kelvin,
+      // HA reports brightness as 0..255 on the light entity.
+      ...(brightness !== undefined ? { brightness } : {}),
+    },
     last_updated: new Date().toISOString(),
   };
 }
@@ -305,6 +313,48 @@ describe("getControlsState", () => {
     expect(state?.lamps.count).toBe(2);
     expect(state?.lights.on).toBe(false);
     expect(state?.lamps.pending).toBe(false);
+  });
+
+  it("reports lamp brightness as the rounded avg pct of on-lamps", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntities.mockImplementation(async (domain: string) => {
+      if (domain === "light") {
+        // 255 → 100%, 128 → 50% (rounds to 50); avg of on-lamps = round((100+50)/2) = 75.
+        // The off lamp (brightness 64) must be excluded from the average.
+        return [
+          makeLamp("light.living_room_globe", "on", 2700, 255),
+          makeLamp("light.bed_lamp_left", "on", 3000, 128),
+          makeLamp("light.kitchen_lamp", "off", 2700, 64),
+        ];
+      }
+      return [];
+    });
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    const state = await getControlsState();
+
+    expect(state?.lamps.on).toBe(true);
+    expect(state?.lamps.count).toBe(2);
+    // round(255/255*100)=100, round(128/255*100)=50 → avg round((100+50)/2)=75.
+    expect(state?.lamps.brightness).toBe(75);
+  });
+
+  it("reports lamp brightness 0 when no lamps are on", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntities.mockImplementation(async (domain: string) =>
+      domain === "light"
+        ? [
+            makeLamp("light.living_room_globe", "off", 2700, 200),
+            makeLamp("light.bed_lamp_left", "off", 3000, 100),
+          ]
+        : [],
+    );
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    const state = await getControlsState();
+
+    expect(state?.lamps.on).toBe(false);
+    expect(state?.lamps.brightness).toBe(0);
   });
 
   it("returns pending:true on a control when desiredUntilUtc is in the future", async () => {
@@ -695,5 +745,231 @@ describe("controlsRouter.toggle", () => {
         code: "SERVICE_UNAVAILABLE",
       },
     );
+  });
+});
+
+// ─── setLampScene tests ───────────────────────────────────────────────────────
+
+describe("setLampScene", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockCallService.mockResolvedValue(undefined);
+    mockGetEntities.mockResolvedValue([]);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+  });
+
+  it("throws when HA is not configured", async () => {
+    mockIsConfigured.mockReturnValue(false);
+
+    await expect(setLampScene(LampScene.White)).rejects.toThrow("Home Assistant is not configured");
+  });
+
+  it("sets a uniform color_temp_kelvin white on every lamp", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await setLampScene(LampScene.White);
+
+    expect(mockCallService).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
+    for (const entityId of LAMP_ENTITY_IDS) {
+      expect(mockCallService).toHaveBeenCalledWith(
+        "light",
+        HaService.TurnOn,
+        expect.objectContaining({
+          entity_id: entityId,
+          color_temp_kelvin: expect.any(Number),
+        }),
+      );
+    }
+  });
+
+  it("sets a uniform red rgb_color on every lamp", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await setLampScene(LampScene.Red);
+
+    expect(mockCallService).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
+    for (const entityId of LAMP_ENTITY_IDS) {
+      expect(mockCallService).toHaveBeenCalledWith("light", HaService.TurnOn, {
+        entity_id: entityId,
+        rgb_color: [255, 0, 0],
+      });
+    }
+  });
+
+  it("sets a uniform blue rgb_color on every lamp", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await setLampScene(LampScene.Blue);
+
+    for (const entityId of LAMP_ENTITY_IDS) {
+      expect(mockCallService).toHaveBeenCalledWith("light", HaService.TurnOn, {
+        entity_id: entityId,
+        rgb_color: [0, 0, 255],
+      });
+    }
+  });
+
+  it("mood: assigns a DIFFERENT rgb_color across lamps (varied wash, not flat)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await setLampScene(LampScene.Mood);
+
+    expect(mockCallService).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
+
+    // Collect the rgb_color args keyed by entity_id.
+    const rgbByEntity = new Map<string, string>();
+    for (const call of mockCallService.mock.calls) {
+      const [domain, service, params] = call as unknown as [
+        string,
+        string,
+        { entity_id: string; rgb_color?: number[] },
+      ];
+      expect(domain).toBe("light");
+      expect(service).toBe(HaService.TurnOn);
+      expect(params.rgb_color).toBeDefined();
+      rgbByEntity.set(params.entity_id, JSON.stringify(params.rgb_color));
+    }
+
+    // Every lamp must be addressed.
+    for (const entityId of LAMP_ENTITY_IDS) {
+      expect(rgbByEntity.has(entityId)).toBe(true);
+    }
+
+    // At least two lamps must differ — the whole point of "mood".
+    const distinct = new Set(rgbByEntity.values());
+    expect(distinct.size).toBeGreaterThan(1);
+
+    // Each colour must come from the curated palette.
+    const paletteSet = new Set(MOOD_PALETTE.map((c) => JSON.stringify(c)));
+    for (const rgb of rgbByEntity.values()) {
+      expect(paletteSet.has(rgb)).toBe(true);
+    }
+  });
+
+  it("returns the merged controls state after dispatching", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    const state = await setLampScene(LampScene.White);
+
+    expect(state).toHaveProperty("lamps");
+    expect(state).toHaveProperty("lights");
+    expect(state).toHaveProperty("fan");
+  });
+});
+
+// ─── setLampBrightness tests ──────────────────────────────────────────────────
+
+describe("setLampBrightness", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockCallService.mockResolvedValue(undefined);
+    mockGetEntities.mockResolvedValue([]);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+  });
+
+  it("throws when HA is not configured", async () => {
+    mockIsConfigured.mockReturnValue(false);
+
+    await expect(setLampBrightness(50)).rejects.toThrow("Home Assistant is not configured");
+  });
+
+  it("sets brightness_pct on every lamp", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await setLampBrightness(60);
+
+    expect(mockCallService).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
+    for (const entityId of LAMP_ENTITY_IDS) {
+      expect(mockCallService).toHaveBeenCalledWith("light", HaService.TurnOn, {
+        entity_id: entityId,
+        brightness_pct: 60,
+      });
+    }
+  });
+
+  it("clamps brightness above 100 down to 100", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await setLampBrightness(150);
+
+    expect(mockCallService).toHaveBeenCalledWith("light", HaService.TurnOn, {
+      entity_id: LAMP_ENTITY_IDS[0],
+      brightness_pct: 100,
+    });
+  });
+
+  it("clamps negative brightness up to 0", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await setLampBrightness(-20);
+
+    expect(mockCallService).toHaveBeenCalledWith("light", HaService.TurnOn, {
+      entity_id: LAMP_ENTITY_IDS[0],
+      brightness_pct: 0,
+    });
+  });
+
+  it("returns the merged controls state after dispatching", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    const state = await setLampBrightness(75);
+
+    expect(state).toHaveProperty("lamps");
+  });
+});
+
+// ─── router: setLampScene / setLampBrightness ─────────────────────────────────
+
+describe("controlsRouter.setLampScene", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockCallService.mockResolvedValue(undefined);
+    mockGetEntities.mockResolvedValue([]);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+  });
+
+  it("returns merged controls state via tRPC caller", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    const caller = buildCaller();
+    const result = await caller.controls.setLampScene({ scene: "mood" });
+
+    expect(result).toHaveProperty("lamps");
+  });
+
+  it("throws SERVICE_UNAVAILABLE when HA is not configured", async () => {
+    mockIsConfigured.mockReturnValue(false);
+
+    const caller = buildCaller();
+    await expect(caller.controls.setLampScene({ scene: "white" })).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+    });
+  });
+});
+
+describe("controlsRouter.setLampBrightness", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockCallService.mockResolvedValue(undefined);
+    mockGetEntities.mockResolvedValue([]);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+  });
+
+  it("returns merged controls state via tRPC caller", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    const caller = buildCaller();
+    const result = await caller.controls.setLampBrightness({ pct: 40 });
+
+    expect(result).toHaveProperty("lamps");
+  });
+
+  it("throws SERVICE_UNAVAILABLE when HA is not configured", async () => {
+    mockIsConfigured.mockReturnValue(false);
+
+    const caller = buildCaller();
+    await expect(caller.controls.setLampBrightness({ pct: 40 })).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+    });
   });
 });
