@@ -1,7 +1,9 @@
 import { defineConfig } from "vitest/config";
 
+// Root workspace: api + web unit tests. Storybook browser tests run separately via
+// `bunx vitest --project storybook` from apps/web (requires Playwright/Chromium).
 export default defineConfig({
   test: {
-    projects: ["apps/web", "apps/api"],
+    projects: ["apps/api", "apps/web"],
   },
 });
