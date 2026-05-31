@@ -92,4 +92,59 @@ describe("ClockGreetingView", () => {
     const ampm = screen.getByTestId("clock-ampm");
     expect(ampm.style.letterSpacing).toBe("0.02em");
   });
+
+  describe("www-902: seconds ring", () => {
+    it("renders a seconds-ring SVG overlay when seconds prop provided", () => {
+      const { container } = render(<ClockGreetingView {...baseProps} seconds={0} />);
+      const svg = container.querySelector("[data-testid='seconds-ring']");
+      expect(svg).not.toBeNull();
+    });
+
+    it("does not render seconds-ring when seconds prop is omitted", () => {
+      const { container } = render(<ClockGreetingView {...baseProps} />);
+      const svg = container.querySelector("[data-testid='seconds-ring']");
+      expect(svg).toBeNull();
+    });
+
+    it("seconds=0 has dashoffset equal to full perimeter (ring is empty at :00)", () => {
+      const { container } = render(<ClockGreetingView {...baseProps} seconds={0} />);
+      const path = container.querySelector(
+        "[data-testid='seconds-ring-path']",
+      ) as SVGPathElement | null;
+      expect(path).not.toBeNull();
+      const dasharray = path?.getAttribute("stroke-dasharray");
+      const dashoffset = path?.getAttribute("stroke-dashoffset");
+      // At :00 the offset equals the full perimeter so nothing is drawn yet
+      expect(dasharray).toBe(dashoffset);
+    });
+
+    it("seconds=30 has dashoffset equal to half perimeter (ring half-full at :30)", () => {
+      const { container } = render(<ClockGreetingView {...baseProps} seconds={30} />);
+      const path = container.querySelector(
+        "[data-testid='seconds-ring-path']",
+      ) as SVGPathElement | null;
+      expect(path).not.toBeNull();
+      const perimeter = Number(path?.getAttribute("stroke-dasharray"));
+      const offset = Number(path?.getAttribute("stroke-dashoffset"));
+      // At :30 the remaining offset should be half the perimeter
+      expect(offset).toBeCloseTo(perimeter / 2, 0);
+    });
+
+    it("seconds=60 has dashoffset=0 (ring fully drawn at :60)", () => {
+      const { container } = render(<ClockGreetingView {...baseProps} seconds={60} />);
+      const path = container.querySelector(
+        "[data-testid='seconds-ring-path']",
+      ) as SVGPathElement | null;
+      expect(path).not.toBeNull();
+      const offset = Number(path?.getAttribute("stroke-dashoffset"));
+      expect(offset).toBeCloseTo(0, 0);
+    });
+
+    it("SVG overlay is absolutely positioned to fill the tile", () => {
+      const { container } = render(<ClockGreetingView {...baseProps} seconds={15} />);
+      const svg = container.querySelector("[data-testid='seconds-ring']") as SVGElement | null;
+      expect(svg).not.toBeNull();
+      expect(svg?.getAttribute("style")).toContain("position: absolute");
+    });
+  });
 });

@@ -1,5 +1,6 @@
 import { Icon } from "../Icon";
 import { Tile } from "../ui";
+import { SecondsRing } from "./SecondsRing";
 
 export interface ClockGreetingViewProps {
   greeting: string;
@@ -8,6 +9,8 @@ export interface ClockGreetingViewProps {
   ampm: "AM" | "PM";
   fullDate: string;
   location: string;
+  /** Current seconds (0-59) — when provided, renders the seconds progress ring. */
+  seconds?: number;
 }
 
 export function ClockGreetingView({
@@ -17,6 +20,7 @@ export function ClockGreetingView({
   ampm,
   fullDate,
   location,
+  seconds,
 }: ClockGreetingViewProps) {
   return (
     // padding 28 is design-specified per www-882 (wider than the standard 22)
@@ -27,8 +31,10 @@ export function ClockGreetingView({
         justifyContent: "center",
         gap: 16,
         textAlign: "center",
+        position: "relative",
       }}
     >
+      {seconds !== undefined && <SecondsRing seconds={seconds} />}
       {/* Greeting cap in accent */}
       <div className="cap acc" style={{ fontSize: 14, letterSpacing: ".2em" }}>
         {greeting}

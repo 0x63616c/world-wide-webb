@@ -38,6 +38,7 @@ export function ClockGreeting() {
       ampm={ampm}
       fullDate={fullDate}
       location="Home"
+      seconds={d.getSeconds()}
     />
   );
 }
