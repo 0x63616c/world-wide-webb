@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
+import { defineTileMeta } from "./__stories__/factory";
 import { NetworkTileView } from "./NetworkTileView";
 
 // 24 buckets mirrors real API shape — enough for the butterfly chart to render fully
@@ -9,9 +10,7 @@ const SAMPLE_TRAFFIC = Array.from({ length: 24 }, (_, i) => ({
 }));
 
 const meta = {
-  title: "Tiles/NetworkTileView",
-  component: NetworkTileView,
-  tags: ["autodocs"],
+  ...defineTileMeta("NetworkTileView", NetworkTileView),
   parameters: {
     layout: "padded",
   },

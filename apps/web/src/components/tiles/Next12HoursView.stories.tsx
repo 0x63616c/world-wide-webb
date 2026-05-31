@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
+import { defineTileMeta } from "./__stories__/factory";
 import type { HourlyEntry } from "./Next12HoursView";
 import { Next12HoursView } from "./Next12HoursView";
 
@@ -45,9 +46,7 @@ const ICON_VARIETY_HOURS: HourlyEntry[] = [
 ];
 
 const meta = {
-  title: "Tiles/Next12HoursView",
-  component: Next12HoursViewStory,
-  tags: ["autodocs"],
+  ...defineTileMeta("Next12HoursView", Next12HoursViewStory),
   parameters: {
     layout: "centered",
     // Suppress the global BoardDecorator; the story decorator applies its own e-root wrapper

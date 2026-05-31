@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
+import { defineTileMeta } from "./__stories__/factory";
 import { TeslaTileView } from "./TeslaTileView";
 
 // Storybook stories for TeslaTileView covering all visual states.
@@ -7,11 +8,8 @@ import { TeslaTileView } from "./TeslaTileView";
 // live in __tests__/TeslaTileView.stories.test.tsx via composeStories.
 
 const meta = {
-  title: "Tiles/TeslaTileView",
-  component: TeslaTileView,
-  tags: ["autodocs"],
+  ...defineTileMeta("TeslaTileView", TeslaTileView),
   parameters: {
-    // BoardDecorator in preview.tsx wraps every story in the dark board background.
     layout: "padded",
     // Stories are visual previews at board dimensions — not integration tests.
     viewport: { defaultViewport: "board" },

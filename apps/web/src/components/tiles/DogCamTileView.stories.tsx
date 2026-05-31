@@ -1,12 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
+import { defineTileMeta } from "./__stories__/factory";
 import { DogCamTileView } from "./DogCamTileView";
 
 const meta = {
-  title: "Tiles/DogCamTileView",
-  component: DogCamTileView,
-  tags: ["autodocs"],
-  // Board background is applied globally via BoardDecorator in preview.tsx.
+  ...defineTileMeta("DogCamTileView", DogCamTileView),
   args: {
     status: "populated",
     label: "Living Room",

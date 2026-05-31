@@ -5,6 +5,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
+import { defineTileMeta } from "./__stories__/factory";
 import type { ControlsTileViewProps, ControlsViewData } from "./ControlsTileView";
 import { ControlsTileView } from "./ControlsTileView";
 
@@ -25,9 +26,7 @@ const allOff: ControlsViewData = {
 // ─── meta ─────────────────────────────────────────────────────────────────────
 
 const meta = {
-  title: "Tiles/ControlsTileView",
-  component: ControlsTileView,
-  tags: ["autodocs"],
+  ...defineTileMeta("ControlsTileView", ControlsTileView),
   // Discriminated union — meta-level args can't satisfy the union directly;
   // each story supplies its own complete args.
   args: {
