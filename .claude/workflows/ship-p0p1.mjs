@@ -36,6 +36,21 @@ const CONSOLIDATE_TICKET = args?.consolidateTicket || 'www-x1o.1'
 const MAX_REVIEW_FIXES = args?.maxReviewFixes ?? 1 // merge agent applies blocking findings; this caps re-review depth if you extend it
 const ui = args?.ui !== false
 const doPush = args?.push === true
+// Cap how many heavy (worktree + vite/vitest) agents run at once. 6 choked
+// Calum's machine; 3 is the safe default. Each build agent further limits its own
+// vitest workers (see RULES) so total load stays bounded.
+const CONCURRENCY = args?.concurrency ?? 3
+
+// Run thunks in fixed-size waves so no more than `size` heavy agents run at once.
+// (parallel() alone would let the framework's higher cap through.)
+async function inWaves(thunks, size = CONCURRENCY) {
+  const out = []
+  for (let i = 0; i < thunks.length; i += size) {
+    const wave = await parallel(thunks.slice(i, i + size).map((t) => t))
+    out.push(...wave)
+  }
+  return out
+}
 
 // Storybook must be dark EVERYWHERE — not just the canvas. Shared spec injected
 // into the scaffold build prompt and the cmux E2E validator so they agree.
@@ -61,6 +76,8 @@ ABSOLUTE RULES:
 - bun/bunx ALWAYS. NEVER npm/npx.
 - TDD: write or extend the vitest test FIRST (red), then implement to green. Web tests sit in apps/web/src/**/__tests__/*.test.tsx; api tests in apps/api/src/__tests__/*.test.ts.
 - Test runner is vitest via \`bun run test\`. NEVER run bare \`bun test\` — Bun's native runner is incompatible with vi.mock and reports false failures.
+- RESOURCE LIMITS (Calum's machine chokes otherwise): scope tests to your ticket's files (\`bun run test <file>\`) and LIMIT workers — append \`-- --maxWorkers=2 --fileParallelism=false\` (or set \`VITEST_MAX_THREADS=2\`). Never launch the full unscoped suite from inside a parallel build agent.
+- CLEAN UP AFTER YOURSELF: kill any dev server / storybook you start (\`pkill -f "apps/web dev"\`, \`pkill -f storybook\`) before returning; remove any scratch git worktree you created (\`git worktree remove --force <path>\`); never leave background node/vitest processes or temp worktrees behind.
 - ZERO fake/hardcoded/placeholder data anywhere (web + api). On unavailable data a tile renders a shimmer Skeleton and keeps retrying — never an invented number. A repo-wide grep for FALLBACK / PLACEHOLDER (uppercase identifiers) must stay empty. DEMO_ is allowed ONLY in apps/api/src/services/network-service.ts and weather-service.ts.
 - Code style: imports at top of file only (never inside functions); no module-global mutable vars; comments explain WHY not HOW, one line, no emojis.
 - Board is a FIXED 1366x1024 wall panel. Never design fluid/responsive.
@@ -192,23 +209,32 @@ function mergeTicket(id, blocking) {
     ? blocking.map((f, i) => `${i + 1}. [${f.severity}] ${f.description}${f.suggestedFix ? ` — suggested: ${f.suggestedFix}` : ''}`).join('\n')
     : '(none — reviewers passed this ticket)'
   return agent(
-    `${RULES}\n\nMERGE TICKET ${id} INTO main (you are the ONLY git actor right now — work in the main checkout at ${REPO}, no worktree).\n1. Ensure you are on main with a clean tree (\`git status\`). Merge the ticket branch: \`git merge --no-ff ${branch} -m "merge(${id}): <short>"\`.\n2. IF THERE ARE CONFLICTS: do NOT abort. Resolve every conflict by UNDERSTANDING BOTH SIDES — read \`bd show ${id}\` for intent, inspect the conflicted hunks, keep the change that satisfies BOTH the ticket's acceptance and the already-merged work on main (usually a union, not a pick). Remove all conflict markers, \`git add\` the resolved files, and \`git commit\` to complete the merge.\n3. APPLY these blocking review findings for ${id} before finishing (extend/repair the vitest test red->green for each, then fix):\n${fixList}\n4. Run \`bun run typecheck\` && \`bunx biome check --write .\` && the ticket-scoped tests; they must pass. Commit any review-fix changes (\`fix(${id}): address review\`).\n5. \`bd update ${id} --notes "<merge + fixes>"\` then \`bd close ${id}\`. Do NOT push.\nReturn MERGE_SCHEMA: merged, hadConflicts, conflictFiles, reviewFixesApplied, gatesPass (typecheck+biome+scoped tests), closed, commit (final sha), summary, followups.`,
+    `${RULES}\n\nMERGE TICKET ${id} INTO main (you are the ONLY git actor right now — work in the main checkout at ${REPO}, no worktree).\n1. Ensure you are on main with a clean tree (\`git status\`). Merge the ticket branch: \`git merge --no-ff ${branch} -m "merge(${id}): <short>"\`.\n2. IF THERE ARE CONFLICTS: do NOT abort. Resolve every conflict by UNDERSTANDING BOTH SIDES — read \`bd show ${id}\` for intent, inspect the conflicted hunks, keep the change that satisfies BOTH the ticket's acceptance and the already-merged work on main (usually a union, not a pick). Remove all conflict markers, \`git add\` the resolved files, and \`git commit\` to complete the merge.\n3. APPLY these blocking review findings for ${id} before finishing (extend/repair the vitest test red->green for each, then fix):\n${fixList}\n4. Run \`bun run typecheck\` && \`bunx biome check --write .\` && the ticket-scoped tests with limited workers (\`bun run test <file> -- --maxWorkers=2 --fileParallelism=false\`); they must pass. (Merges are sequential so this is the only bun running — keep it scoped + low-worker so the machine does not choke.) Commit any review-fix changes (\`fix(${id}): address review\`).\n5. \`bd update ${id} --notes "<merge + fixes>"\` then \`bd close ${id}\`. Do NOT push.\nReturn MERGE_SCHEMA: merged, hadConflicts, conflictFiles, reviewFixesApplied, gatesPass (typecheck+biome+scoped tests), closed, commit (final sha), summary, followups.`,
     { label: `merge:${id}`, phase: 'Merge', schema: MERGE_SCHEMA, model: WORK_M },
   )
 }
 
-// ---- Scaffold (barrier on main): foundation every worktree must inherit ------
+// ---- Scaffold (barrier): build in a worktree, then git-only FF to main so the
+// foundation every later worktree inherits lands WITHOUT bun running in main ----
 
 phase('Scaffold')
 const scaffoldOut = []
 for (const id of SCAFFOLD) {
-  log(`Scaffold ${id} on main (barrier) — all later worktrees branch from this.`)
-  scaffoldOut.push(
-    await agent(
-      `${RULES}\n${STORYBOOK_DARK}\n${STORYBOOK_SETUP}\n\nDELIVER FOUNDATION TICKET ${id} DIRECTLY ON main (no worktree — this is the shared base every later worktree inherits, so it must be committed to main first).\nIDEMPOTENCY: \`bd show ${id}\` — if already status=closed, do NOTHING and return status=done, committed=false, summary="already closed".\nElse read acceptance, \`bd update ${id} --claim\`. Implement it (TDD where it makes sense). If this is the Storybook setup, you MUST satisfy the STORYBOOK DARK-MODE CONTRACT above in full (manager theme, dark default canvas, dark docs, dark native scrollbars on every page via color-scheme + webkit CSS) — partial dark (canvas only) FAILS. Run \`bun run typecheck\` && \`bunx biome check --write .\` && \`bun run test\` green, then \`git add -A && git commit -m "<conventional, referencing ${id}>"\`. \`bd close ${id}\`. Do NOT push.\nReturn the structured handoff (branch="main", committed=true).`,
-      { label: `scaffold:${id}`, phase: 'Scaffold', schema: BUILD_SCHEMA, model: WORK_M },
-    ),
+  const br = `${BRPREFIX}/scaffold-${id}`
+  log(`Scaffold ${id} in an isolated worktree, then fast-forward main (no bun in the main checkout).`)
+  // 1) Build the foundation in an isolated worktree, committed to its branch.
+  const built = await agent(
+    `${RULES}\n${STORYBOOK_DARK}\n${STORYBOOK_SETUP}\n\nDELIVER FOUNDATION TICKET ${id} IN AN ISOLATED WORKTREE.\nIDEMPOTENCY: \`bd show ${id}\` — if already status=closed, do NOTHING and return committed=false, summary="already closed".\nElse: create your branch \`git switch -C ${br}\`, \`bd update ${id} --claim\`. Implement it. If this is the Storybook setup you MUST satisfy the STORYBOOK DARK-MODE CONTRACT in full (manager theme, dark default canvas, dark docs, dark native scrollbars via color-scheme + webkit CSS — canvas-only dark FAILS) AND the STORYBOOK SETUP EXTRAS (run \`bunx storybook ai setup\`, make Tilt storybook auto_init=True/non-manual). Run gates with limited workers: \`bun run typecheck\` && \`bunx biome check --write .\` && \`bun run test -- --maxWorkers=2 --fileParallelism=false\`. Then \`git add -A && git commit -m "<conventional, referencing ${id}>"\`. Do NOT bd-close (the FF step closes it). Do NOT push. Clean up any dev server/process you started.\nReturn BUILD_SCHEMA: branch="${br}", committed=true only if you committed, filesChanged.`,
+    { label: `scaffold:${id}`, phase: 'Scaffold', schema: BUILD_SCHEMA, model: WORK_M, isolation: 'worktree' },
   )
+  scaffoldOut.push(built)
+  // 2) Git-only fast-forward the branch into main (no bun, no test runs in main).
+  if (built?.committed) {
+    await agent(
+      `${RULES}\n\nLAND SCAFFOLD ${id}: git-only, NO bun/tests in the main checkout. From ${REPO} on main: \`git merge --ff-only ${br}\` (if FF is impossible because main moved, do \`git merge --no-ff ${br}\` and resolve any conflict by reading both sides + \`bd show ${id}\`, no test runs here). Then \`bd update ${id} --notes "scaffold landed via ${br}"\` and \`bd close ${id}\`. Delete the branch's worktree if present (\`git worktree remove --force\`) and the branch is kept until Finalize. Do NOT push.\nReturn MERGE_SCHEMA for ${id}.`,
+      { label: `scaffold-land:${id}`, phase: 'Scaffold', schema: MERGE_SCHEMA, model: WORK_M },
+    )
+  }
 }
 
 // ---- Per stage: Build (parallel worktrees) -> Review -> Merge (sequential) ---
@@ -217,8 +243,8 @@ const stageOutcomes = []
 for (const stage of STAGES) {
   // BUILD: every ticket in its own isolated worktree, in parallel.
   phase('Build')
-  log(`Stage "${stage.name}": building ${stage.tickets.length} tickets in parallel isolated worktrees.`)
-  const builds = await parallel(stage.tickets.map((id) => () => buildTicket(id, stage.kind, stage.name)))
+  log(`Stage "${stage.name}": building ${stage.tickets.length} tickets in isolated worktrees, max ${CONCURRENCY} at once.`)
+  const builds = await inWaves(stage.tickets.map((id) => () => buildTicket(id, stage.kind, stage.name)))
   const built = stage.tickets.map((id, i) => ({ id, build: builds[i] }))
   for (const b of built) {
     if (!b.build || !b.build.committed) log(`WARN ${b.id}: build did not commit (${b.build?.status || 'no result'}) — merge will skip if no branch.`)
@@ -226,7 +252,7 @@ for (const stage of STAGES) {
 
   // REVIEW: fresh adversarial judges per ticket branch, in parallel (read-only).
   phase('Review')
-  const reviews = await parallel(
+  const reviews = await inWaves(
     built.filter((b) => b.build?.committed).map((b) => () => reviewTicket(b.id, stage.name)),
   )
   const reviewById = Object.fromEntries(reviews.filter(Boolean).map((r) => [r.id, r]))
@@ -253,7 +279,7 @@ for (const stage of STAGES) {
 
   // Stage gate: full test suite once on the integrated main after this stage.
   const stageGate = await agent(
-    `${RULES}\n\nSTAGE GATE after merging "${stage.name}" into main. From ${REPO} run the FULL suite and get it green: \`bun run typecheck\` && \`bunx biome check .\` && \`bun run test\` && \`grep -rnE "FALLBACK|PLACEHOLDER" apps/ --include=*.ts --include=*.tsx\` (must be empty; DEMO_ only in network-service.ts/weather-service.ts). Fix any cross-ticket integration failure IN PLACE on main and commit (\`fix: stage integration\`). Do NOT push. Return BUILD_SCHEMA: localGatesPass=true only if all green and grep empty.`,
+    `${RULES}\n\nSTAGE GATE after merging "${stage.name}" into main — run the FULL suite WITHOUT running bun in the main checkout (Calum's machine chokes on vitest in the repo root). Do this:\n1. Create a throwaway detached worktree at main's HEAD: \`git worktree add --detach ${REPO}/.claude/worktrees/gate-${stage.name} HEAD\` and \`cd\` into it.\n2. There run \`bun install --silent\` then the suite with limited workers: \`bun run typecheck\` && \`bunx biome check .\` && \`bun run test -- --maxWorkers=2 --fileParallelism=false\` && \`grep -rnE "FALLBACK|PLACEHOLDER" apps/ --include=*.ts --include=*.tsx\` (must be empty; DEMO_ only in network-service.ts/weather-service.ts).\n3. If something fails, fix it IN THE MAIN checkout (${REPO}) by editing files (git/edit only, no test runs there), re-verify in the worktree, and commit on main (\`fix: stage integration\`).\n4. ALWAYS remove the worktree when done: \`git worktree remove --force ${REPO}/.claude/worktrees/gate-${stage.name}\`. Do NOT push.\nReturn BUILD_SCHEMA: localGatesPass=true only if all green and grep empty.`,
     { label: `stage-gate:${stage.name}`, phase: 'Merge', schema: BUILD_SCHEMA, model: WORK_M },
   )
   log(`stage "${stage.name}" gate: pass=${stageGate?.localGatesPass} — ${stageGate?.summary || ''}`)
@@ -312,7 +338,7 @@ log(`QA: ${qa.map((r) => (r.pass ? 'pass' : 'FAIL')).join(', ')} — ${qaFinding
 
 phase('Finalize')
 const fin = await agent(
-  `${RULES}\n\nFINALIZE. From ${REPO}:\n1. Final gates: \`bun run typecheck\` && \`bunx biome check .\` && \`bun run test\` — all must pass; fix trivially if not and commit.\n2. \`bd epic status ${EPIC}\` — if all children are closed, \`bd close ${EPIC}\`. Report any still-open issue under the epic.\n3. Clean up merged ticket branches: \`git branch --list "${BRPREFIX}/*"\` then delete the merged ones (\`git branch -d\`).\n4. ${doPush ? 'PUSH: \`git pull --rebase && git push\`; \`git status\` must show up to date with origin.' : 'Do NOT push (conservative). Report the commits made and \`git status\` so Calum can push.'}\nReturn FINAL_SCHEMA: gatesPass, epicClosed, pushed, openUnderEpic, summary (commits + what remains).`,
+  `${RULES}\n\nFINALIZE + CLEAN UP. From ${REPO}:\n1. Final gates WITHOUT bun in the main checkout: \`git worktree add --detach ${REPO}/.claude/worktrees/gate-final HEAD\`, cd in, \`bun install --silent\`, then \`bun run typecheck\` && \`bunx biome check .\` && \`bun run test -- --maxWorkers=2 --fileParallelism=false\`. If anything fails, fix in the main checkout (edit only), re-verify in the worktree, commit.\n2. \`bd epic status ${EPIC}\` — if all children are closed, \`bd close ${EPIC}\`. Report any still-open issue under the epic.\n3. FULL CLEANUP (leave nothing behind): \`git worktree remove --force\` every worktree under ${REPO}/.claude/worktrees/* (including gate-final and any ${BRPREFIX}/* build worktrees), then \`git worktree prune\`; \`git branch -d\` every merged \`${BRPREFIX}/*\` branch; \`pkill -f "apps/web dev"\` and \`pkill -f storybook\` to kill any leftover dev servers; confirm no orphan vitest/node remain (\`pgrep -fl vitest\` should be empty).\n4. ${doPush ? 'PUSH: \`git pull --rebase && git push\`; \`git status\` must show up to date with origin.' : 'Do NOT push (conservative). Report the commits made and \`git status\` so Calum can push.'}\nReturn FINAL_SCHEMA: gatesPass, epicClosed, pushed, openUnderEpic, summary (commits + cleanup done + what remains).`,
   { label: 'finalize', phase: 'Finalize', schema: FINAL_SCHEMA, model: WORK_M },
 )
 log(`finalize: gates=${fin?.gatesPass} epicClosed=${fin?.epicClosed} pushed=${fin?.pushed} — ${fin?.summary || ''}`)
