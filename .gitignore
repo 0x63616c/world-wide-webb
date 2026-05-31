@@ -43,3 +43,6 @@ coverage/
 # Beads / Dolt files (added by bd init)
 .dolt/
 .beads-credential-key
+
+# Tesla map basemap tiles — large, host locally / on homelab (see CC-gma)
+apps/web/public/maps/*.pmtiles
