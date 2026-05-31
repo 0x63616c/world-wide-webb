@@ -1,3 +1,4 @@
+export { BorderProgressRing } from "./BorderProgressRing";
 export { Chip } from "./Chip";
 export type { ControlTapProps } from "./ControlTap";
 export { ControlTap } from "./ControlTap";
