@@ -1,9 +1,8 @@
 import { inArray } from "drizzle-orm";
-import type { RgbColor } from "../config/lamp-scenes";
 import {
+  assignMoodColors,
   BLUE_RGB,
   LampScene,
-  moodColorForIndex,
   RED_RGB,
   WHITE_SCENE_KELVIN,
 } from "../config/lamp-scenes";
@@ -347,38 +346,34 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
 }
 
 /**
- * Build the per-lamp `light.turn_on` params for a scene.
+ * Build the `light.turn_on` params for each lamp under a scene.
  *
- * white/red/blue are uniform across lamps; mood zips a curated palette to the
- * lamps by index (cycling) so each lamp gets a visibly distinct colour — the
- * params therefore differ per lamp only for mood.
+ * white/red/blue are uniform across lamps. mood assigns each lamp a UNIQUE
+ * colour drawn randomly from the palette (different every call), so the params
+ * differ per lamp only for mood. Returned in LAMP_ENTITY_IDS order.
  */
-function sceneParamsForLamp(
-  scene: LampScene,
-  entityId: string,
-  index: number,
-): Record<string, unknown> {
-  switch (scene) {
-    case LampScene.White:
-      return { entity_id: entityId, color_temp_kelvin: WHITE_SCENE_KELVIN };
-    case LampScene.Red:
-      return { entity_id: entityId, rgb_color: RED_RGB };
-    case LampScene.Blue:
-      return { entity_id: entityId, rgb_color: BLUE_RGB };
-    case LampScene.Mood: {
-      const rgb: RgbColor = moodColorForIndex(index);
-      return { entity_id: entityId, rgb_color: rgb };
-    }
+function sceneParamsForLamps(scene: LampScene): Record<string, unknown>[] {
+  if (scene === LampScene.Mood) {
+    const colors = assignMoodColors(LAMP_ENTITY_IDS.length);
+    return LAMP_ENTITY_IDS.map((entityId, i) => ({ entity_id: entityId, rgb_color: colors[i] }));
   }
+
+  const uniform: Record<string, unknown> =
+    scene === LampScene.White
+      ? { color_temp_kelvin: WHITE_SCENE_KELVIN }
+      : { rgb_color: scene === LampScene.Red ? RED_RGB : BLUE_RGB };
+
+  return LAMP_ENTITY_IDS.map((entityId) => ({ entity_id: entityId, ...uniform }));
 }
 
 /**
  * Apply a colour scene to every lamp (Hue light.* entities).
  *
  * Dispatches one `light.turn_on` per lamp with the scene's colour args. For
- * "mood" each lamp receives a different palette colour; the others are uniform.
- * Throws when HA is unconfigured (caller surfaces a tRPC error). Returns the
- * merged controls state after dispatching, mirroring toggleControl.
+ * "mood" each lamp gets a distinct, randomly-assigned palette colour; the
+ * others are uniform. Throws when HA is unconfigured (caller surfaces a tRPC
+ * error). Returns the merged controls state after dispatching, mirroring
+ * toggleControl.
  */
 export async function setLampScene(scene: LampScene): Promise<ControlsState | null> {
   if (!ha.isConfigured()) {
@@ -386,9 +381,7 @@ export async function setLampScene(scene: LampScene): Promise<ControlsState | nu
   }
 
   await Promise.all(
-    LAMP_ENTITY_IDS.map((entityId, index) =>
-      ha.callService("light", HaService.TurnOn, sceneParamsForLamp(scene, entityId, index)),
-    ),
+    sceneParamsForLamps(scene).map((params) => ha.callService("light", HaService.TurnOn, params)),
   );
 
   return getControlsState();

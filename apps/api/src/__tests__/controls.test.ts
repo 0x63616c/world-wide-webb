@@ -835,9 +835,9 @@ describe("setLampScene", () => {
       expect(rgbByEntity.has(entityId)).toBe(true);
     }
 
-    // At least two lamps must differ — the whole point of "mood".
+    // Every lamp gets a DISTINCT colour — no repeats across the room.
     const distinct = new Set(rgbByEntity.values());
-    expect(distinct.size).toBeGreaterThan(1);
+    expect(distinct.size).toBe(LAMP_ENTITY_IDS.length);
 
     // Each colour must come from the curated palette.
     const paletteSet = new Set(MOOD_PALETTE.map((c) => JSON.stringify(c)));
