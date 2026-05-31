@@ -84,7 +84,7 @@ export const AllOn: Story = {
     const lamps = await canvas.findByRole("button", { name: "Lamps" });
     const lights = canvas.getByRole("button", { name: "Lights" });
     const fan = canvas.getByRole("button", { name: "Fan" });
-    const scene = canvas.getByRole("button", { name: "Scene" });
+    const scene = canvas.getByRole("button", { name: "More" });
     expect(lamps).toBeInTheDocument();
     expect(lights).toBeInTheDocument();
     expect(fan).toBeInTheDocument();

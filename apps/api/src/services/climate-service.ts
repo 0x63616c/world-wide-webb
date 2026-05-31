@@ -1,19 +1,42 @@
+import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
+import type { HaEntity } from "../integrations/homeassistant/types";
 
-export type ClimateMode = "cool" | "auto" | "heat";
-export type ClimateAction = "Cooling" | "Heating" | "Auto" | "Idle";
+// Real Home Assistant hvac modes for the house thermostat (climate.home).
+export type ClimateMode = "off" | "cool" | "heat" | "heat_cool";
+export type ClimateAction = "Cooling" | "Heating" | "Idle";
 
-export interface ClimateState {
-  target: number;
-  ambient: number;
-  mode: ClimateMode;
-  action: ClimateAction;
-}
+// Visual band and the server-side accept range. HA's hard limits are wider
+// (60-92) but the tile + validation use 65-80, the existing design constant.
+export const CLIMATE_MIN = 65;
+export const CLIMATE_MAX = 80;
+// Minimum deadband between low/high in heat_cool — they can never meet or cross.
+export const CLIMATE_GAP = 2;
+
+/**
+ * State crosses tRPC as a discriminated union on `mode` so a single `target` and
+ * a `targetLow`/`targetHigh` range can never coexist (illegal states are
+ * unrepresentable):
+ *  - off       → no setpoint
+ *  - cool/heat → single `target` (HA attr `temperature`)
+ *  - heat_cool → `targetLow` + `targetHigh` (HA attrs target_temp_low/high)
+ */
+export type ClimateState =
+  | { mode: "off"; ambient: number; action: ClimateAction }
+  | { mode: "cool" | "heat"; target: number; ambient: number; action: ClimateAction }
+  | {
+      mode: "heat_cool";
+      targetLow: number;
+      targetHigh: number;
+      ambient: number;
+      action: ClimateAction;
+    };
 
 function normaliseMode(raw: string | undefined): ClimateMode {
-  if (raw === "cool") return "cool";
-  if (raw === "heat") return "heat";
-  return "auto";
+  if (raw === "cool" || raw === "heat" || raw === "heat_cool") return raw;
+  // climate.home only reports off/cool/heat/heat_cool; anything else (or a
+  // missing state) is treated as off so no stale setpoint is shown.
+  return "off";
 }
 
 function normaliseAction(raw: string | undefined): ClimateAction {
@@ -22,43 +45,70 @@ function normaliseAction(raw: string | undefined): ClimateAction {
   return "Idle";
 }
 
+// Zero is a valid sensor gap — never an invented number (matches the repo's
+// no-fake-data contract). Only surfaces in a genuinely malformed HA payload.
+function num(value: unknown): number {
+  return typeof value === "number" ? value : 0;
+}
+
+/**
+ * Pick the house thermostat from HA's climate entities. Prefers the configured
+ * CLIMATE_ENTITY_ID; otherwise the alphabetical-first NON-Tesla entity. The
+ * Tesla integration names its climate `climate.<TESLA_ENTITY_PREFIX>_*` and is
+ * the car, not the wall thermostat — selecting it caused set_temperature 500s.
+ */
+export function selectClimateEntity(entities: HaEntity[]): HaEntity | undefined {
+  if (entities.length === 0) return undefined;
+  const configured = entities.find((e) => e.entity_id === env.CLIMATE_ENTITY_ID);
+  if (configured) return configured;
+  const houseOnly = entities.filter(
+    (e) => !e.entity_id.startsWith(`climate.${env.TESLA_ENTITY_PREFIX}`),
+  );
+  const pool = houseOnly.length > 0 ? houseOnly : entities;
+  return [...pool].sort((a, b) => a.entity_id.localeCompare(b.entity_id))[0];
+}
+
+/** True when low/high are integers within band and at least CLIMATE_GAP apart. */
+export function isValidRange(low: number, high: number): boolean {
+  return (
+    Number.isInteger(low) &&
+    Number.isInteger(high) &&
+    low >= CLIMATE_MIN &&
+    high <= CLIMATE_MAX &&
+    low + CLIMATE_GAP <= high
+  );
+}
+
 export async function getClimate(): Promise<ClimateState> {
   if (!ha.isConfigured()) throw new Error("Home Assistant is not configured");
 
   const entities = await ha.getEntities("climate");
-  if (entities.length === 0) throw new Error("no climate entities");
+  const entity = selectClimateEntity(entities);
+  if (!entity) throw new Error("no climate entities");
 
-  // Pick first entity alphabetically.
-  const sorted = [...entities].sort((a, b) => a.entity_id.localeCompare(b.entity_id));
-  const entity = sorted[0];
   const attrs = entity.attributes;
-
-  // Zero is a valid sensor gap — not an invented number.
-  const ambient = typeof attrs.current_temperature === "number" ? attrs.current_temperature : 0;
-  const target = typeof attrs.temperature === "number" ? attrs.temperature : 0;
-
-  const mode = normaliseMode(typeof attrs.hvac_mode === "string" ? attrs.hvac_mode : entity.state);
-
+  const ambient = num(attrs.current_temperature);
   const action = normaliseAction(
     typeof attrs.hvac_action === "string" ? attrs.hvac_action : undefined,
   );
+  const mode = normaliseMode(typeof attrs.hvac_mode === "string" ? attrs.hvac_mode : entity.state);
 
-  return { target, ambient, mode, action };
+  if (mode === "heat_cool") {
+    return {
+      mode,
+      targetLow: num(attrs.target_temp_low),
+      targetHigh: num(attrs.target_temp_high),
+      ambient,
+      action,
+    };
+  }
+  if (mode === "cool" || mode === "heat") {
+    return { mode, target: num(attrs.temperature), ambient, action };
+  }
+  return { mode: "off", ambient, action };
 }
 
-export async function setClimateTarget(
-  entityId: string,
-  temperature: number,
-): Promise<ClimateState> {
-  await ha.callService("climate", "set_temperature", {
-    entity_id: entityId,
-    temperature,
-  });
-  // Optimistic: return state with updated target. Ambient/action unchanged.
-  const current = await getClimate();
-  return { ...current, target: temperature };
-}
-
+/** Set the hvac mode (off/cool/heat/heat_cool). Returns fresh state. */
 export async function setClimateMode(
   entityId: string,
   hvacMode: ClimateMode,
@@ -67,17 +117,41 @@ export async function setClimateMode(
     entity_id: entityId,
     hvac_mode: hvacMode,
   });
-  const current = await getClimate();
-  return { ...current, mode: hvacMode };
+  return getClimate();
 }
 
-/** Resolve the first climate entity id, or undefined if HA unavailable. */
+/** Single setpoint (cool/heat) via set_temperature {temperature}. */
+export async function setClimateTarget(
+  entityId: string,
+  temperature: number,
+): Promise<ClimateState> {
+  await ha.callService("climate", "set_temperature", {
+    entity_id: entityId,
+    temperature,
+  });
+  return getClimate();
+}
+
+/** Range setpoint (heat_cool) via set_temperature {target_temp_low, target_temp_high}. */
+export async function setClimateRange(
+  entityId: string,
+  targetLow: number,
+  targetHigh: number,
+): Promise<ClimateState> {
+  await ha.callService("climate", "set_temperature", {
+    entity_id: entityId,
+    target_temp_low: targetLow,
+    target_temp_high: targetHigh,
+  });
+  return getClimate();
+}
+
+/** Resolve the house thermostat entity id, or undefined if HA unavailable. */
 export async function resolveClimateEntityId(): Promise<string | undefined> {
   if (!ha.isConfigured()) return undefined;
   try {
     const entities = await ha.getEntities("climate");
-    if (entities.length === 0) return undefined;
-    return [...entities].sort((a, b) => a.entity_id.localeCompare(b.entity_id))[0].entity_id;
+    return selectClimateEntity(entities)?.entity_id;
   } catch {
     return undefined;
   }

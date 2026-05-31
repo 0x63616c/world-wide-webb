@@ -7,9 +7,47 @@ import "@testing-library/jest-dom";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ClimateTileViewProps } from "../ClimateTileView";
-import { ClimateTileView } from "../ClimateTileView";
+import { ClimateTileView, clampHigh, clampLow } from "../ClimateTileView";
 
 afterEach(cleanup);
+
+const cbs = { onSetTarget: vi.fn(), onSetMode: vi.fn(), onSetRange: vi.fn() };
+
+// ─── pure clamp helpers — overlap / gap / bounds ──────────────────────────────
+
+describe("clampLow / clampHigh", () => {
+  it("keeps low at most GAP below high", () => {
+    expect(clampLow(75, 76)).toBe(74); // can't reach high
+    expect(clampLow(74, 76)).toBe(74); // exactly GAP below is allowed
+  });
+
+  it("keeps high at least GAP above low", () => {
+    expect(clampHigh(69, 70)).toBe(72); // can't reach low
+    expect(clampHigh(72, 70)).toBe(72); // exactly GAP above is allowed
+  });
+
+  it("never lets low cross or equal high", () => {
+    expect(clampLow(99, 70)).toBe(68); // clamped to high-GAP
+    expect(clampLow(70, 70)).toBe(68);
+  });
+
+  it("never lets high cross or equal low", () => {
+    expect(clampHigh(60, 72)).toBe(74); // clamped to low+GAP
+    expect(clampHigh(72, 72)).toBe(74);
+  });
+
+  it("respects the band edges", () => {
+    expect(clampLow(50, 80)).toBe(65); // floor at MIN
+    expect(clampHigh(99, 65)).toBe(80); // ceil at MAX
+  });
+
+  it("low and high stay >= GAP apart at the extremes", () => {
+    // high pinned at the bottom: low must sit 2 below -> floors at MIN
+    expect(clampLow(80, 67)).toBe(65);
+    // low pinned at the top: high must sit 2 above -> ceils at MAX
+    expect(clampHigh(65, 78)).toBe(80);
+  });
+});
 
 // ─── loading state ────────────────────────────────────────────────────────────
 
@@ -19,132 +57,156 @@ describe("ClimateTileView — loading state", () => {
     expect(container.firstChild).toBeInTheDocument();
   });
 
-  it("does not render setpoint while loading", () => {
+  it("does not render setpoint or sliders while loading", () => {
     render(<ClimateTileView status="loading" />);
     expect(screen.queryByTestId("setpoint")).not.toBeInTheDocument();
-  });
-
-  it("does not render slider while loading", () => {
-    render(<ClimateTileView status="loading" />);
     expect(screen.queryByTestId("slider")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("slider-low")).not.toBeInTheDocument();
   });
 });
 
-// ─── populated state ──────────────────────────────────────────────────────────
+// ─── single-setpoint modes (cool / heat) ──────────────────────────────────────
 
-const baseProps: ClimateTileViewProps = {
+const coolProps: ClimateTileViewProps = {
   status: "populated",
+  mode: "cool",
   target: 68,
   ambient: 72,
-  mode: "cool",
   action: "Cooling",
-  onSetTarget: vi.fn(),
-  onSetMode: vi.fn(),
+  ...cbs,
 };
 
-describe("ClimateTileView — populated state", () => {
-  it("shows the setpoint temperature", () => {
-    render(<ClimateTileView {...baseProps} />);
+describe("ClimateTileView — cool/heat (single setpoint)", () => {
+  it("shows the setpoint with °F", () => {
+    render(<ClimateTileView {...coolProps} />);
     expect(screen.getByTestId("setpoint")).toHaveTextContent("68");
-  });
-
-  it("displays the °F suffix", () => {
-    render(<ClimateTileView {...baseProps} />);
     expect(screen.getByTestId("setpoint")).toHaveTextContent("°F");
   });
 
-  it("shows the mode pill label from action prop", () => {
-    render(<ClimateTileView {...baseProps} />);
-    expect(screen.getByTestId("mode-pill")).toHaveTextContent("Cooling");
+  it("renders a single slider, no dual sliders", () => {
+    render(<ClimateTileView {...coolProps} />);
+    expect((screen.getByTestId("slider") as HTMLInputElement).value).toBe("68");
+    expect(screen.queryByTestId("slider-low")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("slider-high")).not.toBeInTheDocument();
   });
 
-  it("marks the Cool chip as active when mode is cool", () => {
-    render(<ClimateTileView {...baseProps} />);
+  it("marks only the active mode button", () => {
+    render(<ClimateTileView {...coolProps} />);
     expect(screen.getByTestId("chip-cool")).toHaveClass("on");
     expect(screen.getByTestId("chip-heat")).not.toHaveClass("on");
-    expect(screen.getByTestId("chip-auto")).not.toHaveClass("on");
+    expect(screen.getByTestId("chip-heat_cool")).not.toHaveClass("on");
+    expect(screen.getByTestId("chip-off")).not.toHaveClass("on");
   });
 
-  it("marks the Heat chip as active when mode is heat", () => {
-    render(<ClimateTileView {...baseProps} mode="heat" action="Heating" />);
-    expect(screen.getByTestId("chip-heat")).toHaveClass("on");
-    expect(screen.getByTestId("chip-cool")).not.toHaveClass("on");
-  });
-
-  it("marks the Auto chip as active when mode is auto", () => {
-    render(<ClimateTileView {...baseProps} mode="auto" action="Idle" />);
-    expect(screen.getByTestId("chip-auto")).toHaveClass("on");
-  });
-
-  it("shows ambient temperature marker", () => {
-    render(<ClimateTileView {...baseProps} />);
+  it("shows ambient marker and end labels", () => {
+    render(<ClimateTileView {...coolProps} />);
     expect(screen.getByTestId("ambient-label")).toHaveTextContent("72°");
-  });
-
-  it("renders 65° and 80° end labels", () => {
-    render(<ClimateTileView {...baseProps} />);
     expect(screen.getByText("65°")).toBeInTheDocument();
     expect(screen.getByText("80°")).toBeInTheDocument();
   });
 
-  it("sets slider value to target", () => {
-    render(<ClimateTileView {...baseProps} />);
-    const slider = screen.getByTestId("slider") as HTMLInputElement;
-    expect(slider.value).toBe("68");
-  });
-
-  it("mode pill reflects Idle action", () => {
-    render(<ClimateTileView {...baseProps} mode="auto" action="Idle" />);
-    expect(screen.getByTestId("mode-pill")).toHaveTextContent("Idle");
-  });
-
-  it("mode pill reflects Heating action from server", () => {
-    render(<ClimateTileView {...baseProps} target={72} mode="heat" action="Heating" />);
-    expect(screen.getByTestId("mode-pill")).toHaveTextContent("Heating");
-  });
-});
-
-// ─── chip callbacks ───────────────────────────────────────────────────────────
-
-describe("ClimateTileView — chip callbacks", () => {
-  it("calls onSetMode with heat and preset 76 when Heat chip is clicked", () => {
-    const onSetMode = vi.fn();
-    render(<ClimateTileView {...baseProps} onSetMode={onSetMode} />);
-    fireEvent.click(screen.getByTestId("chip-heat"));
-    expect(onSetMode).toHaveBeenCalledWith("heat", 76);
-  });
-
-  it("calls onSetMode with cool and preset 68 when Cool chip is clicked", () => {
-    const onSetMode = vi.fn();
-    render(<ClimateTileView {...baseProps} mode="heat" action="Heating" onSetMode={onSetMode} />);
-    fireEvent.click(screen.getByTestId("chip-cool"));
-    expect(onSetMode).toHaveBeenCalledWith("cool", 68);
-  });
-
-  it("calls onSetMode with auto and preset 72 when Auto chip is clicked", () => {
-    const onSetMode = vi.fn();
-    render(<ClimateTileView {...baseProps} onSetMode={onSetMode} />);
-    fireEvent.click(screen.getByTestId("chip-auto"));
-    expect(onSetMode).toHaveBeenCalledWith("auto", 72);
-  });
-});
-
-// ─── slider callback ──────────────────────────────────────────────────────────
-
-describe("ClimateTileView — slider callback", () => {
-  it("calls onSetTarget with numeric value when slider changes", () => {
+  it("calls onSetTarget with the numeric slider value", () => {
     const onSetTarget = vi.fn();
-    render(<ClimateTileView {...baseProps} onSetTarget={onSetTarget} />);
-    const slider = screen.getByTestId("slider") as HTMLInputElement;
-    fireEvent.change(slider, { target: { value: "75" } });
+    render(<ClimateTileView {...coolProps} onSetTarget={onSetTarget} />);
+    fireEvent.change(screen.getByTestId("slider"), { target: { value: "75" } });
     expect(onSetTarget).toHaveBeenCalledWith(75);
   });
+});
 
-  it("calls onSetTarget with 76 for a high-end drag", () => {
-    const onSetTarget = vi.fn();
-    render(<ClimateTileView {...baseProps} onSetTarget={onSetTarget} />);
-    const slider = screen.getByTestId("slider") as HTMLInputElement;
-    fireEvent.change(slider, { target: { value: "76" } });
-    expect(onSetTarget).toHaveBeenCalledWith(76);
+// ─── heat_cool (dual setpoint) ─────────────────────────────────────────────────
+
+const heatCoolProps: ClimateTileViewProps = {
+  status: "populated",
+  mode: "heat_cool",
+  targetLow: 68,
+  targetHigh: 76,
+  ambient: 72,
+  action: "Idle",
+  ...cbs,
+};
+
+describe("ClimateTileView — heat_cool (dual setpoint)", () => {
+  it("renders two sliders and no single slider", () => {
+    render(<ClimateTileView {...heatCoolProps} />);
+    expect((screen.getByTestId("slider-low") as HTMLInputElement).value).toBe("68");
+    expect((screen.getByTestId("slider-high") as HTMLInputElement).value).toBe("76");
+    expect(screen.queryByTestId("slider")).not.toBeInTheDocument();
+  });
+
+  it("shows both setpoints in the readout", () => {
+    render(<ClimateTileView {...heatCoolProps} />);
+    expect(screen.getByTestId("setpoint")).toHaveTextContent("68");
+    expect(screen.getByTestId("setpoint")).toHaveTextContent("76");
+  });
+
+  it("marks heat_cool active", () => {
+    render(<ClimateTileView {...heatCoolProps} />);
+    expect(screen.getByTestId("chip-heat_cool")).toHaveClass("on");
+  });
+
+  it("clamps low so it cannot reach high when dragged up", () => {
+    const onSetRange = vi.fn();
+    render(<ClimateTileView {...heatCoolProps} onSetRange={onSetRange} />);
+    fireEvent.change(screen.getByTestId("slider-low"), { target: { value: "79" } });
+    // high is 76, GAP 2 -> low clamped to 74
+    expect(onSetRange).toHaveBeenCalledWith(74, 76);
+  });
+
+  it("clamps high so it cannot reach low when dragged down", () => {
+    const onSetRange = vi.fn();
+    render(<ClimateTileView {...heatCoolProps} onSetRange={onSetRange} />);
+    fireEvent.change(screen.getByTestId("slider-high"), { target: { value: "66" } });
+    // low is 68, GAP 2 -> high clamped to 70
+    expect(onSetRange).toHaveBeenCalledWith(68, 70);
+  });
+
+  it("never emits an overlapping range across repeated cross attempts", () => {
+    const onSetRange = vi.fn();
+    render(<ClimateTileView {...heatCoolProps} onSetRange={onSetRange} />);
+    fireEvent.change(screen.getByTestId("slider-low"), { target: { value: "80" } });
+    fireEvent.change(screen.getByTestId("slider-high"), { target: { value: "65" } });
+    for (const call of onSetRange.mock.calls) {
+      const [low, high] = call as [number, number];
+      expect(high - low).toBeGreaterThanOrEqual(2);
+    }
+  });
+});
+
+// ─── off ──────────────────────────────────────────────────────────────────────
+
+describe("ClimateTileView — off", () => {
+  const offProps: ClimateTileViewProps = {
+    status: "populated",
+    mode: "off",
+    ambient: 71,
+    action: "Off",
+    ...cbs,
+  };
+
+  it("shows Off and no sliders", () => {
+    render(<ClimateTileView {...offProps} />);
+    expect(screen.getByTestId("setpoint")).toHaveTextContent("Off");
+    expect(screen.queryByTestId("slider")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("slider-low")).not.toBeInTheDocument();
+  });
+
+  it("marks the Off button active", () => {
+    render(<ClimateTileView {...offProps} />);
+    expect(screen.getByTestId("chip-off")).toHaveClass("on");
+  });
+});
+
+// ─── mode buttons ───────────────────────────────────────────────────────────-
+
+describe("ClimateTileView — mode buttons", () => {
+  it("fires onSetMode with the real hvac mode (no preset target)", () => {
+    const onSetMode = vi.fn();
+    render(<ClimateTileView {...coolProps} onSetMode={onSetMode} />);
+    fireEvent.click(screen.getByTestId("chip-heat"));
+    expect(onSetMode).toHaveBeenCalledWith("heat");
+    fireEvent.click(screen.getByTestId("chip-heat_cool"));
+    expect(onSetMode).toHaveBeenCalledWith("heat_cool");
+    fireEvent.click(screen.getByTestId("chip-off"));
+    expect(onSetMode).toHaveBeenCalledWith("off");
   });
 });

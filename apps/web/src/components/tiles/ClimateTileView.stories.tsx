@@ -9,15 +9,9 @@ import { defineTileMeta } from "./__stories__/factory";
 import type { ClimateTileViewProps } from "./ClimateTileView";
 import { ClimateTileView } from "./ClimateTileView";
 
-// Base populated args without spy callbacks — each story that uses callbacks
-// defines its own fn() so spy call history never leaks between tests.
-const populatedBase = {
-  status: "populated" as const,
-  target: 68,
-  ambient: 74,
-  mode: "cool" as const,
-  action: "Cooling",
-};
+// Shared callbacks placeholder — each story defines its own fn() so spy call
+// history never leaks between tests.
+const callbacks = { onSetTarget: fn(), onSetMode: fn(), onSetRange: fn() };
 
 const meta = {
   ...defineTileMeta("ClimateTileView", ClimateTileView),
@@ -29,12 +23,9 @@ type Story = StoryObj<typeof meta>;
 // ─── Loading (skeleton) ───────────────────────────────────────────────────────
 
 export const Loading: Story = {
-  args: {
-    status: "loading",
-  },
+  args: { status: "loading" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // Skeleton renders a .tile container but no setpoint or slider.
     const tile = canvasElement.querySelector(".tile");
     expect(tile).toBeInTheDocument();
     expect(canvas.queryByTestId("setpoint")).not.toBeInTheDocument();
@@ -42,79 +33,103 @@ export const Loading: Story = {
   },
 };
 
-// ─── Populated — Cool mode ────────────────────────────────────────────────────
+// ─── Cool (single setpoint) ───────────────────────────────────────────────────
 
 export const CoolingMode: Story = {
   args: {
-    ...populatedBase,
-    onSetTarget: fn(),
-    onSetMode: fn(),
+    status: "populated",
+    mode: "cool",
+    target: 68,
+    ambient: 74,
+    action: "Cooling",
+    ...callbacks,
   } as ClimateTileViewProps,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-
-    // Tile header and setpoint render.
     expect(canvas.getByText("Climate · A/C")).toBeInTheDocument();
     expect(canvas.getByTestId("setpoint")).toHaveTextContent("68");
     expect(canvas.getByTestId("mode-pill")).toHaveTextContent("Cooling");
 
-    // Cool chip is active; others are not.
+    // Cool active; single slider present, dual sliders absent.
     expect(canvas.getByTestId("chip-cool")).toHaveClass("on");
     expect(canvas.getByTestId("chip-heat")).not.toHaveClass("on");
-    expect(canvas.getByTestId("chip-auto")).not.toHaveClass("on");
+    expect(canvas.getByTestId("slider")).toBeInTheDocument();
+    expect(canvas.queryByTestId("slider-low")).not.toBeInTheDocument();
 
-    // Ambient marker is shown.
     expect(canvas.getByTestId("ambient-label")).toHaveTextContent("74°");
-
-    // Range end labels.
     expect(canvas.getByText("65°")).toBeInTheDocument();
     expect(canvas.getByText("80°")).toBeInTheDocument();
   },
 };
 
-// ─── Populated — Heat mode ────────────────────────────────────────────────────
+// ─── Heat (single setpoint) ───────────────────────────────────────────────────
 
 export const HeatingMode: Story = {
   args: {
-    ...populatedBase,
+    status: "populated",
+    mode: "heat",
     target: 76,
     ambient: 70,
-    mode: "heat",
     action: "Heating",
-    onSetTarget: fn(),
-    onSetMode: fn(),
+    ...callbacks,
   } as ClimateTileViewProps,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     expect(canvas.getByTestId("setpoint")).toHaveTextContent("76");
     expect(canvas.getByTestId("mode-pill")).toHaveTextContent("Heating");
     expect(canvas.getByTestId("chip-heat")).toHaveClass("on");
-    expect(canvas.getByTestId("chip-cool")).not.toHaveClass("on");
+    expect(canvas.getByTestId("slider")).toBeInTheDocument();
   },
 };
 
-// ─── Populated — Auto/Idle ────────────────────────────────────────────────────
+// ─── Heat·Cool (dual setpoint) ────────────────────────────────────────────────
 
-export const AutoIdle: Story = {
+export const HeatCoolMode: Story = {
   args: {
-    ...populatedBase,
-    target: 72,
-    ambient: 71,
-    mode: "auto",
+    status: "populated",
+    mode: "heat_cool",
+    targetLow: 68,
+    targetHigh: 76,
+    ambient: 72,
     action: "Idle",
-    onSetTarget: fn(),
-    onSetMode: fn(),
+    ...callbacks,
   } as ClimateTileViewProps,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    expect(canvas.getByTestId("chip-auto")).toHaveClass("on");
-    expect(canvas.getByTestId("mode-pill")).toHaveTextContent("Idle");
+    expect(canvas.getByTestId("chip-heat_cool")).toHaveClass("on");
+    expect(canvas.getByTestId("setpoint")).toHaveTextContent("68");
+    expect(canvas.getByTestId("setpoint")).toHaveTextContent("76");
+
+    // Two sliders present, single slider absent.
+    const low = canvas.getByTestId("slider-low") as HTMLInputElement;
+    const high = canvas.getByTestId("slider-high") as HTMLInputElement;
+    expect(low.value).toBe("68");
+    expect(high.value).toBe("76");
+    expect(canvas.queryByTestId("slider")).not.toBeInTheDocument();
+  },
+};
+
+// ─── Off (no setpoint) ────────────────────────────────────────────────────────
+
+export const OffMode: Story = {
+  args: {
+    status: "populated",
+    mode: "off",
+    ambient: 71,
+    action: "Off",
+    ...callbacks,
+  } as ClimateTileViewProps,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    expect(canvas.getByTestId("chip-off")).toHaveClass("on");
+    expect(canvas.getByTestId("setpoint")).toHaveTextContent("Off");
+    // No sliders in off mode.
+    expect(canvas.queryByTestId("slider")).not.toBeInTheDocument();
+    expect(canvas.queryByTestId("slider-low")).not.toBeInTheDocument();
   },
 };
 
 // ─── Error/empty — component re-uses the Loading skeleton ────────────────────
-// The container shows the skeleton whenever data is unavailable; no separate
-// error branch exists in ClimateTileView, so this story documents that contract.
 
 export const ErrorFallbackSkeleton: Story = {
   name: "Error / Empty (skeleton)",
@@ -130,64 +145,52 @@ export const ErrorFallbackSkeleton: Story = {
   play: async ({ canvasElement }) => {
     const tile = canvasElement.querySelector(".tile");
     expect(tile).toBeInTheDocument();
-    // No real data is displayed during error/loading.
     expect(within(canvasElement).queryByTestId("setpoint")).not.toBeInTheDocument();
   },
 };
 
-// ─── Interaction: mode chip fires onSetMode callback ─────────────────────────
-// Design intent: this story verifies that clicking a chip fires the correct
-// callback with the right args. Visual state transitions (chip gaining/losing
-// 'on' class after a mode change) are validated in the CoolingMode, HeatingMode,
-// and AutoIdle stories which render with committed mode props. Because
-// ClimateTileView is purely presentational, the 'on' class only reflects the
-// mode prop passed in — re-rendering with a new mode is the container's job
-// and is covered by integration tests, not this story.
+// ─── Interaction: mode button fires onSetMode with the real hvac mode ─────────
 
 export const ChipInteraction: Story = {
   args: {
-    ...populatedBase,
+    status: "populated",
+    mode: "cool",
     target: 72,
     ambient: 72,
-    mode: "auto",
-    action: "Idle",
+    action: "Cooling",
     onSetTarget: fn(),
     onSetMode: fn(),
+    onSetRange: fn(),
   } as ClimateTileViewProps,
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     const { onSetMode } = args as Extract<ClimateTileViewProps, { status: "populated" }>;
 
-    // Initial state: auto chip should be active.
-    expect(canvas.getByTestId("chip-auto")).toHaveClass("on");
-
-    // Click cool — verify callback fires with correct preset target.
-    await userEvent.click(canvas.getByTestId("chip-cool"));
-    expect(onSetMode).toHaveBeenCalledWith("cool", 68);
-
-    // Click heat — verify callback fires with correct preset target.
     await userEvent.click(canvas.getByTestId("chip-heat"));
-    expect(onSetMode).toHaveBeenCalledWith("heat", 76);
+    expect(onSetMode).toHaveBeenCalledWith("heat");
+
+    await userEvent.click(canvas.getByTestId("chip-heat_cool"));
+    expect(onSetMode).toHaveBeenCalledWith("heat_cool");
+
+    await userEvent.click(canvas.getByTestId("chip-off"));
+    expect(onSetMode).toHaveBeenCalledWith("off");
   },
 };
 
 // ─── Slider attributes ────────────────────────────────────────────────────────
-// Verifies the slider renders with the correct min/max bounds and initial value.
-// Actual drag interactions are integration-level; the presentational contract
-// here is that the slider attributes are correct on initial render.
 
 export const SliderAttributes: Story = {
   args: {
-    ...populatedBase,
+    status: "populated",
+    mode: "cool",
     target: 70,
     ambient: 72,
-    onSetTarget: fn(),
-    onSetMode: fn(),
+    action: "Cooling",
+    ...callbacks,
   } as ClimateTileViewProps,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const slider = canvas.getByTestId("slider") as HTMLInputElement;
-    // Slider renders with the correct initial value and range bounds.
     expect(slider).toHaveAttribute("min", "65");
     expect(slider).toHaveAttribute("max", "80");
     expect(slider.value).toBe("70");
@@ -198,34 +201,32 @@ export const SliderAttributes: Story = {
 
 export const MinSetpoint: Story = {
   args: {
-    ...populatedBase,
+    status: "populated",
+    mode: "cool",
     target: 65,
     ambient: 66,
-    onSetTarget: fn(),
-    onSetMode: fn(),
+    action: "Cooling",
+    ...callbacks,
   } as ClimateTileViewProps,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     expect(canvas.getByTestId("setpoint")).toHaveTextContent("65");
-    const slider = canvas.getByTestId("slider") as HTMLInputElement;
-    expect(slider.value).toBe("65");
+    expect((canvas.getByTestId("slider") as HTMLInputElement).value).toBe("65");
   },
 };
 
 export const MaxSetpoint: Story = {
   args: {
-    ...populatedBase,
+    status: "populated",
+    mode: "heat",
     target: 80,
     ambient: 78,
-    mode: "heat",
     action: "Heating",
-    onSetTarget: fn(),
-    onSetMode: fn(),
+    ...callbacks,
   } as ClimateTileViewProps,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     expect(canvas.getByTestId("setpoint")).toHaveTextContent("80");
-    const slider = canvas.getByTestId("slider") as HTMLInputElement;
-    expect(slider.value).toBe("80");
+    expect((canvas.getByTestId("slider") as HTMLInputElement).value).toBe("80");
   },
 };

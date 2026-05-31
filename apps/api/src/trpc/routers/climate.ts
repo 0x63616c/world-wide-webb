@@ -1,32 +1,55 @@
 import { z } from "zod";
 import {
+  CLIMATE_GAP,
+  CLIMATE_MAX,
+  CLIMATE_MIN,
   getClimate,
   resolveClimateEntityId,
   setClimateMode,
+  setClimateRange,
   setClimateTarget,
 } from "../../services/climate-service";
 import { publicProcedure, router } from "../init";
 
-const ClimateMode = z.enum(["cool", "auto", "heat"]);
+const ClimateMode = z.enum(["off", "cool", "heat", "heat_cool"]);
+const ClimateAction = z.enum(["Cooling", "Heating", "Idle"]);
+const setpoint = z.number().int().min(CLIMATE_MIN).max(CLIMATE_MAX);
 
-const ClimateStateOutput = z.object({
-  target: z.number().int(),
-  ambient: z.number(),
-  mode: ClimateMode,
-  action: z.enum(["Cooling", "Heating", "Auto", "Idle"]),
-});
+// Discriminated union on mode — mirrors ClimateState. A single `target` and a
+// `targetLow`/`targetHigh` range can never appear together.
+const ClimateStateOutput = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("off"), ambient: z.number(), action: ClimateAction }),
+  z.object({
+    mode: z.literal("cool"),
+    target: z.number().int(),
+    ambient: z.number(),
+    action: ClimateAction,
+  }),
+  z.object({
+    mode: z.literal("heat"),
+    target: z.number().int(),
+    ambient: z.number(),
+    action: ClimateAction,
+  }),
+  z.object({
+    mode: z.literal("heat_cool"),
+    targetLow: z.number().int(),
+    targetHigh: z.number().int(),
+    ambient: z.number(),
+    action: ClimateAction,
+  }),
+]);
+
+// Range input is validated server-side (low+GAP <= high, both in band) so bad
+// values are rejected before any HA call — never an HA 500.
+const RangeInput = z
+  .object({ low: setpoint, high: setpoint })
+  .refine((r) => r.low + CLIMATE_GAP <= r.high, {
+    message: `low must be at least ${CLIMATE_GAP}°F below high`,
+  });
 
 export const climateRouter = router({
   get: publicProcedure.output(ClimateStateOutput).query(() => getClimate()),
-
-  setTarget: publicProcedure
-    .input(z.number().int().min(65).max(80))
-    .output(ClimateStateOutput)
-    .mutation(async ({ input }) => {
-      const entityId = await resolveClimateEntityId();
-      if (!entityId) throw new Error("Home Assistant is not configured");
-      return setClimateTarget(entityId, input);
-    }),
 
   setMode: publicProcedure
     .input(ClimateMode)
@@ -35,5 +58,23 @@ export const climateRouter = router({
       const entityId = await resolveClimateEntityId();
       if (!entityId) throw new Error("Home Assistant is not configured");
       return setClimateMode(entityId, input);
+    }),
+
+  setTarget: publicProcedure
+    .input(setpoint)
+    .output(ClimateStateOutput)
+    .mutation(async ({ input }) => {
+      const entityId = await resolveClimateEntityId();
+      if (!entityId) throw new Error("Home Assistant is not configured");
+      return setClimateTarget(entityId, input);
+    }),
+
+  setRange: publicProcedure
+    .input(RangeInput)
+    .output(ClimateStateOutput)
+    .mutation(async ({ input }) => {
+      const entityId = await resolveClimateEntityId();
+      if (!entityId) throw new Error("Home Assistant is not configured");
+      return setClimateRange(entityId, input.low, input.high);
     }),
 });

@@ -13,7 +13,8 @@ const {
   Loading,
   CoolingMode,
   HeatingMode,
-  AutoIdle,
+  HeatCoolMode,
+  OffMode,
   ErrorFallbackSkeleton,
   ChipInteraction,
   SliderAttributes,
@@ -51,11 +52,22 @@ describe("ClimateTileView stories", () => {
     expect(screen.getByTestId("mode-pill").textContent).toBe("Heating");
   });
 
-  it("AutoIdle: shows auto chip active and Idle pill", async () => {
-    const { container } = render(<AutoIdle />);
-    if (AutoIdle.play) await AutoIdle.play({ canvasElement: container });
-    expect(screen.getByTestId("chip-auto")).toHaveClass("on");
-    expect(screen.getByTestId("mode-pill").textContent).toBe("Idle");
+  it("HeatCoolMode: shows dual sliders, both setpoints, no single slider", async () => {
+    const { container } = render(<HeatCoolMode />);
+    if (HeatCoolMode.play) await HeatCoolMode.play({ canvasElement: container });
+    expect(screen.getByTestId("chip-heat_cool")).toHaveClass("on");
+    expect((screen.getByTestId("slider-low") as HTMLInputElement).value).toBe("68");
+    expect((screen.getByTestId("slider-high") as HTMLInputElement).value).toBe("76");
+    expect(screen.queryByTestId("slider")).toBeNull();
+  });
+
+  it("OffMode: shows Off and no sliders", async () => {
+    const { container } = render(<OffMode />);
+    if (OffMode.play) await OffMode.play({ canvasElement: container });
+    expect(screen.getByTestId("chip-off")).toHaveClass("on");
+    expect(screen.getByTestId("setpoint").textContent).toContain("Off");
+    expect(screen.queryByTestId("slider")).toBeNull();
+    expect(screen.queryByTestId("slider-low")).toBeNull();
   });
 
   it("ErrorFallbackSkeleton: shows skeleton, no setpoint", async () => {
