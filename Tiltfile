@@ -34,9 +34,11 @@ local_resource(
 )
 
 # api: bun --watch owns the file watch. Tilt orchestrates startup, bun handles reloads.
+# Wrapped in the watchdog so a sustained-unhealthy /up (alive but not serving)
+# exits non-zero and Tilt restarts it — no manual UI click on the wall panel.
 local_resource(
     "api",
-    serve_cmd="bun --watch apps/api/src/server.ts",
+    serve_cmd="scripts/serve-with-watchdog.sh http://localhost:%d/up 20 15 -- bun --watch apps/api/src/server.ts" % port_api,
     serve_env={
         "PORT": str(port_api),
         "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
@@ -57,9 +59,11 @@ local_resource(
 )
 
 # web: Vite owns HMR. No `deps=` — same reasoning as api.
+# Watchdog-wrapped for the same self-heal reason as api (this is the one that
+# usually fails to come up). Vite cold start is slower, so a longer grace.
 local_resource(
     "web",
-    serve_cmd="bun run --cwd apps/web dev --port %d" % port_web,
+    serve_cmd="scripts/serve-with-watchdog.sh http://localhost:%d/ 30 15 -- bun run --cwd apps/web dev --port %d" % (port_web, port_web),
     serve_env={
         "API_PORT": str(port_api),
     },
