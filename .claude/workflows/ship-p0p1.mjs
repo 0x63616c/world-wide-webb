@@ -48,6 +48,12 @@ STORYBOOK DARK-MODE CONTRACT (full chrome, every page, scrollbars — not just t
 - Verify by eye AND by computed style: document.documentElement colorScheme === 'dark', and body/canvas background is the dark token, on the manager frame AND inside the story iframe.
 `
 
+const STORYBOOK_SETUP = `
+STORYBOOK SETUP EXTRAS (foundation ticket only):
+- Run \`bunx storybook ai setup\` (NEVER npx) and apply its recommended config precisely (it wires the MCP/test addons). If it is interactive, use its non-interactive flags or apply the changes it prints by hand.
+- Storybook must run BY DEFAULT in Tilt: the storybook local_resource in the Tiltfile must be auto_init=True with a normal (non-manual) trigger so it comes up with the dev stack. A manual/opt-in (auto_init=False / TRIGGER_MODE_MANUAL) storybook resource is a FAIL.
+`
+
 const RULES = `
 You are an autonomous engineer on the control-center smart-home wall-panel repo at ${REPO} (branch main).
 
@@ -199,7 +205,7 @@ for (const id of SCAFFOLD) {
   log(`Scaffold ${id} on main (barrier) — all later worktrees branch from this.`)
   scaffoldOut.push(
     await agent(
-      `${RULES}\n${id === 'www-0bw' || /storybook|scaffold/i.test(JSON.stringify(SCAFFOLD)) ? STORYBOOK_DARK : ''}\n\nDELIVER FOUNDATION TICKET ${id} DIRECTLY ON main (no worktree — this is the shared base every later worktree inherits, so it must be committed to main first).\nIDEMPOTENCY: \`bd show ${id}\` — if already status=closed, do NOTHING and return status=done, committed=false, summary="already closed".\nElse read acceptance, \`bd update ${id} --claim\`. Implement it (TDD where it makes sense). If this is the Storybook setup, you MUST satisfy the STORYBOOK DARK-MODE CONTRACT above in full (manager theme, dark default canvas, dark docs, dark native scrollbars on every page via color-scheme + webkit CSS) — partial dark (canvas only) FAILS. Run \`bun run typecheck\` && \`bunx biome check --write .\` && \`bun run test\` green, then \`git add -A && git commit -m "<conventional, referencing ${id}>"\`. \`bd close ${id}\`. Do NOT push.\nReturn the structured handoff (branch="main", committed=true).`,
+      `${RULES}\n${STORYBOOK_DARK}\n${STORYBOOK_SETUP}\n\nDELIVER FOUNDATION TICKET ${id} DIRECTLY ON main (no worktree — this is the shared base every later worktree inherits, so it must be committed to main first).\nIDEMPOTENCY: \`bd show ${id}\` — if already status=closed, do NOTHING and return status=done, committed=false, summary="already closed".\nElse read acceptance, \`bd update ${id} --claim\`. Implement it (TDD where it makes sense). If this is the Storybook setup, you MUST satisfy the STORYBOOK DARK-MODE CONTRACT above in full (manager theme, dark default canvas, dark docs, dark native scrollbars on every page via color-scheme + webkit CSS) — partial dark (canvas only) FAILS. Run \`bun run typecheck\` && \`bunx biome check --write .\` && \`bun run test\` green, then \`git add -A && git commit -m "<conventional, referencing ${id}>"\`. \`bd close ${id}\`. Do NOT push.\nReturn the structured handoff (branch="main", committed=true).`,
       { label: `scaffold:${id}`, phase: 'Scaffold', schema: BUILD_SCHEMA, model: WORK_M },
     ),
   )
