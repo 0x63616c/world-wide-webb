@@ -1,14 +1,7 @@
 import type { Decorator, Preview } from "@storybook/react-vite";
 import { createElement } from "react";
 import { create } from "storybook/theming/create";
-import {
-  BOARD_H,
-  BOARD_PADDING,
-  BOARD_W,
-  GRID_COLS,
-  GRID_GAP,
-  GRID_ROWS,
-} from "../src/lib/grid-constants";
+import { tilePixelSize } from "../src/lib/grid-constants";
 import { registryEntryForComponent } from "../src/lib/tile-registry";
 
 // Board CSS — tokens + shimmer keyframes + tile class definitions
@@ -28,36 +21,30 @@ const eveeTheme = create({
   colorSecondary: "#37c95e",
 });
 
-// Wraps every tile story in the real board grid at its declared gridArea so
-// tiles render at true production footprint — no separate size to maintain.
-// Falls back to a plain dark wrapper for non-tile stories.
+// Sizes every tile story to its exact production footprint by wrapping it in a
+// fixed width×height box derived from the registry (cols/rows → pixels). Shows
+// just the tile at true size — not the whole board. Non-tile stories get a
+// plain dark wrapper.
 const BoardDecorator: Decorator = (Story, context) => {
   if (context.parameters.boardWrapper === false) return createElement(Story);
 
   const entry = registryEntryForComponent(context.component);
 
   if (entry) {
+    const { width, height } = tilePixelSize(entry.cols, entry.rows);
     return createElement(
       "div",
       {
+        className: "e-root",
         style: {
-          width: BOARD_W,
-          height: BOARD_H,
-          display: "grid",
-          gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
-          gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
-          gap: GRID_GAP,
-          padding: BOARD_PADDING,
-          boxSizing: "border-box",
+          width,
+          height,
+          display: "flex",
+          flexDirection: "column",
           background: "var(--bg)",
         },
-        className: "e-root",
       },
-      createElement(
-        "div",
-        { style: { gridArea: entry.gridArea, display: "flex", flexDirection: "column" } },
-        createElement(Story),
-      ),
+      createElement(Story),
     );
   }
 
