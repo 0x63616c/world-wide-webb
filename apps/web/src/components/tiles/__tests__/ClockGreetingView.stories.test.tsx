@@ -1,0 +1,46 @@
+/**
+ * Vitest component tests for ClockGreetingView stories.
+ * Uses composeStories to execute each story (including play functions) in jsdom.
+ */
+
+import { composeStories } from "@storybook/react";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import * as stories from "../ClockGreetingView.stories";
+
+const { Populated, Loading, Evening, Night } = composeStories(stories);
+
+afterEach(cleanup);
+
+describe("ClockGreetingView stories", () => {
+  it("Populated: renders greeting, time, date, and location", async () => {
+    const { container } = render(<Populated />);
+    if (Populated.play) await Populated.play({ canvasElement: container });
+    expect(screen.getByText(/good morning/i)).toBeDefined();
+    expect(screen.getByTestId("clock-ampm").textContent).toBe("AM");
+    expect(screen.getByTestId("clock-date")).toBeDefined();
+    expect(screen.getByText(/home/i)).toBeDefined();
+  });
+
+  it("Loading: renders skeleton placeholders, no real time content", async () => {
+    const { container } = render(<Loading />);
+    if (Loading.play) await Loading.play({ canvasElement: container });
+    // Skeletons carry the shimmer animation; the real clock-ampm span is absent
+    const shimmerEls = container.querySelectorAll("[style*='shimmer']");
+    expect(shimmerEls.length).toBeGreaterThan(0);
+    expect(screen.queryByTestId("clock-ampm")).toBeNull();
+  });
+
+  it("Evening: renders 'Good evening' greeting with PM time", async () => {
+    const { container } = render(<Evening />);
+    if (Evening.play) await Evening.play({ canvasElement: container });
+    expect(screen.getByText(/good evening/i)).toBeDefined();
+    expect(screen.getByTestId("clock-ampm").textContent).toBe("PM");
+  });
+
+  it("Night: renders 'Good night' greeting", async () => {
+    const { container } = render(<Night />);
+    if (Night.play) await Night.play({ canvasElement: container });
+    expect(screen.getByText(/good night/i)).toBeDefined();
+  });
+});
