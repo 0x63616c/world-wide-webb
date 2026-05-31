@@ -12,17 +12,6 @@ export class UnifiError extends Error {
   }
 }
 
-export interface UnifiWanStats {
-  /** TX bytes in the past 24 h (upload). */
-  txBytes24h: number;
-  /** RX bytes in the past 24 h (download). */
-  rxBytes24h: number;
-  /** Live WAN uplink TX bps. */
-  txBps: number;
-  /** Live WAN uplink RX bps. */
-  rxBps: number;
-}
-
 export interface UnifiHealth {
   /** "ok" | "error" */
   status: "ok" | "error";
@@ -30,12 +19,10 @@ export interface UnifiHealth {
   wanLatencyMs: number | null;
 }
 
-export interface UnifiHourlyBucket {
-  /** Hour index 0–23 (0 = 24 h ago, 23 = most recent). */
-  hour: number;
-  /** Download GB equivalent (RX). */
+export interface UnifiTrafficBucket {
+  /** Download bytes for this 5-minute window. */
   down: number;
-  /** Upload GB equivalent (TX). */
+  /** Upload bytes for this 5-minute window. */
   up: number;
 }
 
@@ -59,21 +46,23 @@ export class UnifiClient {
   }
 
   // biome-ignore lint/suspicious/noExplicitAny: intentional generic fetch helper
-  private async request<T = any>(path: string): Promise<T> {
+  private async legacyRequest<T = any>(path: string, init?: RequestInit): Promise<T> {
     // Bun supports a non-standard `tls` option to disable cert verification for
     // LAN controllers that present self-signed certificates.
     type BunFetchInit = RequestInit & { tls?: { rejectUnauthorized: boolean } };
-    const init: BunFetchInit = {
-      headers: { "X-API-KEY": this.apiKey, Accept: "application/json" },
+    const fetchInit: BunFetchInit = {
+      ...init,
+      headers: {
+        "X-API-KEY": this.apiKey,
+        Accept: "application/json",
+        ...(init?.headers ?? {}),
+      },
       signal: AbortSignal.timeout(UNIFI_REQUEST_TIMEOUT_MS),
       tls: { rejectUnauthorized: false },
     };
     let res: Response;
     try {
-      res = await fetch(
-        `${this.baseUrl}/proxy/network/integrations/v1/sites/${this.siteId}${path}`,
-        init,
-      );
+      res = await fetch(`${this.baseUrl}/proxy/network/api/s/${this.siteId}${path}`, fetchInit);
     } catch (err) {
       throw new UnifiError(0, `Network error: ${(err as Error).message}`);
     }
@@ -84,33 +73,41 @@ export class UnifiClient {
   }
 
   /**
-   * Fetch WAN (gateway) device stats — uplink bps + uptime.
-   * Returns null if the site has no gateway device.
+   * Fetch the last 2 hours of 5-minute WAN traffic buckets.
+   * Always returns exactly 24 buckets; leading gaps are zero-filled.
    */
-  async getWanStats(): Promise<UnifiWanStats | null> {
-    // biome-ignore lint/suspicious/noExplicitAny: API shape
-    const res = await this.request<{ data: any[] }>(`/devices?limit=10`);
-    const gateway = res.data?.find(
-      // biome-ignore lint/suspicious/noExplicitAny: API shape
-      (d: any) =>
-        d.state === "ONLINE" &&
-        (d.model?.toLowerCase().includes("ucg") ||
-          d.model?.toLowerCase().includes("udm") ||
-          d.ipAddress?.startsWith("192.168")),
-    );
-    if (!gateway) return null;
+  async getTrafficBuckets(): Promise<UnifiTrafficBucket[]> {
+    const now = Date.now();
+    const start = now - 2 * 60 * 60 * 1000;
+    // biome-ignore lint/suspicious/noExplicitAny: API response shape
+    const res = await this.legacyRequest<{ data: any[] }>("/stat/report/5minutes.site", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attrs: ["wan-rx_bytes", "wan-tx_bytes", "time"], start, end: now }),
+    });
+    const buckets: UnifiTrafficBucket[] = (res.data ?? [])
+      // biome-ignore lint/suspicious/noExplicitAny: API response shape
+      .map((b: any) => ({ down: b["wan-rx_bytes"] ?? 0, up: b["wan-tx_bytes"] ?? 0 }))
+      .slice(-24);
+    // Prepend zero-fill so the chart always has 24 bars
+    while (buckets.length < 24) {
+      buckets.unshift({ down: 0, up: 0 });
+    }
+    return buckets;
+  }
 
-    const stats = await this.request<{
-      uplink?: { txRateBps: number; rxRateBps: number };
-    }>(`/devices/${gateway.id}/statistics/latest`).catch(() => null);
-
+  /**
+   * Fetch WAN health: online/offline status and measured internet latency.
+   */
+  async getWanHealth(): Promise<UnifiHealth> {
+    // biome-ignore lint/suspicious/noExplicitAny: API response shape
+    const res = await this.legacyRequest<{ data: any[] }>("/stat/health");
+    // biome-ignore lint/suspicious/noExplicitAny: API response shape
+    const wan = (res.data ?? []).find((s: any) => s.subsystem === "wan");
+    if (!wan) return { status: "error", wanLatencyMs: null };
     return {
-      txBps: stats?.uplink?.txRateBps ?? 0,
-      rxBps: stats?.uplink?.rxRateBps ?? 0,
-      // UniFi v1 integrations API doesn't expose 24h byte totals directly —
-      // we derive a rough figure from the live rate as a fallback.
-      txBytes24h: (stats?.uplink?.txRateBps ?? 0) * 86400 * 0.001,
-      rxBytes24h: (stats?.uplink?.rxRateBps ?? 0) * 86400 * 0.001,
+      status: wan.status === "ok" ? "ok" : "error",
+      wanLatencyMs: wan.uptime_stats?.WAN?.latency_average ?? null,
     };
   }
 }
