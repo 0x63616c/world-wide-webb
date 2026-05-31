@@ -8,7 +8,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import * as stories from "../ClockGreetingView.stories";
 
-const { Populated, Loading, Evening, Night } = composeStories(stories);
+const { Populated, Loading, Evening, Night, ErrorState, WithSecondsRing } = composeStories(stories);
 
 afterEach(cleanup);
 
@@ -25,9 +25,9 @@ describe("ClockGreetingView stories", () => {
   it("Loading: renders skeleton placeholders, no real time content", async () => {
     const { container } = render(<Loading />);
     if (Loading.play) await Loading.play({ canvasElement: container });
-    // Skeletons carry the shimmer animation; the real clock-ampm span is absent
-    const shimmerEls = container.querySelectorAll("[style*='shimmer']");
-    expect(shimmerEls.length).toBeGreaterThan(0);
+    // Assert via data-skeleton attribute — resilient to CSS refactors
+    const skeletons = container.querySelectorAll("[data-skeleton]");
+    expect(skeletons.length).toBeGreaterThan(0);
     expect(screen.queryByTestId("clock-ampm")).toBeNull();
   });
 
@@ -42,5 +42,19 @@ describe("ClockGreetingView stories", () => {
     const { container } = render(<Night />);
     if (Night.play) await Night.play({ canvasElement: container });
     expect(screen.getByText(/good night/i)).toBeDefined();
+  });
+
+  it("ErrorState: renders skeleton fallback, no live clock content", async () => {
+    const { container } = render(<ErrorState />);
+    if (ErrorState.play) await ErrorState.play({ canvasElement: container });
+    const skeletons = container.querySelectorAll("[data-skeleton]");
+    expect(skeletons.length).toBeGreaterThan(0);
+    expect(screen.queryByTestId("clock-ampm")).toBeNull();
+  });
+
+  it("WithSecondsRing: renders the seconds progress ring", async () => {
+    const { container } = render(<WithSecondsRing />);
+    if (WithSecondsRing.play) await WithSecondsRing.play({ canvasElement: container });
+    expect(container.querySelector("[data-testid='seconds-ring']")).toBeTruthy();
   });
 });
