@@ -28,7 +28,7 @@ const VAL_M = 'haiku' // adversarial review + QA.
 //              parallel worktrees, then merge sequentially before the next stage.
 const SCAFFOLD = args?.scaffold || ['www-0bw']
 const STAGES = args?.stages || [
-  { name: 'Features', kind: 'standalone fix/feature', tickets: ['www-amj', 'www-ats', 'www-902', 'www-qn7'] },
+  { name: 'Features', kind: 'standalone fix/feature', tickets: ['www-amj', 'www-902', 'www-qn7', 'www-26v', 'www-dck'] },
   { name: 'Stories', kind: 'tile storybook stories', tickets: ['www-vut', 'www-e6x', 'www-vkk', 'www-qqk', 'www-1xb', 'www-5xj', 'www-30b', 'www-m7y', 'www-1zp'] },
 ]
 const EPIC = args?.epic || 'www-x1o'
