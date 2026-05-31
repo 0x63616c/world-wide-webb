@@ -76,3 +76,4 @@
 {"id":"int-a9cd019cec505e36fd79eff8ddf8f352","kind":"field_change","created_at":"2026-05-31T17:13:08.934479Z","actor":"Calum","issue_id":"CC-x1o.3","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Closed"}}
 {"id":"int-b5c14f6ed8c88269248954af77b4712a","kind":"field_change","created_at":"2026-05-31T17:13:13.654203Z","actor":"Calum","issue_id":"CC-x1o","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Closed"}}
 {"id":"int-a5bf6f9b812ec33eb5f2a25a2e0b2682","kind":"field_change","created_at":"2026-05-31T17:46:12.57166Z","actor":"Calum","issue_id":"CC-s3v","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Closed"}}
+{"id":"int-559dbf023d4f6c74b18db1b4cdb545ca","kind":"field_change","created_at":"2026-05-31T17:58:16.595985Z","actor":"Calum","issue_id":"CC-32o","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Closed"}}

@@ -2,6 +2,7 @@
 // Path starts at top-center at :00, sweeps clockwise, completes at :60.
 // Tile dimensions and padding from board-layout.ts — update there if the grid changes.
 
+import { useRef } from "react";
 import { CLOCK_TILE_H, CLOCK_TILE_PADDING, CLOCK_TILE_W, TILE_RX } from "../../lib/board-layout";
 
 const STROKE = 2.5;
@@ -47,6 +48,12 @@ export function SecondsRing({ seconds }: SecondsRingProps) {
   const progress = Math.min(seconds, 60) / 60;
   const dashoffset = PERIMETER * (1 - progress);
 
+  // Detect the :59→:00 wrap (seconds decreased) so we can drop the transition on
+  // that frame — otherwise the ring animates the whole arc backwards to empty.
+  const prevSeconds = useRef(seconds);
+  const isWrap = seconds < prevSeconds.current;
+  prevSeconds.current = seconds;
+
   return (
     <svg
       data-testid="seconds-ring"
@@ -68,12 +75,14 @@ export function SecondsRing({ seconds }: SecondsRingProps) {
         data-testid="seconds-ring-path"
         d={PATH}
         fill="none"
-        stroke="var(--acc)"
+        stroke="var(--ink-3)"
         strokeWidth={STROKE}
         strokeLinecap="round"
         strokeDasharray={String(PERIMETER)}
         strokeDashoffset={String(dashoffset)}
-        style={{ transition: "stroke-dashoffset 0.8s linear" }}
+        // 1s linear matches the once-per-second tick so the arc advances at a
+        // constant rate (no stutter); the wrap snaps instantly with no transition.
+        style={{ transition: isWrap ? "none" : "stroke-dashoffset 1s linear" }}
       />
     </svg>
   );
