@@ -3,6 +3,7 @@
  * All data and callbacks come in as props; no trpc or hooks inside.
  */
 
+import { Icon } from "../Icon";
 import { ControlTap, Skeleton, Tile, TileHeader } from "../ui";
 import { TileStatus } from "./EventsTileView";
 
@@ -103,7 +104,7 @@ export function ControlsGridView({ data, onToggle, onMore, hideMore }: ControlsG
           }}
           aria-label="More"
         >
-          <span style={{ fontSize: 22, lineHeight: 1, color: "var(--ink-3)" }}>›</span>
+          <Icon name="chevron" s={22} c="var(--ink-3)" />
           <span style={{ fontSize: 13 }}>more</span>
         </button>
       )}
