@@ -4,6 +4,8 @@ import {
   CLIMATE_MAX,
   CLIMATE_MIN,
   getClimate,
+  HvacAction,
+  HvacMode,
   resolveClimateEntityId,
   setClimateMode,
   setClimateRange,
@@ -11,32 +13,32 @@ import {
 } from "../../services/climate-service";
 import { publicProcedure, router } from "../init";
 
-const ClimateMode = z.enum(["off", "cool", "heat", "heat_cool"]);
-const ClimateAction = z.enum(["Cooling", "Heating", "Idle"]);
+const ClimateModeSchema = z.enum([HvacMode.Off, HvacMode.Cool, HvacMode.Heat, HvacMode.HeatCool]);
+const ClimateActionSchema = z.enum([HvacAction.Cooling, HvacAction.Heating, HvacAction.Idle]);
 const setpoint = z.number().int().min(CLIMATE_MIN).max(CLIMATE_MAX);
 
 // Discriminated union on mode — mirrors ClimateState. A single `target` and a
 // `targetLow`/`targetHigh` range can never appear together.
 const ClimateStateOutput = z.discriminatedUnion("mode", [
-  z.object({ mode: z.literal("off"), ambient: z.number(), action: ClimateAction }),
+  z.object({ mode: z.literal(HvacMode.Off), ambient: z.number(), action: ClimateActionSchema }),
   z.object({
-    mode: z.literal("cool"),
+    mode: z.literal(HvacMode.Cool),
     target: z.number().int(),
     ambient: z.number(),
-    action: ClimateAction,
+    action: ClimateActionSchema,
   }),
   z.object({
-    mode: z.literal("heat"),
+    mode: z.literal(HvacMode.Heat),
     target: z.number().int(),
     ambient: z.number(),
-    action: ClimateAction,
+    action: ClimateActionSchema,
   }),
   z.object({
-    mode: z.literal("heat_cool"),
+    mode: z.literal(HvacMode.HeatCool),
     targetLow: z.number().int(),
     targetHigh: z.number().int(),
     ambient: z.number(),
-    action: ClimateAction,
+    action: ClimateActionSchema,
   }),
 ]);
 
@@ -52,7 +54,7 @@ export const climateRouter = router({
   get: publicProcedure.output(ClimateStateOutput).query(() => getClimate()),
 
   setMode: publicProcedure
-    .input(ClimateMode)
+    .input(ClimateModeSchema)
     .output(ClimateStateOutput)
     .mutation(async ({ input }) => {
       const entityId = await resolveClimateEntityId();

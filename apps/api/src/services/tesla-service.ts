@@ -36,8 +36,32 @@ export function teslaEntityIds(prefix = env.TESLA_ENTITY_PREFIX) {
   };
 }
 
+export const ChargeState = {
+  Starting: "starting",
+  Charging: "charging",
+  Stopped: "stopped",
+  Complete: "complete",
+  Disconnected: "disconnected",
+  NoPower: "no_power",
+} as const;
+export type ChargeState = (typeof ChargeState)[keyof typeof ChargeState];
+
+export const LockState = {
+  Locked: "locked",
+  Unlocked: "unlocked",
+} as const;
+export type LockState = (typeof LockState)[keyof typeof LockState];
+
+export const DeadState = {
+  Unavailable: "unavailable",
+  Unknown: "unknown",
+  None: "none",
+  Empty: "",
+} as const;
+export type DeadState = (typeof DeadState)[keyof typeof DeadState];
+
 /** HA states that mean "no usable value" — car asleep or entity disabled. */
-const DEAD_STATES = new Set(["unavailable", "unknown", "none", ""]);
+const DEAD_STATES = new Set<string>(Object.values(DeadState));
 
 function num(e: HaEntity | undefined, fallback: number): number {
   if (!e || DEAD_STATES.has(e.state)) return fallback;
@@ -84,7 +108,7 @@ export async function getTeslaData(): Promise<TeslaData> {
   const pct = Math.round(num(map.battery, 0));
   // `sensor.<car>_charging` is an enum: starting | charging | stopped | complete | disconnected | no_power
   const chargeState = map.charging?.state ?? "";
-  const charging = chargeState === "charging" || chargeState === "starting";
+  const charging = chargeState === ChargeState.Charging || chargeState === ChargeState.Starting;
   const rate = num(map.rate, 0);
   const range = Math.round(num(map.range, 0));
   const climate = Math.round(num(map.cabin, 0));
@@ -96,7 +120,7 @@ export async function getTeslaData(): Promise<TeslaData> {
       ? Math.round(num(map.odometer, 0)).toLocaleString("en-US")
       : "—";
 
-  const locked = map.lock ? map.lock.state === "locked" : false;
+  const locked = map.lock ? map.lock.state === LockState.Locked : false;
 
   const tracker = map.tracker;
   const latAttr = tracker ? Number(tracker.attributes.latitude) : Number.NaN;

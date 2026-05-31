@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { getControlsState, toggleControl } from "../../services/controls-service";
+import { ControlKey, getControlsState, toggleControl } from "../../services/controls-service";
 import { publicProcedure, router } from "../init";
 
 // ─── output schemas ──────────────────────────────────────────────────────────
@@ -53,7 +53,9 @@ export const controlsRouter = router({
   toggle: publicProcedure
     .input(
       z.object({
-        key: z.enum(["lamps", "lights", "fan"]).describe("Which control group to toggle"),
+        key: z
+          .enum([ControlKey.Lamps, ControlKey.Lights, ControlKey.Fan])
+          .describe("Which control group to toggle"),
         on: z.boolean().describe("Desired state: true = on, false = off"),
       }),
     )

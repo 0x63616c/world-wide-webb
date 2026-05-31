@@ -14,6 +14,7 @@
 
 import { useState } from "react";
 import { Skeleton, Tile, TileHeader } from "../ui";
+import { TileStatus } from "./EventsTileView";
 
 // ─── types & constants ──────────────────────────────────────────────────────
 
@@ -23,17 +24,25 @@ export const MAX = 80;
 // Minimum deadband between low/high in heat_cool — thumbs can never meet/cross.
 export const GAP = 2;
 
-export type ClimateMode = "off" | "cool" | "heat" | "heat_cool";
+export const HvacMode = {
+  Off: "off",
+  Cool: "cool",
+  Heat: "heat",
+  HeatCool: "heat_cool",
+} as const;
+export type HvacMode = (typeof HvacMode)[keyof typeof HvacMode];
 
-const MODES: [ClimateMode, string][] = [
-  ["off", "Off"],
-  ["cool", "Cool"],
-  ["heat", "Heat"],
-  ["heat_cool", "Heat·Cool"],
+export type ClimateMode = HvacMode;
+
+const HvacModeEntries: [HvacMode, string][] = [
+  [HvacMode.Off, "Off"],
+  [HvacMode.Cool, "Cool"],
+  [HvacMode.Heat, "Heat"],
+  [HvacMode.HeatCool, "Heat·Cool"],
 ];
 
 type PopulatedBase = {
-  status: "populated";
+  status: typeof TileStatus.Populated;
   /** Current ambient temperature. */
   ambient: number;
   /** Live action string from HA (e.g. "Cooling", "Heating", "Idle"). */
@@ -49,10 +58,10 @@ type PopulatedBase = {
 // Discriminated union on mode mirrors the API: a single `target` and a
 // `targetLow`/`targetHigh` range can never be passed together.
 export type ClimateTileViewProps =
-  | { status: "loading" }
-  | (PopulatedBase & { mode: "off" })
-  | (PopulatedBase & { mode: "cool" | "heat"; target: number })
-  | (PopulatedBase & { mode: "heat_cool"; targetLow: number; targetHigh: number });
+  | { status: typeof TileStatus.Loading }
+  | (PopulatedBase & { mode: typeof HvacMode.Off })
+  | (PopulatedBase & { mode: typeof HvacMode.Cool | typeof HvacMode.Heat; target: number })
+  | (PopulatedBase & { mode: typeof HvacMode.HeatCool; targetLow: number; targetHigh: number });
 
 // ─── pure clamp helpers (unit-tested) ─────────────────────────────────────────
 
@@ -144,7 +153,7 @@ export function ClimateTileView(props: ClimateTileViewProps) {
   const [dragLow, setDragLow] = useState<number | null>(null);
   const [dragHigh, setDragHigh] = useState<number | null>(null);
 
-  if (props.status === "loading") return <ClimateSkeleton />;
+  if (props.status === TileStatus.Loading) return <ClimateSkeleton />;
 
   const { mode, ambient, action, onSetMode, onSetTarget, onSetRange } = props;
 
@@ -170,7 +179,7 @@ export function ClimateTileView(props: ClimateTileViewProps) {
           justifyContent: "center",
         }}
       >
-        {mode === "off" && (
+        {mode === HvacMode.Off && (
           <div
             style={{
               fontSize: 52,
@@ -184,7 +193,7 @@ export function ClimateTileView(props: ClimateTileViewProps) {
           </div>
         )}
 
-        {(mode === "cool" || mode === "heat") && (
+        {(mode === HvacMode.Cool || mode === HvacMode.Heat) && (
           <div
             className="mono"
             style={{ fontSize: 92, fontWeight: 700, lineHeight: 0.9, letterSpacing: "-0.04em" }}
@@ -195,7 +204,7 @@ export function ClimateTileView(props: ClimateTileViewProps) {
           </div>
         )}
 
-        {mode === "heat_cool" && (
+        {mode === HvacMode.HeatCool && (
           <div
             className="mono"
             style={{ fontSize: 52, fontWeight: 700, lineHeight: 0.9, letterSpacing: "-0.03em" }}
@@ -211,7 +220,7 @@ export function ClimateTileView(props: ClimateTileViewProps) {
 
       {/* Mode buttons */}
       <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
-        {MODES.map(([k, label]) => (
+        {HvacModeEntries.map(([k, label]) => (
           <button
             key={k}
             type="button"
@@ -226,7 +235,7 @@ export function ClimateTileView(props: ClimateTileViewProps) {
       </div>
 
       {/* Slider area — single, dual, or none (off) */}
-      {(mode === "cool" || mode === "heat") &&
+      {(mode === HvacMode.Cool || mode === HvacMode.Heat) &&
         (() => {
           const displayTarget = dragTarget ?? props.target;
           return (
@@ -254,7 +263,7 @@ export function ClimateTileView(props: ClimateTileViewProps) {
           );
         })()}
 
-      {mode === "heat_cool" &&
+      {mode === HvacMode.HeatCool &&
         (() => {
           const lo = dragLow ?? props.targetLow;
           const hi = dragHigh ?? props.targetHigh;
@@ -302,7 +311,7 @@ export function ClimateTileView(props: ClimateTileViewProps) {
           );
         })()}
 
-      {mode === "off" && <div style={{ height: 8, marginBottom: 28 }} />}
+      {mode === HvacMode.Off && <div style={{ height: 8, marginBottom: 28 }} />}
     </Tile>
   );
 }

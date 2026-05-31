@@ -2,9 +2,29 @@ import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 
+export const HvacMode = {
+  Off: "off",
+  Cool: "cool",
+  Heat: "heat",
+  HeatCool: "heat_cool",
+} as const;
+export type HvacMode = (typeof HvacMode)[keyof typeof HvacMode];
+
+export const HvacAction = {
+  Cooling: "Cooling",
+  Heating: "Heating",
+  Idle: "Idle",
+} as const;
+export type HvacAction = (typeof HvacAction)[keyof typeof HvacAction];
+
+export const HaHvacAction = {
+  Cooling: "cooling",
+  Heating: "heating",
+} as const;
+
 // Real Home Assistant hvac modes for the house thermostat (climate.home).
-export type ClimateMode = "off" | "cool" | "heat" | "heat_cool";
-export type ClimateAction = "Cooling" | "Heating" | "Idle";
+export type ClimateMode = HvacMode;
+export type ClimateAction = HvacAction;
 
 // Visual band and the server-side accept range. HA's hard limits are wider
 // (60-92) but the tile + validation use 65-80, the existing design constant.
@@ -33,16 +53,16 @@ export type ClimateState =
     };
 
 function normaliseMode(raw: string | undefined): ClimateMode {
-  if (raw === "cool" || raw === "heat" || raw === "heat_cool") return raw;
+  if (raw === HvacMode.Cool || raw === HvacMode.Heat || raw === HvacMode.HeatCool) return raw;
   // climate.home only reports off/cool/heat/heat_cool; anything else (or a
   // missing state) is treated as off so no stale setpoint is shown.
-  return "off";
+  return HvacMode.Off;
 }
 
 function normaliseAction(raw: string | undefined): ClimateAction {
-  if (raw === "cooling") return "Cooling";
-  if (raw === "heating") return "Heating";
-  return "Idle";
+  if (raw === HaHvacAction.Cooling) return HvacAction.Cooling;
+  if (raw === HaHvacAction.Heating) return HvacAction.Heating;
+  return HvacAction.Idle;
 }
 
 // Zero is a valid sensor gap — never an invented number (matches the repo's
@@ -93,7 +113,7 @@ export async function getClimate(): Promise<ClimateState> {
   );
   const mode = normaliseMode(typeof attrs.hvac_mode === "string" ? attrs.hvac_mode : entity.state);
 
-  if (mode === "heat_cool") {
+  if (mode === HvacMode.HeatCool) {
     return {
       mode,
       targetLow: num(attrs.target_temp_low),
@@ -102,10 +122,10 @@ export async function getClimate(): Promise<ClimateState> {
       action,
     };
   }
-  if (mode === "cool" || mode === "heat") {
+  if (mode === HvacMode.Cool || mode === HvacMode.Heat) {
     return { mode, target: num(attrs.temperature), ambient, action };
   }
-  return { mode: "off", ambient, action };
+  return { mode: HvacMode.Off, ambient, action };
 }
 
 /** Set the hvac mode (off/cool/heat/heat_cool). Returns fresh state. */

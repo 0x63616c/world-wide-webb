@@ -1,5 +1,6 @@
 import { Icon } from "../Icon";
 import { Skeleton, Tile, TileHeader } from "../ui";
+import { TileStatus } from "./EventsTileView";
 
 /** Format elapsed seconds as HH:MM:SS */
 function formatRec(secs: number): string {
@@ -9,7 +10,7 @@ function formatRec(secs: number): string {
   return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
 }
 
-export type DogCamTileStatus = "loading" | "error" | "populated";
+export type DogCamTileStatus = TileStatus;
 
 export interface DogCamTileViewProps {
   status: DogCamTileStatus;
@@ -33,7 +34,7 @@ export function DogCamTileView({
   onToggleLive,
 }: DogCamTileViewProps) {
   // Error is treated the same as loading — shimmer cover, keep retrying via QueryClient
-  const isLoading = status === "loading" || status === "error";
+  const isLoading = status === TileStatus.Loading || status === TileStatus.Error;
 
   return (
     <Tile padding={22}>

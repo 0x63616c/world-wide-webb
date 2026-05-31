@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { UnifiClient } from "../integrations/unifi";
-import { DEMO_NETWORK, getNetworkStatus } from "../services/network-service";
+import { DEMO_NETWORK, getNetworkStatus, NetworkConnectivity } from "../services/network-service";
 
 // ---------------------------------------------------------------------------
 // DEMO_NETWORK shape — always-on demo payload for the wall panel
@@ -8,7 +8,7 @@ import { DEMO_NETWORK, getNetworkStatus } from "../services/network-service";
 
 describe("DEMO_NETWORK", () => {
   test("has status Online", () => {
-    expect(DEMO_NETWORK.status).toBe("Online");
+    expect(DEMO_NETWORK.status).toBe(NetworkConnectivity.Online);
   });
 
   test("has a non-empty ssid string", () => {
@@ -218,7 +218,7 @@ describe("getNetworkStatus — configured client", () => {
 
     const result = await getNetworkStatus(client);
 
-    expect(result.status).toBe("Online");
+    expect(result.status).toBe(NetworkConnectivity.Online);
     expect(result.ping).toBe(15);
     expect(result.traffic).toHaveLength(24);
     expect(result.down).toMatch(/^\d+\.\d$/);
@@ -233,7 +233,7 @@ describe("getNetworkStatus — configured client", () => {
 
     const result = await getNetworkStatus(client);
 
-    expect(result.status).toBe("Offline");
+    expect(result.status).toBe(NetworkConnectivity.Offline);
     expect(result.ping).toBe(0);
   });
 

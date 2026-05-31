@@ -19,13 +19,26 @@ import { WeatherNow } from "../components/tiles/WeatherNow";
 import { WeatherNowView } from "../components/tiles/WeatherNowView";
 import { GRID_COLS, GRID_ROWS } from "./grid-constants";
 
+export const GridArea = {
+  Clock: "clock",
+  Weather: "weath",
+  Wifi: "wifi",
+  Tesla: "tesla",
+  Hourly: "hourly",
+  Controls: "ctrl",
+  DogCam: "dogcam",
+  Climate: "ac",
+  Events: "event",
+} as const;
+export type GridArea = (typeof GridArea)[keyof typeof GridArea];
+
 export type TileRegistryEntry = {
   id: string;
   // biome-ignore lint/suspicious/noExplicitAny: tile containers have no shared prop contract
   component: ComponentType<any>;
   // biome-ignore lint/suspicious/noExplicitAny: view components have varying prop signatures
   viewComponent: ComponentType<any>;
-  gridArea: string;
+  gridArea: GridArea;
   colStart: number;
   rowStart: number;
   cols: number;
@@ -39,7 +52,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     id: "tile_clock",
     component: ClockGreeting,
     viewComponent: ClockGreetingView,
-    gridArea: "clock",
+    gridArea: GridArea.Clock,
     colStart: 1,
     rowStart: 1,
     cols: 5,
@@ -49,7 +62,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     id: "tile_weath",
     component: WeatherNow,
     viewComponent: WeatherNowView,
-    gridArea: "weath",
+    gridArea: GridArea.Weather,
     colStart: 6,
     rowStart: 1,
     cols: 4,
@@ -59,7 +72,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     id: "tile_wifi",
     component: NetworkTile,
     viewComponent: NetworkTileView,
-    gridArea: "wifi",
+    gridArea: GridArea.Wifi,
     colStart: 10,
     rowStart: 1,
     cols: 3,
@@ -69,7 +82,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     id: "tile_tesla",
     component: TeslaTile,
     viewComponent: TeslaTileView,
-    gridArea: "tesla",
+    gridArea: GridArea.Tesla,
     colStart: 1,
     rowStart: 3,
     cols: 4,
@@ -79,7 +92,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     id: "tile_hourly",
     component: Next12Hours,
     viewComponent: Next12HoursView,
-    gridArea: "hourly",
+    gridArea: GridArea.Hourly,
     colStart: 5,
     rowStart: 3,
     cols: 4,
@@ -89,7 +102,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     id: "tile_ctrl",
     component: ControlsTile,
     viewComponent: ControlsTileView,
-    gridArea: "ctrl",
+    gridArea: GridArea.Controls,
     colStart: 9,
     rowStart: 3,
     cols: 4,
@@ -99,7 +112,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     id: "tile_dogcam",
     component: DogCamTile,
     viewComponent: DogCamTileView,
-    gridArea: "dogcam",
+    gridArea: GridArea.DogCam,
     colStart: 5,
     rowStart: 5,
     cols: 4,
@@ -109,7 +122,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     id: "tile_ac",
     component: ClimateTile,
     viewComponent: ClimateTileView,
-    gridArea: "ac",
+    gridArea: GridArea.Climate,
     colStart: 9,
     rowStart: 5,
     cols: 4,
@@ -119,7 +132,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     id: "tile_event",
     component: EventsTile,
     viewComponent: EventsTileView,
-    gridArea: "event",
+    gridArea: GridArea.Events,
     colStart: 1,
     rowStart: 6,
     cols: 4,

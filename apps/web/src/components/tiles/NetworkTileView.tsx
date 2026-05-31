@@ -1,4 +1,5 @@
 import { Skeleton, StatusDot, Tile, TileHeader } from "../ui";
+import { TileStatus } from "./EventsTileView";
 
 interface ButterflyChartProps {
   traffic: Array<{ down: number; up: number }>;
@@ -66,18 +67,18 @@ function NetworkSkeleton() {
   );
 }
 
-export type NetworkTileViewStatus = "loading" | "populated";
+export type NetworkTileViewStatus = TileStatus;
 
 interface NetworkTileViewBaseProps {
   status: NetworkTileViewStatus;
 }
 
 interface NetworkTileViewLoadingProps extends NetworkTileViewBaseProps {
-  status: "loading";
+  status: typeof TileStatus.Loading;
 }
 
 interface NetworkTileViewPopulatedProps extends NetworkTileViewBaseProps {
-  status: "populated";
+  status: typeof TileStatus.Populated;
   isOffline: boolean;
   down: string;
   up: string;
@@ -89,7 +90,7 @@ interface NetworkTileViewPopulatedProps extends NetworkTileViewBaseProps {
 export type NetworkTileViewProps = NetworkTileViewLoadingProps | NetworkTileViewPopulatedProps;
 
 export function NetworkTileView(props: NetworkTileViewProps) {
-  if (props.status === "loading") return <NetworkSkeleton />;
+  if (props.status === TileStatus.Loading) return <NetworkSkeleton />;
 
   const { isOffline, down, up, ssid, ping, traffic } = props;
 

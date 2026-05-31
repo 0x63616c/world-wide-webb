@@ -1,5 +1,6 @@
 import { Icon } from "../Icon";
 import { Skeleton, Tile, TileHeader } from "../ui";
+import { TileStatus } from "./EventsTileView";
 
 // MetricCell uses a smaller type scale (10px cap / 16px mono) than the shared
 // Stat primitive (cap / 22px mono) — kept private to match the design's compact
@@ -49,10 +50,10 @@ function WeatherNowSkeleton() {
 // When status is "populated" all remaining fields are required; otherwise they
 // are unused so we make them optional to keep call sites clean.
 export type WeatherNowViewProps =
-  | { status: "loading" }
-  | { status: "error" }
+  | { status: typeof TileStatus.Loading }
+  | { status: typeof TileStatus.Error }
   | {
-      status: "populated";
+      status: typeof TileStatus.Populated;
       temp: string;
       cond: string;
       hi: string;
@@ -66,7 +67,7 @@ export type WeatherNowViewProps =
     };
 
 export function WeatherNowView(props: WeatherNowViewProps) {
-  if (props.status !== "populated") {
+  if (props.status !== TileStatus.Populated) {
     return <WeatherNowSkeleton />;
   }
 

@@ -34,7 +34,7 @@ vi.mock("../integrations/homeassistant", () => ({
 
 // ─── import after mocks ──────────────────────────────────────────────────────
 
-import { commandDevice } from "../services/device-command-service";
+import { CommandStatus, commandDevice, DeviceAction } from "../services/device-command-service";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -91,9 +91,13 @@ describe("commandDevice", () => {
     };
     mockDbInsert.mockReturnValue(insertChain);
 
-    const result = await commandDevice({ id: "dev-1", action: "setOn", args: { on: true } });
+    const result = await commandDevice({
+      id: "dev-1",
+      action: DeviceAction.SetOn,
+      args: { on: true },
+    });
 
-    expect(result.status).toBe("pending");
+    expect(result.status).toBe(CommandStatus.Pending);
     expect(result.commandId).toBe(99);
 
     // desiredState written
@@ -103,7 +107,7 @@ describe("commandDevice", () => {
 
     // command row inserted as pending
     expect(insertChain.values).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "pending", action: "setOn" }),
+      expect.objectContaining({ status: CommandStatus.Pending, action: DeviceAction.SetOn }),
     );
   });
 
@@ -116,7 +120,7 @@ describe("commandDevice", () => {
     mockDbSelect.mockReturnValue(selectChain);
 
     await expect(
-      commandDevice({ id: "missing", action: "setOn", args: { on: true } }),
+      commandDevice({ id: "missing", action: DeviceAction.SetOn, args: { on: true } }),
     ).rejects.toThrow("Device missing not found");
   });
 
@@ -142,7 +146,7 @@ describe("commandDevice", () => {
     };
     mockDbInsert.mockReturnValue(insertChain);
 
-    await commandDevice({ id: "dev-1", action: "setOn", args: { on: false } });
+    await commandDevice({ id: "dev-1", action: DeviceAction.SetOn, args: { on: false } });
 
     // Give microtask queue a chance to run the dispatch
     await new Promise((r) => setTimeout(r, 10));

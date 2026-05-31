@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 import "@testing-library/jest-dom";
 import { Chip } from "../Chip";
-import { Pill } from "../Pill";
+import { Pill, PillTone } from "../Pill";
 import { Skeleton } from "../Skeleton";
 import { Stat } from "../Stat";
 import { StatusDot } from "../StatusDot";
@@ -76,13 +76,13 @@ describe("Pill", () => {
   });
 
   test("tone=on renders className='pill on'", () => {
-    const { container } = render(<Pill tone="on">on</Pill>);
+    const { container } = render(<Pill tone={PillTone.On}>on</Pill>);
     expect(container.firstChild).toHaveClass("pill");
     expect(container.firstChild).toHaveClass("on");
   });
 
   test("tone=amber renders className='pill amber'", () => {
-    const { container } = render(<Pill tone="amber">warn</Pill>);
+    const { container } = render(<Pill tone={PillTone.Amber}>warn</Pill>);
     expect(container.firstChild).toHaveClass("pill");
     expect(container.firstChild).toHaveClass("amber");
   });

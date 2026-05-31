@@ -5,6 +5,7 @@ import type { DeviceStateValue } from "../db/schema";
 import { deviceCommands, deviceState, integrationSyncStatus } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
+import { CommandStatus } from "./device-command-service";
 import { mapHaToReported, stateEquals } from "./device-state-mapping";
 
 const SYNC_INTEGRATION_ID = "homeassistant";
@@ -117,14 +118,16 @@ async function confirmLatestSentCommand(deviceId: string, at: Date): Promise<voi
   const rows = await db
     .select()
     .from(deviceCommands)
-    .where(and(eq(deviceCommands.deviceId, deviceId), eq(deviceCommands.status, "sent")))
+    .where(
+      and(eq(deviceCommands.deviceId, deviceId), eq(deviceCommands.status, CommandStatus.Sent)),
+    )
     .orderBy(desc(deviceCommands.issuedAtUtc))
     .limit(1);
   const row = rows[0];
   if (!row) return;
   await db
     .update(deviceCommands)
-    .set({ status: "confirmed", confirmedAtUtc: at })
+    .set({ status: CommandStatus.Confirmed, confirmedAtUtc: at })
     .where(eq(deviceCommands.id, row.id));
 }
 
@@ -148,14 +151,22 @@ export async function sweepExpiredWindows(now: Date): Promise<void> {
       const rows = await db
         .select()
         .from(deviceCommands)
-        .where(and(eq(deviceCommands.deviceId, device.id), eq(deviceCommands.status, "sent")))
+        .where(
+          and(
+            eq(deviceCommands.deviceId, device.id),
+            eq(deviceCommands.status, CommandStatus.Sent),
+          ),
+        )
         .orderBy(desc(deviceCommands.issuedAtUtc))
         .limit(1);
       const row = rows[0];
       if (row) {
         await db
           .update(deviceCommands)
-          .set({ status: "timeout", error: "Desired window expired before HA reflected change" })
+          .set({
+            status: CommandStatus.Timeout,
+            error: "Desired window expired before HA reflected change",
+          })
           .where(eq(deviceCommands.id, row.id));
       }
     }

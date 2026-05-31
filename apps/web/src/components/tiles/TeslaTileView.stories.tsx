@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 import { defineTileMeta } from "./__stories__/factory";
-import { TeslaTileView } from "./TeslaTileView";
+import { TeslaTileStatus, TeslaTileView } from "./TeslaTileView";
 
 // Storybook stories for TeslaTileView covering all visual states.
 // Play functions use storybook/test matchers (browser env); vitest component tests
@@ -22,7 +22,7 @@ type Story = StoryObj<typeof meta>;
 // ── Story: Loading (Skeleton) ─────────────────────────────────────────────────
 
 export const Loading: Story = {
-  args: { status: "loading" },
+  args: { status: TeslaTileStatus.Loading },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     // Skeleton state: tile container renders, no header text
@@ -37,7 +37,7 @@ export const Loading: Story = {
 
 export const ErrorState: Story = {
   name: "Error / empty",
-  args: { status: "error" },
+  args: { status: TeslaTileStatus.Error },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     // Error falls through to TeslaSkeleton — same appearance as loading
@@ -51,7 +51,7 @@ export const ErrorState: Story = {
 
 export const Populated: Story = {
   args: {
-    status: "populated",
+    status: TeslaTileStatus.Populated,
     locked: true,
     charging: false,
     rate: 0,
@@ -83,7 +83,7 @@ export const Populated: Story = {
 
 export const Charging: Story = {
   args: {
-    status: "populated",
+    status: TeslaTileStatus.Populated,
     locked: false,
     charging: true,
     rate: 25,
@@ -118,7 +118,7 @@ export const Charging: Story = {
 export const NoLocation: Story = {
   name: "Populated — no GPS",
   args: {
-    status: "populated",
+    status: TeslaTileStatus.Populated,
     locked: true,
     charging: false,
     rate: 0,

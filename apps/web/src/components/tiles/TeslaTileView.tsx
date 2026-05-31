@@ -1,5 +1,6 @@
 import { Icon } from "../Icon";
 import { Skeleton, Stat, Tile, TileHeader } from "../ui";
+import { TileStatus } from "./EventsTileView";
 import { TeslaMap } from "./TeslaMap";
 
 // ── Charging bar ─────────────────────────────────────────────────────────────
@@ -87,13 +88,14 @@ function TeslaSkeleton() {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type TeslaTileStatus = "loading" | "error" | "populated";
+export const TeslaTileStatus = TileStatus;
+export type TeslaTileStatus = TileStatus;
 
 export type TeslaTileViewProps =
-  | { status: "loading" }
-  | { status: "error" }
+  | { status: typeof TileStatus.Loading }
+  | { status: typeof TileStatus.Error }
   | {
-      status: "populated";
+      status: typeof TileStatus.Populated;
       locked: boolean;
       charging: boolean;
       rate: number;
@@ -109,7 +111,7 @@ export type TeslaTileViewProps =
 // ── Pure view ────────────────────────────────────────────────────────────────
 
 export function TeslaTileView(props: TeslaTileViewProps) {
-  if (props.status !== "populated") return <TeslaSkeleton />;
+  if (props.status !== TileStatus.Populated) return <TeslaSkeleton />;
 
   const { locked, charging, rate, pct, range, odo, climate, lat, lon, place } = props;
 

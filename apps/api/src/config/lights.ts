@@ -7,9 +7,25 @@
  * Classification is DECLARED here, not inferred from entity-id substrings.
  */
 
-export type LightDomain = "light" | "switch";
-export type LightKind = "lamp" | "fixture";
-export type LightCapability = "onOff" | "brightness" | "colorTemp" | "rgb";
+export const LightDomain = {
+  Light: "light",
+  Switch: "switch",
+} as const;
+export type LightDomain = (typeof LightDomain)[keyof typeof LightDomain];
+
+export const LightKind = {
+  Lamp: "lamp",
+  Fixture: "fixture",
+} as const;
+export type LightKind = (typeof LightKind)[keyof typeof LightKind];
+
+export const LightCapability = {
+  OnOff: "onOff",
+  Brightness: "brightness",
+  ColorTemp: "colorTemp",
+  Rgb: "rgb",
+} as const;
+export type LightCapability = (typeof LightCapability)[keyof typeof LightCapability];
 
 export interface LightEntry {
   id: string;
@@ -100,14 +116,14 @@ export const LIGHTS: readonly LightEntry[] = [
 ] as const;
 
 /** Entity IDs for all lamp-kind entries (Hue, light domain). */
-export const LAMP_ENTITY_IDS: readonly string[] = LIGHTS.filter((l) => l.kind === "lamp").map(
-  (l) => l.entityId,
-);
+export const LAMP_ENTITY_IDS: readonly string[] = LIGHTS.filter(
+  (l) => l.kind === LightKind.Lamp,
+).map((l) => l.entityId);
 
 /** Entity IDs for all fixture-kind entries (switch domain). */
-export const FIXTURE_ENTITY_IDS: readonly string[] = LIGHTS.filter((l) => l.kind === "fixture").map(
-  (l) => l.entityId,
-);
+export const FIXTURE_ENTITY_IDS: readonly string[] = LIGHTS.filter(
+  (l) => l.kind === LightKind.Fixture,
+).map((l) => l.entityId);
 
 export function findLight(entityId: string): LightEntry | undefined {
   return LIGHTS.find((l) => l.entityId === entityId);
