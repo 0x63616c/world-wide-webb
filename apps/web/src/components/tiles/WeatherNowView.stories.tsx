@@ -115,9 +115,25 @@ export const PopulatedSunrise: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
+    // Verify Sunrise solar label and value render.
     expect(canvas.getByText("Sunrise")).toBeInTheDocument();
     expect(canvas.getByText("5:15 AM")).toBeInTheDocument();
     // Sunset must not appear when showing Sunrise.
     expect(canvas.queryByText("Sunset")).not.toBeInTheDocument();
+
+    // Verify base weather fields still render — guards against Sunrise mode
+    // accidentally hiding shared tile content.
+    expect(canvas.getByText("Weather Now")).toBeInTheDocument();
+    expect(canvas.getByText("Los Angeles")).toBeInTheDocument();
+    expect(canvas.getByText("72°")).toBeInTheDocument();
+    expect(canvas.getByText("Partly Cloudy")).toBeInTheDocument();
+    expect(canvas.getByText("H 78°")).toBeInTheDocument();
+    expect(canvas.getByText("L 65°")).toBeInTheDocument();
+    expect(canvas.getByText("Feels")).toBeInTheDocument();
+    expect(canvas.getByText("70°")).toBeInTheDocument();
+    expect(canvas.getByText("Humidity")).toBeInTheDocument();
+    expect(canvas.getByText("58%")).toBeInTheDocument();
+    expect(canvas.getByText("Wind")).toBeInTheDocument();
+    expect(canvas.getByText("8 mph")).toBeInTheDocument();
   },
 };
