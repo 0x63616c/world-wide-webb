@@ -12,6 +12,9 @@ const meta = {
   title: "Tiles/NetworkTileView",
   component: NetworkTileView,
   tags: ["autodocs"],
+  parameters: {
+    layout: "padded",
+  },
 } satisfies Meta<typeof NetworkTileView>;
 
 export default meta;
@@ -54,6 +57,8 @@ export const Offline: Story = {
     await expect(canvas.getByText("999ms")).toBeInTheDocument();
     // Offline label is never rendered — only the StatusDot colour changes
     await expect(canvas.queryByText("Offline")).not.toBeInTheDocument();
+    // Offline StatusDot renders inline-styled span — no .dot class (that only appears online)
+    await expect(canvasElement.querySelector(".dot")).toBeNull();
   },
 };
 
