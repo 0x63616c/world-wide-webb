@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { UnifiClient } from "../integrations/unifi";
 import { DEMO_NETWORK, getNetworkStatus } from "../services/network-service";
 
@@ -48,6 +48,141 @@ describe("DEMO_NETWORK", () => {
 });
 
 // ---------------------------------------------------------------------------
+// UnifiClient.getTrafficBuckets — stat/report/5minutes.site
+// ---------------------------------------------------------------------------
+
+describe("UnifiClient.getTrafficBuckets", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function makeClient() {
+    return new UnifiClient({
+      baseUrl: "https://unifi.local",
+      apiKey: "testkey",
+      siteId: "default",
+    });
+  }
+
+  function makeBucketData(count: number) {
+    return Array.from({ length: count }, (_, i) => ({
+      "wan-rx_bytes": 50_000_000 + i * 1_000_000,
+      "wan-tx_bytes": 15_000_000 + i * 500_000,
+      time: 1_700_000_000_000 + i * 300_000,
+    }));
+  }
+
+  test("returns 24 buckets mapped to {down, up} in bytes", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ data: makeBucketData(24) }),
+      }),
+    );
+    const result = await makeClient().getTrafficBuckets();
+    expect(result).toHaveLength(24);
+    expect(typeof result[0].down).toBe("number");
+    expect(typeof result[0].up).toBe("number");
+    expect(result[0].down).toBeGreaterThan(0);
+  });
+
+  test("zero-fills leading buckets to always return exactly 24 when API returns fewer", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ data: makeBucketData(10) }),
+      }),
+    );
+    const result = await makeClient().getTrafficBuckets();
+    expect(result).toHaveLength(24);
+    expect(result[0].down).toBe(0);
+    expect(result[0].up).toBe(0);
+    expect(result[23].down).toBeGreaterThan(0);
+  });
+
+  test("throws UnifiError on non-ok API response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: () => Promise.resolve("Unauthorized"),
+      }),
+    );
+    await expect(makeClient().getTrafficBuckets()).rejects.toThrow();
+  });
+
+  test("throws on network-level failure", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
+    await expect(makeClient().getTrafficBuckets()).rejects.toThrow("ECONNREFUSED");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UnifiClient.getWanHealth — stat/health
+// ---------------------------------------------------------------------------
+
+describe("UnifiClient.getWanHealth", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function makeClient() {
+    return new UnifiClient({
+      baseUrl: "https://unifi.local",
+      apiKey: "testkey",
+      siteId: "default",
+    });
+  }
+
+  function makeHealthData(latency = 3) {
+    return {
+      data: [
+        { subsystem: "wlan", num_sta: 5 },
+        {
+          subsystem: "wan",
+          status: "ok",
+          uptime_stats: { WAN: { latency_average: latency, availability: 100.0 } },
+        },
+      ],
+    };
+  }
+
+  test("returns ok status and WAN latency from stat/health", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeHealthData(7)),
+      }),
+    );
+    const result = await makeClient().getWanHealth();
+    expect(result.status).toBe("ok");
+    expect(result.wanLatencyMs).toBe(7);
+  });
+
+  test("returns error status and null latency when WAN subsystem is absent", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ data: [{ subsystem: "wlan" }] }),
+      }),
+    );
+    const result = await makeClient().getWanHealth();
+    expect(result.status).toBe("error");
+    expect(result.wanLatencyMs).toBeNull();
+  });
+
+  test("throws on network-level failure", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("timeout")));
+    await expect(makeClient().getWanHealth()).rejects.toThrow("timeout");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // getNetworkStatus — unconfigured client returns DEMO_NETWORK
 // ---------------------------------------------------------------------------
 
@@ -60,49 +195,78 @@ describe("getNetworkStatus — no API key", () => {
 });
 
 // ---------------------------------------------------------------------------
-// getNetworkStatus — configured client, various scenarios
+// getNetworkStatus — configured client, live data paths
 // ---------------------------------------------------------------------------
 
 describe("getNetworkStatus — configured client", () => {
-  function makeConfiguredClient(): UnifiClient {
+  function makeConfiguredClient() {
     return new UnifiClient({ baseUrl: "https://fake-unifi", apiKey: "testkey", siteId: "default" });
   }
 
-  test("returns Online with correct GB values when getWanStats resolves", async () => {
+  function makeBuckets(count = 24) {
+    return Array.from({ length: count }, (_, i) => ({
+      down: 50_000_000 + i * 1_000_000,
+      up: 10_000_000 + i * 200_000,
+    }));
+  }
+
+  test("returns Online with traffic and ping from real client methods", async () => {
     const client = makeConfiguredClient();
     vi.spyOn(client, "isConfigured").mockReturnValue(true);
-    vi.spyOn(client, "getWanStats").mockResolvedValue({
-      txBps: 1_000_000,
-      rxBps: 8_000_000,
-      txBytes24h: 3_800_000_000,
-      rxBytes24h: 14_200_000_000,
-    });
+    vi.spyOn(client, "getTrafficBuckets").mockResolvedValue(makeBuckets());
+    vi.spyOn(client, "getWanHealth").mockResolvedValue({ status: "ok", wanLatencyMs: 15 });
 
     const result = await getNetworkStatus(client);
 
     expect(result.status).toBe("Online");
-    expect(result.down).toBe("14.2");
-    expect(result.up).toBe("3.8");
-    expect(typeof result.ping).toBe("number");
+    expect(result.ping).toBe(15);
+    expect(result.traffic).toHaveLength(24);
+    expect(result.down).toMatch(/^\d+\.\d$/);
+    expect(result.up).toMatch(/^\d+\.\d$/);
   });
 
-  test("returns Online with zero GB when getWanStats returns null (no gateway)", async () => {
+  test("returns Offline when health reports WAN error", async () => {
     const client = makeConfiguredClient();
     vi.spyOn(client, "isConfigured").mockReturnValue(true);
-    vi.spyOn(client, "getWanStats").mockResolvedValue(null);
+    vi.spyOn(client, "getTrafficBuckets").mockResolvedValue(Array(24).fill({ down: 0, up: 0 }));
+    vi.spyOn(client, "getWanHealth").mockResolvedValue({ status: "error", wanLatencyMs: null });
 
     const result = await getNetworkStatus(client);
 
-    expect(result.status).toBe("Online");
-    expect(result.down).toBe("0.0");
-    expect(result.up).toBe("0.0");
+    expect(result.status).toBe("Offline");
+    expect(result.ping).toBe(0);
   });
 
-  test("throws when getWanStats throws a network error", async () => {
+  test("derives GB totals from the sum of traffic bucket bytes", async () => {
     const client = makeConfiguredClient();
     vi.spyOn(client, "isConfigured").mockReturnValue(true);
-    vi.spyOn(client, "getWanStats").mockRejectedValue(new Error("connection refused"));
+    // 24 buckets × 500_000_000 bytes down = 12_000_000_000 bytes = 12.0 GB
+    vi.spyOn(client, "getTrafficBuckets").mockResolvedValue(
+      Array(24).fill({ down: 500_000_000, up: 100_000_000 }),
+    );
+    vi.spyOn(client, "getWanHealth").mockResolvedValue({ status: "ok", wanLatencyMs: 5 });
+
+    const result = await getNetworkStatus(client);
+
+    expect(result.down).toBe("12.0");
+    expect(result.up).toBe("2.4");
+  });
+
+  test("throws when getTrafficBuckets throws", async () => {
+    const client = makeConfiguredClient();
+    vi.spyOn(client, "isConfigured").mockReturnValue(true);
+    vi.spyOn(client, "getTrafficBuckets").mockRejectedValue(new Error("connection refused"));
+    vi.spyOn(client, "getWanHealth").mockResolvedValue({ status: "ok", wanLatencyMs: 5 });
 
     await expect(getNetworkStatus(client)).rejects.toThrow("connection refused");
+  });
+
+  test("throws when getWanHealth throws", async () => {
+    const client = makeConfiguredClient();
+    vi.spyOn(client, "isConfigured").mockReturnValue(true);
+    vi.spyOn(client, "getTrafficBuckets").mockResolvedValue(makeBuckets());
+    vi.spyOn(client, "getWanHealth").mockRejectedValue(new Error("health endpoint unreachable"));
+
+    await expect(getNetworkStatus(client)).rejects.toThrow("health endpoint unreachable");
   });
 });
