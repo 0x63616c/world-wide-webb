@@ -55,6 +55,21 @@ export const Loading: Story = {
   },
 };
 
+// ─── Error / empty ───────────────────────────────────────────────────────────
+
+export const ErrorEmpty: Story = {
+  name: "Error / empty",
+  args: { status: "error", error: "Service unavailable" } as ControlsTileViewProps,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Header still shows; controls replaced by skeleton shimmer
+    await expect(canvas.getByText("Controls")).toBeInTheDocument();
+    expect(canvas.queryByRole("button", { name: "Lamps" })).toBeNull();
+    expect(canvas.queryByRole("button", { name: "Lights" })).toBeNull();
+    expect(canvas.queryByRole("button", { name: "Fan" })).toBeNull();
+  },
+};
+
 // ─── Populated — all on ───────────────────────────────────────────────────────
 
 export const AllOn: Story = {

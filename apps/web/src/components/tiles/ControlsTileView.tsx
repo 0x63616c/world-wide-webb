@@ -26,6 +26,7 @@ export interface ControlsViewData {
 
 export type ControlsTileViewProps =
   | { status: "loading" }
+  | { status: "error"; error?: string }
   | {
       status: "populated";
       data: ControlsViewData;
@@ -156,6 +157,7 @@ export function ControlsTileView(props: ControlsTileViewProps) {
         {props.status === "populated" ? (
           <ControlsGridView data={props.data} onToggle={props.onToggle} />
         ) : (
+          // Both loading and error show skeletons; error retries automatically via QueryClient
           <SkeletonGrid />
         )}
       </div>
