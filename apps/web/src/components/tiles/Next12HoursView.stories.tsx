@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { defineTileMeta, TILE_STATUS_ARG_TYPE } from "./__stories__/factory";
+import { defineTileMeta } from "./__stories__/factory";
 import type { HourlyEntry } from "./Next12HoursView";
 import { Next12HoursView } from "./Next12HoursView";
 
@@ -53,7 +53,6 @@ const meta = {
     ),
   ],
   argTypes: {
-    status: TILE_STATUS_ARG_TYPE,
     hours: {
       control: "object",
       description: "Array of HourlyEntry objects (only used when status is 'populated').",
