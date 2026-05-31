@@ -1,5 +1,5 @@
 import { QueryErrorResetBoundary } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ClimateTile } from "./tiles/ClimateTile";
 import { ClockGreeting } from "./tiles/ClockGreeting";
 import { ControlsTile } from "./tiles/ControlsTile";
@@ -26,13 +26,35 @@ const GRID_AREAS = [
   .map((row) => `"${row}"`)
   .join(" ");
 
+// Wraps one tile grid cell with QueryErrorResetBoundary (render-prop form) so
+// that when a query resets, reset() increments resetKey and TileBoundary clears
+// its error state — recovery without unmounting the parent tree.
+function BoundedTile({ children }: { children: React.ReactNode }) {
+  const [resetKey, setResetKey] = useState(0);
+  return (
+    <QueryErrorResetBoundary>
+      {({ reset }) => (
+        <TileBoundary
+          resetKey={resetKey}
+          onReset={() => {
+            reset();
+            setResetKey((k) => k + 1);
+          }}
+        >
+          {children}
+        </TileBoundary>
+      )}
+    </QueryErrorResetBoundary>
+  );
+}
+
 /**
  * The fixed 1366x1024 board. A #scaler wrapper scales the board uniformly to
  * fit the viewport (letterboxed), matching the design's fit() behavior so the
  * iPad wall panel and any browser window render pixel-identically.
  *
- * QueryErrorResetBoundary pairs with each TileBoundary so a recovered query
- * automatically resets the boundary — the board runs 24/7 with no manual reload.
+ * BoundedTile pairs QueryErrorResetBoundary with TileBoundary via resetKey so a
+ * recovered query resets the boundary without unmounting or a full page reload.
  */
 export function Board() {
   const scalerRef = useRef<HTMLDivElement>(null);
@@ -69,67 +91,49 @@ export function Board() {
             }}
           >
             <div style={{ gridArea: "clock" }}>
-              <QueryErrorResetBoundary>
-                <TileBoundary>
-                  <ClockGreeting />
-                </TileBoundary>
-              </QueryErrorResetBoundary>
+              <BoundedTile>
+                <ClockGreeting />
+              </BoundedTile>
             </div>
             <div style={{ gridArea: "weath" }}>
-              <QueryErrorResetBoundary>
-                <TileBoundary>
-                  <WeatherNow />
-                </TileBoundary>
-              </QueryErrorResetBoundary>
+              <BoundedTile>
+                <WeatherNow />
+              </BoundedTile>
             </div>
             <div style={{ gridArea: "wifi" }}>
-              <QueryErrorResetBoundary>
-                <TileBoundary>
-                  <NetworkTile />
-                </TileBoundary>
-              </QueryErrorResetBoundary>
+              <BoundedTile>
+                <NetworkTile />
+              </BoundedTile>
             </div>
             <div style={{ gridArea: "tesla" }}>
-              <QueryErrorResetBoundary>
-                <TileBoundary>
-                  <TeslaTile />
-                </TileBoundary>
-              </QueryErrorResetBoundary>
+              <BoundedTile>
+                <TeslaTile />
+              </BoundedTile>
             </div>
             <div style={{ gridArea: "hourly" }}>
-              <QueryErrorResetBoundary>
-                <TileBoundary>
-                  <Next12Hours />
-                </TileBoundary>
-              </QueryErrorResetBoundary>
+              <BoundedTile>
+                <Next12Hours />
+              </BoundedTile>
             </div>
             <div style={{ gridArea: "ctrl" }}>
-              <QueryErrorResetBoundary>
-                <TileBoundary>
-                  <ControlsTile />
-                </TileBoundary>
-              </QueryErrorResetBoundary>
+              <BoundedTile>
+                <ControlsTile />
+              </BoundedTile>
             </div>
             <div style={{ gridArea: "dogcam" }}>
-              <QueryErrorResetBoundary>
-                <TileBoundary>
-                  <DogCamTile />
-                </TileBoundary>
-              </QueryErrorResetBoundary>
+              <BoundedTile>
+                <DogCamTile />
+              </BoundedTile>
             </div>
             <div style={{ gridArea: "ac" }}>
-              <QueryErrorResetBoundary>
-                <TileBoundary>
-                  <ClimateTile />
-                </TileBoundary>
-              </QueryErrorResetBoundary>
+              <BoundedTile>
+                <ClimateTile />
+              </BoundedTile>
             </div>
             <div style={{ gridArea: "event" }}>
-              <QueryErrorResetBoundary>
-                <TileBoundary>
-                  <EventsTile />
-                </TileBoundary>
-              </QueryErrorResetBoundary>
+              <BoundedTile>
+                <EventsTile />
+              </BoundedTile>
             </div>
           </div>
         </div>

@@ -67,4 +67,38 @@ describe("TileBoundary", () => {
     expect(fallback).not.toBeNull();
     expect(fallback.style.height).toBe("100%");
   });
+
+  it("recovery: incrementing resetKey clears error state and re-renders children", () => {
+    // First render with a crashing child — boundary enters error state.
+    const { rerender } = render(
+      <TileBoundary resetKey={0}>
+        <Bomb shouldThrow={true} />
+      </TileBoundary>,
+    );
+    expect(document.querySelector("[data-tile-boundary-fallback]")).not.toBeNull();
+    expect(screen.queryByTestId("tile-ok")).toBeNull();
+
+    // Advance resetKey with healthy children — getDerivedStateFromProps must clear hasError.
+    rerender(
+      <TileBoundary resetKey={1}>
+        <Bomb shouldThrow={false} />
+      </TileBoundary>,
+    );
+    // Tile should be visible again without a full unmount/remount.
+    expect(screen.getByTestId("tile-ok")).toBeInTheDocument();
+    expect(document.querySelector("[data-tile-boundary-fallback]")).toBeNull();
+  });
+
+  it("fallback uses Skeleton primitives (data-skeleton attribute present)", () => {
+    render(
+      <TileBoundary>
+        <Bomb shouldThrow={true} />
+      </TileBoundary>,
+    );
+    const fallback = document.querySelector("[data-tile-boundary-fallback]") as HTMLElement;
+    expect(fallback).not.toBeNull();
+    // Skeleton components render with data-skeleton so fallback doesn't inline shimmer divs.
+    const skeletons = fallback.querySelectorAll("[data-skeleton]");
+    expect(skeletons.length).toBeGreaterThan(0);
+  });
 });
