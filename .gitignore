@@ -46,3 +46,7 @@ coverage/
 
 # Tesla map basemap tiles — large, host locally / on homelab (see CC-gma)
 apps/web/public/maps/*.pmtiles
+
+# Storybook
+*storybook.log
+storybook-static

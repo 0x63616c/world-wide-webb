@@ -1,0 +1,23 @@
+<style>
+  /* Force dark colour-scheme so native scrollbars are dark on the manager chrome. */
+  :root, html, body {
+    color-scheme: dark;
+  }
+
+  /* Webkit scrollbar styling to match tokens.css tile/nest colours. */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #060708;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #15191e;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #9197a1;
+  }
+</style>
