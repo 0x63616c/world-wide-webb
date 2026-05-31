@@ -173,7 +173,7 @@ export function Next12HoursView(props: Next12HoursViewProps) {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 5,
+                gap: 6,
               }}
             >
               <Icon
