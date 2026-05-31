@@ -34,6 +34,8 @@ export type GridArea = (typeof GridArea)[keyof typeof GridArea];
 
 export type TileRegistryEntry = {
   id: string;
+  // Human title shown when the tile is tapped open in its showcase modal.
+  label: string;
   // biome-ignore lint/suspicious/noExplicitAny: tile containers have no shared prop contract
   component: ComponentType<any>;
   // biome-ignore lint/suspicious/noExplicitAny: view components have varying prop signatures
@@ -50,6 +52,7 @@ export type TileRegistryEntry = {
 export const TILE_REGISTRY: TileRegistryEntry[] = [
   {
     id: "tile_clock",
+    label: "Clock",
     component: ClockGreeting,
     viewComponent: ClockGreetingView,
     gridArea: GridArea.Clock,
@@ -60,6 +63,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
   },
   {
     id: "tile_weath",
+    label: "Weather",
     component: WeatherNow,
     viewComponent: WeatherNowView,
     gridArea: GridArea.Weather,
@@ -70,6 +74,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
   },
   {
     id: "tile_wifi",
+    label: "Network",
     component: NetworkTile,
     viewComponent: NetworkTileView,
     gridArea: GridArea.Wifi,
@@ -80,6 +85,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
   },
   {
     id: "tile_tesla",
+    label: "Tesla",
     component: TeslaTile,
     viewComponent: TeslaTileView,
     gridArea: GridArea.Tesla,
@@ -90,6 +96,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
   },
   {
     id: "tile_hourly",
+    label: "Next 12 Hours",
     component: Next12Hours,
     viewComponent: Next12HoursView,
     gridArea: GridArea.Hourly,
@@ -100,6 +107,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
   },
   {
     id: "tile_ctrl",
+    label: "Controls",
     component: ControlsTile,
     viewComponent: ControlsTileView,
     gridArea: GridArea.Controls,
@@ -110,6 +118,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
   },
   {
     id: "tile_dogcam",
+    label: "Dog Cam",
     component: DogCamTile,
     viewComponent: DogCamTileView,
     gridArea: GridArea.DogCam,
@@ -120,6 +129,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
   },
   {
     id: "tile_ac",
+    label: "Climate",
     component: ClimateTile,
     viewComponent: ClimateTileView,
     gridArea: GridArea.Climate,
@@ -130,6 +140,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
   },
   {
     id: "tile_event",
+    label: "Events",
     component: EventsTile,
     viewComponent: EventsTileView,
     gridArea: GridArea.Events,

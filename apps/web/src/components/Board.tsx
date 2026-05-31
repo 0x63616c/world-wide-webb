@@ -8,9 +8,15 @@ import {
   GRID_GAP,
   GRID_ROWS,
 } from "../lib/grid-constants";
-import { deriveGridAreas, TILE_REGISTRY } from "../lib/tile-registry";
+import { deriveGridAreas, TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
+import { TileShowcaseModal } from "./tiles/TileShowcaseModal";
 import { TileBoundary } from "./ui/TileBoundary";
+
+// Interactive descendants a tap may land on (toggles, sliders, the Controls
+// "More" button). Taps on these drive the tile's own controls and must NOT also
+// open the showcase modal; taps anywhere else on the tile open it.
+const INTERACTIVE_SELECTOR = 'button, input, a, select, textarea, [role="slider"]';
 
 const GRID_AREAS = deriveGridAreas(TILE_REGISTRY);
 
@@ -45,6 +51,14 @@ function BoundedTile({ children }: { children: React.ReactNode }) {
  */
 export function Board() {
   const scalerRef = useRef<HTMLDivElement>(null);
+  // Which tile is open in its showcase modal (null = none).
+  const [activeEntry, setActiveEntry] = useState<TileRegistryEntry | null>(null);
+
+  // Open the showcase only for taps on the tile body, not on an inner control.
+  function openTile(entry: TileRegistryEntry, e: React.MouseEvent<HTMLDivElement>) {
+    if ((e.target as HTMLElement).closest(INTERACTIVE_SELECTOR)) return;
+    setActiveEntry(entry);
+  }
 
   useEffect(() => {
     const el = scalerRef.current;
@@ -78,15 +92,40 @@ export function Board() {
               gap: GRID_GAP,
             }}
           >
-            {TILE_REGISTRY.map(({ id, component: TileComponent, gridArea }) => (
-              <div key={id} style={{ gridArea }}>
-                <BoundedTile>
-                  <TileComponent />
-                </BoundedTile>
-              </div>
-            ))}
+            {TILE_REGISTRY.map((entry) => {
+              const { id, component: TileComponent, gridArea, label } = entry;
+              return (
+                // Not a real <button>: the tile body contains its own buttons
+                // (toggles, sliders, "More"), and nesting interactive elements is
+                // invalid. role+tabIndex give the wrapper button semantics while
+                // keeping inner controls separately operable.
+                // biome-ignore lint/a11y/useSemanticElements: nested interactive content forbids a <button>
+                <div
+                  key={id}
+                  style={{ gridArea, cursor: "pointer" }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Open ${label}`}
+                  onClick={(e) => openTile(entry, e)}
+                  // Keyboard activation only when the tile wrapper itself is
+                  // focused — keep Enter/Space on inner controls for those controls.
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setActiveEntry(entry);
+                    }
+                  }}
+                >
+                  <BoundedTile>
+                    <TileComponent />
+                  </BoundedTile>
+                </div>
+              );
+            })}
           </div>
         </div>
+        <TileShowcaseModal entry={activeEntry} onClose={() => setActiveEntry(null)} />
       </div>
     </div>
   );
