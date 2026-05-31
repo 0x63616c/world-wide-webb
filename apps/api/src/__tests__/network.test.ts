@@ -16,6 +16,10 @@ describe("DEMO_NETWORK", () => {
     expect(DEMO_NETWORK.ssid.length).toBeGreaterThan(0);
   });
 
+  test("ssid is 'world-wide-webb' — the actual home network name (www-ats)", () => {
+    expect(DEMO_NETWORK.ssid).toBe("world-wide-webb");
+  });
+
   test("has down and up as numeric strings with one decimal place", () => {
     expect(DEMO_NETWORK.down).toMatch(/^\d+\.\d$/);
     expect(DEMO_NETWORK.up).toMatch(/^\d+\.\d$/);

@@ -32,7 +32,7 @@ export interface NetworkStatus {
 
 export const DEMO_NETWORK: NetworkStatus = {
   status: "Online",
-  ssid: "HomeNet",
+  ssid: "world-wide-webb",
   down: "18.4",
   up: "4.2",
   ping: 11,
