@@ -7,6 +7,7 @@ interface SkeletonProps {
 export function Skeleton({ w, h = 14, borderRadius = 6 }: SkeletonProps) {
   return (
     <div
+      data-skeleton
       style={{
         width: typeof w === "number" ? w : w,
         height: h,

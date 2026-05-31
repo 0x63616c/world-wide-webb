@@ -1,12 +1,24 @@
 import type { ErrorInfo, ReactNode } from "react";
 import { Component } from "react";
+import { Skeleton } from "./Skeleton";
 
 interface Props {
   children: ReactNode;
+  // Increment resetKey to clear a caught error and retry rendering children.
+  // BoundedTile in Board.tsx increments this via the QueryErrorResetBoundary
+  // render-prop reset callback so a recovered query clears the boundary without
+  // a full page reload.
+  resetKey?: number;
+  // Called when the fallback's retry button is activated (future use) or when
+  // the boundary resets via resetKey. Lets the parent signal QueryErrorResetBoundary.
+  onReset?: () => void;
 }
 
 interface State {
   hasError: boolean;
+  // Track the resetKey we last acknowledged so getDerivedStateFromProps can
+  // detect when the parent requests a reset without false-positives.
+  acknowledgedResetKey: number;
 }
 
 /**
@@ -15,15 +27,31 @@ interface State {
  * Wraps each board grid cell so one crashed tile can't white-screen the board.
  * The board runs 24/7 with no manual reload, so fallback fills 100% height to
  * preserve grid layout while the tile retries on the next data change.
+ *
+ * Recovery: pass an incrementing resetKey (from BoundedTile / QueryErrorResetBoundary)
+ * to clear the error state without unmounting the parent tree.
  */
 export class TileBoundary extends Component<Props, State> {
-  static getDerivedStateFromError(): State {
+  static getDerivedStateFromError(): Partial<State> {
     return { hasError: true };
+  }
+
+  // Reset hasError when resetKey advances — decouples recovery from unmounting
+  // and lets QueryErrorResetBoundary drive retries via BoundedTile.
+  static getDerivedStateFromProps(props: Props, state: State): Partial<State> | null {
+    const incoming = props.resetKey ?? 0;
+    if (state.hasError && incoming !== state.acknowledgedResetKey) {
+      return { hasError: false, acknowledgedResetKey: incoming };
+    }
+    if (incoming !== state.acknowledgedResetKey) {
+      return { acknowledgedResetKey: incoming };
+    }
+    return null;
   }
 
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, acknowledgedResetKey: props.resetKey ?? 0 };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
@@ -45,29 +73,9 @@ export class TileBoundary extends Component<Props, State> {
             padding: 16,
           }}
         >
-          {/* Shimmer rows mirror a loading state so layout appears intentional. */}
-          <div
-            style={{
-              width: "60%",
-              height: 14,
-              borderRadius: 6,
-              background:
-                "linear-gradient(90deg, var(--tile-2) 25%, var(--nest) 50%, var(--tile-2) 75%)",
-              backgroundSize: "200%",
-              animation: "shimmer 1.6s linear infinite",
-            }}
-          />
-          <div
-            style={{
-              width: "40%",
-              height: 14,
-              borderRadius: 6,
-              background:
-                "linear-gradient(90deg, var(--tile-2) 25%, var(--nest) 50%, var(--tile-2) 75%)",
-              backgroundSize: "200%",
-              animation: "shimmer 1.6s linear infinite",
-            }}
-          />
+          {/* Reuse shared Skeleton primitive so shimmer style is consistent. */}
+          <Skeleton w="60%" />
+          <Skeleton w="40%" />
         </div>
       );
     }
