@@ -4,9 +4,49 @@
  */
 import "@testing-library/jest-dom";
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { TeslaMap } from "../TeslaMap";
 import type { TeslaTileViewProps } from "../TeslaTileView";
 import { TeslaTileView } from "../TeslaTileView";
+
+// ── Mock MapLibre (WebGL — not available in jsdom) ───────────────────────────
+vi.mock("maplibre-gl", () => {
+  const MockMap = vi.fn(() => ({
+    addControl: vi.fn(),
+    on: vi.fn(),
+    remove: vi.fn(),
+    setCenter: vi.fn(),
+    easeTo: vi.fn(),
+  }));
+  const Marker = vi.fn(() => ({
+    setLngLat: vi.fn().mockReturnThis(),
+    addTo: vi.fn().mockReturnThis(),
+    remove: vi.fn().mockReturnThis(),
+    getElement: vi.fn().mockReturnValue(document.createElement("div")),
+  }));
+  return {
+    default: {
+      Map: MockMap,
+      Marker,
+      NavigationControl: vi.fn(),
+      addProtocol: vi.fn(),
+      removeProtocol: vi.fn(),
+    },
+  };
+});
+
+// ── Mock pmtiles ──────────────────────────────────────────────────────────────
+vi.mock("pmtiles", () => ({
+  Protocol: vi.fn().mockImplementation(() => ({
+    tile: vi.fn(),
+  })),
+}));
+
+// ── Mock @protomaps/basemaps ──────────────────────────────────────────────────
+vi.mock("@protomaps/basemaps", () => ({
+  layers: vi.fn().mockReturnValue([]),
+  namedFlavor: vi.fn().mockReturnValue({}),
+}));
 
 afterEach(cleanup);
 
@@ -19,6 +59,9 @@ const populatedProps: TeslaTileViewProps = {
   range: 240,
   odo: "12,345 mi",
   climate: 72,
+  lat: 34.0537,
+  lon: -118.2428,
+  place: "Home",
 };
 
 const chargingProps: TeslaTileViewProps = {
@@ -30,6 +73,9 @@ const chargingProps: TeslaTileViewProps = {
   range: 165,
   odo: "12,345 mi",
   climate: 68,
+  lat: 34.0537,
+  lon: -118.2428,
+  place: "Home",
 };
 
 describe("TeslaTileView — loading/skeleton state", () => {
@@ -123,5 +169,22 @@ describe("TeslaTileView — populated state (unlocked, charging)", () => {
   it("renders the charge percentage for charging state", () => {
     render(<TeslaTileView {...chargingProps} />);
     expect(screen.getByText("55%")).toBeInTheDocument();
+  });
+});
+
+// ── TeslaMap — overlay and null-location path ─────────────────────────────────
+describe("TeslaMap", () => {
+  it("renders the place overlay when lat/lon are provided", () => {
+    render(<TeslaMap lat={34.0537} lon={-118.2428} place="Home" />);
+    // place appears in both the cap label and the status pill
+    const placeEls = screen.getAllByText("Home");
+    expect(placeEls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("does not crash and renders the place overlay when lat/lon are null (default-center path)", () => {
+    render(<TeslaMap lat={null} lon={null} place="Home" />);
+    // Overlays should still render even without a location
+    const placeEls = screen.getAllByText("Home");
+    expect(placeEls.length).toBeGreaterThanOrEqual(1);
   });
 });

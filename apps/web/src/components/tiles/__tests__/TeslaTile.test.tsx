@@ -3,6 +3,45 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TeslaTile } from "../TeslaTile";
 
+// ── Mock MapLibre (WebGL — not available in jsdom) ───────────────────────────
+vi.mock("maplibre-gl", () => {
+  const MockMap = vi.fn(() => ({
+    addControl: vi.fn(),
+    on: vi.fn(),
+    remove: vi.fn(),
+    setCenter: vi.fn(),
+    easeTo: vi.fn(),
+  }));
+  const Marker = vi.fn(() => ({
+    setLngLat: vi.fn().mockReturnThis(),
+    addTo: vi.fn().mockReturnThis(),
+    remove: vi.fn().mockReturnThis(),
+    getElement: vi.fn().mockReturnValue(document.createElement("div")),
+  }));
+  return {
+    default: {
+      Map: MockMap,
+      Marker,
+      NavigationControl: vi.fn(),
+      addProtocol: vi.fn(),
+      removeProtocol: vi.fn(),
+    },
+  };
+});
+
+// ── Mock pmtiles (no native modules in jsdom) ─────────────────────────────────
+vi.mock("pmtiles", () => ({
+  Protocol: vi.fn().mockImplementation(() => ({
+    tile: vi.fn(),
+  })),
+}));
+
+// ── Mock @protomaps/basemaps ──────────────────────────────────────────────────
+vi.mock("@protomaps/basemaps", () => ({
+  layers: vi.fn().mockReturnValue([]),
+  namedFlavor: vi.fn().mockReturnValue({}),
+}));
+
 // ── Mock tRPC hook ───────────────────────────────────────────────────────────
 // We mock the entire trpc module so the component never tries to reach a server.
 vi.mock("@/lib/trpc", () => {
@@ -60,9 +99,10 @@ describe("TeslaTile", () => {
     expect(screen.queryByText("Evee")).not.toBeInTheDocument();
     expect(screen.getByText("Locked")).toBeInTheDocument();
 
-    // Map labels
-    expect(screen.getByText("a local street")).toBeInTheDocument();
-    expect(screen.getByText(/Parked · Home/i)).toBeInTheDocument();
+    // Map overlays now show real place from API (not hardcoded fake labels)
+    // The place text appears in both the cap label and the status pill
+    const placeEls = screen.getAllByText("Home");
+    expect(placeEls.length).toBeGreaterThanOrEqual(1);
 
     // Charging bar
     expect(screen.getByText(/Charging/i)).toBeInTheDocument();

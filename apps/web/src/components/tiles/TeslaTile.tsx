@@ -19,6 +19,9 @@ export function TeslaTile() {
       range={data.range}
       odo={data.odo}
       climate={data.climate}
+      lat={data.lat ?? null}
+      lon={data.lon ?? null}
+      place={data.place ?? ""}
     />
   );
 }

@@ -1,97 +1,6 @@
 import { Icon } from "../Icon";
 import { Skeleton, Stat, Tile, TileHeader } from "../ui";
-
-// ── Sub-components ──────────────────────────────────────────────────────────
-
-// Lo-fi SVG map — purely decorative, no live data dependency.
-// Ticket www-d3t will replace this with a real GPS map.
-function TeslaMap() {
-  return (
-    <div
-      style={{
-        position: "relative",
-        height: "100%",
-        width: "100%",
-        borderRadius: 14,
-        overflow: "hidden",
-        border: "1px solid var(--hair)",
-        background: "#0A0D10",
-      }}
-    >
-      <svg
-        width="100%"
-        height="100%"
-        viewBox="0 0 400 260"
-        preserveAspectRatio="xMidYMid slice"
-        style={{ position: "absolute", inset: 0 }}
-        aria-hidden="true"
-      >
-        <rect width="400" height="260" fill="#0A0D10" />
-
-        {/* city blocks */}
-        <g fill="#0E1318">
-          <rect x="34" y="26" width="120" height="78" rx="3" />
-          <rect x="170" y="26" width="96" height="78" rx="3" />
-          <rect x="282" y="26" width="96" height="78" rx="3" />
-          <rect x="34" y="170" width="120" height="78" rx="3" />
-          <rect x="170" y="170" width="96" height="78" rx="3" />
-          <rect x="282" y="170" width="96" height="78" rx="3" />
-        </g>
-
-        {/* grid lines */}
-        <g stroke="#171D23" strokeWidth="2.5" fill="none">
-          <path d="M160 -10 V270 M272 -10 V270 M-10 116 H410" />
-        </g>
-
-        {/* a local street road */}
-        <g stroke="#252E36" strokeWidth="8" fill="none" strokeLinecap="round">
-          <path d="M-10 142 H410" />
-        </g>
-        <g stroke="#33414B" strokeWidth="1.6" strokeDasharray="7 9" fill="none">
-          <path d="M-10 142 H410" />
-        </g>
-
-        {/* proximity ring */}
-        <circle
-          cx="200"
-          cy="138"
-          r="50"
-          fill="rgba(91,227,125,.06)"
-          stroke="rgba(91,227,125,.28)"
-          strokeWidth="1.4"
-          strokeDasharray="3 6"
-        />
-
-        {/* pin marker */}
-        <g transform="translate(200,134)">
-          <circle r="22" fill="rgba(91,227,125,.14)" />
-          <path d="M0 16 C-9 5 -12 0 -12 -4 A12 12 0 1 1 12 -4 C12 0 9 5 0 16Z" fill="var(--acc)" />
-          <circle cx="0" cy="-4" r="4.5" fill="#06210F" />
-        </g>
-      </svg>
-
-      {/* street label */}
-      <div style={{ position: "absolute", left: 12, top: 12 }} className="cap">
-        a local street
-      </div>
-
-      {/* parked pill */}
-      <span
-        className="pill on"
-        style={{
-          position: "absolute",
-          left: 12,
-          bottom: 12,
-          padding: "4px 10px",
-          fontSize: 12,
-        }}
-      >
-        <span className="dot" />
-        Parked · Home
-      </span>
-    </div>
-  );
-}
+import { TeslaMap } from "./TeslaMap";
 
 // ── Charging bar ─────────────────────────────────────────────────────────────
 
@@ -188,6 +97,9 @@ export type TeslaTileViewProps =
       range: number;
       odo: string;
       climate: number;
+      lat: number | null;
+      lon: number | null;
+      place: string;
     };
 
 // ── Pure view ────────────────────────────────────────────────────────────────
@@ -195,7 +107,7 @@ export type TeslaTileViewProps =
 export function TeslaTileView(props: TeslaTileViewProps) {
   if (props.status !== "populated") return <TeslaSkeleton />;
 
-  const { locked, charging, rate, pct, range, odo, climate } = props;
+  const { locked, charging, rate, pct, range, odo, climate, lat, lon, place } = props;
 
   return (
     <Tile padding={22} style={{ gap: 16 }}>
@@ -212,7 +124,7 @@ export function TeslaTileView(props: TeslaTileViewProps) {
 
       {/* map */}
       <div style={{ flex: 1, minHeight: 140 }}>
-        <TeslaMap />
+        <TeslaMap lat={lat} lon={lon} place={place} />
       </div>
 
       {/* charging bar */}
