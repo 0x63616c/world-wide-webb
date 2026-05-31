@@ -9,7 +9,8 @@ export const meta = {
     { title: 'Build', detail: 'Per stage, parallel: each ticket built TDD in its OWN git worktree, committed to a per-ticket branch', model: 'sonnet' },
     { title: 'Review', detail: 'Per stage, parallel: fresh haiku judges adversarially review each branch diff (correctness + acceptance)', model: 'haiku' },
     { title: 'Merge', detail: 'Per stage, sequential on main: merge each branch in dep order, RESOLVE CONFLICTS, apply review fixes, gates, bd close', model: 'sonnet' },
-    { title: 'QA', detail: 'Adversarial: storybook build + live board at 1366x1024 (no fake data, P0 fixes visible)', model: 'haiku' },
+    { title: 'Consolidate', detail: 'Dedupe tile stories into a shared story-factory/registry so "define a tile -> it appears in storybook"', model: 'sonnet' },
+    { title: 'QA', detail: 'Adversarial cmux E2E: every storybook story + manager + scrollbars dark, live board P0 fixes', model: 'haiku' },
     { title: 'Finalize', detail: 'Full gates, epic close, report; git push only if args.push', model: 'sonnet' },
   ],
 }
@@ -31,6 +32,7 @@ const STAGES = args?.stages || [
   { name: 'Stories', kind: 'tile storybook stories', tickets: ['www-vut', 'www-e6x', 'www-vkk', 'www-qqk', 'www-1xb', 'www-5xj', 'www-30b', 'www-m7y', 'www-1zp'] },
 ]
 const EPIC = args?.epic || 'www-x1o'
+const CONSOLIDATE_TICKET = args?.consolidateTicket || 'www-x1o.1'
 const MAX_REVIEW_FIXES = args?.maxReviewFixes ?? 1 // merge agent applies blocking findings; this caps re-review depth if you extend it
 const ui = args?.ui !== false
 const doPush = args?.push === true
@@ -149,7 +151,7 @@ const FINAL_SCHEMA = {
 function buildTicket(id, kind, stageName) {
   const branch = `${BRPREFIX}/${id}`
   return agent(
-    `${RULES}\n\nDELIVER TICKET ${id} (${kind}) IN FULL GIT ISOLATION.\nYou are running in your OWN fresh git worktree — your edits cannot affect other agents. First create your branch off the current HEAD: \`git switch -C ${branch}\`.\nThen: \`bd show ${id}\` for full acceptance criteria and \`bd update ${id} --claim\`. Work TDD — write/extend the vitest test first (red), implement to green. Run \`bun run typecheck\` and the ticket-scoped tests (\`bun run test <your test file>\`) until green. Stay strictly within this ticket's files; PREFER shared ui/ primitives.\nWhen done, COMMIT to your branch: \`git add -A && git commit -m "<focused conventional commit referencing ${id}, e.g. feat(${id}): ...>"\`. Record a handoff via \`bd update ${id} --notes\`. Do NOT bd-close (the Merge phase closes after merging). Do NOT push.\nReturn the structured handoff: branch="${branch}", committed=true only if you actually committed, filesChanged=exact paths.`,
+    `${RULES}\n\nDELIVER TICKET ${id} (${kind}) IN FULL GIT ISOLATION.\nIDEMPOTENCY: first \`bd show ${id}\` — if it is already status=closed, the work was done in a prior run; do NOTHING and return status=done, committed=false, summary="already closed".\nYou are running in your OWN fresh git worktree — your edits cannot affect other agents. First create your branch off the current HEAD: \`git switch -C ${branch}\`.\nThen: \`bd show ${id}\` for full acceptance criteria and \`bd update ${id} --claim\`. Work TDD — write/extend the vitest test first (red), implement to green. Run \`bun run typecheck\` and the ticket-scoped tests (\`bun run test <your test file>\`) until green. Stay strictly within this ticket's files; PREFER shared ui/ primitives.\nWhen done, COMMIT to your branch: \`git add -A && git commit -m "<focused conventional commit referencing ${id}, e.g. feat(${id}): ...>"\`. Record a handoff via \`bd update ${id} --notes\`. Do NOT bd-close (the Merge phase closes after merging). Do NOT push.\nReturn the structured handoff: branch="${branch}", committed=true only if you actually committed, filesChanged=exact paths.`,
     { label: `build:${id}`, phase: 'Build', schema: BUILD_SCHEMA, model: WORK_M, isolation: 'worktree' },
   )
 }
@@ -197,7 +199,7 @@ for (const id of SCAFFOLD) {
   log(`Scaffold ${id} on main (barrier) — all later worktrees branch from this.`)
   scaffoldOut.push(
     await agent(
-      `${RULES}\n${id === 'www-0bw' || /storybook|scaffold/i.test(JSON.stringify(SCAFFOLD)) ? STORYBOOK_DARK : ''}\n\nDELIVER FOUNDATION TICKET ${id} DIRECTLY ON main (no worktree — this is the shared base every later worktree inherits, so it must be committed to main first).\n\`bd show ${id}\` for acceptance, \`bd update ${id} --claim\`. Implement it (TDD where it makes sense). If this is the Storybook setup, you MUST satisfy the STORYBOOK DARK-MODE CONTRACT above in full (manager theme, dark default canvas, dark docs, dark native scrollbars on every page via color-scheme + webkit CSS) — partial dark (canvas only) FAILS. Run \`bun run typecheck\` && \`bunx biome check --write .\` && \`bun run test\` green, then \`git add -A && git commit -m "<conventional, referencing ${id}>"\`. \`bd close ${id}\`. Do NOT push.\nReturn the structured handoff (branch="main", committed=true).`,
+      `${RULES}\n${id === 'www-0bw' || /storybook|scaffold/i.test(JSON.stringify(SCAFFOLD)) ? STORYBOOK_DARK : ''}\n\nDELIVER FOUNDATION TICKET ${id} DIRECTLY ON main (no worktree — this is the shared base every later worktree inherits, so it must be committed to main first).\nIDEMPOTENCY: \`bd show ${id}\` — if already status=closed, do NOTHING and return status=done, committed=false, summary="already closed".\nElse read acceptance, \`bd update ${id} --claim\`. Implement it (TDD where it makes sense). If this is the Storybook setup, you MUST satisfy the STORYBOOK DARK-MODE CONTRACT above in full (manager theme, dark default canvas, dark docs, dark native scrollbars on every page via color-scheme + webkit CSS) — partial dark (canvas only) FAILS. Run \`bun run typecheck\` && \`bunx biome check --write .\` && \`bun run test\` green, then \`git add -A && git commit -m "<conventional, referencing ${id}>"\`. \`bd close ${id}\`. Do NOT push.\nReturn the structured handoff (branch="main", committed=true).`,
       { label: `scaffold:${id}`, phase: 'Scaffold', schema: BUILD_SCHEMA, model: WORK_M },
     ),
   )
@@ -251,6 +253,16 @@ for (const stage of STAGES) {
   log(`stage "${stage.name}" gate: pass=${stageGate?.localGatesPass} — ${stageGate?.summary || ''}`)
   stageOutcomes.push({ stage: stage.name, merges, gate: stageGate?.localGatesPass })
 }
+
+// ---- Consolidate: dedupe tile stories into a shared factory/registry so
+// "define a tile -> it appears in storybook" (sonnet on main, single actor) ----
+
+phase('Consolidate')
+const consolidate = await agent(
+  `${RULES}\n${STORYBOOK_DARK}\n\nCONSOLIDATE THE TILE STORIES (ticket ${CONSOLIDATE_TICKET}; you are on main, the only git actor). All tile stories now exist on main. \`bd show ${CONSOLIDATE_TICKET}\` for the full goal, claim it.\nDrive the stories toward "define a tile -> it appears in Storybook automatically": build a SHARED STORY FACTORY + tile registry so each tile only declares its own states (loading/populated/error) + mock data, and the factory supplies the dark board decorator, fixed tile sizing, args/argTypes, and naming. Storybook's glob auto-discovers each tile. Extract every duplicated decorator / mock-data / render-wrapper out of the per-tile *.stories.tsx into this shared layer (e.g. a .storybook/preview decorator + apps/web/src/components/tiles/__stories__/factory + a tiles registry the board can also consume), then refactor each story to a thin declaration over the factory. Keep rendered behavior identical, reduce LOC + divergence, keep the dark contract (incl. scrollbars). Run \`bun run typecheck\` && \`bunx biome check --write .\` && \`bun run test\` green, commit (refactor:), \`bd close ${CONSOLIDATE_TICKET}\`, and file follow-up bd issues under ${EPIC} for any larger tile-component refactors you surfaced. Do NOT push.\nReturn BUILD_SCHEMA: filesChanged, localGatesPass, summary (what was unified + net LOC delta), followups.`,
+  { label: 'consolidate', phase: 'Consolidate', schema: BUILD_SCHEMA, model: WORK_M },
+)
+log(`consolidate: gates=${consolidate?.localGatesPass} — ${consolidate?.summary || ''}`)
 
 // ---- QA (adversarial, fresh): storybook build + live board ------------------
 
