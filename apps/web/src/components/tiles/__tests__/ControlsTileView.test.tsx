@@ -138,6 +138,41 @@ describe("ControlsTileView — layout", () => {
   });
 });
 
+// ─── overflow interaction ─────────────────────────────────────────────────────
+
+describe("ControlsTileView — overflow", () => {
+  it("no overflow dialog visible by default", () => {
+    render(<ControlsTileView {...populatedProps} />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("overflow dialog opens when a '> more' affordance is clicked for Lamps", () => {
+    render(<ControlsTileView {...populatedProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /more.*lamps/i }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+    // The overflow heading "Lamps" lives inside the dialog
+    expect(dialog.textContent).toMatch(/Lamps/);
+  });
+
+  it("overflow dialog closes when the close button is clicked", () => {
+    render(<ControlsTileView {...populatedProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /more.*lamps/i }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /close/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("overflow opens for Fan showing Fan label", () => {
+    render(<ControlsTileView {...populatedProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /more.*fan/i }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+    // Fan heading appears inside the dialog
+    expect(dialog.textContent).toMatch(/Fan/);
+  });
+});
+
 // ─── callbacks ────────────────────────────────────────────────────────────────
 
 describe("ControlsTileView — onToggle callbacks", () => {
