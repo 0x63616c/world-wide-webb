@@ -155,3 +155,31 @@ describe("DogCamTileView — tile structure", () => {
     expect(tile.style.padding).toBe("22px");
   });
 });
+
+describe("DogCamTileView — error state", () => {
+  it("renders the Dog Cam header", () => {
+    render(<DogCamTileView status="error" live={false} recSecs={0} onToggleLive={vi.fn()} />);
+    expect(screen.getByText("Dog Cam")).toBeInTheDocument();
+  });
+
+  it("renders the feed button", () => {
+    render(<DogCamTileView status="error" live={false} recSecs={0} onToggleLive={vi.fn()} />);
+    expect(screen.getByRole("button")).toBeInTheDocument();
+  });
+
+  it("does not render label text when in error state", () => {
+    render(<DogCamTileView status="error" live={false} recSecs={0} onToggleLive={vi.fn()} />);
+    expect(screen.queryByText("Living Room")).not.toBeInTheDocument();
+  });
+
+  it("does not render 'Tap to view feed' when in error state", () => {
+    render(<DogCamTileView status="error" live={false} recSecs={0} onToggleLive={vi.fn()} />);
+    expect(screen.queryByText(/tap to view feed/i)).not.toBeInTheDocument();
+  });
+
+  it("does not render LIVE or REC when in error state", () => {
+    render(<DogCamTileView status="error" live={false} recSecs={0} onToggleLive={vi.fn()} />);
+    expect(screen.queryByText("LIVE")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^REC/)).not.toBeInTheDocument();
+  });
+});
