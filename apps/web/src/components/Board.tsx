@@ -1,5 +1,6 @@
 import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { ConnectionLostBanner } from "./ConnectionLostBanner";
 import { ClimateTile } from "./tiles/ClimateTile";
 import { ClockGreeting } from "./tiles/ClockGreeting";
 import { ControlsTile } from "./tiles/ControlsTile";
@@ -79,6 +80,7 @@ export function Board() {
         style={{ width: BOARD_W, height: BOARD_H, transformOrigin: "center center" }}
       >
         <div className="board e-root" style={{ padding: 26 }}>
+          <ConnectionLostBanner />
           <div
             style={{
               flex: 1,

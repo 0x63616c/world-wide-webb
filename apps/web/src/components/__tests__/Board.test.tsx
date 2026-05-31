@@ -1,7 +1,8 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// Stub every tile so Board renders without real data dependencies.
+// Stub every tile and banner so Board renders without real data dependencies.
+vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
 vi.mock("../tiles/ClimateTile", () => ({ ClimateTile: () => null }));
 vi.mock("../tiles/ClockGreeting", () => ({ ClockGreeting: () => null }));
 vi.mock("../tiles/ControlsTile", () => ({ ControlsTile: () => null }));
