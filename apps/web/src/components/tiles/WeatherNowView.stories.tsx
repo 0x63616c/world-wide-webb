@@ -5,6 +5,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
+import { defineTileMeta } from "./__stories__/factory";
 import type { WeatherNowViewProps } from "./WeatherNowView";
 import { WeatherNowView } from "./WeatherNowView";
 
@@ -24,10 +25,7 @@ const populatedBase: WeatherNowViewProps = {
 };
 
 const meta = {
-  title: "Tiles/WeatherNowView",
-  component: WeatherNowView,
-  tags: ["autodocs"],
-  // BoardDecorator is global in preview.tsx — no local decorator needed.
+  ...defineTileMeta("WeatherNowView", WeatherNowView),
 } satisfies Meta<typeof WeatherNowView>;
 
 export default meta;

@@ -1,12 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 import { Skeleton, Tile } from "../ui";
+import { defineTileMeta } from "./__stories__/factory";
 import { ClockGreetingView } from "./ClockGreetingView";
 
 const meta = {
-  title: "Tiles/ClockGreetingView",
-  component: ClockGreetingView,
-  tags: ["autodocs"],
+  ...defineTileMeta("ClockGreetingView", ClockGreetingView),
   args: {
     greeting: "Good morning",
     hour12: 9,

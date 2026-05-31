@@ -1,12 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
+import { defineTileMeta } from "./__stories__/factory";
 import { EventsTileView } from "./EventsTileView";
 
 const meta = {
-  title: "Tiles/Events",
-  component: EventsTileView,
-  // Dark board background is applied globally via BoardDecorator in preview.tsx
-  tags: ["autodocs", "a11y"],
+  // Short display name kept for Storybook nav consistency with the existing "Tiles/Events" path.
+  ...defineTileMeta("Events", EventsTileView, ["a11y"]),
   argTypes: {
     status: {
       control: "radio",
