@@ -4,7 +4,7 @@
  * Strategy: mock the trpc hooks so no real tRPC/React-Query setup is needed.
  * We test:
  *  1. Renders real data when the query resolves.
- *  2. Renders shimmer Skeleton cells when data is undefined (no FALLBACK).
+ *  2. Renders shimmer Skeleton cells when data is undefined (shows shimmer, not hardcoded data).
  *  3. Shows "cached" hint when the query is in error state.
  *  4. Clicking a tap button calls the toggle mutation with the correct args.
  *  5. Pending state: dimmed appearance when a control has pending=true.
@@ -198,7 +198,7 @@ describe("ControlsTile", () => {
 
     it("renders Skeleton cells instead of tap buttons when data is undefined", () => {
       render(<ControlsTile />);
-      // No real control buttons should be present (no FALLBACK data rendered)
+      // No real control buttons should be present — shimmer only, no hardcoded data
       expect(screen.queryByLabelText("Lamps")).not.toBeInTheDocument();
       expect(screen.queryByLabelText("Lights")).not.toBeInTheDocument();
       expect(screen.queryByLabelText("Fan")).not.toBeInTheDocument();
@@ -209,7 +209,7 @@ describe("ControlsTile", () => {
       expect(screen.queryByText("cached")).not.toBeInTheDocument();
     });
 
-    it("does not render any FALLBACK data", () => {
+    it("does not render hardcoded data when query is undefined", () => {
       render(<ControlsTile />);
       // Lamps and Lights buttons must not appear when there is no data.
       expect(screen.queryByLabelText("Lamps")).not.toBeInTheDocument();
