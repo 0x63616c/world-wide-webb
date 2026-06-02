@@ -15,12 +15,28 @@ export interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  // Optional per-modal sizing. Different tiles open detail modals of different
+  // ambition (a wide map vs a narrow agenda list), so the panel size is tunable
+  // per use. Defaults match the original fixed dialog so existing callers are
+  // unaffected. Capped to the board so a modal never exceeds the 1366x1024 panel.
+  width?: number;
+  maxHeight?: number;
 }
 
 // Stable id so the dialog can be aria-labelledby its own title node.
 const TITLE_ID = "modal-title";
 
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  width = 640,
+  maxHeight = 720,
+}: ModalProps) {
+  // Clamp to the board so a modal never overflows the 1366x1024 wall panel.
+  const panelWidth = Math.min(width, 1280);
+  const panelMaxHeight = Math.min(maxHeight, 960);
   // Escape-to-close. Listener is only attached while open so a background
   // (closed) modal never swallows Escape meant for something else.
   useEffect(() => {
@@ -77,8 +93,8 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         className="modal-panel"
         style={{
           position: "relative",
-          width: 640,
-          maxHeight: 720,
+          width: panelWidth,
+          maxHeight: panelMaxHeight,
           display: "flex",
           flexDirection: "column",
           background: "var(--tile)",
