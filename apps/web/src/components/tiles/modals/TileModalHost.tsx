@@ -7,10 +7,15 @@
  * host renders exactly one variant at a time and floats the switcher over it.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal, Skeleton } from "../../ui";
 import type { TileModalEntry } from "./types";
 import { VariantSwitcher } from "./VariantSwitcher";
+
+// The modal entrance animation (.modal-panel modalPanelIn) runs ~220ms. Once the
+// first variant has finished entering we suppress it for swaps, so changing
+// variants pops in instantly instead of replaying a close/open.
+const ENTER_MS = 260;
 
 export interface TileModalHostProps {
   entry: TileModalEntry | null;
@@ -26,9 +31,18 @@ export function TileModalHost({ entry, onClose }: TileModalHostProps) {
 function ActiveTileModal({ entry, onClose }: { entry: TileModalEntry; onClose: () => void }) {
   const { variants, loading } = entry.useVariants();
   const [slug, setSlug] = useState(entry.defaultSlug);
+  const [entered, setEntered] = useState(false);
+
+  const ready = !loading && variants.length > 0;
+  // Let the first variant play its entrance, then mark entered so swaps skip it.
+  useEffect(() => {
+    if (!ready) return;
+    const id = setTimeout(() => setEntered(true), ENTER_MS);
+    return () => clearTimeout(id);
+  }, [ready]);
 
   // Closed-state placeholder while live data loads — never a fabricated modal.
-  if (loading || variants.length === 0) {
+  if (!ready) {
     return (
       <Modal open onClose={onClose} title="Loading">
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -44,7 +58,9 @@ function ActiveTileModal({ entry, onClose }: { entry: TileModalEntry; onClose: (
 
   return (
     <>
-      {active.render(true, onClose)}
+      {/* Wrapper is an ancestor of the variant's inline <Modal>; once entered,
+          .modal-no-enter suppresses the entrance animation on variant swaps. */}
+      <div className={entered ? "modal-no-enter" : undefined}>{active.render(true, onClose)}</div>
       {variants.length > 1 && (
         <VariantSwitcher variants={variants} activeSlug={active.slug} onSelect={setSlug} />
       )}
