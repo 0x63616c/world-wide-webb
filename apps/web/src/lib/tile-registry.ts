@@ -45,6 +45,10 @@ export type TileRegistryEntry = {
   rowStart: number;
   cols: number;
   rows: number;
+  // When true the tile owns its own tap surface (it opens its own detail modal),
+  // so the board does NOT open the generic showcase modal for it. Controls opens
+  // its expanded modal; other tiles flip this on as their detail modals land.
+  ownsTap?: boolean;
 };
 
 // One entry per tile on the 12×6 board. colStart/rowStart are 1-indexed.
@@ -115,6 +119,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     rowStart: 3,
     cols: 4,
     rows: 2,
+    ownsTap: true,
   },
   {
     id: "tile_dogcam",

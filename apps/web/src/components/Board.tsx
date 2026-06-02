@@ -10,12 +10,14 @@ import {
 } from "../lib/grid-constants";
 import { deriveGridAreas, TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
-import { TileShowcaseModal } from "./tiles/TileShowcaseModal";
+import { getTileModalEntry } from "./tiles/modals/registry";
+import { TileModalHost } from "./tiles/modals/TileModalHost";
+import type { TileModalEntry } from "./tiles/modals/types";
 import { TileBoundary } from "./ui/TileBoundary";
 
 // Interactive descendants a tap may land on (toggles, sliders, the Controls
 // "More" button). Taps on these drive the tile's own controls and must NOT also
-// open the showcase modal; taps anywhere else on the tile open it.
+// open the detail modal; taps anywhere else on the tile open it.
 const INTERACTIVE_SELECTOR = 'button, input, a, select, textarea, [role="slider"]';
 
 const GRID_AREAS = deriveGridAreas(TILE_REGISTRY);
@@ -51,13 +53,17 @@ function BoundedTile({ children }: { children: React.ReactNode }) {
  */
 export function Board() {
   const scalerRef = useRef<HTMLDivElement>(null);
-  // Which tile is open in its showcase modal (null = none).
-  const [activeEntry, setActiveEntry] = useState<TileRegistryEntry | null>(null);
+  // Which tile's detail modal is open (null = none).
+  const [activeModal, setActiveModal] = useState<TileModalEntry | null>(null);
 
-  // Open the showcase only for taps on the tile body, not on an inner control.
+  // Open a tile's detail modal for taps on the tile body, not on an inner control.
+  // Tiles that own their tap (ownsTap) open their own modal, so the board leaves
+  // them alone; tiles with no registered modal simply don't open anything.
   function openTile(entry: TileRegistryEntry, e: React.MouseEvent<HTMLDivElement>) {
+    if (entry.ownsTap) return;
     if ((e.target as HTMLElement).closest(INTERACTIVE_SELECTOR)) return;
-    setActiveEntry(entry);
+    const modal = getTileModalEntry(entry.id);
+    if (modal) setActiveModal(modal);
   }
 
   useEffect(() => {
@@ -110,10 +116,13 @@ export function Board() {
                   // Keyboard activation only when the tile wrapper itself is
                   // focused — keep Enter/Space on inner controls for those controls.
                   onKeyDown={(e) => {
+                    if (entry.ownsTap) return;
                     if (e.target !== e.currentTarget) return;
                     if (e.key === "Enter" || e.key === " ") {
+                      const modal = getTileModalEntry(entry.id);
+                      if (!modal) return;
                       e.preventDefault();
-                      setActiveEntry(entry);
+                      setActiveModal(modal);
                     }
                   }}
                 >
@@ -125,7 +134,7 @@ export function Board() {
             })}
           </div>
         </div>
-        <TileShowcaseModal entry={activeEntry} onClose={() => setActiveEntry(null)} />
+        <TileModalHost entry={activeModal} onClose={() => setActiveModal(null)} />
       </div>
     </div>
   );
