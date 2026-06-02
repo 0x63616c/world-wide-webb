@@ -395,6 +395,14 @@
     animation: none;
   }
 }
+/* Swapping modal variants while already open: the backdrop + panel are already
+   on screen, so a newly-mounted variant must NOT replay the entrance animation
+   (that reads as a jarring close-then-open). The host adds this class once the
+   first variant has entered; subsequent swaps pop in instantly. */
+.modal-no-enter .modal-backdrop,
+.modal-no-enter .modal-panel {
+  animation: none;
+}
 .divider {
   height: 1px;
   background: var(--hair);

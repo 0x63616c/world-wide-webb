@@ -9,5 +9,7 @@ export function Next12Hours() {
 
   if (!data || data.length === 0) return <Next12HoursView status="loading" />;
 
-  return <Next12HoursView status="populated" hours={data} />;
+  // The shared weather.hourly endpoint now returns 24 slots (the detail modals
+  // need a full day); this tile is the *next 12 hours* strip, so cap it at 12.
+  return <Next12HoursView status="populated" hours={data.slice(0, 12)} />;
 }
