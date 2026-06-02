@@ -1,6 +1,7 @@
 import type { Decorator, Preview } from "@storybook/react-vite";
 import { createElement } from "react";
 import { create } from "storybook/theming/create";
+import { INITIAL_VIEWPORTS } from "storybook/viewport";
 import { tilePixelSize } from "../src/lib/grid-constants";
 import { registryEntryForComponent } from "../src/lib/tile-registry";
 
@@ -76,15 +77,18 @@ const preview: Preview = {
       default: "board",
       values: [{ name: "board", value: "#060708" }],
     },
-    // Fixed 1366×1024 — the physical wall-panel dimensions
+    // Fixed 1366×1024 — the physical wall-panel (iPad Pro 12.9" landscape).
+    // Storybook 10 API: `options` (not `viewports`); the initial selection lives
+    // in `initialGlobals` below. The stock device presets are merged in so the
+    // iPad/iPhone sizes are also available from the toolbar.
     viewport: {
-      defaultViewport: "board",
-      viewports: {
+      options: {
         board: {
-          name: "Wall Panel 1366×1024",
+          name: "Wall Panel · iPad Pro 1366×1024",
           styles: { width: "1366px", height: "1024px" },
-          type: "desktop",
+          type: "tablet",
         },
+        ...INITIAL_VIEWPORTS,
       },
     },
     controls: {
@@ -97,6 +101,11 @@ const preview: Preview = {
       // Flag violations in the test UI without failing CI
       test: "todo",
     },
+  },
+  // SB10: the initially-selected viewport lives here (replaces the old
+  // viewport.defaultViewport). Boots every story at the true wall-panel size.
+  initialGlobals: {
+    viewport: { value: "board", isRotated: false },
   },
 };
 

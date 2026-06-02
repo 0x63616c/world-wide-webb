@@ -165,14 +165,46 @@ describe("ExpandedControlsModalView — brightness slider", () => {
     expect(screen.getByText("0%")).toBeInTheDocument();
   });
 
-  it("calls onBrightness with the numeric pct on change and updates the readout", () => {
-    const onBrightness = vi.fn();
-    render(<ExpandedControlsModalView {...baseProps({ onBrightness })} />);
-    fireEvent.change(screen.getByLabelText("Brightness"), { target: { value: "42" } });
-    expect(onBrightness).toHaveBeenCalledWith(42);
-    // Controlled slider: the live readout reflects the dragged value immediately.
-    expect(screen.getByText("42%")).toBeInTheDocument();
-    expect((screen.getByLabelText("Brightness") as HTMLInputElement).value).toBe("42");
+  it("updates the readout immediately but debounces onBrightness (400ms trailing)", () => {
+    vi.useFakeTimers();
+    try {
+      const onBrightness = vi.fn();
+      render(<ExpandedControlsModalView {...baseProps({ onBrightness })} />);
+      const slider = screen.getByLabelText("Brightness");
+
+      // Controlled slider: the live readout reflects the dragged value immediately.
+      fireEvent.change(slider, { target: { value: "42" } });
+      expect(screen.getByText("42%")).toBeInTheDocument();
+      expect((slider as HTMLInputElement).value).toBe("42");
+      // ...but the backend mutation has NOT fired yet.
+      expect(onBrightness).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(400);
+      expect(onBrightness).toHaveBeenCalledTimes(1);
+      expect(onBrightness).toHaveBeenCalledWith(42);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("coalesces a rapid drag into a single onBrightness call for the final value", () => {
+    vi.useFakeTimers();
+    try {
+      const onBrightness = vi.fn();
+      render(<ExpandedControlsModalView {...baseProps({ onBrightness })} />);
+      const slider = screen.getByLabelText("Brightness");
+
+      // Dragging 50→0 quickly: each tick resets the timer, so only the last wins.
+      for (let v = 50; v >= 0; v--) {
+        fireEvent.change(slider, { target: { value: String(v) } });
+      }
+      vi.advanceTimersByTime(400);
+
+      expect(onBrightness).toHaveBeenCalledTimes(1);
+      expect(onBrightness).toHaveBeenCalledWith(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("resyncs the slider when data.lamps.brightness changes upstream", () => {

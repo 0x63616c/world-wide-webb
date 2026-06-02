@@ -3,6 +3,7 @@
  * All data and callbacks come in as props; no trpc or hooks inside.
  */
 
+import type { MouseEventHandler } from "react";
 import { Icon } from "../Icon";
 import { ControlTap, Skeleton, Tile, TileHeader } from "../ui";
 import { TileStatus } from "./EventsTileView";
@@ -128,8 +129,21 @@ function SkeletonGrid() {
 // ─── ControlsTileView — pure view ─────────────────────────────────────────────
 
 export function ControlsTileView(props: ControlsTileViewProps) {
+  const onMore = props.status === TileStatus.Populated ? props.onMore : undefined;
+
+  // Whole-tile tap opens the expanded modal — the same surface the "more" button
+  // opens — EXCEPT taps on a toggle cell (.tap), which operate that control.
+  // stopPropagation keeps any ancestor tap handler from also firing.
+  const onTileTap: MouseEventHandler<HTMLDivElement> | undefined = onMore
+    ? (e) => {
+        if ((e.target as HTMLElement).closest(".tap")) return;
+        e.stopPropagation();
+        onMore();
+      }
+    : undefined;
+
   return (
-    <Tile padding={20}>
+    <Tile padding={20} onClick={onTileTap} style={onMore ? { cursor: "pointer" } : undefined}>
       <TileHeader icon="bulb" title="Controls" />
 
       <div

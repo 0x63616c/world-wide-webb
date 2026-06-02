@@ -42,8 +42,17 @@ export function ControlTap({ icon, label, on, sub, pending, onToggle }: ControlT
       aria-pressed={on}
       aria-label={label}
     >
-      {/* Top row: icon left, status dot right */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      {/* Top row: icon left, status dot right.
+          width:100% sidesteps an iOS Safari bug where a <button> column-flex
+          container fails to stretch its children, collapsing space-between. */}
+      <div
+        style={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+        }}
+      >
         {icon === "fan" ? (
           <span
             data-fan-spin=""
@@ -61,9 +70,11 @@ export function ControlTap({ icon, label, on, sub, pending, onToggle }: ControlT
         <span className="sd" />
       </div>
 
-      {/* Bottom row: label left, On/Off status right — same baseline */}
+      {/* Bottom row: label left, On/Off status right — same baseline.
+          width:100% for the same iOS Safari button-flex stretch bug as above. */}
       <div
         style={{
+          width: "100%",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "baseline",
