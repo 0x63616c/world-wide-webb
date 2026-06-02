@@ -85,15 +85,15 @@ describe("Next12HoursView — populated state", () => {
     expect(screen.getByText("12")).toBeInTheDocument();
   });
 
-  it("renders one SVG rect per hour entry", () => {
+  it("renders one bar per hour entry", () => {
     const { container } = render(<Next12HoursView {...populatedProps} />);
-    const rects = container.querySelectorAll("svg rect");
-    expect(rects.length).toBe(SAMPLE_HOURS.length);
+    const bars = container.querySelectorAll("[data-bar]");
+    expect(bars.length).toBe(SAMPLE_HOURS.length);
   });
 
-  it("renders exactly 12 rects for 12 data points", () => {
+  it("renders exactly 12 bars for 12 data points", () => {
     const { container } = render(<Next12HoursView {...populatedProps} />);
-    expect(container.querySelectorAll("svg rect").length).toBe(12);
+    expect(container.querySelectorAll("[data-bar]").length).toBe(12);
   });
 
   it("renders the feels-like polyline", () => {

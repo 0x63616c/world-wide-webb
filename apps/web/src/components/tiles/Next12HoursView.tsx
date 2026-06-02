@@ -3,9 +3,19 @@ import { Icon } from "../Icon";
 import { Skeleton, Tile, TileHeader } from "../ui";
 import { TileStatus } from "./EventsTileView";
 
-// Width used on first render before ResizeObserver fires, preventing a
-// blank frame on slow mounts (e.g. wall-panel cold start, missing ResizeObserver).
-const CHART_INITIAL_WIDTH = 400;
+// Vertical rhythm token. The SAME value separates bar→icon and icon→time, so the
+// spacing is even by construction — there are no per-element pixel offsets to tune.
+const GAP = 6;
+// Bar width as a fraction of its column — a proportion, so it scales with the tile.
+const BAR_WIDTH = "44%";
+// px reserved above the tallest bar for its temp label (one mono line) and the
+// px floor so the coldest hour still reads as a bar. These are scale inputs to the
+// value→height mapping, not layout nudges.
+const LABEL_HEADROOM = 22;
+const MIN_BAR = 14;
+// First-paint fallbacks before the ResizeObserver reports real dimensions.
+const INITIAL_W = 360;
+const INITIAL_H = 180;
 
 export type HourlyEntry = {
   t: string;
@@ -65,21 +75,20 @@ export function Next12HoursView(props: Next12HoursViewProps) {
   const feels = hours.map((x) => x.feels);
   const gMin = Math.min(...hours.map((x) => x.temp), ...feels);
   const gMax = Math.max(...hours.map((x) => x.temp));
-  const topRes = 22;
-  const minBar = 14;
-  const chartH = Math.max(120, (h || 200) - 44);
 
+  // Measured bar-band dimensions drive the value→height scale (h) and the
+  // feels-like overlay's pixel coords (w). Bar heights are px so MIN_BAR and
+  // LABEL_HEADROOM are honoured at any tile size.
+  const bandW = w || INITIAL_W;
+  const bandH = h || INITIAL_H;
   const barH = (val: number) =>
-    minBar + ((val - gMin) / (gMax - gMin || 1)) * (chartH - topRes - minBar);
+    MIN_BAR + ((val - gMin) / (gMax - gMin || 1)) * Math.max(0, bandH - LABEL_HEADROOM - MIN_BAR);
 
-  // Use measured width or initial width so the chart is never blank on first paint.
-  const renderW = w || CHART_INITIAL_WIDTH;
-  const colW = renderW / n;
-  const cx = (i: number) => (i + 0.5) * colW;
-  const barW = colW * 0.44;
-
+  // Feels-like overlay coords. x = column centre ((i+0.5)/n) — identical to where
+  // each flex:1 column centres — so the line tracks the bars without any matching math.
+  const colCx = (i: number) => ((i + 0.5) * bandW) / n;
   const fpts = feels
-    .map((f, i) => `${cx(i).toFixed(1)},${(chartH - barH(f)).toFixed(1)}`)
+    .map((f, i) => `${colCx(i).toFixed(1)},${(bandH - barH(f)).toFixed(1)}`)
     .join(" ");
 
   return (
@@ -96,85 +105,87 @@ export function Next12HoursView(props: Next12HoursViewProps) {
         }
       />
 
-      {/* Chart area */}
-      <div ref={ref} style={{ position: "relative", flex: 1 }}>
-        <svg
-          width={renderW}
-          height={chartH}
-          style={{
-            position: "absolute",
-            top: 4,
-            left: 0,
-            overflow: "visible",
-          }}
-          aria-hidden="true"
-        >
+      {/* Chart: a bar band stacked over a label band, separated by one GAP. The
+          icon→time gap inside each label column is the SAME GAP, so bar→icon and
+          icon→time are even by construction — no per-element offsets. */}
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: GAP }}>
+        {/* Bar band — one flex:1 column per hour; bars share a baseline via flex-end */}
+        <div ref={ref} style={{ flex: 1, minHeight: 0, position: "relative", display: "flex" }}>
           {hours.map((dd, i) => {
-            const hh = barH(dd.temp);
-            const y = chartH - hh;
             const first = i === 0;
             return (
-              <g key={dd.t}>
-                <rect
-                  x={cx(i) - barW / 2}
-                  y={y}
-                  width={barW}
-                  height={hh}
-                  rx={4}
-                  fill={first ? "var(--acc)" : "var(--tile-2)"}
-                  stroke={first ? "none" : "var(--hair-2)"}
-                  strokeWidth={1}
-                />
-                <text
-                  x={cx(i)}
-                  y={y - 7}
-                  textAnchor="middle"
-                  fill={first ? "var(--acc)" : "var(--ink)"}
-                  style={{ font: "700 11px var(--mono)" }}
+              <div
+                key={dd.t}
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                }}
+              >
+                {/* Temp label rides directly on top of its bar */}
+                <span
+                  className="mono"
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    marginBottom: 5,
+                    color: first ? "var(--acc)" : "var(--ink)",
+                  }}
                 >
                   {dd.temp}°
-                </text>
-              </g>
+                </span>
+                <div
+                  data-bar=""
+                  data-temp={dd.temp}
+                  style={{
+                    width: BAR_WIDTH,
+                    height: barH(dd.temp),
+                    borderRadius: 4,
+                    background: first ? "var(--acc)" : "var(--tile-2)",
+                    border: first ? "none" : "1px solid var(--hair-2)",
+                  }}
+                />
+              </div>
             );
           })}
-          {/* Dotted feels-like polyline — secondary reference, kept subtle under temp bars */}
-          <polyline
-            points={fpts}
-            fill="none"
-            stroke="rgba(255,255,255,0.18)"
-            strokeWidth={1}
-            strokeDasharray="2 5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity={0.45}
-          />
-          {/* Feels-like dots — smaller to stay secondary */}
-          {feels.map((f, i) => (
-            <circle
-              key={hours[i].t}
-              cx={cx(i)}
-              cy={chartH - barH(f)}
-              r={1}
-              fill="rgba(255,255,255,0.18)"
+
+          {/* Feels-like reference — a single overlay spanning the whole bar band
+              (inset:0), so it can draw across columns. Pixel coords from the
+              measured band; no preserveAspectRatio stretch, so dashes stay crisp. */}
+          <svg
+            width={bandW}
+            height={bandH}
+            style={{ position: "absolute", inset: 0, overflow: "visible" }}
+            aria-hidden="true"
+          >
+            <polyline
+              points={fpts}
+              fill="none"
+              stroke="rgba(255,255,255,0.18)"
+              strokeWidth={1}
+              strokeDasharray="2 5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               opacity={0.45}
             />
-          ))}
-        </svg>
+            {feels.map((f, i) => (
+              <circle
+                key={hours[i].t}
+                cx={colCx(i)}
+                cy={bandH - barH(f)}
+                r={1}
+                fill="rgba(255,255,255,0.18)"
+                opacity={0.45}
+              />
+            ))}
+          </svg>
+        </div>
 
-        {/* Icon + hour label row.
-            Sits 2px under the bar baseline (not 6) — the solid bar edge reads
-            heavier than the thin icon, so an equal box-gap looked lopsided
-            toward the chart. 4px here (vs the 6px icon→time gap) lands the icon
-            glyph visually centered between the bar baseline and the time label. */}
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: 4 + chartH + 4,
-            display: "flex",
-          }}
-        >
+        {/* Label band — same flex:1 columns as the bars above, so icon + time stay
+            locked under their bar with zero alignment math. */}
+        <div style={{ display: "flex" }}>
           {hours.map((dd, i) => (
             <div
               key={dd.t}
@@ -183,7 +194,7 @@ export function Next12HoursView(props: Next12HoursViewProps) {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 6,
+                gap: GAP,
               }}
             >
               <Icon
@@ -197,10 +208,7 @@ export function Next12HoursView(props: Next12HoursViewProps) {
               />
               <span
                 className="mono"
-                style={{
-                  fontSize: 11,
-                  color: i === 0 ? "var(--acc)" : "var(--ink-3)",
-                }}
+                style={{ fontSize: 11, color: i === 0 ? "var(--acc)" : "var(--ink-3)" }}
               >
                 {dd.t}
               </span>

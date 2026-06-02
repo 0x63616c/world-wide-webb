@@ -72,67 +72,23 @@ export const Populated: Story = {
     // First hour label.
     await expect(canvas.getAllByText("Now").length).toBeGreaterThan(0);
 
-    // One SVG bar per hour entry.
-    const rects = canvasElement.querySelectorAll("svg rect");
-    await expect(rects.length).toBe(12);
+    // One bar per hour entry (flex-column <div data-bar>, not an SVG rect).
+    const bars = canvasElement.querySelectorAll<HTMLElement>("[data-bar]");
+    await expect(bars.length).toBe(12);
+    // Each bar has a positive px height from the value→height scale.
+    for (const bar of bars) {
+      await expect(Number.parseFloat(bar.style.height)).toBeGreaterThan(0);
+    }
 
-    // Feels-like polyline present and kept subtle (opacity < 1).
+    // Feels-like polyline present, with one point per hour, kept subtle (opacity < 1).
     const polyline = canvasElement.querySelector("polyline");
     await expect(polyline).not.toBeNull();
     await expect(Number(polyline?.getAttribute("opacity") ?? "1")).toBeLessThan(1);
+    const pairs = (polyline?.getAttribute("points") ?? "").trim().split(/\s+/);
+    await expect(pairs.length).toBe(12);
 
-    // Read the chart's actual rendered geometry from the <svg> the component
-    // sized to its container (width=renderW, height=chartH). Deriving from these
-    // rather than hardcoding keeps the test correct at the tile's true footprint.
-    const chartSvg = [...canvasElement.querySelectorAll("svg")].find((s) =>
-      s.querySelector("rect"),
-    );
-    await expect(chartSvg).not.toBeUndefined();
-    const renderW = Number(chartSvg?.getAttribute("width"));
-    const chartH = Number(chartSvg?.getAttribute("height"));
-
-    // Bar heights are proportional to temp values, using the component's own
-    // formula: barH(v) = minBar + ((v-gMin)/(gMax-gMin)) * (chartH-topRes-minBar).
-    //   gMin=62 (min temp & feels), gMax=79 (max temp).
-    const topRes = 22;
-    const minBar = 14;
-    const gMin = 62;
-    const gMax = 79;
-    const span = chartH - topRes - minBar;
-    const barH = (v: number) => minBar + ((v - gMin) / (gMax - gMin)) * span;
-    const temps = [74, 76, 78, 79, 77, 73, 70, 68, 66, 65, 64, 63];
-    for (let i = 0; i < temps.length; i++) {
-      const expectedH = barH(temps[i]);
-      const actualH = Number(rects[i].getAttribute("height"));
-      await expect(Math.abs(actualH - expectedH)).toBeLessThan(1);
-      const expectedY = chartH - expectedH;
-      const actualY = Number(rects[i].getAttribute("y"));
-      await expect(Math.abs(actualY - expectedY)).toBeLessThan(1);
-    }
-
-    // Polyline points match feels values scaled to chart coordinates.
-    const n = 12;
-    const colW = renderW / n;
-    const cx = (i: number) => (i + 0.5) * colW;
-    const feels = [73, 75, 77, 78, 76, 72, 69, 67, 65, 64, 63, 62];
-    const points = polyline?.getAttribute("points") ?? "";
-    const pairs = points.trim().split(/\s+/);
-    await expect(pairs.length).toBe(n);
-    for (let i = 0; i < n; i++) {
-      const [px, py] = pairs[i].split(",").map(Number);
-      await expect(Math.abs(px - cx(i))).toBeLessThan(1);
-      await expect(Math.abs(py - (chartH - barH(feels[i])))).toBeLessThan(1);
-    }
-
-    // Icon SVGs present — 1 chart + 1 header + 12 hour icons = 14 total.
+    // 1 feels-overlay SVG + 1 header Icon SVG + 12 hour Icon SVGs = 14 total.
     await expect(canvasElement.querySelectorAll("svg").length).toBe(14);
-
-    // Icon row does not overflow the tile container (top = 4 + chartH + 6 = 166 < 312).
-    const iconRow = canvasElement.querySelector<HTMLElement>(
-      '[style*="position: absolute"][style*="display: flex"]',
-    );
-    await expect(iconRow).not.toBeNull();
-    await expect(Number.parseFloat(iconRow?.style.top ?? "999")).toBeLessThan(312);
   },
 };
 
@@ -142,20 +98,12 @@ export const SingleHour: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Next 12 Hours")).toBeInTheDocument();
-    const rects = canvasElement.querySelectorAll("svg rect");
-    await expect(rects.length).toBe(1);
-    // Dimensions must be finite positive — no NaN from degenerate ranges.
-    const rect = rects[0];
-    await expect(Number(rect?.getAttribute("width"))).toBeGreaterThan(0);
-    await expect(Number(rect?.getAttribute("height"))).toBeGreaterThan(0);
-    // gMin=70(feels), gMax=72(temp): the single (temp=72) bar reaches the full
-    // span, so barH = minBar + (chartH-topRes-minBar) = chartH - topRes = chartH - 22.
-    const chartSvg = [...canvasElement.querySelectorAll("svg")].find((s) =>
-      s.querySelector("rect"),
-    );
-    const chartH = Number(chartSvg?.getAttribute("height"));
-    await expect(Math.abs(Number(rect?.getAttribute("height")) - (chartH - 22))).toBeLessThan(1);
-    // 1 chart + 1 header + 1 hour icon = 3 SVGs total.
+    const bars = canvasElement.querySelectorAll<HTMLElement>("[data-bar]");
+    await expect(bars.length).toBe(1);
+    // Height must be finite positive — no NaN from a degenerate range.
+    const h = Number.parseFloat(bars[0].style.height);
+    await expect(Number.isFinite(h) && h > 0).toBe(true);
+    // 1 feels-overlay + 1 header + 1 hour icon = 3 SVGs total.
     await expect(canvasElement.querySelectorAll("svg").length).toBe(3);
   },
 };
@@ -166,8 +114,8 @@ export const IconVariety: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Next 12 Hours")).toBeInTheDocument();
-    await expect(canvasElement.querySelectorAll("svg rect").length).toBe(4);
-    // 1 chart + 1 header + 4 hour icons = 6 SVGs — confirms all icon variants render.
+    await expect(canvasElement.querySelectorAll("[data-bar]").length).toBe(4);
+    // 1 feels-overlay + 1 header + 4 hour icons = 6 SVGs — confirms all icon variants render.
     await expect(canvasElement.querySelectorAll("svg").length).toBe(6);
   },
 };

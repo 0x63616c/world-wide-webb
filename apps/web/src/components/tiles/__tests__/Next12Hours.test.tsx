@@ -191,7 +191,7 @@ describe("Next12Hours", () => {
     expect(header).toBeInTheDocument();
   });
 
-  it("CC-42i: renders SVG bar rects when data is present (chart actually draws)", () => {
+  it("CC-42i: renders a bar per hour when data is present (chart actually draws)", () => {
     mockHourlyQuery.mockReturnValue({
       data: SAMPLE_HOURS,
       isLoading: false,
@@ -200,13 +200,13 @@ describe("Next12Hours", () => {
 
     const { container } = render(<Next12Hours />);
 
-    // Each hour gets a <rect> element in the SVG chart.
-    // The ResizeObserver mock gives a non-zero width so the chart renders.
-    const rects = container.querySelectorAll("svg rect");
-    expect(rects.length).toBe(SAMPLE_HOURS.length);
+    // Each hour gets a [data-bar] element in the flex chart band.
+    // The container slices weather.hourly to 12, so 12 bars render here.
+    const bars = container.querySelectorAll("[data-bar]");
+    expect(bars.length).toBe(SAMPLE_HOURS.length);
   });
 
-  it("CC-42i: renders exactly 12 bar rects for 12 data points", () => {
+  it("CC-42i: renders exactly 12 bars for 12 data points", () => {
     mockHourlyQuery.mockReturnValue({
       data: SAMPLE_HOURS,
       isLoading: false,
@@ -215,7 +215,7 @@ describe("Next12Hours", () => {
 
     const { container } = render(<Next12Hours />);
 
-    const rects = container.querySelectorAll("svg rect");
-    expect(rects.length).toBe(12);
+    const bars = container.querySelectorAll("[data-bar]");
+    expect(bars.length).toBe(12);
   });
 });

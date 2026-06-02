@@ -2,10 +2,13 @@
  * Vitest component tests for Next12HoursView stories.
  * Uses composeStories to execute each story (including play functions) in jsdom.
  *
- * Chart math reference (MockResizeObserver gives clientHeight=200):
- *   chartH = Math.max(120, 200 - 44) = 156
- *   barH(val) = 14 + ((val - gMin) / (gMax - gMin || 1)) * (156 - 22 - 14)
- *             = 14 + ((val - gMin) / range) * 120
+ * Bars are flex-column <div data-bar> elements (height in px), not SVG rects.
+ * Chart math (MockResizeObserver gives the bar band clientWidth=400, clientHeight=200):
+ *   bandH = 200, bandW = 400
+ *   barH(val) = MIN_BAR + ((val - gMin) / (gMax - gMin || 1)) * (bandH - LABEL_HEADROOM - MIN_BAR)
+ *             = 14 + ((val - gMin) / range) * (200 - 22 - 14)
+ *             = 14 + ((val - gMin) / range) * 164
+ * The feels-like overlay stays an SVG polyline; column centres are colCx(i)=(i+0.5)*bandW/n.
  */
 
 import "@testing-library/jest-dom";
@@ -35,6 +38,16 @@ class MockResizeObserver {
 // @ts-expect-error — jsdom stub
 global.ResizeObserver = MockResizeObserver;
 
+// Bar-height scale, mirroring the view (bandH=200, bandW=400 from the mock).
+const MIN_BAR = 14;
+const LABEL_HEADROOM = 22;
+const BAND_H = 200;
+const BAND_W = 400;
+const SPAN = BAND_H - LABEL_HEADROOM - MIN_BAR; // 164
+function makeBarH(gMin: number, gMax: number) {
+  return (v: number) => MIN_BAR + ((v - gMin) / (gMax - gMin || 1)) * SPAN;
+}
+
 describe("Next12HoursView stories — Loading", () => {
   it("renders tile container but no section header", async () => {
     const { container } = render(<Loading />);
@@ -45,6 +58,11 @@ describe("Next12HoursView stories — Loading", () => {
 });
 
 describe("Next12HoursView stories — Populated", () => {
+  // SAMPLE_HOURS temps/feels — gMin = min(all temps, all feels) = 62, gMax = max(temps) = 79.
+  const temps = [74, 76, 78, 79, 77, 73, 70, 68, 66, 65, 64, 63];
+  const feels = [73, 75, 77, 78, 76, 72, 69, 67, 65, 64, 63, 62];
+  const barH = makeBarH(62, 79);
+
   it("renders header, legend, and first hour label", async () => {
     const { container } = render(<Populated />);
     if (Populated.play) await Populated.play({ canvasElement: container });
@@ -54,81 +72,44 @@ describe("Next12HoursView stories — Populated", () => {
     expect(screen.getAllByText("Now").length).toBeGreaterThan(0);
   });
 
-  it("renders exactly 12 SVG bar rects", async () => {
+  it("renders exactly 12 bars", async () => {
     const { container } = render(<Populated />);
     if (Populated.play) await Populated.play({ canvasElement: container });
-    expect(container.querySelectorAll("svg rect").length).toBe(12);
+    expect(container.querySelectorAll("[data-bar]").length).toBe(12);
   });
 
   it("bar heights are proportional to temp values", async () => {
     const { container } = render(<Populated />);
     if (Populated.play) await Populated.play({ canvasElement: container });
-    // Chart math: chartH=156, topRes=22, minBar=14, span=120
-    // gMin=62, gMax=79, range=17
-    const chartH = 156;
-    const topRes = 22;
-    const minBar = 14;
-    const gMin = 62;
-    const gMax = 79;
-    const span = chartH - topRes - minBar; // 120
-    const barH = (v: number) => minBar + ((v - gMin) / (gMax - gMin)) * span;
-
-    const rects = Array.from(container.querySelectorAll("svg rect"));
-    // SAMPLE_HOURS temps: [74,76,78,79,77,73,70,68,66,65,64,63]
-    const temps = [74, 76, 78, 79, 77, 73, 70, 68, 66, 65, 64, 63];
+    const bars = Array.from(container.querySelectorAll<HTMLElement>("[data-bar]"));
     for (let i = 0; i < temps.length; i++) {
-      const expected = barH(temps[i]);
-      const actual = Number(rects[i].getAttribute("height"));
-      expect(actual).toBeCloseTo(expected, 1);
+      expect(parseFloat(bars[i].style.height)).toBeCloseTo(barH(temps[i]), 1);
     }
   });
 
-  it("bar y-positions match chartH - barH(temp)", async () => {
+  it("the hottest hour has the tallest bar", async () => {
     const { container } = render(<Populated />);
     if (Populated.play) await Populated.play({ canvasElement: container });
-    const chartH = 156;
-    const topRes = 22;
-    const minBar = 14;
-    const gMin = 62;
-    const gMax = 79;
-    const span = chartH - topRes - minBar;
-    const barH = (v: number) => minBar + ((v - gMin) / (gMax - gMin)) * span;
-
-    const rects = Array.from(container.querySelectorAll("svg rect"));
-    const temps = [74, 76, 78, 79, 77, 73, 70, 68, 66, 65, 64, 63];
-    for (let i = 0; i < temps.length; i++) {
-      const expectedY = chartH - barH(temps[i]);
-      const actualY = Number(rects[i].getAttribute("y"));
-      expect(actualY).toBeCloseTo(expectedY, 1);
-    }
+    const heights = Array.from(container.querySelectorAll<HTMLElement>("[data-bar]")).map((b) =>
+      parseFloat(b.style.height),
+    );
+    expect(heights.indexOf(Math.max(...heights))).toBe(temps.indexOf(Math.max(...temps)));
   });
 
-  it("polyline points match feels values scaled to chart", async () => {
+  it("polyline points match feels values scaled to the bar band", async () => {
     const { container } = render(<Populated />);
     if (Populated.play) await Populated.play({ canvasElement: container });
-    const chartH = 156;
-    const topRes = 22;
-    const minBar = 14;
-    const gMin = 62;
-    const gMax = 79;
-    const span = chartH - topRes - minBar;
-    const barH = (v: number) => minBar + ((v - gMin) / (gMax - gMin)) * span;
-    // renderW=400, n=12, colW≈33.33
     const n = 12;
-    const renderW = 400;
-    const colW = renderW / n;
-    const cx = (i: number) => (i + 0.5) * colW;
-    const feels = [73, 75, 77, 78, 76, 72, 69, 67, 65, 64, 63, 62];
+    const colCx = (i: number) => ((i + 0.5) * BAND_W) / n;
 
     const polyline = container.querySelector("polyline");
     expect(polyline).not.toBeNull();
-    const points = polyline?.getAttribute("points") ?? "";
-    const pairs = points.trim().split(/\s+/);
+    const pairs = (polyline?.getAttribute("points") ?? "").trim().split(/\s+/);
     expect(pairs.length).toBe(n);
     for (let i = 0; i < n; i++) {
       const [px, py] = pairs[i].split(",").map(Number);
-      expect(px).toBeCloseTo(cx(i), 0);
-      expect(py).toBeCloseTo(chartH - barH(feels[i]), 0);
+      expect(px).toBeCloseTo(colCx(i), 0);
+      expect(py).toBeCloseTo(BAND_H - barH(feels[i]), 0);
     }
   });
 
@@ -139,73 +120,64 @@ describe("Next12HoursView stories — Populated", () => {
     expect(Number(polyline?.getAttribute("opacity") ?? "1")).toBeLessThan(1);
   });
 
-  it("renders Icon SVG elements for each hour (12 icons)", async () => {
+  it("renders Icon SVG elements for each hour (14 svgs total)", async () => {
     const { container } = render(<Populated />);
     if (Populated.play) await Populated.play({ canvasElement: container });
-    // 1 chart SVG + 1 header Icon SVG + 12 hour Icon SVGs = 14
-    const allSvgs = container.querySelectorAll("svg");
-    expect(allSvgs.length).toBe(14);
+    // 1 feels-overlay SVG + 1 header Icon SVG + 12 hour Icon SVGs = 14
+    expect(container.querySelectorAll("svg").length).toBe(14);
   });
 });
 
 describe("Next12HoursView stories — SingleHour", () => {
-  it("renders header and exactly 1 rect", async () => {
+  it("renders header and exactly 1 bar", async () => {
     const { container } = render(<SingleHour />);
     if (SingleHour.play) await SingleHour.play({ canvasElement: container });
     expect(screen.getByText("Next 12 Hours")).toBeInTheDocument();
-    expect(container.querySelectorAll("svg rect").length).toBe(1);
+    expect(container.querySelectorAll("[data-bar]").length).toBe(1);
   });
 
-  it("rect has finite positive width and height (NaN guard for degenerate range)", async () => {
+  it("bar has finite positive height (NaN guard for degenerate range)", async () => {
     const { container } = render(<SingleHour />);
     if (SingleHour.play) await SingleHour.play({ canvasElement: container });
-    const rect = container.querySelector("svg rect");
-    const w = Number(rect?.getAttribute("width"));
-    const h = Number(rect?.getAttribute("height"));
-    expect(Number.isFinite(w) && w > 0).toBe(true);
+    const bar = container.querySelector<HTMLElement>("[data-bar]");
+    const h = parseFloat(bar?.style.height ?? "");
     expect(Number.isFinite(h) && h > 0).toBe(true);
   });
 
   it("bar height reflects actual range when feels < temp (not truly degenerate)", async () => {
     const { container } = render(<SingleHour />);
     if (SingleHour.play) await SingleHour.play({ canvasElement: container });
-    // SINGLE_HOUR: {temp:72, feels:70}. gMin=min(72,70)=70, gMax=max(72)=72, range=2.
-    // barH(72) = 14 + ((72-70)/2) * 120 = 14 + 120 = 134
-    const rect = container.querySelector("svg rect");
-    expect(Number(rect?.getAttribute("height"))).toBeCloseTo(134, 1);
+    // SINGLE_HOUR: {temp:72, feels:70}. gMin=min(72,70)=70, gMax=72, range=2.
+    // barH(72) = 14 + ((72-70)/2) * 164 = 14 + 164 = 178
+    const bar = container.querySelector<HTMLElement>("[data-bar]");
+    expect(parseFloat(bar?.style.height ?? "")).toBeCloseTo(178, 1);
   });
 
-  it("renders 1 chart + 1 header + 1 hour = 3 SVGs total", async () => {
+  it("renders 1 overlay + 1 header + 1 hour = 3 SVGs total", async () => {
     const { container } = render(<SingleHour />);
     if (SingleHour.play) await SingleHour.play({ canvasElement: container });
-    // 1 chart SVG + 1 header Icon SVG + 1 hour Icon SVG = 3
+    // 1 feels-overlay SVG + 1 header Icon SVG + 1 hour Icon SVG = 3
     expect(container.querySelectorAll("svg").length).toBe(3);
   });
 });
 
 describe("Next12HoursView stories — IconVariety", () => {
-  it("renders 4 rects and correct SVG count", async () => {
+  it("renders 4 bars and correct SVG count", async () => {
     const { container } = render(<IconVariety />);
     if (IconVariety.play) await IconVariety.play({ canvasElement: container });
-    expect(container.querySelectorAll("svg rect").length).toBe(4);
-    // 1 chart SVG + 1 header Icon SVG + 4 hour Icon SVGs = 6
+    expect(container.querySelectorAll("[data-bar]").length).toBe(4);
+    // 1 feels-overlay SVG + 1 header Icon SVG + 4 hour Icon SVGs = 6
     expect(container.querySelectorAll("svg").length).toBe(6);
   });
 
-  it("icon row does not overflow tile container height", async () => {
+  it("uses a flex layout (no absolutely-positioned icon row with magic offsets)", async () => {
     const { container } = render(<IconVariety />);
     if (IconVariety.play) await IconVariety.play({ canvasElement: container });
-    // The tile container is rendered with clientHeight=200 by the MockResizeObserver.
-    // The icon row sits at top: 4 + chartH + 6. chartH=156 → top=166.
-    // Each icon+label is ~15px icon + 5px gap + ~14px label = ~34px.
-    // 166 + 34 = 200, which fits within the 200px container.
-    const iconRow = container.querySelector<HTMLElement>(
+    // The refactor stacks bar band + label band in a flex column (even spacing by
+    // construction), so there is no absolutely-positioned icon row to overflow.
+    const absFlexRow = container.querySelector(
       '[style*="position: absolute"][style*="display: flex"]',
     );
-    expect(iconRow).not.toBeNull();
-    const topStyle = iconRow?.style.top ?? "";
-    const topValue = parseFloat(topStyle);
-    // top should be chartH + 10 = 166; under 200 (container height).
-    expect(topValue).toBeLessThan(200);
+    expect(absFlexRow).toBeNull();
   });
 });
