@@ -11,7 +11,7 @@
  */
 
 import type { CSSProperties } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Modal } from "../ui";
 import type { ControlKey, ControlsViewData } from "./ControlsTileView";
 import { ControlsGridView } from "./ControlsTileView";
@@ -63,13 +63,21 @@ export function ExpandedControlsModalView({
   const lampsOff = data.lamps.on === false;
 
   // Local value drives the slider during a drag for smooth motion + an instant
-  // readout; onBrightness still fires each change so the backend mutation runs.
-  // Seeded from data.lamps.brightness and resynced when upstream changes (a
-  // refetch lands a new value) — controlled-from-props with optimistic local state.
+  // readout. The backend mutation (onBrightness) is debounced 400ms so dragging
+  // the bar from 50→0 fires ONE request for the settled value, not ~50 — matching
+  // ClimateTile's slider debounce. Seeded from data.lamps.brightness and resynced
+  // when upstream changes — controlled-from-props with optimistic local state.
   const [brightness, setBrightness] = useState(data.lamps.brightness ?? 0);
   useEffect(() => {
     setBrightness(data.lamps.brightness ?? 0);
   }, [data.lamps.brightness]);
+
+  const brightnessDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (brightnessDebounceRef.current) clearTimeout(brightnessDebounceRef.current);
+    };
+  }, []);
 
   return (
     <Modal open={open} onClose={onClose} title="Controls">
@@ -172,7 +180,8 @@ export function ExpandedControlsModalView({
             onChange={(e) => {
               const pct = Number(e.currentTarget.value);
               setBrightness(pct);
-              onBrightness(pct);
+              if (brightnessDebounceRef.current) clearTimeout(brightnessDebounceRef.current);
+              brightnessDebounceRef.current = setTimeout(() => onBrightness(pct), 400);
             }}
             // --p drives the .range fill gradient (acc up to the value, dim after).
             style={

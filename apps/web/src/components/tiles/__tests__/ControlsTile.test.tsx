@@ -541,6 +541,22 @@ describe("ControlsTile", () => {
       expect(screen.getByLabelText("Brightness")).toBeInTheDocument();
     });
 
+    it("tapping the tile body (not a toggle) opens the modal — same as More", () => {
+      render(<ControlsTile />);
+      // The "Controls" header is part of the tile body, outside any toggle cell.
+      fireEvent.click(screen.getByText("Controls"));
+      expect(screen.getByRole("button", { name: "White" })).toBeInTheDocument();
+      expect(screen.getByLabelText("Brightness")).toBeInTheDocument();
+    });
+
+    it("tapping a toggle cell operates the control and does NOT open the modal", () => {
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("Lamps"));
+      // The toggle fired its mutation, and the modal stayed closed.
+      expect(mockMutate).toHaveBeenCalledWith({ key: "lamps", on: false });
+      expect(screen.queryByRole("button", { name: "White" })).not.toBeInTheDocument();
+    });
+
     it("scene button fires setLampScene mutation with the scene id", () => {
       render(<ControlsTile />);
       fireEvent.click(screen.getByLabelText("More"));
@@ -554,11 +570,13 @@ describe("ControlsTile", () => {
       expect((screen.getByLabelText("Brightness") as HTMLInputElement).value).toBe("72");
     });
 
-    it("brightness slider fires setLampBrightness mutation with the pct", () => {
+    it("brightness slider fires setLampBrightness mutation with the pct", async () => {
       render(<ControlsTile />);
       fireEvent.click(screen.getByLabelText("More"));
       fireEvent.change(screen.getByLabelText("Brightness"), { target: { value: "55" } });
-      expect(mockBrightnessMutate).toHaveBeenCalledWith({ pct: 55 });
+      // onBrightness is debounced 400ms in the modal, so the mutation fires on the
+      // trailing edge — wait for it rather than asserting synchronously.
+      await waitFor(() => expect(mockBrightnessMutate).toHaveBeenCalledWith({ pct: 55 }));
     });
 
     it("brightness drag optimistically writes the pct into the cache (no snap-back)", async () => {
@@ -566,8 +584,9 @@ describe("ControlsTile", () => {
       fireEvent.click(screen.getByLabelText("More"));
       fireEvent.change(screen.getByLabelText("Brightness"), { target: { value: "40" } });
 
-      // onMutate awaits cancel() before setData; flush microtasks.
-      expect(mockCancel).toHaveBeenCalled();
+      // The mutation is debounced 400ms; its onMutate then cancels + writes the
+      // optimistic value. Wait for that trailing-edge work to land.
+      await waitFor(() => expect(mockCancel).toHaveBeenCalled());
       await waitFor(() => expect(mockSetData).toHaveBeenCalled());
       const updater = mockSetData.mock.calls[0][1] as (old: unknown) => {
         lamps: { brightness: number };

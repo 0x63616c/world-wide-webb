@@ -9,7 +9,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { ControlsViewData } from "./ControlsTileView";
 import type { ExpandedControlsModalViewProps } from "./ExpandedControlsModalView";
 import { ExpandedControlsModalView } from "./ExpandedControlsModalView";
@@ -139,7 +139,8 @@ export const BrightnessInteraction: Story = {
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
     setter?.call(slider, "65");
     slider.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(args.onBrightness).toHaveBeenCalledWith(65);
+    // onBrightness is debounced 400ms (trailing edge) — wait for it to fire.
+    await waitFor(() => expect(args.onBrightness).toHaveBeenCalledWith(65));
   },
 };
 

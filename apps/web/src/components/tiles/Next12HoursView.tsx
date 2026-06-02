@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Icon } from "../Icon";
 import { Skeleton, Tile, TileHeader } from "../ui";
 import { TileStatus } from "./EventsTileView";
@@ -32,18 +32,24 @@ function Next12HoursSkeleton() {
   );
 }
 
-/** useWid — responsive width+height via ResizeObserver */
+/** useWid — responsive width+height via ResizeObserver.
+ *  Uses a CALLBACK ref (not useRef + mount effect) so the observer attaches the
+ *  moment the measured node actually mounts. The chart node only renders once
+ *  data is populated — it is absent during the loading skeleton — so a []-deps
+ *  mount effect would run while the ref is still null and never re-attach,
+ *  leaving width/height stuck at 0 (bars drawn at the 400px fallback width while
+ *  the label row flexes the real width → horizontal drift). */
 function useWid() {
-  const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+  const roRef = useRef<ResizeObserver | null>(null);
+  const ref = useCallback((node: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    if (!node) return;
+    const update = () => setSize({ w: node.clientWidth, h: node.clientHeight });
     update();
     const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
+    ro.observe(node);
+    roRef.current = ro;
   }, []);
   return [ref, size.w, size.h] as const;
 }
@@ -155,13 +161,17 @@ export function Next12HoursView(props: Next12HoursViewProps) {
           ))}
         </svg>
 
-        {/* Icon + hour label row */}
+        {/* Icon + hour label row.
+            Sits 2px under the bar baseline (not 6) — the solid bar edge reads
+            heavier than the thin icon, so an equal box-gap looked lopsided
+            toward the chart. 4px here (vs the 6px icon→time gap) lands the icon
+            glyph visually centered between the bar baseline and the time label. */}
         <div
           style={{
             position: "absolute",
             left: 0,
             right: 0,
-            top: 4 + chartH + 6,
+            top: 4 + chartH + 4,
             display: "flex",
           }}
         >
