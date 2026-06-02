@@ -39,11 +39,14 @@ function weatherIcon(code: number, isDay: number): string {
 export interface WeatherNow {
   temp: number;
   cond: string;
+  ic: string;
   hi: number;
   lo: number;
   feels: number;
   hum: number;
   wind: number;
+  uvIndex: number;
+  precipProbability: number;
   sunset: string;
   sunsetIso: string;
   sunrise: string;
@@ -57,6 +60,17 @@ export interface HourlyItem {
   temp: number;
   feels: number;
   ic: string;
+  isDay: boolean;
+  isoTime: string;
+  weatherCode: number;
+}
+
+export interface DailyItem {
+  date: string;
+  hi: number;
+  lo: number;
+  weatherCode: number;
+  precipProbability: number | null;
 }
 
 interface OpenMeteoCurrentResponse {
@@ -67,12 +81,17 @@ interface OpenMeteoCurrentResponse {
     weather_code: number;
     wind_speed_10m: number;
     is_day: number;
+    uv_index: number;
   };
   daily: {
     temperature_2m_max: number[];
     temperature_2m_min: number[];
     sunset: string[];
     sunrise: string[];
+  };
+  hourly: {
+    time: string[];
+    precipitation_probability: number[];
   };
 }
 
@@ -83,6 +102,16 @@ interface OpenMeteoHourlyResponse {
     apparent_temperature: number[];
     weather_code: number[];
     is_day: number[];
+  };
+}
+
+interface OpenMeteoDailyResponse {
+  daily: {
+    time: string[];
+    temperature_2m_max: number[];
+    temperature_2m_min: number[];
+    weather_code: number[];
+    precipitation_probability_max: (number | null)[];
   };
 }
 
@@ -102,7 +131,8 @@ export async function fetchWeatherNow(lat = env.LAT, lon = env.LON): Promise<Wea
   const url =
     `https://api.open-meteo.com/v1/forecast` +
     `?latitude=${lat}&longitude=${lon}` +
-    `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day` +
+    `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day,uv_index` +
+    `&hourly=precipitation_probability` +
     `&daily=temperature_2m_max,temperature_2m_min,sunset,sunrise` +
     `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=2`;
 
@@ -114,14 +144,27 @@ export async function fetchWeatherNow(lat = env.LAT, lon = env.LON): Promise<Wea
   const sunsetIso = data.daily.sunset[0] ?? "";
   const sunriseIso = data.daily.sunrise[0] ?? "";
   const tomorrowSunriseIso = data.daily.sunrise[1] ?? "";
+
+  // Nearest-hour precipitation probability: align the hourly series to the
+  // current local hour (timezone=auto), same logic as fetchWeatherHourly.
+  const hourStart = new Date();
+  hourStart.setMinutes(0, 0, 0);
+  const hourTimes = data.hourly?.time ?? [];
+  let precipIdx = hourTimes.findIndex((t) => new Date(t).getTime() >= hourStart.getTime());
+  if (precipIdx < 0) precipIdx = 0;
+  const precipProbability = Math.round(data.hourly?.precipitation_probability?.[precipIdx] ?? 0);
+
   return {
     temp: Math.round(c.temperature_2m),
     cond: WEATHER_CODES[c.weather_code] ?? "Unknown",
+    ic: weatherIcon(c.weather_code, c.is_day),
     hi: Math.round(data.daily.temperature_2m_max[0] ?? 0),
     lo: Math.round(data.daily.temperature_2m_min[0] ?? 0),
     feels: Math.round(c.apparent_temperature),
     hum: Math.round(c.relative_humidity_2m),
     wind: Math.round(c.wind_speed_10m),
+    uvIndex: Math.round(c.uv_index ?? 0),
+    precipProbability,
     sunset: formatSolarEvent(sunsetIso),
     sunsetIso,
     sunrise: formatSolarEvent(sunriseIso),
@@ -155,7 +198,7 @@ export async function fetchWeatherHourly(lat = env.LAT, lon = env.LON): Promise<
   if (startIdx < 0) startIdx = 0;
 
   const out: HourlyItem[] = [];
-  for (let i = startIdx; i < time.length && out.length < 12; i++) {
+  for (let i = startIdx; i < time.length && out.length < 24; i++) {
     const hour = new Date(time[i]).getHours();
     const h12 = hour % 12 || 12;
     out.push({
@@ -163,6 +206,44 @@ export async function fetchWeatherHourly(lat = env.LAT, lon = env.LON): Promise<
       temp: Math.round(temperature_2m[i]),
       feels: Math.round(apparent_temperature[i]),
       ic: weatherIcon(weather_code[i], is_day[i]),
+      isDay: is_day[i] === 1,
+      isoTime: time[i],
+      weatherCode: weather_code[i],
+    });
+  }
+  return out;
+}
+
+// Fetch the 7-day daily forecast from Open-Meteo. Real data, same /v1/forecast
+// endpoint. Index 0 is today.
+export async function fetchWeatherDaily(lat = env.LAT, lon = env.LON): Promise<DailyItem[]> {
+  const url =
+    `https://api.open-meteo.com/v1/forecast` +
+    `?latitude=${lat}&longitude=${lon}` +
+    `&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max` +
+    `&temperature_unit=fahrenheit&timezone=auto&forecast_days=7`;
+
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = (await res.json()) as OpenMeteoDailyResponse;
+
+  const {
+    time,
+    temperature_2m_max,
+    temperature_2m_min,
+    weather_code,
+    precipitation_probability_max,
+  } = data.daily;
+
+  const out: DailyItem[] = [];
+  for (let i = 0; i < time.length; i++) {
+    const p = precipitation_probability_max?.[i];
+    out.push({
+      date: time[i],
+      hi: Math.round(temperature_2m_max[i]),
+      lo: Math.round(temperature_2m_min[i]),
+      weatherCode: weather_code[i],
+      precipProbability: p == null ? null : Math.round(p),
     });
   }
   return out;

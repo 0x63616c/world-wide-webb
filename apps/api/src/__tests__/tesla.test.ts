@@ -5,13 +5,21 @@ vi.mock("../integrations/homeassistant", () => {
   const mockHa = {
     isConfigured: vi.fn(() => false),
     getEntity: vi.fn(async () => undefined),
+    callService: vi.fn(async () => undefined),
   };
   return { ha: mockHa };
 });
 
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
-import { ChargeState, getTeslaData, LockState } from "../services/tesla-service";
+import {
+  ChargeState,
+  getTeslaData,
+  LockState,
+  setTeslaCharging,
+  setTeslaLock,
+  setTeslaPreconditioning,
+} from "../services/tesla-service";
 
 function makeEntity(
   entity_id: string,
@@ -46,6 +54,7 @@ const fullCar: Record<string, HaEntity> = {
     longitude: -118.284533,
     source_type: "gps",
   }),
+  "climate.evee_hvac_climate_system": makeEntity("climate.evee_hvac_climate_system", "heat_cool"),
 };
 
 describe("getTeslaData", () => {
@@ -79,6 +88,8 @@ describe("getTeslaData", () => {
     expect(data.nick).toBe("Evee");
     expect(data.pct).toBe(61);
     expect(data.charging).toBe(true);
+    expect(data.chargingState).toBe(ChargeState.Charging); // raw enum surfaced verbatim
+    expect(data.preconditioning).toBe(true); // hvac mode is heat_cool -> active
     expect(data.rate).toBe(25);
     expect(data.range).toBe(169); // rounded
     expect(data.climate).toBe(72); // 71.96 rounded
@@ -153,7 +164,95 @@ describe("getTeslaData", () => {
     expect(data.pct).toBe(55);
     expect(data.range).toBe(0); // numeric zero — honest sensor gap, not fabricated
     expect(data.charging).toBe(false); // no charging entity -> default false
+    expect(data.chargingState).toBe(""); // no charging entity -> empty (honest absence)
+    expect(data.preconditioning).toBe(false); // no hvac entity -> not preconditioning
     expect(data.place).toBe(""); // no tracker, no coords -> unknown location, no fabricated label
+  });
+
+  it("surfaces the raw charging enum verbatim (stopped/complete/disconnected)", async () => {
+    vi.mocked(ha.isConfigured).mockReturnValue(true);
+    mockStates({
+      ...fullCar,
+      "sensor.evee_charging": makeEntity("sensor.evee_charging", ChargeState.Complete),
+    });
+    const data = await getTeslaData();
+    expect(data.chargingState).toBe(ChargeState.Complete);
+    expect(data.charging).toBe(false); // complete is not actively charging
+  });
+
+  it("blanks chargingState when the charging entity is dead", async () => {
+    vi.mocked(ha.isConfigured).mockReturnValue(true);
+    mockStates({
+      ...fullCar,
+      "sensor.evee_charging": makeEntity("sensor.evee_charging", "unavailable"),
+    });
+    expect((await getTeslaData()).chargingState).toBe("");
+  });
+
+  it("reports preconditioning false when the hvac entity is off", async () => {
+    vi.mocked(ha.isConfigured).mockReturnValue(true);
+    mockStates({
+      ...fullCar,
+      "climate.evee_hvac_climate_system": makeEntity("climate.evee_hvac_climate_system", "off"),
+    });
+    expect((await getTeslaData()).preconditioning).toBe(false);
+  });
+
+  it("reports preconditioning false when the hvac entity is dead/absent", async () => {
+    vi.mocked(ha.isConfigured).mockReturnValue(true);
+    mockStates({
+      ...fullCar,
+      "climate.evee_hvac_climate_system": makeEntity(
+        "climate.evee_hvac_climate_system",
+        "unavailable",
+      ),
+    });
+    expect((await getTeslaData()).preconditioning).toBe(false);
+  });
+});
+
+describe("tesla mutations", () => {
+  beforeEach(() => {
+    vi.mocked(ha.isConfigured).mockReturnValue(true);
+    vi.mocked(ha.callService).mockClear();
+  });
+
+  it("setTeslaLock calls lock.lock / lock.unlock on the real entity", async () => {
+    await setTeslaLock(true);
+    expect(ha.callService).toHaveBeenCalledWith("lock", "lock", { entity_id: "lock.evee_lock" });
+    await setTeslaLock(false);
+    expect(ha.callService).toHaveBeenCalledWith("lock", "unlock", {
+      entity_id: "lock.evee_lock",
+    });
+  });
+
+  it("setTeslaCharging toggles the charger switch", async () => {
+    await setTeslaCharging(true);
+    expect(ha.callService).toHaveBeenCalledWith("switch", "turn_on", {
+      entity_id: "switch.evee_charger",
+    });
+    await setTeslaCharging(false);
+    expect(ha.callService).toHaveBeenCalledWith("switch", "turn_off", {
+      entity_id: "switch.evee_charger",
+    });
+  });
+
+  it("setTeslaPreconditioning turns the hvac climate entity on/off", async () => {
+    await setTeslaPreconditioning(true);
+    expect(ha.callService).toHaveBeenCalledWith("climate", "turn_on", {
+      entity_id: "climate.evee_hvac_climate_system",
+    });
+    await setTeslaPreconditioning(false);
+    expect(ha.callService).toHaveBeenCalledWith("climate", "turn_off", {
+      entity_id: "climate.evee_hvac_climate_system",
+    });
+  });
+
+  it("mutations throw when HA is not configured", async () => {
+    vi.mocked(ha.isConfigured).mockReturnValue(false);
+    await expect(setTeslaLock(true)).rejects.toThrow("not configured");
+    await expect(setTeslaCharging(true)).rejects.toThrow("not configured");
+    await expect(setTeslaPreconditioning(true)).rejects.toThrow("not configured");
   });
 
   it("resolves the named place when GPS is within radius even off a non-home zone", async () => {
