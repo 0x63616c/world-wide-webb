@@ -7,6 +7,8 @@ export interface EventRow {
   name: string;
   place: string;
   days: number;
+  /** ISO-8601 date string from the DB timestamptz, e.g. "2026-06-14T19:00:00-07:00". */
+  date: string;
 }
 
 const TZ = "America/Los_Angeles";
@@ -46,5 +48,6 @@ export async function listEvents(
     name: r.name,
     place: r.place,
     days: daysUntil(r.date, now),
+    date: r.date.toISOString(),
   }));
 }

@@ -9,9 +9,23 @@
  */
 
 import type { TileModalEntry } from "./types";
+import { climateModalEntry } from "./wiring/climate";
 import { clockModalEntry } from "./wiring/clock";
+import { eventsModalEntry } from "./wiring/events";
+import { networkModalEntry } from "./wiring/network";
+import { next12HoursModalEntry } from "./wiring/next12hours";
+import { teslaModalEntry } from "./wiring/tesla";
+import { weatherModalEntry } from "./wiring/weather";
 
-const ENTRIES: TileModalEntry[] = [clockModalEntry];
+const ENTRIES: TileModalEntry[] = [
+  clockModalEntry,
+  weatherModalEntry,
+  networkModalEntry,
+  teslaModalEntry,
+  next12HoursModalEntry,
+  climateModalEntry,
+  eventsModalEntry,
+];
 
 const BY_TILE_ID = new Map<string, TileModalEntry>(ENTRIES.map((e) => [e.tileId, e]));
 

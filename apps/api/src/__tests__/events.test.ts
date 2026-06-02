@@ -99,8 +99,18 @@ describe("listEvents", () => {
     const result = await listEvents(db, now);
 
     expect(result).toHaveLength(2);
-    expect(result[0]).toMatchObject({ name: "Artist A", place: "Venue A", days: 3 });
-    expect(result[1]).toMatchObject({ name: "Artist B", place: "Venue B", days: 10 });
+    expect(result[0]).toMatchObject({
+      name: "Artist A",
+      place: "Venue A",
+      days: 3,
+      date: in3Days.toISOString(),
+    });
+    expect(result[1]).toMatchObject({
+      name: "Artist B",
+      place: "Venue B",
+      days: 10,
+      date: in10Days.toISOString(),
+    });
   });
 
   it("sets days=0 for past events rather than negative", async () => {

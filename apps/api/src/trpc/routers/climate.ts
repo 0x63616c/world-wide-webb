@@ -4,12 +4,18 @@ import {
   CLIMATE_MAX,
   CLIMATE_MIN,
   getClimate,
+  getClimateZones,
   HvacAction,
   HvacMode,
   resolveClimateEntityId,
+  setClimateFan,
   setClimateMode,
+  setClimatePreset,
   setClimateRange,
   setClimateTarget,
+  setZoneMode,
+  setZoneRange,
+  setZoneTarget,
 } from "../../services/climate-service";
 import { publicProcedure, router } from "../init";
 
@@ -50,8 +56,43 @@ const RangeInput = z
     message: `low must be at least ${CLIMATE_GAP}°F below high`,
   });
 
+// Full per-zone capability shape (mirrors ClimateZone in the service). Modes/
+// presets/fan modes are passed through as raw HA strings — HA reports more modes
+// (fan_only/dry/auto) than the tile's 4-mode union, and the modals tolerate them.
+const ClimateZoneOutput = z.object({
+  entityId: z.string(),
+  name: z.string(),
+  ambient: z.number(),
+  action: ClimateActionSchema,
+  mode: z.string(),
+  hvacModes: z.array(z.string()),
+  target: z.number().nullable(),
+  targetLow: z.number().nullable(),
+  targetHigh: z.number().nullable(),
+  minTemp: z.number(),
+  maxTemp: z.number(),
+  presetMode: z.string().nullable(),
+  presetModes: z.array(z.string()),
+  fanMode: z.string().nullable(),
+  fanModes: z.array(z.string()),
+});
+
+// Mutations that target an explicit entity (the multi-zone modals act on any
+// zone, not just the resolved house thermostat) return the refreshed zones list.
+const EntityModeInput = z.object({ entityId: z.string(), mode: ClimateModeSchema });
+const EntityTargetInput = z.object({ entityId: z.string(), target: setpoint });
+const EntityRangeInput = z
+  .object({ entityId: z.string(), low: setpoint, high: setpoint })
+  .refine((r) => r.low + CLIMATE_GAP <= r.high, {
+    message: `low must be at least ${CLIMATE_GAP}°F below high`,
+  });
+const EntityPresetInput = z.object({ entityId: z.string(), preset: z.string() });
+const EntityFanInput = z.object({ entityId: z.string(), fanMode: z.string() });
+
 export const climateRouter = router({
   get: publicProcedure.output(ClimateStateOutput).query(() => getClimate()),
+
+  zones: publicProcedure.output(z.array(ClimateZoneOutput)).query(() => getClimateZones()),
 
   setMode: publicProcedure
     .input(ClimateModeSchema)
@@ -79,4 +120,30 @@ export const climateRouter = router({
       if (!entityId) throw new Error("Home Assistant is not configured");
       return setClimateRange(entityId, input.low, input.high);
     }),
+
+  // ── Entity-parameterized variants for the multi-zone detail modals ──────────
+  setModeFor: publicProcedure
+    .input(EntityModeInput)
+    .output(z.array(ClimateZoneOutput))
+    .mutation(({ input }) => setZoneMode(input.entityId, input.mode)),
+
+  setTargetFor: publicProcedure
+    .input(EntityTargetInput)
+    .output(z.array(ClimateZoneOutput))
+    .mutation(({ input }) => setZoneTarget(input.entityId, input.target)),
+
+  setRangeFor: publicProcedure
+    .input(EntityRangeInput)
+    .output(z.array(ClimateZoneOutput))
+    .mutation(({ input }) => setZoneRange(input.entityId, input.low, input.high)),
+
+  setPreset: publicProcedure
+    .input(EntityPresetInput)
+    .output(z.array(ClimateZoneOutput))
+    .mutation(({ input }) => setClimatePreset(input.entityId, input.preset)),
+
+  setFan: publicProcedure
+    .input(EntityFanInput)
+    .output(z.array(ClimateZoneOutput))
+    .mutation(({ input }) => setClimateFan(input.entityId, input.fanMode)),
 });

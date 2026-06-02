@@ -6,6 +6,7 @@ const EventSchema = z.object({
   name: z.string(),
   place: z.string(),
   days: z.number().int().nonnegative(),
+  date: z.string(),
 });
 
 export const eventsRouter = router({
