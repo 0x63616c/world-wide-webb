@@ -212,6 +212,12 @@ async function cmdServe(): Promise<void> {
   };
   const { handleServeRequest } = await import("./serve.ts");
 
+  // Start the in-process cron scheduler. This agent is the long-lived process on
+  // a manager node with the docker socket, so it runs each cronJob() on its
+  // schedule as a one-shot Swarm job — replacing the old third-party scheduler pod.
+  const { startScheduler } = await import("./scheduler.ts");
+  startScheduler(spec.services, spec.stackName, makeDefaultRunner(), console.log);
+
   console.log(`[bosun serve] Listening on :${port} for POST /deploy/${spec.stackName}`);
 
   Bun.serve({

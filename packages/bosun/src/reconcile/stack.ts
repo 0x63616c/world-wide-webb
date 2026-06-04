@@ -21,6 +21,11 @@ export function renderStackYml(spec: Spec, secretNames: Record<string, string>):
   const namedVolumes = new Set<string>();
 
   for (const svc of spec.services) {
+    // Cron jobs are NOT long-lived stack services: the bosun scheduler runs them
+    // on their cron as one-shot Swarm jobs, so they are excluded from the
+    // deployed stack entirely (no service block, no labels).
+    if (svc.schedule) continue;
+
     lines.push(`  ${svc.name}:`);
     lines.push(`    image: ${svc.image}`);
 
@@ -74,16 +79,6 @@ export function renderStackYml(spec: Spec, secretNames: Record<string, string>):
     lines.push("    deploy:");
     lines.push("      labels:");
     lines.push(`        - bosun.stack=${spec.stackName}`);
-    // Scheduled jobs drive Ofelia via deploy labels. Translate the spec's
-    // standard 5-field cron to Ofelia's 6-field (seconds-leading) format by
-    // prepending "0 ". Label namespace: ofelia.<jobtype>.<name>.{schedule,command}.
-    if (svc.schedule) {
-      const prefix = `ofelia.${svc.schedule.jobType}.${svc.name}`;
-      lines.push(`        - ${prefix}.schedule=0 ${svc.schedule.cron}`);
-      if (svc.command) {
-        lines.push(`        - ${prefix}.command=${escapeComposeInterpolation(svc.command)}`);
-      }
-    }
     // Placement constraints sit under deploy.placement.
     if (svc.placement && svc.placement.length > 0) {
       lines.push("      placement:");
@@ -93,9 +88,9 @@ export function renderStackYml(spec: Spec, secretNames: Record<string, string>):
       }
     }
     lines.push("      restart_policy:");
-    // A one-shot job should not be restarted on success; long-lived services
-    // restart on failure. job-exec/job-run containers are managed by Ofelia.
-    lines.push(`        condition: ${svc.schedule ? "none" : "on-failure"}`);
+    // Long-lived services restart on failure. (Cron jobs never reach here — they
+    // are excluded above and run as one-shot Swarm jobs by the scheduler.)
+    lines.push("        condition: on-failure");
 
     if (svc.command) {
       lines.push(`    command: ${escapeComposeInterpolation(svc.command)}`);
