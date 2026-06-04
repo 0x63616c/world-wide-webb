@@ -5,8 +5,10 @@ import { INITIAL_VIEWPORTS } from "storybook/viewport";
 import { tilePixelSize } from "../src/lib/grid-constants";
 import { registryEntryForComponent } from "../src/lib/tile-registry";
 
-// Board CSS — tokens + shimmer keyframes + tile class definitions
-import "../src/styles/globals.css";
+// Shared design layer only — tokens, fonts, keyframes, tile classes. The
+// kiosk lockdown (app-shell.css) is deliberately NOT imported here, so docs
+// pages scroll natively and text stays selectable inside the preview iframe.
+import "../src/styles/theme.css";
 
 // Shared dark theme for docs pages (MDX/autodocs) — keeps docs background dark.
 const eveeTheme = create({
