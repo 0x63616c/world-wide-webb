@@ -324,6 +324,17 @@ describe("renderStackYml", () => {
     expect(yml).not.toContain("source: HA_TOKEN");
   });
 
+  it("mounts each secret at /run/secrets/<name> without double-nesting the path", () => {
+    const yml = renderStackYml(spec, secretNames);
+    // Docker mounts a secret's `target` *under* /run/secrets/, so `target` must
+    // be the bare filename. Emitting the full path double-nests the mount to
+    // /run/secrets//run/secrets/<name>, so the app reading /run/secrets/<name>
+    // finds nothing (this caused the api to fall back to its default DB → PG
+    // 3D000 and crashloop in prod).
+    expect(yml).toContain("target: HA_TOKEN");
+    expect(yml).not.toContain("target: /run/secrets/");
+  });
+
   it("includes service images", () => {
     const yml = renderStackYml(spec, secretNames);
     expect(yml).toContain("ghcr.io/0x63616c/control-center-api:main");

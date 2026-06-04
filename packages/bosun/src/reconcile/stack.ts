@@ -38,8 +38,11 @@ export function renderStackYml(spec: Spec, secretNames: Record<string, string>):
           );
         }
         lines.push(`      - source: ${dockerName}`);
-        // Mount at /run/secrets/<declared-name> so the app reads a stable path.
-        lines.push(`        target: /run/secrets/${sec.name}`);
+        // `target` is the filename docker mounts *under* /run/secrets/, so it
+        // must be the bare declared name — docker resolves it to the stable path
+        // /run/secrets/<declared-name>. Passing the full path double-nests the
+        // mount to /run/secrets//run/secrets/<name>, which the app can't read.
+        lines.push(`        target: ${sec.name}`);
       }
     }
 
