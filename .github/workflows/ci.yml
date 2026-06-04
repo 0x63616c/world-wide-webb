@@ -1,0 +1,159 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # Determine which apps actually changed so we only rebuild what's needed.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      api: ${{ steps.filter.outputs.api }}
+      storybook: ${{ steps.filter.outputs.storybook }}
+      any_app: ${{ steps.filter.outputs.any_app }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            # Shared changes (packages or root lockfile) force a rebuild of everything.
+            web:
+              - 'apps/web/**'
+              - '!apps/web/.storybook/**'
+              - '!apps/web/storybook-static/**'
+              - 'packages/**'
+              - 'bun.lock'
+            api:
+              - 'apps/api/**'
+              - 'packages/**'
+              - 'bun.lock'
+            storybook:
+              - 'apps/web/.storybook/**'
+              - 'apps/web/src/**'
+              - 'apps/web/package.json'
+              - 'packages/**'
+              - 'bun.lock'
+            # any_app is true when at least one image needs to be built.
+            any_app:
+              - 'apps/**'
+              - 'packages/**'
+              - 'bun.lock'
+
+  build-web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/0x63616c/control-center-web:${{ github.sha }}
+            ghcr.io/0x63616c/control-center-web:${{ github.ref_name == 'main' && 'main' || github.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  build-api:
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push api image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/0x63616c/control-center-api:${{ github.sha }}
+            ghcr.io/0x63616c/control-center-api:${{ github.ref_name == 'main' && 'main' || github.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+  build-storybook:
+    needs: changes
+    if: needs.changes.outputs.storybook == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push storybook image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile.storybook
+          push: true
+          tags: |
+            ghcr.io/0x63616c/control-center-storybook:${{ github.sha }}
+            ghcr.io/0x63616c/control-center-storybook:${{ github.ref_name == 'main' && 'main' || github.sha }}
+          cache-from: type=gha,scope=storybook
+          cache-to: type=gha,mode=max,scope=storybook
+
+  # After any image build succeeds on main, trigger bosun deploy on the homelab.
+  # The webhook receiver (bosun serve) runs on the box; the HMAC token is in a repo secret.
+  # This job only runs when at least one image was built AND the branch is main.
+  deploy:
+    needs: [changes, build-web, build-api, build-storybook]
+    # always() lets us run even when some build jobs were skipped (no changes).
+    # We proceed when: on main, at least one app changed, and no build failed.
+    if: |
+      always() &&
+      github.ref_name == 'main' &&
+      needs.changes.outputs.any_app == 'true' &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger bosun deploy webhook
+        run: |
+          curl -fsSL \
+            -X POST \
+            -H "Authorization: Bearer ${{ secrets.BOSUN_WEBHOOK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"sha\": \"${{ github.sha }}\"}" \
+            https://hooks.worldwidewebb.co/deploy/control-center
