@@ -78,8 +78,11 @@ export default stack("control-center", {
       secrets: fromOp("Homelab", {
         TUNNEL_TOKEN: "Cloudflare Tunnel evee-webhooks/connector_token",
       }),
-      // Token is injected via docker secret mounted at /run/secrets/TUNNEL_TOKEN.
-      command: "tunnel --no-autoupdate run --token $(cat /run/secrets/TUNNEL_TOKEN)",
+      // The cloudflared image is shell-less (distroless), so a `$(cat ...)`
+      // command substitution can't run — it would be passed to the tunnel as a
+      // literal token. Use cloudflared's native --token-file, which reads the
+      // docker secret mounted at /run/secrets/TUNNEL_TOKEN directly.
+      command: "tunnel --no-autoupdate run --token-file /run/secrets/TUNNEL_TOKEN",
       health: [],
     }),
 
