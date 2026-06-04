@@ -7,6 +7,9 @@ import { startWeatherIngestService } from "./services/weather-ingest-service";
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers/index";
 
+// Deploys reach this box automatically: push to main -> CI builds the image ->
+// CI POSTs the bosun-agent webhook -> `bosun up` rolls the service (www-a8p).
+//
 // Apply pending SQL migrations before accepting traffic. Uses drizzle-orm's
 // runtime migrator (not drizzle-kit), so the production image ships no build
 // toolchain. A failure throws and exits non-zero; Swarm crash-backoff retries
