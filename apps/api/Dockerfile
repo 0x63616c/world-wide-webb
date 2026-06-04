@@ -10,6 +10,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
+COPY packages/api/package.json packages/api/
 COPY packages/bosun/package.json packages/bosun/
 
 # Install workspace deps. drizzle-kit is a devDep but bunx at runtime can use
