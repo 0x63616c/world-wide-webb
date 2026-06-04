@@ -10,8 +10,17 @@ describe("OpProvider", () => {
     const mockExec = vi.fn().mockResolvedValue({ stdout: "secret-value\n", stderr: "" });
     const provider = new OpProvider(mockExec);
     const value = await provider.resolve("op://Homelab/SomeItem/field");
-    expect(mockExec).toHaveBeenCalledWith("op read op://Homelab/SomeItem/field");
+    expect(mockExec).toHaveBeenCalledWith('op read "op://Homelab/SomeItem/field"');
     expect(value).toBe("secret-value");
+  });
+
+  it("quotes references whose item names contain spaces", async () => {
+    const mockExec = vi.fn().mockResolvedValue({ stdout: "wifi-pass\n", stderr: "" });
+    const provider = new OpProvider(mockExec);
+    const value = await provider.resolve("op://Homelab/WiFi Guest Credentials/password");
+    // Unquoted, the shell would split this into 3 argv entries and op rejects it.
+    expect(mockExec).toHaveBeenCalledWith('op read "op://Homelab/WiFi Guest Credentials/password"');
+    expect(value).toBe("wifi-pass");
   });
 
   it("trims trailing whitespace from op output", async () => {
