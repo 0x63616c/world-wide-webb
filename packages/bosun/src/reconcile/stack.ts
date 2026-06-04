@@ -1,0 +1,90 @@
+import type { Spec } from "../spec.ts";
+
+// Render the static Spec + resolved secret name map to a Docker Swarm stack YAML.
+// The rendered YAML references hashed docker secret names — never plain values.
+// Output is deterministic: same inputs always produce byte-identical output.
+export function renderStackYml(spec: Spec, secretNames: Record<string, string>): string {
+  const lines: string[] = ["version: '3.8'", "", "services:"];
+
+  for (const svc of spec.services) {
+    lines.push(`  ${svc.name}:`);
+    lines.push(`    image: ${svc.image}`);
+
+    // Env vars (non-secret, static values only).
+    if (Object.keys(svc.env).length > 0) {
+      lines.push("    environment:");
+      // Sort keys for determinism.
+      for (const key of Object.keys(svc.env).sort()) {
+        lines.push(`      - ${key}=${svc.env[key]}`);
+      }
+    }
+
+    // Secret references — use hashed docker names, not plain names.
+    if (svc.secrets.length > 0) {
+      lines.push("    secrets:");
+      for (const sec of svc.secrets) {
+        const dockerName = secretNames[sec.name];
+        if (!dockerName) {
+          throw new Error(
+            `Secret '${sec.name}' for service '${svc.name}' not found in secretNames map`,
+          );
+        }
+        lines.push(`      - source: ${dockerName}`);
+        // Mount at /run/secrets/<declared-name> so the app reads a stable path.
+        lines.push(`        target: /run/secrets/${sec.name}`);
+      }
+    }
+
+    // Stack label for ownership tracking.
+    lines.push("    deploy:");
+    lines.push("      labels:");
+    lines.push(`        - bosun.stack=${spec.stackName}`);
+    lines.push("      restart_policy:");
+    lines.push("        condition: on-failure");
+
+    if (svc.command) {
+      lines.push(`    command: ${svc.command}`);
+    }
+  }
+
+  // Declare every hashed secret at the top-level secrets block.
+  const allDockerSecretNames = [
+    ...new Set(
+      spec.services.flatMap((svc) =>
+        svc.secrets.map((sec) => {
+          const n = secretNames[sec.name];
+          if (!n) throw new Error(`No docker name for secret '${sec.name}'`);
+          return n;
+        }),
+      ),
+    ),
+  ].sort();
+
+  if (allDockerSecretNames.length > 0) {
+    lines.push("");
+    lines.push("secrets:");
+    for (const name of allDockerSecretNames) {
+      lines.push(`  ${name}:`);
+      lines.push("    external: true");
+    }
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+// Deploy a rendered stack YAML to the swarm via docker stack deploy.
+// Returns the stdout of the deploy command.
+export async function deployStack(stackName: string, stackYml: string): Promise<string> {
+  const { exec } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const run = promisify(exec);
+
+  const tmpFile = `/tmp/bosun-${stackName}-stack.yml`;
+  const { writeFile } = await import("node:fs/promises");
+  await writeFile(tmpFile, stackYml, "utf-8");
+
+  const { stdout } = await run(
+    `docker stack deploy --prune --with-registry-auth -c ${tmpFile} ${stackName}`,
+  );
+  return stdout;
+}
