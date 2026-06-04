@@ -1,9 +1,16 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 
+import { runMigrations } from "./db/migrate";
 import { env } from "./env";
 import { startDeviceSyncService } from "./services/device-sync-service";
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers/index";
+
+// Apply pending SQL migrations before accepting traffic. Uses drizzle-orm's
+// runtime migrator (not drizzle-kit), so the production image ships no build
+// toolchain. A failure throws and exits non-zero; Swarm crash-backoff retries
+// until postgres is reachable and migrated.
+await runMigrations();
 
 // CORS for the Vite dev server (web on :4200). In production the api serves the
 // built web bundle from the same origin, so these are dev conveniences.
