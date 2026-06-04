@@ -250,6 +250,15 @@ export function Board() {
   // Whether a pointer is currently held down (touch or mouse). While held, the
   // user pans freely — no spring engages until they let go.
   const pointerDown = useRef(false);
+  // Mirrors `activeModal` into a ref so the memoized pointer handlers can bail
+  // without being re-created. While a modal is open the board must NOT pan: a
+  // press outside the modal hits the modal's own backdrop (which closes it), and
+  // native scroll is frozen via the stage style below.
+  const modalOpen = activeModal !== null;
+  const modalOpenRef = useRef(modalOpen);
+  useEffect(() => {
+    modalOpenRef.current = modalOpen;
+  }, [modalOpen]);
 
   function openTile(entry: TileRegistryEntry, e: React.MouseEvent<HTMLDivElement>) {
     if (suppressClick.current) {
@@ -372,6 +381,9 @@ export function Board() {
   // Desktop mouse-drag-to-pan. Touch is left to native momentum scrolling.
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
+      // Modal open: the board is frozen. Let the press fall through to the
+      // modal's backdrop (close) instead of starting a pan.
+      if (modalOpenRef.current) return;
       // Any grab (touch or mouse) interrupts a running snap so we don't fight it,
       // and marks the pointer held so no spring engages until release.
       pointerDown.current = true;
@@ -463,10 +475,13 @@ export function Board() {
       style={{
         position: "fixed",
         inset: 0,
-        overflow: "auto",
+        // Modal open: freeze native scroll so the board can't pan behind it.
+        // Both touch and trackpad scroll route through this element, so killing
+        // overflow + touchAction here stops every panning vector at once.
+        overflow: modalOpen ? "hidden" : "auto",
         background: "var(--bg)",
         // Pan is one-finger native scroll; no rubber-band past the world edges.
-        touchAction: "pan-x pan-y",
+        touchAction: modalOpen ? "none" : "pan-x pan-y",
         overscrollBehavior: "none",
         cursor: "grab",
         scrollbarWidth: "none",
