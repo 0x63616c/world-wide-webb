@@ -51,6 +51,17 @@ log "Running bosun up (first deploy)"
 # Requires: op session, swarm reachable, GHCR pull token in 1Password.
 bun run bosun up
 
+# ── 5. Name the Portainer environment 'production' ────────────────────────────
+# Portainer auto-creates the local Docker environment as 'local'; rename it so the
+# UI reflects the host's prod role (bd www-4b5). Idempotent. Needs the admin account
+# initialised first — warns (does not fail bootstrap) if it isn't set up yet.
+if "$(dirname "$0")/rename-portainer-env.sh"; then
+  :
+else
+  log "WARNING: Portainer environment not renamed (admin not initialised yet)."
+  log "         After setting the admin password, run scripts/rename-portainer-env.sh."
+fi
+
 log "Bootstrap complete."
 log "Next: verify OrbStack 'Start at login' is enabled, then set the Portainer admin"
 log "      password via scripts/save-portainer-admin.sh."
