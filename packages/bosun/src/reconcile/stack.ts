@@ -14,6 +14,12 @@ function escapeComposeInterpolation(value: string): string {
 export function renderStackYml(spec: Spec, secretNames: Record<string, string>): string {
   const lines: string[] = ["version: '3.8'", "", "services:"];
 
+  // Named volumes referenced by services (bare-name sources, not bind paths).
+  // Collected here and declared at the top level so docker stack deploy binds
+  // them to the managed cc_<name> volume instead of auto-creating a stack-
+  // prefixed empty one — which is what dropped postgres's data dir.
+  const namedVolumes = new Set<string>();
+
   for (const svc of spec.services) {
     lines.push(`  ${svc.name}:`);
     lines.push(`    image: ${svc.image}`);
@@ -46,11 +52,21 @@ export function renderStackYml(spec: Spec, secretNames: Record<string, string>):
       }
     }
 
-    // Bind/volume mounts (e.g. the docker socket for the Ofelia controller).
+    // Volume mounts. A bare-name source (no leading "/" or ".") is a managed
+    // named volume — prefix it cc_<name> (matching the secret convention) and
+    // record it for the top-level declaration so its data persists. A path
+    // source is a bind mount (e.g. the docker socket) and passes through as-is.
     if (svc.volumes && svc.volumes.length > 0) {
       lines.push("    volumes:");
       for (const vol of svc.volumes) {
-        lines.push(`      - ${vol}`);
+        const source = vol.split(":")[0];
+        const isNamed = source.length > 0 && !source.startsWith("/") && !source.startsWith(".");
+        if (isNamed) {
+          namedVolumes.add(source);
+          lines.push(`      - cc_${vol}`);
+        } else {
+          lines.push(`      - ${vol}`);
+        }
       }
     }
 
@@ -105,6 +121,18 @@ export function renderStackYml(spec: Spec, secretNames: Record<string, string>):
     for (const name of allDockerSecretNames) {
       lines.push(`  ${name}:`);
       lines.push("    external: true");
+    }
+  }
+
+  // Declare every named volume at top level, pinning its real docker name to
+  // cc_<name> via `name:` (overriding the stack-name prefix). docker reuses the
+  // volume if it exists (preserving data) and creates it if not.
+  if (namedVolumes.size > 0) {
+    lines.push("");
+    lines.push("volumes:");
+    for (const v of [...namedVolumes].sort()) {
+      lines.push(`  cc_${v}:`);
+      lines.push(`    name: cc_${v}`);
     }
   }
 

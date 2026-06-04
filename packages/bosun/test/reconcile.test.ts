@@ -351,6 +351,50 @@ describe("renderStackYml", () => {
     const yml2 = renderStackYml(spec, secretNames);
     expect(yml1).toBe(yml2);
   });
+
+  it("renders a named volume cc_-prefixed and declares it at top-level (data persists)", () => {
+    const volSpec: Spec = {
+      stackName: "control-center",
+      services: [
+        {
+          name: "postgres",
+          image: "postgres:17-alpine",
+          secrets: [],
+          env: {},
+          volumes: ["pgdata:/var/lib/postgresql/data"],
+          health: [],
+        },
+      ],
+    };
+    const yml = renderStackYml(volSpec, {});
+    // Mount uses the cc_-prefixed name so it reuses the managed cc_pgdata volume.
+    expect(yml).toContain("- cc_pgdata:/var/lib/postgresql/data");
+    // Top-level volumes block pins the real docker volume name (not stack-prefixed).
+    expect(yml).toContain("volumes:");
+    expect(yml).toContain("  cc_pgdata:");
+    expect(yml).toContain("    name: cc_pgdata");
+  });
+
+  it("passes bind mounts through unchanged and does not declare them as named volumes", () => {
+    const bindSpec: Spec = {
+      stackName: "control-center",
+      services: [
+        {
+          name: "ofelia",
+          image: "mcuadros/ofelia:latest",
+          secrets: [],
+          env: {},
+          volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"],
+          health: [],
+        },
+      ],
+    };
+    const yml = renderStackYml(bindSpec, {});
+    expect(yml).toContain("- /var/run/docker.sock:/var/run/docker.sock:ro");
+    // No cc_-prefix and no top-level volumes block for a bind mount.
+    expect(yml).not.toContain("cc_/var");
+    expect(yml).not.toMatch(/\nvolumes:/);
+  });
 });
 
 describe("renderStackYml — command interpolation escaping", () => {
