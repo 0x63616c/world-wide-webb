@@ -14,7 +14,8 @@ COPY apps/api/package.json ./apps/api/package.json
 COPY packages/api/package.json ./packages/api/package.json
 COPY packages/bosun/package.json ./packages/bosun/package.json
 
-RUN bun install --frozen-lockfile
+# --ignore-scripts skips the lefthook prepare hook (needs git, not in alpine image).
+RUN bun install --frozen-lockfile --ignore-scripts
 
 # Copy workspace source. packages/api provides the @cc/api type export.
 COPY apps/api/src ./apps/api/src
