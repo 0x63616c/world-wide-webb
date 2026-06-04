@@ -16,6 +16,34 @@ function currentHour(): Date {
   return h;
 }
 
+// Local calendar date as YYYY-MM-DD. Used to drop the past_days=1 rows the
+// ingest stores (yesterday) so daily reads start at today, matching the
+// frontend contract that index 0 is today.
+function todayLocalDate(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// Latest raw daily row per target_date from today onward, ascending (today
+// first). String compare on YYYY-MM-DD is chronological. Shared by both daily
+// reads so "today" is consistent.
+async function latestDailyFromToday() {
+  const rows = await db
+    .select()
+    .from(weatherDailyReading)
+    .where(gte(weatherDailyReading.targetDate, todayLocalDate()))
+    .orderBy(asc(weatherDailyReading.targetDate), desc(weatherDailyReading.recordedAt));
+  const seen = new Set<string>();
+  return rows.filter((r) => {
+    if (seen.has(r.targetDate)) return false;
+    seen.add(r.targetDate);
+    return true;
+  });
+}
+
 // Rows for forecast hours from `start` onward, ordered targetHour ASC then
 // recordedAt DESC so the first row seen for each hour is the most recently
 // recorded forecast (the freshest prediction).
@@ -53,26 +81,17 @@ export async function readWeatherHourly(): Promise<HourlyItem[]> {
   return out;
 }
 
-// Latest daily row per target_date, ascending by date (today first).
+// Latest daily row per target_date, today first (yesterday's past_days row is
+// filtered out by latestDailyFromToday).
 export async function readWeatherDaily(): Promise<DailyItem[]> {
-  const rows = await db
-    .select()
-    .from(weatherDailyReading)
-    .orderBy(asc(weatherDailyReading.targetDate), desc(weatherDailyReading.recordedAt));
-  const seen = new Set<string>();
-  const out: DailyItem[] = [];
-  for (const r of rows) {
-    if (seen.has(r.targetDate)) continue;
-    seen.add(r.targetDate);
-    out.push({
-      date: r.targetDate,
-      hi: r.hiF,
-      lo: r.loF,
-      weatherCode: r.weatherCode,
-      precipProbability: r.precipProbability,
-    });
-  }
-  return out;
+  const days = await latestDailyFromToday();
+  return days.map((r) => ({
+    date: r.targetDate,
+    hi: r.hiF,
+    lo: r.loF,
+    weatherCode: r.weatherCode,
+    precipProbability: r.precipProbability,
+  }));
 }
 
 // Current conditions = current hour's forecast row + today's daily row (hi/lo +
@@ -83,16 +102,7 @@ export async function readWeatherNow(): Promise<WeatherNow> {
   const cur = hours[0];
   if (!cur) throw new Error("no current weather reading");
 
-  const dailyRaw = await db
-    .select()
-    .from(weatherDailyReading)
-    .orderBy(asc(weatherDailyReading.targetDate), desc(weatherDailyReading.recordedAt));
-  const seen = new Set<string>();
-  const days = dailyRaw.filter((r) => {
-    if (seen.has(r.targetDate)) return false;
-    seen.add(r.targetDate);
-    return true;
-  });
+  const days = await latestDailyFromToday();
   const today = days[0];
   if (!today) throw new Error("no daily weather reading");
   const tomorrow = days[1];
