@@ -172,6 +172,22 @@ describe("postgres builder", () => {
     const ref = pg.secrets.find((r) => r.name === "POSTGRES_PASSWORD");
     expect(ref?.ref).toBe("op://Homelab/PG/password");
   });
+
+  it("mounts the named volume at the postgres data dir so data persists across redeploys", () => {
+    const pg = postgres({ volume: "pgdata" });
+    expect(pg.volumes).toEqual(["pgdata:/var/lib/postgresql/data"]);
+  });
+
+  it("points POSTGRES_PASSWORD_FILE at the mounted secret when secretRef is provided", () => {
+    const pg = postgres({ volume: "pgdata", secretRef: "op://Homelab/PG/password" });
+    // postgres reads the password from the secret file; the value never lands in env.
+    expect(pg.env.POSTGRES_PASSWORD_FILE).toBe("/run/secrets/POSTGRES_PASSWORD");
+  });
+
+  it("omits POSTGRES_PASSWORD_FILE when no secretRef is given (dev/test)", () => {
+    const pg = postgres({ volume: "pgdata" });
+    expect(pg.env.POSTGRES_PASSWORD_FILE).toBeUndefined();
+  });
 });
 
 describe("cronJob primitive", () => {

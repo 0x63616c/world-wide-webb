@@ -218,7 +218,12 @@ export function postgres(opts: {
     name: "postgres",
     image: opts.image ?? "postgres:17-alpine",
     secrets: opts.secretRef ? [{ name: "POSTGRES_PASSWORD", ref: opts.secretRef }] : [],
-    env: {},
+    // Read the superuser password from the mounted secret file so the value
+    // never lands in the service env/spec. Omitted in dev/test (no secretRef).
+    env: opts.secretRef ? { POSTGRES_PASSWORD_FILE: "/run/secrets/POSTGRES_PASSWORD" } : {},
+    // Persist the data dir on the named volume, or every redeploy starts from an
+    // empty database. The renderer pins this to the managed cc_<volume> volume.
+    volumes: [`${opts.volume}:/var/lib/postgresql/data`],
     health: [cmdProbe("postgres ready", "pg_isready -U postgres")],
   };
 }
