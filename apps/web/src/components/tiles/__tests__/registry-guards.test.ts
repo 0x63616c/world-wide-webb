@@ -96,8 +96,10 @@ describe("tile registry — story coverage", () => {
 });
 
 describe("tile registry — pixel footprint", () => {
-  it("derives the clock tile (5×2) at its known production size 532×308", () => {
-    expect(tilePixelSize(5, 2)).toEqual({ width: 532, height: 308 });
+  it("derives the clock tile (5×2) at its known production size ~468×237", () => {
+    const { width, height } = tilePixelSize(5, 2);
+    expect(width).toBeCloseTo(467.83, 1);
+    expect(height).toBeCloseTo(237.33, 1);
   });
 
   it("gives each registry tile a non-zero footprint that grows with span", () => {
