@@ -28,19 +28,19 @@ Every item is in **exactly one** of three states:
 4. **No sudo, no fake data.** Every item runs as the normal user. No `FALLBACK`/`PLACEHOLDER`/hardcoded values, no `.skip`/`xfail`, no weakening tests or the tool's prune scope to pass. If an item genuinely needs root or a thing only Calum can create, mark `[-] (reason)` — do not work around it.
 5. **One marker per item.** No partial ticks.
 
-**Context:** tool = `flotilla` (`packages/flotilla`, run `bun run flotilla <cmd>`); stack name `control-center`; images `ghcr.io/0x63616c/control-center-{web,api,storybook}`; host `homelab` (SSH); secret refs in `tilt/op-secrets.tpl` + the `evee` repo; tokens in 1Password (Homelab vault).
+**Context:** tool = `bosun` (`packages/bosun`, run `bun run bosun <cmd>`); stack name `control-center`; images `ghcr.io/0x63616c/control-center-{web,api,storybook}`; host `homelab` (SSH); secret refs in `tilt/op-secrets.tpl` + the `evee` repo; tokens in 1Password (Homelab vault).
 
 ---
 
-## A. The tool — `flotilla` (build + unit, mostly local)
+## A. The tool — `bosun` (build + unit, mostly local)
 
-- [ ] **ac_tool_build** — `bun run --cwd packages/flotilla typecheck` and `bun run --cwd packages/flotilla test` (vitest) each exit 0. *Pass:* typecheck + unit tests green.
-- [ ] **ac_tool_plan_pure** — `bun run flotilla plan` prints the static Spec listing every control-center service with its secret/route **references** and **zero secret values**; two consecutive runs are byte-identical; eval performs no network I/O (assert via a unit test that stubs/forbids the network, or run with network disabled). *Pass:* deterministic, value-free, pure spec emitted.
+- [ ] **ac_tool_build** — `bun run --cwd packages/bosun typecheck` and `bun run --cwd packages/bosun test` (vitest) each exit 0. *Pass:* typecheck + unit tests green.
+- [ ] **ac_tool_plan_pure** — `bun run bosun plan` prints the static Spec listing every control-center service with its secret/route **references** and **zero secret values**; two consecutive runs are byte-identical; eval performs no network I/O (assert via a unit test that stubs/forbids the network, or run with network disabled). *Pass:* deterministic, value-free, pure spec emitted.
 - [ ] **ac_tool_providers** — the `SecretProvider` interface has `op`, `file`, `env` implementations; a unit test resolves a known reference through each. *Pass:* all three providers resolve in tests.
-- [ ] **ac_tool_secret_sync_prune** — pre-seed an undeclared labelled secret `cc_orphan_probe` (label `flotilla.stack=control-center`); run `flotilla secrets sync`; the declared secrets exist with values matching 1Password, `cc_orphan_probe` is **pruned**, and a secret WITHOUT the stack label is left untouched. *Pass:* declared present, scoped orphan removed, unrelated secret untouched.
-- [ ] **ac_tool_routes_sync_prune** — `flotilla routes sync` creates the declared Cloudflare routes (verified via CF API), and an undeclared stack-owned test route is **pruned**, while an unrelated CF hostname is untouched. *Pass:* declared routes present, scoped orphan removed, unrelated route untouched.
-- [ ] **ac_tool_health** — `flotilla verify` runs declared probes and exits 0 only when all pass; temporarily flipping one probe to an impossible expectation makes `verify` exit non-zero with a clear per-probe report. *Pass:* verify's exit code + report reflect probe results.
-- [ ] **ac_tool_up** — `bun run flotilla up` performs plan → secrets sync → routes sync → `docker stack deploy --prune` → verify, as one command, and brings control-center to all-healthy. *Pass:* a single `flotilla up` deploys and verifies the whole stack.
+- [ ] **ac_tool_secret_sync_prune** — pre-seed an undeclared labelled secret `cc_orphan_probe` (label `bosun.stack=control-center`); run `bosun secrets sync`; the declared secrets exist with values matching 1Password, `cc_orphan_probe` is **pruned**, and a secret WITHOUT the stack label is left untouched. *Pass:* declared present, scoped orphan removed, unrelated secret untouched.
+- [ ] **ac_tool_routes_sync_prune** — `bosun routes sync` creates the declared Cloudflare routes (verified via CF API), and an undeclared stack-owned test route is **pruned**, while an unrelated CF hostname is untouched. *Pass:* declared routes present, scoped orphan removed, unrelated route untouched.
+- [ ] **ac_tool_health** — `bosun verify` runs declared probes and exits 0 only when all pass; temporarily flipping one probe to an impossible expectation makes `verify` exit non-zero with a clear per-probe report. *Pass:* verify's exit code + report reflect probe results.
+- [ ] **ac_tool_up** — `bun run bosun up` performs plan → secrets sync → routes sync → `docker stack deploy --prune` → verify, as one command, and brings control-center to all-healthy. *Pass:* a single `bosun up` deploys and verifies the whole stack.
 
 ## B. Build & gates
 
@@ -67,14 +67,14 @@ Every item is in **exactly one** of three states:
 
 ## F. Security / isolation
 
-- [ ] **ac_no_secrets_git** — for each secret value (`op read`), `git log -p --all | grep -F "<value>"` returns nothing; `gitleaks detect --no-banner` → 0 findings; the rendered stack references docker secrets (`/run/secrets/*`) and `docker secret ls` lists the `flotilla.stack`-labelled secrets. *Pass:* zero secret values in tree/history; sourced from docker secrets.
+- [ ] **ac_no_secrets_git** — for each secret value (`op read`), `git log -p --all | grep -F "<value>"` returns nothing; `gitleaks detect --no-banner` → 0 findings; the rendered stack references docker secrets (`/run/secrets/*`) and `docker secret ls` lists the `bosun.stack`-labelled secrets. *Pass:* zero secret values in tree/history; sourced from docker secrets.
 - [ ] **ac_no_inbound** — `docker service inspect`/`docker ps` show no `control-center` service publishing to a non-loopback/non-tailnet host interface; cloudflared publishes no host port (outbound-only). *Pass:* no public inbound listener; ingress only via the tunnel.
 - [ ] **ac_api_private** — no `api.worldwidewebb.co` route exists and `api` publishes no host port; the api is reachable only proxied under `web` at `/api`. *Pass:* api not directly public; `/api/*` works through `web`.
-- [ ] **ac_config_pure** — `bun run flotilla plan` output (the resolved static spec / `deploy.lock.json`) contains no secret values, only references. *Pass:* config plane is value-free.
+- [ ] **ac_config_pure** — `bun run bosun plan` output (the resolved static spec / `deploy.lock.json`) contains no secret values, only references. *Pass:* config plane is value-free.
 
 ## G. Persistence / resilience (SSH homelab)
 
-- [ ] **ac_pg_persists** — `docker exec <pg> psql -c "create table _ac_probe(id int); insert into _ac_probe values(1);"` → `flotilla up` (redeploy) → `select count(*) from _ac_probe` still returns 1. *Pass:* data survives redeploy (named volume intact). Cleanup drops the probe table.
+- [ ] **ac_pg_persists** — `docker exec <pg> psql -c "create table _ac_probe(id int); insert into _ac_probe values(1);"` → `bosun up` (redeploy) → `select count(*) from _ac_probe` still returns 1. *Pass:* data survives redeploy (named volume intact). Cleanup drops the probe table.
 - [ ] **ac_restart_recovers** — `orb restart`, then poll until `docker stack services control-center` is all `1/1` and `ac_portainer_https` + `ac_storybook` pass again; throughout, HA VM pid (`pgrep -f haos.qcow2`) is unchanged and `tailscale status` stays connected. *Pass:* stack self-recovers with no manual step; HA + Tailscale untouched. (Engine restart, **not** a full OS reboot.)
 - [ ] **ac_autostart** — verify OrbStack is configured to start at login. *Pass:* autostart confirmed enabled. (Verify-only; if off, `[-]` with reason — do not fail silently.)
 
@@ -82,7 +82,7 @@ Every item is in **exactly one** of three states:
 
 - [ ] **ac_config_speed** — push a benign `deploy.config.ts`/stack change (add a label), time push → trigger → `docker service inspect` shows the new label. *Pass:* reflected in < 30 s (config path, no build), measured.
 - [ ] **ac_code_auto** — push a trivial code change (alters image content); `gh run watch` to success; new GHCR `:<sha>` exists; CI calls the deploy webhook and `docker service inspect web` image digest updates to it with **no manual step**. *Pass:* code change auto-builds and auto-deploys end-to-end. (If the on-box webhook agent / op service-account token is unavailable, mark `[-]` with that reason rather than faking.)
-- [ ] **ac_rollback** — roll a service to a prior `:<sha>` (via `flotilla` or `docker service update`) → healthy on the prior version → roll forward again. *Pass:* rollback to a prior sha succeeds and recovers.
+- [ ] **ac_rollback** — roll a service to a prior `:<sha>` (via `bosun` or `docker service update`) → healthy on the prior version → roll forward again. *Pass:* rollback to a prior sha succeeds and recovers.
 
 ## I. Global done (capstone — verify LAST)
 
