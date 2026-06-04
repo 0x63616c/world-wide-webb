@@ -11,10 +11,11 @@ vi.mock("../db/index", () => ({
       values: (rows: unknown) => {
         const arr = Array.isArray(rows) ? rows : [rows];
         captured.rows.push(...(arr as Record<string, unknown>[]));
-        return {
+        // A real Promise (natively awaitable for the plain inserts) with
+        // onConflictDoUpdate attached for the heartbeat upsert path.
+        return Object.assign(Promise.resolve(), {
           onConflictDoUpdate: () => Promise.resolve(),
-          then: (resolve: () => void) => resolve(),
-        };
+        });
       },
     }),
   },
