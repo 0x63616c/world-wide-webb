@@ -127,3 +127,25 @@ async function markHeartbeat(error: string | null): Promise<void> {
       set: { lastPolledAtUtc: now, lastError: error, consecutiveFailures: 0 },
     });
 }
+
+export interface WeatherIngestHandle {
+  stop: () => void;
+}
+
+// In-process poller mirroring startDeviceSyncService: runs one cycle, then
+// schedules the next INGEST_INTERVAL_MS later. Started once at boot.
+export function startWeatherIngestService(): WeatherIngestHandle {
+  let stopped = false;
+  const tick = async () => {
+    if (stopped) return;
+    await runWeatherIngestCycle();
+    if (stopped) return;
+    setTimeout(tick, INGEST_INTERVAL_MS);
+  };
+  void tick();
+  return {
+    stop: () => {
+      stopped = true;
+    },
+  };
+}
