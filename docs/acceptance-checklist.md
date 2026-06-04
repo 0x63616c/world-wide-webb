@@ -34,7 +34,8 @@ Every item is in **exactly one** of three states:
 
 ## A. The tool — `bosun` (build + unit, mostly local)
 
-- [ ] **ac_tool_build** — `bun run --cwd packages/bosun typecheck` and `bun run --cwd packages/bosun test` (vitest) each exit 0. *Pass:* typecheck + unit tests green.
+- [x] **ac_tool_build** — `bun run --cwd packages/bosun typecheck` and `bun run --cwd packages/bosun test` (vitest) each exit 0. *Pass:* typecheck + unit tests green.
+  - Evidence: `bun run --cwd packages/bosun typecheck` → exit 0; `bun run --cwd packages/bosun test` → 2 test files, 23 tests all passed, exit 0
 - [ ] **ac_tool_plan_pure** — `bun run bosun plan` prints the static Spec listing every control-center service with its secret/route **references** and **zero secret values**; two consecutive runs are byte-identical; eval performs no network I/O (assert via a unit test that stubs/forbids the network, or run with network disabled). *Pass:* deterministic, value-free, pure spec emitted.
 - [ ] **ac_tool_providers** — the `SecretProvider` interface has `op`, `file`, `env` implementations; a unit test resolves a known reference through each. *Pass:* all three providers resolve in tests.
 - [ ] **ac_tool_secret_sync_prune** — pre-seed an undeclared labelled secret `cc_orphan_probe` (label `bosun.stack=control-center`); run `bosun secrets sync`; the declared secrets exist with values matching 1Password, `cc_orphan_probe` is **pruned**, and a secret WITHOUT the stack label is left untouched. *Pass:* declared present, scoped orphan removed, unrelated secret untouched.
