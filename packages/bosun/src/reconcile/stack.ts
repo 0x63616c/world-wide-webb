@@ -35,12 +35,40 @@ export function renderStackYml(spec: Spec, secretNames: Record<string, string>):
       }
     }
 
+    // Bind/volume mounts (e.g. the docker socket for the Ofelia controller).
+    if (svc.volumes && svc.volumes.length > 0) {
+      lines.push("    volumes:");
+      for (const vol of svc.volumes) {
+        lines.push(`      - ${vol}`);
+      }
+    }
+
     // Stack label for ownership tracking.
     lines.push("    deploy:");
     lines.push("      labels:");
     lines.push(`        - bosun.stack=${spec.stackName}`);
+    // Scheduled jobs drive Ofelia via deploy labels. Translate the spec's
+    // standard 5-field cron to Ofelia's 6-field (seconds-leading) format by
+    // prepending "0 ". Label namespace: ofelia.<jobtype>.<name>.{schedule,command}.
+    if (svc.schedule) {
+      const prefix = `ofelia.${svc.schedule.jobType}.${svc.name}`;
+      lines.push(`        - ${prefix}.schedule=0 ${svc.schedule.cron}`);
+      if (svc.command) {
+        lines.push(`        - ${prefix}.command=${svc.command}`);
+      }
+    }
+    // Placement constraints sit under deploy.placement.
+    if (svc.placement && svc.placement.length > 0) {
+      lines.push("      placement:");
+      lines.push("        constraints:");
+      for (const c of svc.placement) {
+        lines.push(`          - ${c}`);
+      }
+    }
     lines.push("      restart_policy:");
-    lines.push("        condition: on-failure");
+    // A one-shot job should not be restarted on success; long-lived services
+    // restart on failure. job-exec/job-run containers are managed by Ofelia.
+    lines.push(`        condition: ${svc.schedule ? "none" : "on-failure"}`);
 
     if (svc.command) {
       lines.push(`    command: ${svc.command}`);

@@ -8,6 +8,21 @@ export interface SecretRef {
   ref: string;
 }
 
+// Ofelia job types. job-exec runs inside an already-running container (e.g. a
+// migration against the live app); job-run spins up a fresh one-shot container
+// (e.g. a prune). Both are node-local — they only see the daemon Ofelia is
+// attached to — which is fine on our single-node swarm. job-service-run (a
+// one-off Swarm service) would be needed for multi-node, out of scope here.
+export type OfeliaJobType = "job-exec" | "job-run";
+
+export interface ScheduleSpec {
+  // Standard 5-field cron ("min hour dom mon dow"). Translated to Ofelia's
+  // 6-field (seconds-leading) format at render time by prepending "0 ", so
+  // specs stay conventional and nobody has to remember the seconds column.
+  cron: string;
+  jobType: OfeliaJobType;
+}
+
 export interface HealthProbe {
   kind: "http" | "cmd";
   // Human-readable label used in verify output.
@@ -35,6 +50,16 @@ export interface ServiceSpec {
   proxyApiTo?: string;
   // Optional shell command override for the container.
   command?: string;
+  // Optional bind/volume mounts ("source:target" docker syntax). Used by infra
+  // services like the Ofelia controller that need the docker socket.
+  volumes?: string[];
+  // Optional deploy placement constraints (e.g. "node.role==manager").
+  placement?: string[];
+  // Optional scheduled-job declaration. When present this service is driven by
+  // the Ofelia scheduler via ofelia.* deploy labels rather than running as a
+  // long-lived service. A one-shot job has no liveness endpoint, so an http
+  // HealthProbe on it is rejected by cronJob().
+  schedule?: ScheduleSpec;
   health: HealthProbe[];
 }
 
@@ -67,7 +92,67 @@ export function service(
     port: opts.port,
     proxyApiTo: opts.proxyApiTo,
     command: opts.command,
+    volumes: opts.volumes,
+    placement: opts.placement,
+    schedule: opts.schedule,
     health: opts.health ?? [],
+  };
+}
+
+// Scheduled-job primitive. A job is a normal ServiceSpec carrying a `schedule`,
+// so it reuses the existing secret/env/command rendering and gets op-resolved
+// secrets for free. A one-shot job has no liveness endpoint, so an http
+// HealthProbe is nonsensical and rejected here at build time. cmd probes are
+// also rejected: jobs are exempt from verify (a one-shot has nothing to poll).
+// A future last-run-exit-0 check could query Ofelia's last task state instead.
+export function cronJob(
+  name: string,
+  opts: {
+    image: string;
+    // Standard 5-field cron, translated to Ofelia 6-field at render time.
+    schedule: string;
+    command: string;
+    secrets?: SecretRef[];
+    env?: Record<string, string>;
+    jobType?: OfeliaJobType;
+    volumes?: string[];
+  },
+): ServiceSpec {
+  const cron = opts.schedule.trim();
+  if (cron.split(/\s+/).length !== 5) {
+    throw new Error(
+      `cronJob '${name}': schedule must be standard 5-field cron, got '${opts.schedule}'`,
+    );
+  }
+  return {
+    name,
+    image: opts.image,
+    secrets: opts.secrets ?? [],
+    env: opts.env ?? {},
+    command: opts.command,
+    volumes: opts.volumes,
+    schedule: { cron, jobType: opts.jobType ?? "job-run" },
+    // No probes: jobs are exempt from liveness verify.
+    health: [],
+  };
+}
+
+// The Ofelia scheduler itself, declared as bosun-managed infra so it is
+// reconciled like any other service rather than hand-placed. It reads job
+// schedules from the ofelia.* deploy labels other services emit. Needs the
+// docker socket (root-equivalent) to spawn/exec containers and must sit on a
+// manager node. This socket mount + single-controller design is a deliberate
+// SPOF tradeoff, acceptable for the single-node homelab swarm.
+export function ofeliaController(opts: { image?: string } = {}): ServiceSpec {
+  return {
+    name: "ofelia",
+    image: opts.image ?? "mcuadros/ofelia:latest",
+    secrets: [],
+    env: {},
+    command: "daemon --docker",
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"],
+    placement: ["node.role==manager"],
+    health: [],
   };
 }
 

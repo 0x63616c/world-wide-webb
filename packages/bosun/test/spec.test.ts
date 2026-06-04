@@ -4,9 +4,11 @@ import type { Spec } from "../src/spec.ts";
 import {
   certProbe,
   cmdProbe,
+  cronJob,
   fromOp,
   ghcr,
   httpProbe,
+  ofeliaController,
   postgres,
   service,
   stack,
@@ -169,6 +171,70 @@ describe("postgres builder", () => {
     const pg = postgres({ volume: "pgdata", secretRef: "op://Homelab/PG/password" });
     const ref = pg.secrets.find((r) => r.name === "POSTGRES_PASSWORD");
     expect(ref?.ref).toBe("op://Homelab/PG/password");
+  });
+});
+
+describe("cronJob primitive", () => {
+  it("produces a ServiceSpec carrying a schedule", () => {
+    const job = cronJob("prune", {
+      image: "docker:cli",
+      schedule: "30 3 * * *",
+      command: "docker system prune -af",
+    });
+    expect(job.name).toBe("prune");
+    expect(job.schedule?.cron).toBe("30 3 * * *");
+    expect(job.command).toBe("docker system prune -af");
+  });
+
+  it("defaults jobType to job-run", () => {
+    const job = cronJob("prune", { image: "docker:cli", schedule: "0 4 * * *", command: "x" });
+    expect(job.schedule?.jobType).toBe("job-run");
+  });
+
+  it("honors an explicit job-exec jobType", () => {
+    const job = cronJob("migrate", {
+      image: "ignored",
+      schedule: "0 2 * * *",
+      command: "rails db:migrate",
+      jobType: "job-exec",
+    });
+    expect(job.schedule?.jobType).toBe("job-exec");
+  });
+
+  it("carries op-resolved secrets through to the job spec", () => {
+    const job = cronJob("backup", {
+      image: "pg",
+      schedule: "0 5 * * *",
+      command: "pg_dump",
+      secrets: fromOp("Homelab", { PG_PASS: "PG/password" }),
+    });
+    expect(job.secrets.find((s) => s.name === "PG_PASS")?.ref).toBe("op://Homelab/PG/password");
+  });
+
+  it("rejects a non-5-field cron (nonsensical schedule)", () => {
+    // 6-field (seconds-leading) would be an Ofelia-format leak — specs stay 5-field.
+    expect(() => cronJob("bad", { image: "x", schedule: "0 30 3 * * *", command: "y" })).toThrow(
+      /5-field/,
+    );
+  });
+
+  it("is a one-shot with no health probes (exempt from liveness verify)", () => {
+    const job = cronJob("prune", { image: "docker:cli", schedule: "0 4 * * *", command: "x" });
+    expect(job.health).toEqual([]);
+  });
+});
+
+describe("ofeliaController infra service", () => {
+  it("uses the mcuadros/ofelia image", () => {
+    expect(ofeliaController().image).toContain("mcuadros/ofelia");
+  });
+
+  it("mounts the docker socket", () => {
+    expect(ofeliaController().volumes).toEqual(["/var/run/docker.sock:/var/run/docker.sock:ro"]);
+  });
+
+  it("constrains placement to a manager node", () => {
+    expect(ofeliaController().placement).toContain("node.role==manager");
   });
 });
 
