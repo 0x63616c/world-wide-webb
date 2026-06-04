@@ -1,5 +1,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchOpenMeteoBundle } from "../services/weather-ingest-service";
+import { fetchOpenMeteoBundle, runWeatherIngestCycle } from "../services/weather-ingest-service";
+
+// Capture every db.insert(...).values(rows) call. values() returns a thenable
+// that also exposes onConflictDoUpdate, matching both the plain inserts and the
+// heartbeat upsert in runWeatherIngestCycle.
+const captured = vi.hoisted(() => ({ rows: [] as Record<string, unknown>[] }));
+vi.mock("../db/index", () => ({
+  db: {
+    insert: () => ({
+      values: (rows: unknown) => {
+        const arr = Array.isArray(rows) ? rows : [rows];
+        captured.rows.push(...(arr as Record<string, unknown>[]));
+        return {
+          onConflictDoUpdate: () => Promise.resolve(),
+          then: (resolve: () => void) => resolve(),
+        };
+      },
+    }),
+  },
+}));
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -54,5 +73,44 @@ describe("fetchOpenMeteoBundle", () => {
   it("throws on non-OK upstream", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("bad", { status: 502 }));
     await expect(fetchOpenMeteoBundle(0, 0)).rejects.toThrow("HTTP 502");
+  });
+});
+
+describe("runWeatherIngestCycle", () => {
+  it("appends forecast/observed hourly rows + a daily row per day + heartbeat", async () => {
+    captured.rows.length = 0;
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(bundleResponse()), { status: 200 }),
+    );
+
+    await runWeatherIngestCycle();
+
+    const hourly = captured.rows.filter((r) => "kind" in r);
+    const daily = captured.rows.filter((r) => "targetDate" in r);
+    const heartbeat = captured.rows.filter((r) => "integrationId" in r);
+
+    expect(hourly.length).toBe(3); // 3 hourly slots in the fixture
+    expect(daily.length).toBe(2); // 2 daily entries
+    expect(heartbeat.length).toBe(1);
+    expect(heartbeat[0].integrationId).toBe("weather");
+
+    // forecast rows carry integer temps and a Date target_hour
+    const forecast = hourly.find((r) => r.kind === "forecast");
+    expect(forecast).toBeDefined();
+    expect(typeof forecast?.tempF).toBe("number");
+    expect(forecast?.targetHour instanceof Date).toBe(true);
+  });
+
+  it("records the heartbeat with an error message when the fetch fails", async () => {
+    captured.rows.length = 0;
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("bad", { status: 502 }));
+
+    await runWeatherIngestCycle();
+
+    const heartbeat = captured.rows.filter((r) => "integrationId" in r);
+    expect(heartbeat).toHaveLength(1);
+    expect(heartbeat[0].lastError).toBe("HTTP 502");
+    // no weather rows written on failure
+    expect(captured.rows.filter((r) => "kind" in r)).toHaveLength(0);
   });
 });
