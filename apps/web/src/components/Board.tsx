@@ -14,6 +14,7 @@ import { getTileModalEntry } from "./tiles/modals/registry";
 import { TileModalHost } from "./tiles/modals/TileModalHost";
 import type { TileModalEntry } from "./tiles/modals/types";
 import { TileBoundary } from "./ui/TileBoundary";
+import { ViewportDebug } from "./ViewportDebug";
 
 // Interactive descendants a tap may land on (toggles, sliders, the Controls
 // "More" button). Taps on these drive the tile's own controls and must NOT also
@@ -186,6 +187,8 @@ export function Board() {
       ) : (
         scaler
       )}
+      {/* TEMP: viewport diagnostic — remove once the bezel threshold is settled. */}
+      <ViewportDebug />
     </div>
   );
 }
