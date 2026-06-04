@@ -95,6 +95,30 @@ export function cmdProbe(description: string, command: string): HealthProbe {
   return { kind: "cmd", description, command };
 }
 
+// cert-expiry lookahead probe. Connect-time TLS validation (an http probe) only
+// fails AFTER a cert has already expired — too late to act. This wraps openssl's
+// -checkend, which exits non-zero when the cert expires within `warnDays`, so the
+// probe goes red BEFORE expiry while there is still time to renew. Implemented on
+// the existing cmd path so no new probe kind is needed.
+export function certProbe(
+  host: string,
+  opts: { warnDays: number; port?: number } = { warnDays: 14 },
+): HealthProbe {
+  const port = opts.port ?? 443;
+  const seconds = opts.warnDays * 86400;
+  // s_client opens the TLS session; x509 -checkend asserts the leaf cert stays
+  // valid for `seconds` from now. SNI (-servername) is required for hosts behind
+  // virtual hosting / SNI-based routing to return the right cert.
+  const command =
+    `echo | openssl s_client -connect ${host}:${port} -servername ${host} 2>/dev/null` +
+    ` | openssl x509 -checkend ${seconds} -noout`;
+  return {
+    kind: "cmd",
+    description: `cert for ${host}:${port} valid >${opts.warnDays}d`,
+    command,
+  };
+}
+
 // postgres convenience builder — produces a ServiceSpec for Postgres.
 export function postgres(opts: {
   volume: string;

@@ -1,6 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { type Runner, runProbes } from "../src/health.ts";
 import type { Spec } from "../src/spec.ts";
-import { cmdProbe, fromOp, ghcr, httpProbe, postgres, service, stack } from "../src/spec.ts";
+import {
+  certProbe,
+  cmdProbe,
+  fromOp,
+  ghcr,
+  httpProbe,
+  postgres,
+  service,
+  stack,
+} from "../src/spec.ts";
 
 // Verify the builder API produces the correct static shape (ac_tool_plan_pure).
 
@@ -89,6 +99,51 @@ describe("health probes", () => {
     expect(probe.kind).toBe("cmd");
     expect(probe.description).toBe("live HA data");
     expect(probe.command).toContain("curl");
+  });
+
+  it("certProbe wraps openssl on the cmd path with the warn window in seconds", () => {
+    const probe = certProbe("dashboard.worldwidewebb.co", { warnDays: 14 });
+    expect(probe.kind).toBe("cmd");
+    // -checkend takes seconds; 14 days = 1209600s.
+    expect(probe.command).toContain("openssl x509 -checkend 1209600 -noout");
+    // SNI must be sent so SNI-routed hosts return the right cert.
+    expect(probe.command).toContain("-servername dashboard.worldwidewebb.co");
+    expect(probe.description).toContain("dashboard.worldwidewebb.co");
+  });
+
+  it("certProbe defaults to port 443 and supports an explicit port", () => {
+    expect(certProbe("example.com", { warnDays: 7 }).command).toContain("-connect example.com:443");
+    expect(certProbe("example.com", { warnDays: 7, port: 8443 }).command).toContain(
+      "-connect example.com:8443",
+    );
+  });
+});
+
+// A cert-expiry probe is a cmd probe: openssl -checkend exits 0 when the cert is
+// valid past the warn window and non-zero when expiry falls inside it. Drive both
+// outcomes through runProbes with an injected runner standing in for openssl.
+describe("certProbe behavior via injected runner", () => {
+  const makeRunner = (exitCode: number): Runner => vi.fn().mockResolvedValue({ exitCode });
+
+  it("passes when the cert is far from expiry (openssl exits 0)", async () => {
+    const probe = certProbe("dashboard.worldwidewebb.co", { warnDays: 14 });
+    const result = await runProbes([probe], {
+      fetcher: vi.fn(),
+      runner: makeRunner(0),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.results[0].pass).toBe(true);
+  });
+
+  it("fails when expiry is inside the warn window (openssl exits 1)", async () => {
+    const probe = certProbe("dashboard.worldwidewebb.co", { warnDays: 14 });
+    const result = await runProbes([probe], {
+      fetcher: vi.fn(),
+      runner: makeRunner(1),
+    });
+    expect(result.exitCode).not.toBe(0);
+    expect(result.results[0].pass).toBe(false);
+    expect(result.results[0].reason).toBeTruthy();
   });
 });
 
