@@ -210,7 +210,7 @@ docker service create --name portainer --publish 9000:9000 \
 # First bosun deploy (run locally or from the agent)
 bun run bosun up
 ```
-Then set Portainer admin (API), confirm OrbStack start-at-login. **Turtle:** Portainer can't deploy Portainer and bosun can't deploy its own agent — bootstrap starts those two; bosun does the rest.
+Then set Portainer admin (API) and run `scripts/rename-portainer-env.sh` (also invoked by bootstrap) to rename the auto-created `local` environment to `production`, then confirm OrbStack start-at-login. **Turtle:** Portainer can't deploy Portainer and bosun can't deploy its own agent — bootstrap starts those two; bosun does the rest.
 
 ---
 
