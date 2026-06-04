@@ -1,38 +1,36 @@
-# Multi-stage build for the API (bun/tRPC server).
-# Stage 1 installs deps; stage 2 is the slim runtime image.
-# Entrypoint runs drizzle migrations before starting the server so ordering
-# is handled by Swarm's crash-backoff — no depends_on needed.
+# syntax=docker/dockerfile:1
 
-FROM oven/bun:1.2-alpine AS builder
+# ── Stage 1: install production deps ─────────────────────────────────────────
+FROM oven/bun:1-alpine AS deps
 
 WORKDIR /app
 
-# Copy workspace manifests first; bun resolves workspace packages from these.
+# Copy all workspace manifests so bun resolves the full workspace graph.
+# apps/web is included because the root workspace references all apps/*.
 COPY package.json bun.lock ./
-COPY apps/api/package.json ./apps/api/package.json
-COPY packages/bosun/package.json ./packages/bosun/package.json
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+COPY packages/bosun/package.json packages/bosun/
 
+# Install workspace deps. drizzle-kit is a devDep but bunx at runtime can use
+# the installed copy; swarm crash-backoff handles postgres startup ordering.
 RUN bun install --frozen-lockfile
 
-COPY apps/api ./apps/api
-COPY packages/bosun/src ./packages/bosun/src
-
-
-# Runtime: same bun base (alpine keeps the image small).
-FROM oven/bun:1.2-alpine AS runtime
+# ── Stage 2: runtime image ────────────────────────────────────────────────────
+FROM oven/bun:1-alpine AS runtime
 
 WORKDIR /app
 
-# Copy installed node_modules and source from builder.
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/api ./apps/api
-COPY --from=builder /app/packages ./packages
-COPY package.json ./
+COPY --from=deps /app/node_modules node_modules
+COPY --from=deps /app/apps/api/node_modules apps/api/node_modules 2>/dev/null || true
 
+COPY package.json bun.lock ./
+COPY apps/api apps/api
+COPY packages packages
+
+# Bun runs TypeScript natively; no compile step needed.
+# drizzle-kit migrate runs once at start; Swarm crash-backoff handles postgres ordering.
+# (depends_on is ignored by docker stack deploy, so we rely on retry loops.)
 EXPOSE 4201
 
-# entrypoint.sh: run migrations then exec the server so bun is PID 1.
-COPY apps/api/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-CMD ["/entrypoint.sh"]
+CMD ["sh", "-c", "bunx --cwd apps/api drizzle-kit migrate && bun run apps/api/src/server.ts"]
