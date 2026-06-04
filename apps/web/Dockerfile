@@ -11,15 +11,16 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/api/package.json ./apps/api/package.json
+COPY packages/api/package.json ./packages/api/package.json
 COPY packages/bosun/package.json ./packages/bosun/package.json
 
 RUN bun install --frozen-lockfile
 
-# Copy workspace source. api source is needed for the @cc/api type import.
+# Copy workspace source. packages/api provides the @cc/api type export.
 COPY apps/api/src ./apps/api/src
 COPY apps/api/tsconfig.json ./apps/api/tsconfig.json
 COPY apps/web ./apps/web
-COPY packages/bosun/src ./packages/bosun/src
+COPY packages ./packages
 
 # Build the static bundle. Output lands at apps/web/dist.
 RUN bun run --cwd apps/web build
