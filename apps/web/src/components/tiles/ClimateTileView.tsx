@@ -218,8 +218,9 @@ export function ClimateTileView(props: ClimateTileViewProps) {
         )}
       </div>
 
-      {/* Mode buttons */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
+      {/* Mode buttons. In Off mode there is no slider below, so the bar drops to
+          the tile's bottom padding edge for even 22px spacing on all sides. */}
+      <div style={{ display: "flex", gap: 8, marginBottom: mode === HvacMode.Off ? 0 : 22 }}>
         {HvacModeEntries.map(([k, label]) => (
           <button
             key={k}
@@ -310,8 +311,6 @@ export function ClimateTileView(props: ClimateTileViewProps) {
             </div>
           );
         })()}
-
-      {mode === HvacMode.Off && <div style={{ height: 8, marginBottom: 28 }} />}
     </Tile>
   );
 }

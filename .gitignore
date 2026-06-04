@@ -53,6 +53,7 @@ storybook-static
 
 # ship workflow scratch + build worktrees
 .claude/worktrees/
+.claire/
 
 # Runtime scheduler lock — ephemeral, never commit
 .claude/scheduled_tasks.lock

@@ -6,6 +6,8 @@
   --nest: #15191e;
   --hair: rgba(255, 255, 255, 0.06);
   --hair-2: rgba(255, 255, 255, 0.1);
+  /* Brighter hairline for the tile currently under the viewport crosshair. */
+  --hair-3: rgba(255, 255, 255, 0.28);
   --ink: #eef0f2;
   --ink-2: #9197a1;
   --ink-3: #565c66;
@@ -81,6 +83,11 @@
 }
 .tile:hover {
   border-color: var(--hair-2);
+}
+/* The tile under the viewport center (set by Board via the wrapper). Placed
+   after :hover so it wins at equal specificity while panning. */
+.is-centered .tile {
+  border-color: var(--hair-3);
 }
 
 /* section label */

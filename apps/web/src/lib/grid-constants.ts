@@ -41,27 +41,42 @@ export const WORLD_H = 2 * BOARD_PADDING + WORLD_ROWS * CELL + (WORLD_ROWS - 1) 
 // The Clock (registry tile colStart 1, rowStart 1, 5×3) is placed dead center of
 // the world; every other tile keeps its position relative to it. The offset is
 // world-center minus the Clock's own center (its colStart is 1, so its local
-// center is just half its span).
+// center is just half its span). Exported so decorative layers (placeholder
+// tiles) can express positions in the same world-cell space the cluster uses.
 const CLOCK_COLS = 5;
 const CLOCK_ROWS = 3;
-const CLUSTER_COL_OFFSET = WORLD_COLS / 2 - CLOCK_COLS / 2;
-const CLUSTER_ROW_OFFSET = WORLD_ROWS / 2 - CLOCK_ROWS / 2;
+export const CLUSTER_COL_OFFSET = WORLD_COLS / 2 - CLOCK_COLS / 2;
+export const CLUSTER_ROW_OFFSET = WORLD_ROWS / 2 - CLOCK_ROWS / 2;
+
+// World-pixel rect for a 0-indexed world-cell span. The lattice origin and pitch
+// are the single source of truth, so both real tiles and decorative placeholders
+// resolve through here. Width/height equal tilePixelSize by construction.
+export function worldCellRect(
+  col: number,
+  row: number,
+  cols: number,
+  rows: number,
+): { x: number; y: number; w: number; h: number } {
+  const { width, height } = tilePixelSize(cols, rows);
+  return {
+    x: BOARD_PADDING + col * CELL_PITCH,
+    y: BOARD_PADDING + row * CELL_PITCH,
+    w: width,
+    h: height,
+  };
+}
 
 // World-pixel rect for a registry tile, shifted so the Clock sits at world center.
-// Width/height equal tilePixelSize by construction.
 export function tileWorldRect(t: {
   colStart: number;
   rowStart: number;
   cols: number;
   rows: number;
 }): { x: number; y: number; w: number; h: number } {
-  const c0 = t.colStart - 1 + CLUSTER_COL_OFFSET;
-  const r0 = t.rowStart - 1 + CLUSTER_ROW_OFFSET;
-  const { width, height } = tilePixelSize(t.cols, t.rows);
-  return {
-    x: BOARD_PADDING + c0 * CELL_PITCH,
-    y: BOARD_PADDING + r0 * CELL_PITCH,
-    w: width,
-    h: height,
-  };
+  return worldCellRect(
+    t.colStart - 1 + CLUSTER_COL_OFFSET,
+    t.rowStart - 1 + CLUSTER_ROW_OFFSET,
+    t.cols,
+    t.rows,
+  );
 }
