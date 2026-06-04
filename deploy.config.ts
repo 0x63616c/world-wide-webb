@@ -28,6 +28,11 @@ export default stack("control-center", {
       }),
       env: {
         NODE_ENV: "production",
+        // Fixed-location LA wall panel: run the API in Pacific time so the
+        // weather ingest parses Open-Meteo's timezone=auto LA-local timestamps
+        // correctly and read-time hour labels match the board's local clock.
+        // Without this the container defaults to UTC and weather is shifted 7h.
+        TZ: "America/Los_Angeles",
         // Home Assistant is on the host via OrbStack's host alias.
         HA_URL: "http://host.docker.internal:8123",
         UNIFI_URL: "https://host.docker.internal",
