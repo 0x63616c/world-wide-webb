@@ -15,7 +15,8 @@ COPY packages/bosun/package.json packages/bosun/
 
 # Install workspace deps. drizzle-kit is a devDep but bunx at runtime can use
 # the installed copy; swarm crash-backoff handles postgres startup ordering.
-RUN bun install --frozen-lockfile
+# --ignore-scripts skips the lefthook prepare hook (needs git, not in alpine image).
+RUN bun install --frozen-lockfile --ignore-scripts
 
 # ── Stage 2: runtime image ────────────────────────────────────────────────────
 FROM oven/bun:1-alpine AS runtime
