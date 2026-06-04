@@ -5,22 +5,25 @@ FROM oven/bun:1-alpine AS deps
 
 WORKDIR /app
 
+# Copy all workspace manifests so bun resolves the full workspace graph.
+# apps/web is included because the root workspace references all apps/*.
 COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
+COPY packages/api/package.json packages/api/
 COPY packages/bosun/package.json packages/bosun/
 
-# Production deps only; dev tools (drizzle-kit, types) are excluded at runtime
-# because drizzle-kit is a devDependency — the migrate script uses it via bunx.
-RUN bun install --frozen-lockfile
+# Install workspace deps. drizzle-kit is a devDep but bunx at runtime can use
+# the installed copy; swarm crash-backoff handles postgres startup ordering.
+# --ignore-scripts skips the lefthook prepare hook (needs git, not in alpine image).
+RUN bun install --frozen-lockfile --ignore-scripts
 
-# ── Stage 2: copy source + build artefacts ───────────────────────────────────
+# ── Stage 2: runtime image ────────────────────────────────────────────────────
 FROM oven/bun:1-alpine AS runtime
 
 WORKDIR /app
 
 COPY --from=deps /app/node_modules node_modules
-COPY --from=deps /app/apps/api/node_modules apps/api/node_modules 2>/dev/null || true
 
 COPY package.json bun.lock ./
 COPY apps/api apps/api

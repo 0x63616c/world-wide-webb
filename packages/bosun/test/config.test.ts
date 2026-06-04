@@ -6,12 +6,12 @@ import type { Spec } from "../src/spec.ts";
 
 // A minimal config factory — mirrors the shape a deploy.config.ts would export.
 const makeMinimalSpec = (): Spec => ({
-  name: "test-stack",
+  stackName: "test-stack",
   services: [
     {
       name: "api",
       image: "ghcr.io/0x63616c/test-api:main",
-      secrets: { TOKEN: "op://Homelab/Test/token" },
+      secrets: [{ name: "TOKEN", ref: "op://Homelab/Test/token" }],
       env: {},
       health: [],
     },
@@ -21,7 +21,7 @@ const makeMinimalSpec = (): Spec => ({
 describe("evaluateConfig", () => {
   it("evaluates a module factory and returns its Spec", async () => {
     const spec = await evaluateConfig(makeMinimalSpec);
-    expect(spec.name).toBe("test-stack");
+    expect(spec.stackName).toBe("test-stack");
     expect(spec.services).toHaveLength(1);
   });
 
@@ -60,8 +60,8 @@ describe("evaluateConfig", () => {
   it("spec from evaluateConfig contains only op:// secret references", async () => {
     const spec = await evaluateConfig(makeMinimalSpec);
     for (const svc of spec.services) {
-      for (const val of Object.values(svc.secrets ?? {})) {
-        expect(val).toMatch(/^op:\/\//);
+      for (const secretRef of svc.secrets ?? []) {
+        expect(secretRef.ref).toMatch(/^op:\/\//);
       }
     }
   });
