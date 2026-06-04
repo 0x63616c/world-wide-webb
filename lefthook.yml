@@ -13,3 +13,11 @@ pre-commit:
       # BLOCKING: exits non-zero if staged files introduce fake-data sentinels.
       # Sanctioned exceptions live in the script itself (network-service, weather-service).
       run: bash scripts/check-fake-data.sh {staged_files}
+
+commit-msg:
+  commands:
+    conventional-commit:
+      # BLOCKING: subject must be a Conventional Commit AND reference a real bd
+      # ticket id (validated via `bd show`). Degrades gracefully when bd is offline.
+      # {1} is the path to the commit message file lefthook passes to this stage.
+      run: bash scripts/check-commit-msg.sh {1}
