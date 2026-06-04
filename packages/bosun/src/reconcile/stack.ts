@@ -1,5 +1,13 @@
 import type { Spec } from "../spec.ts";
 
+// docker stack deploy interpolates the compose file, so a literal `$` in a
+// command (e.g. cloudflared's `$(cat /run/secrets/...)`) must be doubled to
+// `$$` or the deploy is rejected with "invalid interpolation format". The
+// function replacement avoids `$$`'s special meaning in String.replace.
+function escapeComposeInterpolation(value: string): string {
+  return value.replace(/\$/g, () => "$$");
+}
+
 // Render the static Spec + resolved secret name map to a Docker Swarm stack YAML.
 // The rendered YAML references hashed docker secret names — never plain values.
 // Output is deterministic: same inputs always produce byte-identical output.
@@ -54,7 +62,7 @@ export function renderStackYml(spec: Spec, secretNames: Record<string, string>):
       const prefix = `ofelia.${svc.schedule.jobType}.${svc.name}`;
       lines.push(`        - ${prefix}.schedule=0 ${svc.schedule.cron}`);
       if (svc.command) {
-        lines.push(`        - ${prefix}.command=${svc.command}`);
+        lines.push(`        - ${prefix}.command=${escapeComposeInterpolation(svc.command)}`);
       }
     }
     // Placement constraints sit under deploy.placement.
@@ -71,7 +79,7 @@ export function renderStackYml(spec: Spec, secretNames: Record<string, string>):
     lines.push(`        condition: ${svc.schedule ? "none" : "on-failure"}`);
 
     if (svc.command) {
-      lines.push(`    command: ${svc.command}`);
+      lines.push(`    command: ${escapeComposeInterpolation(svc.command)}`);
     }
   }
 
