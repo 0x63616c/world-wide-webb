@@ -48,6 +48,7 @@ export function Minimap({
   // Scrub state: kept in a ref so live dragging never re-renders the minimap.
   const scrub = useRef({ active: false, moved: false, x: 0, y: 0 });
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `view` isn't read here — its identity change on every pan is the trigger that re-shows the map and resets the hide timer.
   useEffect(() => {
     if (isFirstView.current) {
       isFirstView.current = false;
