@@ -194,23 +194,20 @@ Each service declares probes; `bosun verify` runs them and is the gate. Probe ki
 
 ## Part 10 — Bootstrap (one-time, idempotent)
 
-Preconditions (already true on the Mini): OrbStack, Tailscale (approved), HA VM, a GitHub deploy key.
+Preconditions (already true on the Mini): OrbStack, Tailscale (approved), HA VM, a GitHub deploy key. Plus two creds pre-saved in 1Password (Homelab): the **GHCR pull token** (`scripts/save-ghcr-pull-token.sh`) and the **Portainer admin** password (`scripts/save-portainer-admin.sh`). bootstrap fails fast with the save-script to run if either is missing.
 
-```sh
-# scripts/bootstrap.sh
-set -e
-docker info 2>/dev/null | grep -q "Swarm: active" || docker swarm init
-# Portainer (monitoring only)
-docker volume create portainer_data
-docker service create --name portainer --publish 9000:9000 \
-  --constraint 'node.role==manager' \
-  --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock \
-  --mount type=volume,src=portainer_data,dst=/data \
-  portainer/portainer-ce:<pinned>
-# First bosun deploy (run locally or from the agent)
-bun run bosun up
-```
-Then set Portainer admin (API) and run `scripts/rename-portainer-env.sh` (also invoked by bootstrap) to rename the auto-created `local` environment to `production`, then confirm OrbStack start-at-login. **Turtle:** Portainer can't deploy Portainer and bosun can't deploy its own agent — bootstrap starts those two; bosun does the rest.
+`scripts/bootstrap.sh` is a single idempotent, self-contained run:
+
+1. verify the prereq secrets exist in 1Password
+2. `docker swarm init` (if not active)
+3. start the **Portainer** service (monitoring only; publishes host-local `9000` so bootstrap can drive its API before cloudflared is up)
+4. wait for the Portainer API (host-local port, falling back to the public route on existing boxes)
+5. create the admin account from 1Password via `/api/users/admin/init` (already-initialised is a graceful no-op)
+6. rename the auto-created `local` environment to `production` via `scripts/rename-portainer-env.sh` (bd CC-4b5)
+7. confirm the GHCR pull token docker secret
+8. `bun run bosun up` (first full deploy)
+
+After it completes, the only manual step is confirming OrbStack **Start at login**. **Turtle:** Portainer can't deploy Portainer and bosun can't deploy its own agent — bootstrap starts those two; bosun does the rest.
 
 ---
 
