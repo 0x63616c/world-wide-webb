@@ -22,6 +22,14 @@ const INTERACTIVE_SELECTOR = 'button, input, a, select, textarea, [role="slider"
 
 const GRID_AREAS = deriveGridAreas(TILE_REGISTRY);
 
+// White device bezel drawn around the panel when — and only when — the viewport
+// has room to spare beyond the panel. The bezel ADDS to the rendered footprint,
+// so it must never appear on a screen that is exactly panel-sized (the iPad wall
+// panel): there it would push the panel off by its own width. Geometry, not the
+// build mode, decides this — the wall panel runs the same dev server, so an
+// env flag can't tell device from preview, but viewport size always can.
+const BEZEL = 10;
+
 // Pairs QueryErrorResetBoundary with TileBoundary via resetKey so a recovered
 // query resets the boundary without unmounting or a full page reload.
 function BoundedTile({ children }: { children: React.ReactNode }) {
@@ -44,9 +52,11 @@ function BoundedTile({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * The fixed 1366x1024 board. A #scaler wrapper scales the board uniformly to
- * fit the viewport (letterboxed), matching the design's fit() behavior so the
- * iPad wall panel and any browser window render pixel-identically.
+ * The fixed 1366x1024 board, always centered in the viewport. When the window
+ * is larger than the panel it renders at true 1:1 inside a white device bezel;
+ * otherwise — including the iPad wall panel, where the viewport equals the
+ * panel — it letterbox-fits bare so it renders pixel-identically. The choice is
+ * pure geometry (see BEZEL), so it is correct on every surface with no env flag.
  *
  * Layout is driven entirely by TILE_REGISTRY — adding a tile there places it
  * on the board with no further changes required here.
@@ -55,6 +65,10 @@ export function Board() {
   const scalerRef = useRef<HTMLDivElement>(null);
   // Which tile's detail modal is open (null = none).
   const [activeModal, setActiveModal] = useState<TileModalEntry | null>(null);
+  // True when the viewport is large enough to also draw the white bezel around
+  // the panel at true 1:1. False on the wall panel (viewport == panel) and on
+  // any window too small, where the panel is letterbox-fit instead.
+  const [framed, setFramed] = useState(false);
 
   // Open a tile's detail modal for taps on the tile body, not on an inner control.
   // Tiles that own their tap (ownsTap) open their own modal, so the board leaves
@@ -68,74 +82,110 @@ export function Board() {
 
   useEffect(() => {
     const el = scalerRef.current;
-    if (!el) return;
-    const fitToViewport = () => {
-      const s = Math.min(window.innerWidth / BOARD_W, window.innerHeight / BOARD_H);
-      el.style.transform = `scale(${s})`;
+    // When the window has room for panel + bezel on both axes, draw the bezel
+    // and render the panel at true 1:1 (it is guaranteed to fit, so plain
+    // centering suffices — no scrolling or overflow tricks). Otherwise letterbox
+    // the bare panel to fit (scale = 1 on the iPad, where the panel == viewport).
+    const apply = () => {
+      const fits =
+        window.innerWidth >= BOARD_W + 2 * BEZEL && window.innerHeight >= BOARD_H + 2 * BEZEL;
+      setFramed(fits);
+      if (el) {
+        const s = fits ? 1 : Math.min(window.innerWidth / BOARD_W, window.innerHeight / BOARD_H);
+        el.style.transform = `scale(${s})`;
+      }
     };
-    fitToViewport();
-    window.addEventListener("resize", fitToViewport);
-    return () => window.removeEventListener("resize", fitToViewport);
+    apply();
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
   }, []);
 
-  return (
-    <div id="stage" style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center" }}>
-      <div
-        id="scaler"
-        ref={scalerRef}
-        style={{ width: BOARD_W, height: BOARD_H, transformOrigin: "center center" }}
-      >
-        <div className="board e-root" style={{ padding: BOARD_PADDING }}>
-          <ConnectionLostBanner />
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              display: "grid",
-              gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
-              gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
-              gridTemplateAreas: GRID_AREAS,
-              gap: GRID_GAP,
-            }}
-          >
-            {TILE_REGISTRY.map((entry) => {
-              const { id, component: TileComponent, gridArea, label } = entry;
-              return (
-                // Not a real <button>: the tile body contains its own buttons
-                // (toggles, sliders, "More"), and nesting interactive elements is
-                // invalid. role+tabIndex give the wrapper button semantics while
-                // keeping inner controls separately operable.
-                // biome-ignore lint/a11y/useSemanticElements: nested interactive content forbids a <button>
-                <div
-                  key={id}
-                  style={{ gridArea, cursor: "pointer" }}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Open ${label}`}
-                  onClick={(e) => openTile(entry, e)}
-                  // Keyboard activation only when the tile wrapper itself is
-                  // focused — keep Enter/Space on inner controls for those controls.
-                  onKeyDown={(e) => {
-                    if (entry.ownsTap) return;
-                    if (e.target !== e.currentTarget) return;
-                    if (e.key === "Enter" || e.key === " ") {
-                      const modal = getTileModalEntry(entry.id);
-                      if (!modal) return;
-                      e.preventDefault();
-                      setActiveModal(modal);
-                    }
-                  }}
-                >
-                  <BoundedTile>
-                    <TileComponent />
-                  </BoundedTile>
-                </div>
-              );
-            })}
-          </div>
+  // #scaler is the 1366x1024 box that establishes the positioning context for
+  // the tile detail modal (it renders position:fixed inset:0, bounded by this
+  // transformed ancestor), keeping the modal inside the panel rather than the
+  // whole desktop. Its transform is set imperatively by the effect above.
+  const scaler = (
+    <div
+      id="scaler"
+      ref={scalerRef}
+      style={{ width: BOARD_W, height: BOARD_H, transformOrigin: "center center" }}
+    >
+      <div className="board e-root" style={{ padding: BOARD_PADDING }}>
+        <ConnectionLostBanner />
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: "grid",
+            gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+            gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
+            gridTemplateAreas: GRID_AREAS,
+            gap: GRID_GAP,
+          }}
+        >
+          {TILE_REGISTRY.map((entry) => {
+            const { id, component: TileComponent, gridArea, label } = entry;
+            return (
+              // Not a real <button>: the tile body contains its own buttons
+              // (toggles, sliders, "More"), and nesting interactive elements is
+              // invalid. role+tabIndex give the wrapper button semantics while
+              // keeping inner controls separately operable.
+              // biome-ignore lint/a11y/useSemanticElements: nested interactive content forbids a <button>
+              <div
+                key={id}
+                style={{ gridArea, cursor: "pointer" }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${label}`}
+                onClick={(e) => openTile(entry, e)}
+                // Keyboard activation only when the tile wrapper itself is
+                // focused — keep Enter/Space on inner controls for those controls.
+                onKeyDown={(e) => {
+                  if (entry.ownsTap) return;
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    const modal = getTileModalEntry(entry.id);
+                    if (!modal) return;
+                    e.preventDefault();
+                    setActiveModal(modal);
+                  }
+                }}
+              >
+                <BoundedTile>
+                  <TileComponent />
+                </BoundedTile>
+              </div>
+            );
+          })}
         </div>
-        <TileModalHost entry={activeModal} onClose={() => setActiveModal(null)} />
       </div>
+      <TileModalHost entry={activeModal} onClose={() => setActiveModal(null)} />
+    </div>
+  );
+
+  // One tree for every surface. The panel is always centered in the viewport.
+  // When there is room to spare, it sits at true 1:1 inside a white bezel (10px
+  // border, 10px outer radius); otherwise — including the iPad wall panel, where
+  // the viewport equals the panel — it renders bare and letterbox-fit. Because
+  // the bezel only appears when the framed box already fits, plain centering is
+  // enough: nothing ever overflows, so no scrolling or start-edge clipping.
+  return (
+    <div
+      id="stage"
+      style={{
+        position: "fixed",
+        inset: 0,
+        display: "grid",
+        placeItems: "center",
+        overflow: "hidden",
+        background: "#000",
+      }}
+    >
+      {framed ? (
+        <div style={{ border: `${BEZEL}px solid #fff`, borderRadius: BEZEL }}>{scaler}</div>
+      ) : (
+        scaler
+      )}
     </div>
   );
 }

@@ -1,8 +1,8 @@
-// Single source of truth for the fixed 1366×1024 board grid.
+// Single source of truth for the fixed 1364×1022 board grid.
 // Imported by Board, tile-registry, board-layout, and the Storybook decorator.
 
-export const BOARD_W = 1366;
-export const BOARD_H = 1024;
+export const BOARD_W = 1364;
+export const BOARD_H = 1022;
 export const GRID_COLS = 12;
 export const GRID_ROWS = 6;
 export const GRID_GAP = 18;
