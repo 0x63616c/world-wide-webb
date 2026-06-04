@@ -21,7 +21,11 @@ export const meta = {
   ],
 }
 
-const REPO = '/Users/calum/code/github.com/0x63616c/control-center'
+// MUST be the ISOLATED worktree, never the shared main checkout. Pointing this
+// at the main checkout lets agents commit onto main while a concurrent session
+// is also committing there — histories interleave and a partial/broken state can
+// get pushed to origin/main. Always run this workflow from a dedicated worktree.
+const REPO = '/Users/calum/code/github.com/0x63616c/control-center/.claude/worktrees/deploy-epic-workflow'
 
 // Model tiers (same hard rule as ship): haiku is a good validator but a bad
 // coder, so it never writes code here. sonnet writes ALL code + drives SSH/infra
@@ -43,7 +47,12 @@ const EPIC = 'www-5ag'
 // adds the bosun context, SSH-to-homelab, 1Password/op, and the no-secrets-in-git
 // invariant on top of the repo's bun/TDD/no-fake-data/beads baseline.
 const RULES = `
-You are an autonomous deploy engineer on the control-center repo at ${REPO} (a git worktree on a feature branch — do NOT switch to main).
+You are an autonomous deploy engineer on the control-center repo at ${REPO} — an ISOLATED git worktree on a feature branch.
+
+WORKTREE DISCIPLINE (hard, non-negotiable — a concurrent session is live on main):
+- ALWAYS \`cd ${REPO}\` before any git/file operation. NEVER \`cd\` to or operate in the main checkout.
+- NEVER \`git checkout main\`, NEVER commit on main, NEVER \`git push origin main\` / push to the main branch. Commit ONLY on this worktree's feature branch; push ONLY that branch (\`git push -u origin HEAD\`).
+- NEVER \`git stash\`, \`git rebase\`, or \`git reset\` against main — stashes/refs are shared across worktrees and will clobber the other session.
 
 MISSION: drive the bosun/Swarm deploy epic ${EPIC} to done. The full design is docs/deployment-design.md (follow its Part 14 order). The DEFINITION OF DONE is docs/acceptance-checklist.md — it is the single source of truth for every test command and pass condition. Read the relevant item there before validating it; never duplicate or weaken its test.
 
@@ -52,7 +61,7 @@ ABSOLUTE RULES:
 - TDD for the tool: write the vitest test FIRST (red), then implement to green. bosun unit tests live in packages/bosun/test/*.test.ts. Run them with \`bun run --cwd packages/bosun test\` (vitest). NEVER bare \`bun test\` — Bun's native runner breaks vi.mock with false failures.
 - GATES: \`bun run typecheck\` && \`bunx biome check .\` (\`bunx biome check --write .\` to auto-fix) && \`bun run test\` must all exit 0.
 - ZERO fake/hardcoded/placeholder data (web + api + tool). No FALLBACK/PLACEHOLDER identifiers, no DEMO_ outside the two sanctioned service files, no .skip/xfail, no weakening a test or the tool's prune scope to pass. The pre-commit guard (scripts/check-fake-data.sh via lefthook) enforces this.
-- SECRETS: never a secret VALUE in git, CI, images, or deploy.config.ts — references only. New credentials (Postgres password, Portainer admin, GHCR pull token) are generated and stored in 1Password (Homelab vault) via the op CLI, each with an interactive scripts/save-<thing>.sh per the using-1password convention. The local op is a 24h-caching PATH shim — invalidate on write. NEVER read .env/.kamal/secrets/*.pem/*.key.
+- SECRETS: never a secret VALUE in git, CI, images, or deploy.config.ts — references only. REUSE EXISTING 1Password (Homelab vault) items, do NOT mint duplicates: GHCR pull auth uses op://Homelab/GitHub Personal Access Token (field: token; it is scoped repo+write:packages, which includes read:packages — the box does \`docker login ghcr.io\` with it). The on-box agent's 1Password service-account token already exists as op://Homelab/"Service Account Auth Token: Homelab". Only genuinely-new credentials (Postgres password; Portainer admin password) are generated + stored via an interactive scripts/save-<thing>.sh per the using-1password convention — and Portainer admin can be set programmatically at first boot via its init API from that stored password (not a manual UI step). The local op is a 24h-caching PATH shim — invalidate on write. NEVER read .env/.kamal/secrets/*.pem/*.key.
 - PRUNE SAFETY (design Part 13 risk #6): bosun's secret/route prune is the dangerous part. It MUST be label/tag-scoped (bosun.stack=control-center) so it can never touch another stack's or Portainer's secrets/routes, and it MUST be unit-tested BEFORE it ever points at the real swarm.
 - Code style: imports at top only; no module-global mutable vars; comments explain WHY not HOW, one line.
 - BEADS is the shared state. The epic ${EPIC} has 29 children www-5ag.* — one per acceptance criterion. \`bd show <id>\` for a ticket's acceptance. When an item's exact checklist test actually runs and passes, flip its marker to [x] in docs/acceptance-checklist.md (cite the command + observed result inline) and \`bd close <id>\`. If an item is genuinely blocked by a human-only/web-console action, set its marker to [-] WITH a parenthesized reason and leave the ticket open with a \`bd update <id> --notes\` explaining the block. NEVER mark [x] without transcript evidence; NEVER mark a skip as [x]. Do NOT use TodoWrite.
