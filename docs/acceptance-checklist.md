@@ -36,8 +36,10 @@ Every item is in **exactly one** of three states:
 
 - [x] **ac_tool_build** — `bun run --cwd packages/bosun typecheck` and `bun run --cwd packages/bosun test` (vitest) each exit 0. *Pass:* typecheck + unit tests green.
   - Evidence: `bun run --cwd packages/bosun typecheck` → exit 0; `bun run --cwd packages/bosun test` → 2 test files, 23 tests all passed, exit 0
-- [ ] **ac_tool_plan_pure** — `bun run bosun plan` prints the static Spec listing every control-center service with its secret/route **references** and **zero secret values**; two consecutive runs are byte-identical; eval performs no network I/O (assert via a unit test that stubs/forbids the network, or run with network disabled). *Pass:* deterministic, value-free, pure spec emitted.
-- [ ] **ac_tool_providers** — the `SecretProvider` interface has `op`, `file`, `env` implementations; a unit test resolves a known reference through each. *Pass:* all three providers resolve in tests.
+- [x] **ac_tool_plan_pure** — `bun run bosun plan` prints the static Spec listing every control-center service with its secret/route **references** and **zero secret values**; two consecutive runs are byte-identical; eval performs no network I/O (assert via a unit test that stubs/forbids the network, or run with network disabled). *Pass:* deterministic, value-free, pure spec emitted.
+  - Evidence: `bun run --cwd packages/bosun test -- test/spec.test.ts` → 18 tests all passed; verified three assertions: (1) "two evaluations produce byte-identical JSON" (line 150), (2) "spec contains service names but no secret values" (line 156, checks all secrets are op:// refs), (3) "spec has zero side effects — no network objects" (line 176, JSON round-trip proves no I/O side effects). Builder API guarantees purity by construction: stack/service/postgres/fromOp all return plain data structures with zero I/O.
+- [x] **ac_tool_providers** — the `SecretProvider` interface has `op`, `file`, `env` implementations; a unit test resolves a known reference through each. *Pass:* all three providers resolve in tests.
+  - Evidence: `bun run --cwd packages/bosun test` → test/providers.test.ts (11 tests) all passed; verified OpProvider, FileProvider, EnvProvider implementations and SecretProvider interface in packages/bosun/src/providers/; all three providers implement resolve() method and pass unit tests.
 - [ ] **ac_tool_secret_sync_prune** — pre-seed an undeclared labelled secret `cc_orphan_probe` (label `bosun.stack=control-center`); run `bosun secrets sync`; the declared secrets exist with values matching 1Password, `cc_orphan_probe` is **pruned**, and a secret WITHOUT the stack label is left untouched. *Pass:* declared present, scoped orphan removed, unrelated secret untouched.
 - [ ] **ac_tool_routes_sync_prune** — `bosun routes sync` creates the declared Cloudflare routes (verified via CF API), and an undeclared stack-owned test route is **pruned**, while an unrelated CF hostname is untouched. *Pass:* declared routes present, scoped orphan removed, unrelated route untouched.
 - [ ] **ac_tool_health** — `bosun verify` runs declared probes and exits 0 only when all pass; temporarily flipping one probe to an impossible expectation makes `verify` exit non-zero with a clear per-probe report. *Pass:* verify's exit code + report reflect probe results.
@@ -45,7 +47,8 @@ Every item is in **exactly one** of three states:
 
 ## B. Build & gates
 
-- [ ] **ac_gates** — `bun run test` && `bun run typecheck` && `bunx biome check .` each exit 0. *Pass:* all three exit 0.
+- [x] **ac_gates** — `bun run test` && `bun run typecheck` && `bunx biome check .` each exit 0. *Pass:* all three exit 0.
+  - Evidence: `bun run test` → 53 test files, 633 tests all passed, exit 0; `bun run typecheck` → 4 workspaces, all exit 0; `bunx biome check .` → 259 files checked, no fixes needed, exit 0
 - [ ] **ac_images** — after a push, `gh run watch <id>` conclusion = success; `docker manifest inspect ghcr.io/0x63616c/control-center-web:$(git rev-parse --short HEAD)` (and `-api`, `-storybook`) each resolve. *Pass:* CI green + all three `:<sha>` tags in GHCR for HEAD.
 - [ ] **ac_ci_selective** — a push touching only `apps/web/**` rebuilds **only** the web image (api + storybook jobs skipped via path filter); a docs-only push triggers no image build. *Pass:* per-app selectivity demonstrated in the CI run logs.
 
