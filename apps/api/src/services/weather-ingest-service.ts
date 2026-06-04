@@ -1,4 +1,9 @@
+import { db } from "../db/index";
+import { integrationSyncStatus, weatherDailyReading, weatherReading } from "../db/schema";
 import { env } from "../env";
+
+const INGEST_INTEGRATION_ID = "weather";
+const INGEST_INTERVAL_MS = 5 * 60_000;
 
 export interface OpenMeteoBundle {
   current: {
@@ -47,4 +52,78 @@ export async function fetchOpenMeteoBundle(lat = env.LAT, lon = env.LON): Promis
   const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return (await res.json()) as OpenMeteoBundle;
+}
+
+// Round to the current wall-clock hour. timezone=auto means Open-Meteo's
+// strings are already location-local, so a past hour < this boundary becomes an
+// observed actual and the current hour and beyond become forecasts.
+function hourBoundaryMs(): number {
+  const h = new Date();
+  h.setMinutes(0, 0, 0);
+  return h.getTime();
+}
+
+export async function runWeatherIngestCycle(): Promise<void> {
+  try {
+    const bundle = await fetchOpenMeteoBundle();
+    const now = new Date();
+    const boundary = hourBoundaryMs();
+    const h = bundle.hourly;
+
+    const hourlyRows = h.time.map((iso, i) => {
+      const target = new Date(iso);
+      const isPast = target.getTime() < boundary;
+      return {
+        kind: isPast ? ("observed" as const) : ("forecast" as const),
+        targetHour: target,
+        recordedAt: now,
+        tempF: Math.round(h.temperature_2m[i]),
+        feelsF: Math.round(h.apparent_temperature[i]),
+        humidity: Math.round(h.relative_humidity_2m[i]),
+        weatherCode: h.weather_code[i],
+        windMph: Math.round(h.wind_speed_10m[i]),
+        isDay: h.is_day[i] === 1,
+        precipProbability: h.precipitation_probability[i] ?? null,
+        uvIndex: null as number | null, // uv only present on `current`, not hourly
+      };
+    });
+    if (hourlyRows.length > 0) await db.insert(weatherReading).values(hourlyRows);
+
+    const d = bundle.daily;
+    const dailyRows = d.time.map((date, i) => ({
+      targetDate: date,
+      recordedAt: now,
+      hiF: Math.round(d.temperature_2m_max[i]),
+      loF: Math.round(d.temperature_2m_min[i]),
+      weatherCode: d.weather_code[i],
+      precipProbability:
+        d.precipitation_probability_max[i] == null
+          ? null
+          : Math.round(d.precipitation_probability_max[i] as number),
+      sunriseIso: d.sunrise[i] ?? null,
+      sunsetIso: d.sunset[i] ?? null,
+    }));
+    if (dailyRows.length > 0) await db.insert(weatherDailyReading).values(dailyRows);
+
+    await markHeartbeat(null);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await markHeartbeat(msg);
+  }
+}
+
+async function markHeartbeat(error: string | null): Promise<void> {
+  const now = new Date();
+  await db
+    .insert(integrationSyncStatus)
+    .values({
+      integrationId: INGEST_INTEGRATION_ID,
+      lastPolledAtUtc: now,
+      lastError: error,
+      consecutiveFailures: 0,
+    })
+    .onConflictDoUpdate({
+      target: integrationSyncStatus.integrationId,
+      set: { lastPolledAtUtc: now, lastError: error, consecutiveFailures: 0 },
+    });
 }
