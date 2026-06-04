@@ -13,7 +13,8 @@
     "lint": "bunx biome check .",
     "lint:fix": "bunx biome check --write .",
     "typecheck": "bun run --filter '*' typecheck",
-    "prepare": "bunx lefthook install --force"
+    "prepare": "bunx lefthook install --force",
+    "bosun": "bun packages/bosun/src/cli.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
