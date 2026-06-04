@@ -1,7 +1,7 @@
 import { env } from "../env";
 
 // WMO weather interpretation codes -> human-readable condition string
-const WEATHER_CODES: Record<number, string> = {
+export const WEATHER_CODES: Record<number, string> = {
   0: "Clear Sky",
   1: "Mainly Clear",
   2: "Partly Cloudy",
@@ -29,7 +29,7 @@ const WEATHER_CODES: Record<number, string> = {
 };
 
 // Icon set: sun | moon | cloud | cloud-sun, derived from code + is_day.
-function weatherIcon(code: number, isDay: number): string {
+export function weatherIcon(code: number, isDay: number): string {
   if (code === 3) return "cloud";
   if (code >= 45) return "cloud";
   if (code >= 2) return isDay ? "cloud-sun" : "cloud";
@@ -116,7 +116,7 @@ interface OpenMeteoDailyResponse {
 }
 
 // Format an ISO local datetime "2024-01-01T18:52" as "h:mm AM/PM"
-function formatSolarEvent(iso: string): string {
+export function formatSolarEvent(iso: string): string {
   const parts = iso.match(/T(\d+):(\d+)/);
   if (!parts) return iso;
   let h = parseInt(parts[1], 10);
