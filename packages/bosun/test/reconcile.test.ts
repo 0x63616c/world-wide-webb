@@ -342,6 +342,31 @@ describe("renderStackYml", () => {
   });
 });
 
+describe("renderStackYml — command interpolation escaping", () => {
+  it("escapes $ in a service command so docker stack deploy passes it through literally", () => {
+    // docker stack deploy interpolates the compose file; a literal `$` must be
+    // written as `$$` or it errors ("invalid interpolation format"). cloudflared
+    // reads its token at runtime via $(cat /run/secrets/TUNNEL_TOKEN).
+    const spec: Spec = {
+      stackName: "control-center",
+      services: [
+        {
+          name: "cloudflared",
+          image: "cloudflare/cloudflared:x",
+          secrets: [],
+          env: {},
+          command: "tunnel run --token $(cat /run/secrets/TUNNEL_TOKEN)",
+          health: [],
+        },
+      ],
+    };
+    const yml = renderStackYml(spec, {});
+    expect(yml).toContain("command: tunnel run --token $$(cat /run/secrets/TUNNEL_TOKEN)");
+    // The un-escaped form must not survive, or the deploy is rejected.
+    expect(yml).not.toContain("--token $(cat");
+  });
+});
+
 describe("renderStackYml — scheduled jobs (ofelia labels)", () => {
   const jobSpec: Spec = {
     stackName: "control-center",
