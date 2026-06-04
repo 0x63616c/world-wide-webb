@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "tilt up",
+    "bosun": "bun packages/bosun/src/cli.ts",
     "test": "vitest run",
     "lint": "bunx biome check .",
     "lint:fix": "bunx biome check --write .",

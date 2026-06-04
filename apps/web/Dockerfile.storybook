@@ -1,0 +1,33 @@
+# syntax=docker/dockerfile:1
+
+# ── Stage 1: build Storybook static site ─────────────────────────────────────
+FROM oven/bun:1-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json bun.lock ./
+COPY apps/web/package.json apps/web/
+COPY apps/api/package.json apps/api/
+COPY packages/bosun/package.json packages/bosun/
+
+RUN bun install --frozen-lockfile
+
+COPY apps/web apps/web
+COPY apps/api apps/api
+COPY packages packages
+
+RUN bun run --cwd apps/web build-storybook
+
+# ── Stage 2: serve the static Storybook build with nginx ─────────────────────
+FROM nginx:1.27-alpine AS runtime
+
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Simple static file server — Storybook has no backend.
+COPY apps/web/nginx.storybook.conf /etc/nginx/conf.d/default.conf
+
+COPY --from=builder /app/apps/web/storybook-static /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
