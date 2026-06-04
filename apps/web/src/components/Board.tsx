@@ -2,18 +2,16 @@ import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   BOARD_H,
+  BOARD_PADDING,
   BOARD_W,
-  GRID_GAP,
+  CELL_PITCH,
   tileWorldRect,
-  WORLD_CELL_H,
-  WORLD_CELL_W,
   WORLD_H,
-  WORLD_PITCH_H,
-  WORLD_PITCH_W,
   WORLD_W,
 } from "../lib/grid-constants";
 import { TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
+import { Minimap } from "./Minimap";
 import { getTileModalEntry } from "./tiles/modals/registry";
 import { TileModalHost } from "./tiles/modals/TileModalHost";
 import type { TileModalEntry } from "./tiles/modals/types";
@@ -32,33 +30,27 @@ const OVERSCAN = 600;
 // click-to-open working while allowing click-drag panning on desktop.
 const DRAG_THRESHOLD = 5;
 
-// Placement is fixed: precompute every tile's world rect once.
+// Placement is fixed: precompute every tile's world rect once. The Clock is
+// placed dead center of the world, so the world center is the Clock center.
 const PLACED = TILE_REGISTRY.map((entry) => ({ entry, rect: tileWorldRect(entry) }));
-const CLOCK_RECT = tileWorldRect(
-  TILE_REGISTRY.find((t) => t.id === "tile_clock") ?? TILE_REGISTRY[0],
-);
 
-// Opening view: scrolled so the Clock sits at viewport center (BOARD_W/H is the
-// iPad viewport; the layout effect re-centers with the real client size).
+// Opening view: scrolled to the world center, which is the Clock center, so the
+// board opens with the Clock dead center. The layout effect re-centers with the
+// real client size.
 const INITIAL_VIEW = {
-  left: CLOCK_RECT.x + CLOCK_RECT.w / 2 - BOARD_W / 2,
-  top: CLOCK_RECT.y + CLOCK_RECT.h / 2 - BOARD_H / 2,
+  left: WORLD_W / 2 - BOARD_W / 2,
+  top: WORLD_H / 2 - BOARD_H / 2,
   vw: BOARD_W,
   vh: BOARD_H,
 };
 
-// Faint world lattice drawn as a CSS gradient (never per-cell elements). Each
-// period draws a line at the cell's start AND end, so cell boxes — and therefore
-// tile edges, which always land on cell boundaries — sit exactly on the grid.
-const cellLines = (cell: number, pitch: number, deg: number) =>
-  `repeating-linear-gradient(${deg}deg,` +
-  ` var(--hair) 0px, var(--hair) 1px, transparent 1px, transparent ${cell}px,` +
-  ` var(--hair) ${cell}px, var(--hair) ${cell + 1}px, transparent ${cell + 1}px, transparent ${pitch}px)`;
+// Ambient dot lattice at the (now square) cell pitch, so the canvas texture sits
+// on the same grid the tiles do.
 const GRID_BACKDROP: React.CSSProperties = {
   backgroundColor: "var(--bg)",
-  backgroundImage: `${cellLines(WORLD_CELL_W, WORLD_PITCH_W, 90)}, ${cellLines(WORLD_CELL_H, WORLD_PITCH_H, 0)}`,
-  // Align the lattice to the first cell (tiles start at BOARD_PADDING == GRID_GAP).
-  backgroundPosition: `${GRID_GAP}px ${GRID_GAP}px`,
+  backgroundImage: "radial-gradient(circle, rgba(255, 255, 255, 0.10) 1.1px, transparent 1.7px)",
+  backgroundSize: `${CELL_PITCH}px ${CELL_PITCH}px`,
+  backgroundPosition: `${BOARD_PADDING}px ${BOARD_PADDING}px`,
 };
 
 // Pairs QueryErrorResetBoundary with TileBoundary via resetKey so a recovered
@@ -119,11 +111,11 @@ function FpsMeter() {
 }
 
 /**
- * The pannable canvas board. Tiles live on a 48×48 world far larger than the
- * iPad viewport; the existing cluster keeps its exact layout in the bottom-right
- * quadrant and the view opens centered on the Clock. Panning is native scroll
- * (won the pan-lab feel test) plus a desktop mouse-drag shim; only tiles near the
- * viewport are mounted (windowing). Zoom is intentionally fixed at 1:1 for now.
+ * The pannable canvas board. Tiles live on a square world far larger than the
+ * iPad viewport, on a square-cell grid; the existing cluster keeps its exact
+ * arrangement with the Clock dead center, and the view opens there. Panning is
+ * native scroll (won the pan-lab feel test) plus a desktop mouse-drag shim; only
+ * tiles near the viewport are mounted (windowing). Zoom is fixed at 1:1 for now.
  *
  * Layout is driven entirely by TILE_REGISTRY via tileWorldRect — adding a tile
  * there places it on the world with no further changes here.
@@ -151,6 +143,19 @@ export function Board() {
     if (modal) setActiveModal(modal);
   }
 
+  // Center the viewport on a world-space point (the minimap calls this on click
+  // and during drag-scrub). scrollTo clamps to the scroll range, and each frame
+  // of the smooth glide fires onScroll → keeps the minimap alive through it.
+  const jumpTo = useCallback((worldX: number, worldY: number, smooth: boolean) => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    stage.scrollTo({
+      left: worldX - stage.clientWidth / 2,
+      top: worldY - stage.clientHeight / 2,
+      behavior: smooth ? "smooth" : "auto",
+    });
+  }, []);
+
   const syncView = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -162,12 +167,13 @@ export function Board() {
     });
   }, []);
 
-  // Open centered on the Clock using the real client size (pre-paint, no flash).
+  // Open centered on the world center (== Clock center) using the real client
+  // size (pre-paint, no flash).
   useLayoutEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    stage.scrollLeft = CLOCK_RECT.x + CLOCK_RECT.w / 2 - stage.clientWidth / 2;
-    stage.scrollTop = CLOCK_RECT.y + CLOCK_RECT.h / 2 - stage.clientHeight / 2;
+    stage.scrollLeft = WORLD_W / 2 - stage.clientWidth / 2;
+    stage.scrollTop = WORLD_H / 2 - stage.clientHeight / 2;
     syncView();
   }, [syncView]);
 
@@ -295,6 +301,7 @@ export function Board() {
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 200 }}>
         <ConnectionLostBanner />
         <FpsMeter />
+        <Minimap view={view} tiles={PLACED.map((p) => p.rect)} onJump={jumpTo} />
       </div>
       <TileModalHost entry={activeModal} onClose={() => setActiveModal(null)} />
     </div>
