@@ -119,7 +119,18 @@ async function cmdRoutes(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const client = makeDefaultCloudflareRouteClient(accountId, tunnelId, apiToken);
+  // Map each declared hostname to its origin (http://<service>:<port>) so the
+  // live client knows where to point a newly-created route.
+  const originByHostname: Record<string, string> = {};
+  for (const svc of spec.services) {
+    if (svc.route) originByHostname[svc.route] = `http://${svc.name}:${svc.port ?? 80}`;
+  }
+  const client = makeDefaultCloudflareRouteClient(
+    accountId,
+    tunnelId,
+    apiToken,
+    (hostname) => originByHostname[hostname] ?? "",
+  );
   const declared = spec.services.flatMap((svc) => (svc.route ? [svc.route] : []));
   await reconcileRoutes(spec.stackName, declared, client);
   console.log("Routes synced:", declared);
@@ -186,6 +197,8 @@ async function runVerify(probes: import("./spec.ts").HealthProbe[]): Promise<voi
 }
 
 // serve: start the webhook receiver that runs `up` on authenticated POST.
+// The deploy path is namespaced per stack (/deploy/<stack>), so the request
+// routing + auth live in the pure handler in serve.ts (unit-tested there).
 async function cmdServe(): Promise<void> {
   const port = Number(process.env.BOSUN_PORT ?? 4202);
   const token = process.env.BOSUN_WEBHOOK_TOKEN;
@@ -194,31 +207,22 @@ async function cmdServe(): Promise<void> {
     process.exit(1);
   }
 
-  console.log(`[bosun serve] Listening on :${port}`);
+  const { default: spec } = (await import(`${process.cwd()}/deploy.config.ts`)) as {
+    default: import("./spec.ts").Spec;
+  };
+  const { handleServeRequest } = await import("./serve.ts");
+
+  console.log(`[bosun serve] Listening on :${port} for POST /deploy/${spec.stackName}`);
 
   Bun.serve({
     port,
-    async fetch(req) {
-      const url = new URL(req.url);
-
-      // Health check endpoint — no auth required.
-      if (req.method === "GET" && url.pathname === "/up") {
-        return new Response("ok", { status: 200 });
-      }
-
-      // Deploy endpoint — bearer token auth.
-      if (req.method === "POST" && url.pathname === "/deploy") {
-        const auth = req.headers.get("Authorization") ?? "";
-        if (auth !== `Bearer ${token}`) {
-          return new Response("Unauthorized", { status: 401 });
-        }
-        // Run deploy in the background; respond immediately so the caller
-        // doesn't wait for the full deploy to time out.
-        cmdUp().catch((err) => console.error("[bosun serve] deploy error:", err));
-        return new Response("Deploy triggered", { status: 202 });
-      }
-
-      return new Response("Not Found", { status: 404 });
+    fetch(req) {
+      return handleServeRequest(req, {
+        stackName: spec.stackName,
+        token,
+        // Run deploy in the background; the handler responds 202 immediately.
+        onDeploy: () => cmdUp().catch((err) => console.error("[bosun serve] deploy error:", err)),
+      });
     },
   });
 }

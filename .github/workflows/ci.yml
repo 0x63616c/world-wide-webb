@@ -16,6 +16,7 @@ jobs:
       web: ${{ steps.filter.outputs.web }}
       api: ${{ steps.filter.outputs.api }}
       storybook: ${{ steps.filter.outputs.storybook }}
+      bosun: ${{ steps.filter.outputs.bosun }}
       any_app: ${{ steps.filter.outputs.any_app }}
     steps:
       - uses: actions/checkout@v4
@@ -41,10 +42,20 @@ jobs:
               - 'apps/web/package.json'
               - 'packages/**'
               - 'bun.lock'
-            # any_app is true when at least one image needs to be built.
+            # bosun-agent image bakes in the bosun source + deploy.config + infra,
+            # so any of those (or its Dockerfile) must trigger a rebuild.
+            bosun:
+              - 'packages/bosun/**'
+              - 'deploy.config.ts'
+              - 'infra/**'
+              - 'bun.lock'
+            # any_app is true when at least one image needs to be built. Includes
+            # deploy.config.ts so a config-only change still triggers a deploy.
             any_app:
               - 'apps/**'
               - 'packages/**'
+              - 'deploy.config.ts'
+              - 'infra/**'
               - 'bun.lock'
 
   build-web:
@@ -158,11 +169,48 @@ jobs:
           cache-from: type=gha,scope=storybook
           cache-to: type=gha,mode=max,scope=storybook
 
+  build-bosun:
+    needs: changes
+    if: needs.changes.outputs.bosun == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # QEMU enables emulated arm64 builds on the amd64 runner. The deploy
+      # target (homelab Mac Mini under OrbStack) is arm64, so images MUST
+      # include linux/arm64 or the swarm node rejects them ("no matching
+      # manifest for linux/arm64/v8").
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push bosun-agent image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/bosun/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/0x63616c/control-center-bosun:${{ github.sha }}
+            ghcr.io/0x63616c/control-center-bosun:${{ github.ref_name == 'main' && 'main' || github.sha }}
+          cache-from: type=gha,scope=bosun
+          cache-to: type=gha,mode=max,scope=bosun
+
   # After any image build succeeds on main, trigger bosun deploy on the homelab.
   # The webhook receiver (bosun serve) runs on the box; the HMAC token is in a repo secret.
   # This job only runs when at least one image was built AND the branch is main.
   deploy:
-    needs: [changes, build-web, build-api, build-storybook]
+    needs: [changes, build-web, build-api, build-storybook, build-bosun]
     # always() lets us run even when some build jobs were skipped (no changes).
     # We proceed when: on main, at least one app changed, and no build failed.
     if: |

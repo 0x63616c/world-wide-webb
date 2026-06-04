@@ -1,5 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
-import { type CloudflareRouteClient, reconcileRoutes } from "../src/reconcile/routes.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  type CloudflareRouteClient,
+  makeDefaultCloudflareRouteClient,
+  reconcileRoutes,
+} from "../src/reconcile/routes.ts";
 import { type DockerSecretClient, reconcileSecrets } from "../src/reconcile/secrets.ts";
 import { renderStackYml } from "../src/reconcile/stack.ts";
 import type { Spec } from "../src/spec.ts";
@@ -167,6 +171,110 @@ describe("reconcile/routes — prune safety", () => {
     await reconcileRoutes(STACK, [], client);
     expect(client.deleteRoute).toHaveBeenCalledOnce();
     expect(client.deleteRoute).toHaveBeenCalledWith("orphan-id");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// reconcile/routes.ts — live Cloudflare client (GET -> merge -> PUT)
+// ---------------------------------------------------------------------------
+
+const CF_ACCT = "acct123";
+const CF_TUNNEL = "tunnel123";
+const CF_CONFIG_URL = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCT}/cfd_tunnel/${CF_TUNNEL}/configurations`;
+
+// Build a live client whose fetch is stubbed. The GET returns `ingress`; PUTs
+// are captured so we can assert the merged config written back to Cloudflare.
+function makeLiveClient(
+  ingress: Array<{ hostname?: string; service: string }>,
+  origins: Record<string, string> = {},
+) {
+  const puts: Array<{ ingress: Array<{ hostname?: string; service: string }> }> = [];
+  const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    expect(url).toBe(CF_CONFIG_URL);
+    if (!init || init.method === undefined || init.method === "GET") {
+      return new Response(JSON.stringify({ success: true, result: { config: { ingress } } }), {
+        status: 200,
+      });
+    }
+    if (init.method === "PUT") {
+      puts.push(JSON.parse(init.body as string).config);
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }
+    throw new Error(`unexpected method ${init.method}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const client = makeDefaultCloudflareRouteClient(
+    CF_ACCT,
+    CF_TUNNEL,
+    "cf-token",
+    (h) => origins[h] ?? "",
+  );
+  return { client, puts, fetchMock };
+}
+
+describe("reconcile/routes — live Cloudflare client", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("createRoute inserts the declared hostname before the catch-all and PUTs", async () => {
+    const { client, puts } = makeLiveClient(
+      [
+        { hostname: "dashboard.worldwidewebb.co", service: "http://web:80" },
+        { service: "http_status:404" },
+      ],
+      { "hooks.worldwidewebb.co": "http://bosun-agent:4202" },
+    );
+    await client.createRoute("hooks.worldwidewebb.co", "bosun:control-center");
+    expect(puts).toHaveLength(1);
+    const written = puts[0].ingress;
+    // New rule sits immediately before the catch-all (the rule with no hostname).
+    expect(written.map((r) => r.hostname)).toEqual([
+      "dashboard.worldwidewebb.co",
+      "hooks.worldwidewebb.co",
+      undefined,
+    ]);
+    expect(written[1].service).toBe("http://bosun-agent:4202");
+  });
+
+  it("createRoute is a no-op (no PUT) when the hostname already exists", async () => {
+    const { client, puts } = makeLiveClient(
+      [
+        { hostname: "hooks.worldwidewebb.co", service: "http://bosun-agent:4202" },
+        { service: "http_status:404" },
+      ],
+      { "hooks.worldwidewebb.co": "http://bosun-agent:4202" },
+    );
+    await client.createRoute("hooks.worldwidewebb.co", "bosun:control-center");
+    expect(puts).toHaveLength(0);
+  });
+
+  it("createRoute throws when no origin service is known for the hostname", async () => {
+    const { client } = makeLiveClient([{ service: "http_status:404" }], {});
+    await expect(client.createRoute("hooks.worldwidewebb.co", "t")).rejects.toThrow(/origin/i);
+  });
+
+  it("deleteRoute removes the matching hostname rule and PUTs the rest", async () => {
+    const { client, puts } = makeLiveClient([
+      { hostname: "hooks-test.worldwidewebb.co", service: "http://evee-web:4201" },
+      { hostname: "dashboard.worldwidewebb.co", service: "http://web:80" },
+      { service: "http_status:404" },
+    ]);
+    await client.deleteRoute("hooks-test.worldwidewebb.co");
+    expect(puts).toHaveLength(1);
+    expect(puts[0].ingress.map((r) => r.hostname)).toEqual([
+      "dashboard.worldwidewebb.co",
+      undefined,
+    ]);
+  });
+
+  it("listRoutes returns hostnames keyed by hostname id, skipping the catch-all", async () => {
+    const { client } = makeLiveClient([
+      { hostname: "dashboard.worldwidewebb.co", service: "http://web:80" },
+      { service: "http_status:404" },
+    ]);
+    const routes = await client.listRoutes();
+    expect(routes).toEqual([
+      { id: "dashboard.worldwidewebb.co", hostname: "dashboard.worldwidewebb.co", tags: [] },
+    ]);
   });
 });
 
