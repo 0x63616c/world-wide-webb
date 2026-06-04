@@ -104,6 +104,10 @@ export default stack("control-center", {
         // 1Password item "Service Account Auth Token: Homelab", referenced by
         // UUID because op:// refs can't contain the colon in its title.
         OP_SERVICE_ACCOUNT_TOKEN: "twioy4ncbhijeahcqgqrwfoeiq/credential",
+        // GHCR read token so the agent's `docker stack deploy --with-registry-auth`
+        // can pull updated images on deploy. The entrypoint runs `docker login`
+        // with it; without creds the bundled auth is empty and fresh pulls fail.
+        GHCR_PULL_TOKEN: "GHCR Pull Token/credential",
       }),
       volumes: ["/var/run/docker.sock:/var/run/docker.sock"],
       placement: ["node.role==manager"],
