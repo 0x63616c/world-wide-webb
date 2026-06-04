@@ -93,6 +93,37 @@ stack("control-center", {
   and rejects an http probe as nonsensical. (A future last-run-exit-0 check could
   query Ofelia's last task state; out of scope here.)
 
+### Live ops note: nightly Docker image cleanup
+
+`deploy.config.ts` declares one production cleanup job today, built on the
+`cronJob()` primitive (no hand-written stack yaml):
+
+```ts
+ofeliaController(), // the scheduler pod
+cronJob("docker-image-prune", {
+  image: "docker:cli",
+  schedule: "0 3 * * *", // 03:00 local, nightly off-peak
+  command: 'docker image prune -a -f --filter "until=720h"',
+  volumes: ["/var/run/docker.sock:/var/run/docker.sock"],
+}),
+```
+
+- **What it does.** Spins up a one-shot `docker:cli` container nightly that runs
+  `docker image prune` against the host daemon, then exits and is cleaned up.
+- **Why the `until=720h` filter, not a bare `prune -af`.** `-a` removes *all*
+  unused images (not just dangling), but the `until=720h` age filter caps it at
+  images older than 30 days. The Mini re-pulls images on every deploy, so an
+  unbounded prune would evict things we still actively use or just pulled. `-f`
+  skips the confirmation prompt Ofelia cannot answer.
+- **Socket privilege.** The job mounts `/var/run/docker.sock` (read-write — prune
+  mutates) so it can shell `docker`. This is the same root-equivalent exposure the
+  scheduler itself carries; see the SPOF tradeoff below.
+- **Verifying on the homelab.** The schedule fires at 03:00; to confirm a run,
+  check `docker system df` before/after and look for the short-lived
+  `docker-image-prune` container in Portainer (Ofelia-spawned containers appear
+  there automatically). Reclaimed space shows as a drop in the *Images*
+  reclaimable column.
+
 ### Why Ofelia, and the tradeoffs
 
 - **Scheduler-pod model.** One `mcuadros/ofelia` controller reads job schedules from
