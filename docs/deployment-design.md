@@ -237,6 +237,7 @@ No boot scripts, no sudo. The only anchor: OrbStack "start at login."
 4. OrbStack-at-login is the persistence anchor.
 5. Swarm is in maintenance (stable, not growing).
 6. `bosun` is new code — its prune logic is the dangerous part; it MUST be label/tag-scoped and unit-tested before pointing at the real swarm.
+7. Portainer publishes host-local `:9000` (bootstrap drives its API before cloudflared is up). This exposes the UI on the host's LAN/Tailscale interfaces, and the unauthenticated `admin/init` endpoint is briefly open on first boot until bootstrap claims it. Acceptable on a single personal box already fronting Portainer via Cloudflare; bootstrap inits the admin immediately, so the open-init window is seconds.
 
 **Open decisions**
 1. `dashboard.worldwidewebb.co` public, or wall panel tailnet-only? (Doc assumes public route; harmless to add.)
