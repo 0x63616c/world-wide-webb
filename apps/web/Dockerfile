@@ -17,6 +17,9 @@ COPY packages/bosun/package.json ./packages/bosun/package.json
 # --ignore-scripts skips the lefthook prepare hook (needs git, not in alpine image).
 RUN bun install --frozen-lockfile --ignore-scripts
 
+# Root tsconfig must be present so workspace tsconfigs can extend it via ../../tsconfig.json.
+COPY tsconfig.json ./tsconfig.json
+
 # Copy workspace source. packages/api provides the @cc/api type export.
 COPY apps/api/src ./apps/api/src
 COPY apps/api/tsconfig.json ./apps/api/tsconfig.json
