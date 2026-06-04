@@ -25,10 +25,13 @@ export default stack("control-center", {
         POSTGRES_PASSWORD: "Control Center Postgres/password",
       }),
       env: {
+        NODE_ENV: "production",
         // Home Assistant is on the host via OrbStack's host alias.
         HA_URL: "http://host.docker.internal:8123",
         UNIFI_URL: "https://host.docker.internal",
-        DATABASE_URL: "postgresql://postgres:$(POSTGRES_PASSWORD)@postgres:5432/control_center",
+        // DATABASE_URL is built at runtime from the mounted POSTGRES_PASSWORD
+        // docker secret (apps/api/src/env.ts) so the password never lands in
+        // the service spec. postgres host/db/user use the env.ts defaults.
       },
       port: 4201,
       health: [
