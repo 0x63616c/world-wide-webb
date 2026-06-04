@@ -25,6 +25,29 @@ export function databaseUrlFromSecret(
   return `postgresql://${user}:${encodeURIComponent(password)}@${host}:${port}/${name}`;
 }
 
+// Secret-backed config that the Swarm delivers as docker secret files mounted
+// at /run/secrets/<NAME> (never as env vars, so values stay out of the service
+// spec and image). Hydrate each into process.env so the rest of the app reads
+// it via the schema below. An explicit env var always wins; a missing file
+// (dev/test) is a no-op and the schema default applies. The bundled production
+// image has no entrypoint shell, so this in-app loader is the only mapping.
+const SECRET_FILE_ENV = ["HA_TOKEN", "UNIFI_API_KEY", "WIFI_SSID", "WIFI_PASSWORD"] as const;
+export function hydrateSecretFiles(
+  src: Record<string, string | undefined> = process.env,
+  dir = "/run/secrets",
+): void {
+  for (const name of SECRET_FILE_ENV) {
+    if (src[name]) continue;
+    try {
+      const value = readFileSync(`${dir}/${name}`, "utf-8").trim();
+      if (value) src[name] = value;
+    } catch {
+      // secret not mounted (dev/test) — leave unset, schema default applies
+    }
+  }
+}
+
+hydrateSecretFiles();
 const resolvedDatabaseUrl = databaseUrlFromSecret();
 if (resolvedDatabaseUrl) process.env.DATABASE_URL = resolvedDatabaseUrl;
 

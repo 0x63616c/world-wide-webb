@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { databaseUrlFromSecret, envSchema } from "../env";
+import { databaseUrlFromSecret, envSchema, hydrateSecretFiles } from "../env";
 
 // Smoke test: the api must boot with no secrets configured (graceful
 // degradation). Verifies the env schema applies its safe defaults.
@@ -43,4 +43,18 @@ test("returns undefined when no secret file is mounted (dev/test)", () => {
   expect(databaseUrlFromSecret({ POSTGRES_PASSWORD_FILE: "/nonexistent/POSTGRES_PASSWORD" })).toBe(
     undefined,
   );
+});
+
+// hydrateSecretFiles maps mounted docker secret files to env. Without it the
+// bundled production api (no entrypoint shell) sees empty HA_TOKEN etc. and
+// reports "not configured".
+test("hydrates secret-backed env from mounted docker secret files", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-secrets-"));
+  writeFileSync(join(dir, "HA_TOKEN"), "ha-token-value\n");
+  writeFileSync(join(dir, "WIFI_SSID"), "world-wide-webb\n");
+  const src: Record<string, string | undefined> = { HA_TOKEN: "explicit-wins" };
+  hydrateSecretFiles(src, dir);
+  expect(src.HA_TOKEN).toBe("explicit-wins"); // existing env value is not overwritten
+  expect(src.WIFI_SSID).toBe("world-wide-webb"); // loaded from file
+  expect(src.UNIFI_API_KEY).toBeUndefined(); // no file, stays unset
 });
