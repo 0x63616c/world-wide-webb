@@ -22,7 +22,7 @@ export default stack("control-center", {
         UNIFI_API_KEY: "UniFi/local_api_key",
         WIFI_SSID: "WiFi Guest Credentials/ssid",
         WIFI_PASSWORD: "WiFi Guest Credentials/password",
-        POSTGRES_PASSWORD: "control-center Postgres/password",
+        POSTGRES_PASSWORD: "Control Center Postgres/password",
       }),
       env: {
         // Home Assistant is on the host via OrbStack's host alias.
@@ -59,7 +59,7 @@ export default stack("control-center", {
       volume: "pgdata",
       config: ["infra/postgres/postgresql.conf"],
       init: ["infra/postgres/initdb"],
-      secretRef: "op://Homelab/control-center Postgres/password",
+      secretRef: "op://Homelab/Control Center Postgres/password",
     }),
 
     // Cloudflared: outbound-only tunnel connector. No host ports exposed.

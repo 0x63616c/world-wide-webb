@@ -13,7 +13,10 @@ export class OpProvider implements SecretProvider {
   }
 
   async resolve(ref: string): Promise<string> {
-    const { stdout, stderr } = await this.exec(`op read ${ref}`);
+    // Quote the reference: op:// item names legitimately contain spaces
+    // (e.g. "WiFi Guest Credentials"), and exec runs via a shell, so an
+    // unquoted ref would be split into multiple argv entries.
+    const { stdout, stderr } = await this.exec(`op read "${ref}"`);
     if (stderr.trim()) {
       throw new Error(`op read failed: ${stderr.trim()}`);
     }
