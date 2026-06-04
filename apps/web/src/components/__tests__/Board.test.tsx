@@ -62,9 +62,12 @@ describe("Board", () => {
     expect(document.getElementById("stage")).not.toBeNull();
   });
 
-  it("renders a #scaler element inside #stage", () => {
+  it("renders the pannable #world inside #stage", () => {
     render(<Board />);
-    expect(document.getElementById("scaler")).not.toBeNull();
+    const stage = document.getElementById("stage");
+    const world = document.getElementById("world");
+    expect(world).not.toBeNull();
+    expect(stage?.contains(world ?? null)).toBe(true);
   });
 
   it("tapping a tile opens its detail modal", () => {
