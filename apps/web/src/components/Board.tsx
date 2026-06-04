@@ -136,7 +136,7 @@ function BoundedTile({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Small live FPS readout pinned top-right, for tuning the canvas feel on-device.
+// Small live FPS readout pinned bottom-right, for tuning the canvas feel on-device.
 function FpsMeter() {
   const [fps, setFps] = useState(0);
   useEffect(() => {
@@ -159,7 +159,7 @@ function FpsMeter() {
     <div
       style={{
         position: "absolute",
-        top: 8,
+        bottom: 8,
         right: 12,
         fontFamily: "var(--mono)",
         fontSize: 11,
