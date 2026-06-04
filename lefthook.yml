@@ -13,6 +13,11 @@ pre-commit:
       # BLOCKING: exits non-zero if staged files introduce fake-data sentinels.
       # Sanctioned exceptions live in the script itself (network-service, weather-service).
       run: bash scripts/check-fake-data.sh {staged_files}
+    no-ofelia:
+      glob: "*.{ts,tsx,js,mjs,json,yml,yaml,md,sh,toml}"
+      # BLOCKING: rejects reintroduction of Ofelia (replaced by the bosun
+      # scheduler, www-79k). The token is sanctioned only in the guard script itself.
+      run: bash scripts/check-no-ofelia.sh {staged_files}
 
 commit-msg:
   commands:

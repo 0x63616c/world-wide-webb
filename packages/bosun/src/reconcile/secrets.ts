@@ -16,6 +16,10 @@ export interface ResolvedSecret {
 // Derive the immutable hashed docker secret name for a given declared name + value.
 // Docker secrets are immutable; a value change produces a new name, triggering a
 // rolling service update and eventual prune of the old entry.
+// NOTE: the cc_ prefix is legacy. Migrating it to a stackName-derived namespace
+// is deferred to www-8pt — reconcileSecrets prunes the old secret BEFORE the new
+// stack deploys, and `docker secret rm` refuses an in-use secret, so renaming
+// every secret at once would break the auto-deploy. Sequence it deliberately.
 function secretDockerName(declaredName: string, value: string): string {
   const hash = createHash("sha256").update(value).digest("hex").slice(0, 8);
   return `cc_${declaredName}_${hash}`;

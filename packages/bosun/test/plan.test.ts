@@ -79,16 +79,25 @@ describe("deploy.config.ts — purity (ac_tool_plan_pure, ac_config_pure)", () =
   });
 });
 
-// www-0id: the scheduled Docker image-cleanup job. These assert that the real
-// deploy.config.ts declares the prune job + scheduler via the cronJob/ofelia
-// primitives (not hand-written yaml) and that its schedule + conservative
-// age-filtered command render to the correct Ofelia deploy labels.
-describe("deploy.config.ts — Docker image-cleanup cronJob (www-0id)", () => {
-  it("declares the ofelia scheduler and the docker-image-prune job", async () => {
+// www-0id / www-79k: the scheduled Docker image-cleanup job. These assert that the
+// real deploy.config.ts declares the prune job via the cronJob() primitive (not
+// hand-written yaml) and that, because cron jobs are run by the bosun scheduler
+// as one-shot Swarm jobs, the job is EXCLUDED from the rendered stack — no
+// standalone scheduler service, no deploy labels.
+describe("deploy.config.ts — Docker image-cleanup cronJob (www-0id / www-79k)", () => {
+  it("declares the docker-image-prune job and no standalone scheduler service", async () => {
     const mod = (await import(CONFIG_PATH.href)) as { default: Spec };
     const names = mod.default.services.map((s) => s.name);
-    expect(names).toContain("ofelia");
     expect(names).toContain("docker-image-prune");
+    // The expected service set — no extra scheduler pod alongside the app services.
+    expect(names.filter((n) => !n.startsWith("docker-image-prune")).sort()).toEqual([
+      "api",
+      "bosun-agent",
+      "cloudflared",
+      "postgres",
+      "storybook",
+      "web",
+    ]);
   });
 
   it("prunes with an until= age filter, not a bare prune -af", async () => {
@@ -99,14 +108,14 @@ describe("deploy.config.ts — Docker image-cleanup cronJob (www-0id)", () => {
     expect(job?.command).toContain("docker image prune -a");
   });
 
-  it("runs nightly at 03:00 local as a one-shot job-run", async () => {
+  it("runs nightly at 03:00 local, pinned to a manager node", async () => {
     const mod = (await import(CONFIG_PATH.href)) as { default: Spec };
     const job = mod.default.services.find((s) => s.name === "docker-image-prune");
     expect(job?.schedule?.cron).toBe("0 3 * * *");
-    expect(job?.schedule?.jobType).toBe("job-run");
+    expect(job?.placement).toContain("node.role==manager");
   });
 
-  it("mounts the docker socket so the one-shot container can shell docker", async () => {
+  it("mounts the docker socket so the one-shot job can shell docker", async () => {
     const mod = (await import(CONFIG_PATH.href)) as { default: Spec };
     const job = mod.default.services.find((s) => s.name === "docker-image-prune");
     expect(job?.volumes).toContain("/var/run/docker.sock:/var/run/docker.sock");
@@ -119,20 +128,11 @@ describe("deploy.config.ts — Docker image-cleanup cronJob (www-0id)", () => {
       spec.services.flatMap((s) => s.secrets.map((r) => [r.name, `${r.name}_v1`])),
     );
 
-  it("renders the prune job's schedule + command to the correct Ofelia labels", async () => {
+  it("excludes the cron job from the rendered stack (run by the scheduler, not deployed)", async () => {
     const mod = (await import(CONFIG_PATH.href)) as { default: Spec };
     const yml = renderStackYml(mod.default, allSecretNames(mod.default));
-    // 5-field spec cron translated to Ofelia 6-field by the leading "0 ".
-    expect(yml).toContain("ofelia.job-run.docker-image-prune.schedule=0 0 3 * * *");
-    expect(yml).toContain(
-      'ofelia.job-run.docker-image-prune.command=docker image prune -a -f --filter "until=720h"',
-    );
-  });
-
-  it("renders the cleanup job as a one-shot (restart condition: none)", async () => {
-    const mod = (await import(CONFIG_PATH.href)) as { default: Spec };
-    const yml = renderStackYml(mod.default, allSecretNames(mod.default));
-    const block = yml.slice(yml.indexOf("  docker-image-prune:"));
-    expect(block).toContain("condition: none");
+    expect(yml).not.toContain("docker-image-prune");
+    // No scheduler deploy-label mechanism leaks into the stack.
+    expect(yml).not.toContain(".schedule=");
   });
 });

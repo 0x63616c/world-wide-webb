@@ -50,48 +50,65 @@ cert. The probe needs `openssl` on the host running the checks.
 > Note: public routes are fronted by Cloudflare and auto-renew, so a `certProbe`
 > is only meaningful against a self-managed origin cert.
 
-## Scheduled jobs (Ofelia)
+## Scheduled jobs (bosun-native scheduler)
 
-Cron tasks (migrations, cleanup, backups) are declared with `cronJob()` and run by
-a single **Ofelia** scheduler pod, driven entirely by Docker labels — no new deploy
-mechanism. A job is just a normal `ServiceSpec` carrying a `schedule`, so it reuses
-the existing secret/env/command rendering and gets op-resolved secrets for free.
+Cron tasks (cleanup, migrations, backups) are declared with `cronJob()` and run by
+**bosun's own scheduler**, which lives inside the long-lived `bosun serve` agent —
+no third-party scheduler container, no Docker labels. A cron job is a `ServiceSpec`
+carrying a `schedule`, but it is **not** deployed as a long-lived stack service:
+`renderStackYml` excludes it, and the scheduler runs it on its cron as a one-shot
+**Swarm job** (`docker service create --mode replicated-job`).
 
 ```ts
-import { cronJob, ofeliaController, stack } from "@bosun/bosun/src/spec.ts";
+import { cronJob, stack } from "@bosun/bosun/src/spec.ts";
 
 stack("control-center", {
   services: [
-    ofeliaController(), // the scheduler itself, reconciled like any service
     cronJob("prune", {
       image: "docker:cli",
       schedule: "30 3 * * *", // standard 5-field cron
       command: "docker system prune -af",
-      jobType: "job-run", // default; "job-exec" runs inside a live container
+      volumes: ["/var/run/docker.sock:/var/run/docker.sock"],
+      placement: ["node.role==manager"],
     }),
   ],
 });
 ```
 
-`renderStackYml` emits the schedule as Ofelia deploy labels alongside the usual
-`bosun.stack=` label:
+### How it runs
+
+`bosun serve` (the deploy webhook agent) also calls `startScheduler()`. Once a
+minute it matches each job's 5-field cron against the wall clock (`cronMatches`,
+`src/scheduler.ts`) and, for each due job, runs:
 
 ```
-- bosun.stack=control-center
-- ofelia.job-run.prune.schedule=0 30 3 * * *
-- ofelia.job-run.prune.command=docker system prune -af
+docker service rm <stack>-cron-<job> >/dev/null 2>&1; \
+docker service create --mode replicated-job --restart-condition none \
+  --name <stack>-cron-<job> --with-registry-auth \
+  --label bosun.cron-job=<job> [--constraint …] [--mount …] [--env …] \
+  <image> <command>
 ```
+
+`--mode replicated-job` runs the task to completion and then stops (no restart
+loop). Each run removes the prior (completed) job service of the same name and
+recreates it, so there is exactly one entry per job — its last-run state visible
+in `docker service ls` / `docker service ps <stack>-cron-<job>` between runs.
+
+The scheduler is pure/injected for tests: `cronMatches`, `dueCronJobs`,
+`buildJobCommand`, and `runDueJobs` (with its per-minute and in-flight guards)
+take a clock and a runner, so the only impure part is the one-minute timer.
 
 ### Documented default decisions
 
-- **Cron format.** Specs take **standard 5-field cron** (`min hour dom mon dow`).
-  Ofelia wants 6 fields (leading seconds), so bosun translates by **prepending
-  `0 `** at render time. Specs stay conventional; nobody tracks the seconds column.
-  A spec that passes 6 fields is rejected at build time.
+- **Cron format.** Specs take **standard 5-field cron** (`min hour dom mon dow`),
+  matched on the host wall clock (local time). A spec that passes anything other
+  than 5 fields is rejected at build time.
+- **Service naming.** The one-shot job service is named `<stackName>-cron-<job>` —
+  derived from the stack name so the stack is the single namespace source of truth
+  (no magic prefix). It lives outside the deployed stack because it is created
+  imperatively on a schedule, not by `docker stack deploy`.
 - **Verify semantics.** One-shot jobs are **exempt from liveness `HealthProbe`
-  verify** — a one-shot has no endpoint to poll, so `cronJob()` attaches no probes
-  and rejects an http probe as nonsensical. (A future last-run-exit-0 check could
-  query Ofelia's last task state; out of scope here.)
+  verify** — a one-shot has no endpoint to poll, so `cronJob()` attaches no probes.
 
 ### Live ops note: nightly Docker image cleanup
 
@@ -99,43 +116,39 @@ stack("control-center", {
 `cronJob()` primitive (no hand-written stack yaml):
 
 ```ts
-ofeliaController(), // the scheduler pod
 cronJob("docker-image-prune", {
   image: "docker:cli",
   schedule: "0 3 * * *", // 03:00 local, nightly off-peak
   command: 'docker image prune -a -f --filter "until=720h"',
   volumes: ["/var/run/docker.sock:/var/run/docker.sock"],
+  placement: ["node.role==manager"],
 }),
 ```
 
-- **What it does.** Spins up a one-shot `docker:cli` container nightly that runs
-  `docker image prune` against the host daemon, then exits and is cleaned up.
+- **What it does.** The scheduler spins up a one-shot `docker:cli` Swarm job
+  nightly that runs `docker image prune` against the host daemon, then exits.
 - **Why the `until=720h` filter, not a bare `prune -af`.** `-a` removes *all*
   unused images (not just dangling), but the `until=720h` age filter caps it at
   images older than 30 days. The Mini re-pulls images on every deploy, so an
   unbounded prune would evict things we still actively use or just pulled. `-f`
-  skips the confirmation prompt Ofelia cannot answer.
+  skips the confirmation prompt a non-interactive job cannot answer.
 - **Socket privilege.** The job mounts `/var/run/docker.sock` (read-write — prune
-  mutates) so it can shell `docker`. This is the same root-equivalent exposure the
-  scheduler itself carries; see the SPOF tradeoff below.
+  mutates) so it can shell `docker`, and pins to a manager node so the socket is
+  the swarm's daemon. This is the same root-equivalent exposure the agent carries.
 - **Verifying on the homelab.** The schedule fires at 03:00; to confirm a run,
-  check `docker system df` before/after and look for the short-lived
-  `docker-image-prune` container in Portainer (Ofelia-spawned containers appear
-  there automatically). Reclaimed space shows as a drop in the *Images*
-  reclaimable column.
+  check `docker system df` before/after, and look for the
+  `control-center-cron-docker-image-prune` job in `docker service ls` (labelled
+  `bosun.cron-job=docker-image-prune`). Reclaimed space shows as a drop in the
+  *Images* reclaimable column.
 
-### Why Ofelia, and the tradeoffs
+### Tradeoffs
 
-- **Scheduler-pod model.** One `mcuadros/ofelia` controller reads job schedules from
-  the `ofelia.*` deploy labels other services emit. It is declared as bosun-managed
-  infra (`ofeliaController()`) so it is reconciled, not a hand-placed snowflake.
-- **Node-local job-exec/job-run caveat.** `job-exec` (exec into a running container)
-  and `job-run` (spin up a one-shot container) only see the Docker daemon Ofelia is
-  attached to. Fine on our single-node swarm; use `job-service-run` (cluster-aware,
-  not implemented here) if we ever go multi-node.
-- **Socket / SPOF tradeoff.** The controller mounts `/var/run/docker.sock`
-  (root-equivalent) and sits behind a `node.role==manager` placement constraint. One
-  scheduler is a single point of failure for **all** schedules. Accepted for homelab.
+- **One scheduler.** The scheduler runs in the single `bosun serve` agent, a
+  single point of failure for all schedules — accepted for the homelab. A missed
+  minute (agent down/restarting) skips that run until the next match, same as a
+  host cron daemon.
+- **Node-local jobs.** A job mounting the docker socket pins to a manager node so
+  it shells the swarm's daemon. Fine on the single-node swarm.
 
 ## Tests
 

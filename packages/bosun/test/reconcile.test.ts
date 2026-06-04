@@ -39,6 +39,8 @@ describe("reconcile/secrets — prune safety", () => {
     expect(client.createSecret).toHaveBeenCalledOnce();
     // Secret name must include a hash of the value and the declared name.
     const [nameArg] = (client.createSecret as ReturnType<typeof vi.fn>).mock.calls[0];
+    // Secret name must include a hash of the value and the declared name.
+    // (The cc_ prefix is legacy; namespace migration is deferred to www-8pt.)
     expect(nameArg).toMatch(/^cc_HA_TOKEN_/);
   });
 
@@ -380,8 +382,8 @@ describe("renderStackYml", () => {
       stackName: "control-center",
       services: [
         {
-          name: "ofelia",
-          image: "mcuadros/ofelia:latest",
+          name: "socket-user",
+          image: "some/image:latest",
           secrets: [],
           env: {},
           volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"],
@@ -422,7 +424,9 @@ describe("renderStackYml — command interpolation escaping", () => {
   });
 });
 
-describe("renderStackYml — scheduled jobs (ofelia labels)", () => {
+describe("renderStackYml — cron jobs are excluded from the deployed stack", () => {
+  // Cron jobs run as one-shot Swarm jobs spun up by the bosun scheduler, NOT as
+  // long-lived stack services, so renderStackYml must omit them entirely.
   const jobSpec: Spec = {
     stackName: "control-center",
     services: [
@@ -432,52 +436,37 @@ describe("renderStackYml — scheduled jobs (ofelia labels)", () => {
         secrets: [],
         env: {},
         command: "docker system prune -af",
-        schedule: { cron: "30 3 * * *", jobType: "job-run" },
+        schedule: { cron: "30 3 * * *" },
         health: [],
       },
       {
-        name: "ofelia",
-        image: "mcuadros/ofelia:latest",
+        name: "web",
+        image: "ghcr.io/x/web:main",
         secrets: [],
         env: {},
-        command: "daemon --docker",
-        volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"],
-        placement: ["node.role==manager"],
+        port: 80,
         health: [],
       },
     ],
   };
 
-  it("emits ofelia.<jobtype>.<name>.schedule and .command labels", () => {
+  it("does NOT render a service block or deploy labels for a cron job", () => {
     const yml = renderStackYml(jobSpec, {});
-    expect(yml).toContain("ofelia.job-run.prune.schedule=");
-    expect(yml).toContain("ofelia.job-run.prune.command=docker system prune -af");
+    expect(yml).not.toContain("  prune:");
+    expect(yml).not.toContain("docker system prune -af");
+    // No scheduler deploy-label mechanism survives — the job isn't in the stack.
+    expect(yml).not.toContain(".schedule=");
+    expect(yml).not.toContain(".command=");
   });
 
-  it("translates the 5-field spec cron to Ofelia's 6-field by prepending '0 '", () => {
+  it("still renders the non-job services normally", () => {
     const yml = renderStackYml(jobSpec, {});
-    expect(yml).toContain("ofelia.job-run.prune.schedule=0 30 3 * * *");
-  });
-
-  it("still emits the bosun.stack label alongside the ofelia labels", () => {
-    const yml = renderStackYml(jobSpec, {});
+    expect(yml).toContain("  web:");
+    expect(yml).toContain("    image: ghcr.io/x/web:main");
     expect(yml).toContain("bosun.stack=control-center");
   });
 
-  it("renders the controller's socket volume and manager placement", () => {
-    const yml = renderStackYml(jobSpec, {});
-    expect(yml).toContain("- /var/run/docker.sock:/var/run/docker.sock:ro");
-    expect(yml).toContain("- node.role==manager");
-  });
-
-  it("a one-shot job restarts with condition: none, not on-failure", () => {
-    const yml = renderStackYml(jobSpec, {});
-    // The prune job block must carry condition: none.
-    const pruneBlock = yml.slice(yml.indexOf("  prune:"), yml.indexOf("  ofelia:"));
-    expect(pruneBlock).toContain("condition: none");
-  });
-
-  it("is deterministic for job specs", () => {
+  it("is deterministic for specs containing cron jobs", () => {
     expect(renderStackYml(jobSpec, {})).toBe(renderStackYml(jobSpec, {}));
   });
 });

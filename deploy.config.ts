@@ -8,7 +8,6 @@ import {
   fromOp,
   ghcr,
   httpProbe,
-  ofeliaController,
   postgres,
   service,
   stack,
@@ -114,26 +113,23 @@ export default stack("control-center", {
       health: [httpProbe("http://bosun-agent:4202/up", 200)],
     }),
 
-    // Ofelia: the single scheduler pod that runs every cronJob() below off its
-    // ofelia.* deploy labels. Reconciled like any service; mounts the docker
-    // socket and pins to a manager node. See packages/bosun/README.md for the
-    // socket/SPOF tradeoff.
-    ofeliaController(),
-
     // Nightly Docker image cleanup. Old/unused images accumulate on the Mini and
-    // are never reclaimed, so a scheduled prune keeps disk in check. Runs as a
-    // one-shot docker:cli container (job-run) with the socket mounted so it can
-    // shell `docker` against the host daemon. We use `image prune -a` with an
+    // are never reclaimed, so a scheduled prune keeps disk in check. The bosun
+    // scheduler (in bosun-agent) runs this on its cron as a one-shot Swarm job
+    // (docker service create --mode replicated-job) — no third-party scheduler,
+    // no always-on container. It pins to a manager node and mounts the socket to shell
+    // `docker` against the host daemon. We use `image prune -a` with an
     // `until=720h` age filter (older than 30 days) rather than a bare `prune -af`:
     // the box re-pulls images on every deploy, so a conservative age filter avoids
     // evicting images we still actively use or just pulled. `-f` skips the
-    // interactive confirmation Ofelia cannot answer.
+    // interactive confirmation a non-interactive job cannot answer.
     cronJob("docker-image-prune", {
       image: "docker:cli",
       // 03:00 local, nightly off-peak.
       schedule: "0 3 * * *",
       command: 'docker image prune -a -f --filter "until=720h"',
       volumes: ["/var/run/docker.sock:/var/run/docker.sock"],
+      placement: ["node.role==manager"],
     }),
   ],
 });
