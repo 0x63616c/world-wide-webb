@@ -1,9 +1,9 @@
 import { z } from "zod";
 import {
-  fetchWeatherDaily,
-  fetchWeatherHourly,
-  fetchWeatherNow,
-} from "../../services/weather-service";
+  readWeatherDaily,
+  readWeatherHourly,
+  readWeatherNow,
+} from "../../services/weather-read-service";
 import { publicProcedure, router } from "../init";
 
 const WeatherNowOutput = z.object({
@@ -48,28 +48,30 @@ const DailyItemOutput = z.object({
 export const weatherRouter = router({
   /**
    * Current weather conditions for the dashboard weather tile.
-   * Source: Open-Meteo /v1/forecast. Degrades to placeholder on failure.
+   * Source: weather_reading + weather_daily_reading (Postgres), populated by
+   * the weather-ingest poller. Throws if the DB is empty (tile shimmers).
    */
   now: publicProcedure
     .input(z.object({}).optional())
     .output(WeatherNowOutput)
-    .query(() => fetchWeatherNow()),
+    .query(() => readWeatherNow()),
 
   /**
    * Next 12 hourly slots from the current hour for the hourly strip tile.
-   * Source: Open-Meteo /v1/forecast hourly. Degrades to placeholder on failure.
+   * Source: weather_reading (Postgres). "Now" is computed at read time so the
+   * first slot always tracks the live clock. Throws if empty (tile shimmers).
    */
   hourly: publicProcedure
     .input(z.object({}).optional())
     .output(z.array(HourlyItemOutput))
-    .query(() => fetchWeatherHourly()),
+    .query(() => readWeatherHourly()),
 
   /**
    * 7-day daily forecast for the weather week-outlook modal.
-   * Source: Open-Meteo /v1/forecast daily. Throws on failure (tile shimmers).
+   * Source: weather_daily_reading (Postgres). Throws on failure (tile shimmers).
    */
   daily: publicProcedure
     .input(z.object({}).optional())
     .output(z.array(DailyItemOutput))
-    .query(() => fetchWeatherDaily()),
+    .query(() => readWeatherDaily()),
 });

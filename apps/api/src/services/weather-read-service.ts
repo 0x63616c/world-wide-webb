@@ -1,7 +1,14 @@
 import { and, asc, desc, eq, gte } from "drizzle-orm";
 import { db } from "../db/index";
-import { weatherReading } from "../db/schema";
-import { type HourlyItem, weatherIcon } from "./weather-service";
+import { weatherDailyReading, weatherReading } from "../db/schema";
+import {
+  type DailyItem,
+  formatSolarEvent,
+  type HourlyItem,
+  WEATHER_CODES,
+  type WeatherNow,
+  weatherIcon,
+} from "./weather-service";
 
 function currentHour(): Date {
   const h = new Date();
@@ -44,4 +51,72 @@ export async function readWeatherHourly(): Promise<HourlyItem[]> {
     if (out.length >= 24) break;
   }
   return out;
+}
+
+// Latest daily row per target_date, ascending by date (today first).
+export async function readWeatherDaily(): Promise<DailyItem[]> {
+  const rows = await db
+    .select()
+    .from(weatherDailyReading)
+    .orderBy(asc(weatherDailyReading.targetDate), desc(weatherDailyReading.recordedAt));
+  const seen = new Set<string>();
+  const out: DailyItem[] = [];
+  for (const r of rows) {
+    if (seen.has(r.targetDate)) continue;
+    seen.add(r.targetDate);
+    out.push({
+      date: r.targetDate,
+      hi: r.hiF,
+      lo: r.loF,
+      weatherCode: r.weatherCode,
+      precipProbability: r.precipProbability,
+    });
+  }
+  return out;
+}
+
+// Current conditions = current hour's forecast row + today's daily row (hi/lo +
+// sun) + tomorrow's daily row (next sunrise). Throws (tile shimmers) if the
+// ingest has not populated the DB yet — never invents numbers.
+export async function readWeatherNow(): Promise<WeatherNow> {
+  const hours = await latestForecastFrom(currentHour());
+  const cur = hours[0];
+  if (!cur) throw new Error("no current weather reading");
+
+  const dailyRaw = await db
+    .select()
+    .from(weatherDailyReading)
+    .orderBy(asc(weatherDailyReading.targetDate), desc(weatherDailyReading.recordedAt));
+  const seen = new Set<string>();
+  const days = dailyRaw.filter((r) => {
+    if (seen.has(r.targetDate)) return false;
+    seen.add(r.targetDate);
+    return true;
+  });
+  const today = days[0];
+  if (!today) throw new Error("no daily weather reading");
+  const tomorrow = days[1];
+
+  const sunsetIso = today.sunsetIso ?? "";
+  const sunriseIso = today.sunriseIso ?? "";
+  const tomorrowSunriseIso = tomorrow?.sunriseIso ?? "";
+
+  return {
+    temp: cur.tempF,
+    cond: WEATHER_CODES[cur.weatherCode] ?? "Unknown",
+    ic: weatherIcon(cur.weatherCode, cur.isDay ? 1 : 0),
+    hi: today.hiF,
+    lo: today.loF,
+    feels: cur.feelsF,
+    hum: cur.humidity ?? 0,
+    wind: cur.windMph ?? 0,
+    uvIndex: cur.uvIndex ?? 0,
+    precipProbability: cur.precipProbability ?? 0,
+    sunset: formatSolarEvent(sunsetIso),
+    sunsetIso,
+    sunrise: formatSolarEvent(sunriseIso),
+    sunriseIso,
+    tomorrowSunriseIso,
+    city: "Los Angeles",
+  };
 }
