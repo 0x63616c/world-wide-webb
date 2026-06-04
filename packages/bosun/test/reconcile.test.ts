@@ -233,3 +233,63 @@ describe("renderStackYml", () => {
     expect(yml1).toBe(yml2);
   });
 });
+
+describe("renderStackYml — scheduled jobs (ofelia labels)", () => {
+  const jobSpec: Spec = {
+    stackName: "control-center",
+    services: [
+      {
+        name: "prune",
+        image: "docker:cli",
+        secrets: [],
+        env: {},
+        command: "docker system prune -af",
+        schedule: { cron: "30 3 * * *", jobType: "job-run" },
+        health: [],
+      },
+      {
+        name: "ofelia",
+        image: "mcuadros/ofelia:latest",
+        secrets: [],
+        env: {},
+        command: "daemon --docker",
+        volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"],
+        placement: ["node.role==manager"],
+        health: [],
+      },
+    ],
+  };
+
+  it("emits ofelia.<jobtype>.<name>.schedule and .command labels", () => {
+    const yml = renderStackYml(jobSpec, {});
+    expect(yml).toContain("ofelia.job-run.prune.schedule=");
+    expect(yml).toContain("ofelia.job-run.prune.command=docker system prune -af");
+  });
+
+  it("translates the 5-field spec cron to Ofelia's 6-field by prepending '0 '", () => {
+    const yml = renderStackYml(jobSpec, {});
+    expect(yml).toContain("ofelia.job-run.prune.schedule=0 30 3 * * *");
+  });
+
+  it("still emits the bosun.stack label alongside the ofelia labels", () => {
+    const yml = renderStackYml(jobSpec, {});
+    expect(yml).toContain("bosun.stack=control-center");
+  });
+
+  it("renders the controller's socket volume and manager placement", () => {
+    const yml = renderStackYml(jobSpec, {});
+    expect(yml).toContain("- /var/run/docker.sock:/var/run/docker.sock:ro");
+    expect(yml).toContain("- node.role==manager");
+  });
+
+  it("a one-shot job restarts with condition: none, not on-failure", () => {
+    const yml = renderStackYml(jobSpec, {});
+    // The prune job block must carry condition: none.
+    const pruneBlock = yml.slice(yml.indexOf("  prune:"), yml.indexOf("  ofelia:"));
+    expect(pruneBlock).toContain("condition: none");
+  });
+
+  it("is deterministic for job specs", () => {
+    expect(renderStackYml(jobSpec, {})).toBe(renderStackYml(jobSpec, {}));
+  });
+});
