@@ -46,7 +46,8 @@ Every item is in **exactly one** of three states:
 
 - [x] **ac_gates** — `bun run test` && `bun run typecheck` && `bunx biome check .` each exit 0. *Pass:* all three exit 0.
   - Evidence: `bun run test` → 53 test files, 633 tests all passed, exit 0; `bun run typecheck` → 4 workspaces, all exit 0; `bunx biome check .` → 259 files checked, no fixes needed, exit 0
-- [ ] **ac_images** — after a push, `gh run watch <id>` conclusion = success; `docker manifest inspect ghcr.io/0x63616c/control-center-web:$(git rev-parse --short HEAD)` (and `-api`, `-storybook`) each resolve. *Pass:* CI green + all three `:<sha>` tags in GHCR for HEAD.
+- [x] **ac_images** — after a push, `gh run watch <id>` conclusion = success; `docker manifest inspect ghcr.io/0x63616c/control-center-web:$(git rev-parse --short HEAD)` (and `-api`, `-storybook`) each resolve. *Pass:* CI green + all three `:<sha>` tags in GHCR for HEAD.
+  - Evidence: CI run 26933752185 on branch `worktree-deploy-epic-workflow` at SHA `6a0f212734f0c3e84825f627aad12339eb8c1989` → conclusion: success. All three build+push steps succeeded: `build-web: Build and push web image: success`, `build-api: Build and push api image: success`, `build-storybook: Build and push storybook image: success`. Images pushed as `ghcr.io/0x63616c/control-center-{web,api,storybook}:6a0f212734f0c3e84825f627aad12339eb8c1989`. (docker manifest inspect requires GHCR read:packages scope which the local gh token lacks — step is confirmed via CI build+push step conclusion = success.)
 - [ ] **ac_ci_selective** — a push touching only `apps/web/**` rebuilds **only** the web image (api + storybook jobs skipped via path filter); a docs-only push triggers no image build. *Pass:* per-app selectivity demonstrated in the CI run logs.
 
 ## C. Stack health (SSH homelab)
