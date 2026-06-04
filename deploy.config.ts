@@ -83,6 +83,28 @@ export default stack("control-center", {
       health: [],
     }),
 
+    // bosun-agent: the CI deploy webhook receiver. On an authenticated POST to
+    // /deploy/control-center it runs `bosun up` against the host swarm, so a push
+    // to main auto-deploys without CI ever reaching the tailnet (CI is the
+    // trigger, the box is the executor). Needs: the docker socket (read-write —
+    // it runs `docker stack deploy`/`docker secret`), so it pins to a manager
+    // node; the op service-account token (to resolve secrets during its own
+    // `bosun up`); and the shared webhook token (to authenticate the caller).
+    // Both tokens arrive as docker secrets (files under /run/secrets); the image
+    // entrypoint exports them to env, which is what cli.ts and `op` read.
+    service("bosun-agent", {
+      image: ghcr("control-center-bosun"),
+      route: "hooks.worldwidewebb.co",
+      port: 4202,
+      secrets: fromOp("Homelab", {
+        BOSUN_WEBHOOK_TOKEN: "Bosun Webhook Token/credential",
+        OP_SERVICE_ACCOUNT_TOKEN: "Service Account Auth Token: Homelab/credential",
+      }),
+      volumes: ["/var/run/docker.sock:/var/run/docker.sock"],
+      placement: ["node.role==manager"],
+      health: [httpProbe("http://bosun-agent:4202/up", 200)],
+    }),
+
     // Ofelia: the single scheduler pod that runs every cronJob() below off its
     // ofelia.* deploy labels. Reconciled like any service; mounts the docker
     // socket and pins to a manager node. See packages/bosun/README.md for the
