@@ -26,3 +26,9 @@ body {
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* The pannable canvas scrolls natively; hide its scrollbars on the kiosk panel
+   (scrollbarWidth:none covers Firefox; this covers WebKit/Safari + the iPad). */
+#stage::-webkit-scrollbar {
+  display: none;
+}
