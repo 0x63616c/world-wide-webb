@@ -5,11 +5,19 @@ import { WORLD_H, WORLD_W } from "../lib/grid-constants";
 // a single factor so its proportions (and the tile cluster's) stay true.
 const MAX_EXTENT = 180;
 // How long after the last pan before the minimap fades away.
-const HIDE_DELAY_MS = 3000;
+const HIDE_DELAY_MS = 1500;
 
 const SCALE = MAX_EXTENT / Math.max(WORLD_W, WORLD_H);
 const WORLD_VIEW_W = WORLD_W * SCALE;
 const WORLD_VIEW_H = WORLD_H * SCALE;
+
+// Outer pad around the world area (matches the `padding` on the map container).
+const MINIMAP_PAD = 6;
+// Distance of the minimap box from the viewport bottom (matches `bottom` below).
+export const MINIMAP_BOTTOM = 12;
+// Total rendered height of the minimap box, so siblings (e.g. the centered-tile
+// label) can stack directly above it without a magic offset.
+export const MINIMAP_HEIGHT = WORLD_VIEW_H + MINIMAP_PAD * 2;
 
 // Drag past this before a press counts as a scrub (instant follow) rather than a
 // click (smooth recenter).
@@ -22,7 +30,7 @@ type LabelledRect = Rect & { label: string };
 /**
  * A figma-style minimap pinned bottom-left. While you pan, it shows the whole
  * world scaled to scale, every tile as a faint block ("everything"), and a bright
- * box marking the slice you're currently looking at. It auto-hides three seconds
+ * box marking the slice you're currently looking at. It auto-hides 1.5 seconds
  * after panning stops.
  *
  * Visibility is driven purely off `view` changes: Board produces a fresh `view`
@@ -129,9 +137,9 @@ export function Minimap({
       }}
       style={{
         position: "absolute",
-        bottom: 12,
+        bottom: MINIMAP_BOTTOM,
         left: 12,
-        padding: 6,
+        padding: MINIMAP_PAD,
         background: "rgba(12, 14, 17, 0.82)",
         border: "1px solid var(--hair)",
         borderRadius: 10,
