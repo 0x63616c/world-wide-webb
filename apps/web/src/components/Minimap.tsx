@@ -3,9 +3,9 @@ import { WORLD_H, WORLD_W } from "../lib/grid-constants";
 
 // Longest edge of the minimap's world area, in screen px. The world is scaled by
 // a single factor so its proportions (and the tile cluster's) stay true.
-const MAX_EXTENT = 150;
+const MAX_EXTENT = 180;
 // How long after the last pan before the minimap fades away.
-const HIDE_DELAY_MS = 1000;
+const HIDE_DELAY_MS = 3000;
 
 const SCALE = MAX_EXTENT / Math.max(WORLD_W, WORLD_H);
 const WORLD_VIEW_W = WORLD_W * SCALE;
@@ -17,11 +17,12 @@ const SCRUB_THRESHOLD = 3;
 
 type View = { left: number; top: number; vw: number; vh: number };
 type Rect = { x: number; y: number; w: number; h: number };
+type LabelledRect = Rect & { label: string };
 
 /**
  * A figma-style minimap pinned bottom-left. While you pan, it shows the whole
  * world scaled to scale, every tile as a faint block ("everything"), and a bright
- * box marking the slice you're currently looking at. It auto-hides one second
+ * box marking the slice you're currently looking at. It auto-hides three seconds
  * after panning stops.
  *
  * Visibility is driven purely off `view` changes: Board produces a fresh `view`
@@ -36,13 +37,23 @@ type Rect = { x: number; y: number; w: number; h: number };
 export function Minimap({
   view,
   tiles,
+  ghosts = [],
   onJump,
 }: {
   view: View;
-  tiles: Rect[];
+  tiles: LabelledRect[];
+  // Decorative placeholder tiles, drawn fainter than real tiles so the map shows
+  // the populated world without letting the filler read as primary content.
+  ghosts?: Rect[];
   onJump: (worldX: number, worldY: number, smooth: boolean) => void;
 }) {
   const [visible, setVisible] = useState(false);
+  // True while the cursor is over the map: keeps it shown (overriding auto-hide)
+  // so you can hover it any time to read tile names, not just right after a pan.
+  const [hovering, setHovering] = useState(false);
+  // Name of the tile the cursor is over within the map, shown as a label above
+  // it. null when the cursor is off any tile (or off the map entirely).
+  const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
   const isFirstView = useRef(true);
   const worldAreaRef = useRef<HTMLDivElement>(null);
   // Scrub state: kept in a ref so live dragging never re-renders the minimap.
@@ -76,12 +87,19 @@ export function Minimap({
     scrub.current = { active: true, moved: false, x: e.clientX, y: e.clientY };
   };
   const onPointerMove = (e: React.PointerEvent) => {
+    // Hover label: name the tile under the cursor (works whether or not we're
+    // scrubbing, so the label tracks the tile you're dragging the view across).
+    const w = toWorld(e.clientX, e.clientY);
+    const over = w
+      ? tiles.find((t) => w.x >= t.x && w.x <= t.x + t.w && w.y >= t.y && w.y <= t.y + t.h)
+      : undefined;
+    setHoveredLabel(over?.label ?? null);
+
     const s = scrub.current;
     if (!s.active) return;
     e.stopPropagation();
     if (!s.moved && Math.hypot(e.clientX - s.x, e.clientY - s.y) < SCRUB_THRESHOLD) return;
     s.moved = true;
-    const w = toWorld(e.clientX, e.clientY);
     if (w) onJump(w.x, w.y, false); // instant follow while scrubbing
   };
   const onPointerUp = (e: React.PointerEvent) => {
@@ -95,12 +113,20 @@ export function Minimap({
     }
   };
 
+  // Shown while panning (auto-hide) OR whenever hovered, so it can always be
+  // hovered to read tile names — not only in the brief window after a pan.
+  const shown = visible || hovering;
   return (
     <div
       aria-hidden
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerEnter={() => setHovering(true)}
+      onPointerLeave={() => {
+        setHovering(false);
+        setHoveredLabel(null);
+      }}
       style={{
         position: "absolute",
         bottom: 12,
@@ -110,14 +136,40 @@ export function Minimap({
         border: "1px solid var(--hair)",
         borderRadius: 10,
         backdropFilter: "blur(6px)",
-        opacity: visible ? 1 : 0,
+        opacity: shown ? 1 : 0,
         transition: "opacity 0.4s ease",
-        // Don't let the invisible map eat clicks in the corner when hidden.
-        pointerEvents: visible ? "auto" : "none",
+        // Always pointer-interactive so hovering the corner can reveal it (it
+        // can't reveal on hover if hidden makes it pointer-transparent). It only
+        // occupies its own small corner, so this doesn't block board panning.
+        pointerEvents: "auto",
         cursor: "pointer",
         touchAction: "none",
       }}
     >
+      {/* Tile name for whatever the cursor is over, floated above the map. */}
+      {hoveredLabel && (
+        <div
+          style={{
+            position: "absolute",
+            left: 6,
+            bottom: "100%",
+            marginBottom: 6,
+            padding: "3px 8px",
+            background: "rgba(12, 14, 17, 0.92)",
+            border: "1px solid var(--hair-2)",
+            borderRadius: 6,
+            fontFamily: "var(--ui)",
+            fontSize: 11,
+            lineHeight: 1.2,
+            letterSpacing: "-0.01em",
+            color: "var(--ink)",
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+          }}
+        >
+          {hoveredLabel}
+        </div>
+      )}
       <div
         ref={worldAreaRef}
         style={{
@@ -128,6 +180,22 @@ export function Minimap({
           overflow: "hidden",
         }}
       >
+        {/* Decorative placeholder halo, drawn first and fainter than real tiles. */}
+        {ghosts.map((r) => (
+          <div
+            key={`g${r.x},${r.y}`}
+            style={{
+              position: "absolute",
+              left: r.x * SCALE,
+              top: r.y * SCALE,
+              width: r.w * SCALE,
+              height: r.h * SCALE,
+              background: "var(--ink-3)",
+              opacity: 0.4,
+              borderRadius: 1,
+            }}
+          />
+        ))}
         {/* "Everything" — each tile as a faint block, so the viewport box has
             something to be positioned in relation to. */}
         {tiles.map((r) => (
