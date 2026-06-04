@@ -98,7 +98,9 @@ export default stack("control-center", {
       port: 4202,
       secrets: fromOp("Homelab", {
         BOSUN_WEBHOOK_TOKEN: "Bosun Webhook Token/credential",
-        OP_SERVICE_ACCOUNT_TOKEN: "Service Account Auth Token: Homelab/credential",
+        // 1Password item "Service Account Auth Token: Homelab", referenced by
+        // UUID because op:// refs can't contain the colon in its title.
+        OP_SERVICE_ACCOUNT_TOKEN: "twioy4ncbhijeahcqgqrwfoeiq/credential",
       }),
       volumes: ["/var/run/docker.sock:/var/run/docker.sock"],
       placement: ["node.role==manager"],

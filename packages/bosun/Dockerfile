@@ -18,12 +18,12 @@ WORKDIR /app
 COPY --from=docker:28-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=1password/op:2 /usr/local/bin/op /usr/local/bin/op
 
-# Source bosun executes, the config it loads, and the infra files the stack
-# render references. package.json/bun.lock are copied for module resolution only.
+# Source bosun executes and the config it loads. package.json/bun.lock are
+# copied for module resolution only. (infra/ is intentionally not copied — the
+# renderer doesn't emit configs/volumes yet; see CC-oos.)
 COPY package.json bun.lock ./
 COPY deploy.config.ts ./
 COPY packages/bosun ./packages/bosun
-COPY infra ./infra
 
 COPY packages/bosun/docker-entrypoint.sh /usr/local/bin/bosun-entrypoint
 RUN chmod +x /usr/local/bin/bosun-entrypoint
