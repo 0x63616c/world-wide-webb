@@ -1,157 +1,122 @@
-// Typed builder API for bosun deploy configs.
-// All builders return plain data structures — zero I/O, zero side effects.
-// Configs import from "@bosun/spec" and call these to declare a static Spec.
+// Static, pure data types for a bosun Spec. No I/O, no side effects.
+// Configs import and return these; the tool consumes them at sync time.
 
-/** A secret reference map: env-var name → op:// URI (never a value). */
-export type SecretRefs = Record<string, string>;
-
-/** An HTTP health probe: polls a URL and checks the response status. */
-export type HttpProbe = {
-  kind: "http";
-  url: string;
-  expectedStatus: number;
-  /** Whether to assert the TLS certificate is valid and unexpired. */
-  certValid: boolean;
-};
-
-/** A shell health probe: runs a command and checks exit code 0. */
-export type CmdProbe = {
-  kind: "cmd";
-  description: string;
-  command: string;
-};
-
-export type HealthProbe = HttpProbe | CmdProbe;
-
-/** A declared service in the stack. */
-export type ServiceSpec = {
+export interface SecretRef {
+  // Secret name as it will appear inside the container (e.g. "HA_TOKEN").
   name: string;
-  image: string;
-  secrets: SecretRefs;
-  env: Record<string, string>;
-  health: HealthProbe[];
-  /** Public hostname to wire via Cloudflare tunnel. */
-  route?: string;
-  /** Internal upstream to reverse-proxy /api/* requests to. */
-  proxyApiTo?: string;
-  /** Shell command override for the container. */
-  command?: string;
-};
-
-/** A PostgreSQL service (treated specially for volume + config wiring). */
-export type PostgresSpec = {
-  name: "postgres";
-  image: string;
-  volume: string;
-  config?: string[];
-  init?: string[];
-  secrets: SecretRefs;
-  env: Record<string, string>;
-  health: HealthProbe[];
-};
-
-export type AnyServiceSpec = ServiceSpec | PostgresSpec;
-
-/** Top-level static description of a stack — the output of evaluating deploy.config.ts. */
-export type Spec = {
-  name: string;
-  services: AnyServiceSpec[];
-};
-
-// ─── Builder functions ────────────────────────────────────────────────────────
-
-/** Declare the top-level stack. Returns a Spec (plain data). */
-export function stack(name: string, opts: { services: AnyServiceSpec[] }): Spec {
-  return { name, services: opts.services };
+  // Provider reference resolved at sync time (e.g. "op://Homelab/Item/field").
+  ref: string;
 }
 
-/** Declare a generic service. Returns a ServiceSpec (plain data). */
+export interface HealthProbe {
+  kind: "http" | "cmd";
+  // Human-readable label used in verify output.
+  description: string;
+  // For http: the URL to check.
+  url?: string;
+  // Expected HTTP status code for http probes.
+  expectedStatus?: number;
+  // Whether to verify the TLS certificate is valid and not expired.
+  certValid?: boolean;
+  // For cmd: the shell command to run; exits 0 = pass.
+  command?: string;
+}
+
+export interface ServiceSpec {
+  name: string;
+  image: string;
+  // Declared docker secret references. Resolved values never appear here.
+  secrets: SecretRef[];
+  // Static env vars (non-secret). No values from providers.
+  env: Record<string, string>;
+  // Optional: public Cloudflare hostname to route to this service.
+  route?: string;
+  // Optional: port this service listens on (default 80).
+  port?: number;
+  // Optional: proxy /api requests to this target (for the web service).
+  proxyApiTo?: string;
+  // Optional shell command override for the container.
+  command?: string;
+  health: HealthProbe[];
+}
+
+export interface Spec {
+  // Stack name used for Docker Swarm stack deploy and label scoping.
+  stackName: string;
+  services: ServiceSpec[];
+}
+
+// --- Builder helpers (imported by deploy.config.ts) ---
+
+export function stack(name: string, opts: { services: ServiceSpec[] }): Spec {
+  return { stackName: name, services: opts.services };
+}
+
 export function service(
   name: string,
-  opts: {
-    image: string;
-    secrets?: SecretRefs;
+  opts: Partial<Omit<ServiceSpec, "name" | "secrets" | "env" | "health">> & {
+    secrets?: SecretRef[];
     env?: Record<string, string>;
     health?: HealthProbe[];
-    route?: string;
-    proxyApiTo?: string;
-    command?: string;
   },
 ): ServiceSpec {
   return {
     name,
-    image: opts.image,
-    secrets: opts.secrets ?? {},
+    image: opts.image ?? "",
+    secrets: opts.secrets ?? [],
     env: opts.env ?? {},
+    route: opts.route,
+    port: opts.port,
+    proxyApiTo: opts.proxyApiTo,
+    command: opts.command,
     health: opts.health ?? [],
-    ...(opts.route !== undefined && { route: opts.route }),
-    ...(opts.proxyApiTo !== undefined && { proxyApiTo: opts.proxyApiTo }),
-    ...(opts.command !== undefined && { command: opts.command }),
   };
 }
 
-/** Declare a Postgres service with volume + optional config/init mounts. */
-export function postgres(opts: {
-  volume: string;
-  config?: string[];
-  init?: string[];
-}): PostgresSpec {
-  return {
-    name: "postgres",
-    // Pin to a stable Postgres 16 image; the config can override via a service() if needed.
-    image: "postgres:16-alpine",
-    volume: opts.volume,
-    ...(opts.config !== undefined && { config: opts.config }),
-    ...(opts.init !== undefined && { init: opts.init }),
-    secrets: {},
-    env: {},
-    health: [],
-  };
+export function fromOp(vault: string, refs: Record<string, string>): SecretRef[] {
+  return Object.entries(refs).map(([name, item]) => ({
+    name,
+    ref: `op://${vault}/${item}`,
+  }));
 }
 
-/**
- * Produce an image reference for a GHCR image under the 0x63616c org.
- * Defaults to the :main tag (overridable for SHA-pinned deploys).
- */
-export function ghcr(name: string, tag = "main"): string {
-  return `ghcr.io/0x63616c/${name}:${tag}`;
+export function ghcr(imageName: string, tag = "main"): string {
+  return `ghcr.io/0x63616c/${imageName}:${tag}`;
 }
 
-/**
- * Produce a SecretRefs map from a 1Password vault and item-path map.
- * Each value becomes an op:// URI — never a secret value.
- * Resolution happens later, only on the sync plane (bosun secrets sync).
- */
-export function fromOp(vault: string, items: Record<string, string>): SecretRefs {
-  const refs: SecretRefs = {};
-  for (const [envKey, itemPath] of Object.entries(items)) {
-    // op://Vault/Item/field format — the standard 1Password secret reference.
-    refs[envKey] = `op://${vault}/${itemPath}`;
-  }
-  return refs;
-}
-
-/**
- * Declare an HTTP health probe.
- * The tool polls this URL and asserts the response status matches expectedStatus.
- */
 export function httpProbe(
   url: string,
   expectedStatus: number,
   opts: { certValid?: boolean } = {},
-): HttpProbe {
+): HealthProbe {
   return {
     kind: "http",
+    description: `HTTP ${expectedStatus} from ${url}`,
     url,
     expectedStatus,
-    certValid: opts.certValid ?? false,
+    ...opts,
   };
 }
 
-/**
- * Declare a shell-command health probe.
- * The tool runs this command and asserts exit code 0.
- */
-export function cmdProbe(description: string, command: string): CmdProbe {
+export function cmdProbe(description: string, command: string): HealthProbe {
   return { kind: "cmd", description, command };
+}
+
+// postgres convenience builder — produces a ServiceSpec for Postgres.
+export function postgres(opts: {
+  volume: string;
+  // docker config source paths to mount at /etc/postgresql/postgresql.conf
+  config?: string[];
+  // initdb script paths to mount at /docker-entrypoint-initdb.d/
+  init?: string[];
+  image?: string;
+  secretRef?: string;
+}): ServiceSpec {
+  return {
+    name: "postgres",
+    image: opts.image ?? "postgres:17-alpine",
+    secrets: opts.secretRef ? [{ name: "POSTGRES_PASSWORD", ref: opts.secretRef }] : [],
+    env: {},
+    health: [cmdProbe("postgres ready", "pg_isready -U postgres")],
+  };
 }
