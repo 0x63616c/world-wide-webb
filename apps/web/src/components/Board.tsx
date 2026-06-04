@@ -12,7 +12,7 @@ import {
 import { BENTO_RECTS } from "../lib/placeholder-tiles";
 import { TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
-import { Minimap } from "./Minimap";
+import { MINIMAP_BOTTOM, MINIMAP_HEIGHT, Minimap } from "./Minimap";
 import { PlaceholderTile } from "./PlaceholderTile";
 import { getTileModalEntry } from "./tiles/modals/registry";
 import { TileModalHost } from "./tiles/modals/TileModalHost";
@@ -172,48 +172,58 @@ function FpsMeter() {
   );
 }
 
-// Faint center crosshair so the viewport's exact middle (which drives the
-// centered-tile highlight) is visible. Lives in the fixed overlay, so it always
-// marks screen-center regardless of pan. A small "+" with a hollow center reads
-// as a marker rather than full-screen rulers.
-function CenterCrosshair() {
-  const ARM = 12; // px each side of center
-  const line = "rgba(255, 255, 255, 0.16)";
+// Name of the tile currently under the viewport center, shown as a pill in the
+// bottom-left while you pan the board manually (mouse-drag or touch), then fading
+// out like the minimap does. The minimap surfaces tile names on hover; this is
+// the same affordance for plain panning, where there's no cursor over the map.
+// Stacked directly above the minimap so the two never overlap in the corner.
+function CenteredTileLabel({
+  label,
+  view,
+}: {
+  label: string | undefined;
+  view: typeof INITIAL_VIEW;
+}) {
+  const [visible, setVisible] = useState(false);
+  const isFirstView = useRef(true);
+  // Driven off `view` identity (a fresh object every pan frame) exactly like the
+  // minimap, so any pan re-shows the label and resets the fade timer. The first
+  // change is the on-mount centering effect, skipped so it doesn't flash on load.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `view` isn't read here — its identity change on every pan is the trigger.
+  useEffect(() => {
+    if (isFirstView.current) {
+      isFirstView.current = false;
+      return;
+    }
+    setVisible(true);
+    const t = window.setTimeout(() => setVisible(false), 1500);
+    return () => window.clearTimeout(t);
+  }, [view]);
+
   return (
     <div
       style={{
         position: "absolute",
-        left: "50%",
-        top: "50%",
-        transform: "translate(-50%, -50%)",
-        width: ARM * 2,
-        height: ARM * 2,
+        // Stack directly above the minimap box (same left edge) so neither the
+        // map nor this label ever obscures the other.
+        left: 12,
+        bottom: MINIMAP_BOTTOM + MINIMAP_HEIGHT + 8,
+        padding: "3px 8px",
+        background: "rgba(12, 14, 17, 0.92)",
+        border: "1px solid var(--hair-2)",
+        borderRadius: 6,
+        fontFamily: "var(--ui)",
+        fontSize: 11,
+        lineHeight: 1.2,
+        letterSpacing: "-0.01em",
+        color: "var(--ink)",
+        whiteSpace: "nowrap",
+        // Fade out when hidden OR when the center sits over a gap (no label).
+        opacity: visible && label ? 1 : 0,
+        transition: "opacity 0.4s ease",
       }}
     >
-      {/* horizontal arm */}
-      <div
-        style={{
-          position: "absolute",
-          top: "50%",
-          left: 0,
-          width: "100%",
-          height: 1,
-          background: line,
-          transform: "translateY(-0.5px)",
-        }}
-      />
-      {/* vertical arm */}
-      <div
-        style={{
-          position: "absolute",
-          left: "50%",
-          top: 0,
-          width: 1,
-          height: "100%",
-          background: line,
-          transform: "translateX(-0.5px)",
-        }}
-      />
+      {label}
     </div>
   );
 }
@@ -462,6 +472,10 @@ export function Board() {
   const centerX = view.left + view.vw / 2;
   const centerY = view.top + view.vh / 2;
   const centeredId = targetAt(centerX, centerY)?.id;
+  // Label for the centered tile (bento fill has no label → undefined), surfaced
+  // bottom-left while panning. Looked up from PLACED since CENTER_TARGETS is
+  // id+rect only.
+  const centeredLabel = PLACED.find((p) => p.entry.id === centeredId)?.entry.label;
 
   return (
     <div
@@ -559,7 +573,7 @@ export function Board() {
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 200 }}>
         <ConnectionLostBanner />
         <FpsMeter />
-        <CenterCrosshair />
+        <CenteredTileLabel label={centeredLabel} view={view} />
         <Minimap
           view={view}
           tiles={PLACED.map((p) => ({ ...p.rect, label: p.entry.label }))}
