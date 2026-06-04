@@ -51,8 +51,8 @@ export type TileRegistryEntry = {
   ownsTap?: boolean;
 };
 
-// One entry per tile on the 12×6 board. colStart/rowStart are 1-indexed.
-// Positions must tile the full 12×6 grid with no gaps or overlaps.
+// One entry per tile on the 12×9 square-cell board. colStart/rowStart are
+// 1-indexed. Positions must tile the full 12×9 grid with no gaps or overlaps.
 export const TILE_REGISTRY: TileRegistryEntry[] = [
   {
     id: "tile_clock",
@@ -63,7 +63,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     colStart: 1,
     rowStart: 1,
     cols: 5,
-    rows: 2,
+    rows: 3,
   },
   {
     id: "tile_weath",
@@ -74,7 +74,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     colStart: 6,
     rowStart: 1,
     cols: 4,
-    rows: 2,
+    rows: 3,
   },
   {
     id: "tile_wifi",
@@ -85,7 +85,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     colStart: 10,
     rowStart: 1,
     cols: 3,
-    rows: 2,
+    rows: 3,
   },
   {
     id: "tile_tesla",
@@ -94,9 +94,9 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     viewComponent: TeslaTileView,
     gridArea: GridArea.Tesla,
     colStart: 1,
-    rowStart: 3,
+    rowStart: 4,
     cols: 4,
-    rows: 3,
+    rows: 4,
   },
   {
     id: "tile_hourly",
@@ -105,9 +105,9 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     viewComponent: Next12HoursView,
     gridArea: GridArea.Hourly,
     colStart: 5,
-    rowStart: 3,
+    rowStart: 4,
     cols: 4,
-    rows: 2,
+    rows: 3,
   },
   {
     id: "tile_ctrl",
@@ -116,9 +116,9 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     viewComponent: ControlsTileView,
     gridArea: GridArea.Controls,
     colStart: 9,
-    rowStart: 3,
+    rowStart: 4,
     cols: 4,
-    rows: 2,
+    rows: 3,
     ownsTap: true,
   },
   {
@@ -128,9 +128,9 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     viewComponent: DogCamTileView,
     gridArea: GridArea.DogCam,
     colStart: 5,
-    rowStart: 5,
+    rowStart: 7,
     cols: 4,
-    rows: 2,
+    rows: 3,
   },
   {
     id: "tile_ac",
@@ -139,9 +139,9 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     viewComponent: ClimateTileView,
     gridArea: GridArea.Climate,
     colStart: 9,
-    rowStart: 5,
+    rowStart: 7,
     cols: 4,
-    rows: 2,
+    rows: 3,
   },
   {
     id: "tile_event",
@@ -150,9 +150,9 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     viewComponent: EventsTileView,
     gridArea: GridArea.Events,
     colStart: 1,
-    rowStart: 6,
+    rowStart: 8,
     cols: 4,
-    rows: 1,
+    rows: 2,
   },
 ];
 
