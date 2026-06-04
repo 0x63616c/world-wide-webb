@@ -82,15 +82,6 @@ describe("health probes", () => {
     expect(probe.kind).toBe("http");
     expect(probe.url).toBe("http://api:4201/up");
     expect(probe.expectedStatus).toBe(200);
-    // certValid defaults to absent (falsy) when not specified.
-    expect(probe.certValid).toBeFalsy();
-  });
-
-  it("httpProbe can require cert validity", () => {
-    const probe = httpProbe("https://dashboard.worldwidewebb.co", 200, {
-      certValid: true,
-    });
-    expect(probe.certValid).toBe(true);
   });
 
   it("cmdProbe stores description and shell command", () => {
@@ -147,7 +138,7 @@ describe("full stack evaluation (purity + determinism)", () => {
           image: ghcr("control-center-web"),
           route: "dashboard.worldwidewebb.co",
           proxyApiTo: "api:4201",
-          health: [httpProbe("https://dashboard.worldwidewebb.co", 200, { certValid: true })],
+          health: [httpProbe("https://dashboard.worldwidewebb.co", 200)],
         }),
         postgres({ volume: "pgdata" }),
       ],

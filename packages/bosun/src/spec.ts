@@ -16,8 +16,6 @@ export interface HealthProbe {
   url?: string;
   // Expected HTTP status code for http probes.
   expectedStatus?: number;
-  // Whether to verify the TLS certificate is valid and not expired.
-  certValid?: boolean;
   // For cmd: the shell command to run; exits 0 = pass.
   command?: string;
 }
@@ -84,17 +82,12 @@ export function ghcr(imageName: string, tag = "main"): string {
   return `ghcr.io/0x63616c/${imageName}:${tag}`;
 }
 
-export function httpProbe(
-  url: string,
-  expectedStatus: number,
-  opts: { certValid?: boolean } = {},
-): HealthProbe {
+export function httpProbe(url: string, expectedStatus: number): HealthProbe {
   return {
     kind: "http",
     description: `HTTP ${expectedStatus} from ${url}`,
     url,
     expectedStatus,
-    ...opts,
   };
 }
 
