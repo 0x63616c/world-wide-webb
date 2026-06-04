@@ -14,7 +14,6 @@ import { getTileModalEntry } from "./tiles/modals/registry";
 import { TileModalHost } from "./tiles/modals/TileModalHost";
 import type { TileModalEntry } from "./tiles/modals/types";
 import { TileBoundary } from "./ui/TileBoundary";
-import { ViewportDebug } from "./ViewportDebug";
 
 // Interactive descendants a tap may land on (toggles, sliders, the Controls
 // "More" button). Taps on these drive the tile's own controls and must NOT also
@@ -109,7 +108,17 @@ export function Board() {
     <div
       id="scaler"
       ref={scalerRef}
-      style={{ width: BOARD_W, height: BOARD_H, transformOrigin: "center center" }}
+      style={{
+        width: BOARD_W,
+        height: BOARD_H,
+        transformOrigin: "center center",
+        // Round the panel itself so the bezel reads as a true device frame: its
+        // inner edge (radius BEZEL) sits concentric to the bezel's outer edge
+        // (radius 2*BEZEL, i.e. inner + border width). overflow:hidden clips the
+        // board content to the rounded corners.
+        borderRadius: BEZEL,
+        overflow: "hidden",
+      }}
     >
       <div className="board e-root" style={{ padding: BOARD_PADDING }}>
         <ConnectionLostBanner />
@@ -183,12 +192,10 @@ export function Board() {
       }}
     >
       {framed ? (
-        <div style={{ border: `${BEZEL}px solid #fff`, borderRadius: BEZEL }}>{scaler}</div>
+        <div style={{ border: `${BEZEL}px solid #fff`, borderRadius: 2 * BEZEL }}>{scaler}</div>
       ) : (
         scaler
       )}
-      {/* TEMP: viewport diagnostic — remove once the bezel threshold is settled. */}
-      <ViewportDebug />
     </div>
   );
 }
