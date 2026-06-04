@@ -7,7 +7,7 @@ import { cmdProbe, fromOp, ghcr, httpProbe, postgres, service, stack } from "../
 describe("stack builder", () => {
   it("produces a Spec with the given stack name", () => {
     const spec = stack("my-app", { services: [] });
-    expect(spec.name).toBe("my-app");
+    expect(spec.stackName).toBe("my-app");
     expect(spec.services).toEqual([]);
   });
 
@@ -56,20 +56,22 @@ describe("ghcr helper", () => {
 });
 
 describe("fromOp secret references", () => {
-  it("produces references in op:// form — never actual values", () => {
+  it("produces SecretRef[] with op:// refs — never actual values", () => {
     const refs = fromOp("Homelab", {
       HA_TOKEN: "Home Assistant Token/credential",
       UNIFI_API_KEY: "UniFi/local_api_key",
     });
-    // Each value must be an op:// reference string.
-    expect(refs.HA_TOKEN).toBe("op://Homelab/Home Assistant Token/credential");
-    expect(refs.UNIFI_API_KEY).toBe("op://Homelab/UniFi/local_api_key");
+    // Returns a SecretRef[] — find by name and check the ref field.
+    const haToken = refs.find((r) => r.name === "HA_TOKEN");
+    const unifiKey = refs.find((r) => r.name === "UNIFI_API_KEY");
+    expect(haToken?.ref).toBe("op://Homelab/Home Assistant Token/credential");
+    expect(unifiKey?.ref).toBe("op://Homelab/UniFi/local_api_key");
   });
 
   it("never contains a secret value — only op:// references", () => {
     const refs = fromOp("Homelab", { MY_KEY: "My Item/field" });
-    for (const val of Object.values(refs)) {
-      expect(val).toMatch(/^op:\/\//);
+    for (const secretRef of refs) {
+      expect(secretRef.ref).toMatch(/^op:\/\//);
     }
   });
 });
@@ -80,7 +82,8 @@ describe("health probes", () => {
     expect(probe.kind).toBe("http");
     expect(probe.url).toBe("http://api:4201/up");
     expect(probe.expectedStatus).toBe(200);
-    expect(probe.certValid).toBe(false);
+    // certValid defaults to absent (falsy) when not specified.
+    expect(probe.certValid).toBeFalsy();
   });
 
   it("httpProbe can require cert validity", () => {
@@ -104,19 +107,22 @@ describe("postgres builder", () => {
     expect(pg.name).toBe("postgres");
   });
 
-  it("stores volume reference", () => {
+  it("uses a pinned postgres image", () => {
     const pg = postgres({ volume: "pgdata" });
-    expect(pg.volume).toBe("pgdata");
+    expect(pg.image).toContain("postgres:");
   });
 
-  it("stores optional config and init paths", () => {
-    const pg = postgres({
-      volume: "pgdata",
-      config: ["infra/postgres/postgresql.conf"],
-      init: ["infra/postgres/initdb"],
-    });
-    expect(pg.config).toContain("infra/postgres/postgresql.conf");
-    expect(pg.init).toContain("infra/postgres/initdb");
+  it("includes a pg_isready health probe", () => {
+    const pg = postgres({ volume: "pgdata" });
+    const probe = pg.health.find((h) => h.kind === "cmd");
+    expect(probe).toBeDefined();
+    expect(probe?.command).toContain("pg_isready");
+  });
+
+  it("declares a POSTGRES_PASSWORD secret ref when secretRef is provided", () => {
+    const pg = postgres({ volume: "pgdata", secretRef: "op://Homelab/PG/password" });
+    const ref = pg.secrets.find((r) => r.name === "POSTGRES_PASSWORD");
+    expect(ref?.ref).toBe("op://Homelab/PG/password");
   });
 });
 
@@ -164,12 +170,11 @@ describe("full stack evaluation (purity + determinism)", () => {
     // Secret references present as op:// URIs.
     expect(json).toContain("op://Homelab/");
 
-    // No actual secret values — the string "credential" only appears inside the op:// URI.
-    // We assert the raw HA_TOKEN key has an op:// value, not a bare secret string.
+    // No actual secret values — every SecretRef.ref must be an op:// URI.
     const apiSvc = spec.services.find((s) => s.name === "api");
     expect(apiSvc).toBeDefined();
-    for (const val of Object.values(apiSvc?.secrets ?? {})) {
-      expect(val).toMatch(/^op:\/\//);
+    for (const secretRef of apiSvc?.secrets ?? []) {
+      expect(secretRef.ref).toMatch(/^op:\/\//);
     }
   });
 
@@ -179,7 +184,7 @@ describe("full stack evaluation (purity + determinism)", () => {
     // every service field is serializable by round-tripping through JSON.
     const spec = buildTestSpec();
     const roundTripped = JSON.parse(JSON.stringify(spec)) as Spec;
-    expect(roundTripped.name).toBe(spec.name);
+    expect(roundTripped.stackName).toBe(spec.stackName);
     expect(roundTripped.services.length).toBe(spec.services.length);
   });
 });
