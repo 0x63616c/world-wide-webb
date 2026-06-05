@@ -115,4 +115,22 @@ describe("Next12HoursView — populated state", () => {
     expect(stroke).not.toBe("#6E747D");
     expect(stroke).toMatch(/^rgba\(/);
   });
+
+  // Regression: feels-like hotter than the hottest temp must stay inside the band,
+  // not paint up over the header/title. gMax has to bound feels as well as gMin.
+  it("keeps the feels-like line inside the band when feels exceeds the max temp", () => {
+    const hotFeels: HourlyEntry[] = SAMPLE_HOURS.map((hr, i) => ({
+      ...hr,
+      feels: i === 0 ? hr.temp + 15 : hr.feels,
+    }));
+    const { container } = render(<Next12HoursView status="populated" hours={hotFeels} />);
+    const points = container.querySelector("polyline")?.getAttribute("points") ?? "";
+    const ys = points
+      .trim()
+      .split(/\s+/)
+      .map((pt) => Number.parseFloat(pt.split(",")[1]));
+    expect(ys.length).toBe(hotFeels.length);
+    // y=0 is the band top; any negative y is drawn above it, over the header.
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(0);
+  });
 });
