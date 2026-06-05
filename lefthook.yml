@@ -29,6 +29,13 @@ pre-commit:
       # keys, high-entropy strings). Config + allowlist live in .gitleaks.toml.
       # Keeps credentials in 1Password only, especially ahead of going public (www-4ma).
       run: gitleaks git --staged --no-banner -c .gitleaks.toml
+    loc-badge:
+      # Non-blocking: refresh the self-hosted LOC badge (.github/badges/loc.json)
+      # from real git-tracked line counts so it never goes stale. Rounded to whole
+      # 'k', so this only re-stages on a real boundary cross (rare, low churn).
+      # Coverage badge is refreshed by the CI test job, not here (too slow for
+      # every commit). See scripts/gen-badges.ts (www-afz).
+      run: bun scripts/gen-badges.ts --loc-only && git add .github/badges/loc.json
 
 commit-msg:
   commands:
