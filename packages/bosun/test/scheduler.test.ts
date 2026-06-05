@@ -5,6 +5,7 @@ import {
   dueCronJobs,
   jobServiceName,
   runDueJobs,
+  selectCronJob,
 } from "../src/scheduler.ts";
 import type { ServiceSpec, Spec } from "../src/spec.ts";
 
@@ -119,6 +120,35 @@ describe("jobServiceName — config-derived, no magic prefix", () => {
     expect(jobServiceName("control-center", "docker-image-prune")).toBe(
       "control-center-cron-docker-image-prune",
     );
+  });
+});
+
+describe("selectCronJob — on-demand trigger selection (`bosun run-job`)", () => {
+  const prune = cronService("docker-image-prune", "0 3 * * *", "docker image prune -af");
+  const backup = cronService("db-backup", "30 2 * * *", "pg_dump ...");
+  // A long-lived service (no schedule) is NOT a cron job and must be rejected.
+  const web: ServiceSpec = {
+    name: "web",
+    image: "nginx",
+    secrets: [],
+    env: {},
+    health: [],
+  };
+  const services = [web, prune, backup];
+
+  it("returns the schedule-bearing service matching the name", () => {
+    expect(selectCronJob(services, "docker-image-prune")).toBe(prune);
+    expect(selectCronJob(services, "db-backup")).toBe(backup);
+  });
+
+  it("throws a clear error naming the unknown job and listing the real ones", () => {
+    expect(() => selectCronJob(services, "nope")).toThrowError(
+      /unknown cron job 'nope'.*docker-image-prune.*db-backup/s,
+    );
+  });
+
+  it("rejects a real service that is not a cron job (has no schedule)", () => {
+    expect(() => selectCronJob(services, "web")).toThrowError(/'web' is not a cron job/);
   });
 });
 
