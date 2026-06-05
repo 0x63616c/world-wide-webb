@@ -75,7 +75,7 @@ async function cmdSecrets(args: string[]): Promise<void> {
     default: import("./spec.ts").Spec;
   };
   const { makeDefaultExec, OpProvider } = await import("./providers/op.ts");
-  const { reconcileSecrets, makeDefaultDockerSecretClient } = await import(
+  const { reconcileSecrets, pruneSecrets, makeDefaultDockerSecretClient } = await import(
     "./reconcile/secrets.ts"
   );
 
@@ -92,8 +92,11 @@ async function cmdSecrets(args: string[]): Promise<void> {
   );
 
   const client = makeDefaultDockerSecretClient();
-  const nameMap = await reconcileSecrets(spec.stackName, resolved, client);
-  console.log("Secrets synced:", nameMap);
+  const { names, stale } = await reconcileSecrets(spec.stackName, resolved, client);
+  // No deploy follows a standalone sync, so still-in-use secrets can't be removed
+  // yet — pruneSecrets tolerates that and skips them (www-8pt).
+  await pruneSecrets(stale, client, console.log);
+  console.log("Secrets synced:", names);
 }
 
 // routes sync: reconcile Cloudflare tunnel routes from declared route: fields.
@@ -168,7 +171,7 @@ async function cmdUp(
 
   console.log("[bosun up] Syncing secrets...");
   const { makeDefaultExec, OpProvider } = await import("./providers/op.ts");
-  const { reconcileSecrets, makeDefaultDockerSecretClient } = await import(
+  const { reconcileSecrets, pruneSecrets, makeDefaultDockerSecretClient } = await import(
     "./reconcile/secrets.ts"
   );
 
@@ -182,13 +185,22 @@ async function cmdUp(
     })),
   );
   const secretClient = makeDefaultDockerSecretClient();
-  const secretNames = await reconcileSecrets(spec.stackName, resolved, secretClient);
+  const { names: secretNames, stale: staleSecrets } = await reconcileSecrets(
+    spec.stackName,
+    resolved,
+    secretClient,
+  );
 
   console.log("[bosun up] Rendering stack and deploying...");
   const { renderStackYml, deployStack } = await import("./reconcile/stack.ts");
   const yml = renderStackYml(spec, secretNames, imageOverrides);
   const deployOut = await deployStack(spec.stackName, yml);
   if (deployOut) console.log(deployOut);
+
+  // Prune stale secrets ONLY after the stack has redeployed off them — a rename
+  // (e.g. cc_ -> control-center_) leaves the old secret in use until this deploy
+  // re-points services, so pruning earlier would refuse + abort the deploy (www-8pt).
+  await pruneSecrets(staleSecrets, secretClient, console.log);
 
   console.log("[bosun up] Verifying...");
   await runVerify(
