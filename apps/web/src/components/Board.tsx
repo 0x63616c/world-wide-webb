@@ -277,8 +277,7 @@ export function Board() {
     }
     if (entry.ownsTap) return;
     if ((e.target as HTMLElement).closest(INTERACTIVE_SELECTOR)) return;
-    const modal = getTileModalEntry(entry.id);
-    if (modal) setActiveModal(modal);
+    openModalFor(entry);
   }
 
   // Center the viewport on a world-space point (the minimap calls this on click
@@ -369,6 +368,29 @@ export function Board() {
     };
     s.raf = requestAnimationFrame(step);
   }, []);
+
+  // Open a tile's detail modal AND glide the camera so that tile lands dead
+  // center, both kicked off together. The glide reuses the snap spring (same
+  // SmoothDamp feel as settle-snapping) instead of a separate animation. Opening
+  // the modal freezes native pan (overflow:hidden on the stage), but an
+  // overflow:hidden element is still a *programmatic* scroll container, so the
+  // spring's scrollLeft/Top writes keep driving the glide to completion behind
+  // the modal. Shared by the click and keyboard activation paths.
+  const openModalFor = useCallback(
+    (entry: TileRegistryEntry) => {
+      const modal = getTileModalEntry(entry.id);
+      if (!modal) return;
+      const stage = stageRef.current;
+      if (stage) {
+        const rect = tileWorldRect(entry);
+        const toLeft = rect.x + rect.w / 2 - stage.clientWidth / 2;
+        const toTop = rect.y + rect.h / 2 - stage.clientHeight / 2;
+        springTo(toLeft, toTop);
+      }
+      setActiveModal(modal);
+    },
+    [springTo],
+  );
 
   // On settle (scrolling stopped AND nothing held): gravitate the tile under the
   // crosshair to the viewport center. Reads scroll state live rather than `view`
@@ -553,10 +575,8 @@ export function Board() {
                 if (entry.ownsTap) return;
                 if (e.target !== e.currentTarget) return;
                 if (e.key === "Enter" || e.key === " ") {
-                  const modal = getTileModalEntry(entry.id);
-                  if (!modal) return;
                   e.preventDefault();
-                  setActiveModal(modal);
+                  openModalFor(entry);
                 }
               }}
             >
