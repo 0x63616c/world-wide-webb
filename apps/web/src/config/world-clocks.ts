@@ -3,7 +3,7 @@
  *
  * This is CONFIGURATION (which cities to show + their IANA timezones), not live
  * data — the actual times are computed client-side from the real wall clock via
- * Intl.DateTimeFormat. Home is Los Angeles (Home).
+ * Intl.DateTimeFormat. Home is Los Angeles.
  */
 
 export interface WorldClockZone {

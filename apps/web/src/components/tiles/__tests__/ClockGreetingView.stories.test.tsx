@@ -19,7 +19,7 @@ describe("ClockGreetingView stories", () => {
     expect(screen.getByText(/good morning/i)).toBeDefined();
     expect(screen.getByTestId("clock-ampm").textContent).toBe("AM");
     expect(screen.getByTestId("clock-date")).toBeDefined();
-    expect(screen.getByText(/home/i)).toBeDefined();
+    expect(screen.getByText(/los angeles/i)).toBeDefined();
   });
 
   it("Loading: renders skeleton placeholders, no real time content", async () => {

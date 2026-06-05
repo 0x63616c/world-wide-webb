@@ -7,8 +7,8 @@ describe("haversineMiles", () => {
   });
 
   it("computes a known short distance (~0.95mi across central LA)", () => {
-    // 34.0537,-118.2428 -> 34.0537,-118.2670 is ~0.95mi due east.
-    const d = haversineMiles(34.0537, -118.2428, 34.0537, -118.267);
+    // 34.0537,-118.2428 -> 34.0537,-118.2262 is ~0.95mi due east.
+    const d = haversineMiles(34.0537, -118.2428, 34.0537, -118.2262);
     expect(d).toBeGreaterThan(0.9);
     expect(d).toBeLessThan(1.0);
   });
@@ -21,12 +21,14 @@ describe("haversineMiles", () => {
 });
 
 describe("findPlace", () => {
-  it("matches Home when within its 1mi radius", () => {
-    expect(findPlace(34.061183, -118.284533)?.name).toBe("Home");
+  it("matches the configured home place within its radius", () => {
+    // PLACES is built from the HOME_* env; with the public test defaults that is
+    // { name: "Home", lat: 34.0537, lon: -118.2428, radiusMiles: 1 }.
+    expect(findPlace(34.0537, -118.2428)?.name).toBe("Home");
   });
 
   it("returns undefined when outside every place radius", () => {
-    // Sound Nightclub area, ~2-3mi north-west of Home.
+    // ~3mi north-west of the configured home, outside the 1mi radius.
     expect(findPlace(34.09, -118.33)).toBeUndefined();
   });
 

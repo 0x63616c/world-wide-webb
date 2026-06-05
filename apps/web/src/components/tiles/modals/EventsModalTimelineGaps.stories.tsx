@@ -23,7 +23,7 @@ import { EventsModalTimelineGaps } from "./EventsModalTimelineGaps";
 const eventsSpread = [
   { name: "Dentist Appointment", place: "Downtown Dental", days: 2 },
   { name: "Sarah's Birthday Dinner", place: "Nobu LA", days: 4 },
-  { name: "Annual Lease Renewal", place: "Home Office", days: 41 },
+  { name: "Annual Lease Renewal", place: "Property Management Office", days: 41 },
   { name: "Flight to NYC", place: "LAX Terminal 6", days: 89 },
   { name: "Conference Keynote", place: "Javits Center", days: 91 },
 ];

@@ -40,7 +40,10 @@ export interface OpenMeteoBundle {
 // One Open-Meteo call per ingest cycle. past_days=1 returns the recently settled
 // hours (used to record observed actuals); forecast_days=7 gives 24h+ of forward
 // hourly plus the 7-day daily outlook the week modal needs.
-export async function fetchOpenMeteoBundle(lat = env.LAT, lon = env.LON): Promise<OpenMeteoBundle> {
+export async function fetchOpenMeteoBundle(
+  lat = env.HOME_LAT,
+  lon = env.HOME_LON,
+): Promise<OpenMeteoBundle> {
   const url =
     `https://api.open-meteo.com/v1/forecast` +
     `?latitude=${lat}&longitude=${lon}` +

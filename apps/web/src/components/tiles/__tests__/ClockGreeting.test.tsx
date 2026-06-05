@@ -31,7 +31,7 @@ describe("ClockGreeting", () => {
     expect(screen.getByText(/29/)).toBeDefined();
 
     // Location
-    expect(screen.getByText(/home/i)).toBeDefined();
+    expect(screen.getByText(/los angeles/i)).toBeDefined();
   });
 
   it("shows 'Good afternoon' for a 14:xx hour", () => {

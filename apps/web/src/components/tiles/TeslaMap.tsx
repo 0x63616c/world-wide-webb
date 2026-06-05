@@ -3,6 +3,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { layers, namedFlavor } from "@protomaps/basemaps";
 import { Protocol } from "pmtiles";
 import { useEffect, useRef } from "react";
+import { HOME_CENTER } from "../../config/home";
 
 // ── Protocol guard ────────────────────────────────────────────────────────────
 // The pmtiles protocol must be registered once per page. A module-level Set
@@ -10,11 +11,9 @@ import { useEffect, useRef } from "react";
 // this avoids duplicate-handler warnings on HMR without a mutable primitive.
 const registeredProtocols = new Set<string>();
 
-// ── Default center ────────────────────────────────────────────────────────────
-// Used when lat/lon are null (car location unavailable / API outage) so the
-// map still renders centred on home rather than a blank grey canvas.
-// Home, Los Angeles — the car's home address.
-const HOME_CENTER: [number, number] = [-118.2428, 34.0537];
+// HOME_CENTER (public placeholder, single source of truth in config/home.ts)
+// is the map fallback when lat/lon are null (car location unavailable / API
+// outage) so the map still renders centred rather than a blank grey canvas.
 
 // ── Layer filter ──────────────────────────────────────────────────────────────
 // Drop all symbol/label layers: the tile container is ~300×150 px, so labels

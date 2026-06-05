@@ -18,14 +18,14 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Protocol } from "pmtiles";
 import { useEffect, useRef, useState } from "react";
+import { HOME_LAT, HOME_LON } from "../../../config/home";
 import { Icon } from "../../Icon";
 import { Modal } from "../../ui";
 
 // ─── home anchor ──────────────────────────────────────────────────────────────
-// Home — the car's home. Matches HOME_CENTER in TeslaMap.
-// [lon, lat] for maplibre; separate constants for haversine to keep axes clear.
-const HOME_LNG = -118.2428;
-const HOME_LAT = 34.0537;
+// Public placeholder home center (single source of truth: config/home.ts).
+// Aliased to HOME_LNG locally to keep the maplibre [lon, lat] axes clear.
+const HOME_LNG = HOME_LON;
 
 // ─── haversine (inlined) ──────────────────────────────────────────────────────
 // haversineMiles lives in apps/api (separate workspace, not importable from

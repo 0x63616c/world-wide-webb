@@ -13,7 +13,7 @@ import { WeatherModalSunDayArc } from "./WeatherModalSunDayArc";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
 
-// LA (Home) solar times for 2026-05-31 — real Open-Meteo values for
+// LA solar times for 2026-05-31 — real Open-Meteo values for
 // latitude 34.0537, longitude -118.2428. Solar noon = midpoint 05:58..20:02 = 12:59.
 
 // Primary: mid-afternoon — sun is ~70% through its arc, about 4.5 hours to sunset.

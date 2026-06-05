@@ -17,7 +17,7 @@ import { EventsModalFullAgenda } from "./EventsModalFullAgenda";
 // 3-day threshold (accented), some well out. Sorted ascending by days (soonest
 // first) matching the router's pre-sorted output.
 const fullAgendaEvents = [
-  { name: "Dentist appointment", place: "Midtown Dental Group", days: 0 },
+  { name: "Dentist appointment", place: "Downtown Dental", days: 0 },
   { name: "Call with architect", place: "Google Meet", days: 1 },
   { name: "Dry cleaning pickup", place: "Martinizing on 6th", days: 3 },
   { name: "Birthday dinner — Maya", place: "Nobu Downtown LA", days: 7 },
@@ -25,7 +25,7 @@ const fullAgendaEvents = [
   { name: "Flight to SF", place: "LAX Terminal 1", days: 14 },
   { name: "Conference — React Summit", place: "Moscone Center, SF", days: 15 },
   { name: "Return flight", place: "SFO Terminal 2", days: 17 },
-  { name: "Lease renewal signing", place: "Home Leasing", days: 22 },
+  { name: "Lease renewal signing", place: "Apartment Leasing Office", days: 22 },
   { name: "Annual physical", place: "Cedars-Sinai Medical", days: 31 },
 ];
 

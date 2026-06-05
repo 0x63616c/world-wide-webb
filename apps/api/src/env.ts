@@ -31,7 +31,20 @@ export function databaseUrlFromSecret(
 // it via the schema below. An explicit env var always wins; a missing file
 // (dev/test) is a no-op and the schema default applies. The bundled production
 // image has no entrypoint shell, so this in-app loader is the only mapping.
-const SECRET_FILE_ENV = ["HA_TOKEN", "UNIFI_API_KEY", "WIFI_SSID", "WIFI_PASSWORD"] as const;
+// HOME_* are not strictly secret (they are your own coordinates), but they are
+// private and must stay out of the open-source repo, so they ride the same
+// op-backed docker-secret rail as the real secrets — one place (1Password) for
+// all private config (www-mqp).
+const SECRET_FILE_ENV = [
+  "HA_TOKEN",
+  "UNIFI_API_KEY",
+  "WIFI_SSID",
+  "WIFI_PASSWORD",
+  "HOME_LAT",
+  "HOME_LON",
+  "HOME_PLACE_NAME",
+  "HOME_RADIUS_MILES",
+] as const;
 export function hydrateSecretFiles(
   src: Record<string, string | undefined> = process.env,
   dir = "/run/secrets",
@@ -78,10 +91,15 @@ export const envSchema = z.object({
   WIFI_SSID: z.string().default(""),
   WIFI_PASSWORD: z.string().default(""),
 
-  // Location — Home, Los Angeles. The map-pill place name is no longer
-  // an env var; named places live in config/places.ts (www-6gx).
-  LAT: z.coerce.number().default(34.0537),
-  LON: z.coerce.number().default(-118.2428),
+  // Home location. Real values are delivered from 1Password (Homelab vault item
+  // "Home Location") via the op-backed secret rail above; these defaults are a
+  // deliberately PUBLIC placeholder (LA City Hall) so the repo can be open-source
+  // without leaking a home address. config/places.ts builds the home geofence
+  // from these (www-mqp).
+  HOME_LAT: z.coerce.number().default(34.0537),
+  HOME_LON: z.coerce.number().default(-118.2428),
+  HOME_PLACE_NAME: z.string().default("Home"),
+  HOME_RADIUS_MILES: z.coerce.number().default(1),
 
   // Tesla entity prefix in Home Assistant (Tesla Fleet / tesla_custom integration
   // names every entity `<prefix>_*`, e.g. sensor.evee_battery_level). The car's

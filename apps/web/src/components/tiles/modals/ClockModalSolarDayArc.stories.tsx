@@ -14,7 +14,7 @@ import { ClockModalSolarDayArc } from "./ClockModalSolarDayArc";
 // ─── fixtures ─────────────────────────────────────────────────────────────────
 
 // Primary: mid-afternoon in Los Angeles — sun is well past noon, golden-hour
-// approaching soon. Matches the real Home lat/lon seasonally.
+// approaching soon. Matches the real Los Angeles lat/lon seasonally.
 const midAfternoon = {
   sunriseIso: "2026-05-31T05:58:00",
   sunsetIso: "2026-05-31T20:02:00",
