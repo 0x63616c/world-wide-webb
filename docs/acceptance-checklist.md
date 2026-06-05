@@ -77,13 +77,13 @@ Every item is in **exactly one** of three states:
 ## G. Persistence / resilience (SSH homelab)
 
 - [ ] **ac_pg_persists** — `docker exec <pg> psql -c "create table _ac_probe(id int); insert into _ac_probe values(1);"` → `bosun up` (redeploy) → `select count(*) from _ac_probe` still returns 1. *Pass:* data survives redeploy (named volume intact). Cleanup drops the probe table.
-- [ ] **ac_restart_recovers** — `orb restart`, then poll until `docker stack services control-center` is all `1/1` and `ac_portainer_https` + `ac_storybook` pass again; throughout, HA VM pid (`pgrep -f haos.qcow2`) is unchanged and `tailscale status` stays connected. *Pass:* stack self-recovers with no manual step; HA + Tailscale untouched. (Engine restart, **not** a full OS reboot.)
+- [x] **ac_restart_recovers** — `orb restart`, then poll until `docker stack services control-center` is all `1/1` and `ac_portainer_https` + `ac_storybook` pass again; throughout, HA VM pid (`pgrep -f haos.qcow2`) is unchanged and `tailscale status` stays connected. *Pass:* stack self-recovers with no manual step; HA + Tailscale untouched. (Engine restart, **not** a full OS reboot.)
 - [ ] **ac_autostart** — verify OrbStack is configured to start at login. *Pass:* autostart confirmed enabled. (Verify-only; if off, `[-]` with reason — do not fail silently.)
 
 ## H. Deploy speed & lifecycle (end-to-end, agent-driven)
 
 - [ ] **ac_config_speed** — push a benign `deploy.config.ts`/stack change (add a label), time push → trigger → `docker service inspect` shows the new label. *Pass:* reflected in < 30 s (config path, no build), measured.
-- [ ] **ac_code_auto** — push a trivial code change (alters image content); `gh run watch` to success; new GHCR `:<sha>` exists; CI calls the deploy webhook and `docker service inspect web` image digest updates to it with **no manual step**. *Pass:* code change auto-builds and auto-deploys end-to-end. (If the on-box webhook agent / op service-account token is unavailable, mark `[-]` with that reason rather than faking.)
+- [x] **ac_code_auto** — push a trivial code change (alters image content); `gh run watch` to success; new GHCR `:<sha>` exists; CI calls the deploy webhook and `docker service inspect web` image digest updates to it with **no manual step**. *Pass:* code change auto-builds and auto-deploys end-to-end. (If the on-box webhook agent / op service-account token is unavailable, mark `[-]` with that reason rather than faking.)
 - [ ] **ac_rollback** — roll a service to a prior `:<sha>` (via `bosun` or `docker service update`) → healthy on the prior version → roll forward again. *Pass:* rollback to a prior sha succeeds and recovers.
 
 ## I. Global done (capstone — verify LAST)
