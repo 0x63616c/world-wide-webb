@@ -13,10 +13,10 @@ const WORLD_VIEW_H = WORLD_H * SCALE;
 
 // Outer pad around the world area (matches the `padding` on the map container).
 const MINIMAP_PAD = 6;
-// Distance of the minimap box from the viewport bottom (matches `bottom` below).
-export const MINIMAP_BOTTOM = 12;
+// Distance of the minimap box from the viewport top (matches `top` below).
+export const MINIMAP_TOP = 12;
 // Total rendered height of the minimap box, so siblings (e.g. the centered-tile
-// label) can stack directly above it without a magic offset.
+// label) can stack directly below it without a magic offset.
 export const MINIMAP_HEIGHT = WORLD_VIEW_H + MINIMAP_PAD * 2;
 
 // Drag past this before a press counts as a scrub (instant follow) rather than a
@@ -28,7 +28,7 @@ type Rect = { x: number; y: number; w: number; h: number };
 type LabelledRect = Rect & { label: string };
 
 /**
- * A figma-style minimap pinned bottom-left. While you pan, it shows the whole
+ * A figma-style minimap pinned top-left. While you pan, it shows the whole
  * world scaled to scale, every tile as a faint block ("everything"), and a bright
  * box marking the slice you're currently looking at. It auto-hides 1.5 seconds
  * after panning stops.
@@ -137,7 +137,7 @@ export function Minimap({
       }}
       style={{
         position: "absolute",
-        bottom: MINIMAP_BOTTOM,
+        top: MINIMAP_TOP,
         left: 12,
         padding: MINIMAP_PAD,
         background: "rgba(12, 14, 17, 0.82)",
@@ -154,14 +154,14 @@ export function Minimap({
         touchAction: "none",
       }}
     >
-      {/* Tile name for whatever the cursor is over, floated above the map. */}
+      {/* Tile name for whatever the cursor is over, floated below the map. */}
       {hoveredLabel && (
         <div
           style={{
             position: "absolute",
             left: 6,
-            bottom: "100%",
-            marginBottom: 6,
+            top: "100%",
+            marginTop: 6,
             padding: "3px 8px",
             background: "rgba(12, 14, 17, 0.92)",
             border: "1px solid var(--hair-2)",
