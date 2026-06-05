@@ -49,6 +49,7 @@ vi.mock("../tiles/modals/registry", () => ({
       : undefined,
 }));
 
+import { BUILD_HASH } from "../../config/build";
 import { Board } from "../Board";
 
 afterEach(() => {
@@ -83,5 +84,13 @@ describe("Board", () => {
     render(<Board />);
     fireEvent.click(screen.getByRole("button", { name: "inner-control" }));
     expect(screen.queryByTestId("fake-modal")).toBeNull();
+  });
+
+  it("renders the build-hash badge from the build config", () => {
+    render(<Board />);
+    // No vite `define` in the test env, so BUILD_HASH falls back to "dev"; the
+    // badge must render exactly the value the config module resolves (sliced).
+    expect(BUILD_HASH).toBe("dev");
+    expect(screen.getByText(BUILD_HASH.slice(0, 7))).toBeTruthy();
   });
 });

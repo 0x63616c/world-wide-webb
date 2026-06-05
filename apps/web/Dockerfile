@@ -26,6 +26,12 @@ COPY apps/api/tsconfig.json ./apps/api/tsconfig.json
 COPY apps/web ./apps/web
 COPY packages ./packages
 
+# Commit SHA baked into the bundle (vite `define`) so the running panel reports
+# its build. CI passes --build-arg BUILD_HASH=${github.sha}; absent (local docker
+# build) it falls back to "dev" since the builder image has no .git.
+ARG BUILD_HASH=dev
+ENV BUILD_HASH=$BUILD_HASH
+
 # Build the static bundle. Output lands at apps/web/dist.
 RUN bun run --cwd apps/web build
 
