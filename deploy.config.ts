@@ -61,7 +61,10 @@ export default stack("control-center", {
       }),
       health: [
         httpProbe("http://api:4201/up", 200),
-        cmdProbe("live HA data", "curl -sf http://api:4201/api/climate.now | jq -e .tempC"),
+        // Hits the api's dedicated REST health route (www-hya3), not a tRPC proc,
+        // so the probe can't silently rot when a procedure is renamed. The route
+        // returns live HA ambient temp and throws (->500) on an HA outage.
+        cmdProbe("live HA data", "curl -sf http://api:4201/health/climate | jq -e .ambient"),
       ],
     }),
 

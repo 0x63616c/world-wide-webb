@@ -2,6 +2,7 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 
 import { runMigrations } from "./db/migrate";
 import { env } from "./env";
+import { getClimate } from "./services/climate-service";
 import { startDeviceSyncService } from "./services/device-sync-service";
 import { startWeatherIngestService } from "./services/weather-ingest-service";
 import { createContext } from "./trpc/context";
@@ -32,6 +33,16 @@ async function handle(req: Request, url: URL): Promise<Response> {
 
   if (url.pathname === "/up") {
     return new Response("OK", { status: 200, headers: CORS_HEADERS });
+  }
+
+  // Deploy-health probe target (www-hya3). Bosun's `verify` curls this to prove
+  // the api can reach live Home Assistant, decoupled from the tRPC wire format so
+  // a procedure rename can't silently turn the probe advisory-red (which is how
+  // the old /api/climate.now probe rotted). getClimate() throws on an HA outage
+  // or misconfig (services-throw convention), surfacing as a 500 -> red probe.
+  if (url.pathname === "/health/climate") {
+    const { ambient } = await getClimate();
+    return Response.json({ ambient }, { status: 200, headers: CORS_HEADERS });
   }
 
   if (url.pathname.startsWith("/trpc")) {
