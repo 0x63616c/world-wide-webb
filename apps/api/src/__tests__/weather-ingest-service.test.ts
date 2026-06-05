@@ -4,7 +4,12 @@ import { fetchOpenMeteoBundle, runWeatherIngestCycle } from "../services/weather
 // Capture every db.insert(...).values(rows) call. values() returns a thenable
 // that also exposes onConflictDoUpdate, matching both the plain inserts and the
 // heartbeat upsert in runWeatherIngestCycle.
-const captured = vi.hoisted(() => ({ rows: [] as Record<string, unknown>[] }));
+// `streakRows` stands in for the current integrationSyncStatus row that
+// markHeartbeat reads to increment consecutiveFailures on the error path.
+const captured = vi.hoisted(() => ({
+  rows: [] as Record<string, unknown>[],
+  streakRows: [] as { n: number }[],
+}));
 vi.mock("../db/index", () => ({
   db: {
     insert: () => ({
@@ -18,6 +23,15 @@ vi.mock("../db/index", () => ({
         });
       },
     }),
+    // currentFailureStreak(): select(...).from().where().limit() -> rows
+    select: () => {
+      const chain = {
+        from: () => chain,
+        where: () => chain,
+        limit: () => Promise.resolve(captured.streakRows),
+      };
+      return chain;
+    },
   },
 }));
 
@@ -103,6 +117,8 @@ describe("runWeatherIngestCycle", () => {
     expect(daily.length).toBe(2); // 2 daily entries
     expect(heartbeat.length).toBe(1);
     expect(heartbeat[0].integrationId).toBe("weather");
+    // success resets the failure streak to 0
+    expect(heartbeat[0].consecutiveFailures).toBe(0);
 
     // forecast rows carry integer temps and a Date target_hour
     const forecast = hourly.find((r) => r.kind === "forecast");
@@ -113,6 +129,7 @@ describe("runWeatherIngestCycle", () => {
 
   it("records the heartbeat with an error message when the fetch fails", async () => {
     captured.rows.length = 0;
+    captured.streakRows = [];
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("bad", { status: 502 }));
 
     await runWeatherIngestCycle();
@@ -122,5 +139,18 @@ describe("runWeatherIngestCycle", () => {
     expect(heartbeat[0].lastError).toBe("HTTP 502");
     // no weather rows written on failure
     expect(captured.rows.filter((r) => "kind" in r)).toHaveLength(0);
+  });
+
+  it("increments consecutiveFailures from the prior streak on a failed cycle", async () => {
+    // A prior row already shows 2 consecutive failures; the next failure makes 3.
+    captured.rows.length = 0;
+    captured.streakRows = [{ n: 2 }];
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("bad", { status: 502 }));
+
+    await runWeatherIngestCycle();
+
+    const heartbeat = captured.rows.filter((r) => "integrationId" in r);
+    expect(heartbeat).toHaveLength(1);
+    expect(heartbeat[0].consecutiveFailures).toBe(3);
   });
 });

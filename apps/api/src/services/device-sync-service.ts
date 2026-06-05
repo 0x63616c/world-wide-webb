@@ -175,20 +175,33 @@ export async function sweepExpiredWindows(now: Date): Promise<void> {
 
 async function markHeartbeat(error: string | null): Promise<void> {
   const now = new Date();
+  // consecutiveFailures is a real streak counter: reset to 0 on success,
+  // increment the prior value on error (CC-355t.9). A single in-process poller
+  // runs ticks sequentially, so this read-modify-write is race-free.
+  const consecutiveFailures = error ? (await currentFailureStreak()) + 1 : 0;
   await db
     .insert(integrationSyncStatus)
     .values({
       integrationId: SYNC_INTEGRATION_ID,
       lastPolledAtUtc: now,
       lastError: error,
-      consecutiveFailures: 0,
+      consecutiveFailures,
     })
     .onConflictDoUpdate({
       target: integrationSyncStatus.integrationId,
       set: {
         lastPolledAtUtc: now,
         lastError: error,
-        consecutiveFailures: 0,
+        consecutiveFailures,
       },
     });
+}
+
+async function currentFailureStreak(): Promise<number> {
+  const rows = await db
+    .select({ n: integrationSyncStatus.consecutiveFailures })
+    .from(integrationSyncStatus)
+    .where(eq(integrationSyncStatus.integrationId, SYNC_INTEGRATION_ID))
+    .limit(1);
+  return rows[0]?.n ?? 0;
 }
