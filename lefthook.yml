@@ -19,10 +19,10 @@ pre-commit:
       # scheduler, CC-79k). The token is sanctioned only in the guard script itself.
       run: bash scripts/check-no-ofelia.sh {staged_files}
     no-home-address:
-      # BLOCKING: rejects the home-location name tokens (kurve/wilshire, any
-      # casing) so the home address never re-enters the public repo. Real values
-      # live in 1Password (HOME_* env). Sanctioned only on the guard's own
-      # surface. See CC-3zi / CC-d3j.
+      # BLOCKING: rejects the private home-location name (any casing) so the home
+      # address never re-enters the public repo. The blocked pattern is
+      # base64-encoded inside the script so the name is never spelled out. Real
+      # values live in 1Password (HOME_* env). See CC-3zi / CC-d3j.
       run: bash scripts/check-no-home-address.sh {staged_files}
     gitleaks:
       # BLOCKING: scans the staged diff for secrets (prefixed tokens, private
