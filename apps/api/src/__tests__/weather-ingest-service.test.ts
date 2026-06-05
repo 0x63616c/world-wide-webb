@@ -21,7 +21,10 @@ vi.mock("../db/index", () => ({
   },
 }));
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
 
 function bundleResponse() {
   return {
@@ -79,6 +82,12 @@ describe("fetchOpenMeteoBundle", () => {
 
 describe("runWeatherIngestCycle", () => {
   it("appends forecast/observed hourly rows + a daily row per day + heartbeat", async () => {
+    // Pin the clock inside the fixture's hour window (17:00–19:00 on 2026-06-04)
+    // so 17:00 is observed and 18:00/19:00 are forecast. Without this the test
+    // rots: once real wall-clock passes the fixture, every hour is in the past,
+    // no forecast row is produced, and the forecast assertion fails (www-tfv).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 5, 4, 17, 30, 0));
     captured.rows.length = 0;
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify(bundleResponse()), { status: 200 }),
