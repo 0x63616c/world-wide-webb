@@ -29,15 +29,17 @@ type Story = StoryObj<typeof meta>;
 // Open: dialog + title + close button are present, and dismissal works.
 export const Open: Story = {
   args: { open: true },
-  play: async ({ canvasElement, args }) => {
-    // Storybook portals into canvasElement; query the dialog there.
-    const canvas = within(canvasElement);
-    const dialog = canvas.getByRole("dialog", { name: "Lamps" });
+  play: async ({ args }) => {
+    // Modal renders via createPortal into document.body, so it lives OUTSIDE the
+    // story's canvasElement — query the whole document (matches the unit test's
+    // use of `screen`). Querying canvasElement here finds nothing in a real browser.
+    const doc = within(document.body);
+    const dialog = doc.getByRole("dialog", { name: "Lamps" });
     await expect(dialog).toBeInTheDocument();
     await expect(dialog).toHaveAttribute("aria-modal", "true");
 
     // Backdrop click closes (panel-internal clicks must NOT, verified in unit tests).
-    const backdrop = canvas.getByTestId("modal-backdrop");
+    const backdrop = doc.getByTestId("modal-backdrop");
     await userEvent.click(backdrop);
     await expect(args.onClose).toHaveBeenCalled();
   },

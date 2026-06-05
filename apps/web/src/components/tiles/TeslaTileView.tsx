@@ -49,6 +49,11 @@ function TeslaCharge({ charging, rate, pct }: ChargeProps) {
       >
         <div
           data-charge-fill
+          // Explicit state flag so tests can assert the charging/idle branch
+          // robustly — the gradient itself uses CSS vars that a real browser
+          // resolves to rgb (and jsdom drops), so the inline value isn't a
+          // stable cross-environment assertion target.
+          data-charging={charging ? "true" : "false"}
           style={{
             width: `${pct}%`,
             height: "100%",

@@ -24,9 +24,17 @@ export const CustomPadding: Story = {
 
 // Proves that tokens.css loaded — tile background must resolve to the --tile token value.
 export const CssCheck: Story = {
-  play: async ({ canvas }) => {
-    const tile = canvas.getByRole("generic", { hidden: true });
-    // .tile { background: var(--tile) } resolves to #0c0e11 = rgb(12, 14, 17)
-    await expect(getComputedStyle(tile).backgroundColor).toBe("rgb(12, 14, 17)");
+  play: async ({ canvasElement }) => {
+    // Query the .tile element directly — the global BoardDecorator wraps stories
+    // in extra divs, so getByRole("generic") is now ambiguous (multiple matches).
+    const tile = canvasElement.querySelector(".tile");
+    expect(tile).not.toBeNull();
+    // Proves tokens.css loaded: .tile { background: var(--tile) } must resolve to
+    // the live --tile token. Resolve the token from :root and compare (don't
+    // hardcode the hex, so a token change can't silently rot this assertion).
+    const tileToken = getComputedStyle(document.documentElement).getPropertyValue("--tile").trim();
+    const hex = tileToken.replace("#", "");
+    const expected = `rgb(${Number.parseInt(hex.slice(0, 2), 16)}, ${Number.parseInt(hex.slice(2, 4), 16)}, ${Number.parseInt(hex.slice(4, 6), 16)})`;
+    await expect(getComputedStyle(tile as HTMLElement).backgroundColor).toBe(expected);
   },
 };
