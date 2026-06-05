@@ -3,6 +3,9 @@ name: CI
 on:
   push:
     branches: ["**"]
+  # Manual trigger: rebuild + (on main) redeploy all images on demand. Useful
+  # for a forced redeploy or to re-run after a transient infra failure.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -73,7 +76,7 @@ jobs:
 
   build-web:
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
@@ -91,7 +94,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_PAT }}
 
       - name: Build and push web image
         uses: docker/build-push-action@v6
@@ -108,7 +111,7 @@ jobs:
 
   build-api:
     needs: changes
-    if: needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
@@ -126,7 +129,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_PAT }}
 
       - name: Build and push api image
         uses: docker/build-push-action@v6
@@ -143,7 +146,7 @@ jobs:
 
   build-storybook:
     needs: changes
-    if: needs.changes.outputs.storybook == 'true'
+    if: needs.changes.outputs.storybook == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
@@ -161,7 +164,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_PAT }}
 
       - name: Build and push storybook image
         uses: docker/build-push-action@v6
@@ -178,7 +181,7 @@ jobs:
 
   build-bosun:
     needs: changes
-    if: needs.changes.outputs.bosun == 'true'
+    if: needs.changes.outputs.bosun == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
@@ -196,7 +199,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_PAT }}
 
       - name: Build and push bosun-agent image
         uses: docker/build-push-action@v6
@@ -221,7 +224,7 @@ jobs:
     if: |
       always() &&
       github.ref_name == 'main' &&
-      needs.changes.outputs.any_app == 'true' &&
+      (needs.changes.outputs.any_app == 'true' || github.event_name == 'workflow_dispatch') &&
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
@@ -236,7 +239,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_PAT }}
       - name: Collect image digests
         id: payload
         run: |
