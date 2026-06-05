@@ -72,6 +72,28 @@ async function runCmdProbe(probe: HealthProbe, runner: Runner): Promise<ProbeRes
   }
 }
 
+// Summarise a probe run into the lines to log and whether the caller should
+// treat it as a failure. `advisory` callers (the webhook serve path) never fail:
+// a deployed-but-not-yet-warm probe must not make a successful stack deploy look
+// like a failed one (www-1dx). Pure so the build/serve verify policy is testable
+// without process.exit or a real deploy.
+export function summarizeVerify(
+  result: RunProbesResult,
+  advisory: boolean,
+): { lines: string[]; failed: boolean } {
+  const passed = result.results.filter((r) => r.pass).length;
+  const lines = [
+    `\nHealth probes: ${passed}/${result.results.length} passed`,
+    formatReport(result.results),
+  ];
+  const red = result.exitCode !== 0;
+  if (red && advisory) {
+    // Stack deploy already succeeded; verify is informational on this path.
+    lines.push("[verify] advisory: probes not all green (deploy still succeeded); not failing");
+  }
+  return { lines, failed: red && !advisory };
+}
+
 // Format per-probe results as a human-readable report string.
 export function formatReport(results: ProbeResult[]): string {
   return results
