@@ -4,7 +4,7 @@ import { useNotifications } from "../lib/useNotifications";
 
 const NOTIF_ID = "connection-lost";
 // Single source of truth so the DOM and the shared notifications store stay in sync.
-const MESSAGE = "Data is stale. Reconnecting…";
+const MESSAGE = "Unable to connect…";
 
 /**
  * Absolutely-positioned banner (top-right inside .board) that surfaces when

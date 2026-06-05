@@ -40,13 +40,13 @@ describe("ConnectionLostBanner", () => {
     mockUseConnectionStatus.mockReturnValue({ isLost: true, since: Date.now() - 10_000 });
     render(<ConnectionLostBanner />);
     expect(screen.getByRole("status")).not.toBeNull();
-    expect(screen.getByText(/reconnecting/i)).not.toBeNull();
+    expect(screen.getByText(/unable to connect/i)).not.toBeNull();
   });
 
-  it("shows stale data message when connection is lost", () => {
+  it("shows the unable-to-connect message when connection is lost", () => {
     mockUseConnectionStatus.mockReturnValue({ isLost: true, since: Date.now() - 10_000 });
     render(<ConnectionLostBanner />);
-    expect(screen.getByText(/data is stale/i)).not.toBeNull();
+    expect(screen.getByText(/unable to connect/i)).not.toBeNull();
   });
 
   it("clears the banner when connection is restored (isLost transitions to false)", () => {
@@ -66,7 +66,7 @@ describe("ConnectionLostBanner", () => {
     render(<ConnectionLostBanner />);
     expect(raiseNotification).toHaveBeenCalledWith({
       id: "connection-lost",
-      message: "Data is stale. Reconnecting…",
+      message: "Unable to connect…",
     });
   });
 
