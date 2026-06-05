@@ -94,6 +94,11 @@ jobs:
           bun-version: latest
       - name: Install deps
         run: bun install --frozen-lockfile
+      - name: Lint (biome)
+        # Lint gate in CI, not just the lefthook pre-commit hook: a --no-verify
+        # bypass (or a hook that isn't installed on a contributor's machine)
+        # would otherwise ship lint regressions undetected (www-355t.6).
+        run: bunx biome check .
       - name: Typecheck
         run: bun run typecheck
       - name: Test with coverage
@@ -117,7 +122,7 @@ jobs:
           fi
 
   build-web:
-    needs: changes
+    needs: [changes, test]
     if: needs.changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -152,7 +157,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=web
 
   build-api:
-    needs: changes
+    needs: [changes, test]
     if: needs.changes.outputs.api == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -187,7 +192,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=api
 
   build-storybook:
-    needs: changes
+    needs: [changes, test]
     if: needs.changes.outputs.storybook == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -222,7 +227,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=storybook
 
   build-bosun:
-    needs: changes
+    needs: [changes, test]
     if: needs.changes.outputs.bosun == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
