@@ -67,31 +67,71 @@ function smoothDamp(
   return [output, outVel];
 }
 
-// Placement is fixed: precompute every tile's world rect once. The Clock is
-// placed dead center of the world, so the world center is the Clock center.
-const PLACED = TILE_REGISTRY.map((entry) => ({ entry, rect: tileWorldRect(entry) }));
+// ─── snap-mode experiment (CC test) ──────────────────────────────────────────
+// We're A/B-testing how the board should settle. Three of these are NATIVE CSS
+// scroll-snap (browser does the momentum + snapping on the compositor thread —
+// no JS spring to fight, so no Mac-trackpad jitter); "spring" is the legacy
+// hand-rolled SmoothDamp magnetic snap, kept only so it can be compared head to
+// head on-device. Once Calum picks a winner, delete the others + the switcher.
+const SNAP_MODES = ["proximity", "mandatory", "none", "spring"] as const;
+type SnapMode = (typeof SNAP_MODES)[number];
+const SNAP_MODE_KEY = "cc-board-snap-mode";
+const SNAP_MODE_LABEL: Record<SnapMode, string> = {
+  proximity: "snap: gentle",
+  mandatory: "snap: paged",
+  none: "snap: off",
+  spring: "snap: spring (old)",
+};
+// CSS scroll-snap-type per mode; "spring" disables native snap (JS drives it).
+const SNAP_CSS: Record<SnapMode, string> = {
+  proximity: "both proximity",
+  mandatory: "both mandatory",
+  none: "none",
+  spring: "none",
+};
+function loadSnapMode(): SnapMode {
+  // try/catch: localStorage is absent in SSR and some test envs, and throws in
+  // private-mode Safari. A missing/blocked store just falls back to the default.
+  try {
+    const saved = window.localStorage?.getItem(SNAP_MODE_KEY);
+    if (saved && (SNAP_MODES as readonly string[]).includes(saved)) return saved as SnapMode;
+  } catch {
+    // ignore — fall through to the default
+  }
+  return "proximity";
+}
 
 type Rect = { x: number; y: number; w: number; h: number };
 
-// Everything the crosshair can center on / snap to: real tiles AND the empty
-// bento fill. Both sit on the same world lattice, so for centering they're just
-// identified rects — an empty tile under the crosshair highlights and snaps
-// exactly like a real one.
-const CENTER_TARGETS: { id: string; rect: Rect }[] = [
-  ...PLACED.map((p) => ({ id: p.entry.id, rect: p.rect })),
-  ...BENTO_RECTS,
+// One cell on the board's world lattice. A cell WITH an `entry` is a real,
+// interactive tile (mounts its component, opens a modal + recenters on tap); a
+// cell WITHOUT one is decorative bento fill (inert, pointer-transparent). Both
+// share identical geometry, so the board positions, windows, snaps, highlights,
+// and centers them through this one shape — there is no separate placeholder
+// render path. Placeholders genuinely have no component/label and live on
+// world-absolute coords, so they stay out of TILE_REGISTRY; the two sources
+// merge HERE into the single list everything downstream consumes.
+type BoardCell = { id: string; rect: Rect; entry?: TileRegistryEntry };
+
+// The single source of truth for every cell. Placeholders come FIRST so they
+// paint BENEATH the real tiles (DOM order = paint order); real tiles overlay.
+const BOARD_CELLS: BoardCell[] = [
+  ...BENTO_RECTS.map((b) => ({ id: b.id, rect: b.rect })),
+  ...TILE_REGISTRY.map((entry) => ({ id: entry.id, rect: tileWorldRect(entry), entry })),
 ];
 
-// The target whose rect contains world point (cx, cy), or undefined in a gap.
-function targetAt(cx: number, cy: number) {
-  return CENTER_TARGETS.find(
+// The cell whose rect contains world point (cx, cy), or undefined in a gap.
+// Real tiles and placeholders never overlap, so the first match is unambiguous.
+function cellAt(cx: number, cy: number): BoardCell | undefined {
+  return BOARD_CELLS.find(
     ({ rect }) => cx >= rect.x && cx <= rect.x + rect.w && cy >= rect.y && cy <= rect.y + rect.h,
   );
 }
 
-// Opening view: scrolled to the world center, which is the Clock center, so the
-// board opens with the Clock dead center. The layout effect re-centers with the
-// real client size.
+// First-render SEED only. vw/vh use the panel's target size as a placeholder;
+// the useLayoutEffect below immediately overwrites left/top/vw/vh from the real
+// (full-window) stage size before paint, so on any screen the board opens with
+// the Clock dead center. Nothing here clips the view to BOARD_W×BOARD_H.
 const INITIAL_VIEW = {
   left: WORLD_W / 2 - BOARD_W / 2,
   top: WORLD_H / 2 - BOARD_H / 2,
@@ -153,6 +193,35 @@ function FpsMeter() {
     >
       {fps} fps
     </div>
+  );
+}
+
+// Dev-only switcher to flip the board's settle feel live, on-device. Pinned
+// bottom-right above the FPS meter; cycles through SNAP_MODES on tap. Temporary
+// (see SNAP_MODES note) — remove once the winning feel is chosen.
+function SnapModeSwitcher({ mode, onCycle }: { mode: SnapMode; onCycle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onCycle}
+      style={{
+        position: "absolute",
+        bottom: 28,
+        right: 12,
+        pointerEvents: "auto",
+        padding: "4px 9px",
+        background: "rgba(12, 14, 17, 0.92)",
+        border: "1px solid var(--hair-2)",
+        borderRadius: 6,
+        fontFamily: "var(--mono)",
+        fontSize: 11,
+        letterSpacing: "-0.02em",
+        color: "var(--ink-2)",
+        cursor: "pointer",
+      }}
+    >
+      {SNAP_MODE_LABEL[mode]}
+    </button>
   );
 }
 
@@ -227,6 +296,21 @@ export function Board() {
   const [activeModal, setActiveModal] = useState<TileModalEntry | null>(null);
   // Which slice of the world is near the viewport (drives windowing).
   const [view, setView] = useState(INITIAL_VIEW);
+  // Live-switchable settle feel (see SNAP_MODES). Mirrored into a ref so the
+  // memoized pointer/glide handlers read the current mode without re-creating.
+  const [snapMode, setSnapMode] = useState<SnapMode>(loadSnapMode);
+  const snapModeRef = useRef(snapMode);
+  useEffect(() => {
+    snapModeRef.current = snapMode;
+    try {
+      window.localStorage?.setItem(SNAP_MODE_KEY, snapMode);
+    } catch {
+      // ignore — persistence is best-effort (blocked/full store)
+    }
+  }, [snapMode]);
+  const cycleSnapMode = useCallback(() => {
+    setSnapMode((m) => SNAP_MODES[(SNAP_MODES.indexOf(m) + 1) % SNAP_MODES.length]);
+  }, []);
 
   // Mouse-drag pan state, kept in a ref so dragging never re-renders the board.
   const drag = useRef({ active: false, moved: false, x: 0, y: 0, sl: 0, st: 0 });
@@ -379,10 +463,18 @@ export function Board() {
       const stage = stageRef.current;
       if (!stage) return;
       const rect = tileWorldRect(entry);
-      springTo(
-        rect.x + rect.w / 2 - stage.clientWidth / 2,
-        rect.y + rect.h / 2 - stage.clientHeight / 2,
-      );
+      const toLeft = rect.x + rect.w / 2 - stage.clientWidth / 2;
+      const toTop = rect.y + rect.h / 2 - stage.clientHeight / 2;
+      // Spring mode drives the glide in JS; native modes use the browser's own
+      // smooth scroll, which then respects scroll-snap on arrival. scrollTo is
+      // absent in some test/SSR envs — fall back to a direct (instant) set.
+      if (snapModeRef.current === "spring") springTo(toLeft, toTop);
+      else if (typeof stage.scrollTo === "function")
+        stage.scrollTo({ left: toLeft, top: toTop, behavior: "smooth" });
+      else {
+        stage.scrollLeft = toLeft;
+        stage.scrollTop = toTop;
+      }
     },
     [springTo],
   );
@@ -402,13 +494,16 @@ export function Board() {
   // crosshair to the viewport center. Reads scroll state live rather than `view`
   // so it's correct the instant the pan stops. Skips when already centered.
   const onSettle = useCallback(() => {
+    // Only the legacy JS spring magnetically re-centers on settle; the native
+    // scroll-snap modes let the browser do it (no JS = no trackpad fight).
+    if (snapModeRef.current !== "spring") return;
     // Ignore the settle from our own spring, and never fight a held pointer.
     if (spring.current.raf || pointerDown.current || drag.current.active) return;
     const stage = stageRef.current;
     if (!stage) return;
     const cx = stage.scrollLeft + stage.clientWidth / 2;
     const cy = stage.scrollTop + stage.clientHeight / 2;
-    const hit = targetAt(cx, cy);
+    const hit = cellAt(cx, cy);
     if (!hit) return; // crosshair over a gap (rare; world is fully tiled) → leave it
     const toLeft = hit.rect.x + hit.rect.w / 2 - stage.clientWidth / 2;
     const toTop = hit.rect.y + hit.rect.h / 2 - stage.clientHeight / 2;
@@ -422,6 +517,12 @@ export function Board() {
       // Modal open: the board is frozen. Let the press fall through to the
       // modal's backdrop (close) instead of starting a pan.
       if (modalOpenRef.current) return;
+      // A press that lands on an inner control (slider/toggle/button/link) drives
+      // THAT control, not the board — without this, dragging the A/C setpoint
+      // slider was read as a board pan and scrolled the whole screen. Native CSS
+      // touch-action:none on the slider blocks the touch/trackpad pan; this blocks
+      // the mouse-drag shim. The tile still recenters via onTileClickCapture.
+      if ((e.target as HTMLElement).closest(INTERACTIVE_SELECTOR)) return;
       // Any grab (touch or mouse) interrupts a running snap so we don't fight it,
       // and marks the pointer held so no spring engages until release.
       pointerDown.current = true;
@@ -447,8 +548,15 @@ export function Board() {
     const dx = e.clientX - d.x;
     const dy = e.clientY - d.y;
     if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-    d.moved = true;
-    stage.style.cursor = "grabbing";
+    if (!d.moved) {
+      d.moved = true;
+      stage.style.cursor = "grabbing";
+      // Suspend native scroll-snap for the duration of the drag: the shim writes
+      // scrollLeft/Top every frame, and a live snap would re-pull toward a nearby
+      // tile on each write, fighting the drag (the click-drag jitter). Restored
+      // on release, which re-snaps once. No-op in none/spring modes (already none).
+      stage.style.scrollSnapType = "none";
+    }
     stage.scrollLeft = d.sl - dx;
     stage.scrollTop = d.st - dy;
   }, []);
@@ -459,9 +567,11 @@ export function Board() {
     if (moved) suppressClick.current = true;
     drag.current.active = false;
     pointerDown.current = false;
+    // Re-arm native snap (matching the active mode); assigning the value re-snaps
+    // to the nearest tile in proximity/mandatory. "spring"/"none" → "none".
+    if (stage) stage.style.scrollSnapType = SNAP_CSS[snapModeRef.current];
     // Mouse-drag has no momentum, so no native scrollend fires on release —
-    // settle explicitly. Touch/trackpad momentum keeps scrolling and fires
-    // scrollend itself, handled by the listener below.
+    // settle explicitly (spring mode only; onSettle bails otherwise).
     if (moved) onSettle();
   }, [onSettle]);
 
@@ -492,18 +602,18 @@ export function Board() {
     rect.y < view.top + view.vh + OVERSCAN &&
     rect.y + rect.h > view.top - OVERSCAN;
 
-  const visible = PLACED.filter(({ rect }) => inWindow(rect));
-  const visiblePlaceholders = BENTO_RECTS.filter(({ rect }) => inWindow(rect));
+  // One windowed list for the whole board: real tiles and placeholders alike.
+  const visibleCells = BOARD_CELLS.filter(({ rect }) => inWindow(rect));
 
-  // The tile under the viewport crosshair (world-space center of the view).
+  // The cell under the viewport crosshair (world-space center of the view).
   // Updates every scroll frame via `view`; null when the center lands in a gap.
   const centerX = view.left + view.vw / 2;
   const centerY = view.top + view.vh / 2;
-  const centeredId = targetAt(centerX, centerY)?.id;
-  // Label for the centered tile (bento fill has no label → undefined), surfaced
-  // bottom-left while panning. Looked up from PLACED since CENTER_TARGETS is
-  // id+rect only.
-  const centeredLabel = PLACED.find((p) => p.entry.id === centeredId)?.entry.label;
+  const centered = cellAt(centerX, centerY);
+  const centeredId = centered?.id;
+  // Label for the centered cell (bento fill has no entry → undefined), surfaced
+  // bottom-left while panning.
+  const centeredLabel = centered?.entry?.label;
 
   return (
     <div
@@ -524,6 +634,10 @@ export function Board() {
         background: "var(--bg)",
         // Pan is one-finger native scroll; no rubber-band past the world edges.
         touchAction: modalOpen ? "none" : "pan-x pan-y",
+        // Native settle feel: the browser snaps each tile's center to the
+        // viewport center on the compositor thread (no JS spring → no jitter).
+        // "spring"/"none" disable it; see SNAP_MODES.
+        scrollSnapType: modalOpen ? "none" : SNAP_CSS[snapMode],
         overscrollBehavior: "none",
         cursor: "grab",
         scrollbarWidth: "none",
@@ -539,28 +653,37 @@ export function Board() {
           backgroundColor: "var(--bg)",
         }}
       >
-        {/* Decorative empty tiles filling the free space around the cluster.
-            Ambient only: rendered first (under real tiles) and pointer-transparent
-            so they never intercept taps. */}
-        {visiblePlaceholders.map(({ id, rect }) => (
-          <div
-            key={id}
-            className={id === centeredId ? "is-centered" : undefined}
-            style={{
-              position: "absolute",
-              left: rect.x,
-              top: rect.y,
-              width: rect.w,
-              height: rect.h,
-              pointerEvents: "none",
-            }}
-          >
-            <PlaceholderTile />
-          </div>
-        ))}
+        {/* ONE render path for every cell. Geometry (position, size, snap target,
+            centered highlight) is written once and shared; a cell with an `entry`
+            renders an interactive tile, one without renders inert bento fill.
+            Placeholders sort first in BOARD_CELLS so they paint underneath. */}
+        {visibleCells.map(({ id, rect, entry }) => {
+          const geometry: React.CSSProperties = {
+            position: "absolute",
+            left: rect.x,
+            top: rect.y,
+            width: rect.w,
+            height: rect.h,
+            // Snap target: every cell's center docks to the viewport center.
+            scrollSnapAlign: "center",
+          };
+          const centeredClass = id === centeredId ? "is-centered" : undefined;
 
-        {visible.map(({ entry, rect }) => {
-          const { id, component: TileComponent, label } = entry;
+          // Decorative bento fill: pointer-transparent so it never intercepts
+          // taps, no component, no interaction.
+          if (!entry) {
+            return (
+              <div
+                key={id}
+                className={centeredClass}
+                style={{ ...geometry, pointerEvents: "none" }}
+              >
+                <PlaceholderTile />
+              </div>
+            );
+          }
+
+          const TileComponent = entry.component;
           return (
             // Not a real <button>: the tile body contains its own buttons
             // (toggles, sliders, "More"), and nesting interactive elements is
@@ -569,18 +692,11 @@ export function Board() {
             // biome-ignore lint/a11y/useSemanticElements: nested interactive content forbids a <button>
             <div
               key={id}
-              className={id === centeredId ? "is-centered" : undefined}
-              style={{
-                position: "absolute",
-                left: rect.x,
-                top: rect.y,
-                width: rect.w,
-                height: rect.h,
-                cursor: "pointer",
-              }}
+              className={centeredClass}
+              style={{ ...geometry, cursor: "pointer" }}
               role="button"
               tabIndex={0}
-              aria-label={`Open ${label}`}
+              aria-label={`Open ${entry.label}`}
               onClickCapture={(e) => onTileClickCapture(entry, e)}
               onKeyDown={(e) => {
                 if (entry.ownsTap) return;
@@ -604,11 +720,14 @@ export function Board() {
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 200 }}>
         <ConnectionLostBanner />
         <FpsMeter />
+        <SnapModeSwitcher mode={snapMode} onCycle={cycleSnapMode} />
         <CenteredTileLabel label={centeredLabel} view={view} />
         <Minimap
           view={view}
-          tiles={PLACED.map((p) => ({ ...p.rect, label: p.entry.label }))}
-          ghosts={BENTO_RECTS.map((p) => p.rect)}
+          // Both layers derive from the one BOARD_CELLS list: real tiles (with a
+          // label) and placeholder ghosts (no entry). flatMap narrows `entry`.
+          tiles={BOARD_CELLS.flatMap((c) => (c.entry ? [{ ...c.rect, label: c.entry.label }] : []))}
+          ghosts={BOARD_CELLS.flatMap((c) => (c.entry ? [] : [c.rect]))}
           onJump={jumpTo}
         />
       </div>
