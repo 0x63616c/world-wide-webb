@@ -89,4 +89,4 @@ Smart-home wall-panel dashboard, fixed 1366×1024. `apps/web` renders tiles from
 - **Test runner is `bun run test` (vitest).** NEVER run bare `bun test` — Bun's native runner is incompatible with `vi.mock` and produces false failures.
 - Tiles use the shared `components/ui/` primitives — do not re-inline headers/stats/pills/skeletons. Primitives: `TileHeader`, `StatCell`, `Pill`, `Skeleton`, `TileWrapper` (barrel: `apps/web/src/components/ui/index.ts`).
 - Imports at top of file only; no module-global mutable vars; comments explain WHY not HOW.
-- Board is a fixed **1366×1024** wall panel (iPad Pro on Home). Never design for fluid/responsive.
+- Board is a fixed **1366×1024** wall panel (iPad Pro). Never design for fluid/responsive.

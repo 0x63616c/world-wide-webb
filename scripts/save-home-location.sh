@@ -12,14 +12,17 @@ set -euo pipefail
 ITEM="Home Location"
 VAULT="Homelab"
 
-# Real values prefilled as prompt defaults — press Enter to accept each.
+# Defaults are the PUBLIC placeholder (LA City Hall) that env.ts also ships, so
+# this script carries no real address in the open-source repo. Type your real
+# values at the prompts; press Enter only if you genuinely want the placeholder.
 DEF_LAT="34.0537"
 DEF_LON="-118.2428"
 DEF_PLACE="Home"
 DEF_RADIUS="1"
 
-echo "Saving real home location to 1Password ($VAULT/$ITEM)."
-echo "Press Enter to accept the default shown in [brackets], or type a new value."
+echo "Saving your real home location to 1Password ($VAULT/$ITEM)."
+echo "Type your real values. The [brackets] show a PUBLIC placeholder, not your"
+echo "home — press Enter only if you actually want the placeholder."
 echo ""
 
 read -rp "Latitude  [$DEF_LAT]: " LAT;    LAT="${LAT:-$DEF_LAT}"
