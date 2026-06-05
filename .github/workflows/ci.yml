@@ -26,10 +26,14 @@ jobs:
         with:
           filters: |
             # Shared changes (packages or root lockfile) force a rebuild of everything.
+            # NOTE: do NOT use '!negation' list items here. dorny/paths-filter OR-matches
+            # each list entry, and a '!foo/**' pattern matches every file that ISN'T under
+            # foo — so '!apps/web/.storybook/**' matched docs/api/everything and made web
+            # rebuild on every push (it broke ac_ci_selective: docs-only built web). The
+            # web image build already ignores .storybook, so a positive-only list is both
+            # correct and conservative; a rare .storybook-only edit harmlessly rebuilds web.
             web:
               - 'apps/web/**'
-              - '!apps/web/.storybook/**'
-              - '!apps/web/storybook-static/**'
               - 'packages/**'
               - 'bun.lock'
             api:
