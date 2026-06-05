@@ -48,7 +48,10 @@ export default stack("control-center", {
         TZ: "America/Los_Angeles",
         // Home Assistant is on the host via OrbStack's host alias.
         HA_URL: "http://host.docker.internal:8123",
-        UNIFI_URL: "https://host.docker.internal",
+        // Must match the key env.ts reads (UNIFI_CONTROLLER_URL); an earlier
+        // UNIFI_URL was never read, so prod silently fell back to the
+        // 192.168.0.1 default (www-355t.7).
+        UNIFI_CONTROLLER_URL: "https://host.docker.internal",
         // DATABASE_URL is built at runtime from the mounted POSTGRES_PASSWORD
         // docker secret (apps/api/src/env.ts) so the password never lands in
         // the service spec. postgres host/db/user use the env.ts defaults.
