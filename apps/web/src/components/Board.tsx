@@ -1,14 +1,6 @@
 import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  BOARD_H,
-  BOARD_PADDING,
-  BOARD_W,
-  CELL_PITCH,
-  tileWorldRect,
-  WORLD_H,
-  WORLD_W,
-} from "../lib/grid-constants";
+import { BOARD_H, BOARD_W, tileWorldRect, WORLD_H, WORLD_W } from "../lib/grid-constants";
 import { BENTO_RECTS } from "../lib/placeholder-tiles";
 import { TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
@@ -104,15 +96,6 @@ const INITIAL_VIEW = {
   top: WORLD_H / 2 - BOARD_H / 2,
   vw: BOARD_W,
   vh: BOARD_H,
-};
-
-// Ambient dot lattice at the (now square) cell pitch, so the canvas texture sits
-// on the same grid the tiles do.
-const GRID_BACKDROP: React.CSSProperties = {
-  backgroundColor: "var(--bg)",
-  backgroundImage: "radial-gradient(circle, rgba(255, 255, 255, 0.10) 1.1px, transparent 1.7px)",
-  backgroundSize: `${CELL_PITCH}px ${CELL_PITCH}px`,
-  backgroundPosition: `${BOARD_PADDING}px ${BOARD_PADDING}px`,
 };
 
 // Pairs QueryErrorResetBoundary with TileBoundary via resetKey so a recovered
@@ -541,7 +524,12 @@ export function Board() {
       <div
         id="world"
         className="e-root"
-        style={{ position: "relative", width: WORLD_W, height: WORLD_H, ...GRID_BACKDROP }}
+        style={{
+          position: "relative",
+          width: WORLD_W,
+          height: WORLD_H,
+          backgroundColor: "var(--bg)",
+        }}
       >
         {/* Decorative empty tiles filling the free space around the cluster.
             Ambient only: rendered first (under real tiles) and pointer-transparent
