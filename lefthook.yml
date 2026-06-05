@@ -18,6 +18,11 @@ pre-commit:
       # BLOCKING: rejects reintroduction of Ofelia (replaced by the bosun
       # scheduler, www-79k). The token is sanctioned only in the guard script itself.
       run: bash scripts/check-no-ofelia.sh {staged_files}
+    gitleaks:
+      # BLOCKING: scans the staged diff for secrets (prefixed tokens, private
+      # keys, high-entropy strings). Config + allowlist live in .gitleaks.toml.
+      # Keeps credentials in 1Password only, especially ahead of going public (www-4ma).
+      run: gitleaks git --staged --no-banner -c .gitleaks.toml
 
 commit-msg:
   commands:

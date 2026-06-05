@@ -1,0 +1,30 @@
+# gitleaks config for control-center (www-4ma).
+#
+# Extends gitleaks' built-in ruleset (so prefixed tokens — ghp_, sk-ant-, AKIA,
+# xox*, AIza, private keys, etc. — are still caught) and adds a narrow allowlist
+# for the false positives the noisy `generic-api-key` heuristic flags in this
+# repo's history. Secrets here live in 1Password (op://) only; this guard exists
+# to keep it that way, especially ahead of going public.
+
+title = "control-center gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known non-secret false positives"
+# Matched against the candidate secret string.
+regexes = [
+  # 40- and 64-char lowercase hex are git/image SHAs (commit ids, ghcr digests
+  # pasted into docs), not credentials. Prefixed-token rules are unaffected.
+  '''\b[0-9a-f]{40}\b''',
+  '''\b[0-9a-f]{64}\b''',
+  # API port+path fragments (e.g. "4201/api/health") matched by generic-api-key.
+  '''\b\d{2,5}/api/[a-z/_-]+''',
+]
+# Matched against file paths: the guard scripts intentionally embed sample/
+# forbidden tokens, and lockfiles carry integrity hashes.
+paths = [
+  '''scripts/check-.*\.sh''',
+  '''bun\.lock''',
+]
