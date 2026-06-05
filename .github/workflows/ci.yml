@@ -221,11 +221,38 @@ jobs:
       !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
     steps:
+      # Read each image's current :main digest so the deploy pins by digest
+      # (CC-czg): a changed digest is a changed stack spec, so docker stack deploy
+      # reliably rolls only the rebuilt services — no reliance on :main tag
+      # re-resolution, which silently failed to roll the self-deploying agent.
+      - name: Log in to ghcr.io (read manifests)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Collect image digests
+        id: payload
+        run: |
+          images='{}'
+          for name in control-center-web control-center-api control-center-storybook control-center-bosun; do
+            d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$name:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
+            if [ -n "$d" ]; then
+              images=$(jq -cn --argjson cur "$images" --arg n "$name" --arg d "$d" '$cur + {($n): $d}')
+            fi
+          done
+          body=$(jq -cn --argjson imgs "$images" '{images: $imgs}')
+          echo "Deploy payload: $body"
+          {
+            echo "body<<EOF"
+            echo "$body"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
       - name: Trigger bosun deploy webhook
         run: |
           curl -fsSL \
             -X POST \
             -H "Authorization: Bearer ${{ secrets.BOSUN_WEBHOOK_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "{\"sha\": \"${{ github.sha }}\"}" \
+            --data '${{ steps.payload.outputs.body }}' \
             https://hooks.worldwidewebb.co/deploy/control-center

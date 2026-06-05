@@ -8,10 +8,31 @@ function escapeComposeInterpolation(value: string): string {
   return value.replace(/\$/g, () => "$$");
 }
 
+// Pin one of OUR ghcr images (`ghcr.io/0x63616c/<name>:<tag>`) to the exact
+// digest CI just built (`...@sha256:...`) when `<name>` is in the override map.
+// A digest-pinned image is an immutable, unique-per-build spec string, so
+// `docker stack deploy` rolls the service iff its digest changed — without
+// relying on `--resolve-image` re-resolving the mutable `:main` tag (which
+// silently failed to roll the self-deploying bosun-agent; CC-czg). Third-party
+// and un-overridden images pass through unchanged, so only rebuilt services roll.
+export function pinImage(image: string, overrides?: Record<string, string>): string {
+  if (!overrides) return image;
+  const m = image.match(/^ghcr\.io\/0x63616c\/([^:@]+)(?::[^@]+)?$/);
+  if (!m) return image;
+  const digest = overrides[m[1]];
+  return digest ? `ghcr.io/0x63616c/${m[1]}@${digest}` : image;
+}
+
 // Render the static Spec + resolved secret name map to a Docker Swarm stack YAML.
 // The rendered YAML references hashed docker secret names — never plain values.
+// `imageOverrides` (optional) maps a ghcr image name to the digest to pin it to
+// (see pinImage); omitted/empty keeps the declared `:main` tags.
 // Output is deterministic: same inputs always produce byte-identical output.
-export function renderStackYml(spec: Spec, secretNames: Record<string, string>): string {
+export function renderStackYml(
+  spec: Spec,
+  secretNames: Record<string, string>,
+  imageOverrides?: Record<string, string>,
+): string {
   const lines: string[] = ["version: '3.8'", "", "services:"];
 
   // Named volumes referenced by services (bare-name sources, not bind paths).
@@ -27,7 +48,7 @@ export function renderStackYml(spec: Spec, secretNames: Record<string, string>):
     if (svc.schedule) continue;
 
     lines.push(`  ${svc.name}:`);
-    lines.push(`    image: ${svc.image}`);
+    lines.push(`    image: ${pinImage(svc.image, imageOverrides)}`);
 
     // Env vars (non-secret, static values only).
     if (Object.keys(svc.env).length > 0) {
