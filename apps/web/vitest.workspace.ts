@@ -29,6 +29,11 @@ export default defineWorkspace([
     ],
     test: {
       name: "storybook",
+      // Serialize test files: parallel files overload the single Chromium
+      // instance and cause flaky suite-load failures (8 suites "failed" under
+      // load but pass in isolation). Serialized, the suite is deterministic.
+      // Keep this here so every caller (CI coverage, local runs) is stable.
+      fileParallelism: false,
       browser: {
         enabled: true,
         provider: "playwright",

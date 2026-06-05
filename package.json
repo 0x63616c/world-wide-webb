@@ -10,7 +10,7 @@
     "dev": "tilt up",
     "bosun": "bun packages/bosun/src/cli.ts",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage --coverage.provider=v8 --coverage.reporter=json-summary --coverage.reporter=text-summary",
+    "test:coverage": "bash scripts/coverage.sh",
     "badges": "bun scripts/gen-badges.ts",
     "lint": "bunx biome check .",
     "lint:fix": "bunx biome check --write .",
