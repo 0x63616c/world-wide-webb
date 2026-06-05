@@ -21,6 +21,12 @@ WORKDIR /app
 #                    wall-clock would stay UTC even with TZ set (CC-dd0).
 RUN apk add --no-cache curl jq postgresql-client tzdata
 
+# The agent's wall clock is LA local. The bosun scheduler matches cronJob()
+# schedules against the container clock (Date.getHours() honours TZ), so
+# `docker-image-prune 0 3 * * *` fires at 03:00 LA off-peak, not 03:00 UTC
+# (~8pm LA on-peak). IANA zone => DST handled automatically. See CC-dd0.
+ENV TZ=America/Los_Angeles
+
 # docker CLI — runs `docker stack deploy` / `docker secret` against the host
 # daemon via the socket bind-mounted by the bosun-agent service. op CLI —
 # resolves op:// secret refs during the agent's own `bosun up`. Both copied from

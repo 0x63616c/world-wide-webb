@@ -149,6 +149,14 @@ and `docker service ps`. Point it at a remote swarm with a docker context, e.g.
 - **Cron format.** Specs take **standard 5-field cron** (`min hour dom mon dow`),
   matched on the host wall clock (local time). A spec that passes anything other
   than 5 fields is rejected at build time.
+- **Timezone.** Cron is interpreted in the **agent container's local timezone**,
+  which the `bosun-agent` image pins to `TZ=America/Los_Angeles` (with `tzdata`
+  baked in so the IANA zone resolves). So `0 3 * * *` fires at 03:00 **LA local**,
+  off-peak — not 03:00 UTC (~8pm LA, on-peak), which is what an unset TZ would give
+  on the UTC host (CC-dd0). The scheduler matches `Date.getHours()`/`getDate()`
+  etc., which honour `TZ`, so **DST is handled automatically** by the IANA zone:
+  the same `0 3 * * *` stays at 03:00 local across the PST↔PDT switch. To run a
+  job in a different zone, change `TZ` on the agent service.
 - **Service naming.** The one-shot job service is named `<stackName>-cron-<job>` —
   derived from the stack name so the stack is the single namespace source of truth
   (no magic prefix). It lives outside the deployed stack because it is created
