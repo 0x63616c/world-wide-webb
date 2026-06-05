@@ -10,6 +10,8 @@
     "dev": "tilt up",
     "bosun": "bun packages/bosun/src/cli.ts",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage --coverage.provider=v8 --coverage.reporter=json-summary --coverage.reporter=text-summary",
+    "badges": "bun scripts/gen-badges.ts",
     "lint": "bunx biome check .",
     "lint:fix": "bunx biome check --write .",
     "typecheck": "bun run --filter '*' typecheck",
@@ -17,6 +19,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
+    "@vitest/coverage-v8": "^3.2.4",
     "lefthook": "^2.1.9",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"

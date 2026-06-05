@@ -65,6 +65,10 @@
       "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
     },
     {
+      "includes": ["**/scripts/**"],
+      "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
+    },
+    {
       "includes": ["**/packages/bosun/src/cli.ts"],
       "linter": {
         "rules": {

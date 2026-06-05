@@ -74,6 +74,48 @@ jobs:
               - 'infra/**'
               - 'bun.lock'
 
+  # Test gate: typecheck + full vitest suite with coverage. Runs on every push
+  # (the repo previously built and DEPLOYED without ever running tests). Deploy
+  # depends on this passing. Also refreshes the self-hosted coverage/LOC badge
+  # JSON and commits it back on main so the README badges stay real (CC-afz).
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so the badge commit can rebase cleanly onto main.
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install deps
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Test with coverage
+        run: bun run test:coverage
+      - name: Regenerate badge JSON
+        run: bun run badges
+      - name: Commit refreshed badges (main only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # Only commit when a badge actually changed. --no-verify skips the
+          # local lefthook hooks (gitleaks etc. aren't installed on the runner);
+          # [skip ci] stops this cosmetic commit from re-triggering the workflow.
+          # All steps are best-effort so a push race never fails the test gate.
+          if ! git diff --quiet -- .github/badges; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/badges
+            git commit --no-verify -m "chore(ci/CC-afz): refresh coverage + loc badges [skip ci]" || true
+            git pull --rebase --autostash origin main || true
+            git push || true
+          fi
+
   build-web:
     needs: changes
     if: needs.changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
@@ -218,7 +260,7 @@ jobs:
   # The webhook receiver (bosun serve) runs on the box; the HMAC token is in a repo secret.
   # This job only runs when at least one image was built AND the branch is main.
   deploy:
-    needs: [changes, build-web, build-api, build-storybook, build-bosun]
+    needs: [changes, test, build-web, build-api, build-storybook, build-bosun]
     # always() lets us run even when some build jobs were skipped (no changes).
     # We proceed when: on main, at least one app changed, and no build failed.
     if: |
