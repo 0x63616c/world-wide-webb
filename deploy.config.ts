@@ -7,6 +7,7 @@
 // ...@sha256:<digest>, so a stack deploy rolls only the rebuilt services (www-czg).
 
 import {
+  certProbe,
   cmdProbe,
   cronJob,
   fromOp,
@@ -86,7 +87,13 @@ export default stack("control-center", {
       // verify probe below).
       healthcheck: healthcheck("curl -fsS http://localhost:80/ -o /dev/null || exit 1"),
       health: [
-        httpProbe("https://dashboard.worldwidewebb.co", 200, { certValid: true }),
+        httpProbe("https://dashboard.worldwidewebb.co", 200),
+        // Cert-expiry lookahead: go red ~14 days BEFORE the dashboard's TLS cert
+        // expires, while there is still time to renew. A plain http probe only
+        // fails once the cert is already invalid, which is too late. (The earlier
+        // `httpProbe(..., { certValid: true })` form silently dropped its 3rd arg
+        // — httpProbe takes only (url, status) — so no cert check ran at all.)
+        certProbe("dashboard.worldwidewebb.co", { warnDays: 14 }),
         // The basemap must be present AND served over range requests with the
         // PMTiles v3 magic ("PMTiles" is the first 7 bytes) — a permanent guard
         // against the archive going missing or a non-range server shadowing it.
@@ -108,8 +115,6 @@ export default stack("control-center", {
     // Postgres: persistent named volume, pinned image, migrate-on-boot in api.
     postgres({
       volume: "pgdata",
-      config: ["infra/postgres/postgresql.conf"],
-      init: ["infra/postgres/initdb"],
       secretRef: "op://Homelab/Control Center Postgres/password",
     }),
 
