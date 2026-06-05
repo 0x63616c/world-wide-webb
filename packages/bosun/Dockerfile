@@ -11,6 +11,16 @@ FROM oven/bun:1-alpine AS runtime
 
 WORKDIR /app
 
+# Tools the agent's own `bosun up` verify shells out to, plus the timezone DB the
+# scheduler needs:
+#   - curl + jq      cmdProbes ("live HA data" curls api and pipes through jq);
+#                    without them the probes exit 127 and verify is structurally red.
+#   - postgresql-client  provides pg_isready for the "postgres ready" cmdProbe.
+#   - tzdata         zoneinfo so TZ=America/Los_Angeles resolves; alpine ships no
+#                    timezone database by default, so without it the scheduler's
+#                    wall-clock would stay UTC even with TZ set (CC-dd0).
+RUN apk add --no-cache curl jq postgresql-client tzdata
+
 # docker CLI — runs `docker stack deploy` / `docker secret` against the host
 # daemon via the socket bind-mounted by the bosun-agent service. op CLI —
 # resolves op:// secret refs during the agent's own `bosun up`. Both copied from
