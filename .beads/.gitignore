@@ -53,6 +53,17 @@ dolt-server.activity
 # Backup data (auto-exported JSONL, local-only)
 backup/
 
+# JSONL exports are NOT the sync channel (CC-sg4p).
+# Durable sync is the Dolt git remote: refs/dolt/data on origin, published by
+# `bd dolt push` (wired into lefthook pre-push). These files are upsert-only
+# exports/backups that cannot represent deletions, so committing them is the
+# documented beads anti-pattern and was the source of perpetual dirty-tree noise.
+# A fresh clone reconstructs the full issue set from refs/dolt/data via
+# `scripts/bootstrap-beads.sh` — no reliance on these files.
+issues.jsonl
+interactions.jsonl
+events.jsonl
+
 # Per-project environment file (Dolt connection config, GH#2520)
 .env
 

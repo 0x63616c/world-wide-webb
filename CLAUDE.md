@@ -24,6 +24,15 @@ bd close <id>         # Complete work
 
 **Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
 
+### Sync model (CC-sg4p — read before touching beads sync)
+
+Durable sync is the Dolt git remote: **`refs/dolt/data` on origin**, established and verified working. Rules that keep it working:
+
+- **`dolt.auto-push` MUST stay OFF.** Per-write auto-push fires a `git+ssh` push on every `bd` command; because `.beads/dolt` has no own `.git`, those all run git ops against the shared parent `control-center/.git` and contend/livelock (the original "Uploading…" hang). Sync rides the **lefthook `pre-push` hook** (`bd dolt push`) instead — once per `git push`, batched. `post-merge` runs `bd dolt pull`. Both are non-blocking. `bootstrap-beads.sh` sets auto-push off; new clones must too.
+- **`.beads/issues.jsonl` / `interactions.jsonl` are gitignored exports**, NOT the sync channel. Never commit them (upsert-only, can't represent deletions — the documented anti-pattern). The Dolt git remote is the source of truth.
+- **Fresh clone:** run `scripts/bootstrap-beads.sh` (it does `bd dolt start` → `bd bootstrap` → auto-push off, in that order — bootstrap needs the server up first because tracked `metadata.json` pins `dolt_mode: server`). It reconstructs the full issue set from origin; no JSONL needed.
+- **dolt's `git+ssh` push is slow** (upstream dolt#10537, ~15-44s/round-trip) but reliable once `refs/dolt/data` exists. A *first* push (ref absent) loops on `git fetch refs/dolt/data` — if origin ever loses the ref, re-seed with one clean uncontended `bd dolt push` (no concurrent `bd` commands).
+
 ## Session Completion
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
