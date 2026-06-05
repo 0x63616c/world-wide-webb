@@ -159,11 +159,16 @@ describe("postgres builder", () => {
     expect(pg.image).toContain("postgres:");
   });
 
-  it("includes a pg_isready health probe", () => {
+  it("includes a pg_isready health probe targeting the postgres service over the network", () => {
     const pg = postgres({ volume: "pgdata" });
     const probe = pg.health.find((h) => h.kind === "cmd");
     expect(probe).toBeDefined();
     expect(probe?.command).toContain("pg_isready");
+    // The deploy-verify probe runs in the bosun agent, not in postgres, so it
+    // MUST target the service by host (-h postgres) or it checks the agent's own
+    // localhost and always exits 2 (CC-hya3). The in-container healthcheck keeps
+    // localhost; only this agent-run probe needs the host.
+    expect(probe?.command).toContain("-h postgres");
   });
 
   it("declares a POSTGRES_PASSWORD secret ref when secretRef is provided", () => {
