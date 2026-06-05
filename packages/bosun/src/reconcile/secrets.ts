@@ -13,13 +13,23 @@ export interface ResolvedSecret {
   resolvedValue: string;
 }
 
+export interface ReconcileSecretsResult {
+  // declared name -> hashed docker secret name, for stack rendering.
+  names: Record<string, string>;
+  // Hashed names of THIS stack's secrets that are no longer declared. These are
+  // pruned by pruneSecrets() AFTER the stack redeploys — never before, because a
+  // still-in-use secret refuses `docker secret rm` and would abort the deploy
+  // mid-rename (CC-8pt).
+  stale: string[];
+}
+
 // Derive the immutable hashed docker secret name for a given declared name + value.
 // Docker secrets are immutable; a value change produces a new name, triggering a
 // rolling service update and eventual prune of the old entry.
-// NOTE: the cc_ prefix is legacy. Migrating it to a stackName-derived namespace
-// is deferred to CC-8pt — reconcileSecrets prunes the old secret BEFORE the new
-// stack deploys, and `docker secret rm` refuses an in-use secret, so renaming
-// every secret at once would break the auto-deploy. Sequence it deliberately.
+// NOTE: the cc_ prefix is legacy; CC-8pt migrates it to a stackName-derived
+// namespace. Prune now runs AFTER deploy (see pruneSecrets), so renaming an
+// in-use secret no longer aborts the deploy — the create+rename flips here and
+// the old name is pruned once the redeploy has re-pointed services off it.
 function secretDockerName(declaredName: string, value: string): string {
   const hash = createHash("sha256").update(value).digest("hex").slice(0, 8);
   return `cc_${declaredName}_${hash}`;
@@ -31,15 +41,16 @@ function stackLabelKey(): string {
   return "bosun.stack";
 }
 
-// Reconcile docker secrets:
-//   1. For each declared secret, compute the hashed name and create if absent.
-//   2. Prune only stack-labelled secrets that are no longer in the declared set.
-// Returns a map of declared name -> hashed docker secret name for stack rendering.
+// Reconcile (create phase): create any declared secret that is not yet present,
+// and compute the set of this-stack secrets that are now stale (no longer
+// declared). Does NOT prune — pruning is deferred to pruneSecrets() AFTER the
+// stack redeploys, so a rename of an in-use secret can never abort the deploy.
+// Returns the declared name -> hashed docker name map plus the stale set.
 export async function reconcileSecrets(
   stackName: string,
   secrets: ResolvedSecret[],
   client: DockerSecretClient,
-): Promise<Record<string, string>> {
+): Promise<ReconcileSecretsResult> {
   // Compute the hashed name for every declared secret.
   const declared = secrets.map((s) => ({
     declaredName: s.name,
@@ -57,17 +68,41 @@ export async function reconcileSecrets(
     }
   }
 
-  // Prune only secrets belonging to THIS stack that are no longer declared.
+  // Compute (but do not remove) prune candidates: only secrets belonging to THIS
+  // stack that are no longer declared. The label scope is the critical safety
+  // invariant — a foreign or other-stack secret is never a candidate.
   const declaredDockerNames = new Set(declared.map((d) => d.dockerName));
-  for (const s of existing) {
-    const isOurs = s.labels[stackLabelKey()] === stackName;
-    if (isOurs && !declaredDockerNames.has(s.name)) {
-      await client.removeSecret(s.name);
+  const stale = existing
+    .filter((s) => s.labels[stackLabelKey()] === stackName && !declaredDockerNames.has(s.name))
+    .map((s) => s.name);
+
+  return {
+    names: Object.fromEntries(declared.map((d) => [d.declaredName, d.dockerName])),
+    stale,
+  };
+}
+
+// Prune stale docker secrets AFTER the stack has redeployed off them. Removal is
+// tolerant: a secret still referenced by an in-flight task makes `docker secret
+// rm` fail, and that must NOT abort the caller — the secret is simply skipped and
+// becomes prunable on the next deploy once it is fully unreferenced (CC-8pt).
+export async function pruneSecrets(
+  staleNames: string[],
+  client: DockerSecretClient,
+  // Defaults to silent; cli.ts (the console-allowed entry point) passes console.log.
+  log: (msg: string) => void = () => {},
+): Promise<void> {
+  for (const name of staleNames) {
+    try {
+      await client.removeSecret(name);
+    } catch (err) {
+      log(
+        `[bosun] secret '${name}' still in use, deferring prune to next deploy: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
     }
   }
-
-  // Return the name mapping so the stack renderer can reference hashed names.
-  return Object.fromEntries(declared.map((d) => [d.declaredName, d.dockerName]));
 }
 
 // Default docker client implementation using the docker CLI, used at runtime.

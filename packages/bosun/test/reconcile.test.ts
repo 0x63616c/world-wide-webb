@@ -4,7 +4,11 @@ import {
   makeDefaultCloudflareRouteClient,
   reconcileRoutes,
 } from "../src/reconcile/routes.ts";
-import { type DockerSecretClient, reconcileSecrets } from "../src/reconcile/secrets.ts";
+import {
+  type DockerSecretClient,
+  pruneSecrets,
+  reconcileSecrets,
+} from "../src/reconcile/secrets.ts";
 import { renderStackYml } from "../src/reconcile/stack.ts";
 import type { Spec } from "../src/spec.ts";
 
@@ -32,14 +36,13 @@ function makeDockerClient(
   };
 }
 
-describe("reconcile/secrets — prune safety", () => {
+describe("reconcile/secrets — create + stale computation", () => {
   it("creates declared secrets that do not exist yet", async () => {
     const client = makeDockerClient([]);
     await reconcileSecrets(STACK, [{ name: "HA_TOKEN", resolvedValue: "tok123" }], client);
     expect(client.createSecret).toHaveBeenCalledOnce();
     // Secret name must include a hash of the value and the declared name.
     const [nameArg] = (client.createSecret as ReturnType<typeof vi.fn>).mock.calls[0];
-    // Secret name must include a hash of the value and the declared name.
     // (The cc_ prefix is legacy; namespace migration is deferred to CC-8pt.)
     expect(nameArg).toMatch(/^cc_HA_TOKEN_/);
   });
@@ -59,41 +62,43 @@ describe("reconcile/secrets — prune safety", () => {
     expect(client2.createSecret).not.toHaveBeenCalled();
   });
 
-  it("prunes a stack-labelled orphan secret that is no longer declared", async () => {
+  it("reports a stack-labelled orphan as stale but does NOT remove it (prune is deferred)", async () => {
     const orphan = { name: "cc_OLD_TOKEN_deadbeef", labels: { "bosun.stack": STACK } };
     const client = makeDockerClient([orphan]);
-    await reconcileSecrets(STACK, [], client);
-    expect(client.removeSecret).toHaveBeenCalledWith("cc_OLD_TOKEN_deadbeef");
+    const { stale } = await reconcileSecrets(STACK, [], client);
+    expect(stale).toEqual(["cc_OLD_TOKEN_deadbeef"]);
+    // Critical: reconcile must never remove during the create phase — pruning an
+    // in-use secret here would abort the deploy mid-rename (CC-8pt).
+    expect(client.removeSecret).not.toHaveBeenCalled();
   });
 
-  it("does NOT prune a secret without the stack label (foreign secret safety)", async () => {
+  it("does NOT mark a secret without the stack label as stale (foreign secret safety)", async () => {
     // This is the critical invariant: a secret from another stack or manually
     // created without the label must never be touched.
     const foreign = { name: "some_other_service_secret", labels: {} };
     const client = makeDockerClient([foreign]);
-    await reconcileSecrets(STACK, [], client);
-    expect(client.removeSecret).not.toHaveBeenCalled();
+    const { stale } = await reconcileSecrets(STACK, [], client);
+    expect(stale).toEqual([]);
   });
 
-  it("does NOT prune a secret labelled for a different bosun stack", async () => {
+  it("does NOT mark a secret labelled for a different bosun stack as stale", async () => {
     const otherStack = { name: "cc_OTHER_deadbeef", labels: { "bosun.stack": "some-other-stack" } };
     const client = makeDockerClient([otherStack]);
-    await reconcileSecrets(STACK, [], client);
-    expect(client.removeSecret).not.toHaveBeenCalled();
+    const { stale } = await reconcileSecrets(STACK, [], client);
+    expect(stale).toEqual([]);
   });
 
-  it("prunes orphan and leaves foreign untouched in the same call", async () => {
+  it("marks orphan stale and leaves foreign out of the stale set in the same call", async () => {
     const orphan = { name: "cc_ORPHAN_aabbccdd", labels: { "bosun.stack": STACK } };
     const foreign = { name: "portainer_admin_secret", labels: {} };
     const client = makeDockerClient([orphan, foreign]);
-    await reconcileSecrets(STACK, [], client);
-    expect(client.removeSecret).toHaveBeenCalledOnce();
-    expect(client.removeSecret).toHaveBeenCalledWith(orphan.name);
+    const { stale } = await reconcileSecrets(STACK, [], client);
+    expect(stale).toEqual([orphan.name]);
   });
 
   it("returns the hashed secret names so the stack can reference them", async () => {
     const client = makeDockerClient([]);
-    const result = await reconcileSecrets(
+    const { names } = await reconcileSecrets(
       STACK,
       [
         { name: "HA_TOKEN", resolvedValue: "tok1" },
@@ -101,11 +106,54 @@ describe("reconcile/secrets — prune safety", () => {
       ],
       client,
     );
-    expect(result).toHaveProperty("HA_TOKEN");
-    expect(result).toHaveProperty("UNIFI_KEY");
+    expect(names).toHaveProperty("HA_TOKEN");
+    expect(names).toHaveProperty("UNIFI_KEY");
     // Values are the docker secret names (hashed), not the secret values.
-    expect(result.HA_TOKEN).toMatch(/^cc_HA_TOKEN_/);
-    expect(result.UNIFI_KEY).toMatch(/^cc_UNIFI_KEY_/);
+    expect(names.HA_TOKEN).toMatch(/^cc_HA_TOKEN_/);
+    expect(names.UNIFI_KEY).toMatch(/^cc_UNIFI_KEY_/);
+  });
+
+  it("treats a rename (old + new value of same declared secret) as create-new + stale-old", async () => {
+    // The migration shape: an existing labelled secret whose hash no longer
+    // matches the declared one. Reconcile must create the new name AND mark the
+    // old one stale — never remove it inline (it is still mounted until deploy).
+    const oldName = "cc_HA_TOKEN_old00000";
+    const client = makeDockerClient([{ name: oldName, labels: { "bosun.stack": STACK } }]);
+    const { names, stale } = await reconcileSecrets(
+      STACK,
+      [{ name: "HA_TOKEN", resolvedValue: "newvalue" }],
+      client,
+    );
+    expect(client.createSecret).toHaveBeenCalledOnce();
+    expect(names.HA_TOKEN).not.toBe(oldName);
+    expect(stale).toEqual([oldName]);
+    expect(client.removeSecret).not.toHaveBeenCalled();
+  });
+});
+
+describe("reconcile/secrets — pruneSecrets (after deploy, tolerant)", () => {
+  it("removes every stale secret it is given", async () => {
+    const client = makeDockerClient([]);
+    await pruneSecrets(["cc_A_1", "cc_B_2"], client);
+    expect(client.removeSecret).toHaveBeenCalledTimes(2);
+    expect(client.removeSecret).toHaveBeenCalledWith("cc_A_1");
+    expect(client.removeSecret).toHaveBeenCalledWith("cc_B_2");
+  });
+
+  it("does NOT throw when a secret is still in use — skips it and continues", async () => {
+    // The whole point of deferring + tolerating: an in-use `docker secret rm`
+    // fails, and that must never abort the caller (the deploy already succeeded).
+    const client = makeDockerClient([]);
+    (client.removeSecret as ReturnType<typeof vi.fn>).mockImplementation(async (name: string) => {
+      if (name === "cc_INUSE_1") throw new Error("secret 'cc_INUSE_1' is in use by service x");
+    });
+    const logs: string[] = [];
+    await expect(
+      pruneSecrets(["cc_INUSE_1", "cc_FREE_2"], client, (m) => logs.push(m)),
+    ).resolves.toBeUndefined();
+    // The free one is still removed; the in-use one is logged for next time.
+    expect(client.removeSecret).toHaveBeenCalledWith("cc_FREE_2");
+    expect(logs.join("\n")).toContain("cc_INUSE_1");
   });
 });
 
