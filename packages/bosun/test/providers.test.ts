@@ -35,6 +35,41 @@ describe("OpProvider", () => {
     const provider = new OpProvider(mockExec);
     await expect(provider.resolve("op://Homelab/Missing/field")).rejects.toThrow("op read failed");
   });
+
+  // CC-ykj: concurrent `op read`s race on op's daemon/config init on a fresh
+  // container and corrupt the config. The provider must serialize reads so only
+  // one op invocation runs at a time, even when callers fire them concurrently.
+  it("serializes concurrent reads — never more than one op invocation in flight", async () => {
+    let active = 0;
+    let maxActive = 0;
+    const mockExec = vi.fn(async () => {
+      active++;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((r) => setTimeout(r, 5));
+      active--;
+      return { stdout: "v", stderr: "" };
+    });
+    const provider = new OpProvider(mockExec);
+    await Promise.all([
+      provider.resolve("op://Homelab/A/field"),
+      provider.resolve("op://Homelab/B/field"),
+      provider.resolve("op://Homelab/C/field"),
+    ]);
+    expect(maxActive).toBe(1);
+    expect(mockExec).toHaveBeenCalledTimes(3);
+  });
+
+  it("a failing read does not wedge the serialization queue for later reads", async () => {
+    const mockExec = vi
+      .fn()
+      .mockResolvedValueOnce({ stdout: "", stderr: "[ERROR] boom" })
+      .mockResolvedValueOnce({ stdout: "ok", stderr: "" });
+    const provider = new OpProvider(mockExec);
+    const first = provider.resolve("op://Homelab/Bad/field");
+    const second = provider.resolve("op://Homelab/Good/field");
+    await expect(first).rejects.toThrow("op read failed");
+    await expect(second).resolves.toBe("ok");
+  });
 });
 
 // file provider: reads the value from a local file path. The ref format is
