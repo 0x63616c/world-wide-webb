@@ -187,6 +187,26 @@ describe("postgres builder", () => {
     const pg = postgres({ volume: "pgdata" });
     expect(pg.env.POSTGRES_PASSWORD_FILE).toBeUndefined();
   });
+
+  // www-chy: a FRESH cc_pgdata volume only inits the DB named by POSTGRES_DB; the
+  // api expects `control_center` (apps/api/src/env.ts default). Without this a
+  // volume-loss rebuild silently inits only the default `postgres` DB and the
+  // api can't connect. POSTGRES_DB is honoured only on first init, so it is
+  // inert on the existing prod volume — safe to add to the live service spec.
+  it("sets POSTGRES_DB to control_center by default (api's expected db)", () => {
+    const pg = postgres({ volume: "pgdata" });
+    expect(pg.env.POSTGRES_DB).toBe("control_center");
+  });
+
+  it("sets POSTGRES_DB regardless of secretRef (needed on any fresh init)", () => {
+    const pg = postgres({ volume: "pgdata", secretRef: "op://Homelab/PG/password" });
+    expect(pg.env.POSTGRES_DB).toBe("control_center");
+  });
+
+  it("allows overriding the database name", () => {
+    const pg = postgres({ volume: "pgdata", db: "other_db" });
+    expect(pg.env.POSTGRES_DB).toBe("other_db");
+  });
 });
 
 describe("cronJob primitive", () => {
