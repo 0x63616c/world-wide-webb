@@ -96,6 +96,19 @@ export function renderStackYml(
       }
     }
 
+    // Container healthcheck — swarm tracks State.Health.Status and gates rolling
+    // updates on it. CMD-SHELL runs the test via /bin/sh -c. Defaults match the
+    // common case (30s cadence, 5s timeout, 3 retries, 20s grace on boot).
+    if (svc.healthcheck) {
+      const hc = svc.healthcheck;
+      lines.push("    healthcheck:");
+      lines.push(`      test: ["CMD-SHELL", "${escapeComposeInterpolation(hc.test)}"]`);
+      lines.push(`      interval: ${hc.interval ?? "30s"}`);
+      lines.push(`      timeout: ${hc.timeout ?? "5s"}`);
+      lines.push(`      retries: ${hc.retries ?? 3}`);
+      lines.push(`      start_period: ${hc.startPeriod ?? "20s"}`);
+    }
+
     // Stack label for ownership tracking.
     lines.push("    deploy:");
     lines.push("      labels:");

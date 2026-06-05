@@ -26,6 +26,20 @@ export interface HealthProbe {
   command?: string;
 }
 
+export interface HealthcheckSpec {
+  // Shell command run INSIDE the container; exit 0 = healthy. Rendered in docker's
+  // CMD-SHELL form (run via /bin/sh -c). This is distinct from `health` probes,
+  // which bosun runs from the DEPLOY HOST to verify a deploy; a healthcheck makes
+  // the swarm itself track container liveness (State.Health.Status) and gates
+  // rolling updates on it.
+  test: string;
+  // Compose duration strings (e.g. "30s"). Defaults applied by the renderer.
+  interval?: string;
+  timeout?: string;
+  retries?: number;
+  startPeriod?: string;
+}
+
 export interface ServiceSpec {
   name: string;
   image: string;
@@ -52,6 +66,8 @@ export interface ServiceSpec {
   // replicated-job), so renderStackYml excludes it from the deployed stack. A
   // one-shot job has no liveness endpoint, so cronJob() attaches no probes.
   schedule?: ScheduleSpec;
+  // Optional Docker container healthcheck (swarm-tracked liveness). See above.
+  healthcheck?: HealthcheckSpec;
   health: HealthProbe[];
 }
 
@@ -87,8 +103,19 @@ export function service(
     volumes: opts.volumes,
     placement: opts.placement,
     schedule: opts.schedule,
+    healthcheck: opts.healthcheck,
     health: opts.health ?? [],
   };
+}
+
+// Container healthcheck builder. `test` is a shell command run inside the
+// container (exit 0 = healthy). Durations use compose strings; the renderer
+// supplies sane defaults (30s/5s/3/20s) for any field left unset.
+export function healthcheck(
+  test: string,
+  opts: Partial<Omit<HealthcheckSpec, "test">> = {},
+): HealthcheckSpec {
+  return { test, ...opts };
 }
 
 // Scheduled-job primitive. A cron job is a ServiceSpec carrying a `schedule`,
@@ -209,6 +236,9 @@ export function postgres(opts: {
     // Persist the data dir on the named volume, or every redeploy starts from an
     // empty database. The renderer pins this to the managed cc_<volume> volume.
     volumes: [`${opts.volume}:/var/lib/postgresql/data`],
+    // Swarm-tracked container liveness. pg_isready ships in the postgres image and
+    // is the canonical readiness check; start_period covers first-init/recovery.
+    healthcheck: healthcheck("pg_isready -U postgres", { startPeriod: "30s" }),
     health: [cmdProbe("postgres ready", "pg_isready -U postgres")],
   };
 }
