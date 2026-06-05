@@ -118,6 +118,18 @@ describe("UnifiClient.getTrafficBuckets", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
     await expect(makeClient().getTrafficBuckets()).rejects.toThrow("ECONNREFUSED");
   });
+
+  test("CC-355t.16: rejects a malformed payload at the edge", async () => {
+    // 200 OK but data is not the expected array of buckets — Zod must reject.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ data: "not-an-array" }),
+      }),
+    );
+    await expect(makeClient().getTrafficBuckets()).rejects.toThrow();
+  });
 });
 
 // ---------------------------------------------------------------------------

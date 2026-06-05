@@ -1,6 +1,26 @@
+import { z } from "zod";
 import { env } from "../../env";
 
 const UNIFI_REQUEST_TIMEOUT_MS = 5_000;
+
+// Edge schemas: validate the envelope + the fields the Network tile consumes,
+// while staying permissive (looseObject) about the many other attributes UniFi
+// returns. Parsing at the boundary means domain code is fully typed with no
+// `any` (CC-355t.16).
+const trafficBucketSchema = z.looseObject({
+  "wan-rx_bytes": z.number().optional(),
+  "wan-tx_bytes": z.number().optional(),
+});
+const trafficReportSchema = z.object({ data: z.array(trafficBucketSchema).optional() });
+
+const healthEntrySchema = z.looseObject({
+  subsystem: z.string().optional(),
+  status: z.string().optional(),
+  uptime_stats: z
+    .looseObject({ WAN: z.looseObject({ latency_average: z.number().optional() }).optional() })
+    .optional(),
+});
+const healthReportSchema = z.object({ data: z.array(healthEntrySchema).optional() });
 
 export class UnifiError extends Error {
   constructor(
@@ -50,8 +70,8 @@ export class UnifiClient {
     return this.apiKey.length > 0;
   }
 
-  // biome-ignore lint/suspicious/noExplicitAny: intentional generic fetch helper
-  private async legacyRequest<T = any>(path: string, init?: RequestInit): Promise<T> {
+  // Returns the raw parsed JSON; callers validate the shape with a Zod schema.
+  private async legacyRequest(path: string, init?: RequestInit): Promise<unknown> {
     // Bun supports a non-standard `tls` option to disable cert verification for
     // LAN controllers that present self-signed certificates.
     type BunFetchInit = RequestInit & { tls?: { rejectUnauthorized: boolean } };
@@ -74,7 +94,7 @@ export class UnifiClient {
     if (!res.ok) {
       throw new UnifiError(res.status, await res.text());
     }
-    return res.json() as Promise<T>;
+    return res.json();
   }
 
   /**
@@ -84,15 +104,14 @@ export class UnifiClient {
   async getTrafficBuckets(): Promise<UnifiTrafficBucket[]> {
     const now = Date.now();
     const start = now - 2 * 60 * 60 * 1000;
-    // biome-ignore lint/suspicious/noExplicitAny: API response shape
-    const res = await this.legacyRequest<{ data: any[] }>("/stat/report/5minutes.site", {
+    const raw = await this.legacyRequest("/stat/report/5minutes.site", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ attrs: ["wan-rx_bytes", "wan-tx_bytes", "time"], start, end: now }),
     });
-    const buckets: UnifiTrafficBucket[] = (res.data ?? [])
-      // biome-ignore lint/suspicious/noExplicitAny: API response shape
-      .map((b: any) => ({ down: b["wan-rx_bytes"] ?? 0, up: b["wan-tx_bytes"] ?? 0 }))
+    const { data } = trafficReportSchema.parse(raw);
+    const buckets: UnifiTrafficBucket[] = (data ?? [])
+      .map((b) => ({ down: b["wan-rx_bytes"] ?? 0, up: b["wan-tx_bytes"] ?? 0 }))
       .slice(-24);
     // Prepend zero-fill so the chart always has 24 bars
     while (buckets.length < 24) {
@@ -105,10 +124,9 @@ export class UnifiClient {
    * Fetch WAN health: online/offline status and measured internet latency.
    */
   async getWanHealth(): Promise<UnifiHealth> {
-    // biome-ignore lint/suspicious/noExplicitAny: API response shape
-    const res = await this.legacyRequest<{ data: any[] }>("/stat/health");
-    // biome-ignore lint/suspicious/noExplicitAny: API response shape
-    const wan = (res.data ?? []).find((s: any) => s.subsystem === "wan");
+    const raw = await this.legacyRequest("/stat/health");
+    const { data } = healthReportSchema.parse(raw);
+    const wan = (data ?? []).find((s) => s.subsystem === "wan");
     if (!wan) return { status: UnifiStatus.Error, wanLatencyMs: null };
     return {
       status: wan.status === UnifiStatus.Ok ? UnifiStatus.Ok : UnifiStatus.Error,
