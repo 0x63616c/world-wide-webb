@@ -44,3 +44,28 @@ commit-msg:
       # ticket id (validated via `bd show`). Degrades gracefully when bd is offline.
       # {1} is the path to the commit message file lefthook passes to this stage.
       run: bash scripts/check-commit-msg.sh {1}
+
+pre-push:
+  commands:
+    beads-sync:
+      # NON-BLOCKING: publish beads issue history (refs/dolt/data) to origin
+      # alongside the code being pushed. This is the durable sync channel
+      # (www-sg4p); `dolt.auto-push` is intentionally OFF because per-write
+      # auto-pushes livelock under parallel agents contending on the shared
+      # parent .git. Sync rides here instead — once per `git push`, batched.
+      # A sync failure warns but never blocks the code push (run it manually
+      # with `bd dolt push`). Skips cleanly if bd isn't installed.
+      run: |
+        command -v bd >/dev/null 2>&1 || exit 0
+        timeout 90 bd dolt push || echo "beads: 'bd dolt push' failed/timed out — issues NOT synced; run it manually with 'bd dolt push'" >&2
+        exit 0
+
+post-merge:
+  commands:
+    beads-pull:
+      # NON-BLOCKING: pull beads issue history from origin after `git pull`/merge
+      # so the local Dolt DB tracks teammates' issue changes. Failure warns only.
+      run: |
+        command -v bd >/dev/null 2>&1 || exit 0
+        timeout 90 bd dolt pull || echo "beads: 'bd dolt pull' failed/timed out — run it manually with 'bd dolt pull'" >&2
+        exit 0
