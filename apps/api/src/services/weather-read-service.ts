@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gte } from "drizzle-orm";
 import { db } from "../db/index";
 import { weatherDailyReading, weatherReading } from "../db/schema";
+import { env } from "../env";
 import {
   type DailyItem,
   formatSolarEvent,
@@ -127,6 +128,10 @@ export async function readWeatherNow(): Promise<WeatherNow> {
     sunrise: formatSolarEvent(sunriseIso),
     sunriseIso,
     tomorrowSunriseIso,
-    city: "Los Angeles",
+    // Display label for the configured home location. Driven by HOME_PLACE_NAME
+    // (delivered from 1Password via the secret rail; public placeholder in
+    // dev/test) so the weather tile matches HOME_LAT/HOME_LON instead of a
+    // hardcoded city (www-355t.14).
+    city: env.HOME_PLACE_NAME,
   };
 }
