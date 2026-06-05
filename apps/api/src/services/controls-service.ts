@@ -9,6 +9,7 @@ import {
 import { findLight, LAMP_ENTITY_IDS, LIGHTS, LightKind } from "../config/lights";
 import { db } from "../db/index";
 import { deviceState } from "../db/schema";
+import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 import { commandDevice, DeviceAction } from "./device-command-service";
@@ -87,11 +88,15 @@ function brightnessPct(entity: HaEntity): number {
 
 /**
  * The "fan" is the AC's climate fan_mode, not a fan.* device (evee parity:
- * ha-service getFanState/turnFanOn). We pick the first climate entity that
- * advertises a fan_modes list and treat fan_mode === "on" as forced-on.
+ * ha-service getFanState/turnFanOn). It lives on the CONFIGURED home thermostat
+ * (env.CLIMATE_ENTITY_ID) — resolving by "first climate entity with fan_modes"
+ * could match the Tesla's climate.evee_climate instead of the house AC
+ * (www-355t.15; see memory ha-evee-is-tesla-not-home-climate).
  */
 function findFanClimate(climateEntities: HaEntity[]): HaEntity | undefined {
-  return climateEntities.find((e) => Array.isArray(e.attributes.fan_modes));
+  return climateEntities.find(
+    (e) => e.entity_id === env.CLIMATE_ENTITY_ID && Array.isArray(e.attributes.fan_modes),
+  );
 }
 
 function fanModeOn(entity: HaEntity | undefined): boolean {
@@ -330,14 +335,14 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
     }
 
     case ControlKey.Fan: {
-      // evee parity: force the climate fan_mode on/auto via set_fan_mode.
-      const fanEntity = findFanClimate(await ha.getEntities("climate"));
-      if (fanEntity) {
-        await ha.callService("climate", HaService.SetFanMode, {
-          entity_id: fanEntity.entity_id,
-          fan_mode: on ? FanMode.On : FanMode.Auto,
-        });
-      }
+      // evee parity: force the configured climate's fan_mode on/auto via
+      // set_fan_mode. The target entity is known from config, so there's no
+      // climate fetch here — getControlsState() below reads HA once for the
+      // merged result (www-355t.15: was double-fetching climate entities).
+      await ha.callService("climate", HaService.SetFanMode, {
+        entity_id: env.CLIMATE_ENTITY_ID,
+        fan_mode: on ? FanMode.On : FanMode.Auto,
+      });
       break;
     }
   }
