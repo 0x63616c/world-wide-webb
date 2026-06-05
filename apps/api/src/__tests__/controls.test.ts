@@ -418,8 +418,9 @@ describe("getControlsState", () => {
 
   it("reports fan on from climate fan_mode", async () => {
     mockIsConfigured.mockReturnValue(true);
+    // "home" so the entity_id is climate.home === env.CLIMATE_ENTITY_ID default.
     mockGetEntities.mockImplementation(async (domain: string) =>
-      domain === "climate" ? [makeClimateFan("living_room", "on")] : [],
+      domain === "climate" ? [makeClimateFan("home", "on")] : [],
     );
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
@@ -427,6 +428,26 @@ describe("getControlsState", () => {
 
     expect(state?.fan.on).toBe(true);
     expect(state?.fan.sub).toBe("On");
+  });
+
+  it("CC-355t.15: resolves the fan from the configured home climate, not the Tesla", async () => {
+    // Both the Tesla (climate.evee_climate) and the home AC (climate.home) expose
+    // fan_modes. The fan must track the configured home thermostat — picking
+    // "first climate with fan_modes" could grab the Tesla (memory
+    // ha-evee-is-tesla-not-home-climate).
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntities.mockImplementation(async (domain: string) =>
+      domain === "climate"
+        ? [makeClimateFan("evee_climate", "on"), makeClimateFan("home", "auto")]
+        : [],
+    );
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    const state = await getControlsState();
+
+    // home fan_mode is "auto" → off; if it had wrongly matched the Tesla ("on")
+    // this would be true.
+    expect(state?.fan.on).toBe(false);
   });
 
   it("CC-azw: switch-domain fixtures are visible as 'lights' (not invisible)", async () => {
@@ -558,19 +579,30 @@ describe("toggleControl", () => {
     });
   });
 
-  it("calls climate.set_fan_mode when toggling the fan on", async () => {
+  it("calls climate.set_fan_mode on the configured entity when toggling the fan on", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockGetEntities.mockImplementation(async (domain: string) =>
-      domain === "climate" ? [makeClimateFan("living_room", "auto")] : [],
-    );
+    mockGetEntities.mockResolvedValue([]); // toggle no longer fetches climate to find the fan
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
     await toggleControl(ControlKey.Fan, true);
 
     expect(mockCallService).toHaveBeenCalledWith("climate", HaService.SetFanMode, {
-      entity_id: "climate.living_room",
+      entity_id: "climate.home",
       fan_mode: FanMode.On,
     });
+  });
+
+  it("CC-355t.15: toggling the fan does not fetch climate entities (no double fetch)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntities.mockResolvedValue([]);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    await toggleControl(ControlKey.Fan, true);
+
+    // The target id comes from config; only getControlsState() reads HA, and it
+    // never asks for the "climate" domain twice for one toggle.
+    const climateFetches = mockGetEntities.mock.calls.filter((c) => c[0] === "climate");
+    expect(climateFetches.length).toBeLessThanOrEqual(1);
   });
 
   it("dispatches a direct HA call for unregistered devices so toggles are never silent no-ops", async () => {
@@ -602,14 +634,20 @@ describe("toggleControl", () => {
     expect(mockDbInsert).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
   });
 
-  it("no-ops gracefully when no fan entities exist", async () => {
+  it("targets the configured climate via set_fan_mode (not commandDevice) even with empty HA", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntities.mockResolvedValue([]);
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    // Should resolve without throwing; commandDevice must NOT be called.
+    // Resolves without throwing; the fan is a climate fan_mode (set_fan_mode),
+    // never a device command. The target id is config-driven, so an empty HA
+    // snapshot doesn't make this a silent no-op.
     await expect(toggleControl(ControlKey.Fan, true)).resolves.toBeDefined();
     expect(mockCommandDevice).not.toHaveBeenCalled();
+    expect(mockCallService).toHaveBeenCalledWith("climate", HaService.SetFanMode, {
+      entity_id: "climate.home",
+      fan_mode: FanMode.On,
+    });
   });
 
   it("CC-azw: switch-domain fixture toggle calls commandDevice, not direct callService", async () => {
