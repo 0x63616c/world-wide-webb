@@ -14,7 +14,8 @@
     "badges": "bun scripts/gen-badges.ts",
     "lint": "bunx biome check .",
     "lint:fix": "bunx biome check --write .",
-    "typecheck": "bun run --filter '*' typecheck",
+    "typecheck": "bun run --filter '*' typecheck && bun run typecheck:config",
+    "typecheck:config": "tsc -p tsconfig.config.json --noEmit",
     "prepare": "bunx lefthook install --force"
   },
   "devDependencies": {
