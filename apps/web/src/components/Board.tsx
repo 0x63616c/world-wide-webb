@@ -1,6 +1,7 @@
 import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BOARD_H, BOARD_W, tileWorldRect, WORLD_H, WORLD_W } from "../lib/grid-constants";
+import { useAnyModalOpen } from "../lib/modal-open-store";
 import { BENTO_RECTS } from "../lib/placeholder-tiles";
 import { TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
@@ -243,11 +244,18 @@ export function Board() {
   // Whether a pointer is currently held down (touch or mouse). While held, the
   // user pans freely — no spring engages until they let go.
   const pointerDown = useRef(false);
-  // Mirrors `activeModal` into a ref so the memoized pointer handlers can bail
+  // Mirrors modal-open state into a ref so the memoized pointer handlers can bail
   // without being re-created. While a modal is open the board must NOT pan: a
   // press outside the modal hits the modal's own backdrop (which closes it), and
   // native scroll is frozen via the stage style below.
-  const modalOpen = activeModal !== null;
+  //
+  // `activeModal` covers modals the board opens itself; `useAnyModalOpen()` also
+  // catches modals a tile manages on its own (e.g. ControlsTile's expanded view),
+  // whose portaled backdrop would otherwise replay presses up the React tree into
+  // this stage's drag-pan. OR-ing both keeps the freeze instant for the board's
+  // own open-glide while still covering every other modal.
+  const anyModalOpen = useAnyModalOpen();
+  const modalOpen = activeModal !== null || anyModalOpen;
   const modalOpenRef = useRef(modalOpen);
   useEffect(() => {
     modalOpenRef.current = modalOpen;

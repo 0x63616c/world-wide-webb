@@ -10,6 +10,7 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { registerOpenModal } from "../../lib/modal-open-store";
 
 export interface ModalProps {
   open: boolean;
@@ -38,6 +39,14 @@ export function Modal({
   // Clamp to the board so a modal never overflows the 1366x1024 wall panel.
   const panelWidth = Math.min(width, 1280);
   const panelMaxHeight = Math.min(maxHeight, 960);
+  // Register in the global modal-open count while open so the board freezes its
+  // pan for the lifetime of THIS modal — including modals a tile manages itself
+  // (ControlsTile's expanded view) that never touch the board's activeModal.
+  useEffect(() => {
+    if (!open) return;
+    return registerOpenModal();
+  }, [open]);
+
   // Escape-to-close. Listener is only attached while open so a background
   // (closed) modal never swallows Escape meant for something else.
   useEffect(() => {
