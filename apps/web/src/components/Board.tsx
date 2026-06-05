@@ -270,13 +270,22 @@ export function Board() {
     modalOpenRef.current = modalOpen;
   }, [modalOpen]);
 
-  function openTile(entry: TileRegistryEntry, e: React.MouseEvent<HTMLDivElement>) {
+  // Any click within a tile recenters the camera on that tile — even taps that
+  // land on an inner control (toggle/slider/button) or on a self-tapping tile
+  // (Controls). Runs in the capture phase (wired via onClickCapture) so an inner
+  // stopPropagation — e.g. the Controls body tap — can't swallow the recenter.
+  // The modal still opens only for a "plain" tap: a self-tapping tile runs its
+  // own UI and a tap on a control drives that control, so neither also opens the
+  // board's detail modal.
+  function onTileClickCapture(entry: TileRegistryEntry, e: React.MouseEvent<HTMLDivElement>) {
     if (suppressClick.current) {
       suppressClick.current = false;
       return;
     }
-    if (entry.ownsTap) return;
-    if ((e.target as HTMLElement).closest(INTERACTIVE_SELECTOR)) return;
+    if (entry.ownsTap || (e.target as HTMLElement).closest(INTERACTIVE_SELECTOR)) {
+      glideToTile(entry);
+      return;
+    }
     openModalFor(entry);
   }
 
@@ -369,27 +378,33 @@ export function Board() {
     s.raf = requestAnimationFrame(step);
   }, []);
 
-  // Open a tile's detail modal AND glide the camera so that tile lands dead
-  // center, both kicked off together. The glide reuses the snap spring (same
+  // Glide the camera so `entry` lands dead center, reusing the snap spring (same
   // SmoothDamp feel as settle-snapping) instead of a separate animation. Opening
-  // the modal freezes native pan (overflow:hidden on the stage), but an
-  // overflow:hidden element is still a *programmatic* scroll container, so the
-  // spring's scrollLeft/Top writes keep driving the glide to completion behind
-  // the modal. Shared by the click and keyboard activation paths.
-  const openModalFor = useCallback(
+  // a modal freezes native pan (overflow:hidden on the stage), but an
+  // overflow:hidden element is still a *programmatic* scroll container, so these
+  // scrollLeft/Top writes keep driving the glide to completion behind the modal.
+  const glideToTile = useCallback(
     (entry: TileRegistryEntry) => {
-      const modal = getTileModalEntry(entry.id);
-      if (!modal) return;
       const stage = stageRef.current;
-      if (stage) {
-        const rect = tileWorldRect(entry);
-        const toLeft = rect.x + rect.w / 2 - stage.clientWidth / 2;
-        const toTop = rect.y + rect.h / 2 - stage.clientHeight / 2;
-        springTo(toLeft, toTop);
-      }
-      setActiveModal(modal);
+      if (!stage) return;
+      const rect = tileWorldRect(entry);
+      springTo(
+        rect.x + rect.w / 2 - stage.clientWidth / 2,
+        rect.y + rect.h / 2 - stage.clientHeight / 2,
+      );
     },
     [springTo],
+  );
+
+  // Recenter on a tile AND open its detail modal, kicked off together. Shared by
+  // the plain-tap and keyboard activation paths.
+  const openModalFor = useCallback(
+    (entry: TileRegistryEntry) => {
+      glideToTile(entry);
+      const modal = getTileModalEntry(entry.id);
+      if (modal) setActiveModal(modal);
+    },
+    [glideToTile],
   );
 
   // On settle (scrolling stopped AND nothing held): gravitate the tile under the
@@ -570,7 +585,7 @@ export function Board() {
               role="button"
               tabIndex={0}
               aria-label={`Open ${label}`}
-              onClick={(e) => openTile(entry, e)}
+              onClickCapture={(e) => onTileClickCapture(entry, e)}
               onKeyDown={(e) => {
                 if (entry.ownsTap) return;
                 if (e.target !== e.currentTarget) return;
