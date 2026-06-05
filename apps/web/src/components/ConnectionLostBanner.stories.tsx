@@ -40,7 +40,7 @@ function BannerPreview({ isLost }: { isLost: boolean }) {
           flexShrink: 0,
         }}
       />
-      <span>Data is stale. Reconnecting…</span>
+      <span>Unable to connect…</span>
     </div>
   );
 }
@@ -93,7 +93,7 @@ export const ConnectionLost: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("status")).toBeInTheDocument();
-    await expect(canvas.getByText(/data is stale\. reconnecting/i)).toBeInTheDocument();
+    await expect(canvas.getByText(/unable to connect/i)).toBeInTheDocument();
   },
 };
 
@@ -103,6 +103,6 @@ export const Reconnecting: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("status")).toBeInTheDocument();
-    await expect(canvas.getByText(/reconnecting/i)).toBeInTheDocument();
+    await expect(canvas.getByText(/unable to connect/i)).toBeInTheDocument();
   },
 };
