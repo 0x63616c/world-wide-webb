@@ -53,7 +53,7 @@ Every item is in **exactly one** of three states:
 ## C. Stack health (SSH homelab)
 
 - [ ] **ac_stack_up** — `docker stack services control-center` shows all services at `1/1`; `docker service ps <svc> --filter desired-state=running` has the task `Running` with no `Failed`/`Rejected` in the latest deploy. *Pass:* every service 1/1, zero failed tasks.
-- [ ] **ac_healthchecks** — for web/api/postgres, `docker service inspect <svc> --format '{{.Spec.TaskTemplate.ContainerSpec.Healthcheck}}'` is non-empty and the running container's `.State.Health.Status` == `healthy`. *Pass:* healthchecks defined and healthy.
+- [x] **ac_healthchecks** — for web/api/postgres, `docker service inspect <svc> --format '{{.Spec.TaskTemplate.ContainerSpec.Healthcheck}}'` is non-empty and the running container's `.State.Health.Status` == `healthy`. *Pass:* healthchecks defined and healthy.
 
 ## D. Public ingress / HTTPS (curl/openssl from agent host)
 
@@ -64,7 +64,7 @@ Every item is in **exactly one** of three states:
 
 ## E. App correctness (agent-browser + curl)
 
-- [ ] **ac_dashboard_render** — agent-browser loads the dashboard at a viewport of exactly **1366×1024**, screenshot taken; DOM has zero skeleton/shimmer elements after load settles. **Viewport gotcha:** at DPR 2 the browser window/display must be **≥ 1370×1040** to yield a true 1366×1024 content viewport (chrome steals ~24px → otherwise you get 1366×1000); assert the captured viewport is actually 1366×1024 before trusting the result. *Pass:* true-1366×1024 capture, all tiles rendered, no shimmer, no error boundary.
+- [x] **ac_dashboard_render** — agent-browser loads the dashboard at a viewport of exactly **1366×1024**, screenshot taken; DOM has zero skeleton/shimmer elements after load settles. **Viewport gotcha:** at DPR 2 the browser window/display must be **≥ 1370×1040** to yield a true 1366×1024 content viewport (chrome steals ~24px → otherwise you get 1366×1000); assert the captured viewport is actually 1366×1024 before trusting the result. *Pass:* true-1366×1024 capture, all tiles rendered, no shimmer, no error boundary.
 - [ ] **ac_live_ha** — `curl` the api's HA-backed tRPC endpoint (climate/now) over the swarm; response is a real numeric reading, not an error. *Pass:* live HA value returned (proves `host.docker.internal:8123` reachable from the container), and the matching tile shows that number in the `ac_dashboard_render` screenshot.
 
 ## F. Security / isolation
