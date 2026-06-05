@@ -82,6 +82,46 @@ export function ExpandedControlsModalView({
   return (
     <Modal open={open} onClose={onClose} title="Controls">
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {/* Lamp brightness — pulled to the top as the modal's primary control.
+            Disabled when lamps are off (HA rejects brightness on an off light, so
+            we surface a dead control rather than a silent no-op). Thick track
+            (range-lg) with the label + live % readout on one row above it. */}
+        <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+            <span className="cap">Lamp brightness</span>
+            {/* Live percentage so the slider visibly reflects the value as it moves. */}
+            <span
+              className="mono"
+              data-brightness-readout=""
+              style={{ fontSize: 15, color: lampsOff ? "var(--ink-3)" : "var(--acc)" }}
+            >
+              {brightness}%
+            </span>
+          </div>
+          <input
+            className="range range-lg"
+            type="range"
+            min={0}
+            max={100}
+            value={brightness}
+            aria-label="Brightness"
+            disabled={lampsOff}
+            onChange={(e) => {
+              const pct = Number(e.currentTarget.value);
+              setBrightness(pct);
+              if (brightnessDebounceRef.current) clearTimeout(brightnessDebounceRef.current);
+              brightnessDebounceRef.current = setTimeout(() => onBrightness(pct), 400);
+            }}
+            // --p drives the .range fill gradient (acc up to the value, dim after).
+            style={
+              {
+                opacity: lampsOff ? 0.4 : 1,
+                "--p": `${brightness}%`,
+              } as CSSProperties
+            }
+          />
+        </section>
+
         {/* Full toggle grid — reused, not re-inlined. hideMore drops the
             redundant "more" affordance now that we ARE the more surface. */}
         <div
@@ -151,46 +191,6 @@ export function ExpandedControlsModalView({
               </button>
             ))}
           </div>
-        </section>
-
-        {/* Brightness — disabled when lamps are off (HA rejects brightness on an
-            off light, so we surface a dead control rather than a silent no-op).
-            Controlled slider: label + live % readout on one row, then the track
-            filled to the current value. */}
-        <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-            <span className="cap">Brightness</span>
-            {/* Live percentage so the slider visibly reflects the value as it moves. */}
-            <span
-              className="mono"
-              data-brightness-readout=""
-              style={{ fontSize: 13, color: lampsOff ? "var(--ink-3)" : "var(--acc)" }}
-            >
-              {brightness}%
-            </span>
-          </div>
-          <input
-            className="range"
-            type="range"
-            min={0}
-            max={100}
-            value={brightness}
-            aria-label="Brightness"
-            disabled={lampsOff}
-            onChange={(e) => {
-              const pct = Number(e.currentTarget.value);
-              setBrightness(pct);
-              if (brightnessDebounceRef.current) clearTimeout(brightnessDebounceRef.current);
-              brightnessDebounceRef.current = setTimeout(() => onBrightness(pct), 400);
-            }}
-            // --p drives the .range fill gradient (acc up to the value, dim after).
-            style={
-              {
-                opacity: lampsOff ? 0.4 : 1,
-                "--p": `${brightness}%`,
-              } as CSSProperties
-            }
-          />
         </section>
       </div>
     </Modal>

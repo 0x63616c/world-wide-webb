@@ -34,11 +34,13 @@ export type HvacMode = (typeof HvacMode)[keyof typeof HvacMode];
 
 export type ClimateMode = HvacMode;
 
+// Order is fixed and load-bearing: the button row is always the tile's bottom
+// row, so its contents must never reflow. Cool · Heat · Heat·Cool · Off.
 const HvacModeEntries: [HvacMode, string][] = [
-  [HvacMode.Off, "Off"],
   [HvacMode.Cool, "Cool"],
   [HvacMode.Heat, "Heat"],
   [HvacMode.HeatCool, "Heat·Cool"],
+  [HvacMode.Off, "Off"],
 ];
 
 type PopulatedBase = {
@@ -86,13 +88,13 @@ function ClimateSkeleton() {
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Skeleton w={120} h={92} borderRadius={12} />
       </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
+      <Skeleton w="100%" h={20} borderRadius={6} />
+      <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
         <Skeleton w="25%" h={32} borderRadius={8} />
         <Skeleton w="25%" h={32} borderRadius={8} />
         <Skeleton w="25%" h={32} borderRadius={8} />
         <Skeleton w="25%" h={32} borderRadius={8} />
       </div>
-      <Skeleton w="100%" h={20} borderRadius={6} />
     </Tile>
   );
 }
@@ -218,29 +220,14 @@ export function ClimateTileView(props: ClimateTileViewProps) {
         )}
       </div>
 
-      {/* Mode buttons. In Off mode there is no slider below, so the bar drops to
-          the tile's bottom padding edge for even 22px spacing on all sides. */}
-      <div style={{ display: "flex", gap: 8, marginBottom: mode === HvacMode.Off ? 0 : 22 }}>
-        {HvacModeEntries.map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            className={`chip${mode === k ? " on" : ""}`}
-            onClick={() => onSetMode(k)}
-            aria-pressed={mode === k}
-            data-testid={`chip-${k}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Slider area — single, dual, or none (off) */}
+      {/* Slider area — single, dual, or none (off). Rendered ABOVE the button row
+          so the buttons never reflow: the draggable control appears in the gap
+          between the big setpoint and the fixed bottom button row. */}
       {(mode === HvacMode.Cool || mode === HvacMode.Heat) &&
         (() => {
           const displayTarget = dragTarget ?? props.target;
           return (
-            <div style={{ position: "relative", paddingBottom: 28 }}>
+            <div style={{ position: "relative", paddingBottom: 28, marginBottom: 18 }}>
               <input
                 className="range"
                 type="range"
@@ -269,7 +256,10 @@ export function ClimateTileView(props: ClimateTileViewProps) {
           const lo = dragLow ?? props.targetLow;
           const hi = dragHigh ?? props.targetHigh;
           return (
-            <div className="range-dual" style={{ position: "relative", paddingBottom: 28 }}>
+            <div
+              className="range-dual"
+              style={{ position: "relative", paddingBottom: 28, marginBottom: 18 }}
+            >
               <div
                 className="range-dual-track"
                 style={{ "--lo": `${pct(lo)}%`, "--hi": `${pct(hi)}%` } as React.CSSProperties}
@@ -311,6 +301,23 @@ export function ClimateTileView(props: ClimateTileViewProps) {
             </div>
           );
         })()}
+
+      {/* Mode buttons — ALWAYS the tile's bottom row. Fixed order, never reflows.
+          marginBottom 0: the Tile's 22px padding gives even bottom spacing. */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 0 }}>
+        {HvacModeEntries.map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            className={`chip${mode === k ? " on" : ""}`}
+            onClick={() => onSetMode(k)}
+            aria-pressed={mode === k}
+            data-testid={`chip-${k}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
     </Tile>
   );
 }

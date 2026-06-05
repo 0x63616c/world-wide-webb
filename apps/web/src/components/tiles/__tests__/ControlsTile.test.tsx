@@ -9,7 +9,7 @@
  *  4. Clicking a tap button calls the toggle mutation with the correct args.
  *  5. Pending state: dimmed appearance when a control has pending=true.
  *  6. Toggle mutation optimistically flips the group (cancel + setData) for instant feedback.
- *  7. Adaptive refetchInterval: 2000 when any pending, 30000 otherwise.
+ *  7. Adaptive refetchInterval: 2000 when any pending, 5000 otherwise.
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -345,7 +345,7 @@ describe("ControlsTile", () => {
       expect(interval).toBe(2_000);
     });
 
-    it("uses refetchInterval of 30000 when no controls are pending", () => {
+    it("uses refetchInterval of 5000 when no controls are pending", () => {
       const idleData = {
         lamps: { on: true, count: 2, sub: "On", pending: false },
         lights: { on: false, pending: false },
@@ -359,10 +359,10 @@ describe("ControlsTile", () => {
           ? capturedRefetchInterval({ state: { data: idleData } })
           : capturedRefetchInterval;
 
-      expect(interval).toBe(30_000);
+      expect(interval).toBe(5_000);
     });
 
-    it("uses refetchInterval of 30000 when data is null (HA unavailable)", () => {
+    it("uses refetchInterval of 5000 when data is null (HA unavailable)", () => {
       mockQueryReturn = { data: null, isLoading: false, isError: false };
       render(<ControlsTile />);
 
@@ -371,7 +371,7 @@ describe("ControlsTile", () => {
           ? capturedRefetchInterval({ state: { data: null } })
           : capturedRefetchInterval;
 
-      expect(interval).toBe(30_000);
+      expect(interval).toBe(5_000);
     });
   });
 
