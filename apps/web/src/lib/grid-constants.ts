@@ -39,8 +39,12 @@ export function tilePixelSize(cols: number, rows: number): { width: number; heig
 // around; the window shows whatever slice fits (~BOARD_W×BOARD_H on the panel,
 // more on a bigger screen — no crop). Dimensions are ODD so the centered Clock
 // lands on an integer cell offset, keeping every tile flush to the cell lattice.
-export const WORLD_COLS = 31;
-export const WORLD_ROWS = 31;
+// The outermost WALL_THICKNESS-cell ring on every edge is a decorative "wall"
+// border of 2×2 tiles (see placeholder-tiles.ts); the inner 31×31 holds the
+// real cluster + bento fill. Growing by 2*WALL_THICKNESS keeps the world odd, so
+// the CLUSTER offset below grows by exactly WALL_THICKNESS and stays integer.
+export const WORLD_COLS = 35;
+export const WORLD_ROWS = 35;
 export const WORLD_W = 2 * BOARD_PADDING + WORLD_COLS * CELL + (WORLD_COLS - 1) * GRID_GAP;
 export const WORLD_H = 2 * BOARD_PADDING + WORLD_ROWS * CELL + (WORLD_ROWS - 1) * GRID_GAP;
 
