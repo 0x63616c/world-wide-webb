@@ -18,8 +18,8 @@ trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/bin"
 cat >"$TMP/bin/bd" <<'EOF'
 #!/usr/bin/env bash
-# Test stub: `bd show CC-real` succeeds; any other id fails.
-if [ "${1:-}" = "show" ] && [ "${2:-}" = "CC-real" ]; then exit 0; fi
+# Test stub: `bd show CC-real` and the epic-child `CC-real.12` succeed; else fail.
+if [ "${1:-}" = "show" ] && { [ "${2:-}" = "CC-real" ] || [ "${2:-}" = "CC-real.12" ]; }; then exit 0; fi
 exit 1
 EOF
 chmod +x "$TMP/bin/bd"
@@ -53,6 +53,7 @@ run_case pass   "area + real ticket"            "feat(weather/CC-real): add poll
 run_case pass   "nested area + real ticket"     "fix(web/tiles/CC-real): fix tile clip"
 run_case pass   "breaking-change bang"          "refactor(api/CC-real)!: drop legacy route"
 run_case pass   "ticket in scope AND body"      "$(printf 'chore(beads/CC-real): sync\n\nrefs CC-real')"
+run_case pass   "epic-child dotted ticket id"   "feat(bosun/CC-real.12): child ac"
 
 # --- rejected --------------------------------------------------------------
 run_case reject "no area (ticket only in scope)" "feat(CC-real): missing area"
