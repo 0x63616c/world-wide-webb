@@ -118,13 +118,13 @@ function buildStyle(): maplibregl.StyleSpecification {
         l.id.includes("primary")) &&
       l.type === "line"
     ) {
-      l.paint = { ...(l.paint ?? {}), "line-color": "#1a2820" };
+      l.paint = { ...(l.paint ?? {}), "line-color": "#13243d" };
     }
     if (l.type === "fill" && l.id !== "earth" && l.id !== "water" && l.id !== "buildings") {
       const greenish =
         typeof l.id === "string" &&
         /park|wood|forest|grass|green|nature|golf|pitch|garden/.test(l.id);
-      l.paint = { ...(l.paint ?? {}), "fill-color": greenish ? "#0d160f" : "#0A0D10" };
+      l.paint = { ...(l.paint ?? {}), "fill-color": greenish ? "#0a1322" : "#0A0D10" };
     }
     return l;
   });
@@ -217,7 +217,7 @@ function RangeMap({ carLat, carLon, rangeMiles }: RangeMapProps) {
         type: "fill",
         source: "range-circle",
         paint: {
-          "fill-color": "#5be37d",
+          "fill-color": "#0070f3",
           "fill-opacity": 0.08,
         },
       });
@@ -227,7 +227,7 @@ function RangeMap({ carLat, carLon, rangeMiles }: RangeMapProps) {
         type: "line",
         source: "range-circle",
         paint: {
-          "line-color": "#5be37d",
+          "line-color": "#0070f3",
           "line-width": 1.5,
           "line-opacity": 0.55,
         },
@@ -266,10 +266,10 @@ function RangeMap({ carLat, carLon, rangeMiles }: RangeMapProps) {
     carEl.style.cssText =
       "width:44px;height:44px;position:relative;display:flex;align-items:center;justify-content:center;overflow:visible;pointer-events:none;";
     carEl.innerHTML = `
-      <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,rgba(91,227,125,.28) 0%,rgba(91,227,125,.08) 50%,rgba(91,227,125,0) 70%);"></div>
-      <svg width="20" height="25" viewBox="0 0 24 30" fill="none" style="position:relative;z-index:1;filter:drop-shadow(0 0 5px rgba(91,227,125,.4))">
-        <path d="M12 28 C4 18 0 13 0 8 A12 12 0 1 1 24 8 C24 13 20 18 12 28Z" fill="#5be37d"/>
-        <circle cx="12" cy="8" r="4.5" fill="#06210F"/>
+      <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,rgba(0, 112, 243,.28) 0%,rgba(0, 112, 243,.08) 50%,rgba(0, 112, 243,0) 70%);"></div>
+      <svg width="20" height="25" viewBox="0 0 24 30" fill="none" style="position:relative;z-index:1;filter:drop-shadow(0 0 5px rgba(0, 112, 243,.4))">
+        <path d="M12 28 C4 18 0 13 0 8 A12 12 0 1 1 24 8 C24 13 20 18 12 28Z" fill="#0070f3"/>
+        <circle cx="12" cy="8" r="4.5" fill="#04193a"/>
       </svg>`;
     new maplibregl.Marker({ element: carEl })
       .setLngLat([initCarLonRef.current, initCarLatRef.current])
@@ -320,7 +320,7 @@ function RangeMap({ carLat, carLon, rangeMiles }: RangeMapProps) {
           border: "1px solid var(--hair)",
         }}
       >
-        <LegendRow color="#5be37d" label="Range circle" />
+        <LegendRow color="#0070f3" label="Range circle" />
         <LegendRow color="#f4c063" label="Home" dashed />
       </div>
     </div>

@@ -64,7 +64,7 @@ export function VariantSwitcher({ variants, activeSlug, onSelect }: VariantSwitc
                 font: "inherit",
                 fontSize: 13,
                 fontWeight: 500,
-                color: active ? "#06210f" : "var(--ink-2)",
+                color: active ? "#ffffff" : "var(--ink-2)",
                 background: active ? "var(--acc)" : "transparent",
               }}
             >

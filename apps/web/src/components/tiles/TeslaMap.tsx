@@ -65,7 +65,7 @@ function buildStyle(): maplibregl.StyleSpecification {
         l.id.includes("primary")) &&
       l.type === "line"
     ) {
-      l.paint = { ...(l.paint ?? {}), "line-color": "#1a2820" };
+      l.paint = { ...(l.paint ?? {}), "line-color": "#13243d" };
     }
     // Any other fill (landuse, landcover, pedestrian, parks, etc.) → blend into
     // the dark base so nothing reads tan/khaki against the dashboard palette.
@@ -74,7 +74,7 @@ function buildStyle(): maplibregl.StyleSpecification {
       const greenish =
         typeof l.id === "string" &&
         /park|wood|forest|grass|green|nature|golf|pitch|garden/.test(l.id);
-      l.paint = { ...(l.paint ?? {}), "fill-color": greenish ? "#0d160f" : "#0A0D10" };
+      l.paint = { ...(l.paint ?? {}), "fill-color": greenish ? "#0a1322" : "#0A0D10" };
     }
 
     return l;
@@ -114,12 +114,12 @@ function createPinElement(): HTMLElement {
       position:absolute;
       inset:0;
       border-radius:50%;
-      background:radial-gradient(circle, rgba(91,227,125,.30) 0%, rgba(91,227,125,.10) 45%, rgba(91,227,125,0) 70%);
+      background:radial-gradient(circle, rgba(0, 112, 243,.30) 0%, rgba(0, 112, 243,.10) 45%, rgba(0, 112, 243,0) 70%);
     "></div>
     <svg width="24" height="30" viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg"
-         style="position:relative;z-index:1;overflow:visible;filter:drop-shadow(0 0 6px rgba(91,227,125,.45))">
-      <path d="M12 28 C4 18 0 13 0 8 A12 12 0 1 1 24 8 C24 13 20 18 12 28Z" fill="#5be37d"/>
-      <circle cx="12" cy="8" r="4.5" fill="#06210F"/>
+         style="position:relative;z-index:1;overflow:visible;filter:drop-shadow(0 0 6px rgba(0, 112, 243,.45))">
+      <path d="M12 28 C4 18 0 13 0 8 A12 12 0 1 1 24 8 C24 13 20 18 12 28Z" fill="#0070f3"/>
+      <circle cx="12" cy="8" r="4.5" fill="#04193a"/>
     </svg>
   `;
   return el;

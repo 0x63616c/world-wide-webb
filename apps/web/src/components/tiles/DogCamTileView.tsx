@@ -91,7 +91,7 @@ export function DogCamTileView({
             style={{
               position: "absolute",
               inset: 0,
-              background: "#0A0C0E",
+              background: "#0a0a0a",
               zIndex: 1,
             }}
           />

@@ -184,7 +184,7 @@ function BudgetBar({ usedGb, capGb }: BudgetBarProps) {
         borderRadius: 999,
         width: "100%",
         // Static filled track: accent up to pct%, dim rail after.
-        background: `linear-gradient(90deg, ${fillColor} ${pct}%, #181b20 ${pct}%)`,
+        background: `linear-gradient(90deg, ${fillColor} ${pct}%, #181818 ${pct}%)`,
         border: "none",
       }}
     />
