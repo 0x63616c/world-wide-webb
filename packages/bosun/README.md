@@ -4,6 +4,36 @@ Static, pure deploy spec for the control-center stack. Configs import the builde
 in `src/spec.ts` and return a plain `Spec`; the tool consumes it at sync time. No
 I/O or side effects live in the spec layer.
 
+## The model
+
+bosun is a small bun/TypeScript CLI (`src/cli.ts`) with four layers:
+
+- **spec** (`src/spec.ts`) — typed builders (`service`, `postgres`, `cronJob`,
+  `fromOp`, `ghcr`, health probes) that `deploy.config.ts` imports to return a
+  pure `Spec`. No I/O, so it evaluates identically anywhere (CI, the box, a test).
+- **reconcile** (`src/reconcile/*`) — turn the `Spec` into reality and prune
+  orphans: `secrets.ts` (op-resolved values → hashed docker secrets),
+  `routes.ts` (Cloudflare tunnel ingress), `stack.ts` (render → `docker stack
+  deploy`).
+- **health** (`src/health.ts`) — declared probes (`httpProbe`, `cmdProbe`,
+  `certProbe`) run with injected fetch/exec, so they're testable.
+- **serve / scheduler** (`src/serve.ts`, `src/scheduler.ts`) — the long-lived
+  `bosun-agent`: a webhook receiver that runs `bosun up` on deploy, plus the
+  in-process cron scheduler.
+
+### `bosun up` (deploy + secrets)
+
+`bosun up` resolves every declared secret ref from 1Password via the `op` CLI,
+reconciles them into hashed docker secrets (`<stack>_<NAME>_<hash>`, label-scoped
+prune), renders the stack, and runs `docker stack deploy --prune
+--with-registry-auth`. Secret resolution is **serialized** in `OpProvider`:
+concurrent `op read`s would race on op's daemon/config init on a fresh container
+and corrupt it, so reads are chained one at a time (CC-ykj).
+
+Commands: `plan` (print the Spec, no secrets) · `secrets sync` · `routes sync` ·
+`up` (full deploy) · `verify` (run probes) · `serve` (webhook + scheduler) ·
+`run-job <name>` (fire one cron job now).
+
 ## Health probes
 
 Each service declares a `health: HealthProbe[]`. Probes run via `runProbes`
@@ -220,6 +250,54 @@ always rolls **exactly** the rebuilt services (un-overridden images keep `:main`
 and don't roll). CI reads each `:main` digest with `docker buildx imagetools
 inspect`. A missing/legacy body (no `images`) falls back to the `:main` tags, so
 manual `curl` triggers still work.
+
+## Routes sync (Cloudflare tunnel)
+
+A service that declares `route: "name.worldwidewebb.co"` is published through the
+Cloudflare tunnel. `routes sync` (`src/reconcile/routes.ts`) reconciles the
+tunnel's **ingress** rules: there is no per-rule create/delete API and ingress
+rules carry no tag, so it GETs the whole ingress array, mutates it (add declared
+hostnames → their `http://<service>:<port>` origin, drop ones bosun manages that
+are no longer declared, keep the catch-all last), and PUTs it back.
+
+> **Not yet automated:** the public DNS record — a proxied `CNAME` →
+> `<tunnelId>.cfargotunnel.com` — is still created **by hand** in Cloudflare. A
+> hostname without it returns no route even when the ingress rule exists.
+> Auto-upserting the CNAME is tracked in **CC-ect**.
+
+## `postgres()` helper
+
+`postgres({ volume, secretRef, db?, image?, config?, init? })` builds the postgres
+service: it mounts the named data volume, wires the password as
+`POSTGRES_PASSWORD_FILE` (docker secret, never an env literal), and sets
+`POSTGRES_DB` (defaults to the api's `control_center`). `POSTGRES_DB` is honoured
+by the image **only on a fresh volume init**, so it is inert against existing data
+— safe to add to the live spec without forcing a destructive re-init (CC-chy).
+
+> The `config[]` (postgresql.conf) and `init[]` (initdb scripts) options are
+> accepted by the builder but **not yet emitted** by the renderer — tracked in
+> CC-sg9.
+
+## Agent image
+
+`packages/bosun/Dockerfile` builds the `bosun-agent` runtime (`oven/bun:1-alpine`).
+Unlike `apps/api` it is **not** bundled: `bosun serve`/`up` import
+`deploy.config.ts` at runtime and shell out, so the image ships the bosun source
+tree plus the tools it needs:
+
+- `docker` + `op` CLIs (copied from their official multi-arch images) — run
+  `docker stack deploy`/`docker secret` against the host daemon (socket
+  bind-mount) and resolve `op://` secrets.
+- `curl`, `jq`, `postgresql-client` — the `cmdProbe`s the agent's own `bosun up`
+  verify shells out to; without them probes exit 127 and verify is structurally
+  red (CC-z65).
+- `tzdata` + `ENV TZ=America/Los_Angeles` — so the scheduler's wall clock is LA
+  local (CC-dd0).
+
+The entrypoint (`docker-entrypoint.sh`) bridges docker secret files
+(`/run/secrets/<NAME>`) into the env vars the CLIs read (`OP_SERVICE_ACCOUNT_TOKEN`,
+`BOSUN_WEBHOOK_TOKEN`), logs in to GHCR with `GHCR_PULL_TOKEN` so
+`--with-registry-auth` can pull updated images, then `exec`s `bosun serve`.
 
 ## Tests
 

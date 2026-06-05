@@ -75,6 +75,10 @@ Reusable multi-agent orchestration scripts live in `.claude/workflows/` (run via
 
 Smart-home wall-panel dashboard, fixed 1366×1024. `apps/web` renders tiles from shared primitives under `apps/web/src/components/ui/`; `apps/api` is a tRPC backend whose services THROW on error/unconfigured (never return constants). The QueryClient retries infinitely so tiles recover from outages.
 
+**Deploy:** `deploy.config.ts` (a pure typed spec) is rendered + reconciled to a Docker Swarm stack by **bosun** (`packages/bosun`), running on OrbStack single-node Swarm on `homelab`; Portainer is monitoring-only. Push to `main` → CI path-filters + builds changed images → POSTs the per-image digest map to the `bosun-agent` webhook → the agent runs `bosun up` (secrets from 1Password, **digest-pinned** stack deploy so only changed services roll). Secrets resolve via `op`, serialized to avoid a cold-start daemon race.
+
+**Scheduling:** cron jobs are declared with `cronJob()` and run by bosun's own in-process scheduler inside the agent as one-shot Swarm jobs (`--mode replicated-job`), on `TZ=America/Los_Angeles`. There is no third-party scheduler (a lefthook guard enforces this; see Conventions). Full detail in `packages/bosun/README.md`.
+
 ## Conventions & Patterns
 
 - **ZERO fake/hardcoded/placeholder data** (web + api). On unavailable data a tile shows a shimmer Skeleton and keeps retrying — never an invented number. A repo-wide grep for `FALLBACK`/`PLACEHOLDER` (uppercase identifiers) must stay empty. Two files are sanctioned exceptions: `apps/api/src/services/network-service.ts` and `apps/api/src/services/weather-service.ts` hold always-on `DEMO_*` data until real integrations land.
