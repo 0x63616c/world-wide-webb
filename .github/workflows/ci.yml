@@ -152,6 +152,8 @@ jobs:
           file: apps/web/Dockerfile
           platforms: linux/arm64
           push: true
+          build-args: |
+            BUILD_HASH=${{ github.sha }}
           tags: |
             ghcr.io/0x63616c/control-center-web:${{ github.sha }}
             ghcr.io/0x63616c/control-center-web:${{ github.ref_name == 'main' && 'main' || github.sha }}

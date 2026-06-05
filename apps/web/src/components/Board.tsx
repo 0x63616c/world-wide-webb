@@ -1,5 +1,6 @@
 import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { BUILD_HASH } from "../config/build";
 import { BOARD_H, BOARD_W, tileWorldRect, WORLD_H, WORLD_W } from "../lib/grid-constants";
 import { useAnyModalOpen } from "../lib/modal-open-store";
 import { BENTO_RECTS } from "../lib/placeholder-tiles";
@@ -183,7 +184,7 @@ function FpsMeter() {
     <div
       style={{
         position: "absolute",
-        bottom: 8,
+        bottom: 2,
         right: 12,
         fontFamily: "var(--mono)",
         fontSize: 11,
@@ -192,6 +193,26 @@ function FpsMeter() {
       }}
     >
       {fps} fps
+    </div>
+  );
+}
+
+// Git short SHA of the running web bundle, pinned bottom-left as the mirror of
+// the FPS readout. Lets you tell at a glance which build a wall panel is on.
+function BuildHashBadge() {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: 2,
+        left: 12,
+        fontFamily: "var(--mono)",
+        fontSize: 11,
+        letterSpacing: "-0.02em",
+        color: "var(--ink-3)",
+      }}
+    >
+      {BUILD_HASH.slice(0, 7)}
     </div>
   );
 }
@@ -720,6 +741,7 @@ export function Board() {
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 200 }}>
         <ConnectionLostBanner />
         <FpsMeter />
+        <BuildHashBadge />
         <SnapModeSwitcher mode={snapMode} onCycle={cycleSnapMode} />
         <CenteredTileLabel label={centeredLabel} view={view} />
         <Minimap
