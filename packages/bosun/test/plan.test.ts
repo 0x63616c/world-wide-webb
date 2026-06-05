@@ -89,8 +89,12 @@ describe("deploy.config.ts — Docker image-cleanup cronJob (CC-0id / CC-79k)", 
     const mod = (await import(CONFIG_PATH.href)) as { default: Spec };
     const names = mod.default.services.map((s) => s.name);
     expect(names).toContain("docker-image-prune");
-    // The expected service set — no extra scheduler pod alongside the app services.
-    expect(names.filter((n) => !n.startsWith("docker-image-prune")).sort()).toEqual([
+    // The long-lived (non-cron) services are exactly the app services — no extra
+    // scheduler pod alongside them. Asserting on the no-schedule set (rather than
+    // an exact full list) ignores cron jobs, which are run by the bosun scheduler
+    // as one-shot Swarm jobs, never deployed as long-lived services.
+    const longLived = mod.default.services.filter((s) => !s.schedule).map((s) => s.name);
+    expect(longLived.sort()).toEqual([
       "api",
       "bosun-agent",
       "cloudflared",

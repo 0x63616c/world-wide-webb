@@ -131,5 +131,16 @@ export default stack("control-center", {
       volumes: ["/var/run/docker.sock:/var/run/docker.sock"],
       placement: ["node.role==manager"],
     }),
+
+    // TEMPORARY (CC-lnq crash-recovery proof): an every-minute job that sleeps
+    // long enough to kill the scheduler agent mid-run and observe it recover
+    // (swarm keeps this task running; the restarted scheduler reads the slot
+    // label / in-flight task and does NOT double-fire). REMOVE after the proof.
+    cronJob("crash-test", {
+      image: "docker:cli",
+      schedule: "* * * * *",
+      command: 'sh -c "echo crash-test running; sleep 150; echo crash-test done"',
+      placement: ["node.role==manager"],
+    }),
   ],
 });

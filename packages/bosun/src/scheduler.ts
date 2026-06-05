@@ -162,7 +162,11 @@ function mountFlag(vol: string): string {
 //
 // vs a node-local `docker run`: the job is visible in `docker service ls`,
 // cluster-scheduled, and supports `--with-registry-auth` for private images.
-export function buildJobCommand(job: ServiceSpec, stackName: string): string {
+// `slot` (when supplied by the scheduler) is stamped as a `bosun.cron-slot`
+// label so a restarted scheduler can tell, from swarm state alone, whether this
+// slot already ran — the swarm-derived dedupe key. A manual `run-job` passes no
+// slot (always fires).
+export function buildJobCommand(job: ServiceSpec, stackName: string, slot?: string): string {
   if (!job.schedule) throw new Error(`job '${job.name}' has no schedule`);
 
   const svc = jobServiceName(stackName, job.name);
@@ -177,6 +181,7 @@ export function buildJobCommand(job: ServiceSpec, stackName: string): string {
     "--with-registry-auth",
     `--label bosun.cron-job=${job.name}`,
   ];
+  if (slot) parts.push(`--label bosun.cron-slot=${slot}`);
   for (const c of job.placement ?? []) parts.push(`--constraint ${c}`);
   for (const vol of job.volumes ?? []) parts.push(mountFlag(vol));
   for (const key of Object.keys(job.env).sort()) parts.push(`--env ${key}=${job.env[key]}`);
@@ -191,62 +196,118 @@ export function dueCronJobs(services: ServiceSpec[], now: Date): ServiceSpec[] {
   return services.filter((s) => s.schedule && cronMatches(s.schedule.cron, now));
 }
 
-// Mutable run-state carried across ticks: the last minute key each job ran in
-// (so a job fires at most once per matching minute even if the tick double-fires)
-// and the set of jobs still executing (so a long run is not started concurrently
-// with itself on the next tick).
-export interface SchedulerState {
-  lastRunMinute: Map<string, string>;
-  inFlight: Set<string>;
-}
-
-export function newSchedulerState(): SchedulerState {
-  return { lastRunMinute: new Map(), inFlight: new Set() };
-}
-
-// Minute-resolution key, distinct per wall-clock minute.
-function minuteKey(d: Date): string {
+// Minute-resolution slot identity, distinct per wall-clock minute. Stamped on
+// the job service as `bosun.cron-slot` when fired, so a restarted scheduler can
+// recognise a slot it (or its predecessor) already ran from swarm state alone —
+// no in-memory bookkeeping that a restart would lose.
+export function slotKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}T${d.getHours()}:${d.getMinutes()}`;
 }
 
+// A read of the current swarm state for one job service: the slot label its last
+// run was stamped with (null if the service does not exist), and whether a task
+// is still executing. This IS the scheduler's memory — held by swarm, so it
+// survives an agent restart. Injected so runDueJobs is testable without docker.
+export type JobInspector = (svc: string) => Promise<{ slot: string | null; inFlight: boolean }>;
+
 type Logger = (msg: string) => void;
 
-// Run every job due at `now`, honoring the per-minute and in-flight guards.
-// Each job is fired through the injected runner (the docker invocation built by
-// buildJobCommand). Failures are logged, never thrown — one bad job must not
-// kill the scheduler loop.
+// Run every job due at `now`. Both guards are derived from swarm (via the
+// injected inspector), not in-memory state, so a just-restarted scheduler makes
+// the same decision the pre-crash one would have:
+//   - slot already stamped on the service  -> skip (restart-safe dedupe)
+//   - a task still in flight                -> skip (restart-safe overlap guard)
+//   - otherwise                             -> fire, stamping THIS slot
+// An inspector error skips the tick (never fire blind — the next tick retries),
+// and a runner error is logged, never thrown, so one bad job can't kill the loop.
 export async function runDueJobs(
   services: ServiceSpec[],
   now: Date,
   runner: Runner,
-  state: SchedulerState,
+  inspect: JobInspector,
   stackName: string,
   log: Logger = () => {},
 ): Promise<void> {
-  const key = minuteKey(now);
+  const slot = slotKey(now);
   const due = dueCronJobs(services, now);
 
   await Promise.all(
     due.map(async (job) => {
-      if (state.lastRunMinute.get(job.name) === key) return; // already ran this minute
-      if (state.inFlight.has(job.name)) {
-        log(`[scheduler] '${job.name}' still in flight, skipping this tick`);
+      const svc = jobServiceName(stackName, job.name);
+      let view: { slot: string | null; inFlight: boolean };
+      try {
+        view = await inspect(svc);
+      } catch (err) {
+        log(
+          `[scheduler] '${job.name}' inspect failed (${err instanceof Error ? err.message : String(err)}); skipping slot ${slot}`,
+        );
         return;
       }
-      state.lastRunMinute.set(job.name, key);
-      state.inFlight.add(job.name);
-      const cmd = buildJobCommand(job, stackName);
-      log(`[scheduler] running '${job.name}': ${cmd}`);
+      if (view.slot === slot) {
+        log(`[scheduler] '${job.name}' already ran slot ${slot} (per swarm), skipping`);
+        return;
+      }
+      if (view.inFlight) {
+        log(`[scheduler] '${job.name}' still in flight (per swarm), skipping slot ${slot}`);
+        return;
+      }
+      const cmd = buildJobCommand(job, stackName, slot);
+      log(`[scheduler] running '${job.name}' slot ${slot}: ${cmd}`);
       try {
         const { exitCode } = await runner(cmd);
-        log(`[scheduler] '${job.name}' exited ${exitCode}`);
+        log(`[scheduler] '${job.name}' slot ${slot} dispatched (exit ${exitCode})`);
       } catch (err) {
         log(`[scheduler] '${job.name}' error: ${err instanceof Error ? err.message : String(err)}`);
-      } finally {
-        state.inFlight.delete(job.name);
       }
     }),
   );
+}
+
+// The live JobInspector: reads the slot label and task liveness straight from
+// the swarm via the docker socket the agent already holds. Captures stdout (the
+// health Runner only yields an exit code), so it is built on Bun.spawn directly.
+const NON_TERMINAL_TASK_STATES = [
+  "new",
+  "allocated",
+  "pending",
+  "assigned",
+  "accepted",
+  "preparing",
+  "ready",
+  "starting",
+  "running",
+];
+
+async function capture(cmd: string): Promise<{ stdout: string; exitCode: number }> {
+  const proc = Bun.spawn(["sh", "-c", cmd], { stdout: "pipe", stderr: "ignore" });
+  const stdout = await new Response(proc.stdout).text();
+  const exitCode = await proc.exited;
+  return { stdout, exitCode };
+}
+
+export function makeDefaultJobInspector(): JobInspector {
+  return async (svc: string) => {
+    // The slot label off the service spec. A missing service exits non-zero; a
+    // present-but-unlabelled service prints Go's "<no value>" — both mean null.
+    const slotOut = await capture(
+      `docker service inspect ${svc} --format '{{index .Spec.Labels "bosun.cron-slot"}}'`,
+    );
+    if (slotOut.exitCode !== 0) return { slot: null, inFlight: false };
+    const raw = slotOut.stdout.trim();
+    const slot = raw === "" || raw === "<no value>" ? null : raw;
+
+    // A task is in flight if its current state is any non-terminal lifecycle
+    // word. `docker service ps` prints e.g. "Running 3 seconds ago".
+    const psOut = await capture(`docker service ps ${svc} --no-trunc --format '{{.CurrentState}}'`);
+    const inFlight =
+      psOut.exitCode === 0 &&
+      psOut.stdout
+        .split("\n")
+        .map((l) => l.trim().toLowerCase())
+        .some((l) => NON_TERMINAL_TASK_STATES.some((s) => l.startsWith(s)));
+
+    return { slot, inFlight };
+  };
 }
 
 // Start the live scheduler: tick once per minute, running due jobs via the
@@ -260,14 +321,16 @@ export function startScheduler(
   log: Logger = () => {},
 ): () => void {
   const jobs = services.filter((s) => s.schedule);
-  const state = newSchedulerState();
+  // No in-memory run-state: the inspector reads dedupe/overlap truth from swarm
+  // each tick, so a restarted agent recovers its decisions for free.
+  const inspect = makeDefaultJobInspector();
   log(
     `[scheduler] managing ${jobs.length} cron job(s): ${jobs.map((j) => j.name).join(", ") || "(none)"}`,
   );
   // Tick every 30s so a job is never missed within its target minute even if a
-  // tick lands late; the per-minute guard collapses the two ticks to one run.
+  // tick lands late; the swarm-derived slot guard collapses the two ticks to one run.
   const timer = setInterval(() => {
-    void runDueJobs(jobs, new Date(), runner, state, stackName, log);
+    void runDueJobs(jobs, new Date(), runner, inspect, stackName, log);
   }, 30_000);
   return () => clearInterval(timer);
 }
