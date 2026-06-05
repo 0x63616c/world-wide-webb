@@ -251,7 +251,7 @@ export function EventsModalMonthGrid({ open, onClose, events, today }: EventsMod
                       // make urgency viscerally legible even at a glance.
                       boxShadow:
                         minDays <= 3
-                          ? `0 0 6px 1px ${minDays <= 0 ? "rgba(91,227,125,0.55)" : "rgba(244,192,99,0.55)"}`
+                          ? `0 0 6px 1px ${minDays <= 0 ? "rgba(0,112,243,0.55)" : "rgba(244,192,99,0.55)"}`
                           : "none",
                       flexShrink: 0,
                     }}

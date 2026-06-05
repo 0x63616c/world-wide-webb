@@ -86,7 +86,7 @@ function lerp01(value: number, min: number, max: number): number {
  * (the green accent, which reads as "cool" on this dark panel) transitioning
  * through a neutral mid to --amber (warm gold) at the hot end. Pure CSS custom
  * props can't be lerped, so we compute the channel mix here using the token
- * values directly: --acc #5be37d (cool), neutral #9197a1 (mid), --amber #f4c063 (warm).
+ * values directly: --acc #0070f3 (cool), neutral #9197a1 (mid), --amber #f4c063 (warm).
  */
 function heatColor(fraction: number): string {
   // Two-segment gradient: [0, 0.5] cool→neutral, [0.5, 1] neutral→warm
@@ -140,7 +140,7 @@ function LegendBar({ minLabel, maxLabel }: { minLabel: string; maxLabel: string 
             height: 10,
             borderRadius: 999,
             // Gradient mirrors heatColor: acc (cool) → neutral → amber (warm)
-            background: "linear-gradient(90deg, #5be37d, #9197a1 50%, #f4c063)",
+            background: "linear-gradient(90deg, #0070f3, #9197a1 50%, #f4c063)",
           }}
         />
         <div

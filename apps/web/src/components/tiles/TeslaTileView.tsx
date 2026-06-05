@@ -42,7 +42,7 @@ function TeslaCharge({ charging, rate, pct }: ChargeProps) {
         style={{
           height: 12,
           borderRadius: 7,
-          background: "#15191E",
+          background: "#181818",
           overflow: "hidden",
           border: "1px solid var(--hair)",
         }}

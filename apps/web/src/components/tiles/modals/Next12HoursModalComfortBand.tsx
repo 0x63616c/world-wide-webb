@@ -49,8 +49,8 @@ interface BandConfig {
 
 const BAND_CONFIG: Record<Band, BandConfig> = {
   cold: { label: "Cold", color: "var(--ink-3)", textColor: "var(--ink-2)" },
-  cool: { label: "Cool", color: "var(--acc-dim, rgba(91,227,125,0.12))", textColor: "var(--acc)" },
-  mild: { label: "Mild", color: "rgba(91,227,125,0.25)", textColor: "var(--acc)" },
+  cool: { label: "Cool", color: "var(--acc-dim, rgba(0,112,243,0.12))", textColor: "var(--acc)" },
+  mild: { label: "Mild", color: "rgba(0,112,243,0.25)", textColor: "var(--acc)" },
   warm: { label: "Warm", color: "rgba(244,192,99,0.22)", textColor: "var(--amber)" },
 };
 
@@ -304,7 +304,7 @@ export function Next12HoursModalComfortBand({
                         borderRadius: 999,
                         // Colder-than-air gaps use accent; heat-index gaps use amber
                         background: colder
-                          ? "var(--acc-line, rgba(91,227,125,0.4))"
+                          ? "var(--acc-line, rgba(0,112,243,0.4))"
                           : "rgba(244,192,99,0.5)",
                       }}
                     />

@@ -140,7 +140,7 @@ function TrafficChart({
       barW: colW - BAR_GAP,
       downH: Math.round((bucket.down / maxBytes) * (HALF - 4)),
       upH: Math.round((bucket.up / maxBytes) * (HALF - 4)),
-      downColor: isPeak ? "var(--acc)" : isSelected ? "var(--acc-2)" : "rgba(91,227,125,0.45)",
+      downColor: isPeak ? "var(--acc)" : isSelected ? "var(--acc-2)" : "rgba(0,112,243,0.45)",
       upColor: isPeak ? "var(--amber)" : isSelected ? "#d4a84b" : "rgba(244,192,99,0.4)",
     };
   });
@@ -335,7 +335,7 @@ export function NetworkModalTrafficTimeline({
                   width: 10,
                   height: 10,
                   borderRadius: 2,
-                  background: "rgba(91,227,125,0.6)",
+                  background: "rgba(0,112,243,0.6)",
                   display: "inline-block",
                 }}
               />
