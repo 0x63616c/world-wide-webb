@@ -4,7 +4,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import type { Fetcher, Runner } from "../src/health.ts";
-import { formatReport, runProbes } from "../src/health.ts";
+import { formatReport, runProbes, summarizeVerify } from "../src/health.ts";
 import { cmdProbe, httpProbe } from "../src/spec.ts";
 
 // Mirrors what cmdVerify does internally: run probes, format report, check exit.
@@ -80,5 +80,43 @@ describe("verify command behavior (ac_tool_health)", () => {
     expect(result.results[1].pass).toBe(true);
     // Exit code non-zero because first probe failed.
     expect(result.exitCode).not.toBe(0);
+  });
+});
+
+// CC-1dx: the webhook serve path runs verify in advisory mode so a successful
+// stack deploy whose probes are not-yet-warm never looks like a failed deploy.
+describe("summarizeVerify — advisory vs failing verify policy (CC-1dx)", () => {
+  it("fails (non-advisory) when a probe is red, so interactive `up` exits non-zero", async () => {
+    const result = await runProbes([httpProbe("http://api:4201/up", 200)], {
+      fetcher: makeFetcher(503),
+      runner: makeRunner(0),
+    });
+    const { failed, lines } = summarizeVerify(result, false);
+    expect(failed).toBe(true);
+    // No advisory note when not advisory.
+    expect(lines.join("\n")).not.toMatch(/advisory/);
+  });
+
+  it("does NOT fail in advisory mode even when a probe is red (serve path)", async () => {
+    const result = await runProbes([httpProbe("http://api:4201/up", 200)], {
+      fetcher: makeFetcher(503),
+      runner: makeRunner(0),
+    });
+    const { failed, lines } = summarizeVerify(result, true);
+    expect(failed).toBe(false);
+    // Surfaces the not-all-green state as informational, not an error.
+    expect(lines.join("\n")).toMatch(/advisory/);
+    expect(lines.join("\n")).toMatch(/deploy still succeeded/);
+  });
+
+  it("never fails when all probes pass, advisory or not", async () => {
+    const result = await runProbes([httpProbe("http://api:4201/up", 200)], {
+      fetcher: makeFetcher(200),
+      runner: makeRunner(0),
+    });
+    expect(summarizeVerify(result, false).failed).toBe(false);
+    expect(summarizeVerify(result, true).failed).toBe(false);
+    // No advisory note needed when green.
+    expect(summarizeVerify(result, true).lines.join("\n")).not.toMatch(/advisory/);
   });
 });

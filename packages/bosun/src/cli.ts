@@ -1,6 +1,6 @@
 // Command dispatcher for the bosun CLI.
 // Entry point: `bun run bosun <cmd>` (root package.json "bosun" script).
-import { formatReport, makeDefaultFetcher, makeDefaultRunner, runProbes } from "./health.ts";
+import { makeDefaultFetcher, makeDefaultRunner, runProbes, summarizeVerify } from "./health.ts";
 
 const [, , command, ...args] = process.argv;
 
@@ -144,7 +144,15 @@ async function cmdRoutes(args: string[]): Promise<void> {
 // `imageOverrides` (from the deploy webhook body) pins our ghcr images to the
 // exact digests CI built, so the stack deploy reliably rolls changed services
 // instead of depending on :main tag re-resolution (CC-czg).
-async function cmdUp(imageOverrides?: Record<string, string>): Promise<void> {
+async function cmdUp(
+  imageOverrides?: Record<string, string>,
+  // Verify policy. The interactive `up` (operator at a terminal) fails on a red
+  // verify so a broken deploy is loud. The webhook serve path passes true: the
+  // stack deploy already succeeded, and probes that are merely not-yet-warm
+  // (cold climate endpoint, etc.) must not make it look like a deploy error
+  // (CC-1dx). The verify still runs and logs in both cases.
+  opts: { advisoryVerify?: boolean } = {},
+): Promise<void> {
   console.log("[bosun up] Loading config...");
   if (imageOverrides && Object.keys(imageOverrides).length > 0) {
     console.log("[bosun up] Pinning images by digest:", imageOverrides);
@@ -178,7 +186,10 @@ async function cmdUp(imageOverrides?: Record<string, string>): Promise<void> {
   if (deployOut) console.log(deployOut);
 
   console.log("[bosun up] Verifying...");
-  await runVerify(spec.services.flatMap((svc) => svc.health));
+  await runVerify(
+    spec.services.flatMap((svc) => svc.health),
+    opts.advisoryVerify ?? false,
+  );
 }
 
 // verify: run all declared health probes; exit 0 iff all pass.
@@ -187,21 +198,26 @@ async function cmdVerify(): Promise<void> {
     default: import("./spec.ts").Spec;
   };
   const probes = spec.services.flatMap((svc) => svc.health);
-  await runVerify(probes);
+  // Interactive verify: a red probe must fail loudly.
+  await runVerify(probes, false);
 }
 
-async function runVerify(probes: import("./spec.ts").HealthProbe[]): Promise<void> {
+async function runVerify(
+  probes: import("./spec.ts").HealthProbe[],
+  advisory: boolean,
+): Promise<void> {
   const result = await runProbes(probes, {
     fetcher: makeDefaultFetcher(),
     runner: makeDefaultRunner(),
   });
 
-  console.log(
-    `\nHealth probes: ${result.results.filter((r) => r.pass).length}/${result.results.length} passed`,
-  );
-  console.log(formatReport(result.results));
+  const { lines, failed } = summarizeVerify(result, advisory);
+  for (const line of lines) console.log(line);
 
-  if (result.exitCode !== 0) {
+  // Advisory (serve path): never exit — a not-yet-warm probe must not look like a
+  // failed deploy (CC-1dx). Interactive `up`/`verify`: exit non-zero so a broken
+  // deploy is loud.
+  if (failed) {
     process.exit(result.exitCode);
   }
 }
@@ -239,8 +255,14 @@ async function cmdServe(): Promise<void> {
         // Run deploy in the background; the handler responds 202 immediately.
         // The digest map from the webhook body is threaded into the render so
         // changed services roll deterministically (CC-czg).
+        // Advisory verify on the serve path: a successful stack deploy whose
+        // probes are merely not-yet-warm must not surface as a deploy error
+        // (CC-1dx). A genuine deploy failure (secrets/render/stack deploy) still
+        // throws out of cmdUp and is logged here.
         onDeploy: (imageOverrides) =>
-          cmdUp(imageOverrides).catch((err) => console.error("[bosun serve] deploy error:", err)),
+          cmdUp(imageOverrides, { advisoryVerify: true }).catch((err) =>
+            console.error("[bosun serve] deploy error:", err),
+          ),
       });
     },
   });
