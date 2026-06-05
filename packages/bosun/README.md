@@ -196,6 +196,23 @@ cronJob("docker-image-prune", {
 - **Node-local jobs.** A job mounting the docker socket pins to a manager node so
   it shells the swarm's daemon. Fine on the single-node swarm.
 
+## Deploy: digest pinning (www-czg)
+
+The CI deploy webhook (`POST /deploy/<stack>`) carries the per-image digest map
+CI just built: `{"images": {"control-center-bosun": "sha256:…", …}}`. `bosun serve`
+forwards it into `cmdUp` → `renderStackYml`, which rewrites each of our
+`ghcr.io/0x63616c/<name>:main` images to `…@sha256:<digest>` (`pinImage`).
+
+Why: a `docker stack deploy` of an unchanged `:main` string is a no-op spec, so
+the service does **not** roll — unless `--resolve-image` re-resolves `:main` to
+the new digest, which silently failed for the self-deploying `bosun-agent`
+(symptom: agent stuck on the old image, needing a manual `service update
+--force`). A digest is unique per build, so the spec string changes and swarm
+always rolls **exactly** the rebuilt services (un-overridden images keep `:main`
+and don't roll). CI reads each `:main` digest with `docker buildx imagetools
+inspect`. A missing/legacy body (no `images`) falls back to the `:main` tags, so
+manual `curl` triggers still work.
+
 ## Tests
 
 ```sh

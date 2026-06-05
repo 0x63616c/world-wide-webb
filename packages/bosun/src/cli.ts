@@ -141,8 +141,14 @@ async function cmdRoutes(args: string[]): Promise<void> {
 }
 
 // up: plan → secrets sync → routes sync → docker stack deploy → verify.
-async function cmdUp(): Promise<void> {
+// `imageOverrides` (from the deploy webhook body) pins our ghcr images to the
+// exact digests CI built, so the stack deploy reliably rolls changed services
+// instead of depending on :main tag re-resolution (www-czg).
+async function cmdUp(imageOverrides?: Record<string, string>): Promise<void> {
   console.log("[bosun up] Loading config...");
+  if (imageOverrides && Object.keys(imageOverrides).length > 0) {
+    console.log("[bosun up] Pinning images by digest:", imageOverrides);
+  }
   const { default: spec } = (await import(`${process.cwd()}/deploy.config.ts`)) as {
     default: import("./spec.ts").Spec;
   };
@@ -167,7 +173,7 @@ async function cmdUp(): Promise<void> {
 
   console.log("[bosun up] Rendering stack and deploying...");
   const { renderStackYml, deployStack } = await import("./reconcile/stack.ts");
-  const yml = renderStackYml(spec, secretNames);
+  const yml = renderStackYml(spec, secretNames, imageOverrides);
   const deployOut = await deployStack(spec.stackName, yml);
   if (deployOut) console.log(deployOut);
 
@@ -231,7 +237,10 @@ async function cmdServe(): Promise<void> {
         stackName: spec.stackName,
         token,
         // Run deploy in the background; the handler responds 202 immediately.
-        onDeploy: () => cmdUp().catch((err) => console.error("[bosun serve] deploy error:", err)),
+        // The digest map from the webhook body is threaded into the render so
+        // changed services roll deterministically (www-czg).
+        onDeploy: (imageOverrides) =>
+          cmdUp(imageOverrides).catch((err) => console.error("[bosun serve] deploy error:", err)),
       });
     },
   });

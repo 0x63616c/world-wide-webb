@@ -343,6 +343,50 @@ describe("renderStackYml", () => {
     expect(yml).toContain("ghcr.io/0x63616c/control-center-web:main");
   });
 
+  // www-czg: deploys must pin our ghcr images to the exact digest CI just built,
+  // not the mutable :main tag. A changed digest is a changed spec string, so
+  // `docker stack deploy` always rolls the service — without depending on
+  // --resolve-image re-resolving :main (which silently failed to roll the agent).
+  describe("image digest pinning (www-czg)", () => {
+    const digests = {
+      "control-center-api": "sha256:aaa111",
+      "control-center-web": "sha256:bbb222",
+    };
+
+    it("pins an overridden ghcr image to @<digest>, replacing the :main tag", () => {
+      const yml = renderStackYml(spec, secretNames, digests);
+      expect(yml).toContain("image: ghcr.io/0x63616c/control-center-api@sha256:aaa111");
+      expect(yml).toContain("image: ghcr.io/0x63616c/control-center-web@sha256:bbb222");
+      // The mutable tag must be gone for pinned services.
+      expect(yml).not.toContain("control-center-api:main");
+      expect(yml).not.toContain("control-center-web:main");
+    });
+
+    it("leaves a ghcr image NOT in the override map on its :main tag (only rebuilt services roll)", () => {
+      const yml = renderStackYml(spec, secretNames, { "control-center-api": "sha256:aaa111" });
+      expect(yml).toContain("image: ghcr.io/0x63616c/control-center-api@sha256:aaa111");
+      expect(yml).toContain("image: ghcr.io/0x63616c/control-center-web:main");
+    });
+
+    it("leaves third-party images untouched", () => {
+      const tp: Spec = {
+        stackName: "control-center",
+        services: [
+          { name: "postgres", image: "postgres:17-alpine", secrets: [], env: {}, health: [] },
+        ],
+      };
+      const yml = renderStackYml(tp, {}, { "control-center-api": "sha256:aaa111" });
+      expect(yml).toContain("image: postgres:17-alpine");
+    });
+
+    it("is a no-op when no overrides are given (backward compatible)", () => {
+      expect(renderStackYml(spec, secretNames)).toBe(renderStackYml(spec, secretNames, {}));
+      expect(renderStackYml(spec, secretNames)).toContain(
+        "ghcr.io/0x63616c/control-center-api:main",
+      );
+    });
+  });
+
   it("includes env vars for the api service", () => {
     const yml = renderStackYml(spec, secretNames);
     expect(yml).toContain("HA_URL");
