@@ -1,0 +1,20 @@
+{
+  // Typechecks the web test files, which tsconfig.json excludes (so the app
+  // build stays test-free). Without this, type errors in tests are invisible to
+  // `bun run typecheck` (CC-355t.10). vitest/globals types the global
+  // describe/it/expect (vitest.config.ts sets globals:true); jest-dom types the
+  // custom matchers (toBeInTheDocument, etc.).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]
+  },
+  "include": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx",
+    "src/**/__tests__/**/*.ts",
+    "src/**/__tests__/**/*.tsx"
+  ],
+  "exclude": []
+}
