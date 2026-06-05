@@ -74,18 +74,15 @@ jobs:
   build-web:
     needs: changes
     if: needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
-      # QEMU enables emulated arm64 builds on the amd64 runner. The deploy
-      # target (homelab Mac Mini under OrbStack) is arm64, so images MUST
-      # include linux/arm64 or the swarm node rejects them ("no matching
-      # manifest for linux/arm64/v8").
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
+      # Native arm64 runner (ubuntu-24.04-arm) — no QEMU emulation. The deploy
+      # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
+      # runs amd64, so images are built linux/arm64 only. Dropping the emulated
+      # amd64 leg removed the 5-10x QEMU slowdown that dominated build time (CC-4yt).
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -101,7 +98,7 @@ jobs:
         with:
           context: .
           file: apps/web/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64
           push: true
           tags: |
             ghcr.io/0x63616c/control-center-web:${{ github.sha }}
@@ -112,18 +109,15 @@ jobs:
   build-api:
     needs: changes
     if: needs.changes.outputs.api == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
-      # QEMU enables emulated arm64 builds on the amd64 runner. The deploy
-      # target (homelab Mac Mini under OrbStack) is arm64, so images MUST
-      # include linux/arm64 or the swarm node rejects them ("no matching
-      # manifest for linux/arm64/v8").
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
+      # Native arm64 runner (ubuntu-24.04-arm) — no QEMU emulation. The deploy
+      # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
+      # runs amd64, so images are built linux/arm64 only. Dropping the emulated
+      # amd64 leg removed the 5-10x QEMU slowdown that dominated build time (CC-4yt).
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -139,7 +133,7 @@ jobs:
         with:
           context: .
           file: apps/api/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64
           push: true
           tags: |
             ghcr.io/0x63616c/control-center-api:${{ github.sha }}
@@ -150,18 +144,15 @@ jobs:
   build-storybook:
     needs: changes
     if: needs.changes.outputs.storybook == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
-      # QEMU enables emulated arm64 builds on the amd64 runner. The deploy
-      # target (homelab Mac Mini under OrbStack) is arm64, so images MUST
-      # include linux/arm64 or the swarm node rejects them ("no matching
-      # manifest for linux/arm64/v8").
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
+      # Native arm64 runner (ubuntu-24.04-arm) — no QEMU emulation. The deploy
+      # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
+      # runs amd64, so images are built linux/arm64 only. Dropping the emulated
+      # amd64 leg removed the 5-10x QEMU slowdown that dominated build time (CC-4yt).
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -177,7 +168,7 @@ jobs:
         with:
           context: .
           file: apps/web/Dockerfile.storybook
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64
           push: true
           tags: |
             ghcr.io/0x63616c/control-center-storybook:${{ github.sha }}
@@ -188,18 +179,15 @@ jobs:
   build-bosun:
     needs: changes
     if: needs.changes.outputs.bosun == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
-      # QEMU enables emulated arm64 builds on the amd64 runner. The deploy
-      # target (homelab Mac Mini under OrbStack) is arm64, so images MUST
-      # include linux/arm64 or the swarm node rejects them ("no matching
-      # manifest for linux/arm64/v8").
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
+      # Native arm64 runner (ubuntu-24.04-arm) — no QEMU emulation. The deploy
+      # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
+      # runs amd64, so images are built linux/arm64 only. Dropping the emulated
+      # amd64 leg removed the 5-10x QEMU slowdown that dominated build time (CC-4yt).
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -215,7 +203,7 @@ jobs:
         with:
           context: .
           file: packages/bosun/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64
           push: true
           tags: |
             ghcr.io/0x63616c/control-center-bosun:${{ github.sha }}
