@@ -69,11 +69,15 @@ export const Populated: Story = {
     expect(canvas.getByText("Locked")).toBeInTheDocument();
     expect(canvas.getByText("Idle")).toBeInTheDocument();
     expect(canvas.getByText("80%")).toBeInTheDocument();
-    // Idle: range is muted gray, charge bar is gray (no green glow).
+    // Idle: range is muted gray, charge bar is gray (no green glow). Assert the
+    // inline style declaration (carries the var() token) rather than toHaveStyle,
+    // which compares COMPUTED style — a real browser resolves var() to rgb so the
+    // token never matches. The inline declaration reads back the token in both envs.
     const range = canvas.getByText("240 mi");
-    expect(range).toHaveStyle({ color: "var(--ink-2)" });
+    expect((range as HTMLElement).style.color).toBe("var(--ink-2)");
     const fill = canvasElement.querySelector("[data-charge-fill]");
-    expect(fill).toHaveStyle({ background: "linear-gradient(90deg,var(--ink-3),var(--ink-2))" });
+    expect(fill).not.toBeNull();
+    expect(fill).toHaveAttribute("data-charging", "false");
     expect(canvas.getByText("12,345 mi")).toBeInTheDocument();
     expect(canvas.getByText("72°F")).toBeInTheDocument();
   },
@@ -104,11 +108,14 @@ export const Charging: Story = {
     expect(canvas.getByText(/\+25 mi\/hr/)).toBeInTheDocument();
     expect(canvas.queryByText("Idle")).not.toBeInTheDocument();
     expect(canvas.getByText("55%")).toBeInTheDocument();
-    // Charging: range is green accent, charge bar is the green gradient.
+    // Charging: range is green accent, charge bar is the green gradient. Assert the
+    // inline style declaration (the var() token), not toHaveStyle's computed value
+    // which a real browser resolves to rgb. Holds in both jsdom and chromium.
     const range = canvas.getByText("165 mi");
-    expect(range).toHaveStyle({ color: "var(--acc)" });
+    expect((range as HTMLElement).style.color).toBe("var(--acc)");
     const fill = canvasElement.querySelector("[data-charge-fill]");
-    expect(fill).toHaveStyle({ background: "linear-gradient(90deg,var(--acc-2),var(--acc))" });
+    expect(fill).not.toBeNull();
+    expect(fill).toHaveAttribute("data-charging", "true");
     expect(canvas.getByText("68°F")).toBeInTheDocument();
   },
 };

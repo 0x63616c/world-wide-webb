@@ -99,9 +99,11 @@ jobs:
         # bypass (or a hook that isn't installed on a contributor's machine)
         # would otherwise ship lint regressions undetected (CC-355t.6).
         run: bunx biome check .
+      - name: Install Playwright Chromium (for Storybook browser tests)
+        run: bunx playwright install --with-deps chromium
       - name: Typecheck
         run: bun run typecheck
-      - name: Test with coverage
+      - name: Test with coverage (unit jsdom + Storybook chromium, merged)
         run: bun run test:coverage
       - name: Regenerate badge JSON
         run: bun run badges
