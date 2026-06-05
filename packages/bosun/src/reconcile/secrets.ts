@@ -26,13 +26,13 @@ export interface ReconcileSecretsResult {
 // Derive the immutable hashed docker secret name for a given declared name + value.
 // Docker secrets are immutable; a value change produces a new name, triggering a
 // rolling service update and eventual prune of the old entry.
-// NOTE: the cc_ prefix is legacy; www-8pt migrates it to a stackName-derived
-// namespace. Prune now runs AFTER deploy (see pruneSecrets), so renaming an
-// in-use secret no longer aborts the deploy — the create+rename flips here and
-// the old name is pruned once the redeploy has re-pointed services off it.
-function secretDockerName(declaredName: string, value: string): string {
+// The name is namespaced by the swarm stack (e.g. control-center_HA_TOKEN_<hash>)
+// so the stack is the single source of truth — no magic prefix. The legacy cc_
+// prefix was migrated to this in www-8pt; prune runs AFTER deploy (see
+// pruneSecrets) so the rename flips here without aborting an in-flight deploy.
+function secretDockerName(stackName: string, declaredName: string, value: string): string {
   const hash = createHash("sha256").update(value).digest("hex").slice(0, 8);
-  return `cc_${declaredName}_${hash}`;
+  return `${stackName}_${declaredName}_${hash}`;
 }
 
 // Label key used to scope all secrets to this stack. Only secrets carrying this
@@ -54,7 +54,7 @@ export async function reconcileSecrets(
   // Compute the hashed name for every declared secret.
   const declared = secrets.map((s) => ({
     declaredName: s.name,
-    dockerName: secretDockerName(s.name, s.resolvedValue),
+    dockerName: secretDockerName(stackName, s.name, s.resolvedValue),
     value: s.resolvedValue,
   }));
 
