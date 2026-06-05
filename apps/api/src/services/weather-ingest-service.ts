@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 
 import { db } from "../db/index";
 import { integrationSyncStatus, weatherDailyReading, weatherReading } from "../db/schema";
@@ -7,37 +8,43 @@ import { env } from "../env";
 const INGEST_INTEGRATION_ID = "weather";
 const INGEST_INTERVAL_MS = 5 * 60_000;
 
-export interface OpenMeteoBundle {
-  current: {
-    time: string;
-    temperature_2m: number;
-    apparent_temperature: number;
-    relative_humidity_2m: number;
-    weather_code: number;
-    wind_speed_10m: number;
-    is_day: number;
-    uv_index: number;
-  };
-  hourly: {
-    time: string[];
-    temperature_2m: number[];
-    apparent_temperature: number[];
-    relative_humidity_2m: number[];
-    weather_code: number[];
-    wind_speed_10m: number[];
-    is_day: number[];
-    precipitation_probability: number[];
-  };
-  daily: {
-    time: string[];
-    temperature_2m_max: number[];
-    temperature_2m_min: number[];
-    weather_code: number[];
-    precipitation_probability_max: (number | null)[];
-    sunrise: string[];
-    sunset: string[];
-  };
-}
+// Edge schema: Open-Meteo's response is parsed here so the ingest cycle works
+// with validated data and a malformed/changed payload fails loudly at the
+// boundary instead of writing garbage rows (www-355t.16). The type is inferred
+// from the schema so there's a single source of truth.
+const openMeteoBundleSchema = z.object({
+  current: z.object({
+    time: z.string(),
+    temperature_2m: z.number(),
+    apparent_temperature: z.number(),
+    relative_humidity_2m: z.number(),
+    weather_code: z.number(),
+    wind_speed_10m: z.number(),
+    is_day: z.number(),
+    uv_index: z.number(),
+  }),
+  hourly: z.object({
+    time: z.array(z.string()),
+    temperature_2m: z.array(z.number()),
+    apparent_temperature: z.array(z.number()),
+    relative_humidity_2m: z.array(z.number()),
+    weather_code: z.array(z.number()),
+    wind_speed_10m: z.array(z.number()),
+    is_day: z.array(z.number()),
+    precipitation_probability: z.array(z.number().nullable()),
+  }),
+  daily: z.object({
+    time: z.array(z.string()),
+    temperature_2m_max: z.array(z.number()),
+    temperature_2m_min: z.array(z.number()),
+    weather_code: z.array(z.number()),
+    precipitation_probability_max: z.array(z.number().nullable()),
+    sunrise: z.array(z.string()),
+    sunset: z.array(z.string()),
+  }),
+});
+
+export type OpenMeteoBundle = z.infer<typeof openMeteoBundleSchema>;
 
 // One Open-Meteo call per ingest cycle. past_days=1 returns the recently settled
 // hours (used to record observed actuals); forecast_days=7 gives 24h+ of forward
@@ -56,7 +63,7 @@ export async function fetchOpenMeteoBundle(
 
   const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as OpenMeteoBundle;
+  return openMeteoBundleSchema.parse(await res.json());
 }
 
 // Round to the current wall-clock hour. timezone=auto means Open-Meteo's

@@ -92,6 +92,15 @@ describe("fetchOpenMeteoBundle", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("bad", { status: 502 }));
     await expect(fetchOpenMeteoBundle(0, 0)).rejects.toThrow("HTTP 502");
   });
+
+  it("rejects a malformed payload at the edge (www-355t.16)", async () => {
+    // 200 OK but the shape is wrong (current.temperature_2m is a string) — the
+    // Zod schema must reject it rather than letting NaN rows be written.
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ current: { temperature_2m: "warm" } }), { status: 200 }),
+    );
+    await expect(fetchOpenMeteoBundle(0, 0)).rejects.toThrow();
+  });
 });
 
 describe("runWeatherIngestCycle", () => {

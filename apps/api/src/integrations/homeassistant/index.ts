@@ -1,5 +1,6 @@
+import { z } from "zod";
 import { env } from "../../env";
-import { type HaEntity, HaError } from "./types";
+import { type HaEntity, HaError, haEntitySchema } from "./types";
 
 const HA_REQUEST_TIMEOUT_MS = 5_000;
 
@@ -46,13 +47,13 @@ export class HomeAssistantClient {
 
   /** All entities in a domain (e.g. "light", "climate"). */
   async getEntities(domain: string): Promise<HaEntity[]> {
-    const all = await this.request<HaEntity[]>("/api/states");
+    const all = z.array(haEntitySchema).parse(await this.request<unknown>("/api/states"));
     return all.filter((e) => e.entity_id.startsWith(`${domain}.`));
   }
 
   /** A single entity by id (e.g. "light.living_room"). */
   async getEntity(entityId: string): Promise<HaEntity> {
-    return this.request<HaEntity>(`/api/states/${entityId}`);
+    return haEntitySchema.parse(await this.request<unknown>(`/api/states/${entityId}`));
   }
 
   /** Call a service (e.g. callService("light", "turn_on", { entity_id })). */
