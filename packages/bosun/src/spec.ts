@@ -187,14 +187,25 @@ export function postgres(opts: {
   init?: string[];
   image?: string;
   secretRef?: string;
+  // Database created on a FRESH volume init. Defaults to the api's expected db
+  // name (apps/api/src/env.ts: POSTGRES_DB ?? "control_center"). POSTGRES_DB is
+  // honoured by the postgres image ONLY on first init, so it is inert against an
+  // existing data volume — safe to add to the live spec without forcing a
+  // destructive re-init, while a volume-loss rebuild correctly recreates it.
+  db?: string;
 }): ServiceSpec {
   return {
     name: "postgres",
     image: opts.image ?? "postgres:17-alpine",
     secrets: opts.secretRef ? [{ name: "POSTGRES_PASSWORD", ref: opts.secretRef }] : [],
-    // Read the superuser password from the mounted secret file so the value
-    // never lands in the service env/spec. Omitted in dev/test (no secretRef).
-    env: opts.secretRef ? { POSTGRES_PASSWORD_FILE: "/run/secrets/POSTGRES_PASSWORD" } : {},
+    // POSTGRES_DB names the database created on a fresh init (always set, so a
+    // rebuilt volume matches what the api connects to). The superuser password is
+    // read from the mounted secret FILE so the value never lands in the service
+    // env/spec; POSTGRES_PASSWORD_FILE is omitted in dev/test (no secretRef).
+    env: {
+      POSTGRES_DB: opts.db ?? "control_center",
+      ...(opts.secretRef ? { POSTGRES_PASSWORD_FILE: "/run/secrets/POSTGRES_PASSWORD" } : {}),
+    },
     // Persist the data dir on the named volume, or every redeploy starts from an
     // empty database. The renderer pins this to the managed cc_<volume> volume.
     volumes: [`${opts.volume}:/var/lib/postgresql/data`],
