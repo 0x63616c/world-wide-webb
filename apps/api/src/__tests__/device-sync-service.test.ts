@@ -34,7 +34,12 @@ vi.mock("../integrations/homeassistant", () => ({
 
 // ─── import after mocks ──────────────────────────────────────────────────────
 
-import { mergeDeviceState, reconcile, sweepExpiredWindows } from "../services/device-sync-service";
+import {
+  mergeDeviceState,
+  reconcile,
+  runDeviceSyncCycle,
+  sweepExpiredWindows,
+} from "../services/device-sync-service";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -281,5 +286,46 @@ describe("sweepExpiredWindows", () => {
         (c[0] as Record<string, unknown>).status === "timeout",
     );
     expect(timeoutCall).toBeDefined();
+  });
+});
+
+// ─── heartbeat / consecutiveFailures transitions (www-355t.9) ──────────────────
+
+describe("runDeviceSyncCycle heartbeat", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("resets consecutiveFailures to 0 on a successful cycle", async () => {
+    mockGetEntities.mockResolvedValue([]); // empty snapshot, reconcile no-ops
+    mockDbSelect.mockReturnValue(makeSelectChain([])); // devices [], sweep []
+
+    const insertValues = vi
+      .fn()
+      .mockReturnValue({ onConflictDoUpdate: vi.fn().mockResolvedValue(undefined) });
+    mockDbInsert.mockReturnValue({ values: insertValues });
+
+    await runDeviceSyncCycle();
+
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ lastError: null, consecutiveFailures: 0 }),
+    );
+  });
+
+  it("increments consecutiveFailures from the prior streak on a failed cycle", async () => {
+    mockGetEntities.mockRejectedValue(new Error("HA down")); // fetchSnapshot throws
+    // currentFailureStreak() reads the prior row: 2 consecutive failures so far.
+    mockDbSelect.mockReturnValue(makeSelectChain([{ n: 2 }]));
+
+    const insertValues = vi
+      .fn()
+      .mockReturnValue({ onConflictDoUpdate: vi.fn().mockResolvedValue(undefined) });
+    mockDbInsert.mockReturnValue({ values: insertValues });
+
+    await runDeviceSyncCycle();
+
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ lastError: "HA down", consecutiveFailures: 3 }),
+    );
   });
 });

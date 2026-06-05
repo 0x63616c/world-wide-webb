@@ -1,3 +1,5 @@
+import { eq } from "drizzle-orm";
+
 import { db } from "../db/index";
 import { integrationSyncStatus, weatherDailyReading, weatherReading } from "../db/schema";
 import { env } from "../env";
@@ -117,18 +119,31 @@ export async function runWeatherIngestCycle(): Promise<void> {
 
 async function markHeartbeat(error: string | null): Promise<void> {
   const now = new Date();
+  // Reset to 0 on success, increment the prior value on error so the column is
+  // a real consecutive-failure streak (www-355t.9). Single sequential poller, so
+  // the read-modify-write is race-free.
+  const consecutiveFailures = error ? (await currentFailureStreak()) + 1 : 0;
   await db
     .insert(integrationSyncStatus)
     .values({
       integrationId: INGEST_INTEGRATION_ID,
       lastPolledAtUtc: now,
       lastError: error,
-      consecutiveFailures: 0,
+      consecutiveFailures,
     })
     .onConflictDoUpdate({
       target: integrationSyncStatus.integrationId,
-      set: { lastPolledAtUtc: now, lastError: error, consecutiveFailures: 0 },
+      set: { lastPolledAtUtc: now, lastError: error, consecutiveFailures },
     });
+}
+
+async function currentFailureStreak(): Promise<number> {
+  const rows = await db
+    .select({ n: integrationSyncStatus.consecutiveFailures })
+    .from(integrationSyncStatus)
+    .where(eq(integrationSyncStatus.integrationId, INGEST_INTEGRATION_ID))
+    .limit(1);
+  return rows[0]?.n ?? 0;
 }
 
 export interface WeatherIngestHandle {
