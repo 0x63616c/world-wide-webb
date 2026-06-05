@@ -8,10 +8,19 @@ permissions:
   contents: read
   packages: write
 
+# Stop a superseded push from running builds in parallel: a newer push to the
+# same ref cancels the in-progress run instantly instead of letting both burn
+# runner minutes. Combined with per-job timeout-minutes below, this caps the
+# Actions-minute blast radius of rapid pushes and hung builds (www-c0m).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Determine which apps actually changed so we only rebuild what's needed.
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       web: ${{ steps.filter.outputs.web }}
       api: ${{ steps.filter.outputs.api }}
@@ -66,6 +75,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -103,6 +113,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -140,6 +151,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.storybook == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -177,6 +189,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.bosun == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -224,6 +237,7 @@ jobs:
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       # Read each image's current :main digest so the deploy pins by digest
       # (www-czg): a changed digest is a changed stack spec, so docker stack deploy
