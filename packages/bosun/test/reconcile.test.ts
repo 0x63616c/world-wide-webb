@@ -421,6 +421,80 @@ describe("renderStackYml", () => {
     expect(yml).toContain("    name: cc_pgdata");
   });
 
+  // CC-5ag.12: web/api/postgres must carry a Docker HEALTHCHECK so swarm tracks
+  // container health (State.Health.Status) — distinct from bosun's external verify
+  // probes (`health`), which run from the deploy host, not inside the container.
+  describe("container healthcheck (CC-5ag.12)", () => {
+    const hcSpec: Spec = {
+      stackName: "control-center",
+      services: [
+        {
+          name: "api",
+          image: "ghcr.io/0x63616c/control-center-api:main",
+          secrets: [],
+          env: {},
+          port: 4201,
+          healthcheck: {
+            test: "wget -q -O /dev/null http://localhost:4201/up || exit 1",
+            interval: "30s",
+            timeout: "5s",
+            retries: 3,
+            startPeriod: "20s",
+          },
+          health: [],
+        },
+        {
+          // No healthcheck declared — must render no healthcheck block.
+          name: "cloudflared",
+          image: "cloudflare/cloudflared:2025.10.1",
+          secrets: [],
+          env: {},
+          health: [],
+        },
+      ],
+    };
+
+    it("renders a CMD-SHELL healthcheck with interval/timeout/retries/start_period", () => {
+      const yml = renderStackYml(hcSpec, {});
+      expect(yml).toContain("    healthcheck:");
+      expect(yml).toContain(
+        '      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:4201/up || exit 1"]',
+      );
+      expect(yml).toContain("      interval: 30s");
+      expect(yml).toContain("      timeout: 5s");
+      expect(yml).toContain("      retries: 3");
+      expect(yml).toContain("      start_period: 20s");
+    });
+
+    it("omits the healthcheck block for a service without one", () => {
+      const yml = renderStackYml(hcSpec, {});
+      // cloudflared section has no healthcheck — only api's block exists.
+      expect((yml.match(/healthcheck:/g) ?? []).length).toBe(1);
+    });
+
+    it("applies interval/timeout/retries/start_period defaults when omitted", () => {
+      const minimal: Spec = {
+        stackName: "control-center",
+        services: [
+          {
+            name: "postgres",
+            image: "postgres:17-alpine",
+            secrets: [],
+            env: {},
+            healthcheck: { test: "pg_isready -U postgres" },
+            health: [],
+          },
+        ],
+      };
+      const yml = renderStackYml(minimal, {});
+      expect(yml).toContain('test: ["CMD-SHELL", "pg_isready -U postgres"]');
+      expect(yml).toContain("interval: 30s");
+      expect(yml).toContain("timeout: 5s");
+      expect(yml).toContain("retries: 3");
+      expect(yml).toContain("start_period: 20s");
+    });
+  });
+
   it("passes bind mounts through unchanged and does not declare them as named volumes", () => {
     const bindSpec: Spec = {
       stackName: "control-center",

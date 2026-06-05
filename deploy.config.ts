@@ -11,6 +11,7 @@ import {
   cronJob,
   fromOp,
   ghcr,
+  healthcheck,
   httpProbe,
   postgres,
   service,
@@ -44,6 +45,12 @@ export default stack("control-center", {
         // the service spec. postgres host/db/user use the env.ts defaults.
       },
       port: 4201,
+      // Swarm-tracked liveness from inside the container: the bun-alpine runtime
+      // ships wget (no curl); /up is the api's own readiness endpoint. start_period
+      // covers boot + drizzle migrate-on-boot before failures count.
+      healthcheck: healthcheck("wget -q -O /dev/null http://localhost:4201/up || exit 1", {
+        startPeriod: "40s",
+      }),
       health: [
         httpProbe("http://api:4201/up", 200),
         cmdProbe("live HA data", "curl -sf http://api:4201/api/climate.now | jq -e .tempC"),
@@ -63,6 +70,10 @@ export default stack("control-center", {
       port: 80,
       volumes: ["/Users/calum/control-center/maps:/usr/share/nginx/html/maps:ro"],
       placement: ["node.role==manager"],
+      // Swarm-tracked liveness: nginx:alpine ships curl; hit the local root so the
+      // check stays inside the container (not out through Cloudflare like the
+      // verify probe below).
+      healthcheck: healthcheck("curl -fsS http://localhost:80/ -o /dev/null || exit 1"),
       health: [
         httpProbe("https://dashboard.worldwidewebb.co", 200, { certValid: true }),
         // The basemap must be present AND served over range requests with the
