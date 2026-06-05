@@ -74,7 +74,10 @@ export function Next12HoursView(props: Next12HoursViewProps) {
   const n = hours.length;
   const feels = hours.map((x) => x.feels);
   const gMin = Math.min(...hours.map((x) => x.temp), ...feels);
-  const gMax = Math.max(...hours.map((x) => x.temp));
+  // feels must bound gMax as well as gMin — otherwise a feels value hotter than the
+  // hottest temp lands above the band top and the overflow:visible overlay paints
+  // the dashed line up over the header/title.
+  const gMax = Math.max(...hours.map((x) => x.temp), ...feels);
 
   // Measured bar-band dimensions drive the value→height scale (h) and the
   // feels-like overlay's pixel coords (w). Bar heights are px so MIN_BAR and
