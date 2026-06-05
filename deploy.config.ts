@@ -51,12 +51,28 @@ export default stack("control-center", {
     }),
 
     // Web: static build + /api reverse-proxy, public via Cloudflare tunnel.
+    // The Tesla-map basemap (/maps/*.pmtiles) is too large to bake into the image
+    // (100s of MB), so it is served off a host bind mount populated by the
+    // `map-extract` job below (www-gma). nginx serves it with byte-range support,
+    // which is exactly what the pmtiles client needs. The mount is host-node-local,
+    // so the service is pinned to the manager (the single Swarm node holding it).
     service("web", {
       image: ghcr("control-center-web"),
       route: "dashboard.worldwidewebb.co",
       proxyApiTo: "api:4201",
       port: 80,
-      health: [httpProbe("https://dashboard.worldwidewebb.co", 200, { certValid: true })],
+      volumes: ["/Users/calum/control-center/maps:/usr/share/nginx/html/maps:ro"],
+      placement: ["node.role==manager"],
+      health: [
+        httpProbe("https://dashboard.worldwidewebb.co", 200, { certValid: true }),
+        // The basemap must be present AND served over range requests with the
+        // PMTiles v3 magic ("PMTiles" is the first 7 bytes) — a permanent guard
+        // against the archive going missing or a non-range server shadowing it.
+        cmdProbe(
+          "basemap pmtiles served",
+          "curl -sf -r 0-6 https://dashboard.worldwidewebb.co/maps/socal.pmtiles | grep -q PMTiles",
+        ),
+      ],
     }),
 
     // Storybook: component library, public via Cloudflare tunnel.
@@ -133,6 +149,32 @@ export default stack("control-center", {
       schedule: "0 3 * * *",
       command: 'docker image prune -a -f --filter "until=720h"',
       volumes: ["/var/run/docker.sock:/var/run/docker.sock"],
+      placement: ["node.role==manager"],
+    }),
+
+    // Tesla-map basemap provisioner (www-gma). The live map (TeslaMap.tsx) reads a
+    // Protomaps .pmtiles archive over HTTP range requests from /maps/socal.pmtiles,
+    // served by the web nginx off the host bind mount above. The archive is 100s of
+    // MB — too large for git or the image — so it is NOT baked in: this job
+    // range-extracts the region straight from the Protomaps daily planet build onto
+    // the host volume the web service mounts. The recipe (bbox/maxzoom/build date)
+    // lives in git for reproducibility; only the bytes stay on the host. Re-extract,
+    // or expand the extent (e.g. full CA+AZ+NV), by editing the args here and
+    // running `bosun run-job map-extract` — the whole map is a one-line config diff.
+    //
+    // The go-pmtiles image is distroless (no shell) with the pmtiles binary as its
+    // entrypoint, so `command` is the bare `extract` subcommand. The schedule is
+    // required by cronJob() but this job is driven MANUALLY via `run-job`; a rare
+    // cron (Jan 1) keeps it declarative without risking surprise multi-GB
+    // re-downloads. Protomaps retains only ~7 days of builds, so bump the date when
+    // you re-provision.
+    cronJob("map-extract", {
+      image: "ghcr.io/protomaps/go-pmtiles:v1.30.3",
+      schedule: "0 5 1 1 *",
+      command:
+        "extract https://build.protomaps.com/20260604.pmtiles /out/socal.pmtiles " +
+        "--bbox=-121.0,32.4,-114.0,35.9 --maxzoom=15",
+      volumes: ["/Users/calum/control-center/maps:/out"],
       placement: ["node.role==manager"],
     }),
   ],
