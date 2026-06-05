@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildJobCommand,
   cronMatches,
@@ -92,6 +92,43 @@ describe("cronMatches — 5-field cron matching (local wall clock)", () => {
   it("rejects out-of-range values", () => {
     expect(() => cronMatches("60 * * * *", thu0303)).toThrow();
     expect(() => cronMatches("* 24 * * *", thu0303)).toThrow();
+  });
+});
+
+// www-dd0: the scheduler matches cron against the container's LOCAL wall clock
+// (getHours/getDate, not the UTC accessors), so the container TZ decides when a
+// job fires. The agent image bakes TZ=America/Los_Angeles, so `0 3 * * *` must
+// fire at 03:00 LA, NOT 03:00 UTC (which is ~8pm LA, on-peak — the bug).
+//
+// These tests pin TZ around a fixed UTC instant and assert the LA interpretation
+// matches while the UTC one does not. Bun re-reads process.env.TZ per Date
+// construction, so stubbing it is a faithful stand-in for the container's TZ.
+describe("cronMatches — interprets the wall clock in the container TZ (www-dd0)", () => {
+  // 2026-06-04T10:00:00Z. In LA (PDT, UTC-7 in June) that is 03:00 local.
+  const utcInstant = new Date(Date.UTC(2026, 5, 4, 10, 0, 0));
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("fires the nightly 03:00 prune at 03:00 LA, not 03:00 UTC", () => {
+    vi.stubEnv("TZ", "America/Los_Angeles");
+    // 10:00 UTC == 03:00 PDT: the LA-local 03:00 slot matches.
+    expect(cronMatches("0 3 * * *", utcInstant)).toBe(true);
+
+    vi.stubEnv("TZ", "UTC");
+    // Same instant read as UTC is 10:00, so the 03:00 slot does NOT match —
+    // this is exactly the pre-fix behaviour the LA container TZ corrects.
+    expect(cronMatches("0 3 * * *", utcInstant)).toBe(false);
+    // Under UTC the instant is the 10:00 slot instead.
+    expect(cronMatches("0 10 * * *", utcInstant)).toBe(true);
+  });
+
+  it("DST shifts the UTC offset automatically via the IANA zone (winter case)", () => {
+    // 2026-01-15T11:00:00Z. In LA (PST, UTC-8 in January) that is 03:00 local.
+    const winter = new Date(Date.UTC(2026, 0, 15, 11, 0, 0));
+    vi.stubEnv("TZ", "America/Los_Angeles");
+    expect(cronMatches("0 3 * * *", winter)).toBe(true);
   });
 });
 
