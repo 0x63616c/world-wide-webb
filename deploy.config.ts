@@ -1,6 +1,10 @@
 // Control-center deployment manifest. Pure data — no I/O, no side effects.
 // Secret refs point at 1Password items; values are resolved at sync time only.
 // See docs/deployment-design.md Part 6 for the full spec.
+//
+// Images declare the mutable :main tag here (via ghcr()); at deploy time the CI
+// webhook supplies the exact per-image digest and renderStackYml pins each to
+// ...@sha256:<digest>, so a stack deploy rolls only the rebuilt services (www-czg).
 
 import {
   cmdProbe,
