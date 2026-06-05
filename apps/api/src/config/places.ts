@@ -2,12 +2,15 @@
  * Named places for the Tesla map pill (CC-6gx).
  *
  * When the car's GPS falls within `radiusMiles` of a place, the map pill shows
- * that place's name instead of the raw Home Assistant zone. Coordinates are not
- * secrets, so this is declared in source — NOT an env var.
+ * that place's name instead of the raw Home Assistant zone.
  *
- * Order is priority: the FIRST place whose radius contains the point wins, so
- * list smaller/more-specific places before broader ones that might overlap.
+ * The home place is built from the HOME_* env (real values from 1Password in
+ * prod, a public placeholder default otherwise) so no home address is baked into
+ * the open-source repo (CC-mqp). Add further named places to this array; order
+ * is priority — the FIRST place whose radius contains the point wins, so list
+ * smaller/more-specific places before broader ones that might overlap.
  */
+import { env } from "../env";
 
 export interface NamedPlace {
   /** Human label shown on the map pill. */
@@ -19,7 +22,12 @@ export interface NamedPlace {
 }
 
 export const PLACES: readonly NamedPlace[] = [
-  { name: "Home", lat: 34.0537, lon: -118.2428, radiusMiles: 1 },
+  {
+    name: env.HOME_PLACE_NAME,
+    lat: env.HOME_LAT,
+    lon: env.HOME_LON,
+    radiusMiles: env.HOME_RADIUS_MILES,
+  },
 ];
 
 // Mean Earth radius in miles, for the haversine great-circle distance.

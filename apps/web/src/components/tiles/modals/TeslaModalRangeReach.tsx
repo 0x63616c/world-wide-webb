@@ -27,14 +27,12 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { layers, namedFlavor } from "@protomaps/basemaps";
 import { Protocol } from "pmtiles";
 import { useEffect, useRef } from "react";
+import { HOME_LAT, HOME_LON } from "../../../config/home";
 import { Modal } from "../../ui";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-// Home — the car's home. Duplicated here (also in TeslaMap +
-// api/config/places.ts) so this pure-view modal has no cross-package import.
-const HOME_LAT = 34.0537;
-const HOME_LON = -118.2428;
+// Home anchor (public placeholder) — single source of truth in config/home.ts.
 
 // Miles → metres conversion for the circle geometry.
 const MILES_TO_METRES = 1609.344;

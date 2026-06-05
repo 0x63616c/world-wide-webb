@@ -50,8 +50,8 @@ const fullCar: Record<string, HaEntity> = {
   "sensor.evee_inside_temperature": makeEntity("sensor.evee_inside_temperature", "71.96"),
   "lock.evee_lock": makeEntity("lock.evee_lock", LockState.Locked),
   "device_tracker.evee_location": makeEntity("device_tracker.evee_location", "home", {
-    latitude: 34.061183,
-    longitude: -118.284533,
+    latitude: 34.0537,
+    longitude: -118.2428,
     source_type: "gps",
   }),
   "climate.evee_hvac_climate_system": makeEntity("climate.evee_hvac_climate_system", "heat_cool"),
@@ -94,9 +94,9 @@ describe("getTeslaData", () => {
     expect(data.range).toBe(169); // rounded
     expect(data.climate).toBe(72); // 71.96 rounded
     expect(data.locked).toBe(true);
-    expect(data.lat).toBeCloseTo(34.061183);
-    expect(data.lon).toBeCloseTo(-118.284533);
-    expect(data.place).toBe("Home"); // GPS within Home radius -> named place
+    expect(data.lat).toBeCloseTo(34.0537);
+    expect(data.lon).toBeCloseTo(-118.2428);
+    expect(data.place).toBe("Home"); // GPS within home radius -> named place
     // Odometer entity is disabled in the integration -> honest "—" absence.
     expect(data.odo).toBe("—");
   });
@@ -256,7 +256,7 @@ describe("tesla mutations", () => {
   });
 
   it("resolves the named place when GPS is within radius even off a non-home zone", async () => {
-    // Car physically at Home but HA reports a stale/other zone state — GPS wins.
+    // Car physically at home but HA reports a stale/other zone state — GPS wins.
     vi.mocked(ha.isConfigured).mockReturnValue(true);
     mockStates({
       ...fullCar,

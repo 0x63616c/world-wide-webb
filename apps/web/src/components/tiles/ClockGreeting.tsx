@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { HOME_LABEL } from "../../config/home";
 import { ClockGreetingView } from "./ClockGreetingView";
 
 function useNow(): Date {
@@ -37,7 +38,7 @@ export function ClockGreeting() {
       minutes={minutes}
       ampm={ampm}
       fullDate={fullDate}
-      location="Home"
+      location={HOME_LABEL}
       seconds={d.getSeconds()}
     />
   );

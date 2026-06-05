@@ -15,7 +15,7 @@ const baseProps = {
   minutes: "30",
   ampm: "AM" as const,
   fullDate: "Friday, May 29, 2026",
-  location: "Home",
+  location: "Los Angeles",
 };
 
 describe("ClockGreetingView", () => {
@@ -57,7 +57,7 @@ describe("ClockGreetingView", () => {
 
   it("renders the location string", () => {
     render(<ClockGreetingView {...baseProps} />);
-    expect(screen.getByText(/home/i)).toBeDefined();
+    expect(screen.getByText(/los angeles/i)).toBeDefined();
   });
 
   it("renders the correct greeting for afternoon", () => {

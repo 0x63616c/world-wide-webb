@@ -12,7 +12,7 @@ const meta = {
     minutes: "30",
     ampm: "AM",
     fullDate: "Saturday, May 31, 2026",
-    location: "Home",
+    location: "Los Angeles",
   },
   argTypes: {
     greeting: {
@@ -36,7 +36,7 @@ export const Populated: Story = {
     await expect(canvas.getByText(/good morning/i)).toBeTruthy();
     await expect(canvas.getByTestId("clock-ampm")).toBeTruthy();
     await expect(canvas.getByTestId("clock-date")).toBeTruthy();
-    await expect(canvas.getByText(/home/i)).toBeTruthy();
+    await expect(canvas.getByText(/los angeles/i)).toBeTruthy();
   },
 };
 

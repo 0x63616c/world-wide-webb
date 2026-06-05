@@ -29,6 +29,14 @@ export default stack("control-center", {
         WIFI_SSID: "WiFi Guest Credentials/ssid",
         WIFI_PASSWORD: "WiFi Guest Credentials/password",
         POSTGRES_PASSWORD: "Control Center Postgres/password",
+        // Home location is private (not a credential, but it is a home address)
+        // so it rides the op→docker-secret rail instead of being baked into the
+        // open-source repo. env.ts ships a public LA placeholder default; these
+        // deliver the real values. See scripts/save-home-location.sh (CC-mqp).
+        HOME_LAT: "Home Location/lat",
+        HOME_LON: "Home Location/lon",
+        HOME_PLACE_NAME: "Home Location/place_name",
+        HOME_RADIUS_MILES: "Home Location/radius_miles",
       }),
       env: {
         NODE_ENV: "production",

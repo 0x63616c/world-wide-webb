@@ -12,8 +12,10 @@ test("env schema parses with empty environment", () => {
   expect(env.HA_TOKEN).toBe("");
   expect(env.HA_URL).toBe("http://homeassistant.local:8123");
   expect(env.DATABASE_URL).toBe("postgresql://cc:cc@localhost:5432/controlcenter");
-  expect(env.LAT).toBe(34.0537);
-  expect(env.LON).toBe(-118.2428);
+  expect(env.HOME_LAT).toBe(34.0537);
+  expect(env.HOME_LON).toBe(-118.2428);
+  expect(env.HOME_PLACE_NAME).toBe("Home");
+  expect(env.HOME_RADIUS_MILES).toBe(1);
 });
 
 // In the Swarm the Postgres password is a mounted docker secret file, not an

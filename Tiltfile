@@ -59,6 +59,12 @@ local_resource(
         "UNIFI_API_KEY": secrets["UNIFI_API_KEY"],
         "WIFI_SSID": secrets["WIFI_SSID"],
         "WIFI_PASSWORD": secrets["WIFI_PASSWORD"],
+        # Real home location from 1Password so local dev matches prod; env.ts
+        # falls back to the public LA placeholder if these are absent (CC-mqp).
+        "HOME_LAT": secrets["HOME_LAT"],
+        "HOME_LON": secrets["HOME_LON"],
+        "HOME_PLACE_NAME": secrets["HOME_PLACE_NAME"],
+        "HOME_RADIUS_MILES": secrets["HOME_RADIUS_MILES"],
     },
     readiness_probe=probe(
         http_get=http_get_action(port=port_api, path="/up"),
