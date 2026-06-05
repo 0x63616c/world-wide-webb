@@ -7,6 +7,11 @@
 // be both square and tile-aligned. Making the cell square fixes all of it. The
 // cell keeps the old column width, so tile WIDTHS are unchanged and only heights
 // grow ~3% (e.g. the Clock goes from 5×2 to 5×3 cells).
+// The wall-panel TARGET dimensions (the physical iPad Pro panel). Two real uses:
+// (1) CELL below is sized to fill BOARD_W, so this sets the absolute tile pixel
+// size; (2) Storybook frames stories at this size. The LIVE board does NOT crop
+// to this — its stage is position:fixed/inset:0 (full window), so on a larger
+// screen you simply see more of the world. Not a viewport clip. See Board.tsx.
 export const BOARD_W = 1366;
 export const BOARD_H = 1000;
 export const GRID_COLS = 12;
@@ -30,9 +35,10 @@ export function tilePixelSize(cols: number, rows: number): { width: number; heig
 }
 
 // ===== Pannable world (square) ==============================================
-// BOARD_W/BOARD_H is the VIEWPORT (the iPad crop). The world is a larger square
-// canvas you pan around. Dimensions are ODD so the centered Clock lands on an
-// integer cell offset, keeping every tile flush to the cell lattice.
+// The world is a large square canvas (WORLD_COLS×WORLD_ROWS cells) that you pan
+// around; the window shows whatever slice fits (~BOARD_W×BOARD_H on the panel,
+// more on a bigger screen — no crop). Dimensions are ODD so the centered Clock
+// lands on an integer cell offset, keeping every tile flush to the cell lattice.
 export const WORLD_COLS = 31;
 export const WORLD_ROWS = 31;
 export const WORLD_W = 2 * BOARD_PADDING + WORLD_COLS * CELL + (WORLD_COLS - 1) * GRID_GAP;

@@ -258,6 +258,8 @@
   background: linear-gradient(90deg, var(--acc-2), var(--acc) var(--p, 50%), #181818 var(--p, 50%));
   outline: none;
   cursor: pointer;
+  /* A drag on the slider adjusts the slider, never pans the board behind it. */
+  touch-action: none;
 }
 .range::-webkit-slider-thumb {
   appearance: none;
@@ -319,6 +321,8 @@
   background: transparent;
   outline: none;
   pointer-events: none;
+  /* A drag on a thumb adjusts the range, never pans the board behind it. */
+  touch-action: none;
 }
 .range-thumb::-webkit-slider-thumb {
   appearance: none;
