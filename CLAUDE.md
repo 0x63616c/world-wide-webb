@@ -56,11 +56,15 @@ bd close <id>         # Complete work
 `bun`/`bunx` ALWAYS — never `npm`/`npx`. Monorepo: `apps/web` (React board), `apps/api` (tRPC).
 
 ```bash
-bun run test        # vitest run — the ONLY test runner. NEVER `bun test` (Bun's native runner breaks vi.mock with false failures)
+bun run test        # vitest run (unit, jsdom) — the default. NEVER `bun test` (Bun's native runner breaks vi.mock with false failures). Fast, no browser.
+bun run test:coverage # MERGED coverage: unit (jsdom) + Storybook (Playwright/chromium), via scripts/coverage.sh (blob runs + vitest --mergeReports). Slow; needs chromium.
+bun run badges      # regenerate self-hosted README badges (.github/badges/{coverage,loc}.json) from real runs
 bun run typecheck   # tsc across all workspaces
 bunx biome check .  # lint/format gate (use `bunx biome check --write .` to auto-fix)
 bun run dev         # tilt up (local dev stack)
 ```
+
+**CI test gate (www-hjvu):** the `test` job in `.github/workflows/ci.yml` runs typecheck + `test:coverage` (installs Playwright chromium) on every push, and **`deploy` depends on it** — failing/flaky tests block prod deploys. The Storybook browser project is pinned to `fileParallelism: false` (parallel files overload the single Chromium instance and flake); keep it serial. The CI job regenerates and commits the coverage/LOC badge JSON back to `main` with `[skip ci]`.
 
 ## Workflows
 

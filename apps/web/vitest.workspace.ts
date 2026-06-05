@@ -29,6 +29,14 @@ export default defineWorkspace([
     ],
     test: {
       name: "storybook",
+      // Serialize test files: parallel files overload the single Chromium
+      // instance and cause flaky suite-load failures (8 suites "failed" under
+      // load but pass in isolation). Serialized, the suite is deterministic.
+      // Keep this here so every caller (CI coverage, local runs) is stable.
+      // @ts-expect-error fileParallelism is a valid runtime project option but is
+      // absent from vitest's ProjectConfig type in this version; dropping it
+      // reintroduces the Storybook flake (www-hjvu), so keep it and suppress.
+      fileParallelism: false,
       browser: {
         enabled: true,
         provider: "playwright",
