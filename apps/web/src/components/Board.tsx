@@ -6,7 +6,7 @@ import { useAnyModalOpen } from "../lib/modal-open-store";
 import { BENTO_RECTS } from "../lib/placeholder-tiles";
 import { TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
-import { MINIMAP_BOTTOM, MINIMAP_HEIGHT, Minimap } from "./Minimap";
+import { MINIMAP_HEIGHT, MINIMAP_TOP, Minimap } from "./Minimap";
 import { PlaceholderTile } from "./PlaceholderTile";
 import { getTileModalEntry } from "./tiles/modals/registry";
 import { TileModalHost } from "./tiles/modals/TileModalHost";
@@ -184,7 +184,7 @@ function FpsMeter() {
     <div
       style={{
         position: "absolute",
-        bottom: 2,
+        bottom: 0,
         right: 12,
         fontFamily: "var(--mono)",
         fontSize: 11,
@@ -204,7 +204,7 @@ function BuildHashBadge() {
     <div
       style={{
         position: "absolute",
-        bottom: 2,
+        bottom: 0,
         left: 12,
         fontFamily: "var(--mono)",
         fontSize: 11,
@@ -247,10 +247,10 @@ function SnapModeSwitcher({ mode, onCycle }: { mode: SnapMode; onCycle: () => vo
 }
 
 // Name of the tile currently under the viewport center, shown as a pill in the
-// bottom-left while you pan the board manually (mouse-drag or touch), then fading
+// top-left while you pan the board manually (mouse-drag or touch), then fading
 // out like the minimap does. The minimap surfaces tile names on hover; this is
 // the same affordance for plain panning, where there's no cursor over the map.
-// Stacked directly above the minimap so the two never overlap in the corner.
+// Stacked directly below the minimap so the two never overlap in the corner.
 function CenteredTileLabel({
   label,
   view,
@@ -278,10 +278,10 @@ function CenteredTileLabel({
     <div
       style={{
         position: "absolute",
-        // Stack directly above the minimap box (same left edge) so neither the
+        // Stack directly below the minimap box (same left edge) so neither the
         // map nor this label ever obscures the other.
         left: 12,
-        bottom: MINIMAP_BOTTOM + MINIMAP_HEIGHT + 8,
+        top: MINIMAP_TOP + MINIMAP_HEIGHT + 8,
         padding: "3px 8px",
         background: "rgba(12, 14, 17, 0.92)",
         border: "1px solid var(--hair-2)",
@@ -633,7 +633,7 @@ export function Board() {
   const centered = cellAt(centerX, centerY);
   const centeredId = centered?.id;
   // Label for the centered cell (bento fill has no entry → undefined), surfaced
-  // bottom-left while panning.
+  // top-left while panning.
   const centeredLabel = centered?.entry?.label;
 
   return (
