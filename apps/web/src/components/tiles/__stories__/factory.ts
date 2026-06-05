@@ -1,6 +1,6 @@
 import type { Meta } from "@storybook/react-vite";
 import type { ComponentType } from "react";
-import { TileStatus } from "../EventsTileView";
+import { TileStatus } from "../../ui";
 
 // biome-ignore lint/suspicious/noExplicitAny: factory accepts any component shape
 type TileMeta<C extends ComponentType<any>> = Pick<Meta<C>, "title" | "component" | "tags"> & {

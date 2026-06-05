@@ -5,8 +5,7 @@
 
 import type { MouseEventHandler } from "react";
 import { Icon } from "../Icon";
-import { ControlTap, Skeleton, Tile, TileHeader } from "../ui";
-import { TileStatus } from "./EventsTileView";
+import { ControlTap, Skeleton, Tile, TileHeader, TileStatus } from "../ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

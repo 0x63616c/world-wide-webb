@@ -17,8 +17,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { POLL } from "../../lib/hooks";
 import { type RouterOutputs, trpc } from "../../lib/trpc";
+import { TileStatus } from "../ui";
 import { type ClimateMode, ClimateTileView, GAP, HvacMode, MAX, MIN } from "./ClimateTileView";
-import { TileStatus } from "./EventsTileView";
 
 const COOLDOWN_MS = 5_000;
 

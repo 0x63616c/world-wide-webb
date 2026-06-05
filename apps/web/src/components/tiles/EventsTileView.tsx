@@ -1,18 +1,11 @@
 import { Icon } from "../Icon";
-import { Skeleton, Tile, TileHeader } from "../ui";
+import { Skeleton, Tile, TileHeader, type TileStatus } from "../ui";
 
 export interface EventRow {
   name: string;
   place: string;
   days: number;
 }
-
-export const TileStatus = {
-  Loading: "loading",
-  Error: "error",
-  Populated: "populated",
-} as const;
-export type TileStatus = (typeof TileStatus)[keyof typeof TileStatus];
 
 export type EventsTileStatus = TileStatus;
 
