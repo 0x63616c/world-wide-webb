@@ -24,6 +24,9 @@ async function main(): Promise<void> {
     case "serve":
       await cmdServe();
       break;
+    case "run-job":
+      await cmdRunJob(args);
+      break;
     default:
       printUsage();
       process.exit(1);
@@ -42,6 +45,7 @@ function printUsage(): void {
       "  up            Full deploy: plan → secrets sync → routes sync → stack deploy → verify",
       "  verify        Run all declared health probes; exit 0 iff all pass",
       "  serve         Start the webhook receiver for CI-triggered deploys",
+      "  run-job <name>  Fire one cronJob() now (same Swarm-job path the scheduler uses)",
     ].join("\n"),
   );
 }
@@ -231,6 +235,39 @@ async function cmdServe(): Promise<void> {
       });
     },
   });
+}
+
+// run-job <name>: fire one cronJob() immediately, on demand. Runs the SAME
+// buildJobCommand() path the scheduler uses on its cron, so a manual run is
+// byte-identical to a scheduled one (docker service create --mode replicated-job).
+// This is the on-demand trigger the scheduler lacked: it unblocks e2e proof
+// (no waiting for 03:00) and gives operators a manual re-run.
+async function cmdRunJob(args: string[]): Promise<void> {
+  const name = args[0];
+  if (!name) {
+    console.error("Usage: bosun run-job <name>");
+    process.exit(1);
+  }
+
+  const { default: spec } = (await import(`${process.cwd()}/deploy.config.ts`)) as {
+    default: import("./spec.ts").Spec;
+  };
+  const { selectCronJob, buildJobCommand, jobServiceName } = await import("./scheduler.ts");
+
+  // Throws a clear error (unknown name / not a cron job) before touching docker.
+  const job = selectCronJob(spec.services, name);
+  const svc = jobServiceName(spec.stackName, name);
+  const cmd = buildJobCommand(job, spec.stackName);
+
+  console.log(`[bosun run-job] firing '${name}' as Swarm job ${svc}`);
+  const { exitCode } = await makeDefaultRunner()(cmd);
+  if (exitCode !== 0) {
+    console.error(`[bosun run-job] '${name}' service create exited ${exitCode}`);
+    process.exit(exitCode);
+  }
+  console.log(
+    `[bosun run-job] '${name}' dispatched. Inspect: docker service ps ${svc} (visible in Portainer)`,
+  );
 }
 
 main().catch((err) => {

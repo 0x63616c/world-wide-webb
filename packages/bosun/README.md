@@ -98,6 +98,22 @@ The scheduler is pure/injected for tests: `cronMatches`, `dueCronJobs`,
 `buildJobCommand`, and `runDueJobs` (with its per-minute and in-flight guards)
 take a clock and a runner, so the only impure part is the one-minute timer.
 
+### On-demand runs (`bosun run-job <name>`)
+
+To fire a job immediately instead of waiting for its cron — for verification, a
+backfill, or an ad-hoc re-run — use:
+
+```sh
+bun run bosun run-job docker-image-prune
+```
+
+`run-job` selects the cron job by name (`selectCronJob`, erroring loudly on an
+unknown name or a non-cron service) and runs the **same** `buildJobCommand()`
+invocation the scheduler issues, so a manual run is byte-identical to a scheduled
+one. The resulting `<stack>-cron-<job>` replicated-job is visible in Portainer
+and `docker service ps`. Point it at a remote swarm with a docker context, e.g.
+`DOCKER_HOST=ssh://homelab bun run bosun run-job docker-image-prune`.
+
 ### Documented default decisions
 
 - **Cron format.** Specs take **standard 5-field cron** (`min hour dom mon dow`),

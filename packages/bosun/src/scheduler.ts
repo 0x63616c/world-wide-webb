@@ -122,6 +122,27 @@ export function jobServiceName(stackName: string, jobName: string): string {
   return `${stackName}-cron-${jobName}`;
 }
 
+// Select the cron job named `name` for an on-demand run (`bosun run-job`).
+// Throws a clear, actionable error when the name is unknown (listing the real
+// jobs) or names a real service that is not a cron job (no `schedule`), so an
+// operator typo fails loudly instead of silently doing nothing.
+export function selectCronJob(services: ServiceSpec[], name: string): ServiceSpec {
+  const match = services.find((s) => s.name === name);
+  if (!match) {
+    const jobs = services
+      .filter((s) => s.schedule)
+      .map((s) => s.name)
+      .join(", ");
+    throw new Error(`unknown cron job '${name}'. Declared cron jobs: ${jobs || "(none)"}`);
+  }
+  if (!match.schedule) {
+    throw new Error(
+      `'${name}' is not a cron job (it has no schedule); run-job only runs cronJob()s`,
+    );
+  }
+  return match;
+}
+
 // Translate a docker-compose volume string ("src:dst[:ro]") into a swarm
 // `docker service create --mount` flag. A path source is a bind mount; a bare
 // name is a named volume.
