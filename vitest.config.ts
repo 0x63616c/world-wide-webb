@@ -23,16 +23,11 @@ export default defineConfig({
         "**/*.d.ts",
         "**/*.gen.ts",
       ],
-      // Regression floor, not a target. Lines/statements sit ~38% (lots of
-      // untested SVG/map render code) while branches/functions are well covered;
-      // autoUpdate ratchets each floor up as coverage improves so a drop fails CI.
-      thresholds: {
-        autoUpdate: true,
-        lines: 38.23,
-        statements: 38.23,
-        functions: 82.57,
-        branches: 89.52,
-      },
+      // Coverage is REPORTED (the % feeds the README badge) but deliberately NOT
+      // gated — no `thresholds` here. A coverage drop must never fail a CI job or
+      // block a deploy (per Calum); the merged browser+unit number is also
+      // slightly nondeterministic run-to-run, so a ratchet would flake. The test
+      // job still fails on real test failures, just never on the coverage %.
     },
   },
 });

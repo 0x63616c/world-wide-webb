@@ -64,7 +64,9 @@ bunx biome check .  # lint/format gate (use `bunx biome check --write .` to auto
 bun run dev         # tilt up (local dev stack)
 ```
 
-**CI test gate (CC-hjvu):** the `test` job in `.github/workflows/ci.yml` runs typecheck + `test:coverage` (installs Playwright chromium) on every push, and **`deploy` depends on it** — failing/flaky tests block prod deploys. The Storybook browser project is pinned to `fileParallelism: false` (parallel files overload the single Chromium instance and flake); keep it serial. The CI job regenerates and commits the coverage/LOC badge JSON back to `main` with `[skip ci]`.
+**CI test gate (CC-hjvu):** the `test` job in `.github/workflows/ci.yml` runs typecheck + `test:coverage` (installs Playwright chromium) on every push, and **`deploy` depends on it** — failing/flaky **tests** block prod deploys. The Storybook browser project is pinned to `fileParallelism: false` (parallel files overload the single Chromium instance and flake); keep it serial. The CI job regenerates and commits the coverage/LOC badge JSON back to `main` with `[skip ci]`.
+
+**Coverage is reported, never gated.** `vitest.config.ts` has coverage `include`/`exclude` + reporters (the % feeds the README badge) but deliberately **no `thresholds`** — a coverage drop must never fail a job or block a deploy. Do NOT re-add `thresholds`/`autoUpdate` (the merged unit+browser % is slightly nondeterministic, so a ratchet flakes CI). Only real test failures gate.
 
 ## Workflows
 
