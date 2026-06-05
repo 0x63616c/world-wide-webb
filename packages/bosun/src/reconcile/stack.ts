@@ -37,8 +37,8 @@ export function renderStackYml(
 
   // Named volumes referenced by services (bare-name sources, not bind paths).
   // Collected here and declared at the top level so docker stack deploy binds
-  // them to the managed cc_<name> volume instead of auto-creating a stack-
-  // prefixed empty one — which is what dropped postgres's data dir.
+  // them to the managed <stack>_<name> volume instead of auto-creating a
+  // separate empty one — which is what dropped postgres's data dir.
   const namedVolumes = new Set<string>();
 
   for (const svc of spec.services) {
@@ -79,8 +79,8 @@ export function renderStackYml(
     }
 
     // Volume mounts. A bare-name source (no leading "/" or ".") is a managed
-    // named volume — prefix it cc_<name> (matching the secret convention) and
-    // record it for the top-level declaration so its data persists. A path
+    // named volume — prefix it <stack>_<name> (matching the secret convention)
+    // and record it for the top-level declaration so its data persists. A path
     // source is a bind mount (e.g. the docker socket) and passes through as-is.
     if (svc.volumes && svc.volumes.length > 0) {
       lines.push("    volumes:");
@@ -89,7 +89,7 @@ export function renderStackYml(
         const isNamed = source.length > 0 && !source.startsWith("/") && !source.startsWith(".");
         if (isNamed) {
           namedVolumes.add(source);
-          lines.push(`      - cc_${vol}`);
+          lines.push(`      - ${spec.stackName}_${vol}`);
         } else {
           lines.push(`      - ${vol}`);
         }
@@ -154,14 +154,14 @@ export function renderStackYml(
   }
 
   // Declare every named volume at top level, pinning its real docker name to
-  // cc_<name> via `name:` (overriding the stack-name prefix). docker reuses the
+  // <stack>_<name> via `name:` so it is explicit and stable. docker reuses the
   // volume if it exists (preserving data) and creates it if not.
   if (namedVolumes.size > 0) {
     lines.push("");
     lines.push("volumes:");
     for (const v of [...namedVolumes].sort()) {
-      lines.push(`  cc_${v}:`);
-      lines.push(`    name: cc_${v}`);
+      lines.push(`  ${spec.stackName}_${v}:`);
+      lines.push(`    name: ${spec.stackName}_${v}`);
     }
   }
 

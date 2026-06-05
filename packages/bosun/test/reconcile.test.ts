@@ -41,10 +41,9 @@ describe("reconcile/secrets — create + stale computation", () => {
     const client = makeDockerClient([]);
     await reconcileSecrets(STACK, [{ name: "HA_TOKEN", resolvedValue: "tok123" }], client);
     expect(client.createSecret).toHaveBeenCalledOnce();
-    // Secret name must include a hash of the value and the declared name.
+    // Secret name is namespaced by the stack + declared name + value hash (CC-8pt).
     const [nameArg] = (client.createSecret as ReturnType<typeof vi.fn>).mock.calls[0];
-    // (The cc_ prefix is legacy; namespace migration is deferred to CC-8pt.)
-    expect(nameArg).toMatch(/^cc_HA_TOKEN_/);
+    expect(nameArg).toMatch(/^control-center_HA_TOKEN_/);
   });
 
   it("does NOT create a secret that already exists with a matching hash", async () => {
@@ -108,9 +107,9 @@ describe("reconcile/secrets — create + stale computation", () => {
     );
     expect(names).toHaveProperty("HA_TOKEN");
     expect(names).toHaveProperty("UNIFI_KEY");
-    // Values are the docker secret names (hashed), not the secret values.
-    expect(names.HA_TOKEN).toMatch(/^cc_HA_TOKEN_/);
-    expect(names.UNIFI_KEY).toMatch(/^cc_UNIFI_KEY_/);
+    // Values are the docker secret names (stack-namespaced + hashed), not values.
+    expect(names.HA_TOKEN).toMatch(/^control-center_HA_TOKEN_/);
+    expect(names.UNIFI_KEY).toMatch(/^control-center_UNIFI_KEY_/);
   });
 
   it("treats a rename (old + new value of same declared secret) as create-new + stale-old", async () => {
@@ -445,9 +444,9 @@ describe("renderStackYml", () => {
     ],
   };
 
-  // Hashed secret names returned from reconcileSecrets.
+  // Hashed secret names returned from reconcileSecrets (stack-namespaced, CC-8pt).
   const secretNames: Record<string, string> = {
-    HA_TOKEN: "cc_HA_TOKEN_aabb1234",
+    HA_TOKEN: "control-center_HA_TOKEN_aabb1234",
   };
 
   it("produces a YAML string containing the stack name as a label", () => {
@@ -457,7 +456,7 @@ describe("renderStackYml", () => {
 
   it("references hashed docker secret names, not plain names", () => {
     const yml = renderStackYml(spec, secretNames);
-    expect(yml).toContain("cc_HA_TOKEN_aabb1234");
+    expect(yml).toContain("control-center_HA_TOKEN_aabb1234");
     // The plain unscoped name must not appear as a docker secret reference.
     expect(yml).not.toContain("source: HA_TOKEN");
   });
@@ -534,7 +533,7 @@ describe("renderStackYml", () => {
     expect(yml1).toBe(yml2);
   });
 
-  it("renders a named volume cc_-prefixed and declares it at top-level (data persists)", () => {
+  it("renders a named volume stack-prefixed and declares it at top-level (data persists)", () => {
     const volSpec: Spec = {
       stackName: "control-center",
       services: [
@@ -549,12 +548,12 @@ describe("renderStackYml", () => {
       ],
     };
     const yml = renderStackYml(volSpec, {});
-    // Mount uses the cc_-prefixed name so it reuses the managed cc_pgdata volume.
-    expect(yml).toContain("- cc_pgdata:/var/lib/postgresql/data");
-    // Top-level volumes block pins the real docker volume name (not stack-prefixed).
+    // Mount uses the stack-prefixed name so it reuses the managed volume (CC-8pt).
+    expect(yml).toContain("- control-center_pgdata:/var/lib/postgresql/data");
+    // Top-level volumes block pins the real docker volume name explicitly.
     expect(yml).toContain("volumes:");
-    expect(yml).toContain("  cc_pgdata:");
-    expect(yml).toContain("    name: cc_pgdata");
+    expect(yml).toContain("  control-center_pgdata:");
+    expect(yml).toContain("    name: control-center_pgdata");
   });
 
   // CC-5ag.12: web/api/postgres must carry a Docker HEALTHCHECK so swarm tracks
@@ -647,8 +646,8 @@ describe("renderStackYml", () => {
     };
     const yml = renderStackYml(bindSpec, {});
     expect(yml).toContain("- /var/run/docker.sock:/var/run/docker.sock:ro");
-    // No cc_-prefix and no top-level volumes block for a bind mount.
-    expect(yml).not.toContain("cc_/var");
+    // No stack-prefix and no top-level volumes block for a bind mount.
+    expect(yml).not.toContain("control-center_/var");
     expect(yml).not.toMatch(/\nvolumes:/);
   });
 });

@@ -234,7 +234,7 @@ export function postgres(opts: {
       ...(opts.secretRef ? { POSTGRES_PASSWORD_FILE: "/run/secrets/POSTGRES_PASSWORD" } : {}),
     },
     // Persist the data dir on the named volume, or every redeploy starts from an
-    // empty database. The renderer pins this to the managed cc_<volume> volume.
+    // empty database. The renderer pins this to the managed <stack>_<volume> volume.
     volumes: [`${opts.volume}:/var/lib/postgresql/data`],
     // Swarm-tracked container liveness. pg_isready ships in the postgres image and
     // is the canonical readiness check; start_period covers first-init/recovery.
