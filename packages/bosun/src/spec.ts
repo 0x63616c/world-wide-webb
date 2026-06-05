@@ -238,7 +238,11 @@ export function postgres(opts: {
     volumes: [`${opts.volume}:/var/lib/postgresql/data`],
     // Swarm-tracked container liveness. pg_isready ships in the postgres image and
     // is the canonical readiness check; start_period covers first-init/recovery.
+    // No -h: this runs INSIDE the postgres container, so localhost is correct.
     healthcheck: healthcheck("pg_isready -U postgres", { startPeriod: "30s" }),
-    health: [cmdProbe("postgres ready", "pg_isready -U postgres")],
+    // The deploy-verify probe runs in the bosun AGENT, not in postgres, so it must
+    // target the service over the overlay network (-h postgres) — without it,
+    // pg_isready checks the agent's own localhost and always exits 2 (www-hya3).
+    health: [cmdProbe("postgres ready", "pg_isready -h postgres -U postgres")],
   };
 }
