@@ -5,7 +5,10 @@ blacks (`#060708`), single signal-green accent (`#5BE37D`), Space Grotesk + Spac
 12-col × 6-row bento grid. Source of truth: Claude Design handoff
 (`Evee Dashboard.html` + `evee-tiles.jsx` + `evee.css` + `wf-kit.jsx`).
 
-Location: Los Angeles, CA 90012 — "Home" — lat `34.0537`, lon `-118.2428`.
+Location: Los Angeles, CA. Exact home coordinates and place name come from the
+`HOME_LAT`/`HOME_LON`/`HOME_PLACE_NAME` env (real values in 1Password, item
+"Home Location"); the repo ships a public placeholder (LA City Hall) so no home
+address lives in source. See `scripts/save-home-location.sh` and www-mqp.
 
 ## Stack (mirrors the `evee` repo)
 
