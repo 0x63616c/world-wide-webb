@@ -1,6 +1,5 @@
 import { Icon } from "../Icon";
-import { Skeleton, Stat, Tile, TileHeader } from "../ui";
-import { TileStatus } from "./EventsTileView";
+import { Skeleton, Stat, Tile, TileHeader, TileStatus } from "../ui";
 import { TeslaMap } from "./TeslaMap";
 
 // ── Charging bar ─────────────────────────────────────────────────────────────

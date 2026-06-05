@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { Icon } from "../Icon";
-import { Skeleton, Tile, TileHeader } from "../ui";
-import { TileStatus } from "./EventsTileView";
+import { Skeleton, Tile, TileHeader, TileStatus } from "../ui";
 
 // Vertical rhythm token. The SAME value separates bar→icon and icon→time, so the
 // spacing is even by construction — there are no per-element pixel offsets to tune.

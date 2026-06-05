@@ -1,5 +1,4 @@
-import { Skeleton, StatusDot, Tile, TileHeader } from "../ui";
-import { TileStatus } from "./EventsTileView";
+import { Skeleton, StatusDot, Tile, TileHeader, TileStatus } from "../ui";
 
 interface ButterflyChartProps {
   traffic: Array<{ down: number; up: number }>;

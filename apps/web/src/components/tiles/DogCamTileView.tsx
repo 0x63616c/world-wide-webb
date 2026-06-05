@@ -1,6 +1,5 @@
 import { Icon } from "../Icon";
-import { Skeleton, Tile, TileHeader } from "../ui";
-import { TileStatus } from "./EventsTileView";
+import { Skeleton, Tile, TileHeader, TileStatus } from "../ui";
 
 /** Format elapsed seconds as HH:MM:SS */
 function formatRec(secs: number): string {

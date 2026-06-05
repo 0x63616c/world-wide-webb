@@ -1,6 +1,5 @@
 import { Icon } from "../Icon";
-import { Skeleton, Tile, TileHeader } from "../ui";
-import { TileStatus } from "./EventsTileView";
+import { Skeleton, Tile, TileHeader, TileStatus } from "../ui";
 
 // MetricCell uses a smaller type scale (10px cap / 16px mono) than the shared
 // Stat primitive (cap / 22px mono) — kept private to match the design's compact

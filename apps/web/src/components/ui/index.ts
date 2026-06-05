@@ -11,3 +11,4 @@ export { StatusDot } from "./StatusDot";
 export { Tile } from "./Tile";
 export { TileBoundary } from "./TileBoundary";
 export { TileHeader } from "./TileHeader";
+export { TileStatus } from "./tile-status";

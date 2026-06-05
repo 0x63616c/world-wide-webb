@@ -1,6 +1,7 @@
 import { POLL } from "../../lib/hooks";
 import { trpc } from "../../lib/trpc";
-import { EventsTileView, TileStatus } from "./EventsTileView";
+import { TileStatus } from "../ui";
+import { EventsTileView } from "./EventsTileView";
 
 export function EventsTile() {
   const { data, isLoading, isError } = trpc.events.list.useQuery(undefined, {

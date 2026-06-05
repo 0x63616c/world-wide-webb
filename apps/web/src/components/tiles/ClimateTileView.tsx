@@ -13,8 +13,7 @@
  */
 
 import { useState } from "react";
-import { Skeleton, Tile, TileHeader } from "../ui";
-import { TileStatus } from "./EventsTileView";
+import { Skeleton, Tile, TileHeader, TileStatus } from "../ui";
 
 // ─── types & constants ──────────────────────────────────────────────────────
 
