@@ -106,7 +106,7 @@ async function cmdRoutes(args: string[]): Promise<void> {
   const { default: spec } = (await import(`${process.cwd()}/deploy.config.ts`)) as {
     default: import("./spec.ts").Spec;
   };
-  const { reconcileRoutes, makeDefaultCloudflareRouteClient } = await import(
+  const { reconcileRoutes, makeDefaultCloudflareRouteClient, stackRouteTag } = await import(
     "./reconcile/routes.ts"
   );
   const { makeDefaultExec, OpProvider } = await import("./providers/op.ts");
@@ -129,11 +129,16 @@ async function cmdRoutes(args: string[]): Promise<void> {
   for (const svc of spec.services) {
     if (svc.route) originByHostname[svc.route] = `http://${svc.name}:${svc.port ?? 80}`;
   }
+  // Ownership for safe prune: a live route is ours iff its origin points at one
+  // of this stack's services (CF ingress has no tag field). Cron jobs aren't
+  // routable origins, so only real services count.
+  const stackServiceNames = spec.services.filter((svc) => !svc.schedule).map((svc) => svc.name);
   const client = makeDefaultCloudflareRouteClient(
     accountId,
     tunnelId,
     apiToken,
     (hostname) => originByHostname[hostname] ?? "",
+    { stackTag: stackRouteTag(spec.stackName), stackServiceNames },
   );
   const declared = spec.services.flatMap((svc) => (svc.route ? [svc.route] : []));
   await reconcileRoutes(spec.stackName, declared, client);

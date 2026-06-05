@@ -8,8 +8,18 @@ export interface CloudflareRouteClient {
 // Tag format used to identify routes owned by a specific bosun stack.
 // Only routes carrying this exact tag are eligible for prune — anything else
 // is foreign and must not be touched.
-function stackRouteTag(stackName: string): string {
+export function stackRouteTag(stackName: string): string {
   return `bosun:${stackName}`;
+}
+
+// Extract the origin service name from a tunnel ingress `service` value.
+// "http://web:80" -> "web"; "http_status:404" / non-http -> "" (not a service).
+// Ownership is derived from this: a route whose origin points at one of THIS
+// stack's swarm services is stack-owned (CF ingress carries no native tag field,
+// so origin is the only durable ownership signal).
+export function originServiceName(service: string): string {
+  const m = service.match(/^https?:\/\/([^:/]+)/);
+  return m ? m[1] : "";
 }
 
 // Reconcile Cloudflare public-hostname routes:
@@ -58,17 +68,22 @@ interface IngressRule {
 //
 // CF tunnel routes are managed as one document: you GET the full configuration,
 // mutate the ingress array, and PUT it back. There is no per-rule create/delete
-// endpoint, and ingress rules carry no native tag/metadata field — so route
-// ownership for prune cannot be derived from CF and listRoutes returns empty
-// tags (reconcileRoutes therefore never auto-prunes a live route; foreign-route
-// safety is preserved by construction). Creation needs the origin service for a
-// hostname, supplied by `originForHostname` (built from the spec by the caller).
+// endpoint, and ingress rules carry no native tag/metadata field. Route ownership
+// for safe prune is therefore derived from the rule's ORIGIN: a route pointing at
+// one of this stack's swarm services (`ownership.stackServiceNames`) is tagged with
+// `ownership.stackTag`, so reconcileRoutes can prune a stack-owned orphan while
+// foreign hostnames (e.g. portainer → http://portainer:9000) carry no tag and are
+// never touched. Omit `ownership` to disable prune entirely (listRoutes returns
+// empty tags). Creation needs the origin service for a hostname, supplied by
+// `originForHostname` (built from the spec by the caller).
 export function makeDefaultCloudflareRouteClient(
   accountId: string,
   tunnelId: string,
   apiToken: string,
   originForHostname: (hostname: string) => string,
+  ownership?: { stackTag: string; stackServiceNames: string[] },
 ): CloudflareRouteClient {
+  const ownedServiceNames = new Set(ownership?.stackServiceNames ?? []);
   const baseUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/cfd_tunnel/${tunnelId}/configurations`;
 
   const headers = {
@@ -97,9 +112,17 @@ export function makeDefaultCloudflareRouteClient(
       const ingress = await getIngress();
       // Each ingress rule without a hostname is the catch-all — skip it. The
       // hostname is the stable id (hostnames are unique within a tunnel config).
+      // Tag a route as stack-owned iff its origin points at one of this stack's
+      // services — the only durable ownership signal CF ingress exposes.
       return ingress
         .filter((r): r is IngressRule & { hostname: string } => Boolean(r.hostname))
-        .map((r) => ({ id: r.hostname, hostname: r.hostname, tags: [] }));
+        .map((r) => {
+          const tag =
+            ownership && ownedServiceNames.has(originServiceName(r.service))
+              ? ownership.stackTag
+              : undefined;
+          return { id: r.hostname, hostname: r.hostname, tags: tag ? [tag] : [] };
+        });
     },
 
     async createRoute(hostname: string, _tag: string) {

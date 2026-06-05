@@ -278,6 +278,94 @@ describe("reconcile/routes — live Cloudflare client", () => {
       { id: "dashboard.worldwidewebb.co", hostname: "dashboard.worldwidewebb.co", tags: [] },
     ]);
   });
+
+  // CC-5ag.6: CF ingress carries no tag field, so route ownership for safe prune
+  // is derived from the origin — a route pointing at one of this stack's services
+  // is tagged stack-owned; a foreign origin (portainer) is not.
+  describe("ownership by origin (CC-5ag.6)", () => {
+    const ownership = {
+      stackTag: "bosun:control-center",
+      stackServiceNames: ["web", "storybook", "bosun-agent"],
+    };
+
+    it("tags routes whose origin is a stack service, leaves foreign origins untagged", async () => {
+      const ingress = [
+        { hostname: "dashboard.worldwidewebb.co", service: "http://web:80" },
+        { hostname: "portainer.worldwidewebb.co", service: "http://portainer:9000" },
+        { service: "http_status:404" },
+      ];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          async () =>
+            new Response(JSON.stringify({ success: true, result: { config: { ingress } } }), {
+              status: 200,
+            }),
+        ),
+      );
+      const client = makeDefaultCloudflareRouteClient(
+        CF_ACCT,
+        CF_TUNNEL,
+        "cf-token",
+        () => "",
+        ownership,
+      );
+      const routes = await client.listRoutes();
+      expect(routes).toEqual([
+        {
+          id: "dashboard.worldwidewebb.co",
+          hostname: "dashboard.worldwidewebb.co",
+          tags: ["bosun:control-center"],
+        },
+        {
+          id: "portainer.worldwidewebb.co",
+          hostname: "portainer.worldwidewebb.co",
+          tags: [],
+        },
+      ]);
+    });
+
+    it("reconcileRoutes prunes a stack-owned orphan and leaves the foreign route untouched", async () => {
+      // Live ingress: declared dashboard + an undeclared stack-owned orphan
+      // (origin http://web:80) + foreign portainer + catch-all.
+      let ingress = [
+        { hostname: "dashboard.worldwidewebb.co", service: "http://web:80" },
+        { hostname: "orphan-probe.worldwidewebb.co", service: "http://web:80" },
+        { hostname: "portainer.worldwidewebb.co", service: "http://portainer:9000" },
+        { service: "http_status:404" },
+      ];
+      const puts: Array<Array<{ hostname?: string; service: string }>> = [];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_url: string, init?: RequestInit) => {
+          if (!init || init.method === "GET" || init.method === undefined) {
+            return new Response(
+              JSON.stringify({ success: true, result: { config: { ingress } } }),
+              { status: 200 },
+            );
+          }
+          const cfg = JSON.parse(init.body as string).config.ingress;
+          puts.push(cfg);
+          ingress = cfg; // reflect the write so a re-GET sees it
+          return new Response(JSON.stringify({ success: true }), { status: 200 });
+        }),
+      );
+      const client = makeDefaultCloudflareRouteClient(
+        CF_ACCT,
+        CF_TUNNEL,
+        "cf-token",
+        (h) => (h === "dashboard.worldwidewebb.co" ? "http://web:80" : ""),
+        ownership,
+      );
+      await reconcileRoutes("control-center", ["dashboard.worldwidewebb.co"], client);
+      // Exactly one PUT: the orphan deleted. Dashboard (declared) + portainer
+      // (foreign) survive; the orphan is gone.
+      const finalHostnames = ingress.map((r) => r.hostname);
+      expect(finalHostnames).toContain("dashboard.worldwidewebb.co");
+      expect(finalHostnames).toContain("portainer.worldwidewebb.co");
+      expect(finalHostnames).not.toContain("orphan-probe.worldwidewebb.co");
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
