@@ -19,8 +19,10 @@ regexes = [
   # pasted into docs), not credentials. Prefixed-token rules are unaffected.
   '''\b[0-9a-f]{40}\b''',
   '''\b[0-9a-f]{64}\b''',
-  # API port+path fragments (e.g. "4201/api/health") matched by generic-api-key.
-  '''\b\d{2,5}/api/[a-z/_-]+''',
+  # Internal service port+path fragments (e.g. "4201/api/health",
+  # "4201/health/climate") matched by generic-api-key — these are localhost probe
+  # URLs in deploy.config/health checks, not credentials.
+  '''\b\d{2,5}/(api|health)/[a-z/_-]+''',
 ]
 # Matched against file paths: the guard scripts intentionally embed sample/
 # forbidden tokens, and lockfiles carry integrity hashes.
