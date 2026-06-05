@@ -1,6 +1,7 @@
 # Control Center — Evee Dashboard spec
 
-Fixed 1366×1024 landscape wall panel (iPad Pro), auto-scaled to viewport. Dark, deep
+Fixed landscape wall panel (iPad Pro): physical panel 1366×1024; board content grid
+1366×1000 (`BOARD_W`×`BOARD_H`). Auto-scaled to viewport. Dark, deep
 blacks (`#060708`), single signal-green accent (`#5BE37D`), Space Grotesk + Space Mono.
 12-col × 6-row bento grid. Source of truth: Claude Design handoff
 (`Evee Dashboard.html` + `evee-tiles.jsx` + `evee.css` + `wf-kit.jsx`).

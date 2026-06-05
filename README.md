@@ -5,7 +5,8 @@
 [![Lines of code](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/control-center/main/.github/badges/loc.json)](https://github.com/0x63616c/control-center)
 [![Last commit](https://img.shields.io/github/last-commit/0x63616c/control-center)](https://github.com/0x63616c/control-center/commits)
 
-Smart-home wall-panel dashboard for a fixed **1366×1024** iPad Pro display mounted
+Smart-home wall-panel dashboard for a fixed **1366×1024** iPad Pro panel (the board
+content grid is 1366×1000 — `BOARD_W`×`BOARD_H`) mounted
 on the wall. It renders a board of live tiles (climate, controls, weather, network,
 Tesla, dog cam, …) driven by a tRPC backend, and deploys itself to a Mac Mini
 (`homelab`) through an in-repo deploy tool, **bosun**.
@@ -14,7 +15,7 @@ Tesla, dog cam, …) driven by a tRPC backend, and deploys itself to a Mac Mini
 
 | Path | What |
 | --- | --- |
-| `apps/web` | React board. Tiles are composed from shared primitives in `src/components/ui/` (`TileHeader`, `StatCell`, `Pill`, `Skeleton`, `TileWrapper`). Fixed 1366×1024, never responsive. |
+| `apps/web` | React board. Tiles are composed from shared primitives in `src/components/ui/` (`TileHeader`, `StatCell`, `Pill`, `Skeleton`, `TileWrapper`). Fixed 1366×1024 panel (1366×1000 content grid), never responsive. |
 | `apps/api` | tRPC backend. Services **throw** on error/unconfigured (never return constants); the web QueryClient retries infinitely, so a tile shows a shimmer `Skeleton` and recovers when data returns. |
 | `packages/bosun` | The deploy tool: a pure, typed deploy spec + reconcilers + a webhook agent that deploys the stack and runs the cron scheduler. See `packages/bosun/README.md`. |
 | `deploy.config.ts` | The deployment manifest — pure data describing every service, secret reference, route, and cron job. |
