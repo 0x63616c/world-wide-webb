@@ -95,8 +95,38 @@ recreates it, so there is exactly one entry per job — its last-run state visib
 in `docker service ls` / `docker service ps <stack>-cron-<job>` between runs.
 
 The scheduler is pure/injected for tests: `cronMatches`, `dueCronJobs`,
-`buildJobCommand`, and `runDueJobs` (with its per-minute and in-flight guards)
-take a clock and a runner, so the only impure part is the one-minute timer.
+`buildJobCommand`, and `runDueJobs` take a clock, a runner, and a `JobInspector`,
+so the only impure part is the one-minute timer.
+
+### Crash recovery (restart-safe, no in-memory state)
+
+The scheduler holds **no** in-memory run-state. Both guards — "did this slot
+already run?" and "is a run still in flight?" — are read from swarm each tick via
+the injected `JobInspector`, so a scheduler that dies mid-run and is restarted by
+swarm makes the same decision its predecessor would have. The run itself is never
+owned by the scheduler: it is a Swarm task swarm keeps running and reaps
+regardless of the scheduler's liveness.
+
+Two mechanisms make this work:
+
+- **Slot label.** When a job fires for wall-clock minute *M*, its service is
+  stamped `--label bosun.cron-slot=<M>` (`slotKey`). On the next tick the
+  inspector reads that label back; if it equals the current slot, the job is
+  skipped — so a restart inside minute *M* cannot double-fire it.
+- **In-flight read.** The inspector also checks `docker service ps` for a task in
+  a non-terminal state; a long run spanning the restart is left alone until it
+  completes.
+
+Crash windows resolve cleanly: killed *after* create → restart sees the slot
+label → skip (no double-fire); killed *between* the `rm` and `create` → no
+service → fire (at-least-once). An inspector error skips the tick rather than
+firing blind; the next 30s tick retries. Every decision is logged
+(`already ran slot …`, `still in flight …`, `running … slot …`) so a recovery is
+verifiable from `docker service logs control-center_bosun-agent`.
+
+> Limit: this recovers from *scheduler* death. A hard host reboot mid-run does
+> not auto-resume a `restart-condition none` task — recovery there is the next
+> scheduled slot, so **jobs must be idempotent**.
 
 ### On-demand runs (`bosun run-job <name>`)
 

@@ -6,6 +6,7 @@ import {
   jobServiceName,
   runDueJobs,
   selectCronJob,
+  slotKey,
 } from "../src/scheduler.ts";
 import type { ServiceSpec, Spec } from "../src/spec.ts";
 
@@ -176,6 +177,15 @@ describe("buildJobCommand — swarm one-shot (replicated-job) invocation", () =>
     expect(cmd.indexOf("service rm")).toBeLessThan(cmd.indexOf("service create"));
   });
 
+  it("stamps the slot label when a slot is given (restart-safe dedupe key)", () => {
+    const cmd = buildJobCommand(job, STACK, "2026-5-4T3:0");
+    expect(cmd).toContain("--label bosun.cron-slot=2026-5-4T3:0");
+  });
+
+  it("omits the slot label for a manual run (no slot — `run-job`)", () => {
+    expect(buildJobCommand(job, STACK)).not.toContain("bosun.cron-slot");
+  });
+
   it("passes --with-registry-auth so private GHCR images pull", () => {
     expect(buildJobCommand(job, STACK)).toContain("--with-registry-auth");
   });
@@ -241,43 +251,77 @@ describe("dueCronJobs — selecting jobs whose schedule matches a moment", () =>
   });
 });
 
-describe("runDueJobs — execution with double-run and in-flight guards", () => {
-  const jobs: ServiceSpec[] = [cronService("hourly", "0 * * * *", "echo hourly")];
-  const state = () => ({ lastRunMinute: new Map<string, string>(), inFlight: new Set<string>() });
+describe("slotKey — per-minute slot identity (restart-safe dedupe key)", () => {
+  it("is stable within a minute and distinct across minutes", () => {
+    expect(slotKey(at(2026, 6, 4, 3, 0))).toBe(slotKey(at(2026, 6, 4, 3, 0)));
+    expect(slotKey(at(2026, 6, 4, 3, 0))).not.toBe(slotKey(at(2026, 6, 4, 3, 1)));
+  });
+});
 
-  it("runs a job's built command via the injected runner when due", async () => {
+describe("runDueJobs — guards derived from swarm (restart-safe)", () => {
+  const jobs: ServiceSpec[] = [cronService("hourly", "0 * * * *", "echo hourly")];
+  // A JobInspector stub returning a fixed swarm view for the job service.
+  const inspector = (view: { slot: string | null; inFlight: boolean }) =>
+    vi.fn(async (_svc: string) => view);
+
+  it("fires (rm+create) when swarm shows no prior slot and nothing in flight", async () => {
     const runner = vi.fn(async (_cmd: string) => ({ exitCode: 0 }));
-    await runDueJobs(jobs, at(2026, 6, 4, 3, 0), runner, state(), STACK);
+    await runDueJobs(
+      jobs,
+      at(2026, 6, 4, 3, 0),
+      runner,
+      inspector({ slot: null, inFlight: false }),
+      STACK,
+    );
     expect(runner).toHaveBeenCalledOnce();
     expect(runner.mock.calls[0][0]).toContain("control-center-cron-hourly");
+    // The fired command stamps THIS slot so a restart can recognise it.
+    expect(runner.mock.calls[0][0]).toContain(
+      `--label bosun.cron-slot=${slotKey(at(2026, 6, 4, 3, 0))}`,
+    );
   });
 
-  it("does not run the same job twice within the same minute", async () => {
+  it("does NOT re-fire a slot already stamped on the service — even with fresh in-memory state (restart safety)", async () => {
     const runner = vi.fn(async (_cmd: string) => ({ exitCode: 0 }));
-    const s = state();
     const now = at(2026, 6, 4, 3, 0);
-    await runDueJobs(jobs, now, runner, s, STACK);
-    await runDueJobs(jobs, now, runner, s, STACK); // same minute, second tick
-    expect(runner).toHaveBeenCalledOnce();
+    // Simulates a just-restarted scheduler: no memory, but swarm shows the
+    // service already carries this slot's label.
+    await runDueJobs(jobs, now, runner, inspector({ slot: slotKey(now), inFlight: false }), STACK);
+    expect(runner).not.toHaveBeenCalled();
   });
 
-  it("runs again on the next matching minute", async () => {
+  it("skips when a task is still in flight (long run spanning a restart)", async () => {
     const runner = vi.fn(async (_cmd: string) => ({ exitCode: 0 }));
-    const s = state();
-    await runDueJobs(jobs, at(2026, 6, 4, 3, 0), runner, s, STACK);
-    await runDueJobs(jobs, at(2026, 6, 4, 4, 0), runner, s, STACK);
-    expect(runner).toHaveBeenCalledTimes(2);
+    // Prior slot ran; its task is still executing when this slot comes due.
+    await runDueJobs(
+      jobs,
+      at(2026, 6, 4, 4, 0),
+      runner,
+      inspector({ slot: slotKey(at(2026, 6, 4, 3, 0)), inFlight: true }),
+      STACK,
+    );
+    expect(runner).not.toHaveBeenCalled();
   });
 
-  it("skips a job that is still in flight from a prior tick", async () => {
-    // A runner that never resolves models a long-running job still executing.
-    let resolve: (v: { exitCode: number }) => void = () => {};
-    const runner = vi.fn(() => new Promise<{ exitCode: number }>((r) => (resolve = r)));
-    const s = state();
-    const everyMinute: ServiceSpec[] = [cronService("tight", "* * * * *", "sleep")];
-    runDueJobs(everyMinute, at(2026, 6, 4, 3, 0), runner, s, STACK); // starts, stays in flight
-    await runDueJobs(everyMinute, at(2026, 6, 4, 3, 1), runner, s, STACK); // next min, still running
+  it("runs again on the next matching minute once the prior slot is terminal", async () => {
+    const runner = vi.fn(async (_cmd: string) => ({ exitCode: 0 }));
+    // New slot, prior run complete (different slot label, nothing in flight).
+    await runDueJobs(
+      jobs,
+      at(2026, 6, 4, 4, 0),
+      runner,
+      inspector({ slot: slotKey(at(2026, 6, 4, 3, 0)), inFlight: false }),
+      STACK,
+    );
     expect(runner).toHaveBeenCalledOnce();
-    resolve({ exitCode: 0 });
+  });
+
+  it("skips the tick (does not fire blindly) when the inspector errors", async () => {
+    const runner = vi.fn(async (_cmd: string) => ({ exitCode: 0 }));
+    const failing = vi.fn(async (_svc: string) => {
+      throw new Error("docker unreachable");
+    });
+    await runDueJobs(jobs, at(2026, 6, 4, 3, 0), runner, failing, STACK);
+    expect(runner).not.toHaveBeenCalled();
   });
 });
