@@ -9,6 +9,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export interface ModalProps {
   open: boolean;
@@ -50,7 +51,13 @@ export function Modal({
 
   if (!open) return null;
 
-  return (
+  // Portal to <body> so the modal is NOT a DOM descendant of the pannable
+  // #stage scroll container. A modal rendered inside #stage lets a touch/pointer
+  // drag on its controls (e.g. the brightness slider) bubble into the stage's
+  // native scroll and pan the board behind it — even when the panel is
+  // position:fixed. Rendering outside the scroll container makes drag-through
+  // structurally impossible for every modal, not just this one.
+  return createPortal(
     // Outer layer centers the panel over a full-viewport dim field. It holds no
     // click handler itself — the backdrop is a real <button> sibling beneath the
     // panel, so dismissal is keyboard-accessible and clicks inside the panel
@@ -155,6 +162,7 @@ export function Modal({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

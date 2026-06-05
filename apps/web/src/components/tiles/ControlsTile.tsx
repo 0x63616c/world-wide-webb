@@ -36,9 +36,9 @@ export function makeRefetchInterval(
     // window overlay is visible before we reconcile with live HA state.
     if (Date.now() < getCooldownUntil()) return false;
     const data = query.state?.data;
-    if (!data) return 30_000;
+    if (!data) return 5_000;
     const anyPending = data.lamps.pending || data.lights.pending || data.fan.pending;
-    return anyPending ? 2_000 : 30_000;
+    return anyPending ? 2_000 : 5_000;
   };
 }
 

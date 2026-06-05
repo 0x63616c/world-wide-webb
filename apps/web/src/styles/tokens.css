@@ -275,6 +275,15 @@
 .range::-webkit-slider-thumb:active {
   cursor: grabbing;
 }
+/* Thick track variant — the prominent lamp-brightness bar. Taller rail + larger
+   thumb so it reads as the modal's primary control. */
+.range-lg {
+  height: 16px;
+}
+.range-lg::-webkit-slider-thumb {
+  width: 30px;
+  height: 30px;
+}
 
 /* dual-thumb range (heat_cool low/high) — two native sliders stacked over one
    track. The input elements are pointer-transparent; only their thumbs receive
