@@ -206,12 +206,16 @@ export function certProbe(
 }
 
 // postgres convenience builder — produces a ServiceSpec for Postgres.
+//
+// NOTE: custom postgresql.conf / initdb mounting is intentionally NOT supported.
+// An earlier version accepted `config`/`init` path options, but the renderer
+// never emitted them and the bosun-agent image never copied the `infra/` tree —
+// so they were a silent no-op that misrepresented the deployed stack. They were
+// removed (CC-355t.4). If config/init mounting is ever needed, add it to the
+// renderer (reconcile/stack.ts) AND copy the files into the agent image, with a
+// rendered-plan snapshot test asserting they reach the output.
 export function postgres(opts: {
   volume: string;
-  // docker config source paths to mount at /etc/postgresql/postgresql.conf
-  config?: string[];
-  // initdb script paths to mount at /docker-entrypoint-initdb.d/
-  init?: string[];
   image?: string;
   secretRef?: string;
   // Database created on a FRESH volume init. Defaults to the api's expected db
