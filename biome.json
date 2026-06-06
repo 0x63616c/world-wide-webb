@@ -51,7 +51,9 @@
       "!**/.tilt",
       "!**/.beads",
       "!**/coverage",
-      "!**/.claude"
+      "!**/.claude",
+      "!**/.cmux",
+      "!**/experiments"
     ]
   },
   "overrides": [
