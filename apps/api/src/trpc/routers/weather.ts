@@ -19,11 +19,11 @@ const WeatherNowOutput = z.object({
   wind: z.number().describe("Wind speed in mph"),
   uvIndex: z.number().describe("Current UV index 0-11+"),
   precipProbability: z.number().describe("Nearest-hour precipitation probability %"),
-  sunset: z.string().describe("Sunset time formatted as h:mm AM/PM"),
-  sunsetIso: z.string().describe("Sunset as ISO local datetime for client-side comparison"),
-  sunrise: z.string().describe("Sunrise time formatted as h:mm AM/PM"),
-  sunriseIso: z.string().describe("Sunrise as ISO local datetime for client-side comparison"),
+  sunsetIso: z.string().describe("Sunset as ISO local datetime"),
+  sunriseIso: z.string().describe("Sunrise as ISO local datetime"),
   tomorrowSunriseIso: z.string().describe("Tomorrow's sunrise ISO local datetime"),
+  solarLabel: z.string().describe("Next solar event label: 'Sunset' or 'Sunrise'"),
+  solarValue: z.string().describe("Next solar event time formatted as h:mm AM/PM"),
   city: z.string().describe("City label for display"),
 });
 
