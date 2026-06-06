@@ -69,3 +69,25 @@ post-merge:
         command -v bd >/dev/null 2>&1 || exit 0
         timeout 90 bd dolt pull || echo "beads: 'bd dolt pull' failed/timed out — run it manually with 'bd dolt pull'" >&2
         exit 0
+
+post-checkout:
+  commands:
+    beads-sync:
+      # NON-BLOCKING: beads' own branch-aware post-checkout logic ({1}=prev-HEAD
+      # {2}=new-HEAD {3}=1 for a branch checkout, 0 for a file checkout — bd skips
+      # file checkouts itself, so no pull on `git checkout -- file`).
+      run: |
+        command -v bd >/dev/null 2>&1 || exit 0
+        BD_GIT_HOOK=1 timeout 90 bd hooks run post-checkout {1} {2} {3} || true
+        exit 0
+
+prepare-commit-msg:
+  commands:
+    beads-identity:
+      # NON-BLOCKING: beads adds agent identity trailers to the commit BODY (for
+      # forensics). It does not touch the subject, so the commit-msg conventional-
+      # commit guard still passes. {1}=msg file {2}=source {3}=commit sha.
+      run: |
+        command -v bd >/dev/null 2>&1 || exit 0
+        BD_GIT_HOOK=1 bd hooks run prepare-commit-msg {1} {2} {3} || true
+        exit 0
