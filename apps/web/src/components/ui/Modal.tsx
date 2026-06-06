@@ -129,7 +129,6 @@ export function Modal({
             alignItems: "center",
             justifyContent: "space-between",
             padding: 20,
-            borderBottom: "1px solid var(--hair)",
           }}
         >
           <h2
