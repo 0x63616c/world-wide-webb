@@ -108,8 +108,11 @@ function colorConverged(a: LightColor | undefined, b: LightColor | undefined): b
 }
 
 /**
- * Tolerant convergence of desired vs reported (on must match exactly; brightness
- * and colour within tolerance). Off lamps ignore brightness/colour — off is off.
+ * Tolerant convergence of the desired fields that are SPECIFIED vs reported.
+ * Desired is a PARTIAL overlay: only the fields it actually carries are intent,
+ * so a desired that omits brightness/colour (e.g. a bare on/off toggle) must NOT
+ * count as diverged just because reported has a colour. `on` is always specified;
+ * brightness/colour are compared only when desired specifies them.
  */
 function converged(desired: DeviceStateValue, reported: DeviceStateValue): boolean {
   if (desired.on !== reported.on) return false;
@@ -121,16 +124,23 @@ function converged(desired: DeviceStateValue, reported: DeviceStateValue): boole
   ) {
     return false;
   }
-  return colorConverged(desired.color, reported.color);
+  // Only a SPECIFIED desired colour can diverge; an absent desired colour means
+  // "no colour intent" → reflect reported, never perpetually pending.
+  if (desired.color != null && !colorConverged(desired.color, reported.color)) {
+    return false;
+  }
+  return true;
 }
 
 /**
- * Merge reported and desired state, DESIRED-authoritative (www-7d5b.2.4). Desired
- * is the source of truth now that the enforcer continuously reconciles it onto
- * HA: the effective state is `desired ?? reported`, so the panel reads its own
- * intent instantly with no snap-back. `pending` means desired is set but HA has
- * not yet converged with it (a transient mid-actuation state). The old 5s
- * desiredUntilUtc window is retired for managed lights — desired is sticky.
+ * Merge reported and desired into the effective state. Desired is the source of
+ * truth, but it is a PARTIAL OVERLAY: each field desired specifies wins (the
+ * enforcer drives HA to it); fields desired omits fall back to reported. So a
+ * bare on/off toggle (`{on}`) still shows the real brightness/colour from HA
+ * instead of zeros, and `activeScene` derives from the effective colour. This
+ * matches the enforcer, which only actuates the fields desired specifies
+ * (www-7d5b.2.4). `pending` is true only while a SPECIFIED desired field has not
+ * yet converged with reported. The old 5s desiredUntilUtc window is retired.
  */
 export function mergeDeviceState(
   device: {
@@ -143,8 +153,10 @@ export function mergeDeviceState(
   const desired = device.desiredState ?? null;
   const reported = device.reportedState ?? null;
   if (desired != null) {
+    // Per-field overlay: reported as base, desired's specified fields override.
+    const state = reported != null ? { ...reported, ...desired } : desired;
     const pending = reported == null ? true : !converged(desired, reported);
-    return { state: desired, pending, available: device.available };
+    return { state, pending, available: device.available };
   }
   return { state: reported, pending: false, available: device.available };
 }
