@@ -106,7 +106,7 @@ function genCounts(): void {
     schemaVersion: 1,
     label: "lines",
     message: `${formatNum(code.lines)}/${formatNum(all.lines)}`,
-    color: "blue",
+    color: "blueviolet",
   });
   writeBadge("commit.json", {
     schemaVersion: 1,
