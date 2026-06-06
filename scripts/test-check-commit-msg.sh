@@ -18,8 +18,9 @@ trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/bin"
 cat >"$TMP/bin/bd" <<'EOF'
 #!/usr/bin/env bash
-# Test stub: `bd show www-real` and the epic-child `www-real.12` succeed; else fail.
-if [ "${1:-}" = "show" ] && { [ "${2:-}" = "www-real" ] || [ "${2:-}" = "www-real.12" ]; }; then exit 0; fi
+# Test stub: `bd show www-real`, the epic-child `www-real.12`, and the
+# grandchild `www-real.3.5` succeed; else fail.
+if [ "${1:-}" = "show" ] && { [ "${2:-}" = "www-real" ] || [ "${2:-}" = "www-real.12" ] || [ "${2:-}" = "www-real.3.5" ]; }; then exit 0; fi
 exit 1
 EOF
 chmod +x "$TMP/bin/bd"
@@ -54,6 +55,7 @@ run_case pass   "nested area + real ticket"     "fix(web/tiles/www-real): fix ti
 run_case pass   "breaking-change bang"          "refactor(api/www-real)!: drop legacy route"
 run_case pass   "ticket in scope AND body"      "$(printf 'chore(beads/www-real): sync\n\nrefs www-real')"
 run_case pass   "epic-child dotted ticket id"   "feat(bosun/www-real.12): child ac"
+run_case pass   "epic-grandchild dotted id"     "feat(web/www-real.3.5): grandchild ac"
 
 # --- rejected --------------------------------------------------------------
 run_case reject "no area (ticket only in scope)" "feat(www-real): missing area"

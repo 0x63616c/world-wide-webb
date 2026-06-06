@@ -33,8 +33,9 @@ SUBJECT="$(grep -v -E '^\s*#' "$MSG_FILE" | grep -v -E '^\s*$' | head -n1 || tru
 # Allowed Conventional Commit types.
 TYPES='feat|fix|chore|refactor|docs|test|ci|build|perf|style|revert'
 # A bd ticket id: uppercase prefix, dash, lowercase-alnum suffix (e.g. www-w5y),
-# with an optional dotted child suffix for epic children (e.g. www-5ag.12).
-TICKET_RE='[A-Z]+-[a-z0-9]+(\.[0-9]+)?'
+# with zero or more dotted child suffixes for epic children/grandchildren
+# (e.g. www-5ag.12 or www-7d5b.3.5).
+TICKET_RE='[A-Z]+-[a-z0-9]+(\.[0-9]+)*'
 # type(area/TICKET)!: desc — area is required lowercase segment(s), the ticket
 # is the final scope segment, the bang is optional, description is non-empty.
 SUBJECT_RE="^(${TYPES})\([a-z0-9._/-]+/${TICKET_RE}\)!?: .+"
