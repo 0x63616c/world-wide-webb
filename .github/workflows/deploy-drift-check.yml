@@ -1,0 +1,83 @@
+# Deploy drift detection (www-ukat).
+#
+# WHY: web prod can silently fall behind main. build-web + deploy both
+# `needs: [changes, test]`, so a web-touching commit that fails the `test` job
+# cascade-skips the deploy (correct — don't ship a broken commit), but nothing
+# flags that prod is now stale; and if the eventual fix lands in a commit that
+# does NOT touch apps/web/** the path-filter skips web again, so prod stays
+# behind with zero signal. (This stranded prod 16 commits back on bed2351 once,
+# and recurred when the www-7d5b epic merge's CI failed.)
+#
+# WHAT: on a schedule, compare the SHA prod is actually serving (the build-stamped
+# /version.json from www-ss8s) against the latest main commit that SHOULD have
+# rebuilt the web image (per the same path-filter globs as ci.yml's `web` filter).
+# If prod is behind, FAIL the run so GitHub's native failed-run notification
+# surfaces it. This converts silent drift into a loud signal.
+#
+# Deliberately ALERT-ONLY, not auto-heal: auto-redeploying would fire a full
+# `bosun up` render on a timer, widening the blast radius if the render is ever
+# wrong. Catching prod up stays a human-triggered action (push a web change, or
+# `workflow_dispatch` the CI workflow which force-redeploys all images).
+
+name: deploy-drift-check
+
+on:
+  schedule:
+    # Every 30 min, off the :00/:30 marks to avoid the cron stampede.
+    - cron: "13,43 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so `git log`/`merge-base` over the web paths is accurate.
+          fetch-depth: 0
+
+      - name: Compare prod /version.json against latest web-relevant main commit
+        env:
+          PROD_URL: "https://dashboard.worldwidewebb.co/version.json"
+        run: |
+          set -euo pipefail
+
+          # Paths that rebuild the web image, kept in lockstep with the `web`
+          # filter in ci.yml (apps/web/**, packages/**, bun.lock).
+          WEB_PATHS=(apps/web packages bun.lock)
+
+          prod="$(curl -fsS --max-time 15 "${PROD_URL}?t=$(date +%s)" | jq -r '.hash // empty' || true)"
+          if [ -z "$prod" ]; then
+            echo "::warning::Could not read prod /version.json (network or pre-www-ss8s bundle). Skipping — not failing on a transient read."
+            exit 0
+          fi
+
+          expected="$(git log -1 --format=%H -- "${WEB_PATHS[@]}")"
+          echo "prod serving:            ${prod:0:7}  ($prod)"
+          echo "latest web-relevant main: ${expected:0:7}  ($expected)"
+
+          if [ "$prod" = "$expected" ]; then
+            echo "✅ In sync — prod is serving the latest web-relevant commit."
+            exit 0
+          fi
+
+          # If prod isn't even a known commit (force-push, shallow), don't cry wolf.
+          if ! git cat-file -e "${prod}^{commit}" 2>/dev/null; then
+            echo "::warning::prod SHA ${prod:0:7} is not a commit in this repo's history; cannot assess drift. Not failing."
+            exit 0
+          fi
+
+          if git merge-base --is-ancestor "$prod" "$expected"; then
+            behind="$(git rev-list --count "${prod}..${expected}" -- "${WEB_PATHS[@]}")"
+            echo "::error::Web prod is BEHIND main by ${behind} web-relevant commit(s): serving ${prod:0:7}, expected ${expected:0:7}. A deploy was likely skipped (test-failure cascade or a fix that landed in a non-web commit). Check CI for ${expected:0:7} and re-run/redeploy. See deploy-drift-check.yml (www-ukat)."
+            exit 1
+          fi
+
+          # prod is not an ancestor of expected: ahead, or diverged. Don't fail —
+          # this is not the silent-drift case and a red here would be noise.
+          echo "::warning::prod ${prod:0:7} is not an ancestor of expected ${expected:0:7} (ahead/diverged). Not the drift case; not failing."
+          exit 0
