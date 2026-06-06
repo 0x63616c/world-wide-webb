@@ -63,6 +63,12 @@
   .note{color:var(--mut);font-size:11px;line-height:1.6}
   .legend{display:flex;gap:14px;align-items:center;color:var(--mut);font-size:11px}
   .legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+  [data-tip]{cursor:help}
+  #tip{position:fixed;z-index:50;max-width:280px;background:#161616;color:var(--fg);border:1px solid var(--line2);
+    border-radius:8px;padding:9px 11px;font-size:11px;line-height:1.55;box-shadow:0 8px 24px rgba(0,0,0,.6);
+    pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}
+  #tip.on{opacity:1;transform:translateY(0)}
+  #tip b{color:var(--acc)}
 </style>
 </head>
 <body>
@@ -101,20 +107,20 @@
 <aside>
   <div class="group">
     <div class="gh">parameters</div>
-    <div class="row"><label>patch size P</label><div class="stepper" data-k="P"><button data-d="-1">−</button><input id="P" value="6"><button data-d="1">+</button></div></div>
-    <div class="row"><label>lattice (patches)</label><div class="stepper" data-k="G"><button data-d="-1">−</button><input id="G" value="6"><button data-d="1">+</button></div></div>
-    <div class="row"><label>source size</label><div class="stepper" data-k="SRC"><button data-d="-4">−</button><input id="SRC" value="60"><button data-d="4">+</button></div></div>
-    <div class="row"><label>seed</label><div class="stepper" data-k="SEED"><button data-d="-1">−</button><input id="SEED" value="7"><button data-d="1">+</button></div></div>
+    <div class="row" data-tip="Edge length of each square Wang patch (<b>P×P</b> cells). Larger P bakes more detail into each patch but yields fewer, larger library patches and a coarser lattice."><label>patch size P</label><div class="stepper" data-k="P"><button data-d="-1">−</button><input id="P" value="6"><button data-d="1">+</button></div></div>
+    <div class="row" data-tip="How many patches across and down (<b>G</b>). Output board = <b>G×P</b> cells. Purely controls the result size."><label>lattice (patches)</label><div class="stepper" data-k="G"><button data-d="-1">−</button><input id="G" value="6"><button data-d="1">+</button></div></div>
+    <div class="row" data-tip="Size of the source tiling the patch library is <b>cut from</b>. Bigger source = richer, more varied library (more distinct patches & edge colours to recombine)."><label>source size</label><div class="stepper" data-k="SRC"><button data-d="-4">−</button><input id="SRC" value="60"><button data-d="4">+</button></div></div>
+    <div class="row" data-tip="PRNG seed for <b>both</b> the source build and the WFC placement. Same seed → byte-identical output (the determinism)."><label>seed</label><div class="stepper" data-k="SEED"><button data-d="-1">−</button><input id="SEED" value="7"><button data-d="1">+</button></div></div>
   </div>
 
   <div class="group">
     <div class="gh">edge mode</div>
     <div class="toggle" id="mode">
-      <button data-m="valid" class="on">valid-fragment</button>
-      <button data-m="cross">crossing-only</button>
+      <button data-m="valid" class="on" data-tip="Keep any P×P window whose every clipped tile is a legal <b>2–5 × 2–4</b> rect. Large library; output is valid even with merge off, but many edges are flush so seams can line up across patches.">valid-fragment</button>
+      <button data-m="cross" data-tip="Keep only windows whose <b>4 edges are fully crossed</b> by source tiles (a tile spans every boundary cell). Smaller library, but merging then dissolves every patch boundary.">crossing-only</button>
     </div>
     <div class="note" id="modeNote">valid-fragment: keep windows whose every clipped tile is a legal 2–5×2–4 rect. Output is valid even before merge.</div>
-    <div class="row"><label>merge across seams</label>
+    <div class="row" data-tip="After WFC places the patches, greedily fuse adjacent fragments into larger valid rects (only when combined size stays <b>≤5×4</b>). On erases patch-boundary seams where it can; off shows the raw lattice."><label>merge across seams</label>
       <div class="toggle" id="merge" style="width:120px"><button data-v="1" class="on">on</button><button data-v="0">off</button></div>
     </div>
   </div>
@@ -122,12 +128,12 @@
   <div class="group">
     <div class="gh">metrics</div>
     <div class="metrics">
-      <div class="metric"><div class="k">longest vert</div><div class="v" id="mV">—</div></div>
-      <div class="metric"><div class="k">longest horiz</div><div class="v" id="mH">—</div></div>
-      <div class="metric"><div class="k">tiles</div><div class="v" id="mT">—</div></div>
-      <div class="metric"><div class="k">gaps</div><div class="v" id="mG">—</div></div>
-      <div class="metric"><div class="k">library size</div><div class="v" id="mL">—</div></div>
-      <div class="metric"><div class="k">edge colours</div><div class="v" id="mC">—</div></div>
+      <div class="metric" data-tip="Longest unbroken vertical seam (cells). The number we're minimising. <b>Green ≤6, amber ≤12, red >12.</b> Drawn as the red overlay on the result."><div class="k">longest vert</div><div class="v" id="mV">—</div></div>
+      <div class="metric" data-tip="Longest unbroken horizontal seam (cells). Same scale; drawn as the orange overlay."><div class="k">longest horiz</div><div class="v" id="mH">—</div></div>
+      <div class="metric" data-tip="Number of tiles in the final assembled board (after any merge)."><div class="k">tiles</div><div class="v" id="mT">—</div></div>
+      <div class="metric" data-tip="Whether any cell is left uncovered. Should always read <b>none</b> — a valid fill has no holes."><div class="k">gaps</div><div class="v" id="mG">—</div></div>
+      <div class="metric" data-tip="Distinct patches extracted from the source (after dedupe). More = more variety to recombine."><div class="k">library size</div><div class="v" id="mL">—</div></div>
+      <div class="metric" data-tip="Distinct edge signatures — the Wang <b>colours</b>. Fewer = patches are more interchangeable, so WFC fills easily but the result looks more uniform."><div class="k">edge colours</div><div class="v" id="mC">—</div></div>
     </div>
   </div>
 
@@ -297,6 +303,19 @@ $('regen').onclick=()=>{S.SEED++;$('SEED').value=S.SEED;run();};
 $('reset').onclick=()=>{Object.assign(S,{P:6,G:6,SRC:60,SEED:7,mode:'valid',merge:1});for(const k of['P','G','SRC','SEED'])$(k).value=S[k];
   $('mode').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.m==='valid'));
   $('merge').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.v==='1'));run();};
+
+// floating tooltips — positioned to the LEFT of the element so the sidebar's
+// overflow:auto never clips them.
+const tip=document.createElement('div');tip.id='tip';document.body.appendChild(tip);
+let tipEl=null;
+function showTip(el){tipEl=el;tip.innerHTML=el.dataset.tip;tip.classList.add('on');
+  const r=el.getBoundingClientRect();const tr=tip.getBoundingClientRect();
+  let x=r.left-tr.width-12;if(x<8)x=r.right+12; // flip to right if no room
+  let y=r.top+r.height/2-tr.height/2;y=Math.max(8,Math.min(y,innerHeight-tr.height-8));
+  tip.style.left=x+'px';tip.style.top=y+'px';}
+function hideTip(){tipEl=null;tip.classList.remove('on');}
+document.addEventListener('mouseover',e=>{const el=e.target.closest('[data-tip]');if(el&&el!==tipEl)showTip(el);});
+document.addEventListener('mouseout',e=>{const el=e.target.closest('[data-tip]');if(el&&!el.contains(e.relatedTarget))hideTip();});
 
 run();
 </script>
