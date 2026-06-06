@@ -94,6 +94,63 @@ describe("ControlTap — fan spin animation", () => {
   });
 });
 
+// ─── swatch variant ───────────────────────────────────────────────────────────
+
+describe("ControlTap — swatch variant", () => {
+  it("renders a color circle with the given color in place of the icon", () => {
+    render(
+      <ControlTap icon="bulb" label="Blue" on={false} swatch="rgb(0, 0, 255)" onToggle={vi.fn()} />,
+    );
+    const swatch = screen.getByLabelText("Blue").querySelector("[data-swatch]");
+    expect(swatch).not.toBeNull();
+    expect(swatch).toHaveStyle({ background: "rgb(0, 0, 255)", borderRadius: "50%" });
+  });
+
+  it("does not render the Icon when swatch is set", () => {
+    const { container } = render(
+      <ControlTap icon="bulb" label="Blue" on={false} swatch="rgb(0, 0, 255)" onToggle={vi.fn()} />,
+    );
+    // Icon renders an <svg>; swatch variant must not.
+    expect(container.querySelector("svg")).toBeNull();
+  });
+
+  it("still renders the Icon (no swatch) for normal icon usages", () => {
+    const { container } = render(
+      <ControlTap icon="lamp" label="Lamps" on={true} onToggle={vi.fn()} />,
+    );
+    expect(container.querySelector("svg")).not.toBeNull();
+    expect(container.querySelector("[data-swatch]")).toBeNull();
+  });
+});
+
+// ─── disabled variant ─────────────────────────────────────────────────────────
+
+describe("ControlTap — disabled variant", () => {
+  it("sets the disabled attribute on the button", () => {
+    render(<ControlTap icon="lamp" label="Party" on={false} disabled onToggle={vi.fn()} />);
+    expect(screen.getByLabelText("Party")).toBeDisabled();
+  });
+
+  it("does not fire onToggle when clicked while disabled", () => {
+    const onToggle = vi.fn();
+    render(<ControlTap icon="lamp" label="Party" on={false} disabled onToggle={onToggle} />);
+    fireEvent.click(screen.getByLabelText("Party"));
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  it("dims the button when disabled", () => {
+    render(<ControlTap icon="lamp" label="Party" on={false} disabled onToggle={vi.fn()} />);
+    expect(screen.getByLabelText("Party")).toHaveStyle({ opacity: "0.4" });
+  });
+
+  it("is interactive (fires onToggle) when not disabled", () => {
+    const onToggle = vi.fn();
+    render(<ControlTap icon="lamp" label="Party" on={false} onToggle={onToggle} />);
+    fireEvent.click(screen.getByLabelText("Party"));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ─── callbacks ────────────────────────────────────────────────────────────────
 
 describe("ControlTap — onToggle callback", () => {
