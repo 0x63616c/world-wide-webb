@@ -14,7 +14,7 @@ import {
   useBoardViewport,
   useIdleReset,
 } from "./hooks/useBoard";
-import { MINIMAP_HEIGHT, MINIMAP_TOP, Minimap } from "./Minimap";
+import { MINIMAP_LEFT, MINIMAP_TOP, MINIMAP_WIDTH, Minimap } from "./Minimap";
 import { PlaceholderTile } from "./PlaceholderTile";
 import { getTileModalEntry } from "./tiles/modals/registry";
 import { TileModalHost } from "./tiles/modals/TileModalHost";
@@ -224,11 +224,12 @@ function SnapModeSwitcher({ mode, onCycle }: { mode: SnapMode; onCycle: () => vo
   );
 }
 
-// Name of the tile currently under the viewport center, shown as a pill in the
-// top-left while you pan the board manually (mouse-drag or touch), then fading
-// out like the minimap does. The minimap surfaces tile names on hover; this is
-// the same affordance for plain panning, where there's no cursor over the map.
-// Stacked directly below the minimap so the two never overlap in the corner.
+// Name of the tile currently under the viewport center, shown as a pill while
+// you pan the board manually (mouse-drag or touch), then fading out like the
+// minimap does. The minimap surfaces tile names on hover; this is the same
+// affordance for plain panning, where there's no cursor over the map. Sits to
+// the RIGHT of the minimap (mirroring the hover label) so it reads as part of
+// the map and never overlaps it.
 function CenteredTileLabel({
   label,
   view,
@@ -256,10 +257,11 @@ function CenteredTileLabel({
     <div
       style={{
         position: "absolute",
-        // Stack directly below the minimap box (same left edge) so neither the
-        // map nor this label ever obscures the other.
-        left: 12,
-        top: MINIMAP_TOP + MINIMAP_HEIGHT + 8,
+        // To the right of the minimap box, aligned with the minimap's hover
+        // label (top: 6 inside the box, marginLeft: 6), so neither the map nor
+        // this label ever obscures the other.
+        left: MINIMAP_LEFT + MINIMAP_WIDTH + 6,
+        top: MINIMAP_TOP + 6,
         padding: "3px 8px",
         background: "rgba(12, 14, 17, 0.92)",
         border: "1px solid var(--hair-2)",
