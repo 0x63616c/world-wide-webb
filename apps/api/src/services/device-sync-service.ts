@@ -1,5 +1,6 @@
 import { and, desc, eq, isNotNull, lt } from "drizzle-orm";
 
+import { findLight } from "../config/lights";
 import { db } from "../db/index";
 import { deviceCommands, deviceState, integrationSyncStatus } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
@@ -8,7 +9,11 @@ import { CommandStatus } from "./device-command-service";
 import { mapHaToReported, stateEquals } from "./device-state-mapping";
 
 const SYNC_INTEGRATION_ID = "homeassistant";
-const SYNC_DOMAINS = ["light", "fan"] as const;
+// Fan-only since the M2 cutover (CC-7d5b.2.6): the light enforcer
+// (light-enforcer-service) is now the sole owner of light/switch reconcile, so
+// device-sync no longer fetches or reconciles the 'light' domain — that would
+// double-drive the lights. Fan stays read-from-HA via this loop.
+const SYNC_DOMAINS = ["fan"] as const;
 
 // One device-sync cycle. The schedule lives in the worker runtime (src/worker.ts,
 // CC-7d5b.1.2) — this module only exposes the single cycle plus the pure
@@ -36,6 +41,11 @@ export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> 
   const now = new Date();
 
   for (const device of devices) {
+    // Skip enforcer-managed lights: the light enforcer owns their desired/reported
+    // reconcile (CC-7d5b.2.6). device-sync must not write their state or it would
+    // fight the enforcer (double-drive). Fan/other devices fall through as before.
+    if (findLight(device.entityId)) continue;
+
     const entity = snapshot.get(device.entityId);
     const { reported, available } = mapHaToReported(device.kind, entity);
 
@@ -95,6 +105,11 @@ export async function sweepExpiredWindows(now: Date): Promise<void> {
     .where(and(isNotNull(deviceState.desiredUntilUtc), lt(deviceState.desiredUntilUtc, now)));
 
   for (const device of expired) {
+    // Never sweep an enforcer-managed light: desired is sticky truth for those
+    // (CC-7d5b.2.6), so clearing it here would wipe the enforcer's intent. The
+    // enforcer, not the desired-window, governs managed lights now.
+    if (findLight(device.entityId)) continue;
+
     const desired = device.desiredState;
     const reported = device.reportedState ?? null;
     const settled = stateEquals(reported, desired);

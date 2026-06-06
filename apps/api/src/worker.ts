@@ -12,6 +12,7 @@
 import { runMigrations } from "./db/migrate";
 import { env } from "./env";
 import { runDeviceSyncCycle } from "./services/device-sync-service";
+import { runEnforcerCycle } from "./services/light-enforcer-service";
 import { runWeatherIngestCycle } from "./services/weather-ingest-service";
 import { createWorkerRuntime } from "./worker/runtime";
 import type { Worker } from "./worker/types";
@@ -23,6 +24,16 @@ await runMigrations();
 
 const workers: Worker[] = [
   {
+    // DB-authoritative light enforcer (CC-7d5b.2.6): reconciles desired→HA for the
+    // managed lights every ~1s. The sole owner of light/switch reconcile now —
+    // device-sync no longer touches them.
+    name: "light-enforcer",
+    intervalMs: 1_000,
+    runOnStart: true,
+    run: runEnforcerCycle,
+  },
+  {
+    // Fan-only since the cutover; lights moved to the enforcer above.
     name: "device-sync",
     intervalMs: 1_000,
     runOnStart: true,
