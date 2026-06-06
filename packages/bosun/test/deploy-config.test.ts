@@ -41,6 +41,40 @@ describe("deploy.config.ts web TLS probe (CC-355t.3)", () => {
   });
 });
 
+describe("deploy.config.ts worker service (CC-7d5b.1.3)", () => {
+  const worker = svc("worker");
+  const api = svc("api");
+
+  it("shares the api image and selects the worker entrypoint via command", () => {
+    // Same image as the api so no separate CI build is needed: the api path
+    // filter rebuilds control-center-api and bosun's pinImage rolls every
+    // service on that image (api + worker) to the new digest together.
+    expect(worker.image).toBe(api.image);
+    expect(worker.image).toContain("control-center-api");
+    expect(worker.command).toBe("bun run worker");
+  });
+
+  it("serves no traffic — no route, no port, no health probes", () => {
+    // It only reaches out to HA + Postgres over the overlay network; nothing
+    // connects to it, so a route/port/probe would be meaningless.
+    expect(worker.route).toBeUndefined();
+    expect(worker.port).toBeUndefined();
+    expect(worker.health).toEqual([]);
+    expect(worker.healthcheck).toBeUndefined();
+  });
+
+  it("runs in Pacific time and mirrors the api's secret + env names", () => {
+    // weather-ingest parses Open-Meteo's timezone=auto LA-local timestamps, so
+    // the worker must run in the same TZ as the api did.
+    expect(worker.env.TZ).toBe("America/Los_Angeles");
+    expect(worker.env.NODE_ENV).toBe("production");
+    // Secrets/env stay in lockstep with the api so the two never drift.
+    const names = (s: ServiceSpec) => s.secrets.map((x) => x.name).sort();
+    expect(names(worker)).toEqual(names(api));
+    expect(Object.keys(worker.env).sort()).toEqual(Object.keys(api.env).sort());
+  });
+});
+
 describe("deploy.config.ts postgres (CC-355t.4)", () => {
   const pg = svc("postgres");
 

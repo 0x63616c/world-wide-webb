@@ -101,6 +101,9 @@ describe("deploy.config.ts — Docker image-cleanup cronJob (CC-0id / CC-79k)", 
       "postgres",
       "storybook",
       "web",
+      // The worker runs the continuous reconcile/ingest loops off the api
+      // (CC-7d5b.1.3); it's a long-lived service, not a cron job.
+      "worker",
     ]);
   });
 
