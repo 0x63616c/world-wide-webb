@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/0x63616c/control-center/actions/workflows/ci.yml/badge.svg)](https://github.com/0x63616c/control-center/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/control-center/main/.github/badges/coverage.json)](https://github.com/0x63616c/control-center/actions/workflows/ci.yml)
-[![Code files](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/control-center/main/.github/badges/code-files.json)](https://github.com/0x63616c/control-center)
-[![Lines](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/control-center/main/.github/badges/loc.json)](https://github.com/0x63616c/control-center)
 [![Files](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/control-center/main/.github/badges/files.json)](https://github.com/0x63616c/control-center)
+[![Lines](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/control-center/main/.github/badges/loc.json)](https://github.com/0x63616c/control-center)
+[![Commit](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/control-center/main/.github/badges/commit.json)](https://github.com/0x63616c/control-center/commits/main)
 [![Last commit](https://img.shields.io/github/last-commit/0x63616c/control-center)](https://github.com/0x63616c/control-center/commits)
 
 Smart-home wall-panel dashboard for a fixed **1366×1024** iPad Pro panel (the board
