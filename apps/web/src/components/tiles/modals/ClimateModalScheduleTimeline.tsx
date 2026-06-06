@@ -26,7 +26,8 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Modal, Stat } from "../../ui";
+import { ClimateHouseSummaryHeader } from "@/components/ClimateHouseSummaryHeader";
+import { Modal, Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -600,54 +601,43 @@ export function ClimateModalScheduleTimeline({
         {/* House summary row — average ambient + how many zones are active right now.
             Mirrors ClimateModalMultiZoneGrid's header banner for visual consistency
             across the two Climate modal concepts. */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 24,
-            padding: "14px 18px",
-            borderRadius: 14,
-            background: "var(--nest)",
-            border: "1px solid var(--hair)",
-          }}
-        >
-          <Stat label="House avg" value={`${avgAmbient}°F`} accent={activeCount > 0} />
-          <div className="divider" style={{ width: 1, height: 36, background: "var(--hair)" }} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <span className="cap">Schedule</span>
-            <span style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-2)" }}>
-              {zones.length === 0
-                ? "No zones"
-                : `${zones.length} zone${zones.length !== 1 ? "s" : ""} · ${activeCount > 0 ? `${activeCount} active` : "all idle"}`}
-            </span>
-          </div>
-          <div
-            style={{
-              marginLeft: "auto",
-              padding: "4px 10px",
-              borderRadius: 999,
-              background: "var(--nest)",
-              border: "1px solid var(--hair-2)",
-              fontSize: 11,
-              color: "var(--ink-3)",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            {/* Caret legend */}
+        <ClimateHouseSummaryHeader
+          avgAmbientF={avgAmbient}
+          anyActive={activeCount > 0}
+          secondLabel="Schedule"
+          secondValue={
+            zones.length === 0
+              ? "No zones"
+              : `${zones.length} zone${zones.length !== 1 ? "s" : ""} · ${activeCount > 0 ? `${activeCount} active` : "all idle"}`
+          }
+          right={
             <div
               style={{
-                width: 2,
-                height: 12,
-                background: "rgba(255,255,255,0.5)",
-                borderRadius: 1,
-                flexShrink: 0,
+                padding: "4px 10px",
+                borderRadius: 999,
+                background: "var(--nest)",
+                border: "1px solid var(--hair-2)",
+                fontSize: 11,
+                color: "var(--ink-3)",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
               }}
-            />
-            <span className="mono">Now · {nowHour}:00</span>
-          </div>
-        </div>
+            >
+              {/* Caret legend — shows which vertical bar is "now" on the timeline */}
+              <div
+                style={{
+                  width: 2,
+                  height: 12,
+                  background: "rgba(255,255,255,0.5)",
+                  borderRadius: 1,
+                  flexShrink: 0,
+                }}
+              />
+              <span className="mono">Now · {nowHour}:00</span>
+            </div>
+          }
+        />
 
         {/* Caveat banner — honest about what persists vs what is live.
             Surface this once so the user understands what "Apply now" does. */}

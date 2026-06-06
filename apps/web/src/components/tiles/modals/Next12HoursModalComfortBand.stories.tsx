@@ -7,7 +7,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import type { HourlyEntry } from "../Next12HoursView";
+import type { HourlyEntry } from "@/components/tiles/Next12HoursView";
 import { Next12HoursModalComfortBand } from "./Next12HoursModalComfortBand";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
+import { TileStatus } from "@/components/ui";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
-import { TileStatus } from "../ui";
 import { TeslaTileView } from "./TeslaTileView";
 
 export function TeslaTile() {

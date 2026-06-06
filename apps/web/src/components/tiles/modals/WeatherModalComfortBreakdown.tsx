@@ -25,7 +25,7 @@
  */
 
 import type { CSSProperties } from "react";
-import { Modal, Pill, PillTone } from "../../ui";
+import { Modal, Pill, PillTone } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

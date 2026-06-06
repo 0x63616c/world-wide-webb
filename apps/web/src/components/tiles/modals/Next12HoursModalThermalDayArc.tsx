@@ -19,7 +19,7 @@
  */
 
 import { useState } from "react";
-import { Modal, Stat } from "../../ui";
+import { Modal, Stat } from "@/components/ui";
 
 // ─── WMO condition text ───────────────────────────────────────────────────────
 // Same map as weather-service.ts — duplicated here so the view is

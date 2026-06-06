@@ -28,9 +28,9 @@
  */
 
 import { useState } from "react";
-import type { IconName } from "../../Icon";
-import { Icon } from "../../Icon";
-import { Modal, Stat } from "../../ui";
+import type { IconName } from "@/components/Icon";
+import { Icon } from "@/components/Icon";
+import { Modal, Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

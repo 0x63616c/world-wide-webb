@@ -19,7 +19,7 @@
  * testable/storied without real timers. The board wires in a live ticking Date.
  */
 
-import { Modal, StatusDot } from "../../ui";
+import { Modal, StatusDot } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

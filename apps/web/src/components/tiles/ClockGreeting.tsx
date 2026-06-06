@@ -1,15 +1,6 @@
-import { useEffect, useState } from "react";
-import { HOME_LABEL } from "../../config/home";
+import { HOME_LABEL } from "@/config/home";
+import { useNow } from "@/lib/hooks";
 import { ClockGreetingView } from "./ClockGreetingView";
-
-function useNow(): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
-}
 
 function greeting(hour: number): string {
   if (hour < 5) return "Good night";

@@ -22,7 +22,7 @@
  * inside the shared <Modal> so backdrop/Escape/close are handled centrally.
  */
 
-import { Modal, Stat } from "../../ui";
+import { Modal, Stat } from "@/components/ui";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 

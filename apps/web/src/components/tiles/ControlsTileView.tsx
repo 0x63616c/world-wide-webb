@@ -4,8 +4,8 @@
  */
 
 import type { MouseEventHandler } from "react";
-import { Icon } from "../Icon";
-import { ControlTap, Skeleton, Tile, TileHeader, TileStatus } from "../ui";
+import { Icon } from "@/components/Icon";
+import { ControlTap, Skeleton, Tile, TileHeader, TileStatus } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

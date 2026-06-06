@@ -1,5 +1,5 @@
-import { POLL } from "../../lib/hooks";
-import { trpc } from "../../lib/trpc";
+import { POLL } from "@/lib/hooks";
+import { trpc } from "@/lib/trpc";
 import { Next12HoursView } from "./Next12HoursView";
 
 export function Next12Hours() {

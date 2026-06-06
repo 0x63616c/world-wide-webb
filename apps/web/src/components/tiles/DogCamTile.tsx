@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { trpc } from "../../lib/trpc";
+import { POLL } from "@/lib/hooks";
+import { trpc } from "@/lib/trpc";
 import { DogCamTileView } from "./DogCamTileView";
 
 export function DogCamTile() {
@@ -8,7 +9,7 @@ export function DogCamTile() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data, isLoading } = trpc.camera.info.useQuery(undefined, {
-    refetchInterval: 30_000,
+    refetchInterval: POLL.dogcam,
     retry: 2,
   });
 

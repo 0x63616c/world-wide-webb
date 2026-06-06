@@ -20,20 +20,23 @@
  * day-plan of invented setpoints.
  */
 
-import { trpc } from "../../../../lib/trpc";
-import { ClimateModalComfortPresetsFan } from "../ClimateModalComfortPresetsFan";
+import { ClimateModalComfortPresetsFan } from "@/components/tiles/modals/ClimateModalComfortPresetsFan";
 import {
   ClimateModalHouseThermalMap,
   type HvacMode as ThermalHvacMode,
-} from "../ClimateModalHouseThermalMap";
+} from "@/components/tiles/modals/ClimateModalHouseThermalMap";
 import {
   ClimateModalMultiZoneGrid,
   type HvacMode as GridHvacMode,
   type ZoneData,
-} from "../ClimateModalMultiZoneGrid";
-import { ClimateModalScheduleTimeline, type ScheduleZone } from "../ClimateModalScheduleTimeline";
-import type { LiveVariant, TileModalEntry } from "../types";
-import { useNow } from "./use-now";
+} from "@/components/tiles/modals/ClimateModalMultiZoneGrid";
+import {
+  ClimateModalScheduleTimeline,
+  type ScheduleZone,
+} from "@/components/tiles/modals/ClimateModalScheduleTimeline";
+import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
+import { POLL, useNow } from "@/lib/hooks";
+import { trpc } from "@/lib/trpc";
 
 // The server zone shape (mirrors ClimateZone in climate-service / climate router).
 type ServerZone = {
@@ -69,7 +72,7 @@ function useClimateVariants(): { variants: LiveVariant[]; loading: boolean } {
   const now = useNow(60 * 1000);
   const utils = trpc.useUtils();
   const zonesQuery = trpc.climate.zones.useQuery(undefined, {
-    refetchInterval: 30 * 1000,
+    refetchInterval: POLL.climate,
   });
 
   // After any write, the mutation returns the fresh zones — drop them straight

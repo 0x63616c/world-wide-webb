@@ -16,10 +16,10 @@
  */
 
 import { useState } from "react";
-import type { IconName } from "../../Icon";
-import { Icon } from "../../Icon";
-import { Modal } from "../../ui";
-import type { HourlyEntry } from "../Next12HoursView";
+import type { IconName } from "@/components/Icon";
+import { Icon } from "@/components/Icon";
+import type { HourlyEntry } from "@/components/tiles/Next12HoursView";
+import { Modal } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

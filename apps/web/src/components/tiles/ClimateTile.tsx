@@ -14,13 +14,11 @@
  * UI has something to show before HA reports the new values.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { POLL } from "../../lib/hooks";
-import { type RouterOutputs, trpc } from "../../lib/trpc";
-import { TileStatus } from "../ui";
+import { useCallback, useRef, useState } from "react";
+import { TileStatus } from "@/components/ui";
+import { POLL, useCooldownInvalidate } from "@/lib/hooks";
+import { type RouterOutputs, trpc } from "@/lib/trpc";
 import { type ClimateMode, ClimateTileView, GAP, HvacMode, MAX, MIN } from "./ClimateTileView";
-
-const COOLDOWN_MS = 5_000;
 
 // Default single setpoint when turning on from `off` (band midpoint).
 const DEFAULT_TARGET = 72;
@@ -80,17 +78,6 @@ function setpointsOf(data: ServerState): { target: number; low: number; high: nu
 export function ClimateTile() {
   const utils = trpc.useUtils();
 
-  const [cooldownUntil, setCooldownUntil] = useState(0);
-  const cooldownRef = useRef(cooldownUntil);
-  cooldownRef.current = cooldownUntil;
-
-  const refetchInterval = makeRefetchInterval(() => cooldownRef.current);
-  const query = trpc.climate.get.useQuery(undefined, { refetchInterval });
-
-  const setTargetMutation = trpc.climate.setTarget.useMutation();
-  const setRangeMutation = trpc.climate.setRange.useMutation();
-  const setModeMutation = trpc.climate.setMode.useMutation();
-
   // Optimistic overlay, cleared after a mutation settles or cooldown expires.
   const [localMode, setLocalMode] = useState<ClimateMode | null>(null);
   const [localTarget, setLocalTarget] = useState<number | null>(null);
@@ -106,24 +93,19 @@ export function ClimateTile() {
     setLocalHigh(null);
   }, []);
 
-  // When cooldown expires, invalidate to reconcile with live HA state, then clear
-  // the optimistic overlay ONLY AFTER the refetch lands. This is the single owner
-  // of clearing the overlay (www-59u): clearing on mutation-settle instead snapped
-  // the UI back to the stale, refetch-paused query.data for the rest of the cooldown.
-  useEffect(() => {
-    if (cooldownUntil === 0) return;
-    const remaining = cooldownUntil - Date.now();
-    if (remaining <= 0) {
-      void utils.climate.get.invalidate().then(clearLocal);
-      return;
-    }
-    const timer = setTimeout(() => {
-      void utils.climate.get.invalidate().then(clearLocal);
-    }, remaining);
-    return () => clearTimeout(timer);
-  }, [cooldownUntil, utils, clearLocal]);
+  // Pause polling after a mutation; invalidate once the cooldown expires and
+  // clear the optimistic overlay ONLY AFTER the refetch lands so the UI doesn't
+  // snap back to stale query.data during the cooldown window (www-59u).
+  const { cooldownRef, startCooldown } = useCooldownInvalidate(() =>
+    utils.climate.get.invalidate().then(clearLocal),
+  );
 
-  const startCooldown = useCallback(() => setCooldownUntil(Date.now() + COOLDOWN_MS), []);
+  const refetchInterval = makeRefetchInterval(() => cooldownRef.current);
+  const query = trpc.climate.get.useQuery(undefined, { refetchInterval });
+
+  const setTargetMutation = trpc.climate.setTarget.useMutation();
+  const setRangeMutation = trpc.climate.setRange.useMutation();
+  const setModeMutation = trpc.climate.setMode.useMutation();
 
   const handleSetTarget = useCallback(
     (val: number) => {

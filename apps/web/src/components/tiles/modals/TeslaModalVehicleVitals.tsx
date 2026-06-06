@@ -20,8 +20,8 @@
  * PURE view: all data + callbacks arrive via props. No trpc/hooks.
  */
 
-import { Icon } from "../../Icon";
-import { BorderProgressRing, Modal, Pill, PillTone, Stat } from "../../ui";
+import { Icon } from "@/components/Icon";
+import { BorderProgressRing, Modal, Pill, PillTone, Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

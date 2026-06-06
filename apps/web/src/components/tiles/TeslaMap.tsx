@@ -1,128 +1,12 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { layers, namedFlavor } from "@protomaps/basemaps";
-import { Protocol } from "pmtiles";
 import { useEffect, useRef } from "react";
-import { HOME_CENTER } from "../../config/home";
-
-// ── Protocol guard ────────────────────────────────────────────────────────────
-// The pmtiles protocol must be registered once per page. A module-level Set
-// (constructed once, never reassigned) tracks which protocols are registered —
-// this avoids duplicate-handler warnings on HMR without a mutable primitive.
-const registeredProtocols = new Set<string>();
+import { HOME_CENTER } from "@/config/home";
+import { buildDarkStyle, createCarPinElement, registerPmtilesProtocol } from "@/lib/maps/protomaps";
 
 // HOME_CENTER (public placeholder, single source of truth in config/home.ts)
 // is the map fallback when lat/lon are null (car location unavailable / API
 // outage) so the map still renders centred rather than a blank grey canvas.
-
-// ── Layer filter ──────────────────────────────────────────────────────────────
-// Drop all symbol/label layers: the tile container is ~300×150 px, so labels
-// add noise not value. Dropping them also avoids the need for a glyphs endpoint.
-function isLabelLayer(layer: { type: string }): boolean {
-  return layer.type === "symbol";
-}
-
-// ── Style builder ─────────────────────────────────────────────────────────────
-function buildStyle(): maplibregl.StyleSpecification {
-  const baseLayers = layers("protomaps", namedFlavor("black"), { lang: "en" });
-  const filteredLayers = baseLayers.filter((l) => !isLabelLayer(l));
-
-  // Theme adjustments — keep everything dark to match the dashboard palette.
-  // Roads are slightly lighter dark lines; major arterials get a very subtle
-  // green hint (acc-line colour) without becoming a neon glow.
-  const themedLayers = filteredLayers.map((layer) => {
-    const l = { ...layer } as maplibregl.LayerSpecification & {
-      paint?: Record<string, unknown>;
-    };
-
-    // Earth / background fill → match map container background
-    if (l.id === "earth") {
-      l.paint = { ...(l.paint ?? {}), "fill-color": "#0A0D10" };
-    }
-    // Water → very dark blue-black
-    if (l.id === "water") {
-      l.paint = { ...(l.paint ?? {}), "fill-color": "#060C14" };
-    }
-    // Buildings → slightly lighter than earth, keep subtle
-    if (l.id === "buildings") {
-      l.paint = { ...(l.paint ?? {}), "fill-color": "#0E1318", "fill-opacity": 0.9 };
-    }
-    // Road casings (outlines) → dark border
-    if (typeof l.id === "string" && l.id.includes("casing")) {
-      l.paint = { ...(l.paint ?? {}), "line-color": "#0A0D10" };
-    }
-    // Minor roads → muted dark lines
-    if (typeof l.id === "string" && l.id.includes("minor") && l.type === "line") {
-      l.paint = { ...(l.paint ?? {}), "line-color": "#171D23" };
-    }
-    // Major roads (arterials) → subtle green-dark tint
-    if (
-      typeof l.id === "string" &&
-      (l.id.includes("major") ||
-        l.id.includes("highway") ||
-        l.id.includes("trunk") ||
-        l.id.includes("primary")) &&
-      l.type === "line"
-    ) {
-      l.paint = { ...(l.paint ?? {}), "line-color": "#13243d" };
-    }
-    // Any other fill (landuse, landcover, pedestrian, parks, etc.) → blend into
-    // the dark base so nothing reads tan/khaki against the dashboard palette.
-    // Green spaces keep a barely-there tint so they read as parks, not roads.
-    if (l.type === "fill" && l.id !== "earth" && l.id !== "water" && l.id !== "buildings") {
-      const greenish =
-        typeof l.id === "string" &&
-        /park|wood|forest|grass|green|nature|golf|pitch|garden/.test(l.id);
-      l.paint = { ...(l.paint ?? {}), "fill-color": greenish ? "#0a1322" : "#0A0D10" };
-    }
-
-    return l;
-  });
-
-  return {
-    version: 8,
-    sources: {
-      protomaps: {
-        type: "vector",
-        url: "pmtiles:///maps/socal.pmtiles",
-        attribution: "© <a href='https://openstreetmap.org/copyright'>OpenStreetMap</a>",
-      },
-    },
-    layers: themedLayers as maplibregl.LayerSpecification[],
-  };
-}
-
-// ── Pin marker element ────────────────────────────────────────────────────────
-// A CSS-themable teardrop that matches the old SVG pin aesthetic.
-function createPinElement(): HTMLElement {
-  const el = document.createElement("div");
-  // Sized large enough to fully contain the halo + the teardrop's drop-shadow,
-  // with overflow visible, so nothing about the marker can be clipped.
-  el.style.cssText = `
-    width: 56px;
-    height: 56px;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: visible;
-    pointer-events: none;
-  `;
-  el.innerHTML = `
-    <div style="
-      position:absolute;
-      inset:0;
-      border-radius:50%;
-      background:radial-gradient(circle, rgba(0, 112, 243,.30) 0%, rgba(0, 112, 243,.10) 45%, rgba(0, 112, 243,0) 70%);
-    "></div>
-    <svg width="24" height="30" viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg"
-         style="position:relative;z-index:1;overflow:visible;filter:drop-shadow(0 0 6px rgba(0, 112, 243,.45))">
-      <path d="M12 28 C4 18 0 13 0 8 A12 12 0 1 1 24 8 C24 13 20 18 12 28Z" fill="#0070f3"/>
-      <circle cx="12" cy="8" r="4.5" fill="#04193a"/>
-    </svg>
-  `;
-  return el;
-}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -149,12 +33,8 @@ export function TeslaMap({ lat, lon, place }: TeslaMapProps) {
     const initLat = initialLatRef.current;
     const initLon = initialLonRef.current;
 
-    // Register pmtiles protocol once per page
-    if (!registeredProtocols.has("pmtiles")) {
-      const protocol = new Protocol();
-      maplibregl.addProtocol("pmtiles", protocol.tile);
-      registeredProtocols.add("pmtiles");
-    }
+    // Register pmtiles protocol once per page (idempotent)
+    registerPmtilesProtocol();
 
     const center: [number, number] =
       initLon !== null && initLat !== null ? [initLon, initLat] : HOME_CENTER;
@@ -163,7 +43,7 @@ export function TeslaMap({ lat, lon, place }: TeslaMapProps) {
     try {
       map = new maplibregl.Map({
         container: containerRef.current,
-        style: buildStyle(),
+        style: buildDarkStyle({ includeLabels: false }),
         center,
         zoom: 15,
         // Wall panel: passive view — no user interaction
@@ -195,7 +75,7 @@ export function TeslaMap({ lat, lon, place }: TeslaMapProps) {
 
     // Add pin only when we have a real location
     if (initLon !== null && initLat !== null) {
-      const el = createPinElement();
+      const el = createCarPinElement();
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([initLon, initLat])
         .addTo(map);
@@ -220,7 +100,7 @@ export function TeslaMap({ lat, lon, place }: TeslaMapProps) {
       markerRef.current.setLngLat([lon, lat]);
     } else {
       // Marker was not created on mount (no location then) — create it now
-      const el = createPinElement();
+      const el = createCarPinElement();
       markerRef.current = new maplibregl.Marker({ element: el })
         .setLngLat([lon, lat])
         .addTo(mapRef.current);

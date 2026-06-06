@@ -1,5 +1,5 @@
-import { Icon } from "../Icon";
-import { Skeleton, Stat, Tile, TileHeader, TileStatus } from "../ui";
+import { Icon } from "@/components/Icon";
+import { Skeleton, Stat, Tile, TileHeader, TileStatus } from "@/components/ui";
 import { TeslaMap } from "./TeslaMap";
 
 // ── Charging bar ─────────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ function TeslaCharge({ charging, rate, pct }: ChargeProps) {
         style={{
           height: 12,
           borderRadius: 7,
-          background: "#181818",
+          background: "var(--nest)",
           overflow: "hidden",
           border: "1px solid var(--hair)",
         }}

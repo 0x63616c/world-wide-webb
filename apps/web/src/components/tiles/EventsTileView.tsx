@@ -1,5 +1,5 @@
-import { Icon } from "../Icon";
-import { Skeleton, Tile, TileHeader, type TileStatus } from "../ui";
+import { Icon } from "@/components/Icon";
+import { Skeleton, Tile, TileHeader, type TileStatus } from "@/components/ui";
 
 export interface EventRow {
   name: string;

@@ -27,7 +27,7 @@
  * Width 600, maxHeight 680 (matched to the concept brief).
  */
 
-import { Modal, Pill, PillTone, Stat, StatusDot } from "../../ui";
+import { Modal, Pill, PillTone, Stat, StatusDot } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

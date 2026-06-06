@@ -1,5 +1,5 @@
-import { Icon } from "../Icon";
-import { Skeleton, Tile, TileHeader, TileStatus } from "../ui";
+import { Icon } from "@/components/Icon";
+import { Skeleton, Tile, TileHeader, TileStatus } from "@/components/ui";
 
 /** Format elapsed seconds as HH:MM:SS */
 function formatRec(secs: number): string {
@@ -90,7 +90,7 @@ export function DogCamTileView({
             style={{
               position: "absolute",
               inset: 0,
-              background: "#0a0a0a",
+              background: "var(--tile)",
               zIndex: 1,
             }}
           />

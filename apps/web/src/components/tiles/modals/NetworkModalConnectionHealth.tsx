@@ -20,7 +20,7 @@
  * Modal width 560 (narrow, gauge-focused as briefed).
  */
 
-import { BorderProgressRing, Modal, Pill, PillTone, Stat } from "../../ui";
+import { BorderProgressRing, Modal, Pill, PillTone, Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

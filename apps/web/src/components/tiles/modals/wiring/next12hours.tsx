@@ -11,17 +11,18 @@
  * Condition Timeline can show full human text. This is decode logic, not data.
  */
 
-import { trpc } from "../../../../lib/trpc";
-import type { HourlyEntry } from "../../Next12HoursView";
-import { Next12HoursModalComfortBand } from "../Next12HoursModalComfortBand";
-import type { ConditionHourEntry } from "../Next12HoursModalConditionTimeline";
-import { Next12HoursModalConditionTimeline } from "../Next12HoursModalConditionTimeline";
-import { Next12HoursModalSkyClock } from "../Next12HoursModalSkyClock";
-import type { ThermalHourEntry } from "../Next12HoursModalThermalDayArc";
-import { Next12HoursModalThermalDayArc } from "../Next12HoursModalThermalDayArc";
-import type { LiveVariant, TileModalEntry } from "../types";
+import { Next12HoursModalComfortBand } from "@/components/tiles/modals/Next12HoursModalComfortBand";
+import type { ConditionHourEntry } from "@/components/tiles/modals/Next12HoursModalConditionTimeline";
+import { Next12HoursModalConditionTimeline } from "@/components/tiles/modals/Next12HoursModalConditionTimeline";
+import { Next12HoursModalSkyClock } from "@/components/tiles/modals/Next12HoursModalSkyClock";
+import type { ThermalHourEntry } from "@/components/tiles/modals/Next12HoursModalThermalDayArc";
+import { Next12HoursModalThermalDayArc } from "@/components/tiles/modals/Next12HoursModalThermalDayArc";
+import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
+import type { HourlyEntry } from "@/components/tiles/Next12HoursView";
+import { POLL } from "@/lib/hooks";
+import { trpc } from "@/lib/trpc";
 
-const REFETCH = { refetchInterval: 10 * 60 * 1000 } as const;
+const REFETCH = { refetchInterval: POLL.weather } as const;
 
 // WMO weather code → condition string. Mirrors WEATHER_CODES in
 // apps/api/src/services/weather-service.ts (decode table, not invented data).

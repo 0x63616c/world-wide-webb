@@ -17,14 +17,14 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { POLL } from "../../../../lib/hooks";
-import { trpc } from "../../../../lib/trpc";
-import type { ChargeSample } from "../TeslaModalChargeSession";
-import { TeslaModalChargeSession } from "../TeslaModalChargeSession";
-import { TeslaModalLiveMapCommand } from "../TeslaModalLiveMapCommand";
-import { TeslaModalRangeReach } from "../TeslaModalRangeReach";
-import { TeslaModalVehicleVitals } from "../TeslaModalVehicleVitals";
-import type { LiveVariant, TileModalEntry } from "../types";
+import type { ChargeSample } from "@/components/tiles/modals/TeslaModalChargeSession";
+import { TeslaModalChargeSession } from "@/components/tiles/modals/TeslaModalChargeSession";
+import { TeslaModalLiveMapCommand } from "@/components/tiles/modals/TeslaModalLiveMapCommand";
+import { TeslaModalRangeReach } from "@/components/tiles/modals/TeslaModalRangeReach";
+import { TeslaModalVehicleVitals } from "@/components/tiles/modals/TeslaModalVehicleVitals";
+import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
+import { POLL } from "@/lib/hooks";
+import { trpc } from "@/lib/trpc";
 
 /** The six modal-side charging states. */
 type ChargingState = "starting" | "charging" | "stopped" | "complete" | "disconnected" | "no_power";

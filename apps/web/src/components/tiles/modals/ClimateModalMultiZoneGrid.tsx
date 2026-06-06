@@ -28,7 +28,8 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
-import { Chip, Modal, Stat } from "../../ui";
+import { ClimateHouseSummaryHeader } from "@/components/ClimateHouseSummaryHeader";
+import { Chip, Modal, Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -356,30 +357,12 @@ export function ClimateModalMultiZoneGrid({
         {/* House-average header — ambient avg + whole-house action summary.
             This gives a single-glance answer to "what's the house doing?" before
             the user digs into individual zones. */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 24,
-            padding: "14px 18px",
-            borderRadius: 14,
-            background: "var(--nest)",
-            border: "1px solid var(--hair)",
-          }}
-        >
-          <Stat
-            label="House avg"
-            value={`${Math.round(avgAmbient)}°F`}
-            accent={activeCooling > 0 || activeHeating > 0}
-          />
-          <div className="divider" style={{ width: 1, height: 36, background: "var(--hair)" }} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <span className="cap">Status</span>
-            <span style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-2)" }}>
-              {houseSummary()}
-            </span>
-          </div>
-        </div>
+        <ClimateHouseSummaryHeader
+          avgAmbientF={avgAmbient}
+          anyActive={activeCooling > 0 || activeHeating > 0}
+          secondLabel="Status"
+          secondValue={houseSummary()}
+        />
 
         {/* Per-zone card grid — 2 columns, gap 13 matches the Controls modal inner
             grid rhythm. 4 house zones → 2×2 natural layout; odd counts flow fine. */}
