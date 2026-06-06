@@ -72,6 +72,41 @@ export default stack("control-center", {
       ],
     }),
 
+    // Worker: the continuous reconcile/ingest loops (device-sync, weather-ingest,
+    // and the light enforcer/party engine to come), split off the api so the api
+    // stays request-only (www-7d5b.1.2/.1.3). Same IMAGE as the api
+    // (control-center-api) — `command: bun run worker` selects the worker
+    // entrypoint instead of the server — so it needs no separate CI build: the
+    // existing `api` path filter rebuilds control-center-api, the deploy webhook
+    // reports that one digest, and bosun's pinImage pins EVERY service on that
+    // image (api AND worker) to it, rolling both together. No route, no port: it
+    // serves no traffic, it only reaches out to HA + Postgres over the overlay
+    // network. Secrets/env mirror the api so the two stay in lockstep (the worker
+    // reads the DB password, HA token, and runs in Pacific time like the api).
+    service("worker", {
+      image: ghcr("control-center-api"),
+      command: "bun run worker",
+      secrets: fromOp("Homelab", {
+        HA_TOKEN: "Home Assistant Token/credential",
+        UNIFI_API_KEY: "UniFi/local_api_key",
+        WIFI_SSID: "WiFi Guest Credentials/ssid",
+        WIFI_PASSWORD: "WiFi Guest Credentials/password",
+        POSTGRES_PASSWORD: "Control Center Postgres/password",
+        HOME_LAT: "Home Location/lat",
+        HOME_LON: "Home Location/lon",
+        HOME_PLACE_NAME: "Home Location/place_name",
+        HOME_RADIUS_MILES: "Home Location/radius_miles",
+      }),
+      env: {
+        NODE_ENV: "production",
+        // Pacific time so weather-ingest parses Open-Meteo's timezone=auto
+        // LA-local timestamps correctly (matches the api, see its note).
+        TZ: "America/Los_Angeles",
+        HA_URL: "http://host.docker.internal:8123",
+        UNIFI_CONTROLLER_URL: "https://host.docker.internal",
+      },
+    }),
+
     // Web: static build + /api reverse-proxy, public via Cloudflare tunnel.
     // The Tesla-map basemap (/maps/*.pmtiles) is too large to bake into the image
     // (100s of MB), so it is served off a host bind mount populated by the
