@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { ControlTap, Modal } from "@/components/ui";
 import type { ControlKey, ControlsViewData } from "./ControlsTileView";
 import { ControlsGridView } from "./ControlsTileView";
+import { PartySpeed, PartySpeedSegmented } from "./modals/PartySpeedControls";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,11 @@ export interface ExpandedControlsModalViewProps {
   /** Toggle party mode. Wired to setLampMode by ControlsTile (CC-7d5b.3.7);
    *  optional so callers/tests that predate party still type-check. */
   onParty?: () => void;
+  /** Current party animation speed — seeds the speed control shown while party
+   *  is active. Defaults to Medium when unset. */
+  speed?: PartySpeed;
+  /** Change the party speed (re-issues setLampMode with the new speed). */
+  onSpeed?: (speed: PartySpeed) => void;
 }
 
 // ─── view ─────────────────────────────────────────────────────────────────────
@@ -67,9 +73,12 @@ export function ExpandedControlsModalView({
   onScene,
   onBrightness,
   onParty,
+  speed,
+  onSpeed,
 }: ExpandedControlsModalViewProps) {
   const lampsOff = data.lamps.on === false;
   const activeScene = data.lamps.activeScene ?? null;
+  const partyActive = activeScene === "party";
 
   // Local value drives the slider during a drag for smooth motion + an instant
   // readout. The backend mutation (onBrightness) is debounced 400ms so dragging
@@ -172,17 +181,27 @@ export function ExpandedControlsModalView({
 
             {/* Party — same ControlTap surface; disabled (dimmed, no-op) when the
                 lamps are off, since party needs at least one lamp lit. Active when
-                party mode is running. onToggle is a no-op until ControlsTile wires
-                onParty (CC-7d5b.3.7). */}
+                party mode is running. onToggle toggles party via onParty. */}
             <ControlTap
               icon="bulb"
               swatch={PARTY_SWATCH}
               label="Party"
-              on={activeScene === "party"}
+              on={partyActive}
               disabled={lampsOff}
               onToggle={() => onParty?.()}
             />
           </div>
+
+          {/* Party speed — only meaningful while party is running, so it appears
+              under the scene grid when active. Segmented Slow/Med/Fast is the
+              shipping control (the slider + tap-cycle variants live in Storybook
+              for Calum to feel; all three are prop-compatible). */}
+          {partyActive && onSpeed && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+              <span className="cap">Party speed</span>
+              <PartySpeedSegmented value={speed ?? PartySpeed.Medium} onChange={onSpeed} />
+            </div>
+          )}
         </section>
       </div>
     </Modal>

@@ -20,6 +20,7 @@ import { trpc } from "@/lib/trpc";
 import type { ControlKey } from "./ControlsTileView";
 import { ControlsTileView } from "./ControlsTileView";
 import { ExpandedControlsModalView } from "./ExpandedControlsModalView";
+import { PartySpeed } from "./modals/PartySpeedControls";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,9 @@ export function makeRefetchInterval(): (query: {
 export function ControlsTile() {
   const utils = trpc.useUtils();
   const [modalOpen, setModalOpen] = useState(false);
+  // Party speed is a UI choice (getControlsState doesn't carry it back). Seeds the
+  // segmented control + the speed sent with setLampMode. Defaults to Medium.
+  const [partySpeed, setPartySpeed] = useState<PartySpeed>(PartySpeed.Medium);
 
   const { data } = trpc.controls.list.useQuery({}, { refetchInterval: makeRefetchInterval() });
 
@@ -95,6 +99,14 @@ export function ControlsTile() {
     onSettled: () => utils.controls.list.invalidate({}),
   });
 
+  // Lamp mode (party). The party worker owns the animation loop and the lamp_mode
+  // row is authoritative, so activeScene='party' comes back from getControlsState.
+  // Invalidate on settle to pull the new activeScene. No optimistic write — the
+  // mode flip lands on the next read (sub-cycle).
+  const modeMutation = trpc.controls.setLampMode.useMutation({
+    onSettled: () => utils.controls.list.invalidate({}),
+  });
+
   function handleToggle(key: ControlKey, currentOn: boolean) {
     // Block mutation until the first query resolves — prevents corrupting an empty cache.
     if (!data) return;
@@ -103,12 +115,29 @@ export function ControlsTile() {
 
   if (!data) return <ControlsTileView status="loading" />;
 
+  const partyActive = data.lamps.activeScene === "party";
+
+  // Tapping Party toggles party↔none based on the current mode. Starting party
+  // sends the chosen speed; stopping clears it (the lamps return to desired scene).
+  function handleParty() {
+    if (partyActive) modeMutation.mutate({ mode: "none" });
+    else modeMutation.mutate({ mode: "party", speed: partySpeed });
+  }
+
+  // Changing speed while party is running re-issues setLampMode with the new speed
+  // so the worker re-arms at the new cadence.
+  function handleSpeed(speed: PartySpeed) {
+    setPartySpeed(speed);
+    if (partyActive) modeMutation.mutate({ mode: "party", speed });
+  }
+
   const viewData = {
     lamps: {
       on: data.lamps.on,
       sub: data.lamps.sub,
       pending: data.lamps.pending,
       brightness: data.lamps.brightness,
+      activeScene: data.lamps.activeScene,
     },
     lights: { on: data.lights.on, pending: data.lights.pending },
     fan: { on: data.fan.on, sub: data.fan.sub, pending: data.fan.pending },
@@ -129,6 +158,9 @@ export function ControlsTile() {
         onToggle={handleToggle}
         onScene={(scene) => sceneMutation.mutate({ scene })}
         onBrightness={(pct) => brightnessMutation.mutate({ pct })}
+        onParty={handleParty}
+        speed={partySpeed}
+        onSpeed={handleSpeed}
       />
     </>
   );

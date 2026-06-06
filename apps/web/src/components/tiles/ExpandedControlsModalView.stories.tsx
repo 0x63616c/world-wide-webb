@@ -52,6 +52,7 @@ const meta = {
     onScene: fn(),
     onBrightness: fn(),
     onParty: fn(),
+    onSpeed: fn(),
   },
 } satisfies Meta<typeof ExpandedControlsModalView>;
 
@@ -163,7 +164,7 @@ export const BlueActive: Story = {
 
 export const PartyActive: Story = {
   name: "Party mode active",
-  args: { data: partyActive },
+  args: { data: partyActive, speed: "medium" },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement.ownerDocument.body);
     const party = canvas.getByRole("button", { name: "Party" });
@@ -173,7 +174,14 @@ export const PartyActive: Story = {
     for (const name of ["White", "Mood", "Red", "Blue"]) {
       expect(canvas.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
     }
-    // Tapping Party fires onParty (toggles party off — wired in CC-7d5b.3.7).
+    // The segmented speed control appears while party is active, seeded at Medium.
+    const speed = canvas.getByRole("tablist", { name: "Party speed" });
+    expect(speed).toBeInTheDocument();
+    await expect(canvas.getByRole("tab", { name: "Med" })).toHaveAttribute("aria-selected", "true");
+    // Picking a new speed fires onSpeed.
+    await userEvent.click(canvas.getByRole("tab", { name: "Fast" }));
+    expect(args.onSpeed).toHaveBeenCalledWith("fast");
+    // Tapping Party fires onParty (toggles party off).
     await userEvent.click(party);
     expect(args.onParty).toHaveBeenCalled();
   },
