@@ -488,6 +488,11 @@ export function Board() {
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerLeave={endDrag}
+      // pointercancel fires when the OS steals the touch (edge/system gesture,
+      // multi-touch). Without this the held-pointer ref sticks true, which would
+      // freeze drag-pan AND permanently disable the idle reset (it never fires
+      // mid-interaction). Ending the drag here clears that ref on the panel.
+      onPointerCancel={endDrag}
       style={{
         position: "fixed",
         inset: 0,
