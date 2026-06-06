@@ -63,6 +63,7 @@ import {
   WHITE_SCENE_KELVIN,
 } from "../config/lamp-scenes";
 import { FIXTURE_ENTITY_IDS, LAMP_ENTITY_IDS } from "../config/lights";
+import { lampMode } from "../db/schema";
 import {
   ControlKey,
   FanMode,
@@ -613,6 +614,24 @@ describe("toggleControl", () => {
       fan_mode: FanMode.On,
     });
   });
+
+  it("CC-hu8p: clears party mode when turning lamps OFF (party must not resurrect on next on)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    await toggleControl(ControlKey.Lamps, false);
+
+    expect(mockDbInsert).toHaveBeenCalledWith(lampMode);
+  });
+
+  it("CC-hu8p: does NOT clear party mode when turning lamps ON (party is durable)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    await toggleControl(ControlKey.Lamps, true);
+
+    expect(mockDbInsert).not.toHaveBeenCalledWith(lampMode);
+  });
 });
 
 // ─── router (tRPC caller) tests ───────────────────────────────────────────────
@@ -809,6 +828,15 @@ describe("setLampScene", () => {
     expect(state).toHaveProperty("lights");
     expect(state).toHaveProperty("fan");
   });
+
+  it("CC-hu8p: clears any active party mode so the worker stops overwriting the manual scene", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await setLampScene(LampScene.Red);
+
+    // The lamp_mode singleton is upserted (to 'none') so party yields the colour.
+    expect(mockDbInsert).toHaveBeenCalledWith(lampMode);
+  });
 });
 
 // ─── setLampBrightness tests ──────────────────────────────────────────────────
@@ -872,6 +900,14 @@ describe("setLampBrightness", () => {
     const state = await setLampBrightness(75);
 
     expect(state).toHaveProperty("lamps");
+  });
+
+  it("CC-hu8p: does NOT clear party mode (dimming is allowed during party)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await setLampBrightness(50);
+
+    expect(mockDbInsert).not.toHaveBeenCalledWith(lampMode);
   });
 });
 

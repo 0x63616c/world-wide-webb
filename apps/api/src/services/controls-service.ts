@@ -281,6 +281,30 @@ async function resolveActiveScene(
   return deriveSceneFromDesired(onLampStates);
 }
 
+/**
+ * Clear any persistent lamp mode (upsert the singleton row to "none"). The party
+ * worker OWNS the colour dimension while mode=party (the enforcer yields colour to
+ * it), so an explicit manual colour/scene command must end party — otherwise the
+ * animation keeps overwriting the user's colour every tick and the scene never
+ * sticks. Turning the lamps OFF clears it too, so party never silently resurrects
+ * on the next lamp-on (CC-hu8p). DB-unreachable is swallowed: the scene/toggle
+ * actuation still fires, so the command is never a silent no-op.
+ */
+async function clearLampMode(): Promise<void> {
+  const now = new Date();
+  try {
+    await db
+      .insert(lampMode)
+      .values({ id: LAMP_MODE_SINGLETON_ID, mode: LampMode.None, speed: null, updatedAtUtc: now })
+      .onConflictDoUpdate({
+        target: lampMode.id,
+        set: { mode: LampMode.None, speed: null, updatedAtUtc: now },
+      });
+  } catch {
+    // DB unreachable — mode can't be cleared; the actuation below still fires.
+  }
+}
+
 /** Read the persistent lamp_mode (the singleton row); "none" when absent/unreadable. */
 async function readLampMode(): Promise<LampMode> {
   try {
@@ -407,6 +431,10 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
 
   switch (key) {
     case ControlKey.Lamps: {
+      // Turning the lamps OFF ends party — otherwise the row persists and party
+      // silently resurrects on the next lamp-on (CC-hu8p). ON leaves the mode
+      // intact so a durable party re-arms when the lamps come back.
+      if (!on) await clearLampMode();
       const entries = lampEntries();
       // Toggle ON preserves the existing desired colour/brightness (scene survives
       // a toggle); OFF just flips on. The desired write is the source of truth.
@@ -469,6 +497,10 @@ export async function setLampScene(scene: LampScene): Promise<ControlsState> {
   if (!ha.isConfigured()) {
     throw new Error("Home Assistant is not configured");
   }
+
+  // A manual scene is an explicit colour intent — end party so its worker stops
+  // overwriting the scene's colour every animation tick (CC-hu8p).
+  await clearLampMode();
 
   const entries = lampEntries();
   const colors = sceneColors(scene);
