@@ -36,26 +36,11 @@ import {
 } from "@/components/tiles/modals/ClimateModalScheduleTimeline";
 import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
 import { POLL, useNow } from "@/lib/hooks";
-import { trpc } from "@/lib/trpc";
+import { type RouterOutputs, trpc } from "@/lib/trpc";
 
-// The server zone shape (mirrors ClimateZone in climate-service / climate router).
-type ServerZone = {
-  entityId: string;
-  name: string;
-  ambient: number;
-  action: "Cooling" | "Heating" | "Idle";
-  mode: string;
-  hvacModes: string[];
-  target: number | null;
-  targetLow: number | null;
-  targetHigh: number | null;
-  minTemp: number;
-  maxTemp: number;
-  presetMode: string | null;
-  presetModes: string[];
-  fanMode: string | null;
-  fanModes: string[];
-};
+// Derived from the router output so the type stays in sync with the API
+// contract automatically — no hand-maintained shadow type (CC-355t.25).
+type ServerZone = RouterOutputs["climate"]["zones"][number];
 
 type ModalAction = "cooling" | "heating" | "idle" | "off";
 
