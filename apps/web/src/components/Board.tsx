@@ -1,9 +1,10 @@
 import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { BUILD_HASH } from "../config/build";
+import { BUILD_HASH, BUILD_TIME } from "../config/build";
 import { BOARD_H, BOARD_W, tileWorldRect, WORLD_H, WORLD_W } from "../lib/grid-constants";
 import { useAnyModalOpen } from "../lib/modal-open-store";
 import { BENTO_RECTS } from "../lib/placeholder-tiles";
+import { formatRelativeAge } from "../lib/relative-age";
 import { TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
 import { MINIMAP_HEIGHT, MINIMAP_TOP, Minimap } from "./Minimap";
@@ -197,9 +198,17 @@ function FpsMeter() {
   );
 }
 
-// Git short SHA of the running web bundle, pinned bottom-left as the mirror of
-// the FPS readout. Lets you tell at a glance which build a wall panel is on.
+// Git short SHA of the running web bundle, pinned bottom-left. The SHA is
+// prefixed with '#' and trailed by a compact "time since build" readout (e.g.
+// "#a1b2c3d · 3 days 3hrs") so you can tell at a glance both which build a wall
+// panel is on and how stale it is. The age ticks once a minute.
 function BuildHashBadge() {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(t);
+  }, []);
+  const age = formatRelativeAge(BUILD_TIME, now);
   return (
     <div
       style={{
@@ -212,7 +221,8 @@ function BuildHashBadge() {
         color: "var(--ink-3)",
       }}
     >
-      {BUILD_HASH.slice(0, 7)}
+      #{BUILD_HASH.slice(0, 7)}
+      {age ? ` · ${age}` : ""}
     </div>
   );
 }
