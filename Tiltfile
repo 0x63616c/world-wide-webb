@@ -77,6 +77,30 @@ local_resource(
     ],
 )
 
+# worker: the continuous reconcile/ingest loops (device-sync, weather-ingest)
+# that used to run inside the api now live in a dedicated worker process
+# (CC-7d5b.1.2), so dev must run it too or those loops never fire locally.
+# Same env as the api (DB + HA token + home location); bun --watch owns the file
+# watch. No readiness probe / watchdog: the worker serves no HTTP, so there is no
+# URL to poll — bun --watch restarts it on a crash, and Tilt surfaces its logs.
+local_resource(
+    "worker",
+    serve_cmd="bun --watch apps/api/src/worker.ts",
+    serve_env={
+        "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
+        "HA_TOKEN": secrets["HA_TOKEN"],
+        "UNIFI_API_KEY": secrets["UNIFI_API_KEY"],
+        "WIFI_SSID": secrets["WIFI_SSID"],
+        "WIFI_PASSWORD": secrets["WIFI_PASSWORD"],
+        "HOME_LAT": secrets["HOME_LAT"],
+        "HOME_LON": secrets["HOME_LON"],
+        "HOME_PLACE_NAME": secrets["HOME_PLACE_NAME"],
+        "HOME_RADIUS_MILES": secrets["HOME_RADIUS_MILES"],
+    },
+    resource_deps=["postgres", "install", "db-migrate"],
+    labels=["backend"],
+)
+
 # web: Vite owns HMR. No `deps=` — same reasoning as api.
 # Watchdog-wrapped for the same self-heal reason as api (this is the one that
 # usually fails to come up). Vite cold start is slower, so a longer grace.
