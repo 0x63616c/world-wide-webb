@@ -85,7 +85,10 @@ export default stack("control-center", {
     // reads the DB password, HA token, and runs in Pacific time like the api).
     service("worker", {
       image: ghcr("control-center-api"),
-      command: "bun run worker",
+      // The runtime api image ships bundled JS (server.js + worker.js), NOT
+      // package.json scripts — run the bundle directly, never `bun run worker`
+      // (which crashloops: "Script not found 'worker'"). See apps/api/Dockerfile.
+      command: "bun worker.js",
       secrets: fromOp("Homelab", {
         HA_TOKEN: "Home Assistant Token/credential",
         UNIFI_API_KEY: "UniFi/local_api_key",
