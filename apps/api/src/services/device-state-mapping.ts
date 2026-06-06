@@ -43,3 +43,30 @@ export function stateEquals(a: DeviceStateValue | null, b: DeviceStateValue | nu
   if ((a.brightness ?? null) !== (b.brightness ?? null)) return false;
   return true;
 }
+
+export interface MergedDeviceState {
+  state: DeviceStateValue | null;
+  pending: boolean;
+  available: boolean;
+}
+
+/**
+ * Merge reported and desired state for a device. Returns the desired value
+ * (with pending=true) while an active overlay window is present; otherwise
+ * falls back to the reported value from HA. Moved from device-sync-service
+ * so it co-locates with the other state-mapping helpers (www-355t.26).
+ */
+export function mergeDeviceState(
+  device: {
+    reportedState?: DeviceStateValue | null;
+    desiredState?: DeviceStateValue | null;
+    desiredUntilUtc?: Date | null;
+    available: boolean;
+  },
+  now: Date,
+): MergedDeviceState {
+  if (device.desiredUntilUtc && device.desiredUntilUtc > now && device.desiredState != null) {
+    return { state: device.desiredState, pending: true, available: device.available };
+  }
+  return { state: device.reportedState ?? null, pending: false, available: device.available };
+}

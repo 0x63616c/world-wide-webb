@@ -13,8 +13,7 @@ import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 import { commandDevice, DeviceAction } from "./device-command-service";
-import { DeviceKind } from "./device-state-mapping";
-import { mergeDeviceState } from "./device-sync-service";
+import { DeviceKind, mergeDeviceState } from "./device-state-mapping";
 
 const DESIRED_WINDOW_MS = 5_000;
 
