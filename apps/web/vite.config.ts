@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 
 const apiPort = process.env.API_PORT ?? "4201";
 
@@ -36,10 +36,37 @@ function resolveBuildTime(): string {
   }
 }
 
+// Resolve once so the value baked into the bundle (__BUILD_HASH__) and the value
+// written to dist/version.json are GUARANTEED identical — the kiosk version check
+// (www-ss8s) compares the served version.json hash against the baked BUILD_HASH,
+// so any divergence here would cause spurious or missed reloads.
+const buildHash = resolveBuildHash();
+
+// Emits dist/version.json = {"hash":"<SHA>"} at build, served by nginx at the
+// site root (/version.json). The web app polls it to detect OTA deploys.
+function versionStampPlugin(hash: string): Plugin {
+  return {
+    name: "cc-version-stamp",
+    apply: "build",
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "version.json",
+        source: JSON.stringify({ hash }),
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [TanStackRouterVite({ target: "react" }), react(), tailwindcss()],
+  plugins: [
+    TanStackRouterVite({ target: "react" }),
+    react(),
+    tailwindcss(),
+    versionStampPlugin(buildHash),
+  ],
   define: {
-    __BUILD_HASH__: JSON.stringify(resolveBuildHash()),
+    __BUILD_HASH__: JSON.stringify(buildHash),
     __BUILD_TIME__: JSON.stringify(resolveBuildTime()),
   },
   resolve: {

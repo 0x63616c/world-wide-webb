@@ -29,14 +29,11 @@ pre-commit:
       # keys, high-entropy strings). Config + allowlist live in .gitleaks.toml.
       # Keeps credentials in 1Password only, especially ahead of going public (www-4ma).
       run: gitleaks git --staged --no-banner -c .gitleaks.toml
-    stat-badges:
-      # Non-blocking: refresh the self-hosted count badges (files / lines / commit)
-      # from real git-tracked counts so they never go stale. files+lines carry a
-      # code/all ratio; commit is the short HEAD SHA. They only re-stage when a
-      # value actually changes (low churn). Coverage badge is refreshed by the CI
-      # test job, not here (too slow for every commit). See scripts/gen-badges.ts
-      # (www-afz, www-2lre).
-      run: bun scripts/gen-badges.ts --loc-only && git add .github/badges/loc.json .github/badges/files.json .github/badges/commit.json
+    # NOTE: badge JSON (.github/badges/*) is refreshed ONLY by the CI test job
+    # (`bun run badges` → commit "[skip ci]" on main), never per-commit. A
+    # pre-commit `git add` of generated badges baked churn into every feature
+    # commit and conflicted on every worktree→main merge (www-w6j2.8). CI keeps
+    # all four badges (files/loc/commit/coverage) current on main.
 
 commit-msg:
   commands:

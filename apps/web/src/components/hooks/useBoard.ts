@@ -5,6 +5,7 @@
  *  useBoardViewport  — scroll position + client size → `view` state
  *  useBoardSnap      — settle/spring-snap logic (SmoothDamp + scrollend/idle)
  *  useBoardDragPan   — desktop mouse-drag-to-pan shim
+ *  useIdleReset      — return to the home view after an idle timeout
  *  getVisibleTiles   — pure windowing filter (no hook, no side effects)
  *
  * The Board component still owns the DOM ref, the modal state, and the render
@@ -331,6 +332,91 @@ export function useBoardDragPan({
   }, [stageRef, snapCss, pointerDown, onSettle, drag]);
 
   return { suppressClick, onPointerDown, onPointerMove, endDrag };
+}
+
+// ─── useIdleReset ─────────────────────────────────────────────────────────────
+
+/** Idle window before the board returns to the home (clock) view. */
+export const IDLE_RESET_MS = 60_000;
+
+// Interaction events that count as "the panel is in use" and rearm the timer.
+// pointerdown/touchstart cover taps; wheel/scroll cover panning; keydown covers
+// the keyboard nav path. Listed once so attach + detach stay in lockstep.
+const IDLE_RESET_EVENTS = ["pointerdown", "touchstart", "wheel", "scroll", "keydown"] as const;
+
+type UseIdleResetOptions = {
+  stageRef: React.RefObject<HTMLDivElement | null>;
+  /** Navigate the board back to the home view (e.g. jumpTo world-center). */
+  goHome: () => void;
+  /** True when the viewport is already centered on home (within a deadzone). */
+  isHome: () => boolean;
+  /** True while a pointer is held — never navigate mid-interaction. */
+  pointerDown: React.RefObject<boolean>;
+  /** Idle window in ms; defaults to IDLE_RESET_MS (injectable for tests). */
+  idleMs?: number;
+};
+
+/**
+ * Returns the board to the home view after `idleMs` with zero user interaction,
+ * so an unattended wall panel resettles on the clock. Pure/decoupled: it takes a
+ * `goHome` navigator and an `isHome` predicate, so the Board wires the concrete
+ * jumpTo-to-world-center while this stays unit-testable without real DOM scroll.
+ *
+ * WHY a self-rescheduling timeout rather than setInterval: a fired timer that
+ * can't act yet (already home, or a pointer still held) must defer WITHOUT
+ * counting that wait as a fresh idle window — it reschedules one short tick later
+ * and re-checks, so a held finger never silently consumes the 60s budget.
+ */
+export function useIdleReset({
+  stageRef,
+  goHome,
+  isHome,
+  pointerDown,
+  idleMs = IDLE_RESET_MS,
+}: UseIdleResetOptions): void {
+  // Latest callbacks held in a ref so the timer wiring (below) mounts once and
+  // never re-attaches listeners just because a fresh closure was passed in.
+  const cbRef = useRef({ goHome, isHome });
+  cbRef.current = { goHome, isHome };
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    let timer = 0;
+
+    const fire = () => {
+      // Mid-interaction or already home: don't navigate. Re-check shortly so the
+      // reset still happens once the finger lifts, without resetting the budget.
+      if (pointerDown.current || cbRef.current.isHome()) {
+        timer = window.setTimeout(fire, 1_000);
+        return;
+      }
+      cbRef.current.goHome();
+    };
+
+    const arm = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(fire, idleMs);
+    };
+
+    // keydown has no meaningful target on the stage (focus may sit on a tile or
+    // body), so it rides window; the rest are stage-local pan/tap signals.
+    for (const type of IDLE_RESET_EVENTS) {
+      const target: EventTarget = type === "keydown" ? window : stage;
+      target.addEventListener(type, arm, { passive: true });
+    }
+
+    arm();
+
+    return () => {
+      window.clearTimeout(timer);
+      for (const type of IDLE_RESET_EVENTS) {
+        const target: EventTarget = type === "keydown" ? window : stage;
+        target.removeEventListener(type, arm);
+      }
+    };
+  }, [stageRef, pointerDown, idleMs]);
 }
 
 // ─── getVisibleTiles ──────────────────────────────────────────────────────────
