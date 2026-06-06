@@ -30,12 +30,13 @@ pre-commit:
       # Keeps credentials in 1Password only, especially ahead of going public (www-4ma).
       run: gitleaks git --staged --no-banner -c .gitleaks.toml
     stat-badges:
-      # Non-blocking: refresh the self-hosted count badges (code-files / lines /
-      # files) from real git-tracked counts so they never go stale. Comma-formatted
-      # exact numbers, so they only re-stage when a count actually changes (low
-      # churn). Coverage badge is refreshed by the CI test job, not here (too slow
-      # for every commit). See scripts/gen-badges.ts (www-afz, www-2lre).
-      run: bun scripts/gen-badges.ts --loc-only && git add .github/badges/code-files.json .github/badges/loc.json .github/badges/files.json
+      # Non-blocking: refresh the self-hosted count badges (files / lines / commit)
+      # from real git-tracked counts so they never go stale. files+lines carry a
+      # code/all ratio; commit is the short HEAD SHA. They only re-stage when a
+      # value actually changes (low churn). Coverage badge is refreshed by the CI
+      # test job, not here (too slow for every commit). See scripts/gen-badges.ts
+      # (www-afz, www-2lre).
+      run: bun scripts/gen-badges.ts --loc-only && git add .github/badges/loc.json .github/badges/files.json .github/badges/commit.json
 
 commit-msg:
   commands:

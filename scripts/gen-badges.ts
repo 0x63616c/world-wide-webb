@@ -6,10 +6,11 @@
  * forbids). Each file is consumed by README.md via
  * `https://img.shields.io/endpoint?url=<raw github url to this json>`.
  *
- * - code-files.json count of git-tracked code files (CODE_GLOBS).
- * - loc.json        total lines across those code files (label "lines").
- * - files.json      count of ALL git-tracked files in the repo.
- *                   These three are cheap and always regenerated — wired into the
+ * - files.json      "<code files>/<all files>" — git-tracked code files
+ *                   (CODE_GLOBS) over ALL git-tracked files (label "files").
+ * - loc.json        "<code lines>/<all lines>" — total lines across code files
+ *                   over total lines across every tracked file (label "lines").
+ *                   These two are cheap and always regenerated — wired into the
  *                   lefthook pre-commit so they can never go stale.
  * - coverage.json   line coverage %, read from vitest's coverage-summary.json.
  *                   Only rewritten when that summary exists (i.e. after a
@@ -46,65 +47,75 @@ function formatNum(n: number): string {
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
-// Count git-tracked code files and their total lines in one pass.
-function countCode(): { files: number; lines: number } {
-  const out = execFileSync("git", ["ls-files", "-z", "--", ...CODE_GLOBS], {
+// Count lines in a file buffer: newlines, plus 1 when the final line has no
+// trailing newline. Binary files just contribute their 0x0a byte count.
+function countLines(buf: Buffer): number {
+  let nl = 0;
+  for (const byte of buf) if (byte === 0x0a) nl++;
+  return buf.length > 0 && buf.at(-1) !== 0x0a ? nl + 1 : nl;
+}
+
+// List git-tracked paths matching `globs` (all tracked files when empty),
+// skipping pending deletions (tracked but absent on disk → would ENOENT).
+function trackedFiles(globs: string[]): string[] {
+  const out = execFileSync("git", ["ls-files", "-z", "--", ...globs], {
     cwd: repoRoot,
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
   });
-  // `git ls-files` includes tracked paths that are deleted on disk but not yet
-  // staged (a pending deletion in a dirty tree). Skip those rather than ENOENT.
-  const files = out
+  return out
     .split("\0")
     .filter(Boolean)
     .filter((f) => existsSync(join(repoRoot, f)));
+}
+
+// Count files and total lines for a tracked-path set in one pass.
+function countSet(globs: string[]): { files: number; lines: number } {
+  const files = trackedFiles(globs);
   let lines = 0;
-  for (const f of files) {
-    const buf = readFileSync(join(repoRoot, f));
-    // Count newlines; add 1 when the final line has no trailing newline.
-    let nl = 0;
-    for (const byte of buf) if (byte === 0x0a) nl++;
-    lines += buf.length > 0 && buf.at(-1) !== 0x0a ? nl + 1 : nl;
-  }
+  for (const f of files) lines += countLines(readFileSync(join(repoRoot, f)));
   return { files: files.length, lines };
 }
 
-// Total git-tracked files in the repo (every path, not just code).
-function countTrackedFiles(): number {
-  const out = execFileSync("git", ["ls-files", "-z"], {
+// Current HEAD short commit SHA. In CI this is the real main commit; on a local
+// pre-commit run HEAD is the parent, so CI (which regenerates badges post-push)
+// is authoritative — same as the coverage badge.
+function headShortSha(): string {
+  return execFileSync("git", ["rev-parse", "--short", "HEAD"], {
     cwd: repoRoot,
     encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  return out.split("\0").filter(Boolean).length;
+  }).trim();
 }
 
-// The three count badges (all blue, comma-formatted). Cheap to compute, so the
-// lefthook pre-commit refreshes them on every commit; only coverage is gated to CI.
+// The count badges (all blue). Cheap to compute, so the lefthook pre-commit
+// refreshes them on every commit; only coverage is gated to CI.
+//
+// - files.json  "<code files>/<all files>"  — code vs every tracked path
+// - loc.json    "<code lines>/<all lines>"  — code lines vs lines in every file
+// - commit.json short HEAD SHA
 function genCounts(): void {
-  const { files: codeFiles, lines } = countCode();
-  const totalFiles = countTrackedFiles();
-  writeBadge("code-files.json", {
+  const code = countSet(CODE_GLOBS);
+  const all = countSet([]);
+  writeBadge("files.json", {
     schemaVersion: 1,
-    label: "code files",
-    message: formatNum(codeFiles),
+    label: "files",
+    message: `${formatNum(code.files)}/${formatNum(all.files)}`,
     color: "blue",
   });
   writeBadge("loc.json", {
     schemaVersion: 1,
     label: "lines",
-    message: formatNum(lines),
+    message: `${formatNum(code.lines)}/${formatNum(all.lines)}`,
     color: "blue",
   });
-  writeBadge("files.json", {
+  writeBadge("commit.json", {
     schemaVersion: 1,
-    label: "files",
-    message: formatNum(totalFiles),
+    label: "commit",
+    message: headShortSha(),
     color: "blue",
   });
   console.log(
-    `code-files.json -> ${formatNum(codeFiles)} | loc.json -> ${formatNum(lines)} lines | files.json -> ${formatNum(totalFiles)}`,
+    `files.json -> ${formatNum(code.files)}/${formatNum(all.files)} | loc.json -> ${formatNum(code.lines)}/${formatNum(all.lines)} lines | commit.json -> ${headShortSha()}`,
   );
 }
 
