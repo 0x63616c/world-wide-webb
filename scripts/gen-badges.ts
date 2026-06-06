@@ -6,14 +6,16 @@
  * forbids). Each file is consumed by README.md via
  * `https://img.shields.io/endpoint?url=<raw github url to this json>`.
  *
- * - loc.json      lines of code, counted from git-tracked source. Always
- *                 regenerated (fast) — wired into the lefthook pre-commit so it
- *                 can never go stale.
- * - coverage.json line coverage %, read from vitest's coverage-summary.json.
- *                 Only rewritten when that summary exists (i.e. after a
- *                 `vitest run --coverage`), so a plain local commit that has no
- *                 fresh coverage report leaves the last CI-generated value
- *                 intact rather than zeroing it out.
+ * - code-files.json count of git-tracked code files (CODE_GLOBS).
+ * - loc.json        total lines across those code files (label "lines").
+ * - files.json      count of ALL git-tracked files in the repo.
+ *                   These three are cheap and always regenerated — wired into the
+ *                   lefthook pre-commit so they can never go stale.
+ * - coverage.json   line coverage %, read from vitest's coverage-summary.json.
+ *                   Only rewritten when that summary exists (i.e. after a
+ *                   `vitest run --coverage`), so a plain local commit that has no
+ *                   fresh coverage report leaves the last CI-generated value
+ *                   intact rather than zeroing it out.
  *
  * Run: `bun run badges` (root). The CI test job runs it after coverage; the
  * pre-commit hook runs it for the LOC refresh.
@@ -38,38 +40,67 @@ function writeBadge(name: string, badge: Endpoint): void {
 // only (git ls-files already excludes node_modules and build output).
 const CODE_GLOBS = ["*.ts", "*.tsx", "*.js", "*.jsx", "*.mjs", "*.cjs", "*.css"];
 
-function countLinesOfCode(): number {
+// Thousands-separated decimal, e.g. 43051 -> "43,051", 2123313 -> "2,123,313".
+// Locale-independent (manual regex) so CI and local machines always agree.
+function formatNum(n: number): string {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+// Count git-tracked code files and their total lines in one pass.
+function countCode(): { files: number; lines: number } {
   const out = execFileSync("git", ["ls-files", "-z", "--", ...CODE_GLOBS], {
     cwd: repoRoot,
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
   });
   const files = out.split("\0").filter(Boolean);
-  let total = 0;
+  let lines = 0;
   for (const f of files) {
     const buf = readFileSync(join(repoRoot, f));
     // Count newlines; add 1 when the final line has no trailing newline.
     let nl = 0;
     for (const byte of buf) if (byte === 0x0a) nl++;
-    total += buf.length > 0 && buf.at(-1) !== 0x0a ? nl + 1 : nl;
+    lines += buf.length > 0 && buf.at(-1) !== 0x0a ? nl + 1 : nl;
   }
-  return total;
+  return { files: files.length, lines };
 }
 
-function humanizeLoc(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k`;
-  return String(n);
+// Total git-tracked files in the repo (every path, not just code).
+function countTrackedFiles(): number {
+  const out = execFileSync("git", ["ls-files", "-z"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  return out.split("\0").filter(Boolean).length;
 }
 
-function genLoc(): void {
-  const loc = countLinesOfCode();
-  writeBadge("loc.json", {
+// The three count badges (all blue, comma-formatted). Cheap to compute, so the
+// lefthook pre-commit refreshes them on every commit; only coverage is gated to CI.
+function genCounts(): void {
+  const { files: codeFiles, lines } = countCode();
+  const totalFiles = countTrackedFiles();
+  writeBadge("code-files.json", {
     schemaVersion: 1,
-    label: "lines of code",
-    message: humanizeLoc(loc),
+    label: "code files",
+    message: formatNum(codeFiles),
     color: "blue",
   });
-  console.log(`loc.json -> ${loc} lines (${humanizeLoc(loc)})`);
+  writeBadge("loc.json", {
+    schemaVersion: 1,
+    label: "lines",
+    message: formatNum(lines),
+    color: "blue",
+  });
+  writeBadge("files.json", {
+    schemaVersion: 1,
+    label: "files",
+    message: formatNum(totalFiles),
+    color: "blue",
+  });
+  console.log(
+    `code-files.json -> ${formatNum(codeFiles)} | loc.json -> ${formatNum(lines)} lines | files.json -> ${formatNum(totalFiles)}`,
+  );
 }
 
 // Coverage thresholds -> shields named colors. Honest gradient, no green-washing.
@@ -108,5 +139,5 @@ function genCoverage(): void {
 // dir can never write an out-of-date coverage number into a commit.
 const locOnly = process.argv.includes("--loc-only");
 
-genLoc();
+genCounts();
 if (!locOnly) genCoverage();
