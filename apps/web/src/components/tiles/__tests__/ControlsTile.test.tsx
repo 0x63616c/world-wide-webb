@@ -392,8 +392,9 @@ describe("ControlsTile", () => {
     });
   });
 
-  describe("www-86l: no-revert cooldown pattern", () => {
-    it("does NOT call invalidate immediately on toggle (cooldown prevents snap-back)", async () => {
+  // ── www-7d5b.2.5: flicker hack removed (desired-authoritative backend) ─────────
+  describe("www-7d5b.2.5: no cooldown / steady refetch", () => {
+    it("does NOT invalidate on the optimistic onMutate (only on settle)", async () => {
       mockQueryReturn = {
         data: {
           lamps: { on: false, count: 0, sub: "Off", pending: false },
@@ -407,20 +408,20 @@ describe("ControlsTile", () => {
       render(<ControlsTile />);
       fireEvent.click(screen.getByLabelText("Lamps"));
 
-      // Flush microtasks so onMutate completes.
+      // Flush microtasks so onMutate completes (optimistic setData runs).
       await waitFor(() => expect(mockSetData).toHaveBeenCalled());
 
-      // invalidate must NOT be called immediately after toggle —
-      // the cooldown useEffect handles it after the window expires.
+      // onMutate must not invalidate — that would race the optimistic write. The
+      // mock's mutate only drives onMutate, so onSettled (which DOES invalidate)
+      // hasn't run; invalidate stays uncalled here.
       expect(mockInvalidate).not.toHaveBeenCalled();
     });
 
-    it("refetchInterval returns false (pause polling) when cooldown is active", () => {
-      // Simulate an active cooldown by providing a future timestamp.
-      const future = Date.now() + 5_000;
-      const fn = makeRefetchIntervalForTest(() => future);
-      const result = fn({ state: { data: undefined } });
-      expect(result).toBe(false);
+    it("refetchInterval no longer pauses (no cooldown) — steady 5s when idle", () => {
+      const fn = makeRefetchIntervalForTest();
+      // Previously this returned false during a cooldown window; now there is no
+      // cooldown, so it always returns a positive steady interval.
+      expect(fn({ state: { data: undefined } })).toBe(5_000);
     });
   });
 
@@ -467,11 +468,11 @@ describe("ControlsTile", () => {
     });
   });
 
-  // ── www-59u: fan-toggle parity with the climate no-snap-back fix ───────────────
-  // The fan shares the cooldown/optimistic pattern. Toggling it must flip the
-  // cache optimistically AND never reconcile on mutation-settle — the cooldown
-  // useEffect is the single owner of the refetch, so the optimistic state survives
-  // until the fresh value lands (no revert-then-reapply window).
+  // ── www-59u: fan-toggle no-snap-back (now via desired-authoritative backend) ───
+  // The fan shares the optimistic pattern. Toggling it flips the cache optimistically;
+  // invalidate only fires on settle (not on mutate), so the optimistic value is never
+  // discarded early. With a desired-authoritative backend the refetched value equals
+  // the optimistic one, so there is no revert-then-reapply window.
   describe("www-59u: fan toggle does not snap back", () => {
     beforeEach(() => {
       mockQueryReturn = {
@@ -597,7 +598,8 @@ describe("ControlsTile", () => {
         fan: { on: false, sub: "", pending: false },
       });
       expect(next.lamps.brightness).toBe(40);
-      // No early invalidate — the cooldown useEffect owns the reconcile.
+      // No invalidate on the optimistic onMutate — it fires on settle, so the
+      // optimistic value is never discarded early (no snap-back).
       expect(mockInvalidate).not.toHaveBeenCalled();
     });
 
