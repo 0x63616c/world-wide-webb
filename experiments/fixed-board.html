@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fixed-board placeholder fill — production approach</title>
+<style>
+  :root{--bg:#000;--panel:#0a0a0a;--line:#1a1a1a;--line2:#262626;--fg:#ededed;--mut:#8b8b8b;
+    --acc:#6ea8fe;--good:#36d399;--warn:#ffb454;--bad:#ff5470;--clu:#3a3a3a;}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--fg);font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+    display:grid;grid-template-columns:1fr 340px;min-height:100%}
+  *{scrollbar-color:#333 #0a0a0a}
+  ::-webkit-scrollbar{width:11px;height:11px}::-webkit-scrollbar-track{background:#0a0a0a}
+  ::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:6px;border:2px solid #0a0a0a}
+  ::-webkit-scrollbar-thumb:hover{background:#3a3a3a}
+  main{padding:24px;display:flex;flex-direction:column;gap:16px;min-width:0}
+  h1{font-size:15px;font-weight:600;margin:0}h1 small{color:var(--mut);font-weight:400;margin-left:8px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:inline-block}
+  .cap{color:var(--mut);font-size:11px;margin-bottom:10px;display:flex;justify-content:space-between;gap:12px}
+  canvas{display:block;background:#000;border-radius:6px}
+  .legend{display:flex;gap:16px;align-items:center;color:var(--mut);font-size:11px;margin-top:12px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:14px;height:10px;border-radius:3px;vertical-align:middle;margin-right:6px}
+  .legend i.line{height:3px}
+  aside{background:var(--panel);border-left:1px solid var(--line);padding:22px;display:flex;flex-direction:column;gap:20px;position:sticky;top:0;align-self:start;height:100vh;overflow:auto}
+  .group{display:flex;flex-direction:column;gap:12px}
+  .group .gh{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--line);padding-bottom:7px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .row label{color:var(--mut)}
+  .stepper{display:flex;align-items:center;border:1px solid var(--line2);border-radius:8px;overflow:hidden}
+  .stepper button{width:30px;height:30px;background:#141414;color:var(--fg);border:0;font-size:16px;cursor:pointer}
+  .stepper button:hover{background:#1f1f1f}
+  .stepper input{width:56px;height:30px;background:#0c0c0c;border:0;border-left:1px solid var(--line2);border-right:1px solid var(--line2);color:var(--fg);text-align:center;font:inherit;-moz-appearance:textfield}
+  .stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .btn{height:38px;border-radius:9px;border:1px solid var(--line2);background:#141414;color:var(--fg);font:inherit;font-weight:600;cursor:pointer}
+  .btn:hover{background:#1d1d1d}.btn.primary{background:var(--acc);color:#04122e;border-color:transparent}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .btns{display:flex;gap:10px}.btns .btn{flex:1}
+  .toggle{display:flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden;width:120px}
+  .toggle button{flex:1;height:32px;background:#0c0c0c;border:0;color:var(--mut);font:inherit;cursor:pointer}
+  .toggle button.on{background:#1d1d1d;color:var(--fg)}
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .metric{background:#0c0c0c;border:1px solid var(--line);border-radius:9px;padding:11px 12px}
+  .metric .k{color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.6px}
+  .metric .v{font-size:20px;font-weight:600;margin-top:3px}
+  .metric .v.good{color:var(--good)}.metric .v.warn{color:var(--warn)}.metric .v.bad{color:var(--bad)}
+  .note{color:var(--mut);font-size:11px;line-height:1.6}
+  [data-tip]{cursor:help}
+  #tip{position:fixed;z-index:50;max-width:270px;background:#161616;color:var(--fg);border:1px solid var(--line2);border-radius:8px;padding:9px 11px;font-size:11px;line-height:1.55;box-shadow:0 8px 24px rgba(0,0,0,.6);pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}
+  #tip.on{opacity:1;transform:translateY(0)}#tip b{color:var(--acc)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Fixed-board placeholder fill <small>skyline wall-builder around the cluster · best-of-N · the production approach (no Wang/WFC)</small></h1>
+  <div class="card">
+    <div class="cap"><span>inner 31×31 — decorative bento fills every cell around the reserved 12×9 cluster</span><span id="meta">—</span></div>
+    <canvas id="board"></canvas>
+    <div class="legend">
+      <span><i style="background:hsl(210 52% 40%)"></i>placeholder bento (generated)</span>
+      <span><i style="background:var(--clu)"></i>real cluster tiles (reserved hole)</span>
+      <span><i class="line" style="background:var(--bad)"></i>longest vertical seam</span>
+      <span><i class="line" style="background:var(--warn)"></i>longest horizontal seam</span>
+    </div>
+  </div>
+</main>
+
+<aside>
+  <div class="group">
+    <div class="gh">generation</div>
+    <div class="row" data-tip="How many candidate boards to generate; the one with the <b>shortest longest-seam</b> is shown. Higher = better fill, slower. ~300 is the sweet spot."><label>best-of-N</label><div class="stepper" data-k="N"><button data-d="-50">−</button><input id="N" value="300"><button data-d="50">+</button></div></div>
+    <div class="row" data-tip="Base PRNG seed. The N candidates use seed, seed+101, … so the whole search is deterministic — same seed reproduces the exact winning board."><label>seed</label><div class="stepper" data-k="SEED"><button data-d="-1">−</button><input id="SEED" value="1234"><button data-d="1">+</button></div></div>
+    <div class="row" data-tip="Draw the 9 real dashboard tiles (clock, tesla, …) that occupy the reserved hole, so you can see the fill sitting flush around them."><label>show cluster</label><div class="toggle" id="showClu"><button data-v="1" class="on">on</button><button data-v="0">off</button></div></div>
+  </div>
+
+  <div class="group">
+    <div class="gh">result</div>
+    <div class="metrics">
+      <div class="metric" data-tip="Longest unbroken vertical decorative seam (cluster edges excluded — those are real boundaries). Green ≤6, amber ≤12, red >12."><div class="k">longest vert</div><div class="v" id="mV">—</div></div>
+      <div class="metric" data-tip="Longest unbroken horizontal decorative seam."><div class="k">longest horiz</div><div class="v" id="mH">—</div></div>
+      <div class="metric" data-tip="Placeholder tiles in the winning board."><div class="k">tiles</div><div class="v" id="mT">—</div></div>
+      <div class="metric" data-tip="Uncovered non-cluster cells. Must be none — a valid fill has no holes or slivers."><div class="k">gaps</div><div class="v" id="mG">—</div></div>
+      <div class="metric" data-tip="How many of the N candidates produced a fully valid gap-free board. The rest hit an unavoidable sliver and are discarded."><div class="k">solved</div><div class="v" id="mS">—</div></div>
+      <div class="metric" data-tip="Time to generate + score all N candidates, in the browser."><div class="k">search ms</div><div class="v" id="mMs">—</div></div>
+    </div>
+  </div>
+
+  <div class="btns">
+    <button class="btn primary" id="regen">regenerate</button>
+    <button class="btn" id="reset">reset</button>
+  </div>
+  <div class="note">
+    The cluster is a clean <b>12×9</b> rectangle (the 9 real tiles fill it exactly), so the
+    fill just tiles the 31×31 around that hole. The skyline builder lets tiles span the
+    hole's sides above & below, and best-of-N keeps the board with the shortest seams.
+    Deterministic per (N, seed). This is what would replace the hardcoded
+    <code>INNER_FILL_LOCAL</code> in <code>placeholder-tiles.ts</code>.
+  </div>
+</aside>
+
+<script type="module">
+const WMIN=2,WMAX=5,HMIN=2,HMAX=4,W=31,H=31;
+const HOLE={hx0:13,hx1:24,hy0:14,hy1:22};
+// real cluster tiles in inner-local coords (world cells minus WALL_THICKNESS=2)
+const CLUSTER=[
+  {id:'clock',x:13,y:14,w:5,h:3},{id:'weath',x:18,y:14,w:4,h:3},{id:'wifi',x:22,y:14,w:3,h:3},
+  {id:'tesla',x:13,y:17,w:4,h:4},{id:'hourly',x:17,y:17,w:4,h:3},{id:'ctrl',x:21,y:17,w:4,h:3},
+  {id:'dogcam',x:17,y:20,w:4,h:3},{id:'ac',x:21,y:20,w:4,h:3},{id:'event',x:13,y:21,w:4,h:2},
+];
+const mulberry32=a=>()=>{a|=0;a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};
+const validSizes=(avail,mn,mx)=>{const o=[];const top=Math.min(mx,avail);for(let w=mn;w<=top;w++){const r=avail-w;if(r===0||r>=mn)o.push(w);}return o;};
+
+function buildAround(rng){
+  const owner=new Int32Array(W*H).fill(-1);
+  for(let y=HOLE.hy0;y<=HOLE.hy1;y++)for(let x=HOLE.hx0;x<=HOLE.hx1;x++)owner[y*W+x]=-2;
+  const isHole=x=>x>=HOLE.hx0&&x<=HOLE.hx1;
+  const fr=new Int32Array(W).fill(0),tiles=[];
+  const setO=(x,y,w,h,v)=>{for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)owner[yy*W+xx]=v;};
+  let g=0;
+  while(true){
+    if(++g>W*H*6)return{owner,tiles,failed:true};
+    for(let x=HOLE.hx0;x<=HOLE.hx1;x++)if(fr[x]===HOLE.hy0)fr[x]=HOLE.hy1+1;
+    let f=Infinity;for(let x=0;x<W;x++)if(fr[x]<H&&fr[x]<f)f=fr[x];
+    if(f===Infinity)break;
+    const sb=c=>{let n=0;for(let r=f-1;r>=0;r--){const a=owner[r*W+(c-1)],b=owner[r*W+c];if(a!==b)n++;else break;}return n;};
+    const runs=[];for(let x=0;x<W;){if(fr[x]===f){let l=0;const s=x;while(x<W&&fr[x]===f){l++;x++;}runs.push([s,l]);}else x++;}
+    let pick=null,pu=-1;for(const[s,l]of runs){let u=0;for(let c=s+1;c<s+l;c++)u=Math.max(u,sb(c));const ur=u+rng()*0.1;if(ur>pu){pu=ur;pick=[s,l];}}
+    const[x0,L]=pick,cand=[];
+    for(let w=WMIN;w<=Math.min(WMAX,L);w++)for(let px=x0;px+w<=x0+L;px++){const lr=px-x0,rr=(x0+L)-(px+w);if((lr===0||lr>=WMIN)&&(rr===0||rr>=WMIN))cand.push([px,w]);}
+    if(!cand.length)return{owner,tiles,failed:true};
+    let best=null,bk=null;for(const[px,w]of cand){let cov=0;for(let c=px+1;c<px+w;c++)cov=Math.max(cov,sb(c));const e=Math.max(px>0?sb(px):0,(px+w)<W?sb(px+w):0);const key=cov*1000-e*10+rng();if(best===null||key>bk){bk=key;best=[px,w];}}
+    const[px,w]=best;
+    let ceil=H,spans=false;for(let c=px;c<px+w;c++)if(isHole(c)){spans=true;break;}
+    if(spans&&f<HOLE.hy0)ceil=HOLE.hy0;
+    const hO=validSizes(ceil-f,HMIN,HMAX);
+    if(!hO.length)return{owner,tiles,failed:true};
+    const h=hO[(rng()*hO.length)|0],id=tiles.length;tiles.push({x:px,y:f,w,h});setO(px,f,w,h,id);
+    for(let x=px;x<px+w;x++)fr[x]=f+h;
+  }
+  return{owner,tiles,failed:false};
+}
+const gaps=owner=>{for(const v of owner)if(v===-1)return true;return false;};
+function longestLine(owner){const O=(x,y)=>owner[y*W+x];let v=0,h=0,vc={c:0,r:0,len:0},hc={c:0,r:0,len:0};
+  for(let c=1;c<W;c++){let run=0,st=0;for(let r=0;r<H;r++){const a=O(c-1,r),b=O(c,r);if(a===-2||b===-2){run=0;continue;}if(a!==b){if(!run)st=r;run++;if(run>v){v=run;vc={c,r:st,len:run};}}else run=0;}}
+  for(let r=1;r<H;r++){let run=0,st=0;for(let c=0;c<W;c++){const a=O(c,r-1),b=O(c,r);if(a===-2||b===-2){run=0;continue;}if(a!==b){if(!run)st=c;run++;if(run>h){h=run;hc={c:st,r,len:run};}}else run=0;}}
+  return{v,h,vc,hc};}
+
+function bestOfN(N,seed0){
+  let best=null,score=Infinity,solved=0;
+  for(let i=0;i<N;i++){const b=buildAround(mulberry32(seed0+i*101));if(b.failed||gaps(b.owner))continue;solved++;
+    const ll=longestLine(b.owner);if(ll.max===undefined)ll.max=Math.max(ll.v,ll.h);
+    const m=Math.max(ll.v,ll.h);if(m<score){score=m;best={b,ll};}}
+  return{best,solved};
+}
+
+// ---- render ----
+const hue=i=>`hsl(${(i*47)%360} 50% ${32+(i*17)%18}%)`;
+function roundRect(ctx,x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function tilesFrom(owner){const box=new Map();for(let y=0;y<H;y++)for(let x=0;x<W;x++){const id=owner[y*W+x];if(id<0)continue;let b=box.get(id);if(!b){b={x0:x,y0:y,x1:x,y1:y};box.set(id,b);}else{if(x<b.x0)b.x0=x;if(x>b.x1)b.x1=x;if(y<b.y0)b.y0=y;if(y>b.y1)b.y1=y;}}return[...box.entries()].map(([id,b])=>({id,x:b.x0,y:b.y0,w:b.x1-b.x0+1,h:b.y1-b.y0+1}));}
+function draw(b,ll,showClu){
+  const cv=document.getElementById('board'),C=24,G=2,P=10;
+  const px=W*(C+G)-G+2*P,py=H*(C+G)-G+2*P;cv.width=px;cv.height=py;
+  const ctx=cv.getContext('2d');ctx.fillStyle='#000';ctx.fillRect(0,0,px,py);
+  for(const t of tilesFrom(b.owner)){const x=P+t.x*(C+G),y=P+t.y*(C+G),w=t.w*(C+G)-G,h=t.h*(C+G)-G;ctx.fillStyle=hue(t.id);roundRect(ctx,x,y,w,h,4);ctx.fill();}
+  if(showClu)for(const c of CLUSTER){const x=P+c.x*(C+G),y=P+c.y*(C+G),w=c.w*(C+G)-G,h=c.h*(C+G)-G;
+    ctx.fillStyle='#2b2b2b';roundRect(ctx,x,y,w,h,4);ctx.fill();ctx.strokeStyle='#444';ctx.lineWidth=1;ctx.stroke();
+    ctx.fillStyle='#7a7a7a';ctx.font='10px ui-monospace,monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(c.id,x+w/2,y+h/2);}
+  // seam overlays
+  const {vc,hc,v,h:hh}=ll;
+  if(v){const X=P+vc.c*(C+G)-G/2;ctx.strokeStyle='#ff5470';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(X,P+vc.r*(C+G));ctx.lineTo(X,P+(vc.r+vc.len)*(C+G)-G);ctx.stroke();}
+  if(hh){const Y=P+hc.r*(C+G)-G/2;ctx.strokeStyle='#ffb454';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(P+hc.c*(C+G),Y);ctx.lineTo(P+(hc.c+hc.len)*(C+G)-G,Y);ctx.stroke();}
+}
+
+const S={N:300,SEED:1234,showClu:1};
+const $=id=>document.getElementById(id);
+const clamp=(k,v)=>k==='N'?Math.max(1,Math.min(2000,v)):k==='SEED'?Math.max(0,v):v;
+function run(){
+  const t0=performance.now();
+  const{best,solved}=bestOfN(S.N,S.SEED);
+  const ms=Math.round(performance.now()-t0);
+  if(!best){$('meta').textContent='no valid board';return;}
+  const{b,ll}=best;draw(b,ll,S.showClu===1);
+  const tiles=tilesFrom(b.owner).length;
+  $('meta').textContent=`winner of ${solved} valid / ${S.N}`;
+  const cls=x=>x<=6?'good':x<=12?'warn':'bad';
+  $('mV').textContent=ll.v;$('mV').className='v '+cls(ll.v);
+  $('mH').textContent=ll.h;$('mH').className='v '+cls(ll.h);
+  $('mT').textContent=tiles;
+  $('mG').textContent=gaps(b.owner)?'YES':'none';$('mG').className='v '+(gaps(b.owner)?'bad':'good');
+  $('mS').textContent=`${solved}/${S.N}`;
+  $('mMs').textContent=ms;
+}
+document.querySelectorAll('.stepper').forEach(st=>{const k=st.dataset.k,inp=$(k);
+  st.querySelectorAll('button').forEach(btn=>btn.onclick=()=>{S[k]=clamp(k,(+inp.value)+(+btn.dataset.d));inp.value=S[k];run();});
+  inp.onchange=()=>{S[k]=clamp(k,+inp.value||0);inp.value=S[k];run();};});
+$('showClu').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.showClu=+b.dataset.v;$('showClu').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));run();});
+$('regen').onclick=()=>{S.SEED++;$('SEED').value=S.SEED;run();};
+$('reset').onclick=()=>{Object.assign(S,{N:300,SEED:1234,showClu:1});$('N').value=300;$('SEED').value=1234;$('showClu').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.v==='1'));run();};
+
+// tooltips
+const tip=document.createElement('div');tip.id='tip';document.body.appendChild(tip);let tipEl=null;
+function showTip(el){tipEl=el;tip.innerHTML=el.dataset.tip;tip.classList.add('on');const r=el.getBoundingClientRect(),tr=tip.getBoundingClientRect();
+  let x=r.left-tr.width-12;if(x<8)x=r.right+12;let y=r.top+r.height/2-tr.height/2;y=Math.max(8,Math.min(y,innerHeight-tr.height-8));tip.style.left=x+'px';tip.style.top=y+'px';}
+document.addEventListener('mouseover',e=>{const el=e.target.closest('[data-tip]');if(el&&el!==tipEl)showTip(el);});
+document.addEventListener('mouseout',e=>{const el=e.target.closest('[data-tip]');if(el&&!el.contains(e.relatedTarget)){tipEl=null;tip.classList.remove('on');}});
+
+run();
+</script>
+</body>
+</html>
