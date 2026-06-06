@@ -53,7 +53,12 @@ function countCode(): { files: number; lines: number } {
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
   });
-  const files = out.split("\0").filter(Boolean);
+  // `git ls-files` includes tracked paths that are deleted on disk but not yet
+  // staged (a pending deletion in a dirty tree). Skip those rather than ENOENT.
+  const files = out
+    .split("\0")
+    .filter(Boolean)
+    .filter((f) => existsSync(join(repoRoot, f)));
   let lines = 0;
   for (const f of files) {
     const buf = readFileSync(join(repoRoot, f));
