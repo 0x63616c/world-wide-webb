@@ -2,7 +2,7 @@
  * Curated lamp scene palette config.
  *
  * Scenes drive `light.turn_on` calls across every lamp (LAMP_ENTITY_IDS):
- *  - white → uniform warm-neutral white via color_temp_kelvin
+ *  - white → uniform crisp daylight white via color_temp_kelvin
  *  - red   → uniform pure-red rgb_color
  *  - blue  → uniform pure-blue rgb_color
  *  - mood  → EACH lamp gets a DIFFERENT colour, assigned RANDOMLY from
@@ -21,8 +21,8 @@ export type LampScene = (typeof LampScene)[keyof typeof LampScene];
 
 export type RgbColor = readonly [number, number, number];
 
-/** Warm-neutral white used by the "white" scene (Hue "concentrate"-ish). */
-export const WHITE_SCENE_KELVIN = 2700;
+/** Crisp daylight white used by the "white" scene — clean white, not warm/yellow. */
+export const WHITE_SCENE_KELVIN = 5000;
 
 export const RED_RGB: RgbColor = [255, 0, 0];
 export const BLUE_RGB: RgbColor = [0, 0, 255];
