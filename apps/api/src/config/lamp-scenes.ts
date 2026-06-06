@@ -21,8 +21,10 @@ export type LampScene = (typeof LampScene)[keyof typeof LampScene];
 
 export type RgbColor = readonly [number, number, number];
 
-/** Crisp daylight white used by the "white" scene — clean white, not warm/yellow. */
-export const WHITE_SCENE_KELVIN = 5000;
+/** Clean white used by the "white" scene. 4000K reads as neutral-bright without
+ * the cold blue cast 5000K gave (www-7d5b.3.1). activeScene white-detection
+ * tolerance tracks this constant, so changing it here keeps detection correct. */
+export const WHITE_SCENE_KELVIN = 4000;
 
 export const RED_RGB: RgbColor = [255, 0, 0];
 export const BLUE_RGB: RgbColor = [0, 0, 255];
@@ -64,4 +66,71 @@ export function shuffle<T>(items: readonly T[], rng: () => number = Math.random)
  */
 export function assignMoodColors(count: number, rng: () => number = Math.random): RgbColor[] {
   return shuffle(MOOD_PALETTE, rng).slice(0, count);
+}
+
+// ─── party mode ────────────────────────────────────────────────────────────────
+
+/**
+ * Persistent ANIMATED lamp mode (distinct from the momentary scenes above).
+ * "none" = no animation; "party" = the rolling colour wave. Stored in the
+ * lamp_mode DB row and reconciled by the worker (www-7d5b.3.x).
+ */
+export const LampMode = {
+  None: "none",
+  Party: "party",
+} as const;
+export type LampMode = (typeof LampMode)[keyof typeof LampMode];
+
+/** Party animation speed. Maps to a tick interval + crossfade transition. */
+export const LampModeSpeed = {
+  Slow: "slow",
+  Medium: "medium",
+  Fast: "fast",
+} as const;
+export type LampModeSpeed = (typeof LampModeSpeed)[keyof typeof LampModeSpeed];
+
+export interface LampModeSpeedConfig {
+  /** ms between colour-advance ticks. */
+  intervalMs: number;
+  /** HA `transition` (seconds) per tick — a crossfade ~10% under the interval so
+   *  each fade settles before the next command, giving a continuous flow. */
+  transitionS: number;
+}
+
+/**
+ * Speed presets. Fast floors at 1000ms: with 7 lamps that is ~7 light commands
+ * per tick, the safe ceiling for the Hue bridge — faster risks dropped commands
+ * that break the wave's phase. transition stays ~10% under the interval.
+ */
+export const LAMP_MODE_SPEED_CONFIG: Record<LampModeSpeed, LampModeSpeedConfig> = {
+  [LampModeSpeed.Slow]: { intervalMs: 4000, transitionS: 3.5 },
+  [LampModeSpeed.Medium]: { intervalMs: 2000, transitionS: 1.8 },
+  [LampModeSpeed.Fast]: { intervalMs: 1000, transitionS: 0.9 },
+};
+
+/**
+ * Ordered party palette — the colour CYCLE each lamp walks through. Order is the
+ * wave sequence (tweakable for feel); a spectrum-ish flow reads best. Includes
+ * the canonical red/green/blue/orange plus magenta/cyan for a fuller rainbow.
+ * Unlike MOOD_PALETTE this is NOT shuffled: the wave is deterministic.
+ */
+export const PARTY_PALETTE: readonly RgbColor[] = [
+  [255, 0, 0], // red
+  [255, 140, 0], // orange
+  [0, 255, 0], // green
+  [0, 255, 255], // cyan
+  [0, 0, 255], // blue
+  [255, 0, 255], // magenta
+] as const;
+
+/**
+ * Deterministic colour wave: at `tick`, lamp `i` shows
+ * PARTY_PALETTE[(i + tick) % N]. Adjacent lamps are phase-offset by one colour,
+ * and each tick advances every lamp by one, so over N ticks every lamp visits
+ * every colour. Pure + RNG-free → fully testable. Returns one colour per lamp,
+ * in lamp order.
+ */
+export function partyColorsAtTick(tick: number, lampCount: number): RgbColor[] {
+  const n = PARTY_PALETTE.length;
+  return Array.from({ length: lampCount }, (_, i) => PARTY_PALETTE[(((i + tick) % n) + n) % n]);
 }
