@@ -1,0 +1,68 @@
+# Builds the iOS Capacitor kiosk shell (apps/web/ios) and uploads it to TestFlight.
+# The app is a thin native wrapper that loads https://dashboard.worldwidewebb.co at
+# runtime (apps/web/capacitor.config.ts), so this only needs to ship when the native
+# shell changes — plus a monthly cron to refresh the 90-day TestFlight build expiry.
+# It targets the same bundle id as the original "Evee" app, so builds land as updates
+# to the existing TestFlight app (was 1.0, build 48). Signing reuses fastlane match
+# against github.com/0x63616c/certificates. Secrets live on this repo (see www-w1a4).
+name: iOS Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/ios/**"
+      - "apps/web/capacitor.config.ts"
+      - "apps/web/package.json"
+      - ".github/workflows/ios-build.yml"
+  schedule:
+    - cron: "0 12 1 * *" # 1st of every month at noon UTC — keeps the TestFlight build fresh (90-day expiry)
+  workflow_dispatch:
+
+concurrency:
+  group: ios-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Upload to TestFlight
+    runs-on: macos-26
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/web/ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        working-directory: .
+
+      - name: Build web
+        run: bun run build
+        working-directory: apps/web
+
+      - name: Capacitor sync
+        run: bunx cap sync ios
+        working-directory: apps/web
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: apps/web/ios
+
+      - name: Build and upload to TestFlight
+        run: bundle exec fastlane release
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
