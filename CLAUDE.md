@@ -34,6 +34,22 @@ Durable sync is the Dolt git remote: **`refs/dolt/data` on origin**, established
 - **dolt's `git+ssh` push is slow** (upstream dolt#10537, ~15-44s/round-trip) but reliable once `refs/dolt/data` exists. A *first* push (ref absent) loops on `git fetch refs/dolt/data` — if origin ever loses the ref, re-seed with one clean uncontended `bd dolt push` (no concurrent `bd` commands).
 - **lefthook is the SOLE hook owner; it calls beads.** The beads hook lifecycle (pre-push push, post-merge/post-checkout pull, prepare-commit-msg trailers) is wired as commands in `lefthook.yml`, not via beads' own installer. Do NOT run `bd hooks install --shared` (hijacks `core.hooksPath` → `.beads-hooks/`, gitignored) or `--force` (clobbers lefthook's hooks). A plain `bd hooks install` is non-destructive but redundant — just re-run `lefthook install` if hooks ever go missing.
 
+## Dev lifecycle (www-w6j2 — how we work)
+
+Every ticket follows one lifecycle, defined once in **`docs/ticket-standards.md`** (READ IT before creating, starting, or finishing work). The spine:
+
+```
+/new-ticket  →  /starting-ticket  →  (build, TDD)  →  /finish-ticket
+   open             in_progress                            closed
+```
+
+- **`/new-ticket`** — create a *Ready* ticket: type (mapped to a real bd type), priority, area, and checkbox AC with the per-type Definition of Done auto-appended. Never hand-type house rules into AC; the skill generates them.
+- **`/starting-ticket`** — Definition-of-Ready gate (refuse if unmet) → `bd update --claim` → `git pull --rebase` → `EnterWorktree` named `www-xxx-slug` → **red test first** → surface the DoD.
+- **`/finish-ticket`** — gates green (REFUSE on red) → verify every AC item (screenshot@1366×1024 for UI) → commit `type(area/www-xxx)` → **merge worktree to `main`, NO PR** → push → `bd close` → harden audit.
+- **`ship`** (workflow) is the same lifecycle parallelized for a whole epic, hands-off. Use the skills for human-in-the-loop work; use `ship` for an approved epic.
+
+The standards doc holds the taxonomy, Definition of Ready, Definition of Done (+ per-type adders), priority rubric, AC format, and the enforcement matrix. `scripts/lint-tickets.sh` is the advisory backstop. The lifecycle never opens a PR — worktrees merge to `main` locally.
+
 ## Session Completion
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
