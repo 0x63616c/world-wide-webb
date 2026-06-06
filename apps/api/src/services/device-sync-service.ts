@@ -8,13 +8,11 @@ import { CommandStatus } from "./device-command-service";
 import { mapHaToReported, stateEquals } from "./device-state-mapping";
 
 const SYNC_INTEGRATION_ID = "homeassistant";
-const SYNC_INTERVAL_MS = 1_000;
 const SYNC_DOMAINS = ["light", "fan"] as const;
 
-export interface DeviceSyncHandle {
-  stop: () => void;
-}
-
+// One device-sync cycle. The schedule lives in the worker runtime (src/worker.ts,
+// CC-7d5b.1.2) — this module only exposes the single cycle plus the pure
+// reconcile/sweep helpers it composes.
 export async function runDeviceSyncCycle(): Promise<void> {
   try {
     const snapshot = await fetchSnapshot();
@@ -24,25 +22,6 @@ export async function runDeviceSyncCycle(): Promise<void> {
     const msg = err instanceof Error ? err.message : String(err);
     await markHeartbeat(msg);
   }
-}
-
-export function startDeviceSyncService(): DeviceSyncHandle {
-  let stopped = false;
-
-  const tick = async () => {
-    if (stopped) return;
-    await runDeviceSyncCycle();
-    if (stopped) return;
-    setTimeout(tick, SYNC_INTERVAL_MS);
-  };
-
-  void tick();
-
-  return {
-    stop: () => {
-      stopped = true;
-    },
-  };
 }
 
 async function fetchSnapshot(): Promise<Map<string, HaEntity>> {

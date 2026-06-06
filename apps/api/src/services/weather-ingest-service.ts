@@ -6,7 +6,6 @@ import { integrationSyncStatus, weatherDailyReading, weatherReading } from "../d
 import { env } from "../env";
 
 const INGEST_INTEGRATION_ID = "weather";
-const INGEST_INTERVAL_MS = 5 * 60_000;
 
 // Edge schema: Open-Meteo's response is parsed here so the ingest cycle works
 // with validated data and a malformed/changed payload fails loudly at the
@@ -151,26 +150,4 @@ async function currentFailureStreak(): Promise<number> {
     .where(eq(integrationSyncStatus.integrationId, INGEST_INTEGRATION_ID))
     .limit(1);
   return rows[0]?.n ?? 0;
-}
-
-export interface WeatherIngestHandle {
-  stop: () => void;
-}
-
-// In-process poller mirroring startDeviceSyncService: runs one cycle, then
-// schedules the next INGEST_INTERVAL_MS later. Started once at boot.
-export function startWeatherIngestService(): WeatherIngestHandle {
-  let stopped = false;
-  const tick = async () => {
-    if (stopped) return;
-    await runWeatherIngestCycle();
-    if (stopped) return;
-    setTimeout(tick, INGEST_INTERVAL_MS);
-  };
-  void tick();
-  return {
-    stop: () => {
-      stopped = true;
-    },
-  };
 }
