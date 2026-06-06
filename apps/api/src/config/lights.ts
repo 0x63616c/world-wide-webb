@@ -27,6 +27,19 @@ export const LightCapability = {
 } as const;
 export type LightCapability = (typeof LightCapability)[keyof typeof LightCapability];
 
+// Per-device reconcile policy (CC-7d5b.2.1). The enforcer treats desired state as
+// truth; `control` decides what happens on UNSOLICITED external drift (the panel
+// always actuates immediately for both policies — this only governs drift):
+//   enforce → push desired back onto HA (we win): the Hue lamps, so scenes/party persist.
+//   adopt   → set desired = reported (absorb the change as new intent, never fight):
+//             the switch.* fixtures with real wall switches Calum keeps using.
+// Default is adopt so a NEW device never fights its own switch unless opted in.
+export const LightControl = {
+  Enforce: "enforce",
+  Adopt: "adopt",
+} as const;
+export type LightControl = (typeof LightControl)[keyof typeof LightControl];
+
 export interface LightEntry {
   id: string;
   entityId: string;
@@ -35,6 +48,14 @@ export interface LightEntry {
   room: string;
   kind: LightKind;
   capabilities: LightCapability[];
+  // Optional: omitted means adopt (resolved via lightControl()). Only the Hue
+  // lamps set this to enforce.
+  control?: LightControl;
+}
+
+/** Resolve a light's control policy, defaulting unspecified entries to adopt. */
+export function lightControl(entry: Pick<LightEntry, "control">): LightControl {
+  return entry.control ?? LightControl.Adopt;
 }
 
 const HUE_CAPABILITIES: LightCapability[] = ["onOff", "brightness", "colorTemp", "rgb"];
@@ -49,6 +70,8 @@ export const LIGHTS: readonly LightEntry[] = [
     room: "Living Room",
     kind: "lamp",
     capabilities: HUE_CAPABILITIES,
+    // Hue: we win on drift so scenes/party persist (CC-7d5b.2.1).
+    control: "enforce",
   },
   {
     id: "living-corner",
@@ -58,6 +81,8 @@ export const LIGHTS: readonly LightEntry[] = [
     room: "Living Room",
     kind: "lamp",
     capabilities: HUE_CAPABILITIES,
+    // Hue: we win on drift so scenes/party persist (CC-7d5b.2.1).
+    control: "enforce",
   },
   {
     id: "living-floor",
@@ -67,6 +92,8 @@ export const LIGHTS: readonly LightEntry[] = [
     room: "Living Room",
     kind: "lamp",
     capabilities: HUE_CAPABILITIES,
+    // Hue: we win on drift so scenes/party persist (CC-7d5b.2.1).
+    control: "enforce",
   },
   {
     id: "kitchen-lamp",
@@ -76,6 +103,8 @@ export const LIGHTS: readonly LightEntry[] = [
     room: "Kitchen",
     kind: "lamp",
     capabilities: HUE_CAPABILITIES,
+    // Hue: we win on drift so scenes/party persist (CC-7d5b.2.1).
+    control: "enforce",
   },
   {
     id: "desk",
@@ -85,6 +114,8 @@ export const LIGHTS: readonly LightEntry[] = [
     room: "Office",
     kind: "lamp",
     capabilities: HUE_CAPABILITIES,
+    // Hue: we win on drift so scenes/party persist (CC-7d5b.2.1).
+    control: "enforce",
   },
   {
     id: "bed-left",
@@ -94,6 +125,8 @@ export const LIGHTS: readonly LightEntry[] = [
     room: "Bedroom",
     kind: "lamp",
     capabilities: HUE_CAPABILITIES,
+    // Hue: we win on drift so scenes/party persist (CC-7d5b.2.1).
+    control: "enforce",
   },
   {
     id: "bed-right",
@@ -103,6 +136,8 @@ export const LIGHTS: readonly LightEntry[] = [
     room: "Bedroom",
     kind: "lamp",
     capabilities: HUE_CAPABILITIES,
+    // Hue: we win on drift so scenes/party persist (CC-7d5b.2.1).
+    control: "enforce",
   },
   {
     id: "overhead",
