@@ -51,7 +51,9 @@ describe("deploy.config.ts worker service (CC-7d5b.1.3)", () => {
     // service on that image (api + worker) to the new digest together.
     expect(worker.image).toBe(api.image);
     expect(worker.image).toContain("control-center-api");
-    expect(worker.command).toBe("bun run worker");
+    // Runs the bundled worker.js directly — the runtime image ships no
+    // package.json scripts, so `bun run worker` would crashloop (CC-7d5b.1.3).
+    expect(worker.command).toBe("bun worker.js");
   });
 
   it("serves no traffic — no route, no port, no health probes", () => {
