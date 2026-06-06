@@ -1,11 +1,12 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { LampScene } from "../../config/lamp-scenes";
+import { LampMode, LampModeSpeed, LampScene } from "../../config/lamp-scenes";
 import {
   ControlKey,
   getControlsState,
   setLampBrightness,
+  setLampMode,
   setLampScene,
   toggleControl,
 } from "../../services/controls-service";
@@ -25,10 +26,10 @@ const lampStateSchema = z.object({
   sub: z.string().describe('"On" when any lamp is on, "Off" otherwise'),
   pending: z.boolean().describe("True while a command is in-flight and the overlay is active"),
   activeScene: z
-    .enum([LampScene.White, LampScene.Mood, LampScene.Red, LampScene.Blue])
+    .enum([LampScene.White, LampScene.Mood, LampScene.Red, LampScene.Blue, LampMode.Party])
     .nullable()
     .describe(
-      "The colour scene every on-lamp agrees on (from desired colours); null when lamps disagree, are off, or show a non-scene (mood) wash",
+      "The active lamp scene: 'party' when the lamp_mode row is set, else the colour scene every on-lamp agrees on (from desired colours); null when no mode and lamps disagree, are off, or show a non-scene (mood) wash",
     ),
 });
 
@@ -145,6 +146,37 @@ export const controlsRouter = router({
         throw new TRPCError({
           code: "SERVICE_UNAVAILABLE",
           message: err instanceof Error ? err.message : "Set lamp brightness failed",
+          cause: err,
+        });
+      }
+    }),
+
+  /**
+   * Set the persistent lamp mode ("none" | "party"). The party worker reconciles
+   * the lamp_mode row, so this records intent and returns the merged state (with
+   * activeScene='party' once the row is set). Starting party with no lamps on is a
+   * no-op. Returns merged state. (CC-7d5b.3.4)
+   */
+  setLampMode: publicProcedure
+    .input(
+      z.object({
+        mode: z
+          .enum([LampMode.None, LampMode.Party])
+          .describe("Lamp mode: 'none' clears any animation, 'party' starts the colour wave"),
+        speed: z
+          .enum([LampModeSpeed.Slow, LampModeSpeed.Medium, LampModeSpeed.Fast])
+          .optional()
+          .describe("Animation speed for animated modes (optional)"),
+      }),
+    )
+    .output(controlsStateSchema)
+    .mutation(async ({ input }) => {
+      try {
+        return await setLampMode(input.mode, input.speed);
+      } catch (err) {
+        throw new TRPCError({
+          code: "SERVICE_UNAVAILABLE",
+          message: err instanceof Error ? err.message : "Set lamp mode failed",
           cause: err,
         });
       }

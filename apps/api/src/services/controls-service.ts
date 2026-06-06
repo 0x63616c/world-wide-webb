@@ -1,7 +1,9 @@
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   assignMoodColors,
   BLUE_RGB,
+  LampMode,
+  type LampModeSpeed,
   LampScene,
   RED_RGB,
   WHITE_SCENE_KELVIN,
@@ -15,7 +17,7 @@ import {
 } from "../config/lights";
 import { db } from "../db/index";
 import type { DeviceLightState, LightColor } from "../db/schema";
-import { deviceState } from "../db/schema";
+import { deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
@@ -33,13 +35,21 @@ export interface LampState {
   sub: string;
   pending: boolean;
   /**
-   * The colour scene every on-lamp currently agrees on, derived from DESIRED
-   * colours (white/red/blue). null when lamps disagree, are off, or show a
-   * non-scene colour (e.g. mood, which is intentionally varied). CC-7d5b.3.4
-   * widens this to include "party" (overridden from the lamp_mode row).
+   * The active lamp scene. "party" (and any future animated mode) when the
+   * lamp_mode row is set; otherwise the colour scene every on-lamp agrees on,
+   * derived from DESIRED colours (white/red/blue). null when no mode is set and
+   * lamps disagree, are off, or show a non-scene colour (e.g. mood, which is
+   * intentionally varied) (CC-7d5b.3.4).
    */
-  activeScene: LampScene | null;
+  activeScene: ActiveScene | null;
 }
+
+/**
+ * The active lamp scene reported to the UI: one of the colour scenes, or an
+ * animated lamp mode (currently just "party"). Never "none" — that maps to
+ * "no mode set", which falls through to the colour-derived scene or null.
+ */
+export type ActiveScene = LampScene | typeof LampMode.Party;
 
 export interface LightState {
   on: boolean;
@@ -257,14 +267,33 @@ export async function getControlsState(): Promise<ControlsState> {
 }
 
 /**
- * Resolve the active scene. In CC-7d5b.2.4 this is just the desired-colour scene;
- * CC-7d5b.3.4 overrides it with the lamp_mode row ('party'). Kept async so the
- * party override (a DB read) slots in without reshaping callers.
+ * Resolve the active scene. The persistent lamp_mode row wins: a non-"none" mode
+ * (e.g. "party") is reported directly — the animation is owned by the worker, so
+ * the API can't read it from memory and must take it from the DB row (CC-7d5b.3.4).
+ * Otherwise it falls back to the colour scene the on-lamps' desired colours agree
+ * on (CC-7d5b.2.4).
  */
 async function resolveActiveScene(
   onLampStates: (DeviceLightState | null)[],
-): Promise<LampScene | null> {
+): Promise<ActiveScene | null> {
+  const mode = await readLampMode();
+  if (mode !== LampMode.None) return mode;
   return deriveSceneFromDesired(onLampStates);
+}
+
+/** Read the persistent lamp_mode (the singleton row); "none" when absent/unreadable. */
+async function readLampMode(): Promise<LampMode> {
+  try {
+    const rows = await db
+      .select({ mode: lampMode.mode })
+      .from(lampMode)
+      .where(eq(lampMode.id, LAMP_MODE_SINGLETON_ID))
+      .limit(1);
+    const mode = rows[0]?.mode;
+    return mode === LampMode.Party ? LampMode.Party : LampMode.None;
+  } catch {
+    return LampMode.None;
+  }
 }
 
 // ─── desired-state writes ──────────────────────────────────────────────────────
@@ -482,4 +511,53 @@ export async function setLampBrightness(pct: number): Promise<ControlsState> {
   );
 
   return getControlsState();
+}
+
+/**
+ * Set the persistent lamp mode (CC-7d5b.3.4). Writes the lamp_mode singleton row
+ * ({ mode, speed }); the party WORKER reconciles that row (start/stop the colour
+ * animation), so this only records intent — it does NOT drive HA itself. Starting
+ * party with NO lamps currently on is a no-op (nothing to animate; the row stays
+ * "none"). Throws when HA is unconfigured (parity with the other mutations, so the
+ * tile surfaces the same error). Returns the desired-authoritative state.
+ */
+export async function setLampMode(mode: LampMode, speed?: LampModeSpeed): Promise<ControlsState> {
+  if (!ha.isConfigured()) {
+    throw new Error("Home Assistant is not configured");
+  }
+
+  // Starting party with no lamps on has nothing to animate — leave the row as-is.
+  if (mode === LampMode.Party && !(await anyLampCurrentlyOn())) {
+    return getControlsState();
+  }
+
+  const now = new Date();
+  try {
+    await db
+      .insert(lampMode)
+      .values({ id: LAMP_MODE_SINGLETON_ID, mode, speed: speed ?? null, updatedAtUtc: now })
+      .onConflictDoUpdate({
+        target: lampMode.id,
+        set: { mode, speed: speed ?? null, updatedAtUtc: now },
+      });
+  } catch {
+    // DB unreachable — the mode cannot be recorded; surface current state anyway.
+  }
+
+  return getControlsState();
+}
+
+/** True when at least one lamp's effective (desired-authoritative) state is on. */
+async function anyLampCurrentlyOn(): Promise<boolean> {
+  let rows: (typeof deviceState.$inferSelect)[] = [];
+  try {
+    rows = await db
+      .select()
+      .from(deviceState)
+      .where(inArray(deviceState.entityId, [...LAMP_ENTITY_IDS]));
+  } catch {
+    return false;
+  }
+  const byEntityId = new Map(rows.map((r) => [r.entityId, r]));
+  return LAMP_ENTITY_IDS.some((id) => effectiveLight(byEntityId.get(id)).on);
 }
