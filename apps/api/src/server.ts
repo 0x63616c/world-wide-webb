@@ -3,8 +3,6 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { runMigrations } from "./db/migrate";
 import { env } from "./env";
 import { getClimate } from "./services/climate-service";
-import { startDeviceSyncService } from "./services/device-sync-service";
-import { startWeatherIngestService } from "./services/weather-ingest-service";
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers/index";
 
@@ -88,10 +86,6 @@ const server = Bun.serve({
 
 console.warn(`API started on port ${server.port} (env=${env.NODE_ENV})`);
 
-// Start the device sync service after the server is ready.
-// Polls HA every 1s to reconcile desired/reported state.
-startDeviceSyncService();
-
-// Start the weather ingest poller: fetches Open-Meteo every 5 min and writes
-// readings to Postgres so the dashboard reads from the DB, never the request path.
-startWeatherIngestService();
+// The api is request-only (www-7d5b.1.2). The device-sync and weather-ingest
+// loops now run in the dedicated worker process (src/worker.ts), so the api no
+// longer starts them in-process.
