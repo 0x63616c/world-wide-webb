@@ -2,15 +2,19 @@
  * Controls tile — lamps, ceiling lights, fan + "More" placeholder.
  * Ported from the ETap / ctrl cell in evee-tiles.jsx / Evee Dashboard.html.
  *
- * Data: trpc.controls.list (refetch 30s idle, 2s while any control is pending).
- *   After a toggle the poll is paused for COOLDOWN_MS so the backend's desired-
- *   window overlay has time to establish before HA confirms — matching evee's
- *   FanTile cooldown pattern and preventing the snap-back flicker bug.
- * Mutations: trpc.controls.toggle — backend owns correctness, no client-side cache manipulation.
+ * Data: trpc.controls.list. The backend is now DESIRED-AUTHORITATIVE
+ *   (CC-7d5b.2.4) — getControlsState returns the DB's desired state, which the
+ *   worker enforcer continuously reconciles onto HA. So a tap writes desired and
+ *   the next read returns that same desired: there is no HA lag and no snap-back.
+ *   The old cooldown/flicker hack (COOLDOWN_MS pause + desired-window overlay) is
+ *   gone (CC-7d5b.2.5). Polling is a simple steady refetch, faster while a
+ *   control is briefly pending (desired set, HA not yet converged).
+ * Mutations: backend owns correctness; we optimistically write the tapped value
+ *   for instant feedback and invalidate on settle so the authoritative desired
+ *   lands — it matches the optimistic value, so nothing snaps back.
  */
 
 import { useState } from "react";
-import { useCooldownInvalidate } from "@/lib/hooks";
 import type { RouterOutputs } from "@/lib/trpc";
 import { trpc } from "@/lib/trpc";
 import type { ControlKey } from "./ControlsTileView";
@@ -22,18 +26,17 @@ import { ExpandedControlsModalView } from "./ExpandedControlsModalView";
 // Exported so existing tests can import it without going through the view module.
 export type { ControlKey };
 
-// ─── adaptive refetch interval ────────────────────────────────────────────────
+// ─── steady refetch interval ──────────────────────────────────────────────────
 
 // React Query passes the full Query object; we only care about its state data.
-// The cooldownUntil ref is injected by the component so it can be checked inside.
+// Steady poll, bumped to 2s while any control is pending (desired set but HA not
+// yet converged) so the pending flag clears promptly. No cooldown pause — the
+// backend is desired-authoritative, so there is no stale-HA window to hide.
 // Exported for unit testing.
-export function makeRefetchInterval(
-  getCooldownUntil: () => number,
-): (query: { state: { data?: RouterOutputs["controls"]["list"] } }) => number | false {
+export function makeRefetchInterval(): (query: {
+  state: { data?: RouterOutputs["controls"]["list"] };
+}) => number {
   return (query) => {
-    // Pause polling entirely during the cooldown window so the backend's desired-
-    // window overlay is visible before we reconcile with live HA state.
-    if (Date.now() < getCooldownUntil()) return false;
     const data = query.state?.data;
     if (!data) return 5_000;
     const anyPending = data.lamps.pending || data.lights.pending || data.fan.pending;
@@ -47,19 +50,12 @@ export function ControlsTile() {
   const utils = trpc.useUtils();
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Pause polling after a mutation; invalidate once the cooldown window expires
-  // so HA's desired-window has time to settle before we reconcile live state.
-  const { cooldownRef, startCooldown } = useCooldownInvalidate(() =>
-    utils.controls.list.invalidate({}),
-  );
-
-  const refetchInterval = makeRefetchInterval(() => cooldownRef.current);
-
-  const { data } = trpc.controls.list.useQuery({}, { refetchInterval });
+  const { data } = trpc.controls.list.useQuery({}, { refetchInterval: makeRefetchInterval() });
 
   const toggleMutation = trpc.controls.toggle.useMutation({
-    // Optimistic flip so the tap responds instantly. pending:true bumps
-    // adaptive refetch to 2s once the cooldown expires.
+    // Optimistic flip so the tap responds instantly; pending:true bumps the
+    // refetch to 2s. On settle we invalidate to pull the authoritative desired —
+    // it equals the optimistic value, so the UI never snaps back.
     onMutate: async ({ key, on }) => {
       await utils.controls.list.cancel({});
       const prev = utils.controls.list.getData({});
@@ -69,37 +65,34 @@ export function ControlsTile() {
         if (key === "lights") return { ...old, lights: { ...old.lights, on, pending: true } };
         return { ...old, fan: { ...old.fan, on, pending: true } };
       });
-      startCooldown();
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev !== undefined) utils.controls.list.setData({}, ctx.prev);
     },
-    // No invalidate on settled — the cooldown useEffect drives the reconcile
-    // after the window expires, preventing snap-back to stale HA state.
+    onSettled: () => utils.controls.list.invalidate({}),
   });
 
-  // Lamp scene + brightness — backend owns correctness; on success the cooldown
-  // useEffect will reconcile fresh HA state, so no client-side cache munging here.
+  // Lamp scene — backend writes desired + actuates; invalidate on settle to pull
+  // the authoritative desired (incl. the new activeScene). No snap-back.
   const sceneMutation = trpc.controls.setLampScene.useMutation({
-    onSuccess: () => startCooldown(),
+    onSettled: () => utils.controls.list.invalidate({}),
   });
   const brightnessMutation = trpc.controls.setLampBrightness.useMutation({
-    // Optimistically write the dragged value into the cache and pause polling for
-    // the cooldown window so the slider doesn't snap back to the pre-drag value
-    // before HA reports the new brightness (mirrors the toggle no-revert pattern).
+    // Optimistically write the dragged value so the slider tracks the drag, then
+    // invalidate on settle for the authoritative desired (which matches).
     onMutate: async ({ pct }) => {
       await utils.controls.list.cancel({});
       const prev = utils.controls.list.getData({});
       utils.controls.list.setData({}, (old) =>
         old ? { ...old, lamps: { ...old.lamps, brightness: pct } } : old,
       );
-      startCooldown();
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev !== undefined) utils.controls.list.setData({}, ctx.prev);
     },
+    onSettled: () => utils.controls.list.invalidate({}),
   });
 
   function handleToggle(key: ControlKey, currentOn: boolean) {
