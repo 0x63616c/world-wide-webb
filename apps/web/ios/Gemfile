@@ -1,3 +1,7 @@
 source "https://rubygems.org"
 
 gem "fastlane", "~> 2.226"
+# fastlane 2.235+ loads its Google Play actions at startup, which `require "multi_json"`,
+# but it's no longer pulled into the bundle transitively — without this the `release` lane
+# dies with "multi_json is not part of the bundle" before any lane runs. (www-w1a4)
+gem "multi_json"
