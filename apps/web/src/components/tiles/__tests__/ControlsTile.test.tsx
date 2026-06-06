@@ -419,7 +419,7 @@ describe("ControlsTile", () => {
       // Simulate an active cooldown by providing a future timestamp.
       const future = Date.now() + 5_000;
       const fn = makeRefetchIntervalForTest(() => future);
-      const result = fn({ state: { data: null } });
+      const result = fn({ state: { data: undefined } });
       expect(result).toBe(false);
     });
   });

@@ -43,20 +43,32 @@ const controlsStateSchema = z
     lights: lightStateSchema,
     fan: fanStateSchema,
   })
-  .nullable()
-  .describe("Snapshot of all controllable entities: lamps, lights, fan. Null when HA unavailable.");
+  .describe(
+    "Snapshot of all controllable entities: lamps, lights, fan. Throws SERVICE_UNAVAILABLE when HA is unreachable (tile shimmers via error state).",
+  );
 
 // ─── router ──────────────────────────────────────────────────────────────────
 
 export const controlsRouter = router({
   /**
    * Returns the current on/off state + sub-labels for lamps, lights, and fan.
-   * Returns null when HA is unreachable so the tile renders shimmer.
+   * Throws SERVICE_UNAVAILABLE when HA is unreachable so the tile shimmers via
+   * React Query error state (www-355t.30: aligned with THROW-on-unavailable convention).
    */
   list: publicProcedure
     .input(z.object({}).optional())
     .output(controlsStateSchema)
-    .query(() => getControlsState()),
+    .query(async () => {
+      try {
+        return await getControlsState();
+      } catch (err) {
+        throw new TRPCError({
+          code: "SERVICE_UNAVAILABLE",
+          message: err instanceof Error ? err.message : "Controls unavailable",
+          cause: err,
+        });
+      }
+    }),
 
   /**
    * Toggle lamps, lights, or fan on or off.
