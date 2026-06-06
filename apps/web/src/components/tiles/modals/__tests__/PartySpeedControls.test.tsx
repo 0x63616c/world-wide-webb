@@ -8,6 +8,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PARTY_SPEEDS,
+  PartyControl,
   PartySpeed,
   PartySpeedCycle,
   PartySpeedSegmented,
@@ -29,6 +30,61 @@ describe("PARTY_SPEEDS contract", () => {
 
   it("uses the canonical display labels", () => {
     expect(PARTY_SPEEDS.map((s) => s.label)).toEqual(["Slow", "Med", "Fast"]);
+  });
+});
+
+// ─── full-width party control ─────────────────────────────────────────────────
+
+describe("PartyControl", () => {
+  it("renders four tabs: Off, Slow, Med, Fast", () => {
+    render(<PartyControl value="off" onSelect={vi.fn()} />);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Off",
+      "Slow",
+      "Med",
+      "Fast",
+    ]);
+  });
+
+  it("marks Off active when value is 'off'", () => {
+    render(<PartyControl value="off" onSelect={vi.fn()} />);
+    expect(screen.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Med" })).toHaveAttribute("aria-selected", "false");
+  });
+
+  it("marks the active speed when value is a speed", () => {
+    render(<PartyControl value={PartySpeed.Fast} onSelect={vi.fn()} />);
+    expect(screen.getByRole("tab", { name: "Fast" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "false");
+  });
+
+  it("marks exactly one tab active at a time", () => {
+    render(<PartyControl value={PartySpeed.Slow} onSelect={vi.fn()} />);
+    const active = screen
+      .getAllByRole("tab")
+      .filter((t) => t.getAttribute("aria-selected") === "true");
+    expect(active).toHaveLength(1);
+    expect(active[0]).toHaveAccessibleName("Slow");
+  });
+
+  it("fires onSelect with the tapped speed", () => {
+    const onSelect = vi.fn();
+    render(<PartyControl value="off" onSelect={onSelect} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Med" }));
+    expect(onSelect).toHaveBeenCalledWith(PartySpeed.Medium);
+  });
+
+  it("fires onSelect with 'off' when Off is tapped", () => {
+    const onSelect = vi.fn();
+    render(<PartyControl value={PartySpeed.Fast} onSelect={onSelect} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Off" }));
+    expect(onSelect).toHaveBeenCalledWith("off");
+  });
+
+  it("dims + blocks pointer events and disables tabs when disabled", () => {
+    render(<PartyControl value="off" onSelect={vi.fn()} disabled />);
+    expect(screen.getByRole("tablist")).toHaveStyle({ pointerEvents: "none", opacity: "0.4" });
+    expect(screen.getByRole("tab", { name: "Fast" })).toBeDisabled();
   });
 });
 

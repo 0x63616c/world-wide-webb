@@ -647,7 +647,7 @@ describe("ControlsTile", () => {
       expect(screen.getByRole("button", { name: "Blue" })).toHaveAttribute("aria-pressed", "true");
     });
 
-    it("tapping Party when none active starts party with the current speed (default medium)", () => {
+    it("tapping a speed when none active starts party at that speed", () => {
       mockQueryReturn = {
         data: {
           lamps: {
@@ -666,11 +666,11 @@ describe("ControlsTile", () => {
       };
       render(<ControlsTile />);
       fireEvent.click(screen.getByLabelText("More"));
-      fireEvent.click(screen.getByRole("button", { name: "Party" }));
-      expect(mockModeMutate).toHaveBeenCalledWith({ mode: "party", speed: "medium" });
+      fireEvent.click(screen.getByRole("tab", { name: "Fast" }));
+      expect(mockModeMutate).toHaveBeenCalledWith({ mode: "party", speed: "fast" });
     });
 
-    it("tapping Party when party active stops it (mode: none)", () => {
+    it("tapping Off when party active stops it (mode: none)", () => {
       mockQueryReturn = {
         data: {
           lamps: {
@@ -689,11 +689,11 @@ describe("ControlsTile", () => {
       };
       render(<ControlsTile />);
       fireEvent.click(screen.getByLabelText("More"));
-      fireEvent.click(screen.getByRole("button", { name: "Party" }));
+      fireEvent.click(screen.getByRole("tab", { name: "Off" }));
       expect(mockModeMutate).toHaveBeenCalledWith({ mode: "none" });
     });
 
-    it("shows the segmented speed control only when party is active", () => {
+    it("always renders the four-option party control (Off / Slow / Med / Fast)", () => {
       mockQueryReturn = {
         data: {
           lamps: {
@@ -710,29 +710,12 @@ describe("ControlsTile", () => {
         isLoading: false,
         isError: false,
       };
-      const { rerender } = render(<ControlsTile />);
+      render(<ControlsTile />);
       fireEvent.click(screen.getByLabelText("More"));
-      // Not party → no speed tablist.
-      expect(screen.queryByRole("tablist", { name: "Party speed" })).not.toBeInTheDocument();
-
-      mockQueryReturn = {
-        data: {
-          lamps: {
-            on: true,
-            count: 2,
-            sub: "On",
-            pending: false,
-            brightness: 72,
-            activeScene: "party",
-          },
-          lights: { on: false, pending: false },
-          fan: { on: false, sub: "", pending: false },
-        },
-        isLoading: false,
-        isError: false,
-      };
-      rerender(<ControlsTile />);
-      expect(screen.getByRole("tablist", { name: "Party speed" })).toBeInTheDocument();
+      expect(screen.getByRole("tablist", { name: "Party" })).toBeInTheDocument();
+      for (const name of ["Off", "Slow", "Med", "Fast"]) {
+        expect(screen.getByRole("tab", { name })).toBeInTheDocument();
+      }
     });
 
     it("changing speed while party active re-issues setLampMode with the new speed", () => {
@@ -754,11 +737,11 @@ describe("ControlsTile", () => {
       };
       render(<ControlsTile />);
       fireEvent.click(screen.getByLabelText("More"));
-      fireEvent.click(screen.getByRole("tab", { name: "Fast" }));
-      expect(mockModeMutate).toHaveBeenCalledWith({ mode: "party", speed: "fast" });
+      fireEvent.click(screen.getByRole("tab", { name: "Slow" }));
+      expect(mockModeMutate).toHaveBeenCalledWith({ mode: "party", speed: "slow" });
     });
 
-    it("Party tile is disabled when lamps are off", () => {
+    it("party control is disabled when lamps are off", () => {
       mockQueryReturn = {
         data: {
           lamps: { on: false, count: 0, sub: "Off", pending: false, activeScene: null },
@@ -770,7 +753,7 @@ describe("ControlsTile", () => {
       };
       render(<ControlsTile />);
       fireEvent.click(screen.getByLabelText("More"));
-      expect(screen.getByRole("button", { name: "Party" })).toBeDisabled();
+      expect(screen.getByRole("tab", { name: "Fast" })).toBeDisabled();
     });
   });
 });
