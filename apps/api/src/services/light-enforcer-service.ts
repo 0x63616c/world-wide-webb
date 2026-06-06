@@ -1,0 +1,271 @@
+/**
+ * DB-authoritative light enforcer (www-7d5b.2.3).
+ *
+ * Desired state is the source of truth; HA is an actuator. Each cycle this
+ * reconciles every managed light's desired vs HA-reported state and, on
+ * steady-state divergence, branches on the device's `control` policy:
+ *   enforce → push desired back onto HA (Hue lamps win, so scenes/party persist)
+ *   adopt   → set desired = reported (absorb the external change; switch fixtures
+ *             with real wall switches keep working — never fought)
+ * Seeding: a device whose desired is null copies reported → desired once (adopt
+ * reality on first sight; no push). Writes hit HA ONLY on drift, and only for
+ * enforce. Unreachable devices are marked unavailable and otherwise left alone.
+ *
+ * This replaces the old device-sync snap-to-HA reconcile for LIGHTS. Drift uses a
+ * TOLERANT compare (not the exact stateEquals, which is for reported-change
+ * detection) because HA round-trips rgb/kelvin/brightness with small deltas.
+ */
+import { eq, inArray } from "drizzle-orm";
+
+import { findLight, LIGHTS, LightControl, lightControl } from "../config/lights";
+import { db } from "../db/index";
+import type { DeviceLightState, LightColor } from "../db/schema";
+import { deviceCommands, deviceState, integrationSyncStatus } from "../db/schema";
+import { ha } from "../integrations/homeassistant";
+import type { HaEntity } from "../integrations/homeassistant/types";
+import { CommandStatus, HaLightService } from "./device-command-service";
+import { type MappedHaState, mapHaToReported } from "./device-state-mapping";
+
+const ENFORCER_INTEGRATION_ID = "light-enforcer";
+const ENFORCER_DOMAINS = ["light", "switch"] as const;
+
+// Drift tolerances. HA does not round-trip colour/brightness exactly (e.g. it
+// reports [0,0,255] back as [0,2,254]); a per-channel/absolute slack stops the
+// enforcer from fighting its own writes forever. Tuned per team-lead's guidance.
+const RGB_CHANNEL_TOLERANCE = 12;
+const KELVIN_TOLERANCE = 250;
+const BRIGHTNESS_TOLERANCE = 3;
+
+// Entity ids the enforcer manages: every LIGHTS entry (lamps + fixtures).
+const MANAGED_ENTITY_IDS: readonly string[] = LIGHTS.map((l) => l.entityId);
+
+/** True when two colours are within HA round-trip tolerance (or both absent). */
+function colorConverged(a: LightColor | undefined, b: LightColor | undefined): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  // A device is in one colour mode at a time; rgb-vs-kelvin is a real divergence.
+  const aKelvin = a.kelvin != null;
+  const bKelvin = b.kelvin != null;
+  if (aKelvin !== bKelvin) return false;
+  if (aKelvin && bKelvin) return Math.abs((a.kelvin ?? 0) - (b.kelvin ?? 0)) <= KELVIN_TOLERANCE;
+  const ar = a.rgb;
+  const br = b.rgb;
+  if (!ar || !br) return !ar && !br;
+  return ar.every((c, i) => Math.abs(c - br[i]) <= RGB_CHANNEL_TOLERANCE);
+}
+
+/**
+ * Tolerant desired-vs-reported convergence check used for DRIFT detection. On/off
+ * must match exactly; brightness and colour within tolerance. (Exact equality is
+ * stateEquals in device-state-mapping, used for reported-change detection.)
+ */
+export function lightStateConverged(
+  desired: DeviceLightState,
+  reported: DeviceLightState,
+): boolean {
+  if (desired.on !== reported.on) return false;
+  // When the light is off, brightness/colour are irrelevant — off is off.
+  if (!desired.on) return true;
+  const desiredBrightness = desired.brightness;
+  const reportedBrightness = reported.brightness;
+  if (
+    desiredBrightness != null &&
+    reportedBrightness != null &&
+    Math.abs(desiredBrightness - reportedBrightness) > BRIGHTNESS_TOLERANCE
+  ) {
+    return false;
+  }
+  return colorConverged(desired.color, reported.color);
+}
+
+// A device row as the reconciler needs it (subset of the deviceState row).
+interface ManagedDevice {
+  id: string;
+  entityId: string;
+  domain: string;
+  control: LightControl;
+  desiredState: DeviceLightState | null;
+}
+
+export type EnforcementDecision =
+  | { kind: "noop" }
+  | { kind: "unreachable" }
+  | { kind: "seed"; desired: DeviceLightState }
+  | { kind: "adopt"; desired: DeviceLightState }
+  | { kind: "push"; desired: DeviceLightState };
+
+/**
+ * Pure reconcile decision for one device. No I/O — the cycle executes the result.
+ * `commandInFlight` suppresses drift handling while an app command is still
+ * converging (the command, not the enforcer, owns that transition).
+ */
+export function decideEnforcement(
+  device: ManagedDevice,
+  mapped: MappedHaState,
+  commandInFlight: boolean,
+): EnforcementDecision {
+  // Unreachable: can't read truth, so can't enforce or adopt. Caller flips
+  // available=false; desired is left untouched (intent survives the outage).
+  if (!mapped.available || mapped.reported == null) return { kind: "unreachable" };
+  const reported = mapped.reported;
+
+  // Seed once: adopt current reality as the initial intent without pushing.
+  if (device.desiredState == null) return { kind: "seed", desired: reported };
+
+  // A converging app command owns the transition; don't second-guess it.
+  if (commandInFlight) return { kind: "noop" };
+
+  // Steady state: only act on genuine drift.
+  if (lightStateConverged(device.desiredState, reported)) return { kind: "noop" };
+
+  return lightControl(device) === LightControl.Enforce
+    ? { kind: "push", desired: device.desiredState }
+    : { kind: "adopt", desired: reported };
+}
+
+/** Build `light.turn_on` params from a desired state (brightness is HA raw 0..255). */
+export function buildTurnOnParams(
+  entityId: string,
+  desired: DeviceLightState,
+): Record<string, unknown> {
+  const params: Record<string, unknown> = { entity_id: entityId };
+  if (desired.brightness != null) params.brightness = desired.brightness;
+  if (desired.color?.rgb) params.rgb_color = desired.color.rgb;
+  else if (desired.color?.kelvin != null) params.color_temp_kelvin = desired.color.kelvin;
+  return params;
+}
+
+export async function runEnforcerCycle(): Promise<void> {
+  try {
+    const snapshot = await fetchSnapshot();
+    await reconcile(snapshot);
+    await markHeartbeat(null);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await markHeartbeat(msg);
+  }
+}
+
+async function fetchSnapshot(): Promise<Map<string, HaEntity>> {
+  const lists = await Promise.all(ENFORCER_DOMAINS.map((d) => ha.getEntities(d)));
+  const byEntityId = new Map<string, HaEntity>();
+  for (const list of lists) for (const e of list) byEntityId.set(e.entity_id, e);
+  return byEntityId;
+}
+
+export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> {
+  const rows = await db
+    .select()
+    .from(deviceState)
+    .where(inArray(deviceState.entityId, [...MANAGED_ENTITY_IDS]));
+  const now = new Date();
+  const inFlight = await inFlightDeviceIds();
+
+  for (const row of rows) {
+    const entry = findLight(row.entityId);
+    if (!entry) continue; // not a managed light (defensive)
+
+    const entity = snapshot.get(row.entityId);
+    const mapped = mapHaToReported(row.kind, entity);
+
+    const device: ManagedDevice = {
+      id: row.id,
+      entityId: row.entityId,
+      domain: row.domain,
+      control: lightControl(entry),
+      desiredState: row.desiredState ?? null,
+    };
+
+    const decision = decideEnforcement(device, mapped, inFlight.has(row.id));
+    await applyDecision(device, decision, mapped.available, now);
+  }
+}
+
+async function applyDecision(
+  device: ManagedDevice,
+  decision: EnforcementDecision,
+  available: boolean,
+  now: Date,
+): Promise<void> {
+  switch (decision.kind) {
+    case "unreachable": {
+      // Honest availability for the UI; never paint desired as real when down.
+      await db
+        .update(deviceState)
+        .set({ available: false, updatedAtUtc: now })
+        .where(eq(deviceState.id, device.id));
+      return;
+    }
+    case "seed":
+    case "adopt": {
+      // Both write desired (and refresh availability); neither pushes to HA.
+      await db
+        .update(deviceState)
+        .set({ desiredState: decision.desired, desiredAtUtc: now, available, updatedAtUtc: now })
+        .where(eq(deviceState.id, device.id));
+      return;
+    }
+    case "push": {
+      // Re-assert desired onto HA. on→turn_on (with brightness/colour); off→turn_off.
+      if (decision.desired.on) {
+        await ha.callService(
+          device.domain,
+          HaLightService.TurnOn,
+          buildTurnOnParams(device.entityId, decision.desired),
+        );
+      } else {
+        await ha.callService(device.domain, HaLightService.TurnOff, { entity_id: device.entityId });
+      }
+      if (!available) {
+        await db
+          .update(deviceState)
+          .set({ available, updatedAtUtc: now })
+          .where(eq(deviceState.id, device.id));
+      }
+      return;
+    }
+    case "noop": {
+      // Refresh availability if it changed; otherwise nothing to do.
+      await db
+        .update(deviceState)
+        .set({ available, updatedAtUtc: now })
+        .where(eq(deviceState.id, device.id));
+      return;
+    }
+  }
+}
+
+/** Device ids with a still-converging app command (Pending or Sent). */
+async function inFlightDeviceIds(): Promise<Set<string>> {
+  const rows = await db
+    .select({ deviceId: deviceCommands.deviceId, status: deviceCommands.status })
+    .from(deviceCommands)
+    .where(inArray(deviceCommands.status, [CommandStatus.Pending, CommandStatus.Sent]));
+  return new Set(rows.map((r) => r.deviceId));
+}
+
+async function markHeartbeat(error: string | null): Promise<void> {
+  const now = new Date();
+  const consecutiveFailures = error ? (await currentFailureStreak()) + 1 : 0;
+  await db
+    .insert(integrationSyncStatus)
+    .values({
+      integrationId: ENFORCER_INTEGRATION_ID,
+      lastPolledAtUtc: now,
+      lastError: error,
+      consecutiveFailures,
+    })
+    .onConflictDoUpdate({
+      target: integrationSyncStatus.integrationId,
+      set: { lastPolledAtUtc: now, lastError: error, consecutiveFailures },
+    });
+}
+
+async function currentFailureStreak(): Promise<number> {
+  const rows = await db
+    .select({ n: integrationSyncStatus.consecutiveFailures })
+    .from(integrationSyncStatus)
+    .where(eq(integrationSyncStatus.integrationId, ENFORCER_INTEGRATION_ID))
+    .limit(1);
+  return rows[0]?.n ?? 0;
+}
