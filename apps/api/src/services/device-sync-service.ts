@@ -1,7 +1,6 @@
 import { and, desc, eq, isNotNull, lt } from "drizzle-orm";
 
 import { db } from "../db/index";
-import type { DeviceStateValue } from "../db/schema";
 import { deviceCommands, deviceState, integrationSyncStatus } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
@@ -14,27 +13,6 @@ const SYNC_DOMAINS = ["light", "fan"] as const;
 
 export interface DeviceSyncHandle {
   stop: () => void;
-}
-
-export interface MergedDeviceState {
-  state: DeviceStateValue | null;
-  pending: boolean;
-  available: boolean;
-}
-
-export function mergeDeviceState(
-  device: {
-    reportedState?: DeviceStateValue | null;
-    desiredState?: DeviceStateValue | null;
-    desiredUntilUtc?: Date | null;
-    available: boolean;
-  },
-  now: Date,
-): MergedDeviceState {
-  if (device.desiredUntilUtc && device.desiredUntilUtc > now && device.desiredState != null) {
-    return { state: device.desiredState, pending: true, available: device.available };
-  }
-  return { state: device.reportedState ?? null, pending: false, available: device.available };
 }
 
 export async function runDeviceSyncCycle(): Promise<void> {

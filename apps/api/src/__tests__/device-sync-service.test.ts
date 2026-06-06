@@ -34,8 +34,8 @@ vi.mock("../integrations/homeassistant", () => ({
 
 // ─── import after mocks ──────────────────────────────────────────────────────
 
+import { mergeDeviceState } from "../services/device-state-mapping";
 import {
-  mergeDeviceState,
   reconcile,
   runDeviceSyncCycle,
   sweepExpiredWindows,
