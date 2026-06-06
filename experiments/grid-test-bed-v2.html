@@ -1,0 +1,1395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Grid Test Bed v2 — ashlar bento packing</title>
+<style>
+  :root {
+    --bg:#000;
+    --card:#0a0a0a;
+    --card2:#111113;
+    --card3:#18181b;
+    --border:#1f1f23;
+    --border2:#2e2e35;
+    --ring:#52525b;
+    --text:#fafafa;
+    --muted:#a1a1aa;
+    --faint:#71717a;
+    --primary:#fafafa;
+    --ok:#4ade80;
+    --bad:#f87171;
+    --warn:#fbbf24;
+    --empty:#0c0c0e;
+    --reserved:#1e293b;
+    --r:9px;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+    align-items: flex-start;
+  }
+  /* scrollbars */
+  * { scrollbar-color: #2a2a30 #000; scrollbar-width: thin; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: #000; }
+  *::-webkit-scrollbar-thumb { background: #2a2a30; border-radius: 6px; border: 2px solid #000; }
+
+  /* layout */
+  .stage { display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 0; align-items: flex-start; }
+  aside {
+    width: 316px; flex: 0 0 316px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 16px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    position: sticky;
+    top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* grid */
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), var(--cell));
+    grid-auto-rows: var(--cell);
+    gap: 0;
+    padding: 8px;
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    width: max-content;
+    max-width: 100%;
+    user-select: none;
+  }
+  .cell { width: var(--cell); height: var(--cell); }
+
+  /* typography */
+  h1 { font-size: 13px; font-weight: 600; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+  h2 { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+  label { color: var(--muted); font-size: 12px; }
+  .hint { font-size: 11px; color: var(--faint); line-height: 1.4; }
+
+  /* inputs */
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
+  .grp { display: flex; gap: 5px; align-items: center; }
+  input[type="number"] {
+    width: 70px;
+    background: var(--card2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 9px;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    transition: border-color .12s, box-shadow .12s;
+  }
+  input[type="number"]:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px rgba(82,82,91,.2); }
+  input[type=number] { -moz-appearance: textfield; }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  /* number stepper wrapper */
+  .numwrap { position: relative; display: inline-flex; }
+  .numwrap > input { padding-right: 26px; }
+  .numwrap .steps { position: absolute; top: 1px; right: 1px; bottom: 1px; width: 23px; display: flex; flex-direction: column; border-left: 1px solid var(--border); border-radius: 0 5px 5px 0; overflow: hidden; }
+  .numwrap .steps button { flex: 1; width: 100%; min-height: 0; padding: 0; border: none; border-radius: 0; background: var(--card2); color: var(--muted); font-size: 10px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .numwrap .steps button:hover { background: #1f1f24; color: var(--text); }
+  .numwrap .steps button:first-child { border-bottom: 1px solid var(--border); }
+
+  select {
+    background: var(--card2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 9px;
+    font: inherit;
+    cursor: pointer;
+    max-width: 170px;
+  }
+  select:hover { border-color: var(--border2); }
+
+  input[type="range"] {
+    width: 140px;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    background: #27272a;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--text); border: 0; box-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--text); border: 0; }
+
+  button {
+    background: var(--card2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 13px;
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    line-height: 1.2;
+    transition: background .12s, border-color .12s;
+  }
+  button:hover { background: #1b1b1f; border-color: var(--border2); }
+  button:active { transform: translateY(.5px); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-primary { background: var(--primary); color: #000; border-color: var(--primary); font-weight: 600; }
+  .btn-primary:hover { background: #e4e4e7; }
+  .btn-sm { padding: 4px 8px; font-size: 12px; }
+
+  hr { border: none; border-top: 1px solid var(--border); }
+
+  /* analytics grid */
+  .analytics {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 8px;
+    font-size: 11.5px;
+  }
+  .analytics .k { color: var(--muted); }
+  .analytics .v { color: var(--text); text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .analytics .section-head { grid-column: 1/-1; color: var(--faint); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding-top: 4px; }
+
+  /* status */
+  #status { font-size: 12.5px; }
+  #status.ok b { color: var(--ok); }
+  #status.bad b { color: var(--bad); }
+  #status.warn b { color: var(--warn); }
+
+  /* spinner */
+  .spin { width: 12px; height: 12px; border: 2px solid #27272a; border-top-color: var(--text); border-radius: 50%; animation: rot .7s linear infinite; display: none; }
+  .spin.on { display: inline-block; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+
+  /* transport */
+  .transport { display: flex; gap: 5px; align-items: center; }
+  .transport button { padding: 5px 9px; }
+  #action { font-size: 11.5px; color: var(--muted); font-family: var(--mono); min-height: 2.4em; line-height: 1.4; }
+
+  /* legend */
+  .legend { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; color: var(--muted); }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 7px; }
+
+  /* score bar */
+  .score-bar { display: flex; gap: 6px; align-items: center; font-size: 11px; }
+  .bar-track { flex: 1; height: 5px; background: #27272a; border-radius: 999px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--text); border-radius: 999px; transition: width .3s; }
+
+  /* modal / calibration overlay */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.8); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .modal { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 22px; max-width: 780px; width: 90vw; display: flex; flex-direction: column; gap: 14px; }
+  .modal h2 { font-size: 15px; font-weight: 600; letter-spacing: -.01em; color: var(--text); text-transform: none; }
+  .ab { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .cand { position: relative; border: 2px solid var(--border); border-radius: 9px; padding: 5px; cursor: pointer; background: #000; transition: border-color .12s, transform .08s; }
+  .cand:hover { border-color: var(--ring); transform: translateY(-1px); }
+  .cand canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; border-radius: 4px; }
+  .cand .tag { position: absolute; top: 8px; left: 8px; background: var(--card2); color: var(--muted); border: 1px solid var(--border); border-radius: 5px; padding: 2px 8px; font-size: 11px; }
+
+  /* algo description */
+  #algoDesc { font-size: 11px; color: var(--faint); line-height: 1.5; padding: 5px 0 2px; }
+
+  /* live mode indicator */
+  .live-pill { display: inline-flex; align-items: center; gap: 5px; background: rgba(74,222,128,.12); border: 1px solid rgba(74,222,128,.25); color: var(--ok); border-radius: 999px; padding: 2px 8px; font-size: 10.5px; font-weight: 600; }
+  .live-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); animation: pulse 1.2s ease infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div id="grid"></div>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div class="hint" id="hover">hover a cell…</div>
+      <div id="liveIndicator" style="display:none"><span class="live-pill">LIVE</span></div>
+    </div>
+  </div>
+
+  <aside>
+    <h1>Grid Test Bed v2 <span class="spin" id="spin"></span></h1>
+
+    <!-- algorithm -->
+    <div class="row">
+      <label for="algo">algorithm</label>
+      <select id="algo">
+        <option value="ashlar" selected>ashlar (stagger)</option>
+        <option value="guillotine">guillotine</option>
+      </select>
+    </div>
+    <div id="algoDesc"></div>
+
+    <div class="row">
+      <label for="seed">seed</label>
+      <div style="display:flex;gap:5px;align-items:center">
+        <input id="seed" type="number" value="1" min="0" />
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--faint);font-size:11px">
+          <input type="checkbox" id="randomSeed" style="width:auto" /> rand
+        </label>
+      </div>
+    </div>
+
+    <div class="row">
+      <button id="regen" class="btn-primary" style="flex:1">regenerate</button>
+      <button id="defaults" style="flex:1">reset defaults</button>
+    </div>
+    <div class="row">
+      <button id="saveOpts" style="flex:1">save options</button>
+      <button id="copyOpts" style="flex:1">copy config</button>
+    </div>
+
+    <hr />
+
+    <!-- preset shape -->
+    <div class="row">
+      <label for="preset">preset shape</label>
+      <select id="preset">
+        <option value="cluster" selected>real cluster (rect)</option>
+        <option value="rect">centered rect</option>
+        <option value="L">L-shape</option>
+        <option value="plus">plus / cross</option>
+        <option value="two">two blocks</option>
+        <option value="ring">hollow ring</option>
+        <option value="stairs">staircase (stress)</option>
+        <option value="empty">empty (no cluster)</option>
+      </select>
+    </div>
+    <div class="hint">click a cell to toggle reserved · drag to paint</div>
+
+    <hr />
+
+    <!-- board size -->
+    <h2>board</h2>
+    <div class="row"><label>cols × rows</label>
+      <span class="grp">
+        <input id="cols" type="number" value="64" min="4" max="120" />×
+        <input id="rows" type="number" value="64" min="4" max="120" />
+      </span>
+    </div>
+
+    <h2>block sizes</h2>
+    <div class="row"><label>width</label>
+      <span class="grp">
+        <input id="wmin" type="number" value="2" min="2" max="20" />–
+        <input id="wmax" type="number" value="5" min="2" max="20" />
+      </span>
+    </div>
+    <div class="row"><label>height</label>
+      <span class="grp">
+        <input id="hmin" type="number" value="2" min="2" max="20" />–
+        <input id="hmax" type="number" value="4" min="2" max="20" />
+      </span>
+    </div>
+
+    <!-- algo-specific knobs -->
+    <div id="ashlarKnobs">
+      <h2>ashlar tuning</h2>
+      <div class="row">
+        <label for="staggerW">stagger weight</label>
+        <input id="staggerW" type="range" min="0" max="100" value="80" style="width:140px" />
+      </div>
+      <div class="hint">how hard to avoid joints aligning with the row above. 0=off, 100=strict.</div>
+    </div>
+
+    <div id="guillotineKnobs" style="display:none">
+      <h2>guillotine tuning</h2>
+      <div class="row">
+        <label for="subdiv">subdivision</label>
+        <input id="subdiv" type="range" min="0" max="100" value="40" />
+      </div>
+      <div class="row">
+        <label for="longer">split longer side</label>
+        <input id="longer" type="checkbox" checked style="width:auto" />
+      </div>
+    </div>
+
+    <div class="row"><label for="cap">backtrack cap</label>
+      <input id="cap" type="number" value="600000" min="100" step="10000" />
+    </div>
+
+    <hr />
+
+    <!-- quality search -->
+    <h2>quality search</h2>
+    <div class="hint">generate N candidates, keep best by weighted score</div>
+    <div class="row">
+      <label for="budget">candidates N</label>
+      <input id="budget" type="range" min="1" max="500" value="1" style="width:140px" />
+    </div>
+    <div class="row">
+      <button id="stopSearch" disabled style="flex:1">⏹ stop search</button>
+      <button id="startLive" style="flex:1">▶ live mode</button>
+    </div>
+
+    <h2 style="display:flex;justify-content:space-between;align-items:center">score weights <button id="weightsHelp" title="what do these do?" style="padding:1px 9px;border-radius:999px;font-weight:700;font-size:12px">?</button></h2>
+    <div class="row"><label>longest line</label><input id="wFault" type="range" min="0" max="100" value="80" /></div>
+    <div class="row"><label>same-size adj</label><input id="wSame" type="range" min="0" max="100" value="50" /></div>
+    <div class="row"><label>uniformity</label><input id="wVar" type="range" min="0" max="100" value="30" /></div>
+    <div class="row"><label>slivers</label><input id="wSliver" type="range" min="0" max="100" value="25" /></div>
+    <button id="calibrate" class="btn-primary">calibrate weights to my eye</button>
+
+    <div id="weightsModal" class="overlay" style="display:none">
+      <div class="modal" style="max-width:520px">
+        <h2>What the score weights do</h2>
+        <div class="hint" style="font-size:12.5px;line-height:1.5">
+          The score ranks candidate layouts (lower = better). Each weight sets how much one quality matters. They only bite when <b>candidates N &gt; 1</b> (best-of-N keeps the lowest-scoring layout). <b>0 = ignore this entirely · 100 = make it dominate.</b>
+        </div>
+        <div class="analytics" style="grid-template-columns:auto 1fr;gap:8px 14px">
+          <div class="v" style="text-align:left">longest line</div><div class="k" style="text-align:left">penalizes the single longest unbroken straight seam. The main knob for your "no long lines" goal. <b>Try ~90-100.</b></div>
+          <div class="v" style="text-align:left">same-size adj</div><div class="k" style="text-align:left">penalizes neighbouring tiles being the same size. Raise it to force more size variety. <b>~40-60.</b></div>
+          <div class="v" style="text-align:left">uniformity</div><div class="k" style="text-align:left">penalizes every tile having a similar area. Raise it to reward a wide spread of big + small. <b>~30.</b></div>
+          <div class="v" style="text-align:left">slivers</div><div class="k" style="text-align:left">penalizes long thin tiles (aspect ≥ 2.5). Raise it for chunkier tiles. <b>~25, or 0 if you like slivers.</b></div>
+        </div>
+        <div class="hint">Example for your goal: longest line 100, same-size 50, uniformity 30, slivers 20 — then push candidates N up so it actually searches.</div>
+        <div class="row" style="justify-content:flex-end"><button id="weightsHelpClose" class="btn-primary">got it</button></div>
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- status + analytics -->
+    <div id="status" class="stat"><b>—</b></div>
+    <div class="analytics" id="analytics"></div>
+
+    <hr />
+
+    <!-- transport -->
+    <h2>watch it build</h2>
+    <div class="transport">
+      <button id="tReset" class="btn-sm">⏮</button>
+      <button id="tStep" class="btn-sm">⏭</button>
+      <button id="tPlay" style="flex:1">▶ play</button>
+    </div>
+    <div class="row">
+      <label for="speed">speed</label>
+      <input id="speed" type="range" min="1" max="20" value="6" />
+    </div>
+    <div id="action">idle — press play</div>
+
+    <hr />
+
+    <div class="legend">
+      <div><span class="swatch" style="background:var(--reserved)"></span>reserved cluster</div>
+      <div><span class="swatch" style="background:var(--empty)"></span>uncovered (failure)</div>
+      <div class="hint">colored rect = placed tile · dark cuts separate · cyan = current anchor · red = backtrack/deadend</div>
+    </div>
+  </aside>
+
+  <!-- calibration modal -->
+  <div id="calibModal" class="overlay" style="display:none">
+    <div class="modal">
+      <h2>Which layout looks better?</h2>
+      <div class="hint" id="calibMsg">click the one you prefer</div>
+      <div class="ab" id="calibAB"></div>
+      <div class="row" style="justify-content:flex-start;gap:8px">
+        <button id="calibFit" class="btn-primary">finish &amp; apply weights</button>
+        <button id="calibClose">cancel</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ============================================================
+//  CONSTANTS + CONFIG
+// ============================================================
+const DEFAULTS = {
+  algo: 'ashlar', seed: 1, preset: 'cluster',
+  cols: 64, rows: 64,
+  wmin: 2, wmax: 5, hmin: 2, hmax: 4,
+  subdiv: 40, cap: 600000, staggerW: 80,
+};
+let COLS = DEFAULTS.cols, ROWS = DEFAULTS.rows, CELL = 18;
+const PALETTE = ['#d29922','#3fb950','#58a6ff','#bc8cff','#f778ba','#39c5cf','#e3b341','#ff7b72','#7ee787','#a371f7','#f0883e','#79c0ff'];
+const idx = (x, y) => y * COLS + x;
+const key = (x, y) => x + ',' + y;
+const SAVE_KEY = 'gridTestBedV2Opts';
+
+// ============================================================
+//  RESERVED CELLS + REAL TILE SUBDIVISIONS
+// ============================================================
+const reserved = new Set();
+const resTile = new Map();
+// The 9 real dashboard tiles (board coords: x, y, w, h)
+const REAL_TILES = [
+  [13,14,5,3],[18,14,4,3],[22,14,3,3],
+  [13,17,4,4],[17,17,4,3],[21,17,4,3],
+  [17,20,4,3],[21,20,4,3],[13,21,4,2],
+];
+const isReserved = (x, y) => reserved.has(key(x, y));
+
+function setPreset(name) {
+  reserved.clear(); resTile.clear();
+  const add = (x, y) => { if (x >= 0 && x < COLS && y >= 0 && y < ROWS) reserved.add(key(x, y)); };
+  const rect = (x0, y0, w, h) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) add(x, y); };
+  if (name === 'cluster') {
+    REAL_TILES.forEach(([x, y, w, h], i) => {
+      for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) {
+        add(x + dx, y + dy);
+        resTile.set(key(x + dx, y + dy), i);
+      }
+    });
+  } else if (name === 'rect') rect(10, 11, 11, 9);
+  else if (name === 'L') { rect(8, 8, 7, 14); rect(15, 15, 8, 7); }
+  else if (name === 'plus') { rect(13, 8, 5, 15); rect(8, 13, 15, 5); }
+  else if (name === 'two') { rect(6, 8, 6, 7); rect(19, 16, 7, 7); }
+  else if (name === 'ring') { for (let i = 9; i <= 21; i++) { add(i, 9); add(i, 21); add(9, i); add(21, i); } }
+  else if (name === 'stairs') { for (let s = 0; s < 6; s++) rect(8 + s * 3, 8 + s * 3, 6, 3); }
+  // 'empty' => nothing
+}
+setPreset('cluster');
+
+// ============================================================
+//  PRNG
+// ============================================================
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function shuffle(arr, rng) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// ============================================================
+//  RESERVED GEOMETRY HELPERS
+// ============================================================
+function reservedRect() {
+  if (reserved.size === 0) return { empty: true };
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const k of reserved) {
+    const [x, y] = k.split(',').map(Number);
+    x0 = Math.min(x0, x); y0 = Math.min(y0, y);
+    x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+  }
+  if (reserved.size === (x1 - x0 + 1) * (y1 - y0 + 1)) return { x0, y0, x1, y1 };
+  return null; // not a solid rectangle
+}
+
+// ============================================================
+//  ALGORITHM A: ASHLAR (dual-stagger anchored fill)
+// ============================================================
+// Strategy: repeatedly find top-left uncovered cell (anchor), try all candidate
+// sizes, apply two guards:
+//   1. GAP-GUARD: reject if a placement would strand an exactly-1-wide/tall free run
+//      (since min size is 2, a gap of 1 is unpackable).
+//   2. DUAL-STAGGER-GUARD: compute a penalty score for each candidate:
+//      - +1 if the tile's RIGHT edge (ax+w) continues a vertical joint from the row above
+//        (tile boundary at column ax+w exists in row ay-1). Prevents long vertical seams.
+//      - +1 if the tile's BOTTOM edge (ay+h) continues a horizontal joint from the column
+//        to the left (tile boundary at row ay+h exists in col ax-1). Prevents long horizontal
+//        seams — this is the critical fix over naive ashlar which only guards vertical seams.
+//      Prefer 0-penalty candidates; fall back to 1-penalty, then 2-penalty.
+//   3. RANDOM selection from the clean pool (NOT greedy-largest), so tile sizes vary across
+//      rows preventing all-same-height horizontal seams.
+// If no gap-safe candidate exists, fall back to all candidates (prevents deadlock).
+// Records a trace of placements for the replay player.
+// Constructive COURSED ASHLAR: guaranteed full coverage (no search, no gaps).
+// Decompose the free region into rectangular bands around the reserved rectangle,
+// split each band into narrow vertical chunks (keeps horizontal course-lines short),
+// then fill each chunk with stacked "courses" (rows) of bounded height; within a
+// course, partition the width into bricks and stagger the brick joints against the
+// course above. staggerW controls how hard we retry to offset joints.
+function packAshlar(seedNum, b) {
+  const rect = reservedRect();
+  // ashlar band-fill needs a rectangular (or empty) reserved region; else use guillotine.
+  if (!(rect && (rect.empty || ('x0' in rect)))) return packGuillotine(seedNum, b, { empty: true });
+
+  const { wmin, wmax, hmin, hmax, staggerW } = b;
+  const sw = staggerW / 100;
+  const rng = mulberry32(((Math.imul(seedNum, 0x9E3779B1) >>> 0) || 1));
+  const base = new Int32Array(COLS * ROWS).fill(-1);
+  let reservedCount = 0;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (isReserved(x, y)) { base[idx(x, y)] = -2; reservedCount++; }
+  const owner = base.slice();
+  const trace = []; const TCAP = 80000; const rec = (e) => { if (trace.length < TCAP) trace.push(e); };
+  let nextId = 0;
+
+  // partition `len` into parts within [mn,mx], never leaving a remainder < mn.
+  function part(len, mn, mx) {
+    if (len < mn) return [len];
+    const out = []; let rem = len;
+    while (rem > mx) { const hi = Math.min(mx, rem - mn); out.push(mn + Math.floor(rng() * (hi - mn + 1))); rem -= out[out.length - 1]; }
+    out.push(rem); return out;
+  }
+  const emit = (x, y, w, h) => { const id = nextId++; for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) owner[idx(x + dx, y + dy)] = id; rec({ t: 'place', x, y, w, h, id }); };
+
+  function fillBand(bx, by, bw, bh) {
+    if (bw <= 0 || bh <= 0) return;
+    if (bw < wmin || bh < hmin) { emit(bx, by, bw, bh); return; } // degenerate thin band
+    const chunks = part(bw, Math.min(Math.max(wmin, 4), bw), Math.min(8, bw)); // narrow vertical chunks
+    let cx = bx;
+    for (const cw of chunks) {
+      const heights = part(bh, hmin, hmax);
+      let cy = by, prevCuts = new Set();
+      for (const ch of heights) {
+        let widths, cuts, tries = 0;
+        do {
+          widths = part(cw, wmin, Math.min(wmax, cw)); cuts = new Set(); let acc = 0;
+          for (let i = 0; i < widths.length - 1; i++) { acc += widths[i]; cuts.add(acc); }
+          tries++;
+        } while (sw > 0 && tries < 6 && widths.length > 1 && [...cuts].some(c => prevCuts.has(c)) && rng() < sw + 0.4);
+        let x = cx; for (const w of widths) { emit(x, cy, w, ch); x += w; }
+        prevCuts = cuts; cy += ch;
+      }
+      cx += cw;
+    }
+  }
+
+  const t0 = performance.now();
+  let bands;
+  if (rect.empty) bands = [{ x: 0, y: 0, w: COLS, h: ROWS }];
+  else bands = [
+    { x: 0, y: 0, w: COLS, h: rect.y0 },
+    { x: 0, y: rect.y1 + 1, w: COLS, h: ROWS - (rect.y1 + 1) },
+    { x: 0, y: rect.y0, w: rect.x0, h: rect.y1 - rect.y0 + 1 },
+    { x: rect.x1 + 1, y: rect.y0, w: COLS - (rect.x1 + 1), h: rect.y1 - rect.y0 + 1 },
+  ].filter(z => z.w > 0 && z.h > 0);
+  for (const z of bands) fillBand(z.x, z.y, z.w, z.h);
+  const ms = performance.now() - t0;
+
+  let gaps = 0; for (let i = 0; i < owner.length; i++) if (owner[i] === -1) gaps++;
+  rec({ t: 'solved' });
+  return {
+    owner, base, ok: gaps === 0, capped: false, blocks: nextId, steps: nextId, reservedCount,
+    trace, truncated: trace.length >= TCAP, algo: 'ashlar', ms, gaps
+  };
+}
+
+// ============================================================
+//  ALGORITHM B: GUILLOTINE SUBDIVISION
+// ============================================================
+function packGuillotine(seedNum, b, hole) {
+  const { wmin, wmax, hmin, hmax } = b;
+  const P = b.P !== undefined ? b.P : 0.4;
+  const rng = mulberry32(((Math.imul(seedNum, 0x9E3779B1) >>> 0) || 1));
+  const base = new Int32Array(COLS * ROWS).fill(-1);
+  let reservedCount = 0;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (isReserved(x, y)) { base[idx(x, y)] = -2; reservedCount++; }
+  }
+  const owner = base.slice();
+  const trace = [];
+  const TCAP = 80000;
+  let steps = 0, nextId = 0, bad = false;
+
+  const emit = (x, y, w, h) => {
+    const id = nextId++;
+    for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) owner[idx(x + dx, y + dy)] = id;
+    if (trace.length < TCAP) trace.push({ t: 'place', x, y, w, h, id });
+  };
+
+  function split(x, y, w, h) {
+    steps++;
+    const mustW = w > wmax, mustH = h > hmax;
+    let axis = null;
+    if (mustW && mustH) axis = b.longer ? (w >= h ? 'v' : 'h') : (rng() < 0.5 ? 'v' : 'h');
+    else if (mustW) axis = 'v';
+    else if (mustH) axis = 'h';
+    else {
+      const canV = w >= 2 * wmin, canH = h >= 2 * hmin;
+      if ((canV || canH) && rng() < P) {
+        axis = b.longer ? ((w >= h && canV) ? 'v' : (canH ? 'h' : 'v'))
+          : ((canV && canH) ? (rng() < 0.5 ? 'v' : 'h') : (canV ? 'v' : 'h'));
+      } else { emit(x, y, w, h); return; }
+    }
+    if (axis === 'v') {
+      if (w < 2 * wmin) { bad = true; emit(x, y, w, h); return; }
+      const c = wmin + Math.floor(rng() * (w - 2 * wmin + 1));
+      split(x, y, c, h); split(x + c, y, w - c, h);
+    } else {
+      if (h < 2 * hmin) { bad = true; emit(x, y, w, h); return; }
+      const c = hmin + Math.floor(rng() * (h - 2 * hmin + 1));
+      split(x, y, w, c); split(x, y + c, w, h - c);
+    }
+  }
+
+  let bands;
+  if (hole.empty) bands = [{ x: 0, y: 0, w: COLS, h: ROWS }];
+  else bands = [
+    { x: 0, y: 0, w: COLS, h: hole.y0 },
+    { x: 0, y: hole.y1 + 1, w: COLS, h: ROWS - (hole.y1 + 1) },
+    { x: 0, y: hole.y0, w: hole.x0, h: hole.y1 - hole.y0 + 1 },
+    { x: hole.x1 + 1, y: hole.y0, w: COLS - (hole.x1 + 1), h: hole.y1 - hole.y0 + 1 },
+  ].filter(z => z.w > 0 && z.h > 0);
+
+  for (const z of bands) {
+    if (z.w < wmin || z.h < hmin) { bad = true; continue; }
+    split(z.x, z.y, z.w, z.h);
+  }
+  trace.push({ t: 'solved' });
+
+  let gaps = 0;
+  for (let i = 0; i < owner.length; i++) if (owner[i] === -1) gaps++;
+  const ms = 0; // guillotine is instant
+
+  return {
+    owner, base, ok: !bad && gaps === 0, capped: false,
+    blocks: nextId, steps, reservedCount, trace,
+    truncated: trace.length >= TCAP, algo: 'guillotine', ms, gaps
+  };
+}
+
+// ============================================================
+//  GRID DOM
+// ============================================================
+const gridEl = document.getElementById('grid');
+let cells = [];
+function buildGrid() {
+  CELL = Math.max(7, Math.min(48, Math.floor(1000 / Math.max(COLS, ROWS))));
+  gridEl.style.setProperty('--cols', COLS);
+  gridEl.style.setProperty('--cell', CELL + 'px');
+  gridEl.innerHTML = '';
+  cells = [];
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const d = document.createElement('div');
+    d.className = 'cell';
+    d.dataset.x = x; d.dataset.y = y;
+    gridEl.appendChild(d);
+    cells.push(d);
+  }
+}
+
+// ============================================================
+//  RENDERING
+// ============================================================
+const CUT = '#000';
+const groupAt = (owner, x, y) => (x < 0 || x >= COLS || y < 0 || y >= ROWS) ? -99 : owner[idx(x, y)];
+const resGroup = (x, y) => isReserved(x, y) ? (resTile.has(key(x, y)) ? resTile.get(key(x, y)) : -1) : -50;
+
+function renderOwner(owner, deco = {}) {
+  const { rectCells, rectMode, anchorIdx, anchorBad } = deco;
+  for (const c of cells) {
+    const x = +c.dataset.x, y = +c.dataset.y, i = idx(x, y), g = owner[i];
+    let bg = g === -2 ? 'var(--reserved)' : g === -1 ? 'var(--empty)' : PALETTE[g % PALETTE.length];
+    const sh = ['inset 0 0 0 0.5px rgba(255,255,255,0.05)'];
+    if (g >= 0) {
+      if (groupAt(owner, x, y - 1) !== g) sh.unshift(`inset 0 2px 0 0 ${CUT}`);
+      if (groupAt(owner, x, y + 1) !== g) sh.unshift(`inset 0 -2px 0 0 ${CUT}`);
+      if (groupAt(owner, x - 1, y) !== g) sh.unshift(`inset 2px 0 0 0 ${CUT}`);
+      if (groupAt(owner, x + 1, y) !== g) sh.unshift(`inset -2px 0 0 0 ${CUT}`);
+    } else if (g === -2) {
+      const rg = resGroup(x, y);
+      if (resGroup(x - 1, y) !== rg) sh.unshift(`inset 2px 0 0 0 ${CUT}`);
+      if (resGroup(x + 1, y) !== rg) sh.unshift(`inset -2px 0 0 0 ${CUT}`);
+      if (resGroup(x, y - 1) !== rg) sh.unshift(`inset 0 2px 0 0 ${CUT}`);
+      if (resGroup(x, y + 1) !== rg) sh.unshift(`inset 0 -2px 0 0 ${CUT}`);
+    }
+    if (rectCells && rectCells.has(i)) {
+      if (rectMode === 'remove') bg = '#f85149';
+      else sh.unshift('inset 0 0 0 2px #ffffff');
+    }
+    c.style.background = bg;
+    c.style.boxShadow = sh.join(', ');
+    c.style.outline = (i === anchorIdx) ? `2px solid ${anchorBad ? '#f85149' : '#39d0d8'}` : '';
+    c.style.outlineOffset = '-2px';
+  }
+}
+
+// ============================================================
+//  SCORING
+// ============================================================
+function scoreLayout(owner, weights) {
+  const bb = new Map();
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const g = owner[idx(x, y)];
+    if (g < 0) continue;
+    const e = bb.get(g) || { x0: x, x1: x, y0: y, y1: y };
+    e.x0 = Math.min(e.x0, x); e.x1 = Math.max(e.x1, x);
+    e.y0 = Math.min(e.y0, y); e.y1 = Math.max(e.y1, y);
+    bb.set(g, e);
+  }
+  const blocks = [...bb.entries()].map(([g, e]) => ({ g, w: e.x1 - e.x0 + 1, h: e.y1 - e.y0 + 1 }));
+
+  // 1. same-size adjacency
+  let adjP = 0, adjS = 0;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const g = owner[idx(x, y)];
+    if (g < 0) continue;
+    for (const [nx, ny] of [[x + 1, y], [x, y + 1]]) {
+      if (nx >= COLS || ny >= ROWS) continue;
+      const ng = owner[idx(nx, ny)];
+      if (ng < 0 || ng === g) continue;
+      adjP++;
+      const a = bb.get(g), bv = bb.get(ng);
+      if ((a.x1 - a.x0) === (bv.x1 - bv.x0) && (a.y1 - a.y0) === (bv.y1 - bv.y0)) adjS++;
+    }
+  }
+  const sameAdj = adjP ? adjS / adjP : 0;
+
+  // 2. fault lines: max continuous seam length + length-weighted avg (Σlen²/Σlen)
+  let maxRun = 0, sumSq = 0, totLen = 0;
+  const acc = (run) => { if (run > 0) { sumSq += run * run; totLen += run; if (run > maxRun) maxRun = run; } };
+  // vertical seams (seam at column gx between gx-1 and gx)
+  for (let gx = 1; gx < COLS; gx++) {
+    let run = 0;
+    for (let y = 0; y < ROWS; y++) {
+      const a = owner[idx(gx - 1, y)], bv = owner[idx(gx, y)];
+      if (a >= 0 && bv >= 0 && a !== bv) run++;
+      else { acc(run); run = 0; }
+    }
+    acc(run);
+  }
+  // horizontal seams (seam at row gy between gy-1 and gy)
+  for (let gy = 1; gy < ROWS; gy++) {
+    let run = 0;
+    for (let x = 0; x < COLS; x++) {
+      const a = owner[idx(x, gy - 1)], bv = owner[idx(x, gy)];
+      if (a >= 0 && bv >= 0 && a !== bv) run++;
+      else { acc(run); run = 0; }
+    }
+    acc(run);
+  }
+  const avgRun = totLen ? sumSq / totLen : 0;
+  const faultNorm = avgRun / Math.max(COLS, ROWS);
+
+  // 3. uniformity (low cv = boring = high lowVar score = penalty when wVar high)
+  const areas = blocks.map(b => b.w * b.h);
+  const mean = areas.reduce((s, a) => s + a, 0) / (areas.length || 1);
+  const variance = areas.reduce((s, a) => s + (a - mean) * (a - mean), 0) / (areas.length || 1);
+  const cv = mean ? Math.sqrt(variance) / mean : 0;
+  const lowVar = 1 / (1 + cv);
+
+  // 4. slivers (aspect >= 2.5)
+  const sliverFrac = blocks.length ? blocks.filter(b => Math.max(b.w / b.h, b.h / b.w) >= 2.5).length / blocks.length : 0;
+
+  const total = weights.same * sameAdj + weights.fault * faultNorm + weights.uvar * lowVar + weights.sliver * sliverFrac;
+  return { total, sameAdj, faultNorm, lowVar, sliverFrac, maxRun, avgRun, cv, blocks: blocks.length, bb };
+}
+
+// ============================================================
+//  ANALYTICS DISPLAY
+// ============================================================
+function showAnalytics(res, meta) {
+  const free = COLS * ROWS - res.reservedCount;
+  let covered = 0;
+  for (let i = 0; i < res.owner.length; i++) if (res.owner[i] >= 0) covered++;
+  const bb = new Map();
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const g = res.owner[idx(x, y)];
+    if (g < 0) continue;
+    const e = bb.get(g) || { x0: x, x1: x, y0: y, y1: y };
+    e.x0 = Math.min(e.x0, x); e.x1 = Math.max(e.x1, x);
+    e.y0 = Math.min(e.y0, y); e.y1 = Math.max(e.y1, y);
+    bb.set(g, e);
+  }
+  let aMin = Infinity, aMax = 0, aSum = 0;
+  for (const e of bb.values()) {
+    const a = (e.x1 - e.x0 + 1) * (e.y1 - e.y0 + 1);
+    aMin = Math.min(aMin, a); aMax = Math.max(aMax, a); aSum += a;
+  }
+
+  const rows = [];
+  rows.push(['section', 'layout']);
+  rows.push(['algorithm', res.algo]);
+  rows.push(['board', `${COLS}×${ROWS}`]);
+  rows.push(['blocks', `${res.blocks}`]);
+  rows.push(['coverage', `${covered}/${free} (${free ? (100 * covered / free).toFixed(1) : 0}%)`]);
+  rows.push(['block area', bb.size ? `${aMin}–${aMax}, avg ${(aSum / bb.size).toFixed(1)}` : '—']);
+  rows.push(['compute', `${res.ms != null ? res.ms.toFixed(1) : '?'} ms`]);
+
+  if (meta && meta.score) {
+    const s = meta.score;
+    rows.push(['section', 'metrics']);
+    rows.push(['longest seam', `${s.maxRun} cells`]);
+    rows.push(['weighted avg run', `${s.avgRun.toFixed(1)} cells`]);
+    rows.push(['same-size adj', `${(100 * s.sameAdj).toFixed(1)}%`]);
+    rows.push(['area cv', s.cv.toFixed(2)]);
+    rows.push(['slivers', `${(100 * s.sliverFrac).toFixed(0)}%`]);
+    if (meta.N > 1) {
+      rows.push(['section', 'search']);
+      rows.push(['candidates', `${meta.tried} tried, ${meta.N} target`]);
+      if (meta.firstScore != null)
+        rows.push(['first → best score', `${meta.firstScore.toFixed(3)} → ${s.total.toFixed(3)}`]);
+      else
+        rows.push(['score', s.total.toFixed(3)]);
+    }
+  }
+
+  const backs = res.trace ? res.trace.filter(e => e.t === 'remove').length : 0;
+  rows.push(['section', 'debug']);
+  rows.push(['steps', `${res.steps}`]);
+  rows.push(['backtracks', `${backs}`]);
+
+  const analyticsEl = document.getElementById('analytics');
+  analyticsEl.innerHTML = rows.map(([k, v]) => {
+    if (k === 'section') return `<div class="section-head" style="grid-column:1/-1">${v}</div>`;
+    return `<div class="k">${k}</div><div class="v">${v}</div>`;
+  }).join('');
+}
+
+// ============================================================
+//  BOUNDS / CONFIG READING
+// ============================================================
+function readBounds() {
+  const v = id => parseInt(document.getElementById(id).value, 10) || 0;
+  let wmin = v('wmin'), wmax = v('wmax'), hmin = v('hmin'), hmax = v('hmax');
+  if (wmin > wmax) [wmin, wmax] = [wmax, wmin];
+  if (hmin > hmax) [hmin, hmax] = [hmax, hmin];
+  return {
+    wmin: Math.max(2, wmin), wmax: Math.max(2, wmax),
+    hmin: Math.max(2, hmin), hmax: Math.max(2, hmax),
+    cap: Math.max(100, v('cap') || DEFAULTS.cap),
+    P: (v('subdiv') || 0) / 100,
+    longer: document.getElementById('longer').checked,
+    staggerW: v('staggerW'),
+  };
+}
+function readWeights() {
+  const v = id => parseInt(document.getElementById(id).value, 10);
+  return { same: v('wSame') / 50, fault: v('wFault') / 50, uvar: v('wVar') / 50, sliver: v('wSliver') / 50 };
+}
+function syncBoardSize() {
+  const nc = Math.max(4, Math.min(120, parseInt(document.getElementById('cols').value, 10) || COLS));
+  const nr = Math.max(4, Math.min(120, parseInt(document.getElementById('rows').value, 10) || ROWS));
+  if (nc !== COLS || nr !== ROWS) { COLS = nc; ROWS = nr; buildGrid(); }
+}
+
+// ============================================================
+//  PACKER SELECTOR
+// ============================================================
+function makePacker(b) {
+  const algoSel = document.getElementById('algo').value;
+  if (algoSel === 'guillotine') {
+    const rect = reservedRect();
+    const hole = (rect && (rect.empty || ('x0' in rect))) ? rect : { empty: true };
+    return sub => packGuillotine(sub, b, hole);
+  }
+  // ashlar works on any shape
+  return sub => packAshlar(sub, b);
+}
+
+// ============================================================
+//  SEARCH STATE + BACKGROUND LOOP
+// ============================================================
+const S = {
+  running: false, timer: null,
+  packOne: null, weights: null,
+  seed: 0, tried: 0, t0: 0,
+  best: null, bestKey: Infinity, bestSc: null, bestGaps: 0,
+  firstScore: null, validFound: false, N: 1,
+  liveMode: false,
+};
+const AUTO_STOP_MS = 15000;
+let pendingSpin = false;
+
+const gapsOf = (owner) => { let g = 0; for (let i = 0; i < owner.length; i++) if (owner[i] === -1) g++; return g; };
+function consider(sub) {
+  const res = S.packOne(sub);
+  res.ms = res.ms || 0;
+  const gaps = gapsOf(res.owner);
+  const sc = scoreLayout(res.owner, S.weights);
+  const valid = res.ok && gaps === 0;
+  if (S.firstScore == null) S.firstScore = sc.total;
+  if (valid) S.validFound = true;
+  const k = valid ? sc.total : (1000 + gaps + sc.total / 1000);
+  if (k < S.bestKey) { S.bestKey = k; S.best = res; S.bestSc = sc; S.bestGaps = gaps; return true; }
+  return false;
+}
+function paintBest() {
+  const res = S.best;
+  if (!res) return;
+  TRACE = res.trace || [];
+  BASE = res.base;
+  work = BASE.slice();
+  playerPos = -1;
+  renderOwner(res.owner);
+  showAnalytics(res, { N: S.N, tried: S.tried, score: S.bestSc, firstScore: S.firstScore });
+}
+
+const setStatus = (cls, html) => {
+  const s = document.getElementById('status');
+  s.className = cls;
+  s.innerHTML = html;
+};
+
+function stopSearch(silent) {
+  S.running = false; S.liveMode = false;
+  if (S.timer) { clearTimeout(S.timer); S.timer = null; }
+  document.getElementById('stopSearch').disabled = true;
+  document.getElementById('startLive').textContent = '▶ live mode';
+  document.getElementById('liveIndicator').style.display = 'none';
+  if (!pendingSpin) document.getElementById('spin').classList.remove('on');
+}
+
+function startSearch() {
+  S.running = true;
+  document.getElementById('stopSearch').disabled = false;
+  document.getElementById('spin').classList.add('on');
+  S.timer = setTimeout(searchStep, 16);
+}
+
+function searchStep() {
+  if (!S.running) return;
+  const isAshlar = document.getElementById('algo').value === 'ashlar';
+  const chunk = isAshlar ? 10 : 200;
+  let improved = false;
+  for (let i = 0; i < chunk; i++) {
+    if (consider((Math.imul(S.seed, 100003) + S.tried) >>> 0)) improved = true;
+    S.tried++;
+  }
+  if (S.validFound && !S.liveMode) {
+    stopSearch();
+    paintBest();
+    setStatus('ok', `<b>tiled ✓</b> (found after ${S.tried} tries)`);
+    return;
+  }
+  if (improved) paintBest();
+  if (!S.liveMode && performance.now() - S.t0 > AUTO_STOP_MS) {
+    stopSearch();
+    paintBest();
+    setStatus('bad', `<b>no valid layout</b> after ${S.tried} tries. Best shown (${S.bestGaps} gaps).`);
+    return;
+  }
+  if (S.liveMode) {
+    setStatus('warn', `<b>live</b> — best so far: longest seam ${S.bestSc ? S.bestSc.maxRun : '?'} · ${S.tried} generated`);
+  } else {
+    setStatus('bad', `<b>searching…</b> ${S.tried} tried · best gaps ${S.bestGaps}`);
+  }
+  S.timer = setTimeout(searchStep, 16);
+}
+
+// ============================================================
+//  MAIN RECOMPUTE
+// ============================================================
+let TRACE = [], BASE = null, work = null, playerPos = -1;
+
+function timedRecompute() {
+  stopPlayer();
+  pendingSpin = true;
+  document.getElementById('spin').classList.add('on');
+  requestAnimationFrame(() => setTimeout(() => {
+    runClean();
+    pendingSpin = false;
+    if (!S.running) document.getElementById('spin').classList.remove('on');
+  }, 0));
+}
+
+function runClean() {
+  stopSearch();
+  syncBoardSize();
+  const b = readBounds();
+  S.packOne = makePacker(b);
+  S.weights = readWeights();
+  const seedEl = document.getElementById('seed');
+  const useRandom = document.getElementById('randomSeed').checked;
+  const seedNum = useRandom ? (Math.random() * 0xFFFFFFFF) >>> 0 : (parseInt(seedEl.value, 10) || 0);
+  if (useRandom) seedEl.value = seedNum;
+  S.seed = seedNum;
+  S.N = Math.max(1, parseInt(document.getElementById('budget').value, 10));
+  S.best = null; S.bestKey = Infinity; S.bestSc = null; S.firstScore = null;
+  S.validFound = false; S.tried = 0; S.t0 = performance.now();
+
+  for (let k = 0; k < S.N; k++) {
+    consider((Math.imul(seedNum, 100003) + k) >>> 0);
+    S.tried++;
+  }
+  paintBest();
+  if (S.validFound) {
+    setStatus('ok', `<b>tiled ✓</b>`);
+    document.getElementById('action').textContent = 'idle — press ▶ play to watch it build';
+  } else {
+    setStatus('bad', `<b>no valid layout in ${S.N}</b> — searching… best ${S.bestGaps} gaps`);
+    startSearch();
+  }
+}
+
+// ============================================================
+//  TRANSPORT / PLAYER
+// ============================================================
+let playing = false, playerTimer = null;
+
+function applyAndRender(ev) {
+  let deco = {};
+  if (ev.t === 'place') {
+    for (let dy = 0; dy < ev.h; dy++) for (let dx = 0; dx < ev.w; dx++)
+      work[idx(ev.x + dx, ev.y + dy)] = ev.id;
+    const s = new Set();
+    for (let dy = 0; dy < ev.h; dy++) for (let dx = 0; dx < ev.w; dx++) s.add(idx(ev.x + dx, ev.y + dy));
+    deco = { rectCells: s, rectMode: 'place' };
+  } else if (ev.t === 'remove') {
+    for (let dy = 0; dy < ev.h; dy++) for (let dx = 0; dx < ev.w; dx++)
+      work[idx(ev.x + dx, ev.y + dy)] = -1;
+    const s = new Set();
+    for (let dy = 0; dy < ev.h; dy++) for (let dx = 0; dx < ev.w; dx++) s.add(idx(ev.x + dx, ev.y + dy));
+    deco = { rectCells: s, rectMode: 'remove' };
+  } else if (ev.t === 'anchor') deco = { anchorIdx: idx(ev.x, ev.y), anchorBad: false };
+  else if (ev.t === 'deadend') deco = { anchorIdx: idx(ev.x, ev.y), anchorBad: true };
+  renderOwner(work, deco);
+  const txt = {
+    place: `place ${ev.w}×${ev.h} @ (${ev.x},${ev.y}) → #${ev.id}`,
+    remove: `backtrack: undo #${ev.id} @ (${ev.x},${ev.y})`,
+    anchor: `anchor @ (${ev.x},${ev.y})`,
+    deadend: `dead end @ (${ev.x},${ev.y}): nothing fits`,
+    solved: 'done ✓ every cell covered',
+  }[ev.t] || ev.t;
+  document.getElementById('action').textContent = `[${playerPos + 1}/${TRACE.length}] ${txt}`;
+}
+function forward() { if (playerPos + 1 < TRACE.length) { playerPos++; applyAndRender(TRACE[playerPos]); return true; } return false; }
+function resetPlayer() {
+  stopPlayer();
+  if (BASE) { work = BASE.slice(); playerPos = -1; renderOwner(work); }
+  document.getElementById('action').textContent = 'reset — press ▶ play';
+}
+function stopPlayer() {
+  playing = false;
+  if (playerTimer) { clearInterval(playerTimer); playerTimer = null; }
+  document.getElementById('tPlay').textContent = '▶ play';
+}
+function startPlayer() {
+  if (playing) { stopPlayer(); return; }
+  if (playerPos + 1 >= TRACE.length) resetPlayer();
+  playing = true;
+  document.getElementById('tPlay').textContent = '⏸ pause';
+  const speed = () => parseInt(document.getElementById('speed').value, 10) || 1;
+  playerTimer = setInterval(() => {
+    let n = speed();
+    while (n-- > 0) if (!forward()) { stopPlayer(); break; }
+  }, 60);
+}
+document.getElementById('tReset').addEventListener('click', resetPlayer);
+document.getElementById('tStep').addEventListener('click', () => { stopPlayer(); forward(); });
+document.getElementById('tPlay').addEventListener('click', startPlayer);
+
+// ============================================================
+//  LIVE MODE
+// ============================================================
+document.getElementById('startLive').addEventListener('click', () => {
+  if (S.running && S.liveMode) {
+    stopSearch();
+    return;
+  }
+  stopSearch();
+  syncBoardSize();
+  const b = readBounds();
+  S.packOne = makePacker(b);
+  S.weights = readWeights();
+  const seedEl = document.getElementById('seed');
+  S.seed = (parseInt(seedEl.value, 10) || 0);
+  S.N = Infinity;
+  S.best = null; S.bestKey = Infinity; S.bestSc = null; S.firstScore = null;
+  S.validFound = false; S.tried = 0; S.t0 = performance.now();
+  S.liveMode = true;
+  document.getElementById('startLive').textContent = '⏹ stop live';
+  document.getElementById('liveIndicator').style.display = '';
+  startSearch();
+});
+
+// ============================================================
+//  CELL PAINTING (reserved toggle)
+// ============================================================
+let paintAction = null, paintDirty = false;
+function paintCell(t) {
+  if (!t.classList || !t.classList.contains('cell') || !paintAction) return;
+  const x = +t.dataset.x, y = +t.dataset.y, k = key(x, y), has = reserved.has(k);
+  if (paintAction === 'add' && has) return;
+  if (paintAction === 'remove' && !has) return;
+  if (paintAction === 'add') reserved.add(k);
+  else { reserved.delete(k); }
+  resTile.delete(k);
+  t.style.background = paintAction === 'add' ? 'var(--reserved)' : 'var(--empty)';
+  t.style.boxShadow = 'inset 0 0 0 0.5px rgba(255,255,255,0.05)';
+  t.style.outline = '';
+  paintDirty = true;
+}
+gridEl.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  if (!e.target.classList.contains('cell')) return;
+  const k = key(+e.target.dataset.x, +e.target.dataset.y);
+  paintAction = reserved.has(k) ? 'remove' : 'add';
+  paintCell(e.target);
+  e.preventDefault();
+});
+gridEl.addEventListener('contextmenu', (e) => e.preventDefault());
+gridEl.addEventListener('mousemove', (e) => {
+  if (e.target.classList.contains('cell'))
+    document.getElementById('hover').textContent = `(${e.target.dataset.x}, ${e.target.dataset.y})`;
+  if (paintAction) paintCell(e.target);
+});
+window.addEventListener('mouseup', () => {
+  paintAction = null;
+  if (paintDirty) {
+    paintDirty = false;
+    document.getElementById('preset').value = 'empty';
+    timedRecompute();
+  }
+});
+
+// ============================================================
+//  CALIBRATION
+// ============================================================
+const AB_ROUNDS = 8;
+let abPrefs = [], abRound = 0, abPair = null;
+
+function calibColor(g) { return g === -2 ? '#1e293b' : g === -1 ? '#0c0c0e' : PALETTE[g % PALETTE.length]; }
+function drawCanvas(cv, owner, targetW) {
+  const cw = Math.max(3, Math.floor((targetW || 300) / COLS));
+  cv.width = COLS * cw; cv.height = ROWS * cw;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    ctx.fillStyle = calibColor(owner[idx(x, y)]);
+    ctx.fillRect(x * cw, y * cw, cw, cw);
+  }
+  ctx.fillStyle = '#0d1117';
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const g = owner[idx(x, y)];
+    if (g < 0) continue;
+    if (x + 1 < COLS && owner[idx(x + 1, y)] !== g) ctx.fillRect((x + 1) * cw - 1, y * cw, 1, cw);
+    if (y + 1 < ROWS && owner[idx(x, y + 1)] !== g) ctx.fillRect(x * cw, (y + 1) * cw - 1, cw, 1);
+  }
+}
+
+function calibPool(n) {
+  const b = readBounds();
+  const packer = makePacker(b);
+  const seedNum = parseInt(document.getElementById('seed').value, 10) || 0;
+  const W = { same: 1, fault: 1, uvar: 1, sliver: 1 };
+  const out = []; let tries = 0;
+  while (out.length < n && tries < n * 8) {
+    const sub = (Math.imul(seedNum, 100003) + abRound * 1315423 + out.length * 7919 + tries * 104729) >>> 0;
+    const res = packer(sub); tries++;
+    if (res.ok) {
+      const sc = scoreLayout(res.owner, W);
+      out.push({ owner: res.owner.slice(), m: [sc.sameAdj, sc.faultNorm, sc.lowVar, sc.sliverFrac] });
+    }
+  }
+  return out;
+}
+
+function openCalib() { abPrefs = []; abRound = 0; document.getElementById('calibModal').style.display = 'flex'; nextAbRound(); }
+function nextAbRound() {
+  const pool = calibPool(40);
+  if (pool.length < 2) {
+    document.getElementById('calibMsg').textContent = 'not enough valid layouts — loosen constraints';
+    document.getElementById('calibAB').innerHTML = '';
+    return;
+  }
+  const focus = abRound % 4;
+  let lo = pool[0], hi = pool[0];
+  for (const c of pool) { if (c.m[focus] < lo.m[focus]) lo = c; if (c.m[focus] > hi.m[focus]) hi = c; }
+  abPair = (abRound % 2 === 0) ? { A: lo, B: hi } : { A: hi, B: lo };
+  renderABModal();
+}
+function renderABModal() {
+  document.getElementById('calibMsg').textContent = `round ${abRound + 1} of ${AB_ROUNDS} — click the one you prefer`;
+  const wrap = document.getElementById('calibAB'); wrap.innerHTML = '';
+  for (const side of ['A', 'B']) {
+    const c = abPair[side];
+    const fig = document.createElement('div'); fig.className = 'cand';
+    const tag = document.createElement('div'); tag.className = 'tag'; tag.textContent = side; fig.appendChild(tag);
+    const cv = document.createElement('canvas'); drawCanvas(cv, c.owner, 300); fig.appendChild(cv);
+    fig.addEventListener('click', () => chooseAB(side));
+    wrap.appendChild(fig);
+  }
+}
+function chooseAB(side) {
+  const win = abPair[side].m, lose = abPair[side === 'A' ? 'B' : 'A'].m;
+  abPrefs.push({ win, lose }); abRound++;
+  if (abRound >= AB_ROUNDS) fitFromPrefs(); else nextAbRound();
+}
+function fitFromPrefs() {
+  if (!abPrefs.length) { document.getElementById('calibModal').style.display = 'none'; return; }
+  const Wv = [0, 0.5, 1, 1.5, 2];
+  let best = [1, 1, 1, 1], bestC = -1, bestM = -1e9;
+  for (const a of Wv) for (const b of Wv) for (const c of Wv) for (const d of Wv) {
+    if (a + b + c + d === 0) continue;
+    const sc = v => a * v[0] + b * v[1] + c * v[2] + d * v[3];
+    let correct = 0, margin = 0;
+    for (const p of abPrefs) { const diff = sc(p.lose) - sc(p.win); if (diff > 1e-9) correct++; margin += diff; }
+    if (correct > bestC || (correct === bestC && margin > bestM)) { bestC = correct; bestM = margin; best = [a, b, c, d]; }
+  }
+  document.getElementById('wSame').value = best[0] * 50;
+  document.getElementById('wFault').value = best[1] * 50;
+  document.getElementById('wVar').value = best[2] * 50;
+  document.getElementById('wSliver').value = best[3] * 50;
+  document.getElementById('calibModal').style.display = 'none';
+  timedRecompute();
+  document.getElementById('action').textContent = `fitted [same ${best[0]}, fault ${best[1]}, uniformity ${best[2]}, sliver ${best[3]}] from ${abPrefs.length} rounds — agreed ${bestC}/${abPrefs.length}`;
+}
+document.getElementById('calibrate').addEventListener('click', openCalib);
+document.getElementById('calibFit').addEventListener('click', fitFromPrefs);
+document.getElementById('calibClose').addEventListener('click', () => { document.getElementById('calibModal').style.display = 'none'; });
+
+// ============================================================
+//  ALGO DESCRIPTIONS
+// ============================================================
+const ALGO_DESC = {
+  ashlar: 'Anchored fill with stagger guard: finds the top-left uncovered cell, tries all candidate sizes, rejects placements whose right edge continues a vertical joint from the row above — like offset bricklaying. Dramatically reduces long straight seams.',
+  guillotine: 'Recursively splits the area with random guillotine cuts. Fast, always valid for rectangular holes, highly varied. Cannot target seam quality directly — baseline comparison.',
+};
+function updateAlgoDesc() {
+  const val = document.getElementById('algo').value;
+  document.getElementById('algoDesc').textContent = ALGO_DESC[val] || '';
+  document.getElementById('ashlarKnobs').style.display = val === 'ashlar' ? '' : 'none';
+  document.getElementById('guillotineKnobs').style.display = val === 'guillotine' ? '' : 'none';
+}
+document.getElementById('algo').addEventListener('change', () => { updateAlgoDesc(); timedRecompute(); });
+
+// ============================================================
+//  SAVE / LOAD / COPY CONFIG
+// ============================================================
+const CONTROL_IDS = ['algo','seed','randomSeed','preset','cols','rows','wmin','wmax','hmin','hmax','subdiv','longer','cap','staggerW','budget','speed','wSame','wFault','wVar','wSliver'];
+function readOpts() {
+  const o = {};
+  for (const id of CONTROL_IDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    o[id] = el.type === 'checkbox' ? el.checked : el.value;
+  }
+  return o;
+}
+function saveOpts() {
+  localStorage.setItem(SAVE_KEY, JSON.stringify(readOpts()));
+  document.getElementById('action').textContent = 'options saved to localStorage';
+}
+function loadOpts() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const o = JSON.parse(raw);
+    for (const id of CONTROL_IDS) {
+      if (o[id] == null) continue;
+      const el = document.getElementById(id);
+      if (!el) continue;
+      if (el.type === 'checkbox') el.checked = o[id];
+      else el.value = o[id];
+    }
+    return true;
+  } catch (e) { return false; }
+}
+document.getElementById('saveOpts').addEventListener('click', saveOpts);
+document.getElementById('copyOpts').addEventListener('click', () => {
+  navigator.clipboard?.writeText(JSON.stringify(readOpts(), null, 2)).then(() => {
+    document.getElementById('action').textContent = 'config JSON copied to clipboard';
+  }).catch(() => {});
+});
+document.getElementById('defaults').addEventListener('click', () => {
+  localStorage.removeItem(SAVE_KEY);
+  for (const [k, val] of Object.entries(DEFAULTS)) {
+    const el = document.getElementById(k);
+    if (el) el.value = val;
+  }
+  document.getElementById('longer').checked = true;
+  document.getElementById('randomSeed').checked = false;
+  COLS = DEFAULTS.cols; ROWS = DEFAULTS.rows;
+  buildGrid();
+  setPreset(DEFAULTS.preset);
+  updateAlgoDesc();
+  timedRecompute();
+});
+
+// ============================================================
+//  REGENERATE
+// ============================================================
+document.getElementById('regen').addEventListener('click', () => {
+  const s = document.getElementById('seed');
+  if (!document.getElementById('randomSeed').checked) {
+    s.value = (parseInt(s.value, 10) || 0) + 1;
+  }
+  timedRecompute();
+});
+document.getElementById('preset').addEventListener('change', (e) => {
+  setPreset(e.target.value);
+  timedRecompute();
+});
+
+// ============================================================
+//  INPUT WIRING
+// ============================================================
+['algo','seed','randomSeed','cols','rows','wmin','wmax','hmin','hmax','subdiv','cap','longer','budget','wSame','wFault','wVar','wSliver','staggerW']
+  .forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', timedRecompute);
+  });
+// weights help modal
+document.getElementById('weightsHelp').addEventListener('click', () => { document.getElementById('weightsModal').style.display = 'flex'; });
+document.getElementById('weightsHelpClose').addEventListener('click', () => { document.getElementById('weightsModal').style.display = 'none'; });
+document.getElementById('weightsModal').addEventListener('click', (e) => { if (e.target.id === 'weightsModal') e.target.style.display = 'none'; });
+document.getElementById('stopSearch').addEventListener('click', () => {
+  stopSearch();
+  paintBest();
+  setStatus('warn', `<b>stopped</b> — best of ${S.tried} tries · ${S.bestGaps} gaps`);
+});
+
+// ============================================================
+//  CUSTOM NUMBER STEPPERS
+// ============================================================
+function stepNum(inp, dir) {
+  const s = parseFloat(inp.step) || 1;
+  const min = inp.min !== '' ? parseFloat(inp.min) : -Infinity;
+  const max = inp.max !== '' ? parseFloat(inp.max) : Infinity;
+  let v = (parseFloat(inp.value) || 0) + dir * s;
+  v = Math.min(max, Math.max(min, v));
+  if (String(v) !== inp.value) { inp.value = v; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+}
+function enhanceNumberInputs() {
+  document.querySelectorAll('input[type=number]').forEach(inp => {
+    if (inp.dataset.enh) return;
+    inp.dataset.enh = '1';
+    const wrap = document.createElement('span'); wrap.className = 'numwrap';
+    inp.parentNode.insertBefore(wrap, inp); wrap.appendChild(inp);
+    const steps = document.createElement('span'); steps.className = 'steps';
+    const mk = (dir, ch) => {
+      const b = document.createElement('button'); b.type = 'button'; b.tabIndex = -1; b.textContent = ch;
+      let t, iv; const stop = () => { clearTimeout(t); clearInterval(iv); };
+      b.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        stepNum(inp, dir);
+        t = setTimeout(() => { iv = setInterval(() => stepNum(inp, dir), 60); }, 300);
+      });
+      b.addEventListener('mouseup', stop); b.addEventListener('mouseleave', stop);
+      return b;
+    };
+    steps.appendChild(mk(1, '▴')); steps.appendChild(mk(-1, '▾'));
+    wrap.appendChild(steps);
+  });
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+(function init() {
+  loadOpts();
+  COLS = Math.max(4, Math.min(120, parseInt(document.getElementById('cols').value, 10) || DEFAULTS.cols));
+  ROWS = Math.max(4, Math.min(120, parseInt(document.getElementById('rows').value, 10) || DEFAULTS.rows));
+  setPreset(document.getElementById('preset').value);
+  updateAlgoDesc();
+  enhanceNumberInputs();
+  buildGrid();
+  timedRecompute();
+})();
+
+// ============================================================
+//  LIVE RELOAD (self-polling)
+// ============================================================
+let _origBody = null;
+const _selfUrl = location.href.split('#')[0];
+fetch(_selfUrl, { cache: 'no-store' }).then(r => r.text()).then(t => { _origBody = t; }).catch(() => {});
+setInterval(() => {
+  fetch(_selfUrl, { cache: 'no-store' }).then(r => r.text()).then(t => {
+    if (_origBody !== null && t !== _origBody) location.reload();
+  }).catch(() => {});
+}, 800);
+</script>
+</body>
+</html>
