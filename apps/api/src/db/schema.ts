@@ -22,9 +22,21 @@ export const events = pgTable("events", {
 // Device sync: backend owns device state; frontend reads merged (effective) state.
 // Ported from evee device-state-sync pattern. Desired window is 5s for CC.
 
+/**
+ * Colour of a light: either an RGB triple or a white colour temperature in
+ * Kelvin (mutually exclusive in practice — HA reports whichever colour mode is
+ * active). Carried in desired/reported state so the DB-authoritative enforcer
+ * can drive and detect colour drift, not just on/off + brightness (CC-7d5b.2.2).
+ */
+export interface LightColor {
+  rgb?: [number, number, number];
+  kelvin?: number;
+}
+
 export interface DeviceLightState {
   on: boolean;
   brightness?: number;
+  color?: LightColor;
 }
 
 export type DeviceStateValue = DeviceLightState;

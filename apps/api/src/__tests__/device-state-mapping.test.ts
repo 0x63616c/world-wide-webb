@@ -40,6 +40,46 @@ describe("mapHaToReported", () => {
     expect(result.reported).toEqual({ on: true, brightness: 128 });
   });
 
+  it("includes rgb color when rgb_color is present", () => {
+    const result = mapHaToReported("light", {
+      entity_id: "light.lamp",
+      state: "on",
+      attributes: { brightness: 200, rgb_color: [255, 0, 0] },
+      last_updated: new Date().toISOString(),
+    });
+    expect(result.reported).toEqual({ on: true, brightness: 200, color: { rgb: [255, 0, 0] } });
+  });
+
+  it("includes kelvin color when color_temp_kelvin is present and no rgb", () => {
+    const result = mapHaToReported("light", {
+      entity_id: "light.lamp",
+      state: "on",
+      attributes: { color_temp_kelvin: 4000 },
+      last_updated: new Date().toISOString(),
+    });
+    expect(result.reported).toEqual({ on: true, color: { kelvin: 4000 } });
+  });
+
+  it("prefers rgb over kelvin when both are present", () => {
+    const result = mapHaToReported("light", {
+      entity_id: "light.lamp",
+      state: "on",
+      attributes: { rgb_color: [10, 20, 30], color_temp_kelvin: 4000 },
+      last_updated: new Date().toISOString(),
+    });
+    expect(result.reported).toEqual({ on: true, color: { rgb: [10, 20, 30] } });
+  });
+
+  it("omits color when rgb_color is malformed", () => {
+    const result = mapHaToReported("light", {
+      entity_id: "light.lamp",
+      state: "on",
+      attributes: { rgb_color: [255, 0] },
+      last_updated: new Date().toISOString(),
+    });
+    expect(result.reported).toEqual({ on: true });
+  });
+
   it("returns { reported: null, available: false } for unavailable entity", () => {
     const result = mapHaToReported("light", {
       entity_id: "light.lamp",
@@ -96,5 +136,30 @@ describe("stateEquals", () => {
 
   it("returns true when brightness is absent on both", () => {
     expect(stateEquals({ on: true }, { on: true })).toBe(true);
+  });
+
+  it("returns false when rgb color differs", () => {
+    expect(
+      stateEquals(
+        { on: true, color: { rgb: [255, 0, 0] } },
+        { on: true, color: { rgb: [0, 0, 255] } },
+      ),
+    ).toBe(false);
+  });
+
+  it("returns true when rgb color matches", () => {
+    expect(
+      stateEquals({ on: true, color: { rgb: [1, 2, 3] } }, { on: true, color: { rgb: [1, 2, 3] } }),
+    ).toBe(true);
+  });
+
+  it("returns false when kelvin differs", () => {
+    expect(
+      stateEquals({ on: true, color: { kelvin: 4000 } }, { on: true, color: { kelvin: 2700 } }),
+    ).toBe(false);
+  });
+
+  it("returns false when one has color and the other does not", () => {
+    expect(stateEquals({ on: true, color: { rgb: [1, 2, 3] } }, { on: true })).toBe(false);
   });
 });
