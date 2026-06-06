@@ -34,6 +34,22 @@ Durable sync is the Dolt git remote: **`refs/dolt/data` on origin**, established
 - **dolt's `git+ssh` push is slow** (upstream dolt#10537, ~15-44s/round-trip) but reliable once `refs/dolt/data` exists. A *first* push (ref absent) loops on `git fetch refs/dolt/data` — if origin ever loses the ref, re-seed with one clean uncontended `bd dolt push` (no concurrent `bd` commands).
 - **lefthook is the SOLE hook owner; it calls beads.** The beads hook lifecycle (pre-push push, post-merge/post-checkout pull, prepare-commit-msg trailers) is wired as commands in `lefthook.yml`, not via beads' own installer. Do NOT run `bd hooks install --shared` (hijacks `core.hooksPath` → `.beads-hooks/`, gitignored) or `--force` (clobbers lefthook's hooks). A plain `bd hooks install` is non-destructive but redundant — just re-run `lefthook install` if hooks ever go missing.
 
+## Dev lifecycle (CC-w6j2 — how we work)
+
+Every ticket follows one lifecycle, defined once in **`docs/ticket-standards.md`** (READ IT before creating, starting, or finishing work). The spine:
+
+```
+/new-ticket  →  /starting-ticket  →  (build, TDD)  →  /finish-ticket
+   open             in_progress                            closed
+```
+
+- **`/new-ticket`** — create a *Ready* ticket: type (mapped to a real bd type), priority, area, and checkbox AC with the per-type Definition of Done auto-appended. Never hand-type house rules into AC; the skill generates them.
+- **`/starting-ticket`** — Definition-of-Ready gate (refuse if unmet) → `bd update --claim` → `git pull --rebase` → `EnterWorktree` named `CC-xxx-slug` → **red test first** → surface the DoD.
+- **`/finish-ticket`** — gates green (REFUSE on red) → verify every AC item (screenshot@1366×1024 for UI) → commit `type(area/CC-xxx)` → **merge worktree to `main`, NO PR** → push → `bd close` → harden audit.
+- **`ship`** (workflow) is the same lifecycle parallelized for a whole epic, hands-off. Use the skills for human-in-the-loop work; use `ship` for an approved epic.
+
+The standards doc holds the taxonomy, Definition of Ready, Definition of Done (+ per-type adders), priority rubric, AC format, and the enforcement matrix. `scripts/lint-tickets.sh` is the advisory backstop. The lifecycle never opens a PR — worktrees merge to `main` locally.
+
 ## Session Completion
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
@@ -74,7 +90,7 @@ bunx biome check .  # lint/format gate (use `bunx biome check --write .` to auto
 bun run dev         # tilt up (local dev stack)
 ```
 
-**CI test gate (CC-hjvu):** the `test` job in `.github/workflows/ci.yml` runs typecheck + `test:coverage` (installs Playwright chromium) on every push, and **`deploy` depends on it** — failing/flaky **tests** block prod deploys. The Storybook browser project is pinned to `fileParallelism: false` (parallel files overload the single Chromium instance and flake); keep it serial. The CI job regenerates and commits the coverage/LOC badge JSON back to `main` with `[skip ci]`.
+**CI test gate (CC-hjvu):** the `test` job in `.github/workflows/ci.yml` runs typecheck + `test:coverage` (installs Playwright chromium) on every push, and **`deploy` depends on it** — failing/flaky **tests** block prod deploys. The Storybook browser project is pinned to `fileParallelism: false` (parallel files overload the single Chromium instance and flake); keep it serial. The CI job is the **sole** badge source: it regenerates and commits all badge JSON (coverage/loc/files/commit) back to `main` with `[skip ci]`. Pre-commit no longer stages badges — that baked churn into every commit and conflicted on every worktree→main merge (CC-w6j2.8).
 
 **Coverage is reported, never gated.** `vitest.config.ts` has coverage `include`/`exclude` + reporters (the % feeds the README badge) but deliberately **no `thresholds`** — a coverage drop must never fail a job or block a deploy. Do NOT re-add `thresholds`/`autoUpdate` (the merged unit+browser % is slightly nondeterministic, so a ratchet flakes CI). Only real test failures gate.
 
@@ -82,7 +98,7 @@ bun run dev         # tilt up (local dev stack)
 
 Reusable multi-agent orchestration scripts live in `.claude/workflows/` (run via the Workflow tool: `Workflow({ name: '<n>', args: {...} })`).
 
-- **`ship`** — Factory-Missions-style pipeline for shipping a bd issue/epic end-to-end. Beads is the shared mission state: scope writes a validation contract into the epic's `--design`, each feature becomes a child issue with `--acceptance` + a `milestone-N` label + deps for serial order; it builds → validates → fixes **per milestone**, then hardens and finalizes. Resumable after a crash via `args.resume=<epicId>`.
+- **`ship`** — Factory-Missions-style pipeline for shipping a bd issue/epic end-to-end. Beads is the shared mission state: scope writes a validation contract into the epic's `--design`, each feature becomes a child issue with `--acceptance` + a `milestone-N` label + deps for serial order; it builds → validates → fixes **per milestone**, then hardens and finalizes. Resumable after a crash via `args.resume=<epicId>`. It is the manual dev lifecycle parallelized and follows the same `docs/ticket-standards.md` (taxonomy, Definition of Ready/Done, `type(area/CC-xxx)` commits).
   - **Model tiers** (rule: haiku is a good validator but a bad coder, so it never writes code): `opus` scopes, `sonnet` does ALL coding (build/fix/harden), `haiku` runs the adversarial validators + bd/gate bookkeeping.
   - **Intended use:** scope + approve the plan with Calum first, then launch. Conservative git — commits per feature, no `git push` unless `args.push:true`.
 - **`wf-finish-dashboard.mjs`** (untracked, repo root `.claude/`) — the original one-shot that finished the dashboard; `ship` is its generalization. Kept for reference.
