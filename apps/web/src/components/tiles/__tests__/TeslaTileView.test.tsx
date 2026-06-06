@@ -85,9 +85,9 @@ describe("TeslaTileView — loading/skeleton state", () => {
     expect(tile).toBeInTheDocument();
   });
 
-  it("does not render the Tesla header", () => {
+  it("keeps the Tesla header visible while loading so the tile is identifiable", () => {
     render(<TeslaTileView status="loading" />);
-    expect(screen.queryByText("Tesla")).not.toBeInTheDocument();
+    expect(screen.getByText("Tesla")).toBeInTheDocument();
   });
 
   it("does not render charge percentage text", () => {
@@ -103,9 +103,9 @@ describe("TeslaTileView — error state", () => {
     expect(tile).toBeInTheDocument();
   });
 
-  it("does not render the Tesla header", () => {
+  it("keeps the Tesla header visible in the error/retry state so the tile is identifiable", () => {
     render(<TeslaTileView status="error" />);
-    expect(screen.queryByText("Tesla")).not.toBeInTheDocument();
+    expect(screen.getByText("Tesla")).toBeInTheDocument();
   });
 });
 

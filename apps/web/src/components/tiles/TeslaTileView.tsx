@@ -72,19 +72,19 @@ function TeslaCharge({ charging, rate, pct }: ChargeProps) {
 // ── Skeleton layout mirroring the real tile structure ────────────────────────
 
 function TeslaSkeleton() {
+  // Mirrors the populated layout: real title up top, lock pill (data-driven)
+  // shimmered to its ~25px pill footprint, then map / charge / stats shimmers.
   return (
-    <Tile padding={22}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "100%" }}>
-        <Skeleton w="100%" h={38} borderRadius={11} />
-        <div style={{ flex: 1, minHeight: 140 }}>
-          <Skeleton w="100%" h="100%" borderRadius={14} />
-        </div>
-        <Skeleton w="100%" h={32} borderRadius={8} />
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-          <Skeleton w="30%" h={40} borderRadius={6} />
-          <Skeleton w="30%" h={40} borderRadius={6} />
-          <Skeleton w="30%" h={40} borderRadius={6} />
-        </div>
+    <Tile padding={22} style={{ gap: 16 }}>
+      <TileHeader icon="car" title="Tesla" right={<Skeleton w={78} h={25} borderRadius={999} />} />
+      <div style={{ flex: 1, minHeight: 140 }}>
+        <Skeleton w="100%" h="100%" borderRadius={14} />
+      </div>
+      <Skeleton w="100%" h={32} borderRadius={8} />
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+        <Skeleton w="30%" h={40} borderRadius={6} />
+        <Skeleton w="30%" h={40} borderRadius={6} />
+        <Skeleton w="30%" h={40} borderRadius={6} />
       </div>
     </Tile>
   );

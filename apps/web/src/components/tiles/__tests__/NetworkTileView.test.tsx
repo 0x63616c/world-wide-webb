@@ -31,6 +31,11 @@ describe("NetworkTileView — loading/skeleton state", () => {
     expect(container.firstChild).toBeInTheDocument();
   });
 
+  it("keeps the Network title visible while loading so the tile is identifiable", () => {
+    render(<NetworkTileView status="loading" />);
+    expect(screen.getByText("Network")).toBeInTheDocument();
+  });
+
   it("does not render down/up GB labels while loading", () => {
     render(<NetworkTileView status="loading" />);
     expect(screen.queryByText(/↓/)).not.toBeInTheDocument();

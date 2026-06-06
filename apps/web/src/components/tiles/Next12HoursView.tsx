@@ -30,11 +30,20 @@ export type Next12HoursViewProps = {
   hours?: HourlyEntry[];
 };
 
+// Static legend (no data) — shared by the populated header and the loading
+// skeleton so the title + legend are present from first paint.
+const HoursLegend = (
+  <span className="mono" style={{ fontSize: 11, display: "flex", gap: 10 }}>
+    <span style={{ color: "rgba(255,255,255,0.35)" }}>┈ Feels</span>
+    <span style={{ color: "var(--acc)" }}>▮ Temp</span>
+  </span>
+);
+
 function Next12HoursSkeleton() {
   return (
     <Tile padding={22}>
-      <Skeleton w="60%" h={20} borderRadius={6} />
-      <div style={{ flex: 1, marginTop: 16 }}>
+      <TileHeader icon="cloud" title="Next 12 Hours" right={HoursLegend} />
+      <div style={{ flex: 1 }}>
         <Skeleton w="100%" h="100%" borderRadius={8} />
       </div>
     </Tile>
@@ -96,16 +105,7 @@ export function Next12HoursView(props: Next12HoursViewProps) {
   return (
     <Tile padding={22}>
       {/* Section header */}
-      <TileHeader
-        icon="cloud"
-        title="Next 12 Hours"
-        right={
-          <span className="mono" style={{ fontSize: 11, display: "flex", gap: 10 }}>
-            <span style={{ color: "rgba(255,255,255,0.35)" }}>┈ Feels</span>
-            <span style={{ color: "var(--acc)" }}>▮ Temp</span>
-          </span>
-        }
-      />
+      <TileHeader icon="cloud" title="Next 12 Hours" right={HoursLegend} />
 
       {/* Chart: a bar band stacked over a label band, separated by one GAP. The
           icon→time gap inside each label column is the SAME GAP, so bar→icon and

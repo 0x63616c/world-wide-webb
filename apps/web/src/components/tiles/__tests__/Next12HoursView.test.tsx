@@ -56,9 +56,9 @@ describe("Next12HoursView — loading/skeleton state", () => {
     expect(screen.queryByText("Now")).not.toBeInTheDocument();
   });
 
-  it("does not render the section header", () => {
+  it("still renders the section header so the tile is identifiable while loading", () => {
     render(<Next12HoursView {...loadingProps} />);
-    expect(screen.queryByText("Next 12 Hours")).not.toBeInTheDocument();
+    expect(screen.getByText("Next 12 Hours")).toBeInTheDocument();
   });
 });
 

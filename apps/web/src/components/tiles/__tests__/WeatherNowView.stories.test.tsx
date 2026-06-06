@@ -14,20 +14,20 @@ const { Loading, ErrorState, Populated, PopulatedSunrise } = composeStories(stor
 afterEach(cleanup);
 
 describe("WeatherNowView stories — Loading", () => {
-  it("renders tile container but no header or data", async () => {
+  it("renders tile container and keeps the header visible while loading", async () => {
     const { container } = render(<Loading />);
     if (Loading.play) await Loading.play({ canvasElement: container });
     expect(container.querySelector(".tile")).toBeInTheDocument();
-    expect(screen.queryByText("Weather Now")).not.toBeInTheDocument();
+    expect(screen.getByText("Weather Now")).toBeInTheDocument();
   });
 });
 
 describe("WeatherNowView stories — ErrorState", () => {
-  it("renders tile container but no header, no invented values", async () => {
+  it("renders tile container, keeps the header, shows no invented values in the error state", async () => {
     const { container } = render(<ErrorState />);
     if (ErrorState.play) await ErrorState.play({ canvasElement: container });
     expect(container.querySelector(".tile")).toBeInTheDocument();
-    expect(screen.queryByText("Weather Now")).not.toBeInTheDocument();
+    expect(screen.getByText("Weather Now")).toBeInTheDocument();
     expect(screen.queryByText(/--°/)).not.toBeInTheDocument();
   });
 });

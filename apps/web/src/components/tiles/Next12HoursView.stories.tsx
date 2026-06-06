@@ -51,8 +51,8 @@ export const Loading: Story = {
   args: { status: "loading" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // Section header absent — no data yet.
-    await expect(canvas.queryByText("Next 12 Hours")).toBeNull();
+    // Section header stays visible while loading so the tile is identifiable.
+    await expect(canvas.getByText("Next 12 Hours")).toBeInTheDocument();
     // Tile container present so the slot retains its shape.
     await expect(canvasElement.querySelector(".tile")).not.toBeNull();
     // No SVG chart or icon elements while loading.
