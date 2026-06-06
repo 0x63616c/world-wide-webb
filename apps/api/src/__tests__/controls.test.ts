@@ -55,7 +55,13 @@ vi.mock("../services/device-command-service", async (importOriginal) => {
 
 // ─── import after mock ────────────────────────────────────────────────────────
 
-import { LampScene, MOOD_PALETTE, WHITE_SCENE_KELVIN } from "../config/lamp-scenes";
+import {
+  LampMode,
+  LampModeSpeed,
+  LampScene,
+  MOOD_PALETTE,
+  WHITE_SCENE_KELVIN,
+} from "../config/lamp-scenes";
 import { FIXTURE_ENTITY_IDS, LAMP_ENTITY_IDS } from "../config/lights";
 import {
   ControlKey,
@@ -63,6 +69,7 @@ import {
   getControlsState,
   HaService,
   setLampBrightness,
+  setLampMode,
   setLampScene,
   toggleControl,
 } from "../services/controls-service";
@@ -132,6 +139,22 @@ class SelectChain {
 
 function makeSelectChain(rows: unknown[]): SelectChain {
   return new SelectChain(rows);
+}
+
+/**
+ * Drive db.select() so the lamp_mode singleton read (a PROJECTED select —
+ * db.select({ mode }) — which controls-service uses) resolves to a row with the
+ * given mode, while every other (unprojected) select resolves to `deviceRows`.
+ * Lets a test set the persistent lamp mode without colliding with the device-row
+ * read in the same getControlsState call.
+ */
+function mockSelectWithMode(deviceRows: unknown[], mode: string | null): void {
+  mockDbSelect.mockImplementation((projection?: unknown) => {
+    if (projection !== undefined) {
+      return makeSelectChain(mode === null ? [] : [{ mode }]);
+    }
+    return makeSelectChain(deviceRows);
+  });
 }
 
 // Chainable insert mock for db.insert().values().onConflictDoUpdate()
@@ -905,6 +928,152 @@ describe("controlsRouter.setLampBrightness", () => {
 
     const caller = buildCaller();
     await expect(caller.controls.setLampBrightness({ pct: 40 })).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+    });
+  });
+});
+
+// ─── setLampMode + activeScene='party' (www-7d5b.3.4) ──────────────────────────
+
+describe("setLampMode", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockCallService.mockResolvedValue(undefined);
+    mockGetEntities.mockResolvedValue([]);
+    mockDbInsert.mockReturnValue(makeInsertChain());
+  });
+
+  it("throws when HA is not configured", async () => {
+    mockIsConfigured.mockReturnValue(false);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    await expect(setLampMode(LampMode.Party)).rejects.toThrow("Home Assistant is not configured");
+  });
+
+  it("writes the lamp_mode row when starting party with a lamp on", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    // A lamp is on (desired), so party is allowed; row is written.
+    mockSelectWithMode(
+      [lampRow("lamp-1", "light.living_room_globe", { on: true })],
+      LampMode.Party,
+    );
+
+    await setLampMode(LampMode.Party, LampModeSpeed.Fast);
+
+    // The singleton row is upserted (one insert) — the worker reconciles it.
+    expect(mockDbInsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("no-ops (no row write) when starting party with NO lamps on", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    // All lamps off → nothing to animate; the row must NOT be written.
+    mockSelectWithMode(
+      [lampRow("lamp-1", "light.living_room_globe", { on: false })],
+      LampMode.None,
+    );
+
+    await setLampMode(LampMode.Party);
+
+    expect(mockDbInsert).not.toHaveBeenCalled();
+  });
+
+  it("writes mode='none' even when no lamps are on (clearing is always allowed)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockSelectWithMode(
+      [lampRow("lamp-1", "light.living_room_globe", { on: false })],
+      LampMode.None,
+    );
+
+    await setLampMode(LampMode.None);
+
+    expect(mockDbInsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns the merged controls state after setting the mode", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockSelectWithMode(
+      [lampRow("lamp-1", "light.living_room_globe", { on: true })],
+      LampMode.Party,
+    );
+
+    const state = await setLampMode(LampMode.Party);
+
+    expect(state).toHaveProperty("lamps");
+    expect(state).toHaveProperty("lights");
+    expect(state).toHaveProperty("fan");
+  });
+});
+
+describe("getControlsState activeScene='party'", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockGetEntities.mockResolvedValue([]);
+  });
+
+  it("reports activeScene='party' when the lamp_mode row is party (overriding colour)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    // Lamps are blue, but the party mode row overrides the colour-derived scene.
+    mockSelectWithMode(
+      [lampRow("lamp-1", "light.living_room_globe", { on: true, color: { rgb: [0, 0, 255] } })],
+      LampMode.Party,
+    );
+
+    const state = await getControlsState();
+
+    expect(state.lamps.activeScene).toBe(LampMode.Party);
+  });
+
+  it("falls back to the colour-derived scene when the lamp_mode row is none", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockSelectWithMode(
+      [lampRow("lamp-1", "light.living_room_globe", { on: true, color: { rgb: [0, 0, 255] } })],
+      LampMode.None,
+    );
+
+    const state = await getControlsState();
+
+    expect(state.lamps.activeScene).toBe(LampScene.Blue);
+  });
+});
+
+describe("controlsRouter.setLampMode", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockCallService.mockResolvedValue(undefined);
+    mockGetEntities.mockResolvedValue([]);
+    mockDbInsert.mockReturnValue(makeInsertChain());
+  });
+
+  it("returns merged controls state via tRPC caller (activeScene='party')", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockSelectWithMode(
+      [lampRow("lamp-1", "light.living_room_globe", { on: true })],
+      LampMode.Party,
+    );
+
+    const caller = buildCaller();
+    const result = await caller.controls.setLampMode({ mode: "party", speed: "medium" });
+
+    expect(result).toHaveProperty("lamps");
+    expect(result.lamps.activeScene).toBe(LampMode.Party);
+  });
+
+  it("accepts mode='none' with no speed", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockSelectWithMode([], LampMode.None);
+
+    const caller = buildCaller();
+    const result = await caller.controls.setLampMode({ mode: "none" });
+
+    expect(result).toHaveProperty("lamps");
+  });
+
+  it("throws SERVICE_UNAVAILABLE when HA is not configured", async () => {
+    mockIsConfigured.mockReturnValue(false);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    const caller = buildCaller();
+    await expect(caller.controls.setLampMode({ mode: "party" })).rejects.toMatchObject({
       code: "SERVICE_UNAVAILABLE",
     });
   });
