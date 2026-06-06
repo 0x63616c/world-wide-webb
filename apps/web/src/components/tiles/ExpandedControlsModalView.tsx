@@ -12,7 +12,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
-import { Modal } from "@/components/ui";
+import { ControlTap, Modal } from "@/components/ui";
 import type { ControlKey, ControlsViewData } from "./ControlsTileView";
 import { ControlsGridView } from "./ControlsTileView";
 
@@ -28,10 +28,11 @@ export type LampScene = (typeof LampScene)[keyof typeof LampScene];
 
 // Scene presets in display order. `label` is the exact accessible name the
 // wiring + tests rely on; matches the API's setLampScene input union. `swatch`
-// is a CSS background previewing the scene's color at a glance — Mood is a
-// multi-hue gradient because the service paints each lamp a different color.
+// is a CSS color previewing the scene at a glance — Mood is a multi-hue gradient
+// because the service paints each lamp a different color. White is a warm tone
+// (#fff4e0) reflecting the warmer 4000K white scene, not a clinical pure white.
 const SCENES: { scene: LampScene; label: string; swatch: string }[] = [
-  { scene: LampScene.White, label: "White", swatch: "#fff" },
+  { scene: LampScene.White, label: "White", swatch: "#fff4e0" },
   {
     scene: LampScene.Mood,
     label: "Mood",
@@ -41,6 +42,9 @@ const SCENES: { scene: LampScene; label: string; swatch: string }[] = [
   { scene: LampScene.Blue, label: "Blue", swatch: "#2b6bff" },
 ];
 
+// Party tile swatch — a multi-hue wheel signalling the animated party mode.
+const PARTY_SWATCH = "conic-gradient(#ff3b3b, #ffb800, #38d39f, #2b6bff, #a855f7, #ff3b3b)";
+
 export interface ExpandedControlsModalViewProps {
   open: boolean;
   onClose: () => void;
@@ -48,6 +52,9 @@ export interface ExpandedControlsModalViewProps {
   onToggle: (key: ControlKey, currentOn: boolean) => void;
   onScene: (scene: LampScene) => void;
   onBrightness: (pct: number) => void;
+  /** Toggle party mode. Wired to setLampMode by ControlsTile (www-7d5b.3.7);
+   *  optional so callers/tests that predate party still type-check. */
+  onParty?: () => void;
 }
 
 // ─── view ─────────────────────────────────────────────────────────────────────
@@ -59,8 +66,10 @@ export function ExpandedControlsModalView({
   onToggle,
   onScene,
   onBrightness,
+  onParty,
 }: ExpandedControlsModalViewProps) {
   const lampsOff = data.lamps.on === false;
+  const activeScene = data.lamps.activeScene ?? null;
 
   // Local value drives the slider during a drag for smooth motion + an instant
   // readout. The backend mutation (onBrightness) is debounced 400ms so dragging
@@ -135,61 +144,44 @@ export function ExpandedControlsModalView({
           <ControlsGridView data={data} onToggle={onToggle} hideMore />
         </div>
 
-        {/* Lamp scenes — large 2×2 color tiles. A 2×2 grid (not a flex chip row)
-            so the tiles read as big tap targets matching the toggle grid above;
-            gap 13 keeps the same rhythm as that grid. Order: White, Mood / Red, Blue. */}
+        {/* Lamp scenes — ControlTap tiles (swatch variant) so scenes share the
+            exact tap styling + active highlight as the toggle grid above. The
+            active scene's tile lights (on=activeScene===scene). A 2-col grid keeps
+            the same rhythm (gap 13). Each tile is fixed-height so the ControlTap's
+            100%-height fill resolves. Order: White, Mood / Red, Blue / Party. */}
         <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <span className="cap">Lamp scene</span>
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
+              gridAutoRows: 88,
               gap: 13,
             }}
           >
             {SCENES.map(({ scene, label, swatch }) => (
-              <button
+              <ControlTap
                 key={scene}
-                type="button"
-                onClick={() => onScene(scene)}
-                aria-label={label}
-                style={{
-                  // Big tappable surface, same radius/hairline/dark fill as ControlTap
-                  // so the scene tiles sit consistently beside the toggle grid.
-                  height: 88,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "0 18px",
-                  borderRadius: 15,
-                  background: "var(--nest)",
-                  border: "1px solid var(--hair)",
-                  color: "var(--ink)",
-                  font: "inherit",
-                  fontSize: 17,
-                  fontWeight: 500,
-                  textAlign: "left",
-                  cursor: "pointer",
-                }}
-              >
-                {/* Large color swatch previewing the scene. White gets a hairline so
-                    it reads on the dark tile; others carry their own hue. Rendered
-                    from the SCENES data, not hardcoded per tile. */}
-                <span
-                  data-scene-swatch=""
-                  aria-hidden="true"
-                  style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: "50%",
-                    background: swatch,
-                    border: "1px solid var(--hair-2)",
-                    flex: "0 0 auto",
-                  }}
-                />
-                {label}
-              </button>
+                icon="bulb"
+                swatch={swatch}
+                label={label}
+                on={activeScene === scene}
+                onToggle={() => onScene(scene)}
+              />
             ))}
+
+            {/* Party — same ControlTap surface; disabled (dimmed, no-op) when the
+                lamps are off, since party needs at least one lamp lit. Active when
+                party mode is running. onToggle is a no-op until ControlsTile wires
+                onParty (www-7d5b.3.7). */}
+            <ControlTap
+              icon="bulb"
+              swatch={PARTY_SWATCH}
+              label="Party"
+              on={activeScene === "party"}
+              disabled={lampsOff}
+              onToggle={() => onParty?.()}
+            />
           </div>
         </section>
       </div>

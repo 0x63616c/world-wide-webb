@@ -16,6 +16,15 @@ export const ControlKey = {
 } as const;
 export type ControlKey = (typeof ControlKey)[keyof typeof ControlKey];
 
+/**
+ * The lamps' currently-active preset: one of the scene ids, "party" (party mode
+ * running), or null (custom/no recognised scene). Drives the active highlight on
+ * the scene + Party tiles in the expanded modal. The scene ids match
+ * ExpandedControlsModalView's LampScene; declared here (the lower-level module)
+ * so ControlEntry can carry it without importing the modal (avoids a cycle).
+ */
+export type ActiveScene = "white" | "mood" | "red" | "blue" | "party" | null;
+
 export interface ControlEntry {
   on: boolean;
   sub?: string;
@@ -23,6 +32,9 @@ export interface ControlEntry {
   /** Lamp brightness 0..100 (avg of on-lamps). Only the lamps entry carries this;
    *  seeds the expanded modal's brightness slider. */
   brightness?: number;
+  /** Active scene/mode — only the lamps entry carries this; drives the modal's
+   *  scene + Party tile highlight. Undefined treated as null (no active scene). */
+  activeScene?: ActiveScene;
 }
 
 export interface ControlsViewData {

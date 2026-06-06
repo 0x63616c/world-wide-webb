@@ -13,7 +13,7 @@ import { ExpandedControlsModalView } from "../ExpandedControlsModalView";
 afterEach(cleanup);
 
 const allOn: ControlsViewData = {
-  lamps: { on: true, sub: "On", pending: false, brightness: 72 },
+  lamps: { on: true, sub: "On", pending: false, brightness: 72, activeScene: null },
   lights: { on: true, pending: false },
   fan: { on: true, sub: "Medium", pending: false },
 };
@@ -34,6 +34,7 @@ function baseProps(
     onToggle: vi.fn(),
     onScene: vi.fn(),
     onBrightness: vi.fn(),
+    onParty: vi.fn(),
     ...over,
   };
 }
@@ -73,8 +74,8 @@ describe("ExpandedControlsModalView — reuses ControlsGridView", () => {
 
 // ─── scene buttons ────────────────────────────────────────────────────────────
 
-describe("ExpandedControlsModalView — scene buttons", () => {
-  it("renders all four scene buttons with exact accessible names", () => {
+describe("ExpandedControlsModalView — scene tiles (ControlTap)", () => {
+  it("renders all four scene tiles with exact accessible names", () => {
     render(<ExpandedControlsModalView {...baseProps()} />);
     expect(screen.getByRole("button", { name: "White" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mood" })).toBeInTheDocument();
@@ -82,7 +83,7 @@ describe("ExpandedControlsModalView — scene buttons", () => {
     expect(screen.getByRole("button", { name: "Blue" })).toBeInTheDocument();
   });
 
-  it("each scene button calls onScene with its scene id", () => {
+  it("each scene tile calls onScene with its scene id", () => {
     const onScene = vi.fn();
     render(<ExpandedControlsModalView {...baseProps({ onScene })} />);
     fireEvent.click(screen.getByRole("button", { name: "White" }));
@@ -95,34 +96,80 @@ describe("ExpandedControlsModalView — scene buttons", () => {
     expect(onScene).toHaveBeenNthCalledWith(4, "blue");
   });
 
-  it("each scene tile renders a color swatch indicator", () => {
+  it("each scene tile renders a ControlTap color swatch (no Icon svg)", () => {
     render(<ExpandedControlsModalView {...baseProps()} />);
     for (const name of ["White", "Mood", "Red", "Blue"]) {
       const tile = screen.getByRole("button", { name });
-      const swatch = tile.querySelector("[data-scene-swatch]") as HTMLElement | null;
+      const swatch = tile.querySelector("[data-swatch]") as HTMLElement | null;
       expect(swatch).not.toBeNull();
       // Swatch carries a non-empty background previewing the scene's color.
       expect(swatch?.style.background).not.toBe("");
+      // Swatch variant replaces the Icon, so no svg in the scene tile.
+      expect(tile.querySelector("svg")).toBeNull();
     }
   });
 
-  it("renders scene tiles as a 2x2 grid (not a flex chip row)", () => {
+  it("highlights only the active scene tile (on=activeScene===scene)", () => {
+    const data: ControlsViewData = { ...allOn, lamps: { ...allOn.lamps, activeScene: "blue" } };
+    render(<ExpandedControlsModalView {...baseProps({ data })} />);
+    expect(screen.getByRole("button", { name: "Blue" })).toHaveClass("on");
+    expect(screen.getByRole("button", { name: "Blue" })).toHaveAttribute("aria-pressed", "true");
+    for (const name of ["White", "Mood", "Red"]) {
+      expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
+    }
+  });
+
+  it("highlights no scene tile when activeScene is null", () => {
     render(<ExpandedControlsModalView {...baseProps()} />);
-    // The four scene tiles share a common grid parent with two columns.
+    for (const name of ["White", "Mood", "Red", "Blue"]) {
+      expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
+    }
+  });
+
+  it("renders scene tiles in a 2-column grid", () => {
+    render(<ExpandedControlsModalView {...baseProps()} />);
+    // Each ControlTap button is a direct child of the scene grid.
     const grid = screen.getByRole("button", { name: "White" }).parentElement as HTMLElement;
     expect(grid.style.display).toBe("grid");
     expect(grid.style.gridTemplateColumns).toBe("1fr 1fr");
-    // All four tiles live in that same grid.
-    for (const name of ["White", "Mood", "Red", "Blue"]) {
+    for (const name of ["White", "Mood", "Red", "Blue", "Party"]) {
       expect(screen.getByRole("button", { name }).parentElement).toBe(grid);
     }
   });
+});
 
-  it("scene tiles are large tap targets (88px tall)", () => {
+// ─── party tile ────────────────────────────────────────────────────────────────
+
+describe("ExpandedControlsModalView — party tile", () => {
+  it("renders a Party tile with a color swatch", () => {
     render(<ExpandedControlsModalView {...baseProps()} />);
-    for (const name of ["White", "Mood", "Red", "Blue"]) {
-      expect(screen.getByRole("button", { name }).style.height).toBe("88px");
-    }
+    const party = screen.getByRole("button", { name: "Party" });
+    expect(party).toBeInTheDocument();
+    expect(party.querySelector("[data-swatch]")).not.toBeNull();
+  });
+
+  it("highlights the Party tile when activeScene is 'party'", () => {
+    const data: ControlsViewData = { ...allOn, lamps: { ...allOn.lamps, activeScene: "party" } };
+    render(<ExpandedControlsModalView {...baseProps({ data })} />);
+    expect(screen.getByRole("button", { name: "Party" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("is enabled and fires onParty when lamps are on", () => {
+    const onParty = vi.fn();
+    render(<ExpandedControlsModalView {...baseProps({ onParty })} />);
+    const party = screen.getByRole("button", { name: "Party" });
+    expect(party).not.toBeDisabled();
+    fireEvent.click(party);
+    expect(onParty).toHaveBeenCalledTimes(1);
+  });
+
+  it("is disabled (no onParty) when lamps are off", () => {
+    const onParty = vi.fn();
+    render(<ExpandedControlsModalView {...baseProps({ data: lampsOff, onParty })} />);
+    const party = screen.getByRole("button", { name: "Party" });
+    expect(party).toBeDisabled();
+    fireEvent.click(party);
+    expect(onParty).not.toHaveBeenCalled();
   });
 });
 

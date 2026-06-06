@@ -9,8 +9,16 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import * as stories from "../ExpandedControlsModalView.stories";
 
-const { Open, LampsOff, SceneInteraction, BrightnessInteraction, Loading, ErrorClosed } =
-  composeStories(stories);
+const {
+  Open,
+  LampsOff,
+  SceneInteraction,
+  BlueActive,
+  PartyActive,
+  BrightnessInteraction,
+  Loading,
+  ErrorClosed,
+} = composeStories(stories);
 
 afterEach(cleanup);
 
@@ -33,6 +41,16 @@ describe("ExpandedControlsModalView stories", () => {
   it("SceneInteraction: each scene button fires onScene with its id", async () => {
     const { container } = render(<SceneInteraction />);
     if (SceneInteraction.play) await SceneInteraction.play({ canvasElement: container });
+  });
+
+  it("BlueActive: Blue scene tile highlighted, others not", async () => {
+    const { container } = render(<BlueActive />);
+    if (BlueActive.play) await BlueActive.play({ canvasElement: container });
+  });
+
+  it("PartyActive: Party tile highlighted + tappable", async () => {
+    const { container } = render(<PartyActive />);
+    if (PartyActive.play) await PartyActive.play({ canvasElement: container });
   });
 
   it("BrightnessInteraction: slider fires onBrightness", async () => {
