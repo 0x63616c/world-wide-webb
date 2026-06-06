@@ -45,11 +45,13 @@ export interface WeatherNow {
   wind: number;
   uvIndex: number;
   precipProbability: number;
-  sunset: string;
+  // Raw ISO fields kept so callers can compare/format themselves if needed.
   sunsetIso: string;
-  sunrise: string;
   sunriseIso: string;
   tomorrowSunriseIso: string;
+  // Next solar event computed server-side from the raw ISO values + wall clock.
+  solarLabel: string;
+  solarValue: string;
   city: string;
 }
 
@@ -80,4 +82,40 @@ export function formatSolarEvent(iso: string): string {
   const ampm = h >= 12 ? "PM" : "AM";
   h = h % 12 || 12;
   return `${h}:${m} ${ampm}`;
+}
+
+// Parse "2024-06-01T19:52" treating it as local wall-clock time (no tz suffix).
+function isoLocalToDate(iso: string): Date {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return new Date(0);
+  return new Date(
+    parseInt(m[1], 10),
+    parseInt(m[2], 10) - 1,
+    parseInt(m[3], 10),
+    parseInt(m[4], 10),
+    parseInt(m[5], 10),
+  );
+}
+
+/**
+ * Determine the next solar event to show in the weather tile.
+ * Shows Sunset before it occurs today, then Sunrise after (looking at tomorrow).
+ * Returns a { label, value } pair ready for display.
+ */
+export function nextSolarEvent(
+  now: Date,
+  sunsetIso: string,
+  tomorrowSunriseIso: string,
+): { label: string; value: string } {
+  const sunsetDate = isoLocalToDate(sunsetIso);
+  const tomorrowSunriseDate = isoLocalToDate(tomorrowSunriseIso);
+
+  if (now < sunsetDate) {
+    return { label: "Sunset", value: formatSolarEvent(sunsetIso) };
+  }
+  if (now < tomorrowSunriseDate) {
+    return { label: "Sunrise", value: formatSolarEvent(tomorrowSunriseIso) };
+  }
+  // Past tomorrow's sunrise — next sunset is the upcoming one for the day.
+  return { label: "Sunset", value: formatSolarEvent(sunsetIso) };
 }

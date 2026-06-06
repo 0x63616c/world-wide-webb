@@ -24,6 +24,18 @@ import { trpc } from "@/lib/trpc";
 
 const REFETCH = { refetchInterval: POLL.weather } as const;
 
+// Format an ISO local datetime "2024-01-01T18:52" as "h:mm AM/PM" for display.
+// Only needed in this view to convert raw ISO fields from the API.
+function formatIso(iso: string): string {
+  const parts = iso.match(/T(\d+):(\d+)/);
+  if (!parts) return iso;
+  let h = parseInt(parts[1], 10);
+  const m = parts[2];
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${m} ${ampm}`;
+}
+
 // WMO weather code → condition string. Mirrors WEATHER_CODES in
 // apps/api/src/services/weather-service.ts (decode table, not invented data).
 const WEATHER_CODES: Record<number, string> = {
@@ -104,8 +116,8 @@ function useNext12HoursVariants(): { variants: LiveVariant[]; loading: boolean }
           sunsetIso={w.sunsetIso}
           sunriseIso={w.sunriseIso}
           tomorrowSunriseIso={w.tomorrowSunriseIso}
-          sunset={w.sunset}
-          sunrise={w.sunrise}
+          sunset={formatIso(w.sunsetIso)}
+          sunrise={formatIso(w.sunriseIso)}
         />
       ),
     },
@@ -133,9 +145,9 @@ function useNext12HoursVariants(): { variants: LiveVariant[]; loading: boolean }
             temp: w.temp,
             cond: w.cond,
             ic: w.ic,
-            sunrise: w.sunrise,
+            sunrise: formatIso(w.sunriseIso),
             sunriseIso: w.sunriseIso,
-            sunset: w.sunset,
+            sunset: formatIso(w.sunsetIso),
             sunsetIso: w.sunsetIso,
             tomorrowSunriseIso: w.tomorrowSunriseIso,
           }}

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatSolarEvent, WEATHER_CODES, weatherIcon } from "../services/weather-service";
+import {
+  formatSolarEvent,
+  nextSolarEvent,
+  WEATHER_CODES,
+  weatherIcon,
+} from "../services/weather-service";
 
 // The request-path fetchWeather* functions were removed when weather moved to
 // the ingest-into-Postgres model (see weather-ingest-service.test.ts and
@@ -40,5 +45,40 @@ describe("WEATHER_CODES", () => {
   it("covers the common conditions used by the dashboard", () => {
     expect(WEATHER_CODES[0]).toBe("Clear Sky");
     expect(WEATHER_CODES[2]).toBe("Partly Cloudy");
+  });
+});
+
+describe("nextSolarEvent", () => {
+  // Use explicit wall-clock dates so tests are deterministic regardless of when they run.
+  const sunset = "2024-06-01T20:00";
+  const tomorrowSunrise = "2024-06-02T06:01";
+
+  it("returns Sunset when now is before sunset", () => {
+    const now = new Date(2024, 5, 1, 14, 0); // 2pm local
+    const result = nextSolarEvent(now, sunset, tomorrowSunrise);
+    expect(result.label).toBe("Sunset");
+    expect(result.value).toBe("8:00 PM");
+  });
+
+  it("returns Sunrise when now is after sunset but before tomorrow's sunrise", () => {
+    const now = new Date(2024, 5, 1, 22, 0); // 10pm local (after 8pm sunset)
+    const result = nextSolarEvent(now, sunset, tomorrowSunrise);
+    expect(result.label).toBe("Sunrise");
+    expect(result.value).toBe("6:01 AM");
+  });
+
+  it("returns Sunset when now is past tomorrow's sunrise (late morning next day)", () => {
+    // Past tomorrow's sunrise — the day's next solar landmark is the current day's sunset.
+    const now = new Date(2024, 5, 2, 10, 0); // 10am June 2
+    const result = nextSolarEvent(now, sunset, tomorrowSunrise);
+    expect(result.label).toBe("Sunset");
+    expect(result.value).toBe("8:00 PM");
+  });
+
+  it("handles empty ISO strings without throwing", () => {
+    const now = new Date(2024, 5, 1, 14, 0);
+    const result = nextSolarEvent(now, "", "");
+    // isoLocalToDate("") returns epoch; now is after epoch → falls to last branch.
+    expect(result.label).toBe("Sunset");
   });
 });

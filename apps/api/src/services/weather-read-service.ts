@@ -4,8 +4,8 @@ import { weatherDailyReading, weatherReading } from "../db/schema";
 import { env } from "../env";
 import {
   type DailyItem,
-  formatSolarEvent,
   type HourlyItem,
+  nextSolarEvent,
   WEATHER_CODES,
   type WeatherNow,
   weatherIcon,
@@ -112,6 +112,10 @@ export async function readWeatherNow(): Promise<WeatherNow> {
   const sunriseIso = today.sunriseIso ?? "";
   const tomorrowSunriseIso = tomorrow?.sunriseIso ?? "";
 
+  // Solar event selection happens server-side so views receive a ready-to-display
+  // label/value pair and do not need to re-implement the calendar logic (www-355t.24).
+  const solar = nextSolarEvent(new Date(), sunsetIso, tomorrowSunriseIso);
+
   return {
     temp: cur.tempF,
     cond: WEATHER_CODES[cur.weatherCode] ?? "Unknown",
@@ -123,11 +127,11 @@ export async function readWeatherNow(): Promise<WeatherNow> {
     wind: cur.windMph ?? 0,
     uvIndex: cur.uvIndex ?? 0,
     precipProbability: cur.precipProbability ?? 0,
-    sunset: formatSolarEvent(sunsetIso),
     sunsetIso,
-    sunrise: formatSolarEvent(sunriseIso),
     sunriseIso,
     tomorrowSunriseIso,
+    solarLabel: solar.label,
+    solarValue: solar.value,
     // Display label for the configured home location. Driven by HOME_PLACE_NAME
     // (delivered from 1Password via the secret rail; public placeholder in
     // dev/test) so the weather tile matches HOME_LAT/HOME_LON instead of a
