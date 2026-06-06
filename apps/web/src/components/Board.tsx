@@ -167,13 +167,14 @@ function FpsMeter() {
 }
 
 // Git short SHA of the running web bundle, pinned bottom-left. The SHA is
-// prefixed with '#' and trailed by a compact "time since build" readout (e.g.
-// "#a1b2c3d · 3 days 3hrs") so you can tell at a glance both which build a wall
-// panel is on and how stale it is. The age ticks once a minute.
+// prefixed with '#' and trailed by a compact "time since commit" readout (e.g.
+// "#a1b2c3d · 10secs" → "3 days 3hrs") so you can tell at a glance both which
+// build a wall panel is on and how stale it is. Ticks once a second so the
+// sub-minute seconds readout updates live.
 function BuildHashBadge() {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), 60_000);
+    const t = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(t);
   }, []);
   const age = formatRelativeAge(BUILD_TIME, now);
