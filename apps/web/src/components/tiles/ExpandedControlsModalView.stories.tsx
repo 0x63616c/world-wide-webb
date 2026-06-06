@@ -17,7 +17,7 @@ import { ExpandedControlsModalView } from "./ExpandedControlsModalView";
 // ─── fixtures ─────────────────────────────────────────────────────────────────
 
 const allOn: ControlsViewData = {
-  lamps: { on: true, sub: "On", pending: false, brightness: 72 },
+  lamps: { on: true, sub: "On", pending: false, brightness: 72, activeScene: null },
   lights: { on: true, pending: false },
   fan: { on: true, sub: "Medium", pending: false },
 };
@@ -26,6 +26,16 @@ const lampsOff: ControlsViewData = {
   lamps: { on: false, pending: false },
   lights: { on: true, pending: false },
   fan: { on: false, pending: false },
+};
+
+const blueActive: ControlsViewData = {
+  ...allOn,
+  lamps: { ...allOn.lamps, activeScene: "blue" },
+};
+
+const partyActive: ControlsViewData = {
+  ...allOn,
+  lamps: { ...allOn.lamps, activeScene: "party" },
 };
 
 // ─── meta ─────────────────────────────────────────────────────────────────────
@@ -41,6 +51,7 @@ const meta = {
     onToggle: fn(),
     onScene: fn(),
     onBrightness: fn(),
+    onParty: fn(),
   },
 } satisfies Meta<typeof ExpandedControlsModalView>;
 
@@ -79,16 +90,18 @@ export const Open: Story = {
     // Grid toggles are reused, no "More" button inside the modal
     await expect(canvas.getByLabelText("Lamps")).toBeInTheDocument();
     expect(canvas.queryByLabelText("More")).toBeNull();
-    // All four scene tiles present, laid out as a 2×2 color-tile grid.
+    // All four scene tiles + Party present, laid out as a 2-col ControlTap grid.
     const sceneGrid = canvas.getByRole("button", { name: "White" }).parentElement as HTMLElement;
     expect(sceneGrid.style.display).toBe("grid");
     expect(sceneGrid.style.gridTemplateColumns).toBe("1fr 1fr");
-    for (const name of ["White", "Mood", "Red", "Blue"]) {
+    for (const name of ["White", "Mood", "Red", "Blue", "Party"]) {
       const tile = canvas.getByRole("button", { name });
       expect(tile).toBeInTheDocument();
-      // Each tile carries a color swatch so the scene reads at a glance.
-      expect(tile.querySelector("[data-scene-swatch]")).not.toBeNull();
+      // Each tile carries a ControlTap color swatch so the scene reads at a glance.
+      expect(tile.querySelector("[data-swatch]")).not.toBeNull();
     }
+    // No scene is active in this fixture → no tile highlighted.
+    expect(canvas.getByRole("button", { name: "Blue" })).toHaveAttribute("aria-pressed", "false");
     // Brightness enabled when lamps on, seeded from data.lamps.brightness (72%).
     const slider = canvas.getByLabelText("Brightness") as HTMLInputElement;
     expect(slider).not.toBeDisabled();
@@ -106,6 +119,8 @@ export const LampsOff: Story = {
     const canvas = within(canvasElement.ownerDocument.body);
     // HA rejects brightness on an off light, so the slider is a dead control
     await expect(canvas.getByLabelText("Brightness")).toBeDisabled();
+    // Party needs a lamp lit — disabled when all lamps are off.
+    expect(canvas.getByRole("button", { name: "Party" })).toBeDisabled();
   },
 };
 
@@ -123,6 +138,44 @@ export const SceneInteraction: Story = {
     expect(args.onScene).toHaveBeenCalledWith("red");
     await userEvent.click(canvas.getByRole("button", { name: "Blue" }));
     expect(args.onScene).toHaveBeenCalledWith("blue");
+  },
+};
+
+// ─── Active scene highlight ─────────────────────────────────────────────────
+
+export const BlueActive: Story = {
+  name: "Active scene — Blue highlighted",
+  args: { data: blueActive },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement.ownerDocument.body);
+    // The Blue scene tile is highlighted (on); the others are not.
+    await expect(canvas.getByRole("button", { name: "Blue" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    for (const name of ["White", "Mood", "Red", "Party"]) {
+      expect(canvas.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
+    }
+  },
+};
+
+// ─── Party active ─────────────────────────────────────────────────────────────
+
+export const PartyActive: Story = {
+  name: "Party mode active",
+  args: { data: partyActive },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement.ownerDocument.body);
+    const party = canvas.getByRole("button", { name: "Party" });
+    // Party tile highlighted; no scene tile is.
+    await expect(party).toHaveAttribute("aria-pressed", "true");
+    expect(party).not.toBeDisabled();
+    for (const name of ["White", "Mood", "Red", "Blue"]) {
+      expect(canvas.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
+    }
+    // Tapping Party fires onParty (toggles party off — wired in CC-7d5b.3.7).
+    await userEvent.click(party);
+    expect(args.onParty).toHaveBeenCalled();
   },
 };
 
