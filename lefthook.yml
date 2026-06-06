@@ -48,6 +48,18 @@ commit-msg:
 
 pre-push:
   commands:
+    biome-lint:
+      # BLOCKING: mirror CI's `biome check .` lint gate so a lint regression can
+      # never reach the remote (CI runs the same check and `deploy` depends on it,
+      # so a push that fails lint just breaks main). The pre-commit `format` step
+      # only auto-fixes STAGED files and is glob-limited (no HTML), so an already-
+      # committed or non-staged lint error slips through — exactly how a tracked
+      # experiments/*.html broke CI (CC-goat). Scoped to TRACKED files (git
+      # ls-files) so it sees precisely what CI's clean checkout sees and never
+      # trips on untracked local WIP. biome.json includes still apply.
+      run: |
+        git ls-files -z -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.json' '*.jsonc' '*.css' '*.html' \
+          | xargs -0 bunx biome check --no-errors-on-unmatched
     beads-sync:
       # NON-BLOCKING: publish beads issue history (refs/dolt/data) to origin
       # alongside the code being pushed. This is the durable sync channel
