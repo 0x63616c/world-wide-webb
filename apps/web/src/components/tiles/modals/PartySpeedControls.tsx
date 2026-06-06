@@ -152,6 +152,94 @@ export function PartySpeedSlider({ value, onChange, disabled }: SpeedWidgetProps
   );
 }
 
+// ─── full-width party control (Off / Slow / Med / Fast) ─────────────────────────
+
+/**
+ * The shipping party affordance: one full-width segmented control that folds the
+ * on/off toggle AND the speed picker into a single row. "Off" stops party; tapping
+ * any speed starts party at that speed (or re-speeds a running party). This replaces
+ * the separate Party tile + conditional speed segment — one control, four taps.
+ *
+ * `value` is "off" when party isn't running, else the active speed. Speed segments
+ * light with the party gradient (signalling party is LIVE); "Off" lights muted.
+ */
+
+export type PartySelection = "off" | PartySpeed;
+
+// The four segments: Off, then the ordered speeds. Single source of truth for
+// order + label, derived from PARTY_SPEEDS so it can never drift from the slider/cycle.
+const PARTY_OPTIONS: { value: PartySelection; label: string }[] = [
+  { value: "off", label: "Off" },
+  ...PARTY_SPEEDS.map(({ speed, label }) => ({ value: speed as PartySelection, label })),
+];
+
+// Horizontal party gradient — the active-speed fill, echoing the party scene swatch
+// so the control reads as "party is running" at a glance.
+const PARTY_GRADIENT = "linear-gradient(90deg, #ff3b3b, #ffb800, #38d39f, #2b6bff, #a855f7)";
+
+interface PartyControlProps {
+  /** Current selection — "off" when party isn't running, else the active speed. */
+  value: PartySelection;
+  onSelect: (value: PartySelection) => void;
+  /** Dimmed + non-interactive (no lamps lit — party needs at least one lamp). */
+  disabled?: boolean;
+}
+
+export function PartyControl({ value, onSelect, disabled }: PartyControlProps) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Party"
+      style={{
+        display: "flex",
+        gap: 4,
+        padding: 5,
+        borderRadius: 999,
+        background: "var(--nest)",
+        border: "1px solid var(--hair)",
+        opacity: disabled ? 0.4 : 1,
+        pointerEvents: disabled ? "none" : "auto",
+      }}
+    >
+      {PARTY_OPTIONS.map(({ value: option, label }) => {
+        const active = option === value;
+        const isOff = option === "off";
+        // Active off → muted neutral fill; active speed → party gradient. Inactive →
+        // transparent. White text on the gradient, ink on the muted off pill.
+        const background = active ? (isOff ? "var(--hair-2)" : PARTY_GRADIENT) : "transparent";
+        const color = active ? (isOff ? "var(--ink)" : "#ffffff") : "var(--ink-2)";
+        return (
+          <button
+            key={option}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            aria-label={label}
+            disabled={disabled}
+            onClick={() => onSelect(option)}
+            style={{
+              flex: 1,
+              padding: "11px 0",
+              borderRadius: 999,
+              border: "none",
+              cursor: disabled ? "default" : "pointer",
+              font: "inherit",
+              fontSize: 14,
+              fontWeight: 500,
+              letterSpacing: ".02em",
+              color,
+              background,
+              transition: "background .12s ease, color .12s ease",
+            }}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── (c) tap-to-cycle ─────────────────────────────────────────────────────────
 
 /**

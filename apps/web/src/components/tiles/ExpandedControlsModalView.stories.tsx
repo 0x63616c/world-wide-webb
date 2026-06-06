@@ -51,8 +51,7 @@ const meta = {
     onToggle: fn(),
     onScene: fn(),
     onBrightness: fn(),
-    onParty: fn(),
-    onSpeed: fn(),
+    onPartySelect: fn(),
   },
 } satisfies Meta<typeof ExpandedControlsModalView>;
 
@@ -91,16 +90,19 @@ export const Open: Story = {
     // Grid toggles are reused, no "More" button inside the modal
     await expect(canvas.getByLabelText("Lamps")).toBeInTheDocument();
     expect(canvas.queryByLabelText("More")).toBeNull();
-    // All four scene tiles + Party present, laid out as a 2-col ControlTap grid.
+    // All four scene tiles present, laid out as a 2-col ControlTap grid.
     const sceneGrid = canvas.getByRole("button", { name: "White" }).parentElement as HTMLElement;
     expect(sceneGrid.style.display).toBe("grid");
     expect(sceneGrid.style.gridTemplateColumns).toBe("1fr 1fr");
-    for (const name of ["White", "Mood", "Red", "Blue", "Party"]) {
+    for (const name of ["White", "Mood", "Red", "Blue"]) {
       const tile = canvas.getByRole("button", { name });
       expect(tile).toBeInTheDocument();
       // Each tile carries a ControlTap color swatch so the scene reads at a glance.
       expect(tile.querySelector("[data-swatch]")).not.toBeNull();
     }
+    // Party is now a full-width Off/Slow/Med/Fast control, not a scene tile.
+    expect(canvas.getByRole("tablist", { name: "Party" })).toBeInTheDocument();
+    expect(canvas.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "true");
     // No scene is active in this fixture → no tile highlighted.
     expect(canvas.getByRole("button", { name: "Blue" })).toHaveAttribute("aria-pressed", "false");
     // Brightness enabled when lamps on, seeded from data.lamps.brightness (72%).
@@ -120,8 +122,9 @@ export const LampsOff: Story = {
     const canvas = within(canvasElement.ownerDocument.body);
     // HA rejects brightness on an off light, so the slider is a dead control
     await expect(canvas.getByLabelText("Brightness")).toBeDisabled();
-    // Party needs a lamp lit — disabled when all lamps are off.
-    expect(canvas.getByRole("button", { name: "Party" })).toBeDisabled();
+    // Party needs a lamp lit — the control is disabled when all lamps are off.
+    expect(canvas.getByRole("tablist", { name: "Party" })).toHaveStyle({ pointerEvents: "none" });
+    expect(canvas.getByRole("tab", { name: "Fast" })).toBeDisabled();
   },
 };
 
@@ -154,7 +157,7 @@ export const BlueActive: Story = {
       "aria-pressed",
       "true",
     );
-    for (const name of ["White", "Mood", "Red", "Party"]) {
+    for (const name of ["White", "Mood", "Red"]) {
       expect(canvas.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
     }
   },
@@ -167,23 +170,19 @@ export const PartyActive: Story = {
   args: { data: partyActive, speed: "medium" },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement.ownerDocument.body);
-    const party = canvas.getByRole("button", { name: "Party" });
-    // Party tile highlighted; no scene tile is.
-    await expect(party).toHaveAttribute("aria-pressed", "true");
-    expect(party).not.toBeDisabled();
+    // The active speed segment lights (seeded at Medium); Off is not selected.
+    await expect(canvas.getByRole("tab", { name: "Med" })).toHaveAttribute("aria-selected", "true");
+    expect(canvas.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "false");
+    // No scene tile is active while party runs.
     for (const name of ["White", "Mood", "Red", "Blue"]) {
       expect(canvas.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
     }
-    // The segmented speed control appears while party is active, seeded at Medium.
-    const speed = canvas.getByRole("tablist", { name: "Party speed" });
-    expect(speed).toBeInTheDocument();
-    await expect(canvas.getByRole("tab", { name: "Med" })).toHaveAttribute("aria-selected", "true");
-    // Picking a new speed fires onSpeed.
+    // Picking a new speed fires onPartySelect with that speed.
     await userEvent.click(canvas.getByRole("tab", { name: "Fast" }));
-    expect(args.onSpeed).toHaveBeenCalledWith("fast");
-    // Tapping Party fires onParty (toggles party off).
-    await userEvent.click(party);
-    expect(args.onParty).toHaveBeenCalled();
+    expect(args.onPartySelect).toHaveBeenCalledWith("fast");
+    // Tapping Off fires onPartySelect('off') (stops party).
+    await userEvent.click(canvas.getByRole("tab", { name: "Off" }));
+    expect(args.onPartySelect).toHaveBeenCalledWith("off");
   },
 };
 

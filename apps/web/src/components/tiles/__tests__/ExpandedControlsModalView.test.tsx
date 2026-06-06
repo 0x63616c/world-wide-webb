@@ -34,8 +34,7 @@ function baseProps(
     onToggle: vi.fn(),
     onScene: vi.fn(),
     onBrightness: vi.fn(),
-    onParty: vi.fn(),
-    onSpeed: vi.fn(),
+    onPartySelect: vi.fn(),
     ...over,
   };
 }
@@ -138,78 +137,76 @@ describe("ExpandedControlsModalView — scene tiles (ControlTap)", () => {
     const grid = screen.getByRole("button", { name: "White" }).parentElement as HTMLElement;
     expect(grid.style.display).toBe("grid");
     expect(grid.style.gridTemplateColumns).toBe("1fr 1fr");
-    for (const name of ["White", "Mood", "Red", "Blue", "Party"]) {
+    for (const name of ["White", "Mood", "Red", "Blue"]) {
       expect(screen.getByRole("button", { name }).parentElement).toBe(grid);
     }
   });
-});
 
-// ─── party tile ────────────────────────────────────────────────────────────────
-
-describe("ExpandedControlsModalView — party tile", () => {
-  it("renders a Party tile with a color swatch", () => {
+  it("no longer renders Party as a scene tile (it moved to the full-width control)", () => {
     render(<ExpandedControlsModalView {...baseProps()} />);
-    const party = screen.getByRole("button", { name: "Party" });
-    expect(party).toBeInTheDocument();
-    expect(party.querySelector("[data-swatch]")).not.toBeNull();
-  });
-
-  it("highlights the Party tile when activeScene is 'party'", () => {
-    const data: ControlsViewData = { ...allOn, lamps: { ...allOn.lamps, activeScene: "party" } };
-    render(<ExpandedControlsModalView {...baseProps({ data })} />);
-    expect(screen.getByRole("button", { name: "Party" })).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("is enabled and fires onParty when lamps are on", () => {
-    const onParty = vi.fn();
-    render(<ExpandedControlsModalView {...baseProps({ onParty })} />);
-    const party = screen.getByRole("button", { name: "Party" });
-    expect(party).not.toBeDisabled();
-    fireEvent.click(party);
-    expect(onParty).toHaveBeenCalledTimes(1);
-  });
-
-  it("is disabled (no onParty) when lamps are off", () => {
-    const onParty = vi.fn();
-    render(<ExpandedControlsModalView {...baseProps({ data: lampsOff, onParty })} />);
-    const party = screen.getByRole("button", { name: "Party" });
-    expect(party).toBeDisabled();
-    fireEvent.click(party);
-    expect(onParty).not.toHaveBeenCalled();
+    // Party is now a tab, not a scene ControlTap with a swatch.
+    expect(screen.queryByRole("button", { name: "Party" })).not.toBeInTheDocument();
   });
 });
 
-// ─── party speed control ────────────────────────────────────────────────────────
+// ─── full-width party control ────────────────────────────────────────────────────
 
-describe("ExpandedControlsModalView — party speed control", () => {
-  it("does not render the speed control when party is not active", () => {
+describe("ExpandedControlsModalView — party control", () => {
+  it("renders the four-option party control (Off / Slow / Med / Fast)", () => {
     render(<ExpandedControlsModalView {...baseProps()} />);
-    expect(screen.queryByRole("tablist", { name: "Party speed" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tablist", { name: "Party" })).toBeInTheDocument();
+    for (const name of ["Off", "Slow", "Med", "Fast"]) {
+      expect(screen.getByRole("tab", { name })).toBeInTheDocument();
+    }
   });
 
-  it("renders the segmented speed control when party is active", () => {
-    render(<ExpandedControlsModalView {...baseProps({ data: partyActive, speed: "medium" })} />);
-    expect(screen.getByRole("tablist", { name: "Party speed" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Med" })).toHaveAttribute("aria-selected", "true");
+  it("marks Off active when party is not running", () => {
+    render(<ExpandedControlsModalView {...baseProps()} />);
+    expect(screen.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "true");
+    for (const name of ["Slow", "Med", "Fast"]) {
+      expect(screen.getByRole("tab", { name })).toHaveAttribute("aria-selected", "false");
+    }
   });
 
-  it("fires onSpeed with the chosen speed", () => {
-    const onSpeed = vi.fn();
-    render(
-      <ExpandedControlsModalView {...baseProps({ data: partyActive, speed: "medium", onSpeed })} />,
-    );
-    fireEvent.click(screen.getByRole("tab", { name: "Fast" }));
-    expect(onSpeed).toHaveBeenCalledWith("fast");
+  it("marks the active speed when party is running", () => {
+    render(<ExpandedControlsModalView {...baseProps({ data: partyActive, speed: "fast" })} />);
+    expect(screen.getByRole("tab", { name: "Fast" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "false");
   });
 
-  it("defaults the speed control to Medium when speed is unset", () => {
+  it("defaults the active segment to Med when party is on but speed is unset", () => {
     render(<ExpandedControlsModalView {...baseProps({ data: partyActive })} />);
     expect(screen.getByRole("tab", { name: "Med" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("omits the speed control when onSpeed is not provided", () => {
-    render(<ExpandedControlsModalView {...baseProps({ data: partyActive, onSpeed: undefined })} />);
-    expect(screen.queryByRole("tablist", { name: "Party speed" })).not.toBeInTheDocument();
+  it("fires onPartySelect with the tapped speed", () => {
+    const onPartySelect = vi.fn();
+    render(<ExpandedControlsModalView {...baseProps({ onPartySelect })} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Fast" }));
+    expect(onPartySelect).toHaveBeenCalledWith("fast");
+  });
+
+  it("fires onPartySelect with 'off' when Off is tapped", () => {
+    const onPartySelect = vi.fn();
+    render(
+      <ExpandedControlsModalView
+        {...baseProps({ data: partyActive, speed: "fast", onPartySelect })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Off" }));
+    expect(onPartySelect).toHaveBeenCalledWith("off");
+  });
+
+  it("disables the party control when lamps are off", () => {
+    const onPartySelect = vi.fn();
+    render(<ExpandedControlsModalView {...baseProps({ data: lampsOff, onPartySelect })} />);
+    expect(screen.getByRole("tablist", { name: "Party" })).toHaveStyle({ pointerEvents: "none" });
+    expect(screen.getByRole("tab", { name: "Fast" })).toBeDisabled();
+  });
+
+  it("omits the party control when onPartySelect is not provided", () => {
+    render(<ExpandedControlsModalView {...baseProps({ onPartySelect: undefined })} />);
+    expect(screen.queryByRole("tablist", { name: "Party" })).not.toBeInTheDocument();
   });
 });
 

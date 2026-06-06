@@ -20,6 +20,7 @@ import { trpc } from "@/lib/trpc";
 import type { ControlKey } from "./ControlsTileView";
 import { ControlsTileView } from "./ControlsTileView";
 import { ExpandedControlsModalView } from "./ExpandedControlsModalView";
+import type { PartySelection } from "./modals/PartySpeedControls";
 import { PartySpeed } from "./modals/PartySpeedControls";
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -115,20 +116,17 @@ export function ControlsTile() {
 
   if (!data) return <ControlsTileView status="loading" />;
 
-  const partyActive = data.lamps.activeScene === "party";
-
-  // Tapping Party toggles party↔none based on the current mode. Starting party
-  // sends the chosen speed; stopping clears it (the lamps return to desired scene).
-  function handleParty() {
-    if (partyActive) modeMutation.mutate({ mode: "none" });
-    else modeMutation.mutate({ mode: "party", speed: partySpeed });
-  }
-
-  // Changing speed while party is running re-issues setLampMode with the new speed
-  // so the worker re-arms at the new cadence.
-  function handleSpeed(speed: PartySpeed) {
-    setPartySpeed(speed);
-    if (partyActive) modeMutation.mutate({ mode: "party", speed });
+  // The full-width party control emits its target: "off" stops party (mode none);
+  // any speed starts party at that speed — or re-speeds a running party, since the
+  // backend call is identical. We remember the chosen speed so the control re-seeds
+  // its active segment (getControlsState doesn't carry speed back).
+  function handlePartySelect(value: PartySelection) {
+    if (value === "off") {
+      modeMutation.mutate({ mode: "none" });
+      return;
+    }
+    setPartySpeed(value);
+    modeMutation.mutate({ mode: "party", speed: value });
   }
 
   const viewData = {
@@ -158,9 +156,8 @@ export function ControlsTile() {
         onToggle={handleToggle}
         onScene={(scene) => sceneMutation.mutate({ scene })}
         onBrightness={(pct) => brightnessMutation.mutate({ pct })}
-        onParty={handleParty}
         speed={partySpeed}
-        onSpeed={handleSpeed}
+        onPartySelect={handlePartySelect}
       />
     </>
   );

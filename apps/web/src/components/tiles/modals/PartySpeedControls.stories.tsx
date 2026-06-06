@@ -10,7 +10,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
+import type { PartySelection } from "./PartySpeedControls";
 import {
+  PartyControl,
   PartySpeed,
   PartySpeedCycle,
   PartySpeedSegmented,
@@ -49,6 +51,39 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+// The shipping control: full-width Off / Slow / Med / Fast in one row. "off" stops
+// party, a speed starts/re-speeds it. Tap any segment to drive it interactively.
+export const Party: Story = {
+  render: () => {
+    const [value, setValue] = useState<PartySelection>("off");
+    return (
+      <Panel>
+        <Label>Party</Label>
+        <PartyControl value={value} onSelect={setValue} />
+      </Panel>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(canvas.getByRole("tab", { name: "Fast" }));
+    await expect(canvas.getByRole("tab", { name: "Fast" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  },
+};
+
+// Disabled (lamps off): dimmed + non-interactive.
+export const PartyDisabled: Story = {
+  render: () => (
+    <Panel>
+      <Label>Party (lamps off)</Label>
+      <PartyControl value="off" onSelect={() => {}} disabled />
+    </Panel>
+  ),
+};
 
 export const Segmented: Story = {
   render: () => {
