@@ -7,12 +7,19 @@ const HR = 60 * MIN;
 const DAY = 24 * HR;
 const YEAR = 365 * DAY;
 
+const SEC = 1000;
 const ago = (ms: number) => formatRelativeAge(NOW - ms, NOW);
 
 describe("formatRelativeAge", () => {
-  it("reads 'just now' under a minute", () => {
+  it("reads 'just now' under a second", () => {
     expect(ago(0)).toBe("just now");
-    expect(ago(59 * 1000)).toBe("just now");
+    expect(ago(999)).toBe("just now");
+  });
+
+  it("formats seconds, singular and plural", () => {
+    expect(ago(SEC)).toBe("1sec");
+    expect(ago(10 * SEC)).toBe("10secs");
+    expect(ago(59 * SEC)).toBe("59secs");
   });
 
   it("formats minutes, singular and plural", () => {

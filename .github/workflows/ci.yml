@@ -145,6 +145,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_PAT }}
 
+      # The Docker builder image has no .git, so the commit timestamp must be
+      # computed here (where the repo is checked out) and passed in as a build-arg.
+      # Unix-ms = author commit time × 1000; the badge renders "time since commit"
+      # from it. Without this, vite emits "NaN" and the prod badge omits the age.
+      - name: Resolve commit timestamp (unix-ms)
+        run: echo "BUILD_TIME=$(( $(git show -s --format=%ct HEAD) * 1000 ))" >> "$GITHUB_ENV"
+
       - name: Build and push web image
         uses: docker/build-push-action@v6
         with:
@@ -154,6 +161,7 @@ jobs:
           push: true
           build-args: |
             BUILD_HASH=${{ github.sha }}
+            BUILD_TIME=${{ env.BUILD_TIME }}
           tags: |
             ghcr.io/0x63616c/control-center-web:${{ github.sha }}
             ghcr.io/0x63616c/control-center-web:${{ github.ref_name == 'main' && 'main' || github.sha }}
