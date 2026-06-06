@@ -49,11 +49,11 @@ function makeBarH(gMin: number, gMax: number) {
 }
 
 describe("Next12HoursView stories — Loading", () => {
-  it("renders tile container but no section header", async () => {
+  it("renders tile container and keeps the section header visible while loading", async () => {
     const { container } = render(<Loading />);
     if (Loading.play) await Loading.play({ canvasElement: container });
     expect(container.querySelector(".tile")).not.toBeNull();
-    expect(screen.queryByText("Next 12 Hours")).toBeNull();
+    expect(screen.getByText("Next 12 Hours")).toBeInTheDocument();
   });
 });
 

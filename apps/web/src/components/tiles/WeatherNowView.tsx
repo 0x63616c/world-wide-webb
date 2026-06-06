@@ -20,8 +20,13 @@ function MetricCell({ label, value }: { label: string; value: string }) {
 function WeatherNowSkeleton() {
   return (
     <Tile padding={22}>
-      <Skeleton w="50%" h={20} borderRadius={6} />
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
+      {/* Title stays visible while loading; the city (data-driven) shimmers. */}
+      <TileHeader
+        icon="cloud-sun"
+        title="Weather Now"
+        right={<Skeleton w={64} h={13} borderRadius={4} />}
+      />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 20, flex: 1 }}>
           <Skeleton w={76} h={76} borderRadius={12} />
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

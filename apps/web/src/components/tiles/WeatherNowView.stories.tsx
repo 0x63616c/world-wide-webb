@@ -38,12 +38,12 @@ export const Loading: Story = {
     status: "loading",
   },
   play: async ({ canvasElement }) => {
-    // Skeleton renders a .tile container but no weather data.
+    // Skeleton renders a .tile container; title stays visible, only weather data is shimmered.
     const tile = canvasElement.querySelector(".tile");
     expect(tile).toBeInTheDocument();
-    // Header title must be absent while loading.
+    // Header title stays visible while loading so the tile is identifiable.
     const canvas = within(canvasElement);
-    expect(canvas.queryByText("Weather Now")).not.toBeInTheDocument();
+    expect(canvas.getByText("Weather Now")).toBeInTheDocument();
   },
 };
 
@@ -54,11 +54,11 @@ export const ErrorState: Story = {
     status: "error",
   },
   play: async ({ canvasElement }) => {
-    // Error state renders same Skeleton layout — no stale/fake values shown.
+    // Error state renders same Skeleton layout — title visible, no stale/fake values shown.
     const tile = canvasElement.querySelector(".tile");
     expect(tile).toBeInTheDocument();
     const canvas = within(canvasElement);
-    expect(canvas.queryByText("Weather Now")).not.toBeInTheDocument();
+    expect(canvas.getByText("Weather Now")).toBeInTheDocument();
     // No invented dash values (e.g. "--°") when in error state.
     expect(canvas.queryByText(/--°/)).not.toBeInTheDocument();
   },

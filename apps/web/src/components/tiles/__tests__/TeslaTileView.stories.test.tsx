@@ -49,21 +49,21 @@ const { Loading, ErrorState, Populated, Charging, NoLocation } = composeStories(
 afterEach(cleanup);
 
 describe("TeslaTileView stories — Loading", () => {
-  it("renders .tile container, no header or percentage", async () => {
+  it("renders .tile container, keeps the Tesla header, but no percentage while loading", async () => {
     const { container } = render(<Loading />);
     if (Loading.play) await Loading.play({ canvasElement: container });
     expect(container.querySelector(".tile")).not.toBeNull();
-    expect(screen.queryByText("Tesla")).not.toBeInTheDocument();
+    expect(screen.getByText("Tesla")).toBeInTheDocument();
     expect(screen.queryByText(/\d+%/)).not.toBeInTheDocument();
   });
 });
 
 describe("TeslaTileView stories — ErrorState", () => {
-  it("renders .tile container (skeleton), no Tesla header", async () => {
+  it("renders .tile container (skeleton) and keeps the Tesla header in the error/retry state", async () => {
     const { container } = render(<ErrorState />);
     if (ErrorState.play) await ErrorState.play({ canvasElement: container });
     expect(container.querySelector(".tile")).not.toBeNull();
-    expect(screen.queryByText("Tesla")).not.toBeInTheDocument();
+    expect(screen.getByText("Tesla")).toBeInTheDocument();
   });
 });
 

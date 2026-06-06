@@ -83,7 +83,12 @@ const pct = (v: number) => ((v - MIN) / (MAX - MIN)) * 100;
 function ClimateSkeleton() {
   return (
     <Tile padding={22}>
-      <Skeleton w="60%" h={20} borderRadius={6} />
+      {/* Title stays visible while loading; the action pill (data-driven) shimmers. */}
+      <TileHeader
+        icon="thermo"
+        title="Climate · A/C"
+        right={<Skeleton w={70} h={25} borderRadius={999} />}
+      />
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Skeleton w={120} h={92} borderRadius={12} />
       </div>

@@ -57,6 +57,11 @@ describe("ClimateTileView — loading state", () => {
     expect(container.firstChild).toBeInTheDocument();
   });
 
+  it("keeps the Climate title visible while loading so the tile is identifiable", () => {
+    render(<ClimateTileView status="loading" />);
+    expect(screen.getByText("Climate · A/C")).toBeInTheDocument();
+  });
+
   it("does not render setpoint or sliders while loading", () => {
     render(<ClimateTileView status="loading" />);
     expect(screen.queryByTestId("setpoint")).not.toBeInTheDocument();

@@ -25,10 +25,10 @@ export const Loading: Story = {
   args: { status: TeslaTileStatus.Loading },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // Skeleton state: tile container renders, no header text
+    // Skeleton state: tile + title stay visible so the tile is identifiable; only data is shimmered.
     const tile = canvasElement.querySelector(".tile");
     expect(tile).not.toBeNull();
-    expect(canvas.queryByText("Tesla")).not.toBeInTheDocument();
+    expect(canvas.getByText("Tesla")).toBeInTheDocument();
     expect(canvas.queryByText(/\d+%/)).not.toBeInTheDocument();
   },
 };
@@ -40,10 +40,10 @@ export const ErrorState: Story = {
   args: { status: TeslaTileStatus.Error },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // Error falls through to TeslaSkeleton — same appearance as loading
+    // Error falls through to TeslaSkeleton — same appearance as loading (title stays visible)
     const tile = canvasElement.querySelector(".tile");
     expect(tile).not.toBeNull();
-    expect(canvas.queryByText("Tesla")).not.toBeInTheDocument();
+    expect(canvas.getByText("Tesla")).toBeInTheDocument();
   },
 };
 

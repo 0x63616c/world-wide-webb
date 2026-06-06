@@ -95,8 +95,8 @@ describe("WeatherNow", () => {
 
     render(<WeatherNow />);
 
-    // Skeleton shown — header title not present (skeleton replaces whole tile)
-    expect(screen.queryByText("Weather Now")).not.toBeInTheDocument();
+    // Skeleton shown — title stays visible so the tile is identifiable; only data is shimmered
+    expect(screen.getByText("Weather Now")).toBeInTheDocument();
 
     // Temperature should NOT be rendered
     expect(screen.queryByText(/°$/)).not.toBeInTheDocument();
@@ -116,8 +116,8 @@ describe("WeatherNow", () => {
 
     // Skeleton shown — no fake dash values
     expect(screen.queryByText("--°")).not.toBeInTheDocument();
-    // "Los Angeles" not present since header is part of the skeleton placeholder too
-    expect(screen.queryByText("Weather Now")).not.toBeInTheDocument();
+    // Title stays visible in the error/retry state so the tile is identifiable
+    expect(screen.getByText("Weather Now")).toBeInTheDocument();
   });
 
   it("passes refetchInterval 10 minutes to useQuery", () => {

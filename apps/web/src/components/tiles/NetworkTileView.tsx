@@ -52,16 +52,29 @@ function ButterflyChart({ traffic }: ButterflyChartProps) {
 }
 
 function NetworkSkeleton() {
+  // Real title stays visible while loading; only the data body + the status dot
+  // (data-driven) shimmer. The dot skeleton matches StatusDot's 8px footprint so
+  // there is no layout shift when data lands.
   return (
-    <Tile padding={22} style={{ gap: 12 }}>
-      <Skeleton w="50%" h={20} borderRadius={6} />
-      <Skeleton w="40%" h={26} borderRadius={6} />
-      <Skeleton w="30%" h={14} borderRadius={6} />
-      <div style={{ flex: 1 }}>
-        <Skeleton w="100%" h="100%" borderRadius={6} />
+    <Tile padding={22}>
+      <TileHeader icon="wifi" title="Network" right={<Skeleton w={8} h={8} borderRadius={999} />} />
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          gap: 6,
+        }}
+      >
+        <Skeleton w={64} h={13} borderRadius={4} />
+        <Skeleton w="100%" h={100} borderRadius={6} />
+        <Skeleton w={64} h={13} borderRadius={4} />
       </div>
-      <Skeleton w="30%" h={14} borderRadius={6} />
-      <Skeleton w="100%" h={16} borderRadius={6} />
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+        <Skeleton w={90} h={12} borderRadius={4} />
+        <Skeleton w={44} h={12} borderRadius={4} />
+      </div>
     </Tile>
   );
 }

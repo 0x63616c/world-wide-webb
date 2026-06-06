@@ -31,9 +31,9 @@ describe("WeatherNowView — loading/skeleton state", () => {
     expect(tile).toBeInTheDocument();
   });
 
-  it("does not render the tile header", () => {
+  it("still renders the tile header so the tile is identifiable while loading", () => {
     render(<WeatherNowView status="loading" />);
-    expect(screen.queryByText("Weather Now")).not.toBeInTheDocument();
+    expect(screen.getByText("Weather Now")).toBeInTheDocument();
   });
 
   it("does not render any temperature text", () => {
@@ -49,9 +49,9 @@ describe("WeatherNowView — error state", () => {
     expect(tile).toBeInTheDocument();
   });
 
-  it("does not render the tile header", () => {
+  it("still renders the tile header so the tile is identifiable in the error/retry state", () => {
     render(<WeatherNowView status="error" />);
-    expect(screen.queryByText("Weather Now")).not.toBeInTheDocument();
+    expect(screen.getByText("Weather Now")).toBeInTheDocument();
   });
 
   it("does not render any fake dash values", () => {
