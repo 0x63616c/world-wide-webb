@@ -136,15 +136,16 @@ function resolveEntities(
 /**
  * Fetch current merged state of all controllable entities: lamps, lights, fan.
  *
- * Returns null when HA is unconfigured or unreachable so the tile renders
- * shimmer (CC-nra rule: no fake data).
+ * Throws when HA is unconfigured or unreachable so the tile shimmers via
+ * tRPC error state (CC-355t.30; aligns with the repo-wide THROW-on-unavailable
+ * convention — never returns fake/null data).
  *
  * For any device that has an active desired window, the merged state reflects
  * the desired value with pending=true.
  */
-export async function getControlsState(): Promise<ControlsState | null> {
+export async function getControlsState(): Promise<ControlsState> {
   if (!ha.isConfigured()) {
-    return null;
+    throw new Error("Home Assistant is not configured");
   }
 
   let lightEntities: HaEntity[] = [];
@@ -157,8 +158,10 @@ export async function getControlsState(): Promise<ControlsState | null> {
       ha.getEntities("switch"),
       ha.getEntities("climate"),
     ]);
-  } catch {
-    return null;
+  } catch (err) {
+    throw new Error(
+      `Home Assistant unreachable: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
   const { lamps, lights } = resolveEntities(lightEntities, switchEntities);
@@ -305,7 +308,7 @@ async function dispatchControls(entityIds: string[], on: boolean): Promise<void>
  * Throws when HA is unconfigured (caller should surface a tRPC error).
  * Returns merged state after dispatching the command.
  */
-export async function toggleControl(key: ControlKey, on: boolean): Promise<ControlsState | null> {
+export async function toggleControl(key: ControlKey, on: boolean): Promise<ControlsState> {
   if (!ha.isConfigured()) {
     throw new Error("Home Assistant is not configured");
   }
@@ -379,7 +382,7 @@ function sceneParamsForLamps(scene: LampScene): Record<string, unknown>[] {
  * error). Returns the merged controls state after dispatching, mirroring
  * toggleControl.
  */
-export async function setLampScene(scene: LampScene): Promise<ControlsState | null> {
+export async function setLampScene(scene: LampScene): Promise<ControlsState> {
   if (!ha.isConfigured()) {
     throw new Error("Home Assistant is not configured");
   }
@@ -397,7 +400,7 @@ export async function setLampScene(scene: LampScene): Promise<ControlsState | nu
  * The percentage is clamped to the valid range. Throws when HA is unconfigured.
  * Returns the merged controls state after dispatching.
  */
-export async function setLampBrightness(pct: number): Promise<ControlsState | null> {
+export async function setLampBrightness(pct: number): Promise<ControlsState> {
   if (!ha.isConfigured()) {
     throw new Error("Home Assistant is not configured");
   }

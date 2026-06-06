@@ -240,23 +240,19 @@ describe("getControlsState", () => {
     vi.resetAllMocks();
   });
 
-  it("returns null (shimmer-compatible) when HA is not configured", async () => {
+  it("throws when HA is not configured (CC-355t.30: THROW-on-unavailable)", async () => {
     mockIsConfigured.mockReturnValue(false);
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    const state = await getControlsState();
-
-    expect(state).toBeNull();
+    await expect(getControlsState()).rejects.toThrow("Home Assistant is not configured");
   });
 
-  it("returns null on HA network error", async () => {
+  it("throws on HA network error (CC-355t.30: THROW-on-unavailable)", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntities.mockRejectedValue(new Error("Network error"));
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    const state = await getControlsState();
-
-    expect(state).toBeNull();
+    await expect(getControlsState()).rejects.toThrow("Home Assistant unreachable");
   });
 
   it("computes lamp state from device rows with pending:false when no desired window", async () => {
@@ -691,14 +687,14 @@ describe("controlsRouter.list", () => {
     vi.resetAllMocks();
   });
 
-  it("returns null (shimmer-compatible) via tRPC caller when HA is not configured", async () => {
+  it("throws SERVICE_UNAVAILABLE via tRPC caller when HA is not configured (CC-355t.30)", async () => {
     mockIsConfigured.mockReturnValue(false);
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
     const caller = buildCaller();
-    const result = await caller.controls.list({});
-
-    expect(result).toBeNull();
+    await expect(caller.controls.list({})).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+    });
   });
 
   it("returns controls state via tRPC caller when HA is configured", async () => {
