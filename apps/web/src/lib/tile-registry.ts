@@ -34,7 +34,10 @@ export type GridArea = (typeof GridArea)[keyof typeof GridArea];
 
 export type TileRegistryEntry = {
   id: string;
-  // Human title shown when the tile is tapped open in its showcase modal.
+  // The tile's name, used by the minimap hover label, the centered-tile pan
+  // label, and the "Open …" aria-label. MUST match the title the tile renders in
+  // its TileHeader on the board (e.g. "Weather Now", "Climate · A/C", "Upcoming"),
+  // so the minimap label always maps to what the user sees on the tile.
   label: string;
   // biome-ignore lint/suspicious/noExplicitAny: tile containers have no shared prop contract
   component: ComponentType<any>;
@@ -67,7 +70,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
   },
   {
     id: "tile_weath",
-    label: "Weather",
+    label: "Weather Now",
     component: WeatherNow,
     viewComponent: WeatherNowView,
     gridArea: GridArea.Weather,
@@ -134,7 +137,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
   },
   {
     id: "tile_ac",
-    label: "Climate",
+    label: "Climate · A/C",
     component: ClimateTile,
     viewComponent: ClimateTileView,
     gridArea: GridArea.Climate,
@@ -145,7 +148,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
   },
   {
     id: "tile_event",
-    label: "Events",
+    label: "Upcoming",
     component: EventsTile,
     viewComponent: EventsTileView,
     gridArea: GridArea.Events,

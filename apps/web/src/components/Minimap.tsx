@@ -13,11 +13,12 @@ const WORLD_VIEW_H = WORLD_H * SCALE;
 
 // Outer pad around the world area (matches the `padding` on the map container).
 const MINIMAP_PAD = 6;
-// Distance of the minimap box from the viewport top (matches `top` below).
+// Distance of the minimap box from the viewport top/left (matches `top`/`left`).
 export const MINIMAP_TOP = 12;
-// Total rendered height of the minimap box, so siblings (e.g. the centered-tile
-// label) can stack directly below it without a magic offset.
-export const MINIMAP_HEIGHT = WORLD_VIEW_H + MINIMAP_PAD * 2;
+export const MINIMAP_LEFT = 12;
+// Total rendered width of the minimap box, so the centered-tile label can sit
+// directly to its right (matching the hover label) without a magic offset.
+export const MINIMAP_WIDTH = WORLD_VIEW_W + MINIMAP_PAD * 2;
 
 // Drag past this before a press counts as a scrub (instant follow) rather than a
 // click (smooth recenter).
