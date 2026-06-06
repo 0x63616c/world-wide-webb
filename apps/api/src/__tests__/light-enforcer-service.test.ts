@@ -320,4 +320,42 @@ describe("runEnforcerCycle", () => {
     );
     expect(pushed).toBeUndefined();
   });
+
+  it("persists FRESH reportedState from HA every cycle (panel never reads stale/zero)", async () => {
+    // device-sync is fan-only now, so the enforcer is the sole writer of lamp
+    // reportedState. If it doesn't persist it, getControlsState's overlay has no
+    // fresh reported to fall back to → brightness 0 / no scene / stuck pending.
+    const managed = [
+      {
+        id: "living-globe",
+        kind: "light",
+        entityId: "light.living_room_globe",
+        domain: "light",
+        desiredState: { on: true }, // bare toggle — no brightness/colour intent
+        reportedState: { on: true, brightness: 10 }, // stale
+        available: true,
+      },
+    ];
+    mockDbSelect.mockImplementation(() => new Chain(managed));
+    const set = setBuilder();
+    mockGetEntities.mockImplementation((domain: string) =>
+      domain === "light"
+        ? Promise.resolve([
+            haEntity("light.living_room_globe", "on", { brightness: 200, rgb_color: [0, 0, 255] }),
+          ])
+        : Promise.resolve([]),
+    );
+
+    await runEnforcerCycle();
+
+    const persisted = set.mock.calls.find(
+      (c) => (c[0] as { reportedState?: unknown })?.reportedState !== undefined,
+    );
+    expect(persisted).toBeDefined();
+    expect((persisted?.[0] as { reportedState: unknown }).reportedState).toEqual({
+      on: true,
+      brightness: 200,
+      color: { rgb: [0, 0, 255] },
+    });
+  });
 });

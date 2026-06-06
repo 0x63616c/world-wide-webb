@@ -200,7 +200,7 @@ export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> 
     // colour, so party never affects them.
     const yieldColour = partyActive && entry.kind === LightKind.Lamp;
     const decision = decideEnforcement(device, mapped, inFlight.has(row.id), yieldColour);
-    await applyDecision(device, decision, mapped.available, now);
+    await applyDecision(device, decision, mapped, now);
   }
 }
 
@@ -217,15 +217,23 @@ async function isPartyActive(): Promise<boolean> {
 async function applyDecision(
   device: ManagedDevice,
   decision: EnforcementDecision,
-  available: boolean,
+  mapped: MappedHaState,
   now: Date,
 ): Promise<void> {
+  const available = mapped.available;
+  // The enforcer is the sole owner of lamp state now (device-sync is fan-only),
+  // so it MUST persist reportedState every cycle — getControlsState reads it as
+  // the overlay base (desired fields override, reported fills the rest). Without
+  // this, reported goes stale → the panel reads brightness 0 / no scene / stuck
+  // pending (CC-7d5b.2.4 follow-up).
+  const reportedFields = { reportedState: mapped.reported, reportedAtUtc: now };
+
   switch (decision.kind) {
     case "unreachable": {
       // Honest availability for the UI; never paint desired as real when down.
       await db
         .update(deviceState)
-        .set({ available: false, updatedAtUtc: now })
+        .set({ ...reportedFields, available: false, updatedAtUtc: now })
         .where(eq(deviceState.id, device.id));
       return;
     }
@@ -234,7 +242,13 @@ async function applyDecision(
       // Both write desired (and refresh availability); neither pushes to HA.
       await db
         .update(deviceState)
-        .set({ desiredState: decision.desired, desiredAtUtc: now, available, updatedAtUtc: now })
+        .set({
+          ...reportedFields,
+          desiredState: decision.desired,
+          desiredAtUtc: now,
+          available,
+          updatedAtUtc: now,
+        })
         .where(eq(deviceState.id, device.id));
       return;
     }
@@ -249,19 +263,17 @@ async function applyDecision(
       } else {
         await ha.callService(device.domain, HaLightService.TurnOff, { entity_id: device.entityId });
       }
-      if (!available) {
-        await db
-          .update(deviceState)
-          .set({ available, updatedAtUtc: now })
-          .where(eq(deviceState.id, device.id));
-      }
+      await db
+        .update(deviceState)
+        .set({ ...reportedFields, available, updatedAtUtc: now })
+        .where(eq(deviceState.id, device.id));
       return;
     }
     case "noop": {
-      // Refresh availability if it changed; otherwise nothing to do.
+      // Refresh reported + availability.
       await db
         .update(deviceState)
-        .set({ available, updatedAtUtc: now })
+        .set({ ...reportedFields, available, updatedAtUtc: now })
         .where(eq(deviceState.id, device.id));
       return;
     }
