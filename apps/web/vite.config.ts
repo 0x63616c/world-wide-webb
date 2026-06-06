@@ -74,6 +74,16 @@ export default defineConfig({
       "@": resolve(__dirname, "src"),
     },
   },
+  // Pre-bundle the router so Vite never discovers + optimizes it MID-RUN during
+  // the Storybook browser test project (which extends this config). The storybook
+  // preview imports the tile-registry, which transitively pulls in container tiles
+  // → lib/trpc → @tanstack/react-router; on a cold CI cache Vite optimized it
+  // mid-test, forcing a reload that failed the run ("Vite unexpectedly reloaded a
+  // test"). Listing it here pre-bundles it up front so the run is deterministic.
+  // (Reproduce the CI condition locally by clearing node_modules/.vite first.)
+  optimizeDeps: {
+    include: ["@tanstack/react-router"],
+  },
   server: {
     host: true,
     port: Number(process.env.PORT ?? 4200),
