@@ -11,10 +11,27 @@ export interface ControlTapProps {
   on: boolean;
   sub?: string;
   pending?: boolean;
+  /**
+   * Optional color (any CSS color). When set, a filled circle of this color
+   * renders in place of the Icon — used for scene swatches (e.g. party palette,
+   * warm white). The `icon` prop is still required but ignored when swatch is set.
+   */
+  swatch?: string;
+  /** Non-interactive + dimmed; click does nothing. Used e.g. Party tile when lamps are off. */
+  disabled?: boolean;
   onToggle: () => void;
 }
 
-export function ControlTap({ icon, label, on, sub, pending, onToggle }: ControlTapProps) {
+export function ControlTap({
+  icon,
+  label,
+  on,
+  sub,
+  pending,
+  swatch,
+  disabled,
+  onToggle,
+}: ControlTapProps) {
   const statusText = on ? (sub ?? "On") : "Off";
 
   return (
@@ -22,6 +39,7 @@ export function ControlTap({ icon, label, on, sub, pending, onToggle }: ControlT
       type="button"
       className={`tap${on ? " on" : ""}`}
       onClick={onToggle}
+      disabled={disabled}
       data-pending={pending ? "true" : undefined}
       style={{
         // Tighter bottom edge: top/sides 17, bottom 12 so the label + On/Off
@@ -32,12 +50,13 @@ export function ControlTap({ icon, label, on, sub, pending, onToggle }: ControlT
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        cursor: "pointer",
+        cursor: disabled ? "default" : "pointer",
         textAlign: "left",
         font: "inherit",
         color: "inherit",
         background: "none",
-        opacity: pending ? 0.7 : 1,
+        // Disabled wins over pending for the dim cue (and blocks interaction below).
+        opacity: disabled ? 0.4 : pending ? 0.7 : 1,
       }}
       aria-pressed={on}
       aria-label={label}
@@ -53,7 +72,19 @@ export function ControlTap({ icon, label, on, sub, pending, onToggle }: ControlT
           alignItems: "flex-start",
         }}
       >
-        {icon === "fan" ? (
+        {swatch ? (
+          <span
+            data-swatch=""
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: "50%",
+              background: swatch,
+              // Subtle ring so pale swatches (warm white) stay visible on the tile.
+              boxShadow: "inset 0 0 0 1px rgba(255,255,255,.18)",
+            }}
+          />
+        ) : icon === "fan" ? (
           <span
             data-fan-spin=""
             style={{
