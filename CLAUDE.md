@@ -95,6 +95,18 @@ Smart-home wall-panel dashboard, fixed 1366×1024. `apps/web` renders tiles from
 
 **Scheduling:** cron jobs are declared with `cronJob()` and run by bosun's own in-process scheduler inside the agent as one-shot Swarm jobs (`--mode replicated-job`), on `TZ=America/Los_Angeles`. There is no third-party scheduler (a lefthook guard enforces this; see Conventions). Full detail in `packages/bosun/README.md`.
 
+## iOS wall-panel app (Capacitor → TestFlight) — www-w1a4
+
+The iPad runs a thin **native iOS Capacitor "kiosk" shell** (`apps/web/ios`) that loads `https://dashboard.worldwidewebb.co` full-screen — it does **not** bundle the dashboard. The web app deploys via bosun exactly as above; the shell just renders that URL, so **dashboard changes are OTA — no App Store rebuild needed**. Migrated verbatim from the `evee` repo (www-w1a4).
+
+- **Identity is inherited, intentionally.** Bundle id `co.worldwidewebb.theworkflowengine`, app name **"Evee"**, Apple team `X9E4HG27NK`. This is the SAME app as the original evee TestFlight build, so new builds land as updates to it (was 1.0 b48). Do NOT change the bundle id or you fork off into a new TestFlight app. `server.url` lives in `apps/web/capacitor.config.ts` (override locally with `CAPACITOR_DEV_SERVER_URL`).
+- **Kiosk behavior:** idle timer disabled (never sleeps), landscape-locked on iPad, dark, status bar hidden — `AppDelegate.swift` / `KioskViewController.swift` / `Info.plist`.
+- **Build & ship:** `.github/workflows/ios-build.yml` (macOS runner) on push touching `apps/web/ios/**` / `capacitor.config.ts` / `apps/web/package.json`, a **monthly cron** (`0 12 1 * *` — refreshes the 90-day TestFlight build expiry), or manual dispatch. Steps: bun install → `bun run build` (web) → `bunx cap sync ios` → `bundle exec fastlane release`. Signing is **fastlane match** (certs in private repo `0x63616c/certificates`); the IPA uploads to TestFlight.
+- **Build number = `latest_testflight_build_number + 1`** (in `ios/fastlane/Fastfile`), NOT the CI run number — this repo's `github.run_number` starts low and would collide with / regress below the existing builds, which ASC rejects.
+- **Secrets (repo-level, sourced from 1Password Homelab):** `ASC_KEY_ID` / `ASC_ISSUER_ID` / `ASC_KEY_CONTENT` (item "App Store Connect API", `.p8` base64'd) + `MATCH_PASSWORD`; `MATCH_GIT_URL` (`https://github.com/0x63616c/certificates.git`) + `MATCH_GIT_BASIC_AUTHORIZATION` (base64 of `0x63616c:<PAT>` from item "GitHub Personal Access Token").
+- **Gemfile gotcha:** must keep `gem "multi_json"` — fastlane 2.235+ loads its Google Play actions at startup which `require "multi_json"`, and it's no longer pulled in transitively, so the lane dies before running without it.
+- **Local:** `bun run --filter @repo/web cap:sync` (build + sync), `cap:open` (Xcode), `ios:sim` (live-reload simulator).
+
 ## Conventions & Patterns
 
 - **ZERO fake/hardcoded/placeholder data** (web + api). On unavailable data a tile shows a shimmer Skeleton and keeps retrying — never an invented number. A repo-wide grep for `FALLBACK`/`PLACEHOLDER` (uppercase identifiers) must stay empty. Two files are sanctioned exceptions: `apps/api/src/services/network-service.ts` and `apps/api/src/services/weather-service.ts` hold always-on `DEMO_*` data until real integrations land.
