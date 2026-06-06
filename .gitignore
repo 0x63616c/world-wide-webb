@@ -58,3 +58,8 @@ storybook-static
 
 # Runtime scheduler lock — ephemeral, never commit
 .claude/scheduled_tasks.lock
+
+# beads `--shared` hook dir — beads' hook lifecycle is owned by lefthook, NOT
+# beads (www-sg4p). This dir only appears if someone runs `bd hooks install
+# --shared`, which hijacks core.hooksPath; never commit it. Don't run that.
+.beads-hooks/

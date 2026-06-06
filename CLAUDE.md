@@ -32,6 +32,7 @@ Durable sync is the Dolt git remote: **`refs/dolt/data` on origin**, established
 - **`.beads/issues.jsonl` / `interactions.jsonl` are gitignored exports**, NOT the sync channel. Never commit them (upsert-only, can't represent deletions — the documented anti-pattern). The Dolt git remote is the source of truth.
 - **Fresh clone:** run `scripts/bootstrap-beads.sh` (it does `bd dolt start` → `bd bootstrap` → auto-push off, in that order — bootstrap needs the server up first because tracked `metadata.json` pins `dolt_mode: server`). It reconstructs the full issue set from origin; no JSONL needed.
 - **dolt's `git+ssh` push is slow** (upstream dolt#10537, ~15-44s/round-trip) but reliable once `refs/dolt/data` exists. A *first* push (ref absent) loops on `git fetch refs/dolt/data` — if origin ever loses the ref, re-seed with one clean uncontended `bd dolt push` (no concurrent `bd` commands).
+- **lefthook is the SOLE hook owner; it calls beads.** The beads hook lifecycle (pre-push push, post-merge/post-checkout pull, prepare-commit-msg trailers) is wired as commands in `lefthook.yml`, not via beads' own installer. Do NOT run `bd hooks install --shared` (hijacks `core.hooksPath` → `.beads-hooks/`, gitignored) or `--force` (clobbers lefthook's hooks). A plain `bd hooks install` is non-destructive but redundant — just re-run `lefthook install` if hooks ever go missing.
 
 ## Session Completion
 
