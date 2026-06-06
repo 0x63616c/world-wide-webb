@@ -7,7 +7,13 @@ import { BENTO_RECTS } from "../lib/placeholder-tiles";
 import { formatRelativeAge } from "../lib/relative-age";
 import { TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
-import { getVisibleTiles, useBoardDragPan, useBoardSnap, useBoardViewport } from "./hooks/useBoard";
+import {
+  getVisibleTiles,
+  useBoardDragPan,
+  useBoardSnap,
+  useBoardViewport,
+  useIdleReset,
+} from "./hooks/useBoard";
 import { MINIMAP_HEIGHT, MINIMAP_TOP, Minimap } from "./Minimap";
 import { PlaceholderTile } from "./PlaceholderTile";
 import { getTileModalEntry } from "./tiles/modals/registry";
@@ -19,6 +25,11 @@ import { TileBoundary } from "./ui/TileBoundary";
 // "More" button). Taps on these drive the tile's own controls and must NOT also
 // open the detail modal; taps anywhere else on the tile open it.
 const INTERACTIVE_SELECTOR = 'button, input, a, select, textarea, [role="slider"]';
+
+// How close the viewport center must be to the world center (== Clock center)
+// to count as "already home" — within this the idle reset is a no-op so it never
+// nudges a view that's effectively already on the clock.
+const HOME_DEADZONE_PX = 8;
 
 // ─── snap-mode experiment (CC test) ──────────────────────────────────────────
 // We're A/B-testing how the board should settle. Three of these are NATIVE CSS
@@ -410,6 +421,20 @@ export function Board() {
       behavior: smooth ? "smooth" : "auto",
     });
   }, []);
+
+  // After an idle window with no interaction, glide back to the world-center
+  // (Clock) home view via the same smooth nav the minimap uses — so an
+  // unattended wall panel resettles on the clock. goHome/isHome read the live
+  // scroll position; the hook owns the timer + interaction listeners.
+  const goHome = useCallback(() => jumpTo(WORLD_W / 2, WORLD_H / 2, true), [jumpTo]);
+  const isHome = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return true;
+    const cx = stage.scrollLeft + stage.clientWidth / 2;
+    const cy = stage.scrollTop + stage.clientHeight / 2;
+    return Math.hypot(cx - WORLD_W / 2, cy - WORLD_H / 2) < HOME_DEADZONE_PX;
+  }, []);
+  useIdleReset({ stageRef, goHome, isHome, pointerDown });
 
   // Recenter on a tile AND open its detail modal, kicked off together. Shared by
   // the plain-tap and keyboard activation paths.
