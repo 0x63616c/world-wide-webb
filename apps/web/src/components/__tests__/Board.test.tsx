@@ -86,11 +86,11 @@ describe("Board", () => {
     expect(screen.queryByTestId("fake-modal")).toBeNull();
   });
 
-  it("renders the build-hash badge from the build config", () => {
+  it("renders the build-hash badge from the build config, prefixed with #", () => {
     render(<Board />);
-    // No vite `define` in the test env, so BUILD_HASH falls back to "dev"; the
-    // badge must render exactly the value the config module resolves (sliced).
+    // No vite `define` in the test env, so BUILD_HASH falls back to "dev" and
+    // BUILD_TIME is NaN (no age shown); the badge renders the '#'-prefixed SHA.
     expect(BUILD_HASH).toBe("dev");
-    expect(screen.getByText(BUILD_HASH.slice(0, 7))).toBeTruthy();
+    expect(screen.getByText(`#${BUILD_HASH.slice(0, 7)}`)).toBeTruthy();
   });
 });

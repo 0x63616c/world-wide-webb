@@ -20,10 +20,27 @@ function resolveBuildHash(): string {
   }
 }
 
+// Unix-ms timestamp of the running web bundle, for the "built N ago" readout.
+// CI passes the commit time via BUILD_TIME; a local build reads the current
+// commit's author date from git. Returns "NaN" (the string) when unknown so
+// that Number("NaN") correctly parses to NaN — callers treat non-finite as
+// "no age to show". An empty string must NOT be returned: Number("") === 0,
+// which is finite and causes formatRelativeAge to render "56 years".
+function resolveBuildTime(): string {
+  if (process.env.BUILD_TIME) return process.env.BUILD_TIME;
+  try {
+    const secs = execSync("git log -1 --format=%ct").toString().trim();
+    return String(Number(secs) * 1000);
+  } catch {
+    return "NaN";
+  }
+}
+
 export default defineConfig({
   plugins: [TanStackRouterVite({ target: "react" }), react(), tailwindcss()],
   define: {
     __BUILD_HASH__: JSON.stringify(resolveBuildHash()),
+    __BUILD_TIME__: JSON.stringify(resolveBuildTime()),
   },
   resolve: {
     alias: {
