@@ -119,46 +119,43 @@ function makeSelectChain(rows: unknown[]): SelectChain {
 
 // ─── mergeDeviceState tests ──────────────────────────────────────────────────
 
+// Desired-authoritative (www-7d5b.2.4): desired is the effective state when
+// present; pending means HA has not yet converged with it. The old 5s
+// desiredUntilUtc window is retired.
 describe("mergeDeviceState", () => {
-  it("returns desiredState with pending=true when window is active", () => {
-    const now = new Date();
-    const future = new Date(now.getTime() + 3_000);
+  it("returns desiredState with pending=true while reported has not converged", () => {
     const device = makeDevice({
       reportedState: { on: false },
       desiredState: { on: true },
-      desiredUntilUtc: future,
       available: true,
     });
 
-    const result = mergeDeviceState(device as Parameters<typeof mergeDeviceState>[0], now);
+    const result = mergeDeviceState(device as Parameters<typeof mergeDeviceState>[0]);
+    // on differs (reported off, desired on) → not converged → pending.
     expect(result).toEqual({ state: { on: true }, pending: true, available: true });
   });
 
-  it("returns reportedState with pending=false when no desired window", () => {
-    const now = new Date();
+  it("returns desiredState with pending=false once reported converges (within tolerance)", () => {
+    const device = makeDevice({
+      reportedState: { on: true, brightness: 200, color: { rgb: [0, 2, 254] } },
+      desiredState: { on: true, brightness: 200, color: { rgb: [0, 0, 255] } },
+      available: true,
+    });
+
+    const result = mergeDeviceState(device as Parameters<typeof mergeDeviceState>[0]);
+    expect(result.state).toEqual({ on: true, brightness: 200, color: { rgb: [0, 0, 255] } });
+    expect(result.pending).toBe(false);
+  });
+
+  it("returns reportedState with pending=false when desired is null", () => {
     const device = makeDevice({
       reportedState: { on: false },
       desiredState: null,
-      desiredUntilUtc: null,
       available: true,
     });
 
-    const result = mergeDeviceState(device as Parameters<typeof mergeDeviceState>[0], now);
+    const result = mergeDeviceState(device as Parameters<typeof mergeDeviceState>[0]);
     expect(result).toEqual({ state: { on: false }, pending: false, available: true });
-  });
-
-  it("returns reportedState with pending=false when desired window has expired", () => {
-    const now = new Date();
-    const past = new Date(now.getTime() - 1_000);
-    const device = makeDevice({
-      reportedState: { on: true },
-      desiredState: { on: false },
-      desiredUntilUtc: past,
-      available: true,
-    });
-
-    const result = mergeDeviceState(device as Parameters<typeof mergeDeviceState>[0], now);
-    expect(result).toEqual({ state: { on: true }, pending: false, available: true });
   });
 });
 
@@ -198,6 +195,43 @@ describe("reconcile", () => {
     expect(updateSet).toHaveBeenCalledWith(
       expect.objectContaining({ reportedState: { on: true }, available: true }),
     );
+  });
+
+  it("skips enforcer-managed lights — they are owned by the light enforcer (www-7d5b.2.6)", async () => {
+    // A real LIGHTS entry (light.living_room_globe) must be left entirely to the
+    // enforcer; device-sync must not touch its reported/available state or it
+    // would double-drive the lights. Fan stays device-sync's job.
+    const managedLamp = makeDevice({
+      id: "living-globe",
+      entityId: "light.living_room_globe",
+      reportedState: { on: false },
+      available: true,
+    });
+
+    mockDbSelect
+      .mockReturnValueOnce(makeSelectChain([managedLamp]))
+      .mockReturnValue(makeSelectChain([]));
+
+    const updateSet = vi.fn().mockReturnThis();
+    const updateWhere = vi.fn().mockResolvedValue(undefined);
+    mockDbUpdate.mockReturnValue({ set: updateSet, where: updateWhere });
+    mockDbInsert.mockReturnValue({
+      values: vi.fn().mockReturnThis(),
+      onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
+    });
+
+    // HA reports the lamp ON (would normally trigger a reportedState update).
+    const snapshot = new Map([
+      [
+        "light.living_room_globe",
+        { entity_id: "light.living_room_globe", state: "on", attributes: {}, last_updated: "" },
+      ],
+    ]);
+
+    await reconcile(snapshot);
+
+    // No write for the managed lamp.
+    expect(updateSet).not.toHaveBeenCalled();
   });
 
   it("clears desiredUntilUtc early when HA state matches desiredState", async () => {
