@@ -6,16 +6,20 @@ import {
   RED_RGB,
   WHITE_SCENE_KELVIN,
 } from "../config/lamp-scenes";
-import { findLight, LAMP_ENTITY_IDS, LIGHTS, LightKind } from "../config/lights";
+import {
+  FIXTURE_ENTITY_IDS,
+  findLight,
+  LAMP_ENTITY_IDS,
+  type LightEntry,
+  LightKind,
+} from "../config/lights";
 import { db } from "../db/index";
+import type { DeviceLightState, LightColor } from "../db/schema";
 import { deviceState } from "../db/schema";
 import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
-import { commandDevice, DeviceAction } from "./device-command-service";
 import { DeviceKind, mergeDeviceState } from "./device-state-mapping";
-
-const DESIRED_WINDOW_MS = 5_000;
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -28,6 +32,13 @@ export interface LampState {
   /** Sub-label. Always "On" or "Off" — no count or warmth. */
   sub: string;
   pending: boolean;
+  /**
+   * The colour scene every on-lamp currently agrees on, derived from DESIRED
+   * colours (white/red/blue). null when lamps disagree, are off, or show a
+   * non-scene colour (e.g. mood, which is intentionally varied). www-7d5b.3.4
+   * widens this to include "party" (overridden from the lamp_mode row).
+   */
+  activeScene: LampScene | null;
 }
 
 export interface LightState {
@@ -70,19 +81,16 @@ export type HaService = (typeof HaService)[keyof typeof HaService];
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-/** True when an HA entity state string represents "on". */
-function isOn(entity: HaEntity): boolean {
-  return entity.state === "on";
-}
-
-/**
- * Convert an HA light's `attributes.brightness` (0..255) to a 0..100 pct.
- * Returns 0 when the attribute is absent/non-numeric (lamp off or no dimmer).
- */
-function brightnessPct(entity: HaEntity): number {
-  const raw = entity.attributes.brightness;
+/** Convert an HA raw brightness (0..255) to a rounded 0..100 pct. */
+function brightnessRawToPct(raw: number | undefined): number {
   if (typeof raw !== "number") return 0;
   return Math.round((raw / 255) * 100);
+}
+
+/** Convert a 0..100 pct to HA raw brightness (0..255), clamped. */
+function brightnessPctToRaw(pct: number): number {
+  const clamped = Math.min(100, Math.max(0, pct));
+  return Math.round((clamped / 100) * 255);
 }
 
 /**
@@ -106,207 +114,262 @@ function fanSub(entity: HaEntity | undefined): string {
   return fanModeOn(entity) ? "On" : "";
 }
 
-// ─── config-driven entity resolution ─────────────────────────────────────────
+// ─── desired-authoritative effective state ────────────────────────────────────
+
+/** The effective (desired-authoritative) view of one managed light. */
+interface EffectiveLight {
+  /** Painted-on only when reachable AND effective state is on. */
+  on: boolean;
+  /** Effective desired/reported state (null when no row yet). */
+  state: DeviceLightState | null;
+  available: boolean;
+  pending: boolean;
+}
 
 /**
- * Resolve lamp and fixture entities from fetched HA entities using the explicit
- * LIGHTS config. Lamps = Hue light.* kind; fixtures = switch.* kind.
- *
- * Only entities listed in config are included — no substring guessing.
+ * Resolve a managed light's effective state from its device_state row. Desired is
+ * authoritative (mergeDeviceState); availability is honest — an unreachable light
+ * is never painted "on" even if desired says so (repo ZERO-fake-data rule). A
+ * device with no row yet is treated as unavailable (not painted).
  */
-function resolveEntities(
-  lightEntities: HaEntity[],
-  switchEntities: HaEntity[],
-): { lamps: HaEntity[]; lights: HaEntity[] } {
-  const lampEntityIds = new Set(
-    LIGHTS.filter((l) => l.kind === LightKind.Lamp).map((l) => l.entityId),
-  );
-  const fixtureEntityIds = new Set(
-    LIGHTS.filter((l) => l.kind === LightKind.Fixture).map((l) => l.entityId),
-  );
+function effectiveLight(row: typeof deviceState.$inferSelect | undefined): EffectiveLight {
+  if (!row) return { on: false, state: null, available: false, pending: false };
+  const merged = mergeDeviceState(row);
+  const state = (merged.state as DeviceLightState | null) ?? null;
+  const on = merged.available && (state?.on ?? false);
+  return { on, state, available: merged.available, pending: merged.pending };
+}
 
-  const lamps = lightEntities.filter((e) => lampEntityIds.has(e.entity_id));
-  const lights = switchEntities.filter((e) => fixtureEntityIds.has(e.entity_id));
+// ─── activeScene derivation (from desired colours) ────────────────────────────
 
-  return { lamps, lights };
+function rgbEquals(a: readonly number[] | undefined, b: readonly number[]): boolean {
+  return !!a && a.length === 3 && a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+}
+
+/** Map one desired colour to the scene it represents, or null. Exact compare —
+ *  these are our OWN written values, so no HA round-trip tolerance is needed. */
+function colorToScene(color: LightColor | undefined): LampScene | null {
+  if (!color) return null;
+  if (color.kelvin === WHITE_SCENE_KELVIN) return LampScene.White;
+  if (rgbEquals(color.rgb, RED_RGB)) return LampScene.Red;
+  if (rgbEquals(color.rgb, BLUE_RGB)) return LampScene.Blue;
+  return null;
+}
+
+/**
+ * Derive the active scene from the desired colours of the on-lamps. Every on-lamp
+ * must agree on the same scene; otherwise null (lamps off, mixed colours, or a
+ * mood/custom wash all → null). The party mode overrides this from the lamp_mode
+ * row (added in www-7d5b.3.4 via deriveActiveScene's caller).
+ */
+export function deriveSceneFromDesired(
+  onLampStates: (DeviceLightState | null)[],
+): LampScene | null {
+  if (onLampStates.length === 0) return null;
+  let scene: LampScene | null = null;
+  for (const state of onLampStates) {
+    const s = colorToScene(state?.color);
+    if (s === null) return null;
+    if (scene === null) scene = s;
+    else if (scene !== s) return null;
+  }
+  return scene;
 }
 
 // ─── public API ──────────────────────────────────────────────────────────────
 
 /**
- * Fetch current merged state of all controllable entities: lamps, lights, fan.
+ * Fetch the current state of all controllable entities: lamps, lights, fan.
  *
- * Throws when HA is unconfigured or unreachable so the tile shimmers via
- * tRPC error state (www-355t.30; aligns with the repo-wide THROW-on-unavailable
- * convention — never returns fake/null data).
+ * DESIRED-authoritative (www-7d5b.2.4): lamp/light on/brightness/colour come from
+ * the device_state DESIRED state (the source of truth the enforcer reconciles onto
+ * HA), so the panel reads its own intent with no snap-back. Availability is read
+ * honestly from the row — an unreachable light is never painted "on". The fan
+ * stays live-from-HA (climate fan_mode), unchanged.
  *
- * For any device that has an active desired window, the merged state reflects
- * the desired value with pending=true.
+ * Throws when HA is unconfigured or unreachable so the tile shimmers via the tRPC
+ * error state (www-355t.30; the repo-wide THROW-on-unavailable convention).
  */
 export async function getControlsState(): Promise<ControlsState> {
   if (!ha.isConfigured()) {
     throw new Error("Home Assistant is not configured");
   }
 
-  let lightEntities: HaEntity[] = [];
-  let switchEntities: HaEntity[] = [];
+  // Only the fan still reads live from HA; lamps/lights are desired-authoritative.
   let climateEntities: HaEntity[] = [];
-
   try {
-    [lightEntities, switchEntities, climateEntities] = await Promise.all([
-      ha.getEntities("light"),
-      ha.getEntities("switch"),
-      ha.getEntities("climate"),
-    ]);
+    climateEntities = await ha.getEntities("climate");
   } catch (err) {
     throw new Error(
       `Home Assistant unreachable: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
-
-  const { lamps, lights } = resolveEntities(lightEntities, switchEntities);
   const fanEntity = findFanClimate(climateEntities);
 
-  // Fetch device rows and build a lookup by entityId for overlay merge.
+  // Lamp/light state is read from device_state (desired-authoritative).
   let deviceRows: (typeof deviceState.$inferSelect)[] = [];
   try {
     deviceRows = await db.select().from(deviceState);
   } catch {
-    // DB unreachable — fall through with empty rows (no overlay applied).
+    // DB unreachable — no rows; every managed light reads unavailable (shimmer).
   }
+  const rowByEntityId = new Map(deviceRows.map((r) => [r.entityId, r]));
 
-  const now = new Date();
-  const deviceByEntityId = new Map(deviceRows.map((r) => [r.entityId, r]));
+  const lampEffectives = LAMP_ENTITY_IDS.map((id) => effectiveLight(rowByEntityId.get(id)));
+  const fixtureEffectives = FIXTURE_ENTITY_IDS.map((id) => effectiveLight(rowByEntityId.get(id)));
 
-  // Compute per-group pending: if ANY device in the group has an active overlay, the group is pending.
-  function isPending(entities: HaEntity[]): boolean {
-    return entities.some((e) => {
-      const row = deviceByEntityId.get(e.entity_id);
-      if (!row) return false;
-      return mergeDeviceState(row, now).pending;
-    });
-  }
-
-  function mergedOn(entity: HaEntity | undefined): boolean {
-    if (!entity) return false;
-    const row = deviceByEntityId.get(entity.entity_id);
-    if (!row) return isOn(entity);
-    const merged = mergeDeviceState(row, now);
-    return merged.state?.on ?? isOn(entity);
-  }
-
-  const lampsOn = lamps.filter((e) => mergedOn(e));
-  const anyLightOn = lights.some((e) => mergedOn(e));
-
-  // Fan = the climate entity's fan_mode (evee parity). It is not in the lights
-  // device_state registry, so there is no overlay/pending — read fan_mode live.
-  const fanOn = fanModeOn(fanEntity);
-  const fanPending = false;
-
+  const lampsOn = lampEffectives.filter((e) => e.on);
   const anyLampOn = lampsOn.length > 0;
-  // Average brightness across on-lamps only (off lamps excluded); 0 when none on.
   const avgBrightness = anyLampOn
-    ? Math.round(lampsOn.reduce((sum, e) => sum + brightnessPct(e), 0) / lampsOn.length)
+    ? Math.round(
+        lampsOn.reduce((sum, e) => sum + brightnessRawToPct(e.state?.brightness), 0) /
+          lampsOn.length,
+      )
     : 0;
+  const lampsPending = lampEffectives.some((e) => e.pending);
+
+  const anyLightOn = fixtureEffectives.some((e) => e.on);
+  const lightsPending = fixtureEffectives.some((e) => e.pending);
+
+  const activeScene = await resolveActiveScene(lampsOn.map((e) => e.state));
+
+  // Fan = the climate entity's fan_mode (evee parity). Not in device_state, so
+  // there is no desired overlay — read fan_mode live, no pending.
   return {
     lamps: {
       on: anyLampOn,
       count: lampsOn.length,
       brightness: avgBrightness,
       sub: anyLampOn ? "On" : "Off",
-      pending: isPending(lamps),
+      pending: lampsPending,
+      activeScene,
     },
     lights: {
       on: anyLightOn,
-      pending: isPending(lights),
+      pending: lightsPending,
     },
     fan: {
-      on: fanOn,
+      on: fanModeOn(fanEntity),
       sub: fanSub(fanEntity),
-      pending: fanPending,
+      pending: false,
     },
   };
 }
 
 /**
- * Dispatch an on/off command to HA for each entity, writing a desired-window
- * overlay for every entity regardless of whether it is pre-seeded in device_state.
- *
- * Registered devices go through commandDevice (writes overlay + dispatches).
- * Unregistered devices are upserted into device_state with the desired overlay
- * first, then dispatched to HA directly. The upsert guarantees that subsequent
- * getControlsState calls see the desired value during the cooldown window and
- * never snap back to stale HA state.
+ * Resolve the active scene. In www-7d5b.2.4 this is just the desired-colour scene;
+ * www-7d5b.3.4 overrides it with the lamp_mode row ('party'). Kept async so the
+ * party override (a DB read) slots in without reshaping callers.
  */
-async function dispatchControls(entityIds: string[], on: boolean): Promise<void> {
-  if (entityIds.length === 0) return;
+async function resolveActiveScene(
+  onLampStates: (DeviceLightState | null)[],
+): Promise<LampScene | null> {
+  return deriveSceneFromDesired(onLampStates);
+}
+
+// ─── desired-state writes ──────────────────────────────────────────────────────
+
+/**
+ * Upsert the desired state for a set of managed lights, then return so the caller
+ * can actuate HA. Desired is STICKY (no expiry window) — it is the source of truth
+ * the enforcer continuously reconciles. `mutate` derives the new desired from the
+ * existing one (so a brightness change keeps the colour, a toggle keeps the scene).
+ */
+async function writeDesired(
+  entries: LightEntry[],
+  mutate: (entry: LightEntry, prev: DeviceLightState | null) => DeviceLightState,
+): Promise<Map<string, DeviceLightState>> {
+  const desiredByEntity = new Map<string, DeviceLightState>();
+  if (entries.length === 0) return desiredByEntity;
 
   let rows: (typeof deviceState.$inferSelect)[] = [];
   try {
-    rows = await db.select().from(deviceState).where(inArray(deviceState.entityId, entityIds));
+    rows = await db
+      .select()
+      .from(deviceState)
+      .where(
+        inArray(
+          deviceState.entityId,
+          entries.map((e) => e.entityId),
+        ),
+      );
   } catch {
     rows = [];
   }
   const rowByEntityId = new Map(rows.map((r) => [r.entityId, r]));
+  const now = new Date();
 
   await Promise.all(
-    entityIds.map(async (entityId) => {
-      const row = rowByEntityId.get(entityId);
-      if (row) {
-        return commandDevice({ id: row.id, action: DeviceAction.SetOn, args: { on } });
+    entries.map(async (entry) => {
+      const prev =
+        (rowByEntityId.get(entry.entityId)?.desiredState as DeviceLightState | null) ?? null;
+      const desired = mutate(entry, prev);
+      desiredByEntity.set(entry.entityId, desired);
+      try {
+        await db
+          .insert(deviceState)
+          .values({
+            id: entry.id,
+            kind: entry.kind === LightKind.Lamp ? DeviceKind.Light : DeviceKind.Switch,
+            entityId: entry.entityId,
+            domain: entry.domain,
+            label: entry.label,
+            desiredState: desired,
+            desiredAtUtc: now,
+            available: true,
+          })
+          .onConflictDoUpdate({
+            target: deviceState.entityId,
+            set: { desiredState: desired, desiredAtUtc: now },
+          });
+      } catch {
+        // DB unreachable — desired cannot be written; the HA actuation still fires
+        // so the command is never a silent no-op.
       }
-
-      // Auto-register with a desired-window overlay so getControlsState holds
-      // the optimistic value during the 5 s window even though this entity was
-      // not pre-seeded in device_state.
-      const entry = findLight(entityId);
-      if (entry) {
-        const now = new Date();
-        const desiredUntil = new Date(now.getTime() + DESIRED_WINDOW_MS);
-        try {
-          await db
-            .insert(deviceState)
-            .values({
-              id: entry.id,
-              kind: entry.kind === LightKind.Lamp ? DeviceKind.Light : DeviceKind.Switch,
-              entityId: entry.entityId,
-              domain: entry.domain,
-              label: entry.label,
-              desiredState: { on },
-              desiredAtUtc: now,
-              desiredUntilUtc: desiredUntil,
-              available: true,
-            })
-            .onConflictDoUpdate({
-              target: deviceState.entityId,
-              set: {
-                desiredState: { on },
-                desiredAtUtc: now,
-                desiredUntilUtc: desiredUntil,
-              },
-            });
-        } catch {
-          // DB unreachable — overlay cannot be written; command still reaches HA.
-        }
-      }
-
-      const domain = entityId.split(".")[0];
-      return ha.callService(domain, on ? HaService.TurnOn : HaService.TurnOff, {
-        entity_id: entityId,
-      });
     }),
   );
+  return desiredByEntity;
 }
+
+/** All lamp LightEntry rows in LAMP_ENTITY_IDS order. */
+function lampEntries(): LightEntry[] {
+  return LAMP_ENTITY_IDS.map((id) => findLight(id)).filter((e): e is LightEntry => !!e);
+}
+
+/** All fixture LightEntry rows in FIXTURE_ENTITY_IDS order. */
+function fixtureEntries(): LightEntry[] {
+  return FIXTURE_ENTITY_IDS.map((id) => findLight(id)).filter((e): e is LightEntry => !!e);
+}
+
+/** Build a `light.turn_on` payload from a desired light state (brightness raw 0..255). */
+function turnOnParams(entityId: string, desired: DeviceLightState): Record<string, unknown> {
+  const params: Record<string, unknown> = { entity_id: entityId };
+  if (desired.brightness != null) params.brightness = desired.brightness;
+  if (desired.color?.rgb) params.rgb_color = desired.color.rgb;
+  else if (desired.color?.kelvin != null) params.color_temp_kelvin = desired.color.kelvin;
+  return params;
+}
+
+/** Actuate HA immediately for a desired light state (on→turn_on, off→turn_off). */
+async function actuate(entry: LightEntry, desired: DeviceLightState): Promise<void> {
+  if (desired.on) {
+    await ha.callService(entry.domain, HaService.TurnOn, turnOnParams(entry.entityId, desired));
+  } else {
+    await ha.callService(entry.domain, HaService.TurnOff, { entity_id: entry.entityId });
+  }
+}
+
+// ─── mutations (write desired + actuate now) ──────────────────────────────────
 
 /**
  * Toggle lamps, lights, or fan on or off.
  *
- * Uses the explicit LIGHTS config to identify entity ids and domains.
- * Writes an optimistic overlay to the DB before dispatching to HA so that
- * subsequent getControlsState calls reflect the desired value immediately
- * (no flicker while HA catches up).
- * Throws when HA is unconfigured (caller should surface a tRPC error).
- * Returns merged state after dispatching the command.
+ * For lamps/lights: writes the on/off intent to device_state DESIRED (sticky) AND
+ * fires the HA actuation immediately for an instant physical response. Turning a
+ * lamp ON preserves its existing desired colour/brightness (the scene survives a
+ * toggle). The enforcer is the continuous safety-net that re-asserts on drift.
+ * Fan stays the climate fan_mode path (evee parity). Throws when HA is
+ * unconfigured. Returns the desired-authoritative state after dispatching.
  */
 export async function toggleControl(key: ControlKey, on: boolean): Promise<ControlsState> {
   if (!ha.isConfigured()) {
@@ -315,32 +378,29 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
 
   switch (key) {
     case ControlKey.Lamps: {
-      const lampEntries = LIGHTS.filter((l) => l.kind === LightKind.Lamp);
-      if (lampEntries.length > 0) {
-        await dispatchControls(
-          lampEntries.map((l) => l.entityId),
-          on,
-        );
-      }
+      const entries = lampEntries();
+      // Toggle ON preserves the existing desired colour/brightness (scene survives
+      // a toggle); OFF just flips on. The desired write is the source of truth.
+      const desiredByEntity = await writeDesired(entries, (_entry, prev) =>
+        on ? { ...prev, on: true } : { ...(prev ?? {}), on: false },
+      );
+      await Promise.all(
+        entries.map((entry) => actuate(entry, desiredByEntity.get(entry.entityId) ?? { on })),
+      );
       break;
     }
 
     case ControlKey.Lights: {
-      const fixtureEntries = LIGHTS.filter((l) => l.kind === LightKind.Fixture);
-      if (fixtureEntries.length > 0) {
-        await dispatchControls(
-          fixtureEntries.map((l) => l.entityId),
-          on,
-        );
-      }
+      const entries = fixtureEntries();
+      await writeDesired(entries, () => ({ on }));
+      await Promise.all(entries.map((entry) => actuate(entry, { on })));
       break;
     }
 
     case ControlKey.Fan: {
       // evee parity: force the configured climate's fan_mode on/auto via
-      // set_fan_mode. The target entity is known from config, so there's no
-      // climate fetch here — getControlsState() below reads HA once for the
-      // merged result (www-355t.15: was double-fetching climate entities).
+      // set_fan_mode. The target entity is known from config (www-355t.15: no
+      // double climate fetch — getControlsState reads it once below).
       await ha.callService("climate", HaService.SetFanMode, {
         entity_id: env.CLIMATE_ENTITY_ID,
         fan_mode: on ? FanMode.On : FanMode.Auto,
@@ -353,66 +413,71 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
 }
 
 /**
- * Build the `light.turn_on` params for each lamp under a scene.
- *
- * white/red/blue are uniform across lamps. mood assigns each lamp a UNIQUE
- * colour drawn randomly from the palette (different every call), so the params
- * differ per lamp only for mood. Returned in LAMP_ENTITY_IDS order.
+ * Per-lamp desired colour for a scene. white/red/blue are uniform; mood assigns
+ * each lamp a UNIQUE random palette colour (different every call). Returned in
+ * LAMP_ENTITY_IDS order so it lines up with the lamp entries.
  */
-function sceneParamsForLamps(scene: LampScene): Record<string, unknown>[] {
+function sceneColors(scene: LampScene): LightColor[] {
   if (scene === LampScene.Mood) {
-    const colors = assignMoodColors(LAMP_ENTITY_IDS.length);
-    return LAMP_ENTITY_IDS.map((entityId, i) => ({ entity_id: entityId, rgb_color: colors[i] }));
+    return assignMoodColors(LAMP_ENTITY_IDS.length).map((rgb) => ({
+      rgb: [rgb[0], rgb[1], rgb[2]],
+    }));
   }
-
-  const uniform: Record<string, unknown> =
-    scene === LampScene.White
-      ? { color_temp_kelvin: WHITE_SCENE_KELVIN }
-      : { rgb_color: scene === LampScene.Red ? RED_RGB : BLUE_RGB };
-
-  return LAMP_ENTITY_IDS.map((entityId) => ({ entity_id: entityId, ...uniform }));
+  if (scene === LampScene.White) {
+    return LAMP_ENTITY_IDS.map(() => ({ kelvin: WHITE_SCENE_KELVIN }));
+  }
+  const rgb = scene === LampScene.Red ? RED_RGB : BLUE_RGB;
+  return LAMP_ENTITY_IDS.map(() => ({ rgb: [rgb[0], rgb[1], rgb[2]] }));
 }
 
 /**
- * Apply a colour scene to every lamp (Hue light.* entities).
- *
- * Dispatches one `light.turn_on` per lamp with the scene's colour args. For
- * "mood" each lamp gets a distinct, randomly-assigned palette colour; the
- * others are uniform. Throws when HA is unconfigured (caller surfaces a tRPC
- * error). Returns the merged controls state after dispatching, mirroring
- * toggleControl.
+ * Apply a colour scene to every lamp: writes the colour into device_state DESIRED
+ * (on=true) AND actuates HA immediately. activeScene then reflects the scene from
+ * desired. For "mood" each lamp gets a distinct random colour (so activeScene is
+ * null — mood is intentionally varied). Throws when HA is unconfigured.
  */
 export async function setLampScene(scene: LampScene): Promise<ControlsState> {
   if (!ha.isConfigured()) {
     throw new Error("Home Assistant is not configured");
   }
 
+  const entries = lampEntries();
+  const colors = sceneColors(scene);
+  // entries are in LAMP_ENTITY_IDS order, so colors[i] lines up with entries[i].
+  const colorByEntity = new Map(entries.map((entry, i) => [entry.entityId, colors[i]]));
+
+  const desiredByEntity = await writeDesired(entries, (entry) => ({
+    on: true,
+    color: colorByEntity.get(entry.entityId),
+  }));
   await Promise.all(
-    sceneParamsForLamps(scene).map((params) => ha.callService("light", HaService.TurnOn, params)),
+    entries.map((entry) => actuate(entry, desiredByEntity.get(entry.entityId) ?? { on: true })),
   );
 
   return getControlsState();
 }
 
 /**
- * Set brightness (0..100 %) on every lamp via `light.turn_on` + brightness_pct.
- *
- * The percentage is clamped to the valid range. Throws when HA is unconfigured.
- * Returns the merged controls state after dispatching.
+ * Set brightness (0..100 %) on every lamp: writes brightness into device_state
+ * DESIRED (on=true, preserving each lamp's existing colour) AND actuates HA. The
+ * pct is clamped. Throws when HA is unconfigured.
  */
 export async function setLampBrightness(pct: number): Promise<ControlsState> {
   if (!ha.isConfigured()) {
     throw new Error("Home Assistant is not configured");
   }
 
-  const clamped = Math.min(100, Math.max(0, Math.round(pct)));
+  const raw = brightnessPctToRaw(pct);
+  const entries = lampEntries();
 
+  const desiredByEntity = await writeDesired(entries, (_entry, prev) => ({
+    on: true,
+    brightness: raw,
+    ...(prev?.color ? { color: prev.color } : {}),
+  }));
   await Promise.all(
-    LAMP_ENTITY_IDS.map((entityId) =>
-      ha.callService("light", HaService.TurnOn, {
-        entity_id: entityId,
-        brightness_pct: clamped,
-      }),
+    entries.map((entry) =>
+      actuate(entry, desiredByEntity.get(entry.entityId) ?? { on: true, brightness: raw }),
     ),
   );
 
