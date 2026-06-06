@@ -32,6 +32,13 @@ COPY packages ./packages
 ARG BUILD_HASH=dev
 ENV BUILD_HASH=$BUILD_HASH
 
+# Commit timestamp (unix-ms) baked alongside the SHA so the bottom-left badge can
+# render "time since commit". CI passes --build-arg BUILD_TIME=<commit ms>; absent
+# (local docker build) vite emits "NaN" since the builder image has no .git, and
+# the badge omits the age. Without this the age never appears in a prod build.
+ARG BUILD_TIME
+ENV BUILD_TIME=$BUILD_TIME
+
 # Build the static bundle. Output lands at apps/web/dist.
 RUN bun run --cwd apps/web build
 

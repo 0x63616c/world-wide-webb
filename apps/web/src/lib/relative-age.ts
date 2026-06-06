@@ -1,23 +1,26 @@
 // Compact "time since" formatter for the build-age readout next to the git SHA.
 // Produces terse strings tuned for a glanceable wall-panel badge, e.g.
-//   1min · 21mins · 1hr · 4hrs · 3 days 3hrs · 1 year · 2 years
-// Sub-day spans render a single unit (minutes, then hours); day spans append the
-// leftover hours when non-zero; year spans collapse to whole years. Anything
-// under a minute reads "just now". Returns null for a non-finite/ future input so
-// callers can omit the readout entirely rather than show a bogus value.
+//   10secs · 1min · 21mins · 1hr · 4hrs · 3 days 3hrs · 1 year · 2 years
+// Sub-minute spans render seconds; sub-day spans render a single unit (minutes,
+// then hours); day spans append the leftover hours when non-zero; year spans
+// collapse to whole years. Anything under a second reads "just now". Returns null
+// for a non-finite/future input so callers can omit the readout entirely rather
+// than show a bogus value.
 export function formatRelativeAge(builtAtMs: number, nowMs: number): string | null {
   if (!Number.isFinite(builtAtMs)) return null;
 
-  const MIN = 60_000;
+  const SEC = 1000;
+  const MIN = 60 * SEC;
   const HR = 60 * MIN;
   const DAY = 24 * HR;
   const YEAR = 365 * DAY;
 
   const diff = nowMs - builtAtMs;
-  if (diff < MIN) return "just now";
+  if (diff < SEC) return "just now";
 
   const unit = (n: number, label: string) => `${n}${label}${n === 1 ? "" : "s"}`;
 
+  if (diff < MIN) return unit(Math.floor(diff / SEC), "sec");
   if (diff < HR) return unit(Math.floor(diff / MIN), "min");
   if (diff < DAY) return unit(Math.floor(diff / HR), "hr");
 
