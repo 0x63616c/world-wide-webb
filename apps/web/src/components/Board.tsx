@@ -168,7 +168,7 @@ function FpsMeter() {
 
 // Git short SHA of the running web bundle, pinned bottom-left. The SHA is
 // prefixed with '#' and trailed by a compact "time since commit" readout (e.g.
-// "#a1b2c3d · 10secs" → "3 days 3hrs") so you can tell at a glance both which
+// "#a1b2c3d 10secs" → "3 days 3hrs") so you can tell at a glance both which
 // build a wall panel is on and how stale it is. Ticks once a second so the
 // sub-minute seconds readout updates live.
 function BuildHashBadge() {
@@ -191,7 +191,7 @@ function BuildHashBadge() {
       }}
     >
       #{BUILD_HASH.slice(0, 7)}
-      {age ? ` · ${age}` : ""}
+      {age ? ` ${age}` : ""}
     </div>
   );
 }
