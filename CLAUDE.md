@@ -98,7 +98,7 @@ bun run dev         # tilt up (local dev stack)
 
 Reusable multi-agent orchestration scripts live in `.claude/workflows/` (run via the Workflow tool: `Workflow({ name: '<n>', args: {...} })`).
 
-- **`ship`** — Factory-Missions-style pipeline for shipping a bd issue/epic end-to-end. Beads is the shared mission state: scope writes a validation contract into the epic's `--design`, each feature becomes a child issue with `--acceptance` + a `milestone-N` label + deps for serial order; it builds → validates → fixes **per milestone**, then hardens and finalizes. Resumable after a crash via `args.resume=<epicId>`.
+- **`ship`** — Factory-Missions-style pipeline for shipping a bd issue/epic end-to-end. Beads is the shared mission state: scope writes a validation contract into the epic's `--design`, each feature becomes a child issue with `--acceptance` + a `milestone-N` label + deps for serial order; it builds → validates → fixes **per milestone**, then hardens and finalizes. Resumable after a crash via `args.resume=<epicId>`. It is the manual dev lifecycle parallelized and follows the same `docs/ticket-standards.md` (taxonomy, Definition of Ready/Done, `type(area/www-xxx)` commits).
   - **Model tiers** (rule: haiku is a good validator but a bad coder, so it never writes code): `opus` scopes, `sonnet` does ALL coding (build/fix/harden), `haiku` runs the adversarial validators + bd/gate bookkeeping.
   - **Intended use:** scope + approve the plan with Calum first, then launch. Conservative git — commits per feature, no `git push` unless `args.push:true`.
 - **`wf-finish-dashboard.mjs`** (untracked, repo root `.claude/`) — the original one-shot that finished the dashboard; `ship` is its generalization. Kept for reference.

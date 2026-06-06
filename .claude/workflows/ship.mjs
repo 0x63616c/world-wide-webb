@@ -58,7 +58,8 @@ ABSOLUTE RULES:
 - ZERO fake/hardcoded/placeholder data anywhere (web + api). On unavailable data a tile renders a shimmer Skeleton and keeps retrying — never an invented number. A repo-wide grep for FALLBACK / PLACEHOLDER must stay empty. Do not introduce new ones.
 - Code style: imports at top of file only (never inside functions); no module-global mutable vars; comments explain WHY not HOW, one line, no emojis.
 - Beads is the shared mission state. \`bd show <id>\` to read an issue's full description/acceptance/notes before working it. \`bd update <id> --claim\` before starting, \`bd update <id> --notes "<handoff>"\` to record what you did, \`bd close <id>\` when acceptance is met and gates pass. Do NOT use TodoWrite.
-- Commit to main with a focused conventional-commit message (feat/fix/refactor/chore/test) scoped to the ticket(s). Keep commits small. Do NOT push (Finalize handles push policy).
+- Commit with the format the commit-msg guard REQUIRES: \`type(area/www-xxx): desc\` — a conventional type (feat/fix/refactor/chore/test/docs/ci/build) whose scope carries an area AND the bd ticket id, e.g. \`feat(web/tiles/www-m9k): add poller\`. A bare \`feat: ...\` is rejected. Keep commits small and focused. Do NOT push (Finalize handles push policy).
+- This workflow IS the manual lifecycle parallelized; it follows docs/ticket-standards.md — the taxonomy (feature/bug/refactor/chore/spike/epic → real bd types), the Definition of Ready, and the Definition of Done (gates green + no fake data + screenshot@1366x1024 for UI + committed referencing the ticket + closed). The per-feature acceptance you are handed already encodes it.
 
 REPO MAP:
 - apps/web — React board (fixed 1366x1024 wall panel). Shared primitives live under apps/web/src/components/ui/ — PREFER them over re-inlining headers/stats/pills/skeletons. Tokens in apps/web/src/styles/tokens.css; shimmer keyframes in apps/web/src/styles/globals.css.
