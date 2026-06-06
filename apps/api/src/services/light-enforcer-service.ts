@@ -17,10 +17,17 @@
  */
 import { eq, inArray } from "drizzle-orm";
 
-import { findLight, LIGHTS, LightControl, lightControl } from "../config/lights";
+import { LampMode } from "../config/lamp-scenes";
+import { findLight, LIGHTS, LightControl, LightKind, lightControl } from "../config/lights";
 import { db } from "../db/index";
 import type { DeviceLightState, LightColor } from "../db/schema";
-import { deviceCommands, deviceState, integrationSyncStatus } from "../db/schema";
+import {
+  deviceCommands,
+  deviceState,
+  integrationSyncStatus,
+  LAMP_MODE_SINGLETON_ID,
+  lampMode,
+} from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 import { CommandStatus, HaLightService } from "./device-command-service";
@@ -98,11 +105,16 @@ export type EnforcementDecision =
  * Pure reconcile decision for one device. No I/O — the cycle executes the result.
  * `commandInFlight` suppresses drift handling while an app command is still
  * converging (the command, not the enforcer, owns that transition).
+ * `partyActive` makes the enforcer YIELD COLOUR to the party engine for lamps
+ * (CC-7d5b.3.3): on/off is still enforced (so the wave stays lit), but a
+ * colour-only divergence is ignored so the 1s enforcer never fights the
+ * animation. Switch fixtures have no colour, so party is a no-op for them.
  */
 export function decideEnforcement(
   device: ManagedDevice,
   mapped: MappedHaState,
   commandInFlight: boolean,
+  partyActive = false,
 ): EnforcementDecision {
   // Unreachable: can't read truth, so can't enforce or adopt. Caller flips
   // available=false; desired is left untouched (intent survives the outage).
@@ -115,8 +127,13 @@ export function decideEnforcement(
   // A converging app command owns the transition; don't second-guess it.
   if (commandInFlight) return { kind: "noop" };
 
-  // Steady state: only act on genuine drift.
-  if (lightStateConverged(device.desiredState, reported)) return { kind: "noop" };
+  // Steady state: only act on genuine drift. While party is active the party
+  // engine owns colour, so compare on/off only (yield colour); otherwise full
+  // tolerant compare.
+  const converged = partyActive
+    ? device.desiredState.on === reported.on
+    : lightStateConverged(device.desiredState, reported);
+  if (converged) return { kind: "noop" };
 
   return lightControl(device) === LightControl.Enforce
     ? { kind: "push", desired: device.desiredState }
@@ -160,6 +177,9 @@ export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> 
     .where(inArray(deviceState.entityId, [...MANAGED_ENTITY_IDS]));
   const now = new Date();
   const inFlight = await inFlightDeviceIds();
+  // While party mode is active the party engine owns lamp COLOUR; the enforcer
+  // yields colour (but still enforces on/off) so the two don't fight (CC-7d5b.3.3).
+  const partyActive = await isPartyActive();
 
   for (const row of rows) {
     const entry = findLight(row.entityId);
@@ -176,9 +196,22 @@ export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> 
       desiredState: row.desiredState ?? null,
     };
 
-    const decision = decideEnforcement(device, mapped, inFlight.has(row.id));
+    // Colour-yield applies only to lamps (light domain); switch fixtures have no
+    // colour, so party never affects them.
+    const yieldColour = partyActive && entry.kind === LightKind.Lamp;
+    const decision = decideEnforcement(device, mapped, inFlight.has(row.id), yieldColour);
     await applyDecision(device, decision, mapped.available, now);
   }
+}
+
+/** True when the lamp_mode singleton row is in party mode. */
+async function isPartyActive(): Promise<boolean> {
+  const rows = await db
+    .select({ mode: lampMode.mode })
+    .from(lampMode)
+    .where(eq(lampMode.id, LAMP_MODE_SINGLETON_ID))
+    .limit(1);
+  return rows[0]?.mode === LampMode.Party;
 }
 
 async function applyDecision(

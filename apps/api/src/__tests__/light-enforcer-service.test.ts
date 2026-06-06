@@ -184,6 +184,37 @@ describe("decideEnforcement", () => {
     );
     expect(d.kind).toBe("unreachable");
   });
+
+  it("yields COLOUR to the party engine while party active (no push on colour drift)", () => {
+    // mode=party: the party engine owns lamp colour, so a colour-only divergence
+    // must NOT trigger an enforce push — otherwise the 1s enforcer fights the
+    // animation. on/off matches here, so the enforcer stands down.
+    const d = decideEnforcement(
+      dev({
+        control: LightControl.Enforce,
+        desiredState: { on: true, color: { rgb: [255, 0, 0] } },
+      }),
+      { reported: { on: true, color: { rgb: [0, 255, 0] } }, available: true },
+      false,
+      true, // partyActive
+    );
+    expect(d.kind).toBe("noop");
+  });
+
+  it("still enforces ON/OFF for lamps while party active", () => {
+    // Party yields colour, NOT on/off: a lamp HA-reported off while desired on
+    // must still be pushed back on so the wave stays lit.
+    const d = decideEnforcement(
+      dev({
+        control: LightControl.Enforce,
+        desiredState: { on: true, color: { rgb: [255, 0, 0] } },
+      }),
+      { reported: { on: false }, available: true },
+      false,
+      true, // partyActive
+    );
+    expect(d.kind).toBe("push");
+  });
 });
 
 // ─── cycle integration (mocked db + ha) ────────────────────────────────────────

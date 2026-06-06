@@ -13,6 +13,7 @@ import { runMigrations } from "./db/migrate";
 import { env } from "./env";
 import { runDeviceSyncCycle } from "./services/device-sync-service";
 import { runEnforcerCycle } from "./services/light-enforcer-service";
+import { reconcilePartyMode } from "./services/party-service";
 import { runWeatherIngestCycle } from "./services/weather-ingest-service";
 import { createWorkerRuntime } from "./worker/runtime";
 import type { Worker } from "./worker/types";
@@ -38,6 +39,15 @@ const workers: Worker[] = [
     intervalMs: 1_000,
     runOnStart: true,
     run: runDeviceSyncCycle,
+  },
+  {
+    // Party-mode reconciler (CC-7d5b.3.3): reads the lamp_mode DB row + lamp
+    // on-state and starts/stops/restarts the in-process party animation engine.
+    // DB-row-as-truth makes party durable across worker restarts (re-arms here).
+    name: "party-mode",
+    intervalMs: 2_000,
+    runOnStart: true,
+    run: () => reconcilePartyMode(),
   },
   {
     name: "weather-ingest",
