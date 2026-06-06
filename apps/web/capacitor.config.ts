@@ -14,7 +14,7 @@ const config: CapacitorConfig = {
   // Bundle id is intentionally inherited from the original "Evee" TestFlight app so
   // new builds land as updates to the same app (see apps/web/ios + ios-build.yml).
   appId: "co.worldwidewebb.theworkflowengine",
-  appName: "Evee",
+  appName: "Control Center",
   webDir: "dist",
   backgroundColor: "#000000",
   server: {
