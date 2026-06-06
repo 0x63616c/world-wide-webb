@@ -157,6 +157,37 @@ describe("mergeDeviceState", () => {
     const result = mergeDeviceState(device as Parameters<typeof mergeDeviceState>[0]);
     expect(result).toEqual({ state: { on: false }, pending: false, available: true });
   });
+
+  // CC-7d5b.2.4 regression: desired is a PARTIAL overlay. A bare on/off toggle
+  // writes only { on } — it must NOT zero out the brightness/colour the panel
+  // shows, nor sit perpetually pending. Unspecified fields fall back to reported.
+  it("overlays a bare {on} desired onto reported brightness/colour (no zeroing, not pending)", () => {
+    const device = makeDevice({
+      reportedState: { on: true, brightness: 200, color: { rgb: [255, 0, 0] } },
+      desiredState: { on: true },
+      available: true,
+    });
+
+    const result = mergeDeviceState(device as Parameters<typeof mergeDeviceState>[0]);
+    // brightness + colour come from reported (desired didn't specify them).
+    expect(result.state).toEqual({ on: true, brightness: 200, color: { rgb: [255, 0, 0] } });
+    // Only `on` is specified and it matches → converged → not pending.
+    expect(result.pending).toBe(false);
+  });
+
+  it("a SPECIFIED desired field still overrides reported and drives pending", () => {
+    const device = makeDevice({
+      reportedState: { on: true, brightness: 200, color: { rgb: [255, 0, 0] } },
+      desiredState: { on: true, color: { rgb: [0, 0, 255] } },
+      available: true,
+    });
+
+    const result = mergeDeviceState(device as Parameters<typeof mergeDeviceState>[0]);
+    // Specified colour wins; unspecified brightness falls back to reported.
+    expect(result.state).toEqual({ on: true, brightness: 200, color: { rgb: [0, 0, 255] } });
+    // Specified colour diverges from reported → pending until the enforcer converges.
+    expect(result.pending).toBe(true);
+  });
 });
 
 // ─── reconcile tests ─────────────────────────────────────────────────────────
