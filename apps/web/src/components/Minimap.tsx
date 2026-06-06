@@ -154,14 +154,14 @@ export function Minimap({
         touchAction: "none",
       }}
     >
-      {/* Tile name for whatever the cursor is over, floated below the map. */}
+      {/* Tile name for whatever the cursor is over, floated to the right of the map. */}
       {hoveredLabel && (
         <div
           style={{
             position: "absolute",
-            left: 6,
-            top: "100%",
-            marginTop: 6,
+            left: "100%",
+            top: 6,
+            marginLeft: 6,
             padding: "3px 8px",
             background: "rgba(12, 14, 17, 0.92)",
             border: "1px solid var(--hair-2)",
