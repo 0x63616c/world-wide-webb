@@ -24,6 +24,12 @@ const lampStateSchema = z.object({
     .describe("Average brightness pct (0..100) across on-lamps; 0 when none on"),
   sub: z.string().describe('"On" when any lamp is on, "Off" otherwise'),
   pending: z.boolean().describe("True while a command is in-flight and the overlay is active"),
+  activeScene: z
+    .enum([LampScene.White, LampScene.Mood, LampScene.Red, LampScene.Blue])
+    .nullable()
+    .describe(
+      "The colour scene every on-lamp agrees on (from desired colours); null when lamps disagree, are off, or show a non-scene (mood) wash",
+    ),
 });
 
 const lightStateSchema = z.object({

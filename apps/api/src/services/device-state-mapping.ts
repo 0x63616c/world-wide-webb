@@ -84,23 +84,67 @@ export interface MergedDeviceState {
   available: boolean;
 }
 
+// Tolerances for desired-vs-reported convergence (pending detection). HA does not
+// round-trip colour/brightness exactly, so a per-channel/absolute slack stops a
+// freshly-actuated light from reading as perpetually "pending". Mirrors the
+// enforcer's drift tolerances (kept local to avoid a circular import — the
+// enforcer imports from this module).
+const RGB_CHANNEL_TOLERANCE = 12;
+const KELVIN_TOLERANCE = 250;
+const BRIGHTNESS_TOLERANCE = 3;
+
+/** True when two colours are within HA round-trip tolerance (or both absent). */
+function colorConverged(a: LightColor | undefined, b: LightColor | undefined): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  const aKelvin = a.kelvin != null;
+  const bKelvin = b.kelvin != null;
+  if (aKelvin !== bKelvin) return false;
+  if (aKelvin && bKelvin) return Math.abs((a.kelvin ?? 0) - (b.kelvin ?? 0)) <= KELVIN_TOLERANCE;
+  const ar = a.rgb;
+  const br = b.rgb;
+  if (!ar || !br) return !ar && !br;
+  return ar.every((c, i) => Math.abs(c - br[i]) <= RGB_CHANNEL_TOLERANCE);
+}
+
 /**
- * Merge reported and desired state for a device. Returns the desired value
- * (with pending=true) while an active overlay window is present; otherwise
- * falls back to the reported value from HA. Moved from device-sync-service
- * so it co-locates with the other state-mapping helpers (CC-355t.26).
+ * Tolerant convergence of desired vs reported (on must match exactly; brightness
+ * and colour within tolerance). Off lamps ignore brightness/colour — off is off.
+ */
+function converged(desired: DeviceStateValue, reported: DeviceStateValue): boolean {
+  if (desired.on !== reported.on) return false;
+  if (!desired.on) return true;
+  if (
+    desired.brightness != null &&
+    reported.brightness != null &&
+    Math.abs(desired.brightness - reported.brightness) > BRIGHTNESS_TOLERANCE
+  ) {
+    return false;
+  }
+  return colorConverged(desired.color, reported.color);
+}
+
+/**
+ * Merge reported and desired state, DESIRED-authoritative (CC-7d5b.2.4). Desired
+ * is the source of truth now that the enforcer continuously reconciles it onto
+ * HA: the effective state is `desired ?? reported`, so the panel reads its own
+ * intent instantly with no snap-back. `pending` means desired is set but HA has
+ * not yet converged with it (a transient mid-actuation state). The old 5s
+ * desiredUntilUtc window is retired for managed lights — desired is sticky.
  */
 export function mergeDeviceState(
   device: {
     reportedState?: DeviceStateValue | null;
     desiredState?: DeviceStateValue | null;
-    desiredUntilUtc?: Date | null;
     available: boolean;
   },
-  now: Date,
+  _now?: Date,
 ): MergedDeviceState {
-  if (device.desiredUntilUtc && device.desiredUntilUtc > now && device.desiredState != null) {
-    return { state: device.desiredState, pending: true, available: device.available };
+  const desired = device.desiredState ?? null;
+  const reported = device.reportedState ?? null;
+  if (desired != null) {
+    const pending = reported == null ? true : !converged(desired, reported);
+    return { state: desired, pending, available: device.available };
   }
-  return { state: device.reportedState ?? null, pending: false, available: device.available };
+  return { state: reported, pending: false, available: device.available };
 }
