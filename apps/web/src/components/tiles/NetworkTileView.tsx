@@ -1,4 +1,4 @@
-import { Skeleton, StatusDot, Tile, TileHeader, TileStatus } from "../ui";
+import { Skeleton, StatusDot, Tile, TileHeader, TileStatus } from "@/components/ui";
 
 interface ButterflyChartProps {
   traffic: Array<{ down: number; up: number }>;
@@ -41,7 +41,7 @@ function ButterflyChart({ traffic }: ButterflyChartProps) {
               right: 0,
               top: "50%",
               height: (t.up / uMax) * half,
-              background: "#3a4049",
+              background: "var(--acc-muted)",
               borderRadius: "0 0 2px 2px",
             }}
           />

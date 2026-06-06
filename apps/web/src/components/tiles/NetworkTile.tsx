@@ -1,9 +1,10 @@
-import { trpc } from "../../lib/trpc";
+import { POLL } from "@/lib/hooks";
+import { trpc } from "@/lib/trpc";
 import { NetworkTileView } from "./NetworkTileView";
 
 export function NetworkTile() {
   const { data } = trpc.network.status.useQuery(undefined, {
-    refetchInterval: 60_000,
+    refetchInterval: POLL.network,
   });
 
   if (!data) return <NetworkTileView status="loading" />;

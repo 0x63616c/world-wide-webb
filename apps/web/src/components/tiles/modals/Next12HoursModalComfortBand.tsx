@@ -18,8 +18,8 @@
  * trivially in Storybook + tests.
  */
 
-import { Modal, Stat } from "../../ui";
-import type { HourlyEntry } from "../Next12HoursView";
+import type { HourlyEntry } from "@/components/tiles/Next12HoursView";
+import { Modal, Stat } from "@/components/ui";
 
 // Subset of weather.now fields used by this modal — sourced from the tRPC
 // weather router's WeatherNow interface. Defined locally to avoid coupling the

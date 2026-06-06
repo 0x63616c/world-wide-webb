@@ -5,7 +5,7 @@
 // value simply jumps from ~1 to 0 between frames, with no CSS transition to rewind.
 
 import { useEffect, useState } from "react";
-import { BorderProgressRing } from "../ui";
+import { BorderProgressRing } from "@/components/ui";
 
 /** Fraction of the current minute elapsed, 0..1. */
 function minuteProgress(): number {

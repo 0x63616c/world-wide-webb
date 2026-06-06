@@ -24,7 +24,7 @@
  */
 
 import { useState } from "react";
-import { Modal, Pill, PillTone, Stat, StatusDot, TileHeader } from "../../ui";
+import { Modal, Pill, PillTone, Stat, StatusDot, TileHeader } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

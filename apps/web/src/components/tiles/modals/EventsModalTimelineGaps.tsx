@@ -18,8 +18,8 @@
  * in Storybook and tests without any query setup.
  */
 
-import { Modal } from "../../ui";
-import type { EventRow } from "../EventsTileView";
+import type { EventRow } from "@/components/tiles/EventsTileView";
+import { Modal } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

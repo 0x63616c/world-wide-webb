@@ -1,6 +1,6 @@
-import { POLL } from "../../lib/hooks";
-import { trpc } from "../../lib/trpc";
-import { TileStatus } from "../ui";
+import { TileStatus } from "@/components/ui";
+import { POLL } from "@/lib/hooks";
+import { trpc } from "@/lib/trpc";
 import { EventsTileView } from "./EventsTileView";
 
 export function EventsTile() {

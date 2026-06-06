@@ -10,12 +10,12 @@
  * `date` field plus a `today` ISO date string derived from the client wall clock.
  */
 
-import { trpc } from "../../../../lib/trpc";
-import { EventsModalCountdownSpotlight } from "../EventsModalCountdownSpotlight";
-import { EventsModalFullAgenda } from "../EventsModalFullAgenda";
-import { EventsModalMonthGrid } from "../EventsModalMonthGrid";
-import { EventsModalTimelineGaps } from "../EventsModalTimelineGaps";
-import type { LiveVariant, TileModalEntry } from "../types";
+import { EventsModalCountdownSpotlight } from "@/components/tiles/modals/EventsModalCountdownSpotlight";
+import { EventsModalFullAgenda } from "@/components/tiles/modals/EventsModalFullAgenda";
+import { EventsModalMonthGrid } from "@/components/tiles/modals/EventsModalMonthGrid";
+import { EventsModalTimelineGaps } from "@/components/tiles/modals/EventsModalTimelineGaps";
+import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
+import { trpc } from "@/lib/trpc";
 
 function useEventsVariants(): { variants: LiveVariant[]; loading: boolean } {
   const events = trpc.events.list.useQuery(undefined);

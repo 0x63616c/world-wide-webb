@@ -23,7 +23,7 @@
  * PURE view: all data + callbacks arrive via props. No trpc/hooks.
  */
 
-import { Modal, Pill, PillTone, Stat } from "../../ui";
+import { Modal, Pill, PillTone, Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

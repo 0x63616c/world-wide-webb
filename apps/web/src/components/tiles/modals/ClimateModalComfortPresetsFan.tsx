@@ -25,7 +25,7 @@
  */
 
 import { useState } from "react";
-import { Chip, Modal, StatusDot } from "../../ui";
+import { Chip, Modal, StatusDot } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

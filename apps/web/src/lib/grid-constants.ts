@@ -1,5 +1,5 @@
 // Single source of truth for the board grid.
-// Imported by Board, tile-registry, board-layout, the Minimap, and Storybook.
+// Imported by Board, tile-registry, clock-constants, the Minimap, and Storybook.
 //
 // The board is a SQUARE-cell grid: 12 columns × 9 rows. A 12×6 grid in the
 // 1366×1000 viewport made cells taller than wide (167 tall vs 114 wide), which

@@ -9,14 +9,13 @@
  * Mutations: trpc.controls.toggle — backend owns correctness, no client-side cache manipulation.
  */
 
-import { useEffect, useRef, useState } from "react";
-import type { RouterOutputs } from "../../lib/trpc";
-import { trpc } from "../../lib/trpc";
+import { useState } from "react";
+import { useCooldownInvalidate } from "@/lib/hooks";
+import type { RouterOutputs } from "@/lib/trpc";
+import { trpc } from "@/lib/trpc";
 import type { ControlKey } from "./ControlsTileView";
 import { ControlsTileView } from "./ControlsTileView";
 import { ExpandedControlsModalView } from "./ExpandedControlsModalView";
-
-const COOLDOWN_AFTER_TOGGLE_MS = 5_000;
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -46,30 +45,17 @@ export function makeRefetchInterval(
 
 export function ControlsTile() {
   const utils = trpc.useUtils();
-  const [cooldownUntil, setCooldownUntil] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
-  // Stable ref so the refetch interval callback always reads the latest value
-  // without needing to be recreated (avoids unnecessary query re-subscriptions).
-  const cooldownRef = useRef(cooldownUntil);
-  cooldownRef.current = cooldownUntil;
+
+  // Pause polling after a mutation; invalidate once the cooldown window expires
+  // so HA's desired-window has time to settle before we reconcile live state.
+  const { cooldownRef, startCooldown } = useCooldownInvalidate(() =>
+    utils.controls.list.invalidate({}),
+  );
 
   const refetchInterval = makeRefetchInterval(() => cooldownRef.current);
 
   const { data } = trpc.controls.list.useQuery({}, { refetchInterval });
-
-  // When cooldown expires, invalidate once to pull fresh HA state.
-  useEffect(() => {
-    if (cooldownUntil === 0) return;
-    const remaining = cooldownUntil - Date.now();
-    if (remaining <= 0) {
-      void utils.controls.list.invalidate({});
-      return;
-    }
-    const timer = setTimeout(() => {
-      void utils.controls.list.invalidate({});
-    }, remaining);
-    return () => clearTimeout(timer);
-  }, [cooldownUntil, utils]);
 
   const toggleMutation = trpc.controls.toggle.useMutation({
     // Optimistic flip so the tap responds instantly. pending:true bumps
@@ -83,7 +69,7 @@ export function ControlsTile() {
         if (key === "lights") return { ...old, lights: { ...old.lights, on, pending: true } };
         return { ...old, fan: { ...old.fan, on, pending: true } };
       });
-      setCooldownUntil(Date.now() + COOLDOWN_AFTER_TOGGLE_MS);
+      startCooldown();
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
@@ -96,7 +82,7 @@ export function ControlsTile() {
   // Lamp scene + brightness — backend owns correctness; on success the cooldown
   // useEffect will reconcile fresh HA state, so no client-side cache munging here.
   const sceneMutation = trpc.controls.setLampScene.useMutation({
-    onSuccess: () => setCooldownUntil(Date.now() + COOLDOWN_AFTER_TOGGLE_MS),
+    onSuccess: () => startCooldown(),
   });
   const brightnessMutation = trpc.controls.setLampBrightness.useMutation({
     // Optimistically write the dragged value into the cache and pause polling for
@@ -108,7 +94,7 @@ export function ControlsTile() {
       utils.controls.list.setData({}, (old) =>
         old ? { ...old, lamps: { ...old.lamps, brightness: pct } } : old,
       );
-      setCooldownUntil(Date.now() + COOLDOWN_AFTER_TOGGLE_MS);
+      startCooldown();
       return { prev };
     },
     onError: (_err, _vars, ctx) => {

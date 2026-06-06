@@ -17,7 +17,7 @@
  * PURE view: all data + callbacks arrive via props. No trpc/hooks. Width 640, maxHeight 700.
  */
 
-import { Modal } from "../../ui";
+import { Modal } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

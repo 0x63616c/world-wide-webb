@@ -20,7 +20,7 @@
  */
 
 import { useState } from "react";
-import { Modal } from "../../ui";
+import { Modal } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Modal, Skeleton } from "../../ui";
+import { Modal, Skeleton } from "@/components/ui";
 import type { TileModalEntry } from "./types";
 import { VariantSwitcher } from "./VariantSwitcher";
 

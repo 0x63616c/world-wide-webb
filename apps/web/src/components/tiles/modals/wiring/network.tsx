@@ -12,16 +12,17 @@
  * TrafficTimeline wants `status:string` — each is fed the exact shape it asks for.
  */
 
-import { MONTHLY_CAP_GB } from "../../../../config/network";
-import { trpc } from "../../../../lib/trpc";
-import { NetworkModalConnectionHealth } from "../NetworkModalConnectionHealth";
-import { NetworkModalDataBudget } from "../NetworkModalDataBudget";
-import { NetworkModalTrafficTimeline } from "../NetworkModalTrafficTimeline";
-import { NetworkModalUsageSignature } from "../NetworkModalUsageSignature";
-import type { LiveVariant, TileModalEntry } from "../types";
+import { NetworkModalConnectionHealth } from "@/components/tiles/modals/NetworkModalConnectionHealth";
+import { NetworkModalDataBudget } from "@/components/tiles/modals/NetworkModalDataBudget";
+import { NetworkModalTrafficTimeline } from "@/components/tiles/modals/NetworkModalTrafficTimeline";
+import { NetworkModalUsageSignature } from "@/components/tiles/modals/NetworkModalUsageSignature";
+import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
+import { MONTHLY_CAP_GB } from "@/config/network";
+import { POLL } from "@/lib/hooks";
+import { trpc } from "@/lib/trpc";
 
 function useNetworkVariants(): { variants: LiveVariant[]; loading: boolean } {
-  const network = trpc.network.status.useQuery(undefined, { refetchInterval: 60_000 });
+  const network = trpc.network.status.useQuery(undefined, { refetchInterval: POLL.network });
 
   const n = network.data;
   // All variants need the live status payload; wait for it so the switcher list

@@ -14,9 +14,9 @@
  * trivially in Storybook and tests without a QueryClient.
  */
 
-import type { IconName } from "../../Icon";
-import { Icon } from "../../Icon";
-import { Modal, Pill } from "../../ui";
+import type { IconName } from "@/components/Icon";
+import { Icon } from "@/components/Icon";
+import { Modal, Pill } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

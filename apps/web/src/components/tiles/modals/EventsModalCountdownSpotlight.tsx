@@ -19,8 +19,8 @@
  * PURE VIEW — all data + callbacks via props. No trpc/hooks.
  */
 
-import { BorderProgressRing, Modal, Pill, PillTone } from "../../ui";
-import type { EventRow } from "../EventsTileView";
+import type { EventRow } from "@/components/tiles/EventsTileView";
+import { BorderProgressRing, Modal, Pill, PillTone } from "@/components/ui";
 
 // Days above this are treated as "maximum distance" for the ring fill.
 const RING_HORIZON = 90;

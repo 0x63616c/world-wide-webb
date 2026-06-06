@@ -1,0 +1,353 @@
+/**
+ * Board mechanics extracted from Board.tsx so the component body reads as
+ * composition rather than implementation. Each hook owns one concern:
+ *
+ *  useBoardViewport  — scroll position + client size → `view` state
+ *  useBoardSnap      — settle/spring-snap logic (SmoothDamp + scrollend/idle)
+ *  useBoardDragPan   — desktop mouse-drag-to-pan shim
+ *  getVisibleTiles   — pure windowing filter (no hook, no side effects)
+ *
+ * The Board component still owns the DOM ref, the modal state, and the render
+ * output; these hooks delegate all imperative scroll mechanics.
+ */
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
+// ─── types ────────────────────────────────────────────────────────────────────
+
+export type BoardView = { left: number; top: number; vw: number; vh: number };
+
+type Rect = { x: number; y: number; w: number; h: number };
+
+// ─── snap constants (shared between hooks) ────────────────────────────────────
+
+const SNAP_SMOOTH_TIME = 0.32;
+const SNAP_DEADZONE = 6;
+const SNAP_STOP_PX = 0.5;
+const SNAP_STOP_VEL = 6;
+const SNAP_MAX_DT = 0.05;
+
+// Native scrollend fires once momentum settles (Safari 16+, Chrome 114+).
+const SUPPORTS_SCROLLEND = typeof window !== "undefined" && "onscrollend" in window;
+const SETTLE_IDLE_MS = 140;
+
+// Drag past this many px before a press counts as a pan, not a tap.
+const DRAG_THRESHOLD = 5;
+
+// ─── SmoothDamp ───────────────────────────────────────────────────────────────
+
+// One axis of SmoothDamp (Thomas Lowe, Game Programming Gems 4). Returns
+// [nextPos, nextVel]. The polynomial exp approximation avoids Math.exp.
+function smoothDamp(
+  current: number,
+  target: number,
+  vel: number,
+  smoothTime: number,
+  dt: number,
+): [number, number] {
+  const omega = 2 / smoothTime;
+  const x = omega * dt;
+  const exp = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+  const change = current - target;
+  const temp = (vel + omega * change) * dt;
+  let output = target + (change + temp) * exp;
+  let outVel = (vel - omega * temp) * exp;
+  if (target - current > 0 === output > target) {
+    output = target;
+    outVel = 0;
+  }
+  return [output, outVel];
+}
+
+// ─── useBoardViewport ─────────────────────────────────────────────────────────
+
+/**
+ * Tracks the visible slice of the world. Returns the current `view` and a
+ * `syncView` callback that reads the stage's live scroll position.
+ */
+export function useBoardViewport(
+  stageRef: React.RefObject<HTMLDivElement | null>,
+  initialView: BoardView,
+): { view: BoardView; syncView: () => void } {
+  const [view, setView] = useState<BoardView>(initialView);
+
+  const syncView = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    setView({
+      left: stage.scrollLeft,
+      top: stage.scrollTop,
+      vw: stage.clientWidth,
+      vh: stage.clientHeight,
+    });
+  }, [stageRef]);
+
+  return { view, syncView };
+}
+
+// ─── useBoardSnap ─────────────────────────────────────────────────────────────
+
+type SnapMode = "proximity" | "mandatory" | "mandatory-settle" | "none" | "spring";
+
+// Modes whose settle (scrollend / idle) magnetically re-centers via the JS spring.
+const SETTLE_MODES = new Set<SnapMode>(["spring", "mandatory-settle"]);
+
+type UseBoardSnapOptions = {
+  stageRef: React.RefObject<HTMLDivElement | null>;
+  snapMode: SnapMode;
+  pointerDown: React.RefObject<boolean>;
+  drag: React.RefObject<{ active: boolean }>;
+  /** Called whenever the board settles (for the spring mode). */
+  cellAt: (cx: number, cy: number) => { rect: Rect } | undefined;
+};
+
+/**
+ * Manages the in-flight JS spring snap. Returns:
+ *  - `springTo(left, top)` — kick off a critically-damped snap to a target
+ *  - `cancelSnap()` — abort any running spring
+ *  - `onSettle()` — call on scrollend/idle to magnetically re-center (spring
+ *    and mandatory-settle modes only)
+ */
+export function useBoardSnap({
+  stageRef,
+  snapMode,
+  pointerDown,
+  drag,
+  cellAt,
+}: UseBoardSnapOptions): {
+  springTo: (toLeft: number, toTop: number) => void;
+  cancelSnap: () => void;
+  onSettle: () => void;
+  spring: React.RefObject<{
+    raf: number;
+    vx: number;
+    vy: number;
+    last: number;
+    px: number;
+    py: number;
+  }>;
+} {
+  const spring = useRef({ raf: 0, vx: 0, vy: 0, last: 0, px: 0, py: 0 });
+
+  const cancelSnap = useCallback(() => {
+    if (spring.current.raf) cancelAnimationFrame(spring.current.raf);
+    spring.current.raf = 0;
+  }, []);
+
+  const springTo = useCallback(
+    (toLeft: number, toTop: number) => {
+      const stage = stageRef.current;
+      if (!stage) return;
+      const s = spring.current;
+      if (s.raf) cancelAnimationFrame(s.raf);
+      s.vx = 0;
+      s.vy = 0;
+      s.px = stage.scrollLeft;
+      s.py = stage.scrollTop;
+      s.last = performance.now();
+      const step = (now: number) => {
+        const dt = Math.min(SNAP_MAX_DT, (now - s.last) / 1000);
+        s.last = now;
+        const [nl, vl] = smoothDamp(s.px, toLeft, s.vx, SNAP_SMOOTH_TIME, dt);
+        const [nt, vt] = smoothDamp(s.py, toTop, s.vy, SNAP_SMOOTH_TIME, dt);
+        s.px = nl;
+        s.py = nt;
+        s.vx = vl;
+        s.vy = vt;
+        stage.scrollLeft = nl;
+        stage.scrollTop = nt;
+        const settled =
+          Math.hypot(toLeft - nl, toTop - nt) < SNAP_STOP_PX && Math.hypot(vl, vt) < SNAP_STOP_VEL;
+        if (settled) {
+          stage.scrollLeft = toLeft;
+          stage.scrollTop = toTop;
+          s.raf = 0;
+        } else {
+          s.raf = requestAnimationFrame(step);
+        }
+      };
+      s.raf = requestAnimationFrame(step);
+    },
+    [stageRef],
+  );
+
+  const snapModeRef = useRef(snapMode);
+  useEffect(() => {
+    snapModeRef.current = snapMode;
+  }, [snapMode]);
+
+  const onSettle = useCallback(() => {
+    // JS spring and paged+ magnetically re-center; pure native scroll-snap
+    // modes let the browser handle it (no JS = no trackpad fight).
+    if (!SETTLE_MODES.has(snapModeRef.current)) return;
+    if (spring.current.raf || pointerDown.current || drag.current.active) return;
+    const stage = stageRef.current;
+    if (!stage) return;
+    const cx = stage.scrollLeft + stage.clientWidth / 2;
+    const cy = stage.scrollTop + stage.clientHeight / 2;
+    const hit = cellAt(cx, cy);
+    if (!hit) return;
+    const toLeft = hit.rect.x + hit.rect.w / 2 - stage.clientWidth / 2;
+    const toTop = hit.rect.y + hit.rect.h / 2 - stage.clientHeight / 2;
+    if (Math.hypot(toLeft - stage.scrollLeft, toTop - stage.scrollTop) < SNAP_DEADZONE) return;
+    springTo(toLeft, toTop);
+  }, [stageRef, pointerDown, drag, cellAt, springTo]);
+
+  // Wire scrollend / idle debounce for settle.
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    if (SUPPORTS_SCROLLEND) {
+      stage.addEventListener("scrollend", onSettle);
+      return () => stage.removeEventListener("scrollend", onSettle);
+    }
+    let idle = 0;
+    const onIdle = () => {
+      clearTimeout(idle);
+      idle = window.setTimeout(onSettle, SETTLE_IDLE_MS);
+    };
+    stage.addEventListener("scroll", onIdle);
+    return () => {
+      stage.removeEventListener("scroll", onIdle);
+      clearTimeout(idle);
+    };
+  }, [stageRef, onSettle]);
+
+  // Cancel any running spring on unmount.
+  useEffect(() => () => cancelSnap(), [cancelSnap]);
+
+  return { springTo, cancelSnap, onSettle, spring };
+}
+
+// ─── useBoardDragPan ──────────────────────────────────────────────────────────
+
+const INTERACTIVE_SELECTOR = 'button, input, a, select, textarea, [role="slider"]';
+
+type SnapCssMap = Record<SnapMode, string>;
+
+type UseBoardDragPanOptions = {
+  stageRef: React.RefObject<HTMLDivElement | null>;
+  snapMode: SnapMode;
+  snapCss: SnapCssMap;
+  modalOpenRef: React.RefObject<boolean>;
+  pointerDown: React.RefObject<boolean>;
+  cancelSnap: () => void;
+  onSettle: () => void;
+};
+
+/**
+ * Desktop mouse-drag-to-pan shim. Touch is left to native momentum scrolling.
+ * Returns `onPointerDown`, `onPointerMove`, and `endDrag` handler props.
+ *
+ * `drag` is passed in (not created here) so the same ref can also be passed to
+ * `useBoardSnap`, which needs to read `drag.current.active` during settle.
+ */
+export function useBoardDragPan({
+  stageRef,
+  drag,
+  snapMode,
+  snapCss,
+  modalOpenRef,
+  pointerDown,
+  cancelSnap,
+  onSettle,
+}: UseBoardDragPanOptions & {
+  drag: React.RefObject<{
+    active: boolean;
+    moved: boolean;
+    x: number;
+    y: number;
+    sl: number;
+    st: number;
+  }>;
+}): {
+  suppressClick: React.RefObject<boolean>;
+  onPointerDown: (e: React.PointerEvent) => void;
+  onPointerMove: (e: React.PointerEvent) => void;
+  endDrag: () => void;
+} {
+  const suppressClick = useRef(false);
+
+  const snapModeRef = useRef(snapMode);
+  useEffect(() => {
+    snapModeRef.current = snapMode;
+  }, [snapMode]);
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (modalOpenRef.current) return;
+      if ((e.target as HTMLElement).closest(INTERACTIVE_SELECTOR)) return;
+      // Any grab interrupts a running snap and marks the pointer held.
+      pointerDown.current = true;
+      cancelSnap();
+      if (e.pointerType !== "mouse" || e.button !== 0) return;
+      const stage = stageRef.current;
+      if (!stage) return;
+      drag.current = {
+        active: true,
+        moved: false,
+        x: e.clientX,
+        y: e.clientY,
+        sl: stage.scrollLeft,
+        st: stage.scrollTop,
+      };
+    },
+    [stageRef, modalOpenRef, pointerDown, cancelSnap, drag],
+  );
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      const d = drag.current;
+      const stage = stageRef.current;
+      if (!d.active || !stage) return;
+      const dx = e.clientX - d.x;
+      const dy = e.clientY - d.y;
+      if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+      if (!d.moved) {
+        d.moved = true;
+        stage.style.cursor = "grabbing";
+        // Suspend native scroll-snap for the drag duration to prevent the snap
+        // re-pulling toward nearby tiles on every scrollLeft write (jitter fix).
+        stage.style.scrollSnapType = "none";
+      }
+      stage.scrollLeft = d.sl - dx;
+      stage.scrollTop = d.st - dy;
+    },
+    [stageRef, drag],
+  );
+
+  const endDrag = useCallback(() => {
+    const stage = stageRef.current;
+    if (stage) stage.style.cursor = "grab";
+    const moved = drag.current.moved;
+    if (moved) suppressClick.current = true;
+    drag.current.active = false;
+    pointerDown.current = false;
+    // Re-arm native snap; assigning the value snaps to the nearest tile.
+    if (stage) stage.style.scrollSnapType = snapCss[snapModeRef.current];
+    // Mouse-drag has no momentum, so no native scrollend fires on release —
+    // settle explicitly (spring mode only; onSettle bails otherwise).
+    if (moved) onSettle();
+  }, [stageRef, snapCss, pointerDown, onSettle, drag]);
+
+  return { suppressClick, onPointerDown, onPointerMove, endDrag };
+}
+
+// ─── getVisibleTiles ──────────────────────────────────────────────────────────
+
+const OVERSCAN = 600;
+
+/**
+ * Pure windowing filter. Returns the subset of `cells` whose rects overlap the
+ * current viewport (plus OVERSCAN px on each edge so panning never reveals a
+ * blank slot before its tile renders).
+ */
+export function getVisibleTiles<T extends { rect: Rect }>(cells: T[], view: BoardView): T[] {
+  return cells.filter(
+    ({ rect }) =>
+      rect.x < view.left + view.vw + OVERSCAN &&
+      rect.x + rect.w > view.left - OVERSCAN &&
+      rect.y < view.top + view.vh + OVERSCAN &&
+      rect.y + rect.h > view.top - OVERSCAN,
+  );
+}

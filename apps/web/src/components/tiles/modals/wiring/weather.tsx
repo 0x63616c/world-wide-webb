@@ -11,18 +11,18 @@
  * Pure modal views receive adapted live props; this module owns the mapping.
  */
 
-import { trpc } from "../../../../lib/trpc";
-import type { LiveVariant, TileModalEntry } from "../types";
-import type { ComfortBreakdownData } from "../WeatherModalComfortBreakdown";
-import { WeatherModalComfortBreakdown } from "../WeatherModalComfortBreakdown";
-import type { HourlySlot } from "../WeatherModalHourlyTempCurve";
-import { WeatherModalHourlyTempCurve } from "../WeatherModalHourlyTempCurve";
-import { WeatherModalSunDayArc } from "../WeatherModalSunDayArc";
-import type { DayForecast } from "../WeatherModalWeekOutlook";
-import { WeatherModalWeekOutlook } from "../WeatherModalWeekOutlook";
-import { useNow } from "./use-now";
+import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
+import type { ComfortBreakdownData } from "@/components/tiles/modals/WeatherModalComfortBreakdown";
+import { WeatherModalComfortBreakdown } from "@/components/tiles/modals/WeatherModalComfortBreakdown";
+import type { HourlySlot } from "@/components/tiles/modals/WeatherModalHourlyTempCurve";
+import { WeatherModalHourlyTempCurve } from "@/components/tiles/modals/WeatherModalHourlyTempCurve";
+import { WeatherModalSunDayArc } from "@/components/tiles/modals/WeatherModalSunDayArc";
+import type { DayForecast } from "@/components/tiles/modals/WeatherModalWeekOutlook";
+import { WeatherModalWeekOutlook } from "@/components/tiles/modals/WeatherModalWeekOutlook";
+import { POLL, useNow } from "@/lib/hooks";
+import { trpc } from "@/lib/trpc";
 
-const REFETCH = { refetchInterval: 10 * 60 * 1000 } as const;
+const REFETCH = { refetchInterval: POLL.weather } as const;
 
 function useWeatherVariants(): { variants: LiveVariant[]; loading: boolean } {
   const now = useNow();

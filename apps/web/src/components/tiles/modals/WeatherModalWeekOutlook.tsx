@@ -20,9 +20,9 @@
  */
 
 import type { CSSProperties } from "react";
-import type { IconName } from "../../Icon";
-import { Icon } from "../../Icon";
-import { Modal, Pill, PillTone } from "../../ui";
+import type { IconName } from "@/components/Icon";
+import { Icon } from "@/components/Icon";
+import { Modal, Pill, PillTone } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

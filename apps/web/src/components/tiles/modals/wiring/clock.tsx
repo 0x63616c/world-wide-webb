@@ -8,14 +8,14 @@
  *  - config/world-clocks → which zones to display (configuration, not data)
  */
 
-import { WORLD_CLOCK_ZONES } from "../../../../config/world-clocks";
-import { trpc } from "../../../../lib/trpc";
-import { ClockModalCountdownHorizon } from "../ClockModalCountdownHorizon";
-import { ClockModalSolarDayArc } from "../ClockModalSolarDayArc";
-import { ClockModalTimeOfDayRhythm } from "../ClockModalTimeOfDayRhythm";
-import { ClockModalWorldClocks } from "../ClockModalWorldClocks";
-import type { LiveVariant, TileModalEntry } from "../types";
-import { useNow } from "./use-now";
+import { ClockModalCountdownHorizon } from "@/components/tiles/modals/ClockModalCountdownHorizon";
+import { ClockModalSolarDayArc } from "@/components/tiles/modals/ClockModalSolarDayArc";
+import { ClockModalTimeOfDayRhythm } from "@/components/tiles/modals/ClockModalTimeOfDayRhythm";
+import { ClockModalWorldClocks } from "@/components/tiles/modals/ClockModalWorldClocks";
+import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
+import { WORLD_CLOCK_ZONES } from "@/config/world-clocks";
+import { POLL, useNow } from "@/lib/hooks";
+import { trpc } from "@/lib/trpc";
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
@@ -25,7 +25,7 @@ function formatTime(iso: string): string {
 
 function useClockVariants(): { variants: LiveVariant[]; loading: boolean } {
   const now = useNow();
-  const weather = trpc.weather.now.useQuery(undefined, { refetchInterval: 10 * 60 * 1000 });
+  const weather = trpc.weather.now.useQuery(undefined, { refetchInterval: POLL.weather });
   const events = trpc.events.list.useQuery(undefined);
 
   const w = weather.data;

@@ -7,6 +7,7 @@ import { BENTO_RECTS } from "../lib/placeholder-tiles";
 import { formatRelativeAge } from "../lib/relative-age";
 import { TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
+import { getVisibleTiles, useBoardDragPan, useBoardSnap, useBoardViewport } from "./hooks/useBoard";
 import { MINIMAP_HEIGHT, MINIMAP_TOP, Minimap } from "./Minimap";
 import { PlaceholderTile } from "./PlaceholderTile";
 import { getTileModalEntry } from "./tiles/modals/registry";
@@ -19,75 +20,31 @@ import { TileBoundary } from "./ui/TileBoundary";
 // open the detail modal; taps anywhere else on the tile open it.
 const INTERACTIVE_SELECTOR = 'button, input, a, select, textarea, [role="slider"]';
 
-// Tiles within this many world-px of the viewport edge stay mounted, so panning
-// never reveals a blank slot before its tile renders (windowing overscan).
-const OVERSCAN = 600;
-
-// Drag past this many px before a mouse press counts as a pan, not a tap — keeps
-// click-to-open working while allowing click-drag panning on desktop.
-const DRAG_THRESHOLD = 5;
-
-// Snap-to-center feel: while a pointer is down (or a fling is still moving) you
-// pan freely; once it settles, a critically-damped spring gravitates the nearest
-// tile's center to the viewport center. Critically damped = a PD controller
-// (the "I" of PID is unwanted here — there's no steady-state disturbance to
-// integrate out, it would only add overshoot). Implemented as SmoothDamp (Thomas
-// Lowe, Game Programming Gems 4; same as Unity Mathf.SmoothDamp): one smoothTime
-// knob, carries velocity so a fling flows into the dock, integrated against real
-// dt so the feel is identical at any frame rate.
-const SNAP_SMOOTH_TIME = 0.32; // ~seconds to converge; the single feel knob
-const SNAP_DEADZONE = 6; // px from centered; below this, don't spring at all
-const SNAP_STOP_PX = 0.5; // settled when this close to target...
-const SNAP_STOP_VEL = 6; // ...and slower than this (px/s)
-const SNAP_MAX_DT = 0.05; // clamp dt so a backgrounded tab doesn't lurch
-// Native scrollend fires once momentum settles (Safari 16+, Chrome 114+);
-// elsewhere we debounce scroll-idle. Read off window so it isn't treated as a
-// type guard that narrows the stage element.
-const SUPPORTS_SCROLLEND = typeof window !== "undefined" && "onscrollend" in window;
-const SETTLE_IDLE_MS = 140;
-
-// One axis of SmoothDamp. Returns [nextPos, nextVel]. `exp` is the standard
-// polynomial approximation of e^-x; the final branch clamps overshoot.
-function smoothDamp(
-  current: number,
-  target: number,
-  vel: number,
-  smoothTime: number,
-  dt: number,
-): [number, number] {
-  const omega = 2 / smoothTime;
-  const x = omega * dt;
-  const exp = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
-  const change = current - target;
-  const temp = (vel + omega * change) * dt;
-  let output = target + (change + temp) * exp;
-  let outVel = (vel - omega * temp) * exp;
-  if (target - current > 0 === output > target) {
-    output = target;
-    outVel = 0;
-  }
-  return [output, outVel];
-}
-
 // ─── snap-mode experiment (CC test) ──────────────────────────────────────────
 // We're A/B-testing how the board should settle. Three of these are NATIVE CSS
 // scroll-snap (browser does the momentum + snapping on the compositor thread —
 // no JS spring to fight, so no Mac-trackpad jitter); "spring" is the legacy
 // hand-rolled SmoothDamp magnetic snap, kept only so it can be compared head to
 // head on-device. Once Calum picks a winner, delete the others + the switcher.
-const SNAP_MODES = ["proximity", "mandatory", "none", "spring"] as const;
+const SNAP_MODES = ["proximity", "mandatory", "mandatory-settle", "none", "spring"] as const;
 type SnapMode = (typeof SNAP_MODES)[number];
 const SNAP_MODE_KEY = "cc-board-snap-mode";
 const SNAP_MODE_LABEL: Record<SnapMode, string> = {
   proximity: "snap: gentle",
   mandatory: "snap: paged",
+  "mandatory-settle": "snap: paged+",
   none: "snap: off",
   spring: "snap: spring (old)",
 };
 // CSS scroll-snap-type per mode; "spring" disables native snap (JS drives it).
+// "mandatory-settle" keeps native mandatory paging but ALSO runs the JS settle
+// (see onSettle) as a safety net: iOS Safari only re-snaps after a momentum
+// animation, so a zero-velocity finger lift leaves the page off-center — the
+// settle springs it home. A flick still snaps natively (settle is a no-op then).
 const SNAP_CSS: Record<SnapMode, string> = {
   proximity: "both proximity",
   mandatory: "both mandatory",
+  "mandatory-settle": "both mandatory",
   none: "none",
   spring: "none",
 };
@@ -325,14 +282,10 @@ function CenteredTileLabel({
 export function Board() {
   const stageRef = useRef<HTMLDivElement>(null);
   const [activeModal, setActiveModal] = useState<TileModalEntry | null>(null);
-  // Which slice of the world is near the viewport (drives windowing).
-  const [view, setView] = useState(INITIAL_VIEW);
-  // Live-switchable settle feel (see SNAP_MODES). Mirrored into a ref so the
-  // memoized pointer/glide handlers read the current mode without re-creating.
+
+  // Live-switchable settle feel (see SNAP_MODES). Persisted to localStorage.
   const [snapMode, setSnapMode] = useState<SnapMode>(loadSnapMode);
-  const snapModeRef = useRef(snapMode);
   useEffect(() => {
-    snapModeRef.current = snapMode;
     try {
       window.localStorage?.setItem(SNAP_MODE_KEY, snapMode);
     } catch {
@@ -343,22 +296,6 @@ export function Board() {
     setSnapMode((m) => SNAP_MODES[(SNAP_MODES.indexOf(m) + 1) % SNAP_MODES.length]);
   }, []);
 
-  // Mouse-drag pan state, kept in a ref so dragging never re-renders the board.
-  const drag = useRef({ active: false, moved: false, x: 0, y: 0, sl: 0, st: 0 });
-  // True for the click immediately after a drag, so the pan doesn't also open a tile.
-  const suppressClick = useRef(false);
-  const rafRef = useRef(0);
-  // In-flight snap spring: rAF id (nonzero ⇒ WE are scrolling, so the scrollend
-  // it emits isn't mistaken for a user settle) plus carried per-axis velocity.
-  // px/py are the authoritative FLOAT scroll position the spring integrates on.
-  // We can't read stage.scrollLeft back as state: the browser rounds it to whole
-  // pixels, so near the target the sub-pixel step rounds away and the spring
-  // stalls short of center. Keeping a float and only writing the rounded value
-  // out fixes that.
-  const spring = useRef({ raf: 0, vx: 0, vy: 0, last: 0, px: 0, py: 0 });
-  // Whether a pointer is currently held down (touch or mouse). While held, the
-  // user pans freely — no spring engages until they let go.
-  const pointerDown = useRef(false);
   // Mirrors modal-open state into a ref so the memoized pointer handlers can bail
   // without being re-created. While a modal is open the board must NOT pan: a
   // press outside the modal hits the modal's own backdrop (which closes it), and
@@ -376,48 +313,16 @@ export function Board() {
     modalOpenRef.current = modalOpen;
   }, [modalOpen]);
 
-  // Any click within a tile recenters the camera on that tile — even taps that
-  // land on an inner control (toggle/slider/button) or on a self-tapping tile
-  // (Controls). Runs in the capture phase (wired via onClickCapture) so an inner
-  // stopPropagation — e.g. the Controls body tap — can't swallow the recenter.
-  // The modal still opens only for a "plain" tap: a self-tapping tile runs its
-  // own UI and a tap on a control drives that control, so neither also opens the
-  // board's detail modal.
-  function onTileClickCapture(entry: TileRegistryEntry, e: React.MouseEvent<HTMLDivElement>) {
-    if (suppressClick.current) {
-      suppressClick.current = false;
-      return;
-    }
-    if (entry.ownsTap || (e.target as HTMLElement).closest(INTERACTIVE_SELECTOR)) {
-      glideToTile(entry);
-      return;
-    }
-    openModalFor(entry);
-  }
+  // Whether a pointer is currently held down (touch or mouse). While held, the
+  // user pans freely — no spring engages until they let go.
+  const pointerDown = useRef(false);
+  // Mouse-drag pan state. Created here (not inside useBoardDragPan) so the same
+  // ref can be passed to both useBoardSnap (reads drag.current.active on settle)
+  // and useBoardDragPan (writes the drag state on pointer events).
+  const drag = useRef({ active: false, moved: false, x: 0, y: 0, sl: 0, st: 0 });
 
-  // Center the viewport on a world-space point (the minimap calls this on click
-  // and during drag-scrub). scrollTo clamps to the scroll range, and each frame
-  // of the smooth glide fires onScroll → keeps the minimap alive through it.
-  const jumpTo = useCallback((worldX: number, worldY: number, smooth: boolean) => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    stage.scrollTo({
-      left: worldX - stage.clientWidth / 2,
-      top: worldY - stage.clientHeight / 2,
-      behavior: smooth ? "smooth" : "auto",
-    });
-  }, []);
-
-  const syncView = useCallback(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    setView({
-      left: stage.scrollLeft,
-      top: stage.scrollTop,
-      vw: stage.clientWidth,
-      vh: stage.clientHeight,
-    });
-  }, []);
+  // ── viewport tracking ──────────────────────────────────────────────────────
+  const { view, syncView } = useBoardViewport(stageRef, INITIAL_VIEW);
 
   // Open centered on the world center (== Clock center) using the real client
   // size (pre-paint, no flash).
@@ -429,8 +334,9 @@ export function Board() {
     syncView();
   }, [syncView]);
 
-  // rAF-throttle scroll → window state so the mounted-tile set tracks the pan
+  // rAF-throttle scroll → view state so the mounted-tile set tracks the pan
   // without a setState per scroll event.
+  const rafRef = useRef(0);
   const onScroll = useCallback(() => {
     if (rafRef.current) return;
     rafRef.current = requestAnimationFrame(() => {
@@ -440,55 +346,37 @@ export function Board() {
   }, [syncView]);
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
-  // Cancel any in-flight snap spring (user reclaimed control, or we're done).
-  const cancelSnap = useCallback(() => {
-    if (spring.current.raf) cancelAnimationFrame(spring.current.raf);
-    spring.current.raf = 0;
-  }, []);
+  // ── snap / spring ──────────────────────────────────────────────────────────
+  const { springTo, cancelSnap, onSettle } = useBoardSnap({
+    stageRef,
+    snapMode,
+    pointerDown,
+    drag,
+    cellAt,
+  });
 
-  // Spring the stage toward (toLeft, toTop) with a critically-damped SmoothDamp
-  // on each axis, integrated against real dt every frame. Carries velocity in
-  // `spring`, so re-targeting mid-flight (or a fling's residual speed) stays
-  // smooth. Settles when close and slow, then pins exactly to target.
-  const springTo = useCallback((toLeft: number, toTop: number) => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    const s = spring.current;
-    if (s.raf) cancelAnimationFrame(s.raf);
-    s.vx = 0;
-    s.vy = 0;
-    s.px = stage.scrollLeft; // seed the float from the real position once
-    s.py = stage.scrollTop;
-    s.last = performance.now();
-    const step = (now: number) => {
-      const dt = Math.min(SNAP_MAX_DT, (now - s.last) / 1000);
-      s.last = now;
-      const [nl, vl] = smoothDamp(s.px, toLeft, s.vx, SNAP_SMOOTH_TIME, dt);
-      const [nt, vt] = smoothDamp(s.py, toTop, s.vy, SNAP_SMOOTH_TIME, dt);
-      s.px = nl; // advance the float; scrollLeft (rounded) is just the output
-      s.py = nt;
-      s.vx = vl;
-      s.vy = vt;
-      stage.scrollLeft = nl;
-      stage.scrollTop = nt;
-      const settled =
-        Math.hypot(toLeft - nl, toTop - nt) < SNAP_STOP_PX && Math.hypot(vl, vt) < SNAP_STOP_VEL;
-      if (settled) {
-        stage.scrollLeft = toLeft;
-        stage.scrollTop = toTop;
-        s.raf = 0;
-      } else {
-        s.raf = requestAnimationFrame(step);
-      }
-    };
-    s.raf = requestAnimationFrame(step);
-  }, []);
+  // ── drag pan ───────────────────────────────────────────────────────────────
+  const { suppressClick, onPointerDown, onPointerMove, endDrag } = useBoardDragPan({
+    stageRef,
+    drag,
+    snapMode,
+    snapCss: SNAP_CSS,
+    modalOpenRef,
+    pointerDown,
+    cancelSnap,
+    onSettle,
+  });
 
   // Glide the camera so `entry` lands dead center, reusing the snap spring (same
   // SmoothDamp feel as settle-snapping) instead of a separate animation. Opening
   // a modal freezes native pan (overflow:hidden on the stage), but an
   // overflow:hidden element is still a *programmatic* scroll container, so these
   // scrollLeft/Top writes keep driving the glide to completion behind the modal.
+  const snapModeRef = useRef(snapMode);
+  useEffect(() => {
+    snapModeRef.current = snapMode;
+  }, [snapMode]);
+
   const glideToTile = useCallback(
     (entry: TileRegistryEntry) => {
       const stage = stageRef.current;
@@ -510,6 +398,19 @@ export function Board() {
     [springTo],
   );
 
+  // Center the viewport on a world-space point (the minimap calls this on click
+  // and during drag-scrub). scrollTo clamps to the scroll range, and each frame
+  // of the smooth glide fires onScroll → keeps the minimap alive through it.
+  const jumpTo = useCallback((worldX: number, worldY: number, smooth: boolean) => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    stage.scrollTo({
+      left: worldX - stage.clientWidth / 2,
+      top: worldY - stage.clientHeight / 2,
+      behavior: smooth ? "smooth" : "auto",
+    });
+  }, []);
+
   // Recenter on a tile AND open its detail modal, kicked off together. Shared by
   // the plain-tap and keyboard activation paths.
   const openModalFor = useCallback(
@@ -521,120 +422,27 @@ export function Board() {
     [glideToTile],
   );
 
-  // On settle (scrolling stopped AND nothing held): gravitate the tile under the
-  // crosshair to the viewport center. Reads scroll state live rather than `view`
-  // so it's correct the instant the pan stops. Skips when already centered.
-  const onSettle = useCallback(() => {
-    // Only the legacy JS spring magnetically re-centers on settle; the native
-    // scroll-snap modes let the browser do it (no JS = no trackpad fight).
-    if (snapModeRef.current !== "spring") return;
-    // Ignore the settle from our own spring, and never fight a held pointer.
-    if (spring.current.raf || pointerDown.current || drag.current.active) return;
-    const stage = stageRef.current;
-    if (!stage) return;
-    const cx = stage.scrollLeft + stage.clientWidth / 2;
-    const cy = stage.scrollTop + stage.clientHeight / 2;
-    const hit = cellAt(cx, cy);
-    if (!hit) return; // crosshair over a gap (rare; world is fully tiled) → leave it
-    const toLeft = hit.rect.x + hit.rect.w / 2 - stage.clientWidth / 2;
-    const toTop = hit.rect.y + hit.rect.h / 2 - stage.clientHeight / 2;
-    if (Math.hypot(toLeft - stage.scrollLeft, toTop - stage.scrollTop) < SNAP_DEADZONE) return;
-    springTo(toLeft, toTop);
-  }, [springTo]);
-
-  // Desktop mouse-drag-to-pan. Touch is left to native momentum scrolling.
-  const onPointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      // Modal open: the board is frozen. Let the press fall through to the
-      // modal's backdrop (close) instead of starting a pan.
-      if (modalOpenRef.current) return;
-      // A press that lands on an inner control (slider/toggle/button/link) drives
-      // THAT control, not the board — without this, dragging the A/C setpoint
-      // slider was read as a board pan and scrolled the whole screen. Native CSS
-      // touch-action:none on the slider blocks the touch/trackpad pan; this blocks
-      // the mouse-drag shim. The tile still recenters via onTileClickCapture.
-      if ((e.target as HTMLElement).closest(INTERACTIVE_SELECTOR)) return;
-      // Any grab (touch or mouse) interrupts a running snap so we don't fight it,
-      // and marks the pointer held so no spring engages until release.
-      pointerDown.current = true;
-      cancelSnap();
-      if (e.pointerType !== "mouse" || e.button !== 0) return;
-      const stage = stageRef.current;
-      if (!stage) return;
-      drag.current = {
-        active: true,
-        moved: false,
-        x: e.clientX,
-        y: e.clientY,
-        sl: stage.scrollLeft,
-        st: stage.scrollTop,
-      };
-    },
-    [cancelSnap],
-  );
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    const d = drag.current;
-    const stage = stageRef.current;
-    if (!d.active || !stage) return;
-    const dx = e.clientX - d.x;
-    const dy = e.clientY - d.y;
-    if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-    if (!d.moved) {
-      d.moved = true;
-      stage.style.cursor = "grabbing";
-      // Suspend native scroll-snap for the duration of the drag: the shim writes
-      // scrollLeft/Top every frame, and a live snap would re-pull toward a nearby
-      // tile on each write, fighting the drag (the click-drag jitter). Restored
-      // on release, which re-snaps once. No-op in none/spring modes (already none).
-      stage.style.scrollSnapType = "none";
+  // Any click within a tile recenters the camera on that tile — even taps that
+  // land on an inner control (toggle/slider/button) or on a self-tapping tile
+  // (Controls). Runs in the capture phase (wired via onClickCapture) so an inner
+  // stopPropagation — e.g. the Controls body tap — can't swallow the recenter.
+  // The modal still opens only for a "plain" tap: a self-tapping tile runs its
+  // own UI and a tap on a control drives that control, so neither also opens the
+  // board's detail modal.
+  function onTileClickCapture(entry: TileRegistryEntry, e: React.MouseEvent<HTMLDivElement>) {
+    if (suppressClick.current) {
+      suppressClick.current = false;
+      return;
     }
-    stage.scrollLeft = d.sl - dx;
-    stage.scrollTop = d.st - dy;
-  }, []);
-  const endDrag = useCallback(() => {
-    const stage = stageRef.current;
-    if (stage) stage.style.cursor = "grab";
-    const moved = drag.current.moved;
-    if (moved) suppressClick.current = true;
-    drag.current.active = false;
-    pointerDown.current = false;
-    // Re-arm native snap (matching the active mode); assigning the value re-snaps
-    // to the nearest tile in proximity/mandatory. "spring"/"none" → "none".
-    if (stage) stage.style.scrollSnapType = SNAP_CSS[snapModeRef.current];
-    // Mouse-drag has no momentum, so no native scrollend fires on release —
-    // settle explicitly (spring mode only; onSettle bails otherwise).
-    if (moved) onSettle();
-  }, [onSettle]);
-
-  // Settle = native scrollend where supported, else a scroll-idle debounce.
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    if (SUPPORTS_SCROLLEND) {
-      stage.addEventListener("scrollend", onSettle);
-      return () => stage.removeEventListener("scrollend", onSettle);
+    if (entry.ownsTap || (e.target as HTMLElement).closest(INTERACTIVE_SELECTOR)) {
+      glideToTile(entry);
+      return;
     }
-    let idle = 0;
-    const onIdle = () => {
-      clearTimeout(idle);
-      idle = window.setTimeout(onSettle, SETTLE_IDLE_MS);
-    };
-    stage.addEventListener("scroll", onIdle);
-    return () => {
-      stage.removeEventListener("scroll", onIdle);
-      clearTimeout(idle);
-    };
-  }, [onSettle]);
-  useEffect(() => () => cancelSnap(), [cancelSnap]);
-
-  const inWindow = (rect: { x: number; y: number; w: number; h: number }) =>
-    rect.x < view.left + view.vw + OVERSCAN &&
-    rect.x + rect.w > view.left - OVERSCAN &&
-    rect.y < view.top + view.vh + OVERSCAN &&
-    rect.y + rect.h > view.top - OVERSCAN;
+    openModalFor(entry);
+  }
 
   // One windowed list for the whole board: real tiles and placeholders alike.
-  const visibleCells = BOARD_CELLS.filter(({ rect }) => inWindow(rect));
+  const visibleCells = getVisibleTiles(BOARD_CELLS, view);
 
   // The cell under the viewport crosshair (world-space center of the view).
   // Updates every scroll frame via `view`; null when the center lands in a gap.

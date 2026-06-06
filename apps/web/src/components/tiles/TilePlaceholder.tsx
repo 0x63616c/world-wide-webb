@@ -1,5 +1,5 @@
-import { Icon, type IconName } from "../Icon";
-import { Tile, TileHeader } from "../ui";
+import { Icon, type IconName } from "@/components/Icon";
+import { Tile, TileHeader } from "@/components/ui";
 
 export interface TilePlaceholderProps {
   label: string;

@@ -1,5 +1,5 @@
-import { Icon } from "../Icon";
-import { Tile } from "../ui";
+import { Icon } from "@/components/Icon";
+import { Tile } from "@/components/ui";
 import { ClockSecondsRing } from "./ClockSecondsRing";
 
 export interface ClockGreetingViewProps {

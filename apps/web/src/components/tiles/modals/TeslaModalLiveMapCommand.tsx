@@ -13,14 +13,13 @@
  * trivially in Storybook and unit tests.
  */
 
-import { layers, namedFlavor } from "@protomaps/basemaps";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Protocol } from "pmtiles";
 import { useEffect, useRef, useState } from "react";
-import { HOME_LAT, HOME_LON } from "../../../config/home";
-import { Icon } from "../../Icon";
-import { Modal } from "../../ui";
+import { Icon } from "@/components/Icon";
+import { Modal } from "@/components/ui";
+import { HOME_LAT, HOME_LON } from "@/config/home";
+import { buildDarkStyle, createCarPinElement, registerPmtilesProtocol } from "@/lib/maps/protomaps";
 
 // ─── home anchor ──────────────────────────────────────────────────────────────
 // Public placeholder home center (single source of truth: config/home.ts).
@@ -40,84 +39,6 @@ function haversineMiles(aLat: number, aLon: number, bLat: number, bLon: number):
   const lat2 = toRad(bLat);
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
   return 2 * EARTH_RADIUS_MILES * Math.asin(Math.sqrt(h));
-}
-
-// ─── map helpers (interaction-enabled variant) ────────────────────────────────
-// Module-level Set tracks protocol registration to avoid duplicate-handler
-// warnings on HMR — same guard pattern as TeslaMap.
-const registeredProtocols = new Set<string>();
-
-function buildInteractiveStyle(): maplibregl.StyleSpecification {
-  const baseLayers = layers("protomaps", namedFlavor("black"), { lang: "en" });
-  // Keep symbol/label layers — at modal zoom levels street names add value.
-  const themedLayers = baseLayers.map((layer) => {
-    const l = { ...layer } as maplibregl.LayerSpecification & { paint?: Record<string, unknown> };
-    if (l.id === "earth") l.paint = { ...(l.paint ?? {}), "fill-color": "#0A0D10" };
-    if (l.id === "water") l.paint = { ...(l.paint ?? {}), "fill-color": "#060C14" };
-    if (l.id === "buildings")
-      l.paint = { ...(l.paint ?? {}), "fill-color": "#0E1318", "fill-opacity": 0.9 };
-    if (typeof l.id === "string" && l.id.includes("casing"))
-      l.paint = { ...(l.paint ?? {}), "line-color": "#0A0D10" };
-    if (typeof l.id === "string" && l.id.includes("minor") && l.type === "line")
-      l.paint = { ...(l.paint ?? {}), "line-color": "#171D23" };
-    if (
-      typeof l.id === "string" &&
-      (l.id.includes("major") ||
-        l.id.includes("highway") ||
-        l.id.includes("trunk") ||
-        l.id.includes("primary")) &&
-      l.type === "line"
-    ) {
-      l.paint = { ...(l.paint ?? {}), "line-color": "#13243d" };
-    }
-    if (l.type === "fill" && l.id !== "earth" && l.id !== "water" && l.id !== "buildings") {
-      const greenish =
-        typeof l.id === "string" &&
-        /park|wood|forest|grass|green|nature|golf|pitch|garden/.test(l.id);
-      l.paint = { ...(l.paint ?? {}), "fill-color": greenish ? "#0a1322" : "#0A0D10" };
-    }
-    return l;
-  });
-
-  return {
-    version: 8,
-    sources: {
-      protomaps: {
-        type: "vector",
-        url: "pmtiles:///maps/socal.pmtiles",
-        attribution: "© <a href='https://openstreetmap.org/copyright'>OpenStreetMap</a>",
-      },
-    },
-    layers: themedLayers as maplibregl.LayerSpecification[],
-  };
-}
-
-function createPinElement(): HTMLElement {
-  const el = document.createElement("div");
-  el.style.cssText = `
-    width: 56px;
-    height: 56px;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: visible;
-    pointer-events: none;
-  `;
-  el.innerHTML = `
-    <div style="
-      position:absolute;
-      inset:0;
-      border-radius:50%;
-      background:radial-gradient(circle, rgba(0, 112, 243,.30) 0%, rgba(0, 112, 243,.10) 45%, rgba(0, 112, 243,0) 70%);
-    "></div>
-    <svg width="24" height="30" viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg"
-         style="position:relative;z-index:1;overflow:visible;filter:drop-shadow(0 0 6px rgba(0, 112, 243,.45))">
-      <path d="M12 28 C4 18 0 13 0 8 A12 12 0 1 1 24 8 C24 13 20 18 12 28Z" fill="#0070f3"/>
-      <circle cx="12" cy="8" r="4.5" fill="#04193a"/>
-    </svg>
-  `;
-  return el;
 }
 
 // ─── interactive map sub-component ───────────────────────────────────────────
@@ -145,11 +66,8 @@ function LiveMap({ lat, lon, recenterTick }: LiveMapProps) {
     const initLat = initialLatRef.current;
     const initLon = initialLonRef.current;
 
-    if (!registeredProtocols.has("pmtiles")) {
-      const protocol = new Protocol();
-      maplibregl.addProtocol("pmtiles", protocol.tile);
-      registeredProtocols.add("pmtiles");
-    }
+    // Register pmtiles protocol once per page (idempotent)
+    registerPmtilesProtocol();
 
     const center: [number, number] =
       initLon !== null && initLat !== null ? [initLon, initLat] : [HOME_LNG, HOME_LAT];
@@ -158,9 +76,10 @@ function LiveMap({ lat, lon, recenterTick }: LiveMapProps) {
     try {
       // Interaction is ENABLED here (dragPan, scrollZoom, etc. default true).
       // This is the distinguishing capability vs the tile's locked map.
+      // Labels are kept (includeLabels: true) — at modal zoom levels street names add value.
       map = new maplibregl.Map({
         container: containerRef.current,
-        style: buildInteractiveStyle(),
+        style: buildDarkStyle({ includeLabels: true }),
         center,
         zoom: 14,
         attributionControl: false,
@@ -176,7 +95,7 @@ function LiveMap({ lat, lon, recenterTick }: LiveMapProps) {
     });
 
     if (initLon !== null && initLat !== null) {
-      const el = createPinElement();
+      const el = createCarPinElement();
       markerRef.current = new maplibregl.Marker({ element: el })
         .setLngLat([initLon, initLat])
         .addTo(map);
@@ -196,7 +115,7 @@ function LiveMap({ lat, lon, recenterTick }: LiveMapProps) {
     if (markerRef.current) {
       markerRef.current.setLngLat([lon, lat]);
     } else {
-      const el = createPinElement();
+      const el = createCarPinElement();
       markerRef.current = new maplibregl.Marker({ element: el })
         .setLngLat([lon, lat])
         .addTo(mapRef.current);

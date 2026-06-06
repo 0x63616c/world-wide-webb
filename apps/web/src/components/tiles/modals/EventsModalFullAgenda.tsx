@@ -16,7 +16,7 @@
  * Storybook and unit tests. Width 560 (narrow agenda as briefed), maxHeight 760.
  */
 
-import { Modal, StatusDot } from "../../ui";
+import { Modal, StatusDot } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

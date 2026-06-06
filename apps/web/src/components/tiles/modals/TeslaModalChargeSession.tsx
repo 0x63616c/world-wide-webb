@@ -27,7 +27,7 @@
  */
 
 import { useRef } from "react";
-import { BorderProgressRing, Modal, Pill, PillTone, Stat } from "../../ui";
+import { BorderProgressRing, Modal, Pill, PillTone, Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
