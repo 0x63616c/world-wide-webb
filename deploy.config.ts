@@ -48,10 +48,13 @@ export default stack("control-center", {
         TZ: "America/Los_Angeles",
         // Home Assistant is on the host via OrbStack's host alias.
         HA_URL: "http://host.docker.internal:8123",
-        // Must match the key env.ts reads (UNIFI_CONTROLLER_URL); an earlier
-        // UNIFI_URL was never read, so prod silently fell back to the
-        // 192.168.0.1 default (CC-355t.7).
-        UNIFI_CONTROLLER_URL: "https://host.docker.internal",
+        // The UniFi gateway is a separate LAN device, NOT the docker host, so
+        // this points at the gateway IP (unlike HA, which runs on the host).
+        // CC-355t.7 fixed the env KEY name but left the value as
+        // host.docker.internal (dead on :443) -> network.status timed out and
+        // the tile hung; the gateway IP is what env.ts already defaulted to and
+        // what actually worked before (CC-9m05).
+        UNIFI_CONTROLLER_URL: "https://192.168.0.1",
         // DATABASE_URL is built at runtime from the mounted POSTGRES_PASSWORD
         // docker secret (apps/api/src/env.ts) so the password never lands in
         // the service spec. postgres host/db/user use the env.ts defaults.
@@ -106,7 +109,8 @@ export default stack("control-center", {
         // LA-local timestamps correctly (matches the api, see its note).
         TZ: "America/Los_Angeles",
         HA_URL: "http://host.docker.internal:8123",
-        UNIFI_CONTROLLER_URL: "https://host.docker.internal",
+        // Gateway IP, not the docker host — see the api note above (CC-9m05).
+        UNIFI_CONTROLLER_URL: "https://192.168.0.1",
       },
     }),
 
