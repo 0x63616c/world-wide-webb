@@ -21,6 +21,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockMutate = vi.fn();
 const mockSceneMutate = vi.fn();
 const mockBrightnessMutate = vi.fn();
+const mockModeMutate = vi.fn();
 let capturedBrightnessOpts: { onMutate?: (vars: { pct: number }) => unknown } | undefined;
 
 // Shared cache spies so optimistic onMutate side effects are observable.
@@ -83,6 +84,9 @@ vi.mock("../../../lib/trpc", () => ({
             },
           };
         },
+      },
+      setLampMode: {
+        useMutation: () => ({ mutate: mockModeMutate }),
       },
     },
     useUtils: () => ({
@@ -616,6 +620,157 @@ describe("ControlsTile", () => {
       render(<ControlsTile />);
       fireEvent.click(screen.getByLabelText("More"));
       expect(screen.getByLabelText("Brightness")).toBeDisabled();
+    });
+  });
+
+  // ── www-7d5b.3.7: setLampMode (party) wiring + speed ──────────────────────────
+  describe("www-7d5b.3.7: party mode + speed wiring", () => {
+    it("threads activeScene into the modal so the active scene tile highlights", () => {
+      mockQueryReturn = {
+        data: {
+          lamps: {
+            on: true,
+            count: 2,
+            sub: "On",
+            pending: false,
+            brightness: 72,
+            activeScene: "blue",
+          },
+          lights: { on: false, pending: false },
+          fan: { on: false, sub: "", pending: false },
+        },
+        isLoading: false,
+        isError: false,
+      };
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("More"));
+      expect(screen.getByRole("button", { name: "Blue" })).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("tapping Party when none active starts party with the current speed (default medium)", () => {
+      mockQueryReturn = {
+        data: {
+          lamps: {
+            on: true,
+            count: 2,
+            sub: "On",
+            pending: false,
+            brightness: 72,
+            activeScene: null,
+          },
+          lights: { on: false, pending: false },
+          fan: { on: false, sub: "", pending: false },
+        },
+        isLoading: false,
+        isError: false,
+      };
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("More"));
+      fireEvent.click(screen.getByRole("button", { name: "Party" }));
+      expect(mockModeMutate).toHaveBeenCalledWith({ mode: "party", speed: "medium" });
+    });
+
+    it("tapping Party when party active stops it (mode: none)", () => {
+      mockQueryReturn = {
+        data: {
+          lamps: {
+            on: true,
+            count: 2,
+            sub: "On",
+            pending: false,
+            brightness: 72,
+            activeScene: "party",
+          },
+          lights: { on: false, pending: false },
+          fan: { on: false, sub: "", pending: false },
+        },
+        isLoading: false,
+        isError: false,
+      };
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("More"));
+      fireEvent.click(screen.getByRole("button", { name: "Party" }));
+      expect(mockModeMutate).toHaveBeenCalledWith({ mode: "none" });
+    });
+
+    it("shows the segmented speed control only when party is active", () => {
+      mockQueryReturn = {
+        data: {
+          lamps: {
+            on: true,
+            count: 2,
+            sub: "On",
+            pending: false,
+            brightness: 72,
+            activeScene: null,
+          },
+          lights: { on: false, pending: false },
+          fan: { on: false, sub: "", pending: false },
+        },
+        isLoading: false,
+        isError: false,
+      };
+      const { rerender } = render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("More"));
+      // Not party → no speed tablist.
+      expect(screen.queryByRole("tablist", { name: "Party speed" })).not.toBeInTheDocument();
+
+      mockQueryReturn = {
+        data: {
+          lamps: {
+            on: true,
+            count: 2,
+            sub: "On",
+            pending: false,
+            brightness: 72,
+            activeScene: "party",
+          },
+          lights: { on: false, pending: false },
+          fan: { on: false, sub: "", pending: false },
+        },
+        isLoading: false,
+        isError: false,
+      };
+      rerender(<ControlsTile />);
+      expect(screen.getByRole("tablist", { name: "Party speed" })).toBeInTheDocument();
+    });
+
+    it("changing speed while party active re-issues setLampMode with the new speed", () => {
+      mockQueryReturn = {
+        data: {
+          lamps: {
+            on: true,
+            count: 2,
+            sub: "On",
+            pending: false,
+            brightness: 72,
+            activeScene: "party",
+          },
+          lights: { on: false, pending: false },
+          fan: { on: false, sub: "", pending: false },
+        },
+        isLoading: false,
+        isError: false,
+      };
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("More"));
+      fireEvent.click(screen.getByRole("tab", { name: "Fast" }));
+      expect(mockModeMutate).toHaveBeenCalledWith({ mode: "party", speed: "fast" });
+    });
+
+    it("Party tile is disabled when lamps are off", () => {
+      mockQueryReturn = {
+        data: {
+          lamps: { on: false, count: 0, sub: "Off", pending: false, activeScene: null },
+          lights: { on: false, pending: false },
+          fan: { on: false, sub: "", pending: false },
+        },
+        isLoading: false,
+        isError: false,
+      };
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("More"));
+      expect(screen.getByRole("button", { name: "Party" })).toBeDisabled();
     });
   });
 });

@@ -35,9 +35,15 @@ function baseProps(
     onScene: vi.fn(),
     onBrightness: vi.fn(),
     onParty: vi.fn(),
+    onSpeed: vi.fn(),
     ...over,
   };
 }
+
+const partyActive: ControlsViewData = {
+  ...allOn,
+  lamps: { ...allOn.lamps, activeScene: "party" },
+};
 
 // ─── open / closed ──────────────────────────────────────────────────────────
 
@@ -170,6 +176,40 @@ describe("ExpandedControlsModalView — party tile", () => {
     expect(party).toBeDisabled();
     fireEvent.click(party);
     expect(onParty).not.toHaveBeenCalled();
+  });
+});
+
+// ─── party speed control ────────────────────────────────────────────────────────
+
+describe("ExpandedControlsModalView — party speed control", () => {
+  it("does not render the speed control when party is not active", () => {
+    render(<ExpandedControlsModalView {...baseProps()} />);
+    expect(screen.queryByRole("tablist", { name: "Party speed" })).not.toBeInTheDocument();
+  });
+
+  it("renders the segmented speed control when party is active", () => {
+    render(<ExpandedControlsModalView {...baseProps({ data: partyActive, speed: "medium" })} />);
+    expect(screen.getByRole("tablist", { name: "Party speed" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Med" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("fires onSpeed with the chosen speed", () => {
+    const onSpeed = vi.fn();
+    render(
+      <ExpandedControlsModalView {...baseProps({ data: partyActive, speed: "medium", onSpeed })} />,
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Fast" }));
+    expect(onSpeed).toHaveBeenCalledWith("fast");
+  });
+
+  it("defaults the speed control to Medium when speed is unset", () => {
+    render(<ExpandedControlsModalView {...baseProps({ data: partyActive })} />);
+    expect(screen.getByRole("tab", { name: "Med" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("omits the speed control when onSpeed is not provided", () => {
+    render(<ExpandedControlsModalView {...baseProps({ data: partyActive, onSpeed: undefined })} />);
+    expect(screen.queryByRole("tablist", { name: "Party speed" })).not.toBeInTheDocument();
   });
 });
 
