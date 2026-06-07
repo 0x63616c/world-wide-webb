@@ -113,6 +113,13 @@ jobs:
         # bypass (or a hook that isn't installed on a contributor's machine)
         # would otherwise ship lint regressions undetected (CC-355t.6).
         run: bunx biome check .
+      - name: Storybook docs guard
+        # Authoritative backstop for the lefthook pre-commit `storybook-docs`
+        # hook (bypassable with --no-verify): fails the test job if any tracked
+        # *.stories.tsx lacks an autodocs Docs page. `deploy` needs `test`, so a
+        # missing doc blocks the deploy. Fast (grep) — runs before the slow
+        # Playwright install so it fails early (CC-o0ko).
+        run: bash scripts/check-storybook-docs.sh
       - name: Install Playwright Chromium (for Storybook browser tests)
         run: bunx playwright install --with-deps chromium
       - name: Typecheck
