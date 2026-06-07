@@ -69,7 +69,7 @@ export interface IconProps {
 // below enforces the house conventions (size scale, stroke width, currentColor,
 // a11y) in ONE place, so the library stays swappable and call sites never inline
 // per-icon styling. Adding an icon = add a union member + a lucide glyph here.
-const GLYPHS: Record<IconName, LucideIcon> = {
+export const GLYPHS: Record<IconName, LucideIcon> = {
   sun: Sun,
   moon: Moon,
   cloud: Cloud,
