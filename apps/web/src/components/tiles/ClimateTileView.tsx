@@ -17,9 +17,9 @@ import { Skeleton, Tile, TileHeader, TileStatus } from "@/components/ui";
 
 // ─── types & constants ──────────────────────────────────────────────────────
 
-// Visual band (matches the API's accept range).
-export const MIN = 65;
-export const MAX = 80;
+// Visual band (matches the API's accept range, www-pu4m).
+export const MIN = 67;
+export const MAX = 77;
 // Minimum deadband between low/high in heat_cool — thumbs can never meet/cross.
 export const GAP = 2;
 

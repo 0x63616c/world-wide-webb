@@ -142,13 +142,32 @@ function climateEquals(a: DeviceClimateState, b: DeviceClimateState): boolean {
 export function climateStateConverged(
   desired: DeviceClimateState,
   reported: DeviceClimateState,
+  opts: { ignoreFan?: boolean } = {},
 ): boolean {
   if (desired.mode !== reported.mode) return false;
   if (desired.target != null && desired.target !== reported.target) return false;
   if (desired.targetLow != null && desired.targetLow !== reported.targetLow) return false;
   if (desired.targetHigh != null && desired.targetHigh !== reported.targetHigh) return false;
-  if (desired.fanMode != null && desired.fanMode !== reported.fanMode) return false;
+  // While the AC is actively conditioning it owns the blower (ignoreFan); a fan
+  // mismatch then is the AC asserting the fan, not drift to fight (www-pu4m).
+  if (!opts.ignoreFan && desired.fanMode != null && desired.fanMode !== reported.fanMode) {
+    return false;
+  }
   return true;
+}
+
+// HA hvac_action values meaning the AC is actively driving its own blower, so
+// fan_mode is not freely commandable. Reported raw, lowercase (mapHaClimate
+// stores attrs.hvac_action verbatim).
+const CONDITIONING_ACTIONS = new Set(["cooling", "heating"]);
+
+/**
+ * True when the thermostat is actively heating/cooling (www-pu4m). In this window
+ * the AC controls its blower regardless of the dashboard's desired fan_mode, so
+ * the climate enforcer yields the fan dimension rather than fight it every cycle.
+ */
+export function isActivelyConditioning(reported: DeviceClimateState): boolean {
+  return reported.action != null && CONDITIONING_ACTIONS.has(reported.action);
 }
 
 /**

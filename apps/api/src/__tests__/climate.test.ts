@@ -452,8 +452,8 @@ describe("getClimateZones()", () => {
     ]);
     const [zone] = await getClimateZones();
     expect(zone.name).toBe("climate.home");
-    expect(zone.minTemp).toBe(65);
-    expect(zone.maxTemp).toBe(80);
+    expect(zone.minTemp).toBe(67);
+    expect(zone.maxTemp).toBe(77);
     expect(zone.presetModes).toEqual([]);
     expect(zone.fanModes).toEqual([]);
   });
@@ -544,6 +544,12 @@ describe("isValidRange()", () => {
   it("rejects out-of-band values", () => {
     expect(isValidRange(60, 75)).toBe(false);
     expect(isValidRange(70, 85)).toBe(false);
+  });
+
+  it("uses the 67-77 band edges (www-pu4m)", () => {
+    expect(isValidRange(67, 77)).toBe(true); // full band accepted
+    expect(isValidRange(66, 74)).toBe(false); // 66 below MIN
+    expect(isValidRange(70, 78)).toBe(false); // 78 above MAX
   });
 
   it("rejects non-integers", () => {

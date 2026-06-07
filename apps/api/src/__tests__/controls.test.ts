@@ -300,16 +300,15 @@ function climateFanRow(
   desiredFanMode: string | null,
   reportedFanMode: string | null,
   available = true,
+  mode = "cool",
 ) {
   return makeDeviceRow({
     id: "climate-thermostat",
     entityId: "climate.home",
     kind: "climate",
     domain: "climate",
-    desiredState:
-      desiredFanMode === null ? { mode: "cool" } : { mode: "cool", fanMode: desiredFanMode },
-    reportedState:
-      reportedFanMode === null ? { mode: "cool" } : { mode: "cool", fanMode: reportedFanMode },
+    desiredState: desiredFanMode === null ? { mode } : { mode, fanMode: desiredFanMode },
+    reportedState: reportedFanMode === null ? { mode } : { mode, fanMode: reportedFanMode },
     available,
   });
 }
@@ -468,13 +467,26 @@ describe("getControlsState", () => {
     expect(mockGetEntities).not.toHaveBeenCalled();
   });
 
-  it("reports fan off when the climate row's desired fan_mode is auto", async () => {
+  it("labels fan 'Auto' when fan_mode is auto AND the AC is running (www-pu4m)", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("auto", "auto")]));
+    // mode cool (running) + fanMode auto → "auto" is meaningful (fan follows demand).
+    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("auto", "auto", true, "cool")]));
 
     const state = await getControlsState();
 
     expect(state.fan.on).toBe(false);
+    expect(state.fan.sub).toBe("Auto");
+  });
+
+  it("labels fan 'Off' when fan_mode is auto AND the AC mode is off (www-pu4m)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    // AC off → an "auto" fan is doing nothing, so surface it honestly as Off.
+    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("auto", "auto", true, "off")]));
+
+    const state = await getControlsState();
+
+    expect(state.fan.on).toBe(false);
+    expect(state.fan.sub).toBe("Off");
   });
 
   it("fan pending:true while desired fan_mode has not converged with reported", async () => {

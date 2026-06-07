@@ -60,8 +60,8 @@ describe("seed helpers", () => {
   });
 
   it("rangeFromTarget stays in band at the edges", () => {
-    expect(rangeFromTarget(65)).toEqual({ low: 65, high: 68 });
-    expect(rangeFromTarget(80)).toEqual({ low: 77, high: 80 });
+    expect(rangeFromTarget(67)).toEqual({ low: 67, high: 70 });
+    expect(rangeFromTarget(77)).toEqual({ low: 74, high: 77 });
   });
 
   it("targetFromRange returns the rounded midpoint", () => {
