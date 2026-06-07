@@ -13,6 +13,13 @@ pre-commit:
       # BLOCKING: exits non-zero if staged files introduce fake-data sentinels.
       # Sanctioned exceptions live in the script itself (network-service, weather-service).
       run: bash scripts/check-fake-data.sh {staged_files}
+    storybook-docs:
+      glob: "*.stories.tsx"
+      # BLOCKING: every Storybook story must enable autodocs (directly via
+      # tags:["autodocs"] or through a sanctioned meta factory like defineTileMeta)
+      # so addon-docs generates a Docs page. Fast grep; CI's test job re-runs it
+      # over ALL tracked stories as the authoritative backstop (www-o0ko).
+      run: bash scripts/check-storybook-docs.sh {staged_files}
     no-ofelia:
       glob: "*.{ts,tsx,js,mjs,json,yml,yaml,md,sh,toml}"
       # BLOCKING: rejects reintroduction of Ofelia (replaced by the bosun
