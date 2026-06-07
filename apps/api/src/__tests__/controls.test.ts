@@ -417,7 +417,7 @@ describe("getControlsState", () => {
     expect(state.lamps.count).toBe(0);
   });
 
-  it("pending:true while desired has not converged with reported", async () => {
+  it("lamps never report pending even when desired has not converged (www-uq58)", async () => {
     mockIsConfigured.mockReturnValue(true);
     const row = makeDeviceRow({
       id: "lamp-1",
@@ -432,9 +432,10 @@ describe("getControlsState", () => {
 
     const state = await getControlsState();
 
-    // Effective (desired) is on; reported still off → pending.
+    // Effective (desired) is on; reported still off — but lamps are
+    // desired-authoritative and never surface a pending cue (www-uq58).
     expect(state.lamps.on).toBe(true);
-    expect(state.lamps.pending).toBe(true);
+    expect(state.lamps.pending).toBe(false);
   });
 
   it("pending:false once reported converges with desired", async () => {
@@ -759,7 +760,7 @@ describe("controlsRouter.list", () => {
     expect(result.lamps.pending).toBe(false);
   });
 
-  it("returns pending:true when a lamp's desired has not converged with reported", async () => {
+  it("lamps stay pending:false even when desired has not converged (www-uq58)", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntities.mockResolvedValue([]);
 
@@ -777,7 +778,7 @@ describe("controlsRouter.list", () => {
     const caller = buildCaller();
     const result = await caller.controls.list({});
 
-    expect(result.lamps.pending).toBe(true);
+    expect(result.lamps.pending).toBe(false);
   });
 });
 
