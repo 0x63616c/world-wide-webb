@@ -457,6 +457,15 @@ export function Board() {
   // own UI and a tap on a control drives that control, so neither also opens the
   // board's detail modal.
   function onTileClickCapture(entry: TileRegistryEntry, e: React.MouseEvent<HTMLDivElement>) {
+    // Freeze the board while ANY modal is open. The shared <Modal> portals to
+    // <body>, but in the React tree it is still a descendant of this tile
+    // wrapper, so React replays clicks inside the modal up into this capture
+    // handler. Without this bail a tap on a modal control (e.g. the Controls
+    // party/scene buttons) would call glideToTile → a fresh smooth scrollTo of
+    // the board behind the backdrop, so rapid taps visibly jitter the
+    // background. native scroll + drag-pan are already frozen on modalOpen; this
+    // closes the same hole for the programmatic click→glide path.
+    if (modalOpen) return;
     if (suppressClick.current) {
       suppressClick.current = false;
       return;
