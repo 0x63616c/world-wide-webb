@@ -16,7 +16,10 @@ async function main(): Promise<void> {
       await cmdRoutes(args);
       break;
     case "up":
-      await cmdUp();
+      // www-fmws: the fresh-image one-shot deploy passes the webhook's digest map
+      // as the positional `up` arg (JSON), so this inner `bosun up` still pins
+      // every changed service by digest. Absent for an interactive `bosun up`.
+      await cmdUp(parseOverridesArg(args[0]));
       break;
     case "verify":
       await cmdVerify();
@@ -56,6 +59,22 @@ async function loadSpec() {
   const configPath = `${process.cwd()}/deploy.config.ts`;
   const mod = (await import(configPath)) as { default: unknown };
   return mod.default;
+}
+
+// Parse the positional `up` arg (a JSON digest map) the fresh-image one-shot
+// passes to the inner `bosun up`. Returns undefined for a missing or malformed
+// value so a plain `bosun up` (operator at a terminal) is unaffected.
+function parseOverridesArg(raw: string | undefined): Record<string, string> | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, string>;
+    }
+  } catch {
+    // Malformed — deploy by :main tag rather than crash the deploy.
+  }
+  return undefined;
 }
 
 // plan: evaluate the config and print the static Spec (no secret values).
@@ -340,7 +359,7 @@ async function cmdServe(): Promise<void> {
   const { default: spec } = (await import(`${process.cwd()}/deploy.config.ts`)) as {
     default: import("./spec.ts").Spec;
   };
-  const { handleServeRequest } = await import("./serve.ts");
+  const { handleServeRequest, runWebhookDeploy } = await import("./serve.ts");
 
   // Start the in-process cron scheduler. This agent is the long-lived process on
   // a manager node with the docker socket, so it runs each cronJob() on its
@@ -350,6 +369,7 @@ async function cmdServe(): Promise<void> {
 
   console.log(`[bosun serve] Listening on :${port} for POST /deploy/${spec.stackName}`);
 
+  const runner = makeDefaultRunner();
   Bun.serve({
     port,
     fetch(req) {
@@ -357,16 +377,17 @@ async function cmdServe(): Promise<void> {
         stackName: spec.stackName,
         token,
         // Run deploy in the background; the handler responds 202 immediately.
-        // The digest map from the webhook body is threaded into the render so
-        // changed services roll deterministically (www-czg).
-        // Advisory verify on the serve path: a successful stack deploy whose
-        // probes are merely not-yet-warm must not surface as a deploy error
-        // (www-1dx). A genuine deploy failure (secrets/render/stack deploy) still
-        // throws out of cmdUp and is logged here.
+        // www-fmws: runWebhookDeploy launches the FRESH bosun image as a one-shot
+        // (new config + builders in one deploy), falling back to in-process cmdUp
+        // when the payload carries no bosun digest.
         onDeploy: (imageOverrides) =>
-          cmdUp(imageOverrides, { advisoryVerify: true }).catch((err) =>
-            console.error("[bosun serve] deploy error:", err),
-          ),
+          runWebhookDeploy(imageOverrides, {
+            stackName: spec.stackName,
+            runner,
+            inProcessUp: (o) => cmdUp(o, { advisoryVerify: true }),
+            log: console.log,
+            env: process.env,
+          }).catch((err) => console.error("[bosun serve] deploy error:", err)),
       });
     },
   });
