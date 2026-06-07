@@ -11,6 +11,7 @@
  */
 import { runMigrations } from "./db/migrate";
 import { env } from "./env";
+import { runClimateEnforcerCycle } from "./services/climate-enforcer-service";
 import { runDeviceSyncCycle } from "./services/device-sync-service";
 import { runEnforcerCycle } from "./services/light-enforcer-service";
 import { reconcilePartyMode } from "./services/party-service";
@@ -32,6 +33,16 @@ const workers: Worker[] = [
     intervalMs: 1_000,
     runOnStart: true,
     run: runEnforcerCycle,
+  },
+  {
+    // DB-authoritative climate enforcer (www-unxz.2): reconciles desired→HA for the
+    // single house thermostat every ~1s (enforce policy — the dashboard wins).
+    // Writes real ambient/hvac_action into reportedState so getClimate reads the
+    // DB row with no HA call.
+    name: "climate-enforcer",
+    intervalMs: 1_000,
+    runOnStart: true,
+    run: runClimateEnforcerCycle,
   },
   {
     // Fan-only since the cutover; lights moved to the enforcer above.

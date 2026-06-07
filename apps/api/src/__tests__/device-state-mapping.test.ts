@@ -100,15 +100,38 @@ describe("mapHaToReported", () => {
     expect(result).toEqual({ reported: null, available: false });
   });
 
-  it("returns available but null reported for unknown kind", () => {
-    const result = mapHaToReported("climate", {
-      entity_id: "climate.ac",
-      state: "cool",
+  it("returns available but null reported for an unknown kind", () => {
+    const result = mapHaToReported("sensor", {
+      entity_id: "sensor.temp",
+      state: "72",
       attributes: {},
       last_updated: new Date().toISOString(),
     });
     expect(result.available).toBe(true);
     expect(result.reported).toBeNull();
+  });
+
+  it("maps a climate entity to reported climate state (ambient/action reported-only) — www-unxz.2", () => {
+    const result = mapHaToReported("climate", {
+      entity_id: "climate.home",
+      state: "cool",
+      attributes: {
+        hvac_mode: "cool",
+        temperature: 70,
+        fan_mode: "on",
+        current_temperature: 73,
+        hvac_action: "cooling",
+      },
+      last_updated: new Date().toISOString(),
+    });
+    expect(result.available).toBe(true);
+    expect(result.reported).toMatchObject({
+      mode: "cool",
+      target: 70,
+      fanMode: "on",
+      ambient: 73,
+      action: "cooling",
+    });
   });
 });
 

@@ -1,6 +1,19 @@
+import { eq } from "drizzle-orm";
+
+import { db } from "../db/index";
+import type { DeviceClimateState } from "../db/schema";
+import { deviceState } from "../db/schema";
 import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
+import { CLIMATE_DEVICE_ID } from "./climate-enforcer-service";
+import { isClimateState, mergeDeviceState } from "./device-state-mapping";
+
+// App-command window for climate mutations (www-unxz.2): a mutation writes desired
+// + this window and returns; the climate enforcer pushes desired→HA within its
+// ~1s cycle. 10s covers slow HA round-trips. Mirrors COMMAND_WINDOW_MS in
+// controls-service.
+const CLIMATE_COMMAND_WINDOW_MS = 10_000;
 
 export const HvacMode = {
   Off: "off",
@@ -99,71 +112,112 @@ export function isValidRange(low: number, high: number): boolean {
   );
 }
 
+/**
+ * Read the house thermostat from the device_state climate row (www-unxz.2):
+ * desired-authoritative for the commandable fields (mode/setpoints/fan via the
+ * mergeDeviceState overlay), reported for the real ambient + hvac_action. NO HA
+ * call — the climate enforcer keeps the row ≤1s fresh. Throws when HA is
+ * unconfigured (parity with the rest of the dashboard's THROW-on-unavailable) or
+ * when the enforcer has not yet seeded the row (the tile shimmers).
+ */
 export async function getClimate(): Promise<ClimateState> {
   if (!ha.isConfigured()) throw new Error("Home Assistant is not configured");
+  const climate = await readClimateEffective();
+  if (!climate) throw new Error("no climate state");
+  return toClimateState(climate);
+}
 
-  const entities = await ha.getEntities("climate");
-  const entity = selectClimateEntity(entities);
-  if (!entity) throw new Error("no climate entities");
+/** The effective (desired-overlaid) climate state from the DB row, or null. */
+async function readClimateEffective(): Promise<DeviceClimateState | null> {
+  const rows = await db
+    .select()
+    .from(deviceState)
+    .where(eq(deviceState.id, CLIMATE_DEVICE_ID))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+  const merged = mergeDeviceState(row);
+  return isClimateState(merged.state) ? merged.state : null;
+}
 
-  const attrs = entity.attributes;
-  const ambient = num(attrs.current_temperature);
-  const action = normaliseAction(
-    typeof attrs.hvac_action === "string" ? attrs.hvac_action : undefined,
-  );
-  const mode = normaliseMode(typeof attrs.hvac_mode === "string" ? attrs.hvac_mode : entity.state);
-
+/** Project the effective climate state to the tRPC ClimateState union. */
+function toClimateState(climate: DeviceClimateState): ClimateState {
+  const ambient = num(climate.ambient);
+  const action = normaliseAction(climate.action);
+  const mode = normaliseMode(climate.mode);
   if (mode === HvacMode.HeatCool) {
     return {
       mode,
-      targetLow: num(attrs.target_temp_low),
-      targetHigh: num(attrs.target_temp_high),
+      targetLow: num(climate.targetLow),
+      targetHigh: num(climate.targetHigh),
       ambient,
       action,
     };
   }
   if (mode === HvacMode.Cool || mode === HvacMode.Heat) {
-    return { mode, target: num(attrs.temperature), ambient, action };
+    return { mode, target: num(climate.target), ambient, action };
   }
   return { mode: HvacMode.Off, ambient, action };
 }
 
-/** Set the hvac mode (off/cool/heat/heat_cool). Returns fresh state. */
+/**
+ * Write a partial desired onto the climate row (+ command window) and return the
+ * DB-derived state — NO ha.callService, NO HA re-read. The enforcer pushes the new
+ * desired to HA within its cycle. `_entityId` is accepted for router parity but
+ * the thermostat is the single configured entity (one device_state row).
+ */
+async function writeClimateDesired(patch: Partial<DeviceClimateState>): Promise<ClimateState> {
+  const now = new Date();
+  const desiredUntil = new Date(now.getTime() + CLIMATE_COMMAND_WINDOW_MS);
+  const rows = await db
+    .select()
+    .from(deviceState)
+    .where(eq(deviceState.id, CLIMATE_DEVICE_ID))
+    .limit(1);
+  const row = rows[0];
+  // The enforcer seeds the row on first HA sight; until then there is no row to
+  // command. Surface that as unavailable rather than fabricating a thermostat.
+  if (!row) throw new Error("no climate state");
+  const prev = isClimateState(row.desiredState) ? row.desiredState : null;
+  const reported = isClimateState(row.reportedState) ? row.reportedState : null;
+  // Base the new desired on the existing desired (or reported as a fallback) so a
+  // mode change keeps the setpoints and a setpoint change keeps the mode.
+  const base: DeviceClimateState = prev ?? reported ?? { mode: HvacMode.Off };
+  const desired: DeviceClimateState = { ...base, ...patch };
+  await db
+    .update(deviceState)
+    .set({ desiredState: desired, desiredAtUtc: now, desiredUntilUtc: desiredUntil })
+    .where(eq(deviceState.id, row.id));
+  return toClimateState(
+    mergeDeviceState({ ...row, desiredState: desired }).state as DeviceClimateState,
+  );
+}
+
+/** Set the hvac mode (off/cool/heat/heat_cool). Writes desired; returns DB state. */
 export async function setClimateMode(
-  entityId: string,
+  _entityId: string,
   hvacMode: ClimateMode,
 ): Promise<ClimateState> {
-  await ha.callService("climate", "set_hvac_mode", {
-    entity_id: entityId,
-    hvac_mode: hvacMode,
-  });
-  return getClimate();
+  return writeClimateDesired({ mode: hvacMode });
 }
 
-/** Single setpoint (cool/heat) via set_temperature {temperature}. */
+/** Single setpoint (cool/heat). Writes desired; returns DB state. */
 export async function setClimateTarget(
-  entityId: string,
+  _entityId: string,
   temperature: number,
 ): Promise<ClimateState> {
-  await ha.callService("climate", "set_temperature", {
-    entity_id: entityId,
-    temperature,
-  });
-  return getClimate();
+  // A single setpoint clears any stale heat_cool range so the two can't coexist.
+  return writeClimateDesired({ target: temperature, targetLow: undefined, targetHigh: undefined });
 }
 
-/** Range setpoint (heat_cool) via set_temperature {target_temp_low, target_temp_high}. */
+/** Range setpoint (heat_cool). Writes desired; returns DB state. */
 export async function setClimateRange(
-  entityId: string,
+  _entityId: string,
   targetLow: number,
   targetHigh: number,
 ): Promise<ClimateState> {
-  await ha.callService("climate", "set_temperature", {
-    entity_id: entityId,
-    target_temp_low: targetLow,
-    target_temp_high: targetHigh,
-  });
-  return getClimate();
+  // A range clears any stale single setpoint so the two can't coexist.
+  return writeClimateDesired({ targetLow, targetHigh, target: undefined });
 }
 
 /**

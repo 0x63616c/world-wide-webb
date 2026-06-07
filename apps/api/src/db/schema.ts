@@ -39,7 +39,28 @@ export interface DeviceLightState {
   color?: LightColor;
 }
 
-export type DeviceStateValue = DeviceLightState;
+/**
+ * Climate (thermostat) state carried in a device_state row (www-unxz.2). Only the
+ * fields the dashboard COMMANDS live in DESIRED: hvac mode, the single setpoint
+ * (cool/heat) or the heat_cool range, and the AC fan_mode. Ambient temperature
+ * and the live hvac_action are REPORTED-ONLY (never desired) and always come from
+ * real HA values — the enforcer writes them into reportedState each cycle, never
+ * an invented number (repo zero-fake-data rule). `target` and `targetLow/High` are
+ * mutually exclusive in practice (single vs range mode), mirroring ClimateState.
+ */
+export interface DeviceClimateState {
+  mode: string;
+  target?: number;
+  targetLow?: number;
+  targetHigh?: number;
+  fanMode?: string;
+  /** Reported-only: real ambient temperature from HA (current_temperature). */
+  ambient?: number;
+  /** Reported-only: real hvac_action from HA (cooling/heating/idle). */
+  action?: string;
+}
+
+export type DeviceStateValue = DeviceLightState | DeviceClimateState;
 
 export const deviceState = pgTable(
   "device_state",
