@@ -37,15 +37,15 @@ describe("clampLow / clampHigh", () => {
   });
 
   it("respects the band edges", () => {
-    expect(clampLow(50, 80)).toBe(65); // floor at MIN
-    expect(clampHigh(99, 65)).toBe(80); // ceil at MAX
+    expect(clampLow(50, 77)).toBe(67); // floor at MIN
+    expect(clampHigh(99, 67)).toBe(77); // ceil at MAX
   });
 
   it("low and high stay >= GAP apart at the extremes", () => {
     // high pinned at the bottom: low must sit 2 below -> floors at MIN
-    expect(clampLow(80, 67)).toBe(65);
+    expect(clampLow(77, 69)).toBe(67);
     // low pinned at the top: high must sit 2 above -> ceils at MAX
-    expect(clampHigh(65, 78)).toBe(80);
+    expect(clampHigh(67, 75)).toBe(77);
   });
 });
 
@@ -106,8 +106,8 @@ describe("ClimateTileView — cool/heat (single setpoint)", () => {
   it("shows ambient marker and end labels", () => {
     render(<ClimateTileView {...coolProps} />);
     expect(screen.getByTestId("ambient-label")).toHaveTextContent("72°");
-    expect(screen.getByText("65°")).toBeInTheDocument();
-    expect(screen.getByText("80°")).toBeInTheDocument();
+    expect(screen.getByText("67°")).toBeInTheDocument();
+    expect(screen.getByText("77°")).toBeInTheDocument();
   });
 
   it("calls onSetTarget with the numeric slider value", () => {

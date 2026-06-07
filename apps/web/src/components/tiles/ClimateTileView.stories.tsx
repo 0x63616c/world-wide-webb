@@ -57,8 +57,8 @@ export const CoolingMode: Story = {
     expect(canvas.queryByTestId("slider-low")).not.toBeInTheDocument();
 
     expect(canvas.getByTestId("ambient-label")).toHaveTextContent("74°");
-    expect(canvas.getByText("65°")).toBeInTheDocument();
-    expect(canvas.getByText("80°")).toBeInTheDocument();
+    expect(canvas.getByText("67°")).toBeInTheDocument();
+    expect(canvas.getByText("77°")).toBeInTheDocument();
   },
 };
 
@@ -191,8 +191,8 @@ export const SliderAttributes: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const slider = canvas.getByTestId("slider") as HTMLInputElement;
-    expect(slider).toHaveAttribute("min", "65");
-    expect(slider).toHaveAttribute("max", "80");
+    expect(slider).toHaveAttribute("min", "67");
+    expect(slider).toHaveAttribute("max", "77");
     expect(slider.value).toBe("70");
   },
 };
@@ -203,15 +203,15 @@ export const MinSetpoint: Story = {
   args: {
     status: "populated",
     mode: "cool",
-    target: 65,
-    ambient: 66,
+    target: 67,
+    ambient: 68,
     action: "Cooling",
     ...callbacks,
   } as ClimateTileViewProps,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    expect(canvas.getByTestId("setpoint")).toHaveTextContent("65");
-    expect((canvas.getByTestId("slider") as HTMLInputElement).value).toBe("65");
+    expect(canvas.getByTestId("setpoint")).toHaveTextContent("67");
+    expect((canvas.getByTestId("slider") as HTMLInputElement).value).toBe("67");
   },
 };
 
@@ -219,14 +219,14 @@ export const MaxSetpoint: Story = {
   args: {
     status: "populated",
     mode: "heat",
-    target: 80,
-    ambient: 78,
+    target: 77,
+    ambient: 76,
     action: "Heating",
     ...callbacks,
   } as ClimateTileViewProps,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    expect(canvas.getByTestId("setpoint")).toHaveTextContent("80");
-    expect((canvas.getByTestId("slider") as HTMLInputElement).value).toBe("80");
+    expect(canvas.getByTestId("setpoint")).toHaveTextContent("77");
+    expect((canvas.getByTestId("slider") as HTMLInputElement).value).toBe("77");
   },
 };

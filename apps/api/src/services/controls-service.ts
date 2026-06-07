@@ -128,13 +128,21 @@ function effectiveFan(row: typeof deviceState.$inferSelect | undefined): FanEffe
   if (!row) return { on: false, sub: "", pending: false };
   const merged = mergeDeviceState(row);
   const state = isClimateState(merged.state) ? merged.state : null;
-  const on = (state?.fanMode ?? null) === FanMode.On;
+  const fanMode = state?.fanMode ?? null;
+  const on = fanMode === FanMode.On;
+  // Label (CC-pu4m): "On" for continuous circulation; otherwise "auto" only means
+  // something while the AC is running — when the AC mode is off the fan is doing
+  // nothing, so surface it honestly as "Off" rather than "Auto".
+  let sub = "";
+  if (on) sub = "On";
+  else if (state?.mode === "off") sub = "Off";
+  else if (fanMode === FanMode.Auto) sub = "Auto";
   // pending is true only while the SPECIFIED desired fanMode hasn't converged with
   // reported. An absent desired fanMode means no fan intent → never pending.
   const desired = isClimateState(row.desiredState) ? row.desiredState : null;
   const reported = isClimateState(row.reportedState) ? row.reportedState : null;
   const pending = desired?.fanMode != null && (reported?.fanMode ?? null) !== desired.fanMode;
-  return { on, sub: on ? "On" : "", pending };
+  return { on, sub, pending };
 }
 
 // ─── desired-authoritative effective state ────────────────────────────────────

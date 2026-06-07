@@ -87,13 +87,45 @@ describe("decideClimateEnforcement (pure)", () => {
     expect(d).toEqual({ kind: "push", desired });
   });
 
-  it("pushes desired on fan_mode drift", () => {
+  it("pushes desired on fan_mode drift when the AC is idle (not actively conditioning)", () => {
     const desired: DeviceClimateState = { mode: "cool", target: 70, fanMode: "on" };
     const d = decideClimateEnforcement(
       { id: "c", entityId: "climate.home", desiredState: desired, desiredUntilUtc: null },
-      mapped({ mode: "cool", target: 70, fanMode: "auto" }),
+      // action idle → the AC is not driving the blower, so fan_mode is ours to set.
+      mapped({ mode: "cool", target: 70, fanMode: "auto", action: "idle" }),
     );
     expect(d).toEqual({ kind: "push", desired });
+  });
+
+  // CC-pu4m: while the AC is actively cooling/heating it OWNS its blower and
+  // reports fan_mode="on". A desired fan_mode that disagrees is the AC asserting
+  // the fan, NOT drift to fight — pushing it every cycle caused on/off/on/off.
+  it("yields fan_mode while the AC is actively cooling (noop when only fan differs)", () => {
+    const desired: DeviceClimateState = { mode: "cool", target: 70, fanMode: "auto" };
+    const d = decideClimateEnforcement(
+      { id: "c", entityId: "climate.home", desiredState: desired, desiredUntilUtc: null },
+      mapped({ mode: "cool", target: 70, fanMode: "on", action: "cooling" }),
+    );
+    expect(d).toEqual({ kind: "noop" });
+  });
+
+  it("yields fan_mode while the AC is actively heating", () => {
+    const desired: DeviceClimateState = { mode: "heat", target: 70, fanMode: "auto" };
+    const d = decideClimateEnforcement(
+      { id: "c", entityId: "climate.home", desiredState: desired, desiredUntilUtc: null },
+      mapped({ mode: "heat", target: 70, fanMode: "on", action: "heating" }),
+    );
+    expect(d).toEqual({ kind: "noop" });
+  });
+
+  it("pushes a real mode/setpoint drift while conditioning, but STRIPS fan_mode (never fights the blower)", () => {
+    const desired: DeviceClimateState = { mode: "cool", target: 68, fanMode: "auto" };
+    const d = decideClimateEnforcement(
+      { id: "c", entityId: "climate.home", desiredState: desired, desiredUntilUtc: null },
+      mapped({ mode: "cool", target: 72, fanMode: "on", action: "cooling" }),
+    );
+    // fan_mode omitted from the pushed desired so set_fan_mode is never called.
+    expect(d).toEqual({ kind: "push", desired: { mode: "cool", target: 68 } });
   });
 
   it("unreachable when HA is unavailable or reports no climate state", () => {
@@ -251,6 +283,37 @@ describe("runClimateEnforcerCycle", () => {
       ambient: 73,
       action: "cooling",
     });
+  });
+
+  it("does NOT push fan_mode while actively cooling — regression: no on/off/on/off flicker (CC-pu4m)", async () => {
+    // User scenario: AC cool, ambient 75 > target 70 (actively cooling), fan
+    // turned off via Controls (desired fanMode=auto). HA reports fan_mode=on
+    // because the compressor is running. The enforcer must NOT re-push the fan.
+    const row = {
+      id: "climate-thermostat",
+      kind: "climate",
+      entityId: "climate.home",
+      domain: "climate",
+      desiredState: { mode: "cool", target: 70, fanMode: "auto" },
+      reportedState: { mode: "cool", target: 70, fanMode: "on", ambient: 75, action: "cooling" },
+      desiredUntilUtc: null,
+      available: true,
+    };
+    mockDbSelect.mockReturnValue(new Chain([row]));
+    insertCapture();
+    setBuilder();
+    mockGetEntities.mockResolvedValue([
+      haClimate({
+        current_temperature: 75,
+        temperature: 70,
+        fan_mode: "on",
+        hvac_action: "cooling",
+      }),
+    ]);
+
+    await runClimateEnforcerCycle();
+
+    expect(mockCallService).not.toHaveBeenCalled();
   });
 
   it("marks unavailable when HA does not report the configured thermostat", async () => {

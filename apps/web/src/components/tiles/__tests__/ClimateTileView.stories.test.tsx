@@ -86,22 +86,22 @@ describe("ClimateTileView stories", () => {
     const { container } = render(<SliderAttributes />);
     if (SliderAttributes.play) await SliderAttributes.play({ canvasElement: container });
     const slider = screen.getByTestId("slider") as HTMLInputElement;
-    expect(slider.getAttribute("min")).toBe("65");
-    expect(slider.getAttribute("max")).toBe("80");
+    expect(slider.getAttribute("min")).toBe("67");
+    expect(slider.getAttribute("max")).toBe("77");
     expect(slider.value).toBe("70");
   });
 
-  it("MinSetpoint: shows setpoint 65 and slider at min", async () => {
+  it("MinSetpoint: shows setpoint 67 and slider at min", async () => {
     const { container } = render(<MinSetpoint />);
     if (MinSetpoint.play) await MinSetpoint.play({ canvasElement: container });
-    expect(screen.getByTestId("setpoint").textContent).toContain("65");
-    expect((screen.getByTestId("slider") as HTMLInputElement).value).toBe("65");
+    expect(screen.getByTestId("setpoint").textContent).toContain("67");
+    expect((screen.getByTestId("slider") as HTMLInputElement).value).toBe("67");
   });
 
-  it("MaxSetpoint: shows setpoint 80 and slider at max", async () => {
+  it("MaxSetpoint: shows setpoint 77 and slider at max", async () => {
     const { container } = render(<MaxSetpoint />);
     if (MaxSetpoint.play) await MaxSetpoint.play({ canvasElement: container });
-    expect(screen.getByTestId("setpoint").textContent).toContain("80");
-    expect((screen.getByTestId("slider") as HTMLInputElement).value).toBe("80");
+    expect(screen.getByTestId("setpoint").textContent).toContain("77");
+    expect((screen.getByTestId("slider") as HTMLInputElement).value).toBe("77");
   });
 });

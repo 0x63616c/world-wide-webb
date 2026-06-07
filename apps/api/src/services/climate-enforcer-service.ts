@@ -30,6 +30,7 @@ import type { HaEntity } from "../integrations/homeassistant/types";
 import {
   climateStateConverged,
   DeviceKind,
+  isActivelyConditioning,
   isClimateState,
   type MappedHaState,
   mapHaToReported,
@@ -76,11 +77,20 @@ export function decideClimateEnforcement(
   // Seed once: adopt current reality as the initial intent without pushing.
   if (device.desiredState == null) return { kind: "seed", desired: reported };
 
-  if (climateStateConverged(device.desiredState, reported)) return { kind: "noop" };
+  // While the AC is actively heating/cooling it owns its blower and reports
+  // fan_mode="on"; a desired fan_mode that disagrees is NOT drift to fight, or we
+  // get the on/off/on/off flicker (CC-pu4m). Yield the fan dimension then.
+  const conditioning = isActivelyConditioning(reported);
+  if (climateStateConverged(device.desiredState, reported, { ignoreFan: conditioning })) {
+    return { kind: "noop" };
+  }
 
-  // Drift: the AC is enforce, and inside the command window we'd push anyway —
-  // either way the desired wins.
-  return { kind: "push", desired: device.desiredState };
+  // Real mode/setpoint drift: push desired (enforce). While conditioning, strip
+  // fan_mode from the push so we still never actuate the blower the AC controls.
+  const desired = conditioning
+    ? { ...device.desiredState, fanMode: undefined }
+    : device.desiredState;
+  return { kind: "push", desired };
 }
 
 export async function runClimateEnforcerCycle(): Promise<void> {

@@ -40,9 +40,9 @@ export type ClimateMode = HvacMode;
 export type ClimateAction = HvacAction;
 
 // Visual band and the server-side accept range. HA's hard limits are wider
-// (60-92) but the tile + validation use 65-80, the existing design constant.
-export const CLIMATE_MIN = 65;
-export const CLIMATE_MAX = 80;
+// (60-92) but the tile + validation use 67-77, the comfort band (CC-pu4m).
+export const CLIMATE_MIN = 67;
+export const CLIMATE_MAX = 77;
 // Minimum deadband between low/high in heat_cool — they can never meet or cross.
 export const CLIMATE_GAP = 2;
 
