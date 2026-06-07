@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { WORLD_H, WORLD_W } from "../lib/grid-constants";
+import { MinimapView } from "./MinimapView";
 
 // Longest edge of the minimap's world area, in screen px. The world is scaled by
 // a single factor so its proportions (and the tile cluster's) stay true.
@@ -126,8 +127,15 @@ export function Minimap({
   // hovered to read tile names — not only in the brief window after a pan.
   const shown = visible || hovering;
   return (
-    <div
-      aria-hidden
+    <MinimapView
+      worldViewW={WORLD_VIEW_W}
+      worldViewH={WORLD_VIEW_H}
+      scale={SCALE}
+      tiles={tiles}
+      ghosts={ghosts}
+      viewportRect={{ x: view.left, y: view.top, w: view.vw, h: view.vh }}
+      hoveredLabel={hoveredLabel}
+      shown={shown}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -136,105 +144,7 @@ export function Minimap({
         setHovering(false);
         setHoveredLabel(null);
       }}
-      style={{
-        position: "absolute",
-        top: MINIMAP_TOP,
-        left: 12,
-        padding: MINIMAP_PAD,
-        background: "rgba(12, 14, 17, 0.82)",
-        border: "1px solid var(--hair)",
-        borderRadius: 10,
-        backdropFilter: "blur(6px)",
-        opacity: shown ? 1 : 0,
-        transition: "opacity 0.4s ease",
-        // Always pointer-interactive so hovering the corner can reveal it (it
-        // can't reveal on hover if hidden makes it pointer-transparent). It only
-        // occupies its own small corner, so this doesn't block board panning.
-        pointerEvents: "auto",
-        cursor: "pointer",
-        touchAction: "none",
-      }}
-    >
-      {/* Tile name for whatever the cursor is over, floated to the right of the map. */}
-      {hoveredLabel && (
-        <div
-          style={{
-            position: "absolute",
-            left: "100%",
-            top: 6,
-            marginLeft: 6,
-            padding: "3px 8px",
-            background: "rgba(12, 14, 17, 0.92)",
-            border: "1px solid var(--hair-2)",
-            borderRadius: 6,
-            fontFamily: "var(--ui)",
-            fontSize: 11,
-            lineHeight: 1.2,
-            letterSpacing: "-0.01em",
-            color: "var(--ink)",
-            whiteSpace: "nowrap",
-            pointerEvents: "none",
-          }}
-        >
-          {hoveredLabel}
-        </div>
-      )}
-      <div
-        ref={worldAreaRef}
-        style={{
-          position: "relative",
-          width: WORLD_VIEW_W,
-          height: WORLD_VIEW_H,
-          borderRadius: 4,
-          overflow: "hidden",
-        }}
-      >
-        {/* Decorative placeholder halo, drawn first and fainter than real tiles. */}
-        {ghosts.map((r) => (
-          <div
-            key={`g${r.x},${r.y}`}
-            style={{
-              position: "absolute",
-              left: r.x * SCALE,
-              top: r.y * SCALE,
-              width: r.w * SCALE,
-              height: r.h * SCALE,
-              background: "var(--ink-3)",
-              opacity: 0.4,
-              borderRadius: 1,
-            }}
-          />
-        ))}
-        {/* "Everything" — each tile as a faint block, so the viewport box has
-            something to be positioned in relation to. */}
-        {tiles.map((r) => (
-          <div
-            key={`${r.x},${r.y}`}
-            style={{
-              position: "absolute",
-              left: r.x * SCALE,
-              top: r.y * SCALE,
-              width: r.w * SCALE,
-              height: r.h * SCALE,
-              background: "var(--ink-3)",
-              borderRadius: 1,
-            }}
-          />
-        ))}
-        {/* The current viewport, proportionally placed within the world. */}
-        <div
-          style={{
-            position: "absolute",
-            left: view.left * SCALE,
-            top: view.top * SCALE,
-            width: view.vw * SCALE,
-            height: view.vh * SCALE,
-            border: "1px solid var(--acc)",
-            background: "var(--acc-dim)",
-            borderRadius: 2,
-          }}
-        />
-      </div>
-    </div>
+      worldAreaRef={worldAreaRef}
+    />
   );
 }
