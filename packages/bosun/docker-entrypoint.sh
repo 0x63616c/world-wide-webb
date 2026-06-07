@@ -5,7 +5,8 @@
 # exporting each present secret file into the env before starting the receiver.
 set -e
 
-for name in BOSUN_WEBHOOK_TOKEN OP_SERVICE_ACCOUNT_TOKEN GHCR_PULL_TOKEN; do
+for name in BOSUN_WEBHOOK_TOKEN OP_SERVICE_ACCOUNT_TOKEN GHCR_PULL_TOKEN \
+            CF_ACCOUNT_ID CF_ZONE_ID CF_TUNNEL_ID; do
   file="/run/secrets/$name"
   if [ -f "$file" ]; then
     export "$name=$(cat "$file")"
