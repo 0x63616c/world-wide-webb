@@ -77,6 +77,29 @@ describe("deploy.config.ts worker service (www-7d5b.1.3)", () => {
   });
 });
 
+describe("deploy.config.ts bosun-agent Cloudflare creds (www-vqyv)", () => {
+  const agent = svc("bosun-agent");
+
+  it("sources CF_ACCOUNT_ID, CF_ZONE_ID and CF_TUNNEL_ID via fromOp so the agent reconciles routes+DNS", () => {
+    // These non-secret identifiers ride the docker-secret channel as the wiring
+    // that reaches the agent's env without hardcoding them in this PUBLIC repo.
+    // The entrypoint exports each /run/secrets/<name> to env; cli.ts reads them.
+    const byName = Object.fromEntries(agent.secrets.map((s) => [s.name, s.ref]));
+    expect(byName.CF_ACCOUNT_ID).toBe("op://Homelab/Cloudflare API/account_id");
+    expect(byName.CF_ZONE_ID).toBe("op://Homelab/Cloudflare API/zone_id");
+    expect(byName.CF_TUNNEL_ID).toBe("op://Homelab/Cloudflare API/tunnel_id");
+  });
+
+  it("does NOT hardcode the account/tunnel/zone identifiers anywhere in the spec", () => {
+    // A literal id in the public repo is the regression this guards. Identifiers
+    // must only ever appear as op:// refs (above), never as inline values.
+    const serialized = JSON.stringify(deploySpec);
+    expect(serialized).not.toContain("633999e9-ec81-478b-b8af-2213778b9441"); // tunnel
+    expect(serialized).not.toContain("eb3ea2e5ef93e58704d39980583fee38"); // account
+    expect(serialized).not.toContain("04fd68aa9ef098c4f1916f1f7ca271a5"); // zone
+  });
+});
+
 describe("deploy.config.ts postgres (www-355t.4)", () => {
   const pg = svc("postgres");
 

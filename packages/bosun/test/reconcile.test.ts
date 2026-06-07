@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  type CloudflareDnsClient,
   type CloudflareRouteClient,
+  makeDefaultCloudflareDnsClient,
   makeDefaultCloudflareRouteClient,
+  reconcileDns,
   reconcileRoutes,
+  tunnelCnameTarget,
 } from "../src/reconcile/routes.ts";
 import {
   type DockerSecretClient,
@@ -412,6 +416,179 @@ describe("reconcile/routes — live Cloudflare client", () => {
       expect(finalHostnames).toContain("portainer.worldwidewebb.co");
       expect(finalHostnames).not.toContain("orphan-probe.worldwidewebb.co");
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// reconcile/routes.ts — DNS reconcile (proxied CNAME -> tunnel) (www-vqyv)
+// ---------------------------------------------------------------------------
+
+const TUNNEL_ID = "633999e9-ec81-478b-b8af-2213778b9441";
+const TUNNEL_TARGET = `${TUNNEL_ID}.cfargotunnel.com`;
+
+function makeDnsClient(
+  existing: Array<{ id: string; hostname: string; content: string }>,
+): CloudflareDnsClient {
+  const records = [...existing];
+  return {
+    listCnames: vi.fn().mockResolvedValue(records),
+    createCname: vi.fn().mockResolvedValue({ id: "new-dns-id" }),
+    deleteCname: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+describe("reconcile/dns — create + prune (www-vqyv)", () => {
+  it("tunnelCnameTarget builds <tunnelId>.cfargotunnel.com", () => {
+    expect(tunnelCnameTarget(TUNNEL_ID)).toBe(TUNNEL_TARGET);
+  });
+
+  it("creates a proxied CNAME for a declared hostname with no record yet", async () => {
+    const client = makeDnsClient([]);
+    await reconcileDns(["drizzle.worldwidewebb.co"], TUNNEL_TARGET, client);
+    expect(client.createCname).toHaveBeenCalledOnce();
+    expect(client.createCname).toHaveBeenCalledWith("drizzle.worldwidewebb.co", TUNNEL_TARGET);
+  });
+
+  it("does NOT create a CNAME that already exists (idempotent)", async () => {
+    const client = makeDnsClient([
+      { id: "d1", hostname: "dashboard.worldwidewebb.co", content: TUNNEL_TARGET },
+    ]);
+    await reconcileDns(["dashboard.worldwidewebb.co"], TUNNEL_TARGET, client, [
+      "dashboard.worldwidewebb.co",
+    ]);
+    expect(client.createCname).not.toHaveBeenCalled();
+    expect(client.deleteCname).not.toHaveBeenCalled();
+  });
+
+  it("prunes a stack-owned tunnel CNAME that is no longer declared", async () => {
+    const client = makeDnsClient([
+      { id: "old1", hostname: "old.worldwidewebb.co", content: TUNNEL_TARGET },
+    ]);
+    await reconcileDns([], TUNNEL_TARGET, client, ["old.worldwidewebb.co"]);
+    expect(client.deleteCname).toHaveBeenCalledWith("old1");
+  });
+
+  it("does NOT prune a foreign tunnel CNAME (portainer shares the tunnel target)", async () => {
+    // portainer points at OUR tunnel target but is a foreign ingress route — it
+    // is never in the owned-hostnames set, so it must survive.
+    const client = makeDnsClient([
+      { id: "p1", hostname: "portainer.worldwidewebb.co", content: TUNNEL_TARGET },
+    ]);
+    await reconcileDns([], TUNNEL_TARGET, client, []);
+    expect(client.deleteCname).not.toHaveBeenCalled();
+  });
+
+  it("does NOT prune a CNAME pointing at a different target even if owned", async () => {
+    const client = makeDnsClient([
+      { id: "x1", hostname: "x.worldwidewebb.co", content: "somewhere-else.example.com" },
+    ]);
+    await reconcileDns([], TUNNEL_TARGET, client, ["x.worldwidewebb.co"]);
+    expect(client.deleteCname).not.toHaveBeenCalled();
+  });
+
+  it("creates the missing one and prunes the orphan in the same pass, leaving foreign alone", async () => {
+    const client = makeDnsClient([
+      { id: "dash", hostname: "dashboard.worldwidewebb.co", content: TUNNEL_TARGET },
+      { id: "orphan", hostname: "old.worldwidewebb.co", content: TUNNEL_TARGET },
+      { id: "port", hostname: "portainer.worldwidewebb.co", content: TUNNEL_TARGET },
+    ]);
+    const owned = [
+      "dashboard.worldwidewebb.co",
+      "old.worldwidewebb.co",
+      "drizzle.worldwidewebb.co",
+    ];
+    await reconcileDns(
+      ["dashboard.worldwidewebb.co", "drizzle.worldwidewebb.co"],
+      TUNNEL_TARGET,
+      client,
+      owned,
+    );
+    // drizzle created (missing), old pruned (owned orphan), portainer + dashboard kept.
+    expect(client.createCname).toHaveBeenCalledOnce();
+    expect(client.createCname).toHaveBeenCalledWith("drizzle.worldwidewebb.co", TUNNEL_TARGET);
+    expect(client.deleteCname).toHaveBeenCalledOnce();
+    expect(client.deleteCname).toHaveBeenCalledWith("orphan");
+  });
+
+  it("is fully idempotent on a converged zone (no creates, no deletes)", async () => {
+    const declared = ["dashboard.worldwidewebb.co", "drizzle.worldwidewebb.co"];
+    const client = makeDnsClient([
+      { id: "d", hostname: "dashboard.worldwidewebb.co", content: TUNNEL_TARGET },
+      { id: "z", hostname: "drizzle.worldwidewebb.co", content: TUNNEL_TARGET },
+      { id: "p", hostname: "portainer.worldwidewebb.co", content: TUNNEL_TARGET },
+    ]);
+    await reconcileDns(declared, TUNNEL_TARGET, client, declared);
+    expect(client.createCname).not.toHaveBeenCalled();
+    expect(client.deleteCname).not.toHaveBeenCalled();
+  });
+});
+
+describe("reconcile/dns — live Cloudflare DNS client", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const ZONE = "04fd68aa9ef098c4f1916f1f7ca271a5";
+  const DNS_URL = `https://api.cloudflare.com/client/v4/zones/${ZONE}/dns_records`;
+
+  it("listCnames maps name->hostname and returns id+content, querying type=CNAME", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      expect(url).toBe(`${DNS_URL}?type=CNAME&per_page=100`);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          result: [{ id: "r1", name: "dashboard.worldwidewebb.co", content: TUNNEL_TARGET }],
+        }),
+        { status: 200 },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = makeDefaultCloudflareDnsClient(ZONE, "cf-token");
+    const records = await client.listCnames();
+    expect(records).toEqual([
+      { id: "r1", hostname: "dashboard.worldwidewebb.co", content: TUNNEL_TARGET },
+    ]);
+  });
+
+  it("createCname POSTs a proxied CNAME and returns the new record id", async () => {
+    let body: Record<string, unknown> | undefined;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toBe(DNS_URL);
+      expect(init?.method).toBe("POST");
+      body = JSON.parse(init?.body as string);
+      return new Response(JSON.stringify({ success: true, result: { id: "created-id" } }), {
+        status: 200,
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = makeDefaultCloudflareDnsClient(ZONE, "cf-token");
+    const out = await client.createCname("drizzle.worldwidewebb.co", TUNNEL_TARGET);
+    expect(out).toEqual({ id: "created-id" });
+    expect(body).toMatchObject({
+      type: "CNAME",
+      name: "drizzle.worldwidewebb.co",
+      content: TUNNEL_TARGET,
+      proxied: true,
+    });
+  });
+
+  it("deleteCname DELETEs the record by id", async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toBe(`${DNS_URL}/rec-123`);
+      expect(init?.method).toBe("DELETE");
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = makeDefaultCloudflareDnsClient(ZONE, "cf-token");
+    await client.deleteCname("rec-123");
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("throws on a non-ok CF DNS response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("nope", { status: 403 })),
+    );
+    const client = makeDefaultCloudflareDnsClient(ZONE, "cf-token");
+    await expect(client.listCnames()).rejects.toThrow(/CF DNS API error 403/);
   });
 });
 

@@ -234,6 +234,16 @@ export default stack("control-center", {
         // can pull updated images on deploy. The entrypoint runs `docker login`
         // with it; without creds the bundled auth is empty and fresh pulls fail.
         GHCR_PULL_TOKEN: "GitHub Personal Access Token/token",
+        // Non-secret Cloudflare identifiers so the agent's own `bosun up`
+        // reconciles tunnel routes + DNS on each deploy (www-vqyv). These are NOT
+        // secrets, but they ride the docker-secret channel as the one wiring that
+        // reaches the agent's env WITHOUT hardcoding them in this PUBLIC repo: the
+        // entrypoint exports each /run/secrets/<name> to env (CF_ACCOUNT_ID /
+        // CF_ZONE_ID / CF_TUNNEL_ID), which cli.ts reads. (The CF API *token* is a
+        // real secret and is resolved separately via op at reconcile time.)
+        CF_ACCOUNT_ID: "Cloudflare API/account_id",
+        CF_ZONE_ID: "Cloudflare API/zone_id",
+        CF_TUNNEL_ID: "Cloudflare API/tunnel_id",
       }),
       volumes: ["/var/run/docker.sock:/var/run/docker.sock"],
       placement: ["node.role==manager"],

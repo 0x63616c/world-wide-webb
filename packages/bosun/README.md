@@ -254,16 +254,30 @@ manual `curl` triggers still work.
 ## Routes sync (Cloudflare tunnel)
 
 A service that declares `route: "name.worldwidewebb.co"` is published through the
-Cloudflare tunnel. `routes sync` (`src/reconcile/routes.ts`) reconciles the
-tunnel's **ingress** rules: there is no per-rule create/delete API and ingress
-rules carry no tag, so it GETs the whole ingress array, mutates it (add declared
-hostnames → their `http://<service>:<port>` origin, drop ones bosun manages that
-are no longer declared, keep the catch-all last), and PUTs it back.
+Cloudflare tunnel. `routes sync` (`src/reconcile/routes.ts`) reconciles **both**
+halves needed for a hostname to resolve, and `bosun up` runs it automatically on
+every deploy (after the stack deploy, so origins exist first) — zero manual CF
+steps (www-vqyv):
 
-> **Not yet automated:** the public DNS record — a proxied `CNAME` →
-> `<tunnelId>.cfargotunnel.com` — is still created **by hand** in Cloudflare. A
-> hostname without it returns no route even when the ingress rule exists.
-> Auto-upserting the CNAME is tracked in **www-ect**.
+1. **Tunnel ingress** — there is no per-rule create/delete API and ingress rules
+   carry no tag, so `reconcileRoutes` GETs the whole ingress array, mutates it
+   (add declared hostnames → their `http://<service>:<port>` origin, drop ones
+   bosun manages that are no longer declared, keep the catch-all last), PUTs it
+   back. Prune ownership is derived from the rule's origin.
+2. **Public DNS** — `reconcileDns` upserts a **proxied `CNAME` →
+   `<tunnelId>.cfargotunnel.com`** for each declared hostname (the zone wildcard
+   `*.worldwidewebb.co` is a dead A-record, NOT the tunnel, so a hostname without
+   its own CNAME 521s even with the ingress rule present — this is what bit the
+   `drizzle` service). Prune is scoped to CNAMEs whose hostname is a stack-owned
+   ingress route, so a foreign hostname sharing the tunnel target (e.g.
+   `portainer`) is never touched.
+
+Both reconciles are **advisory on the webhook deploy path** (a CF hiccup logs a
+warning but never aborts an otherwise-good stack deploy, exactly like verify);
+the interactive `routes sync` / `up` exits non-zero on failure. The CF
+identifiers (`CF_ACCOUNT_ID` / `CF_ZONE_ID` / `CF_TUNNEL_ID`) reach the agent via
+`fromOp()` on the bosun-agent service → the entrypoint exports them to env; the
+API token is resolved from op (`Cloudflare API/credential`) at reconcile time.
 
 ## `postgres()` helper
 
