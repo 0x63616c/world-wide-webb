@@ -163,16 +163,23 @@ export default stack("control-center", {
     // raw upstream: the upstream is distroless and wants MASTERPASS in the env, but
     // bosun delivers secrets as files, so the wrapper bun --preloads
     // /run/secrets/MASTERPASS into the env before boot (without it the admin panel
-    // boots ungated). The DB connection is entered ONCE in the UI and persisted in
-    // the drizzle-data volume; that volume is node-local, so pin to the manager.
-    // The MASTERPASS secret already exists in the shared Homelab vault (evee
-    // created it) — no new 1Password item.
+    // boots ungated). The control_center connection is prefilled declaratively:
+    // the wrapper also builds DATABASE_URL_control_center from the mounted Postgres
+    // password (CC-my5j), which the gateway auto-seeds into a connection on a fresh
+    // store — so a clean redeploy auto-connects with no manual UI add. Connections +
+    // sessions persist in the drizzle-data volume; that volume is node-local, so pin
+    // to the manager. The MASTERPASS secret already exists in the shared Homelab
+    // vault (evee created it) — no new 1Password item.
     service("drizzle", {
       image: ghcr("control-center-drizzle"),
       route: "drizzle.worldwidewebb.co",
       port: 4983,
       secrets: fromOp("Homelab", {
         MASTERPASS: "Drizzle Gateway/masterpass",
+        // Lets the preload build DATABASE_URL_control_center so a fresh-volume
+        // gateway auto-seeds the control_center connection (no manual UI add). The
+        // password stays on the file rail; the gateway persists only a reference.
+        POSTGRES_PASSWORD: "Control Center Postgres/password",
       }),
       env: {
         // Gateway server port (matches `port` above) and the persisted store path

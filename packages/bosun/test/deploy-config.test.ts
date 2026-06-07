@@ -120,4 +120,12 @@ describe("deploy.config.ts drizzle gateway (CC-0ub8)", () => {
     expect(drizzle.volumes).toEqual(["drizzle-data:/app"]);
     expect(drizzle.placement).toContain("node.role==manager");
   });
+
+  it("mounts POSTGRES_PASSWORD so the preload can seed DATABASE_URL_control_center (CC-my5j)", () => {
+    // The gateway auto-seeds a connection from any DATABASE_URL_<name> env var on
+    // a fresh store; the preload builds DATABASE_URL_control_center from the
+    // mounted password file so a clean redeploy auto-connects with no UI step.
+    const pw = drizzle.secrets.find((s) => s.name === "POSTGRES_PASSWORD");
+    expect(pw?.ref).toBe("op://Homelab/Control Center Postgres/password");
+  });
 });
