@@ -157,6 +157,34 @@ export default stack("control-center", {
       health: [httpProbe("https://storybook.worldwidewebb.co", 200)],
     }),
 
+    // Drizzle Gateway: self-hosted Drizzle Studio for browsing the control_center
+    // Postgres, public via the Cloudflare tunnel (mirrors the evee deploy, proven
+    // on homelab). Runs OUR thin wrapper image (apps/drizzle/Dockerfile), NOT the
+    // raw upstream: the upstream is distroless and wants MASTERPASS in the env, but
+    // bosun delivers secrets as files, so the wrapper bun --preloads
+    // /run/secrets/MASTERPASS into the env before boot (without it the admin panel
+    // boots ungated). The DB connection is entered ONCE in the UI and persisted in
+    // the drizzle-data volume; that volume is node-local, so pin to the manager.
+    // The MASTERPASS secret already exists in the shared Homelab vault (evee
+    // created it) — no new 1Password item.
+    service("drizzle", {
+      image: ghcr("control-center-drizzle"),
+      route: "drizzle.worldwidewebb.co",
+      port: 4983,
+      secrets: fromOp("Homelab", {
+        MASTERPASS: "Drizzle Gateway/masterpass",
+      }),
+      env: {
+        // Gateway server port (matches `port` above) and the persisted store path
+        // (the mounted volume) so connections/sessions survive a redeploy.
+        PORT: "4983",
+        STORE_PATH: "/app",
+      },
+      volumes: ["drizzle-data:/app"],
+      placement: ["node.role==manager"],
+      health: [httpProbe("http://drizzle:4983", 200)],
+    }),
+
     // Postgres: persistent named volume, pinned image, migrate-on-boot in api.
     postgres({
       volume: "pgdata",

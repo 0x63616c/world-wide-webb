@@ -98,6 +98,8 @@ describe("deploy.config.ts — Docker image-cleanup cronJob (www-0id / www-79k)"
       "api",
       "bosun-agent",
       "cloudflared",
+      // Self-hosted Drizzle Studio for browsing the prod DB (www-0ub8).
+      "drizzle",
       "postgres",
       "storybook",
       "web",

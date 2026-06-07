@@ -87,3 +87,37 @@ describe("deploy.config.ts postgres (www-355t.4)", () => {
     expect(pg.volumes).toEqual(["pgdata:/var/lib/postgresql/data"]);
   });
 });
+
+describe("deploy.config.ts drizzle gateway (www-0ub8)", () => {
+  const drizzle = svc("drizzle");
+
+  it("runs the wrapped gateway image, NOT the raw upstream (so the MASTERPASS file→env preload is baked in)", () => {
+    // The upstream gateway is distroless and wants MASTERPASS as an env var, but
+    // bosun only delivers secrets as files. We wrap it (apps/drizzle/Dockerfile)
+    // with a bun --preload that loads /run/secrets/MASTERPASS into env, so the
+    // deployed image must be our own control-center-drizzle, never the raw
+    // ghcr.io/drizzle-team/gateway (which would boot with no admin gate).
+    expect(drizzle.image).toContain("control-center-drizzle");
+    expect(drizzle.image).not.toContain("drizzle-team/gateway");
+  });
+
+  it("is publicly routed on the gateway's 4983 port", () => {
+    expect(drizzle.route).toBe("drizzle.worldwidewebb.co");
+    expect(drizzle.port).toBe(4983);
+  });
+
+  it("reuses the existing op://Homelab/Drizzle Gateway/masterpass secret as MASTERPASS", () => {
+    // The secret already exists (evee created it in the shared Homelab vault);
+    // no new 1Password item. It must mount as MASTERPASS so the preload finds it.
+    const ms = drizzle.secrets.find((s) => s.name === "MASTERPASS");
+    expect(ms?.ref).toBe("op://Homelab/Drizzle Gateway/masterpass");
+  });
+
+  it("persists its config on a node-local named volume pinned to the manager", () => {
+    // The gateway stores DB connections + sessions under STORE_PATH=/app; without
+    // a volume every redeploy wipes the connection. The volume is node-local, so
+    // pin to the manager (same constraint web/postgres use).
+    expect(drizzle.volumes).toEqual(["drizzle-data:/app"]);
+    expect(drizzle.placement).toContain("node.role==manager");
+  });
+});
