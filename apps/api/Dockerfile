@@ -25,10 +25,8 @@ COPY packages packages
 # runtime migrator, so drizzle-kit never ships.
 RUN bun build apps/api/src/server.ts --target=bun --outfile dist/server.js
 
-# Bundle the worker entrypoint too (same image, different command). The runtime
-# image ships no package.json scripts, so the `worker` service runs `bun worker.js`
-# directly (NOT `bun run worker`) — see deploy.config.ts (www-7d5b.1.2/.1.3).
-RUN bun build apps/api/src/worker.ts --target=bun --outfile dist/worker.js
+# The worker is a SEPARATE app + image now (apps/worker, control-center-worker),
+# no longer bundled here (www-xjba). The api ships server.js only.
 
 # ── Stage 2: runtime image ────────────────────────────────────────────────────
 # Only the bundle and the SQL migration files. bun is the runtime; alpine keeps
@@ -38,7 +36,6 @@ FROM oven/bun:1-alpine AS runtime
 WORKDIR /app
 
 COPY --from=build /app/dist/server.js server.js
-COPY --from=build /app/dist/worker.js worker.js
 # Migrations resolve relative to the bundle's own location (import.meta.url),
 # i.e. /app/migrations at runtime — keep this path in sync with WORKDIR.
 COPY --from=build /app/apps/api/src/db/migrations migrations

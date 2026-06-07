@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 // `bunx vitest --project storybook` from apps/web (requires Playwright/Chromium).
 export default defineConfig({
   test: {
-    projects: ["apps/api", "apps/web", "packages/bosun"],
+    projects: ["apps/api", "apps/web", "apps/worker", "packages/bosun"],
     // Coverage config lives here (not as CLI flags) so it can carry include/
     // exclude + thresholds; per-project config is ignored once `projects` is set,
     // so the root config is the only one that matters (www-355t.11). Without an

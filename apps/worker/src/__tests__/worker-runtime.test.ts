@@ -9,7 +9,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createWorkerRuntime } from "../worker/runtime";
+import { createWorkerRuntime } from "../runtime";
 
 // Advance fake timers by `ms` and drain any promises chained off the fired
 // callbacks, so an await-before-reschedule loop reaches its next setTimeout.

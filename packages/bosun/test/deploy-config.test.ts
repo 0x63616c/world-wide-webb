@@ -45,15 +45,15 @@ describe("deploy.config.ts worker service (www-7d5b.1.3)", () => {
   const worker = svc("worker");
   const api = svc("api");
 
-  it("shares the api image and selects the worker entrypoint via command", () => {
-    // Same image as the api so no separate CI build is needed: the api path
-    // filter rebuilds control-center-api and bosun's pinImage rolls every
-    // service on that image (api + worker) to the new digest together.
-    expect(worker.image).toBe(api.image);
-    expect(worker.image).toContain("control-center-api");
-    // Runs the bundled worker.js directly — the runtime image ships no
-    // package.json scripts, so `bun run worker` would crashloop (www-7d5b.1.3).
-    expect(worker.command).toBe("bun worker.js");
+  it("has its own image, independent of the api (www-xjba)", () => {
+    // The worker is its own app + image now (apps/worker → control-center-worker),
+    // not a command override on the api image. CI's build-worker job + worker path
+    // filter rebuild it and bosun's pinImage rolls it independently of the api.
+    expect(worker.image).toContain("control-center-worker");
+    expect(worker.image).not.toBe(api.image);
+    // The worker image's CMD is `bun worker.js` (apps/worker/Dockerfile), so the
+    // service needs no command override.
+    expect(worker.command).toBeUndefined();
   });
 
   it("serves no traffic — no route, no port, no health probes", () => {
