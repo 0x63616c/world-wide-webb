@@ -128,6 +128,7 @@ export function createPartyEngine(): PartyEngine {
       tick += 1;
     } catch {
       // Transient HA error — skip this tick, keep the loop alive for the next.
+      console.error("Transient HA error in party engine");
     }
     if (!running) return;
     timer = setTimeout(() => void runTick(), LAMP_MODE_SPEED_CONFIG[activeSpeed].intervalMs);
