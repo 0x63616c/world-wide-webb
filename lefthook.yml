@@ -46,6 +46,13 @@ commit-msg:
 pre-push:
   commands:
     biome-lint:
+      # Run the blocking lint gate FIRST so a push that's going to be rejected
+      # fails fast — before the slow (~15-90s) beads dolt push runs and before we
+      # publish beads refs to origin for code that never lands (CC). lefthook has
+      # no `parallel` here, so commands run sequentially; `priority` (lower first)
+      # makes the order explicit instead of relying on the alphabetical accident
+      # ('beads-sync' < 'biome-lint' would otherwise run the sync first).
+      priority: 1
       # BLOCKING: mirror CI's `biome check .` lint gate so a lint regression can
       # never reach the remote (CI runs the same check and `deploy` depends on it,
       # so a push that fails lint just breaks main). The pre-commit `format` step
@@ -58,6 +65,9 @@ pre-push:
         git ls-files -z -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.json' '*.jsonc' '*.css' '*.html' \
           | xargs -0 bunx biome check --no-errors-on-unmatched
     beads-sync:
+      # Runs AFTER biome-lint (see priority note above) so we only pay the slow
+      # dolt push once the code push has cleared the blocking gate.
+      priority: 2
       # NON-BLOCKING: publish beads issue history (refs/dolt/data) to origin
       # alongside the code being pushed. This is the durable sync channel
       # (www-sg4p); `dolt.auto-push` is intentionally OFF because per-write
