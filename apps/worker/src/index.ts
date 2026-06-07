@@ -62,7 +62,7 @@ const workers: Worker[] = [
     name: "party-mode",
     intervalMs: 2_000,
     runOnStart: true,
-    run: () => reconcilePartyMode(),
+    run: reconcilePartyMode,
   },
   {
     name: "weather-ingest",
