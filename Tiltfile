@@ -78,14 +78,14 @@ local_resource(
 )
 
 # worker: the continuous reconcile/ingest loops (device-sync, weather-ingest)
-# that used to run inside the api now live in a dedicated worker process
-# (CC-7d5b.1.2), so dev must run it too or those loops never fire locally.
+# that used to run inside the api now live in a dedicated worker app + image
+# (apps/worker, CC-xjba), so dev must run it too or those loops never fire locally.
 # Same env as the api (DB + HA token + home location); bun --watch owns the file
 # watch. No readiness probe / watchdog: the worker serves no HTTP, so there is no
 # URL to poll — bun --watch restarts it on a crash, and Tilt surfaces its logs.
 local_resource(
     "worker",
-    serve_cmd="bun --watch apps/api/src/worker.ts",
+    serve_cmd="bun --watch apps/worker/src/index.ts",
     serve_env={
         "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
         "HA_TOKEN": secrets["HA_TOKEN"],

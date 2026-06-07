@@ -5,11 +5,11 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./trpc": "./src/trpc/routers/index.ts"
+    "./trpc": "./src/trpc/routers/index.ts",
+    "./worker": "./src/worker-deps.ts"
   },
   "scripts": {
     "dev": "bun --watch src/server.ts",
-    "worker": "bun src/worker.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",

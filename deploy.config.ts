@@ -75,23 +75,19 @@ export default stack("control-center", {
       ],
     }),
 
-    // Worker: the continuous reconcile/ingest loops (device-sync, weather-ingest,
-    // and the light enforcer/party engine to come), split off the api so the api
-    // stays request-only (CC-7d5b.1.2/.1.3). Same IMAGE as the api
-    // (control-center-api) — `command: bun run worker` selects the worker
-    // entrypoint instead of the server — so it needs no separate CI build: the
-    // existing `api` path filter rebuilds control-center-api, the deploy webhook
-    // reports that one digest, and bosun's pinImage pins EVERY service on that
-    // image (api AND worker) to it, rolling both together. No route, no port: it
-    // serves no traffic, it only reaches out to HA + Postgres over the overlay
-    // network. Secrets/env mirror the api so the two stay in lockstep (the worker
-    // reads the DB password, HA token, and runs in Pacific time like the api).
+    // Worker: the continuous reconcile/ingest loops (light/climate enforcers,
+    // device-sync fan, party engine, weather ingest), split off the api so the api
+    // stays request-only (CC-7d5b.1.2 → CC-xjba). Now its OWN app + image
+    // (apps/worker → control-center-worker), not a command override on the api
+    // image: CI has a dedicated build-worker job + path filter, the deploy webhook
+    // reports the control-center-worker digest, and bosun's pinImage rolls it
+    // independently of the api. No route, no port: it serves no traffic, it only
+    // reaches out to HA + Postgres over the overlay network. Secrets/env mirror
+    // the api so the two stay in lockstep (the worker reads the DB password, HA
+    // token, and runs in Pacific time like the api). The image CMD is `bun
+    // worker.js` (apps/worker/Dockerfile), so no command override is needed.
     service("worker", {
-      image: ghcr("control-center-api"),
-      // The runtime api image ships bundled JS (server.js + worker.js), NOT
-      // package.json scripts — run the bundle directly, never `bun run worker`
-      // (which crashloops: "Script not found 'worker'"). See apps/api/Dockerfile.
-      command: "bun worker.js",
+      image: ghcr("control-center-worker"),
       secrets: fromOp("Homelab", {
         HA_TOKEN: "Home Assistant Token/credential",
         UNIFI_API_KEY: "UniFi/local_api_key",

@@ -1,23 +1,27 @@
 /**
- * Worker process entrypoint (CC-7d5b.1.2). No HTTP — this is a separate swarm
- * service (same image as the api) that runs the continuous reconcile/ingest
- * loops the api used to start in-process. Splitting them out keeps the api
- * request-only and lets the loops scale/restart independently.
+ * Worker app entrypoint (CC-xjba). No HTTP — this is its own deployable package
+ * (@repo/worker) and its own image (control-center-worker), running the
+ * continuous reconcile/ingest loops the api used to start in-process. Splitting
+ * it out of apps/api keeps the api request-only and lets the loops build, ship,
+ * scale, and restart on their own image (CC-7d5b.1.2 promoted to a real app).
  *
- * Each loop is expressed as a Worker (name + interval + one cycle); the runtime
- * owns scheduling, failure isolation, and stats. Cycles reuse the existing
- * single-cycle functions (runDeviceSyncCycle, runWeatherIngestCycle) — the old
- * bespoke startX setTimeout wrappers are gone.
+ * The domain cycles (enforce lights/climate, sync fans, party, ingest weather)
+ * still live in @repo/api and are imported via its ./worker barrel; this package
+ * owns only the worker framework (runtime/types) and the job registry below —
+ * which capability runs on what cadence. The eventual packages/core extraction
+ * will dissolve the api dependency; until then this is the seam.
  */
-import { runMigrations } from "./db/migrate";
-import { env } from "./env";
-import { runClimateEnforcerCycle } from "./services/climate-enforcer-service";
-import { runDeviceSyncCycle } from "./services/device-sync-service";
-import { runEnforcerCycle } from "./services/light-enforcer-service";
-import { reconcilePartyMode } from "./services/party-service";
-import { runWeatherIngestCycle } from "./services/weather-ingest-service";
-import { createWorkerRuntime } from "./worker/runtime";
-import type { Worker } from "./worker/types";
+import {
+  env,
+  reconcilePartyMode,
+  runClimateEnforcerCycle,
+  runDeviceSyncCycle,
+  runEnforcerCycle,
+  runMigrations,
+  runWeatherIngestCycle,
+} from "@repo/api/worker";
+import { createWorkerRuntime } from "./runtime";
+import type { Worker } from "./types";
 
 // Apply pending migrations before any cycle touches the DB. The api also runs
 // this at boot; whichever wins is idempotent, and the worker must not poll a
