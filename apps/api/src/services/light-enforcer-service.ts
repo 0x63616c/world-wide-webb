@@ -31,7 +31,7 @@ import {
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 import { CommandStatus, HaLightService } from "./device-command-service";
-import { type MappedHaState, mapHaToReported } from "./device-state-mapping";
+import { isLightState, type MappedHaState, mapHaToReported } from "./device-state-mapping";
 
 const ENFORCER_INTEGRATION_ID = "light-enforcer";
 const ENFORCER_DOMAINS = ["light", "switch"] as const;
@@ -130,7 +130,9 @@ export function decideEnforcement(
 ): EnforcementDecision {
   // Unreachable: can't read truth, so can't enforce or adopt. Caller flips
   // available=false; desired is left untouched (intent survives the outage).
-  if (!mapped.available || mapped.reported == null) return { kind: "unreachable" };
+  // The light enforcer only manages light/switch entities, so reported is always a
+  // light state; a non-light (or absent) reading means we can't read truth.
+  if (!mapped.available || !isLightState(mapped.reported)) return { kind: "unreachable" };
   const reported = mapped.reported;
 
   // Seed once: adopt current reality as the initial intent without pushing.
@@ -210,7 +212,7 @@ export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> 
       entityId: row.entityId,
       domain: row.domain,
       control: lightControl(entry),
-      desiredState: row.desiredState ?? null,
+      desiredState: isLightState(row.desiredState) ? row.desiredState : null,
       desiredUntilUtc: row.desiredUntilUtc ?? null,
     };
 

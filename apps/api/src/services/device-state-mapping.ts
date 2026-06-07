@@ -1,11 +1,35 @@
-import type { DeviceLightState, DeviceStateValue, LightColor } from "../db/schema";
+import type {
+  DeviceClimateState,
+  DeviceLightState,
+  DeviceStateValue,
+  LightColor,
+} from "../db/schema";
 import type { HaEntity } from "../integrations/homeassistant/types";
 
 export const DeviceKind = {
   Light: "light",
   Switch: "switch",
+  Climate: "climate",
 } as const;
 export type DeviceKind = (typeof DeviceKind)[keyof typeof DeviceKind];
+
+/**
+ * Narrow a DeviceStateValue to a light state. The union now also holds
+ * DeviceClimateState (CC-unxz.2); a light state has the boolean `on` field, which
+ * a climate state never does — so this is the discriminant.
+ */
+export function isLightState(v: DeviceStateValue | null | undefined): v is DeviceLightState {
+  return v != null && typeof (v as DeviceLightState).on === "boolean";
+}
+
+/** Narrow a DeviceStateValue to a climate state (has `mode`, never `on`). */
+export function isClimateState(v: DeviceStateValue | null | undefined): v is DeviceClimateState {
+  return (
+    v != null &&
+    typeof (v as DeviceClimateState).mode === "string" &&
+    typeof (v as DeviceLightState).on !== "boolean"
+  );
+}
 
 export const HaState = {
   On: "on",
@@ -33,9 +57,31 @@ export function mapHaToReported(kind: string, entity: HaEntity | undefined): Map
       if (color) light.color = color;
       return { reported: light, available };
     }
+    case DeviceKind.Climate:
+      return { reported: mapHaClimate(entity), available };
     default:
       return { reported: null, available };
   }
+}
+
+/**
+ * Map an HA climate entity to reported state. `mode`/setpoints/fan are the
+ * commandable fields the enforcer drives; ambient + action are reported-only and
+ * come straight from HA (current_temperature / hvac_action) — never fabricated.
+ * Whichever setpoint shape HA reports (single `temperature` vs the heat_cool
+ * `target_temp_low`/`high`) is the one we record.
+ */
+function mapHaClimate(entity: HaEntity): DeviceClimateState {
+  const attrs = entity.attributes;
+  const mode = typeof attrs.hvac_mode === "string" ? attrs.hvac_mode : entity.state;
+  const climate: DeviceClimateState = { mode };
+  if (typeof attrs.temperature === "number") climate.target = attrs.temperature;
+  if (typeof attrs.target_temp_low === "number") climate.targetLow = attrs.target_temp_low;
+  if (typeof attrs.target_temp_high === "number") climate.targetHigh = attrs.target_temp_high;
+  if (typeof attrs.fan_mode === "string") climate.fanMode = attrs.fan_mode;
+  if (typeof attrs.current_temperature === "number") climate.ambient = attrs.current_temperature;
+  if (typeof attrs.hvac_action === "string") climate.action = attrs.hvac_action;
+  return climate;
 }
 
 /**
@@ -57,9 +103,52 @@ function mapHaColor(entity: HaEntity): LightColor | undefined {
 export function stateEquals(a: DeviceStateValue | null, b: DeviceStateValue | null): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  if (a.on !== b.on) return false;
-  if ((a.brightness ?? null) !== (b.brightness ?? null)) return false;
-  return colorEquals(a.color, b.color);
+  if (isLightState(a) && isLightState(b)) {
+    if (a.on !== b.on) return false;
+    if ((a.brightness ?? null) !== (b.brightness ?? null)) return false;
+    return colorEquals(a.color, b.color);
+  }
+  if (isClimateState(a) && isClimateState(b)) return climateEquals(a, b);
+  // Different shapes (light vs climate) are never equal.
+  return false;
+}
+
+/**
+ * Exact climate equality across ALL fields incl. reported-only ambient/action
+ * (used for reported-vs-reported change detection — has anything HA reports
+ * changed this cycle?). The enforcer's drift check (climateStateConverged) ignores
+ * the reported-only fields; this one is precise so a real ambient change registers.
+ */
+function climateEquals(a: DeviceClimateState, b: DeviceClimateState): boolean {
+  return (
+    a.mode === b.mode &&
+    (a.target ?? null) === (b.target ?? null) &&
+    (a.targetLow ?? null) === (b.targetLow ?? null) &&
+    (a.targetHigh ?? null) === (b.targetHigh ?? null) &&
+    (a.fanMode ?? null) === (b.fanMode ?? null) &&
+    (a.ambient ?? null) === (b.ambient ?? null) &&
+    (a.action ?? null) === (b.action ?? null)
+  );
+}
+
+/**
+ * Drift convergence for climate desired-vs-reported (CC-unxz.2). Only the
+ * COMMANDABLE fields count: mode must match exactly; a SPECIFIED desired setpoint
+ * (target / targetLow / targetHigh) must match exactly; fanMode must match when
+ * desired specifies it. Reported-only ambient/action are ignored (they can never
+ * "drift" from a desired we don't carry). A desired field left unset means "no
+ * intent for it", so it can't diverge — same partial-overlay rule as lights.
+ */
+export function climateStateConverged(
+  desired: DeviceClimateState,
+  reported: DeviceClimateState,
+): boolean {
+  if (desired.mode !== reported.mode) return false;
+  if (desired.target != null && desired.target !== reported.target) return false;
+  if (desired.targetLow != null && desired.targetLow !== reported.targetLow) return false;
+  if (desired.targetHigh != null && desired.targetHigh !== reported.targetHigh) return false;
+  if (desired.fanMode != null && desired.fanMode !== reported.fanMode) return false;
+  return true;
 }
 
 /**
@@ -115,6 +204,12 @@ function colorConverged(a: LightColor | undefined, b: LightColor | undefined): b
  * brightness/colour are compared only when desired specifies them.
  */
 function converged(desired: DeviceStateValue, reported: DeviceStateValue): boolean {
+  // Climate uses its own commandable-field convergence (CC-unxz.2).
+  if (isClimateState(desired) || isClimateState(reported)) {
+    if (!isClimateState(desired) || !isClimateState(reported)) return false;
+    return climateStateConverged(desired, reported);
+  }
+  if (!isLightState(desired) || !isLightState(reported)) return false;
   if (desired.on !== reported.on) return false;
   if (!desired.on) return true;
   if (

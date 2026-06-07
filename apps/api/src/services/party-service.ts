@@ -31,6 +31,7 @@ import { db } from "../db/index";
 import { deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import { HaLightService } from "./device-command-service";
+import { isLightState } from "./device-state-mapping";
 
 // ─── pure helpers ──────────────────────────────────────────────────────────────
 
@@ -202,5 +203,8 @@ async function readLampModeRow(): Promise<LampModeRow> {
 async function anyLampDesiredOn(): Promise<boolean> {
   const lampIds = new Set<string>(LAMP_ENTITY_IDS);
   const rows = await db.select().from(deviceState);
-  return rows.some((r) => lampIds.has(r.entityId) && r.available && (r.desiredState?.on ?? false));
+  return rows.some(
+    (r) =>
+      lampIds.has(r.entityId) && r.available && isLightState(r.desiredState) && r.desiredState.on,
+  );
 }

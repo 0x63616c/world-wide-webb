@@ -68,7 +68,6 @@ import {
   ControlKey,
   FanMode,
   getControlsState,
-  HaService,
   setLampBrightness,
   setLampMode,
   setLampScene,
@@ -89,16 +88,6 @@ function makeFan(id: string, state: "on" | "off", percentage?: number) {
     entity_id: `fan.${id}`,
     state,
     attributes: { friendly_name: id, ...(percentage !== undefined ? { percentage } : {}) },
-    last_updated: new Date().toISOString(),
-  };
-}
-
-// evee parity: the "fan" is a climate entity's fan_mode, not a fan.* device.
-function makeClimateFan(id: string, fanMode: "on" | "auto") {
-  return {
-    entity_id: `climate.${id}`,
-    state: "cool",
-    attributes: { friendly_name: id, fan_modes: ["auto", "on"], fan_mode: fanMode },
     last_updated: new Date().toISOString(),
   };
 }
@@ -214,6 +203,28 @@ function captureDesiredWrites(): Map<string, DesiredInsert> {
   return byEntity;
 }
 
+// The shape captured from db.update().set() (the fan writes desired via update).
+interface DesiredUpdate {
+  desiredState?: { mode: string; fanMode?: string };
+  desiredUntilUtc?: Date;
+}
+
+/**
+ * Wire db.update() to capture the `.set()` payload of the last update (the fan
+ * mutation writes desired on the climate row via update — CC-unxz.2). Returns a
+ * holder whose `.last` is the captured payload.
+ */
+function captureUpdates(): { last: DesiredUpdate | null } {
+  const holder: { last: DesiredUpdate | null } = { last: null };
+  mockDbUpdate.mockImplementation(() => ({
+    set(payload: unknown) {
+      holder.last = payload as DesiredUpdate;
+      return { where: () => Promise.resolve() };
+    },
+  }));
+  return holder;
+}
+
 // Make a deviceState row with typical fields. Desired-authoritative (CC-7d5b.2.4):
 // getControlsState reads lamp/light state from desiredState (falling back to
 // reportedState when desired is null), with availability honest.
@@ -282,6 +293,27 @@ function fixtureRow(id: string, entityId: string, on: boolean, available = true)
   });
 }
 
+// The climate thermostat device_state row (CC-unxz.2). The fan is read from this
+// row's desired.fanMode, desired-authoritative like the lamps. `id` must be the
+// CLIMATE_DEVICE_ID the service reads by ("climate-thermostat").
+function climateFanRow(
+  desiredFanMode: string | null,
+  reportedFanMode: string | null,
+  available = true,
+) {
+  return makeDeviceRow({
+    id: "climate-thermostat",
+    entityId: "climate.home",
+    kind: "climate",
+    domain: "climate",
+    desiredState:
+      desiredFanMode === null ? { mode: "cool" } : { mode: "cool", fanMode: desiredFanMode },
+    reportedState:
+      reportedFanMode === null ? { mode: "cool" } : { mode: "cool", fanMode: reportedFanMode },
+    available,
+  });
+}
+
 // Build a minimal caller context for the tRPC router.
 function buildCaller() {
   const appRouter = router({ controls: controlsRouter });
@@ -306,12 +338,21 @@ describe("getControlsState", () => {
     await expect(getControlsState()).rejects.toThrow("Home Assistant is not configured");
   });
 
-  it("throws on HA network error (CC-355t.30: THROW-on-unavailable)", async () => {
+  it("degrades to all-off when the DB is unreachable (desired-authoritative read swallows)", async () => {
+    // CC-unxz.2: getControlsState makes NO live HA read now (lamps/lights/fan are
+    // all desired-authoritative). A DB outage yields no rows → every control reads
+    // off/unavailable, matching the established lamp contract (CC-7d5b.2.4).
     mockIsConfigured.mockReturnValue(true);
-    mockGetEntities.mockRejectedValue(new Error("Network error"));
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
+    mockDbSelect.mockImplementation(() => {
+      throw new Error("DB unreachable");
+    });
 
-    await expect(getControlsState()).rejects.toThrow("Home Assistant unreachable");
+    const state = await getControlsState();
+
+    expect(state.lamps.on).toBe(false);
+    expect(state.lights.on).toBe(false);
+    expect(state.fan.on).toBe(false);
+    expect(mockGetEntities).not.toHaveBeenCalled();
   });
 
   it("derives lamp state from DESIRED device rows (source of truth)", async () => {
@@ -415,32 +456,36 @@ describe("getControlsState", () => {
     expect(state.lamps.pending).toBe(false);
   });
 
-  it("reports fan on from climate fan_mode", async () => {
+  it("reports fan on from the climate row's desired fan_mode (CC-unxz.2), NO HA call", async () => {
     mockIsConfigured.mockReturnValue(true);
-    // "home" so the entity_id is climate.home === env.CLIMATE_ENTITY_ID default.
-    mockGetEntities.mockImplementation(async (domain: string) =>
-      domain === "climate" ? [makeClimateFan("home", "on")] : [],
-    );
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
+    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("on", "on")]));
 
     const state = await getControlsState();
 
     expect(state.fan.on).toBe(true);
     expect(state.fan.sub).toBe("On");
+    expect(state.fan.pending).toBe(false);
+    expect(mockGetEntities).not.toHaveBeenCalled();
   });
 
-  it("CC-355t.15: resolves the fan from the configured home climate, not the Tesla", async () => {
+  it("reports fan off when the climate row's desired fan_mode is auto", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockGetEntities.mockImplementation(async (domain: string) =>
-      domain === "climate"
-        ? [makeClimateFan("evee_climate", "on"), makeClimateFan("home", "auto")]
-        : [],
-    );
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
+    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("auto", "auto")]));
 
     const state = await getControlsState();
 
     expect(state.fan.on).toBe(false);
+  });
+
+  it("fan pending:true while desired fan_mode has not converged with reported", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    // Desired on, reported still auto → the fan command is in-flight.
+    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("on", "auto")]));
+
+    const state = await getControlsState();
+
+    expect(state.fan.on).toBe(true);
+    expect(state.fan.pending).toBe(true);
   });
 
   it("CC-azw: switch-domain fixtures are visible as 'lights' (from desired)", async () => {
@@ -607,26 +652,30 @@ describe("toggleControl", () => {
     });
   });
 
-  it("calls climate.set_fan_mode on the configured entity when toggling the fan on", async () => {
+  it("toggling the fan ON writes desired.fanMode='on' (+window) on the climate row, NO HA call (CC-unxz.2)", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
+    // The enforcer has seeded the climate row; the fan write updates its desired.
+    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("auto", "auto")]));
+    const updates = captureUpdates();
 
     await toggleControl(ControlKey.Fan, true);
 
-    expect(mockCallService).toHaveBeenCalledWith("climate", HaService.SetFanMode, {
-      entity_id: "climate.home",
-      fan_mode: FanMode.On,
-    });
+    expect(mockCallService).not.toHaveBeenCalled();
+    expect(updates.last?.desiredState).toMatchObject({ fanMode: FanMode.On });
+    // The mode is preserved (not clobbered) and a command window is stamped.
+    expect(updates.last?.desiredState?.mode).toBe("cool");
+    expect(updates.last?.desiredUntilUtc).toBeInstanceOf(Date);
   });
 
-  it("CC-355t.15: toggling the fan fetches climate at most once (no double fetch)", async () => {
+  it("toggling the fan OFF writes desired.fanMode='auto', NO HA call", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
+    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("on", "on")]));
+    const updates = captureUpdates();
 
-    await toggleControl(ControlKey.Fan, true);
+    await toggleControl(ControlKey.Fan, false);
 
-    const climateFetches = mockGetEntities.mock.calls.filter((c) => c[0] === "climate");
-    expect(climateFetches.length).toBeLessThanOrEqual(1);
+    expect(mockCallService).not.toHaveBeenCalled();
+    expect(updates.last?.desiredState).toMatchObject({ fanMode: FanMode.Auto });
   });
 
   it("toggling lamps never calls commandDevice (the enforcer is the safety-net now)", async () => {
@@ -638,16 +687,14 @@ describe("toggleControl", () => {
     expect(mockCommandDevice).not.toHaveBeenCalled();
   });
 
-  it("the fan is a climate fan_mode (set_fan_mode), never a device command", async () => {
+  it("the fan is a climate fan_mode written to desired, never a device command or HA call", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
+    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("auto", "auto")]));
+    captureUpdates();
 
     await expect(toggleControl(ControlKey.Fan, true)).resolves.toBeDefined();
     expect(mockCommandDevice).not.toHaveBeenCalled();
-    expect(mockCallService).toHaveBeenCalledWith("climate", HaService.SetFanMode, {
-      entity_id: "climate.home",
-      fan_mode: FanMode.On,
-    });
+    expect(mockCallService).not.toHaveBeenCalled();
   });
 
   it("CC-hu8p: clears party mode when turning lamps OFF (party must not resurrect on next on)", async () => {

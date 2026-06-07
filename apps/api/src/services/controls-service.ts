@@ -16,12 +16,11 @@ import {
   LightKind,
 } from "../config/lights";
 import { db } from "../db/index";
-import type { DeviceLightState, LightColor } from "../db/schema";
+import type { DeviceClimateState, DeviceLightState, LightColor } from "../db/schema";
 import { deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
-import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
-import type { HaEntity } from "../integrations/homeassistant/types";
-import { DeviceKind, mergeDeviceState } from "./device-state-mapping";
+import { CLIMATE_DEVICE_ID } from "./climate-enforcer-service";
+import { DeviceKind, isClimateState, mergeDeviceState } from "./device-state-mapping";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -112,24 +111,30 @@ function brightnessPctToRaw(pct: number): number {
 }
 
 /**
- * The "fan" is the AC's climate fan_mode, not a fan.* device (evee parity:
- * ha-service getFanState/turnFanOn). It lives on the CONFIGURED home thermostat
- * (env.CLIMATE_ENTITY_ID) — resolving by "first climate entity with fan_modes"
- * could match the Tesla's climate.evee_climate instead of the house AC
- * (CC-355t.15; see memory ha-evee-is-tesla-not-home-climate).
+ * The "fan" is the AC's climate fan_mode, not a fan.* device (evee parity). It is
+ * desired-authoritative now (CC-unxz.2): the dashboard writes desired.fanMode on
+ * the climate device_state row and the climate enforcer pushes it to HA. So the
+ * fan is read from the climate row's desired (with reported as the convergence
+ * base for `pending`), exactly like the lamps/lights — NO live HA fan read.
  */
-function findFanClimate(climateEntities: HaEntity[]): HaEntity | undefined {
-  return climateEntities.find(
-    (e) => e.entity_id === env.CLIMATE_ENTITY_ID && Array.isArray(e.attributes.fan_modes),
-  );
+interface FanEffective {
+  on: boolean;
+  sub: string;
+  pending: boolean;
 }
 
-function fanModeOn(entity: HaEntity | undefined): boolean {
-  return (entity?.attributes.fan_mode as string | undefined) === FanMode.On;
-}
-
-function fanSub(entity: HaEntity | undefined): string {
-  return fanModeOn(entity) ? "On" : "";
+/** Derive the fan view from the climate device_state row (desired-authoritative). */
+function effectiveFan(row: typeof deviceState.$inferSelect | undefined): FanEffective {
+  if (!row) return { on: false, sub: "", pending: false };
+  const merged = mergeDeviceState(row);
+  const state = isClimateState(merged.state) ? merged.state : null;
+  const on = (state?.fanMode ?? null) === FanMode.On;
+  // pending is true only while the SPECIFIED desired fanMode hasn't converged with
+  // reported. An absent desired fanMode means no fan intent → never pending.
+  const desired = isClimateState(row.desiredState) ? row.desiredState : null;
+  const reported = isClimateState(row.reportedState) ? row.reportedState : null;
+  const pending = desired?.fanMode != null && (reported?.fanMode ?? null) !== desired.fanMode;
+  return { on, sub: on ? "On" : "", pending };
 }
 
 // ─── desired-authoritative effective state ────────────────────────────────────
@@ -199,39 +204,29 @@ export function deriveSceneFromDesired(
 /**
  * Fetch the current state of all controllable entities: lamps, lights, fan.
  *
- * DESIRED-authoritative (CC-7d5b.2.4): lamp/light on/brightness/colour come from
- * the device_state DESIRED state (the source of truth the enforcer reconciles onto
- * HA), so the panel reads its own intent with no snap-back. Availability is read
- * honestly from the row — an unreachable light is never painted "on". The fan
- * stays live-from-HA (climate fan_mode), unchanged.
+ * DESIRED-authoritative (CC-7d5b.2.4, CC-unxz.2): lamp/light/fan state all come
+ * from the device_state DESIRED state (the source of truth the enforcers reconcile
+ * onto HA), so the panel reads its own intent with no snap-back. The fan is the
+ * climate row's desired.fanMode (no live HA read). Availability is read honestly
+ * from the row — an unreachable light is never painted "on".
  *
- * Throws when HA is unconfigured or unreachable so the tile shimmers via the tRPC
- * error state (CC-355t.30; the repo-wide THROW-on-unavailable convention).
+ * Throws when HA is unconfigured so the tile shimmers via the tRPC error state
+ * (CC-355t.30; the repo-wide THROW-on-unavailable convention).
  */
 export async function getControlsState(): Promise<ControlsState> {
   if (!ha.isConfigured()) {
     throw new Error("Home Assistant is not configured");
   }
 
-  // Only the fan still reads live from HA; lamps/lights are desired-authoritative.
-  let climateEntities: HaEntity[] = [];
-  try {
-    climateEntities = await ha.getEntities("climate");
-  } catch (err) {
-    throw new Error(
-      `Home Assistant unreachable: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-  const fanEntity = findFanClimate(climateEntities);
-
-  // Lamp/light state is read from device_state (desired-authoritative).
+  // Lamp/light/fan state is all read from device_state (desired-authoritative).
   let deviceRows: (typeof deviceState.$inferSelect)[] = [];
   try {
     deviceRows = await db.select().from(deviceState);
   } catch {
-    // DB unreachable — no rows; every managed light reads unavailable (shimmer).
+    // DB unreachable — no rows; every managed device reads unavailable (shimmer).
   }
   const rowByEntityId = new Map(deviceRows.map((r) => [r.entityId, r]));
+  const rowById = new Map(deviceRows.map((r) => [r.id, r]));
 
   const lampEffectives = LAMP_ENTITY_IDS.map((id) => effectiveLight(rowByEntityId.get(id)));
   const fixtureEffectives = FIXTURE_ENTITY_IDS.map((id) => effectiveLight(rowByEntityId.get(id)));
@@ -251,8 +246,10 @@ export async function getControlsState(): Promise<ControlsState> {
 
   const activeScene = await resolveActiveScene(lampsOn.map((e) => e.state));
 
-  // Fan = the climate entity's fan_mode (evee parity). Not in device_state, so
-  // there is no desired overlay — read fan_mode live, no pending.
+  // Fan = the climate row's desired.fanMode (CC-unxz.2), desired-authoritative
+  // with a real `pending` from desired-vs-reported convergence.
+  const fan = effectiveFan(rowById.get(CLIMATE_DEVICE_ID));
+
   return {
     lamps: {
       on: anyLampOn,
@@ -266,11 +263,7 @@ export async function getControlsState(): Promise<ControlsState> {
       on: anyLightOn,
       pending: lightsPending,
     },
-    fan: {
-      on: fanModeOn(fanEntity),
-      sub: fanSub(fanEntity),
-      pending: false,
-    },
+    fan,
   };
 }
 
@@ -398,6 +391,37 @@ async function writeDesired(
   );
 }
 
+/**
+ * Write the fan_mode intent onto the climate row's DESIRED (+ command window),
+ * preserving the existing mode/setpoints (CC-unxz.2). The climate enforcer pushes
+ * the new desired to HA — no ha.callService here. A DB-unreachable write or a
+ * not-yet-seeded climate row is swallowed: the enforcer re-seeds next cycle, so
+ * the command is never a silent corruption.
+ */
+async function writeFanDesired(fanMode: FanMode): Promise<void> {
+  const now = new Date();
+  const desiredUntil = new Date(now.getTime() + COMMAND_WINDOW_MS);
+  try {
+    const rows = await db
+      .select()
+      .from(deviceState)
+      .where(eq(deviceState.id, CLIMATE_DEVICE_ID))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return; // enforcer hasn't seeded the thermostat yet — nothing to set.
+    const prev = isClimateState(row.desiredState) ? row.desiredState : null;
+    const reported = isClimateState(row.reportedState) ? row.reportedState : null;
+    const base: DeviceClimateState = prev ?? reported ?? { mode: "off" };
+    const desired: DeviceClimateState = { ...base, fanMode };
+    await db
+      .update(deviceState)
+      .set({ desiredState: desired, desiredAtUtc: now, desiredUntilUtc: desiredUntil })
+      .where(eq(deviceState.id, row.id));
+  } catch {
+    // DB unreachable — desired cannot be written; the enforcer re-seeds next cycle.
+  }
+}
+
 /** All lamp LightEntry rows in LAMP_ENTITY_IDS order. */
 function lampEntries(): LightEntry[] {
   return LAMP_ENTITY_IDS.map((id) => findLight(id)).filter((e): e is LightEntry => !!e);
@@ -449,13 +473,10 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
     }
 
     case ControlKey.Fan: {
-      // evee parity: force the configured climate's fan_mode on/auto via
-      // set_fan_mode. The target entity is known from config (CC-355t.15: no
-      // double climate fetch — getControlsState reads it once below).
-      await ha.callService("climate", HaService.SetFanMode, {
-        entity_id: env.CLIMATE_ENTITY_ID,
-        fan_mode: on ? FanMode.On : FanMode.Auto,
-      });
+      // Desired-authoritative (CC-unxz.2): write the fan_mode intent onto the
+      // climate row's desired (+ command window); the climate enforcer pushes it
+      // to HA. No ha.callService in the hot path.
+      await writeFanDesired(on ? FanMode.On : FanMode.Auto);
       break;
     }
   }
