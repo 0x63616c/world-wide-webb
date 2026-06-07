@@ -41,8 +41,8 @@ function printUsage(): void {
       "Commands:",
       "  plan          Evaluate deploy.config.ts and print the static Spec (no secrets)",
       "  secrets sync  Resolve secret refs and reconcile docker secrets",
-      "  routes sync   Reconcile Cloudflare tunnel routes",
-      "  up            Full deploy: plan → secrets sync → routes sync → stack deploy → verify",
+      "  routes sync   Reconcile Cloudflare tunnel ingress + public DNS (proxied CNAME)",
+      "  up            Full deploy: plan → secrets sync → stack deploy → routes+DNS sync → verify",
       "  verify        Run all declared health probes; exit 0 iff all pass",
       "  serve         Start the webhook receiver for CI-triggered deploys",
       "  run-job <name>  Fire one cronJob() now (same Swarm-job path the scheduler uses)",
@@ -99,7 +99,8 @@ async function cmdSecrets(args: string[]): Promise<void> {
   console.log("Secrets synced:", names);
 }
 
-// routes sync: reconcile Cloudflare tunnel routes from declared route: fields.
+// routes sync: reconcile Cloudflare tunnel routes (ingress) AND public DNS
+// (proxied CNAME -> tunnel) from declared route: fields.
 async function cmdRoutes(args: string[]): Promise<void> {
   if (args[0] !== "sync") {
     console.error("Usage: bosun routes sync");
@@ -109,25 +110,53 @@ async function cmdRoutes(args: string[]): Promise<void> {
   const { default: spec } = (await import(`${process.cwd()}/deploy.config.ts`)) as {
     default: import("./spec.ts").Spec;
   };
-  const { reconcileRoutes, makeDefaultCloudflareRouteClient, stackRouteTag } = await import(
-    "./reconcile/routes.ts"
-  );
+  // Interactive `routes sync`: a CF failure must surface loudly (advisory: false).
+  await reconcileCloudflare(spec, { advisory: false });
+}
+
+// Reconcile BOTH halves of the Cloudflare story so a service with a `route:`
+// becomes publicly reachable on deploy with zero manual steps (www-vqyv):
+//   1. tunnel INGRESS rule  (hostname -> http://<service>:<port>)
+//   2. public DNS  CNAME    (hostname -> <tunnelId>.cfargotunnel.com, proxied)
+// The wildcard `*.worldwidewebb.co` is a dead A-record, so without (2) a new
+// hostname 521s even with the ingress rule present (the drizzle failure).
+//
+// `advisory` mirrors verify's policy: the webhook deploy path passes true so a
+// CF hiccup logs a warning but never aborts an otherwise-good stack deploy; the
+// interactive path passes false so a failure exits non-zero.
+async function reconcileCloudflare(
+  spec: import("./spec.ts").Spec,
+  opts: { advisory: boolean },
+): Promise<void> {
+  const {
+    reconcileRoutes,
+    reconcileDns,
+    makeDefaultCloudflareRouteClient,
+    makeDefaultCloudflareDnsClient,
+    stackRouteTag,
+    tunnelCnameTarget,
+  } = await import("./reconcile/routes.ts");
   const { makeDefaultExec, OpProvider } = await import("./providers/op.ts");
 
-  const exec = await makeDefaultExec();
-  const provider = new OpProvider(exec);
-  const apiToken = await provider.resolve("op://Homelab/Cloudflare API/credential");
-
-  // ACCOUNT_ID and TUNNEL_ID must be provided via env (non-secret identifiers).
+  // ACCOUNT_ID / ZONE_ID / TUNNEL_ID are non-secret identifiers supplied via env
+  // (sourced through op -> the agent entrypoint). Missing config: advisory =>
+  // warn + skip (a CF mis-config must not abort a deploy); interactive => exit
+  // non-zero (a manual `routes sync` with no creds is an operator error).
   const accountId = process.env.CF_ACCOUNT_ID;
+  const zoneId = process.env.CF_ZONE_ID;
   const tunnelId = process.env.CF_TUNNEL_ID;
-  if (!accountId || !tunnelId) {
-    console.error("CF_ACCOUNT_ID and CF_TUNNEL_ID must be set in the environment");
+  if (!accountId || !zoneId || !tunnelId) {
+    const msg = "CF_ACCOUNT_ID, CF_ZONE_ID and CF_TUNNEL_ID must be set in the environment";
+    if (opts.advisory) {
+      console.warn(`[bosun routes] skipping Cloudflare reconcile — ${msg}`);
+      return;
+    }
+    console.error(msg);
     process.exit(1);
   }
 
   // Map each declared hostname to its origin (http://<service>:<port>) so the
-  // live client knows where to point a newly-created route.
+  // live client knows where to point a newly-created ingress rule.
   const originByHostname: Record<string, string> = {};
   for (const svc of spec.services) {
     if (svc.route) originByHostname[svc.route] = `http://${svc.name}:${svc.port ?? 80}`;
@@ -136,19 +165,69 @@ async function cmdRoutes(args: string[]): Promise<void> {
   // of this stack's services (CF ingress has no tag field). Cron jobs aren't
   // routable origins, so only real services count.
   const stackServiceNames = spec.services.filter((svc) => !svc.schedule).map((svc) => svc.name);
-  const client = makeDefaultCloudflareRouteClient(
-    accountId,
-    tunnelId,
-    apiToken,
-    (hostname) => originByHostname[hostname] ?? "",
-    { stackTag: stackRouteTag(spec.stackName), stackServiceNames },
-  );
   const declared = spec.services.flatMap((svc) => (svc.route ? [svc.route] : []));
-  await reconcileRoutes(spec.stackName, declared, client);
-  console.log("Routes synced:", declared);
+  const stackTag = stackRouteTag(spec.stackName);
+
+  // Everything below does CF/op I/O. It ALL runs inside the advisory guard so
+  // that on the webhook deploy path NO failure here (op token resolve, a CF API
+  // hiccup, a prune list) can abort an otherwise-good stack deploy — only logs.
+  // Interactive `routes sync` re-throws and exits non-zero.
+  await runCloudflareStep(opts.advisory, "routes + DNS", async () => {
+    const exec = await makeDefaultExec();
+    const provider = new OpProvider(exec);
+    const apiToken = await provider.resolve("op://Homelab/Cloudflare API/credential");
+
+    const routeClient = makeDefaultCloudflareRouteClient(
+      accountId,
+      tunnelId,
+      apiToken,
+      (hostname) => originByHostname[hostname] ?? "",
+      { stackTag, stackServiceNames },
+    );
+    const dnsClient = makeDefaultCloudflareDnsClient(zoneId, apiToken);
+
+    // 1. Tunnel ingress.
+    await reconcileRoutes(spec.stackName, declared, routeClient);
+    console.log("Routes synced:", declared);
+
+    // 2. Public DNS. Prune ownership: a CNAME is eligible for prune only if its
+    // hostname is one this stack OWNS as a tunnel ingress route (origin = a stack
+    // service) — never a foreign hostname that merely shares our tunnel target
+    // (e.g. `portainer`). Read live ingress AFTER reconcileRoutes, then union
+    // with the declared set so a hostname we just removed from ingress still
+    // counts as ours and its stale CNAME gets pruned too.
+    const ownedHostnames = (await routeClient.listRoutes())
+      .filter((r) => r.tags.includes(stackTag))
+      .map((r) => r.hostname);
+    const dnsOwned = new Set([...ownedHostnames, ...declared]);
+    await reconcileDns(declared, tunnelCnameTarget(tunnelId), dnsClient, dnsOwned);
+    console.log("DNS synced:", declared);
+  });
 }
 
-// up: plan → secrets sync → routes sync → docker stack deploy → verify.
+// Run one Cloudflare reconcile step. Advisory (deploy path): swallow + warn so a
+// CF hiccup never aborts an otherwise-good deploy, exactly like verify (www-vqyv).
+// Interactive: let the error throw out so `routes sync` exits non-zero.
+async function runCloudflareStep(
+  advisory: boolean,
+  label: string,
+  fn: () => Promise<void>,
+): Promise<void> {
+  try {
+    await fn();
+  } catch (err) {
+    if (!advisory) throw err;
+    console.warn(
+      `[bosun routes] ${label} reconcile failed (advisory, deploy continues):`,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// up: plan → secrets sync → docker stack deploy → Cloudflare routes+DNS sync →
+// verify. Routes+DNS run AFTER the stack deploy so the origin services exist
+// before we publish their hostnames; both are advisory on the webhook path so a
+// CF hiccup never aborts an otherwise-good deploy (www-vqyv).
 // `imageOverrides` (from the deploy webhook body) pins our ghcr images to the
 // exact digests CI built, so the stack deploy reliably rolls changed services
 // instead of depending on :main tag re-resolution (www-czg).
@@ -158,7 +237,8 @@ async function cmdUp(
   // verify so a broken deploy is loud. The webhook serve path passes true: the
   // stack deploy already succeeded, and probes that are merely not-yet-warm
   // (cold climate endpoint, etc.) must not make it look like a deploy error
-  // (www-1dx). The verify still runs and logs in both cases.
+  // (www-1dx). The verify still runs and logs in both cases. The same flag gates
+  // the Cloudflare routes/DNS reconcile (advisory on the webhook path).
   opts: { advisoryVerify?: boolean } = {},
 ): Promise<void> {
   console.log("[bosun up] Loading config...");
@@ -201,6 +281,13 @@ async function cmdUp(
   // (e.g. cc_ -> control-center_) leaves the old secret in use until this deploy
   // re-points services, so pruning earlier would refuse + abort the deploy (www-8pt).
   await pruneSecrets(staleSecrets, secretClient, console.log);
+
+  // Reconcile Cloudflare tunnel ingress + public DNS so a service that declares
+  // a `route:` is publicly reachable with no manual CF steps (www-vqyv). Runs
+  // after the deploy (origins must exist first) and is advisory on the webhook
+  // path — a CF failure logs but never fails the deploy, like verify below.
+  console.log("[bosun up] Reconciling Cloudflare routes + DNS...");
+  await reconcileCloudflare(spec, { advisory: opts.advisoryVerify ?? false });
 
   console.log("[bosun up] Verifying...");
   await runVerify(
