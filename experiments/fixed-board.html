@@ -69,6 +69,7 @@
 <aside>
   <div class="group">
     <div class="gh">generation</div>
+    <div class="row" data-tip="Inner board size in cells (square). The 12×9 cluster hole stays centred. 31 is the real wall-panel size; bigger just shows the algorithm at scale."><label>board size</label><div class="stepper" data-k="BS"><button data-d="-1">−</button><input id="BS" value="64"><button data-d="1">+</button></div></div>
     <div class="row" data-tip="How many candidate boards to generate; the one with the <b>shortest longest-seam</b> is shown. Higher = better fill, slower. ~300 is the sweet spot."><label>best-of-N</label><div class="stepper" data-k="N"><button data-d="-50">−</button><input id="N" value="300"><button data-d="50">+</button></div></div>
     <div class="row" data-tip="Base PRNG seed. The N candidates use seed, seed+101, … so the whole search is deterministic — same seed reproduces the exact winning board."><label>seed</label><div class="stepper" data-k="SEED"><button data-d="-1">−</button><input id="SEED" value="1234"><button data-d="1">+</button></div></div>
     <div class="row" data-tip="Draw the 9 real dashboard tiles (clock, tesla, …) that occupy the reserved hole, so you can see the fill sitting flush around them."><label>show cluster</label><div class="toggle" id="showClu"><button data-v="1" class="on">on</button><button data-v="0">off</button></div></div>
@@ -100,14 +101,22 @@
 </aside>
 
 <script type="module">
-const WMIN=2,WMAX=5,HMIN=2,HMAX=4,W=31,H=31;
-const HOLE={hx0:13,hx1:24,hy0:14,hy1:22};
-// real cluster tiles in inner-local coords (world cells minus WALL_THICKNESS=2)
-const CLUSTER=[
-  {id:'clock',x:13,y:14,w:5,h:3},{id:'weath',x:18,y:14,w:4,h:3},{id:'wifi',x:22,y:14,w:3,h:3},
-  {id:'tesla',x:13,y:17,w:4,h:4},{id:'hourly',x:17,y:17,w:4,h:3},{id:'ctrl',x:21,y:17,w:4,h:3},
-  {id:'dogcam',x:17,y:20,w:4,h:3},{id:'ac',x:21,y:20,w:4,h:3},{id:'event',x:13,y:21,w:4,h:2},
+const WMIN=2,WMAX=5,HMIN=2,HMAX=4;
+// real cluster tiles as offsets within the 12×9 cluster box
+const CLUSTER_BOX=[
+  {id:'clock',dx:0,dy:0,w:5,h:3},{id:'weath',dx:5,dy:0,w:4,h:3},{id:'wifi',dx:9,dy:0,w:3,h:3},
+  {id:'tesla',dx:0,dy:3,w:4,h:4},{id:'hourly',dx:4,dy:3,w:4,h:3},{id:'ctrl',dx:8,dy:3,w:4,h:3},
+  {id:'dogcam',dx:4,dy:6,w:4,h:3},{id:'ac',dx:8,dy:6,w:4,h:3},{id:'event',dx:0,dy:7,w:4,h:2},
 ];
+const BOXW=12,BOXH=9;
+// board size + derived hole/cluster, set by layout() from the board-size knob.
+let W=64,H=64,HOLE={hx0:26,hx1:37,hy0:27,hy1:35},CLUSTER=[];
+function layout(BS){
+  W=BS;H=BS;
+  const hx0=(BS-BOXW)>>1,hy0=(BS-BOXH)>>1;
+  HOLE={hx0,hx1:hx0+BOXW-1,hy0,hy1:hy0+BOXH-1};
+  CLUSTER=CLUSTER_BOX.map(c=>({id:c.id,x:hx0+c.dx,y:hy0+c.dy,w:c.w,h:c.h}));
+}
 const mulberry32=a=>()=>{a|=0;a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};
 const validSizes=(avail,mn,mx)=>{const o=[];const top=Math.min(mx,avail);for(let w=mn;w<=top;w++){const r=avail-w;if(r===0||r>=mn)o.push(w);}return o;};
 
@@ -159,13 +168,16 @@ const hue=i=>`hsl(${(i*47)%360} 50% ${32+(i*17)%18}%)`;
 function roundRect(ctx,x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 function tilesFrom(owner){const box=new Map();for(let y=0;y<H;y++)for(let x=0;x<W;x++){const id=owner[y*W+x];if(id<0)continue;let b=box.get(id);if(!b){b={x0:x,y0:y,x1:x,y1:y};box.set(id,b);}else{if(x<b.x0)b.x0=x;if(x>b.x1)b.x1=x;if(y<b.y0)b.y0=y;if(y>b.y1)b.y1=y;}}return[...box.entries()].map(([id,b])=>({id,x:b.x0,y:b.y0,w:b.x1-b.x0+1,h:b.y1-b.y0+1}));}
 function draw(b,ll,showClu){
-  const cv=document.getElementById('board'),C=24,G=2,P=10;
+  const cv=document.getElementById('board'),P=10,TARGET=900;
+  // scale cell + gap so the whole board fits ~TARGET px wide
+  const G=W>40?1:2,C=Math.max(6,Math.floor((TARGET-2*P-(W-1)*G)/W));
+  const showLabels=C>=18;
   const px=W*(C+G)-G+2*P,py=H*(C+G)-G+2*P;cv.width=px;cv.height=py;
   const ctx=cv.getContext('2d');ctx.fillStyle='#000';ctx.fillRect(0,0,px,py);
   for(const t of tilesFrom(b.owner)){const x=P+t.x*(C+G),y=P+t.y*(C+G),w=t.w*(C+G)-G,h=t.h*(C+G)-G;ctx.fillStyle=hue(t.id);roundRect(ctx,x,y,w,h,4);ctx.fill();}
   if(showClu)for(const c of CLUSTER){const x=P+c.x*(C+G),y=P+c.y*(C+G),w=c.w*(C+G)-G,h=c.h*(C+G)-G;
     ctx.fillStyle='#2b2b2b';roundRect(ctx,x,y,w,h,4);ctx.fill();ctx.strokeStyle='#444';ctx.lineWidth=1;ctx.stroke();
-    ctx.fillStyle='#7a7a7a';ctx.font='10px ui-monospace,monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(c.id,x+w/2,y+h/2);}
+    if(showLabels){ctx.fillStyle='#7a7a7a';ctx.font='10px ui-monospace,monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(c.id,x+w/2,y+h/2);}}
   // seam overlays
   const {vc,hc,v,h:hh}=ll;
   if(v){const X=P+vc.c*(C+G)-G/2;ctx.strokeStyle='#ff5470';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(X,P+vc.r*(C+G));ctx.lineTo(X,P+(vc.r+vc.len)*(C+G)-G);ctx.stroke();}
