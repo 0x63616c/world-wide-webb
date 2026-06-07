@@ -21,16 +21,10 @@ import { LampMode } from "../config/lamp-scenes";
 import { findLight, LIGHTS, LightControl, LightKind, lightControl } from "../config/lights";
 import { db } from "../db/index";
 import type { DeviceLightState, LightColor } from "../db/schema";
-import {
-  deviceCommands,
-  deviceState,
-  integrationSyncStatus,
-  LAMP_MODE_SINGLETON_ID,
-  lampMode,
-} from "../db/schema";
+import { deviceState, integrationSyncStatus, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
-import { CommandStatus, HaLightService } from "./device-command-service";
+import { HaLightService } from "./device-command-service";
 import { isLightState, type MappedHaState, mapHaToReported } from "./device-state-mapping";
 
 const ENFORCER_INTEGRATION_ID = "light-enforcer";
@@ -107,8 +101,6 @@ export type EnforcementDecision =
 
 /**
  * Pure reconcile decision for one device. No I/O — the cycle executes the result.
- * `commandInFlight` suppresses drift handling while an app command is still
- * converging (the command, not the enforcer, owns that transition).
  * `partyActive` makes the enforcer YIELD COLOUR to the party engine for lamps
  * (CC-7d5b.3.3): on/off is still enforced (so the wave stays lit), but a
  * colour-only divergence is ignored so the 1s enforcer never fights the
@@ -119,12 +111,13 @@ export type EnforcementDecision =
  * drift while inside that window we PUSH the desired regardless of policy (the
  * command owns the transition until it converges or the window expires). Only
  * after the window does `control` govern unsolicited drift (enforce → push,
- * adopt → absorb). Without this an adopt fixture would revert a just-issued tap.
+ * adopt → absorb). This window REPLACES the old `device_commands` in-flight gate
+ * (CC-unxz hotfix): that dead command-queue table left stale `sent` rows that
+ * permanently no-op'd the enforcer, so the enforcer no longer consults it.
  */
 export function decideEnforcement(
   device: ManagedDevice,
   mapped: MappedHaState,
-  commandInFlight: boolean,
   partyActive = false,
   now: Date = new Date(),
 ): EnforcementDecision {
@@ -137,9 +130,6 @@ export function decideEnforcement(
 
   // Seed once: adopt current reality as the initial intent without pushing.
   if (device.desiredState == null) return { kind: "seed", desired: reported };
-
-  // A converging app command owns the transition; don't second-guess it.
-  if (commandInFlight) return { kind: "noop" };
 
   // Steady state: only act on genuine drift. While party is active the party
   // engine owns colour, so compare on/off only (yield colour); otherwise full
@@ -195,7 +185,6 @@ export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> 
     .from(deviceState)
     .where(inArray(deviceState.entityId, [...MANAGED_ENTITY_IDS]));
   const now = new Date();
-  const inFlight = await inFlightDeviceIds();
   // While party mode is active the party engine owns lamp COLOUR; the enforcer
   // yields colour (but still enforces on/off) so the two don't fight (CC-7d5b.3.3).
   const partyActive = await isPartyActive();
@@ -219,7 +208,7 @@ export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> 
     // Colour-yield applies only to lamps (light domain); switch fixtures have no
     // colour, so party never affects them.
     const yieldColour = partyActive && entry.kind === LightKind.Lamp;
-    const decision = decideEnforcement(device, mapped, inFlight.has(row.id), yieldColour, now);
+    const decision = decideEnforcement(device, mapped, yieldColour, now);
     await applyDecision(device, decision, mapped, now);
   }
 }
@@ -298,15 +287,6 @@ async function applyDecision(
       return;
     }
   }
-}
-
-/** Device ids with a still-converging app command (Pending or Sent). */
-async function inFlightDeviceIds(): Promise<Set<string>> {
-  const rows = await db
-    .select({ deviceId: deviceCommands.deviceId, status: deviceCommands.status })
-    .from(deviceCommands)
-    .where(inArray(deviceCommands.status, [CommandStatus.Pending, CommandStatus.Sent]));
-  return new Set(rows.map((r) => r.deviceId));
 }
 
 async function markHeartbeat(error: string | null): Promise<void> {

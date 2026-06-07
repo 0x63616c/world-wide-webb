@@ -120,31 +120,28 @@ function dev(
 
 describe("decideEnforcement", () => {
   it("seeds desired from reported when desired is null (no push)", () => {
-    const d = decideEnforcement(
-      dev({ desiredState: null }),
-      { reported: { on: true, brightness: 180 }, available: true },
-      false,
-    );
+    const d = decideEnforcement(dev({ desiredState: null }), {
+      reported: { on: true, brightness: 180 },
+      available: true,
+    });
     expect(d.kind).toBe("seed");
     if (d.kind === "seed") expect(d.desired).toEqual({ on: true, brightness: 180 });
   });
 
   it("does nothing when desired and reported are converged", () => {
-    const d = decideEnforcement(
-      dev({ desiredState: { on: true, brightness: 200 } }),
-      { reported: { on: true, brightness: 202 }, available: true },
-      false,
-    );
+    const d = decideEnforcement(dev({ desiredState: { on: true, brightness: 200 } }), {
+      reported: { on: true, brightness: 202 },
+      available: true,
+    });
     expect(d.kind).toBe("noop");
   });
 
   it("enforce + drift -> push desired to HA", () => {
     const desired: DeviceLightState = { on: true, color: { rgb: [255, 0, 0] } };
-    const d = decideEnforcement(
-      dev({ control: LightControl.Enforce, desiredState: desired }),
-      { reported: { on: true, color: { rgb: [0, 0, 255] } }, available: true },
-      false,
-    );
+    const d = decideEnforcement(dev({ control: LightControl.Enforce, desiredState: desired }), {
+      reported: { on: true, color: { rgb: [0, 0, 255] } },
+      available: true,
+    });
     expect(d.kind).toBe("push");
     if (d.kind === "push") expect(d.desired).toBe(desired);
   });
@@ -154,7 +151,6 @@ describe("decideEnforcement", () => {
     const d = decideEnforcement(
       dev({ control: LightControl.Adopt, desiredState: { on: true, color: { rgb: [255, 0, 0] } } }),
       { reported, available: true },
-      false,
     );
     expect(d.kind).toBe("adopt");
     if (d.kind === "adopt") expect(d.desired).toEqual(reported);
@@ -163,30 +159,16 @@ describe("decideEnforcement", () => {
   it("unreachable -> mark unavailable, no push/adopt", () => {
     const d = decideEnforcement(
       dev({ control: LightControl.Enforce, desiredState: { on: true } }),
-      { reported: null, available: false },
-      false,
+      {
+        reported: null,
+        available: false,
+      },
     );
     expect(d.kind).toBe("unreachable");
   });
 
-  it("skips drift handling while a command is in flight (converging)", () => {
-    const d = decideEnforcement(
-      dev({
-        control: LightControl.Enforce,
-        desiredState: { on: true, color: { rgb: [255, 0, 0] } },
-      }),
-      { reported: { on: true, color: { rgb: [0, 0, 255] } }, available: true },
-      true, // commandInFlight
-    );
-    expect(d.kind).toBe("noop");
-  });
-
   it("does not seed an unreachable device with null desired", () => {
-    const d = decideEnforcement(
-      dev({ desiredState: null }),
-      { reported: null, available: false },
-      false,
-    );
+    const d = decideEnforcement(dev({ desiredState: null }), { reported: null, available: false });
     expect(d.kind).toBe("unreachable");
   });
 
@@ -200,7 +182,6 @@ describe("decideEnforcement", () => {
         desiredState: { on: true, color: { rgb: [255, 0, 0] } },
       }),
       { reported: { on: true, color: { rgb: [0, 255, 0] } }, available: true },
-      false,
       true, // partyActive
     );
     expect(d.kind).toBe("noop");
@@ -215,7 +196,6 @@ describe("decideEnforcement", () => {
         desiredState: { on: true, color: { rgb: [255, 0, 0] } },
       }),
       { reported: { on: false }, available: true },
-      false,
       true, // partyActive
     );
     expect(d.kind).toBe("push");
@@ -239,8 +219,7 @@ describe("decideEnforcement command window", () => {
     const d = decideEnforcement(
       dev({ control: LightControl.Adopt, desiredState: desired, desiredUntilUtc: future }),
       { reported: { on: false }, available: true },
-      false,
-      false,
+      false, // partyActive
       now,
     );
     expect(d.kind).toBe("push");
@@ -252,8 +231,7 @@ describe("decideEnforcement command window", () => {
     const d = decideEnforcement(
       dev({ control: LightControl.Adopt, desiredState: { on: true }, desiredUntilUtc: past }),
       { reported, available: true },
-      false,
-      false,
+      false, // partyActive
       now,
     );
     expect(d.kind).toBe("adopt");
@@ -264,8 +242,7 @@ describe("decideEnforcement command window", () => {
     const d = decideEnforcement(
       dev({ control: LightControl.Adopt, desiredState: { on: true }, desiredUntilUtc: future }),
       { reported: { on: true }, available: true },
-      false,
-      false,
+      false, // partyActive
       now,
     );
     expect(d.kind).toBe("noop");
