@@ -12,6 +12,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
 COPY packages/api/package.json packages/api/
 COPY packages/bosun/package.json packages/bosun/
 
