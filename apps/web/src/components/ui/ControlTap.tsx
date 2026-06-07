@@ -3,7 +3,7 @@
  * Zero trpc/data/hook dependencies; all state driven by props.
  */
 
-import { Icon } from "../Icon";
+import { Icon, type IconName } from "../Icon";
 
 export interface ControlTapProps {
   icon: "lamp" | "bulb" | "fan";
@@ -33,6 +33,11 @@ export function ControlTap({
   onToggle,
 }: ControlTapProps) {
   const statusText = on ? (sub ?? "On") : "Off";
+
+  // The bulb (Lights) glyph swaps by on-state for evee parity (www-cojw): a lit
+  // Lightbulb when on, a struck-through LightbulbOff when off. lamp/fan keep a
+  // single glyph and signal state purely via colour (+ fan spin).
+  const glyph: IconName = icon === "bulb" && !on ? "bulb-off" : icon;
 
   return (
     <button
@@ -96,7 +101,7 @@ export function ControlTap({
             <Icon name="fan" s={26} c={on ? "var(--acc)" : "var(--ink-2)"} />
           </span>
         ) : (
-          <Icon name={icon} s={26} c={on ? "var(--acc)" : "var(--ink-2)"} />
+          <Icon name={glyph} s={26} c={on ? "var(--acc)" : "var(--ink-2)"} />
         )}
         <span className="sd" />
       </div>

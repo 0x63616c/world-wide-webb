@@ -94,6 +94,27 @@ describe("ControlTap — fan spin animation", () => {
   });
 });
 
+// ─── bulb on/off glyph swap (www-cojw, evee parity) ────────────────────────────
+
+describe("ControlTap — bulb glyph swaps by on-state", () => {
+  it("renders the lit bulb (lucide-lightbulb) when lights are on", () => {
+    const { container } = render(
+      <ControlTap icon="bulb" label="Lights" on={true} onToggle={vi.fn()} />,
+    );
+    const svg = container.querySelector("svg");
+    expect(svg?.getAttribute("class") ?? "").toContain("lucide-lightbulb");
+    expect(svg?.getAttribute("class") ?? "").not.toContain("lucide-lightbulb-off");
+  });
+
+  it("renders the off bulb (lucide-lightbulb-off) when lights are off", () => {
+    const { container } = render(
+      <ControlTap icon="bulb" label="Lights" on={false} onToggle={vi.fn()} />,
+    );
+    const svg = container.querySelector("svg");
+    expect(svg?.getAttribute("class") ?? "").toContain("lucide-lightbulb-off");
+  });
+});
+
 // ─── swatch variant ───────────────────────────────────────────────────────────
 
 describe("ControlTap — swatch variant", () => {
