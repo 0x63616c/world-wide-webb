@@ -337,7 +337,7 @@ export function useBoardDragPan({
 // ─── useIdleReset ─────────────────────────────────────────────────────────────
 
 /** Idle window before the board returns to the home (clock) view. */
-export const IDLE_RESET_MS = 60_000;
+export const IDLE_RESET_MS = 10 * 60_000;
 
 // Interaction events that count as "the panel is in use" and rearm the timer.
 // pointerdown/touchstart cover taps; wheel/scroll cover panning; keydown covers
