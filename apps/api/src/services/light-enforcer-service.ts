@@ -92,6 +92,10 @@ interface ManagedDevice {
   domain: string;
   control: LightControl;
   desiredState: DeviceLightState | null;
+  // App-command window: while now < desiredUntilUtc the freshly-set desired is
+  // pushed regardless of policy (the command owns the transition). null = no
+  // open window (www-unxz.1).
+  desiredUntilUtc: Date | null;
 }
 
 export type EnforcementDecision =
@@ -109,12 +113,20 @@ export type EnforcementDecision =
  * (www-7d5b.3.3): on/off is still enforced (so the wave stays lit), but a
  * colour-only divergence is ignored so the 1s enforcer never fights the
  * animation. Switch fixtures have no colour, so party is a no-op for them.
+ *
+ * The app-command window (www-unxz.1): the control mutations no longer push to HA
+ * themselves — they write desired + a short `desiredUntilUtc` and return. So on
+ * drift while inside that window we PUSH the desired regardless of policy (the
+ * command owns the transition until it converges or the window expires). Only
+ * after the window does `control` govern unsolicited drift (enforce → push,
+ * adopt → absorb). Without this an adopt fixture would revert a just-issued tap.
  */
 export function decideEnforcement(
   device: ManagedDevice,
   mapped: MappedHaState,
   commandInFlight: boolean,
   partyActive = false,
+  now: Date = new Date(),
 ): EnforcementDecision {
   // Unreachable: can't read truth, so can't enforce or adopt. Caller flips
   // available=false; desired is left untouched (intent survives the outage).
@@ -134,6 +146,11 @@ export function decideEnforcement(
     ? device.desiredState.on === reported.on
     : lightStateConverged(device.desiredState, reported);
   if (converged) return { kind: "noop" };
+
+  // Inside the app-command window: the freshly-set desired wins regardless of
+  // policy until it converges or the window expires.
+  const inCommandWindow = device.desiredUntilUtc != null && now < device.desiredUntilUtc;
+  if (inCommandWindow) return { kind: "push", desired: device.desiredState };
 
   return lightControl(device) === LightControl.Enforce
     ? { kind: "push", desired: device.desiredState }
@@ -194,12 +211,13 @@ export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> 
       domain: row.domain,
       control: lightControl(entry),
       desiredState: row.desiredState ?? null,
+      desiredUntilUtc: row.desiredUntilUtc ?? null,
     };
 
     // Colour-yield applies only to lamps (light domain); switch fixtures have no
     // colour, so party never affects them.
     const yieldColour = partyActive && entry.kind === LightKind.Lamp;
-    const decision = decideEnforcement(device, mapped, inFlight.has(row.id), yieldColour);
+    const decision = decideEnforcement(device, mapped, inFlight.has(row.id), yieldColour, now);
     await applyDecision(device, decision, mapped, now);
   }
 }

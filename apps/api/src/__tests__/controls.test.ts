@@ -158,9 +158,17 @@ function mockSelectWithMode(deviceRows: unknown[], mode: string | null): void {
   });
 }
 
-// Chainable insert mock for db.insert().values().onConflictDoUpdate()
+// Chainable insert mock for db.insert().values().onConflictDoUpdate().
+// `valuesSpy` (when provided) records each .values() payload so a test can assert
+// the desired-state written per entity (the mutations no longer call HA, so the
+// desired write is the only observable side-effect — www-unxz.1).
 class InsertChain {
-  values(): this {
+  private readonly valuesSpy?: (payload: unknown) => void;
+  constructor(valuesSpy?: (payload: unknown) => void) {
+    this.valuesSpy = valuesSpy;
+  }
+  values(payload?: unknown): this {
+    this.valuesSpy?.(payload);
     return this;
   }
   returning(): Promise<unknown[]> {
@@ -178,8 +186,32 @@ class InsertChain {
   }
 }
 
-function makeInsertChain(): InsertChain {
-  return new InsertChain();
+function makeInsertChain(valuesSpy?: (payload: unknown) => void): InsertChain {
+  return new InsertChain(valuesSpy);
+}
+
+// Captured `.values()` payload shape for a device_state upsert (the fields the
+// assertions care about).
+interface DesiredInsert {
+  entityId?: string;
+  desiredState?: { on: boolean; brightness?: number; color?: unknown };
+  desiredUntilUtc?: Date;
+}
+
+/**
+ * Wire db.insert() to capture every device_state upsert's `.values()` payload,
+ * keyed by entityId. lamp_mode upserts (no entityId) are ignored. Lets a test
+ * assert the desired written per entity without HA being involved.
+ */
+function captureDesiredWrites(): Map<string, DesiredInsert> {
+  const byEntity = new Map<string, DesiredInsert>();
+  mockDbInsert.mockImplementation(() =>
+    makeInsertChain((payload) => {
+      const p = payload as DesiredInsert;
+      if (p?.entityId) byEntity.set(p.entityId, p);
+    }),
+  );
+  return byEntity;
 }
 
 // Make a deviceState row with typical fields. Desired-authoritative (www-7d5b.2.4):
@@ -522,35 +554,36 @@ describe("toggleControl", () => {
     );
   });
 
-  it("writes desired + actuates HA turn_on for every lamp when toggling lamps on", async () => {
+  it("writes desired (on) + command window for every lamp, with NO HA call (www-unxz.1)", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockDbSelect.mockReturnValue(makeSelectChain([]));
+    const writes = captureDesiredWrites();
 
     await toggleControl(ControlKey.Lamps, true);
 
-    // Desired is written (sticky source of truth) for every lamp.
+    // Desired is written (sticky source of truth) for every lamp — the enforcer
+    // actuates HA, so the hot path makes NO ha.callService.
     expect(mockDbInsert).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
-    // AND HA is actuated immediately for an instant physical response — one
-    // light.turn_on per lamp.
-    expect(mockCallService).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
+    expect(mockCallService).not.toHaveBeenCalled();
     for (const entityId of LAMP_ENTITY_IDS) {
-      expect(mockCallService).toHaveBeenCalledWith("light", HaService.TurnOn, {
-        entity_id: entityId,
-      });
+      const w = writes.get(entityId);
+      expect(w?.desiredState).toMatchObject({ on: true });
+      // The command window is stamped so the enforcer pushes regardless of policy.
+      expect(w?.desiredUntilUtc).toBeInstanceOf(Date);
     }
   });
 
-  it("writes desired + actuates HA turn_off for every fixture when toggling lights off", async () => {
+  it("writes desired (off) for every fixture when toggling lights off, with NO HA call", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockDbSelect.mockReturnValue(makeSelectChain([]));
+    const writes = captureDesiredWrites();
 
     await toggleControl(ControlKey.Lights, false);
 
     expect(mockDbInsert).toHaveBeenCalledTimes(FIXTURE_ENTITY_IDS.length);
+    expect(mockCallService).not.toHaveBeenCalled();
     for (const entityId of FIXTURE_ENTITY_IDS) {
-      expect(mockCallService).toHaveBeenCalledWith("switch", HaService.TurnOff, {
-        entity_id: entityId,
-      });
+      expect(writes.get(entityId)?.desiredState).toMatchObject({ on: false });
     }
   });
 
@@ -562,13 +595,15 @@ describe("toggleControl", () => {
         lampRow("lamp-1", "light.living_room_globe", { on: false, color: { rgb: [0, 0, 255] } }),
       ]),
     );
+    const writes = captureDesiredWrites();
 
     await toggleControl(ControlKey.Lamps, true);
 
-    // The actuation for the globe carries its preserved colour.
-    expect(mockCallService).toHaveBeenCalledWith("light", HaService.TurnOn, {
-      entity_id: "light.living_room_globe",
-      rgb_color: [0, 0, 255],
+    // The desired written for the globe carries its preserved colour — no HA call.
+    expect(mockCallService).not.toHaveBeenCalled();
+    expect(writes.get("light.living_room_globe")?.desiredState).toMatchObject({
+      on: true,
+      color: { rgb: [0, 0, 255] },
     });
   });
 
@@ -737,75 +772,71 @@ describe("setLampScene", () => {
     await expect(setLampScene(LampScene.White)).rejects.toThrow("Home Assistant is not configured");
   });
 
-  it("sets a uniform color_temp_kelvin white on every lamp", async () => {
+  it("writes a uniform white kelvin desired on every lamp, NO HA call (www-unxz.1)", async () => {
     mockIsConfigured.mockReturnValue(true);
+    const writes = captureDesiredWrites();
 
     await setLampScene(LampScene.White);
 
-    expect(mockCallService).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
+    expect(writes.size).toBe(LAMP_ENTITY_IDS.length);
+    expect(mockCallService).not.toHaveBeenCalled();
     for (const entityId of LAMP_ENTITY_IDS) {
-      expect(mockCallService).toHaveBeenCalledWith(
-        "light",
-        HaService.TurnOn,
-        expect.objectContaining({
-          entity_id: entityId,
-          color_temp_kelvin: expect.any(Number),
-        }),
-      );
+      const desired = writes.get(entityId)?.desiredState as
+        | { on: boolean; color?: { kelvin?: number } }
+        | undefined;
+      expect(desired?.on).toBe(true);
+      expect(typeof desired?.color?.kelvin).toBe("number");
     }
   });
 
-  it("sets a uniform red rgb_color on every lamp", async () => {
+  it("writes a uniform red rgb desired on every lamp, NO HA call", async () => {
     mockIsConfigured.mockReturnValue(true);
+    const writes = captureDesiredWrites();
 
     await setLampScene(LampScene.Red);
 
-    expect(mockCallService).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
+    expect(writes.size).toBe(LAMP_ENTITY_IDS.length);
+    expect(mockCallService).not.toHaveBeenCalled();
     for (const entityId of LAMP_ENTITY_IDS) {
-      expect(mockCallService).toHaveBeenCalledWith("light", HaService.TurnOn, {
-        entity_id: entityId,
-        rgb_color: [255, 0, 0],
+      expect(writes.get(entityId)?.desiredState).toMatchObject({
+        on: true,
+        color: { rgb: [255, 0, 0] },
       });
     }
   });
 
-  it("sets a uniform blue rgb_color on every lamp", async () => {
+  it("writes a uniform blue rgb desired on every lamp, NO HA call", async () => {
     mockIsConfigured.mockReturnValue(true);
+    const writes = captureDesiredWrites();
 
     await setLampScene(LampScene.Blue);
 
+    expect(mockCallService).not.toHaveBeenCalled();
     for (const entityId of LAMP_ENTITY_IDS) {
-      expect(mockCallService).toHaveBeenCalledWith("light", HaService.TurnOn, {
-        entity_id: entityId,
-        rgb_color: [0, 0, 255],
+      expect(writes.get(entityId)?.desiredState).toMatchObject({
+        on: true,
+        color: { rgb: [0, 0, 255] },
       });
     }
   });
 
-  it("mood: assigns a DIFFERENT rgb_color across lamps (varied wash, not flat)", async () => {
+  it("mood: writes a DIFFERENT rgb desired across lamps (varied wash), NO HA call", async () => {
     mockIsConfigured.mockReturnValue(true);
+    const writes = captureDesiredWrites();
 
     await setLampScene(LampScene.Mood);
 
-    expect(mockCallService).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
+    expect(writes.size).toBe(LAMP_ENTITY_IDS.length);
+    expect(mockCallService).not.toHaveBeenCalled();
 
-    // Collect the rgb_color args keyed by entity_id.
+    // Collect the desired rgb keyed by entity_id.
     const rgbByEntity = new Map<string, string>();
-    for (const call of mockCallService.mock.calls) {
-      const [domain, service, params] = call as unknown as [
-        string,
-        string,
-        { entity_id: string; rgb_color?: number[] },
-      ];
-      expect(domain).toBe("light");
-      expect(service).toBe(HaService.TurnOn);
-      expect(params.rgb_color).toBeDefined();
-      rgbByEntity.set(params.entity_id, JSON.stringify(params.rgb_color));
-    }
-
-    // Every lamp must be addressed.
     for (const entityId of LAMP_ENTITY_IDS) {
-      expect(rgbByEntity.has(entityId)).toBe(true);
+      const desired = writes.get(entityId)?.desiredState as
+        | { color?: { rgb?: number[] } }
+        | undefined;
+      expect(desired?.color?.rgb).toBeDefined();
+      rgbByEntity.set(entityId, JSON.stringify(desired?.color?.rgb));
     }
 
     // Every lamp gets a DISTINCT colour — no repeats across the room.
@@ -856,42 +887,37 @@ describe("setLampBrightness", () => {
     await expect(setLampBrightness(50)).rejects.toThrow("Home Assistant is not configured");
   });
 
-  it("sets raw brightness (0..255) on every lamp", async () => {
+  it("writes raw brightness (0..255) desired on every lamp, NO HA call (www-unxz.1)", async () => {
     mockIsConfigured.mockReturnValue(true);
+    const writes = captureDesiredWrites();
 
-    // 60% → round(0.6 * 255) = 153. Desired stores HA raw, so actuation uses
-    // `brightness` (raw), matching what the enforcer re-asserts on drift.
+    // 60% → round(0.6 * 255) = 153. Desired stores HA raw, matching what the
+    // enforcer re-asserts on drift.
     await setLampBrightness(60);
 
-    expect(mockCallService).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
+    expect(mockDbInsert).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
+    expect(mockCallService).not.toHaveBeenCalled();
     for (const entityId of LAMP_ENTITY_IDS) {
-      expect(mockCallService).toHaveBeenCalledWith("light", HaService.TurnOn, {
-        entity_id: entityId,
-        brightness: 153,
-      });
+      expect(writes.get(entityId)?.desiredState).toMatchObject({ on: true, brightness: 153 });
     }
   });
 
   it("clamps brightness above 100 down to 100 (raw 255)", async () => {
     mockIsConfigured.mockReturnValue(true);
+    const writes = captureDesiredWrites();
 
     await setLampBrightness(150);
 
-    expect(mockCallService).toHaveBeenCalledWith("light", HaService.TurnOn, {
-      entity_id: LAMP_ENTITY_IDS[0],
-      brightness: 255,
-    });
+    expect(writes.get(LAMP_ENTITY_IDS[0])?.desiredState).toMatchObject({ brightness: 255 });
   });
 
   it("clamps negative brightness up to 0 (raw 0)", async () => {
     mockIsConfigured.mockReturnValue(true);
+    const writes = captureDesiredWrites();
 
     await setLampBrightness(-20);
 
-    expect(mockCallService).toHaveBeenCalledWith("light", HaService.TurnOn, {
-      entity_id: LAMP_ENTITY_IDS[0],
-      brightness: 0,
-    });
+    expect(writes.get(LAMP_ENTITY_IDS[0])?.desiredState).toMatchObject({ brightness: 0 });
   });
 
   it("returns the merged controls state after dispatching", async () => {

@@ -89,6 +89,14 @@ export const HaService = {
 } as const;
 export type HaService = (typeof HaService)[keyof typeof HaService];
 
+// The app-command window (www-unxz.1). A control mutation writes desired and
+// returns WITHOUT actuating HA — the enforcer pushes desired→HA. While
+// `now < desiredUntilUtc` the enforcer pushes regardless of control policy, so a
+// freshly-set desired is honoured even on an `adopt` wall-switch fixture (which
+// would otherwise revert it on the next cycle). The enforcer runs ~1s; 10s covers
+// slow HA round-trips so the desired is pushed before the window lapses.
+const COMMAND_WINDOW_MS = 10_000;
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 /** Convert an HA raw brightness (0..255) to a rounded 0..100 pct. */
@@ -323,17 +331,23 @@ async function readLampMode(): Promise<LampMode> {
 // ─── desired-state writes ──────────────────────────────────────────────────────
 
 /**
- * Upsert the desired state for a set of managed lights, then return so the caller
- * can actuate HA. Desired is STICKY (no expiry window) — it is the source of truth
- * the enforcer continuously reconciles. `mutate` derives the new desired from the
- * existing one (so a brightness change keeps the colour, a toggle keeps the scene).
+ * Upsert the desired state for a set of managed lights. Desired is STICKY (no
+ * expiry) — it is the source of truth the enforcer continuously reconciles.
+ * `mutate` derives the new desired from the existing one (so a brightness change
+ * keeps the colour, a toggle keeps the scene).
+ *
+ * Each write also stamps a short `desiredUntilUtc` COMMAND WINDOW (www-unxz.1):
+ * the mutations no longer actuate HA themselves, so the enforcer must PUSH this
+ * freshly-set desired regardless of control policy until it converges or the
+ * window expires. Without it an `adopt` fixture (a wall-switch) would revert a
+ * just-issued tap on the very next enforcer cycle. After the window, `control`
+ * governs unsolicited drift as before.
  */
 async function writeDesired(
   entries: LightEntry[],
   mutate: (entry: LightEntry, prev: DeviceLightState | null) => DeviceLightState,
-): Promise<Map<string, DeviceLightState>> {
-  const desiredByEntity = new Map<string, DeviceLightState>();
-  if (entries.length === 0) return desiredByEntity;
+): Promise<void> {
+  if (entries.length === 0) return;
 
   let rows: (typeof deviceState.$inferSelect)[] = [];
   try {
@@ -351,13 +365,13 @@ async function writeDesired(
   }
   const rowByEntityId = new Map(rows.map((r) => [r.entityId, r]));
   const now = new Date();
+  const desiredUntil = new Date(now.getTime() + COMMAND_WINDOW_MS);
 
   await Promise.all(
     entries.map(async (entry) => {
       const prev =
         (rowByEntityId.get(entry.entityId)?.desiredState as DeviceLightState | null) ?? null;
       const desired = mutate(entry, prev);
-      desiredByEntity.set(entry.entityId, desired);
       try {
         await db
           .insert(deviceState)
@@ -369,19 +383,19 @@ async function writeDesired(
             label: entry.label,
             desiredState: desired,
             desiredAtUtc: now,
+            desiredUntilUtc: desiredUntil,
             available: true,
           })
           .onConflictDoUpdate({
             target: deviceState.entityId,
-            set: { desiredState: desired, desiredAtUtc: now },
+            set: { desiredState: desired, desiredAtUtc: now, desiredUntilUtc: desiredUntil },
           });
       } catch {
-        // DB unreachable — desired cannot be written; the HA actuation still fires
-        // so the command is never a silent no-op.
+        // DB unreachable — desired cannot be written; the enforcer will re-seed
+        // from reported next cycle, so the command is never a silent corruption.
       }
     }),
   );
-  return desiredByEntity;
 }
 
 /** All lamp LightEntry rows in LAMP_ENTITY_IDS order. */
@@ -394,35 +408,18 @@ function fixtureEntries(): LightEntry[] {
   return FIXTURE_ENTITY_IDS.map((id) => findLight(id)).filter((e): e is LightEntry => !!e);
 }
 
-/** Build a `light.turn_on` payload from a desired light state (brightness raw 0..255). */
-function turnOnParams(entityId: string, desired: DeviceLightState): Record<string, unknown> {
-  const params: Record<string, unknown> = { entity_id: entityId };
-  if (desired.brightness != null) params.brightness = desired.brightness;
-  if (desired.color?.rgb) params.rgb_color = desired.color.rgb;
-  else if (desired.color?.kelvin != null) params.color_temp_kelvin = desired.color.kelvin;
-  return params;
-}
-
-/** Actuate HA immediately for a desired light state (on→turn_on, off→turn_off). */
-async function actuate(entry: LightEntry, desired: DeviceLightState): Promise<void> {
-  if (desired.on) {
-    await ha.callService(entry.domain, HaService.TurnOn, turnOnParams(entry.entityId, desired));
-  } else {
-    await ha.callService(entry.domain, HaService.TurnOff, { entity_id: entry.entityId });
-  }
-}
-
-// ─── mutations (write desired + actuate now) ──────────────────────────────────
+// ─── mutations (write desired; the enforcer actuates HA) ──────────────────────
 
 /**
  * Toggle lamps, lights, or fan on or off.
  *
- * For lamps/lights: writes the on/off intent to device_state DESIRED (sticky) AND
- * fires the HA actuation immediately for an instant physical response. Turning a
- * lamp ON preserves its existing desired colour/brightness (the scene survives a
- * toggle). The enforcer is the continuous safety-net that re-asserts on drift.
- * Fan stays the climate fan_mode path (evee parity). Throws when HA is
- * unconfigured. Returns the desired-authoritative state after dispatching.
+ * For lamps/lights: writes the on/off intent to device_state DESIRED (+ a command
+ * window) and returns — it does NOT actuate HA in the hot path. The light enforcer
+ * pushes desired→HA within its ~1s cycle (it pushes regardless of policy while the
+ * command window is open, so even an `adopt` wall-switch honours the tap). Turning
+ * a lamp ON preserves its existing desired colour/brightness (the scene survives a
+ * toggle). Fan stays the climate fan_mode path (evee parity). Throws when HA is
+ * unconfigured. Returns the desired-authoritative state.
  */
 export async function toggleControl(key: ControlKey, on: boolean): Promise<ControlsState> {
   if (!ha.isConfigured()) {
@@ -437,12 +434,10 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
       if (!on) await clearLampMode();
       const entries = lampEntries();
       // Toggle ON preserves the existing desired colour/brightness (scene survives
-      // a toggle); OFF just flips on. The desired write is the source of truth.
-      const desiredByEntity = await writeDesired(entries, (_entry, prev) =>
+      // a toggle); OFF just flips on. The desired write is the source of truth; the
+      // enforcer pushes it to HA within the command window.
+      await writeDesired(entries, (_entry, prev) =>
         on ? { ...prev, on: true } : { ...(prev ?? {}), on: false },
-      );
-      await Promise.all(
-        entries.map((entry) => actuate(entry, desiredByEntity.get(entry.entityId) ?? { on })),
       );
       break;
     }
@@ -450,7 +445,6 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
     case ControlKey.Lights: {
       const entries = fixtureEntries();
       await writeDesired(entries, () => ({ on }));
-      await Promise.all(entries.map((entry) => actuate(entry, { on })));
       break;
     }
 
@@ -507,13 +501,10 @@ export async function setLampScene(scene: LampScene): Promise<ControlsState> {
   // entries are in LAMP_ENTITY_IDS order, so colors[i] lines up with entries[i].
   const colorByEntity = new Map(entries.map((entry, i) => [entry.entityId, colors[i]]));
 
-  const desiredByEntity = await writeDesired(entries, (entry) => ({
+  await writeDesired(entries, (entry) => ({
     on: true,
     color: colorByEntity.get(entry.entityId),
   }));
-  await Promise.all(
-    entries.map((entry) => actuate(entry, desiredByEntity.get(entry.entityId) ?? { on: true })),
-  );
 
   return getControlsState();
 }
@@ -531,16 +522,11 @@ export async function setLampBrightness(pct: number): Promise<ControlsState> {
   const raw = brightnessPctToRaw(pct);
   const entries = lampEntries();
 
-  const desiredByEntity = await writeDesired(entries, (_entry, prev) => ({
+  await writeDesired(entries, (_entry, prev) => ({
     on: true,
     brightness: raw,
     ...(prev?.color ? { color: prev.color } : {}),
   }));
-  await Promise.all(
-    entries.map((entry) =>
-      actuate(entry, desiredByEntity.get(entry.entityId) ?? { on: true, brightness: raw }),
-    ),
-  );
 
   return getControlsState();
 }

@@ -102,7 +102,11 @@ describe("lightStateConverged (drift tolerance)", () => {
 // ─── pure decision matrix ─────────────────────────────────────────────────────
 
 function dev(
-  overrides: Partial<{ desiredState: DeviceLightState | null; control: LightControl }> = {},
+  overrides: Partial<{
+    desiredState: DeviceLightState | null;
+    control: LightControl;
+    desiredUntilUtc: Date | null;
+  }> = {},
 ) {
   return {
     id: "living-globe",
@@ -110,6 +114,7 @@ function dev(
     domain: "light",
     control: overrides.control ?? LightControl.Enforce,
     desiredState: overrides.desiredState ?? null,
+    desiredUntilUtc: overrides.desiredUntilUtc ?? null,
   };
 }
 
@@ -214,6 +219,56 @@ describe("decideEnforcement", () => {
       true, // partyActive
     );
     expect(d.kind).toBe("push");
+  });
+});
+
+// ─── command window (www-unxz.1) ───────────────────────────────────────────────
+// An app command writes desired + a short desiredUntilUtc window. While inside it,
+// the enforcer PUSHES the freshly-set desired regardless of control policy — the
+// command owns the transition until it converges or the window expires. Without
+// this, an ADOPT device would revert a just-issued command before it was ever
+// actuated (the mutations no longer push to HA themselves).
+
+describe("decideEnforcement command window", () => {
+  const now = new Date("2026-01-01T00:00:05Z");
+  const future = new Date("2026-01-01T00:00:10Z"); // window still open
+  const past = new Date("2026-01-01T00:00:01Z"); // window expired
+
+  it("adopt + drift INSIDE the command window -> push (app command owns it)", () => {
+    const desired: DeviceLightState = { on: true };
+    const d = decideEnforcement(
+      dev({ control: LightControl.Adopt, desiredState: desired, desiredUntilUtc: future }),
+      { reported: { on: false }, available: true },
+      false,
+      false,
+      now,
+    );
+    expect(d.kind).toBe("push");
+    if (d.kind === "push") expect(d.desired).toBe(desired);
+  });
+
+  it("adopt + drift AFTER the window expired -> adopt (absorb external change)", () => {
+    const reported: DeviceLightState = { on: false };
+    const d = decideEnforcement(
+      dev({ control: LightControl.Adopt, desiredState: { on: true }, desiredUntilUtc: past }),
+      { reported, available: true },
+      false,
+      false,
+      now,
+    );
+    expect(d.kind).toBe("adopt");
+    if (d.kind === "adopt") expect(d.desired).toEqual(reported);
+  });
+
+  it("converged inside the window is still a noop (no needless push)", () => {
+    const d = decideEnforcement(
+      dev({ control: LightControl.Adopt, desiredState: { on: true }, desiredUntilUtc: future }),
+      { reported: { on: true }, available: true },
+      false,
+      false,
+      now,
+    );
+    expect(d.kind).toBe("noop");
   });
 });
 
