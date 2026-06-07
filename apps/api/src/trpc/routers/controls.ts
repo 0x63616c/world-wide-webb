@@ -24,7 +24,11 @@ const lampStateSchema = z.object({
     .max(100)
     .describe("Average brightness pct (0..100) across on-lamps; 0 when none on"),
   sub: z.string().describe('"On" when any lamp is on, "Off" otherwise'),
-  pending: z.boolean().describe("True while a command is in-flight and the overlay is active"),
+  pending: z
+    .boolean()
+    .describe(
+      "Always false — lamps are desired-authoritative and never show a pending cue (CC-uq58)",
+    ),
   activeScene: z
     .enum([LampScene.White, LampScene.Mood, LampScene.Red, LampScene.Blue, LampMode.Party])
     .nullable()
@@ -35,7 +39,11 @@ const lampStateSchema = z.object({
 
 const lightStateSchema = z.object({
   on: z.boolean().describe("True when at least one ceiling/overhead light is on"),
-  pending: z.boolean().describe("True while a command is in-flight and the overlay is active"),
+  pending: z
+    .boolean()
+    .describe(
+      "Always false — lights are desired-authoritative and never show a pending cue (CC-uq58)",
+    ),
 });
 
 const fanStateSchema = z.object({

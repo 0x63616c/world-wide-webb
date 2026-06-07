@@ -247,10 +247,7 @@ export async function getControlsState(): Promise<ControlsState> {
           lampsOn.length,
       )
     : 0;
-  const lampsPending = lampEffectives.some((e) => e.pending);
-
   const anyLightOn = fixtureEffectives.some((e) => e.on);
-  const lightsPending = fixtureEffectives.some((e) => e.pending);
 
   const activeScene = await resolveActiveScene(lampsOn.map((e) => e.state));
 
@@ -264,12 +261,18 @@ export async function getControlsState(): Promise<ControlsState> {
       count: lampsOn.length,
       brightness: avgBrightness,
       sub: anyLampOn ? "On" : "Off",
-      pending: lampsPending,
+      // Lamps are desired-authoritative and NEVER report pending (CC-uq58). The
+      // panel already paints desired instantly, and the Hue rgb/kelvin reported
+      // rarely converges to desired within tolerance (CC-bujt.7), so a real
+      // pending flag would stick on forever as a stuck dim. Only the fan keeps a
+      // pending cue (a genuine HA fan_mode convergence).
+      pending: false,
       activeScene,
     },
     lights: {
       on: anyLightOn,
-      pending: lightsPending,
+      // Desired-authoritative, never pending — same rationale as lamps (CC-uq58).
+      pending: false,
     },
     fan,
   };

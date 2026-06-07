@@ -31,9 +31,10 @@ export type { ControlKey };
 // ─── steady refetch interval ──────────────────────────────────────────────────
 
 // React Query passes the full Query object; we only care about its state data.
-// Steady poll, bumped to 2s while any control is pending (desired set but HA not
-// yet converged) so the pending flag clears promptly. No cooldown pause — the
-// backend is desired-authoritative, so there is no stale-HA window to hide.
+// Steady poll, bumped to 2s while the FAN is pending (desired fan_mode set but HA
+// not yet converged) so it clears promptly. Lamps/lights are desired-authoritative
+// and never pending (CC-uq58), so only the fan can bump the interval. No cooldown
+// pause — the backend is desired-authoritative, so there is no stale-HA window.
 // Exported for unit testing.
 export function makeRefetchInterval(): (query: {
   state: { data?: RouterOutputs["controls"]["list"] };
@@ -41,8 +42,7 @@ export function makeRefetchInterval(): (query: {
   return (query) => {
     const data = query.state?.data;
     if (!data) return 5_000;
-    const anyPending = data.lamps.pending || data.lights.pending || data.fan.pending;
-    return anyPending ? 2_000 : 5_000;
+    return data.fan.pending ? 2_000 : 5_000;
   };
 }
 
@@ -66,9 +66,14 @@ export function ControlsTile() {
       const prev = utils.controls.list.getData({});
       utils.controls.list.setData({}, (old) => {
         if (!old) return old;
-        if (key === "lamps") return { ...old, lamps: { ...old.lamps, on, pending: true } };
-        if (key === "lights") return { ...old, lights: { ...old.lights, on, pending: true } };
-        return { ...old, fan: { ...old.fan, on, pending: true } };
+        // Lamps/lights are desired-authoritative and never pending (CC-uq58):
+        // flip on instantly, no pending dim.
+        if (key === "lamps") return { ...old, lamps: { ...old.lamps, on } };
+        if (key === "lights") return { ...old, lights: { ...old.lights, on } };
+        // Fan: also flip the sub label to the target so it never flashes the
+        // stale "Auto" mid-toggle (CC-qtdh) — the off position writes fanMode
+        // Auto, so without this the old label paints until the settle refetch.
+        return { ...old, fan: { ...old.fan, on, sub: on ? "On" : "Off", pending: true } };
       });
       return { prev };
     },

@@ -312,31 +312,32 @@ describe("ControlsTile", () => {
   });
 
   describe("pending state", () => {
-    it("renders real data with pending indicator when a control has pending:true", () => {
+    it("renders the pending indicator on the fan when fan.pending:true (CC-uq58)", () => {
+      // Only the fan can be pending now — lamps/lights are desired-authoritative
+      // and never report pending.
       mockQueryReturn = {
         data: {
-          lamps: { on: true, count: 1, sub: "On", pending: true },
+          lamps: { on: true, count: 1, sub: "On", pending: false },
           lights: { on: false, pending: false },
-          fan: { on: false, sub: "", pending: false },
+          fan: { on: true, sub: "On", pending: true },
         },
         isLoading: false,
         isError: false,
       };
       render(<ControlsTile />);
-      // Lamps button should be present and reflect on=true
-      const lamps = screen.getByLabelText("Lamps");
-      expect(lamps).toHaveAttribute("aria-pressed", "true");
-      // The pending indicator (dimmed opacity class or aria attribute) should be applied
-      expect(lamps).toHaveAttribute("data-pending", "true");
+      const fan = screen.getByLabelText("Fan");
+      expect(fan).toHaveAttribute("aria-pressed", "true");
+      // The pending indicator (dimmed opacity / data attribute) should be applied.
+      expect(fan).toHaveAttribute("data-pending", "true");
     });
   });
 
   describe("adaptive refetch interval", () => {
-    it("uses refetchInterval of 2000 when any control has pending:true", () => {
+    it("uses refetchInterval of 2000 when the fan is pending (CC-uq58)", () => {
       const pendingData = {
-        lamps: { on: true, count: 1, sub: "On", pending: true },
+        lamps: { on: true, count: 1, sub: "On", pending: false },
         lights: { on: false, pending: false },
-        fan: { on: false, sub: "", pending: false },
+        fan: { on: true, sub: "On", pending: true },
       };
       mockQueryReturn = { data: pendingData, isLoading: false, isError: false };
       render(<ControlsTile />);
@@ -448,8 +449,8 @@ describe("ControlsTile", () => {
       expect(mockCancel).toHaveBeenCalled();
       await waitFor(() => expect(mockSetData).toHaveBeenCalled());
 
-      // The updater must flip lamps -> on + pending so the tap responds instantly,
-      // even for unregistered devices with no server-side pending overlay.
+      // The updater flips lamps -> on instantly. Lamps are desired-authoritative
+      // and never pending (CC-uq58), so the optimistic write adds no pending dim.
       const updater = mockSetData.mock.calls[0][1] as (old: unknown) => {
         lamps: { on: boolean; pending: boolean };
       };
@@ -459,7 +460,7 @@ describe("ControlsTile", () => {
         fan: { on: false, sub: "", pending: false },
       });
       expect(next.lamps.on).toBe(true);
-      expect(next.lamps.pending).toBe(true);
+      expect(next.lamps.pending).toBe(false);
     });
   });
 
@@ -500,15 +501,18 @@ describe("ControlsTile", () => {
       // onMutate awaits cancel() before setData; flush microtasks.
       await waitFor(() => expect(mockSetData).toHaveBeenCalled());
       const updater = mockSetData.mock.calls[0][1] as (old: unknown) => {
-        fan: { on: boolean; pending: boolean };
+        fan: { on: boolean; sub: string; pending: boolean };
       };
       const next = updater({
         lamps: { on: false, count: 0, sub: "Off", pending: false },
         lights: { on: false, pending: false },
-        fan: { on: false, sub: "", pending: false },
+        fan: { on: false, sub: "Auto", pending: false },
       });
       expect(next.fan.on).toBe(true);
       expect(next.fan.pending).toBe(true);
+      // CC-qtdh: the sub label flips straight to "On" so the stale "Auto" never
+      // paints mid-toggle (no off->auto->on flicker).
+      expect(next.fan.sub).toBe("On");
 
       // No invalidate on settle — the optimistic cache value is not discarded
       // early, so it survives until the cooldown-driven refetch lands.
