@@ -2,21 +2,26 @@
  * ClimateTile — thin container for the climate tile.
  *
  * Owns:
- *  - trpc.climate.get query with adaptive refetch (paused during cooldown)
+ *  - trpc.climate.get query with a steady refetch interval
  *  - optimistic mode + setpoint state (single target OR low/high range) so the
- *    UI responds instantly
- *  - 5 s cooldown poll-pause after any mutation (same pattern as ControlsTile)
- *    so HA's desired-window has time to settle before we reconcile
- *  - debounced setTarget / setRange mutations (400 ms) to reduce chatter while dragging
+ *    UI responds instantly; cleared once a mutation settles and the authoritative
+ *    desired state lands
+ *
+ * The backend is now DESIRED-AUTHORITATIVE (CC-unxz): a mutation writes desired
+ * to the DB and returns the same desired immediately; a climate-enforcer worker
+ * actuates HA within ~1s. So the returned data matches the tapped value with no
+ * round-trip lag — there is no stale-HA window to hide. The old cooldown
+ * poll-pause and the 400ms setTarget/setRange debounce-for-latency are gone; we
+ * mutate immediately and invalidate on settle.
  *
  * Mode is the user's explicit choice (real HA hvac modes off/cool/heat/heat_cool),
  * NOT derived from the setpoint. Switching modes seeds sensible setpoints so the
- * UI has something to show before HA reports the new values.
+ * UI has something to show before the new values come back.
  */
 
 import { useCallback, useRef, useState } from "react";
 import { TileStatus } from "@/components/ui";
-import { POLL, useCooldownInvalidate } from "@/lib/hooks";
+import { POLL } from "@/lib/hooks";
 import { type RouterOutputs, trpc } from "@/lib/trpc";
 import { type ClimateMode, ClimateTileView, GAP, HvacMode, MAX, MIN } from "./ClimateTileView";
 
@@ -39,14 +44,6 @@ export function rangeFromTarget(target: number): { low: number; high: number } {
 // Exported for unit testing.
 export function targetFromRange(low: number, high: number): number {
   return Math.round((low + high) / 2);
-}
-
-// Exported so unit tests can verify adaptive poll behaviour.
-export function makeRefetchInterval(getCooldownUntil: () => number): () => number | false {
-  return () => {
-    if (Date.now() < getCooldownUntil()) return false;
-    return POLL.climate;
-  };
 }
 
 function actionLabel(mode: ClimateMode): string {
@@ -78,13 +75,12 @@ function setpointsOf(data: ServerState): { target: number; low: number; high: nu
 export function ClimateTile() {
   const utils = trpc.useUtils();
 
-  // Optimistic overlay, cleared after a mutation settles or cooldown expires.
+  // Optimistic overlay for instant feedback, cleared once a mutation settles and
+  // the authoritative desired state (which matches the optimistic value) lands.
   const [localMode, setLocalMode] = useState<ClimateMode | null>(null);
   const [localTarget, setLocalTarget] = useState<number | null>(null);
   const [localLow, setLocalLow] = useState<number | null>(null);
   const [localHigh, setLocalHigh] = useState<number | null>(null);
-
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearLocal = useCallback(() => {
     setLocalMode(null);
@@ -93,43 +89,35 @@ export function ClimateTile() {
     setLocalHigh(null);
   }, []);
 
-  // Pause polling after a mutation; invalidate once the cooldown expires and
-  // clear the optimistic overlay ONLY AFTER the refetch lands so the UI doesn't
-  // snap back to stale query.data during the cooldown window (CC-59u).
-  const { cooldownRef, startCooldown } = useCooldownInvalidate(() =>
-    utils.climate.get.invalidate().then(clearLocal),
+  // Invalidate to pull the authoritative desired, then clear the overlay only
+  // AFTER the refetch lands so the UI never momentarily snaps to the previous
+  // query.data between settle and refetch.
+  const settle = useCallback(
+    () => utils.climate.get.invalidate().then(clearLocal),
+    [utils.climate.get, clearLocal],
   );
 
-  const refetchInterval = makeRefetchInterval(() => cooldownRef.current);
-  const query = trpc.climate.get.useQuery(undefined, { refetchInterval });
+  const query = trpc.climate.get.useQuery(undefined, { refetchInterval: POLL.climate });
 
-  const setTargetMutation = trpc.climate.setTarget.useMutation();
-  const setRangeMutation = trpc.climate.setRange.useMutation();
-  const setModeMutation = trpc.climate.setMode.useMutation();
+  const setTargetMutation = trpc.climate.setTarget.useMutation({ onSettled: settle });
+  const setRangeMutation = trpc.climate.setRange.useMutation({ onSettled: settle });
+  const setModeMutation = trpc.climate.setMode.useMutation({ onSettled: settle });
 
   const handleSetTarget = useCallback(
     (val: number) => {
       setLocalTarget(val);
-      startCooldown();
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        setTargetMutation.mutate(val);
-      }, 400);
+      setTargetMutation.mutate(val);
     },
-    [setTargetMutation, startCooldown],
+    [setTargetMutation],
   );
 
   const handleSetRange = useCallback(
     (low: number, high: number) => {
       setLocalLow(low);
       setLocalHigh(high);
-      startCooldown();
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        setRangeMutation.mutate({ low, high });
-      }, 400);
+      setRangeMutation.mutate({ low, high });
     },
-    [setRangeMutation, startCooldown],
+    [setRangeMutation],
   );
 
   // Hold the latest effective setpoints so a mode switch can seed from them.
@@ -154,10 +142,9 @@ export function ClimateTile() {
         setLocalLow(null);
         setLocalHigh(null);
       }
-      startCooldown();
       setModeMutation.mutate(nextMode);
     },
-    [setModeMutation, startCooldown],
+    [setModeMutation],
   );
 
   if (!query.data) return <ClimateTileView status={TileStatus.Loading} />;

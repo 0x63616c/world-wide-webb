@@ -10,17 +10,36 @@ const mockSetRangeMutate = vi.fn();
 const mockSetModeMutate = vi.fn();
 
 const mockUseQuery = vi.fn();
-// invalidate returns a promise so the cooldown-expiry path can chain .then(clearLocal).
+// invalidate returns a promise so the settle path can chain .then(clearLocal).
 const mockInvalidateClimateGet = vi.fn().mockResolvedValue(undefined);
+
+// Capture the onSettled opts passed to each useMutation so tests can drive settle.
+type MutOpts = { onSettled?: () => void };
+const capturedOpts: { target?: MutOpts; range?: MutOpts; mode?: MutOpts } = {};
 
 vi.mock("../../../lib/trpc", () => ({
   trpc: {
     useUtils: () => ({ climate: { get: { invalidate: mockInvalidateClimateGet } } }),
     climate: {
       get: { useQuery: (...args: unknown[]) => mockUseQuery(...args) },
-      setTarget: { useMutation: () => ({ mutate: mockSetTargetMutate }) },
-      setRange: { useMutation: () => ({ mutate: mockSetRangeMutate }) },
-      setMode: { useMutation: () => ({ mutate: mockSetModeMutate }) },
+      setTarget: {
+        useMutation: (opts?: MutOpts) => {
+          capturedOpts.target = opts;
+          return { mutate: mockSetTargetMutate };
+        },
+      },
+      setRange: {
+        useMutation: (opts?: MutOpts) => {
+          capturedOpts.range = opts;
+          return { mutate: mockSetRangeMutate };
+        },
+      },
+      setMode: {
+        useMutation: (opts?: MutOpts) => {
+          capturedOpts.mode = opts;
+          return { mutate: mockSetModeMutate };
+        },
+      },
     },
   },
 }));
@@ -173,77 +192,92 @@ describe("ClimateTile — mode switching", () => {
   });
 });
 
-// ── CC-59u: no snap-back to stale server value before cooldown refetch ──────────
+// ── CC-unxz: instant desired — mutate immediately, no debounce, no snap-back ────
 //
-// The mutation settles (HA returns 200) within tens of ms, long before the 5 s
-// cooldown that pauses the refetch expires. The optimistic overlay must NOT be
-// cleared on mutation-settle, or the view falls back to the stale paused
-// query.data and visibly snaps back to the old value for ~5 s.
+// The backend is desired-authoritative: a mutation writes desired and the next
+// read returns that same value. The tile mutates IMMEDIATELY (no 400ms debounce)
+// and invalidates on settle to pull the authoritative desired. The optimistic
+// overlay must not snap back to a previous value between settle and the refetch
+// landing.
 
-describe("ClimateTile — CC-59u optimistic value survives until cooldown refetch", () => {
-  // Pull the onSettled option (if any) the container passed to a mutation, then
-  // fire it inside act() to simulate HA's near-instant 200 response.
-  const settle = (mock: ReturnType<typeof vi.fn>) => {
-    const opts = mock.mock.calls[0]?.[1] as { onSettled?: () => void } | undefined;
-    act(() => opts?.onSettled?.());
+describe("ClimateTile — CC-unxz instant desired", () => {
+  // Fire the captured onSettled (simulating the instant mutation completing) and
+  // flush the invalidate().then(clearLocal) microtask inside act().
+  const settle = async (opts: MutOpts | undefined) => {
+    await act(async () => {
+      opts?.onSettled?.();
+      await Promise.resolve();
+    });
   };
 
-  it("setpoint stays on the new value after the setTarget mutation settles (no snap-back)", () => {
-    vi.useFakeTimers();
+  it("fires setTarget immediately (no debounce) on slider change", () => {
     mockUseQuery.mockReturnValue({
       data: { mode: "cool", target: 74, ambient: 72, action: "Cooling" },
     });
     renderTile();
 
-    const slider = screen.getByTestId("slider");
-    fireEvent.change(slider, { target: { value: "71" } });
-    // Release the slider so the View's transient drag state clears — from here the
-    // displayed value falls back to the container's optimistic value (the bug surface).
-    fireEvent.mouseUp(slider);
-    expect(screen.getByTestId("setpoint")).toHaveTextContent("71");
-
-    // Past the 400 ms debounce so the mutation fires, but well before the 5 s cooldown.
-    act(() => vi.advanceTimersByTime(450));
-    expect(mockSetTargetMutate).toHaveBeenCalled();
-
-    settle(mockSetTargetMutate);
-
-    // Server data is still the stale 74 (refetch is paused during cooldown); the
-    // optimistic 71 must remain visible rather than reverting.
+    fireEvent.change(screen.getByTestId("slider"), { target: { value: "71" } });
+    // No timers advanced — the mutation must already have fired.
+    expect(mockSetTargetMutate).toHaveBeenCalledWith(71);
     expect(screen.getByTestId("setpoint")).toHaveTextContent("71");
   });
 
-  it("dual-thumb range stays on the new values after setRange settles", () => {
-    vi.useFakeTimers();
+  it("fires setRange immediately (no debounce) on range drag", () => {
     mockUseQuery.mockReturnValue({
       data: { mode: "heat_cool", targetLow: 68, targetHigh: 76, ambient: 72, action: "Idle" },
     });
     renderTile();
 
-    const low = screen.getByTestId("slider-low");
-    fireEvent.change(low, { target: { value: "70" } });
-    fireEvent.mouseUp(low);
-    expect(screen.getByTestId("setpoint")).toHaveTextContent("70");
-
-    act(() => vi.advanceTimersByTime(450));
+    fireEvent.change(screen.getByTestId("slider-low"), { target: { value: "70" } });
     expect(mockSetRangeMutate).toHaveBeenCalled();
-
-    settle(mockSetRangeMutate);
-
     expect(screen.getByTestId("setpoint")).toHaveTextContent("70");
   });
 
-  it("mode stays on the new mode after setMode settles (no revert)", () => {
-    vi.useFakeTimers();
+  it("invalidates the climate query on settle to pull authoritative desired", async () => {
+    mockUseQuery.mockReturnValue({
+      data: { mode: "cool", target: 74, ambient: 72, action: "Cooling" },
+    });
+    renderTile();
+
+    fireEvent.change(screen.getByTestId("slider"), { target: { value: "71" } });
+    await settle(capturedOpts.target);
+    expect(mockInvalidateClimateGet).toHaveBeenCalled();
+  });
+
+  it("setpoint stays on the new value when the refetch returns the new desired", async () => {
+    mockUseQuery.mockReturnValue({
+      data: { mode: "cool", target: 74, ambient: 72, action: "Cooling" },
+    });
+    const { rerender } = renderTile();
+
+    fireEvent.change(screen.getByTestId("slider"), { target: { value: "71" } });
+    expect(screen.getByTestId("setpoint")).toHaveTextContent("71");
+
+    // Settle clears the optimistic overlay; the authoritative desired (71) is now
+    // what the query returns, so the view stays on 71 — no snap-back.
+    mockUseQuery.mockReturnValue({
+      data: { mode: "cool", target: 71, ambient: 72, action: "Cooling" },
+    });
+    await settle(capturedOpts.target);
+    act(() => rerender(<ClimateTile />));
+    expect(screen.getByTestId("setpoint")).toHaveTextContent("71");
+  });
+
+  it("mode stays on the new mode after setMode settles (no revert)", async () => {
     mockUseQuery.mockReturnValue({
       data: { mode: "cool", target: 70, ambient: 72, action: "Cooling" },
     });
-    renderTile();
+    const { rerender } = renderTile();
 
     fireEvent.click(screen.getByTestId("chip-heat"));
     expect(screen.getByTestId("chip-heat")).toHaveClass("on");
 
-    settle(mockSetModeMutate);
+    // Authoritative desired now reports heat; overlay clears on settle.
+    mockUseQuery.mockReturnValue({
+      data: { mode: "heat", target: 70, ambient: 72, action: "Heating" },
+    });
+    await settle(capturedOpts.mode);
+    act(() => rerender(<ClimateTile />));
 
     expect(screen.getByTestId("chip-heat")).toHaveClass("on");
     expect(screen.getByTestId("chip-cool")).not.toHaveClass("on");
