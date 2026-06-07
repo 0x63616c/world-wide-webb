@@ -28,6 +28,15 @@ const lampsOff: ControlsViewData = {
   fan: { on: false, pending: false },
 };
 
+// www-91bl: lamps OFF but the last-known level persists (the API now reports the
+// desired brightness even when off). The bar must stay at that level, greyed out,
+// not drop to 0% — so turning lamps back on resumes where they were.
+const lampsOffAtLevel: ControlsViewData = {
+  lamps: { on: false, pending: false, brightness: 100, activeScene: null },
+  lights: { on: true, pending: false },
+  fan: { on: false, pending: false },
+};
+
 const blueActive: ControlsViewData = {
   ...allOn,
   lamps: { ...allOn.lamps, activeScene: "blue" },
@@ -125,6 +134,23 @@ export const LampsOff: Story = {
     // Party needs a lamp lit — the control is disabled when all lamps are off.
     expect(canvas.getByRole("tablist", { name: "Party" })).toHaveStyle({ pointerEvents: "none" });
     expect(canvas.getByRole("tab", { name: "Fast" })).toBeDisabled();
+  },
+};
+
+// ─── Lamps off but level retained (www-91bl) ───────────────────────────────────
+
+export const LampsOffKeepsLevel: Story = {
+  name: "Lamps off — bar greyed at last level (www-91bl)",
+  args: { data: lampsOffAtLevel },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement.ownerDocument.body);
+    const slider = canvas.getByLabelText("Brightness") as HTMLInputElement;
+    // Greyed/disabled while off (HA rejects brightness on an off light)...
+    await expect(slider).toBeDisabled();
+    // ...but the bar KEEPS the last-known level (100%), it does NOT drop to 0%.
+    expect(slider.value).toBe("100");
+    expect(slider.style.getPropertyValue("--p")).toBe("100%");
+    expect(canvas.getByText("100%")).toBeInTheDocument();
   },
 };
 

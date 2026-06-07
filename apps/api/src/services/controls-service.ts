@@ -241,12 +241,22 @@ export async function getControlsState(): Promise<ControlsState> {
 
   const lampsOn = lampEffectives.filter((e) => e.on);
   const anyLampOn = lampsOn.length > 0;
-  const avgBrightness = anyLampOn
-    ? Math.round(
-        lampsOn.reduce((sum, e) => sum + brightnessRawToPct(e.state?.brightness), 0) /
-          lampsOn.length,
-      )
-    : 0;
+  // Brightness drives the modal's level bar. When lamps are ON it is the avg live
+  // level of the on-lamps. When ALL lamps are OFF we report the avg last-known
+  // DESIRED level (which persists across a toggle) so the bar keeps its fill and
+  // the frontend greys it out, instead of dropping to 0% (www-91bl). Only a truly
+  // unknown level (no lamp has any brightness) falls back to 0 (an empty bar).
+  const brightnessSource = anyLampOn
+    ? lampsOn
+    : lampEffectives.filter((e) => typeof e.state?.brightness === "number");
+  const avgBrightness =
+    brightnessSource.length > 0
+      ? Math.round(
+          brightnessSource.reduce((sum, e) => sum + brightnessRawToPct(e.state?.brightness), 0) /
+            brightnessSource.length,
+        )
+      : 0;
+
   const anyLightOn = fixtureEffectives.some((e) => e.on);
 
   const activeScene = await resolveActiveScene(lampsOn.map((e) => e.state));

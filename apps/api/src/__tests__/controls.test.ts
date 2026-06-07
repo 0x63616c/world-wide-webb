@@ -389,11 +389,28 @@ describe("getControlsState", () => {
     expect(state.lamps.brightness).toBe(75);
   });
 
-  it("reports lamp brightness 0 when no lamps are on", async () => {
+  it("www-91bl: keeps last-known desired brightness when all lamps are off (bar greys, keeps level)", async () => {
     mockIsConfigured.mockReturnValue(true);
+    // Both lamps OFF but desired brightness persists (255→100%, 128→50%): the bar
+    // must show the level it will resume to (avg 75%), NOT drop to 0%.
     const rows = [
-      lampRow("lamp-1", "light.living_room_globe", { on: false, brightness: 200 }),
-      lampRow("lamp-2", "light.bed_lamp_left", { on: false, brightness: 100 }),
+      lampRow("lamp-1", "light.living_room_globe", { on: false, brightness: 255 }),
+      lampRow("lamp-2", "light.bed_lamp_left", { on: false, brightness: 128 }),
+    ];
+    mockDbSelect.mockReturnValue(makeSelectChain(rows));
+
+    const state = await getControlsState();
+
+    expect(state.lamps.on).toBe(false);
+    expect(state.lamps.brightness).toBe(75);
+  });
+
+  it("www-91bl: brightness is 0 only when no lamp has any known level", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    // Lamps off with NO brightness ever set → truly unknown → 0 (empty bar is correct).
+    const rows = [
+      lampRow("lamp-1", "light.living_room_globe", { on: false }),
+      lampRow("lamp-2", "light.bed_lamp_left", { on: false }),
     ];
     mockDbSelect.mockReturnValue(makeSelectChain(rows));
 
