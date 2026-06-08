@@ -49,6 +49,11 @@
       // serve.ts = the deployed agent (Docker CMD); cli.ts = the root `bosun`
       // script target (no package `bin`). Tests live in test/, not src/.
       "entry": ["src/serve.ts", "src/cli.ts", "test/**/*.test.ts"]
+    },
+    "apps/media-worker": {
+      // runtime.ts + types.ts are co-located copies of the worker framework —
+      // knip auto-detects src/index.ts as the entry; no explicit entry needed.
+      // The empty workspace block ensures knip knows this is a tracked workspace.
     }
   }
 }
