@@ -95,6 +95,42 @@ export class SpotifyClient {
     };
   }
 
+  /**
+   * PUT /v1/me/player/play — resume or start playback. THROWS SpotifyError on any error.
+   */
+  async play(): Promise<void> {
+    await this.playerCommand("PUT", "https://api.spotify.com/v1/me/player/play", "play");
+  }
+
+  /**
+   * PUT /v1/me/player/pause — pause playback. THROWS SpotifyError on any error.
+   */
+  async pause(): Promise<void> {
+    await this.playerCommand("PUT", "https://api.spotify.com/v1/me/player/pause", "pause");
+  }
+
+  /**
+   * POST /v1/me/player/next — skip to next track. THROWS SpotifyError on any error.
+   */
+  async next(): Promise<void> {
+    await this.playerCommand("POST", "https://api.spotify.com/v1/me/player/next", "next");
+  }
+
+  /**
+   * POST /v1/me/player/previous — skip to previous track. THROWS SpotifyError on any error.
+   */
+  async previous(): Promise<void> {
+    await this.playerCommand("POST", "https://api.spotify.com/v1/me/player/previous", "previous");
+  }
+
+  /**
+   * PUT /v1/me/player/seek?position_ms=<ms> — seek to position. THROWS SpotifyError on any error.
+   */
+  async seek(positionMs: number): Promise<void> {
+    const url = `https://api.spotify.com/v1/me/player/seek?position_ms=${positionMs}`;
+    await this.playerCommand("PUT", url, "seek");
+  }
+
   // --------------------------------------------------------------------------
   // Private helpers
   // --------------------------------------------------------------------------
@@ -140,5 +176,30 @@ export class SpotifyClient {
     };
 
     return accessToken;
+  }
+
+  /**
+   * Executes a player command (play/pause/next/previous/seek) using the given
+   * HTTP method and URL. Accepts 200, 204, and 403 (no active device) as
+   * "success" — the mutation fired, Spotify's response is informational.
+   * THROWS SpotifyError on network failure or unexpected server errors.
+   */
+  private async playerCommand(method: string, url: string, label: string): Promise<void> {
+    const token = await this.getAccessToken();
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (err) {
+      throw new SpotifyError(`${label}: network error — ${(err as Error).message}`);
+    }
+
+    // 200/204 = success; 403 = no active device (non-fatal — command was accepted)
+    if (res.ok || res.status === 204 || res.status === 403) return;
+
+    const body = await res.text().catch(() => "");
+    throw new SpotifyError(`${label}: HTTP ${res.status} — ${body.slice(0, 200)}`);
   }
 }
