@@ -285,7 +285,18 @@ async function validateMilestone(m, round) {
   const ids = m.features.map((f) => f.key).join(', ')
   const msAssertions =
     [...new Set(m.features.flatMap((f) => f.assertions || []))].join(', ') || '(see each feature acceptance)'
-  const raw = await runGatesRaw(tag)
+  // The gate-runner agent returns null when the API connection blips (ConnectionRefused).
+  // Retry a few times, then fall back to a "gates failed" sentinel — a transient API
+  // hiccup must degrade to a fix-round, never crash (and lose) the whole multi-hour run.
+  let raw = null
+  for (let attempt = 0; attempt < 3 && !raw; attempt++) {
+    raw = await runGatesRaw(tag)
+    if (!raw) log(`gate-runner null for ${tag} (attempt ${attempt + 1}/3, transient API error) — retrying`)
+  }
+  if (!raw) {
+    log(`gate-runner unavailable for ${tag} after 3 tries; marking gates failed this round (NOT crashing the run)`)
+    raw = { typecheck: "(unavailable — API error)", biome: "(unavailable)", test: "(unavailable)", grep: "", exitOk: false }
+  }
   const tasks = [
     () =>
       agent(
