@@ -1,0 +1,46 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // Dead-code detector (CC-k6p1). `bun run knip` reports unused files / exports /
+  // deps; `bun run knip:fix` auto-removes the safe ones (no agent loop). The
+  // ratchet guard (scripts/check-knip.sh) blocks NEW findings in CI/pre-push.
+  //
+  // Most entry points are auto-detected from each workspace's package `exports`,
+  // `bin`, and the vite/storybook/vitest plugins. We only declare the edges knip
+  // can't see: Docker CMD/ENTRYPOINT targets and db scripts.
+
+  "ignore": [
+    ".claude/**", // Workflow-tool scripts (run by the Workflow tool, never imported)
+    "experiments/**" // Throwaway spikes
+  ],
+
+  // Real runtime deps with no JS-visible import edge.
+  "ignoreDependencies": [
+    // Capacitor plugins are loaded by the native iOS runtime via `cap sync`,
+    // declared in capacitor.config.ts / Package.swift, never `import`ed in TS.
+    "@capacitor/core",
+    "@capacitor/ios",
+    "@capacitor/haptics",
+    "@capacitor/status-bar",
+    "@capacitor-community/screen-brightness"
+  ],
+
+  // `tilt` is the dev-stack binary invoked by the root `dev` script; not an npm dep.
+  "ignoreBinaries": ["tilt"],
+
+  "workspaces": {
+    ".": {
+      // load-secret.js is the drizzle image's `bun --preload` ENTRYPOINT.
+      "entry": ["deploy.config.ts", "apps/drizzle/load-secret.js"]
+    },
+    "apps/api": {
+      // server.ts = Docker CMD; seed.ts = db:seed script. drizzle.config.ts +
+      // the exports map (., ./trpc, ./worker) are auto-detected.
+      "entry": ["src/server.ts", "src/db/seed.ts"]
+    },
+    "packages/bosun": {
+      // serve.ts = the deployed agent (Docker CMD); cli.ts = the root `bosun`
+      // script target (no package `bin`). Tests live in test/, not src/.
+      "entry": ["src/serve.ts", "src/cli.ts", "test/**/*.test.ts"]
+    }
+  }
+}

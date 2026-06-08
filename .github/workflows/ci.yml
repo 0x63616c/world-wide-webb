@@ -117,6 +117,13 @@ jobs:
         run: bunx playwright install --with-deps chromium
       - name: Typecheck
         run: bun run typecheck
+      - name: Dead-code ratchet (knip)
+        # Authoritative backstop for the lefthook pre-push guard (which a
+        # --no-verify bypass or an uninstalled hook can skip). Fails if any knip
+        # finding category grew beyond .knip-baseline.json (new dead code) or
+        # shrank without the baseline lowered. `deploy` needs `test`, so a
+        # dead-code regression blocks the prod deploy (CC-k6p1).
+        run: bash scripts/check-knip.sh
       - name: Test with coverage (unit jsdom + Storybook chromium, merged)
         run: bun run test:coverage
       - name: Regenerate badge JSON
