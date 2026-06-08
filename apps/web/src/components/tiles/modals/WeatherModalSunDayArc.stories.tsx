@@ -9,6 +9,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import { WeatherModalSunDayArc } from "./WeatherModalSunDayArc";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -58,6 +59,7 @@ const meta = {
   title: "Modals/Weather/Sun Day Arc",
   component: WeatherModalSunDayArc,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

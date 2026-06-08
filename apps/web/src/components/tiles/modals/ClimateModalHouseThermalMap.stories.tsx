@@ -6,6 +6,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { ClimateZone } from "./ClimateModalHouseThermalMap";
 import { ClimateModalHouseThermalMap } from "./ClimateModalHouseThermalMap";
 
@@ -133,6 +134,7 @@ const meta = {
   title: "Modals/Climate/House Thermal Map",
   component: ClimateModalHouseThermalMap,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

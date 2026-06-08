@@ -12,6 +12,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type {
   ClimateModalScheduleTimelineProps,
   ScheduleZone,
@@ -107,6 +108,7 @@ const meta = {
   title: "Modals/Climate/Schedule Timeline",
   component: ClimateModalScheduleTimeline,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

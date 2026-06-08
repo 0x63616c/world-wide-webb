@@ -10,6 +10,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { modalDocsParameters } from "./__stories__/factory";
 import type { ControlsViewData } from "./ControlsTileView";
 import type { ExpandedControlsModalViewProps } from "./ExpandedControlsModalView";
 import { ExpandedControlsModalView } from "./ExpandedControlsModalView";
@@ -53,6 +54,7 @@ const meta = {
   title: "Modals/ExpandedControls",
   component: ExpandedControlsModalView,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

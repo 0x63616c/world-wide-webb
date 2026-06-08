@@ -6,6 +6,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { ThermalHourEntry } from "./Next12HoursModalThermalDayArc";
 import { Next12HoursModalThermalDayArc } from "./Next12HoursModalThermalDayArc";
 
@@ -65,6 +66,7 @@ const meta = {
   title: "Modals/Next 12 Hours/Thermal Day Arc",
   component: Next12HoursModalThermalDayArc,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

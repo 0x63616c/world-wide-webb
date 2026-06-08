@@ -8,6 +8,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { TrafficBucket } from "./NetworkModalUsageSignature";
 import { NetworkModalUsageSignature } from "./NetworkModalUsageSignature";
 
@@ -65,6 +66,7 @@ const meta = {
   title: "Modals/Network/Usage Signature",
   component: NetworkModalUsageSignature,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

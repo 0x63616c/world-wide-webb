@@ -8,6 +8,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { ComfortBreakdownData } from "./WeatherModalComfortBreakdown";
 import { WeatherModalComfortBreakdown } from "./WeatherModalComfortBreakdown";
 
@@ -41,6 +42,7 @@ const meta = {
   title: "Modals/Weather/Comfort Breakdown",
   component: WeatherModalComfortBreakdown,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

@@ -50,3 +50,25 @@ export function defineTileMeta<C extends ComponentType<any>>(
     },
   };
 }
+
+/**
+ * Docs parameters for modal stories — spread into a modal meta's `parameters`.
+ *
+ * WHY: modals render through `Modal`, which `createPortal`s to <body> as a
+ * `position: fixed; inset: 0` full-viewport overlay with a dim backdrop. On an
+ * autodocs page every story renders at once, so inline modals escape their
+ * Canvas, stack on top of each other, and bury the page (args table + sibling
+ * stories) behind compounding backdrops. Rendering each modal story in its OWN
+ * iframe (`docs.story.inline: false`) scopes every overlay to its frame so the
+ * Docs page reads correctly (www-hljb follow-up).
+ *
+ * Returned as plain `parameters` (NOT a full meta) so each modal keeps an
+ * explicit, statically-analyzable `title` literal — Storybook's CSF indexer
+ * can't extract a title hidden behind a factory spread, which silently drops
+ * the story from the index.
+ *
+ * `docsHeight` tunes the per-story iframe height (defaults to a tall panel).
+ */
+export function modalDocsParameters(docsHeight = 880) {
+  return { docs: { story: { inline: false, height: `${docsHeight}px` } } };
+}

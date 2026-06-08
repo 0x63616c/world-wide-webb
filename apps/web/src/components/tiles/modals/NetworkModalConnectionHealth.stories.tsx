@@ -6,6 +6,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import { NetworkModalConnectionHealth } from "./NetworkModalConnectionHealth";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -62,6 +63,7 @@ const meta = {
   title: "Modals/Network/Connection Health",
   component: NetworkModalConnectionHealth,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

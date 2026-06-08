@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type React from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
+import { modalDocsParameters } from "../tiles/__stories__/factory";
 import { Modal } from "./Modal";
 
 // Thin wrapper so Storybook infers props from a function component signature.
@@ -12,6 +13,7 @@ const meta = {
   title: "Modals/Modal",
   component: ModalStory,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     onClose: fn(),
     title: "Lamps",

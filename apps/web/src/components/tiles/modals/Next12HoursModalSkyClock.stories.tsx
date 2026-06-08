@@ -6,6 +6,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import { Next12HoursModalSkyClock } from "./Next12HoursModalSkyClock";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -71,6 +72,7 @@ const meta = {
   title: "Modals/Next 12 Hours/Sky Clock",
   component: Next12HoursModalSkyClock,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

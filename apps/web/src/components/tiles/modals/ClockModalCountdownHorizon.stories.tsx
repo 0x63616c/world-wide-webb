@@ -6,6 +6,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import { ClockModalCountdownHorizon } from "./ClockModalCountdownHorizon";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ const meta = {
   title: "Modals/Clock/Countdown Horizon",
   component: ClockModalCountdownHorizon,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

@@ -7,6 +7,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { TeslaModalChargeSessionProps } from "./TeslaModalChargeSession";
 import { TeslaModalChargeSession } from "./TeslaModalChargeSession";
 
@@ -36,6 +37,7 @@ const meta = {
   title: "Modals/Tesla/Charge Session",
   component: TeslaModalChargeSession,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

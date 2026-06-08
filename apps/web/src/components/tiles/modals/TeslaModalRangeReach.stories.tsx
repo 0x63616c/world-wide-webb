@@ -10,6 +10,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { TeslaModalRangeReachProps } from "./TeslaModalRangeReach";
 import { TeslaModalRangeReach } from "./TeslaModalRangeReach";
 
@@ -40,6 +41,7 @@ const meta = {
   title: "Modals/Tesla/Range Reach",
   component: TeslaModalRangeReach,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

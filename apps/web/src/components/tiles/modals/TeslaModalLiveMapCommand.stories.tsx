@@ -9,6 +9,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { TeslaModalLiveMapCommandProps } from "./TeslaModalLiveMapCommand";
 import { TeslaModalLiveMapCommand } from "./TeslaModalLiveMapCommand";
 
@@ -50,6 +51,7 @@ const meta = {
   title: "Modals/Tesla/Live Map Command",
   component: TeslaModalLiveMapCommand,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: nearHome,
 } satisfies Meta<typeof TeslaModalLiveMapCommand>;
 
