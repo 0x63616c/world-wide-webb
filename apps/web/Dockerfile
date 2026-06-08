@@ -12,6 +12,7 @@ COPY package.json bun.lock ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/api/package.json ./apps/api/package.json
 COPY apps/worker/package.json ./apps/worker/package.json
+COPY apps/media-worker/package.json ./apps/media-worker/package.json
 COPY packages/api/package.json ./packages/api/package.json
 COPY packages/bosun/package.json ./packages/bosun/package.json
 
