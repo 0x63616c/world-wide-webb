@@ -306,7 +306,15 @@ function buildSoapEnvelope(serviceType: string, action: string, bodyArgs: string
 /**
  * Extracts the text content of the first occurrence of <tagName>...</tagName>.
  * Handles CDATA, self-closing, and namespaced tags. Returns null if not found.
- * This narrow regex approach is sufficient for the known-good UPnP response shapes.
+ *
+ * LIMITATION: The non-greedy regex stops at the FIRST closing tag of the given
+ * name, not the matching closing tag for the opening tag. Nested tags with the
+ * same name will be silently truncated (e.g. <item><item>x</item></item>
+ * returns "<item>x" not the full outer content). This is intentional: Sonos
+ * devices are trusted LAN hardware whose UPnP responses follow fixed, flat
+ * schemas. The fields we extract (CurrentVolume, TrackDuration, dc:title, etc.)
+ * are always leaf nodes — they never nest under a tag of the same name. Do NOT
+ * use this helper on XML where nesting of like-named elements is possible.
  */
 function extractText(xml: string, tagName: string): string | null {
   // Match both <tag>content</tag> and <ns:tag>content</ns:tag>.

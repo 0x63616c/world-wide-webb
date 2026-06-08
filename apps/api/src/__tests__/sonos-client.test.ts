@@ -412,3 +412,30 @@ describe("SonosError", () => {
     expect(err.message).toBe("test error");
   });
 });
+
+// ---- extractText limitation documentation (www-51hf.32) --------------------
+// extractText uses non-greedy regex; it is only safe on leaf-node tags that
+// Sonos UPnP responses always produce (volume, mute state, transport state,
+// dc:title, etc.). These tests confirm the public API correctly parses the
+// real flat shapes — and document the known limitation as an explicit comment
+// rather than a hidden trap. Real SOAP responses are used (not raw XML) so we
+// test through the public SonosClient API.
+
+describe("extractText limitation — leaf-node tags in Sonos responses are always flat", () => {
+  it("getVolume correctly extracts CurrentVolume from a flat SOAP envelope", async () => {
+    // CurrentVolume is always a leaf node in Sonos RenderingControl responses;
+    // it never nests inside another <CurrentVolume> element.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(volumeResponse(42))));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    const vol = await client.getVolume();
+    expect(vol).toBe(42);
+  });
+
+  it("getTransportInfo correctly extracts CurrentTransportState from a flat SOAP envelope", async () => {
+    // CurrentTransportState is always a leaf; Sonos never nests it.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(transportInfoResponse("PLAYING"))));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    const info = await client.getTransportInfo();
+    expect(info.state).toBe("PLAYING");
+  });
+});
