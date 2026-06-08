@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["bun"],
+    // Mirrors apps/worker: runs via `bun src/index.ts` and never emits.
+    // allowImportingTsExtensions lets it resolve @repo/api's .ts barrel.
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src"]
+}
