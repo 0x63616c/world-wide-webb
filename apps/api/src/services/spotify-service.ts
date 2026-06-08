@@ -1,6 +1,7 @@
 /**
  * Spotify service — thin wrappers over SpotifyClient that expose the
- * now-playing query and transport mutations for the tRPC media router.
+ * now-playing query, transport mutations, and browse query for the tRPC media
+ * router.
  *
  * A singleton SpotifyClient is constructed from env credentials on first use
  * (lazy) so the api boots without Spotify configured — callers get a
@@ -11,6 +12,7 @@
  */
 
 import { env } from "../env";
+import type { SpotifyBrowseResult } from "../integrations/spotify";
 import { SpotifyClient } from "../integrations/spotify";
 
 /** Spotify player state returned by the nowPlaying query (A14). */
@@ -74,6 +76,15 @@ export async function spotifyNowPlaying(): Promise<SpotifyPlayerState> {
     durationMs: data.durationMs,
     deviceName: data.deviceName,
   };
+}
+
+/**
+ * GET /v1/me/player/recently-played + GET /v1/me/playlists — returns real
+ * Spotify content for the Quick-Play Spotify modal (A16).
+ * THROWS SpotifyError when unconfigured or the upstream call fails (A3).
+ */
+export async function spotifyBrowse(): Promise<SpotifyBrowseResult> {
+  return getClient().browse();
 }
 
 /** PUT /v1/me/player/play — resume playback. THROWS SpotifyError on any failure (A3, A15). */
