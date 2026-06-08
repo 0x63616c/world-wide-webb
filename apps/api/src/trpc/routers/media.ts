@@ -22,6 +22,14 @@ import {
   sonosSetVolume,
   sonosTransport,
 } from "../../services/sonos-write-service";
+import {
+  spotifyNext,
+  spotifyNowPlaying,
+  spotifyPause,
+  spotifyPlay,
+  spotifyPrevious,
+  spotifySeek,
+} from "../../services/spotify-service";
 import { publicProcedure, router } from "../init";
 
 const TvNowPlayingSchema = z.object({
@@ -53,6 +61,39 @@ const SonosFavoriteSchema = z.object({
   title: z.string(),
   uri: z.string(),
   albumArtUri: z.string().nullable(),
+});
+
+// Spotify now-playing output schema (A14). isIdle=true when 204 (nothing playing).
+const SpotifyPlayerStateSchema = z.object({
+  isIdle: z.boolean(),
+  isPlaying: z.boolean(),
+  trackTitle: z.string().nullable(),
+  artist: z.string().nullable(),
+  album: z.string().nullable(),
+  albumArtUrl: z.string().nullable(),
+  progressMs: z.number().nullable(),
+  durationMs: z.number().nullable(),
+  deviceName: z.string().nullable(),
+});
+
+// Spotify sub-router — nowPlaying query + transport mutations (CC-51hf.12 / A14, A15).
+const spotifyRouter = router({
+  nowPlaying: publicProcedure
+    .input(z.object({}).optional())
+    .output(SpotifyPlayerStateSchema)
+    .query(() => spotifyNowPlaying()),
+
+  play: publicProcedure.mutation(() => spotifyPlay()),
+
+  pause: publicProcedure.mutation(() => spotifyPause()),
+
+  next: publicProcedure.mutation(() => spotifyNext()),
+
+  previous: publicProcedure.mutation(() => spotifyPrevious()),
+
+  seek: publicProcedure
+    .input(z.object({ positionMs: z.number().int().nonnegative() }))
+    .mutation(({ input }) => spotifySeek(input.positionMs)),
 });
 
 // Media router — Apple TV, Sonos, and Spotify queries/mutations.
@@ -152,4 +193,8 @@ export const mediaRouter = router({
     .input(z.object({}).optional())
     .output(z.array(SonosFavoriteSchema))
     .query(() => getSonosFavorites()),
+
+  // ── Spotify sub-router (CC-51hf.12 / A14, A15) ────────────────────────────
+
+  spotify: spotifyRouter,
 });
