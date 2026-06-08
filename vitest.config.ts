@@ -5,6 +5,15 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     projects: ["apps/api", "apps/web", "apps/worker", "apps/media-worker", "packages/bosun"],
+    // Cap worker fan-out. vitest spawns ~1 fork per core by default (~0.5-1GB
+    // each with jsdom + v8 coverage); once the suite grew (media-ingest +
+    // Spotify/Sonos/AppleTV) that fan-out OOM-kills CI's runner — the coverage
+    // run writes its blob then dies, surfacing as a non-deterministic "exited
+    // with code 1" that passes on a 32GB dev box but fails in CI. Pinning the
+    // pool to 2 forks keeps peak RAM bounded so the gate is deterministic
+    // (www-kp4k; see the cmux/32GB note in CLAUDE.md).
+    maxWorkers: 2,
+    minWorkers: 1,
     // Coverage config lives here (not as CLI flags) so it can carry include/
     // exclude + thresholds; per-project config is ignored once `projects` is set,
     // so the root config is the only one that matters (www-355t.11). Without an
