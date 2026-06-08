@@ -38,7 +38,9 @@
   "workspaces": {
     ".": {
       // load-secret.js is the drizzle image's `bun --preload` ENTRYPOINT.
-      "entry": ["deploy.config.ts", "apps/drizzle/load-secret.js"]
+      // scripts/*.ts are standalone one-time Bun scripts (OAuth flows, save scripts)
+      // invoked directly by their companion .sh wrappers, never imported.
+      "entry": ["deploy.config.ts", "apps/drizzle/load-secret.js", "scripts/*.ts"]
     },
     "apps/api": {
       // server.ts = Docker CMD; seed.ts = db:seed script. drizzle.config.ts +
