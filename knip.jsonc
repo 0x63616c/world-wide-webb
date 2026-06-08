@@ -13,7 +13,8 @@
 
   "ignore": [
     ".claude/**", // Workflow-tool scripts (run by the Workflow tool, never imported)
-    "experiments/**" // Throwaway spikes
+    "experiments/**", // Throwaway spikes
+    "docs/media-tiles/**" // Design handoff bundle (prototypes/reference, not app code)
   ],
 
   // Real runtime deps with no JS-visible import edge.
