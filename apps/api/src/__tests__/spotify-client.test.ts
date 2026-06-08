@@ -283,3 +283,247 @@ describe("SpotifyClient — getNowPlaying (A3: no fabricated data)", () => {
     expect(result?.artist).toBe("");
   });
 });
+
+// ---------------------------------------------------------------------------
+// fetchRecentlyPlayed — missing required fields (A3: no fabricated data)
+// www-51hf.38 / www-51hf.40
+// ---------------------------------------------------------------------------
+
+// Intercepts fetch: token → recently-played response → (optional) playlists response.
+function mockFetchForBrowse(recentRes: Response, playlistRes?: Response): ReturnType<typeof vi.fn> {
+  const playlistResponse =
+    playlistRes ??
+    new Response(JSON.stringify({ items: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(tokenResponse())
+    .mockResolvedValueOnce(recentRes)
+    .mockResolvedValueOnce(playlistResponse);
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+describe("SpotifyClient — fetchRecentlyPlayed (A3: no fabricated data)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns tracks when all required fields are present", async () => {
+    const body = JSON.stringify({
+      items: [
+        {
+          track: {
+            id: "t1",
+            name: "Real Track",
+            uri: "spotify:track:t1",
+            artists: [{ name: "Artist" }],
+            album: { images: [] },
+          },
+        },
+      ],
+    });
+    mockFetchForBrowse(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    const result = await client.browse();
+    expect(result.recentlyPlayed).toHaveLength(1);
+    expect(result.recentlyPlayed[0].title).toBe("Real Track");
+    expect(result.recentlyPlayed[0].uri).toBe("spotify:track:t1");
+  });
+
+  // A3: track.name missing — must throw, not return title: ""
+  it("throws SpotifyError when track.name is missing in recently-played", async () => {
+    const body = JSON.stringify({
+      items: [
+        {
+          track: {
+            id: "t1",
+            // name intentionally absent
+            uri: "spotify:track:t1",
+            artists: [{ name: "Artist" }],
+            album: { images: [] },
+          },
+        },
+      ],
+    });
+    mockFetchForBrowse(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    await expect(client.browse()).rejects.toBeInstanceOf(SpotifyError);
+  });
+
+  // A3: track.name is empty string — must throw, not return title: ""
+  it("throws SpotifyError when track.name is empty string in recently-played", async () => {
+    const body = JSON.stringify({
+      items: [
+        {
+          track: {
+            id: "t1",
+            name: "",
+            uri: "spotify:track:t1",
+            artists: [{ name: "Artist" }],
+            album: { images: [] },
+          },
+        },
+      ],
+    });
+    mockFetchForBrowse(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    await expect(client.browse()).rejects.toBeInstanceOf(SpotifyError);
+  });
+
+  // A3: track.uri missing — must throw, not return uri: ""
+  it("throws SpotifyError when track.uri is missing in recently-played", async () => {
+    const body = JSON.stringify({
+      items: [
+        {
+          track: {
+            id: "t1",
+            name: "Real Track",
+            // uri intentionally absent
+            artists: [{ name: "Artist" }],
+            album: { images: [] },
+          },
+        },
+      ],
+    });
+    mockFetchForBrowse(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    await expect(client.browse()).rejects.toBeInstanceOf(SpotifyError);
+  });
+
+  // A3: track.uri is empty string — must throw, not return uri: ""
+  it("throws SpotifyError when track.uri is empty string in recently-played", async () => {
+    const body = JSON.stringify({
+      items: [
+        {
+          track: {
+            id: "t1",
+            name: "Real Track",
+            uri: "",
+            artists: [{ name: "Artist" }],
+            album: { images: [] },
+          },
+        },
+      ],
+    });
+    mockFetchForBrowse(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    await expect(client.browse()).rejects.toBeInstanceOf(SpotifyError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchPlaylists — missing required fields (A3: no fabricated data)
+// www-51hf.39 / www-51hf.40
+// ---------------------------------------------------------------------------
+
+// Intercepts fetch: token → recently-played (empty) → playlists response.
+function mockFetchForPlaylists(playlistRes: Response): ReturnType<typeof vi.fn> {
+  const emptyRecentRes = new Response(JSON.stringify({ items: [] }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(tokenResponse())
+    .mockResolvedValueOnce(emptyRecentRes)
+    .mockResolvedValueOnce(playlistRes);
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+describe("SpotifyClient — fetchPlaylists (A3: no fabricated data)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns playlists when all required fields are present", async () => {
+    const body = JSON.stringify({
+      items: [
+        {
+          id: "p1",
+          name: "Real Playlist",
+          uri: "spotify:playlist:p1",
+          description: "A playlist",
+          images: [{ url: "https://i.scdn.co/image/pl" }],
+        },
+      ],
+    });
+    mockFetchForPlaylists(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    const result = await client.browse();
+    expect(result.playlists).toHaveLength(1);
+    expect(result.playlists[0].title).toBe("Real Playlist");
+    expect(result.playlists[0].uri).toBe("spotify:playlist:p1");
+  });
+
+  // A3: pl.name missing — must throw, not return title: ""
+  it("throws SpotifyError when pl.name is missing in playlists", async () => {
+    const body = JSON.stringify({
+      items: [
+        {
+          id: "p1",
+          // name intentionally absent
+          uri: "spotify:playlist:p1",
+          images: [],
+        },
+      ],
+    });
+    mockFetchForPlaylists(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    await expect(client.browse()).rejects.toBeInstanceOf(SpotifyError);
+  });
+
+  // A3: pl.name is empty string — must throw, not return title: ""
+  it("throws SpotifyError when pl.name is empty string in playlists", async () => {
+    const body = JSON.stringify({
+      items: [
+        {
+          id: "p1",
+          name: "",
+          uri: "spotify:playlist:p1",
+          images: [],
+        },
+      ],
+    });
+    mockFetchForPlaylists(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    await expect(client.browse()).rejects.toBeInstanceOf(SpotifyError);
+  });
+
+  // A3: pl.uri missing — must throw, not return uri: ""
+  it("throws SpotifyError when pl.uri is missing in playlists", async () => {
+    const body = JSON.stringify({
+      items: [
+        {
+          id: "p1",
+          name: "Real Playlist",
+          // uri intentionally absent
+          images: [],
+        },
+      ],
+    });
+    mockFetchForPlaylists(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    await expect(client.browse()).rejects.toBeInstanceOf(SpotifyError);
+  });
+
+  // A3: pl.uri is empty string — must throw, not return uri: ""
+  it("throws SpotifyError when pl.uri is empty string in playlists", async () => {
+    const body = JSON.stringify({
+      items: [
+        {
+          id: "p1",
+          name: "Real Playlist",
+          uri: "",
+          images: [],
+        },
+      ],
+    });
+    mockFetchForPlaylists(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    await expect(client.browse()).rejects.toBeInstanceOf(SpotifyError);
+  });
+});
