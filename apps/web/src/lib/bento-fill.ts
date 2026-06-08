@@ -24,7 +24,7 @@ const HMIN = 2;
 const HMAX = 4;
 
 // Deterministic PRNG (mulberry32). Same seed → same stream → same fill.
-export function mulberry32(a: number): () => number {
+function mulberry32(a: number): () => number {
   return () => {
     a |= 0;
     a = (a + 0x6d2b79f5) | 0;
@@ -245,7 +245,7 @@ function longestSeam(owner: Int32Array, W: number, H: number): number {
   return Math.max(v, h);
 }
 
-export type FillOptions = {
+type FillOptions = {
   // Number of seeds tried; the gap-free board with the shortest longest-seam wins.
   attempts?: number;
   // Base seed; the winner is deterministic for a given (region, holes, seed).
