@@ -1,5 +1,5 @@
 // Single source of truth for the board grid.
-// Imported by Board, tile-registry, clock-constants, the Minimap, and Storybook.
+// Imported by Board, tile-registry, the Minimap, and Storybook.
 //
 // The board is a SQUARE-cell grid: 12 columns × 9 rows. A 12×6 grid in the
 // 1366×1000 viewport made cells taller than wide (167 tall vs 114 wide), which
@@ -16,14 +16,14 @@ export const BOARD_W = 1366;
 export const BOARD_H = 1000;
 export const GRID_COLS = 12;
 export const GRID_ROWS = 9;
-export const GRID_GAP = 18;
+const GRID_GAP = 18;
 // Edge margin equals GRID_GAP so the gap from the board edge to the first/last
 // card is identical to the gutter between any two cards.
-export const BOARD_PADDING = GRID_GAP;
+const BOARD_PADDING = GRID_GAP;
 
 // One square cell, sized to the old column width so tile widths never change.
-export const CELL = (BOARD_W - 2 * BOARD_PADDING - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS;
-export const CELL_PITCH = CELL + GRID_GAP;
+const CELL = (BOARD_W - 2 * BOARD_PADDING - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS;
+const CELL_PITCH = CELL + GRID_GAP;
 
 // Exact pixel footprint of a tile spanning `cols`×`rows` square cells. Width and
 // height share the same cell, so a tile's aspect is purely its span ratio.

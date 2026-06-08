@@ -23,7 +23,7 @@ import { Modal, StatusDot } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-export interface ClockZone {
+interface ClockZone {
   /** City label shown in the row. */
   city: string;
   /** IANA timezone string, e.g. "America/New_York". */

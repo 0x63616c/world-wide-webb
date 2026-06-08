@@ -49,7 +49,7 @@ export const MOOD_PALETTE: readonly RgbColor[] = [
  * Fisher-Yates shuffle returning a NEW array. `rng` defaults to Math.random but
  * is injectable so the shuffle is deterministic (testable) when needed.
  */
-export function shuffle<T>(items: readonly T[], rng: () => number = Math.random): T[] {
+function shuffle<T>(items: readonly T[], rng: () => number = Math.random): T[] {
   const out = items.slice();
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));

@@ -7,13 +7,7 @@
 
 import { createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
-import {
-  deviceCommands,
-  events,
-  integrationSyncStatus,
-  weatherDailyReading,
-  weatherReading,
-} from "./schema";
+import { events } from "./schema";
 
 // ─── events ──────────────────────────────────────────────────────────────────
 
@@ -27,28 +21,3 @@ export const EventSelectSchema = createSelectSchema(events, {
 })
   .pick({ name: true, place: true, date: true })
   .extend({ days: z.number().int().nonnegative() });
-
-// ─── device_commands ─────────────────────────────────────────────────────────
-
-// Full select schema — used by any future device-commands router endpoint
-// instead of a hand-written counterpart.
-export const DeviceCommandSelectSchema = createSelectSchema(deviceCommands, {
-  // jsonb args column carries unknown JSON — type as generic record so routers
-  // that expose it can narrow further via .extend() if needed.
-  args: z.record(z.string(), z.unknown()),
-});
-
-// ─── integration_sync_status ─────────────────────────────────────────────────
-
-export const IntegrationSyncStatusSelectSchema = createSelectSchema(integrationSyncStatus);
-
-// ─── weather_reading (hourly) ─────────────────────────────────────────────────
-
-// Hourly rows as they sit in the DB. The weather router computes display fields
-// (icon, label) on top of these; that derived output is not a direct DB shadow
-// and is intentionally kept as a standalone z.object in the router.
-export const WeatherReadingSelectSchema = createSelectSchema(weatherReading);
-
-// ─── weather_daily_reading ────────────────────────────────────────────────────
-
-export const WeatherDailyReadingSelectSchema = createSelectSchema(weatherDailyReading);

@@ -32,7 +32,7 @@ export type PlaceholderTile = {
 
 // Thickness (in cells) of the decorative wall ring on every edge. The inner bento
 // region is the world inset by this much on all sides.
-export const WALL_THICKNESS = 2;
+const WALL_THICKNESS = 2;
 
 // Seeds for the deterministic best-of-N bento fill. Fixed so the layout is byte
 // identical every load (no flicker) yet looks organic. Bump BENTO_ATTEMPTS for a

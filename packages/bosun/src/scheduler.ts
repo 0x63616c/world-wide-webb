@@ -285,7 +285,7 @@ async function capture(cmd: string): Promise<{ stdout: string; exitCode: number 
   return { stdout, exitCode };
 }
 
-export function makeDefaultJobInspector(): JobInspector {
+function makeDefaultJobInspector(): JobInspector {
   return async (svc: string) => {
     // The slot label off the service spec. A missing service exits non-zero; a
     // present-but-unlabelled service prints Go's "<no value>" — both mean null.

@@ -25,7 +25,7 @@ import { BorderProgressRing, Modal, Pill, PillTone, Stat } from "@/components/ui
 // ─── types ────────────────────────────────────────────────────────────────────
 
 /** One 5-minute traffic window from UniFi getTrafficBuckets(). Raw bytes. */
-export interface TrafficBucket {
+interface TrafficBucket {
   down: number;
   up: number;
 }

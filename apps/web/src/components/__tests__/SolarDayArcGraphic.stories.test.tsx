@@ -4,7 +4,7 @@
  */
 
 import "@testing-library/jest-dom";
-import { composeStories } from "@storybook/react";
+import { composeStories } from "@storybook/react-vite";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import * as stories from "../SolarDayArcGraphic.stories";
