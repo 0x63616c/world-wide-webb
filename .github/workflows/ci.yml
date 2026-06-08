@@ -110,6 +110,14 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+    # The merged coverage run (unit jsdom across api+web+bosun + Storybook
+    # chromium over ~95 components + v8 mergeReports) is heap-heavy and grew past
+    # Node's default ~4GB V8 ceiling, OOM-killing the test job and blocking the
+    # deploy that depends on it (www-dasj). vitest maxWorkers is already capped at
+    # 2, so this is per-process heap, not fan-out. ubuntu-latest has 16GB RAM, so
+    # 6GB heap per process (×2 workers worst case = 12GB) is safe headroom.
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v4
         with:
