@@ -35,47 +35,43 @@ vi.mock("@protomaps/basemaps", () => ({
   namedFlavor: vi.fn().mockReturnValue({}),
 }));
 
-import { GRID_COLS, GRID_ROWS, tilePixelSize } from "../../../lib/grid-constants";
-import { deriveGridAreas, TILE_REGISTRY } from "../../../lib/tile-registry";
+import { tilePixelSize, WORLD_COLS, WORLD_ROWS } from "../../../lib/grid-constants";
+import { TILE_REGISTRY } from "../../../lib/tile-registry";
 
-describe("tile registry — grid coverage", () => {
+describe("tile registry — free placement", () => {
   it("all tiles are defined with Stripe-style IDs", () => {
     for (const entry of TILE_REGISTRY) {
       expect(entry.id).toMatch(/^tile_[a-z]+$/);
     }
   });
 
-  it("tiles cover every cell of the 12×6 grid exactly once (no gaps, no overlaps)", () => {
-    const coverage = new Map<string, string>();
+  it("every tile sits fully inside the world (free-placed, no off-world spill)", () => {
+    for (const { id, worldCol, worldRow, cols, rows } of TILE_REGISTRY) {
+      expect(worldCol, `${id} worldCol`).toBeGreaterThanOrEqual(0);
+      expect(worldRow, `${id} worldRow`).toBeGreaterThanOrEqual(0);
+      expect(worldCol + cols, `${id} col end`).toBeLessThanOrEqual(WORLD_COLS);
+      expect(worldRow + rows, `${id} row end`).toBeLessThanOrEqual(WORLD_ROWS);
+    }
+  });
 
-    for (const { id, colStart, rowStart, cols, rows } of TILE_REGISTRY) {
-      for (let r = rowStart - 1; r < rowStart - 1 + rows; r++) {
-        for (let c = colStart - 1; c < colStart - 1 + cols; c++) {
-          const key = `${r},${c}`;
-          expect(
-            coverage.get(key),
-            `Cell (${r},${c}) covered twice — ${coverage.get(key)} and ${id}`,
-          ).toBeUndefined();
-          coverage.set(key, id);
-        }
+  it("real tiles never overlap each other", () => {
+    const overlaps = (a: (typeof TILE_REGISTRY)[number], b: (typeof TILE_REGISTRY)[number]) =>
+      a.worldCol < b.worldCol + b.cols &&
+      a.worldCol + a.cols > b.worldCol &&
+      a.worldRow < b.worldRow + b.rows &&
+      a.worldRow + a.rows > b.worldRow;
+    for (let i = 0; i < TILE_REGISTRY.length; i++) {
+      for (let j = i + 1; j < TILE_REGISTRY.length; j++) {
+        expect(
+          overlaps(TILE_REGISTRY[i], TILE_REGISTRY[j]),
+          `${TILE_REGISTRY[i].id} overlaps ${TILE_REGISTRY[j].id}`,
+        ).toBe(false);
       }
     }
-
-    expect(coverage.size).toBe(GRID_ROWS * GRID_COLS);
   });
 
-  it("deriveGridAreas produces no '.' cells (all cells are named)", () => {
-    const areas = deriveGridAreas(TILE_REGISTRY);
-    expect(areas).not.toContain(".");
-  });
-
-  it("TILE_REGISTRY entries have valid col/row positions within the grid", () => {
-    for (const { id, colStart, rowStart, cols, rows } of TILE_REGISTRY) {
-      expect(colStart, `${id} colStart`).toBeGreaterThanOrEqual(1);
-      expect(rowStart, `${id} rowStart`).toBeGreaterThanOrEqual(1);
-      expect(colStart + cols - 1, `${id} col end`).toBeLessThanOrEqual(GRID_COLS);
-      expect(rowStart + rows - 1, `${id} row end`).toBeLessThanOrEqual(GRID_ROWS);
-    }
+  it("exactly one tile is flagged home (the board's open/idle target)", () => {
+    expect(TILE_REGISTRY.filter((t) => t.home)).toHaveLength(1);
   });
 });
 

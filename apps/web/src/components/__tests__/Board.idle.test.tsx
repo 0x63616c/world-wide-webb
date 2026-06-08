@@ -1,28 +1,33 @@
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WORLD_H, WORLD_W } from "../../lib/grid-constants";
+import { tileWorldRect, WORLD_H, WORLD_W } from "../../lib/grid-constants";
+
+// Home is the Clock-equivalent home tile's center, not the geometric world
+// center. The mock registry below places its home tile at world cell (26,27),
+// 4×2 — derive its pixel center so the assertions track the real Board.
+const HOME_RECT = tileWorldRect({ worldCol: 26, worldRow: 27, cols: 4, rows: 2 });
+const HOME_CX = HOME_RECT.x + HOME_RECT.w / 2;
+const HOME_CY = HOME_RECT.y + HOME_RECT.h / 2;
 
 // Same lightweight stubs as Board.test.tsx so the REAL Board mounts in jsdom
 // without pulling maplibre/real tiles. This suite exercises the real idle-reset
 // WIRING end to end (real useIdleReset + real goHome/jumpTo + real isHome against
 // a real #stage element) — the unit tests mock goHome/isHome, so only this catches
 // a broken integration (the gap that let CC-9otn regress live).
-vi.mock("../../lib/tile-registry", () => ({
-  TILE_REGISTRY: [
-    {
-      id: "tile_fake",
-      label: "Fake Tile",
-      component: () => <div>tile-body</div>,
-      viewComponent: () => null,
-      gridArea: "fake",
-      colStart: 1,
-      rowStart: 1,
-      cols: 4,
-      rows: 2,
-    },
-  ],
-  deriveGridAreas: () => '""',
-}));
+vi.mock("../../lib/tile-registry", () => {
+  const fake = {
+    id: "tile_fake",
+    label: "Fake Tile",
+    component: () => <div>tile-body</div>,
+    viewComponent: () => null,
+    worldCol: 26,
+    worldRow: 27,
+    cols: 4,
+    rows: 2,
+    home: true,
+  };
+  return { TILE_REGISTRY: [fake], HOME_TILE: fake };
+});
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
 vi.mock("../tiles/modals/registry", () => ({ getTileModalEntry: () => undefined }));
 
@@ -92,11 +97,11 @@ describe("Board idle reset (real wiring)", () => {
       vi.advanceTimersByTime(IDLE_RESET_MS);
     });
 
-    // goHome → jumpTo(WORLD_W/2, WORLD_H/2) → scrollTo with the centered target.
+    // goHome → jumpTo(HOME_CX, HOME_CY) → scrollTo with the home-tile target.
     expect(calls.length).toBeGreaterThan(0);
     const last = calls.at(-1);
-    expect(last?.left).toBeCloseTo(WORLD_W / 2 - CLIENT_W / 2, 0);
-    expect(last?.top).toBeCloseTo(WORLD_H / 2 - CLIENT_H / 2, 0);
+    expect(last?.left).toBeCloseTo(HOME_CX - CLIENT_W / 2, 0);
+    expect(last?.top).toBeCloseTo(HOME_CY - CLIENT_H / 2, 0);
   });
 
   it("a real interaction before the window resets the timer", () => {
@@ -141,10 +146,10 @@ describe("Board idle reset (real wiring)", () => {
       if (opts) calls.push({ left: opts.left ?? 0, top: opts.top ?? 0 });
     }) as typeof stage.scrollTo;
 
-    // Park exactly on world-center (the mount layout effect already centers it,
+    // Park exactly on the home tile (the mount layout effect already centers it,
     // but assert it explicitly so the predicate input is unambiguous).
-    stage.scrollLeft = WORLD_W / 2 - CLIENT_W / 2;
-    stage.scrollTop = WORLD_H / 2 - CLIENT_H / 2;
+    stage.scrollLeft = HOME_CX - CLIENT_W / 2;
+    stage.scrollTop = HOME_CY - CLIENT_H / 2;
     fireEvent.scroll(stage);
 
     act(() => vi.advanceTimersByTime(IDLE_RESET_MS * 2));

@@ -34,29 +34,18 @@ export function tilePixelSize(cols: number, rows: number): { width: number; heig
   };
 }
 
-// ===== Pannable world (square) ==============================================
+// ===== Pannable one-world canvas (square) ===================================
 // The world is a large square canvas (WORLD_COLS×WORLD_ROWS cells) that you pan
 // around; the window shows whatever slice fits (~BOARD_W×BOARD_H on the panel,
-// more on a bigger screen — no crop). Dimensions are ODD so the centered Clock
-// lands on an integer cell offset, keeping every tile flush to the cell lattice.
-// The outermost WALL_THICKNESS-cell ring on every edge is a decorative "wall"
-// border of 2×2 tiles (see placeholder-tiles.ts); the inner 31×31 holds the
-// real cluster + bento fill. Growing by 2*WALL_THICKNESS keeps the world odd, so
-// the CLUSTER offset below grows by exactly WALL_THICKNESS and stays integer.
-export const WORLD_COLS = 35;
-export const WORLD_ROWS = 35;
+// more on a bigger screen — no crop). There is no separate "viewport grid": real
+// tiles are placed ANYWHERE in this world at any size (world-cell coords on each
+// registry entry), and the decorative bento + WALL_THICKNESS-cell wall ring
+// (placeholder-tiles.ts) regenerate to fill every remaining cell around them.
+// 64×64 gives generous room to move/add tiles without re-packing anything.
+export const WORLD_COLS = 64;
+export const WORLD_ROWS = 64;
 export const WORLD_W = 2 * BOARD_PADDING + WORLD_COLS * CELL + (WORLD_COLS - 1) * GRID_GAP;
 export const WORLD_H = 2 * BOARD_PADDING + WORLD_ROWS * CELL + (WORLD_ROWS - 1) * GRID_GAP;
-
-// The Clock (registry tile colStart 1, rowStart 1, 5×3) is placed dead center of
-// the world; every other tile keeps its position relative to it. The offset is
-// world-center minus the Clock's own center (its colStart is 1, so its local
-// center is just half its span). Exported so decorative layers (placeholder
-// tiles) can express positions in the same world-cell space the cluster uses.
-const CLOCK_COLS = 5;
-const CLOCK_ROWS = 3;
-export const CLUSTER_COL_OFFSET = WORLD_COLS / 2 - CLOCK_COLS / 2;
-export const CLUSTER_ROW_OFFSET = WORLD_ROWS / 2 - CLOCK_ROWS / 2;
 
 // World-pixel rect for a 0-indexed world-cell span. The lattice origin and pitch
 // are the single source of truth, so both real tiles and decorative placeholders
@@ -76,17 +65,14 @@ export function worldCellRect(
   };
 }
 
-// World-pixel rect for a registry tile, shifted so the Clock sits at world center.
+// World-pixel rect for a registry tile. Tiles now carry their world-cell position
+// directly (worldCol/worldRow, 0-indexed), so this is a thin pass-through — no
+// cluster offset, no central-anchor assumption. Move a tile by editing its coords.
 export function tileWorldRect(t: {
-  colStart: number;
-  rowStart: number;
+  worldCol: number;
+  worldRow: number;
   cols: number;
   rows: number;
 }): { x: number; y: number; w: number; h: number } {
-  return worldCellRect(
-    t.colStart - 1 + CLUSTER_COL_OFFSET,
-    t.rowStart - 1 + CLUSTER_ROW_OFFSET,
-    t.cols,
-    t.rows,
-  );
+  return worldCellRect(t.worldCol, t.worldRow, t.cols, t.rows);
 }
