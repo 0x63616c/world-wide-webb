@@ -280,6 +280,8 @@ async function runGatesRaw(tag) {
 // check behavior. Returns {pass, findings, blocking}.
 async function validateMilestone(m, round) {
   const tag = `${m.label}-r${round}`
+  // Unique port per milestone/round so concurrent dev servers never collide (OOM/port-clash fix).
+  const port = 4300 + ((parseInt((m.label || "").replace(/\D/g, ""), 10) || 1) * 10) + round
   const ids = m.features.map((f) => f.key).join(', ')
   const msAssertions =
     [...new Set(m.features.flatMap((f) => f.assertions || []))].join(', ') || '(see each feature acceptance)'
@@ -299,7 +301,7 @@ async function validateMilestone(m, round) {
   if (ui) {
     tasks.push(() =>
       agent(
-        `${RULES}\n\nUSER-TESTING JUDGE (${tag}, no ticket). Exercise the real rendered board as a black box. Board is a fixed 1366x1024 wall panel.\n1. Start the web dev server in the background: \`cd ${REPO} && (bun run --cwd apps/web dev --port 4200 >/tmp/cc-web.log 2>&1 &)\` then poll http://localhost:4200 until 200 (up to ~30s). The API may be down — EXPECTED, and itself the no-fake-data test: tiles must shimmer, never invented numbers.\n2. Use the local \`agent-browser\` binary (check \`agent-browser --help\` and \`agent-browser screenshot --help\`). Open http://localhost:4200 headless at viewport 1366x1024 and screenshot the full board to ${REPO}/docs/screenshots/ship-${tag}.png (create the dir; NEVER /tmp).\n3. Read the screenshot back and inspect: every tile renders (no crash/blank), loading tiles shimmer, layout matches the design, ZERO fake numbers visible. Click through any flow touched by milestone "${m.name}".\n4. Kill the dev server (\`pkill -f "apps/web dev"\`).\nReturn pass=true only if the board renders correctly with shimmer-not-fake and the touched flows work; describe what you saw; list gaps as findings.`,
+        `${RULES}\n\nUSER-TESTING JUDGE (${tag}, no ticket). Exercise the real rendered board as a black box. Board is a fixed 1366x1024 wall panel.\n1. Start the web dev server in the background: \`cd ${REPO} && (bun run --cwd apps/web dev --port ${port} >/tmp/cc-web-${tag}.log 2>&1 &)\` then poll http://localhost:${port} until 200 (up to ~30s). The API may be down — EXPECTED, and itself the no-fake-data test: tiles must shimmer, never invented numbers.\n2. Use the local \`agent-browser\` binary (check \`agent-browser --help\` and \`agent-browser screenshot --help\`). Open http://localhost:${port} headless at viewport 1366x1024 and screenshot the full board to ${REPO}/docs/screenshots/ship-${tag}.png (create the dir; NEVER /tmp).\n3. Read the screenshot back and inspect: every tile renders (no crash/blank), loading tiles shimmer, layout matches the design, ZERO fake numbers visible. Click through any flow touched by milestone "${m.name}".\n4. Tear down ONLY what you started: kill the dev server on its exact port with \`fkill :${port}\` (NEVER a loose \`pkill -f\` — this is a shared machine and that matches other sessions). Then make sure agent-browser's headless chromium has exited (it leaks ~1.5GB if left running).\nReturn pass=true only if the board renders correctly with shimmer-not-fake and the touched flows work; describe what you saw; list gaps as findings.`,
         { label: `validate:browser:${tag}`, phase: 'Validate', schema: VALIDATION_SCHEMA, model: VAL_M },
       ),
     )
