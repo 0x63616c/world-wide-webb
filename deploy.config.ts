@@ -38,6 +38,10 @@ export default stack("control-center", {
         HOME_LON: "Home Location/lon",
         HOME_PLACE_NAME: "Home Location/place_name",
         HOME_RADIUS_MILES: "Home Location/radius_miles",
+        // Spotify Web API credentials for the media router (www-51hf.35).
+        SPOTIFY_CLIENT_ID: "Spotify/client_id",
+        SPOTIFY_CLIENT_SECRET: "Spotify/client_secret",
+        SPOTIFY_REFRESH_TOKEN: "Spotify/refresh_token",
       }),
       env: {
         NODE_ENV: "production",
@@ -98,6 +102,11 @@ export default stack("control-center", {
         HOME_LON: "Home Location/lon",
         HOME_PLACE_NAME: "Home Location/place_name",
         HOME_RADIUS_MILES: "Home Location/radius_miles",
+        // Spotify credentials mirrored from the api to keep the two services
+        // in lockstep (deploy-config.test.ts asserts they match — www-51hf.35).
+        SPOTIFY_CLIENT_ID: "Spotify/client_id",
+        SPOTIFY_CLIENT_SECRET: "Spotify/client_secret",
+        SPOTIFY_REFRESH_TOKEN: "Spotify/refresh_token",
       }),
       env: {
         NODE_ENV: "production",
