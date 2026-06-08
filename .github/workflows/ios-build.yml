@@ -34,6 +34,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Fail fast on a regression in the kiosk recovery logic (CC-bwoy) before
+      # the expensive web build + TestFlight upload. Pure swiftc, no deps.
+      - name: Kiosk recovery-logic guard
+        run: ./scripts/test-kiosk-health.sh
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
