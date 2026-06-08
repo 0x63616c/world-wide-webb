@@ -61,6 +61,11 @@ export interface ServiceSpec {
   volumes?: string[];
   // Optional deploy placement constraints (e.g. "node.role==manager").
   placement?: string[];
+  // Optional explicit replica count (deploy.replicas). Swarm defaults a long-lived
+  // service to 1 when unset, so leave it undefined for the normal case. Set to 0 to
+  // PARK a service in the spec (deployed but scaled to zero) — durable across the
+  // whole-stack redeploy on every push, unlike a manual `docker service scale`.
+  replicas?: number;
   // Optional scheduled-job declaration. When present this service is NOT a
   // long-lived swarm service: the bosun scheduler (in `bosun serve`) runs it on
   // its cron as a one-shot Swarm job (docker service create --mode
@@ -103,6 +108,7 @@ export function service(
     command: opts.command,
     volumes: opts.volumes,
     placement: opts.placement,
+    replicas: opts.replicas,
     schedule: opts.schedule,
     healthcheck: opts.healthcheck,
     health: opts.health ?? [],

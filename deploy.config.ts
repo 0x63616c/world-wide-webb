@@ -129,6 +129,17 @@ export default stack("control-center", {
     // as the web service's `maps` mount. Pinned to the manager (host-local mount).
     service("media-worker", {
       image: ghcr("control-center-media-worker"),
+      // PARKED AT 0 REPLICAS — temporary hold (www-nqqj). media-worker ran uncapped
+      // and starved the OrbStack Linux VM into a kernel RCU-sched stall
+      // (rcu_sched kthread starved / OOM expected), wedging the docker engine and
+      // taking the WHOLE stack — including the cloudflared connector — into a full
+      // prod outage (Cloudflare 1033 / HTTP 530), recurring on every docker
+      // restart. Parking it here keeps the 0-replica state durable across bosun's
+      // whole-stack redeploy on every push (a manual `docker service scale` does
+      // NOT survive that). This is a HOLD, not a removal: media-worker MUST be set
+      // back to replicas:1 once memory resource limits exist — re-enabling is
+      // owned by follow-up www-ke9a (add resource limits + un-park).
+      replicas: 0,
       secrets: fromOp("Homelab", {
         POSTGRES_PASSWORD: "Control Center Postgres/password",
         OPENROUTER_API_KEY: "OpenRouter/credential",
