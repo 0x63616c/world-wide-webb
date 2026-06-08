@@ -710,6 +710,36 @@ describe("renderStackYml", () => {
     expect(yml1).toBe(yml2);
   });
 
+  // CC-nqqj: an explicit replica count renders as deploy.replicas; omitting it
+  // leaves Swarm's default of 1. `replicas: 0` parks a service durably in the
+  // spec (survives the whole-stack redeploy on every push), the mitigation for
+  // the media-worker RCU-stall prod outage until memory limits land (CC-ke9a).
+  describe("replica count (CC-nqqj)", () => {
+    const parked: Spec = {
+      stackName: "control-center",
+      services: [
+        {
+          name: "media-worker",
+          image: "ghcr.io/0x63616c/control-center-media-worker:main",
+          secrets: [],
+          env: {},
+          replicas: 0,
+          health: [],
+        },
+      ],
+    };
+
+    it("renders deploy.replicas when set (0 parks the service)", () => {
+      const yml = renderStackYml(parked, {});
+      expect(yml).toContain("replicas: 0");
+    });
+
+    it("omits deploy.replicas when unset (Swarm defaults to 1)", () => {
+      const yml = renderStackYml(spec, secretNames);
+      expect(yml).not.toContain("replicas:");
+    });
+  });
+
   it("renders a named volume stack-prefixed and declares it at top-level (data persists)", () => {
     const volSpec: Spec = {
       stackName: "control-center",
