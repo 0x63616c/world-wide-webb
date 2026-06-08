@@ -23,7 +23,7 @@ import { Modal } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-export interface SkyClockNow {
+interface SkyClockNow {
   temp: number;
   cond: string;
   ic: string;

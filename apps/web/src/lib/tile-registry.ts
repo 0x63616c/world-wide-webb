@@ -19,7 +19,7 @@ import { WeatherNow } from "../components/tiles/WeatherNow";
 import { WeatherNowView } from "../components/tiles/WeatherNowView";
 import { GRID_COLS, GRID_ROWS } from "./grid-constants";
 
-export const GridArea = {
+const GridArea = {
   Clock: "clock",
   Weather: "weath",
   Wifi: "wifi",
@@ -30,7 +30,7 @@ export const GridArea = {
   Climate: "ac",
   Events: "event",
 } as const;
-export type GridArea = (typeof GridArea)[keyof typeof GridArea];
+type GridArea = (typeof GridArea)[keyof typeof GridArea];
 
 export type TileRegistryEntry = {
   id: string;

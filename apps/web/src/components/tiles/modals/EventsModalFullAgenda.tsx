@@ -20,7 +20,7 @@ import { Modal, StatusDot } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-export interface EventRow {
+interface EventRow {
   name: string;
   place: string;
   days: number;
