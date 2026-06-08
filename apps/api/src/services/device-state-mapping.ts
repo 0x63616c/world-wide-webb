@@ -31,7 +31,7 @@ export function isClimateState(v: DeviceStateValue | null | undefined): v is Dev
   );
 }
 
-export const HaState = {
+const HaState = {
   On: "on",
   Unavailable: "unavailable",
   Unknown: "unknown",

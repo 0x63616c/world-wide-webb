@@ -36,7 +36,7 @@ import { isLightState } from "./device-state-mapping";
 // ─── pure helpers ──────────────────────────────────────────────────────────────
 
 /** Coerce a stored speed string to a valid LampModeSpeed, defaulting to Medium. */
-export function coerceSpeed(speed: string | null | undefined): LampModeSpeed {
+function coerceSpeed(speed: string | null | undefined): LampModeSpeed {
   return speed === LampModeSpeed.Slow ||
     speed === LampModeSpeed.Fast ||
     speed === LampModeSpeed.Medium
@@ -105,7 +105,7 @@ export interface PartyEngine {
  * `light.turn_on`-with-transition per lamp; the next tick is scheduled only after
  * the current one settles (await-before-reschedule).
  */
-export function createPartyEngine(): PartyEngine {
+function createPartyEngine(): PartyEngine {
   let speed: LampModeSpeed | null = null;
   let tick = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -163,13 +163,13 @@ export function createPartyEngine(): PartyEngine {
 // mutable state) — the mutable bits are encapsulated in the closure above.
 const partyEngine = createPartyEngine();
 
-export function startPartyEngine(speed: LampModeSpeed): void {
+function _startPartyEngine(speed: LampModeSpeed): void {
   partyEngine.start(speed);
 }
-export function stopPartyEngine(): void {
+function _stopPartyEngine(): void {
   partyEngine.stop();
 }
-export function partyEngineStatus(): EngineStatus {
+function _partyEngineStatus(): EngineStatus {
   return partyEngine.status();
 }
 

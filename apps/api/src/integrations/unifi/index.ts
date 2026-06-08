@@ -22,7 +22,7 @@ const healthEntrySchema = z.looseObject({
 });
 const healthReportSchema = z.object({ data: z.array(healthEntrySchema).optional() });
 
-export class UnifiError extends Error {
+class UnifiError extends Error {
   constructor(
     public status: number,
     message: string,

@@ -24,7 +24,7 @@ import { DeviceKind, isClimateState, mergeDeviceState } from "./device-state-map
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
-export interface LampState {
+interface LampState {
   on: boolean;
   /** Number of lamp entities currently on. */
   count: number;
@@ -48,14 +48,14 @@ export interface LampState {
  * animated lamp mode (currently just "party"). Never "none" — that maps to
  * "no mode set", which falls through to the colour-derived scene or null.
  */
-export type ActiveScene = LampScene | typeof LampMode.Party;
+type ActiveScene = LampScene | typeof LampMode.Party;
 
-export interface LightState {
+interface LightState {
   on: boolean;
   pending: boolean;
 }
 
-export interface FanState {
+interface FanState {
   on: boolean;
   /** Sub-label, e.g. "Medium". */
   sub: string;
@@ -80,13 +80,6 @@ export const FanMode = {
   Auto: "auto",
 } as const;
 export type FanMode = (typeof FanMode)[keyof typeof FanMode];
-
-export const HaService = {
-  TurnOn: "turn_on",
-  TurnOff: "turn_off",
-  SetFanMode: "set_fan_mode",
-} as const;
-export type HaService = (typeof HaService)[keyof typeof HaService];
 
 // The app-command window (www-unxz.1). A control mutation writes desired and
 // returns WITHOUT actuating HA — the enforcer pushes desired→HA. While
@@ -193,9 +186,7 @@ function colorToScene(color: LightColor | undefined): LampScene | null {
  * mood/custom wash all → null). The party mode overrides this from the lamp_mode
  * row (added in www-7d5b.3.4 via deriveActiveScene's caller).
  */
-export function deriveSceneFromDesired(
-  onLampStates: (DeviceLightState | null)[],
-): LampScene | null {
+function deriveSceneFromDesired(onLampStates: (DeviceLightState | null)[]): LampScene | null {
   if (onLampStates.length === 0) return null;
   let scene: LampScene | null = null;
   for (const state of onLampStates) {

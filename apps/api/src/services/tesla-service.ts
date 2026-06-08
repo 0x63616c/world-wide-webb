@@ -36,7 +36,7 @@ export interface TeslaData {
  * integration names every entity `<prefix>_*` (prefix is the car nickname,
  * "evee"). Overridable via TESLA_ENTITY_PREFIX.
  */
-export function teslaEntityIds(prefix = env.TESLA_ENTITY_PREFIX) {
+function teslaEntityIds(prefix = env.TESLA_ENTITY_PREFIX) {
   return {
     battery: `sensor.${prefix}_battery_level`,
     charging: `sensor.${prefix}_charging`,
@@ -70,13 +70,12 @@ export const LockState = {
 } as const;
 export type LockState = (typeof LockState)[keyof typeof LockState];
 
-export const DeadState = {
+const DeadState = {
   Unavailable: "unavailable",
   Unknown: "unknown",
   None: "none",
   Empty: "",
 } as const;
-export type DeadState = (typeof DeadState)[keyof typeof DeadState];
 
 /** HA states that mean "no usable value" — car asleep or entity disabled. */
 const DEAD_STATES = new Set<string>(Object.values(DeadState));
