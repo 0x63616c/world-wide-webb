@@ -60,3 +60,26 @@ test("hydrates secret-backed env from mounted docker secret files", () => {
   expect(src.WIFI_SSID).toBe("world-wide-webb"); // loaded from file
   expect(src.UNIFI_API_KEY).toBeUndefined(); // no file, stays unset
 });
+
+// Spotify Web API creds must default to "" so the api boots without them
+// (the SpotifyClient checks isConfigured() before making any call).
+test("Spotify creds default to empty string", () => {
+  const env = envSchema.parse({});
+  expect(env.SPOTIFY_CLIENT_ID).toBe("");
+  expect(env.SPOTIFY_CLIENT_SECRET).toBe("");
+  expect(env.SPOTIFY_REFRESH_TOKEN).toBe("");
+});
+
+// Spotify creds arrive as docker secret files in the Swarm (same rail as
+// HA_TOKEN, WIFI_SSID, etc.) so hydrateSecretFiles must include them.
+test("hydrates Spotify creds from mounted docker secret files", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cc-spotify-"));
+  writeFileSync(join(dir, "SPOTIFY_CLIENT_ID"), "test-client-id\n");
+  writeFileSync(join(dir, "SPOTIFY_CLIENT_SECRET"), "test-client-secret\n");
+  writeFileSync(join(dir, "SPOTIFY_REFRESH_TOKEN"), "test-refresh-token\n");
+  const src: Record<string, string | undefined> = {};
+  hydrateSecretFiles(src, dir);
+  expect(src.SPOTIFY_CLIENT_ID).toBe("test-client-id");
+  expect(src.SPOTIFY_CLIENT_SECRET).toBe("test-client-secret");
+  expect(src.SPOTIFY_REFRESH_TOKEN).toBe("test-refresh-token");
+});
