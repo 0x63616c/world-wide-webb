@@ -111,6 +111,11 @@ export function renderStackYml(
 
     // Stack label for ownership tracking.
     lines.push("    deploy:");
+    // Explicit replica count when set (e.g. 0 to park a service at zero). Swarm
+    // defaults to 1 when omitted, so only emit when the spec asks for it.
+    if (svc.replicas !== undefined) {
+      lines.push(`      replicas: ${svc.replicas}`);
+    }
     lines.push("      labels:");
     lines.push(`        - bosun.stack=${spec.stackName}`);
     // Placement constraints sit under deploy.placement.
