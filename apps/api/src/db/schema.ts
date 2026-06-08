@@ -172,3 +172,58 @@ export const lampMode = pgTable("lamp_mode", {
   speed: text("speed"),
   updatedAtUtc: timestamp("updated_at_utc", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Media ingest pipeline tables (www-kp4k). media_source tracks YouTube playlists
+// and ad-hoc video collections; media_item is each individual video moving through
+// the download/metadata pipeline. The worker barrel re-exports these for the
+// media-worker image.
+
+export const mediaSource = pgTable(
+  "media_source",
+  {
+    id: text("id").primaryKey(), // Stripe-style src_<id>
+    kind: text("kind").notNull(), // 'playlist' | 'adhoc'
+    externalId: text("external_id"), // YouTube playlist id for kind=playlist
+    url: text("url"), // URL for kind=adhoc
+    title: text("title").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    videoPolicy: text("video_policy").notNull().default("none"), // 'none' | 'on'
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("media_source_kind_idx").on(t.kind),
+    index("media_source_enabled_idx").on(t.enabled),
+  ],
+);
+
+export const mediaItem = pgTable(
+  "media_item",
+  {
+    id: text("id").primaryKey(), // Stripe-style mi_<id>
+    sourceId: text("source_id")
+      .notNull()
+      .references(() => mediaSource.id, { onDelete: "cascade" }),
+    ytVideoId: text("yt_video_id").notNull(),
+    rawTitle: text("raw_title").notNull(),
+    cleanTitle: text("clean_title"),
+    artist: text("artist"),
+    event: text("event"),
+    category: text("category"),
+    status: text("status").notNull().default("pending"), // 'pending'|'downloading'|'done'|'failed'
+    audioPath: text("audio_path"),
+    videoPath: text("video_path"),
+    thumbPath: text("thumb_path"),
+    audioBytes: integer("audio_bytes"),
+    videoBytes: integer("video_bytes"),
+    durationSec: integer("duration_sec"),
+    error: text("error"),
+    retries: integer("retries").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("media_item_yt_video_id_idx").on(t.ytVideoId),
+    index("media_item_source_id_idx").on(t.sourceId),
+    index("media_item_status_idx").on(t.status),
+  ],
+);
