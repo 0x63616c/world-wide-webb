@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./trpc": "./src/trpc/routers/index.ts",
-    "./worker": "./src/worker-deps.ts"
+    "./worker": "./src/worker-deps.ts",
+    "./media": "./src/media.ts"
   },
   "scripts": {
     "dev": "bun --watch src/server.ts",
