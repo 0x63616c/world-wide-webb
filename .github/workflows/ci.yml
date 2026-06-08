@@ -65,6 +65,11 @@ jobs:
               - 'apps/web/.storybook/**'
               - 'apps/web/src/**'
               - 'apps/web/package.json'
+              # Serving config: a change to how nginx serves the bundle (cache
+              # headers, asset 404 vs index.html fallback) must rebuild the image
+              # too, or the fix never ships (CC-w4aa).
+              - 'apps/web/nginx-storybook.conf'
+              - 'apps/web/Dockerfile.storybook'
               - 'packages/**'
               - 'bun.lock'
             # bosun-agent image bakes in the bosun source + deploy.config + infra,
