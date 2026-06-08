@@ -11,6 +11,50 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+// Generic durable job queue (www-kp4k.12). Any background work that needs
+// at-least-once delivery, per-attempt retry backoff, and a typed handler
+// registry registers here. `youtube_ingest` is the first consumer; future async
+// work (transcode, notifications, backups) registers a handler and gets retry +
+// observability for free.
+export const job = pgTable(
+  "job",
+  {
+    id: serial("id").primaryKey(),
+    // Stable string identifying the handler (e.g. 'youtube_ingest', 'enrich_media').
+    type: text("type").notNull(),
+    // Arbitrary JSON input consumed by the handler — schema is handler-specific.
+    payload: jsonb("payload").notNull(),
+    // Lifecycle: queued → running → done | failed. A failed job that hasn't
+    // exhausted its attempts is re-queued with an exponential run_after bump.
+    status: text("status").notNull().default("queued"),
+    // Higher priority = claimed first (ORDER BY priority DESC, created_at ASC).
+    priority: integer("priority").notNull().default(0),
+    // How many times the handler has been invoked (counting the current attempt).
+    attempts: integer("attempts").notNull().default(0),
+    // Maximum attempts before the job is permanently failed.
+    maxAttempts: integer("max_attempts").notNull().default(5),
+    // Not eligible for claiming until this wall-clock time. Default: now = immediately
+    // claimable. Set forward by the retry logic for exponential backoff.
+    runAfter: timestamp("run_after", { withTimezone: true }).notNull().defaultNow(),
+    // The instance that claimed this job (e.g. hostname or UUID) — used to
+    // detect stuck running jobs if we add a watchdog later.
+    lockedBy: text("locked_by"),
+    lockedAt: timestamp("locked_at", { withTimezone: true }),
+    // JSON result blob written on success (optional; useful for debugging).
+    result: jsonb("result"),
+    // Error message from the last failed attempt.
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Primary claim query: status=queued + run_after<=now, ordered by priority
+    // then arrival order. The partial index on (status, run_after, priority) lets
+    // the DB satisfy this in one index scan rather than a heap filter sweep.
+    index("job_claim_idx").on(t.status, t.runAfter, t.priority),
+  ],
+);
+
 export const events = pgTable("events", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
