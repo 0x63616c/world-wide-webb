@@ -7,11 +7,11 @@
  * Classification is DECLARED here, not inferred from entity-id substrings.
  */
 
-export const LightDomain = {
+const LightDomain = {
   Light: "light",
   Switch: "switch",
 } as const;
-export type LightDomain = (typeof LightDomain)[keyof typeof LightDomain];
+type LightDomain = (typeof LightDomain)[keyof typeof LightDomain];
 
 export const LightKind = {
   Lamp: "lamp",
@@ -19,13 +19,13 @@ export const LightKind = {
 } as const;
 export type LightKind = (typeof LightKind)[keyof typeof LightKind];
 
-export const LightCapability = {
+const LightCapability = {
   OnOff: "onOff",
   Brightness: "brightness",
   ColorTemp: "colorTemp",
   Rgb: "rgb",
 } as const;
-export type LightCapability = (typeof LightCapability)[keyof typeof LightCapability];
+type LightCapability = (typeof LightCapability)[keyof typeof LightCapability];
 
 // Per-device reconcile policy (CC-7d5b.2.1). The enforcer treats desired state as
 // truth; `control` decides what happens on UNSOLICITED external drift (the panel

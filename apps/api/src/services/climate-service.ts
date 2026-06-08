@@ -37,7 +37,7 @@ export const HaHvacAction = {
 
 // Real Home Assistant hvac modes for the house thermostat (climate.home).
 export type ClimateMode = HvacMode;
-export type ClimateAction = HvacAction;
+type ClimateAction = HvacAction;
 
 // Visual band and the server-side accept range. HA's hard limits are wider
 // (60-92) but the tile + validation use 67-77, the comfort band (CC-pu4m).
