@@ -5,6 +5,7 @@ import {
   tvPause,
   tvPlay,
   tvPrevious,
+  tvRemote,
   tvSeek,
   tvStop,
 } from "../../services/apple-tv-service";
@@ -42,4 +43,23 @@ export const mediaRouter = router({
   tvSeek: publicProcedure
     .input(z.object({ seekPositionSeconds: z.number().nonnegative() }))
     .mutation(({ input }) => tvSeek(input.seekPositionSeconds)),
+
+  tvRemote: publicProcedure
+    .input(
+      z.object({
+        command: z.enum([
+          "up",
+          "down",
+          "left",
+          "right",
+          "select",
+          "menu",
+          "home",
+          "home_hold",
+          "play_pause",
+          "power",
+        ]),
+      }),
+    )
+    .mutation(({ input }) => tvRemote(input.command)),
 });
