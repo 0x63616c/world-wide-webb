@@ -12,6 +12,15 @@ import {
   tvStop,
 } from "../../services/apple-tv-service";
 import { getSoundSystem } from "../../services/sonos-sound-system-service";
+import {
+  sonosGrabTvToBeam,
+  sonosGroupJoin,
+  sonosGroupLeave,
+  sonosSetLineIn,
+  sonosSetMute,
+  sonosSetVolume,
+  sonosTransport,
+} from "../../services/sonos-write-service";
 import { publicProcedure, router } from "../init";
 
 const TvNowPlayingSchema = z.object({
@@ -94,4 +103,39 @@ export const mediaRouter = router({
     .input(z.object({}).optional())
     .output(SoundSystemSchema)
     .query(() => getSoundSystem()),
+
+  // ── Sonos write mutations (CC-51hf.10 / A12) ──────────────────────────────
+
+  sonosSetVolume: publicProcedure
+    .input(z.object({ deviceIp: z.string(), volume: z.number().int().min(0).max(100) }))
+    .mutation(({ input }) => sonosSetVolume(input)),
+
+  sonosSetMute: publicProcedure
+    .input(z.object({ deviceIp: z.string(), muted: z.boolean() }))
+    .mutation(({ input }) => sonosSetMute(input)),
+
+  sonosTransport: publicProcedure
+    .input(
+      z.object({
+        coordinatorIp: z.string(),
+        command: z.enum(["play", "pause", "next", "previous"]),
+      }),
+    )
+    .mutation(({ input }) => sonosTransport(input)),
+
+  sonosGroupJoin: publicProcedure
+    .input(z.object({ memberIp: z.string(), coordinatorUuid: z.string().min(1) }))
+    .mutation(({ input }) => sonosGroupJoin(input)),
+
+  sonosGroupLeave: publicProcedure
+    .input(z.object({ memberIp: z.string(), memberUuid: z.string().min(1) }))
+    .mutation(({ input }) => sonosGroupLeave(input)),
+
+  sonosSetLineIn: publicProcedure
+    .input(z.object({ deviceIp: z.string(), sourceUuid: z.string().min(1) }))
+    .mutation(({ input }) => sonosSetLineIn(input)),
+
+  sonosGrabTvToBeam: publicProcedure
+    .input(z.object({ beamIp: z.string(), beamUuid: z.string().min(1) }))
+    .mutation(({ input }) => sonosGrabTvToBeam(input)),
 });
