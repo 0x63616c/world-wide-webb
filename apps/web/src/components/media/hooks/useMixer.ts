@@ -18,7 +18,7 @@
  * across successive moves and can cause off-by-one mismatches with the device.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export interface MixerRoom {
   coordinatorUuid: string;
@@ -103,6 +103,29 @@ export function useMixer(rooms: MixerRoom[]): MixerState {
   const [member, setMember] = useState<Record<string, boolean>>({});
   const [groupLock, setGroupLock] = useState(false);
   const [globalLock, setGlobalLockState] = useState(false);
+
+  // Re-sync vols and mutes when the rooms array changes (e.g. a new Sonos speaker
+  // joins the household). Without this, new rooms are invisible to the gang-lock.
+  useEffect(() => {
+    setVols((prev) => {
+      const next = { ...prev };
+      for (const r of rooms) {
+        if (!(r.coordinatorUuid in next)) {
+          next[r.coordinatorUuid] = r.volume;
+        }
+      }
+      return next;
+    });
+    setMutes((prev) => {
+      const next = { ...prev };
+      for (const r of rooms) {
+        if (!(r.coordinatorUuid in next)) {
+          next[r.coordinatorUuid] = r.muted;
+        }
+      }
+      return next;
+    });
+  }, [rooms]);
 
   const setRoomVolume = useCallback(
     (uuid: string, target: number) => {
