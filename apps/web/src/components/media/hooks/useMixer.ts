@@ -104,23 +104,39 @@ export function useMixer(rooms: MixerRoom[]): MixerState {
   const [groupLock, setGroupLock] = useState(false);
   const [globalLock, setGlobalLockState] = useState(false);
 
-  // Re-sync vols and mutes when the rooms array changes (e.g. a new Sonos speaker
-  // joins the household). Without this, new rooms are invisible to the gang-lock.
+  // Re-sync vols and mutes when the rooms array changes: seed new rooms and prune
+  // removed ones. Without pruning, stale uuids linger in state and the gang-lock
+  // applies deltas to disconnected speakers (CC-ddo9.2).
   useEffect(() => {
+    const currentUuids = new Set(rooms.map((r) => r.coordinatorUuid));
     setVols((prev) => {
       const next = { ...prev };
+      // Seed new rooms.
       for (const r of rooms) {
         if (!(r.coordinatorUuid in next)) {
           next[r.coordinatorUuid] = r.volume;
+        }
+      }
+      // Prune rooms that are no longer in the prop.
+      for (const uuid of Object.keys(next)) {
+        if (!currentUuids.has(uuid)) {
+          delete next[uuid];
         }
       }
       return next;
     });
     setMutes((prev) => {
       const next = { ...prev };
+      // Seed new rooms.
       for (const r of rooms) {
         if (!(r.coordinatorUuid in next)) {
           next[r.coordinatorUuid] = r.muted;
+        }
+      }
+      // Prune rooms that are no longer in the prop.
+      for (const uuid of Object.keys(next)) {
+        if (!currentUuids.has(uuid)) {
+          delete next[uuid];
         }
       }
       return next;

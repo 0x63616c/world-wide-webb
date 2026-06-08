@@ -198,6 +198,47 @@ describe("useMixer — toggleGroupLock", () => {
   });
 });
 
+describe("useMixer — room removal / stale uuid cleanup (CC-ddo9.2)", () => {
+  it("removes stale room uuid from vols when room is removed from rooms prop", () => {
+    const twoRooms = [
+      { coordinatorUuid: "uuid-A", name: "Room A", volume: 40, muted: false },
+      { coordinatorUuid: "uuid-B", name: "Room B", volume: 60, muted: false },
+    ];
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+      initialProps: { rooms: twoRooms },
+    });
+    expect(Object.keys(result.current.vols)).toHaveLength(2);
+
+    // uuid-B disconnects — remove it from rooms prop.
+    rerender({ rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 40, muted: false }] });
+
+    expect(Object.keys(result.current.vols)).toHaveLength(1);
+    expect(result.current.vols["uuid-B"]).toBeUndefined();
+    expect(result.current.mutes["uuid-B"]).toBeUndefined();
+  });
+
+  it("gang-lock excludes disconnected room after removal", () => {
+    const twoRooms = [
+      { coordinatorUuid: "uuid-A", name: "Room A", volume: 40, muted: false },
+      { coordinatorUuid: "uuid-B", name: "Room B", volume: 60, muted: false },
+    ];
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+      initialProps: { rooms: twoRooms },
+    });
+
+    // Enable global lock.
+    act(() => result.current.setGlobalLock(true));
+
+    // uuid-B disconnects.
+    rerender({ rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 40, muted: false }] });
+
+    // Drag uuid-A; only one room in state — solo path, no stale uuid-B movement.
+    act(() => result.current.setRoomVolume("uuid-A", 50));
+    expect(result.current.vols["uuid-A"]).toBe(50);
+    expect(result.current.vols["uuid-B"]).toBeUndefined();
+  });
+});
+
 describe("useMixer — dynamic rooms prop (CC-51hf.49)", () => {
   it("re-syncs vols when a new room is added to the rooms prop", () => {
     // Start with one room.
