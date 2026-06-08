@@ -100,6 +100,8 @@ describe("deploy.config.ts — Docker image-cleanup cronJob (CC-0id / CC-79k)", 
       "cloudflared",
       // Self-hosted Drizzle Studio for browsing the prod DB (CC-0ub8).
       "drizzle",
+      // media-worker runs the continuous media-ingest pipeline (CC-kp4k).
+      "media-worker",
       "postgres",
       "storybook",
       "web",
