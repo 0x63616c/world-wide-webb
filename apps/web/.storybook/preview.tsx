@@ -51,13 +51,19 @@ const BoardDecorator: Decorator = (Story, context) => {
     );
   }
 
+  // In the canvas (single-story) view, fill the dark board so the component sits
+  // on the real background. On a Docs page each story renders in its OWN Canvas
+  // block, so a 100vh min-height would make every block a full viewport tall —
+  // turning a tiny primitive (Pill, StatusDot, …) into a giant, super-long docs
+  // page. On docs, hug the content instead (CC-hljb).
+  const isDocs = context.viewMode === "docs";
   return createElement(
     "div",
     {
       className: "e-root",
       style: {
         background: "var(--bg)",
-        minHeight: "100vh",
+        ...(isDocs ? {} : { minHeight: "100vh" }),
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "flex-start",
