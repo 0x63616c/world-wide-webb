@@ -740,6 +740,168 @@ describe("renderStackYml", () => {
     });
   });
 
+  // www-ke9a: deploy.resources caps every long-lived service's memory so no single
+  // container can starve the OrbStack VM (the media-worker RCU-stall outage class).
+  // The renderer emits limits.memory ONLY (NEVER limits.cpus — CPU is compressible,
+  // a hard quota just wastes idle cores) plus optional cpu/memory RESERVATIONS for
+  // scheduling priority on the critical path.
+  describe("resource limits (www-ke9a)", () => {
+    const resSpec: Spec = {
+      stackName: "control-center",
+      services: [
+        {
+          name: "postgres",
+          image: "postgres:17-alpine",
+          secrets: [],
+          env: {},
+          resources: { memory: "768M", reserveCpus: "0.5", reserveMemory: "256M" },
+          health: [],
+        },
+        {
+          name: "web",
+          image: "ghcr.io/0x63616c/control-center-web:main",
+          secrets: [],
+          env: {},
+          resources: { memory: "96M" },
+          health: [],
+        },
+        {
+          // No resources declared — must render no resources block.
+          name: "cloudflared",
+          image: "cloudflare/cloudflared:x",
+          secrets: [],
+          env: {},
+          health: [],
+        },
+      ],
+    };
+
+    it("renders deploy.resources.limits.memory for a capped service", () => {
+      const yml = renderStackYml(resSpec, {});
+      expect(yml).toContain("      resources:");
+      expect(yml).toContain("        limits:");
+      expect(yml).toContain("          memory: 768M");
+      expect(yml).toContain("          memory: 96M");
+    });
+
+    it("renders reservations (cpus + memory) only when set", () => {
+      const yml = renderStackYml(resSpec, {});
+      expect(yml).toContain("        reservations:");
+      expect(yml).toContain('          cpus: "0.5"');
+      expect(yml).toContain("          memory: 256M");
+    });
+
+    it("NEVER emits limits.cpus (CPU is uncapped — reservations only)", () => {
+      const yml = renderStackYml(resSpec, {});
+      // A `cpus:` key may appear ONLY under reservations, never under limits.
+      // Assert no cpus line directly follows a `limits:` block.
+      expect(yml).not.toMatch(/limits:\n(?:\s+memory: [^\n]+\n)?\s+cpus:/);
+      // Every cpus line that does exist is the quoted reservation form.
+      for (const line of yml.split("\n")) {
+        if (line.trim().startsWith("cpus:")) {
+          expect(line).toMatch(/cpus: "[\d.]+"/);
+        }
+      }
+    });
+
+    it("omits the resources block for a service without one", () => {
+      const yml = renderStackYml(resSpec, {});
+      // postgres + web have one each; cloudflared has none.
+      expect((yml.match(/^ {6}resources:$/gm) ?? []).length).toBe(2);
+    });
+
+    it("renders a memory limit with no reservations block when only memory is set", () => {
+      const yml = renderStackYml(resSpec, {});
+      // web declares only memory — its block must not carry a reservations sub-block.
+      // Isolate the web service section and assert no reservations within it.
+      const webSection = yml.slice(yml.indexOf("  web:"), yml.indexOf("  cloudflared:"));
+      expect(webSection).toContain("          memory: 96M");
+      expect(webSection).not.toContain("reservations:");
+    });
+
+    // The overcommit INVARIANT: sum of every service's memory limit must stay under
+    // the VM container-memory budget, or the render THROWS and refuses the stack —
+    // making the outage class (a future cap that over-subscribes the VM) impossible.
+    describe("overcommit invariant", () => {
+      it("renders normally when the summed memory limits are under budget", () => {
+        const under: Spec = {
+          stackName: "control-center",
+          services: [
+            {
+              name: "a",
+              image: "x",
+              secrets: [],
+              env: {},
+              resources: { memory: "2048M" },
+              health: [],
+            },
+            {
+              name: "b",
+              image: "y",
+              secrets: [],
+              env: {},
+              resources: { memory: "1024M" },
+              health: [],
+            },
+          ],
+        };
+        expect(() => renderStackYml(under, {})).not.toThrow();
+      });
+
+      it("THROWS and names the overage when the summed memory limits exceed the VM budget", () => {
+        const over: Spec = {
+          stackName: "control-center",
+          services: [
+            {
+              name: "a",
+              image: "x",
+              secrets: [],
+              env: {},
+              resources: { memory: "3072M" },
+              health: [],
+            },
+            {
+              name: "b",
+              image: "y",
+              secrets: [],
+              env: {},
+              resources: { memory: "2048M" },
+              health: [],
+            },
+          ],
+        };
+        // 3072 + 2048 = 5120 MiB > 4096 MiB budget.
+        expect(() => renderStackYml(over, {})).toThrow(/overcommit|budget|4096/i);
+      });
+
+      it("supports G and M units when summing limits", () => {
+        const over: Spec = {
+          stackName: "control-center",
+          services: [
+            {
+              name: "a",
+              image: "x",
+              secrets: [],
+              env: {},
+              resources: { memory: "3G" },
+              health: [],
+            },
+            {
+              name: "b",
+              image: "y",
+              secrets: [],
+              env: {},
+              resources: { memory: "2G" },
+              health: [],
+            },
+          ],
+        };
+        // 3072 + 2048 MiB > 4096.
+        expect(() => renderStackYml(over, {})).toThrow(/overcommit|budget/i);
+      });
+    });
+  });
+
   it("renders a named volume stack-prefixed and declares it at top-level (data persists)", () => {
     const volSpec: Spec = {
       stackName: "control-center",

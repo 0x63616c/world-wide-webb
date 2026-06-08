@@ -23,6 +23,49 @@ function pinImage(image: string, overrides?: Record<string, string>): string {
   return digest ? `ghcr.io/0x63616c/${m[1]}@${digest}` : image;
 }
 
+// Container-memory budget for the deploy VM, in MiB (www-ke9a). The OrbStack
+// Linux VM is 5GB; reserve ~1GB for the guest kernel + system (page tables,
+// dirty-writeback, docker engine), leaving ~4GB for container memory limits.
+// renderStackYml SUMS every service's memory limit and REFUSES to render if the
+// total exceeds this — so a future overcommit fails the deploy loudly instead of
+// silently over-subscribing the VM and reintroducing the RCU-stall/OOM outage
+// class (www-nqqj). Bumped from 4GB→5GB in www-jagy; keep this in sync with the VM.
+/** @public — deploy-spec budget constant; surfaced for tests + future plan checks (www-ke9a). */
+export const VM_MEMORY_BUDGET_MIB = 4096;
+
+// Parse a compose memory string ("96M", "768M", "1G", optionally "Mi"/"Gi") to
+// MiB. Compose uses powers of two for the suffixes, so 1G == 1024M. Throws on an
+// unrecognised unit so a typo can never silently under-count the budget sum.
+function parseMemoryToMiB(mem: string): number {
+  const m = mem.trim().match(/^(\d+(?:\.\d+)?)\s*([KMG])i?[Bb]?$/);
+  if (!m) {
+    throw new Error(`Unrecognised memory string '${mem}' (expected e.g. "768M" or "1G")`);
+  }
+  const value = Number.parseFloat(m[1]);
+  const factor = { K: 1 / 1024, M: 1, G: 1024 }[m[2] as "K" | "M" | "G"];
+  return value * factor;
+}
+
+// Enforce the overcommit invariant: the summed hard memory limits of all
+// long-lived services must stay under the VM budget. THROWS (refusing the whole
+// stack) when exceeded so an overcommit can never reach the swarm.
+function assertMemoryBudget(spec: Spec): void {
+  let totalMiB = 0;
+  for (const svc of spec.services) {
+    if (svc.schedule) continue; // cron jobs aren't long-lived stack services.
+    const mem = svc.resources?.memory;
+    if (mem) totalMiB += parseMemoryToMiB(mem);
+  }
+  if (totalMiB > VM_MEMORY_BUDGET_MIB) {
+    throw new Error(
+      `Memory overcommit: service memory limits sum to ${totalMiB} MiB, ` +
+        `exceeding the VM budget of ${VM_MEMORY_BUDGET_MIB} MiB by ` +
+        `${totalMiB - VM_MEMORY_BUDGET_MIB} MiB. Lower a service's resources.memory ` +
+        "or raise VM_MEMORY_BUDGET_MIB only after bumping the VM (www-jagy).",
+    );
+  }
+}
+
 // Render the static Spec + resolved secret name map to a Docker Swarm stack YAML.
 // The rendered YAML references hashed docker secret names — never plain values.
 // `imageOverrides` (optional) maps a ghcr image name to the digest to pin it to
@@ -33,6 +76,9 @@ export function renderStackYml(
   secretNames: Record<string, string>,
   imageOverrides?: Record<string, string>,
 ): string {
+  // Refuse the whole stack if the summed memory limits overcommit the VM (www-ke9a).
+  assertMemoryBudget(spec);
+
   const lines: string[] = ["version: '3.8'", "", "services:"];
 
   // Named volumes referenced by services (bare-name sources, not bind paths).
@@ -130,6 +176,25 @@ export function renderStackYml(
     // Long-lived services restart on failure. (Cron jobs never reach here — they
     // are excluded above and run as one-shot Swarm jobs by the scheduler.)
     lines.push("        condition: on-failure");
+
+    // Resource caps (www-ke9a). Emit limits.memory ONLY (a hard cap that, under
+    // cgroup v2, OOM-kills just this container instead of the VM) — NEVER
+    // limits.cpus (CPU is compressible; a hard quota only wastes idle cores).
+    // Reservations (cpus/memory) are scheduling priority for the critical path
+    // and are emitted only for the sub-fields the spec sets.
+    if (svc.resources) {
+      const r = svc.resources;
+      lines.push("      resources:");
+      if (r.memory) {
+        lines.push("        limits:");
+        lines.push(`          memory: ${r.memory}`);
+      }
+      if (r.reserveCpus || r.reserveMemory) {
+        lines.push("        reservations:");
+        if (r.reserveCpus) lines.push(`          cpus: "${r.reserveCpus}"`);
+        if (r.reserveMemory) lines.push(`          memory: ${r.reserveMemory}`);
+      }
+    }
 
     if (svc.command) {
       lines.push(`    command: ${escapeComposeInterpolation(svc.command)}`);
