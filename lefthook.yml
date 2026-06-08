@@ -76,16 +76,15 @@ pre-push:
         git ls-files -z -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.json' '*.jsonc' '*.css' '*.html' \
           | xargs -0 bunx biome check --no-errors-on-unmatched
     knip-deadcode:
-      # Runs AFTER biome-lint (priority 2), BEFORE the slow beads-sync. BLOCKING:
-      # the dead-code ratchet (scripts/check-knip.sh) fails the push when any knip
-      # finding category grew beyond .knip-baseline.json (new dead code) or shrank
-      # without the baseline being lowered. Mirrors CI's `test` job so a regression
-      # can't reach main. Mechanical replacement for an agentic dead-code sweep
-      # (CC-k6p1): `bun run knip` to inspect, `bun run knip:fix` to auto-remove,
-      # `bun run knip:baseline` after a cleanup. Piped chain → a failure here aborts
-      # before the slow dolt push runs.
+      # Runs AFTER biome-lint (priority 2), BEFORE the slow beads-sync. BLOCKING,
+      # ZERO-TOLERANCE: knip exits non-zero on ANY unused file/export/dep, so the
+      # repo is held at zero dead code (CC-k6p1). Mirrors CI's `test` job so a
+      # regression can't reach main. `bun run knip` to inspect, `bun run knip:fix`
+      # to auto-remove. Intentional-but-unconsumed public API is kept via a
+      # `/** @public — reason */` JSDoc tag (knip honours it). Piped chain → a
+      # failure here aborts before the slow dolt push runs.
       priority: 2
-      run: bash scripts/check-knip.sh
+      run: bunx knip
     beads-sync:
       # Runs AFTER knip-deadcode (priority 3) and only if it passed (piped chain),
       # so we pay the slow dolt push exactly once the code push has cleared lint.

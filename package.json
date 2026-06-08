@@ -16,7 +16,6 @@
     "lint:fix": "bunx biome check --write .",
     "knip": "bunx knip",
     "knip:fix": "bunx knip --fix --allow-remove-files",
-    "knip:baseline": "bash scripts/check-knip.sh --update",
     "typecheck": "bun run --filter '*' typecheck && bun run typecheck:config",
     "typecheck:config": "tsc -p tsconfig.config.json --noEmit",
     "prepare": "bunx lefthook install --force"
