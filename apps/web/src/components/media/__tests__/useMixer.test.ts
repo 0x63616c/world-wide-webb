@@ -197,3 +197,50 @@ describe("useMixer — toggleGroupLock", () => {
     expect(result.current.groupLock).toBe(false);
   });
 });
+
+describe("useMixer — dynamic rooms prop (CC-51hf.49)", () => {
+  it("re-syncs vols when a new room is added to the rooms prop", () => {
+    // Start with one room.
+    const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 40, muted: false }];
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+      initialProps: { rooms: initialRooms },
+    });
+    expect(result.current.vols["uuid-A"]).toBe(40);
+    expect(result.current.vols["uuid-B"]).toBeUndefined();
+
+    // A new Sonos speaker joins — rooms prop gains uuid-B.
+    const updatedRooms = [
+      { coordinatorUuid: "uuid-A", name: "Room A", volume: 40, muted: false },
+      { coordinatorUuid: "uuid-B", name: "Room B", volume: 55, muted: true },
+    ];
+    rerender({ rooms: updatedRooms });
+
+    expect(result.current.vols["uuid-B"]).toBe(55);
+    expect(result.current.mutes["uuid-B"]).toBe(true);
+  });
+
+  it("new room participates in gang-lock after rooms prop update", () => {
+    // Start with one room.
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+      initialProps: {
+        rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 40, muted: false }],
+      },
+    });
+
+    // Enable global lock before new room arrives.
+    act(() => result.current.setGlobalLock(true));
+
+    // New room joins.
+    rerender({
+      rooms: [
+        { coordinatorUuid: "uuid-A", name: "Room A", volume: 40, muted: false },
+        { coordinatorUuid: "uuid-B", name: "Room B", volume: 60, muted: false },
+      ],
+    });
+
+    // Drag uuid-A up by 5; uuid-B must also move by 5 (gang includes new room).
+    act(() => result.current.setRoomVolume("uuid-A", 45));
+    expect(result.current.vols["uuid-A"]).toBe(45);
+    expect(result.current.vols["uuid-B"]).toBe(65);
+  });
+});
