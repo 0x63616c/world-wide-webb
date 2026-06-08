@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { getTvNowPlaying } from "../../services/apple-tv-service";
+import {
+  getTvNowPlaying,
+  tvNext,
+  tvPause,
+  tvPlay,
+  tvPrevious,
+  tvSeek,
+  tvStop,
+} from "../../services/apple-tv-service";
 import { publicProcedure, router } from "../init";
 
 const TvNowPlayingSchema = z.object({
@@ -20,4 +28,18 @@ export const mediaRouter = router({
     .input(z.object({}).optional())
     .output(TvNowPlayingSchema)
     .query(() => getTvNowPlaying()),
+
+  tvPlay: publicProcedure.mutation(() => tvPlay()),
+
+  tvPause: publicProcedure.mutation(() => tvPause()),
+
+  tvNext: publicProcedure.mutation(() => tvNext()),
+
+  tvPrevious: publicProcedure.mutation(() => tvPrevious()),
+
+  tvStop: publicProcedure.mutation(() => tvStop()),
+
+  tvSeek: publicProcedure
+    .input(z.object({ seekPositionSeconds: z.number().nonnegative() }))
+    .mutation(({ input }) => tvSeek(input.seekPositionSeconds)),
 });

@@ -79,3 +79,74 @@ function classifySource(
   }
   return "streaming";
 }
+
+// Guards the HA singleton is configured before every transport mutation.
+function assertConfigured(): void {
+  if (!ha.isConfigured()) {
+    throw new HaError(0, "Home Assistant is not configured");
+  }
+}
+
+/**
+ * Resumes or starts playback on the Apple TV.
+ * Calls media_player/media_play on media_player.living_room_tv.
+ * THROWS HaError when HA is unconfigured or on network failure.
+ */
+export async function tvPlay(): Promise<void> {
+  assertConfigured();
+  await ha.callService("media_player", "media_play", { entity_id: TV_ENTITY_ID });
+}
+
+/**
+ * Pauses playback on the Apple TV.
+ * Calls media_player/media_pause on media_player.living_room_tv.
+ * THROWS HaError when HA is unconfigured or on network failure.
+ */
+export async function tvPause(): Promise<void> {
+  assertConfigured();
+  await ha.callService("media_player", "media_pause", { entity_id: TV_ENTITY_ID });
+}
+
+/**
+ * Skips to the next track/chapter on the Apple TV.
+ * Calls media_player/media_next_track on media_player.living_room_tv.
+ * THROWS HaError when HA is unconfigured or on network failure.
+ */
+export async function tvNext(): Promise<void> {
+  assertConfigured();
+  await ha.callService("media_player", "media_next_track", { entity_id: TV_ENTITY_ID });
+}
+
+/**
+ * Skips to the previous track/chapter on the Apple TV.
+ * Calls media_player/media_previous_track on media_player.living_room_tv.
+ * THROWS HaError when HA is unconfigured or on network failure.
+ */
+export async function tvPrevious(): Promise<void> {
+  assertConfigured();
+  await ha.callService("media_player", "media_previous_track", { entity_id: TV_ENTITY_ID });
+}
+
+/**
+ * Stops playback on the Apple TV (no resume position retained).
+ * Calls media_player/media_stop on media_player.living_room_tv.
+ * THROWS HaError when HA is unconfigured or on network failure.
+ */
+export async function tvStop(): Promise<void> {
+  assertConfigured();
+  await ha.callService("media_player", "media_stop", { entity_id: TV_ENTITY_ID });
+}
+
+/**
+ * Seeks to a given position in the currently-playing content.
+ * seekPositionSeconds is the absolute position in seconds (fractional OK).
+ * Calls media_player/media_seek with seek_position on media_player.living_room_tv.
+ * THROWS HaError when HA is unconfigured or on network failure.
+ */
+export async function tvSeek(seekPositionSeconds: number): Promise<void> {
+  assertConfigured();
+  await ha.callService("media_player", "media_seek", {
+    entity_id: TV_ENTITY_ID,
+    seek_position: seekPositionSeconds,
+  });
+}

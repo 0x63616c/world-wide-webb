@@ -1,30 +1,43 @@
 /**
- * Unit tests for the Apple TV service (CC-51hf.5).
+ * Unit tests for the Apple TV service (CC-51hf.5, CC-51hf.6).
  * Verifies A7: tvNowPlaying maps HA media_player.living_room_tv fields
  * (state, app_name, media_title, media_artist, media_position, media_duration)
  * and classifies source (streaming/line-in/TV/idle).
  * Verifies A3: THROW on HA error / unconfigured.
+ * Verifies A8: transport mutations (play/pause/next/previous/stop) and seek
+ * via media_player/media_seek on media_player.living_room_tv.
  * All HA calls are mocked — no network required.
  */
 import { describe, expect, it, vi } from "vitest";
 
 // ─── mock the HA singleton ────────────────────────────────────────────────────
 
-const { mockIsConfigured, mockGetEntity } = vi.hoisted(() => ({
+const { mockIsConfigured, mockGetEntity, mockCallService } = vi.hoisted(() => ({
   mockIsConfigured: vi.fn<() => boolean>(),
   mockGetEntity: vi.fn<(entityId: string) => Promise<unknown>>(),
+  mockCallService:
+    vi.fn<(domain: string, service: string, params: Record<string, unknown>) => Promise<void>>(),
 }));
 
 vi.mock("../integrations/homeassistant", () => ({
   ha: {
     isConfigured: mockIsConfigured,
     getEntity: mockGetEntity,
+    callService: mockCallService,
   },
 }));
 
 // ─── import after mock ────────────────────────────────────────────────────────
 
-import { getTvNowPlaying } from "../services/apple-tv-service";
+import {
+  getTvNowPlaying,
+  tvNext,
+  tvPause,
+  tvPlay,
+  tvPrevious,
+  tvSeek,
+  tvStop,
+} from "../services/apple-tv-service";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -213,6 +226,141 @@ describe("mediaRouter.tvNowPlaying via tRPC caller", () => {
 
     await expect(caller.media.tvNowPlaying()).rejects.toMatchObject({
       code: "SERVICE_UNAVAILABLE",
+    });
+  });
+});
+
+// ─── transport mutations (A8) ─────────────────────────────────────────────────
+
+describe("Apple TV transport mutations (A8)", () => {
+  it("tvPlay calls media_player/media_play on living_room_tv", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockResolvedValue(undefined);
+
+    await tvPlay();
+
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "media_play", {
+      entity_id: "media_player.living_room_tv",
+    });
+  });
+
+  it("tvPause calls media_player/media_pause on living_room_tv", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockResolvedValue(undefined);
+
+    await tvPause();
+
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "media_pause", {
+      entity_id: "media_player.living_room_tv",
+    });
+  });
+
+  it("tvNext calls media_player/media_next_track on living_room_tv", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockResolvedValue(undefined);
+
+    await tvNext();
+
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "media_next_track", {
+      entity_id: "media_player.living_room_tv",
+    });
+  });
+
+  it("tvPrevious calls media_player/media_previous_track on living_room_tv", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockResolvedValue(undefined);
+
+    await tvPrevious();
+
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "media_previous_track", {
+      entity_id: "media_player.living_room_tv",
+    });
+  });
+
+  it("tvStop calls media_player/media_stop on living_room_tv", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockResolvedValue(undefined);
+
+    await tvStop();
+
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "media_stop", {
+      entity_id: "media_player.living_room_tv",
+    });
+  });
+
+  it("tvSeek calls media_player/media_seek with seek_position in seconds", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockResolvedValue(undefined);
+
+    await tvSeek(90.5);
+
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "media_seek", {
+      entity_id: "media_player.living_room_tv",
+      seek_position: 90.5,
+    });
+  });
+
+  it("transport mutations throw when HA is not configured (A3)", async () => {
+    mockIsConfigured.mockReturnValue(false);
+
+    await expect(tvPlay()).rejects.toThrow("Home Assistant is not configured");
+    await expect(tvPause()).rejects.toThrow("Home Assistant is not configured");
+    await expect(tvNext()).rejects.toThrow("Home Assistant is not configured");
+    await expect(tvPrevious()).rejects.toThrow("Home Assistant is not configured");
+    await expect(tvStop()).rejects.toThrow("Home Assistant is not configured");
+    await expect(tvSeek(0)).rejects.toThrow("Home Assistant is not configured");
+  });
+
+  it("transport mutations throw on HA network error (A3)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockRejectedValue(new Error("Network error"));
+
+    await expect(tvPlay()).rejects.toThrow("Network error");
+  });
+});
+
+// ─── media router transport mutations (A8) ────────────────────────────────────
+
+describe("mediaRouter transport mutations via tRPC caller (A8)", () => {
+  it("exposes tvPlay, tvPause, tvNext, tvPrevious, tvStop, tvSeek mutations", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockResolvedValue(undefined);
+
+    const { router } = await import("../trpc/init");
+    const { mediaRouter } = await import("../trpc/routers/media");
+    const testRouter = router({ media: mediaRouter });
+    // @ts-expect-error — no db context needed
+    const caller = testRouter.createCaller({});
+
+    await caller.media.tvPlay();
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "media_play", {
+      entity_id: "media_player.living_room_tv",
+    });
+
+    await caller.media.tvPause();
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "media_pause", {
+      entity_id: "media_player.living_room_tv",
+    });
+
+    await caller.media.tvNext();
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "media_next_track", {
+      entity_id: "media_player.living_room_tv",
+    });
+
+    await caller.media.tvPrevious();
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "media_previous_track", {
+      entity_id: "media_player.living_room_tv",
+    });
+
+    await caller.media.tvStop();
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "media_stop", {
+      entity_id: "media_player.living_room_tv",
+    });
+
+    await caller.media.tvSeek({ seekPositionSeconds: 45 });
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "media_seek", {
+      entity_id: "media_player.living_room_tv",
+      seek_position: 45,
     });
   });
 });
