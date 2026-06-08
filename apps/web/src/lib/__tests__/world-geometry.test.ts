@@ -1,6 +1,7 @@
-// World geometry for the pannable canvas: a SQUARE-cell grid (12×9) on a square
-// world, with the Clock placed dead center. Square cells keep tile widths
-// identical to the old board while making the world and lattice balanced.
+// World geometry for the pannable canvas: a SQUARE-cell lattice on one large
+// square world. Tiles are free-placed by world-cell coords (worldCol/worldRow);
+// there is no central cluster anchor. Square cells keep tile widths identical to
+// the old board while making the world balanced.
 import { describe, expect, it } from "vitest";
 import {
   BOARD_H,
@@ -13,7 +14,8 @@ import {
   WORLD_W,
 } from "../grid-constants";
 
-const clock = { colStart: 1, rowStart: 1, cols: 5, rows: 3 };
+// The Clock at its world-cell home (matches tile-registry).
+const clock = { worldCol: 26, worldRow: 27, cols: 5, rows: 3 };
 
 describe("world geometry", () => {
   it("is a square world strictly larger than the viewport", () => {
@@ -32,9 +34,22 @@ describe("world geometry", () => {
     expect(r.h).toBeCloseTo(319.0, 1);
   });
 
-  it("places the Clock dead center of the world", () => {
+  it("resolves a tile's world rect directly from its world-cell coords (no cluster offset)", () => {
+    // worldCellRect(col,row) origin = BOARD_PADDING + col*CELL_PITCH; a tile placed
+    // at (0,0) sits at the world origin, and (26,27) is exactly 26/27 pitches in.
+    const origin = tileWorldRect({ worldCol: 0, worldRow: 0, cols: 2, rows: 2 });
     const r = tileWorldRect(clock);
-    expect(r.x + r.w / 2).toBeCloseTo(WORLD_W / 2, 1);
-    expect(r.y + r.h / 2).toBeCloseTo(WORLD_H / 2, 1);
+    const pitchX = (r.x - origin.x) / 26;
+    const pitchY = (r.y - origin.y) / 27;
+    expect(pitchX).toBeGreaterThan(0);
+    expect(pitchX).toBeCloseTo(pitchY, 1); // square lattice => equal pitch both axes
+  });
+
+  it("places the Clock comfortably inside the world (room to pan on every side)", () => {
+    const r = tileWorldRect(clock);
+    expect(r.x).toBeGreaterThan(0);
+    expect(r.y).toBeGreaterThan(0);
+    expect(r.x + r.w).toBeLessThan(WORLD_W);
+    expect(r.y + r.h).toBeLessThan(WORLD_H);
   });
 });

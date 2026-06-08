@@ -23,25 +23,23 @@ function SelfModalTile() {
   );
 }
 
-vi.mock("../../lib/tile-registry", () => ({
-  TILE_REGISTRY: [
-    {
-      id: "tile_self",
-      label: "Self Tile",
-      component: SelfModalTile,
-      viewComponent: () => null,
-      gridArea: "self",
-      colStart: 1,
-      rowStart: 1,
-      cols: 4,
-      rows: 2,
-      // Owns its tap: a tap drives its own UI (and recenters), never the board's
-      // generic modal — same as the real Controls tile.
-      ownsTap: true,
-    },
-  ],
-  deriveGridAreas: () => '""',
-}));
+vi.mock("../../lib/tile-registry", () => {
+  const self = {
+    id: "tile_self",
+    label: "Self Tile",
+    component: SelfModalTile,
+    viewComponent: () => null,
+    worldCol: 26,
+    worldRow: 27,
+    cols: 4,
+    rows: 2,
+    home: true,
+    // Owns its tap: a tap drives its own UI (and recenters), never the board's
+    // generic modal — same as the real Controls tile.
+    ownsTap: true,
+  };
+  return { TILE_REGISTRY: [self], HOME_TILE: self };
+});
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
 vi.mock("../tiles/modals/registry", () => ({ getTileModalEntry: () => undefined }));
 
