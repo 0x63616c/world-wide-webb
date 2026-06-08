@@ -66,3 +66,8 @@ storybook-static
 
 # cmux local workspace state
 .cmux/
+
+# PR/verification screenshots — kept on local disk for reference, never tracked
+# (referenced nowhere in docs/code; purged from history in www-st5j to keep the
+# public repo lean). Drop new verification shots here freely; git ignores them.
+docs/screenshots/
