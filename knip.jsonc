@@ -1,8 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  // Dead-code detector (www-k6p1). `bun run knip` reports unused files / exports /
-  // deps; `bun run knip:fix` auto-removes the safe ones (no agent loop). The
-  // ratchet guard (scripts/check-knip.sh) blocks NEW findings in CI/pre-push.
+  // Dead-code detector (www-k6p1). ZERO-TOLERANCE: knip runs in the lefthook
+  // pre-push hook and CI `test` job and exits non-zero on ANY unused file /
+  // export / dep, so the repo is mechanically held at zero dead code.
+  // `bun run knip` to inspect, `bun run knip:fix` to auto-remove. Intentional
+  // public API with no internal consumer yet is kept via a JSDoc tag —
+  // `/** @public — <reason> */` above the export (knip honours @public).
   //
   // Most entry points are auto-detected from each workspace's package `exports`,
   // `bin`, and the vite/storybook/vitest plugins. We only declare the edges knip
