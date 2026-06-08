@@ -4,7 +4,7 @@
 # Run once before the first media-worker deploy; safe to re-run to rotate the key.
 set -euo pipefail
 
-ITEM="OpenRouter API Key"
+ITEM="OpenRouter"
 VAULT="Homelab"
 REF="op://$VAULT/$ITEM/credential"
 
