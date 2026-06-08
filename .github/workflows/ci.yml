@@ -28,6 +28,7 @@ jobs:
       web: ${{ steps.filter.outputs.web }}
       api: ${{ steps.filter.outputs.api }}
       worker: ${{ steps.filter.outputs.worker }}
+      mediaworker: ${{ steps.filter.outputs.mediaworker }}
       storybook: ${{ steps.filter.outputs.storybook }}
       bosun: ${{ steps.filter.outputs.bosun }}
       drizzle: ${{ steps.filter.outputs.drizzle }}
@@ -58,6 +59,13 @@ jobs:
             # change must rebuild the worker image too (www-xjba).
             worker:
               - 'apps/worker/**'
+              - 'apps/api/**'
+              - 'packages/**'
+              - 'bun.lock'
+            # media-worker bundles its domain code from @repo/api, so an apps/api
+            # change must rebuild it too (same rule as worker — www-kp4k).
+            mediaworker:
+              - 'apps/media-worker/**'
               - 'apps/api/**'
               - 'packages/**'
               - 'bun.lock'
@@ -269,6 +277,37 @@ jobs:
           cache-from: type=gha,scope=worker
           cache-to: type=gha,mode=max,scope=worker
 
+  build-media-worker:
+    needs: [changes, test]
+    if: needs.changes.outputs.mediaworker == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build and push media-worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/media-worker/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ghcr.io/0x63616c/control-center-media-worker:${{ github.sha }}
+            ghcr.io/0x63616c/control-center-media-worker:${{ github.ref_name == 'main' && 'main' || github.sha }}
+          cache-from: type=gha,scope=media-worker
+          cache-to: type=gha,mode=max,scope=media-worker
+
   build-storybook:
     needs: [changes, test]
     if: needs.changes.outputs.storybook == 'true' || github.event_name == 'workflow_dispatch'
@@ -378,7 +417,7 @@ jobs:
   # The webhook receiver (bosun serve) runs on the box; the HMAC token is in a repo secret.
   # This job only runs when at least one image was built AND the branch is main.
   deploy:
-    needs: [changes, test, build-web, build-api, build-worker, build-storybook, build-bosun, build-drizzle]
+    needs: [changes, test, build-web, build-api, build-worker, build-media-worker, build-storybook, build-bosun, build-drizzle]
     # always() lets us run even when some build jobs were skipped (no changes).
     # We proceed when: on main, at least one app changed, and no build failed.
     if: |
@@ -404,7 +443,7 @@ jobs:
         id: payload
         run: |
           images='{}'
-          for name in control-center-web control-center-api control-center-worker control-center-storybook control-center-bosun control-center-drizzle; do
+          for name in control-center-web control-center-api control-center-worker control-center-media-worker control-center-storybook control-center-bosun control-center-drizzle; do
             d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$name:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
             if [ -n "$d" ]; then
               images=$(jq -cn --argjson cur "$images" --arg n "$name" --arg d "$d" '$cur + {($n): $d}')

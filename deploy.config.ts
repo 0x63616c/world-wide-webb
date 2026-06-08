@@ -119,6 +119,29 @@ export default stack("control-center", {
       },
     }),
 
+    // Media-worker: downloads YouTube playlists/sets to the NAS and records them
+    // in Postgres (generic job queue + youtube_ingest handler + playlist poller).
+    // Its own image so a long yt-dlp download never shares a container with the
+    // 1s reconcile loops in `worker` (www-kp4k). Storage is the Synology NAS,
+    // bind-mounted from the host's persistent NFS mount (/Users/calum/control-center/media,
+    // mounted by the homelab LaunchDaemon) — OrbStack containers have no LAN route,
+    // so the HOST does the NFS and the container just sees a folder, same pattern
+    // as the web service's `maps` mount. Pinned to the manager (host-local mount).
+    service("media-worker", {
+      image: ghcr("control-center-media-worker"),
+      secrets: fromOp("Homelab", {
+        POSTGRES_PASSWORD: "Control Center Postgres/password",
+        OPENROUTER_API_KEY: "OpenRouter/credential",
+      }),
+      env: {
+        NODE_ENV: "production",
+        TZ: "America/Los_Angeles",
+        MEDIA_STORAGE_DIR: "/app/media",
+      },
+      volumes: ["/Users/calum/control-center/media:/app/media"],
+      placement: ["node.role==manager"],
+    }),
+
     // Web: static build + /api reverse-proxy, public via Cloudflare tunnel.
     // The Tesla-map basemap (/maps/*.pmtiles) is too large to bake into the image
     // (100s of MB), so it is served off a host bind mount populated by the
