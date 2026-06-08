@@ -5,7 +5,7 @@ import { BOARD_H, BOARD_W, tileWorldRect, WORLD_H, WORLD_W } from "../lib/grid-c
 import { useAnyModalOpen } from "../lib/modal-open-store";
 import { BENTO_RECTS } from "../lib/placeholder-tiles";
 import { formatRelativeAge } from "../lib/relative-age";
-import { TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
+import { HOME_TILE, TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
 import {
   getVisibleTiles,
@@ -26,9 +26,9 @@ import { TileBoundary } from "./ui/TileBoundary";
 // open the detail modal; taps anywhere else on the tile open it.
 const INTERACTIVE_SELECTOR = 'button, input, a, select, textarea, [role="slider"]';
 
-// How close the viewport center must be to the world center (== Clock center)
-// to count as "already home" — within this the idle reset is a no-op so it never
-// nudges a view that's effectively already on the clock.
+// How close the viewport center must be to the home tile (Clock) center to count
+// as "already home" — within this the idle reset is a no-op so it never nudges a
+// view that's effectively already on the clock.
 const HOME_DEADZONE_PX = 8;
 
 // ─── snap-mode experiment (CC test) ──────────────────────────────────────────
@@ -98,13 +98,20 @@ function cellAt(cx: number, cy: number): BoardCell | undefined {
   );
 }
 
+// World-pixel center of the home tile (the Clock). The board opens here and idles
+// back here. Tiles are free-placed now, so "home" is wherever the home tile sits,
+// not the geometric world center.
+const HOME_RECT = tileWorldRect(HOME_TILE);
+const HOME_CX = HOME_RECT.x + HOME_RECT.w / 2;
+const HOME_CY = HOME_RECT.y + HOME_RECT.h / 2;
+
 // First-render SEED only. vw/vh use the panel's target size as a placeholder;
 // the useLayoutEffect below immediately overwrites left/top/vw/vh from the real
 // (full-window) stage size before paint, so on any screen the board opens with
-// the Clock dead center. Nothing here clips the view to BOARD_W×BOARD_H.
+// the home tile (Clock) centered. Nothing here clips the view to BOARD_W×BOARD_H.
 const INITIAL_VIEW = {
-  left: WORLD_W / 2 - BOARD_W / 2,
-  top: WORLD_H / 2 - BOARD_H / 2,
+  left: HOME_CX - BOARD_W / 2,
+  top: HOME_CY - BOARD_H / 2,
   vw: BOARD_W,
   vh: BOARD_H,
 };
@@ -283,11 +290,11 @@ function CenteredTileLabel({
 }
 
 /**
- * The pannable canvas board. Tiles live on a square world far larger than the
- * iPad viewport, on a square-cell grid; the existing cluster keeps its exact
- * arrangement with the Clock dead center, and the view opens there. Panning is
- * native scroll (won the pan-lab feel test) plus a desktop mouse-drag shim; only
- * tiles near the viewport are mounted (windowing). Zoom is fixed at 1:1 for now.
+ * The pannable canvas board. Tiles are free-placed on a square world far larger
+ * than the iPad viewport, on a square-cell lattice; the board opens centered on
+ * the home tile (Clock) and idles back to it. Panning is native scroll (won the
+ * pan-lab feel test) plus a desktop mouse-drag shim; only tiles near the viewport
+ * are mounted (windowing). Zoom is fixed at 1:1 for now.
  *
  * Layout is driven entirely by TILE_REGISTRY via tileWorldRect — adding a tile
  * there places it on the world with no further changes here.
@@ -337,13 +344,13 @@ export function Board() {
   // ── viewport tracking ──────────────────────────────────────────────────────
   const { view, syncView } = useBoardViewport(stageRef, INITIAL_VIEW);
 
-  // Open centered on the world center (== Clock center) using the real client
-  // size (pre-paint, no flash).
+  // Open centered on the home tile (Clock) using the real client size (pre-paint,
+  // no flash).
   useLayoutEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    stage.scrollLeft = WORLD_W / 2 - stage.clientWidth / 2;
-    stage.scrollTop = WORLD_H / 2 - stage.clientHeight / 2;
+    stage.scrollLeft = HOME_CX - stage.clientWidth / 2;
+    stage.scrollTop = HOME_CY - stage.clientHeight / 2;
     syncView();
   }, [syncView]);
 
@@ -424,17 +431,17 @@ export function Board() {
     });
   }, []);
 
-  // After an idle window with no interaction, glide back to the world-center
-  // (Clock) home view via the same smooth nav the minimap uses — so an
-  // unattended wall panel resettles on the clock. goHome/isHome read the live
-  // scroll position; the hook owns the timer + interaction listeners.
-  const goHome = useCallback(() => jumpTo(WORLD_W / 2, WORLD_H / 2, true), [jumpTo]);
+  // After an idle window with no interaction, glide back to the home tile (Clock)
+  // via the same smooth nav the minimap uses — so an unattended wall panel
+  // resettles on the clock. goHome/isHome read the live scroll position; the hook
+  // owns the timer + interaction listeners.
+  const goHome = useCallback(() => jumpTo(HOME_CX, HOME_CY, true), [jumpTo]);
   const isHome = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return true;
     const cx = stage.scrollLeft + stage.clientWidth / 2;
     const cy = stage.scrollTop + stage.clientHeight / 2;
-    return Math.hypot(cx - WORLD_W / 2, cy - WORLD_H / 2) < HOME_DEADZONE_PX;
+    return Math.hypot(cx - HOME_CX, cy - HOME_CY) < HOME_DEADZONE_PX;
   }, []);
   useIdleReset({ stageRef, goHome, isHome, pointerDown });
 

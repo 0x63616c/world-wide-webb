@@ -17,20 +17,6 @@ import { TeslaTile } from "../components/tiles/TeslaTile";
 import { TeslaTileView } from "../components/tiles/TeslaTileView";
 import { WeatherNow } from "../components/tiles/WeatherNow";
 import { WeatherNowView } from "../components/tiles/WeatherNowView";
-import { GRID_COLS, GRID_ROWS } from "./grid-constants";
-
-export const GridArea = {
-  Clock: "clock",
-  Weather: "weath",
-  Wifi: "wifi",
-  Tesla: "tesla",
-  Hourly: "hourly",
-  Controls: "ctrl",
-  DogCam: "dogcam",
-  Climate: "ac",
-  Events: "event",
-} as const;
-export type GridArea = (typeof GridArea)[keyof typeof GridArea];
 
 export type TileRegistryEntry = {
   id: string;
@@ -43,39 +29,48 @@ export type TileRegistryEntry = {
   component: ComponentType<any>;
   // biome-ignore lint/suspicious/noExplicitAny: view components have varying prop signatures
   viewComponent: ComponentType<any>;
-  gridArea: GridArea;
-  colStart: number;
-  rowStart: number;
+  // Free position in the ONE world, in 0-indexed world-cell coords. A tile may sit
+  // ANYWHERE at any size — there is no cluster, no grid to fill, no gap/overlap
+  // rule against other real tiles. The decorative bento (placeholder-tiles.ts)
+  // carves itself around whatever rectangles sit here. Move/resize a tile by
+  // editing these four numbers; nothing else needs to change.
+  worldCol: number;
+  worldRow: number;
   cols: number;
   rows: number;
+  // The tile the board opens centered on and resettles to when idle. Exactly one
+  // entry sets this (the Clock); the board falls back to the first entry.
+  home?: boolean;
   // When true the tile owns its own tap surface (it opens its own detail modal),
   // so the board does NOT open the generic showcase modal for it. Controls opens
   // its expanded modal; other tiles flip this on as their detail modals land.
   ownsTap?: boolean;
 };
 
-// One entry per tile on the 12×9 square-cell board. colStart/rowStart are
-// 1-indexed. Positions must tile the full 12×9 grid with no gaps or overlaps.
+// One entry per real tile, free-placed in the world by world-cell coords. The
+// nine tiles below keep their original arrangement, centered in the 64×64 world,
+// but they are independent now — nothing requires them to pack or stay adjacent.
+// A new tile can sit anywhere in [0, WORLD_COLS) × [0, WORLD_ROWS); the bento fill
+// reflows around it automatically.
 export const TILE_REGISTRY: TileRegistryEntry[] = [
   {
     id: "tile_clock",
     label: "Clock",
     component: ClockGreeting,
     viewComponent: ClockGreetingView,
-    gridArea: GridArea.Clock,
-    colStart: 1,
-    rowStart: 1,
+    worldCol: 26,
+    worldRow: 27,
     cols: 5,
     rows: 3,
+    home: true,
   },
   {
     id: "tile_weath",
     label: "Weather Now",
     component: WeatherNow,
     viewComponent: WeatherNowView,
-    gridArea: GridArea.Weather,
-    colStart: 6,
-    rowStart: 1,
+    worldCol: 31,
+    worldRow: 27,
     cols: 4,
     rows: 3,
   },
@@ -84,9 +79,8 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     label: "Network",
     component: NetworkTile,
     viewComponent: NetworkTileView,
-    gridArea: GridArea.Wifi,
-    colStart: 10,
-    rowStart: 1,
+    worldCol: 35,
+    worldRow: 27,
     cols: 3,
     rows: 3,
   },
@@ -95,9 +89,8 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     label: "Tesla",
     component: TeslaTile,
     viewComponent: TeslaTileView,
-    gridArea: GridArea.Tesla,
-    colStart: 1,
-    rowStart: 4,
+    worldCol: 26,
+    worldRow: 30,
     cols: 4,
     rows: 4,
   },
@@ -106,9 +99,8 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     label: "Next 12 Hours",
     component: Next12Hours,
     viewComponent: Next12HoursView,
-    gridArea: GridArea.Hourly,
-    colStart: 5,
-    rowStart: 4,
+    worldCol: 30,
+    worldRow: 30,
     cols: 4,
     rows: 3,
   },
@@ -117,9 +109,8 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     label: "Controls",
     component: ControlsTile,
     viewComponent: ControlsTileView,
-    gridArea: GridArea.Controls,
-    colStart: 9,
-    rowStart: 4,
+    worldCol: 34,
+    worldRow: 30,
     cols: 4,
     rows: 3,
     ownsTap: true,
@@ -129,9 +120,8 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     label: "Dog Cam",
     component: DogCamTile,
     viewComponent: DogCamTileView,
-    gridArea: GridArea.DogCam,
-    colStart: 5,
-    rowStart: 7,
+    worldCol: 30,
+    worldRow: 33,
     cols: 4,
     rows: 3,
   },
@@ -140,9 +130,8 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     label: "Climate · A/C",
     component: ClimateTile,
     viewComponent: ClimateTileView,
-    gridArea: GridArea.Climate,
-    colStart: 9,
-    rowStart: 7,
+    worldCol: 34,
+    worldRow: 33,
     cols: 4,
     rows: 3,
   },
@@ -151,13 +140,16 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     label: "Upcoming",
     component: EventsTile,
     viewComponent: EventsTileView,
-    gridArea: GridArea.Events,
-    colStart: 1,
-    rowStart: 8,
+    worldCol: 26,
+    worldRow: 34,
     cols: 4,
     rows: 2,
   },
 ];
+
+// The tile the board opens on and idles back to (the Clock), or the first entry
+// if none is flagged. Centralized so Board doesn't hard-code an id.
+export const HOME_TILE: TileRegistryEntry = TILE_REGISTRY.find((t) => t.home) ?? TILE_REGISTRY[0];
 
 // Flat lookup: component or viewComponent → registry entry.
 // Used by the Storybook BoardDecorator to auto-size any tile story.
@@ -174,20 +166,4 @@ export function registryEntryForComponent(
 ): TileRegistryEntry | undefined {
   if (!component) return undefined;
   return componentMap.get(component);
-}
-
-// Builds the CSS grid-template-areas string from registry positions.
-// Fills a GRID_ROWS×GRID_COLS matrix, then serialises to quoted row strings.
-export function deriveGridAreas(registry: TileRegistryEntry[]): string {
-  const grid: string[][] = Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill("."));
-
-  for (const { gridArea, colStart, rowStart, cols, rows } of registry) {
-    for (let r = rowStart - 1; r < rowStart - 1 + rows; r++) {
-      for (let c = colStart - 1; c < colStart - 1 + cols; c++) {
-        grid[r][c] = gridArea;
-      }
-    }
-  }
-
-  return grid.map((row) => `"${row.join(" ")}"`).join(" ");
 }

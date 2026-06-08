@@ -4,27 +4,25 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // A fake one-tile registry so Board can be exercised without loading real tiles
 // (or their transitive deps like maplibre-gl) in jsdom. The fake tile renders an
 // inner button so we can prove control taps don't open the modal.
-vi.mock("../../lib/tile-registry", () => ({
-  TILE_REGISTRY: [
-    {
-      id: "tile_fake",
-      label: "Fake Tile",
-      component: () => (
-        <div>
-          tile-body
-          <button type="button">inner-control</button>
-        </div>
-      ),
-      viewComponent: () => null,
-      gridArea: "fake",
-      colStart: 1,
-      rowStart: 1,
-      cols: 4,
-      rows: 2,
-    },
-  ],
-  deriveGridAreas: () => '""',
-}));
+vi.mock("../../lib/tile-registry", () => {
+  const fake = {
+    id: "tile_fake",
+    label: "Fake Tile",
+    component: () => (
+      <div>
+        tile-body
+        <button type="button">inner-control</button>
+      </div>
+    ),
+    viewComponent: () => null,
+    worldCol: 26,
+    worldRow: 27,
+    cols: 4,
+    rows: 2,
+    home: true,
+  };
+  return { TILE_REGISTRY: [fake], HOME_TILE: fake };
+});
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
 
 // Fake modal registry: tile_fake opens a single-variant modal.
