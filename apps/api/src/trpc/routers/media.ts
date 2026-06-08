@@ -11,6 +11,7 @@ import {
   tvSeek,
   tvStop,
 } from "../../services/apple-tv-service";
+import { getSonosFavorites } from "../../services/sonos-favorites-service";
 import { getSoundSystem } from "../../services/sonos-sound-system-service";
 import {
   sonosGrabTvToBeam,
@@ -46,6 +47,12 @@ const SoundSystemRoomSchema = z.object({
 
 const SoundSystemSchema = z.object({
   rooms: z.array(SoundSystemRoomSchema),
+});
+
+const SonosFavoriteSchema = z.object({
+  title: z.string(),
+  uri: z.string(),
+  albumArtUri: z.string().nullable(),
 });
 
 // Media router — Apple TV, Sonos, and Spotify queries/mutations.
@@ -138,4 +145,11 @@ export const mediaRouter = router({
   sonosGrabTvToBeam: publicProcedure
     .input(z.object({ beamIp: z.string(), beamUuid: z.string().min(1) }))
     .mutation(({ input }) => sonosGrabTvToBeam(input)),
+
+  // ── Sonos favorites query (www-51hf.11 / A13) ──────────────────────────────
+
+  sonosFavorites: publicProcedure
+    .input(z.object({}).optional())
+    .output(z.array(SonosFavoriteSchema))
+    .query(() => getSonosFavorites()),
 });
