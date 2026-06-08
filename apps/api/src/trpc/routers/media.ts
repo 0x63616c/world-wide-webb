@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
+  getTvApps,
   getTvNowPlaying,
+  tvLaunchApp,
   tvNext,
   tvPause,
   tvPlay,
@@ -62,4 +64,13 @@ export const mediaRouter = router({
       }),
     )
     .mutation(({ input }) => tvRemote(input.command)),
+
+  tvApps: publicProcedure
+    .input(z.object({}).optional())
+    .output(z.object({ apps: z.array(z.string()), currentApp: z.string().nullable() }))
+    .query(() => getTvApps()),
+
+  tvLaunchApp: publicProcedure
+    .input(z.object({ app: z.string() }))
+    .mutation(({ input }) => tvLaunchApp(input.app)),
 });
