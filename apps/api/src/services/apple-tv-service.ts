@@ -150,3 +150,33 @@ export async function tvSeek(seekPositionSeconds: number): Promise<void> {
     seek_position: seekPositionSeconds,
   });
 }
+
+// The HA entity_id for the Apple TV remote (D-pad/remote control commands).
+const REMOTE_ENTITY_ID = "remote.living_room_tv";
+
+/** Commands the Apple TV remote accepts via remote.send_command. */
+export type TvRemoteCommand =
+  | "up"
+  | "down"
+  | "left"
+  | "right"
+  | "select"
+  | "menu"
+  | "home"
+  | "home_hold"
+  | "play_pause"
+  | "power";
+
+/**
+ * Sends a D-pad or remote control command to the Apple TV via HA remote.send_command.
+ * Uses remote.living_room_tv (not media_player) because directional/menu commands
+ * route through the HA remote domain, not the media_player domain.
+ * THROWS HaError when HA is unconfigured or on network failure.
+ */
+export async function tvRemote(command: TvRemoteCommand): Promise<void> {
+  assertConfigured();
+  await ha.callService("remote", "send_command", {
+    entity_id: REMOTE_ENTITY_ID,
+    command,
+  });
+}
