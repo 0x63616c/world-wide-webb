@@ -180,3 +180,41 @@ export async function tvRemote(command: TvRemoteCommand): Promise<void> {
     command,
   });
 }
+
+/** The apps query result: the full source_list and the currently open app. */
+export interface TvApps {
+  apps: string[];
+  currentApp: string | null;
+}
+
+/**
+ * Returns the Apple TV's installed apps (source_list) and the currently open app (app_name).
+ * source_list is the HA attribute listing every app the Apple TV knows about.
+ * THROWS HaError when HA is unconfigured or on network failure.
+ */
+export async function getTvApps(): Promise<TvApps> {
+  if (!ha.isConfigured()) {
+    throw new HaError(0, "Home Assistant is not configured");
+  }
+
+  const entity = await ha.getEntity(TV_ENTITY_ID);
+  const attrs = entity.attributes;
+
+  const apps = (attrs.source_list as string[] | undefined) ?? [];
+  const currentApp = (attrs.app_name as string | undefined) ?? null;
+
+  return { apps, currentApp };
+}
+
+/**
+ * Launches an app by name on the Apple TV via HA media_player/select_source.
+ * The app parameter must be a value from the source_list returned by getTvApps().
+ * THROWS HaError when HA is unconfigured or on network failure.
+ */
+export async function tvLaunchApp(app: string): Promise<void> {
+  assertConfigured();
+  await ha.callService("media_player", "select_source", {
+    entity_id: TV_ENTITY_ID,
+    source: app,
+  });
+}
