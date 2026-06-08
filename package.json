@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "tilt up",
     "bosun": "bun packages/bosun/src/cli.ts",
-    "test": "vitest run",
+    "test": "NODE_OPTIONS='--max-old-space-size=12288' vitest run",
     "test:coverage": "bash scripts/coverage.sh",
     "badges": "bun scripts/gen-badges.ts",
     "lint": "bunx biome check .",
