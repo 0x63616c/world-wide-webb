@@ -21,7 +21,11 @@
     "@capacitor/ios",
     "@capacitor/haptics",
     "@capacitor/status-bar",
-    "@capacitor-community/screen-brightness"
+    "@capacitor-community/screen-brightness",
+    // coverage.sh runs `cd apps/web && vitest run --coverage`, so the v8 provider
+    // must resolve from apps/web. It's invoked by the vitest CLI, not imported, so
+    // knip can't see the edge — kept declared where coverage runs (www-k6p1).
+    "@vitest/coverage-v8"
   ],
 
   // `tilt` is the dev-stack binary invoked by the root `dev` script; not an npm dep.
