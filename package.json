@@ -14,6 +14,9 @@
     "badges": "bun scripts/gen-badges.ts",
     "lint": "bunx biome check .",
     "lint:fix": "bunx biome check --write .",
+    "knip": "bunx knip",
+    "knip:fix": "bunx knip --fix --allow-remove-files",
+    "knip:baseline": "bash scripts/check-knip.sh --update",
     "typecheck": "bun run --filter '*' typecheck && bun run typecheck:config",
     "typecheck:config": "tsc -p tsconfig.config.json --noEmit",
     "prepare": "bunx lefthook install --force"
@@ -21,6 +24,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
     "@vitest/coverage-v8": "^3.2.4",
+    "knip": "^6.16.1",
     "lefthook": "^2.1.9",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
