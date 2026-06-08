@@ -35,6 +35,7 @@ import {
   tvPause,
   tvPlay,
   tvPrevious,
+  tvRemote,
   tvSeek,
   tvStop,
 } from "../services/apple-tv-service";
@@ -361,6 +362,294 @@ describe("mediaRouter transport mutations via tRPC caller (A8)", () => {
     expect(mockCallService).toHaveBeenCalledWith("media_player", "media_seek", {
       entity_id: "media_player.living_room_tv",
       seek_position: 45,
+    });
+  });
+});
+
+// ─── tvRemote D-pad mutation (A9) ─────────────────────────────────────────────
+
+describe("tvRemote D-pad mutation (A9)", () => {
+  const REMOTE_ENTITY_ID = "remote.living_room_tv";
+
+  const ALL_COMMANDS = [
+    "up",
+    "down",
+    "left",
+    "right",
+    "select",
+    "menu",
+    "home",
+    "home_hold",
+    "play_pause",
+    "power",
+  ] as const;
+
+  it("throws when HA is not configured (A3)", async () => {
+    mockIsConfigured.mockReturnValue(false);
+
+    await expect(tvRemote("up")).rejects.toThrow("Home Assistant is not configured");
+  });
+
+  it("throws on HA network error (A3)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockRejectedValue(new Error("Network error"));
+
+    await expect(tvRemote("select")).rejects.toThrow("Network error");
+  });
+
+  it.each(
+    ALL_COMMANDS,
+  )("sends remote/%s via remote.send_command on remote.living_room_tv", async (command) => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockResolvedValue(undefined);
+
+    await tvRemote(command);
+
+    expect(mockCallService).toHaveBeenCalledWith("remote", "send_command", {
+      entity_id: REMOTE_ENTITY_ID,
+      command,
+    });
+  });
+});
+
+// ─── mediaRouter tvRemote mutation (A9) ──────────────────────────────────────
+
+describe("mediaRouter.tvRemote via tRPC caller (A9)", () => {
+  it("exposes tvRemote mutation that calls remote.send_command on remote.living_room_tv", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockResolvedValue(undefined);
+
+    const { router } = await import("../trpc/init");
+    const { mediaRouter } = await import("../trpc/routers/media");
+    const testRouter = router({ media: mediaRouter });
+    // @ts-expect-error — no db context needed
+    const caller = testRouter.createCaller({});
+
+    await caller.media.tvRemote({ command: "home" });
+
+    expect(mockCallService).toHaveBeenCalledWith("remote", "send_command", {
+      entity_id: "remote.living_room_tv",
+      command: "home",
+    });
+  });
+
+  it("rejects when HA is not configured (A3)", async () => {
+    mockIsConfigured.mockReturnValue(false);
+
+    const { router } = await import("../trpc/init");
+    const { mediaRouter } = await import("../trpc/routers/media");
+    const testRouter = router({ media: mediaRouter });
+    // @ts-expect-error — no db context needed
+    const caller = testRouter.createCaller({});
+
+    await expect(caller.media.tvRemote({ command: "up" })).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+    });
+  });
+});
+
+// ─── tvApps query (A10) ──────────────────────────────────────────────────────
+
+describe("getTvApps (A10)", () => {
+  it("throws when HA is not configured (A3)", async () => {
+    mockIsConfigured.mockReturnValue(false);
+
+    const { getTvApps } = await import("../services/apple-tv-service");
+    await expect(getTvApps()).rejects.toThrow("Home Assistant is not configured");
+  });
+
+  it("throws when HA getEntity fails (A3)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockRejectedValue(new Error("HA network error"));
+
+    const { getTvApps } = await import("../services/apple-tv-service");
+    await expect(getTvApps()).rejects.toThrow("HA network error");
+  });
+
+  it("returns source_list and currentApp from media_player.living_room_tv (A10)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockResolvedValue({
+      entity_id: "media_player.living_room_tv",
+      state: "playing",
+      attributes: {
+        source_list: ["Netflix", "YouTube", "Disney+", "Plex", "TV"],
+        app_name: "Netflix",
+      },
+      last_updated: "2024-01-01T00:00:00Z",
+    });
+
+    const { getTvApps } = await import("../services/apple-tv-service");
+    const result = await getTvApps();
+
+    expect(result.apps).toEqual(["Netflix", "YouTube", "Disney+", "Plex", "TV"]);
+    expect(result.currentApp).toBe("Netflix");
+  });
+
+  it("returns null currentApp when app_name is absent (A10)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockResolvedValue({
+      entity_id: "media_player.living_room_tv",
+      state: "idle",
+      attributes: {
+        source_list: ["Netflix", "Plex"],
+      },
+      last_updated: "2024-01-01T00:00:00Z",
+    });
+
+    const { getTvApps } = await import("../services/apple-tv-service");
+    const result = await getTvApps();
+
+    expect(result.currentApp).toBeNull();
+    expect(result.apps).toEqual(["Netflix", "Plex"]);
+  });
+
+  it("returns empty apps array when source_list is absent (A10)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockResolvedValue({
+      entity_id: "media_player.living_room_tv",
+      state: "idle",
+      attributes: {},
+      last_updated: "2024-01-01T00:00:00Z",
+    });
+
+    const { getTvApps } = await import("../services/apple-tv-service");
+    const result = await getTvApps();
+
+    expect(result.apps).toEqual([]);
+    expect(result.currentApp).toBeNull();
+  });
+
+  it("reads media_player.living_room_tv specifically (A10)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockResolvedValue({
+      entity_id: "media_player.living_room_tv",
+      state: "idle",
+      attributes: { source_list: [] },
+      last_updated: "2024-01-01T00:00:00Z",
+    });
+
+    const { getTvApps } = await import("../services/apple-tv-service");
+    await getTvApps();
+
+    expect(mockGetEntity).toHaveBeenCalledWith("media_player.living_room_tv");
+  });
+});
+
+// ─── tvLaunchApp mutation (A10) ───────────────────────────────────────────────
+
+describe("tvLaunchApp (A10)", () => {
+  it("throws when HA is not configured (A3)", async () => {
+    mockIsConfigured.mockReturnValue(false);
+
+    const { tvLaunchApp } = await import("../services/apple-tv-service");
+    await expect(tvLaunchApp("Netflix")).rejects.toThrow("Home Assistant is not configured");
+  });
+
+  it("throws on HA network error (A3)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockRejectedValue(new Error("Network error"));
+
+    const { tvLaunchApp } = await import("../services/apple-tv-service");
+    await expect(tvLaunchApp("Netflix")).rejects.toThrow("Network error");
+  });
+
+  it("calls media_player/select_source on media_player.living_room_tv (A10)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockResolvedValue(undefined);
+
+    const { tvLaunchApp } = await import("../services/apple-tv-service");
+    await tvLaunchApp("YouTube");
+
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "select_source", {
+      entity_id: "media_player.living_room_tv",
+      source: "YouTube",
+    });
+  });
+
+  it("passes the exact app name to select_source (A10)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockResolvedValue(undefined);
+
+    const { tvLaunchApp } = await import("../services/apple-tv-service");
+    await tvLaunchApp("Disney+");
+
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "select_source", {
+      entity_id: "media_player.living_room_tv",
+      source: "Disney+",
+    });
+  });
+});
+
+// ─── mediaRouter tvApps + tvLaunchApp via tRPC caller (A10) ──────────────────
+
+describe("mediaRouter.tvApps and tvLaunchApp via tRPC caller (A10)", () => {
+  it("exposes tvApps as a query returning apps list and currentApp", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockResolvedValue({
+      entity_id: "media_player.living_room_tv",
+      state: "playing",
+      attributes: {
+        source_list: ["Netflix", "Plex", "YouTube"],
+        app_name: "Plex",
+      },
+      last_updated: "2024-01-01T00:00:00Z",
+    });
+
+    const { router } = await import("../trpc/init");
+    const { mediaRouter } = await import("../trpc/routers/media");
+    const testRouter = router({ media: mediaRouter });
+    // @ts-expect-error — no db context needed
+    const caller = testRouter.createCaller({});
+
+    const result = await caller.media.tvApps();
+
+    expect(result.apps).toEqual(["Netflix", "Plex", "YouTube"]);
+    expect(result.currentApp).toBe("Plex");
+  });
+
+  it("exposes tvLaunchApp mutation that calls select_source", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockCallService.mockResolvedValue(undefined);
+
+    const { router } = await import("../trpc/init");
+    const { mediaRouter } = await import("../trpc/routers/media");
+    const testRouter = router({ media: mediaRouter });
+    // @ts-expect-error — no db context needed
+    const caller = testRouter.createCaller({});
+
+    await caller.media.tvLaunchApp({ app: "Netflix" });
+
+    expect(mockCallService).toHaveBeenCalledWith("media_player", "select_source", {
+      entity_id: "media_player.living_room_tv",
+      source: "Netflix",
+    });
+  });
+
+  it("tvApps rejects SERVICE_UNAVAILABLE when HA is not configured (A3)", async () => {
+    mockIsConfigured.mockReturnValue(false);
+
+    const { router } = await import("../trpc/init");
+    const { mediaRouter } = await import("../trpc/routers/media");
+    const testRouter = router({ media: mediaRouter });
+    // @ts-expect-error — no db context needed
+    const caller = testRouter.createCaller({});
+
+    await expect(caller.media.tvApps()).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+    });
+  });
+
+  it("tvLaunchApp rejects SERVICE_UNAVAILABLE when HA is not configured (A3)", async () => {
+    mockIsConfigured.mockReturnValue(false);
+
+    const { router } = await import("../trpc/init");
+    const { mediaRouter } = await import("../trpc/routers/media");
+    const testRouter = router({ media: mediaRouter });
+    // @ts-expect-error — no db context needed
+    const caller = testRouter.createCaller({});
+
+    await expect(caller.media.tvLaunchApp({ app: "Netflix" })).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
     });
   });
 });

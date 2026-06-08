@@ -150,3 +150,71 @@ export async function tvSeek(seekPositionSeconds: number): Promise<void> {
     seek_position: seekPositionSeconds,
   });
 }
+
+// The HA entity_id for the Apple TV remote (D-pad/remote control commands).
+const REMOTE_ENTITY_ID = "remote.living_room_tv";
+
+/** Commands the Apple TV remote accepts via remote.send_command. */
+export type TvRemoteCommand =
+  | "up"
+  | "down"
+  | "left"
+  | "right"
+  | "select"
+  | "menu"
+  | "home"
+  | "home_hold"
+  | "play_pause"
+  | "power";
+
+/**
+ * Sends a D-pad or remote control command to the Apple TV via HA remote.send_command.
+ * Uses remote.living_room_tv (not media_player) because directional/menu commands
+ * route through the HA remote domain, not the media_player domain.
+ * THROWS HaError when HA is unconfigured or on network failure.
+ */
+export async function tvRemote(command: TvRemoteCommand): Promise<void> {
+  assertConfigured();
+  await ha.callService("remote", "send_command", {
+    entity_id: REMOTE_ENTITY_ID,
+    command,
+  });
+}
+
+/** The apps query result: the full source_list and the currently open app. */
+export interface TvApps {
+  apps: string[];
+  currentApp: string | null;
+}
+
+/**
+ * Returns the Apple TV's installed apps (source_list) and the currently open app (app_name).
+ * source_list is the HA attribute listing every app the Apple TV knows about.
+ * THROWS HaError when HA is unconfigured or on network failure.
+ */
+export async function getTvApps(): Promise<TvApps> {
+  if (!ha.isConfigured()) {
+    throw new HaError(0, "Home Assistant is not configured");
+  }
+
+  const entity = await ha.getEntity(TV_ENTITY_ID);
+  const attrs = entity.attributes;
+
+  const apps = (attrs.source_list as string[] | undefined) ?? [];
+  const currentApp = (attrs.app_name as string | undefined) ?? null;
+
+  return { apps, currentApp };
+}
+
+/**
+ * Launches an app by name on the Apple TV via HA media_player/select_source.
+ * The app parameter must be a value from the source_list returned by getTvApps().
+ * THROWS HaError when HA is unconfigured or on network failure.
+ */
+export async function tvLaunchApp(app: string): Promise<void> {
+  assertConfigured();
+  await ha.callService("media_player", "select_source", {
+    entity_id: TV_ENTITY_ID,
+    source: app,
+  });
+}

@@ -11,4 +11,10 @@
 export { SpotifyClient } from "./client";
 export { SpotifyError } from "./errors";
 /** @public — consumed by the media router Spotify procedures */
-export type { SpotifyCredentials, SpotifyNowPlaying } from "./types";
+export type {
+  SpotifyBrowseResult,
+  SpotifyCredentials,
+  SpotifyNowPlaying,
+  SpotifyPlaylistItem,
+  SpotifyRecentTrack,
+} from "./types";

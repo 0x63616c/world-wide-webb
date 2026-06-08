@@ -11,7 +11,13 @@
  */
 
 import { SpotifyError } from "./errors";
-import type { SpotifyCredentials, SpotifyNowPlaying } from "./types";
+import type {
+  SpotifyBrowseResult,
+  SpotifyCredentials,
+  SpotifyNowPlaying,
+  SpotifyPlaylistItem,
+  SpotifyRecentTrack,
+} from "./types";
 
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 // Refresh 60s before the token actually expires so in-flight requests never
@@ -53,7 +59,9 @@ export class SpotifyClient {
 
   /**
    * GET /v1/me/player — current playback state. Returns null when nothing is
-   * playing (204 No Content). THROWS SpotifyError on any error.
+   * playing (204 No Content). THROWS SpotifyError on any error or when the
+   * response contains an item but is missing critical fields (A3: never
+   * return fabricated empty strings or zero durations).
    */
   async getNowPlaying(): Promise<SpotifyNowPlaying | null> {
     const token = await this.getAccessToken();
@@ -78,26 +86,189 @@ export class SpotifyClient {
     const item = data.item as Record<string, unknown> | null;
     if (!item) return null;
 
-    const artists = (item.artists as Array<{ name: string }> | undefined) ?? [];
+    // Validate critical fields — if any are absent we must throw rather than
+    // return fabricated empty strings or zero numbers (A3).
+    const trackTitle = item.name as string | undefined;
+    if (typeof trackTitle !== "string" || !trackTitle) {
+      throw new SpotifyError("getNowPlaying: item.name is missing or empty in Spotify response");
+    }
+
+    const durationMs = item.duration_ms as number | undefined;
+    if (typeof durationMs !== "number") {
+      throw new SpotifyError("getNowPlaying: item.duration_ms is missing in Spotify response");
+    }
+
     const album = item.album as Record<string, unknown> | undefined;
+    const albumName = album?.name as string | undefined;
+    if (typeof albumName !== "string" || !albumName) {
+      throw new SpotifyError("getNowPlaying: item.album.name is missing in Spotify response");
+    }
+
+    // progress_ms is a top-level field on the player object (not item). null is
+    // returned by the API when the player context is missing; undefined means
+    // the field was absent entirely — both indicate we cannot report real state.
+    const progressMs = data.progress_ms as number | null | undefined;
+    if (progressMs === null || progressMs === undefined) {
+      throw new SpotifyError("getNowPlaying: progress_ms is missing in Spotify response");
+    }
+
+    const artists = (item.artists as Array<{ name: string }> | undefined) ?? [];
     const images = (album?.images as Array<{ url: string }> | undefined) ?? [];
     const device = (data.device as Record<string, unknown> | undefined) ?? null;
 
     return {
       isPlaying: data.is_playing === true,
-      trackTitle: (item.name as string) ?? "",
+      trackTitle,
       artist: artists.map((a) => a.name).join(", "),
-      album: (album?.name as string) ?? "",
+      album: albumName,
       albumArtUrl: images[0]?.url ?? null,
-      progressMs: (data.progress_ms as number) ?? 0,
-      durationMs: (item.duration_ms as number) ?? 0,
+      progressMs,
+      durationMs,
       deviceName: (device?.name as string) ?? null,
     };
+  }
+
+  /**
+   * GET /v1/me/player/recently-played + GET /v1/me/playlists — returns
+   * recently-played tracks and user playlists for the Quick-Play modal (A16).
+   * THROWS SpotifyError on any error.
+   */
+  async browse(): Promise<SpotifyBrowseResult> {
+    const token = await this.getAccessToken();
+
+    const [recentlyPlayed, playlists] = await Promise.all([
+      this.fetchRecentlyPlayed(token),
+      this.fetchPlaylists(token),
+    ]);
+
+    return { recentlyPlayed, playlists };
+  }
+
+  /**
+   * PUT /v1/me/player/play — resume or start playback. THROWS SpotifyError on any error.
+   */
+  async play(): Promise<void> {
+    await this.playerCommand("PUT", "https://api.spotify.com/v1/me/player/play", "play");
+  }
+
+  /**
+   * PUT /v1/me/player/pause — pause playback. THROWS SpotifyError on any error.
+   */
+  async pause(): Promise<void> {
+    await this.playerCommand("PUT", "https://api.spotify.com/v1/me/player/pause", "pause");
+  }
+
+  /**
+   * POST /v1/me/player/next — skip to next track. THROWS SpotifyError on any error.
+   */
+  async next(): Promise<void> {
+    await this.playerCommand("POST", "https://api.spotify.com/v1/me/player/next", "next");
+  }
+
+  /**
+   * POST /v1/me/player/previous — skip to previous track. THROWS SpotifyError on any error.
+   */
+  async previous(): Promise<void> {
+    await this.playerCommand("POST", "https://api.spotify.com/v1/me/player/previous", "previous");
+  }
+
+  /**
+   * PUT /v1/me/player/seek?position_ms=<ms> — seek to position. THROWS SpotifyError on any error.
+   */
+  async seek(positionMs: number): Promise<void> {
+    const url = `https://api.spotify.com/v1/me/player/seek?position_ms=${positionMs}`;
+    await this.playerCommand("PUT", url, "seek");
   }
 
   // --------------------------------------------------------------------------
   // Private helpers
   // --------------------------------------------------------------------------
+
+  private async fetchRecentlyPlayed(token: string): Promise<SpotifyRecentTrack[]> {
+    let res: Response;
+    try {
+      res = await fetch("https://api.spotify.com/v1/me/player/recently-played?limit=20", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (err) {
+      throw new SpotifyError(`browse/recently-played: network error — ${(err as Error).message}`);
+    }
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new SpotifyError(`browse/recently-played: HTTP ${res.status} — ${body.slice(0, 200)}`);
+    }
+
+    const data = (await res.json()) as { items?: unknown[] };
+    const items = data.items ?? [];
+
+    // Deduplicate by track id — the recently-played list can repeat the same
+    // track if it was played multiple times.
+    const seen = new Set<string>();
+    const tracks: SpotifyRecentTrack[] = [];
+
+    for (const raw of items) {
+      const item = raw as Record<string, unknown>;
+      const track = item.track as Record<string, unknown> | undefined;
+      if (!track) continue;
+
+      const id = track.id as string | undefined;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+
+      const artists = (track.artists as Array<{ name: string }> | undefined) ?? [];
+      const album = track.album as Record<string, unknown> | undefined;
+      const images = (album?.images as Array<{ url: string }> | undefined) ?? [];
+
+      tracks.push({
+        id,
+        title: (track.name as string) ?? "",
+        artist: artists.map((a) => a.name).join(", "),
+        albumArtUrl: images[0]?.url ?? null,
+        uri: (track.uri as string) ?? "",
+      });
+    }
+
+    return tracks;
+  }
+
+  private async fetchPlaylists(token: string): Promise<SpotifyPlaylistItem[]> {
+    let res: Response;
+    try {
+      res = await fetch("https://api.spotify.com/v1/me/playlists?limit=20", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (err) {
+      throw new SpotifyError(`browse/playlists: network error — ${(err as Error).message}`);
+    }
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new SpotifyError(`browse/playlists: HTTP ${res.status} — ${body.slice(0, 200)}`);
+    }
+
+    const data = (await res.json()) as { items?: unknown[] };
+    const items = data.items ?? [];
+    const playlists: SpotifyPlaylistItem[] = [];
+
+    for (const raw of items) {
+      const pl = raw as Record<string, unknown>;
+      const id = pl.id as string | undefined;
+      if (!id) continue;
+
+      const images = (pl.images as Array<{ url: string }> | undefined) ?? [];
+
+      playlists.push({
+        id,
+        title: (pl.name as string) ?? "",
+        description: (pl.description as string | null) ?? null,
+        imageUrl: images[0]?.url ?? null,
+        uri: (pl.uri as string) ?? "",
+      });
+    }
+
+    return playlists;
+  }
 
   private async refreshToken(): Promise<string> {
     const { clientId, clientSecret, refreshToken } = this.creds;
@@ -140,5 +311,30 @@ export class SpotifyClient {
     };
 
     return accessToken;
+  }
+
+  /**
+   * Executes a player command (play/pause/next/previous/seek) using the given
+   * HTTP method and URL. Accepts 200, 204, and 403 (no active device) as
+   * "success" — the mutation fired, Spotify's response is informational.
+   * THROWS SpotifyError on network failure or unexpected server errors.
+   */
+  private async playerCommand(method: string, url: string, label: string): Promise<void> {
+    const token = await this.getAccessToken();
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (err) {
+      throw new SpotifyError(`${label}: network error — ${(err as Error).message}`);
+    }
+
+    // 200/204 = success; 403 = no active device (non-fatal — command was accepted)
+    if (res.ok || res.status === 204 || res.status === 403) return;
+
+    const body = await res.text().catch(() => "");
+    throw new SpotifyError(`${label}: HTTP ${res.status} — ${body.slice(0, 200)}`);
   }
 }
