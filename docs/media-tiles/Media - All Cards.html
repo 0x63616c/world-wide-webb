@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media & Entertainment — full exploration set</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:#000; }
+  html{ scroll-behavior:smooth; }
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-track{ background:#0a0a0a; }
+  ::-webkit-scrollbar-thumb{ background:#262626; border-radius:99px; border:2px solid #0a0a0a; }
+  ::-webkit-scrollbar-thumb:hover{ background:#333; }
+  *{ scrollbar-color:#262626 #0a0a0a; scrollbar-width:thin; }
+  button{ font-family:inherit; }
+  a{ transition:background .12s, color .12s; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script>window.__SOLO__ = false;</script>
+<script type="text/babel" src="kit/kit.jsx"></script>
+<script type="text/babel" src="kit/nowplaying.jsx"></script>
+<script type="text/babel" src="kit/rooms.jsx"></script>
+<script type="text/babel" src="kit/applauncher.jsx"></script>
+<script type="text/babel" src="kit/scenes.jsx"></script>
+<script type="text/babel" src="kit/quickplay.jsx"></script>
+<script type="text/babel">
+(function(){
+  const cards = [window.NowPlayingCard, window.RoomsCard, window.AppLauncherCard, window.ScenesCard, window.QuickPlayCard];
+
+  function CardDivider({i, card}) {
+    return (
+      <div id={card.id} style={{marginTop: i===0?44:96, scrollMarginTop:78}}>
+        <div style={{display:'flex', alignItems:'baseline', gap:16, paddingBottom:18, borderBottom:`1px solid ${T.hair2}`}}>
+          <span style={{font:`700 22px ${T.mono}`, color:T.acc}}>{String(i+1).padStart(2,'0')}</span>
+          <h2 style={{margin:0, fontSize:28, fontWeight:600, letterSpacing:'-0.025em', color:T.ink, whiteSpace:'nowrap'}}>{card.name}</h2>
+          <span style={{font:`400 13px ${T.mono}`, color:T.ink3, marginLeft:'auto'}}>{card.count}</span>
+        </div>
+        <p style={{margin:'15px 0 0', maxWidth:840, color:T.ink2, fontSize:14.5, lineHeight:1.6}}>{card.sub}</p>
+      </div>
+    );
+  }
+
+  function Nav() {
+    return (
+      <div style={{position:'sticky', top:0, zIndex:50, background:'rgba(0,0,0,0.82)', backdropFilter:'blur(12px)',
+        borderBottom:`1px solid ${T.hair}`, padding:'13px 56px', display:'flex', alignItems:'center', gap:14}}>
+        <span style={{font:`600 12px ${T.mono}`, color:T.acc, letterSpacing:'0.14em', textTransform:'uppercase'}}>Control Center · Media</span>
+        <div style={{marginLeft:'auto', display:'flex', gap:7, flexWrap:'wrap'}}>
+          {cards.map((c,i)=>(
+            <a key={c.id} href={'#'+c.id} style={{textDecoration:'none', padding:'7px 13px', borderRadius:99,
+              background:T.tile2, border:`1px solid ${T.hair}`, color:T.ink2, font:`500 12px ${T.ui}`, whiteSpace:'nowrap'}}>
+              <span style={{color:T.acc, fontFamily:T.mono, marginRight:5}}>{String(i+1).padStart(2,'0')}</span>{c.name.split(' (')[0].split(' / ')[0]}
+            </a>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function All() {
+    return (
+      <div style={{minHeight:'100vh', background:T.bg, color:T.ink, fontFamily:T.ui}}>
+        <Nav/>
+        <div style={{padding:'0 56px 130px'}}>
+          <div style={{maxWidth:1640, margin:'0 auto'}}>
+            <div style={{padding:'52px 0 4px'}}>
+              <h1 style={{margin:0, fontSize:42, fontWeight:600, letterSpacing:'-0.035em'}}>Media &amp; Entertainment — full exploration set</h1>
+              <p style={{margin:'16px 0 0', maxWidth:860, color:T.ink2, fontSize:15.5, lineHeight:1.6}}>
+                All five control-center cards in one board — <strong style={{color:T.ink}}>36 tile concepts</strong> and
+                <strong style={{color:T.ink}}> 12 modal variants</strong>, built on the Vercel/Geist dark tokens against the
+                real Sonos + Apple TV state. Each archetype keeps a stable letter label (A/B/C…) so we can steer precisely.
+                Everything is live: tap a play button, expand a chip, mute a channel, drag the modal scrubber, rebuild a group, run a scene.
+              </p>
+            </div>
+            {cards.map((c,i)=>{
+              const Body = c.Body;
+              return (
+                <React.Fragment key={c.id}>
+                  <CardDivider i={i} card={c}/>
+                  <Body/>
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<All/>);
+})();
+</script>
+</body>
+</html>

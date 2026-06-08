@@ -1,0 +1,64 @@
+/* Shared design layer — tokens, fonts, animations.
+   Safe to import anywhere (app, Storybook, tests): contains NO document-level
+   reset, so it never imposes scroll/selection behavior on its host. */
+
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* Fonts — Space Grotesk (UI) + Space Mono (numerals).
+   Self-hosted from /fonts with stable paths so index.html can preload them.
+   font-display: block (not swap) so we never paint the fallback then swap to
+   the web font — that swap is the visible flash on a kiosk reload. Paired with
+   the preload links in index.html the block window is imperceptible (and zero
+   on a warm cache), so first paint is already in the correct font. */
+@font-face {
+  font-family: "Space Grotesk Variable";
+  font-style: normal;
+  font-display: block;
+  font-weight: 300 700;
+  src: url(/fonts/space-grotesk-latin-wght-normal.woff2) format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(/fonts/space-mono-latin-400-normal.woff2) format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(/fonts/space-mono-latin-700-normal.woff2) format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
