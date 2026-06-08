@@ -1,0 +1,414 @@
+/**
+ * Unit tests for the raw Sonos UPnP/SOAP helper (CC-51hf.4).
+ * All network calls are stubbed — tests never reach real hardware.
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SonosClient, SonosError, type SonosFavorite, type ZoneGroup } from "../integrations/sonos";
+
+// ---- SOAP envelope helpers -------------------------------------------------
+
+function soapEnvelope(body: string): string {
+  return `<?xml version="1.0"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+  <s:Body>${body}</s:Body>
+</s:Envelope>`;
+}
+
+function volumeResponse(vol: number): string {
+  return soapEnvelope(`<u:GetVolumeResponse xmlns:u="urn:schemas-upnp-org:service:RenderingControl:1">
+    <CurrentVolume>${vol}</CurrentVolume>
+  </u:GetVolumeResponse>`);
+}
+
+function muteResponse(muted: boolean): string {
+  return soapEnvelope(`<u:GetMuteResponse xmlns:u="urn:schemas-upnp-org:service:RenderingControl:1">
+    <CurrentMute>${muted ? "1" : "0"}</CurrentMute>
+  </u:GetMuteResponse>`);
+}
+
+function transportInfoResponse(state: string): string {
+  return soapEnvelope(`<u:GetTransportInfoResponse xmlns:u="urn:schemas-upnp-org:service:AVTransport:1">
+    <CurrentTransportState>${state}</CurrentTransportState>
+    <CurrentTransportStatus>OK</CurrentTransportStatus>
+    <CurrentSpeed>1</CurrentSpeed>
+  </u:GetTransportInfoResponse>`);
+}
+
+function positionInfoResponse(): string {
+  return soapEnvelope(`<u:GetPositionInfoResponse xmlns:u="urn:schemas-upnp-org:service:AVTransport:1">
+    <Track>1</Track>
+    <TrackDuration>0:04:32</TrackDuration>
+    <TrackMetaData><![CDATA[<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/"><item id="1"><dc:title>Test Track</dc:title><dc:creator>Test Artist</dc:creator><upnp:albumArtURI>http://example.com/art.jpg</upnp:albumArtURI></item></DIDL-Lite>]]></TrackMetaData>
+    <TrackURI>x-sonos-http:track.mp3</TrackURI>
+    <RelTime>0:01:23</RelTime>
+    <AbsTime>0:01:23</AbsTime>
+    <RelCount>2147483647</RelCount>
+    <AbsCount>2147483647</AbsCount>
+  </u:GetPositionInfoResponse>`);
+}
+
+function zoneGroupStateResponse(): string {
+  return soapEnvelope(`<u:GetZoneGroupStateResponse xmlns:u="urn:schemas-upnp-org:service:ZoneGroupTopology:1">
+    <ZoneGroupState><![CDATA[<ZoneGroups>
+      <ZoneGroup Coordinator="RINCON_74CA6093255801400" ID="RINCON_74CA6093255801400:1">
+        <ZoneGroupMember UUID="RINCON_74CA6093255801400" ZoneName="Living Room" Location="http://192.168.0.193:1400/xml/device_description.xml"/>
+      </ZoneGroup>
+      <ZoneGroup Coordinator="RINCON_804AF28AAB2001400" ID="RINCON_804AF28AAB2001400:5">
+        <ZoneGroupMember UUID="RINCON_804AF28AAB2001400" ZoneName="Desk" Location="http://192.168.0.152:1400/xml/device_description.xml"/>
+        <ZoneGroupMember UUID="RINCON_804AF288FDBA01400" ZoneName="Desk + Bonded" Location="http://192.168.0.161:1400/xml/device_description.xml"/>
+      </ZoneGroup>
+    </ZoneGroups>]]></ZoneGroupState>
+  </u:GetZoneGroupStateResponse>`);
+}
+
+function browseFavoritesResponse(): string {
+  return soapEnvelope(`<u:BrowseResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">
+    <Result><![CDATA[<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/"><item id="FV:2/1"><dc:title>Riordan Radio</dc:title><upnp:albumArtURI>http://example.com/radio.jpg</upnp:albumArtURI><res>x-sonosapi-radio:spotify%3AartistRadio%3A6v8FB84lnmJs434UByMr75</res></item></DIDL-Lite>]]></Result>
+    <NumberReturned>1</NumberReturned>
+    <TotalMatches>1</TotalMatches>
+    <UpdateID>1</UpdateID>
+  </u:BrowseResponse>`);
+}
+
+function soapFaultResponse(): string {
+  return soapEnvelope(`<s:Fault>
+    <faultcode>s:Client</faultcode>
+    <faultstring>UPnPError</faultstring>
+    <detail>
+      <UPnPError xmlns="urn:schemas-upnp-org:control-1-0">
+        <errorCode>714</errorCode>
+        <errorDescription>IllegalMimeType</errorDescription>
+      </UPnPError>
+    </detail>
+  </s:Fault>`);
+}
+
+function okResponse(body: string) {
+  return { ok: true, status: 200, text: () => Promise.resolve(body) };
+}
+
+function errorResponse(status: number) {
+  return { ok: false, status, text: () => Promise.resolve("Bad request") };
+}
+
+// ---- test setup ------------------------------------------------------------
+
+const LIVING_ROOM_IP = "192.168.0.193";
+
+beforeEach(() => {
+  vi.resetAllMocks();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+// ---- GetVolume -------------------------------------------------------------
+
+describe("SonosClient.getVolume", () => {
+  it("parses volume from RenderingControl response", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(volumeResponse(42))));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    const vol = await client.getVolume();
+    expect(vol).toBe(42);
+  });
+
+  it("throws SonosError on HTTP error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(errorResponse(500)));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    await expect(client.getVolume()).rejects.toBeInstanceOf(SonosError);
+  });
+
+  it("throws SonosError on network failure", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    await expect(client.getVolume()).rejects.toBeInstanceOf(SonosError);
+  });
+
+  it("throws SonosError on SOAP fault", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(soapFaultResponse())));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    await expect(client.getVolume()).rejects.toBeInstanceOf(SonosError);
+  });
+});
+
+// ---- SetVolume -------------------------------------------------------------
+
+describe("SonosClient.setVolume", () => {
+  it("sends correct SOAP action and resolves on 200", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(okResponse(soapEnvelope("<u:SetVolumeResponse/>")));
+    vi.stubGlobal("fetch", mockFetch);
+    const client = new SonosClient(LIVING_ROOM_IP);
+    await client.setVolume(75);
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain(":1400");
+    expect(url).toContain("RenderingControl");
+    expect(init.headers as Record<string, string>).toMatchObject({
+      SOAPACTION: expect.stringContaining("SetVolume"),
+    });
+    expect(init.body as string).toContain("<DesiredVolume>75</DesiredVolume>");
+  });
+
+  it("throws SonosError when volume is out of 0-100 range", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const client = new SonosClient(LIVING_ROOM_IP);
+    await expect(client.setVolume(101)).rejects.toBeInstanceOf(SonosError);
+    await expect(client.setVolume(-1)).rejects.toBeInstanceOf(SonosError);
+  });
+});
+
+// ---- GetMute / SetMute -----------------------------------------------------
+
+describe("SonosClient mute", () => {
+  it("parses muted=true from GetMute response", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(muteResponse(true))));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    expect(await client.getMute()).toBe(true);
+  });
+
+  it("parses muted=false from GetMute response", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(muteResponse(false))));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    expect(await client.getMute()).toBe(false);
+  });
+
+  it("sends correct SOAPACTION for SetMute", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(okResponse(soapEnvelope("<u:SetMuteResponse/>")));
+    vi.stubGlobal("fetch", mockFetch);
+    const client = new SonosClient(LIVING_ROOM_IP);
+    await client.setMute(true);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(init.headers as Record<string, string>).toMatchObject({
+      SOAPACTION: expect.stringContaining("SetMute"),
+    });
+    expect(init.body as string).toContain("<DesiredMute>1</DesiredMute>");
+  });
+});
+
+// ---- GetTransportInfo ------------------------------------------------------
+
+describe("SonosClient.getTransportInfo", () => {
+  it("returns PLAYING state", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(transportInfoResponse("PLAYING"))));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    const info = await client.getTransportInfo();
+    expect(info.state).toBe("PLAYING");
+  });
+
+  it("returns PAUSED_PLAYBACK state", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(okResponse(transportInfoResponse("PAUSED_PLAYBACK"))),
+    );
+    const client = new SonosClient(LIVING_ROOM_IP);
+    const info = await client.getTransportInfo();
+    expect(info.state).toBe("PAUSED_PLAYBACK");
+  });
+
+  it("throws SonosError on HTTP failure", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(errorResponse(503)));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    await expect(client.getTransportInfo()).rejects.toBeInstanceOf(SonosError);
+  });
+});
+
+// ---- GetPositionInfo -------------------------------------------------------
+
+describe("SonosClient.getPositionInfo", () => {
+  it("parses track metadata, duration, and position", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(positionInfoResponse())));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    const pos = await client.getPositionInfo();
+    expect(pos.trackTitle).toBe("Test Track");
+    expect(pos.trackArtist).toBe("Test Artist");
+    expect(pos.albumArtUri).toBe("http://example.com/art.jpg");
+    expect(pos.durationSeconds).toBe(272); // 4:32
+    expect(pos.positionSeconds).toBe(83); // 1:23
+  });
+
+  it("returns nulls when metadata is absent (line-in / TV source)", async () => {
+    const noMetadata =
+      soapEnvelope(`<u:GetPositionInfoResponse xmlns:u="urn:schemas-upnp-org:service:AVTransport:1">
+      <Track>0</Track>
+      <TrackDuration>NOT_IMPLEMENTED</TrackDuration>
+      <TrackMetaData></TrackMetaData>
+      <TrackURI></TrackURI>
+      <RelTime>NOT_IMPLEMENTED</RelTime>
+      <AbsTime>NOT_IMPLEMENTED</AbsTime>
+      <RelCount>2147483647</RelCount>
+      <AbsCount>2147483647</AbsCount>
+    </u:GetPositionInfoResponse>`);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(noMetadata)));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    const pos = await client.getPositionInfo();
+    expect(pos.trackTitle).toBeNull();
+    expect(pos.durationSeconds).toBeNull();
+    expect(pos.positionSeconds).toBeNull();
+  });
+});
+
+// ---- Transport write commands ----------------------------------------------
+
+describe("SonosClient transport writes", () => {
+  it("play sends AVTransport Play action", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(okResponse(soapEnvelope("<u:PlayResponse/>")));
+    vi.stubGlobal("fetch", mockFetch);
+    const client = new SonosClient(LIVING_ROOM_IP);
+    await client.play();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("AVTransport");
+    expect(init.headers as Record<string, string>).toMatchObject({
+      SOAPACTION: expect.stringContaining("Play"),
+    });
+  });
+
+  it("pause sends AVTransport Pause action", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(okResponse(soapEnvelope("<u:PauseResponse/>")));
+    vi.stubGlobal("fetch", mockFetch);
+    const client = new SonosClient(LIVING_ROOM_IP);
+    await client.pause();
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(init.headers as Record<string, string>).toMatchObject({
+      SOAPACTION: expect.stringContaining("Pause"),
+    });
+  });
+
+  it("next sends AVTransport Next action", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(okResponse(soapEnvelope("<u:NextResponse/>")));
+    vi.stubGlobal("fetch", mockFetch);
+    const client = new SonosClient(LIVING_ROOM_IP);
+    await client.next();
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(init.headers as Record<string, string>).toMatchObject({
+      SOAPACTION: expect.stringContaining("Next"),
+    });
+  });
+
+  it("previous sends AVTransport Previous action", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(okResponse(soapEnvelope("<u:PreviousResponse/>")));
+    vi.stubGlobal("fetch", mockFetch);
+    const client = new SonosClient(LIVING_ROOM_IP);
+    await client.previous();
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(init.headers as Record<string, string>).toMatchObject({
+      SOAPACTION: expect.stringContaining("Previous"),
+    });
+  });
+});
+
+// ---- SetAVTransportURI (group / line-in / TV-grab) -------------------------
+
+describe("SonosClient.setAVTransportURI", () => {
+  it("sends correct URI for group join (x-rincon:)", async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(okResponse(soapEnvelope("<u:SetAVTransportURIResponse/>")));
+    vi.stubGlobal("fetch", mockFetch);
+    const client = new SonosClient("192.168.0.152");
+    await client.setAVTransportURI("x-rincon:RINCON_74CA6093255801400", "");
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(init.body as string).toContain("x-rincon:RINCON_74CA6093255801400");
+    expect(init.headers as Record<string, string>).toMatchObject({
+      SOAPACTION: expect.stringContaining("SetAVTransportURI"),
+    });
+  });
+
+  it("sends correct URI for line-in source (x-rincon-stream:)", async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(okResponse(soapEnvelope("<u:SetAVTransportURIResponse/>")));
+    vi.stubGlobal("fetch", mockFetch);
+    const client = new SonosClient("192.168.0.152");
+    await client.setAVTransportURI("x-rincon-stream:RINCON_804AF28AAB2001400:0", "");
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(init.body as string).toContain("x-rincon-stream:RINCON_804AF28AAB2001400:0");
+  });
+
+  it("sends correct URI for TV audio grab (x-sonos-htastream:)", async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(okResponse(soapEnvelope("<u:SetAVTransportURIResponse/>")));
+    vi.stubGlobal("fetch", mockFetch);
+    const client = new SonosClient("192.168.0.193");
+    await client.setAVTransportURI("x-sonos-htastream:RINCON_74CA6093255801400:spdif", "");
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(init.body as string).toContain("x-sonos-htastream:RINCON_74CA6093255801400:spdif");
+  });
+});
+
+// ---- GetZoneGroupState -----------------------------------------------------
+
+describe("SonosClient.getZoneGroupState", () => {
+  it("parses zone groups from topology XML", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(zoneGroupStateResponse())));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    const groups: ZoneGroup[] = await client.getZoneGroupState();
+
+    expect(groups).toHaveLength(2);
+
+    const livingRoom = groups.find((g) => g.coordinatorUuid === "RINCON_74CA6093255801400");
+    expect(livingRoom).toBeDefined();
+    expect(livingRoom?.members).toHaveLength(1);
+    const lr0 = livingRoom?.members[0];
+    expect(lr0?.zoneName).toBe("Living Room");
+    expect(lr0?.ip).toBe("192.168.0.193");
+
+    const desk = groups.find((g) => g.coordinatorUuid === "RINCON_804AF28AAB2001400");
+    expect(desk).toBeDefined();
+    expect(desk?.members).toHaveLength(2);
+  });
+
+  it("throws SonosError on SOAP fault", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(soapFaultResponse())));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    await expect(client.getZoneGroupState()).rejects.toBeInstanceOf(SonosError);
+  });
+});
+
+// ---- Browse FV:2 favorites -------------------------------------------------
+
+describe("SonosClient.browseFavorites", () => {
+  it("returns parsed favorites list", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(browseFavoritesResponse())));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    const favs: SonosFavorite[] = await client.browseFavorites();
+
+    expect(favs).toHaveLength(1);
+    const fav0 = favs[0];
+    expect(fav0?.title).toBe("Riordan Radio");
+    expect(fav0?.albumArtUri).toBe("http://example.com/radio.jpg");
+    expect(fav0?.uri).toBe("x-sonosapi-radio:spotify%3AartistRadio%3A6v8FB84lnmJs434UByMr75");
+  });
+
+  it("returns empty array when no favorites exist", async () => {
+    const emptyBrowse =
+      soapEnvelope(`<u:BrowseResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">
+      <Result><![CDATA[<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/"></DIDL-Lite>]]></Result>
+      <NumberReturned>0</NumberReturned>
+      <TotalMatches>0</TotalMatches>
+      <UpdateID>1</UpdateID>
+    </u:BrowseResponse>`);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(emptyBrowse)));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    const favs = await client.browseFavorites();
+    expect(favs).toHaveLength(0);
+  });
+
+  it("throws SonosError on network failure", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ETIMEDOUT")));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    await expect(client.browseFavorites()).rejects.toBeInstanceOf(SonosError);
+  });
+});
+
+// ---- SonosError is a proper Error subclass ---------------------------------
+
+describe("SonosError", () => {
+  it("is an instance of Error", () => {
+    const err = new SonosError("test error");
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe("SonosError");
+    expect(err.message).toBe("test error");
+  });
+});
