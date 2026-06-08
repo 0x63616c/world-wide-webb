@@ -1,6 +1,7 @@
 /**
- * Unit tests for SpotifyClient (www-51hf.33).
- * Validates token refresh, caching, and throw-on-unconfigured behaviour.
+ * Unit tests for SpotifyClient (www-51hf.33, www-51hf.36, www-51hf.37).
+ * Validates token refresh, caching, throw-on-unconfigured, and A3
+ * (no fabricated data when optional fields are absent from a real response).
  * All network calls are stubbed — tests never reach the Spotify API.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -114,5 +115,171 @@ describe("SpotifyError", () => {
     expect(err).toBeInstanceOf(Error);
     expect(err.name).toBe("SpotifyError");
     expect(err.message).toBe("test error");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getNowPlaying — missing optional fields (A3: no fabricated data)
+// www-51hf.36 / www-51hf.37
+// ---------------------------------------------------------------------------
+
+// Intercepts fetch: first call returns the token, second call returns the player response.
+function mockFetchForPlayer(playerRes: Response): ReturnType<typeof vi.fn> {
+  const fetchMock = vi.fn().mockResolvedValueOnce(tokenResponse()).mockResolvedValueOnce(playerRes);
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+// Builds a minimal valid Spotify /v1/me/player JSON response with a fully-populated item.
+function fullPlayerBody(overrides: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    is_playing: true,
+    progress_ms: 60_000,
+    device: { name: "Living Room Speaker", id: "abc", type: "Speaker" },
+    item: {
+      name: "Test Track",
+      duration_ms: 240_000,
+      artists: [{ name: "Test Artist" }],
+      album: {
+        name: "Test Album",
+        images: [{ url: "https://i.scdn.co/image/test" }],
+      },
+    },
+    ...overrides,
+  });
+}
+
+describe("SpotifyClient — getNowPlaying (A3: no fabricated data)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns full state when all fields are present", async () => {
+    mockFetchForPlayer(new Response(fullPlayerBody(), { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    const result = await client.getNowPlaying();
+    expect(result).not.toBeNull();
+    expect(result?.trackTitle).toBe("Test Track");
+    expect(result?.artist).toBe("Test Artist");
+    expect(result?.album).toBe("Test Album");
+    expect(result?.progressMs).toBe(60_000);
+    expect(result?.durationMs).toBe(240_000);
+    expect(result?.albumArtUrl).toBe("https://i.scdn.co/image/test");
+  });
+
+  it("returns null when item is null (nothing playing)", async () => {
+    mockFetchForPlayer(new Response(fullPlayerBody({ item: null }), { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    const result = await client.getNowPlaying();
+    expect(result).toBeNull();
+  });
+
+  it("returns null when 204 No Content (nothing playing)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(tokenResponse())
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new SpotifyClient(VALID_CREDS);
+    const result = await client.getNowPlaying();
+    expect(result).toBeNull();
+  });
+
+  // A3: item.name missing — must throw, not return trackTitle: ""
+  it("throws SpotifyError when item.name is missing", async () => {
+    const body = JSON.stringify({
+      is_playing: true,
+      progress_ms: 60_000,
+      item: {
+        // name intentionally absent
+        duration_ms: 240_000,
+        artists: [{ name: "Test Artist" }],
+        album: { name: "Test Album", images: [] },
+      },
+    });
+    mockFetchForPlayer(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    await expect(client.getNowPlaying()).rejects.toBeInstanceOf(SpotifyError);
+  });
+
+  // A3: item.duration_ms missing — must throw, not return durationMs: 0
+  it("throws SpotifyError when item.duration_ms is missing", async () => {
+    const body = JSON.stringify({
+      is_playing: true,
+      progress_ms: 60_000,
+      item: {
+        name: "Test Track",
+        // duration_ms intentionally absent
+        artists: [{ name: "Test Artist" }],
+        album: { name: "Test Album", images: [] },
+      },
+    });
+    mockFetchForPlayer(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    await expect(client.getNowPlaying()).rejects.toBeInstanceOf(SpotifyError);
+  });
+
+  // A3: album.name missing — must throw, not return album: ""
+  it("throws SpotifyError when album.name is missing", async () => {
+    const body = JSON.stringify({
+      is_playing: true,
+      progress_ms: 60_000,
+      item: {
+        name: "Test Track",
+        duration_ms: 240_000,
+        artists: [{ name: "Test Artist" }],
+        album: {
+          // name intentionally absent
+          images: [{ url: "https://i.scdn.co/image/test" }],
+        },
+      },
+    });
+    mockFetchForPlayer(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    await expect(client.getNowPlaying()).rejects.toBeInstanceOf(SpotifyError);
+  });
+
+  // A3: data.progress_ms missing — must throw, not return progressMs: 0
+  it("throws SpotifyError when data.progress_ms is missing", async () => {
+    const body = JSON.stringify({
+      is_playing: true,
+      // progress_ms intentionally absent
+      item: {
+        name: "Test Track",
+        duration_ms: 240_000,
+        artists: [{ name: "Test Artist" }],
+        album: { name: "Test Album", images: [] },
+      },
+    });
+    mockFetchForPlayer(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    await expect(client.getNowPlaying()).rejects.toBeInstanceOf(SpotifyError);
+  });
+
+  // progress_ms=0 is a valid value (track at start position), not fabricated
+  it("accepts progress_ms=0 as a legitimate value", async () => {
+    mockFetchForPlayer(new Response(fullPlayerBody({ progress_ms: 0 }), { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    const result = await client.getNowPlaying();
+    expect(result?.progressMs).toBe(0);
+  });
+
+  // Empty artists array is legitimate (e.g. podcast episodes) — join produces ""
+  it("returns empty string for artist when artists array is empty", async () => {
+    const body = JSON.stringify({
+      is_playing: true,
+      progress_ms: 60_000,
+      item: {
+        name: "Test Track",
+        duration_ms: 240_000,
+        artists: [],
+        album: { name: "Test Album", images: [] },
+      },
+    });
+    mockFetchForPlayer(new Response(body, { status: 200 }));
+    const client = new SpotifyClient(VALID_CREDS);
+    const result = await client.getNowPlaying();
+    // Empty string from an empty array is derived from real data, not fabricated
+    expect(result?.artist).toBe("");
   });
 });

@@ -59,7 +59,9 @@ export class SpotifyClient {
 
   /**
    * GET /v1/me/player — current playback state. Returns null when nothing is
-   * playing (204 No Content). THROWS SpotifyError on any error.
+   * playing (204 No Content). THROWS SpotifyError on any error or when the
+   * response contains an item but is missing critical fields (A3: never
+   * return fabricated empty strings or zero durations).
    */
   async getNowPlaying(): Promise<SpotifyNowPlaying | null> {
     const token = await this.getAccessToken();
@@ -84,19 +86,44 @@ export class SpotifyClient {
     const item = data.item as Record<string, unknown> | null;
     if (!item) return null;
 
-    const artists = (item.artists as Array<{ name: string }> | undefined) ?? [];
+    // Validate critical fields — if any are absent we must throw rather than
+    // return fabricated empty strings or zero numbers (A3).
+    const trackTitle = item.name as string | undefined;
+    if (typeof trackTitle !== "string" || !trackTitle) {
+      throw new SpotifyError("getNowPlaying: item.name is missing or empty in Spotify response");
+    }
+
+    const durationMs = item.duration_ms as number | undefined;
+    if (typeof durationMs !== "number") {
+      throw new SpotifyError("getNowPlaying: item.duration_ms is missing in Spotify response");
+    }
+
     const album = item.album as Record<string, unknown> | undefined;
+    const albumName = album?.name as string | undefined;
+    if (typeof albumName !== "string" || !albumName) {
+      throw new SpotifyError("getNowPlaying: item.album.name is missing in Spotify response");
+    }
+
+    // progress_ms is a top-level field on the player object (not item). null is
+    // returned by the API when the player context is missing; undefined means
+    // the field was absent entirely — both indicate we cannot report real state.
+    const progressMs = data.progress_ms as number | null | undefined;
+    if (progressMs === null || progressMs === undefined) {
+      throw new SpotifyError("getNowPlaying: progress_ms is missing in Spotify response");
+    }
+
+    const artists = (item.artists as Array<{ name: string }> | undefined) ?? [];
     const images = (album?.images as Array<{ url: string }> | undefined) ?? [];
     const device = (data.device as Record<string, unknown> | undefined) ?? null;
 
     return {
       isPlaying: data.is_playing === true,
-      trackTitle: (item.name as string) ?? "",
+      trackTitle,
       artist: artists.map((a) => a.name).join(", "),
-      album: (album?.name as string) ?? "",
+      album: albumName,
       albumArtUrl: images[0]?.url ?? null,
-      progressMs: (data.progress_ms as number) ?? 0,
-      durationMs: (item.duration_ms as number) ?? 0,
+      progressMs,
+      durationMs,
       deviceName: (device?.name as string) ?? null,
     };
   }
