@@ -115,7 +115,11 @@ describe("media_item table schema", () => {
       return ref.columns.some((c) => c.name === "source_id");
     });
     expect(fk).toBeDefined();
-    const ref = fk?.reference();
+    // Guard clause satisfies the TypeScript narrowing requirement without a
+    // non-null assertion: if fk is undefined the test already failed on the
+    // toBeDefined() above, so this branch is unreachable in practice.
+    if (!fk) throw new Error("fk unexpectedly undefined after toBeDefined()");
+    const ref = fk.reference();
     // Drizzle stores table name on Symbol.for("drizzle:Name"); access via cast.
     const foreignTableName = (ref.foreignTable as unknown as Record<string, unknown>)[
       DRIZZLE_NAME
