@@ -8,6 +8,7 @@ export interface SecretRef {
   ref: string;
 }
 
+/** @public — part of the bosun deploy-spec surface (deploy.config.ts); kept though no internal consumer yet (CC-k6p1). */
 export interface ScheduleSpec {
   // Standard 5-field cron ("min hour dom mon dow"). The bosun scheduler matches
   // it against the wall clock each minute; no seconds column to track.

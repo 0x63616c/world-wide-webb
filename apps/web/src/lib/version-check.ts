@@ -13,7 +13,7 @@ export const VERSION_POLL_MS = 10_000;
 
 // Path of the build-stamped version file. nginx serves dist at site root, so the
 // build's dist/version.json is reachable here.
-export const VERSION_URL = "/version.json";
+const VERSION_URL = "/version.json";
 
 export interface VersionCheckOptions {
   // Injected so the loop is unit-testable; defaults to a hard reload. Wired to

@@ -17,7 +17,7 @@ export function stackRouteTag(stackName: string): string {
 // Ownership is derived from this: a route whose origin points at one of THIS
 // stack's swarm services is stack-owned (CF ingress carries no native tag field,
 // so origin is the only durable ownership signal).
-export function originServiceName(service: string): string {
+function originServiceName(service: string): string {
   const m = service.match(/^https?:\/\/([^:/]+)/);
   return m ? m[1] : "";
 }

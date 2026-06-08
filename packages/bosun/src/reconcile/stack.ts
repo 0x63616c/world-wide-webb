@@ -15,7 +15,7 @@ function escapeComposeInterpolation(value: string): string {
 // relying on `--resolve-image` re-resolving the mutable `:main` tag (which
 // silently failed to roll the self-deploying bosun-agent; CC-czg). Third-party
 // and un-overridden images pass through unchanged, so only rebuilt services roll.
-export function pinImage(image: string, overrides?: Record<string, string>): string {
+function pinImage(image: string, overrides?: Record<string, string>): string {
   if (!overrides) return image;
   const m = image.match(/^ghcr\.io\/0x63616c\/([^:@]+)(?::[^@]+)?$/);
   if (!m) return image;

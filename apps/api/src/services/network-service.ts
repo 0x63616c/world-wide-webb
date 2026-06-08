@@ -6,7 +6,7 @@ import { UnifiStatus, unifi } from "../integrations/unifi";
 // Types
 // ---------------------------------------------------------------------------
 
-export interface TrafficBucket {
+interface TrafficBucket {
   /** Download bytes (raw; the chart normalises for display). */
   down: number;
   /** Upload bytes (raw; the chart normalises for display). */

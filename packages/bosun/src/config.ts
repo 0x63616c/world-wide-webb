@@ -31,7 +31,7 @@ export async function evaluateConfig(factory: SpecFactory): Promise<Spec> {
  * This is a thin dynamic import wrapper — the heavy lifting is in the caller's
  * deploy.config.ts, which must itself be pure (no I/O).
  */
-export async function loadConfig(configPath: string): Promise<Spec> {
+async function _loadConfig(configPath: string): Promise<Spec> {
   // Dynamic import evaluates the module in the current Bun/Node runtime.
   // If the config calls fetch or reads files, those errors propagate here.
   const mod = await import(configPath);

@@ -150,10 +150,7 @@ export function decideEnforcement(
 }
 
 /** Build `light.turn_on` params from a desired state (brightness is HA raw 0..255). */
-export function buildTurnOnParams(
-  entityId: string,
-  desired: DeviceLightState,
-): Record<string, unknown> {
+function buildTurnOnParams(entityId: string, desired: DeviceLightState): Record<string, unknown> {
   const params: Record<string, unknown> = { entity_id: entityId };
   if (desired.brightness != null) params.brightness = desired.brightness;
   if (desired.color?.rgb) params.rgb_color = desired.color.rgb;
@@ -179,7 +176,7 @@ async function fetchSnapshot(): Promise<Map<string, HaEntity>> {
   return byEntityId;
 }
 
-export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> {
+async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> {
   const rows = await db
     .select()
     .from(deviceState)

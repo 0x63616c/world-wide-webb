@@ -1,8 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  // Dead-code detector (CC-k6p1). `bun run knip` reports unused files / exports /
-  // deps; `bun run knip:fix` auto-removes the safe ones (no agent loop). The
-  // ratchet guard (scripts/check-knip.sh) blocks NEW findings in CI/pre-push.
+  // Dead-code detector (CC-k6p1). ZERO-TOLERANCE: knip runs in the lefthook
+  // pre-push hook and CI `test` job and exits non-zero on ANY unused file /
+  // export / dep, so the repo is mechanically held at zero dead code.
+  // `bun run knip` to inspect, `bun run knip:fix` to auto-remove. Intentional
+  // public API with no internal consumer yet is kept via a JSDoc tag —
+  // `/** @public — <reason> */` above the export (knip honours @public).
   //
   // Most entry points are auto-detected from each workspace's package `exports`,
   // `bin`, and the vite/storybook/vitest plugins. We only declare the edges knip
@@ -21,7 +24,11 @@
     "@capacitor/ios",
     "@capacitor/haptics",
     "@capacitor/status-bar",
-    "@capacitor-community/screen-brightness"
+    "@capacitor-community/screen-brightness",
+    // coverage.sh runs `cd apps/web && vitest run --coverage`, so the v8 provider
+    // must resolve from apps/web. It's invoked by the vitest CLI, not imported, so
+    // knip can't see the edge — kept declared where coverage runs (CC-k6p1).
+    "@vitest/coverage-v8"
   ],
 
   // `tilt` is the dev-stack binary invoked by the root `dev` script; not an npm dep.

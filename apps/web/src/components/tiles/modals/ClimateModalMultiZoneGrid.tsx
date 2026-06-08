@@ -38,7 +38,7 @@ import { Chip, Modal, Stat } from "@/components/ui";
 export type HvacMode = "off" | "cool" | "heat" | "heat_cool" | "fan_only" | "dry" | "auto";
 
 // Action as it arrives from HA (lowercase) — normalised for display in the card.
-export type HvacAction = "cooling" | "heating" | "idle" | "off";
+type HvacAction = "cooling" | "heating" | "idle" | "off";
 
 // The slider shape mirrors ClimateTileView: discriminated on mode so a single
 // target and a range can never coexist.

@@ -7,8 +7,6 @@
  * All interaction state lives in the Minimap container and is passed in.
  */
 
-// Longest edge of the minimap's world area, in screen px. Must match Minimap.tsx.
-const MAX_EXTENT = 180;
 // Outer pad around the world area. Must match Minimap.tsx.
 const MINIMAP_PAD = 6;
 
@@ -172,6 +170,4 @@ export function MinimapView({
     </div>
   );
 }
-
 // Export the constants so stories/tests can build valid props easily.
-export { MAX_EXTENT, MINIMAP_PAD };

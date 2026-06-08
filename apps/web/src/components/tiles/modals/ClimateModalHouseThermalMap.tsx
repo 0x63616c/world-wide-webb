@@ -25,7 +25,7 @@ import { Chip, Modal, StatusDot } from "@/components/ui";
 // ─── types ────────────────────────────────────────────────────────────────────
 
 /** HVAC action strings reported by Home Assistant. */
-export type HvacAction = "cooling" | "heating" | "idle" | "off";
+type HvacAction = "cooling" | "heating" | "idle" | "off";
 
 /** HVAC mode strings Home Assistant accepts. */
 export type HvacMode = "off" | "cool" | "heat" | "heat_cool" | "auto" | "fan_only" | "dry";

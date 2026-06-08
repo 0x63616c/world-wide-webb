@@ -22,7 +22,7 @@ export class FileProvider implements SecretProvider {
 }
 
 // Default readFile using Node's fs/promises, used at runtime.
-export async function makeDefaultReadFile(): Promise<ReadFile> {
+async function _makeDefaultReadFile(): Promise<ReadFile> {
   const { readFile } = await import("node:fs/promises");
   return readFile as ReadFile;
 }
