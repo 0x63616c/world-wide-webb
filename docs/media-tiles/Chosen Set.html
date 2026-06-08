@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Center — Chosen Set</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:#000; }
+  html{ scroll-behavior:smooth; }
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-track{ background:#0a0a0a; }
+  ::-webkit-scrollbar-thumb{ background:#262626; border-radius:99px; border:2px solid #0a0a0a; }
+  ::-webkit-scrollbar-thumb:hover{ background:#333; }
+  *{ scrollbar-color:#262626 #0a0a0a; scrollbar-width:thin; }
+  button{ font-family:inherit; }
+  a{ transition:background .12s, color .12s; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script>window.__SOLO__ = false;</script>
+<script type="text/babel" src="kit/kit.jsx"></script>
+<script type="text/babel" src="kit/nowplaying.jsx"></script>
+<script type="text/babel" src="kit/rooms-mixer.jsx"></script>
+<script type="text/babel" src="kit/applauncher.jsx"></script>
+<script type="text/babel" src="kit/quickplay.jsx"></script>
+<script type="text/babel" src="kit/scenes.jsx"></script>
+<script type="text/babel">
+(function(){
+  const order = ['now-playing','sound-system','app-launcher','quick-play','scenes'];
+  const byId = {
+    'now-playing': window.NowPlayingCard,
+    'sound-system': window.SoundSystemCard,
+    'app-launcher': window.AppLauncherCard,
+    'quick-play': window.QuickPlayCard,
+    'scenes': window.ScenesCard,
+  };
+  const cards = order.map(id=>byId[id]);
+
+  const DECISION = {
+    'now-playing': {status:'chosen', pick:'A · Horizontal split', keep:'B–H as variations', drop:'Output Routing modal', modals:'Transport & Scrub · TV Remote'},
+    'sound-system': {status:'chosen', pick:'V1 · Filled group panel', keep:'V2 / V3 variations', drop:'Group Builder · old Rooms A–J', modals:'Mixer · Per-room Source'},
+    'app-launcher': {status:'chosen', pick:'L3 · Hero app', keep:'L1 / L2 / L5 / L4 / L6 variations', drop:'Monochrome 27-app modal', modals:'All Apps (full-color)'},
+    'quick-play': {status:'chosen', pick:'Q1 · Horizontal artwork rail', keep:'Q2–Q5 variations', drop:'—', modals:'Favorites · Spotify'},
+    'scenes': {status:'parked', pick:'Parked — revisit later', keep:'S1–S5 on hold', drop:'—', modals:'—'},
+  };
+  const STATUS = {
+    chosen:   {label:'Chosen',    fg:T.acc,   bg:T.accDim, bd:T.accLine},
+    undecided:{label:'Undecided', fg:T.ink2,  bg:T.tile2,  bd:T.hair2},
+    parked:   {label:'Parked',    fg:T.amber, bg:'rgba(244,192,99,0.12)', bd:'rgba(244,192,99,0.4)'},
+  };
+
+  function StatusBadge({s}){
+    const c = STATUS[s];
+    return <span style={{font:`600 10px ${T.ui}`, letterSpacing:'0.12em', textTransform:'uppercase',
+      color:c.fg, background:c.bg, border:`1px solid ${c.bd}`, borderRadius:7, padding:'4px 9px'}}>{c.label}</span>;
+  }
+
+  function DecisionBar({d}){
+    const cell = (label, value, accent)=> value && value!=='—' ? (
+      <div style={{minWidth:0}}>
+        <div style={{font:`600 9.5px ${T.ui}`, letterSpacing:'0.12em', textTransform:'uppercase', color:T.ink3, marginBottom:5}}>{label}</div>
+        <div style={{fontSize:13, color: accent||T.ink2, lineHeight:1.4}}>{value}</div>
+      </div>
+    ) : null;
+    return (
+      <div style={{display:'grid', gridTemplateColumns:'1.1fr 1fr 1fr 1.3fr', gap:26, marginTop:18,
+        padding:'16px 20px', background:T.tile, border:`1px solid ${T.hair}`, borderRadius:14}}>
+        {cell('Pick', d.pick, d.status==='chosen'?T.ink:T.ink2)}
+        {cell('Keep', d.keep)}
+        {cell('Going', d.drop, d.drop!=='—'?T.ink2:undefined) || <div><div style={{font:`600 9.5px ${T.ui}`, letterSpacing:'0.12em', textTransform:'uppercase', color:T.ink3, marginBottom:5}}>Going</div><div style={{fontSize:13, color:T.ink3}}>nothing cut</div></div>}
+        {cell('Modals kept', d.modals)}
+      </div>
+    );
+  }
+
+  function Nav(){
+    return (
+      <div style={{position:'sticky', top:0, zIndex:50, background:'rgba(0,0,0,0.82)', backdropFilter:'blur(12px)',
+        borderBottom:`1px solid ${T.hair}`, padding:'13px 56px', display:'flex', alignItems:'center', gap:14}}>
+        <span style={{font:`600 12px ${T.mono}`, color:T.acc, letterSpacing:'0.14em', textTransform:'uppercase'}}>Control Center · Chosen Set</span>
+        <div style={{marginLeft:'auto', display:'flex', gap:7, flexWrap:'wrap'}}>
+          {cards.map((c,i)=>{
+            const st = STATUS[DECISION[c.id].status];
+            return (
+              <a key={c.id} href={'#'+c.id} style={{textDecoration:'none', padding:'7px 13px', borderRadius:99,
+                background:T.tile2, border:`1px solid ${T.hair}`, color:T.ink2, font:`500 12px ${T.ui}`, whiteSpace:'nowrap',
+                display:'inline-flex', alignItems:'center', gap:7}}>
+                <span style={{width:6, height:6, borderRadius:99, background:st.fg}}/>
+                {c.name.split(' / ')[0]}
+              </a>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  function CardBlock({card, i}){
+    const d = DECISION[card.id];
+    const parked = d.status==='parked';
+    return (
+      <div id={card.id} style={{marginTop: i===0?44:92, scrollMarginTop:78}}>
+        <div style={{display:'flex', alignItems:'center', gap:16, paddingBottom:18, borderBottom:`1px solid ${T.hair2}`}}>
+          <span style={{font:`700 22px ${T.mono}`, color:T.acc}}>{String(i+1).padStart(2,'0')}</span>
+          <h2 style={{margin:0, fontSize:28, fontWeight:600, letterSpacing:'-0.025em', color:T.ink, whiteSpace:'nowrap'}}>{card.name}</h2>
+          <StatusBadge s={d.status}/>
+          <span style={{font:`400 13px ${T.mono}`, color:T.ink3, marginLeft:'auto'}}>{card.count}</span>
+        </div>
+        <DecisionBar d={d}/>
+        <div style={{marginTop:8, opacity: parked?0.45:1, pointerEvents: parked?'none':'auto', filter: parked?'saturate(0.6)':'none'}}>
+          {React.createElement(card.Body)}
+        </div>
+      </div>
+    );
+  }
+
+  function Board(){
+    return (
+      <div style={{minHeight:'100vh', background:T.bg, color:T.ink, fontFamily:T.ui}}>
+        <Nav/>
+        <div style={{padding:'0 56px 130px'}}>
+          <div style={{maxWidth:1640, margin:'0 auto'}}>
+            <div style={{padding:'52px 0 4px'}}>
+              <h1 style={{margin:0, fontSize:42, fontWeight:600, letterSpacing:'-0.035em'}}>Chosen Set — directions &amp; variations</h1>
+              <p style={{margin:'16px 0 0', maxWidth:900, color:T.ink2, fontSize:15.5, lineHeight:1.6}}>
+                The picked direction for each card, its variations, and what’s staying vs going — reflecting every call so far.
+                Each card leads with the chosen tile (badged), then its alternates, then only the modals we’re keeping.
+                <strong style={{color:T.ink}}> Sound System</strong> is the renamed Rooms card (Mixer + Per-room Source only).
+                <strong style={{color:T.ink}}> Quick-Play</strong> is locked to Q1; only <strong style={{color:T.ink}}>Scenes</strong> stays parked (dimmed).
+              </p>
+              {/* legend */}
+              <div style={{display:'flex', gap:18, marginTop:22, flexWrap:'wrap'}}>
+                {['chosen','undecided','parked'].map(s=>(
+                  <div key={s} style={{display:'flex', alignItems:'center', gap:8}}>
+                    <span style={{width:8, height:8, borderRadius:99, background:STATUS[s].fg}}/>
+                    <span style={{fontSize:12.5, color:T.ink2}}>{STATUS[s].label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {cards.map((c,i)=> <CardBlock key={c.id} card={c} i={i}/>)}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<Board/>);
+})();
+</script>
+</body>
+</html>
