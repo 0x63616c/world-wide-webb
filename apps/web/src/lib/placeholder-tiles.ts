@@ -131,7 +131,7 @@ const INNER_FILL_LOCAL: PlaceholderTile[] = [
 // Thickness (in cells) of the decorative wall ring on every edge.
 // The world is 2*WALL_THICKNESS cells larger than the 31×31 inner region, so the
 // inner fill (and the auto-recentred cluster) shift out by exactly this much.
-export const WALL_THICKNESS = 2;
+const WALL_THICKNESS = 2;
 
 // The inner fill in world coords: shift each local tile out past the wall ring.
 const INNER_FILL: PlaceholderTile[] = INNER_FILL_LOCAL.map((t) => ({

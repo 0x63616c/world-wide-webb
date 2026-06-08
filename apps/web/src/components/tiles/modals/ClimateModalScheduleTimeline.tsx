@@ -32,7 +32,7 @@ import { Modal, Stat } from "@/components/ui";
 // ─── types ────────────────────────────────────────────────────────────────────
 
 /** A single segment in the 24-hour plan: startHour 0–23, setpoint in °F. */
-export interface ScheduleSegment {
+interface ScheduleSegment {
   /** Hour this segment starts (0 = midnight, 23 = 11pm). */
   startHour: number;
   /** Planned setpoint for this segment in °F. */

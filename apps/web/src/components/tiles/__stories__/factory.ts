@@ -15,7 +15,7 @@ type TileArgType = Record<string, any>;
  * Tiles that expose a `status` prop should spread this into their argTypes
  * rather than re-declaring it inline.
  */
-export const TILE_STATUS_ARG_TYPE: TileArgType = {
+const TILE_STATUS_ARG_TYPE: TileArgType = {
   control: "radio",
   options: Object.values(TileStatus),
   description: "Data load state — loading/error renders a shimmer skeleton",

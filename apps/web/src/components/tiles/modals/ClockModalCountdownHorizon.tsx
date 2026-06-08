@@ -21,7 +21,7 @@ import { Modal } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-export interface CountdownEvent {
+interface CountdownEvent {
   name: string;
   place: string;
   /** Whole days until the event. 0 = today. */
