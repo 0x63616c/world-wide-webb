@@ -11,6 +11,7 @@ import {
   tvSeek,
   tvStop,
 } from "../../services/apple-tv-service";
+import { getSoundSystem } from "../../services/sonos-sound-system-service";
 import { publicProcedure, router } from "../init";
 
 const TvNowPlayingSchema = z.object({
@@ -21,6 +22,21 @@ const TvNowPlayingSchema = z.object({
   mediaPosition: z.number().nullable(),
   mediaDuration: z.number().nullable(),
   source: z.enum(["streaming", "line-in", "TV", "idle"]),
+});
+
+const SoundSystemRoomSchema = z.object({
+  name: z.string(),
+  coordinatorUuid: z.string(),
+  memberUuids: z.array(z.string()),
+  isCoordinator: z.boolean(),
+  volume: z.number(),
+  muted: z.boolean(),
+  transportState: z.string(),
+  sourceLabel: z.string().nullable(),
+});
+
+const SoundSystemSchema = z.object({
+  rooms: z.array(SoundSystemRoomSchema),
 });
 
 // Media router — Apple TV, Sonos, and Spotify queries/mutations.
@@ -73,4 +89,9 @@ export const mediaRouter = router({
   tvLaunchApp: publicProcedure
     .input(z.object({ app: z.string() }))
     .mutation(({ input }) => tvLaunchApp(input.app)),
+
+  soundSystem: publicProcedure
+    .input(z.object({}).optional())
+    .output(SoundSystemSchema)
+    .query(() => getSoundSystem()),
 });
