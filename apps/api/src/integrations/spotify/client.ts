@@ -220,12 +220,26 @@ export class SpotifyClient {
       const album = track.album as Record<string, unknown> | undefined;
       const images = (album?.images as Array<{ url: string }> | undefined) ?? [];
 
+      // Validate required fields — throw rather than fabricate empty strings (A3).
+      const trackTitle = track.name as string | undefined;
+      if (typeof trackTitle !== "string" || !trackTitle) {
+        throw new SpotifyError(
+          `browse/recently-played: track.name is missing or empty for track id "${id}"`,
+        );
+      }
+      const trackUri = track.uri as string | undefined;
+      if (typeof trackUri !== "string" || !trackUri) {
+        throw new SpotifyError(
+          `browse/recently-played: track.uri is missing or empty for track id "${id}"`,
+        );
+      }
+
       tracks.push({
         id,
-        title: (track.name as string) ?? "",
+        title: trackTitle,
         artist: artists.map((a) => a.name).join(", "),
         albumArtUrl: images[0]?.url ?? null,
-        uri: (track.uri as string) ?? "",
+        uri: trackUri,
       });
     }
 
@@ -258,12 +272,26 @@ export class SpotifyClient {
 
       const images = (pl.images as Array<{ url: string }> | undefined) ?? [];
 
+      // Validate required fields — throw rather than fabricate empty strings (A3).
+      const plTitle = pl.name as string | undefined;
+      if (typeof plTitle !== "string" || !plTitle) {
+        throw new SpotifyError(
+          `browse/playlists: pl.name is missing or empty for playlist id "${id}"`,
+        );
+      }
+      const plUri = pl.uri as string | undefined;
+      if (typeof plUri !== "string" || !plUri) {
+        throw new SpotifyError(
+          `browse/playlists: pl.uri is missing or empty for playlist id "${id}"`,
+        );
+      }
+
       playlists.push({
         id,
-        title: (pl.name as string) ?? "",
+        title: plTitle,
         description: (pl.description as string | null) ?? null,
         imageUrl: images[0]?.url ?? null,
-        uri: (pl.uri as string) ?? "",
+        uri: plUri,
       });
     }
 
