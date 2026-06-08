@@ -166,6 +166,13 @@ function mountFlag(vol: string): string {
 // label so a restarted scheduler can tell, from swarm state alone, whether this
 // slot already ran — the swarm-derived dedupe key. A manual `run-job` passes no
 // slot (always fires).
+// NOTE (CC-ke9a): cron jobs render via THIS `docker service create` path, not
+// the compose stack, so the memory-limit framework in reconcile/stack.ts does NOT
+// reach them. Today's jobs (docker-image-prune, map-extract) are short-lived and
+// not memory-hungry, so they are out of scope. If a future job is memory-heavy,
+// add a `resources` field here and emit `--limit-memory <mem>` (and the overcommit
+// sum would need to account for the worst-case concurrent job too) — tracked as a
+// follow-up, deliberately not blocking the long-lived-service framework.
 export function buildJobCommand(job: ServiceSpec, stackName: string, slot?: string): string {
   if (!job.schedule) throw new Error(`job '${job.name}' has no schedule`);
 

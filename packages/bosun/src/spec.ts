@@ -41,6 +41,23 @@ export interface HealthcheckSpec {
   startPeriod?: string;
 }
 
+// Per-service container resource caps (CC-ke9a). `memory` is a HARD limit
+// (compose `deploy.resources.limits.memory`, e.g. "768M"/"1G") — on a cgroup-v2
+// VM it charges page cache too, so the kernel OOM-kills just this container, not
+// the box, which is what contains a runaway like the uncapped media-worker. CPU
+// is deliberately NOT limited (a compressible resource — a hard quota only wastes
+// idle cores); instead `reserveCpus`/`reserveMemory` are scheduling RESERVATIONS
+// (compose `deploy.resources.reservations`) that guarantee the critical path
+// (postgres/api/cloudflared) always gets scheduled under contention.
+export interface ResourceSpec {
+  // Hard memory limit, compose byte-suffix string ("96M", "768M", "1G").
+  memory?: string;
+  // CPU reservation (NOT a limit), e.g. "0.5". Scheduling priority only.
+  reserveCpus?: string;
+  // Optional memory reservation (soft floor), compose byte-suffix string.
+  reserveMemory?: string;
+}
+
 export interface ServiceSpec {
   name: string;
   image: string;
@@ -74,6 +91,9 @@ export interface ServiceSpec {
   schedule?: ScheduleSpec;
   // Optional Docker container healthcheck (swarm-tracked liveness). See above.
   healthcheck?: HealthcheckSpec;
+  // Optional container resource caps (memory limit + cpu/memory reservations).
+  // See ResourceSpec — the structural fix for the media-worker OOM outage class.
+  resources?: ResourceSpec;
   health: HealthProbe[];
 }
 
@@ -111,6 +131,7 @@ export function service(
     replicas: opts.replicas,
     schedule: opts.schedule,
     healthcheck: opts.healthcheck,
+    resources: opts.resources,
     health: opts.health ?? [],
   };
 }
@@ -231,10 +252,13 @@ export function postgres(opts: {
   // existing data volume — safe to add to the live spec without forcing a
   // destructive re-init, while a volume-loss rebuild correctly recreates it.
   db?: string;
+  // Optional container resource caps (memory limit + cpu/memory reservations).
+  resources?: ResourceSpec;
 }): ServiceSpec {
   return {
     name: "postgres",
     image: opts.image ?? "postgres:17-alpine",
+    resources: opts.resources,
     secrets: opts.secretRef ? [{ name: "POSTGRES_PASSWORD", ref: opts.secretRef }] : [],
     // POSTGRES_DB names the database created on a fresh init (always set, so a
     // rebuilt volume matches what the api connects to). The superuser password is

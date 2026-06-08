@@ -24,6 +24,9 @@ export default stack("control-center", {
     // API: tRPC backend, internal only, proxied through web at /api.
     service("api", {
       image: ghcr("control-center-api"),
+      // Hard 512M cap; cpu reservation puts the request path on the critical path
+      // so it always schedules under contention (CC-ke9a).
+      resources: { memory: "512M", reserveCpus: "0.5" },
       secrets: fromOp("Homelab", {
         HA_TOKEN: "Home Assistant Token/credential",
         UNIFI_API_KEY: "UniFi/local_api_key",
@@ -92,6 +95,8 @@ export default stack("control-center", {
     // worker.js` (apps/worker/Dockerfile), so no command override is needed.
     service("worker", {
       image: ghcr("control-center-worker"),
+      // 384M cap for the reconcile/ingest loops (CC-ke9a).
+      resources: { memory: "384M" },
       secrets: fromOp("Homelab", {
         HA_TOKEN: "Home Assistant Token/credential",
         UNIFI_API_KEY: "UniFi/local_api_key",
@@ -140,6 +145,14 @@ export default stack("control-center", {
       // back to replicas:1 once memory resource limits exist — re-enabling is
       // owned by follow-up CC-ke9a (add resource limits + un-park).
       replicas: 0,
+      // 1G hard memory cap — the structural fix for the outage (CC-ke9a). yt-dlp
+      // streams to disk and never re-encodes, so peak working set is hundreds of
+      // MB independent of file size; under cgroup v2 this cap also contains the
+      // dirty page-cache writeback to the slow NAS NFS mount that ballooned RAM
+      // and RCU-stalled the VM. The cap is set NOW so the re-enable is a one-line
+      // replicas 0→1 flip (a separate observed load-test step); it stays at 0
+      // until that runs.
+      resources: { memory: "1G" },
       secrets: fromOp("Homelab", {
         POSTGRES_PASSWORD: "Control Center Postgres/password",
         OPENROUTER_API_KEY: "OpenRouter/credential",
@@ -161,6 +174,8 @@ export default stack("control-center", {
     // so the service is pinned to the manager (the single Swarm node holding it).
     service("web", {
       image: ghcr("control-center-web"),
+      // 96M cap — nginx serving static assets + a range-request basemap (CC-ke9a).
+      resources: { memory: "96M" },
       route: "dashboard.worldwidewebb.co",
       proxyApiTo: "api:4201",
       port: 80,
@@ -191,6 +206,8 @@ export default stack("control-center", {
     // Storybook: component library, public via Cloudflare tunnel.
     service("storybook", {
       image: ghcr("control-center-storybook"),
+      // 96M cap — static Storybook build served by a small http server (CC-ke9a).
+      resources: { memory: "96M" },
       route: "storybook.worldwidewebb.co",
       port: 6006,
       health: [httpProbe("https://storybook.worldwidewebb.co", 200)],
@@ -211,6 +228,8 @@ export default stack("control-center", {
     // vault (evee created it) — no new 1Password item.
     service("drizzle", {
       image: ghcr("control-center-drizzle"),
+      // 256M cap for the self-hosted Drizzle Gateway (CC-ke9a).
+      resources: { memory: "256M" },
       route: "drizzle.worldwidewebb.co",
       port: 4983,
       secrets: fromOp("Homelab", {
@@ -235,11 +254,18 @@ export default stack("control-center", {
     postgres({
       volume: "pgdata",
       secretRef: "op://Homelab/Control Center Postgres/password",
+      // 768M cap (the largest — it's the shared datastore) + a cpu reservation so
+      // the DB stays on the critical path under contention (CC-ke9a).
+      resources: { memory: "768M", reserveCpus: "0.5" },
     }),
 
     // Cloudflared: outbound-only tunnel connector. No host ports exposed.
     service("cloudflared", {
       image: "cloudflare/cloudflared:2025.10.1",
+      // 128M cap + a small cpu reservation: the tunnel connector is the public
+      // ingress, so it must stay scheduled even under load (the outage took it
+      // down too) — CC-ke9a.
+      resources: { memory: "128M", reserveCpus: "0.25" },
       secrets: fromOp("Homelab", {
         TUNNEL_TOKEN: "Cloudflare Tunnel evee-webhooks/connector_token",
       }),
@@ -262,6 +288,8 @@ export default stack("control-center", {
     // entrypoint exports them to env, which is what cli.ts and `op` read.
     service("bosun-agent", {
       image: ghcr("control-center-bosun"),
+      // 192M cap for the deploy webhook receiver + in-process scheduler (CC-ke9a).
+      resources: { memory: "192M" },
       route: "hooks.worldwidewebb.co",
       port: 4202,
       secrets: fromOp("Homelab", {
