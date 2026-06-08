@@ -36,6 +36,13 @@
       "when": 1780883672219,
       "tag": "0005_regular_titania",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1780888445129,
+      "tag": "0006_overrated_white_queen",
+      "breakpoints": true
     }
   ]
 }
