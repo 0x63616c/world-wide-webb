@@ -8,6 +8,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import type { HourlyEntry } from "@/components/tiles/Next12HoursView";
+import { modalDocsParameters } from "../__stories__/factory";
 import { Next12HoursModalComfortBand } from "./Next12HoursModalComfortBand";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -54,6 +55,7 @@ const meta = {
   title: "Modals/Next 12 Hours/Comfort Band",
   component: Next12HoursModalComfortBand,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

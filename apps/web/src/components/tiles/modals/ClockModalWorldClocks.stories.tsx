@@ -10,6 +10,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { ClockModalWorldClocksProps } from "./ClockModalWorldClocks";
 import { ClockModalWorldClocks } from "./ClockModalWorldClocks";
 
@@ -37,6 +38,7 @@ const meta = {
   title: "Modals/Clock/World Clocks",
   component: ClockModalWorldClocks,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

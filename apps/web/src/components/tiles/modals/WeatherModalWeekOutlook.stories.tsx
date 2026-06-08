@@ -5,6 +5,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { DayForecast } from "./WeatherModalWeekOutlook";
 import { WeatherModalWeekOutlook } from "./WeatherModalWeekOutlook";
 
@@ -38,6 +39,7 @@ const meta = {
   title: "Modals/Weather/Week Outlook",
   component: WeatherModalWeekOutlook,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

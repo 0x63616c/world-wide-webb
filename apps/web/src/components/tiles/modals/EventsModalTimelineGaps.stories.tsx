@@ -11,6 +11,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { EventsModalTimelineGapsProps } from "./EventsModalTimelineGaps";
 import { EventsModalTimelineGaps } from "./EventsModalTimelineGaps";
 
@@ -42,6 +43,7 @@ const meta = {
   title: "Modals/Events/Timeline Gaps",
   component: EventsModalTimelineGaps,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

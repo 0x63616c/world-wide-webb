@@ -7,6 +7,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type {
   NetworkModalTrafficTimelineProps,
   TrafficBucket,
@@ -62,6 +63,7 @@ const meta = {
   title: "Modals/Network/Traffic Timeline",
   component: NetworkModalTrafficTimeline,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

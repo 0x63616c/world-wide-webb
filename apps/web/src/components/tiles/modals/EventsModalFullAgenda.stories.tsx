@@ -8,6 +8,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { EventsModalFullAgendaProps } from "./EventsModalFullAgenda";
 import { EventsModalFullAgenda } from "./EventsModalFullAgenda";
 
@@ -43,6 +44,7 @@ const meta = {
   title: "Modals/Events/Full Agenda",
   component: EventsModalFullAgenda,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

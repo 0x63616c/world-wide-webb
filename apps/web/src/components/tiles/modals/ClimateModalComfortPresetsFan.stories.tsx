@@ -8,6 +8,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { ClimateZone } from "./ClimateModalComfortPresetsFan";
 import { ClimateModalComfortPresetsFan } from "./ClimateModalComfortPresetsFan";
 
@@ -100,6 +101,7 @@ const meta = {
   title: "Modals/Climate/Comfort Presets Fan",
   component: ClimateModalComfortPresetsFan,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

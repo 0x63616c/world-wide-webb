@@ -7,6 +7,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import { TeslaModalVehicleVitals } from "./TeslaModalVehicleVitals";
 
 // ─── meta ─────────────────────────────────────────────────────────────────────
@@ -15,6 +16,7 @@ const meta = {
   title: "Modals/Tesla/Vehicle Vitals",
   component: TeslaModalVehicleVitals,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

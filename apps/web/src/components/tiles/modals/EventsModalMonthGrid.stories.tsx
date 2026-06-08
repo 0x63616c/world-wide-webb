@@ -6,6 +6,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { EventRowWithDate } from "./EventsModalMonthGrid";
 import { EventsModalMonthGrid } from "./EventsModalMonthGrid";
 
@@ -56,6 +57,7 @@ const meta = {
   title: "Modals/Events/Month Grid",
   component: EventsModalMonthGrid,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

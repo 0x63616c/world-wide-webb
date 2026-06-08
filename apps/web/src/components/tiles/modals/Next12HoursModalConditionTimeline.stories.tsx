@@ -8,6 +8,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import { Next12HoursModalConditionTimeline } from "./Next12HoursModalConditionTimeline";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -235,6 +236,7 @@ const meta = {
   title: "Modals/Next 12 Hours/Condition Timeline",
   component: Next12HoursModalConditionTimeline,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

@@ -8,6 +8,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { TrafficBucket } from "./NetworkModalDataBudget";
 import { NetworkModalDataBudget } from "./NetworkModalDataBudget";
 
@@ -67,6 +68,7 @@ const meta = {
   title: "Modals/Network/Data Budget",
   component: NetworkModalDataBudget,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

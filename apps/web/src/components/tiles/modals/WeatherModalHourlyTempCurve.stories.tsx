@@ -8,6 +8,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { HourlySlot, WeatherModalHourlyTempCurveProps } from "./WeatherModalHourlyTempCurve";
 import { WeatherModalHourlyTempCurve } from "./WeatherModalHourlyTempCurve";
 
@@ -77,6 +78,7 @@ const meta = {
   title: "Modals/Weather/Hourly Temp Curve",
   component: WeatherModalHourlyTempCurve,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),

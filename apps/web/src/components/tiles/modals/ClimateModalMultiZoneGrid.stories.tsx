@@ -11,6 +11,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "../__stories__/factory";
 import type { ClimateModalMultiZoneGridProps, ZoneData } from "./ClimateModalMultiZoneGrid";
 import { ClimateModalMultiZoneGrid } from "./ClimateModalMultiZoneGrid";
 
@@ -80,6 +81,7 @@ const meta = {
   title: "Modals/Climate/Multi Zone Grid",
   component: ClimateModalMultiZoneGrid,
   tags: ["autodocs"],
+  parameters: modalDocsParameters(),
   args: {
     open: true,
     onClose: fn(),
