@@ -1,5 +1,5 @@
 /**
- * Types for the Spotify Web API client (www-51hf.33).
+ * Types for the Spotify Web API client (www-51hf.33, www-51hf.13).
  */
 
 /** Constructor credentials for SpotifyClient. */
@@ -19,4 +19,28 @@ export interface SpotifyNowPlaying {
   progressMs: number;
   durationMs: number;
   deviceName: string | null;
+}
+
+/** A recently-played track returned by the browse query (A16). */
+export interface SpotifyRecentTrack {
+  id: string;
+  title: string;
+  artist: string;
+  albumArtUrl: string | null;
+  uri: string;
+}
+
+/** A playlist item returned by the browse query (A16). */
+export interface SpotifyPlaylistItem {
+  id: string;
+  title: string;
+  description: string | null;
+  imageUrl: string | null;
+  uri: string;
+}
+
+/** Combined browse result: recently-played + playlists/made-for-you (A16). */
+export interface SpotifyBrowseResult {
+  recentlyPlayed: SpotifyRecentTrack[];
+  playlists: SpotifyPlaylistItem[];
 }

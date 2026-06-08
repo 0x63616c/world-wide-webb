@@ -11,7 +11,13 @@
  */
 
 import { SpotifyError } from "./errors";
-import type { SpotifyCredentials, SpotifyNowPlaying } from "./types";
+import type {
+  SpotifyBrowseResult,
+  SpotifyCredentials,
+  SpotifyNowPlaying,
+  SpotifyPlaylistItem,
+  SpotifyRecentTrack,
+} from "./types";
 
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 // Refresh 60s before the token actually expires so in-flight requests never
@@ -96,6 +102,22 @@ export class SpotifyClient {
   }
 
   /**
+   * GET /v1/me/player/recently-played + GET /v1/me/playlists — returns
+   * recently-played tracks and user playlists for the Quick-Play modal (A16).
+   * THROWS SpotifyError on any error.
+   */
+  async browse(): Promise<SpotifyBrowseResult> {
+    const token = await this.getAccessToken();
+
+    const [recentlyPlayed, playlists] = await Promise.all([
+      this.fetchRecentlyPlayed(token),
+      this.fetchPlaylists(token),
+    ]);
+
+    return { recentlyPlayed, playlists };
+  }
+
+  /**
    * PUT /v1/me/player/play — resume or start playback. THROWS SpotifyError on any error.
    */
   async play(): Promise<void> {
@@ -134,6 +156,92 @@ export class SpotifyClient {
   // --------------------------------------------------------------------------
   // Private helpers
   // --------------------------------------------------------------------------
+
+  private async fetchRecentlyPlayed(token: string): Promise<SpotifyRecentTrack[]> {
+    let res: Response;
+    try {
+      res = await fetch("https://api.spotify.com/v1/me/player/recently-played?limit=20", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (err) {
+      throw new SpotifyError(`browse/recently-played: network error — ${(err as Error).message}`);
+    }
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new SpotifyError(`browse/recently-played: HTTP ${res.status} — ${body.slice(0, 200)}`);
+    }
+
+    const data = (await res.json()) as { items?: unknown[] };
+    const items = data.items ?? [];
+
+    // Deduplicate by track id — the recently-played list can repeat the same
+    // track if it was played multiple times.
+    const seen = new Set<string>();
+    const tracks: SpotifyRecentTrack[] = [];
+
+    for (const raw of items) {
+      const item = raw as Record<string, unknown>;
+      const track = item.track as Record<string, unknown> | undefined;
+      if (!track) continue;
+
+      const id = track.id as string | undefined;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+
+      const artists = (track.artists as Array<{ name: string }> | undefined) ?? [];
+      const album = track.album as Record<string, unknown> | undefined;
+      const images = (album?.images as Array<{ url: string }> | undefined) ?? [];
+
+      tracks.push({
+        id,
+        title: (track.name as string) ?? "",
+        artist: artists.map((a) => a.name).join(", "),
+        albumArtUrl: images[0]?.url ?? null,
+        uri: (track.uri as string) ?? "",
+      });
+    }
+
+    return tracks;
+  }
+
+  private async fetchPlaylists(token: string): Promise<SpotifyPlaylistItem[]> {
+    let res: Response;
+    try {
+      res = await fetch("https://api.spotify.com/v1/me/playlists?limit=20", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (err) {
+      throw new SpotifyError(`browse/playlists: network error — ${(err as Error).message}`);
+    }
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new SpotifyError(`browse/playlists: HTTP ${res.status} — ${body.slice(0, 200)}`);
+    }
+
+    const data = (await res.json()) as { items?: unknown[] };
+    const items = data.items ?? [];
+    const playlists: SpotifyPlaylistItem[] = [];
+
+    for (const raw of items) {
+      const pl = raw as Record<string, unknown>;
+      const id = pl.id as string | undefined;
+      if (!id) continue;
+
+      const images = (pl.images as Array<{ url: string }> | undefined) ?? [];
+
+      playlists.push({
+        id,
+        title: (pl.name as string) ?? "",
+        description: (pl.description as string | null) ?? null,
+        imageUrl: images[0]?.url ?? null,
+        uri: (pl.uri as string) ?? "",
+      });
+    }
+
+    return playlists;
+  }
 
   private async refreshToken(): Promise<string> {
     const { clientId, clientSecret, refreshToken } = this.creds;

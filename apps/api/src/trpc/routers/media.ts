@@ -23,6 +23,7 @@ import {
   sonosTransport,
 } from "../../services/sonos-write-service";
 import {
+  spotifyBrowse,
   spotifyNext,
   spotifyNowPlaying,
   spotifyPause,
@@ -76,12 +77,40 @@ const SpotifyPlayerStateSchema = z.object({
   deviceName: z.string().nullable(),
 });
 
-// Spotify sub-router — nowPlaying query + transport mutations (www-51hf.12 / A14, A15).
+// Spotify browse schemas (A16).
+const SpotifyRecentTrackSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  artist: z.string(),
+  albumArtUrl: z.string().nullable(),
+  uri: z.string(),
+});
+
+const SpotifyPlaylistItemSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  imageUrl: z.string().nullable(),
+  uri: z.string(),
+});
+
+const SpotifyBrowseResultSchema = z.object({
+  recentlyPlayed: z.array(SpotifyRecentTrackSchema),
+  playlists: z.array(SpotifyPlaylistItemSchema),
+});
+
+// Spotify sub-router — nowPlaying query + transport mutations + browse query
+// (www-51hf.12 / A14, A15; www-51hf.13 / A16).
 const spotifyRouter = router({
   nowPlaying: publicProcedure
     .input(z.object({}).optional())
     .output(SpotifyPlayerStateSchema)
     .query(() => spotifyNowPlaying()),
+
+  browse: publicProcedure
+    .input(z.object({}).optional())
+    .output(SpotifyBrowseResultSchema)
+    .query(() => spotifyBrowse()),
 
   play: publicProcedure.mutation(() => spotifyPlay()),
 
@@ -194,7 +223,7 @@ export const mediaRouter = router({
     .output(z.array(SonosFavoriteSchema))
     .query(() => getSonosFavorites()),
 
-  // ── Spotify sub-router (www-51hf.12 / A14, A15) ────────────────────────────
+  // ── Spotify sub-router (www-51hf.12 / A14, A15; www-51hf.13 / A16) ──────────
 
   spotify: spotifyRouter,
 });
