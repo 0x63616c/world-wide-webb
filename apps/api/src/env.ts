@@ -46,6 +46,9 @@ const SECRET_FILE_ENV = [
   "HOME_RADIUS_MILES",
   "OPENROUTER_API_KEY",
   "MEDIA_STORAGE_DIR",
+  "SPOTIFY_CLIENT_ID",
+  "SPOTIFY_CLIENT_SECRET",
+  "SPOTIFY_REFRESH_TOKEN",
 ] as const;
 export function hydrateSecretFiles(
   src: Record<string, string | undefined> = process.env,
@@ -115,6 +118,13 @@ export const envSchema = z.object({
   // Where the media-worker stores downloaded audio/video/thumb files on the host.
   // Delivered from 1Password via the docker-secret rail (same pattern as HOME_*).
   MEDIA_STORAGE_DIR: z.string().default("/mnt/media"),
+
+  // Spotify Web API credentials. Optional — empty string disables Spotify so
+  // the api boots without them. The media router throws SpotifyError when
+  // these are absent and a Spotify query is attempted (same pattern as HA_TOKEN).
+  SPOTIFY_CLIENT_ID: z.string().default(""),
+  SPOTIFY_CLIENT_SECRET: z.string().default(""),
+  SPOTIFY_REFRESH_TOKEN: z.string().default(""),
 });
 
 export const env = envSchema.parse(process.env);
