@@ -47,8 +47,10 @@ const baseProps: SoundSystemTileViewProps = {
   vols: { "uuid-lr": 40, "uuid-desk": 30 },
   mutes: { "uuid-lr": false, "uuid-desk": true },
   globalLock: false,
+  groupLock: false,
   onFaderChange: vi.fn(),
   onToggleGlobalLock: vi.fn(),
+  onToggleGroupLock: vi.fn(),
   onOpenMixer: vi.fn(),
   onOpenSource: vi.fn(),
 };
@@ -62,8 +64,10 @@ describe("SoundSystemTileView — loading/error", () => {
         vols={{}}
         mutes={{}}
         globalLock={false}
+        groupLock={false}
         onFaderChange={vi.fn()}
         onToggleGlobalLock={vi.fn()}
+        onToggleGroupLock={vi.fn()}
         onOpenMixer={vi.fn()}
         onOpenSource={vi.fn()}
       />,
@@ -104,13 +108,25 @@ describe("SoundSystemTileView — populated (A22)", () => {
     expect(onToggleGlobalLock).toHaveBeenCalledTimes(1);
   });
 
-  it("calls onOpenMixer when tile is clicked", () => {
+  it("calls onOpenMixer when the tile surface is tapped", () => {
     const onOpenMixer = vi.fn();
-    render(<SoundSystemTileView {...baseProps} onOpenMixer={onOpenMixer} />);
-    // The tile has an expand/mixer button
-    const btn = screen.getByLabelText(/mixer|expand|open/i);
-    fireEvent.click(btn);
+    const { container } = render(<SoundSystemTileView {...baseProps} onOpenMixer={onOpenMixer} />);
+    // The tile owns its tap surface (ownsTap) — tapping it opens the Mixer.
+    const tile = container.querySelector(".tile");
+    expect(tile).not.toBeNull();
+    fireEvent.click(tile as Element);
     expect(onOpenMixer).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not open the mixer when a fader's source button is tapped", () => {
+    const onOpenMixer = vi.fn();
+    const onOpenSource = vi.fn();
+    render(
+      <SoundSystemTileView {...baseProps} onOpenMixer={onOpenMixer} onOpenSource={onOpenSource} />,
+    );
+    fireEvent.click(screen.getByLabelText(/living room source/i));
+    expect(onOpenSource).toHaveBeenCalledWith("uuid-lr");
+    expect(onOpenMixer).not.toHaveBeenCalled();
   });
 
   it("renders a per-room source trigger and calls onOpenSource with the room uuid", () => {
@@ -126,5 +142,76 @@ describe("SoundSystemTileView — populated (A22)", () => {
     // Muted room should have a visual indicator
     const muteIndicators = container.querySelectorAll("[data-muted='true']");
     expect(muteIndicators.length).toBeGreaterThan(0);
+  });
+});
+
+// A playing multi-room group (Desk coordinates Bedroom) + idle solo rooms.
+const groupedRooms = [
+  {
+    coordinatorUuid: "uuid-desk",
+    uuid: "uuid-desk",
+    deviceIp: "192.168.0.2",
+    memberUuids: ["uuid-desk", "uuid-bed"],
+    name: "Desk",
+    isCoordinator: true,
+    volume: 66,
+    muted: false,
+    transportState: "PLAYING",
+    sourceLabel: "Line-in",
+  },
+  {
+    coordinatorUuid: "uuid-desk",
+    uuid: "uuid-bed",
+    deviceIp: "192.168.0.3",
+    memberUuids: ["uuid-desk", "uuid-bed"],
+    name: "Bedroom",
+    isCoordinator: false,
+    volume: 68,
+    muted: false,
+    transportState: "PLAYING",
+    sourceLabel: "Line-in",
+  },
+  {
+    coordinatorUuid: "uuid-kit",
+    uuid: "uuid-kit",
+    deviceIp: "192.168.0.4",
+    memberUuids: ["uuid-kit"],
+    name: "Kitchen",
+    isCoordinator: true,
+    volume: 53,
+    muted: false,
+    transportState: "STOPPED",
+    sourceLabel: null,
+  },
+];
+
+describe("SoundSystemTileView — group panels (CC-xlyf)", () => {
+  const groupedProps: SoundSystemTileViewProps = { ...baseProps, rooms: groupedRooms };
+
+  it("labels the active panel from the source and the idle panel as Idle", () => {
+    render(<SoundSystemTileView {...groupedProps} />);
+    expect(screen.getByText("Line-in")).toBeInTheDocument();
+    expect(screen.getByText(/^idle$/i)).toBeInTheDocument();
+  });
+
+  it("shows COORD for the coordinator of a multi-room group", () => {
+    render(<SoundSystemTileView {...groupedProps} />);
+    expect(screen.getByText("COORD")).toBeInTheDocument();
+  });
+
+  it("calls onToggleGroupLock when the group lock is clicked", () => {
+    const onToggleGroupLock = vi.fn();
+    render(<SoundSystemTileView {...groupedProps} onToggleGroupLock={onToggleGroupLock} />);
+    fireEvent.click(screen.getByLabelText(/lock group/i));
+    expect(onToggleGroupLock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not toggle the group lock while global lock is engaged (dimmed)", () => {
+    const onToggleGroupLock = vi.fn();
+    render(
+      <SoundSystemTileView {...groupedProps} globalLock onToggleGroupLock={onToggleGroupLock} />,
+    );
+    fireEvent.click(screen.getByLabelText(/lock group/i));
+    expect(onToggleGroupLock).not.toHaveBeenCalled();
   });
 });

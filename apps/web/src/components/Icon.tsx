@@ -24,6 +24,7 @@ import {
   Sun,
   Thermometer,
   Video,
+  Volume2,
   Wifi,
   Zap,
 } from "lucide-react";
@@ -54,6 +55,7 @@ export type IconName =
   | "down"
   | "sparkles"
   | "globe"
+  | "speaker"
   | "apps";
 
 export interface IconProps {
@@ -97,6 +99,7 @@ export const GLYPHS: Record<IconName, LucideIcon> = {
   down: ArrowDown,
   sparkles: Sparkles,
   globe: Globe,
+  speaker: Volume2,
   apps: LayoutGrid,
 };
 
