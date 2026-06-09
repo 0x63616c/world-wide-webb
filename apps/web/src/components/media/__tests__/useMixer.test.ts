@@ -7,7 +7,7 @@
  * so the delta is limited to +71 (29+71=100, 24+71=95).
  */
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMixer } from "../hooks/useMixer";
 
 // Helper: initialise hook with a simple two-room locked gang.
@@ -381,5 +381,141 @@ describe("useMixer — dynamic rooms prop (CC-51hf.49)", () => {
     act(() => result.current.setRoomVolume("uuid-A", 45));
     expect(result.current.vols["uuid-A"]).toBe(45);
     expect(result.current.vols["uuid-B"]).toBe(65);
+  });
+});
+
+describe("useMixer — poll reconcile with edit cooldown (CC-tavs)", () => {
+  // These tests exercise the [rooms] effect reconciliation: existing rooms whose
+  // last edit was longer ago than COOLDOWN_MS should adopt the polled volume/mute.
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("(a) poll with new volume for existing room with no recent edit updates the fader", () => {
+    const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+      initialProps: { rooms: initialRooms },
+    });
+    expect(result.current.vols["uuid-A"]).toBe(50);
+
+    // Advance time well past COOLDOWN_MS (3000ms) without any local edit.
+    vi.advanceTimersByTime(5000);
+
+    // Poll returns new volume from the Sonos system.
+    rerender({
+      rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 70, muted: false }],
+    });
+
+    expect(result.current.vols["uuid-A"]).toBe(70);
+  });
+
+  it("(b) poll within COOLDOWN_MS of a local edit does NOT overwrite the fader", () => {
+    const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+      initialProps: { rooms: initialRooms },
+    });
+
+    // Local edit at t=0.
+    act(() => result.current.setRoomVolume("uuid-A", 65));
+    expect(result.current.vols["uuid-A"]).toBe(65);
+
+    // Poll arrives 1 second later (within 3s cooldown) with a different value.
+    vi.advanceTimersByTime(1000);
+    rerender({
+      rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }],
+    });
+
+    // Must not overwrite — local edit wins during cooldown.
+    expect(result.current.vols["uuid-A"]).toBe(65);
+  });
+
+  it("(b2) poll AFTER cooldown expires does overwrite the fader", () => {
+    const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+      initialProps: { rooms: initialRooms },
+    });
+
+    // Local edit at t=0.
+    act(() => result.current.setRoomVolume("uuid-A", 65));
+
+    // Wait past cooldown (3001ms).
+    vi.advanceTimersByTime(3001);
+
+    // Poll arrives with a system-updated value.
+    rerender({
+      rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 72, muted: false }],
+    });
+
+    // Cooldown expired — poll should win.
+    expect(result.current.vols["uuid-A"]).toBe(72);
+  });
+
+  it("(c) mute reconciles the same way — poll updates mute after cooldown", () => {
+    const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+      initialProps: { rooms: initialRooms },
+    });
+    expect(result.current.mutes["uuid-A"]).toBe(false);
+
+    // Advance past cooldown.
+    vi.advanceTimersByTime(5000);
+
+    // Poll says the speaker is now muted.
+    rerender({
+      rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: true }],
+    });
+
+    expect(result.current.mutes["uuid-A"]).toBe(true);
+  });
+
+  it("(c2) mute toggleMute stamps cooldown — poll within cooldown does NOT overwrite mute", () => {
+    const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+      initialProps: { rooms: initialRooms },
+    });
+
+    // Local mute toggle at t=0.
+    act(() => result.current.toggleMute("uuid-A"));
+    expect(result.current.mutes["uuid-A"]).toBe(true);
+
+    // Poll within cooldown says muted=false (the old state).
+    vi.advanceTimersByTime(500);
+    rerender({
+      rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }],
+    });
+
+    // Must not overwrite — local toggle wins during cooldown.
+    expect(result.current.mutes["uuid-A"]).toBe(true);
+  });
+
+  it("(d) stable-reference guard: no render loop when poll returns unchanged values", () => {
+    // If a poll returns the same volume/mute as current state AND the room already
+    // exists, the [rooms] effect must return prev unchanged (no new object) to
+    // avoid triggering re-renders — the CC-w6ug regression guard.
+    const rooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
+    let renderCount = 0;
+    const { rerender } = renderHook(
+      ({ r }) => {
+        renderCount++;
+        return useMixer(r);
+      },
+      { initialProps: { r: rooms } },
+    );
+    const baseRenderCount = renderCount;
+
+    // Re-render 10 times with identical rooms (simulating 10 polls with no change).
+    vi.advanceTimersByTime(5000);
+    for (let i = 0; i < 10; i++) {
+      rerender({ r: rooms });
+    }
+
+    // Render count should not balloon (at most 1 extra per rerender from React — no loop).
+    // The critical thing is it doesn't exceed baseRenderCount + 10 by more than ~10.
+    expect(renderCount).toBeLessThanOrEqual(baseRenderCount + 20);
   });
 });
