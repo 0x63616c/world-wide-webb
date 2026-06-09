@@ -76,8 +76,11 @@ describe("tile registry — free placement", () => {
 });
 
 describe("tile registry — story coverage", () => {
-  // Enumerate every tile story file at build time (Vite glob).
-  const storyFiles = Object.keys(import.meta.glob("../*.stories.tsx"));
+  // Enumerate every tile story file at build time (Vite glob). Scan ALL of
+  // components/ — registered tile views are co-located with their domain (e.g.
+  // the Sonos/TV media tiles live in components/media/, not components/tiles/),
+  // so a tiles-only glob would wrongly report their stories as missing (CC-w6ug).
+  const storyFiles = Object.keys(import.meta.glob("../../**/*.stories.tsx"));
 
   it("every registry view component has a matching *.stories.tsx file", () => {
     for (const { id, viewComponent } of TILE_REGISTRY) {
