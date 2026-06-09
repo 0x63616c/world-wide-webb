@@ -78,6 +78,7 @@ const meta = {
     onFaderChange: fn(),
     onToggleGlobalLock: fn(),
     onOpenMixer: fn(),
+    onOpenSource: fn(),
   },
 } satisfies Meta<typeof SoundSystemTileView>;
 
@@ -86,10 +87,17 @@ type Story = StoryObj<typeof meta>;
 
 export const Populated: Story = {
   args: { status: "populated" },
-  play: async ({ canvasElement }) => {
+  play: async ({ args, canvasElement }) => {
     const header =
       canvasElement.querySelector("[class*='header']") ?? canvasElement.querySelector("span");
     await expect(header).toBeTruthy();
+    // Tapping a room name opens the per-room source picker (www-51hf.58).
+    const sourceTrigger = canvasElement.querySelector<HTMLButtonElement>(
+      "[aria-label='Living Room source']",
+    );
+    await expect(sourceTrigger).toBeTruthy();
+    sourceTrigger?.click();
+    await expect(args.onOpenSource).toHaveBeenCalledWith("lr");
   },
 };
 

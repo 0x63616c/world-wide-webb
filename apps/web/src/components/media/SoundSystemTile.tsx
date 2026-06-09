@@ -5,7 +5,8 @@
  * are infrequent). Renders Skeleton while pending/error (A18). On success passes
  * all rooms to useMixer for local gang-lock state, then renders SoundSystemTileView.
  *
- * Opens MixerModal on expand. Opens SourceModal on room card tap (wired later).
+ * Opens MixerModal on expand. Opens SourceModal when a room name is tapped
+ * (A25/A31) — selecting Line-in writes the room's source via sonosSetLineIn.
  */
 
 import { useState } from "react";
@@ -29,6 +30,7 @@ export function SoundSystemTile() {
   const setMuteMutation = trpc.media.sonosSetMute.useMutation();
   const groupJoinMutation = trpc.media.sonosGroupJoin.useMutation();
   const groupLeaveMutation = trpc.media.sonosGroupLeave.useMutation();
+  const setLineInMutation = trpc.media.sonosSetLineIn.useMutation();
 
   const rooms = data?.rooms ?? [];
 
@@ -52,6 +54,7 @@ export function SoundSystemTile() {
         onFaderChange={() => {}}
         onToggleGlobalLock={() => {}}
         onOpenMixer={() => {}}
+        onOpenSource={() => {}}
       />
     );
   }
@@ -79,6 +82,7 @@ export function SoundSystemTile() {
         onFaderChange={handleFaderChange}
         onToggleGlobalLock={() => mixer.setGlobalLock(!mixer.globalLock)}
         onOpenMixer={() => setMixerOpen(true)}
+        onOpenSource={() => setSourceOpen(true)}
       />
 
       <MixerModal
@@ -101,7 +105,19 @@ export function SoundSystemTile() {
         onGroupLeave={(memberIp, memberUuid) => groupLeaveMutation.mutate({ memberIp, memberUuid })}
       />
 
-      <SourceModal open={sourceOpen} onClose={() => setSourceOpen(false)} rooms={rooms} />
+      <SourceModal
+        open={sourceOpen}
+        onClose={() => setSourceOpen(false)}
+        rooms={rooms}
+        onSetSource={(coordinatorUuid, source) => {
+          // Only Line-in has a backend write today; the device's own coordinator
+          // UUID is the line-in stream source (x-rincon-stream:<uuid>:0). Other
+          // sources have no mutation yet — never actuate with fake data.
+          if (source === "Line-in") {
+            setLineInMutation.mutate({ deviceIp: coordinatorUuid, sourceUuid: coordinatorUuid });
+          }
+        }}
+      />
     </>
   );
 }

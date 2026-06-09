@@ -42,6 +42,8 @@ export interface SoundSystemTileViewProps {
   onFaderChange: (uuid: string, value: number) => void;
   onToggleGlobalLock: () => void;
   onOpenMixer: () => void;
+  /** Open the per-room Source picker, focused on the tapped room. */
+  onOpenSource: (uuid: string) => void;
 }
 
 // ── Vertical fader ────────────────────────────────────────────────────────────
@@ -52,9 +54,10 @@ interface FaderProps {
   muted: boolean;
   ganged: boolean;
   onChange: (value: number) => void;
+  onOpenSource: () => void;
 }
 
-function VerticalFader({ room, volume, muted, ganged, onChange }: FaderProps) {
+function VerticalFader({ room, volume, muted, ganged, onChange, onOpenSource }: FaderProps) {
   return (
     <div
       style={{
@@ -111,8 +114,11 @@ function VerticalFader({ room, volume, muted, ganged, onChange }: FaderProps) {
         />
       </div>
 
-      {/* Room name */}
-      <span
+      {/* Room name — tap to open the per-room source picker */}
+      <button
+        type="button"
+        aria-label={`${room.name} source`}
+        onClick={onOpenSource}
         style={{
           fontSize: 9,
           color: "var(--ink-2)",
@@ -123,10 +129,13 @@ function VerticalFader({ room, volume, muted, ganged, onChange }: FaderProps) {
           maxWidth: "100%",
           paddingLeft: 2,
           paddingRight: 2,
+          border: "none",
+          background: "transparent",
+          cursor: "pointer",
         }}
       >
         {room.name}
-      </span>
+      </button>
     </div>
   );
 }
@@ -142,6 +151,7 @@ export function SoundSystemTileView({
   onFaderChange,
   onToggleGlobalLock,
   onOpenMixer,
+  onOpenSource,
 }: SoundSystemTileViewProps) {
   if (status !== "populated") {
     return (
@@ -240,6 +250,7 @@ export function SoundSystemTileView({
               muted={mutes[room.coordinatorUuid] ?? room.muted}
               ganged={globalLock}
               onChange={(value) => onFaderChange(room.coordinatorUuid, value)}
+              onOpenSource={() => onOpenSource(room.coordinatorUuid)}
             />
           ))}
         </div>
