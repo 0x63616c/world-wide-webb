@@ -4,9 +4,11 @@
 #
 # Unlike apps/api this is NOT bundled — `bosun serve`/`bosun up` import
 # deploy.config.ts at runtime (process.cwd()) and shell out to `docker` and
-# `op`, so the image ships the source tree + both CLIs. bosun has no runtime npm
-# deps (only relative .ts files + node builtins, executed directly by bun), so
-# there is no install step.
+# `op`, so the image ships the source tree + both CLIs. bun executes the .ts
+# files directly. bosun used to be npm-dep-free, but www-rw07 added structured
+# logging via @repo/logger (pino + pino-pretty), so the image now installs the
+# workspace's external deps into node_modules; pino resolves from there and
+# @repo/logger from the copied workspace source.
 FROM oven/bun:1-alpine AS runtime
 
 WORKDIR /app
@@ -34,11 +36,25 @@ ENV TZ=America/Los_Angeles
 COPY --from=docker:28-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=1password/op:2 /usr/local/bin/op /usr/local/bin/op
 
-# Source bosun executes and the config it loads. package.json/bun.lock are
-# copied for module resolution only. (infra/ is intentionally not copied — the
+# Install the workspace's external deps (pino via @repo/logger). Copy every
+# workspace manifest first so bun's frozen install can validate the whole
+# lockfile graph, then install. (infra/ is intentionally not copied — the
 # renderer doesn't emit configs/volumes yet; see www-oos.)
 COPY package.json bun.lock ./
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
+COPY apps/media-worker/package.json apps/media-worker/
+COPY packages/api/package.json packages/api/
+COPY packages/bosun/package.json packages/bosun/
+COPY packages/logger/package.json packages/logger/
+# --ignore-scripts skips the lefthook prepare hook (needs git, absent here).
+RUN bun install --frozen-lockfile --ignore-scripts
+
+# Source bosun executes and the config it loads, plus the shared logger source
+# that @repo/logger resolves to at runtime.
 COPY deploy.config.ts ./
+COPY packages/logger ./packages/logger
 COPY packages/bosun ./packages/bosun
 
 COPY packages/bosun/docker-entrypoint.sh /usr/local/bin/bosun-entrypoint
