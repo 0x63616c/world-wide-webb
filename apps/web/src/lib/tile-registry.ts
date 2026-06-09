@@ -153,14 +153,16 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     cols: 4,
     rows: 2,
   },
-  // Media tiles (CC-51hf) — placed below the existing 3-row cluster.
+  // Media tiles (CC-51hf) — placed directly above the Clock (CC-p74p): the
+  // TV/Sound pair on rows 22-24 and TV Apps/Quick Play on rows 25-26, so the
+  // cluster ends just above the Clock's row 27.
   {
     id: "tile_tv",
     label: "TV",
     component: TvNowPlayingTile,
     viewComponent: TvNowPlayingTileView,
     worldCol: 26,
-    worldRow: 36,
+    worldRow: 22,
     cols: 4,
     rows: 3,
     ownsTap: true,
@@ -171,7 +173,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     component: SoundSystemTile,
     viewComponent: SoundSystemTileView,
     worldCol: 30,
-    worldRow: 36,
+    worldRow: 22,
     cols: 4,
     rows: 3,
     ownsTap: true,
@@ -182,7 +184,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     component: TvAppsTile,
     viewComponent: TvAppsTileView,
     worldCol: 26,
-    worldRow: 39,
+    worldRow: 25,
     cols: 4,
     rows: 2,
     ownsTap: true,
@@ -193,7 +195,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     component: QuickPlayTile,
     viewComponent: QuickPlayTileView,
     worldCol: 30,
-    worldRow: 39,
+    worldRow: 25,
     cols: 4,
     rows: 2,
     ownsTap: true,
