@@ -111,35 +111,48 @@ export function useMixer(rooms: MixerRoom[]): MixerState {
     const currentUuids = new Set(rooms.map((r) => r.coordinatorUuid));
     setVols((prev) => {
       const next = { ...prev };
+      let changed = false;
       // Seed new rooms.
       for (const r of rooms) {
         if (!(r.coordinatorUuid in next)) {
           next[r.coordinatorUuid] = r.volume;
+          changed = true;
         }
       }
       // Prune rooms that are no longer in the prop.
       for (const uuid of Object.keys(next)) {
         if (!currentUuids.has(uuid)) {
           delete next[uuid];
+          changed = true;
         }
       }
-      return next;
+      // Return prev UNCHANGED when nothing was seeded or pruned so the state
+      // reference stays stable and React skips the re-render. Without this, a
+      // caller passing a fresh rooms array each render (e.g. an inline literal)
+      // would make the [rooms] effect fire every render, return a new object,
+      // and re-render forever — a loop React only caps via max-update-depth, but
+      // which explodes coverage time/memory in CI (www-w6ug).
+      return changed ? next : prev;
     });
     setMutes((prev) => {
       const next = { ...prev };
+      let changed = false;
       // Seed new rooms.
       for (const r of rooms) {
         if (!(r.coordinatorUuid in next)) {
           next[r.coordinatorUuid] = r.muted;
+          changed = true;
         }
       }
       // Prune rooms that are no longer in the prop.
       for (const uuid of Object.keys(next)) {
         if (!currentUuids.has(uuid)) {
           delete next[uuid];
+          changed = true;
         }
       }
-      return next;
+      // Same stable-reference guard as setVols above (www-w6ug).
+      return changed ? next : prev;
     });
   }, [rooms]);
 
