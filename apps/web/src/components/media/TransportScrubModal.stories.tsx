@@ -47,11 +47,11 @@ export const StreamingPlaying: Story = {
     artworkUrl: null,
   },
   play: async ({ canvasElement }) => {
-    const dialog = canvasElement.querySelector("[role='dialog']");
+    const dialog = document.body.querySelector("[role='dialog']");
     await expect(dialog).toBeTruthy();
-    const scrub = canvasElement.querySelector("[data-scrub]");
+    const scrub = document.body.querySelector("[data-scrub]");
     await expect(scrub).toBeTruthy();
-    const pauseBtn = canvasElement.querySelector("[aria-label='Pause']");
+    const pauseBtn = document.body.querySelector("[aria-label='Pause']");
     await expect(pauseBtn).toBeTruthy();
   },
 };
@@ -70,7 +70,7 @@ export const StreamingPaused: Story = {
     artworkUrl: null,
   },
   play: async ({ canvasElement }) => {
-    const playBtn = canvasElement.querySelector("[aria-label='Play']");
+    const playBtn = document.body.querySelector("[aria-label='Play']");
     await expect(playBtn).toBeTruthy();
   },
 };
@@ -89,9 +89,9 @@ export const LineIn: Story = {
     artworkUrl: null,
   },
   play: async ({ canvasElement }) => {
-    const noSeek = canvasElement.querySelector("[data-no-seek]");
+    const noSeek = document.body.querySelector("[data-no-seek]");
     await expect(noSeek).toBeTruthy();
-    const scrub = canvasElement.querySelector("[data-scrub]");
+    const scrub = document.body.querySelector("[data-scrub]");
     await expect(scrub).toBeFalsy();
   },
 };
@@ -110,7 +110,7 @@ export const LiveTV: Story = {
     artworkUrl: null,
   },
   play: async ({ canvasElement }) => {
-    const noSeek = canvasElement.querySelector("[data-no-seek]");
+    const noSeek = document.body.querySelector("[data-no-seek]");
     await expect(noSeek).toBeTruthy();
   },
 };
@@ -129,7 +129,7 @@ export const WithArtwork: Story = {
     artworkUrl: "https://upload.wikimedia.org/wikipedia/en/4/4d/Queen_Greatest_Hits.png",
   },
   play: async ({ canvasElement }) => {
-    const img = canvasElement.querySelector("img[alt*='artwork' i]");
+    const img = document.body.querySelector("img[alt*='artwork' i]");
     await expect(img).toBeTruthy();
   },
 };
@@ -149,7 +149,7 @@ export const Closed: Story = {
     artworkUrl: null,
   },
   play: async ({ canvasElement }) => {
-    const dialog = canvasElement.querySelector("[role='dialog']");
+    const dialog = document.body.querySelector("[role='dialog']");
     await expect(dialog).toBeFalsy();
   },
 };
