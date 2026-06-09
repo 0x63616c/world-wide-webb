@@ -1,6 +1,17 @@
-// All process.env reads for the logger (LOG_LEVEL, NODE_ENV) live HERE and
-// nowhere else — call sites never read env directly. See docs/logging.md §3.
+// All process.env reads for the logger (LOG_LEVEL, LOG_PRETTY, APP_ENV) live
+// HERE and nowhere else — call sites never read env directly. See docs/logging.md §3.
+//
+// NOTE: we deliberately do NOT key behaviour on process.env.NODE_ENV. The api,
+// worker and media-worker ship as bun single-file bundles, and bun INLINES
+// process.env.NODE_ENV to a build-time literal — so a NODE_ENV check is frozen
+// at build and ignores the container's runtime env (it crash-looped prod once,
+// CC-rw07). LOG_PRETTY / APP_ENV / LOG_LEVEL are read live at runtime instead.
 import pino, { type Logger as PinoLogger } from "pino";
+// pino-pretty imported as a SYNCHRONOUS stream factory (not a pino.transport
+// target): transports spawn a thread-stream worker that re-resolves "pino-pretty"
+// from a file path which does not exist inside a single-file bundle. A sync
+// stream is bundled inline and works everywhere.
+import prettyStream from "pino-pretty";
 
 /** @public — re-exported Logger type for service call sites */
 export type Logger = PinoLogger;
@@ -8,14 +19,14 @@ export type Logger = PinoLogger;
 export type CreateLoggerOptions = {
   /** Service name bound on every line, e.g. "api" | "worker" | "media-worker" | "bosun". */
   service: string;
-  /** Environment string, bound on every line. Defaults to NODE_ENV ?? "development". */
+  /** Environment string, bound on every line. Defaults to APP_ENV ?? "development". */
   env?: string;
-  /** Explicit level override. Defaults to LOG_LEVEL env, else "info" (prod) / "debug" (dev). */
+  /** Explicit level override. Defaults to LOG_LEVEL env, else "debug" (pretty) / "info" (JSON). */
   level?: string;
   /**
-   * Force pretty (true) or JSON (false) output instead of inferring from env.
-   * Useful in tests and for the bosun deploy agent (which must emit JSON in prod
-   * even if NODE_ENV is not set — see docs/logging.md §3).
+   * Force pretty (true) or JSON (false) output. When omitted, defaults to JSON
+   * and opts into pretty only when LOG_PRETTY=1/true (local dev). Useful in tests
+   * and for bosun (which passes false). See docs/logging.md §3.
    */
   pretty?: boolean;
 };
@@ -93,18 +104,23 @@ let _root: Logger | null = null;
 /**
  * Build the ROOT logger for a process. Call EXACTLY ONCE per service at
  * startup and pass the instance down (or access via getLogger). Binds
- * { service, env } on every line, installs redaction, and selects
- * pino-pretty (non-prod) vs raw JSON (prod).
+ * { service, env } on every line, installs redaction, and selects raw JSON
+ * (default) vs pino-pretty (LOG_PRETTY=1, via a bundle-safe sync stream).
  */
 export function createLogger(opts: CreateLoggerOptions): Logger {
-  const env = opts.env ?? process.env.NODE_ENV ?? "development";
-  const isProd = env === "production";
+  // Bound env LABEL. APP_ENV is read live (NODE_ENV is baked into bundles, so it
+  // would mislabel prod as "development"); default to "development" locally.
+  const env = opts.env ?? process.env.APP_ENV ?? "development";
 
-  // Level: explicit opt > LOG_LEVEL env > "debug" in dev, "info" in prod.
-  const level = opts.level ?? process.env.LOG_LEVEL ?? (isProd ? "info" : "debug");
+  // Pretty vs JSON. Default is JSON — the bundle-safe, prod-correct path. Opt
+  // INTO pretty with LOG_PRETTY=1 (local dev / tilt), never via NODE_ENV.
+  const usePretty =
+    opts.pretty !== undefined
+      ? opts.pretty
+      : process.env.LOG_PRETTY === "1" || process.env.LOG_PRETTY === "true";
 
-  // Pretty: explicit opt wins; otherwise infer from env.
-  const usePretty = opts.pretty !== undefined ? opts.pretty : !isProd;
+  // Level: explicit opt > LOG_LEVEL env > "debug" when pretty (dev), else "info".
+  const level = opts.level ?? process.env.LOG_LEVEL ?? (usePretty ? "debug" : "info");
 
   const baseOptions: pino.LoggerOptions = {
     level,
@@ -112,8 +128,10 @@ export function createLogger(opts: CreateLoggerOptions): Logger {
     redact: { paths: REDACT_PATHS, censor: "[REDACTED]" },
   };
 
+  // Sync pino-pretty stream (NOT pino.transport) so bundled services never spawn
+  // a thread-stream worker that can't resolve in a single-file bundle. CC-rw07.
   const logger = usePretty
-    ? pino(baseOptions, pino.transport({ target: "pino-pretty", options: { translateTime: true } }))
+    ? pino(baseOptions, prettyStream({ translateTime: true }))
     : pino(baseOptions);
 
   _root = logger;

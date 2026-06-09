@@ -48,6 +48,10 @@ export default stack("control-center", {
       }),
       env: {
         NODE_ENV: "production",
+        // APP_ENV is the logger's env LABEL, read live at runtime. NODE_ENV is
+        // baked into the bun single-file bundle at build time so it can't carry
+        // the runtime env into logs; APP_ENV can. CC-rw07.
+        APP_ENV: "production",
         // Fixed-location LA wall panel: run the API in Pacific time so the
         // weather ingest parses Open-Meteo's timezone=auto LA-local timestamps
         // correctly and read-time hour labels match the board's local clock.
@@ -115,6 +119,10 @@ export default stack("control-center", {
       }),
       env: {
         NODE_ENV: "production",
+        // APP_ENV is the logger's env LABEL, read live at runtime. NODE_ENV is
+        // baked into the bun single-file bundle at build time so it can't carry
+        // the runtime env into logs; APP_ENV can. CC-rw07.
+        APP_ENV: "production",
         // Pacific time so weather-ingest parses Open-Meteo's timezone=auto
         // LA-local timestamps correctly (matches the api, see its note).
         TZ: "America/Los_Angeles",
@@ -157,6 +165,10 @@ export default stack("control-center", {
       }),
       env: {
         NODE_ENV: "production",
+        // APP_ENV is the logger's env LABEL, read live at runtime. NODE_ENV is
+        // baked into the bun single-file bundle at build time so it can't carry
+        // the runtime env into logs; APP_ENV can. CC-rw07.
+        APP_ENV: "production",
         TZ: "America/Los_Angeles",
         MEDIA_STORAGE_DIR: "/app/media",
       },
@@ -290,6 +302,10 @@ export default stack("control-center", {
       resources: { memory: "192M" },
       route: "hooks.worldwidewebb.co",
       port: 4202,
+      // APP_ENV labels bosun's structured logs as production (CC-rw07).
+      env: {
+        APP_ENV: "production",
+      },
       secrets: fromOp("Homelab", {
         BOSUN_WEBHOOK_TOKEN: "Bosun Webhook Token/credential",
         // 1Password item "Service Account Auth Token: Homelab", referenced by
