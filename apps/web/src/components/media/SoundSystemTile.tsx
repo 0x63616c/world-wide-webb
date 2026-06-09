@@ -36,6 +36,7 @@ export function SoundSystemTile() {
 
   const mixer = useMixer(
     rooms.map((r) => ({
+      uuid: r.uuid,
       coordinatorUuid: r.coordinatorUuid,
       name: r.name,
       volume: r.volume,
@@ -61,14 +62,10 @@ export function SoundSystemTile() {
 
   function handleFaderChange(uuid: string, value: number) {
     mixer.setRoomVolume(uuid, value);
-    // Find deviceIp from the room data.
-    const room = rooms.find((r) => r.coordinatorUuid === uuid);
+    const room = rooms.find((r) => r.uuid === uuid);
     if (!room) return;
-    // SoundSystemRoom doesn't expose deviceIp — we derive it from coordinatorUuid
-    // by passing coordinatorUuid as deviceIp. The Sonos write service uses IP, but
-    // the tRPC input expects deviceIp. For now we pass coordinatorUuid as a placeholder
-    // until the service exposes coordinatorIp. The mutation will fail gracefully.
-    setVolMutation.mutate({ deviceIp: uuid, volume: Math.round(value) });
+    // Write to the room's real device IP (each player owns its own volume).
+    setVolMutation.mutate({ deviceIp: room.deviceIp, volume: Math.round(value) });
   }
 
   return (
@@ -92,12 +89,13 @@ export function SoundSystemTile() {
         mixer={mixer}
         onSetVolume={(uuid, value) => {
           mixer.setRoomVolume(uuid, value);
-          setVolMutation.mutate({ deviceIp: uuid, volume: Math.round(value) });
+          const room = rooms.find((r) => r.uuid === uuid);
+          if (room) setVolMutation.mutate({ deviceIp: room.deviceIp, volume: Math.round(value) });
         }}
         onSetMute={(uuid, muted) => {
           mixer.toggleMute(uuid);
-          const room = rooms.find((r) => r.coordinatorUuid === uuid);
-          if (room) setMuteMutation.mutate({ deviceIp: uuid, muted });
+          const room = rooms.find((r) => r.uuid === uuid);
+          if (room) setMuteMutation.mutate({ deviceIp: room.deviceIp, muted });
         }}
         onGroupJoin={(memberIp, coordinatorUuid) =>
           groupJoinMutation.mutate({ memberIp, coordinatorUuid })
@@ -109,12 +107,13 @@ export function SoundSystemTile() {
         open={sourceOpen}
         onClose={() => setSourceOpen(false)}
         rooms={rooms}
-        onSetSource={(coordinatorUuid, source) => {
-          // Only Line-in has a backend write today; the device's own coordinator
-          // UUID is the line-in stream source (x-rincon-stream:<uuid>:0). Other
-          // sources have no mutation yet — never actuate with fake data.
-          if (source === "Line-in") {
-            setLineInMutation.mutate({ deviceIp: coordinatorUuid, sourceUuid: coordinatorUuid });
+        onSetSource={(uuid, source) => {
+          // Only Line-in has a backend write today; a player's own UUID is its
+          // line-in stream source (x-rincon-stream:<uuid>:0). Other sources have
+          // no mutation yet — never actuate with fake data.
+          const room = rooms.find((r) => r.uuid === uuid);
+          if (room && source === "Line-in") {
+            setLineInMutation.mutate({ deviceIp: room.deviceIp, sourceUuid: room.uuid });
           }
         }}
       />

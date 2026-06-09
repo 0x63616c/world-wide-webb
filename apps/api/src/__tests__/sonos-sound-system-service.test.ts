@@ -221,6 +221,103 @@ describe("getSoundSystem — per-device data (A11)", () => {
   });
 });
 
+describe("getSoundSystem — per-room identity (CC-7u9z)", () => {
+  it("exposes each room's own uuid and deviceIp for per-room writes", async () => {
+    setupHappyPath();
+    const result = await getSoundSystem();
+    const lr = result.rooms.find((r) => r.name === "Living Room");
+    expect(lr?.uuid).toBe("RINCON_74CA6093255801400");
+    expect(lr?.deviceIp).toBe(LIVING_ROOM_IP);
+    const kitchen = result.rooms.find((r) => r.name === "Kitchen");
+    expect(kitchen?.uuid).toBe("RINCON_74CA60AA5F4C01400");
+    expect(kitchen?.deviceIp).toBe(KITCHEN_IP);
+  });
+
+  it("returns rooms in stable display order", async () => {
+    setupHappyPath();
+    const result = await getSoundSystem();
+    expect(result.rooms.map((r) => r.name)).toEqual([
+      "Living Room",
+      "Desk",
+      "Bedroom",
+      "Bathroom",
+      "Kitchen",
+    ]);
+  });
+});
+
+describe("getSoundSystem — all speakers grouped into one group (CC-7u9z)", () => {
+  // The whole house joined into a single group coordinated by Bathroom — the case
+  // that previously collapsed the tile to one 'Bathroom' fader. Now it must still
+  // surface all 5 rooms, each with its own volume but a SHARED coordinatorUuid.
+  const GROUPED_TOPOLOGY = [
+    {
+      coordinatorUuid: "RINCON_F85C2420570401400", // Bathroom is the group coordinator
+      members: [
+        { uuid: "RINCON_74CA6093255801400", zoneName: "Living Room", ip: LIVING_ROOM_IP },
+        { uuid: "RINCON_804AF28AAB2001400", zoneName: "Desk", ip: DESK_COORD_IP },
+        { uuid: "RINCON_804AF288FDBA01400", zoneName: "Desk", ip: DESK_BONDED_IP },
+        { uuid: "RINCON_F85C2420570401400", zoneName: "Bathroom", ip: BATHROOM_IP },
+        { uuid: "RINCON_804AF28CFD6801400", zoneName: "Bedroom", ip: BEDROOM_IP },
+        { uuid: "RINCON_74CA60AA5F4C01400", zoneName: "Kitchen", ip: KITCHEN_IP },
+      ],
+    },
+  ];
+
+  function setupGrouped() {
+    mockClients[LIVING_ROOM_IP] = makeMockClient();
+    mockClients[LIVING_ROOM_IP].getZoneGroupState.mockResolvedValue(GROUPED_TOPOLOGY);
+    mockClients[LIVING_ROOM_IP].getVolume.mockResolvedValue(10);
+    mockClients[LIVING_ROOM_IP].getMute.mockResolvedValue(false);
+    mockClients[LIVING_ROOM_IP].getTransportInfo.mockResolvedValue({ state: "PLAYING" });
+    // Bathroom is the coordinator → its transport is the group transport.
+    mockClients[BATHROOM_IP] = makeMockClient();
+    mockClients[BATHROOM_IP].getTransportInfo.mockResolvedValue({ state: "PLAYING" });
+    mockClients[BATHROOM_IP].getVolume.mockResolvedValue(87);
+    mockClients[BATHROOM_IP].getMute.mockResolvedValue(false);
+    for (const [ip, vol] of [
+      [DESK_COORD_IP, 20],
+      [DESK_BONDED_IP, 20],
+      [BEDROOM_IP, 30],
+      [KITCHEN_IP, 40],
+    ] as const) {
+      mockClients[ip] = makeMockClient();
+      mockClients[ip].getVolume.mockResolvedValue(vol);
+      mockClients[ip].getMute.mockResolvedValue(false);
+      mockClients[ip].getTransportInfo.mockResolvedValue({ state: "PLAYING" });
+    }
+  }
+
+  it("still returns 5 rooms (not 1) when everything is grouped", async () => {
+    setupGrouped();
+    const result = await getSoundSystem();
+    expect(result.rooms).toHaveLength(5);
+    expect(result.rooms.map((r) => r.name).sort()).toEqual([
+      "Bathroom",
+      "Bedroom",
+      "Desk",
+      "Kitchen",
+      "Living Room",
+    ]);
+  });
+
+  it("every room shares the group coordinatorUuid, with exactly one coordinator", async () => {
+    setupGrouped();
+    const result = await getSoundSystem();
+    expect(result.rooms.every((r) => r.coordinatorUuid === "RINCON_F85C2420570401400")).toBe(true);
+    expect(result.rooms.filter((r) => r.isCoordinator)).toHaveLength(1);
+    expect(result.rooms.find((r) => r.isCoordinator)?.name).toBe("Bathroom");
+  });
+
+  it("each grouped room keeps its OWN volume", async () => {
+    setupGrouped();
+    const result = await getSoundSystem();
+    expect(result.rooms.find((r) => r.name === "Living Room")?.volume).toBe(10);
+    expect(result.rooms.find((r) => r.name === "Bathroom")?.volume).toBe(87);
+    expect(result.rooms.find((r) => r.name === "Kitchen")?.volume).toBe(40);
+  });
+});
+
 describe("getSoundSystem — error handling (A3)", () => {
   it("throws SonosError when topology fetch fails", async () => {
     mockClients[LIVING_ROOM_IP] = makeMockClient();

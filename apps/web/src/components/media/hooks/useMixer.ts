@@ -18,17 +18,28 @@
  * across successive moves and can cause off-by-one mismatches with the device.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface MixerRoom {
+  /**
+   * This room's own identity key. Defaults to coordinatorUuid when omitted (a
+   * solo, single-speaker group), which keeps single-room callers/tests working.
+   */
+  uuid?: string;
+  /** Coordinator UUID of this room's group — rooms sharing it gang together. */
   coordinatorUuid: string;
   name: string;
   volume: number;
   muted: boolean;
 }
 
+/** A room's stable key: its own uuid, or its coordinatorUuid for solo groups. */
+function roomKey(r: MixerRoom): string {
+  return r.uuid ?? r.coordinatorUuid;
+}
+
 export interface MixerState {
-  /** Current volume per coordinatorUuid, 0-100 integer. */
+  /** Current volume per room key (uuid), 0-100 integer. */
   vols: Record<string, number>;
   /** Gang member set: uuid → true when participating in the group lock. */
   member: Record<string, boolean>;
@@ -95,27 +106,33 @@ function applyGangDelta(
 
 export function useMixer(rooms: MixerRoom[]): MixerState {
   const [vols, setVols] = useState<Record<string, number>>(() =>
-    Object.fromEntries(rooms.map((r) => [r.coordinatorUuid, r.volume])),
+    Object.fromEntries(rooms.map((r) => [roomKey(r), r.volume])),
   );
   const [mutes, setMutes] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(rooms.map((r) => [r.coordinatorUuid, r.muted])),
+    Object.fromEntries(rooms.map((r) => [roomKey(r), r.muted])),
   );
   const [member, setMember] = useState<Record<string, boolean>>({});
   const [groupLock, setGroupLock] = useState(false);
   const [globalLock, setGlobalLockState] = useState(false);
 
+  // roomKey → coordinatorUuid, kept current so setRoomVolume can gang a dragged
+  // fader with its group-mates without re-subscribing the callback. A ref (not
+  // state) so updating it never triggers a render — avoiding the CC-w6ug loop.
+  const groupOf = useRef<Record<string, string>>({});
+  groupOf.current = Object.fromEntries(rooms.map((r) => [roomKey(r), r.coordinatorUuid]));
+
   // Re-sync vols and mutes when the rooms array changes: seed new rooms and prune
   // removed ones. Without pruning, stale uuids linger in state and the gang-lock
   // applies deltas to disconnected speakers (CC-ddo9.2).
   useEffect(() => {
-    const currentUuids = new Set(rooms.map((r) => r.coordinatorUuid));
+    const currentUuids = new Set(rooms.map((r) => roomKey(r)));
     setVols((prev) => {
       const next = { ...prev };
       let changed = false;
       // Seed new rooms.
       for (const r of rooms) {
-        if (!(r.coordinatorUuid in next)) {
-          next[r.coordinatorUuid] = r.volume;
+        if (!(roomKey(r) in next)) {
+          next[roomKey(r)] = r.volume;
           changed = true;
         }
       }
@@ -139,8 +156,8 @@ export function useMixer(rooms: MixerRoom[]): MixerState {
       let changed = false;
       // Seed new rooms.
       for (const r of rooms) {
-        if (!(r.coordinatorUuid in next)) {
-          next[r.coordinatorUuid] = r.muted;
+        if (!(roomKey(r) in next)) {
+          next[roomKey(r)] = r.muted;
           changed = true;
         }
       }
@@ -159,12 +176,18 @@ export function useMixer(rooms: MixerRoom[]): MixerState {
   const setRoomVolume = useCallback(
     (uuid: string, target: number) => {
       setVols((prev) => {
-        // Both groupLock and globalLock lock all known rooms together.
+        // The gang: globalLock/groupLock link ALL rooms; otherwise a dragged
+        // fader moves together with the rooms physically grouped with it (same
+        // coordinatorUuid), so a Sonos group's faders track each other.
+        let gang: string[];
         if (groupLock || globalLock) {
-          const allUuids = Object.keys(prev);
-          if (allUuids.length > 1) {
-            return applyGangDelta(prev, allUuids, uuid, target);
-          }
+          gang = Object.keys(prev);
+        } else {
+          const coord = groupOf.current[uuid];
+          gang = coord ? Object.keys(prev).filter((u) => groupOf.current[u] === coord) : [uuid];
+        }
+        if (gang.length > 1) {
+          return applyGangDelta(prev, gang, uuid, target);
         }
         // Solo fader — clamp and update only this room.
         return { ...prev, [uuid]: clamp(target) };

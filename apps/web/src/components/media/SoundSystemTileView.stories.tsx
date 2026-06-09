@@ -9,6 +9,8 @@ import { SoundSystemTileView } from "./SoundSystemTileView";
 const rooms = [
   {
     coordinatorUuid: "lr",
+    uuid: "lr",
+    deviceIp: "192.168.0.1",
     memberUuids: ["lr"],
     name: "Living Room",
     isCoordinator: true,
@@ -19,6 +21,8 @@ const rooms = [
   },
   {
     coordinatorUuid: "desk",
+    uuid: "desk",
+    deviceIp: "192.168.0.2",
     memberUuids: ["desk"],
     name: "Desk",
     isCoordinator: true,
@@ -29,6 +33,8 @@ const rooms = [
   },
   {
     coordinatorUuid: "bed",
+    uuid: "bed",
+    deviceIp: "192.168.0.3",
     memberUuids: ["bed"],
     name: "Bedroom",
     isCoordinator: true,
@@ -39,6 +45,8 @@ const rooms = [
   },
   {
     coordinatorUuid: "bath",
+    uuid: "bath",
+    deviceIp: "192.168.0.4",
     memberUuids: ["bath"],
     name: "Bathroom",
     isCoordinator: true,
@@ -49,6 +57,8 @@ const rooms = [
   },
   {
     coordinatorUuid: "kit",
+    uuid: "kit",
+    deviceIp: "192.168.0.5",
     memberUuids: ["kit"],
     name: "Kitchen",
     isCoordinator: true,

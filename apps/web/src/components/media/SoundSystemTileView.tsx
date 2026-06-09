@@ -19,6 +19,11 @@ import { Skeleton, Tile, TileHeader } from "@/components/ui";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface SoundSystemRoom {
+  /** This player's own UUID — the stable fader key. */
+  uuid: string;
+  /** This player's LAN IP — target for per-room volume/mute writes. */
+  deviceIp: string;
+  /** Coordinator UUID of this room's group; rooms sharing it are grouped. */
   coordinatorUuid: string;
   /** All member UUIDs in this group (includes coordinator). */
   memberUuids: string[];
@@ -167,6 +172,13 @@ export function SoundSystemTileView({
     );
   }
 
+  // How many rooms share each coordinatorUuid — a count > 1 means that group is
+  // physically grouped in Sonos, so its faders gang together and get an accent ring.
+  const groupSizes: Record<string, number> = {};
+  for (const r of rooms) {
+    groupSizes[r.coordinatorUuid] = (groupSizes[r.coordinatorUuid] ?? 0) + 1;
+  }
+
   return (
     <Tile padding={10} style={{ gap: 8 }}>
       {/* Header row */}
@@ -249,13 +261,15 @@ export function SoundSystemTileView({
         >
           {rooms.map((room) => (
             <VerticalFader
-              key={room.coordinatorUuid}
+              key={room.uuid}
               room={room}
-              volume={vols[room.coordinatorUuid] ?? room.volume}
-              muted={mutes[room.coordinatorUuid] ?? room.muted}
-              ganged={globalLock}
-              onChange={(value) => onFaderChange(room.coordinatorUuid, value)}
-              onOpenSource={() => onOpenSource(room.coordinatorUuid)}
+              volume={vols[room.uuid] ?? room.volume}
+              muted={mutes[room.uuid] ?? room.muted}
+              // Ringed when linked globally, OR physically grouped with another
+              // room (its coordinatorUuid is shared) — those faders gang together.
+              ganged={globalLock || groupSizes[room.coordinatorUuid] > 1}
+              onChange={(value) => onFaderChange(room.uuid, value)}
+              onOpenSource={() => onOpenSource(room.uuid)}
             />
           ))}
         </div>
