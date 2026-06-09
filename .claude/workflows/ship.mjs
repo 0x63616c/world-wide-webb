@@ -45,6 +45,14 @@ const MAX_FIX_ROUNDS = args?.maxFixRounds ?? 3
 const doPush = args?.push === true
 const resumeEpic = args?.resume || ''
 
+// Guard: without a target we cannot produce a validation contract. Fail early
+// rather than creating a bogus epic with an empty goal (CC-ddo9.4).
+if (!resumeEpic && !issue && !goal) {
+  throw new Error(
+    'ship: no target — pass at least one of: args.issue (bd id), args.goal (freeform string), or args.resume (epic id to resume). Example: ship({ issue: "CC-xxx" }) or ship({ goal: "add X feature" }).',
+  )
+}
+
 // Shared rules every implementer/validator agent inherits, so behavior (bun,
 // TDD, gates, no-fake-data, commit hygiene, beads) never drifts between agents.
 const RULES = `
