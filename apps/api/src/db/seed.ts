@@ -2,8 +2,11 @@
  * Seeds the events table with upcoming concert data.
  * Run with: bun run apps/api/src/db/seed.ts
  */
+import { createLogger } from "@repo/logger";
 import { db, pool } from "./index";
 import { events } from "./schema";
+
+const log = createLogger({ service: "api" });
 
 const seedEvents = [
   {
@@ -30,14 +33,14 @@ const seedEvents = [
 ];
 
 async function seed() {
-  console.warn("Seeding events...");
+  log.info("seeding events");
   await db.delete(events);
   const inserted = await db.insert(events).values(seedEvents).returning();
-  console.warn(`Inserted ${inserted.length} events.`);
+  log.info({ count: inserted.length }, "events seeded");
   await pool.end();
 }
 
 seed().catch((err) => {
-  console.error(err);
+  log.error({ err }, "seed failed");
   process.exit(1);
 });

@@ -16,6 +16,7 @@
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { getLogger } from "@repo/logger";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "../db/index";
 import { mediaItem, mediaSource } from "../db/schema";
@@ -74,11 +75,14 @@ export async function runPlaylistPollerCycle(
       videoIds = await listFn(url);
     } catch (err) {
       // Log and continue — a single broken source must not stall the rest.
-      console.warn(`playlist-poller: yt-dlp failed for source ${source.id}:`, err);
+      getLogger().warn({ err, sourceId: source.id }, "yt-dlp failed for source");
       continue;
     }
 
-    if (videoIds.length === 0) continue;
+    if (videoIds.length === 0) {
+      getLogger().debug({ sourceId: source.id }, "playlist empty");
+      continue;
+    }
 
     // Fetch already-known IDs in one query to avoid per-item round-trips.
     const existing = await db
@@ -88,6 +92,17 @@ export async function runPlaylistPollerCycle(
     const existingSet = new Set(existing.map((r) => r.ytVideoId));
 
     const newIds = videoIds.filter((id) => !existingSet.has(id));
+    // Cycle summary: log once per source so operators can see poll progress.
+    getLogger().info(
+      { sourceId: source.id, found: videoIds.length, newCount: newIds.length },
+      "playlist polled",
+    );
+    if (newIds.length > 0) {
+      getLogger().info(
+        { sourceId: source.id, newCount: newIds.length, videoIds: newIds },
+        "new playlist items discovered",
+      );
+    }
     for (const videoId of newIds) {
       // Insert the media_item row. ON CONFLICT DO NOTHING makes this safe even
       // if two poller instances race (the unique index on yt_video_id wins).

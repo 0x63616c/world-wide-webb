@@ -18,6 +18,7 @@
 import { execFile } from "node:child_process";
 import { statSync } from "node:fs";
 import { promisify } from "node:util";
+import { getLogger } from "@repo/logger";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index";
 import { mediaItem } from "../db/schema";
@@ -202,10 +203,16 @@ async function handleYoutubeIngest(rawPayload: unknown): Promise<void> {
   // Load the item to check current state.
   const rows = await db.select().from(mediaItem).where(eq(mediaItem.id, mediaItemId)).limit(1);
   const item = rows[0];
-  if (!item) throw new Error(`media_item not found: ${mediaItemId}`);
+  if (!item) {
+    getLogger().error({ mediaItemId }, "media_item not found");
+    throw new Error(`media_item not found: ${mediaItemId}`);
+  }
 
   // Idempotency: if already complete, skip.
-  if (item.status === "ready") return;
+  if (item.status === "ready") {
+    getLogger().debug({ mediaItemId, videoId }, "youtube_ingest skipped — already ready");
+    return;
+  }
 
   // Disk-space check is performed by the media-worker's disk guard before
   // claiming — see the queueWorker wrapper in media-worker. The handler itself
@@ -214,11 +221,18 @@ async function handleYoutubeIngest(rawPayload: unknown): Promise<void> {
   const storageDir = env.MEDIA_STORAGE_DIR;
 
   // Download audio + thumbnail (+ video if policy = on).
+  const downloadStart = performance.now();
+  getLogger().info({ videoId, videoPolicy }, "yt-dlp download start");
   const { audioPath, videoPath, thumbPath } = await ytdlpDownload(videoId, videoPolicy, storageDir);
+  const downloadMs = +(performance.now() - downloadStart).toFixed(1);
 
   // Record file sizes (bytes) from disk.
   const audioBytes = fileSizeBytes(audioPath);
   const videoBytes = fileSizeBytes(videoPath);
+  getLogger().info(
+    { videoId, audioPath, videoPath, audioBytes, videoBytes, durationMs: downloadMs },
+    "yt-dlp download complete",
+  );
 
   // Get duration from the audio file via yt-dlp --dump-json (already downloaded,
   // so this is metadata-only — no network). We tolerate failure here since the
@@ -234,6 +248,7 @@ async function handleYoutubeIngest(rawPayload: unknown): Promise<void> {
     durationSec = typeof meta.duration === "number" ? Math.round(meta.duration) : null;
   } catch {
     // Non-fatal: duration will be null, which is acceptable.
+    getLogger().warn({ videoId }, "yt-dlp --dump-json failed, duration will be null");
   }
 
   // Enrichment: call OpenRouter for structured metadata. If the key is missing
@@ -243,7 +258,17 @@ async function handleYoutubeIngest(rawPayload: unknown): Promise<void> {
   // enrichment configured).
   let enriched: Awaited<ReturnType<typeof enrichTitle>> | null = null;
   if (env.OPENROUTER_API_KEY) {
+    const enrichStart = performance.now();
+    getLogger().info({ videoId, model: "openai/gpt-4o-mini" }, "OpenRouter enrich start");
     enriched = await enrichTitle(item.rawTitle !== videoId ? item.rawTitle : videoId);
+    const enrichMs = +(performance.now() - enrichStart).toFixed(1);
+    getLogger().info(
+      { videoId, model: "openai/gpt-4o-mini", durationMs: enrichMs },
+      "OpenRouter enrich complete",
+    );
+  } else {
+    // Key absent — enrichment skipped; never log the key value itself.
+    getLogger().warn({ videoId }, "OpenRouter enrich skipped — OPENROUTER_API_KEY not configured");
   }
 
   // Mark as ready and persist all metadata.

@@ -16,6 +16,7 @@
  *   the queue guarantees at-least-once delivery, not exactly-once.
  */
 
+import { getLogger } from "@repo/logger";
 import { sql } from "drizzle-orm";
 import { db } from "../db/index";
 import { job } from "../db/schema";
@@ -129,11 +130,18 @@ export async function claimAndRun(): Promise<boolean> {
     return row;
   });
 
-  if (!claimed) return false;
+  if (!claimed) {
+    getLogger().debug("job queue empty");
+    return false;
+  }
 
   const handler = handlers.get(claimed.type);
   if (!handler) {
     // No handler registered — permanently fail so it doesn't loop forever.
+    getLogger().error(
+      { jobId: claimed.id, type: claimed.type },
+      "no handler registered for job type",
+    );
     await db.execute(
       sql`
         UPDATE job
@@ -146,9 +154,17 @@ export async function claimAndRun(): Promise<boolean> {
     return true;
   }
 
+  getLogger().info(
+    { jobId: claimed.id, type: claimed.type, attempts: claimed.attempts },
+    "job claimed",
+  );
+
+  const claimStartedAt = performance.now();
   try {
     await handler(claimed.payload);
+    const durationMs = +(performance.now() - claimStartedAt).toFixed(1);
     // Success: mark done and record no error.
+    getLogger().info({ jobId: claimed.id, type: claimed.type, durationMs }, "job completed");
     await db.execute(
       sql`
         UPDATE job
@@ -164,6 +180,10 @@ export async function claimAndRun(): Promise<boolean> {
     if (nextAttempts < claimed.max_attempts) {
       // Retry: exponential backoff on run_after, reset to queued.
       const delaySec = backoffSec(nextAttempts);
+      getLogger().warn(
+        { jobId: claimed.id, type: claimed.type, attempt: nextAttempts, delaySec, err },
+        "job retry scheduled",
+      );
       await db.execute(
         sql`
           UPDATE job
@@ -176,6 +196,10 @@ export async function claimAndRun(): Promise<boolean> {
       );
     } else {
       // Exhausted: permanently failed.
+      getLogger().error(
+        { jobId: claimed.id, type: claimed.type, attempts: nextAttempts, err },
+        "job permanently failed",
+      );
       await db.execute(
         sql`
           UPDATE job

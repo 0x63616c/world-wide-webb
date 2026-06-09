@@ -19,8 +19,9 @@
  * (repo zero-fake-data rule). Multi-zone climate is out of scope — this enforcer
  * only manages the one configured house thermostat.
  */
-import { eq } from "drizzle-orm";
 
+import { getLogger } from "@repo/logger";
+import { eq } from "drizzle-orm";
 import { db } from "../db/index";
 import type { DeviceClimateState } from "../db/schema";
 import { deviceState, integrationSyncStatus } from "../db/schema";
@@ -101,6 +102,8 @@ export async function runClimateEnforcerCycle(): Promise<void> {
     await markHeartbeat(null);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    const consecutiveFailures = (await currentFailureStreak()) + 1;
+    getLogger().error({ err, consecutiveFailures }, "climate-enforcer cycle failed");
     await markHeartbeat(msg);
   }
 }
