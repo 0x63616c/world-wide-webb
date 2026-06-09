@@ -17,6 +17,7 @@ COPY apps/worker/package.json apps/worker/
 COPY apps/media-worker/package.json apps/media-worker/
 COPY packages/api/package.json packages/api/
 COPY packages/bosun/package.json packages/bosun/
+COPY packages/logger/package.json packages/logger/
 
 # --ignore-scripts skips the lefthook prepare hook (needs git, absent here).
 RUN bun install --frozen-lockfile --ignore-scripts

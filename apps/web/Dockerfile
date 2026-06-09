@@ -15,6 +15,7 @@ COPY apps/worker/package.json ./apps/worker/package.json
 COPY apps/media-worker/package.json ./apps/media-worker/package.json
 COPY packages/api/package.json ./packages/api/package.json
 COPY packages/bosun/package.json ./packages/bosun/package.json
+COPY packages/logger/package.json ./packages/logger/package.json
 
 # --ignore-scripts skips the lefthook prepare hook (needs git, not in alpine image).
 RUN bun install --frozen-lockfile --ignore-scripts
