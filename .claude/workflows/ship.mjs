@@ -40,10 +40,10 @@ const BOOK_M = 'haiku' // mechanical bookkeeping: persist plan, run gates, final
 //   push         true to git push at the end (default false: conservative, Finalize reports instead)
 const issue = args?.issue || ''
 const goal = args?.goal || ''
-const ui = args?.ui !== false
+const ui = args?.ui === true // TEMP(www-51hf finish): args not marshalling — default lean (no browser-QA chromium)
 const MAX_FIX_ROUNDS = args?.maxFixRounds ?? 3
-const doPush = args?.push === true
-const resumeEpic = args?.resume || ''
+const doPush = args?.push !== false // TEMP(www-51hf finish): default push+deploy
+const resumeEpic = args?.resume || 'www-51hf' // TEMP(www-51hf finish): default resume target
 
 // Guard: without a target we cannot produce a validation contract. Fail early
 // rather than creating a bogus epic with an empty goal (www-ddo9.4).
