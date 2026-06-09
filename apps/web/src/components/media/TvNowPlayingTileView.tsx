@@ -225,6 +225,10 @@ export type TvNowPlayingTileViewProps =
       onPlayPause?: () => void;
       onNext?: () => void;
       onSeek?: (positionSeconds: number) => void;
+      /** Opens the Transport & Scrub detail modal (A20). */
+      onOpenTransport?: () => void;
+      /** Opens the TV Remote D-pad modal (A21). */
+      onOpenRemote?: () => void;
     };
 
 // ── Pure view ─────────────────────────────────────────────────────────────────
@@ -247,6 +251,8 @@ export function TvNowPlayingTileView(props: TvNowPlayingTileViewProps) {
     onPlayPause = () => {},
     onNext = () => {},
     onSeek = () => {},
+    onOpenTransport,
+    onOpenRemote,
   } = props;
 
   const isIdle = source === "idle";
@@ -254,14 +260,72 @@ export function TvNowPlayingTileView(props: TvNowPlayingTileViewProps) {
 
   return (
     <Tile padding={18} style={{ gap: 10 }}>
-      {/* Header */}
+      {/* Header with optional modal-open buttons */}
       <TileHeader
         icon="cam"
         title="TV"
         right={
-          <span className="pill" style={{ fontSize: 11, padding: "3px 9px" }}>
-            {sourceLabel(source, appName)}
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {onOpenRemote && (
+              <button
+                type="button"
+                data-open-remote
+                aria-label="Remote"
+                onClick={onOpenRemote}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--ink-3)",
+                  padding: 2,
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                {/* D-pad icon */}
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M10 2v4H7l5 5 5-5h-3V2zM2 10h4v3l5-5-5-5v3H2zm8 12v-4h3l-5-5-5 5h3v4zm12-8h-4v-3l-5 5 5 5v-3h4z" />
+                </svg>
+              </button>
+            )}
+            {onOpenTransport && (
+              <button
+                type="button"
+                data-open-transport
+                aria-label="Detail"
+                onClick={onOpenTransport}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--ink-3)",
+                  padding: 2,
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                {/* expand icon */}
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z" />
+                </svg>
+              </button>
+            )}
+            <span className="pill" style={{ fontSize: 11, padding: "3px 9px" }}>
+              {sourceLabel(source, appName)}
+            </span>
+          </div>
         }
       />
 
