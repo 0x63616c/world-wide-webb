@@ -1,10 +1,11 @@
 /**
- * Tests for TvAppsTileView (www-51hf.21).
+ * Tests for TvAppsTileView (www-0z4f — design match).
  *
- * A26: Hero cell for the currently-open Apple TV app (or idle state),
- *      2x2 grid of other top apps, accent ring on open app, launch via mutation.
- * A17: uses shared ui primitives.
- * A32: co-located test + stories.
+ * Hero card shows the open app's brand logo + name + "OPEN · RESUME"; the 2×2
+ * grid shows logo-only cells (no text labels) addressable by aria-label; a
+ * colored status pill replaces the old grid-icon button, and the whole tile
+ * owns the tap that opens AllAppsModal (app buttons stopPropagation to launch).
+ * A17: uses shared ui primitives. A32: co-located test + stories.
  */
 import "@testing-library/jest-dom";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -39,44 +40,59 @@ describe("TvAppsTileView — loading/error", () => {
   });
 });
 
-describe("TvAppsTileView — populated (A26)", () => {
+describe("TvAppsTileView — populated", () => {
   it("renders a header", () => {
     render(<TvAppsTileView {...baseProps} />);
     expect(screen.getByText(/tv apps/i)).toBeInTheDocument();
   });
 
-  it("renders the current app as the hero", () => {
+  it("renders the current app name as the hero", () => {
     render(<TvAppsTileView {...baseProps} />);
     expect(screen.getAllByText("Netflix").length).toBeGreaterThan(0);
+    expect(screen.getByText(/open · resume/i)).toBeInTheDocument();
   });
 
-  it("renders other apps in the grid", () => {
+  it("shows a status pill with the active app name", () => {
     render(<TvAppsTileView {...baseProps} />);
-    // Other apps (not current) should appear
-    expect(screen.getByText("Disney+")).toBeInTheDocument();
+    // Pill text + hero name both say "Netflix".
+    expect(screen.getAllByText("Netflix").length).toBeGreaterThanOrEqual(2);
   });
 
-  it("calls onLaunchApp when an app is clicked", () => {
+  it("renders other apps as logo-only grid cells (no text label)", () => {
+    render(<TvAppsTileView {...baseProps} />);
+    // The grid cell is addressable by its aria-label, not by visible text.
+    expect(screen.getByRole("button", { name: "Disney+" })).toBeInTheDocument();
+  });
+
+  it("launches the hero app when the hero is clicked", () => {
     const onLaunchApp = vi.fn();
     render(<TvAppsTileView {...baseProps} onLaunchApp={onLaunchApp} />);
-    fireEvent.click(screen.getByText("Disney+"));
+    fireEvent.click(screen.getByRole("button", { name: "Netflix — open" }));
+    expect(onLaunchApp).toHaveBeenCalledWith("Netflix");
+  });
+
+  it("launches a grid app when its cell is clicked", () => {
+    const onLaunchApp = vi.fn();
+    const onOpenAllApps = vi.fn();
+    render(
+      <TvAppsTileView {...baseProps} onLaunchApp={onLaunchApp} onOpenAllApps={onOpenAllApps} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Disney+" }));
     expect(onLaunchApp).toHaveBeenCalledWith("Disney+");
+    // App taps must NOT bubble up to open the all-apps modal.
+    expect(onOpenAllApps).not.toHaveBeenCalled();
   });
 
-  it("renders an all-apps button", () => {
-    render(<TvAppsTileView {...baseProps} />);
-    expect(screen.getByLabelText(/all apps/i)).toBeInTheDocument();
-  });
-
-  it("calls onOpenAllApps when all-apps button clicked", () => {
+  it("opens all-apps when the tile surface (header) is tapped", () => {
     const onOpenAllApps = vi.fn();
     render(<TvAppsTileView {...baseProps} onOpenAllApps={onOpenAllApps} />);
-    fireEvent.click(screen.getByLabelText(/all apps/i));
+    fireEvent.click(screen.getByText(/tv apps/i));
     expect(onOpenAllApps).toHaveBeenCalledTimes(1);
   });
 
   it("renders idle state when no currentApp", () => {
     render(<TvAppsTileView {...baseProps} currentApp={null} />);
-    expect(screen.getByText(/idle|no app/i)).toBeInTheDocument();
+    expect(screen.getByText(/nothing open/i)).toBeInTheDocument();
+    expect(screen.getByText("Apple TV")).toBeInTheDocument();
   });
 });
