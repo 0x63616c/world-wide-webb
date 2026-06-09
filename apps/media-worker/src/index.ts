@@ -22,9 +22,23 @@ import {
   runMigrations,
   runPlaylistPollerCycle,
 } from "@repo/api/media";
+import { createLogger } from "@repo/logger";
+
+// Root logger for this process. All structured lines from media-worker code
+// bind service: "media-worker" and env automatically. Shared @repo/api domain
+// services (queue, poller, ingest) acquire the root via getLogger() so their
+// lines also bind service: "media-worker" under this process.
+const log = createLogger({ service: "media-worker" });
 
 // Apply pending schema migrations before any worker cycle touches the DB.
-await runMigrations();
+log.info("migrations starting");
+try {
+  await runMigrations();
+  log.info("migrations done");
+} catch (err) {
+  log.error({ err }, "migrations failed");
+  process.exit(1);
+}
 
 // Register all job handlers before the queue-worker starts claiming.
 // Handlers must be registered synchronously at startup — the queue-worker
@@ -48,9 +62,15 @@ export function hasSufficientDisk(
     const stats = statfsSync(dir);
     // bavail = blocks available to non-root; bsize = block size in bytes.
     const freeBytes = stats.bavail * stats.bsize;
+    if (freeBytes < thresholdBytes) {
+      // Structured context so operators can see exact bytes vs threshold.
+      log.warn({ freeBytes, thresholdBytes, dir }, "disk below threshold, skipping claim");
+    }
     return freeBytes >= thresholdBytes;
-  } catch {
+  } catch (err) {
     // statfsSync failed (dir doesn't exist yet, etc.) — don't block startup.
+    // Log explicitly so the allow-on-error assumption is visible to operators.
+    log.warn({ err, dir }, "statfs failed, assuming sufficient");
     return true;
   }
 }
@@ -74,8 +94,8 @@ const workers: Worker[] = [
       // Check disk before claiming — a full NAS must not start a new download.
       // claimAndRun handles individual job dispatch; we guard at the worker level
       // so the guard applies to every claim regardless of handler.
+      // hasSufficientDisk emits the structured warn when space is low.
       if (!hasSufficientDisk()) {
-        console.warn("queue-worker: disk below threshold, skipping claim");
         return;
       }
       // Drain the queue (claim + run until empty or one failure).
@@ -94,18 +114,17 @@ const workers: Worker[] = [
   },
 ];
 
-const runtime = createWorkerRuntime(workers);
+const runtime = createWorkerRuntime(workers, { logger: log });
 runtime.start();
 
-console.warn(
-  `Media-worker started (env=${env.NODE_ENV}); workers: ${workers.map((w) => w.name).join(", ")}`,
-);
+// Startup line — the operator anchors liveness on this appearing in docker logs.
+log.info({ workers: workers.map((w) => w.name), env: env.NODE_ENV }, "media-worker started");
 
 // Graceful shutdown: stop scheduling new cycles so Swarm can replace the task
 // without an in-flight download racing the kill signal.
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
-    console.warn(`Media-worker received ${signal}; stopping runtime`);
+    log.info({ signal }, "media-worker stopping");
     runtime.stop();
     process.exit(0);
   });
