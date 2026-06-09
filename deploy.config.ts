@@ -134,15 +134,17 @@ export default stack("control-center", {
     // as the web service's `maps` mount. Pinned to the manager (host-local mount).
     service("media-worker", {
       image: ghcr("control-center-media-worker"),
-      // RE-ENABLED (CC-ke9a phase 2). Previously parked at 0 (CC-nqqj) after it ran
-      // UNCAPPED and starved the OrbStack VM into a kernel RCU-sched stall (OOM),
-      // wedging docker + the cloudflared connector into a full prod outage
-      // (Cloudflare 1033 / HTTP 530). Safe to run again now that the 1G memory cap
-      // below is live: under cgroup v2 a runaway download is OOM-killed at the
-      // CONTAINER boundary (blast radius = this pod, not the VM), and the dirty
-      // page-cache writeback to the slow NAS NFS mount is charged to + bounded by
-      // the cgroup. To re-park in an emergency, set replicas back to 0.
-      replicas: 1,
+      // RE-PARKED AT 0 — second hold (CC-6mz7). The 1G cap (below) solved the
+      // ORIGINAL outage cause (uncapped OOM → RCU stall), but re-enabling exposed a
+      // SECOND, separate blocker: the container can't even start because OrbStack's
+      // bind-mount of the NFS media share (/Users/calum/control-center/media) HANGS
+      // (a throwaway `docker run -v …` hangs >20s; host `ls` is instant). The stuck
+      // uninterruptible mount ops then wedged dockerd's task-create path and took
+      // the cloudflared connector down too → a fresh Cloudflare 1033 outage. So
+      // media-worker stays at 0 until the OrbStack↔NFS share is fixed (CC-6mz7:
+      // re-establish the share / mount NFS before OrbStack init). The cap stays set
+      // so re-enabling is again a one-line 0→1 flip once CC-6mz7 lands.
+      replicas: 0,
       // 1G hard memory cap — the structural fix for the outage (CC-ke9a). yt-dlp
       // streams to disk and never re-encodes, so peak working set is hundreds of
       // MB independent of file size; under cgroup v2 this cap also contains the
