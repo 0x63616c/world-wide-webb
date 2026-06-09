@@ -1,8 +1,17 @@
 // Command dispatcher for the bosun CLI.
 // Entry point: `bun run bosun <cmd>` (root package.json "bosun" script).
+//
+// process.env reads are sanctioned here by the biome noProcessEnv override for
+// this file — bosun is an ops tool (not a library) and must read its own env.
+import { createLogger } from "@repo/logger";
 import { makeDefaultFetcher, makeDefaultRunner, runProbes, summarizeVerify } from "./health.ts";
 
 const [, , command, ...args] = process.argv;
+
+// Root logger for the bosun process. pretty:false forces raw JSON regardless of
+// NODE_ENV — the deploy agent must emit JSON in prod even when NODE_ENV is unset.
+// See docs/logging.md §3.
+const log = createLogger({ service: "bosun", pretty: false });
 
 async function main(): Promise<void> {
   switch (command) {
@@ -37,7 +46,9 @@ async function main(): Promise<void> {
 }
 
 function printUsage(): void {
-  console.error(
+  // Usage text goes to stderr — structured logging is for runtime events, not
+  // human-readable CLI help.
+  process.stderr.write(
     [
       "Usage: bun run bosun <command>",
       "",
@@ -49,6 +60,7 @@ function printUsage(): void {
       "  verify        Run all declared health probes; exit 0 iff all pass",
       "  serve         Start the webhook receiver for CI-triggered deploys",
       "  run-job <name>  Fire one cronJob() now (same Swarm-job path the scheduler uses)",
+      "",
     ].join("\n"),
   );
 }
@@ -72,7 +84,8 @@ function parseOverridesArg(raw: string | undefined): Record<string, string> | un
       return parsed as Record<string, string>;
     }
   } catch {
-    // Malformed — deploy by :main tag rather than crash the deploy.
+    // Malformed — warn and deploy by :main tag rather than crash the deploy.
+    log.warn({ raw }, "parseOverridesArg: malformed JSON arg, falling back to tag-based deploy");
   }
   return undefined;
 }
@@ -80,13 +93,13 @@ function parseOverridesArg(raw: string | undefined): Record<string, string> | un
 // plan: evaluate the config and print the static Spec (no secret values).
 async function cmdPlan(): Promise<void> {
   const spec = await loadSpec();
-  console.log(JSON.stringify(spec, null, 2));
+  process.stdout.write(`${JSON.stringify(spec, null, 2)}\n`);
 }
 
 // secrets sync: resolve refs via providers and reconcile docker secrets.
 async function cmdSecrets(args: string[]): Promise<void> {
   if (args[0] !== "sync") {
-    console.error("Usage: bosun secrets sync");
+    log.error({ usage: "bosun secrets sync" }, "secrets: missing subcommand");
     process.exit(1);
   }
 
@@ -114,15 +127,20 @@ async function cmdSecrets(args: string[]): Promise<void> {
   const { names, stale } = await reconcileSecrets(spec.stackName, resolved, client);
   // No deploy follows a standalone sync, so still-in-use secrets can't be removed
   // yet — pruneSecrets tolerates that and skips them (www-8pt).
-  await pruneSecrets(stale, client, console.log);
-  console.log("Secrets synced:", names);
+  await pruneSecrets(stale, client, makeStructuredPruneLogger(log));
+  // Log secret names (docker hashed names, never values) so the operator can
+  // verify which secrets are live.
+  log.info(
+    { step: "secrets", names: Object.keys(names), staleCount: stale.length },
+    "secrets synced",
+  );
 }
 
 // routes sync: reconcile Cloudflare tunnel routes (ingress) AND public DNS
 // (proxied CNAME -> tunnel) from declared route: fields.
 async function cmdRoutes(args: string[]): Promise<void> {
   if (args[0] !== "sync") {
-    console.error("Usage: bosun routes sync");
+    log.error({ usage: "bosun routes sync" }, "routes: missing subcommand");
     process.exit(1);
   }
 
@@ -167,10 +185,10 @@ async function reconcileCloudflare(
   if (!accountId || !zoneId || !tunnelId) {
     const msg = "CF_ACCOUNT_ID, CF_ZONE_ID and CF_TUNNEL_ID must be set in the environment";
     if (opts.advisory) {
-      console.warn(`[bosun routes] skipping Cloudflare reconcile — ${msg}`);
+      log.warn({ step: "routes", advisory: true }, `skipping Cloudflare reconcile — ${msg}`);
       return;
     }
-    console.error(msg);
+    log.error({ step: "routes" }, msg);
     process.exit(1);
   }
 
@@ -207,7 +225,7 @@ async function reconcileCloudflare(
 
     // 1. Tunnel ingress.
     await reconcileRoutes(spec.stackName, declared, routeClient);
-    console.log("Routes synced:", declared);
+    log.info({ step: "routes", hostnames: declared }, "routes synced");
 
     // 2. Public DNS. Prune ownership: a CNAME is eligible for prune only if its
     // hostname is one this stack OWNS as a tunnel ingress route (origin = a stack
@@ -220,7 +238,7 @@ async function reconcileCloudflare(
       .map((r) => r.hostname);
     const dnsOwned = new Set([...ownedHostnames, ...declared]);
     await reconcileDns(declared, tunnelCnameTarget(tunnelId), dnsClient, dnsOwned);
-    console.log("DNS synced:", declared);
+    log.info({ step: "routes", hostnames: declared }, "DNS synced");
   });
 }
 
@@ -236,9 +254,9 @@ async function runCloudflareStep(
     await fn();
   } catch (err) {
     if (!advisory) throw err;
-    console.warn(
-      `[bosun routes] ${label} reconcile failed (advisory, deploy continues):`,
-      err instanceof Error ? err.message : String(err),
+    log.warn(
+      { step: "routes", label, err, advisory: true },
+      "Cloudflare reconcile failed (advisory, deploy continues)",
     );
   }
 }
@@ -260,15 +278,19 @@ async function cmdUp(
   // the Cloudflare routes/DNS reconcile (advisory on the webhook path).
   opts: { advisoryVerify?: boolean } = {},
 ): Promise<void> {
-  console.log("[bosun up] Loading config...");
+  const deployLog = log.child({ step: "deploy" });
+
+  deployLog.info({}, "loading config");
   if (imageOverrides && Object.keys(imageOverrides).length > 0) {
-    console.log("[bosun up] Pinning images by digest:", imageOverrides);
+    // Log only the image names (keys), never digest values — they are not
+    // secrets but keeping this log tight makes the pattern clear.
+    deployLog.info({ imageKeys: Object.keys(imageOverrides) }, "pinning images by digest");
   }
   const { default: spec } = (await import(`${process.cwd()}/deploy.config.ts`)) as {
     default: import("./spec.ts").Spec;
   };
 
-  console.log("[bosun up] Syncing secrets...");
+  deployLog.info({}, "syncing secrets");
   const { makeDefaultExec, OpProvider } = await import("./providers/op.ts");
   const { reconcileSecrets, pruneSecrets, makeDefaultDockerSecretClient } = await import(
     "./reconcile/secrets.ts"
@@ -289,26 +311,33 @@ async function cmdUp(
     resolved,
     secretClient,
   );
+  // Log created names (docker hashed names) and stale count — never the values.
+  deployLog.info(
+    { secretNames: Object.keys(secretNames), staleCount: staleSecrets.length },
+    "secrets reconciled",
+  );
 
-  console.log("[bosun up] Rendering stack and deploying...");
+  deployLog.info({}, "rendering stack and deploying");
   const { renderStackYml, deployStack } = await import("./reconcile/stack.ts");
   const yml = renderStackYml(spec, secretNames, imageOverrides);
+  const t0 = Date.now();
   const deployOut = await deployStack(spec.stackName, yml);
-  if (deployOut) console.log(deployOut);
+  const durationMs = Date.now() - t0;
+  deployLog.info({ durationMs, stdout: deployOut || undefined }, "stack deployed");
 
   // Prune stale secrets ONLY after the stack has redeployed off them — a rename
   // (e.g. cc_ -> control-center_) leaves the old secret in use until this deploy
   // re-points services, so pruning earlier would refuse + abort the deploy (www-8pt).
-  await pruneSecrets(staleSecrets, secretClient, console.log);
+  await pruneSecrets(staleSecrets, secretClient, makeStructuredPruneLogger(deployLog));
 
   // Reconcile Cloudflare tunnel ingress + public DNS so a service that declares
   // a `route:` is publicly reachable with no manual CF steps (www-vqyv). Runs
   // after the deploy (origins must exist first) and is advisory on the webhook
   // path — a CF failure logs but never fails the deploy, like verify below.
-  console.log("[bosun up] Reconciling Cloudflare routes + DNS...");
+  deployLog.info({}, "reconciling Cloudflare routes + DNS");
   await reconcileCloudflare(spec, { advisory: opts.advisoryVerify ?? false });
 
-  console.log("[bosun up] Verifying...");
+  deployLog.info({}, "verifying");
   await runVerify(
     spec.services.flatMap((svc) => svc.health),
     opts.advisoryVerify ?? false,
@@ -335,7 +364,19 @@ async function runVerify(
   });
 
   const { lines, failed } = summarizeVerify(result, advisory);
-  for (const line of lines) console.log(line);
+  // summarizeVerify returns human-readable lines for operator terminals.
+  // Also log the outcome as a structured event so it appears in the agent's
+  // prod JSON stream.
+  log.info(
+    {
+      step: "verify",
+      passed: result.results.filter((r) => r.pass).length,
+      total: result.results.length,
+      failed,
+    },
+    "verify complete",
+  );
+  for (const line of lines) process.stdout.write(`${line}\n`);
 
   // Advisory (serve path): never exit — a not-yet-warm probe must not look like a
   // failed deploy (www-1dx). Interactive `up`/`verify`: exit non-zero so a broken
@@ -352,7 +393,7 @@ async function cmdServe(): Promise<void> {
   const port = Number(process.env.BOSUN_PORT ?? 4202);
   const token = process.env.BOSUN_WEBHOOK_TOKEN;
   if (!token) {
-    console.error("BOSUN_WEBHOOK_TOKEN must be set");
+    log.error({ step: "serve" }, "BOSUN_WEBHOOK_TOKEN must be set");
     process.exit(1);
   }
 
@@ -365,9 +406,30 @@ async function cmdServe(): Promise<void> {
   // a manager node with the docker socket, so it runs each cronJob() on its
   // schedule as a one-shot Swarm job — replacing the old third-party scheduler pod.
   const { startScheduler } = await import("./scheduler.ts");
-  startScheduler(spec.services, spec.stackName, makeDefaultRunner(), console.log);
+  const schedulerLog = log.child({ step: "scheduler" });
+  const stopScheduler = startScheduler(
+    spec.services,
+    spec.stackName,
+    makeDefaultRunner(),
+    schedulerLog,
+  );
 
-  console.log(`[bosun serve] Listening on :${port} for POST /deploy/${spec.stackName}`);
+  const cronJobs = spec.services.filter((svc) => svc.schedule).map((svc) => svc.name);
+
+  // SIGTERM/SIGINT: log shutdown + stop the scheduler interval cleanly before
+  // the process exits. Without this the interval fires once more and prints
+  // an error because the docker socket is gone.
+  const handleShutdown = (signal: string): void => {
+    log.info({ step: "serve", signal }, "bosun shutting down");
+    stopScheduler();
+    process.exit(0);
+  };
+  process.on("SIGTERM", () => handleShutdown("SIGTERM"));
+  process.on("SIGINT", () => handleShutdown("SIGINT"));
+
+  // Startup line — the liveness anchor in `docker service logs`. An operator
+  // greps this first to confirm the agent booted and configured its logger.
+  log.info({ step: "serve", stack: spec.stackName, port, cronJobs }, "bosun started");
 
   const runner = makeDefaultRunner();
   Bun.serve({
@@ -385,9 +447,9 @@ async function cmdServe(): Promise<void> {
             stackName: spec.stackName,
             runner,
             inProcessUp: (o) => cmdUp(o, { advisoryVerify: true }),
-            log: console.log,
+            log: makeStructuredServeLogger(log),
             env: process.env,
-          }).catch((err) => console.error("[bosun serve] deploy error:", err)),
+          }).catch((err) => log.error({ step: "serve", err }, "deploy error")),
       });
     },
   });
@@ -401,7 +463,7 @@ async function cmdServe(): Promise<void> {
 async function cmdRunJob(args: string[]): Promise<void> {
   const name = args[0];
   if (!name) {
-    console.error("Usage: bosun run-job <name>");
+    log.error({ usage: "bosun run-job <name>" }, "run-job: missing job name");
     process.exit(1);
   }
 
@@ -415,18 +477,40 @@ async function cmdRunJob(args: string[]): Promise<void> {
   const svc = jobServiceName(spec.stackName, name);
   const cmd = buildJobCommand(job, spec.stackName);
 
-  console.log(`[bosun run-job] firing '${name}' as Swarm job ${svc}`);
+  log.info({ step: "run-job", name, svc }, "firing cron job as Swarm job");
   const { exitCode } = await makeDefaultRunner()(cmd);
   if (exitCode !== 0) {
-    console.error(`[bosun run-job] '${name}' service create exited ${exitCode}`);
+    log.error({ step: "run-job", name, exitCode }, "run-job service create failed");
     process.exit(exitCode);
   }
-  console.log(
-    `[bosun run-job] '${name}' dispatched. Inspect: docker service ps ${svc} (visible in Portainer)`,
-  );
+  log.info({ step: "run-job", name, svc }, "cron job dispatched");
+}
+
+// Build a string-message logger from the structured log for the pruneSecrets
+// callback. Logs deferred prune messages at warn level (the secret is still
+// in use — recoverable, not pages-worthy).
+function makeStructuredPruneLogger(
+  parentLog: import("@repo/logger").Logger,
+): (msg: string) => void {
+  return (msg: string) => {
+    // Extract the docker secret name from the deferred-prune message format.
+    parentLog.warn({ step: "secrets" }, msg);
+  };
+}
+
+// Build the string-message logger for runWebhookDeploy. Maps to the structured
+// log at info level — these are lifecycle messages (one-shot exit, path chosen).
+function makeStructuredServeLogger(
+  parentLog: import("@repo/logger").Logger,
+): (msg: string) => void {
+  return (msg: string) => {
+    parentLog.info({ step: "serve" }, msg);
+  };
 }
 
 main().catch((err) => {
-  console.error(err instanceof Error ? err.message : String(err));
+  // Log the full error object (stack + message) so the exact failure site is
+  // visible in the agent's JSON log stream, not just the message string.
+  log.error({ err }, "bosun command failed");
   process.exit(1);
 });

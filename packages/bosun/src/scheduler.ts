@@ -8,6 +8,7 @@
 // matching, selection, command-building, and guard logic are unit-testable
 // without real timers or a real docker daemon — mirroring health.ts.
 
+import type { Logger } from "@repo/logger";
 import type { Runner } from "./health.ts";
 import type { ServiceSpec } from "./spec.ts";
 
@@ -217,7 +218,15 @@ export function slotKey(d: Date): string {
 // survives an agent restart. Injected so runDueJobs is testable without docker.
 export type JobInspector = (svc: string) => Promise<{ slot: string | null; inFlight: boolean }>;
 
-type Logger = (msg: string) => void;
+// A no-op fallback logger when no real logger is injected (e.g. pure unit tests
+// that don't care about log output). The default is intentionally silent.
+const NOOP_LOGGER: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  child: () => NOOP_LOGGER,
+} as unknown as Logger;
 
 // Run every job due at `now`. Both guards are derived from swarm (via the
 // injected inspector), not in-memory state, so a just-restarted scheduler makes
@@ -233,10 +242,13 @@ export async function runDueJobs(
   runner: Runner,
   inspect: JobInspector,
   stackName: string,
-  log: Logger = () => {},
+  log: Logger = NOOP_LOGGER,
 ): Promise<void> {
   const slot = slotKey(now);
   const due = dueCronJobs(services, now);
+
+  // Debug heartbeat: how many jobs are due this tick.
+  log.debug({ slot, dueCount: due.length }, "scheduler tick");
 
   await Promise.all(
     due.map(async (job) => {
@@ -245,26 +257,29 @@ export async function runDueJobs(
       try {
         view = await inspect(svc);
       } catch (err) {
-        log(
-          `[scheduler] '${job.name}' inspect failed (${err instanceof Error ? err.message : String(err)}); skipping slot ${slot}`,
-        );
+        log.warn({ err, job: job.name, slot }, "inspect failed, skipping slot");
         return;
       }
       if (view.slot === slot) {
-        log(`[scheduler] '${job.name}' already ran slot ${slot} (per swarm), skipping`);
+        log.debug({ job: job.name, slot }, "already ran this slot (per swarm), skipping");
         return;
       }
       if (view.inFlight) {
-        log(`[scheduler] '${job.name}' still in flight (per swarm), skipping slot ${slot}`);
+        log.debug({ job: job.name, slot }, "still in flight (per swarm), skipping slot");
         return;
       }
       const cmd = buildJobCommand(job, stackName, slot);
-      log(`[scheduler] running '${job.name}' slot ${slot}: ${cmd}`);
+      log.info({ job: job.name, slot }, "dispatching cron job");
       try {
         const { exitCode } = await runner(cmd);
-        log(`[scheduler] '${job.name}' slot ${slot} dispatched (exit ${exitCode})`);
+        if (exitCode !== 0) {
+          // Non-zero exit from the docker service create (e.g. image pull failed).
+          log.warn({ job: job.name, slot, exitCode }, "cron job dispatched with non-zero exit");
+        } else {
+          log.info({ job: job.name, slot, exitCode }, "cron job dispatched");
+        }
       } catch (err) {
-        log(`[scheduler] '${job.name}' error: ${err instanceof Error ? err.message : String(err)}`);
+        log.error({ err, job: job.name, slot }, "cron job runner threw");
       }
     }),
   );
@@ -324,16 +339,14 @@ export function startScheduler(
   services: ServiceSpec[],
   stackName: string,
   runner: Runner,
-  // Defaults to silent; cli.ts (the console-allowed entry point) passes console.log.
-  log: Logger = () => {},
+  // Defaults to the no-op logger; cli.ts passes a pino child bound to step:"scheduler".
+  log: Logger = NOOP_LOGGER,
 ): () => void {
   const jobs = services.filter((s) => s.schedule);
   // No in-memory run-state: the inspector reads dedupe/overlap truth from swarm
   // each tick, so a restarted agent recovers its decisions for free.
   const inspect = makeDefaultJobInspector();
-  log(
-    `[scheduler] managing ${jobs.length} cron job(s): ${jobs.map((j) => j.name).join(", ") || "(none)"}`,
-  );
+  log.info({ jobCount: jobs.length, jobs: jobs.map((j) => j.name) }, "scheduler started");
   // Tick every 30s so a job is never missed within its target minute even if a
   // tick lands late; the swarm-derived slot guard collapses the two ticks to one run.
   const timer = setInterval(() => {

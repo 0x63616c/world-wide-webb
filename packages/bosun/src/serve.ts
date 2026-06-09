@@ -4,6 +4,9 @@
 // out to a real `bosun up`.
 
 import type { Runner } from "./health.ts";
+// serve.ts deliberately has no process.env reads and no direct logger creation —
+// it is pure (injected deps only) so it stays unit-testable. The log callback is
+// the injection point; cli.ts wires the real pino logger via makeStructuredServeLogger.
 
 export interface ServeOptions {
   // Stack this receiver deploys. The deploy path is namespaced by it so the
