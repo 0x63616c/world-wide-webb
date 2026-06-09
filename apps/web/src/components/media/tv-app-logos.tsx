@@ -176,6 +176,48 @@ function resolveKey(name: string): string {
   return ALIASES[key] ?? key;
 }
 
+/** True if the app resolves to a registered full-color brand mark (not the glyph). */
+function hasBrandMark(name: string): boolean {
+  return resolveKey(name) in BRANDS;
+}
+
+/**
+ * Curated favorites, in display order. Chosen because each has a real brand mark
+ * and is a likely "what's open" hero. Matched against the live HA source_list by
+ * normalized key, so spelling variants ("Apple TV" / "Apple TV+", "HBO Max" /
+ * "Max") still resolve. An app only ever appears if it's actually installed.
+ */
+const FAVORITE_APPS = [
+  "YouTube",
+  "Netflix",
+  "Prime Video",
+  "Disney+",
+  "Hulu",
+  "Apple TV+",
+  "Spotify",
+  "Max",
+] as const;
+
+const FAVORITE_RANK = new Map(FAVORITE_APPS.map((name, i) => [resolveKey(name), i]));
+
+/**
+ * Orders the live source_list for display: curated favorites first (in
+ * FAVORITE_APPS order), then the remaining apps with branded-logo ones before
+ * glyph-only fallbacks (each group keeps source_list order). Returns the REAL
+ * source_list strings so they stay launchable. Drives BOTH the tile's 2×2 grid
+ * and the AllAppsModal browse list, so the two never disagree.
+ */
+export function tvAppsInOrder(sourceList: string[]): string[] {
+  const rankOf = (a: string) => FAVORITE_RANK.get(resolveKey(a));
+  const favorites = sourceList
+    .filter((a) => rankOf(a) !== undefined)
+    .sort((a, b) => (rankOf(a) ?? 0) - (rankOf(b) ?? 0));
+  const rest = sourceList.filter((a) => rankOf(a) === undefined);
+  const branded = rest.filter(hasBrandMark);
+  const glyphOnly = rest.filter((a) => !hasBrandMark(a));
+  return [...favorites, ...branded, ...glyphOnly];
+}
+
 /** Derives a deterministic 2-letter monospace glyph from a real app name. */
 function fallbackGlyph(name: string): string {
   const words = name
