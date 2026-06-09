@@ -9,9 +9,10 @@
  * (A25/A31) — selecting Line-in writes the room's source via sonosSetLineIn.
  */
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useMixer } from "./hooks/useMixer";
+import { useThrottledVolume } from "./hooks/useThrottledVolume";
 import { MixerModal } from "./MixerModal";
 import { SoundSystemTileView } from "./SoundSystemTileView";
 import { SourceModal } from "./SourceModal";
@@ -28,6 +29,17 @@ export function SoundSystemTile() {
 
   const setVolMutation = trpc.media.sonosSetVolume.useMutation();
   const setMuteMutation = trpc.media.sonosSetMute.useMutation();
+
+  // CC-83z4: throttle the network write to ~200ms (leading + trailing) so a
+  // fader drag sends at most ~1 UPnP write per 200ms per speaker.
+  const writeVolume = useThrottledVolume(
+    useCallback(
+      (deviceIp: string, volume: number) => {
+        setVolMutation.mutate({ deviceIp, volume });
+      },
+      [setVolMutation],
+    ),
+  );
   const groupJoinMutation = trpc.media.sonosGroupJoin.useMutation();
   const groupLeaveMutation = trpc.media.sonosGroupLeave.useMutation();
   const setLineInMutation = trpc.media.sonosSetLineIn.useMutation();
@@ -63,11 +75,14 @@ export function SoundSystemTile() {
   }
 
   function handleFaderChange(uuid: string, value: number) {
+    // Local fader is instant — useMixer updates immediately per move.
     mixer.setRoomVolume(uuid, value);
     const room = rooms.find((r) => r.uuid === uuid);
     if (!room) return;
-    // Write to the room's real device IP (each player owns its own volume).
-    setVolMutation.mutate({ deviceIp: room.deviceIp, volume: Math.round(value) });
+    // Network write is throttled (~200ms leading + trailing) so a drag sends
+    // at most ~1 UPnP command per 200ms; the trailing edge always delivers the
+    // final value (covers pointer-up). Dedupe skips writes for unchanged values.
+    writeVolume(room.deviceIp, Math.round(value));
   }
 
   return (
@@ -92,9 +107,10 @@ export function SoundSystemTile() {
         rooms={rooms}
         mixer={mixer}
         onSetVolume={(uuid, value) => {
+          // Local fader instant; network write throttled via writeVolume.
           mixer.setRoomVolume(uuid, value);
           const room = rooms.find((r) => r.uuid === uuid);
-          if (room) setVolMutation.mutate({ deviceIp: room.deviceIp, volume: Math.round(value) });
+          if (room) writeVolume(room.deviceIp, Math.round(value));
         }}
         onSetMute={(uuid, muted) => {
           mixer.toggleMute(uuid);
