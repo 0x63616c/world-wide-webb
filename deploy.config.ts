@@ -134,24 +134,20 @@ export default stack("control-center", {
     // as the web service's `maps` mount. Pinned to the manager (host-local mount).
     service("media-worker", {
       image: ghcr("control-center-media-worker"),
-      // PARKED AT 0 REPLICAS — temporary hold (www-nqqj). media-worker ran uncapped
-      // and starved the OrbStack Linux VM into a kernel RCU-sched stall
-      // (rcu_sched kthread starved / OOM expected), wedging the docker engine and
-      // taking the WHOLE stack — including the cloudflared connector — into a full
-      // prod outage (Cloudflare 1033 / HTTP 530), recurring on every docker
-      // restart. Parking it here keeps the 0-replica state durable across bosun's
-      // whole-stack redeploy on every push (a manual `docker service scale` does
-      // NOT survive that). This is a HOLD, not a removal: media-worker MUST be set
-      // back to replicas:1 once memory resource limits exist — re-enabling is
-      // owned by follow-up www-ke9a (add resource limits + un-park).
-      replicas: 0,
+      // RE-ENABLED (www-ke9a phase 2). Previously parked at 0 (www-nqqj) after it ran
+      // UNCAPPED and starved the OrbStack VM into a kernel RCU-sched stall (OOM),
+      // wedging docker + the cloudflared connector into a full prod outage
+      // (Cloudflare 1033 / HTTP 530). Safe to run again now that the 1G memory cap
+      // below is live: under cgroup v2 a runaway download is OOM-killed at the
+      // CONTAINER boundary (blast radius = this pod, not the VM), and the dirty
+      // page-cache writeback to the slow NAS NFS mount is charged to + bounded by
+      // the cgroup. To re-park in an emergency, set replicas back to 0.
+      replicas: 1,
       // 1G hard memory cap — the structural fix for the outage (www-ke9a). yt-dlp
       // streams to disk and never re-encodes, so peak working set is hundreds of
       // MB independent of file size; under cgroup v2 this cap also contains the
       // dirty page-cache writeback to the slow NAS NFS mount that ballooned RAM
-      // and RCU-stalled the VM. The cap is set NOW so the re-enable is a one-line
-      // replicas 0→1 flip (a separate observed load-test step); it stays at 0
-      // until that runs.
+      // and RCU-stalled the VM.
       resources: { memory: "1G" },
       secrets: fromOp("Homelab", {
         POSTGRES_PASSWORD: "Control Center Postgres/password",
