@@ -1,12 +1,22 @@
 /**
- * Stories for TvAppsTileView (www-51hf.21).
- * A26: Hero cell for current app + 2×2 grid of other apps.
+ * Stories for TvAppsTileView (www-0z4f).
+ * Hero card with brand logo + status pill + 2×2 brand-logo grid.
  */
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
 import { TvAppsTileView } from "./TvAppsTileView";
 
-const apps = ["Netflix", "Disney+", "Hulu", "Apple TV+", "YouTube", "Spotify", "Prime Video"];
+// Mix of registered brand marks + apps that fall back to the monospace glyph.
+const apps = [
+  "YouTube",
+  "Netflix",
+  "Prime Video",
+  "Disney+",
+  "Hulu",
+  "Apple TV+",
+  "AMC+",
+  "App Store",
+];
 
 const meta = {
   title: "Media/TvAppsTileView",
@@ -14,7 +24,7 @@ const meta = {
   tags: ["autodocs"],
   decorators: [
     (Story) => (
-      <div style={{ width: 280, height: 160, background: "#111", position: "relative" }}>
+      <div style={{ width: 431, height: 207, background: "#000", position: "relative" }}>
         <Story />
       </div>
     ),
@@ -29,19 +39,27 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const WithCurrentApp: Story = {
+export const YouTubeOpen: Story = {
+  args: { status: "populated", currentApp: "YouTube" },
+  play: async ({ canvasElement }) => {
+    const hero = canvasElement.querySelector('[aria-label="YouTube — open"]');
+    await expect(hero).toBeTruthy();
+  },
+};
+
+export const NetflixOpen: Story = {
   args: { status: "populated", currentApp: "Netflix" },
   play: async ({ canvasElement }) => {
-    const header = canvasElement.querySelector("span");
-    await expect(header).toBeTruthy();
+    const hero = canvasElement.querySelector('[aria-label="Netflix — open"]');
+    await expect(hero).toBeTruthy();
   },
 };
 
 export const Idle: Story = {
   args: { status: "populated", currentApp: null },
   play: async ({ canvasElement }) => {
-    const idle = canvasElement.querySelector("span");
-    await expect(idle).toBeTruthy();
+    const hero = canvasElement.querySelector('[aria-label="Nothing open"]');
+    await expect(hero).toBeTruthy();
   },
 };
 

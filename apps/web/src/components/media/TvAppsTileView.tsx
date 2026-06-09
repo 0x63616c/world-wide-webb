@@ -1,15 +1,19 @@
 /**
- * TvAppsTileView — presentational component for the TV Apps 4×2 tile
- * (www-51hf.21 / A26).
+ * TvAppsTileView — presentational component for the TV Apps 4×2 tile (www-0z4f).
  *
- * Renders a hero cell for the currently-open Apple TV app (or idle state),
- * plus a 2×2 grid of other top apps. The open app gets an accent ring.
- * Skeleton shimmer while pending/error (A18).
+ * Matches the approved design: a bento header glyph + a colored status pill
+ * (active app name, or IDLE), a hero card showing the open app's full-color
+ * brand logo + name + "OPEN · RESUME" (accent ring), and a 2×2 grid of brand
+ * logos for the next apps (no text labels). Idle hero shows a TV glyph +
+ * "Apple TV" + "NOTHING OPEN". Skeleton shimmer while pending/error (A18).
  *
- * Pure presentational — no tRPC. The container (TvAppsTile) wires mutations.
+ * The whole tile owns its tap (opens AllAppsModal); the hero/grid buttons
+ * stopPropagation so they launch their app instead. Pure presentational — no
+ * tRPC; the container (TvAppsTile) wires mutations.
  */
 
 import { Skeleton, Tile, TileHeader } from "@/components/ui";
+import { TvAppLogo, TvAppMark } from "./tv-app-logos";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,89 +25,112 @@ export interface TvAppsTileViewProps {
   onOpenAllApps: () => void;
 }
 
-// ── App cell ──────────────────────────────────────────────────────────────────
+// ── Status pill ─────────────────────────────────────────────────────────────
 
-interface AppCellProps {
-  name: string;
-  isActive: boolean;
-  isHero: boolean;
-  onClick: () => void;
+function StatusPill({ currentApp }: { currentApp: string | null }) {
+  const active = currentApp !== null;
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        height: 24,
+        padding: "0 10px",
+        borderRadius: 999,
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        background: active ? "var(--acc-dim)" : "var(--tile-2)",
+        border: `1px solid ${active ? "var(--acc-line)" : "var(--hair-2)"}`,
+        color: active ? "var(--acc)" : "var(--ink-3)",
+        maxWidth: 150,
+        overflow: "hidden",
+      }}
+    >
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: active ? "var(--acc)" : "var(--ink-3)",
+          flexShrink: 0,
+        }}
+      />
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {active ? currentApp : "Idle"}
+      </span>
+    </span>
+  );
 }
 
-function AppCell({ name, isActive, isHero, onClick }: AppCellProps) {
+// ── Grid cell (logo only, no label) ──────────────────────────────────────────
+
+function GridCell({ name, onClick }: { name: string; onClick: () => void }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      aria-label={name}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
       style={{
-        flex: isHero ? "0 0 auto" : 1,
         minWidth: 0,
-        height: isHero ? 64 : 44,
-        borderRadius: 10,
-        border: isActive ? "2px solid var(--accent)" : "2px solid transparent",
+        borderRadius: 12,
+        border: "1px solid var(--hair)",
         background: "var(--tile-2)",
         cursor: "pointer",
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "4px 6px",
-        position: "relative",
-        gap: 3,
+        padding: 0,
       }}
     >
-      {/* App initial as stand-in artwork */}
-      <div
-        style={{
-          width: isHero ? 32 : 22,
-          height: isHero ? 32 : 22,
-          borderRadius: isHero ? 8 : 6,
-          background: isActive ? "var(--accent)" : "var(--tile-3)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        <span
-          style={{
-            fontSize: isHero ? 16 : 11,
-            fontWeight: 700,
-            color: isActive ? "#fff" : "var(--ink-2)",
-          }}
-        >
-          {name[0]}
-        </span>
-      </div>
-      <span
-        style={{
-          fontSize: 9,
-          color: isActive ? "var(--accent)" : "var(--ink-2)",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          maxWidth: "100%",
-        }}
-      >
-        {name}
-      </span>
-
-      {/* Active dot */}
-      {isActive && (
-        <div
-          data-active-dot
-          style={{
-            position: "absolute",
-            top: 4,
-            right: 4,
-            width: 6,
-            height: 6,
-            borderRadius: "50%",
-            background: "var(--accent)",
-          }}
-        />
-      )}
+      <TvAppMark name={name} size={34} />
     </button>
+  );
+}
+
+// ── Idle hero glyph (TV / monitor) ───────────────────────────────────────────
+
+function MonitorGlyph() {
+  return (
+    <div
+      style={{
+        width: 40,
+        height: 40,
+        borderRadius: 10,
+        background: "var(--nest)",
+        border: "1px solid var(--hair)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+        <rect
+          x="2.5"
+          y="4.5"
+          width="19"
+          height="13"
+          rx="2"
+          fill="none"
+          stroke="var(--ink-3)"
+          strokeWidth="1.6"
+        />
+        <line
+          x1="8"
+          y1="20.5"
+          x2="16"
+          y2="20.5"
+          stroke="var(--ink-3)"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </svg>
+    </div>
   );
 }
 
@@ -119,95 +146,99 @@ export function TvAppsTileView({
   if (status !== "populated") {
     return (
       <Tile padding={12} style={{ gap: 10 }}>
-        <TileHeader icon="cam" title="TV Apps" />
-        <Skeleton w="100%" h={60} />
+        <TileHeader icon="apps" title="TV Apps" />
+        <Skeleton w="100%" h={120} />
       </Tile>
     );
   }
 
-  // Hero = current app; other apps = the next 4 in the list (not the current).
+  // Hero = current app; grid = the next 4 apps (excluding the current one).
   const otherApps = apps.filter((a) => a !== currentApp).slice(0, 4);
 
   return (
-    <Tile padding={10} style={{ gap: 6 }}>
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 4,
-        }}
-      >
-        <TileHeader icon="cam" title="TV Apps" />
+    <Tile padding={12} style={{ gap: 0 }} onClick={onOpenAllApps}>
+      <TileHeader icon="apps" title="TV Apps" right={<StatusPill currentApp={currentApp} />} />
+
+      {/* Hero + 2×2 grid */}
+      <div style={{ display: "flex", gap: 8, flex: 1, minHeight: 0 }}>
+        {/* Hero cell */}
         <button
           type="button"
-          aria-label="All apps"
-          onClick={onOpenAllApps}
+          aria-label={currentApp ? `${currentApp} — open` : "Nothing open"}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (currentApp) onLaunchApp(currentApp);
+          }}
           style={{
-            width: 24,
-            height: 24,
-            borderRadius: 6,
-            border: "none",
-            cursor: "pointer",
-            background: "var(--tile-2)",
-            color: "var(--ink-2)",
+            flex: "0 0 42%",
+            minWidth: 0,
+            borderRadius: 14,
+            border: `1.5px solid ${currentApp ? "var(--acc-line)" : "var(--hair)"}`,
+            background: currentApp ? "var(--acc-dim)" : "var(--tile-2)",
+            cursor: currentApp ? "pointer" : "default",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 0,
+            flexDirection: "column",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            padding: 12,
+            textAlign: "left",
           }}
         >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M4 8h4V4H4zm6 12h4v-4h-4zm-6 0h4v-4H4zm0-6h4v-4H4zm6 0h4v-4h-4zm6-10v4h4V4zm-6 4h4V4h-4zm6 6h4v-4h-4zm0 6h4v-4h-4z" />
-          </svg>
-        </button>
-      </div>
+          {currentApp ? <TvAppLogo name={currentApp} size={40} /> : <MonitorGlyph />}
 
-      {/* Hero + 2x2 grid */}
-      <div style={{ display: "flex", gap: 6, flex: 1 }}>
-        {/* Hero cell */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {currentApp ? (
-            <AppCell name={currentApp} isActive isHero onClick={() => onLaunchApp(currentApp)} />
-          ) : (
+          <div style={{ width: "100%", minWidth: 0 }}>
             <div
               style={{
-                width: 72,
-                height: 64,
-                borderRadius: 10,
-                background: "var(--tile-2)",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 4,
+                fontSize: 16,
+                fontWeight: 700,
+                color: "var(--ink)",
+                letterSpacing: "-0.02em",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
             >
-              <span style={{ fontSize: 20 }}>📺</span>
-              <span style={{ fontSize: 9, color: "var(--ink-3)" }}>Idle</span>
+              {currentApp ?? "Apple TV"}
             </div>
-          )}
-        </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                marginTop: 3,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: currentApp ? "var(--acc)" : "var(--ink-3)",
+              }}
+            >
+              <span
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: "50%",
+                  background: currentApp ? "var(--acc)" : "var(--ink-3)",
+                }}
+              />
+              {currentApp ? "Open · Resume" : "Nothing open"}
+            </div>
+          </div>
+        </button>
 
-        {/* 2x2 grid */}
+        {/* 2×2 grid */}
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
             gridTemplateRows: "1fr 1fr",
-            gap: 4,
+            gap: 8,
             flex: 1,
+            minWidth: 0,
           }}
         >
-          {otherApps.slice(0, 4).map((app) => (
-            <AppCell
-              key={app}
-              name={app}
-              isActive={false}
-              isHero={false}
-              onClick={() => onLaunchApp(app)}
-            />
+          {otherApps.map((app) => (
+            <GridCell key={app} name={app} onClick={() => onLaunchApp(app)} />
           ))}
         </div>
       </div>
