@@ -10,6 +10,7 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/ui";
+import { TvAppMark } from "./tv-app-logos";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -85,27 +86,21 @@ export function AllAppsModal({ open, onClose, apps, currentApp, onLaunchApp }: A
                   gap: 6,
                 }}
               >
-                {/* App initial as stand-in artwork */}
+                {/* Full-color brand mark (or 2-letter monospace glyph fallback) */}
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 10,
-                    background: isActive ? "var(--accent)" : "var(--tile-3)",
+                    width: 48,
+                    height: 48,
+                    borderRadius: 12,
+                    background: "var(--tile-3)",
+                    border: "1px solid var(--hair)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    overflow: "hidden",
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: 22,
-                      fontWeight: 700,
-                      color: isActive ? "#fff" : "var(--ink-2)",
-                    }}
-                  >
-                    {app[0]}
-                  </span>
+                  <TvAppMark name={app} size={30} />
                 </div>
                 <span
                   style={{

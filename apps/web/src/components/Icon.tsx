@@ -12,6 +12,7 @@ import {
   Fan,
   Globe,
   Lamp,
+  LayoutGrid,
   Lightbulb,
   LightbulbOff,
   Lock,
@@ -52,7 +53,8 @@ export type IconName =
   | "up"
   | "down"
   | "sparkles"
-  | "globe";
+  | "globe"
+  | "apps";
 
 export interface IconProps {
   name: IconName;
@@ -95,6 +97,7 @@ export const GLYPHS: Record<IconName, LucideIcon> = {
   down: ArrowDown,
   sparkles: Sparkles,
   globe: Globe,
+  apps: LayoutGrid,
 };
 
 export function Icon({ name, s = 22, c = "currentColor", sw = 1.7 }: IconProps) {
