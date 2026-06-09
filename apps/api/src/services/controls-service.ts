@@ -6,6 +6,7 @@ import {
   LampMode,
   type LampModeSpeed,
   LampScene,
+  MOOD_PALETTE,
   RED_RGB,
   WHITE_SCENE_KELVIN,
 } from "../config/lamp-scenes";
@@ -37,9 +38,9 @@ interface LampState {
   /**
    * The active lamp scene. "party" (and any future animated mode) when the
    * lamp_mode row is set; otherwise the colour scene every on-lamp agrees on,
-   * derived from DESIRED colours (white/red/blue). null when no mode is set and
-   * lamps disagree, are off, or show a non-scene colour (e.g. mood, which is
-   * intentionally varied) (www-7d5b.3.4).
+   * derived from DESIRED colours (white/red/blue, or mood when every lamp shows
+   * a MOOD_PALETTE colour, www-vhht). null when no mode is set and lamps
+   * disagree, are off, or show a custom colour (www-7d5b.3.4).
    */
   activeScene: ActiveScene | null;
 }
@@ -172,20 +173,25 @@ function rgbEquals(a: readonly number[] | undefined, b: readonly number[]): bool
 }
 
 /** Map one desired colour to the scene it represents, or null. Exact compare —
- *  these are our OWN written values, so no HA round-trip tolerance is needed. */
+ *  these are our OWN written values, so no HA round-trip tolerance is needed.
+ *  A MOOD_PALETTE colour maps to Mood (www-vhht): mood writes a distinct palette
+ *  colour per lamp, so per-lamp palette membership is the mood signature —
+ *  RED_RGB/BLUE_RGB are deliberately absent from the palette, so no ambiguity. */
 function colorToScene(color: LightColor | undefined): LampScene | null {
   if (!color) return null;
   if (color.kelvin === WHITE_SCENE_KELVIN) return LampScene.White;
   if (rgbEquals(color.rgb, RED_RGB)) return LampScene.Red;
   if (rgbEquals(color.rgb, BLUE_RGB)) return LampScene.Blue;
+  if (MOOD_PALETTE.some((c) => rgbEquals(color.rgb, c))) return LampScene.Mood;
   return null;
 }
 
 /**
  * Derive the active scene from the desired colours of the on-lamps. Every on-lamp
- * must agree on the same scene; otherwise null (lamps off, mixed colours, or a
- * mood/custom wash all → null). The party mode overrides this from the lamp_mode
- * row (added in www-7d5b.3.4 via deriveActiveScene's caller).
+ * must agree on the same scene; otherwise null (lamps off, mixed or custom
+ * colours). Mood counts as agreement: every lamp shows some MOOD_PALETTE colour
+ * (they differ per lamp by design, www-vhht). The party mode overrides this from
+ * the lamp_mode row (added in www-7d5b.3.4 via deriveActiveScene's caller).
  */
 function deriveSceneFromDesired(onLampStates: (DeviceLightState | null)[]): LampScene | null {
   if (onLampStates.length === 0) return null;
@@ -523,8 +529,9 @@ function sceneColors(scene: LampScene): LightColor[] {
 /**
  * Apply a colour scene to every lamp: writes the colour into device_state DESIRED
  * (on=true) AND actuates HA immediately. activeScene then reflects the scene from
- * desired. For "mood" each lamp gets a distinct random colour (so activeScene is
- * null — mood is intentionally varied). Throws when HA is unconfigured.
+ * desired — including "mood", where each lamp gets a distinct random palette
+ * colour and palette membership is the signature (www-vhht). Throws when HA is
+ * unconfigured.
  */
 export async function setLampScene(scene: LampScene): Promise<ControlsState> {
   if (!ha.isConfigured()) {
