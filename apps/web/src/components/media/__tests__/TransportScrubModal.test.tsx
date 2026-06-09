@@ -1,9 +1,10 @@
 /**
- * Tests for TransportScrubModal (www-51hf.16).
+ * Tests for TransportScrubModal (www-51hf.16 / www-51hf.54).
  *
  * A20: large art, title/artist, draggable scrubber (seek on pointer release),
- *      transport row (shuffle/prev/play-pause/next), volume slider; line-in/TV
- *      shows no-seek note instead of scrubber.
+ *      transport row (prev/play-pause/next); line-in/TV shows no-seek note
+ *      instead of scrubber.
+ * Shuffle and volume removed — no backend mutations exist (www-51hf.54).
  * A17: uses Modal and other shared ui primitives.
  * A32: co-located test + stories file.
  */
@@ -41,13 +42,10 @@ const baseProps: TransportScrubModalProps = {
   mediaDuration: 3600,
   source: "streaming",
   artworkUrl: null,
-  volume: 60,
   onPrev: vi.fn(),
   onPlayPause: vi.fn(),
   onNext: vi.fn(),
-  onShuffle: vi.fn(),
   onSeek: vi.fn(),
-  onVolumeChange: vi.fn(),
 };
 
 // ── Closed state ──────────────────────────────────────────────────────────────
@@ -99,20 +97,17 @@ describe("TransportScrubModal — open, streaming playing (A20)", () => {
     expect(screen.getByText("2:00")).toBeInTheDocument();
   });
 
-  it("renders transport controls: shuffle, prev, play-pause, next (A20)", () => {
+  it("renders transport controls: prev, play-pause, next (A20)", () => {
     render(<TransportScrubModal {...baseProps} />);
-    expect(screen.getByLabelText(/shuffle/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/previous/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/pause/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/next/i)).toBeInTheDocument();
   });
 
-  it("renders a volume slider (A20)", () => {
+  it("does not render shuffle or volume (no backend mutations — www-51hf.54)", () => {
     const { container } = render(<TransportScrubModal {...baseProps} />);
-    const volSlider =
-      container.querySelector("[data-volume-slider]") ??
-      container.querySelector("input[type='range'][aria-label*='volume' i]");
-    expect(volSlider).toBeInTheDocument();
+    expect(container.querySelector("[aria-label='Shuffle']")).not.toBeInTheDocument();
+    expect(container.querySelector("[data-volume-slider]")).not.toBeInTheDocument();
   });
 
   it("shows pause icon when state=playing", () => {
@@ -150,35 +145,11 @@ describe("TransportScrubModal — transport callbacks", () => {
     expect(onNext).toHaveBeenCalledTimes(1);
   });
 
-  it("calls onShuffle when shuffle button is clicked", () => {
-    const onShuffle = vi.fn();
-    render(<TransportScrubModal {...baseProps} onShuffle={onShuffle} />);
-    fireEvent.click(screen.getByLabelText(/shuffle/i));
-    expect(onShuffle).toHaveBeenCalledTimes(1);
-  });
-
   it("calls onClose when close button is clicked", () => {
     const onClose = vi.fn();
     render(<TransportScrubModal {...baseProps} onClose={onClose} />);
     fireEvent.click(screen.getByLabelText(/close/i));
     expect(onClose).toHaveBeenCalledTimes(1);
-  });
-});
-
-// ── Volume slider ─────────────────────────────────────────────────────────────
-
-describe("TransportScrubModal — volume slider", () => {
-  it("calls onVolumeChange when volume slider changes", () => {
-    const onVolumeChange = vi.fn();
-    const { container } = render(
-      <TransportScrubModal {...baseProps} onVolumeChange={onVolumeChange} />,
-    );
-    const slider =
-      container.querySelector("[data-volume-slider]") ??
-      container.querySelector("input[type='range'][aria-label*='volume' i]");
-    expect(slider).toBeInTheDocument();
-    fireEvent.change(slider as Element, { target: { value: "75" } });
-    expect(onVolumeChange).toHaveBeenCalledWith(75);
   });
 });
 

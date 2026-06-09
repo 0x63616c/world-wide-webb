@@ -1,11 +1,14 @@
 /**
  * TransportScrubModal — detail modal for TV Now Playing transport & seek
- * (www-51hf.16).
+ * (www-51hf.16 / www-51hf.54).
  *
  * Shows large artwork, title/artist, a draggable scrubber (seek fires on
- * pointer release so a drag doesn't spam seeks), a transport row with
- * shuffle/prev/play-pause/next, and a volume slider. For line-in or TV
- * sources a no-seek note replaces the scrubber (live feeds have no position).
+ * pointer release so a drag doesn't spam seeks), and a transport row with
+ * prev/play-pause/next. For line-in or TV sources a no-seek note replaces
+ * the scrubber (live feeds have no position).
+ *
+ * Shuffle and volume are intentionally omitted — no backend mutations exist for
+ * tvShuffle or tvSetVolume (www-51hf.54). Adding them requires backend work first.
  *
  * All visible state is driven by props; zero tRPC dependencies — the container
  * (TvNowPlayingTile) wires the mutations.
@@ -30,16 +33,11 @@ export interface TransportScrubModalProps {
   mediaDuration: number | null;
   source: TvSource;
   artworkUrl: string | null;
-  /** Volume 0-100 integer for the volume slider. */
-  volume: number;
   onPrev?: () => void;
   onPlayPause?: () => void;
   onNext?: () => void;
-  onShuffle?: () => void;
   /** Called with the target position in seconds on pointer-release. */
   onSeek?: (positionSeconds: number) => void;
-  /** Called with the target volume 0-100 when the volume slider changes. */
-  onVolumeChange?: (volume: number) => void;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -205,53 +203,6 @@ function NoSeekNote({ source }: { source: TvSource }) {
   );
 }
 
-// ── Volume slider ─────────────────────────────────────────────────────────────
-
-interface VolumeSliderProps {
-  volume: number;
-  onChange: (v: number) => void;
-}
-
-function VolumeSlider({ volume, onChange }: VolumeSliderProps) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      {/* mute icon */}
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        aria-hidden="true"
-        style={{ color: "var(--ink-3)", flexShrink: 0 }}
-      >
-        <path d="M3 9v6h4l5 5V4L7 9H3zm10.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-      </svg>
-      <input
-        type="range"
-        aria-label="Volume"
-        data-volume-slider
-        min={0}
-        max={100}
-        step={1}
-        value={volume}
-        onChange={(e) => onChange(Number(e.target.value))}
-        style={{ flex: 1, accentColor: "var(--ink-1)", cursor: "pointer" }}
-      />
-      {/* loud icon */}
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        aria-hidden="true"
-        style={{ color: "var(--ink-3)", flexShrink: 0 }}
-      >
-        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
-      </svg>
-    </div>
-  );
-}
-
 // ── Main modal ────────────────────────────────────────────────────────────────
 
 export function TransportScrubModal({
@@ -265,13 +216,10 @@ export function TransportScrubModal({
   mediaDuration,
   source,
   artworkUrl,
-  volume,
   onPrev = () => {},
   onPlayPause = () => {},
   onNext = () => {},
-  onShuffle = () => {},
   onSeek = () => {},
-  onVolumeChange = () => {},
 }: TransportScrubModalProps) {
   const isPlaying = state === "playing";
   const hasProgress = mediaPosition !== null && mediaDuration !== null && mediaDuration > 0;
@@ -350,7 +298,7 @@ export function TransportScrubModal({
           <NoSeekNote source={source} />
         ) : null}
 
-        {/* Transport row: shuffle / prev / play-pause / next */}
+        {/* Transport row: prev / play-pause / next */}
         <div
           style={{
             display: "flex",
@@ -359,12 +307,6 @@ export function TransportScrubModal({
             gap: 20,
           }}
         >
-          <button type="button" aria-label="Shuffle" onClick={onShuffle} style={transportBtn(36)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zm4.76-.29.76.76L17 8l-2.83-2.83L13 6.34l.76.76-4.17 4.17 1.41 1.41 4.35-4.34zM4 18.59 5.41 20l5.17-5.17-1.41-1.41L4 18.59zm12.41 1.41L20 16.41l-1.41-1.41-1.44 1.44-.76-.76-4.17-4.17-1.41 1.41 4.35 4.35.76.76L14 19l2.41 1z" />
-            </svg>
-          </button>
-
           <button type="button" aria-label="Previous" onClick={onPrev} style={transportBtn(40)}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
@@ -406,9 +348,6 @@ export function TransportScrubModal({
             </svg>
           </button>
         </div>
-
-        {/* Volume slider */}
-        <VolumeSlider volume={volume} onChange={onVolumeChange} />
       </div>
     </Modal>
   );

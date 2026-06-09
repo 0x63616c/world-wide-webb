@@ -76,7 +76,6 @@ export function TvNowPlayingTile() {
         mediaDuration={data.mediaDuration}
         source={data.source}
         artworkUrl={null}
-        volume={50}
         onPrev={() => prevMutation.mutate()}
         onPlayPause={handlePlayPause}
         onNext={() => nextMutation.mutate()}
