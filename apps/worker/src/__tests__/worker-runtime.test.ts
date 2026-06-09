@@ -7,6 +7,8 @@
  * enough — we must also flush the microtask queue between the timer firing and
  * the next setTimeout being scheduled. `tick()` does both.
  */
+
+import type { Logger } from "@repo/logger";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createWorkerRuntime } from "../runtime";
@@ -15,6 +17,20 @@ import { createWorkerRuntime } from "../runtime";
 // callbacks, so an await-before-reschedule loop reaches its next setTimeout.
 async function tick(ms: number): Promise<void> {
   await vi.advanceTimersByTimeAsync(ms);
+}
+
+// Minimal logger stub — records calls so tests can assert on structured log
+// output without pulling in pino or a real transport.
+function makeLogger() {
+  const child = vi.fn().mockReturnThis();
+  const stub = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    child,
+  } as unknown as Logger;
+  return stub;
 }
 
 beforeEach(() => {
@@ -29,10 +45,13 @@ describe("createWorkerRuntime scheduling", () => {
   it("runs runOnStart workers immediately, others after one interval", async () => {
     const eager = vi.fn().mockResolvedValue(undefined);
     const lazy = vi.fn().mockResolvedValue(undefined);
-    const rt = createWorkerRuntime([
-      { name: "eager", intervalMs: 100, runOnStart: true, run: eager },
-      { name: "lazy", intervalMs: 100, run: lazy },
-    ]);
+    const rt = createWorkerRuntime(
+      [
+        { name: "eager", intervalMs: 100, runOnStart: true, run: eager },
+        { name: "lazy", intervalMs: 100, run: lazy },
+      ],
+      { logger: makeLogger() },
+    );
 
     rt.start();
     await tick(0);
@@ -61,7 +80,9 @@ describe("createWorkerRuntime scheduling", () => {
           };
         }),
     );
-    const rt = createWorkerRuntime([{ name: "slow", intervalMs: 50, runOnStart: true, run }]);
+    const rt = createWorkerRuntime([{ name: "slow", intervalMs: 50, runOnStart: true, run }], {
+      logger: makeLogger(),
+    });
 
     rt.start();
     await tick(0);
@@ -91,10 +112,13 @@ describe("failure isolation", () => {
       .mockRejectedValueOnce(new Error("boom-2"))
       .mockResolvedValue(undefined);
     const sibling = vi.fn().mockResolvedValue(undefined);
-    const rt = createWorkerRuntime([
-      { name: "boom", intervalMs: 100, runOnStart: true, run: boom },
-      { name: "sibling", intervalMs: 100, runOnStart: true, run: sibling },
-    ]);
+    const rt = createWorkerRuntime(
+      [
+        { name: "boom", intervalMs: 100, runOnStart: true, run: boom },
+        { name: "sibling", intervalMs: 100, runOnStart: true, run: sibling },
+      ],
+      { logger: makeLogger() },
+    );
 
     rt.start();
     await tick(0);
@@ -120,7 +144,9 @@ describe("stats", () => {
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error("kaboom"))
       .mockResolvedValue(undefined);
-    const rt = createWorkerRuntime([{ name: "w", intervalMs: 100, runOnStart: true, run }]);
+    const rt = createWorkerRuntime([{ name: "w", intervalMs: 100, runOnStart: true, run }], {
+      logger: makeLogger(),
+    });
 
     const before = rt.stats();
     expect(before).toHaveLength(1);
@@ -164,10 +190,13 @@ describe("stop", () => {
   it("halts all workers; no further cycles run", async () => {
     const a = vi.fn().mockResolvedValue(undefined);
     const b = vi.fn().mockResolvedValue(undefined);
-    const rt = createWorkerRuntime([
-      { name: "a", intervalMs: 100, runOnStart: true, run: a },
-      { name: "b", intervalMs: 100, runOnStart: true, run: b },
-    ]);
+    const rt = createWorkerRuntime(
+      [
+        { name: "a", intervalMs: 100, runOnStart: true, run: a },
+        { name: "b", intervalMs: 100, runOnStart: true, run: b },
+      ],
+      { logger: makeLogger() },
+    );
 
     rt.start();
     await tick(0);
@@ -188,7 +217,9 @@ describe("stop", () => {
           ctl.resolveCycle = resolve;
         }),
     );
-    const rt = createWorkerRuntime([{ name: "w", intervalMs: 100, runOnStart: true, run }]);
+    const rt = createWorkerRuntime([{ name: "w", intervalMs: 100, runOnStart: true, run }], {
+      logger: makeLogger(),
+    });
 
     rt.start();
     await tick(0);
@@ -202,10 +233,110 @@ describe("stop", () => {
 
   it("throws on duplicate worker names", () => {
     expect(() =>
-      createWorkerRuntime([
-        { name: "dup", intervalMs: 100, run: vi.fn() },
-        { name: "dup", intervalMs: 100, run: vi.fn() },
-      ]),
+      createWorkerRuntime(
+        [
+          { name: "dup", intervalMs: 100, run: vi.fn() },
+          { name: "dup", intervalMs: 100, run: vi.fn() },
+        ],
+        { logger: makeLogger() },
+      ),
     ).toThrow(/dup/);
+  });
+});
+
+describe("logging behavior", () => {
+  it("logs error on a failing cycle", async () => {
+    const boom = vi.fn().mockRejectedValue(new Error("boom"));
+    const logger = makeLogger();
+    const workerChildLog = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      child: vi.fn().mockReturnThis(),
+    } as unknown as Logger;
+    (logger.child as ReturnType<typeof vi.fn>).mockReturnValue(workerChildLog);
+
+    const rt = createWorkerRuntime(
+      [{ name: "failing", intervalMs: 100, runOnStart: true, run: boom }],
+      { logger },
+    );
+
+    rt.start();
+    await tick(0);
+
+    // Should have logged an error for the failing cycle.
+    expect(workerChildLog.error).toHaveBeenCalledWith(
+      expect.objectContaining({ consecutiveFailures: 1 }),
+      "worker cycle failed",
+    );
+    // First failure also logs the onset transition.
+    expect(workerChildLog.error).toHaveBeenCalledWith(
+      expect.objectContaining({ consecutiveFailures: 1 }),
+      "worker entered failing state",
+    );
+
+    rt.stop();
+  });
+
+  it("logs recovery when worker succeeds after failures", async () => {
+    const run = vi.fn().mockRejectedValueOnce(new Error("transient")).mockResolvedValue(undefined);
+    const logger = makeLogger();
+    const workerChildLog = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      child: vi.fn().mockReturnThis(),
+    } as unknown as Logger;
+    (logger.child as ReturnType<typeof vi.fn>).mockReturnValue(workerChildLog);
+
+    const rt = createWorkerRuntime([{ name: "flaky", intervalMs: 100, runOnStart: true, run }], {
+      logger,
+    });
+
+    rt.start();
+    await tick(0); // failing cycle
+    await tick(100); // recovering cycle
+
+    expect(workerChildLog.info).toHaveBeenCalledWith(
+      expect.objectContaining({ consecutiveFailures: 1 }),
+      "worker recovered",
+    );
+
+    rt.stop();
+  });
+
+  it("logs worker registered on start()", () => {
+    const logger = makeLogger();
+    const rt = createWorkerRuntime(
+      [{ name: "my-worker", intervalMs: 500, run: vi.fn().mockResolvedValue(undefined) }],
+      { logger },
+    );
+
+    rt.start();
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({ worker: "my-worker", intervalMs: 500 }),
+      "worker registered",
+    );
+
+    rt.stop();
+  });
+
+  it("logs worker runtime stopped on stop()", async () => {
+    const logger = makeLogger();
+    const rt = createWorkerRuntime(
+      [{ name: "w", intervalMs: 100, runOnStart: true, run: vi.fn().mockResolvedValue(undefined) }],
+      { logger },
+    );
+
+    rt.start();
+    await tick(0);
+    rt.stop();
+
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({ timersCleared: expect.any(Array) }),
+      "worker runtime stopped",
+    );
   });
 });

@@ -20,13 +20,22 @@ import {
   runMigrations,
   runWeatherIngestCycle,
 } from "@repo/api/worker";
+import { createLogger } from "@repo/logger";
 import { createWorkerRuntime } from "./runtime";
 import type { Worker } from "./types";
+
+const log = createLogger({ service: "worker" });
 
 // Apply pending migrations before any cycle touches the DB. The api also runs
 // this at boot; whichever wins is idempotent, and the worker must not poll a
 // schema it hasn't migrated if it happens to start first.
-await runMigrations();
+try {
+  await runMigrations();
+  log.info("migrations done");
+} catch (err) {
+  log.error({ err }, "migrations failed");
+  process.exit(1);
+}
 
 const workers: Worker[] = [
   {
@@ -72,18 +81,32 @@ const workers: Worker[] = [
   },
 ];
 
-const runtime = createWorkerRuntime(workers);
-runtime.start();
+// Startup line: single unmistakable signal in docker service logs that the
+// process booted and configured its logger. See docs/logging.md §6.
+log.info({ workers: workers.map((w) => w.name), env: env.NODE_ENV }, "worker started");
 
-console.warn(
-  `Worker started (env=${env.NODE_ENV}); workers: ${workers.map((w) => w.name).join(", ")}`,
-);
+const runtime = createWorkerRuntime(workers, { logger: log });
+runtime.start();
 
 // Graceful shutdown: stop scheduling new cycles so Swarm can replace the task
 // without an in-flight reschedule racing the kill.
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
-    console.warn(`Worker received ${signal}; stopping runtime`);
+    log.info({ signal }, "worker stopping");
+    // Emit a final per-worker stats snapshot on shutdown so the last known
+    // health state is captured in the log stream before the process exits.
+    for (const s of runtime.stats()) {
+      log.info(
+        {
+          worker: s.name,
+          totalRuns: s.totalRuns,
+          consecutiveFailures: s.consecutiveFailures,
+          lastDurationMs: s.lastDurationMs,
+          lastError: s.lastError,
+        },
+        "worker shutdown stats",
+      );
+    }
     runtime.stop();
     process.exit(0);
   });
