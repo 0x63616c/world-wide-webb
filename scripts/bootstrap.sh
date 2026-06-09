@@ -1,13 +1,25 @@
 #!/usr/bin/env bash
 # Idempotent bootstrap for the homelab Mac Mini.
-# Run once (or re-run safely) after OrbStack + Tailscale are confirmed running.
-# No sudo. No secret values. Every step is safe to re-run.
+# Run once (or re-run safely) after OrbStack + Tailscale are confirmed running,
+# ON homelab as calum (NOT sudo — the NFS-mount step elevates itself and will
+# prompt for your sudo password; every other step is per-user). Re-run safe.
 #
-# Prerequisites — these creds must already live in 1Password (Homelab vault):
+# It does ALL host-level + stack setup, in dependency order:
+#   1. verify creds in 1Password (Portainer, GHCR, Homelab Drive)
+#   2. OrbStack host prep — mount the NAS NFS share, then provision the VM sizing.
+#      Provisioning may restart OrbStack, so this runs BEFORE the swarm/stack
+#      steps and we wait for docker to come back after it.
+#   3. swarm init + Portainer + first bosun deploy
+#   4. install the OrbStack docker-hang watchdog (self-heals a wedged VM)
+#
+# Prerequisites — these creds must already live in 1Password (Homelab vault).
+# Bootstrap fails fast with the save-script to run if any is missing:
 #   - GHCR pull token  → scripts/save-ghcr-pull-token.sh
 #   - Portainer admin  → scripts/save-portainer-admin.sh
-# Bootstrap fails fast with the save-script to run if either is missing.
+#   - Homelab Drive    → scripts/save-homelab-drive.sh   (NAS NFS host/share)
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 PORTAINER_VERSION="2.27.3"
 PORTAINER_IMAGE="portainer/portainer-ce:${PORTAINER_VERSION}"
@@ -22,6 +34,16 @@ log() { printf '[bootstrap] %s\n' "$*"; }
 
 command -v jq >/dev/null || { log "FATAL: jq is required"; exit 1; }
 
+# Wait until dockerd answers — OrbStack may restart during host prep below.
+wait_for_docker() {
+  log "Waiting for docker to be ready"
+  for _ in $(seq 1 60); do
+    if docker info >/dev/null 2>&1; then log "docker ready"; return 0; fi
+    sleep 2
+  done
+  log "FATAL: docker never became ready"; exit 1
+}
+
 # ── 1. Verify required credentials are in 1Password (fail fast) ────────────────
 require_secret() {
   if ! op read "$1" >/dev/null 2>&1; then
@@ -31,6 +53,18 @@ require_secret() {
   fi
 }
 require_secret "op://Homelab/Portainer Admin/password" "scripts/save-portainer-admin.sh"
+require_secret "op://Homelab/Homelab Drive/host" "scripts/save-homelab-drive.sh"
+
+# ── OrbStack host prep (NFS mount → VM provision) ─────────────────────────────
+# Must run BEFORE swarm/stack: provisioning can restart OrbStack (bouncing
+# docker). The NFS mount must be up first or OrbStack's bind-mount wedges dockerd
+# (www-6mz7); provision-orbstack.sh enforces that ordering and only restarts if the
+# VM sizing actually changed.
+log "OrbStack host prep: mounting NAS NFS share"
+"$SCRIPT_DIR/mount-homelab-drive.sh"
+log "OrbStack host prep: provisioning VM sizing"
+"$SCRIPT_DIR/provision-orbstack.sh"
+wait_for_docker
 
 # ── 2. Ensure Swarm is active ─────────────────────────────────────────────────
 if docker info 2>/dev/null | grep -q "Swarm: active"; then
@@ -98,7 +132,7 @@ JWT=$(curl -sS -X POST "$PORTAINER_URL/api/auth" -H 'Content-Type: application/j
 log "Portainer admin auth ok"
 
 # ── 6. Name the Portainer environment 'production' (bd www-4b5) ─────────────────
-PORTAINER_URL="$PORTAINER_URL" "$(dirname "$0")/rename-portainer-env.sh"
+PORTAINER_URL="$PORTAINER_URL" "$SCRIPT_DIR/rename-portainer-env.sh"
 
 # ── 7. Confirm GHCR pull access before first bosun deploy ─────────────────────
 # The GHCR_PULL_TOKEN docker secret must exist (created by scripts/save-ghcr-pull-token.sh).
@@ -116,6 +150,11 @@ log "Running bosun up (first deploy)"
 # bosun resolves secrets from 1Password and deploys the full control-center stack.
 # Requires: op session, swarm reachable, GHCR pull token in 1Password.
 bun run bosun up
+
+# ── 9. OrbStack docker-hang watchdog (self-heals a wedged VM in ~60s) ─────────
+# Installed last: it continuously probes docker, so it wants docker already up.
+log "Installing OrbStack docker-hang watchdog"
+"$SCRIPT_DIR/install-orbstack-watchdog.sh"
 
 log "Bootstrap complete."
 log "Next: verify OrbStack 'Start at login' is enabled."
