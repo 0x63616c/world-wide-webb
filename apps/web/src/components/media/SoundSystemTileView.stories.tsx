@@ -1,70 +1,68 @@
 /**
- * Stories for SoundSystemTileView (www-51hf.18).
- * A22: Sound System 4×3 tile with grouped vertical faders.
+ * Stories for SoundSystemTileView.
+ * Chosen design (www-xlyf): "Filled group panel — Line-in boxed, lock in its cap".
+ * An active group (playing) is boxed in accent with a group lock + COORD sublabel;
+ * idle rooms sit in a plain panel.
  */
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
 import { SoundSystemTileView } from "./SoundSystemTileView";
 
+// Desk + Bed are a playing multi-room group (Desk coordinates); the rest are idle.
 const rooms = [
   {
-    coordinatorUuid: "lr",
+    uuid: "desk",
+    coordinatorUuid: "desk",
+    memberUuids: ["desk", "bed"],
+    name: "Desk",
+    isCoordinator: true,
+    volume: 66,
+    muted: false,
+    transportState: "PLAYING",
+    sourceLabel: "Line-in",
+  },
+  {
+    uuid: "bed",
+    coordinatorUuid: "desk",
+    memberUuids: ["desk", "bed"],
+    name: "Bedroom",
+    isCoordinator: false,
+    volume: 68,
+    muted: false,
+    transportState: "PLAYING",
+    sourceLabel: "Line-in",
+  },
+  {
     uuid: "lr",
-    deviceIp: "192.168.0.1",
+    coordinatorUuid: "lr",
     memberUuids: ["lr"],
     name: "Living Room",
     isCoordinator: true,
-    volume: 45,
-    muted: false,
-    transportState: "PLAYING",
-    sourceLabel: null,
-  },
-  {
-    coordinatorUuid: "desk",
-    uuid: "desk",
-    deviceIp: "192.168.0.2",
-    memberUuids: ["desk"],
-    name: "Desk",
-    isCoordinator: true,
-    volume: 30,
+    volume: 70,
     muted: false,
     transportState: "STOPPED",
     sourceLabel: null,
   },
   {
-    coordinatorUuid: "bed",
-    uuid: "bed",
-    deviceIp: "192.168.0.3",
-    memberUuids: ["bed"],
-    name: "Bedroom",
-    isCoordinator: true,
-    volume: 20,
-    muted: true,
-    transportState: "STOPPED",
-    sourceLabel: null,
-  },
-  {
-    coordinatorUuid: "bath",
     uuid: "bath",
-    deviceIp: "192.168.0.4",
+    coordinatorUuid: "bath",
     memberUuids: ["bath"],
     name: "Bathroom",
     isCoordinator: true,
-    volume: 15,
+    volume: 68,
     muted: false,
     transportState: "STOPPED",
     sourceLabel: null,
   },
   {
-    coordinatorUuid: "kit",
     uuid: "kit",
-    deviceIp: "192.168.0.5",
+    coordinatorUuid: "kit",
     memberUuids: ["kit"],
     name: "Kitchen",
     isCoordinator: true,
-    volume: 35,
+    volume: 53,
     muted: false,
-    transportState: "PAUSED_PLAYBACK",
+    transportState: "STOPPED",
     sourceLabel: null,
   },
 ];
@@ -74,19 +72,22 @@ const meta = {
   component: SoundSystemTileView,
   tags: ["autodocs"],
   decorators: [
+    // Real tile footprint: 4×3 board cells ≈ 431×319.
     (Story) => (
-      <div style={{ width: 280, height: 220, background: "#111", position: "relative" }}>
+      <div style={{ width: 431, height: 319, background: "#000", position: "relative" }}>
         <Story />
       </div>
     ),
   ],
   args: {
     rooms,
-    vols: Object.fromEntries(rooms.map((r) => [r.coordinatorUuid, r.volume])),
-    mutes: Object.fromEntries(rooms.map((r) => [r.coordinatorUuid, r.muted])),
+    vols: Object.fromEntries(rooms.map((r) => [r.uuid, r.volume])),
+    mutes: Object.fromEntries(rooms.map((r) => [r.uuid, r.muted])),
     globalLock: false,
+    groupLock: false,
     onFaderChange: fn(),
     onToggleGlobalLock: fn(),
+    onToggleGroupLock: fn(),
     onOpenMixer: fn(),
     onOpenSource: fn(),
   },
@@ -98,10 +99,7 @@ type Story = StoryObj<typeof meta>;
 export const Populated: Story = {
   args: { status: "populated" },
   play: async ({ args, canvasElement }) => {
-    const header =
-      canvasElement.querySelector("[class*='header']") ?? canvasElement.querySelector("span");
-    await expect(header).toBeTruthy();
-    // Tapping a room name opens the per-room source picker (www-51hf.58).
+    // Tapping a room name opens the per-room source picker.
     const sourceTrigger = canvasElement.querySelector<HTMLButtonElement>(
       "[aria-label='Living Room source']",
     );
@@ -118,6 +116,10 @@ export const Loading: Story = {
       canvasElement.querySelector("[data-skeleton]") ?? canvasElement.querySelector("[aria-busy]");
     await expect(skeleton).toBeTruthy();
   },
+};
+
+export const GroupLocked: Story = {
+  args: { status: "populated", groupLock: true },
 };
 
 export const GlobalLocked: Story = {
