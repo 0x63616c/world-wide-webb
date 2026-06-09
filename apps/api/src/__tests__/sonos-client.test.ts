@@ -14,6 +14,18 @@ function soapEnvelope(body: string): string {
 </s:Envelope>`;
 }
 
+// Real Sonos firmware does NOT CDATA-wrap the embedded XML in GetZoneGroupState
+// / Browse — it ENTITY-encodes it (&lt;ZoneGroup&gt; ...). Encode a literal XML
+// fragment the way the device actually sends it, so the parser is exercised
+// against reality, not a CDATA fixture that masked the missing decode (CC-51hf.56).
+function entityEncode(literalXml: string): string {
+  return literalXml
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function volumeResponse(vol: number): string {
   return soapEnvelope(`<u:GetVolumeResponse xmlns:u="urn:schemas-upnp-org:service:RenderingControl:1">
     <CurrentVolume>${vol}</CurrentVolume>
@@ -359,6 +371,36 @@ describe("SonosClient.getZoneGroupState", () => {
     expect(desk?.members).toHaveLength(2);
   });
 
+  it("parses entity-encoded topology (real Sonos firmware format)", async () => {
+    // Mirrors what a real device returns: the inner ZoneGroupState document is
+    // ENTITY-encoded (not CDATA), wrapped in an outer <ZoneGroupState> element.
+    const inner = entityEncode(
+      `<ZoneGroupState><ZoneGroups>` +
+        `<ZoneGroup Coordinator="RINCON_74CA6093255801400" ID="RINCON_74CA6093255801400:1">` +
+        `<ZoneGroupMember UUID="RINCON_74CA6093255801400" Location="http://192.168.0.193:1400/xml/device_description.xml" ZoneName="Living Room" Icon=""/>` +
+        `</ZoneGroup>` +
+        `<ZoneGroup Coordinator="RINCON_804AF28AAB2001400" ID="RINCON_804AF28AAB2001400:5">` +
+        `<ZoneGroupMember UUID="RINCON_804AF28AAB2001400" Location="http://192.168.0.152:1400/xml/device_description.xml" ZoneName="Desk" Icon=""/>` +
+        `<ZoneGroupMember UUID="RINCON_804AF288FDBA01400" Location="http://192.168.0.161:1400/xml/device_description.xml" ZoneName="Desk" Icon=""/>` +
+        `</ZoneGroup>` +
+        `</ZoneGroups></ZoneGroupState>`,
+    );
+    const body = soapEnvelope(
+      `<u:GetZoneGroupStateResponse xmlns:u="urn:schemas-upnp-org:service:ZoneGroupTopology:1"><ZoneGroupState>${inner}</ZoneGroupState></u:GetZoneGroupStateResponse>`,
+    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(body)));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    const groups = await client.getZoneGroupState();
+
+    expect(groups).toHaveLength(2);
+    const livingRoom = groups.find((g) => g.coordinatorUuid === "RINCON_74CA6093255801400");
+    expect(livingRoom?.members).toHaveLength(1);
+    expect(livingRoom?.members[0]?.zoneName).toBe("Living Room");
+    expect(livingRoom?.members[0]?.ip).toBe("192.168.0.193");
+    const desk = groups.find((g) => g.coordinatorUuid === "RINCON_804AF28AAB2001400");
+    expect(desk?.members).toHaveLength(2);
+  });
+
   it("throws SonosError on SOAP fault", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(soapFaultResponse())));
     const client = new SonosClient(LIVING_ROOM_IP);
@@ -379,6 +421,25 @@ describe("SonosClient.browseFavorites", () => {
     expect(fav0?.title).toBe("Riordan Radio");
     expect(fav0?.albumArtUri).toBe("http://example.com/radio.jpg");
     expect(fav0?.uri).toBe("x-sonosapi-radio:spotify%3AartistRadio%3A6v8FB84lnmJs434UByMr75");
+  });
+
+  it("parses entity-encoded favorites (real Sonos firmware format)", async () => {
+    const didl = entityEncode(
+      `<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/">` +
+        `<item id="FV:2/1"><dc:title>Riordan Radio</dc:title><upnp:albumArtURI>http://example.com/radio.jpg</upnp:albumArtURI><res>x-sonosapi-radio:spotify%3AartistRadio%3A6v8FB84lnmJs434UByMr75</res></item>` +
+        `</DIDL-Lite>`,
+    );
+    const body = soapEnvelope(
+      `<u:BrowseResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1"><Result>${didl}</Result><NumberReturned>1</NumberReturned><TotalMatches>1</TotalMatches><UpdateID>1</UpdateID></u:BrowseResponse>`,
+    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(body)));
+    const client = new SonosClient(LIVING_ROOM_IP);
+    const favs = await client.browseFavorites();
+
+    expect(favs).toHaveLength(1);
+    expect(favs[0]?.title).toBe("Riordan Radio");
+    expect(favs[0]?.albumArtUri).toBe("http://example.com/radio.jpg");
+    expect(favs[0]?.uri).toBe("x-sonosapi-radio:spotify%3AartistRadio%3A6v8FB84lnmJs434UByMr75");
   });
 
   it("returns empty array when no favorites exist", async () => {
