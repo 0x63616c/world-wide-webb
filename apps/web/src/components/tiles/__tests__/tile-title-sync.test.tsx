@@ -28,13 +28,27 @@ import { TILE_REGISTRY } from "../../../lib/tile-registry";
 // label ("Clock") is purely a name, so it has no `title="…"` literal to match.
 const NO_STATIC_TITLE = new Set(["tile_clock"]);
 
-// View source, keyed by bare filename (e.g. "WeatherNowView.tsx"). Eager + raw
-// so the assertions are pure string checks with no rendering.
-const viewSource = import.meta.glob("../*.tsx", {
+// View source from tiles/ and media/ subdirectories, keyed by bare filename.
+// Eager + raw so the assertions are pure string checks with no rendering.
+// Tiles may live in either components/tiles/ or components/media/.
+const tilesSource = import.meta.glob("../*.tsx", {
   query: "?raw",
   import: "default",
   eager: true,
 }) as Record<string, string>;
+const mediaSource = import.meta.glob("../../media/*.tsx", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
+// Merge, normalising the key to bare "../<Name>.tsx" for lookup.
+const viewSource: Record<string, string> = { ...tilesSource };
+for (const [path, src] of Object.entries(mediaSource)) {
+  // path is like "../../media/TvNowPlayingTileView.tsx" → key to "../TvNowPlayingTileView.tsx"
+  const base = path.split("/").pop();
+  if (base) viewSource[`../${base}`] = src as string;
+}
 
 describe("tile registry — label matches rendered title", () => {
   for (const entry of TILE_REGISTRY) {

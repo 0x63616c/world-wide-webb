@@ -5,6 +5,7 @@
  *      transport, scrub bar with mono position/duration, source-aware states.
  * A17: built from shared ui primitives, not re-inlined.
  * A18: resolves via tRPC, renders Skeleton while pending/error — no fake data.
+ * A31: TvNowPlayingTile registered in TILE_REGISTRY (CC-51hf.50).
  */
 import "@testing-library/jest-dom";
 import { cleanup, render, screen } from "@testing-library/react";
@@ -193,6 +194,39 @@ describe("TvNowPlayingTileView — idle source", () => {
     );
     // idle state renders something — at least a .tile with header
     expect(screen.getByText("TV")).toBeInTheDocument();
+  });
+});
+
+// ── Tile registry tests (A31, CC-51hf.50) ────────────────────────────────────
+
+// maplibre-gl / pmtiles needed by TeslaTileView imported transitively
+vi.mock("maplibre-gl", () => ({ default: {} }));
+vi.mock("pmtiles", () => ({ Protocol: vi.fn().mockImplementation(() => ({ tile: vi.fn() })) }));
+vi.mock("@protomaps/basemaps", () => ({
+  layers: vi.fn().mockReturnValue([]),
+  namedFlavor: vi.fn().mockReturnValue({}),
+}));
+
+describe("TILE_REGISTRY — TvNowPlayingTile registration (A31)", () => {
+  it("TvNowPlayingTile is registered in TILE_REGISTRY", async () => {
+    const { TILE_REGISTRY } = await import("@/lib/tile-registry");
+    const entry = TILE_REGISTRY.find((t) => t.component === TvNowPlayingTile);
+    expect(entry, "TvNowPlayingTile must be in TILE_REGISTRY").toBeDefined();
+  });
+
+  it("registry entry has required world placement fields", async () => {
+    const { TILE_REGISTRY } = await import("@/lib/tile-registry");
+    const entry = TILE_REGISTRY.find((t) => t.component === TvNowPlayingTile);
+    expect(entry?.worldCol, "worldCol must be a number").toBeTypeOf("number");
+    expect(entry?.worldRow, "worldRow must be a number").toBeTypeOf("number");
+    expect(entry?.cols).toBe(4);
+    expect(entry?.rows).toBe(3);
+  });
+
+  it("registry entry sets ownsTap=true (has detail modal)", async () => {
+    const { TILE_REGISTRY } = await import("@/lib/tile-registry");
+    const entry = TILE_REGISTRY.find((t) => t.component === TvNowPlayingTile);
+    expect(entry?.ownsTap).toBe(true);
   });
 });
 
