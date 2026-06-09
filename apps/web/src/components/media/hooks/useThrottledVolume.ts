@@ -66,22 +66,27 @@ export function useThrottledVolume(
       s.pending = volume;
 
       if (s.timer === null) {
-        // No timer in flight — leading edge: fire immediately if not a duplicate.
         if (s.lastSent !== volume) {
+          // Leading edge: fire immediately and arm the trailing timer.
           onWrite(deviceIp, volume);
           s.lastSent = volume;
-        }
 
-        // Arm the trailing timer.
-        s.timer = setTimeout(() => {
-          s.timer = null;
-          // Trailing write: send pending value if it differs from what was last sent.
-          if (s.pending !== null && s.pending !== s.lastSent) {
-            onWrite(deviceIp, s.pending);
-            s.lastSent = s.pending;
-          }
-          s.pending = null;
-        }, THROTTLE_MS);
+          // Trailing timer: fires after THROTTLE_MS with the final pending value.
+          // Only armed when we actually sent the leading write — if the leading
+          // write was deduped (volume === lastSent), no timer is needed; the next
+          // call will hit this branch again (timer still null) and fire immediately
+          // without a ~200ms lag window.
+          s.timer = setTimeout(() => {
+            s.timer = null;
+            if (s.pending !== null && s.pending !== s.lastSent) {
+              onWrite(deviceIp, s.pending);
+              s.lastSent = s.pending;
+            }
+            s.pending = null;
+          }, THROTTLE_MS);
+        }
+        // Deduped leading write (volume === lastSent): no timer armed, pending
+        // already updated above. The next call fires immediately on the leading edge.
       }
       // If a timer is already in flight, pending is updated above and the trailing
       // write will send the latest value when the timer fires.

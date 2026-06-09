@@ -87,6 +87,35 @@ describe("useThrottledVolume — throttle behaviour (CC-83z4)", () => {
     expect(onWrite).toHaveBeenCalledTimes(1);
   });
 
+  it("dedup on leading edge does NOT arm a dead timer that delays the next call", () => {
+    // Regression for the reviewer-found bug: when the leading write is skipped
+    // because volume === lastSent, no timer should be armed. If a timer WERE
+    // armed, the very next call (new value) would fall into the "timer in flight"
+    // branch and get a ~200ms lag instead of firing immediately on the leading edge.
+    const onWrite = vi.fn();
+    const { result } = renderHook(() => useThrottledVolume(onWrite));
+
+    // First call: leading fires at 50, timer arms.
+    act(() => result.current("192.168.1.10", 50));
+    expect(onWrite).toHaveBeenCalledTimes(1);
+
+    // Let the timer expire cleanly (pending == lastSent so no trailing write).
+    act(() => vi.advanceTimersByTime(201));
+    expect(onWrite).toHaveBeenCalledTimes(1);
+
+    // Second call: same value 50 — dedup, no leading write, no timer should arm.
+    act(() => result.current("192.168.1.10", 50));
+    expect(onWrite).toHaveBeenCalledTimes(1); // still deduped
+
+    // Third call: new value 60. If the dedup above incorrectly armed a timer,
+    // this call lands in the "timer in flight" branch and gets deferred (lag).
+    // If no timer was armed, this fires immediately on the leading edge.
+    act(() => result.current("192.168.1.10", 60));
+    // Must fire immediately — NOT deferred.
+    expect(onWrite).toHaveBeenCalledTimes(2);
+    expect(onWrite).toHaveBeenLastCalledWith("192.168.1.10", 60);
+  });
+
   it("throttles per-deviceIp independently (different IPs don't interfere)", () => {
     const onWrite = vi.fn();
     const { result } = renderHook(() => useThrottledVolume(onWrite));
