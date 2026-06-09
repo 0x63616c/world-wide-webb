@@ -1,4 +1,6 @@
 import type { ComponentType } from "react";
+import { TvNowPlayingTile } from "../components/media/TvNowPlayingTile";
+import { TvNowPlayingTileView } from "../components/media/TvNowPlayingTileView";
 import { ClimateTile } from "../components/tiles/ClimateTile";
 import { ClimateTileView } from "../components/tiles/ClimateTileView";
 import { ClockGreeting } from "../components/tiles/ClockGreeting";
@@ -144,6 +146,18 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     worldRow: 34,
     cols: 4,
     rows: 2,
+  },
+  // Media tiles (www-51hf) — placed below the existing 3-row cluster.
+  {
+    id: "tile_tv",
+    label: "TV",
+    component: TvNowPlayingTile,
+    viewComponent: TvNowPlayingTileView,
+    worldCol: 26,
+    worldRow: 37,
+    cols: 4,
+    rows: 3,
+    ownsTap: true,
   },
 ];
 
