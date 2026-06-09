@@ -106,6 +106,9 @@ function applyGangDelta(
   return next;
 }
 
+/** Edit cooldown in ms — polls within this window after a local edit are ignored (www-tavs). */
+const COOLDOWN_MS = 3000;
+
 export function useMixer(rooms: MixerRoom[]): MixerState {
   const [vols, setVols] = useState<Record<string, number>>(() =>
     Object.fromEntries(rooms.map((r) => [roomKey(r), r.volume])),
@@ -123,20 +126,36 @@ export function useMixer(rooms: MixerRoom[]): MixerState {
   const groupOf = useRef<Record<string, string>>({});
   groupOf.current = Object.fromEntries(rooms.map((r) => [roomKey(r), r.coordinatorUuid]));
 
-  // Re-sync vols and mutes when the rooms array changes: seed new rooms and prune
-  // removed ones. Without pruning, stale uuids linger in state and the gang-lock
-  // applies deltas to disconnected speakers (www-ddo9.2).
+  // www-tavs: tracks the last time a local edit (setRoomVolume / toggleMute) was
+  // made for each roomKey. Polls within COOLDOWN_MS of a local edit are ignored
+  // so the fader doesn't snap back to a stale polled value mid-drag.
+  const lastEditAt = useRef<Record<string, number>>({});
+
+  // Re-sync vols and mutes when the rooms array changes (www-tavs):
+  //  - Seed new rooms (vol + mute from the poll, they have no local edit yet).
+  //  - Prune rooms no longer in the prop (www-ddo9.2).
+  //  - For EXISTING rooms, overwrite vol/mute from the poll UNLESS a local edit
+  //    happened within COOLDOWN_MS — desired-vs-reported reconcile.
   useEffect(() => {
+    const now = Date.now();
     const currentUuids = new Set(rooms.map((r) => roomKey(r)));
     setVols((prev) => {
       const next = { ...prev };
       let changed = false;
-      // Seed new rooms.
       for (const r of rooms) {
-        if (!(roomKey(r) in next)) {
-          next[roomKey(r)] = r.volume;
+        const key = roomKey(r);
+        if (!(key in next)) {
+          // New room: seed from poll.
+          next[key] = r.volume;
           changed = true;
+        } else if (now - (lastEditAt.current[key] ?? 0) >= COOLDOWN_MS) {
+          // Existing room, past cooldown: reconcile from poll if value differs.
+          if (next[key] !== r.volume) {
+            next[key] = r.volume;
+            changed = true;
+          }
         }
+        // Within cooldown: leave existing local value untouched.
       }
       // Prune rooms that are no longer in the prop.
       for (const uuid of Object.keys(next)) {
@@ -145,23 +164,27 @@ export function useMixer(rooms: MixerRoom[]): MixerState {
           changed = true;
         }
       }
-      // Return prev UNCHANGED when nothing was seeded or pruned so the state
-      // reference stays stable and React skips the re-render. Without this, a
-      // caller passing a fresh rooms array each render (e.g. an inline literal)
-      // would make the [rooms] effect fire every render, return a new object,
-      // and re-render forever — a loop React only caps via max-update-depth, but
-      // which explodes coverage time/memory in CI (www-w6ug).
+      // Return prev UNCHANGED when nothing changed so the state reference stays
+      // stable and React skips the re-render (www-w6ug infinite-render guard).
       return changed ? next : prev;
     });
     setMutes((prev) => {
       const next = { ...prev };
       let changed = false;
-      // Seed new rooms.
       for (const r of rooms) {
-        if (!(roomKey(r) in next)) {
-          next[roomKey(r)] = r.muted;
+        const key = roomKey(r);
+        if (!(key in next)) {
+          // New room: seed from poll.
+          next[key] = r.muted;
           changed = true;
+        } else if (now - (lastEditAt.current[key] ?? 0) >= COOLDOWN_MS) {
+          // Existing room, past cooldown: reconcile from poll if value differs.
+          if (next[key] !== r.muted) {
+            next[key] = r.muted;
+            changed = true;
+          }
         }
+        // Within cooldown: leave existing local value untouched.
       }
       // Prune rooms that are no longer in the prop.
       for (const uuid of Object.keys(next)) {
@@ -190,6 +213,14 @@ export function useMixer(rooms: MixerRoom[]): MixerState {
           // Unlocked — solo move regardless of coordinatorUuid.
           gang = [uuid];
         }
+
+        // www-tavs: stamp lastEditAt for every room actually changed so the
+        // [rooms] reconcile effect won't overwrite them during cooldown.
+        const now = Date.now();
+        for (const u of gang) {
+          lastEditAt.current[u] = now;
+        }
+
         if (gang.length > 1) {
           return applyGangDelta(prev, gang, uuid, target);
         }
@@ -221,6 +252,9 @@ export function useMixer(rooms: MixerRoom[]): MixerState {
   }, []);
 
   const toggleMute = useCallback((uuid: string) => {
+    // www-tavs: stamp lastEditAt so the [rooms] reconcile doesn't overwrite
+    // a local mute toggle within the cooldown window.
+    lastEditAt.current[uuid] = Date.now();
     setMutes((prev) => ({ ...prev, [uuid]: !prev[uuid] }));
   }, []);
 
