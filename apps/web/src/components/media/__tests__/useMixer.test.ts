@@ -7,7 +7,7 @@
  * so the delta is limited to +71 (29+71=100, 24+71=95).
  */
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMixer } from "../hooks/useMixer";
 
 // Helper: initialise hook with a simple two-room locked gang.
@@ -89,8 +89,18 @@ describe("useMixer — solo fader (no gang)", () => {
 });
 
 describe("useMixer — gang-lock algorithm (groupLock)", () => {
+  // groupLock gangs rooms sharing the dragged room's coordinatorUuid (www-ecc2).
+  // Use rooms with the SAME coordinatorUuid to test groupLock ganging.
+  function sameGroupSetup(volA: number, volB: number) {
+    const rooms = [
+      { uuid: "uuid-A", coordinatorUuid: "grp-shared", name: "Room A", volume: volA, muted: false },
+      { uuid: "uuid-B", coordinatorUuid: "grp-shared", name: "Room B", volume: volB, muted: false },
+    ];
+    return renderHook(() => useMixer(rooms));
+  }
+
   it("moves all members by the same delta when groupLock is on", () => {
-    const { result } = twoRoomSetup(50, 60);
+    const { result } = sameGroupSetup(50, 60);
     act(() => result.current.toggleGroupLock());
     // Drag uuid-A from 50 to 55 (+5 delta)
     act(() => result.current.setRoomVolume("uuid-A", 55));
@@ -101,7 +111,7 @@ describe("useMixer — gang-lock algorithm (groupLock)", () => {
   it("offset preservation: canonical example 24 & 29, delta +76 → 95 & 100 (stops at ceiling)", () => {
     // Handoff example: dragging the 29 fader by +76 would put it at 105,
     // but it clamps to 100; 29 → 100 means actual delta = 71; 24 + 71 = 95.
-    const { result } = twoRoomSetup(24, 29);
+    const { result } = sameGroupSetup(24, 29);
     act(() => result.current.toggleGroupLock());
     act(() => result.current.setRoomVolume("uuid-B", 29 + 76));
     expect(result.current.vols["uuid-B"]).toBe(100);
@@ -112,7 +122,7 @@ describe("useMixer — gang-lock algorithm (groupLock)", () => {
     // uuid-A at 5, uuid-B at 20. Drag uuid-B down by -30 → would be -10, clamps.
     // uuid-A has 5 headroom downward, uuid-B has 20.
     // Limiting delta = -5 (uuid-A hits 0 first).
-    const { result } = twoRoomSetup(5, 20);
+    const { result } = sameGroupSetup(5, 20);
     act(() => result.current.toggleGroupLock());
     act(() => result.current.setRoomVolume("uuid-B", 20 - 30));
     expect(result.current.vols["uuid-A"]).toBe(0);
@@ -120,7 +130,7 @@ describe("useMixer — gang-lock algorithm (groupLock)", () => {
   });
 
   it("preserves integer offsets (no float drift) after multiple moves", () => {
-    const { result } = twoRoomSetup(30, 40);
+    const { result } = sameGroupSetup(30, 40);
     act(() => result.current.toggleGroupLock());
     // Three successive gang moves
     act(() => result.current.setRoomVolume("uuid-A", 33));
@@ -135,9 +145,9 @@ describe("useMixer — gang-lock algorithm (groupLock)", () => {
   });
 });
 
-describe("useMixer — auto-gang by Sonos group (www-7u9z)", () => {
-  // Two physical rooms in the SAME Sonos group (shared coordinatorUuid). With no
-  // lock engaged, dragging one fader should move its group-mate by the same delta.
+describe("useMixer — solo fader for coordinator-grouped rooms (www-ecc2)", () => {
+  // Two physical rooms sharing a coordinatorUuid. With both locks OFF, dragging
+  // one fader must move ONLY that room — locks are the sole gang mechanism.
   function groupedSetup(volLr: number, volKit: number) {
     const rooms = [
       { uuid: "lr", coordinatorUuid: "grp", name: "Living Room", volume: volLr, muted: false },
@@ -146,14 +156,22 @@ describe("useMixer — auto-gang by Sonos group (www-7u9z)", () => {
     return renderHook(() => useMixer(rooms));
   }
 
-  it("moves grouped rooms together without any lock", () => {
+  it("moves ONLY the dragged room when both locks are off (even when grouped)", () => {
     const { result } = groupedSetup(50, 60);
     act(() => result.current.setRoomVolume("lr", 55)); // +5
     expect(result.current.vols.lr).toBe(55);
-    expect(result.current.vols.kit).toBe(65);
+    // kit must NOT move — no lock engaged
+    expect(result.current.vols.kit).toBe(60);
   });
 
-  it("does NOT move rooms in a different group", () => {
+  it("moves ONLY the dragged room when dragging kit (both locks off)", () => {
+    const { result } = groupedSetup(50, 60);
+    act(() => result.current.setRoomVolume("kit", 70)); // +10
+    expect(result.current.vols.kit).toBe(70);
+    expect(result.current.vols.lr).toBe(50); // untouched
+  });
+
+  it("does NOT move rooms in a different group (still applies)", () => {
     const rooms = [
       { uuid: "lr", coordinatorUuid: "grp", name: "Living Room", volume: 50, muted: false },
       { uuid: "bed", coordinatorUuid: "solo", name: "Bedroom", volume: 30, muted: false },
@@ -162,6 +180,56 @@ describe("useMixer — auto-gang by Sonos group (www-7u9z)", () => {
     act(() => result.current.setRoomVolume("lr", 60));
     expect(result.current.vols.lr).toBe(60);
     expect(result.current.vols.bed).toBe(30); // untouched — different group
+  });
+
+  it("groupLock ON gangs rooms sharing the dragged room's coordinatorUuid", () => {
+    const { result } = groupedSetup(50, 60);
+    act(() => result.current.toggleGroupLock());
+    act(() => result.current.setRoomVolume("lr", 55)); // +5
+    expect(result.current.vols.lr).toBe(55);
+    // kit shares coordinatorUuid "grp" so it moves with the group
+    expect(result.current.vols.kit).toBe(65);
+  });
+
+  it("groupLock ON does NOT gang rooms in a different coordinator group", () => {
+    const rooms = [
+      { uuid: "lr", coordinatorUuid: "grp", name: "Living Room", volume: 50, muted: false },
+      { uuid: "kit", coordinatorUuid: "grp", name: "Kitchen", volume: 60, muted: false },
+      { uuid: "bed", coordinatorUuid: "solo", name: "Bedroom", volume: 30, muted: false },
+    ];
+    const { result } = renderHook(() => useMixer(rooms));
+    act(() => result.current.toggleGroupLock());
+    act(() => result.current.setRoomVolume("lr", 55)); // +5
+    expect(result.current.vols.lr).toBe(55);
+    expect(result.current.vols.kit).toBe(65); // same group, moves
+    expect(result.current.vols.bed).toBe(30); // different group, does NOT move
+  });
+
+  it("globalLock ON gangs ALL rooms regardless of coordinator group", () => {
+    const rooms = [
+      { uuid: "lr", coordinatorUuid: "grp", name: "Living Room", volume: 50, muted: false },
+      { uuid: "kit", coordinatorUuid: "grp", name: "Kitchen", volume: 60, muted: false },
+      { uuid: "bed", coordinatorUuid: "solo", name: "Bedroom", volume: 30, muted: false },
+    ];
+    const { result } = renderHook(() => useMixer(rooms));
+    act(() => result.current.setGlobalLock(true));
+    act(() => result.current.setRoomVolume("lr", 55)); // +5
+    expect(result.current.vols.lr).toBe(55);
+    expect(result.current.vols.kit).toBe(65); // same group, moves
+    expect(result.current.vols.bed).toBe(35); // different group, also moves (global)
+  });
+
+  it("globalLock takes precedence over groupLock (all rooms gang)", () => {
+    const rooms = [
+      { uuid: "lr", coordinatorUuid: "grp", name: "Living Room", volume: 50, muted: false },
+      { uuid: "bed", coordinatorUuid: "solo", name: "Bedroom", volume: 30, muted: false },
+    ];
+    const { result } = renderHook(() => useMixer(rooms));
+    act(() => result.current.setGlobalLock(true));
+    act(() => result.current.toggleGroupLock());
+    act(() => result.current.setRoomVolume("lr", 55)); // +5
+    expect(result.current.vols.lr).toBe(55);
+    expect(result.current.vols.bed).toBe(35); // all rooms gang under globalLock
   });
 });
 
@@ -313,5 +381,141 @@ describe("useMixer — dynamic rooms prop (www-51hf.49)", () => {
     act(() => result.current.setRoomVolume("uuid-A", 45));
     expect(result.current.vols["uuid-A"]).toBe(45);
     expect(result.current.vols["uuid-B"]).toBe(65);
+  });
+});
+
+describe("useMixer — poll reconcile with edit cooldown (www-tavs)", () => {
+  // These tests exercise the [rooms] effect reconciliation: existing rooms whose
+  // last edit was longer ago than COOLDOWN_MS should adopt the polled volume/mute.
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("(a) poll with new volume for existing room with no recent edit updates the fader", () => {
+    const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+      initialProps: { rooms: initialRooms },
+    });
+    expect(result.current.vols["uuid-A"]).toBe(50);
+
+    // Advance time well past COOLDOWN_MS (3000ms) without any local edit.
+    vi.advanceTimersByTime(5000);
+
+    // Poll returns new volume from the Sonos system.
+    rerender({
+      rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 70, muted: false }],
+    });
+
+    expect(result.current.vols["uuid-A"]).toBe(70);
+  });
+
+  it("(b) poll within COOLDOWN_MS of a local edit does NOT overwrite the fader", () => {
+    const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+      initialProps: { rooms: initialRooms },
+    });
+
+    // Local edit at t=0.
+    act(() => result.current.setRoomVolume("uuid-A", 65));
+    expect(result.current.vols["uuid-A"]).toBe(65);
+
+    // Poll arrives 1 second later (within 3s cooldown) with a different value.
+    vi.advanceTimersByTime(1000);
+    rerender({
+      rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }],
+    });
+
+    // Must not overwrite — local edit wins during cooldown.
+    expect(result.current.vols["uuid-A"]).toBe(65);
+  });
+
+  it("(b2) poll AFTER cooldown expires does overwrite the fader", () => {
+    const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+      initialProps: { rooms: initialRooms },
+    });
+
+    // Local edit at t=0.
+    act(() => result.current.setRoomVolume("uuid-A", 65));
+
+    // Wait past cooldown (3001ms).
+    vi.advanceTimersByTime(3001);
+
+    // Poll arrives with a system-updated value.
+    rerender({
+      rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 72, muted: false }],
+    });
+
+    // Cooldown expired — poll should win.
+    expect(result.current.vols["uuid-A"]).toBe(72);
+  });
+
+  it("(c) mute reconciles the same way — poll updates mute after cooldown", () => {
+    const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+      initialProps: { rooms: initialRooms },
+    });
+    expect(result.current.mutes["uuid-A"]).toBe(false);
+
+    // Advance past cooldown.
+    vi.advanceTimersByTime(5000);
+
+    // Poll says the speaker is now muted.
+    rerender({
+      rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: true }],
+    });
+
+    expect(result.current.mutes["uuid-A"]).toBe(true);
+  });
+
+  it("(c2) mute toggleMute stamps cooldown — poll within cooldown does NOT overwrite mute", () => {
+    const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+      initialProps: { rooms: initialRooms },
+    });
+
+    // Local mute toggle at t=0.
+    act(() => result.current.toggleMute("uuid-A"));
+    expect(result.current.mutes["uuid-A"]).toBe(true);
+
+    // Poll within cooldown says muted=false (the old state).
+    vi.advanceTimersByTime(500);
+    rerender({
+      rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }],
+    });
+
+    // Must not overwrite — local toggle wins during cooldown.
+    expect(result.current.mutes["uuid-A"]).toBe(true);
+  });
+
+  it("(d) stable-reference guard: no render loop when poll returns unchanged values", () => {
+    // If a poll returns the same volume/mute as current state AND the room already
+    // exists, the [rooms] effect must return prev unchanged (no new object) to
+    // avoid triggering re-renders — the www-w6ug regression guard.
+    const rooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
+    let renderCount = 0;
+    const { rerender } = renderHook(
+      ({ r }) => {
+        renderCount++;
+        return useMixer(r);
+      },
+      { initialProps: { r: rooms } },
+    );
+    const baseRenderCount = renderCount;
+
+    // Re-render 10 times with identical rooms (simulating 10 polls with no change).
+    vi.advanceTimersByTime(5000);
+    for (let i = 0; i < 10; i++) {
+      rerender({ r: rooms });
+    }
+
+    // Render count should not balloon (at most 1 extra per rerender from React — no loop).
+    // The critical thing is it doesn't exceed baseRenderCount + 10 by more than ~10.
+    expect(renderCount).toBeLessThanOrEqual(baseRenderCount + 20);
   });
 });
