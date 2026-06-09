@@ -585,7 +585,7 @@ describe("getControlsState", () => {
     expect(state.lamps.activeScene).toBe(LampScene.White);
   });
 
-  it("activeScene=null when on-lamps disagree on colour (e.g. mood wash)", async () => {
+  it("activeScene=null when on-lamps disagree on non-palette colours", async () => {
     mockIsConfigured.mockReturnValue(true);
     const rows = [
       lampRow("lamp-1", "light.living_room_globe", { on: true, color: { rgb: [255, 0, 0] } }),
@@ -596,6 +596,23 @@ describe("getControlsState", () => {
     const state = await getControlsState();
 
     expect(state.lamps.activeScene).toBeNull();
+  });
+
+  it("activeScene='mood' when every on-lamp shows a MOOD_PALETTE colour (varied wash, CC-vhht)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    const rows = [
+      lampRow("lamp-1", "light.living_room_globe", {
+        on: true,
+        color: { rgb: [...MOOD_PALETTE[0]] },
+      }),
+      lampRow("lamp-2", "light.bed_lamp_left", { on: true, color: { rgb: [...MOOD_PALETTE[3]] } }),
+      lampRow("lamp-3", "light.bed_lamp_right", { on: true, color: { rgb: [...MOOD_PALETTE[5]] } }),
+    ];
+    mockDbSelect.mockReturnValue(makeSelectChain(rows));
+
+    const state = await getControlsState();
+
+    expect(state.lamps.activeScene).toBe(LampScene.Mood);
   });
 
   it("activeScene=null when lamps are off", async () => {
