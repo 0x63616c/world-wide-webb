@@ -46,6 +46,7 @@ const baseProps: SoundSystemTileViewProps = {
   onFaderChange: vi.fn(),
   onToggleGlobalLock: vi.fn(),
   onOpenMixer: vi.fn(),
+  onOpenSource: vi.fn(),
 };
 
 describe("SoundSystemTileView — loading/error", () => {
@@ -60,6 +61,7 @@ describe("SoundSystemTileView — loading/error", () => {
         onFaderChange={vi.fn()}
         onToggleGlobalLock={vi.fn()}
         onOpenMixer={vi.fn()}
+        onOpenSource={vi.fn()}
       />,
     );
     expect(
@@ -105,6 +107,14 @@ describe("SoundSystemTileView — populated (A22)", () => {
     const btn = screen.getByLabelText(/mixer|expand|open/i);
     fireEvent.click(btn);
     expect(onOpenMixer).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders a per-room source trigger and calls onOpenSource with the room uuid", () => {
+    const onOpenSource = vi.fn();
+    render(<SoundSystemTileView {...baseProps} onOpenSource={onOpenSource} />);
+    const trigger = screen.getByLabelText(/living room source/i);
+    fireEvent.click(trigger);
+    expect(onOpenSource).toHaveBeenCalledWith("uuid-lr");
   });
 
   it("shows muted indicator for muted rooms", () => {
