@@ -313,6 +313,10 @@ The entrypoint (`docker-entrypoint.sh`) bridges docker secret files
 `BOSUN_WEBHOOK_TOKEN`), logs in to GHCR with `GHCR_PULL_TOKEN` so
 `--with-registry-auth` can pull updated images, then `exec`s `bosun serve`.
 
+## Logging
+
+bosun uses `@repo/logger` (pino). `createLogger({ service: "bosun", pretty: false })` is called in `cli.ts` / `serve.ts` — the `pretty: false` is explicit because the deploy agent may run without `NODE_ENV=production` and must always emit raw JSON (no pino-pretty transport thread). Child loggers carry a `step` field (`"secrets" | "routes" | "deploy" | "scheduler"`). Never add `console.*` — use `log.info` / `log.warn` / `log.error`. See `docs/logging.md` for the full contract.
+
 ## Tests
 
 ```sh

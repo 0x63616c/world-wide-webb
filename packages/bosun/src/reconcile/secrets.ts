@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { Logger } from "@repo/logger";
 
 // Dependency-injected docker secret client so tests mock without a real swarm.
 export interface DockerSecretClient {
@@ -82,6 +83,17 @@ export async function reconcileSecrets(
   };
 }
 
+// A no-op fallback used when no logger is injected (tests that don't care about
+// log output). The default is silent so existing call sites without a logger arg
+// work unchanged.
+const NOOP_LOGGER: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  child: () => NOOP_LOGGER,
+} as unknown as Logger;
+
 // Prune stale docker secrets AFTER the stack has redeployed off them. Removal is
 // tolerant: a secret still referenced by an in-flight task makes `docker secret
 // rm` fail, and that must NOT abort the caller — the secret is simply skipped and
@@ -89,18 +101,21 @@ export async function reconcileSecrets(
 export async function pruneSecrets(
   staleNames: string[],
   client: DockerSecretClient,
-  // Defaults to silent; cli.ts (the console-allowed entry point) passes console.log.
-  log: (msg: string) => void = () => {},
+  // Accepts a structured Logger or a legacy string callback for backward compat.
+  // cli.ts passes a pino child; tests can pass a simple spy.
+  log: Logger | ((msg: string) => void) = NOOP_LOGGER,
 ): Promise<void> {
   for (const name of staleNames) {
     try {
       await client.removeSecret(name);
     } catch (err) {
-      log(
-        `[bosun] secret '${name}' still in use, deferring prune to next deploy: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
+      // name is the hashed docker secret name — never the resolved value.
+      const msg = `secret '${name}' still in use, deferring prune to next deploy`;
+      if (typeof log === "function") {
+        log(`[bosun] ${msg}: ${err instanceof Error ? err.message : String(err)}`);
+      } else {
+        log.warn({ err, dockerName: name }, msg);
+      }
     }
   }
 }
