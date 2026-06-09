@@ -81,14 +81,15 @@ function VerticalFader({ room, volume, muted, ganged, onChange, onOpenSource }: 
         {volume}
       </span>
 
-      {/* Vertical range input */}
+      {/* Vertical range input.
+          A vertical-writing-mode native range ignores `height: 100%` and draws at its
+          intrinsic length, overflowing the card (www-tdad). Take it out of flow with
+          absolute top/bottom so the containing block — not a percentage — sizes it. */}
       <div
         style={{
           position: "relative",
           flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          minHeight: 0,
         }}
       >
         <input
@@ -101,10 +102,14 @@ function VerticalFader({ room, volume, muted, ganged, onChange, onOpenSource }: 
           value={volume}
           onChange={(e) => onChange(Number(e.target.value))}
           style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: "50%",
+            transform: "translateX(-50%)",
             writingMode: "vertical-lr",
             direction: "rtl",
             width: 24,
-            height: "100%",
             accentColor: ganged ? "var(--accent)" : "var(--ink-1)",
             cursor: "pointer",
             opacity: muted ? 0.4 : 1,
