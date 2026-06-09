@@ -208,13 +208,15 @@ export class SonosClient {
       "",
     );
 
-    // The ZoneGroupState element contains a CDATA-wrapped XML fragment.
+    // The ZoneGroupState element carries an embedded XML document. Real firmware
+    // ENTITY-encodes it (&lt;ZoneGroup&gt; ...); extractText only strips CDATA, so
+    // decode entities back to literal XML before structural parsing (www-51hf.56).
     const stateXml = extractText(xml, "ZoneGroupState");
     if (stateXml === null) {
       throw new SonosError("GetZoneGroupState: missing ZoneGroupState element");
     }
 
-    return parseZoneGroups(stateXml);
+    return parseZoneGroups(decodeXmlEntities(stateXml));
   }
 
   // --------------------------------------------------------------------------
@@ -233,12 +235,14 @@ export class SonosClient {
       `<ObjectID>FV:2</ObjectID><BrowseFlag>BrowseDirectChildren</BrowseFlag><Filter>*</Filter><StartingIndex>0</StartingIndex><RequestedCount>50</RequestedCount><SortCriteria></SortCriteria>`,
     );
 
+    // The Result element carries an embedded DIDL-Lite document, entity-encoded
+    // by real firmware (not CDATA) — decode before parsing (www-51hf.56).
     const resultXml = extractText(xml, "Result");
     if (resultXml === null) {
       throw new SonosError("Browse FV:2: missing Result element");
     }
 
-    return parseFavorites(resultXml);
+    return parseFavorites(decodeXmlEntities(resultXml));
   }
 
   // --------------------------------------------------------------------------
@@ -359,6 +363,22 @@ function escapeXml(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
+}
+
+/**
+ * Decodes the XML entities Sonos uses to embed one XML document inside another
+ * (GetZoneGroupState's ZoneGroupState, Browse's Result). `&amp;` is decoded LAST
+ * so a double-encoded `&amp;lt;` resolves to `&lt;`, not `<`. Identity on already
+ * literal XML (e.g. CDATA-stripped content), so it is safe to always apply.
+ */
+function decodeXmlEntities(s: string): string {
+  return s
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
 }
 
 /**
