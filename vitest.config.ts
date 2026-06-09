@@ -4,7 +4,14 @@ import { defineConfig } from "vitest/config";
 // `bunx vitest --project storybook` from apps/web (requires Playwright/Chromium).
 export default defineConfig({
   test: {
-    projects: ["apps/api", "apps/web", "apps/worker", "apps/media-worker", "packages/bosun"],
+    projects: [
+      "apps/api",
+      "apps/web",
+      "apps/worker",
+      "apps/media-worker",
+      "packages/bosun",
+      "packages/logger",
+    ],
     // Cap worker fan-out. vitest spawns ~1 fork per core by default (~0.5-1GB
     // each with jsdom + v8 coverage); once the suite grew (media-ingest +
     // Spotify/Sonos/AppleTV) that fan-out OOM-kills CI's runner — the coverage

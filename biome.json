@@ -79,6 +79,10 @@
           "style": { "noProcessEnv": "off" }
         }
       }
+    },
+    {
+      "includes": ["**/packages/logger/src/**"],
+      "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
     }
   ]
 }
