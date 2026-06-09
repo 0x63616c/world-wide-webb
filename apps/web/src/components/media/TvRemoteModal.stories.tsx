@@ -48,7 +48,7 @@ type Story = StoryObj<typeof meta>;
 export const Playing: Story = {
   args: { state: "playing" },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+    const canvas = within(document.body);
     await expect(canvas.getByRole("dialog")).toBeTruthy();
     await expect(canvas.getByLabelText("Up")).toBeTruthy();
     await expect(canvas.getByLabelText("Down")).toBeTruthy();
@@ -65,7 +65,7 @@ export const Playing: Story = {
 export const Paused: Story = {
   args: { state: "paused" },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+    const canvas = within(document.body);
     await expect(canvas.getByLabelText("Play")).toBeTruthy();
   },
 };
@@ -98,7 +98,7 @@ export const IdleStandby: Story = {
 export const NoMuteNote: Story = {
   name: "No-mute note present (A21)",
   play: async ({ canvasElement }) => {
-    const note = canvasElement.querySelector("[data-no-mute]");
+    const note = document.body.querySelector("[data-no-mute]");
     await expect(note).toBeTruthy();
   },
 };

@@ -53,7 +53,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Open: Story = {
   play: async ({ canvasElement }) => {
-    const dialog = canvasElement.querySelector("[role='dialog']");
+    const dialog = document.body.querySelector("[role='dialog']");
     await expect(dialog).toBeTruthy();
   },
 };
