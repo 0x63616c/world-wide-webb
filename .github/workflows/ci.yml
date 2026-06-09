@@ -146,6 +146,13 @@ jobs:
         # missing doc blocks the deploy. Fast (grep) — runs before the slow
         # Playwright install so it fails early (www-o0ko).
         run: bash scripts/check-storybook-docs.sh
+      - name: OrbStack watchdog logic tests
+        # Hermetic self-test of the docker-hang watchdog's decide/probe logic
+        # (www-sizh) — no real docker/OrbStack. Gates the recovery automation so a
+        # regression in its thresholds/anti-loop guard can't ship silently. Fast
+        # (bash), runs before the slow Playwright install. Mirrors the
+        # test-kiosk-health gate in ios-build.yml.
+        run: bash scripts/test-orbstack-watchdog.sh
       - name: Install Playwright Chromium (for Storybook browser tests)
         run: bunx playwright install --with-deps chromium
       - name: Typecheck
