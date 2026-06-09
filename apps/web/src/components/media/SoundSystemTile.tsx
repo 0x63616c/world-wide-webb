@@ -52,8 +52,10 @@ export function SoundSystemTile() {
         vols={{}}
         mutes={{}}
         globalLock={false}
+        groupLock={false}
         onFaderChange={() => {}}
         onToggleGlobalLock={() => {}}
+        onToggleGroupLock={() => {}}
         onOpenMixer={() => {}}
         onOpenSource={() => {}}
       />
@@ -76,8 +78,10 @@ export function SoundSystemTile() {
         vols={mixer.vols}
         mutes={mixer.mutes}
         globalLock={mixer.globalLock}
+        groupLock={mixer.groupLock}
         onFaderChange={handleFaderChange}
         onToggleGlobalLock={() => mixer.setGlobalLock(!mixer.globalLock)}
+        onToggleGroupLock={mixer.toggleGroupLock}
         onOpenMixer={() => setMixerOpen(true)}
         onOpenSource={() => setSourceOpen(true)}
       />
