@@ -4,15 +4,17 @@
  * Shared by the Sound System tile and Mixer modal. Holds local volume/mute state
  * so the UI responds instantly while tRPC writes propagate asynchronously.
  *
- * Gang-lock algorithm:
- *  When groupLock OR globalLock is active, dragging any fader moves ALL known
- *  rooms by the same integer delta. The gang STOPS when any member would
- *  breach 0 or 100 — the delta is clamped to the tightest headroom across
- *  all members, preserving relative offsets (not absolute values).
+ * Gang-lock algorithm (www-ecc2):
+ *  Locks are the ONLY thing that gangs faders:
+ *   - globalLock ON  → gang = ALL rooms.
+ *   - else groupLock ON → gang = rooms sharing the dragged room's coordinatorUuid.
+ *   - else (unlocked) → gang = [uuid] ONLY (solo move, even for a grouped room).
+ *
+ *  The gang STOPS when any member would breach 0 or 100 — the delta is clamped
+ *  to the tightest headroom across all members, preserving relative offsets.
  *
  *  The `member` map tracks which rooms have been explicitly added to the group
- *  via join() — used by the UI to show group membership; the lock modes operate
- *  on all known rooms for simplicity (the wall panel is a single Sonos household).
+ *  via join() — used by the UI to show group membership.
  *
  * Why integer clamping: Sonos volume is 0-100 integer; float drift accumulates
  * across successive moves and can cause off-by-one mismatches with the device.
@@ -176,15 +178,17 @@ export function useMixer(rooms: MixerRoom[]): MixerState {
   const setRoomVolume = useCallback(
     (uuid: string, target: number) => {
       setVols((prev) => {
-        // The gang: globalLock/groupLock link ALL rooms; otherwise a dragged
-        // fader moves together with the rooms physically grouped with it (same
-        // coordinatorUuid), so a Sonos group's faders track each other.
+        // www-ecc2: locks are the ONLY thing that gangs faders.
+        // globalLock first, then groupLock (coordinator group only), then solo.
         let gang: string[];
-        if (groupLock || globalLock) {
+        if (globalLock) {
           gang = Object.keys(prev);
-        } else {
+        } else if (groupLock) {
           const coord = groupOf.current[uuid];
           gang = coord ? Object.keys(prev).filter((u) => groupOf.current[u] === coord) : [uuid];
+        } else {
+          // Unlocked — solo move regardless of coordinatorUuid.
+          gang = [uuid];
         }
         if (gang.length > 1) {
           return applyGangDelta(prev, gang, uuid, target);
