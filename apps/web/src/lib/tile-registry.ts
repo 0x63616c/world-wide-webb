@@ -1,4 +1,10 @@
 import type { ComponentType } from "react";
+import { QuickPlayTile } from "../components/media/QuickPlayTile";
+import { QuickPlayTileView } from "../components/media/QuickPlayTileView";
+import { SoundSystemTile } from "../components/media/SoundSystemTile";
+import { SoundSystemTileView } from "../components/media/SoundSystemTileView";
+import { TvAppsTile } from "../components/media/TvAppsTile";
+import { TvAppsTileView } from "../components/media/TvAppsTileView";
 import { TvNowPlayingTile } from "../components/media/TvNowPlayingTile";
 import { TvNowPlayingTileView } from "../components/media/TvNowPlayingTileView";
 import { ClimateTile } from "../components/tiles/ClimateTile";
@@ -157,6 +163,39 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     worldRow: 37,
     cols: 4,
     rows: 3,
+    ownsTap: true,
+  },
+  {
+    id: "tile_sound",
+    label: "Sound System",
+    component: SoundSystemTile,
+    viewComponent: SoundSystemTileView,
+    worldCol: 30,
+    worldRow: 37,
+    cols: 4,
+    rows: 3,
+    ownsTap: true,
+  },
+  {
+    id: "tile_tvapps",
+    label: "TV Apps",
+    component: TvAppsTile,
+    viewComponent: TvAppsTileView,
+    worldCol: 26,
+    worldRow: 40,
+    cols: 4,
+    rows: 2,
+    ownsTap: true,
+  },
+  {
+    id: "tile_quickplay",
+    label: "Quick Play",
+    component: QuickPlayTile,
+    viewComponent: QuickPlayTileView,
+    worldCol: 30,
+    worldRow: 40,
+    cols: 4,
+    rows: 2,
     ownsTap: true,
   },
 ];
