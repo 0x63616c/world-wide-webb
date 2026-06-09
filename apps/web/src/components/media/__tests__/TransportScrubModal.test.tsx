@@ -218,6 +218,78 @@ describe("TransportScrubModal — TV source (A20)", () => {
   });
 });
 
+// ── Scrubber pointer-event seek (A20) ────────────────────────────────────────
+// The ScrubBar calculates seek position from the pointer clientX relative to
+// the track's bounding rect. jsdom returns zero-rect by default; we mock it so
+// the pctFromPointer math yields a predictable, non-zero result.
+
+describe("TransportScrubModal — scrubber pointer events call onSeek (A20)", () => {
+  it("calls onSeek with correct position on pointerUp after a drag gesture", () => {
+    const onSeek = vi.fn();
+    const { container } = render(
+      <TransportScrubModal
+        {...baseProps}
+        onSeek={onSeek}
+        mediaPosition={0}
+        mediaDuration={100}
+        source="streaming"
+      />,
+    );
+
+    const scrub = container.querySelector("[data-scrub]") as HTMLElement;
+    expect(scrub).toBeInTheDocument();
+
+    // jsdom does not implement setPointerCapture/releasePointerCapture.
+    // The ScrubBar calls setPointerCapture on pointerDown; mock it to a no-op.
+    scrub.setPointerCapture = vi.fn();
+    scrub.releasePointerCapture = vi.fn();
+
+    // Mock the track element's bounding rect so pctFromPointer resolves correctly.
+    // Track is 200px wide starting at x=0.
+    vi.spyOn(scrub, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      right: 200,
+      width: 200,
+      top: 0,
+      bottom: 10,
+      height: 10,
+      x: 0,
+      y: 0,
+      toJSON: () => {},
+    } as DOMRect);
+
+    // Simulate: press at 50px (50% of 200px track = 50% of 100s = 50s)
+    fireEvent.pointerDown(scrub, { clientX: 50 });
+    // Move to 75px (75% = 75s)
+    fireEvent.pointerMove(scrub, { clientX: 75 });
+    // Release at 75px — seek fires on release
+    fireEvent.pointerUp(scrub, { clientX: 75 });
+
+    expect(onSeek).toHaveBeenCalledTimes(1);
+    // 75/200 = 0.375 of 100s = 37.5s — allow floating point tolerance
+    const pos = onSeek.mock.calls[0][0] as number;
+    expect(pos).toBeGreaterThan(30);
+    expect(pos).toBeLessThan(45);
+  });
+
+  it("does not call onSeek if pointerUp occurs without a prior pointerDown", () => {
+    const onSeek = vi.fn();
+    const { container } = render(
+      <TransportScrubModal
+        {...baseProps}
+        onSeek={onSeek}
+        mediaPosition={0}
+        mediaDuration={100}
+        source="streaming"
+      />,
+    );
+    const scrub = container.querySelector("[data-scrub]") as HTMLElement;
+    // Fire pointerUp without a prior pointerDown — dragging.current stays false.
+    fireEvent.pointerUp(scrub, { clientX: 100 });
+    expect(onSeek).not.toHaveBeenCalled();
+  });
+});
+
 // ── Artwork url ───────────────────────────────────────────────────────────────
 
 describe("TransportScrubModal — artwork", () => {
