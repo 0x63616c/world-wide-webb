@@ -26,10 +26,7 @@ const meta = {
     onPrev: fn(),
     onPlayPause: fn(),
     onNext: fn(),
-    onShuffle: fn(),
     onSeek: fn(),
-    onVolumeChange: fn(),
-    volume: 60,
   },
 } satisfies Meta<typeof TransportScrubModal>;
 
