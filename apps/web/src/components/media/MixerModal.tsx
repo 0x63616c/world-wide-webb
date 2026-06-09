@@ -22,8 +22,8 @@ export interface MixerModalProps {
   onClose: () => void;
   rooms: SoundSystemRoom[];
   mixer: MixerState;
-  onSetVolume: (coordinatorUuid: string, volume: number) => void;
-  onSetMute: (coordinatorUuid: string, muted: boolean) => void;
+  onSetVolume: (uuid: string, volume: number) => void;
+  onSetMute: (uuid: string, muted: boolean) => void;
   onGroupJoin: (memberIp: string, coordinatorUuid: string) => void;
   onGroupLeave: (memberIp: string, memberUuid: string) => void;
 }
@@ -174,15 +174,13 @@ export function MixerModal({
         {/* Room rows */}
         {rooms.map((room) => (
           <RoomRow
-            key={room.coordinatorUuid}
+            key={room.uuid}
             room={room}
-            volume={mixer.vols[room.coordinatorUuid] ?? room.volume}
-            muted={mixer.mutes[room.coordinatorUuid] ?? room.muted}
+            volume={mixer.vols[room.uuid] ?? room.volume}
+            muted={mixer.mutes[room.uuid] ?? room.muted}
             globalLock={mixer.globalLock}
-            onVolumeChange={(v) => onSetVolume(room.coordinatorUuid, v)}
-            onMuteToggle={() =>
-              onSetMute(room.coordinatorUuid, !(mixer.mutes[room.coordinatorUuid] ?? room.muted))
-            }
+            onVolumeChange={(v) => onSetVolume(room.uuid, v)}
+            onMuteToggle={() => onSetMute(room.uuid, !(mixer.mutes[room.uuid] ?? room.muted))}
           />
         ))}
       </div>

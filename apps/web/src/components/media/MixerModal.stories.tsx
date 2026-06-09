@@ -10,6 +10,8 @@ import { MixerModal } from "./MixerModal";
 const rooms = [
   {
     coordinatorUuid: "lr",
+    uuid: "lr",
+    deviceIp: "192.168.0.1",
     memberUuids: ["lr"],
     name: "Living Room",
     isCoordinator: true,
@@ -20,6 +22,8 @@ const rooms = [
   },
   {
     coordinatorUuid: "desk",
+    uuid: "desk",
+    deviceIp: "192.168.0.2",
     memberUuids: ["desk"],
     name: "Desk",
     isCoordinator: true,
@@ -30,6 +34,8 @@ const rooms = [
   },
   {
     coordinatorUuid: "bed",
+    uuid: "bed",
+    deviceIp: "192.168.0.3",
     memberUuids: ["bed"],
     name: "Bedroom",
     isCoordinator: true,

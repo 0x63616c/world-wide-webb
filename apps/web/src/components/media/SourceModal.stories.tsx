@@ -9,6 +9,8 @@ import { SourceModal } from "./SourceModal";
 const rooms = [
   {
     coordinatorUuid: "lr",
+    uuid: "lr",
+    deviceIp: "192.168.0.1",
     memberUuids: ["lr", "lr-rf"],
     name: "Living Room",
     isCoordinator: true,
@@ -19,6 +21,8 @@ const rooms = [
   },
   {
     coordinatorUuid: "desk",
+    uuid: "desk",
+    deviceIp: "192.168.0.2",
     memberUuids: ["desk"],
     name: "Desk",
     isCoordinator: true,

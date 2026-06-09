@@ -26,6 +26,8 @@ vi.mock("@/lib/modal-open-store", () => ({
 const baseRooms = [
   {
     coordinatorUuid: "uuid-lr",
+    uuid: "uuid-lr",
+    deviceIp: "192.168.0.1",
     memberUuids: ["uuid-lr"],
     name: "Living Room",
     isCoordinator: true,
@@ -36,6 +38,8 @@ const baseRooms = [
   },
   {
     coordinatorUuid: "uuid-desk",
+    uuid: "uuid-desk",
+    deviceIp: "192.168.0.2",
     memberUuids: ["uuid-desk"],
     name: "Desk",
     isCoordinator: true,

@@ -79,6 +79,8 @@ function newId(prefix: string): string {
 
 const SoundSystemRoomSchema = z.object({
   name: z.string(),
+  uuid: z.string(),
+  deviceIp: z.string(),
   coordinatorUuid: z.string(),
   memberUuids: z.array(z.string()),
   isCoordinator: z.boolean(),

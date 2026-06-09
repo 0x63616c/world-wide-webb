@@ -18,8 +18,8 @@ export interface SourceModalProps {
   open: boolean;
   onClose: () => void;
   rooms: SoundSystemRoom[];
-  /** Called with the room's coordinator UUID and the chosen source. */
-  onSetSource?: (coordinatorUuid: string, source: RoomSource) => void;
+  /** Called with the room's own UUID and the chosen source. */
+  onSetSource?: (uuid: string, source: RoomSource) => void;
 }
 
 const SOURCES: RoomSource[] = ["Line-in", "TV", "Spotify", "AirPlay", "Idle"];
@@ -100,9 +100,9 @@ export function SourceModal({ open, onClose, rooms, onSetSource }: SourceModalPr
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {rooms.map((room) => (
           <RoomCard
-            key={room.coordinatorUuid}
+            key={room.uuid}
             room={room}
-            onSelectSource={(source) => onSetSource?.(room.coordinatorUuid, source)}
+            onSelectSource={(source) => onSetSource?.(room.uuid, source)}
           />
         ))}
       </div>

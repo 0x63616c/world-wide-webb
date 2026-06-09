@@ -135,6 +135,36 @@ describe("useMixer — gang-lock algorithm (groupLock)", () => {
   });
 });
 
+describe("useMixer — auto-gang by Sonos group (www-7u9z)", () => {
+  // Two physical rooms in the SAME Sonos group (shared coordinatorUuid). With no
+  // lock engaged, dragging one fader should move its group-mate by the same delta.
+  function groupedSetup(volLr: number, volKit: number) {
+    const rooms = [
+      { uuid: "lr", coordinatorUuid: "grp", name: "Living Room", volume: volLr, muted: false },
+      { uuid: "kit", coordinatorUuid: "grp", name: "Kitchen", volume: volKit, muted: false },
+    ];
+    return renderHook(() => useMixer(rooms));
+  }
+
+  it("moves grouped rooms together without any lock", () => {
+    const { result } = groupedSetup(50, 60);
+    act(() => result.current.setRoomVolume("lr", 55)); // +5
+    expect(result.current.vols.lr).toBe(55);
+    expect(result.current.vols.kit).toBe(65);
+  });
+
+  it("does NOT move rooms in a different group", () => {
+    const rooms = [
+      { uuid: "lr", coordinatorUuid: "grp", name: "Living Room", volume: 50, muted: false },
+      { uuid: "bed", coordinatorUuid: "solo", name: "Bedroom", volume: 30, muted: false },
+    ];
+    const { result } = renderHook(() => useMixer(rooms));
+    act(() => result.current.setRoomVolume("lr", 60));
+    expect(result.current.vols.lr).toBe(60);
+    expect(result.current.vols.bed).toBe(30); // untouched — different group
+  });
+});
+
 describe("useMixer — globalLock", () => {
   it("moves all rooms by the same delta when globalLock is on", () => {
     const { result } = twoRoomSetup(40, 60);
