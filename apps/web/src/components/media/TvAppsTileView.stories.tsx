@@ -6,16 +6,20 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
 import { TvAppsTileView } from "./TvAppsTileView";
 
-// Mix of registered brand marks + apps that fall back to the monospace glyph.
+// A realistic, UNORDERED HA source_list: favorites scattered among glyph-only
+// apps. tvAppsInOrder() surfaces the curated favorites first, so the tile and
+// modal show YouTube/Netflix/Prime/Disney/Hulu regardless of this raw order.
 const apps = [
-  "YouTube",
-  "Netflix",
-  "Prime Video",
-  "Disney+",
-  "Hulu",
-  "Apple TV+",
   "AMC+",
+  "Hulu",
   "App Store",
+  "Netflix",
+  "Disney+",
+  "YouTube",
+  "Prime Video",
+  "Apple TV+",
+  "Arcade",
+  "Spotify",
 ];
 
 const meta = {

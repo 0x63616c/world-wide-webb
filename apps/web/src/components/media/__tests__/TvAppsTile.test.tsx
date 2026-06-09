@@ -95,4 +95,20 @@ describe("TvAppsTileView — populated", () => {
     expect(screen.getByText(/nothing open/i)).toBeInTheDocument();
     expect(screen.getByText("Apple TV")).toBeInTheDocument();
   });
+
+  it("orders the grid by curated favorites, not source_list order", () => {
+    // Scrambled source order; YouTube is last but must lead the grid.
+    render(
+      <TvAppsTileView
+        {...baseProps}
+        currentApp={null}
+        apps={["Hulu", "AMC+", "Disney+", "Netflix", "YouTube"]}
+      />,
+    );
+    const labels = screen
+      .getAllByRole("button")
+      .map((b) => b.getAttribute("aria-label"))
+      .filter((l): l is string => l !== null && l !== "Nothing open");
+    expect(labels.slice(0, 4)).toEqual(["YouTube", "Netflix", "Disney+", "Hulu"]);
+  });
 });
