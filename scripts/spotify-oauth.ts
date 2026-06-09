@@ -32,6 +32,10 @@ const SCOPES = [
   "user-read-playback-state",
   "user-modify-playback-state",
   "user-read-currently-playing",
+  // browse hits GET /v1/me/player/recently-played, which needs this scope —
+  // without it the Quick-Play Spotify browse 403s "Insufficient client scope"
+  // (www-51hf.57). It was omitted from the original mint.
+  "user-read-recently-played",
   "playlist-read-private",
   "playlist-read-collaborative",
   "user-library-read",
