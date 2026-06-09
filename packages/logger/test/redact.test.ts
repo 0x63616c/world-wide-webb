@@ -10,12 +10,12 @@ beforeEach(() => {
 });
 
 describe("createLogger — level resolution", () => {
-  it("defaults to debug in development", () => {
-    const log = createLogger({ service: "test-svc", env: "development", pretty: false });
+  it("defaults to debug when pretty (dev)", () => {
+    const log = createLogger({ service: "test-svc", env: "development", pretty: true });
     expect(log.level).toBe("debug");
   });
 
-  it("defaults to info in production", () => {
+  it("defaults to info for JSON (the prod default)", () => {
     const log = createLogger({ service: "test-svc", env: "production", pretty: false });
     expect(log.level).toBe("info");
   });

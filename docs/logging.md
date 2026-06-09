@@ -66,15 +66,14 @@ packages/logger/
 
 **knip-cleanliness rules for this package:**
 
-- `pino` is a normal import edge — knip sees it. `pino-pretty` is loaded by pino
-  via a **transport target string** (`"pino-pretty"`), so there is no JS import
-  edge. It is a runtime dep of `packages/logger` ONLY, so it must be added to the
-  **`packages/logger` workspace block** of `knip.jsonc` under `ignoreDependencies`
-  (scoped to that workspace, mirroring how `@vitest/coverage-v8` is scoped to
-  `apps/web`) — NOT the root `ignoreDependencies` list, which knip resolves
-  per-workspace by package name and would not satisfy the `packages/logger`
-  check. Add a comment
-  (`// pino-pretty is loaded by pino as a transport target, not imported`).
+- `pino` AND `pino-pretty` are both normal import edges — knip sees them. We
+  import `pino-pretty` directly as a **synchronous stream factory**
+  (`import prettyStream from "pino-pretty"`), NOT as a `pino.transport` target
+  string. This is deliberate: a transport target spawns a `thread-stream` worker
+  that re-resolves `"pino-pretty"` from a file path which does not exist inside a
+  bun single-file bundle, so the bundled api/worker/media-worker crash-looped on
+  boot (www-rw07). A sync stream is bundled inline and works everywhere — and as a
+  bonus needs no `knip.jsonc` ignore (the import edge satisfies knip on its own).
 - `createLogger` and `getLogger` are both consumed by real call sites (see §2:
   `getLogger()` is the accessor for deep `@repo/api` domain code), so they are
   live exports — no `@public` tag needed. The `Logger` type alias is exported for
@@ -103,18 +102,19 @@ export type Logger = PinoLogger;
 export type CreateLoggerOptions = {
   /** Service name bound on every line, e.g. "api" | "worker" | "media-worker" | "bosun". */
   service: string;
-  /** Environment string, bound on every line. Defaults to NODE_ENV ?? "development". */
+  /** Environment string, bound on every line. Defaults to APP_ENV ?? "development". */
   env?: string;
-  /** Explicit level override. Defaults to LOG_LEVEL env, else "info" (prod) / "debug" (dev). */
+  /** Explicit level override. Defaults to LOG_LEVEL env, else "debug" (pretty) / "info" (JSON). */
   level?: string;
-  /** Force pretty/JSON instead of inferring from env (tests). */
+  /** Force pretty/JSON. Omitted → JSON, opting into pretty only on LOG_PRETTY=1. */
   pretty?: boolean;
 };
 
 /**
  * Build the ROOT logger for a process. Call EXACTLY ONCE per service at startup
  * and pass the instance down (or stash via getLogger). Binds { service, env }
- * on every line, installs redaction, and selects pretty (dev) vs JSON (prod).
+ * on every line, installs redaction, and selects JSON (default) vs pino-pretty
+ * (LOG_PRETTY=1, via a bundle-safe sync stream).
  */
 export function createLogger(opts: CreateLoggerOptions): Logger;
 
@@ -184,34 +184,40 @@ stack) and never interpolate the error into the message string.
 
 ## 3. Format and levels
 
-**Format is env-driven, decided once in `createLogger`:**
+**Format defaults to JSON; pretty is an explicit opt-in. Decided once in `createLogger`:**
 
-- `env !== "production"` → pino transport `pino-pretty` (coloured, human single
-  line, `translateTime`). This is what you see in `tilt` / local `docker logs`.
-- `env === "production"` → raw pino **JSON** to stdout (one object per line),
-  the shape `docker service logs control-center_<svc>` ships and any aggregator
-  parses. No transport in prod (transports add a worker thread; prod stays
-  synchronous stdout JSON).
+- **Default → raw pino JSON** to stdout (one object per line) — the shape
+  `docker service logs control-center_<svc>` ships and any aggregator parses.
+  This is the production path and the safe default.
+- **`LOG_PRETTY=1` (or `true`) → `pino-pretty`** (coloured, human single line,
+  `translateTime`), rendered via a **synchronous stream** (`pino(opts, prettyStream(...))`),
+  NOT a `pino.transport`. Set it in `tilt` / local dev for readable logs.
 
-**The bosun deploy agent must also emit raw JSON in prod.** bosun runs as the
-deploy agent (`cli.ts` / `serve.ts`) on `homelab`, a separate process from the
-deployed services — so its `NODE_ENV` is NOT guaranteed to be `production` the
-way `deploy.config.ts` guarantees it for api/worker/media-worker. If the agent's
-environment lacks `NODE_ENV=production` it would default to `pino-pretty` (a
-worker-thread transport), contradicting the "no transport thread in prod" goal
-and emitting non-JSON agent logs. The bosun adoption therefore passes an
-explicit `pretty: false` (or `env: "production"`) to `createLogger` in
-`serve.ts`/`cli.ts` for the deployed agent rather than relying on ambient
-`NODE_ENV`. The bosun ticket AC asserts the agent emits raw JSON (no pino-pretty
-transport) in prod.
+**Why not `NODE_ENV`?** The api/worker/media-worker ship as **bun single-file
+bundles**, and bun **inlines `process.env.NODE_ENV` to a build-time literal**.
+CI builds the bundle without `NODE_ENV=production`, so a `NODE_ENV` check freezes
+to "not production" and ignores the container's runtime env. The first cut keyed
+pretty/JSON on `NODE_ENV` and crash-looped all three services in prod (the
+transport's `thread-stream` worker can't resolve `pino-pretty` inside a bundle →
+`ModuleNotFound`). So format is keyed on **`LOG_PRETTY`** (read live, never baked)
+and pretty uses a **sync stream** so it can't spawn a worker even if enabled in a
+bundle. www-rw07.
+
+**bosun** passes an explicit `pretty: false` to `createLogger` and so always
+emits JSON regardless of env.
+
+**The env LABEL uses `APP_ENV`, not `NODE_ENV`.** Because `NODE_ENV` is baked
+into the bundle it can't carry the runtime environment into the logs, so the
+bound `env` field defaults from `process.env.APP_ENV ?? "development"`;
+`deploy.config.ts` sets `APP_ENV=production` on the deployed services.
 
 **Level and env defaulting are resolved in ONE place: `packages/logger`.** All
-`process.env` reads for the logger (`LOG_LEVEL`, and the `NODE_ENV` fallback for
-`env`) live **inside `packages/logger/src/index.ts`** — `createLogger` reads
-`process.env.LOG_LEVEL` (else `info` prod / `debug` dev) and defaults `env` from
-`process.env.NODE_ENV ?? "development"` when `opts.env` is omitted. Call sites
-**never** read `process.env.LOG_LEVEL` themselves; they pass an optional
-`level` / `env` through `createLogger` opts if they need to override.
+`process.env` reads for the logger (`LOG_LEVEL`, `LOG_PRETTY`, `APP_ENV`) live
+**inside `packages/logger/src/index.ts`** — `createLogger` reads
+`process.env.LOG_LEVEL` (else `debug` when pretty / `info` for JSON) and defaults
+`env` from `process.env.APP_ENV ?? "development"` when `opts.env` is omitted. Call
+sites **never** read these themselves; they pass an optional `level` / `env` /
+`pretty` through `createLogger` opts if they need to override.
 
 This matters for the lint gate: biome's `style.noProcessEnv` is `error`
 repo-wide and only disabled (in `biome.json` overrides) for `apps/api/src/env.ts`,

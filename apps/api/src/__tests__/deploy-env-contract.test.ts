@@ -11,7 +11,10 @@ const schemaKeys = new Set(Object.keys(envSchema.shape));
 
 // Keys set on the container but NOT parsed by envSchema, by design:
 //  - TZ: read by the OS/Node runtime, not the app schema.
-const ENV_ALLOWLIST = new Set(["TZ"]);
+//  - APP_ENV: read by @repo/logger (the structured-logging env label), not the
+//    app schema. NODE_ENV can't carry it because bun bakes NODE_ENV into the
+//    bundle at build time. www-rw07.
+const ENV_ALLOWLIST = new Set(["TZ", "APP_ENV"]);
 //  - POSTGRES_PASSWORD: consumed as a mounted secret FILE to build DATABASE_URL
 //    (env.ts databaseUrlFromSecret), never parsed as a schema field.
 const SECRET_ALLOWLIST = new Set(["POSTGRES_PASSWORD"]);
