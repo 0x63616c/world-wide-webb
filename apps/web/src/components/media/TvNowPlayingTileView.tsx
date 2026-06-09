@@ -1,0 +1,346 @@
+/**
+ * TvNowPlayingTileView — pure presentational component for the TV Now Playing
+ * tile (4×3 grid cell). Driven entirely by props; zero tRPC/data dependencies.
+ *
+ * Source-aware states (A19): streaming playing/paused, line-in, TV (live TV),
+ * idle. All built from shared ui primitives (A17). Skeleton renders in the
+ * exact slot while pending (A18).
+ */
+
+import { Skeleton, Tile, TileHeader } from "@/components/ui";
+
+// ── Helper: format seconds → M:SS or H:MM:SS ─────────────────────────────────
+
+function formatTime(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = Math.floor(totalSeconds % 60);
+  const ss = String(s).padStart(2, "0");
+  if (h > 0) {
+    const mm = String(m).padStart(2, "0");
+    return `${h}:${mm}:${ss}`;
+  }
+  return `${m}:${ss}`;
+}
+
+// ── Skeleton — exact slot matches populated layout ───────────────────────────
+
+function TvNowPlayingSkeleton() {
+  return (
+    <Tile padding={18} style={{ gap: 12 }}>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 0 }}>
+        <Skeleton w={90} h={17} borderRadius={4} />
+        <div style={{ marginLeft: "auto" }}>
+          <Skeleton w={64} h={22} borderRadius={999} />
+        </div>
+      </div>
+      {/* Artwork placeholder */}
+      <Skeleton w="100%" h={120} borderRadius={10} />
+      {/* Title */}
+      <Skeleton w="80%" h={16} borderRadius={4} />
+      {/* Source line */}
+      <Skeleton w="50%" h={13} borderRadius={4} />
+      {/* Scrub bar */}
+      <Skeleton w="100%" h={8} borderRadius={999} />
+      {/* Time row */}
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <Skeleton w={36} h={12} borderRadius={4} />
+        <Skeleton w={36} h={12} borderRadius={4} />
+      </div>
+      {/* Transport row */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 24, marginTop: 4 }}>
+        <Skeleton w={36} h={36} borderRadius={999} />
+        <Skeleton w={44} h={44} borderRadius={999} />
+        <Skeleton w={36} h={36} borderRadius={999} />
+      </div>
+    </Tile>
+  );
+}
+
+// ── Transport controls ────────────────────────────────────────────────────────
+
+interface TransportProps {
+  state: string;
+  onPrev: () => void;
+  onPlayPause: () => void;
+  onNext: () => void;
+}
+
+function Transport({ state, onPrev, onPlayPause, onNext }: TransportProps) {
+  const isPlaying = state === "playing";
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 20,
+      }}
+    >
+      <button type="button" aria-label="Previous" onClick={onPrev} style={transportBtn(32)}>
+        {/* ⏮ prev */}
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        aria-label={isPlaying ? "Pause" : "Play"}
+        onClick={onPlayPause}
+        style={transportBtn(42)}
+      >
+        {isPlaying ? (
+          /* ⏸ pause */
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M6 19h4V5H6zm8-14v14h4V5z" />
+          </svg>
+        ) : (
+          /* ▶ play */
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        )}
+      </button>
+
+      <button type="button" aria-label="Next" onClick={onNext} style={transportBtn(32)}>
+        {/* ⏭ next */}
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M6 18l8.5-6L6 6zm8.5-6V6H17v12h-2.5z" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+function transportBtn(size: number): React.CSSProperties {
+  return {
+    width: size,
+    height: size,
+    borderRadius: "50%",
+    background: "var(--tile-2)",
+    border: "none",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "var(--ink-1)",
+    padding: 0,
+    font: "inherit",
+  };
+}
+
+// ── Scrub bar ─────────────────────────────────────────────────────────────────
+
+interface ScrubBarProps {
+  position: number;
+  duration: number;
+  onSeek: (positionSeconds: number) => void;
+}
+
+function ScrubBar({ position, duration, onSeek }: ScrubBarProps) {
+  const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
+
+  return (
+    <div>
+      {/* Track + fill */}
+      <div
+        data-scrub
+        role="slider"
+        aria-label="Seek"
+        aria-valuenow={Math.round(pct)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        tabIndex={0}
+        style={{
+          position: "relative",
+          height: 6,
+          borderRadius: 999,
+          background: "var(--tile-2)",
+          cursor: "pointer",
+        }}
+        onClick={(e) => {
+          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+          const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          onSeek(fraction * duration);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowRight") onSeek(Math.min(duration, position + 10));
+          if (e.key === "ArrowLeft") onSeek(Math.max(0, position - 10));
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            height: "100%",
+            width: `${pct}%`,
+            borderRadius: 999,
+            background: "var(--ink-1)",
+          }}
+        />
+      </div>
+      {/* Position / duration */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
+        <span className="mono" style={{ fontSize: 11, color: "var(--ink-2)" }}>
+          {formatTime(position)}
+        </span>
+        <span className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>
+          {formatTime(duration)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Source pill ───────────────────────────────────────────────────────────────
+
+function sourceLabel(source: TvSource, appName: string | null): string {
+  if (source === "idle") return "Standby";
+  if (source === "line-in") return "Line In";
+  if (source === "TV") return "Live TV";
+  return appName ?? "Streaming";
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export type TvSource = "streaming" | "line-in" | "TV" | "idle";
+
+export type TvNowPlayingTileViewProps =
+  | { status: "loading" }
+  | { status: "error" }
+  | {
+      status: "populated";
+      state: string;
+      appName: string | null;
+      mediaTitle: string | null;
+      mediaArtist: string | null;
+      mediaPosition: number | null;
+      mediaDuration: number | null;
+      source: TvSource;
+      artworkUrl: string | null;
+      onPrev?: () => void;
+      onPlayPause?: () => void;
+      onNext?: () => void;
+      onSeek?: (positionSeconds: number) => void;
+    };
+
+// ── Pure view ─────────────────────────────────────────────────────────────────
+
+export function TvNowPlayingTileView(props: TvNowPlayingTileViewProps) {
+  if (props.status !== "populated") {
+    return <TvNowPlayingSkeleton />;
+  }
+
+  const {
+    state,
+    appName,
+    mediaTitle,
+    mediaArtist,
+    mediaPosition,
+    mediaDuration,
+    source,
+    artworkUrl,
+    onPrev = () => {},
+    onPlayPause = () => {},
+    onNext = () => {},
+    onSeek = () => {},
+  } = props;
+
+  const isIdle = source === "idle";
+  const hasProgress = mediaPosition !== null && mediaDuration !== null && mediaDuration > 0;
+
+  return (
+    <Tile padding={18} style={{ gap: 10 }}>
+      {/* Header */}
+      <TileHeader
+        icon="cam"
+        title="TV"
+        right={
+          <span className="pill" style={{ fontSize: 11, padding: "3px 9px" }}>
+            {sourceLabel(source, appName)}
+          </span>
+        }
+      />
+
+      {/* Artwork or placeholder */}
+      {artworkUrl ? (
+        <img
+          src={artworkUrl}
+          alt="Now playing artwork"
+          style={{
+            width: "100%",
+            height: 110,
+            objectFit: "cover",
+            borderRadius: 10,
+            flexShrink: 0,
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            width: "100%",
+            height: isIdle ? 60 : 110,
+            borderRadius: 10,
+            background: "var(--tile-2)",
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {isIdle && <span style={{ color: "var(--ink-3)", fontSize: 13 }}>Standby</span>}
+        </div>
+      )}
+
+      {/* Title + artist (streaming) */}
+      {!isIdle && (
+        <div style={{ flex: 1, minHeight: 0 }}>
+          {mediaTitle && (
+            <div
+              style={{
+                fontSize: 15,
+                fontWeight: 600,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {mediaTitle}
+            </div>
+          )}
+          {(mediaArtist ?? appName) && (
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--ink-2)",
+                marginTop: 3,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {mediaArtist ?? appName}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Scrub bar (only when position + duration available) */}
+      {hasProgress && (
+        <ScrubBar
+          position={mediaPosition as number}
+          duration={mediaDuration as number}
+          onSeek={onSeek}
+        />
+      )}
+
+      {/* Transport controls (not in idle) */}
+      {!isIdle && (
+        <Transport state={state} onPrev={onPrev} onPlayPause={onPlayPause} onNext={onNext} />
+      )}
+    </Tile>
+  );
+}
