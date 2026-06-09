@@ -37,8 +37,12 @@ const WALL_THICKNESS = 2;
 // Seeds for the deterministic best-of-N bento fill. Fixed so the layout is byte
 // identical every load (no flicker) yet looks organic. Bump BENTO_ATTEMPTS for a
 // cleaner seam structure at a small module-load cost.
+// 120 was too few once the media tiles grew the layout to 13 holes: no seed in
+// the first 120 yielded a gap-free tiling, so fillAround threw at module init and
+// red-lit CI (CC-apwz). The first gap-free seed lands around i≈120–300; 500 gives
+// comfortable margin over fillAround's own 300 default without much load cost.
 const BENTO_SEED = 1234;
-const BENTO_ATTEMPTS = 120;
+const BENTO_ATTEMPTS = 500;
 
 // The inner region the bento must fill: the world minus the wall ring on each side.
 const INNER_COLS = WORLD_COLS - 2 * WALL_THICKNESS;
