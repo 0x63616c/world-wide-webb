@@ -17,8 +17,9 @@
  * The enforcer yields the COLOUR dimension to the engine while mode=party (it
  * still enforces on/off), so the two never fight over lamp colour.
  */
-import { eq } from "drizzle-orm";
 
+import { getLogger } from "@repo/logger";
+import { eq } from "drizzle-orm";
 import {
   LAMP_MODE_SPEED_CONFIG,
   LampMode,
@@ -126,9 +127,9 @@ function createPartyEngine(): PartyEngine {
         ),
       );
       tick += 1;
-    } catch {
+    } catch (err) {
       // Transient HA error — skip this tick, keep the loop alive for the next.
-      console.error("Transient HA error in party engine");
+      getLogger().error({ err, tick, speed: activeSpeed }, "party engine tick failed");
     }
     if (!running) return;
     timer = setTimeout(() => void runTick(), LAMP_MODE_SPEED_CONFIG[activeSpeed].intervalMs);

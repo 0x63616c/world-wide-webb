@@ -1,3 +1,4 @@
+import { getLogger } from "@repo/logger";
 import { eq, inArray } from "drizzle-orm";
 import {
   assignMoodColors,
@@ -221,8 +222,9 @@ export async function getControlsState(): Promise<ControlsState> {
   let deviceRows: (typeof deviceState.$inferSelect)[] = [];
   try {
     deviceRows = await db.select().from(deviceState);
-  } catch {
+  } catch (err) {
     // DB unreachable — no rows; every managed device reads unavailable (shimmer).
+    getLogger().warn({ err }, "getControlsState: DB read failed, devices appear unavailable");
   }
   const rowByEntityId = new Map(deviceRows.map((r) => [r.entityId, r]));
   const rowById = new Map(deviceRows.map((r) => [r.id, r]));
@@ -395,9 +397,13 @@ async function writeDesired(
             target: deviceState.entityId,
             set: { desiredState: desired, desiredAtUtc: now, desiredUntilUtc: desiredUntil },
           });
-      } catch {
+      } catch (writeErr) {
         // DB unreachable — desired cannot be written; the enforcer will re-seed
         // from reported next cycle, so the command is never a silent corruption.
+        getLogger().warn(
+          { err: writeErr, entityId: entry.entityId },
+          "writeDesired: DB write failed",
+        );
       }
     }),
   );

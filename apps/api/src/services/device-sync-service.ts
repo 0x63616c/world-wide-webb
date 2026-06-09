@@ -1,5 +1,5 @@
+import { getLogger } from "@repo/logger";
 import { and, desc, eq, isNotNull, lt } from "drizzle-orm";
-
 import { findLight } from "../config/lights";
 import { db } from "../db/index";
 import { deviceCommands, deviceState, integrationSyncStatus } from "../db/schema";
@@ -34,6 +34,8 @@ export async function runDeviceSyncCycle(): Promise<void> {
     await markHeartbeat(null);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    const consecutiveFailures = (await currentFailureStreak()) + 1;
+    getLogger().error({ err, consecutiveFailures }, "device-sync cycle failed");
     await markHeartbeat(msg);
   }
 }
@@ -144,6 +146,18 @@ export async function sweepExpiredWindows(now: Date): Promise<void> {
         .limit(1);
       const row = rows[0];
       if (row) {
+        const elapsedMs = device.desiredUntilUtc
+          ? now.getTime() - device.desiredUntilUtc.getTime()
+          : undefined;
+        getLogger().warn(
+          {
+            deviceId: device.id,
+            entityId: device.entityId,
+            desired: device.desiredState,
+            elapsedMs,
+          },
+          "command marked timeout — desired window expired",
+        );
         await db
           .update(deviceCommands)
           .set({

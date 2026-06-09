@@ -15,8 +15,9 @@
  * TOLERANT compare (not the exact stateEquals, which is for reported-change
  * detection) because HA round-trips rgb/kelvin/brightness with small deltas.
  */
-import { eq, inArray } from "drizzle-orm";
 
+import { getLogger } from "@repo/logger";
+import { eq, inArray } from "drizzle-orm";
 import { LampMode } from "../config/lamp-scenes";
 import { findLight, LIGHTS, LightControl, LightKind, lightControl } from "../config/lights";
 import { db } from "../db/index";
@@ -165,6 +166,8 @@ export async function runEnforcerCycle(): Promise<void> {
     await markHeartbeat(null);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    const consecutiveFailures = (await currentFailureStreak()) + 1;
+    getLogger().error({ err, consecutiveFailures }, "light-enforcer cycle failed");
     await markHeartbeat(msg);
   }
 }
@@ -246,6 +249,18 @@ async function applyDecision(
     case "seed":
     case "adopt": {
       // Both write desired (and refresh availability); neither pushes to HA.
+      if (decision.kind === "adopt") {
+        // Log the absorbed state so we can see external drift that we accepted.
+        getLogger().debug(
+          {
+            entityId: device.entityId,
+            adoptedOn: decision.desired.on,
+            adoptedBrightness: decision.desired.brightness,
+            adoptedColor: decision.desired.color,
+          },
+          "light-enforcer adopted reported state",
+        );
+      }
       await db
         .update(deviceState)
         .set({
@@ -260,6 +275,22 @@ async function applyDecision(
     }
     case "push": {
       // Re-assert desired onto HA. on→turn_on (with brightness/colour); off→turn_off.
+      getLogger().debug(
+        {
+          entityId: device.entityId,
+          on: decision.desired.on,
+          brightness: decision.desired.brightness,
+          // Colour logged as kelvin or rgb tuple — never a raw object that could
+          // contain unexpected fields. Never logs HA_TOKEN or auth headers.
+          color:
+            decision.desired.color?.kelvin != null
+              ? { kelvin: decision.desired.color.kelvin }
+              : decision.desired.color?.rgb != null
+                ? { rgb: decision.desired.color.rgb }
+                : undefined,
+        },
+        "light-enforcer pushing desired to HA",
+      );
       if (decision.desired.on) {
         await ha.callService(
           device.domain,

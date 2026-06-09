@@ -1,3 +1,4 @@
+import { getLogger } from "@repo/logger";
 import { z } from "zod";
 import { env } from "../../env";
 import { type HaEntity, HaError, haEntitySchema } from "./types";
@@ -29,6 +30,7 @@ export class HomeAssistantClient {
   }
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
+    const startedAt = performance.now();
     let res: Response;
     try {
       res = await fetch(`${this.baseUrl}${path}`, {
@@ -37,9 +39,14 @@ export class HomeAssistantClient {
         signal: AbortSignal.timeout(HA_REQUEST_TIMEOUT_MS),
       });
     } catch (err) {
+      const durationMs = +(performance.now() - startedAt).toFixed(1);
+      // status 0 = network-level failure (timeout, DNS, refused)
+      getLogger().warn({ haPath: path, haStatus: 0, durationMs }, "ha request failed");
       throw new HaError(0, `Network error: ${(err as Error).message}`);
     }
     if (!res.ok) {
+      const durationMs = +(performance.now() - startedAt).toFixed(1);
+      getLogger().warn({ haPath: path, haStatus: res.status, durationMs }, "ha request non-2xx");
       throw new HaError(res.status, await res.text());
     }
     return res.json() as Promise<T>;
@@ -70,6 +77,7 @@ export class HomeAssistantClient {
 
   /** Render a Jinja2 template against HA state; returns the rendered string. */
   async renderTemplate(template: string): Promise<string> {
+    const startedAt = performance.now();
     let res: Response;
     try {
       res = await fetch(`${this.baseUrl}/api/template`, {
@@ -79,9 +87,18 @@ export class HomeAssistantClient {
         signal: AbortSignal.timeout(HA_REQUEST_TIMEOUT_MS),
       });
     } catch (err) {
+      const durationMs = +(performance.now() - startedAt).toFixed(1);
+      getLogger().warn({ haPath: "/api/template", haStatus: 0, durationMs }, "ha request failed");
       throw new HaError(0, `Network error: ${(err as Error).message}`);
     }
-    if (!res.ok) throw new HaError(res.status, await res.text());
+    if (!res.ok) {
+      const durationMs = +(performance.now() - startedAt).toFixed(1);
+      getLogger().warn(
+        { haPath: "/api/template", haStatus: res.status, durationMs },
+        "ha request non-2xx",
+      );
+      throw new HaError(res.status, await res.text());
+    }
     return res.text();
   }
 

@@ -10,6 +10,7 @@
  * fabricated data (CC-51hf.33, A3, A4).
  */
 
+import { getLogger } from "@repo/logger";
 import { SpotifyError } from "./errors";
 import type {
   SpotifyBrowseResult,
@@ -337,6 +338,10 @@ export class SpotifyClient {
       accessToken,
       expiresAtMs: Date.now() + expiresIn * 1000 - EXPIRY_BUFFER_MS,
     };
+
+    // Log success with expires_in but NEVER the token value (redacted anyway,
+    // but discipline is the primary layer — docs/logging.md §4).
+    getLogger().debug({ expiresIn }, "spotify token refreshed");
 
     return accessToken;
   }
