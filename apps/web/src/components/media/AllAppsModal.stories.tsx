@@ -56,3 +56,43 @@ export const Closed: Story = {
     await expect(dialog).toBeFalsy();
   },
 };
+
+/** The full live prod source_list (www-rii3) — every app must show a brand mark. */
+export const FullProdList: Story = {
+  args: {
+    apps: [
+      "AMC+",
+      "App Store",
+      "Arcade",
+      "BBC iPlayer",
+      "CNN",
+      "Computers",
+      "Disney+",
+      "FaceTime",
+      "Fitness",
+      "HBO Max",
+      "Hulu",
+      "Music",
+      "Netflix",
+      "Paramount+",
+      "Peacock",
+      "Photos",
+      "Podcasts",
+      "Prime Video",
+      "Search",
+      "Settings",
+      "Sling",
+      "Spotify",
+      "TV",
+      "Twitch",
+      "VLC",
+      "Watch TruBlu",
+      "YouTube",
+    ],
+    currentApp: "YouTube",
+  },
+  play: async ({ canvasElement }) => {
+    const dialog = document.body.querySelector("[role='dialog']");
+    await expect(dialog).toBeTruthy();
+  },
+};
