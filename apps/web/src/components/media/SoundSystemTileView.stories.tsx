@@ -1,8 +1,10 @@
 /**
  * Stories for SoundSystemTileView.
  * Chosen design (CC-xlyf): "Filled group panel — Line-in boxed, lock in its cap".
- * An active group (playing) is boxed in accent with a group lock + COORD sublabel;
- * idle rooms sit in a plain panel.
+ * An active multi-room group (playing) is boxed in accent with a group lock; its
+ * coordinator is signalled by a blue name (CC-a5rl, replacing the old COORD
+ * sublabel). A single active room shows no group lock. Idle rooms sit in a plain
+ * panel.
  */
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
