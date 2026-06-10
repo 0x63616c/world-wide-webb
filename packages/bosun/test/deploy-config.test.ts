@@ -92,12 +92,14 @@ describe("deploy.config.ts captive-portal service (www-q002.14)", () => {
     expect(portal.image).toContain("control-center-captive-portal");
   });
 
-  it("is LAN-only: publishes host 443 and declares NO tunnel route", () => {
-    // publishPort binds the Mini's LAN IP (mode: host); the absence of `route`
-    // means bosun never creates a Cloudflare tunnel ingress/DNS for it, the
-    // service is reachable ONLY on the local network (www-q002.12).
-    expect(portal.publishPort).toEqual({ host: 443, container: 443 });
+  it("is LAN-only via the edge net, NOT a swarm publishPort (www-q002.21)", () => {
+    // OrbStack does not forward swarm-published ports to the LAN, so the portal
+    // carries NO publishPort; it is reached via a plain LAN-edge proxy on the
+    // attachable portal-edge overlay. It declares NO route, so bosun never
+    // creates a Cloudflare tunnel ingress/DNS, reachable only on the LAN.
+    expect(portal.publishPort).toBeUndefined();
     expect(portal.route).toBeUndefined();
+    expect(portal.networks).toContain("portal-edge");
   });
 
   it("is pinned to the manager (holds the LAN IP + the cert volume)", () => {
@@ -127,6 +129,16 @@ describe("deploy.config.ts captive-portal service (www-q002.14)", () => {
     expect(portal.health.some((h) => h.command?.includes("captive-portal.worldwidewebb.co"))).toBe(
       false,
     );
+  });
+});
+
+describe("deploy.config.ts attachable edge network (www-q002.21)", () => {
+  it("declares the portal-edge attachable overlay at the stack level", () => {
+    expect(deploySpec.attachableNetworks).toContain("portal-edge");
+  });
+
+  it("puts api on portal-edge so the LAN-edge proxy can reach it by name", () => {
+    expect(svc("api").networks).toContain("portal-edge");
   });
 });
 
