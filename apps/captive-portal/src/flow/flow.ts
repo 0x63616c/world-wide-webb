@@ -51,6 +51,8 @@ export interface FlowState {
   resendLeft: number;
   /** Client MAC from the UniFi redirect, threaded through every server call. */
   mac: string;
+  /** Set by a successful verifyCode; authorize() needs it during connecting. */
+  guestId: string | null;
 }
 
 export type FlowEvent =
@@ -61,7 +63,7 @@ export type FlowEvent =
   | { type: "VERIFY_SUBMIT"; code: string }
   | { type: "VERIFY_WRONG" }
   | { type: "VERIFY_EXPIRED" }
-  | { type: "VERIFY_OK" }
+  | { type: "VERIFY_OK"; guestId: string }
   | { type: "RESEND" }
   | { type: "RESEND_TICK" }
   | { type: "PASSWORD_SUBMIT"; password: string }
@@ -76,12 +78,14 @@ export type FlowEvent =
   | { type: "RESET" }
   | { type: "SHOW_ALREADY_CONNECTED" }
   | { type: "SHOW_SESSION_EXPIRED" }
+  | { type: "SHOW_RATELIMIT" }
   | { type: "SHOW_ERROR" };
 
 export type PortalEffect =
   | { type: "sendCode"; email: string; mac: string }
   | { type: "verifyCode"; code: string; mac: string }
   | { type: "checkPassword"; password: string; mac: string }
+  | { type: "authorize"; mac: string }
   | { type: "resetAttempts"; mac: string };
 
 export interface FlowResult {
@@ -112,6 +116,7 @@ export function initialFlowState(mac: string): FlowState {
     pwTries: 0,
     resendLeft: RESEND_COOLDOWN_S,
     mac,
+    guestId: null,
   };
 }
 
@@ -214,6 +219,7 @@ export function reducer(state: FlowState, event: FlowEvent): FlowResult {
         ...state,
         busy: false,
         codeTries: 0,
+        guestId: event.guestId,
         verifyError: null,
         verifyExpired: false,
         passwordError: null,
@@ -311,8 +317,11 @@ export function reducer(state: FlowState, event: FlowEvent): FlowResult {
     case "SHOW_SESSION_EXPIRED":
       return noEffects({ ...state, step: "sessionexpired" });
 
+    case "SHOW_RATELIMIT":
+      return noEffects({ ...state, busy: false, step: "ratelimited" });
+
     case "SHOW_ERROR":
-      return noEffects({ ...state, step: "error" });
+      return noEffects({ ...state, busy: false, step: "error" });
 
     default:
       return noEffects(state);
