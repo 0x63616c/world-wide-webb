@@ -35,10 +35,12 @@ Private API under `/api/s/default/...`; newer collections under
 ### 1a. DHCP reservation for the Mini (ADDITIVE, prerequisite for the DNS record)
 
 The Mini (`homelab`) is the known-user record `_id 6934a5aa428b6c14e973b63d`,
-MAC `ba:5d:f7:ba:d0:9d`, last-seen `192.168.0.147` (confirmed live via mDNS
-`homelab.local`). It has **no DHCP reservation** (`use_fixedip: null`), so the
-lease could churn, so the split-horizon DNS record must point at a STABLE IP. Pin
-the current IP as a reservation first:
+MAC `ba:5d:f7:ba:d0:9d`. It has **no DHCP reservation** (`use_fixedip: null`).
+Target verified three ways: mDNS `homelab.local` answers `192.168.0.147` and pings;
+ARP from a LAN host maps `192.168.0.147` to that exact MAC; so does an ARP for
+`192.168.0.38`, where the controller's active-client list ALSO shows that MAC. The
+lease is therefore ALREADY drifting between `.147` and `.38`, which is exactly why
+the reservation is needed before the DNS record. Pin the MAC to `.147`:
 
 ```
 PUT /proxy/network/api/s/default/rest/user/6934a5aa428b6c14e973b63d
@@ -46,6 +48,21 @@ PUT /proxy/network/api/s/default/rest/user/6934a5aa428b6c14e973b63d
 ```
 
 (network_id is the `Default` 192.168.0.1/24 LAN.)
+
+> **CAVEAT (durable fix is a Calum action, not optional):** the Mini is on **WiFi**
+> (`is_wired: false`, SSID `world-wide-webb`) with a **private/randomized MAC**
+> (OUI `ba:5d:f7` is locally-administered). A reservation pinned to that MAC holds
+> ONLY while macOS keeps the private address fixed for this network. macOS default
+> is "Fixed" per-network, but a "Rotating" setting or a network re-join can change
+> the MAC and SILENTLY break both the reservation and the DNS target. Durable fix,
+> Calum to do ONE of: (a) wire the Mini to ethernet (stable hardware MAC), or
+> (b) set the Mini's `world-wide-webb` WiFi private-address mode to **Fixed**. Do
+> this before relying on the captive portal long-term.
+
+> **AUTHORIZATION:** these are writes to the LIVE shared UniFi gateway. The agent's
+> harness BLOCKS them on a peer-teammate GO alone (Modify-Shared-Resources requires
+> the actual user). So Calum applies them (console or the staged curls), or grants
+> an explicit session permission. A team-lead GO is not sufficient.
 
 ### 1b. Local DNS record (split-horizon, ADDITIVE)
 
@@ -101,9 +118,17 @@ flip to external-portal mode (`redirect_enabled: true`, the external URL set).
    own copy; the two must match).
 2. **Resend:** run `scripts/save-resend.sh` when ready for real email (the mock
    sender logs + stores the code until then).
-3. **Confirm the Mini's LAN IP** (static/reserved) for the DNS record above.
-4. **Approve the WLAN creation** before the agent applies step 3 (WLAN). It
-   changes live network behavior.
+3. **Authorize the UniFi writes.** The reservation + DNS record (writes 1a/1b) are
+   staged + target-verified but BLOCKED on Calum: the harness won't let the agent
+   mutate the live gateway on a peer GO alone. Apply them in the console, run the
+   staged curls, or grant a session permission.
+4. **Stabilize the Mini's WiFi MAC** (durable fix for the reservation, see the
+   caveat in section 1a): wire the Mini to ethernet OR set its `world-wide-webb`
+   WiFi private-address mode to Fixed, so the reserved MAC can't rotate away.
+5. **Approve + create the WLAN** (write 5) before the portal goes live. It changes
+   live network behavior on an open SSID. While in the console setting the portal
+   type to External Portal Server, leave it set so the agent can read back the exact
+   `guest_access` + walled-garden payloads (writes 3/4) instead of guessing them.
 
 ## Cutover (www-q002.17)
 
