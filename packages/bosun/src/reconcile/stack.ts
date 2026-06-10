@@ -105,6 +105,19 @@ export function renderStackYml(
       }
     }
 
+    // Host-published port for a LAN-only service (www-q002.12). Long-form with
+    // `mode: host` binds the port on the swarm NODE directly (the Mini's LAN IP on
+    // this single-node, manager-pinned stack) rather than the routing-mesh ingress
+    // VIP — the service is reachable on the LAN with no public exposure. This is
+    // orthogonal to `route`: a publishPort service has no route, so the Cloudflare
+    // ingress/DNS reconcile (keyed off svc.route) never touches it.
+    if (svc.publishPort) {
+      lines.push("    ports:");
+      lines.push(`      - target: ${svc.publishPort.container}`);
+      lines.push(`        published: ${svc.publishPort.host}`);
+      lines.push("        mode: host");
+    }
+
     // Secret references — use hashed docker names, not plain names.
     if (svc.secrets.length > 0) {
       lines.push("    secrets:");
