@@ -89,3 +89,18 @@ Real phone on `www-guest`, full flow with a real email: pre-auth redirect lands 
 WiFi password checks, `authorize-guest` grants 30 days, browser redirects to the
 original URL, and a `portal_authorization` row exists. Verify the cert is the real
 Let's Encrypt cert (not the self-signed placeholder) and the certProbe is green.
+
+
+## Monorepo gotcha: new workspace → touch every Dockerfile (www-q002.2)
+
+Adding a workspace to this monorepo (a new `apps/<x>` or `packages/<x>` with a
+`package.json`) puts it in the root `bun.lock`. Every Dockerfile that runs an
+in-container `bun install --frozen-lockfile` (api, web, worker, media-worker,
+storybook, bosun) COPYs an explicit list of workspace manifests BEFORE installing
+— and the frozen install fails with "lockfile had changes" if that list is missing
+the new workspace's `package.json`. This silently breaks ALL those image builds (and
+the prod deploy) for a reason unrelated to the new app. When you add a workspace,
+add `COPY <ws>/package.json <ws>/` (matching each file's COPY style) to every
+workspace-installing Dockerfile. A mechanical guard enforces this:
+`packages/bosun/test/dockerfile-manifests.test.ts` fails CI if any
+frozen-installing Dockerfile omits a workspace manifest.
