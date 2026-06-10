@@ -6,7 +6,7 @@ interface AlertProps {
   children: ReactNode;
 }
 
-/** Inline destructive alert — the only alert variant (success is a whole
+/** Inline destructive alert, the only alert variant (success is a whole
  *  screen, per the design). Sits at the top of the form it relates to. */
 export function Alert({ title, children }: AlertProps) {
   return (

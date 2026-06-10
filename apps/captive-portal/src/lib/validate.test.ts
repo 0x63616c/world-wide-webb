@@ -9,7 +9,7 @@ const EMAIL_REQUIRED = "Email is required to connect.";
 const EMAIL_FORMAT = "That doesn’t look like a valid email address.";
 const TERMS_REQUIRED = "You must accept the terms to continue.";
 
-describe("validate() — landing form (table-driven)", () => {
+describe("validate(), landing form (table-driven)", () => {
   const ok = { name: "John Appleseed", email: "john@example.com", agreed: true };
 
   it("passes a fully valid form with no errors", () => {
@@ -37,17 +37,17 @@ describe("validate() — landing form (table-driven)", () => {
       expected: { email: EMAIL_REQUIRED },
     },
     {
-      desc: "malformed email — no @",
+      desc: "malformed email, no @",
       input: { ...ok, email: "john.example.com" },
       expected: { email: EMAIL_FORMAT },
     },
     {
-      desc: "malformed email — no TLD",
+      desc: "malformed email, no TLD",
       input: { ...ok, email: "john@example" },
       expected: { email: EMAIL_FORMAT },
     },
     {
-      desc: "malformed email — trailing space tolerated then validated",
+      desc: "malformed email, trailing space tolerated then validated",
       input: { ...ok, email: "john@" },
       expected: { email: EMAIL_FORMAT },
     },
@@ -74,7 +74,7 @@ describe("validate() — landing form (table-driven)", () => {
   });
 });
 
-describe("EMAIL_RE — permissive typo catcher (matches the design regex)", () => {
+describe("EMAIL_RE, permissive typo catcher (matches the design regex)", () => {
   it.each([
     ["john@example.com", true],
     ["a@b.co", true],
@@ -88,7 +88,7 @@ describe("EMAIL_RE — permissive typo catcher (matches the design regex)", () =
   });
 });
 
-describe("validatePassword() — Wi-Fi password", () => {
+describe("validatePassword(), Wi-Fi password", () => {
   it.each([
     ["", "Enter the Wi-Fi password to continue."],
     ["   ", "Enter the Wi-Fi password to continue."],

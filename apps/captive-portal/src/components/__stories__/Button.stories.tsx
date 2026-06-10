@@ -10,7 +10,7 @@ const meta: Meta<typeof Button> = {
     docs: {
       description: {
         component:
-          "Full-width 42px button. One primary (white on black) carries the main action on every screen; a ghost variant handles secondary actions. `loading` shows a spinner, disables the button, and keeps the label meaningful — it is the double-submit guard.",
+          "Full-width 42px button. One primary (white on black) carries the main action on every screen; a ghost variant handles secondary actions. `loading` shows a spinner, disables the button, and keeps the label meaningful, it is the double-submit guard.",
       },
     },
   },
