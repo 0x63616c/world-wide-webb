@@ -11,7 +11,7 @@
    Variable woff2 vendored from the official `geist` npm package into
    /public/fonts. A single variable face covers the design's weight axis
    (Geist 400-700, Geist Mono 400-600). font-display: block (not swap) so a
-   kiosk reload never paints the fallback then swaps — paired with the
+   kiosk reload never paints the fallback then swaps, paired with the
    index.html preloads, the block window is imperceptible. */
 @font-face {
   font-family: "Geist";
