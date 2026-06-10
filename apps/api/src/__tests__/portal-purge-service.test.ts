@@ -21,7 +21,6 @@ import {
 
 // A fake drizzle db: db.delete(table).where(cond) resolves to { rowCount }.
 // We record the table identity so the test can assert which tables were purged.
-type FakeDb = Pick<NodePgDatabase<typeof schema>, "delete">;
 const asDb = (fake: unknown) => fake as unknown as NodePgDatabase<typeof schema>;
 
 function makeFakeDb(rowCounts: { codes: number; attempts: number; auths: number }) {
