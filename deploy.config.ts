@@ -28,6 +28,8 @@ export default stack("control-center", {
       // Hard 512M cap; cpu reservation puts the request path on the critical path
       // so it always schedules under contention (www-ke9a).
       resources: { memory: "512M", reserveCpus: "0.5" },
+      // Join the attachable edge net so the LAN-edge proxy reaches api:4201 (www-q002.21).
+      networks: ["portal-edge"],
       secrets: fromOp("Homelab", {
         HA_TOKEN: "Home Assistant Token/credential",
         UNIFI_API_KEY: "UniFi/local_api_key",
@@ -237,9 +239,14 @@ export default stack("control-center", {
 
     // Captive portal: the guest-WiFi onboarding page (www-q002). LAN-ONLY, it is
     // reachable only on the local network, NEVER through the Cloudflare tunnel:
-    //   - publishPort binds host 443 on the swarm NODE (mode: host), i.e. the
-    //     Mini's LAN IP. The public hostname resolves to that same LAN IP via
-    //     UniFi split-horizon DNS (www-q002.15); the public wildcard hits a dead
+    //   - It is a swarm service joined to the attachable `portal-edge` overlay,
+    //     serving :443 (TLS) + :80 on that overlay. It does NOT publishPort,
+    //     OrbStack does not forward swarm-published ports to the LAN (www-q002.21).
+    //     The LAN edge is a PLAIN `docker run -p 443:443 -p 80:80` proxy on
+    //     portal-edge (scripts/portal-lan.sh, launchd-managed) that OrbStack DOES
+    //     forward to the LAN; it passes raw TCP through to this service.
+    //   - The public hostname resolves to the Mini's LAN IP via UniFi
+    //     split-horizon DNS (www-q002.15); the public wildcard hits a dead
     //     Cloudflare route, so nothing is served off the internet.
     //   - NO `route:`, bosun must never create a tunnel ingress/DNS for it (the
     //     route reconcile is keyed solely off svc.route).
@@ -253,7 +260,10 @@ export default stack("control-center", {
       image: ghcr("control-center-captive-portal"),
       // 64M cap, static nginx + a tiny TLS reload loop (www-ke9a class).
       resources: { memory: "64M" },
-      publishPort: { host: 443, container: 443 },
+      // NO publishPort: OrbStack does not forward swarm-published ports to the
+      // LAN (proven www-q002.21). The portal is reached via the LAN-edge plain
+      // proxy on portal-edge instead; this service serves :443/:80 on the overlay.
+      networks: ["portal-edge"],
       // Read-WRITE (not ro): on a FRESH deploy the volume is empty and the
       // entrypoint must WRITE a self-signed placeholder cert so nginx can start
       // before acme issues the real one (a ro mount crash-loops the service ,
@@ -487,4 +497,9 @@ export default stack("control-center", {
       placement: ["node.role==manager"],
     }),
   ],
+  // Attachable overlay so the LAN-edge proxy (a plain `docker run -p` container,
+  // the only thing OrbStack forwards to the LAN) can reach api + captive-portal
+  // by name. OrbStack does NOT forward swarm-published ports to the LAN, so the
+  // portal is exposed via that plain proxy on this net, not publishPort (www-q002.21).
+  attachableNetworks: ["portal-edge"],
 });
