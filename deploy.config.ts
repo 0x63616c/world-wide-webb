@@ -263,7 +263,7 @@ export default stack("control-center", {
       placement: ["node.role==manager"],
       // Swarm-tracked liveness on the in-container :80 (always listening, even
       // before a real cert lands). nginx:alpine ships no curl, so use wget.
-      healthcheck: healthcheck("wget -q -O /dev/null http://localhost:80/ || exit 1"),
+      healthcheck: healthcheck("wget -q -O /dev/null http://127.0.0.1:80/ || exit 1"),
       // Verify probe over the overlay :80 (the agent can't resolve the LAN-only
       // public host until the UniFi DNS record lands, the public-hostname
       // certProbe is added in CC-q002.15, never red purely by deploy ordering).
