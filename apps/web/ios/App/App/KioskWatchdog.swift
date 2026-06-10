@@ -24,6 +24,12 @@ import WebKit
 final class KioskWatchdog {
     private weak var webView: WKWebView?
     private let originURL: URL
+    // CF Access service-token credentials (CC-cuuw). When the dashboard is gated,
+    // the watchdog's own probe AND reload MUST carry these headers, or a session
+    // expiry sends the probe to a 302->login (which isHealthy() calls "healthy")
+    // and the header-less reload just re-renders the login wall forever. nil for
+    // an open (ungated) origin — then no headers are injected (today's behavior).
+    private let access: KioskAccess?
 
     // Reload settles into at most one probe / 120s during a sustained outage.
     private let backoff = Backoff(base: 3, max: 120)
@@ -43,9 +49,10 @@ final class KioskWatchdog {
     private var nextProbeAllowedAt = Date.distantPast
     private var hasNetwork = true
 
-    init(webView: WKWebView, originURL: URL) {
+    init(webView: WKWebView, originURL: URL, access: KioskAccess? = nil) {
         self.webView = webView
         self.originURL = originURL
+        self.access = access
         let cfg = URLSessionConfiguration.ephemeral
         cfg.timeoutIntervalForRequest = 10
         cfg.timeoutIntervalForResource = 12
@@ -111,20 +118,31 @@ final class KioskWatchdog {
         webView.evaluateJavaScript(js) { [weak self] result, _ in
             guard let self else { return }
             var cfError = false
+            var accessLogin = false
             var hasRoot = false
             if let json = result as? String,
                let data = json.data(using: .utf8),
                let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                cfError = KioskHealth.looksLikeCloudflareError(html: obj["html"] as? String ?? "")
+                let html = obj["html"] as? String ?? ""
+                cfError = KioskHealth.looksLikeCloudflareError(html: html)
+                // CF Access login interstitial (session expired) — a third state
+                // distinct from healthy + CF-error. Recognizing it lets us reload
+                // WITH the Access headers instead of looping on the login wall.
+                accessLogin = KioskHealth.looksLikeAccessLogin(html: html)
                 hasRoot = (obj["hasRoot"] as? Bool) ?? false
             } else {
                 // JS didn't even evaluate (blank/failed document) — treat as blank.
                 cfError = false
+                accessLogin = false
                 hasRoot = false
             }
 
             self.consecutiveBlankSamples = hasRoot ? 0 : self.consecutiveBlankSamples + 1
-            let broken = cfError || self.consecutiveBlankSamples >= self.blankSamplesBeforeReload
+            // The Access login page also counts as broken: it has no #root, but we
+            // want to react immediately (re-navigate with headers) rather than
+            // waiting out the blank-sample threshold.
+            let broken = cfError || accessLogin
+                || self.consecutiveBlankSamples >= self.blankSamplesBeforeReload
             guard broken else {
                 self.consecutiveOriginFailures = 0
                 return
@@ -134,10 +152,24 @@ final class KioskWatchdog {
         }
     }
 
-    private func probeOriginThenReload() {
+    // Build a cache-bypassing request to the origin, carrying the CF-Access
+    // headers when the dashboard is gated (CC-cuuw). Used by BOTH the probe and
+    // the reload so neither bounces to the 302 Access-login page. When `access`
+    // is nil (open origin) this is exactly today's header-less request.
+    private func authedRequest() -> URLRequest {
         var request = URLRequest(url: originURL)
-        request.httpMethod = "GET"
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        if let access {
+            for (name, value) in access.headers {
+                request.setValue(value, forHTTPHeaderField: name)
+            }
+        }
+        return request
+    }
+
+    private func probeOriginThenReload() {
+        var request = authedRequest()
+        request.httpMethod = "GET"
         probeSession.dataTask(with: request) { [weak self] _, response, error in
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             DispatchQueue.main.async {
@@ -160,11 +192,11 @@ final class KioskWatchdog {
     private func reloadDashboard() {
         guard let webView else { return }
         // Load the configured origin (not webView.reload()) so we always return
-        // to the dashboard even if the stuck page navigated elsewhere, and bypass
-        // the cache so a cached CF error page is never re-shown.
-        var request = URLRequest(url: originURL)
-        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        webView.load(request)
+        // to the dashboard even if the stuck page navigated elsewhere, bypass the
+        // cache so a cached CF error page is never re-shown, AND carry the
+        // CF-Access headers (CC-cuuw) so a session-expiry reload re-authenticates
+        // through the gate rather than re-rendering the Access login wall.
+        webView.load(authedRequest())
     }
 
     deinit {

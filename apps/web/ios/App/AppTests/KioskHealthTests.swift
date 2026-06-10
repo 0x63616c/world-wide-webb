@@ -64,6 +64,45 @@ enum KioskHealthTests {
         Check.expect(!KioskHealth.looksLikeCloudflareError(html: realDashboard), "real dashboard DOM is not a CF error")
         Check.expect(!KioskHealth.looksLikeCloudflareError(html: ""), "empty body is not flagged as CF error")
 
+        // --- CF Access login interstitial classification (CC-cuuw) ---
+        // Once `dashboard` is gated and the CF_Authorization cookie expires, the
+        // loaded document is the CF Access LOGIN page — NOT a CF error page and
+        // with no React #root. The watchdog's header-less probe gets a 302 to it,
+        // and isHealthy(302) == true, so a header-less reload would re-render the
+        // login wall forever (the brick path from §5). looksLikeAccessLogin is the
+        // THIRD state that breaks that loop: recognize the login page so the
+        // watchdog reloads WITH the Access headers instead.
+        let accessLogin = """
+        <html><head><title>Sign in</title></head>
+        <body><div id="cf-access-login" data-access-app="dashboard">
+        <a href="https://worldwidewebb.cloudflareaccess.com/cdn-cgi/access/login">
+        Sign in with Cloudflare Access</a></div></body></html>
+        """
+        Check.expect(KioskHealth.looksLikeAccessLogin(html: accessLogin), "detects the CF Access login interstitial")
+        Check.expect(!KioskHealth.looksLikeAccessLogin(html: realDashboard), "real dashboard is NOT the Access login page")
+        Check.expect(!KioskHealth.looksLikeAccessLogin(html: cf1033), "a CF error page is NOT the Access login page")
+        Check.expect(!KioskHealth.looksLikeAccessLogin(html: ""), "empty body is not the Access login page")
+        // The login page must NOT be misread as a CF error (different recovery).
+        Check.expect(!KioskHealth.looksLikeCloudflareError(html: accessLogin), "Access login page is NOT a CF error page")
+        // 302 to the login is "healthy" by status — proving the status check alone
+        // can't tell the gate apart; the DOM classification above is what does.
+        Check.expect(KioskHealth.isHealthy(httpStatus: 302), "HTTP 302 (redirect to Access login) is 'healthy' by status — DOM sniff is required")
+
+        // --- CF Access credentials + header injection (CC-cuuw) ---
+        // The kiosk's probe AND reload must carry the CF-Access headers. These
+        // assert the credential gate (partial/blank creds -> nil -> no headers
+        // sent, the LOGIN-LOOP REGRESSION guard) and the exact header map when set.
+        Check.expect(KioskAccess.from(clientId: nil, clientSecret: nil) == nil, "no creds -> nil (open origin, no headers)")
+        Check.expect(KioskAccess.from(clientId: "id", clientSecret: nil) == nil, "missing secret -> nil (never send a half-credential)")
+        Check.expect(KioskAccess.from(clientId: "", clientSecret: "secret") == nil, "blank id -> nil (never send an empty CF-Access-Client-Id)")
+        if let access = KioskAccess.from(clientId: "cid", clientSecret: "csec") {
+            Check.expect(access.headers["CF-Access-Client-Id"] == "cid", "header map carries the client id")
+            Check.expect(access.headers["CF-Access-Client-Secret"] == "csec", "header map carries the client secret")
+            Check.expect(access.headers.count == 2, "exactly the two CF-Access headers are produced")
+        } else {
+            Check.expect(false, "valid creds should produce a KioskAccess")
+        }
+
         // --- Bounded exponential backoff ---
         // Reloads must not hammer the origin. Backoff grows exponentially from a
         // base and is capped, so a long outage settles into a steady retry cadence.

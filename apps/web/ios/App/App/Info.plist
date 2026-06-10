@@ -4,6 +4,10 @@
 <dict>
 	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
+	<key>CFAccessClientId</key>
+	<string>$(CF_ACCESS_CLIENT_ID)</string>
+	<key>CFAccessClientSecret</key>
+	<string>$(CF_ACCESS_CLIENT_SECRET)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>

@@ -10,6 +10,16 @@ import type { CapacitorConfig } from "@capacitor/cli";
 // biome-ignore lint/style/noProcessEnv: node-side CLI config, env override is intentional
 const serverUrl = process.env.CAPACITOR_DEV_SERVER_URL || "https://dashboard.worldwidewebb.co";
 
+// CF Access headers (CC-cuuw): the plan's preferred path was `server.headers` on
+// this config. VERIFIED against the installed Capacitor 8 SDK
+// (@capacitor/cli declarations.d.ts `server` type) — there is NO `headers` field
+// in Capacitor 8's server config, and the native iOS load issues a header-less
+// `URLRequest(url:)` we cannot configure here. So per §5's verify-before-build
+// fallback, the CF-Access service-token headers are injected natively instead:
+// KioskViewController re-issues the initial origin load with the headers and the
+// KioskWatchdog carries them on its probe + reload (apps/web/ios/App/App).
+// Credentials are baked into Info.plist at build time from repo secrets
+// (Fastfile xcargs + ios-build.yml). Nothing to wire on this config object.
 const config: CapacitorConfig = {
   // Bundle id is intentionally inherited from the original "Evee" TestFlight app so
   // new builds land as updates to the same app (see apps/web/ios + ios-build.yml).
