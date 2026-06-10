@@ -54,7 +54,8 @@
       "!**/.claude",
       "!**/.cmux",
       "!**/experiments",
-      "!**/docs/media-tiles"
+      "!**/docs/media-tiles",
+      "!**/docs/captive-portal/design"
     ]
   },
   "overrides": [
