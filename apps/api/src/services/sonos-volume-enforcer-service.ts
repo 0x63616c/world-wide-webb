@@ -34,6 +34,19 @@ const SPEAKER_DOMAIN = "sonos";
 // regains control almost immediately after a dashboard tap settles.
 export const SPEAKER_COMMAND_WINDOW_MS = 10_000;
 
+// Backend-only hard volume cap (CC-0wbm). Sonos exposes no device-level limit
+// over UPnP and HA has no entity for it, so we enforce it here: the enforcer
+// only ever actuates min(desired, cap), and external changes above the cap are
+// pushed back down within a cycle. Deliberately HIDDEN from the frontend — the
+// raw user-requested volume stays in desiredState and is what the panel renders,
+// so the cap is invisible (the fader can still read 100, the speaker tops at 90).
+export const SPEAKER_MAX_VOLUME = 90;
+
+/** Clamp any volume to the backend cap. */
+function capVolume(volume: number): number {
+  return Math.min(volume, SPEAKER_MAX_VOLUME);
+}
+
 // A speaker row as the reconciler needs it (subset of the deviceState row).
 interface ManagedSpeaker {
   id: string;
@@ -53,7 +66,10 @@ export type SpeakerEnforcementDecision =
   | { kind: "unreachable" }
   | { kind: "seed"; desired: DeviceSpeakerState }
   | { kind: "adopt"; desired: DeviceSpeakerState }
-  | { kind: "push"; desired: DeviceSpeakerState };
+  | { kind: "push"; desired: DeviceSpeakerState }
+  // Cap: external volume exceeded SPEAKER_MAX_VOLUME — push the cap onto the
+  // speaker but DON'T touch the raw desired (the cap is hidden, not adopted).
+  | { kind: "cap"; desired: DeviceSpeakerState };
 
 /** Pure reconcile decision for one speaker. No I/O — the cycle executes the result. */
 export function decideSpeakerEnforcement(
@@ -66,12 +82,25 @@ export function decideSpeakerEnforcement(
   if (!reading.available || reading.volume == null) return { kind: "unreachable" };
   const reported: DeviceSpeakerState = { volume: reading.volume };
 
+  // Seed keeps reality RAW (even above the cap); the cap branch below pushes it
+  // down on the next cycle once a desired exists to compare against.
   if (speaker.desiredState == null) return { kind: "seed", desired: reported };
-  if (speaker.desiredState.volume === reported.volume) return { kind: "noop" };
+
+  // Convergence is judged against the CLAMPED desired: a desired of 100 with the
+  // speaker sitting at the 90 cap is "converged" (noop), so an above-cap desired
+  // never causes an endless push loop.
+  const target = capVolume(speaker.desiredState.volume);
+  if (reported.volume === target) return { kind: "noop" };
 
   const inCommandWindow = speaker.desiredUntilUtc != null && now < speaker.desiredUntilUtc;
-  if (inCommandWindow) return { kind: "push", desired: speaker.desiredState };
+  if (inCommandWindow) return { kind: "push", desired: { volume: target } };
 
+  // Outside the window: an external change at/below the cap is adopted as the new
+  // intent (Sonos app / hardware buttons win). Above the cap it is NOT honoured —
+  // push the cap back down and leave the raw desired alone.
+  if (reported.volume > SPEAKER_MAX_VOLUME) {
+    return { kind: "cap", desired: { volume: SPEAKER_MAX_VOLUME } };
+  }
   return { kind: "adopt", desired: reported };
 }
 
@@ -253,11 +282,20 @@ async function applyDecision(
         .where(eq(deviceState.id, speaker.id));
       return;
     }
-    case "push": {
+    case "push":
+    case "cap": {
       getLogger().debug(
-        { deviceIp: speaker.deviceIp, volume: decision.desired.volume },
-        "sonos-volume-enforcer pushing desired volume",
+        {
+          deviceIp: speaker.deviceIp,
+          volume: decision.desired.volume,
+          capped: decision.kind === "cap",
+        },
+        decision.kind === "cap"
+          ? "sonos-volume-enforcer capping external over-volume"
+          : "sonos-volume-enforcer pushing desired volume",
       );
+      // Both actuate the speaker and refresh reported/availability; neither writes
+      // desiredState (push keeps the raw desired, cap deliberately hides itself).
       await new SonosClient(speaker.deviceIp).setVolume(decision.desired.volume);
       await db
         .update(deviceState)

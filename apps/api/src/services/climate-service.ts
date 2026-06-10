@@ -7,7 +7,7 @@ import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 import { CLIMATE_DEVICE_ID } from "./climate-enforcer-service";
-import { isClimateState, mergeDeviceState } from "./device-state-mapping";
+import { isClimateState, mergeDeviceState, sanitizeClimateDesired } from "./device-state-mapping";
 
 // App-command window for climate mutations (CC-unxz.2): a mutation writes desired
 // + this window and returns; the climate enforcer pushes desired→HA within its
@@ -182,8 +182,10 @@ async function writeClimateDesired(patch: Partial<DeviceClimateState>): Promise<
   const reported = isClimateState(row.reportedState) ? row.reportedState : null;
   // Base the new desired on the existing desired (or reported as a fallback) so a
   // mode change keeps the setpoints and a setpoint change keeps the mode.
+  // Sanitized: the base may carry reported-only ambient/action (reported fallback,
+  // or a pre-fix desired) which must never persist into desired (CC-dnpj).
   const base: DeviceClimateState = prev ?? reported ?? { mode: HvacMode.Off };
-  const desired: DeviceClimateState = { ...base, ...patch };
+  const desired: DeviceClimateState = sanitizeClimateDesired({ ...base, ...patch });
   await db
     .update(deviceState)
     .set({ desiredState: desired, desiredAtUtc: now, desiredUntilUtc: desiredUntil })

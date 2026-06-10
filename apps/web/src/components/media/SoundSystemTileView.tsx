@@ -58,9 +58,22 @@ function isActive(room: SoundSystemRoom): boolean {
   return room.transportState === "PLAYING" || room.transportState === "PAUSED_PLAYBACK";
 }
 
-/** Coordinators of a real multi-room group carry the COORD sublabel. */
-function isCoord(room: SoundSystemRoom): boolean {
-  return room.isCoordinator && room.memberUuids.length > 1;
+/**
+ * UUIDs to mark as group coordinators (blue name). A room qualifies only when it
+ * coordinates a group with 2+ VISIBLE rooms — counted from the rendered rooms by
+ * shared coordinatorUuid, NOT from memberUuids (which still includes the hidden
+ * bonded Desk RF satellite, so a visually-solo Desk would wrongly mark) (CC-a5rl).
+ */
+function coordinatorUuids(rooms: SoundSystemRoom[]): Set<string> {
+  const visibleCount = new Map<string, number>();
+  for (const r of rooms) {
+    visibleCount.set(r.coordinatorUuid, (visibleCount.get(r.coordinatorUuid) ?? 0) + 1);
+  }
+  return new Set(
+    rooms
+      .filter((r) => r.isCoordinator && (visibleCount.get(r.coordinatorUuid) ?? 0) > 1)
+      .map((r) => r.uuid),
+  );
 }
 
 function clampVolume(v: number): number {
@@ -77,11 +90,13 @@ interface FaderProps {
   accent: boolean;
   /** Ganged with others — draw the accent ring on the thumb. */
   linked: boolean;
+  /** Group coordinator of a real multi-room group — render the name blue (CC-a5rl). */
+  coord: boolean;
   onChange: (value: number) => void;
   onOpenSource: () => void;
 }
 
-function Fader({ room, volume, muted, accent, linked, onChange, onOpenSource }: FaderProps) {
+function Fader({ room, volume, muted, accent, linked, coord, onChange, onOpenSource }: FaderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
 
   function valueFromClientY(clientY: number): number {
@@ -202,7 +217,8 @@ function Fader({ room, volume, muted, accent, linked, onChange, onOpenSource }: 
         />
       </div>
 
-      {/* Room name — tap to open the per-room source picker (A25/A31). */}
+      {/* Room name — tap to open the per-room source picker (A25/A31). A group
+          coordinator's name is blue (CC-a5rl): it replaces the old COORD sublabel. */}
       <div style={{ textAlign: "center", lineHeight: 1.1, maxWidth: "100%" }}>
         <button
           type="button"
@@ -216,7 +232,7 @@ function Fader({ room, volume, muted, accent, linked, onChange, onOpenSource }: 
             maxWidth: "100%",
             fontSize: 11,
             fontWeight: 600,
-            color: accent && !muted ? "var(--ink)" : "var(--ink-2)",
+            color: coord ? "var(--acc)" : accent && !muted ? "var(--ink)" : "var(--ink-2)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -228,19 +244,6 @@ function Fader({ room, volume, muted, accent, linked, onChange, onOpenSource }: 
         >
           {room.name}
         </button>
-        {isCoord(room) && (
-          <div
-            style={{
-              fontSize: 7.5,
-              fontWeight: 600,
-              letterSpacing: "0.08em",
-              color: "var(--acc)",
-              marginTop: 2,
-            }}
-          >
-            COORD
-          </div>
-        )}
       </div>
     </div>
   );
@@ -259,6 +262,8 @@ interface GroupPanelProps {
   mutes: Record<string, boolean>;
   /** Per-fader linked flag (gang ring). */
   linked: boolean;
+  /** UUIDs of group coordinators to blue-mark (CC-a5rl). */
+  coordUuids: Set<string>;
   /** Group-lock control — shown in the cap of the accent panel only. */
   lock?: { on: boolean; dimmed: boolean; onToggle: () => void };
   onFaderChange: (uuid: string, value: number) => void;
@@ -273,6 +278,7 @@ function GroupPanel({
   vols,
   mutes,
   linked,
+  coordUuids,
   lock,
   onFaderChange,
   onOpenSource,
@@ -366,6 +372,7 @@ function GroupPanel({
             muted={mutes[room.uuid] ?? room.muted}
             accent={accent}
             linked={linked}
+            coord={coordUuids.has(room.uuid)}
             onChange={(value) => onFaderChange(room.uuid, value)}
             onOpenSource={() => onOpenSource(room.uuid)}
           />
@@ -438,6 +445,10 @@ export function SoundSystemTileView({
   const idle = rooms.filter((r) => !isActive(r));
   // The accent panel's cap reflects the real source when known, else its state.
   const activeLabel = active.find((r) => r.sourceLabel)?.sourceLabel ?? "Playing";
+  const coordUuids = coordinatorUuids(rooms);
+  // The group lock gangs the active panel's faders — meaningless with a single
+  // fader, so hide it when only one room is active (CC-a5rl).
+  const showGroupLock = active.length > 1;
 
   return (
     <Tile padding={18} style={{ gap: 0 }} onClick={onOpenMixer}>
@@ -462,7 +473,12 @@ export function SoundSystemTileView({
               vols={vols}
               mutes={mutes}
               linked={globalLock || groupLock}
-              lock={{ on: groupLock, dimmed: globalLock, onToggle: onToggleGroupLock }}
+              coordUuids={coordUuids}
+              lock={
+                showGroupLock
+                  ? { on: groupLock, dimmed: globalLock, onToggle: onToggleGroupLock }
+                  : undefined
+              }
               onFaderChange={onFaderChange}
               onOpenSource={onOpenSource}
             />
@@ -476,6 +492,7 @@ export function SoundSystemTileView({
               vols={vols}
               mutes={mutes}
               linked={globalLock}
+              coordUuids={coordUuids}
               onFaderChange={onFaderChange}
               onOpenSource={onOpenSource}
             />
