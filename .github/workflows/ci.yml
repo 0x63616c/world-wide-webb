@@ -79,6 +79,10 @@ jobs:
               # too, or the fix never ships (www-w4aa).
               - 'apps/web/nginx-storybook.conf'
               - 'apps/web/Dockerfile.storybook'
+              # The storybook image also bundles the captive-portal Storybook (the
+              # composed /captive-portal ref), so a portal change must rebuild it
+              # (www-q002.2/.5).
+              - 'apps/captive-portal/**'
               - 'packages/**'
               - 'bun.lock'
             # bosun-agent image bakes in the bosun source + deploy.config + infra,
