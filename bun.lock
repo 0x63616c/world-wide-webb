@@ -35,6 +35,9 @@
       "name": "@cc/captive-portal",
       "version": "0.0.0",
       "dependencies": {
+        "@cc/api": "workspace:*",
+        "@trpc/client": "^11.17.0",
+        "@trpc/server": "^11.17.0",
         "clsx": "^2.1.1",
         "input-otp": "^1.4.2",
         "react": "^19.2.5",
