@@ -169,6 +169,23 @@ export function climateStateConverged(
   return true;
 }
 
+/**
+ * Strip a climate desired down to the COMMANDABLE fields (mode/setpoints/fan).
+ * Desired must never carry the reported-only ambient/action: the merge overlay
+ * is desired-over-reported, so a desired holding a seed-time ambient shadows the
+ * live reported room temp forever (www-dnpj — the panel froze at the seed-time
+ * temperature). Used at enforcer seed, on every desired write, and as the merge
+ * overlay so pre-fix rows render correctly even before they self-heal.
+ */
+export function sanitizeClimateDesired(state: DeviceClimateState): DeviceClimateState {
+  const clean: DeviceClimateState = { mode: state.mode };
+  if (state.target != null) clean.target = state.target;
+  if (state.targetLow != null) clean.targetLow = state.targetLow;
+  if (state.targetHigh != null) clean.targetHigh = state.targetHigh;
+  if (state.fanMode != null) clean.fanMode = state.fanMode;
+  return clean;
+}
+
 // HA hvac_action values meaning the AC is actively driving its own blower, so
 // fan_mode is not freely commandable. Reported raw, lowercase (mapHaClimate
 // stores attrs.hvac_action verbatim).
@@ -281,7 +298,10 @@ export function mergeDeviceState(
   const reported = device.reportedState ?? null;
   if (desired != null) {
     // Per-field overlay: reported as base, desired's specified fields override.
-    const state = reported != null ? { ...reported, ...desired } : desired;
+    // Climate desired is sanitized first so a stale pre-fix desired carrying the
+    // reported-only ambient/action can never shadow the live values (www-dnpj).
+    const overlay = isClimateState(desired) ? sanitizeClimateDesired(desired) : desired;
+    const state = reported != null ? { ...reported, ...overlay } : desired;
     const pending = reported == null ? true : !converged(desired, reported);
     return { state, pending, available: device.available };
   }

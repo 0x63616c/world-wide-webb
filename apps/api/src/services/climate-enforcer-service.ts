@@ -35,6 +35,7 @@ import {
   isClimateState,
   type MappedHaState,
   mapHaToReported,
+  sanitizeClimateDesired,
 } from "./device-state-mapping";
 
 const CLIMATE_ENFORCER_INTEGRATION_ID = "climate-enforcer";
@@ -76,7 +77,11 @@ export function decideClimateEnforcement(
   const reported = mapped.reported;
 
   // Seed once: adopt current reality as the initial intent without pushing.
-  if (device.desiredState == null) return { kind: "seed", desired: reported };
+  // Sanitized — desired only ever carries commandable fields; copying the
+  // reported-only ambient/action would freeze them in the merge overlay (www-dnpj).
+  if (device.desiredState == null) {
+    return { kind: "seed", desired: sanitizeClimateDesired(reported) };
+  }
 
   // While the AC is actively heating/cooling it owns its blower and reports
   // fan_mode="on"; a desired fan_mode that disagrees is NOT drift to fight, or we
@@ -117,8 +122,8 @@ async function reconcileClimate(entity: HaEntity | undefined): Promise<void> {
   // write (we never fabricate a row from thin air). Wait for HA to report.
   if (!row && (!mapped.available || mapped.reported == null)) return;
 
-  // First sight with a reachable entity: insert the seed row (desired = reported,
-  // no push) so the panel has something to read immediately.
+  // First sight with a reachable entity: insert the seed row (desired = the
+  // commandable slice of reported, no push) so the panel can read immediately.
   if (!row) {
     await db.insert(deviceState).values({
       id: CLIMATE_DEVICE_ID,
@@ -128,21 +133,33 @@ async function reconcileClimate(entity: HaEntity | undefined): Promise<void> {
       label: "Thermostat",
       reportedState: mapped.reported,
       reportedAtUtc: now,
-      desiredState: mapped.reported,
+      desiredState: isClimateState(mapped.reported)
+        ? sanitizeClimateDesired(mapped.reported)
+        : mapped.reported,
       desiredAtUtc: now,
       available: true,
     });
     return;
   }
 
+  const storedDesired = isClimateState(row.desiredState) ? row.desiredState : null;
+  const desired = storedDesired ? sanitizeClimateDesired(storedDesired) : null;
+  // Self-heal a pre-fix row whose desired still carries the reported-only
+  // ambient/action (www-dnpj): persist the sanitized desired with this cycle's
+  // write so the row converges without a manual migration.
+  const desiredFix =
+    storedDesired != null && (storedDesired.ambient != null || storedDesired.action != null)
+      ? { desiredState: desired }
+      : {};
+
   const device: ManagedClimate = {
     id: row.id,
     entityId: row.entityId,
-    desiredState: isClimateState(row.desiredState) ? row.desiredState : null,
+    desiredState: desired,
     desiredUntilUtc: row.desiredUntilUtc ?? null,
   };
   const decision = decideClimateEnforcement(device, mapped, now);
-  await applyDecision(device, decision, mapped, now);
+  await applyDecision(device, decision, mapped, now, desiredFix);
 }
 
 async function loadClimateRow(): Promise<typeof deviceState.$inferSelect | undefined> {
@@ -159,8 +176,11 @@ async function applyDecision(
   decision: ClimateEnforcementDecision,
   mapped: MappedHaState,
   now: Date,
+  // www-dnpj self-heal: when the stored desired carried reported-only fields, the
+  // sanitized replacement rides along on this cycle's write (seed sets its own).
+  desiredFix: { desiredState?: DeviceClimateState | null } = {},
 ): Promise<void> {
-  const reportedFields = { reportedState: mapped.reported, reportedAtUtc: now };
+  const reportedFields = { reportedState: mapped.reported, reportedAtUtc: now, ...desiredFix };
 
   switch (decision.kind) {
     case "unreachable": {

@@ -270,6 +270,34 @@ describe("getClimate() (desired-authoritative, reads device_state — www-unxz.2
     expect(result.ambient).toBe(65);
     expect(result.action).toBe(HvacAction.Heating);
   });
+
+  it("returns the LIVE reported ambient when a stale desired carries ambient/action (www-dnpj prod repro)", async () => {
+    // Prod row 2026-06-10: desired.ambient frozen at 71 since seed while
+    // reported.ambient tracked the real room (73). The panel must show 73.
+    mockDbSelect.mockReturnValue(
+      new SelectChain([
+        climateRow(
+          {
+            mode: HvacMode.Cool,
+            target: 72,
+            fanMode: "on",
+            ambient: 71,
+            action: HaHvacAction.Cooling,
+          },
+          {
+            mode: HvacMode.Cool,
+            target: 72,
+            fanMode: "auto",
+            ambient: 73,
+            action: HaHvacAction.Cooling,
+          },
+        ),
+      ]),
+    );
+    const result = await getClimate();
+    expect(result.ambient).toBe(73);
+    expect(result.action).toBe(HvacAction.Cooling);
+  });
 });
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -309,6 +337,27 @@ describe("setClimateTarget() (writes desired, NO HA call)", () => {
     expect(written.desiredState).toMatchObject({ mode: HvacMode.Cool, target: 72 });
     expect(written.desiredState?.targetLow).toBeUndefined();
     expect(written.desiredState?.targetHigh).toBeUndefined();
+  });
+
+  it("never writes reported-only ambient/action into desired (www-dnpj)", async () => {
+    // A pre-fix desired (or the reported fallback base) may carry ambient/action;
+    // every desired write must strip them or they shadow the live room temp.
+    let written: { desiredState?: Record<string, unknown> } = {};
+    mockDbSelect.mockReturnValue(
+      new SelectChain([
+        climateRow(
+          { mode: HvacMode.Cool, target: 70, ambient: 71, action: HaHvacAction.Cooling },
+          { mode: HvacMode.Cool, target: 70, ambient: 73 },
+        ),
+      ]),
+    );
+    mockDbUpdate.mockReturnValue(makeUpdateChain((p) => (written = p as typeof written)));
+
+    await setClimateTarget("climate.home", 68);
+
+    expect(written.desiredState).toMatchObject({ mode: HvacMode.Cool, target: 68 });
+    expect(written.desiredState?.ambient).toBeUndefined();
+    expect(written.desiredState?.action).toBeUndefined();
   });
 });
 
