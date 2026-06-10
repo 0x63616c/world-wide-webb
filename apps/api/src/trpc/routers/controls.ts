@@ -33,7 +33,7 @@ const lampStateSchema = z.object({
     .enum([LampScene.White, LampScene.Mood, LampScene.Red, LampScene.Blue, LampMode.Party])
     .nullable()
     .describe(
-      "The active lamp scene: 'party' when the lamp_mode row is set, else the colour scene every on-lamp agrees on (from desired colours); null when no mode and lamps disagree, are off, or show a non-scene (mood) wash",
+      "The active lamp scene: 'party' when the lamp_mode row is set, else the colour scene every on-lamp agrees on (from desired colours; a MOOD_PALETTE colour on every lamp reads as 'mood'); null when no mode and lamps disagree, are off, or show a custom colour",
     ),
 });
 

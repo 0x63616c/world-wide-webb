@@ -18,6 +18,7 @@ import {
   runDeviceSyncCycle,
   runEnforcerCycle,
   runMigrations,
+  runSonosVolumeEnforcerCycle,
   runWeatherIngestCycle,
 } from "@repo/api/worker";
 import { createLogger } from "@repo/logger";
@@ -56,6 +57,15 @@ const workers: Worker[] = [
     intervalMs: 1_000,
     runOnStart: true,
     run: runClimateEnforcerCycle,
+  },
+  {
+    // DB-authoritative Sonos volume enforcer (www-5mek): desiredState is truth,
+    // the player is the actuator. Reconciles every ~1s — push inside the command
+    // window, adopt external changes (Sonos app / hardware buttons) outside it.
+    name: "sonos-volume-enforcer",
+    intervalMs: 1_000,
+    runOnStart: true,
+    run: runSonosVolumeEnforcerCycle,
   },
   {
     // Fan-only since the cutover; lights moved to the enforcer above.

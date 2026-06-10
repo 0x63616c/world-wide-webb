@@ -28,6 +28,19 @@ export interface TvNowPlaying {
   mediaPosition: number | null;
   mediaDuration: number | null;
   source: TvSource;
+  artworkUrl: string | null;
+  mediaPositionUpdatedAt: string | null;
+}
+
+// Tiny stable hash (djb2) for the artwork cache-bust param. entity_picture
+// embeds a per-artwork HA token, so the raw value must never reach the client;
+// the hash changes whenever the artwork does, which is all the panel needs.
+function hashString(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 33) ^ s.charCodeAt(i);
+  }
+  return (h >>> 0).toString(16);
 }
 
 /**
@@ -49,10 +62,46 @@ export async function getTvNowPlaying(): Promise<TvNowPlaying> {
   const mediaArtist = (attrs.media_artist as string | undefined) ?? null;
   const mediaPosition = (attrs.media_position as number | undefined) ?? null;
   const mediaDuration = (attrs.media_duration as number | undefined) ?? null;
+  // HA only refreshes media_position on state changes; the panel extrapolates
+  // the live position from this timestamp while playing.
+  const mediaPositionUpdatedAt = (attrs.media_position_updated_at as string | undefined) ?? null;
+
+  const entityPicture = (attrs.entity_picture as string | undefined) ?? null;
+  // Same-origin proxy path — the panel can't reach HA, the api streams the bytes.
+  const artworkUrl = entityPicture ? `/media/tv-artwork?v=${hashString(entityPicture)}` : null;
 
   const source = classifySource(state, appName, attrs);
 
-  return { state, appName, mediaTitle, mediaArtist, mediaPosition, mediaDuration, source };
+  return {
+    state,
+    appName,
+    mediaTitle,
+    mediaArtist,
+    mediaPosition,
+    mediaDuration,
+    source,
+    artworkUrl,
+    mediaPositionUpdatedAt,
+  };
+}
+
+/**
+ * Streams the current now-playing artwork from HA, or null when nothing
+ * playing has artwork. Proxied through the api because the panel can't reach
+ * HA and entity_picture embeds an HA access token that must stay server-side.
+ * THROWS HaError when HA is unconfigured or on network failure.
+ */
+export async function getTvArtwork(): Promise<Response | null> {
+  if (!ha.isConfigured()) {
+    throw new HaError(0, "Home Assistant is not configured");
+  }
+
+  const entity = await ha.getEntity(TV_ENTITY_ID);
+  const entityPicture = (entity.attributes.entity_picture as string | undefined) ?? null;
+  if (!entityPicture) {
+    return null;
+  }
+  return ha.getMedia(entityPicture);
 }
 
 /**

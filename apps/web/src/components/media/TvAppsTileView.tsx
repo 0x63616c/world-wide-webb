@@ -13,7 +13,7 @@
  */
 
 import { Skeleton, Tile, TileHeader } from "@/components/ui";
-import { TvAppLogo, TvAppMark } from "./tv-app-logos";
+import { TvAppLogo, TvAppMark, tvAppsInOrder } from "./tv-app-logos";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -88,7 +88,7 @@ function GridCell({ name, onClick }: { name: string; onClick: () => void }) {
         padding: 0,
       }}
     >
-      <TvAppMark name={name} size={34} />
+      <TvAppMark name={name} size={38} />
     </button>
   );
 }
@@ -152,8 +152,12 @@ export function TvAppsTileView({
     );
   }
 
-  // Hero = current app; grid = the next 4 apps (excluding the current one).
-  const otherApps = apps.filter((a) => a !== currentApp).slice(0, 4);
+  // Hero = current app; grid = the curated order minus the current app, top 4.
+  // Favorites-first ordering means a favorite-as-hero frees its slot and the
+  // next favorite fills in; backfills from non-favorites when <4 are installed.
+  const otherApps = tvAppsInOrder(apps)
+    .filter((a) => a !== currentApp)
+    .slice(0, 4);
 
   return (
     <Tile padding={12} style={{ gap: 0 }} onClick={onOpenAllApps}>
@@ -184,7 +188,7 @@ export function TvAppsTileView({
             textAlign: "left",
           }}
         >
-          {currentApp ? <TvAppLogo name={currentApp} size={40} /> : <MonitorGlyph />}
+          {currentApp ? <TvAppLogo name={currentApp} size={44} /> : <MonitorGlyph />}
 
           <div style={{ width: "100%", minWidth: 0 }}>
             <div
