@@ -1,5 +1,5 @@
 /**
- * Stories for ClimateTileView — covers all visual states so addon-vitest
+ * Stories for ClimateTileView, covers all visual states so addon-vitest
  * runs them as component tests in the vitest suite.
  */
 
@@ -9,7 +9,7 @@ import { defineTileMeta } from "./__stories__/factory";
 import type { ClimateTileViewProps } from "./ClimateTileView";
 import { ClimateTileView } from "./ClimateTileView";
 
-// Shared callbacks placeholder — each story defines its own fn() so spy call
+// Shared callbacks placeholder, each story defines its own fn() so spy call
 // history never leaks between tests.
 const callbacks = { onSetTarget: fn(), onSetMode: fn(), onSetRange: fn() };
 
@@ -129,7 +129,7 @@ export const OffMode: Story = {
   },
 };
 
-// ─── Error/empty — component re-uses the Loading skeleton ────────────────────
+// ─── Error/empty, component re-uses the Loading skeleton ────────────────────
 
 export const ErrorFallbackSkeleton: Story = {
   name: "Error / Empty (skeleton)",
@@ -194,6 +194,37 @@ export const SliderAttributes: Story = {
     expect(slider).toHaveAttribute("min", "67");
     expect(slider).toHaveAttribute("max", "77");
     expect(slider.value).toBe("70");
+  },
+};
+
+// ─── Ambient above the band, scale stretches so the caret stays on-card ───────
+
+export const AmbientAboveBand: Story = {
+  name: "Ambient above band (www-3y5x)",
+  args: {
+    status: "populated",
+    mode: "cool",
+    target: 75,
+    ambient: 78,
+    action: "Cooling",
+    ...callbacks,
+  } as ClimateTileViewProps,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Ambient (78°) sits above the 67–77 band. The track stretches its max to ambient+2 (80°) so the 'Now' caret stays on-card; the settable setpoint still tops out at 77°.",
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    expect(canvas.getByTestId("ambient-label")).toHaveTextContent("78°");
+    // Right end label extended; default 77° no longer shown.
+    expect(canvas.getByText("80°")).toBeInTheDocument();
+    expect(canvas.queryByText("77°")).not.toBeInTheDocument();
+    const slider = canvas.getByTestId("slider") as HTMLInputElement;
+    expect(slider).toHaveAttribute("max", "80");
   },
 };
 
