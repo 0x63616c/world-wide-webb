@@ -13,6 +13,7 @@ import {
   useBoardSnap,
   useBoardViewport,
   useIdleReset,
+  useUserPanSignal,
 } from "./hooks/useBoard";
 import { MINIMAP_LEFT, MINIMAP_TOP, MINIMAP_WIDTH, Minimap } from "./Minimap";
 import { PlaceholderTile } from "./PlaceholderTile";
@@ -237,31 +238,22 @@ function SnapModeSwitcher({ mode, onCycle }: { mode: SnapMode; onCycle: () => vo
 // affordance for plain panning, where there's no cursor over the map. Sits to
 // the RIGHT of the minimap (mirroring the hover label) so it reads as part of
 // the map and never overlaps it.
-function CenteredTileLabel({
-  label,
-  view,
-}: {
-  label: string | undefined;
-  view: typeof INITIAL_VIEW;
-}) {
+function CenteredTileLabel({ label, panSignal }: { label: string | undefined; panSignal: number }) {
   const [visible, setVisible] = useState(false);
-  const isFirstView = useRef(true);
-  // Driven off `view` identity (a fresh object every pan frame) exactly like the
-  // minimap, so any pan re-shows the label and resets the fade timer. The first
-  // change is the on-mount centering effect, skipped so it doesn't flash on load.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `view` isn't read here — its identity change on every pan is the trigger.
+  // Driven off `panSignal` exactly like the minimap: it bumps only on
+  // user-driven scroll frames (see useUserPanSignal), so a manual pan re-shows
+  // the label and resets the fade timer, while programmatic navigation (idle
+  // reset, mount centering) never flashes it. 0 = no user pan yet.
   useEffect(() => {
-    if (isFirstView.current) {
-      isFirstView.current = false;
-      return;
-    }
+    if (panSignal === 0) return;
     setVisible(true);
     const t = window.setTimeout(() => setVisible(false), 1500);
     return () => window.clearTimeout(t);
-  }, [view]);
+  }, [panSignal]);
 
   return (
     <div
+      data-testid="centered-tile-label"
       style={{
         position: "absolute",
         // To the right of the minimap box, aligned with the minimap's hover
@@ -344,15 +336,22 @@ export function Board() {
   // ── viewport tracking ──────────────────────────────────────────────────────
   const { view, syncView } = useBoardViewport(stageRef, INITIAL_VIEW);
 
+  // User-vs-app movement discrimination: the minimap + centered-tile label key
+  // their visibility off `panSignal`, which bumps only for scroll frames the
+  // user caused. App-driven navigation (mount centering, idle reset) marks
+  // itself programmatic so those glides never flash the chrome.
+  const { panSignal, markProgrammatic, markUser, onScrollFrame } = useUserPanSignal();
+
   // Open centered on the home tile (Clock) using the real client size (pre-paint,
-  // no flash).
+  // no flash). Programmatic: the browser echoes this write as a scroll event.
   useLayoutEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
+    markProgrammatic();
     stage.scrollLeft = HOME_CX - stage.clientWidth / 2;
     stage.scrollTop = HOME_CY - stage.clientHeight / 2;
     syncView();
-  }, [syncView]);
+  }, [syncView, markProgrammatic]);
 
   // rAF-throttle scroll → view state so the mounted-tile set tracks the pan
   // without a setState per scroll event.
@@ -362,8 +361,9 @@ export function Board() {
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = 0;
       syncView();
+      onScrollFrame();
     });
-  }, [syncView]);
+  }, [syncView, onScrollFrame]);
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
   // ── snap / spring ──────────────────────────────────────────────────────────
@@ -387,6 +387,17 @@ export function Board() {
     onSettle,
   });
 
+  // A press (touch/mouse) or wheel tick is the user grabbing the board — it
+  // reclaims the scroll stream even mid-way through a programmatic glide, so
+  // the pan chrome reappears the instant they take over.
+  const onStagePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      markUser();
+      onPointerDown(e);
+    },
+    [markUser, onPointerDown],
+  );
+
   // Glide the camera so `entry` lands dead center, reusing the snap spring (same
   // SmoothDamp feel as settle-snapping) instead of a separate animation. Opening
   // a modal freezes native pan (overflow:hidden on the stage), but an
@@ -401,6 +412,8 @@ export function Board() {
     (entry: TileRegistryEntry) => {
       const stage = stageRef.current;
       if (!stage) return;
+      // A tap/keyboard recenter is the user moving the board.
+      markUser();
       const rect = tileWorldRect(entry);
       const toLeft = rect.x + rect.w / 2 - stage.clientWidth / 2;
       const toTop = rect.y + rect.h / 2 - stage.clientHeight / 2;
@@ -415,7 +428,7 @@ export function Board() {
         stage.scrollTop = toTop;
       }
     },
-    [springTo],
+    [springTo, markUser],
   );
 
   // Center the viewport on a world-space point (the minimap calls this on click
@@ -431,11 +444,25 @@ export function Board() {
     });
   }, []);
 
+  // The minimap's jumps are user gestures (click/scrub on the map): their
+  // scroll frames must show the pan chrome, unlike goHome's below.
+  const userJump = useCallback(
+    (worldX: number, worldY: number, smooth: boolean) => {
+      markUser();
+      jumpTo(worldX, worldY, smooth);
+    },
+    [jumpTo, markUser],
+  );
+
   // After an idle window with no interaction, glide back to the home tile (Clock)
   // via the same smooth nav the minimap uses — so an unattended wall panel
   // resettles on the clock. goHome/isHome read the live scroll position; the hook
-  // owns the timer + interaction listeners.
-  const goHome = useCallback(() => jumpTo(HOME_CX, HOME_CY, true), [jumpTo]);
+  // owns the timer + interaction listeners. The glide is app-initiated, so it is
+  // marked programmatic and never re-shows the minimap (CC-5teu).
+  const goHome = useCallback(() => {
+    markProgrammatic();
+    jumpTo(HOME_CX, HOME_CY, true);
+  }, [jumpTo, markProgrammatic]);
   const isHome = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return true;
@@ -502,7 +529,8 @@ export function Board() {
       id="stage"
       ref={stageRef}
       onScroll={onScroll}
-      onPointerDown={onPointerDown}
+      onPointerDown={onStagePointerDown}
+      onWheel={markUser}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerLeave={endDrag}
@@ -609,14 +637,15 @@ export function Board() {
         <FpsMeter />
         <BuildHashBadge />
         <SnapModeSwitcher mode={snapMode} onCycle={cycleSnapMode} />
-        <CenteredTileLabel label={centeredLabel} view={view} />
+        <CenteredTileLabel label={centeredLabel} panSignal={panSignal} />
         <Minimap
           view={view}
+          panSignal={panSignal}
           // Both layers derive from the one BOARD_CELLS list: real tiles (with a
           // label) and placeholder ghosts (no entry). flatMap narrows `entry`.
           tiles={BOARD_CELLS.flatMap((c) => (c.entry ? [{ ...c.rect, label: c.entry.label }] : []))}
           ghosts={BOARD_CELLS.flatMap((c) => (c.entry ? [] : [c.rect]))}
-          onJump={jumpTo}
+          onJump={userJump}
         />
       </div>
       <TileModalHost entry={activeModal} onClose={() => setActiveModal(null)} />
