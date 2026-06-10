@@ -106,6 +106,34 @@ export class HomeAssistantClient {
   cameraProxyUrl(entityId: string): string {
     return `${this.baseUrl}/api/camera_proxy/${entityId}`;
   }
+
+  /**
+   * Raw authenticated GET for binary HA resources (entity_picture artwork).
+   * Returns the Response so callers can stream body + content-type through.
+   */
+  async getMedia(path: string): Promise<Response> {
+    // entity_picture paths embed an HA access token in the query string —
+    // log only the bare path so the token never reaches the logs.
+    const logPath = path.split("?")[0];
+    const startedAt = performance.now();
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}${path}`, {
+        headers: { Authorization: `Bearer ${this.token}` },
+        signal: AbortSignal.timeout(HA_REQUEST_TIMEOUT_MS),
+      });
+    } catch (err) {
+      const durationMs = +(performance.now() - startedAt).toFixed(1);
+      getLogger().warn({ haPath: logPath, haStatus: 0, durationMs }, "ha request failed");
+      throw new HaError(0, `Network error: ${(err as Error).message}`);
+    }
+    if (!res.ok) {
+      const durationMs = +(performance.now() - startedAt).toFixed(1);
+      getLogger().warn({ haPath: logPath, haStatus: res.status, durationMs }, "ha request non-2xx");
+      throw new HaError(res.status, await res.text());
+    }
+    return res;
+  }
 }
 
 export const ha = new HomeAssistantClient();

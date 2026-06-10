@@ -29,6 +29,9 @@
      from either source render identically. */
   --ink2: var(--ink-2);
   --ink3: var(--ink-3);
+  /* Several media components reference --ink-1; without this alias the var
+     resolved to nothing and e.g. the scrub fill rendered invisible. */
+  --ink-1: var(--ink);
   --bg3: var(--nest);
   --line: var(--hair);
   --line2: var(--hair-2);
