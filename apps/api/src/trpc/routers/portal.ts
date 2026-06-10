@@ -17,6 +17,7 @@ import { env } from "../../env";
 import { unifi } from "../../integrations/unifi";
 import { createMockEmailSender } from "../../services/portal-mock-sender";
 import { createDrizzlePortalRepo } from "../../services/portal-repo";
+import { createResendEmailSender } from "../../services/portal-resend-sender";
 import {
   createPortalService,
   type EmailSender,
@@ -25,11 +26,19 @@ import {
 } from "../../services/portal-service";
 import { publicProcedure, router } from "../init";
 
-// Pick the email sender: a real provider when configured, else the mock
-// (dev/test). CC-q002.11 wires Resend here; until then the mock covers dev and
-// the E2E suite. The mock is never reachable in production once Resend lands —
-// the selector will throw if prod has no real sender (CC-q002.11).
+// Pick the email sender: Resend when its credentials are configured, else the
+// mock (dev/test readback). In PRODUCTION a missing Resend config is fatal — we
+// throw rather than silently fall back to the mock, which would log codes and
+// never actually email a guest (services throw; no fake-send). CC-q002.11.
 function resolveEmailSender(): EmailSender {
+  if (env.RESEND_API_KEY && env.RESEND_FROM) {
+    return createResendEmailSender({ apiKey: env.RESEND_API_KEY, from: env.RESEND_FROM });
+  }
+  if (env.NODE_ENV === "production") {
+    throw new Error(
+      "Resend is not configured (RESEND_API_KEY / RESEND_FROM) — refusing to start the portal with the mock email sender in production.",
+    );
+  }
   return createMockEmailSender();
 }
 
