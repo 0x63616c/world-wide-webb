@@ -44,9 +44,11 @@
       "entry": ["deploy.config.ts", "apps/drizzle/load-secret.js", "scripts/*.ts"]
     },
     "apps/api": {
-      // server.ts = Docker CMD; seed.ts = db:seed script. drizzle.config.ts +
-      // the exports map (., ./trpc, ./worker) are auto-detected.
-      "entry": ["src/server.ts", "src/db/seed.ts"]
+      // server.ts = Docker CMD; purge.ts = the portal data-hygiene cronJob
+      // entrypoint, bundled into the api image + run via command override
+      // (CC-q002.18); seed.ts = db:seed script. drizzle.config.ts + the exports
+      // map (., ./trpc, ./worker) are auto-detected.
+      "entry": ["src/server.ts", "src/purge.ts", "src/db/seed.ts"]
     },
     "packages/bosun": {
       // serve.ts = the deployed agent (Docker CMD); cli.ts = the root `bosun`
