@@ -3,7 +3,7 @@
 #
 # The portal terminates TLS on :443 from /certs (the shared portal-certs volume,
 # written by the portal-cert-renew acme.sh cron job). But on a FRESH deploy that
-# volume is empty and the real Let's Encrypt cert has not been issued yet — nginx
+# volume is empty and the real Let's Encrypt cert has not been issued yet, nginx
 # would refuse to start ("cannot load certificate"), crash-looping the whole
 # service. So:
 #
@@ -13,7 +13,7 @@
 #      below makes nginx pick that up without a restart.
 #   2. Start a background loop that runs `nginx -s reload` every 6h, so a renewed
 #      cert on the volume is adopted within hours (renewal fires ~30 days before
-#      expiry, so the lag is harmless). No docker socket, no privileged signal —
+#      expiry, so the lag is harmless). No docker socket, no privileged signal,
 #      the container reloads itself.
 #   3. exec nginx in the foreground as PID 1.
 set -eu
@@ -25,7 +25,7 @@ KEY="$CERT_DIR/key.pem"
 mkdir -p "$CERT_DIR"
 
 if [ ! -s "$FULLCHAIN" ] || [ ! -s "$KEY" ]; then
-    echo "portal-entrypoint: no cert on the volume yet — generating a self-signed placeholder"
+    echo "portal-entrypoint: no cert on the volume yet, generating a self-signed placeholder"
     # 1-year self-signed so a long-lived placeholder (the real cert should land
     # within minutes of the first cron run) never itself expires into a crash.
     openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
