@@ -242,9 +242,14 @@ export default stack("control-center", {
     //   - It is a swarm service joined to the attachable `portal-edge` overlay,
     //     serving :443 (TLS) + :80 on that overlay. It does NOT publishPort,
     //     OrbStack does not forward swarm-published ports to the LAN (www-q002.21).
-    //     The LAN edge is a PLAIN `docker run -p 443:443 -p 80:80` proxy on
-    //     portal-edge (scripts/portal-lan.sh, launchd-managed) that OrbStack DOES
-    //     forward to the LAN; it passes raw TCP through to this service.
+    //     The LAN edge is a PLAIN `docker run` proxy on portal-edge
+    //     (scripts/portal-lan.sh, launchd-managed) that OrbStack DOES forward to
+    //     the LAN. It publishes host :42069->:443 (raw TCP passthrough to this
+    //     service's TLS) and host :80 (a 301 to https://...:42069). Host :443 is
+    //     NOT used: OrbStack binds it (and :8443) for its own *.orb.local HTTPS
+    //     proxy, so a plain -p 443 never LISTENs on the Mac, hence the neutral
+    //     :42069 (www-q002.22). Guest secrets are only entered on the SPA after the
+    //     :80->TLS redirect, so they never cross the plaintext hop.
     //   - The public hostname resolves to the Mini's LAN IP via UniFi
     //     split-horizon DNS (www-q002.15); the public wildcard hits a dead
     //     Cloudflare route, so nothing is served off the internet.

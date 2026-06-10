@@ -200,6 +200,14 @@ jobs:
         # (bash), runs before the slow Playwright install. Mirrors the
         # test-kiosk-health gate in ios-build.yml.
         run: bash scripts/test-orbstack-watchdog.sh
+      - name: Captive-portal LAN-edge proxy topology tests
+        # Hermetic self-test of the portal-lan TLS-on-:42069 + http->https
+        # redirect topology (www-q002.22), no real docker. Pins that the LAN edge
+        # terminates portal TLS on the neutral host port (NOT :443/:8443, both
+        # OrbStack-reserved) and bounces plain :80 to https on it, so a guest
+        # never lands on plaintext. Fast (bash), runs before the slow Playwright
+        # install. Mirrors the orbstack-watchdog gate above.
+        run: bash scripts/test-portal-lan.sh
       - name: Install Playwright Chromium (for Storybook browser tests)
         run: bunx playwright install --with-deps chromium
       - name: Typecheck
@@ -563,7 +571,7 @@ jobs:
           # Harmless before the gate exists (Cloudflare ignores them with no app),
           # so they ship ahead of the hooks cutover. The BOSUN_WEBHOOK_TOKEN above
           # remains the app-layer gate (belt-and-suspenders). Pure per-request
-          # header auth — curl is one-shot, so there is no CF_Authorization cookie.
+          # header auth, curl is one-shot, so there is no CF_Authorization cookie.
           curl -fsSL \
             -X POST \
             -H "Authorization: Bearer ${{ secrets.BOSUN_WEBHOOK_TOKEN }}" \
