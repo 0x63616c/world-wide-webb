@@ -38,13 +38,24 @@ Gateway settings applied:
 - `rsyslogd`: `this_controller=false` (= "SIEM Server" mode — UniFi syslog is internal-OR-remote, not both),
   `ip=<NAS>`, `port=514`.
 
+## Continuous enrichment (www-cs0o)
+
+A third container, **`unifi-enrich`**, tails `flows.json` incrementally (~5s lag) and appends
+**`enriched-flows.json`**: every flow gains `src_name`/`dst_name` (device names), and external IPs gain
+`*_rdns` + `*_org` (ASN). Raw stays raw. It holds **zero credentials**: names come from the non-secret
+`ip_names.json` map pushed by `push-unifi-names.sh` (the UniFi key never leaves the dev box), with
+gateway PTR as fallback; rDNS is cached 24 h (negative hits too) and ASN/org cached forever (Team Cymru
+bulk), so steady-state lookup traffic is ~zero. Re-run `push-unifi-names.sh` after renaming devices in
+UniFi. Rotation produces `YYYY-MM-DD-enriched-flows.json.gz` alongside the raw archive.
+
 ## Reproduce / operate (all from the dev box; creds via `op`)
 
 ```bash
 ./scripts/save-synology-dsm.sh          # one-time: store the DSM admin login in 1Password
-./scripts/setup-unifi-log-receivers.sh  # build/refresh the two receiver containers on the NAS
+./scripts/setup-unifi-log-receivers.sh  # build/refresh the three containers on the NAS (incl. enricher)
 ./scripts/configure-unifi-log-export.sh # point the gateway at the NAS (DISABLE=1 to turn off)
-./scripts/unifi-flow-report.sh          # enriched report: top LAN talkers + external endpoints (rDNS+ASN)
+./scripts/push-unifi-names.sh           # refresh the ip->device-name map the enricher uses
+./scripts/unifi-flow-report.sh          # ad-hoc report: top LAN talkers + external endpoints (rDNS+ASN)
 ```
 
 NAS-side files: `unifi-syslog-ng.conf` (syslog-ng config), `unifi-rotate-netflow.sh` (daily rotation,
