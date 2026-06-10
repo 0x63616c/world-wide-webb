@@ -4,13 +4,17 @@
  * Mirrors the light enforcer for the single house thermostat
  * (`env.CLIMATE_ENTITY_ID`). `device_state.desiredState` is the source of truth
  * for the AC's commandable fields (hvac mode, setpoint(s), fan_mode); HA is an
- * actuator. The AC's control policy is ENFORCE — the dashboard wins, so a change
- * made at the wall thermostat is overridden back to the panel's setting.
+ * actuator. The AC's control policy is ADOPT (www-qktc) — the thermostat has a
+ * physical interface (wall unit + ecobee app) just like the Shelly wall
+ * switches, so an external change is absorbed as new intent (desired :=
+ * reported), last-writer-wins. Only a fresh dashboard tap, marked by the
+ * desiredUntilUtc command window, pushes desired→HA.
  *
  * Each cycle: snapshot HA's climate entities, find the house thermostat, and
  *   - seed desired from reported once when desired is null (no push), then
- *   - on drift, PUSH desired→HA (set_hvac_mode + set_temperature single/range +
- *     set_fan_mode as the desired specifies),
+ *   - on drift INSIDE the command window, PUSH desired→HA (set_hvac_mode +
+ *     set_temperature single/range + set_fan_mode as the desired specifies),
+ *   - on drift OUTSIDE the window, ADOPT (write desired := reported, no HA call),
  *   - always write reportedState (incl. real ambient + hvac_action) so the panel
  *     reads ≤1s-fresh values with no HA call in the read path,
  *   - heartbeat to integration_sync_status.
@@ -35,6 +39,7 @@ import {
   isClimateState,
   type MappedHaState,
   mapHaToReported,
+  sanitizeClimateDesired,
 } from "./device-state-mapping";
 
 const CLIMATE_ENFORCER_INTEGRATION_ID = "climate-enforcer";
@@ -48,8 +53,8 @@ interface ManagedClimate {
   entityId: string;
   desiredState: DeviceClimateState | null;
   // App-command window: while now < desiredUntilUtc the freshly-set desired is
-  // pushed regardless of policy. Climate is always enforce so it pushes on drift
-  // anyway, but the window is honoured for symmetry with the light enforcer.
+  // the dashboard's explicit intent and is pushed on drift. Outside the window
+  // drift is external (wall unit / ecobee app / schedule) and is adopted.
   desiredUntilUtc: Date | null;
 }
 
@@ -57,18 +62,21 @@ export type ClimateEnforcementDecision =
   | { kind: "noop" }
   | { kind: "unreachable" }
   | { kind: "seed"; desired: DeviceClimateState }
-  | { kind: "push"; desired: DeviceClimateState };
+  | { kind: "push"; desired: DeviceClimateState }
+  | { kind: "adopt"; desired: DeviceClimateState };
 
 /**
  * Pure reconcile decision for the thermostat. No I/O — the cycle executes it.
- * Seed once (adopt reality as initial intent, no push); on drift push desired
- * (enforce + the command window both push); otherwise noop. Reported-only
- * ambient/action never count as drift (climateStateConverged ignores them).
+ * Seed once (adopt reality as initial intent, no push); on drift INSIDE the
+ * command window push desired (a dashboard tap actuates); on drift OUTSIDE it
+ * adopt (desired := reported — an external change is new intent, never fought:
+ * www-qktc); otherwise noop. Reported-only ambient/action never count as drift
+ * (climateStateConverged ignores them).
  */
 export function decideClimateEnforcement(
   device: ManagedClimate,
   mapped: MappedHaState,
-  _now: Date = new Date(),
+  now: Date = new Date(),
 ): ClimateEnforcementDecision {
   if (!mapped.available || mapped.reported == null || !isClimateState(mapped.reported)) {
     return { kind: "unreachable" };
@@ -76,7 +84,11 @@ export function decideClimateEnforcement(
   const reported = mapped.reported;
 
   // Seed once: adopt current reality as the initial intent without pushing.
-  if (device.desiredState == null) return { kind: "seed", desired: reported };
+  // Sanitized — desired only ever carries commandable fields; copying the
+  // reported-only ambient/action would freeze them in the merge overlay (www-dnpj).
+  if (device.desiredState == null) {
+    return { kind: "seed", desired: sanitizeClimateDesired(reported) };
+  }
 
   // While the AC is actively heating/cooling it owns its blower and reports
   // fan_mode="on"; a desired fan_mode that disagrees is NOT drift to fight, or we
@@ -86,8 +98,22 @@ export function decideClimateEnforcement(
     return { kind: "noop" };
   }
 
-  // Real mode/setpoint drift: push desired (enforce). While conditioning, strip
-  // fan_mode from the push so we still never actuate the blower the AC controls.
+  // Drift outside the command window is EXTERNAL (wall unit / app / schedule):
+  // absorb it as the new intent (www-qktc). The adopted desired is the commandable
+  // slice of reported; while conditioning the reported fan_mode is the AC
+  // asserting its blower (www-pu4m), not intent — keep the prior desired fan.
+  const windowOpen = device.desiredUntilUtc != null && now < device.desiredUntilUtc;
+  if (!windowOpen) {
+    const adopted = sanitizeClimateDesired(reported);
+    if (conditioning) {
+      delete adopted.fanMode;
+      if (device.desiredState.fanMode != null) adopted.fanMode = device.desiredState.fanMode;
+    }
+    return { kind: "adopt", desired: adopted };
+  }
+
+  // Window open: the drift is a fresh dashboard command — push it. While
+  // conditioning, strip fan_mode so we never actuate the blower the AC controls.
   const desired = conditioning
     ? { ...device.desiredState, fanMode: undefined }
     : device.desiredState;
@@ -117,8 +143,8 @@ async function reconcileClimate(entity: HaEntity | undefined): Promise<void> {
   // write (we never fabricate a row from thin air). Wait for HA to report.
   if (!row && (!mapped.available || mapped.reported == null)) return;
 
-  // First sight with a reachable entity: insert the seed row (desired = reported,
-  // no push) so the panel has something to read immediately.
+  // First sight with a reachable entity: insert the seed row (desired = the
+  // commandable slice of reported, no push) so the panel can read immediately.
   if (!row) {
     await db.insert(deviceState).values({
       id: CLIMATE_DEVICE_ID,
@@ -128,21 +154,33 @@ async function reconcileClimate(entity: HaEntity | undefined): Promise<void> {
       label: "Thermostat",
       reportedState: mapped.reported,
       reportedAtUtc: now,
-      desiredState: mapped.reported,
+      desiredState: isClimateState(mapped.reported)
+        ? sanitizeClimateDesired(mapped.reported)
+        : mapped.reported,
       desiredAtUtc: now,
       available: true,
     });
     return;
   }
 
+  const storedDesired = isClimateState(row.desiredState) ? row.desiredState : null;
+  const desired = storedDesired ? sanitizeClimateDesired(storedDesired) : null;
+  // Self-heal a pre-fix row whose desired still carries the reported-only
+  // ambient/action (www-dnpj): persist the sanitized desired with this cycle's
+  // write so the row converges without a manual migration.
+  const desiredFix =
+    storedDesired != null && (storedDesired.ambient != null || storedDesired.action != null)
+      ? { desiredState: desired }
+      : {};
+
   const device: ManagedClimate = {
     id: row.id,
     entityId: row.entityId,
-    desiredState: isClimateState(row.desiredState) ? row.desiredState : null,
+    desiredState: desired,
     desiredUntilUtc: row.desiredUntilUtc ?? null,
   };
   const decision = decideClimateEnforcement(device, mapped, now);
-  await applyDecision(device, decision, mapped, now);
+  await applyDecision(device, decision, mapped, now, desiredFix);
 }
 
 async function loadClimateRow(): Promise<typeof deviceState.$inferSelect | undefined> {
@@ -159,8 +197,11 @@ async function applyDecision(
   decision: ClimateEnforcementDecision,
   mapped: MappedHaState,
   now: Date,
+  // www-dnpj self-heal: when the stored desired carried reported-only fields, the
+  // sanitized replacement rides along on this cycle's write (seed sets its own).
+  desiredFix: { desiredState?: DeviceClimateState | null } = {},
 ): Promise<void> {
-  const reportedFields = { reportedState: mapped.reported, reportedAtUtc: now };
+  const reportedFields = { reportedState: mapped.reported, reportedAtUtc: now, ...desiredFix };
 
   switch (decision.kind) {
     case "unreachable": {
@@ -171,7 +212,10 @@ async function applyDecision(
         .where(eq(deviceState.id, device.id));
       return;
     }
-    case "seed": {
+    case "seed":
+    // Adopt persists exactly like seed: desired := the commandable slice of
+    // reported, no HA call — an external change became the new intent (www-qktc).
+    case "adopt": {
       await db
         .update(deviceState)
         .set({

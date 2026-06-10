@@ -60,6 +60,7 @@ import {
   decideSpeakerEnforcement,
   runSonosVolumeEnforcerCycle,
   SPEAKER_COMMAND_WINDOW_MS,
+  SPEAKER_MAX_VOLUME,
   setSpeakerDesiredVolume,
 } from "../services/sonos-volume-enforcer-service";
 
@@ -164,7 +165,8 @@ describe("decideSpeakerEnforcement", () => {
       now,
     );
     expect(d.kind).toBe("push");
-    if (d.kind === "push") expect(d.desired).toBe(desired);
+    // Pushes a clamped COPY of desired (60 is below the cap, so value-equal).
+    if (d.kind === "push") expect(d.desired).toEqual(desired);
   });
 
   it("adopts external drift OUTSIDE the window (Sonos app changes win)", () => {
@@ -183,6 +185,59 @@ describe("decideSpeakerEnforcement", () => {
       now,
     );
     expect(d).toEqual({ kind: "adopt", desired: { volume: 25 } });
+  });
+});
+
+// ─── max-volume cap (www-0wbm): backend-only, hidden from the frontend ─────────
+
+describe("decideSpeakerEnforcement max-volume cap", () => {
+  const now = new Date("2026-01-01T00:00:05Z");
+  const openWindow = new Date("2026-01-01T00:00:10Z");
+  const expiredWindow = new Date("2026-01-01T00:00:01Z");
+
+  it("exports the cap as 90", () => {
+    expect(SPEAKER_MAX_VOLUME).toBe(90);
+  });
+
+  it("desired ABOVE the cap with reported AT the cap is converged (hidden-cap noop)", () => {
+    const d = decideSpeakerEnforcement(
+      speaker({ desiredState: { volume: 100 } }),
+      { volume: 90, available: true },
+      now,
+    );
+    expect(d.kind).toBe("noop");
+  });
+
+  it("pushes the CLAMPED volume on drift inside the window (desired 100 -> push 90)", () => {
+    const d = decideSpeakerEnforcement(
+      speaker({ desiredState: { volume: 100 }, desiredUntilUtc: openWindow }),
+      { volume: 50, available: true },
+      now,
+    );
+    expect(d).toEqual({ kind: "push", desired: { volume: 90 } });
+  });
+
+  it("external drift ABOVE the cap is capped back down, never adopted (cap overrides adopt)", () => {
+    const d = decideSpeakerEnforcement(
+      speaker({ desiredState: { volume: 50 }, desiredUntilUtc: expiredWindow }),
+      { volume: 95, available: true },
+      now,
+    );
+    expect(d).toEqual({ kind: "cap", desired: { volume: 90 } });
+  });
+
+  it("external drift AT or BELOW the cap still adopts as before", () => {
+    const d = decideSpeakerEnforcement(
+      speaker({ desiredState: { volume: 50 }, desiredUntilUtc: expiredWindow }),
+      { volume: 80, available: true },
+      now,
+    );
+    expect(d).toEqual({ kind: "adopt", desired: { volume: 80 } });
+  });
+
+  it("seeding from an above-cap reality keeps the raw value (cap pushes it down next cycle)", () => {
+    const d = decideSpeakerEnforcement(speaker(), { volume: 95, available: true }, now);
+    expect(d).toEqual({ kind: "seed", desired: { volume: 95 } });
   });
 });
 
@@ -285,6 +340,26 @@ describe("runSonosVolumeEnforcerCycle", () => {
     );
     expect(adopted).toBeDefined();
     expect((adopted?.[0] as { desiredState: unknown }).desiredState).toEqual({ volume: 20 });
+  });
+
+  it("caps external over-volume back to 90 over UPnP, leaving raw desired untouched", async () => {
+    // Someone bumped the speaker to 100 from the Sonos app, window expired.
+    topology([{ ip: LIVING_IP, uuid: "RINCON_LIVING", zoneName: "Living Room" }]);
+    client(LIVING_IP).getVolume.mockResolvedValue(100);
+    const row = speakerRow({ desiredState: { volume: 50 }, desiredUntilUtc: null });
+    mockDbSelect.mockImplementation(() => new Chain([row]));
+    const set = setBuilder();
+    insertBuilder();
+
+    await runSonosVolumeEnforcerCycle();
+
+    // Pushed the cap down to the speaker...
+    expect(client(LIVING_IP).setVolume).toHaveBeenCalledWith(90);
+    // ...without overwriting the user's raw desired (cap is hidden from the row).
+    const wroteDesired = set.mock.calls.find(
+      (c) => (c[0] as { desiredState?: unknown })?.desiredState !== undefined,
+    );
+    expect(wroteDesired).toBeUndefined();
   });
 
   it("seeds a row for a first-seen player (desired = reported, no push)", async () => {

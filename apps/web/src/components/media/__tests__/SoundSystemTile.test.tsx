@@ -194,9 +194,45 @@ describe("SoundSystemTileView — group panels (www-xlyf)", () => {
     expect(screen.getByText(/^idle$/i)).toBeInTheDocument();
   });
 
-  it("shows COORD for the coordinator of a multi-room group", () => {
+  it("marks a multi-room-group coordinator with a blue name and no COORD text (www-a5rl)", () => {
     render(<SoundSystemTileView {...groupedProps} />);
-    expect(screen.getByText("COORD")).toBeInTheDocument();
+    // COORD sublabel is gone — the coordinator is signalled by a blue name instead.
+    expect(screen.queryByText("COORD")).not.toBeInTheDocument();
+    const deskName = screen.getByText("Desk");
+    expect(deskName).toHaveStyle({ color: "var(--acc)" });
+    // A non-coordinator member keeps its normal (non-accent-blue) name colour.
+    expect(screen.getByText("Bedroom")).not.toHaveStyle({ color: "var(--acc)" });
+  });
+
+  it("does NOT blue-mark a solo room whose memberUuids include a hidden bonded satellite (www-a5rl)", () => {
+    // Desk's group has 2 memberUuids (itself + the hidden bonded RF satellite) but
+    // only ONE visible room shares its coordinatorUuid, so it is visually solo and
+    // must not read as a coordinator.
+    const bondedSolo = [
+      {
+        coordinatorUuid: "uuid-desk",
+        uuid: "uuid-desk",
+        deviceIp: "192.168.0.2",
+        memberUuids: ["uuid-desk", "uuid-desk-bonded"],
+        name: "Desk",
+        isCoordinator: true,
+        volume: 40,
+        muted: false,
+        transportState: "PLAYING",
+        sourceLabel: null,
+      },
+    ];
+    render(<SoundSystemTileView {...baseProps} rooms={bondedSolo} />);
+    expect(screen.getByText("Desk")).not.toHaveStyle({ color: "var(--acc)" });
+  });
+
+  it("hides the group lock when only one room is active (nothing to gang) (www-a5rl)", () => {
+    const soloActive = [
+      groupedRooms[2], // Kitchen, STOPPED -> idle
+      { ...groupedRooms[0], uuid: "uuid-solo", name: "Solo", memberUuids: ["uuid-solo"] },
+    ];
+    render(<SoundSystemTileView {...baseProps} rooms={soloActive} />);
+    expect(screen.queryByLabelText(/lock group/i)).not.toBeInTheDocument();
   });
 
   it("calls onToggleGroupLock when the group lock is clicked", () => {

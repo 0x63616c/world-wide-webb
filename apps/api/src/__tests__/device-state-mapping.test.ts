@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { mapHaToReported, stateEquals } from "../services/device-state-mapping";
+import {
+  mapHaToReported,
+  mergeDeviceState,
+  sanitizeClimateDesired,
+  stateEquals,
+} from "../services/device-state-mapping";
 
 describe("mapHaToReported", () => {
   it("returns { reported: null, available: false } when entity is undefined", () => {
@@ -184,5 +189,44 @@ describe("stateEquals", () => {
 
   it("returns false when one has color and the other does not", () => {
     expect(stateEquals({ on: true, color: { rgb: [1, 2, 3] } }, { on: true })).toBe(false);
+  });
+});
+
+// www-dnpj: desired must only ever carry the commandable climate fields. A desired
+// that includes the reported-only ambient/action shadows the live reported values
+// in the merge overlay and freezes the panel's room temp at seed time.
+describe("sanitizeClimateDesired", () => {
+  it("strips reported-only ambient/action, keeping the commandable fields", () => {
+    expect(
+      sanitizeClimateDesired({
+        mode: "cool",
+        target: 72,
+        fanMode: "on",
+        ambient: 71,
+        action: "cooling",
+      }),
+    ).toEqual({ mode: "cool", target: 72, fanMode: "on" });
+  });
+
+  it("preserves a heat_cool range and omits absent optionals", () => {
+    expect(
+      sanitizeClimateDesired({ mode: "heat_cool", targetLow: 68, targetHigh: 76, ambient: 70 }),
+    ).toEqual({ mode: "heat_cool", targetLow: 68, targetHigh: 76 });
+  });
+});
+
+describe("mergeDeviceState (climate)", () => {
+  it("surfaces LIVE reported ambient/action even when a stale desired carries them (www-dnpj)", () => {
+    const merged = mergeDeviceState({
+      desiredState: { mode: "cool", target: 72, ambient: 71, action: "idle" },
+      reportedState: { mode: "cool", target: 72, ambient: 73, action: "cooling" },
+      available: true,
+    });
+    expect(merged.state).toMatchObject({
+      mode: "cool",
+      target: 72,
+      ambient: 73,
+      action: "cooling",
+    });
   });
 });
