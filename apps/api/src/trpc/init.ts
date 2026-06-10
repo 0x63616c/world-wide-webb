@@ -1,9 +1,20 @@
 import { getLogger } from "@repo/logger";
 import { initTRPC, TRPCError } from "@trpc/server";
 import { HaError } from "../integrations/homeassistant/types";
+import { PortalError } from "../services/portal-service";
 import type { Context } from "./context";
 
-const t = initTRPC.context<Context>().create();
+const t = initTRPC.context<Context>().create({
+  // Surface a thrown PortalError's typed code structurally as data.portalCode so
+  // the captive-portal client branches on the enum, not the human message string
+  // (CC-q002.19). The "CODE: text" message prefix stays for logs/back-compat.
+  errorFormatter({ shape, error }) {
+    if (error.cause instanceof PortalError) {
+      return { ...shape, data: { ...shape.data, portalCode: error.cause.code } };
+    }
+    return shape;
+  },
+});
 
 /**
  * Maps Home Assistant outages onto tRPC's standard error channel: the client
