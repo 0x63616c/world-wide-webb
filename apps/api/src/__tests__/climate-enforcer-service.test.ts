@@ -71,32 +71,103 @@ describe("decideClimateEnforcement (pure)", () => {
     expect(d).toEqual({ kind: "noop" });
   });
 
-  it("pushes desired on mode drift (enforce — the dashboard wins)", () => {
-    const desired: DeviceClimateState = { mode: "off", target: 70 };
+  // www-qktc: the thermostat has a physical interface (wall unit + ecobee app),
+  // so its policy is ADOPT, like the Shelly wall switches: external drift outside
+  // the app-command window is absorbed as new intent (desired := reported),
+  // never fought. Only a fresh dashboard tap (inside desiredUntilUtc) pushes.
+  const NOW = new Date("2026-06-10T00:00:00Z");
+  const WINDOW_OPEN = new Date(NOW.getTime() + 5_000);
+  const WINDOW_EXPIRED = new Date(NOW.getTime() - 5_000);
+
+  it("adopts external mode drift outside the command window (www-qktc — last writer wins)", () => {
     const d = decideClimateEnforcement(
-      { id: "c", entityId: "climate.home", desiredState: desired, desiredUntilUtc: null },
-      mapped({ mode: "cool", target: 70 }),
+      {
+        id: "c",
+        entityId: "climate.home",
+        desiredState: { mode: "off", target: 70 },
+        desiredUntilUtc: null,
+      },
+      mapped({ mode: "cool", target: 70, ambient: 75, action: "cooling" }),
+      NOW,
     );
-    expect(d).toEqual({ kind: "push", desired });
+    // Adopted desired is the COMMANDABLE slice of reported (www-dnpj sanitize).
+    expect(d).toEqual({ kind: "adopt", desired: { mode: "cool", target: 70 } });
   });
 
-  it("pushes desired on setpoint drift", () => {
+  it("adopts external setpoint drift outside the command window", () => {
+    const d = decideClimateEnforcement(
+      {
+        id: "c",
+        entityId: "climate.home",
+        desiredState: { mode: "cool", target: 68 },
+        desiredUntilUtc: null,
+      },
+      mapped({ mode: "cool", target: 72 }),
+      NOW,
+    );
+    expect(d).toEqual({ kind: "adopt", desired: { mode: "cool", target: 72 } });
+  });
+
+  it("adopts an external fan_mode change when the AC is idle, outside the window", () => {
+    const d = decideClimateEnforcement(
+      {
+        id: "c",
+        entityId: "climate.home",
+        desiredState: { mode: "cool", target: 70, fanMode: "on" },
+        desiredUntilUtc: null,
+      },
+      mapped({ mode: "cool", target: 70, fanMode: "auto", action: "idle" }),
+      NOW,
+    );
+    expect(d).toEqual({ kind: "adopt", desired: { mode: "cool", target: 70, fanMode: "auto" } });
+  });
+
+  it("adopting while conditioning keeps the prior desired fan_mode (never absorbs the AC-asserted blower)", () => {
+    const d = decideClimateEnforcement(
+      {
+        id: "c",
+        entityId: "climate.home",
+        desiredState: { mode: "cool", target: 68, fanMode: "auto" },
+        desiredUntilUtc: null,
+      },
+      // External setpoint change to 72 while cooling; HA reports fan_mode="on"
+      // only because the compressor is running (www-pu4m) — that is not intent.
+      mapped({ mode: "cool", target: 72, fanMode: "on", action: "cooling" }),
+      NOW,
+    );
+    expect(d).toEqual({
+      kind: "adopt",
+      desired: { mode: "cool", target: 72, fanMode: "auto" },
+    });
+  });
+
+  it("pushes desired on drift INSIDE the command window (dashboard tap actuates)", () => {
     const desired: DeviceClimateState = { mode: "cool", target: 68 };
     const d = decideClimateEnforcement(
-      { id: "c", entityId: "climate.home", desiredState: desired, desiredUntilUtc: null },
+      {
+        id: "c",
+        entityId: "climate.home",
+        desiredState: desired,
+        desiredUntilUtc: WINDOW_OPEN,
+      },
       mapped({ mode: "cool", target: 72 }),
+      NOW,
     );
     expect(d).toEqual({ kind: "push", desired });
   });
 
-  it("pushes desired on fan_mode drift when the AC is idle (not actively conditioning)", () => {
-    const desired: DeviceClimateState = { mode: "cool", target: 70, fanMode: "on" };
+  it("an EXPIRED command window adopts (the window is the only push authority)", () => {
     const d = decideClimateEnforcement(
-      { id: "c", entityId: "climate.home", desiredState: desired, desiredUntilUtc: null },
-      // action idle → the AC is not driving the blower, so fan_mode is ours to set.
-      mapped({ mode: "cool", target: 70, fanMode: "auto", action: "idle" }),
+      {
+        id: "c",
+        entityId: "climate.home",
+        desiredState: { mode: "cool", target: 68 },
+        desiredUntilUtc: WINDOW_EXPIRED,
+      },
+      mapped({ mode: "cool", target: 72 }),
+      NOW,
     );
-    expect(d).toEqual({ kind: "push", desired });
+    expect(d).toEqual({ kind: "adopt", desired: { mode: "cool", target: 72 } });
   });
 
   // www-pu4m: while the AC is actively cooling/heating it OWNS its blower and
@@ -120,11 +191,17 @@ describe("decideClimateEnforcement (pure)", () => {
     expect(d).toEqual({ kind: "noop" });
   });
 
-  it("pushes a real mode/setpoint drift while conditioning, but STRIPS fan_mode (never fights the blower)", () => {
+  it("pushes a real drift while conditioning INSIDE the window, but STRIPS fan_mode (never fights the blower)", () => {
     const desired: DeviceClimateState = { mode: "cool", target: 68, fanMode: "auto" };
     const d = decideClimateEnforcement(
-      { id: "c", entityId: "climate.home", desiredState: desired, desiredUntilUtc: null },
+      {
+        id: "c",
+        entityId: "climate.home",
+        desiredState: desired,
+        desiredUntilUtc: WINDOW_OPEN,
+      },
       mapped({ mode: "cool", target: 72, fanMode: "on", action: "cooling" }),
+      NOW,
     );
     // fan_mode omitted from the pushed desired so set_fan_mode is never called.
     expect(d).toEqual({ kind: "push", desired: { mode: "cool", target: 68 } });
@@ -262,7 +339,7 @@ describe("runClimateEnforcerCycle", () => {
     });
   });
 
-  it("pushes desired→HA on drift (set_hvac_mode + set_temperature + set_fan_mode)", async () => {
+  it("pushes desired→HA on drift inside the command window (set_hvac_mode + set_temperature + set_fan_mode)", async () => {
     const row = {
       id: "climate-thermostat",
       kind: "climate",
@@ -270,7 +347,8 @@ describe("runClimateEnforcerCycle", () => {
       domain: "climate",
       desiredState: { mode: "cool", target: 68, fanMode: "on" },
       reportedState: { mode: "cool", target: 72, fanMode: "auto" },
-      desiredUntilUtc: null,
+      // Fresh dashboard tap: the command window is open, so desired pushes.
+      desiredUntilUtc: new Date(Date.now() + 9_000),
       available: true,
     };
     mockDbSelect.mockReturnValue(new Chain([row]));
@@ -293,6 +371,39 @@ describe("runClimateEnforcerCycle", () => {
     expect(mockCallService).toHaveBeenCalledWith("climate", "set_fan_mode", {
       entity_id: "climate.home",
       fan_mode: "on",
+    });
+  });
+
+  it("ADOPTS an external setpoint change outside the window: no HA call, desired := reported (www-qktc)", async () => {
+    // Prod repro 2026-06-10: setpoint changed on the physical ecobee (75) was
+    // reverted to the dashboard's 72 within 190ms. It must persist instead.
+    const row = {
+      id: "climate-thermostat",
+      kind: "climate",
+      entityId: "climate.home",
+      domain: "climate",
+      desiredState: { mode: "cool", target: 72 },
+      reportedState: { mode: "cool", target: 72, ambient: 77 },
+      desiredUntilUtc: null,
+      available: true,
+    };
+    mockDbSelect.mockReturnValue(new Chain([row]));
+    insertCapture();
+    const set = setBuilder();
+    mockGetEntities.mockResolvedValue([
+      haClimate({ current_temperature: 77, temperature: 75, hvac_action: "cooling" }),
+    ]);
+
+    await runClimateEnforcerCycle();
+
+    // The wall change is absorbed, never fought.
+    expect(mockCallService).not.toHaveBeenCalled();
+    const persisted = set.mock.calls.find(
+      (c) => (c[0] as { desiredState?: unknown })?.desiredState !== undefined,
+    );
+    expect((persisted?.[0] as { desiredState: DeviceClimateState }).desiredState).toEqual({
+      mode: "cool",
+      target: 75,
     });
   });
 
