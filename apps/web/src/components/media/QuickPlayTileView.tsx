@@ -34,6 +34,12 @@ export interface QuickPlayTileViewProps {
 
 // ── Rail item ─────────────────────────────────────────────────────────────────
 
+// Artwork edge in the tile's fixed 4×2 board slot (rail 130.4 − label 13.5 −
+// gaps/padding 8). The art is square via aspect-ratio and flexes to the rail
+// height, but a row-flex item's intrinsic width can't see that derived width,
+// so the column must be pinned or it collapses to min-content.
+const RAIL_ITEM_W = 109;
+
 interface RailItemProps {
   item: QuickPlayItem;
   isPlaying: boolean;
@@ -47,7 +53,7 @@ function RailItem({ item, isPlaying, onClick }: RailItemProps) {
       onClick={onClick}
       style={{
         flexShrink: 0,
-        width: 72,
+        width: RAIL_ITEM_W,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -58,17 +64,18 @@ function RailItem({ item, isPlaying, onClick }: RailItemProps) {
         padding: 0,
       }}
     >
-      {/* Artwork */}
+      {/* Artwork — square via aspect-ratio, flexes to fill the rail height so
+          the item's width follows from however tall the tile slot is. */}
       <div
         style={{
           position: "relative",
-          width: 58,
-          height: 58,
+          flex: 1,
+          minHeight: 0,
+          aspectRatio: "1 / 1",
           borderRadius: 8,
           background: item.albumArtUri ? "transparent" : "var(--tile-2)",
           overflow: "hidden",
           border: isPlaying ? "2px solid var(--accent)" : "2px solid transparent",
-          flexShrink: 0,
         }}
       >
         {item.albumArtUri ? (
@@ -117,7 +124,8 @@ function RailItem({ item, isPlaying, onClick }: RailItemProps) {
         )}
       </div>
 
-      {/* Title */}
+      {/* Title — width:0 + minWidth:100% keeps the nowrap text from inflating
+          the button's intrinsic width, so the artwork alone sets item width. */}
       <span
         style={{
           fontSize: 9,
@@ -126,7 +134,8 @@ function RailItem({ item, isPlaying, onClick }: RailItemProps) {
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
-          maxWidth: "100%",
+          width: 0,
+          minWidth: "100%",
         }}
       >
         {item.title}
@@ -226,7 +235,8 @@ export function QuickPlayTileView({
             gap: 8,
             overflowX: "auto",
             flex: 1,
-            alignItems: "flex-start",
+            minHeight: 0,
+            alignItems: "stretch",
             paddingBottom: 4,
             scrollbarWidth: "none",
           }}

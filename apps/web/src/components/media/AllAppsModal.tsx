@@ -95,14 +95,13 @@ export function AllAppsModal({ open, onClose, apps, currentApp, onLaunchApp }: A
                     height: 48,
                     borderRadius: 12,
                     background: "var(--tile-3)",
-                    border: "1px solid var(--hair)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     overflow: "hidden",
                   }}
                 >
-                  <TvAppMark name={app} size={30} />
+                  <TvAppMark name={app} size={34} />
                 </div>
                 <span
                   style={{

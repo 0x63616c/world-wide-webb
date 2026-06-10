@@ -88,7 +88,7 @@ function GridCell({ name, onClick }: { name: string; onClick: () => void }) {
         padding: 0,
       }}
     >
-      <TvAppMark name={name} size={34} />
+      <TvAppMark name={name} size={38} />
     </button>
   );
 }
@@ -188,7 +188,7 @@ export function TvAppsTileView({
             textAlign: "left",
           }}
         >
-          {currentApp ? <TvAppLogo name={currentApp} size={40} /> : <MonitorGlyph />}
+          {currentApp ? <TvAppLogo name={currentApp} size={44} /> : <MonitorGlyph />}
 
           <div style={{ width: "100%", minWidth: 0 }}>
             <div
