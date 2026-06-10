@@ -10,7 +10,7 @@ Synology (`NAS - HomeTB`, DS420+, `192.168.0.218`, `/volume1/Unifi`):
 | Stream | Data | Transport | Receiver | Lands in |
 |---|---|---|---|---|
 | **Syslog** | events: firewall blocks, client connect/disconnect, DHCP, AP telemetry | UDP/TCP 514 | `unifi-syslog` (syslog-ng container) | `/volume1/Unifi/logs/syslog/unifi-YYYYMMDD.log` |
-| **NetFlow/IPFIX** | per-connection flow records (who↔who, ports, bytes, packets) | UDP 2055 | `unifi-netflow` (goflow2 container) | `/volume1/Unifi/logs/netflow/flows.json` → daily `flows-YYYYMMDD.json.gz` |
+| **NetFlow/IPFIX** | per-connection flow records (who↔who, ports, bytes, packets) | UDP 2055 | `unifi-netflow` (goflow2 container) | `/volume1/Unifi/logs/netflow/flows.json` → daily `YYYY-MM-DD-flows.json.gz` |
 
 **Why the receivers live on the NAS (not our bosun stack):** Docker is already on the NAS;
 bosun can't publish UDP host ports and NFS-in-container hangs on OrbStack (CC-6mz7). syslog is text →
@@ -53,8 +53,9 @@ deployed to `/volume1/Unifi/docker/`, run by a `/etc/crontab` entry at 23:59).
 ## Rotation & retention
 
 - Syslog rotates natively (daily file per `${R_YEAR}${R_MONTH}${R_DAY}`).
-- NetFlow is rotated by `unifi-rotate-netflow.sh` (cron 23:59): rename `flows.json` → `flows-YYYYMMDD.json`,
-  restart goflow2 to reopen a fresh file, then gzip the closed day.
+- NetFlow is rotated by `unifi-rotate-netflow.sh` (cron 23:59): rename `flows.json` → `YYYY-MM-DD-flows.json`,
+  restart goflow2 to reopen a fresh file, then gzip the closed day (gzip deletes the uncompressed
+  original — only the `.gz` remains; read with `zcat`/`zgrep`). Measured ~36× compression (136 MB → 3.8 MB).
 - **Retention = keep forever** (`RETENTION_DAYS=0`). Measured volume ≈ **1.1 GB/day** (NetFlow ~95%, busy-period
   upper bound); 365 days ≈ 430 GB = ~7% of the NAS's 6 TB free, and gzip'd NetFlow shrinks ~8-12×, so
   "forever" is comfortable. Set `RETENTION_DAYS>0` in the rotate script to prune both streams later.

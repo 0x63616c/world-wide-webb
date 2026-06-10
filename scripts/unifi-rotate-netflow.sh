@@ -11,16 +11,16 @@ set -e
 D=/usr/local/bin/docker
 NF=/volume1/Unifi/logs/netflow
 SL=/volume1/Unifi/logs/syslog
-STAMP=$(date +%Y%m%d)
+STAMP=$(date +%F)
 
 if [ -s "$NF/flows.json" ]; then
-  mv "$NF/flows.json" "$NF/flows-$STAMP.json"
+  mv "$NF/flows.json" "$NF/$STAMP-flows.json"
   $D restart unifi-netflow >/dev/null
-  gzip -f "$NF/flows-$STAMP.json"
+  gzip -f "$NF/$STAMP-flows.json"
 fi
 
 RET="${RETENTION_DAYS:-0}"
 if [ "$RET" -gt 0 ]; then
-  find "$NF" -name 'flows-*.json.gz' -mtime +"$RET" -delete
+  find "$NF" -name '*-flows.json.gz' -mtime +"$RET" -delete
   find "$SL" -name 'unifi-*.log'     -mtime +"$RET" -delete
 fi
