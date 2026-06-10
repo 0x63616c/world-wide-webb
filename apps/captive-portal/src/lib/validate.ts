@@ -25,7 +25,7 @@ export function validate({ name, email, agreed }: LandingFormState): LandingErro
 }
 
 export function validatePassword(pw: string): string | null {
-  if (!pw || !pw.trim()) return "Enter the Wi-Fi password to continue.";
+  if (!pw?.trim()) return "Enter the Wi-Fi password to continue.";
   if (pw.trim().length < 6) return "That password looks too short.";
   return null;
 }
