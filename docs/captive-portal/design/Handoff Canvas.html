@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Guest Wi-Fi · Handoff Canvas</title>
+<link rel="stylesheet" href="theme.css?v=4" />
+<style>
+  html, body { height: 100%; background: #0e0e10; }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="components.jsx"></script>
+  <script type="text/babel" src="screens.jsx"></script>
+
+  <script type="text/babel">
+    const { LandingCentered, LandingSplit, LandingBare, Verify, WifiPassword, Connecting, Success, Terms, Sending, RateLimited, SessionExpired, GenericError } = window;
+    const noop = () => {};
+
+    // Black frame w/ scoped ambient backdrop, hosting one screen.
+    function Frame({ children }) {
+      return (
+        <div style={{ position: 'relative', width: '100%', height: '100%', background: '#000', overflow: 'hidden' }}>
+          <div className="wwb-backdrop is-abs"></div>
+          <div className="wwb-grid is-abs"></div>
+          {children}
+        </div>
+      );
+    }
+
+    const empty = { name: '', email: '', password: '', agreed: false };
+    const filled = { name: 'John Appleseed', email: 'john@example.com', password: 'guest-passw0rd', agreed: true };
+    const base = { busy: false, onChange: noop, onSubmit: noop, onOpenTerms: noop };
+
+    function App() {
+      return (
+        <DesignCanvas>
+          <DCSection id="landing" title="Landing · entry screen" subtitle="Bare is the SHIPPED design. Centered &amp; split are alternative treatments, kept for reference.">
+            <DCArtboard id="bare" label="SHIPPED · Bare / minimal" width={440} height={600} style={{ background: '#000' }}>
+              <Frame><LandingBare {...base} state={empty} errors={{}} networkError={false} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="centered" label="Alt · Centered card" width={440} height={660} style={{ background: '#000' }}>
+              <Frame><LandingCentered {...base} state={empty} errors={{}} networkError={false} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="split" label="Alt · Split hero (desktop)" width={940} height={600} style={{ background: '#000' }}>
+              <Frame><LandingSplit {...base} state={empty} errors={{}} networkError={false} /></Frame>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="states" title="States" subtitle="Shown on the shipped bare landing. What the implementer must build for each component.">
+            <DCArtboard id="filled" label="Filled & valid" width={440} height={560} style={{ background: '#000' }}>
+              <Frame><LandingBare {...base} state={filled} errors={{}} networkError={false} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="validation" label="Error · field validation" width={440} height={620} style={{ background: '#000' }}>
+              <Frame><LandingBare {...base} state={empty}
+                errors={{ name: 'Please enter your name.', email: 'That doesn’t look like a valid email address.', agreed: 'You must accept the terms to continue.' }}
+                networkError={false} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="connecting" label="Connecting" width={440} height={600} style={{ background: '#000' }}>
+              <Frame><Connecting email="john@example.com" /></Frame>
+            </DCArtboard>
+            <DCArtboard id="success" label="Success · connected" width={440} height={640} style={{ background: '#000' }}>
+              <Frame><Success name="John Appleseed" email="john@example.com" onReset={noop} /></Frame>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="verify" title="Email verification" subtitle="6-digit code sent to the guest · resend allowed after 30s">
+            <DCArtboard id="v-await" label="Awaiting code" width={440} height={560} style={{ background: '#000' }}>
+              <Frame><Verify email="john@example.com" onVerify={noop} onResend={noop} onBack={noop} initialLeft={30} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="v-entered" label="Code entered" width={440} height={560} style={{ background: '#000' }}>
+              <Frame><Verify email="john@example.com" onVerify={noop} onResend={noop} onBack={noop} initialCode="348192" initialLeft={14} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="v-error" label="Error · wrong code" width={440} height={640} style={{ background: '#000' }}>
+              <Frame><Verify email="john@example.com" onVerify={noop} onResend={noop} onBack={noop}
+                error="That code didn’t match. Check the digits and try again." initialLeft={9} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="v-resend" label="Resend available" width={440} height={560} style={{ background: '#000' }}>
+              <Frame><Verify email="john@example.com" onVerify={noop} onResend={noop} onBack={noop} initialLeft={0} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="v-resent" label="Code resent" width={440} height={560} style={{ background: '#000' }}>
+              <Frame><Verify email="john@example.com" onVerify={noop} onResend={noop} onBack={noop} initialResent={true} initialLeft={30} /></Frame>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="wifipw" title="Wi-Fi password" subtitle="Asked after the email is verified · the host shares the password">
+            <DCArtboard id="w-empty" label="Awaiting password" width={440} height={500} style={{ background: '#000' }}>
+              <Frame><WifiPassword onSubmit={noop} onBack={noop} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="w-filled" label="Filled · shown" width={440} height={500} style={{ background: '#000' }}>
+              <Frame><WifiPassword onSubmit={noop} onBack={noop} initialValue="guest-passw0rd" initialShow={true} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="w-error" label="Error · wrong password" width={440} height={560} style={{ background: '#000' }}>
+              <Frame><WifiPassword onSubmit={noop} onBack={noop} error="That password isn’t right. Double-check with your host." /></Frame>
+            </DCArtboard>
+            <DCArtboard id="w-net" label="Error · network failure" width={440} height={580} style={{ background: '#000' }}>
+              <Frame><WifiPassword onSubmit={noop} onBack={noop} networkError={true} initialValue="guest-passw0rd" /></Frame>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="system" title="System &amp; recovery states" subtitle="Loading, expiry, rate-limit and fallback screens an implementer must handle">
+            <DCArtboard id="sending" label="Sending code" width={440} height={460} style={{ background: '#000' }}>
+              <Frame><Sending email="john@example.com" /></Frame>
+            </DCArtboard>
+            <DCArtboard id="expired" label="Code expired" width={440} height={600} style={{ background: '#000' }}>
+              <Frame><Verify email="john@example.com" expired={true}
+                error="This code is no longer valid, request a new one." initialLeft={0}
+                onVerify={noop} onResend={noop} onBack={noop} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="ratelimited" label="Too many attempts" width={440} height={500} style={{ background: '#000' }}>
+              <Frame><RateLimited initialLeft={297} onRetry={noop} onReset={noop} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="sessionexp" label="Session expired" width={440} height={460} style={{ background: '#000' }}>
+              <Frame><SessionExpired onReconnect={noop} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="generr" label="Something went wrong" width={440} height={480} style={{ background: '#000' }}>
+              <Frame><GenericError onRetry={noop} onReset={noop} /></Frame>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="legal" title="Terms of use" subtitle="Linked from the form and the footer">
+            <DCArtboard id="terms" label="Terms of use" width={660} height={900} style={{ background: '#000' }}>
+              <Frame><Terms onBack={noop} /></Frame>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="mobile" title="Mobile" subtitle="Shipped bare landing at phone width (≤ 440px)">
+            <DCArtboard id="m-landing" label="Mobile · landing" width={390} height={680} style={{ background: '#000' }}>
+              <Frame><LandingBare {...base} state={empty} errors={{}} networkError={false} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="m-error" label="Mobile · validation" width={390} height={720} style={{ background: '#000' }}>
+              <Frame><LandingBare {...base} state={empty}
+                errors={{ email: 'That doesn’t look like a valid email address.', agreed: 'You must accept the terms to continue.' }}
+                networkError={false} /></Frame>
+            </DCArtboard>
+            <DCArtboard id="m-success" label="Mobile · success" width={390} height={760} style={{ background: '#000' }}>
+              <Frame><Success name="John Appleseed" email="john@example.com" onReset={noop} /></Frame>
+            </DCArtboard>
+          </DCSection>
+        </DesignCanvas>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
