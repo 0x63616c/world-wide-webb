@@ -174,7 +174,16 @@ function mountFlag(vol: string): string {
 // add a `resources` field here and emit `--limit-memory <mem>` (and the overcommit
 // sum would need to account for the worst-case concurrent job too) — tracked as a
 // follow-up, deliberately not blocking the long-lived-service framework.
-export function buildJobCommand(job: ServiceSpec, stackName: string, slot?: string): string {
+export function buildJobCommand(
+  job: ServiceSpec,
+  stackName: string,
+  slot?: string,
+  // Already-resolved secret values (name -> value), injected as --env at create
+  // time. buildJobCommand stays PURE: the caller (runDueJobs / run-job) resolves
+  // the op refs and passes the values in; this function never touches op. A
+  // manual run-job for a no-secret job passes none (www-q002.13).
+  resolvedSecrets?: Record<string, string>,
+): string {
   if (!job.schedule) throw new Error(`job '${job.name}' has no schedule`);
 
   const svc = jobServiceName(stackName, job.name);
@@ -193,6 +202,10 @@ export function buildJobCommand(job: ServiceSpec, stackName: string, slot?: stri
   for (const c of job.placement ?? []) parts.push(`--constraint ${c}`);
   for (const vol of job.volumes ?? []) parts.push(mountFlag(vol));
   for (const key of Object.keys(job.env).sort()) parts.push(`--env ${key}=${job.env[key]}`);
+  // Resolved op secrets after the static env, sorted for deterministic output.
+  for (const key of Object.keys(resolvedSecrets ?? {}).sort()) {
+    parts.push(`--env ${key}=${(resolvedSecrets as Record<string, string>)[key]}`);
+  }
   parts.push(job.image);
   if (job.command) parts.push(job.command);
   return parts.join(" ");
@@ -236,6 +249,11 @@ const NOOP_LOGGER: Logger = {
 //   - otherwise                             -> fire, stamping THIS slot
 // An inspector error skips the tick (never fire blind — the next tick retries),
 // and a runner error is logged, never thrown, so one bad job can't kill the loop.
+// Resolve a single op:// ref to its value. The agent passes its serialized
+// OpProvider's resolve; tests inject a stub. Kept narrow (one ref -> value) so
+// the scheduler never imports the provider directly (www-q002.13).
+export type SecretResolver = (ref: string) => Promise<string>;
+
 export async function runDueJobs(
   services: ServiceSpec[],
   now: Date,
@@ -243,6 +261,10 @@ export async function runDueJobs(
   inspect: JobInspector,
   stackName: string,
   log: Logger = NOOP_LOGGER,
+  // When a due job declares secrets, each ref is resolved through this right
+  // before dispatch and injected as --env. A job WITH secrets but no resolver is
+  // skipped (never fire without its secrets); a no-secret job ignores it.
+  resolveSecret?: SecretResolver,
 ): Promise<void> {
   const slot = slotKey(now);
   const due = dueCronJobs(services, now);
@@ -268,7 +290,33 @@ export async function runDueJobs(
         log.debug({ job: job.name, slot }, "still in flight (per swarm), skipping slot");
         return;
       }
-      const cmd = buildJobCommand(job, stackName, slot);
+      // Resolve op secrets for this run, if any. A secret-bearing job with no
+      // resolver is skipped — it must never fire without its secrets. Resolution
+      // failure is logged (ref path only, never the value) and skips this slot;
+      // the next tick retries.
+      let resolvedSecrets: Record<string, string> | undefined;
+      if (job.secrets.length > 0) {
+        if (!resolveSecret) {
+          log.warn(
+            { job: job.name, slot },
+            "job declares secrets but no resolver supplied — skipping (never fire without secrets)",
+          );
+          return;
+        }
+        try {
+          resolvedSecrets = {};
+          for (const sec of job.secrets) {
+            // Serialized one-at-a-time (the OpProvider chains internally too).
+            resolvedSecrets[sec.name] = await resolveSecret(sec.ref);
+          }
+        } catch (err) {
+          // Log the ref path, NEVER the value — same discipline as OpProvider.
+          log.error({ err, job: job.name, slot }, "secret resolve failed, skipping slot");
+          return;
+        }
+      }
+
+      const cmd = buildJobCommand(job, stackName, slot, resolvedSecrets);
       log.info({ job: job.name, slot }, "dispatching cron job");
       try {
         const { exitCode } = await runner(cmd);
@@ -341,6 +389,9 @@ export function startScheduler(
   runner: Runner,
   // Defaults to the no-op logger; cli.ts passes a pino child bound to step:"scheduler".
   log: Logger = NOOP_LOGGER,
+  // Resolves a job's op secret refs at dispatch time (the agent's OpProvider). A
+  // secret-bearing job with no resolver is skipped by runDueJobs (www-q002.13).
+  resolveSecret?: SecretResolver,
 ): () => void {
   const jobs = services.filter((s) => s.schedule);
   // No in-memory run-state: the inspector reads dedupe/overlap truth from swarm
@@ -350,7 +401,7 @@ export function startScheduler(
   // Tick every 30s so a job is never missed within its target minute even if a
   // tick lands late; the swarm-derived slot guard collapses the two ticks to one run.
   const timer = setInterval(() => {
-    void runDueJobs(jobs, new Date(), runner, inspect, stackName, log);
+    void runDueJobs(jobs, new Date(), runner, inspect, stackName, log, resolveSecret);
   }, 30_000);
   return () => clearInterval(timer);
 }

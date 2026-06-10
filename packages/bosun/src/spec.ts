@@ -170,6 +170,13 @@ export function cronJob(
     schedule: string;
     command: string;
     env?: Record<string, string>;
+    // Op-resolved secret refs (from fromOp()) the job needs as env at run time —
+    // e.g. the cert job's Cloudflare API token for DNS-01. The bosun agent
+    // resolves them and injects --env KEY=VALUE when it dispatches the one-shot
+    // job; the resolved value never appears in this static spec or in logs. NOTE:
+    // job env (incl. these) IS visible via `docker service inspect` on the box —
+    // an accepted tradeoff on the single-user homelab (www-q002.13).
+    secrets?: SecretRef[];
     volumes?: string[];
     placement?: string[];
   },
@@ -183,7 +190,7 @@ export function cronJob(
   return {
     name,
     image: opts.image,
-    secrets: [],
+    secrets: opts.secrets ?? [],
     env: opts.env ?? {},
     command: opts.command,
     volumes: opts.volumes,
