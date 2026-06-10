@@ -186,6 +186,66 @@ Each service declares probes; `bosun verify` runs them and is the gate. Probe ki
 
 ---
 
+## Part 8b — Cloudflare Access (edge auth gate, www-cuuw)
+
+Every `*.worldwidewebb.co` host is served through the one tunnel and is reachable by anyone with the URL; the dashboard's tRPC api is unauthenticated, so the URL controls the house. We lock this at the **Cloudflare edge** with **Cloudflare Access** (free Zero Trust tier), managed **declaratively in bosun** — it reconciles on every `bosun up` exactly like routes/DNS.
+
+**Invariant: default-deny.** A wildcard Access app `*.worldwidewebb.co` with action **Block** is the floor; any subdomain not covered by a more specific allow app is denied at the edge (including brand-new/accidental subdomains). Explicit per-host allow apps sit above it (CF matches the most-specific app).
+
+### Access matrix
+
+| Host | Policy | Credential | Builder |
+|---|---|---|---|
+| `*.worldwidewebb.co` (floor) | Block | none (deny all) | `accessFloor()` (stack-level) |
+| `dashboard.worldwidewebb.co` | service_auth | **kiosk** service token (iPad) | `accessServiceToken({tokenName:"bosun-kiosk", clientIdEnv:"CF_ACCESS_KIOSK_CLIENT_ID"})` |
+| `storybook.worldwidewebb.co` | allow | email OTP `calumpeterwebb@icloud.com` | `accessEmail(...)` |
+| `drizzle.worldwidewebb.co` | allow | email OTP | `accessEmail(...)` |
+| `hooks.worldwidewebb.co` | service_auth | **CI** service token (GitHub Actions) | `accessServiceToken({tokenName:"bosun-ci", clientIdEnv:"CF_ACCESS_CI_CLIENT_ID"})` |
+
+`hooks` keeps its existing app-level `BOSUN_WEBHOOK_TOKEN` as a second, independent gate.
+
+### How the machinery works
+
+- **Spec:** `access?: AccessSpec` on a service (domain = its `route`); `accessFloor?: AccessSpec` at the `stack()` level. Builders `accessEmail` / `accessServiceToken` / `accessFloor` (`packages/bosun/src/spec.ts`).
+- **Reconcile:** `reconcileAccess` (`packages/bosun/src/reconcile/access.ts`) — lists apps, creates/updates declared apps tagged `bosun:<stack>`, prunes ONLY tag-owned orphans (never a foreign app), and READS service tokens to resolve a token NAME → CF id. It NEVER creates or deletes service tokens.
+- **CLI:** an Access step in `reconcileCloudflare()` (advisory-guarded, after routes/DNS) plus `bosun access sync`. **Empty-set short-circuit:** with no `access:`/`accessFloor` declared it makes ZERO CF Access API calls, so no Access token scope is needed until cutover.
+- **Kiosk:** the iPad sends `CF-Access-Client-Id` / `CF-Access-Client-Secret` headers. Capacitor 8 has **no `server.headers`** (verified against the SDK), so headers are injected natively: `KioskViewController` re-issues the initial origin load with headers; `KioskWatchdog` carries them on its probe + reload and recognizes the CF Access login interstitial as a distinct recovery state (never loops on the login wall). Creds bake into Info.plist from repo secrets via `Fastfile` xcargs (`ios-build.yml`).
+
+### Service tokens & 1Password
+
+Two service tokens, created ONCE by a human:
+
+```bash
+scripts/save-cf-access-tokens.sh   # creates bosun-kiosk + bosun-ci, writes id+secret to 1Password
+```
+
+It POSTs the two CF service tokens, captures each one-time `client_secret`, and writes `client_id` + `client_secret` into 1Password items **`CF Access Kiosk Token`** and **`CF Access CI Token`** (Homelab). Idempotent: an existing item is skipped. Client **secrets** are secret; client **ids** are not (they ride the docker-secret channel only to stay out of this public repo). `reconcileAccess` only references the tokens; the save-script is the only thing that ever sees a secret.
+
+### Prerequisites (human, blocking)
+
+1. **Zero Trust enabled** on the CF account (one-time free dashboard step: set a team name / `*.cloudflareaccess.com` org domain). Required for ANY Access app to exist.
+2. **CF API token scopes.** The deploy-time token (`op://Homelab/Cloudflare API/credential`) needs **Access: Apps and Policies — Edit** + **Access: Service Tokens — Read** (the name→id lookup; it never mutates tokens). The save-script needs **Access: Service Tokens — Edit** (to POST the two tokens) — grant it on the same token or use a short-lived one. Without these, the first live Access reconcile 403s.
+
+### Rollout order (the floor goes live LAST)
+
+The machinery is **inert** until declarations exist in `deploy.config.ts` AND the `CF_ACCESS_*_CLIENT_ID` fromOp lines are added to the bosun-agent secrets block. The deferred-fromOp note is in `deploy.config.ts` — those refs MUST wait until the 1Password items exist, or `secrets sync` throws on a missing op item and aborts every deploy.
+
+0. Confirm prerequisites above.
+1. Ship machinery (done — units 1-7). Deploys are unchanged (empty-set short-circuit).
+2. Run `scripts/save-cf-access-tokens.sh`. Verify CF most-specific-app precedence on a scratch host before any wildcard-Block covers a live host.
+3. Add `accessEmail(...)` to `storybook` + `drizzle`; deploy. Low risk (human-only; worst case an OTP login).
+4. Wire the CI caller: add `-H CF-Access-Client-Id` / `-H CF-Access-Client-Secret` to the deploy `curl` in `ci.yml` (repo secrets from `CF Access CI Token`) — pure per-request header auth, NO cookie. Confirm a deploy still succeeds, THEN add `accessServiceToken(...)` to `bosun-agent`. The existing `BOSUN_WEBHOOK_TOKEN` is belt-and-suspenders.
+5. **OUT-OF-SESSION:** ship the kiosk TestFlight build (kiosk repo secrets `CF_ACCESS_KIOSK_CLIENT_ID/SECRET`), install on the iPad, confirm it loads the still-open dashboard. This is the gate for step 6.
+6. **Cutover (LAST, gated on step 5):** add `accessServiceToken(...)` to `web` + `accessFloor: accessFloor()` to the `stack()` opts AND the two `CF_ACCESS_*_CLIENT_ID` fromOp lines to bosun-agent; deploy. Verify from an off-network device: dashboard unreachable without the token; the iPad still loads it unattended; reboot the iPad and confirm self-load.
+
+### Rollback one-liner
+
+If the panel goes dark after cutover: remove `access:` from `web` and `accessFloor: accessFloor()` from the `stack()` opts in `deploy.config.ts`, then redeploy (`git push`, or `bosun up` directly on the box — the advisory reconcile + manual path bypasses the edge). The Block floor and the dashboard gate disappear on the next reconcile.
+
+> **Verify-before-cutover (load-bearing):** confirm CF evaluates a `*.worldwidewebb.co` Block app + a `dashboard.worldwidewebb.co` allow app so dashboard is allowed (specific app wins) while every other subdomain is blocked. If precedence does NOT hold, the default-deny invariant degrades to explicit per-host Block apps (a product decision — flag to Calum, don't silently swap). Confirm live in step 2/3 before the dashboard cutover.
+
+---
+
 ## Part 9 — Secrets summary
 
 1Password (Homelab vault) is the source; `bosun` resolves via the `op` provider, materializes label-scoped docker secrets, prunes orphans. Root of trust = the op service-account token seeded at bootstrap (only secret not from gitops; for local runs the agent uses your own `op` session). No secret value ever in git, CI, images, or the config.
