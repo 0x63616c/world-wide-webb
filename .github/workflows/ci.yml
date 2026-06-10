@@ -5,7 +5,14 @@ on:
     branches: ["**"]
   # Manual trigger: rebuild + (on main) redeploy all images on demand. Useful
   # for a forced redeploy or to re-run after a transient infra failure.
+  # force_all=false makes a dispatch selective instead, build only what
+  # drifted past the deploy marker; the drift watchdog sends that (CC-bom8).
   workflow_dispatch:
+    inputs:
+      force_all:
+        description: "Rebuild + redeploy every image regardless of drift"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -36,15 +43,42 @@ jobs:
       any_app: ${{ steps.filter.outputs.any_app }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the deploy-marker baseline below can be an arbitrarily
+          # old commit, and dorny diffs against it locally.
+          fetch-depth: 0
+
+      # Diff against the last commit that actually reached prod, not the push
+      # range (CC-bom8). cancel-in-progress means a run can inherit the build
+      # work of the runs it cancelled, a push-range diff can't see that work,
+      # so a surviving docs-only push once stranded four undeployed web commits.
+      # refs/deploy/main is advanced by mark-deployed only after a fully-green
+      # run, so "changed since the marker" is exactly "not yet in prod".
+      # Fallback (marker missing/unreachable, or non-main ref): empty base,
+      # which keeps dorny's default behavior, push range on same-branch
+      # pushes, default-branch diff on feature branches.
+      - name: Resolve deploy-marker baseline (main only)
+        id: baseline
+        if: github.ref_name == 'main'
+        run: |
+          sha=$(git ls-remote origin refs/deploy/main | cut -f1)
+          if [ -n "$sha" ] && git cat-file -e "$sha^{commit}" 2>/dev/null; then
+            echo "Baseline: refs/deploy/main = $sha"
+            echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "No reachable deploy marker; falling back to push-range diff"
+            echo "sha=" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ steps.baseline.outputs.sha }}
           filters: |
             # Shared changes (packages or root lockfile) force a rebuild of everything.
             # NOTE: do NOT use '!negation' list items here. dorny/paths-filter OR-matches
             # each list entry, and a '!foo/**' pattern matches every file that ISN'T under
-            # foo — so '!apps/web/.storybook/**' matched docs/api/everything and made web
+            # foo, so '!apps/web/.storybook/**' matched docs/api/everything and made web
             # rebuild on every push (it broke ac_ci_selective: docs-only built web). The
             # web image build already ignores .storybook, so a positive-only list is both
             # correct and conservative; a rare .storybook-only edit harmlessly rebuilds web.
@@ -64,7 +98,7 @@ jobs:
               - 'packages/**'
               - 'bun.lock'
             # media-worker bundles its domain code from @repo/api, so an apps/api
-            # change must rebuild it too (same rule as worker — CC-kp4k).
+            # change must rebuild it too (same rule as worker, CC-kp4k).
             mediaworker:
               - 'apps/media-worker/**'
               - 'apps/api/**'
@@ -92,15 +126,15 @@ jobs:
               - 'deploy.config.ts'
               - 'infra/**'
               - 'bun.lock'
-            # Drizzle Gateway wrapper image — a thin self-contained Dockerfile +
+            # Drizzle Gateway wrapper image, a thin self-contained Dockerfile +
             # preload. It pins an upstream base and copies only apps/drizzle, so it
             # rebuilds solely on its own changes (no packages/ or bun.lock dep).
             drizzle:
               - 'apps/drizzle/**'
             # Captive portal: a static nginx image built solely from its own tree
             # (the build pulls workspace deps, so the root lockfile counts too). It
-            # does NOT bundle @repo/api — it talks to the api only over HTTP via the
-            # scoped nginx proxy — so an apps/api change does not rebuild it
+            # does NOT bundle @repo/api, it talks to the api only over HTTP via the
+            # scoped nginx proxy, so an apps/api change does not rebuild it
             # (CC-q002.2). Its nginx.conf + Dockerfile are part of the image.
             captiveportal:
               - 'apps/captive-portal/**'
@@ -127,12 +161,12 @@ jobs:
     # deploy that depends on it (CC-dasj). It's NOT worker fan-out (maxWorkers=2)
     # and NOT a leak: apps/web is pinned to a SINGLE fork that accumulates jsdom +
     # React module state + v8-coverage data across the whole web suite, and that
-    # suite grew past the heap (4GB default, then 6GB) — bounded-large, not
+    # suite grew past the heap (4GB default, then 6GB), bounded-large, not
     # unbounded. `bun run test` passes locally because it uses 8GB heap AND no
     # coverage; CI adds v8 instrumentation on top with less heap. ubuntu-latest
     # has 16GB RAM and only the one web fork is large (sibling project forks are
-    # tiny), so a 12GB heap for that process is safe headroom. Durable fix —
-    # reduce per-fork accumulation (recycle the fork / split the web suite) — is
+    # tiny), so a 12GB heap for that process is safe headroom. Durable fix ,
+    # reduce per-fork accumulation (recycle the fork / split the web suite), is
     # tracked on CC-dasj; this stops chasing the heap every time the suite grows.
     env:
       NODE_OPTIONS: --max-old-space-size=12288
@@ -156,12 +190,12 @@ jobs:
         # Authoritative backstop for the lefthook pre-commit `storybook-docs`
         # hook (bypassable with --no-verify): fails the test job if any tracked
         # *.stories.tsx lacks an autodocs Docs page. `deploy` needs `test`, so a
-        # missing doc blocks the deploy. Fast (grep) — runs before the slow
+        # missing doc blocks the deploy. Fast (grep), runs before the slow
         # Playwright install so it fails early (CC-o0ko).
         run: bash scripts/check-storybook-docs.sh
       - name: OrbStack watchdog logic tests
         # Hermetic self-test of the docker-hang watchdog's decide/probe logic
-        # (CC-sizh) — no real docker/OrbStack. Gates the recovery automation so a
+        # (CC-sizh), no real docker/OrbStack. Gates the recovery automation so a
         # regression in its thresholds/anti-loop guard can't ship silently. Fast
         # (bash), runs before the slow Playwright install. Mirrors the
         # test-kiosk-health gate in ios-build.yml.
@@ -173,7 +207,7 @@ jobs:
       - name: Dead code (knip, zero-tolerance)
         # Authoritative backstop for the lefthook pre-push guard (which a
         # --no-verify bypass or an uninstalled hook can skip). knip exits non-zero
-        # on ANY unused file/export/dep — the repo is held at zero dead code.
+        # on ANY unused file/export/dep, the repo is held at zero dead code.
         # `deploy` needs `test`, so a regression blocks the prod deploy (CC-k6p1).
         run: bunx knip
       - name: Test with coverage (unit jsdom + Storybook chromium, merged)
@@ -198,13 +232,13 @@ jobs:
 
   build-web:
     needs: [changes, test]
-    if: needs.changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.changes.outputs.web == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (ubuntu-24.04-arm) — no QEMU emulation. The deploy
+      # Native arm64 runner (ubuntu-24.04-arm), no QEMU emulation. The deploy
       # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
       # runs amd64, so images are built linux/arm64 only. Dropping the emulated
       # amd64 leg removed the 5-10x QEMU slowdown that dominated build time (CC-4yt).
@@ -243,13 +277,13 @@ jobs:
 
   build-api:
     needs: [changes, test]
-    if: needs.changes.outputs.api == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.changes.outputs.api == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (ubuntu-24.04-arm) — no QEMU emulation. The deploy
+      # Native arm64 runner (ubuntu-24.04-arm), no QEMU emulation. The deploy
       # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
       # runs amd64, so images are built linux/arm64 only. Dropping the emulated
       # amd64 leg removed the 5-10x QEMU slowdown that dominated build time (CC-4yt).
@@ -278,13 +312,13 @@ jobs:
 
   build-worker:
     needs: [changes, test]
-    if: needs.changes.outputs.worker == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.changes.outputs.worker == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (ubuntu-24.04-arm) — no QEMU emulation. The deploy
+      # Native arm64 runner (ubuntu-24.04-arm), no QEMU emulation. The deploy
       # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
       # runs amd64, so images are built linux/arm64 only.
       - name: Set up Docker Buildx
@@ -312,7 +346,7 @@ jobs:
 
   build-media-worker:
     needs: [changes, test]
-    if: needs.changes.outputs.mediaworker == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.changes.outputs.mediaworker == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
@@ -343,13 +377,13 @@ jobs:
 
   build-storybook:
     needs: [changes, test]
-    if: needs.changes.outputs.storybook == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.changes.outputs.storybook == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (ubuntu-24.04-arm) — no QEMU emulation. The deploy
+      # Native arm64 runner (ubuntu-24.04-arm), no QEMU emulation. The deploy
       # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
       # runs amd64, so images are built linux/arm64 only. Dropping the emulated
       # amd64 leg removed the 5-10x QEMU slowdown that dominated build time (CC-4yt).
@@ -378,13 +412,13 @@ jobs:
 
   build-bosun:
     needs: [changes, test]
-    if: needs.changes.outputs.bosun == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.changes.outputs.bosun == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (ubuntu-24.04-arm) — no QEMU emulation. The deploy
+      # Native arm64 runner (ubuntu-24.04-arm), no QEMU emulation. The deploy
       # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
       # runs amd64, so images are built linux/arm64 only. Dropping the emulated
       # amd64 leg removed the 5-10x QEMU slowdown that dominated build time (CC-4yt).
@@ -413,13 +447,13 @@ jobs:
 
   build-drizzle:
     needs: [changes, test]
-    if: needs.changes.outputs.drizzle == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.changes.outputs.drizzle == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (ubuntu-24.04-arm) — no QEMU emulation. The deploy
+      # Native arm64 runner (ubuntu-24.04-arm), no QEMU emulation. The deploy
       # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
       # runs amd64, so images are built linux/arm64 only. Dropping the emulated
       # amd64 leg removed the 5-10x QEMU slowdown that dominated build time (CC-4yt).
@@ -448,13 +482,13 @@ jobs:
 
   build-captive-portal:
     needs: [changes, test]
-    if: needs.changes.outputs.captiveportal == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.changes.outputs.captiveportal == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (deploy target is the arm64 Mac Mini) — same as the
+      # Native arm64 runner (deploy target is the arm64 Mac Mini), same as the
       # other image builds; no QEMU emulation (CC-4yt).
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -489,7 +523,7 @@ jobs:
     if: |
       always() &&
       github.ref_name == 'main' &&
-      (needs.changes.outputs.any_app == 'true' || github.event_name == 'workflow_dispatch') &&
+      (needs.changes.outputs.any_app == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)) &&
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
@@ -497,7 +531,7 @@ jobs:
     steps:
       # Read each image's current :main digest so the deploy pins by digest
       # (CC-czg): a changed digest is a changed stack spec, so docker stack deploy
-      # reliably rolls only the rebuilt services — no reliance on :main tag
+      # reliably rolls only the rebuilt services, no reliance on :main tag
       # re-resolution, which silently failed to roll the self-deploying agent.
       - name: Log in to ghcr.io (read manifests)
         uses: docker/login-action@v3
@@ -530,3 +564,29 @@ jobs:
             -H "Content-Type: application/json" \
             --data '${{ steps.payload.outputs.body }}' \
             https://hooks.worldwidewebb.co/deploy/control-center
+
+  # Advance the deploy marker (CC-bom8). refs/deploy/main records the last
+  # commit whose run left prod fully current, either the deploy succeeded, or
+  # the run was green and had nothing to ship (docs-only). The changes job
+  # diffs against it, which is what makes cancel-in-progress safe: work owed by
+  # cancelled runs stays visible as drift until a later run actually ships it.
+  # Failed or cancelled runs never advance the marker. Pushing refs/deploy/*
+  # cannot retrigger CI (push triggers only match refs/heads/*).
+  mark-deployed:
+    needs: [changes, test, deploy]
+    if: |
+      always() &&
+      github.ref_name == 'main' &&
+      needs.test.result == 'success' &&
+      (needs.deploy.result == 'success' ||
+       (needs.deploy.result == 'skipped' &&
+        needs.changes.outputs.any_app != 'true' &&
+        github.event_name != 'workflow_dispatch'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Advance refs/deploy/main to this run's commit
+        run: git push --force origin "$GITHUB_SHA:refs/deploy/main"
