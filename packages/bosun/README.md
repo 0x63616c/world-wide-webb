@@ -8,16 +8,16 @@ I/O or side effects live in the spec layer.
 
 bosun is a small bun/TypeScript CLI (`src/cli.ts`) with four layers:
 
-- **spec** (`src/spec.ts`) — typed builders (`service`, `postgres`, `cronJob`,
+- **spec** (`src/spec.ts`), typed builders (`service`, `postgres`, `cronJob`,
   `fromOp`, `ghcr`, health probes) that `deploy.config.ts` imports to return a
   pure `Spec`. No I/O, so it evaluates identically anywhere (CI, the box, a test).
-- **reconcile** (`src/reconcile/*`) — turn the `Spec` into reality and prune
+- **reconcile** (`src/reconcile/*`), turn the `Spec` into reality and prune
   orphans: `secrets.ts` (op-resolved values → hashed docker secrets),
   `routes.ts` (Cloudflare tunnel ingress), `stack.ts` (render → `docker stack
   deploy`).
-- **health** (`src/health.ts`) — declared probes (`httpProbe`, `cmdProbe`,
+- **health** (`src/health.ts`), declared probes (`httpProbe`, `cmdProbe`,
   `certProbe`) run with injected fetch/exec, so they're testable.
-- **serve / scheduler** (`src/serve.ts`, `src/scheduler.ts`) — the long-lived
+- **serve / scheduler** (`src/serve.ts`, `src/scheduler.ts`), the long-lived
   `bosun-agent`: a webhook receiver that runs `bosun up` on deploy, plus the
   in-process cron scheduler.
 
@@ -83,7 +83,7 @@ cert. The probe needs `openssl` on the host running the checks.
 ## Scheduled jobs (bosun-native scheduler)
 
 Cron tasks (cleanup, migrations, backups) are declared with `cronJob()` and run by
-**bosun's own scheduler**, which lives inside the long-lived `bosun serve` agent —
+**bosun's own scheduler**, which lives inside the long-lived `bosun serve` agent, 
 no third-party scheduler container, no Docker labels. A cron job is a `ServiceSpec`
 carrying a `schedule`, but it is **not** deployed as a long-lived stack service:
 `renderStackYml` excludes it, and the scheduler runs it on its cron as a one-shot
@@ -121,7 +121,7 @@ docker service create --mode replicated-job --restart-condition none \
 
 `--mode replicated-job` runs the task to completion and then stops (no restart
 loop). Each run removes the prior (completed) job service of the same name and
-recreates it, so there is exactly one entry per job — its last-run state visible
+recreates it, so there is exactly one entry per job, its last-run state visible
 in `docker service ls` / `docker service ps <stack>-cron-<job>` between runs.
 
 The scheduler is pure/injected for tests: `cronMatches`, `dueCronJobs`,
@@ -130,8 +130,8 @@ so the only impure part is the one-minute timer.
 
 ### Crash recovery (restart-safe, no in-memory state)
 
-The scheduler holds **no** in-memory run-state. Both guards — "did this slot
-already run?" and "is a run still in flight?" — are read from swarm each tick via
+The scheduler holds **no** in-memory run-state. Both guards, "did this slot
+already run?" and "is a run still in flight?", are read from swarm each tick via
 the injected `JobInspector`, so a scheduler that dies mid-run and is restarted by
 swarm makes the same decision its predecessor would have. The run itself is never
 owned by the scheduler: it is a Swarm task swarm keeps running and reaps
@@ -142,7 +142,7 @@ Two mechanisms make this work:
 - **Slot label.** When a job fires for wall-clock minute *M*, its service is
   stamped `--label bosun.cron-slot=<M>` (`slotKey`). On the next tick the
   inspector reads that label back; if it equals the current slot, the job is
-  skipped — so a restart inside minute *M* cannot double-fire it.
+  skipped, so a restart inside minute *M* cannot double-fire it.
 - **In-flight read.** The inspector also checks `docker service ps` for a task in
   a non-terminal state; a long run spanning the restart is left alone until it
   completes.
@@ -155,13 +155,13 @@ firing blind; the next 30s tick retries. Every decision is logged
 verifiable from `docker service logs control-center_bosun-agent`.
 
 > Limit: this recovers from *scheduler* death. A hard host reboot mid-run does
-> not auto-resume a `restart-condition none` task — recovery there is the next
+> not auto-resume a `restart-condition none` task, recovery there is the next
 > scheduled slot, so **jobs must be idempotent**.
 
 ### On-demand runs (`bosun run-job <name>`)
 
-To fire a job immediately instead of waiting for its cron — for verification, a
-backfill, or an ad-hoc re-run — use:
+To fire a job immediately instead of waiting for its cron, for verification, a
+backfill, or an ad-hoc re-run, use:
 
 ```sh
 bun run bosun run-job docker-image-prune
@@ -178,7 +178,7 @@ and `docker service ps`. Point it at a remote swarm with a docker context, e.g.
 
 A cron job that needs a secret at run time (the captive-portal cert job needs the
 Cloudflare API token for ACME DNS-01) declares it with `secrets`, exactly like a
-service — `fromOp()` refs, resolved values never in the spec:
+service, `fromOp()` refs, resolved values never in the spec:
 
 ```ts
 cronJob("portal-cert-renew", {
@@ -194,11 +194,11 @@ cronJob("portal-cert-renew", {
 At dispatch the scheduler resolves each ref through the agent's `OpProvider` (the
 same serialized provider `bosun up` uses, so concurrent reads can't race op's
 daemon init) and appends the values as `--env KEY=VALUE` on the `docker service
-create` for that one run. `buildJobCommand` stays **pure** — it takes
+create` for that one run. `buildJobCommand` stays **pure**, it takes
 already-resolved values; resolution lives in `runDueJobs` / `run-job`. A
 secret-bearing job with **no** resolver is **skipped** (never fired without its
 secrets); a resolve failure logs the ref path and skips the slot (the next tick
-retries). The resolved **value is never logged** — only the `op://` ref path and
+retries). The resolved **value is never logged**, only the `op://` ref path and
 the job name ever appear in logs (a unit test asserts a resolved value reaches the
 job command but no log line).
 
@@ -206,7 +206,7 @@ job command but no log line).
 > readable via `docker service inspect <stack>-cron-<job>` on the box for the life
 > of that one-shot job service. On this single-user homelab that is acceptable: the
 > value never lands in the repo, the rendered stack, or the logs, and the job
-> service is short-lived. This is a deliberate choice, not an oversight — a job
+> service is short-lived. This is a deliberate choice, not an oversight, a job
 > that must keep its secret off `docker inspect` would need a docker-secret mount
 > instead, which the one-shot `docker service create --mode replicated-job` path
 > does not wire today.
@@ -219,17 +219,17 @@ job command but no log line).
 - **Timezone.** Cron is interpreted in the **agent container's local timezone**,
   which the `bosun-agent` image pins to `TZ=America/Los_Angeles` (with `tzdata`
   baked in so the IANA zone resolves). So `0 3 * * *` fires at 03:00 **LA local**,
-  off-peak — not 03:00 UTC (~8pm LA, on-peak), which is what an unset TZ would give
+  off-peak, not 03:00 UTC (~8pm LA, on-peak), which is what an unset TZ would give
   on the UTC host (www-dd0). The scheduler matches `Date.getHours()`/`getDate()`
   etc., which honour `TZ`, so **DST is handled automatically** by the IANA zone:
   the same `0 3 * * *` stays at 03:00 local across the PST↔PDT switch. To run a
   job in a different zone, change `TZ` on the agent service.
-- **Service naming.** The one-shot job service is named `<stackName>-cron-<job>` —
+- **Service naming.** The one-shot job service is named `<stackName>-cron-<job>`, 
   derived from the stack name so the stack is the single namespace source of truth
   (no magic prefix). It lives outside the deployed stack because it is created
   imperatively on a schedule, not by `docker stack deploy`.
 - **Verify semantics.** One-shot jobs are **exempt from liveness `HealthProbe`
-  verify** — a one-shot has no endpoint to poll, so `cronJob()` attaches no probes.
+  verify**, a one-shot has no endpoint to poll, so `cronJob()` attaches no probes.
 
 ### Live ops note: nightly Docker image cleanup
 
@@ -253,7 +253,7 @@ cronJob("docker-image-prune", {
   images older than 30 days. The Mini re-pulls images on every deploy, so an
   unbounded prune would evict things we still actively use or just pulled. `-f`
   skips the confirmation prompt a non-interactive job cannot answer.
-- **Socket privilege.** The job mounts `/var/run/docker.sock` (read-write — prune
+- **Socket privilege.** The job mounts `/var/run/docker.sock` (read-write, prune
   mutates) so it can shell `docker`, and pins to a manager node so the socket is
   the swarm's daemon. This is the same root-equivalent exposure the agent carries.
 - **Verifying on the homelab.** The schedule fires at 03:00; to confirm a run,
@@ -265,7 +265,7 @@ cronJob("docker-image-prune", {
 ### Tradeoffs
 
 - **One scheduler.** The scheduler runs in the single `bosun serve` agent, a
-  single point of failure for all schedules — accepted for the homelab. A missed
+  single point of failure for all schedules, accepted for the homelab. A missed
   minute (agent down/restarting) skips that run until the next match, same as a
   host cron daemon.
 - **Node-local jobs.** A job mounting the docker socket pins to a manager node so
@@ -279,7 +279,7 @@ forwards it into `cmdUp` → `renderStackYml`, which rewrites each of our
 `ghcr.io/0x63616c/<name>:main` images to `…@sha256:<digest>` (`pinImage`).
 
 Why: a `docker stack deploy` of an unchanged `:main` string is a no-op spec, so
-the service does **not** roll — unless `--resolve-image` re-resolves `:main` to
+the service does **not** roll, unless `--resolve-image` re-resolves `:main` to
 the new digest, which silently failed for the self-deploying `bosun-agent`
 (symptom: agent stuck on the old image, needing a manual `service update
 --force`). A digest is unique per build, so the spec string changes and swarm
@@ -293,18 +293,18 @@ manual `curl` triggers still work.
 A service that declares `route: "name.worldwidewebb.co"` is published through the
 Cloudflare tunnel. `routes sync` (`src/reconcile/routes.ts`) reconciles **both**
 halves needed for a hostname to resolve, and `bosun up` runs it automatically on
-every deploy (after the stack deploy, so origins exist first) — zero manual CF
+every deploy (after the stack deploy, so origins exist first), zero manual CF
 steps (www-vqyv):
 
-1. **Tunnel ingress** — there is no per-rule create/delete API and ingress rules
+1. **Tunnel ingress**, there is no per-rule create/delete API and ingress rules
    carry no tag, so `reconcileRoutes` GETs the whole ingress array, mutates it
    (add declared hostnames → their `http://<service>:<port>` origin, drop ones
    bosun manages that are no longer declared, keep the catch-all last), PUTs it
    back. Prune ownership is derived from the rule's origin.
-2. **Public DNS** — `reconcileDns` upserts a **proxied `CNAME` →
+2. **Public DNS**, `reconcileDns` upserts a **proxied `CNAME` →
    `<tunnelId>.cfargotunnel.com`** for each declared hostname (the zone wildcard
    `*.worldwidewebb.co` is a dead A-record, NOT the tunnel, so a hostname without
-   its own CNAME 521s even with the ingress rule present — this is what bit the
+   its own CNAME 521s even with the ingress rule present, this is what bit the
    `drizzle` service). Prune is scoped to CNAMEs whose hostname is a stack-owned
    ingress route, so a foreign hostname sharing the tunnel target (e.g.
    `portainer`) is never touched.
@@ -321,7 +321,7 @@ API token is resolved from op (`Cloudflare API/credential`) at reconcile time.
 Most services reach the outside world through the Cloudflare tunnel (`route:`).
 A **LAN-only** service does the opposite: it is reachable **only on the local
 network** and must never be exposed publicly. The captive portal
-(`captive-portal.worldwidewebb.co`, www-q002) is the first such service — guests
+(`captive-portal.worldwidewebb.co`, www-q002) is the first such service, guests
 on the open guest WLAN hit it on the Mini's LAN IP, and the public hostname
 resolves (via UniFi split-horizon DNS) to that same LAN IP, so nothing is ever
 served off the public internet.
@@ -333,32 +333,36 @@ import { ghcr, service } from "@bosun/bosun/src/spec.ts";
 
 service("captive-portal", {
   image: ghcr("control-center-captive-portal"),
-  // Bind host 443 -> container 443 on the swarm node (the Mini's LAN IP).
+  // Publish host 443 -> container 443; OrbStack forwards it to the Mini's LAN IP.
   publishPort: { host: 443, container: 443 },
   // NO route: this service is never fronted by the Cloudflare tunnel.
   placement: ["node.role==manager"],
 });
 ```
 
-The renderer emits a long-form published port with **`mode: host`**:
+The renderer emits a long-form published port in **`mode: ingress`**:
 
 ```yaml
     ports:
       - target: 443
         published: 443
-        mode: host
+        mode: ingress
 ```
 
-`mode: host` binds the port on the **node itself**, not the swarm routing-mesh
-ingress VIP — correct for this single-node, manager-pinned stack, where the bound
-port lands on the Mini's actual LAN interface (the ingress mesh would NAT it
-through a virtual IP instead). Pin the service to the manager (`placement`) so it
-always schedules on the node holding that LAN IP.
+Ingress (the default Swarm publish path), NOT `mode: host`. The deploy target is
+OrbStack single-node Swarm, and OrbStack forwards standard/ingress published ports
+to the Mac HOST and to other devices on the LAN (its default "expose ports to
+LAN"), so the port lands on the Mini's actual LAN IP. `mode: host` does the
+opposite here: it binds the port inside the OrbStack Linux VM's container network
+namespace and BYPASSES that host/LAN forwarding, so it never surfaces on the
+Mac/LAN (this was the www-q002.14 prod failure: with host mode, nothing listened on
+the LAN :443 even though the deploy was green). Pin the service to the manager
+(`placement`) so it always schedules on the node holding that LAN IP.
 
 The two patterns are **orthogonal and must not be mixed**: tunnel ingress + DNS
 are reconciled solely from `svc.route` (`reconcileRoutes` / `reconcileDns` in
 `routes.ts` flatMap over `svc.route` only), so a `publishPort` service with no
-`route` produces **zero tunnel ingress and zero public DNS** — bosun never creates
+`route` produces **zero tunnel ingress and zero public DNS**: bosun never creates
 a Cloudflare route for it. A LAN-only service therefore needs `publishPort` AND
 the absence of `route`; declaring both would publish the service publicly, which
 defeats the purpose.
@@ -370,10 +374,10 @@ service: it mounts the named data volume, wires the password as
 `POSTGRES_PASSWORD_FILE` (docker secret, never an env literal), and sets
 `POSTGRES_DB` (defaults to the api's `control_center`). `POSTGRES_DB` is honoured
 by the image **only on a fresh volume init**, so it is inert against existing data
-— safe to add to the live spec without forcing a destructive re-init (www-chy).
+, safe to add to the live spec without forcing a destructive re-init (www-chy).
 
 > The `config[]` (postgresql.conf) and `init[]` (initdb scripts) options are
-> accepted by the builder but **not yet emitted** by the renderer — tracked in
+> accepted by the builder but **not yet emitted** by the renderer, tracked in
 > www-sg9.
 
 ## Agent image
@@ -383,13 +387,13 @@ Unlike `apps/api` it is **not** bundled: `bosun serve`/`up` import
 `deploy.config.ts` at runtime and shell out, so the image ships the bosun source
 tree plus the tools it needs:
 
-- `docker` + `op` CLIs (copied from their official multi-arch images) — run
+- `docker` + `op` CLIs (copied from their official multi-arch images), run
   `docker stack deploy`/`docker secret` against the host daemon (socket
   bind-mount) and resolve `op://` secrets.
-- `curl`, `jq`, `postgresql-client` — the `cmdProbe`s the agent's own `bosun up`
+- `curl`, `jq`, `postgresql-client`, the `cmdProbe`s the agent's own `bosun up`
   verify shells out to; without them probes exit 127 and verify is structurally
   red (www-z65).
-- `tzdata` + `ENV TZ=America/Los_Angeles` — so the scheduler's wall clock is LA
+- `tzdata` + `ENV TZ=America/Los_Angeles`, so the scheduler's wall clock is LA
   local (www-dd0).
 
 The entrypoint (`docker-entrypoint.sh`) bridges docker secret files
@@ -399,7 +403,7 @@ The entrypoint (`docker-entrypoint.sh`) bridges docker secret files
 
 ## Logging
 
-bosun uses `@repo/logger` (pino). `createLogger({ service: "bosun", pretty: false })` is called in `cli.ts` / `serve.ts` — the `pretty: false` is explicit because the deploy agent may run without `NODE_ENV=production` and must always emit raw JSON (no pino-pretty transport thread). Child loggers carry a `step` field (`"secrets" | "routes" | "deploy" | "scheduler"`). Never add `console.*` — use `log.info` / `log.warn` / `log.error`. See `docs/logging.md` for the full contract.
+bosun uses `@repo/logger` (pino). `createLogger({ service: "bosun", pretty: false })` is called in `cli.ts` / `serve.ts`, the `pretty: false` is explicit because the deploy agent may run without `NODE_ENV=production` and must always emit raw JSON (no pino-pretty transport thread). Child loggers carry a `step` field (`"secrets" | "routes" | "deploy" | "scheduler"`). Never add `console.*`, use `log.info` / `log.warn` / `log.error`. See `docs/logging.md` for the full contract.
 
 ## Tests
 
