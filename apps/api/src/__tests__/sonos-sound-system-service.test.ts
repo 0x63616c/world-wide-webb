@@ -9,6 +9,29 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SonosError } from "../integrations/sonos";
 
+// ─── mock DB (desired-volume overlay, CC-5mek) ───────────────────────────────
+
+const { mockDbSelect } = vi.hoisted(() => ({ mockDbSelect: vi.fn() }));
+
+vi.mock("../db/index", () => ({
+  db: { select: mockDbSelect },
+}));
+
+class Chain {
+  constructor(private readonly rows: unknown[]) {}
+  from() {
+    return this;
+  }
+  where() {
+    return this;
+  }
+  [Symbol.toStringTag] = "Chain";
+  // biome-ignore lint/suspicious/noThenProperty: intentional thenable for drizzle mock
+  then<R>(onFulfilled: (v: unknown[]) => R | PromiseLike<R>): Promise<R> {
+    return Promise.resolve(this.rows).then(onFulfilled);
+  }
+}
+
 // ─── mock SonosClient constructor ─────────────────────────────────────────────
 // We need a per-IP mock so we can control each device's responses independently.
 
@@ -128,6 +151,44 @@ beforeEach(() => {
   for (const key of Object.keys(mockClients)) {
     delete mockClients[key];
   }
+  // No speaker rows by default — overlay tests opt in.
+  mockDbSelect.mockImplementation(() => new Chain([]));
+});
+
+describe("getSoundSystem — desired-authoritative volume (CC-5mek)", () => {
+  it("desired volume from device_state overlays the live read (fader never snaps back)", async () => {
+    setupHappyPath();
+    mockDbSelect.mockImplementation(
+      () =>
+        new Chain([
+          {
+            id: "spk_192-168-0-63",
+            kind: "speaker",
+            entityId: BEDROOM_IP,
+            desiredState: { volume: 77 },
+            reportedState: { volume: 30 },
+            available: true,
+          },
+        ]),
+    );
+
+    const result = await getSoundSystem();
+
+    expect(result.rooms.find((r) => r.name === "Bedroom")?.volume).toBe(77);
+    // Rooms without a speaker row keep the live read.
+    expect(result.rooms.find((r) => r.name === "Kitchen")?.volume).toBe(50);
+  });
+
+  it("falls back to the live read when the DB is unreachable (live data is still real)", async () => {
+    setupHappyPath();
+    mockDbSelect.mockImplementation(() => {
+      throw new Error("db down");
+    });
+
+    const result = await getSoundSystem();
+
+    expect(result.rooms.find((r) => r.name === "Bedroom")?.volume).toBe(30);
+  });
 });
 
 describe("getSoundSystem — topology collapse (A11)", () => {
