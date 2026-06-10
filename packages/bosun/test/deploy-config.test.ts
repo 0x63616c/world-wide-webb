@@ -85,6 +85,75 @@ describe("deploy.config.ts worker service (www-7d5b.1.3)", () => {
   });
 });
 
+describe("deploy.config.ts captive-portal service (www-q002.14)", () => {
+  const portal = svc("captive-portal");
+
+  it("uses its own nginx image, independent of web/api", () => {
+    expect(portal.image).toContain("control-center-captive-portal");
+  });
+
+  it("is LAN-only: publishes host 443 and declares NO tunnel route", () => {
+    // publishPort binds the Mini's LAN IP (mode: host); the absence of `route`
+    // means bosun never creates a Cloudflare tunnel ingress/DNS for it — the
+    // service is reachable ONLY on the local network (www-q002.12).
+    expect(portal.publishPort).toEqual({ host: 443, container: 443 });
+    expect(portal.route).toBeUndefined();
+  });
+
+  it("is pinned to the manager (holds the LAN IP + the cert volume)", () => {
+    expect(portal.placement).toContain("node.role==manager");
+  });
+
+  it("has a hard memory cap (static nginx)", () => {
+    expect(portal.resources?.memory).toBeTruthy();
+  });
+
+  it("mounts the shared cert volume read-only (acme writes it; nginx reads it)", () => {
+    // The cert job writes the LE cert into portal-certs; the portal terminates
+    // TLS from it read-only so a compromised portal can't tamper with the key.
+    expect(portal.volumes).toContain("portal-certs:/certs:ro");
+  });
+
+  it("verifies liveness over the overlay http port, not the public TLS host yet", () => {
+    // The container keeps :80 listening for the swarm healthcheck + verify probe.
+    // The public-hostname certProbe is added in www-q002.15 alongside the UniFi
+    // local DNS record (until then the agent can't resolve the LAN-only host).
+    expect(portal.healthcheck).toBeDefined();
+    expect(portal.health.some((h) => h.kind === "http")).toBe(true);
+    expect(portal.health.some((h) => h.command?.includes("captive-portal.worldwidewebb.co"))).toBe(
+      false,
+    );
+  });
+});
+
+describe("deploy.config.ts captive-portal cert job (www-q002.13/.14)", () => {
+  const cert = svc("portal-cert-renew");
+
+  it("is a cronJob (run by the bosun scheduler, not a long-lived service)", () => {
+    expect(cert.schedule?.cron).toBeTruthy();
+  });
+
+  it("resolves the Cloudflare API token via op for DNS-01 (never hardcoded)", () => {
+    const ref = cert.secrets.find((r) => r.name === "CF_Token");
+    expect(ref?.ref).toBe("op://Homelab/Cloudflare API/credential");
+  });
+
+  it("writes into the shared cert volume read-write (the portal reads it ro)", () => {
+    expect(cert.volumes?.some((v) => v.startsWith("portal-certs:"))).toBe(true);
+    // Must NOT be the read-only mount — the job is the writer.
+    expect(cert.volumes).not.toContain("portal-certs:/certs:ro");
+  });
+
+  it("runs on the manager (same node as the portal + its volume)", () => {
+    expect(cert.placement).toContain("node.role==manager");
+  });
+
+  it("issues for the portal host via Cloudflare DNS-01", () => {
+    expect(cert.command).toContain("captive-portal.worldwidewebb.co");
+    expect(cert.command).toContain("dns_cf");
+  });
+});
+
 describe("deploy.config.ts bosun-agent Cloudflare creds (www-vqyv)", () => {
   const agent = svc("bosun-agent");
 

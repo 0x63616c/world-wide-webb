@@ -38,16 +38,27 @@ COPY apps/captive-portal ./apps/captive-portal
 RUN bun run --cwd apps/captive-portal build
 
 
-# Stage 2: nginx serves the static bundle and scope-proxies the portal api.
+# Stage 2: nginx serves the static bundle, scope-proxies the portal api, and
+# terminates TLS on :443 from the mounted portal-certs volume.
 FROM nginx:1.27-alpine AS runtime
 
-# Replace the default nginx config with ours (the scoped portal proxy).
+# openssl is needed by the entrypoint to mint a self-signed placeholder cert on a
+# fresh volume (nginx:alpine does not ship it). Small, single layer.
+RUN apk add --no-cache openssl
+
+# Replace the default nginx config with ours: the server blocks (:80 + :443) and
+# the shared scoped-proxy location include they both pull in.
 RUN rm /etc/nginx/conf.d/default.conf
 COPY apps/captive-portal/nginx.conf /etc/nginx/conf.d/app.conf
+COPY apps/captive-portal/_portal_locations.conf /etc/nginx/_portal_locations.conf
+
+# Entrypoint: self-signed placeholder cert on a fresh volume + a cert-reload loop,
+# then exec nginx (see the script header for why).
+COPY apps/captive-portal/docker-entrypoint-portal.sh /docker-entrypoint-portal.sh
 
 COPY --from=builder /app/apps/captive-portal/dist /usr/share/nginx/html
 
-EXPOSE 80
+EXPOSE 80 443
 
-# nginx runs as PID 1; no shell wrapper needed.
-CMD ["nginx", "-g", "daemon off;"]
+# The entrypoint sets up certs + the reload loop, then exec's nginx as PID 1.
+CMD ["/docker-entrypoint-portal.sh"]
