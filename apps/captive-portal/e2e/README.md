@@ -1,8 +1,15 @@
 # Captive-portal E2E harness (CC-q002.16)
 
-Status: **PREP**. The harness (Playwright config + smoke spec) is in place and runs
-against the current placeholder app. The full journey matrix is **blocked on the
-screens (CC-q002.6) and state machine (CC-q002.7)**. It activates once those land.
+Status: **PARTIAL**. The harness + the drivable-today specs are landed and green:
+landing validation (landing-validation.spec.ts), Terms round-trip (terms.spec.ts),
+landing-level refresh persistence (refresh-persistence.spec.ts), landing a11y +
+mobile + keyboard + reduced-motion (a11y-landing.spec.ts), and the smoke invariants
+(smoke.spec.ts). The full server-round-trip journey (flow-matrix.spec.ts) is written
+against the contract but tagged **@needs-wiring** and SKIPPED, it is blocked on
+**CC-q002.19** (the tRPC client + effect-runner wiring; the App's runEffects is a
+stub today, so the flow stalls at "sending"). When CC-q002.19 lands: drop the
+test.skip lines in flow-matrix.spec.ts, read the OTP back via the mock sender store
+(below), run for real, and wire the CI e2e job non-advisory (deploy gates on it).
 
 ## Run it
 
