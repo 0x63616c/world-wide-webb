@@ -97,6 +97,9 @@ describe("deploy.config.ts — Docker image-cleanup cronJob (CC-0id / CC-79k)", 
     expect(longLived.sort()).toEqual([
       "api",
       "bosun-agent",
+      // LAN-only guest captive portal (nginx); publishPort 443, no tunnel route
+      // (CC-q002.14).
+      "captive-portal",
       "cloudflared",
       // Self-hosted Drizzle Studio for browsing the prod DB (CC-0ub8).
       "drizzle",

@@ -227,6 +227,36 @@ export default stack("control-center", {
       health: [httpProbe("https://storybook.worldwidewebb.co", 200)],
     }),
 
+    // Captive portal: the guest-WiFi onboarding page (CC-q002). LAN-ONLY — it is
+    // reachable only on the local network, NEVER through the Cloudflare tunnel:
+    //   - publishPort binds host 443 on the swarm NODE (mode: host), i.e. the
+    //     Mini's LAN IP. The public hostname resolves to that same LAN IP via
+    //     UniFi split-horizon DNS (CC-q002.15); the public wildcard hits a dead
+    //     Cloudflare route, so nothing is served off the internet.
+    //   - NO `route:` — bosun must never create a tunnel ingress/DNS for it (the
+    //     route reconcile is keyed solely off svc.route).
+    // The image terminates TLS on :443 from the shared portal-certs volume
+    // (read-only here; the portal-cert-renew job below is the writer) and keeps
+    // :80 listening for the swarm healthcheck + the LAN/CI curl path. nginx
+    // proxies ONLY /api/trpc/portal.* to the api and 404s every other /api path,
+    // so a guest can never reach a dashboard procedure (apps/captive-portal).
+    // Pinned to the manager: it holds the LAN IP AND the node-local cert volume.
+    service("captive-portal", {
+      image: ghcr("control-center-captive-portal"),
+      // 64M cap — static nginx + a tiny TLS reload loop (CC-ke9a class).
+      resources: { memory: "64M" },
+      publishPort: { host: 443, container: 443 },
+      volumes: ["portal-certs:/certs:ro"],
+      placement: ["node.role==manager"],
+      // Swarm-tracked liveness on the in-container :80 (always listening, even
+      // before a real cert lands). nginx:alpine ships no curl, so use wget.
+      healthcheck: healthcheck("wget -q -O /dev/null http://localhost:80/ || exit 1"),
+      // Verify probe over the overlay :80 (the agent can't resolve the LAN-only
+      // public host until the UniFi DNS record lands — the public-hostname
+      // certProbe is added in CC-q002.15, never red purely by deploy ordering).
+      health: [httpProbe("http://captive-portal:80", 200)],
+    }),
+
     // Drizzle Gateway: self-hosted Drizzle Studio for browsing the control_center
     // Postgres, public via the Cloudflare tunnel (mirrors the evee deploy, proven
     // on homelab). Runs OUR thin wrapper image (apps/drizzle/Dockerfile), NOT the
@@ -360,6 +390,33 @@ export default stack("control-center", {
       schedule: "0 3 * * *",
       command: 'docker image prune -a -f --filter "until=720h"',
       volumes: ["/var/run/docker.sock:/var/run/docker.sock"],
+      placement: ["node.role==manager"],
+    }),
+
+    // Captive-portal TLS cert: Let's Encrypt via Cloudflare DNS-01 (CC-q002.13).
+    // The portal is LAN-only (no inbound public traffic), so HTTP-01 can't work;
+    // DNS-01 proves control by writing a TXT record in the CF zone — only outbound
+    // calls to LE + the CF API. acme.sh is idempotent and renewal-aware: it only
+    // re-issues inside the ~30-day-before-expiry window, so a daily run is cheap
+    // (most runs are a no-op). The CF API token is resolved from op at dispatch
+    // (cronJob secrets, CC-q002.13) and injected as the CF_Token env acme.sh's
+    // dns_cf plugin reads (token mode auto-discovers the zone). The cert + key land
+    // in the shared portal-certs volume (read-WRITE here; the portal mounts it
+    // read-only). acme.sh keeps its account/state under --home on the same volume
+    // so renewals persist across runs. The portal nginx self-reloads on a timer to
+    // pick up a renewed cert — no docker socket in this job (unprivileged writer).
+    // Runs 04:00 local, after the image-prune slot, on the manager (cert volume is
+    // node-local). The private key is never committed and never logged.
+    cronJob("portal-cert-renew", {
+      image: "neilpang/acme.sh:latest",
+      schedule: "0 4 * * *",
+      command:
+        "--issue --dns dns_cf --server letsencrypt --keylength ec-256 " +
+        "-d captive-portal.worldwidewebb.co --home /certs/.acme.sh " +
+        "--cert-file /certs/cert.pem --key-file /certs/key.pem " +
+        "--fullchain-file /certs/fullchain.pem --ca-file /certs/ca.pem",
+      secrets: fromOp("Homelab", { CF_Token: "Cloudflare API/credential" }),
+      volumes: ["portal-certs:/certs"],
       placement: ["node.role==manager"],
     }),
 
