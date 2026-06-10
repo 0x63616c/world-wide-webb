@@ -20,12 +20,22 @@ export interface ScheduleSpec {
 // An `access:` declaration on a service (or a stack-level `accessFloor`) maps to
 // a Cloudflare Access application + policy that the reconcile (reconcile/access.ts)
 // creates at the edge. Pure data, no I/O — the include rules carry only env var
-// NAMES (for service tokens) or literal emails, never secret values.
+// NAMES (for service tokens / env-sourced emails) or literal emails, never
+// secret values. NOTE: this is a PUBLIC repo, so a personal email must NEVER be
+// a literal here (the no-personal-email guard blocks it) — use `emailEnv` so the
+// address lives only in 1Password and is injected as env at deploy time.
 
 /** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (CC-cuuw) */
 export type AccessRule =
-  // Allow a specific identity (email OTP login).
+  // Allow a specific identity by literal email (OTP login). Only for emails safe
+  // to commit (e.g. a shared/role address); NEVER a personal email in this public
+  // repo — use the `emailEnv` variant for those.
   | { kind: "email"; email: string }
+  // Allow a specific identity whose email is resolved at reconcile time from the
+  // env var named `envVar` (sourced from 1Password via the agent's fromOp). Keeps
+  // a personal email out of the public repo. `reconcile/access.ts` reads
+  // process.env[envVar] and throws if unset.
+  | { kind: "emailEnv"; envVar: string }
   // Allow a Cloudflare service token. `clientIdEnv` is the NAME of the env var
   // holding the token's non-secret client-id; the reconcile resolves the token's
   // internal CF id by name (`tokenName`) via listServiceTokens(). The client-id
@@ -269,6 +279,15 @@ export function fromOp(vault: string, refs: Record<string, string>): SecretRef[]
 /** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (CC-cuuw) */
 export function accessEmail(email: string): AccessSpec {
   return { decision: "allow", include: [{ kind: "email", email }] };
+}
+
+// Allow a single identity whose email is read at reconcile time from the named
+// env var (sourced from 1Password via the agent's fromOp). Use this for personal
+// emails — they must never be committed to this public repo (no-personal-email
+// guard). The repo carries only the env var NAME, never the address.
+/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (CC-cuuw) */
+export function accessEmailEnv(envVar: string): AccessSpec {
+  return { decision: "allow", include: [{ kind: "emailEnv", envVar }] };
 }
 
 /** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (CC-cuuw) */

@@ -66,16 +66,30 @@ export function stackAccessTag(stackName: string): string {
   return `bosun:${stackName}`;
 }
 
-// Map an AccessSpec to a CF policy, resolving any serviceToken include rule's
-// token NAME to its CF token id via the provided lookup. A pure function over
-// the spec + the resolved-token map (built once by reconcileAccess from
-// listServiceTokens). An unknown token name is a hard error — never a silent
-// skip that would create a service_auth app nobody can authenticate to.
-function specToPolicy(access: AccessSpec, tokenIdByName: Map<string, string>): AccessPolicy {
+// Map an AccessSpec to a CF policy, resolving (a) any serviceToken rule's token
+// NAME to its CF token id and (b) any emailEnv rule's env-var NAME to the email
+// address — both via maps built once by reconcileAccess (from listServiceTokens
+// and process.env). A pure function over the spec + those maps. An unknown token
+// name or an unset email env var is a hard error — never a silent skip that would
+// create an app nobody (or everybody) can reach.
+function specToPolicy(
+  access: AccessSpec,
+  tokenIdByName: Map<string, string>,
+  emailByEnvVar: Map<string, string>,
+): AccessPolicy {
   const include: AccessIncludeRule[] = [];
   for (const rule of access.include ?? []) {
     if (rule.kind === "email") {
       include.push({ email: { email: rule.email } });
+    } else if (rule.kind === "emailEnv") {
+      const email = emailByEnvVar.get(rule.envVar);
+      if (!email) {
+        throw new Error(
+          `reconcileAccess: allowed-email env var '${rule.envVar}' is unset — ` +
+            "it must be sourced from 1Password via the agent's fromOp (CC-cuuw)",
+        );
+      }
+      include.push({ email: { email } });
     } else {
       const tokenId = tokenIdByName.get(rule.tokenName);
       if (!tokenId) {
@@ -108,6 +122,9 @@ export async function reconcileAccess(
   stackName: string,
   declared: DesiredAccessApp[],
   client: CloudflareAccessClient,
+  // env var NAME -> resolved email, for `emailEnv` rules. Built by the caller
+  // (cli.ts, the env boundary) so this module stays pure/DI like reconcile/routes.
+  emailByEnvVar: Map<string, string> = new Map(),
 ): Promise<void> {
   const tag = stackAccessTag(stackName);
 
@@ -127,7 +144,7 @@ export async function reconcileAccess(
 
   // Create or update each declared app.
   for (const { domain, access } of declared) {
-    const policy = specToPolicy(access, tokenIdByName);
+    const policy = specToPolicy(access, tokenIdByName, emailByEnvVar);
     const live = existingByDomain.get(domain);
     if (!live) {
       await client.createApp(domain, tag, policy);

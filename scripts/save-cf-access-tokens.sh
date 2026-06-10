@@ -100,6 +100,27 @@ echo
 echo "2/2 CI token:"
 create_token "bosun-ci" "CF Access CI Token"
 
+# Allowed-identity email for the human-host (storybook/drizzle) Access policies.
+# PII, so it lives ONLY in 1Password (never a literal in this public repo —
+# no-personal-email guard). reconcileAccess reads it via env CF_ACCESS_ALLOWED_EMAIL
+# (sourced through the agent's fromOp). Prompted, not hardcoded, so the script
+# carries no email. Idempotent.
+EMAIL_ITEM="CF Access Allowed Email"
+EMAIL_REF="op://$VAULT/$EMAIL_ITEM/email"
+echo
+echo "3/3 allowed email (storybook/drizzle Access policy identity):"
+if op item get "$EMAIL_ITEM" --vault "$VAULT" >/dev/null 2>&1; then
+  echo "  '$EMAIL_ITEM' already exists in 1Password — skipping (edit it to change)."
+else
+  read -rp "  Enter the allowed login email: " ALLOWED_EMAIL
+  [ -n "$ALLOWED_EMAIL" ] || { echo "FATAL: empty email" >&2; exit 1; }
+  op item create --vault "$VAULT" --category "API Credential" --title "$EMAIL_ITEM" \
+    "email[text]=$ALLOWED_EMAIL" >/dev/null
+  EVEE_OP_DIR="${OP_CACHE_DIR:-$HOME/.local/share/evee-op}"
+  [ -d "$EVEE_OP_DIR" ] && rm -f "$EVEE_OP_DIR/$(printf '%s' "$EMAIL_REF" | shasum -a 256 | cut -d' ' -f1)"
+  op read "$EMAIL_REF" >/dev/null && echo "    ok: $EMAIL_REF"
+fi
+
 echo
 echo "Done. Next (gated cutover, see docs/deployment-design.md):"
 echo "  - add the two CF_ACCESS_*_CLIENT_ID fromOp lines to bosun-agent in deploy.config.ts"
