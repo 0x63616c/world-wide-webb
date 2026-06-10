@@ -266,6 +266,24 @@ describe("cronJob primitive", () => {
     const job = cronJob("prune", { image: "docker:cli", schedule: "0 4 * * *", command: "x" });
     expect(job.health).toEqual([]);
   });
+
+  // www-q002.13: a cron job may need op-resolved secrets at run time (the cert job
+  // needs the Cloudflare API token for DNS-01). cronJob() accepts SecretRef[] from
+  // fromOp(), same as a service; the agent resolves them and injects --env when it
+  // dispatches the one-shot job. Resolved values never appear in the static spec.
+  it("carries op secret references when declared (defaults to none)", () => {
+    expect(cronJob("plain", { image: "x", schedule: "0 4 * * *", command: "y" }).secrets).toEqual(
+      [],
+    );
+    const cert = cronJob("cert", {
+      image: "neilpang/acme.sh",
+      schedule: "0 4 * * *",
+      command: "acme.sh --issue",
+      secrets: fromOp("Homelab", { CF_Token: "Cloudflare API/credential" }),
+    });
+    const ref = cert.secrets.find((r) => r.name === "CF_Token");
+    expect(ref?.ref).toBe("op://Homelab/Cloudflare API/credential");
+  });
 });
 
 describe("full stack evaluation (purity + determinism)", () => {
