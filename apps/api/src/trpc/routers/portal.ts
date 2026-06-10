@@ -125,4 +125,10 @@ export const portalRouter = router({
     .input(z.object({ mac: macSchema }))
     .output(z.object({ state: z.enum(["fresh", "active", "expired"]) }))
     .query(({ input }) => mapErrors(() => portalService.status(input))),
+
+  /** Clear this device's wrong-code/password counters — the UI "back" action. */
+  resetAttempts: publicProcedure
+    .input(z.object({ mac: macSchema }))
+    .output(z.object({ reset: z.literal(true) }))
+    .mutation(({ input }) => mapErrors(() => portalService.resetAttempts(input))),
 });

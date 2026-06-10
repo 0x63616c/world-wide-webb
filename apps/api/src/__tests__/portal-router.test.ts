@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "../trpc/routers/index";
 
 describe("portal router wiring", () => {
-  it("registers all five procedures on the appRouter", () => {
+  it("registers all six procedures on the appRouter", () => {
     const names = Object.keys(appRouter._def.procedures).filter((k) => k.startsWith("portal."));
     expect(names).toEqual(
       expect.arrayContaining([
@@ -19,6 +19,7 @@ describe("portal router wiring", () => {
         "portal.checkPassword",
         "portal.authorize",
         "portal.status",
+        "portal.resetAttempts",
       ]),
     );
   });

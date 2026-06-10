@@ -17,6 +17,8 @@ export function makeInMemoryPortalRepo(): PortalRepo & {
   firstGuestId: () => string;
   findAuthorization: (mac: string) => PortalAuthorizationRow | undefined;
   authorizationCount: (mac: string) => number;
+  unconsumedCodeCount: (guestId: string) => number;
+  attemptWrongCount: (mac: string, kind: string) => number;
 } {
   const guests: PortalGuestRow[] = [];
   const codes: PortalCodeRow[] = [];
@@ -98,5 +100,9 @@ export function makeInMemoryPortalRepo(): PortalRepo & {
     firstGuestId: () => guests[0].id,
     findAuthorization: (mac) => auths.find((a) => a.mac === mac),
     authorizationCount: (mac) => auths.filter((a) => a.mac === mac).length,
+    unconsumedCodeCount: (guestId: string) =>
+      codes.filter((c) => c.guestId === guestId && !c.consumed).length,
+    attemptWrongCount: (mac: string, kind: string) =>
+      attempts.get(`${mac}:${kind}`)?.wrongCount ?? 0,
   };
 }
