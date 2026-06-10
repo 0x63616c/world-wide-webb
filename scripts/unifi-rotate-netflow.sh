@@ -19,6 +19,14 @@ if [ -s "$NF/flows.json" ]; then
   gzip -f "$NF/$STAMP-flows.json"
 fi
 
+# enriched stream (unifi-enrich, CC-cs0o) rotates the same way; the restart
+# makes the tailer reopen at offset 0 on the fresh raw file.
+if [ -s "$NF/enriched-flows.json" ]; then
+  mv "$NF/enriched-flows.json" "$NF/$STAMP-enriched-flows.json"
+  $D restart unifi-enrich >/dev/null 2>&1 || true
+  gzip -f "$NF/$STAMP-enriched-flows.json"
+fi
+
 RET="${RETENTION_DAYS:-0}"
 if [ "$RET" -gt 0 ]; then
   find "$NF" -name '*-flows.json.gz' -mtime +"$RET" -delete

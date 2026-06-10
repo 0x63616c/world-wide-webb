@@ -23,10 +23,11 @@ req(){ curl -sk -m 15 -H "X-API-KEY: $KEY" "$@"; }
 set_setting(){ req -X POST -H "Content-Type: application/json" "$API/set/setting/$1" -d "$2" \
   | python3 -c "import sys,json;d=json.load(sys.stdin);print(' ',d['meta'])"; }
 
-# LAN networks to export flows for (purpose=corporate).
+# Networks to export flows for: LANs + any guest networks (e.g. a future
+# www-guest SSID's network) — WANs excluded.
 LAN_IDS=$(req "$API/rest/networkconf" | python3 -c "
 import sys,json
-print(json.dumps([n['_id'] for n in json.load(sys.stdin)['data'] if n.get('purpose')=='corporate']))")
+print(json.dumps([n['_id'] for n in json.load(sys.stdin)['data'] if n.get('purpose') in ('corporate','guest')]))")
 echo "LAN network ids: $LAN_IDS"
 
 if [ "$DISABLE" = "1" ]; then
