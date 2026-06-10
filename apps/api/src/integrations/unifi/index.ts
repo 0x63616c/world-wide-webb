@@ -22,7 +22,19 @@ const healthEntrySchema = z.looseObject({
 });
 const healthReportSchema = z.object({ data: z.array(healthEntrySchema).optional() });
 
-class UnifiError extends Error {
+// Active guest authorizations (GET stat/guest). Each row carries the device mac
+// and the authorization window as epoch SECONDS (start/end). We stay permissive
+// about the many other fields the controller returns (CC-q002.10).
+const guestEntrySchema = z.looseObject({
+  mac: z.string().optional(),
+  start: z.number().optional(),
+  end: z.number().optional(),
+});
+const guestReportSchema = z.object({ data: z.array(guestEntrySchema).optional() });
+
+/** @public — caught by the captive-portal service (CC-q002.9) to map controller
+ * outages onto the GenericError path; no internal consumer in this ticket yet. */
+export class UnifiError extends Error {
   constructor(
     public status: number,
     message: string,
@@ -51,11 +63,43 @@ export interface UnifiTrafficBucket {
   up: number;
 }
 
+/** One active guest authorization as reported by the controller (stat/guest). */
+export interface UnifiGuestAuthorization {
+  /** Device MAC, lowercase colon-separated. */
+  mac: string;
+  /** Authorization window start (epoch seconds), if reported. */
+  start: number | null;
+  /** Authorization window end (epoch seconds), if reported. */
+  end: number | null;
+}
+
+/**
+ * The guest-authorization surface the captive portal depends on. The portal
+ * service takes this interface (not the concrete client) so tests inject a
+ * mock and assert no real network call escapes (CC-q002.10). `UnifiClient`
+ * implements it; the only writes in the system are authorizeGuest.
+ *
+ * @public — consumed by the captive-portal service (CC-q002.9); declared here
+ * with the client so the contract lives next to its sole implementation.
+ */
+export interface UnifiGuestClient {
+  isConfigured(): boolean;
+  /** Grant the device internet for `minutes` (default 43200 = 30 days). */
+  authorizeGuest(mac: string, minutes?: number): Promise<void>;
+  /** The controller's active authorization for `mac`, or null if none. */
+  findActiveAuthorization(mac: string): Promise<UnifiGuestAuthorization | null>;
+}
+
+/** Controller wants the MAC lowercase, colon-separated. */
+function normalizeMac(mac: string): string {
+  return mac.trim().toLowerCase();
+}
+
 /**
  * Minimal UniFi Network API v1 client scoped to the data the Network tile
  * needs. Uses X-API-KEY header auth (UniFi OS 4+).
  */
-export class UnifiClient {
+export class UnifiClient implements UnifiGuestClient {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly siteId: string;
@@ -131,6 +175,41 @@ export class UnifiClient {
     return {
       status: wan.status === UnifiStatus.Ok ? UnifiStatus.Ok : UnifiStatus.Error,
       wanLatencyMs: wan.uptime_stats?.WAN?.latency_average ?? null,
+    };
+  }
+
+  /**
+   * Grant a device internet access via the guest manager. POST cmd/stamgr with
+   * cmd=authorize-guest. `minutes` defaults to 43200 (30 days, the portal's
+   * authorization lifetime). Idempotent on the controller — re-authorizing an
+   * already-authorized device just refreshes the window. Throws UnifiError on
+   * any controller failure (services throw; never fake a grant — CC-q002.10).
+   */
+  async authorizeGuest(mac: string, minutes = 43200): Promise<void> {
+    await this.legacyRequest("/cmd/stamgr", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cmd: "authorize-guest", mac: normalizeMac(mac), minutes }),
+    });
+  }
+
+  /**
+   * Look up the controller's active authorization for a device (GET stat/guest).
+   * Used to cross-check that the controller still holds a grant the DB believes
+   * is active, and to heal it if the controller lost it (e.g. after a reboot).
+   * Returns null when no authorization exists for the mac. Throws UnifiError
+   * when the controller is unreachable.
+   */
+  async findActiveAuthorization(mac: string): Promise<UnifiGuestAuthorization | null> {
+    const target = normalizeMac(mac);
+    const raw = await this.legacyRequest("/stat/guest");
+    const { data } = guestReportSchema.parse(raw);
+    const row = (data ?? []).find((g) => g.mac?.toLowerCase() === target);
+    if (!row?.mac) return null;
+    return {
+      mac: row.mac.toLowerCase(),
+      start: row.start ?? null,
+      end: row.end ?? null,
     };
   }
 }
