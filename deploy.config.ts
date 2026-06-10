@@ -1,4 +1,4 @@
-// Control-center deployment manifest. Pure data — no I/O, no side effects.
+// Control-center deployment manifest. Pure data, no I/O, no side effects.
 // Secret refs point at 1Password items; values are resolved at sync time only.
 // See docs/deployment-design.md Part 6 for the full spec.
 //
@@ -117,7 +117,7 @@ export default stack("control-center", {
         HOME_PLACE_NAME: "Home Location/place_name",
         HOME_RADIUS_MILES: "Home Location/radius_miles",
         // Spotify credentials mirrored from the api to keep the two services
-        // in lockstep (deploy-config.test.ts asserts they match — www-51hf.35).
+        // in lockstep (deploy-config.test.ts asserts they match, www-51hf.35).
         SPOTIFY_CLIENT_ID: "Spotify/client_id",
         SPOTIFY_CLIENT_SECRET: "Spotify/client_secret",
         SPOTIFY_REFRESH_TOKEN: "Spotify/refresh_token",
@@ -132,7 +132,7 @@ export default stack("control-center", {
         // LA-local timestamps correctly (matches the api, see its note).
         TZ: "America/Los_Angeles",
         HA_URL: "http://host.docker.internal:8123",
-        // Gateway IP, not the docker host — see the api note above (www-9m05).
+        // Gateway IP, not the docker host, see the api note above (www-9m05).
         UNIFI_CONTROLLER_URL: "https://192.168.0.1",
       },
     }),
@@ -142,12 +142,12 @@ export default stack("control-center", {
     // Its own image so a long yt-dlp download never shares a container with the
     // 1s reconcile loops in `worker` (www-kp4k). Storage is the Synology NAS,
     // bind-mounted from the host's persistent NFS mount (/Users/calum/control-center/media,
-    // mounted by the homelab LaunchDaemon) — OrbStack containers have no LAN route,
+    // mounted by the homelab LaunchDaemon), OrbStack containers have no LAN route,
     // so the HOST does the NFS and the container just sees a folder, same pattern
     // as the web service's `maps` mount. Pinned to the manager (host-local mount).
     service("media-worker", {
       image: ghcr("control-center-media-worker"),
-      // RE-PARKED AT 0 — second hold (www-6mz7). The 1G cap (below) solved the
+      // RE-PARKED AT 0, second hold (www-6mz7). The 1G cap (below) solved the
       // ORIGINAL outage cause (uncapped OOM → RCU stall), but re-enabling exposed a
       // SECOND, separate blocker: the container can't even start because OrbStack's
       // bind-mount of the NFS media share (/Users/calum/control-center/media) HANGS
@@ -158,7 +158,7 @@ export default stack("control-center", {
       // re-establish the share / mount NFS before OrbStack init). The cap stays set
       // so re-enabling is again a one-line 0→1 flip once www-6mz7 lands.
       replicas: 0,
-      // 1G hard memory cap — the structural fix for the outage (www-ke9a). yt-dlp
+      // 1G hard memory cap, the structural fix for the outage (www-ke9a). yt-dlp
       // streams to disk and never re-encodes, so peak working set is hundreds of
       // MB independent of file size; under cgroup v2 this cap also contains the
       // dirty page-cache writeback to the slow NAS NFS mount that ballooned RAM
@@ -189,7 +189,7 @@ export default stack("control-center", {
     // so the service is pinned to the manager (the single Swarm node holding it).
     service("web", {
       image: ghcr("control-center-web"),
-      // 96M cap — nginx serving static assets + a range-request basemap (www-ke9a).
+      // 96M cap, nginx serving static assets + a range-request basemap (www-ke9a).
       resources: { memory: "96M" },
       route: "dashboard.worldwidewebb.co",
       proxyApiTo: "api:4201",
@@ -206,10 +206,10 @@ export default stack("control-center", {
         // expires, while there is still time to renew. A plain http probe only
         // fails once the cert is already invalid, which is too late. (The earlier
         // `httpProbe(..., { certValid: true })` form silently dropped its 3rd arg
-        // — httpProbe takes only (url, status) — so no cert check ran at all.)
+        //, httpProbe takes only (url, status), so no cert check ran at all.)
         certProbe("dashboard.worldwidewebb.co", { warnDays: 14 }),
         // The basemap must be present AND served over range requests with the
-        // PMTiles v3 magic ("PMTiles" is the first 7 bytes) — a permanent guard
+        // PMTiles v3 magic ("PMTiles" is the first 7 bytes), a permanent guard
         // against the archive going missing or a non-range server shadowing it.
         cmdProbe(
           "basemap pmtiles served",
@@ -221,27 +221,27 @@ export default stack("control-center", {
     // Storybook: component library, public via Cloudflare tunnel.
     service("storybook", {
       image: ghcr("control-center-storybook"),
-      // 96M cap — static Storybook build served by a small http server (www-ke9a).
+      // 96M cap, static Storybook build served by a small http server (www-ke9a).
       resources: { memory: "96M" },
       route: "storybook.worldwidewebb.co",
       port: 6006,
-      // CF Access (www-cuuw): human-only host — gate behind an email OTP login.
+      // CF Access (www-cuuw): human-only host, gate behind an email OTP login.
       // The allowed email is sourced from 1Password (env CF_ACCESS_ALLOWED_EMAIL),
       // never a literal here (public repo / no-personal-email guard).
       access: accessEmailEnv("CF_ACCESS_ALLOWED_EMAIL"),
-      // Probe the container directly, NOT the public https URL — once Access gates
+      // Probe the container directly, NOT the public https URL, once Access gates
       // the host, an unauthenticated public probe is bounced to the login (302) and
       // would read as failing. The internal probe verifies the origin itself.
       health: [httpProbe("http://storybook:6006", 200)],
     }),
 
-    // Captive portal: the guest-WiFi onboarding page (www-q002). LAN-ONLY — it is
+    // Captive portal: the guest-WiFi onboarding page (www-q002). LAN-ONLY, it is
     // reachable only on the local network, NEVER through the Cloudflare tunnel:
     //   - publishPort binds host 443 on the swarm NODE (mode: host), i.e. the
     //     Mini's LAN IP. The public hostname resolves to that same LAN IP via
     //     UniFi split-horizon DNS (www-q002.15); the public wildcard hits a dead
     //     Cloudflare route, so nothing is served off the internet.
-    //   - NO `route:` — bosun must never create a tunnel ingress/DNS for it (the
+    //   - NO `route:`, bosun must never create a tunnel ingress/DNS for it (the
     //     route reconcile is keyed solely off svc.route).
     // The image terminates TLS on :443 from the shared portal-certs volume
     // (read-only here; the portal-cert-renew job below is the writer) and keeps
@@ -251,16 +251,21 @@ export default stack("control-center", {
     // Pinned to the manager: it holds the LAN IP AND the node-local cert volume.
     service("captive-portal", {
       image: ghcr("control-center-captive-portal"),
-      // 64M cap — static nginx + a tiny TLS reload loop (www-ke9a class).
+      // 64M cap, static nginx + a tiny TLS reload loop (www-ke9a class).
       resources: { memory: "64M" },
       publishPort: { host: 443, container: 443 },
-      volumes: ["portal-certs:/certs:ro"],
+      // Read-WRITE (not ro): on a FRESH deploy the volume is empty and the
+      // entrypoint must WRITE a self-signed placeholder cert so nginx can start
+      // before acme issues the real one (a ro mount crash-loops the service ,
+      // www-q002.14). The entrypoint's `[ ! -s fullchain ]` guard never
+      // overwrites an existing cert, so sharing rw with the cron writer is safe.
+      volumes: ["portal-certs:/certs"],
       placement: ["node.role==manager"],
       // Swarm-tracked liveness on the in-container :80 (always listening, even
       // before a real cert lands). nginx:alpine ships no curl, so use wget.
       healthcheck: healthcheck("wget -q -O /dev/null http://localhost:80/ || exit 1"),
       // Verify probe over the overlay :80 (the agent can't resolve the LAN-only
-      // public host until the UniFi DNS record lands — the public-hostname
+      // public host until the UniFi DNS record lands, the public-hostname
       // certProbe is added in www-q002.15, never red purely by deploy ordering).
       health: [httpProbe("http://captive-portal:80", 200)],
     }),
@@ -274,17 +279,17 @@ export default stack("control-center", {
     // boots ungated). The control_center connection is prefilled declaratively:
     // the wrapper also builds DATABASE_URL_control_center from the mounted Postgres
     // password (www-my5j), which the gateway auto-seeds into a connection on a fresh
-    // store — so a clean redeploy auto-connects with no manual UI add. Connections +
+    // store, so a clean redeploy auto-connects with no manual UI add. Connections +
     // sessions persist in the drizzle-data volume; that volume is node-local, so pin
     // to the manager. The MASTERPASS secret already exists in the shared Homelab
-    // vault (evee created it) — no new 1Password item.
+    // vault (evee created it), no new 1Password item.
     service("drizzle", {
       image: ghcr("control-center-drizzle"),
       // 256M cap for the self-hosted Drizzle Gateway (www-ke9a).
       resources: { memory: "256M" },
       route: "drizzle.worldwidewebb.co",
       port: 4983,
-      // CF Access (www-cuuw): human-only host — gate behind an email OTP login,
+      // CF Access (www-cuuw): human-only host, gate behind an email OTP login,
       // layered on top of the gateway's own masterpass (defence in depth). Allowed
       // email sourced from 1Password (env CF_ACCESS_ALLOWED_EMAIL), never a literal.
       access: accessEmailEnv("CF_ACCESS_ALLOWED_EMAIL"),
@@ -310,7 +315,7 @@ export default stack("control-center", {
     postgres({
       volume: "pgdata",
       secretRef: "op://Homelab/Control Center Postgres/password",
-      // 768M cap (the largest — it's the shared datastore) + a cpu reservation so
+      // 768M cap (the largest, it's the shared datastore) + a cpu reservation so
       // the DB stays on the critical path under contention (www-ke9a).
       resources: { memory: "768M", reserveCpus: "0.5" },
     }),
@@ -320,13 +325,13 @@ export default stack("control-center", {
       image: "cloudflare/cloudflared:2025.10.1",
       // 128M cap + a small cpu reservation: the tunnel connector is the public
       // ingress, so it must stay scheduled even under load (the outage took it
-      // down too) — www-ke9a.
+      // down too), www-ke9a.
       resources: { memory: "128M", reserveCpus: "0.25" },
       secrets: fromOp("Homelab", {
         TUNNEL_TOKEN: "Cloudflare Tunnel evee-webhooks/connector_token",
       }),
       // The cloudflared image is shell-less (distroless), so a `$(cat ...)`
-      // command substitution can't run — it would be passed to the tunnel as a
+      // command substitution can't run, it would be passed to the tunnel as a
       // literal token. Use cloudflared's native --token-file, which reads the
       // docker secret mounted at /run/secrets/TUNNEL_TOKEN directly.
       command: "tunnel --no-autoupdate run --token-file /run/secrets/TUNNEL_TOKEN",
@@ -336,7 +341,7 @@ export default stack("control-center", {
     // bosun-agent: the CI deploy webhook receiver. On an authenticated POST to
     // /deploy/control-center it runs `bosun up` against the host swarm, so a push
     // to main auto-deploys without CI ever reaching the tailnet (CI is the
-    // trigger, the box is the executor). Needs: the docker socket (read-write —
+    // trigger, the box is the executor). Needs: the docker socket (read-write ,
     // it runs `docker stack deploy`/`docker secret`), so it pins to a manager
     // node; the op service-account token (to resolve secrets during its own
     // `bosun up`); and the shared webhook token (to authenticate the caller).
@@ -376,13 +381,13 @@ export default stack("control-center", {
         // (CI). Non-secret client-ids riding the docker-secret channel like the
         // CF_* ids above. Their 1Password items are created by
         // scripts/save-cf-access-tokens.sh (run 2026-06-10); the entrypoint
-        // already exports both names. Client-SECRETS never reach the agent — only
+        // already exports both names. Client-SECRETS never reach the agent, only
         // the caller (kiosk/CI) holds them. See docs/deployment-design.md.
         CF_ACCESS_KIOSK_CLIENT_ID: "CF Access Kiosk Token/client_id",
         CF_ACCESS_CI_CLIENT_ID: "CF Access CI Token/client_id",
         // The single allowed identity for the human-host Access policies
         // (storybook/drizzle). PII, so it lives ONLY in 1Password and rides the
-        // docker-secret channel into the agent env — never a literal in this public
+        // docker-secret channel into the agent env, never a literal in this public
         // repo (no-personal-email guard). reconcileAccess reads it for emailEnv
         // rules. Item created by scripts/save-cf-access-tokens.sh.
         CF_ACCESS_ALLOWED_EMAIL: "CF Access Allowed Email/email",
@@ -395,7 +400,7 @@ export default stack("control-center", {
     // Nightly Docker image cleanup. Old/unused images accumulate on the Mini and
     // are never reclaimed, so a scheduled prune keeps disk in check. The bosun
     // scheduler (in bosun-agent) runs this on its cron as a one-shot Swarm job
-    // (docker service create --mode replicated-job) — no third-party scheduler,
+    // (docker service create --mode replicated-job), no third-party scheduler,
     // no always-on container. It pins to a manager node and mounts the socket to shell
     // `docker` against the host daemon. We use `image prune -a` with an
     // `until=720h` age filter (older than 30 days) rather than a bare `prune -af`:
@@ -414,7 +419,7 @@ export default stack("control-center", {
     // Captive-portal data hygiene (www-q002.18): a daily one-shot job that purges
     // dead portal rows so the tables don't grow unbounded. Runs the api IMAGE
     // (it bundles purge.js as a second entrypoint sharing the drizzle schema +
-    // DATABASE_URL wiring) with a command override — NOT a worker loop (PRD
+    // DATABASE_URL wiring) with a command override, NOT a worker loop (PRD
     // Backend rule 7). It deletes consumed/expired codes, stale attempt rows, and
     // authorizations expired >90 days (kept until then so they still drive the
     // SessionExpired UX). Needs only the Postgres password (env.ts builds
@@ -431,7 +436,7 @@ export default stack("control-center", {
 
     // Captive-portal TLS cert: Let's Encrypt via Cloudflare DNS-01 (www-q002.13).
     // The portal is LAN-only (no inbound public traffic), so HTTP-01 can't work;
-    // DNS-01 proves control by writing a TXT record in the CF zone — only outbound
+    // DNS-01 proves control by writing a TXT record in the CF zone, only outbound
     // calls to LE + the CF API. acme.sh is idempotent and renewal-aware: it only
     // re-issues inside the ~30-day-before-expiry window, so a daily run is cheap
     // (most runs are a no-op). The CF API token is resolved from op at dispatch
@@ -440,7 +445,7 @@ export default stack("control-center", {
     // in the shared portal-certs volume (read-WRITE here; the portal mounts it
     // read-only). acme.sh keeps its account/state under --home on the same volume
     // so renewals persist across runs. The portal nginx self-reloads on a timer to
-    // pick up a renewed cert — no docker socket in this job (unprivileged writer).
+    // pick up a renewed cert, no docker socket in this job (unprivileged writer).
     // Runs 04:00 local, after the image-prune slot, on the manager (cert volume is
     // node-local). The private key is never committed and never logged.
     cronJob("portal-cert-renew", {
@@ -459,12 +464,12 @@ export default stack("control-center", {
     // Tesla-map basemap provisioner (www-gma). The live map (TeslaMap.tsx) reads a
     // Protomaps .pmtiles archive over HTTP range requests from /maps/socal.pmtiles,
     // served by the web nginx off the host bind mount above. The archive is 100s of
-    // MB — too large for git or the image — so it is NOT baked in: this job
+    // MB, too large for git or the image, so it is NOT baked in: this job
     // range-extracts the region straight from the Protomaps daily planet build onto
     // the host volume the web service mounts. The recipe (bbox/maxzoom/build date)
     // lives in git for reproducibility; only the bytes stay on the host. Re-extract,
     // or expand the extent (e.g. full CA+AZ+NV), by editing the args here and
-    // running `bosun run-job map-extract` — the whole map is a one-line config diff.
+    // running `bosun run-job map-extract`, the whole map is a one-line config diff.
     //
     // The go-pmtiles image is distroless (no shell) with the pmtiles binary as its
     // entrypoint, so `command` is the bare `extract` subcommand. The schedule is
