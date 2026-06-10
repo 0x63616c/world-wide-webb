@@ -18,13 +18,6 @@ const meta = {
   title: "Media/QuickPlayTileView",
   component: QuickPlayTileView,
   tags: ["autodocs"],
-  decorators: [
-    (Story) => (
-      <div style={{ width: 280, height: 160, background: "#111", position: "relative" }}>
-        <Story />
-      </div>
-    ),
-  ],
   args: {
     items,
     playingItemId: "fav-1",

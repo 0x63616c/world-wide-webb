@@ -111,4 +111,17 @@ describe("TvAppsTileView — populated", () => {
       .filter((l): l is string => l !== null && l !== "Nothing open");
     expect(labels.slice(0, 4)).toEqual(["YouTube", "Netflix", "Disney+", "Hulu"]);
   });
+
+  it("renders grid-cell marks at 38px (www-l2zg)", () => {
+    // Unbranded app → glyph fallback whose fontSize is size * 0.6.
+    render(<TvAppsTileView {...baseProps} currentApp={null} apps={["Zelda FM"]} />);
+    const glyph = screen.getByLabelText("Zelda FM").querySelector("span");
+    expect(glyph).toHaveStyle({ fontSize: `${38 * 0.6}px` });
+  });
+
+  it("renders the hero logo plate at 44px (www-l2zg)", () => {
+    render(<TvAppsTileView {...baseProps} />);
+    const plate = screen.getByLabelText("Netflix — open").querySelector("div");
+    expect(plate).toHaveStyle({ width: "44px", height: "44px" });
+  });
 });
