@@ -11,7 +11,7 @@ function escapeComposeInterpolation(value: string): string {
 // Pin one of OUR ghcr images (`ghcr.io/0x63616c/<name>:<tag>`) to the exact
 // digest CI just built (`...@sha256:...`) when `<name>` is in the override map.
 // A digest-pinned image is an immutable, unique-per-build spec string, so
-// `docker stack deploy` rolls the service iff its digest changed — without
+// `docker stack deploy` rolls the service iff its digest changed, without
 // relying on `--resolve-image` re-resolving the mutable `:main` tag (which
 // silently failed to roll the self-deploying bosun-agent; www-czg). Third-party
 // and un-overridden images pass through unchanged, so only rebuilt services roll.
@@ -27,10 +27,10 @@ function pinImage(image: string, overrides?: Record<string, string>): string {
 // Linux VM is 5GB; reserve ~1GB for the guest kernel + system (page tables,
 // dirty-writeback, docker engine), leaving ~4GB for container memory limits.
 // renderStackYml SUMS every service's memory limit and REFUSES to render if the
-// total exceeds this — so a future overcommit fails the deploy loudly instead of
+// total exceeds this, so a future overcommit fails the deploy loudly instead of
 // silently over-subscribing the VM and reintroducing the RCU-stall/OOM outage
 // class (www-nqqj). Bumped from 4GB→5GB in www-jagy; keep this in sync with the VM.
-/** @public — deploy-spec budget constant; surfaced for tests + future plan checks (www-ke9a). */
+/** @public, deploy-spec budget constant; surfaced for tests + future plan checks (www-ke9a). */
 export const VM_MEMORY_BUDGET_MIB = 4096;
 
 // Parse a compose memory string ("96M", "768M", "1G", optionally "Mi"/"Gi") to
@@ -67,7 +67,7 @@ function assertMemoryBudget(spec: Spec): void {
 }
 
 // Render the static Spec + resolved secret name map to a Docker Swarm stack YAML.
-// The rendered YAML references hashed docker secret names — never plain values.
+// The rendered YAML references hashed docker secret names, never plain values.
 // `imageOverrides` (optional) maps a ghcr image name to the digest to pin it to
 // (see pinImage); omitted/empty keeps the declared `:main` tags.
 // Output is deterministic: same inputs always produce byte-identical output.
@@ -84,7 +84,7 @@ export function renderStackYml(
   // Named volumes referenced by services (bare-name sources, not bind paths).
   // Collected here and declared at the top level so docker stack deploy binds
   // them to the managed <stack>_<name> volume instead of auto-creating a
-  // separate empty one — which is what dropped postgres's data dir.
+  // separate empty one, which is what dropped postgres's data dir.
   const namedVolumes = new Set<string>();
 
   for (const svc of spec.services) {
@@ -105,20 +105,24 @@ export function renderStackYml(
       }
     }
 
-    // Host-published port for a LAN-only service (www-q002.12). Long-form with
-    // `mode: host` binds the port on the swarm NODE directly (the Mini's LAN IP on
-    // this single-node, manager-pinned stack) rather than the routing-mesh ingress
-    // VIP — the service is reachable on the LAN with no public exposure. This is
-    // orthogonal to `route`: a publishPort service has no route, so the Cloudflare
-    // ingress/DNS reconcile (keyed off svc.route) never touches it.
+    // LAN-reachable published port for a LAN-only service (www-q002.12/.14). Emit a
+    // long-form INGRESS published port. The deploy target is OrbStack single-node
+    // Swarm: OrbStack forwards standard/ingress published ports to the Mac HOST and
+    // to the LAN (its default "expose ports to LAN"), so the port lands on the
+    // Mini's LAN IP. `mode: host` does NOT work here, it binds inside the OrbStack
+    // Linux VM's container netns and bypasses that forwarding, so it never surfaces
+    // on the Mac/LAN (the www-q002.14 prod failure: nothing listened on the LAN :443
+    // until this switched off host mode). This is orthogonal to `route`: a
+    // publishPort service has no route, so the Cloudflare ingress/DNS reconcile
+    // (keyed off svc.route) never touches it.
     if (svc.publishPort) {
       lines.push("    ports:");
       lines.push(`      - target: ${svc.publishPort.container}`);
       lines.push(`        published: ${svc.publishPort.host}`);
-      lines.push("        mode: host");
+      lines.push("        mode: ingress");
     }
 
-    // Secret references — use hashed docker names, not plain names.
+    // Secret references, use hashed docker names, not plain names.
     if (svc.secrets.length > 0) {
       lines.push("    secrets:");
       for (const sec of svc.secrets) {
@@ -130,7 +134,7 @@ export function renderStackYml(
         }
         lines.push(`      - source: ${dockerName}`);
         // `target` is the filename docker mounts *under* /run/secrets/, so it
-        // must be the bare declared name — docker resolves it to the stable path
+        // must be the bare declared name, docker resolves it to the stable path
         // /run/secrets/<declared-name>. Passing the full path double-nests the
         // mount to /run/secrets//run/secrets/<name>, which the app can't read.
         lines.push(`        target: ${sec.name}`);
@@ -138,7 +142,7 @@ export function renderStackYml(
     }
 
     // Volume mounts. A bare-name source (no leading "/" or ".") is a managed
-    // named volume — prefix it <stack>_<name> (matching the secret convention)
+    // named volume, prefix it <stack>_<name> (matching the secret convention)
     // and record it for the top-level declaration so its data persists. A path
     // source is a bind mount (e.g. the docker socket) and passes through as-is.
     if (svc.volumes && svc.volumes.length > 0) {
@@ -155,7 +159,7 @@ export function renderStackYml(
       }
     }
 
-    // Container healthcheck — swarm tracks State.Health.Status and gates rolling
+    // Container healthcheck, swarm tracks State.Health.Status and gates rolling
     // updates on it. CMD-SHELL runs the test via /bin/sh -c. Defaults match the
     // common case (30s cadence, 5s timeout, 3 retries, 20s grace on boot).
     if (svc.healthcheck) {
@@ -186,12 +190,12 @@ export function renderStackYml(
       }
     }
     lines.push("      restart_policy:");
-    // Long-lived services restart on failure. (Cron jobs never reach here — they
+    // Long-lived services restart on failure. (Cron jobs never reach here, they
     // are excluded above and run as one-shot Swarm jobs by the scheduler.)
     lines.push("        condition: on-failure");
 
     // Resource caps (www-ke9a). Emit limits.memory ONLY (a hard cap that, under
-    // cgroup v2, OOM-kills just this container instead of the VM) — NEVER
+    // cgroup v2, OOM-kills just this container instead of the VM), NEVER
     // limits.cpus (CPU is compressible; a hard quota only wastes idle cores).
     // Reservations (cpus/memory) are scheduling priority for the critical path
     // and are emitted only for the sub-fields the spec sets.
