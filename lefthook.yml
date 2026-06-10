@@ -31,6 +31,14 @@ pre-commit:
       # base64-encoded inside the script so the name is never spelled out. Real
       # values live in 1Password (HOME_* env). See CC-3zi / CC-d3j.
       run: bash scripts/check-no-home-address.sh {staged_files}
+    no-personal-email:
+      # BLOCKING: rejects Calum's personal login email so it never enters the
+      # public repo (his commit identity is the GitHub noreply address). The guard
+      # stores a ONE-WAY SHA-256 of the email — base64 can't hide an email (it's
+      # reversible), so unlike the home-address guard nothing is spelled out and
+      # the stored digest is irreversible. Real email lives only in 1Password / the
+      # git global config. See CC-twpy / CC-4ma.
+      run: bash scripts/check-no-personal-email.sh {staged_files}
     gitleaks:
       # BLOCKING: scans the staged diff for secrets (prefixed tokens, private
       # keys, high-entropy strings). Config + allowlist live in .gitleaks.toml.
