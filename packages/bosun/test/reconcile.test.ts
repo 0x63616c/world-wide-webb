@@ -40,7 +40,7 @@ function makeDockerClient(
   };
 }
 
-describe("reconcile/secrets — create + stale computation", () => {
+describe("reconcile/secrets, create + stale computation", () => {
   it("creates declared secrets that do not exist yet", async () => {
     const client = makeDockerClient([]);
     await reconcileSecrets(STACK, [{ name: "HA_TOKEN", resolvedValue: "tok123" }], client);
@@ -61,7 +61,7 @@ describe("reconcile/secrets — create + stale computation", () => {
     // Simulate the secret now existing.
     const client2 = makeDockerClient([{ name: createdName, labels: { "bosun.stack": STACK } }]);
     await reconcileSecrets(STACK, [{ name: "HA_TOKEN", resolvedValue: "tok123" }], client2);
-    // No second create — already present.
+    // No second create, already present.
     expect(client2.createSecret).not.toHaveBeenCalled();
   });
 
@@ -70,7 +70,7 @@ describe("reconcile/secrets — create + stale computation", () => {
     const client = makeDockerClient([orphan]);
     const { stale } = await reconcileSecrets(STACK, [], client);
     expect(stale).toEqual(["cc_OLD_TOKEN_deadbeef"]);
-    // Critical: reconcile must never remove during the create phase — pruning an
+    // Critical: reconcile must never remove during the create phase, pruning an
     // in-use secret here would abort the deploy mid-rename (CC-8pt).
     expect(client.removeSecret).not.toHaveBeenCalled();
   });
@@ -119,7 +119,7 @@ describe("reconcile/secrets — create + stale computation", () => {
   it("treats a rename (old + new value of same declared secret) as create-new + stale-old", async () => {
     // The migration shape: an existing labelled secret whose hash no longer
     // matches the declared one. Reconcile must create the new name AND mark the
-    // old one stale — never remove it inline (it is still mounted until deploy).
+    // old one stale, never remove it inline (it is still mounted until deploy).
     const oldName = "cc_HA_TOKEN_old00000";
     const client = makeDockerClient([{ name: oldName, labels: { "bosun.stack": STACK } }]);
     const { names, stale } = await reconcileSecrets(
@@ -134,7 +134,7 @@ describe("reconcile/secrets — create + stale computation", () => {
   });
 });
 
-describe("reconcile/secrets — pruneSecrets (after deploy, tolerant)", () => {
+describe("reconcile/secrets, pruneSecrets (after deploy, tolerant)", () => {
   it("removes every stale secret it is given", async () => {
     const client = makeDockerClient([]);
     await pruneSecrets(["cc_A_1", "cc_B_2"], client);
@@ -143,7 +143,7 @@ describe("reconcile/secrets — pruneSecrets (after deploy, tolerant)", () => {
     expect(client.removeSecret).toHaveBeenCalledWith("cc_B_2");
   });
 
-  it("does NOT throw when a secret is still in use — skips it and continues", async () => {
+  it("does NOT throw when a secret is still in use, skips it and continues", async () => {
     // The whole point of deferring + tolerating: an in-use `docker secret rm`
     // fails, and that must never abort the caller (the deploy already succeeded).
     const client = makeDockerClient([]);
@@ -177,7 +177,7 @@ function makeRouteClient(
 
 const ROUTE_TAG = "bosun:control-center";
 
-describe("reconcile/routes — prune safety", () => {
+describe("reconcile/routes, prune safety", () => {
   it("creates a declared route that does not exist yet", async () => {
     const client = makeRouteClient([]);
     await reconcileRoutes(STACK, ["dashboard.worldwidewebb.co"], client);
@@ -228,7 +228,7 @@ describe("reconcile/routes — prune safety", () => {
 });
 
 // ---------------------------------------------------------------------------
-// reconcile/routes.ts — live Cloudflare client (GET -> merge -> PUT)
+// reconcile/routes.ts, live Cloudflare client (GET -> merge -> PUT)
 // ---------------------------------------------------------------------------
 
 const CF_ACCT = "acct123";
@@ -265,7 +265,7 @@ function makeLiveClient(
   return { client, puts, fetchMock };
 }
 
-describe("reconcile/routes — live Cloudflare client", () => {
+describe("reconcile/routes, live Cloudflare client", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("createRoute inserts the declared hostname before the catch-all and PUTs", async () => {
@@ -331,7 +331,7 @@ describe("reconcile/routes — live Cloudflare client", () => {
   });
 
   // CC-5ag.6: CF ingress carries no tag field, so route ownership for safe prune
-  // is derived from the origin — a route pointing at one of this stack's services
+  // is derived from the origin, a route pointing at one of this stack's services
   // is tagged stack-owned; a foreign origin (portainer) is not.
   describe("ownership by origin (CC-5ag.6)", () => {
     const ownership = {
@@ -420,7 +420,7 @@ describe("reconcile/routes — live Cloudflare client", () => {
 });
 
 // ---------------------------------------------------------------------------
-// reconcile/routes.ts — DNS reconcile (proxied CNAME -> tunnel) (CC-vqyv)
+// reconcile/routes.ts, DNS reconcile (proxied CNAME -> tunnel) (CC-vqyv)
 // ---------------------------------------------------------------------------
 
 const TUNNEL_ID = "633999e9-ec81-478b-b8af-2213778b9441";
@@ -437,7 +437,7 @@ function makeDnsClient(
   };
 }
 
-describe("reconcile/dns — create + prune (CC-vqyv)", () => {
+describe("reconcile/dns, create + prune (CC-vqyv)", () => {
   it("tunnelCnameTarget builds <tunnelId>.cfargotunnel.com", () => {
     expect(tunnelCnameTarget(TUNNEL_ID)).toBe(TUNNEL_TARGET);
   });
@@ -469,7 +469,7 @@ describe("reconcile/dns — create + prune (CC-vqyv)", () => {
   });
 
   it("does NOT prune a foreign tunnel CNAME (portainer shares the tunnel target)", async () => {
-    // portainer points at OUR tunnel target but is a foreign ingress route — it
+    // portainer points at OUR tunnel target but is a foreign ingress route, it
     // is never in the owned-hostnames set, so it must survive.
     const client = makeDnsClient([
       { id: "p1", hostname: "portainer.worldwidewebb.co", content: TUNNEL_TARGET },
@@ -523,7 +523,7 @@ describe("reconcile/dns — create + prune (CC-vqyv)", () => {
   });
 });
 
-describe("reconcile/dns — live Cloudflare DNS client", () => {
+describe("reconcile/dns, live Cloudflare DNS client", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   const ZONE = "04fd68aa9ef098c4f1916f1f7ca271a5";
@@ -657,7 +657,7 @@ describe("renderStackYml", () => {
 
   // CC-czg: deploys must pin our ghcr images to the exact digest CI just built,
   // not the mutable :main tag. A changed digest is a changed spec string, so
-  // `docker stack deploy` always rolls the service — without depending on
+  // `docker stack deploy` always rolls the service, without depending on
   // --resolve-image re-resolving :main (which silently failed to roll the agent).
   describe("image digest pinning (CC-czg)", () => {
     const digests = {
@@ -704,7 +704,7 @@ describe("renderStackYml", () => {
     expect(yml).toContain("HA_URL");
   });
 
-  it("is deterministic — two calls with the same input produce identical output", () => {
+  it("is deterministic, two calls with the same input produce identical output", () => {
     const yml1 = renderStackYml(spec, secretNames);
     const yml2 = renderStackYml(spec, secretNames);
     expect(yml1).toBe(yml2);
@@ -742,7 +742,7 @@ describe("renderStackYml", () => {
 
   // CC-ke9a: deploy.resources caps every long-lived service's memory so no single
   // container can starve the OrbStack VM (the media-worker RCU-stall outage class).
-  // The renderer emits limits.memory ONLY (NEVER limits.cpus — CPU is compressible,
+  // The renderer emits limits.memory ONLY (NEVER limits.cpus, CPU is compressible,
   // a hard quota just wastes idle cores) plus optional cpu/memory RESERVATIONS for
   // scheduling priority on the critical path.
   describe("resource limits (CC-ke9a)", () => {
@@ -766,7 +766,7 @@ describe("renderStackYml", () => {
           health: [],
         },
         {
-          // No resources declared — must render no resources block.
+          // No resources declared, must render no resources block.
           name: "cloudflared",
           image: "cloudflare/cloudflared:x",
           secrets: [],
@@ -791,7 +791,7 @@ describe("renderStackYml", () => {
       expect(yml).toContain("          memory: 256M");
     });
 
-    it("NEVER emits limits.cpus (CPU is uncapped — reservations only)", () => {
+    it("NEVER emits limits.cpus (CPU is uncapped, reservations only)", () => {
       const yml = renderStackYml(resSpec, {});
       // A `cpus:` key may appear ONLY under reservations, never under limits.
       // Assert no cpus line directly follows a `limits:` block.
@@ -812,7 +812,7 @@ describe("renderStackYml", () => {
 
     it("renders a memory limit with no reservations block when only memory is set", () => {
       const yml = renderStackYml(resSpec, {});
-      // web declares only memory — its block must not carry a reservations sub-block.
+      // web declares only memory, its block must not carry a reservations sub-block.
       // Isolate the web service section and assert no reservations within it.
       const webSection = yml.slice(yml.indexOf("  web:"), yml.indexOf("  cloudflared:"));
       expect(webSection).toContain("          memory: 96M");
@@ -820,7 +820,7 @@ describe("renderStackYml", () => {
     });
 
     // The overcommit INVARIANT: sum of every service's memory limit must stay under
-    // the VM container-memory budget, or the render THROWS and refuses the stack —
+    // the VM container-memory budget, or the render THROWS and refuses the stack,
     // making the outage class (a future cap that over-subscribes the VM) impossible.
     describe("overcommit invariant", () => {
       it("renders normally when the summed memory limits are under budget", () => {
@@ -925,13 +925,14 @@ describe("renderStackYml", () => {
     expect(yml).toContain("    name: control-center_pgdata");
   });
 
-  // CC-q002.12: a LAN-only service publishes a host port (bound on the Mini's LAN
-  // IP) instead of riding the Cloudflare tunnel. The renderer emits a long-form
-  // `ports:` entry with `mode: host` so the port binds the node directly (not the
-  // routing-mesh ingress VIP) — correct for a single-node, manager-pinned panel.
-  // publishPort is orthogonal to `route`: a publishPort service declares no route,
-  // so no tunnel ingress is ever created for it (that path is driven only by
-  // `svc.route` in cli.ts).
+  // CC-q002.12/.14: a LAN-only service publishes a host port reachable on the
+  // Mini's LAN IP instead of riding the Cloudflare tunnel. The renderer emits a
+  // long-form `ports:` entry in INGRESS mode: on OrbStack (the deploy target),
+  // standard/ingress published ports are forwarded to the Mac host AND the LAN,
+  // whereas `mode: host` binds inside the OrbStack VM and never surfaces on the
+  // LAN (CC-q002.14 fix, doc-backed). publishPort is orthogonal to `route`: a
+  // publishPort service declares no route, so no tunnel ingress is ever created
+  // for it (that path is driven only by `svc.route` in cli.ts).
   describe("publishPort host-published ports (CC-q002.12)", () => {
     const portSpec: Spec = {
       stackName: "control-center",
@@ -945,7 +946,7 @@ describe("renderStackYml", () => {
           health: [],
         },
         {
-          // No publishPort — must render no ports block.
+          // No publishPort, must render no ports block.
           name: "api",
           image: "ghcr.io/0x63616c/control-center-api:main",
           secrets: [],
@@ -956,12 +957,15 @@ describe("renderStackYml", () => {
       ],
     };
 
-    it("renders a long-form host-mode published port for a publishPort service", () => {
+    it("renders a long-form ingress-mode published port (LAN-reachable on OrbStack)", () => {
       const yml = renderStackYml(portSpec, {});
       expect(yml).toContain("    ports:");
       expect(yml).toContain("      - target: 443");
       expect(yml).toContain("        published: 443");
-      expect(yml).toContain("        mode: host");
+      // INGRESS, not host: OrbStack forwards ingress/standard published ports to
+      // the Mac host + LAN; mode:host stays trapped in the VM (CC-q002.14).
+      expect(yml).toContain("        mode: ingress");
+      expect(yml).not.toContain("        mode: host");
     });
 
     it("omits the ports block for a service without publishPort", () => {
@@ -1003,7 +1007,7 @@ describe("renderStackYml", () => {
   });
 
   // CC-5ag.12: web/api/postgres must carry a Docker HEALTHCHECK so swarm tracks
-  // container health (State.Health.Status) — distinct from bosun's external verify
+  // container health (State.Health.Status), distinct from bosun's external verify
   // probes (`health`), which run from the deploy host, not inside the container.
   describe("container healthcheck (CC-5ag.12)", () => {
     const hcSpec: Spec = {
@@ -1025,7 +1029,7 @@ describe("renderStackYml", () => {
           health: [],
         },
         {
-          // No healthcheck declared — must render no healthcheck block.
+          // No healthcheck declared, must render no healthcheck block.
           name: "cloudflared",
           image: "cloudflare/cloudflared:2025.10.1",
           secrets: [],
@@ -1049,7 +1053,7 @@ describe("renderStackYml", () => {
 
     it("omits the healthcheck block for a service without one", () => {
       const yml = renderStackYml(hcSpec, {});
-      // cloudflared section has no healthcheck — only api's block exists.
+      // cloudflared section has no healthcheck, only api's block exists.
       expect((yml.match(/healthcheck:/g) ?? []).length).toBe(1);
     });
 
@@ -1098,7 +1102,7 @@ describe("renderStackYml", () => {
   });
 });
 
-describe("renderStackYml — command interpolation escaping", () => {
+describe("renderStackYml, command interpolation escaping", () => {
   it("escapes $ in a service command so docker stack deploy passes it through literally", () => {
     // docker stack deploy interpolates the compose file; a literal `$` must be
     // written as `$$` or it errors ("invalid interpolation format"). cloudflared
@@ -1123,7 +1127,7 @@ describe("renderStackYml — command interpolation escaping", () => {
   });
 });
 
-describe("renderStackYml — cron jobs are excluded from the deployed stack", () => {
+describe("renderStackYml, cron jobs are excluded from the deployed stack", () => {
   // Cron jobs run as one-shot Swarm jobs spun up by the bosun scheduler, NOT as
   // long-lived stack services, so renderStackYml must omit them entirely.
   const jobSpec: Spec = {
@@ -1153,7 +1157,7 @@ describe("renderStackYml — cron jobs are excluded from the deployed stack", ()
     const yml = renderStackYml(jobSpec, {});
     expect(yml).not.toContain("  prune:");
     expect(yml).not.toContain("docker system prune -af");
-    // No scheduler deploy-label mechanism survives — the job isn't in the stack.
+    // No scheduler deploy-label mechanism survives, the job isn't in the stack.
     expect(yml).not.toContain(".schedule=");
     expect(yml).not.toContain(".command=");
   });
