@@ -29,6 +29,11 @@ COPY packages packages
 # runtime migrator, so drizzle-kit never ships.
 RUN bun build apps/api/src/server.ts --target=bun --outfile dist/server.js
 
+# Second entrypoint: the portal data-hygiene purge (www-q002.18). Bundled into
+# the same image so the bosun cronJob runs it via a command override
+# (`bun purge.js`); it shares the api's drizzle schema + DATABASE_URL wiring.
+RUN bun build apps/api/src/purge.ts --target=bun --outfile dist/purge.js
+
 # The worker is a SEPARATE app + image now (apps/worker, control-center-worker),
 # no longer bundled here (www-xjba). The api ships server.js only.
 
@@ -40,6 +45,7 @@ FROM oven/bun:1-alpine AS runtime
 WORKDIR /app
 
 COPY --from=build /app/dist/server.js server.js
+COPY --from=build /app/dist/purge.js purge.js
 # Migrations resolve relative to the bundle's own location (import.meta.url),
 # i.e. /app/migrations at runtime — keep this path in sync with WORKDIR.
 COPY --from=build /app/apps/api/src/db/migrations migrations

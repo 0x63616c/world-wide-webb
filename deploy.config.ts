@@ -393,6 +393,24 @@ export default stack("control-center", {
       placement: ["node.role==manager"],
     }),
 
+    // Captive-portal data hygiene (www-q002.18): a daily one-shot job that purges
+    // dead portal rows so the tables don't grow unbounded. Runs the api IMAGE
+    // (it bundles purge.js as a second entrypoint sharing the drizzle schema +
+    // DATABASE_URL wiring) with a command override — NOT a worker loop (PRD
+    // Backend rule 7). It deletes consumed/expired codes, stale attempt rows, and
+    // authorizations expired >90 days (kept until then so they still drive the
+    // SessionExpired UX). Needs only the Postgres password (env.ts builds
+    // DATABASE_URL from the mounted secret); the postgres host/db/user use the
+    // env.ts defaults, which resolve on the overlay network. 02:00 local, off-peak
+    // and ahead of the image-prune/cert slots. Counts are logged via @repo/logger.
+    cronJob("portal-data-purge", {
+      image: ghcr("control-center-api"),
+      schedule: "0 2 * * *",
+      command: "bun purge.js",
+      secrets: fromOp("Homelab", { POSTGRES_PASSWORD: "Control Center Postgres/password" }),
+      env: { TZ: "America/Los_Angeles" },
+    }),
+
     // Captive-portal TLS cert: Let's Encrypt via Cloudflare DNS-01 (www-q002.13).
     // The portal is LAN-only (no inbound public traffic), so HTTP-01 can't work;
     // DNS-01 proves control by writing a TXT record in the CF zone — only outbound
