@@ -35,10 +35,10 @@ type LabelledRect = Rect & { label: string };
  * box marking the slice you're currently looking at. It auto-hides 1.5 seconds
  * after panning stops.
  *
- * Visibility is driven purely off `view` changes: Board produces a fresh `view`
- * object on every (rAF-throttled) scroll frame, so any pan re-shows the map and
- * resets the hide timer. The first change (the layout-effect that centers the
- * board on mount) is skipped so the map doesn't flash on load.
+ * Visibility is driven off `panSignal`, which Board bumps only for USER-driven
+ * scroll frames (see useUserPanSignal): a manual pan re-shows the map and
+ * resets the hide timer, while programmatic navigation — the idle-reset glide
+ * home, the mount centering — never shows it (CC-5teu). 0 = no user pan yet.
  *
  * Click recenters the viewport (smooth) on that world point; press-and-drag
  * scrubs the view live (instant follow). onJump centers, so we hand it the world
@@ -46,11 +46,13 @@ type LabelledRect = Rect & { label: string };
  */
 export function Minimap({
   view,
+  panSignal,
   tiles,
   ghosts = [],
   onJump,
 }: {
   view: View;
+  panSignal: number;
   tiles: LabelledRect[];
   // Decorative placeholder tiles, drawn fainter than real tiles so the map shows
   // the populated world without letting the filler read as primary content.
@@ -64,21 +66,16 @@ export function Minimap({
   // Name of the tile the cursor is over within the map, shown as a label above
   // it. null when the cursor is off any tile (or off the map entirely).
   const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
-  const isFirstView = useRef(true);
   const worldAreaRef = useRef<HTMLDivElement>(null);
   // Scrub state: kept in a ref so live dragging never re-renders the minimap.
   const scrub = useRef({ active: false, moved: false, x: 0, y: 0 });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `view` isn't read here — its identity change on every pan is the trigger that re-shows the map and resets the hide timer.
   useEffect(() => {
-    if (isFirstView.current) {
-      isFirstView.current = false;
-      return;
-    }
+    if (panSignal === 0) return;
     setVisible(true);
     const timer = window.setTimeout(() => setVisible(false), HIDE_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [view]);
+  }, [panSignal]);
 
   // Screen point → world point, via the world-area rect and the fixed SCALE.
   const toWorld = (clientX: number, clientY: number) => {

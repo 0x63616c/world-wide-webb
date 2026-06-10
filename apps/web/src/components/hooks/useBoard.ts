@@ -3,6 +3,7 @@
  * composition rather than implementation. Each hook owns one concern:
  *
  *  useBoardViewport  — scroll position + client size → `view` state
+ *  useUserPanSignal  — user-driven vs programmatic scroll discrimination
  *  useBoardSnap      — settle/spring-snap logic (SmoothDamp + scrollend/idle)
  *  useBoardDragPan   — desktop mouse-drag-to-pan shim
  *  useIdleReset      — return to the home view after an idle timeout
@@ -84,6 +85,62 @@ export function useBoardViewport(
   }, [stageRef]);
 
   return { view, syncView };
+}
+
+// ─── useUserPanSignal ─────────────────────────────────────────────────────────
+
+// How long after the last programmatic scroll frame before the scroll stream is
+// considered the user's again. Smooth scrollTo fires a frame every ~16ms, so any
+// gap this long means the glide finished (or was abandoned).
+const PROGRAMMATIC_QUIET_MS = 200;
+
+/**
+ * Distinguishes user-driven viewport movement from app-driven navigation, so
+ * pan-reactive chrome (the minimap, the centered-tile label) appears only when
+ * the USER moves the board — never during the idle-reset glide home or the
+ * mount centering.
+ *
+ * `panSignal` bumps on every user-driven scroll frame; key visibility effects
+ * off it (it starts at 0 = "no user pan yet"). Programmatic navigators call
+ * `markProgrammatic()` before scrolling; that flag owns the scroll stream until
+ * it goes quiet for PROGRAMMATIC_QUIET_MS or the user grabs the board (any
+ * `markUser()` — wired to pointerdown/wheel and the user-nav entry points).
+ * The flag starts true because the mount-centering write is programmatic.
+ */
+export function useUserPanSignal(): {
+  panSignal: number;
+  markProgrammatic: () => void;
+  markUser: () => void;
+  onScrollFrame: () => void;
+} {
+  const [panSignal, setPanSignal] = useState(0);
+  const programmatic = useRef(true);
+  const quietTimer = useRef(0);
+
+  const markProgrammatic = useCallback(() => {
+    programmatic.current = true;
+  }, []);
+
+  const markUser = useCallback(() => {
+    programmatic.current = false;
+    window.clearTimeout(quietTimer.current);
+  }, []);
+
+  const onScrollFrame = useCallback(() => {
+    if (programmatic.current) {
+      // App-driven glide in flight: swallow the frame, re-arm the quiet timer.
+      window.clearTimeout(quietTimer.current);
+      quietTimer.current = window.setTimeout(() => {
+        programmatic.current = false;
+      }, PROGRAMMATIC_QUIET_MS);
+      return;
+    }
+    setPanSignal((s) => s + 1);
+  }, []);
+
+  useEffect(() => () => window.clearTimeout(quietTimer.current), []);
+
+  return { panSignal, markProgrammatic, markUser, onScrollFrame };
 }
 
 // ─── useBoardSnap ─────────────────────────────────────────────────────────────
