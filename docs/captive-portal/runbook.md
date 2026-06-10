@@ -24,9 +24,18 @@ Captured BEFORE any change, via the UniFi controller API
 
 ## Programmatic config (UniFi API)
 
-> STATUS: STAGED, NOT YET APPLIED. Every write below changes real network
-> behavior on an open guest SSID, so it is gated on Calum's explicit go-ahead
-> (per the ticket). The read-only probe above is done; the writes are not.
+> STATUS (2026-06-10): writes 1a (reservation) + 1b (DNS) APPLIED by team-lead with
+> Calum's explicit approval. Writes 2 (external portal), 4 (walled garden), 5 (WLAN)
+> are STAGED, NOT YET APPLIED, gated on Calum (live-gateway mutation needs the
+> user's authorization, not a peer GO). APPLIED:
+> - 1a reservation: PUT rest/user/6934a5aa428b6c14e973b63d, read-back use_fixedip:true
+>   fixed_ip:192.168.0.147 for MAC ba:5d:f7:ba:d0:9d (HTTP 200).
+> - 1b static DNS: record _id 6a293c1c37f85e778afb60a2, A
+>   captive-portal.worldwidewebb.co to 192.168.0.147. Split-horizon VERIFIED from a
+>   LAN client: dig @192.168.0.1 answers 192.168.0.147, dig @1.1.1.1 answers
+>   Cloudflare (172.67.154.130 / 104.21.82.73), system resolver answers .147.
+> - NOTE: the LAN DNS answer lagged ~20s after the write (dnsmasq reload). Expect a
+>   short propagation delay after any static-dns change before LAN clients see it.
 
 API base: `https://192.168.0.1/proxy/network`, header `X-API-KEY: <local_api_key>`.
 Private API under `/api/s/default/...`; newer collections under
