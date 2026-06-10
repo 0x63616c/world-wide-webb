@@ -500,6 +500,45 @@ describe("TvNowPlayingTile — artwork pass-through (CC-dhhr)", () => {
   });
 });
 
+// ── Transport button sizing (CC-d564) ─────────────────────────────────────────
+// Wall-panel tap targets: 2x the original 32/42px buttons and 18/22px icons.
+
+describe("TvNowPlayingTileView — 2x transport buttons (CC-d564)", () => {
+  const props = {
+    status: "populated" as const,
+    state: "playing",
+    appName: "YouTube",
+    mediaTitle: "WWDC 2026 Impressions",
+    mediaArtist: "Marques Brownlee",
+    mediaPosition: 2,
+    mediaDuration: 987,
+    source: "streaming" as const,
+    artworkUrl: null,
+  };
+
+  it("prev/next buttons are 64px with 36px icons", () => {
+    render(<TvNowPlayingTileView {...props} />);
+    for (const label of [/previous/i, /next/i]) {
+      const btn = screen.getByLabelText(label) as HTMLElement;
+      expect(btn.style.width).toBe("64px");
+      expect(btn.style.height).toBe("64px");
+      const svg = btn.querySelector("svg") as SVGElement;
+      expect(svg.getAttribute("width")).toBe("36");
+      expect(svg.getAttribute("height")).toBe("36");
+    }
+  });
+
+  it("play-pause button is 84px with a 44px icon", () => {
+    render(<TvNowPlayingTileView {...props} />);
+    const btn = screen.getByLabelText("Pause") as HTMLElement;
+    expect(btn.style.width).toBe("84px");
+    expect(btn.style.height).toBe("84px");
+    const svg = btn.querySelector("svg") as SVGElement;
+    expect(svg.getAttribute("width")).toBe("44");
+    expect(svg.getAttribute("height")).toBe("44");
+  });
+});
+
 // ── Tile registry tests (A31, CC-51hf.50) ────────────────────────────────────
 
 // maplibre-gl / pmtiles needed by TeslaTileView imported transitively
