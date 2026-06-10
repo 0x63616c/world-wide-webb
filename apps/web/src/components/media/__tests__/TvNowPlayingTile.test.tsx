@@ -8,7 +8,7 @@
  * A31: TvNowPlayingTile registered in TILE_REGISTRY (www-51hf.50).
  */
 import "@testing-library/jest-dom";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TvNowPlayingTile } from "../TvNowPlayingTile";
 import { TvNowPlayingTileView } from "../TvNowPlayingTileView";
@@ -279,6 +279,224 @@ describe("TvNowPlayingTileView — idle source", () => {
     );
     // idle state renders something — at least a .tile with header
     expect(screen.getByText("TV")).toBeInTheDocument();
+  });
+});
+
+// ── Artwork, layout, scrubber visibility (www-dhhr) ────────────────────────────
+
+describe("TvNowPlayingTileView — artwork rendering (www-dhhr)", () => {
+  const withArtwork = {
+    status: "populated" as const,
+    state: "playing",
+    appName: "YouTube",
+    mediaTitle: "WWDC 2026 Impressions",
+    mediaArtist: "Marques Brownlee",
+    mediaPosition: 2,
+    mediaDuration: 987,
+    source: "streaming" as const,
+    artworkUrl: "/media/tv-artwork?v=abc123",
+  };
+
+  it("renders the artwork image with the given src", () => {
+    const { container } = render(<TvNowPlayingTileView {...withArtwork} />);
+    const img = container.querySelector("img[data-artwork]");
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute("src", "/media/tv-artwork?v=abc123");
+  });
+
+  it("artwork is the flexible element so it absorbs height slack", () => {
+    const { container } = render(<TvNowPlayingTileView {...withArtwork} />);
+    const img = container.querySelector("img[data-artwork]") as HTMLElement;
+    expect(img.style.flexGrow).toBe("1");
+    expect(img.style.minHeight).toBe("0px");
+  });
+
+  it("artwork placeholder is also flexible when no artworkUrl", () => {
+    const { container } = render(<TvNowPlayingTileView {...withArtwork} artworkUrl={null} />);
+    const ph = container.querySelector("[data-artwork]") as HTMLElement;
+    expect(ph).toBeInTheDocument();
+    expect(ph.style.flexGrow).toBe("1");
+  });
+});
+
+describe("TvNowPlayingTileView — text block never squeezed (www-dhhr)", () => {
+  const props = {
+    status: "populated" as const,
+    state: "playing",
+    appName: "YouTube",
+    mediaTitle: "WWDC 2026 Impressions",
+    mediaArtist: "Marques Brownlee",
+    mediaPosition: 2,
+    mediaDuration: 987,
+    source: "streaming" as const,
+    artworkUrl: null,
+  };
+
+  it("title/artist block has flex-shrink 0 so the artist line cannot be clipped", () => {
+    const { container } = render(<TvNowPlayingTileView {...props} />);
+    const text = container.querySelector("[data-media-text]") as HTMLElement;
+    expect(text).toBeInTheDocument();
+    expect(text.style.flexShrink).toBe("0");
+    expect(text.style.flexGrow).not.toBe("1");
+    expect(screen.getByText("Marques Brownlee")).toBeInTheDocument();
+  });
+});
+
+describe("TvNowPlayingTileView — scrubber visibility (www-dhhr)", () => {
+  const props = {
+    status: "populated" as const,
+    state: "playing",
+    appName: "YouTube",
+    mediaTitle: "WWDC 2026 Impressions",
+    mediaArtist: "Marques Brownlee",
+    mediaPosition: 2,
+    mediaDuration: 987,
+    source: "streaming" as const,
+    artworkUrl: null,
+  };
+
+  it("track background is not the tile surface color (visible on the tile)", () => {
+    const { container } = render(<TvNowPlayingTileView {...props} />);
+    const track = container.querySelector("[data-scrub]") as HTMLElement;
+    expect(track.style.background).not.toContain("tile-2");
+    expect(track.style.background).not.toBe("");
+  });
+
+  it("fill uses a defined token, not the nonexistent --ink-1", () => {
+    const { container } = render(<TvNowPlayingTileView {...props} />);
+    const fill = container.querySelector("[data-scrub-fill]") as HTMLElement;
+    expect(fill).toBeInTheDocument();
+    expect(fill.style.background).not.toContain("--ink-1");
+  });
+
+  it("renders a thumb positioned at the playback fraction", () => {
+    const { container } = render(<TvNowPlayingTileView {...props} />);
+    const thumb = container.querySelector("[data-scrub-thumb]") as HTMLElement;
+    expect(thumb).toBeInTheDocument();
+    expect(thumb.style.left).toContain("%");
+  });
+});
+
+// ── Live position ticking (www-dhhr) ───────────────────────────────────────────
+
+describe("TvNowPlayingTile — live position while playing (www-dhhr)", () => {
+  function mockNowPlaying(overrides: Record<string, unknown>) {
+    return {
+      state: "playing",
+      appName: "YouTube",
+      mediaTitle: "WWDC 2026 Impressions",
+      mediaArtist: "Marques Brownlee",
+      mediaPosition: 2,
+      mediaDuration: 987,
+      source: "streaming",
+      artworkUrl: null,
+      mediaPositionUpdatedAt: null,
+      ...overrides,
+    };
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("advances the displayed position each second while playing", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-09T20:00:00Z"));
+    const useQuery = await getTvUseQuery();
+    useQuery.mockReturnValue({
+      data: mockNowPlaying({ mediaPositionUpdatedAt: "2026-06-09T20:00:00Z" }),
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<TvNowPlayingTile />);
+    expect(screen.getByText("0:02")).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(screen.getByText("0:12")).toBeInTheDocument();
+  });
+
+  it("accounts for time already elapsed since media_position_updated_at", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-09T20:00:30Z"));
+    const useQuery = await getTvUseQuery();
+    useQuery.mockReturnValue({
+      data: mockNowPlaying({ mediaPositionUpdatedAt: "2026-06-09T20:00:00Z" }),
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<TvNowPlayingTile />);
+    // position 2 sampled 30s ago → shows 0:32 immediately
+    expect(screen.getByText("0:32")).toBeInTheDocument();
+  });
+
+  it("does not advance while paused", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-09T20:00:00Z"));
+    const useQuery = await getTvUseQuery();
+    useQuery.mockReturnValue({
+      data: mockNowPlaying({
+        state: "paused",
+        mediaPositionUpdatedAt: "2026-06-09T20:00:00Z",
+      }),
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<TvNowPlayingTile />);
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(screen.getByText("0:02")).toBeInTheDocument();
+    expect(screen.queryByText("0:12")).not.toBeInTheDocument();
+  });
+
+  it("clamps the live position to the duration", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-09T20:00:00Z"));
+    const useQuery = await getTvUseQuery();
+    useQuery.mockReturnValue({
+      data: mockNowPlaying({
+        mediaPosition: 985,
+        mediaPositionUpdatedAt: "2026-06-09T20:00:00Z",
+      }),
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<TvNowPlayingTile />);
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    // 985 + 60 would be 17:25 > duration 16:27 — must clamp to 16:27
+    expect(screen.getAllByText("16:27").length).toBeGreaterThan(0);
+  });
+});
+
+describe("TvNowPlayingTile — artwork pass-through (www-dhhr)", () => {
+  it("passes the query artworkUrl to the view (no hardcoded null)", async () => {
+    const useQuery = await getTvUseQuery();
+    useQuery.mockReturnValue({
+      data: {
+        state: "playing",
+        appName: "YouTube",
+        mediaTitle: "My Video",
+        mediaArtist: "Creator",
+        mediaPosition: 30,
+        mediaDuration: 300,
+        source: "streaming",
+        artworkUrl: "/media/tv-artwork?v=zzz",
+        mediaPositionUpdatedAt: null,
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const { container } = render(<TvNowPlayingTile />);
+    const img = container.querySelector("img[data-artwork]");
+    expect(img).toHaveAttribute("src", "/media/tv-artwork?v=zzz");
   });
 });
 
