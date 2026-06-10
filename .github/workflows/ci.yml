@@ -572,6 +572,10 @@ jobs:
   # cancelled runs stays visible as drift until a later run actually ships it.
   # Failed or cancelled runs never advance the marker. Pushing refs/deploy/*
   # cannot retrigger CI (push triggers only match refs/heads/*).
+  # The nothing-to-ship clause deliberately includes watchdog dispatches:
+  # [skip ci] badge commits get no push run, so only a dispatch can ever move
+  # the marker past them; excluding dispatches made the watchdog re-dispatch
+  # every 30 minutes forever.
   mark-deployed:
     needs: [changes, test, deploy]
     if: |
@@ -579,9 +583,7 @@ jobs:
       github.ref_name == 'main' &&
       needs.test.result == 'success' &&
       (needs.deploy.result == 'success' ||
-       (needs.deploy.result == 'skipped' &&
-        needs.changes.outputs.any_app != 'true' &&
-        github.event_name != 'workflow_dispatch'))
+       (needs.deploy.result == 'skipped' && needs.changes.outputs.any_app != 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
