@@ -2,7 +2,7 @@
 // Messages keep the design's curly apostrophe verbatim (the PRD bans em dashes,
 // not curly quotes). Validate on submit, not per keystroke; trim only here.
 
-/** Permissive email check — catches obvious typos, not every RFC edge case.
+/** Permissive email check, catches obvious typos, not every RFC edge case.
  *  Real verification is the emailed code. */
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 

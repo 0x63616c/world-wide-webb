@@ -168,7 +168,7 @@ export function LockIcon({ className }: IconProps) {
   );
 }
 
-/** Logo mark — the GlobeMark inside the gradient .wwb-mark square. */
+/** Logo mark, the GlobeMark inside the gradient .wwb-mark square. */
 export function Logo({ size = 44 }: { size?: number }) {
   return (
     <span className="wwb-mark" style={{ width: size, height: size }}>

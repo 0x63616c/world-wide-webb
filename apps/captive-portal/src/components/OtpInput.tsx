@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 interface OtpInputProps {
   value: string;
   onChange: (value: string) => void;
-  /** Fires once all `length` digits are entered — trigger verification here. */
+  /** Fires once all `length` digits are entered, trigger verification here. */
   onComplete?: (value: string) => void;
   error?: boolean;
   disabled?: boolean;
@@ -27,8 +27,8 @@ function Slot({ slot, error }: { slot: SlotProps; error?: boolean }) {
   );
 }
 
-/** Six digit boxes that behave as one field — auto-advance, paste-to-fill,
- *  backspace, arrow nav, numeric-only — built on shadcn `input-otp` (the hidden
+/** Six digit boxes that behave as one field, auto-advance, paste-to-fill,
+ *  backspace, arrow nav, numeric-only, built on shadcn `input-otp` (the hidden
  *  single input owns all keyboard/paste behaviour). The first/only input is
  *  autocomplete="one-time-code" so iOS/Android SMS autofill works. */
 export function OtpInput({

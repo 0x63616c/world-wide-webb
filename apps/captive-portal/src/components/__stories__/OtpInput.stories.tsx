@@ -10,7 +10,7 @@ const meta: Meta<typeof OtpInput> = {
     docs: {
       description: {
         component:
-          "Six digit boxes that behave as one field — auto-advance, paste-to-fill, backspace, arrow-key nav, numeric-only — built on shadcn `input-otp`. The first box is autocomplete=one-time-code so iOS/Android SMS autofill works. Fires onComplete when all six are filled.",
+          "Six digit boxes that behave as one field, auto-advance, paste-to-fill, backspace, arrow-key nav, numeric-only, built on shadcn `input-otp`. The first box is autocomplete=one-time-code so iOS/Android SMS autofill works. Fires onComplete when all six are filled.",
       },
     },
   },

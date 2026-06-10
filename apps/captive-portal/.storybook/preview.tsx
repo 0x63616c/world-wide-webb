@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { create } from "storybook/theming/create";
 import { INITIAL_VIEWPORTS } from "storybook/viewport";
 
-// The full portal design layer — tokens, self-hosted Geist, every .wwb-*
+// The full portal design layer, tokens, self-hosted Geist, every .wwb-*
 // primitive class. Importing it here makes every story render on the real
 // pure-#000 theme.
 import "../src/styles/theme.css";

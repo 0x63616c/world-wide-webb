@@ -9,7 +9,7 @@ const meta: Meta<typeof Alert> = {
     docs: {
       description: {
         component:
-          "Inline destructive alert — the only alert variant (success is a whole screen, by design). Sits at the top of the form it relates to. role=alert so it’s announced.",
+          "Inline destructive alert, the only alert variant (success is a whole screen, by design). Sits at the top of the form it relates to. role=alert so it’s announced.",
       },
     },
   },
