@@ -64,6 +64,8 @@
         "**/apps/api/src/env.ts",
         "**/apps/api/drizzle.config.ts",
         "**/apps/web/vite.config.ts",
+        "**/apps/captive-portal/playwright.config.ts",
+        "**/apps/captive-portal/e2e/**",
         "**/scripts/**"
       ],
       "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
