@@ -76,6 +76,7 @@ function Transport({ state, onPrev, onPlayPause, onNext }: TransportProps) {
         alignItems: "center",
         justifyContent: "center",
         gap: 20,
+        flexShrink: 0,
       }}
     >
       <button type="button" aria-label="Previous" onClick={onPrev} style={transportBtn(32)}>
@@ -125,7 +126,7 @@ function transportBtn(size: number): React.CSSProperties {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "var(--ink-1)",
+    color: "var(--ink)",
     padding: 0,
     font: "inherit",
   };
@@ -143,7 +144,7 @@ function ScrubBar({ position, duration, onSeek }: ScrubBarProps) {
   const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
 
   return (
-    <div>
+    <div style={{ flexShrink: 0 }}>
       {/* Track + fill */}
       <div
         data-scrub
@@ -157,7 +158,8 @@ function ScrubBar({ position, duration, onSeek }: ScrubBarProps) {
           position: "relative",
           height: 6,
           borderRadius: 999,
-          background: "var(--tile-2)",
+          // --hair-2, not --tile-2: the track must read against the tile surface.
+          background: "var(--hair-2)",
           cursor: "pointer",
         }}
         onClick={(e) => {
@@ -171,6 +173,7 @@ function ScrubBar({ position, duration, onSeek }: ScrubBarProps) {
         }}
       >
         <div
+          data-scrub-fill
           style={{
             position: "absolute",
             left: 0,
@@ -178,7 +181,21 @@ function ScrubBar({ position, duration, onSeek }: ScrubBarProps) {
             height: "100%",
             width: `${pct}%`,
             borderRadius: 999,
-            background: "var(--ink-1)",
+            background: "var(--ink)",
+          }}
+        />
+        {/* Thumb — keeps the scrubber legible even at ~0% progress */}
+        <div
+          data-scrub-thumb
+          style={{
+            position: "absolute",
+            left: `${pct}%`,
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 12,
+            height: 12,
+            borderRadius: "50%",
+            background: "var(--ink)",
           }}
         />
       </div>
@@ -329,27 +346,33 @@ export function TvNowPlayingTileView(props: TvNowPlayingTileViewProps) {
         }
       />
 
-      {/* Artwork or placeholder */}
+      {/* Artwork or placeholder — the ONLY flexible row, so it absorbs all
+          height slack and the text/scrub/transport rows below are never
+          squeezed (the artist line used to clip under the scrub bar). */}
       {artworkUrl ? (
         <img
+          data-artwork
           src={artworkUrl}
           alt="Now playing artwork"
           style={{
             width: "100%",
-            height: 110,
+            flexGrow: 1,
+            flexBasis: 0,
+            minHeight: 0,
             objectFit: "cover",
             borderRadius: 10,
-            flexShrink: 0,
           }}
         />
       ) : (
         <div
+          data-artwork
           style={{
             width: "100%",
-            height: isIdle ? 60 : 110,
+            flexGrow: 1,
+            flexBasis: 0,
+            minHeight: 0,
             borderRadius: 10,
             background: "var(--tile-2)",
-            flexShrink: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -361,7 +384,7 @@ export function TvNowPlayingTileView(props: TvNowPlayingTileViewProps) {
 
       {/* Title + artist (streaming) */}
       {!isIdle && (
-        <div style={{ flex: 1, minHeight: 0 }}>
+        <div data-media-text style={{ flexShrink: 0 }}>
           {mediaTitle && (
             <div
               style={{

@@ -2,6 +2,7 @@ import { createLogger } from "@repo/logger";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { runMigrations } from "./db/migrate";
 import { env } from "./env";
+import { getTvArtwork } from "./services/apple-tv-service";
 import { getClimate } from "./services/climate-service";
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers/index";
@@ -51,6 +52,24 @@ async function handle(req: Request, url: URL): Promise<Response> {
   if (url.pathname === "/health/climate") {
     const { ambient } = await getClimate();
     return Response.json({ ambient }, { status: 200, headers: CORS_HEADERS });
+  }
+
+  // Now-playing artwork proxy (www-dhhr). The panel can't reach HA and the
+  // entity_picture URL embeds an HA token, so the api streams the bytes.
+  if (url.pathname === "/media/tv-artwork") {
+    const artwork = await getTvArtwork();
+    if (!artwork) {
+      return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
+    }
+    return new Response(artwork.body, {
+      status: 200,
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": artwork.headers.get("content-type") ?? "application/octet-stream",
+        // The ?v= param busts on artwork change, so short caching is safe.
+        "Cache-Control": "public, max-age=300",
+      },
+    });
   }
 
   if (url.pathname.startsWith("/trpc")) {
