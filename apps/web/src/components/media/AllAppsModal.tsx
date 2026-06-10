@@ -10,7 +10,7 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/ui";
-import { TvAppMark } from "./tv-app-logos";
+import { TvAppMark, tvAppsInOrder } from "./tv-app-logos";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -27,9 +27,11 @@ export interface AllAppsModalProps {
 export function AllAppsModal({ open, onClose, apps, currentApp, onLaunchApp }: AllAppsModalProps) {
   const [query, setQuery] = useState("");
 
+  // Favorites first, then logo apps, then glyph-only — same order as the tile.
+  const ordered = tvAppsInOrder(apps);
   const filtered = query.trim()
-    ? apps.filter((a) => a.toLowerCase().includes(query.toLowerCase()))
-    : apps;
+    ? ordered.filter((a) => a.toLowerCase().includes(query.toLowerCase()))
+    : ordered;
 
   return (
     <Modal open={open} onClose={onClose} title="All Apps" width={560} maxHeight={760}>
@@ -93,14 +95,13 @@ export function AllAppsModal({ open, onClose, apps, currentApp, onLaunchApp }: A
                     height: 48,
                     borderRadius: 12,
                     background: "var(--tile-3)",
-                    border: "1px solid var(--hair)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     overflow: "hidden",
                   }}
                 >
-                  <TvAppMark name={app} size={30} />
+                  <TvAppMark name={app} size={34} />
                 </div>
                 <span
                   style={{

@@ -265,6 +265,36 @@ describe("reconcile", () => {
     expect(updateSet).not.toHaveBeenCalled();
   });
 
+  it("skips speaker rows — they are owned by the sonos-volume-enforcer (CC-5mek)", async () => {
+    // A speaker row's entityId is a LAN IP that never exists in the HA snapshot;
+    // without the skip, device-sync would mark it unavailable every cycle and
+    // fight the sonos-volume-enforcer.
+    const speakerRow = makeDevice({
+      id: "spk_192-168-0-193",
+      kind: "speaker",
+      entityId: "192.168.0.193",
+      reportedState: { volume: 30 },
+      desiredState: { volume: 30 },
+      available: true,
+    });
+
+    mockDbSelect
+      .mockReturnValueOnce(makeSelectChain([speakerRow]))
+      .mockReturnValue(makeSelectChain([]));
+
+    const updateSet = vi.fn().mockReturnThis();
+    const updateWhere = vi.fn().mockResolvedValue(undefined);
+    mockDbUpdate.mockReturnValue({ set: updateSet, where: updateWhere });
+    mockDbInsert.mockReturnValue({
+      values: vi.fn().mockReturnThis(),
+      onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
+    });
+
+    await reconcile(new Map());
+
+    expect(updateSet).not.toHaveBeenCalled();
+  });
+
   it("clears desiredUntilUtc early when HA state matches desiredState", async () => {
     const now = new Date();
     const future = new Date(now.getTime() + 3_000);
@@ -311,6 +341,29 @@ describe("reconcile", () => {
 describe("sweepExpiredWindows", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+  });
+
+  it("never clears a speaker row's sticky desired — owned by the sonos-volume-enforcer (CC-5mek)", async () => {
+    const now = new Date();
+    const expiredSpeaker = makeDevice({
+      id: "spk_192-168-0-193",
+      kind: "speaker",
+      entityId: "192.168.0.193",
+      reportedState: { volume: 30 },
+      desiredState: { volume: 55 },
+      desiredUntilUtc: new Date(now.getTime() - 1_000),
+      available: true,
+    });
+
+    mockDbSelect.mockReturnValue(makeSelectChain([expiredSpeaker]));
+
+    const updateSet = vi.fn().mockReturnThis();
+    const updateWhere = vi.fn().mockResolvedValue(undefined);
+    mockDbUpdate.mockReturnValue({ set: updateSet, where: updateWhere });
+
+    await sweepExpiredWindows(now);
+
+    expect(updateSet).not.toHaveBeenCalled();
   });
 
   it("marks command as timeout and clears overlay when window expires without confirmation", async () => {

@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   assignMoodColors,
+  BLUE_RGB,
   LAMP_MODE_SPEED_CONFIG,
   LampModeSpeed,
   MOOD_PALETTE,
   PARTY_PALETTE,
   partyColorsAtTick,
+  RED_RGB,
   WHITE_SCENE_KELVIN,
 } from "../config/lamp-scenes";
 
@@ -17,6 +19,12 @@ describe("MOOD_PALETTE", () => {
     const distinct = new Set(MOOD_PALETTE.map(key));
     expect(distinct.size).toBe(MOOD_PALETTE.length); // no dupes in the palette
     expect(MOOD_PALETTE.length).toBeGreaterThanOrEqual(7); // one per lamp (7 lamps)
+  });
+
+  it("stays disjoint from RED_RGB/BLUE_RGB — activeScene='mood' detection relies on it (CC-vhht)", () => {
+    const palette = new Set(MOOD_PALETTE.map(key));
+    expect(palette.has(key(RED_RGB))).toBe(false);
+    expect(palette.has(key(BLUE_RGB))).toBe(false);
   });
 });
 

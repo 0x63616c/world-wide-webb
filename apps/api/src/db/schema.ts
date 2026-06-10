@@ -104,7 +104,18 @@ export interface DeviceClimateState {
   action?: string;
 }
 
-export type DeviceStateValue = DeviceLightState | DeviceClimateState;
+/**
+ * Sonos speaker state carried in a device_state row (CC-5mek). Volume is the
+ * single commandable dimension: the dashboard writes DESIRED instantly and the
+ * sonos-volume-enforcer reconciles it onto the player over UPnP, adopting
+ * external changes (Sonos app, hardware buttons) outside the command window —
+ * the same DB-authoritative model as lights.
+ */
+export interface DeviceSpeakerState {
+  volume: number;
+}
+
+export type DeviceStateValue = DeviceLightState | DeviceClimateState | DeviceSpeakerState;
 
 export const deviceState = pgTable(
   "device_state",

@@ -16,13 +16,13 @@ import {
 } from "../../services/apple-tv-service";
 import { getSonosFavorites } from "../../services/sonos-favorites-service";
 import { getSoundSystem } from "../../services/sonos-sound-system-service";
+import { setSpeakerDesiredVolume } from "../../services/sonos-volume-enforcer-service";
 import {
   sonosGrabTvToBeam,
   sonosGroupJoin,
   sonosGroupLeave,
   sonosSetLineIn,
   sonosSetMute,
-  sonosSetVolume,
   sonosTransport,
 } from "../../services/sonos-write-service";
 import {
@@ -44,6 +44,8 @@ const TvNowPlayingSchema = z.object({
   mediaPosition: z.number().nullable(),
   mediaDuration: z.number().nullable(),
   source: z.enum(["streaming", "line-in", "TV", "idle"]),
+  artworkUrl: z.string().nullable(),
+  mediaPositionUpdatedAt: z.string().nullable(),
 });
 
 // Extract a YouTube video ID from a URL or bare ID string.
@@ -283,9 +285,11 @@ export const mediaRouter = router({
 
   // ── Sonos write mutations (CC-51hf.10 / A12) ──────────────────────────────
 
+  // Desired-state write (CC-5mek): accepted instantly, the 1s sonos-volume-
+  // enforcer worker pushes it to the player. No UPnP call on this path.
   sonosSetVolume: publicProcedure
     .input(z.object({ deviceIp: z.string(), volume: z.number().int().min(0).max(100) }))
-    .mutation(({ input }) => sonosSetVolume(input)),
+    .mutation(({ input }) => setSpeakerDesiredVolume(input)),
 
   sonosSetMute: publicProcedure
     .input(z.object({ deviceIp: z.string(), muted: z.boolean() }))

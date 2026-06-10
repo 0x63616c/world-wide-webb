@@ -13,18 +13,6 @@
 
 import { SonosClient } from "../integrations/sonos";
 
-/** Sets the master volume 0-100 on a single device. THROWS on any failure. */
-export async function sonosSetVolume({
-  deviceIp,
-  volume,
-}: {
-  deviceIp: string;
-  volume: number;
-}): Promise<void> {
-  const client = new SonosClient(deviceIp);
-  await client.setVolume(volume);
-}
-
 /** Sets the mute state on a single device. THROWS on any failure. */
 export async function sonosSetMute({
   deviceIp,

@@ -54,7 +54,6 @@ import {
   sonosGroupLeave,
   sonosSetLineIn,
   sonosSetMute,
-  sonosSetVolume,
   sonosTransport,
 } from "../services/sonos-write-service";
 
@@ -73,40 +72,6 @@ beforeEach(() => {
   for (const key of Object.keys(mockClients)) {
     delete mockClients[key];
   }
-});
-
-// ─── setVolume ────────────────────────────────────────────────────────────────
-
-describe("sonosSetVolume (A12)", () => {
-  it("calls setVolume on the device at the given IP", async () => {
-    mockClients[LIVING_ROOM_IP] = makeMockClient();
-    await sonosSetVolume({ deviceIp: LIVING_ROOM_IP, volume: 75 });
-    expect(mockClients[LIVING_ROOM_IP].setVolume).toHaveBeenCalledWith(75);
-  });
-
-  it("calls setVolume on a different device IP", async () => {
-    mockClients[BEDROOM_IP] = makeMockClient();
-    await sonosSetVolume({ deviceIp: BEDROOM_IP, volume: 30 });
-    expect(mockClients[BEDROOM_IP].setVolume).toHaveBeenCalledWith(30);
-  });
-
-  it("throws SonosError when setVolume fails (A3 — never swallows errors)", async () => {
-    mockClients[BATHROOM_IP] = makeMockClient();
-    mockClients[BATHROOM_IP].setVolume.mockRejectedValue(new SonosError("ECONNREFUSED"));
-    await expect(sonosSetVolume({ deviceIp: BATHROOM_IP, volume: 50 })).rejects.toBeInstanceOf(
-      SonosError,
-    );
-  });
-
-  it("throws SonosError for out-of-range volume", async () => {
-    mockClients[KITCHEN_IP] = makeMockClient();
-    mockClients[KITCHEN_IP].setVolume.mockRejectedValue(
-      new SonosError("SetVolume: volume 101 out of range 0-100"),
-    );
-    await expect(sonosSetVolume({ deviceIp: KITCHEN_IP, volume: 101 })).rejects.toBeInstanceOf(
-      SonosError,
-    );
-  });
 });
 
 // ─── setMute ──────────────────────────────────────────────────────────────────

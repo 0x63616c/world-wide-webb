@@ -24,6 +24,16 @@ function isEnforcerManagedClimate(device: { kind: string }): boolean {
   return device.kind === DeviceKind.Climate;
 }
 
+/**
+ * Speaker rows are owned by the sonos-volume-enforcer (CC-5mek). Their entityId
+ * is a LAN IP that never exists in the HA snapshot, so without this skip
+ * device-sync would mark them unavailable every cycle (and sweep their sticky
+ * desired), fighting the enforcer.
+ */
+function isEnforcerManagedSpeaker(device: { kind: string }): boolean {
+  return device.kind === DeviceKind.Speaker;
+}
+
 // One device-sync cycle. The schedule lives in the worker runtime (src/worker.ts,
 // CC-7d5b.1.2) — this module only exposes the single cycle plus the pure
 // reconcile/sweep helpers it composes.
@@ -56,7 +66,12 @@ export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> 
     // (CC-7d5b.2.6) and the climate enforcer owns the thermostat (CC-unxz.2).
     // device-sync must not write their state or it would fight the enforcer
     // (double-drive). Fan/other devices fall through as before.
-    if (findLight(device.entityId) || isEnforcerManagedClimate(device)) continue;
+    if (
+      findLight(device.entityId) ||
+      isEnforcerManagedClimate(device) ||
+      isEnforcerManagedSpeaker(device)
+    )
+      continue;
 
     const entity = snapshot.get(device.entityId);
     const { reported, available } = mapHaToReported(device.kind, entity);
@@ -121,7 +136,12 @@ export async function sweepExpiredWindows(now: Date): Promise<void> {
     // lights (CC-7d5b.2.6) and the climate thermostat (CC-unxz.2), so clearing it
     // here would wipe the enforcer's intent. The enforcer, not the desired-window,
     // governs those devices now.
-    if (findLight(device.entityId) || isEnforcerManagedClimate(device)) continue;
+    if (
+      findLight(device.entityId) ||
+      isEnforcerManagedClimate(device) ||
+      isEnforcerManagedSpeaker(device)
+    )
+      continue;
 
     const desired = device.desiredState;
     const reported = device.reportedState ?? null;

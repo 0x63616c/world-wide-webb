@@ -77,6 +77,22 @@ describe("AllAppsModal — open (A27)", () => {
     expect(container.querySelector("[data-active-app]")).toBeInTheDocument();
   });
 
+  it("renders the logo plate without an outline (CC-huq3)", () => {
+    render(<AllAppsModal {...baseProps} />);
+    const plate = screen.getByLabelText("Launch Netflix").querySelector("div");
+    expect(plate).not.toBeNull();
+    // Assert on the raw style attribute: jsdom's CSSOM silently drops var()
+    // shorthands, so plate.style.border would read "" even when a border is set.
+    expect(plate?.getAttribute("style") ?? "").not.toMatch(/(^|;)\s*border:/);
+  });
+
+  it("renders marks at 34px (CC-l2zg)", () => {
+    // Unbranded app → glyph fallback whose fontSize is size * 0.6.
+    render(<AllAppsModal {...baseProps} apps={[...baseProps.apps, "Zelda FM"]} />);
+    const glyph = screen.getByLabelText("Launch Zelda FM").querySelector("div span");
+    expect(glyph).toHaveStyle({ fontSize: `${34 * 0.6}px` });
+  });
+
   it("calls onClose when close button is clicked", () => {
     const onClose = vi.fn();
     render(<AllAppsModal {...baseProps} onClose={onClose} />);
