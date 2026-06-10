@@ -13,8 +13,14 @@
 #     guard does exactly this — no file means no overwrite).
 set -e
 
+# CF_ACCESS_*_CLIENT_ID are the (non-secret) CF Access service-token client-ids
+# (CC-cuuw). They ride the docker-secret channel like the other CF_* ids; the
+# `[ -f ]` guard below leaves them unset until the matching 1Password items exist
+# (created by scripts/save-cf-access-tokens.sh at the gated cutover) — absent
+# files are simply skipped, so this is inert until then.
 for name in BOSUN_WEBHOOK_TOKEN OP_SERVICE_ACCOUNT_TOKEN GHCR_PULL_TOKEN \
-            CF_ACCOUNT_ID CF_ZONE_ID CF_TUNNEL_ID; do
+            CF_ACCOUNT_ID CF_ZONE_ID CF_TUNNEL_ID \
+            CF_ACCESS_KIOSK_CLIENT_ID CF_ACCESS_CI_CLIENT_ID; do
   file="/run/secrets/$name"
   if [ -f "$file" ]; then
     export "$name=$(cat "$file")"
