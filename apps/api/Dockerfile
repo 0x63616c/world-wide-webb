@@ -14,6 +14,7 @@ COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
 COPY apps/media-worker/package.json apps/media-worker/
+COPY apps/captive-portal/package.json apps/captive-portal/
 COPY packages/api/package.json packages/api/
 COPY packages/bosun/package.json packages/bosun/
 COPY packages/logger/package.json packages/logger/
