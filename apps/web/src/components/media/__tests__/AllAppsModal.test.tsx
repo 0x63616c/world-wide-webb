@@ -86,6 +86,13 @@ describe("AllAppsModal — open (A27)", () => {
     expect(plate?.getAttribute("style") ?? "").not.toMatch(/(^|;)\s*border:/);
   });
 
+  it("renders marks at 34px (www-l2zg)", () => {
+    // Unbranded app → glyph fallback whose fontSize is size * 0.6.
+    render(<AllAppsModal {...baseProps} apps={[...baseProps.apps, "Zelda FM"]} />);
+    const glyph = screen.getByLabelText("Launch Zelda FM").querySelector("div span");
+    expect(glyph).toHaveStyle({ fontSize: `${34 * 0.6}px` });
+  });
+
   it("calls onClose when close button is clicked", () => {
     const onClose = vi.fn();
     render(<AllAppsModal {...baseProps} onClose={onClose} />);

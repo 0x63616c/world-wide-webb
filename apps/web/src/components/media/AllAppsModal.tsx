@@ -101,7 +101,7 @@ export function AllAppsModal({ open, onClose, apps, currentApp, onLaunchApp }: A
                     overflow: "hidden",
                   }}
                 >
-                  <TvAppMark name={app} size={30} />
+                  <TvAppMark name={app} size={34} />
                 </div>
                 <span
                   style={{
