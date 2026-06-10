@@ -24,6 +24,9 @@ async function main(): Promise<void> {
     case "routes":
       await cmdRoutes(args);
       break;
+    case "access":
+      await cmdAccess(args);
+      break;
     case "up":
       // www-fmws: the fresh-image one-shot deploy passes the webhook's digest map
       // as the positional `up` arg (JSON), so this inner `bosun up` still pins
@@ -56,6 +59,7 @@ function printUsage(): void {
       "  plan          Evaluate deploy.config.ts and print the static Spec (no secrets)",
       "  secrets sync  Resolve secret refs and reconcile docker secrets",
       "  routes sync   Reconcile Cloudflare tunnel ingress + public DNS (proxied CNAME)",
+      "  access sync   Reconcile Cloudflare Access apps (edge auth gate) from access: declarations",
       "  up            Full deploy: plan → secrets sync → stack deploy → routes+DNS sync → verify",
       "  verify        Run all declared health probes; exit 0 iff all pass",
       "  serve         Start the webhook receiver for CI-triggered deploys",
@@ -151,12 +155,29 @@ async function cmdRoutes(args: string[]): Promise<void> {
   await reconcileCloudflare(spec, { advisory: false });
 }
 
+// access sync: reconcile Cloudflare Access apps (the edge auth gate, www-cuuw)
+// from `access:` declarations + the optional `accessFloor`. Inert until those
+// exist in deploy.config.ts (the empty-set short-circuit skips the API entirely).
+async function cmdAccess(args: string[]): Promise<void> {
+  if (args[0] !== "sync") {
+    log.error({ usage: "bosun access sync" }, "access: missing subcommand");
+    process.exit(1);
+  }
+
+  const { default: spec } = (await import(`${process.cwd()}/deploy.config.ts`)) as {
+    default: import("./spec.ts").Spec;
+  };
+  // Interactive `access sync`: a CF failure must surface loudly (advisory: false).
+  await reconcileAccessGate(spec, { advisory: false });
+}
+
 // Reconcile BOTH halves of the Cloudflare story so a service with a `route:`
 // becomes publicly reachable on deploy with zero manual steps (www-vqyv):
 //   1. tunnel INGRESS rule  (hostname -> http://<service>:<port>)
 //   2. public DNS  CNAME    (hostname -> <tunnelId>.cfargotunnel.com, proxied)
 // The wildcard `*.worldwidewebb.co` is a dead A-record, so without (2) a new
 // hostname 521s even with the ingress rule present (the drizzle failure).
+// Then (3) reconcile Cloudflare Access apps (the edge auth gate, www-cuuw).
 //
 // `advisory` mirrors verify's policy: the webhook deploy path passes true so a
 // CF hiccup logs a warning but never aborts an otherwise-good stack deploy; the
@@ -239,6 +260,67 @@ async function reconcileCloudflare(
     const dnsOwned = new Set([...ownedHostnames, ...declared]);
     await reconcileDns(declared, tunnelCnameTarget(tunnelId), dnsClient, dnsOwned);
     log.info({ step: "routes", hostnames: declared }, "DNS synced");
+  });
+
+  // 3. Cloudflare Access — the edge auth gate (www-cuuw). Separate advisory step:
+  // a misconfigured Access reconcile must not abort an otherwise-good deploy, and
+  // it has its own empty-set short-circuit so it costs nothing until declarations
+  // exist in deploy.config.ts.
+  await reconcileAccessGate(spec, opts);
+}
+
+// Reconcile Cloudflare Access apps from `access:` declarations (per-host) + the
+// optional stack-level `accessFloor` (www-cuuw). Advisory-guarded like routes/DNS.
+//
+// SHORT-CIRCUIT: if the desired set is empty (no service declares `access` AND no
+// `accessFloor`), skip the CF Access API entirely. This keeps every deploy clean
+// and means no Access token scope is needed until the cutover adds declarations.
+async function reconcileAccessGate(
+  spec: import("./spec.ts").Spec,
+  opts: { advisory: boolean },
+): Promise<void> {
+  // Build the desired app set: one per service with `access` (domain = its route)
+  // plus the wildcard floor when present. `service()` guarantees access implies a
+  // route, so `svc.route` is defined whenever `svc.access` is.
+  const declared: import("./reconcile/access.ts").DesiredAccessApp[] = [];
+  for (const svc of spec.services) {
+    if (svc.access && svc.route) declared.push({ domain: svc.route, access: svc.access });
+  }
+  if (spec.accessFloor) {
+    declared.push({ domain: "*.worldwidewebb.co", access: spec.accessFloor });
+  }
+
+  // Short-circuit: nothing declared -> nothing to do, no API call. The ship-now
+  // state. (reconcileAccess would also no-op, but skipping avoids needing an
+  // Access-scoped token / Zero Trust enabled before the cutover.)
+  if (declared.length === 0) {
+    log.info({ step: "access" }, "no Access declarations — skipping Cloudflare Access reconcile");
+    return;
+  }
+
+  const accountId = process.env.CF_ACCOUNT_ID;
+  if (!accountId) {
+    const msg = "CF_ACCOUNT_ID must be set in the environment";
+    if (opts.advisory) {
+      log.warn({ step: "access", advisory: true }, `skipping Cloudflare Access reconcile — ${msg}`);
+      return;
+    }
+    log.error({ step: "access" }, msg);
+    process.exit(1);
+  }
+
+  await runCloudflareStep(opts.advisory, "access", async () => {
+    const { reconcileAccess, makeDefaultCloudflareAccessClient } = await import(
+      "./reconcile/access.ts"
+    );
+    const { makeDefaultExec, OpProvider } = await import("./providers/op.ts");
+    const exec = await makeDefaultExec();
+    const provider = new OpProvider(exec);
+    const apiToken = await provider.resolve("op://Homelab/Cloudflare API/credential");
+
+    const accessClient = makeDefaultCloudflareAccessClient(accountId, apiToken);
+    await reconcileAccess(spec.stackName, declared, accessClient);
+    log.info({ step: "access", domains: declared.map((d) => d.domain) }, "Access apps synced");
   });
 }
 
