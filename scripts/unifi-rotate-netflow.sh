@@ -30,5 +30,5 @@ fi
 RET="${RETENTION_DAYS:-0}"
 if [ "$RET" -gt 0 ]; then
   find "$NF" -name '*-flows.json.gz' -mtime +"$RET" -delete
-  find "$SL" -name 'unifi-*.log'     -mtime +"$RET" -delete
+  find "$SL" -name '*unifi*.log'     -mtime +"$RET" -delete
 fi

@@ -54,7 +54,10 @@ $D run -d --name unifi-netflow --restart unless-stopped \
   netsampler/goflow2:latest \
   -listen "netflow://:2055" -format json -transport.file /output/flows.json >/dev/null
 
+# TZ so daily files + timestamps split at LA midnight, matching the flow
+# archives (NAS-local date) instead of UTC.
 $D run -d --name unifi-syslog --restart unless-stopped \
+  -e TZ=America/Los_Angeles \
   -p 514:514/udp -p 514:514/tcp -v /volume1/Unifi/logs/syslog:/output \
   -v /volume1/Unifi/docker/syslog-ng/syslog-ng.conf:/etc/syslog-ng/syslog-ng.conf:ro \
   balabit/syslog-ng:latest --no-caps >/dev/null

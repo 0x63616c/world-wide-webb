@@ -9,7 +9,7 @@ Synology (`NAS - HomeTB`, DS420+, `192.168.0.218`, `/volume1/Unifi`):
 
 | Stream | Data | Transport | Receiver | Lands in |
 |---|---|---|---|---|
-| **Syslog** | events: firewall blocks, client connect/disconnect, DHCP, AP telemetry | UDP/TCP 514 | `unifi-syslog` (syslog-ng container) | `/volume1/Unifi/logs/syslog/unifi-YYYYMMDD.log` |
+| **Syslog** | events: firewall blocks, client connect/disconnect, DHCP, AP telemetry | UDP/TCP 514 | `unifi-syslog` (syslog-ng container) | `/volume1/Unifi/logs/syslog/YYYY-MM-DD-unifi.log` |
 | **NetFlow/IPFIX** | per-connection flow records (who↔who, ports, bytes, packets) | UDP 2055 | `unifi-netflow` (goflow2 container) | `/volume1/Unifi/logs/netflow/flows.json` → daily `YYYY-MM-DD-flows.json.gz` |
 
 **Why the receivers live on the NAS (not our bosun stack):** Docker is already on the NAS;
@@ -75,7 +75,7 @@ deployed to `/volume1/Unifi/docker/`, run by a `/etc/crontab` entry at 23:59).
 
 ```bash
 # on the NAS:
-tail -f /volume1/Unifi/logs/syslog/unifi-$(date +%Y%m%d).log     # live events
+tail -f /volume1/Unifi/logs/syslog/$(date +%F)-unifi.log     # live events
 tail -1 /volume1/Unifi/logs/netflow/flows.json | python3 -m json.tool   # a flow record
 ```
 
