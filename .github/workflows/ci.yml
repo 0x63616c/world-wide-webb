@@ -32,6 +32,7 @@ jobs:
       storybook: ${{ steps.filter.outputs.storybook }}
       bosun: ${{ steps.filter.outputs.bosun }}
       drizzle: ${{ steps.filter.outputs.drizzle }}
+      captiveportal: ${{ steps.filter.outputs.captiveportal }}
       any_app: ${{ steps.filter.outputs.any_app }}
     steps:
       - uses: actions/checkout@v4
@@ -92,6 +93,14 @@ jobs:
             # rebuilds solely on its own changes (no packages/ or bun.lock dep).
             drizzle:
               - 'apps/drizzle/**'
+            # Captive portal: a static nginx image built solely from its own tree
+            # (the build pulls workspace deps, so the root lockfile counts too). It
+            # does NOT bundle @repo/api — it talks to the api only over HTTP via the
+            # scoped nginx proxy — so an apps/api change does not rebuild it
+            # (CC-q002.2). Its nginx.conf + Dockerfile are part of the image.
+            captiveportal:
+              - 'apps/captive-portal/**'
+              - 'bun.lock'
             # any_app is true when at least one image needs to be built. Includes
             # deploy.config.ts so a config-only change still triggers a deploy.
             any_app:
@@ -433,11 +442,44 @@ jobs:
           cache-from: type=gha,scope=drizzle
           cache-to: type=gha,mode=max,scope=drizzle
 
+  build-captive-portal:
+    needs: [changes, test]
+    if: needs.changes.outputs.captiveportal == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      # Native arm64 runner (deploy target is the arm64 Mac Mini) — same as the
+      # other image builds; no QEMU emulation (CC-4yt).
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build and push captive-portal image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/captive-portal/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ghcr.io/0x63616c/control-center-captive-portal:${{ github.sha }}
+            ghcr.io/0x63616c/control-center-captive-portal:${{ github.ref_name == 'main' && 'main' || github.sha }}
+          cache-from: type=gha,scope=captive-portal
+          cache-to: type=gha,mode=max,scope=captive-portal
+
   # After any image build succeeds on main, trigger bosun deploy on the homelab.
   # The webhook receiver (bosun serve) runs on the box; the HMAC token is in a repo secret.
   # This job only runs when at least one image was built AND the branch is main.
   deploy:
-    needs: [changes, test, build-web, build-api, build-worker, build-media-worker, build-storybook, build-bosun, build-drizzle]
+    needs: [changes, test, build-web, build-api, build-worker, build-media-worker, build-storybook, build-bosun, build-drizzle, build-captive-portal]
     # always() lets us run even when some build jobs were skipped (no changes).
     # We proceed when: on main, at least one app changed, and no build failed.
     if: |
@@ -463,7 +505,7 @@ jobs:
         id: payload
         run: |
           images='{}'
-          for name in control-center-web control-center-api control-center-worker control-center-media-worker control-center-storybook control-center-bosun control-center-drizzle; do
+          for name in control-center-web control-center-api control-center-worker control-center-media-worker control-center-storybook control-center-bosun control-center-drizzle control-center-captive-portal; do
             d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$name:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
             if [ -n "$d" ]; then
               images=$(jq -cn --argjson cur "$images" --arg n "$name" --arg d "$d" '$cur + {($n): $d}')
