@@ -28,9 +28,14 @@ RUN bun install --frozen-lockfile --ignore-scripts
 # Root tsconfig must be present so the app tsconfig can extend ../../tsconfig.json.
 COPY tsconfig.json ./tsconfig.json
 
-# Copy the app source. The portal is self-contained (no @repo/api runtime import;
-# it talks to the api only over HTTP via the nginx proxy), so only its own tree
-# plus the root tsconfig are needed to build the static bundle.
+# At RUNTIME the portal is self-contained (it talks to the api only over HTTP via
+# the nginx proxy). But at BUILD time its tRPC client imports the AppRouter TYPE
+# from @cc/api/trpc (www-q002.19), so tsc -b needs the api source + workspace
+# packages present to resolve the type, same as apps/web's Dockerfile. These are
+# type-only; nothing from api lands in the shipped static bundle.
+COPY apps/api/src ./apps/api/src
+COPY apps/api/tsconfig.json ./apps/api/tsconfig.json
+COPY packages ./packages
 COPY apps/captive-portal ./apps/captive-portal
 
 # Build the static bundle. `build` is `tsc -b && vite build`; output lands at
