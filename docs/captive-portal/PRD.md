@@ -15,8 +15,7 @@ One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (
 
 1. No admin UI (v1).
 2. No bandwidth/data caps on authorizations (v1).
-3. No Storybook gate on shipping — stories ship with components but are not a launch blocker.
-4. No new repo, no PRs; everything lands in control-center on `main`.
+3. No new repo, no PRs; everything lands in control-center on `main`.
 
 **Source of truth**
 
@@ -58,7 +57,7 @@ One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (
 5. State machine is a pure UI-free module with table-driven transition tests.
 6. tRPC client to the portal router only; the frontend never talks to UniFi.
 7. A11y: labels tied to inputs, `role="alert"`, `aria-invalid`/`aria-describedby`, focus rings, ≥44px targets.
-8. Own Storybook, composed (refs) into the web host Storybook as a separate sidebar section.
+8. Own Storybook, composed (refs) into the web host Storybook as a separate sidebar section. Blocking gate: screens work (CC-q002.6) starts only once the component library is browsable in the composed host (CC-q002.5).
 
 **Backend (in `apps/api`)**
 
@@ -123,7 +122,7 @@ One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (
 3. Resend instead of generic SMTP; mocked (log + store the code) until creds land.
 4. shadcn/ui on Tailwind v4 instead of hand-ported CSS primitives; design tokens still match `theme.css` 1:1.
 5. Domain `captive-portal.worldwidewebb.co` (never `captive.`), LAN-only via split-horizon DNS + DNS-01 TLS.
-6. Storybook: yes, composed into the existing host (reversal of the early "no storybook" call).
+6. Storybook: yes, composed into the existing host, and a blocking gate before screens (two reversals of the early "no storybook" call).
 7. No PRs ever; worktrees merge to `main`; commit scope carries the `CC-` ticket id.
 
 **Milestones and tickets (epic CC-q002)**
