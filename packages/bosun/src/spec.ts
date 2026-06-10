@@ -15,6 +15,31 @@ export interface ScheduleSpec {
   cron: string;
 }
 
+// --- Cloudflare Access (edge auth gate, www-cuuw) -----------------------------
+//
+// An `access:` declaration on a service (or a stack-level `accessFloor`) maps to
+// a Cloudflare Access application + policy that the reconcile (reconcile/access.ts)
+// creates at the edge. Pure data, no I/O — the include rules carry only env var
+// NAMES (for service tokens) or literal emails, never secret values.
+
+/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
+export type AccessRule =
+  // Allow a specific identity (email OTP login).
+  | { kind: "email"; email: string }
+  // Allow a Cloudflare service token. `clientIdEnv` is the NAME of the env var
+  // holding the token's non-secret client-id; the reconcile resolves the token's
+  // internal CF id by name (`tokenName`) via listServiceTokens(). The client-id
+  // is informational here (carried to docs/debugging), not the policy principal.
+  | { kind: "serviceToken"; tokenName: string; clientIdEnv: string };
+
+/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
+export interface AccessSpec {
+  // Decision for the app's primary policy.
+  decision: "allow" | "block" | "service_auth";
+  // include rules (OR-ed). Empty for a pure block-everyone floor.
+  include?: AccessRule[];
+}
+
 export interface HealthProbe {
   kind: "http" | "cmd";
   // Human-readable label used in verify output.
@@ -67,6 +92,11 @@ export interface ServiceSpec {
   env: Record<string, string>;
   // Optional: public Cloudflare hostname to route to this service.
   route?: string;
+  // Optional: a Cloudflare Access app gating this service's `route` host
+  // (www-cuuw). The app's domain derives from `route` (single source of truth);
+  // an `access` without a `route` is a spec error (caught by the service()
+  // builder). Inert until reconcile/access.ts runs against a declared set.
+  access?: AccessSpec;
   // Optional: port this service listens on (default 80).
   port?: number;
   // Optional: publish a host port for a LAN-only service. Unlike `route` (which
@@ -109,12 +139,27 @@ export interface Spec {
   // Stack name used for Docker Swarm stack deploy and label scoping.
   stackName: string;
   services: ServiceSpec[];
+  // Optional wildcard default-deny "floor" Access app for the stack's zone
+  // (`*.worldwidewebb.co` => Block), www-cuuw. The floor has no origin service,
+  // so it is a stack-level field, NOT a service. OPTIONAL by design: an absent
+  // floor (the ship-now state) leaves the edge unchanged; reconcile/access.ts
+  // only creates the floor app when this is present.
+  accessFloor?: AccessSpec;
 }
 
 // --- Builder helpers (imported by deploy.config.ts) ---
 
-export function stack(name: string, opts: { services: ServiceSpec[] }): Spec {
-  return { stackName: name, services: opts.services };
+export function stack(
+  name: string,
+  opts: { services: ServiceSpec[]; accessFloor?: AccessSpec },
+): Spec {
+  return {
+    stackName: name,
+    services: opts.services,
+    // Thread the optional floor onto the Spec. Omitted when unset so existing
+    // callers (no accessFloor) yield an identical Spec to before (www-cuuw).
+    ...(opts.accessFloor ? { accessFloor: opts.accessFloor } : {}),
+  };
 }
 
 export function service(
@@ -125,12 +170,19 @@ export function service(
     health?: HealthProbe[];
   },
 ): ServiceSpec {
+  // A CF Access app derives its domain from `route`; declaring `access` without
+  // a `route` is a spec error (there is no host to gate). Fail loud at eval time
+  // rather than silently creating no app (www-cuuw).
+  if (opts.access && !opts.route) {
+    throw new Error(`service '${name}': access requires a route (the host the Access app gates)`);
+  }
   return {
     name,
     image: opts.image ?? "",
     secrets: opts.secrets ?? [],
     env: opts.env ?? {},
     route: opts.route,
+    access: opts.access,
     port: opts.port,
     publishPort: opts.publishPort,
     proxyApiTo: opts.proxyApiTo,
@@ -206,6 +258,33 @@ export function fromOp(vault: string, refs: Record<string, string>): SecretRef[]
     name,
     ref: `op://${vault}/${item}`,
   }));
+}
+
+// --- Cloudflare Access builders (www-cuuw) ------------------------------------
+//
+// Declarative, pure. Mirror httpProbe/cmdProbe/fromOp — keep deploy.config.ts
+// reading like data. Tagged @public: the only consumer is deploy.config.ts at
+// the gated cutover (units 8-9), so until then knip would flag them as dead.
+
+/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
+export function accessEmail(email: string): AccessSpec {
+  return { decision: "allow", include: [{ kind: "email", email }] };
+}
+
+/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
+export function accessServiceToken(opts: { tokenName: string; clientIdEnv: string }): AccessSpec {
+  return {
+    decision: "service_auth",
+    include: [{ kind: "serviceToken", tokenName: opts.tokenName, clientIdEnv: opts.clientIdEnv }],
+  };
+}
+
+/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
+export function accessFloor(): AccessSpec {
+  // The default-deny floor: a Block app over the wildcard host with no include
+  // rules — nothing is allowed through it, so any subdomain not covered by a
+  // more specific allow app is denied at the edge.
+  return { decision: "block" };
 }
 
 export function ghcr(imageName: string, tag = "main"): string {
