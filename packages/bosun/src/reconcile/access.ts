@@ -15,6 +15,7 @@ import type { AccessSpec } from "../spec.ts";
 // A Cloudflare Access policy as the client models it. `decision` mirrors the CF
 // API enum; `include` carries the OR-ed principal rules. We keep this minimal —
 // only the shapes reconcileAccess produces and reads back.
+/** @public — part of the CloudflareAccessClient contract (createApp/updateAppPolicy params), www-cuuw */
 export interface AccessPolicy {
   decision: "allow" | "block" | "service_auth";
   include: AccessIncludeRule[];
@@ -22,6 +23,7 @@ export interface AccessPolicy {
 
 // An include rule in CF's wire shape. `everyone` is CF's "Everyone" selector
 // (used by the deny-all floor); `email` and `service_token` carry a principal.
+/** @public — part of the CloudflareAccessClient contract (AccessPolicy.include), www-cuuw */
 export type AccessIncludeRule =
   | { everyone: Record<string, never> }
   | { email: { email: string } }
