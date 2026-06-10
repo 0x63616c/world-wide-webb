@@ -28,7 +28,7 @@ describe("flow reducer, happy path transitions (mirror World-Wide-Webb Portal.ht
     expect(s.step).toBe("sending");
     s = run(s, { type: "CODE_SENT" });
     expect(s.step).toBe("verify");
-    s = run(s, { type: "VERIFY_OK" });
+    s = run(s, { type: "VERIFY_OK", guestId: "gst_1" });
     expect(s.step).toBe("password");
     s = run(s, { type: "PASSWORD_OK" });
     expect(s.step).toBe("connecting");
@@ -89,6 +89,7 @@ describe("code counters to rate limit", () => {
   it("VERIFY_OK resets the code counter and clears errors", () => {
     const s = reducer(start({ step: "verify", codeTries: 2, verifyError: "x" }), {
       type: "VERIFY_OK",
+      guestId: "gst_1",
     }).state;
     expect(s.step).toBe("password");
     expect(s.codeTries).toBe(0);
@@ -255,6 +256,34 @@ describe("sessionStorage persistence (step + email survive a refresh)", () => {
 
   it("loadFlowState returns null when nothing persisted", () => {
     expect(loadFlowState(MAC)).toBeNull();
+  });
+
+  it("does NOT persist a non-persist step, and clears any prior entry (validator branch)", () => {
+    // First persist a mid-flow step...
+    persistFlowState(
+      start({ step: "verify", form: { name: "J", email: "j@x.co", password: "", agreed: true } }),
+    );
+    expect(loadFlowState(MAC)).not.toBeNull();
+    // ...then a terminal/landing step must REMOVE it (don't restore onto success).
+    persistFlowState(start({ step: "success" }));
+    expect(loadFlowState(MAC)).toBeNull();
+  });
+
+  it("drops a persisted position older than CODE_TTL_MS (stale-TTL branch)", () => {
+    const s = start({
+      step: "verify",
+      form: { name: "J", email: "j@x.co", password: "", agreed: true },
+    });
+    persistFlowState(s);
+    // Fast-forward past the code TTL: a stored code can no longer be valid, so
+    // loadFlowState must NOT drop the guest back onto verify.
+    const realNow = Date.now;
+    try {
+      Date.now = () => realNow() + CODE_TTL_MS + 1;
+      expect(loadFlowState(MAC)).toBeNull();
+    } finally {
+      Date.now = realNow;
+    }
   });
 
   it("CODE_TTL_MS is 10 minutes (PRD)", () => {

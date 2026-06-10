@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useReducer } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import { type EffectContext, runEffect, statusToEvent } from "@/flow/effects";
 import {
   type FlowEvent,
   type FlowState,
   initialFlowState,
   loadFlowState,
-  type PortalEffect,
   persistFlowState,
   reducer,
 } from "@/flow/flow";
+import { portalClient } from "@/lib/trpc";
 import { AlreadyConnected } from "@/screens/AlreadyConnected";
 import { Connecting } from "@/screens/Connecting";
 import { GenericError } from "@/screens/GenericError";
@@ -44,30 +45,69 @@ export function App() {
     (m) => loadFlowState(m) ?? initialFlowState(m),
   );
 
-  // Run the side effects a transition asks for. This is the seam where the
-  // tRPC client to /api/trpc portal.* procedures gets wired (CC-q002.9 backend);
-  // resetAttempts is fire-and-forget, exactly as the design rule requires.
-  const runEffects = useCallback((effects: PortalEffect[]) => {
-    for (const _eff of effects) {
-      // Effect execution (portal.sendCode / verifyCode / checkPassword /
-      // resetAttempts) is dispatched here once the tRPC client lands; the
-      // reducer stays pure and the screens stay declarative.
+  // The latest state, read inside async effect callbacks without re-binding
+  // dispatch on every render (which would re-fire the boot/connecting effects).
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  // dispatch = reduce + run the resulting effects against the portal client,
+  // dispatching each effect's result events as they resolve. The reducer stays
+  // pure; this is the only place that touches the network (the .7->.9 seam).
+  const dispatch = useCallback((event: FlowEvent) => {
+    const before = stateRef.current;
+    const { effects } = reducer(before, event);
+    rawDispatch(event);
+    for (const effect of effects) {
+      const ctx: EffectContext = {
+        name: before.form.name,
+        email: before.form.email,
+        guestId: before.guestId ?? undefined,
+      };
+      runEffect(portalClient, effect, ctx).then((events) => {
+        for (const e of events) rawDispatch(e);
+      });
     }
   }, []);
-
-  const dispatch = useCallback(
-    (event: FlowEvent) => {
-      const result = reducer(state, event);
-      runEffects(result.effects);
-      rawDispatch(event);
-    },
-    [state, runEffects],
-  );
 
   // Persist step + email so a mid-flow refresh restores position.
   useEffect(() => {
     persistFlowState(state);
   }, [state]);
+
+  // Boot: ask the server if this device is already authorized (active) or
+  // lapsed (expired) and short-circuit to the matching screen. Only from a
+  // fresh landing (a restored mid-flow position is honoured as-is). Runs once.
+  useEffect(() => {
+    if (!mac || stateRef.current.step !== "landing") return;
+    let cancelled = false;
+    portalClient
+      .status({ mac })
+      .then((res) => {
+        if (cancelled) return;
+        const ev = statusToEvent(res.state);
+        if (ev) rawDispatch(ev);
+      })
+      .catch(() => {
+        // No status (network/unconfigured): stay on landing, the guest can
+        // still sign in normally.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mac]);
+
+  // Entering "connecting" kicks the authorize call (verifyCode already supplied
+  // guestId). authorize is idempotent server-side, so a retry is safe.
+  useEffect(() => {
+    if (state.step !== "connecting") return;
+    runEffect(
+      portalClient,
+      { type: "authorize", mac },
+      { guestId: state.guestId ?? undefined },
+    ).then((events) => {
+      for (const e of events) rawDispatch(e);
+    });
+  }, [state.step, state.guestId, mac]);
 
   // Drive the resend cooldown tick while on verify.
   useEffect(() => {
