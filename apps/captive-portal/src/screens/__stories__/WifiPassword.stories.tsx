@@ -1,0 +1,34 @@
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { WifiPassword } from "../WifiPassword";
+
+const noop = () => {};
+const meta: Meta<typeof WifiPassword> = {
+  title: "Captive Portal/Screens/WifiPassword",
+  component: WifiPassword,
+  tags: ["autodocs"],
+  args: { onSubmit: noop, onBack: noop },
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Wi-Fi password step (after email verified). States: awaiting, filled+shown, wrong password, network failure.",
+      },
+    },
+  },
+};
+export default meta;
+type Story = StoryObj<typeof WifiPassword>;
+
+export const Awaiting: Story = {};
+export const FilledShown: Story = {
+  name: "Filled · shown",
+  args: { initialValue: "guest-passw0rd", initialShow: true },
+};
+export const WrongPassword: Story = {
+  name: "Error · wrong password",
+  args: { error: "That password isn’t right. Double-check with your host." },
+};
+export const NetworkFailure: Story = {
+  name: "Error · network",
+  args: { networkError: true, initialValue: "guest-passw0rd" },
+};
