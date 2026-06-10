@@ -161,3 +161,16 @@ add `COPY <ws>/package.json <ws>/` (matching each file's COPY style) to every
 workspace-installing Dockerfile. A mechanical guard enforces this:
 `packages/bosun/test/dockerfile-manifests.test.ts` fails CI if any
 frozen-installing Dockerfile omits a workspace manifest.
+
+## LAN exposure + cutover (CC-q002.21)
+
+OrbStack does NOT forward Docker Swarm published ports to the Mac/LAN (proven: neither ingress nor host mode binds on the Mac; only a plain `docker run -p` is forwarded). So the portal is exposed via a thin plain-container L4 proxy, not `publishPort`.
+
+**Topology:** `captive-portal` (swarm service) + `api` both join the attachable `portal-edge` overlay (bosun renders it, CC-q002.21). A plain non-swarm nginx-stream proxy (`scripts/portal-lan.sh`, launchd-managed) joins `portal-edge`, publishes `:443`/`:80` with plain `-p` (OrbStack forwards to the LAN), and passes raw TCP through to `captive-portal` (TLS terminates at the portal).
+
+**Cutover steps (in order):**
+1. Merge this branch to `main` → CI → `bosun up` (op must not be rate-limited; see CC-nbjv). Creates `control-center_portal-edge`, joins api + portal, portal serves on the overlay.
+2. On homelab: `bash scripts/portal-lan.sh` (one-time), then install autostart: `cp apps/captive-portal/deploy/com.calum.portal-lan.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.calum.portal-lan.plist`.
+3. Verify from a LAN device: `curl -k https://192.168.0.147:443/` and `https://captive-portal.worldwidewebb.co/` return the SPA; `/api/trpc/portal.status` reaches the api; `/api/trpc/lights.list` + a mixed batch return 404.
+4. UniFi (CC-q002.15, Calum + agent): set the guest WLAN external-portal redirect → `https://captive-portal.worldwidewebb.co`, walled-garden allow the portal host + DNS, create the `www-guest` WLAN (changes live WiFi). Already done: Mini/HomeTB reservations + the split-horizon DNS record.
+5. Real-device test (CC-q002.17): a phone on `www-guest` is captive-redirected, completes the flow, gets 30-day internet.
