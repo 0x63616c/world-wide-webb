@@ -4,8 +4,8 @@
  * Pure flow logic for the guest WiFi onboarding at captive-portal.worldwidewebb.co:
  * send a 6-digit email code, verify it, check the WiFi password, report device
  * status, and authorize the device for 30 days via UniFi. The service depends on
- * three INTERFACES — a PortalRepo (data access), an EmailSender, and a
- * UnifiGuestClient — so the router wires the real drizzle/Resend/UniFi adapters
+ * three INTERFACES, a PortalRepo (data access), an EmailSender, and a
+ * UnifiGuestClient, so the router wires the real drizzle/Resend/UniFi adapters
  * while tests inject in-memory fakes with no Postgres and no network.
  *
  * Rate-limit + cooldown are enforced HERE (server-side), never trusted to the UI:
@@ -13,7 +13,7 @@
  * resend cooldown is keyed by email. The DB is the source of truth for the 30-day
  * authorization window (mirrors the lights desired-state model); UniFi is the
  * actuator and is healed in the background when its grant drifts from the DB.
- * Services THROW on error/unconfigured — never return a fabricated success.
+ * Services THROW on error/unconfigured, never return a fabricated success.
  */
 import { randomInt } from "node:crypto";
 import { getLogger } from "@repo/logger";
@@ -185,7 +185,7 @@ export interface PortalService {
   authorize(input: AuthorizeInput): Promise<{ authorized: true }>;
   status(input: StatusInput): Promise<PortalStatus>;
   /**
-   * Clear a device's wrong-code AND wrong-password counters — the server side of
+   * Clear a device's wrong-code AND wrong-password counters, the server side of
    * the UI "back" action (PRD flow rule 2: counters reset on success/back/resend).
    * Idempotent: clearing an absent counter is a no-op.
    */
@@ -195,7 +195,6 @@ export interface PortalService {
 export function createPortalService(deps: PortalServiceDeps): PortalService {
   const { repo, sender, unifi, wifiPassword } = deps;
   const now = deps.now ?? (() => new Date());
-  const log = getLogger();
 
   /** Throw RateLimited if the device is currently locked for this kind. */
   async function assertNotLocked(mac: string, kind: AttemptKind): Promise<PortalAttemptRow | null> {
@@ -242,7 +241,7 @@ export function createPortalService(deps: PortalServiceDeps): PortalService {
       await sender.sendCode(email, code);
       // The mac is the rate-limit unit; clear any prior code-attempt lock on a fresh send.
       await repo.clearAttempt(mac, "code");
-      log.info({ mac, guestId: guest.id }, "portal code sent");
+      getLogger().info({ mac, guestId: guest.id }, "portal code sent");
       return { cooldownSeconds: RESEND_COOLDOWN_MS / 1000 };
     },
 
@@ -270,7 +269,7 @@ export function createPortalService(deps: PortalServiceDeps): PortalService {
       await repo.clearAttempt(mac, "code");
       // guest is non-null here because `active` (derived from it) exists.
       const guestId = guest?.id ?? active.guestId;
-      log.info({ mac, guestId }, "portal code verified");
+      getLogger().info({ mac, guestId }, "portal code verified");
       return { verified: true, guestId };
     },
 
@@ -300,7 +299,7 @@ export function createPortalService(deps: PortalServiceDeps): PortalService {
       await repo.upsertAuthorization(mac, guestId, current, expiresAtUtc);
       // Actuate on the controller. authorize-guest is idempotent controller-side.
       await unifi.authorizeGuest(mac, AUTHORIZATION_MINUTES);
-      log.info({ mac, guestId, expiresAtUtc }, "portal device authorized");
+      getLogger().info({ mac, guestId, expiresAtUtc }, "portal device authorized");
       return { authorized: true };
     },
 
@@ -311,17 +310,20 @@ export function createPortalService(deps: PortalServiceDeps): PortalService {
 
       // Active in the DB. Reconcile the controller in the background: if it lost
       // the grant (reboot, flush) re-fire authorize-guest so an "Already online"
-      // guest actually has internet, not just a screen. Best-effort — a UniFi
+      // guest actually has internet, not just a screen. Best-effort, a UniFi
       // outage must not flip a healthy DB row to a worse UX, so we log and keep
       // reporting active (the DB is the source of truth).
       try {
         const controllerGrant = await unifi.findActiveAuthorization(mac);
         if (!controllerGrant) {
           await unifi.authorizeGuest(mac, AUTHORIZATION_MINUTES);
-          log.info({ mac }, "portal healed controller authorization");
+          getLogger().info({ mac }, "portal healed controller authorization");
         }
       } catch (err) {
-        log.warn({ err, mac }, "portal controller reconcile failed (DB row still authoritative)");
+        getLogger().warn(
+          { err, mac },
+          "portal controller reconcile failed (DB row still authoritative)",
+        );
       }
       return { state: "active" };
     },
