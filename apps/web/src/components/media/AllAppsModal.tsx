@@ -12,6 +12,20 @@ import { useState } from "react";
 import { Modal } from "@/components/ui";
 import { TvAppMark, tvAppsInOrder } from "./tv-app-logos";
 
+// ── Grid geometry (CC-cb57) ──────────────────────────────────────────────────
+// The grid lives in a pinned-height viewport (4 columns × 5.5 rows — the half
+// row signals scrollability) so filtering never resizes the modal. Underfull
+// results are padded with placeholder cells up to a full 6 rows, so the grid
+// stays visually full even with zero matches.
+
+const GRID_COLS = 4;
+const GRID_GAP = 10;
+// 12px padding + 48px logo + 6px gap + ~14px label + 12px padding.
+const CELL_H = 92;
+const VISIBLE_ROWS = 5.5;
+const VIEWPORT_H = VISIBLE_ROWS * CELL_H + Math.floor(VISIBLE_ROWS) * GRID_GAP;
+const MIN_CELLS = GRID_COLS * Math.ceil(VISIBLE_ROWS);
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface AllAppsModalProps {
@@ -56,83 +70,95 @@ export function AllAppsModal({ open, onClose, apps, currentApp, onLaunchApp }: A
           }}
         />
 
-        {/* Grid */}
+        {/* Grid — pinned-height scroll viewport so filtering never resizes
+            the modal; modal-scroll hides the scrollbar (kiosk style). */}
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 10,
-          }}
+          data-testid="apps-grid-viewport"
+          className="modal-scroll"
+          style={{ height: VIEWPORT_H, overflowY: "auto" }}
         >
-          {filtered.map((app) => {
-            const isActive = app === currentApp;
-            return (
-              <button
-                key={app}
-                type="button"
-                data-active-app={isActive ? "true" : undefined}
-                aria-label={`Launch ${app}`}
-                onClick={() => {
-                  onLaunchApp(app);
-                  onClose();
-                }}
-                style={{
-                  padding: "12px 8px",
-                  borderRadius: 12,
-                  border: isActive ? "2px solid var(--accent)" : "2px solid transparent",
-                  background: "var(--tile-2)",
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                {/* Full-color brand mark (or 2-letter monospace glyph fallback) */}
-                <div
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 12,
-                    background: "var(--tile-3)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    overflow: "hidden",
-                  }}
-                >
-                  <TvAppMark name={app} size={34} />
-                </div>
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: isActive ? "var(--accent)" : "var(--ink-2)",
-                    textAlign: "center",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    maxWidth: "100%",
-                  }}
-                >
-                  {app}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {filtered.length === 0 && (
           <div
             style={{
-              textAlign: "center",
-              color: "var(--ink-3)",
-              fontSize: 13,
-              padding: "20px 0",
+              display: "grid",
+              gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+              gridAutoRows: CELL_H,
+              gap: GRID_GAP,
             }}
           >
-            No apps match "{query}"
+            {filtered.map((app) => {
+              const isActive = app === currentApp;
+              return (
+                <button
+                  key={app}
+                  type="button"
+                  data-active-app={isActive ? "true" : undefined}
+                  aria-label={`Launch ${app}`}
+                  onClick={() => {
+                    onLaunchApp(app);
+                    onClose();
+                  }}
+                  style={{
+                    padding: "12px 8px",
+                    borderRadius: 12,
+                    border: isActive ? "2px solid var(--accent)" : "2px solid transparent",
+                    background: "var(--tile-2)",
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  {/* Full-color brand mark (or 2-letter monospace glyph fallback) */}
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 12,
+                      background: "var(--tile-3)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <TvAppMark name={app} size={34} />
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: isActive ? "var(--accent)" : "var(--ink-2)",
+                      textAlign: "center",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      maxWidth: "100%",
+                    }}
+                  >
+                    {app}
+                  </span>
+                </button>
+              );
+            })}
+
+            {/* Placeholder cells keep the grid visually full when results
+                underfill the viewport (including zero matches). */}
+            {Array.from({ length: Math.max(0, MIN_CELLS - filtered.length) }, (_, i) => (
+              <div
+                // Cells are interchangeable blanks; position is identity.
+                // biome-ignore lint/suspicious/noArrayIndexKey: static decorative fillers
+                key={i}
+                data-testid="app-placeholder"
+                aria-hidden="true"
+                style={{
+                  borderRadius: 12,
+                  background: "var(--tile-2)",
+                  opacity: 0.35,
+                }}
+              />
+            ))}
           </div>
-        )}
+        </div>
       </div>
     </Modal>
   );
