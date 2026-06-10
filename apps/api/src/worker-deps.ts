@@ -15,4 +15,5 @@ export { runClimateEnforcerCycle } from "./services/climate-enforcer-service";
 export { runDeviceSyncCycle } from "./services/device-sync-service";
 export { runEnforcerCycle } from "./services/light-enforcer-service";
 export { reconcilePartyMode } from "./services/party-service";
+export { runSonosVolumeEnforcerCycle } from "./services/sonos-volume-enforcer-service";
 export { runWeatherIngestCycle } from "./services/weather-ingest-service";

@@ -1,6 +1,7 @@
 import type {
   DeviceClimateState,
   DeviceLightState,
+  DeviceSpeakerState,
   DeviceStateValue,
   LightColor,
 } from "../db/schema";
@@ -10,6 +11,8 @@ export const DeviceKind = {
   Light: "light",
   Switch: "switch",
   Climate: "climate",
+  // Sonos players (www-5mek) — owned by the sonos-volume-enforcer, never HA-mapped.
+  Speaker: "speaker",
 } as const;
 export type DeviceKind = (typeof DeviceKind)[keyof typeof DeviceKind];
 
@@ -28,6 +31,16 @@ export function isClimateState(v: DeviceStateValue | null | undefined): v is Dev
     v != null &&
     typeof (v as DeviceClimateState).mode === "string" &&
     typeof (v as DeviceLightState).on !== "boolean"
+  );
+}
+
+/** Narrow a DeviceStateValue to a speaker state (has numeric `volume`, never `on`/`mode`). */
+export function isSpeakerState(v: DeviceStateValue | null | undefined): v is DeviceSpeakerState {
+  return (
+    v != null &&
+    typeof (v as DeviceSpeakerState).volume === "number" &&
+    typeof (v as DeviceLightState).on !== "boolean" &&
+    typeof (v as DeviceClimateState).mode !== "string"
   );
 }
 

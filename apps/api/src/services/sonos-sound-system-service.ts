@@ -20,17 +20,22 @@
  *    transport state belongs to the group and is read from the coordinator.
  */
 
+import { eq } from "drizzle-orm";
+import { db } from "../db/index";
+import { deviceState } from "../db/schema";
 import type { ZoneGroup } from "../integrations/sonos";
 import { SonosClient } from "../integrations/sonos";
+import { DeviceKind, isSpeakerState } from "./device-state-mapping";
 
 // Static LAN IP of the topology anchor device (Living Room, verified in INTEGRATION-NOTES.md).
 // Any reachable player works for GetZoneGroupState; we use a fixed anchor so the service has
-// no discovery dependency.
-const TOPOLOGY_ANCHOR_IP = "192.168.0.193";
+// no discovery dependency. Shared with the sonos-volume-enforcer (www-5mek).
+export const TOPOLOGY_ANCHOR_IP = "192.168.0.193";
 
 // UUID of the bonded Desk RF satellite. It is a hidden half of the Desk bonded pair and must
 // never appear as its own room — it is dropped wherever it shows up (member or coordinator).
-const DESK_RF_BONDED_UUID = "RINCON_804AF288FDBA01400";
+// Shared with the sonos-volume-enforcer so the satellite never gets a speaker row.
+export const DESK_RF_BONDED_UUID = "RINCON_804AF288FDBA01400";
 
 // Stable display order for the rooms, so faders never reshuffle between polls. Rooms not in this
 // list (e.g. a new speaker) sort after the known ones, alphabetically.
@@ -121,5 +126,36 @@ export async function getSoundSystem(): Promise<SoundSystemResult> {
 
   const rooms = await Promise.all(tasks);
   rooms.sort((a, b) => roomRank(a.name) - roomRank(b.name) || a.name.localeCompare(b.name));
+
+  // Desired-authoritative volume (www-5mek): device_state.desiredState is the
+  // source of truth, so the fader never snaps back to a pre-enforcer live read
+  // on the 10s poll — same model as lights (mergeDeviceState).
+  const desiredVolumeByIp = await readDesiredVolumes();
+  for (const room of rooms) {
+    const desired = desiredVolumeByIp.get(room.deviceIp);
+    if (desired != null) room.volume = desired;
+  }
+
   return { rooms };
+}
+
+/**
+ * Desired volume per device IP from the speaker rows. A DB outage degrades to
+ * the live UPnP reads (real data, just eventually-consistent) rather than
+ * failing the whole media tile.
+ */
+async function readDesiredVolumes(): Promise<Map<string, number>> {
+  const byIp = new Map<string, number>();
+  try {
+    const rows = await db
+      .select()
+      .from(deviceState)
+      .where(eq(deviceState.kind, DeviceKind.Speaker));
+    for (const row of rows) {
+      if (isSpeakerState(row.desiredState)) byIp.set(row.entityId, row.desiredState.volume);
+    }
+  } catch {
+    // DB unreachable — fall back to the live reads already in `rooms`.
+  }
+  return byIp;
 }
