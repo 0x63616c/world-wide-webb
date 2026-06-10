@@ -71,3 +71,10 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          # CF Access kiosk service token (www-cuuw) baked into the build's Info.plist
+          # via Fastfile xcargs. Repo secrets sourced from the "CF Access Kiosk
+          # Token" 1Password item (created by scripts/save-cf-access-tokens.sh).
+          # Absent until then -> build settings resolve empty -> no headers sent
+          # (kiosk behaves exactly as today on an open dashboard).
+          CF_ACCESS_KIOSK_CLIENT_ID: ${{ secrets.CF_ACCESS_KIOSK_CLIENT_ID }}
+          CF_ACCESS_KIOSK_CLIENT_SECRET: ${{ secrets.CF_ACCESS_KIOSK_CLIENT_SECRET }}

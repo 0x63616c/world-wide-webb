@@ -58,6 +58,17 @@ platform :ios do
       xcodeproj: "App/App.xcodeproj"
     )
 
+    # Inject the CF Access service-token client id/secret as build settings so the
+    # Info.plist $(CF_ACCESS_CLIENT_*) substitutions bake them into the bundle
+    # (www-cuuw). Sourced from repo secrets via env in ios-build.yml; absent in a
+    # local/open build, in which case the settings resolve empty and the kiosk
+    # sends no Access headers (identical to today). Quoted to survive secret
+    # characters; never echoed.
+    access_xcargs = [
+      "CF_ACCESS_CLIENT_ID='#{ENV['CF_ACCESS_KIOSK_CLIENT_ID']}'",
+      "CF_ACCESS_CLIENT_SECRET='#{ENV['CF_ACCESS_KIOSK_CLIENT_SECRET']}'"
+    ].join(" ")
+
     build_app(
       workspace: nil,
       project: "App/App.xcodeproj",
@@ -67,7 +78,8 @@ platform :ios do
       output_directory: "./build",
       output_name: "TheWorkflowEngine.ipa",
       clean: true,
-      codesigning_identity: "Apple Distribution"
+      codesigning_identity: "Apple Distribution",
+      xcargs: access_xcargs
     )
 
     upload_to_testflight(
