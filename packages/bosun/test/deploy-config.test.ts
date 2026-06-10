@@ -56,7 +56,7 @@ describe("deploy.config.ts worker service (www-7d5b.1.3)", () => {
     expect(worker.command).toBeUndefined();
   });
 
-  it("serves no traffic — no route, no port, no health probes", () => {
+  it("serves no traffic, no route, no port, no health probes", () => {
     // It only reaches out to HA + Postgres over the overlay network; nothing
     // connects to it, so a route/port/probe would be meaningless.
     expect(worker.route).toBeUndefined();
@@ -70,7 +70,7 @@ describe("deploy.config.ts worker service (www-7d5b.1.3)", () => {
     // the worker must run in the same TZ as the api did.
     expect(worker.env.TZ).toBe("America/Los_Angeles");
     expect(worker.env.NODE_ENV).toBe("production");
-    // Secrets/env stay in lockstep with the api so the two never drift — EXCEPT
+    // Secrets/env stay in lockstep with the api so the two never drift, EXCEPT
     // for secrets only the api needs. The captive-portal email sender (RESEND_*,
     // www-q002.11) runs in the request-handling api only; the worker never sends
     // portal email, so those are intentionally api-only and excluded here.
@@ -94,7 +94,7 @@ describe("deploy.config.ts captive-portal service (www-q002.14)", () => {
 
   it("is LAN-only: publishes host 443 and declares NO tunnel route", () => {
     // publishPort binds the Mini's LAN IP (mode: host); the absence of `route`
-    // means bosun never creates a Cloudflare tunnel ingress/DNS for it — the
+    // means bosun never creates a Cloudflare tunnel ingress/DNS for it, the
     // service is reachable ONLY on the local network (www-q002.12).
     expect(portal.publishPort).toEqual({ host: 443, container: 443 });
     expect(portal.route).toBeUndefined();
@@ -140,7 +140,7 @@ describe("deploy.config.ts captive-portal cert job (www-q002.13/.14)", () => {
 
   it("writes into the shared cert volume read-write (the portal reads it ro)", () => {
     expect(cert.volumes?.some((v) => v.startsWith("portal-certs:"))).toBe(true);
-    // Must NOT be the read-only mount — the job is the writer.
+    // Must NOT be the read-only mount, the job is the writer.
     expect(cert.volumes).not.toContain("portal-certs:/certs:ro");
   });
 
@@ -151,6 +151,29 @@ describe("deploy.config.ts captive-portal cert job (www-q002.13/.14)", () => {
   it("issues for the portal host via Cloudflare DNS-01", () => {
     expect(cert.command).toContain("captive-portal.worldwidewebb.co");
     expect(cert.command).toContain("dns_cf");
+  });
+});
+
+describe("deploy.config.ts captive-portal data-purge job (www-q002.18)", () => {
+  const purge = svc("portal-data-purge");
+
+  it("is a cronJob run daily at 02:00 (not a worker loop, not a long-lived service)", () => {
+    expect(purge.schedule?.cron).toBe("0 2 * * *");
+  });
+
+  it("runs the api image's purge entrypoint via command override", () => {
+    expect(purge.command).toBe("bun purge.js");
+  });
+
+  it("resolves ONLY the Postgres password via op (env.ts builds DATABASE_URL from it)", () => {
+    const names = purge.secrets.map((r) => r.name);
+    expect(names).toEqual(["POSTGRES_PASSWORD"]);
+    const ref = purge.secrets.find((r) => r.name === "POSTGRES_PASSWORD");
+    expect(ref?.ref).toBe("op://Homelab/Control Center Postgres/password");
+  });
+
+  it("runs in Pacific time (matches the api/worker)", () => {
+    expect(purge.env.TZ).toBe("America/Los_Angeles");
   });
 });
 
@@ -180,7 +203,7 @@ describe("deploy.config.ts bosun-agent Cloudflare creds (www-vqyv)", () => {
 describe("deploy.config.ts postgres (www-355t.4)", () => {
   const pg = svc("postgres");
 
-  it("mounts only the data volume — no unsupported config/init mounts", () => {
+  it("mounts only the data volume, no unsupported config/init mounts", () => {
     // The removed config/init options were never rendered or mounted; assert the
     // postgres service mounts exactly its data volume so a re-added bogus mount
     // (referencing the nonexistent infra/ tree) is caught.
