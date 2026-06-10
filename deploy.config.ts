@@ -45,6 +45,10 @@ export default stack("control-center", {
         SPOTIFY_CLIENT_ID: "Spotify/client_id",
         SPOTIFY_CLIENT_SECRET: "Spotify/client_secret",
         SPOTIFY_REFRESH_TOKEN: "Spotify/refresh_token",
+        // Resend email API for the captive-portal verification code (www-q002.11).
+        // Only the api sends portal email; the worker does not get these.
+        RESEND_API_KEY: "Resend/credential",
+        RESEND_FROM: "Resend/from-address",
       }),
       env: {
         NODE_ENV: "production",

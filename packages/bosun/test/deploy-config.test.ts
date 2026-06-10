@@ -70,9 +70,17 @@ describe("deploy.config.ts worker service (www-7d5b.1.3)", () => {
     // the worker must run in the same TZ as the api did.
     expect(worker.env.TZ).toBe("America/Los_Angeles");
     expect(worker.env.NODE_ENV).toBe("production");
-    // Secrets/env stay in lockstep with the api so the two never drift.
-    const names = (s: ServiceSpec) => s.secrets.map((x) => x.name).sort();
-    expect(names(worker)).toEqual(names(api));
+    // Secrets/env stay in lockstep with the api so the two never drift — EXCEPT
+    // for secrets only the api needs. The captive-portal email sender (RESEND_*,
+    // www-q002.11) runs in the request-handling api only; the worker never sends
+    // portal email, so those are intentionally api-only and excluded here.
+    const API_ONLY_SECRETS = new Set(["RESEND_API_KEY", "RESEND_FROM"]);
+    const names = (s: ServiceSpec, exclude: Set<string> = new Set()) =>
+      s.secrets
+        .map((x) => x.name)
+        .filter((n) => !exclude.has(n))
+        .sort();
+    expect(names(worker)).toEqual(names(api, API_ONLY_SECRETS));
     expect(Object.keys(worker.env).sort()).toEqual(Object.keys(api.env).sort());
   });
 });
