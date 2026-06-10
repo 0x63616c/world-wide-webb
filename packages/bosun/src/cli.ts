@@ -407,11 +407,20 @@ async function cmdServe(): Promise<void> {
   // schedule as a one-shot Swarm job — replacing the old third-party scheduler pod.
   const { startScheduler } = await import("./scheduler.ts");
   const schedulerLog = log.child({ step: "scheduler" });
+  // A cron job may declare op secrets (the cert job's Cloudflare token for
+  // DNS-01); the scheduler resolves them at dispatch via the agent's OpProvider.
+  // Reuse one serialized provider so concurrent reads can't race op's daemon
+  // init (same reason cmdUp uses a single OpProvider).
+  const { makeDefaultExec: makeSchedulerExec, OpProvider: SchedulerOpProvider } = await import(
+    "./providers/op.ts"
+  );
+  const schedulerProvider = new SchedulerOpProvider(await makeSchedulerExec(), schedulerLog);
   const stopScheduler = startScheduler(
     spec.services,
     spec.stackName,
     makeDefaultRunner(),
     schedulerLog,
+    (ref) => schedulerProvider.resolve(ref),
   );
 
   const cronJobs = spec.services.filter((svc) => svc.schedule).map((svc) => svc.name);
@@ -475,7 +484,20 @@ async function cmdRunJob(args: string[]): Promise<void> {
   // Throws a clear error (unknown name / not a cron job) before touching docker.
   const job = selectCronJob(spec.services, name);
   const svc = jobServiceName(spec.stackName, name);
-  const cmd = buildJobCommand(job, spec.stackName);
+
+  // Resolve the job's op secrets (if any) the SAME way the scheduler does, so a
+  // manual run-job is byte-identical to a scheduled run (CC-q002.13). The ref
+  // path is logged on failure, never the value.
+  let resolvedSecrets: Record<string, string> | undefined;
+  if (job.secrets.length > 0) {
+    const { makeDefaultExec, OpProvider } = await import("./providers/op.ts");
+    const provider = new OpProvider(await makeDefaultExec(), log.child({ step: "run-job" }));
+    resolvedSecrets = {};
+    for (const sec of job.secrets) {
+      resolvedSecrets[sec.name] = await provider.resolve(sec.ref);
+    }
+  }
+  const cmd = buildJobCommand(job, spec.stackName, undefined, resolvedSecrets);
 
   log.info({ step: "run-job", name, svc }, "firing cron job as Swarm job");
   const { exitCode } = await makeDefaultRunner()(cmd);

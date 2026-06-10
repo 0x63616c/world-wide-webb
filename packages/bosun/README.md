@@ -174,6 +174,43 @@ one. The resulting `<stack>-cron-<job>` replicated-job is visible in Portainer
 and `docker service ps`. Point it at a remote swarm with a docker context, e.g.
 `DOCKER_HOST=ssh://homelab bun run bosun run-job docker-image-prune`.
 
+### Op-resolved secrets for a job (CC-q002.13)
+
+A cron job that needs a secret at run time (the captive-portal cert job needs the
+Cloudflare API token for ACME DNS-01) declares it with `secrets`, exactly like a
+service — `fromOp()` refs, resolved values never in the spec:
+
+```ts
+cronJob("portal-cert-renew", {
+  image: "neilpang/acme.sh",
+  schedule: "0 4 * * *",
+  command: "--issue --dns dns_cf -d captive-portal.worldwidewebb.co …",
+  secrets: fromOp("Homelab", { CF_Token: "Cloudflare API/credential" }),
+  volumes: ["portal-certs:/certs"],
+  placement: ["node.role==manager"],
+}),
+```
+
+At dispatch the scheduler resolves each ref through the agent's `OpProvider` (the
+same serialized provider `bosun up` uses, so concurrent reads can't race op's
+daemon init) and appends the values as `--env KEY=VALUE` on the `docker service
+create` for that one run. `buildJobCommand` stays **pure** — it takes
+already-resolved values; resolution lives in `runDueJobs` / `run-job`. A
+secret-bearing job with **no** resolver is **skipped** (never fired without its
+secrets); a resolve failure logs the ref path and skips the slot (the next tick
+retries). The resolved **value is never logged** — only the `op://` ref path and
+the job name ever appear in logs (a unit test asserts a resolved value reaches the
+job command but no log line).
+
+> **Tradeoff (accepted).** Because the value is injected as a job `--env`, it is
+> readable via `docker service inspect <stack>-cron-<job>` on the box for the life
+> of that one-shot job service. On this single-user homelab that is acceptable: the
+> value never lands in the repo, the rendered stack, or the logs, and the job
+> service is short-lived. This is a deliberate choice, not an oversight — a job
+> that must keep its secret off `docker inspect` would need a docker-secret mount
+> instead, which the one-shot `docker service create --mode replicated-job` path
+> does not wire today.
+
 ### Documented default decisions
 
 - **Cron format.** Specs take **standard 5-field cron** (`min hour dom mon dow`),

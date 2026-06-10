@@ -265,6 +265,31 @@ describe("buildJobCommand — swarm one-shot (replicated-job) invocation", () =>
     expect(cmd.indexOf("docker:cli")).toBeLessThan(cmd.indexOf("image prune"));
     expect(cmd).toContain('docker image prune -a -f --filter "until=720h"');
   });
+
+  // CC-q002.13: a cron job may need op-resolved secrets (the cert job needs the
+  // Cloudflare API token). The bosun agent resolves the refs and passes the values
+  // in as resolvedSecrets; buildJobCommand appends them as --env at create time.
+  // buildJobCommand stays PURE — it takes already-resolved values, never resolves.
+  describe("resolved secrets (CC-q002.13)", () => {
+    it("appends each resolved secret as --env after the static env", () => {
+      const j = cronService("cert", "0 4 * * *", "acme.sh --issue", { env: { FOO: "bar" } });
+      const cmd = buildJobCommand(j, STACK, undefined, { CF_Token: "tok-abc", ANOTHER: "v2" });
+      expect(cmd).toContain("--env FOO=bar");
+      expect(cmd).toContain("--env CF_Token=tok-abc");
+      expect(cmd).toContain("--env ANOTHER=v2");
+    });
+
+    it("sorts resolved secret env keys for deterministic output", () => {
+      const j = cronService("cert", "0 4 * * *", "x");
+      const cmd = buildJobCommand(j, STACK, undefined, { ZED: "z", ABLE: "a" });
+      expect(cmd.indexOf("--env ABLE=a")).toBeLessThan(cmd.indexOf("--env ZED=z"));
+    });
+
+    it("emits no secret env when no resolved secrets are passed (run-job / no-secret job)", () => {
+      const j = cronService("cert", "0 4 * * *", "x");
+      expect(buildJobCommand(j, STACK)).not.toContain("CF_Token");
+    });
+  });
 });
 
 describe("dueCronJobs — selecting jobs whose schedule matches a moment", () => {
@@ -360,5 +385,62 @@ describe("runDueJobs — guards derived from swarm (restart-safe)", () => {
     });
     await runDueJobs(jobs, at(2026, 6, 4, 3, 0), runner, failing, STACK);
     expect(runner).not.toHaveBeenCalled();
+  });
+});
+
+// CC-q002.13: a cron job declaring op-resolved secrets has them resolved by the
+// injected resolver right before dispatch and injected as --env on the swarm job.
+// The resolved VALUE must never reach the logs (only the ref path / job name may).
+describe("runDueJobs — op-resolved secrets injection (CC-q002.13)", () => {
+  const at0 = at(2026, 6, 4, 3, 0);
+  const inspector = vi.fn(async (_svc: string) => ({ slot: null, inFlight: false }));
+  const certJob = (): ServiceSpec =>
+    cronService("cert", "0 * * * *", "acme.sh --issue", {
+      secrets: [{ name: "CF_Token", ref: "op://Homelab/Cloudflare API/credential" }],
+    });
+
+  it("resolves the job's secret refs and injects them as --env on the dispatched job", async () => {
+    const runner = vi.fn(async (_cmd: string) => ({ exitCode: 0 }));
+    const resolve = vi.fn(async (_ref: string) => "SECRET-VALUE-XYZ");
+    await runDueJobs([certJob()], at0, runner, inspector, STACK, undefined, resolve);
+    expect(resolve).toHaveBeenCalledWith("op://Homelab/Cloudflare API/credential");
+    expect(runner).toHaveBeenCalledOnce();
+    expect(runner.mock.calls[0][0]).toContain("--env CF_Token=SECRET-VALUE-XYZ");
+  });
+
+  it("never writes the resolved secret value to any log line", async () => {
+    const logged: string[] = [];
+    // Capture every structured log field value as a string so we can assert the
+    // secret value appears in NONE of them.
+    const capturing = {
+      debug: (o: unknown, m?: string) => logged.push(JSON.stringify(o), m ?? ""),
+      info: (o: unknown, m?: string) => logged.push(JSON.stringify(o), m ?? ""),
+      warn: (o: unknown, m?: string) => logged.push(JSON.stringify(o), m ?? ""),
+      error: (o: unknown, m?: string) => logged.push(JSON.stringify(o), m ?? ""),
+      child() {
+        return this;
+      },
+    } as unknown as import("@repo/logger").Logger;
+    const runner = vi.fn(async (_cmd: string) => ({ exitCode: 0 }));
+    const resolve = vi.fn(async (_ref: string) => "SECRET-VALUE-XYZ");
+    await runDueJobs([certJob()], at0, runner, inspector, STACK, capturing, resolve);
+    expect(runner).toHaveBeenCalledOnce();
+    // The value reached the command (so it WAS used)...
+    expect(runner.mock.calls[0][0]).toContain("SECRET-VALUE-XYZ");
+    // ...but never any log line.
+    expect(logged.join("\n")).not.toContain("SECRET-VALUE-XYZ");
+  });
+
+  it("skips a job that declares secrets when no resolver is supplied (never fires without its secrets)", async () => {
+    const runner = vi.fn(async (_cmd: string) => ({ exitCode: 0 }));
+    // No resolver passed — a secret-bearing job must NOT fire blind.
+    await runDueJobs([certJob()], at0, runner, inspector, STACK);
+    expect(runner).not.toHaveBeenCalled();
+  });
+
+  it("still fires a no-secret job when no resolver is supplied (back-compat)", async () => {
+    const runner = vi.fn(async (_cmd: string) => ({ exitCode: 0 }));
+    await runDueJobs([cronService("plain", "0 * * * *", "echo hi")], at0, runner, inspector, STACK);
+    expect(runner).toHaveBeenCalledOnce();
   });
 });
