@@ -142,6 +142,9 @@ interface AuthorizeInput {
 interface StatusInput {
   mac: string;
 }
+interface ResetAttemptsInput {
+  mac: string;
+}
 
 type PortalStatusState = "fresh" | "active" | "expired";
 interface PortalStatus {
@@ -181,6 +184,12 @@ export interface PortalService {
   checkPassword(input: CheckPasswordInput): Promise<{ ok: true }>;
   authorize(input: AuthorizeInput): Promise<{ authorized: true }>;
   status(input: StatusInput): Promise<PortalStatus>;
+  /**
+   * Clear a device's wrong-code AND wrong-password counters — the server side of
+   * the UI "back" action (PRD flow rule 2: counters reset on success/back/resend).
+   * Idempotent: clearing an absent counter is a no-op.
+   */
+  resetAttempts(input: ResetAttemptsInput): Promise<{ reset: true }>;
 }
 
 export function createPortalService(deps: PortalServiceDeps): PortalService {
@@ -315,6 +324,14 @@ export function createPortalService(deps: PortalServiceDeps): PortalService {
         log.warn({ err, mac }, "portal controller reconcile failed (DB row still authoritative)");
       }
       return { state: "active" };
+    },
+
+    async resetAttempts({ mac }) {
+      // The UI "back" action resets the rate-limit counters for this device, so a
+      // guest who backed out of the code or password step starts that step fresh.
+      await repo.clearAttempt(mac, "code");
+      await repo.clearAttempt(mac, "password");
+      return { reset: true };
     },
   };
 }

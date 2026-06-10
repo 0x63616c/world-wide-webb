@@ -293,6 +293,81 @@ describe("PortalError", () => {
   });
 });
 
+// ── Validator-required explicit coverage (www-q002.9) ──────────────────────────
+// The schema layer can't enforce these, so they're proven here at the service.
+
+describe("one-active-code-per-guest (www-q002.9)", () => {
+  it("after two sendCodes exactly one usable code remains for the guest", async () => {
+    const { svc, db, sender, clock } = setup();
+    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
+    const guestId = db.firstGuestId();
+    const first = sender.lastCode(EMAIL) ?? "";
+    clock.advance(30_000); // clear the resend cooldown
+    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
+    const second = sender.lastCode(EMAIL) ?? "";
+
+    // Exactly one unconsumed (usable) code row exists.
+    expect(db.unconsumedCodeCount(guestId)).toBe(1);
+    // And it is the second one: the first no longer verifies, the second does.
+    expect(first).not.toBe(second);
+    await expect(svc.verifyCode({ mac: MAC, email: EMAIL, code: first })).rejects.toMatchObject({
+      code: PortalErrorCode.WrongCode,
+    });
+    await expect(svc.verifyCode({ mac: MAC, email: EMAIL, code: second })).resolves.toMatchObject({
+      verified: true,
+    });
+  });
+});
+
+describe("attempt-reset semantics (www-q002.9)", () => {
+  it("resets the wrong-code counter on SUCCESS", async () => {
+    const { svc, db, sender } = setup();
+    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
+    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
+    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
+    expect(db.attemptWrongCount(MAC, "code")).toBe(2);
+    const code = sender.lastCode(EMAIL) ?? "";
+    await svc.verifyCode({ mac: MAC, email: EMAIL, code });
+    expect(db.attemptWrongCount(MAC, "code")).toBe(0);
+  });
+
+  it("resets the wrong-password counter on SUCCESS", async () => {
+    const { svc, db } = setup({ wifiPassword: "hunter2" });
+    await svc.checkPassword({ mac: MAC, password: "x" }).catch(() => {});
+    expect(db.attemptWrongCount(MAC, "password")).toBe(1);
+    await svc.checkPassword({ mac: MAC, password: "hunter2" });
+    expect(db.attemptWrongCount(MAC, "password")).toBe(0);
+  });
+
+  it("resets the wrong-code counter on RESEND (a new sendCode clears the code lock)", async () => {
+    const { svc, db, clock } = setup();
+    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
+    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
+    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
+    expect(db.attemptWrongCount(MAC, "code")).toBe(2);
+    clock.advance(30_000); // past the resend cooldown
+    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
+    expect(db.attemptWrongCount(MAC, "code")).toBe(0);
+  });
+
+  it("resets BOTH counters on BACK (resetAttempts)", async () => {
+    const { svc, db } = setup({ wifiPassword: "hunter2" });
+    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
+    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
+    await svc.checkPassword({ mac: MAC, password: "x" }).catch(() => {});
+    expect(db.attemptWrongCount(MAC, "code")).toBe(1);
+    expect(db.attemptWrongCount(MAC, "password")).toBe(1);
+    await expect(svc.resetAttempts({ mac: MAC })).resolves.toEqual({ reset: true });
+    expect(db.attemptWrongCount(MAC, "code")).toBe(0);
+    expect(db.attemptWrongCount(MAC, "password")).toBe(0);
+  });
+
+  it("resetAttempts is idempotent (no prior counter is a no-op)", async () => {
+    const { svc } = setup();
+    await expect(svc.resetAttempts({ mac: MAC })).resolves.toEqual({ reset: true });
+  });
+});
+
 // Sanity: the suite touches no real network and no real DB module.
 it("does not import the real db/index pool", () => {
   expect(vi.isMockFunction(globalThis.fetch)).toBe(false);
