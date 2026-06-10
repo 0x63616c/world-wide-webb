@@ -69,6 +69,14 @@ export interface ServiceSpec {
   route?: string;
   // Optional: port this service listens on (default 80).
   port?: number;
+  // Optional: publish a host port for a LAN-only service. Unlike `route` (which
+  // creates a Cloudflare tunnel ingress), this binds a port directly on the swarm
+  // node — on a single-node, manager-pinned stack that is the Mini's LAN IP, so
+  // the service is reachable on the local network with no public exposure. The
+  // renderer emits a long-form `mode: host` published port (binds the node, not
+  // the routing-mesh ingress VIP). A publishPort service declares NO route, so no
+  // tunnel ingress/DNS is ever created for it (CC-q002.12).
+  publishPort?: { host: number; container: number };
   // Optional: proxy /api requests to this target (for the web service).
   proxyApiTo?: string;
   // Optional shell command override for the container.
@@ -124,6 +132,7 @@ export function service(
     env: opts.env ?? {},
     route: opts.route,
     port: opts.port,
+    publishPort: opts.publishPort,
     proxyApiTo: opts.proxyApiTo,
     command: opts.command,
     volumes: opts.volumes,

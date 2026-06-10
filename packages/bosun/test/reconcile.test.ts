@@ -925,6 +925,83 @@ describe("renderStackYml", () => {
     expect(yml).toContain("    name: control-center_pgdata");
   });
 
+  // CC-q002.12: a LAN-only service publishes a host port (bound on the Mini's LAN
+  // IP) instead of riding the Cloudflare tunnel. The renderer emits a long-form
+  // `ports:` entry with `mode: host` so the port binds the node directly (not the
+  // routing-mesh ingress VIP) — correct for a single-node, manager-pinned panel.
+  // publishPort is orthogonal to `route`: a publishPort service declares no route,
+  // so no tunnel ingress is ever created for it (that path is driven only by
+  // `svc.route` in cli.ts).
+  describe("publishPort host-published ports (CC-q002.12)", () => {
+    const portSpec: Spec = {
+      stackName: "control-center",
+      services: [
+        {
+          name: "captive-portal",
+          image: "ghcr.io/0x63616c/control-center-captive-portal:main",
+          secrets: [],
+          env: {},
+          publishPort: { host: 443, container: 443 },
+          health: [],
+        },
+        {
+          // No publishPort — must render no ports block.
+          name: "api",
+          image: "ghcr.io/0x63616c/control-center-api:main",
+          secrets: [],
+          env: {},
+          port: 4201,
+          health: [],
+        },
+      ],
+    };
+
+    it("renders a long-form host-mode published port for a publishPort service", () => {
+      const yml = renderStackYml(portSpec, {});
+      expect(yml).toContain("    ports:");
+      expect(yml).toContain("      - target: 443");
+      expect(yml).toContain("        published: 443");
+      expect(yml).toContain("        mode: host");
+    });
+
+    it("omits the ports block for a service without publishPort", () => {
+      const yml = renderStackYml(portSpec, {});
+      // Only the captive-portal service has a ports block.
+      expect((yml.match(/ {4}ports:/g) ?? []).length).toBe(1);
+    });
+
+    it("creates no tunnel route/ingress artifacts for a route-less publishPort service", () => {
+      const yml = renderStackYml(portSpec, {});
+      // The rendered stack YAML never carries CF ingress; routes are a separate
+      // reconcile path keyed solely off svc.route. Assert the host stays absent.
+      expect(yml).not.toContain("captive-portal.worldwidewebb.co");
+      expect(yml).not.toContain("cfargotunnel");
+    });
+
+    it("maps distinct host and container ports", () => {
+      const distinct: Spec = {
+        stackName: "control-center",
+        services: [
+          {
+            name: "svc",
+            image: "img:tag",
+            secrets: [],
+            env: {},
+            publishPort: { host: 8443, container: 443 },
+            health: [],
+          },
+        ],
+      };
+      const yml = renderStackYml(distinct, {});
+      expect(yml).toContain("      - target: 443");
+      expect(yml).toContain("        published: 8443");
+    });
+
+    it("is deterministic for a publishPort service", () => {
+      expect(renderStackYml(portSpec, {})).toBe(renderStackYml(portSpec, {}));
+    });
+  });
+
   // CC-5ag.12: web/api/postgres must carry a Docker HEALTHCHECK so swarm tracks
   // container health (State.Health.Status) — distinct from bosun's external verify
   // probes (`health`), which run from the deploy host, not inside the container.

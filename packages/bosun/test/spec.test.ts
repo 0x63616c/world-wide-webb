@@ -52,6 +52,25 @@ describe("service builder", () => {
     });
     expect(svc.env).toMatchObject({ HA_URL: "http://host.docker.internal:8123" });
   });
+
+  // CC-q002.12: a LAN-only service (the captive portal) binds a host port on the
+  // Mini's LAN IP instead of riding the Cloudflare tunnel. publishPort carries the
+  // explicit host->container mapping; it is independent of `route` (a publishPort
+  // service has no route, so no tunnel ingress is ever created for it).
+  it("stores an explicit publishPort host->container mapping", () => {
+    const svc = service("captive-portal", {
+      image: ghcr("control-center-captive-portal"),
+      publishPort: { host: 443, container: 443 },
+    });
+    expect(svc.publishPort).toEqual({ host: 443, container: 443 });
+    // A publishPort service is LAN-only: it must NOT declare a tunnel route.
+    expect(svc.route).toBeUndefined();
+  });
+
+  it("leaves publishPort undefined when not declared", () => {
+    const svc = service("api", { image: ghcr("control-center-api") });
+    expect(svc.publishPort).toBeUndefined();
+  });
 });
 
 describe("ghcr helper", () => {
