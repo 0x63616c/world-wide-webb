@@ -100,3 +100,45 @@ describe("AllAppsModal — open (A27)", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("AllAppsModal — fixed grid viewport (www-cb57)", () => {
+  // 6 rows of 4 fully covers the 5.5-row visible viewport.
+  const MIN_CELLS = 24;
+
+  function cellCount(container: HTMLElement): number {
+    const apps = container.querySelectorAll("button[aria-label^='Launch ']").length;
+    const placeholders = container.querySelectorAll("[data-testid='app-placeholder']").length;
+    return apps + placeholders;
+  }
+
+  it("keeps the cell count constant when search filters the grid", () => {
+    const { container } = render(<AllAppsModal {...baseProps} />);
+    expect(cellCount(container)).toBe(MIN_CELLS);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "net" } });
+    expect(cellCount(container)).toBe(MIN_CELLS);
+  });
+
+  it("fills the grid with placeholder tiles when nothing matches", () => {
+    const { container } = render(<AllAppsModal {...baseProps} />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "zzz no match" } });
+    expect(container.querySelectorAll("[data-testid='app-placeholder']")).toHaveLength(MIN_CELLS);
+    expect(screen.queryByText(/no apps match/i)).not.toBeInTheDocument();
+  });
+
+  it("scrolls inside a fixed-height viewport instead of resizing the modal", () => {
+    const { container } = render(<AllAppsModal {...baseProps} />);
+    const viewport = container.querySelector("[data-testid='apps-grid-viewport']");
+    expect(viewport).not.toBeNull();
+    const style = (viewport as HTMLElement).style;
+    // A pinned px height (not max-height) is what keeps the modal size
+    // invariant under filtering; overflow makes long lists scroll within it.
+    expect(style.height).toMatch(/^\d+(\.\d+)?px$/);
+    expect(style.overflowY).toBe("auto");
+  });
+
+  it("does not pad with placeholders beyond a full viewport of real apps", () => {
+    const manyApps = Array.from({ length: 30 }, (_, i) => `App ${i + 1}`);
+    const { container } = render(<AllAppsModal {...baseProps} apps={manyApps} />);
+    expect(container.querySelectorAll("[data-testid='app-placeholder']")).toHaveLength(0);
+  });
+});
