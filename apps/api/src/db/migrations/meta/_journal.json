@@ -43,6 +43,13 @@
       "when": 1780888445129,
       "tag": "0006_overrated_white_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781080313542,
+      "tag": "0007_equal_sharon_ventura",
+      "breakpoints": true
     }
   ]
 }
