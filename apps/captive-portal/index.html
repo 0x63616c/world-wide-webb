@@ -7,6 +7,23 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <meta name="theme-color" content="#000000" />
+    <!-- Preload the self-hosted Geist woff2 so they're ready by first paint,
+         making theme.css's font-display: block window imperceptible (no FOUT
+         swap on a captive-webview reload). -->
+    <link
+      rel="preload"
+      href="/fonts/geist-latin-wght-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/geist-mono-latin-wght-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <title>Connect to Wi-Fi</title>
   </head>
   <body>
