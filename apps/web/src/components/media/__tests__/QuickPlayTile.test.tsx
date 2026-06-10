@@ -67,6 +67,24 @@ describe("QuickPlayTileView — populated (A28)", () => {
     expect(onPlayItem).toHaveBeenCalledWith(baseItems[1]);
   });
 
+  it("grows 1:1 artwork to fill the rail height instead of a fixed edge (CC-sjzd)", () => {
+    const items = [
+      {
+        id: "fav-9",
+        title: "Art Mix",
+        albumArtUri: "https://example.test/a.jpg",
+        source: "sonos" as const,
+      },
+    ];
+    render(<QuickPlayTileView {...baseProps} items={items} />);
+    const artwork = screen.getByAltText("Art Mix").parentElement;
+    const style = artwork?.getAttribute("style") ?? "";
+    // Square is enforced by aspect-ratio; height comes from flexing into the
+    // rail, not a hardcoded px edge.
+    expect(style).toMatch(/aspect-ratio: 1 \/ 1/);
+    expect(style).not.toMatch(/(^|;)\s*width: \d+px/);
+  });
+
   it("marks the playing item with an accent badge", () => {
     const { container } = render(<QuickPlayTileView {...baseProps} />);
     expect(container.querySelector("[data-playing]")).toBeInTheDocument();
