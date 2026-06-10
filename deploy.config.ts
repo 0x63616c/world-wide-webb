@@ -7,6 +7,7 @@
 // ...@sha256:<digest>, so a stack deploy rolls only the rebuilt services (www-czg).
 
 import {
+  accessEmailEnv,
   certProbe,
   cmdProbe,
   cronJob,
@@ -224,7 +225,14 @@ export default stack("control-center", {
       resources: { memory: "96M" },
       route: "storybook.worldwidewebb.co",
       port: 6006,
-      health: [httpProbe("https://storybook.worldwidewebb.co", 200)],
+      // CF Access (www-cuuw): human-only host — gate behind an email OTP login.
+      // The allowed email is sourced from 1Password (env CF_ACCESS_ALLOWED_EMAIL),
+      // never a literal here (public repo / no-personal-email guard).
+      access: accessEmailEnv("CF_ACCESS_ALLOWED_EMAIL"),
+      // Probe the container directly, NOT the public https URL — once Access gates
+      // the host, an unauthenticated public probe is bounced to the login (302) and
+      // would read as failing. The internal probe verifies the origin itself.
+      health: [httpProbe("http://storybook:6006", 200)],
     }),
 
     // Captive portal: the guest-WiFi onboarding page (www-q002). LAN-ONLY — it is
@@ -276,6 +284,10 @@ export default stack("control-center", {
       resources: { memory: "256M" },
       route: "drizzle.worldwidewebb.co",
       port: 4983,
+      // CF Access (www-cuuw): human-only host — gate behind an email OTP login,
+      // layered on top of the gateway's own masterpass (defence in depth). Allowed
+      // email sourced from 1Password (env CF_ACCESS_ALLOWED_EMAIL), never a literal.
+      access: accessEmailEnv("CF_ACCESS_ALLOWED_EMAIL"),
       secrets: fromOp("Homelab", {
         MASTERPASS: "Drizzle Gateway/masterpass",
         // Lets the preload build DATABASE_URL_control_center so a fresh-volume
@@ -359,15 +371,21 @@ export default stack("control-center", {
         CF_ACCOUNT_ID: "Cloudflare API/account_id",
         CF_ZONE_ID: "Cloudflare API/zone_id",
         CF_TUNNEL_ID: "Cloudflare API/tunnel_id",
-        // NOTE (www-cuuw cutover): the CF Access service-token client-ids
-        // (CF_ACCESS_KIOSK_CLIENT_ID / CF_ACCESS_CI_CLIENT_ID) are added HERE as
-        // two more fromOp lines at the gated cutover — NOT now. `secrets sync`
-        // eagerly resolves every ref (Promise.all over op read), and op read
-        // THROWS on a missing item, so adding them before
-        // scripts/save-cf-access-tokens.sh creates the two 1Password items would
-        // abort every deploy. The agent entrypoint already exports both names
-        // (docker-entrypoint.sh) so the wiring is ready; only these refs wait for
-        // the items to exist. See docs/deployment-design.md (Access gate rollout).
+        // CF Access service-token client-ids (www-cuuw) so the agent's `bosun up`
+        // can bind them into service_auth policies for dashboard (kiosk) and hooks
+        // (CI). Non-secret client-ids riding the docker-secret channel like the
+        // CF_* ids above. Their 1Password items are created by
+        // scripts/save-cf-access-tokens.sh (run 2026-06-10); the entrypoint
+        // already exports both names. Client-SECRETS never reach the agent — only
+        // the caller (kiosk/CI) holds them. See docs/deployment-design.md.
+        CF_ACCESS_KIOSK_CLIENT_ID: "CF Access Kiosk Token/client_id",
+        CF_ACCESS_CI_CLIENT_ID: "CF Access CI Token/client_id",
+        // The single allowed identity for the human-host Access policies
+        // (storybook/drizzle). PII, so it lives ONLY in 1Password and rides the
+        // docker-secret channel into the agent env — never a literal in this public
+        // repo (no-personal-email guard). reconcileAccess reads it for emailEnv
+        // rules. Item created by scripts/save-cf-access-tokens.sh.
+        CF_ACCESS_ALLOWED_EMAIL: "CF Access Allowed Email/email",
       }),
       volumes: ["/var/run/docker.sock:/var/run/docker.sock"],
       placement: ["node.role==manager"],

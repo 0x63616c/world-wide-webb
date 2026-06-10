@@ -21,8 +21,8 @@ Every `*.worldwidewebb.co` host (dashboard, api-via-dashboard, storybook, drizzl
 |---|---|---|
 | `*.worldwidewebb.co` (floor) | **Block** | none — deny everything not allowed above |
 | `dashboard.worldwidewebb.co` | Service Auth (allow) | **kiosk** service token (iPad, unattended) |
-| `storybook.worldwidewebb.co` | Allow | email = `calumpeterwebb@icloud.com` (OTP) |
-| `drizzle.worldwidewebb.co` | Allow | email = `calumpeterwebb@icloud.com` (OTP) |
+| `storybook.worldwidewebb.co` | Allow | email = `<allowed login email — stored in 1Password (CF_ACCESS_ALLOWED_EMAIL), never in this public repo>` (OTP) |
+| `drizzle.worldwidewebb.co` | Allow | email = `<allowed login email — stored in 1Password (CF_ACCESS_ALLOWED_EMAIL), never in this public repo>` (OTP) |
 | `hooks.worldwidewebb.co` | Service Auth (allow) | **CI** service token (GitHub Actions caller) |
 
 `hooks` keeps its existing app-level `BOSUN_WEBHOOK_TOKEN` as belt-and-suspenders (two independent gates).
@@ -98,11 +98,11 @@ service("web", {
 }),
 service("storybook", {
   route: "storybook.worldwidewebb.co",
-  access: accessEmail("calumpeterwebb@icloud.com"),
+  access: accessEmailEnv("CF_ACCESS_ALLOWED_EMAIL"),
 }),
 service("drizzle", {
   route: "drizzle.worldwidewebb.co",
-  access: accessEmail("calumpeterwebb@icloud.com"),
+  access: accessEmailEnv("CF_ACCESS_ALLOWED_EMAIL"),
 }),
 service("bosun-agent", {
   route: "hooks.worldwidewebb.co",

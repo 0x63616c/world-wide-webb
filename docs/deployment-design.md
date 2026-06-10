@@ -199,8 +199,8 @@ Every `*.worldwidewebb.co` host is served through the one tunnel and is reachabl
 |---|---|---|---|
 | `*.worldwidewebb.co` (floor) | Block | none (deny all) | `accessFloor()` (stack-level) |
 | `dashboard.worldwidewebb.co` | service_auth | **kiosk** service token (iPad) | `accessServiceToken({tokenName:"bosun-kiosk", clientIdEnv:"CF_ACCESS_KIOSK_CLIENT_ID"})` |
-| `storybook.worldwidewebb.co` | allow | email OTP (Calum's login email, in 1Password) | `accessEmail(...)` |
-| `drizzle.worldwidewebb.co` | allow | email OTP | `accessEmail(...)` |
+| `storybook.worldwidewebb.co` | allow | email OTP (allowed email in 1Password, env `CF_ACCESS_ALLOWED_EMAIL`) | `accessEmailEnv("CF_ACCESS_ALLOWED_EMAIL")` |
+| `drizzle.worldwidewebb.co` | allow | email OTP (same) | `accessEmailEnv("CF_ACCESS_ALLOWED_EMAIL")` |
 | `hooks.worldwidewebb.co` | service_auth | **CI** service token (GitHub Actions) | `accessServiceToken({tokenName:"bosun-ci", clientIdEnv:"CF_ACCESS_CI_CLIENT_ID"})` |
 
 `hooks` keeps its existing app-level `BOSUN_WEBHOOK_TOKEN` as a second, independent gate.

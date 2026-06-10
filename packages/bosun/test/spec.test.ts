@@ -3,6 +3,7 @@ import { type Runner, runProbes } from "../src/health.ts";
 import type { Spec } from "../src/spec.ts";
 import {
   accessEmail,
+  accessEmailEnv,
   accessFloor,
   accessServiceToken,
   certProbe,
@@ -359,6 +360,13 @@ describe("access builders", () => {
     expect(accessEmail("calum@example.com")).toEqual({
       decision: "allow",
       include: [{ kind: "email", email: "calum@example.com" }],
+    });
+  });
+
+  it("accessEmailEnv produces an allow policy with an emailEnv include (no literal email)", () => {
+    expect(accessEmailEnv("CF_ACCESS_ALLOWED_EMAIL")).toEqual({
+      decision: "allow",
+      include: [{ kind: "emailEnv", envVar: "CF_ACCESS_ALLOWED_EMAIL" }],
     });
   });
 

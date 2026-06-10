@@ -7,7 +7,7 @@ import {
   reconcileAccess,
   stackAccessTag,
 } from "../src/reconcile/access.ts";
-import { accessEmail, accessFloor, accessServiceToken } from "../src/spec.ts";
+import { accessEmail, accessEmailEnv, accessFloor, accessServiceToken } from "../src/spec.ts";
 
 // ---------------------------------------------------------------------------
 // reconcile/access.ts — prune safety + policy mapping + token id resolution
@@ -147,6 +147,43 @@ describe("reconcileAccess — policy mapping for all three builders", () => {
       decision: "block",
       include: [{ everyone: {} }],
     });
+  });
+
+  it("accessEmailEnv -> allow + email include resolved from the emailByEnvVar map", async () => {
+    const client = makeAccessClient([]);
+    await reconcileAccess(
+      STACK,
+      [
+        {
+          domain: "storybook.worldwidewebb.co",
+          access: accessEmailEnv("CF_ACCESS_ALLOWED_EMAIL"),
+        },
+      ],
+      client,
+      new Map([["CF_ACCESS_ALLOWED_EMAIL", "calum@example.com"]]),
+    );
+    expect(mockOf(client.createApp).mock.calls[0][2]).toEqual({
+      decision: "allow",
+      include: [{ email: { email: "calum@example.com" } }],
+    });
+  });
+
+  it("accessEmailEnv throws a clear error when the env var is unresolved (never a silent skip)", async () => {
+    const client = makeAccessClient([]);
+    await expect(
+      reconcileAccess(
+        STACK,
+        [
+          {
+            domain: "storybook.worldwidewebb.co",
+            access: accessEmailEnv("CF_ACCESS_ALLOWED_EMAIL"),
+          },
+        ],
+        client,
+        new Map(), // env var not resolved
+      ),
+    ).rejects.toThrow(/allowed-email env var 'CF_ACCESS_ALLOWED_EMAIL' is unset/);
+    expect(client.createApp).not.toHaveBeenCalled();
   });
 });
 

@@ -20,7 +20,8 @@ set -e
 # files are simply skipped, so this is inert until then.
 for name in BOSUN_WEBHOOK_TOKEN OP_SERVICE_ACCOUNT_TOKEN GHCR_PULL_TOKEN \
             CF_ACCOUNT_ID CF_ZONE_ID CF_TUNNEL_ID \
-            CF_ACCESS_KIOSK_CLIENT_ID CF_ACCESS_CI_CLIENT_ID; do
+            CF_ACCESS_KIOSK_CLIENT_ID CF_ACCESS_CI_CLIENT_ID \
+            CF_ACCESS_ALLOWED_EMAIL; do
   file="/run/secrets/$name"
   if [ -f "$file" ]; then
     export "$name=$(cat "$file")"

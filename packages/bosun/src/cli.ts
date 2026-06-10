@@ -318,8 +318,22 @@ async function reconcileAccessGate(
     const provider = new OpProvider(exec);
     const apiToken = await provider.resolve("op://Homelab/Cloudflare API/credential");
 
+    // Resolve emailEnv rules from the environment here (cli.ts is the env
+    // boundary; reconcile/access.ts stays pure). Sourced from 1Password via the
+    // agent's fromOp -> CF_ACCESS_ALLOWED_EMAIL. A missing value surfaces as a
+    // hard error inside reconcileAccess, never a silent skip.
+    const emailByEnvVar = new Map<string, string>();
+    for (const d of declared) {
+      for (const rule of d.access.include ?? []) {
+        if (rule.kind === "emailEnv") {
+          const v = process.env[rule.envVar];
+          if (v) emailByEnvVar.set(rule.envVar, v);
+        }
+      }
+    }
+
     const accessClient = makeDefaultCloudflareAccessClient(accountId, apiToken);
-    await reconcileAccess(spec.stackName, declared, accessClient);
+    await reconcileAccess(spec.stackName, declared, accessClient, emailByEnvVar);
     log.info({ step: "access", domains: declared.map((d) => d.domain) }, "Access apps synced");
   });
 }

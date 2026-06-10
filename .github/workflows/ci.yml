@@ -558,9 +558,17 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: Trigger bosun deploy webhook
         run: |
+          # CF-Access service-token headers (www-cuuw): authenticate this stateless
+          # server-to-server POST through the Access gate once `hooks` is gated.
+          # Harmless before the gate exists (Cloudflare ignores them with no app),
+          # so they ship ahead of the hooks cutover. The BOSUN_WEBHOOK_TOKEN above
+          # remains the app-layer gate (belt-and-suspenders). Pure per-request
+          # header auth — curl is one-shot, so there is no CF_Authorization cookie.
           curl -fsSL \
             -X POST \
             -H "Authorization: Bearer ${{ secrets.BOSUN_WEBHOOK_TOKEN }}" \
+            -H "CF-Access-Client-Id: ${{ secrets.CF_ACCESS_CI_CLIENT_ID }}" \
+            -H "CF-Access-Client-Secret: ${{ secrets.CF_ACCESS_CI_CLIENT_SECRET }}" \
             -H "Content-Type: application/json" \
             --data '${{ steps.payload.outputs.body }}' \
             https://hooks.worldwidewebb.co/deploy/control-center
