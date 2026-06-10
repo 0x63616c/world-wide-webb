@@ -1,0 +1,18 @@
+{
+  // Typechecks the test files, which tsconfig.json excludes (so the app build
+  // stays test-free). Mirrors apps/web/tsconfig.test.json (www-355t.10).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]
+  },
+  "include": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx",
+    "src/**/__tests__/**/*.ts",
+    "src/**/__tests__/**/*.tsx",
+    "vitest.setup.ts"
+  ],
+  "exclude": []
+}
