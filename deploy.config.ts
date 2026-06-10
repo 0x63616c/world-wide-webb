@@ -254,12 +254,15 @@ export default stack("control-center", {
       // 64M cap, static nginx + a tiny TLS reload loop (CC-ke9a class).
       resources: { memory: "64M" },
       publishPort: { host: 443, container: 443 },
-      // Read-WRITE (not ro): on a FRESH deploy the volume is empty and the
-      // entrypoint must WRITE a self-signed placeholder cert so nginx can start
-      // before acme issues the real one (a ro mount crash-loops the service ,
-      // CC-q002.14). The entrypoint's `[ ! -s fullchain ]` guard never
-      // overwrites an existing cert, so sharing rw with the cron writer is safe.
-      volumes: ["portal-certs:/certs"],
+      // READ-ONLY (CC-q002.14): the portal never writes the cert volume. nginx
+      // reads its cert from a WRITABLE image-internal dir (/etc/nginx/portal-certs);
+      // the entrypoint copies the real cert from /certs when present, else mints a
+      // self-signed placeholder into that internal dir, so a fresh empty volume
+      // never blocks startup AND the portal cannot tamper with the real key. (The
+      // interim rw mount also worked for the placeholder write but still
+      // crash-looped on a volume write/perms quirk; ro + internal-dir is the
+      // robust + secure end state. The portal-cert-renew cron is the sole writer.)
+      volumes: ["portal-certs:/certs:ro"],
       placement: ["node.role==manager"],
       // Swarm-tracked liveness on the in-container :80 (always listening, even
       // before a real cert lands). nginx:alpine ships no curl, so use wget.

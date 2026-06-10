@@ -40,3 +40,33 @@ describe("captive-portal proxy boundary (CC-q002.20)", () => {
     expect(CONF).toContain("proxy_set_header X-Portal-Scope portal;");
   });
 });
+
+// CC-q002.14: the cert volume is mounted READ-ONLY (portal-certs:/certs:ro), so
+// nginx must NOT read its cert straight from /certs and the entrypoint must NOT
+// try to write the placeholder there (that crash-looped the container on a fresh
+// deploy: ro mount + empty volume → openssl write fails → nginx can't load a cert
+// → exit). nginx reads from a WRITABLE image-internal dir the entrypoint
+// populates (real cert copied from /certs when present, else a placeholder).
+describe("captive-portal TLS cert paths (CC-q002.14 ro-volume crash-loop fix)", () => {
+  const NGINX = readFileSync(join(REPO_ROOT, "apps/captive-portal/nginx.conf"), "utf8");
+  const ENTRY = readFileSync(
+    join(REPO_ROOT, "apps/captive-portal/docker-entrypoint-portal.sh"),
+    "utf8",
+  );
+
+  it("nginx reads the cert from the writable internal dir, not the read-only /certs volume", () => {
+    expect(NGINX).toContain("ssl_certificate     /etc/nginx/portal-certs/fullchain.pem;");
+    expect(NGINX).toContain("ssl_certificate_key /etc/nginx/portal-certs/key.pem;");
+    // The OLD bug: pointing ssl_certificate straight at the ro /certs volume.
+    expect(NGINX).not.toContain("ssl_certificate     /certs/");
+    expect(NGINX).not.toContain("ssl_certificate_key /certs/key.pem;");
+  });
+
+  it("the entrypoint mints the placeholder into the writable dir, never the ro volume", () => {
+    // The placeholder openssl write must target the LIVE (writable) dir.
+    expect(ENTRY).toContain("LIVE_DIR=/etc/nginx/portal-certs");
+    expect(ENTRY).toMatch(/-keyout "\$LIVE_KEY" -out "\$LIVE_FULLCHAIN"/);
+    // It must NOT write the placeholder to the read-only /certs volume (the bug).
+    expect(ENTRY).not.toMatch(/-keyout "?\/certs\//);
+  });
+});
