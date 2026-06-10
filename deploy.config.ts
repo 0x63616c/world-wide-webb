@@ -329,6 +329,15 @@ export default stack("control-center", {
         CF_ACCOUNT_ID: "Cloudflare API/account_id",
         CF_ZONE_ID: "Cloudflare API/zone_id",
         CF_TUNNEL_ID: "Cloudflare API/tunnel_id",
+        // NOTE (www-cuuw cutover): the CF Access service-token client-ids
+        // (CF_ACCESS_KIOSK_CLIENT_ID / CF_ACCESS_CI_CLIENT_ID) are added HERE as
+        // two more fromOp lines at the gated cutover — NOT now. `secrets sync`
+        // eagerly resolves every ref (Promise.all over op read), and op read
+        // THROWS on a missing item, so adding them before
+        // scripts/save-cf-access-tokens.sh creates the two 1Password items would
+        // abort every deploy. The agent entrypoint already exports both names
+        // (docker-entrypoint.sh) so the wiring is ready; only these refs wait for
+        // the items to exist. See docs/deployment-design.md (Access gate rollout).
       }),
       volumes: ["/var/run/docker.sock:/var/run/docker.sock"],
       placement: ["node.role==manager"],
