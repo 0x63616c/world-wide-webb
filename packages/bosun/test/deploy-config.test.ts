@@ -108,14 +108,15 @@ describe("deploy.config.ts captive-portal service (CC-q002.14)", () => {
     expect(portal.resources?.memory).toBeTruthy();
   });
 
-  it("mounts the shared cert volume read-write so the entrypoint can seed a placeholder", () => {
-    // On a FRESH deploy the volume is empty and the entrypoint must WRITE a
-    // self-signed placeholder cert so nginx starts before acme issues the real
-    // one; a ro mount crash-loops the service (CC-q002.14). The entrypoint's
-    // `[ ! -s fullchain ]` guard never overwrites an existing cert, so sharing
-    // rw with the acme cron writer is safe.
-    expect(portal.volumes).toContain("portal-certs:/certs");
-    expect(portal.volumes).not.toContain("portal-certs:/certs:ro");
+  it("mounts the shared cert volume READ-ONLY (portal never writes the key)", () => {
+    // The portal does not write the cert volume: nginx reads its cert from a
+    // WRITABLE image-internal dir, and the entrypoint copies the real cert from
+    // /certs (or mints a placeholder into the internal dir). So /certs is mounted
+    // read-only, the portal cannot tamper with the real key, and a fresh empty
+    // volume never crash-loops startup (CC-q002.14). The portal-cert-renew cron is
+    // the sole writer (its own rw mount, asserted below).
+    expect(portal.volumes).toContain("portal-certs:/certs:ro");
+    expect(portal.volumes).not.toContain("portal-certs:/certs");
   });
 
   it("verifies liveness over the overlay http port, not the public TLS host yet", () => {
