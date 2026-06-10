@@ -10,13 +10,13 @@ import {
 import { accessEmail, accessEmailEnv, accessFloor, accessServiceToken } from "../src/spec.ts";
 
 // ---------------------------------------------------------------------------
-// reconcile/access.ts — prune safety + policy mapping + token id resolution
+// reconcile/access.ts, prune safety + policy mapping + token id resolution
 // ---------------------------------------------------------------------------
 //
 // Mirrors the reconcile/routes prune-safety block. A dependency-injected fake
 // CloudflareAccessClient means no real CF API is touched. The core invariant:
 // reconcileAccess only ever creates/updates declared apps and prunes ONLY apps
-// carrying THIS stack's tag — never a foreign app, never a service token.
+// carrying THIS stack's tag, never a foreign app, never a service token.
 
 const STACK = "control-center";
 const TAG = stackAccessTag(STACK);
@@ -28,8 +28,9 @@ function makeAccessClient(
   const apps = [...existingApps];
   return {
     listApps: vi.fn().mockResolvedValue(apps),
+    ensureTag: vi.fn().mockResolvedValue(undefined),
     createApp: vi.fn().mockResolvedValue({ id: "new-app" }),
-    updateAppPolicy: vi.fn().mockResolvedValue(undefined),
+    updateApp: vi.fn().mockResolvedValue(undefined),
     deleteApp: vi.fn().mockResolvedValue(undefined),
     listServiceTokens: vi.fn().mockResolvedValue(serviceTokens),
   };
@@ -37,7 +38,7 @@ function makeAccessClient(
 
 const mockOf = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
 
-describe("reconcileAccess — create + idempotency", () => {
+describe("reconcileAccess, create + idempotency", () => {
   it("creates a declared app that is absent, tagged for this stack", async () => {
     const client = makeAccessClient([]);
     const declared: DesiredAccessApp[] = [
@@ -64,14 +65,14 @@ describe("reconcileAccess — create + idempotency", () => {
     ];
     await reconcileAccess(STACK, declared, client);
     expect(client.createApp).not.toHaveBeenCalled();
-    expect(client.updateAppPolicy).toHaveBeenCalledOnce();
-    const [appIdArg] = mockOf(client.updateAppPolicy).mock.calls[0];
+    expect(client.updateApp).toHaveBeenCalledOnce();
+    const [appIdArg] = mockOf(client.updateApp).mock.calls[0];
     expect(appIdArg).toBe("app-sb");
     expect(client.deleteApp).not.toHaveBeenCalled();
   });
 });
 
-describe("reconcileAccess — prune safety", () => {
+describe("reconcileAccess, prune safety", () => {
   it("prunes ONLY a tag-owned orphan app, never a foreign app", async () => {
     const ours = { id: "app-old", domain: "old.worldwidewebb.co", tags: [TAG] };
     const foreignUntagged = { id: "app-x", domain: "portainer.example.com", tags: [] };
@@ -104,7 +105,7 @@ describe("reconcileAccess — prune safety", () => {
   });
 });
 
-describe("reconcileAccess — policy mapping for all three builders", () => {
+describe("reconcileAccess, policy mapping for all three builders", () => {
   it("accessEmail -> allow + email include", async () => {
     const client = makeAccessClient([]);
     await reconcileAccess(
@@ -187,7 +188,7 @@ describe("reconcileAccess — policy mapping for all three builders", () => {
   });
 });
 
-describe("reconcileAccess — service token resolution", () => {
+describe("reconcileAccess, service token resolution", () => {
   it("resolves token NAME -> CF id via listServiceTokens", async () => {
     const client = makeAccessClient(
       [],
@@ -249,7 +250,7 @@ describe("reconcileAccess — service token resolution", () => {
   });
 });
 
-describe("reconcileAccess — service tokens are never deleted", () => {
+describe("reconcileAccess, service tokens are never deleted", () => {
   it("never calls any token-mutation path (the client has no delete-token method)", async () => {
     const client = makeAccessClient([], [{ id: "tok-kiosk", name: "bosun-kiosk" }]);
     await reconcileAccess(
@@ -274,7 +275,7 @@ describe("reconcileAccess — service tokens are never deleted", () => {
 });
 
 // ---------------------------------------------------------------------------
-// live CloudflareAccessClient — endpoint/method/body shape (fetch stubbed)
+// live CloudflareAccessClient, endpoint/method/body shape (fetch stubbed)
 // ---------------------------------------------------------------------------
 
 describe("live Cloudflare Access client", () => {
@@ -326,15 +327,43 @@ describe("live Cloudflare Access client", () => {
     vi.unstubAllGlobals();
   });
 
-  it("updateAppPolicy PUTs the app with the new policies", async () => {
+  it("updateApp PUTs the FULL app body (type/domain/tags + policies), not policies-only", async () => {
     const fetchMock = stubFetch({ result: {} });
     vi.stubGlobal("fetch", fetchMock);
     const client = makeDefaultCloudflareAccessClient(ACCOUNT, TOKEN);
-    await client.updateAppPolicy("app-1", { decision: "block", include: [{ everyone: {} }] });
+    await client.updateApp("app-1", "drizzle.worldwidewebb.co", "bosun:control-center", {
+      decision: "block",
+      include: [{ everyone: {} }],
+    });
     const [url, opts] = fetchMock.mock.calls[0];
     expect(url).toContain(`/accounts/${ACCOUNT}/access/apps/app-1`);
     expect(opts.method).toBe("PUT");
-    expect(JSON.parse(opts.body).policies[0].decision).toBe("block");
+    const sent = JSON.parse(opts.body);
+    // The whole point of the fix: CF rejects a policies-only PUT with
+    // "app type is missing", so the body must carry type/domain too.
+    expect(sent.type).toBe("self_hosted");
+    expect(sent.domain).toBe("drizzle.worldwidewebb.co");
+    expect(sent.tags).toEqual(["bosun:control-center"]);
+    expect(sent.policies[0].decision).toBe("block");
+    vi.unstubAllGlobals();
+  });
+
+  it("ensureTag creates the tag only when absent (idempotent)", async () => {
+    // Already present -> no POST.
+    const present = stubFetch({ result: [{ name: "bosun:control-center" }] });
+    vi.stubGlobal("fetch", present);
+    const c1 = makeDefaultCloudflareAccessClient(ACCOUNT, TOKEN);
+    await c1.ensureTag("bosun:control-center");
+    expect(present.mock.calls.length).toBe(1); // GET only
+    vi.unstubAllGlobals();
+    // Absent -> GET then POST.
+    const absent = stubFetch({ result: [] });
+    vi.stubGlobal("fetch", absent);
+    const c2 = makeDefaultCloudflareAccessClient(ACCOUNT, TOKEN);
+    await c2.ensureTag("bosun:control-center");
+    expect(absent.mock.calls.length).toBe(2);
+    expect(absent.mock.calls[1][1].method).toBe("POST");
+    expect(JSON.parse(absent.mock.calls[1][1].body).name).toBe("bosun:control-center");
     vi.unstubAllGlobals();
   });
 
