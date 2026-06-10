@@ -279,6 +279,53 @@ identifiers (`CF_ACCOUNT_ID` / `CF_ZONE_ID` / `CF_TUNNEL_ID`) reach the agent vi
 `fromOp()` on the bosun-agent service → the entrypoint exports them to env; the
 API token is resolved from op (`Cloudflare API/credential`) at reconcile time.
 
+## LAN-only services (`publishPort`)
+
+Most services reach the outside world through the Cloudflare tunnel (`route:`).
+A **LAN-only** service does the opposite: it is reachable **only on the local
+network** and must never be exposed publicly. The captive portal
+(`captive-portal.worldwidewebb.co`, www-q002) is the first such service — guests
+on the open guest WLAN hit it on the Mini's LAN IP, and the public hostname
+resolves (via UniFi split-horizon DNS) to that same LAN IP, so nothing is ever
+served off the public internet.
+
+Declare it with `publishPort` and **no `route`**:
+
+```ts
+import { ghcr, service } from "@bosun/bosun/src/spec.ts";
+
+service("captive-portal", {
+  image: ghcr("control-center-captive-portal"),
+  // Bind host 443 -> container 443 on the swarm node (the Mini's LAN IP).
+  publishPort: { host: 443, container: 443 },
+  // NO route: this service is never fronted by the Cloudflare tunnel.
+  placement: ["node.role==manager"],
+});
+```
+
+The renderer emits a long-form published port with **`mode: host`**:
+
+```yaml
+    ports:
+      - target: 443
+        published: 443
+        mode: host
+```
+
+`mode: host` binds the port on the **node itself**, not the swarm routing-mesh
+ingress VIP — correct for this single-node, manager-pinned stack, where the bound
+port lands on the Mini's actual LAN interface (the ingress mesh would NAT it
+through a virtual IP instead). Pin the service to the manager (`placement`) so it
+always schedules on the node holding that LAN IP.
+
+The two patterns are **orthogonal and must not be mixed**: tunnel ingress + DNS
+are reconciled solely from `svc.route` (`reconcileRoutes` / `reconcileDns` in
+`routes.ts` flatMap over `svc.route` only), so a `publishPort` service with no
+`route` produces **zero tunnel ingress and zero public DNS** — bosun never creates
+a Cloudflare route for it. A LAN-only service therefore needs `publishPort` AND
+the absence of `route`; declaring both would publish the service publicly, which
+defeats the purpose.
+
 ## `postgres()` helper
 
 `postgres({ volume, secretRef, db?, image?, config?, init? })` builds the postgres
