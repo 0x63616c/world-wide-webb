@@ -44,6 +44,8 @@ const TvNowPlayingSchema = z.object({
   mediaPosition: z.number().nullable(),
   mediaDuration: z.number().nullable(),
   source: z.enum(["streaming", "line-in", "TV", "idle"]),
+  artworkUrl: z.string().nullable(),
+  mediaPositionUpdatedAt: z.string().nullable(),
 });
 
 // Extract a YouTube video ID from a URL or bare ID string.

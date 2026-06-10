@@ -93,6 +93,10 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
+      "/media/tv-artwork": {
+        target: `http://localhost:${apiPort}`,
+        changeOrigin: true,
+      },
     },
   },
 });

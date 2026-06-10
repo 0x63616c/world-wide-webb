@@ -12,11 +12,12 @@ import { describe, expect, it, vi } from "vitest";
 
 // ─── mock the HA singleton ────────────────────────────────────────────────────
 
-const { mockIsConfigured, mockGetEntity, mockCallService } = vi.hoisted(() => ({
+const { mockIsConfigured, mockGetEntity, mockCallService, mockGetMedia } = vi.hoisted(() => ({
   mockIsConfigured: vi.fn<() => boolean>(),
   mockGetEntity: vi.fn<(entityId: string) => Promise<unknown>>(),
   mockCallService:
     vi.fn<(domain: string, service: string, params: Record<string, unknown>) => Promise<void>>(),
+  mockGetMedia: vi.fn<(path: string) => Promise<Response>>(),
 }));
 
 vi.mock("../integrations/homeassistant", () => ({
@@ -24,6 +25,7 @@ vi.mock("../integrations/homeassistant", () => ({
     isConfigured: mockIsConfigured,
     getEntity: mockGetEntity,
     callService: mockCallService,
+    getMedia: mockGetMedia,
   },
 }));
 
@@ -186,6 +188,147 @@ describe("getTvNowPlaying", () => {
     await getTvNowPlaying();
 
     expect(mockGetEntity).toHaveBeenCalledWith("media_player.living_room_tv");
+  });
+});
+
+// ─── artwork + position freshness (CC-dhhr) ──────────────────────────────────
+
+const ENTITY_PICTURE =
+  "/api/media_player_proxy/media_player.living_room_tv?token=secrettok123&cache=9f2a";
+
+describe("getTvNowPlaying — artworkUrl + mediaPositionUpdatedAt (CC-dhhr)", () => {
+  it("derives a same-origin artworkUrl when entity_picture is present", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockResolvedValue(
+      makeHaEntity("playing", { app_name: "YouTube", entity_picture: ENTITY_PICTURE }),
+    );
+
+    const result = await getTvNowPlaying();
+
+    expect(result.artworkUrl).toMatch(/^\/media\/tv-artwork\?v=/);
+  });
+
+  it("never leaks the HA access token into the artworkUrl", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockResolvedValue(
+      makeHaEntity("playing", { app_name: "YouTube", entity_picture: ENTITY_PICTURE }),
+    );
+
+    const result = await getTvNowPlaying();
+
+    expect(result.artworkUrl).not.toContain("secrettok123");
+  });
+
+  it("changes the artworkUrl when entity_picture changes (cache-bust)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockResolvedValue(
+      makeHaEntity("playing", { app_name: "YouTube", entity_picture: ENTITY_PICTURE }),
+    );
+    const first = await getTvNowPlaying();
+
+    mockGetEntity.mockResolvedValue(
+      makeHaEntity("playing", {
+        app_name: "YouTube",
+        entity_picture:
+          "/api/media_player_proxy/media_player.living_room_tv?token=secrettok123&cache=other",
+      }),
+    );
+    const second = await getTvNowPlaying();
+
+    expect(first.artworkUrl).not.toBe(second.artworkUrl);
+  });
+
+  it("returns null artworkUrl when entity_picture is absent", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockResolvedValue(makeHaEntity("playing", { app_name: "YouTube" }));
+
+    const result = await getTvNowPlaying();
+
+    expect(result.artworkUrl).toBeNull();
+  });
+
+  it("maps media_position_updated_at to mediaPositionUpdatedAt", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockResolvedValue(
+      makeHaEntity("playing", {
+        media_position: 2,
+        media_position_updated_at: "2026-06-09T20:00:00.000000+00:00",
+      }),
+    );
+
+    const result = await getTvNowPlaying();
+
+    expect(result.mediaPositionUpdatedAt).toBe("2026-06-09T20:00:00.000000+00:00");
+  });
+
+  it("returns null mediaPositionUpdatedAt when absent", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockResolvedValue(makeHaEntity("idle", {}));
+
+    const result = await getTvNowPlaying();
+
+    expect(result.mediaPositionUpdatedAt).toBeNull();
+  });
+});
+
+describe("getTvArtwork (CC-dhhr)", () => {
+  it("throws when HA is not configured", async () => {
+    mockIsConfigured.mockReturnValue(false);
+
+    const { getTvArtwork } = await import("../services/apple-tv-service");
+    await expect(getTvArtwork()).rejects.toThrow("Home Assistant is not configured");
+  });
+
+  it("returns null when the entity has no entity_picture", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockResolvedValue(makeHaEntity("idle", {}));
+
+    const { getTvArtwork } = await import("../services/apple-tv-service");
+    await expect(getTvArtwork()).resolves.toBeNull();
+  });
+
+  it("fetches the artwork bytes from HA via the entity_picture path", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockResolvedValue(
+      makeHaEntity("playing", { app_name: "YouTube", entity_picture: ENTITY_PICTURE }),
+    );
+    mockGetMedia.mockResolvedValue(
+      new Response(new Uint8Array([0xff, 0xd8, 0xff]), {
+        headers: { "content-type": "image/jpeg" },
+      }),
+    );
+
+    const { getTvArtwork } = await import("../services/apple-tv-service");
+    const res = await getTvArtwork();
+
+    expect(mockGetMedia).toHaveBeenCalledWith(ENTITY_PICTURE);
+    expect(res).not.toBeNull();
+    expect(res?.headers.get("content-type")).toBe("image/jpeg");
+  });
+});
+
+describe("mediaRouter.tvNowPlaying output keeps artwork + freshness fields (CC-dhhr)", () => {
+  it("does not strip artworkUrl / mediaPositionUpdatedAt through the output schema", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockGetEntity.mockResolvedValue(
+      makeHaEntity("playing", {
+        app_name: "YouTube",
+        entity_picture: ENTITY_PICTURE,
+        media_position: 2,
+        media_position_updated_at: "2026-06-09T20:00:00.000000+00:00",
+      }),
+    );
+
+    const { router } = await import("../trpc/init");
+    const { mediaRouter } = await import("../trpc/routers/media");
+    const appRouter = router({ media: mediaRouter });
+    // @ts-expect-error — no db context needed
+    const caller = appRouter.createCaller({});
+
+    const result = await caller.media.tvNowPlaying();
+
+    expect(result.artworkUrl).toMatch(/^\/media\/tv-artwork\?v=/);
+    expect(result.mediaPositionUpdatedAt).toBe("2026-06-09T20:00:00.000000+00:00");
   });
 });
 

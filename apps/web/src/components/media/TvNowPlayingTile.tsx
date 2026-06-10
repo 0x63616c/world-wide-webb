@@ -10,6 +10,7 @@
 
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { useLivePosition } from "./hooks/useLivePosition";
 import { TransportScrubModal } from "./TransportScrubModal";
 import { TvNowPlayingTileView } from "./TvNowPlayingTileView";
 import { TvRemoteModal } from "./TvRemoteModal";
@@ -32,6 +33,15 @@ export function TvNowPlayingTile() {
   const [transportOpen, setTransportOpen] = useState(false);
   const [remoteOpen, setRemoteOpen] = useState(false);
 
+  // HA's media_position is only refreshed on state changes — tick it forward
+  // locally while playing so the time/scrubber don't freeze between polls.
+  const livePosition = useLivePosition(
+    data?.mediaPosition ?? null,
+    data?.mediaPositionUpdatedAt ?? null,
+    data?.state ?? "idle",
+    data?.mediaDuration ?? null,
+  );
+
   if (!data) {
     return <TvNowPlayingTileView status={isError ? "error" : "loading"} />;
   }
@@ -53,10 +63,10 @@ export function TvNowPlayingTile() {
         appName={data.appName}
         mediaTitle={data.mediaTitle}
         mediaArtist={data.mediaArtist}
-        mediaPosition={data.mediaPosition}
+        mediaPosition={livePosition}
         mediaDuration={data.mediaDuration}
         source={data.source}
-        artworkUrl={null}
+        artworkUrl={data.artworkUrl}
         onPrev={() => prevMutation.mutate()}
         onPlayPause={handlePlayPause}
         onNext={() => nextMutation.mutate()}
@@ -72,10 +82,10 @@ export function TvNowPlayingTile() {
         appName={data.appName}
         mediaTitle={data.mediaTitle}
         mediaArtist={data.mediaArtist}
-        mediaPosition={data.mediaPosition}
+        mediaPosition={livePosition}
         mediaDuration={data.mediaDuration}
         source={data.source}
-        artworkUrl={null}
+        artworkUrl={data.artworkUrl}
         onPrev={() => prevMutation.mutate()}
         onPlayPause={handlePlayPause}
         onNext={() => nextMutation.mutate()}
@@ -89,7 +99,7 @@ export function TvNowPlayingTile() {
         appName={data.appName}
         mediaTitle={data.mediaTitle}
         mediaArtist={data.mediaArtist}
-        artworkUrl={null}
+        artworkUrl={data.artworkUrl}
         onUp={() => remoteMutation.mutate({ command: "up" })}
         onDown={() => remoteMutation.mutate({ command: "down" })}
         onLeft={() => remoteMutation.mutate({ command: "left" })}
