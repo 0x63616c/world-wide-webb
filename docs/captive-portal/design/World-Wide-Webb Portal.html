@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Guest Wi-Fi · Connect</title>
+<link rel="stylesheet" href="theme.css?v=4" />
+<style>
+  html, body, #root { height: 100%; }
+  #root { overflow-y: auto; overflow-x: hidden; }
+  /* hide tweaks panel entirely until host enables edit mode */
+  #tweaks-root:empty { display: none; }
+</style>
+</head>
+<body>
+  <div class="wwb-backdrop"></div>
+  <div class="wwb-grid"></div>
+  <div id="root"></div>
+  <div id="tweaks-root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="tweaks-panel.jsx?v=2"></script>
+  <script type="text/babel" src="components.jsx?v=2"></script>
+  <script type="text/babel" src="screens.jsx?v=2"></script>
+
+  <script type="text/babel">
+    const { useState, useRef } = React;
+    const { LandingCentered, LandingSplit, LandingBare, Verify, WifiPassword, AlreadyConnected, Connecting, Success, Terms, Sending, RateLimited, SessionExpired, GenericError, validate, validatePassword } = window;
+
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "layout": "bare",
+      "returningDevice": false,
+      "simulateBadCode": false,
+      "simulateExpiredCode": false,
+      "simulateBadPassword": false,
+      "simulateError": false,
+      "cornerStyle": "soft"
+    }/*EDITMODE-END*/;
+
+    const LAYOUTS = { centered: LandingCentered, split: LandingSplit, bare: LandingBare };
+
+    function App() {
+      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const [screen, setScreen] = useState('landing');     // landing | verify | password | connecting | success | already | terms
+      const [returnTo, setReturnTo] = useState('landing');
+      const [form, setForm] = useState({ name: '', email: '', password: '', agreed: false });
+      const [errors, setErrors] = useState({});
+      const [networkError, setNetworkError] = useState(false);
+      const [verifyError, setVerifyError] = useState(null);
+      const [verifyBusy, setVerifyBusy] = useState(false);
+      const [passwordError, setPasswordError] = useState(null);
+      const [verifyExpired, setVerifyExpired] = useState(false);
+      const timer = useRef(null);
+      const vtimer = useRef(null);
+      const stimer = useRef(null);
+      const codeTries = useRef(0);
+      const pwTries = useRef(0);
+
+      // returning device (still inside its session) skips straight to “already connected”
+      React.useEffect(() => {
+        setScreen(t.returningDevice ? 'already' : 'landing');
+      }, [t.returningDevice]);
+
+      // apply corner-radius tweak
+      React.useEffect(() => {
+        const r = document.documentElement.style;
+        if (t.cornerStyle === 'sharp') {
+          r.setProperty('--radius-card', '6px'); r.setProperty('--radius-control', '5px');
+        } else if (t.cornerStyle === 'round') {
+          r.setProperty('--radius-card', '20px'); r.setProperty('--radius-control', '13px');
+        } else {
+          r.setProperty('--radius-card', '14px'); r.setProperty('--radius-control', '9px');
+        }
+      }, [t.cornerStyle]);
+
+      const onChange = (k, v) => {
+        setForm((f) => ({ ...f, [k]: v }));
+        if (errors[k]) setErrors((e) => { const n = { ...e }; delete n[k]; return n; });
+        if (networkError) setNetworkError(false);
+      };
+
+      const onSubmit = () => {
+        const errs = validate(form);
+        setErrors(errs);
+        if (Object.keys(errs).length) return;
+        setNetworkError(false);
+        setVerifyError(null); setVerifyExpired(false);
+        codeTries.current = 0; pwTries.current = 0;
+        setScreen('sending');
+        clearTimeout(stimer.current);
+        stimer.current = setTimeout(() => setScreen('verify'), 1300);
+      };
+
+      const connect = () => {
+        setScreen('connecting');
+        clearTimeout(timer.current);
+        timer.current = setTimeout(() => {
+          if (t.simulateError) { setNetworkError(true); setScreen('password'); }
+          else { setScreen('success'); }
+        }, 2600);
+      };
+
+      const onVerify = (code) => {
+        if (!code || code.length !== 6) return;
+        setVerifyError(null);
+        setVerifyBusy(true);
+        clearTimeout(vtimer.current);
+        vtimer.current = setTimeout(() => {
+          setVerifyBusy(false);
+          if (t.simulateExpiredCode) {
+            setVerifyExpired(true);
+            setVerifyError('This code is no longer valid, request a new one.');
+          } else if (t.simulateBadCode) {
+            codeTries.current += 1;
+            if (codeTries.current >= 3) { setScreen('ratelimited'); }
+            else { setVerifyExpired(false); setVerifyError('That code didn’t match. Check the digits and try again.'); }
+          } else {
+            setPasswordError(null);
+            setScreen('password');
+          }
+        }, 900);
+      };
+
+      const onResend = () => { setVerifyError(null); setVerifyExpired(false); codeTries.current = 0; };
+
+      const onPassword = (pw) => {
+        const fmt = validatePassword(pw);
+        if (fmt) { setPasswordError(fmt); return; }
+        if (t.simulateBadPassword) {
+          pwTries.current += 1;
+          if (pwTries.current >= 3) { setScreen('ratelimited'); return; }
+          setPasswordError('That password isn’t right. Double-check with your host.'); return;
+        }
+        setPasswordError(null);
+        setNetworkError(false);
+        pwTries.current = 0;
+        setForm((f) => ({ ...f, password: pw }));
+        connect();
+      };
+
+      const openTerms = () => { setReturnTo(screen === 'terms' ? returnTo : screen); setScreen('terms'); window.scrollTo?.(0, 0); document.getElementById('root').scrollTop = 0; };
+      const closeTerms = () => setScreen(returnTo);
+      const reset = () => { setForm({ name: '', email: '', password: '', agreed: false }); setErrors({}); setNetworkError(false); setVerifyError(null); setVerifyExpired(false); setVerifyBusy(false); setPasswordError(null); codeTries.current = 0; pwTries.current = 0; setScreen('landing'); };
+
+      const Landing = LAYOUTS[t.layout] || LandingCentered;
+      const landingProps = { state: form, errors, networkError, busy: false, onChange, onSubmit, onOpenTerms: openTerms };
+
+      return (
+        <React.Fragment>
+          {screen === 'landing' && <Landing {...landingProps} />}
+          {screen === 'verify' && <Verify email={form.email} error={verifyError} expired={verifyExpired} busy={verifyBusy}
+            onVerify={onVerify} onResend={onResend} onBack={() => { setVerifyError(null); setVerifyExpired(false); setScreen('landing'); }} />}
+          {screen === 'sending' && <Sending email={form.email} />}
+          {screen === 'ratelimited' && <RateLimited
+            onRetry={() => { codeTries.current = 0; pwTries.current = 0; setVerifyError(null); setVerifyExpired(false); setPasswordError(null); setScreen('verify'); }}
+            onReset={reset} />}
+          {screen === 'sessionexpired' && <SessionExpired onReconnect={reset} />}
+          {screen === 'error' && <GenericError onRetry={() => { setPasswordError(null); setScreen('password'); }} onReset={reset} />}
+          {screen === 'password' && <WifiPassword error={passwordError} networkError={networkError}
+            onSubmit={onPassword} onBack={() => { setPasswordError(null); setNetworkError(false); setScreen('verify'); }} />}
+          {screen === 'already' && <AlreadyConnected email={form.email || 'john@example.com'} onReset={reset} />}
+          {screen === 'connecting' && <Connecting email={form.email} />}
+          {screen === 'success' && <Success name={form.name} email={form.email} onReset={reset} />}
+          {screen === 'terms' && <Terms onBack={closeTerms} />}
+
+          <TweaksPanel>
+            <TweakSection label="Landing layout" />
+            <TweakRadio label="Variant" value={t.layout}
+              options={['centered', 'split', 'bare']}
+              onChange={(v) => { setTweak('layout', v); if (screen !== 'terms') setScreen('landing'); }} />
+            <TweakSection label="Shape" />
+            <TweakRadio label="Corners" value={t.cornerStyle}
+              options={['sharp', 'soft', 'round']}
+              onChange={(v) => setTweak('cornerStyle', v)} />
+            <TweakSection label="States · for the implementer" />
+            <TweakToggle label="Returning device (already connected)" value={t.returningDevice}
+              onChange={(v) => setTweak('returningDevice', v)} />
+            <TweakToggle label="Simulate wrong code" value={t.simulateBadCode}
+              onChange={(v) => setTweak('simulateBadCode', v)} />
+            <TweakToggle label="Simulate expired code" value={t.simulateExpiredCode}
+              onChange={(v) => setTweak('simulateExpiredCode', v)} />
+            <TweakToggle label="Simulate wrong password" value={t.simulateBadPassword}
+              onChange={(v) => setTweak('simulateBadPassword', v)} />
+            <TweakToggle label="Simulate network failure" value={t.simulateError}
+              onChange={(v) => setTweak('simulateError', v)} />
+            <TweakButton label="Preview email verification" onClick={() => { setForm({ name: 'John Appleseed', email: 'john@example.com', password: '', agreed: true }); setErrors({}); setVerifyError(null); setVerifyBusy(false); setScreen('verify'); }} />
+            <TweakButton label="Preview Wi-Fi password step" onClick={() => { setForm({ name: 'John Appleseed', email: 'john@example.com', password: '', agreed: true }); setPasswordError(null); setScreen('password'); }} />
+            <TweakButton label="Replay connecting → success" onClick={() => { setTweak('simulateError', false); setForm({ name: 'John Appleseed', email: 'john@example.com', password: 'guest-passw0rd', agreed: true }); setErrors({}); setScreen('connecting'); clearTimeout(timer.current); timer.current = setTimeout(() => setScreen('success'), 2600); }} />
+            <TweakButton label="Preview: too many attempts" onClick={() => setScreen('ratelimited')} />
+            <TweakButton label="Preview: session expired" onClick={() => setScreen('sessionexpired')} />
+            <TweakButton label="Preview: something went wrong" onClick={() => setScreen('error')} />
+            <TweakButton label="Back to start" onClick={reset} />
+          </TweaksPanel>
+        </React.Fragment>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

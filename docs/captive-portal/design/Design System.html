@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Captive Portal · Design System</title>
+<link rel="stylesheet" href="theme.css?v=4" />
+<link rel="stylesheet" href="ds.css" />
+<style>
+  html, body { height: auto; min-height: 100%; background: #000; }
+  body { overflow-x: hidden; }
+</style>
+</head>
+<body>
+  <div class="wwb-backdrop"></div>
+  <div class="wwb-grid"></div>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="components.jsx"></script>
+  <script type="text/babel" src="ds-kit.jsx"></script>
+  <script type="text/babel" src="ds-foundations.jsx"></script>
+  <script type="text/babel" src="ds-components.jsx"></script>
+  <script type="text/babel" src="ds-flow.jsx"></script>
+
+  <script type="text/babel">
+    const { Foundations, Components, Flow, GlobeMark } = window;
+
+    const NAV = [
+      { group: 'Foundations', items: [
+        { id: 'color', label: 'Color' },
+        { id: 'type', label: 'Typography' },
+        { id: 'shape', label: 'Spacing & radius' },
+        { id: 'icons', label: 'Iconography' },
+      ]},
+      { group: 'Components', items: [
+        { id: 'c-button', label: 'Button' },
+        { id: 'c-input', label: 'Field & input' },
+        { id: 'c-password', label: 'Password' },
+        { id: 'c-checkbox', label: 'Checkbox' },
+        { id: 'c-otp', label: 'OTP code' },
+        { id: 'c-feedback', label: 'Alert & status' },
+      ]},
+      { group: 'Flow & states', items: [
+        { id: 'flow', label: 'State machine' },
+        { id: 'screens', label: 'Screens' },
+        { id: 'validation', label: 'Validation' },
+        { id: 'copy', label: 'Copy deck' },
+        { id: 'quality', label: 'A11y & resilience' },
+      ]},
+    ];
+
+    function Sidebar({ active, onJump }) {
+      return (
+        <aside className="ds-side">
+          <div className="ds-side-brand">
+            <span className="wwb-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><GlobeMark /></svg></span>
+            <div>
+              <div className="ds-side-title">Captive Portal</div>
+              <div className="ds-side-kicker">Design System · v1</div>
+            </div>
+          </div>
+          <nav className="ds-nav">
+            {NAV.map((g) => (
+              <React.Fragment key={g.group}>
+                <div className="ds-nav-group">{g.group}</div>
+                {g.items.map((it) => (
+                  <a key={it.id} href={'#' + it.id}
+                     className={active === it.id ? 'is-active' : ''}
+                     onClick={(e) => { e.preventDefault(); onJump(it.id); }}>
+                    {it.label}
+                  </a>
+                ))}
+              </React.Fragment>
+            ))}
+          </nav>
+        </aside>
+      );
+    }
+
+    function App() {
+      const [active, setActive] = React.useState('color');
+
+      const jump = (id) => {
+        const el = document.getElementById(id);
+        if (el) { const top = el.getBoundingClientRect().top + window.scrollY - 12; window.scrollTo({ top, behavior: 'smooth' }); }
+        setActive(id);
+      };
+
+      React.useEffect(() => {
+        const ids = NAV.flatMap((g) => g.items.map((i) => i.id));
+        const obs = new IntersectionObserver((entries) => {
+          entries.forEach((en) => { if (en.isIntersecting) setActive(en.target.id); });
+        }, { rootMargin: '-10% 0px -75% 0px', threshold: 0 });
+        ids.forEach((id) => { const el = document.getElementById(id); if (el) obs.observe(el); });
+        return () => obs.disconnect();
+      }, []);
+
+      return (
+        <div className="ds-app">
+          <Sidebar active={active} onJump={jump} />
+          <main className="ds-main">
+            <header className="ds-hero">
+              <div className="ds-hero-eyebrow">
+                <span className="wwb-pill"><span className="dot" />Captive Portal</span>
+                Design System &amp; implementation spec
+              </div>
+              <h1>Everything an implementer needs to ship the portal.</h1>
+              <p>The complete language behind the Wi-Fi captive portal, foundations, every component with all of its states, and the full screen-by-screen flow with validation rules, copy and edge cases. Pair this with the interactive prototype and the handoff canvas.</p>
+              <div className="ds-hero-meta">
+                <span className="ds-meta-chip"><b>Theme</b> Vercel / shadcn · pure black</span>
+                <span className="ds-meta-chip"><b>Type</b> Geist · Geist Mono</span>
+                <span className="ds-meta-chip"><b>Flow</b> email-verified · 6-digit code</span>
+                <span className="ds-meta-chip"><b>Access</b> 30 days / device</span>
+              </div>
+              <div className="ds-hero-meta" style={{ marginTop: 12 }}>
+                <a className="ds-meta-chip" href="World-Wide-Webb Portal.html" style={{ textDecoration: 'none', color: 'var(--foreground)' }}>↗ Interactive prototype</a>
+                <a className="ds-meta-chip" href="Handoff Canvas.html" style={{ textDecoration: 'none', color: 'var(--foreground)' }}>↗ Handoff canvas</a>
+              </div>
+            </header>
+
+            <Foundations />
+            <Components />
+            <Flow />
+
+            <footer className="ds-footer">
+              Captive Portal Design System · v1, built in the Vercel / shadcn dark language.
+              State colors signal status only; the primary is white; one hairline icon family throughout.
+              For live behaviour see the <a href="World-Wide-Webb Portal.html">interactive prototype</a>.
+            </footer>
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
