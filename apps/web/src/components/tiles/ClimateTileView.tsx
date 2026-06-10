@@ -1,5 +1,5 @@
 /**
- * ClimateTileView — pure presentational component for the Climate tile.
+ * ClimateTileView, pure presentational component for the Climate tile.
  * All data and callbacks come in as props; no trpc or data-fetching hooks inside.
  *
  * Modes are REAL Home Assistant hvac modes (off/cool/heat/heat_cool), not derived
@@ -9,7 +9,7 @@
  *  - heat_cool → dual-thumb single track (low + high, min 2°F apart, never cross)
  *
  * Local state (slider drag) is allowed here because it is purely a presentation
- * concern — the container owns the committed value via the onSet* callbacks.
+ * concern, the container owns the committed value via the onSet* callbacks.
  */
 
 import { useState } from "react";
@@ -20,7 +20,7 @@ import { Skeleton, Tile, TileHeader, TileStatus } from "@/components/ui";
 // Visual band (matches the API's accept range, CC-pu4m).
 export const MIN = 67;
 export const MAX = 77;
-// Minimum deadband between low/high in heat_cool — thumbs can never meet/cross.
+// Minimum deadband between low/high in heat_cool, thumbs can never meet/cross.
 export const GAP = 2;
 
 export const HvacMode = {
@@ -76,7 +76,29 @@ export function clampHigh(next: number, low: number): number {
   return Math.max(Math.min(next, MAX), low + GAP);
 }
 
-const pct = (v: number) => ((v - MIN) / (MAX - MIN)) * 100;
+/** Clamp a single (cool/heat) setpoint into the settable band [MIN, MAX]. */
+export function clampTarget(next: number): number {
+  return Math.min(Math.max(next, MIN), MAX);
+}
+
+/**
+ * Visual scale bounds for the slider track. The settable setpoint domain is fixed
+ * at [MIN, MAX], but the ambient ("Now") caret can sit outside it (e.g. 78°F in a
+ * 67–77 band, which would push the caret off the right edge). Driven by ambient
+ * ONLY: when it comes within 1° of an edge, extend that edge to round(ambient)±2
+ * so the caret always stays on-card with a degree of headroom. Setpoints never
+ * widen the scale.
+ */
+export function visualBounds(ambient: number): { min: number; max: number } {
+  const a = Math.round(ambient);
+  return {
+    min: ambient <= MIN + 1 ? a - 2 : MIN,
+    max: ambient >= MAX - 1 ? a + 2 : MAX,
+  };
+}
+
+/** Position (0–100%) of a value on a track spanning [min, max]. */
+const pct = (v: number, min: number, max: number) => ((v - min) / (max - min)) * 100;
 
 // ─── ClimateSkeleton ──────────────────────────────────────────────────────────
 
@@ -105,12 +127,12 @@ function ClimateSkeleton() {
 
 // ─── ambient "Now" caret + end labels ─────────────────────────────────────────
 
-function AmbientCaret({ ambient }: { ambient: number }) {
+function AmbientCaret({ ambient, min, max }: { ambient: number; min: number; max: number }) {
   return (
     <div
       style={{
         position: "absolute",
-        left: `${pct(ambient)}%`,
+        left: `${pct(ambient, min, max)}%`,
         top: -3,
         transform: "translateX(-50%)",
         pointerEvents: "none",
@@ -131,20 +153,20 @@ function AmbientCaret({ ambient }: { ambient: number }) {
   );
 }
 
-function EndLabels() {
+function EndLabels({ min, max }: { min: number; max: number }) {
   return (
     <>
       <span
         className="mono"
         style={{ position: "absolute", left: 0, bottom: 0, fontSize: 12, color: "var(--ink-3)" }}
       >
-        {MIN}°
+        {min}°
       </span>
       <span
         className="mono"
         style={{ position: "absolute", right: 0, bottom: 0, fontSize: 12, color: "var(--ink-3)" }}
       >
-        {MAX}°
+        {max}°
       </span>
     </>
   );
@@ -162,6 +184,10 @@ export function ClimateTileView(props: ClimateTileViewProps) {
   if (props.status === TileStatus.Loading) return <ClimateSkeleton />;
 
   const { mode, ambient, action, onSetMode, onSetTarget, onSetRange } = props;
+  // Visual track scale, widened only when the ambient caret would otherwise
+  // fall off the card (CC-3y5x). Shared by pct(), the native inputs, the caret,
+  // and the end labels so they stay aligned.
+  const { min: vMin, max: vMax } = visualBounds(ambient);
 
   return (
     <Tile padding={22}>
@@ -175,7 +201,7 @@ export function ClimateTileView(props: ClimateTileViewProps) {
         }
       />
 
-      {/* Big setpoint area — shape depends on mode */}
+      {/* Big setpoint area, shape depends on mode */}
       <div
         style={{
           flex: 1,
@@ -224,7 +250,7 @@ export function ClimateTileView(props: ClimateTileViewProps) {
         )}
       </div>
 
-      {/* Slider area — single, dual, or none (off). Rendered ABOVE the button row
+      {/* Slider area, single, dual, or none (off). Rendered ABOVE the button row
           so the buttons never reflow: the draggable control appears in the gap
           between the big setpoint and the fixed bottom button row. */}
       {(mode === HvacMode.Cool || mode === HvacMode.Heat) &&
@@ -235,12 +261,14 @@ export function ClimateTileView(props: ClimateTileViewProps) {
               <input
                 className="range"
                 type="range"
-                min={MIN}
-                max={MAX}
+                min={vMin}
+                max={vMax}
                 value={displayTarget}
-                style={{ "--p": `${pct(displayTarget)}%` } as React.CSSProperties}
+                style={{ "--p": `${pct(displayTarget, vMin, vMax)}%` } as React.CSSProperties}
                 onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
+                  // Track may extend past MAX to show the ambient caret, but the
+                  // setpoint itself stays clamped to the settable band.
+                  const val = clampTarget(parseInt(e.target.value, 10));
                   setDragTarget(val);
                   onSetTarget(val);
                 }}
@@ -249,8 +277,8 @@ export function ClimateTileView(props: ClimateTileViewProps) {
                 aria-label="Target temperature"
                 data-testid="slider"
               />
-              <AmbientCaret ambient={ambient} />
-              <EndLabels />
+              <AmbientCaret ambient={ambient} min={vMin} max={vMax} />
+              <EndLabels min={vMin} max={vMax} />
             </div>
           );
         })()}
@@ -266,13 +294,18 @@ export function ClimateTileView(props: ClimateTileViewProps) {
             >
               <div
                 className="range-dual-track"
-                style={{ "--lo": `${pct(lo)}%`, "--hi": `${pct(hi)}%` } as React.CSSProperties}
+                style={
+                  {
+                    "--lo": `${pct(lo, vMin, vMax)}%`,
+                    "--hi": `${pct(hi, vMin, vMax)}%`,
+                  } as React.CSSProperties
+                }
               />
               <input
                 className="range-thumb"
                 type="range"
-                min={MIN}
-                max={MAX}
+                min={vMin}
+                max={vMax}
                 value={lo}
                 onChange={(e) => {
                   const val = clampLow(parseInt(e.target.value, 10), hi);
@@ -287,8 +320,8 @@ export function ClimateTileView(props: ClimateTileViewProps) {
               <input
                 className="range-thumb"
                 type="range"
-                min={MIN}
-                max={MAX}
+                min={vMin}
+                max={vMax}
                 value={hi}
                 onChange={(e) => {
                   const val = clampHigh(parseInt(e.target.value, 10), lo);
@@ -300,13 +333,13 @@ export function ClimateTileView(props: ClimateTileViewProps) {
                 aria-label="High temperature"
                 data-testid="slider-high"
               />
-              <AmbientCaret ambient={ambient} />
-              <EndLabels />
+              <AmbientCaret ambient={ambient} min={vMin} max={vMax} />
+              <EndLabels min={vMin} max={vMax} />
             </div>
           );
         })()}
 
-      {/* Mode buttons — ALWAYS the tile's bottom row. Fixed order, never reflows.
+      {/* Mode buttons, ALWAYS the tile's bottom row. Fixed order, never reflows.
           marginBottom 0: the Tile's 22px padding gives even bottom spacing. */}
       <div style={{ display: "flex", gap: 8, marginBottom: 0 }}>
         {HvacModeEntries.map(([k, label]) => (

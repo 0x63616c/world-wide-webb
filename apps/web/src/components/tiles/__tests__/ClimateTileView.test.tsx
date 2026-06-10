@@ -1,5 +1,5 @@
 /**
- * ClimateTileView — pure presentational component tests.
+ * ClimateTileView, pure presentational component tests.
  * No trpc mocking needed: all inputs are props.
  */
 
@@ -7,13 +7,55 @@ import "@testing-library/jest-dom";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ClimateTileViewProps } from "../ClimateTileView";
-import { ClimateTileView, clampHigh, clampLow, HvacMode } from "../ClimateTileView";
+import {
+  ClimateTileView,
+  clampHigh,
+  clampLow,
+  clampTarget,
+  HvacMode,
+  visualBounds,
+} from "../ClimateTileView";
 
 afterEach(cleanup);
 
 const cbs = { onSetTarget: vi.fn(), onSetMode: vi.fn(), onSetRange: vi.fn() };
 
-// ─── pure clamp helpers — overlap / gap / bounds ──────────────────────────────
+// ─── dynamic visual bounds (ambient-driven, CC-3y5x) ──────────────────────────
+
+describe("visualBounds", () => {
+  it("keeps the default band when ambient sits comfortably inside it", () => {
+    expect(visualBounds(72)).toEqual({ min: 67, max: 77 });
+    expect(visualBounds(69)).toEqual({ min: 67, max: 77 });
+    expect(visualBounds(75)).toEqual({ min: 67, max: 77 });
+  });
+
+  it("extends the max to round(ambient)+2 once ambient reaches MAX-1", () => {
+    expect(visualBounds(76)).toEqual({ min: 67, max: 78 }); // exactly MAX-1
+    expect(visualBounds(78)).toEqual({ min: 67, max: 80 });
+    expect(visualBounds(80)).toEqual({ min: 67, max: 82 });
+  });
+
+  it("extends the min to round(ambient)-2 once ambient reaches MIN+1", () => {
+    expect(visualBounds(68)).toEqual({ min: 66, max: 77 }); // exactly MIN+1
+    expect(visualBounds(67)).toEqual({ min: 65, max: 77 });
+    expect(visualBounds(64)).toEqual({ min: 62, max: 77 });
+  });
+
+  it("rounds a fractional ambient before extending so end labels stay whole", () => {
+    expect(visualBounds(78.4)).toEqual({ min: 67, max: 80 });
+    expect(visualBounds(64.6)).toEqual({ min: 63, max: 77 });
+  });
+});
+
+describe("clampTarget", () => {
+  it("clamps a single setpoint into [MIN, MAX]", () => {
+    expect(clampTarget(72)).toBe(72);
+    expect(clampTarget(80)).toBe(77); // ceil at MAX even when the track is wider
+    expect(clampTarget(60)).toBe(67); // floor at MIN
+  });
+});
+
+// ─── pure clamp helpers, overlap / gap / bounds ──────────────────────────────
 
 describe("clampLow / clampHigh", () => {
   it("keeps low at most GAP below high", () => {
@@ -51,7 +93,7 @@ describe("clampLow / clampHigh", () => {
 
 // ─── loading state ────────────────────────────────────────────────────────────
 
-describe("ClimateTileView — loading state", () => {
+describe("ClimateTileView, loading state", () => {
   it("renders without crashing", () => {
     const { container } = render(<ClimateTileView status="loading" />);
     expect(container.firstChild).toBeInTheDocument();
@@ -81,7 +123,7 @@ const coolProps: ClimateTileViewProps = {
   ...cbs,
 };
 
-describe("ClimateTileView — cool/heat (single setpoint)", () => {
+describe("ClimateTileView, cool/heat (single setpoint)", () => {
   it("shows the setpoint with °F", () => {
     render(<ClimateTileView {...coolProps} />);
     expect(screen.getByTestId("setpoint")).toHaveTextContent("68");
@@ -110,6 +152,25 @@ describe("ClimateTileView — cool/heat (single setpoint)", () => {
     expect(screen.getByText("77°")).toBeInTheDocument();
   });
 
+  it("extends the scale and keeps the ambient caret on-card when temp exceeds the band", () => {
+    // ambient 78 in a 67-77 band: the scale stretches to 67-80 so the caret (84.6%)
+    // stays inside the track instead of running off the right edge at 110%.
+    render(<ClimateTileView {...coolProps} ambient={78} target={75} />);
+    expect(screen.getByTestId("ambient-label")).toHaveTextContent("78°");
+    expect(screen.getByText("80°")).toBeInTheDocument(); // extended right end label
+    expect(screen.queryByText("77°")).not.toBeInTheDocument();
+    const slider = screen.getByTestId("slider") as HTMLInputElement;
+    expect(slider.max).toBe("80"); // native input scale widened to match
+  });
+
+  it("never commits a setpoint above MAX even when the track is widened", () => {
+    const onSetTarget = vi.fn();
+    render(<ClimateTileView {...coolProps} ambient={80} target={76} onSetTarget={onSetTarget} />);
+    // track now reaches 82; dragging to 81 must still clamp the committed value to 77.
+    fireEvent.change(screen.getByTestId("slider"), { target: { value: "81" } });
+    expect(onSetTarget).toHaveBeenCalledWith(77);
+  });
+
   it("calls onSetTarget with the numeric slider value", () => {
     const onSetTarget = vi.fn();
     render(<ClimateTileView {...coolProps} onSetTarget={onSetTarget} />);
@@ -130,7 +191,7 @@ const heatCoolProps: ClimateTileViewProps = {
   ...cbs,
 };
 
-describe("ClimateTileView — heat_cool (dual setpoint)", () => {
+describe("ClimateTileView, heat_cool (dual setpoint)", () => {
   it("renders two sliders and no single slider", () => {
     render(<ClimateTileView {...heatCoolProps} />);
     expect((screen.getByTestId("slider-low") as HTMLInputElement).value).toBe("68");
@@ -179,7 +240,7 @@ describe("ClimateTileView — heat_cool (dual setpoint)", () => {
 
 // ─── off ──────────────────────────────────────────────────────────────────────
 
-describe("ClimateTileView — off", () => {
+describe("ClimateTileView, off", () => {
   const offProps: ClimateTileViewProps = {
     status: "populated",
     mode: HvacMode.Off,
@@ -203,7 +264,7 @@ describe("ClimateTileView — off", () => {
 
 // ─── mode buttons ───────────────────────────────────────────────────────────-
 
-describe("ClimateTileView — mode buttons", () => {
+describe("ClimateTileView, mode buttons", () => {
   it("fires onSetMode with the real hvac mode (no preset target)", () => {
     const onSetMode = vi.fn();
     render(<ClimateTileView {...coolProps} onSetMode={onSetMode} />);
