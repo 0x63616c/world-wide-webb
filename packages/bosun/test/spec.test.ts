@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import { type Runner, runProbes } from "../src/health.ts";
 import type { Spec } from "../src/spec.ts";
 import {
+  accessEmail,
+  accessFloor,
+  accessServiceToken,
   certProbe,
   cmdProbe,
   cronJob,
@@ -346,5 +349,71 @@ describe("full stack evaluation (purity + determinism)", () => {
     const roundTripped = JSON.parse(JSON.stringify(spec)) as Spec;
     expect(roundTripped.stackName).toBe(spec.stackName);
     expect(roundTripped.services.length).toBe(spec.services.length);
+  });
+});
+
+// --- Cloudflare Access builders + spec threading (CC-cuuw) -------------------
+
+describe("access builders", () => {
+  it("accessEmail produces an allow policy with an email include", () => {
+    expect(accessEmail("calum@example.com")).toEqual({
+      decision: "allow",
+      include: [{ kind: "email", email: "calum@example.com" }],
+    });
+  });
+
+  it("accessServiceToken produces a service_auth policy with a serviceToken include", () => {
+    expect(
+      accessServiceToken({ tokenName: "bosun-kiosk", clientIdEnv: "CF_ACCESS_KIOSK_CLIENT_ID" }),
+    ).toEqual({
+      decision: "service_auth",
+      include: [
+        {
+          kind: "serviceToken",
+          tokenName: "bosun-kiosk",
+          clientIdEnv: "CF_ACCESS_KIOSK_CLIENT_ID",
+        },
+      ],
+    });
+  });
+
+  it("accessFloor produces a block policy with no include (deny everyone)", () => {
+    expect(accessFloor()).toEqual({ decision: "block" });
+  });
+});
+
+describe("service() + access validation", () => {
+  it("stores access when declared alongside a route", () => {
+    const svc = service("storybook", {
+      route: "storybook.worldwidewebb.co",
+      access: accessEmail("calum@example.com"),
+    });
+    expect(svc.access).toEqual({
+      decision: "allow",
+      include: [{ kind: "email", email: "calum@example.com" }],
+    });
+  });
+
+  it("throws when access is declared without a route", () => {
+    expect(() => service("storybook", { access: accessEmail("calum@example.com") })).toThrow(
+      /access requires a route/,
+    );
+  });
+
+  it("leaves access undefined when not declared", () => {
+    const svc = service("api", { image: ghcr("control-center-api") });
+    expect(svc.access).toBeUndefined();
+  });
+});
+
+describe("stack() + accessFloor threading", () => {
+  it("threads accessFloor onto the Spec when provided", () => {
+    const spec = stack("control-center", { services: [], accessFloor: accessFloor() });
+    expect(spec.accessFloor).toEqual({ decision: "block" });
+  });
+
+  it("leaves accessFloor undefined when absent (the ship-now state)", () => {
+    const spec = stack("control-center", { services: [] });
+    expect(spec.accessFloor).toBeUndefined();
   });
 });
