@@ -1,4 +1,4 @@
-// Cloudflare Access reconcile (CC-cuuw) — the edge auth gate for *.worldwidewebb.co.
+// Cloudflare Access reconcile (CC-cuuw), the edge auth gate for *.worldwidewebb.co.
 //
 // A sibling of reconcile/routes.ts: it lists Access apps, creates the declared
 // apps + their policy, and prunes ONLY apps it owns (tag-scoped), never touching
@@ -13,9 +13,9 @@
 import type { AccessSpec } from "../spec.ts";
 
 // A Cloudflare Access policy as the client models it. `decision` mirrors the CF
-// API enum; `include` carries the OR-ed principal rules. We keep this minimal —
+// API enum; `include` carries the OR-ed principal rules. We keep this minimal ,
 // only the shapes reconcileAccess produces and reads back.
-/** @public — part of the CloudflareAccessClient contract (createApp/updateAppPolicy params), CC-cuuw */
+/** @public, part of the CloudflareAccessClient contract (createApp/updateApp params), CC-cuuw */
 export interface AccessPolicy {
   decision: "allow" | "block" | "service_auth";
   include: AccessIncludeRule[];
@@ -23,14 +23,14 @@ export interface AccessPolicy {
 
 // An include rule in CF's wire shape. `everyone` is CF's "Everyone" selector
 // (used by the deny-all floor); `email` and `service_token` carry a principal.
-/** @public — part of the CloudflareAccessClient contract (AccessPolicy.include), CC-cuuw */
+/** @public, part of the CloudflareAccessClient contract (AccessPolicy.include), CC-cuuw */
 export type AccessIncludeRule =
   | { everyone: Record<string, never> }
   | { email: { email: string } }
   | { service_token: { token_id: string } };
 
 // A live Access application as listed/created. `tags` is CF-native (unlike tunnel
-// ingress), so ownership for safe prune is tag-based — no origin-name heuristic.
+// ingress), so ownership for safe prune is tag-based, no origin-name heuristic.
 export interface AccessApp {
   id: string;
   // The single hostname or wildcard this app gates (e.g. "dashboard.worldwidewebb.co"
@@ -48,10 +48,16 @@ export interface DesiredAccessApp {
 // Dependency-injected Cloudflare Access client so tests mock without real API calls.
 export interface CloudflareAccessClient {
   listApps(): Promise<AccessApp[]>;
+  // Ensure the bosun ownership tag exists. CF Access REQUIRES a tag to be created
+  // (POST /access/tags) BEFORE it can be assigned to an app, assigning an unknown
+  // tag fails (12130 / sometimes a 500). Idempotent: a no-op if already present.
+  ensureTag(tag: string): Promise<void>;
   // Create an app for `domain` (tagged) with its single policy.
   createApp(domain: string, tag: string, policy: AccessPolicy): Promise<{ id: string }>;
-  // Replace the policy set of an existing app (idempotent updates on drift).
-  updateAppPolicy(appId: string, policy: AccessPolicy): Promise<void>;
+  // Converge an existing app to the desired state. The CF PUT /access/apps/{id}
+  // requires the FULL app body (type/domain/name), not just policies, so the
+  // caller passes domain+tag too (a policies-only PUT 400s "app type missing").
+  updateApp(appId: string, domain: string, tag: string, policy: AccessPolicy): Promise<void>;
   deleteApp(id: string): Promise<void>;
   // READ-ONLY: list service tokens so a service_auth policy can resolve a token
   // NAME (e.g. "bosun-kiosk") to its stable CF token id. NEVER creates/deletes.
@@ -60,17 +66,17 @@ export interface CloudflareAccessClient {
 
 // Tag format identifying Access apps owned by a specific bosun stack. Mirrors
 // stackRouteTag from routes.ts. Only apps carrying this exact tag are eligible
-// for prune — anything else is foreign and must not be touched.
-/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (CC-cuuw) */
+// for prune, anything else is foreign and must not be touched.
+/** @public, bosun access-gate spec surface, consumed by deploy.config.ts at cutover (CC-cuuw) */
 export function stackAccessTag(stackName: string): string {
   return `bosun:${stackName}`;
 }
 
 // Map an AccessSpec to a CF policy, resolving (a) any serviceToken rule's token
 // NAME to its CF token id and (b) any emailEnv rule's env-var NAME to the email
-// address — both via maps built once by reconcileAccess (from listServiceTokens
+// address, both via maps built once by reconcileAccess (from listServiceTokens
 // and process.env). A pure function over the spec + those maps. An unknown token
-// name or an unset email env var is a hard error — never a silent skip that would
+// name or an unset email env var is a hard error, never a silent skip that would
 // create an app nobody (or everybody) can reach.
 function specToPolicy(
   access: AccessSpec,
@@ -85,7 +91,7 @@ function specToPolicy(
       const email = emailByEnvVar.get(rule.envVar);
       if (!email) {
         throw new Error(
-          `reconcileAccess: allowed-email env var '${rule.envVar}' is unset — ` +
+          `reconcileAccess: allowed-email env var '${rule.envVar}' is unset, ` +
             "it must be sourced from 1Password via the agent's fromOp (CC-cuuw)",
         );
       }
@@ -102,7 +108,7 @@ function specToPolicy(
     }
   }
   // A block app (the floor) allows nobody, so it carries the CF "Everyone"
-  // selector with a block decision — that is what makes it deny everything.
+  // selector with a block decision, that is what makes it deny everything.
   if (access.decision === "block" && include.length === 0) {
     include.push({ everyone: {} });
   }
@@ -117,7 +123,7 @@ function specToPolicy(
 //   3. Prune ONLY apps tagged for THIS stack that are no longer declared.
 // Foreign apps (no tag or a different stack's tag) are never deleted. Service
 // tokens are never touched.
-/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (CC-cuuw) */
+/** @public, bosun access-gate spec surface, consumed by deploy.config.ts at cutover (CC-cuuw) */
 export async function reconcileAccess(
   stackName: string,
   declared: DesiredAccessApp[],
@@ -142,6 +148,10 @@ export async function reconcileAccess(
   const existing = await client.listApps();
   const existingByDomain = new Map(existing.map((a) => [a.domain, a]));
 
+  // The ownership tag must exist before any app can carry it (CF requirement).
+  // Ensure it once, up front, so every create/update below can assign it.
+  if (declared.length > 0) await client.ensureTag(tag);
+
   // Create or update each declared app.
   for (const { domain, access } of declared) {
     const policy = specToPolicy(access, tokenIdByName, emailByEnvVar);
@@ -149,9 +159,9 @@ export async function reconcileAccess(
     if (!live) {
       await client.createApp(domain, tag, policy);
     } else {
-      // Converge the policy on an already-present app. Cheap and idempotent on
-      // the CF side; keeps a changed decision/include from drifting.
-      await client.updateAppPolicy(live.id, policy);
+      // Converge an already-present app (full-body PUT) so a changed
+      // decision/include doesn't drift. Idempotent on the CF side.
+      await client.updateApp(live.id, domain, tag, policy);
     }
   }
 
@@ -166,9 +176,9 @@ export async function reconcileAccess(
 }
 
 // Default Cloudflare Access client using the CF Access API directly. The token is
-// resolved by the caller from 1Password — never stored here. Mirrors
+// resolved by the caller from 1Password, never stored here. Mirrors
 // makeDefaultCloudflareRouteClient's shape (account-scoped endpoints, bearer auth).
-/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (CC-cuuw) */
+/** @public, bosun access-gate spec surface, consumed by deploy.config.ts at cutover (CC-cuuw) */
 export function makeDefaultCloudflareAccessClient(
   accountId: string,
   apiToken: string,
@@ -193,9 +203,24 @@ export function makeDefaultCloudflareAccessClient(
       }));
     },
 
+    async ensureTag(tag) {
+      // CF requires a tag to exist before assignment. List, create if missing.
+      const list = await fetch(`${baseUrl}/tags`, { headers });
+      if (!list.ok) throw new Error(`CF Access API error ${list.status}: ${await list.text()}`);
+      const tags = ((await list.json()) as { result?: Array<{ name?: string }> }).result ?? [];
+      if (tags.some((t) => t.name === tag)) return;
+      const res = await fetch(`${baseUrl}/tags`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ name: tag }),
+      });
+      if (!res.ok) throw new Error(`CF Access API error ${res.status}: ${await res.text()}`);
+    },
+
     async createApp(domain, tag, policy) {
       // Self-hosted app + an app-scoped policy in one create. CF accepts a
-      // `policies` array inline on app creation.
+      // `policies` array inline on app creation. The tag MUST already exist
+      // (reconcileAccess calls ensureTag first).
       const res = await fetch(`${baseUrl}/apps`, {
         method: "POST",
         headers,
@@ -212,13 +237,19 @@ export function makeDefaultCloudflareAccessClient(
       return { id: data.result?.id ?? domain };
     },
 
-    async updateAppPolicy(appId, policy) {
-      // PUT the app's policy set. The app-scoped policies live under the app, so
-      // a PUT to the app with the new `policies` array converges them.
+    async updateApp(appId, domain, tag, policy) {
+      // PUT /access/apps/{id} requires the FULL app body (name/type/domain),
+      // not just policies, a policies-only PUT 400s "app type is missing".
       const res = await fetch(`${baseUrl}/apps/${appId}`, {
         method: "PUT",
         headers,
-        body: JSON.stringify({ policies: [{ name: appId, ...policy }] }),
+        body: JSON.stringify({
+          name: domain,
+          type: "self_hosted",
+          domain,
+          tags: [tag],
+          policies: [{ name: domain, ...policy }],
+        }),
       });
       if (!res.ok) throw new Error(`CF Access API error ${res.status}: ${await res.text()}`);
     },
