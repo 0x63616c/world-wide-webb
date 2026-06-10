@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- LAN-edge proxy autostart for the captive portal (CC-q002.21). Runs
+     scripts/portal-lan.sh at boot so the plain LAN-exposed proxy container
+     (which fronts the swarm captive-portal) is recreated after a reboot or an
+     OrbStack restart. The container itself is --restart=always; this just
+     re-asserts it on login. Install: cp to ~/Library/LaunchAgents/ && launchctl
+     load -w. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.calum.portal-lan</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/calum/code/github.com/0x63616c/control-center/scripts/portal-lan.sh</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>/tmp/portal-lan.log</string>
+  <key>StandardErrorPath</key><string>/tmp/portal-lan.err</string>
+</dict>
+</plist>
