@@ -122,6 +122,18 @@ export function renderStackYml(
       lines.push("        mode: ingress");
     }
 
+    // Extra overlay networks (CC-q002.21). A compose `networks:` key on a service
+    // REPLACES the implicit `default` membership, so always re-add `default` first
+    // (else the service loses connectivity to the rest of the stack). The extra
+    // network(s) must be declared attachable at the top level (attachableNetworks).
+    if (svc.networks && svc.networks.length > 0) {
+      lines.push("    networks:");
+      const nets = ["default", ...svc.networks.filter((n) => n !== "default")];
+      for (const n of nets) {
+        lines.push(`      - ${n}`);
+      }
+    }
+
     // Secret references, use hashed docker names, not plain names.
     if (svc.secrets.length > 0) {
       lines.push("    secrets:");
@@ -249,6 +261,20 @@ export function renderStackYml(
     for (const v of [...namedVolumes].sort()) {
       lines.push(`  ${spec.stackName}_${v}:`);
       lines.push(`    name: ${spec.stackName}_${v}`);
+    }
+  }
+
+  // Top-level ATTACHABLE overlay networks (CC-q002.21). Declared so a plain
+  // (non-swarm) container can `docker run --network <name>` join and resolve the
+  // swarm services on it by name. `default` is implicit (auto-created by stack
+  // deploy) and is not declared here. Sorted for deterministic output.
+  if (spec.attachableNetworks && spec.attachableNetworks.length > 0) {
+    lines.push("");
+    lines.push("networks:");
+    for (const n of [...spec.attachableNetworks].sort()) {
+      lines.push(`  ${n}:`);
+      lines.push("    driver: overlay");
+      lines.push("    attachable: true");
     }
   }
 
