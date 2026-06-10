@@ -1173,3 +1173,65 @@ describe("renderStackYml, cron jobs are excluded from the deployed stack", () =>
     expect(renderStackYml(jobSpec, {})).toBe(renderStackYml(jobSpec, {}));
   });
 });
+
+describe("renderStackYml, attachable networks (www-q002.21)", () => {
+  // OrbStack does NOT forward swarm-published ports to the Mac/LAN; only a plain
+  // `docker run -p` does. So the captive-portal runs as a plain container and
+  // must reach `api` over an ATTACHABLE overlay it joins. These tests lock the
+  // render: api joins the edge net (with default re-added), and the net is
+  // declared attachable at the top level.
+  const spec: Spec = {
+    stackName: "control-center",
+    attachableNetworks: ["portal-edge"],
+    services: [
+      {
+        name: "api",
+        image: "ghcr.io/0x63616c/control-center-api:main",
+        secrets: [],
+        env: {},
+        port: 4201,
+        networks: ["portal-edge"],
+        health: [],
+      },
+      {
+        name: "web",
+        image: "ghcr.io/0x63616c/control-center-web:main",
+        secrets: [],
+        env: {},
+        port: 80,
+        health: [],
+      },
+    ],
+  };
+
+  it("declares the attachable overlay at the top level", () => {
+    const yml = renderStackYml(spec, {});
+    expect(yml).toMatch(/networks:\n {2}portal-edge:\n {4}driver: overlay\n {4}attachable: true/);
+  });
+
+  it("joins the opted-in service to the edge net AND re-adds default", () => {
+    const yml = renderStackYml(spec, {});
+    // The api service block lists both default (re-added) and portal-edge.
+    expect(yml).toMatch(/ {4}networks:\n {6}- default\n {6}- portal-edge/);
+  });
+
+  it("does NOT add a networks block to services that did not opt in", () => {
+    const yml = renderStackYml(spec, {});
+    // web has no `networks` field -> no per-service networks key (stays on default).
+    const webBlock = yml.slice(yml.indexOf("  web:"));
+    expect(webBlock).not.toContain("    networks:");
+  });
+
+  it("omits the top-level networks section entirely when no attachable nets are declared", () => {
+    const plain: Spec = {
+      stackName: "control-center",
+      services: spec.services.map((s) => ({ ...s, networks: undefined })),
+    };
+    const yml = renderStackYml(plain, {});
+    expect(yml).not.toContain("\nnetworks:\n");
+  });
+
+  it("is deterministic", () => {
+    expect(renderStackYml(spec, {})).toBe(renderStackYml(spec, {}));
+  });
+});

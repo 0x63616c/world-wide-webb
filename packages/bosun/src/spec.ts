@@ -8,7 +8,7 @@ export interface SecretRef {
   ref: string;
 }
 
-/** @public — part of the bosun deploy-spec surface (deploy.config.ts); kept though no internal consumer yet (www-k6p1). */
+/** @public, part of the bosun deploy-spec surface (deploy.config.ts); kept though no internal consumer yet (www-k6p1). */
 export interface ScheduleSpec {
   // Standard 5-field cron ("min hour dom mon dow"). The bosun scheduler matches
   // it against the wall clock each minute; no seconds column to track.
@@ -19,17 +19,17 @@ export interface ScheduleSpec {
 //
 // An `access:` declaration on a service (or a stack-level `accessFloor`) maps to
 // a Cloudflare Access application + policy that the reconcile (reconcile/access.ts)
-// creates at the edge. Pure data, no I/O — the include rules carry only env var
+// creates at the edge. Pure data, no I/O, the include rules carry only env var
 // NAMES (for service tokens / env-sourced emails) or literal emails, never
 // secret values. NOTE: this is a PUBLIC repo, so a personal email must NEVER be
-// a literal here (the no-personal-email guard blocks it) — use `emailEnv` so the
+// a literal here (the no-personal-email guard blocks it), use `emailEnv` so the
 // address lives only in 1Password and is injected as env at deploy time.
 
-/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
+/** @public, bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
 export type AccessRule =
   // Allow a specific identity by literal email (OTP login). Only for emails safe
   // to commit (e.g. a shared/role address); NEVER a personal email in this public
-  // repo — use the `emailEnv` variant for those.
+  // repo, use the `emailEnv` variant for those.
   | { kind: "email"; email: string }
   // Allow a specific identity whose email is resolved at reconcile time from the
   // env var named `envVar` (sourced from 1Password via the agent's fromOp). Keeps
@@ -42,7 +42,7 @@ export type AccessRule =
   // is informational here (carried to docs/debugging), not the policy principal.
   | { kind: "serviceToken"; tokenName: string; clientIdEnv: string };
 
-/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
+/** @public, bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
 export interface AccessSpec {
   // Decision for the app's primary policy.
   decision: "allow" | "block" | "service_auth";
@@ -77,10 +77,10 @@ export interface HealthcheckSpec {
 }
 
 // Per-service container resource caps (www-ke9a). `memory` is a HARD limit
-// (compose `deploy.resources.limits.memory`, e.g. "768M"/"1G") — on a cgroup-v2
+// (compose `deploy.resources.limits.memory`, e.g. "768M"/"1G"), on a cgroup-v2
 // VM it charges page cache too, so the kernel OOM-kills just this container, not
 // the box, which is what contains a runaway like the uncapped media-worker. CPU
-// is deliberately NOT limited (a compressible resource — a hard quota only wastes
+// is deliberately NOT limited (a compressible resource, a hard quota only wastes
 // idle cores); instead `reserveCpus`/`reserveMemory` are scheduling RESERVATIONS
 // (compose `deploy.resources.reservations`) that guarantee the critical path
 // (postgres/api/cloudflared) always gets scheduled under contention.
@@ -111,7 +111,7 @@ export interface ServiceSpec {
   port?: number;
   // Optional: publish a host port for a LAN-only service. Unlike `route` (which
   // creates a Cloudflare tunnel ingress), this binds a port directly on the swarm
-  // node — on a single-node, manager-pinned stack that is the Mini's LAN IP, so
+  // node, on a single-node, manager-pinned stack that is the Mini's LAN IP, so
   // the service is reachable on the local network with no public exposure. The
   // renderer emits a long-form `mode: host` published port (binds the node, not
   // the routing-mesh ingress VIP). A publishPort service declares NO route, so no
@@ -126,9 +126,18 @@ export interface ServiceSpec {
   volumes?: string[];
   // Optional deploy placement constraints (e.g. "node.role==manager").
   placement?: string[];
+  // Optional extra overlay networks this service joins, beyond the implicit
+  // stack `default`. Used so a swarm service (e.g. api) can sit on an ATTACHABLE
+  // overlay that a plain `docker run` container also joins, the only way to let
+  // a LAN-exposed plain container (OrbStack forwards plain published ports to the
+  // LAN; it does NOT forward swarm-published ports) reach a swarm service by name.
+  // The renderer always re-adds `default` when this is set (a compose `networks:`
+  // key drops the implicit default membership otherwise). Declare the network at
+  // the stack level via `attachableNetworks` (www-q002.21).
+  networks?: string[];
   // Optional explicit replica count (deploy.replicas). Swarm defaults a long-lived
   // service to 1 when unset, so leave it undefined for the normal case. Set to 0 to
-  // PARK a service in the spec (deployed but scaled to zero) — durable across the
+  // PARK a service in the spec (deployed but scaled to zero), durable across the
   // whole-stack redeploy on every push, unlike a manual `docker service scale`.
   replicas?: number;
   // Optional scheduled-job declaration. When present this service is NOT a
@@ -140,7 +149,7 @@ export interface ServiceSpec {
   // Optional Docker container healthcheck (swarm-tracked liveness). See above.
   healthcheck?: HealthcheckSpec;
   // Optional container resource caps (memory limit + cpu/memory reservations).
-  // See ResourceSpec — the structural fix for the media-worker OOM outage class.
+  // See ResourceSpec, the structural fix for the media-worker OOM outage class.
   resources?: ResourceSpec;
   health: HealthProbe[];
 }
@@ -149,6 +158,14 @@ export interface Spec {
   // Stack name used for Docker Swarm stack deploy and label scoping.
   stackName: string;
   services: ServiceSpec[];
+  // Optional ATTACHABLE overlay networks the stack creates (beyond `default`).
+  // Rendered top-level as `{ driver: overlay, attachable: true }` so a plain
+  // (non-swarm) `docker run --network <name>` container can join and resolve
+  // swarm services on it by name. This is the LAN-edge seam for the captive
+  // portal: OrbStack won't forward swarm-published ports to the LAN, so the
+  // portal runs as a plain `-p` container joined to this network to reach `api`
+  // (www-q002.21). Services opt in via their `networks` field.
+  attachableNetworks?: string[];
   // Optional wildcard default-deny "floor" Access app for the stack's zone
   // (`*.worldwidewebb.co` => Block), www-cuuw. The floor has no origin service,
   // so it is a stack-level field, NOT a service. OPTIONAL by design: an absent
@@ -161,7 +178,7 @@ export interface Spec {
 
 export function stack(
   name: string,
-  opts: { services: ServiceSpec[]; accessFloor?: AccessSpec },
+  opts: { services: ServiceSpec[]; accessFloor?: AccessSpec; attachableNetworks?: string[] },
 ): Spec {
   return {
     stackName: name,
@@ -169,6 +186,9 @@ export function stack(
     // Thread the optional floor onto the Spec. Omitted when unset so existing
     // callers (no accessFloor) yield an identical Spec to before (www-cuuw).
     ...(opts.accessFloor ? { accessFloor: opts.accessFloor } : {}),
+    // Attachable overlay networks (www-q002.21). Omitted when unset so existing
+    // callers render byte-identically to before.
+    ...(opts.attachableNetworks ? { attachableNetworks: opts.attachableNetworks } : {}),
   };
 }
 
@@ -195,6 +215,7 @@ export function service(
     access: opts.access,
     port: opts.port,
     publishPort: opts.publishPort,
+    networks: opts.networks,
     proxyApiTo: opts.proxyApiTo,
     command: opts.command,
     volumes: opts.volumes,
@@ -218,11 +239,11 @@ export function healthcheck(
 }
 
 // Scheduled-job primitive. A cron job is a ServiceSpec carrying a `schedule`,
-// but it is NOT deployed as a long-lived stack service — the bosun scheduler
+// but it is NOT deployed as a long-lived stack service, the bosun scheduler
 // runs it on its cron as a one-shot Swarm job (docker service create --mode
 // replicated-job), so renderStackYml excludes it from the rendered stack. A
 // one-shot job has no liveness endpoint, so it attaches no health probes (jobs
-// are exempt from verify — a one-shot has nothing to poll). `placement` pins the
+// are exempt from verify, a one-shot has nothing to poll). `placement` pins the
 // job to a node class (e.g. node.role==manager for socket-mounting jobs).
 export function cronJob(
   name: string,
@@ -232,11 +253,11 @@ export function cronJob(
     schedule: string;
     command: string;
     env?: Record<string, string>;
-    // Op-resolved secret refs (from fromOp()) the job needs as env at run time —
+    // Op-resolved secret refs (from fromOp()) the job needs as env at run time -
     // e.g. the cert job's Cloudflare API token for DNS-01. The bosun agent
     // resolves them and injects --env KEY=VALUE when it dispatches the one-shot
     // job; the resolved value never appears in this static spec or in logs. NOTE:
-    // job env (incl. these) IS visible via `docker service inspect` on the box —
+    // job env (incl. these) IS visible via `docker service inspect` on the box -
     // an accepted tradeoff on the single-user homelab (www-q002.13).
     secrets?: SecretRef[];
     volumes?: string[];
@@ -272,25 +293,25 @@ export function fromOp(vault: string, refs: Record<string, string>): SecretRef[]
 
 // --- Cloudflare Access builders (www-cuuw) ------------------------------------
 //
-// Declarative, pure. Mirror httpProbe/cmdProbe/fromOp — keep deploy.config.ts
+// Declarative, pure. Mirror httpProbe/cmdProbe/fromOp, keep deploy.config.ts
 // reading like data. Tagged @public: the only consumer is deploy.config.ts at
 // the gated cutover (units 8-9), so until then knip would flag them as dead.
 
-/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
+/** @public, bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
 export function accessEmail(email: string): AccessSpec {
   return { decision: "allow", include: [{ kind: "email", email }] };
 }
 
 // Allow a single identity whose email is read at reconcile time from the named
 // env var (sourced from 1Password via the agent's fromOp). Use this for personal
-// emails — they must never be committed to this public repo (no-personal-email
+// emails, they must never be committed to this public repo (no-personal-email
 // guard). The repo carries only the env var NAME, never the address.
-/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
+/** @public, bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
 export function accessEmailEnv(envVar: string): AccessSpec {
   return { decision: "allow", include: [{ kind: "emailEnv", envVar }] };
 }
 
-/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
+/** @public, bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
 export function accessServiceToken(opts: { tokenName: string; clientIdEnv: string }): AccessSpec {
   return {
     decision: "service_auth",
@@ -298,10 +319,10 @@ export function accessServiceToken(opts: { tokenName: string; clientIdEnv: strin
   };
 }
 
-/** @public — bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
+/** @public, bosun access-gate spec surface, consumed by deploy.config.ts at cutover (www-cuuw) */
 export function accessFloor(): AccessSpec {
   // The default-deny floor: a Block app over the wildcard host with no include
-  // rules — nothing is allowed through it, so any subdomain not covered by a
+  // rules, nothing is allowed through it, so any subdomain not covered by a
   // more specific allow app is denied at the edge.
   return { decision: "block" };
 }
@@ -324,7 +345,7 @@ export function cmdProbe(description: string, command: string): HealthProbe {
 }
 
 // cert-expiry lookahead probe. Connect-time TLS validation (an http probe) only
-// fails AFTER a cert has already expired — too late to act. This wraps openssl's
+// fails AFTER a cert has already expired, too late to act. This wraps openssl's
 // -checkend, which exits non-zero when the cert expires within `warnDays`, so the
 // probe goes red BEFORE expiry while there is still time to renew. Implemented on
 // the existing cmd path so no new probe kind is needed.
@@ -347,11 +368,11 @@ export function certProbe(
   };
 }
 
-// postgres convenience builder — produces a ServiceSpec for Postgres.
+// postgres convenience builder, produces a ServiceSpec for Postgres.
 //
 // NOTE: custom postgresql.conf / initdb mounting is intentionally NOT supported.
 // An earlier version accepted `config`/`init` path options, but the renderer
-// never emitted them and the bosun-agent image never copied the `infra/` tree —
+// never emitted them and the bosun-agent image never copied the `infra/` tree -
 // so they were a silent no-op that misrepresented the deployed stack. They were
 // removed (www-355t.4). If config/init mounting is ever needed, add it to the
 // renderer (reconcile/stack.ts) AND copy the files into the agent image, with a
@@ -363,7 +384,7 @@ export function postgres(opts: {
   // Database created on a FRESH volume init. Defaults to the api's expected db
   // name (apps/api/src/env.ts: POSTGRES_DB ?? "control_center"). POSTGRES_DB is
   // honoured by the postgres image ONLY on first init, so it is inert against an
-  // existing data volume — safe to add to the live spec without forcing a
+  // existing data volume, safe to add to the live spec without forcing a
   // destructive re-init, while a volume-loss rebuild correctly recreates it.
   db?: string;
   // Optional container resource caps (memory limit + cpu/memory reservations).
@@ -390,7 +411,7 @@ export function postgres(opts: {
     // No -h: this runs INSIDE the postgres container, so localhost is correct.
     healthcheck: healthcheck("pg_isready -U postgres", { startPeriod: "30s" }),
     // The deploy-verify probe runs in the bosun AGENT, not in postgres, so it must
-    // target the service over the overlay network (-h postgres) — without it,
+    // target the service over the overlay network (-h postgres), without it,
     // pg_isready checks the agent's own localhost and always exits 2 (www-hya3).
     health: [cmdProbe("postgres ready", "pg_isready -h postgres -U postgres")],
   };
