@@ -4,9 +4,12 @@ import { App } from "../App";
 import { cn } from "../lib/utils";
 
 describe("scaffold smoke", () => {
-  it("renders the boot heading", () => {
+  it("boots into the landing screen (App runs the flow state machine)", () => {
     render(<App />);
-    expect(screen.getByRole("heading", { name: "Connect to Wi-Fi" })).toBeInTheDocument();
+    // The flow starts on landing; LandingBare's heading carries the welcome.
+    const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1).toHaveTextContent("Hey there.");
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
   });
 
   it("cn() merges and dedupes tailwind classes", () => {

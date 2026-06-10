@@ -11,6 +11,10 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // Unit tests live under src/. Scope vitest there so it never tries to run
+    // the Playwright specs in e2e/ (www-q002.16), which are driven by Playwright,
+    // not vitest, and otherwise fail collection here.
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     // Cap concurrent forks: vitest defaults to ~cpu_count forks; each loads
