@@ -46,13 +46,15 @@ function mapped(reported: DeviceClimateState | null, available = true): MappedHa
 }
 
 describe("decideClimateEnforcement (pure)", () => {
-  it("seeds desired from reported when desired is null (no push)", () => {
-    const reported: DeviceClimateState = { mode: "cool", target: 70, ambient: 72 };
+  it("seeds desired from reported when desired is null (no push), STRIPPING reported-only fields (www-dnpj)", () => {
+    const reported: DeviceClimateState = { mode: "cool", target: 70, ambient: 72, action: "idle" };
     const d = decideClimateEnforcement(
       { id: "c", entityId: "climate.home", desiredState: null, desiredUntilUtc: null },
       mapped(reported),
     );
-    expect(d).toEqual({ kind: "seed", desired: reported });
+    // ambient/action are reported-only — a desired carrying them would shadow the
+    // live reported values in the merge overlay and freeze the panel's room temp.
+    expect(d).toEqual({ kind: "seed", desired: { mode: "cool", target: 70 } });
   });
 
   it("noop when desired and reported converge on the commandable fields", () => {
@@ -213,9 +215,51 @@ describe("runClimateEnforcerCycle", () => {
       | undefined;
     expect(seed).toBeDefined();
     expect(seed?.reportedState).toMatchObject({ mode: "cool", target: 70, ambient: 72 });
-    expect(seed?.desiredState).toMatchObject({ mode: "cool", target: 70 });
+    // Desired carries ONLY commandable fields — never the reported-only
+    // ambient/action (www-dnpj: they'd freeze the panel's room temp at seed time).
+    expect(seed?.desiredState).toEqual({ mode: "cool", target: 70 });
     // Seeding never actuates HA.
     expect(mockCallService).not.toHaveBeenCalled();
+  });
+
+  it("self-heals a stale desired that carries reported-only ambient/action (www-dnpj)", async () => {
+    // Prod repro: desired was seeded pre-fix as a wholesale copy of reported, so
+    // it still carries ambient/action. The cycle must persist a sanitized desired
+    // (no manual migration) while leaving the commandable fields untouched.
+    const row = {
+      id: "climate-thermostat",
+      kind: "climate",
+      entityId: "climate.home",
+      domain: "climate",
+      desiredState: { mode: "cool", target: 72, fanMode: "on", ambient: 71, action: "cooling" },
+      reportedState: { mode: "cool", target: 72, fanMode: "auto", ambient: 73, action: "cooling" },
+      desiredUntilUtc: null,
+      available: true,
+    };
+    mockDbSelect.mockReturnValue(new Chain([row]));
+    insertCapture();
+    const set = setBuilder();
+    mockGetEntities.mockResolvedValue([
+      haClimate({
+        current_temperature: 73,
+        temperature: 72,
+        fan_mode: "auto",
+        hvac_action: "cooling",
+      }),
+    ]);
+
+    await runClimateEnforcerCycle();
+
+    // Converged on commandable fields (fan yielded while cooling) → no actuation.
+    expect(mockCallService).not.toHaveBeenCalled();
+    const persisted = set.mock.calls.find(
+      (c) => (c[0] as { desiredState?: unknown })?.desiredState !== undefined,
+    );
+    expect((persisted?.[0] as { desiredState: DeviceClimateState }).desiredState).toEqual({
+      mode: "cool",
+      target: 72,
+      fanMode: "on",
+    });
   });
 
   it("pushes desired→HA on drift (set_hvac_mode + set_temperature + set_fan_mode)", async () => {
