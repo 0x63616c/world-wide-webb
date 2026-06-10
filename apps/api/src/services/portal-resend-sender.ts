@@ -2,7 +2,7 @@
  * Resend EmailSender for the captive portal (www-q002.11). Sends the 6-digit
  * verification code via the Resend HTTP API behind the same EmailSender
  * interface as the mock, so the router swaps senders with config alone. Throws
- * on any non-ok response or network failure — a guest who never receives a code
+ * on any non-ok response or network failure, a guest who never receives a code
  * must never be told it was sent (services throw, never fake success).
  *
  * Copy follows the portal's UI voice ("confirm it's you"); per PRD flow rule 8
@@ -36,7 +36,7 @@ function textBody(code: string): string {
 }
 
 function htmlBody(code: string): string {
-  // Minimal, inline-styled HTML — email clients ignore external CSS. Pure black
+  // Minimal, inline-styled HTML, email clients ignore external CSS. Pure black
   // background to match the portal; the code is the focal element.
   return `<!doctype html><html><body style="margin:0;background:#000;color:#fff;font-family:-apple-system,Segoe UI,Roboto,sans-serif;padding:40px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
@@ -48,7 +48,12 @@ function htmlBody(code: string): string {
 }
 
 export function createResendEmailSender(config: ResendConfig): EmailSender {
-  const log = getLogger();
+  // getLogger() is resolved lazily at the log site, NOT here: this sender is
+  // constructed as a module-level singleton in portal.ts, which evaluates during
+  // import, before server.ts calls createLogger() at startup. Calling getLogger()
+  // at construction threw "getLogger() called before createLogger()" and crash-
+  // looped the api (www-q002.11 regression that took the dashboard down). By the
+  // time sendCode runs (request time) the root logger is initialised.
   return {
     async sendCode(email, code) {
       let res: Response;
@@ -76,7 +81,7 @@ export function createResendEmailSender(config: ResendConfig): EmailSender {
         throw new Error(`Resend returned ${res.status}: ${detail}`);
       }
       // Never log the code (unlike the mock): the real channel must not leak it.
-      log.info({ email }, "portal verification code emailed via Resend");
+      getLogger().info({ email }, "portal verification code emailed via Resend");
     },
   };
 }

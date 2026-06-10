@@ -16,13 +16,17 @@ export interface MockEmailSender extends EmailSender {
 
 export function createMockEmailSender(): MockEmailSender {
   const store = new Map<string, string>();
-  const log = getLogger();
+  // getLogger() resolved lazily at the log site, NOT at construction: this sender
+  // is built as a module-level singleton in portal.ts (evaluated during import,
+  // before server.ts's createLogger()). Eager getLogger() here would throw the
+  // same "called before createLogger()" that crash-looped the api via the Resend
+  // sender (www-q002.11). Dev-only path, but kept consistent + safe.
   return {
     async sendCode(email, code) {
       store.set(email, code);
       // Dev-readable: the code is intentionally logged so a developer/E2E run
       // can grab it. This sender is never used in production.
-      log.info({ email, code }, "portal MOCK email, verification code");
+      getLogger().info({ email, code }, "portal MOCK email, verification code");
     },
     lastCode: (email) => store.get(email),
   };
