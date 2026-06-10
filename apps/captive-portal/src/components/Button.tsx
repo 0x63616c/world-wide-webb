@@ -6,7 +6,7 @@ type ButtonVariant = "primary" | "ghost";
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   /** Shows a spinner and disables the button. The label MUST stay meaningful
-   *  while loading (e.g. "Connecting…") — it's the accessible name. Setting
+   *  while loading (e.g. "Connecting…"), it's the accessible name. Setting
    *  loading the instant the button is pressed is the double-submit guard. */
   loading?: boolean;
   children: ReactNode;
