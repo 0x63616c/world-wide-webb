@@ -11,7 +11,7 @@ FROM oven/bun:1.2-alpine AS builder
 WORKDIR /app
 
 # Install workspace deps. Copy root manifests first so bun resolves the
-# workspace graph before copying source — keeps the layer cache effective.
+# workspace graph before copying source, keeps the layer cache effective.
 COPY package.json bun.lock ./
 COPY apps/captive-portal/package.json ./apps/captive-portal/package.json
 COPY apps/web/package.json ./apps/web/package.json
