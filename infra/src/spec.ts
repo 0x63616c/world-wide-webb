@@ -115,4 +115,8 @@ export interface CronJobSpec {
   // Suspend the schedule (for manual-only jobs driven by `kubectl create job
   // --from=cronjob/...`, e.g. map-extract). Default false.
   suspend?: boolean;
+  // Extra secrets mounted as files at a path (NOT the /run/secrets rail). First
+  // user: pg-backup mounting the CNPG-managed cc-postgres-auth basic-auth Secret
+  // so pg_dump reads the password without a duplicate ExternalSecret.
+  extraSecretMounts?: { secretName: string; mountPath: string }[];
 }
