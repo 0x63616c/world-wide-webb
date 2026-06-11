@@ -53,11 +53,17 @@ const PG_BACKUP_COMMAND = [
   "sh",
   "-c",
   [
+    // pipefail is REQUIRED: pg_dump pipes into gzip, so without it a pg_dump
+    // failure (e.g. a server-version mismatch) is masked by gzip's success and
+    // the job writes a broken/empty artifact while reporting Complete. With
+    // pipefail (+ errexit) the failed dump fails the job, so a bad backup is
+    // never silently "successful".
+    "set -eo pipefail",
     `export PGPASSWORD="$(cat ${PG_AUTH_MOUNT}/password)"`,
     `out="${BACKUP_MOUNT}/${DB_NAME}-$(date +%Y%m%d).sql.gz"`,
     `pg_dump -h ${POSTGRES_HOST} -U ${DB_OWNER} -d ${DB_NAME} | gzip -c > "$out"`,
     'echo "wrote $out"',
-  ].join(" && "),
+  ].join("\n"),
 ];
 
 /**
@@ -108,13 +114,14 @@ export function cronSpecs(nasNfsServer: string): CronJobSpec[] {
     // NEW nightly logical backup to the NAS (RECON decision 5 / GOAL Phase 3).
     // Today there are NO Postgres backups (CNPG autobackup:false). This pg_dumps
     // the control_center DB and writes a DATED control_center-YYYYMMDD.sql.gz onto
-    // an NFS PV pointed at the NAS backup path. The pg image major matches the
-    // CNPG server (PG 17) so pg_dump version-checks pass. 01:00 LA, off-peak and
-    // ahead of the 02:00 purge. The NFS PV carries the mandatory NFSv3 mount
-    // options (render layer); the DS420+ is v3-only (DESIGN §5b).
+    // an NFS PV pointed at the NAS backup path. The pg image major MUST match the
+    // CNPG server major (PG 18, cnpg.ts) or pg_dump aborts on a version mismatch;
+    // bump both together on a CNPG major upgrade. 01:00 LA, off-peak and ahead of
+    // the 02:00 purge. The NFS PV carries the mandatory NFSv3 mount options
+    // (render layer); the DS420+ is v3-only (DESIGN §5b).
     {
       name: "pg-backup",
-      image: "ghcr.io/cloudnative-pg/postgresql:17",
+      image: "ghcr.io/cloudnative-pg/postgresql:18",
       schedule: "0 1 * * *",
       command: PG_BACKUP_COMMAND,
       env: { TZ },
