@@ -16,6 +16,7 @@ interface VolumeMount {
   name: string;
   mountPath: string;
   readOnly?: boolean;
+  subPath?: string;
 }
 interface PodVolume {
   name: string;
@@ -40,17 +41,36 @@ interface DeploymentArgs {
     selector: { matchLabels: Record<string, string> };
     template: {
       metadata: { labels: Record<string, string> };
-      spec: { containers: Container[]; volumes: PodVolume[] };
+      spec: {
+        containers: Container[];
+        volumes: PodVolume[];
+        imagePullSecrets?: { name: string }[];
+        automountServiceAccountToken?: boolean;
+      };
     };
   };
 }
 interface ServiceArgs {
   metadata: { name: string; labels: Record<string, string> };
   spec: {
+    // "None" = a headless Service (used with manual Endpoints for an external
+    // host like the HA VM, which has no pod selector).
     type: "ClusterIP" | "LoadBalancer";
-    selector: Record<string, string>;
+    clusterIP?: "None";
+    selector?: Record<string, string>;
     ports: { name: string; port: number; targetPort: number }[];
   };
+}
+// A headless Service + its manually-managed Endpoints, addressing an OFF-cluster
+// host by DNS name (e.g. the api -> Home Assistant VM at the host LAN IP :8123).
+// Not tied to any pod; the consuming workload reaches it via the Service name.
+interface EndpointsArgs {
+  metadata: { name: string; labels: Record<string, string> };
+  subsets: { addresses: { ip: string }[]; ports: { name: string; port: number }[] }[];
+}
+export interface RenderedExternalService {
+  service: ServiceArgs;
+  endpoints: EndpointsArgs;
 }
 interface PersistentVolumeArgs {
   metadata: { name: string };
@@ -59,6 +79,19 @@ interface PersistentVolumeArgs {
     accessModes: string[];
     mountOptions: string[];
     nfs: { server: string; path: string };
+    storageClassName: string;
+  };
+}
+// A PVC that statically binds to an NFS PV by name (storageClassName "" so the
+// default provisioner doesn't try to dynamically provision it). The pod mounts
+// the PVC, which binds to the PV the same render emits.
+interface PersistentVolumeClaimArgs {
+  metadata: { name: string };
+  spec: {
+    accessModes: string[];
+    storageClassName: string;
+    volumeName: string;
+    resources: { requests: { storage: string } };
   };
 }
 
@@ -66,6 +99,7 @@ export interface RenderedWorkload {
   deployment: DeploymentArgs;
   services: ServiceArgs[];
   persistentVolumes: PersistentVolumeArgs[];
+  persistentVolumeClaims: PersistentVolumeClaimArgs[];
 }
 
 // NFS mount options are mandatory for the Synology DS420+, which speaks ONLY
@@ -102,12 +136,17 @@ interface PodInputs {
   secrets?: SecretRef[];
   env?: Record<string, string>;
   volumes?: VolumeSpec[];
+  // The Secret projected at /run/secrets; defaults to cc-secrets-<name> (ESO).
+  secretName?: string;
+  // Extra secrets mounted as files at a path (e.g. the portal TLS cert).
+  extraSecretMounts?: { secretName: string; mountPath: string }[];
 }
 
 function buildPod(p: PodInputs): {
   container: Container;
   podVolumes: PodVolume[];
   persistentVolumes: PersistentVolumeArgs[];
+  persistentVolumeClaims: PersistentVolumeClaimArgs[];
 } {
   const limits: Record<string, string> = {};
   const requests: Record<string, string> = {};
@@ -124,20 +163,39 @@ function buildPod(p: PodInputs): {
   const volumeMounts: VolumeMount[] = [];
   const podVolumes: PodVolume[] = [];
   const persistentVolumes: PersistentVolumeArgs[] = [];
+  const persistentVolumeClaims: PersistentVolumeClaimArgs[] = [];
 
-  // Secrets: one k8s Secret per object (named after it), synced by an
-  // ExternalSecret, projected as files under /run/secrets so values never appear
-  // in the pod spec and images keep reading the same paths (DESIGN.md §3).
+  // Secrets: the ESO-synced Secret (cc-secrets-<name> by default), projected as
+  // files under /run/secrets so values never appear in the pod spec and images
+  // keep reading the same paths (DESIGN.md §3 / www-j934.4).
   if (p.secrets && p.secrets.length > 0) {
     volumeMounts.push({ name: "secrets", mountPath: "/run/secrets", readOnly: true });
-    podVolumes.push({ name: "secrets", secret: { secretName: p.name } });
+    podVolumes.push({
+      name: "secrets",
+      secret: { secretName: p.secretName ?? `cc-secrets-${p.name}` },
+    });
+  }
+
+  // Extra secrets mounted as files at their own path (e.g. the portal's
+  // cert-manager TLS Secret for nginx). Distinct from the /run/secrets rail.
+  for (const [i, m] of (p.extraSecretMounts ?? []).entries()) {
+    const volName = `xsec-${i}`;
+    volumeMounts.push({ name: volName, mountPath: m.mountPath, readOnly: true });
+    podVolumes.push({ name: volName, secret: { secretName: m.secretName } });
   }
 
   for (const [i, vol] of (p.volumes ?? []).entries()) {
     const volName = `vol-${i}`;
-    volumeMounts.push({ name: volName, mountPath: vol.mountPath, readOnly: vol.readOnly });
+    volumeMounts.push({
+      name: volName,
+      mountPath: vol.mountPath,
+      readOnly: vol.readOnly,
+      ...(vol.subPath ? { subPath: vol.subPath } : {}),
+    });
     if (vol.nfs) {
       const pvName = `${p.name}-${volName}`;
+      // A statically-bound PV + PVC pair (storageClassName "" so the default
+      // provisioner stays out of it; the PVC binds to this exact PV by name).
       persistentVolumes.push({
         metadata: { name: pvName },
         spec: {
@@ -145,6 +203,16 @@ function buildPod(p: PodInputs): {
           accessModes: ["ReadWriteMany"],
           mountOptions: NFS_MOUNT_OPTIONS,
           nfs: { server: vol.nfs.server, path: vol.nfs.path },
+          storageClassName: "",
+        },
+      });
+      persistentVolumeClaims.push({
+        metadata: { name: pvName },
+        spec: {
+          accessModes: ["ReadWriteMany"],
+          storageClassName: "",
+          volumeName: pvName,
+          resources: { requests: { storage: "1Gi" } },
         },
       });
       podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: pvName } });
@@ -162,13 +230,13 @@ function buildPod(p: PodInputs): {
     volumeMounts,
   };
 
-  return { container, podVolumes, persistentVolumes };
+  return { container, podVolumes, persistentVolumes, persistentVolumeClaims };
 }
 
 export function renderWorkload(w: WorkloadSpec): RenderedWorkload {
   const labels = { app: w.name };
 
-  const { container, podVolumes, persistentVolumes } = buildPod(w);
+  const { container, podVolumes, persistentVolumes, persistentVolumeClaims } = buildPod(w);
 
   const deployment: DeploymentArgs = {
     metadata: { name: w.name, labels },
@@ -177,7 +245,19 @@ export function renderWorkload(w: WorkloadSpec): RenderedWorkload {
       selector: { matchLabels: labels },
       template: {
         metadata: { labels },
-        spec: { containers: [container], volumes: podVolumes },
+        spec: {
+          containers: [container],
+          volumes: podVolumes,
+          ...(w.imagePullSecrets && w.imagePullSecrets.length > 0
+            ? { imagePullSecrets: w.imagePullSecrets.map((name) => ({ name })) }
+            : {}),
+          // App pods don't call the k8s API; disabling the serviceaccount token
+          // automount avoids its projection at /var/run/secrets/kubernetes.io,
+          // which collides with our read-only /run/secrets mount (/var/run ->
+          // /run symlink makes /run/secrets read-only, blocking the SA mountpoint
+          // → ContainerCannotRun). www-j934.6.
+          automountServiceAccountToken: false,
+        },
       },
     },
   };
@@ -203,7 +283,7 @@ export function renderWorkload(w: WorkloadSpec): RenderedWorkload {
     });
   }
 
-  return { deployment, services, persistentVolumes };
+  return { deployment, services, persistentVolumes, persistentVolumeClaims };
 }
 
 interface CronJobArgs {
@@ -228,11 +308,12 @@ interface CronJobArgs {
 export interface RenderedCronJob {
   cronJob: CronJobArgs;
   persistentVolumes: PersistentVolumeArgs[];
+  persistentVolumeClaims: PersistentVolumeClaimArgs[];
 }
 
 export function renderCronJob(c: CronJobSpec): RenderedCronJob {
   const labels = { app: c.name };
-  const { container, podVolumes, persistentVolumes } = buildPod(c);
+  const { container, podVolumes, persistentVolumes, persistentVolumeClaims } = buildPod(c);
 
   const cronJob: CronJobArgs = {
     metadata: { name: c.name, labels },
@@ -256,5 +337,40 @@ export function renderCronJob(c: CronJobSpec): RenderedCronJob {
     },
   };
 
-  return { cronJob, persistentVolumes };
+  return { cronJob, persistentVolumes, persistentVolumeClaims };
+}
+
+/**
+ * A headless Service + manual Endpoints addressing an OFF-cluster host by DNS
+ * name. The api uses this to reach the Home Assistant VM at the host LAN IP
+ * :8123 (DESIGN.md: NOT host.docker.internal, which is flaky from pods). The
+ * workload consumes it by the Service name (e.g. `ha:8123`), so it stays a
+ * standalone addressable object, not a property of any pod (www-j934.6).
+ */
+export function renderExternalService(
+  name: string,
+  endpoint: { host: string; port: number },
+): RenderedExternalService {
+  const labels = { app: name };
+  return {
+    service: {
+      metadata: { name, labels },
+      // Headless (clusterIP None) + no selector: the Endpoints below supply the
+      // backing address manually.
+      spec: {
+        type: "ClusterIP",
+        clusterIP: "None",
+        ports: [{ name: `p${endpoint.port}`, port: endpoint.port, targetPort: endpoint.port }],
+      },
+    },
+    endpoints: {
+      metadata: { name, labels },
+      subsets: [
+        {
+          addresses: [{ ip: endpoint.host }],
+          ports: [{ name: `p${endpoint.port}`, port: endpoint.port }],
+        },
+      ],
+    },
+  };
 }

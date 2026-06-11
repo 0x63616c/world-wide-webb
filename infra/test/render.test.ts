@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { renderWorkload } from "../src/render.ts";
+import { renderExternalService, renderWorkload } from "../src/render.ts";
 import type { WorkloadSpec } from "../src/spec.ts";
 
 // The mapping layer is pure: a WorkloadSpec -> the kubernetes resource ARG
@@ -42,7 +42,8 @@ describe("renderWorkload", () => {
     // The secret rides a projected/secret volume, not env, so values never land
     // in the pod spec.
     const vol = r.deployment.spec.template.spec.volumes.find((v) => v.name === mount?.name);
-    expect(vol?.secret?.secretName).toBe("api");
+    // Defaults to the ESO-synced Secret name cc-secrets-<name> (www-j934.4).
+    expect(vol?.secret?.secretName).toBe("cc-secrets-api");
   });
 
   test("plain env is passed through as env vars (no secret values)", () => {
@@ -117,5 +118,85 @@ describe("renderWorkload", () => {
       replicas: 2,
     };
     expect(renderWorkload(cf).deployment.spec.replicas).toBe(2);
+  });
+});
+
+describe("renderWorkload: www-j934.6 extensions", () => {
+  test("secretName defaults to cc-secrets-<name>, override honored", () => {
+    const def = renderWorkload(api).deployment.spec.template.spec.volumes.find(
+      (v) => v.name === "secrets",
+    );
+    expect(def?.secret?.secretName).toBe("cc-secrets-api");
+    const over = renderWorkload({ ...api, secretName: "custom-secret" });
+    const vol = over.deployment.spec.template.spec.volumes.find((v) => v.name === "secrets");
+    expect(vol?.secret?.secretName).toBe("custom-secret");
+  });
+
+  test("imagePullSecrets land on the pod spec", () => {
+    const r = renderWorkload({ ...api, imagePullSecrets: ["ghcr-pull"] });
+    expect(r.deployment.spec.template.spec.imagePullSecrets).toEqual([{ name: "ghcr-pull" }]);
+  });
+
+  test("no imagePullSecrets field when none declared", () => {
+    const r = renderWorkload(api);
+    expect(r.deployment.spec.template.spec.imagePullSecrets).toBeUndefined();
+  });
+
+  test("extraSecretMounts mount a secret as files at their own path (portal TLS)", () => {
+    const portal: WorkloadSpec = {
+      name: "captive-portal",
+      image: "ghcr.io/0x63616c/control-center-captive-portal:main",
+      replicas: 1,
+      resources: { memory: "64M" },
+      extraSecretMounts: [{ secretName: "captive-portal-tls", mountPath: "/etc/tls" }],
+      ports: [{ containerPort: 443, expose: "lan" }],
+    };
+    const r = renderWorkload(portal);
+    const mount = r.deployment.spec.template.spec.containers[0].volumeMounts.find(
+      (m) => m.mountPath === "/etc/tls",
+    );
+    expect(mount).toBeDefined();
+    expect(mount?.readOnly).toBe(true);
+    const vol = r.deployment.spec.template.spec.volumes.find((v) => v.name === mount?.name);
+    expect(vol?.secret?.secretName).toBe("captive-portal-tls");
+  });
+});
+
+describe("renderWorkload: NFS PV + PVC pair (www-j934.6)", () => {
+  test("an NFS volume emits a statically-bound PVC alongside the PV", () => {
+    const mw: WorkloadSpec = {
+      name: "media-worker",
+      image: "ghcr.io/0x63616c/control-center-media-worker:main",
+      replicas: 1,
+      resources: { memory: "1G" },
+      volumes: [
+        {
+          mountPath: "/app/media",
+          nfs: { server: "192.168.0.218", path: "/volume1/Homelab/media" },
+        },
+      ],
+    };
+    const r = renderWorkload(mw);
+    expect(r.persistentVolumes).toHaveLength(1);
+    expect(r.persistentVolumeClaims).toHaveLength(1);
+    // PVC binds to the PV by name, storageClassName "" (no dynamic provisioner).
+    const pvc = r.persistentVolumeClaims[0];
+    expect(pvc.spec.volumeName).toBe(r.persistentVolumes[0].metadata.name);
+    expect(pvc.spec.storageClassName).toBe("");
+    expect(r.persistentVolumes[0].spec.storageClassName).toBe("");
+    // The pod mounts the PVC of the same name.
+    const vol = r.deployment.spec.template.spec.volumes.find((v) => v.persistentVolumeClaim);
+    expect(vol?.persistentVolumeClaim?.claimName).toBe(pvc.metadata.name);
+  });
+});
+
+describe("renderExternalService (headless Service + Endpoints to an off-cluster host)", () => {
+  test("emits a headless Service (clusterIP None, no selector) + manual Endpoints", () => {
+    const r = renderExternalService("ha", { host: "192.168.0.42", port: 8123 });
+    expect(r.service.spec.clusterIP).toBe("None");
+    expect(r.service.spec.selector).toBeUndefined();
+    expect(r.service.spec.ports[0].port).toBe(8123);
+    expect(r.endpoints.subsets[0].addresses[0].ip).toBe("192.168.0.42");
+    expect(r.endpoints.subsets[0].ports[0].port).toBe(8123);
   });
 });

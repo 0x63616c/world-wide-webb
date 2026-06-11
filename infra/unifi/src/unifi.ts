@@ -47,14 +47,23 @@ export function makeProvider(creds?: {
 }): unifi.Provider {
   const apiUrl = creds?.apiUrl ?? requireEnv("UNIFI_API_URL");
   const apiKey = creds?.apiKey ?? pulumi.secret(requireEnv("UNIFI_API_KEY"));
-  return new unifi.Provider("unifi", {
-    apiUrl,
-    apiKey,
-    // The UCG-Fiber serves the controller over a self-signed cert.
-    allowInsecure: true,
-    // Default site on this controller.
-    site: "default",
-  });
+  return new unifi.Provider(
+    "unifi",
+    {
+      apiUrl,
+      apiKey,
+      // The UCG-Fiber serves the controller over a self-signed cert.
+      allowInsecure: true,
+      // Default site on this controller.
+      site: "default",
+    },
+    // Pin the bridged-provider PLUGIN version to the SDK (@pulumiverse/unifi
+    // 0.2.0) so a future `pulumi up` can't auto-pull a newer plugin that drifts
+    // from the schema and forces state surgery (the v5/v6 footgun,
+    // [[pulumi-cloudflare-v5-v6-import-pin]]). The bridged unifi provider is
+    // especially prone to this. (www-j934.6 hardening.)
+    { version: "0.2.0" },
+  );
 }
 
 function requireEnv(name: string): string {
