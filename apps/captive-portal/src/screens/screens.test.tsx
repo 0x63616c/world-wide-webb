@@ -62,13 +62,9 @@ describe("LandingBare", () => {
   });
 
   it("renders a form-level terms error with role=alert (CheckboxRow error is the form's job)", () => {
-    render(
-      <LandingBare {...props} errors={{ agreed: "You must accept the terms to continue." }} />,
-    );
+    render(<LandingBare {...props} errors={{ agreed: "You must accept" }} />);
     const alerts = screen.getAllByRole("alert");
-    expect(
-      alerts.some((a) => a.textContent?.includes("You must accept the terms to continue.")),
-    ).toBe(true);
+    expect(alerts.some((a) => a.textContent?.includes("You must accept"))).toBe(true);
   });
 
   it("shows a network error alert when networkError", () => {

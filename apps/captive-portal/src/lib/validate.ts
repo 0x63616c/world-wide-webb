@@ -20,7 +20,7 @@ export function validate({ name, email, agreed }: LandingFormState): LandingErro
   if (!email.trim()) errs.email = "Email is required to connect.";
   else if (!EMAIL_RE.test(email.trim()))
     errs.email = "That doesn’t look like a valid email address.";
-  if (!agreed) errs.agreed = "You must accept the terms to continue.";
+  if (!agreed) errs.agreed = "You must accept";
   return errs;
 }
 

@@ -202,7 +202,9 @@ body {
    so showing/hiding an error never reflows the inputs/buttons below it. */
 .wwb-label-row {
   display: flex;
-  align-items: baseline;
+  /* Label and its inline error are centered through their vertical midlines
+     (www-t6yr), not baseline-aligned. */
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
   min-height: 20px;
@@ -321,7 +323,7 @@ body {
 }
 /* Inline (label-row) variant: lives at the end of the label row, right-aligned,
    and truncates with an ellipsis rather than wrapping (which would grow the
-   row and reflow the form). margin-top is reset since the row aligns baselines. */
+   row and reflow the form). margin-top is reset since the row centers items. */
 .wwb-error-inline {
   margin-top: 0;
   min-width: 0;
@@ -333,13 +335,13 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Terms error: a fixed-height reserved slot under the checkbox row, aligned
-   with the label text (17px box + 10px gap). Always rendered so showing/hiding
-   it never reflows the submit button. (www-2nrj) */
-.wwb-error-terms {
-  min-height: 18px;
-  margin-top: 6px;
-  margin-left: 27px;
+/* Checkbox-row variant (www-t6yr): the terms error shares the checkbox row,
+   filling the space after the label so it right-aligns. The row is flex-start
+   (for multi-line labels), so match the label's line box to center the error on
+   the label's first line. */
+.wwb-error-check {
+  flex: 1 1 auto;
+  line-height: 1.45;
 }
 
 /* ---- checkbox ---- */
@@ -393,7 +395,7 @@ body {
   border-color: var(--destructive-border);
 }
 .wwb-check-label {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   font-size: 13px;
   line-height: 1.45;

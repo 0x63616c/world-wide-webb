@@ -40,8 +40,8 @@ export function Field({ id, label, icon, error, optional, children }: FieldProps
         >
           {error && (
             <>
-              <AlertIcon />
               <span className="wwb-error-text">{error}</span>
+              <AlertIcon />
             </>
           )}
         </div>
