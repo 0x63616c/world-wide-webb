@@ -1,17 +1,21 @@
 // The k8s Provider + shared namespace for the control-center cluster stack
 // (www-j934.4 onward). The provider targets the OrbStack single-node cluster via
-// its kubeconfig context `orbstack` (set up in Phase 0). Passing the provider in
-// as an INPUT to every component (Workload, ESO, CNPG, …) keeps the vocabulary
-// cluster-agnostic, so a future Hetzner cluster is a provider swap, not a
-// rewrite (RECON decision 13 / DESIGN section 1).
+// a kubeconfig context. Passing the provider in as an INPUT to every component
+// (Workload, ESO, CNPG, …) keeps the vocabulary cluster-agnostic, so a future
+// Hetzner cluster is a provider swap, not a rewrite (RECON decision 13 / DESIGN
+// section 1).
 
 import * as k8s from "@pulumi/kubernetes";
 
 // The app namespace every control-center workload + its synced Secrets live in.
 export const APP_NAMESPACE = "control-center";
 
-// The kubeconfig context for the OrbStack cluster on homelab.
-const ORBSTACK_CONTEXT = "orbstack";
+// Default kubeconfig context. The prod target is homelab's OrbStack cluster,
+// reached over the tailnet via the `cc-homelab` context (server
+// homelab.tail8c014d.ts.net:26443, tls-server-name k8s.orb.local). Machine-local
+// staging on a different box overrides `ccinfra:kubeContext` (e.g. a bare
+// `orbstack` context for the MacBook's own cluster). www-j934 repoint.
+const DEFAULT_CONTEXT = "cc-homelab";
 
 export interface ClusterResources {
   provider: k8s.Provider;
@@ -29,7 +33,7 @@ export interface ClusterResources {
 // (they install via ConfigFile/Helm), so this pin covers them too.
 const K8S_PLUGIN_VERSION = "4.21.0";
 
-export function makeCluster(context: string = ORBSTACK_CONTEXT): ClusterResources {
+export function makeCluster(context: string = DEFAULT_CONTEXT): ClusterResources {
   const provider = new k8s.Provider("orbstack", { context }, { version: K8S_PLUGIN_VERSION });
   const namespace = new k8s.core.v1.Namespace(
     APP_NAMESPACE,
