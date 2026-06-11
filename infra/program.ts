@@ -47,10 +47,16 @@ const certManager = installCertManager({
 // NFS-mounted (CC-6mz7 un-park), then re-apply at 0 to park it until the
 // Phase-4 cutover (Boundary 6, 8GB co-residency with Swarm). Drive via
 // `pulumi config set ccinfra:mediaWorkerReplicas 1|0`; default 0 (parked).
+// nasNfsServer defaults to the NAS LAN IP. The NFS PV is mounted by KUBELET in
+// the node netns, which on homelab (the prod target) reaches the home LAN
+// directly (DESIGN 5b spike). The pod-egress no-route limitation (DESIGN 5c)
+// does NOT apply to PV mounts. Overridable only if a node ever needs a different
+// path to the NAS (CC-j934.17).
 const services = deployServices({
   provider: cluster.provider,
   namespace: APP_NAMESPACE,
   mediaWorkerReplicas: cfg.getNumber("mediaWorkerReplicas") ?? 0,
+  nasNfsServer: cfg.get("nasNfsServer") ?? "192.168.0.218",
 });
 
 // Surface resource names (not values) for the Phase-3 acceptance checks.
