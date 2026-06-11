@@ -50,7 +50,9 @@ const BACKUP_MOUNT = "/backup";
 // artifact. PGPASSWORD is sourced from the mounted CNPG secret (never an env
 // literal, never logged); the dump runs against the CNPG rw Service.
 const PG_BACKUP_COMMAND = [
-  "sh",
+  // bash, NOT sh: the image's /bin/sh is dash, which lacks `set -o pipefail`
+  // (the cloudnative-pg image is Debian-based and ships bash).
+  "bash",
   "-c",
   [
     // pipefail is REQUIRED: pg_dump pipes into gzip, so without it a pg_dump
