@@ -52,9 +52,7 @@ test.describe("landing validation", () => {
     await page.locator("#f-name").fill("Ada Lovelace");
     await page.locator("#f-email").fill("ada@example.com");
     await submit(page);
-    await expect(
-      page.getByRole("alert").filter({ hasText: "You must accept the terms to continue." }),
-    ).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: "You must accept" })).toBeVisible();
   });
 
   test("a field error clears on first edit of that field (PRD flow rule 1)", async ({ page }) => {

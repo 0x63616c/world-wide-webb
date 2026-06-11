@@ -23,7 +23,13 @@ function Live({ initial, error }: { initial?: boolean; error?: boolean }) {
   const [checked, setChecked] = useState(!!initial);
   return (
     <div style={{ width: 360 }}>
-      <CheckboxRow id="cb" checked={checked} error={error} onChange={setChecked}>
+      <CheckboxRow
+        id="cb"
+        checked={checked}
+        error={error}
+        errorMessage={error ? "You must accept" : undefined}
+        onChange={setChecked}
+      >
         I agree to the {/* biome-ignore lint/a11y/useValidAnchor: demo link, no nav in Storybook */}
         <a href="#terms" onClick={(e) => e.preventDefault()}>
           terms of use

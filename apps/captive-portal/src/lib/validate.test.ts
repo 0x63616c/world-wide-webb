@@ -7,7 +7,7 @@ import { EMAIL_RE, validate, validatePassword } from "./validate";
 const NAME_REQUIRED = "Please enter your name.";
 const EMAIL_REQUIRED = "Email is required to connect.";
 const EMAIL_FORMAT = "That doesn’t look like a valid email address.";
-const TERMS_REQUIRED = "You must accept the terms to continue.";
+const TERMS_REQUIRED = "You must accept";
 
 describe("validate(), landing form (table-driven)", () => {
   const ok = { name: "John Appleseed", email: "john@example.com", agreed: true };

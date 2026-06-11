@@ -2,8 +2,8 @@ import type { FormEvent } from "react";
 import { Alert } from "@/components/Alert";
 import { Button } from "@/components/Button";
 import { CheckboxRow } from "@/components/CheckboxRow";
-import { Field, fieldErrorId } from "@/components/Field";
-import { AlertIcon, CheckIcon, Logo, MailIcon, UserIcon } from "@/components/icons";
+import { Field } from "@/components/Field";
+import { CheckIcon, Logo, MailIcon, UserIcon } from "@/components/icons";
 import { NetworkPill } from "@/components/NetworkPill";
 import { TextInput } from "@/components/TextInput";
 import type { LandingErrors, LandingFormState } from "@/lib/validate";
@@ -81,6 +81,7 @@ function GuestForm({
           id="f-terms"
           checked={state.agreed}
           error={!!errors.agreed}
+          errorMessage={errors.agreed}
           onChange={(v) => onChange("agreed", v)}
         >
           I agree to the{" "}
@@ -96,21 +97,6 @@ function GuestForm({
           </a>
           .
         </CheckboxRow>
-        {/* Reserved error slot (CC-2nrj): always present so toggling the terms
-            error never reflows the button below. role=alert only when shown. */}
-        <div
-          className="wwb-error wwb-error-terms"
-          id={fieldErrorId("f-terms")}
-          role={errors.agreed ? "alert" : undefined}
-          aria-live="polite"
-        >
-          {errors.agreed && (
-            <>
-              <AlertIcon />
-              <span className="wwb-error-text">{errors.agreed}</span>
-            </>
-          )}
-        </div>
       </div>
 
       <Button type="submit" variant="primary" loading={busy}>
