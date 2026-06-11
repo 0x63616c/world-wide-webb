@@ -96,17 +96,21 @@ function GuestForm({
           </a>
           .
         </CheckboxRow>
-        {errors.agreed && (
-          <div
-            className="wwb-error"
-            style={{ marginLeft: 27, marginTop: 8 }}
-            role="alert"
-            id={fieldErrorId("f-terms")}
-          >
-            <AlertIcon />
-            <span>{errors.agreed}</span>
-          </div>
-        )}
+        {/* Reserved error slot (www-2nrj): always present so toggling the terms
+            error never reflows the button below. role=alert only when shown. */}
+        <div
+          className="wwb-error wwb-error-terms"
+          id={fieldErrorId("f-terms")}
+          role={errors.agreed ? "alert" : undefined}
+          aria-live="polite"
+        >
+          {errors.agreed && (
+            <>
+              <AlertIcon />
+              <span className="wwb-error-text">{errors.agreed}</span>
+            </>
+          )}
+        </div>
       </div>
 
       <Button type="submit" variant="primary" loading={busy}>

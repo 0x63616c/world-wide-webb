@@ -21,22 +21,35 @@ export function fieldErrorId(id: string): string {
 export function Field({ id, label, icon, error, optional, children }: FieldProps) {
   return (
     <div>
-      <label className="wwb-label" htmlFor={id}>
-        {label}
-        {optional && (
-          <span style={{ color: "var(--faint-foreground)", fontWeight: 400 }}> · optional</span>
-        )}
-      </label>
+      {/* Label + error share one row (www-2nrj). The row always reserves its
+          height: the error slot is always present (aria-live, role=alert only
+          when populated), so toggling an error never reflows the inputs below.
+          The error is right-aligned and truncates with an ellipsis. */}
+      <div className="wwb-label-row">
+        <label className="wwb-label" htmlFor={id}>
+          {label}
+          {optional && (
+            <span style={{ color: "var(--faint-foreground)", fontWeight: 400 }}> · optional</span>
+          )}
+        </label>
+        <div
+          className="wwb-error wwb-error-inline"
+          id={fieldErrorId(id)}
+          role={error ? "alert" : undefined}
+          aria-live="polite"
+        >
+          {error && (
+            <>
+              <AlertIcon />
+              <span className="wwb-error-text">{error}</span>
+            </>
+          )}
+        </div>
+      </div>
       <div className="wwb-input-wrap">
         {icon && <span className="wwb-input-icon">{icon}</span>}
         {children}
       </div>
-      {error && (
-        <div className="wwb-error" role="alert" id={fieldErrorId(id)}>
-          <AlertIcon />
-          <span>{error}</span>
-        </div>
-      )}
     </div>
   );
 }
