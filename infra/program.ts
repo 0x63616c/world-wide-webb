@@ -50,6 +50,10 @@ const certManager = installCertManager({
 // NFS-mounted (www-6mz7 un-park), then re-apply at 0 to park it until the
 // Phase-4 cutover (Boundary 6, 8GB co-residency with Swarm). Drive via
 // `pulumi config set ccinfra:mediaWorkerReplicas 1|0`; default 0 (parked).
+// cloudflaredReplicas: 0 for a pre-cutover bring-up so the k3s cloudflared does
+// NOT register the live tunnel token alongside Swarm (a prod split-brain); the
+// cutover (www-j934.9 / DESIGN §7 step 3) flips it to 2 (HA) as Swarm comes down.
+// Drive via `pulumi config set ccinfra:cloudflaredReplicas 0|2`; default 2.
 // nasNfsServer defaults to the NAS LAN IP. The NFS PV is mounted by KUBELET in
 // the node netns, which on homelab (the prod target) reaches the home LAN
 // directly (DESIGN 5b spike). The pod-egress no-route limitation (DESIGN 5c)
@@ -59,6 +63,7 @@ const services = deployServices({
   provider: cluster.provider,
   namespace: APP_NAMESPACE,
   mediaWorkerReplicas: cfg.getNumber("mediaWorkerReplicas") ?? 0,
+  cloudflaredReplicas: cfg.getNumber("cloudflaredReplicas") ?? 2,
   nasNfsServer: cfg.get("nasNfsServer") ?? "192.168.0.218",
 });
 

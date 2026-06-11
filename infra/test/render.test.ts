@@ -200,19 +200,37 @@ describe("renderExternalService (ExternalName CNAME to an off-cluster host)", ()
   });
 });
 
-describe("serviceSpecs (media-worker NFS server is configurable, www-j934.17)", () => {
-  const mediaWorkerOf = (specs: WorkloadSpec[]) => specs.find((s) => s.name === "media-worker");
+describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => {
+  const baseOpts = {
+    mediaWorkerReplicas: 1,
+    cloudflaredReplicas: 2,
+    nasNfsServer: "192.168.0.218",
+  };
+  const specOf = (specs: WorkloadSpec[], name: string) => specs.find((s) => s.name === name);
 
   test("threads nasNfsServer into the media-worker NFS volume", () => {
-    const specs = serviceSpecs(1, "100.78.116.99");
-    const vol = mediaWorkerOf(specs)?.volumes?.[0];
+    const specs = serviceSpecs({ ...baseOpts, nasNfsServer: "100.78.116.99" });
+    const vol = specOf(specs, "media-worker")?.volumes?.[0];
     expect(vol?.nfs?.server).toBe("100.78.116.99");
     expect(vol?.nfs?.path).toBe("/volume1/Homelab");
     expect(vol?.subPath).toBe("media");
   });
 
-  test("media-worker replicas come from the mediaWorkerReplicas arg (parked at 0)", () => {
-    expect(mediaWorkerOf(serviceSpecs(0, "192.168.0.218"))?.replicas).toBe(0);
-    expect(mediaWorkerOf(serviceSpecs(1, "192.168.0.218"))?.replicas).toBe(1);
+  test("media-worker replicas come from the mediaWorkerReplicas knob (parked at 0)", () => {
+    expect(
+      specOf(serviceSpecs({ ...baseOpts, mediaWorkerReplicas: 0 }), "media-worker")?.replicas,
+    ).toBe(0);
+    expect(
+      specOf(serviceSpecs({ ...baseOpts, mediaWorkerReplicas: 1 }), "media-worker")?.replicas,
+    ).toBe(1);
+  });
+
+  test("cloudflared replicas come from the cloudflaredReplicas knob (0 pre-cutover, 2 HA)", () => {
+    expect(
+      specOf(serviceSpecs({ ...baseOpts, cloudflaredReplicas: 0 }), "cloudflared")?.replicas,
+    ).toBe(0);
+    expect(
+      specOf(serviceSpecs({ ...baseOpts, cloudflaredReplicas: 2 }), "cloudflared")?.replicas,
+    ).toBe(2);
   });
 });

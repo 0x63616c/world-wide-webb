@@ -50,14 +50,26 @@ const haEnv = {
 const mount = (names: string[]) => names.map((name) => ({ name, ref: "eso" }));
 
 /**
- * @public - all app WorkloadSpecs. mediaWorkerReplicas lets the program bring
- * media-worker up briefly (1) to prove it, then re-apply at 0 (Boundary 6).
- * nasNfsServer is the NFS server address for the media share: the NAS LAN IP by
- * default. The PV is mounted by kubelet in the node netns, which on homelab (the
- * prod target) reaches the home LAN directly (DESIGN 5b); the pod-egress no-route
- * limit (DESIGN 5c) does not apply to PV mounts. www-j934.17.
+ * Replica/topology knobs the program threads in at apply time.
+ * - mediaWorkerReplicas: bring media-worker up briefly (1) to prove it, then
+ *   re-apply at 0 (Boundary 6).
+ * - cloudflaredReplicas: 0 for a pre-cutover bring-up (so the k3s cloudflared does
+ *   NOT grab the live tunnel token and split-brain prod with Swarm), flipped to 2
+ *   (HA) at the cutover (www-j934.9 / DESIGN §7 step 3).
+ * - nasNfsServer: the NFS server address for the media share, the NAS LAN IP by
+ *   default. The PV is mounted by kubelet in the node netns, which on homelab (the
+ *   prod target) reaches the home LAN directly (DESIGN 5b); the pod-egress no-route
+ *   limit (DESIGN 5c) does not apply to PV mounts. www-j934.17.
  */
-export function serviceSpecs(mediaWorkerReplicas: number, nasNfsServer: string): WorkloadSpec[] {
+export interface ServiceSpecOptions {
+  mediaWorkerReplicas: number;
+  cloudflaredReplicas: number;
+  nasNfsServer: string;
+}
+
+/** @public - all app WorkloadSpecs, parameterised by {@link ServiceSpecOptions}. */
+export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
+  const { mediaWorkerReplicas, cloudflaredReplicas, nasNfsServer } = opts;
   return [
     {
       name: "api",
@@ -174,7 +186,8 @@ export function serviceSpecs(mediaWorkerReplicas: number, nasNfsServer: string):
     {
       name: "cloudflared",
       image: "cloudflare/cloudflared:2025.10.1",
-      replicas: 2, // HA only, never an HPA.
+      replicas: cloudflaredReplicas, // HA (2) at cutover; 0 pre-cutover so it
+      // does not hold the live tunnel token alongside Swarm (www-j934.9 / §7).
       resources: { memory: "128M", reserveCpus: "0.25" },
       secrets: mount(["TUNNEL_TOKEN"]),
       // k8s `command` REPLACES the image entrypoint (unlike Swarm, which appends
@@ -197,6 +210,9 @@ export interface ServicesArgs {
   namespace: pulumi.Input<string>;
   // media-worker replicas: 1 to prove, 0 to park (Boundary 6).
   mediaWorkerReplicas: number;
+  // cloudflared replicas: 0 for a pre-cutover bring-up (no live-token split with
+  // Swarm), 2 (HA) at the cutover (www-j934.9 / DESIGN §7).
+  cloudflaredReplicas: number;
   // NFS server for the media share: NAS LAN IP by default; kubelet mounts the PV
   // from the node netns, which reaches the LAN on homelab (DESIGN 5b/5c, www-j934.17).
   nasNfsServer: string;
@@ -222,7 +238,7 @@ const LOCAL_PATH_CLAIMS: { name: string; size: string }[] = [
  * Service, and every app Workload. Consumed by the cluster program (www-j934.6).
  */
 export function deployServices(args: ServicesArgs): ServicesResources {
-  const { provider, namespace, mediaWorkerReplicas, nasNfsServer } = args;
+  const { provider, namespace, mediaWorkerReplicas, cloudflaredReplicas, nasNfsServer } = args;
   const opts = { provider };
 
   // GHCR pull secret: ESO templates a .dockerconfigjson from the GHCR token, so
@@ -276,7 +292,7 @@ export function deployServices(args: ServicesArgs): ServicesResources {
       ),
   );
 
-  const workloads = serviceSpecs(mediaWorkerReplicas, nasNfsServer).map(
+  const workloads = serviceSpecs({ mediaWorkerReplicas, cloudflaredReplicas, nasNfsServer }).map(
     (spec) => new Workload({ spec, provider, namespace }, opts),
   );
 
