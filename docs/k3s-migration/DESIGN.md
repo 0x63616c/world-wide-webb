@@ -44,6 +44,20 @@ table, the backup section, and every NFS-touching child ticket's AC.
 v1.33.9 present. 8GB ⇒ never run full Swarm + full k3s at once (boundary 6); cutover is
 stop-Swarm → start-k3s with a brief overlap only for the tunnel switch (§7).
 
+**Cluster context (CC-j934.18).** The stack targets homelab's OrbStack cluster, which is its own
+single-node cluster (the pulumi k8s provider `context` is **per-machine**: a `pulumi up` from any
+other box would otherwise hit that box's local OrbStack, not homelab). homelab's apiserver
+listens loopback-only (`127.0.0.1:26443`), so it is exposed on the tailnet with
+`tailscale serve --bg --tcp 26443 tcp://127.0.0.1:26443` (raw TCP passthrough - the client
+validates the **real** apiserver cert end-to-end; the existing `:443→127.0.0.1:3000` serve is
+untouched). The kubeconfig context **`cc-homelab`** points at
+`https://homelab.tail8c014d.ts.net:26443` with `tls-server-name: k8s.orb.local` (a SAN on the
+apiserver cert: `docker.orb.local, k8s.orb.local, kubernetes(.default…), localhost, orbstack`) and
+the cluster CA + client cert, so any tailnet node (this Mac, a CI runner on an ephemeral
+`tag:ci` key) drives homelab's cluster with full TLS verification. `infra/src/cluster.ts` reads
+the context from `ccinfra:kubeContext` (default `cc-homelab`); a machine-local staging cluster
+overrides it (`pulumi config set ccinfra:kubeContext orbstack`).
+
 **IaC.** Pulumi TypeScript in this monorepo under `infra/`. A `ComponentResource`
 vocabulary succeeds bosun's `service()` / `cronJob()` builders, so a service is still
 declared in one typed place. State lives in **Pulumi Cloud** under Calum's personal account
@@ -251,6 +265,28 @@ the media-worker un-park (CC-6mz7) AND the nightly NAS backup CronJob target (§
 > **Phase-3 builders:** the `nfsvers=3, nolock, tcp` PV `mountOptions` are mandatory for
 > every NFS mount (media-worker AND the backup CronJob). A v4 default mount will get
 > "Connection refused" from the DS420+. This is in the AC of every NFS-touching child ticket.
+
+**Machine-specific reality - the NFS PV server MUST be the LAN IP, and the stack MUST run on
+homelab (CC-j934.18).** The NFS PV is mounted by **kubelet in the node netns**, NOT by the pod
+- so the §5c pod-egress no-route limit does **not** apply to PV mounts. But whether the node
+netns reaches the home LAN is **per-machine**:
+
+- **homelab** (the Mac mini, the prod target): its OrbStack VM routes to `192.168.0.0/24`, so a
+  LAN-IP NFS PV (`server: 192.168.0.218`) mounts fine from a pod - this is what the §5b spike
+  proved.
+- **the MacBook** (throwaway staging during CC-j934.6/.17): its OrbStack VM has **no route to the
+  home LAN at all** - proven by a `hostNetwork: true` pod (kubelet's own mount netns): `nc
+  192.168.0.218:2049` → timed out, `nc <NAS-tailnet-IP>:2049` → open. So a LAN-IP PV times out
+  there, and the only reachable NFS target is the NAS's tailnet IP - which the Synology export
+  ACL then **denies** (its Tailscale package runs userspace networking, so inbound tailnet
+  connections arrive as source `127.0.0.1` and match neither export rule).
+
+The conclusion: the LAN IP is correct, and the live media-worker mount proof belongs on
+**homelab**, not the MacBook. The `nasNfsServer` knob (`ccinfra:nasNfsServer`, default
+`192.168.0.218`) exists only so a node with a genuinely different path to the NAS could override
+it; do **not** flip it to the tailnet IP (that only ever "worked" as a dead-end on the MacBook,
+and even there the NAS denied it). No NAS-side change (TUN flip, export-rule edit) is needed once
+the stack lives on homelab.
 
 ---
 
