@@ -1,0 +1,13 @@
+name: control-center-unifi
+runtime:
+  name: nodejs
+  options:
+    # Pulumi runs the program with bun (the repo's runtime); no separate compile.
+    typescript: false
+    nodeargs: ""
+description: >
+  UniFi network config for control-center (CC-j934.3), adopt-only via
+  @pulumiverse/unifi. Separate Pulumi project from the k8s stack so a cluster
+  apply never touches network state. See src/unifi.ts header for the full
+  Boundary-1 contract.
+main: program.ts

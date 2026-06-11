@@ -152,6 +152,19 @@
         "vitest": "^3.2.4",
       },
     },
+    "infra/unifi": {
+      "name": "@repo/infra-unifi",
+      "version": "0.0.0",
+      "dependencies": {
+        "@pulumi/pulumi": "^3.145.0",
+        "@pulumiverse/unifi": "0.2.0",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.3.13",
+        "typescript": "^5.9.3",
+        "vitest": "^3.2.4",
+      },
+    },
     "packages/api": {
       "name": "@cc/api",
       "version": "0.0.0",
@@ -689,9 +702,13 @@
 
     "@pulumi/pulumi": ["@pulumi/pulumi@3.245.0", "", { "dependencies": { "@grpc/grpc-js": "^1.10.1", "@logdna/tail-file": "^2.0.6", "@npmcli/arborist": "^9.0.0", "@opentelemetry/api": "^1.9", "@opentelemetry/exporter-trace-otlp-grpc": "^0.57", "@opentelemetry/exporter-zipkin": "^1.30", "@opentelemetry/instrumentation": "^0.57", "@opentelemetry/instrumentation-grpc": "^0.57", "@opentelemetry/resources": "^1.30", "@opentelemetry/sdk-trace-base": "^1.30", "@opentelemetry/sdk-trace-node": "^1.30", "@types/google-protobuf": "^3.15.5", "@types/semver": "^7.5.6", "@types/tmp": "^0.2.6", "execa": "^5.1.0", "fdir": "^6.5.0", "google-protobuf": "^3.21.4", "ini": "^2.0.0", "js-yaml": "^3.14.2", "minimist": "^1.2.6", "normalize-package-data": "^6.0.0", "picomatch": "^4.0.0", "require-from-string": "^2.0.1", "semver": "^7.5.2", "source-map-support": "^0.5.6", "tmp": "^0.2.4", "upath": "^1.1.0" }, "peerDependencies": { "ts-node": ">= 7.0.1 < 12", "typescript": ">= 3.8.3 < 7" }, "optionalPeers": ["ts-node", "typescript"] }, "sha512-cRfyKlaoKThewFTRFdvLFSo33FLHhViYQG1xI1WBTS4mrjhJegWl28HmZupVEIQh8aqvBN0Cy0fFNbxbZnOzmA=="],
 
+    "@pulumiverse/unifi": ["@pulumiverse/unifi@0.2.0", "", { "dependencies": { "@pulumi/pulumi": "^3.0.0" } }, "sha512-NJuYUkbjri9hwOPnyoE4qufrsUtTwZ9Ax32As47basbZIQfmg1fdJemnqfuMsSX7iRzHXiFyTVsWmkFT4/Nwdw=="],
+
     "@repo/api": ["@repo/api@workspace:apps/api"],
 
     "@repo/infra": ["@repo/infra@workspace:infra"],
+
+    "@repo/infra-unifi": ["@repo/infra-unifi@workspace:infra/unifi"],
 
     "@repo/logger": ["@repo/logger@workspace:packages/logger"],
 

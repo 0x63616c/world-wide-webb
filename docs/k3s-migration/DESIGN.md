@@ -327,12 +327,21 @@ provider resource → they stay **unmanaged / direct-API** and must NOT appear i
 | `world-wide-webb` WLAN (wpapsk) | `unifi_wlan` | not guest; BYTE-UNCHANGED is a Phase-5 assertion |
 | `captive-portal.worldwidewebb.co → 192.168.0.147` | `unifi_dns_record` | id `6a293c1c37f85e778afb60a2`; split-horizon already done |
 | 21 DHCP fixed-IP reservations | `unifi_user` | adopt as-is |
-| rsyslogd → `192.168.0.218:514` (encrypted_only) | `unifi_setting_rsyslogd` | log export UNTOUCHED; BYTE-UNCHANGED Phase-5 |
 | `guest_access` (portal_enabled=true, redirect_enabled=false) | `unifi_setting_guest_access` | adopt current state; the flip is additive (below) |
 
+Verified zero-diff: the first `pulumi preview` after import shows **1 provider create
+(the provider instance, not a UniFi object), 25 imports, 0 update/replace/delete** (CC-j934.3).
+
 **NOT imported (stay direct-API / unmanaged):** walled garden `rest/portalconf` (exact
-payload still unpinned), NetFlow IPFIX `:2055`, `traffic_flow`. No Pulumi resource for them.
-The 2 auto IPS firewall rules: leave unmanaged.
+payload still unpinned), NetFlow IPFIX `:2055`, `traffic_flow`, and **`rsyslogd`**
+(gateway → `192.168.0.218:514`, encrypted_only). No Pulumi resource for them. The 2 auto
+IPS firewall rules: leave unmanaged. **rsyslogd is unmanaged because
+`@pulumiverse/unifi` 0.2.0 cannot round-trip `setting_rsyslogd` on Network 10.4.57**: the
+controller stores `contents=null` with `logAllContents=true`, but the provider's `Check`
+rejects `enabled:true` without a non-empty `contents` array, so no declaration is both
+Check-valid and zero-diff (managing it would mutate the controller, violating Boundary 1).
+It stays UNTOUCHED and is verified BYTE-UNCHANGED in Phase 5 via a direct controller GET vs
+the RECON baseline. Upstream bug tracked in CC-2gpa.
 
 **RISK:** the provider's external-portal write fidelity on controller 10.4.57 is unverified.
 Validate on a throwaway before trusting it for the `guest_access` flip (RECON UniFi notes).
