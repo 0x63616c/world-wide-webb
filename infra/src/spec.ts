@@ -47,8 +47,13 @@ export interface VolumeSpec {
   // A local-path PVC by claim name...
   claim?: string;
   // ...or an NFS export. nfsvers=3 is mandatory (DS420+ speaks only v3); the
-  // mapping layer emits mountOptions [nfsvers=3, nolock, tcp] for these.
+  // mapping layer emits mountOptions [nfsvers=3, nolock, tcp] for these. `path`
+  // MUST be an actual export (the DS420+ exports only /volume1/Homelab, not its
+  // subdirs); use `subPath` to mount a subdirectory of that export.
   nfs?: { server: string; path: string };
+  // Mount only this subdirectory of the volume into the container (k8s creates
+  // it on first use). Used to land inside an exported NFS root's subdir.
+  subPath?: string;
   // Read-only mount (default false).
   readOnly?: boolean;
 }
@@ -73,6 +78,16 @@ export interface WorkloadSpec {
   ports?: PortSpec[];
   // Volume mounts (PVC or NFS).
   volumes?: VolumeSpec[];
+  // The k8s Secret projected at /run/secrets when `secrets` is set. Defaults to
+  // the ESO convention `cc-secrets-<name>` (CC-j934.4); override only if a
+  // workload's synced Secret is named differently.
+  secretName?: string;
+  // imagePullSecret names for pulling private images (GHCR). The Secret(s) are
+  // dockerconfigjson, built by ESO from the GHCR token (CC-j934.6).
+  imagePullSecrets?: string[];
+  // Extra secrets mounted as files at a path (NOT the /run/secrets rail). First
+  // user: the captive-portal mounting its cert-manager TLS Secret for nginx.
+  extraSecretMounts?: { secretName: string; mountPath: string }[];
 }
 
 /**

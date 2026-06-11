@@ -8,7 +8,7 @@
 
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
-import { renderCronJob, renderWorkload } from "./render.ts";
+import { renderCronJob, renderExternalService, renderWorkload } from "./render.ts";
 import type { CronJobSpec, WorkloadSpec } from "./spec.ts";
 
 export interface WorkloadArgs {
@@ -30,6 +30,7 @@ export class Workload extends pulumi.ComponentResource {
   readonly deployment: k8s.apps.v1.Deployment;
   readonly services: k8s.core.v1.Service[];
   readonly persistentVolumes: k8s.core.v1.PersistentVolume[];
+  readonly persistentVolumeClaims: k8s.core.v1.PersistentVolumeClaim[];
 
   constructor(args: WorkloadArgs, opts?: pulumi.ComponentResourceOptions) {
     super("control-center:infra:Workload", args.spec.name, {}, opts);
@@ -39,6 +40,15 @@ export class Workload extends pulumi.ComponentResource {
 
     this.persistentVolumes = rendered.persistentVolumes.map(
       (pv) => new k8s.core.v1.PersistentVolume(pv.metadata.name, pv as never, childOpts),
+    );
+    // PVCs statically bind to the NFS PVs above (the pod mounts the PVC).
+    this.persistentVolumeClaims = rendered.persistentVolumeClaims.map(
+      (pvc) =>
+        new k8s.core.v1.PersistentVolumeClaim(
+          pvc.metadata.name,
+          { metadata: { namespace: args.namespace, ...pvc.metadata }, spec: pvc.spec as never },
+          childOpts,
+        ),
     );
 
     this.deployment = new k8s.apps.v1.Deployment(
@@ -66,6 +76,50 @@ export class Workload extends pulumi.ComponentResource {
   }
 }
 
+export interface ExternalServiceArgs {
+  // Service name (the in-cluster DNS name consumers use, e.g. "ha").
+  name: string;
+  // The off-cluster host + port (e.g. the HA VM at the host LAN IP :8123).
+  endpoint: { host: string; port: number };
+  provider: k8s.Provider;
+  namespace: pulumi.Input<string>;
+}
+
+/**
+ * @public - a headless Service + manual Endpoints addressing an off-cluster host
+ * by DNS name. The api consumes the HA VM via this (NOT host.docker.internal,
+ * flaky from pods, DESIGN.md). Consumed by the cluster program (CC-j934.6).
+ */
+export class ExternalService extends pulumi.ComponentResource {
+  readonly service: k8s.core.v1.Service;
+  readonly endpoints: k8s.core.v1.Endpoints;
+
+  constructor(args: ExternalServiceArgs, opts?: pulumi.ComponentResourceOptions) {
+    super("control-center:infra:ExternalService", args.name, {}, opts);
+    const rendered = renderExternalService(args.name, args.endpoint);
+    const childOpts: pulumi.ComponentResourceOptions = { parent: this, provider: args.provider };
+
+    this.service = new k8s.core.v1.Service(
+      args.name,
+      {
+        metadata: { namespace: args.namespace, ...rendered.service.metadata },
+        spec: rendered.service.spec as never,
+      },
+      childOpts,
+    );
+    // The Endpoints object MUST share the Service's name so k8s wires them.
+    this.endpoints = new k8s.core.v1.Endpoints(
+      args.name,
+      {
+        metadata: { namespace: args.namespace, ...rendered.endpoints.metadata },
+        subsets: rendered.endpoints.subsets as never,
+      },
+      childOpts,
+    );
+    this.registerOutputs({ service: this.service.id, endpoints: this.endpoints.id });
+  }
+}
+
 export interface ScheduledJobArgs {
   // The declarative cron job (the one typed place a scheduled job is described).
   spec: CronJobSpec;
@@ -83,6 +137,7 @@ export interface ScheduledJobArgs {
 export class ScheduledJob extends pulumi.ComponentResource {
   readonly cronJob: k8s.batch.v1.CronJob;
   readonly persistentVolumes: k8s.core.v1.PersistentVolume[];
+  readonly persistentVolumeClaims: k8s.core.v1.PersistentVolumeClaim[];
 
   constructor(args: ScheduledJobArgs, opts?: pulumi.ComponentResourceOptions) {
     super("control-center:infra:ScheduledJob", args.spec.name, {}, opts);
@@ -92,6 +147,14 @@ export class ScheduledJob extends pulumi.ComponentResource {
 
     this.persistentVolumes = rendered.persistentVolumes.map(
       (pv) => new k8s.core.v1.PersistentVolume(pv.metadata.name, pv as never, childOpts),
+    );
+    this.persistentVolumeClaims = rendered.persistentVolumeClaims.map(
+      (pvc) =>
+        new k8s.core.v1.PersistentVolumeClaim(
+          pvc.metadata.name,
+          { metadata: { namespace: args.namespace, ...pvc.metadata }, spec: pvc.spec as never },
+          childOpts,
+        ),
     );
 
     this.cronJob = new k8s.batch.v1.CronJob(
