@@ -21,7 +21,9 @@ import { deployServices } from "./src/services.ts";
 const cfg = new pulumi.Config("ccinfra");
 // kubeContext selects the target cluster. Default cc-homelab (prod, homelab's
 // OrbStack reached over the tailnet); a machine-local staging cluster overrides
-// it (e.g. `pulumi config set ccinfra:kubeContext orbstack`). www-j934 repoint.
+// it (e.g. `pulumi config set ccinfra:kubeContext orbstack`). CI points the
+// provider at the context name in its own kubeconfig (the homelab kube-apiserver
+// over the tailnet). www-j934 repoint.
 const cluster = makeCluster(cfg.get("kubeContext"));
 
 const eso = installEso({
@@ -59,12 +61,18 @@ const certManager = installCertManager({
 // directly (DESIGN 5b spike). The pod-egress no-route limitation (DESIGN 5c)
 // does NOT apply to PV mounts. Overridable only if a node ever needs a different
 // path to the NAS (www-j934.17).
+// imageDigests: per-service image digest pins (name -> "sha256:…"). The CI deploy
+// job writes these with `pulumi config set --path imageDigests.<svc>` from the
+// freshly built :main manifests, so a `pulumi up` rolls only the workloads whose
+// digest changed (the www-czg digest-pin guarantee, now config-driven instead of
+// via the bosun webhook). Empty in local applies, where services fall back to :main.
 const services = deployServices({
   provider: cluster.provider,
   namespace: APP_NAMESPACE,
   mediaWorkerReplicas: cfg.getNumber("mediaWorkerReplicas") ?? 0,
   cloudflaredReplicas: cfg.getNumber("cloudflaredReplicas") ?? 2,
   nasNfsServer: cfg.get("nasNfsServer") ?? "192.168.0.218",
+  imageDigests: cfg.getObject<Record<string, string>>("imageDigests") ?? {},
 });
 
 // Surface resource names (not values) for the Phase-3 acceptance checks.

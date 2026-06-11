@@ -3,14 +3,15 @@ name: CI
 on:
   push:
     branches: ["**"]
-  # Manual trigger: rebuild + (on main) redeploy all images on demand. Useful
-  # for a forced redeploy or to re-run after a transient infra failure.
-  # force_all=false makes a dispatch selective instead, build only what
-  # drifted past the deploy marker; the drift watchdog sends that (www-bom8).
+  # Manual trigger: rebuild + (on main) redeploy on demand. Useful for a forced
+  # redeploy or to re-run after a transient infra failure. force_all=true
+  # rebuilds every image and runs `pulumi up`; force_all=false falls back to the
+  # path-filter diff (the www-bom8 deploy marker is retired, `pulumi up` converges
+  # the declared stack on every green run, so no drift-tracking dispatch exists).
   workflow_dispatch:
     inputs:
       force_all:
-        description: "Rebuild + redeploy every image regardless of drift"
+        description: "Rebuild every image and redeploy (pulumi up); false = diff-only"
         type: boolean
         default: true
 
@@ -37,43 +38,24 @@ jobs:
       worker: ${{ steps.filter.outputs.worker }}
       mediaworker: ${{ steps.filter.outputs.mediaworker }}
       storybook: ${{ steps.filter.outputs.storybook }}
-      bosun: ${{ steps.filter.outputs.bosun }}
       drizzle: ${{ steps.filter.outputs.drizzle }}
       captiveportal: ${{ steps.filter.outputs.captiveportal }}
+      # infra-only changes (Pulumi program / specs) deploy without any image
+      # rebuild: a `pulumi up` must still converge the declared stack.
+      infra: ${{ steps.filter.outputs.infra }}
       any_app: ${{ steps.filter.outputs.any_app }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Full history: the deploy-marker baseline below can be an arbitrarily
-          # old commit, and dorny diffs against it locally.
-          fetch-depth: 0
 
-      # Diff against the last commit that actually reached prod, not the push
-      # range (www-bom8). cancel-in-progress means a run can inherit the build
-      # work of the runs it cancelled, a push-range diff can't see that work,
-      # so a surviving docs-only push once stranded four undeployed web commits.
-      # refs/deploy/main is advanced by mark-deployed only after a fully-green
-      # run, so "changed since the marker" is exactly "not yet in prod".
-      # Fallback (marker missing/unreachable, or non-main ref): empty base,
-      # which keeps dorny's default behavior, push range on same-branch
-      # pushes, default-branch diff on feature branches.
-      - name: Resolve deploy-marker baseline (main only)
-        id: baseline
-        if: github.ref_name == 'main'
-        run: |
-          sha=$(git ls-remote origin refs/deploy/main | cut -f1)
-          if [ -n "$sha" ] && git cat-file -e "$sha^{commit}" 2>/dev/null; then
-            echo "Baseline: refs/deploy/main = $sha"
-            echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          else
-            echo "No reachable deploy marker; falling back to push-range diff"
-            echo "sha=" >> "$GITHUB_OUTPUT"
-          fi
-
+      # No deploy-marker baseline (www-j934.14): `pulumi up` is
+      # declarative-convergent, so the latest green run always reconciles the
+      # whole declared stack to the committed digests, the `refs/deploy/main`
+      # marker that kept Swarm's push-range model from stranding commits is
+      # obsolete. dorny defaults to the push range on same-branch pushes and the
+      # default-branch diff on feature branches, which is exactly what we want.
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          base: ${{ steps.baseline.outputs.sha }}
           filters: |
             # Shared changes (packages or root lockfile) force a rebuild of everything.
             # NOTE: do NOT use '!negation' list items here. dorny/paths-filter OR-matches
@@ -119,13 +101,11 @@ jobs:
               - 'apps/captive-portal/**'
               - 'packages/**'
               - 'bun.lock'
-            # bosun-agent image bakes in the bosun source + deploy.config + infra,
-            # so any of those (or its Dockerfile) must trigger a rebuild.
-            bosun:
-              - 'packages/bosun/**'
-              - 'deploy.config.ts'
+            # infra-only changes (the Pulumi program + workload specs) deploy
+            # with NO image rebuild: the deploy job runs `pulumi up`, which must
+            # converge an infra-only diff (e.g. a resource cap or env change).
+            infra:
               - 'infra/**'
-              - 'bun.lock'
             # Drizzle Gateway wrapper image, a thin self-contained Dockerfile +
             # preload. It pins an upstream base and copies only apps/drizzle, so it
             # rebuilds solely on its own changes (no packages/ or bun.lock dep).
@@ -139,13 +119,12 @@ jobs:
             captiveportal:
               - 'apps/captive-portal/**'
               - 'bun.lock'
-            # any_app is true when at least one image needs to be built. Includes
-            # deploy.config.ts so a config-only change still triggers a deploy.
+            # any_app is true when at least one image needs to be built. An
+            # infra-only change is handled by the separate `infra` filter above,
+            # the deploy job fires on `any_app || infra`.
             any_app:
               - 'apps/**'
               - 'packages/**'
-              - 'deploy.config.ts'
-              - 'infra/**'
               - 'bun.lock'
 
   # Test gate: typecheck + full vitest suite with coverage. Runs on every push
@@ -418,41 +397,6 @@ jobs:
           cache-from: type=gha,scope=storybook
           cache-to: type=gha,mode=max,scope=storybook
 
-  build-bosun:
-    needs: [changes, test]
-    if: needs.changes.outputs.bosun == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-
-      # Native arm64 runner (ubuntu-24.04-arm), no QEMU emulation. The deploy
-      # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
-      # runs amd64, so images are built linux/arm64 only. Dropping the emulated
-      # amd64 leg removed the 5-10x QEMU slowdown that dominated build time (www-4yt).
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
-
-      - name: Build and push bosun-agent image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: packages/bosun/Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ghcr.io/0x63616c/control-center-bosun:${{ github.sha }}
-            ghcr.io/0x63616c/control-center-bosun:${{ github.ref_name == 'main' && 'main' || github.sha }}
-          cache-from: type=gha,scope=bosun
-          cache-to: type=gha,mode=max,scope=bosun
-
   build-drizzle:
     needs: [changes, test]
     if: needs.changes.outputs.drizzle == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
@@ -521,90 +465,131 @@ jobs:
           cache-from: type=gha,scope=captive-portal
           cache-to: type=gha,mode=max,scope=captive-portal
 
-  # After any image build succeeds on main, trigger bosun deploy on the homelab.
-  # The webhook receiver (bosun serve) runs on the box; the HMAC token is in a repo secret.
-  # This job only runs when at least one image was built AND the branch is main.
+  # After the images build on main, deploy to the homelab k3s cluster with
+  # `pulumi up` (www-j934.14). The runner joins the tailnet with an EPHEMERAL
+  # Tailscale key (auto-revoked when the job ends), reaches the kube-apiserver
+  # over the tailnet, and runs the Pulumi program in infra/. The bosun webhook
+  # receiver is gone; CI is the deployer.
+  #
+  # Fires on `any_app || infra`: an image change OR an infra-only change (a spec
+  # tweak with no rebuild) must both converge the declared stack. `pulumi up` is
+  # declarative-convergent, so the latest green run always reconciles prod to the
+  # committed digests, no deploy marker needed (www-bom8 retired).
   deploy:
-    needs: [changes, test, build-web, build-api, build-worker, build-media-worker, build-storybook, build-bosun, build-drizzle, build-captive-portal]
+    needs: [changes, test, build-web, build-api, build-worker, build-media-worker, build-storybook, build-drizzle, build-captive-portal]
     # always() lets us run even when some build jobs were skipped (no changes).
-    # We proceed when: on main, at least one app changed, and no build failed.
+    # We proceed when: on main, an app OR infra changed, and no build failed.
     if: |
       always() &&
       github.ref_name == 'main' &&
-      (needs.changes.outputs.any_app == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)) &&
+      (needs.changes.outputs.any_app == 'true' || needs.changes.outputs.infra == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)) &&
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      # Read each image's current :main digest so the deploy pins by digest
-      # (www-czg): a changed digest is a changed stack spec, so docker stack deploy
-      # reliably rolls only the rebuilt services, no reliance on :main tag
-      # re-resolution, which silently failed to roll the self-deploying agent.
+      - uses: actions/checkout@v4
+
+      # Read each app image's current :main digest. A pinned digest renders the
+      # workload's image as @sha256:… in the Pulumi program (infra/src/services.ts
+      # ghcr()), so `pulumi up` rolls ONLY the workloads whose digest changed,
+      # the www-czg digest-pin guarantee, now config-driven instead of via the
+      # bosun webhook + docker stack deploy.
       - name: Log in to ghcr.io (read manifests)
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_PAT }}
+
       - name: Collect image digests
-        id: payload
+        id: digests
         run: |
-          images='{}'
-          for name in control-center-web control-center-api control-center-worker control-center-media-worker control-center-storybook control-center-bosun control-center-drizzle control-center-captive-portal; do
-            d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$name:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
+          # Map each built app image to its current :main manifest digest. The
+          # service KEY matches the deploy.config/ghcr() name (control-center-<svc>
+          # -> <svc>), which is the Pulumi imageDigests config key.
+          declare -A out=()
+          for name in web api worker media-worker storybook drizzle captive-portal; do
+            d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/control-center-$name:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
             if [ -n "$d" ]; then
-              images=$(jq -cn --argjson cur "$images" --arg n "$name" --arg d "$d" '$cur + {($n): $d}')
+              out[$name]="$d"
             fi
           done
-          body=$(jq -cn --argjson imgs "$images" '{images: $imgs}')
-          echo "Deploy payload: $body"
-          {
-            echo "body<<EOF"
-            echo "$body"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-      - name: Trigger bosun deploy webhook
-        run: |
-          # CF-Access service-token headers (www-cuuw): authenticate this stateless
-          # server-to-server POST through the Access gate once `hooks` is gated.
-          # Harmless before the gate exists (Cloudflare ignores them with no app),
-          # so they ship ahead of the hooks cutover. The BOSUN_WEBHOOK_TOKEN above
-          # remains the app-layer gate (belt-and-suspenders). Pure per-request
-          # header auth, curl is one-shot, so there is no CF_Authorization cookie.
-          curl -fsSL \
-            -X POST \
-            -H "Authorization: Bearer ${{ secrets.BOSUN_WEBHOOK_TOKEN }}" \
-            -H "CF-Access-Client-Id: ${{ secrets.CF_ACCESS_CI_CLIENT_ID }}" \
-            -H "CF-Access-Client-Secret: ${{ secrets.CF_ACCESS_CI_CLIENT_SECRET }}" \
-            -H "Content-Type: application/json" \
-            --data '${{ steps.payload.outputs.body }}' \
-            https://hooks.worldwidewebb.co/deploy/control-center
+          # Emit a compact JSON map (svc -> sha256:…) for the pulumi config step.
+          json='{}'
+          for k in "${!out[@]}"; do
+            json=$(jq -cn --argjson cur "$json" --arg k "$k" --arg v "${out[$k]}" '$cur + {($k): $v}')
+          done
+          echo "Image digests: $json"
+          echo "map=$json" >> "$GITHUB_OUTPUT"
 
-  # Advance the deploy marker (www-bom8). refs/deploy/main records the last
-  # commit whose run left prod fully current, either the deploy succeeded, or
-  # the run was green and had nothing to ship (docs-only). The changes job
-  # diffs against it, which is what makes cancel-in-progress safe: work owed by
-  # cancelled runs stays visible as drift until a later run actually ships it.
-  # Failed or cancelled runs never advance the marker. Pushing refs/deploy/*
-  # cannot retrigger CI (push triggers only match refs/heads/*).
-  # The nothing-to-ship clause deliberately includes watchdog dispatches:
-  # [skip ci] badge commits get no push run, so only a dispatch can ever move
-  # the marker past them; excluding dispatches made the watchdog re-dispatch
-  # every 30 minutes forever.
-  mark-deployed:
-    needs: [changes, test, deploy]
-    if: |
-      always() &&
-      github.ref_name == 'main' &&
-      needs.test.result == 'success' &&
-      (needs.deploy.result == 'success' ||
-       (needs.deploy.result == 'skipped' && needs.changes.outputs.any_app != 'true'))
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Advance refs/deploy/main to this run's commit
-        run: git push --force origin "$GITHUB_SHA:refs/deploy/main"
+      # Join the tailnet with an EPHEMERAL, tag-scoped key so the runner can reach
+      # the homelab kube-apiserver. The node is auto-revoked when the job ends
+      # (ephemeral: true + the action's post-step). No long-lived tailnet creds
+      # live on the runner, only the single-use OAuth-minted key.
+      - name: Connect to Tailscale (ephemeral)
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          # Ephemeral node so it's removed from the tailnet when the runner exits.
+          args: --accept-routes
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install infra deps
+        run: bun install --frozen-lockfile
+
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@v6
+
+      # Write the kubeconfig the Pulumi k8s provider uses to reach the homelab
+      # kube-apiserver over the tailnet (www-j934.9 produces this secret).
+      # Contract:
+      #   - server: https://homelab.tail8c014d.ts.net:26443 (a `tailscale serve`
+      #     TCP forward to 127.0.0.1:26443 on homelab)
+      #   - the kube API cert has NO tailnet SAN (SANs: k8s.orb.local, localhost),
+      #     so the cluster entry sets `tls-server-name: k8s.orb.local` and embeds
+      #     the OrbStack CA; auth is the OrbStack client cert/key.
+      # All of that lives INSIDE the secret blob KUBECONFIG_B64, which holds a
+      # complete kubeconfig base64-encoded (base64 is the safe transport for a
+      # multi-line, cert-bearing value in a GH secret). We decode it to a temp
+      # file. Passed via env and decoded with no echo; the value never logs.
+      - name: Write kubeconfig
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          mkdir -p "$HOME/.kube"
+          printf '%s' "$KUBECONFIG_B64" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: pulumi up (deploy to k3s)
+        working-directory: infra
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          KUBECONFIG: ${{ env.HOME }}/.kube/config
+          DIGEST_MAP: ${{ steps.digests.outputs.map }}
+        run: |
+          pulumi login
+          pulumi stack select prod
+          # Pin the k8s provider to the context the CI kubeconfig actually carries,
+          # read from the file itself, so the provider never falls back to the
+          # local `orbstack` context (which resolves per-machine to a DIFFERENT
+          # cluster). The CI kubeconfig holds exactly one context (homelab over the
+          # tailnet), so its current-context is unambiguous, no name agreed in
+          # advance with www-j934.9 needed.
+          ctx=$(kubectl config current-context)
+          echo "Deploying with kube context: $ctx"
+          pulumi config set ccinfra:kubeContext "$ctx" --stack prod
+          # Pin each changed app image by digest: a changed digest rolls only that
+          # workload (www-czg). Clear the prior map first so a no-longer-built image
+          # can't keep a phantom pin, then set each service's digest path.
+          pulumi config rm imageDigests --stack prod >/dev/null 2>&1 || true
+          for svc in $(echo "$DIGEST_MAP" | jq -r 'keys[]'); do
+            dig=$(echo "$DIGEST_MAP" | jq -r --arg s "$svc" '.[$s]')
+            pulumi config set --path "imageDigests.$svc" "$dig" --stack prod
+          done
+          pulumi up --yes --stack prod

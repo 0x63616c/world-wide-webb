@@ -13,8 +13,28 @@ import type * as pulumi from "@pulumi/pulumi";
 import { ExternalService, Workload } from "./component.ts";
 import type { WorkloadSpec } from "./spec.ts";
 
-// GHCR image ref (mutable :main tag; CI digest-pins at deploy, deploy.config ghcr()).
-const ghcr = (name: string) => `ghcr.io/0x63616c/control-center-${name}:main`;
+// Per-service GHCR image digest map, name -> "sha256:…", set by the CI deploy job
+// (`pulumi config set --path imageDigests.<svc>`). A pinned digest renders the
+// image as @sha256:… so only the workloads whose digest changed roll on a
+// `pulumi up` (the www-czg digest-pin property, now driven by Pulumi config
+// instead of the bosun webhook). Empty in local/dev applies, where :main is fine.
+export type ImageDigests = Record<string, string>;
+
+// GHCR image ref. Digest-pinned (@sha256:…) when CI supplied a digest for this
+// service, else the mutable :main tag (local applies, first deploy before any
+// digest is set). The digest is validated shape-wise so a malformed config value
+// can't silently produce an unpullable ref.
+const ghcr = (name: string, digests: ImageDigests = {}): string => {
+  const base = `ghcr.io/0x63616c/control-center-${name}`;
+  const digest = digests[name];
+  if (digest) {
+    if (!/^sha256:[0-9a-f]{64}$/.test(digest)) {
+      throw new Error(`imageDigests.${name} is not a sha256:<64-hex> digest: ${digest}`);
+    }
+    return `${base}@${digest}`;
+  }
+  return `${base}:main`;
+};
 // The imagePullSecret name (dockerconfigjson built by ESO from the GHCR token).
 const GHCR_PULL_SECRET = "ghcr-pull";
 // HA is reached via the host's TAILSCALE FQDN, NOT the LAN IP (www-j934.17):
@@ -60,20 +80,28 @@ const mount = (names: string[]) => names.map((name) => ({ name, ref: "eso" }));
  *   default. The PV is mounted by kubelet in the node netns, which on homelab (the
  *   prod target) reaches the home LAN directly (DESIGN 5b); the pod-egress no-route
  *   limit (DESIGN 5c) does not apply to PV mounts. www-j934.17.
+ * - imageDigests: CI-supplied digest pin map (name -> sha256:…); absent in local
+ *   applies, where every image falls back to the :main tag. www-j934.14.
  */
 export interface ServiceSpecOptions {
   mediaWorkerReplicas: number;
   cloudflaredReplicas: number;
   nasNfsServer: string;
+  imageDigests?: ImageDigests;
 }
 
 /** @public - all app WorkloadSpecs, parameterised by {@link ServiceSpecOptions}. */
 export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
-  const { mediaWorkerReplicas, cloudflaredReplicas, nasNfsServer } = opts;
+  const {
+    mediaWorkerReplicas,
+    cloudflaredReplicas,
+    nasNfsServer,
+    imageDigests: digests = {},
+  } = opts;
   return [
     {
       name: "api",
-      image: ghcr("api"),
+      image: ghcr("api", digests),
       replicas: 1,
       resources: { memory: "512M", reserveCpus: "0.5" },
       secrets: mount([
@@ -98,7 +126,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
     },
     {
       name: "worker",
-      image: ghcr("worker"),
+      image: ghcr("worker", digests),
       replicas: 1,
       resources: { memory: "384M" },
       secrets: mount([
@@ -120,7 +148,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
     },
     {
       name: "media-worker",
-      image: ghcr("media-worker"),
+      image: ghcr("media-worker", digests),
       replicas: mediaWorkerReplicas,
       resources: { memory: "1G" },
       secrets: mount(["POSTGRES_PASSWORD", "OPENROUTER_API_KEY"]),
@@ -139,7 +167,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
     },
     {
       name: "web",
-      image: ghcr("web"),
+      image: ghcr("web", digests),
       replicas: 1,
       resources: { memory: "96M" },
       env: { TZ },
@@ -150,7 +178,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
     },
     {
       name: "storybook",
-      image: ghcr("storybook"),
+      image: ghcr("storybook", digests),
       replicas: 1,
       resources: { memory: "96M" },
       env: { TZ },
@@ -159,7 +187,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
     },
     {
       name: "captive-portal",
-      image: ghcr("captive-portal"),
+      image: ghcr("captive-portal", digests),
       replicas: 1,
       resources: { memory: "64M" },
       env: { TZ },
@@ -174,7 +202,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
     },
     {
       name: "drizzle",
-      image: ghcr("drizzle"),
+      image: ghcr("drizzle", digests),
       replicas: 1,
       resources: { memory: "256M" },
       secrets: mount(["MASTERPASS", "POSTGRES_PASSWORD"]),
@@ -216,6 +244,8 @@ export interface ServicesArgs {
   // NFS server for the media share: NAS LAN IP by default; kubelet mounts the PV
   // from the node netns, which reaches the LAN on homelab (DESIGN 5b/5c, www-j934.17).
   nasNfsServer: string;
+  // Per-service image digest pins from CI (name -> sha256:…); see ghcr().
+  imageDigests?: ImageDigests;
 }
 
 export interface ServicesResources {
@@ -238,7 +268,14 @@ const LOCAL_PATH_CLAIMS: { name: string; size: string }[] = [
  * Service, and every app Workload. Consumed by the cluster program (www-j934.6).
  */
 export function deployServices(args: ServicesArgs): ServicesResources {
-  const { provider, namespace, mediaWorkerReplicas, cloudflaredReplicas, nasNfsServer } = args;
+  const {
+    provider,
+    namespace,
+    mediaWorkerReplicas,
+    cloudflaredReplicas,
+    nasNfsServer,
+    imageDigests,
+  } = args;
   const opts = { provider };
 
   // GHCR pull secret: ESO templates a .dockerconfigjson from the GHCR token, so
@@ -292,9 +329,12 @@ export function deployServices(args: ServicesArgs): ServicesResources {
       ),
   );
 
-  const workloads = serviceSpecs({ mediaWorkerReplicas, cloudflaredReplicas, nasNfsServer }).map(
-    (spec) => new Workload({ spec, provider, namespace }, opts),
-  );
+  const workloads = serviceSpecs({
+    mediaWorkerReplicas,
+    cloudflaredReplicas,
+    nasNfsServer,
+    imageDigests,
+  }).map((spec) => new Workload({ spec, provider, namespace }, opts));
 
   return { ghcrPullSecret, haService, pvcs, workloads };
 }
