@@ -375,13 +375,15 @@ body {
 .wwb-checkbox:checked::after {
   content: "";
   position: absolute;
-  left: 5px;
-  top: 2px;
+  left: 50%;
+  top: 50%;
   width: 4px;
   height: 8px;
   border: solid var(--primary-foreground);
   border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  /* -60% (not -50%) lifts the rotated tick so its visual centroid,
+     which sits low-right of the box centre, lands dead centre */
+  transform: translate(-50%, -60%) rotate(45deg);
 }
 .wwb-checkbox:focus-visible {
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
