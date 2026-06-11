@@ -583,8 +583,15 @@ jobs:
           # local `orbstack` context (which resolves per-machine to a DIFFERENT
           # cluster). The CI kubeconfig holds exactly one context (homelab over the
           # tailnet), so its current-context is unambiguous, no name agreed in
-          # advance with www-j934.9 needed.
-          ctx=$(kubectl config current-context)
+          # advance with www-j934.9 needed. If the blob ever ships WITHOUT a
+          # current-context set, self-heal by selecting its sole context, so a
+          # rebuilt secret that forgot `current-context:` can't strand the deploy
+          # on "current-context is not set".
+          ctx=$(kubectl config current-context 2>/dev/null || true)
+          if [ -z "$ctx" ]; then
+            ctx=$(kubectl config get-contexts -o name | head -n1)
+            kubectl config use-context "$ctx" >/dev/null
+          fi
           echo "Deploying with kube context: $ctx"
           pulumi config set ccinfra:kubeContext "$ctx" --stack prod
           # Pin each changed app image by digest: a changed digest rolls only that
