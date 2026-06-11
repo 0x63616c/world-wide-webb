@@ -1,12 +1,12 @@
 // bosun-native cron scheduler. Runs entirely inside the long-lived `bosun serve`
-// agent (manager node, docker socket) — no third-party scheduler container and
+// agent (manager node, docker socket), no third-party scheduler container and
 // no deploy labels. Jobs are declared with cronJob() in the spec; this module
 // matches their 5-field cron against the wall clock each minute and executes the
 // due ones via the docker socket the agent already holds.
 //
 // Everything here is pure or dependency-injected (clock + runner) so the
 // matching, selection, command-building, and guard logic are unit-testable
-// without real timers or a real docker daemon — mirroring health.ts.
+// without real timers or a real docker daemon, mirroring health.ts.
 
 import type { Logger } from "@repo/logger";
 import type { Runner } from "./health.ts";
@@ -117,7 +117,7 @@ export function cronMatches(expr: string, date: Date): boolean {
 
 // The swarm service name for a cron job. Imperative one-shot services live
 // OUTSIDE the deployed stack (they're created on a schedule, not by `docker
-// stack deploy`), so they need an explicit name — derived from the stack name
+// stack deploy`), so they need an explicit name, derived from the stack name
 // so the stack stays the single namespace source of truth, no magic prefix.
 export function jobServiceName(stackName: string, jobName: string): string {
   return `${stackName}-cron-${jobName}`;
@@ -147,11 +147,21 @@ export function selectCronJob(services: ServiceSpec[], name: string): ServiceSpe
 // Translate a docker-compose volume string ("src:dst[:ro]") into a swarm
 // `docker service create --mount` flag. A path source is a bind mount; a bare
 // name is a named volume.
-function mountFlag(vol: string): string {
+//
+// CRITICAL (www-q002.22): a NAMED volume in the deployed stack is namespaced
+// `<stack>_<name>` by swarm's `docker stack deploy`. Cron jobs run OUTSIDE the
+// stack via `docker service create`, so we MUST apply the same prefix or the job
+// mounts a different, auto-created volume than the long-lived service it shares
+// data with. This silently broke the portal cert: acme wrote the real LE cert
+// into the un-namespaced `portal-certs` while the captive-portal service read
+// `control-center_portal-certs`, so the portal stayed on its self-signed
+// placeholder forever. Bind mounts (path sources) are NOT namespaced.
+function mountFlag(vol: string, stackName: string): string {
   const [source, target, mode] = vol.split(":");
-  const type = source.startsWith("/") || source.startsWith(".") ? "bind" : "volume";
+  const isBind = source.startsWith("/") || source.startsWith(".");
+  const resolvedSource = isBind ? source : `${stackName}_${source}`;
   const readonly = mode === "ro" ? ",readonly" : "";
-  return `--mount type=${type},source=${source},target=${target}${readonly}`;
+  return `--mount type=${isBind ? "bind" : "volume"},source=${resolvedSource},target=${target}${readonly}`;
 }
 
 // Build the shell command that runs one cron job as a temporary Swarm one-shot
@@ -165,14 +175,14 @@ function mountFlag(vol: string): string {
 // cluster-scheduled, and supports `--with-registry-auth` for private images.
 // `slot` (when supplied by the scheduler) is stamped as a `bosun.cron-slot`
 // label so a restarted scheduler can tell, from swarm state alone, whether this
-// slot already ran — the swarm-derived dedupe key. A manual `run-job` passes no
+// slot already ran, the swarm-derived dedupe key. A manual `run-job` passes no
 // slot (always fires).
 // NOTE (www-ke9a): cron jobs render via THIS `docker service create` path, not
 // the compose stack, so the memory-limit framework in reconcile/stack.ts does NOT
 // reach them. Today's jobs (docker-image-prune, map-extract) are short-lived and
 // not memory-hungry, so they are out of scope. If a future job is memory-heavy,
 // add a `resources` field here and emit `--limit-memory <mem>` (and the overcommit
-// sum would need to account for the worst-case concurrent job too) — tracked as a
+// sum would need to account for the worst-case concurrent job too), tracked as a
 // follow-up, deliberately not blocking the long-lived-service framework.
 export function buildJobCommand(
   job: ServiceSpec,
@@ -200,7 +210,7 @@ export function buildJobCommand(
   ];
   if (slot) parts.push(`--label bosun.cron-slot=${slot}`);
   for (const c of job.placement ?? []) parts.push(`--constraint ${c}`);
-  for (const vol of job.volumes ?? []) parts.push(mountFlag(vol));
+  for (const vol of job.volumes ?? []) parts.push(mountFlag(vol, stackName));
   for (const key of Object.keys(job.env).sort()) parts.push(`--env ${key}=${job.env[key]}`);
   // Resolved op secrets after the static env, sorted for deterministic output.
   for (const key of Object.keys(resolvedSecrets ?? {}).sort()) {
@@ -219,7 +229,7 @@ export function dueCronJobs(services: ServiceSpec[], now: Date): ServiceSpec[] {
 
 // Minute-resolution slot identity, distinct per wall-clock minute. Stamped on
 // the job service as `bosun.cron-slot` when fired, so a restarted scheduler can
-// recognise a slot it (or its predecessor) already ran from swarm state alone —
+// recognise a slot it (or its predecessor) already ran from swarm state alone ,
 // no in-memory bookkeeping that a restart would lose.
 export function slotKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}T${d.getHours()}:${d.getMinutes()}`;
@@ -227,7 +237,7 @@ export function slotKey(d: Date): string {
 
 // A read of the current swarm state for one job service: the slot label its last
 // run was stamped with (null if the service does not exist), and whether a task
-// is still executing. This IS the scheduler's memory — held by swarm, so it
+// is still executing. This IS the scheduler's memory, held by swarm, so it
 // survives an agent restart. Injected so runDueJobs is testable without docker.
 export type JobInspector = (svc: string) => Promise<{ slot: string | null; inFlight: boolean }>;
 
@@ -247,7 +257,7 @@ const NOOP_LOGGER: Logger = {
 //   - slot already stamped on the service  -> skip (restart-safe dedupe)
 //   - a task still in flight                -> skip (restart-safe overlap guard)
 //   - otherwise                             -> fire, stamping THIS slot
-// An inspector error skips the tick (never fire blind — the next tick retries),
+// An inspector error skips the tick (never fire blind, the next tick retries),
 // and a runner error is logged, never thrown, so one bad job can't kill the loop.
 // Resolve a single op:// ref to its value. The agent passes its serialized
 // OpProvider's resolve; tests inject a stub. Kept narrow (one ref -> value) so
@@ -291,7 +301,7 @@ export async function runDueJobs(
         return;
       }
       // Resolve op secrets for this run, if any. A secret-bearing job with no
-      // resolver is skipped — it must never fire without its secrets. Resolution
+      // resolver is skipped, it must never fire without its secrets. Resolution
       // failure is logged (ref path only, never the value) and skips this slot;
       // the next tick retries.
       let resolvedSecrets: Record<string, string> | undefined;
@@ -299,7 +309,7 @@ export async function runDueJobs(
         if (!resolveSecret) {
           log.warn(
             { job: job.name, slot },
-            "job declares secrets but no resolver supplied — skipping (never fire without secrets)",
+            "job declares secrets but no resolver supplied, skipping (never fire without secrets)",
           );
           return;
         }
@@ -310,7 +320,7 @@ export async function runDueJobs(
             resolvedSecrets[sec.name] = await resolveSecret(sec.ref);
           }
         } catch (err) {
-          // Log the ref path, NEVER the value — same discipline as OpProvider.
+          // Log the ref path, NEVER the value, same discipline as OpProvider.
           log.error({ err, job: job.name, slot }, "secret resolve failed, skipping slot");
           return;
         }
@@ -358,7 +368,7 @@ async function capture(cmd: string): Promise<{ stdout: string; exitCode: number 
 function makeDefaultJobInspector(): JobInspector {
   return async (svc: string) => {
     // The slot label off the service spec. A missing service exits non-zero; a
-    // present-but-unlabelled service prints Go's "<no value>" — both mean null.
+    // present-but-unlabelled service prints Go's "<no value>", both mean null.
     const slotOut = await capture(
       `docker service inspect ${svc} --format '{{index .Spec.Labels "bosun.cron-slot"}}'`,
     );
