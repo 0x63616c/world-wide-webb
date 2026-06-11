@@ -16,7 +16,7 @@ function at(y: number, mon: number, d: number, h: number, min: number): Date {
   return new Date(y, mon - 1, d, h, min, 0, 0);
 }
 
-describe("cronMatches — 5-field cron matching (local wall clock)", () => {
+describe("cronMatches, 5-field cron matching (local wall clock)", () => {
   // 2026-06-04 is a Thursday (dow=4).
   const thu0303 = at(2026, 6, 4, 3, 3);
 
@@ -71,7 +71,7 @@ describe("cronMatches — 5-field cron matching (local wall clock)", () => {
   });
 
   it("uses OR between dom and dow when BOTH are restricted (standard cron rule)", () => {
-    // dom=1 OR dow=4(Thu). 2026-06-04 is the 4th AND a Thursday — both match.
+    // dom=1 OR dow=4(Thu). 2026-06-04 is the 4th AND a Thursday, both match.
     expect(cronMatches("0 0 1 * 4", at(2026, 6, 4, 0, 0))).toBe(true); // dow matches
     expect(cronMatches("0 0 4 * 1", at(2026, 6, 4, 0, 0))).toBe(true); // dom matches
     // Neither: 2026-06-05 is the 5th and a Friday.
@@ -98,12 +98,12 @@ describe("cronMatches — 5-field cron matching (local wall clock)", () => {
 // CC-dd0: the scheduler matches cron against the container's LOCAL wall clock
 // (getHours/getDate, not the UTC accessors), so the container TZ decides when a
 // job fires. The agent image bakes TZ=America/Los_Angeles, so `0 3 * * *` must
-// fire at 03:00 LA, NOT 03:00 UTC (which is ~8pm LA, on-peak — the bug).
+// fire at 03:00 LA, NOT 03:00 UTC (which is ~8pm LA, on-peak, the bug).
 //
 // These tests pin TZ around a fixed UTC instant and assert the LA interpretation
 // matches while the UTC one does not. Bun re-reads process.env.TZ per Date
 // construction, so stubbing it is a faithful stand-in for the container's TZ.
-describe("cronMatches — interprets the wall clock in the container TZ (CC-dd0)", () => {
+describe("cronMatches, interprets the wall clock in the container TZ (CC-dd0)", () => {
   // 2026-06-04T10:00:00Z. In LA (PDT, UTC-7 in June) that is 03:00 local.
   const utcInstant = new Date(Date.UTC(2026, 5, 4, 10, 0, 0));
 
@@ -117,7 +117,7 @@ describe("cronMatches — interprets the wall clock in the container TZ (CC-dd0)
     expect(cronMatches("0 3 * * *", utcInstant)).toBe(true);
 
     vi.stubEnv("TZ", "UTC");
-    // Same instant read as UTC is 10:00, so the 03:00 slot does NOT match —
+    // Same instant read as UTC is 10:00, so the 03:00 slot does NOT match ,
     // this is exactly the pre-fix behaviour the LA container TZ corrects.
     expect(cronMatches("0 3 * * *", utcInstant)).toBe(false);
     // Under UTC the instant is the 10:00 slot instead.
@@ -153,7 +153,7 @@ function cronService(
 
 const STACK = "control-center";
 
-describe("jobServiceName — config-derived, no magic prefix", () => {
+describe("jobServiceName, config-derived, no magic prefix", () => {
   it("derives the swarm service name from the stack name", () => {
     expect(jobServiceName("control-center", "docker-image-prune")).toBe(
       "control-center-cron-docker-image-prune",
@@ -161,7 +161,7 @@ describe("jobServiceName — config-derived, no magic prefix", () => {
   });
 });
 
-describe("selectCronJob — on-demand trigger selection (`bosun run-job`)", () => {
+describe("selectCronJob, on-demand trigger selection (`bosun run-job`)", () => {
   const prune = cronService("docker-image-prune", "0 3 * * *", "docker image prune -af");
   const backup = cronService("db-backup", "30 2 * * *", "pg_dump ...");
   // A long-lived service (no schedule) is NOT a cron job and must be rejected.
@@ -190,7 +190,7 @@ describe("selectCronJob — on-demand trigger selection (`bosun run-job`)", () =
   });
 });
 
-describe("buildJobCommand — swarm one-shot (replicated-job) invocation", () => {
+describe("buildJobCommand, swarm one-shot (replicated-job) invocation", () => {
   const job = cronService(
     "docker-image-prune",
     "0 3 * * *",
@@ -219,7 +219,7 @@ describe("buildJobCommand — swarm one-shot (replicated-job) invocation", () =>
     expect(cmd).toContain("--label bosun.cron-slot=2026-5-4T3:0");
   });
 
-  it("omits the slot label for a manual run (no slot — `run-job`)", () => {
+  it("omits the slot label for a manual run (no slot, `run-job`)", () => {
     expect(buildJobCommand(job, STACK)).not.toContain("bosun.cron-slot");
   });
 
@@ -246,9 +246,27 @@ describe("buildJobCommand — swarm one-shot (replicated-job) invocation", () =>
     );
   });
 
-  it("renders a named volume as a swarm volume mount", () => {
+  it("renders a named volume as a swarm volume mount, stack-namespaced", () => {
+    // A named volume in the deployed stack is `<stack>_<name>`; a cron job runs
+    // outside the stack and MUST use the same prefix or it mounts a different
+    // volume than the service it shares (CC-q002.22).
     const v = cronService("j", "* * * * *", "x", { volumes: ["backups:/data"] });
-    expect(buildJobCommand(v, STACK)).toContain("--mount type=volume,source=backups,target=/data");
+    expect(buildJobCommand(v, STACK)).toContain(
+      "--mount type=volume,source=control-center_backups,target=/data",
+    );
+  });
+
+  it("namespaces a shared named volume so the job + service mount the SAME volume (CC-q002.22 regression)", () => {
+    // The portal-cert-renew acme job and the captive-portal service both declare
+    // `portal-certs:/certs`. The service (stack-deployed) gets
+    // `control-center_portal-certs`; the job must too, or the issued cert lands
+    // in an orphan `portal-certs` the portal never reads.
+    const certJob = cronService("portal-cert-renew", "0 4 * * *", "--issue", {
+      volumes: ["portal-certs:/certs"],
+    });
+    const cmd = buildJobCommand(certJob, STACK);
+    expect(cmd).toContain("--mount type=volume,source=control-center_portal-certs,target=/certs");
+    expect(cmd).not.toContain("source=portal-certs,");
   });
 
   it("renders placement constraints", () => {
@@ -269,7 +287,7 @@ describe("buildJobCommand — swarm one-shot (replicated-job) invocation", () =>
   // CC-q002.13: a cron job may need op-resolved secrets (the cert job needs the
   // Cloudflare API token). The bosun agent resolves the refs and passes the values
   // in as resolvedSecrets; buildJobCommand appends them as --env at create time.
-  // buildJobCommand stays PURE — it takes already-resolved values, never resolves.
+  // buildJobCommand stays PURE, it takes already-resolved values, never resolves.
   describe("resolved secrets (CC-q002.13)", () => {
     it("appends each resolved secret as --env after the static env", () => {
       const j = cronService("cert", "0 4 * * *", "acme.sh --issue", { env: { FOO: "bar" } });
@@ -292,7 +310,7 @@ describe("buildJobCommand — swarm one-shot (replicated-job) invocation", () =>
   });
 });
 
-describe("dueCronJobs — selecting jobs whose schedule matches a moment", () => {
+describe("dueCronJobs, selecting jobs whose schedule matches a moment", () => {
   const spec: Spec = {
     stackName: "control-center",
     services: [
@@ -313,14 +331,14 @@ describe("dueCronJobs — selecting jobs whose schedule matches a moment", () =>
   });
 });
 
-describe("slotKey — per-minute slot identity (restart-safe dedupe key)", () => {
+describe("slotKey, per-minute slot identity (restart-safe dedupe key)", () => {
   it("is stable within a minute and distinct across minutes", () => {
     expect(slotKey(at(2026, 6, 4, 3, 0))).toBe(slotKey(at(2026, 6, 4, 3, 0)));
     expect(slotKey(at(2026, 6, 4, 3, 0))).not.toBe(slotKey(at(2026, 6, 4, 3, 1)));
   });
 });
 
-describe("runDueJobs — guards derived from swarm (restart-safe)", () => {
+describe("runDueJobs, guards derived from swarm (restart-safe)", () => {
   const jobs: ServiceSpec[] = [cronService("hourly", "0 * * * *", "echo hourly")];
   // A JobInspector stub returning a fixed swarm view for the job service.
   const inspector = (view: { slot: string | null; inFlight: boolean }) =>
@@ -343,7 +361,7 @@ describe("runDueJobs — guards derived from swarm (restart-safe)", () => {
     );
   });
 
-  it("does NOT re-fire a slot already stamped on the service — even with fresh in-memory state (restart safety)", async () => {
+  it("does NOT re-fire a slot already stamped on the service, even with fresh in-memory state (restart safety)", async () => {
     const runner = vi.fn(async (_cmd: string) => ({ exitCode: 0 }));
     const now = at(2026, 6, 4, 3, 0);
     // Simulates a just-restarted scheduler: no memory, but swarm shows the
@@ -391,7 +409,7 @@ describe("runDueJobs — guards derived from swarm (restart-safe)", () => {
 // CC-q002.13: a cron job declaring op-resolved secrets has them resolved by the
 // injected resolver right before dispatch and injected as --env on the swarm job.
 // The resolved VALUE must never reach the logs (only the ref path / job name may).
-describe("runDueJobs — op-resolved secrets injection (CC-q002.13)", () => {
+describe("runDueJobs, op-resolved secrets injection (CC-q002.13)", () => {
   const at0 = at(2026, 6, 4, 3, 0);
   const inspector = vi.fn(async (_svc: string) => ({ slot: null, inFlight: false }));
   const certJob = (): ServiceSpec =>
@@ -433,7 +451,7 @@ describe("runDueJobs — op-resolved secrets injection (CC-q002.13)", () => {
 
   it("skips a job that declares secrets when no resolver is supplied (never fires without its secrets)", async () => {
     const runner = vi.fn(async (_cmd: string) => ({ exitCode: 0 }));
-    // No resolver passed — a secret-bearing job must NOT fire blind.
+    // No resolver passed, a secret-bearing job must NOT fire blind.
     await runDueJobs([certJob()], at0, runner, inspector, STACK);
     expect(runner).not.toHaveBeenCalled();
   });
