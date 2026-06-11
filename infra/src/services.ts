@@ -52,8 +52,12 @@ const mount = (names: string[]) => names.map((name) => ({ name, ref: "eso" }));
 /**
  * @public - all app WorkloadSpecs. mediaWorkerReplicas lets the program bring
  * media-worker up briefly (1) to prove it, then re-apply at 0 (Boundary 6).
+ * nasNfsServer is the NFS server address for the media share: the NAS LAN IP by
+ * default. The PV is mounted by kubelet in the node netns, which on homelab (the
+ * prod target) reaches the home LAN directly (DESIGN 5b); the pod-egress no-route
+ * limit (DESIGN 5c) does not apply to PV mounts. www-j934.17.
  */
-export function serviceSpecs(mediaWorkerReplicas: number): WorkloadSpec[] {
+export function serviceSpecs(mediaWorkerReplicas: number, nasNfsServer: string): WorkloadSpec[] {
   return [
     {
       name: "api",
@@ -115,7 +119,7 @@ export function serviceSpecs(mediaWorkerReplicas: number): WorkloadSpec[] {
       volumes: [
         {
           mountPath: "/app/media",
-          nfs: { server: "192.168.0.218", path: "/volume1/Homelab" },
+          nfs: { server: nasNfsServer, path: "/volume1/Homelab" },
           subPath: "media",
         },
       ],
@@ -193,6 +197,9 @@ export interface ServicesArgs {
   namespace: pulumi.Input<string>;
   // media-worker replicas: 1 to prove, 0 to park (Boundary 6).
   mediaWorkerReplicas: number;
+  // NFS server for the media share: NAS LAN IP by default; kubelet mounts the PV
+  // from the node netns, which reaches the LAN on homelab (DESIGN 5b/5c, www-j934.17).
+  nasNfsServer: string;
 }
 
 export interface ServicesResources {
@@ -215,7 +222,7 @@ const LOCAL_PATH_CLAIMS: { name: string; size: string }[] = [
  * Service, and every app Workload. Consumed by the cluster program (www-j934.6).
  */
 export function deployServices(args: ServicesArgs): ServicesResources {
-  const { provider, namespace, mediaWorkerReplicas } = args;
+  const { provider, namespace, mediaWorkerReplicas, nasNfsServer } = args;
   const opts = { provider };
 
   // GHCR pull secret: ESO templates a .dockerconfigjson from the GHCR token, so
@@ -269,7 +276,7 @@ export function deployServices(args: ServicesArgs): ServicesResources {
       ),
   );
 
-  const workloads = serviceSpecs(mediaWorkerReplicas).map(
+  const workloads = serviceSpecs(mediaWorkerReplicas, nasNfsServer).map(
     (spec) => new Workload({ spec, provider, namespace }, opts),
   );
 
