@@ -5,6 +5,10 @@ node_modules/
 dist/
 build/
 
+# Postgres migration artifacts (Swarm->CNPG dump + count tsvs, www-j934.8).
+# The dump is the rollback copy held OFF any pgdata volume; never committed.
+.pg-migration/
+
 # Environment
 .env
 .env.*
