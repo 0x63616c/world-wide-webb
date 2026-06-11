@@ -209,12 +209,13 @@ step5_restore() {
   confirm "Restore $DUMP_FILE into CNPG cluster '$CNPG_CLUSTER' (overwrites the CNPG '$PGDB' DB)?" \
     || die "aborted at restore by operator"
   local pod; pod="$(cnpg_primary)"
-  # Copy the dump into the pod, then pg_restore with --clean --if-exists so a
-  # re-run is idempotent (drops existing objects in the target before recreating).
-  kubectl --context "$KUBE_CONTEXT" -n "$CNPG_NS" cp "$DUMP_FILE" "${pod}:/tmp/restore.dump" -c postgres
+  # Stream the dump over stdin straight into pg_restore (no temp file in the pod).
+  # The CNPG postgres container runs with a READ-ONLY root filesystem, so a
+  # `kubectl cp` to /tmp fails ("Read-only file system"); piping the custom-format
+  # dump to pg_restore's stdin avoids any in-pod scratch file. --clean --if-exists
+  # keeps a re-run idempotent (drops existing objects before recreating).
   kubectl --context "$KUBE_CONTEXT" -n "$CNPG_NS" exec -i "$pod" -c postgres -- \
-    pg_restore -U "$PGUSER" -d "$PGDB" --clean --if-exists --no-owner --no-acl /tmp/restore.dump
-  kubectl --context "$KUBE_CONTEXT" -n "$CNPG_NS" exec -i "$pod" -c postgres -- rm -f /tmp/restore.dump
+    pg_restore -U "$PGUSER" -d "$PGDB" --clean --if-exists --no-owner --no-acl < "$DUMP_FILE"
 }
 
 step6_verify() {
