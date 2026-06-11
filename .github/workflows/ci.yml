@@ -570,7 +570,10 @@ jobs:
         working-directory: infra
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-          KUBECONFIG: ${{ env.HOME }}/.kube/config
+          # No KUBECONFIG override: kubectl and the Pulumi k8s provider both
+          # default to $HOME/.kube/config, where the "Write kubeconfig" step put
+          # it. (A `${{ env.HOME }}` expression evaluates to empty in the env
+          # context, yielding /.kube/config -> "current-context is not set".)
           DIGEST_MAP: ${{ steps.digests.outputs.map }}
         run: |
           pulumi login
