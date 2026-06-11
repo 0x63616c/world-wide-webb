@@ -767,6 +767,9 @@ body {
   width: 100%;
   max-width: 52px;
   height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   font-family: var(--font-mono);
   font-size: 22px;
