@@ -11,17 +11,18 @@ export default defineConfig({
       "apps/media-worker",
       "packages/bosun",
       "packages/logger",
+      "infra",
     ],
     // Cap worker fan-out. vitest spawns ~1 fork per core by default (~0.5-1GB
     // each with jsdom + v8 coverage); once the suite grew (media-ingest +
-    // Spotify/Sonos/AppleTV) that fan-out OOM-kills CI's runner — the coverage
+    // Spotify/Sonos/AppleTV) that fan-out OOM-kills CI's runner - the coverage
     // run writes its blob then dies, surfacing as a non-deterministic "exited
     // with code 1" that passes on a 32GB dev box but fails in CI. The web
     // project alone peaks at ~12GB per worker, so 2 concurrent workers saturate
     // the machine. Pinned to 1 serial fork (www-ddo9.5; original cap was www-kp4k).
     maxWorkers: 1,
     minWorkers: 1,
-    // Per-project poolOptions are ignored in workspace mode — only the root pool
+    // Per-project poolOptions are ignored in workspace mode - only the root pool
     // config applies. The execArgv must live here so fork workers get the heap
     // ceiling; without it they crash at node's 4GB default (www-ddo9.5).
     pool: "forks",
@@ -57,7 +58,7 @@ export default defineConfig({
         "**/*.gen.ts",
       ],
       // Coverage is REPORTED (the % feeds the README badge) but deliberately NOT
-      // gated — no `thresholds` here. A coverage drop must never fail a CI job or
+      // gated - no `thresholds` here. A coverage drop must never fail a CI job or
       // block a deploy (per Calum); the merged browser+unit number is also
       // slightly nondeterministic run-to-run, so a ratchet would flake. The test
       // job still fails on real test failures, just never on the coverage %.

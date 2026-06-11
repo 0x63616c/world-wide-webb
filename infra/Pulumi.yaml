@@ -1,0 +1,13 @@
+name: control-center
+runtime:
+  name: nodejs
+  options:
+    # Pulumi runs the program with bun (the repo's runtime); no separate compile.
+    typescript: false
+    nodeargs: ""
+description: >
+  control-center deploy stack on OrbStack Kubernetes, managed by Pulumi
+  (www-j934). Foundation: ComponentResource vocabulary in src/, per-environment
+  stack programs land in later milestones. State lives in Pulumi Cloud under
+  Calum's personal account (op://Homelab/Pulumi/access-token).
+main: program.ts
