@@ -79,24 +79,25 @@ export class Workload extends pulumi.ComponentResource {
 export interface ExternalServiceArgs {
   // Service name (the in-cluster DNS name consumers use, e.g. "ha").
   name: string;
-  // The off-cluster host + port (e.g. the HA VM at the host LAN IP :8123).
-  endpoint: { host: string; port: number };
+  // The external DNS host this CNAMEs to (e.g. the host's tailnet FQDN).
+  externalName: string;
   provider: k8s.Provider;
   namespace: pulumi.Input<string>;
 }
 
 /**
- * @public - a headless Service + manual Endpoints addressing an off-cluster host
- * by DNS name. The api consumes the HA VM via this (NOT host.docker.internal,
- * flaky from pods, DESIGN.md). Consumed by the cluster program (CC-j934.6).
+ * @public - an ExternalName Service: a CNAME-style alias from an in-cluster name
+ * to an external DNS host. The api reaches Home Assistant via `ha` -> the host's
+ * tailnet FQDN (CC-j934.17: pods can't reach the LAN/host LAN IP, but the host's
+ * own tailnet IP is locally routed to its socats). Consumed by the cluster
+ * program; no Endpoints object needed (CNAME, not a manual address).
  */
 export class ExternalService extends pulumi.ComponentResource {
   readonly service: k8s.core.v1.Service;
-  readonly endpoints: k8s.core.v1.Endpoints;
 
   constructor(args: ExternalServiceArgs, opts?: pulumi.ComponentResourceOptions) {
     super("control-center:infra:ExternalService", args.name, {}, opts);
-    const rendered = renderExternalService(args.name, args.endpoint);
+    const rendered = renderExternalService(args.name, args.externalName);
     const childOpts: pulumi.ComponentResourceOptions = { parent: this, provider: args.provider };
 
     this.service = new k8s.core.v1.Service(
@@ -107,16 +108,7 @@ export class ExternalService extends pulumi.ComponentResource {
       },
       childOpts,
     );
-    // The Endpoints object MUST share the Service's name so k8s wires them.
-    this.endpoints = new k8s.core.v1.Endpoints(
-      args.name,
-      {
-        metadata: { namespace: args.namespace, ...rendered.endpoints.metadata },
-        subsets: rendered.endpoints.subsets as never,
-      },
-      childOpts,
-    );
-    this.registerOutputs({ service: this.service.id, endpoints: this.endpoints.id });
+    this.registerOutputs({ service: this.service.id });
   }
 }
 

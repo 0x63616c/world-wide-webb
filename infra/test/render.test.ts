@@ -190,13 +190,11 @@ describe("renderWorkload: NFS PV + PVC pair (CC-j934.6)", () => {
   });
 });
 
-describe("renderExternalService (headless Service + Endpoints to an off-cluster host)", () => {
-  test("emits a headless Service (clusterIP None, no selector) + manual Endpoints", () => {
-    const r = renderExternalService("ha", { host: "192.168.0.42", port: 8123 });
-    expect(r.service.spec.clusterIP).toBe("None");
-    expect(r.service.spec.selector).toBeUndefined();
-    expect(r.service.spec.ports[0].port).toBe(8123);
-    expect(r.endpoints.subsets[0].addresses[0].ip).toBe("192.168.0.42");
-    expect(r.endpoints.subsets[0].ports[0].port).toBe(8123);
+describe("renderExternalService (ExternalName CNAME to an off-cluster host)", () => {
+  test("emits an ExternalName Service aliasing the in-cluster name to the external FQDN", () => {
+    const r = renderExternalService("ha", "homelab.tail8c014d.ts.net");
+    expect(r.service.spec.type).toBe("ExternalName");
+    expect(r.service.spec.externalName).toBe("homelab.tail8c014d.ts.net");
+    expect(r.service.metadata.name).toBe("ha");
   });
 });
