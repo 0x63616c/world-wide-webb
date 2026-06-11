@@ -46,9 +46,11 @@ stop-Swarm → start-k3s with a brief overlap only for the tunnel switch (§7).
 
 **IaC.** Pulumi TypeScript in this monorepo under `infra/`. A `ComponentResource`
 vocabulary succeeds bosun's `service()` / `cronJob()` builders, so a service is still
-declared in one typed place. State lives in **Pulumi Cloud** (account
-`the-workflow-engine`, token `op://Homelab/Pulumi/access-token`, never printed); reversible
-later via `pulumi stack export/import`. Designed so a future Hetzner/cloud cluster is a
+declared in one typed place. State lives in **Pulumi Cloud** under Calum's personal account
+`calumpeterwebb-icloud-com` (the op token authenticates as personal; RECON item 3's
+`the-workflow-engine` username is stale, `pulumi whoami` returns the personal account), token
+`op://Homelab/Pulumi/access-token`, never printed; reversible later via
+`pulumi stack export/import`. Designed so a future Hetzner/cloud cluster is a
 cheap stack swap (RECON decision 13): components take cluster/provider as inputs, no host
 path is hardcoded into a component's contract.
 
