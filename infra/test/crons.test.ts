@@ -110,7 +110,14 @@ describe("pg-backup (NEW nightly logical backup to the NAS)", () => {
   });
 
   test("uses a postgres image whose major matches the CNPG server (pg_dump version parity)", () => {
-    expect(backup()?.image).toBe("ghcr.io/cloudnative-pg/postgresql:17");
+    // Must match cnpg.ts's server major (PG 18); a mismatch makes pg_dump abort.
+    expect(backup()?.image).toBe("ghcr.io/cloudnative-pg/postgresql:18");
+  });
+
+  test("fails the job on a pg_dump error (pipefail, not a silent broken artifact)", () => {
+    const cmd = (backup()?.command ?? []).join("\n");
+    // pipefail is what makes a failed pg_dump (piped into gzip) fail the job.
+    expect(cmd).toContain("pipefail");
   });
 
   test("writes a DATED control_center-YYYYMMDD.sql.gz artifact", () => {
