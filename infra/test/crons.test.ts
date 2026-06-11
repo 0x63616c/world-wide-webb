@@ -71,6 +71,14 @@ describe("portal-data-purge", () => {
     expect(r.cronJob.spec.suspend).toBe(false);
     expect(r.cronJob.spec.jobTemplate.spec.template.spec.restartPolicy).toBe("Never");
   });
+
+  // Regression (CC-j934.7): the SA token automount must be OFF, else its
+  // projection at /var/run/secrets/kubernetes.io collides with the read-only
+  // /run/secrets mount and the container can't start (ContainerCannotRun).
+  test("disables the serviceaccount token automount", () => {
+    const r = renderCronJob(purge() as CronJobSpec);
+    expect(r.cronJob.spec.jobTemplate.spec.template.spec.automountServiceAccountToken).toBe(false);
+  });
 });
 
 describe("map-extract", () => {

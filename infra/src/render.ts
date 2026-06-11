@@ -294,7 +294,12 @@ interface CronJobArgs {
       spec: {
         template: {
           metadata: { labels: Record<string, string> };
-          spec: { containers: Container[]; volumes: PodVolume[]; restartPolicy: "Never" };
+          spec: {
+            containers: Container[];
+            volumes: PodVolume[];
+            restartPolicy: "Never";
+            automountServiceAccountToken: boolean;
+          };
         };
       };
     };
@@ -326,7 +331,18 @@ export function renderCronJob(c: CronJobSpec): RenderedCronJob {
         spec: {
           template: {
             metadata: { labels },
-            spec: { containers: [container], volumes: podVolumes, restartPolicy: "Never" },
+            spec: {
+              containers: [container],
+              volumes: podVolumes,
+              restartPolicy: "Never",
+              // Cron pods don't call the k8s API; disabling the serviceaccount
+              // token automount avoids its projection at
+              // /var/run/secrets/kubernetes.io, which collides with the
+              // read-only /run/secrets mount (/var/run -> /run symlink makes
+              // /run/secrets read-only, blocking the SA mountpoint ->
+              // ContainerCannotRun). Mirrors renderWorkload (CC-j934.6 / .7).
+              automountServiceAccountToken: false,
+            },
           },
         },
       },
