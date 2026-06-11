@@ -38,8 +38,13 @@ export class Workload extends pulumi.ComponentResource {
     const rendered = renderWorkload(args.spec);
     const childOpts: pulumi.ComponentResourceOptions = { parent: this, provider: args.provider };
 
+    // A PV's spec.nfs (and any persistentvolumesource) is immutable, so changing
+    // the NFS server (e.g. LAN IP -> tailnet IP, www-j934.17) forces a REPLACE. The
+    // PV name is fixed, so it must be delete-before-replace or the create collides
+    // on the existing name. The bound PVC recycles with it for the same reason.
+    const pvOpts = { ...childOpts, deleteBeforeReplace: true };
     this.persistentVolumes = rendered.persistentVolumes.map(
-      (pv) => new k8s.core.v1.PersistentVolume(pv.metadata.name, pv as never, childOpts),
+      (pv) => new k8s.core.v1.PersistentVolume(pv.metadata.name, pv as never, pvOpts),
     );
     // PVCs statically bind to the NFS PVs above (the pod mounts the PVC).
     this.persistentVolumeClaims = rendered.persistentVolumeClaims.map(
@@ -47,7 +52,7 @@ export class Workload extends pulumi.ComponentResource {
         new k8s.core.v1.PersistentVolumeClaim(
           pvc.metadata.name,
           { metadata: { namespace: args.namespace, ...pvc.metadata }, spec: pvc.spec as never },
-          childOpts,
+          pvOpts,
         ),
     );
 
