@@ -19,7 +19,10 @@ import { installEso } from "./src/eso.ts";
 import { deployServices } from "./src/services.ts";
 
 const cfg = new pulumi.Config("ccinfra");
-const cluster = makeCluster();
+// kubeContext selects the target cluster. Default cc-homelab (prod, homelab's
+// OrbStack reached over the tailnet); a machine-local staging cluster overrides
+// it (e.g. `pulumi config set ccinfra:kubeContext orbstack`). CC-j934 repoint.
+const cluster = makeCluster(cfg.get("kubeContext"));
 
 const eso = installEso({
   provider: cluster.provider,
