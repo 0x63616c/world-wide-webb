@@ -52,4 +52,10 @@ export const SERVICE_SECRETS: Record<string, ServiceSecrets> = {
   cloudflared: {
     TUNNEL_TOKEN: "Cloudflare Tunnel evee-webhooks/connector_token",
   },
+  // The portal-data-purge CronJob (CC-j934.7) runs the api image's purge.js and
+  // builds DATABASE_URL from the mounted POSTGRES_PASSWORD; it needs that one
+  // secret synced into cc-secrets-portal-data-purge (the CronJob's default mount).
+  "portal-data-purge": {
+    POSTGRES_PASSWORD: "Control Center Postgres/password",
+  },
 };
