@@ -66,12 +66,25 @@ etcd), which structurally fixes the bosun op rate-limit churn (RECON decision 4,
 New nightly logical backups to the NAS (today no backups exist, `autobackup:false`).
 
 **TLS.** cert-manager with a CF **DNS-01** `ClusterIssuer` (the portal is LAN-only, HTTP-01
-can't reach it). The CF API token needs `Zone.DNS:Edit` **+ `Zone.Zone:Read`**. This
-replaces the bosun `portal-cert-renew` acme.sh cron.
+can't reach it). The CF API token (`op://Homelab/Cloudflare API/credential`) is
+**account-owned**, so verify it via `GET /accounts/{account_id}/tokens/verify`, NOT
+`/user/tokens/verify` (the user endpoint rejects account-owned tokens by design); it already
+carries account + zone scopes incl. `Zone.DNS:Edit`. This replaces the bosun
+`portal-cert-renew` acme.sh cron.
 
 **Ingress.** `cloudflared` runs **in-cluster** as a Deployment, **2 replicas** (HA only,
 never an HPA). It owns the public `*.worldwidewebb.co` routing; tunnel ingress is declared
 in the Pulumi cloudflare provider (re-homed from `packages/bosun/src/reconcile/routes.ts`).
+
+**Cloudflare re-home reality (CC-j934.2, adopt-only).** What is DEPLOYED in CF today (and
+what `infra/cloudflare/` adopts) is the CC-cuuw *subset*, not the full reconcile-code plan:
+**2 Access apps** (storybook + drizzle, email-OTP `allow`), the tunnel ingress config (5
+hosts: dashboard/portainer/hooks/storybook/drizzle + a catchall 404), and 6 proxied CNAMEs.
+The default-deny `*.worldwidewebb.co` Block floor + the dashboard service-token app are
+**deliberately deferred** (gated on the kiosk iOS build, CC-cuuw plan §6) and are tracked as
+a separate deliberate `pulumi up` in **CC-jhly**, NOT part of this migration. portainer (and
+the `hooks`/`hooks-test` routes) are adopted as-is and retire as explicit later diffs
+(portainer at cutover §7; hooks at CI rework §6).
 
 **Deploy.** GitHub Actions push model: build changed images → digests → `pulumi up` over an
 **ephemeral Tailscale auth key** (so the runner joins the tailnet only for the deploy and
@@ -377,6 +390,37 @@ L2 isolation + a single scoped firewall allowance = guests reach only the portal
 other or the LAN. **Byte-unchanged guarantee (Phase 5):** `world-wide-webb`, rsyslog, and
 netflow configs are read back via the controller GET and compared byte-for-byte against the
 RECON dump after the www-guest additions - the new VLAN/SSID must not perturb them.
+
+### 8.1 Adopt-only `pulumi import` runbook (CF + UniFi, shared gotchas)
+
+Both the CF (CC-j934.2) and UniFi (CC-j934.3) adopt-only imports share these footguns:
+
+- **Pin the provider plugin version.** `pulumi import` auto-downloads the *latest* plugin,
+  which can differ from the SDK major (CF: a stray v6 plugin imported state the v5 SDK then
+  refused to diff, "State version 500 > schema version 0"). Pin `version` on the provider
+  resource **and** remove the stray plugin (`pulumi plugin rm resource <name> <ver>`); the
+  resource pin alone does not stop import from grabbing the newest.
+- **Import-id format is version-specific.** CF v5 wants `<account_id>/<app_id>` for apps and
+  `account/<account_id>/<application_id>/<policy_id>` for policies (v6 differs). Match the id
+  to the pinned major.
+- **`pulumi import` (CLI) does not run the program**, so it ignores the provider's config
+  token. Put the API token in the ENV (`CLOUDFLARE_API_TOKEN` from
+  `op://Homelab/Cloudflare API/credential`; the UniFi import has the analogous op-env
+  pattern). Never print it.
+- **State-only cleanup is safe for adopt-only:** `pulumi state delete <urn> --force --yes`
+  removes a resource from Pulumi state WITHOUT touching the live cloud resource (needs
+  `--force` because adopt-only resources are `protect: true`). Use it to redo a bad import.
+
+**Provider-import-fidelity gaps (same class, two resolutions):**
+- **UniFi `setting_rsyslogd`** → moved to **unmanaged/direct-API** (applying it *would*
+  mutate live; the provider can't round-trip it on 10.4.57).
+- **CF proxied CNAMEs** → kept **managed** (ruling B): the 6 Records show a benign
+  `~ update [+content, +allowOverwrite]` on preview because @pulumi/cloudflare 5.49.1 does
+  not read those fields back on import. It is NOT drift, the program supplies the
+  value-identical live target (PROVEN: all 6 live API `content` == `<tunnelId>.cfargotunnel.com`),
+  and GOAL's CF AC is "0 create/0 delete/0 replace" (updates allowed). Do NOT `pulumi up`
+  just to silence it; it self-heals at the first deliberate apply (Phase 4). The Access apps,
+  policies, and tunnel ingress config import at **literal zero diff**.
 
 ---
 

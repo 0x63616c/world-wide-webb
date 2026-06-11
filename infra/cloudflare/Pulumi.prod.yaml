@@ -1,0 +1,16 @@
+config:
+  control-center-cloudflare:apiToken:
+    secure: AAABAAC/5azu5Wj/L95XYLw/F6iRBLcobLvAoxI0/e+Aly+uEUp34WNIhVnQtaxi4qSE0CJf+slla+WiDxJaTxerTMRTfyE7LWxBCuPpQTR7cdu95g==
+  control-center-cloudflare:allowedEmail:
+    secure: AAABANmUI/prGE5l97uXkgfKXO7yR4CVNU3aURCVGgW6vkkrGx7LTyRsoyXS+XqIwDcMipjnV8eM
+  control-center-cloudflare:accountId:
+    secure: AAABAJ9EQ/c0AL9YYSZ08bufMr7uvPPyIkcSmUIeGT4RIQvydYlAgvBJgEoIRDf7c5pVfTRcAjjhIluW7ehSwQ==
+  control-center-cloudflare:zoneId:
+    secure: AAABAK+o1BMSlx2Xz7V+BxpIXUY4qxw+Pc4ek7WwlcDmnHVdMorgO5S3o1h5A/qrQNj1Cqyu6Kb8eL5XjFcndA==
+  control-center-cloudflare:tunnelId:
+    secure: AAABANey+hk/ECyTuWEAgrLRwf5XV5DXEJ08MPWQFvqV0Y0IBgvD39ANEPESpVpHAA4G9lUye4dtNs8nmY7QXbIfDW8=
+  control-center-cloudflare:zoneName: worldwidewebb.co
+  control-center-cloudflare:kioskClientId:
+    secure: AAABABqTpLdLPCxc1hWYjCNbGSnvRIkoxdUgabIBJDNAG77ih6tixERctxJDV6DY9bhPUYfpy9j931t2w3Ajqbn1XuqrS4k=
+  control-center-cloudflare:ciClientId:
+    secure: AAABACsqHbau/ipUH6pTLW/ZK+6N/07Pr3o2LVUC0vaMVLBzMMuRmYI6s1IpBOBw5u6hMdWBD7bhmWj/JMD3xvBR/CzRgSw=
