@@ -1,0 +1,9 @@
+name: control-center-cloudflare
+runtime:
+  name: nodejs
+  options:
+    typescript: false
+description: >
+  control-center Cloudflare edge state (www-j934.2): adopt-only Access apps +
+  tunnel ingress + DNS, a separate Pulumi project from the k8s foundation.
+main: program.ts

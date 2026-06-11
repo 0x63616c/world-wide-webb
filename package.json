@@ -6,7 +6,8 @@
     "apps/*",
     "packages/*",
     "infra",
-    "infra/unifi"
+    "infra/unifi",
+    "infra/cloudflare"
   ],
   "scripts": {
     "dev": "tilt up",

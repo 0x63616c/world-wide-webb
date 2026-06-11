@@ -69,6 +69,13 @@
       // imported, so no ignoreDependencies needed. The empty block tracks the
       // workspace (test/**/*.test.ts is knip's default test entry).
     },
+    "infra/cloudflare": {
+      // Separate Pulumi PROJECT (control-center-cloudflare) for the adopt-only CF
+      // edge state (www-j934.2). program.ts (the Pulumi program) is auto-detected
+      // from package `main`; src/{access,routes}.ts are imported by it; tests in
+      // test/.
+      "entry": ["test/**/*.test.ts"]
+    },
     "apps/media-worker": {
       // runtime.ts + types.ts are co-located copies of the worker framework;
       // knip auto-detects src/index.ts as the entry; no explicit entry needed.
