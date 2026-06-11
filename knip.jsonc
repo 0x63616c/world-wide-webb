@@ -62,6 +62,13 @@
       // (component.ts), so no ignoreDependencies needed.
       "entry": ["program.ts", "test/**/*.test.ts"]
     },
+    "infra/unifi": {
+      // Separate Pulumi project (control-center-unifi, www-j934.3): program.ts is
+      // auto-detected as the entry from Pulumi.yaml `main`; src/unifi.ts exports
+      // are consumed by it + the test. @pulumiverse/unifi + @pulumi/pulumi are
+      // imported, so no ignoreDependencies needed. The empty block tracks the
+      // workspace (test/**/*.test.ts is knip's default test entry).
+    },
     "apps/media-worker": {
       // runtime.ts + types.ts are co-located copies of the worker framework;
       // knip auto-detects src/index.ts as the entry; no explicit entry needed.

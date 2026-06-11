@@ -11,6 +11,9 @@ export default defineConfig({
       "apps/media-worker",
       "packages/bosun",
       "packages/logger",
+      // The `infra` project's default test glob also covers infra/unifi/test/**
+      // (UniFi adopt-only stack, www-j934.3), so no separate project entry is
+      // needed; a second entry would double-run those tests.
       "infra",
     ],
     // Cap worker fan-out. vitest spawns ~1 fork per core by default (~0.5-1GB
