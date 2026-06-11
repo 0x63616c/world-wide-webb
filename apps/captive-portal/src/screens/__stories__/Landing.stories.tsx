@@ -63,7 +63,7 @@ export const BareErrors: Story = {
           errors: {
             name: "Please enter your name.",
             email: "That doesn’t look like a valid email address.",
-            agreed: "You must accept the terms to continue.",
+            agreed: "You must accept",
           },
         },
       )}
