@@ -18,6 +18,11 @@ COPY apps/captive-portal/package.json apps/captive-portal/
 COPY packages/api/package.json packages/api/
 COPY packages/bosun/package.json packages/bosun/
 COPY packages/logger/package.json packages/logger/
+# Infra Pulumi workspaces (CC-j934.1/.2/.3): root package.json declares these, so
+# bun install needs their manifests in the build context (CC-272b).
+COPY infra/package.json infra/
+COPY infra/cloudflare/package.json infra/cloudflare/
+COPY infra/unifi/package.json infra/unifi/
 
 # --ignore-scripts skips the lefthook prepare hook (needs git, absent here).
 RUN bun install --frozen-lockfile --ignore-scripts
