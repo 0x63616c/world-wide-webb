@@ -1,13 +1,27 @@
-// Pulumi program entry point for the control-center stack.
+// Pulumi program for the control-center k3s cluster stack (www-j934.4 onward).
 //
-// FOUNDATION ONLY (www-j934.1): this milestone establishes the workspace, Cloud
-// auth, and the ComponentResource vocabulary (src/) with unit tests. The actual
-// per-environment resources (the cluster Provider + the Workloads for api, web,
-// worker, …) are wired in www-j934.6. Keeping the program empty here means
-// `pulumi preview` is a clean no-op and nothing touches prod before the
-// adopt-only import milestones (CF re-home www-j934.2, UniFi www-j934.3) land.
+// Wires the cluster provider + namespace and the External Secrets Operator with
+// the 1Password SDK provider (www-j934.4): one ClusterSecretStore + one
+// ExternalSecret per service, syncing op://Homelab fields into k8s Secrets the
+// Deployments mount at /run/secrets/<NAME>. CNPG + cert-manager (www-j934.5), the
+// app Workloads (www-j934.6), and the CronJobs (www-j934.7) extend this program in
+// their own commits.
 //
-// The vocabulary is exercised by infra/test/render.test.ts; import it from
-// "./src/index.ts" in the environment stack programs that follow.
+// Bootstrap (out-of-band, once): the 1P service-account token Secret
+// `op-service-account` in the external-secrets namespace, seeded by
+// scripts/seed-op-service-account.sh. Never committed.
 
-export {};
+import { APP_NAMESPACE, makeCluster } from "./src/cluster.ts";
+import { installEso } from "./src/eso.ts";
+
+const cluster = makeCluster();
+
+const eso = installEso({
+  provider: cluster.provider,
+  appNamespace: APP_NAMESPACE,
+  chartVersion: "2.6.0",
+});
+
+// Surface ESO resource names (not values) for the Phase-3 SecretSynced check.
+export const externalSecretNames = eso.externalSecrets.map((e) => e.metadata.name);
+export const appNamespaceName = cluster.namespace.metadata.name;
