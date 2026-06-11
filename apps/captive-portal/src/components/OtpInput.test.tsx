@@ -1,8 +1,24 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OtpInput } from "./OtpInput";
+
+// input-otp schedules a selection-sync setTimeout that it never clears on
+// unmount; if it fires after the jsdom env is torn down it throws
+// `window is not defined` as an UNHANDLED error and fails the run even though
+// every test passes. Drive these tests on fake timers (auto-advanced so
+// userEvent still works) and flush + drop all pending timers on teardown, so no
+// stray timer escapes the test environment. (Pre-existing flake; fixed here.)
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+});
+afterEach(() => {
+  cleanup();
+  vi.runOnlyPendingTimers();
+  vi.clearAllTimers();
+  vi.useRealTimers();
+});
 
 // A controlled harness mirrors how the Verify screen drives the OTP.
 function Harness({
