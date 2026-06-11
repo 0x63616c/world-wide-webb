@@ -107,7 +107,7 @@ the 8GB node schedules everything. The two services with a www-ke9a cpu reservat
 
 | Service | k8s resource | replicas | limits.mem (www-ke9a) | requests | secrets (ESO → /run/secrets) | image | notes |
 |---|---|---|---|---|---|---|---|
-| **api** | Deployment + ClusterIP Service `:4201` | 1 | 512M | 256M mem, 0.5 cpu | HA_TOKEN, UNIFI_API_KEY, WIFI_SSID/PASSWORD, POSTGRES_PASSWORD, HOME_LAT/LON/PLACE_NAME/RADIUS_MILES, SPOTIFY_*, RESEND_API_KEY/FROM | control-center-api | request-only; readiness `GET /up`, liveness `/up`; `/health/climate` as a startup-time check. HA via headless Service+Endpoints to host LAN IP `:8123` (NOT host.docker.internal). UniFi via `https://192.168.0.1`. |
+| **api** | Deployment + ClusterIP Service `:4201` | 1 | 512M | 256M mem, 0.5 cpu | HA_TOKEN, UNIFI_API_KEY, WIFI_SSID/PASSWORD, POSTGRES_PASSWORD, HOME_LAT/LON/PLACE_NAME/RADIUS_MILES, SPOTIFY_*, RESEND_API_KEY/FROM | control-center-api | request-only; readiness `GET /up`, liveness `/up`; `/health/climate` as a startup-time check. HA via an **ExternalName** Service `ha` → the host's own tailnet FQDN `homelab.tail8c014d.ts.net` (`:8123`) - see §5c; host LAN IP / `host.orb.internal` are unreachable from pods. UniFi via `https://192.168.0.1`. |
 | **worker** | Deployment | 1 | 384M | 192M mem | HA_TOKEN, UNIFI_API_KEY, WIFI_SSID/PASSWORD, POSTGRES_PASSWORD, HOME_*, SPOTIFY_* | control-center-worker | no Service (no traffic); the reconcile/ingest loops. Secrets mirror api (deploy-config test asserts lockstep). |
 | **media-worker** | Deployment | **1** (spike passed, §5b) | 1G | 256M mem | POSTGRES_PASSWORD, OPENROUTER_API_KEY | control-center-media-worker | NFS PV for the Synology media share (replaces the host bind mount), **`mountOptions: [nfsvers=3, nolock, tcp]`** (DS420+ is NFSv3-only - §5b). Un-parks www-6mz7. |
 | **web** | Deployment + ClusterIP `:80` | 1 | 96M | 48M mem | none | control-center-web | route `dashboard.worldwidewebb.co`; reverse-proxies `/api`→`api:4201`. Basemap `/maps/*.pmtiles` from a `maps` PV populated by `map-extract` (§ below). |
@@ -251,6 +251,52 @@ the media-worker un-park (www-6mz7) AND the nightly NAS backup CronJob target (�
 > **Phase-3 builders:** the `nfsvers=3, nolock, tcp` PV `mountOptions` are mandatory for
 > every NFS mount (media-worker AND the backup CronJob). A v4 default mount will get
 > "Connection refused" from the DS420+. This is in the AC of every NFS-touching child ticket.
+
+---
+
+## 5c. Pod → host services (HA, the cutover-critical path)  **[www-j934.17: RESOLVED via tailnet]**
+
+The api + worker need Home Assistant at the host's `:8123` socat proxy. OrbStack k8s and the
+docker plane share ONE Linux VM, but docker egress is masqueraded back to the Mac through a
+userspace NAT proxy while the **k8s/flannel CNI path uses the kernel route directly and bypasses
+that proxy** (OrbStack #342 / #710). The structural consequence, **proven, not assumed**:
+
+- **Pods CANNOT reach** the home LAN (`192.168.0.0/24`), a raw host port, a docker-published
+  port, or `host.orb.internal` / `host.docker.internal`. Every lever to change this was tried
+  and eliminated with evidence (scoped MASQUERADE saw 0 packets - the drop is pre-NAT;
+  `network_bridge:true` is FORBIDDEN - it pins macOS `airportd` at ~100% CPU, OrbStack #2461).
+- **Pods CAN reach** the internet, the LAN gateway `.1`, and - the working mechanism - **the
+  host's own Tailscale IP `100.78.116.17` / MagicDNS FQDN `homelab.tail8c014d.ts.net`**. This is
+  NOT real tailnet transit: the host routes its own tailnet IP locally over `utun`, delivering
+  to the `0.0.0.0`-bound host socats. The HA socat already listens on all interfaces, so the
+  pod hits it with zero new host infra.
+
+**The pattern:** an `ExternalName` Service is a DNS CNAME, so `ha` → `homelab.tail8c014d.ts.net`
+resolves in-cluster (MagicDNS answers, verified from a pod), and the app's existing
+`http://ha:8123` URL is unchanged. One Service, no headless Service, no `Endpoints`, no sidecar,
+no extra container. UniFi stays a **direct** `https://192.168.0.1` (a different LAN host with its
+own reachable path); only HA needs the tailnet hop.
+
+**Negative-control method (mandatory for any reachability claim here).** A `kubectl port-forward`
+or a leftover bridge container will make a pod-side probe *look* reachable when the real path is
+dead - this exact false positive happened once (a stale `port-forward svc/web` contaminated a
+"host.orb.internal works" claim). So: kill all port-forwards first, and ALWAYS pair a positive
+probe (open port answers) with a negative control (a known-closed port on the same host MUST
+fail). Only a passing positive AND a failing negative proves the route, not the tunnel.
+
+**Verified end-to-end (2026-06-11):** pod `nslookup ha` → CNAME `homelab.tail8c014d.ts.net` →
+`100.78.116.17`; pod `wget http://ha:8123/manifest.json` → real HA manifest; api `/health/climate`
+→ `{"ambient":73}` (live HA temperature); light-/climate-enforcer 1s loops cycle clean (no
+errors, no interval overruns) through this path. **Survives an OrbStack restart unattended**
+(`orbctl stop && start` → 9/9 pods Running in ~60s, `ha` path live again with no intervention;
+the host socat + tailscaled are launchd `KeepAlive`, OrbStack-independent).
+
+> **Open item, the NFS half of www-j934.17 is NOT solved by this.** The Synology NAS
+> (`192.168.0.218`) is a plain LAN host, NOT on the tailnet, so the media-worker NFS PV and the
+> §2 NAS-backup CronJob cannot use the tailnet hop. Candidates for the docker plane (where the
+> NAT proxy DOES bridge to the LAN): run media-worker / the backup job as a docker container
+> beside k8s, or put the NAS on the tailnet. Deferred; tracked on www-j934.17. media-worker stays
+> parked at `replicas: 0` until resolved (its PV config is built and proven-correct otherwise).
 
 ---
 
@@ -483,7 +529,8 @@ outcomes, so nothing in §5a/§5b/§2 is provisional anymore.
 | Item | Section | Status |
 |---|---|---|
 | Portal LB reaches the LAN; `portal-lan` + `:42069` deletable | §5a | **PASSED** - curl from MacBook → 192.168.0.147:8088 = HTTP 200 (en1 republish via `expose_services`) |
-| media-worker → 1 with native NFS PV | §5b | **PASSED** - un-parks www-6mz7; PV needs `nfsvers=3, nolock, tcp` (DS420+ is NFSv3-only) |
-| Nightly NAS backup via NFS PV | §2 | **PASSED** - direct NFS PV, same `nfsvers=3, nolock, tcp` constraint |
+| Pod → HA `:8123` (the cutover-critical egress) | §5c | **RESOLVED (www-j934.17)** - `ExternalName` `ha` → `homelab.tail8c014d.ts.net` (host's own tailnet IP, local utun delivery); api `/health/climate`→`{"ambient":73}`, enforcers clean, survives OrbStack restart unattended. LAN IP / `host.orb.internal` are dead (proven). |
+| media-worker → 1 with native NFS PV | §5b/§5c | **DEFERRED (www-j934.17 NFS half)** - the NFS PV `mountOptions: [nfsvers=3, nolock, tcp]` are built + correct, but the NAS (`192.168.0.218`) is NOT on the tailnet so the pod→NAS path is dead under the §5c no-route reality. media-worker parked `replicas: 0`. Candidates: docker-plane container, or NAS on tailnet. |
+| Nightly NAS backup via NFS PV | §2/§5c | **DEFERRED** - same pod→NAS blocker as media-worker; the NFS PV mount itself is proven (Phase-0b), the pod→NAS reachability is not. Blocks www-j934.7. |
 | Provider external-portal write fidelity on 10.4.57 | §8 | **OPEN** - validate on a throwaway before the `guest_access` flip (not a Phase-0 gate) |
 | On-device guest OTP flow (www-q002.17) | §8 | **OPEN** - needs Calum physically present; `needs input:` at that step, never faked |

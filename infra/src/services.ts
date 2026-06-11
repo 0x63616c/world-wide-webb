@@ -17,8 +17,12 @@ import type { WorkloadSpec } from "./spec.ts";
 const ghcr = (name: string) => `ghcr.io/0x63616c/control-center-${name}:main`;
 // The imagePullSecret name (dockerconfigjson built by ESO from the GHCR token).
 const GHCR_PULL_SECRET = "ghcr-pull";
-// The HA VM reached at the host LAN IP :8123 (mini en1), via a headless Service.
-const HA_HOST = "192.168.0.147";
+// HA is reached via the host's TAILSCALE FQDN, NOT the LAN IP (www-j934.17):
+// OrbStack k8s pods can't route to 192.168.0.0/24 or raw host ports, but the
+// Mac locally routes its OWN tailnet IP (utun) to its 0.0.0.0-bound socats, so
+// homelab.tail8c014d.ts.net:8123 is delivered to the existing HA socat. The
+// `ha` ExternalName Service CNAMEs to this; api/worker keep using http://ha:8123.
+const HA_TAILNET_FQDN = "homelab.tail8c014d.ts.net";
 const HA_PORT = 8123;
 
 const TZ = "America/Los_Angeles";
@@ -241,9 +245,10 @@ export function deployServices(args: ServicesArgs): ServicesResources {
     opts,
   );
 
-  // The HA VM as an in-cluster DNS name (api/worker reach `ha:8123`).
+  // `ha` -> the host's tailnet FQDN (api/worker reach `http://ha:8123`, which
+  // CNAMEs to the host socat via the locally-routed tailnet IP, www-j934.17).
   const haService = new ExternalService(
-    { name: "ha", endpoint: { host: HA_HOST, port: HA_PORT }, provider, namespace },
+    { name: "ha", externalName: HA_TAILNET_FQDN, provider, namespace },
     opts,
   );
 

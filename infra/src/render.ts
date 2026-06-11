@@ -53,24 +53,20 @@ interface DeploymentArgs {
 interface ServiceArgs {
   metadata: { name: string; labels: Record<string, string> };
   spec: {
-    // "None" = a headless Service (used with manual Endpoints for an external
-    // host like the HA VM, which has no pod selector).
     type: "ClusterIP" | "LoadBalancer";
-    clusterIP?: "None";
     selector?: Record<string, string>;
     ports: { name: string; port: number; targetPort: number }[];
   };
 }
-// A headless Service + its manually-managed Endpoints, addressing an OFF-cluster
-// host by DNS name (e.g. the api -> Home Assistant VM at the host LAN IP :8123).
-// Not tied to any pod; the consuming workload reaches it via the Service name.
-interface EndpointsArgs {
+// An ExternalName Service: a CNAME-style alias from an in-cluster name to an
+// external DNS name. The consuming workload talks to the Service name and the
+// port lives in its URL (e.g. http://ha:8123 -> CNAME homelab.tail8c014d.ts.net).
+interface ExternalNameServiceArgs {
   metadata: { name: string; labels: Record<string, string> };
-  subsets: { addresses: { ip: string }[]; ports: { name: string; port: number }[] }[];
+  spec: { type: "ExternalName"; externalName: string };
 }
 export interface RenderedExternalService {
-  service: ServiceArgs;
-  endpoints: EndpointsArgs;
+  service: ExternalNameServiceArgs;
 }
 interface PersistentVolumeArgs {
   metadata: { name: string };
@@ -341,36 +337,24 @@ export function renderCronJob(c: CronJobSpec): RenderedCronJob {
 }
 
 /**
- * A headless Service + manual Endpoints addressing an OFF-cluster host by DNS
- * name. The api uses this to reach the Home Assistant VM at the host LAN IP
- * :8123 (DESIGN.md: NOT host.docker.internal, which is flaky from pods). The
- * workload consumes it by the Service name (e.g. `ha:8123`), so it stays a
- * standalone addressable object, not a property of any pod (www-j934.6).
+ * An ExternalName Service: a CNAME-style alias from an in-cluster name to an
+ * external DNS host. The api/worker reach Home Assistant via `ha` (HA_URL
+ * http://ha:8123), which CNAMEs to the host's tailscale FQDN.
+ *
+ * WHY the tailnet FQDN, not the host LAN IP or host.orb.internal (www-j934.17):
+ * OrbStack k8s pods CANNOT reach the home LAN (192.168.0.0/24) or raw host
+ * ports via host.orb.internal (structural: the flannel plane has no route to
+ * the LAN; #342). But pods DO have internet egress via the Mac's stack, and the
+ * Mac routes its OWN tailscale IP locally (utun) to its 0.0.0.0-bound socats, so
+ * `<host>.<tailnet>.ts.net:8123` is delivered straight to the existing HA socat.
+ * The tailnet FQDN resolves in-cluster (CoreDNS upstream) and is stable +
+ * already-core infra, so it lives in this one ExternalName, not scattered in env.
  */
-export function renderExternalService(
-  name: string,
-  endpoint: { host: string; port: number },
-): RenderedExternalService {
-  const labels = { app: name };
+export function renderExternalService(name: string, externalName: string): RenderedExternalService {
   return {
     service: {
-      metadata: { name, labels },
-      // Headless (clusterIP None) + no selector: the Endpoints below supply the
-      // backing address manually.
-      spec: {
-        type: "ClusterIP",
-        clusterIP: "None",
-        ports: [{ name: `p${endpoint.port}`, port: endpoint.port, targetPort: endpoint.port }],
-      },
-    },
-    endpoints: {
-      metadata: { name, labels },
-      subsets: [
-        {
-          addresses: [{ ip: endpoint.host }],
-          ports: [{ name: `p${endpoint.port}`, port: endpoint.port }],
-        },
-      ],
+      metadata: { name, labels: { app: name } },
+      spec: { type: "ExternalName", externalName },
     },
   };
 }
