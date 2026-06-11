@@ -85,6 +85,10 @@
     {
       "includes": ["**/packages/logger/src/**"],
       "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
+    },
+    {
+      "includes": ["**/infra/unifi/program.ts", "**/infra/unifi/src/**"],
+      "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
     }
   ]
 }
