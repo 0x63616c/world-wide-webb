@@ -151,6 +151,13 @@ interface PodInputs {
   }[];
 }
 
+function claimVolumeName(claimVolumeNames: Map<string, string>, claim: string, fallback: string) {
+  const existing = claimVolumeNames.get(claim);
+  if (existing) return existing;
+  claimVolumeNames.set(claim, fallback);
+  return fallback;
+}
+
 function buildPod(p: PodInputs): {
   container: Container;
   podVolumes: PodVolume[];
@@ -173,6 +180,7 @@ function buildPod(p: PodInputs): {
   const podVolumes: PodVolume[] = [];
   const persistentVolumes: PersistentVolumeArgs[] = [];
   const persistentVolumeClaims: PersistentVolumeClaimArgs[] = [];
+  const claimVolumeNames = new Map<string, string>();
 
   // Secrets: the ESO-synced Secret (cc-secrets-<name> by default), projected as
   // files under /run/secrets so values never appear in the pod spec and images
@@ -197,7 +205,10 @@ function buildPod(p: PodInputs): {
   }
 
   for (const [i, vol] of (p.volumes ?? []).entries()) {
-    const volName = `vol-${i}`;
+    const fallbackVolName = `vol-${i}`;
+    const volName = vol.claim
+      ? claimVolumeName(claimVolumeNames, vol.claim, fallbackVolName)
+      : fallbackVolName;
     volumeMounts.push({
       name: volName,
       mountPath: vol.mountPath,
@@ -229,7 +240,9 @@ function buildPod(p: PodInputs): {
       });
       podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: pvName } });
     } else if (vol.claim) {
-      podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: vol.claim } });
+      if (volName === fallbackVolName) {
+        podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: vol.claim } });
+      }
     }
   }
 
@@ -245,14 +258,14 @@ function buildPod(p: PodInputs): {
   return { container, podVolumes, persistentVolumes, persistentVolumeClaims };
 }
 
-// Map an InitContainerSpec to a Container + its pod volumes. Volume names are
-// prefixed `init<idx>-` so two containers mounting the SAME claim (e.g. the
-// map-provision init writing the `maps` PVC the web container reads) get
-// distinct pod-volume entries instead of a duplicate-name conflict. Claim
-// mounts only: an NFS PV pair belongs to a workload/cron, not a precondition.
+// Map an InitContainerSpec to a Container + its pod volumes. When an init
+// container mounts the SAME claim as the main container, reuse that pod volume:
+// Kubernetes applies readOnly/subPath at the VolumeMount level, and rendering two
+// pod volumes for one local-path claim wedges the OrbStack/k3s pod sandbox.
 function buildInitContainer(
   ic: InitContainerSpec,
   idx: number,
+  claimVolumeNames: Map<string, string>,
 ): { container: Container; podVolumes: PodVolume[] } {
   const volumeMounts: VolumeMount[] = [];
   const podVolumes: PodVolume[] = [];
@@ -260,14 +273,17 @@ function buildInitContainer(
     if (!vol.claim) {
       throw new Error(`initContainer ${ic.name}: only claim-named PVC volumes are supported`);
     }
-    const volName = `init${idx}-vol-${j}`;
+    const fallbackVolName = `init${idx}-vol-${j}`;
+    const volName = claimVolumeName(claimVolumeNames, vol.claim, fallbackVolName);
     volumeMounts.push({
       name: volName,
       mountPath: vol.mountPath,
       ...(vol.readOnly ? { readOnly: true } : {}),
       ...(vol.subPath ? { subPath: vol.subPath } : {}),
     });
-    podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: vol.claim } });
+    if (volName === fallbackVolName) {
+      podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: vol.claim } });
+    }
   }
   return {
     container: {
@@ -286,8 +302,15 @@ export function renderWorkload(w: WorkloadSpec): RenderedWorkload {
   const labels = { app: w.name };
 
   const { container, podVolumes, persistentVolumes, persistentVolumeClaims } = buildPod(w);
+  const claimVolumeNames = new Map(
+    podVolumes.flatMap((v) =>
+      v.persistentVolumeClaim ? [[v.persistentVolumeClaim.claimName, v.name] as const] : [],
+    ),
+  );
 
-  const inits = (w.initContainers ?? []).map((ic, i) => buildInitContainer(ic, i));
+  const inits = (w.initContainers ?? []).map((ic, i) =>
+    buildInitContainer(ic, i, claimVolumeNames),
+  );
 
   const deployment: DeploymentArgs = {
     metadata: { name: w.name, labels },
