@@ -597,9 +597,14 @@ jobs:
           # Pin each changed app image by digest: a changed digest rolls only that
           # workload (CC-czg). Clear the prior map first so a no-longer-built image
           # can't keep a phantom pin, then set each service's digest path.
-          pulumi config rm imageDigests --stack prod >/dev/null 2>&1 || true
+          # The key MUST be namespaced `ccinfra:imageDigests` to match the program's
+          # `new Config("ccinfra").getObject("imageDigests")`. A bare `--path
+          # imageDigests.<svc>` writes under the PROJECT namespace (control-center:),
+          # which the program never reads, so every image silently renders `:main`
+          # (mutable tag) and pods NEVER roll to the freshly built build (CC-j934.9).
+          pulumi config rm ccinfra:imageDigests --stack prod >/dev/null 2>&1 || true
           for svc in $(echo "$DIGEST_MAP" | jq -r 'keys[]'); do
             dig=$(echo "$DIGEST_MAP" | jq -r --arg s "$svc" '.[$s]')
-            pulumi config set --path "imageDigests.$svc" "$dig" --stack prod
+            pulumi config set --path "ccinfra:imageDigests.$svc" "$dig" --stack prod
           done
           pulumi up --yes --stack prod
