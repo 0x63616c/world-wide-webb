@@ -10,8 +10,8 @@
 
 import * as k8s from "@pulumi/kubernetes";
 import type * as pulumi from "@pulumi/pulumi";
+import type { WorkloadSpec } from "./component.ts";
 import { ExternalService, Workload } from "./component.ts";
-import type { WorkloadSpec } from "./spec.ts";
 
 // Per-service GHCR image digest map, name -> "sha256:…", set by the CI deploy job
 // (`pulumi config set --path imageDigests.<svc>`). A pinned digest renders the
@@ -380,7 +380,7 @@ export function deployServices(args: ServicesArgs): ServicesResources {
     drizzleReplicas,
     nasNfsServer,
     imageDigests,
-  }).map((spec) => new Workload({ spec, provider, namespace }, opts));
+  }).map((spec) => new Workload({ ...spec, provider, namespace }, opts));
 
   return { ghcrPullSecret, haService, pvcs, workloads };
 }

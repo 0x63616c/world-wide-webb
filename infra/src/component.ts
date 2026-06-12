@@ -1,31 +1,485 @@
-// The Pulumi ComponentResource that turns a WorkloadSpec into real kubernetes
-// objects. It is deliberately THIN: all the mapping lives in the pure render
-// layer (render.ts, unit-tested), and this wrapper just feeds the rendered args
-// to @pulumi/kubernetes against a provided cluster. The k8s Provider is an INPUT
-// (not a host path hardcoded into the component), so the same vocabulary targets
-// OrbStack today and a Hetzner cluster later by swapping the provider (RECON
-// decision 13 / DESIGN.md §1).
-
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
-import { renderCronJob, renderExternalService, renderWorkload } from "./render.ts";
-import type { CronJobSpec, WorkloadSpec } from "./spec.ts";
 
-export interface WorkloadArgs {
-  // The declarative workload (the one typed place a service is described).
-  spec: WorkloadSpec;
-  // The target cluster. Passing the provider in (rather than reading an ambient
-  // kubeconfig) is what makes the component cluster-agnostic and reusable.
+// ──────────────────────────────────────────────
+// Types (formerly spec.ts)
+// ──────────────────────────────────────────────
+
+export interface SecretRef {
+  name: string;
+  ref: string;
+}
+
+export interface ResourceSpec {
+  memory?: string;
+  reserveCpus?: string;
+  reserveMemory?: string;
+}
+
+export interface PortSpec {
+  containerPort: number;
+  expose: "cluster" | "lan" | "none";
+}
+
+export interface VolumeSpec {
+  mountPath: string;
+  claim?: string;
+  nfs?: { server: string; path: string };
+  subPath?: string;
+  readOnly?: boolean;
+}
+
+export interface InitContainerSpec {
+  name: string;
+  image: string;
+  command?: string[];
+  env?: Record<string, string>;
+  volumes?: VolumeSpec[];
+}
+
+export interface WorkloadSpec {
+  name: string;
+  image: string;
+  replicas: number;
+  resources?: ResourceSpec;
+  secrets?: SecretRef[];
+  env?: Record<string, string>;
+  command?: string[];
+  ports?: PortSpec[];
+  volumes?: VolumeSpec[];
+  secretName?: string;
+  imagePullSecrets?: string[];
+  extraSecretMounts?: {
+    secretName: string;
+    mountPath: string;
+    items?: { key: string; path: string }[];
+  }[];
+  initContainers?: InitContainerSpec[];
+}
+
+export interface CronJobSpec {
+  name: string;
+  image: string;
+  schedule: string;
+  command?: string[];
+  secrets?: SecretRef[];
+  env?: Record<string, string>;
+  resources?: ResourceSpec;
+  volumes?: VolumeSpec[];
+  suspend?: boolean;
+  extraSecretMounts?: {
+    secretName: string;
+    mountPath: string;
+    items?: { key: string; path: string }[];
+  }[];
+  imagePullSecrets?: string[];
+}
+
+// ──────────────────────────────────────────────
+// Internal render types (formerly in render.ts)
+// ──────────────────────────────────────────────
+
+interface EnvVar {
+  name: string;
+  value: string;
+}
+
+interface VolumeMount {
+  name: string;
+  mountPath: string;
+  readOnly?: boolean;
+  subPath?: string;
+}
+
+interface PodVolume {
+  name: string;
+  secret?: { secretName: string; items?: { key: string; path: string }[] };
+  persistentVolumeClaim?: { claimName: string };
+}
+
+interface Container {
+  name: string;
+  image: string;
+  command?: string[];
+  env: EnvVar[];
+  resources: { limits: Record<string, string>; requests: Record<string, string> };
+  volumeMounts: VolumeMount[];
+}
+
+interface DeploymentArgs {
+  metadata: { name: string; labels: Record<string, string> };
+  spec: {
+    replicas: number;
+    selector: { matchLabels: Record<string, string> };
+    template: {
+      metadata: { labels: Record<string, string> };
+      spec: {
+        containers: Container[];
+        initContainers?: Container[];
+        volumes: PodVolume[];
+        imagePullSecrets?: { name: string }[];
+        automountServiceAccountToken?: boolean;
+      };
+    };
+  };
+}
+
+interface ServiceArgs {
+  metadata: { name: string; labels: Record<string, string> };
+  spec: {
+    type: "ClusterIP" | "LoadBalancer";
+    selector?: Record<string, string>;
+    ports: { name: string; port: number; targetPort: number }[];
+  };
+}
+
+interface ExternalNameServiceArgs {
+  metadata: { name: string; labels: Record<string, string> };
+  spec: { type: "ExternalName"; externalName: string };
+}
+
+export interface RenderedExternalService {
+  service: ExternalNameServiceArgs;
+}
+
+interface PersistentVolumeArgs {
+  metadata: { name: string };
+  spec: {
+    capacity: Record<string, string>;
+    accessModes: string[];
+    mountOptions: string[];
+    nfs: { server: string; path: string };
+    storageClassName: string;
+  };
+}
+
+interface PersistentVolumeClaimArgs {
+  metadata: { name: string };
+  spec: {
+    accessModes: string[];
+    storageClassName: string;
+    volumeName: string;
+    resources: { requests: { storage: string } };
+  };
+}
+
+export interface RenderedWorkload {
+  deployment: DeploymentArgs;
+  services: ServiceArgs[];
+  persistentVolumes: PersistentVolumeArgs[];
+  persistentVolumeClaims: PersistentVolumeClaimArgs[];
+}
+
+interface CronJobArgs {
+  metadata: { name: string; labels: Record<string, string> };
+  spec: {
+    schedule: string;
+    suspend: boolean;
+    concurrencyPolicy: "Forbid";
+    successfulJobsHistoryLimit: number;
+    failedJobsHistoryLimit: number;
+    jobTemplate: {
+      spec: {
+        template: {
+          metadata: { labels: Record<string, string> };
+          spec: {
+            containers: Container[];
+            volumes: PodVolume[];
+            restartPolicy: "Never";
+            automountServiceAccountToken: boolean;
+            imagePullSecrets?: { name: string }[];
+          };
+        };
+      };
+    };
+  };
+}
+
+export interface RenderedCronJob {
+  cronJob: CronJobArgs;
+  persistentVolumes: PersistentVolumeArgs[];
+  persistentVolumeClaims: PersistentVolumeClaimArgs[];
+}
+
+// ──────────────────────────────────────────────
+// Pure mapping layer (formerly render.ts)
+// ──────────────────────────────────────────────
+
+const NFS_MOUNT_OPTIONS = ["nfsvers=3", "nolock", "tcp"];
+
+function sizeToMib(size: string): number {
+  const m = /^(\d+(?:\.\d+)?)\s*([KMG])?i?B?$/i.exec(size.trim());
+  if (!m) throw new Error(`unparseable memory size: ${size}`);
+  const value = Number(m[1]);
+  const unit = (m[2] ?? "M").toUpperCase();
+  const mult = unit === "G" ? 1024 : unit === "K" ? 1 / 1024 : 1;
+  return value * mult;
+}
+
+function defaultRequestMemory(limit: string): string {
+  const half = Math.max(32, Math.floor(sizeToMib(limit) / 2));
+  return `${half}M`;
+}
+
+interface PodInputs {
+  name: string;
+  image: string;
+  command?: string[];
+  resources?: { memory?: string; reserveCpus?: string; reserveMemory?: string };
+  secrets?: SecretRef[];
+  env?: Record<string, string>;
+  volumes?: VolumeSpec[];
+  secretName?: string;
+  extraSecretMounts?: {
+    secretName: string;
+    mountPath: string;
+    items?: { key: string; path: string }[];
+  }[];
+}
+
+function claimVolumeName(claimVolumeNames: Map<string, string>, claim: string, fallback: string) {
+  const existing = claimVolumeNames.get(claim);
+  if (existing) return existing;
+  claimVolumeNames.set(claim, fallback);
+  return fallback;
+}
+
+function buildPod(p: PodInputs): {
+  container: Container;
+  podVolumes: PodVolume[];
+  persistentVolumes: PersistentVolumeArgs[];
+  persistentVolumeClaims: PersistentVolumeClaimArgs[];
+} {
+  const limits: Record<string, string> = {};
+  const requests: Record<string, string> = {};
+  if (p.resources?.memory) {
+    limits.memory = p.resources.memory;
+    requests.memory = p.resources.reserveMemory ?? defaultRequestMemory(p.resources.memory);
+  }
+  if (p.resources?.reserveCpus) {
+    requests.cpu = p.resources.reserveCpus;
+  }
+
+  const env: EnvVar[] = Object.entries(p.env ?? {}).map(([name, value]) => ({ name, value }));
+
+  const volumeMounts: VolumeMount[] = [];
+  const podVolumes: PodVolume[] = [];
+  const persistentVolumes: PersistentVolumeArgs[] = [];
+  const persistentVolumeClaims: PersistentVolumeClaimArgs[] = [];
+  const claimVolumeNames = new Map<string, string>();
+
+  if (p.secrets && p.secrets.length > 0) {
+    volumeMounts.push({ name: "secrets", mountPath: "/run/secrets", readOnly: true });
+    podVolumes.push({
+      name: "secrets",
+      secret: { secretName: p.secretName ?? `cc-secrets-${p.name}` },
+    });
+  }
+
+  for (const [i, m] of (p.extraSecretMounts ?? []).entries()) {
+    const volName = `xsec-${i}`;
+    volumeMounts.push({ name: volName, mountPath: m.mountPath, readOnly: true });
+    podVolumes.push({
+      name: volName,
+      secret: { secretName: m.secretName, ...(m.items ? { items: m.items } : {}) },
+    });
+  }
+
+  for (const [i, vol] of (p.volumes ?? []).entries()) {
+    const fallbackVolName = `vol-${i}`;
+    const volName = vol.claim
+      ? claimVolumeName(claimVolumeNames, vol.claim, fallbackVolName)
+      : fallbackVolName;
+    volumeMounts.push({
+      name: volName,
+      mountPath: vol.mountPath,
+      readOnly: vol.readOnly,
+      ...(vol.subPath ? { subPath: vol.subPath } : {}),
+    });
+    if (vol.nfs) {
+      const pvName = `${p.name}-${volName}`;
+      persistentVolumes.push({
+        metadata: { name: pvName },
+        spec: {
+          capacity: { storage: "1Gi" },
+          accessModes: ["ReadWriteMany"],
+          mountOptions: NFS_MOUNT_OPTIONS,
+          nfs: { server: vol.nfs.server, path: vol.nfs.path },
+          storageClassName: "",
+        },
+      });
+      persistentVolumeClaims.push({
+        metadata: { name: pvName },
+        spec: {
+          accessModes: ["ReadWriteMany"],
+          storageClassName: "",
+          volumeName: pvName,
+          resources: { requests: { storage: "1Gi" } },
+        },
+      });
+      podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: pvName } });
+    } else if (vol.claim) {
+      if (volName === fallbackVolName) {
+        podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: vol.claim } });
+      }
+    }
+  }
+
+  const container: Container = {
+    name: p.name,
+    image: p.image,
+    ...(p.command ? { command: p.command } : {}),
+    env,
+    resources: { limits, requests },
+    volumeMounts,
+  };
+
+  return { container, podVolumes, persistentVolumes, persistentVolumeClaims };
+}
+
+function buildInitContainer(
+  ic: InitContainerSpec,
+  idx: number,
+  claimVolumeNames: Map<string, string>,
+): { container: Container; podVolumes: PodVolume[] } {
+  const volumeMounts: VolumeMount[] = [];
+  const podVolumes: PodVolume[] = [];
+  for (const [j, vol] of (ic.volumes ?? []).entries()) {
+    if (!vol.claim) {
+      throw new Error(`initContainer ${ic.name}: only claim-named PVC volumes are supported`);
+    }
+    const fallbackVolName = `init${idx}-vol-${j}`;
+    const volName = claimVolumeName(claimVolumeNames, vol.claim, fallbackVolName);
+    volumeMounts.push({
+      name: volName,
+      mountPath: vol.mountPath,
+      ...(vol.readOnly ? { readOnly: true } : {}),
+      ...(vol.subPath ? { subPath: vol.subPath } : {}),
+    });
+    if (volName === fallbackVolName) {
+      podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: vol.claim } });
+    }
+  }
+  return {
+    container: {
+      name: ic.name,
+      image: ic.image,
+      ...(ic.command ? { command: ic.command } : {}),
+      env: Object.entries(ic.env ?? {}).map(([name, value]) => ({ name, value })),
+      resources: { limits: {}, requests: {} },
+      volumeMounts,
+    },
+    podVolumes,
+  };
+}
+
+export function renderWorkload(w: WorkloadSpec): RenderedWorkload {
+  const labels = { app: w.name };
+  const { container, podVolumes, persistentVolumes, persistentVolumeClaims } = buildPod(w);
+  const claimVolumeNames = new Map(
+    podVolumes.flatMap((v) =>
+      v.persistentVolumeClaim ? [[v.persistentVolumeClaim.claimName, v.name] as const] : [],
+    ),
+  );
+  const inits = (w.initContainers ?? []).map((ic, i) =>
+    buildInitContainer(ic, i, claimVolumeNames),
+  );
+
+  const deployment: DeploymentArgs = {
+    metadata: { name: w.name, labels },
+    spec: {
+      replicas: w.replicas,
+      selector: { matchLabels: labels },
+      template: {
+        metadata: { labels },
+        spec: {
+          containers: [container],
+          ...(inits.length > 0 ? { initContainers: inits.map((i) => i.container) } : {}),
+          volumes: [...podVolumes, ...inits.flatMap((i) => i.podVolumes)],
+          ...(w.imagePullSecrets && w.imagePullSecrets.length > 0
+            ? { imagePullSecrets: w.imagePullSecrets.map((name) => ({ name })) }
+            : {}),
+          automountServiceAccountToken: false,
+        },
+      },
+    },
+  };
+
+  const services: ServiceArgs[] = [];
+  const exposed = (w.ports ?? []).filter((p) => p.expose !== "none");
+  if (exposed.length > 0) {
+    const type = exposed.some((p) => p.expose === "lan") ? "LoadBalancer" : "ClusterIP";
+    services.push({
+      metadata: { name: w.name, labels },
+      spec: {
+        type,
+        selector: labels,
+        ports: exposed.map((p) => ({
+          name: `p${p.containerPort}`,
+          port: p.containerPort,
+          targetPort: p.containerPort,
+        })),
+      },
+    });
+  }
+
+  return { deployment, services, persistentVolumes, persistentVolumeClaims };
+}
+
+export function renderCronJob(c: CronJobSpec): RenderedCronJob {
+  const labels = { app: c.name };
+  const { container, podVolumes, persistentVolumes, persistentVolumeClaims } = buildPod(c);
+
+  const cronJob: CronJobArgs = {
+    metadata: { name: c.name, labels },
+    spec: {
+      schedule: c.schedule,
+      suspend: c.suspend ?? false,
+      concurrencyPolicy: "Forbid",
+      successfulJobsHistoryLimit: 3,
+      failedJobsHistoryLimit: 1,
+      jobTemplate: {
+        spec: {
+          template: {
+            metadata: { labels },
+            spec: {
+              containers: [container],
+              volumes: podVolumes,
+              restartPolicy: "Never",
+              automountServiceAccountToken: false,
+              ...(c.imagePullSecrets && c.imagePullSecrets.length > 0
+                ? { imagePullSecrets: c.imagePullSecrets.map((name) => ({ name })) }
+                : {}),
+            },
+          },
+        },
+      },
+    },
+  };
+
+  return { cronJob, persistentVolumes, persistentVolumeClaims };
+}
+
+export function renderExternalService(name: string, externalName: string): RenderedExternalService {
+  return {
+    service: {
+      metadata: { name, labels: { app: name } },
+      spec: { type: "ExternalName", externalName },
+    },
+  };
+}
+
+// ──────────────────────────────────────────────
+// ComponentResource classes (formerly component.ts)
+// ──────────────────────────────────────────────
+
+/** @public */
+export interface WorkloadArgs extends WorkloadSpec {
   provider: k8s.Provider;
-  // Namespace the workload's objects land in.
   namespace: pulumi.Input<string>;
 }
 
-/**
- * @public - the deploy-stack vocabulary surface (consumed by index.ts / the
- * per-environment stack programs in CC-j934.6); no internal consumer in this
- * foundation ticket yet.
- */
+/** @public */
 export class Workload extends pulumi.ComponentResource {
   readonly deployment: k8s.apps.v1.Deployment;
   readonly services: k8s.core.v1.Service[];
@@ -33,33 +487,29 @@ export class Workload extends pulumi.ComponentResource {
   readonly persistentVolumeClaims: k8s.core.v1.PersistentVolumeClaim[];
 
   constructor(args: WorkloadArgs, opts?: pulumi.ComponentResourceOptions) {
-    super("control-center:infra:Workload", args.spec.name, {}, opts);
+    const { provider, namespace, ...spec } = args;
+    super("control-center:infra:Workload", spec.name, {}, opts);
 
-    const rendered = renderWorkload(args.spec);
-    const childOpts: pulumi.ComponentResourceOptions = { parent: this, provider: args.provider };
-
-    // A PV's spec.nfs (and any persistentvolumesource) is immutable, so changing
-    // the NFS server (e.g. LAN IP -> tailnet IP, CC-j934.17) forces a REPLACE. The
-    // PV name is fixed, so it must be delete-before-replace or the create collides
-    // on the existing name. The bound PVC recycles with it for the same reason.
+    const rendered = renderWorkload(spec);
+    const childOpts: pulumi.ComponentResourceOptions = { parent: this, provider };
     const pvOpts = { ...childOpts, deleteBeforeReplace: true };
+
     this.persistentVolumes = rendered.persistentVolumes.map(
       (pv) => new k8s.core.v1.PersistentVolume(pv.metadata.name, pv as never, pvOpts),
     );
-    // PVCs statically bind to the NFS PVs above (the pod mounts the PVC).
     this.persistentVolumeClaims = rendered.persistentVolumeClaims.map(
       (pvc) =>
         new k8s.core.v1.PersistentVolumeClaim(
           pvc.metadata.name,
-          { metadata: { namespace: args.namespace, ...pvc.metadata }, spec: pvc.spec as never },
+          { metadata: { namespace, ...pvc.metadata }, spec: pvc.spec as never },
           pvOpts,
         ),
     );
 
     this.deployment = new k8s.apps.v1.Deployment(
-      args.spec.name,
+      spec.name,
       {
-        metadata: { namespace: args.namespace, ...rendered.deployment.metadata },
+        metadata: { namespace, ...rendered.deployment.metadata },
         spec: rendered.deployment.spec as never,
       },
       childOpts,
@@ -69,7 +519,7 @@ export class Workload extends pulumi.ComponentResource {
       (svc) =>
         new k8s.core.v1.Service(
           svc.metadata.name,
-          { metadata: { namespace: args.namespace, ...svc.metadata }, spec: svc.spec as never },
+          { metadata: { namespace, ...svc.metadata }, spec: svc.spec as never },
           childOpts,
         ),
     );
@@ -82,21 +532,13 @@ export class Workload extends pulumi.ComponentResource {
 }
 
 export interface ExternalServiceArgs {
-  // Service name (the in-cluster DNS name consumers use, e.g. "ha").
   name: string;
-  // The external DNS host this CNAMEs to (e.g. the host's tailnet FQDN).
   externalName: string;
   provider: k8s.Provider;
   namespace: pulumi.Input<string>;
 }
 
-/**
- * @public - an ExternalName Service: a CNAME-style alias from an in-cluster name
- * to an external DNS host. The api reaches Home Assistant via `ha` -> the host's
- * tailnet FQDN (CC-j934.17: pods can't reach the LAN/host LAN IP, but the host's
- * own tailnet IP is locally routed to its socats). Consumed by the cluster
- * program; no Endpoints object needed (CNAME, not a manual address).
- */
+/** @public */
 export class ExternalService extends pulumi.ComponentResource {
   readonly service: k8s.core.v1.Service;
 
@@ -117,30 +559,24 @@ export class ExternalService extends pulumi.ComponentResource {
   }
 }
 
-export interface ScheduledJobArgs {
-  // The declarative cron job (the one typed place a scheduled job is described).
-  spec: CronJobSpec;
-  // The target cluster (an input, see Workload).
+/** @public */
+export interface ScheduledJobArgs extends CronJobSpec {
   provider: k8s.Provider;
-  // Namespace the CronJob's objects land in.
   namespace: pulumi.Input<string>;
 }
 
-/**
- * @public - the deploy-stack vocabulary surface (consumed by the per-environment
- * stack programs in CC-j934.7 for portal-data-purge / map-extract / pg-backup);
- * no internal consumer in this foundation ticket yet.
- */
+/** @public */
 export class ScheduledJob extends pulumi.ComponentResource {
   readonly cronJob: k8s.batch.v1.CronJob;
   readonly persistentVolumes: k8s.core.v1.PersistentVolume[];
   readonly persistentVolumeClaims: k8s.core.v1.PersistentVolumeClaim[];
 
   constructor(args: ScheduledJobArgs, opts?: pulumi.ComponentResourceOptions) {
-    super("control-center:infra:ScheduledJob", args.spec.name, {}, opts);
+    const { provider, namespace, ...spec } = args;
+    super("control-center:infra:ScheduledJob", spec.name, {}, opts);
 
-    const rendered = renderCronJob(args.spec);
-    const childOpts: pulumi.ComponentResourceOptions = { parent: this, provider: args.provider };
+    const rendered = renderCronJob(spec);
+    const childOpts: pulumi.ComponentResourceOptions = { parent: this, provider };
 
     this.persistentVolumes = rendered.persistentVolumes.map(
       (pv) => new k8s.core.v1.PersistentVolume(pv.metadata.name, pv as never, childOpts),
@@ -149,15 +585,15 @@ export class ScheduledJob extends pulumi.ComponentResource {
       (pvc) =>
         new k8s.core.v1.PersistentVolumeClaim(
           pvc.metadata.name,
-          { metadata: { namespace: args.namespace, ...pvc.metadata }, spec: pvc.spec as never },
+          { metadata: { namespace, ...pvc.metadata }, spec: pvc.spec as never },
           childOpts,
         ),
     );
 
     this.cronJob = new k8s.batch.v1.CronJob(
-      args.spec.name,
+      spec.name,
       {
-        metadata: { namespace: args.namespace, ...rendered.cronJob.metadata },
+        metadata: { namespace, ...rendered.cronJob.metadata },
         spec: rendered.cronJob.spec as never,
       },
       childOpts,
