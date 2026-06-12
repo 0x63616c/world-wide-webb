@@ -22,7 +22,66 @@ Captured BEFORE any change, via the UniFi controller API
 - **Local DNS:** `GET /proxy/network/v2/api/site/default/static-dns` → `[]`
   (works; no records yet, this is where the split-horizon record goes).
 
-## Programmatic config (UniFi API)
+## STATUS UPDATE (2026-06-12, www-q002.15 + www-j934.3.2)
+
+The world moved on since the 2026-06-10 plan below: the guest SSID is now **OPEN
+(no WPA password)** and the `www-guest` WLAN / network / firewall pinhole are
+**created and live via Pulumi** (`infra/unifi`, ticket www-j934.3.2), not staged
+curls. Net state:
+
+- **DONE + live:** `www-guest` open WLAN (VLAN 20, `192.168.20.1/24`, client +
+  network isolation), the cross-VLAN firewall pinhole `guest -> 192.168.0.147:80,443`
+  (idx 22000), the Mini `.147` DHCP reservation, and the split-horizon DNS record
+  `captive-portal.worldwidewebb.co -> 192.168.0.147`. The portal app answers HTTP
+  200 at both `https://192.168.0.147/` and the hostname.
+- **WiFi-password step is GONE:** www-guest is open, so `scripts/save-wifi-guest.sh`
+  / mirroring a WLAN password no longer applies. Access is gated by the portal, not
+  a passphrase.
+
+### External-portal flip: BLOCKED on a 30-second console step (by design)
+
+The one remaining network change, pointing the guest portal at
+`https://captive-portal.worldwidewebb.co`, could NOT be pinned safely via the API.
+Findings (probed live, then reverted to baseline; no lasting change):
+
+- The raw `guest_access` field that means "redirect a PRE-auth client to our
+  external page" is **ambiguous on UniFi OS 10.4.57**. A trial write of
+  `auth:hotspot` + `redirect_enabled:true` + `redirect_url:<our URL>` was accepted
+  (`rc:ok`) but the `@pulumiverse/unifi` `GuestAccess.redirect.url` field is
+  documented as the **post-authentication** redirect, not the pre-auth landing, and
+  the provider's separate `authUrl` ("URL for authentication") maps to no field
+  present in the default object. The `auth` valid-values list is truncated in the
+  schema. Guessing here misconfigures the live portal in a way only a real device
+  reveals, so the trial write was **reverted to the captured baseline**
+  (`auth:none`, `redirect_enabled:false`) and the Pulumi adopt re-verified clean
+  (`pulumi preview --refresh` = 11 unchanged).
+- **No standalone walled-garden endpoint** exists on this controller version
+  (`rest/portalconf` -> `api.err.InvalidObject`; no `portal`/`garden` key in
+  `get/setting`). For an external portal UniFi auto-allows the redirect host + DNS
+  pre-auth; the explicit firewall pinhole already covers guest -> `.147`.
+
+**Unblock (Calum, ~30s in the UniFi console):** Guest Hotspot settings -> set the
+authentication / portal type to **External Portal Server** and point it at
+`https://captive-portal.worldwidewebb.co`. Leave it set. Then the agent reads back
+the EXACT `guest_access` (+ any walled-garden) fields UniFi wrote and codifies them
+here (and, for gitops, declares them on the Pulumi `GuestAccess` resource, see
+below). This console-then-readback was always the plan; the API ambiguity confirms
+it is the safe path.
+
+### Pulumi management of `guest_access` (gitops, ref www-j934.17)
+
+`guest_access` is adopted in `infra/unifi` with **empty args** (`{}`), so a direct
+API change drifts it (the bridged provider then shows a fieldless phantom update;
+a blind `pulumi up` on the unifi stack could even reset the setting). Before the
+unifi stack is wired into CI gitops (www-j934.17), the external-portal config must be
+**declared on the Pulumi `GuestAccess` resource** (the provider exposes `auth`,
+`authUrl`, `redirect`, `redirectEnabled`, `portalCustomization`, etc.) so it is
+managed, not adopted-empty. Until then do NOT `pulumi up` the unifi stack without
+`--refresh` and a careful guest_access diff.
+
+---
+
+## Programmatic config (UniFi API), original 2026-06-10 plan (superseded above)
 
 > STATUS (2026-06-10): writes 1a (reservation) + 1b (DNS) APPLIED by team-lead with
 > Calum's explicit approval. Writes 2 (external portal), 4 (walled garden), 5 (WLAN)
