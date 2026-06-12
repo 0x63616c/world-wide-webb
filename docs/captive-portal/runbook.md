@@ -4,6 +4,56 @@ How the guest-WiFi captive portal is wired on the network side, what was done
 programmatically via the UniFi controller API, and the human steps that remain.
 Companion to `docs/captive-portal/PRD.md` and `docs/captive-portal/tls.md`.
 
+## RESOLVED, external portal LIVE + verified (CC-q002.15, 2026-06-12)
+
+The guest WLAN external portal is configured and proven on a real device. The
+final config below was set in the UniFi console (Clients -> Hotspot Portal) and
+read back from the API. The exact "External Portal Server" field set is NOT
+reliably writable blind via the API on this UniFi OS, so it was set in the console
+once and codified here.
+
+**`guest_access` (read back, the source of truth for these fields):**
+
+| field | value | meaning |
+|---|---|---|
+| `auth` | `custom` | External Portal Server mode (NOT `hotspot`/`none`) |
+| `portal_enabled` | `true` | portal on |
+| `portal_use_hostname` | `true` | redirect to the FQDN, not the raw IP |
+| `portal_hostname` | `captive-portal.worldwidewebb.co` | the external portal host |
+| `redirect_to_https` | `true` | "Secure Portal", redirect over HTTPS (real LE cert) |
+| `ec_enabled` | `false` | "Encrypted URL" OFF, params arrive PLAINTEXT (the SPA reads `id`/`mac` directly; encrypting them as an `ec` blob would break it) |
+| `expire` (number/unit) | 30 days | matches `authorize-guest` (43200 min) |
+
+**Walled garden (UI: Hotspot Portal -> Authorization Access):**
+- **Pre-Authorization Allowances:** `192.168.0.147` (lets a pre-auth guest reach
+  the portal host; the FQDN resolves there via the split-horizon DNS record). No
+  standalone walled-garden API endpoint exists on this UniFi OS; it lives in the
+  Hotspot Portal config.
+- **Post-Authorization Restrictions:** `192.168.0.0/16`, `172.16.0.0/12`,
+  `10.0.0.0/8` (default), an authorized guest reaches the internet but NOT the LAN.
+
+**Verified on a real device (2026-06-12):** the captive nginx log shows the iOS
+CaptiveNetworkSupport client hitting
+`/guest/s/default/?ap=<apmac>&id=<clientmac>&t=<ts>&url=<orig>&ssid=www-guest` ->
+HTTP 200. So UniFi's external-portal redirect delivers the `id`(=MAC)/`ap`/`ssid`/
+`t`/`url` params the SPA consumes. That satisfies the CC-q002.15 redirect-param
+requirement; the full guest-completes-the-flow test is the CC-q002.17 cutover.
+
+**Re-trigger the portal for testing:** a device stays authorized after passing
+once, so unauthorize it first, then force a pre-auth HTTP hit:
+```
+# unauthorize (API): POST /proxy/network/api/s/default/cmd/stamgr {"cmd":"unauthorize-guest","mac":"<mac>"}
+# then on the device: open http://neverssl.com (plain HTTP triggers the captive sheet)
+```
+
+**gitops gap (CC-j934.17):** `guest_access` is adopted in `infra/unifi` with empty
+args, so this console-set config is NOT yet managed by Pulumi (the bridged provider
+also shows a fieldless phantom diff on it). Before the unifi stack enters CI,
+declare these fields on the Pulumi `GuestAccess` resource.
+
+**Heads-up:** the default LAN was renamed `Default` -> `main` in the console; the
+Pulumi adopt may show that as drift on the next preview.
+
 ## Live controller state (read-only probe, CC-q002.15, 2026-06-10)
 
 Captured BEFORE any change, via the UniFi controller API
