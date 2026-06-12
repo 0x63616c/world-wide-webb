@@ -1,11 +1,9 @@
-// The per-service secret inventory, transcribed from deploy.config.ts (the
-// source of truth for what each service mounts at /run/secrets/<NAME>). ESO
-// turns each entry into an ExternalSecret that syncs the 1P field into a native
-// k8s Secret, mounted byte-identically to today's docker secrets so env.ts is
-// unchanged (www-j934.4).
+// The per-service secret inventory: the source of truth for what each service
+// mounts at /run/secrets/<NAME>. ESO turns each entry into an ExternalSecret
+// that syncs the 1P field into a native k8s Secret, mounted byte-identically to
+// the prior docker-secret layout so env.ts is unchanged (www-j934.4).
 //
-// Keep this in lockstep with deploy.config.ts until bosun is removed (Phase 6);
-// after that, this map (or a successor in packages/core) becomes the sole truth.
+// This map (or a successor in packages/core) is the sole truth for the mount set.
 // Each value is the `op://Homelab/<here>` suffix: "<Item>/<field>".
 
 /** A service's secret env-name -> 1P "Item/field" suffix (under op://Homelab). */

@@ -2,9 +2,8 @@ import { describe, expect, test } from "vitest";
 import { renderCronJob } from "../src/render.ts";
 import type { CronJobSpec } from "../src/spec.ts";
 
-// The cronJob() half of the vocabulary (succeeding bosun's cronJob() from
-// deploy.config.ts): a scheduled one-shot Job. Same pure-mapping discipline as
-// renderWorkload - declaration -> a k8s CronJob arg object.
+// The cronJob() half of the vocabulary: a scheduled one-shot Job. Same
+// pure-mapping discipline as renderWorkload - declaration -> a k8s CronJob arg object.
 
 const purge: CronJobSpec = {
   name: "portal-data-purge",

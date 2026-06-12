@@ -19,7 +19,6 @@ COPY apps/api/package.json ./apps/api/package.json
 COPY apps/worker/package.json ./apps/worker/package.json
 COPY apps/media-worker/package.json ./apps/media-worker/package.json
 COPY packages/api/package.json ./packages/api/package.json
-COPY packages/bosun/package.json ./packages/bosun/package.json
 COPY packages/logger/package.json ./packages/logger/package.json
 # Infra Pulumi workspaces (www-j934.1/.2/.3): root package.json declares these, so
 # bun install needs their manifests in the build context (www-272b).

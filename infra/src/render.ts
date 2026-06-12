@@ -2,7 +2,7 @@
 // (Deployment + Services + any NFS PersistentVolumes). No Pulumi, no I/O, so it
 // is unit-testable in plain vitest. The ComponentResource wrapper (component.ts)
 // feeds these args straight into @pulumi/kubernetes. Keeping the mapping pure and
-// the Pulumi instantiation thin mirrors bosun's spec/reconcile split.
+// the Pulumi instantiation thin keeps a clean spec/render split.
 
 import type { CronJobSpec, SecretRef, VolumeSpec, WorkloadSpec } from "./spec.ts";
 

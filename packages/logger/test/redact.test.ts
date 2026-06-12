@@ -9,7 +9,7 @@ beforeEach(() => {
   createLogger({ service: "test", env: "test", pretty: false });
 });
 
-describe("createLogger — level resolution", () => {
+describe("createLogger, level resolution", () => {
   it("defaults to debug when pretty (dev)", () => {
     const log = createLogger({ service: "test-svc", env: "development", pretty: true });
     expect(log.level).toBe("debug");
@@ -66,7 +66,7 @@ describe("child logger binding", () => {
 
 // The REDACT_PATHS list from @repo/logger/src/index.ts, duplicated here to
 // build a self-contained synchronous test logger. Both lists must stay in sync.
-// Tests exercise the exact paths against the real bosun and api object shapes.
+// Tests exercise the exact paths against the real secret and api object shapes.
 const REDACT_PATHS = [
   "headers.authorization",
   "*.headers.authorization",
@@ -95,8 +95,6 @@ const REDACT_PATHS = [
   "*.DATABASE_URL",
   "POSTGRES_PASSWORD",
   "*.POSTGRES_PASSWORD",
-  "BOSUN_WEBHOOK_TOKEN",
-  "*.BOSUN_WEBHOOK_TOKEN",
   "OP_SERVICE_ACCOUNT_TOKEN",
   "*.OP_SERVICE_ACCOUNT_TOKEN",
   "GHCR_PULL_TOKEN",
@@ -155,7 +153,7 @@ function buildTestLogger() {
   return { log, lines };
 }
 
-describe("redaction — named secret fields", () => {
+describe("redaction, named secret fields", () => {
   it("redacts HA_TOKEN at top level", () => {
     const { log, lines } = buildTestLogger();
     log.info({ HA_TOKEN: "super-secret-ha-token" }, "ha config");
@@ -206,14 +204,14 @@ describe("redaction — named secret fields", () => {
   });
 });
 
-describe("redaction — bosun ResolvedSecret shapes", () => {
-  // Asserts against the actual bosun types:
-  //   ResolvedSecret { name, resolvedValue }           (packages/bosun/src/reconcile/secrets.ts)
-  //   re-wrapped      { dockerName, value }            (same file, reconcile output shape)
+describe("redaction, resolved-secret shapes", () => {
+  // Asserts against resolved-secret object shapes:
+  //   { name, resolvedValue }            (a resolved secret carrying cleartext)
+  //   re-wrapped { dockerName, value }   (a re-wrapped resolved secret)
 
   it("redacts resolvedValue in a ResolvedSecret-shaped object", () => {
     const { log, lines } = buildTestLogger();
-    // Logged as a nested object — the `resolvedValue` path covers this.
+    // Logged as a nested object, the `resolvedValue` path covers this.
     log.info(
       { resolved: { name: "HA_TOKEN", resolvedValue: "actual-plaintext-token" } },
       "resolved secret",
@@ -233,7 +231,7 @@ describe("redaction — bosun ResolvedSecret shapes", () => {
   });
 });
 
-describe("redaction — auth headers", () => {
+describe("redaction, auth headers", () => {
   it("redacts headers.authorization at top level", () => {
     const { log, lines } = buildTestLogger();
     log.info({ headers: { authorization: "Bearer super-secret" } }, "req");
@@ -251,7 +249,7 @@ describe("redaction — auth headers", () => {
   });
 });
 
-describe("redaction — home location fields", () => {
+describe("redaction, home location fields", () => {
   it("redacts HOME_LAT, HOME_LON, HOME_PLACE_NAME", () => {
     const { log, lines } = buildTestLogger();
     log.info(

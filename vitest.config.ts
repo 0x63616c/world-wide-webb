@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 
-// Root workspace: api + web + bosun unit tests. Storybook browser tests run separately via
+// Root workspace: api + web unit tests. Storybook browser tests run separately via
 // `bunx vitest --project storybook` from apps/web (requires Playwright/Chromium).
 export default defineConfig({
   test: {
@@ -9,7 +9,6 @@ export default defineConfig({
       "apps/web",
       "apps/worker",
       "apps/media-worker",
-      "packages/bosun",
       "packages/logger",
       // The `infra` project's default test glob also covers infra/unifi/test/**
       // (UniFi adopt-only stack, www-j934.3), so no separate project entry is

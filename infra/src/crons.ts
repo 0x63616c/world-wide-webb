@@ -1,8 +1,8 @@
-// The scheduled jobs for the control-center k3s stack (www-j934.7): the Pulumi-era
-// successor to bosun's cronJob() declarations in deploy.config.ts. Two are
-// re-homed verbatim (portal-data-purge, map-extract) and one is NEW (pg-backup).
+// The scheduled jobs for the control-center k3s stack (www-j934.7): the cronJob()
+// declarations for the cluster. Two are re-homed verbatim (portal-data-purge,
+// map-extract) and one is NEW (pg-backup).
 //
-// Deliberately ABSENT vs deploy.config.ts (DESIGN.md §2):
+// Deliberately ABSENT vs the prior scheduler set (DESIGN.md §2):
 //  - docker-image-prune: kubelet image GC replaces it (high 85% / low 80%); an
 //    external `docker image prune` breaks kubelet's image accounting (RECON
 //    decision 7), so NO image-prune CronJob exists on k3s.

@@ -1,8 +1,8 @@
 /**
  * Portal data-hygiene purge entrypoint (www-q002.18). The api image ships this as
- * a second bundle (purge.js); the bosun cronJob "portal-data-purge" runs it once
- * a day as a one-shot Swarm job (`bun purge.js`) and it exits. NOT a worker loop
- * (PRD Backend rule 7) — bosun's scheduler owns the cadence.
+ * a second bundle (purge.js); the "portal-data-purge" CronJob runs it once
+ * a day as a one-shot job (`bun purge.js`) and it exits. NOT a worker loop
+ * (PRD Backend rule 7), the scheduler owns the cadence.
  *
  * It reuses the same DATABASE_URL wiring as the api (env.ts builds it from the
  * mounted POSTGRES_PASSWORD secret), connects, runs one purge pass, logs the

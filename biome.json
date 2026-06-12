@@ -75,14 +75,6 @@
       "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
     },
     {
-      "includes": ["**/packages/bosun/src/cli.ts"],
-      "linter": {
-        "rules": {
-          "style": { "noProcessEnv": "off" }
-        }
-      }
-    },
-    {
       "includes": ["**/packages/logger/src/**"],
       "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
     },

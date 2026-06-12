@@ -16,8 +16,8 @@ import type { WorkloadSpec } from "./spec.ts";
 // Per-service GHCR image digest map, name -> "sha256:…", set by the CI deploy job
 // (`pulumi config set --path imageDigests.<svc>`). A pinned digest renders the
 // image as @sha256:… so only the workloads whose digest changed roll on a
-// `pulumi up` (the www-czg digest-pin property, now driven by Pulumi config
-// instead of the bosun webhook). Empty in local/dev applies, where :main is fine.
+// `pulumi up` (the www-czg digest-pin property, now driven by Pulumi config).
+// Empty in local/dev applies, where :main is fine.
 export type ImageDigests = Record<string, string>;
 
 // GHCR image ref. Digest-pinned (@sha256:…) when CI supplied a digest for this

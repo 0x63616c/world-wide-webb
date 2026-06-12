@@ -7,7 +7,7 @@ FROM oven/bun:1.2-alpine AS builder
 WORKDIR /app
 
 # Install all workspace deps. Copy root manifests first so bun can resolve
-# workspace packages before copying source — keeps the layer cache effective.
+# workspace packages before copying source, keeps the layer cache effective.
 COPY package.json bun.lock ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/api/package.json ./apps/api/package.json
@@ -15,7 +15,6 @@ COPY apps/worker/package.json ./apps/worker/package.json
 COPY apps/media-worker/package.json ./apps/media-worker/package.json
 COPY apps/captive-portal/package.json ./apps/captive-portal/package.json
 COPY packages/api/package.json ./packages/api/package.json
-COPY packages/bosun/package.json ./packages/bosun/package.json
 COPY packages/logger/package.json ./packages/logger/package.json
 # Infra Pulumi workspaces (www-j934.1/.2/.3): root package.json declares these, so
 # bun install needs their manifests in the build context (www-272b).

@@ -16,7 +16,6 @@ COPY apps/worker/package.json apps/worker/
 COPY apps/media-worker/package.json apps/media-worker/
 COPY apps/captive-portal/package.json apps/captive-portal/
 COPY packages/api/package.json packages/api/
-COPY packages/bosun/package.json packages/bosun/
 COPY packages/logger/package.json packages/logger/
 # Infra Pulumi workspaces (www-j934.1/.2/.3): root package.json declares these, so
 # bun install needs their manifests in the build context (www-272b).
@@ -52,7 +51,7 @@ WORKDIR /app
 COPY --from=build /app/dist/server.js server.js
 COPY --from=build /app/dist/purge.js purge.js
 # Migrations resolve relative to the bundle's own location (import.meta.url),
-# i.e. /app/migrations at runtime — keep this path in sync with WORKDIR.
+# i.e. /app/migrations at runtime, keep this path in sync with WORKDIR.
 COPY --from=build /app/apps/api/src/db/migrations migrations
 
 EXPOSE 4201

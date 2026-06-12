@@ -3,8 +3,8 @@ import { beforeAll, describe, expect, test } from "vitest";
 import { renderCronJob } from "../src/render.ts";
 import type { CronJobSpec } from "../src/spec.ts";
 
-// The k8s CronJobs that re-home bosun's scheduler (www-j934.7): portal-data-purge
-// + map-extract carried over from deploy.config.ts, plus a NEW nightly pg-backup
+// The k8s CronJobs for the cluster scheduler (www-j934.7): portal-data-purge
+// + map-extract carried over, plus a NEW nightly pg-backup
 // to the NAS. Two things are deliberately ABSENT: docker-image-prune (kubelet
 // image GC replaces it) and portal-cert-renew (cert-manager owns TLS now). These
 // tests pin the declarations (pure data) before the Pulumi wiring.
