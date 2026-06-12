@@ -7,6 +7,83 @@ workflow on CC-j934 for the build phases once children are filed, parallelizing 
 safe. Every claim below must be PROVEN IN THE TRANSCRIPT (command shown + output shown) -
 an assertion without surfaced evidence does not count.
 
+---
+
+## HANDOVER STATUS, 2026-06-12 (epic REOPENED; ~90% done, 4 real gaps left)
+
+The migration is LIVE and serving: prod runs on k3s (homelab OrbStack), dashboard 200 on the
+current digest-pinned build, CNPG data migrated with ZERO loss, Swarm torn down, bosun code
+removed. But the epic was closed prematurely, strict GOAL reading has **4 substantive gaps +
+the Calum-physical items**. Epic reopened. Do NOT re-close until the checklist below is honestly
+green or deferred-with-a-real-reason.
+
+### DONE (proven this run)
+- Phases 0-3 fully (spikes, DESIGN, Pulumi foundation, CF+UniFi adopt-only zero-diff imports,
+  ESO, CNPG, cert-manager, all services on k3s, crons + nightly NAS backup).
+- **.8 data migration** Swarm→CNPG, per-table counts IDENTICAL, zero loss, old pgdata preserved.
+- **.9 cutover**: tunnel on in-cluster cloudflared (2 HA), Swarm + Portainer gone, **orbctl
+  reboot test passed UNATTENDED** (apiserver-forward launchd + HA-PATH fix made it durable).
+- **.14 CI** = `pulumi up` over ephemeral tailnet key; build-bosun/mark-deployed/deploy-drift gone.
+- **.11 partial**: dashboard tiles real + console clean; lamp-tap reconcile CONFIRMED LIVE by
+  Calum; storybook/drizzle 302 CF Access; UniFi world-wide-webb/rsyslog/netflow BYTE-UNCHANGED;
+  CI green incl pulumi up.
+- **.15/.16**: bosun CODE deleted (packages/bosun, deploy.config.ts, 7 Dockerfile COPYs, tool
+  configs), 1P "Bosun Webhook Token" + GH BOSUN_WEBHOOK_TOKEN deleted, docs + recovery runbook
+  written, bd memories updated.
+
+### NOT DONE, the 4 real gaps (each has a ticket)
+1. **hooks.worldwidewebb.co route NOT retired** (still 502) AND **`rg -li bosun --type ts --type
+   yaml` is NOT zero** (8 frozen CF literals + the `bosun:control-center` CF Access ownership
+   tag). BOTH blocked on the SAME thing: **CC-dqjq**, the CF provider plugin version drifted
+   (v5/v6 import-pin footgun), so a `pulumi up` on the cloudflare stack would ALSO rewrite the
+   `content` of the LIVE dashboard/storybook/drizzle DNS records (preview proved it: 1 intended
+   diff + 7 drift rewrites). MUST re-pin the CF provider + restore the zero-diff Record baseline
+   FIRST, then retire hooks + rename the tag as the ONLY diff, eyes-on. Read-only preview is safe;
+   the `up` needs watching. (GOAL Phase 5 + Phase 6.)
+2. **Captive-portal :443 TLS NOT exposed on the LAN** → **CC-j934.20**. `.147:80` serves the portal
+   (nginx 200) but `.147:443` is CLOSED. Root cause: OrbStack `k8s.expose_services` republished the
+   LoadBalancer's :80 on host :80 but did NOT bind host :443 (only the random NodePort :32244). The
+   k8s Service is correct (LoadBalancer 443+80, extIP 192.168.139.2). Fix the host :443 republish so
+   `curl -kIv https://captive-portal.worldwidewebb.co` from a LAN device returns 200 + the
+   cert-manager LE cert. (GOAL Phase 5.)
+3. **www-guest VLAN + SSID NOT applied** → **CC-j934.21**. Coded + flag-gated in .3 but UniFi live
+   has ONLY `world-wide-webb`. Apply the isolated guest VLAN/SSID (zero-diff preview first,
+   adopt-only), verify the controller GET shows `www-guest is_guest=true enabled=true`. (GOAL Phase 5.)
+4. **Full-host power-cycle reboot test NOT observed** (power-cycle-verify ticket). orbctl
+   stop/start passed unattended; a REAL mini reboot (exercises HA auto-restart via the start-haos.sh
+   PATH fix + the apiserver-forward launchd RunAtLoad from cold) is validated by-construction only.
+   Calum-physical (reboot the mini). (GOAL Phase 4 "reboot the mini".)
+
+### Calum-physical / needs-input (not agent-doable)
+- **CC-q002.17** on-device guest-portal OTP flow (GOAL Phase 5, explicitly a needs-input).
+- The CC-dqjq CF `pulumi up` and the power-cycle want Calum watching / at the mini.
+
+### Other deferred follow-ups (filed)
+- **CC-ob5o** HA launchd PATH (fixed in start-haos.sh; validate on the power-cycle).
+- OrbStack-26443-host-bind durable fix (socat launchd `com.calum.k8s-apiserver-forward` is the
+  mitigation; the real OrbStack-binds-:26443-itself fix is the follow-up).
+- **CC-j934.19** media-worker mountPath (/app/media vs MEDIA_STORAGE_DIR /mnt/media); parked at 0.
+
+### Operational knobs that MUST stay (the hard-won config, see recovery runbook)
+- OrbStack VM: `orbctl config set memory_mib 6144` (was 5120, the hidden cap that OOM-crash-looped
+  the control plane; THE root cause of the RAM saga).
+- HA VM: `-m 2G` in `~/homeassistant-os/start-haos.sh` (was 4G; HA's real working set ~0.7G).
+- `com.calum.k8s-apiserver-forward` launchd job (socat 127.0.0.1:26443 → OrbStack VM IP; OrbStack
+  doesn't rebind :26443 host-loopback after restart).
+- ESO controller limit 256Mi (was 192Mi, OOMKilled on cold-start reconcile).
+- `ccinfra:cloudflaredReplicas: "2"` COMMITTED in Pulumi.prod.yaml (an uncommitted local set →
+  CI deploy scaled the tunnel to 0 → prod 530).
+- CI digest pins go under `ccinfra:imageDigests` (the program reads `Config("ccinfra")`); a bare
+  `--path imageDigests.x` lands in the PROJECT namespace and SILENTLY breaks the digest-pin so
+  builds never roll.
+
+### How to resume
+Re-pin + finish CC-dqjq (CF) with Calum watching → fix CC-j934.20 (portal :443) → apply CC-j934.21
+(www-guest) → Calum runs the power-cycle + CC-q002.17 OTP → then honestly re-close the epic. The
+original phase checklist below is the spec; the 4 gaps above are the only boxes not yet truly ticked.
+
+---
+
 ## Phase 0, gating spikes (do FIRST, before any build)
 
 - [ ] **LAN exposure spike:** enable OrbStack k8s + "Expose services to local network
