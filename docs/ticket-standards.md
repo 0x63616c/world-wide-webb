@@ -2,7 +2,7 @@
 
 The single source of truth for how work moves through this repo. Every ticket, every commit, every merge follows this. The three lifecycle skills (`/new-ticket`, `/starting-ticket`, `/finish-ticket`) automate the happy path; the lefthook guards make skipping the rules mechanically impossible. `ship` (the autonomous workflow) reuses the exact same taxonomy and Definition of Done.
 
-> **TL;DR** — A ticket is *Ready* (has type, priority, area, checkbox AC) → you `/starting-ticket` (claim, worktree, red test first) → you build → you `/finish-ticket` (gates green, commit, merge to `main`, push, close). No PRs, ever. Worktrees merge to `main` locally.
+> **TL;DR**, A ticket is *Ready* (has type, priority, area, checkbox AC) → you `/starting-ticket` (claim, worktree, red test first) → you build → you `/finish-ticket` (gates green, commit, merge to `main`, push, close). No PRs, ever. Worktrees merge to `main` locally.
 
 ---
 
@@ -26,9 +26,9 @@ Each arrow is a skill. Each skill has a **MUST-run** checklist and refuses to ad
 
 A ticket may not be **started** until all of these hold. `/starting-ticket` enforces this and refuses to claim a ticket that fails it.
 
-- **Type** set (see taxonomy) — drives the AC template and the commit type.
+- **Type** set (see taxonomy), drives the AC template and the commit type.
 - **Priority** set (P0–P3, see rubric).
-- **Area** captured — the commit scope segment, e.g. `web/tiles`, `api`, `bosun`, `ci`. Stored in the ticket so `/finish-ticket` can build a guard-passing commit message.
+- **Area** captured, the commit scope segment, e.g. `web/tiles`, `api`, `infra`, `ci`. Stored in the ticket so `/finish-ticket` can build a guard-passing commit message.
 - **Acceptance criteria** present, in checkbox form, machine-checkable (see §7).
 
 A ticket that fails DoR isn't blocked work, it's an unfinished *idea*. Fix the ticket (via `/new-ticket` standards) before starting.
@@ -37,7 +37,7 @@ A ticket that fails DoR isn't blocked work, it's an unfinished *idea*. Fix the t
 
 ## 3. Ticket taxonomy
 
-Type is the keystone. It maps to a real **bd type**, predicts the **commit type** (validated by the commit-msg guard), and selects the **DoD adder**. bd's real types are `bug | feature | task | epic | chore | decision` — our taxonomy maps onto them exactly so nothing is invented.
+Type is the keystone. It maps to a real **bd type**, predicts the **commit type** (validated by the commit-msg guard), and selects the **DoD adder**. bd's real types are `bug | feature | task | epic | chore | decision`, our taxonomy maps onto them exactly so nothing is invented.
 
 | Our type | bd `--type` | Commit type | What it is | DoD adder (beyond base) |
 |---|---|---|---|---|
@@ -45,7 +45,7 @@ Type is the keystone. It maps to a real **bd type**, predicts the **commit type*
 | **bug** | `bug` | `fix` | wrong behavior | TDD: a regression test that is red before, green after |
 | **refactor** | `task` + label `refactor` | `refactor` | internal change, **no behavior change** | existing tests prove behavior unchanged; no new behavior |
 | **chore** | `chore` | `chore`/`ci`/`build` | tooling, config, deps | the tool/config actually runs |
-| **spike** | `decision` | *(usually none — may produce no code)* | investigate and decide | a recorded decision (`bd decision` or ticket note) + rejected alternatives; **replaces** "committed" |
+| **spike** | `decision` | *(usually none, may produce no code)* | investigate and decide | a recorded decision (`bd decision` or ticket note) + rejected alternatives; **replaces** "committed" |
 | **epic** | `epic` | *(none)* | parent container | AC = all children `closed` or `deferred` |
 
 This kills the "evaluate X" ambiguity: those are **spikes** (`decision` type). Closing one yields a recorded decision, not orphaned code.
@@ -54,14 +54,14 @@ This kills the "evaluate X" ambiguity: those are **spikes** (`decision` type). C
 
 ## 4. Definition of Done (DoD)
 
-The DoD lives **here, once**. Skills *generate* the relevant checkboxes into each ticket from its type — generated-per-ticket is fine, **hand-typed-per-ticket is the antipattern** (it drifts). The full rationale lives only in this doc.
+The DoD lives **here, once**. Skills *generate* the relevant checkboxes into each ticket from its type, generated-per-ticket is fine, **hand-typed-per-ticket is the antipattern** (it drifts). The full rationale lives only in this doc.
 
-### Base DoD — every code ticket (feature / bug / refactor / chore)
+### Base DoD, every code ticket (feature / bug / refactor / chore)
 
-- [ ] `bun run test` green (vitest — **never** bare `bun test`)
+- [ ] `bun run test` green (vitest, **never** bare `bun test`)
 - [ ] `bun run typecheck` green
 - [ ] `bunx biome check .` clean
-- [ ] No fake/placeholder data — `check-fake-data` guard green (no `FALLBACK`/`PLACEHOLDER`/unsanctioned `DEMO_`)
+- [ ] No fake/placeholder data, `check-fake-data` guard green (no `FALLBACK`/`PLACEHOLDER`/unsanctioned `DEMO_`)
 - [ ] Committed as `type(area/CC-xxx): desc` (commit-msg guard validates the scope + real ticket)
 - [ ] **If in a worktree:** merged to `main` locally (NO PR) and pushed. **Else:** committed on `main` and pushed. `git status` shows up-to-date-with-origin.
 - [ ] `bd close CC-xxx`
@@ -72,7 +72,7 @@ The DoD lives **here, once**. Skills *generate* the relevant checkboxes into eac
 - **bug:** the fix is driven by a regression test that fails before the fix and passes after.
 - **refactor:** the existing suite proves behavior is unchanged; the diff introduces no new behavior.
 - **chore:** the tool/config is demonstrated running (gate output or command transcript).
-- **spike:** *not* a code DoD — a decision is recorded with rationale + rejected alternatives; any follow-up work is filed as new tickets.
+- **spike:** *not* a code DoD, a decision is recorded with rationale + rejected alternatives; any follow-up work is filed as new tickets.
 
 ### What a generated UI-feature ticket looks like
 
@@ -92,10 +92,10 @@ The last three lines are the commit/merge discipline, baked into the checklist, 
 
 ## 5. Priority rubric
 
-- **P0** — the wall panel is broken or wrong on-device, or this blocks daily use. Drop everything.
-- **P1** — a core wall-panel feature, or a bug degrading daily use.
-- **P2** — quality, polish, a non-blocking bug, a meaningful improvement.
-- **P3** — speculative, nice-to-have, most spikes, future.
+- **P0**, the wall panel is broken or wrong on-device, or this blocks daily use. Drop everything.
+- **P1**, a core wall-panel feature, or a bug degrading daily use.
+- **P2**, quality, polish, a non-blocking bug, a meaningful improvement.
+- **P3**, speculative, nice-to-have, most spikes, future.
 
 ---
 
@@ -105,7 +105,7 @@ The last three lines are the commit/merge discipline, baked into the checklist, 
 2. **Machine-checkable.** Each item names an observable: a file that exists, a command that exits 0, a guard that stays green, a screenshot that shows X. Avoid "works well" without a check.
 3. **Ticket-specific behavior first, generated DoD last.** Don't restate house rules by hand; let the skill append them.
 4. **UI ⇒ a screenshot@1366×1024 item.** Always.
-5. **Epics** carry no AC of their own — their AC is "all children closed or deferred."
+5. **Epics** carry no AC of their own, their AC is "all children closed or deferred."
 
 ---
 
@@ -123,7 +123,7 @@ All three are **rigid** skills: announce them, create a TodoWrite item per check
 
 ## 8. `ship` (the autonomous variant)
 
-`ship` (`.claude/workflows/ship.mjs`) is the multi-agent pipeline for delivering a whole epic hands-off. It is the **same lifecycle, parallelized**: it scopes a validation contract into the epic `--design`, persists features as child tickets with this taxonomy + DoD, then builds each feature **in its own ticket-id-led worktree** (TDD, gates), validates each milestone with **perspective-diverse adversarial agents** (correctness / no-fake-data / screenshot-evidence) that gate identically to `/finish-ticket`, drains fix bugs, hardens, and finalizes — merging to `main`, never a PR. Model tiers: `opus` scopes, `sonnet` writes all code, `haiku` validates and bookkeeps (haiku never writes code). Resume a crashed run with `args.resume=<epicId>`.
+`ship` (`.claude/workflows/ship.mjs`) is the multi-agent pipeline for delivering a whole epic hands-off. It is the **same lifecycle, parallelized**: it scopes a validation contract into the epic `--design`, persists features as child tickets with this taxonomy + DoD, then builds each feature **in its own ticket-id-led worktree** (TDD, gates), validates each milestone with **perspective-diverse adversarial agents** (correctness / no-fake-data / screenshot-evidence) that gate identically to `/finish-ticket`, drains fix bugs, hardens, and finalizes, merging to `main`, never a PR. Model tiers: `opus` scopes, `sonnet` writes all code, `haiku` validates and bookkeeps (haiku never writes code). Resume a crashed run with `args.resume=<epicId>`.
 
 Use the skills for everyday human-in-the-loop work; use `ship` when an epic is scoped and approved and you want it driven to done autonomously.
 
@@ -135,10 +135,10 @@ What is truly mechanical (blocks at the git layer) vs skill-owned vs lint backst
 
 | Rule | Enforced by | Strength |
 |---|---|---|
-| Commit names a real `CC-` ticket + area | `commit-msg` lefthook (`check-commit-msg.sh`) | **mechanical — blocks** |
-| Feature work happens in a worktree | global `guard-worktree-git.sh` PreToolUse hook | **mechanical — blocks** |
-| No fake data | `check-fake-data.sh` pre-commit | **mechanical — blocks** |
-| No third-party scheduler / no home address / no secrets | the no-scheduler + no-address pre-commit guards + gitleaks | **mechanical — blocks** |
+| Commit names a real `CC-` ticket + area | `commit-msg` lefthook (`check-commit-msg.sh`) | **mechanical, blocks** |
+| Feature work happens in a worktree | global `guard-worktree-git.sh` PreToolUse hook | **mechanical, blocks** |
+| No fake data | `check-fake-data.sh` pre-commit | **mechanical, blocks** |
+| No third-party scheduler / no home address / no secrets | the no-scheduler + no-address pre-commit guards + gitleaks | **mechanical, blocks** |
 | Beads synced on push | `pre-push` lefthook (`bd dolt push`) | **mechanical** |
 | No PRs, ship to `main` | global rule + `/finish-ticket` + `ship` | cultural + skill |
 | Every ticket Ready (type/priority/area/AC) | `/new-ticket` at birth + `/starting-ticket` DoR gate + `lint-tickets.sh` | skill + lint |

@@ -1,88 +1,60 @@
-# Captive-portal TLS — Let's Encrypt via Cloudflare DNS-01 (CC-q002.13)
+# Captive-portal TLS: Let's Encrypt via Cloudflare DNS-01 (CC-q002.13 → CC-j934)
 
 The captive portal is a **LAN-only** service (no Cloudflare tunnel; reachable on
-the Mini's LAN IP via UniFi split-horizon DNS — see CC-q002.12/.14/.15). But the
-guest WLAN is **open**, so HTTPS on `captive-portal.worldwidewebb.co` is
+the Mini's LAN IP via UniFi split-horizon DNS, see the [migration design §5a](../k3s-migration/DESIGN.md)).
+But the guest WLAN is **open**, so HTTPS on `captive-portal.worldwidewebb.co` is
 non-negotiable: a guest typing a WiFi password over plain HTTP on an open network
 is unacceptable. We need a **publicly-trusted** cert (so no device shows a warning)
 for a host that takes **no inbound public traffic**.
 
 That combination is exactly what **ACME DNS-01** solves: the challenge is answered
 by writing a TXT record in the Cloudflare zone, not by serving a file over HTTP-01.
-No port 80, no inbound reachability, no public exposure required — only outbound
-API calls to Let's Encrypt and to the Cloudflare DNS API.
+No port 80, no inbound reachability, no public exposure required, only outbound API
+calls to Let's Encrypt and to the Cloudflare DNS API.
 
-## Mechanism
+> **History.** This was originally an `acme.sh` (`dns_cf`) one-shot Swarm job run by
+> bosun's scheduler, writing the cert to a shared named volume that the portal nginx
+> mounted read-only, with a self-reload loop and a bosun `certProbe`. The whole
+> mechanism below replaces that with cert-manager under k3s.
 
-- **Issuer:** Let's Encrypt, ACME DNS-01.
-- **Client:** [`acme.sh`](https://github.com/acmesh-official/acme.sh) (`neilpang/acme.sh`
-  image) with its built-in `dns_cf` plugin. Small, shell-based, no daemon — a clean
-  fit for a one-shot Swarm job.
-- **DNS provider auth:** the Cloudflare API token resolved at runtime from
-  1Password, `op://Homelab/Cloudflare API/credential` — the SAME token bosun
-  already uses to reconcile tunnel routes/DNS. acme.sh's `dns_cf` reads it from the
-  `CF_Token` env var (token mode; it auto-discovers the zone, so no zone id needed).
-  The token is **never** committed, baked into an image, or logged.
-- **Cert storage:** issued cert + key land on a **shared named volume**
-  (`portal-certs`). The cert job mounts it read-write to write
-  `fullchain.pem` + `key.pem`; the portal nginx mounts it **read-only** and
-  terminates TLS from it. The private key lives only on that volume on the box.
+## Mechanism (cert-manager)
 
-## Issuance + renewal as a bosun `cronJob()`
+- **Issuer:** Let's Encrypt, ACME **DNS-01**, via a cert-manager **`ClusterIssuer`**.
+- **Controller:** [cert-manager](https://cert-manager.io) running in-cluster (declared
+  in `infra/`). It owns issuance AND renewal continuously (no cron, no one-shot job):
+  it re-issues automatically inside the `renewBefore` window before the 90-day expiry.
+- **DNS provider auth:** the Cloudflare API token resolved from 1Password,
+  `op://Homelab/Cloudflare API/credential`, the SAME account-owned token the Pulumi
+  cloudflare provider uses to reconcile tunnel ingress/DNS. ESO syncs it into the k8s
+  Secret the `ClusterIssuer`'s `cloudflare` DNS-01 solver references. The token is
+  **never** committed, baked into an image, or logged. (It is account-owned, so it is
+  verified via `GET /accounts/{account_id}/tokens/verify`, not the user endpoint.)
+- **Cert storage:** cert-manager writes the issued cert + key into a k8s `Secret`
+  cluster-side. The portal Deployment mounts that Secret into the nginx container, which
+  terminates TLS from it. The private key lives only in etcd + the mounted Secret.
 
-Both issuance and renewal run through the same bosun-native scheduler that runs
-`docker-image-prune` and `map-extract` — a one-shot Swarm job
-(`docker service create --mode replicated-job`), no third-party scheduler, no
-always-on container. acme.sh is idempotent and renewal-aware: it only re-issues
-when the cert is inside its renewal window (~30 days before the 90-day expiry), so
-running the job on a frequent-but-cheap cron (daily) is safe — most runs are a
-no-op that exits immediately.
+## Issuance + renewal
 
-The cert job needs the CF API token as **env at create time**. cronJob() gained
-op-resolved secret support for this (CC-q002.13): a cron job may declare
-`secrets: fromOp(...)`, and the bosun agent resolves them via its OpProvider and
-injects them as `--env KEY=VALUE` on the `docker service create` for that run.
+A cert-manager **`Certificate`** resource for `captive-portal.worldwidewebb.co`
+references the DNS-01 `ClusterIssuer`. cert-manager issues it once and then renews it
+continuously inside the `renewBefore` window, writing the refreshed cert back into the
+same Secret. There is no scheduled job and no always-on acme.sh container; renewal is
+the cert-manager controller's own reconcile loop.
 
-> **Tradeoff (documented, accepted):** because the value is injected as a job
-> `--env`, it is visible in `docker service inspect <job>` on the box. On this
-> single-user homelab that is acceptable; the value is never written to the repo
-> and never logged. See `packages/bosun/README.md` (scheduled jobs) for the full
-> note.
+## nginx picks up a renewed cert
 
-### The acme.sh job command (reference)
-
-```
-acme.sh --issue --dns dns_cf \
-  -d captive-portal.worldwidewebb.co \
-  --keylength ec-256 \
-  --cert-file   /certs/cert.pem \
-  --key-file    /certs/key.pem \
-  --fullchain-file /certs/fullchain.pem \
-  --server letsencrypt
-```
-
-On renewal runs the same `--issue` is a no-op until inside the window; `acme.sh`
-keeps its own account/state on the volume. (The exact flags + image tag are wired
-in deploy.config.ts in CC-q002.14, alongside the `portal-certs` volume and the
-portal service that consumes it.)
-
-## nginx picks up a renewed cert without privileged signalling
-
-A renewed cert on the volume is inert until nginx re-reads it (nginx caches certs
-at worker start). Rather than grant the cert job docker-socket access to send nginx
-a signal (wrong privilege shape for a cert job — it would have full docker control),
-the **portal nginx container reloads itself**: its entrypoint runs nginx plus a
-background loop that issues `nginx -s reload` every few hours. A cert renewed up to
-~30 days before expiry is therefore picked up within hours — harmless lag. The cert
-job stays a plain, unprivileged acme.sh + volume writer. (The self-reload loop is
-implemented in the portal image, CC-q002.2.)
+When cert-manager rotates the Secret, the mounted cert files in the portal nginx
+container update (projected Secret volumes refresh). The portal nginx re-reads the cert
+on a periodic `nginx -s reload` from its entrypoint (nginx caches certs at worker
+start), so a renewed cert is picked up within hours, harmless lag. No docker-socket
+access and no privileged signalling are involved. (The self-reload loop is implemented
+in the portal image, CC-q002.2.)
 
 ## Health: cert-expiry lookahead
 
-`certProbe(host, { warnDays: 14 })` (bosun) goes red ~14 days **before** expiry —
-early enough that a stuck renewal is visible while there is still time to fix it,
-not after the cert has already gone invalid. It is added to the portal service's
-`health` probes in **CC-q002.15**, not here: certProbe does a TLS connect to the
-public hostname, which only resolves once the UniFi local DNS record
-(`captive-portal.worldwidewebb.co → Mini LAN IP`) exists. Sequencing it with that
-DNS record keeps the probe from being red purely by deploy ordering.
+cert-manager surfaces the `Certificate` status (Ready, `notAfter`, renewal state)
+natively, so a stuck renewal is visible via `kubectl get certificate` well before the
+cert goes invalid. The probe does a TLS connect to the public hostname, which only
+resolves once the UniFi local DNS record (`captive-portal.worldwidewebb.co → Mini LAN
+IP`) exists, so health is sequenced with that DNS record to avoid a red purely from
+deploy ordering.

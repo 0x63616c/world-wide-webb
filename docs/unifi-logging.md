@@ -12,8 +12,9 @@ Synology (`NAS - HomeTB`, DS420+, `192.168.0.218`, `/volume1/Unifi`):
 | **Syslog** | events: firewall blocks, client connect/disconnect, DHCP, AP telemetry | UDP/TCP 514 | `unifi-syslog` (syslog-ng container) | `/volume1/Unifi/logs/syslog/YYYY-MM-DD-unifi.log` |
 | **NetFlow/IPFIX** | per-connection flow records (who↔who, ports, bytes, packets) | UDP 2055 | `unifi-netflow` (goflow2 container) | `/volume1/Unifi/logs/netflow/flows.json` → daily `YYYY-MM-DD-flows.json.gz` |
 
-**Why the receivers live on the NAS (not our bosun stack):** Docker is already on the NAS;
-bosun can't publish UDP host ports and NFS-in-container hangs on OrbStack (CC-6mz7). syslog is text →
+**Why the receivers live on the NAS (not our k3s cluster):** Docker is already on the NAS;
+our cluster can't reliably publish UDP host ports for an external sender, and pods can't reach the
+NAS over NFS under the OrbStack pod-egress limits (CC-6mz7). syslog is text →
 syslog-ng; NetFlow is binary IPFIX that Synology's Log Center can't read → goflow2 decodes it to NDJSON
 (one JSON object per line).
 
@@ -29,13 +30,13 @@ UCG Fiber (192.168.0.1) ──UDP 514  syslog──▶  unifi-syslog (syslog-ng)
 The `op://Homelab/UniFi/local_api_key` is **not** read-only. With the `X-API-KEY` header it authenticates
 against the **private controller API** (`/proxy/network/api/s/default/...`), including `set/setting`. The
 NetFlow collector address (`server`) and the remote-syslog target are **not** in the read-only
-integration API — but they ARE writable via `set/setting/{netflow,rsyslogd}`. `scripts/configure-unifi-log-export.sh`
-does exactly this. (`get/setting` also returns gateway secrets — treat its output as sensitive.)
+integration API, but they ARE writable via `set/setting/{netflow,rsyslogd}`. `scripts/configure-unifi-log-export.sh`
+does exactly this. (`get/setting` also returns gateway secrets, treat its output as sensitive.)
 
 Gateway settings applied:
 - `netflow`: `enabled`, `server=<NAS>`, `port=2055`, `version=10` (IPFIX), `sampling_mode=off` (full flows),
   `export_frequency=1`, `network_ids=[<LAN>]`.
-- `rsyslogd`: `this_controller=false` (= "SIEM Server" mode — UniFi syslog is internal-OR-remote, not both),
+- `rsyslogd`: `this_controller=false` (= "SIEM Server" mode, UniFi syslog is internal-OR-remote, not both),
   `ip=<NAS>`, `port=514`.
 
 ## Continuous enrichment (CC-cs0o)
@@ -66,7 +67,7 @@ deployed to `/volume1/Unifi/docker/`, run by a `/etc/crontab` entry at 23:59).
 - Syslog rotates natively (daily file per `${R_YEAR}${R_MONTH}${R_DAY}`).
 - NetFlow is rotated by `unifi-rotate-netflow.sh` (cron 23:59): rename `flows.json` → `YYYY-MM-DD-flows.json`,
   restart goflow2 to reopen a fresh file, then gzip the closed day (gzip deletes the uncompressed
-  original — only the `.gz` remains; read with `zcat`/`zgrep`). Measured ~36× compression (136 MB → 3.8 MB).
+  original, only the `.gz` remains; read with `zcat`/`zgrep`). Measured ~36× compression (136 MB → 3.8 MB).
 - **Retention = keep forever** (`RETENTION_DAYS=0`). Measured volume ≈ **1.1 GB/day** (NetFlow ~95%, busy-period
   upper bound); 365 days ≈ 430 GB = ~7% of the NAS's 6 TB free, and gzip'd NetFlow shrinks ~8-12×, so
   "forever" is comfortable. Set `RETENTION_DAYS>0` in the rotate script to prune both streams later.
@@ -81,7 +82,7 @@ tail -1 /volume1/Unifi/logs/netflow/flows.json | python3 -m json.tool   # a flow
 
 ## Containers (on the NAS, Docker)
 
-- `unifi-netflow`: `netsampler/goflow2` — `-listen netflow://:2055 -format json -transport.file /output/flows.json`
-- `unifi-syslog`: `balabit/syslog-ng` — UDP+TCP 514, config bind-mounted from `/volume1/Unifi/docker/syslog-ng/`
+- `unifi-netflow`: `netsampler/goflow2`, `-listen netflow://:2055 -format json -transport.file /output/flows.json`
+- `unifi-syslog`: `balabit/syslog-ng`, UDP+TCP 514, config bind-mounted from `/volume1/Unifi/docker/syslog-ng/`
 
 Both `--restart unless-stopped`. goflow2 runs non-root, so the netflow log dir is `chmod 0777`.

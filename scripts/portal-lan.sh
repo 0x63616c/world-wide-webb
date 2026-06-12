@@ -19,8 +19,12 @@
 # TLS. Guest secrets (email + WiFi password) are entered on the SPA AFTER the
 # redirect, so they only ever travel over TLS; the http hop carries only the
 # UniFi redirect params (mac/ap/site), never a secret. The redirect lives HERE at
-# the LAN edge (not the swarm portal's :80) so the swarm healthcheck + bosun probe
-# on :80 keep getting a 200, and the :42069 topology stays out of the service image.
+# the LAN edge (not the swarm portal's :80) so the swarm healthcheck + the deploy
+# probe on :80 keep getting a 200, and the :42069 topology stays out of the service image.
+#
+# NOTE (CC-j934): this whole Swarm-era LAN-edge hack is superseded under k3s by a
+# captive-portal `Service type: LoadBalancer` republished on the LAN NIC via OrbStack
+# `expose_services` (see docs/captive-portal/runbook.md). This script is retired at cutover.
 #
 # Idempotent: re-run to refresh (e.g. after a portal redeploy). Pinned by
 # --restart=always; the launchd unit re-runs it at boot so it survives reboots.
