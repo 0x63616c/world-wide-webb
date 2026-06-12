@@ -1,5 +1,5 @@
 /**
- * Tests for TvAppsTileView (CC-0z4f — design match).
+ * Tests for TvAppsTileView (CC-0z4f, design match).
  *
  * Hero card shows the open app's brand logo + name + "OPEN · RESUME"; the 2×2
  * grid shows logo-only cells (no text labels) addressable by aria-label; a
@@ -23,7 +23,7 @@ const baseProps: TvAppsTileViewProps = {
   onOpenAllApps: vi.fn(),
 };
 
-describe("TvAppsTileView — loading/error", () => {
+describe("TvAppsTileView, loading/error", () => {
   it("renders Skeleton when status=loading", () => {
     const { container } = render(
       <TvAppsTileView
@@ -40,7 +40,7 @@ describe("TvAppsTileView — loading/error", () => {
   });
 });
 
-describe("TvAppsTileView — populated", () => {
+describe("TvAppsTileView, populated", () => {
   it("renders a header", () => {
     render(<TvAppsTileView {...baseProps} />);
     expect(screen.getByText(/tv apps/i)).toBeInTheDocument();
@@ -67,7 +67,7 @@ describe("TvAppsTileView — populated", () => {
   it("launches the hero app when the hero is clicked", () => {
     const onLaunchApp = vi.fn();
     render(<TvAppsTileView {...baseProps} onLaunchApp={onLaunchApp} />);
-    fireEvent.click(screen.getByRole("button", { name: "Netflix — open" }));
+    fireEvent.click(screen.getByRole("button", { name: "Netflix - open" }));
     expect(onLaunchApp).toHaveBeenCalledWith("Netflix");
   });
 
@@ -121,7 +121,7 @@ describe("TvAppsTileView — populated", () => {
 
   it("renders the hero logo plate at 44px (CC-l2zg)", () => {
     render(<TvAppsTileView {...baseProps} />);
-    const plate = screen.getByLabelText("Netflix — open").querySelector("div");
+    const plate = screen.getByLabelText("Netflix - open").querySelector("div");
     expect(plate).toHaveStyle({ width: "44px", height: "44px" });
   });
 });
