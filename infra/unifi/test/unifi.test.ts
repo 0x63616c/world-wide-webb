@@ -10,7 +10,11 @@ pulumi.runtime.setMocks({
   newResource(args: pulumi.runtime.MockResourceArgs) {
     return { id: `${args.name}-id`, state: args.inputs };
   },
-  call() {
+  call(args: pulumi.runtime.MockCallArgs) {
+    // getApGroup data source: return the default AP group id the WLAN attaches to.
+    if (args.token.includes("getApGroup")) {
+      return { id: "ap-group-default" };
+    }
     return {};
   },
 });
@@ -99,6 +103,8 @@ describe("createGuestVlan (additive, gated, OPEN captive-portal guest net)", () 
     // Explicit client isolation: guests can't reach each other on the open SSID.
     expect(await get<boolean>(guest.wlan, "l2Isolation")).toBe(true);
     expect(await get<string | undefined>(guest.wlan, "passphrase")).toBeFalsy();
+    // Assigned to the default AP group (else the controller errors ApGroupMissing).
+    expect(await get<string[]>(guest.wlan, "apGroupIds")).toEqual(["ap-group-default"]);
 
     // The one scoped cross-VLAN allowance: guest -> portal .147 on 80/443.
     expect(await get<string>(guest.portalAllowRule, "action")).toBe("accept");
