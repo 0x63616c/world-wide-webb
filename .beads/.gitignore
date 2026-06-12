@@ -85,3 +85,5 @@ config.yaml
 
 # Linear pull timestamp (local-only, per-machine)
 last_pull
+dolt.broken-*/
+dolt.corrupt-*/
