@@ -62,7 +62,10 @@ if (cfg.getBoolean("applyGuest")) {
     // The portal host the guest VLAN may reach pre-auth (split-horizon DNS
     // resolves captive-portal.worldwidewebb.co to this for guest clients too).
     portalHost: cfg.get("portalHost") ?? "192.168.0.147",
-    firewallRuleIndex: cfg.getNumber("firewallRuleIndex") ?? 2000,
+    // LAN_IN user-rule index. The UCG-Fiber uses a 5-digit range (its IPS rules
+    // sit at 20000/20001); 2000 is rejected as out-of-range, so default into the
+    // valid window above the IPS rules (www-j934.3.2).
+    firewallRuleIndex: cfg.getNumber("firewallRuleIndex") ?? 22000,
   });
   exportGuest(guest);
 }
