@@ -23,6 +23,23 @@
   "watcher": {
     "ignore": ["node_modules/**", ".git/**", ".beads/**", ".turbo/**", "dist/**"]
   },
+  "agent": {
+    "code-review": {
+      "description": "Reviews code for bugs, security issues, and best practices using deepseek-v4-flash-free",
+      "mode": "subagent",
+      "model": "opencode/deepseek-v4-flash-free",
+      "temperature": 0.1,
+      "permission": {
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "list": "allow",
+        "edit": "deny",
+        "bash": "deny"
+      },
+      "prompt": "{file:./.opencode/prompts/code-review.txt}"
+    }
+  },
   "instructions": [
     "CLAUDE.md",
     "README.md",
