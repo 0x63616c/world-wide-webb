@@ -81,21 +81,35 @@ describe("portal-data-purge", () => {
   });
 });
 
-describe("map-extract", () => {
+describe("map-extract (CC-hn1i: self-refreshing, runtime-resolved build)", () => {
   const extract = () => byName(crons.cronSpecs(NAS), "map-extract");
 
-  test("ships SUSPENDED (manual-trigger via kubectl create job --from=cronjob/...)", () => {
+  // Regression (CC-hn1i): the old recipe shipped SUSPENDED with a hardcoded
+  // build date; Protomaps deletes daily builds after ~7 days, so the pin rotted
+  // and the manual trigger was forgotten at stack standup (prod served no map).
+  test("is NOT suspended, it fires on a real monthly schedule", () => {
     const r = renderCronJob(extract() as CronJobSpec);
-    expect(r.cronJob.spec.suspend).toBe(true);
+    expect(r.cronJob.spec.suspend).toBe(false);
+    // Monthly: a fixed day-of-month, any month, any weekday.
+    expect(extract()?.schedule).toMatch(/^\d{1,2} \d{1,2} \d{1,2} \* \*$/);
   });
 
-  test("runs the go-pmtiles extract into the maps PVC", () => {
+  test("runs the in-repo provisioner image in force mode (refresh even when present)", () => {
     const c = extract();
-    expect(c?.image).toContain("go-pmtiles");
-    expect(c?.command?.[0]).toBe("extract");
-    // Writes into the same local-path `maps` PVC the web service serves from.
-    const vol = c?.volumes?.[0];
+    expect(c?.image).toBe("ghcr.io/0x63616c/control-center-map-provision:main");
+    expect(c?.command).toEqual(["/provision.sh", "force"]);
+  });
+
+  test("carries NO hardcoded Protomaps build date (the pin is what rotted)", () => {
+    const cmd = (extract()?.command ?? []).join(" ");
+    expect(cmd).not.toContain("build.protomaps.com");
+    expect(cmd).not.toMatch(/\d{8}\.pmtiles/);
+  });
+
+  test("writes into the maps PVC the web service serves from", () => {
+    const vol = extract()?.volumes?.[0];
     expect(vol?.claim).toBe("maps");
+    expect(vol?.mountPath).toBe("/out");
   });
 });
 

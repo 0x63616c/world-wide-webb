@@ -105,8 +105,17 @@ Forced full redeploy: `gh workflow run ci.yml --ref main` (rebuilds + redeploys 
 Cron jobs are **Kubernetes `CronJob`s declared in `infra/src/crons.ts`**, NOT bosun
 `cronJob()` and NOT a third-party scheduler. They run on `TZ=America/Los_Angeles` (set as a pod
 env), so a `0 3 * * *` schedule fires at 03:00 LA. Today: `portal-data-purge` (nightly DB
-cleanup), `pg-backup` (nightly logical backup to the NAS), `map-extract` (manual-trigger,
-`suspend: true`). The old `docker-image-prune` cron is gone, kubelet image GC replaces it.
+cleanup), `pg-backup` (nightly logical backup to the NAS), `map-extract` (monthly basemap
+refresh, CC-hn1i, runs the `map-provision` image in force mode; the build date is resolved at
+runtime because Protomaps deletes daily builds after ~7 days, so a pinned date rots). The old
+`docker-image-prune` cron is gone, kubelet image GC replaces it.
+
+**Basemap self-provisioning (CC-hn1i):** the web Deployment carries a `map-provision`
+initContainer (same image, if-missing mode) so a fresh stack extracts `socal.pmtiles` into the
+`maps` PVC before nginx ever serves, no manual provisioning step exists. Ad-hoc refresh:
+`kubectl create job --from=cronjob/map-extract <name> -n control-center`. nginx serves
+`/maps/` with a real 404 on a missing file (no SPA fallback), so a provisioning failure is
+loud. Hermetic tests: `scripts/test-map-provision.sh` (also a CI `test`-job gate).
 
 ---
 

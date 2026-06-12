@@ -276,3 +276,93 @@ describe("serviceSpecs (replica + NFS knobs, CC-j934.17 / CC-j934.18)", () => {
     ).toBe(2);
   });
 });
+
+// CC-hn1i: initContainers, first user is the web map-provision init, which
+// makes "the basemap exists in the maps PVC" a structural precondition of
+// nginx serving (a fresh stack self-provisions; nothing manual to remember).
+describe("renderWorkload: initContainers (CC-hn1i)", () => {
+  const webWithInit: WorkloadSpec = {
+    name: "web",
+    image: "ghcr.io/0x63616c/control-center-web:main",
+    replicas: 1,
+    ports: [{ containerPort: 80, expose: "cluster" }],
+    volumes: [{ mountPath: "/usr/share/nginx/html/maps", claim: "maps", readOnly: true }],
+    initContainers: [
+      {
+        name: "map-provision",
+        image: "ghcr.io/0x63616c/control-center-map-provision:main",
+        command: ["/provision.sh"],
+        volumes: [{ mountPath: "/out", claim: "maps" }],
+      },
+    ],
+  };
+
+  test("renders initContainers into the pod template ahead of the main container", () => {
+    const r = renderWorkload(webWithInit);
+    const init = r.deployment.spec.template.spec.initContainers?.[0];
+    expect(init?.name).toBe("map-provision");
+    expect(init?.image).toBe("ghcr.io/0x63616c/control-center-map-provision:main");
+    expect(init?.command).toEqual(["/provision.sh"]);
+  });
+
+  test("the init container mounts its claim RW while the main container stays RO", () => {
+    const r = renderWorkload(webWithInit);
+    const init = r.deployment.spec.template.spec.initContainers?.[0];
+    const initMount = init?.volumeMounts.find((m) => m.mountPath === "/out");
+    expect(initMount).toBeDefined();
+    expect(initMount?.readOnly).not.toBe(true);
+    const main = r.deployment.spec.template.spec.containers[0];
+    const mainMount = main.volumeMounts.find((m) => m.mountPath.endsWith("/maps"));
+    expect(mainMount?.readOnly).toBe(true);
+  });
+
+  test("init volumes get distinct pod-volume names (no collision with main volumes)", () => {
+    const r = renderWorkload(webWithInit);
+    const names = r.deployment.spec.template.spec.volumes.map((v) => v.name);
+    expect(new Set(names).size).toBe(names.length);
+    // Both pod volumes resolve to the same PVC claim.
+    const claims = r.deployment.spec.template.spec.volumes
+      .map((v) => v.persistentVolumeClaim?.claimName)
+      .filter(Boolean);
+    expect(claims).toEqual(["maps", "maps"]);
+  });
+
+  test("a workload without initContainers renders none (field absent, not [])", () => {
+    const r = renderWorkload(api);
+    expect(r.deployment.spec.template.spec.initContainers).toBeUndefined();
+  });
+});
+
+// CC-hn1i: the production web spec ships the map-provision init container so a
+// fresh stack serves the Tesla basemap with ZERO manual steps.
+describe("serviceSpecs: web map-provision initContainer (CC-hn1i)", () => {
+  const baseOpts = {
+    mediaWorkerReplicas: 0,
+    cloudflaredReplicas: 2,
+    storybookReplicas: 0,
+    drizzleReplicas: 0,
+    nasNfsServer: "192.168.0.218",
+  };
+  const web = () => serviceSpecs(baseOpts).find((s) => s.name === "web");
+
+  test("web declares the map-provision initContainer in if-missing mode", () => {
+    const init = web()?.initContainers?.[0];
+    expect(init?.name).toBe("map-provision");
+    expect(init?.image).toContain("control-center-map-provision");
+    // Default (no `force` arg) is if-missing: instant no-op when the file exists,
+    // so rollouts on a provisioned PVC are unaffected.
+    expect(init?.command).toEqual(["/provision.sh"]);
+    expect(init?.volumes?.[0]?.claim).toBe("maps");
+  });
+
+  test("the init image is digest-pinnable like every other CI-built image", () => {
+    const specs = serviceSpecs({
+      ...baseOpts,
+      imageDigests: { "map-provision": `sha256:${"a".repeat(64)}` },
+    });
+    const init = specs.find((s) => s.name === "web")?.initContainers?.[0];
+    expect(init?.image).toBe(
+      `ghcr.io/0x63616c/control-center-map-provision@sha256:${"a".repeat(64)}`,
+    );
+  });
+});
