@@ -4,6 +4,37 @@ How the guest-WiFi captive portal is wired on the network side, what was done
 programmatically via the UniFi controller API, and the human steps that remain.
 Companion to `docs/captive-portal/PRD.md` and `docs/captive-portal/tls.md`.
 
+## Apple captive sheet (CNA): MUST be raw-IP HTTP (www-q002.26, 2026-06-12)
+
+The portal redirect target is the **raw IP over HTTP** (`http://192.168.0.147/...`),
+set via UniFi `portal_use_hostname: false` + `redirect_https: false`. This is NOT a
+downgrade by choice, it is the only thing that renders in Apple's Captive Network
+Assistant (the auto-pop "Join www-guest" sheet). Hard-won findings:
+
+- The CNA **renders + runs JavaScript** over `http://192.168.0.147/` (verified: the
+  React SPA boots and completes the full email/code/authorize flow on a real device).
+- The CNA **will NOT render** the SAME page from the real domain
+  `https://captive-portal.worldwidewebb.co/` (or the http hostname). It fetches the
+  HTML (200, valid LE cert, uncompressed) and renders nothing, not even a plain
+  `<img>` or `<noscript>`, then shows "A problem occurred. The webpage couldn't be
+  loaded." Ruled out by elimination: DNS (the CNA reached our `.147` via the
+  hostname), cert, gzip, content, and adding the domain to the walled garden. It is
+  purely hostname-vs-IP, Apple applies stricter rules (ATS / captive heuristics) to
+  real-domain captive pages. This is why commercial captive portals use IPs.
+  Recovering the hostname is tracked (low pri) in **www-q002.28**.
+- **gzip OFF** for the portal nginx (`apps/captive-portal/_portal_locations.conf`,
+  enforced by `scripts/check-portal-nginx.sh`): the CNA can fail to decompress a
+  gzipped captive page. Defensive even on the raw-IP path.
+
+**Architecture:** captive sheet = raw-IP HTTP landing (works in the CNA); the nice
+`captive-portal.worldwidewebb.co` + HTTPS + LE cert stays for anyone who opens the
+portal in a real browser. The SPA uses relative URLs so assets + `/api/trpc/portal.*`
+resolve to `.147:80` over HTTP in the sheet.
+
+**Reset a test device** (it stays authorized after passing once):
+`POST /proxy/network/api/s/default/cmd/stamgr {"cmd":"unauthorize-guest","mac":"<mac>"}`,
+then open `http://neverssl.com` on the device (plain HTTP triggers the sheet).
+
 ## RESOLVED, external portal LIVE + verified (www-q002.15, 2026-06-12)
 
 The guest WLAN external portal is configured and proven on a real device. The

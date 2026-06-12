@@ -41,6 +41,11 @@ if [ -f "$LOCATIONS_CONF" ]; then
   if ! grep -qE 'proxy_pass[[:space:]]+http://api(\.|:)' "$LOCATIONS_CONF"; then
     err "$LOCATIONS_CONF: portal proxy_pass does not target the api Service (expected http://api...:4201)"
   fi
+  # 3. gzip must stay OFF: Apple's Captive Network Assistant can fail to render a
+  #    gzipped captive page ("the webpage couldn't be loaded"). www-q002.26.
+  if grep -qE '^[[:space:]]*gzip[[:space:]]+on;' "$LOCATIONS_CONF"; then
+    err "$LOCATIONS_CONF: 'gzip on' breaks the Apple captive sheet; keep gzip off for the portal (www-q002.26)"
+  fi
 fi
 
 if [ "$fail" -ne 0 ]; then
