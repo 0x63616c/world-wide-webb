@@ -1,7 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import { beforeAll, describe, expect, test } from "vitest";
-import { renderCronJob } from "../src/render.ts";
-import type { CronJobSpec } from "../src/spec.ts";
+import type { CronJobSpec } from "../src/component.ts";
+import { renderCronJob } from "../src/component.ts";
 
 // The k8s CronJobs for the cluster scheduler (www-j934.7): portal-data-purge
 // + map-extract carried over, plus a NEW nightly pg-backup
