@@ -1,7 +1,7 @@
 # gitleaks config for control-center (CC-4ma).
 #
-# Extends gitleaks' built-in ruleset (so prefixed tokens — ghp_, sk-ant-, AKIA,
-# xox*, AIza, private keys, etc. — are still caught) and adds a narrow allowlist
+# Extends gitleaks' built-in ruleset (so prefixed tokens, ghp_, sk-ant-, AKIA,
+# xox*, AIza, private keys, etc., are still caught) and adds a narrow allowlist
 # for the false positives the noisy `generic-api-key` heuristic flags in this
 # repo's history. Secrets here live in 1Password (op://) only; this guard exists
 # to keep it that way, especially ahead of going public.
@@ -20,9 +20,13 @@ regexes = [
   '''\b[0-9a-f]{40}\b''',
   '''\b[0-9a-f]{64}\b''',
   # Internal service port+path fragments (e.g. "4201/api/health",
-  # "4201/health/climate") matched by generic-api-key — these are localhost probe
+  # "4201/health/climate") matched by generic-api-key, these are localhost probe
   # URLs in deploy.config/health checks, not credentials.
   '''\b\d{2,5}/(api|health)/[a-z/_-]+''',
+  # Protomaps build keys ("key":"YYYYMMDD.pmtiles") in the map-provision test
+  # fixture: the index JSON literally names the field "key", which trips
+  # generic-api-key. A dated basemap filename is not a credential (CC-hn1i).
+  '''\b\d{8}\.pmtiles\b''',
 ]
 # Matched against file paths: the guard scripts intentionally embed sample/
 # forbidden tokens, and lockfiles carry integrity hashes.

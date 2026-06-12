@@ -181,8 +181,22 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       resources: { memory: "96M" },
       env: { TZ },
       ports: [{ containerPort: 80, expose: "cluster" }],
-      // maps basemap served from a local-path PVC (provisioned by map-extract, .7).
+      // maps basemap served from a local-path PVC (provisioned by the
+      // map-provision init below + refreshed by the map-extract CronJob).
       volumes: [{ mountPath: "/usr/share/nginx/html/maps", claim: "maps", readOnly: true }],
+      // Basemap self-provisioning (CC-hn1i): runs before nginx in if-missing
+      // mode (instant no-op when socal.pmtiles exists), so "the basemap is in
+      // the PVC" is a structural precondition of serving, a fresh stack
+      // self-heals with zero manual steps (the old suspended-manual-job flow
+      // shipped prod with an empty PVC and a blank Tesla map).
+      initContainers: [
+        {
+          name: "map-provision",
+          image: ghcr("map-provision", digests),
+          command: ["/provision.sh"],
+          volumes: [{ mountPath: "/out", claim: "maps" }],
+        },
+      ],
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {

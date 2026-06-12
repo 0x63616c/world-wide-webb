@@ -88,29 +88,30 @@ export function cronSpecs(nasNfsServer: string): CronJobSpec[] {
       command: ["bun", "purge.js"],
       secrets: [{ name: "POSTGRES_PASSWORD", ref: "eso" }],
       env: { TZ, POSTGRES_HOST },
+      // Carry the GHCR pull secret like the workloads do, rather than leaning
+      // on package visibility staying public (CC-hn1i).
+      imagePullSecrets: ["ghcr-pull"],
     },
 
-    // Tesla-map basemap provisioner (CC-gma). Range-extracts the SoCal region from
-    // the Protomaps daily planet build into the `maps` local-path PVC the web
-    // service serves /maps/*.pmtiles from. Driven MANUALLY via
-    // `kubectl create job --from=cronjob/map-extract`, so it ships SUSPENDED; the
-    // rare schedule stays only as the declarative record of the recipe (bbox/
-    // maxzoom/build date in one place). go-pmtiles is distroless with the pmtiles
-    // binary as entrypoint, so command is the bare `extract` subcommand. Bump the
-    // build date when re-provisioning (Protomaps retains ~7 days of builds).
+    // Tesla-map basemap refresher (CC-gma → CC-hn1i). Runs the in-repo
+    // map-provision image in FORCE mode: resolve the newest Protomaps planet
+    // build at runtime (their daily builds are deleted after ~7 days, so any
+    // hardcoded date rots, the original suspended/manual recipe pinned one and
+    // prod shipped with an empty maps PVC), extract the SoCal bbox, atomically
+    // rename into the `maps` PVC the web service serves /maps/*.pmtiles from.
+    // Monthly is plenty (street data drifts slowly); first-provision on a fresh
+    // stack is the web pod's map-provision initContainer, NOT this cron. Ad-hoc
+    // refresh: `kubectl create job --from=cronjob/map-extract <name>`.
     {
       name: "map-extract",
-      image: "ghcr.io/protomaps/go-pmtiles:v1.30.3",
-      schedule: "0 5 1 1 *",
-      suspend: true,
-      command: [
-        "extract",
-        "https://build.protomaps.com/20260604.pmtiles",
-        "/out/socal.pmtiles",
-        "--bbox=-121.0,32.4,-114.0,35.9",
-        "--maxzoom=15",
-      ],
+      image: ghcr("map-provision"),
+      schedule: "23 5 3 * *",
+      command: ["/provision.sh", "force"],
+      env: { TZ },
       volumes: [{ mountPath: "/out", claim: "maps" }],
+      // A NEW GHCR package is born private on first push; without the pull
+      // secret the first scheduled run ImagePullBackOffs (CC-hn1i).
+      imagePullSecrets: ["ghcr-pull"],
     },
 
     // NEW nightly logical backup to the NAS (RECON decision 5 / GOAL Phase 3).
