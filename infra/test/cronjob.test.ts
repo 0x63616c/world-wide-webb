@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { renderCronJob } from "../src/render.ts";
-import type { CronJobSpec } from "../src/spec.ts";
+import type { CronJobSpec } from "../src/component.ts";
+import { renderCronJob } from "../src/component.ts";
 
 // The cronJob() half of the vocabulary: a scheduled one-shot Job. Same
 // pure-mapping discipline as renderWorkload - declaration -> a k8s CronJob arg object.
