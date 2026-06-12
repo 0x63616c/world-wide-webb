@@ -87,7 +87,11 @@ export interface WorkloadSpec {
   imagePullSecrets?: string[];
   // Extra secrets mounted as files at a path (NOT the /run/secrets rail). First
   // user: the captive-portal mounting its cert-manager TLS Secret for nginx.
-  extraSecretMounts?: { secretName: string; mountPath: string }[];
+  extraSecretMounts?: {
+    secretName: string;
+    mountPath: string;
+    items?: { key: string; path: string }[];
+  }[];
 }
 
 /**
@@ -118,5 +122,9 @@ export interface CronJobSpec {
   // Extra secrets mounted as files at a path (NOT the /run/secrets rail). First
   // user: pg-backup mounting the CNPG-managed cc-postgres-auth basic-auth Secret
   // so pg_dump reads the password without a duplicate ExternalSecret.
-  extraSecretMounts?: { secretName: string; mountPath: string }[];
+  extraSecretMounts?: {
+    secretName: string;
+    mountPath: string;
+    items?: { key: string; path: string }[];
+  }[];
 }

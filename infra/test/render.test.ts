@@ -161,6 +161,35 @@ describe("renderWorkload: CC-j934.6 extensions", () => {
     const vol = r.deployment.spec.template.spec.volumes.find((v) => v.name === mount?.name);
     expect(vol?.secret?.secretName).toBe("captive-portal-tls");
   });
+
+  test("extraSecretMounts items rename keys to file paths (cert-manager tls.crt -> fullchain.pem)", () => {
+    const portal: WorkloadSpec = {
+      name: "captive-portal",
+      image: "ghcr.io/0x63616c/control-center-captive-portal:main",
+      replicas: 1,
+      resources: { memory: "64M" },
+      extraSecretMounts: [
+        {
+          secretName: "captive-portal-tls",
+          mountPath: "/certs",
+          items: [
+            { key: "tls.crt", path: "fullchain.pem" },
+            { key: "tls.key", path: "key.pem" },
+          ],
+        },
+      ],
+      ports: [{ containerPort: 443, expose: "lan" }],
+    };
+    const r = renderWorkload(portal);
+    const mount = r.deployment.spec.template.spec.containers[0].volumeMounts.find(
+      (m) => m.mountPath === "/certs",
+    );
+    const vol = r.deployment.spec.template.spec.volumes.find((v) => v.name === mount?.name);
+    expect(vol?.secret?.items).toEqual([
+      { key: "tls.crt", path: "fullchain.pem" },
+      { key: "tls.key", path: "key.pem" },
+    ]);
+  });
 });
 
 describe("renderWorkload: NFS PV + PVC pair (CC-j934.6)", () => {

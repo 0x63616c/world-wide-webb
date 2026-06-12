@@ -205,8 +205,22 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
         { containerPort: 443, expose: "lan" },
         { containerPort: 80, expose: "lan" },
       ],
-      // Mount the cert-manager-issued TLS secret (CC-j934.5) for nginx.
-      extraSecretMounts: [{ secretName: "captive-portal-tls", mountPath: "/certs" }],
+      // Mount the cert-manager-issued TLS secret (CC-j934.5) for nginx. The
+      // secret is kubernetes.io/tls (keys tls.crt/tls.key), but the portal
+      // entrypoint + nginx expect the acme.sh filenames fullchain.pem/key.pem on
+      // /certs, so project the keys onto those paths (CC-j934.20). Without this
+      // rename the entrypoint never finds the real cert and stays on its
+      // self-signed placeholder.
+      extraSecretMounts: [
+        {
+          secretName: "captive-portal-tls",
+          mountPath: "/certs",
+          items: [
+            { key: "tls.crt", path: "fullchain.pem" },
+            { key: "tls.key", path: "key.pem" },
+          ],
+        },
+      ],
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {
