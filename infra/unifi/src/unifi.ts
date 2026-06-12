@@ -273,16 +273,24 @@ export function createGuestVlan(provider: unifi.Provider, args: GuestVlanArgs): 
     "www-guest",
     {
       name: "www-guest",
-      purpose: "guest",
+      // The UCG-Fiber does NOT honor a "guest" network purpose: it coerces it to
+      // "corporate" on write, which makes the provider see a perpetual purpose
+      // diff and try (and fail) to replace the network. Declare "corporate" to
+      // match what the controller stores; guest behavior lives on the WLAN
+      // (isGuest + l2Isolation) plus the isolation flag below (www-j934.3.2).
+      purpose: "corporate",
       subnet: args.subnet,
       vlanId: args.vlanId,
       dhcpEnabled: true,
       dhcpStart: args.dhcpStart,
       dhcpStop: args.dhcpStop,
-      // L2 isolation: guests can't reach each other or the default LAN. The one
-      // permitted cross-VLAN path (guest -> portal .147) is the scoped firewall
-      // rule in DESIGN §8, applied alongside the guest_access flip.
+      // Network isolation: keeps the VLAN off the default LAN. The one permitted
+      // cross-VLAN path (guest -> portal .147) is the scoped firewall rule below.
       networkIsolationEnabled: true,
+      // The controller defaults a network's mDNS reflector to ON. Declare it to
+      // match, otherwise the provider tries to remove it on every `pulumi up` and
+      // the bridged Update call 404s ("not found"), wedging the stack (www-j934.3.2).
+      multicastDns: true,
     },
     { provider },
   );
@@ -309,7 +317,9 @@ export function createGuestVlan(provider: unifi.Provider, args: GuestVlanArgs): 
       l2Isolation: true,
       userGroupId: "",
     },
-    { provider },
+    // The controller fills in its default user-group id, so our "" otherwise
+    // churns a perpetual update; ignore it (same provider round-trip artifact).
+    { provider, ignoreChanges: ["userGroupId"] },
   );
 
   // The SINGLE scoped cross-VLAN allowance (DESIGN §8): permit the guest VLAN to

@@ -92,7 +92,10 @@ describe("createGuestVlan (additive, gated, OPEN captive-portal guest net)", () 
       firewallRuleIndex: 2000,
     });
 
-    expect(await get<string>(guest.network, "purpose")).toBe("guest");
+    // "corporate" (not "guest"): the UCG coerces a guest purpose to corporate,
+    // so we declare what it stores to avoid a perpetual replace diff. Guest
+    // behavior is enforced on the WLAN + the isolation flag.
+    expect(await get<string>(guest.network, "purpose")).toBe("corporate");
     expect(await get<boolean>(guest.network, "networkIsolationEnabled")).toBe(true);
     expect(await get<number>(guest.network, "vlanId")).toBe(20);
 
