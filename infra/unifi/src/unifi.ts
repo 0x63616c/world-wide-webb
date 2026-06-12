@@ -243,9 +243,12 @@ export interface GuestVlanArgs {
   // DHCP range within the guest subnet.
   dhcpStart: string;
   dhcpStop: string;
-  // The guest SSID name + WPA passphrase (passphrase sourced from op at apply).
+  // The guest SSID name. www-guest is OPEN (no WPA), so no passphrase: access is
+  // gated by the captive portal (guest_access external portal, CC-q002.15), not
+  // a wifi password (CC-j934.3.2). `passphrase` is retained as optional only for
+  // a future WPA variant; when absent the SSID is created with `security: open`.
   ssid: string;
-  passphrase: pulumi.Input<string>;
+  passphrase?: pulumi.Input<string>;
   // The portal host the guest VLAN is allowed to reach pre-auth (DESIGN §8).
   portalHost: string; // "192.168.0.147"
   // First free index in the LAN-IN ruleset for the scoped allow rule.
@@ -284,15 +287,20 @@ export function createGuestVlan(provider: unifi.Provider, args: GuestVlanArgs): 
     { provider },
   );
 
+  // OPEN by default (no passphrase) so guests join freely and the captive portal
+  // gates them; a passphrase, if ever supplied, opts into WPA-PSK instead.
+  const hasPassphrase = args.passphrase !== undefined;
   const wlan = new unifi.Wlan(
     "www-guest",
     {
       name: args.ssid,
-      security: "wpapsk",
-      passphrase: args.passphrase,
+      security: hasPassphrase ? "wpapsk" : "open",
+      ...(hasPassphrase ? { passphrase: args.passphrase } : {}),
       networkId: network.id,
-      // Guest policy on: client isolation + guest-control behaviors.
+      // Guest policy on, plus explicit L2 client isolation so guests can't reach
+      // EACH OTHER (not just the LAN); on an open SSID that matters (CC-j934.3.2).
       isGuest: true,
+      l2Isolation: true,
       userGroupId: "",
     },
     { provider },
