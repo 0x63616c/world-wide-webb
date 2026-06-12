@@ -25,6 +25,12 @@ pre-commit:
       # BLOCKING: rejects reintroduction of Ofelia (replaced by k8s CronJobs,
       # CC-79k). The token is sanctioned only in the guard script itself.
       run: bash scripts/check-no-ofelia.sh {staged_files}
+    portal-nginx:
+      glob: "apps/captive-portal/*.conf"
+      # BLOCKING: the captive-portal nginx must stay k8s-correct, no Swarm-era
+      # `resolver 127.0.0.11` or $variable upstream (left every portal API call at
+      # nginx 500: "no host in upstream :4201"). CC-q002.25.
+      run: bash scripts/check-portal-nginx.sh
     no-home-address:
       # BLOCKING: rejects the private home-location name (any casing) so the home
       # address never re-enters the public repo. The blocked pattern is
