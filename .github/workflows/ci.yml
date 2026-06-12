@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: ["**"]
+  pull_request:
+    branches: ["**"]
   # Manual trigger: rebuild + (on main) redeploy on demand. Useful for a forced
   # redeploy or to re-run after a transient infra failure. force_all=true
   # rebuilds every image and runs `pulumi up`; force_all=false falls back to the
@@ -18,6 +20,11 @@ on:
 permissions:
   contents: read
   packages: write
+
+  # Pulumi PR previews post the diff as a pull request comment. Job-level
+  # permissions narrow this to the preview job, but declaring it here keeps the
+  # workflow's required token capabilities visible in one place.
+  pull-requests: write
 
 # Stop a superseded push from running builds in parallel: a newer push to the
 # same ref cancels the in-progress run instantly instead of letting both burn
@@ -132,6 +139,58 @@ jobs:
               - 'apps/**'
               - 'packages/**'
               - 'bun.lock'
+
+  # Pull-request infra preview: show the Pulumi diff before merge. This reuses
+  # the same tailnet + kubeconfig path as the main deploy job, but runs preview
+  # only and lets pulumi/actions maintain a single PR comment per branch update.
+  preview:
+    needs: [changes]
+    if: needs.changes.outputs.infra == 'true' && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Connect to Tailscale (ephemeral)
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          args: --accept-routes
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Write kubeconfig
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          mkdir -p "$HOME/.kube"
+          printf '%s' "$KUBECONFIG_B64" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Pulumi preview (prod)
+        uses: pulumi/actions@v7
+        with:
+          command: preview
+          stack-name: worldwidewebb/control-center/prod
+          work-dir: infra
+          comment-on-pr: true
+          comment-on-summary: true
+          diff: true
+          edit-pr-comment: true
+          always-include-summary: true
+          suppress-progress: true
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
   # Test gate: typecheck + full vitest suite with coverage. Runs on every push
   # (the repo previously built and DEPLOYED without ever running tests). Deploy
