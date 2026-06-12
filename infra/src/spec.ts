@@ -58,6 +58,24 @@ export interface VolumeSpec {
   readOnly?: boolean;
 }
 
+/**
+ * An init container: runs to completion before the workload's main container
+ * starts, making its outcome a structural precondition of serving. First user:
+ * web's map-provision (www-hn1i), which guarantees the basemap exists in the
+ * maps PVC before nginx serves, a fresh stack self-provisions, nothing manual.
+ * Deliberately minimal (no secrets/ports/resources): an init that needs those
+ * is a workload, not a precondition.
+ */
+export interface InitContainerSpec {
+  name: string;
+  image: string;
+  command?: string[];
+  env?: Record<string, string>;
+  // Claim-named PVC mounts only (the render layer rejects NFS here: an NFS PV
+  // pair belongs to a workload/cron declaration, not a precondition check).
+  volumes?: VolumeSpec[];
+}
+
 /** A declared workload: the single typed place a service is described. */
 export interface WorkloadSpec {
   // Stable name (k8s object name + label selector).
@@ -92,6 +110,9 @@ export interface WorkloadSpec {
     mountPath: string;
     items?: { key: string; path: string }[];
   }[];
+  // Init containers run to completion, in order, before the main container
+  // starts (www-hn1i). First user: web's map-provision.
+  initContainers?: InitContainerSpec[];
 }
 
 /**
@@ -127,4 +148,9 @@ export interface CronJobSpec {
     mountPath: string;
     items?: { key: string; path: string }[];
   }[];
+  // imagePullSecret names for private images (GHCR), mirroring WorkloadSpec.
+  // Crons on GHCR images previously leaned on public package visibility; a
+  // NEW package is born private on first push, so a cron pulling one must
+  // carry the pull secret or its first scheduled run ImagePullBackOffs (www-hn1i).
+  imagePullSecrets?: string[];
 }

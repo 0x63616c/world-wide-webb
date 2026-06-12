@@ -40,6 +40,7 @@ jobs:
       storybook: ${{ steps.filter.outputs.storybook }}
       drizzle: ${{ steps.filter.outputs.drizzle }}
       captiveportal: ${{ steps.filter.outputs.captiveportal }}
+      mapprovision: ${{ steps.filter.outputs.mapprovision }}
       # infra-only changes (Pulumi program / specs) deploy without any image
       # rebuild: a `pulumi up` must still converge the declared stack.
       infra: ${{ steps.filter.outputs.infra }}
@@ -119,6 +120,11 @@ jobs:
             captiveportal:
               - 'apps/captive-portal/**'
               - 'bun.lock'
+            # Basemap provisioner (www-hn1i): a self-contained alpine + pmtiles
+            # CLI + sh image, no workspace deps, so it rebuilds solely on its
+            # own tree (mirrors drizzle).
+            mapprovision:
+              - 'apps/map-provision/**'
             # any_app is true when at least one image needs to be built. An
             # infra-only change is handled by the separate `infra` filter above,
             # the deploy job fires on `any_app || infra`.
@@ -179,6 +185,13 @@ jobs:
         # (bash), runs before the slow Playwright install. Mirrors the
         # test-kiosk-health gate in ios-build.yml.
         run: bash scripts/test-orbstack-watchdog.sh
+      - name: Basemap provisioner tests
+        # Hermetic self-test of the map-provision script (www-hn1i): runtime
+        # build resolution (no date pin to rot), if-missing/force modes, the
+        # newest→previous fallback, atomic rename, and the nginx /maps/ loud-404.
+        # Stubbed curl/pmtiles, no network. Fast (bash), runs before the slow
+        # Playwright install. Mirrors the orbstack-watchdog gate above.
+        run: bash scripts/test-map-provision.sh
       - name: Captive-portal LAN-edge proxy topology tests
         # Hermetic self-test of the portal-lan TLS-on-:42069 + http->https
         # redirect topology (www-q002.22), no real docker. Pins that the LAN edge
@@ -465,6 +478,39 @@ jobs:
           cache-from: type=gha,scope=captive-portal
           cache-to: type=gha,mode=max,scope=captive-portal
 
+  build-map-provision:
+    needs: [changes, test]
+    if: needs.changes.outputs.mapprovision == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      # Native arm64 runner (deploy target is the arm64 Mac Mini), same as the
+      # other image builds; no QEMU emulation (www-4yt).
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build and push map-provision image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/map-provision/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ghcr.io/0x63616c/control-center-map-provision:${{ github.sha }}
+            ghcr.io/0x63616c/control-center-map-provision:${{ github.ref_name == 'main' && 'main' || github.sha }}
+          cache-from: type=gha,scope=map-provision
+          cache-to: type=gha,mode=max,scope=map-provision
+
   # After the images build on main, deploy to the homelab k3s cluster with
   # `pulumi up` (www-j934.14). The runner joins the tailnet with an EPHEMERAL
   # Tailscale key (auto-revoked when the job ends), reaches the kube-apiserver
@@ -475,7 +521,7 @@ jobs:
   # declarative-convergent, so the latest green run always reconciles prod to the
   # committed digests, no deploy marker needed (www-bom8 retired).
   deploy:
-    needs: [changes, test, build-web, build-api, build-worker, build-media-worker, build-storybook, build-drizzle, build-captive-portal]
+    needs: [changes, test, build-web, build-api, build-worker, build-media-worker, build-storybook, build-drizzle, build-captive-portal, build-map-provision]
     # always() lets us run even when some build jobs were skipped (no changes).
     # We proceed when: on main, an app OR infra changed, and no build failed.
     if: |
@@ -508,7 +554,7 @@ jobs:
           # service KEY matches the deploy.config/ghcr() name (control-center-<svc>
           # -> <svc>), which is the Pulumi imageDigests config key.
           declare -A out=()
-          for name in web api worker media-worker storybook drizzle captive-portal; do
+          for name in web api worker media-worker storybook drizzle captive-portal map-provision; do
             d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/control-center-$name:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
             if [ -n "$d" ]; then
               out[$name]="$d"
