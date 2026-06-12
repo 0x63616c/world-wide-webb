@@ -15,8 +15,8 @@
 
 import type * as k8s from "@pulumi/kubernetes";
 import type * as pulumi from "@pulumi/pulumi";
+import type { CronJobSpec } from "./component.ts";
 import { ScheduledJob } from "./component.ts";
-import type { CronJobSpec } from "./spec.ts";
 
 // GHCR image ref (mutable :main tag; CI digest-pins at deploy). Mirrors services.ts.
 const ghcr = (name: string) => `ghcr.io/0x63616c/control-center-${name}:main`;
@@ -160,7 +160,7 @@ export interface CronsResources {
 export function deployCrons(args: CronsArgs): CronsResources {
   const { provider, namespace, nasNfsServer } = args;
   const jobs = cronSpecs(nasNfsServer).map(
-    (spec) => new ScheduledJob({ spec, provider, namespace }, { provider }),
+    (spec) => new ScheduledJob({ ...spec, provider, namespace }, { provider }),
   );
   return { jobs };
 }

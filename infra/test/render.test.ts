@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { renderExternalService, renderWorkload } from "../src/render.ts";
+import type { WorkloadSpec } from "../src/component.ts";
+import { renderExternalService, renderWorkload } from "../src/component.ts";
 import { serviceSpecs } from "../src/services.ts";
-import type { WorkloadSpec } from "../src/spec.ts";
 
 // The mapping layer is pure: a WorkloadSpec -> the kubernetes resource ARG
 // objects (Deployment + Services), with no Pulumi instantiation. This is the
