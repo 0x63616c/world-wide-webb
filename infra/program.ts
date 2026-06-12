@@ -76,6 +76,11 @@ const services = deployServices({
   namespace: APP_NAMESPACE,
   mediaWorkerReplicas: cfg.getNumber("mediaWorkerReplicas") ?? 0,
   cloudflaredReplicas: cfg.getNumber("cloudflaredReplicas") ?? 2,
+  // storybook/drizzle default to 0: trimmed 8GB steady-state so the control plane
+  // survives a cold reboot (CC-j934.9). Both are Access-gated dev tools; bring up
+  // on demand via `pulumi config set ccinfra:storybookReplicas 1` (or drizzle).
+  storybookReplicas: cfg.getNumber("storybookReplicas") ?? 0,
+  drizzleReplicas: cfg.getNumber("drizzleReplicas") ?? 0,
   nasNfsServer,
   imageDigests: cfg.getObject<Record<string, string>>("imageDigests") ?? {},
 });

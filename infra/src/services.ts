@@ -82,10 +82,17 @@ const mount = (names: string[]) => names.map((name) => ({ name, ref: "eso" }));
  *   limit (DESIGN 5c) does not apply to PV mounts. CC-j934.17.
  * - imageDigests: CI-supplied digest pin map (name -> sha256:…); absent in local
  *   applies, where every image falls back to the :main tag. CC-j934.14.
+ * - storybookReplicas / drizzleReplicas: trim knobs for the 8GB steady-state
+ *   (CC-j934.9). Both are Access-gated internal/dev tools, not prod-critical, so
+ *   they default to 0 to leave the control plane ~1-2GB headroom to survive a
+ *   cold reboot. Bring either up on demand with `pulumi config set
+ *   ccinfra:<svc>Replicas 1`.
  */
 export interface ServiceSpecOptions {
   mediaWorkerReplicas: number;
   cloudflaredReplicas: number;
+  storybookReplicas: number;
+  drizzleReplicas: number;
   nasNfsServer: string;
   imageDigests?: ImageDigests;
 }
@@ -95,6 +102,8 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
   const {
     mediaWorkerReplicas,
     cloudflaredReplicas,
+    storybookReplicas,
+    drizzleReplicas,
     nasNfsServer,
     imageDigests: digests = {},
   } = opts;
@@ -179,7 +188,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
     {
       name: "storybook",
       image: ghcr("storybook", digests),
-      replicas: 1,
+      replicas: storybookReplicas,
       resources: { memory: "96M" },
       env: { TZ },
       ports: [{ containerPort: 6006, expose: "cluster" }],
@@ -203,7 +212,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
     {
       name: "drizzle",
       image: ghcr("drizzle", digests),
-      replicas: 1,
+      replicas: drizzleReplicas,
       resources: { memory: "256M" },
       secrets: mount(["MASTERPASS", "POSTGRES_PASSWORD"]),
       env: { TZ, POSTGRES_HOST },
@@ -241,6 +250,11 @@ export interface ServicesArgs {
   // cloudflared replicas: 0 for a pre-cutover bring-up (no live-token split with
   // Swarm), 2 (HA) at the cutover (CC-j934.9 / DESIGN §7).
   cloudflaredReplicas: number;
+  // storybook/drizzle replicas: 0 by default to trim the 8GB steady-state so the
+  // control plane survives a cold reboot (CC-j934.9); both are Access-gated dev
+  // tools, brought up on demand.
+  storybookReplicas: number;
+  drizzleReplicas: number;
   // NFS server for the media share: NAS LAN IP by default; kubelet mounts the PV
   // from the node netns, which reaches the LAN on homelab (DESIGN 5b/5c, CC-j934.17).
   nasNfsServer: string;
@@ -273,6 +287,8 @@ export function deployServices(args: ServicesArgs): ServicesResources {
     namespace,
     mediaWorkerReplicas,
     cloudflaredReplicas,
+    storybookReplicas,
+    drizzleReplicas,
     nasNfsServer,
     imageDigests,
   } = args;
@@ -332,6 +348,8 @@ export function deployServices(args: ServicesArgs): ServicesResources {
   const workloads = serviceSpecs({
     mediaWorkerReplicas,
     cloudflaredReplicas,
+    storybookReplicas,
+    drizzleReplicas,
     nasNfsServer,
     imageDigests,
   }).map((spec) => new Workload({ spec, provider, namespace }, opts));
