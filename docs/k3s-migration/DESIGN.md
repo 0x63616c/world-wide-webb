@@ -145,7 +145,7 @@ never a literal in the public repo (no-personal-email guard).
 | **docker-image-prune** | **DELETED** | - | kubelet image GC replaces it (high 85% / low 80%, eval 5m). External prune tools break kubelet's accounting (RECON decision 7); no image-prune CronJob exists in k3s. |
 | **portal-data-purge** | `CronJob` | `0 2 * * *` | runs the api image, `command: bun purge.js`; needs POSTGRES_PASSWORD only. `concurrencyPolicy: Forbid`, `restartPolicy: Never`, history limits 3/1. |
 | **portal-cert-renew** | **cert-manager** `Certificate` + DNS-01 `ClusterIssuer` | continuous (renewBefore window) | acme.sh cron retired; cert-manager issues/renews `captive-portal.worldwidewebb.co` and writes the secret cert-manager-side. The portal mounts that secret (§5a). |
-| **map-extract** | `CronJob` (manual-trigger; rare cron `0 5 1 1 *`) | yearly placeholder | go-pmtiles `extract` into the `maps` PV. Driven manually via `kubectl create job --from=cronjob/map-extract`. `suspend: true` is acceptable since it's manual-only; keep the cron as the declarative record of the recipe. |
+| **map-extract** | `CronJob` (monthly, `23 5 3 * *`) | monthly refresh | **superseded by www-hn1i:** runs the in-repo `map-provision` image in force mode, resolves the newest Protomaps build at runtime (a pinned date rots in ~7 days), extracts into the `maps` PV atomically. First-provision is the web pod's `map-provision` initContainer (if-missing mode), so nothing is manual; `kubectl create job --from=cronjob/map-extract` remains for ad-hoc refresh. |
 
 `TZ=America/Los_Angeles` is set as a pod env on every workload that has it today (api,
 worker, media-worker, portal-data-purge), preserving the weather-ingest LA-local parsing.

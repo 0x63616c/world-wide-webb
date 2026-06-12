@@ -4,29 +4,41 @@ The Tesla tile's live map (`TeslaMap.tsx`) renders a [Protomaps](https://protoma
 `.pmtiles` basemap via MapLibre GL over HTTP range requests. **No API key.**
 
 The `.pmtiles` files are **gitignored** (hundreds of MB → too large for GitHub's
-100 MB/file limit and LFS bandwidth quotas). They are hosted locally for now;
-production hosting on the homelab is tracked by **www-gma**.
+100 MB/file limit and LFS bandwidth quotas).
 
-## Current file
+## Production: self-provisioning (www-hn1i)
 
-- `socal.pmtiles` — Southern California extract, street-level (maxzoom 15), ~561 MB.
-
-## Rebuild / regenerate
-
-Requires the `pmtiles` CLI (`brew install pmtiles`). Extract a region from the
-Protomaps daily planet build (pick a recent date from <https://build.protomaps.com>):
+Prod never serves a file from this directory. The web pod's `map-provision`
+initContainer (`apps/map-provision/`) extracts `socal.pmtiles` into the `maps`
+PVC before nginx starts (if-missing mode, instant no-op once provisioned), and
+the monthly `map-extract` CronJob re-extracts in force mode. The Protomaps
+build date is **resolved at runtime** from their build-metadata index ,
+Protomaps deletes daily builds after ~7 days, so a hardcoded date rots (that
+pin is what originally broke the prod map). Ad-hoc refresh:
 
 ```bash
-# SoCal (current)
+kubectl create job --from=cronjob/map-extract map-extract-manual -n control-center
+```
+
+nginx serves `/maps/` with a real 404 when the file is missing (no SPA
+index.html fallback), so a provisioning failure is loud.
+
+## Local dev
+
+- `socal.pmtiles`, Southern California extract, street-level (maxzoom 15), ~561 MB.
+
+Requires the `pmtiles` CLI (`brew install pmtiles`). Extract a region from a
+recent Protomaps daily planet build (list: <https://maps.protomaps.com/builds/>):
+
+```bash
 pmtiles extract "https://build.protomaps.com/<YYYYMMDD>.pmtiles" \
   apps/web/public/maps/socal.pmtiles \
   --bbox=-121.0,32.4,-114.0,35.9 --maxzoom=15
-
-# Full CA + AZ + NV (www-gma — ~1-3 GB, host on homelab, do NOT commit)
-pmtiles extract "https://build.protomaps.com/<YYYYMMDD>.pmtiles" \
-  apps/web/public/maps/socal.pmtiles \
-  --bbox=-124.5,31.3,-109.0,42.1 --maxzoom=15
 ```
 
+Wider CA + AZ + NV extent (~1-3 GB, never commit) is tracked by **www-gma**
+(needs a `maps` PVC resize first).
+
 The map source URL in `TeslaMap.tsx` is `pmtiles:///maps/socal.pmtiles` (served
-from this directory). Map data © OpenStreetMap contributors.
+from this directory in dev, from the PVC in prod). Map data © OpenStreetMap
+contributors.

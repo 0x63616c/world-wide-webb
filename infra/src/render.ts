@@ -4,7 +4,13 @@
 // feeds these args straight into @pulumi/kubernetes. Keeping the mapping pure and
 // the Pulumi instantiation thin keeps a clean spec/render split.
 
-import type { CronJobSpec, SecretRef, VolumeSpec, WorkloadSpec } from "./spec.ts";
+import type {
+  CronJobSpec,
+  InitContainerSpec,
+  SecretRef,
+  VolumeSpec,
+  WorkloadSpec,
+} from "./spec.ts";
 
 // Minimal structural types for the k8s arg objects we emit. We type only the
 // fields the stack actually sets; @pulumi/kubernetes accepts these shapes.
@@ -43,6 +49,7 @@ interface DeploymentArgs {
       metadata: { labels: Record<string, string> };
       spec: {
         containers: Container[];
+        initContainers?: Container[];
         volumes: PodVolume[];
         imagePullSecrets?: { name: string }[];
         automountServiceAccountToken?: boolean;
@@ -238,10 +245,49 @@ function buildPod(p: PodInputs): {
   return { container, podVolumes, persistentVolumes, persistentVolumeClaims };
 }
 
+// Map an InitContainerSpec to a Container + its pod volumes. Volume names are
+// prefixed `init<idx>-` so two containers mounting the SAME claim (e.g. the
+// map-provision init writing the `maps` PVC the web container reads) get
+// distinct pod-volume entries instead of a duplicate-name conflict. Claim
+// mounts only: an NFS PV pair belongs to a workload/cron, not a precondition.
+function buildInitContainer(
+  ic: InitContainerSpec,
+  idx: number,
+): { container: Container; podVolumes: PodVolume[] } {
+  const volumeMounts: VolumeMount[] = [];
+  const podVolumes: PodVolume[] = [];
+  for (const [j, vol] of (ic.volumes ?? []).entries()) {
+    if (!vol.claim) {
+      throw new Error(`initContainer ${ic.name}: only claim-named PVC volumes are supported`);
+    }
+    const volName = `init${idx}-vol-${j}`;
+    volumeMounts.push({
+      name: volName,
+      mountPath: vol.mountPath,
+      ...(vol.readOnly ? { readOnly: true } : {}),
+      ...(vol.subPath ? { subPath: vol.subPath } : {}),
+    });
+    podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: vol.claim } });
+  }
+  return {
+    container: {
+      name: ic.name,
+      image: ic.image,
+      ...(ic.command ? { command: ic.command } : {}),
+      env: Object.entries(ic.env ?? {}).map(([name, value]) => ({ name, value })),
+      resources: { limits: {}, requests: {} },
+      volumeMounts,
+    },
+    podVolumes,
+  };
+}
+
 export function renderWorkload(w: WorkloadSpec): RenderedWorkload {
   const labels = { app: w.name };
 
   const { container, podVolumes, persistentVolumes, persistentVolumeClaims } = buildPod(w);
+
+  const inits = (w.initContainers ?? []).map((ic, i) => buildInitContainer(ic, i));
 
   const deployment: DeploymentArgs = {
     metadata: { name: w.name, labels },
@@ -252,7 +298,8 @@ export function renderWorkload(w: WorkloadSpec): RenderedWorkload {
         metadata: { labels },
         spec: {
           containers: [container],
-          volumes: podVolumes,
+          ...(inits.length > 0 ? { initContainers: inits.map((i) => i.container) } : {}),
+          volumes: [...podVolumes, ...inits.flatMap((i) => i.podVolumes)],
           ...(w.imagePullSecrets && w.imagePullSecrets.length > 0
             ? { imagePullSecrets: w.imagePullSecrets.map((name) => ({ name })) }
             : {}),
@@ -308,6 +355,7 @@ interface CronJobArgs {
             volumes: PodVolume[];
             restartPolicy: "Never";
             automountServiceAccountToken: boolean;
+            imagePullSecrets?: { name: string }[];
           };
         };
       };
@@ -351,6 +399,9 @@ export function renderCronJob(c: CronJobSpec): RenderedCronJob {
               // /run/secrets read-only, blocking the SA mountpoint ->
               // ContainerCannotRun). Mirrors renderWorkload (www-j934.6 / .7).
               automountServiceAccountToken: false,
+              ...(c.imagePullSecrets && c.imagePullSecrets.length > 0
+                ? { imagePullSecrets: c.imagePullSecrets.map((name) => ({ name })) }
+                : {}),
             },
           },
         },
