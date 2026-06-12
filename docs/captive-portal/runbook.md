@@ -80,13 +80,29 @@ The world moved on since the 2026-06-10 plan below: the guest SSID is now **OPEN
 curls. Net state:
 
 - **DONE + live:** `www-guest` open WLAN (VLAN 20, `192.168.20.1/24`, client +
-  network isolation), the cross-VLAN firewall pinhole `guest -> 192.168.0.147:80,443`
-  (idx 22000), the Mini `.147` DHCP reservation, and the split-horizon DNS record
-  `captive-portal.worldwidewebb.co -> 192.168.0.147`. The portal app answers HTTP
-  200 at both `https://192.168.0.147/` and the hostname.
+  network isolation; UniFi network name `guest`), the cross-VLAN firewall pinhole
+  `guest -> 192.168.0.147:80,443` (idx 22000), the Mini `.147` DHCP reservation,
+  and the split-horizon DNS record `captive-portal.worldwidewebb.co -> 192.168.0.147`.
+  The portal app answers HTTP 200 at both `https://192.168.0.147/` and the hostname.
 - **WiFi-password step is GONE:** www-guest is open, so `scripts/save-wifi-guest.sh`
   / mirroring a WLAN password no longer applies. Access is gated by the portal, not
   a passphrase.
+
+### Apple Captive Network Assistant compatibility (CC-q002.26)
+
+The iOS captive sheet uses Apple's Captive Network Assistant (CNA), not Safari.
+In real-device logs it fetched `/guest/s/default/` with a `CaptiveNetworkSupport`
+UA but did not request the Vite module bundle, CSS, fonts, or API. The production
+portal therefore must keep both:
+
+- Vite legacy output: `@vitejs/plugin-legacy` emits `nomodule` scripts plus
+  `vite-legacy-polyfill` and `vite-legacy-entry`.
+- CNA classic loader: `index.html` includes a plain classic script,
+  `script_cna_legacy_loader`, which waits briefly and then loads the legacy
+  polyfill + entry if the modern React entry did not set `window.__ccPortalBooted`.
+
+Do not convert the CNA loader to module syntax or modern-only JS. It is deliberately
+ES5-style because it exists for the WebView path that skipped the module entry.
 
 ### External-portal flip: BLOCKED on a 30-second console step (by design)
 
