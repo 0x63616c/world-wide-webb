@@ -56,7 +56,9 @@ if (cfg.getBoolean("applyGuest")) {
     dhcpStart: cfg.require("guestDhcpStart"),
     dhcpStop: cfg.require("guestDhcpStop"),
     ssid: cfg.get("guestSsid") ?? "www-guest",
-    passphrase: cfg.requireSecret("guestPassphrase"),
+    // OPEN network: no passphrase (www-j934.3.2). `guestPassphrase` is optional:
+    // set it only to opt into WPA-PSK instead; unset => an open, portal-gated SSID.
+    passphrase: cfg.getSecret("guestPassphrase"),
     // The portal host the guest VLAN may reach pre-auth (split-horizon DNS
     // resolves captive-portal.worldwidewebb.co to this for guest clients too).
     portalHost: cfg.get("portalHost") ?? "192.168.0.147",

@@ -73,15 +73,17 @@ describe("adoptExisting", () => {
   });
 });
 
-describe("createGuestVlan (additive, gated)", () => {
-  test("isolated guest network + guest SSID + the single scoped portal allow rule", async () => {
+describe("createGuestVlan (additive, gated, OPEN captive-portal guest net)", () => {
+  test("OPEN isolated guest SSID (no passphrase) + the single scoped portal allow rule", async () => {
+    // No passphrase: www-guest is an OPEN network. Access is gated by the
+    // captive portal (guest_access external portal, www-q002.15), not a wifi
+    // password (www-j934.3.2).
     const guest = mod.createGuestVlan(testProvider(), {
       vlanId: 20,
       subnet: "192.168.20.1/24",
       dhcpStart: "192.168.20.6",
       dhcpStop: "192.168.20.254",
       ssid: "www-guest",
-      passphrase: "test-only-not-real",
       portalHost: "192.168.0.147",
       firewallRuleIndex: 2000,
     });
@@ -90,7 +92,13 @@ describe("createGuestVlan (additive, gated)", () => {
     expect(await get<boolean>(guest.network, "networkIsolationEnabled")).toBe(true);
     expect(await get<number>(guest.network, "vlanId")).toBe(20);
 
+    // OPEN security, no WPA password; still a guest network (client isolation +
+    // guest-control behaviors), so guests are isolated and portal-gated.
+    expect(await get<string>(guest.wlan, "security")).toBe("open");
     expect(await get<boolean>(guest.wlan, "isGuest")).toBe(true);
+    // Explicit client isolation: guests can't reach each other on the open SSID.
+    expect(await get<boolean>(guest.wlan, "l2Isolation")).toBe(true);
+    expect(await get<string | undefined>(guest.wlan, "passphrase")).toBeFalsy();
 
     // The one scoped cross-VLAN allowance: guest -> portal .147 on 80/443.
     expect(await get<string>(guest.portalAllowRule, "action")).toBe("accept");
