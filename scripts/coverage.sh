@@ -16,10 +16,6 @@ cd "$(dirname "$0")/.."
 
 rm -rf .vitest-reports coverage
 
-# Raise per-worker heap so v8 coverage + jsdom teardown does not OOM after tests
-# pass (CC-ddo9.3). Default V8 heap saturates at ~4GB on this suite.
-export NODE_OPTIONS='--max-old-space-size=8192'
-
 # 1) Unit projects (jsdom) -> blob
 bunx vitest run --coverage --reporter=blob --outputFile=.vitest-reports/unit.json
 

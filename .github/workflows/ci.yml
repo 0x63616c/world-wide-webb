@@ -142,19 +142,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
-    # The coverage run (scripts/coverage.sh) OOM-kills the test job, blocking the
-    # deploy that depends on it (CC-dasj). It's NOT worker fan-out (maxWorkers=2)
-    # and NOT a leak: apps/web is pinned to a SINGLE fork that accumulates jsdom +
-    # React module state + v8-coverage data across the whole web suite, and that
-    # suite grew past the heap (4GB default, then 6GB), bounded-large, not
-    # unbounded. `bun run test` passes locally because it uses 8GB heap AND no
-    # coverage; CI adds v8 instrumentation on top with less heap. ubuntu-latest
-    # has 16GB RAM and only the one web fork is large (sibling project forks are
-    # tiny), so a 12GB heap for that process is safe headroom. Durable fix ,
-    # reduce per-fork accumulation (recycle the fork / split the web suite), is
-    # tracked on CC-dasj; this stops chasing the heap every time the suite grows.
-    env:
-      NODE_OPTIONS: --max-old-space-size=12288
     steps:
       - uses: actions/checkout@v4
         with:

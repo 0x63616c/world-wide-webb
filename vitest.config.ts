@@ -15,32 +15,12 @@ export default defineConfig({
       // needed; a second entry would double-run those tests.
       "infra",
     ],
-    // Cap worker fan-out. vitest spawns ~1 fork per core by default (~0.5-1GB
-    // each with jsdom + v8 coverage); once the suite grew (media-ingest +
-    // Spotify/Sonos/AppleTV) that fan-out OOM-kills CI's runner - the coverage
-    // run writes its blob then dies, surfacing as a non-deterministic "exited
-    // with code 1" that passes on a 32GB dev box but fails in CI. The web
-    // project alone peaks at ~12GB per worker, so 2 concurrent workers saturate
-    // the machine. Pinned to 1 serial fork (CC-ddo9.5; original cap was CC-kp4k).
-    maxWorkers: 1,
-    minWorkers: 1,
-    // Per-project poolOptions are ignored in workspace mode - only the root pool
-    // config applies. The execArgv must live here so fork workers get the heap
-    // ceiling; without it they crash at node's 4GB default (CC-ddo9.5).
+    // 2 workers: measured peak RSS is ~1.5GB per worker (jsdom + React +
+    // v8 coverage), so 2 workers use ~3GB total, well within CI's 16GB runner.
+    // Serial (maxWorkers: 1) was previously set based on a stale ~12GB/worker
+    // estimate that didn't match actual measurements.
+    maxWorkers: 2,
     pool: "forks",
-    poolOptions: {
-      forks: {
-        // Single fork: the web suite loads jsdom+React+v8-coverage which peaks
-        // at ~12GB per worker; two concurrent workers saturate the 32GB dev box
-        // and OOM-kill CI. Serial is slower but deterministic (CC-ddo9.5).
-        maxForks: 1,
-        minForks: 1,
-        // Raise fork worker heap so the full jsdom+v8-coverage module graph fits.
-        // NODE_OPTIONS is set by the root test script but child_process.fork()
-        // workers need the flag passed explicitly via execArgv (CC-ddo9.5).
-        execArgv: ["--max-old-space-size=12288"],
-      },
-    },
     // Coverage config lives here (not as CLI flags) so it can carry include/
     // exclude + thresholds; per-project config is ignored once `projects` is set,
     // so the root config is the only one that matters (CC-355t.11). Without an
