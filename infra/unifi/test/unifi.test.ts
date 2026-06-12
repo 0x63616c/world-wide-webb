@@ -47,8 +47,10 @@ describe("IMPORT_IDS", () => {
 });
 
 describe("adoptExisting", () => {
-  test("returns the adopted handles + all 21 fixed-IP users, no rsyslogd", () => {
-    const reservations = Array.from({ length: 21 }, (_, i) => ({
+  test("adopts 1:1 over the passed fixed-IP reservations, no rsyslogd", () => {
+    // Count-agnostic: adopt maps exactly the reservations the program hands it
+    // (the live baseline is 2 today, homeassistant .147 + NAS .218; www-j934.3.1).
+    const reservations = Array.from({ length: 2 }, (_, i) => ({
       logicalName: `client-${i}`,
       importId: `id-${i}`,
       mac: `00:00:00:00:00:${i.toString(16).padStart(2, "0")}`,
@@ -58,7 +60,7 @@ describe("adoptExisting", () => {
     expect(adopted.worldWideWebbWlan).toBeDefined();
     expect(adopted.captivePortalDns).toBeDefined();
     expect(adopted.guestAccess).toBeDefined();
-    expect(adopted.fixedIpUsers).toHaveLength(21);
+    expect(adopted.fixedIpUsers).toHaveLength(reservations.length);
     expect((adopted as unknown as Record<string, unknown>).rsyslogd).toBeUndefined();
   });
 
