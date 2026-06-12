@@ -141,8 +141,8 @@ jobs:
               - 'bun.lock'
 
   # Pull-request infra preview: show the Pulumi diff before merge. This reuses
-  # the same tailnet + kubeconfig path as the main deploy job, but runs preview
-  # only and lets pulumi/actions maintain a single PR comment per branch update.
+  # the same tailnet + kubeconfig + GHCR digest-pin path as the main deploy job,
+  # but runs preview only and posts/updates a single PR comment per branch update.
   preview:
     needs: [changes]
     if: needs.changes.outputs.infra == 'true' && github.event_name == 'pull_request'
@@ -150,6 +150,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+      packages: read
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
@@ -169,6 +170,30 @@ jobs:
       - name: Install deps
         run: bun install --frozen-lockfile
 
+      - name: Log in to ghcr.io (read manifests)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Collect image digests
+        id: digests
+        run: |
+          declare -A out=()
+          for name in web api worker media-worker storybook drizzle captive-portal map-provision; do
+            d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/control-center-$name:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
+            if [ -n "$d" ]; then
+              out[$name]="$d"
+            fi
+          done
+          json='{}'
+          for k in "${!out[@]}"; do
+            json=$(jq -cn --argjson cur "$json" --arg k "$k" --arg v "${out[$k]}" '$cur + {($k): $v}')
+          done
+          echo "Image digests: $json"
+          echo "map=$json" >> "$GITHUB_OUTPUT"
+
       - name: Write kubeconfig
         env:
           KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
@@ -177,20 +202,77 @@ jobs:
           printf '%s' "$KUBECONFIG_B64" | base64 -d > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
 
-      - name: Pulumi preview (prod)
+      - name: Install Pulumi CLI
         uses: pulumi/actions@v7
-        with:
-          command: preview
-          stack-name: worldwidewebb/control-center/prod
-          work-dir: infra
-          comment-on-pr: true
-          comment-on-summary: true
-          diff: true
-          edit-pr-comment: true
-          always-include-summary: true
-          suppress-progress: true
+
+      - name: Write preview config
+        env:
+          DIGEST_MAP: ${{ steps.digests.outputs.map }}
+          PREVIEW_CONFIG: ${{ runner.temp }}/Pulumi.preview.yaml
+        run: |
+          ruby -ryaml -rjson -e '
+            data = YAML.load_file("infra/Pulumi.prod.yaml")
+            data.fetch("config")["ccinfra:imageDigests"] = JSON.parse(ENV.fetch("DIGEST_MAP"))
+            File.write(ENV.fetch("PREVIEW_CONFIG"), data.to_yaml)
+          '
+          echo "PREVIEW_CONFIG=$PREVIEW_CONFIG" >> "$GITHUB_ENV"
+
+      - name: Pulumi preview (prod)
+        id: preview
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+        run: |
+          set +e
+          pulumi login
+          pulumi preview --stack prod --diff --config-file "$PREVIEW_CONFIG" --suppress-progress --cwd infra 2>&1 | tee "$RUNNER_TEMP/pulumi-preview.txt"
+          status=${PIPESTATUS[0]}
+          {
+            echo "status=$status"
+            echo "output<<EOF"
+            sed -E 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/pulumi-preview.txt"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Post Pulumi preview comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PREVIEW_STATUS: ${{ steps.preview.outputs.status }}
+          PREVIEW_OUTPUT: ${{ steps.preview.outputs.output }}
+        run: |
+          marker='<!-- control-center-pulumi-preview -->'
+          status_icon=':white_check_mark:'
+          if [ "$PREVIEW_STATUS" != "0" ]; then
+            status_icon=':x:'
+          fi
+
+          body=$(cat <<EOF
+          $marker
+          #### $status_icon Pulumi preview on \`worldwidewebb/control-center/prod\`
+
+          <details open>
+          <summary>Pulumi report</summary>
+
+          \`\`\`
+          $PREVIEW_OUTPUT
+          \`\`\`
+
+          </details>
+          EOF
+          )
+
+          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate \
+            --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -n 1)
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" >/dev/null
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -f body="$body" >/dev/null
+          fi
+
+      - name: Fail if Pulumi preview failed
+        if: steps.preview.outputs.status != '0'
+        run: exit 1
 
   # Test gate: typecheck + full vitest suite with coverage. Runs on every push
   # (the repo previously built and DEPLOYED without ever running tests). Deploy
