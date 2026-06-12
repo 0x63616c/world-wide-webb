@@ -1,14 +1,16 @@
 // Pulumi program for the control-center-unifi project (CC-j934.3).
 //
 // ADOPT-ONLY import of the live UCG-Fiber config (GOAL.md Boundary 1): declares
-// the existing Network / WLAN / DNS / 21 fixed-IP Users / rsyslogd /
+// the existing Network / WLAN / DNS / fixed-IP Users / rsyslogd /
 // guest_access as imported, protected resources. The first `pulumi preview`
 // after import MUST be zero-diff before ANY apply.
 //
-// The 21 DHCP reservations carry client MACs (network internals), so they are
+// The DHCP reservations carry client MACs (network internals), so they are
 // NOT committed to this public repo: the program reads them at apply time from
 // a local manifest (default: ~/cc-j934-unifi-baseline/fixed-ip-manifest.json,
-// override with UNIFI_FIXED_IP_MANIFEST). The provider creds come from env,
+// override with UNIFI_FIXED_IP_MANIFEST). The manifest holds ONLY genuine
+// `use_fixedip` reservations (derived via scripts/gen-fixed-ip-manifest.ts, the
+// single source of truth; CC-j934.3.1). The provider creds come from env,
 // sourced from op://Homelab/UniFi (never printed, never committed):
 //   UNIFI_API_URL  = op://Homelab/UniFi/controller_url  (https://192.168.0.1)
 //   UNIFI_API_KEY  = op://Homelab/UniFi/local_api_key
@@ -20,21 +22,15 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import * as pulumi from "@pulumi/pulumi";
+import type { FixedIpReservation } from "./src/manifest.ts";
 import { adoptExisting, createGuestVlan, makeProvider } from "./src/unifi.ts";
 
-interface FixedIpEntry {
-  logicalName: string;
-  importId: string;
-  mac: string;
-  name?: string;
-}
-
-function loadFixedIpReservations(): FixedIpEntry[] {
+function loadFixedIpReservations(): FixedIpReservation[] {
   const path =
     process.env.UNIFI_FIXED_IP_MANIFEST ??
     join(homedir(), "cc-j934-unifi-baseline", "fixed-ip-manifest.json");
   const raw = readFileSync(path, "utf8");
-  const entries = JSON.parse(raw) as FixedIpEntry[];
+  const entries = JSON.parse(raw) as FixedIpReservation[];
   if (!Array.isArray(entries) || entries.length === 0) {
     throw new Error(`fixed-IP manifest at ${path} is empty or malformed`);
   }

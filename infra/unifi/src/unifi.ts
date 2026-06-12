@@ -103,8 +103,9 @@ function adoptOpts(
 /**
  * @public - declares the existing UniFi objects as adopted (imported, protected)
  * resources. Inputs mirror the live baseline so the post-import preview is
- * zero-diff. `fixedIpReservations` is the list of the 21 DHCP reservations,
- * passed in by the program from the baseline (mac is required to import a User).
+ * zero-diff. `fixedIpReservations` is the list of genuine DHCP reservations
+ * (clients with `use_fixedip` true), passed in by the program from the baseline
+ * manifest (mac is required to import a User; CC-j934.3.1).
  */
 export function adoptExisting(
   provider: unifi.Provider,
@@ -198,7 +199,7 @@ export function adoptExisting(
     adoptOpts(provider, IMPORT_IDS.guestAccess, ["unifi"]),
   );
 
-  // 21 DHCP fixed-IP reservations -> unifi.iam.User, adopt as-is. mac is the
+  // Genuine DHCP fixed-IP reservations -> unifi.iam.User, adopt as-is. mac is the
   // required key for a User; fixedIp/networkId are controller state we don't
   // rewrite (ignoreChanges keeps adopt from manufacturing a diff on them).
   const fixedIpUsers = fixedIpReservations.map(

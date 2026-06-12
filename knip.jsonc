@@ -61,8 +61,10 @@
       // Separate Pulumi project (control-center-unifi, CC-j934.3): program.ts is
       // auto-detected as the entry from Pulumi.yaml `main`; src/unifi.ts exports
       // are consumed by it + the test. @pulumiverse/unifi + @pulumi/pulumi are
-      // imported, so no ignoreDependencies needed. The empty block tracks the
-      // workspace (test/**/*.test.ts is knip's default test entry).
+      // imported, so no ignoreDependencies needed. scripts/*.ts are standalone
+      // Bun CLIs run by hand (gen-fixed-ip-manifest.ts re-derives the off-repo
+      // manifest from the live controller; CC-j934.3.1), never imported.
+      "entry": ["scripts/*.ts", "test/**/*.test.ts"]
     },
     "infra/cloudflare": {
       // Separate Pulumi PROJECT (control-center-cloudflare) for the adopt-only CF
