@@ -1,6 +1,6 @@
 /**
  * Tests for the portal data-hygiene purge (CC-q002.18). The purge runs as a
- * daily bosun cronJob (one-shot, never a worker loop). It deletes:
+ * daily CronJob (one-shot, never a worker loop). It deletes:
  *  - portal_code rows that are consumed OR past expiry,
  *  - portal_attempt rows whose lock/window is stale (older than the retention),
  *  - portal_authorization rows expired more than 90 days ago (kept until then so

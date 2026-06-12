@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import * as pulumi from "@pulumi/pulumi";
 import { beforeAll, describe, expect, test } from "vitest";
 
@@ -55,17 +53,6 @@ describe("SERVICE_SECRETS", () => {
       for (const ref of Object.values(secrets)) {
         expect(ref).toMatch(/^[^/]+\/[^/]+$/);
         expect(ref.startsWith("op://")).toBe(false);
-      }
-    }
-  });
-
-  test("stays in lockstep with deploy.config.ts (every mapped ref appears there)", () => {
-    // Guard against drift: deploy.config.ts is the source of truth until bosun
-    // is removed. Each "Item/field" ref must still be present in that file.
-    const cfg = readFileSync(join(__dirname, "../../deploy.config.ts"), "utf8");
-    for (const secrets of Object.values(map.SERVICE_SECRETS)) {
-      for (const ref of Object.values(secrets)) {
-        expect(cfg.includes(`"${ref}"`)).toBe(true);
       }
     }
   });

@@ -22,8 +22,8 @@ pre-commit:
       run: bash scripts/check-storybook-docs.sh {staged_files}
     no-ofelia:
       glob: "*.{ts,tsx,js,mjs,json,yml,yaml,md,sh,toml}"
-      # BLOCKING: rejects reintroduction of Ofelia (replaced by the bosun
-      # scheduler, CC-79k). The token is sanctioned only in the guard script itself.
+      # BLOCKING: rejects reintroduction of Ofelia (replaced by k8s CronJobs,
+      # CC-79k). The token is sanctioned only in the guard script itself.
       run: bash scripts/check-no-ofelia.sh {staged_files}
     no-home-address:
       # BLOCKING: rejects the private home-location name (any casing) so the home

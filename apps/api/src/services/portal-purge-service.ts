@@ -1,7 +1,7 @@
 /**
  * Portal data-hygiene purge (CC-q002.18). Deletes short-lived portal rows that
  * have served their purpose so the tables don't grow unbounded. Run as a DAILY
- * bosun cronJob (one-shot Swarm job), NEVER a worker loop (PRD Backend rule 7).
+ * CronJob (one-shot job), NEVER a worker loop (PRD Backend rule 7).
  *
  * Retention policy:
  *  - portal_code: delete once consumed OR past expiry, a code is single-use and
@@ -69,7 +69,7 @@ function rows(res: { rowCount?: number | null }): number {
 }
 
 /**
- * Run one purge pass. Pure of any scheduling, the bosun cronJob invokes the
+ * Run one purge pass. Pure of any scheduling, the CronJob invokes the
  * `purge` entrypoint which calls this once and exits.
  */
 export async function purgePortalData(

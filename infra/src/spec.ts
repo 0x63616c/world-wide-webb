@@ -1,6 +1,6 @@
 // Pure, typed declaration vocabulary for the control-center k8s stack. This is
-// the Pulumi-era successor to bosun's `service()` / `cronJob()` builders
-// (packages/bosun/src/spec.ts): a workload is declared in ONE typed place, and
+// the Pulumi-era declaration layer: a workload's `service()` / `cronJob()` is
+// declared in ONE typed place, and
 // the mapping layer (render.ts) turns a declaration into the kubernetes resource
 // args. No I/O, no Pulumi calls here, so the shapes evaluate identically in a
 // unit test and at `pulumi up` time.
@@ -19,7 +19,7 @@ export interface SecretRef {
   ref: string;
 }
 
-/** Container resource caps (CC-ke9a). Mirrors bosun's ResourceSpec. */
+/** Container resource caps (CC-ke9a). */
 export interface ResourceSpec {
   // Hard memory limit -> k8s limits.memory (e.g. "96M", "768M", "1G").
   memory?: string;
@@ -91,9 +91,9 @@ export interface WorkloadSpec {
 }
 
 /**
- * A scheduled one-shot job (the cronJob() half of the vocabulary, succeeding
- * bosun's cronJob() from deploy.config.ts). Maps to a k8s CronJob with one-shot
- * semantics (restartPolicy Never, concurrencyPolicy Forbid).
+ * A scheduled one-shot job (the cronJob() half of the vocabulary). Maps to a
+ * k8s CronJob with one-shot semantics (restartPolicy Never, concurrencyPolicy
+ * Forbid).
  */
 export interface CronJobSpec {
   // Stable name (k8s object name).

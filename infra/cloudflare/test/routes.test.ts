@@ -57,7 +57,7 @@ describe("desiredCnames", () => {
 
   test("each CNAME carries its EXACT live comment (zero-diff import; varies per record)", () => {
     const byHost = Object.fromEntries(desiredCnames(ZONE).map((c) => [c.hostname, c.comment]));
-    // bosun-tagged
+    // frozen legacy ownership-tagged route comment (live CF value, kept verbatim)
     expect(byHost["dashboard.worldwidewebb.co"]).toBe("bosun:control-center tunnel route");
     expect(byHost["storybook.worldwidewebb.co"]).toBe("bosun:control-center tunnel route");
     // legacy evee comments (kept verbatim so import is zero-diff)

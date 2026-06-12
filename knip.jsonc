@@ -41,7 +41,7 @@
       // load-secret.js is the drizzle image's `bun --preload` ENTRYPOINT.
       // scripts/*.ts are standalone one-time Bun scripts (OAuth flows, save scripts)
       // invoked directly by their companion .sh wrappers, never imported.
-      "entry": ["deploy.config.ts", "apps/drizzle/load-secret.js", "scripts/*.ts"]
+      "entry": ["apps/drizzle/load-secret.js", "scripts/*.ts"]
     },
     "apps/api": {
       // server.ts = Docker CMD; purge.ts = the portal data-hygiene cronJob
@@ -49,11 +49,6 @@
       // (CC-q002.18); seed.ts = db:seed script. drizzle.config.ts + the exports
       // map (., ./trpc, ./worker) are auto-detected.
       "entry": ["src/server.ts", "src/purge.ts", "src/db/seed.ts"]
-    },
-    "packages/bosun": {
-      // serve.ts = the deployed agent (Docker CMD); cli.ts = the root `bosun`
-      // script target (no package `bin`). Tests live in test/, not src/.
-      "entry": ["src/serve.ts", "src/cli.ts", "test/**/*.test.ts"]
     },
     "infra": {
       // program.ts = the Pulumi program (Pulumi.yaml `main`, run by the pulumi

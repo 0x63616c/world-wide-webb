@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 // The iOS app (apps/web/ios) is a thin Capacitor "kiosk" shell: it renders the
 // hosted dashboard full-screen rather than bundling it. server.url points at the
-// live, bosun-served dashboard so the wall panel updates over the air with every
+// live, hosted dashboard so the wall panel updates over the air with every
 // deploy, no App Store rebuild required. CAPACITOR_DEV_SERVER_URL overrides it for
 // local `cap run` against a dev server.
 // This is a Capacitor CLI config file run under node by `cap`, not browser/app code,
@@ -12,7 +12,7 @@ const serverUrl = process.env.CAPACITOR_DEV_SERVER_URL || "https://dashboard.wor
 
 // CF Access headers (CC-cuuw): the plan's preferred path was `server.headers` on
 // this config. VERIFIED against the installed Capacitor 8 SDK
-// (@capacitor/cli declarations.d.ts `server` type) — there is NO `headers` field
+// (@capacitor/cli declarations.d.ts `server` type), there is NO `headers` field
 // in Capacitor 8's server config, and the native iOS load issues a header-less
 // `URLRequest(url:)` we cannot configure here. So per §5's verify-before-build
 // fallback, the CF-Access service-token headers are injected natively instead:

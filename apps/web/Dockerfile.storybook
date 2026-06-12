@@ -13,7 +13,6 @@ COPY apps/worker/package.json ./apps/worker/package.json
 COPY apps/media-worker/package.json ./apps/media-worker/package.json
 COPY apps/captive-portal/package.json ./apps/captive-portal/package.json
 COPY packages/api/package.json ./packages/api/package.json
-COPY packages/bosun/package.json ./packages/bosun/package.json
 COPY packages/logger/package.json ./packages/logger/package.json
 # Infra Pulumi workspaces (CC-j934.1/.2/.3): root package.json declares these, so
 # bun install needs their manifests in the build context (CC-272b).
@@ -38,7 +37,7 @@ COPY packages ./packages
 # Build the host storybook bundle (apps/web/storybook-static) AND the captive-portal
 # storybook bundle (apps/captive-portal/storybook-static). The runtime stage places
 # the portal build at /captive-portal so the host's static `refs` entry resolves in
-# production (without it the composed sidebar section is blank — CC-q002.2/.5).
+# production (without it the composed sidebar section is blank, CC-q002.2/.5).
 RUN bun run --cwd apps/web build-storybook
 RUN bun run --cwd apps/captive-portal build-storybook
 

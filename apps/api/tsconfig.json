@@ -3,9 +3,8 @@
   "compilerOptions": {
     "types": ["bun-types"],
     // The api runs via `bun --watch src/server.ts` and never emits (root sets
-    // noEmit), so the old rootDir/outDir were dead config. Dropping rootDir lets
-    // a test import the root deploy.config.ts (the env-contract guard, CC-355t.7);
-    // allowImportingTsExtensions permits that manifest's explicit .ts imports.
+    // noEmit), so the old rootDir/outDir were dead config. Dropping rootDir +
+    // allowImportingTsExtensions lets modules import siblings by explicit .ts path.
     "allowImportingTsExtensions": true
   },
   "include": ["src"]

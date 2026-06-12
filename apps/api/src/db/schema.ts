@@ -22,7 +22,7 @@ export const job = pgTable(
     id: serial("id").primaryKey(),
     // Stable string identifying the handler (e.g. 'youtube_ingest', 'enrich_media').
     type: text("type").notNull(),
-    // Arbitrary JSON input consumed by the handler — schema is handler-specific.
+    // Arbitrary JSON input consumed by the handler, schema is handler-specific.
     payload: jsonb("payload").notNull(),
     // Lifecycle: queued → running → done | failed. A failed job that hasn't
     // exhausted its attempts is re-queued with an exponential run_after bump.
@@ -36,7 +36,7 @@ export const job = pgTable(
     // Not eligible for claiming until this wall-clock time. Default: now = immediately
     // claimable. Set forward by the retry logic for exponential backoff.
     runAfter: timestamp("run_after", { withTimezone: true }).notNull().defaultNow(),
-    // The instance that claimed this job (e.g. hostname or UUID) — used to
+    // The instance that claimed this job (e.g. hostname or UUID), used to
     // detect stuck running jobs if we add a watchdog later.
     lockedBy: text("locked_by"),
     lockedAt: timestamp("locked_at", { withTimezone: true }),
@@ -68,7 +68,7 @@ export const events = pgTable("events", {
 
 /**
  * Colour of a light: either an RGB triple or a white colour temperature in
- * Kelvin (mutually exclusive in practice — HA reports whichever colour mode is
+ * Kelvin (mutually exclusive in practice, HA reports whichever colour mode is
  * active). Carried in desired/reported state so the DB-authoritative enforcer
  * can drive and detect colour drift, not just on/off + brightness (CC-7d5b.2.2).
  */
@@ -88,7 +88,7 @@ export interface DeviceLightState {
  * fields the dashboard COMMANDS live in DESIRED: hvac mode, the single setpoint
  * (cool/heat) or the heat_cool range, and the AC fan_mode. Ambient temperature
  * and the live hvac_action are REPORTED-ONLY (never desired) and always come from
- * real HA values — the enforcer writes them into reportedState each cycle, never
+ * real HA values, the enforcer writes them into reportedState each cycle, never
  * an invented number (repo zero-fake-data rule). `target` and `targetLow/High` are
  * mutually exclusive in practice (single vs range mode), mirroring ClimateState.
  */
@@ -108,7 +108,7 @@ export interface DeviceClimateState {
  * Sonos speaker state carried in a device_state row (CC-5mek). Volume is the
  * single commandable dimension: the dashboard writes DESIRED instantly and the
  * sonos-volume-enforcer reconciles it onto the player over UPnP, adopting
- * external changes (Sonos app, hardware buttons) outside the command window —
+ * external changes (Sonos app, hardware buttons) outside the command window ,
  * the same DB-authoritative model as lights.
  */
 export interface DeviceSpeakerState {
@@ -213,7 +213,7 @@ export const weatherDailyReading = pgTable(
   (t) => [index("weather_daily_target_recorded_idx").on(t.targetDate, t.recordedAt)],
 );
 
-// Persistent lamp mode — a SINGLETON row (id = LAMP_MODE_SINGLETON_ID). Holds the
+// Persistent lamp mode, a SINGLETON row (id = LAMP_MODE_SINGLETON_ID). Holds the
 // active animated lamp mode that can't be inferred from a colour snapshot, so it
 // must be durable: the worker reconciles it (start/stop the party engine) and
 // re-arms after a restart. `mode` is 'none' | 'party' (LampMode); `speed` is
@@ -288,10 +288,10 @@ export const mediaItem = pgTable(
 // their email with a 6-digit code, enters the WiFi password, and gets 30 days
 // of internet per device via UniFi authorize-guest. Postgres replaces the
 // spec's Redis suggestion (Calum override): codes/counters are short-lived
-// rows, cleaned up by a bosun cronJob (not a worker loop). UTC throughout.
+// rows, cleaned up by a scheduled CronJob (not a worker loop). UTC throughout.
 
 // A verified guest. One row per (name, email) submission; a returning guest
-// gets a fresh row each onboarding rather than dedup — guests are ephemeral
+// gets a fresh row each onboarding rather than dedup, guests are ephemeral
 // and the authorization row (keyed by device MAC) is the durable artifact.
 export const portalGuest = pgTable("portal_guest", {
   id: text("id").primaryKey(), // Stripe-style gst_<id>
@@ -328,7 +328,7 @@ export const portalCode = pgTable(
 // flow from the UniFi redirect) is the rate-limit unit; `kind` separates the
 // wrong-code counter from the wrong-password counter so they lock independently.
 // 3 wrong → lockedUntilUtc set (RateLimited); reset to 0 on success/back/resend.
-// One row per (mac, kind) — upserted each attempt.
+// One row per (mac, kind), upserted each attempt.
 export const portalAttempt = pgTable(
   "portal_attempt",
   {

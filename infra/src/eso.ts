@@ -4,7 +4,7 @@
 // Deployments (CC-j934.6) mount that Secret as files at /run/secrets/<NAME>,
 // byte-identical to today's docker-secret layout, so env.ts needs zero changes.
 // The cluster reads 1Password ONCE per refreshInterval (pods read etcd), which
-// also fixes the per-deploy op rate-limit churn ([[bosun-agent-op-rate-limit]]).
+// also fixes the per-deploy op rate-limit churn (the old per-write op fan-out).
 //
 // Bootstrap: the single seed secret is the 1P SERVICE-ACCOUNT token, applied
 // out-of-band into Secret `op-service-account` in the external-secrets namespace

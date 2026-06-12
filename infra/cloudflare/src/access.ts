@@ -1,12 +1,12 @@
-// Cloudflare Access surface for control-center, re-homed from bosun's
-// reconcile/access.ts (CC-cuuw) into a pure Pulumi-friendly declaration.
+// Cloudflare Access surface for control-center (CC-cuuw), a pure
+// Pulumi-friendly declaration.
 //
 // ADOPT-ONLY (CC-j934.2): this declares EXACTLY the apps that are DEPLOYED in
 // Cloudflare today (verified live 2026-06-11; matches bd memory
 // access-gate-design-cc-cuuw), so the first `pulumi preview` after `pulumi
-// import` shows 0 create / 0 delete / 0 replace. bosun's reconcile code carries
-// the full CC-cuuw END-STATE plan (a 5-app default-deny matrix); only a SUBSET is
-// deployed, so we adopt that subset, not the plan.
+// import` shows 0 create / 0 delete / 0 replace. The full CC-cuuw END-STATE plan
+// is a 5-app default-deny matrix; only a SUBSET is deployed, so we adopt that
+// subset, not the plan.
 //
 // Deployed today: storybook + drizzle, each a self_hosted app with an `allow`
 // policy whose include is a single email (OTP login). The wildcard `*.<zone>`
@@ -36,11 +36,14 @@ export interface DesiredAccessApp {
   // The allow principal: an email resolved at apply time from the `allowedEmail`
   // Pulumi secret config (never a literal in the repo).
   emailFromConfig: "allowedEmail";
-  // Ownership tag the live apps already carry (matches bosun's reconcile tag, so
-  // importing them is a zero-diff). Renaming it would be a destructive replace.
+  // Ownership tag the live apps already carry, so importing them is a zero-diff.
+  // The literal value is a frozen legacy string baked into live Cloudflare state;
+  // renaming it would be a destructive replace, so it is intentionally immutable.
   tag: string;
 }
 
+// Frozen legacy ownership tag matching the live Cloudflare app metadata exactly
+// (see DesiredAccessApp.tag). Immutable: changing it forces a destructive replace.
 const OWNERSHIP_TAG = "bosun:control-center";
 
 /**

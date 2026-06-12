@@ -2,7 +2,7 @@
 
 # ── Stage 1: bundle the media-worker into a single file ──────────────────────
 # Mirrors apps/worker/Dockerfile but ALSO installs ffmpeg + yt-dlp in the
-# runtime image — the media-worker spawns these as child processes for
+# runtime image, the media-worker spawns these as child processes for
 # playlist enumeration and AV1 video download (CC-kp4k.2).
 FROM oven/bun:1-alpine AS build
 
@@ -16,7 +16,6 @@ COPY apps/worker/package.json apps/worker/
 COPY apps/media-worker/package.json apps/media-worker/
 COPY apps/captive-portal/package.json apps/captive-portal/
 COPY packages/api/package.json packages/api/
-COPY packages/bosun/package.json packages/bosun/
 COPY packages/logger/package.json packages/logger/
 # Infra Pulumi workspaces (CC-j934.1/.2/.3): root package.json declares these, so
 # bun install needs their manifests in the build context (CC-272b).
@@ -52,7 +51,7 @@ RUN apk add --no-cache ffmpeg python3 py3-pip \
  && ffmpeg -version | head -1
 
 COPY --from=build /app/dist/media-worker.js media-worker.js
-# Migrations resolve relative to /app at runtime — same path as worker.
+# Migrations resolve relative to /app at runtime, same path as worker.
 COPY --from=build /app/apps/api/src/db/migrations migrations
 
 # No HTTP port: the media-worker only reaches out to Postgres + YouTube.

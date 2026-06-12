@@ -5,8 +5,8 @@ import { type ImageDigests, serviceSpecs } from "../src/services.ts";
 // digest map as Pulumi config (`imageDigests.<svc>`), serviceSpecs renders each
 // GHCR ref as @sha256:… when a digest is supplied and falls back to the mutable
 // :main tag otherwise. A changed digest is a changed Deployment image, so only
-// that workload rolls on `pulumi up` (the CC-czg property, formerly the bosun
-// webhook's digest-pinned `docker stack deploy`).
+// that workload rolls on `pulumi up` (the CC-czg property, now driven by the
+// digest-pinned Pulumi program).
 
 const imageOf = (specs: ReturnType<typeof serviceSpecs>, name: string): string => {
   const spec = specs.find((s) => s.name === name);

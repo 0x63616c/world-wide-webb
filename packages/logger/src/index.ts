@@ -1,9 +1,9 @@
 // All process.env reads for the logger (LOG_LEVEL, LOG_PRETTY, APP_ENV) live
-// HERE and nowhere else — call sites never read env directly. See docs/logging.md §3.
+// HERE and nowhere else, call sites never read env directly. See docs/logging.md §3.
 //
 // NOTE: we deliberately do NOT key behaviour on process.env.NODE_ENV. The api,
 // worker and media-worker ship as bun single-file bundles, and bun INLINES
-// process.env.NODE_ENV to a build-time literal — so a NODE_ENV check is frozen
+// process.env.NODE_ENV to a build-time literal, so a NODE_ENV check is frozen
 // at build and ignores the container's runtime env (it crash-looped prod once,
 // CC-rw07). LOG_PRETTY / APP_ENV / LOG_LEVEL are read live at runtime instead.
 import pino, { type Logger as PinoLogger } from "pino";
@@ -13,11 +13,11 @@ import pino, { type Logger as PinoLogger } from "pino";
 // stream is bundled inline and works everywhere.
 import prettyStream from "pino-pretty";
 
-/** @public — re-exported Logger type for service call sites */
+/** @public, re-exported Logger type for service call sites */
 export type Logger = PinoLogger;
 
 export type CreateLoggerOptions = {
-  /** Service name bound on every line, e.g. "api" | "worker" | "media-worker" | "bosun". */
+  /** Service name bound on every line, e.g. "api" | "worker" | "media-worker". */
   service: string;
   /** Environment string, bound on every line. Defaults to APP_ENV ?? "development". */
   env?: string;
@@ -26,7 +26,7 @@ export type CreateLoggerOptions = {
   /**
    * Force pretty (true) or JSON (false) output. When omitted, defaults to JSON
    * and opts into pretty only when LOG_PRETTY=1/true (local dev). Useful in tests
-   * and for bosun (which passes false). See docs/logging.md §3.
+   * (which pass false). See docs/logging.md §3.
    */
   pretty?: boolean;
 };
@@ -64,21 +64,19 @@ const REDACT_PATHS = [
   "*.DATABASE_URL",
   "POSTGRES_PASSWORD",
   "*.POSTGRES_PASSWORD",
-  "BOSUN_WEBHOOK_TOKEN",
-  "*.BOSUN_WEBHOOK_TOKEN",
   "OP_SERVICE_ACCOUNT_TOKEN",
   "*.OP_SERVICE_ACCOUNT_TOKEN",
   "GHCR_PULL_TOKEN",
   "*.GHCR_PULL_TOKEN",
-  // bosun ResolvedSecret carries `resolvedValue`; reconcile/secrets.ts re-wraps
-  // it as `{ dockerName, value }` — both keys must be censored.
+  // Resolved-secret shapes carry the cleartext under `resolvedValue` or a
+  // re-wrapped `{ dockerName, value }`, both keys must be censored.
   "resolvedValue",
   "*.resolvedValue",
   "value",
   "*.value",
   "apiToken",
   "*.apiToken", // Cloudflare token
-  // Generic wrapper-key catch-all — brittle-insurance behind layer-1 discipline.
+  // Generic wrapper-key catch-all, brittle-insurance behind layer-1 discipline.
   "token",
   "*.token",
   "secret",
@@ -96,7 +94,7 @@ const REDACT_PATHS = [
   "*.HOME_PLACE_NAME",
 ];
 
-// Process-wide root logger — set by createLogger(), read by getLogger().
+// Process-wide root logger, set by createLogger(), read by getLogger().
 // Module-global is intentional and the ONLY exception to the "no module-global
 // mutable state" rule: this singleton is the entire purpose of this module.
 let _root: Logger | null = null;
@@ -112,7 +110,7 @@ export function createLogger(opts: CreateLoggerOptions): Logger {
   // would mislabel prod as "development"); default to "development" locally.
   const env = opts.env ?? process.env.APP_ENV ?? "development";
 
-  // Pretty vs JSON. Default is JSON — the bundle-safe, prod-correct path. Opt
+  // Pretty vs JSON. Default is JSON, the bundle-safe, prod-correct path. Opt
   // INTO pretty with LOG_PRETTY=1 (local dev / tilt), never via NODE_ENV.
   const usePretty =
     opts.pretty !== undefined
@@ -140,7 +138,7 @@ export function createLogger(opts: CreateLoggerOptions): Logger {
 
 /**
  * Process-wide accessor. createLogger() registers the root; getLogger()
- * returns it. Throws if called before createLogger — a hard signal that a
+ * returns it. Throws if called before createLogger, a hard signal that a
  * module logged before the process initialised its logger (no silent
  * default root). Used by shared @repo/api domain services that run under
  * multiple process roots (api + media-worker). See docs/logging.md §2.

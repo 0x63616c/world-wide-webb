@@ -65,8 +65,8 @@ const certManager = installCertManager({
 // imageDigests: per-service image digest pins (name -> "sha256:…"). The CI deploy
 // job writes these with `pulumi config set --path imageDigests.<svc>` from the
 // freshly built :main manifests, so a `pulumi up` rolls only the workloads whose
-// digest changed (the CC-czg digest-pin guarantee, now config-driven instead of
-// via the bosun webhook). Empty in local applies, where services fall back to :main.
+// digest changed (the CC-czg digest-pin guarantee, now config-driven). Empty in
+// local applies, where services fall back to :main.
 
 // The NAS NFS server, shared by the media-worker share and the pg-backup target.
 const nasNfsServer = cfg.get("nasNfsServer") ?? "192.168.0.218";
@@ -85,8 +85,8 @@ const services = deployServices({
   imageDigests: cfg.getObject<Record<string, string>>("imageDigests") ?? {},
 });
 
-// Scheduled jobs (CC-j934.7): portal-data-purge + map-extract re-homed from
-// bosun, plus the NEW nightly pg-backup to the NAS. NO docker-image-prune
+// Scheduled jobs (CC-j934.7): portal-data-purge + map-extract re-homed to k8s
+// CronJobs, plus the NEW nightly pg-backup to the NAS. NO docker-image-prune
 // (kubelet image GC) and NO portal-cert-renew (cert-manager owns TLS). The
 // pg-backup NFS PV reuses nasNfsServer; the purge job's POSTGRES_PASSWORD comes
 // from its ESO Secret (secrets-map.ts), the backup's creds from the CNPG-managed

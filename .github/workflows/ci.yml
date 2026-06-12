@@ -468,8 +468,7 @@ jobs:
   # After the images build on main, deploy to the homelab k3s cluster with
   # `pulumi up` (CC-j934.14). The runner joins the tailnet with an EPHEMERAL
   # Tailscale key (auto-revoked when the job ends), reaches the kube-apiserver
-  # over the tailnet, and runs the Pulumi program in infra/. The bosun webhook
-  # receiver is gone; CI is the deployer.
+  # over the tailnet, and runs the Pulumi program in infra/. CI is the deployer.
   #
   # Fires on `any_app || infra`: an image change OR an infra-only change (a spec
   # tweak with no rebuild) must both converge the declared stack. `pulumi up` is
@@ -493,8 +492,8 @@ jobs:
       # Read each app image's current :main digest. A pinned digest renders the
       # workload's image as @sha256:… in the Pulumi program (infra/src/services.ts
       # ghcr()), so `pulumi up` rolls ONLY the workloads whose digest changed,
-      # the CC-czg digest-pin guarantee, now config-driven instead of via the
-      # bosun webhook + docker stack deploy.
+      # the CC-czg digest-pin guarantee, now config-driven via the Pulumi
+      # program rather than an external webhook.
       - name: Log in to ghcr.io (read manifests)
         uses: docker/login-action@v3
         with:

@@ -1,5 +1,5 @@
-// Tunnel ingress + proxied DNS for control-center, re-homed from bosun's
-// reconcile/routes.ts into a pure Pulumi-friendly declaration.
+// Tunnel ingress + proxied DNS for control-center, a pure Pulumi-friendly
+// declaration.
 //
 // ADOPT-ONLY (CC-j934.2): these mirror the LIVE tunnel ingress + proxied CNAMEs
 // (verified 2026-06-11) EXACTLY, so the first `pulumi preview` after `pulumi
@@ -7,7 +7,7 @@
 // and all: that includes `portainer` (retiring at cutover, CC-j934.9) and a
 // stray `hooks-test` CNAME. Their removals become explicit, reviewable diffs at
 // their scheduled phases (portainer at cutover; hooks + hooks-test at the CI
-// rework / bosun removal, CC-j934.14/.15), NOT silent drops here.
+// rework, CC-j934.14/.15), NOT silent drops here.
 //
 // Ingress and CNAMEs are SEPARATE lists because the live state isn't symmetric:
 // every ingress host has a CNAME, but `hooks-test` has a CNAME with NO ingress
@@ -34,8 +34,9 @@ export interface DesiredCname {
   proxied: true;
   target: (tunnelId: string) => string;
   // The record's CF `comment`, matching live EXACTLY for a zero-diff import.
-  // These vary per record (some are bosun-tagged, drizzle/hooks-test carry
-  // legacy evee comments, hooks/portainer have none); `undefined` = no comment.
+  // These vary per record (frozen legacy values below: dashboard/storybook carry
+  // a legacy ownership-tagged route comment, drizzle/hooks-test carry legacy evee
+  // comments, hooks/portainer have none); `undefined` = no comment.
   comment?: string;
 }
 
@@ -45,6 +46,9 @@ export interface DesiredCname {
 const INGRESS: Record<string, string> = {
   dashboard: "http://web:80",
   portainer: "http://portainer:9000",
+  // Frozen legacy origin: the live `hooks` ingress still points at the old
+  // webhook-receiver service name. Adopt-only must match it byte-for-byte; the
+  // record retires as an explicit diff at the CI rework (CC-j934.14/.15).
   hooks: "http://bosun-agent:4202",
   storybook: "http://storybook:6006",
   drizzle: "http://drizzle:4983",
@@ -53,6 +57,9 @@ const INGRESS: Record<string, string> = {
 // LIVE proxied CNAMEs: the 5 ingress hosts PLUS the stray `hooks-test` leftover.
 // Each carries its exact live CF comment (varied; legacy evee comments on
 // drizzle/hooks-test, none on hooks/portainer) so the import is zero-diff.
+// Frozen legacy CF comment values: dashboard/storybook carry an ownership-tagged
+// route comment baked into live Cloudflare state. Adopt-only must match them
+// byte-for-byte for a zero-diff import; they are intentionally immutable here.
 const CNAME_COMMENTS: Record<string, string | undefined> = {
   dashboard: "bosun:control-center tunnel route",
   storybook: "bosun:control-center tunnel route",

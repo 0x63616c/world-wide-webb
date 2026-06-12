@@ -7,12 +7,12 @@ import { getClimate } from "./services/climate-service";
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers/index";
 
-// Root logger — created ONCE at process startup, bound to every line in this
+// Root logger, created ONCE at process startup, bound to every line in this
 // process. Domain services use getLogger() (see docs/logging.md §2).
 const log = createLogger({ service: "api" });
 
 // Deploys reach this box automatically: push to main -> CI builds the image ->
-// CI POSTs the bosun-agent webhook -> `bosun up` rolls the service (CC-a8p).
+// the cluster rolls the service to the new digest (CC-a8p).
 //
 // Apply pending SQL migrations before accepting traffic. Uses drizzle-orm's
 // runtime migrator (not drizzle-kit), so the production image ships no build
@@ -44,8 +44,8 @@ async function handle(req: Request, url: URL): Promise<Response> {
     return new Response("OK", { status: 200, headers: CORS_HEADERS });
   }
 
-  // Deploy-health probe target (CC-hya3). Bosun's `verify` curls this to prove
-  // the api can reach live Home Assistant, decoupled from the tRPC wire format so
+  // Deploy-health probe target (CC-hya3). The deploy `verify` step curls this to
+  // prove the api can reach live Home Assistant, decoupled from the tRPC wire format so
   // a procedure rename can't silently turn the probe advisory-red (which is how
   // the old /api/climate.now probe rotted). getClimate() throws on an HA outage
   // or misconfig (services-throw convention), surfacing as a 500 -> red probe.
@@ -79,7 +79,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
       router: appRouter,
       createContext: () => createContext(),
       onError: ({ path, error, req: errorReq }) => {
-        // Build the child logger inline — path is available here but reqId comes
+        // Build the child logger inline, path is available here but reqId comes
         // from the outer fetch scope, so we log with path + code directly.
         const reqUrl = new URL(errorReq.url);
         const reqLog = log.child({ method: errorReq.method, path: reqUrl.pathname });
@@ -116,7 +116,7 @@ const server = Bun.serve({
     }
 
     const durationMs = +(performance.now() - startedAt).toFixed(1);
-    // OPTIONS preflights are transport noise — log at debug so they don't
+    // OPTIONS preflights are transport noise, log at debug so they don't
     // double the info line count in steady state (docs/logging.md §6).
     if (req.method === "OPTIONS") {
       reqLog.debug({ status: res.status, durationMs }, "request completed");

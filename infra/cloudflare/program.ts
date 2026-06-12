@@ -1,8 +1,7 @@
 // Pulumi program for the control-center Cloudflare edge state (CC-j934.2).
 //
 // ADOPT-ONLY this milestone: every resource here mirrors the DEPLOYED Cloudflare
-// state (re-homed from packages/bosun/src/reconcile/{access,routes}.ts but
-// declaring only what is LIVE per CC-cuuw), is `pulumi import`-ed, and is marked
+// state (declaring only what is LIVE per CC-cuuw), is `pulumi import`-ed, and is marked
 // `protect: true`. The acceptance gate is that the first `pulumi preview` after
 // import shows 0 create / 0 delete / 0 replace. NO `pulumi up`/apply this ticket.
 //

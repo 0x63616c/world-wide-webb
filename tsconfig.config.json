@@ -1,13 +1,12 @@
 {
   // Typechecks the load-bearing root config files that live OUTSIDE the
   // apps/*/packages/* workspaces, so `bun run --filter '*' typecheck` never sees
-  // them. deploy.config.ts in particular is prod-critical (it renders the Swarm
-  // stack) and previously shipped with a type error CI could not catch (CC-355t.2).
-  // allowImportingTsExtensions: deploy.config.ts imports spec.ts by its .ts path.
+  // them (CC-355t.2).
+  // allowImportingTsExtensions: config files may import sibling .ts by path.
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["deploy.config.ts", "vitest.config.ts", "apps/web/vitest.workspace.ts"]
+  "include": ["vitest.config.ts", "apps/web/vitest.workspace.ts"]
 }
