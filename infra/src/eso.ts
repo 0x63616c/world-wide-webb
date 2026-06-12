@@ -68,7 +68,10 @@ export function installEso(args: EsoArgs): EsoResources {
         installCRDs: true,
         // 8GB node: keep the footprint small, no extra webhooks/metrics stacks.
         replicaCount: 1,
-        resources: { requests: { cpu: "25m", memory: "96Mi" }, limits: { memory: "192Mi" } },
+        // 256Mi limit: the controller OOMKilled (exit 137) at 192Mi on a cold
+        // start when it reconciles ALL ExternalSecrets at once (www-j934.9 cutover);
+        // 256Mi gives the reconcile-storm headroom without bloating the 8GB node.
+        resources: { requests: { cpu: "25m", memory: "96Mi" }, limits: { memory: "256Mi" } },
         webhook: {
           resources: { requests: { cpu: "10m", memory: "32Mi" }, limits: { memory: "96Mi" } },
         },
