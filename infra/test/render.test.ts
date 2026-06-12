@@ -316,15 +316,19 @@ describe("renderWorkload: initContainers (CC-hn1i)", () => {
     expect(mainMount?.readOnly).toBe(true);
   });
 
-  test("init volumes get distinct pod-volume names (no collision with main volumes)", () => {
+  test("init volumes reuse the main pod volume when they mount the same claim", () => {
     const r = renderWorkload(webWithInit);
-    const names = r.deployment.spec.template.spec.volumes.map((v) => v.name);
-    expect(new Set(names).size).toBe(names.length);
-    // Both pod volumes resolve to the same PVC claim.
-    const claims = r.deployment.spec.template.spec.volumes
-      .map((v) => v.persistentVolumeClaim?.claimName)
-      .filter(Boolean);
-    expect(claims).toEqual(["maps", "maps"]);
+    const volumes = r.deployment.spec.template.spec.volumes.filter(
+      (v) => v.persistentVolumeClaim?.claimName === "maps",
+    );
+    expect(volumes).toEqual([{ name: "vol-0", persistentVolumeClaim: { claimName: "maps" } }]);
+
+    const init = r.deployment.spec.template.spec.initContainers?.[0];
+    const initMount = init?.volumeMounts.find((m) => m.mountPath === "/out");
+    const main = r.deployment.spec.template.spec.containers[0];
+    const mainMount = main.volumeMounts.find((m) => m.mountPath.endsWith("/maps"));
+    expect(initMount?.name).toBe("vol-0");
+    expect(mainMount?.name).toBe("vol-0");
   });
 
   test("a workload without initContainers renders none (field absent, not [])", () => {
