@@ -145,6 +145,20 @@ the OrbStack VM node IP `192.168.139.2:26443`. OrbStack does **not** always rebi
 loopback to the apiserver after a restart, so without this job `kubectl` (and `pulumi up`)
 against the loopback context can fail post-reboot. The job is `KeepAlive` so it self-restores.
 
+**`com.calum.portal-443-forward` root LaunchDaemon (CC-j934.20).** Forwards the mini's LAN
+en1 `192.168.0.147:443` → the k8s captive-portal LB `192.168.139.2:443`, so
+`https://captive-portal.worldwidewebb.co` is reachable on the LAN with the cert-manager cert.
+OrbStack `expose_services` republishes the portal LB's `:80` onto en1 but NOT `:443`: OrbStack's
+own built-in HTTPS proxy (`network.https: true`, serving `*.orb.local`) already holds the
+wildcard host `:443`, so `expose_services` only lands `:443` on a random NodePort. This raw-TCP
+passthrough (the portal terminates its own TLS) is the surgical, restart-free fix. It is a
+**system** LaunchDaemon, not a user LaunchAgent, because `:443` is privileged. Install/reinstall
+on the mini with `apps/captive-portal/deploy/install-portal-443-forward.sh` (runs `sudo`);
+artifacts: `scripts/portal-443-forward.sh` + `apps/captive-portal/deploy/com.calum.portal-443-forward.plist`.
+`KeepAlive`, so it self-restores after a reboot/OrbStack restart. Doc-managed like the other
+host launchd jobs (apiserver-forward, NFS, watchdog); GOAL boundary 5 wants these under a Pulumi
+`LaunchdJob` `command.remote` component, which was never built, tracked in CC-j934.22.
+
 **ESO controller memory limit: `256Mi`.** The external-secrets controller's limit must be
 **256Mi**, not 192Mi, it gets **OOMKilled on a cold-start reconcile** at 192Mi (syncing every
 ExternalSecret at once on startup spikes memory).

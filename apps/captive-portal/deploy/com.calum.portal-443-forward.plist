@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Root LaunchDaemon: forwards the mini's LAN en1 :443 to the k8s captive-portal
+     LB :443 so https://captive-portal.worldwidewebb.co is reachable on the LAN with
+     the cert-manager cert (CC-j934.20). MUST be a system LaunchDaemon, not a user
+     LaunchAgent, because :443 is a privileged port. Install:
+       apps/captive-portal/deploy/install-portal-443-forward.sh  (runs sudo).
+     See scripts/portal-443-forward.sh for the why. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.calum.portal-443-forward</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/calum/portal-443-forward.sh</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>/tmp/portal-443-forward.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/portal-443-forward.log</string>
+</dict>
+</plist>

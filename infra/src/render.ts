@@ -20,7 +20,7 @@ interface VolumeMount {
 }
 interface PodVolume {
   name: string;
-  secret?: { secretName: string };
+  secret?: { secretName: string; items?: { key: string; path: string }[] };
   persistentVolumeClaim?: { claimName: string };
 }
 interface Container {
@@ -135,7 +135,13 @@ interface PodInputs {
   // The Secret projected at /run/secrets; defaults to cc-secrets-<name> (ESO).
   secretName?: string;
   // Extra secrets mounted as files at a path (e.g. the portal TLS cert).
-  extraSecretMounts?: { secretName: string; mountPath: string }[];
+  // `items` projects/renames specific keys to file paths (e.g. a cert-manager
+  // tls.crt -> the fullchain.pem filename nginx expects).
+  extraSecretMounts?: {
+    secretName: string;
+    mountPath: string;
+    items?: { key: string; path: string }[];
+  }[];
 }
 
 function buildPod(p: PodInputs): {
@@ -177,7 +183,10 @@ function buildPod(p: PodInputs): {
   for (const [i, m] of (p.extraSecretMounts ?? []).entries()) {
     const volName = `xsec-${i}`;
     volumeMounts.push({ name: volName, mountPath: m.mountPath, readOnly: true });
-    podVolumes.push({ name: volName, secret: { secretName: m.secretName } });
+    podVolumes.push({
+      name: volName,
+      secret: { secretName: m.secretName, ...(m.items ? { items: m.items } : {}) },
+    });
   }
 
   for (const [i, vol] of (p.volumes ?? []).entries()) {
