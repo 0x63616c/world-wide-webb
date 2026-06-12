@@ -46,7 +46,7 @@ type Story = StoryObj<typeof meta>;
 export const YouTubeOpen: Story = {
   args: { status: "populated", currentApp: "YouTube" },
   play: async ({ canvasElement }) => {
-    const hero = canvasElement.querySelector('[aria-label="YouTube — open"]');
+    const hero = canvasElement.querySelector('[aria-label="YouTube - open"]');
     await expect(hero).toBeTruthy();
   },
 };
@@ -54,7 +54,7 @@ export const YouTubeOpen: Story = {
 export const NetflixOpen: Story = {
   args: { status: "populated", currentApp: "Netflix" },
   play: async ({ canvasElement }) => {
-    const hero = canvasElement.querySelector('[aria-label="Netflix — open"]');
+    const hero = canvasElement.querySelector('[aria-label="Netflix - open"]');
     await expect(hero).toBeTruthy();
   },
 };
