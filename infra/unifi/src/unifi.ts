@@ -287,6 +287,11 @@ export function createGuestVlan(provider: unifi.Provider, args: GuestVlanArgs): 
     { provider },
   );
 
+  // A WLAN must be assigned to an AP group or the controller rejects it with
+  // `api.err.ApGroupMissing`. Look the default group ("All APs") up live via the
+  // provider data source so no controller-internal id is hardcoded (www-j934.3.2).
+  const defaultApGroup = unifi.getApGroupOutput({}, { provider });
+
   // OPEN by default (no passphrase) so guests join freely and the captive portal
   // gates them; a passphrase, if ever supplied, opts into WPA-PSK instead.
   const hasPassphrase = args.passphrase !== undefined;
@@ -296,6 +301,7 @@ export function createGuestVlan(provider: unifi.Provider, args: GuestVlanArgs): 
       name: args.ssid,
       security: hasPassphrase ? "wpapsk" : "open",
       ...(hasPassphrase ? { passphrase: args.passphrase } : {}),
+      apGroupIds: [defaultApGroup.id],
       networkId: network.id,
       // Guest policy on, plus explicit L2 client isolation so guests can't reach
       // EACH OTHER (not just the LAN); on an open SSID that matters (www-j934.3.2).
