@@ -38,6 +38,9 @@ Thumbs.db
 # Claude Code
 .claude/settings.local.json
 
+# OpenCode local quota state
+opencode-quota/
+
 # Test coverage
 coverage/
 .vitest-reports/
