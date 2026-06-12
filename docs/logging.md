@@ -1,9 +1,9 @@
 # Structured logging (www-rw07)
 
-Status: **implemented** (www-rw07). Foundation (`@repo/logger`) + all four services (api, worker, media-worker, bosun) shipped in www-rw07.1. Library: **pino**.
+Status: **implemented** (www-rw07). Foundation (`@repo/logger`) + the backend services shipped in www-rw07.1. Library: **pino**. (bosun was a 4th consumer at the time; it has since been replaced by Pulumi + k8s and removed, so the current backend consumers are api, worker, media-worker.)
 
 This document is the contract for adopting structured logging across the
-control-center **backend** (api, worker, media-worker, bosun). The web app is
+control-center **backend** (api, worker, media-worker). The web app is
 explicitly out of scope (see §9). Read this before writing any logging code or
 adding a `console.*` call to a backend service.
 
@@ -17,11 +17,11 @@ Rejected alternatives and why:
 
 - **A module inside `@repo/api`** (e.g. `apps/api/src/logger.ts`). `bosun`
   (`@bosun/bosun`) deliberately has **no `@repo/api` dependency** and must never
-  gain one — it is a deploy agent that ships in its own image and would drag the
+  gain one, it is a deploy agent that ships in its own image and would drag the
   entire tRPC/drizzle/pg tree into bosun's bundle. So the logger cannot live
   under api.
 - **Duplicated config per service** (each app configures pino itself). That
-  reproduces the redaction list and the dev/prod format switch in four places —
+  reproduces the redaction list and the dev/prod format switch in four places ,
   guaranteed drift, and a redaction path missed in one copy leaks a secret. The
   whole point is one place that defines "never log secrets".
 
@@ -38,7 +38,7 @@ cross-app coupling and no cycles**:
 `@repo/logger` depends on nothing in the repo. api/worker/media-worker already
 depend on `@repo/api`; they add a direct dep on `@repo/logger`. bosun adds
 `@repo/logger` as its **first and only** `@repo/*`/`@bosun/*` cross-workspace dep
-(a leaf logger, not the app tree — acceptable). No cycle is possible because the
+(a leaf logger, not the app tree, acceptable). No cycle is possible because the
 logger imports nothing back.
 
 **Package shape:**
@@ -66,23 +66,23 @@ packages/logger/
 
 **knip-cleanliness rules for this package:**
 
-- `pino` AND `pino-pretty` are both normal import edges — knip sees them. We
+- `pino` AND `pino-pretty` are both normal import edges, knip sees them. We
   import `pino-pretty` directly as a **synchronous stream factory**
   (`import prettyStream from "pino-pretty"`), NOT as a `pino.transport` target
   string. This is deliberate: a transport target spawns a `thread-stream` worker
   that re-resolves `"pino-pretty"` from a file path which does not exist inside a
   bun single-file bundle, so the bundled api/worker/media-worker crash-looped on
-  boot (www-rw07). A sync stream is bundled inline and works everywhere — and as a
+  boot (www-rw07). A sync stream is bundled inline and works everywhere, and as a
   bonus needs no `knip.jsonc` ignore (the import edge satisfies knip on its own).
 - `createLogger` and `getLogger` are both consumed by real call sites (see §2:
   `getLogger()` is the accessor for deep `@repo/api` domain code), so they are
-  live exports — no `@public` tag needed. The `Logger` type alias is exported for
+  live exports, no `@public` tag needed. The `Logger` type alias is exported for
   consumers' convenience with no internal use, so it gets a
-  `/** @public — re-exported Logger type for service call sites */` tag.
+  `/** @public, re-exported Logger type for service call sites */` tag.
 - Add the `packages/logger` workspace block to `knip.jsonc` (`"test/**/*.test.ts"`
   entries; `src/index.ts` is auto-detected from `exports`).
 - **Closing the foundation ticket requires `bunx knip` clean run from within
-  `packages/logger`**, not only the root run — make that an explicit AC.
+  `packages/logger`**, not only the root run, make that an explicit AC.
 
 ---
 
@@ -96,7 +96,7 @@ can swap internals later.
 // packages/logger/src/index.ts
 import pino, { type Logger as PinoLogger } from "pino";
 
-/** @public — Logger type used at every service call site. */
+/** @public, Logger type used at every service call site. */
 export type Logger = PinoLogger;
 
 export type CreateLoggerOptions = {
@@ -120,26 +120,26 @@ export function createLogger(opts: CreateLoggerOptions): Logger;
 
 /**
  * Process-wide accessor. createLogger() registers the root; getLogger() returns
- * it. Throws if called before createLogger — a hard signal that a module logged
+ * it. Throws if called before createLogger, a hard signal that a module logged
  * before the process initialised its logger (no silent default root).
  */
 export function getLogger(): Logger;
 ```
 
-**`getLogger()` is the accessor for shared `@repo/api` domain code — and only it.**
+**`getLogger()` is the accessor for shared `@repo/api` domain code, and only it.**
 Two patterns coexist, chosen by where the code physically lives:
 
-- **Threaded instance** — the default for code a process owns directly:
+- **Threaded instance**, the default for code a process owns directly:
   `server.ts` (api), `index.ts` + `runtime.ts` (worker / media-worker, where the
-  `Logger` is an explicit constructor arg — no module-global), and `cli.ts` /
+  `Logger` is an explicit constructor arg, no module-global), and `cli.ts` /
   `serve.ts` (bosun). These create the root and pass children down.
-- **`getLogger()`** — for the **shared `@repo/api` domain services**
+- **`getLogger()`**, for the **shared `@repo/api` domain services**
   (`jobs/queue.ts`, the playlist-poller, youtube-ingest, controls-service, the
   enforcers). This code is imported and run under **two different process roots**
   (the `api` server AND the `media-worker`), so it cannot demand a threaded
   logger from a single owner without one of the two roots being unable to reach
   it. It calls `getLogger()`, which returns **whichever root the live process
-  created** — so the same line binds `service: "api"` when the api runs it and
+  created**, so the same line binds `service: "api"` when the api runs it and
   `service: "media-worker"` when the media-worker runs it. That is exactly the
   behaviour we want, and is why `getLogger()` earns its place rather than being
   dead API (it has real consumers, so knip stays green without a `@public` lie).
@@ -148,19 +148,19 @@ Because the only legitimate `getLogger()` callers are these shared domain
 modules, `getLogger()` is never called from `worker`'s own `runtime.ts` (that
 copy is worker-owned and takes the threaded arg).
 
-**Child loggers carry context** — never thread fields by hand into each message.
+**Child loggers carry context**, never thread fields by hand into each message.
 `pino`'s `.child()` is the mechanism; we standardise the call sites:
 
 ```ts
-// per-request (api) — bind a request id + method/path once:
+// per-request (api), bind a request id + method/path once:
 const reqLog = log.child({ reqId, method, path });
 reqLog.info({ status, durationMs }, "request completed");
 
-// per-worker (worker / media-worker runtime) — bind the worker name once:
+// per-worker (worker / media-worker runtime), bind the worker name once:
 const workerLog = log.child({ worker: worker.name });
 workerLog.error({ err, consecutiveFailures, durationMs }, "worker cycle failed");
 
-// per-deploy (bosun) — bind a deploy/correlation id:
+// per-deploy (bosun), bind a deploy/correlation id:
 const deployLog = log.child({ deployId, stack: stackName });
 ```
 
@@ -169,14 +169,13 @@ patterns above):
 
 | field        | bound by         | meaning                                             |
 |--------------|------------------|-----------------------------------------------------|
-| `service`    | `createLogger`   | `api` / `worker` / `media-worker` / `bosun`         |
+| `service`    | `createLogger`   | `api` / `worker` / `media-worker`                   |
 | `env`        | `createLogger`   | `production` / `development` / `test`               |
 | `reqId`      | request child    | per-request correlation (api)                       |
 | `worker`     | worker child     | which loop emitted the line                         |
-| `deployId`   | deploy child     | per-deploy correlation (bosun)                      |
 | `durationMs` | per call         | timing on any measured operation                    |
 
-Errors are passed as `log.error({ err }, "msg")` — pino's standard `err`
+Errors are passed as `log.error({ err }, "msg")`, pino's standard `err`
 serializer renders `message` + `stack`. Never `JSON.stringify(err)` (drops the
 stack) and never interpolate the error into the message string.
 
@@ -186,7 +185,7 @@ stack) and never interpolate the error into the message string.
 
 **Format defaults to JSON; pretty is an explicit opt-in. Decided once in `createLogger`:**
 
-- **Default → raw pino JSON** to stdout (one object per line) — the shape
+- **Default → raw pino JSON** to stdout (one object per line), the shape
   `docker service logs control-center_<svc>` ships and any aggregator parses.
   This is the production path and the safe default.
 - **`LOG_PRETTY=1` (or `true`) → `pino-pretty`** (coloured, human single line,
@@ -213,7 +212,7 @@ bound `env` field defaults from `process.env.APP_ENV ?? "development"`;
 
 **Level and env defaulting are resolved in ONE place: `packages/logger`.** All
 `process.env` reads for the logger (`LOG_LEVEL`, `LOG_PRETTY`, `APP_ENV`) live
-**inside `packages/logger/src/index.ts`** — `createLogger` reads
+**inside `packages/logger/src/index.ts`**, `createLogger` reads
 `process.env.LOG_LEVEL` (else `debug` when pretty / `info` for JSON) and defaults
 `env` from `process.env.APP_ENV ?? "development"` when `opts.env` is omitted. Call
 sites **never** read these themselves; they pass an optional `level` / `env` /
@@ -231,7 +230,7 @@ does read env is sanctioned.
 
 `LOG_LEVEL: z.string().optional()` is still added to the api env schema for
 documentation/validation, but the logger reads `process.env.LOG_LEVEL` directly
-(it cannot import the api env schema — it is a leaf with no `@repo/api` dep).
+(it cannot import the api env schema, it is a leaf with no `@repo/api` dep).
 
 **Levels policy** (the rule every gap in §5 maps onto):
 
@@ -247,13 +246,13 @@ up the decision-level detail without redeploying code.
 
 ---
 
-## 4. Redaction — secrets are NEVER logged
+## 4. Redaction, secrets are NEVER logged
 
 Two layers, defence in depth:
 
 1. **Discipline (primary):** resolved secret values, tokens, and `Authorization`
    header values are **never passed to the logger at all**. Log the *ref/key/name*,
-   the *status code*, the *duration* — never the value. bosun logs `op://` ref
+   the *status code*, the *duration*, never the value. bosun logs `op://` ref
    paths and **hashed docker secret names**, never `resolvedValue`. This is the
    rule the §5 per-service notes enforce ("keys only, never values").
 2. **`pino redact` (backstop):** in case a secret-bearing object is ever logged
@@ -265,7 +264,7 @@ Two layers, defence in depth:
 > (e.g. bosun wraps `resolvedValue` into a generic `{ name, value }` shape in
 > `reconcile/secrets.ts`, or an HA token logged inside a config dump under key
 > `token`) slips straight through. Path-based redaction is brittle against
-> renamed / wrapped fields. **Therefore layer 1 (discipline — never pass the
+> renamed / wrapped fields. **Therefore layer 1 (discipline, never pass the
 > value) is load-bearing, not optional**, and the list below adds a generic
 > catch-all of common wrapper key names on top of the named secrets.
 
@@ -285,16 +284,14 @@ const REDACT_PATHS = [
   "OPENROUTER_API_KEY", "*.OPENROUTER_API_KEY",
   "DATABASE_URL", "*.DATABASE_URL",
   "POSTGRES_PASSWORD", "*.POSTGRES_PASSWORD",
-  "BOSUN_WEBHOOK_TOKEN", "*.BOSUN_WEBHOOK_TOKEN",
   "OP_SERVICE_ACCOUNT_TOKEN", "*.OP_SERVICE_ACCOUNT_TOKEN",
   "GHCR_PULL_TOKEN", "*.GHCR_PULL_TOKEN",
-  // bosun secret plaintext: ResolvedSecret carries `resolvedValue`, and
-  // reconcile/secrets.ts re-wraps it as a generic `{ dockerName, value }`,
-  // so BOTH keys must be censored (verified against the real types).
+  // generic secret-plaintext wrapper keys: a resolved secret value can ride a
+  // renamed/wrapped key, so both common shapes are censored as defence-in-depth.
   "resolvedValue", "*.resolvedValue",
   "value", "*.value",
   "apiToken", "*.apiToken",                       // Cloudflare token
-  // generic wrapper-key catch-all — a secret logged under a renamed/wrapped key
+  // generic wrapper-key catch-all, a secret logged under a renamed/wrapped key
   // (the brittleness called out above). Cheap insurance behind layer-1 discipline.
   "token", "*.token", "secret", "*.secret",
   "password", "*.password", "credential", "*.credential",
@@ -304,25 +301,25 @@ const REDACT_PATHS = [
 ];
 ```
 
-> `REDACT_PATHS` was finalised against the real field names: bosun's
-> `ResolvedSecret` type (`packages/bosun/src/reconcile/secrets.ts`) carries
-> `resolvedValue`, and the `{ dockerName, value }` re-wrap is also in scope —
-> both keys are in the list. The api config shapes were verified the same way.
+> `REDACT_PATHS` was finalised against the real field names, including the
+> generic secret-value wrapper keys (`resolvedValue`, `value`) so a value logged
+> under a renamed/wrapped key is still censored. The api config shapes were
+> verified the same way.
 
 `createLogger` passes `{ redact: { paths: REDACT_PATHS, censor: "[REDACTED]" } }`
 to pino. A `packages/logger/test/redact.test.ts` asserts each sensitive field is
-censored — that test is the machine-checkable AC for the foundation ticket. The
-test asserts against objects shaped like the **real** bosun `ResolvedSecret`
-(`{ name, ref, resolvedValue }`) and its `{ dockerName, value }` re-wrap, and the
-api config object — not just bare `{ HA_TOKEN: … }` — so the named-field and
+censored, that test is the machine-checkable AC for the foundation ticket. The
+test asserts against objects shaped like a resolved secret
+(`{ name, ref, resolvedValue }`) and its `{ name, value }` re-wrap, and the
+api config object, not just bare `{ HA_TOKEN: … }`, so the named-field and
 wrapper-key paths are both exercised against the shapes that actually flow.
 
 **Sensitive field inventory** (union across services): `HA_TOKEN`,
 `UNIFI_API_KEY`, `WIFI_PASSWORD`, `SPOTIFY_CLIENT_SECRET`,
 `SPOTIFY_REFRESH_TOKEN`, `SPOTIFY_ACCESS_TOKEN`, `OPENROUTER_API_KEY`,
-`DATABASE_URL`, `POSTGRES_PASSWORD`, `BOSUN_WEBHOOK_TOKEN`,
+`DATABASE_URL`, `POSTGRES_PASSWORD`,
 `OP_SERVICE_ACCOUNT_TOKEN`, `GHCR_PULL_TOKEN`, Cloudflare `apiToken`, any
-`Authorization` / `X-API-KEY` header value, bosun `resolvedValue`, and the
+`Authorization` / `X-API-KEY` header value, a resolved-secret `resolvedValue`, and the
 private home fields `HOME_LAT` / `HOME_LON` / `HOME_PLACE_NAME`. The gitleaks +
 no-home-address pre-commit guards remain the commit-time backstop.
 
@@ -335,7 +332,7 @@ with `getLogger()`/child loggers at the mapped level, and (b) fill the named
 observability gaps. The single highest-value change is the **worker/media-worker
 runtime**, which today swallows every cycle error into invisible in-memory stats.
 
-> **Shared-code ownership — these tickets are NOT fully parallel on shared files.**
+> **Shared-code ownership, these tickets are NOT fully parallel on shared files.**
 > The job queue, playlist-poller, youtube-ingest, controls-service, and the
 > enforcers physically live in **`@repo/api`** and are run by **two** process
 > roots (the api server and the media-worker). To avoid parallel worktrees both
@@ -343,7 +340,7 @@ runtime**, which today swallows every cycle error into invisible in-memory stats
 > **ALL `@repo/api` domain-service logging is owned by the API ticket only.**
 > Those modules acquire their logger via **`getLogger()`** (see §2) so they bind
 > whichever root is live (`service: "api"` under the api, `service: "media-worker"`
-> under the media-worker) — no threaded arg, reachable from both roots. The
+> under the media-worker), no threaded arg, reachable from both roots. The
 > worker and media-worker tickets are therefore reduced to **only their own
 > `runtime.ts` + `index.ts`** (the framework copies they each own). The API
 > ticket must land the shared-code logging FIRST; worker / media-worker then
@@ -353,33 +350,33 @@ runtime**, which today swallows every cycle error into invisible in-memory stats
 
 Root logger created once in `server.ts`: `const log = createLogger({ service: "api" })`.
 This ticket **owns all `@repo/api` domain-service logging** (queue, poller,
-ingest, controls, enforcers — see the §5 ownership note); those modules log via
+ingest, controls, enforcers, see the §5 ownership note); those modules log via
 **`getLogger()`** so they also bind correctly when the media-worker runs them.
 `server.ts`-owned code uses the threaded `log` / `reqLog` children directly.
 
 **Replace:**
 - `server.ts:53` tRPC onError `console.error` → `reqLog.error({ err, path }, "trpc error")`.
 - `server.ts:76` 500 `console.error` → `reqLog.error({ err, status: 500, durationMs }, "request failed")`.
-- `server.ts:82` per-request `console.warn` → **`reqLog.info({ status, durationMs }, "request completed")`** for real methods (it was mis-levelled at warn for 200s; completed requests are `info`). **CORS `OPTIONS` preflights log at `debug`, not `info`** (transport noise — see §6 volume note). Build `reqLog = log.child({ reqId, method, path })` at the top of `fetch()`.
+- `server.ts:82` per-request `console.warn` → **`reqLog.info({ status, durationMs }, "request completed")`** for real methods (it was mis-levelled at warn for 200s; completed requests are `info`). **CORS `OPTIONS` preflights log at `debug`, not `info`** (transport noise, see §6 volume note). Build `reqLog = log.child({ reqId, method, path })` at the top of `fetch()`.
 - `server.ts:87` startup `console.warn` → `log.info({ port, env }, "api started")`.
 - `party-service.ts:131` `console.error("Transient HA error…")` → `log.error({ err, tick, speed }, "party engine tick failed")` (now carries the real error).
 - `playlist-poller-service.ts:77` `console.warn` → `log.warn({ err, sourceId }, "yt-dlp failed for source")`.
 - `db/seed.ts` console.* → `info`/`error` (seed-only, low priority but keep consistent).
 
 **Add (new structured logs):**
-- `db/migrate.ts` — `info` migrations start (folder) + `info` done / `error` on throw.
-- `env.ts` hydrate path — `info` which secret-file vars resolved vs left default (**names only, never values**).
-- `/health/climate` route — `debug` HA probe latency + ok/fail.
-- `trpc/init.ts` `haErrorMiddleware` — `warn` with tRPC path, original `HaError.status`, message (preserve the HTTP status lost in the remap).
-- `integrations/homeassistant/index.ts` `request()` catch — `warn` HA path, status (0 = network), `durationMs` on every non-2xx/timeout (single HA I/O chokepoint).
-- `device-sync-service.ts`, `light-enforcer-service.ts`, `climate-enforcer-service.ts` — `error` on cycle catch / `markHeartbeat(error)` with message + `consecutiveFailures`.
-- `light-enforcer-service.ts applyDecision` — `debug` per push (entityId, on/off, brightness, **colour as kelvin/rgb tuple only**) and per adopt (entityId, adopted reported state).
-- `device-sync-service.ts sweepExpiredWindows` — `warn` on command marked Timeout (deviceId, entityId, desired, elapsed).
-- `jobs/queue.ts` — `error` no-handler; `warn` retry (jobId, type, attempt, delaySec, err); `error` permanent failure (jobId, type, attempts, err); plus `claimAndRun` `info` claimed (jobId, type, attempts) / `info` completed (jobId, type, durationMs) / `debug` queue-empty (these fire under BOTH the api and media-worker roots via `getLogger()`).
-- `youtube-ingest-service.ts` — `debug` idempotent skip; `error` media_item not found; `info` yt-dlp audio/video start+complete (videoId, path, bytes, durationMs); `warn` metadata-fetch failure (null duration); `info` OpenRouter enrich start/complete (model, durationMs); `warn` enrich skipped when `OPENROUTER_API_KEY` absent (**never the key value**). Runs under the media-worker root in practice but the code is api-owned.
-- `integrations/spotify/client.ts refreshToken` — `debug` success with `expires_in` (**never the token**).
-- `playlist-poller-service.ts` — `info` cycle start/summary (sourceId, found, new vs known); `debug` empty playlist; `info` new items discovered (sourceId, newCount, videoIds).
-- `controls-service.ts` — `warn` getControlsState DB-read failure (devices appear unavailable); `warn` writeDesired per-entity DB write failure (entityId, desired).
+- `db/migrate.ts`, `info` migrations start (folder) + `info` done / `error` on throw.
+- `env.ts` hydrate path, `info` which secret-file vars resolved vs left default (**names only, never values**).
+- `/health/climate` route, `debug` HA probe latency + ok/fail.
+- `trpc/init.ts` `haErrorMiddleware`, `warn` with tRPC path, original `HaError.status`, message (preserve the HTTP status lost in the remap).
+- `integrations/homeassistant/index.ts` `request()` catch, `warn` HA path, status (0 = network), `durationMs` on every non-2xx/timeout (single HA I/O chokepoint).
+- `device-sync-service.ts`, `light-enforcer-service.ts`, `climate-enforcer-service.ts`, `error` on cycle catch / `markHeartbeat(error)` with message + `consecutiveFailures`.
+- `light-enforcer-service.ts applyDecision`, `debug` per push (entityId, on/off, brightness, **colour as kelvin/rgb tuple only**) and per adopt (entityId, adopted reported state).
+- `device-sync-service.ts sweepExpiredWindows`, `warn` on command marked Timeout (deviceId, entityId, desired, elapsed).
+- `jobs/queue.ts`, `error` no-handler; `warn` retry (jobId, type, attempt, delaySec, err); `error` permanent failure (jobId, type, attempts, err); plus `claimAndRun` `info` claimed (jobId, type, attempts) / `info` completed (jobId, type, durationMs) / `debug` queue-empty (these fire under BOTH the api and media-worker roots via `getLogger()`).
+- `youtube-ingest-service.ts`, `debug` idempotent skip; `error` media_item not found; `info` yt-dlp audio/video start+complete (videoId, path, bytes, durationMs); `warn` metadata-fetch failure (null duration); `info` OpenRouter enrich start/complete (model, durationMs); `warn` enrich skipped when `OPENROUTER_API_KEY` absent (**never the key value**). Runs under the media-worker root in practice but the code is api-owned.
+- `integrations/spotify/client.ts refreshToken`, `debug` success with `expires_in` (**never the token**).
+- `playlist-poller-service.ts`, `info` cycle start/summary (sourceId, found, new vs known); `debug` empty playlist; `info` new items discovered (sourceId, newCount, videoIds).
+- `controls-service.ts`, `warn` getControlsState DB-read failure (devices appear unavailable); `warn` writeDesired per-entity DB write failure (entityId, desired).
 
 > All of the above `@repo/api` domain modules acquire their logger via
 > `getLogger()` (§2), so each line binds whichever process root is live.
@@ -387,14 +384,14 @@ ingest, controls, enforcers — see the §5 ownership note); those modules log v
 ### worker (`@repo/worker`)
 
 Root logger `createLogger({ service: "worker" })` in `index.ts`. **The runtime
-change is the heart of this whole effort** — `runtime.ts` currently catches every
+change is the heart of this whole effort**, `runtime.ts` currently catches every
 cycle error into `stats` and emits nothing.
 
 **Replace:**
 - `index.ts` startup `console.warn` → `log.info({ workers: [...] }, "worker started")`.
 - `index.ts` signal `console.warn` → `log.info({ signal }, "worker stopping")`.
 
-**Add — `runtime.ts` is passed a `Logger` and binds a child per worker:**
+**Add, `runtime.ts` is passed a `Logger` and binds a child per worker:**
 - **cycle catch** → `workerLog.error({ err, consecutiveFailures, durationMs }, "worker cycle failed")`. Fixes the invisible-failure bug.
 - **failure transition** (`consecutiveFailures` 0→1) → distinct `error` "worker entered failing state" so the exact onset is greppable.
 - **recovery transition** (`consecutiveFailures` >0→0) → `info` "worker recovered" with the streak length just cleared.
@@ -405,17 +402,17 @@ cycle error into `stats` and emits nothing.
 - `index.ts` after `runMigrations()` → `info` migrations done / `error` on throw.
 - SIGINT/SIGTERM handler → `info` final per-worker stats snapshot at shutdown.
 
-The runtime takes the logger as a **constructor argument** (`createWorkerRuntime(workers, { logger })`) — no module-global logger, keeps it testable, and lets media-worker pass its own `service: "media-worker"` root.
+The runtime takes the logger as a **constructor argument** (`createWorkerRuntime(workers, { logger })`), no module-global logger, keeps it testable, and lets media-worker pass its own `service: "media-worker"` root.
 
 ### media-worker (`@repo/media-worker`)
 
 Root logger `createLogger({ service: "media-worker" })` in `index.ts`. It owns a
-**copy** of the worker framework (`runtime.ts`/`types.ts`) — apply the same
+**copy** of the worker framework (`runtime.ts`/`types.ts`), apply the same
 runtime changes as worker (failure/recovery transitions, periodic stats,
 slow-cycle). **This ticket is scoped to the files media-worker OWNS only**
 (`index.ts` + its `runtime.ts`/`types.ts` copy). The job queue, poller, and
 ingest live in `@repo/api` and their logging is owned by the **API ticket**
-(§5 ownership note) via `getLogger()` — those lines fire automatically under the
+(§5 ownership note) via `getLogger()`, those lines fire automatically under the
 `media-worker` root at runtime, so this ticket neither edits nor re-logs them.
 
 **Replace:**
@@ -423,7 +420,7 @@ ingest live in `@repo/api` and their logging is owned by the **API ticket**
 - `index.ts:100` startup + `index.ts:108` signal → `info`.
 
 **Add (media-worker-owned files only):**
-- `index.ts hasSufficientDisk` statfs catch → `warn` "statfs failed, assuming sufficient" (dir, err) — makes the allow-on-error assumption explicit.
+- `index.ts hasSufficientDisk` statfs catch → `warn` "statfs failed, assuming sufficient" (dir, err), makes the allow-on-error assumption explicit.
 - runtime cycle catch / 3+ streak → `error` (same runtime changes as worker, above).
 - `index.ts` migrations start/done.
 
@@ -433,43 +430,16 @@ ingest live in `@repo/api` and their logging is owned by the **API ticket**
 > appear in `media-worker` logs at runtime (bound `service: "media-worker"` via
 > `getLogger()`); they are listed here only for the §6 liveness picture.
 
-### bosun (`@bosun/bosun`)
-
-Root logger `createLogger({ service: "bosun" })` in `cli.ts` (and `serve.ts`).
-bosun has the most ad-hoc `console.log`/`console.error` with `[bosun …]` string
-prefixes — replace those prefixes with **bound `service: "bosun"` + a
-sub-context field** (`step: "secrets" | "routes" | "deploy" | "scheduler"`).
-
-**Replace (representative — all `[bosun …]` console.* lines):**
-- `cli.ts` `cmdUp`/`cmdSecrets`/`runVerify`/`cmdServe`/`cmdRunJob` `console.log` lifecycle lines → `log.info({ step }, …)`.
-- `cli.ts` usage / env-missing / `main().catch` `console.error` → `log.error`. **`main().catch` logs the full `err` (stack), not just `err.message`.**
-- `scheduler.ts` `[scheduler] …` `console.log` → `log.child({ step: "scheduler" })` at the right level: dispatched-with-nonzero-exit becomes **`warn`**, error becomes `error`, skips stay `debug`/`info`.
-- `serve.ts`, `reconcile/secrets.ts` prune-deferral console.log → `info`/`debug`.
-
-**Add:**
-- `cmdServe` startup → `info` structured (stackName, port, cronJobs count, probed-services count, advisory flag) and a **SIGTERM/SIGINT handler** → `info` shutdown (none exists today; also stops the scheduler interval cleanly).
-- `cmdUp` after `reconcileSecrets` → `info` created vs skipped secret **names** + stale count (**keys only**).
-- `providers/op.ts read()` → `debug` per-ref path + `durationMs`; `error` on stderr with **ref path** (never value).
-- `reconcile/secrets.ts` → `info` per createSecret dockerName; `debug` stale list.
-- `reconcile/stack.ts` — `info` memory-budget total/breakdown on the SUCCESS path; `info` deployStack pre/post with `durationMs` + stdout, `error` with exitCode/stderr.
-- `reconcile/routes.ts` — `info` per route/CNAME create/delete + hostname; `error` with hostname + HTTP status on API error.
-- `serve.ts handleServeRequest` — `info` every POST /deploy (method, path, **auth header presence not value**, imageOverrides key-set); `warn` 404s; `warn` 401 with client IP.
-- `serve.ts runWebhookDeploy` — `info` one-shot exit code + `durationMs`.
-- `scheduler.ts` tick → `debug` heartbeat (due-job count).
-- `cli.ts parseOverridesArg` malformed JSON → `warn` (deploy falls back to tag mode).
-
-**biome override cleanup (tighten, don't rot):** once `cli.ts` has no `console.*`
-left (the AC requires `rg console.* packages/bosun/src` returns nothing), the
-`**/packages/bosun/src/cli.ts` **`noConsole`** carve-out in `biome.json` is dead
-and would silently re-permit `console` — **remove it**. Keep the `noProcessEnv`
-half of that override block (cli.ts still reads `process.env`). Make
-"biome.json bosun cli.ts noConsole override removed" an explicit bosun ticket AC.
+> **History.** A `### bosun` per-service section lived here when the deploy tool was
+> an in-repo service that logged through `@repo/logger`. bosun has been replaced by
+> Pulumi + k8s (`infra/`) and that section is gone with the package. Deploy logging is
+> now Pulumi's own output / `kubectl logs`, outside this contract.
 
 ---
 
 ## 6. How we know it's working
 
-Each service emits, in `docker service logs control-center_<svc>`, a single
+Each service emits, in `kubectl logs deploy/<svc>`, a single
 unmistakable **startup line** and ongoing **steady-state** lines. An operator
 greps the startup line first (timestamp anchor), then watches the steady-state
 stream to confirm liveness:
@@ -479,7 +449,6 @@ stream to confirm liveness:
 | api            | `"api started" {port,env}`                | `"request completed" {status,durationMs}` per request            |
 | worker         | `"worker started" {workers:[…]}`          | failure→recovery transitions; (decision/heartbeat detail at `debug`) |
 | media-worker   | `"media-worker started" {workers:[…]}`    | `"job claimed"`/`"job completed"`, poller cycle summaries        |
-| bosun          | `"bosun started" {stack,port,cronJobs}`   | per-deploy reconcile/deploy timing, scheduler dispatches         |
 
 Liveness contract:
 - **Startup line present** → process booted and configured its logger.
@@ -497,7 +466,7 @@ polling plus the tRPC client, whose `QueryClient` **retries infinitely** (per
 project CLAUDE.md), so:
 
 - **CORS `OPTIONS` preflights** are logged at **`debug`, not `info`** (or skipped)
-  — they are pure transport noise and would otherwise roughly double the line
+ , they are pure transport noise and would otherwise roughly double the line
   count. Only the real method's completion is an `info` liveness line.
 - During an HA / backend outage the infinite-retry `QueryClient` must NOT spin a
   tight error-retry loop that floods `"request failed"` at `error`. The api's
@@ -513,12 +482,12 @@ The **1s worker loops stay silent** in steady state (only transitions + periodic
 
 ---
 
-## 7. Web (browser) — out of scope, future note
+## 7. Web (browser), out of scope, future note
 
 `apps/web` is **not** in this effort. pino's browser build exists, but the web
 app's `console.*` usage is a separate, smaller concern (it ships to a kiosk
 WKWebView, no aggregator). When picked up later: a thin `apps/web/src/log.ts`
-wrapper with the same `info/warn/error` shape (no pino dependency required —
+wrapper with the same `info/warn/error` shape (no pino dependency required ,
 could be a 20-line console wrapper that no-ops `debug` in prod) can replace
 `console.*` at the React call sites, optionally POSTing `error` lines to an api
 sink. Keep it a separate ticket; do not block the backend rollout on it.
@@ -527,16 +496,16 @@ sink. Keep it a separate ticket; do not block the backend rollout on it.
 
 ## 8. Rollout ordering
 
-1. **Foundation** (`@repo/logger`) lands first with its redaction test green —
+1. **Foundation** (`@repo/logger`) lands first with its redaction test green ,
    nothing else can import it until it exists. (Includes the
    `**/packages/logger/src/**` `noProcessEnv: off` biome override and the
-   `packages/logger`-scoped `pino-pretty` knip ignore — see §1, §3.)
+   `packages/logger`-scoped `pino-pretty` knip ignore, see §1, §3.)
 2. **api** lands next: it owns ALL `@repo/api` domain-service logging (queue,
    poller, ingest, controls, enforcers) via `getLogger()` (§5 ownership note).
    This must precede worker/media-worker because those shared files are edited
    here ONLY.
 3. Then **worker / media-worker / bosun** adopt. They are parallel **with each
-   other** (each touches only files it owns — its own `runtime.ts`/`index.ts`,
+   other** (each touches only files it owns, its own `runtime.ts`/`index.ts`,
    or bosun's `cli.ts`/`serve.ts`), but they are **NOT** parallel with the api
    ticket on the shared `@repo/api` files: those are already done by step 2, so
    worker/media-worker adopt only the runtime and inherit the domain lines at

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Merged coverage across BOTH vitest projects: the jsdom unit suite (api + web +
-# bosun) and the Storybook browser suite (Playwright/Chromium). They run as two
+# Merged coverage across BOTH vitest projects: the jsdom unit suite (api + web)
+# and the Storybook browser suite (Playwright/Chromium). They run as two
 # separate invocations because the Storybook project must run from apps/web (its
 # storybookScript + setup are relative to that dir), so we record each as a vitest
 # "blob" report and merge them into one coverage summary.

@@ -1,4 +1,4 @@
-# Captive Portal PRD — guest WiFi onboarding (www-q002)
+# Captive Portal PRD, guest WiFi onboarding (www-q002)
 
 One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (LAN-only) where a guest verifies their email with a 6-digit code, enters the WiFi password, and gets 30 days of internet per device. Design is 1:1 from `docs/captive-portal/design/`.
 
@@ -9,7 +9,7 @@ One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (
 3. Every error/recovery path behaves exactly as designed, no dead ends.
 4. Unit + integration + E2E coverage, all green in CI; red blocks deploy.
 5. Works in mobile and desktop captive webviews, WCAG AA, refresh-safe, double-submit-safe.
-6. Deployed to production on homelab via bosun, reachable only from the local network.
+6. Deployed to production on homelab via Pulumi/k3s, reachable only from the local network.
 
 **Non-goals**
 
@@ -50,7 +50,7 @@ One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (
 
 **Frontend (`apps/captive-portal`)**
 
-1. Vite + React 19 + TypeScript + Tailwind v4 + shadcn/ui — homogenous with `apps/web`.
+1. Vite + React 19 + TypeScript + Tailwind v4 + shadcn/ui, homogenous with `apps/web`.
 2. OTP input built on shadcn `input-otp` (auto-advance, paste, backspace, numeric-only, `autocomplete="one-time-code"`).
 3. Geist + Geist Mono self-hosted (captive webviews block CDNs).
 4. Pure `#000` background, hairline borders, state color only for error/success.
@@ -62,12 +62,12 @@ One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (
 **Backend (in `apps/api`)**
 
 1. tRPC `portal` router: `sendCode`, `verifyCode`, `checkPassword`, `status`.
-2. UniFi never calls us; it redirects the guest's browser with query params (`mac`/`id`, `ap`, `ssid`, `t`, `url`) — the MAC is carried through the whole flow.
+2. UniFi never calls us; it redirects the guest's browser with query params (`mac`/`id`, `ap`, `ssid`, `t`, `url`), the MAC is carried through the whole flow.
 3. `EmailSender` interface: mock impl logs via `@repo/logger` AND stores the code (dev-readable, Calum's "print the 6 thing"); Resend impl behind the same interface once creds land (`scripts/save-resend.sh`).
 4. WiFi password check compares against the op-delivered `WIFI_PASSWORD` secret (item `WiFi Guest Credentials`, set via `scripts/save-wifi-guest.sh`).
 5. `UniFiClient` interface: authorize-guest (mac, minutes=43200), active/lapsed authorization lookup; UniFi OS `/proxy/network` path handling; mocked in all tests.
 6. Rate limits and cooldowns enforced server-side; services THROW on error/unconfigured (house rule).
-7. Recurring cleanup (expired codes/counters) via bosun `cronJob()`, not a worker loop.
+7. Recurring cleanup (expired codes/counters) via a k8s `CronJob` (`infra/src/crons.ts`), not a worker loop.
 
 **Data model (Postgres, drizzle, migrate-on-boot)**
 
@@ -88,17 +88,17 @@ One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (
 **Networking and deploy**
 
 1. Own image `control-center-captive-portal` (nginx static), CI build job + path filter + digest map, same pattern as the worker.
-2. bosun service with `publishPort` (new bosun capability) and NO `route:` — bosun must never create a tunnel ingress for it.
+2. k8s `Service type: LoadBalancer` (republished on the mini's LAN NIC by OrbStack `expose_services`) and NO tunnel ingress, the portal must never be reachable through cloudflared.
 3. LAN-only via split-horizon DNS: UniFi local DNS record `captive-portal.worldwidewebb.co → Mini LAN IP`; the public wildcard resolves to Cloudflare which has no route (dead end).
-4. TLS: Let's Encrypt via Cloudflare DNS-01, terminated in the portal nginx, renewal as a bosun `cronJob()`, cert-expiry health probe.
-5. nginx proxies ONLY `/api/trpc/portal.*` to `api:4201`; every other path 404s — guests can never reach dashboard procedures (lights/climate/Sonos).
+4. TLS: Let's Encrypt via Cloudflare DNS-01, issued/renewed by cert-manager, the cert mounted into the portal nginx.
+5. nginx proxies ONLY `/api/trpc/portal.*` to `api:4201`; every other path 404s, guests can never reach dashboard procedures (lights/climate/Sonos).
 
 **Security**
 
 1. Guests are untrusted: the scoped proxy allowlist is the boundary between the guest VLAN and the dashboard api.
 2. All secrets in 1Password via op (`UniFi`, `WiFi Guest Credentials`, `Resend`, `Cloudflare API`); nothing in the repo or frontend bundle.
 3. HTTPS end-to-end on the open guest WLAN; gitleaks/no-address guards apply to all committed assets.
-4. Related but out of scope here: www-cuuw (P0) — the public dashboard has no auth gate; handled in a separate thread.
+4. Related but out of scope here: www-cuuw (P0), the public dashboard has no auth gate; handled in a separate thread.
 
 **Testing**
 
@@ -117,7 +117,7 @@ One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (
 
 **Decisions (overrides of the Implementation Brief)**
 
-1. Monorepo app in control-center, not a standalone server: frontend `apps/captive-portal`, backend in `apps/api` (tRPC), deploy via bosun.
+1. Monorepo app in control-center, not a standalone server: frontend `apps/captive-portal`, backend in `apps/api` (tRPC), deploy via Pulumi/k3s.
 2. Postgres (existing) instead of Redis/in-memory TTL store.
 3. Resend instead of generic SMTP; mocked (log + store the code) until creds land.
 4. shadcn/ui on Tailwind v4 instead of hand-ported CSS primitives; design tokens still match `theme.css` 1:1.

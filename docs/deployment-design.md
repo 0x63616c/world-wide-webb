@@ -1,325 +1,170 @@
 # Control-Center Deployment Design
 
-Status: **DRAFT for review** · Scope: build a generic config-driven deploy tool (`bosun`) and deploy control-center to the Mac Mini (`homelab`) through it.
+Status: **CURRENT** (www-j934) · Scope: how control-center is built, deployed, and kept
+alive on `homelab` (the Mac Mini).
 
-> **For the implementing agent:** read this whole doc, then follow **Part 14, Implementation order**. The companion [`acceptance-checklist.md`](./acceptance-checklist.md) is the definition of done. Everything here runs as the normal user (no sudo).
-
----
-
-## Part 1: Plain English (read this first)
-
-We're building two things at once:
-
-1. **`bosun`**, a small, reusable deploy tool. You describe a project's services in a typed TypeScript file (`deploy.config.ts`), and `bosun` deploys them to a Docker Swarm: it pushes the right secrets in (from 1Password), wires up the public routes (Cloudflare), starts the containers, and then *proves they actually work* by running health checks you declared. It also **cleans up**, secrets and routes that you stop declaring get removed automatically.
-
-2. **control-center**, the dashboard, as the first project deployed *through* `bosun`.
-
-The Mini runs **OrbStack** (Docker) with **Swarm** turned on (keeps containers running, restores them after reboot). **Portainer** runs purely as a **monitoring UI** (CPU/memory per service). It does **not** deploy anything, `bosun` is the only thing that deploys.
-
-The clever part is the config is *real code* but **pure**: `deploy.config.ts` is a TypeScript program that builds a static description and nothing else (no network, no side effects). It declares secret *references* (e.g. "api needs the HA token from 1Password"), never the secret values. So it can run anywhere, in CI, locally, on the box, and always produces the same description with no secrets in it. The actual secret *values* are read once, at deploy time, by whichever machine has the credentials, and pushed straight into Docker's encrypted secret store.
-
-When you push code: **GitHub Actions builds the images** (off the Mini), pushes them to GitHub's registry, then pings the Mini to run `bosun up`. Config-only changes deploy in seconds; code changes take a build.
-
-**Cloudflare** is untouched, the tunnel and all `*.worldwidewebb.co` routing still live in your account; `bosun` just reconciles the routes and runs the connector. HTTPS is automatic at Cloudflare's edge.
-
-**Three things stay on the host by hand:** Tailscale, the Home Assistant VM, and OrbStack. Everything else is declared in git and deployed by `bosun`.
+> **History.** This repo previously deployed through `bosun`, an in-repo tool that rendered
+> `deploy.config.ts` to a Docker Swarm stack on OrbStack, with a `bosun-agent` webhook that CI
+> POSTed a digest map to. That whole layer (`packages/bosun`, `deploy.config.ts`, the
+> `bosun-agent`, the `refs/deploy/main` marker, `deploy-drift.yml`) has been removed. Deploy is
+> now **Pulumi + Kubernetes**. The deep design lives in
+> [`k3s-migration/DESIGN.md`](./k3s-migration/DESIGN.md); this file is the operator-facing
+> overview plus the hard-won recovery knobs.
 
 ---
 
-## Part 2: Goals & Non-Goals
+## 1. Plain English (read this first)
 
-**Goals**
-1. Build `bosun`: a generic, config-driven Swarm deploy tool (typed TS manifest, pure eval, secret + route + service + health reconcile with prune).
-2. Deploy control-center through it (web, api, postgres, cloudflared, storybook), with Portainer as monitoring.
-3. Minimal host deps (OrbStack + Tailscale + HA VM).
-4. Declarative & reproducible: the running system matches `deploy.config.ts`.
-5. Fast: push → deployed in seconds for config, build-bound for code.
-6. Survives reboots with no manual step.
-7. Keep `*.worldwidewebb.co` working, zero Cloudflare-side reconfiguration.
-8. Secrets sourced from 1Password (pluggable), never in git/CI/images.
+`infra/` is a **Pulumi TypeScript** program that declares the whole cluster, and a service is
+still declared in one typed place (a `ComponentResource` vocabulary succeeds bosun's
+`service()` / `cronJob()` builders). `pulumi up --stack prod` reconciles the OrbStack built-in
+**Kubernetes** cluster on `homelab` to match it. State lives in **Pulumi Cloud** (Calum's
+personal account; token `op://Homelab/Pulumi/access-token`).
 
-**Non-Goals**
-1. The broader `evee` platform. Control-center only.
-2. Multi-node / HA redundancy.
-3. Migrating Home Assistant off the host VM.
-4. Public auth (Cloudflare Access) on the dashboard.
-5. Gold-plating `bosun` beyond what control-center needs (build the MVP that deploys this repo; keep it tool-shaped but don't add unused backends).
+When you push to `main`: **GitHub Actions builds the changed images** (off the Mini), pushes
+them to GHCR, then the deploy job **joins the tailnet on an ephemeral `tag:ci` auth key** (so
+the runner can reach homelab's kube-apiserver), sets the per-image digests as Pulumi config,
+and runs `pulumi up --stack prod`. Only the workloads whose digest changed roll. The ephemeral
+node is revoked after the deploy.
+
+Cluster-level machinery, all declared in `infra/` and reconciled by the same `pulumi up`:
+
+- **External Secrets Operator (ESO)** with the **1Password SDK provider** syncs each declared
+  1P field into a native k8s `Secret`; pods mount them at the existing `/run/secrets/<NAME>`
+  paths, so app images need zero changes. The cluster reads 1Password once per refresh interval
+  (pods read etcd), which structurally fixes the old bosun per-deploy `op` rate-limit churn.
+- **cert-manager** with a Cloudflare **DNS-01** ClusterIssuer issues/renews the captive-portal
+  TLS cert (the portal is LAN-only, HTTP-01 can't reach it).
+- **CloudNativePG (CNPG)** runs Postgres as a single-instance `Cluster` on a local-path PVC on
+  the SSD (not NFS).
+- **cloudflared** runs **in-cluster** as a Deployment with **2 replicas** (HA, never an HPA) and
+  owns the public `*.worldwidewebb.co` routing; tunnel ingress is declared in the Pulumi
+  cloudflare provider.
+
+Three things stay on the host by hand (manual runtime): Tailscale, the Home Assistant VM, and
+OrbStack.
 
 ---
 
-## Part 3: The two deliverables
-
-| Deliverable | Where | What |
-|---|---|---|
-| **`bosun`** (the tool) | `packages/bosun/` | Generic Swarm deploy CLI + typed config API + providers + reconcilers + health |
-| **control-center deploy** | `deploy.config.ts`, `apps/*/Dockerfile`, `.github/workflows/`, `scripts/` | The dashboard described and deployed through `bosun` |
-
-The agent builds **both**, and proves both via the checklist.
-
----
-
-## Part 4: Architecture layers
+## 2. Architecture overview
 
 ```
-┌─ HOST INFRA (manual, rarely changes) ───────────────────────────┐
-│  Tailscale (system daemon)   · Home Assistant (QEMU VM @ :8123)  │
-├─ RUNTIME (one dep) ─────────────────────────────────────────────┤
-│  OrbStack (start-at-login)   → Docker engine + single-node Swarm │
-├─ SWARM ─────────────────────────────────────────────────────────┤
-│  portainer        → MONITORING ONLY (no deploys)                 │
-│  bosun-agent   → runs `bosun up` on trigger (deploy plane) │
-│  ── app stack (deployed by bosun) ──                          │
-│  web · api · postgres · cloudflared · storybook                  │
-└─────────────────────────────────────────────────────────────────┘
+┌─ HOST INFRA (manual runtime; plists managed by Pulumi command.remote) ──────────────┐
+│  Tailscale daemon · HA QEMU VM @ :8123 + socat proxy · unifi socat :8444            │
+│  homelab-drive NFS mount · orbstack-watchdog · k8s-apiserver-forward socat          │
+├─ RUNTIME (one dep, start-at-login) ─────────────────────────────────────────────────┤
+│  OrbStack → built-in single-node Kubernetes (kubelet image GC)                      │
+│   └ "Expose services to local network devices" ON (LAN reach for the portal)        │
+├─ CLUSTER (declared in infra/, applied by `pulumi up --stack prod`) ─────────────────┤
+│  external-secrets (ESO) + 1Password SDK provider  → native k8s Secrets              │
+│  cert-manager + CF DNS-01 ClusterIssuer            → portal TLS Certificate         │
+│  cnpg operator → Cluster "control-center" (local-path PVC on SSD)                   │
+│  cloudflared Deployment ×2 (HA, never autoscale)                                    │
+│  Deployments: api · worker · web · storybook · captive-portal · drizzle · media-w.  │
+│  CronJobs (infra/src/crons.ts): portal-data-purge · pg-backup · map-extract         │
+├─ EXTERNAL STATE (Pulumi providers, Pulumi Cloud backend) ───────────────────────────┤
+│  cloudflare: Access apps/policies + tunnel ingress   · unifi: adopt-only import     │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+Full per-service / per-cron mapping, secrets, data-migration runbook, the pod→host egress
+solution, captive-portal LAN exposure, and the UniFi import plan are all in
+[`k3s-migration/DESIGN.md`](./k3s-migration/DESIGN.md).
+
 ---
 
-## Part 5: The deploy tool: `bosun`
-
-### 5.1 What it is
-A bun/TypeScript CLI at `packages/bosun/`. Invoked from repo root as `bun run bosun <cmd>` (add a root `package.json` script `"bosun": "bun packages/bosun/src/cli.ts"`). Suggested layout:
+## 3. Deploy path (push → live)
 
 ```
-packages/bosun/
-  src/
-    cli.ts              # command dispatch: plan | secrets | routes | up | verify | serve
-    spec.ts             # typed builder API exported FOR configs to import
-    config.ts           # load + evaluate a deploy.config.ts → static Spec
-    providers/          # SecretProvider implementations
-      op.ts  file.ts  env.ts
-    reconcile/
-      secrets.ts        # create declared + prune orphaned (label-scoped)
-      routes.ts         # Cloudflare tunnel routes: create + prune (tag-scoped)
-      stack.ts          # render Spec → stack.yml, docker stack deploy --prune
-    health.ts           # run declared probes → exit code + per-probe report
-  test/                 # unit tests (vitest)
+push to main
+  → changes  (dorny/paths-filter; per-app filters + an `infra/**` filter)
+  → test     (typecheck · biome · knip · guards · vitest coverage · badges), gates deploy
+  → build-{web,api,worker,media-worker,storybook,drizzle,captive-portal}  (arm64 → GHCR :sha + :main)
+  → deploy:
+       - collect per-image :main digests (buildx imagetools inspect)
+       - join the tailnet with an EPHEMERAL Tailscale auth key (tag:ci), reach homelab's apiserver
+       - `pulumi login` (Pulumi Cloud, op://Homelab/Pulumi/access-token)
+       - `pulumi config set --path` the per-image digest map (see the namespace note below)
+       - `pulumi up --yes --stack prod`  → only services whose digest changed roll
+       - revoke/expire the ephemeral key; leave the tailnet
 ```
 
-### 5.2 The manifest: `deploy.config.ts` (typed, pure)
-A TypeScript file at repo root that imports the builder API and `export default`s a stack. Example shape:
+**Digest pinning** is preserved as Pulumi stack config: a changed digest changes the rendered
+Deployment image, so only that workload's pods roll, the same property as the old
+`docker stack deploy` digest pin, without bosun. `pulumi up` is **declarative-convergent** (it
+reconciles the whole declared stack to the latest committed digests every green run), so the
+old `refs/deploy/main` marker, `mark-deployed`, and `deploy-drift.yml` are gone, the latest run
+always converges prod to `main`.
 
-```ts
-import { stack, service, postgres, fromOp, ghcr, httpProbe, cmdProbe } from "@bosun/spec"
-
-export default stack("control-center", {
-  services: [
-    service("api", {
-      image: ghcr("control-center-api"),                 // ghcr.io/0x63616c/control-center-api:main
-      secrets: fromOp("Homelab", {                        // declares REFERENCES, not values
-        HA_TOKEN: "Home Assistant Token/credential",
-        UNIFI_API_KEY: "UniFi/local_api_key",
-      }),
-      env: { HA_URL: "http://host.docker.internal:8123" },
-      health: [httpProbe("http://api:4201/up", 200),
-               cmdProbe("live HA data", "curl -s http://api:4201/api/climate.now | jq -e .tempC")],
-    }),
-    service("web", {
-      image: ghcr("control-center-web"),
-      route: "dashboard.worldwidewebb.co",                // single-level → free CF HTTPS
-      proxyApiTo: "api:4201",                             // web reverse-proxies /api → api
-      health: [httpProbe("https://dashboard.worldwidewebb.co", 200, { certValid: true })],
-    }),
-    service("storybook", { image: ghcr("control-center-storybook"), route: "storybook.worldwidewebb.co" }),
-    postgres({ volume: "pgdata", config: ["infra/postgres/postgresql.conf"], init: ["infra/postgres/initdb"] }),
-    service("cloudflared", { image: "cloudflare/cloudflared:2025.10.1",
-      secrets: fromOp("Homelab", { TUNNEL_TOKEN: "Cloudflare Tunnel evee-webhooks/connector_token" }),
-      command: "tunnel --no-autoupdate run --token $TUNNEL_TOKEN" }),
-  ],
-})
-```
-
-### 5.3 Purity rule (non-negotiable)
-`deploy.config.ts` **evaluates to static data and performs no I/O**, no network, no `op` calls, no reading ambient state, no nondeterminism. It declares secret/route *references*; resolution happens later in the tool. `bosun plan` must produce **byte-identical** output on repeated runs and contain **zero secret values**. Optionally snapshot the resolved static spec to `deploy.lock.json` for a diffable record.
-
-### 5.4 Commands
-| Command | Does | Touches secret *values*? |
-|---|---|---|
-| `bosun plan` | evaluate config → print the static Spec (refs, not values) | ❌ pure |
-| `bosun secrets sync` | resolve refs via provider → create declared docker secrets, **prune** orphaned (scoped) | ✅ |
-| `bosun routes sync` | reconcile Cloudflare tunnel routes from `route:` decls, **prune** orphaned (scoped) | uses CF API token |
-| `bosun up` | `plan` → `secrets sync` → `routes sync` → render + `docker stack deploy --prune` → `verify` | ✅ |
-| `bosun verify` | run every declared health probe; exit 0 iff all pass; print per-probe report | ❌ |
-| `bosun serve` | webhook receiver: runs `up` on an authenticated POST (HMAC/bearer) | ✅ |
-
-### 5.5 Reconcile semantics (with safe prune)
-- **Secrets:** docker secrets are immutable. The tool names each `cc_<name>_<shorthash-of-value>` and labels them `bosun.stack=control-center`. Sync: create any missing hashed secret, render the stack to reference the *current* hashed names, then **prune** only secrets carrying the stack label that are no longer referenced. Changed value → new hash → new secret → service rolls → old pruned. **Prune is label-scoped** so it can never delete another stack's or Portainer's secrets.
-- **Routes:** create Cloudflare public-hostname routes for declared `route:` values (via CF API, token from 1Password) pointing at `service:port`; **prune** only routes tagged/owned by this stack. Routes stay remote-managed; unmanaged hostnames are never touched.
-- **Services:** render Spec → `stack.yml` → `docker stack deploy --prune control-center` (Swarm adds/updates/removes services to match).
-- **Health:** see 5.7.
-
-### 5.6 Secrets: the three-plane model + providers
-- **Build plane (CI):** builds images. No app secrets.
-- **Config plane (anywhere):** evaluates the config. Pure, refs only, no values.
-- **Sync plane (one privileged place):** resolves refs → values → docker secrets. Runs where creds + swarm coexist: **locally** (your `op` session + tailnet) or **on the box** (`bosun-agent` with a 1Password service-account token). **Never** a cloud CI runner (can't reach the tailnet-only Mini, has no 1Password).
-- **`SecretProvider` interface:** `op` (default), `file` (local), `env`. A declared ref like `op://Homelab/Home Assistant Token/credential` resolves through whichever provider the environment configures, "somewhere can be local."
-
-### 5.7 Health probes
-Each service declares probes; `bosun verify` runs them and is the gate. Probe kinds:
-- `httpProbe(url, expectStatus, { certValid? })`, HTTP status (and optional cert validity).
-- `cmdProbe(desc, shellCmd)`, command exits 0.
-
-`bosun up` runs `verify` after deploy; on failure it reports per-probe and (optional) auto-rolls the failed service back to its previous image. Many checklist items are satisfied by declared probes that `verify` runs.
+Forced full redeploy: `gh workflow run ci.yml --ref main` (rebuilds + redeploys everything).
 
 ---
 
-## Part 6: Control-center's manifest
+## 4. Scheduling
 
-`deploy.config.ts` declares: **web** (static + `/api` reverse-proxy, route `dashboard.worldwidewebb.co`), **api** (bun tRPC `:4201`, HA via `host.docker.internal:8123`, internal-only), **postgres** (pinned, `pgdata` volume, `postgresql.conf` via docker config, initdb), **cloudflared** (pinned, connector token), **storybook** (route `storybook.worldwidewebb.co`). Secret references come from the existing **`tilt/op-secrets.tpl`** (HA_TOKEN, UNIFI_API_KEY, WIFI_SSID, WIFI_PASSWORD) plus the Cloudflare connector token from the `evee` repo. New secrets (Postgres password, Portainer admin, GHCR pull token, op service-account token) get an interactive `scripts/save-<thing>.sh` per the 1Password convention.
-
----
-
-## Part 7: Images & CI
-
-- **Dockerfiles:** multi-stage bun builds for `apps/web`, `apps/api`, `apps/web` storybook. `web` serves the static build **and** reverse-proxies `/api` → `api`. `api` entrypoint runs `bun run --cwd apps/api db:migrate` then starts the server (migrate-on-boot; Swarm crash-backoff handles ordering since it ignores `depends_on`).
-- **CI (`.github/workflows/`):** on push, **path-filtered per-app** builds (`dorny/paths-filter`) → only changed apps rebuild → push `ghcr.io/0x63616c/control-center-{web,api,storybook}:<sha>` and `:main`, with buildx layer cache. Shared changes (`packages/**`, root lockfile) rebuild all. After pushing, CI calls the deploy webhook (Part 12).
-- **Deploy marker + drift watchdog (www-bom8):** on `main` the path filter diffs against **`refs/deploy/main`** (the last commit whose run left prod current), NOT the push range. `cancel-in-progress: true` means a run inherits the build work of every run it cancelled; a push-range diff can't see that work (four web commits were once stranded undeployed by a surviving docs-only push). The `mark-deployed` job force-pushes the marker forward only after a fully-green run (deploy succeeded, or green with nothing to ship); failed/cancelled runs leave it behind, so the drift stays visible to the next run. `workflow_dispatch` takes `force_all` (default `true` = rebuild/redeploy everything; `false` = selective vs the marker). Backstop: `deploy-drift.yml` (cron, 30 min) dispatches a selective run when the marker is behind `main` and no CI run is in flight, so prod converges instead of stalling. Bootstrap/recovery: if the marker is ever missing or wrong, one manual full dispatch (`gh workflow run ci.yml --ref main`) rebuilds, redeploys, and re-seeds it.
-- **Swarm can't build images** (`docker stack deploy` ignores `build:`), so a registry is mandatory → CI→GHCR is required, not optional. Keeps build load off the 8 GB box.
+Cron jobs are **Kubernetes `CronJob`s declared in `infra/src/crons.ts`**, NOT bosun
+`cronJob()` and NOT a third-party scheduler. They run on `TZ=America/Los_Angeles` (set as a pod
+env), so a `0 3 * * *` schedule fires at 03:00 LA. Today: `portal-data-purge` (nightly DB
+cleanup), `pg-backup` (nightly logical backup to the NAS), `map-extract` (manual-trigger,
+`suspend: true`). The old `docker-image-prune` cron is gone, kubelet image GC replaces it.
 
 ---
 
-## Part 8: Networking & Cloudflare
-
-1. Tunnel `evee-webhooks` (remote-managed); routes reconciled by `bosun routes sync`, never hand-edited.
-2. Outbound-only; **no inbound ports** on the Mini.
-3. HTTPS at Cloudflare's edge via free Universal SSL → **single-level hostnames only** (`*.worldwidewebb.co`). All public names single-level: `dashboard.`, `storybook.`, `portainer.`, `hooks.`.
-4. Routes target swarm `service:port`. Deploy webhook is a path under `hooks.worldwidewebb.co` → `bosun-agent`.
-
----
-
-## Part 8b: Cloudflare Access (edge auth gate, www-cuuw)
-
-Every `*.worldwidewebb.co` host is served through the one tunnel and is reachable by anyone with the URL; the dashboard's tRPC api is unauthenticated, so the URL controls the house. We lock this at the **Cloudflare edge** with **Cloudflare Access** (free Zero Trust tier), managed **declaratively in bosun**, it reconciles on every `bosun up` exactly like routes/DNS.
-
-**Invariant: default-deny.** A wildcard Access app `*.worldwidewebb.co` with action **Block** is the floor; any subdomain not covered by a more specific allow app is denied at the edge (including brand-new/accidental subdomains). Explicit per-host allow apps sit above it (CF matches the most-specific app).
-
-### Access matrix
-
-| Host | Policy | Credential | Builder |
-|---|---|---|---|
-| `*.worldwidewebb.co` (floor) | Block | none (deny all) | `accessFloor()` (stack-level) |
-| `dashboard.worldwidewebb.co` | service_auth | **kiosk** service token (iPad) | `accessServiceToken({tokenName:"bosun-kiosk", clientIdEnv:"CF_ACCESS_KIOSK_CLIENT_ID"})` |
-| `storybook.worldwidewebb.co` | allow | email OTP (allowed email in 1Password, env `CF_ACCESS_ALLOWED_EMAIL`) | `accessEmailEnv("CF_ACCESS_ALLOWED_EMAIL")` |
-| `drizzle.worldwidewebb.co` | allow | email OTP (same) | `accessEmailEnv("CF_ACCESS_ALLOWED_EMAIL")` |
-| `hooks.worldwidewebb.co` | service_auth | **CI** service token (GitHub Actions) | `accessServiceToken({tokenName:"bosun-ci", clientIdEnv:"CF_ACCESS_CI_CLIENT_ID"})` |
-
-`hooks` keeps its existing app-level `BOSUN_WEBHOOK_TOKEN` as a second, independent gate.
-
-### How the machinery works
-
-- **Spec:** `access?: AccessSpec` on a service (domain = its `route`); `accessFloor?: AccessSpec` at the `stack()` level. Builders `accessEmail` / `accessServiceToken` / `accessFloor` (`packages/bosun/src/spec.ts`).
-- **Reconcile:** `reconcileAccess` (`packages/bosun/src/reconcile/access.ts`), lists apps, creates/updates declared apps tagged `bosun:<stack>`, prunes ONLY tag-owned orphans (never a foreign app), and READS service tokens to resolve a token NAME → CF id. It NEVER creates or deletes service tokens.
-- **CLI:** an Access step in `reconcileCloudflare()` (advisory-guarded, after routes/DNS) plus `bosun access sync`. **Empty-set short-circuit:** with no `access:`/`accessFloor` declared it makes ZERO CF Access API calls, so no Access token scope is needed until cutover.
-- **Kiosk:** the iPad sends `CF-Access-Client-Id` / `CF-Access-Client-Secret` headers. Capacitor 8 has **no `server.headers`** (verified against the SDK), so headers are injected natively: `KioskViewController` re-issues the initial origin load with headers; `KioskWatchdog` carries them on its probe + reload and recognizes the CF Access login interstitial as a distinct recovery state (never loops on the login wall). Creds bake into Info.plist from repo secrets via `Fastfile` xcargs (`ios-build.yml`).
-
-### Service tokens & 1Password
-
-Two service tokens, created ONCE by a human:
-
-```bash
-scripts/save-cf-access-tokens.sh   # creates bosun-kiosk + bosun-ci, writes id+secret to 1Password
-```
-
-It POSTs the two CF service tokens, captures each one-time `client_secret`, and writes `client_id` + `client_secret` into 1Password items **`CF Access Kiosk Token`** and **`CF Access CI Token`** (Homelab). Idempotent: an existing item is skipped. Client **secrets** are secret; client **ids** are not (they ride the docker-secret channel only to stay out of this public repo). `reconcileAccess` only references the tokens; the save-script is the only thing that ever sees a secret.
-
-### Prerequisites (human, blocking)
-
-1. **Zero Trust enabled** on the CF account (one-time free dashboard step: set a team name / `*.cloudflareaccess.com` org domain). Required for ANY Access app to exist.
-2. **CF API token scopes.** The deploy-time token (`op://Homelab/Cloudflare API/credential`) needs **Access: Apps and Policies, Edit** + **Access: Service Tokens, Read** (the name→id lookup; it never mutates tokens). The save-script needs **Access: Service Tokens, Edit** (to POST the two tokens), grant it on the same token or use a short-lived one. Without these, the first live Access reconcile 403s.
-
-### Rollout order (the floor goes live LAST)
-
-The machinery is **inert** until declarations exist in `deploy.config.ts` AND the `CF_ACCESS_*_CLIENT_ID` fromOp lines are added to the bosun-agent secrets block. The deferred-fromOp note is in `deploy.config.ts`, those refs MUST wait until the 1Password items exist, or `secrets sync` throws on a missing op item and aborts every deploy.
-
-0. Confirm prerequisites above.
-1. Ship machinery (done, units 1-7). Deploys are unchanged (empty-set short-circuit).
-2. Run `scripts/save-cf-access-tokens.sh`. Verify CF most-specific-app precedence on a scratch host before any wildcard-Block covers a live host.
-3. Add `accessEmail(...)` to `storybook` + `drizzle`; deploy. Low risk (human-only; worst case an OTP login).
-4. Wire the CI caller: add `-H CF-Access-Client-Id` / `-H CF-Access-Client-Secret` to the deploy `curl` in `ci.yml` (repo secrets from `CF Access CI Token`), pure per-request header auth, NO cookie. Confirm a deploy still succeeds, THEN add `accessServiceToken(...)` to `bosun-agent`. The existing `BOSUN_WEBHOOK_TOKEN` is belt-and-suspenders.
-5. **OUT-OF-SESSION:** ship the kiosk TestFlight build (kiosk repo secrets `CF_ACCESS_KIOSK_CLIENT_ID/SECRET`), install on the iPad, confirm it loads the still-open dashboard. This is the gate for step 6.
-6. **Cutover (LAST, gated on step 5):** add `accessServiceToken(...)` to `web` + `accessFloor: accessFloor()` to the `stack()` opts AND the two `CF_ACCESS_*_CLIENT_ID` fromOp lines to bosun-agent; deploy. Verify from an off-network device: dashboard unreachable without the token; the iPad still loads it unattended; reboot the iPad and confirm self-load.
-
-### Rollback one-liner
-
-If the panel goes dark after cutover: remove `access:` from `web` and `accessFloor: accessFloor()` from the `stack()` opts in `deploy.config.ts`, then redeploy (`git push`, or `bosun up` directly on the box, the advisory reconcile + manual path bypasses the edge). The Block floor and the dashboard gate disappear on the next reconcile.
-
-> **Verify-before-cutover (load-bearing):** confirm CF evaluates a `*.worldwidewebb.co` Block app + a `dashboard.worldwidewebb.co` allow app so dashboard is allowed (specific app wins) while every other subdomain is blocked. If precedence does NOT hold, the default-deny invariant degrades to explicit per-host Block apps (a product decision, flag to Calum, don't silently swap). Confirm live in step 2/3 before the dashboard cutover.
-
----
-
-## Part 9: Secrets summary
-
-1Password (Homelab vault) is the source; `bosun` resolves via the `op` provider, materializes label-scoped docker secrets, prunes orphans. Root of trust = the op service-account token seeded at bootstrap (only secret not from gitops; for local runs the agent uses your own `op` session). No secret value ever in git, CI, images, or the config.
-
----
-
-## Part 10: Bootstrap (one-time, idempotent)
-
-Preconditions (already true on the Mini): OrbStack, Tailscale (approved), HA VM, a GitHub deploy key. Plus two creds pre-saved in 1Password (Homelab): the **GHCR pull token** (`scripts/save-ghcr-pull-token.sh`) and the **Portainer admin** password (`scripts/save-portainer-admin.sh`). bootstrap fails fast with the save-script to run if either is missing.
-
-`scripts/bootstrap.sh` is a single idempotent, self-contained run:
-
-1. verify the prereq secrets exist in 1Password
-2. `docker swarm init` (if not active)
-3. start the **Portainer** service (monitoring only; publishes host-local `9000` so bootstrap can drive its API before cloudflared is up)
-4. wait for the Portainer API (host-local port, falling back to the public route on existing boxes)
-5. create the admin account from 1Password via `/api/users/admin/init` (already-initialised is a graceful no-op)
-6. rename the auto-created `local` environment to `production` via `scripts/rename-portainer-env.sh` (bd www-4b5)
-7. confirm the GHCR pull token docker secret
-8. `bun run bosun up` (first full deploy)
-
-After it completes, the only manual step is confirming OrbStack **Start at login**. **Turtle:** Portainer can't deploy Portainer and bosun can't deploy its own agent, bootstrap starts those two; bosun does the rest.
-
----
-
-## Part 11: Persistence & restart survival
+## 5. Persistence & restart survival
 
 ```
-reboot → OrbStack starts at login → dockerd → Swarm restores services + secrets (Raft)
-       → named volumes intact (pgdata, portainer_data) → cloudflared reconnects → live
+login → OrbStack starts at login → built-in Kubernetes restarts → pods Running (etcd state)
+       → local-path PVCs intact (CNPG pgdata, drizzle-data, maps) → in-cluster cloudflared
+         reconnects the tunnel → live
 ```
-No boot scripts, no sudo. The only anchor: OrbStack "start at login."
+
+OrbStack autostart is **login-scoped** (auto-login + start-at-login), the same persistence
+anchor as the Swarm era, NOT a boot daemon. The reboot acceptance test is: restart OrbStack (or
+reboot the mini) and confirm the node comes back on login with `kubectl get pods -A` all
+Running unattended and `https://dashboard.worldwidewebb.co` returning 200. The host launchd
+runtimes below keep running throughout.
 
 ---
 
-## Part 12: Deploy triggers
+## 6. Recovery: hard-won operational knobs
 
-- **Automated:** push → CI builds changed images → CI POSTs the deploy webhook (`hooks.worldwidewebb.co`, HMAC/bearer) → `bosun-agent` runs `bosun up`. **CI is the trigger, the box is the executor** (correct ordering: deploy only after the image exists; CI never needs to reach the tailnet box for docker).
-- **Manual / local:** run `bun run bosun up` from your machine (your `op` session + tailnet docker) for ad-hoc deploys and secret rotation.
+These are the load-bearing host/cluster settings discovered during the migration. A future
+session bringing the box back up, or debugging an OOM-loop / unreachable apiserver, needs them.
 
----
+**OrbStack VM memory: `memory_mib=6144`.** Set via `orbctl config set k8s.memory_mib=6144` (or
+the equivalent VM-memory knob). **5120 was too small**, the k8s control plane OOM-loops and the
+cluster never settles. 6144 is the proven floor on the 8GB mini.
 
-## Part 13: Risks & open decisions
+**Home Assistant VM: `-m 2G` in `~/homeassistant-os/start-haos.sh`.** The HAOS QEMU VM needs 2G.
+That start script ALSO needs `export PATH=/opt/homebrew/bin` near the top, so launchd can exec
+`qemu` on reboot (launchd's minimal PATH doesn't include Homebrew, so without it the VM silently
+fails to start after a reboot).
 
-**Risks**
-1. Portainer + bosun-agent hold the docker socket = root-equivalent. Acceptable on a single personal box.
-2. Single node = no redundancy.
-3. Code-change latency is build-bound.
-4. OrbStack-at-login is the persistence anchor.
-5. Swarm is in maintenance (stable, not growing).
-6. `bosun` is new code, its prune logic is the dangerous part; it MUST be label/tag-scoped and unit-tested before pointing at the real swarm.
-7. Portainer publishes host-local `:9000` (bootstrap drives its API before cloudflared is up). This exposes the UI on the host's LAN/Tailscale interfaces, and the unauthenticated `admin/init` endpoint is briefly open on first boot until bootstrap claims it. Acceptable on a single personal box already fronting Portainer via Cloudflare; bootstrap inits the admin immediately, so the open-init window is seconds.
+**`com.calum.k8s-apiserver-forward` launchd socat job.** Forwards `127.0.0.1:26443` →
+the OrbStack VM node IP `192.168.139.2:26443`. OrbStack does **not** always rebind the host
+loopback to the apiserver after a restart, so without this job `kubectl` (and `pulumi up`)
+against the loopback context can fail post-reboot. The job is `KeepAlive` so it self-restores.
 
-**Open decisions**
-1. `dashboard.worldwidewebb.co` public, or wall panel tailnet-only? (Doc assumes public route; harmless to add.)
-2. Auto-deploy via CI→webhook now, or manual `bosun up` first? (Doc specifies webhook; agent may land manual first and mark the auto items accordingly.)
+**ESO controller memory limit: `256Mi`.** The external-secrets controller's limit must be
+**256Mi**, not 192Mi, it gets **OOMKilled on a cold-start reconcile** at 192Mi (syncing every
+ExternalSecret at once on startup spikes memory).
 
-**May need Calum (mark `[-]` with reason if blocked, don't fake):** creating brand-new 1Password items (Portainer admin, op service-account token, GHCR pull PAT), the OrbStack start-at-login toggle, GHCR package visibility/pull auth.
+**`cloudflaredReplicas=2`, committed in `infra/Pulumi.prod.yaml`.** The in-cluster cloudflared
+runs 2 replicas for tunnel HA. This is a committed stack-config value, not a code default;
+keep it at 2 (HA only, never an HPA).
 
----
-
-## Part 14: Implementation order (roadmap for the agent)
-
-1. **Build `bosun`** in `packages/bosun` with unit tests: spec API, config loader (pure eval), providers (op/file/env), reconcilers (secrets+prune, routes+prune, stack), health prober, CLI. Green typecheck + tests.
-2. **Write `deploy.config.ts`** for control-center (Part 6).
-3. **Dockerfiles** for web/api/storybook (+ web reverse-proxy, + api migrate-on-boot).
-4. **CI workflow** (path-filtered → GHCR + webhook call).
-5. **Bootstrap** swarm + Portainer + bosun-agent; confirm OrbStack-at-login.
-6. **`bosun up`** → deploy the stack; reconcile Cloudflare routes.
-7. **Verify** every acceptance item; drive the checklist to done; leave `main` clean.
+**`ccinfra:imageDigests` namespace requirement.** The CI deploy job MUST set the per-image
+digest map WITH the `ccinfra:` config namespace prefix, i.e.
+`pulumi config set --path ccinfra:imageDigests.<svc> <digest>`. **If the `ccinfra:` prefix is
+omitted, the value lands in the wrong (default `pulumi`/project) namespace, `infra/` never reads
+it, and builds silently never roll** (the deploy "succeeds" but pods stay on the old digest).
+This is the single most important deploy invariant to get right.
 
 ---
 
-## Part 15: Acceptance criteria
+## 7. Acceptance criteria
 
-See **[`docs/acceptance-checklist.md`](./acceptance-checklist.md)**, the definition of done. Self-executable, no sudo, `[ ]`/`[-]`/`[x]` protocol (an item is `[x]` only after its test actually ran and passed; skips are `[-]` with a reason).
+The migration acceptance lives in [`k3s-migration/GOAL.md`](./k3s-migration/GOAL.md) (the goal
+contract, phased) and the per-phase AC on the www-j934 child tickets. The legacy
+bosun-era checklist (`docs/acceptance-checklist.md`) is retained only as a historical record of
+the original Swarm build.

@@ -153,24 +153,28 @@ Let's Encrypt cert (not the self-signed placeholder) and the certProbe is green.
 Adding a workspace to this monorepo (a new `apps/<x>` or `packages/<x>` with a
 `package.json`) puts it in the root `bun.lock`. Every Dockerfile that runs an
 in-container `bun install --frozen-lockfile` (api, web, worker, media-worker,
-storybook, bosun) COPYs an explicit list of workspace manifests BEFORE installing
-and the frozen install fails with "lockfile had changes" if that list is missing
-the new workspace's `package.json`. This silently breaks ALL those image builds (and
-the prod deploy) for a reason unrelated to the new app. When you add a workspace,
-add `COPY <ws>/package.json <ws>/` (matching each file's COPY style) to every
-workspace-installing Dockerfile. A mechanical guard enforces this:
-`packages/bosun/test/dockerfile-manifests.test.ts` fails CI if any
-frozen-installing Dockerfile omits a workspace manifest.
+storybook, drizzle, captive-portal) COPYs an explicit list of workspace manifests
+BEFORE installing and the frozen install fails with "lockfile had changes" if that
+list is missing the new workspace's `package.json`. This silently breaks ALL those
+image builds (and the prod deploy) for a reason unrelated to the new app. When you
+add a workspace, add `COPY <ws>/package.json <ws>/` (matching each file's COPY
+style) to every workspace-installing Dockerfile.
 
-## LAN exposure + cutover (www-q002.21)
+## LAN exposure + cutover (www-q002.21 → www-j934)
 
-OrbStack does NOT forward Docker Swarm published ports to the Mac/LAN (proven: neither ingress nor host mode binds on the Mac; only a plain `docker run -p` is forwarded). So the portal is exposed via a thin plain-container L4 proxy, not `publishPort`.
-
-**Topology:** `captive-portal` (swarm service) + `api` both join the attachable `portal-edge` overlay (bosun renders it, www-q002.21). A plain non-swarm nginx-stream proxy (`scripts/portal-lan.sh`, launchd-managed) joins `portal-edge`, publishes `:443`/`:80` with plain `-p` (OrbStack forwards to the LAN), and passes raw TCP through to `captive-portal` (TLS terminates at the portal).
+Under k3s the portal is exposed by a **`Service type: LoadBalancer`** on `:443`/`:80`.
+OrbStack's "Expose services to local network devices" (`expose_services`) republishes
+those ports on the mini's LAN NIC (en1, 192.168.0.147), the host LAN IP the
+split-horizon DNS record already points at. nginx terminates TLS on `:443` with the
+cert-manager-issued cert and passes only `/api/trpc/portal.*` through to `api`. The
+[migration design §5a](../k3s-migration/DESIGN.md) proved this with a LAN curl returning
+HTTP 200. (Previously, under Swarm, OrbStack would not forward published ports to the
+LAN, so the portal needed a `portal-edge` overlay + a plain-container nginx-stream L4
+proxy `scripts/portal-lan.sh`; both are retired by the LoadBalancer + `expose_services`
+path. `scripts/portal-lan.sh` is deleted at cutover.)
 
 **Cutover steps (in order):**
-1. Merge this branch to `main` → CI → `bosun up` (op must not be rate-limited; see www-nbjv). Creates `control-center_portal-edge`, joins api + portal, portal serves on the overlay.
-2. On homelab: `bash scripts/portal-lan.sh` (one-time), then install autostart: `cp apps/captive-portal/deploy/com.calum.portal-lan.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.calum.portal-lan.plist`.
-3. Verify from a LAN device: `curl -k https://192.168.0.147:443/` and `https://captive-portal.worldwidewebb.co/` return the SPA; `/api/trpc/portal.status` reaches the api; `/api/trpc/lights.list` + a mixed batch return 404.
-4. UniFi (www-q002.15, Calum + agent): set the guest WLAN external-portal redirect → `https://captive-portal.worldwidewebb.co`, walled-garden allow the portal host + DNS, create the `www-guest` WLAN (changes live WiFi). Already done: Mini/HomeTB reservations + the split-horizon DNS record.
-5. Real-device test (www-q002.17): a phone on `www-guest` is captive-redirected, completes the flow, gets 30-day internet.
+1. `pulumi up --stack prod` brings up the captive-portal Deployment + its LoadBalancer Service; confirm OrbStack `expose_services` is ON.
+2. Verify from a LAN device: `curl -k https://192.168.0.147:443/` and `https://captive-portal.worldwidewebb.co/` return the SPA; `/api/trpc/portal.status` reaches the api; `/api/trpc/lights.list` + a mixed batch return 404.
+3. UniFi (www-q002.15, Calum + agent): set the guest WLAN external-portal redirect → `https://captive-portal.worldwidewebb.co`, walled-garden allow the portal host + DNS, create the `www-guest` WLAN (changes live WiFi). Already done: Mini/HomeTB reservations + the split-horizon DNS record.
+4. Real-device test (www-q002.17): a phone on `www-guest` is captive-redirected, completes the flow, gets 30-day internet.
