@@ -45,10 +45,10 @@ Every ticket follows one lifecycle, defined once in **`docs/ticket-standards.md`
 
 - **`/new-ticket`**, create a *Ready* ticket: type (mapped to a real bd type), priority, area, and checkbox AC with the per-type Definition of Done auto-appended. Never hand-type house rules into AC; the skill generates them.
 - **`/starting-ticket`**, Definition-of-Ready gate (refuse if unmet) → `bd update --claim` → `git pull --rebase` → `EnterWorktree` named `www-xxx-slug` → **red test first** → surface the DoD.
-- **`/finish-ticket`**, gates green (REFUSE on red) → verify every AC item (screenshot@1366×1024 for UI) → commit `type(area/www-xxx)` → **merge worktree to `main`, NO PR** → push → `bd close` → harden audit.
+- **`/finish-ticket`**, gates green (REFUSE on red) → verify every AC item (screenshot@1366×1024 for UI) → commit `type(area/www-xxx)` → **PR to `main`** (self-merge, branch protection requires it) → `bd close` → harden audit.
 - **`ship`** (workflow) is the same lifecycle parallelized for a whole epic, hands-off. Use the skills for human-in-the-loop work; use `ship` for an approved epic.
 
-The standards doc holds the taxonomy, Definition of Ready, Definition of Done (+ per-type adders), priority rubric, AC format, and the enforcement matrix. `scripts/lint-tickets.sh` is the advisory backstop. The lifecycle never opens a PR, worktrees merge to `main` locally.
+The standards doc holds the taxonomy, Definition of Ready, Definition of Done (+ per-type adders), priority rubric, AC format, and the enforcement matrix. `scripts/lint-tickets.sh` is the advisory backstop.
 
 ## Session Completion
 

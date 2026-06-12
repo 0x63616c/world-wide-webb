@@ -34,6 +34,9 @@ bd dolt push          # Push beads data to remote
 - **Fixed wall-panel sizing.** Physical iPad Pro panel is **1366×1024** (use this for screenshots / the Playwright smoke). The board *content grid* is **1366×1000**, `BOARD_W`×`BOARD_H` in `apps/web/src/lib/grid-constants.ts` (12×9 square cells fill the 1366 width; the grid is 1000 tall, the rest of the 1024 panel is uncropped world). Storybook frames stories at `BOARD_W`×`BOARD_H`. Do not add responsive/fluid layout.
 - **`bun`/`bunx` always.** Never `npm`/`npx`.
 - **Repo has a remote.** `git@github.com:0x63616c/control-center.git`. Always push before ending a session.
+- **Worktrees required.** All work happens in a worktree via `EnterWorktree`, never in the main checkout.
+- **1 commit per ticket.** Each ticket ships as a single commit. Epic-level PRs with multiple commits are fine but not required.
+- **Conventional commits with ticket id.** Every commit subject must be `type(area/www-xxx): desc` (e.g. `feat(weather/www-m9k): add poller`). The commit-msg guard enforces this. See CLAUDE.md for the full commit convention.
 
 ## Non-Interactive Shell Commands
 
