@@ -20,6 +20,8 @@ const specsWith = (imageDigests?: ImageDigests): ReturnType<typeof serviceSpecs>
   serviceSpecs({
     mediaWorkerReplicas: 0,
     cloudflaredReplicas: 2,
+    storybookReplicas: 0,
+    drizzleReplicas: 0,
     nasNfsServer: "192.168.0.218",
     imageDigests,
   });
