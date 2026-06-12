@@ -1,6 +1,9 @@
 # Agent Instructions
 
-This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
+## Start Here
+
+- Read `CODEBASE_OVERVIEW.md` for the architecture, runtime shape, deployment path, and where to make common changes.
+- This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
 > **Architecture in one line:** Issues live in a local Dolt database
 > (`.beads/dolt/`); cross-machine sync uses `bd dolt push/pull` (a
