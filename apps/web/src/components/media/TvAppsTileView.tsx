@@ -1,5 +1,5 @@
 /**
- * TvAppsTileView — presentational component for the TV Apps 4×2 tile (CC-0z4f).
+ * TvAppsTileView - presentational component for the TV Apps 4×2 tile (CC-0z4f).
  *
  * Matches the approved design: a bento header glyph + a colored status pill
  * (active app name, or IDLE), a hero card showing the open app's full-color
@@ -8,7 +8,7 @@
  * "Apple TV" + "NOTHING OPEN". Skeleton shimmer while pending/error (A18).
  *
  * The whole tile owns its tap (opens AllAppsModal); the hero/grid buttons
- * stopPropagation so they launch their app instead. Pure presentational — no
+ * stopPropagation so they launch their app instead. Pure presentational - no
  * tRPC; the container (TvAppsTile) wires mutations.
  */
 
@@ -145,7 +145,7 @@ export function TvAppsTileView({
 }: TvAppsTileViewProps) {
   if (status !== "populated") {
     return (
-      <Tile padding={12} style={{ gap: 10 }}>
+      <Tile padding={18} style={{ gap: 10 }}>
         <TileHeader icon="apps" title="TV Apps" />
         <Skeleton w="100%" h={120} />
       </Tile>
@@ -160,7 +160,7 @@ export function TvAppsTileView({
     .slice(0, 4);
 
   return (
-    <Tile padding={12} style={{ gap: 0 }} onClick={onOpenAllApps}>
+    <Tile padding={18} style={{ gap: 0 }} onClick={onOpenAllApps}>
       <TileHeader icon="apps" title="TV Apps" right={<StatusPill currentApp={currentApp} />} />
 
       {/* Hero + 2×2 grid */}
@@ -168,7 +168,7 @@ export function TvAppsTileView({
         {/* Hero cell */}
         <button
           type="button"
-          aria-label={currentApp ? `${currentApp} — open` : "Nothing open"}
+          aria-label={currentApp ? `${currentApp} - open` : "Nothing open"}
           onClick={(e) => {
             e.stopPropagation();
             if (currentApp) onLaunchApp(currentApp);
