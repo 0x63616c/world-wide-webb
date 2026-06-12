@@ -3,8 +3,16 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./styles/theme.css";
 
+declare global {
+  interface Window {
+    __ccPortalBooted?: boolean;
+  }
+}
+
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root element");
+
+window.__ccPortalBooted = true;
 
 createRoot(root).render(
   <StrictMode>
