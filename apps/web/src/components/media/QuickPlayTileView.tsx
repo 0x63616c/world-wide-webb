@@ -1,12 +1,12 @@
 /**
- * QuickPlayTileView — presentational component for the Quick-Play 4×2 tile
+ * QuickPlayTileView - presentational component for the Quick-Play 4×2 tile
  * (www-51hf.23 / A28).
  *
  * Renders a horizontal artwork rail sourced from real Sonos Favorites + Spotify.
  * The currently-playing item gets an accent play badge. Tapping a cover plays it.
  * Skeleton shimmer while pending/error (A18).
  *
- * Pure presentational — no tRPC. The container (QuickPlayTile) wires mutations.
+ * Pure presentational - no tRPC. The container (QuickPlayTile) wires mutations.
  */
 
 import { Skeleton, Tile, TileHeader } from "@/components/ui";
@@ -64,7 +64,7 @@ function RailItem({ item, isPlaying, onClick }: RailItemProps) {
         padding: 0,
       }}
     >
-      {/* Artwork — square via aspect-ratio, flexes to fill the rail height so
+      {/* Artwork - square via aspect-ratio, flexes to fill the rail height so
           the item's width follows from however tall the tile slot is. */}
       <div
         style={{
@@ -124,7 +124,7 @@ function RailItem({ item, isPlaying, onClick }: RailItemProps) {
         )}
       </div>
 
-      {/* Title — width:0 + minWidth:100% keeps the nowrap text from inflating
+      {/* Title - width:0 + minWidth:100% keeps the nowrap text from inflating
           the button's intrinsic width, so the artwork alone sets item width. */}
       <span
         style={{
@@ -154,74 +154,67 @@ export function QuickPlayTileView({
   onOpenFavorites,
   onOpenSpotify,
 }: QuickPlayTileViewProps) {
+  const headerButtons = (
+    <div style={{ display: "flex", gap: 6 }}>
+      <button
+        type="button"
+        aria-label="Favorites"
+        onClick={onOpenFavorites}
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 8,
+          border: "none",
+          cursor: "pointer",
+          background: "var(--tile-2)",
+          color: "var(--ink-2)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 0,
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        aria-label="Spotify"
+        onClick={onOpenSpotify}
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 8,
+          border: "none",
+          cursor: "pointer",
+          background: "var(--tile-2)",
+          color: "var(--ink-2)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 0,
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.25 14.42c-.17.28-.54.37-.82.2-2.24-1.37-5.06-1.68-8.38-.92-.33.07-.65-.13-.72-.46-.08-.33.13-.65.46-.72 3.64-.83 6.76-.47 9.26 1.07.28.17.37.54.2.83zm1.13-2.5c-.21.35-.65.46-1 .25-2.56-1.57-6.46-2.02-9.48-1.11-.4.12-.82-.11-.94-.51s.11-.82.51-.94c3.46-1.05 7.76-.54 10.66 1.28.36.22.47.65.25 1.03zm.1-2.6c-3.07-1.82-8.13-1.99-11.06-1.1-.47.14-.96-.12-1.1-.59s.12-.96.59-1.1c3.36-1.02 8.95-.82 12.48 1.27.42.25.56.78.31 1.2-.25.41-.78.55-1.22.32z" />
+        </svg>
+      </button>
+    </div>
+  );
+
   if (status !== "populated") {
     return (
-      <Tile padding={12} style={{ gap: 10 }}>
-        <TileHeader icon="globe" title="Quick Play" />
+      <Tile padding={18} style={{ gap: 10 }}>
+        <TileHeader icon="globe" title="Quick Play" right={headerButtons} />
         <Skeleton w="100%" h={70} />
       </Tile>
     );
   }
 
   return (
-    <Tile padding={10} style={{ gap: 8 }}>
-      {/* Header with modal buttons */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 4,
-        }}
-      >
-        <TileHeader icon="globe" title="Quick Play" />
-        <div style={{ display: "flex", gap: 6 }}>
-          <button
-            type="button"
-            aria-label="Favorites"
-            onClick={onOpenFavorites}
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 6,
-              border: "none",
-              cursor: "pointer",
-              background: "var(--tile-2)",
-              color: "var(--ink-2)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 0,
-            }}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            aria-label="Spotify"
-            onClick={onOpenSpotify}
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 6,
-              border: "none",
-              cursor: "pointer",
-              background: "var(--tile-2)",
-              color: "var(--ink-2)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 0,
-            }}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.25 14.42c-.17.28-.54.37-.82.2-2.24-1.37-5.06-1.68-8.38-.92-.33.07-.65-.13-.72-.46-.08-.33.13-.65.46-.72 3.64-.83 6.76-.47 9.26 1.07.28.17.37.54.2.83zm1.13-2.5c-.21.35-.65.46-1 .25-2.56-1.57-6.46-2.02-9.48-1.11-.4.12-.82-.11-.94-.51s.11-.82.51-.94c3.46-1.05 7.76-.54 10.66 1.28.36.22.47.65.25 1.03zm.1-2.6c-3.07-1.82-8.13-1.99-11.06-1.1-.47.14-.96-.12-1.1-.59s.12-.96.59-1.1c3.36-1.02 8.95-.82 12.48 1.27.42.25.56.78.31 1.2-.25.41-.78.55-1.22.32z" />
-            </svg>
-          </button>
-        </div>
-      </div>
+    <Tile padding={18} style={{ gap: 8 }}>
+      <TileHeader icon="globe" title="Quick Play" right={headerButtons} />
 
       {/* Horizontal rail */}
       {items.length === 0 ? (

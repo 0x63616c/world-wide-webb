@@ -94,7 +94,7 @@ export function EventsTileView({ status, events }: EventsTileViewProps) {
   const visible = events.slice(0, 3);
 
   return (
-    <Tile padding={22} style={{ justifyContent: "center" }}>
+    <Tile padding={22}>
       <TileHeader
         icon="calendar"
         title="Upcoming"
@@ -104,21 +104,23 @@ export function EventsTileView({ status, events }: EventsTileViewProps) {
           </span>
         }
       />
-      {showSkeleton ? (
-        <EventsSkeleton />
-      ) : (
-        <div style={{ display: "flex", alignItems: "stretch", width: "100%" }}>
-          {visible.map((e, i) => (
-            <EventItem
-              key={`${e.name}-${e.place}-${e.days}`}
-              event={e}
-              first={i === 0}
-              // Index 0 is always the soonest event (data arrives pre-sorted)
-              nearest={i === 0}
-            />
-          ))}
-        </div>
-      )}
+      <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
+        {showSkeleton ? (
+          <EventsSkeleton />
+        ) : (
+          <div style={{ display: "flex", alignItems: "stretch", width: "100%" }}>
+            {visible.map((e, i) => (
+              <EventItem
+                key={`${e.name}-${e.place}-${e.days}`}
+                event={e}
+                first={i === 0}
+                // Index 0 is always the soonest event (data arrives pre-sorted)
+                nearest={i === 0}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </Tile>
   );
 }

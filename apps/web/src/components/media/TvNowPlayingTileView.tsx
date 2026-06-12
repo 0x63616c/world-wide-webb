@@ -1,5 +1,5 @@
 /**
- * TvNowPlayingTileView — pure presentational component for the TV Now Playing
+ * TvNowPlayingTileView - pure presentational component for the TV Now Playing
  * tile (4×3 grid cell). Driven entirely by props; zero tRPC/data dependencies.
  *
  * Source-aware states (A19): streaming playing/paused, line-in, TV (live TV),
@@ -23,32 +23,20 @@ function formatTime(totalSeconds: number): string {
   return `${m}:${ss}`;
 }
 
-// ── Skeleton — exact slot matches populated layout ───────────────────────────
+// ── Skeleton - exact slot matches populated layout ───────────────────────────
 
 function TvNowPlayingSkeleton() {
   return (
     <Tile padding={18} style={{ gap: 12 }}>
-      {/* Header row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 0 }}>
-        <Skeleton w={90} h={17} borderRadius={4} />
-        <div style={{ marginLeft: "auto" }}>
-          <Skeleton w={64} h={22} borderRadius={999} />
-        </div>
-      </div>
-      {/* Artwork placeholder */}
+      <TileHeader icon="cam" title="TV" />
       <Skeleton w="100%" h={120} borderRadius={10} />
-      {/* Title */}
       <Skeleton w="80%" h={16} borderRadius={4} />
-      {/* Source line */}
       <Skeleton w="50%" h={13} borderRadius={4} />
-      {/* Scrub bar */}
       <Skeleton w="100%" h={8} borderRadius={999} />
-      {/* Time row */}
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <Skeleton w={36} h={12} borderRadius={4} />
         <Skeleton w={36} h={12} borderRadius={4} />
       </div>
-      {/* Transport row */}
       <div style={{ display: "flex", justifyContent: "center", gap: 24, marginTop: 4 }}>
         <Skeleton w={36} h={36} borderRadius={999} />
         <Skeleton w={44} h={44} borderRadius={999} />
@@ -184,7 +172,7 @@ function ScrubBar({ position, duration, onSeek }: ScrubBarProps) {
             background: "var(--ink)",
           }}
         />
-        {/* Thumb — keeps the scrubber legible even at ~0% progress */}
+        {/* Thumb - keeps the scrubber legible even at ~0% progress */}
         <div
           data-scrub-thumb
           style={{
@@ -346,7 +334,7 @@ export function TvNowPlayingTileView(props: TvNowPlayingTileViewProps) {
         }
       />
 
-      {/* Artwork or placeholder — the ONLY flexible row, so it absorbs all
+      {/* Artwork or placeholder - the ONLY flexible row, so it absorbs all
           height slack and the text/scrub/transport rows below are never
           squeezed (the artist line used to clip under the scrub bar). */}
       {artworkUrl ? (

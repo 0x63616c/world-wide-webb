@@ -15,10 +15,10 @@ docker_compose("docker-compose.yml")
 
 dc_resource("postgres", labels=["backend"])
 
-# One-shot batch fetch of all dev secrets via `op inject`. The template at
-# tilt/op-secrets.tpl contains only 1Password refs (no secret material) and is
-# safe to commit.
-secrets_raw = str(local("op inject -i tilt/op-secrets.tpl", quiet=True, echo_off=True))
+# One-shot batch fetch of all dev secrets via individual `op read` calls (shim-
+# cached, no rate-limit risk). tilt/load-secrets.sh reads each ref and prints
+# KEY=VALUE lines; tilt/op-secrets.tpl is kept as a human-readable ref index.
+secrets_raw = str(local("tilt/load-secrets.sh", quiet=True, echo_off=True))
 secrets = {}
 for line in secrets_raw.strip().split("\n"):
     if "=" in line:
