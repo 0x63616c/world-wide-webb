@@ -160,13 +160,17 @@ worker, media-worker, portal-data-purge), preserving the weather-ingest LA-local
 | **pg-backup** | `CronJob` (NEW) | nightly CNPG/pg_dump → NAS via an NFS PV with `mountOptions: [nfsvers=3, nolock, tcp]` (§ below) |
 | local-path provisioner | (OrbStack built-in) | SSD-backed PVCs for CNPG + drizzle-data + maps |
 
-**Nightly NAS backup (new, RECON decision 5 / GOAL Phase 3).** A `CronJob` (e.g. `0 1 * * *`
-LA) runs `pg_dump` (or `cnpg` plugin backup) of the `control_center` DB and writes a
-**dated** artifact (`control_center-YYYYMMDD.sql.gz`) onto an NFS `PersistentVolume` pointed
-at the NAS backup path. The NFS spike passed (§5b), so this uses a direct NFS PV - which MUST
-carry **`mountOptions: [nfsvers=3, nolock, tcp]`** (the DS420+ is NFSv3-only; a v4 default
-mount gets "Connection refused"). One manual run must produce a dated file visible via `ls` on
-the NAS (Phase 3 acceptance).
+**Nightly NAS backup (new, RECON decision 5 / GOAL Phase 3).** The live Control Center
+`pg-backup` CronJob is derived from the platform `DatabaseBackup` declaration through
+`postgresBackupCronSpec()` in `infra/src/crons.ts`. It runs at `0 1 * * *` LA, uses the
+PG 18 `pg_dump` image to match the CNPG server major, writes a **dated** artifact
+(`control_center-YYYYMMDD.sql.gz`) onto an NFS `PersistentVolume`, and preserves the current
+compatibility subpath `backups/postgres` until the production path migration is explicitly
+reviewed. New product backups derive the platform NAS path
+`backups/world-wide-webb/<product>/postgres`. The NFS spike passed (§5b), so this uses a direct
+NFS PV - which MUST carry **`mountOptions: [nfsvers=3, nolock, tcp]`** (the DS420+ is NFSv3-only;
+a v4 default mount gets "Connection refused"). One manual run must produce a dated file visible
+via `ls` on the NAS (Phase 3 acceptance).
 
 ---
 

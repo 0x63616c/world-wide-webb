@@ -1,4 +1,10 @@
 import * as pulumi from "@pulumi/pulumi";
+import {
+  defineDatabaseBackup,
+  defineProduct,
+  defineProductDatabase,
+  homelabTarget,
+} from "@repo/platform";
 import { beforeAll, describe, expect, test } from "vitest";
 import type { CronJobSpec } from "../src/component.ts";
 import { renderCronJob } from "../src/component.ts";
@@ -115,6 +121,27 @@ describe("map-extract (www-hn1i: self-refreshing, runtime-resolved build)", () =
 
 describe("pg-backup (NEW nightly logical backup to the NAS)", () => {
   const backup = () => byName(crons.cronSpecs(NAS), "pg-backup");
+
+  test("derives a product Postgres backup CronJob from the platform backup primitive", () => {
+    const product = defineProduct("text-your-ex");
+    const database = defineProductDatabase(product, homelabTarget, { size: "5Gi" });
+    const platformBackup = defineDatabaseBackup(database, homelabTarget);
+    const spec = crons.postgresBackupCronSpec(platformBackup, NAS);
+    const rendered = renderCronJob(spec);
+
+    expect(spec.name).toBe("text-your-ex-pg-backup");
+    expect(spec.schedule).toBe("0 1 * * *");
+    expect(spec.image).toBe("ghcr.io/cloudnative-pg/postgresql:18");
+    expect(spec.command?.join("\n")).toContain("pg_dump -h text-your-ex-rw");
+    expect(spec.command?.join("\n")).toContain("-d text_your_ex");
+    expect(spec.volumes?.[0]).toMatchObject({
+      mountPath: "/backup",
+      nfs: { server: NAS, path: "/volume1/Homelab" },
+      subPath: "backups/world-wide-webb/text-your-ex/postgres",
+    });
+    expect(rendered.cronJob.spec.concurrencyPolicy).toBe("Forbid");
+    expect(rendered.cronJob.spec.jobTemplate.spec.template.spec.restartPolicy).toBe("Never");
+  });
 
   test("runs nightly and is NOT suspended (it must actually fire)", () => {
     const r = renderCronJob(backup() as CronJobSpec);

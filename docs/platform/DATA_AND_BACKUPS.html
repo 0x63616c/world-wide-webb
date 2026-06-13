@@ -87,6 +87,7 @@
 /volume1/Homelab/backups/world-wide-webb/captive-portal/postgres/
 /volume1/Homelab/backups/world-wide-webb/text-your-ex/postgres/
 /volume1/Homelab/backups/world-wide-webb/amp/postgres/</code></pre></div>
+          <p class="muted">During the Control Center compatibility bridge, the live Control Center backup job continues to write to <code>/volume1/Homelab/backups/postgres/</code> until the production path migration is explicitly reviewed.</p>
         </section>
 
         <section>
@@ -96,6 +97,17 @@
             <li><code>defineDatabaseBackup()</code> makes a backup declaration mandatory for every product database. There is intentionally no per-app disable knob.</li>
             <li>The Control Center manifest uses compatibility options to represent the current <code>control-center</code> cluster, <code>control_center</code> database, <code>cc-postgres-auth</code> secret, and <code>pg-backup</code> CronJob.</li>
             <li>The future NAS path derives as <code>backups/world-wide-webb/&lt;product&gt;/postgres</code>, but M1 does not move the live backup destination from the current <code>backups/postgres</code> path.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>M2 Backup Adapter Contract</h2>
+          <ul>
+            <li><code>infra/src/crons.ts</code> adapts the platform <code>DatabaseBackup</code> declaration into the concrete <code>CronJobSpec</code> through <code>postgresBackupCronSpec()</code>.</li>
+            <li>The adapter derives CronJob name, schedule, PG image, database host/name, auth secret mount, backup mount, NFS export, NAS subpath, and dated gzip filename from the platform declaration instead of Control Center-only constants.</li>
+            <li>The default product path remains <code>backups/world-wide-webb/&lt;product&gt;/postgres</code>, matching the platform NAS root.</li>
+            <li>Control Center intentionally uses a compatibility declaration for now: CronJob <code>pg-backup</code>, schedule <code>0 1 * * *</code>, database <code>control_center</code>, service <code>control-center-rw</code>, auth secret <code>cc-postgres-auth</code>, and NAS subpath <code>backups/postgres</code>.</li>
+            <li>Moving Control Center's live backup destination to <code>backups/world-wide-webb/control-center/postgres</code> is a future reviewed production-path migration, not an incidental primitive refactor.</li>
           </ul>
         </section>
 

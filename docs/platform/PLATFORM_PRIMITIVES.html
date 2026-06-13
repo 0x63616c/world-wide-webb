@@ -62,6 +62,18 @@
         </section>
 
         <section>
+          <h2>M2 Backup Adapter</h2>
+          <div class="callout">
+            <p><strong>The backup primitive now reaches infra through a pure adapter.</strong> Product code declares database backup intent in <code>@repo/platform</code>; <code>infra/src/crons.ts</code> turns that into the k8s CronJob vocabulary.</p>
+          </div>
+          <ul>
+            <li><code>postgresBackupCronSpec()</code> consumes <code>DatabaseBackup</code> and emits the CronJob declaration used by the existing render layer.</li>
+            <li>The render layer still owns Kubernetes details, including one-shot semantics and NFSv3 mount options.</li>
+            <li>Control Center uses compatibility options so this primitive extraction does not silently rename or move the live backup job.</li>
+          </ul>
+        </section>
+
+        <section>
           <h2>App Definition</h2>
           <p>The app context should be the source of truth. Avoid passing <code>owner</code>, <code>product</code>, <code>namespace</code>, <code>backupPath</code>, or magic string identifiers into every primitive.</p>
           <div class="code-block"><pre><code>const textYourEx = app({

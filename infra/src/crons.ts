@@ -15,6 +15,7 @@
 
 import type * as k8s from "@pulumi/kubernetes";
 import type * as pulumi from "@pulumi/pulumi";
+import { controlCenterProductManifest, type DatabaseBackup } from "@repo/platform";
 import type { CronJobSpec } from "./component.ts";
 import { ScheduledJob } from "./component.ts";
 
@@ -23,50 +24,52 @@ const ghcr = (name: string) => `ghcr.io/0x63616c/control-center-${name}:main`;
 
 const TZ = "America/Los_Angeles";
 
-// The CNPG read-write Service the jobs connect to (www-j934.5). The api default
-// host "postgres" was the Swarm service name and does NOT resolve in k3s.
-const POSTGRES_HOST = "control-center-rw";
-// The DB the app + the backup operate on (apps/api/src/env.ts default).
-const DB_NAME = "control_center";
-// CNPG's superuser/owner is "postgres" (cnpg.ts DB_OWNER).
-const DB_OWNER = "postgres";
+function postgresBackupCommand(backup: DatabaseBackup): string[] {
+  return [
+    // bash, NOT sh: the image's /bin/sh is dash, which lacks `set -o pipefail`
+    // (the cloudnative-pg image is Debian-based and ships bash).
+    "bash",
+    "-c",
+    [
+      // pipefail is REQUIRED: pg_dump pipes into gzip, so without it a pg_dump
+      // failure (e.g. a server-version mismatch) is masked by gzip's success and
+      // the job writes a broken/empty artifact while reporting Complete. With
+      // pipefail (+ errexit) the failed dump fails the job, so a bad backup is
+      // never silently "successful".
+      "set -eo pipefail",
+      `export PGPASSWORD="$(cat ${backup.authMountPath}/password)"`,
+      `out="${backup.backupMountPath}/${backup.filenamePrefix}$(date +${backup.commandFeatures.dateFormat}).sql.gz"`,
+      `pg_dump -h ${backup.serviceHost} -U ${backup.owner} -d ${backup.databaseName} | gzip -c > "$out"`,
+      'echo "wrote $out"',
+    ].join("\n"),
+  ];
+}
 
-// The CNPG-managed basic-auth Secret (cnpg.ts PG_AUTH_SECRET): keys `username` +
-// `password`. pg-backup mounts it as files and reads the password from there,
-// rather than minting a duplicate ExternalSecret for the same credential.
-const PG_AUTH_SECRET = "cc-postgres-auth";
-const PG_AUTH_MOUNT = "/run/pgauth";
+/**
+ * @public - adapts the platform product backup intent into the infra CronJob
+ * vocabulary while keeping renderCronJob responsible for k8s object details.
+ */
+export function postgresBackupCronSpec(backup: DatabaseBackup, nasNfsServer: string): CronJobSpec {
+  return {
+    name: backup.name,
+    image: backup.image,
+    schedule: backup.schedule,
+    command: postgresBackupCommand(backup),
+    env: { TZ },
+    extraSecretMounts: [{ secretName: backup.authSecretName, mountPath: backup.authMountPath }],
+    volumes: [
+      {
+        mountPath: backup.backupMountPath,
+        nfs: { server: nasNfsServer, path: backup.nasExportPath },
+        subPath: backup.nasSubPath,
+      },
+    ],
+  };
+}
 
-// The DS420+ exports ONLY /volume1/Homelab (not its subdirs); the backup lands in
-// a subdir of that export via the NFS PV's subPath, written by the job into
-// /backup. nfsvers=3 mount options are enforced by the render layer (v3-only NAS).
-const NAS_EXPORT = "/volume1/Homelab";
-const BACKUP_SUBPATH = "backups/postgres";
-const BACKUP_MOUNT = "/backup";
-
-// The nightly pg_dump → dated, gzipped artifact on the NAS. A custom-format dump
-// would not gzip meaningfully, so this is a plain SQL dump piped through gzip to
-// a DATED filename (control_center-YYYYMMDD.sql.gz), the Phase-3 acceptance
-// artifact. PGPASSWORD is sourced from the mounted CNPG secret (never an env
-// literal, never logged); the dump runs against the CNPG rw Service.
-const PG_BACKUP_COMMAND = [
-  // bash, NOT sh: the image's /bin/sh is dash, which lacks `set -o pipefail`
-  // (the cloudnative-pg image is Debian-based and ships bash).
-  "bash",
-  "-c",
-  [
-    // pipefail is REQUIRED: pg_dump pipes into gzip, so without it a pg_dump
-    // failure (e.g. a server-version mismatch) is masked by gzip's success and
-    // the job writes a broken/empty artifact while reporting Complete. With
-    // pipefail (+ errexit) the failed dump fails the job, so a bad backup is
-    // never silently "successful".
-    "set -eo pipefail",
-    `export PGPASSWORD="$(cat ${PG_AUTH_MOUNT}/password)"`,
-    `out="${BACKUP_MOUNT}/${DB_NAME}-$(date +%Y%m%d).sql.gz"`,
-    `pg_dump -h ${POSTGRES_HOST} -U ${DB_OWNER} -d ${DB_NAME} | gzip -c > "$out"`,
-    'echo "wrote $out"',
-  ].join("\n"),
-];
+const controlCenterManifest = controlCenterProductManifest();
+const controlCenterBackup = controlCenterManifest.backup;
+const controlCenterPostgresHost = controlCenterManifest.database.rwServiceName;
 
 /**
  * @public - the declared CronJob set (pure data). nasNfsServer is threaded into
@@ -87,7 +90,7 @@ export function cronSpecs(nasNfsServer: string): CronJobSpec[] {
       schedule: "0 2 * * *",
       command: ["bun", "purge.js"],
       secrets: [{ name: "POSTGRES_PASSWORD", ref: "eso" }],
-      env: { TZ, POSTGRES_HOST },
+      env: { TZ, POSTGRES_HOST: controlCenterPostgresHost },
       // Carry the GHCR pull secret like the workloads do, rather than leaning
       // on package visibility staying public (www-hn1i).
       imagePullSecrets: ["ghcr-pull"],
@@ -122,21 +125,7 @@ export function cronSpecs(nasNfsServer: string): CronJobSpec[] {
     // bump both together on a CNPG major upgrade. 01:00 LA, off-peak and ahead of
     // the 02:00 purge. The NFS PV carries the mandatory NFSv3 mount options
     // (render layer); the DS420+ is v3-only (DESIGN §5b).
-    {
-      name: "pg-backup",
-      image: "ghcr.io/cloudnative-pg/postgresql:18",
-      schedule: "0 1 * * *",
-      command: PG_BACKUP_COMMAND,
-      env: { TZ },
-      extraSecretMounts: [{ secretName: PG_AUTH_SECRET, mountPath: PG_AUTH_MOUNT }],
-      volumes: [
-        {
-          mountPath: BACKUP_MOUNT,
-          nfs: { server: nasNfsServer, path: NAS_EXPORT },
-          subPath: BACKUP_SUBPATH,
-        },
-      ],
-    },
+    postgresBackupCronSpec(controlCenterBackup, nasNfsServer),
   ];
 }
 
