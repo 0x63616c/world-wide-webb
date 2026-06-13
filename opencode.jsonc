@@ -4,6 +4,12 @@
   "small_model": "opencode/deepseek-v4-flash-free",
   "lsp": true,
   "plugin": ["opencode-beads", "@slkiser/opencode-quota"],
+  "command": {
+    "goal": {
+      "description": "Set, show, or clear the current session goal",
+      "template": "$ARGUMENTS"
+    }
+  },
   "permission": {
     "read": "allow",
     "edit": "allow",
