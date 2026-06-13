@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Research Notes</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand"><strong>world-wide-webb platform</strong><span>Research Notes</span></div>
+        <nav class="nav" aria-label="Platform docs">
+          <a href="./README.html">Overview</a>
+          <a href="./NORTH_STAR.html">North Star</a>
+          <a href="./MIGRATION_PLAN.html">Migration Plan</a>
+          <a href="./PRODUCTS.html">Products</a>
+          <a href="./PLATFORM_PRIMITIVES.html">Platform Primitives</a>
+          <a href="./DATA_AND_BACKUPS.html">Data and Backups</a>
+          <a href="./SECRETS.html">Secrets</a>
+          <a href="./NETWORKING.html">Networking</a>
+          <a href="./LOCAL_DEV_AND_IOS.html">Local Dev and iOS</a>
+          <a href="./RESEARCH_NOTES.html" aria-current="page">Research Notes</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section class="hero">
+          <span class="eyebrow">Current state</span>
+          <h1>What we learned before planning the migration.</h1>
+          <p class="lede">These notes preserve the investigation results that informed the North Star. They are not all end-state requirements, but they explain why the platform shape exists.</p>
+        </section>
+
+        <section>
+          <h2>Current Cluster</h2>
+          <ul>
+            <li>Platform namespaces exist for <code>cert-manager</code>, <code>external-secrets</code>, <code>cnpg-system</code>, and <code>kube-system</code>.</li>
+            <li>One product-ish namespace exists today: <code>control-center</code>.</li>
+            <li><code>control-center</code> currently contains API, web, worker, captive portal, cloudflared, CNPG Postgres, and cronjobs.</li>
+            <li>Captive Portal is not isolated today.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Captive Portal Coupling</h2>
+          <p>Captive Portal currently lives across multiple Control Center areas.</p>
+          <table>
+            <thead><tr><th>Area</th><th>Current location</th></tr></thead>
+            <tbody>
+              <tr><td>Frontend</td><td><code>apps/captive-portal</code></td></tr>
+              <tr><td>API router</td><td><code>apps/api/src/trpc/routers/portal.ts</code></td></tr>
+              <tr><td>Domain service</td><td><code>apps/api/src/services/portal-service.ts</code></td></tr>
+              <tr><td>Repository</td><td><code>apps/api/src/services/portal-repo.ts</code></td></tr>
+              <tr><td>Data tables</td><td>Control Center Postgres schema</td></tr>
+              <tr><td>Purge job</td><td>Control Center cronjob using the API image</td></tr>
+            </tbody>
+          </table>
+          <p>This is the strongest evidence that Captive Portal needs a real product extraction, not just a folder move.</p>
+        </section>
+
+        <section>
+          <h2>Text Your Ex Shape</h2>
+          <ul>
+            <li>Current repo is self-contained with <code>web</code>, <code>server</code>, <code>e2e</code>, <code>ios</code>, <code>fastlane</code>, and a Dockerfile.</li>
+            <li>Runtime is React/Vite plus Bun/Hono API.</li>
+            <li>Current data is SQLite through <code>bun:sqlite</code>.</li>
+            <li>Server boot currently calls <code>ensureSeed()</code>, which would seed demo data into an empty production database unless changed.</li>
+            <li>Capacitor app is bundled mode with app id <code>co.worldwidewebb.textyourex</code>.</li>
+            <li>TestFlight workflow already exists and supports <code>VITE_API_BASE</code>.</li>
+            <li>Migration-friendly, but needs Postgres, seed gating, platform CI/deploy, and product routes.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Postgres Versus SQLite</h2>
+          <p>The planning conversation considered SQLite, Litestream, LiteFS, and libSQL/sqld. The end-state decision is Postgres.</p>
+          <table>
+            <thead><tr><th>Option</th><th>Learning</th><th>Decision</th></tr></thead>
+            <tbody>
+              <tr><td>Plain SQLite</td><td>Simple and fine for one API pod, but app owns the file and multi-writer behavior is constrained.</td><td>Not the platform standard.</td></tr>
+              <tr><td>Litestream</td><td>Backup/replication helper for SQLite, not server mode.</td><td>Not needed.</td></tr>
+              <tr><td>LiteFS</td><td>Powerful but operationally specific and less boring outside environments designed around it.</td><td>Rejected for this migration.</td></tr>
+              <tr><td>libSQL/sqld</td><td>Server-mode SQLite-like option, but less standard than Postgres and requires validation.</td><td>Rejected as end state.</td></tr>
+              <tr><td>Postgres/CNPG</td><td>Already running, operationally known, supports current query patterns and queue semantics.</td><td>Chosen platform standard.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2>Postgres Compatibility Findings</h2>
+          <ul>
+            <li>Current schema uses Drizzle Postgres primitives: <code>pgTable</code>, <code>jsonb</code>, <code>serial</code>, <code>timestamp with time zone</code>, and <code>defaultNow()</code>.</li>
+            <li>Migrations are Postgres SQL.</li>
+            <li>The durable job queue depends on <code>FOR UPDATE SKIP LOCKED</code>, row locks, <code>make_interval</code>, <code>now()</code>, raw SQL, and transactions.</li>
+            <li>Control Center would require a real rewrite to move away from Postgres.</li>
+            <li>Captive Portal is easier to move because it already has a repository abstraction, but the end-state database standard is still Postgres.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Current Infra Hardcoding</h2>
+          <ul>
+            <li>Namespace hardcoded to <code>control-center</code>.</li>
+            <li>Images use <code>ghcr.io/0x63616c/control-center-&lt;service&gt;</code>.</li>
+            <li>Secrets use <code>cc-secrets-&lt;service&gt;</code>.</li>
+            <li>Pulumi image digest namespace uses <code>ccinfra:imageDigests</code>.</li>
+            <li>Database service hardcoded as <code>control-center-rw</code>.</li>
+            <li>Dashboard hostname is old <code>dashboard.worldwidewebb.co</code>.</li>
+            <li>Captive Portal hostname is old <code>captive-portal.worldwidewebb.co</code>.</li>
+            <li>iOS kiosk config points at the old dashboard URL.</li>
+            <li>Cloudflare route/adopt-only state still has legacy comments and hosts.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>CI/Deploy Findings</h2>
+          <ul>
+            <li>One CI workflow currently controls tests, image builds, and deploy.</li>
+            <li>Path filters separate image rebuilds somewhat, but deploy is one stack-wide Pulumi run.</li>
+            <li>Shared changes rebuild broad sets of images.</li>
+            <li>Product isolation matters more than perfect CI speed in this migration.</li>
+            <li>CI optimization can be partial. Correctness, traceability, and blast-radius reduction come first.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Cloud Target Decision</h2>
+          <p>The conversation considered cloud runtime and stretched home/cloud k3s. The decision for this migration is homelab-only implementation with target-aware design.</p>
+          <ul>
+            <li>Do not create a stretched k3s cluster across homelab and cloud.</li>
+            <li>Do not ship a cloud target in this migration.</li>
+            <li>Do design platform primitives so future targets are possible.</li>
+            <li>Keep homelab-specific dependencies behind target/platform abstractions.</li>
+          </ul>
+        </section>
+
+        <footer class="footer">Research notes should be updated when implementation uncovers new load-bearing facts.</footer>
+      </main>
+    </div>
+  </body>
+</html>

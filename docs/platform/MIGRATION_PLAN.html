@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Migration Plan</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand"><strong>world-wide-webb platform</strong><span>Migration Plan</span></div>
+        <nav class="nav" aria-label="Platform docs">
+          <a href="./README.html">Overview</a>
+          <a href="./NORTH_STAR.html">North Star</a>
+          <a href="./MIGRATION_PLAN.html" aria-current="page">Migration Plan</a>
+          <a href="./PRODUCTS.html">Products</a>
+          <a href="./PLATFORM_PRIMITIVES.html">Platform Primitives</a>
+          <a href="./DATA_AND_BACKUPS.html">Data and Backups</a>
+          <a href="./SECRETS.html">Secrets</a>
+          <a href="./NETWORKING.html">Networking</a>
+          <a href="./LOCAL_DEV_AND_IOS.html">Local Dev and iOS</a>
+          <a href="./RESEARCH_NOTES.html">Research Notes</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section class="hero">
+          <span class="eyebrow">Milestones</span>
+          <h1>Break the migration into production-safe lanes.</h1>
+          <p class="lede">The migration should create stable platform seams first, then let product lanes run in parallel. Most tasks should deliver something verifiable in production. Internal refactor tasks are allowed when they create a safe seam.</p>
+        </section>
+
+        <section>
+          <h2>Work Order Principle</h2>
+          <div class="callout">
+            <p>Default every task to a production deliverable with tests, verification, and rollback notes. Allow internal foundation tasks only when a safe seam must exist before anything can ship.</p>
+          </div>
+          <p>Parallelization is a goal, but only after shared contracts are stable. Do not let multiple lanes casually edit the same product, infra, or CI files.</p>
+        </section>
+
+        <section>
+          <h2>Parallelization Model</h2>
+          <table>
+            <thead><tr><th>Lane</th><th>Can parallelize after</th><th>Owns</th></tr></thead>
+            <tbody>
+              <tr><td>Platform foundation</td><td>Starts first, blocks everyone</td><td>App identity, naming, namespaces, targets, exposure classes, database primitive, backup primitive, secret catalog.</td></tr>
+              <tr><td>Networking/TLS</td><td>After exposure contract</td><td>Cloudflare routes, Access policy, cert-manager, UniFi split DNS, captive path, hostname cutover.</td></tr>
+              <tr><td>Data/backups</td><td>After database contract</td><td>Per-product CNPG clusters, backup jobs, restore validation, migration snapshots.</td></tr>
+              <tr><td>Product lanes</td><td>After product folder and infra spec seams</td><td>Control Center, Captive Portal, Text Your Ex, AMP.</td></tr>
+              <tr><td>Local dev/iOS</td><td>After product folder conventions</td><td>Tilt entries, standard iOS scripts/buttons, TestFlight workflow standardization.</td></tr>
+              <tr><td>CI/deploy</td><td>After product image/deploy definitions</td><td>Product workflows, path filters, image pushes, Pulumi deploys.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2>Milestone 0: Persist The Plan</h2>
+          <ul>
+            <li>Create the platform docs in <code>docs/platform/</code>.</li>
+            <li>Add a concise platform principle to agent instructions.</li>
+            <li>Create Beads epics and child tickets from this plan.</li>
+            <li>Acceptance: docs are checked in, linked, and future agents know the platform-team rules.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Milestone 1: Platform Foundation</h2>
+          <ul>
+            <li>Create <code>packages/platform</code> or equivalent shared platform package for product definitions and deploy primitives.</li>
+            <li>Define product identity once: slug, DNS code, namespace, image namespace, labels, and Pulumi names.</li>
+            <li>Define exposure classes: public web, private web, captive portal, internal service.</li>
+            <li>Define target model with homelab as the only implemented target.</li>
+            <li>Define database primitive as per-product CNPG Postgres cluster with automatic backup.</li>
+            <li>Define secret catalog and explicit service secret usage.</li>
+            <li>Acceptance: one existing product can be represented in the new model without behavior change.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Milestone 2: Data Safety Baseline</h2>
+          <ul>
+            <li>Generalize the current <code>pg-backup</code> pattern into the platform backup primitive.</li>
+            <li>Keep current Control Center backups running during the migration.</li>
+            <li>Take a pre-migration custom-format Postgres dump before any data movement.</li>
+            <li>Restore that dump into a scratch database and validate row counts.</li>
+            <li>Document restore commands and verification checks.</li>
+            <li>Acceptance: current production data has a proven restore path before product extraction touches data ownership.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Milestone 3: Networking And TLS Contract</h2>
+          <ul>
+            <li>Model all route exposure through platform primitives.</li>
+            <li>Preserve TLS/cert behavior during hard hostname cutover.</li>
+            <li>Make Cloudflare Access the private-web implementation.</li>
+            <li>Make Captive Portal a special UniFi/captive exposure, not generic LAN web.</li>
+            <li>Move old hostnames to the new <code>app.&lt;product&gt;</code> surfaces and only create external API hostnames where a product explicitly declares one.</li>
+            <li>Acceptance: dashboard, captive portal, Storybook/Drizzle-style private routes, and TLS all verify on the new model.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Milestone 4: Product Folders And CI Split</h2>
+          <ul>
+            <li>Create <code>products/control-center</code>, <code>products/captive-portal</code>, <code>products/text-your-ex</code>, and <code>products/amp</code>.</li>
+            <li>Move product-owned code behind those boundaries.</li>
+            <li>Introduce separate product workflows for CI/deploy.</li>
+            <li>Optimize enough for product isolation, not perfect speed.</li>
+            <li>Acceptance: changing Text Your Ex does not rebuild/deploy Control Center unless shared platform code changed.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Milestone 5: Captive Portal Product</h2>
+          <ul>
+            <li>Split Captive Portal out of Control Center.</li>
+            <li>Redesign its backend/API/storage as product-owned.</li>
+            <li>Move portal data from Control Center Postgres into Captive Portal Postgres with export, rehearsal, final snapshot, validation, and rollback.</li>
+            <li>Preserve UniFi guest onboarding, split DNS, cert-manager TLS, firewall/walled-garden rules, and Apple CNA behavior.</li>
+            <li>Acceptance: real guest onboarding works on the production guest network through <code>app.cp.worldwidewebb.co</code>.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Milestone 6: Text Your Ex Product</h2>
+          <ul>
+            <li>Move current <code>text-your-ex</code> app into <code>products/text-your-ex</code>.</li>
+            <li>Ship app and API to production on homelab k3s.</li>
+            <li>Move from current SQLite prototype to product Postgres.</li>
+            <li>Ensure production starts empty, while local dev can still seed demo data explicitly.</li>
+            <li>Standardize bundled iOS TestFlight workflow with <code>VITE_API_BASE</code> pointing at <code>api.tye.worldwidewebb.co</code>.</li>
+            <li>Acceptance: web production route works, API health works, database persists, backups run, and TestFlight build targets the production API.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Milestone 7: Control Center Product</h2>
+          <ul>
+            <li>Make Control Center product-owned without breaking the wall panel.</li>
+            <li>Keep home integrations working through the product boundary.</li>
+            <li>Cut Control Center over to its product CNPG cluster with export, restore rehearsal, row-count validation, final snapshot, and rollback.</li>
+            <li>Update the hosted iOS kiosk URL to the new private route.</li>
+            <li>Acceptance: wall panel loads at the true 1366x1024 target, no skeleton/error regressions, workers run, and the iOS kiosk build points at the new URL.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Milestone 8: AMP Product</h2>
+          <ul>
+            <li>Build and deploy minimal AMP as a real product.</li>
+            <li>Use private Cloudflare Access exposure.</li>
+            <li>Prove the platform can stand up a new app with the standard product path.</li>
+            <li>Acceptance: AMP has app route, optional API route, CI/deploy, logs, health, and platform-owned database/backups if it declares a database.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Milestone 9: Rename And Polish</h2>
+          <ul>
+            <li>Rename repository to <code>world-wide-webb</code> after production state is stable.</li>
+            <li>Update docs, badges, CI labels, image naming, Pulumi project naming, and references.</li>
+            <li>Acceptance: all products remain deployed, CI remains green, and no old repo identity remains in load-bearing paths.</li>
+          </ul>
+        </section>
+
+        <footer class="footer">Use Beads for the real task graph. Milestones become epics. Deliverables become child issues with acceptance criteria and verification steps.</footer>
+      </main>
+    </div>
+  </body>
+</html>

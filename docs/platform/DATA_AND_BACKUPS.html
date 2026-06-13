@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Data and Backups</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand"><strong>world-wide-webb platform</strong><span>Data and Backups</span></div>
+        <nav class="nav" aria-label="Platform docs">
+          <a href="./README.html">Overview</a>
+          <a href="./NORTH_STAR.html">North Star</a>
+          <a href="./MIGRATION_PLAN.html">Migration Plan</a>
+          <a href="./PRODUCTS.html">Products</a>
+          <a href="./PLATFORM_PRIMITIVES.html">Platform Primitives</a>
+          <a href="./DATA_AND_BACKUPS.html" aria-current="page">Data and Backups</a>
+          <a href="./SECRETS.html">Secrets</a>
+          <a href="./NETWORKING.html">Networking</a>
+          <a href="./LOCAL_DEV_AND_IOS.html">Local Dev and iOS</a>
+          <a href="./RESEARCH_NOTES.html">Research Notes</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section class="hero">
+          <span class="eyebrow">Data guarantee</span>
+          <h1>Databases are a platform feature.</h1>
+          <p class="lede">The end state is all Postgres through per-product CNPG clusters. If a product declares a database, it gets durable storage, secrets, service discovery, backups, and restore validation by default.</p>
+        </section>
+
+        <section>
+          <h2>Database Standard</h2>
+          <div class="decision">
+            <p><strong>End state:</strong> all products use Postgres through CloudNativePG.</p>
+            <p><strong>Topology:</strong> one CNPG Postgres cluster per product.</p>
+            <p><strong>Default database shape:</strong> one application database and one application user inside that product cluster. Add more databases only when the product has a concrete boundary that needs them.</p>
+            <p><strong>Not the standard:</strong> SQLite, libSQL, sqld, LiteFS, or embedded database files.</p>
+            <p><strong>Reason:</strong> current Control Center already depends on Postgres semantics, CNPG exists, backups exist, and Postgres is the boring production default.</p>
+          </div>
+        </section>
+
+        <section>
+          <h2>What <code>size</code> Means</h2>
+          <p><code>database({ size: "5Gi" })</code> means the Kubernetes PVC storage request for that product's Postgres data directory. It is effectively the disk volume size available to Postgres for table data, indexes, WAL, engine files, and overhead.</p>
+          <ul>
+            <li>It is not exactly the logical maximum database size because Postgres overhead and WAL use space too.</li>
+            <li>If the volume fills, Postgres can stop accepting writes or fail.</li>
+            <li>CNPG/local-path can resize volumes when configured correctly.</li>
+            <li>Size is a valid app-level knob because product data volume differs.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Current Postgres Footprint</h2>
+          <table>
+            <thead><tr><th>Measure</th><th>Current value</th></tr></thead>
+            <tbody>
+              <tr><td>Pod</td><td><code>control-center/control-center-1</code></td></tr>
+              <tr><td>Memory request</td><td><code>384Mi</code></td></tr>
+              <tr><td>Memory limit</td><td><code>768Mi</code></td></tr>
+              <tr><td>CPU request</td><td><code>500m</code></td></tr>
+              <tr><td>PVC</td><td><code>5Gi</code></td></tr>
+              <tr><td>Logical DB size</td><td>about <code>91MB</code></td></tr>
+              <tr><td>Largest table</td><td><code>weather_reading</code>, about <code>79MB</code></td></tr>
+              <tr><td>PGDATA directory</td><td>about <code>692MB</code></td></tr>
+            </tbody>
+          </table>
+          <p class="muted">The Metrics API is not currently installed, so live <code>kubectl top</code> CPU/memory data was unavailable during planning.</p>
+        </section>
+
+        <section>
+          <h2>Backup Standard</h2>
+          <div class="callout">
+            <p><strong>Backups are a platform guarantee.</strong> App code does not decide whether backups exist, where they live, or how they are named. The platform derives that from app identity.</p>
+          </div>
+          <ul>
+            <li>Every product database gets a nightly backup CronJob.</li>
+            <li>Backups write to the NAS under one platform-owned root.</li>
+            <li>Backups are retained forever.</li>
+            <li>Restore validation is required before data migration work is considered complete.</li>
+            <li>Future retention policies must be platform-level decisions, not per-product ad hoc scripts.</li>
+          </ul>
+          <div class="code-block"><pre><code>/volume1/Homelab/backups/world-wide-webb/control-center/postgres/
+/volume1/Homelab/backups/world-wide-webb/captive-portal/postgres/
+/volume1/Homelab/backups/world-wide-webb/text-your-ex/postgres/
+/volume1/Homelab/backups/world-wide-webb/amp/postgres/</code></pre></div>
+        </section>
+
+        <section>
+          <h2>Current Backup Prototype</h2>
+          <p>Control Center already has a nightly Postgres backup job. It is the prototype of the platform backup primitive, but it is currently hardcoded.</p>
+          <table>
+            <thead><tr><th>Field</th><th>Current value</th></tr></thead>
+            <tbody>
+              <tr><td>CronJob</td><td><code>pg-backup</code></td></tr>
+              <tr><td>Schedule</td><td><code>0 1 * * *</code></td></tr>
+              <tr><td>Database</td><td><code>control_center</code></td></tr>
+              <tr><td>Service</td><td><code>control-center-rw</code></td></tr>
+              <tr><td>Secret</td><td><code>cc-postgres-auth</code></td></tr>
+              <tr><td>NAS subpath</td><td><code>backups/postgres</code></td></tr>
+              <tr><td>Filename</td><td><code>control_center-YYYYMMDD.sql.gz</code></td></tr>
+              <tr><td>Latest observed output</td><td><code>control_center-20260613.sql.gz</code></td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2>Data Cutover Contract</h2>
+          <ol>
+            <li><strong>Inventory:</strong> identify source tables, owners, write paths, read paths, cronjobs, and workers.</li>
+            <li><strong>Target schema:</strong> preserve table names/types where product behavior depends on them. Keep IDs stable.</li>
+            <li><strong>Export:</strong> take both a custom-format dump and a plain SQL gzip dump before cutover.</li>
+            <li><strong>Restore rehearsal:</strong> restore into a scratch database, run migrations, validate row counts and semantic queries.</li>
+            <li><strong>Write freeze:</strong> pause writers for a short maintenance window when needed.</li>
+            <li><strong>Final snapshot:</strong> export again after freeze, restore to target, validate counts and key queries.</li>
+            <li><strong>Cutover:</strong> deploy app pointing at target database and verify health, flows, and backups.</li>
+            <li><strong>Rollback:</strong> keep old database and dumps untouched until the new database survives backup and restore validation.</li>
+            <li><strong>Post-cutover:</strong> run a backup, restore it into scratch, and compare counts again.</li>
+          </ol>
+        </section>
+
+        <section>
+          <h2>Per-Product Data Notes</h2>
+          <div class="grid">
+            <article class="card">
+              <h3>Control Center</h3>
+              <p>Current data stays safe throughout the migration, then cuts over to the Control Center product CNPG cluster with rehearsal and validation. A short maintenance window is acceptable. The job queue depends on Postgres row locks and stays Postgres.</p>
+            </article>
+            <article class="card">
+              <h3>Captive Portal</h3>
+              <p>Portal tables move into Captive Portal's product database: guests, codes, attempts, and authorizations. Preserve enough history and authorization state to avoid breaking active guest access.</p>
+            </article>
+            <article class="card">
+              <h3>Text Your Ex</h3>
+              <p>Current prototype uses SQLite. Production standard is Postgres. Prod starts empty, while local demo seed remains explicit and non-prod.</p>
+            </article>
+            <article class="card">
+              <h3>AMP</h3>
+              <p>AMP declares a database only when it needs durable product state. If it declares one, it gets the same CNPG and backup guarantees.</p>
+            </article>
+          </div>
+        </section>
+
+        <footer class="footer">A backup that has never been restored is not proven. Restore validation is part of the platform contract.</footer>
+      </main>
+    </div>
+  </body>
+</html>

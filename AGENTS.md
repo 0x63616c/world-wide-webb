@@ -51,6 +51,14 @@
 - Cron-style work belongs in Kubernetes `CronJob`s in `infra/src/crons.ts`, not legacy scheduler labels or a third-party scheduler.
 - Ops or deploy-path changes must update the relevant docs in the same change, especially `docs/deployment-design.md` and `docs/k3s-migration/DESIGN.md`.
 
+## Platform Migration
+
+- Touching product/platform split work? Read `docs/platform/README.html` and `docs/platform/NORTH_STAR.html` first. Treat the repo as a platform team building paved roads for app teams.
+- Platform primitives should make the right thing easy: derive names from app context, avoid magic strings, standardize shared infra, expose only necessary customization, and do not duplicate Kubernetes/Cloudflare/secret/backup wiring across products.
+- Product databases are CNPG Postgres clusters with mandatory platform-managed NAS backups. Backups are not optional app configuration.
+- Secrets stay centrally managed in 1Password Homelab, but each product/service must explicitly declare which secrets it can access. Shared secrets are allowed when they are genuinely shared.
+- Product work should be isolated under `products/<name>` and keep Control Center, Captive Portal, Text Your Ex, and AMP as separate products with separate namespaces, CI/deploy paths, and route policies.
+
 ## Git And Tickets
 
 - Feature work happens in a ticket-id-led worktree, e.g. `www-xxx-short-slug`. Do not develop in the shared main checkout.

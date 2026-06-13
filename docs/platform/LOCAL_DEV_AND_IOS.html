@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Local Dev and iOS</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand"><strong>world-wide-webb platform</strong><span>Local Dev and iOS</span></div>
+        <nav class="nav" aria-label="Platform docs">
+          <a href="./README.html">Overview</a>
+          <a href="./NORTH_STAR.html">North Star</a>
+          <a href="./MIGRATION_PLAN.html">Migration Plan</a>
+          <a href="./PRODUCTS.html">Products</a>
+          <a href="./PLATFORM_PRIMITIVES.html">Platform Primitives</a>
+          <a href="./DATA_AND_BACKUPS.html">Data and Backups</a>
+          <a href="./SECRETS.html">Secrets</a>
+          <a href="./NETWORKING.html">Networking</a>
+          <a href="./LOCAL_DEV_AND_IOS.html" aria-current="page">Local Dev and iOS</a>
+          <a href="./RESEARCH_NOTES.html">Research Notes</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section class="hero">
+          <span class="eyebrow">Developer experience</span>
+          <h1>Every product should be easy to run locally.</h1>
+          <p class="lede">Local Tilt and iOS ergonomics are part of the platform. Product developers should not rediscover how to start services, open local URLs, sync Capacitor, or run an iOS simulator.</p>
+        </section>
+
+        <section>
+          <h2>Tilt Standard</h2>
+          <ul>
+            <li>Each product gets its own Tilt entry.</li>
+            <li>An umbrella Tiltfile can run one product without starting every product.</li>
+            <li>Product Tilt resources should have clear labels: setup, backend, frontend, database, tooling.</li>
+            <li>Readiness probes should exist where services expose health endpoints.</li>
+            <li>Local dev should use product-scoped databases and ports.</li>
+            <li>Local secrets should use the established 1Password loading pattern, not committed env files.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>iOS Product Modes</h2>
+          <table>
+            <thead><tr><th>Mode</th><th>Product</th><th>Behavior</th></tr></thead>
+            <tbody>
+              <tr><td>Hosted kiosk</td><td>Control Center</td><td>Capacitor shell loads a production URL at runtime. Native build changes only when shell/config changes.</td></tr>
+              <tr><td>Bundled app</td><td>Text Your Ex</td><td>Capacitor bundles built web assets offline. The app talks to hosted API through <code>VITE_API_BASE</code>.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2>Standard iOS Commands</h2>
+          <p>Future iOS products should use the same command names. Tilt should expose manual buttons for these actions.</p>
+          <div class="code-block"><pre><code>bun run ios:sync
+bun run ios:open
+bun run ios:sim</code></pre></div>
+          <ul>
+            <li><code>ios:sync</code> builds/syncs Capacitor assets.</li>
+            <li><code>ios:open</code> opens the Xcode project.</li>
+            <li><code>ios:sim</code> runs the app in an available simulator when configured.</li>
+            <li>Control Center should get the same local iOS buttons as Text Your Ex.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Text Your Ex iOS</h2>
+          <ul>
+            <li>Stays bundled app mode.</li>
+            <li>Builds web assets into the app.</li>
+            <li>Uses <code>VITE_API_BASE=https://api.tye.worldwidewebb.co</code> for TestFlight builds.</li>
+            <li>Existing TestFlight pipeline should be standardized when moved into this repo.</li>
+            <li>Docs should match the actual workflow trigger. Current TYE docs mention tags while the workflow runs on main pushes/manual/monthly.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Control Center iOS</h2>
+          <ul>
+            <li>Stays hosted kiosk mode.</li>
+            <li>Updates runtime URL from old dashboard host to the new private app host.</li>
+            <li>Needs TestFlight update as part of hostname cutover.</li>
+            <li>Gets Tilt buttons for sync/open/sim to match the platform standard.</li>
+            <li>Must preserve kiosk behavior, idle timer, landscape, watchdog, and recovery behavior.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Local Product Expectations</h2>
+          <div class="grid">
+            <article class="card">
+              <h3>Control Center</h3>
+              <p>Runs local Postgres, API, worker, web, Storybook, and iOS shell tools without starting unrelated products.</p>
+            </article>
+            <article class="card">
+              <h3>Captive Portal</h3>
+              <p>Runs portal app/API/database locally. Real guest network verification remains a production or staging network check.</p>
+            </article>
+            <article class="card">
+              <h3>Text Your Ex</h3>
+              <p>Runs app/API/database locally, supports demo seed explicitly, and can open iPhone frame plus real iOS simulator.</p>
+            </article>
+            <article class="card">
+              <h3>AMP</h3>
+              <p>Runs like any other product, proving the platform path for a new internal app.</p>
+            </article>
+          </div>
+        </section>
+
+        <footer class="footer">Local dev is part of the platform contract. If it is hard to run locally, the primitive is not done.</footer>
+      </main>
+    </div>
+  </body>
+</html>

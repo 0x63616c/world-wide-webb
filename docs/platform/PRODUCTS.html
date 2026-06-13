@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Products</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand"><strong>world-wide-webb platform</strong><span>Products</span></div>
+        <nav class="nav" aria-label="Platform docs">
+          <a href="./README.html">Overview</a>
+          <a href="./NORTH_STAR.html">North Star</a>
+          <a href="./MIGRATION_PLAN.html">Migration Plan</a>
+          <a href="./PRODUCTS.html" aria-current="page">Products</a>
+          <a href="./PLATFORM_PRIMITIVES.html">Platform Primitives</a>
+          <a href="./DATA_AND_BACKUPS.html">Data and Backups</a>
+          <a href="./SECRETS.html">Secrets</a>
+          <a href="./NETWORKING.html">Networking</a>
+          <a href="./LOCAL_DEV_AND_IOS.html">Local Dev and iOS</a>
+          <a href="./RESEARCH_NOTES.html">Research Notes</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section class="hero">
+          <span class="eyebrow">Product boundaries</span>
+          <h1>Four products, one platform.</h1>
+          <p class="lede">The repo stops being Control Center with extras. It becomes a multi-product platform with explicit product folders, identities, namespaces, routes, databases, and workflows.</p>
+        </section>
+
+        <section>
+          <h2>Product Identity</h2>
+          <table>
+            <thead><tr><th>Slug</th><th>DNS code</th><th>Folder</th><th>Namespace</th></tr></thead>
+            <tbody>
+              <tr><td><code>control-center</code></td><td><span class="chip chip-private">cc</span></td><td><code>products/control-center</code></td><td><code>control-center</code></td></tr>
+              <tr><td><code>captive-portal</code></td><td><span class="chip chip-captive">cp</span></td><td><code>products/captive-portal</code></td><td><code>captive-portal</code></td></tr>
+              <tr><td><code>text-your-ex</code></td><td><span class="chip chip-public">tye</span></td><td><code>products/text-your-ex</code></td><td><code>text-your-ex</code></td></tr>
+              <tr><td><code>amp</code></td><td><span class="chip chip-private">amp</span></td><td><code>products/amp</code></td><td><code>amp</code></td></tr>
+            </tbody>
+          </table>
+          <p>Bare product namespace hosts like <code>cc.worldwidewebb.co</code> and <code>tye.worldwidewebb.co</code> are not created by default. Product surfaces use explicit service hostnames.</p>
+        </section>
+
+        <section>
+          <h2>Initial Product Surfaces</h2>
+          <table>
+            <thead><tr><th>Product</th><th>Required app surface</th><th>External API surface</th><th>Policy</th></tr></thead>
+            <tbody>
+              <tr><td>Control Center</td><td><code>app.cc.worldwidewebb.co</code></td><td>Not automatic. Declare <code>api.cc</code> only if an external client needs it.</td><td><span class="chip chip-private">private</span> Cloudflare Access.</td></tr>
+              <tr><td>Captive Portal</td><td><code>app.cp.worldwidewebb.co</code></td><td>Internal or captive-scoped. Prefer same-origin/internal API for the captive flow.</td><td><span class="chip chip-captive">captive</span> LAN/guest exposure.</td></tr>
+              <tr><td>Text Your Ex</td><td><code>app.tye.worldwidewebb.co</code></td><td><code>api.tye.worldwidewebb.co</code> is required for bundled iOS.</td><td><span class="chip chip-public">public</span> web and API.</td></tr>
+              <tr><td>AMP</td><td><code>app.amp.worldwidewebb.co</code></td><td>Not automatic. Declare <code>api.amp</code> only when AMP needs it.</td><td><span class="chip chip-private">private</span> Cloudflare Access.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2>Control Center</h2>
+          <div class="card">
+            <p>Control Center becomes one product instead of the repository identity. It keeps the wall panel, home integrations, API, workers, media worker, Storybook, Drizzle tooling, and iOS hosted kiosk shell, but its deployment and data boundaries are product-owned.</p>
+            <ul>
+              <li>Runs on homelab k3s.</li>
+              <li>Depends on Home Assistant, UniFi, NAS media, and home network integrations.</li>
+              <li>Uses private Cloudflare Access exposure for app and any external API surface.</li>
+              <li>Uses its own CNPG Postgres cluster and platform-managed backups.</li>
+              <li>Must continue working throughout the migration.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section>
+          <h2>Captive Portal</h2>
+          <div class="card">
+            <p>Captive Portal becomes a full product with its own frontend, API, backend storage, UniFi integration boundary, database, backups, and deployment. It is no longer a frontend plus routes inside Control Center API.</p>
+            <ul>
+              <li>Runs on homelab k3s because it depends on UniFi guest network behavior and LAN reachability.</li>
+              <li>Uses captive LAN exposure, not generic public web exposure.</li>
+              <li>Owns portal guest/code/attempt/authorization data in its own product database.</li>
+              <li>Redesigns its backend now rather than preserving the accidental Control Center coupling.</li>
+              <li>Must preserve real guest onboarding, Apple captive network assistant behavior, TLS, split DNS, firewall/walled-garden rules, and UniFi authorization.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section>
+          <h2>Text Your Ex</h2>
+          <div class="card">
+            <p>Text Your Ex moves into the repo as an isolated product and ships to production. Its current app is self-contained and should stay isolated initially. Future shared code extraction happens after production stability.</p>
+            <ul>
+              <li>Runs on homelab k3s for this migration.</li>
+              <li>Uses public app and API routes.</li>
+              <li>Uses a bundled Capacitor iOS app that points at <code>api.tye.worldwidewebb.co</code>.</li>
+              <li>Starts production with an empty database, not demo seed data.</li>
+              <li>Uses its own CNPG Postgres cluster and platform-managed backups.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section>
+          <h2>AMP</h2>
+          <div class="card">
+            <p>AMP is the Application Management Plane. It is a real product in the migration scope, even if the first production version is a minimal shell.</p>
+            <ul>
+              <li>Runs on homelab k3s.</li>
+              <li>Uses private Cloudflare Access exposure.</li>
+              <li>Proves the platform can stand up a new internal web app cleanly.</li>
+              <li>Becomes the future home for internal dashboards, pipeline views, database management affordances, project creation flows, and platform operations.</li>
+              <li>Should be built and deployed in parallel as a minimal shell, while remaining decoupled enough that it does not block the existing product migrations.</li>
+            </ul>
+          </div>
+        </section>
+
+        <footer class="footer">Product boundaries are platform contracts. Avoid hidden coupling across product folders.</footer>
+      </main>
+    </div>
+  </body>
+</html>

@@ -163,6 +163,10 @@ Scheduled work is Kubernetes-native in `infra/src/crons.ts`:
 
 Do not add a third-party scheduler for new cron-style tasks.
 
+## Platform Migration
+
+The repo is moving toward a multi-product platform shape documented in `docs/platform/README.html` and `docs/platform/NORTH_STAR.html`. Read those before touching product/platform split work. The target model is products under `products/<name>` with platform-owned primitives for namespaces, routing/TLS, secrets, CNPG Postgres databases, NAS backups, local dev, CI/deploy, and iOS workflows.
+
 ## Development Rules To Preserve
 
 - Use `bun` and `bunx`, never `npm` or `npx`.

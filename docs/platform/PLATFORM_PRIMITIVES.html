@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Platform Primitives</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand"><strong>world-wide-webb platform</strong><span>Platform Primitives</span></div>
+        <nav class="nav" aria-label="Platform docs">
+          <a href="./README.html">Overview</a>
+          <a href="./NORTH_STAR.html">North Star</a>
+          <a href="./MIGRATION_PLAN.html">Migration Plan</a>
+          <a href="./PRODUCTS.html">Products</a>
+          <a href="./PLATFORM_PRIMITIVES.html" aria-current="page">Platform Primitives</a>
+          <a href="./DATA_AND_BACKUPS.html">Data and Backups</a>
+          <a href="./SECRETS.html">Secrets</a>
+          <a href="./NETWORKING.html">Networking</a>
+          <a href="./LOCAL_DEV_AND_IOS.html">Local Dev and iOS</a>
+          <a href="./RESEARCH_NOTES.html">Research Notes</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section class="hero">
+          <span class="eyebrow">Paved road</span>
+          <h1>Products declare intent. Platform derives the wiring.</h1>
+          <p class="lede">The platform API should expose only the choices app teams actually need. Names, paths, labels, secrets, backups, and low-level Kubernetes objects should be derived from app context.</p>
+        </section>
+
+        <section>
+          <h2>Packages And Layers</h2>
+          <table>
+            <thead><tr><th>Package or area</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>packages/platform</code></td><td>Product definitions, service/workload primitive, exposure primitive, database primitive, backup primitive, secret primitive, naming, labels, targets.</td></tr>
+              <tr><td><code>packages/logger</code></td><td>Existing shared backend logger and redaction contract.</td></tr>
+              <tr><td><code>packages/config</code></td><td>Future typed config helpers and env parsing conventions if product code starts duplicating config logic.</td></tr>
+              <tr><td><code>platform/</code></td><td>Optional operational templates and scripts that are not TypeScript library code.</td></tr>
+              <tr><td><code>docs/platform/</code></td><td>North Star, migration plan, product model, primitives, data, secrets, networking, local dev, and research notes.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2>App Definition</h2>
+          <p>The app context should be the source of truth. Avoid passing <code>owner</code>, <code>product</code>, <code>namespace</code>, <code>backupPath</code>, or magic string identifiers into every primitive.</p>
+          <div class="code-block"><pre><code>const textYourEx = defineApp({
+  id: "tye",
+  slug: "text-your-ex",
+});
+
+textYourEx.service("app", {
+  image: images.product("app"),
+  exposure: publicWeb({ host: "app" }),
+});
+
+textYourEx.service("api", {
+  image: images.product("api"),
+  exposure: publicWeb({ host: "api" }),
+});
+
+textYourEx.database({
+  size: "5Gi",
+});</code></pre></div>
+          <p>The app definition derives <code>products/text-your-ex</code>, namespace <code>text-your-ex</code>, route suffix <code>tye</code>, image names, labels, secrets, Pulumi names, and backup paths.</p>
+        </section>
+
+        <section>
+          <h2>Customization Rule</h2>
+          <div class="decision">
+            <p><strong>Defaults are platform-owned.</strong> Only expose customization when the app team has a real product reason.</p>
+            <p><strong>If every app should do it, it is not configurable.</strong> Backups, naming, labels, secret mount wiring, and route mechanics should not be exposed as app knobs.</p>
+            <p><strong>Size is a valid knob.</strong> Product data volume differs, so database storage size should be configurable.</p>
+          </div>
+        </section>
+
+        <section>
+          <h2>Core Primitives</h2>
+          <div class="grid">
+            <article class="card">
+              <h3><code>defineApp()</code></h3>
+              <p>Declares product identity once. All derived names come from this context.</p>
+            </article>
+            <article class="card">
+              <h3><code>service()</code></h3>
+              <p>Declares a deployable workload or static web service. Product code should not hand-write Kubernetes Deployment and Service objects.</p>
+            </article>
+            <article class="card">
+              <h3><code>database()</code></h3>
+              <p>Creates a per-product CNPG Postgres cluster, credentials, service discovery, backup job, and restore contract.</p>
+            </article>
+            <article class="card">
+              <h3><code>exposure</code></h3>
+              <p>Declares public web, private web, captive portal, or internal service intent. Platform implements Cloudflare, Access, cert-manager, UniFi, and service routing.</p>
+            </article>
+            <article class="card">
+              <h3><code>secret()</code></h3>
+              <p>Declares which service can access which central 1Password-backed secret. Shared secrets are allowed when intentionally shared.</p>
+            </article>
+            <article class="card">
+              <h3><code>target()</code></h3>
+              <p>Declares runtime target. Homelab k3s is the only implemented target in this migration, but the platform should not be homelab-blind.</p>
+            </article>
+          </div>
+        </section>
+
+        <section>
+          <h2>Do Not Expose</h2>
+          <ul>
+            <li>Backup enabled or disabled.</li>
+            <li>Backup path.</li>
+            <li>Backup retention.</li>
+            <li>Namespace naming pattern.</li>
+            <li>Label schema.</li>
+            <li>External Secrets low-level wiring.</li>
+            <li>Default secret names.</li>
+            <li>Cloudflare record comments and implementation details.</li>
+            <li>Low-level Kubernetes object shapes for normal apps.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Expose Carefully</h2>
+          <ul>
+            <li><code>database.size</code>, because data volume differs by product.</li>
+            <li>Service port, because runtime servers listen on different ports.</li>
+            <li>Resource presets, preferably <code>small</code>, <code>medium</code>, <code>large</code> before raw CPU/memory everywhere.</li>
+            <li>Exposure class, because public/private/captive/internal is product intent.</li>
+            <li>Declared secret usage, because least-privilege requires explicit access.</li>
+          </ul>
+        </section>
+
+        <footer class="footer">The platform API should be easy to read in product code. If every product repeats the same low-level shape, extract it.</footer>
+      </main>
+    </div>
+  </body>
+</html>

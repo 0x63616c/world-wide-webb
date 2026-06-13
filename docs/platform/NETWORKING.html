@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Networking</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand"><strong>world-wide-webb platform</strong><span>Networking</span></div>
+        <nav class="nav" aria-label="Platform docs">
+          <a href="./README.html">Overview</a>
+          <a href="./NORTH_STAR.html">North Star</a>
+          <a href="./MIGRATION_PLAN.html">Migration Plan</a>
+          <a href="./PRODUCTS.html">Products</a>
+          <a href="./PLATFORM_PRIMITIVES.html">Platform Primitives</a>
+          <a href="./DATA_AND_BACKUPS.html">Data and Backups</a>
+          <a href="./SECRETS.html">Secrets</a>
+          <a href="./NETWORKING.html" aria-current="page">Networking</a>
+          <a href="./LOCAL_DEV_AND_IOS.html">Local Dev and iOS</a>
+          <a href="./RESEARCH_NOTES.html">Research Notes</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section class="hero">
+          <span class="eyebrow">Routes and TLS</span>
+          <h1>Apps declare exposure. Platform owns the network machinery.</h1>
+          <p class="lede">Networking is load-bearing. The platform must preserve TLS, Cloudflare, cert-manager, UniFi split DNS, firewall rules, and captive portal behavior while moving to product hostnames.</p>
+        </section>
+
+        <section>
+          <h2>Exposure Classes</h2>
+          <table>
+            <thead><tr><th>Class</th><th>Meaning</th><th>Examples</th></tr></thead>
+            <tbody>
+              <tr><td><code>publicWeb()</code></td><td>Internet-accessible through Cloudflare route/DNS. Public exposure must be explicit.</td><td><span class="chip chip-public">public</span> <code>app.tye</code>, <code>api.tye</code></td></tr>
+              <tr><td><code>privateWeb()</code></td><td>Cloudflare route plus Cloudflare Access policy. Browser-friendly private access.</td><td><span class="chip chip-private">private</span> <code>app.cc</code>, <code>app.amp</code>, internal tooling</td></tr>
+              <tr><td><code>captivePortalWeb()</code></td><td>Special UniFi guest-network exposure with split DNS, LAN routing, certs, firewall/walled-garden, and Apple CNA behavior.</td><td><span class="chip chip-captive">captive</span> <code>app.cp</code></td></tr>
+              <tr><td><code>internalService()</code></td><td>Cluster-only service discovery. No external DNS.</td><td>Databases, internal APIs, worker-only services</td></tr>
+            </tbody>
+          </table>
+          <p>There is no generic LAN web class in the North Star. Captive Portal is the only LAN-like web surface today, and it has special captive-network semantics.</p>
+        </section>
+
+        <section>
+          <h2>Hostname Rules</h2>
+          <ul>
+            <li>Product namespace hosts are not created by default: no bare <code>cc.worldwidewebb.co</code>, <code>cp.worldwidewebb.co</code>, <code>tye.worldwidewebb.co</code>, or <code>amp.worldwidewebb.co</code>.</li>
+            <li>Service hostnames are explicit, for example <code>app.cc.worldwidewebb.co</code>.</li>
+            <li>APIs do not automatically get external hostnames. External API routes are app-specific and declared only when needed.</li>
+            <li>Public routes are opt-in. New routes default private or internal by platform policy.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Product Route Matrix</h2>
+          <table>
+            <thead><tr><th>Route</th><th>Exposure</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td><code>app.cc.worldwidewebb.co</code></td><td>Private web</td><td>Replaces dashboard route. Cloudflare Access-gated.</td></tr>
+              <tr><td><code>api.cc.worldwidewebb.co</code></td><td>Private web, optional</td><td>Only created if an external Control Center API route is required.</td></tr>
+              <tr><td><code>app.cp.worldwidewebb.co</code></td><td>Captive portal web</td><td>LAN/guest-network path, not normal public Cloudflare web.</td></tr>
+              <tr><td><code>api.cp.worldwidewebb.co</code></td><td>Scoped/internal by default</td><td>Prefer same-origin or internal API for captive-webview safety unless proven otherwise.</td></tr>
+              <tr><td><code>app.tye.worldwidewebb.co</code></td><td>Public web</td><td>Browser entrypoint for Text Your Ex.</td></tr>
+              <tr><td><code>api.tye.worldwidewebb.co</code></td><td>Public web/API</td><td>Required by bundled iOS app through <code>VITE_API_BASE</code>.</td></tr>
+              <tr><td><code>app.amp.worldwidewebb.co</code></td><td>Private web</td><td>Management plane app.</td></tr>
+              <tr><td><code>api.amp.worldwidewebb.co</code></td><td>Private web, optional</td><td>Only created if AMP needs an external API surface.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2>Current State To Respect</h2>
+          <div class="grid">
+            <article class="card">
+              <h3>Cloudflare Tunnel</h3>
+              <p>Dashboard, Storybook, Drizzle, hooks, and Portainer have tunnel/DNS state today. Captive Portal is intentionally absent from Cloudflare tunnel routes.</p>
+            </article>
+            <article class="card">
+              <h3>Cloudflare Access</h3>
+              <p>Storybook and Drizzle are deployed with Access today. Dashboard is not Access-gated yet, even though the North Star private model requires it.</p>
+            </article>
+            <article class="card">
+              <h3>Captive Portal TLS</h3>
+              <p>Captive Portal uses cert-manager with Cloudflare DNS-01 to issue a real certificate while traffic stays LAN-only.</p>
+            </article>
+            <article class="card">
+              <h3>UniFi Path</h3>
+              <p>Captive Portal depends on UniFi guest network config, split-horizon DNS, firewall/walled-garden behavior, and LAN forwarding into k8s.</p>
+            </article>
+          </div>
+        </section>
+
+        <section>
+          <h2>Current TLS And Routing Details</h2>
+          <table>
+            <thead><tr><th>System</th><th>Current behavior</th><th>Cutover risk</th></tr></thead>
+            <tbody>
+              <tr><td>Cloudflare tunnel</td><td>Declared/adopted routes include <code>dashboard</code>, <code>storybook</code>, <code>drizzle</code>, <code>hooks</code>, and <code>portainer</code>. Captive Portal is intentionally absent.</td><td>Moving <code>dashboard</code> to <code>app.cc</code> must preserve the origin and Access policy. Retiring legacy hosts must be explicit.</td></tr>
+              <tr><td>Cloudflare Access</td><td>Only <code>storybook</code> and <code>drizzle</code> are Access-gated today. The dashboard default-deny/private model is not deployed yet.</td><td>Private Control Center requires Access rollout plus iOS kiosk token/header handling before old dashboard access is retired.</td></tr>
+              <tr><td>cert-manager</td><td>Uses a Cloudflare DNS-01 <code>ClusterIssuer</code>. The Cloudflare API token is an ESO-synced secret in the <code>cert-manager</code> namespace.</td><td>New captive hostname needs DNS-01 certificate readiness before guest traffic moves.</td></tr>
+              <tr><td>DNS-01 self-check</td><td>cert-manager is configured with public recursive resolvers because split-horizon DNS makes in-cluster SOA self-check fail for the public challenge zone.</td><td>Do not remove the recursive nameserver flags when refactoring cert-manager.</td></tr>
+              <tr><td>Captive portal cert</td><td>Current certificate is for <code>captive-portal.worldwidewebb.co</code> and writes secret <code>captive-portal-tls</code>, mounted by portal nginx.</td><td>Cutover to <code>app.cp</code> needs the cert DNS name, secret naming/mounting, and nginx server name updated together.</td></tr>
+              <tr><td>UniFi split DNS</td><td>Current UniFi DNS record points <code>captive-portal.worldwidewebb.co</code> to <code>192.168.0.147</code>.</td><td>New <code>app.cp</code> record must resolve on guest network before UniFi redirect changes.</td></tr>
+              <tr><td>LAN 443 forward</td><td>Root launchd/socat forwards host en1 <code>192.168.0.147:443</code> to the k8s captive portal LoadBalancer because OrbStack does not bind service <code>:443</code> on LAN.</td><td>Any namespace/service rename must update this forward or replace it with a platform-managed equivalent.</td></tr>
+              <tr><td>Control Center iOS</td><td>Capacitor kiosk config points at <code>https://dashboard.worldwidewebb.co</code> and allows <code>*.worldwidewebb.co</code>.</td><td>Hard cutover to <code>app.cc</code> requires an iOS/TestFlight update before retiring the old dashboard URL.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2>Captive Portal Network Contract</h2>
+          <p>Captive Portal is a platform networking primitive because it spans app code, k8s, host networking, UniFi, DNS, certificates, and device captive network behavior.</p>
+          <ul>
+            <li>Configure UniFi local DNS for <code>app.cp.worldwidewebb.co</code> to the Mini LAN path.</li>
+            <li>Update any host-level forwarding that still points at the old <code>control-center/captive-portal</code> service identity.</li>
+            <li>Configure guest portal redirect URL to the new app host.</li>
+            <li>Preserve or replace firewall/walled-garden rules deliberately.</li>
+            <li>Keep DNS-01 certificate issuance working for the LAN-only hostname.</li>
+            <li>Verify from the real guest network and from iOS captive network assistant, not just desktop browser.</li>
+            <li>Do not route Captive Portal through normal public Cloudflare unless explicitly redesigned.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>TLS Cutover Rules</h2>
+          <ul>
+            <li>Do not break TLS during hostname migration.</li>
+            <li>Inventory every old hostname before changing route names.</li>
+            <li>Update cert-manager DNS names and mounted TLS secrets before switching traffic.</li>
+            <li>Update iOS app URLs before retiring old kiosk hostnames.</li>
+            <li>Verify Cloudflare routes, Access policies, cert-manager certificate readiness, UniFi DNS, and captive portal LAN path independently.</li>
+            <li>Hard cutover is allowed, but must have a checklist and rollback path.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Cloud Target Constraint</h2>
+          <p>The platform should be target-aware, but this migration ships homelab k3s only. Homelab-specific dependencies such as Home Assistant, UniFi, NAS backups, and captive portal LAN routing must live behind target/platform primitives rather than leaking into every product.</p>
+        </section>
+
+        <footer class="footer">Networking mistakes take products offline. Treat TLS, Access, UniFi, and captive portal behavior as acceptance criteria, not implementation details.</footer>
+      </main>
+    </div>
+  </body>
+</html>
