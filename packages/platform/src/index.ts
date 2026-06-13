@@ -534,3 +534,121 @@ export function defineDatabaseBackup(
     },
   };
 }
+
+export type ControlCenterServiceName =
+  | "api"
+  | "worker"
+  | "media-worker"
+  | "web"
+  | "storybook"
+  | "captive-portal"
+  | "drizzle"
+  | "cloudflared";
+
+export type ProductServiceDeclaration = Readonly<{
+  service: ControlCenterServiceName;
+  workloadName: string;
+  image: string;
+  exposure: WebExposure | InternalServiceExposure | null;
+  secretUsage?: ServiceSecretUsage;
+}>;
+
+export type ControlCenterProductManifest = Readonly<{
+  product: ProductIdentity;
+  target: HomelabTarget;
+  app: Readonly<{
+    exposure: WebExposure;
+    legacyHostname: "dashboard.worldwidewebb.co";
+  }>;
+  services: Readonly<Record<ControlCenterServiceName, ProductServiceDeclaration>>;
+  secretUsages: Readonly<Record<ControlCenterSecretUsageName, ServiceSecretUsage>>;
+  database: ProductDatabase;
+  backup: DatabaseBackup;
+}>;
+
+function mainImage(product: ProductIdentity, service: string): string {
+  return `${product.imageRepository(service)}:main`;
+}
+
+export function controlCenterProductManifest(): ControlCenterProductManifest {
+  const product = defineProduct("control-center");
+  const target = homelabTarget;
+  const secretUsages = controlCenterServiceSecretUsages();
+  const database = defineProductDatabase(product, target, {
+    authSecretName: "cc-postgres-auth",
+    size: "5Gi",
+  });
+  const backup = defineDatabaseBackup(database, target, {
+    name: "pg-backup",
+    nasSubPathParts: ["backups", "postgres"],
+    schedule: "0 1 * * *",
+  });
+  const captivePortalProduct = defineProduct("captive-portal");
+
+  return {
+    product,
+    target,
+    app: {
+      exposure: privateWeb(product, target, { host: "app" }),
+      legacyHostname: "dashboard.worldwidewebb.co",
+    },
+    services: {
+      api: {
+        service: "api",
+        workloadName: "api",
+        image: mainImage(product, "api"),
+        exposure: internalService({ port: 4201 }),
+        secretUsage: secretUsages.api,
+      },
+      worker: {
+        service: "worker",
+        workloadName: "worker",
+        image: mainImage(product, "worker"),
+        exposure: null,
+        secretUsage: secretUsages.worker,
+      },
+      "media-worker": {
+        service: "media-worker",
+        workloadName: "media-worker",
+        image: mainImage(product, "media-worker"),
+        exposure: null,
+        secretUsage: secretUsages["media-worker"],
+      },
+      web: {
+        service: "web",
+        workloadName: "web",
+        image: mainImage(product, "web"),
+        exposure: privateWeb(product, target, { host: "app" }),
+      },
+      storybook: {
+        service: "storybook",
+        workloadName: "storybook",
+        image: mainImage(product, "storybook"),
+        exposure: privateWeb(product, target, { host: "storybook" }),
+      },
+      "captive-portal": {
+        service: "captive-portal",
+        workloadName: "captive-portal",
+        image: mainImage(product, "captive-portal"),
+        exposure: captivePortalWeb(captivePortalProduct, target, { host: "app" }),
+      },
+      drizzle: {
+        service: "drizzle",
+        workloadName: "drizzle",
+        image: mainImage(product, "drizzle"),
+        exposure: privateWeb(product, target, { host: "drizzle" }),
+        secretUsage: secretUsages.drizzle,
+      },
+      cloudflared: {
+        service: "cloudflared",
+        workloadName: "cloudflared",
+        image: "cloudflare/cloudflared:2025.10.1",
+        exposure: null,
+        secretUsage: secretUsages.cloudflared,
+      },
+    },
+    secretUsages,
+    database,
+    backup,
+  };
+}
