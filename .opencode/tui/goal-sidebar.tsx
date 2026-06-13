@@ -2,7 +2,12 @@
 // @ts-nocheck OpenCode supplies the TUI JSX runtime when it loads TUI plugins.
 
 import { createEffect, createSignal, onCleanup, onMount } from "solid-js";
-import { getSessionGoalStatusResult } from "../plugin-lab/shared/state.js";
+import {
+  getSessionGoalStatusResult,
+  getSessionGoalValidation,
+} from "../plugin-lab/shared/state.js";
+
+const RUNNING_VALIDATION_STALE_MS = 2 * 60 * 1000;
 
 function compactError(error) {
   if (!error) {
@@ -13,9 +18,21 @@ function compactError(error) {
 
 function GoalSidebar(props) {
   const [status, setStatus] = createSignal({ state: "none", goal: null, error: null });
+  const [validation, setValidation] = createSignal(null);
 
   async function refresh(sessionID = props.sessionID) {
     setStatus(await getSessionGoalStatusResult(sessionID));
+    setValidation(await getSessionGoalValidation(sessionID));
+  }
+
+  function isValidationRunning() {
+    const current = validation();
+    if (current?.status !== "running") {
+      return false;
+    }
+
+    const startedAt = new Date(current.lastRunAt ?? current.lastValidationAt ?? 0).getTime();
+    return Number.isFinite(startedAt) && Date.now() - startedAt < RUNNING_VALIDATION_STALE_MS;
   }
 
   createEffect(() => {
@@ -31,6 +48,9 @@ function GoalSidebar(props) {
     <box flexDirection="column" marginBottom={1}>
       <text bold>Goal</text>
       {status().state === "active" ? <text fg="gray">{status().goal.text}</text> : null}
+      {status().state === "active" && isValidationRunning() ? (
+        <text fg="gray">validating goal...</text>
+      ) : null}
       {status().state === "cleared" ? <text fg="gray">Goal cleared</text> : null}
       {status().state === "none" ? <text fg="gray">No active goal</text> : null}
       {status().state === "error" ? (
