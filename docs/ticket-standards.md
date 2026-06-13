@@ -2,7 +2,7 @@
 
 The single source of truth for how work moves through this repo. Every ticket, every commit, every merge follows this. The three lifecycle skills (`/new-ticket`, `/starting-ticket`, `/finish-ticket`) automate the happy path; the lefthook guards make skipping the rules mechanically impossible. `ship` (the autonomous workflow) reuses the exact same taxonomy and Definition of Done.
 
-> **TL;DR**, A ticket is *Ready* (has type, priority, area, checkbox AC) → you `/starting-ticket` (claim, worktree, red test first) → you build → you `/finish-ticket` (gates green, commit, merge to `main`, push, close). No PRs, ever. Worktrees merge to `main` locally.
+> **TL;DR**, A ticket is *Ready* (has type, priority, area, checkbox AC) → you `/starting-ticket` (claim, worktree, red test first) → you build → you `/finish-ticket` (gates green, commit, merge to `main`, push, close). Open a PR to `main`; branch protection requires it.
 
 ---
 
@@ -12,13 +12,13 @@ The single source of truth for how work moves through this repo. Every ticket, e
         /new-ticket            /starting-ticket                      /finish-ticket
   ┌──────────────────┐   ┌────────────────────────┐   ┌──────────────────────────────────────┐
   │ draft a Ready     │   │ claim + branch off main │   │ gates → verify AC → commit →           │
-  │ ticket (DoR met)  │──▶│ in a ticket-id worktree │──▶│ merge to main (no PR) → push → close →  │
+  │ ticket (DoR met)  │──▶│ in a ticket-id worktree │──▶│ open PR to main → merge → close →  │
   │                   │   │ red test first (TDD)    │   │ harden-as-you-go audit                  │
   └──────────────────┘   └────────────────────────┘   └──────────────────────────────────────┘
        open                     in_progress                              closed
 ```
 
-Each arrow is a skill. Each skill has a **MUST-run** checklist and refuses to advance when a gate fails. The state lives in beads (`open` → `in_progress` → `closed`); the evidence lives in git (worktree branch → merge commit on `main`).
+Each arrow is a skill. Each skill has a **MUST-run** checklist and refuses to advance when a gate fails. The state lives in beads (`open` → `in_progress` → `closed`); the evidence lives in git (worktree branch → PR merge commit on `main`).
 
 ---
 
@@ -63,7 +63,7 @@ The DoD lives **here, once**. Skills *generate* the relevant checkboxes into eac
 - [ ] `bunx biome check .` clean
 - [ ] No fake/placeholder data, `check-fake-data` guard green (no `FALLBACK`/`PLACEHOLDER`/unsanctioned `DEMO_`)
 - [ ] Committed as `type(area/www-xxx): desc` (commit-msg guard validates the scope + real ticket)
-- [ ] **If in a worktree:** merged to `main` locally (NO PR) and pushed. **Else:** committed on `main` and pushed. `git status` shows up-to-date-with-origin.
+- [ ] **If in a worktree:** branch pushed, PR opened to `main`, checks green, merged through GitHub. **Else:** push a branch and open the PR from it. `git status` is clean.
 - [ ] `bd close www-xxx`
 
 ### Per-type adders
@@ -83,7 +83,7 @@ The DoD lives **here, once**. Skills *generate* the relevant checkboxes into eac
 --- auto-appended from DoD by type ---
 - [ ] Gates: bun run test + typecheck + bunx biome check green
 - [ ] No fake data (check-fake-data guard green)
-- [ ] Committed feat(web/tiles/www-xxx); worktree→main merged + pushed; bd closed
+- [ ] Committed feat(web/tiles/www-xxx); PR to `main` merged; bd closed
 ```
 
 The last three lines are the commit/merge discipline, baked into the checklist, generated not hand-typed.
@@ -115,7 +115,7 @@ The last three lines are the commit/merge discipline, baked into the checklist, 
 |---|---|---|
 | **`/new-ticket`** | "create a ticket", "file an issue", capturing work | Infer type+area+priority from a one-line description; draft imperative title + checkbox AC; auto-append the per-type DoD; `bd create` with `--type/--priority/--parent/--acceptance/--labels`. Enforce DoR at birth. |
 | **`/starting-ticket`** | beginning work on a ticket | `bd show` + DoR check (refuse if unmet) → `bd update --claim` → `git pull --rebase` → `EnterWorktree` named `www-xxx-slug` → write the red test first (feature/bug) → surface the ticket DoD. |
-| **`/finish-ticket`** | work is done, closing out | Run gates capturing output (refuse if red) → verify each AC item (screenshot for UI) → commit `type(area/www-xxx)` → **pause for confirm** → merge worktree→`main` (no PR) + push, or push on `main` → `bd close` → harden-as-you-go audit. |
+| **`/finish-ticket`** | work is done, closing out | Run gates capturing output (refuse if red) → verify each AC item (screenshot for UI) → commit `type(area/www-xxx)` → push branch → open PR to `main` → merge after green checks → `bd close` → harden-as-you-go audit. |
 
 All three are **rigid** skills: announce them, create a TodoWrite item per checklist step, follow exactly. They do not improvise away the discipline.
 
@@ -123,7 +123,7 @@ All three are **rigid** skills: announce them, create a TodoWrite item per check
 
 ## 8. `ship` (the autonomous variant)
 
-`ship` (`.claude/workflows/ship.mjs`) is the multi-agent pipeline for delivering a whole epic hands-off. It is the **same lifecycle, parallelized**: it scopes a validation contract into the epic `--design`, persists features as child tickets with this taxonomy + DoD, then builds each feature **in its own ticket-id-led worktree** (TDD, gates), validates each milestone with **perspective-diverse adversarial agents** (correctness / no-fake-data / screenshot-evidence) that gate identically to `/finish-ticket`, drains fix bugs, hardens, and finalizes, merging to `main`, never a PR. Model tiers: `opus` scopes, `sonnet` writes all code, `haiku` validates and bookkeeps (haiku never writes code). Resume a crashed run with `args.resume=<epicId>`.
+`ship` (`.claude/workflows/ship.mjs`) is the multi-agent pipeline for delivering a whole epic hands-off. It is the **same lifecycle, parallelized**: it scopes a validation contract into the epic `--design`, persists features as child tickets with this taxonomy + DoD, then builds each feature **in its own ticket-id-led worktree** (TDD, gates), validates each milestone with **perspective-diverse adversarial agents** (correctness / no-fake-data / screenshot-evidence) that gate identically to `/finish-ticket`, drains fix bugs, hardens, and finalizes by opening and merging PRs to `main`. Model tiers: `opus` scopes, `sonnet` writes all code, `haiku` validates and bookkeeps (haiku never writes code). Resume a crashed run with `args.resume=<epicId>`.
 
 Use the skills for everyday human-in-the-loop work; use `ship` when an epic is scoped and approved and you want it driven to done autonomously.
 
@@ -140,7 +140,7 @@ What is truly mechanical (blocks at the git layer) vs skill-owned vs lint backst
 | No fake data | `check-fake-data.sh` pre-commit | **mechanical, blocks** |
 | No third-party scheduler / no home address / no secrets | the no-scheduler + no-address pre-commit guards + gitleaks | **mechanical, blocks** |
 | Beads synced on push | `pre-push` lefthook (`bd dolt push`) | **mechanical** |
-| No PRs, ship to `main` | global rule + `/finish-ticket` + `ship` | cultural + skill |
+| PRs to `main` | branch protection + `/finish-ticket` + `ship` | mechanical + skill |
 | Every ticket Ready (type/priority/area/AC) | `/new-ticket` at birth + `/starting-ticket` DoR gate + `lint-tickets.sh` | skill + lint |
 | One AC format; spikes typed `decision` | `/new-ticket` generates it; `lint-tickets.sh` flags drift | skill + lint |
 | Gates green before merge | `/finish-ticket` + `ship` validators + CI (`test` job gates `deploy`) | skill + CI |

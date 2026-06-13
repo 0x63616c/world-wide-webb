@@ -2,134 +2,63 @@
 
 ## Start Here
 
-- Read `CODEBASE_OVERVIEW.md` for the architecture, runtime shape, deployment path, and where to make common changes.
-- This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
+- Read `CODEBASE_OVERVIEW.md` first. It is the compact map of runtime shape, entrypoints, and where changes usually belong.
+- `opencode.jsonc` already loads `CLAUDE.md`, `README.md`, and the main ops docs as instructions. Do not duplicate those docs here unless the detail is an easy-to-miss working rule.
+- Use Beads for durable work tracking: `bd prime`, `bd ready`, `bd show <id>`, `bd update <id> --claim`, `bd close <id>`. Do not treat `.beads/issues.jsonl` as source of truth or run `bd import` during normal work.
 
-> **Architecture in one line:** Issues live in a local Dolt database
-> (`.beads/dolt/`); cross-machine sync uses `bd dolt push/pull` (a
-> git-compatible protocol), stored under `refs/dolt/data` on your git
-> remote, separate from `refs/heads/*` where your code lives.
-> `.beads/issues.jsonl` is a passive export, not the wire protocol.
->
-> See [SYNC_CONCEPTS.md](https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md)
-> for the one-screen overview and anti-patterns (don't treat JSONL as the
-> source of truth; don't `bd import` during normal operation; don't
-> reach for third-party Dolt hosting before trying the default).
+## Commands
 
-## Quick Reference
+- Install deps with `bun install --frozen-lockfile`. Use `bun`/`bunx` only, never `npm`/`npx`.
+- Dev stack: `bun run dev` starts Tilt for local Postgres, API, workers, web, and Storybook.
+- Unit tests: `bun run test`. Never run bare `bun test`, it breaks `vi.mock` and can report false failures.
+- Focused tests/typecheck: `bun run --filter @repo/web test`, `bun run --filter @repo/api typecheck`, etc.
+- Full gates before shipping code: `bun run test`, `bun run typecheck`, `bunx biome check .`, `bun run knip`.
+- Coverage/browser suite: `bun run test:coverage` is slower and needs Playwright Chromium. Storybook browser tests run from `apps/web` with `bunx vitest --project storybook`.
+- In `.claude/worktrees/*`, `bunx biome check .` scans zero files because `biome.json` excludes `.claude`. Use the lefthook-style tracked-file command or explicit paths instead.
 
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work atomically
-bd close <id>         # Complete work
-bd dolt push          # Push beads data to remote
-```
+## Architecture
 
-## Invariants (must not regress)
+- `apps/web` is the React wall panel plus Storybook and the Capacitor iOS shell. The main route is `apps/web/src/routes/index.tsx`, rendering `Board`.
+- `apps/api/src/server.ts` is the Bun+tRPC API entrypoint. Routers live under `apps/api/src/trpc/routers`, domain logic under `apps/api/src/services`.
+- `apps/worker` owns fast interval loops and imports domain cycles through `@repo/api/worker` (`apps/api/src/worker-deps.ts`).
+- `apps/media-worker` owns heavier queue/media work and imports through `@repo/api/media`.
+- `packages/api` is a browser-safe type bridge only. Do not import backend runtime code into the web bundle.
+- `packages/logger` is the shared backend logger. Backend code should use `@repo/logger`, not `console.*`.
+- `infra/` is the current Pulumi+k8s deploy program. The old bosun/Swarm docs are historical only.
 
-- **No fake/placeholder data.** Tiles show a shimmer Skeleton on unavailable data, never an invented value. `FALLBACK` and `PLACEHOLDER` as uppercase identifiers are banned everywhere. `DEMO_`/`demo_` is allowed only in `apps/api/src/services/network-service.ts`, `apps/api/src/services/weather-service.ts`, and their direct test files. The pre-commit hook (`scripts/check-fake-data.sh` via lefthook) enforces this and will reject the commit.
-- **Use shared UI primitives.** Every tile must use `TileHeader`, `StatCell`, `Pill`, `Skeleton`, `TileWrapper` from `apps/web/src/components/ui/`. Do not re-inline them.
-- **Test runner: `bun run test` only.** Never `bun test`. Bun's native runner breaks `vi.mock` and gives false failures. Always use vitest via `bun run test`.
-- **Fixed wall-panel sizing.** Physical iPad Pro panel is **1366×1024** (use this for screenshots / the Playwright smoke). The board *content grid* is **1366×1000**, `BOARD_W`×`BOARD_H` in `apps/web/src/lib/grid-constants.ts` (12×9 square cells fill the 1366 width; the grid is 1000 tall, the rest of the 1024 panel is uncropped world). Storybook frames stories at `BOARD_W`×`BOARD_H`. Do not add responsive/fluid layout.
-- **`bun`/`bunx` always.** Never `npm`/`npx`.
-- **Repo has a remote.** `git@github.com:0x63616c/control-center.git`. Always push before ending a session.
-- **Worktrees required.** All work happens in a worktree via `EnterWorktree`, never in the main checkout.
-- **1 commit per ticket.** Each ticket ships as a single commit. Epic-level PRs with multiple commits are fine but not required.
-- **Conventional commits with ticket id.** Every commit subject must be `type(area/www-xxx): desc` (e.g. `feat(weather/www-m9k): add poller`). The commit-msg guard enforces this. See CLAUDE.md for the full commit convention.
+## Product Invariants
 
-## Non-Interactive Shell Commands
+- The wall panel is fixed, not responsive: physical viewport `1366x1024`, board content `BOARD_W=1366`, `BOARD_H=1000` in `apps/web/src/lib/grid-constants.ts`.
+- Tile placement and sizing usually belong in `apps/web/src/lib/tile-registry.ts`, not in board layout rewrites.
+- Tiles must use shared primitives from `apps/web/src/components/ui/`: `TileHeader`, `StatCell`, `Pill`, `Skeleton`, `TileWrapper`.
+- No fake data. Unavailable data renders skeleton/error and recovers. `FALLBACK` and `PLACEHOLDER` uppercase identifiers are banned; `DEMO_`/`demo_` is allowed only in the sanctioned service/test files enforced by `scripts/check-fake-data.sh`.
+- Storybook-first for new UI components where practical. Every story must enable autodocs directly or through a sanctioned meta factory.
+- IDs default to Stripe-style `prefix_<id>` unless the user explicitly asks otherwise.
 
-**ALWAYS use non-interactive flags** with file operations to avoid hanging on confirmation prompts.
+## Data And Integrations
 
-Shell commands like `cp`, `mv`, and `rm` may be aliased to include `-i` (interactive) mode on some systems, causing the agent to hang indefinitely waiting for y/n input.
+- API config is parsed in `apps/api/src/env.ts`. Production secrets mount as files under `/run/secrets/<NAME>` and hydrate at boot.
+- Real secrets live in 1Password Homelab. Never commit `.env`, secret values, private home-location values, keys, or placeholder credentials.
+- Drizzle schema is `apps/api/src/db/schema.ts`. Generate migrations with `bun run --filter @repo/api db:generate`; API and workers run migrations at boot.
+- Desired state is DB-authoritative for managed devices. Frontend writes desired state, workers reconcile to integrations, reported state is observed separately.
+- For house climate, target `climate.home`. HA entities named `evee` are the Tesla, not the home thermostat.
 
-**Use these forms instead:**
-```bash
-# Force overwrite without prompting
-cp -f source dest           # NOT: cp source dest
-mv -f source dest           # NOT: mv source dest
-rm -f file                  # NOT: rm file
+## Infra And Deploy
 
-# For recursive operations
-rm -rf directory            # NOT: rm -r directory
-cp -rf source dest          # NOT: cp -r source dest
-```
+- Pushes to `main` run CI, build changed arm64 images, then `pulumi up --stack prod` against homelab k8s. Infra-only changes still deploy without rebuilding images.
+- Pulumi image digest config must use the `ccinfra:` namespace, e.g. `ccinfra:imageDigests.<svc>`. Without it, builds can succeed but pods do not roll.
+- Cron-style work belongs in Kubernetes `CronJob`s in `infra/src/crons.ts`, not legacy scheduler labels or a third-party scheduler.
+- Ops or deploy-path changes must update the relevant docs in the same change, especially `docs/deployment-design.md` and `docs/k3s-migration/DESIGN.md`.
 
-**Other commands that may prompt:**
-- `scp` - use `-o BatchMode=yes` for non-interactive
-- `ssh` - use `-o BatchMode=yes` to fail instead of prompting
-- `apt-get` - use `-y` flag
-- `brew` - use `HOMEBREW_NO_AUTO_UPDATE=1` env var
+## Git And Tickets
 
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:7510c1e2 -->
-## Beads Issue Tracker
+- Feature work happens in a ticket-id-led worktree, e.g. `www-xxx-short-slug`. Do not develop in the shared main checkout.
+- This repo ships through pull requests to `main`. Push the ticket branch, open a PR, wait for green checks, merge through GitHub, then close the Beads issue.
+- Commit subjects must be `type(area/www-xxx): desc`; the commit-msg hook validates the ticket id with `bd show`.
+- Pre-push runs Biome, Knip, then a non-blocking Beads sync. Knip is zero-tolerance; deliberate unused public exports need `/** @public, reason */`.
+- Before ending a session with code changes, run relevant gates, check `git status`, commit, push, and verify the branch is up to date with origin.
 
-This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
+## Shell Safety
 
-### Quick Reference
-
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>         # Complete work
-```
-
-### Rules
-
-- Use `bd` for ALL task tracking, do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge, do NOT use MEMORY.md files
-
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
-
-## Session Completion
-
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
-
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
-<!-- END BEADS INTEGRATION -->
-
-<!-- BEGIN BEADS CODEX SETUP: generated by bd setup codex -->
-## Beads Issue Tracker
-
-Use Beads (`bd`) for durable task tracking in repositories that include it. Use the `beads` skill at `.agents/skills/beads/SKILL.md` (project install) or `~/.agents/skills/beads/SKILL.md` (global install) for Beads workflow guidance, then use the `bd` CLI for issue operations.
-
-### Quick Reference
-
-```bash
-bd ready                # Find available work
-bd show <id>            # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>           # Complete work
-bd prime                # Refresh Beads context
-```
-
-### Rules
-
-- Use `bd` for all task tracking; do not create markdown TODO lists.
-- Run `bd prime` when Beads context is missing or stale. Codex 0.129.0+ can load Beads context automatically through native hooks; use `/hooks` to inspect or toggle them.
-- Keep persistent project memory in Beads via `bd remember`; do not create ad hoc memory files.
-
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
-<!-- END BEADS CODEX SETUP -->
+- Use non-interactive flags for file commands that may be aliased: `cp -f`, `mv -f`, `rm -f`, `rm -rf`, `scp -o BatchMode=yes`, `ssh -o BatchMode=yes`.
+- Never use loose `pkill`/`killall` on this shared machine. For ports, use `fkill :<port>`.
