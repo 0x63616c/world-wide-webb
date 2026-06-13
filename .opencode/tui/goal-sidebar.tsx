@@ -30,7 +30,7 @@ function GoalSidebar(props) {
   return (
     <box flexDirection="column" marginBottom={1}>
       <text bold>Goal</text>
-      {status().state === "active" ? <text>{status().goal.text}</text> : null}
+      {status().state === "active" ? <text fg="gray">{status().goal.text}</text> : null}
       {status().state === "cleared" ? <text fg="gray">Goal cleared</text> : null}
       {status().state === "none" ? <text fg="gray">No active goal</text> : null}
       {status().state === "error" ? (
