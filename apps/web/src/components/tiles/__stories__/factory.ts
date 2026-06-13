@@ -2,13 +2,11 @@ import type { Meta } from "@storybook/react-vite";
 import type { ComponentType } from "react";
 import { TileStatus } from "../../ui";
 
-// biome-ignore lint/suspicious/noExplicitAny: factory accepts any component shape
-type TileMeta<C extends ComponentType<any>> = Pick<Meta<C>, "title" | "component" | "tags"> & {
+type TileMeta = Pick<Meta<ComponentType>, "title" | "component" | "tags"> & {
   argTypes?: Record<string, TileArgType>;
 };
 
-// biome-ignore lint/suspicious/noExplicitAny: mirrors Storybook's own argTypes value type
-type TileArgType = Record<string, any>;
+type TileArgType = Record<string, unknown>;
 
 /**
  * Shared argType for the standard loading/populated/error discriminator.
@@ -18,7 +16,7 @@ type TileArgType = Record<string, any>;
 const TILE_STATUS_ARG_TYPE: TileArgType = {
   control: "radio",
   options: Object.values(TileStatus),
-  description: "Data load state — loading/error renders a shimmer skeleton",
+  description: "Data load state  --  loading/error renders a shimmer skeleton",
 };
 
 /**
@@ -32,15 +30,14 @@ export function boolArgType(description: string): TileArgType {
 /**
  * Returns the standard Meta fields shared by every tile story.
  * Grid sizing is applied automatically by the global BoardDecorator in
- * preview.tsx via registryEntryForComponent — no per-story config needed.
+ * preview.tsx via registryEntryForComponent  --  no per-story config needed.
  * Pass extra tags (e.g. "a11y") in additionalTags to merge with "autodocs".
  */
-// biome-ignore lint/suspicious/noExplicitAny: factory accepts any component shape
-export function defineTileMeta<C extends ComponentType<any>>(
+export function defineTileMeta(
   name: string,
-  component: C,
+  component: ComponentType,
   additionalTags: string[] = [],
-): TileMeta<C> {
+): TileMeta {
   return {
     title: `Tiles/${name}`,
     component,
@@ -52,7 +49,7 @@ export function defineTileMeta<C extends ComponentType<any>>(
 }
 
 /**
- * Docs parameters for modal stories — spread into a modal meta's `parameters`.
+ * Docs parameters for modal stories  --  spread into a modal meta's `parameters`.
  *
  * WHY: modals render through `Modal`, which `createPortal`s to <body> as a
  * `position: fixed; inset: 0` full-viewport overlay with a dim backdrop. On an
@@ -63,7 +60,7 @@ export function defineTileMeta<C extends ComponentType<any>>(
  * Docs page reads correctly (www-hljb follow-up).
  *
  * Returned as plain `parameters` (NOT a full meta) so each modal keeps an
- * explicit, statically-analyzable `title` literal — Storybook's CSF indexer
+ * explicit, statically-analyzable `title` literal  --  Storybook's CSF indexer
  * can't extract a title hidden behind a factory spread, which silently drops
  * the story from the index.
  *
