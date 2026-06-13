@@ -405,3 +405,64 @@ export function controlCenterServiceSecretUsages(): Record<
     ),
   };
 }
+
+export type DatabaseResources = Readonly<{
+  limits: Readonly<{ memory: string }>;
+  requests: Readonly<{ cpu: string; memory: string }>;
+}>;
+
+export type ProductDatabase = Readonly<{
+  product: ProductSlug;
+  target: ImplementedTargetName;
+  clusterName: string;
+  databaseName: string;
+  owner: string;
+  rwServiceName: string;
+  authSecretName: string;
+  auth: Readonly<{
+    kind: "database-owned-basic-auth";
+    secretName: string;
+  }>;
+  storageClass: string;
+  size: string;
+  resources: DatabaseResources;
+}>;
+
+export type ProductDatabaseOptions = Readonly<{
+  size: string;
+  authSecretName?: string;
+  owner?: string;
+  storageClass?: string;
+  resources?: DatabaseResources;
+}>;
+
+const defaultDatabaseResources = {
+  limits: { memory: "768Mi" },
+  requests: { cpu: "500m", memory: "384Mi" },
+} as const satisfies DatabaseResources;
+
+function databaseNameFor(product: ProductIdentity): string {
+  return product.slug.replaceAll("-", "_");
+}
+
+export function defineProductDatabase(
+  product: ProductIdentity,
+  target: HomelabTarget,
+  options: ProductDatabaseOptions,
+): ProductDatabase {
+  const authSecretName = options.authSecretName ?? `${product.slug}-postgres-auth`;
+
+  return {
+    product: product.slug,
+    target: target.name,
+    clusterName: product.slug,
+    databaseName: databaseNameFor(product),
+    owner: options.owner ?? "postgres",
+    rwServiceName: `${product.slug}-rw`,
+    authSecretName,
+    auth: { kind: "database-owned-basic-auth", secretName: authSecretName },
+    storageClass: options.storageClass ?? "local-path",
+    size: options.size,
+    resources: options.resources ?? defaultDatabaseResources,
+  };
+}
