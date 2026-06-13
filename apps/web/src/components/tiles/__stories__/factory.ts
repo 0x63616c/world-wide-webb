@@ -1,12 +1,13 @@
-import type { Meta } from "@storybook/react-vite";
-import type { ComponentType } from "react";
 import { TileStatus } from "../../ui";
 
-type TileMeta = Pick<Meta<ComponentType>, "title" | "component" | "tags"> & {
+type TileArgType = Record<string, unknown>;
+
+type TileMeta<C> = {
+  title: string;
+  component: C;
+  tags: string[];
   argTypes?: Record<string, TileArgType>;
 };
-
-type TileArgType = Record<string, unknown>;
 
 /**
  * Shared argType for the standard loading/populated/error discriminator.
@@ -33,13 +34,13 @@ export function boolArgType(description: string): TileArgType {
  * preview.tsx via registryEntryForComponent  --  no per-story config needed.
  * Pass extra tags (e.g. "a11y") in additionalTags to merge with "autodocs".
  */
-export function defineTileMeta(
+export function defineTileMeta<C>(
   name: string,
-  component: ComponentType,
+  component: C,
   additionalTags: string[] = [],
-): TileMeta {
+): TileMeta<C> {
   return {
-    title: `Tiles/${name}`,
+    title: `Tiles/${name}` as const,
     component,
     tags: ["autodocs", ...additionalTags],
     argTypes: {
