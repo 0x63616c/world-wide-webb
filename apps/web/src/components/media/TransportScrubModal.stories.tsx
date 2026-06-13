@@ -46,7 +46,7 @@ export const StreamingPlaying: Story = {
     source: "streaming",
     artworkUrl: null,
   },
-  play: async ({ canvasElement }) => {
+  play: async () => {
     const dialog = document.body.querySelector("[role='dialog']");
     await expect(dialog).toBeTruthy();
     const scrub = document.body.querySelector("[data-scrub]");
@@ -69,7 +69,7 @@ export const StreamingPaused: Story = {
     source: "streaming",
     artworkUrl: null,
   },
-  play: async ({ canvasElement }) => {
+  play: async () => {
     const playBtn = document.body.querySelector("[aria-label='Play']");
     await expect(playBtn).toBeTruthy();
   },
@@ -88,7 +88,7 @@ export const LineIn: Story = {
     source: "line-in",
     artworkUrl: null,
   },
-  play: async ({ canvasElement }) => {
+  play: async () => {
     const noSeek = document.body.querySelector("[data-no-seek]");
     await expect(noSeek).toBeTruthy();
     const scrub = document.body.querySelector("[data-scrub]");
@@ -109,7 +109,7 @@ export const LiveTV: Story = {
     source: "TV",
     artworkUrl: null,
   },
-  play: async ({ canvasElement }) => {
+  play: async () => {
     const noSeek = document.body.querySelector("[data-no-seek]");
     await expect(noSeek).toBeTruthy();
   },
@@ -128,7 +128,7 @@ export const WithArtwork: Story = {
     source: "streaming",
     artworkUrl: "https://upload.wikimedia.org/wikipedia/en/4/4d/Queen_Greatest_Hits.png",
   },
-  play: async ({ canvasElement }) => {
+  play: async () => {
     const img = document.body.querySelector("img[alt*='artwork' i]");
     await expect(img).toBeTruthy();
   },
@@ -148,7 +148,7 @@ export const Closed: Story = {
     source: "streaming",
     artworkUrl: null,
   },
-  play: async ({ canvasElement }) => {
+  play: async () => {
     const dialog = document.body.querySelector("[role='dialog']");
     await expect(dialog).toBeFalsy();
   },

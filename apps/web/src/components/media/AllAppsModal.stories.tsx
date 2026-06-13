@@ -43,7 +43,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Open: Story = {
-  play: async ({ canvasElement }) => {
+  play: async () => {
     const dialog = document.body.querySelector("[role='dialog']");
     await expect(dialog).toBeTruthy();
   },
@@ -51,7 +51,7 @@ export const Open: Story = {
 
 export const Closed: Story = {
   args: { open: false },
-  play: async ({ canvasElement }) => {
+  play: async () => {
     const dialog = document.body.querySelector("[role='dialog']");
     await expect(dialog).toBeFalsy();
   },
@@ -91,7 +91,7 @@ export const FullProdList: Story = {
     ],
     currentApp: "YouTube",
   },
-  play: async ({ canvasElement }) => {
+  play: async () => {
     const dialog = document.body.querySelector("[role='dialog']");
     await expect(dialog).toBeTruthy();
   },
