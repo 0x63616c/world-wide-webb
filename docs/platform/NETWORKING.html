@@ -50,6 +50,7 @@
           <ul>
             <li>Product namespace hosts are not created by default: no bare <code>cc.worldwidewebb.co</code>, <code>cp.worldwidewebb.co</code>, <code>tye.worldwidewebb.co</code>, or <code>amp.worldwidewebb.co</code>.</li>
             <li>Service hostnames are explicit, for example <code>app.cc.worldwidewebb.co</code>.</li>
+            <li>Short DNS labels are derived by the networking primitive from the product slug: <code>control-center</code> to <code>cc</code>, <code>captive-portal</code> to <code>cp</code>, <code>text-your-ex</code> to <code>tye</code>, and <code>amp</code> remains <code>amp</code>.</li>
             <li>APIs do not automatically get external hostnames. External API routes are app-specific and declared only when needed.</li>
             <li>Public routes are opt-in. New routes default private or internal by platform policy.</li>
           </ul>

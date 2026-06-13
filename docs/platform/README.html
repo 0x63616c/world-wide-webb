@@ -40,9 +40,9 @@
             <article class="card">
               <h3>Four Products</h3>
               <div class="pill-row">
-                <span class="chip chip-private">cc</span>
-                <span class="chip chip-captive">cp</span>
-                <span class="chip chip-public">tye</span>
+                <span class="chip chip-private">private</span>
+                <span class="chip chip-captive">captive</span>
+                <span class="chip chip-public">public</span>
                 <span class="chip chip-private">amp</span>
               </div>
               <p><code>control-center</code>, <code>captive-portal</code>, <code>text-your-ex</code>, and <code>amp</code> are first-class products under one platform.</p>
@@ -63,7 +63,7 @@
           <ol>
             <li><a href="./NORTH_STAR.html">North Star</a> defines what excellent looks like at the end.</li>
             <li><a href="./MIGRATION_PLAN.html">Migration Plan</a> breaks the work into production-deliverable milestones.</li>
-            <li><a href="./PRODUCTS.html">Products</a> defines product identities, DNS segments, ownership, and initial route policies.</li>
+            <li><a href="./PRODUCTS.html">Products</a> defines product identities, ownership, and initial route policies.</li>
             <li><a href="./PLATFORM_PRIMITIVES.html">Platform Primitives</a> describes the app-team API and shared constructs.</li>
             <li><a href="./DATA_AND_BACKUPS.html">Data and Backups</a>, <a href="./SECRETS.html">Secrets</a>, and <a href="./NETWORKING.html">Networking</a> cover the load-bearing operational systems.</li>
             <li><a href="./LOCAL_DEV_AND_IOS.html">Local Dev and iOS</a> standardizes Tilt and TestFlight workflows.</li>
@@ -76,7 +76,7 @@
           <div class="decision">
             <p><strong>Repo identity:</strong> this repo will eventually be renamed to <code>world-wide-webb</code>.</p>
             <p><strong>Product layout:</strong> products live under <code>products/&lt;name&gt;</code>.</p>
-            <p><strong>Product set:</strong> <code>control-center/cc</code>, <code>captive-portal/cp</code>, <code>text-your-ex/tye</code>, <code>amp/amp</code>.</p>
+            <p><strong>Product set:</strong> <code>control-center</code>, <code>captive-portal</code>, <code>text-your-ex</code>, and <code>amp</code>. Short labels are networking-only and derived from product names.</p>
             <p><strong>Database standard:</strong> per-product CNPG Postgres clusters, not SQLite or libSQL.</p>
             <p><strong>Backups:</strong> platform-managed, mandatory, backed up to the NAS, retained forever.</p>
             <p><strong>Cloud:</strong> target-aware design, but this migration ships homelab k3s only.</p>

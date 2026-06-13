@@ -48,8 +48,7 @@
         <section>
           <h2>App Definition</h2>
           <p>The app context should be the source of truth. Avoid passing <code>owner</code>, <code>product</code>, <code>namespace</code>, <code>backupPath</code>, or magic string identifiers into every primitive.</p>
-          <div class="code-block"><pre><code>const textYourEx = defineApp({
-  id: "tye",
+          <div class="code-block"><pre><code>const textYourEx = app({
   slug: "text-your-ex",
 });
 
@@ -66,7 +65,7 @@ textYourEx.service("api", {
 textYourEx.database({
   size: "5Gi",
 });</code></pre></div>
-          <p>The app definition derives <code>products/text-your-ex</code>, namespace <code>text-your-ex</code>, route suffix <code>tye</code>, image names, labels, secrets, Pulumi names, and backup paths.</p>
+          <p>The app definition derives <code>products/text-your-ex</code>, namespace <code>text-your-ex</code>, image names, labels, secrets, Pulumi names, and backup paths. Networking primitives derive DNS labels from product names instead of passing short labels through general app code.</p>
         </section>
 
         <section>
@@ -82,7 +81,7 @@ textYourEx.database({
           <h2>Core Primitives</h2>
           <div class="grid">
             <article class="card">
-              <h3><code>defineApp()</code></h3>
+              <h3><code>app()</code></h3>
               <p>Declares product identity once. All derived names come from this context.</p>
             </article>
             <article class="card">

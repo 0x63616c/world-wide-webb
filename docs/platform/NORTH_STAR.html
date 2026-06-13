@@ -42,12 +42,12 @@
         <section>
           <h2>Products In The End State</h2>
           <table>
-            <thead><tr><th>Product</th><th>DNS code</th><th>Role</th><th>Exposure</th></tr></thead>
+            <thead><tr><th>Product</th><th>Role</th><th>Exposure</th></tr></thead>
             <tbody>
-              <tr><td><code>control-center</code></td><td><span class="chip chip-private">cc</span></td><td>Home dashboard and home automation control plane.</td><td>Private web through Cloudflare Access.</td></tr>
-              <tr><td><code>captive-portal</code></td><td><span class="chip chip-captive">cp</span></td><td>Guest WiFi onboarding, UniFi authorization, and portal data.</td><td>Captive LAN exposure, with scoped/internal API.</td></tr>
-              <tr><td><code>text-your-ex</code></td><td><span class="chip chip-public">tye</span></td><td>Public consumer app, web plus bundled iOS, backed by its own API and database.</td><td>Public web/API where needed by web and iOS.</td></tr>
-              <tr><td><code>amp</code></td><td><span class="chip chip-private">amp</span></td><td>Application Management Plane for internal platform dashboards and future platform operations.</td><td>Private web through Cloudflare Access.</td></tr>
+              <tr><td><code>control-center</code></td><td>Home dashboard and home automation control plane.</td><td><span class="chip chip-private">private</span> Cloudflare Access.</td></tr>
+              <tr><td><code>captive-portal</code></td><td>Guest WiFi onboarding, UniFi authorization, and portal data.</td><td><span class="chip chip-captive">captive</span> LAN exposure, with scoped/internal API.</td></tr>
+              <tr><td><code>text-your-ex</code></td><td>Public consumer app, web plus bundled iOS, backed by its own API and database.</td><td><span class="chip chip-public">public</span> web/API where needed by web and iOS.</td></tr>
+              <tr><td><code>amp</code></td><td>Application Management Plane for internal platform dashboards and future platform operations.</td><td><span class="chip chip-private">private</span> Cloudflare Access.</td></tr>
             </tbody>
           </table>
         </section>
@@ -95,6 +95,7 @@
             <li>Secrets are centrally managed, but product and service access is explicitly declared.</li>
             <li>Shared secrets are allowed when they are genuinely shared account-level or platform-level secrets.</li>
             <li>Avoid magic strings by deriving names from typed app context.</li>
+            <li>Use full product names outside networking. Short DNS labels are networking-only and derived by the platform.</li>
             <li>Do not duplicate product infra wiring.</li>
             <li>Do not over-abstract before real products prove the shape.</li>
           </ul>
@@ -103,23 +104,22 @@
         <section>
           <h2>App Team Experience</h2>
           <p>The app team API should feel like this:</p>
-          <div class="code-block"><pre><code>const app = defineApp({
-  id: "cp",
+          <div class="code-block"><pre><code>const captivePortal = app({
   slug: "captive-portal",
 });
 
-app.service("web", {
+captivePortal.service("web", {
   image: images.product("web"),
   exposure: captivePortalWeb(),
 });
 
-app.service("api", {
+captivePortal.service("api", {
   image: images.product("api"),
   exposure: internalService(),
   secrets: [secrets.unifi.localApiKey, secrets.resend.apiKey],
 });
 
-app.database({
+captivePortal.database({
   size: "5Gi",
 });</code></pre></div>
           <p>The app team declares intent. The platform derives namespace, DNS, TLS, route, service, database, secret, backup, and deploy details.</p>
