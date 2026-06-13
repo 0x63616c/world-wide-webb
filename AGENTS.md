@@ -53,7 +53,7 @@
 ## Git And Tickets
 
 - Feature work happens in a ticket-id-led worktree, e.g. `CC-xxx-short-slug`. Do not develop in the shared main checkout.
-- This repo ships to `main`, no PRs. Finish by merging the worktree locally, pushing `main`, and closing the Beads issue.
+- This repo ships through pull requests to `main`. Push the ticket branch, open a PR, wait for green checks, merge through GitHub, then close the Beads issue.
 - Commit subjects must be `type(area/CC-xxx): desc`; the commit-msg hook validates the ticket id with `bd show`.
 - Pre-push runs Biome, Knip, then a non-blocking Beads sync. Knip is zero-tolerance; deliberate unused public exports need `/** @public, reason */`.
 - Before ending a session with code changes, run relevant gates, check `git status`, commit, push, and verify the branch is up to date with origin.
