@@ -65,7 +65,7 @@ textYourEx.service("api", {
 textYourEx.database({
   size: "5Gi",
 });</code></pre></div>
-          <p>The app definition derives <code>products/text-your-ex</code>, namespace <code>text-your-ex</code>, image names, labels, secrets, Pulumi names, and backup paths. Networking primitives derive DNS labels from product names instead of passing short labels through general app code.</p>
+          <p>The app definition derives <code>products/text-your-ex</code>, namespace <code>text-your-ex</code>, image names, labels, secrets, Pulumi names, and backup paths. Networking primitives derive DNS labels from product names instead of passing short labels through general app code, so <code>publicWeb({ host: "api" })</code> can produce <code>api.tye.worldwidewebb.co</code> and the required TLS coverage.</p>
         </section>
 
         <section>
@@ -94,7 +94,7 @@ textYourEx.database({
             </article>
             <article class="card">
               <h3><code>exposure</code></h3>
-              <p>Declares public web, private web, captive portal, or internal service intent. Platform implements Cloudflare, Access, cert-manager, UniFi, and service routing.</p>
+              <p>Declares public web, private web, captive portal, or internal service intent. Platform implements Cloudflare, Access, cert-manager, UniFi, service routing, and exact-host or product-wildcard TLS.</p>
             </article>
             <article class="card">
               <h3><code>secret()</code></h3>

@@ -51,9 +51,23 @@
             <li>Product namespace hosts are not created by default: no bare <code>cc.worldwidewebb.co</code>, <code>cp.worldwidewebb.co</code>, <code>tye.worldwidewebb.co</code>, or <code>amp.worldwidewebb.co</code>.</li>
             <li>Service hostnames are explicit, for example <code>app.cc.worldwidewebb.co</code>.</li>
             <li>Short DNS labels are derived by the networking primitive from the product slug: <code>control-center</code> to <code>cc</code>, <code>captive-portal</code> to <code>cp</code>, <code>text-your-ex</code> to <code>tye</code>, and <code>amp</code> remains <code>amp</code>.</li>
+            <li>Nested product hostnames are intentional. Do not rely on a root wildcard cert for them: <code>*.worldwidewebb.co</code> covers <code>dashboard.worldwidewebb.co</code>, but not <code>app.cc.worldwidewebb.co</code>.</li>
             <li>APIs do not automatically get external hostnames. External API routes are app-specific and declared only when needed.</li>
             <li>Public routes are opt-in. New routes default private or internal by platform policy.</li>
           </ul>
+        </section>
+
+        <section>
+          <h2>TLS Contract For Nested Hosts</h2>
+          <p>Nested product hostnames are a platform feature, not a reason to flatten route names. The platform must make certificate coverage explicit for every exposure.</p>
+          <table>
+            <thead><tr><th>Path</th><th>TLS requirement</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td>Cloudflare-proxied web</td><td>Cloudflare edge certificate covers the exact nested host, or the product wildcard such as <code>*.cc.worldwidewebb.co</code>.</td><td>The tunnel can keep origin routing private, but the browser still needs a valid edge cert for the nested hostname.</td></tr>
+              <tr><td>Captive portal LAN</td><td>cert-manager issues an exact certificate for <code>app.cp.worldwidewebb.co</code>, or a product wildcard <code>*.cp.worldwidewebb.co</code>.</td><td>Cloudflare is not in the traffic path, so LAN clients need the k8s-served certificate to be valid.</td></tr>
+              <tr><td>iOS app URLs</td><td>The production URL must have valid public-trust TLS before TestFlight points at it.</td><td>Do not retire legacy hostnames until the shipped app version has moved.</td></tr>
+            </tbody>
+          </table>
         </section>
 
         <section>
@@ -100,11 +114,11 @@
           <table>
             <thead><tr><th>System</th><th>Current behavior</th><th>Cutover risk</th></tr></thead>
             <tbody>
-              <tr><td>Cloudflare tunnel</td><td>Declared/adopted routes include <code>dashboard</code>, <code>storybook</code>, <code>drizzle</code>, <code>hooks</code>, and <code>portainer</code>. Captive Portal is intentionally absent.</td><td>Moving <code>dashboard</code> to <code>app.cc</code> must preserve the origin and Access policy. Retiring legacy hosts must be explicit.</td></tr>
+              <tr><td>Cloudflare tunnel</td><td>Declared/adopted routes include <code>dashboard</code>, <code>storybook</code>, <code>drizzle</code>, <code>hooks</code>, and <code>portainer</code>. Captive Portal is intentionally absent.</td><td>Moving <code>dashboard</code> to <code>app.cc</code> must preserve the origin, Access policy, and nested-host TLS coverage. Retiring legacy hosts must be explicit.</td></tr>
               <tr><td>Cloudflare Access</td><td>Only <code>storybook</code> and <code>drizzle</code> are Access-gated today. The dashboard default-deny/private model is not deployed yet.</td><td>Private Control Center requires Access rollout plus iOS kiosk token/header handling before old dashboard access is retired.</td></tr>
               <tr><td>cert-manager</td><td>Uses a Cloudflare DNS-01 <code>ClusterIssuer</code>. The Cloudflare API token is an ESO-synced secret in the <code>cert-manager</code> namespace.</td><td>New captive hostname needs DNS-01 certificate readiness before guest traffic moves.</td></tr>
               <tr><td>DNS-01 self-check</td><td>cert-manager is configured with public recursive resolvers because split-horizon DNS makes in-cluster SOA self-check fail for the public challenge zone.</td><td>Do not remove the recursive nameserver flags when refactoring cert-manager.</td></tr>
-              <tr><td>Captive portal cert</td><td>Current certificate is for <code>captive-portal.worldwidewebb.co</code> and writes secret <code>captive-portal-tls</code>, mounted by portal nginx.</td><td>Cutover to <code>app.cp</code> needs the cert DNS name, secret naming/mounting, and nginx server name updated together.</td></tr>
+              <tr><td>Captive portal cert</td><td>Current certificate is for <code>captive-portal.worldwidewebb.co</code> and writes secret <code>captive-portal-tls</code>, mounted by portal nginx.</td><td>Cutover to <code>app.cp</code> needs exact-host or <code>*.cp.worldwidewebb.co</code> TLS, secret naming/mounting, and nginx server name updated together.</td></tr>
               <tr><td>UniFi split DNS</td><td>Current UniFi DNS record points <code>captive-portal.worldwidewebb.co</code> to <code>192.168.0.147</code>.</td><td>New <code>app.cp</code> record must resolve on guest network before UniFi redirect changes.</td></tr>
               <tr><td>LAN 443 forward</td><td>Root launchd/socat forwards host en1 <code>192.168.0.147:443</code> to the k8s captive portal LoadBalancer because OrbStack does not bind service <code>:443</code> on LAN.</td><td>Any namespace/service rename must update this forward or replace it with a platform-managed equivalent.</td></tr>
               <tr><td>Control Center iOS</td><td>Capacitor kiosk config points at <code>https://dashboard.worldwidewebb.co</code> and allows <code>*.worldwidewebb.co</code>.</td><td>Hard cutover to <code>app.cc</code> requires an iOS/TestFlight update before retiring the old dashboard URL.</td></tr>
@@ -130,6 +144,7 @@
           <h2>TLS Cutover Rules</h2>
           <ul>
             <li>Do not break TLS during hostname migration.</li>
+            <li>For nested product hosts, create exact-host or product-wildcard certificate coverage before traffic moves.</li>
             <li>Inventory every old hostname before changing route names.</li>
             <li>Update cert-manager DNS names and mounted TLS secrets before switching traffic.</li>
             <li>Update iOS app URLs before retiring old kiosk hostnames.</li>
