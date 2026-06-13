@@ -31,6 +31,10 @@ function nowISO() {
   return new Date().toISOString();
 }
 
+function sessionContainer(state, key) {
+  return state.sessions[key] ?? {};
+}
+
 export function statePaths() {
   return { dir: STATE_DIR, file: STATE_FILE };
 }
@@ -86,12 +90,21 @@ export async function setSessionGoal(sessionID, text) {
   const key = sessionKey(sessionID);
   const state = await readPluginLabState();
   state.sessions[key] = {
-    ...(state.sessions[key] ?? {}),
+    ...sessionContainer(state, key),
     goal: {
       text: String(text),
       active: true,
       updatedAt: nowISO(),
       clearedAt: null,
+    },
+    validation: {
+      status: "idle",
+      attempts: 0,
+      lastValidationAt: null,
+      nextValidationAt: null,
+      goalSnapshot: String(text),
+      hardStop: false,
+      hardStopAt: null,
     },
   };
   await writePluginLabState(state);
@@ -129,7 +142,63 @@ export async function clearSessionGoal(sessionID) {
     updatedAt: existing?.updatedAt ?? nowISO(),
     clearedAt: nowISO(),
   };
-  state.sessions[key] = { ...(state.sessions[key] ?? {}), goal };
+  const container = {
+    ...sessionContainer(state, key),
+    goal,
+  };
+
+  delete container.validation;
+  state.sessions[key] = container;
   await writePluginLabState(state);
   return goal;
+}
+
+function normalizeValidation(validation = {}) {
+  return {
+    status: validation.status === "running" ? "running" : "idle",
+    attempts: Number.isFinite(Number(validation.attempts)) ? Number(validation.attempts) : 0,
+    lastValidationAt: validation.lastValidationAt ?? null,
+    nextValidationAt: validation.nextValidationAt ?? null,
+    goalSnapshot: validation.goalSnapshot ?? "",
+    hardStop: Boolean(validation.hardStop),
+    hardStopAt: validation.hardStopAt ?? null,
+    lastError: validation.lastError ?? null,
+    lastResult: validation.lastResult ?? null,
+    lastRunAt: validation.lastRunAt ?? null,
+  };
+}
+
+export async function getSessionGoalValidation(sessionID) {
+  const state = await readPluginLabState();
+  return normalizeValidation(sessionContainer(state, sessionKey(sessionID)).validation);
+}
+
+export async function setSessionGoalValidation(sessionID, patch = {}) {
+  const key = sessionKey(sessionID);
+  const state = await readPluginLabState();
+  const container = sessionContainer(state, key);
+  const current = normalizeValidation(container.validation);
+  const goal = state.sessions[key]?.goal;
+  container.validation = {
+    ...current,
+    ...patch,
+    goalSnapshot: patch.goalSnapshot ?? goal?.text ?? current.goalSnapshot,
+  };
+  state.sessions[key] = container;
+  await writePluginLabState(state);
+  return container.validation;
+}
+
+export async function clearSessionGoalValidation(sessionID) {
+  const key = sessionKey(sessionID);
+  const state = await readPluginLabState();
+  const container = sessionContainer(state, key);
+  if (!container?.validation) {
+    return null;
+  }
+
+  delete container.validation;
+  state.sessions[key] = container;
+  await writePluginLabState(state);
+  return true;
 }

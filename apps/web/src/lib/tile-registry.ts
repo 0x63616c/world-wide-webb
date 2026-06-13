@@ -1,4 +1,3 @@
-import type { ComponentType } from "react";
 import { QuickPlayTile } from "../components/media/QuickPlayTile";
 import { QuickPlayTileView } from "../components/media/QuickPlayTileView";
 import { SoundSystemTile } from "../components/media/SoundSystemTile";
@@ -26,6 +25,36 @@ import { TeslaTileView } from "../components/tiles/TeslaTileView";
 import { WeatherNow } from "../components/tiles/WeatherNow";
 import { WeatherNowView } from "../components/tiles/WeatherNowView";
 
+type TileComponent =
+  | typeof ClockGreeting
+  | typeof WeatherNow
+  | typeof NetworkTile
+  | typeof TeslaTile
+  | typeof Next12Hours
+  | typeof ControlsTile
+  | typeof DogCamTile
+  | typeof ClimateTile
+  | typeof EventsTile
+  | typeof TvNowPlayingTile
+  | typeof SoundSystemTile
+  | typeof TvAppsTile
+  | typeof QuickPlayTile;
+
+type TileViewComponent =
+  | typeof ClockGreetingView
+  | typeof WeatherNowView
+  | typeof NetworkTileView
+  | typeof TeslaTileView
+  | typeof Next12HoursView
+  | typeof ControlsTileView
+  | typeof DogCamTileView
+  | typeof ClimateTileView
+  | typeof EventsTileView
+  | typeof TvNowPlayingTileView
+  | typeof SoundSystemTileView
+  | typeof TvAppsTileView
+  | typeof QuickPlayTileView;
+
 export type TileRegistryEntry = {
   id: string;
   // The tile's name, used by the minimap hover label, the centered-tile pan
@@ -33,12 +62,10 @@ export type TileRegistryEntry = {
   // its TileHeader on the board (e.g. "Weather Now", "Climate · A/C", "Upcoming"),
   // so the minimap label always maps to what the user sees on the tile.
   label: string;
-  // biome-ignore lint/suspicious/noExplicitAny: tile containers have no shared prop contract
-  component: ComponentType<any>;
-  // biome-ignore lint/suspicious/noExplicitAny: view components have varying prop signatures
-  viewComponent: ComponentType<any>;
+  component: TileComponent;
+  viewComponent: TileViewComponent;
   // Free position in the ONE world, in 0-indexed world-cell coords. A tile may sit
-  // ANYWHERE at any size — there is no cluster, no grid to fill, no gap/overlap
+  // ANYWHERE at any size  --  there is no cluster, no grid to fill, no gap/overlap
   // rule against other real tiles. The decorative bento (placeholder-tiles.ts)
   // carves itself around whatever rectangles sit here. Move/resize a tile by
   // editing these four numbers; nothing else needs to change.
@@ -57,7 +84,7 @@ export type TileRegistryEntry = {
 
 // One entry per real tile, free-placed in the world by world-cell coords. The
 // nine tiles below keep their original arrangement, centered in the 64×64 world,
-// but they are independent now — nothing requires them to pack or stay adjacent.
+// but they are independent now  --  nothing requires them to pack or stay adjacent.
 // A new tile can sit anywhere in [0, WORLD_COLS) × [0, WORLD_ROWS); the bento fill
 // reflows around it automatically.
 export const TILE_REGISTRY: TileRegistryEntry[] = [
@@ -153,7 +180,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     cols: 4,
     rows: 2,
   },
-  // Media tiles (www-51hf) — placed directly above the Clock (www-p74p): the
+  // Media tiles (www-51hf)  --  placed directly above the Clock (www-p74p): the
   // TV/Sound pair on rows 22-24 and TV Apps/Quick Play on rows 25-26, so the
   // cluster ends just above the Clock's row 27.
   {
@@ -208,16 +235,14 @@ export const HOME_TILE: TileRegistryEntry = TILE_REGISTRY.find((t) => t.home) ??
 
 // Flat lookup: component or viewComponent → registry entry.
 // Used by the Storybook BoardDecorator to auto-size any tile story.
-// biome-ignore lint/suspicious/noExplicitAny: keyed by component reference
-const componentMap = new Map<ComponentType<any>, TileRegistryEntry>();
+const componentMap = new Map<TileComponent | TileViewComponent, TileRegistryEntry>();
 for (const entry of TILE_REGISTRY) {
   componentMap.set(entry.component, entry);
   componentMap.set(entry.viewComponent, entry);
 }
 
 export function registryEntryForComponent(
-  // biome-ignore lint/suspicious/noExplicitAny: accepts any component reference
-  component: ComponentType<any> | undefined,
+  component: TileComponent | TileViewComponent | undefined,
 ): TileRegistryEntry | undefined {
   if (!component) return undefined;
   return componentMap.get(component);

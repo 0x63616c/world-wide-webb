@@ -1,6 +1,6 @@
 // Tests for @repo/logger: level resolution, redaction, and child binding.
 // Run via: bun run test (vitest)
-import pino from "pino";
+import pino, { type DestinationStream } from "pino";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createLogger, getLogger } from "../src/index.ts";
 
@@ -121,17 +121,43 @@ const REDACT_PATHS = [
   "*.HOME_PLACE_NAME",
 ];
 
+type LogLine = Record<string, unknown> & {
+  msg?: string;
+  status?: unknown;
+  durationMs?: unknown;
+  entityId?: unknown;
+  reqId?: unknown;
+  [key: string]: unknown;
+};
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function getFirstLogLine(lines: readonly LogLine[]): LogLine {
+  if (lines.length === 0) {
+    throw new Error("Expected at least one log line");
+  }
+
+  return lines[0];
+}
+
 // Builds a pino logger wired with the same redact config as @repo/logger and
 // captures output synchronously via an in-memory write shim.
 function buildTestLogger() {
-  const lines: object[] = [];
-  const dest = {
+  const lines: LogLine[] = [];
+  const dest: DestinationStream = {
     write(chunk: string) {
       for (const line of chunk.split("\n")) {
         const trimmed = line.trim();
         if (trimmed) {
           try {
-            lines.push(JSON.parse(trimmed));
+            const parsed = JSON.parse(trimmed);
+            if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+              lines.push(parsed as LogLine);
+            }
           } catch {
             // Not JSON.
           }
@@ -146,8 +172,7 @@ function buildTestLogger() {
       base: { service: "test", env: "test" },
       redact: { paths: REDACT_PATHS, censor: "[REDACTED]" },
     },
-    // biome-ignore lint/suspicious/noExplicitAny: pino accepts WritableStream-like
-    dest as any,
+    dest,
   );
 
   return { log, lines };
@@ -157,9 +182,7 @@ describe("redaction, named secret fields", () => {
   it("redacts HA_TOKEN at top level", () => {
     const { log, lines } = buildTestLogger();
     log.info({ HA_TOKEN: "super-secret-ha-token" }, "ha config");
-    expect(lines.length).toBeGreaterThan(0);
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic JSON from pino
-    const entry = lines[0] as any;
+    const entry = getFirstLogLine(lines);
     expect(entry.HA_TOKEN).toBe("[REDACTED]");
     expect(entry.msg).toBe("ha config");
   });
@@ -167,24 +190,21 @@ describe("redaction, named secret fields", () => {
   it("redacts SPOTIFY_ACCESS_TOKEN at top level", () => {
     const { log, lines } = buildTestLogger();
     log.info({ SPOTIFY_ACCESS_TOKEN: "spotify-token-value" }, "spotify");
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic JSON from pino
-    const entry = lines[0] as any;
+    const entry = getFirstLogLine(lines);
     expect(entry.SPOTIFY_ACCESS_TOKEN).toBe("[REDACTED]");
   });
 
   it("redacts DATABASE_URL at top level", () => {
     const { log, lines } = buildTestLogger();
     log.info({ DATABASE_URL: "postgres://user:pass@host:5432/db" }, "db config");
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic JSON from pino
-    const entry = lines[0] as any;
+    const entry = getFirstLogLine(lines);
     expect(entry.DATABASE_URL).toBe("[REDACTED]");
   });
 
   it("redacts accessToken and refreshToken", () => {
     const { log, lines } = buildTestLogger();
     log.info({ accessToken: "acc-123", refreshToken: "ref-456" }, "tokens");
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic JSON from pino
-    const entry = lines[0] as any;
+    const entry = getFirstLogLine(lines);
     expect(entry.accessToken).toBe("[REDACTED]");
     expect(entry.refreshToken).toBe("[REDACTED]");
   });
@@ -195,8 +215,7 @@ describe("redaction, named secret fields", () => {
       { token: "tok", secret: "sek", password: "pw", credential: "cred" },
       "generic secrets",
     );
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic JSON from pino
-    const entry = lines[0] as any;
+    const entry = getFirstLogLine(lines);
     expect(entry.token).toBe("[REDACTED]");
     expect(entry.secret).toBe("[REDACTED]");
     expect(entry.password).toBe("[REDACTED]");
@@ -216,18 +235,18 @@ describe("redaction, resolved-secret shapes", () => {
       { resolved: { name: "HA_TOKEN", resolvedValue: "actual-plaintext-token" } },
       "resolved secret",
     );
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic JSON from pino
-    const entry = lines[0] as any;
-    expect(entry.resolved?.resolvedValue).toBe("[REDACTED]");
+    const entry = getFirstLogLine(lines);
+    const resolved = asRecord(entry.resolved);
+    expect(resolved?.resolvedValue).toBe("[REDACTED]");
   });
 
   it("redacts the re-wrapped { dockerName, value } shape", () => {
     const { log, lines } = buildTestLogger();
     const rewrapped = { dockerName: "control-center_HA_TOKEN_abc123", value: "plaintext" };
     log.info({ rewrapped }, "rewrapped secret");
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic JSON from pino
-    const entry = lines[0] as any;
-    expect(entry.rewrapped?.value).toBe("[REDACTED]");
+    const entry = getFirstLogLine(lines);
+    const wrapped = asRecord(entry.rewrapped);
+    expect(wrapped?.value).toBe("[REDACTED]");
   });
 });
 
@@ -235,17 +254,18 @@ describe("redaction, auth headers", () => {
   it("redacts headers.authorization at top level", () => {
     const { log, lines } = buildTestLogger();
     log.info({ headers: { authorization: "Bearer super-secret" } }, "req");
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic JSON from pino
-    const entry = lines[0] as any;
-    expect(entry.headers?.authorization).toBe("[REDACTED]");
+    const entry = getFirstLogLine(lines);
+    const headers = asRecord(entry.headers);
+    expect(headers?.authorization).toBe("[REDACTED]");
   });
 
   it("redacts nested req.headers.authorization", () => {
     const { log, lines } = buildTestLogger();
     log.info({ req: { headers: { authorization: "Bearer xyz" } } }, "req log");
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic JSON from pino
-    const entry = lines[0] as any;
-    expect(entry.req?.headers?.authorization).toBe("[REDACTED]");
+    const entry = getFirstLogLine(lines);
+    const req = asRecord(entry.req);
+    const reqHeaders = asRecord(req?.headers);
+    expect(reqHeaders?.authorization).toBe("[REDACTED]");
   });
 });
 
@@ -256,8 +276,7 @@ describe("redaction, home location fields", () => {
       { HOME_LAT: "34.0617", HOME_LON: "-118.2836", HOME_PLACE_NAME: "somewhere private" },
       "home location",
     );
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic JSON from pino
-    const entry = lines[0] as any;
+    const entry = getFirstLogLine(lines);
     expect(entry.HOME_LAT).toBe("[REDACTED]");
     expect(entry.HOME_LON).toBe("[REDACTED]");
     expect(entry.HOME_PLACE_NAME).toBe("[REDACTED]");
@@ -278,8 +297,7 @@ describe("safe fields are NOT redacted", () => {
       },
       "request completed",
     );
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic JSON from pino
-    const entry = lines[0] as any;
+    const entry = getFirstLogLine(lines);
     expect(entry.status).toBe(200);
     expect(entry.durationMs).toBe(42);
     expect(entry.entityId).toBe("light.lamp_1");
