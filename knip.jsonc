@@ -84,6 +84,11 @@
       // Tests are in test/ - declare explicitly so knip registers them as entries.
       "entry": ["test/**/*.test.ts"]
     },
+    "packages/platform": {
+      // src/index.ts is auto-detected from the `exports` map.
+      // Tests are in test/ - declare explicitly so knip registers them as entries.
+      "entry": ["test/**/*.test.ts"]
+    },
     "apps/captive-portal": {
       // `geist` ships the self-hosted Geist + Geist Mono woff2, vendored into
       // public/fonts and consumed via a CSS @font-face url() in theme.css

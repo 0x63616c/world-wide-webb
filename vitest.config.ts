@@ -10,6 +10,7 @@ export default defineConfig({
       "apps/worker",
       "apps/media-worker",
       "packages/logger",
+      "packages/platform",
       // The `infra` project's default test glob also covers infra/unifi/test/**
       // (UniFi adopt-only stack, www-j934.3), so no separate project entry is
       // needed; a second entry would double-run those tests.
