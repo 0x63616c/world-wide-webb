@@ -13,6 +13,7 @@
         "debounceMs": 4000,
         "afplayPath": "/System/Library/Sounds/Glass.aiff"
       }
-    ]
+    ],
+    "./tui/context-breakdown.tsx"
   ]
 }
