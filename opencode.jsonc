@@ -8,6 +8,10 @@
     "goal": {
       "description": "Set, show, or clear the current session goal",
       "template": "$ARGUMENTS"
+    },
+    "recap": {
+      "description": "Recap the current conversation; pass 'full' for the entire session",
+      "template": "Use the recap skill to recap this conversation. Arguments: $ARGUMENTS"
     }
   },
   "permission": {
