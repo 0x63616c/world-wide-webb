@@ -3,9 +3,9 @@
 
 function SmokeSidebar() {
   return (
-    <box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
-      <text fg="blue">Plugin lab</text>
-      <text>Smoke sidebar loaded</text>
+    <box flexDirection="column" marginBottom={1}>
+      <text bold>Plugin lab</text>
+      <text fg="gray">Smoke sidebar loaded</text>
     </box>
   );
 }
