@@ -466,3 +466,71 @@ export function defineProductDatabase(
     resources: options.resources ?? defaultDatabaseResources,
   };
 }
+
+export type DatabaseBackup = Readonly<{
+  kind: "postgres-logical-backup";
+  required: true;
+  product: ProductSlug;
+  target: ImplementedTargetName;
+  name: string;
+  schedule: string;
+  image: "ghcr.io/cloudnative-pg/postgresql:18";
+  databaseName: string;
+  owner: string;
+  serviceHost: string;
+  authSecretName: string;
+  authMountPath: "/run/pgauth";
+  backupMountPath: "/backup";
+  nasExportPath: string;
+  nasSubPath: string;
+  filenamePrefix: string;
+  commandFeatures: Readonly<{
+    compression: "gzip";
+    dateFormat: "%Y%m%d";
+    pipefail: true;
+    passwordSource: "mounted-basic-auth-secret";
+  }>;
+}>;
+
+export type DatabaseBackupOptions = Readonly<{
+  name?: string;
+  schedule?: string;
+  nasSubPathParts?: readonly string[];
+}>;
+
+export function defineDatabaseBackup(
+  database: ProductDatabase,
+  target: HomelabTarget,
+  options: DatabaseBackupOptions = {},
+): DatabaseBackup {
+  const nasSubPathParts = options.nasSubPathParts ?? [
+    ...target.nas.backupRootParts,
+    database.product,
+    "postgres",
+  ];
+
+  return {
+    kind: "postgres-logical-backup",
+    required: true,
+    product: database.product,
+    target: target.name,
+    name: options.name ?? `${database.product}-pg-backup`,
+    schedule: options.schedule ?? "0 1 * * *",
+    image: "ghcr.io/cloudnative-pg/postgresql:18",
+    databaseName: database.databaseName,
+    owner: database.owner,
+    serviceHost: database.rwServiceName,
+    authSecretName: database.authSecretName,
+    authMountPath: "/run/pgauth",
+    backupMountPath: "/backup",
+    nasExportPath: target.nas.exportPath,
+    nasSubPath: nasSubPathParts.join("/"),
+    filenamePrefix: `${database.databaseName}-`,
+    commandFeatures: {
+      compression: "gzip",
+      dateFormat: "%Y%m%d",
+      pipefail: true,
+      passwordSource: "mounted-basic-auth-secret",
+    },
+  };
+}
