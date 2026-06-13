@@ -15,6 +15,7 @@
         "debounceMs": 4000,
         "afplayPath": "/System/Library/Sounds/Glass.aiff"
       }
-    ]
+    ],
+    "./.opencode/tui/context-breakdown.tsx"
   ]
 }
