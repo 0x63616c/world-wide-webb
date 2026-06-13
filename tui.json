@@ -4,6 +4,17 @@
   "plugin": [
     "@slkiser/opencode-quota",
     "./.opencode/tui/smoke-sidebar.tsx",
-    "./.opencode/tui/goal-sidebar.tsx"
+    "./.opencode/tui/goal-sidebar.tsx",
+    [
+      "./.opencode/tui/reply-attention.js",
+      {
+        "enabled": true,
+        "mode": "fallback",
+        "sound": "done",
+        "volume": 0.5,
+        "debounceMs": 4000,
+        "afplayPath": "/System/Library/Sounds/Glass.aiff"
+      }
+    ]
   ]
 }
