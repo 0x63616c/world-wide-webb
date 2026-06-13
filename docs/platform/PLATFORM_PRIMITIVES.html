@@ -46,6 +46,22 @@
         </section>
 
         <section>
+          <h2>M1 Shipped Foundation</h2>
+          <div class="callout">
+            <p><strong><code>@repo/platform</code> is the representation layer, not the live deploy path yet.</strong> It is a pure TypeScript package that proves Control Center can be expressed through platform primitives without changing production behavior.</p>
+          </div>
+          <ul>
+            <li><code>defineProduct()</code> derives folder, namespace, DNS code, labels, Pulumi names, image repositories, service names, and backup path parts from one product slug.</li>
+            <li><code>homelabTarget</code> is the only implemented target. Future targets are explicit unsupported states, not silent fallthroughs.</li>
+            <li><code>publicWeb()</code>, <code>privateWeb()</code>, <code>captivePortalWeb()</code>, and <code>internalService()</code> model exposure intent only. M1 does not mutate Cloudflare, cert-manager, UniFi, or LAN forwarding.</li>
+            <li><code>defineServiceSecretUsage()</code> and <code>secretCatalog</code> model explicit service secret usage from 1Password Homelab refs, with no secret values in code.</li>
+            <li><code>defineProductDatabase()</code> models per-product CNPG intent and can render the current Control Center database shape in compatibility mode.</li>
+            <li><code>defineDatabaseBackup()</code> makes database backups mandatory and can render the current <code>pg-backup</code> behavior while also deriving the future platform NAS path.</li>
+            <li><code>controlCenterProductManifest()</code> is the M1 capstone fixture proving one existing product can be represented by the new platform model.</li>
+          </ul>
+        </section>
+
+        <section>
           <h2>App Definition</h2>
           <p>The app context should be the source of truth. Avoid passing <code>owner</code>, <code>product</code>, <code>namespace</code>, <code>backupPath</code>, or magic string identifiers into every primitive.</p>
           <div class="code-block"><pre><code>const textYourEx = app({

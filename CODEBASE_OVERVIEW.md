@@ -38,6 +38,7 @@ deploy
 - `apps/captive-portal` - Guest WiFi captive portal frontend.
 - `packages/api` - Browser-safe type bridge that re-exports the API router type only.
 - `packages/logger` - Shared pino logger with centralized redaction and runtime-safe config.
+- `packages/platform` - Pure platform foundation package for product identity, target, exposure, secret, database, backup, and Control Center representation primitives.
 - `infra` - Pulumi program that declares the production k8s stack.
 - `infra/unifi` and `infra/cloudflare` - Separate Pulumi projects for those providers.
 
@@ -166,6 +167,8 @@ Do not add a third-party scheduler for new cron-style tasks.
 ## Platform Migration
 
 The repo is moving toward a multi-product platform shape documented in `docs/platform/README.html` and `docs/platform/NORTH_STAR.html`. Read those before touching product/platform split work. The target model is products under `products/<name>` with platform-owned primitives for namespaces, routing/TLS, secrets, CNPG Postgres databases, NAS backups, local dev, CI/deploy, and iOS workflows.
+
+M1 foundation lives in `packages/platform`. It is representation-only today: `controlCenterProductManifest()` proves Control Center can be expressed through the new model without changing the current Pulumi production path.
 
 ## Development Rules To Preserve
 

@@ -46,6 +46,16 @@
         </section>
 
         <section>
+          <h2>M1 Foundation Contract</h2>
+          <ul>
+            <li><code>@repo/platform</code> implements exposure intent declarations named <code>publicWeb()</code>, <code>privateWeb()</code>, <code>captivePortalWeb()</code>, and <code>internalService()</code>.</li>
+            <li>These declarations derive nested hostnames from product DNS codes and the homelab target domain, for example <code>app.cc.worldwidewebb.co</code> and <code>api.tye.worldwidewebb.co</code>.</li>
+            <li>M1 does not change live Cloudflare routes, Access policies, cert-manager certificates, UniFi DNS, guest portal redirects, LAN forwarding, or iOS URLs.</li>
+            <li><code>captivePortalWeb()</code> carries an explicit human-review marker because later implementation touches UniFi, LAN forwarding, DNS, and TLS together.</li>
+          </ul>
+        </section>
+
+        <section>
           <h2>Hostname Rules</h2>
           <ul>
             <li>Product namespace hosts are not created by default: no bare <code>cc.worldwidewebb.co</code>, <code>cp.worldwidewebb.co</code>, <code>tye.worldwidewebb.co</code>, or <code>amp.worldwidewebb.co</code>.</li>

@@ -26,6 +26,7 @@
 - `apps/media-worker` owns heavier queue/media work and imports through `@repo/api/media`.
 - `packages/api` is a browser-safe type bridge only. Do not import backend runtime code into the web bundle.
 - `packages/logger` is the shared backend logger. Backend code should use `@repo/logger`, not `console.*`.
+- `packages/platform` is the pure platform foundation package. Product/platform work should prefer its typed product, target, exposure, secret, database, backup, and manifest primitives over new infra string soup.
 - `infra/` is the current Pulumi+k8s deploy program. The old bosun/Swarm docs are historical only.
 
 ## Product Invariants
