@@ -136,3 +136,94 @@ export function targetStatus(name: TargetName): TargetStatus {
   }
   return assertNever(name);
 }
+
+export type WebHostOptions = Readonly<{ host: string }>;
+
+export type WebExposure =
+  | Readonly<{
+      kind: "public-web";
+      policy: "public";
+      target: ImplementedTargetName;
+      host: string;
+      hostname: string;
+    }>
+  | Readonly<{
+      kind: "private-web";
+      policy: "private";
+      target: ImplementedTargetName;
+      host: string;
+      hostname: string;
+      cloudflareAccess: true;
+    }>
+  | Readonly<{
+      kind: "captive-portal-web";
+      policy: "captive";
+      target: ImplementedTargetName;
+      host: string;
+      hostname: string;
+      humanReview: Readonly<{
+        required: true;
+        reason: "Captive portal exposure changes UniFi, LAN forwarding, DNS, and TLS behavior.";
+      }>;
+    }>;
+
+export type InternalServiceExposure = Readonly<{
+  kind: "internal-service";
+  policy: "internal";
+  port: number;
+}>;
+
+function webHostname(product: ProductIdentity, target: HomelabTarget, host: string): string {
+  return `${host}.${product.dnsCode}.${target.domain}`;
+}
+
+export function publicWeb(
+  product: ProductIdentity,
+  target: HomelabTarget,
+  options: WebHostOptions,
+): WebExposure {
+  return {
+    kind: "public-web",
+    policy: "public",
+    target: target.name,
+    host: options.host,
+    hostname: webHostname(product, target, options.host),
+  };
+}
+
+export function privateWeb(
+  product: ProductIdentity,
+  target: HomelabTarget,
+  options: WebHostOptions,
+): WebExposure {
+  return {
+    kind: "private-web",
+    policy: "private",
+    target: target.name,
+    host: options.host,
+    hostname: webHostname(product, target, options.host),
+    cloudflareAccess: true,
+  };
+}
+
+export function captivePortalWeb(
+  product: ProductIdentity,
+  target: HomelabTarget,
+  options: WebHostOptions,
+): WebExposure {
+  return {
+    kind: "captive-portal-web",
+    policy: "captive",
+    target: target.name,
+    host: options.host,
+    hostname: webHostname(product, target, options.host),
+    humanReview: {
+      required: true,
+      reason: "Captive portal exposure changes UniFi, LAN forwarding, DNS, and TLS behavior.",
+    },
+  };
+}
+
+export function internalService(options: { port: number }): InternalServiceExposure {
+  return { kind: "internal-service", policy: "internal", port: options.port };
+}
