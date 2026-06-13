@@ -4,6 +4,7 @@
 
 - Read `CODEBASE_OVERVIEW.md` first. It is the compact map of runtime shape, entrypoints, and where changes usually belong.
 - `opencode.jsonc` already loads `CLAUDE.md`, `README.md`, and the main ops docs as instructions. Do not duplicate those docs here unless the detail is an easy-to-miss working rule.
+- Before writing, editing, or reviewing TypeScript/TSX, use the `writing-scalable-typescript` skill when available and follow `docs/writing-scalable-typescript/README.md`.
 - Use Beads for durable work tracking: `bd prime`, `bd ready`, `bd show <id>`, `bd update <id> --claim`, `bd close <id>`. Do not treat `.beads/issues.jsonl` as source of truth or run `bd import` during normal work.
 
 ## Commands
@@ -53,6 +54,7 @@
 ## Git And Tickets
 
 - Feature work happens in a ticket-id-led worktree, e.g. `www-xxx-short-slug`. Do not develop in the shared main checkout.
+- When testing agent, opencode, plugin, or skill changes from a worktree, launch the test session under `tmux` from that worktree so it loads the worktree files. Keep probes quick with low timeouts, around 5s, and always kill the `tmux` session you created when done.
 - This repo ships through pull requests to `main`. Push the ticket branch, open a PR, wait for green checks, merge through GitHub, then close the Beads issue.
 - Commit subjects must be `type(area/www-xxx): desc`; the commit-msg hook validates the ticket id with `bd show`.
 - Pre-push runs Biome, Knip, then a non-blocking Beads sync. Knip is zero-tolerance; deliberate unused public exports need `/** @public, reason */`.
