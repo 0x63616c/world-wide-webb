@@ -24,6 +24,7 @@
 - `apps/api/src/server.ts` is the Bun+tRPC API entrypoint. Routers live under `apps/api/src/trpc/routers`, domain logic under `apps/api/src/services`.
 - `apps/worker` owns fast interval loops and imports domain cycles through `@repo/api/worker` (`apps/api/src/worker-deps.ts`).
 - `apps/media-worker` owns heavier queue/media work and imports through `@repo/api/media`.
+- `products/control-center` is the product-owned boundary. Current packages are compatibility wrappers that delegate to the legacy `apps/*` source paths until later M7 tickets move CI, infra, and source fully behind product paths.
 - `packages/api` is a browser-safe type bridge only. Do not import backend runtime code into the web bundle.
 - `packages/logger` is the shared backend logger. Backend code should use `@repo/logger`, not `console.*`.
 - `packages/platform` is the pure platform foundation package. Product/platform work should prefer its typed product, target, exposure, secret, database, backup, and manifest primitives over new infra string soup.

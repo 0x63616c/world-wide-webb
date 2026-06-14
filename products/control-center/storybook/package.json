@@ -1,0 +1,12 @@
+{
+  "name": "@control-center/storybook",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --cwd ../../../apps/web storybook",
+    "build": "bun run --cwd ../../../apps/web build-storybook",
+    "test": "bun run --cwd ../../../apps/web test",
+    "typecheck": "bun run --cwd ../../../apps/web typecheck"
+  }
+}

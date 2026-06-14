@@ -36,6 +36,7 @@ deploy
 - `apps/worker` - Continuous interval workers for home-state reconciliation and ingest.
 - `apps/media-worker` - Heavier queue/media workers, isolated from 1s home-control loops.
 - `apps/captive-portal` - Guest WiFi captive portal frontend.
+- `products/control-center` - Product-owned Control Center boundary. Today it contains compatibility wrapper packages for web, api, worker, media-worker, Storybook, and iOS while source remains in `apps/*`; later M7 tickets move CI, infra, and source fully behind these paths.
 - `packages/api` - Browser-safe type bridge that re-exports the API router type only.
 - `packages/logger` - Shared pino logger with centralized redaction and runtime-safe config.
 - `packages/platform` - Pure platform foundation package for product identity, target, exposure, secret, database, backup, and Control Center representation primitives.
@@ -109,7 +110,7 @@ Both the API and workers run migrations at boot so whichever starts first can sa
 
 ## Workers
 
-`apps/worker` owns the interval runtime and imports domain cycles through the narrow `@repo/api/worker` barrel at `apps/api/src/worker-deps.ts`.
+`apps/worker` owns the interval runtime and imports domain cycles through the narrow `@repo/api/worker` barrel at `apps/api/src/worker-deps.ts`. The product-owned wrapper is `products/control-center/worker`.
 
 Registered workers currently include:
 
@@ -122,7 +123,7 @@ Registered workers currently include:
 
 The runtime in `apps/worker/src/runtime.ts` prevents overlapping cycles per worker, isolates failures, logs failure and recovery transitions, warns on slow cycles, and exposes stats.
 
-`apps/media-worker` is separate because downloads and enrichment are heavier than home-control loops. It imports through `@repo/api/media` at `apps/api/src/media.ts` and runs:
+`apps/media-worker` is separate because downloads and enrichment are heavier than home-control loops. It imports through `@repo/api/media` at `apps/api/src/media.ts` and runs through the product-owned wrapper at `products/control-center/media-worker`.
 
 - `queue-worker` every 2s.
 - `playlist-poller` every 10m.
@@ -167,6 +168,8 @@ Do not add a third-party scheduler for new cron-style tasks.
 ## Platform Migration
 
 The repo is moving toward a multi-product platform shape documented in `docs/platform/README.html` and `docs/platform/NORTH_STAR.html`. Read those before touching product/platform split work. The target model is products under `products/<name>` with platform-owned primitives for namespaces, routing/TLS, secrets, CNPG Postgres databases, NAS backups, local dev, CI/deploy, and iOS workflows.
+
+Control Center now has a product boundary at `products/control-center`. For M7 compatibility, the product packages delegate to the legacy `apps/web`, `apps/api`, `apps/worker`, and `apps/media-worker` source paths so production behavior does not change until the CI, infra, database, and route cutovers land.
 
 M1 foundation lives in `packages/platform`. It is representation-only today: `controlCenterProductManifest()` proves Control Center can be expressed through the new model without changing the current Pulumi production path.
 

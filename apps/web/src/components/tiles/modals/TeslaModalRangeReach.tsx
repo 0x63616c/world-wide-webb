@@ -44,6 +44,11 @@ const CIRCLE_STEPS = 64;
 // home distance. Conservative so the warning fires before it's too tight.
 const SAFETY_BUFFER_MILES = 5;
 
+type RangePolygon = {
+  type: "Polygon";
+  coordinates: [[number, number][]];
+};
+
 // ── Geometry helpers ──────────────────────────────────────────────────────────
 
 /**
@@ -71,7 +76,7 @@ function circlePolygon(
   centreLon: number,
   radiusMiles: number,
   steps: number,
-): GeoJSON.Polygon {
+): RangePolygon {
   const radiusRad = (radiusMiles * MILES_TO_METRES) / 6371000; // earth radius in metres
   const coords: [number, number][] = [];
   for (let i = 0; i <= steps; i++) {

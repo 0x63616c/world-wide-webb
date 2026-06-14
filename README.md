@@ -20,6 +20,7 @@ cluster.
 | --- | --- |
 | `apps/web` | React board. Tiles are composed from shared primitives in `src/components/ui/` (`TileHeader`, `StatCell`, `Pill`, `Skeleton`, `TileWrapper`). Fixed 1366×1024 panel (1366×1000 content grid), never responsive. |
 | `apps/api` | tRPC backend. Services **throw** on error/unconfigured (never return constants); the web QueryClient retries infinitely, so a tile shows a shimmer `Skeleton` and recovers when data returns. |
+| `products/control-center` | Product-owned Control Center boundary. Current packages are compatibility wrappers around the legacy `apps/*` source paths so M7 can migrate CI, infra, data, iOS, and routes safely without changing runtime behavior in this first step. |
 | `infra` | The deploy program: a Pulumi TypeScript stack that declares every service, secret, route, and cron as typed `ComponentResource`s and reconciles the homelab Kubernetes cluster. See `docs/k3s-migration/DESIGN.md`. |
 
 ## Architecture in one line
@@ -56,6 +57,8 @@ nightly DB purge and the nightly Postgres backup to the NAS). They run on
 
 ```bash
 bun run dev          # tilt up, local stack (postgres + api + web + storybook)
+bun run --filter @control-center/web dev          # product wrapper for the web dev server
+bun run --filter @control-center/api typecheck    # product wrapper around the legacy api package
 ```
 
 In a cmux workspace, the `setup-cc-workspace` skill spins up the Tilt stack and

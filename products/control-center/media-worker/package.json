@@ -1,0 +1,11 @@
+{
+  "name": "@control-center/media-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --cwd ../../../apps/media-worker dev",
+    "test": "bun run --cwd ../../../apps/media-worker test",
+    "typecheck": "bun run --cwd ../../../apps/media-worker typecheck"
+  }
+}

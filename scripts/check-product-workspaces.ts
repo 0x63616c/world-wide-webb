@@ -90,7 +90,9 @@ for (const slug of productSlugs) {
     `${folder}/product.json productFolder must match folder`,
   );
   assert(
-    manifest.runtimeStatus === "top-level-until-m4-move" || manifest.runtimeStatus === "shell",
+    manifest.runtimeStatus === "top-level-until-m4-move" ||
+      manifest.runtimeStatus === "compatibility-wrapper" ||
+      manifest.runtimeStatus === "shell",
     `${folder}/product.json runtimeStatus must describe the temporary M4 state`,
   );
 }

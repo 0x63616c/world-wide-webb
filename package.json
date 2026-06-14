@@ -4,6 +4,7 @@
   "license": "MIT",
   "workspaces": [
     "apps/*",
+    "products/control-center/*",
     "products/*",
     "packages/*",
     "products/*/apps/*",
@@ -19,6 +20,7 @@
     "test:coverage": "bash scripts/coverage.sh",
     "identity:audit": "scripts/check-rename-identity.py",
     "badges": "bun scripts/gen-badges.ts",
+    "check:control-center-product-boundary": "bun scripts/check-control-center-product-boundary.ts",
     "lint": "bunx biome check .",
     "lint:fix": "bunx biome check --write .",
     "knip": "bunx knip",

@@ -1,0 +1,12 @@
+{
+  "name": "@control-center/ios",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cap:sync": "bun run --cwd ../../../apps/web cap:sync",
+    "cap:open": "bun run --cwd ../../../apps/web cap:open",
+    "ios:sim": "bun run --cwd ../../../apps/web ios:sim",
+    "test:kiosk-health": "bash ../../../apps/web/ios/scripts/test-kiosk-health.sh"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@control-center/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --cwd ../../../apps/worker dev",
+    "test": "bun run --cwd ../../../apps/worker test",
+    "typecheck": "bun run --cwd ../../../apps/worker typecheck"
+  }
+}

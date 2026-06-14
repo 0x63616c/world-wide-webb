@@ -1,7 +1,56 @@
 {
   "schemaVersion": 1,
   "slug": "control-center",
+  "product": "control-center",
   "displayName": "Control Center",
   "productFolder": "products/control-center",
-  "runtimeStatus": "top-level-until-m4-move"
+  "runtimeStatus": "compatibility-wrapper",
+  "removalPath": "Move source from each legacyPath into its productPath after CI, infra, Docker contexts, local dev, and iOS workflows consume the product-owned packages.",
+  "services": [
+    {
+      "name": "web",
+      "packageName": "@control-center/web",
+      "productPath": "products/control-center/web",
+      "legacyPath": "apps/web",
+      "dockerfile": "apps/web/Dockerfile"
+    },
+    {
+      "name": "api",
+      "packageName": "@control-center/api",
+      "productPath": "products/control-center/api",
+      "legacyPath": "apps/api",
+      "dockerfile": "apps/api/Dockerfile"
+    },
+    {
+      "name": "worker",
+      "packageName": "@control-center/worker",
+      "productPath": "products/control-center/worker",
+      "legacyPath": "apps/worker",
+      "dockerfile": "apps/worker/Dockerfile"
+    },
+    {
+      "name": "media-worker",
+      "packageName": "@control-center/media-worker",
+      "productPath": "products/control-center/media-worker",
+      "legacyPath": "apps/media-worker",
+      "dockerfile": "apps/media-worker/Dockerfile"
+    },
+    {
+      "name": "storybook",
+      "packageName": "@control-center/storybook",
+      "productPath": "products/control-center/storybook",
+      "legacyPath": "apps/web",
+      "dockerfile": "apps/web/Dockerfile.storybook"
+    },
+    {
+      "name": "ios",
+      "packageName": "@control-center/ios",
+      "productPath": "products/control-center/ios",
+      "legacyPath": "apps/web/ios"
+    }
+  ],
+  "sharedPackages": {
+    "logger": "packages/logger",
+    "browserSafeApiBridge": "packages/api"
+  }
 }
