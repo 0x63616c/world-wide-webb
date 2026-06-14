@@ -75,8 +75,12 @@
   .md p { margin: 0 0 10px; }
   .md ul, .md ol { margin: 0 0 10px; padding-left: 20px; }
   .md li { margin: 3px 0; }
-  .md li.task-list-item { list-style: none; margin-left: -20px; }
-  .md li.task-list-item input { margin-right: 8px; }
+  /* marked emits task lists as <li><input type=checkbox> text</li> with no class, so target via :has. */
+  .md ul:has(> li > input[type="checkbox"]) { list-style: none; padding-left: 1px; }
+  .md li:has(> input[type="checkbox"]) { display: flex; align-items: flex-start; gap: 10px; margin: 7px 0; line-height: 1.45; }
+  .md li > input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 17px; height: 17px; margin: 0; flex: 0 0 auto; border: 1.5px solid var(--hair-2); border-radius: 5px; background: var(--nest); position: relative; top: 1px; }
+  .md li > input[type="checkbox"]:checked { background: var(--acc); border-color: var(--acc); }
+  .md li > input[type="checkbox"]:checked::after { content: ""; position: absolute; left: 5px; top: 1.5px; width: 4px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
   .md h1, .md h2, .md h3, .md h4 { margin: 14px 0 8px; line-height: 1.3; color: var(--ink); font-weight: 600; }
   .md h1 { font-size: 18px; } .md h2 { font-size: 16px; } .md h3 { font-size: 14.5px; }
   .md a { color: var(--acc-line); text-decoration: none; }
@@ -218,7 +222,10 @@
                     <div style="display:flex; align-items:center; gap:8px;">
                       <span style="{{ card.typeStyle }}">{{ card.typeLabel }}</span>
                       <span style="{{ card.prioStyle }}">{{ card.prioLabel }}</span>
-                      <span class="mono" style="margin-left:auto; font-size:12px; color:var(--ink-3);">{{ card.idLabel }}</span>
+                      <span style="margin-left:auto; display:inline-flex; align-items:center; gap:6px;">
+                        <span class="chev" data-n="{{ card.chevN }}" data-c="{{ card.chevColor }}" style="display:inline-flex; flex-direction:column; line-height:0;"></span>
+                        <span class="mono" style="font-size:12px; color:var(--ink-3);">{{ card.idLabel }}</span>
+                      </span>
                     </div>
                   </div>
                 </sc-for>
@@ -453,8 +460,8 @@ const TYPE_META = {
   message: { label: 'Message', c: '#3b82f6', b: 'rgba(59,130,246,.12)', l: 'rgba(59,130,246,.40)' }
 };
 const STATUS_META = {
-  ready:       { label: 'Ready',       c: '#3fb950', b: 'rgba(63,185,80,.10)',  l: 'rgba(63,185,80,.38)' },
-  in_progress: { label: 'In Progress', c: '#0070f3', b: 'rgba(0,112,243,.14)',  l: 'rgba(0,112,243,.45)' },
+  ready:       { label: 'Ready',       c: '#0070f3', b: 'rgba(0,112,243,.14)',  l: 'rgba(0,112,243,.45)' },
+  in_progress: { label: 'In Progress', c: '#3fb950', b: 'rgba(63,185,80,.10)',  l: 'rgba(63,185,80,.38)' },
   blocked:     { label: 'Blocked',     c: '#f85149', b: 'rgba(248,81,73,.10)',  l: 'rgba(248,81,73,.38)' },
   closed:      { label: 'Closed',      c: '#a371f7', b: 'rgba(163,113,247,.10)', l: 'rgba(163,113,247,.38)' }
 };
@@ -770,6 +777,7 @@ class Component extends DCLogic {
         const pb = this.prioBadge(it.p);
         return {
           id: it.id, idLabel: it.id.toUpperCase(), title: it.title,
+          chevN: it.p <= 2 ? 3 - it.p : 0, chevColor: (PRIO_META[it.p] || {}).c || 'var(--ink-3)',
           typeLabel: tm.label, typeStyle: this.badge(tm),
           prioLabel: pb.label, prioStyle: pb.style,
           style: { padding: 15, gap: 0 },
@@ -810,9 +818,9 @@ class Component extends DCLogic {
       (sel.blockedBy || []).forEach((id) => { const d = this.byId(id); if (d) depRows.push({ id: d.id, idLabel: d.id.toUpperCase(), title: d.title, rel: 'Blocked by', relColor: '#f85149', onClick: () => this.openDetail(d.id) }); });
       (sel.blocks || []).forEach((id) => { const d = this.byId(id); if (d) depRows.push({ id: d.id, idLabel: d.id.toUpperCase(), title: d.title, rel: 'Blocks', relColor: '#f4c063', onClick: () => this.openDetail(d.id) }); });
       const activity = [
-        { text: 'Issue created', meta: this.byId(sel.id) && sel.type === 'epic' ? 'epic · 6 days ago' : 'opened · 6 days ago' },
-        { text: sel.assignee ? 'Claimed by ' + sel.assignee : 'Awaiting assignment', meta: sel.assignee ? 'assignee set · 4 days ago' : 'unassigned' },
-        { text: 'Status set to ' + (STATUS_META[sel.status] || STATUS_META.ready).label, meta: 'updated · 2 days ago' }
+        { text: 'Issue created', meta: (sel.type === 'epic' ? 'epic' : 'opened') + ' · ' + this.fmtDate(sel.created) },
+        { text: sel.assignee ? 'Claimed by ' + sel.assignee : 'Awaiting assignment', meta: sel.assignee ? 'assignee set' : 'unassigned' },
+        { text: 'Status set to ' + (STATUS_META[sel.status] || STATUS_META.ready).label, meta: 'updated · ' + this.fmtDate(sel.ts) }
       ];
       selected = {
         id: sel.id, idLabel: sel.id.toUpperCase(), title: sel.title,
@@ -899,7 +907,22 @@ class Component extends DCLogic {
     if (window.DOMPurify) html = window.DOMPurify.sanitize(html);
     el.innerHTML = html;
   }
-  function scan() { var n = document.querySelectorAll('.md'); for (var i = 0; i < n.length; i++) renderOne(n[i]); }
+  function renderChev(el) {
+    var n = parseInt(el.getAttribute('data-n') || '0', 10);
+    var c = el.getAttribute('data-c') || 'currentColor';
+    if (el.getAttribute('data-chev-done') === n + '|' + c && el.childElementCount === n) return;
+    var s = '';
+    for (var i = 0; i < n; i++) {
+      s += '<svg width="11" height="5" viewBox="0 0 12 7" fill="none" style="display:block;margin-top:' + (i ? -1.5 : 0) + 'px">' +
+        '<path d="M1.5 6 L6 1.5 L10.5 6" stroke="' + c + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    }
+    el.innerHTML = s;
+    el.setAttribute('data-chev-done', n + '|' + c);
+  }
+  function scan() {
+    var m = document.querySelectorAll('.md'); for (var i = 0; i < m.length; i++) renderOne(m[i]);
+    var c = document.querySelectorAll('.chev'); for (var j = 0; j < c.length; j++) renderChev(c[j]);
+  }
   function start() {
     scan();
     new MutationObserver(scan).observe(document.body, { childList: true, subtree: true, characterData: true });
