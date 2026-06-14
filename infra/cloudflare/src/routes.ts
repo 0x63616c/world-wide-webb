@@ -12,7 +12,11 @@
 // captive-portal is intentionally absent from BOTH: it is LAN-only, reached over
 // the OrbStack LoadBalancer on the mini's en1 (DESIGN §5a), never tunneled.
 
-import { controlCenterProductManifest, type ProductServiceDeclaration } from "@repo/platform";
+import {
+  controlCenterProductManifest,
+  type ProductServiceDeclaration,
+  textYourExProductManifest,
+} from "@repo/platform";
 
 /** The CNAME target every tunnel-routed hostname points at. */
 export function tunnelCnameTarget(tunnelId: string): string {
@@ -107,15 +111,23 @@ export function cloudflareRoutesForExposures(
 }
 
 function productRoutes(): CloudflareRoutes {
-  const manifest = controlCenterProductManifest();
+  const cc = controlCenterProductManifest();
+  const tye = textYourExProductManifest();
 
-  return cloudflareRoutesForExposures([
+  const sources: CloudflareExposureSource[] = [
     {
-      exposure: manifest.app.exposure,
+      exposure: cc.app.exposure,
       origin: "http://web:80",
       comment: "platform:control-center private app route",
     },
-  ]);
+    {
+      exposure: tye.app.exposure,
+      origin: "http://tye-frontend:80",
+      comment: "platform:text-your-ex public app route",
+    },
+  ];
+
+  return cloudflareRoutesForExposures(sources);
 }
 
 /** The live tunnel ingress rules for zone `<zone>` (adopt-only import target). */

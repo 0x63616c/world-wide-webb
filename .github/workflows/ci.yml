@@ -137,15 +137,13 @@ jobs:
             captiveportal:
               - 'products/captive-portal/**'
               - 'bun.lock'
-            # Text Your Ex: a non-deployed product shell until the M6 import
-            # (www-jtp0.4.5). It still gets a product-level change output so CI is
-            # product-aware and isolation is provable now, a TYE-only change must
-            # set textyourex and nothing else. Shares only root workspace deps +
-            # platform packages, no image build job exists yet (lands in M6).
+            # Text Your Ex: deployed product with two images (tye-api, tye-frontend).
+            # Includes infra/** so a pure Pulumi change rebuilds and redeploys TYE.
             textyourex:
               - 'products/text-your-ex/**'
               - 'packages/**'
               - 'bun.lock'
+              - 'infra/**'
             # AMP: a static nginx app from its product tree. It shares only root
             # workspace deps and platform packages, so unrelated product changes
             # must not rebuild it.
@@ -167,6 +165,7 @@ jobs:
               - 'products/control-center/**'
               - 'packages/**'
               - 'products/amp/**'
+              - 'products/text-your-ex/**'
               - 'bun.lock'
 
   # Pull-request infra preview: show the Pulumi diff before merge. This reuses
@@ -210,7 +209,7 @@ jobs:
         id: digests
         run: |
           declare -A out=()
-          for entry in control-center-web:web control-center-api:api control-center-worker:worker control-center-media-worker:media-worker control-center-storybook:storybook control-center-drizzle:drizzle control-center-captive-portal:captive-portal control-center-map-provision:map-provision amp-app:amp-app; do
+          for entry in control-center-web:web control-center-api:api control-center-worker:worker control-center-media-worker:media-worker control-center-storybook:storybook control-center-drizzle:drizzle control-center-captive-portal:captive-portal control-center-map-provision:map-provision amp-app:amp-app control-center-tye-api:tye-api control-center-tye-frontend:tye-frontend; do
             repo="${entry%%:*}"
             name="${entry#*:}"
             d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$repo:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
@@ -712,6 +711,74 @@ jobs:
           cache-from: type=gha,scope=amp
           cache-to: type=gha,mode=max,scope=amp
 
+  build-tye-api:
+    needs: [changes, test]
+    if: needs.changes.outputs.textyourex == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      # Native arm64 runner (deploy target is the arm64 Mac Mini), same as the
+      # other image builds; no QEMU emulation (www-4yt).
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build and push tye-api image
+        uses: docker/build-push-action@v6
+        with:
+          context: products/text-your-ex
+          file: products/text-your-ex/Dockerfile.api
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ghcr.io/0x63616c/control-center-tye-api:${{ github.sha }}
+            ghcr.io/0x63616c/control-center-tye-api:${{ github.ref_name == 'main' && 'main' || github.sha }}
+          cache-from: type=gha,scope=tye-api
+          cache-to: type=gha,mode=max,scope=tye-api
+
+  build-tye-frontend:
+    needs: [changes, test]
+    if: needs.changes.outputs.textyourex == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      # Native arm64 runner (deploy target is the arm64 Mac Mini), same as the
+      # other image builds; no QEMU emulation (www-4yt).
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build and push tye-frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: products/text-your-ex
+          file: products/text-your-ex/Dockerfile.frontend
+          platforms: linux/arm64
+          push: true
+          build-args: |
+            VITE_API_BASE=https://api.tye.worldwidewebb.co
+          tags: |
+            ghcr.io/0x63616c/control-center-tye-frontend:${{ github.sha }}
+            ghcr.io/0x63616c/control-center-tye-frontend:${{ github.ref_name == 'main' && 'main' || github.sha }}
+          cache-from: type=gha,scope=tye-frontend
+          cache-to: type=gha,mode=max,scope=tye-frontend
+
   # After the images build on main, deploy to the homelab k3s cluster with
   # `pulumi up` (www-j934.14). The runner joins the tailnet with an EPHEMERAL
   # Tailscale key (auto-revoked when the job ends), reaches the kube-apiserver
@@ -722,7 +789,7 @@ jobs:
   # declarative-convergent, so the latest green run always reconciles prod to the
   # committed digests, no deploy marker needed (www-bom8 retired).
   deploy:
-    needs: [changes, test, build-web, build-api, build-worker, build-media-worker, build-storybook, build-drizzle, build-captive-portal, build-map-provision, build-amp]
+    needs: [changes, test, build-web, build-api, build-worker, build-media-worker, build-storybook, build-drizzle, build-captive-portal, build-map-provision, build-amp, build-tye-api, build-tye-frontend]
     # always() lets us run even when some build jobs were skipped (no changes).
     # We proceed when: on main, an app OR infra changed, and no build failed.
     if: |
@@ -756,7 +823,7 @@ jobs:
           # config key. Most repos are control-center-<svc>; product-native repos
           # like amp-app keep their full service key.
           declare -A out=()
-          for entry in control-center-web:web control-center-api:api control-center-worker:worker control-center-media-worker:media-worker control-center-storybook:storybook control-center-drizzle:drizzle control-center-captive-portal:captive-portal control-center-map-provision:map-provision amp-app:amp-app; do
+          for entry in control-center-web:web control-center-api:api control-center-worker:worker control-center-media-worker:media-worker control-center-storybook:storybook control-center-drizzle:drizzle control-center-captive-portal:captive-portal control-center-map-provision:map-provision amp-app:amp-app control-center-tye-api:tye-api control-center-tye-frontend:tye-frontend; do
             repo="${entry%%:*}"
             name="${entry#*:}"
             d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$repo:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
