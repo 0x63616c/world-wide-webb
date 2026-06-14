@@ -1,0 +1,18 @@
+# category	path_regex	line_regex	reason
+# Target naming map, approved checkpoint still required before implementation:
+# repo: 0x63616c/control-center -> 0x63616c/world-wide-webb
+# root package: control-center -> world-wide-webb
+# workspace scopes: @repo/* and @cc/* -> final platform/product scopes after human naming checkpoint
+# images: ghcr.io/0x63616c/control-center-<service> -> ghcr.io/0x63616c/world-wide-webb-<product-or-service>
+# Pulumi projects: control-center* -> world-wide-webb* or product-owned names after previewed state migration
+# Pulumi config namespace: ccinfra: remains an allowed compatibility alias until the migration checkpoint approves a replacement
+# product-owned names: Control Center product slug, namespace, database, service names, and backup aliases stay unless a production-path migration approves them.
+historical-only-docs	^(docs/acceptance-checklist\.md|docs/media-ingest/.*|docs/media-tiles/.*|docs/superpowers/specs/.*|\.claude/workflows/deploy-epic\.mjs)$	.*	Historical migration/design material is retained as an archive, not renamed in M9 implementation.
+repo-platform-identity	.*	(0x63616c/control-center|ghcr\.io/0x63616c/control-center|worldwidewebb/control-center/prod|<!-- control-center-pulumi-preview -->)	Repo, badge, CI image, or workflow label identity scheduled for rename.
+repo-platform-identity	.*	(@repo/|@cc/)	Workspace package scope identity scheduled for platform/product naming decision.
+repo-platform-identity	^(bun\.lock|\.gitleaks\.toml|\.claude/hooks/.*|\.claude/workflows/.*|\.claude/wf-.*|knip\.jsonc)$	.*\bcontrol-center\b.*	Repo-level local tooling, generated lock metadata, and workflow labels scheduled for rename.
+repo-platform-identity	^(package\.json|README\.md|CODEBASE_OVERVIEW\.md|AGENTS\.md|CLAUDE\.md|\.agents/skills/.*|\.claude/skills/.*|\.opencode/skills/.*|\.claude/workflows/.*|scripts/(setup-workspace|ship-status)\.sh|scripts/ship-status\.py|apps/web/ios/fastlane/Fastfile)$	.*\bcontrol-center\b.*	Repo-level docs, skills, workflows, and local tooling labels scheduled for rename.
+repo-platform-identity	^(infra/(Pulumi|package).*|infra/(cloudflare|unifi)/Pulumi\.yaml|infra/src/.*|\.github/workflows/ci\.yml)$	.*\b(control-center|control_center)\b.*	Infra/Pulumi identity must be handled by previewed state-safe rename tickets.
+repo-platform-identity	^(infra/(program\.ts|test/.*|cloudflare/.*|unifi/program\.ts)|knip\.jsonc)$	.*\bcontrol-center\b.*	Pulumi project, resource-token, and ownership-tag identity must be handled by previewed state-safe rename tickets.
+allowed-compatibility-alias	.*	(control_center|control-center-rw|cc-postgres|/Users/calum/control-center/media|control-center/portal-lan)	Database, service, backup, or host-path compatibility alias kept until explicit production migration.
+control-center-product-identity	^(packages/platform/.*|docs/platform/.*|apps/web/public/maps/README\.md|apps/captive-portal/_portal_locations\.conf|scripts/(migrate-pg-to-cnpg|portal-443-forward|portal-lan|mount-homelab-drive|provision-orbstack|save-homelab-drive|save-postgres-password|save-spotify-credentials)\.sh|scripts/spotify-oauth\.ts|apps/drizzle/.*|apps/api/.*|apps/worker/.*|apps/media-worker/.*|apps/captive-portal/.*|docs/(deployment-design|k3s-migration/.*|captive-portal/.*|logging|writing-scalable-typescript/.*|perf-lab-recommendation)\.md)$	.*\b(control-center|control_center)\b.*	Control Center product, Kubernetes, database, or product-runtime identity, not repo identity by default.

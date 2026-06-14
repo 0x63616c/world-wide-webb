@@ -14,7 +14,6 @@
   "ignore": [
     ".claude/**", // Workflow-tool scripts (run by the Workflow tool, never imported)
     ".opencode/**", // OpenCode plugins (loaded at runtime by the opencode host, never imported)
-    "experiments/**", // Throwaway spikes
     "docs/media-tiles/**", // Design handoff bundle (prototypes/reference, not app code)
     "docs/captive-portal/design/**" // Captive portal design handoff (reference, not app code)
   ],
@@ -35,7 +34,7 @@
   ],
 
   // `tilt` is the dev-stack binary invoked by the root `dev` script; not an npm dep.
-  "ignoreBinaries": ["tilt"],
+  "ignoreBinaries": ["tilt", "scripts/check-rename-identity.py"],
 
   "workspaces": {
     ".": {

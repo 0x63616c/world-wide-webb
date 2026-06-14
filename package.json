@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:product-workspaces": "bun scripts/check-product-workspaces.ts",
     "test:coverage": "bash scripts/coverage.sh",
+    "identity:audit": "scripts/check-rename-identity.py",
     "badges": "bun scripts/gen-badges.ts",
     "lint": "bunx biome check .",
     "lint:fix": "bunx biome check --write .",
