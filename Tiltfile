@@ -13,7 +13,10 @@ os.putenv("POSTGRES_PORT", str(port_postgres))
 
 docker_compose("docker-compose.yml")
 
-dc_resource("postgres", labels=["backend"])
+# Shared platform infra (not a product): the dev Postgres every product's local
+# stack talks to. Second label `shared` is its product lane for the
+# product-lane check + Tilt UI grouping (www-jtp0.4.7).
+dc_resource("postgres", labels=["backend", "shared"])
 
 # One-shot batch fetch of all dev secrets via individual `op read` calls (shim-
 # cached, no rate-limit risk). tilt/load-secrets.sh reads each ref and prints
@@ -30,7 +33,7 @@ local_resource(
     cmd="bun install",
     deps=["package.json", "bun.lock", "products/control-center/api/package.json", "products/control-center/web/package.json", "packages/api/package.json"],
     allow_parallel=True,
-    labels=["tooling"],
+    labels=["tooling", "shared"],
 )
 
 # db-migrate: one-shot, runs pending Drizzle migrations before the API boots.
@@ -43,7 +46,7 @@ local_resource(
     cmd="DATABASE_URL='postgresql://cc:cc@localhost:%d/controlcenter' bun run --cwd products/control-center/api db:migrate" % port_postgres,
     deps=["products/control-center/api/src/db/migrations"],
     resource_deps=["postgres", "install"],
-    labels=["backend"],
+    labels=["backend", "control-center"],
 )
 
 # api: bun --watch owns the file watch. Tilt orchestrates startup, bun handles reloads.
@@ -71,7 +74,7 @@ local_resource(
         period_secs=1,
     ),
     resource_deps=["postgres", "install", "db-migrate"],
-    labels=["backend"],
+    labels=["backend", "control-center"],
     links=[
         link("http://localhost:%d/up" % port_api, "API /up"),
     ],
@@ -98,7 +101,7 @@ local_resource(
         "HOME_RADIUS_MILES": secrets["HOME_RADIUS_MILES"],
     },
     resource_deps=["postgres", "install", "db-migrate"],
-    labels=["backend"],
+    labels=["backend", "control-center"],
 )
 
 # web: Vite owns HMR. No `deps=` , same reasoning as api.
@@ -115,7 +118,7 @@ local_resource(
         period_secs=1,
     ),
     resource_deps=["api", "install"],
-    labels=["frontend"],
+    labels=["frontend", "control-center"],
     links=[
         link("http://localhost:%d" % port_web, "Web"),
     ],
@@ -126,7 +129,7 @@ local_resource(
     "storybook",
     serve_cmd="bun run --cwd products/control-center/web storybook",
     resource_deps=["install"],
-    labels=["frontend"],
+    labels=["frontend", "control-center"],
     links=[
         link("http://localhost:6006", "Storybook"),
     ],
@@ -139,7 +142,7 @@ local_resource(
     resource_deps=["postgres"],
     auto_init=False,
     trigger_mode=TRIGGER_MODE_MANUAL,
-    labels=["tooling"],
+    labels=["tooling", "control-center"],
     links=[
         link("https://local.drizzle.studio", "Drizzle Studio"),
     ],
