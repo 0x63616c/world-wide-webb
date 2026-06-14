@@ -194,7 +194,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.2.19
 
       - name: Install deps
         run: bun install --frozen-lockfile
@@ -322,7 +322,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.2.19
       - name: Install deps
         run: bun install --frozen-lockfile
       - name: Lint (biome)
@@ -787,7 +787,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.2.19
 
       - name: Install infra deps
         run: bun install --frozen-lockfile
