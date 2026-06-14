@@ -122,7 +122,7 @@
           </div>
           <sc-for list="{{ filteredIssues }}" as="row" hint-placeholder-count="10">
             <div class="bd-row" onClick="{{ row.onClick }}" style="{{ row.style }}">
-              <span class="mono" style="font-size:13px; color:var(--ink-2);">{{ row.id }}</span>
+              <span class="mono" style="font-size:13px; color:var(--ink-2);">{{ row.idLabel }}</span>
               <span><span style="{{ row.typeStyle }}">{{ row.typeLabel }}</span></span>
               <span><span style="{{ row.statusStyle }}">{{ row.statusLabel }}</span></span>
               <span style="font-size:14px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ row.title }}</span>
@@ -143,7 +143,7 @@
             <div class="tile" style="padding:0; overflow:hidden;">
               <div onClick="{{ epic.toggle }}" style="display:flex; align-items:center; gap:16px; padding:20px 22px; cursor:pointer;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="2" style="{{ epic.chevronStyle }}"><path d="m9 6 6 6-6 6"></path></svg>
-                <span class="mono" style="font-size:13px; color:var(--ink-2);">{{ epic.id }}</span>
+                <span class="mono" style="font-size:13px; color:var(--ink-2);">{{ epic.idLabel }}</span>
                 <span style="font-size:16px; font-weight:600; letter-spacing:-0.01em; color:var(--ink);">{{ epic.title }}</span>
                 <div style="margin-left:auto; display:flex; align-items:center; gap:14px;">
                   <div style="width:180px; height:6px; background:var(--nest); border-radius:999px; overflow:hidden;">
@@ -156,7 +156,7 @@
                 <div style="border-top:1px solid var(--hair);">
                   <sc-for list="{{ epic.children }}" as="row" hint-placeholder-count="3">
                     <div class="bd-row" onClick="{{ row.onClick }}" style="{{ row.style }}">
-                      <span class="mono" style="font-size:13px; color:var(--ink-2);">{{ row.id }}</span>
+                      <span class="mono" style="font-size:13px; color:var(--ink-2);">{{ row.idLabel }}</span>
                       <span><span style="{{ row.typeStyle }}">{{ row.typeLabel }}</span></span>
                       <span><span style="{{ row.statusStyle }}">{{ row.statusLabel }}</span></span>
                       <span style="font-size:14px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ row.title }}</span>
@@ -191,7 +191,7 @@
                     <div style="display:flex; align-items:center; gap:8px;">
                       <span style="{{ card.typeStyle }}">{{ card.typeLabel }}</span>
                       <span style="{{ card.prioStyle }}">{{ card.prioLabel }}</span>
-                      <span class="mono" style="margin-left:auto; font-size:12px; color:var(--ink-3);">{{ card.id }}</span>
+                      <span class="mono" style="margin-left:auto; font-size:12px; color:var(--ink-3);">{{ card.idLabel }}</span>
                     </div>
                   </div>
                 </sc-for>
@@ -233,7 +233,7 @@
       <button onClick="{{ closeDetail }}" aria-label="Close" style="position:absolute; inset:0; border:none; padding:0; cursor:default; background:rgba(0,0,0,.5); animation:bdFadeIn .18s ease;"></button>
       <aside style="position:relative; width:760px; max-width:92vw; height:100%; background:var(--tile); border-left:1px solid var(--hair); box-shadow:-24px 0 64px -24px rgba(0,0,0,.8); display:flex; flex-direction:column; animation:bdDrawerIn .22s cubic-bezier(.16,1,.3,1);">
         <div style="flex:0 0 auto; display:flex; align-items:center; gap:12px; padding:20px 22px; border-bottom:1px solid var(--hair);">
-          <span class="mono" style="font-size:13px; color:var(--ink-2);">{{ selected.id }}</span>
+          <span class="mono" style="font-size:13px; color:var(--ink-2);">{{ selected.idLabel }}</span>
           <span style="{{ selected.typeStyle }}">{{ selected.typeLabel }}</span>
           <button class="bd-x" onClick="{{ closeDetail }}" aria-label="Close" style="margin-left:auto; width:32px; height:32px; display:grid; place-items:center; border:1px solid var(--hair); border-radius:10px; background:var(--tile-2); color:var(--ink-2); cursor:pointer; transition:all .15s;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
@@ -329,7 +329,7 @@
                 <sc-for list="{{ selected.depRows }}" as="dep" hint-placeholder-count="2">
                   <button onClick="{{ dep.onClick }}" style="display:flex; align-items:center; gap:10px; text-align:left; padding:10px 12px; background:var(--tile-2); border:1px solid var(--hair); border-radius:11px; cursor:pointer; color:var(--ink);">
                     <span class="mono" style="font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:{{ dep.relColor }}; min-width:74px;">{{ dep.rel }}</span>
-                    <span class="mono" style="font-size:12.5px; color:var(--ink-2);">{{ dep.id }}</span>
+                    <span class="mono" style="font-size:12.5px; color:var(--ink-2);">{{ dep.idLabel }}</span>
                     <span style="font-size:13px; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ dep.title }}</span>
                   </button>
                 </sc-for>
@@ -559,7 +559,7 @@ class Component extends DCLogic {
     const pb = this.prioBadge(it.p);
     const av = this.assigneeView(it.assignee);
     return {
-      id: it.id,
+      id: it.id, idLabel: it.id.toUpperCase(),
       typeLabel: tm.label, typeStyle: this.badge(tm),
       title: it.title,
       statusLabel: sm.label, statusStyle: this.badge(sm),
@@ -714,7 +714,7 @@ class Component extends DCLogic {
       const pct = Math.round((done / total) * 100);
       const expanded = !!st.expanded[ep.id];
       return {
-        id: ep.id, title: ep.title,
+        id: ep.id, idLabel: ep.id.toUpperCase(), title: ep.title,
         countLabel: done + '/' + kids.length,
         barStyle: { width: pct + '%', height: '100%', background: pct === 100 ? '#3fb950' : 'var(--acc)', borderRadius: 999, transition: 'width .3s ease' },
         chevronStyle: { transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .16s ease', flex: '0 0 auto' },
@@ -731,7 +731,7 @@ class Component extends DCLogic {
         const tm = TYPE_META[it.type] || TYPE_META.task;
         const pb = this.prioBadge(it.p);
         return {
-          id: it.id, title: it.title,
+          id: it.id, idLabel: it.id.toUpperCase(), title: it.title,
           typeLabel: tm.label, typeStyle: this.badge(tm),
           prioLabel: pb.label, prioStyle: pb.style,
           style: { padding: 15, gap: 0 },
@@ -769,15 +769,15 @@ class Component extends DCLogic {
       });
       const epicParent = issues.find((e) => e.type === 'epic' && (e.children || []).includes(sel.id));
       const depRows = [];
-      (sel.blockedBy || []).forEach((id) => { const d = this.byId(id); if (d) depRows.push({ id: d.id, title: d.title, rel: 'Blocked by', relColor: '#f85149', onClick: () => this.openDetail(d.id) }); });
-      (sel.blocks || []).forEach((id) => { const d = this.byId(id); if (d) depRows.push({ id: d.id, title: d.title, rel: 'Blocks', relColor: '#f4c063', onClick: () => this.openDetail(d.id) }); });
+      (sel.blockedBy || []).forEach((id) => { const d = this.byId(id); if (d) depRows.push({ id: d.id, idLabel: d.id.toUpperCase(), title: d.title, rel: 'Blocked by', relColor: '#f85149', onClick: () => this.openDetail(d.id) }); });
+      (sel.blocks || []).forEach((id) => { const d = this.byId(id); if (d) depRows.push({ id: d.id, idLabel: d.id.toUpperCase(), title: d.title, rel: 'Blocks', relColor: '#f4c063', onClick: () => this.openDetail(d.id) }); });
       const activity = [
         { text: 'Issue created', meta: this.byId(sel.id) && sel.type === 'epic' ? 'epic · 6 days ago' : 'opened · 6 days ago' },
         { text: sel.assignee ? 'Claimed by ' + sel.assignee : 'Awaiting assignment', meta: sel.assignee ? 'assignee set · 4 days ago' : 'unassigned' },
         { text: 'Status set to ' + (STATUS_META[sel.status] || STATUS_META.ready).label, meta: 'updated · 2 days ago' }
       ];
       selected = {
-        id: sel.id, title: sel.title,
+        id: sel.id, idLabel: sel.id.toUpperCase(), title: sel.title,
         typeLabel: tm.label, typeStyle: this.badge(tm),
         assignee: av.assignee, assigneeStyle: { ...av.assigneeStyle, fontSize: 14 },
         epicLabel: epicParent ? epicParent.title : '-',
