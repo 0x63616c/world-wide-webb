@@ -126,7 +126,7 @@
               <span><span style="{{ row.statusStyle }}">{{ row.statusLabel }}</span></span>
               <span style="font-size:14px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ row.title }}</span>
               <span style="{{ row.assigneeStyle }}">{{ row.assignee }}</span>
-              <span><span style="{{ row.prioStyle }}"><span style="{{ row.prioDotStyle }}"></span>{{ row.prioLabel }}</span></span>
+              <span><span style="{{ row.prioStyle }}">{{ row.prioLabel }}</span></span>
               <span class="mono" style="text-align:right; font-size:12px; color:var(--ink-3);">{{ row.depText }}</span>
             </div>
           </sc-for>
@@ -160,7 +160,7 @@
                       <span><span style="{{ row.statusStyle }}">{{ row.statusLabel }}</span></span>
                       <span style="font-size:14px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ row.title }}</span>
                       <span style="{{ row.assigneeStyle }}">{{ row.assignee }}</span>
-                      <span><span style="{{ row.prioStyle }}"><span style="{{ row.prioDotStyle }}"></span>{{ row.prioLabel }}</span></span>
+                      <span><span style="{{ row.prioStyle }}">{{ row.prioLabel }}</span></span>
                       <span class="mono" style="text-align:right; font-size:12px; color:var(--ink-3);">{{ row.depText }}</span>
                     </div>
                   </sc-for>
@@ -189,7 +189,7 @@
                     <div style="font-size:14.5px; font-weight:500; line-height:1.35; color:var(--ink); margin-bottom:13px; letter-spacing:-0.01em;">{{ card.title }}</div>
                     <div style="display:flex; align-items:center; gap:8px;">
                       <span style="{{ card.typeStyle }}">{{ card.typeLabel }}</span>
-                      <span style="{{ card.prioStyle }}"><span style="{{ card.prioDotStyle }}"></span>{{ card.prioLabel }}</span>
+                      <span style="{{ card.prioStyle }}">{{ card.prioLabel }}</span>
                       <span class="mono" style="margin-left:auto; font-size:12px; color:var(--ink-3);">{{ card.id }}</span>
                     </div>
                   </div>
@@ -254,7 +254,7 @@
             <span class="cap">Priority</span>
             <div style="display:flex; gap:7px; flex-wrap:wrap;">
               <sc-for list="{{ selected.prioOptions }}" as="opt" hint-placeholder-count="4">
-                <button class="bd-seg" onClick="{{ opt.onClick }}" style="{{ opt.style }}"><span style="{{ opt.dotStyle }}"></span>{{ opt.label }}</button>
+                <button class="bd-seg" onClick="{{ opt.onClick }}" style="{{ opt.style }}">{{ opt.label }}</button>
               </sc-for>
             </div>
           </div>
@@ -500,7 +500,7 @@ class Component extends DCLogic {
   badge(meta) { return { ...PILL, color: meta.c, background: meta.b, border: '1px solid ' + meta.l }; }
   prioBadge(p) {
     const m = PRIO_META[p] || PRIO_META[PRIO_META.length - 1];
-    return { style: { ...PILL, color: p <= 1 ? m.c : 'var(--ink-2)', background: 'var(--nest)', border: '1px solid var(--hair)' }, dot: { width: 6, height: 6, borderRadius: 999, background: m.c, flex: '0 0 auto' }, label: 'P' + p };
+    return { style: { ...PILL, color: p <= 1 ? m.c : 'var(--ink-2)', background: 'var(--nest)', border: '1px solid var(--hair)' }, label: 'P' + p };
   }
   rowStyle() {
     return { display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 16, padding: this.isCompact() ? '9px 22px' : '14px 22px', borderTop: '1px solid var(--hair)', cursor: 'pointer' };
@@ -526,7 +526,7 @@ class Component extends DCLogic {
       title: it.title,
       statusLabel: sm.label, statusStyle: this.badge(sm),
       assignee: av.assignee, assigneeStyle: av.assigneeStyle,
-      prioLabel: pb.label, prioStyle: pb.style, prioDotStyle: pb.dot,
+      prioLabel: pb.label, prioStyle: pb.style,
       depText: this.depText(it),
       style: this.rowStyle(),
       onClick: () => this.openDetail(it.id)
@@ -695,7 +695,7 @@ class Component extends DCLogic {
         return {
           id: it.id, title: it.title,
           typeLabel: tm.label, typeStyle: this.badge(tm),
-          prioLabel: pb.label, prioStyle: pb.style, prioDotStyle: pb.dot,
+          prioLabel: pb.label, prioStyle: pb.style,
           style: { padding: 15, gap: 0 },
           onClick: () => this.openDetail(it.id),
           onDragStart: (e) => { try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.id); } catch (err) {} this.setState({ dragId: it.id }); },
