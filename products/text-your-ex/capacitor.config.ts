@@ -3,8 +3,8 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const config: CapacitorConfig = {
   appId: "co.worldwidewebb.textyourex",
   appName: "Text Your Ex",
-  // Vite builds the web app into web/dist; Capacitor bundles that offline.
-  webDir: "web/dist",
+  // Vite builds the web app into apps/frontend/dist; Capacitor bundles that offline.
+  webDir: "apps/frontend/dist",
   ios: {
     contentInset: "always",
   },

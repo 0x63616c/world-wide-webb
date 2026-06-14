@@ -15,9 +15,9 @@ local_resource(
     cmd='bun install',
     deps=[
         'package.json',
-        'web/package.json',
-        'server/package.json',
-        'e2e/package.json',
+        'apps/frontend/package.json',
+        'apps/api/package.json',
+        'apps/e2e/package.json',
     ],
     labels=['setup'],
 )
@@ -25,7 +25,7 @@ local_resource(
 # API server (Bun + Hono + SQLite). Seeds demo data on first boot.
 local_resource(
     'api',
-    serve_cmd='bun run --cwd server dev',
+    serve_cmd='bun run --cwd apps/api dev',
     serve_env={'PORT': str(API_PORT)},
     resource_deps=['install'],
     readiness_probe=probe(
@@ -38,8 +38,8 @@ local_resource(
 
 # Web dev server (Vite + React). Proxies /api to the API server.
 local_resource(
-    'web',
-    serve_cmd='bun run --cwd web dev',
+    'apps/frontend',
+    serve_cmd='bun run --cwd apps/frontend dev',
     resource_deps=['api'],
     readiness_probe=probe(
         period_secs=2,

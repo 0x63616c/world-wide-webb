@@ -4,29 +4,32 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "web",
-    "server",
-    "e2e"
+    "apps/frontend",
+    "apps/api",
+    "apps/e2e"
   ],
   "scripts": {
     "dev": "bun run dev:all",
     "dev:all": "concurrently -k -n server,web -c yellow,green \"bun run dev:server\" \"bun run dev:web\"",
-    "dev:server": "bun run --cwd server dev",
-    "dev:web": "bun run --cwd web dev",
-    "build": "bun run --cwd web build",
-    "seed": "bun run --cwd server seed",
-    "start": "NODE_ENV=production bun run --cwd server start",
-    "typecheck": "bun run --cwd server typecheck && bun run --cwd web typecheck",
-    "test:e2e": "bun run --cwd e2e test",
+    "dev:server": "bun run --cwd apps/api dev",
+    "dev:web": "bun run --cwd apps/frontend dev",
+    "build": "bun run --cwd apps/frontend build",
+    "seed": "bun run --cwd apps/api seed",
+    "start": "NODE_ENV=production bun run --cwd apps/api start",
+    "typecheck": "bun run --cwd apps/api typecheck && bun run --cwd apps/frontend typecheck",
+    "test:e2e": "bun run --cwd apps/e2e test",
     "ios:sync": "bun run build && cap sync ios",
     "ios:open": "cap open ios"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.0",
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "vitest": "^4.1.8"
   },
   "dependencies": {
     "@capacitor/core": "^8.4.0",
-    "@capacitor/ios": "^8.4.0"
+    "@capacitor/ios": "^8.4.0",
+    "@types/pg": "^8.20.0",
+    "pg": "^8.21.0"
   }
 }

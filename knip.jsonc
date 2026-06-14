@@ -15,7 +15,8 @@
     ".claude/**", // Workflow-tool scripts (run by the Workflow tool, never imported)
     ".opencode/**", // OpenCode plugins (loaded at runtime by the opencode host, never imported)
     "docs/media-tiles/**", // Design handoff bundle (prototypes/reference, not app code)
-    "docs/captive-portal/design/**" // Captive portal design handoff (reference, not app code)
+    "docs/captive-portal/design/**", // Captive portal design handoff (reference, not app code)
+    "products/text-your-ex/docs/design-reference/**" // Text Your Ex design-reference mockups (.jsx prototypes, not built/imported)
   ],
 
   // Real runtime deps with no JS-visible import edge.
