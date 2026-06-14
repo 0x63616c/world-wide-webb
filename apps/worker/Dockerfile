@@ -15,9 +15,21 @@ COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
 COPY apps/media-worker/package.json apps/media-worker/
-COPY apps/captive-portal/package.json apps/captive-portal/
 COPY packages/api/package.json packages/api/
 COPY packages/logger/package.json packages/logger/
+COPY packages/platform/package.json packages/platform/
+COPY products/amp/package.json products/amp/
+COPY products/captive-portal/apps/api/package.json products/captive-portal/apps/api/
+COPY products/captive-portal/apps/frontend/package.json products/captive-portal/apps/frontend/
+COPY products/captive-portal/package.json products/captive-portal/
+COPY products/control-center/api/package.json products/control-center/api/
+COPY products/control-center/ios/package.json products/control-center/ios/
+COPY products/control-center/media-worker/package.json products/control-center/media-worker/
+COPY products/control-center/package.json products/control-center/
+COPY products/control-center/storybook/package.json products/control-center/storybook/
+COPY products/control-center/web/package.json products/control-center/web/
+COPY products/control-center/worker/package.json products/control-center/worker/
+COPY products/text-your-ex/package.json products/text-your-ex/
 # Infra Pulumi workspaces (www-j934.1/.2/.3): root package.json declares these, so
 # bun install needs their manifests in the build context (www-272b).
 COPY infra/package.json infra/

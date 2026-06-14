@@ -108,6 +108,11 @@ for (const service of expectedServices) {
       manifestEntry.dockerfile === service.dockerfile,
       `${service.name} Dockerfile must stay explicit`,
     );
+    const dockerfile = readFileSync(join(repoRoot, service.dockerfile), "utf8");
+    assert(
+      !dockerfile.includes("apps/captive-portal/package.json"),
+      `${service.name} Dockerfile must not copy deleted apps/captive-portal/package.json`,
+    );
   }
 
   const packagePath = `${service.productPath}/package.json`;
