@@ -109,6 +109,7 @@ function ContextBreakdownSidebar(props) {
       ) : null}
       {breakdown() ? (
         <box flexDirection="column">
+          <text fg="gray">Exact total: {formatTokens(breakdown().exact.total)} tokens</text>
           <text fg="gray">
             Latest exact: in {formatTokens(breakdown().exact.input)}, out{" "}
             {formatTokens(breakdown().exact.output)}, reason{" "}

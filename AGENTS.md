@@ -7,6 +7,7 @@
 - Before writing, editing, or reviewing TypeScript/TSX, use the `writing-scalable-typescript` skill when available and follow `docs/writing-scalable-typescript/README.md`.
 - Use Beads for durable work tracking: `bd prime`, `bd ready`, `bd show <id>`, `bd update <id> --claim`, `bd close <id>`. Do not treat `.beads/issues.jsonl` as source of truth or run `bd import` during normal work.
 - When mentioning any `CC-*` Beads ticket, always include both the id and title, e.g. `www-4jvw - Add recap skill and www-ticket title rule`.
+- When Calum asks to research, compare, price, or verify current external facts, check online when it makes sense. Do not rely only on stale model knowledge for live/vendor-specific information.
 
 ## Commands
 

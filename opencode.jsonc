@@ -2,6 +2,13 @@
   "$schema": "https://opencode.ai/config.json",
   "model": "openai/gpt-5.5-fast",
   "small_model": "openai/gpt-5.4-fast",
+  "provider": {
+    "openai": {
+      "options": {
+        "baseURL": "http://127.0.0.1:8788/v1"
+      }
+    }
+  },
   "lsp": true,
   "plugin": ["opencode-beads", "@slkiser/opencode-quota"],
   "command": {
@@ -16,6 +23,10 @@
     "commit-and-push": {
       "description": "Commit the current work and push the branch",
       "template": "Use the commit-and-push skill to commit and push the current work. Arguments: $ARGUMENTS"
+    },
+    "remember": {
+      "description": "Save a durable memory globally by default, or locally with --local",
+      "template": "Use the remember skill to save a durable memory. Arguments: $ARGUMENTS"
     }
   },
   "permission": {

@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/tui.json",
-  "theme": "aura",
+  "theme": "lucent-orng",
   "plugin": [
     "@slkiser/opencode-quota",
     "./.opencode/tui/smoke-sidebar.tsx",

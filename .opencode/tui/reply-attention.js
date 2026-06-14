@@ -4,6 +4,7 @@ const DEFAULT_OPTIONS = {
   sound: "done",
   volume: 0.5,
   debounceMs: 4000,
+  notificationWhen: "always",
   afplayPath: "/System/Library/Sounds/Glass.aiff",
   afplayBinary: "/usr/bin/afplay",
 };
@@ -20,6 +21,8 @@ function normalizeOptions(options = {}) {
     volume: typeof options.volume === "number" ? options.volume : DEFAULT_OPTIONS.volume,
     debounceMs:
       typeof options.debounceMs === "number" ? options.debounceMs : DEFAULT_OPTIONS.debounceMs,
+    notificationWhen:
+      options.notificationWhen === "blurred" ? "blurred" : DEFAULT_OPTIONS.notificationWhen,
     afplayPath:
       typeof options.afplayPath === "string" && options.afplayPath
         ? options.afplayPath
@@ -62,17 +65,30 @@ function idleEventKey(event) {
   return null;
 }
 
-function notifyNative(api, options) {
+function idleSessionLabel(event) {
+  const sessionID =
+    event?.properties?.sessionID ?? event?.sessionID ?? event?.session_id ?? event?.session?.id;
+
+  if (typeof sessionID !== "string" || sessionID.length === 0) {
+    return null;
+  }
+
+  return sessionID.length > 12 ? sessionID.slice(0, 12) : sessionID;
+}
+
+function notifyNative(api, options, event) {
   const notify = api.attention?.notify;
 
   if (typeof notify !== "function") {
     return false;
   }
 
+  const sessionLabel = idleSessionLabel(event);
+
   notify({
-    message: "A response is ready",
+    message: sessionLabel ? `A response is ready in ${sessionLabel}` : "A response is ready",
     sound: { name: options.sound, volume: options.volume, when: "always" },
-    notification: { when: "blurred" },
+    notification: { when: options.notificationWhen },
   });
 
   return true;
@@ -93,12 +109,12 @@ function notifyAfplay(options) {
   return true;
 }
 
-function emitAttention(api, options) {
-  if (options.mode === "native" && notifyNative(api, options)) {
+function emitAttention(api, options, event) {
+  if (options.mode === "native" && notifyNative(api, options, event)) {
     return;
   }
 
-  if (options.mode === "fallback" && notifyNative(api, options)) {
+  if (options.mode === "fallback" && notifyNative(api, options, event)) {
     return;
   }
 
@@ -145,7 +161,7 @@ function tui(api, rawOptions = {}) {
 
     lastIdleKey = nextIdleKey;
     lastNotifiedAt = now;
-    emitAttention(api, options);
+    emitAttention(api, options, event);
   }
 
   registerIdleListener(api, "session.idle", handleIdle);
