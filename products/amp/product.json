@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "slug": "amp",
+  "displayName": "AMP",
+  "productFolder": "products/amp",
+  "runtimeStatus": "shell"
+}

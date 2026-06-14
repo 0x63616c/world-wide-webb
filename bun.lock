@@ -147,6 +147,7 @@
       "dependencies": {
         "@pulumi/kubernetes": "^4.21.0",
         "@pulumi/pulumi": "^3.145.0",
+        "@repo/platform": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "^1.3.13",
@@ -211,6 +212,22 @@
         "typescript": "^5.9.3",
         "vitest": "^3.2.4",
       },
+    },
+    "products/amp": {
+      "name": "@product/amp",
+      "version": "0.0.0",
+    },
+    "products/captive-portal": {
+      "name": "@product/captive-portal",
+      "version": "0.0.0",
+    },
+    "products/control-center": {
+      "name": "@product/control-center",
+      "version": "0.0.0",
+    },
+    "products/text-your-ex": {
+      "name": "@product/text-your-ex",
+      "version": "0.0.0",
     },
   },
   "trustedDependencies": [
@@ -834,6 +851,14 @@
     "@playwright/test": ["@playwright/test@1.60.0", "", { "dependencies": { "playwright": "1.60.0" }, "bin": { "playwright": "cli.js" } }, "sha512-O71yZIbAh/PxDMNGns37GHBIfrVkEVyn+AXyIa5dOTfb4/xNvRWV+Vv/NMbNCtODB/pO7vLlF2OTmMVLhmr7Ag=="],
 
     "@polka/url": ["@polka/url@1.0.0-next.29", "", {}, "sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww=="],
+
+    "@product/amp": ["@product/amp@workspace:products/amp"],
+
+    "@product/captive-portal": ["@product/captive-portal@workspace:products/captive-portal"],
+
+    "@product/control-center": ["@product/control-center@workspace:products/control-center"],
+
+    "@product/text-your-ex": ["@product/text-your-ex@workspace:products/text-your-ex"],
 
     "@protobufjs/aspromise": ["@protobufjs/aspromise@1.1.2", "", {}, "sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ=="],
 

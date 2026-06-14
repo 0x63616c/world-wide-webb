@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "slug": "control-center",
+  "displayName": "Control Center",
+  "productFolder": "products/control-center",
+  "runtimeStatus": "top-level-until-m4-move"
+}
