@@ -30,7 +30,10 @@
     // coverage.sh runs `cd products/control-center/web && vitest run --coverage`, so the v8 provider
     // must resolve from products/control-center/web. It's invoked by the vitest CLI, not imported, so
     // knip can't see the edge - kept declared where coverage runs (www-k6p1).
-    "@vitest/coverage-v8"
+    "@vitest/coverage-v8",
+    // bdui is the beads viewer CLI (the `bv` tool, config under .bv/); run from the
+    // shell, never imported, so knip sees no edge (www-iy13).
+    "bdui"
   ],
 
   // `tilt` is the dev-stack binary invoked by the root `dev` script; not an npm dep.
