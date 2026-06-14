@@ -3,15 +3,19 @@ import { pool } from "../db/index";
 import { runMigrations } from "../db/migrate";
 import * as store from "../store";
 
-// These tests require a real Postgres instance.
-// Set DATABASE_URL=postgresql://postgres:test@localhost:5432/tye_test in env.
-// The vitest config sets this via env (or inherit from shell).
+// DB-integration suite: requires a real Postgres (DATABASE_URL). The default unit
+// gate has no DB, so these skip and the hooks no-op; the db layer still imports
+// (buildDatabaseUrl returns undefined when unconfigured rather than throwing).
+// Locally: DATABASE_URL=postgresql://postgres:test@localhost:5432/tye_test bun run test --project tye-api
+const HAS_DB = !!process.env.DATABASE_URL;
 
 beforeAll(async () => {
+  if (!HAS_DB) return;
   await runMigrations();
 });
 
 beforeEach(async () => {
+  if (!HAS_DB) return;
   // Truncate all tables in reverse dep order
   await pool.query(`
     TRUNCATE report_evidence, reports, activity, slips, memberships,
@@ -20,10 +24,11 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
+  if (!HAS_DB) return;
   await pool.end();
 });
 
-describe("users / auth", () => {
+describe.skipIf(!HAS_DB)("users / auth", () => {
   it("creates a user and retrieves it", async () => {
     const u = await store.createUser({ name: "Alice", color: "#FF0000", exes: ["Bob"] });
     expect(u.id).toMatch(/^usr_/);
@@ -54,7 +59,7 @@ describe("users / auth", () => {
   });
 });
 
-describe("jar lifecycle", () => {
+describe.skipIf(!HAS_DB)("jar lifecycle", () => {
   it("creates jar and lists for user", async () => {
     const u = await store.createUser({ name: "Eve" });
     const jar = await store.createJar({ userId: u.id, name: "Test Jar", rule: "no texting" });
@@ -81,7 +86,7 @@ describe("jar lifecycle", () => {
   });
 });
 
-describe("slip logging", () => {
+describe.skipIf(!HAS_DB)("slip logging", () => {
   it("logs a slip and updates tally", async () => {
     const u = await store.createUser({ name: "Henry" });
     const jar = await store.createJar({
@@ -96,7 +101,7 @@ describe("slip logging", () => {
   });
 });
 
-describe("reports", () => {
+describe.skipIf(!HAS_DB)("reports", () => {
   it("creates pending report and resolves as owned", async () => {
     const accuser = await store.createUser({ name: "Iris" });
     const accused = await store.createUser({ name: "Jack" });
@@ -147,7 +152,7 @@ describe("reports", () => {
   });
 });
 
-describe("activity", () => {
+describe.skipIf(!HAS_DB)("activity", () => {
   it("activityForUser returns jar activity", async () => {
     const u = await store.createUser({ name: "Mia" });
     const jar = await store.createJar({ userId: u.id, name: "Activity Jar", rule: "" });

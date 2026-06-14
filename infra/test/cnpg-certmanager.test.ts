@@ -69,15 +69,15 @@ describe("installCnpg", () => {
     expect(spec.target.template.data.username).toBe("postgres");
   });
 
-  test("installs both Control Center and Captive Portal product databases", async () => {
+  test("installs Control Center, Captive Portal, and Text Your Ex product databases", async () => {
     const res = cnpg.installCnpg({
       provider: provider(),
       namespace: "control-center",
       operatorVersion: "1.29.1",
     });
 
-    expect(res.clusters).toHaveLength(2);
-    expect(res.authSecrets).toHaveLength(2);
+    expect(res.clusters).toHaveLength(3);
+    expect(res.authSecrets).toHaveLength(3);
 
     const clusterSpecs = await Promise.all(
       res.clusters.map((cluster) =>
@@ -93,6 +93,7 @@ describe("installCnpg", () => {
     expect(clusterSpecs.map((spec) => spec.bootstrap.initdb.database).sort()).toEqual([
       "captive_portal",
       "control_center",
+      "text_your_ex",
     ]);
     expect(
       clusterSpecs.find((spec) => spec.bootstrap.initdb.database === "captive_portal"),

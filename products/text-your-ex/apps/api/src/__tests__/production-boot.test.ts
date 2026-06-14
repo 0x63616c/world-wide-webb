@@ -3,7 +3,12 @@ import { pool } from "../db/index";
 import { runMigrations } from "../db/migrate";
 import { ensureSeed } from "../seed";
 
+// DB-integration suite, only runs with a real Postgres (DATABASE_URL); skips in
+// the default unit gate. See store.test.ts for the rationale.
+const HAS_DB = !!process.env.DATABASE_URL;
+
 beforeEach(async () => {
+  if (!HAS_DB) return;
   await pool.query(`
     TRUNCATE report_evidence, reports, activity, slips, memberships,
              sessions, otps, user_exes, jars, users RESTART IDENTITY CASCADE
@@ -11,10 +16,11 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
+  if (!HAS_DB) return;
   await pool.end();
 });
 
-describe("production boot", () => {
+describe.skipIf(!HAS_DB)("production boot", () => {
   it("ensureSeed does NOT insert rows when APP_ENV=production", async () => {
     const origEnv = process.env.APP_ENV;
     process.env.APP_ENV = "production";

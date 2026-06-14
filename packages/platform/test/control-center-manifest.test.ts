@@ -12,7 +12,9 @@ const baseServiceOptions = {
   storybookReplicas: 0,
 };
 
-const separateProductWorkloads = new Set(["amp-app"]);
+// Workloads owned by other products, excluded from the Control Center manifest
+// comparison: amp (amp-app) and text-your-ex (tye-api, tye-frontend).
+const separateProductWorkloads = new Set(["amp-app", "tye-api", "tye-frontend"]);
 
 describe("Control Center platform representation", () => {
   test("declares Control Center app identity and target app surface", () => {

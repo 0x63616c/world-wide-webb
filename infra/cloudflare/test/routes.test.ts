@@ -29,6 +29,7 @@ describe("desiredIngressRules", () => {
     expect(Object.keys(byHost).sort()).toEqual([
       "app.amp.worldwidewebb.co",
       "app.cc.worldwidewebb.co",
+      "app.tye.worldwidewebb.co",
       "dashboard.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "hooks.worldwidewebb.co",
@@ -38,6 +39,7 @@ describe("desiredIngressRules", () => {
     expect(byHost["dashboard.worldwidewebb.co"]).toBe("http://web:80");
     expect(byHost["app.cc.worldwidewebb.co"]).toBe("http://web:80");
     expect(byHost["app.amp.worldwidewebb.co"]).toBe("http://amp-app:80");
+    expect(byHost["app.tye.worldwidewebb.co"]).toBe("http://tye-frontend:80");
     expect(byHost["portainer.worldwidewebb.co"]).toBe("http://portainer:9000");
     expect(byHost["hooks.worldwidewebb.co"]).toBe("http://bosun-agent:4202");
   });
@@ -103,6 +105,7 @@ describe("desiredCnames", () => {
     expect(hosts).toEqual([
       "app.amp.worldwidewebb.co",
       "app.cc.worldwidewebb.co",
+      "app.tye.worldwidewebb.co",
       "dashboard.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "hooks-test.worldwidewebb.co",
