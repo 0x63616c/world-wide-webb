@@ -13,6 +13,8 @@ export async function signUpPhone(page: Page, digits: string, name: string) {
   await page.getByRole("button", { name: "Continue with phone" }).click();
   for (const d of digits) await page.getByRole("button", { name: d, exact: true }).first().click();
   await page.getByRole("button", { name: "Send me the code" }).click();
+  // wait for OTP screen before entering digits
+  await expect(page.getByText("Check your texts")).toBeVisible();
   // any 6 digits accepted
   for (const d of "123456")
     await page.getByRole("button", { name: d, exact: true }).first().click();
