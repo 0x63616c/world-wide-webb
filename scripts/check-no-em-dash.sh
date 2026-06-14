@@ -19,6 +19,7 @@ is_exempt() {
     scripts/test-check-no-em-dash.sh) return 0 ;;
     docs/captive-portal/design/*) return 0 ;;
     docs/media-tiles/*) return 0 ;;
+    products/project-management/public/*) return 0 ;;
     *) return 1 ;;
   esac
 }

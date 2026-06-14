@@ -1,0 +1,10 @@
+{
+  "name": "project-management",
+  "private": true,
+  "type": "module",
+  "description": "Live web UI for this project's beads issues (Claude Design prototype wired to bd).",
+  "scripts": {
+    "start": "bun run server.ts",
+    "dev": "bun run server.ts"
+  }
+}

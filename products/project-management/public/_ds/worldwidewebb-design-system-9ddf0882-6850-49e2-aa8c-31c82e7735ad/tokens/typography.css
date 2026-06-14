@@ -1,0 +1,49 @@
+/* ===== WorldWideWebb — Typography system =====
+   Two families only: Space Grotesk (UI + display) and Space Mono (every number,
+   clock, telemetry value, label code). Tight tracking is a brand signature —
+   display sizes go as low as -0.05em. Captions are uppercase with WIDE tracking.
+   font-smoothing: antialiased everywhere. */
+
+:root {
+  /* ---- Families ---- */
+  --font-ui: "Space Grotesk Variable", "Space Grotesk", "SF Pro Display", system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, "SF Mono", monospace;
+  /* aliases */
+  --ui: var(--font-ui);
+  --mono: var(--font-mono);
+
+  /* ---- Weights ---- */
+  --fw-light: 300; /* @kind font */
+  --fw-regular: 400; /* @kind font */
+  --fw-medium: 500; /* @kind font */
+  --fw-semibold: 600; /* @kind font */
+  --fw-bold: 700; /* @kind font */
+
+  /* ---- Display / numeric scale (mono, big telemetry readouts) ---- */
+  --fs-display-xl: 96px; /* clock time */
+  --fs-display-lg: 66px; /* weather temp, climate setpoint */
+  --fs-display-md: 52px; /* climate range, "Off" */
+  --fs-stat: 32px; /* event day counts */
+  --fs-value: 22px; /* Stat primitive value */
+  --fs-value-sm: 16px; /* compact metric value */
+
+  /* ---- UI text scale (Space Grotesk) ---- */
+  --fs-title: 17.5px; /* tile header title */
+  --fs-body: 16px; /* body copy, control labels */
+  --fs-body-sm: 14px; /* secondary body */
+  --fs-pill: 12.5px; /* pill / chip text */
+  --fs-cap: 11.5px; /* caption / section label */
+  --fs-cap-sm: 10.5px; /* micro caption */
+
+  /* ---- Tracking ---- */
+  --tracking-display: -0.05em; /* huge mono numerals */
+  --tracking-tight: -0.02em; /* mono + headings */
+  --tracking-ui: -0.01em; /* default UI text */
+  --tracking-cap: 0.16em; /* uppercase captions / section labels */
+  --tracking-cap-wide: 0.2em; /* greeting / hero caption */
+
+  /* ---- Line heights ---- */
+  --lh-display: 0.82; /* @kind font */ /* stacked hero numerals */
+  --lh-tight: 1.1; /* @kind font */
+  --lh-body: 1.5; /* @kind font */
+}

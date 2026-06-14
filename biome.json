@@ -55,7 +55,8 @@
       "!**/.cmux",
       "!**/experiments",
       "!**/docs/media-tiles",
-      "!**/docs/captive-portal/design"
+      "!**/docs/captive-portal/design",
+      "!**/products/project-management"
     ]
   },
   "overrides": [

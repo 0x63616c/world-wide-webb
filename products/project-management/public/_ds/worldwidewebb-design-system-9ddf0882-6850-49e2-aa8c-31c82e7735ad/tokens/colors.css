@@ -1,0 +1,63 @@
+/* ===== WorldWideWebb — Color system =====
+   "Vercel-black": pure neutral grayscale surfaces (R=G=B, no blue tint) with a
+   Geist-style foreground ramp, lit by a single Vercel-blue accent (#0070f3).
+   Amber is the only secondary accent (warnings / unlocked / charging-idle).
+   Everything below is the literal token contract shipped to consumers. */
+
+:root {
+  /* ---- Surfaces (darkest → lightest, all pure neutral) ---- */
+  --bg: #000000; /* the board / page void */
+  --tile: #0a0a0a; /* default card surface */
+  --tile-2: #111111; /* inset controls, taps, chips */
+  --nest: #181818; /* nested chips, pills, icon wells */
+
+  /* ---- Hairlines (translucent white borders) ---- */
+  --hair: rgba(255, 255, 255, 0.07); /* default 1px border */
+  --hair-2: rgba(255, 255, 255, 0.12); /* hover / emphasized border */
+  --hair-3: rgba(255, 255, 255, 0.28); /* focused / centered element border */
+
+  /* ---- Foreground ramp (Geist-style) ---- */
+  --ink: #ededed; /* primary text */
+  --ink-2: #a1a1a1; /* secondary text, captions, idle icons */
+  --ink-3: #6e6e6e; /* tertiary text, labels, disabled */
+
+  /* ---- Accent (Vercel blue) ---- */
+  --acc: #0070f3; /* primary accent text / active glyphs */
+  --acc-2: #0061d5; /* darker accent, gradient start */
+  --acc-muted: #3a4049; /* desaturated accent (chart upload bars) */
+  --acc-dim: rgba(0, 112, 243, 0.14); /* active fill background */
+  --acc-line: rgba(0, 112, 243, 0.45); /* active border */
+  --acc-glow: 0 0 0 1px rgba(0, 112, 243, 0.4), 0 0 26px -6px rgba(0, 112, 243, 0.5);
+
+  /* ---- Secondary accent (amber) ---- */
+  --amber: #f4c063;
+  --amber-dim: rgba(244, 192, 99, 0.1);
+  --amber-line: rgba(244, 192, 99, 0.35);
+
+  /* ---- Status semantics ---- */
+  --ok: var(--acc); /* online / live / charging */
+  --warn: var(--amber); /* attention / unlocked */
+  --off: #3a3a3a; /* off / inert status dot */
+
+  /* ---- Semantic surface/text aliases ---- */
+  --surface-page: var(--bg);
+  --surface-card: var(--tile);
+  --surface-inset: var(--tile-2);
+  --surface-nested: var(--nest);
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-2);
+  --text-tertiary: var(--ink-3);
+  --border-default: var(--hair);
+  --border-hover: var(--hair-2);
+  --border-active: var(--acc-line);
+
+  /* ---- Legacy aliases (ported tiles reference a second naming scheme) ---- */
+  --ink-1: var(--ink);
+  --ink2: var(--ink-2);
+  --ink3: var(--ink-3);
+  --bg-2: var(--tile-2);
+  --bg-3: var(--nest);
+  --bg3: var(--nest);
+  --line: var(--hair);
+  --line2: var(--hair-2);
+}

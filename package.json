@@ -6,6 +6,7 @@
     "apps/*",
     "products/control-center/*",
     "products/*",
+    "!products/project-management",
     "packages/*",
     "products/*/apps/*",
     "products/*/packages/*",

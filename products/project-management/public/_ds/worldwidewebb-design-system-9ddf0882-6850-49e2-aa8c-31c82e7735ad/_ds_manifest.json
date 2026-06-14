@@ -1,0 +1,662 @@
+{
+  "namespace": "WorldWideWebbDesignSystem_9ddf08",
+  "components": [
+    { "name": "Button", "sourcePath": "components/controls/Button.jsx" },
+    { "name": "Chip", "sourcePath": "components/controls/Chip.jsx" },
+    { "name": "ControlTap", "sourcePath": "components/controls/ControlTap.jsx" },
+    { "name": "Switch", "sourcePath": "components/controls/Switch.jsx" },
+    { "name": "GLYPHS", "sourcePath": "components/core/Icon.jsx" },
+    { "name": "Icon", "sourcePath": "components/core/Icon.jsx" },
+    { "name": "PillTone", "sourcePath": "components/core/Pill.jsx" },
+    { "name": "Pill", "sourcePath": "components/core/Pill.jsx" },
+    { "name": "Skeleton", "sourcePath": "components/core/Skeleton.jsx" },
+    { "name": "Stat", "sourcePath": "components/core/Stat.jsx" },
+    { "name": "StatusDot", "sourcePath": "components/core/StatusDot.jsx" },
+    { "name": "Tile", "sourcePath": "components/core/Tile.jsx" },
+    { "name": "TileHeader", "sourcePath": "components/core/TileHeader.jsx" },
+    { "name": "Modal", "sourcePath": "components/feedback/Modal.jsx" }
+  ],
+  "startingPoints": [],
+  "cards": [
+    {
+      "path": "foundations/brand-logo.card.html",
+      "group": "Brand",
+      "viewport": "700x200",
+      "subtitle": "The sculptural mark on the void, set in Space Grotesk",
+      "name": "App icon & wordmark"
+    },
+    {
+      "path": "foundations/brand-tile-anatomy.card.html",
+      "group": "Brand",
+      "viewport": "700x260",
+      "subtitle": "The signature surface: hairline, 20px radius, header + mono body",
+      "name": "Tile anatomy"
+    },
+    {
+      "path": "foundations/colors-accent.card.html",
+      "group": "Colors",
+      "viewport": "700x170",
+      "subtitle": "The single lighting accent and its derived fills",
+      "name": "Accent — Vercel blue"
+    },
+    {
+      "path": "foundations/colors-foreground.card.html",
+      "group": "Colors",
+      "viewport": "700x150",
+      "subtitle": "Geist-style text ramp on the void",
+      "name": "Foreground ramp"
+    },
+    {
+      "path": "foundations/colors-hairlines.card.html",
+      "group": "Colors",
+      "viewport": "700x150",
+      "subtitle": "Translucent white borders — the only borders in the system",
+      "name": "Hairlines"
+    },
+    {
+      "path": "foundations/colors-status.card.html",
+      "group": "Colors",
+      "viewport": "700x160",
+      "subtitle": "Secondary accent + status semantics",
+      "name": "Amber & status"
+    },
+    {
+      "path": "foundations/colors-surfaces.card.html",
+      "group": "Colors",
+      "viewport": "700x150",
+      "subtitle": "Pure-neutral grayscale, darkest void → lightest nest",
+      "name": "Surfaces"
+    },
+    {
+      "path": "components/controls/controls.card.html",
+      "group": "Components",
+      "viewport": "700x440",
+      "subtitle": "Switch, Chip, Button, ControlTap",
+      "name": "Controls — interactive"
+    },
+    {
+      "path": "components/core/core.card.html",
+      "group": "Components",
+      "viewport": "700x520",
+      "subtitle": "Tile, TileHeader, Pill, Stat, StatusDot, Skeleton, Icon",
+      "name": "Core — surfaces & display"
+    },
+    {
+      "path": "components/feedback/feedback.card.html",
+      "group": "Components",
+      "viewport": "700x360",
+      "subtitle": "Centered dialog with the brand entrance pop",
+      "name": "Feedback — Modal"
+    },
+    {
+      "path": "ui_kits/control-center/index.html",
+      "group": "Control Center",
+      "viewport": "1366x1386",
+      "subtitle": "The full bento board: tap controls, drive climate, open the expanded modal",
+      "name": "Dashboard — wall panel"
+    },
+    {
+      "path": "foundations/spacing-radii.card.html",
+      "group": "Spacing",
+      "viewport": "700x180",
+      "subtitle": "Radii step down as elements nest",
+      "name": "Radii"
+    },
+    {
+      "path": "foundations/spacing-scale.card.html",
+      "group": "Spacing",
+      "viewport": "700x180",
+      "subtitle": "18px grid gutter is the base rhythm",
+      "name": "Spacing scale"
+    },
+    {
+      "path": "foundations/spacing-shadows.card.html",
+      "group": "Spacing",
+      "viewport": "700x180",
+      "subtitle": "Subtle inset highlight + soft drop; one colored glow",
+      "name": "Shadows & glow"
+    },
+    {
+      "path": "foundations/type-display.card.html",
+      "group": "Type",
+      "viewport": "700x280",
+      "subtitle": "Big mono numerals — the brand's loudest voice",
+      "name": "Display & telemetry scale"
+    },
+    {
+      "path": "foundations/type-families.card.html",
+      "group": "Type",
+      "viewport": "700x230",
+      "subtitle": "Space Grotesk (UI) + Space Mono (numerals)",
+      "name": "Families"
+    },
+    {
+      "path": "foundations/type-ui.card.html",
+      "group": "Type",
+      "viewport": "700x300",
+      "subtitle": "Space Grotesk — titles, body, captions",
+      "name": "UI text scale"
+    }
+  ],
+  "templates": [],
+  "globalCssPaths": [
+    "tokens/fonts.css",
+    "tokens/colors.css",
+    "tokens/typography.css",
+    "tokens/spacing.css",
+    "tokens/primitives.css",
+    "styles.css"
+  ],
+  "tokens": [
+    { "name": "--bg", "value": "#000000", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--tile", "value": "#0a0a0a", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--tile-2", "value": "#111111", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--nest", "value": "#181818", "kind": "color", "definedIn": "tokens/colors.css" },
+    {
+      "name": "--hair",
+      "value": "rgba(255, 255, 255, 0.07)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--hair-2",
+      "value": "rgba(255, 255, 255, 0.12)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--hair-3",
+      "value": "rgba(255, 255, 255, 0.28)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    { "name": "--ink", "value": "#ededed", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--ink-2", "value": "#a1a1a1", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--ink-3", "value": "#6e6e6e", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--acc", "value": "#0070f3", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--acc-2", "value": "#0061d5", "kind": "color", "definedIn": "tokens/colors.css" },
+    {
+      "name": "--acc-muted",
+      "value": "#3a4049",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--acc-dim",
+      "value": "rgba(0, 112, 243, 0.14)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--acc-line",
+      "value": "rgba(0, 112, 243, 0.45)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--acc-glow",
+      "value": "0 0 0 1px rgba(0, 112, 243, 0.4), 0 0 26px -6px rgba(0, 112, 243, 0.5)",
+      "kind": "shadow",
+      "definedIn": "tokens/colors.css"
+    },
+    { "name": "--amber", "value": "#f4c063", "kind": "color", "definedIn": "tokens/colors.css" },
+    {
+      "name": "--amber-dim",
+      "value": "rgba(244, 192, 99, 0.10)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--amber-line",
+      "value": "rgba(244, 192, 99, 0.35)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    { "name": "--ok", "value": "var(--acc)", "kind": "color", "definedIn": "tokens/colors.css" },
+    {
+      "name": "--warn",
+      "value": "var(--amber)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    { "name": "--off", "value": "#3a3a3a", "kind": "color", "definedIn": "tokens/colors.css" },
+    {
+      "name": "--surface-page",
+      "value": "var(--bg)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--surface-card",
+      "value": "var(--tile)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--surface-inset",
+      "value": "var(--tile-2)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--surface-nested",
+      "value": "var(--nest)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--text-primary",
+      "value": "var(--ink)",
+      "kind": "font",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--text-secondary",
+      "value": "var(--ink-2)",
+      "kind": "font",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--text-tertiary",
+      "value": "var(--ink-3)",
+      "kind": "font",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--border-default",
+      "value": "var(--hair)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--border-hover",
+      "value": "var(--hair-2)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--border-active",
+      "value": "var(--acc-line)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    { "name": "--ink-1", "value": "var(--ink)", "kind": "color", "definedIn": "tokens/colors.css" },
+    {
+      "name": "--ink2",
+      "value": "var(--ink-2)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--ink3",
+      "value": "var(--ink-3)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--bg-2",
+      "value": "var(--tile-2)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    { "name": "--bg-3", "value": "var(--nest)", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--bg3", "value": "var(--nest)", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--line", "value": "var(--hair)", "kind": "color", "definedIn": "tokens/colors.css" },
+    {
+      "name": "--line2",
+      "value": "var(--hair-2)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--font-ui",
+      "value": "\"Space Grotesk Variable\", \"Space Grotesk\", \"SF Pro Display\", system-ui, sans-serif",
+      "kind": "font",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--font-mono",
+      "value": "\"Space Mono\", ui-monospace, \"SF Mono\", monospace",
+      "kind": "font",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--ui",
+      "value": "var(--font-ui)",
+      "kind": "color",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--mono",
+      "value": "var(--font-mono)",
+      "kind": "color",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--fw-light",
+      "value": "300",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fw-regular",
+      "value": "400",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fw-medium",
+      "value": "500",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fw-semibold",
+      "value": "600",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fw-bold",
+      "value": "700",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fs-display-xl",
+      "value": "96px",
+      "kind": "spacing",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--fs-display-lg",
+      "value": "66px",
+      "kind": "spacing",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--fs-display-md",
+      "value": "52px",
+      "kind": "spacing",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--fs-stat",
+      "value": "32px",
+      "kind": "spacing",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--fs-value",
+      "value": "22px",
+      "kind": "spacing",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--fs-value-sm",
+      "value": "16px",
+      "kind": "spacing",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--fs-title",
+      "value": "17.5px",
+      "kind": "spacing",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--fs-body",
+      "value": "16px",
+      "kind": "spacing",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--fs-body-sm",
+      "value": "14px",
+      "kind": "spacing",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--fs-pill",
+      "value": "12.5px",
+      "kind": "spacing",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--fs-cap",
+      "value": "11.5px",
+      "kind": "spacing",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--fs-cap-sm",
+      "value": "10.5px",
+      "kind": "spacing",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--tracking-display",
+      "value": "-0.05em",
+      "kind": "font",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--tracking-tight",
+      "value": "-0.02em",
+      "kind": "font",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--tracking-ui",
+      "value": "-0.01em",
+      "kind": "font",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--tracking-cap",
+      "value": "0.16em",
+      "kind": "font",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--tracking-cap-wide",
+      "value": "0.2em",
+      "kind": "font",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--lh-display",
+      "value": "0.82",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--lh-tight",
+      "value": "1.1",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--lh-body",
+      "value": "1.5",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    { "name": "--space-1", "value": "4px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-2", "value": "8px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-3", "value": "10px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-4", "value": "13px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-5", "value": "16px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-6", "value": "18px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-7", "value": "20px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-8", "value": "22px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-9", "value": "28px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--grid-gap", "value": "18px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    {
+      "name": "--grid-cols",
+      "value": "12",
+      "kind": "other",
+      "definedIn": "tokens/spacing.css",
+      "annotation": "other"
+    },
+    { "name": "--r", "value": "20px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    {
+      "name": "--radius-card",
+      "value": "20px",
+      "kind": "radius",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--radius-control",
+      "value": "15px",
+      "kind": "radius",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--radius-feed",
+      "value": "14px",
+      "kind": "radius",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--radius-chip",
+      "value": "11px",
+      "kind": "radius",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--radius-well",
+      "value": "10px",
+      "kind": "radius",
+      "definedIn": "tokens/spacing.css"
+    },
+    { "name": "--radius-sm", "value": "8px", "kind": "radius", "definedIn": "tokens/spacing.css" },
+    {
+      "name": "--radius-pill",
+      "value": "999px",
+      "kind": "radius",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--shadow-tile",
+      "value": "inset 0 1px 0 0 rgba(255, 255, 255, 0.035),\n    0 10px 30px -18px rgba(0, 0, 0, 0.8)",
+      "kind": "shadow",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--shadow-modal",
+      "value": "0 24px 64px -16px rgba(0, 0, 0, 0.7)",
+      "kind": "shadow",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--shadow-glow-acc",
+      "value": "0 0 0 1px rgba(0, 112, 243, 0.4), 0 0 26px -6px rgba(0, 112, 243, 0.5)",
+      "kind": "shadow",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--ease-standard",
+      "value": "ease",
+      "kind": "other",
+      "definedIn": "tokens/spacing.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--ease-out",
+      "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+      "kind": "other",
+      "definedIn": "tokens/spacing.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--ease-spring",
+      "value": "cubic-bezier(0.4, 1.3, 0.5, 1)",
+      "kind": "other",
+      "definedIn": "tokens/spacing.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--dur-fast",
+      "value": "0.16s",
+      "kind": "other",
+      "definedIn": "tokens/spacing.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--dur-base",
+      "value": "0.2s",
+      "kind": "other",
+      "definedIn": "tokens/spacing.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--dur-slow",
+      "value": "0.22s",
+      "kind": "other",
+      "definedIn": "tokens/spacing.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--sw-w",
+      "value": "52px",
+      "kind": "spacing",
+      "definedIn": "tokens/primitives.css",
+      "scope": ".sw"
+    },
+    {
+      "name": "--sw-h",
+      "value": "30px",
+      "kind": "spacing",
+      "definedIn": "tokens/primitives.css",
+      "scope": ".sw"
+    }
+  ],
+  "themes": [],
+  "fonts": [
+    {
+      "family": "Space Grotesk Variable",
+      "weight": "300 700",
+      "style": "normal",
+      "cssPath": "tokens/fonts.css",
+      "files": ["assets/fonts/space-grotesk-variable.woff2"]
+    },
+    {
+      "family": "Space Mono",
+      "weight": "400",
+      "style": "normal",
+      "cssPath": "tokens/fonts.css",
+      "files": ["assets/fonts/space-mono-400.woff2"]
+    },
+    {
+      "family": "Space Mono",
+      "weight": "700",
+      "style": "normal",
+      "cssPath": "tokens/fonts.css",
+      "files": ["assets/fonts/space-mono-700.woff2"]
+    }
+  ],
+  "brandFonts": [
+    {
+      "family": "Space Grotesk Variable",
+      "status": "ok",
+      "tokens": ["--font-ui"],
+      "path": "tokens/fonts.css"
+    },
+    {
+      "family": "Space Mono",
+      "status": "ok",
+      "tokens": ["--font-mono"],
+      "path": "tokens/fonts.css"
+    }
+  ],
+  "source": "spa"
+}
