@@ -3,7 +3,6 @@
   "theme": "lucent-orng",
   "plugin": [
     "@slkiser/opencode-quota",
-    "./.opencode/tui/smoke-sidebar.tsx",
     "./.opencode/tui/goal-sidebar.tsx",
     [
       "./.opencode/tui/reply-attention.js",
