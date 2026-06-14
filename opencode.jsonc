@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "openai/gpt-5.3-codex",
+  "model": "openai/gpt-5.5-fast",
   "small_model": "opencode/deepseek-v4-flash-free",
   "lsp": true,
   "plugin": ["opencode-beads", "@slkiser/opencode-quota"],
@@ -12,6 +12,10 @@
     "recap": {
       "description": "Recap the current conversation; pass 'full' for the entire session",
       "template": "Use the recap skill to recap this conversation. Arguments: $ARGUMENTS"
+    },
+    "commit-and-push": {
+      "description": "Commit the current work and push the branch",
+      "template": "Use the commit-and-push skill to commit and push the current work. Arguments: $ARGUMENTS"
     }
   },
   "permission": {
