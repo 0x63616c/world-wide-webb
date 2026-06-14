@@ -3,5 +3,5 @@
   "slug": "text-your-ex",
   "displayName": "Text Your Ex",
   "productFolder": "products/text-your-ex",
-  "runtimeStatus": "imported-sqlite-prototype"
+  "runtimeStatus": "runtime-moved"
 }
