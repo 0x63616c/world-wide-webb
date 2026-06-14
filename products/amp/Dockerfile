@@ -1,0 +1,37 @@
+FROM oven/bun:1.2-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json bun.lock ./
+COPY apps/api/package.json ./apps/api/package.json
+COPY apps/captive-portal/package.json ./apps/captive-portal/package.json
+COPY apps/media-worker/package.json ./apps/media-worker/package.json
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/worker/package.json ./apps/worker/package.json
+COPY infra/package.json ./infra/package.json
+COPY infra/cloudflare/package.json ./infra/cloudflare/package.json
+COPY infra/unifi/package.json ./infra/unifi/package.json
+COPY packages/api/package.json ./packages/api/package.json
+COPY packages/logger/package.json ./packages/logger/package.json
+COPY packages/platform/package.json ./packages/platform/package.json
+COPY products/amp/package.json ./products/amp/package.json
+COPY products/captive-portal/package.json ./products/captive-portal/package.json
+COPY products/control-center/package.json ./products/control-center/package.json
+COPY products/text-your-ex/package.json ./products/text-your-ex/package.json
+
+RUN bun install --frozen-lockfile --ignore-scripts
+
+COPY tsconfig.json ./tsconfig.json
+COPY products/amp ./products/amp
+
+RUN bun run --cwd products/amp build
+
+FROM nginx:1.27-alpine AS runtime
+
+RUN rm /etc/nginx/conf.d/default.conf
+COPY products/amp/nginx.conf /etc/nginx/conf.d/app.conf
+COPY --from=builder /app/products/amp/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
