@@ -66,6 +66,8 @@ jobs:
         with:
           filters: |
             # Shared changes (packages or root lockfile) force a rebuild of everything.
+            # Control Center product-boundary changes rebuild the Control Center
+            # images, but unrelated product folders do not.
             # NOTE: do NOT use '!negation' list items here. dorny/paths-filter OR-matches
             # each list entry, and a '!foo/**' pattern matches every file that ISN'T under
             # foo, so '!apps/web/.storybook/**' matched docs/api/everything and made web
@@ -74,10 +76,12 @@ jobs:
             # correct and conservative; a rare .storybook-only edit harmlessly rebuilds web.
             web:
               - 'apps/web/**'
+              - 'products/control-center/**'
               - 'packages/**'
               - 'bun.lock'
             api:
               - 'apps/api/**'
+              - 'products/control-center/**'
               - 'packages/**'
               - 'bun.lock'
             # The worker bundles its domain cycles from @repo/api, so an apps/api
@@ -85,6 +89,7 @@ jobs:
             worker:
               - 'apps/worker/**'
               - 'apps/api/**'
+              - 'products/control-center/**'
               - 'packages/**'
               - 'bun.lock'
             # media-worker bundles its domain code from @repo/api, so an apps/api
@@ -92,12 +97,14 @@ jobs:
             mediaworker:
               - 'apps/media-worker/**'
               - 'apps/api/**'
+              - 'products/control-center/**'
               - 'packages/**'
               - 'bun.lock'
             storybook:
               - 'apps/web/.storybook/**'
               - 'apps/web/src/**'
               - 'apps/web/package.json'
+              - 'products/control-center/**'
               # Serving config: a change to how nginx serves the bundle (cache
               # headers, asset 404 vs index.html fallback) must rebuild the image
               # too, or the fix never ships (www-w4aa).
@@ -119,6 +126,7 @@ jobs:
             # rebuilds solely on its own changes (no packages/ or bun.lock dep).
             drizzle:
               - 'apps/drizzle/**'
+              - 'products/control-center/**'
             # Captive portal: a static nginx image built solely from its own product tree
             # (the build pulls workspace deps, so the root lockfile counts too). It
             # does NOT bundle @repo/api, it talks to the api only over HTTP via the
@@ -132,11 +140,13 @@ jobs:
             # own tree (mirrors drizzle).
             mapprovision:
               - 'apps/map-provision/**'
+              - 'products/control-center/**'
             # any_app is true when at least one image needs to be built. An
             # infra-only change is handled by the separate `infra` filter above,
             # the deploy job fires on `any_app || infra`.
             any_app:
               - 'apps/**'
+              - 'products/control-center/**'
               - 'packages/**'
               - 'bun.lock'
 

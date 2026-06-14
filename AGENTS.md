@@ -14,6 +14,7 @@
 - Dev stack: `bun run dev` starts Tilt for local Postgres, API, workers, web, and Storybook.
 - Unit tests: `bun run test`. Never run bare `bun test`, it breaks `vi.mock` and can report false failures.
 - Focused tests/typecheck: `bun run --filter @repo/web test`, `bun run --filter @repo/api typecheck`, etc.
+- Control Center product wrappers: `bun run --filter @product/control-center dev:web`, `dev:api`, `dev:worker`, `dev:media-worker`, `dev:storybook`, `dev:db`, `ios:sync`, `ios:open`, `ios:sim`.
 - Full gates before shipping code: `bun run test`, `bun run typecheck`, `bunx biome check .`, `bun run knip`.
 - Coverage/browser suite: `bun run test:coverage` is slower and needs Playwright Chromium. Storybook browser tests run from `apps/web` with `bunx vitest --project storybook`.
 - In `.claude/worktrees/*`, `bunx biome check .` scans zero files because `biome.json` excludes `.claude`. Use the lefthook-style tracked-file command or explicit paths instead.
