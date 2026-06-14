@@ -9,6 +9,9 @@
 <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" crossorigin></script>
+<!-- Markdown rendering for issue description / acceptance / notes (rendered post-paint by the .md observer at end of body). -->
+<script src="https://unpkg.com/marked@12/marked.min.js" crossorigin></script>
+<script src="https://unpkg.com/dompurify@3/dist/purify.min.js" crossorigin></script>
 <!-- Geist (Vercel's typeface): more readable than the DS default Space Grotesk for dense tables. -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/geist@latest/index.css">
 <style>
@@ -60,7 +63,31 @@
   .bd-fontcard { display:flex; flex-direction:column; gap:10px; text-align:left; padding:18px; border-radius:14px; border:1px solid var(--hair); background:var(--tile); cursor:pointer; transition:all .14s ease; }
   .bd-fontcard:hover { border-color:var(--hair-2); }
   @keyframes bdDrawerIn { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes bdDrawerOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(24px); opacity: 0; } }
   @keyframes bdFadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes bdFadeOut { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes bdModalIn { from { transform: scale(.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes bdModalOut { from { transform: scale(1); opacity: 1; } to { transform: scale(.97); opacity: 0; } }
+  /* Rendered-markdown blocks (description / acceptance / notes). */
+  .md { font-size: 14px; line-height: 1.6; color: var(--ink-2); }
+  .md > :first-child { margin-top: 0; }
+  .md > :last-child { margin-bottom: 0; }
+  .md p { margin: 0 0 10px; }
+  .md ul, .md ol { margin: 0 0 10px; padding-left: 20px; }
+  .md li { margin: 3px 0; }
+  .md li.task-list-item { list-style: none; margin-left: -20px; }
+  .md li.task-list-item input { margin-right: 8px; }
+  .md h1, .md h2, .md h3, .md h4 { margin: 14px 0 8px; line-height: 1.3; color: var(--ink); font-weight: 600; }
+  .md h1 { font-size: 18px; } .md h2 { font-size: 16px; } .md h3 { font-size: 14.5px; }
+  .md a { color: var(--acc-line); text-decoration: none; }
+  .md a:hover { text-decoration: underline; }
+  .md code { font-family: var(--mono); font-size: 12.5px; background: var(--nest); border: 1px solid var(--hair); border-radius: 5px; padding: 1px 5px; }
+  .md pre { background: var(--nest); border: 1px solid var(--hair); border-radius: 8px; padding: 12px 14px; overflow: auto; margin: 0 0 10px; }
+  .md pre code { background: none; border: none; padding: 0; font-size: 12.5px; }
+  .md blockquote { margin: 0 0 10px; padding-left: 12px; border-left: 2px solid var(--hair-2); color: var(--ink-3); }
+  .md hr { border: none; border-top: 1px solid var(--hair); margin: 14px 0; }
+  .md table { border-collapse: collapse; margin: 0 0 10px; }
+  .md th, .md td { border: 1px solid var(--hair); padding: 5px 10px; text-align: left; }
 </style>
 </helmet>
 
@@ -230,8 +257,8 @@
   <!-- ===================== DETAIL DRAWER ===================== -->
   <sc-if value="{{ hasSelected }}">
     <div style="position:fixed; inset:0; z-index:40; display:flex; justify-content:flex-end;">
-      <button onClick="{{ closeDetail }}" aria-label="Close" style="position:absolute; inset:0; border:none; padding:0; cursor:default; background:rgba(0,0,0,.5); animation:bdFadeIn .18s ease;"></button>
-      <aside style="position:relative; width:760px; max-width:92vw; height:100%; background:var(--tile); border-left:1px solid var(--hair); box-shadow:-24px 0 64px -24px rgba(0,0,0,.8); display:flex; flex-direction:column; animation:bdDrawerIn .22s cubic-bezier(.16,1,.3,1);">
+      <button onClick="{{ closeDetail }}" aria-label="Close" style="position:absolute; inset:0; border:none; padding:0; cursor:default; background:rgba(0,0,0,.5); animation:{{ selected.backdropAnim }};"></button>
+      <aside style="position:relative; width:760px; max-width:92vw; height:100%; background:var(--tile); border-left:1px solid var(--hair); box-shadow:-24px 0 64px -24px rgba(0,0,0,.8); display:flex; flex-direction:column; animation:{{ selected.drawerAnim }};">
         <div style="flex:0 0 auto; display:flex; align-items:center; gap:12px; padding:20px 22px; border-bottom:1px solid var(--hair);">
           <span class="mono" style="font-size:13px; color:var(--ink-2);">{{ selected.idLabel }}</span>
           <span style="{{ selected.typeStyle }}">{{ selected.typeLabel }}</span>
@@ -288,20 +315,20 @@
 
           <div style="display:flex; flex-direction:column; gap:9px;">
             <span class="cap">Description</span>
-            <p style="margin:0; font-size:14px; line-height:1.6; color:var(--ink-2);">{{ selected.description }}</p>
+            <div class="md">{{ selected.description }}</div>
           </div>
 
           <sc-if value="{{ selected.hasAcceptance }}">
             <div style="display:flex; flex-direction:column; gap:9px;">
               <span class="cap">Acceptance criteria</span>
-              <p style="margin:0; font-size:13.5px; line-height:1.7; color:var(--ink-2); white-space:pre-wrap; font-family:var(--mono);">{{ selected.acceptance }}</p>
+              <div class="md">{{ selected.acceptance }}</div>
             </div>
           </sc-if>
 
           <sc-if value="{{ selected.hasNotes }}">
             <div style="display:flex; flex-direction:column; gap:9px;">
               <span class="cap">Notes</span>
-              <p style="margin:0; font-size:13.5px; line-height:1.7; color:var(--ink-2); white-space:pre-wrap;">{{ selected.notes }}</p>
+              <div class="md">{{ selected.notes }}</div>
             </div>
           </sc-if>
 
@@ -360,8 +387,8 @@
   <!-- ===================== NEW ISSUE MODAL ===================== -->
   <sc-if value="{{ newOpen }}">
     <div style="position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center;">
-      <button onClick="{{ closeNew }}" aria-label="Close" class="modal-backdrop" style="position:absolute; inset:0; border:none; padding:0; cursor:default; background:rgba(0,0,0,.55);"></button>
-      <div class="modal-panel" style="position:relative; width:560px; max-width:92vw; max-height:88vh; display:flex; flex-direction:column; background:var(--tile); border:1px solid var(--hair); border-radius:var(--r); box-shadow:var(--shadow-modal); overflow:hidden;">
+      <button onClick="{{ closeNew }}" aria-label="Close" class="modal-backdrop" style="position:absolute; inset:0; border:none; padding:0; cursor:default; background:rgba(0,0,0,.55); animation:{{ newBackdropAnim }};"></button>
+      <div class="modal-panel" style="position:relative; width:560px; max-width:92vw; max-height:88vh; display:flex; flex-direction:column; background:var(--tile); border:1px solid var(--hair); border-radius:var(--r); box-shadow:var(--shadow-modal); overflow:hidden; animation:{{ newPanelAnim }};">
         <div style="display:flex; align-items:center; justify-content:space-between; padding:20px 22px; border-bottom:1px solid var(--hair);">
           <h2 style="margin:0; font-size:19px; font-weight:600; letter-spacing:-0.01em;">New issue</h2>
           <button class="bd-x" onClick="{{ closeNew }}" aria-label="Close" style="width:32px; height:32px; display:grid; place-items:center; border:1px solid var(--hair); border-radius:10px; background:var(--tile-2); color:var(--ink-2); cursor:pointer; transition:all .15s;">
@@ -496,8 +523,10 @@ class Component extends DCLogic {
     font: (() => { try { return localStorage.getItem('beads-ui-font') || 'geist'; } catch (e) { return 'geist'; } })(),
     search: '',
     selectedId: null,
+    detailClosing: false,
     expanded: { 'bd-a3f8': true, 'bd-1c7e': false, 'bd-9b42': false },
     newOpen: false,
+    newClosing: false,
     form: { title: '', type: 'feature', priority: '1', assignee: '', desc: '' },
     dragId: null,
     dragOverCol: null,
@@ -515,8 +544,8 @@ class Component extends DCLogic {
     // Esc always closes whatever overlay is open (detail drawer or new-issue modal).
     this.__onKey = (e) => {
       if (e.key !== 'Escape') return;
-      if (this.state.selectedId) this.setState({ selectedId: null });
-      if (this.state.newOpen) this.setState({ newOpen: false });
+      if (this.state.selectedId) this.closeDetail();
+      if (this.state.newOpen) this.closeNew();
     };
     window.addEventListener('keydown', this.__onKey);
   }
@@ -571,8 +600,12 @@ class Component extends DCLogic {
     };
   }
 
-  openDetail(id) { this.setState({ selectedId: id }); }
-  closeDetail() { this.setState({ selectedId: null }); }
+  openDetail(id) { this.setState({ selectedId: id, detailClosing: false }); }
+  closeDetail() {
+    if (this.state.detailClosing || !this.state.selectedId) return;
+    this.setState({ detailClosing: true });
+    setTimeout(() => this.setState({ selectedId: null, detailClosing: false }), 190);
+  }
 
   updateIssue(id, patch) {
     const issues = this.state.issues.map((x) => (x.id === id ? { ...x, ...patch } : x));
@@ -583,8 +616,12 @@ class Component extends DCLogic {
   toggleDensity() { this.setState({ density: this.isCompact() ? 'comfortable' : 'compact' }); }
   toggleEpic(id) { this.setState({ expanded: { ...this.state.expanded, [id]: !this.state.expanded[id] } }); }
 
-  openNew() { this.setState({ newOpen: true, form: { title: '', type: 'feature', priority: '1', assignee: '', desc: '' } }); }
-  closeNew() { this.setState({ newOpen: false }); }
+  openNew() { this.setState({ newOpen: true, newClosing: false, form: { title: '', type: 'feature', priority: '1', assignee: '', desc: '' } }); }
+  closeNew() {
+    if (this.state.newClosing || !this.state.newOpen) return;
+    this.setState({ newClosing: true });
+    setTimeout(() => this.setState({ newOpen: false, newClosing: false }), 170);
+  }
   createIssue() {
     const f = this.state.form;
     const title = (f.title || '').trim() || 'Untitled issue';
@@ -778,6 +815,8 @@ class Component extends DCLogic {
       ];
       selected = {
         id: sel.id, idLabel: sel.id.toUpperCase(), title: sel.title,
+        backdropAnim: st.detailClosing ? 'bdFadeOut .18s ease forwards' : 'bdFadeIn .18s ease',
+        drawerAnim: st.detailClosing ? 'bdDrawerOut .19s cubic-bezier(.4,0,1,1) forwards' : 'bdDrawerIn .22s cubic-bezier(.16,1,.3,1)',
         typeLabel: tm.label, typeStyle: this.badge(tm),
         assignee: av.assignee, assigneeStyle: { ...av.assigneeStyle, fontSize: 14 },
         epicLabel: epicParent ? epicParent.title : '-',
@@ -827,6 +866,8 @@ class Component extends DCLogic {
       hasSelected: !!selected, selected, closeDetail: () => this.closeDetail(),
 
       newOpen: st.newOpen, closeNew: () => this.closeNew(), createIssue: () => this.createIssue(),
+      newBackdropAnim: st.newClosing ? 'bdFadeOut .16s ease forwards' : 'bdFadeIn .16s ease',
+      newPanelAnim: st.newClosing ? 'bdModalOut .16s ease forwards' : 'bdModalIn .18s cubic-bezier(.16,1,.3,1)',
       form: st.form,
       onFormTitle: (e) => this.setState({ form: { ...st.form, title: e.target.value } }),
       onFormType: (e) => this.setState({ form: { ...st.form, type: e.target.value } }),
@@ -837,6 +878,34 @@ class Component extends DCLogic {
     };
   }
 }
+</script>
+<!-- Markdown post-render: the framework binds raw markdown as textContent into .md blocks; we
+     convert each to sanitized HTML after paint. Re-runs on every re-render because the framework
+     recreates the node as plain text (no element children), which is our signal to re-render. -->
+<script>
+(function () {
+  if (window.marked && window.marked.setOptions) window.marked.setOptions({ gfm: true, breaks: true });
+  var BLOCK = /^(P|UL|OL|H1|H2|H3|H4|H5|H6|PRE|BLOCKQUOTE|TABLE|HR)$/;
+  function renderOne(el) {
+    // The template engine injects raw markdown wrapped in an inline <span>. marked always emits a
+    // block-level first child, so a block-level firstElementChild means we already rendered this node;
+    // an inline <span> (or bare text) means the engine just (re)set fresh markdown to convert.
+    if (el.firstElementChild && BLOCK.test(el.firstElementChild.tagName)) return;
+    var raw = el.textContent;
+    if (!raw || !raw.trim()) return;
+    if (!window.marked) return;
+    var html = window.marked.parse(raw);
+    if (window.DOMPurify) html = window.DOMPurify.sanitize(html);
+    el.innerHTML = html;
+  }
+  function scan() { var n = document.querySelectorAll('.md'); for (var i = 0; i < n.length; i++) renderOne(n[i]); }
+  function start() {
+    scan();
+    new MutationObserver(scan).observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+  if (document.readyState !== 'loading') start();
+  else document.addEventListener('DOMContentLoaded', start);
+})();
 </script>
 </body>
 </html>
