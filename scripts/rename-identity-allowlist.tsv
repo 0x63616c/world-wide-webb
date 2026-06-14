@@ -34,3 +34,5 @@ control-center-product-identity	^scripts/(check-control-center-product-boundary|
 control-center-product-identity	^packages/(api|logger)/.*$	.*\bcontrol-center\b.*	Bridge package and logger reference @control-center/api product scope; pending rename in www-jtp0.9.4.
 # Products outside control-center (captive-portal, amp, text-your-ex, project-management) referencing control-center product paths or product scope.
 control-center-product-identity	^products/(captive-portal|amp|text-your-ex|project-management)/.*$	.*\bcontrol-center\b.*	Sibling product referencing the Control Center product by path or @control-center/* scope.
+# M9 migration/cutover/cleanup runbooks reference old names explicitly as the subject of the rename.
+historical-only-docs	^docs/m9-(pulumi-migration|cutover-checklist|cleanup-checklist)\.md$	.*\bcontrol-center\b.*	M9 migration runbook referencing old identity names as the subject of the rename operation.
