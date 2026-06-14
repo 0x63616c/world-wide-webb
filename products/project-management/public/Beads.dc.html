@@ -114,6 +114,12 @@
     </nav>
 
     <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+      <sc-if value="{{ hasSync }}">
+        <span title="Last synced from remote" style="display:inline-flex; align-items:center; gap:7px; padding:0 4px; font-size:12px; color:var(--ink-3); white-space:nowrap;">
+          <span style="width:6px; height:6px; border-radius:999px; background:#3fb950; flex:0 0 auto;"></span>
+          Synced {{ syncLabel }}
+        </span>
+      </sc-if>
       <button onClick="{{ viewSettings }}" class="bd-iconbtn" aria-label="Settings" style="{{ settingsBtnStyle }}">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
       </button>
@@ -588,7 +594,9 @@ class Component extends DCLogic {
     dragId: null,
     dragOverCol: null,
     issues: [],
-    loaded: false
+    loaded: false,
+    lastSync: null,
+    tick: 0
   };
 
   // Live data: the design's SEED is replaced with the project's real beads
@@ -598,6 +606,8 @@ class Component extends DCLogic {
     this.applyFont(this.state.font);
     this.loadData();
     this.__poll = setInterval(() => this.loadData(), 10000);
+    // Re-render every 5s so the "synced N ago" label stays live between polls.
+    this.__tick = setInterval(() => this.setState({ tick: this.state.tick + 1 }), 5000);
     // Esc closes whatever overlay is open. When the detail drawer has unsaved edits, Esc/X first
     // raises a confirm: Enter discards + closes, Esc dismisses the confirm and keeps the edits.
     this.__onKey = (e) => {
@@ -614,13 +624,28 @@ class Component extends DCLogic {
   }
   componentWillUnmount() {
     if (this.__poll) clearInterval(this.__poll);
+    if (this.__tick) clearInterval(this.__tick);
     if (this.__onKey) window.removeEventListener('keydown', this.__onKey);
   }
   loadData() {
     fetch('/api/board-data')
       .then((r) => r.json())
-      .then((data) => this.setState({ issues: (data && data.issues) || [], loaded: true }))
+      .then((data) => this.setState({ issues: (data && data.issues) || [], loaded: true, lastSync: (data && data.meta && data.meta.lastSyncAt) || null }))
       .catch((err) => console.error('[beads-ui] load failed:', err));
+  }
+  // Human-readable "time since": just now / 12s / 4m / 2h / 3d ago.
+  relTime(iso) {
+    if (!iso) return null;
+    const then = Date.parse(iso);
+    if (Number.isNaN(then)) return null;
+    const s = Math.max(0, Math.round((Date.now() - then) / 1000));
+    if (s < 5) return 'just now';
+    if (s < 60) return s + 's ago';
+    const m = Math.floor(s / 60);
+    if (m < 60) return m + 'm ago';
+    const h = Math.floor(m / 60);
+    if (h < 24) return h + 'h ago';
+    return Math.floor(h / 24) + 'd ago';
   }
 
   byId(id) { return this.state.issues.find((x) => x.id === id); }
@@ -954,6 +979,7 @@ class Component extends DCLogic {
         check: st.font === f.key ? '✓' : ''
       })),
       issuesCount: issues.length, epicsCount: issues.filter((i) => i.type === 'epic').length,
+      syncLabel: this.relTime(st.lastSync), hasSync: !!st.lastSync,
       densityOn: this.isCompact(), toggleDensity: () => this.toggleDensity(),
       openNew: () => this.openNew(),
 
