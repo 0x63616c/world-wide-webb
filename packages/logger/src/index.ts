@@ -140,7 +140,7 @@ export function createLogger(opts: CreateLoggerOptions): Logger {
  * Process-wide accessor. createLogger() registers the root; getLogger()
  * returns it. Throws if called before createLogger, a hard signal that a
  * module logged before the process initialised its logger (no silent
- * default root). Used by shared @repo/api domain services that run under
+ * default root). Used by shared @control-center/api domain services that run under
  * multiple process roots (api + media-worker). See docs/logging.md §2.
  */
 export function getLogger(): Logger {

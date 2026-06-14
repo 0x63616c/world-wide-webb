@@ -32,7 +32,7 @@ const SCOPES = [
   "user-read-playback-state",
   "user-modify-playback-state",
   "user-read-currently-playing",
-  // browse hits GET /v1/me/player/recently-played, which needs this scope —
+  // browse hits GET /v1/me/player/recently-played, which needs this scope ,
   // without it the Quick-Play Spotify browse 403s "Insufficient client scope"
   // (www-51hf.57). It was omitted from the original mint.
   "user-read-recently-played",
@@ -49,7 +49,7 @@ const port = Number(redirect.port || "8888");
 const callbackPath = redirect.pathname || "/callback";
 
 // A short random state; not security-critical for a one-shot local flow, but we
-// validate it round-trips. (No Math.random restriction here — plain bun script.)
+// validate it round-trips. (No Math.random restriction here , plain bun script.)
 const state = crypto.randomUUID();
 
 const authorizeUrl = new URL("https://accounts.spotify.com/authorize");
@@ -108,7 +108,7 @@ const server = Bun.serve({
     const returnedState = url.searchParams.get("state");
     if (!code) return new Response("missing code", { status: 400 });
     if (returnedState !== state) {
-      done.reject(new Error("state mismatch — aborting"));
+      done.reject(new Error("state mismatch , aborting"));
       return new Response("state mismatch", { status: 400 });
     }
 
@@ -137,7 +137,7 @@ console.error("");
 try {
   Bun.spawn(["open", authorizeUrl.toString()]);
 } catch {
-  // ignore — the URL is printed above for manual use
+  // ignore , the URL is printed above for manual use
 }
 
 try {

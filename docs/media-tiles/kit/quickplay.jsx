@@ -1,5 +1,5 @@
 /* ============================================================
-   QUICK-PLAY (Favorites & Spotify) — 5 tile archetypes + 2 modals
+   QUICK-PLAY (Favorites & Spotify) , 5 tile archetypes + 2 modals
    Sonos Favorites + Spotify presets; tap to play, pick a target.
    ============================================================ */
 var useState = React.useState;
@@ -479,7 +479,7 @@ function ModalSpotify() {
 function QuickPlayBody() {
   return (
     <React.Fragment>
-      <Section title="Tiles" note="5 archetypes — Q1 through Q5">
+      <Section title="Tiles" note="5 archetypes , Q1 through Q5">
         <Frame
           tag="Q1"
           name="Horizontal artwork rail"
@@ -501,11 +501,11 @@ function QuickPlayBody() {
           <QuickQ2 />
         </Frame>
       </Section>
-      <Section title="Modal — favorites & browse" note="880×620">
-        <Frame tag="M1" name="Favorites — grid + target picker" size="880×620">
+      <Section title="Modal , favorites & browse" note="880×620">
+        <Frame tag="M1" name="Favorites , grid + target picker" size="880×620">
           <ModalFavorites />
         </Frame>
-        <Frame tag="M2" name="Spotify browse — rows + target" size="880×620">
+        <Frame tag="M2" name="Spotify browse , rows + target" size="880×620">
           <ModalSpotify />
         </Frame>
       </Section>
@@ -517,7 +517,7 @@ window.QuickPlayCard = {
   name: "Quick-Play (Favorites & Spotify)",
   count: "5 tiles · 2 modals",
   Body: QuickPlayBody,
-  title: "Quick-Play — tile + modal explorations",
+  title: "Quick-Play , tile + modal explorations",
   sub: "One-tap launch of Sonos Favorites and Spotify presets, each with a target picker (play in Kitchen / everywhere). Five tile takes (artwork rail → annotated list → hero + row → cover-flow → square grid), plus Favorites and Spotify-browse modals.",
 };
 if (window.__SOLO__ !== false && document.getElementById("root")) {

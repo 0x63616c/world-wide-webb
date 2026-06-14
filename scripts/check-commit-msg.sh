@@ -13,7 +13,7 @@
 #        and MUST live in the scope (a body-only 'refs www-w5y' does NOT count)
 #      - the trailing ! (breaking change) is optional
 #   2. The ticket id in the scope is a REAL issue. Existence is checked
-#      cheaply with a single `bd show <id>` — bd exits non-zero for unknown
+#      cheaply with a single `bd show <id>` , bd exits non-zero for unknown
 #      ids.
 #
 # Graceful degradation: if `bd` is not on PATH (offline / not installed) we
@@ -36,14 +36,14 @@ TYPES='feat|fix|chore|refactor|docs|test|ci|build|perf|style|revert'
 # with zero or more dotted child suffixes for epic children/grandchildren
 # (e.g. www-5ag.12 or www-7d5b.3.5).
 TICKET_RE='[A-Z]+-[a-z0-9]+(\.[0-9]+)*'
-# type(area/TICKET)!: desc — area is required lowercase segment(s), the ticket
+# type(area/TICKET)!: desc , area is required lowercase segment(s), the ticket
 # is the final scope segment, the bang is optional, description is non-empty.
 SUBJECT_RE="^(${TYPES})\([a-z0-9._/-]+/${TICKET_RE}\)!?: .+"
 
 claude_reminder() {
   echo ""
   echo "  Claude: EVERY change needs a commit subject of the form type(area/www-xxx): desc"
-  echo "  with a REAL bd ticket id in the scope — no exceptions. Area is mandatory."
+  echo "  with a REAL bd ticket id in the scope , no exceptions. Area is mandatory."
   echo "  Example: feat(weather/www-m9k): add Open-Meteo poller"
   echo "  If no ticket exists for this work, create one with 'bd create' first."
 }
@@ -67,7 +67,7 @@ SCOPE="$(echo "$SUBJECT" | sed -E 's/^[^(]*\(([^)]*)\).*/\1/')"
 TICKET="${SCOPE##*/}"
 
 if ! command -v bd >/dev/null 2>&1; then
-  # bd unavailable — warn but do not hard-block.
+  # bd unavailable , warn but do not hard-block.
   echo "WARNING: 'bd' not found on PATH; skipping ticket-existence check for: ${TICKET}"
 elif ! bd show "$TICKET" >/dev/null 2>&1; then
   echo "REJECTED: bd ticket '$TICKET' (from scope) does not exist (bd show failed)."

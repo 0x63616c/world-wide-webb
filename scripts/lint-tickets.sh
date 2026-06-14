@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Advisory ticket lint — the drift backstop for docs/ticket-standards.md.
+# Advisory ticket lint , the drift backstop for docs/ticket-standards.md.
 #
 # We can't hook `bd create`, so this catches tickets created off-skill. It is
 # NON-BLOCKING: it prints warnings and ALWAYS exits 0. Run it in a backlog scrub.
@@ -10,7 +10,7 @@
 #   UNTYPED-SPIKE  title smells like a spike (evaluate/investigate/spike) but type
 #                  isn't `decision` and it lacks the `spike` label
 #   P0-AGING       a P0 still open longer than P0_AGE_DAYS (default 14)
-#   STALLED        in_progress longer than STALL_DAYS (default 7) — likely abandoned
+#   STALLED        in_progress longer than STALL_DAYS (default 7) , likely abandoned
 #
 # Reads issues from `bd export`. For hermetic testing, stub `bd` on PATH (see
 # scripts/test-lint-tickets.sh) and pin "now" with LINT_NOW=<epoch>.
@@ -53,7 +53,7 @@ rows="$(bd export 2>/dev/null | jq -r \
 ')"
 
 if [ -z "$rows" ]; then
-  echo "lint-tickets: clean — no warnings."
+  echo "lint-tickets: clean , no warnings."
   exit 0
 fi
 

@@ -12,7 +12,7 @@ echo "Generating a new Postgres password for control-center..."
 echo "(This will overwrite any existing value in 1Password.)"
 echo ""
 
-# Generate a 32-character random password — no shell-special chars so it's
+# Generate a 32-character random password , no shell-special chars so it's
 # safe to pass directly in postgres DSN strings.
 GENERATED=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)
 
@@ -46,5 +46,5 @@ if [ -d "$EVEE_OP_DIR" ]; then
 fi
 
 echo "Verifying..."
-op read "$REF" >/dev/null && echo "  ok — $REF is readable"
+op read "$REF" >/dev/null && echo "  ok , $REF is readable"
 echo "Done. Reference: $REF"

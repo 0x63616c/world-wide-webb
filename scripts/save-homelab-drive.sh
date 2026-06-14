@@ -2,10 +2,10 @@
 set -euo pipefail
 
 # Saves the Synology "Homelab drive" connection details to 1Password (Homelab vault)
-# so deploy.config.ts can mount it into the media-worker container via fromOp(...) —
+# so deploy.config.ts can mount it into the media-worker container via fromOp(...) ,
 # keeping the NAS IP/credentials OUT of this (public) repo. (www-kp4k.7)
 #
-# Recommended: NFS (no password, IP-allowlisted on the NAS — robust for Linux containers).
+# Recommended: NFS (no password, IP-allowlisted on the NAS , robust for Linux containers).
 # SMB also supported (needs the Synology user you're creating).
 
 ITEM="Homelab Drive"
@@ -17,7 +17,7 @@ echo
 
 # --- protocol ---------------------------------------------------------------
 echo "Protocol:"
-echo "  1) nfs   (recommended — Control Panel > File Services > NFS > Enable;"
+echo "  1) nfs   (recommended , Control Panel > File Services > NFS > Enable;"
 echo "           then the shared folder > Edit > NFS Permissions > add a rule for"
 echo "           the Mac Mini's IP, Squash = 'Map all users to admin', read/write)"
 echo "  2) smb   (uses the Synology user you're creating)"

@@ -1,5 +1,5 @@
 /* ============================================================
-   SHARED KIT — design tokens, icons, primitives, stage layout
+   SHARED KIT , design tokens, icons, primitives, stage layout
    Loaded before each card's artifact file. Exports to window.
    ============================================================ */
 
@@ -553,7 +553,7 @@ function Transport({ playing = false, big = 56, small = 44, gap = 14, onToggle }
   );
 }
 
-/* artwork placeholder block (muted, restrained gradients — not rainbow) */
+/* artwork placeholder block (muted, restrained gradients , not rainbow) */
 const ARTS = {
   fern: "linear-gradient(150deg,#1d2b33 0%,#24403f 48%,#3a4a32 100%)",
   warm: "linear-gradient(150deg,#2a221c 0%,#3a2a22 100%)",
@@ -674,7 +674,7 @@ function Section({ title, note, children }) {
 
 /* a labeled frame above a tile: archetype name + size */
 function Frame({ tag, name, size, children, badge }) {
-  /* badge: {text, tone:'selected'|'fav'|'new'|'hold'} — teammate feedback marker */
+  /* badge: {text, tone:'selected'|'fav'|'new'|'hold'} , teammate feedback marker */
   const tones = {
     selected: { bg: T.accDim, bd: T.accLine, fg: T.acc },
     fav: { bg: "rgba(244,192,99,0.14)", bd: "rgba(244,192,99,0.45)", fg: T.amber },

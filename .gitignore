@@ -52,7 +52,7 @@ coverage/
 .dolt/
 .beads-credential-key
 
-# Tesla map basemap tiles — large, host locally / on homelab (see www-gma)
+# Tesla map basemap tiles , large, host locally / on homelab (see www-gma)
 apps/web/public/maps/*.pmtiles
 
 # Storybook
@@ -63,10 +63,10 @@ storybook-static
 .claude/worktrees/
 .claire/
 
-# Runtime scheduler lock — ephemeral, never commit
+# Runtime scheduler lock , ephemeral, never commit
 .claude/scheduled_tasks.lock
 
-# beads `--shared` hook dir — beads' hook lifecycle is owned by lefthook, NOT
+# beads `--shared` hook dir , beads' hook lifecycle is owned by lefthook, NOT
 # beads (www-sg4p). This dir only appears if someone runs `bd hooks install
 # --shared`, which hijacks core.hooksPath; never commit it. Don't run that.
 .beads-hooks/
@@ -74,7 +74,7 @@ storybook-static
 # cmux local workspace state
 .cmux/
 
-# PR/verification screenshots — kept on local disk for reference, never tracked
+# PR/verification screenshots , kept on local disk for reference, never tracked
 # (referenced nowhere in docs/code; purged from history in www-st5j to keep the
 # public repo lean). Drop new verification shots here freely; git ignores them.
 docs/screenshots/

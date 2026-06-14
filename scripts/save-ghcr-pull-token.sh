@@ -23,7 +23,7 @@ read -rsp "Paste the token: " VAL; echo
 
 # Sanity check: GitHub classic PATs start with ghp_
 if [[ "$VAL" != ghp_* ]]; then
-  echo "WARNING: token does not start with 'ghp_' — is this a classic PAT?" >&2
+  echo "WARNING: token does not start with 'ghp_' , is this a classic PAT?" >&2
 fi
 
 if op item get "$ITEM" --vault "$VAULT" >/dev/null 2>&1; then
@@ -38,7 +38,7 @@ else
     --title "$ITEM" \
     "credential[password]=$VAL" \
     "username[text]=0x63616c" \
-    "notes[text]=read:packages scope — used by homelab swarm to pull ghcr.io/0x63616c/* images" \
+    "notes[text]=read:packages scope , used by homelab swarm to pull ghcr.io/0x63616c/* images" \
     >/dev/null
   echo "Created 1Password item: $ITEM"
 fi
@@ -52,7 +52,7 @@ if [ -d "$EVEE_OP_DIR" ]; then
 fi
 
 echo "Verifying..."
-op read "$REF" >/dev/null && echo "  ok — $REF is readable"
+op read "$REF" >/dev/null && echo "  ok , $REF is readable"
 echo ""
 echo "Done. Reference: $REF"
 echo ""

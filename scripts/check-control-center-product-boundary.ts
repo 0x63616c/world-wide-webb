@@ -7,8 +7,9 @@ type ServiceBoundary = Readonly<{
   name: string;
   packageName: string;
   productPath: string;
-  legacyPath: string;
   dockerfile?: string;
+  requiredFiles: readonly string[];
+  oldRuntimePath?: string;
 }>;
 
 const repoRoot = import.meta.dir.replace(/\/scripts$/, "");
@@ -18,42 +19,62 @@ const expectedServices: readonly ServiceBoundary[] = [
     name: "web",
     packageName: "@control-center/web",
     productPath: `${productRoot}/web`,
-    legacyPath: "apps/web",
-    dockerfile: "apps/web/Dockerfile",
+    dockerfile: `${productRoot}/web/Dockerfile`,
+    requiredFiles: ["src", "ios", "vite.config.ts", "Dockerfile", "Dockerfile.storybook"],
+    oldRuntimePath: "apps/web",
   },
   {
     name: "api",
     packageName: "@control-center/api",
     productPath: `${productRoot}/api`,
-    legacyPath: "apps/api",
-    dockerfile: "apps/api/Dockerfile",
+    dockerfile: `${productRoot}/api/Dockerfile`,
+    requiredFiles: ["src", "drizzle.config.ts", "Dockerfile"],
+    oldRuntimePath: "apps/api",
   },
   {
     name: "worker",
     packageName: "@control-center/worker",
     productPath: `${productRoot}/worker`,
-    legacyPath: "apps/worker",
-    dockerfile: "apps/worker/Dockerfile",
+    dockerfile: `${productRoot}/worker/Dockerfile`,
+    requiredFiles: ["src", "Dockerfile"],
+    oldRuntimePath: "apps/worker",
   },
   {
     name: "media-worker",
     packageName: "@control-center/media-worker",
     productPath: `${productRoot}/media-worker`,
-    legacyPath: "apps/media-worker",
-    dockerfile: "apps/media-worker/Dockerfile",
+    dockerfile: `${productRoot}/media-worker/Dockerfile`,
+    requiredFiles: ["src", "Dockerfile"],
+    oldRuntimePath: "apps/media-worker",
   },
   {
     name: "storybook",
     packageName: "@control-center/storybook",
     productPath: `${productRoot}/storybook`,
-    legacyPath: "apps/web",
-    dockerfile: "apps/web/Dockerfile.storybook",
+    dockerfile: `${productRoot}/web/Dockerfile.storybook`,
+    requiredFiles: ["package.json"],
   },
   {
     name: "ios",
     packageName: "@control-center/ios",
     productPath: `${productRoot}/ios`,
-    legacyPath: "apps/web/ios",
+    requiredFiles: ["package.json"],
+  },
+  {
+    name: "drizzle",
+    packageName: "@control-center/drizzle",
+    productPath: `${productRoot}/drizzle`,
+    dockerfile: `${productRoot}/drizzle/Dockerfile`,
+    requiredFiles: ["Dockerfile", "load-secret.js"],
+    oldRuntimePath: "apps/drizzle",
+  },
+  {
+    name: "map-provision",
+    packageName: "@control-center/map-provision",
+    productPath: `${productRoot}/map-provision`,
+    dockerfile: `${productRoot}/map-provision/Dockerfile`,
+    requiredFiles: ["Dockerfile", "provision.sh"],
+    oldRuntimePath: "apps/map-provision",
   },
 ] as const;
 
@@ -100,8 +121,8 @@ for (const service of expectedServices) {
     `${service.name} product path must be ${service.productPath}`,
   );
   assert(
-    manifestEntry.legacyPath === service.legacyPath,
-    `${service.name} legacy path must stay explicit`,
+    !Object.hasOwn(manifestEntry, "legacyPath"),
+    `${service.name} must not keep a legacyPath after the runtime move`,
   );
   if (service.dockerfile) {
     assert(
@@ -124,6 +145,18 @@ for (const service of expectedServices) {
   );
   assert(productPackage.private === true, `${packagePath} must stay private`);
   assert(productPackage.type === "module", `${packagePath} must be an ESM package`);
+
+  for (const requiredFile of service.requiredFiles) {
+    const requiredPath = `${service.productPath}/${requiredFile}`;
+    assert(existsSync(join(repoRoot, requiredPath)), `${requiredPath} must exist`);
+  }
+
+  if (service.oldRuntimePath) {
+    assert(
+      !existsSync(join(repoRoot, service.oldRuntimePath)),
+      `${service.oldRuntimePath} must be moved under ${productRoot}`,
+    );
+  }
 }
 
 assert(
@@ -142,6 +175,4 @@ assert(
   "packages/api trpc bridge must remain type-only",
 );
 
-console.info(
-  "Control Center product boundary is declared and compatibility wrappers are explicit.",
-);
+console.info("Control Center runtime apps live under the product boundary.");

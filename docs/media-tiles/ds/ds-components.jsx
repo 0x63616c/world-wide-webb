@@ -1,5 +1,5 @@
 /* ============================================================
-   DS COMPONENTS — ported verbatim from
+   DS COMPONENTS , ported verbatim from
    0x63616c/control-center @ apps/web/src/components/**
    Browser-JSX versions of the real primitives, exported to window.
    Class names + token vars match the repo's tokens.css exactly.
@@ -9,7 +9,7 @@ var useState = React.useState,
   useRef = React.useRef,
   useState2 = React.useState;
 
-/* ---------- Icon — exact 23-glyph set from components/Icon.tsx ---------- */
+/* ---------- Icon , exact 23-glyph set from components/Icon.tsx ---------- */
 const GLYPHS = {
   sun: (
     <g>
@@ -321,7 +321,7 @@ function ControlTap({ icon, label, on, sub, pending, swatch, disabled, onToggle 
   );
 }
 
-/* ---------- Switch (.sw — CSS-only in repo, wrapped here) ---------- */
+/* ---------- Switch (.sw , CSS-only in repo, wrapped here) ---------- */
 function Switch({ on, onToggle }) {
   return (
     <button
@@ -337,7 +337,7 @@ function Switch({ on, onToggle }) {
   );
 }
 
-/* ---------- Range (.range — native input styled by token CSS) ---------- */
+/* ---------- Range (.range , native input styled by token CSS) ---------- */
 function Range({ value, onChange, min = 0, max = 100, lg, style }) {
   const pct = ((value - min) / (max - min)) * 100;
   return (
@@ -353,7 +353,7 @@ function Range({ value, onChange, min = 0, max = 100, lg, style }) {
   );
 }
 
-/* ---------- Modal (inline variant for the catalog — same markup/tokens) ---------- */
+/* ---------- Modal (inline variant for the catalog , same markup/tokens) ---------- */
 function Modal({ open, onClose, title, children, width = 640, maxHeight = 720 }) {
   useEffect(() => {
     if (!open) return;

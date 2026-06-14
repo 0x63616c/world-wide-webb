@@ -1,5 +1,5 @@
 /* ============================================================
-   ROOMS / MULTI-ROOM MIXER — 6 tile archetypes (A–F) + 3 modals
+   ROOMS / MULTI-ROOM MIXER , 6 tile archetypes (A–F) + 3 modals
    Live topology: Desk (coordinator) + Bedroom bonded on Line-in.
    Living Room (Beam) idle. Bathroom + Kitchen idle.
    Volumes: LR 70, Desk 66, Bedroom 68, Bathroom 68, Kitchen 53.
@@ -29,7 +29,7 @@ const short = {
   Kitchen: "Kitchen",
 };
 
-/* source chip — accent when actively playing a source */
+/* source chip , accent when actively playing a source */
 function SrcChip({ src, active }) {
   const idle = src === "idle";
   return (
@@ -93,7 +93,7 @@ function VFader({ pct, h = 132, accent = true, muted = false, knob = 18, w = 8 }
   );
 }
 
-/* group link rail — accent vertical bracket marking bonded rooms */
+/* group link rail , accent vertical bracket marking bonded rooms */
 function LinkRail({ h }) {
   return (
     <div style={{ position: "relative", width: 14, flex: "none" }}>
@@ -706,7 +706,7 @@ function RoomsH() {
       <div style={{ margin: "16px 0 20px" }}>
         <Slider pct={64} knob={18} h={5} />
       </div>
-      <Label style={{ marginBottom: 11 }}>In this group — tap to add / remove</Label>
+      <Label style={{ marginBottom: 11 }}>In this group , tap to add / remove</Label>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {RM.map((r) => {
           const on = grp.includes(r.n);
@@ -960,7 +960,7 @@ function RoomsJ() {
 
 /* =================== MODALS (960×680) =================== */
 
-/* M1 · Mixer — vertical faders */
+/* M1 · Mixer , vertical faders */
 function ModalMixer() {
   const [mutes, setMutes] = useState({});
   return (
@@ -1066,7 +1066,7 @@ function ModalMixer() {
   );
 }
 
-/* M2 · Group Builder — tap rooms to bond on a house map */
+/* M2 · Group Builder , tap rooms to bond on a house map */
 function ModalGroup() {
   const [grp, setGrp] = useState(["Desk", "Bedroom"]);
   const toggle = (n) => setGrp((g) => (g.includes(n) ? g.filter((x) => x !== n) : [...g, n]));
@@ -1301,28 +1301,28 @@ function ModalSource() {
 function RoomsBody() {
   return (
     <React.Fragment>
-      <Section title="Tiles" note="10 archetypes — A–F plus G–J (new this round)">
-        <Frame tag="A" name="Horizontal fader strip — rows + group dots" size="4×3 · 431×319">
+      <Section title="Tiles" note="10 archetypes , A–F plus G–J (new this round)">
+        <Frame tag="A" name="Horizontal fader strip , rows + group dots" size="4×3 · 431×319">
           <RoomsA />
         </Frame>
-        <Frame tag="B" name="Vertical fader console — mixing desk" size="4×3 · 431×319">
+        <Frame tag="B" name="Vertical fader console , mixing desk" size="4×3 · 431×319">
           <RoomsB />
         </Frame>
-        <Frame tag="D" name="Room chips — tap to expand" size="4×3 · 431×319">
+        <Frame tag="D" name="Room chips , tap to expand" size="4×3 · 431×319">
           <RoomsD />
         </Frame>
-        <Frame tag="E" name="House map — rooms placed spatially" size="4×3 · 431×319">
+        <Frame tag="E" name="House map , rooms placed spatially" size="4×3 · 431×319">
           <RoomsE />
         </Frame>
         <Frame tag="C" name="Compact list rows + master volume" size="3×4 · 319×431">
           <RoomsC />
         </Frame>
-        <Frame tag="F" name="Grouped stack — bonded under coordinator" size="3×4 · 319×431">
+        <Frame tag="F" name="Grouped stack , bonded under coordinator" size="3×4 · 319×431">
           <RoomsF />
         </Frame>
         <Frame
           tag="G"
-          name="Rotary dials — knob per room"
+          name="Rotary dials , knob per room"
           size="4×3 · 431×319"
           badge={{ text: "New", tone: "new" }}
         >
@@ -1330,7 +1330,7 @@ function RoomsBody() {
         </Frame>
         <Frame
           tag="H"
-          name="Group hero — giant numeral + toggle pills"
+          name="Group hero , giant numeral + toggle pills"
           size="4×3 · 431×319"
           badge={{ text: "New", tone: "new" }}
         >
@@ -1338,7 +1338,7 @@ function RoomsBody() {
         </Frame>
         <Frame
           tag="I"
-          name="Segmented LED meters — data-dense"
+          name="Segmented LED meters , data-dense"
           size="4×3 · 431×319"
           badge={{ text: "New", tone: "new" }}
         >
@@ -1346,7 +1346,7 @@ function RoomsBody() {
         </Frame>
         <Frame
           tag="J"
-          name="Radial topology ring — bonds drawn from group"
+          name="Radial topology ring , bonds drawn from group"
           size="4×3 · 431×319"
           badge={{ text: "New", tone: "new" }}
         >
@@ -1354,13 +1354,13 @@ function RoomsBody() {
         </Frame>
       </Section>
       <Section
-        title="Modal — mixer & grouping"
+        title="Modal , mixer & grouping"
         note="960×680 · the user flips between these variants"
       >
-        <Frame tag="M1" name="Mixer — vertical faders + mutes" size="960×680">
+        <Frame tag="M1" name="Mixer , vertical faders + mutes" size="960×680">
           <ModalMixer />
         </Frame>
-        <Frame tag="M2" name="Group Builder — tap to bond on map" size="960×680">
+        <Frame tag="M2" name="Group Builder , tap to bond on map" size="960×680">
           <ModalGroup />
         </Frame>
         <Frame tag="M3" name="Per-room Source picker" size="960×680">
@@ -1375,8 +1375,8 @@ window.RoomsCard = {
   name: "Rooms / Multi-room mixer",
   count: "10 tiles · 3 modals",
   Body: RoomsBody,
-  title: "Rooms / Multi-room mixer — tile + modal explorations",
-  sub: "Per-room Sonos control with live group topology. Ten tile takes now — the original six (strip, console, chips, house map, list, grouped stack) plus four new directions this round: rotary dials, a giant-numeral group hero, segmented LED meters, and a radial topology ring. Live state: Desk (coordinator) + Bedroom bonded on Line-in and playing; Living Room, Bathroom, Kitchen idle.",
+  title: "Rooms / Multi-room mixer , tile + modal explorations",
+  sub: "Per-room Sonos control with live group topology. Ten tile takes now , the original six (strip, console, chips, house map, list, grouped stack) plus four new directions this round: rotary dials, a giant-numeral group hero, segmented LED meters, and a radial topology ring. Live state: Desk (coordinator) + Bedroom bonded on Line-in and playing; Living Room, Bathroom, Kitchen idle.",
 };
 if (window.__SOLO__ !== false && document.getElementById("root")) {
   ReactDOM.createRoot(document.getElementById("root")).render(

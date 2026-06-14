@@ -6,20 +6,20 @@ This repository is a Bun monorepo for a smart-home wall-panel dashboard. The app
 
 ```text
 iPad / browser
-  -> apps/web React board
+  -> products/control-center/web React board
   -> /trpc same-origin HTTP
-  -> apps/api Bun + tRPC server
-  -> apps/api/src/services domain services
+  -> products/control-center/api Bun + tRPC server
+  -> products/control-center/api/src/services domain services
   -> Home Assistant / UniFi / Spotify / Postgres / media integrations
 
 background loops
-  -> apps/worker
-  -> @repo/api/worker domain cycles
+  -> products/control-center/worker
+  -> @control-center/api/worker domain cycles
   -> desired-state reconciliation, weather ingest, party mode
 
 heavy media jobs
-  -> apps/media-worker
-  -> @repo/api/media queue/media services
+  -> products/control-center/media-worker
+  -> @control-center/api/media queue/media services
   -> YouTube/media ingest and enrichment
 
 deploy
@@ -31,11 +31,11 @@ deploy
 
 ## Workspace Layout
 
-- `apps/web` - React dashboard, Storybook, and Capacitor iOS shell.
-- `apps/api` - Bun tRPC backend, DB schema, migrations, routers, services, and shared domain logic.
-- `apps/worker` - Continuous interval workers for home-state reconciliation and ingest.
-- `apps/media-worker` - Heavier queue/media workers, isolated from 1s home-control loops.
-- `products/control-center` - Product-owned Control Center boundary. Today it contains compatibility wrapper packages for web, api, worker, media-worker, Storybook, and iOS while source remains in `apps/*`; later M7 tickets move CI, infra, and source fully behind these paths.
+- `products/control-center/web` - React dashboard, Storybook, and Capacitor iOS shell.
+- `products/control-center/api` - Bun tRPC backend, DB schema, migrations, routers, services, and shared domain logic.
+- `products/control-center/worker` - Continuous interval workers for home-state reconciliation and ingest.
+- `products/control-center/media-worker` - Heavier queue/media workers, isolated from 1s home-control loops.
+- `products/control-center` - Product-owned Control Center boundary. Runtime app source now lives under this product folder while production image names, workload names, routes, and namespace stay unchanged.
 - `products/captive-portal/apps/api` - Captive Portal product API boundary, exposing only the portal tRPC surface.
 - `products/captive-portal/apps/frontend` - Guest WiFi captive portal frontend product app.
 - `packages/api` - Browser-safe type bridge that re-exports the API router type only.
@@ -46,23 +46,23 @@ deploy
 
 ## Frontend
 
-The main route, `apps/web/src/routes/index.tsx`, renders `Board` from `apps/web/src/components/Board.tsx`.
+The main route, `products/control-center/web/src/routes/index.tsx`, renders `Board` from `products/control-center/web/src/components/Board.tsx`.
 
 The dashboard is not a normal responsive layout. It is a fixed wall-panel world:
 
-- Target panel is `1366x1024`; board content constants are in `apps/web/src/lib/grid-constants.ts`.
+- Target panel is `1366x1024`; board content constants are in `products/control-center/web/src/lib/grid-constants.ts`.
 - `BOARD_W = 1366`, `BOARD_H = 1000`.
 - The board is a large `64x64` square-cell world.
 - Panning uses native scroll, plus windowing so only visible cells mount.
 - Idle reset glides back to the home tile, currently the clock.
 
-Tile placement is centralized in `apps/web/src/lib/tile-registry.ts`. Each tile entry defines its id, label, component, detail view component, world position, and size. Moving or resizing a tile should usually be a registry edit, not a board rewrite.
+Tile placement is centralized in `products/control-center/web/src/lib/tile-registry.ts`. Each tile entry defines its id, label, component, detail view component, world position, and size. Moving or resizing a tile should usually be a registry edit, not a board rewrite.
 
-Data access is through tRPC React Query in `apps/web/src/lib/trpc.ts`. Queries retry with bounded exponential backoff; mutations do not retry. Unavailable data should render skeleton/error states, not invented values.
+Data access is through tRPC React Query in `products/control-center/web/src/lib/trpc.ts`. Queries retry with bounded exponential backoff; mutations do not retry. Unavailable data should render skeleton/error states, not invented values.
 
 ## API
 
-The API entrypoint is `apps/api/src/server.ts`. It creates the root logger, runs migrations, then serves with `Bun.serve()`.
+The API entrypoint is `products/control-center/api/src/server.ts`. It creates the root logger, runs migrations, then serves with `Bun.serve()`.
 
 Routes include:
 
@@ -71,15 +71,15 @@ Routes include:
 - `/media/tv-artwork` - proxies Home Assistant artwork bytes so tokenized HA URLs stay private.
 - `/trpc/*` - tRPC request handling.
 
-The tRPC root router lives in `apps/api/src/trpc/routers/index.ts` and combines routers for health, weather, network, Tesla, climate, controls, camera, events, media, and portal.
+The tRPC root router lives in `products/control-center/api/src/trpc/routers/index.ts` and combines routers for health, weather, network, Tesla, climate, controls, camera, events, media, and portal.
 
-`apps/api/src/trpc/init.ts` adds middleware that remaps `HaError` into tRPC `SERVICE_UNAVAILABLE`, so clients can recover through normal query error handling.
+`products/control-center/api/src/trpc/init.ts` adds middleware that remaps `HaError` into tRPC `SERVICE_UNAVAILABLE`, so clients can recover through normal query error handling.
 
-`packages/api/src/trpc.ts` is intentionally tiny. It re-exports only the `AppRouter` type from `@repo/api/trpc`, allowing the web app to have typed tRPC without bundling backend runtime code.
+`packages/api/src/trpc.ts` is intentionally tiny. It re-exports only the `AppRouter` type from `@control-center/api/trpc`, allowing the web app to have typed tRPC without bundling backend runtime code.
 
 ## Domain Services
 
-Most business logic lives in `apps/api/src/services`. Important services include climate, controls, device state/commands, light and climate enforcers, party mode, weather ingest/read, network, Tesla, Apple TV, Spotify, Sonos, playlist polling, YouTube ingest, and captive portal flows.
+Most business logic lives in `products/control-center/api/src/services`. Important services include climate, controls, device state/commands, light and climate enforcers, party mode, weather ingest/read, network, Tesla, Apple TV, Spotify, Sonos, playlist polling, YouTube ingest, and captive portal flows.
 
 A key pattern is DB-authoritative desired state:
 
@@ -94,7 +94,7 @@ This keeps dashboard taps immediately self-consistent and avoids fighting upstre
 
 ## Database
 
-The Drizzle schema is in `apps/api/src/db/schema.ts`.
+The Drizzle schema is in `products/control-center/api/src/db/schema.ts`.
 
 Major tables include:
 
@@ -111,7 +111,7 @@ Both the API and workers run migrations at boot so whichever starts first can sa
 
 ## Workers
 
-`apps/worker` owns the interval runtime and imports domain cycles through the narrow `@repo/api/worker` barrel at `apps/api/src/worker-deps.ts`. The product-owned wrapper is `products/control-center/worker`.
+`products/control-center/worker` owns the interval runtime and imports domain cycles through the narrow `@control-center/api/worker` barrel at `products/control-center/api/src/worker-deps.ts`. The product-owned wrapper is `products/control-center/worker`.
 
 Registered workers currently include:
 
@@ -122,9 +122,9 @@ Registered workers currently include:
 - `party-mode` every 2s.
 - `weather-ingest` every 5m.
 
-The runtime in `apps/worker/src/runtime.ts` prevents overlapping cycles per worker, isolates failures, logs failure and recovery transitions, warns on slow cycles, and exposes stats.
+The runtime in `products/control-center/worker/src/runtime.ts` prevents overlapping cycles per worker, isolates failures, logs failure and recovery transitions, warns on slow cycles, and exposes stats.
 
-`apps/media-worker` is separate because downloads and enrichment are heavier than home-control loops. It imports through `@repo/api/media` at `apps/api/src/media.ts` and runs through the product-owned wrapper at `products/control-center/media-worker`.
+`products/control-center/media-worker` is separate because downloads and enrichment are heavier than home-control loops. It imports through `@control-center/api/media` at `products/control-center/api/src/media.ts` and runs through the product-owned wrapper at `products/control-center/media-worker`.
 
 - `queue-worker` every 2s.
 - `playlist-poller` every 10m.
@@ -137,7 +137,7 @@ It checks media storage free space before claiming download work.
 
 Logger behavior is keyed off runtime env like `APP_ENV`, `LOG_LEVEL`, and `LOG_PRETTY`, not `NODE_ENV`, because Bun can inline `NODE_ENV` in single-file bundles.
 
-API config is parsed in `apps/api/src/env.ts`. Production secrets are mounted as files under `/run/secrets/<NAME>` and hydrated at boot. Real credentials and private home-location values live outside git.
+API config is parsed in `products/control-center/api/src/env.ts`. Production secrets are mounted as files under `/run/secrets/<NAME>` and hydrated at boot. Real credentials and private home-location values live outside git.
 
 ## Deployment
 
@@ -174,7 +174,7 @@ Do not add a third-party scheduler for new cron-style tasks.
 
 The repo is moving toward a multi-product platform shape documented in `docs/platform/README.html` and `docs/platform/NORTH_STAR.html`. Read those before touching product/platform split work. The target model is products under `products/<name>` with platform-owned primitives for namespaces, routing/TLS, secrets, CNPG Postgres databases, NAS backups, local dev, CI/deploy, and iOS workflows.
 
-Control Center now has a product boundary at `products/control-center`. For M7 compatibility, the product packages delegate to the legacy `apps/web`, `apps/api`, `apps/worker`, and `apps/media-worker` source paths so production behavior does not change until the CI, infra, database, and route cutovers land.
+Control Center now has a product boundary at `products/control-center`. For M7 compatibility, the product packages delegate to the legacy `products/control-center/web`, `products/control-center/api`, `products/control-center/worker`, and `products/control-center/media-worker` source paths so production behavior does not change until the CI, infra, database, and route cutovers land.
 
 CI path filters treat `products/control-center/**` as a Control Center app change, while unrelated `products/*` folders do not rebuild or deploy Control Center unless shared `packages/**` or `bun.lock` changes. Product-scoped local commands live on `@product/control-center`, including `dev:web`, `dev:api`, `dev:worker`, `dev:media-worker`, `dev:storybook`, `dev:db`, and `ios:*` aliases.
 
@@ -186,7 +186,7 @@ M1 foundation lives in `packages/platform`. It is representation-only today: `co
 - Run tests with `bun run test`, never bare `bun test`.
 - Do not add fake, fallback, or placeholder data. Unavailable data should shimmer or error and recover.
 - Backend code uses structured logging through `@repo/logger`, not `console.*`.
-- Tiles should use shared UI primitives from `apps/web/src/components/ui`.
+- Tiles should use shared UI primitives from `products/control-center/web/src/components/ui`.
 - Component work should be Storybook-first where practical.
 - IDs should default to Stripe-style `prefix_<id>`.
 - Deployment and operations changes should update docs in the same change.
@@ -197,22 +197,22 @@ Most product changes follow this vertical slice:
 
 ```text
 UI tile/component
-  -> apps/web/src/components
-  -> tRPC hook from apps/web/src/lib/trpc.ts
+  -> products/control-center/web/src/components
+  -> tRPC hook from products/control-center/web/src/lib/trpc.ts
 
 API router
-  -> apps/api/src/trpc/routers
+  -> products/control-center/api/src/trpc/routers
   -> validates input/output
 
 Domain service
-  -> apps/api/src/services
+  -> products/control-center/api/src/services
   -> talks DB or integration
 
 Persistent state
-  -> apps/api/src/db/schema.ts, if needed
+  -> products/control-center/api/src/db/schema.ts, if needed
 
 Background work
-  -> apps/worker or apps/media-worker, if needed
+  -> products/control-center/worker or products/control-center/media-worker, if needed
 
 Deploy shape
   -> infra/src/services.ts or infra/src/crons.ts, if needed

@@ -10,9 +10,9 @@ Apply these rules before writing, editing, or reviewing TS/TSX in this repo.
 
 This repo is a Bun monorepo using:
 
-- React/TSX for the fixed wall-panel UI in `apps/web`.
+- React/TSX for the fixed wall-panel UI in `products/control-center/web`.
 - Storybook for component design and browser-backed stories.
-- tRPC in `apps/api` with browser-safe types exposed through `packages/api`.
+- tRPC in `products/control-center/api` with browser-safe types exposed through `packages/api`.
 - Drizzle/Postgres for persistence.
 - Worker apps for background reconciliation and media jobs.
 - Pulumi TypeScript for infra in `infra/`.

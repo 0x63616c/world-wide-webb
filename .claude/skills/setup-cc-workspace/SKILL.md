@@ -1,6 +1,6 @@
 ---
 name: setup-cc-workspace
-description: Use when Calum wants to run/start/spin up control-center locally, set up a dev workspace, view the app, or view the Tilt logs — runs the Tilt dev stack (postgres + api + worker + web + storybook) and opens the app and log UI in cmux views.
+description: Use when Calum wants to run/start/spin up control-center locally, set up a dev workspace, view the app, or view the Tilt logs , runs the Tilt dev stack (postgres + api + worker + web + storybook) and opens the app and log UI in cmux views.
 ---
 
 # Set Up Control-Center Workspace
@@ -21,7 +21,7 @@ is request-only); watch its logs in the Tilt UI to see reconcile/ingest cycles.
 
 ## How
 
-Run the script — it is idempotent (reuses a running Tilt) and fails fast on missing prereqs:
+Run the script , it is idempotent (reuses a running Tilt) and fails fast on missing prereqs:
 
 ```bash
 scripts/setup-workspace.sh
@@ -47,4 +47,4 @@ Raw stream: `/tmp/cc-tilt.log`. Stop everything with `tilt down`.
 
 - Secrets load via `op inject` from 1Password, so `op` must be authenticated first.
 - Cold start is ~30–60s (api boots, db migrates, then web). The script blocks until :4200 serves.
-- Hot reload: `bun --watch` for the api, Vite HMR for the web — no restart needed after edits.
+- Hot reload: `bun --watch` for the api, Vite HMR for the web , no restart needed after edits.

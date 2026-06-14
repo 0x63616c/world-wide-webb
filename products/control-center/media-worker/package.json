@@ -4,8 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run --cwd ../../../apps/media-worker dev",
-    "test": "bun run --cwd ../../../apps/media-worker test",
-    "typecheck": "bun run --cwd ../../../apps/media-worker typecheck"
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@control-center/api": "workspace:*",
+    "@repo/logger": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   }
 }

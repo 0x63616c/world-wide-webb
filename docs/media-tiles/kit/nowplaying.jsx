@@ -1,5 +1,5 @@
 /* ============================================================
-   NOW PLAYING — 8 tile archetypes (A–H) + 3 modal variants
+   NOW PLAYING , 8 tile archetypes (A–H) + 3 modal variants
    Sample state: Apple TV → YouTube, "We Investigated a New
    Designer Drug" by fern, 5:10 / 27:23, PAUSED.
    ============================================================ */
@@ -266,7 +266,7 @@ function NowC() {
       />
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
         <YouTubeMark s={18} />
-        <Label style={{ color: T.ink2 }}>YouTube — {NP.artist}</Label>
+        <Label style={{ color: T.ink2 }}>YouTube , {NP.artist}</Label>
       </div>
       <div
         style={{
@@ -896,7 +896,7 @@ function RemoteBtn({ children, w = 64, h = 58, onClick }) {
 }
 function ModalRemote() {
   return (
-    <ModalPanel w={880} h={640} title="Apple TV — Remote" icon={I.tv({ size: 20 })}>
+    <ModalPanel w={880} h={640} title="Apple TV , Remote" icon={I.tv({ size: 20 })}>
       <div style={{ display: "flex", gap: 34, height: "100%" }}>
         {/* now playing strip + media keys */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
@@ -951,7 +951,7 @@ function ModalRemote() {
             </RemoteBtn>
           </div>
           <div style={{ marginTop: "auto", fontSize: 12.5, color: T.ink3, lineHeight: 1.5 }}>
-            No mute on Apple TV — volume routes through Sonos / HomePod output.
+            No mute on Apple TV , volume routes through Sonos / HomePod output.
           </div>
         </div>
         {/* D-pad cluster */}
@@ -1195,10 +1195,10 @@ function ModalRouting() {
 function NowPlayingBody() {
   return (
     <React.Fragment>
-      <Section title="Tiles" note="8 archetypes — A through H">
+      <Section title="Tiles" note="8 archetypes , A through H">
         <Frame
           tag="A"
-          name="Horizontal split — art left, meta + transport right"
+          name="Horizontal split , art left, meta + transport right"
           size="4×3 · 431×319"
           badge={{ text: "Selected ✓", tone: "selected" }}
         >
@@ -1206,35 +1206,35 @@ function NowPlayingBody() {
         </Frame>
         <Frame
           tag="C"
-          name="Typographic — no art, giant title + hairline scrub"
+          name="Typographic , no art, giant title + hairline scrub"
           size="4×3 · 431×319"
         >
           <NowC />
         </Frame>
-        <Frame tag="D" name="Disc — circular art + circular scrub ring" size="4×3 · 431×319">
+        <Frame tag="D" name="Disc , circular art + circular scrub ring" size="4×3 · 431×319">
           <NowD />
         </Frame>
-        <Frame tag="G" name="Portrait stack — art top, transport bottom" size="4×3 · 431×319">
+        <Frame tag="G" name="Portrait stack , art top, transport bottom" size="4×3 · 431×319">
           <NowG />
         </Frame>
-        <Frame tag="H" name="Waveform — EQ motif as the scrubber" size="4×3 · 431×319">
+        <Frame tag="H" name="Waveform , EQ motif as the scrubber" size="4×3 · 431×319">
           <NowH />
         </Frame>
-        <Frame tag="F" name="Ticker — single line (shown shrunk to 4×2)" size="4×2 · 431×207">
+        <Frame tag="F" name="Ticker , single line (shown shrunk to 4×2)" size="4×2 · 431×207">
           <NowF />
         </Frame>
-        <Frame tag="B" name="Full-bleed art — controls over bottom scrim" size="5×3 · 544×319">
+        <Frame tag="B" name="Full-bleed art , controls over bottom scrim" size="5×3 · 544×319">
           <NowB />
         </Frame>
-        <Frame tag="E" name="Ambient — blurred artwork as background" size="5×3 · 544×319">
+        <Frame tag="E" name="Ambient , blurred artwork as background" size="5×3 · 544×319">
           <NowE />
         </Frame>
       </Section>
-      <Section title="Modal — full controller" note="880×640 · 2 modals">
-        <Frame tag="M1" name="Transport & Scrub — draggable scrubber" size="880×640">
+      <Section title="Modal , full controller" note="880×640 · 2 modals">
+        <Frame tag="M1" name="Transport & Scrub , draggable scrubber" size="880×640">
           <ModalTransport />
         </Frame>
-        <Frame tag="M2" name="TV Remote — D-pad" size="880×640">
+        <Frame tag="M2" name="TV Remote , D-pad" size="880×640">
           <ModalRemote />
         </Frame>
       </Section>
@@ -1246,7 +1246,7 @@ window.NowPlayingCard = {
   name: "TV Now Playing",
   count: "8 tiles · 2 modals",
   Body: NowPlayingBody,
-  title: "TV Now Playing — tile + modal explorations",
+  title: "TV Now Playing , tile + modal explorations",
   sub: "Source-aware media hero for the Apple TV / Sonos feed. Eight structurally distinct tile takes spanning the variation axes (hierarchy anchor, artwork treatment, transport shape, orientation), then three modal controllers. Live state: YouTube → “We Investigated a New Designer Drug” by fern, 5:10 / 27:23, paused. Tap any play button or drag the modal scrubber.",
 };
 if (window.__SOLO__ !== false && document.getElementById("root")) {

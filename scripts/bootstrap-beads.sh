@@ -2,7 +2,7 @@
 # Bootstrap the beads issue DB on a fresh clone (www-sg4p).
 #
 # Issues live in a Dolt DB synced via the Dolt *git remote*: refs/dolt/data on
-# origin. A fresh clone has no DB — this script reconstructs it from origin. No
+# origin. A fresh clone has no DB , this script reconstructs it from origin. No
 # reliance on committed JSONL (issues.jsonl is a gitignored export, not the
 # sync channel).
 #
@@ -21,7 +21,7 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 if ! command -v bd >/dev/null 2>&1; then
-  echo "bootstrap-beads: 'bd' (beads) is not installed — see .beads/README.md" >&2
+  echo "bootstrap-beads: 'bd' (beads) is not installed , see .beads/README.md" >&2
   exit 1
 fi
 
@@ -35,4 +35,4 @@ echo "bootstrap-beads: disabling dolt.auto-push (sync rides lefthook pre-push)�
 bd config set dolt.auto-push false >/dev/null
 
 count="$(bd list --json 2>/dev/null | grep -c '"id"' || true)"
-echo "bootstrap-beads: done — ${count} issues available. Try: bd ready"
+echo "bootstrap-beads: done , ${count} issues available. Try: bd ready"

@@ -3,7 +3,7 @@
 
 Aggregates the captured flows into: top LAN devices (by traffic), top external
 endpoints annotated with reverse-DNS + ASN/org (Team Cymru bulk whois, stdlib
-only — no API key, no GeoIP DB), top destination ports, and protocol mix.
+only , no API key, no GeoIP DB), top destination ports, and protocol mix.
 
   python3 unifi-flow-report.py <flows.json> [ip_names.json]
 """

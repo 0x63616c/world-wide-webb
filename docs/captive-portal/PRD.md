@@ -50,7 +50,7 @@ One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (
 
 **Frontend (`products/captive-portal/apps/frontend`)**
 
-1. Vite + React 19 + TypeScript + Tailwind v4 + shadcn/ui, homogenous with `apps/web`.
+1. Vite + React 19 + TypeScript + Tailwind v4 + shadcn/ui, homogenous with `products/control-center/web`.
 2. OTP input built on shadcn `input-otp` (auto-advance, paste, backspace, numeric-only, `autocomplete="one-time-code"`).
 3. Geist + Geist Mono self-hosted (captive webviews block CDNs).
 4. Pure `#000` background, hairline borders, state color only for error/success.

@@ -15,8 +15,8 @@ adding a `console.*` call to a backend service.
 
 Rejected alternatives and why:
 
-- **A module inside `@repo/api`** (e.g. `apps/api/src/logger.ts`). `bosun`
-  (`@bosun/bosun`) deliberately has **no `@repo/api` dependency** and must never
+- **A module inside `@control-center/api`** (e.g. `products/control-center/api/src/logger.ts`). `bosun`
+  (`@bosun/bosun`) deliberately has **no `@control-center/api` dependency** and must never
   gain one, it is a deploy agent that ships in its own image and would drag the
   entire tRPC/drizzle/pg tree into bosun's bundle. So the logger cannot live
   under api.
@@ -29,14 +29,14 @@ Rejected alternatives and why:
 cross-app coupling and no cycles**:
 
 ```
-@repo/api        ─┐
-@repo/worker      ├─▶ @repo/logger   (leaf; depends only on pino + pino-pretty)
-@repo/media-worker┤
+@control-center/api        ─┐
+@control-center/worker      ├─▶ @repo/logger   (leaf; depends only on pino + pino-pretty)
+@control-center/media-worker┤
 @bosun/bosun     ─┘
 ```
 
 `@repo/logger` depends on nothing in the repo. api/worker/media-worker already
-depend on `@repo/api`; they add a direct dep on `@repo/logger`. bosun adds
+depend on `@control-center/api`; they add a direct dep on `@repo/logger`. bosun adds
 `@repo/logger` as its **first and only** `@repo/*`/`@bosun/*` cross-workspace dep
 (a leaf logger, not the app tree, acceptable). No cycle is possible because the
 logger imports nothing back.
@@ -75,7 +75,7 @@ packages/logger/
   boot (www-rw07). A sync stream is bundled inline and works everywhere, and as a
   bonus needs no `knip.jsonc` ignore (the import edge satisfies knip on its own).
 - `createLogger` and `getLogger` are both consumed by real call sites (see §2:
-  `getLogger()` is the accessor for deep `@repo/api` domain code), so they are
+  `getLogger()` is the accessor for deep `@control-center/api` domain code), so they are
   live exports, no `@public` tag needed. The `Logger` type alias is exported for
   consumers' convenience with no internal use, so it gets a
   `/** @public, re-exported Logger type for service call sites */` tag.
@@ -126,14 +126,14 @@ export function createLogger(opts: CreateLoggerOptions): Logger;
 export function getLogger(): Logger;
 ```
 
-**`getLogger()` is the accessor for shared `@repo/api` domain code, and only it.**
+**`getLogger()` is the accessor for shared `@control-center/api` domain code, and only it.**
 Two patterns coexist, chosen by where the code physically lives:
 
 - **Threaded instance**, the default for code a process owns directly:
   `server.ts` (api), `index.ts` + `runtime.ts` (worker / media-worker, where the
   `Logger` is an explicit constructor arg, no module-global), and `cli.ts` /
   `serve.ts` (bosun). These create the root and pass children down.
-- **`getLogger()`**, for the **shared `@repo/api` domain services**
+- **`getLogger()`**, for the **shared `@control-center/api` domain services**
   (`jobs/queue.ts`, the playlist-poller, youtube-ingest, controls-service, the
   enforcers). This code is imported and run under **two different process roots**
   (the `api` server AND the `media-worker`), so it cannot demand a threaded
@@ -219,7 +219,7 @@ sites **never** read these themselves; they pass an optional `level` / `env` /
 `pretty` through `createLogger` opts if they need to override.
 
 This matters for the lint gate: biome's `style.noProcessEnv` is `error`
-repo-wide and only disabled (in `biome.json` overrides) for `apps/api/src/env.ts`,
+repo-wide and only disabled (in `biome.json` overrides) for `products/control-center/api/src/env.ts`,
 `packages/bosun/src/cli.ts`, and `scripts/**`. A `process.env.LOG_LEVEL` read in
 `server.ts`, the worker/media-worker `index.ts`, or bosun `serve.ts` would fail
 `bunx biome check .` (a hard gate). Centralising the reads in `packages/logger`
@@ -230,7 +230,7 @@ does read env is sanctioned.
 
 `LOG_LEVEL: z.string().optional()` is still added to the api env schema for
 documentation/validation, but the logger reads `process.env.LOG_LEVEL` directly
-(it cannot import the api env schema, it is a leaf with no `@repo/api` dep).
+(it cannot import the api env schema, it is a leaf with no `@control-center/api` dep).
 
 **Levels policy** (the rule every gap in §5 maps onto):
 
@@ -334,10 +334,10 @@ runtime**, which today swallows every cycle error into invisible in-memory stats
 
 > **Shared-code ownership, these tickets are NOT fully parallel on shared files.**
 > The job queue, playlist-poller, youtube-ingest, controls-service, and the
-> enforcers physically live in **`@repo/api`** and are run by **two** process
+> enforcers physically live in **`@control-center/api`** and are run by **two** process
 > roots (the api server and the media-worker). To avoid parallel worktrees both
 > editing `jobs/queue.ts` / the poller / ingest and conflicting on every merge,
-> **ALL `@repo/api` domain-service logging is owned by the API ticket only.**
+> **ALL `@control-center/api` domain-service logging is owned by the API ticket only.**
 > Those modules acquire their logger via **`getLogger()`** (see §2) so they bind
 > whichever root is live (`service: "api"` under the api, `service: "media-worker"`
 > under the media-worker), no threaded arg, reachable from both roots. The
@@ -346,10 +346,10 @@ runtime**, which today swallows every cycle error into invisible in-memory stats
 > ticket must land the shared-code logging FIRST; worker / media-worker then
 > adopt only the runtime. See the rollout note in §8.
 
-### api (`@repo/api`)
+### api (`@control-center/api`)
 
 Root logger created once in `server.ts`: `const log = createLogger({ service: "api" })`.
-This ticket **owns all `@repo/api` domain-service logging** (queue, poller,
+This ticket **owns all `@control-center/api` domain-service logging** (queue, poller,
 ingest, controls, enforcers, see the §5 ownership note); those modules log via
 **`getLogger()`** so they also bind correctly when the media-worker runs them.
 `server.ts`-owned code uses the threaded `log` / `reqLog` children directly.
@@ -378,10 +378,10 @@ ingest, controls, enforcers, see the §5 ownership note); those modules log via
 - `playlist-poller-service.ts`, `info` cycle start/summary (sourceId, found, new vs known); `debug` empty playlist; `info` new items discovered (sourceId, newCount, videoIds).
 - `controls-service.ts`, `warn` getControlsState DB-read failure (devices appear unavailable); `warn` writeDesired per-entity DB write failure (entityId, desired).
 
-> All of the above `@repo/api` domain modules acquire their logger via
+> All of the above `@control-center/api` domain modules acquire their logger via
 > `getLogger()` (§2), so each line binds whichever process root is live.
 
-### worker (`@repo/worker`)
+### worker (`@control-center/worker`)
 
 Root logger `createLogger({ service: "worker" })` in `index.ts`. **The runtime
 change is the heart of this whole effort**, `runtime.ts` currently catches every
@@ -404,14 +404,14 @@ cycle error into `stats` and emits nothing.
 
 The runtime takes the logger as a **constructor argument** (`createWorkerRuntime(workers, { logger })`), no module-global logger, keeps it testable, and lets media-worker pass its own `service: "media-worker"` root.
 
-### media-worker (`@repo/media-worker`)
+### media-worker (`@control-center/media-worker`)
 
 Root logger `createLogger({ service: "media-worker" })` in `index.ts`. It owns a
 **copy** of the worker framework (`runtime.ts`/`types.ts`), apply the same
 runtime changes as worker (failure/recovery transitions, periodic stats,
 slow-cycle). **This ticket is scoped to the files media-worker OWNS only**
 (`index.ts` + its `runtime.ts`/`types.ts` copy). The job queue, poller, and
-ingest live in `@repo/api` and their logging is owned by the **API ticket**
+ingest live in `@control-center/api` and their logging is owned by the **API ticket**
 (§5 ownership note) via `getLogger()`, those lines fire automatically under the
 `media-worker` root at runtime, so this ticket neither edits nor re-logs them.
 
@@ -484,9 +484,9 @@ The **1s worker loops stay silent** in steady state (only transitions + periodic
 
 ## 7. Web (browser), out of scope, future note
 
-`apps/web` is **not** in this effort. pino's browser build exists, but the web
+`products/control-center/web` is **not** in this effort. pino's browser build exists, but the web
 app's `console.*` usage is a separate, smaller concern (it ships to a kiosk
-WKWebView, no aggregator). When picked up later: a thin `apps/web/src/log.ts`
+WKWebView, no aggregator). When picked up later: a thin `products/control-center/web/src/log.ts`
 wrapper with the same `info/warn/error` shape (no pino dependency required ,
 could be a 20-line console wrapper that no-ops `debug` in prod) can replace
 `console.*` at the React call sites, optionally POSTing `error` lines to an api
@@ -500,20 +500,20 @@ sink. Keep it a separate ticket; do not block the backend rollout on it.
    nothing else can import it until it exists. (Includes the
    `**/packages/logger/src/**` `noProcessEnv: off` biome override and the
    `packages/logger`-scoped `pino-pretty` knip ignore, see §1, §3.)
-2. **api** lands next: it owns ALL `@repo/api` domain-service logging (queue,
+2. **api** lands next: it owns ALL `@control-center/api` domain-service logging (queue,
    poller, ingest, controls, enforcers) via `getLogger()` (§5 ownership note).
    This must precede worker/media-worker because those shared files are edited
    here ONLY.
 3. Then **worker / media-worker / bosun** adopt. They are parallel **with each
    other** (each touches only files it owns, its own `runtime.ts`/`index.ts`,
    or bosun's `cli.ts`/`serve.ts`), but they are **NOT** parallel with the api
-   ticket on the shared `@repo/api` files: those are already done by step 2, so
+   ticket on the shared `@control-center/api` files: those are already done by step 2, so
    worker/media-worker adopt only the runtime and inherit the domain lines at
    runtime.
 4. Docs updated to reflect actual implementation (no deviations from the plan above).
 
 **These tickets are NOT fully parallel.** The api ticket is on the critical path
-for all shared `@repo/api` domain code; worker/media-worker/bosun parallelise
+for all shared `@control-center/api` domain code; worker/media-worker/bosun parallelise
 only among themselves after it lands. Each service ticket is independently
 revertable, but the ordering above avoids parallel worktrees conflicting on
 `jobs/queue.ts` / the poller / ingest.

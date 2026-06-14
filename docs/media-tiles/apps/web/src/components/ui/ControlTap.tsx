@@ -1,5 +1,5 @@
 /**
- * ControlTap — standalone dumb presentational control cell.
+ * ControlTap , standalone dumb presentational control cell.
  * Zero trpc/data/hook dependencies; all state driven by props.
  */
 
@@ -13,7 +13,7 @@ export interface ControlTapProps {
   pending?: boolean;
   /**
    * Optional color (any CSS color). When set, a filled circle of this color
-   * renders in place of the Icon — used for scene swatches (e.g. party palette,
+   * renders in place of the Icon , used for scene swatches (e.g. party palette,
    * warm white). The `icon` prop is still required but ignored when swatch is set.
    */
   swatch?: string;
@@ -101,7 +101,7 @@ export function ControlTap({
         <span className="sd" />
       </div>
 
-      {/* Bottom row: label left, On/Off status right — same baseline.
+      {/* Bottom row: label left, On/Off status right , same baseline.
           width:100% for the same iOS Safari button-flex stretch bug as above. */}
       <div
         style={{

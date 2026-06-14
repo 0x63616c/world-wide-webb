@@ -1,5 +1,5 @@
-import { portalRouter } from "@repo/api/portal-router";
-import { router } from "@repo/api/trpc-init";
+import { portalRouter } from "@control-center/api/portal-router";
+import { router } from "@control-center/api/trpc-init";
 
 export const captivePortalApiRouter = router({
   portal: portalRouter,

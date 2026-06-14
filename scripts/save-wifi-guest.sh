@@ -16,7 +16,7 @@ echo "Saving guest WiFi credentials to 1Password ($VAULT vault)..."
 echo "(This will overwrite any existing values.)"
 echo ""
 
-echo "Step 1. SSID — press ENTER to keep the existing one."
+echo "Step 1. SSID , press ENTER to keep the existing one."
 read -rp "SSID: " SSID
 
 echo ""
@@ -55,6 +55,6 @@ if [ -d "$EVEE_OP_DIR" ]; then
 fi
 
 echo "Verifying..."
-[ "$(op read "$PASSWORD_REF")" = "$PASSWORD" ] && echo "  ok — $PASSWORD_REF matches what you entered"
-op read "$SSID_REF" >/dev/null && echo "  ok — $SSID_REF is readable"
+[ "$(op read "$PASSWORD_REF")" = "$PASSWORD" ] && echo "  ok , $PASSWORD_REF matches what you entered"
+op read "$SSID_REF" >/dev/null && echo "  ok , $SSID_REF is readable"
 echo "Done. References: $PASSWORD_REF , $SSID_REF"

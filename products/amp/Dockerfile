@@ -3,10 +3,6 @@ FROM oven/bun:1.2-alpine AS builder
 WORKDIR /app
 
 COPY package.json bun.lock ./
-COPY apps/api/package.json ./apps/api/package.json
-COPY apps/media-worker/package.json ./apps/media-worker/package.json
-COPY apps/web/package.json ./apps/web/package.json
-COPY apps/worker/package.json ./apps/worker/package.json
 COPY infra/package.json ./infra/package.json
 COPY infra/cloudflare/package.json ./infra/cloudflare/package.json
 COPY infra/unifi/package.json ./infra/unifi/package.json

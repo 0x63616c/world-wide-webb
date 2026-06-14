@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Installs the OrbStack docker-hang watchdog (www-sizh) as a per-user LaunchAgent
-# on homelab. Run ON homelab, as calum (NOT sudo — a LaunchAgent must live in the
+# on homelab. Run ON homelab, as calum (NOT sudo , a LaunchAgent must live in the
 # user's GUI session so it can pgrep + `open -a OrbStack` the user's OrbStack):
 #
 #   ./scripts/install-orbstack-watchdog.sh
@@ -61,4 +61,4 @@ echo "wrote LaunchAgent → $PLIST (every ${OBW_INTERVAL}s)"
 # Reload idempotently.
 launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
-echo "loaded $LABEL — tail $STATE_DIR/watchdog.log to watch it"
+echo "loaded $LABEL , tail $STATE_DIR/watchdog.log to watch it"

@@ -1,4 +1,4 @@
-# /goal — Ship the "world-wide-webb" Wi-Fi captive portal
+# /goal , Ship the "world-wide-webb" Wi-Fi captive portal
 
 You are implementing a production captive portal for a home UniFi network. The complete
 design, component spec, copy, and every screen state already exist in this project (see
@@ -22,27 +22,27 @@ until it has tests and they're green. Do not skip the integration and end-to-end
 
 ---
 
-## Design assets (read these first — they are the source of truth)
+## Design assets (read these first , they are the source of truth)
 
 - `Design System.html` + `ds-foundations.jsx`, `ds-components.jsx`, `ds-flow.jsx`, `ds-kit.jsx`, `ds.css`
-  — the written spec: tokens, every component with all states/props, the state machine,
+  , the written spec: tokens, every component with all states/props, the state machine,
   **validation rules**, the **copy deck**, accessibility checklist, and the edge-case matrix.
-- `theme.css` — design tokens (color/type/spacing/radius) and the CSS for every component.
-- `components.jsx` — React primitives: Button, Field, TextInput, CheckboxRow, Alert, OtpInput,
+- `theme.css` , design tokens (color/type/spacing/radius) and the CSS for every component.
+- `components.jsx` , React primitives: Button, Field, TextInput, CheckboxRow, Alert, OtpInput,
   NetworkPill, plus `validate()` and `validatePassword()`.
-- `screens.jsx` — all screens (landing variants, Verify, WifiPassword, Connecting, Success,
+- `screens.jsx` , all screens (landing variants, Verify, WifiPassword, Connecting, Success,
   Sending, RateLimited, SessionExpired, GenericError, Terms). **The shipped landing is the
   `LandingBare` variant.**
-- `World-Wide-Webb Portal.html` — the working flow/state-machine wiring (transitions, counters,
+- `World-Wide-Webb Portal.html` , the working flow/state-machine wiring (transitions, counters,
   timers, error handling) to mirror in the real app.
-- `Handoff Canvas.html` — visual reference of every screen and state.
+- `Handoff Canvas.html` , visual reference of every screen and state.
 
 Match the design exactly: pure-black Vercel/shadcn theme, Geist + Geist Mono, white primary,
 hairline borders, state color only for errors/success. Do not invent new UI.
 
 ---
 
-## Scope — screens & features (build all of them)
+## Scope , screens & features (build all of them)
 
 **Happy path:** Landing (name + email + terms) → Sending code → Verify email (6-digit OTP) →
 Wi-Fi password → Connecting → You're online.
@@ -73,12 +73,12 @@ Wi-Fi password → Connecting → You're online.
 
 Build two pieces:
 
-1. **Portal frontend** — the screens above as a single-page flow. Port `theme.css` /
+1. **Portal frontend** , the screens above as a single-page flow. Port `theme.css` /
    `components.jsx` / `screens.jsx` faithfully. Keep the state machine from
    `World-Wide-Webb Portal.html`. Persist the current step + email (e.g. sessionStorage) so a
    reload doesn't reset the guest.
 
-2. **Portal backend (external portal server)** — handles the UniFi redirect, email code
+2. **Portal backend (external portal server)** , handles the UniFi redirect, email code
    send/verify, the Wi-Fi password check, rate limiting, and the UniFi authorize call. Keep all
    secrets and the UniFi credentials server-side. The frontend never talks to UniFi directly.
 
@@ -91,7 +91,7 @@ short-lived store (Redis or in-memory with TTL) for codes, attempt counters, and
 ## UniFi integration (the part that actually grants internet)
 
 This is a UniFi **external captive portal**. Confirm specifics against the controller version in
-use (UniFi OS console vs. classic Network controller) — APIs differ by version, so verify, don't
+use (UniFi OS console vs. classic Network controller) , APIs differ by version, so verify, don't
 assume.
 
 1. **Enable the external portal** on the guest WLAN's hotspot/guest-control settings and point
@@ -104,7 +104,7 @@ assume.
    - `POST /api/s/<site>/cmd/stamgr` with `{ cmd: "authorize-guest", mac: <clientMac>, minutes: 43200 }`
      (43200 min = 30 days). Optionally pass bandwidth/data limits.
    - On UniFi OS, prefix controller API paths with `/proxy/network` and handle the CSRF/cookie flow.
-4. **Redirect the guest** back to the original `url` (or a default page) once authorized — this is
+4. **Redirect the guest** back to the original `url` (or a default page) once authorized , this is
    what the Success screen's "your browser should redirect automatically" copy refers to.
 5. **Returning devices:** if the MAC already has an active authorization, short-circuit to the
    "Already online" screen; if a prior authorization has lapsed past 30 days, show "Session expired".
@@ -118,14 +118,14 @@ swapped per controller version.
 
 **Write tests first at every layer:**
 
-- **Unit** — validation (`validate`, `validatePassword`, email regex, password min-length),
+- **Unit** , validation (`validate`, `validatePassword`, email regex, password min-length),
   the OTP component behavior (auto-advance, paste, backspace, numeric-only), the rate-limit
   counter logic, code generation/expiry, and the state-machine transitions (table-driven:
   state + event → next state).
-- **Integration** — backend routes: send-code, verify-code (correct / wrong / expired /
+- **Integration** , backend routes: send-code, verify-code (correct / wrong / expired /
   lockout after 3), check-password (correct / wrong / lockout), and the UniFi authorize call
   against a **mocked** `UniFiClient` (assert MAC + 43200 minutes; assert no real network call).
-- **End-to-end** (Playwright or similar) — drive the real UI through: full happy path; each
+- **End-to-end** (Playwright or similar) , drive the real UI through: full happy path; each
   validation error; wrong-code ×3 → rate limit; wrong-password ×3 → rate limit; expired code →
   resend; network failure → returns to password with alert; mid-flow refresh keeps state;
   already-online short-circuit. Include mobile viewport and a keyboard-only/`prefers-reduced-motion` pass.

@@ -1,5 +1,5 @@
 /* ============================================================
-   TV APPS (was App Launcher) — tile variants + 27-app modal.
+   TV APPS (was App Launcher) , tile variants + 27-app modal.
    Calum's pick: L3 hero-app-promoted, shown across states.
    ============================================================ */
 var useState = React.useState;
@@ -35,7 +35,7 @@ const APPS27 = [
 ];
 const OPEN_APP = "YouTube";
 
-/* neutral letter glyph for non-brand apps (greyscale — one accent rule) */
+/* neutral letter glyph for non-brand apps (greyscale , one accent rule) */
 function LetterGlyph({ name, s = 26, dim }) {
   if (name === "Spotify") return I.spotify({ size: s, c: dim ? T.ink2 : "#1DB954" });
   const ini = name.replace(/[^A-Za-z0-9+]/g, "").slice(0, 2);
@@ -46,7 +46,7 @@ function LetterGlyph({ name, s = 26, dim }) {
   );
 }
 
-/* one app cell — brand mark (color or mono) or letter glyph */
+/* one app cell , brand mark (color or mono) or letter glyph */
 function AppCell({ name, open, mono, label, size = 64, radius = 14, markS = 26 }) {
   const Mark = BRANDS[name];
   return (
@@ -145,7 +145,7 @@ function AppCellL({ name, open, mono, size = 58 }) {
 
 const FIVE = ["YouTube", "Netflix", "Prime Video", "Disney+", "Hulu"];
 
-/* ---------------- L3 hero cell — active app OR empty (nothing open) ---------------- */
+/* ---------------- L3 hero cell , active app OR empty (nothing open) ---------------- */
 function HeroCell({ active }) {
   if (!active) {
     return (
@@ -230,7 +230,7 @@ function HeroCell({ active }) {
   );
 }
 
-/* ---------------- L3 · Hero app promoted (4×2) — active-aware ---------------- */
+/* ---------------- L3 · Hero app promoted (4×2) , active-aware ---------------- */
 function LaunchL3({ active = "YouTube" }) {
   const others = FIVE.filter((a) => a !== active).slice(0, 4);
   return (
@@ -476,7 +476,7 @@ function LaunchL6() {
   );
 }
 
-/* =================== MODAL (880×600) — full 27-app grid =================== */
+/* =================== MODAL (880×600) , full 27-app grid =================== */
 function FullGrid({ mono }) {
   return (
     <ModalPanel w={880} h={600} title="TV Apps" icon={I.apps({ size: 20 })}>
@@ -588,21 +588,21 @@ function AppLauncherBody() {
   return (
     <React.Fragment>
       <Section
-        title="L3 · Hero app — states"
-        note="Calum’s pick — promotes the active app; designed across active / switched / idle"
+        title="L3 · Hero app , states"
+        note="Calum’s pick , promotes the active app; designed across active / switched / idle"
       >
         <Frame
           tag="L3"
-          name="Active app — YouTube open"
+          name="Active app , YouTube open"
           size="4×2 · 431×207"
           badge={{ text: "Favorite ★", tone: "fav" }}
         >
           <LaunchL3 active="YouTube" />
         </Frame>
-        <Frame tag="L3" name="Switched — Netflix open" size="4×2 · 431×207">
+        <Frame tag="L3" name="Switched , Netflix open" size="4×2 · 431×207">
           <LaunchL3 active="Netflix" />
         </Frame>
-        <Frame tag="L3" name="Empty — nothing open (idle)" size="4×2 · 431×207">
+        <Frame tag="L3" name="Empty , nothing open (idle)" size="4×2 · 431×207">
           <LaunchL3 active={null} />
         </Frame>
       </Section>
@@ -619,23 +619,23 @@ function AppLauncherBody() {
         <Frame tag="L5" name="Rounded tiles + labels" size="4×2 · 431×207">
           <LaunchL5 />
         </Frame>
-        <Frame tag="L4" name="List rows — logo + label + open state" size="3×2 · 319×207">
+        <Frame tag="L4" name="List rows , logo + label + open state" size="3×2 · 319×207">
           <LaunchL4 />
         </Frame>
         <Frame tag="L6" name="Compact grid + more affordance" size="3×2 · 319×207">
           <LaunchL6 />
         </Frame>
       </Section>
-      <Section title="Modal — all 27 apps" note="880×600 · currently-open highlighted">
+      <Section title="Modal , all 27 apps" note="880×600 · currently-open highlighted">
         <Frame
           tag="M1"
-          name="Full grid — full-color marks"
+          name="Full grid , full-color marks"
           size="880×600"
           badge={{ text: "Best ✓", tone: "selected" }}
         >
           <FullGrid mono={false} />
         </Frame>
-        <Frame tag="M2" name="Full grid — monochrome glyphs" size="880×600">
+        <Frame tag="M2" name="Full grid , monochrome glyphs" size="880×600">
           <FullGrid mono={true} />
         </Frame>
       </Section>
@@ -647,8 +647,8 @@ window.AppLauncherCard = {
   name: "TV Apps",
   count: "8 tiles · 2 modals",
   Body: AppLauncherBody,
-  title: "TV Apps — tile + modal explorations",
-  sub: "Streaming launcher for Apple TV’s 27 installed apps. Calum’s pick is L3 (hero app promoted) — shown here across states: the active app open and resumable, a switched app (Netflix), and the idle “nothing open” empty state. Full-color brand marks (the chosen modal treatment) sit beside monochrome glyphs for reference.",
+  title: "TV Apps , tile + modal explorations",
+  sub: "Streaming launcher for Apple TV’s 27 installed apps. Calum’s pick is L3 (hero app promoted) , shown here across states: the active app open and resumable, a switched app (Netflix), and the idle “nothing open” empty state. Full-color brand marks (the chosen modal treatment) sit beside monochrome glyphs for reference.",
 };
 if (window.__SOLO__ !== false && document.getElementById("root")) {
   ReactDOM.createRoot(document.getElementById("root")).render(

@@ -13,18 +13,18 @@
 - Install deps with `bun install --frozen-lockfile`. Use `bun`/`bunx` only, never `npm`/`npx`.
 - Dev stack: `bun run dev` starts Tilt for local Postgres, API, workers, web, and Storybook.
 - Unit tests: `bun run test`. Never run bare `bun test`, it breaks `vi.mock` and can report false failures.
-- Focused tests/typecheck: `bun run --filter @repo/web test`, `bun run --filter @repo/api typecheck`, etc.
+- Focused tests/typecheck: `bun run --filter @control-center/web test`, `bun run --filter @control-center/api typecheck`, etc.
 - Control Center product wrappers: `bun run --filter @product/control-center dev:web`, `dev:api`, `dev:worker`, `dev:media-worker`, `dev:storybook`, `dev:db`, `ios:sync`, `ios:open`, `ios:sim`.
 - Full gates before shipping code: `bun run test`, `bun run typecheck`, `bunx biome check .`, `bun run knip`.
-- Coverage/browser suite: `bun run test:coverage` is slower and needs Playwright Chromium. Storybook browser tests run from `apps/web` with `bunx vitest --project storybook`.
+- Coverage/browser suite: `bun run test:coverage` is slower and needs Playwright Chromium. Storybook browser tests run from `products/control-center/web` with `bunx vitest --project storybook`.
 - In `.claude/worktrees/*`, `bunx biome check .` scans zero files because `biome.json` excludes `.claude`. Use the lefthook-style tracked-file command or explicit paths instead.
 
 ## Architecture
 
-- `apps/web` is the React wall panel plus Storybook and the Capacitor iOS shell. The main route is `apps/web/src/routes/index.tsx`, rendering `Board`.
-- `apps/api/src/server.ts` is the Bun+tRPC API entrypoint. Routers live under `apps/api/src/trpc/routers`, domain logic under `apps/api/src/services`.
-- `apps/worker` owns fast interval loops and imports domain cycles through `@repo/api/worker` (`apps/api/src/worker-deps.ts`).
-- `apps/media-worker` owns heavier queue/media work and imports through `@repo/api/media`.
+- `products/control-center/web` is the React wall panel plus Storybook and the Capacitor iOS shell. The main route is `products/control-center/web/src/routes/index.tsx`, rendering `Board`.
+- `products/control-center/api/src/server.ts` is the Bun+tRPC API entrypoint. Routers live under `products/control-center/api/src/trpc/routers`, domain logic under `products/control-center/api/src/services`.
+- `products/control-center/worker` owns fast interval loops and imports domain cycles through `@control-center/api/worker` (`products/control-center/api/src/worker-deps.ts`).
+- `products/control-center/media-worker` owns heavier queue/media work and imports through `@control-center/api/media`.
 - `products/control-center` is the product-owned boundary. Current packages are compatibility wrappers that delegate to the legacy `apps/*` source paths until later M7 tickets move CI, infra, and source fully behind product paths.
 - `packages/api` is a browser-safe type bridge only. Do not import backend runtime code into the web bundle.
 - `packages/logger` is the shared backend logger. Backend code should use `@repo/logger`, not `console.*`.
@@ -33,18 +33,18 @@
 
 ## Product Invariants
 
-- The wall panel is fixed, not responsive: physical viewport `1366x1024`, board content `BOARD_W=1366`, `BOARD_H=1000` in `apps/web/src/lib/grid-constants.ts`.
-- Tile placement and sizing usually belong in `apps/web/src/lib/tile-registry.ts`, not in board layout rewrites.
-- Tiles must use shared primitives from `apps/web/src/components/ui/`: `TileHeader`, `StatCell`, `Pill`, `Skeleton`, `TileWrapper`.
+- The wall panel is fixed, not responsive: physical viewport `1366x1024`, board content `BOARD_W=1366`, `BOARD_H=1000` in `products/control-center/web/src/lib/grid-constants.ts`.
+- Tile placement and sizing usually belong in `products/control-center/web/src/lib/tile-registry.ts`, not in board layout rewrites.
+- Tiles must use shared primitives from `products/control-center/web/src/components/ui/`: `TileHeader`, `StatCell`, `Pill`, `Skeleton`, `TileWrapper`.
 - No fake data. Unavailable data renders skeleton/error and recovers. `FALLBACK` and `PLACEHOLDER` uppercase identifiers are banned; `DEMO_`/`demo_` is allowed only in the sanctioned service/test files enforced by `scripts/check-fake-data.sh`.
 - Storybook-first for new UI components where practical. Every story must enable autodocs directly or through a sanctioned meta factory.
 - IDs default to Stripe-style `prefix_<id>` unless the user explicitly asks otherwise.
 
 ## Data And Integrations
 
-- API config is parsed in `apps/api/src/env.ts`. Production secrets mount as files under `/run/secrets/<NAME>` and hydrate at boot.
+- API config is parsed in `products/control-center/api/src/env.ts`. Production secrets mount as files under `/run/secrets/<NAME>` and hydrate at boot.
 - Real secrets live in 1Password Homelab. Never commit `.env`, secret values, private home-location values, keys, or placeholder credentials.
-- Drizzle schema is `apps/api/src/db/schema.ts`. Generate migrations with `bun run --filter @repo/api db:generate`; API and workers run migrations at boot.
+- Drizzle schema is `products/control-center/api/src/db/schema.ts`. Generate migrations with `bun run --filter @control-center/api db:generate`; API and workers run migrations at boot.
 - Desired state is DB-authoritative for managed devices. Frontend writes desired state, workers reconcile to integrations, reported state is observed separately.
 - For house climate, target `climate.home`. HA entities named `evee` are the Tesla, not the home thermostat.
 

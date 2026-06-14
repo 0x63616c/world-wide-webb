@@ -1,4 +1,4 @@
-import { createContext } from "@repo/api/trpc-context";
+import { createContext } from "@control-center/api/trpc-context";
 import { createLogger } from "@repo/logger";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { captivePortalApiRouter } from "./router";

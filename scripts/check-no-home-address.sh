@@ -3,7 +3,7 @@
 # The real home coordinates + place name live ONLY in 1Password (HOME_* env,
 # item "Home Location"); the repo ships a public LA placeholder. This guard
 # keeps the private location out of the open-source repo for good (www-3zi /
-# www-d3j) — the repo physically rejects a regression.
+# www-d3j) , the repo physically rejects a regression.
 #
 # The blocked pattern is base64-encoded below so this public, open-source script
 # never spells out the private location name itself. It decodes to a
@@ -16,7 +16,7 @@ set -euo pipefail
 # encoded so the name is not written in cleartext anywhere in the public repo.
 PATTERN="$(printf '%s' 'a3VydmV8d2lsc2hpcmU=' | base64 --decode)"
 
-# Sanctioned surfaces — the guard's own files, which reference the ban.
+# Sanctioned surfaces , the guard's own files, which reference the ban.
 is_sanctioned() {
   case "$1" in
     scripts/check-no-home-address.sh) return 0 ;;
@@ -46,7 +46,7 @@ for f in "$@"; do
 done
 
 if [ ${#violations[@]} -gt 0 ]; then
-  echo "✗ Private home-location name reintroduced — keep it out of the public repo:" >&2
+  echo "✗ Private home-location name reintroduced , keep it out of the public repo:" >&2
   printf '   %s\n' "${violations[@]}" >&2
   echo "" >&2
   echo "The real home name/coords live in 1Password (HOME_* env, item 'Home" >&2

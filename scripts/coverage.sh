@@ -2,7 +2,7 @@
 #
 # Merged coverage across BOTH vitest projects: the jsdom unit suite (api + web)
 # and the Storybook browser suite (Playwright/Chromium). They run as two
-# separate invocations because the Storybook project must run from apps/web (its
+# separate invocations because the Storybook project must run from products/control-center/web (its
 # storybookScript + setup are relative to that dir), so we record each as a vitest
 # "blob" report and merge them into one coverage summary.
 #
@@ -19,9 +19,9 @@ rm -rf .vitest-reports coverage
 # 1) Unit projects (jsdom) -> blob
 bunx vitest run --coverage --reporter=blob --outputFile=.vitest-reports/unit.json
 
-# 2) Storybook project (chromium) -> blob. Runs from apps/web; serialized via the
+# 2) Storybook project (chromium) -> blob. Runs from products/control-center/web; serialized via the
 #    project's fileParallelism:false so it's deterministic.
-( cd apps/web && bunx vitest run --project storybook --coverage --reporter=blob \
+( cd products/control-center/web && bunx vitest run --project storybook --coverage --reporter=blob \
     --outputFile=../../.vitest-reports/storybook.json )
 
 # 3) Merge both blobs and emit the combined coverage summary.

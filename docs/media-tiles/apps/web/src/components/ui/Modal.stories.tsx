@@ -17,7 +17,7 @@ const meta = {
     title: "Lamps",
     children: (
       <div style={{ color: "var(--ink-2)", fontSize: 16, lineHeight: 1.6 }}>
-        Expanded controls render here — scenes, brightness, full controls.
+        Expanded controls render here , scenes, brightness, full controls.
       </div>
     ),
   },
@@ -31,7 +31,7 @@ export const Open: Story = {
   args: { open: true },
   play: async ({ args }) => {
     // Modal renders via createPortal into document.body, so it lives OUTSIDE the
-    // story's canvasElement — query the whole document (matches the unit test's
+    // story's canvasElement , query the whole document (matches the unit test's
     // use of `screen`). Querying canvasElement here finds nothing in a real browser.
     const doc = within(document.body);
     const dialog = doc.getByRole("dialog", { name: "Lamps" });
@@ -45,7 +45,7 @@ export const Open: Story = {
   },
 };
 
-// Closed: renders nothing — no dialog in the DOM.
+// Closed: renders nothing , no dialog in the DOM.
 export const Closed: Story = {
   args: { open: false },
   play: async ({ canvasElement }) => {

@@ -95,7 +95,7 @@ fi
 echo "Verifying..."
 for field in client_id client_secret refresh_token; do
   REF="op://$VAULT/$ITEM/$field"
-  op read "$REF" >/dev/null && echo "  ok — $REF"
+  op read "$REF" >/dev/null && echo "  ok , $REF"
 done
 echo ""
 echo "Done. Spotify creds are in 1Password ($VAULT/$ITEM)."

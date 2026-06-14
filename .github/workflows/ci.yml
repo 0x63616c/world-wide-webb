@@ -71,46 +71,46 @@ jobs:
             # images, but unrelated product folders do not.
             # NOTE: do NOT use '!negation' list items here. dorny/paths-filter OR-matches
             # each list entry, and a '!foo/**' pattern matches every file that ISN'T under
-            # foo, so '!apps/web/.storybook/**' matched docs/api/everything and made web
+            # foo, so '!products/control-center/web/.storybook/**' matched docs/api/everything and made web
             # rebuild on every push (it broke ac_ci_selective: docs-only built web). The
             # web image build already ignores .storybook, so a positive-only list is both
             # correct and conservative; a rare .storybook-only edit harmlessly rebuilds web.
             web:
-              - 'apps/web/**'
+              - 'products/control-center/web/**'
               - 'products/control-center/**'
               - 'packages/**'
               - 'bun.lock'
             api:
-              - 'apps/api/**'
+              - 'products/control-center/api/**'
               - 'products/control-center/**'
               - 'packages/**'
               - 'bun.lock'
-            # The worker bundles its domain cycles from @repo/api, so an apps/api
+            # The worker bundles its domain cycles from @control-center/api, so an products/control-center/api
             # change must rebuild the worker image too (www-xjba).
             worker:
-              - 'apps/worker/**'
-              - 'apps/api/**'
+              - 'products/control-center/worker/**'
+              - 'products/control-center/api/**'
               - 'products/control-center/**'
               - 'packages/**'
               - 'bun.lock'
-            # media-worker bundles its domain code from @repo/api, so an apps/api
+            # media-worker bundles its domain code from @control-center/api, so an products/control-center/api
             # change must rebuild it too (same rule as worker, www-kp4k).
             mediaworker:
-              - 'apps/media-worker/**'
-              - 'apps/api/**'
+              - 'products/control-center/media-worker/**'
+              - 'products/control-center/api/**'
               - 'products/control-center/**'
               - 'packages/**'
               - 'bun.lock'
             storybook:
-              - 'apps/web/.storybook/**'
-              - 'apps/web/src/**'
-              - 'apps/web/package.json'
+              - 'products/control-center/web/.storybook/**'
+              - 'products/control-center/web/src/**'
+              - 'products/control-center/web/package.json'
               - 'products/control-center/**'
               # Serving config: a change to how nginx serves the bundle (cache
               # headers, asset 404 vs index.html fallback) must rebuild the image
               # too, or the fix never ships (www-w4aa).
-              - 'apps/web/nginx-storybook.conf'
-              - 'apps/web/Dockerfile.storybook'
+              - 'products/control-center/web/nginx-storybook.conf'
+              - 'products/control-center/web/Dockerfile.storybook'
               # The storybook image also bundles the captive-portal Storybook (the
               # composed /captive-portal ref), so a portal change must rebuild it
               # (www-q002.2/.5).
@@ -123,15 +123,15 @@ jobs:
             infra:
               - 'infra/**'
             # Drizzle Gateway wrapper image, a thin self-contained Dockerfile +
-            # preload. It pins an upstream base and copies only apps/drizzle, so it
+            # preload. It pins an upstream base and copies only products/control-center/drizzle, so it
             # rebuilds solely on its own changes (no packages/ or bun.lock dep).
             drizzle:
-              - 'apps/drizzle/**'
+              - 'products/control-center/drizzle/**'
               - 'products/control-center/**'
             # Captive portal: a static nginx image built solely from its own product tree
             # (the build pulls workspace deps, so the root lockfile counts too). It
-            # does NOT bundle @repo/api, it talks to the api only over HTTP via the
-            # scoped nginx proxy, so an apps/api change does not rebuild it
+            # does NOT bundle @control-center/api, it talks to the api only over HTTP via the
+            # scoped nginx proxy, so an products/control-center/api change does not rebuild it
             # (www-q002.2). Its nginx.conf + Dockerfile are part of the image.
             captiveportal:
               - 'products/captive-portal/**'
@@ -147,7 +147,7 @@ jobs:
             # CLI + sh image, no workspace deps, so it rebuilds solely on its
             # own tree (mirrors drizzle).
             mapprovision:
-              - 'apps/map-provision/**'
+              - 'products/control-center/map-provision/**'
               - 'products/control-center/**'
             # any_app is true when at least one image needs to be built. An
             # infra-only change is handled by the separate `infra` filter above,
@@ -418,7 +418,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/web/Dockerfile
+          file: products/control-center/web/Dockerfile
           platforms: linux/arm64
           push: true
           build-args: |
@@ -456,7 +456,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/api/Dockerfile
+          file: products/control-center/api/Dockerfile
           platforms: linux/arm64
           push: true
           tags: |
@@ -490,7 +490,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/worker/Dockerfile
+          file: products/control-center/worker/Dockerfile
           platforms: linux/arm64
           push: true
           tags: |
@@ -521,7 +521,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/media-worker/Dockerfile
+          file: products/control-center/media-worker/Dockerfile
           platforms: linux/arm64
           push: true
           tags: |
@@ -556,7 +556,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/web/Dockerfile.storybook
+          file: products/control-center/web/Dockerfile.storybook
           platforms: linux/arm64
           push: true
           tags: |
@@ -591,7 +591,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/drizzle/Dockerfile
+          file: products/control-center/drizzle/Dockerfile
           platforms: linux/arm64
           push: true
           tags: |
@@ -657,7 +657,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/map-provision/Dockerfile
+          file: products/control-center/map-provision/Dockerfile
           platforms: linux/arm64
           push: true
           tags: |

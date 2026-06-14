@@ -1,0 +1,393 @@
+/**
+ * Tests for the DB-authoritative light enforcer (www-7d5b.2.3).
+ *
+ * The reconcile decision is a PURE function (decideEnforcement) so the
+ * seed/enforce/adopt/unreachable/tolerance matrix is tested directly without
+ * mocking DB+HA chains. A couple of cycle-level tests then mock db+ha to prove
+ * the decisions are executed (DB writes / HA calls) only on the right branches.
+ */
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// ─── mock DB ──────────────────────────────────────────────────────────────────
+
+const { mockDbSelect, mockDbUpdate, mockDbInsert } = vi.hoisted(() => ({
+  mockDbSelect: vi.fn(),
+  mockDbUpdate: vi.fn(),
+  mockDbInsert: vi.fn(),
+}));
+
+vi.mock("../db/index", () => ({
+  db: { select: mockDbSelect, update: mockDbUpdate, insert: mockDbInsert },
+}));
+
+// ─── mock HA ─────────────────────────────────────────────────────────────────
+
+const { mockGetEntities, mockCallService } = vi.hoisted(() => ({
+  mockGetEntities: vi.fn(),
+  mockCallService: vi.fn(),
+}));
+
+vi.mock("../integrations/homeassistant", () => ({
+  ha: { getEntities: mockGetEntities, callService: mockCallService },
+}));
+
+import { LightControl } from "../config/lights";
+import type { DeviceLightState } from "../db/schema";
+import {
+  decideEnforcement,
+  lightStateConverged,
+  runEnforcerCycle,
+} from "../services/light-enforcer-service";
+
+// ─── tolerant convergence compare ─────────────────────────────────────────────
+
+describe("lightStateConverged (drift tolerance)", () => {
+  it("treats small HA rgb round-trip drift as converged", () => {
+    // HA round-trips [0,0,255] -> [0,2,254]; within per-channel tolerance.
+    expect(
+      lightStateConverged(
+        { on: true, color: { rgb: [0, 0, 255] } },
+        { on: true, color: { rgb: [0, 2, 254] } },
+      ),
+    ).toBe(true);
+  });
+
+  it("flags a real rgb change as diverged", () => {
+    expect(
+      lightStateConverged(
+        { on: true, color: { rgb: [255, 0, 0] } },
+        { on: true, color: { rgb: [0, 0, 255] } },
+      ),
+    ).toBe(false);
+  });
+
+  it("tolerates small kelvin drift but flags a large one", () => {
+    expect(
+      lightStateConverged(
+        { on: true, color: { kelvin: 4000 } },
+        { on: true, color: { kelvin: 4100 } },
+      ),
+    ).toBe(true);
+    expect(
+      lightStateConverged(
+        { on: true, color: { kelvin: 4000 } },
+        { on: true, color: { kelvin: 5000 } },
+      ),
+    ).toBe(false);
+  });
+
+  it("tolerates small brightness drift but flags a large one", () => {
+    expect(lightStateConverged({ on: true, brightness: 200 }, { on: true, brightness: 202 })).toBe(
+      true,
+    );
+    expect(lightStateConverged({ on: true, brightness: 200 }, { on: true, brightness: 120 })).toBe(
+      false,
+    );
+  });
+
+  it("on/off mismatch is always diverged regardless of color/brightness", () => {
+    expect(lightStateConverged({ on: true }, { on: false })).toBe(false);
+  });
+
+  it("rgb vs kelvin color modes are diverged", () => {
+    expect(
+      lightStateConverged(
+        { on: true, color: { rgb: [255, 0, 0] } },
+        { on: true, color: { kelvin: 4000 } },
+      ),
+    ).toBe(false);
+  });
+});
+
+// ─── pure decision matrix ─────────────────────────────────────────────────────
+
+function dev(
+  overrides: Partial<{
+    desiredState: DeviceLightState | null;
+    control: LightControl;
+    desiredUntilUtc: Date | null;
+  }> = {},
+) {
+  return {
+    id: "living-globe",
+    entityId: "light.living_room_globe",
+    domain: "light",
+    control: overrides.control ?? LightControl.Enforce,
+    desiredState: overrides.desiredState ?? null,
+    desiredUntilUtc: overrides.desiredUntilUtc ?? null,
+  };
+}
+
+describe("decideEnforcement", () => {
+  it("seeds desired from reported when desired is null (no push)", () => {
+    const d = decideEnforcement(dev({ desiredState: null }), {
+      reported: { on: true, brightness: 180 },
+      available: true,
+    });
+    expect(d.kind).toBe("seed");
+    if (d.kind === "seed") expect(d.desired).toEqual({ on: true, brightness: 180 });
+  });
+
+  it("does nothing when desired and reported are converged", () => {
+    const d = decideEnforcement(dev({ desiredState: { on: true, brightness: 200 } }), {
+      reported: { on: true, brightness: 202 },
+      available: true,
+    });
+    expect(d.kind).toBe("noop");
+  });
+
+  it("enforce + drift -> push desired to HA", () => {
+    const desired: DeviceLightState = { on: true, color: { rgb: [255, 0, 0] } };
+    const d = decideEnforcement(dev({ control: LightControl.Enforce, desiredState: desired }), {
+      reported: { on: true, color: { rgb: [0, 0, 255] } },
+      available: true,
+    });
+    expect(d.kind).toBe("push");
+    if (d.kind === "push") expect(d.desired).toBe(desired);
+  });
+
+  it("adopt + drift -> set desired = reported (no push)", () => {
+    const reported: DeviceLightState = { on: true, color: { rgb: [0, 0, 255] } };
+    const d = decideEnforcement(
+      dev({ control: LightControl.Adopt, desiredState: { on: true, color: { rgb: [255, 0, 0] } } }),
+      { reported, available: true },
+    );
+    expect(d.kind).toBe("adopt");
+    if (d.kind === "adopt") expect(d.desired).toEqual(reported);
+  });
+
+  it("unreachable -> mark unavailable, no push/adopt", () => {
+    const d = decideEnforcement(
+      dev({ control: LightControl.Enforce, desiredState: { on: true } }),
+      {
+        reported: null,
+        available: false,
+      },
+    );
+    expect(d.kind).toBe("unreachable");
+  });
+
+  it("does not seed an unreachable device with null desired", () => {
+    const d = decideEnforcement(dev({ desiredState: null }), { reported: null, available: false });
+    expect(d.kind).toBe("unreachable");
+  });
+
+  it("yields COLOUR to the party engine while party active (no push on colour drift)", () => {
+    // mode=party: the party engine owns lamp colour, so a colour-only divergence
+    // must NOT trigger an enforce push , otherwise the 1s enforcer fights the
+    // animation. on/off matches here, so the enforcer stands down.
+    const d = decideEnforcement(
+      dev({
+        control: LightControl.Enforce,
+        desiredState: { on: true, color: { rgb: [255, 0, 0] } },
+      }),
+      { reported: { on: true, color: { rgb: [0, 255, 0] } }, available: true },
+      true, // partyActive
+    );
+    expect(d.kind).toBe("noop");
+  });
+
+  it("still enforces ON/OFF for lamps while party active", () => {
+    // Party yields colour, NOT on/off: a lamp HA-reported off while desired on
+    // must still be pushed back on so the wave stays lit.
+    const d = decideEnforcement(
+      dev({
+        control: LightControl.Enforce,
+        desiredState: { on: true, color: { rgb: [255, 0, 0] } },
+      }),
+      { reported: { on: false }, available: true },
+      true, // partyActive
+    );
+    expect(d.kind).toBe("push");
+  });
+});
+
+// ─── command window (www-unxz.1) ───────────────────────────────────────────────
+// An app command writes desired + a short desiredUntilUtc window. While inside it,
+// the enforcer PUSHES the freshly-set desired regardless of control policy , the
+// command owns the transition until it converges or the window expires. Without
+// this, an ADOPT device would revert a just-issued command before it was ever
+// actuated (the mutations no longer push to HA themselves).
+
+describe("decideEnforcement command window", () => {
+  const now = new Date("2026-01-01T00:00:05Z");
+  const future = new Date("2026-01-01T00:00:10Z"); // window still open
+  const past = new Date("2026-01-01T00:00:01Z"); // window expired
+
+  it("adopt + drift INSIDE the command window -> push (app command owns it)", () => {
+    const desired: DeviceLightState = { on: true };
+    const d = decideEnforcement(
+      dev({ control: LightControl.Adopt, desiredState: desired, desiredUntilUtc: future }),
+      { reported: { on: false }, available: true },
+      false, // partyActive
+      now,
+    );
+    expect(d.kind).toBe("push");
+    if (d.kind === "push") expect(d.desired).toBe(desired);
+  });
+
+  it("adopt + drift AFTER the window expired -> adopt (absorb external change)", () => {
+    const reported: DeviceLightState = { on: false };
+    const d = decideEnforcement(
+      dev({ control: LightControl.Adopt, desiredState: { on: true }, desiredUntilUtc: past }),
+      { reported, available: true },
+      false, // partyActive
+      now,
+    );
+    expect(d.kind).toBe("adopt");
+    if (d.kind === "adopt") expect(d.desired).toEqual(reported);
+  });
+
+  it("converged inside the window is still a noop (no needless push)", () => {
+    const d = decideEnforcement(
+      dev({ control: LightControl.Adopt, desiredState: { on: true }, desiredUntilUtc: future }),
+      { reported: { on: true }, available: true },
+      false, // partyActive
+      now,
+    );
+    expect(d.kind).toBe("noop");
+  });
+});
+
+// ─── cycle integration (mocked db + ha) ────────────────────────────────────────
+
+class Chain {
+  constructor(private readonly rows: unknown[]) {}
+  from() {
+    return this;
+  }
+  where() {
+    return this;
+  }
+  orderBy() {
+    return this;
+  }
+  limit(): Promise<unknown[]> {
+    return Promise.resolve(this.rows);
+  }
+  [Symbol.toStringTag] = "Chain";
+  // biome-ignore lint/suspicious/noThenProperty: intentional thenable for drizzle mock
+  then<R>(onFulfilled: (v: unknown[]) => R | PromiseLike<R>): Promise<R> {
+    return Promise.resolve(this.rows).then(onFulfilled);
+  }
+}
+
+function setBuilder() {
+  const set = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+  mockDbUpdate.mockReturnValue({ set });
+  return set;
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockCallService.mockResolvedValue(undefined);
+  // markHeartbeat: insert().values().onConflictDoUpdate()
+  mockDbInsert.mockReturnValue({
+    values: vi.fn().mockReturnValue({ onConflictDoUpdate: vi.fn().mockResolvedValue(undefined) }),
+  });
+});
+
+describe("runEnforcerCycle", () => {
+  function haEntity(entity_id: string, state: string, attributes: Record<string, unknown> = {}) {
+    return { entity_id, state, attributes };
+  }
+
+  it("enforce + drift pushes to HA and writes nothing for color drift", async () => {
+    // One enforce lamp whose reported rgb diverges from desired rgb.
+    const managed = [
+      {
+        id: "living-globe",
+        kind: "light",
+        entityId: "light.living_room_globe",
+        domain: "light",
+        desiredState: { on: true, color: { rgb: [255, 0, 0] } },
+        reportedState: { on: true, color: { rgb: [255, 0, 0] } },
+        available: true,
+      },
+    ];
+    // First select = managed devices; subsequent selects (in-flight check) = none.
+    mockDbSelect.mockImplementation(() => new Chain(managed));
+    setBuilder();
+    mockGetEntities.mockImplementation((domain: string) =>
+      domain === "light"
+        ? Promise.resolve([haEntity("light.living_room_globe", "on", { rgb_color: [0, 0, 255] })])
+        : Promise.resolve([]),
+    );
+
+    await runEnforcerCycle();
+
+    // enforce -> light.turn_on with the desired rgb pushed.
+    const pushed = mockCallService.mock.calls.find((c) => c[0] === "light" && c[1] === "turn_on");
+    expect(pushed).toBeDefined();
+    expect(pushed?.[2]).toMatchObject({
+      entity_id: "light.living_room_globe",
+      rgb_color: [255, 0, 0],
+    });
+  });
+
+  it("converged device makes no HA call", async () => {
+    const managed = [
+      {
+        id: "living-globe",
+        kind: "light",
+        entityId: "light.living_room_globe",
+        domain: "light",
+        desiredState: { on: true, color: { rgb: [0, 0, 255] } },
+        reportedState: { on: true, color: { rgb: [0, 0, 255] } },
+        available: true,
+      },
+    ];
+    mockDbSelect.mockImplementation(() => new Chain(managed));
+    setBuilder();
+    mockGetEntities.mockImplementation((domain: string) =>
+      domain === "light"
+        ? Promise.resolve([haEntity("light.living_room_globe", "on", { rgb_color: [0, 1, 254] })])
+        : Promise.resolve([]),
+    );
+
+    await runEnforcerCycle();
+
+    const pushed = mockCallService.mock.calls.find(
+      (c) => c[1] === "turn_on" || c[1] === "turn_off",
+    );
+    expect(pushed).toBeUndefined();
+  });
+
+  it("persists FRESH reportedState from HA every cycle (panel never reads stale/zero)", async () => {
+    // device-sync is fan-only now, so the enforcer is the sole writer of lamp
+    // reportedState. If it doesn't persist it, getControlsState's overlay has no
+    // fresh reported to fall back to → brightness 0 / no scene / stuck pending.
+    const managed = [
+      {
+        id: "living-globe",
+        kind: "light",
+        entityId: "light.living_room_globe",
+        domain: "light",
+        desiredState: { on: true }, // bare toggle , no brightness/colour intent
+        reportedState: { on: true, brightness: 10 }, // stale
+        available: true,
+      },
+    ];
+    mockDbSelect.mockImplementation(() => new Chain(managed));
+    const set = setBuilder();
+    mockGetEntities.mockImplementation((domain: string) =>
+      domain === "light"
+        ? Promise.resolve([
+            haEntity("light.living_room_globe", "on", { brightness: 200, rgb_color: [0, 0, 255] }),
+          ])
+        : Promise.resolve([]),
+    );
+
+    await runEnforcerCycle();
+
+    const persisted = set.mock.calls.find(
+      (c) => (c[0] as { reportedState?: unknown })?.reportedState !== undefined,
+    );
+    expect(persisted).toBeDefined();
+    expect((persisted?.[0] as { reportedState: unknown }).reportedState).toEqual({
+      on: true,
+      brightness: 200,
+      color: { rgb: [0, 0, 255] },
+    });
+  });
+});

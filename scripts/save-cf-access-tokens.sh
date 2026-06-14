@@ -2,7 +2,7 @@
 # Create the two Cloudflare Access SERVICE TOKENS (www-cuuw) and store them in
 # 1Password (Homelab). Run ONCE, by a human. bosun's reconcileAccess only
 # REFERENCES these tokens (resolves name -> CF id); it never creates them, and
-# the client_secret is returned by the CF API exactly once at creation — so this
+# the client_secret is returned by the CF API exactly once at creation , so this
 # deliberate, idempotent human step is the only place that ever sees it.
 #
 #   bosun-kiosk -> "CF Access Kiosk Token"  (iPad wall panel, unattended)
@@ -15,7 +15,7 @@
 # Prerequisites (human, blocking):
 #   - Cloudflare Zero Trust enabled on the account (one-time dashboard step).
 #   - The CF API token in "Cloudflare API"/credential must have
-#     Access: Service Tokens — EDIT scope (to POST the tokens). The deploy-time
+#     Access: Service Tokens , EDIT scope (to POST the tokens). The deploy-time
 #     token only needs Service Tokens READ; granting Edit here is fine, or use a
 #     short-lived Edit token just for this run.
 #
@@ -35,7 +35,7 @@ CF_TOKEN="$(op read "op://$VAULT/$CF_API_ITEM/credential")"
 
 API="https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/access/service_tokens"
 
-# Bust the shim cache for one op:// ref (REQUIRED — the local op shim caches
+# Bust the shim cache for one op:// ref (REQUIRED , the local op shim caches
 # reads for 24h; without this a later `op read` returns a stale/absent value).
 bust_cache() {
   local ref="$1"
@@ -48,14 +48,14 @@ bust_cache() {
 }
 
 # Create one CF service token (named $1) and store id+secret into 1Password item $2.
-# Skips entirely if the item already exists (idempotent — see header).
+# Skips entirely if the item already exists (idempotent , see header).
 create_token() {
   local token_name="$1" item="$2"
   local id_ref="op://$VAULT/$item/client_id"
   local secret_ref="op://$VAULT/$item/client_secret"
 
   if op item get "$item" --vault "$VAULT" >/dev/null 2>&1; then
-    echo "  '$item' already exists in 1Password — skipping (delete it + the CF token to rotate)."
+    echo "  '$item' already exists in 1Password , skipping (delete it + the CF token to rotate)."
     return 0
   fi
 
@@ -101,7 +101,7 @@ echo "2/2 CI token:"
 create_token "bosun-ci" "CF Access CI Token"
 
 # Allowed-identity email for the human-host (storybook/drizzle) Access policies.
-# PII, so it lives ONLY in 1Password (never a literal in this public repo —
+# PII, so it lives ONLY in 1Password (never a literal in this public repo ,
 # no-personal-email guard). reconcileAccess reads it via env CF_ACCESS_ALLOWED_EMAIL
 # (sourced through the agent's fromOp). Prompted, not hardcoded, so the script
 # carries no email. Idempotent.
@@ -110,7 +110,7 @@ EMAIL_REF="op://$VAULT/$EMAIL_ITEM/email"
 echo
 echo "3/3 allowed email (storybook/drizzle Access policy identity):"
 if op item get "$EMAIL_ITEM" --vault "$VAULT" >/dev/null 2>&1; then
-  echo "  '$EMAIL_ITEM' already exists in 1Password — skipping (edit it to change)."
+  echo "  '$EMAIL_ITEM' already exists in 1Password , skipping (edit it to change)."
 else
   read -rp "  Enter the allowed login email: " ALLOWED_EMAIL
   [ -n "$ALLOWED_EMAIL" ] || { echo "FATAL: empty email" >&2; exit 1; }

@@ -1,5 +1,5 @@
 /* ============================================================
-   COMPONENT LIBRARY — Storybook-style catalog of the real
+   COMPONENT LIBRARY , Storybook-style catalog of the real
    control-center design system (ported from 0x63616c/control-center).
    ============================================================ */
 var useState = React.useState;
@@ -272,7 +272,7 @@ function TileStories() {
       id="tile"
       name="Tile"
       story="UI/Tile"
-      desc="The card surface every board tile is built on — --tile background, 1px --hair border, 20px radius, a faint inner top-light and a soft drop shadow. Hover lifts the border to --hair-2; the tile under the viewport crosshair gets --hair-3."
+      desc="The card surface every board tile is built on , --tile background, 1px --hair border, 20px radius, a faint inner top-light and a soft drop shadow. Hover lifts the border to --hair-2; the tile under the viewport crosshair gets --hair-3."
       props={["padding", "className", "onClick"]}
     >
       <Story label="Default · padding 20" w={300} h={150}>
@@ -386,7 +386,7 @@ function StatStories() {
         <Stat label="Now" value="74°" accent />
       </Story>
       <Story label="muted (idle)" w={120}>
-        <Stat label="Cabin" value="—" muted />
+        <Stat label="Cabin" value="," muted />
       </Story>
       <Story label="with sub" w={150}>
         <Stat label="Odometer" value="38,752" sub="last synced 2m ago" />
@@ -433,7 +433,7 @@ function SkeletonStories() {
       id="skeleton"
       name="Skeleton"
       story="UI/Skeleton"
-      desc="Shimmer placeholder shown while a tile’s query is unresolved — the system never renders a fake value, it shimmers and recovers when data returns. Shimmer keyframe runs 1.6s linear."
+      desc="Shimmer placeholder shown while a tile’s query is unresolved , the system never renders a fake value, it shimmers and recovers when data returns. Shimmer keyframe runs 1.6s linear."
       props={["w", "h", "borderRadius"]}
     >
       <Story label="lines" w={240}>
@@ -475,7 +475,7 @@ function ChipStories() {
       id="chip"
       name="Chip"
       story="UI/Chip (mode toggle)"
-      desc="A segmented mode toggle (Climate’s Cool / Heat / Heat-Cool / Off). Each chip flexes to fill; the active one gets the accent dim fill + line. Tap to switch — try it."
+      desc="A segmented mode toggle (Climate’s Cool / Heat / Heat-Cool / Off). Each chip flexes to fill; the active one gets the accent dim fill + line. Tap to switch , try it."
       props={["active", "onClick"]}
     >
       <Story label="interactive group" w={360}>
@@ -554,7 +554,7 @@ function SwitchStories() {
       id="switch"
       name="Switch"
       story=".sw (token CSS)"
-      desc="The toggle switch — a CSS-only control in tokens.css. Off is a neutral track with an --ink-2 knob; on fills --acc-dim with an accent knob that glows and slides on a springy cubic-bezier."
+      desc="The toggle switch , a CSS-only control in tokens.css. Off is a neutral track with an --ink-2 knob; on fills --acc-dim with an accent knob that glows and slides on a springy cubic-bezier."
       props={["on", "onToggle"]}
     >
       <Story label="On (tap)">
@@ -606,7 +606,7 @@ function BorderRingStories() {
       id="ring"
       name="BorderProgressRing"
       story="UI/BorderProgressRing"
-      desc="A progress stroke traced along the rounded-rect border of any relative-positioned box. Measures the host at runtime so the stroke hugs the real border at any size — used for the clock seconds ring and tile-level progress."
+      desc="A progress stroke traced along the rounded-rect border of any relative-positioned box. Measures the host at runtime so the stroke hugs the real border at any size , used for the clock seconds ring and tile-level progress."
       props={["progress 0..1", "strokeWidth", "color", "trackColor", "direction"]}
     >
       <Story label="progress 0.65" w={150} h={150}>
@@ -847,7 +847,7 @@ function Library() {
               lineHeight: 1.6,
             }}
           >
-            The shared primitives behind the wall-panel board, with every documented state — ported
+            The shared primitives behind the wall-panel board, with every documented state , ported
             straight from the repo’s{" "}
             <code style={{ font: "400 13px var(--mono)", color: "var(--ink)" }}>ui/</code> layer and
             Storybook stories. Same tokens, same class names, same icon set. Live controls are
@@ -866,7 +866,7 @@ function Library() {
         <Entry
           id="type"
           name="Typography"
-          desc="Space Grotesk for all UI text; Space Mono for every numeral — time, %, volume, duration, odometer. Tiny uppercase labels use the .cap class at 0.16em tracking."
+          desc="Space Grotesk for all UI text; Space Mono for every numeral , time, %, volume, duration, odometer. Tiny uppercase labels use the .cap class at 0.16em tracking."
         >
           <Typography />
         </Entry>
@@ -880,7 +880,7 @@ function Library() {
         <Entry
           id="icons"
           name="Icons"
-          desc="The full 23-glyph set from components/Icon.tsx — a single stroked 24×24 system (1.7 stroke, round caps/joins). Pass name, size, color, stroke width."
+          desc="The full 23-glyph set from components/Icon.tsx , a single stroked 24×24 system (1.7 stroke, round caps/joins). Pass name, size, color, stroke width."
         >
           <Icons />
         </Entry>

@@ -20,7 +20,7 @@ read -rsp "Paste your Resend API key (re_...): " API_KEY; echo
 [ -n "$API_KEY" ] || { echo "FATAL: empty key" >&2; exit 1; }
 
 echo ""
-echo "Step 2. From address — must use a domain verified at https://resend.com/domains"
+echo "Step 2. From address , must use a domain verified at https://resend.com/domains"
 echo "(or onboarding@resend.dev for testing, which only delivers to your own account email)."
 read -rp "From address (e.g. panel@worldwidewebb.co): " FROM_ADDR
 [ -n "$FROM_ADDR" ] || { echo "FATAL: empty from address" >&2; exit 1; }
@@ -53,6 +53,6 @@ if [ -d "$EVEE_OP_DIR" ]; then
 fi
 
 echo "Verifying..."
-op read "$KEY_REF" >/dev/null && echo "  ok — $KEY_REF is readable"
-op read "$FROM_REF" >/dev/null && echo "  ok — $FROM_REF is readable"
+op read "$KEY_REF" >/dev/null && echo "  ok , $KEY_REF is readable"
+op read "$FROM_REF" >/dev/null && echo "  ok , $FROM_REF is readable"
 echo "Done. References: $KEY_REF , $FROM_REF"

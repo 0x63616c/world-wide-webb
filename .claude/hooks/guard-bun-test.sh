@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreToolUse(Bash) guard (control-center) — block bare `bun test`.
+# PreToolUse(Bash) guard (control-center) , block bare `bun test`.
 #
 # Why: Bun's native test runner is incompatible with vi.mock and produces
 # false failures (documented in CLAUDE.md). The vitest runner is invoked via

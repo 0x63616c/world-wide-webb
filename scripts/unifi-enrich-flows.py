@@ -12,7 +12,7 @@ enriched lags by ~POLL_SECS. Built to be cheap at steady state:
   - ASN/org: Team Cymru bulk whois, only for never-seen IPs, cached forever
   - rotation-aware: when flows.json shrinks/changes inode, restart from 0
 
-Device names come from /data/ip_names.json — a NON-SECRET ip->name map pushed
+Device names come from /data/ip_names.json , a NON-SECRET ip->name map pushed
 from the dev box by scripts/push-unifi-names.sh (the UniFi API key never
 leaves the dev box; this container holds zero credentials). Private IPs not
 in the map fall back to reverse-DNS against the gateway (PTR), so most

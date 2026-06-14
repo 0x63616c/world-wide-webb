@@ -20,7 +20,7 @@ sha256_hex() {
   fi
 }
 
-# Disposable test address — NOT the real one. Its digest is injected so the
+# Disposable test address , NOT the real one. Its digest is injected so the
 # guard treats it as blocked for the duration of these tests only.
 TEST_EMAIL="test.user@example.com"
 TEST_DIGEST="$(sha256_hex "$TEST_EMAIL")"

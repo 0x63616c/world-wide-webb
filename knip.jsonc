@@ -27,8 +27,8 @@
     "@capacitor/haptics",
     "@capacitor/status-bar",
     "@capacitor-community/screen-brightness",
-    // coverage.sh runs `cd apps/web && vitest run --coverage`, so the v8 provider
-    // must resolve from apps/web. It's invoked by the vitest CLI, not imported, so
+    // coverage.sh runs `cd products/control-center/web && vitest run --coverage`, so the v8 provider
+    // must resolve from products/control-center/web. It's invoked by the vitest CLI, not imported, so
     // knip can't see the edge - kept declared where coverage runs (www-k6p1).
     "@vitest/coverage-v8"
   ],
@@ -38,12 +38,11 @@
 
   "workspaces": {
     ".": {
-      // load-secret.js is the drizzle image's `bun --preload` ENTRYPOINT.
       // scripts/*.ts are standalone one-time Bun scripts (OAuth flows, save scripts)
       // invoked directly by their companion .sh wrappers, never imported.
-      "entry": ["apps/drizzle/load-secret.js", "scripts/*.ts"]
+      "entry": ["scripts/*.ts"]
     },
-    "apps/api": {
+    "products/control-center/api": {
       // server.ts = Docker CMD; purge.ts = the portal data-hygiene cronJob
       // entrypoint, bundled into the api image + run via command override
       // (www-q002.18); seed.ts = db:seed script. drizzle.config.ts + the exports
@@ -73,10 +72,14 @@
       // test/.
       "entry": ["test/**/*.test.ts"]
     },
-    "apps/media-worker": {
+    "products/control-center/media-worker": {
       // runtime.ts + types.ts are co-located copies of the worker framework;
       // knip auto-detects src/index.ts as the entry; no explicit entry needed.
       // The empty workspace block ensures knip knows this is a tracked workspace.
+    },
+    "products/control-center/drizzle": {
+      // load-secret.js is the drizzle image's `bun --preload` ENTRYPOINT.
+      "entry": ["load-secret.js"]
     },
     "packages/logger": {
       // src/index.ts is auto-detected from the `exports` map.

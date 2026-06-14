@@ -1,4 +1,4 @@
-/* ===== Evee — hi-fi dashboard tokens (ported verbatim from design evee.css) ===== */
+/* ===== Evee , hi-fi dashboard tokens (ported verbatim from design evee.css) ===== */
 :root {
   /* Vercel-black: pure neutral grayscale surfaces (R=G=B, no blue tint) +
      Geist-style foreground ramp. Accent is Vercel blue (#0070f3). */
@@ -24,7 +24,7 @@
   --ui: "Space Grotesk Variable", "Space Grotesk", "SF Pro Display", system-ui, sans-serif;
   --mono: "Space Mono", ui-monospace, monospace;
 
-  /* Aliases — the design JSX (wf-kit.jsx / evee-tiles.jsx) references a second
+  /* Aliases , the design JSX (wf-kit.jsx / evee-tiles.jsx) references a second
      naming scheme. Map them onto the canonical tokens above so tiles ported
      from either source render identically. */
   --ink2: var(--ink-2);
@@ -32,7 +32,7 @@
   --bg3: var(--nest);
   --line: var(--hair);
   --line2: var(--hair-2);
-  /* Overflow panel surface tokens — layered above the tile surface */
+  /* Overflow panel surface tokens , layered above the tile surface */
   --bg-2: var(--tile-2);
   --bg-3: var(--nest);
 }
@@ -53,7 +53,7 @@
   letter-spacing: -0.02em;
 }
 
-/* board — fills #scaler, whose pixel size is the single source of truth
+/* board , fills #scaler, whose pixel size is the single source of truth
    (BOARD_W/BOARD_H in grid-constants.ts). Change the resolution there only. */
 .board {
   width: 100%;
@@ -278,7 +278,7 @@
 .range::-webkit-slider-thumb:active {
   cursor: grabbing;
 }
-/* Thick track variant — the prominent lamp-brightness bar. Taller rail + larger
+/* Thick track variant , the prominent lamp-brightness bar. Taller rail + larger
    thumb so it reads as the modal's primary control. */
 .range-lg {
   height: 16px;
@@ -288,7 +288,7 @@
   height: 30px;
 }
 
-/* dual-thumb range (heat_cool low/high) — two native sliders stacked over one
+/* dual-thumb range (heat_cool low/high) , two native sliders stacked over one
    track. The input elements are pointer-transparent; only their thumbs receive
    pointer events, so neither slider's full-width track blocks the other thumb. */
 .range-dual {
@@ -376,7 +376,7 @@
 .board::-webkit-scrollbar {
   display: none;
 }
-/* Hidden scrollbar for the Modal body — same effect as .board's scrollbar rule
+/* Hidden scrollbar for the Modal body , same effect as .board's scrollbar rule
    but without .board's fixed 1366x1024 sizing, which would blow the body out of
    the modal panel. */
 .modal-scroll {
@@ -385,7 +385,7 @@
 .modal-scroll::-webkit-scrollbar {
   display: none;
 }
-/* Modal entrance — backdrop fades in, panel rises + scales up from slightly
+/* Modal entrance , backdrop fades in, panel rises + scales up from slightly
    below. transform-origin center so the scale reads as a gentle "pop". Honours
    prefers-reduced-motion (no movement for motion-sensitive users). */
 @keyframes modalBackdropIn {

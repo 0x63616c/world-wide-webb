@@ -23,7 +23,7 @@ export const meta = {
 
 // MUST be the ISOLATED worktree, never the shared main checkout. Pointing this
 // at the main checkout lets agents commit onto main while a concurrent session
-// is also committing there — histories interleave and a partial/broken state can
+// is also committing there , histories interleave and a partial/broken state can
 // get pushed to origin/main. Always run this workflow from a dedicated worktree.
 const REPO = '/Users/calum/code/github.com/0x63616c/control-center/.claude/worktrees/deploy-epic-workflow'
 
@@ -47,24 +47,24 @@ const EPIC = 'www-5ag'
 // adds the bosun context, SSH-to-homelab, 1Password/op, and the no-secrets-in-git
 // invariant on top of the repo's bun/TDD/no-fake-data/beads baseline.
 const RULES = `
-You are an autonomous deploy engineer on the control-center repo at ${REPO} — an ISOLATED git worktree on a feature branch.
+You are an autonomous deploy engineer on the control-center repo at ${REPO} , an ISOLATED git worktree on a feature branch.
 
-WORKTREE DISCIPLINE (hard, non-negotiable — a concurrent session is live on main):
+WORKTREE DISCIPLINE (hard, non-negotiable , a concurrent session is live on main):
 - ALWAYS \`cd ${REPO}\` before any git/file operation. NEVER \`cd\` to or operate in the main checkout.
 - NEVER \`git checkout main\`, NEVER commit on main, NEVER \`git push origin main\` / push to the main branch. Commit ONLY on this worktree's feature branch; push ONLY that branch (\`git push -u origin HEAD\`).
-- NEVER \`git stash\`, \`git rebase\`, or \`git reset\` against main — stashes/refs are shared across worktrees and will clobber the other session.
+- NEVER \`git stash\`, \`git rebase\`, or \`git reset\` against main , stashes/refs are shared across worktrees and will clobber the other session.
 
-MISSION: drive the bosun/Swarm deploy epic ${EPIC} to done. The full design is docs/deployment-design.md (follow its Part 14 order). The DEFINITION OF DONE is docs/acceptance-checklist.md — it is the single source of truth for every test command and pass condition. Read the relevant item there before validating it; never duplicate or weaken its test.
+MISSION: drive the bosun/Swarm deploy epic ${EPIC} to done. The full design is docs/deployment-design.md (follow its Part 14 order). The DEFINITION OF DONE is docs/acceptance-checklist.md , it is the single source of truth for every test command and pass condition. Read the relevant item there before validating it; never duplicate or weaken its test.
 
 ABSOLUTE RULES:
 - bun/bunx ALWAYS. NEVER npm/npx. The tool runs as \`bun run bosun <cmd>\` (root package.json script "bosun": "bun packages/bosun/src/cli.ts").
-- TDD for the tool: write the vitest test FIRST (red), then implement to green. bosun unit tests live in packages/bosun/test/*.test.ts. Run them with \`bun run --cwd packages/bosun test\` (vitest). NEVER bare \`bun test\` — Bun's native runner breaks vi.mock with false failures.
+- TDD for the tool: write the vitest test FIRST (red), then implement to green. bosun unit tests live in packages/bosun/test/*.test.ts. Run them with \`bun run --cwd packages/bosun test\` (vitest). NEVER bare \`bun test\` , Bun's native runner breaks vi.mock with false failures.
 - GATES: \`bun run typecheck\` && \`bunx biome check .\` (\`bunx biome check --write .\` to auto-fix) && \`bun run test\` must all exit 0.
 - ZERO fake/hardcoded/placeholder data (web + api + tool). No FALLBACK/PLACEHOLDER identifiers, no DEMO_ outside the two sanctioned service files, no .skip/xfail, no weakening a test or the tool's prune scope to pass. The pre-commit guard (scripts/check-fake-data.sh via lefthook) enforces this.
-- SECRETS: never a secret VALUE in git, CI, images, or deploy.config.ts — references only. REUSE EXISTING 1Password (Homelab vault) items, do NOT mint duplicates: GHCR pull auth uses op://Homelab/GitHub Personal Access Token (field: token; it is scoped repo+write:packages, which includes read:packages — the box does \`docker login ghcr.io\` with it). The on-box agent's 1Password service-account token already exists as op://Homelab/"Service Account Auth Token: Homelab". Only genuinely-new credentials (Postgres password; Portainer admin password) are generated + stored via an interactive scripts/save-<thing>.sh per the using-1password convention — and Portainer admin can be set programmatically at first boot via its init API from that stored password (not a manual UI step). The local op is a 24h-caching PATH shim — invalidate on write. NEVER read .env/.kamal/secrets/*.pem/*.key.
+- SECRETS: never a secret VALUE in git, CI, images, or deploy.config.ts , references only. REUSE EXISTING 1Password (Homelab vault) items, do NOT mint duplicates: GHCR pull auth uses op://Homelab/GitHub Personal Access Token (field: token; it is scoped repo+write:packages, which includes read:packages , the box does \`docker login ghcr.io\` with it). The on-box agent's 1Password service-account token already exists as op://Homelab/"Service Account Auth Token: Homelab". Only genuinely-new credentials (Postgres password; Portainer admin password) are generated + stored via an interactive scripts/save-<thing>.sh per the using-1password convention , and Portainer admin can be set programmatically at first boot via its init API from that stored password (not a manual UI step). The local op is a 24h-caching PATH shim , invalidate on write. NEVER read .env/.kamal/secrets/*.pem/*.key.
 - PRUNE SAFETY (design Part 13 risk #6): bosun's secret/route prune is the dangerous part. It MUST be label/tag-scoped (bosun.stack=control-center) so it can never touch another stack's or Portainer's secrets/routes, and it MUST be unit-tested BEFORE it ever points at the real swarm.
 - Code style: imports at top only; no module-global mutable vars; comments explain WHY not HOW, one line.
-- BEADS is the shared state. The epic ${EPIC} has 29 children www-5ag.* — one per acceptance criterion. \`bd show <id>\` for a ticket's acceptance. When an item's exact checklist test actually runs and passes, flip its marker to [x] in docs/acceptance-checklist.md (cite the command + observed result inline) and \`bd close <id>\`. If an item is genuinely blocked by a human-only/web-console action, set its marker to [-] WITH a parenthesized reason and leave the ticket open with a \`bd update <id> --notes\` explaining the block. NEVER mark [x] without transcript evidence; NEVER mark a skip as [x]. Do NOT use TodoWrite.
+- BEADS is the shared state. The epic ${EPIC} has 29 children www-5ag.* , one per acceptance criterion. \`bd show <id>\` for a ticket's acceptance. When an item's exact checklist test actually runs and passes, flip its marker to [x] in docs/acceptance-checklist.md (cite the command + observed result inline) and \`bd close <id>\`. If an item is genuinely blocked by a human-only/web-console action, set its marker to [-] WITH a parenthesized reason and leave the ticket open with a \`bd update <id> --notes\` explaining the block. NEVER mark [x] without transcript evidence; NEVER mark a skip as [x]. Do NOT use TodoWrite.
 - Commit per phase with a focused conventional-commit message scoped to the work. Do NOT push to main and do NOT open/merge a PR except where a phase explicitly says so.
 
 INFRA (only relevant in live phases, args.live):
@@ -129,7 +129,7 @@ const PRUNE_AUDIT_SCHEMA = {
 
 // ---- acceptance-criterion catalog ----------------------------------------
 // Maps each child ticket to its ac_* key and the phase it is verified in.
-// The exact test + pass condition is NOT duplicated here — the validator reads
+// The exact test + pass condition is NOT duplicated here , the validator reads
 // docs/acceptance-checklist.md (single source of truth) by key. gate=true marks
 // the items most likely to need a Calum-only action (honest [-] if so).
 const AC = [
@@ -171,7 +171,7 @@ const acFor = (phaseTitle) => AC.filter((a) => a.phase === phaseTitle)
 // reason. Returns a VERDICT.
 function validateAc(a, phaseTitle, extra = '') {
   return agent(
-    `${RULES}\n\nVERIFY ONE ACCEPTANCE CRITERION (mechanical + honest; you did NOT build this, so do not assume it works).\nTicket ${a.t}, item ${a.k}.\n1. \`bd show ${a.t}\` and read the ${a.k} item in docs/acceptance-checklist.md for its EXACT test command(s) and pass condition.\n2. Run that exact test from ${REPO} (live items run over \`ssh homelab\`). Capture verbatim output.\n3. Decide the marker HONESTLY:\n   - [x] ONLY if the test ran and met its pass condition in this transcript. Then edit docs/acceptance-checklist.md to flip this item to [x] with the command + observed result inline, and \`bd close ${a.t}\` (note the evidence via \`bd update ${a.t} --notes\`).\n   - [-] ONLY if blocked by a genuine human-only/web-console action (e.g. minting a token in a console, a GitHub package-visibility toggle, a GUI setting). Set the marker to [-] with a parenthesized reason, \`bd update ${a.t} --notes "<block>"\`, leave the ticket open. ${a.gate ? 'This item is FLAGGED as a likely human gate — if it needs a Calum-only action, [-] is the correct honest outcome, do not force it.' : ''}\n   - todo if it simply is not passing yet for a FIXABLE reason (code/config bug) — leave the marker [ ], do not edit it, report the failure so a fixer can address it.\n4. NEVER mark [x] without evidence and NEVER mark a skip as [x] (the Stop-hook evaluator reads only the transcript).${extra ? `\n${extra}` : ''}\nReturn the verdict.`,
+    `${RULES}\n\nVERIFY ONE ACCEPTANCE CRITERION (mechanical + honest; you did NOT build this, so do not assume it works).\nTicket ${a.t}, item ${a.k}.\n1. \`bd show ${a.t}\` and read the ${a.k} item in docs/acceptance-checklist.md for its EXACT test command(s) and pass condition.\n2. Run that exact test from ${REPO} (live items run over \`ssh homelab\`). Capture verbatim output.\n3. Decide the marker HONESTLY:\n   - [x] ONLY if the test ran and met its pass condition in this transcript. Then edit docs/acceptance-checklist.md to flip this item to [x] with the command + observed result inline, and \`bd close ${a.t}\` (note the evidence via \`bd update ${a.t} --notes\`).\n   - [-] ONLY if blocked by a genuine human-only/web-console action (e.g. minting a token in a console, a GitHub package-visibility toggle, a GUI setting). Set the marker to [-] with a parenthesized reason, \`bd update ${a.t} --notes "<block>"\`, leave the ticket open. ${a.gate ? 'This item is FLAGGED as a likely human gate , if it needs a Calum-only action, [-] is the correct honest outcome, do not force it.' : ''}\n   - todo if it simply is not passing yet for a FIXABLE reason (code/config bug) , leave the marker [ ], do not edit it, report the failure so a fixer can address it.\n4. NEVER mark [x] without evidence and NEVER mark a skip as [x] (the Stop-hook evaluator reads only the transcript).${extra ? `\n${extra}` : ''}\nReturn the verdict.`,
     { label: `verify:${a.k}`, phase: phaseTitle, schema: VERDICT_SCHEMA, model: VAL_M },
   )
 }
@@ -214,7 +214,7 @@ async function runPhaseAcs(phaseTitle) {
 }
 
 // ==========================================================================
-// SEGMENT A — software side (always runs; fully autonomous, no live infra)
+// SEGMENT A , software side (always runs; fully autonomous, no live infra)
 // ==========================================================================
 
 // --- Phase 1: build the tool, in ordered modules, TDD --------------------
@@ -225,7 +225,7 @@ const TOOL_STEPS = [
   {
     key: 'spec-config',
     brief:
-      'spec.ts (the typed builder API configs import: stack/service/postgres/fromOp/ghcr/httpProbe/cmdProbe -> a static Spec), config.ts (load + PURELY evaluate a deploy.config.ts into that Spec — no I/O, deterministic), and an optional deploy.lock.json snapshot. Unit tests: a config evaluates to a stable, value-free Spec; two evals are byte-identical; evaluation performs no network (stub/forbid it). This satisfies the shape behind ac_tool_plan_pure + ac_config_pure.',
+      'spec.ts (the typed builder API configs import: stack/service/postgres/fromOp/ghcr/httpProbe/cmdProbe -> a static Spec), config.ts (load + PURELY evaluate a deploy.config.ts into that Spec , no I/O, deterministic), and an optional deploy.lock.json snapshot. Unit tests: a config evaluates to a stable, value-free Spec; two evals are byte-identical; evaluation performs no network (stub/forbid it). This satisfies the shape behind ac_tool_plan_pure + ac_config_pure.',
   },
   {
     key: 'providers',
@@ -235,7 +235,7 @@ const TOOL_STEPS = [
   {
     key: 'reconcile',
     brief:
-      'reconcile/secrets.ts (name each cc_<name>_<shorthash> labelled bosun.stack=control-center; create declared, render refs, PRUNE only stack-labelled orphans), reconcile/routes.ts (create declared Cloudflare routes, prune only stack-tagged orphans), reconcile/stack.ts (render Spec -> stack.yml -> docker stack deploy --prune). CRITICAL: prune is strictly label/tag-scoped and MUST have vitest proving a foreign/unlabelled secret AND route are left untouched while a declared orphan is pruned (mock the docker/CF clients — no real swarm). Satisfies the unit half of ac_tool_secret_sync_prune + ac_tool_routes_sync_prune and de-risks the live deploy.',
+      'reconcile/secrets.ts (name each cc_<name>_<shorthash> labelled bosun.stack=control-center; create declared, render refs, PRUNE only stack-labelled orphans), reconcile/routes.ts (create declared Cloudflare routes, prune only stack-tagged orphans), reconcile/stack.ts (render Spec -> stack.yml -> docker stack deploy --prune). CRITICAL: prune is strictly label/tag-scoped and MUST have vitest proving a foreign/unlabelled secret AND route are left untouched while a declared orphan is pruned (mock the docker/CF clients , no real swarm). Satisfies the unit half of ac_tool_secret_sync_prune + ac_tool_routes_sync_prune and de-risks the live deploy.',
   },
   {
     key: 'health-cli',
@@ -254,7 +254,7 @@ for (const s of TOOL_STEPS) {
 // ever let this tool touch the real swarm. A fresh reviewer that did not write it.
 phase('ToolValidate')
 let pruneAudit = await agent(
-  `${RULES}\n\nPRUNE-SCOPE AUDIT (no ticket; you did NOT write this — be adversarial). Inspect packages/bosun/src/reconcile/secrets.ts and routes.ts and their tests. Verify: (a) prune filters STRICTLY by the bosun.stack=control-center label/tag, so it can never delete another stack's or Portainer's secrets/routes; (b) a vitest actually proves an unlabelled/foreign secret AND route survive a sync while a declared orphan is pruned. Any gap is a blocker finding. Return the audit.`,
+  `${RULES}\n\nPRUNE-SCOPE AUDIT (no ticket; you did NOT write this , be adversarial). Inspect packages/bosun/src/reconcile/secrets.ts and routes.ts and their tests. Verify: (a) prune filters STRICTLY by the bosun.stack=control-center label/tag, so it can never delete another stack's or Portainer's secrets/routes; (b) a vitest actually proves an unlabelled/foreign secret AND route survive a sync while a declared orphan is pruned. Any gap is a blocker finding. Return the audit.`,
   { label: 'audit:prune-scope', phase: 'ToolValidate', schema: PRUNE_AUDIT_SCHEMA, model: VAL_M },
 )
 let pruneRound = 0
@@ -272,7 +272,7 @@ while ((!pruneAudit.labelScoped || !pruneAudit.unitTested) && pruneRound < MAX_F
   )
 }
 if (!pruneAudit.labelScoped || !pruneAudit.unitTested) {
-  log(`WARNING: prune scope still not provably safe after ${MAX_FIX_ROUNDS} rounds. The live Deploy phase will be gated off until this is fixed — NOT silently proceeding.`)
+  log(`WARNING: prune scope still not provably safe after ${MAX_FIX_ROUNDS} rounds. The live Deploy phase will be gated off until this is fixed , NOT silently proceeding.`)
 }
 
 // Local tool acceptance items (build/plan-pure/providers/health/config-pure).
@@ -285,18 +285,18 @@ const ARTIFACTS = [
   {
     key: 'config-dockerfiles',
     brief:
-      'deploy.config.ts at repo root (design Part 6): web (route dashboard.worldwidewebb.co, reverse-proxy /api -> api:4201), api (ghcr image, internal-only, HA via host.docker.internal:8123, secret REFERENCES from tilt/op-secrets.tpl + the evee connector token — references only, never values), postgres (pinned, pgdata volume, postgresql.conf via docker config, initdb), cloudflared (pinned, connector token ref), storybook (route storybook.worldwidewebb.co); plus apps/web, apps/api, and storybook multi-stage bun Dockerfiles (web serves static + reverse-proxies /api; api entrypoint runs db:migrate then starts). \`bun run bosun plan\` must succeed, be byte-identical across two runs, and contain zero secret values.',
+      'deploy.config.ts at repo root (design Part 6): web (route dashboard.worldwidewebb.co, reverse-proxy /api -> api:4201), api (ghcr image, internal-only, HA via host.docker.internal:8123, secret REFERENCES from tilt/op-secrets.tpl + the evee connector token , references only, never values), postgres (pinned, pgdata volume, postgresql.conf via docker config, initdb), cloudflared (pinned, connector token ref), storybook (route storybook.worldwidewebb.co); plus products/control-center/web, products/control-center/api, and storybook multi-stage bun Dockerfiles (web serves static + reverse-proxies /api; api entrypoint runs db:migrate then starts). \`bun run bosun plan\` must succeed, be byte-identical across two runs, and contain zero secret values.',
   },
   {
     key: 'ci-bootstrap-scripts',
     brief:
-      '.github/workflows/ CI (design Part 7): on push, path-filtered per-app builds via dorny/paths-filter (only changed apps rebuild; packages/** or root lockfile rebuild all; docs-only -> no image build) -> push ghcr.io/0x63616c/control-center-{web,api,storybook}:<sha> and :main with buildx layer cache -> after push, POST the deploy webhook (hooks.worldwidewebb.co). scripts/bootstrap.sh (idempotent: swarm init if needed, Portainer monitoring service, first bosun up). Interactive scripts/save-<thing>.sh for each NEW credential (postgres password, portainer admin, ghcr pull token) that generates + stores it in 1Password Homelab via op — never echoing the value into git.',
+      '.github/workflows/ CI (design Part 7): on push, path-filtered per-app builds via dorny/paths-filter (only changed apps rebuild; packages/** or root lockfile rebuild all; docs-only -> no image build) -> push ghcr.io/0x63616c/control-center-{web,api,storybook}:<sha> and :main with buildx layer cache -> after push, POST the deploy webhook (hooks.worldwidewebb.co). scripts/bootstrap.sh (idempotent: swarm init if needed, Portainer monitoring service, first bosun up). Interactive scripts/save-<thing>.sh for each NEW credential (postgres password, portainer admin, ghcr pull token) that generates + stores it in 1Password Homelab via op , never echoing the value into git.',
   },
 ]
 await parallel(
   ARTIFACTS.map((s) => () =>
     agent(
-      `${RULES}\n\nAUTHOR ARTIFACT SET: ${s.key}.\n${s.brief}\nNo secret VALUES anywhere — references only; the pre-commit guard must stay green. Typecheck where applicable, commit (feat(deploy): ${s.key}). Do NOT push. Return the handoff.`,
+      `${RULES}\n\nAUTHOR ARTIFACT SET: ${s.key}.\n${s.brief}\nNo secret VALUES anywhere , references only; the pre-commit guard must stay green. Typecheck where applicable, commit (feat(deploy): ${s.key}). Do NOT push. Return the handoff.`,
       { label: `artifact:${s.key}`, phase: 'Artifacts', schema: RESULT_SCHEMA, model: WORK_M },
     ),
   ),
@@ -320,7 +320,7 @@ const ciVerdicts = await runPhaseAcs('CI')
 // and, unless args.live, STOP here cleanly (resume after Calum clears them).
 phase('HumanGate')
 const gateReport = await agent(
-  `${RULES}\n\nHUMAN-GATE REPORT (read-only; make NO changes). The software side is built and CI has pushed images. Before a live deploy can pull + run them on the homelab swarm, determine precisely which actions require Calum in a web console and cannot be done from this shell:\n1. GHCR pull auth: are the three ghcr.io/0x63616c/control-center-* packages pullable by the box? (\`gh\` to check package visibility.) If they are private with no pull credential available, Calum must either set them public or mint a pull PAT in the GitHub UI — state which.\n2. op service-account token: only needed for the ON-BOX bosun-agent auto-deploy (ac_code_auto). Local \`bosun up\` does not need it. Note whether it exists; if not, it is minted in the 1Password console.\n3. OrbStack start-at-login (ac_autostart) is verify-only — note its current state.\nReturn a handoff: summary = a crisp numbered list of EXACTLY what Calum must do (with where), followups = anything else blocking live.`,
+  `${RULES}\n\nHUMAN-GATE REPORT (read-only; make NO changes). The software side is built and CI has pushed images. Before a live deploy can pull + run them on the homelab swarm, determine precisely which actions require Calum in a web console and cannot be done from this shell:\n1. GHCR pull auth: are the three ghcr.io/0x63616c/control-center-* packages pullable by the box? (\`gh\` to check package visibility.) If they are private with no pull credential available, Calum must either set them public or mint a pull PAT in the GitHub UI , state which.\n2. op service-account token: only needed for the ON-BOX bosun-agent auto-deploy (ac_code_auto). Local \`bosun up\` does not need it. Note whether it exists; if not, it is minted in the 1Password console.\n3. OrbStack start-at-login (ac_autostart) is verify-only , note its current state.\nReturn a handoff: summary = a crisp numbered list of EXACTLY what Calum must do (with where), followups = anything else blocking live.`,
   { label: 'human-gate:report', phase: 'HumanGate', schema: RESULT_SCHEMA, model: VAL_M },
 )
 
@@ -334,7 +334,7 @@ const segmentA = {
 }
 
 if (!LIVE) {
-  log('Software side complete. STOPPING at the human gate — re-invoke with args.live=true + resumeFromRunId=<this run> after clearing the gates below.')
+  log('Software side complete. STOPPING at the human gate , re-invoke with args.live=true + resumeFromRunId=<this run> after clearing the gates below.')
   return {
     segment: 'A (software side)',
     status: 'blocked-on-calum',
@@ -345,7 +345,7 @@ if (!LIVE) {
 }
 
 // ==========================================================================
-// SEGMENT B — live deploy + verification (args.live; Calum has cleared gates)
+// SEGMENT B , live deploy + verification (args.live; Calum has cleared gates)
 // ==========================================================================
 // Calum passing args.live=true IS the explicit authorization for the first
 // prune-capable deploy against the live swarm (the pre-deploy checkpoint).
@@ -370,7 +370,7 @@ if (preflight.status !== 'done') {
 phase('Deploy')
 log('Bootstrapping the swarm and running the first live bosun up.')
 await agent(
-  `${RULES}\n\nLIVE DEPLOY (over \`ssh homelab\`). This is the first prune-capable run against the real swarm — Calum authorized it by launching with live=true. Steps:\n1. Run scripts/bootstrap.sh idempotently: ensure Swarm active, the Portainer monitoring service is up (no deploys), then the first \`bun run bosun up\`.\n2. \`bun run bosun up\` must do plan -> secrets sync (resolve refs via op -> label-scoped docker secrets, prune scoped orphans) -> routes sync (Cloudflare) -> docker stack deploy --prune -> verify, bringing control-center all-healthy.\n3. Resolve any deploy failures (image pull, migrate-on-boot ordering, healthcheck) and re-run until the stack is up. Commit any config/script fixes (fix(deploy):). Do NOT push to main.\nReturn the handoff: status=done only if \`docker stack services control-center\` shows every service 1/1 and \`bosun verify\` exits 0.`,
+  `${RULES}\n\nLIVE DEPLOY (over \`ssh homelab\`). This is the first prune-capable run against the real swarm , Calum authorized it by launching with live=true. Steps:\n1. Run scripts/bootstrap.sh idempotently: ensure Swarm active, the Portainer monitoring service is up (no deploys), then the first \`bun run bosun up\`.\n2. \`bun run bosun up\` must do plan -> secrets sync (resolve refs via op -> label-scoped docker secrets, prune scoped orphans) -> routes sync (Cloudflare) -> docker stack deploy --prune -> verify, bringing control-center all-healthy.\n3. Resolve any deploy failures (image pull, migrate-on-boot ordering, healthcheck) and re-run until the stack is up. Commit any config/script fixes (fix(deploy):). Do NOT push to main.\nReturn the handoff: status=done only if \`docker stack services control-center\` shows every service 1/1 and \`bosun verify\` exits 0.`,
   { label: 'deploy:bosun-up', phase: 'Deploy', schema: RESULT_SCHEMA, model: WORK_M },
 )
 const deployVerdicts = await runPhaseAcs('Deploy')
@@ -389,7 +389,7 @@ const stillOpen = allVerdicts.filter((v) => v.marker === 'todo')
 const skipped = allVerdicts.filter((v) => v.marker === '-')
 
 const capstone = await agent(
-  `${RULES}\n\nCAPSTONE (bookkeeping). The deploy is built, deployed, and verified. Finish the epic honestly:\n1. \`bd epic status ${EPIC}\` — report remaining-open children. Closed/[ -] count: ${allVerdicts.filter((v) => v.marker === 'x').length} passed, ${skipped.length} honest [-], ${stillOpen.length} still open${stillOpen.length ? ` (${stillOpen.map((v) => v.ticket).join(', ')})` : ''}.\n2. Final gates: \`bun run typecheck\` && \`bunx biome check .\` && \`bun run test\`; report verbatim pass/fail.\n3. ac_main_clean (www-5ag.29): we are landing via PR, so this stays [-] until Calum merges. Set its checklist marker to [-] with reason "(awaiting Calum PR merge)" and \`bd update www-5ag.29 --notes\`; do NOT mark it [x].\n4. Open the PR from the current branch to main: \`gh pr create --base main --title "feat: deploy control-center via bosun (${EPIC})" --body "<summary of what shipped, the AC tally, the honest [-] items with reasons, and that ac_main_clean completes on merge>"\`. Do NOT merge it.\nReturn the handoff: summary = the AC tally + PR url, followups = the still-open + [-] items.`,
+  `${RULES}\n\nCAPSTONE (bookkeeping). The deploy is built, deployed, and verified. Finish the epic honestly:\n1. \`bd epic status ${EPIC}\` , report remaining-open children. Closed/[ -] count: ${allVerdicts.filter((v) => v.marker === 'x').length} passed, ${skipped.length} honest [-], ${stillOpen.length} still open${stillOpen.length ? ` (${stillOpen.map((v) => v.ticket).join(', ')})` : ''}.\n2. Final gates: \`bun run typecheck\` && \`bunx biome check .\` && \`bun run test\`; report verbatim pass/fail.\n3. ac_main_clean (www-5ag.29): we are landing via PR, so this stays [-] until Calum merges. Set its checklist marker to [-] with reason "(awaiting Calum PR merge)" and \`bd update www-5ag.29 --notes\`; do NOT mark it [x].\n4. Open the PR from the current branch to main: \`gh pr create --base main --title "feat: deploy control-center via bosun (${EPIC})" --body "<summary of what shipped, the AC tally, the honest [-] items with reasons, and that ac_main_clean completes on merge>"\`. Do NOT merge it.\nReturn the handoff: summary = the AC tally + PR url, followups = the still-open + [-] items.`,
   { label: 'capstone', phase: 'Capstone', schema: RESULT_SCHEMA, model: VAL_M },
 )
 

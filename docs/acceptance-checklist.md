@@ -55,7 +55,7 @@ Every item is in **exactly one** of three states:
   - Evidence: `bun run test` → 53 test files, 633 tests all passed, exit 0; `bun run typecheck` → 4 workspaces, all exit 0; `bunx biome check .` → 259 files checked, no fixes needed, exit 0
 - [x] **ac_images**, after a push, `gh run watch <id>` conclusion = success; `docker manifest inspect ghcr.io/0x63616c/control-center-web:$(git rev-parse --short HEAD)` (and `-api`, `-storybook`) each resolve. *Pass:* CI green + all three `:<sha>` tags in GHCR for HEAD.
   - Evidence: CI run 26933874472 on branch `worktree-deploy-epic-workflow` at HEAD `04a745d080f16c5bda8287f8bb4b037c299e986a` (short: `04a745d`) → conclusion: success. All three `docker manifest inspect` commands resolved successfully: `docker manifest inspect ghcr.io/0x63616c/control-center-web:04a745d080f16c5bda8287f8bb4b037c299e986a` → valid multi-arch manifest; `docker manifest inspect ghcr.io/0x63616c/control-center-api:04a745d080f16c5bda8287f8bb4b037c299e986a` → valid multi-arch manifest; `docker manifest inspect ghcr.io/0x63616c/control-center-storybook:04a745d080f16c5bda8287f8bb4b037c299e986a` → valid multi-arch manifest.
-- [x] **ac_ci_selective**, a push touching only `apps/web/**` rebuilds **only** the web image (api + storybook jobs skipped via path filter); a docs-only push triggers no image build. *Pass:* per-app selectivity demonstrated in the CI run logs.
+- [x] **ac_ci_selective**, a push touching only `products/control-center/web/**` rebuilds **only** the web image (api + storybook jobs skipped via path filter); a docs-only push triggers no image build. *Pass:* per-app selectivity demonstrated in the CI run logs.
 
 ## C. Stack health (SSH homelab)
 

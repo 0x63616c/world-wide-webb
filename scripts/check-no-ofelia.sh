@@ -4,13 +4,13 @@
 # packages/bosun/src/scheduler.ts (a one-shot Swarm job per cronJob); there must
 # be no `mcuadros/ofelia` image, no `ofelia.*` deploy labels, and no ofeliaController.
 #
-# This is the one sanctioned place the word may appear — it is the mechanical
+# This is the one sanctioned place the word may appear , it is the mechanical
 # invariant, mirroring scripts/check-fake-data.sh. The repo physically rejects a
 # regression.
 
 set -euo pipefail
 
-# The sanctioned enforcement+doc surface — the only places the token may appear,
+# The sanctioned enforcement+doc surface , the only places the token may appear,
 # because they exist to enforce or document its banishment. Mirrors how
 # check-fake-data.sh hardcodes its own sanctioned files.
 is_sanctioned() {
@@ -46,7 +46,7 @@ if [ ${#violations[@]} -gt 0 ]; then
   echo "✗ Ofelia reference reintroduced (replaced by bosun's scheduler in www-79k):" >&2
   printf '   %s\n' "${violations[@]}" >&2
   echo "" >&2
-  echo "Schedule jobs with cronJob() — run by packages/bosun/src/scheduler.ts as a" >&2
+  echo "Schedule jobs with cronJob() , run by packages/bosun/src/scheduler.ts as a" >&2
   echo "one-shot Swarm job. No mcuadros/ofelia, no ofelia.* labels." >&2
   exit 1
 fi

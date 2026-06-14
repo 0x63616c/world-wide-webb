@@ -3,12 +3,12 @@ set -euo pipefail
 
 # Saves the Synology DSM login (HomeTB / DS420+) to 1Password (Homelab vault) so
 # agents can SSH in + drive Container Manager / Log Center for the UniFi log
-# pipeline — keeping the NAS credentials OUT of this (public) repo. (www-dhi9)
+# pipeline , keeping the NAS credentials OUT of this (public) repo. (www-dhi9)
 #
 # The account MUST be in the Synology "administrators" group: DSM only allows
 # SSH for admins, and Container Manager (docker) needs sudo. Default user: unifi.
 #
-# Run as calum (NOT sudo — it writes 1Password as you):
+# Run as calum (NOT sudo , it writes 1Password as you):
 #   ./scripts/save-synology-dsm.sh
 
 ITEM="Synology DSM"

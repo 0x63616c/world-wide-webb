@@ -27,7 +27,7 @@ const BOOK_M = 'haiku'
 //   epic    bd epic holding the mission state (default www-5p4). Children are the
 //           deterministic sub-issues <epic>.1..9 created in role order.
 //   arms    subset of arm slugs to build (default all 5)
-//   matrix  'full' (default) | 'focused' — sweep breadth
+//   matrix  'full' (default) | 'focused' , sweep breadth
 //   port    dev-server port for the launcher (default 4310)
 const PROJECT_DIR = args?.dir || '/Users/calum/code/github.com/0x63616c/pan-lab'
 const epic = args?.epic || 'www-5p4'
@@ -58,7 +58,7 @@ You are an autonomous engineer building a THROWAWAY performance-lab prototype.
 
 WHERE THINGS LIVE:
 - CODE lives in the prototype project: ${PROJECT_DIR} (a standalone Vite+React app; create it if missing).
-- BEADS (the mission state) is the control-center workspace at ${CONTROL_CENTER}. Run EVERY \`bd\` command from ${CONTROL_CENTER} (cd there for bd, cd back to the project for code). Do NOT modify any control-center source — only bd state.
+- BEADS (the mission state) is the control-center workspace at ${CONTROL_CENTER}. Run EVERY \`bd\` command from ${CONTROL_CENTER} (cd there for bd, cd back to the project for code). Do NOT modify any control-center source , only bd state.
 
 ABSOLUTE RULES:
 - bun/bunx ALWAYS. NEVER npm/npx. Build/run with bun (e.g. \`bun run build\`, \`bun run --cwd ${PROJECT_DIR} dev\`).
@@ -71,7 +71,7 @@ ABSOLUTE RULES:
 THE EXPERIMENT (why this exists):
 - Goal: turn a fixed dashboard board into a PANNABLE 2D canvas (world bigger than the 1366x1000 screen, drag to float around, opens centered on the middle "clock" tile). We are benchmarking 5 rendering strategies to pick one.
 - Geometry: a grid of N cols x N rows at a fixed cell pitch; world px = grid x pitch. Tiles are placed on the grid and keep fixed pixel sizes. The screen is a moving crop.
-- HYBRID tiles: synthetic text + svg-chart tiles (cheap/medium, controlled by a heavy-ratio dial) PLUS real heavy tiles — a real MapLibre GL map and a real looping <video> — because only the real ones reproduce WebGL-context limits, GPU memory, and decode cost.
+- HYBRID tiles: synthetic text + svg-chart tiles (cheap/medium, controlled by a heavy-ratio dial) PLUS real heavy tiles , a real MapLibre GL map and a real looping <video> , because only the real ones reproduce WebGL-context limits, GPU memory, and decode cost.
 - URL params drive every run: grid, tiles, heavy (0..1), strategy, optimize (csv e.g. cv,pause), autopan (1 = run the scripted fling then publish results).
 `
 
@@ -126,18 +126,18 @@ const scaffold = await agent(
   `${RULES}
 
 SCAFFOLD THE APP (bd ${ISSUE.scaffold}). Claim it first. Build a SINGLE Vite + React + TypeScript app at ${PROJECT_DIR}:
-1. \`bun create vite\` (react-ts) at ${PROJECT_DIR} if absent; then PREINSTALL all deps the arms need so parallel arm agents never edit package.json: react-router-dom, maplibre-gl, pixi.js, @pixi/react (or react-konva — your choice for the canvas arm), and as devDeps playwright + @playwright/test (\`bunx playwright install chromium\`).
+1. \`bun create vite\` (react-ts) at ${PROJECT_DIR} if absent; then PREINSTALL all deps the arms need so parallel arm agents never edit package.json: react-router-dom, maplibre-gl, pixi.js, @pixi/react (or react-konva , your choice for the canvas arm), and as devDeps playwright + @playwright/test (\`bunx playwright install chromium\`).
 2. Shared world geometry helper: grid(cols,rows) -> cell pitch -> world px; a makeTiles(grid, count, heavyRatio) that returns tiles {id, col, row, w, h, kind} placing them across the world, kind in {text, chart, map, video} with heavyRatio controlling the map/video fraction. The middle tile is the "clock".
-3. Tile-kit components (memoized): TextTile, ChartTile (animated SVG), MapTile (real MapLibre GL, a keyless style e.g. demotiles or a raster OSM source), VideoTile (real <video> looping a small LOCAL clip — generate a ~5s test loop with ffmpeg if available, else bundle a tiny public-domain mp4; no network needed at runtime). A faint world-grid backdrop drawn as a CSS repeating-linear-gradient (never per-cell divs).
+3. Tile-kit components (memoized): TextTile, ChartTile (animated SVG), MapTile (real MapLibre GL, a keyless style e.g. demotiles or a raster OSM source), VideoTile (real <video> looping a small LOCAL clip , generate a ~5s test loop with ffmpeg if available, else bundle a tiny public-domain mp4; no network needed at runtime). A faint world-grid backdrop drawn as a CSS repeating-linear-gradient (never per-cell divs).
 4. PerfHUD overlay: a rAF sampler computing live FPS, frame-time p95/p99, dropped-frame count, JS heap (performance.memory when present), mounted-tile count; publish a live object to window.__perf and offer CSV/JSON export.
 5. Autopan driver: on ?autopan=1, run a deterministic fling/drag path over the camera for a fixed duration, record the metrics, then set window.__perfResult = {strategy, grid, tiles, heavy, fpsMean, fps1pctLow, p95, p99, dropped, heap, mounted}. Manual drag works when autopan is off.
-6. URL params: grid, tiles, heavy, strategy, optimize, autopan — parsed into the run config.
-7. Router: \`/\` launcher SHELL (placeholder cards for all 5 arms — the launcher agent finishes it later) and \`/arm/:strategy\` that renders the matching arm. Create EMPTY arm component files src/arms/{transform,transform-cv,transform-window,native-scroll,canvas}.tsx each exporting a stub component, and a route registry that lazy-imports all 5 — so each arm agent edits ONLY its own file and never a shared one.
+6. URL params: grid, tiles, heavy, strategy, optimize, autopan , parsed into the run config.
+7. Router: \`/\` launcher SHELL (placeholder cards for all 5 arms , the launcher agent finishes it later) and \`/arm/:strategy\` that renders the matching arm. Create EMPTY arm component files src/arms/{transform,transform-cv,transform-window,native-scroll,canvas}.tsx each exporting a stub component, and a route registry that lazy-imports all 5 , so each arm agent edits ONLY its own file and never a shared one.
 8. Dark mode + styled scrollbars.
 Verify: \`bun run build\` passes; start the dev server, open \`/\` and \`/arm/transform\` with the local agent-browser at 1366x1000, screenshot to ${PROJECT_DIR}/docs/screenshots/scaffold.png and inspect it. Record a handoff in the bd notes (the geometry helper API, the tile-kit props, the window.__perf/__perfResult shape, how to add an arm) and \`bd close ${ISSUE.scaffold}\`. Return the structured result.`,
   { label: `scaffold:${ISSUE.scaffold}`, phase: 'Scaffold', schema: RESULT_SCHEMA, model: WORK_M },
 )
-log(`scaffold: ${scaffold?.status} buildPass=${scaffold?.buildPass} — ${scaffold?.summary || ''}`)
+log(`scaffold: ${scaffold?.status} buildPass=${scaffold?.buildPass} , ${scaffold?.summary || ''}`)
 
 // ---- build arms (milestone-2, parallel; sweep is the barrier after) ------
 
@@ -149,12 +149,12 @@ const armResults = (
       agent(
         `${RULES}
 
-BUILD ONE RENDERING ARM (bd ${a.issue}) — "${a.title}". Claim it first. Read its acceptance with \`bd show ${a.issue}\`. Implement ONLY src/arms/${a.slug}.tsx against the shared tile-kit + geometry + PerfHUD the scaffold created (read scaffold's bd notes on ${ISSUE.scaffold} for the API). Do NOT edit shared files, the router, or other arms' files — your file is lazy-imported already.
+BUILD ONE RENDERING ARM (bd ${a.issue}) , "${a.title}". Claim it first. Read its acceptance with \`bd show ${a.issue}\`. Implement ONLY src/arms/${a.slug}.tsx against the shared tile-kit + geometry + PerfHUD the scaffold created (read scaffold's bd notes on ${ISSUE.scaffold} for the API). Do NOT edit shared files, the router, or other arms' files , your file is lazy-imported already.
 
 Strategy specifics:
-- transform: one world div panned via imperative translate3d (camera x/y in a ref, written in the pointermove/rAF handler — NEVER setState per frame; tiles already React.memo'd). Mouse-drag + touch. Open centered on the clock tile.
+- transform: one world div panned via imperative translate3d (camera x/y in a ref, written in the pointermove/rAF handler , NEVER setState per frame; tiles already React.memo'd). Mouse-drag + touch. Open centered on the clock tile.
 - transform-cv: same as transform PLUS contain:strict + content-visibility:auto per tile and an IntersectionObserver that pauses off-screen heavy tiles (freeze video, stop map/animation). Honour ?optimize=cv,pause toggles.
-- transform-window: same as transform PLUS 2D windowing — only tiles whose world-rect intersects viewport+overscan are mounted (others absent from the DOM); HUD mounted-count must reflect it.
+- transform-window: same as transform PLUS 2D windowing , only tiles whose world-rect intersects viewport+overscan are mounted (others absent from the DOM); HUD mounted-count must reflect it.
 - native-scroll: world inside an overflow:auto viewport; native momentum on touch; a pointer drag-to-scroll shim for desktop mouse; scrollbars hidden; open scrolled to center the clock.
 - canvas: draw the synthetic tiles to a single canvas/stage (Pixi or react-konva) with a camera transform; overlay the real heavy tiles (map/video) as DOM at their world positions.
 
@@ -179,10 +179,10 @@ const sweep = await agent(
 
 RUN THE PERFORMANCE SWEEP (bd ${ISSUE.sweep}). Claim it first. Write a Playwright script (headless chromium; add webkit if it runs cleanly) that, for EVERY arm and EVERY matrix config, loads http://localhost:${PORT}/arm/<strategy>?grid=<g>&tiles=<t>&heavy=<h>&autopan=1 (start the dev server first: \`bun run --cwd ${PROJECT_DIR} dev --port ${PORT}\` in the background, poll until 200), waits for window.__perfResult, and records: fpsMean, fps1pctLow, p95, p99, dropped, heap, mounted (+ WebGL-context/layer count if obtainable).
 Matrix (${matrix}): ${sweepRanges}.
-Write all rows to ${PROJECT_DIR}/results.json (array of {strategy, grid, tiles, heavy, optimize, ...metrics}). Compute the KNEE per arm = the first config whose fpsMean < 55, and the largest config that held >=55. Print a desktop baseline table. Add a short note that these are DESKTOP numbers — the iPad is the real benchmark (Calum tests feel manually via the launcher). Kill the dev server when done (target the explicit pid, never a broad pattern). \`bd close ${ISSUE.sweep}\`. Return the structured sweep result.`,
+Write all rows to ${PROJECT_DIR}/results.json (array of {strategy, grid, tiles, heavy, optimize, ...metrics}). Compute the KNEE per arm = the first config whose fpsMean < 55, and the largest config that held >=55. Print a desktop baseline table. Add a short note that these are DESKTOP numbers , the iPad is the real benchmark (Calum tests feel manually via the launcher). Kill the dev server when done (target the explicit pid, never a broad pattern). \`bd close ${ISSUE.sweep}\`. Return the structured sweep result.`,
   { label: `sweep:${ISSUE.sweep}`, phase: 'Sweep', schema: SWEEP_SCHEMA, model: WORK_M },
 )
-log(`sweep: ${sweep?.status} — ${sweep?.summary || ''}`)
+log(`sweep: ${sweep?.status} , ${sweep?.summary || ''}`)
 for (const a of sweep?.arms || []) log(`  ${a.strategy}: knee=${a.knee}${a.maxStable ? ` maxStable=${a.maxStable}` : ''}`)
 
 // ---- launcher / review harness (milestone-4) -----------------------------
@@ -200,7 +200,7 @@ FINISH THE LAUNCHER + RESULTS DASHBOARD (bd ${ISSUE.launcher}). Claim it first. 
 Verify: \`bun run build\` passes; screenshot \`/\` (and the Results tab) headless at 1366x1000 to ${PROJECT_DIR}/docs/screenshots/launcher.png and inspect (all 5 arms listed, sliders present, results render, scrollbars dark). \`bd close ${ISSUE.launcher}\`. Return the structured result.`,
   { label: `launcher:${ISSUE.launcher}`, phase: 'Launcher', schema: RESULT_SCHEMA, model: WORK_M },
 )
-log(`launcher: ${launcher?.status} buildPass=${launcher?.buildPass} — ${launcher?.summary || ''}`)
+log(`launcher: ${launcher?.status} buildPass=${launcher?.buildPass} , ${launcher?.summary || ''}`)
 
 // ---- finalize (haiku bookkeeping) ----------------------------------------
 
@@ -211,13 +211,13 @@ const fin = await agent(
 
 FINALIZE (bookkeeping; no design decisions, no code beyond the recommendation note). Claim bd ${ISSUE.finalize}.
 1. From ${PROJECT_DIR} run \`bun run build\` and report pass/fail verbatim.
-2. \`bd epic status ${epic}\` — report what remains open; close the epic if every child is closed (\`bd close ${epic}\`).
+2. \`bd epic status ${epic}\` , report what remains open; close the epic if every child is closed (\`bd close ${epic}\`).
 3. Write a ONE-PARAGRAPH recommendation (which arm + which optimizations to take into control-center) into ${CONTROL_CENTER}/docs/perf-lab-recommendation.md, citing the sweep knees: ${kneeLines || '(see results.json)'}.
 4. Print the iPad launch instructions: \`bun run --cwd ${PROJECT_DIR} dev --port ${PORT}\`, then \`cmux open http://localhost:${PORT}\`, and the Tailscale URL http://homelab:${PORT} for the iPad.
 Do NOT git push. Return the structured result (summary = remaining-open list + build result + where the recommendation was written).`,
   { label: `finalize:${ISSUE.finalize}`, phase: 'Finalize', schema: RESULT_SCHEMA, model: BOOK_M },
 )
-log(`finalize: ${fin?.status} — ${fin?.summary || ''}`)
+log(`finalize: ${fin?.status} , ${fin?.summary || ''}`)
 
 return {
   epic,

@@ -6,7 +6,7 @@
 # The account_id + zone_id already live on the "Cloudflare API" item; the tunnel
 # id was the one missing field (DNS CNAMEs point at <tunnelId>.cfargotunnel.com).
 # All three are sourced via fromOp() in deploy.config.ts and exported to env by
-# the agent entrypoint — same pattern as the other agent secrets.
+# the agent entrypoint , same pattern as the other agent secrets.
 #
 # Idempotent: re-running just re-sets the field. Default is the prod
 # evee-webhooks tunnel; pass a different id as $1 to override.
@@ -30,7 +30,7 @@ op item get "$ITEM" --vault "$VAULT" >/dev/null 2>&1 || {
 echo "Setting $ITEM.tunnel_id = $TUNNEL_ID ..."
 op item edit "$ITEM" --vault "$VAULT" "tunnel_id[text]=$TUNNEL_ID" >/dev/null
 
-# Invalidate the shim cache for this ref (REQUIRED — the local op is a 24h-caching
+# Invalidate the shim cache for this ref (REQUIRED , the local op is a 24h-caching
 # shim; bosun secrets sync would otherwise resolve a stale/absent value).
 EVEE_OP_DIR="${OP_CACHE_DIR:-$HOME/.local/share/evee-op}"
 if [ -d "$EVEE_OP_DIR" ]; then

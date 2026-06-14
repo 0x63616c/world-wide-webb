@@ -34,7 +34,7 @@ repo's serial Storybook browser project. Do NOT raise `workers` for this suite.
 The backend already ships the seams; the flow specs wire them like this:
 
 1. **OTP readback (no real inbox).** In dev/test the portal router uses the MOCK
-   email sender (`apps/api/src/services/portal-mock-sender.ts`), which logs the
+   email sender (`products/control-center/api/src/services/portal-mock-sender.ts`), which logs the
    code AND stores the last code per email. The flow spec reads it back instead of
    checking an inbox. Two viable readback paths, to be chosen when the screens land:
    - a tiny **dev-only** tRPC/HTTP route exposing `mockSender.lastCode(email)`,
@@ -51,7 +51,7 @@ The backend already ships the seams; the flow specs wire them like this:
 3. **UniFi authorize is mocked end-to-end already.** The portal service calls the
    `UnifiGuestClient` interface; in dev/test it's never the real controller. The
    E2E asserts the *UX* (Success screen, redirect intent), not a real grant. The
-   authorize→43200 contract is unit-tested in `apps/api` (unifi-guest.test.ts).
+   authorize→43200 contract is unit-tested in `products/control-center/api` (unifi-guest.test.ts).
 
 4. **Clock / cooldown.** The 30s resend cooldown + 10-min code TTL are real
    server timers. The resend-cooldown spec asserts the button is disabled then

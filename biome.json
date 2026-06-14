@@ -61,9 +61,9 @@
   "overrides": [
     {
       "includes": [
-        "**/apps/api/src/env.ts",
-        "**/apps/api/drizzle.config.ts",
-        "**/apps/web/vite.config.ts",
+        "**/products/control-center/api/src/env.ts",
+        "**/products/control-center/api/drizzle.config.ts",
+        "**/products/control-center/web/vite.config.ts",
         "**/products/captive-portal/apps/frontend/playwright.config.ts",
         "**/products/captive-portal/apps/frontend/e2e/**",
         "**/scripts/**"

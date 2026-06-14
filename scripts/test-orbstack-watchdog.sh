@@ -19,7 +19,7 @@ check() { # check <desc> <expected> <actual>
     PASS=$((PASS + 1))
   else
     FAIL=$((FAIL + 1))
-    echo "FAIL: $1 — expected '$2', got '$3'"
+    echo "FAIL: $1 , expected '$2', got '$3'"
   fi
 }
 

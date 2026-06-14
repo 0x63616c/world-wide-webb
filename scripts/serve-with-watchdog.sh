@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs a dev serve command under a health watchdog so Tilt self-heals.
 #
-# WHY: Tilt's readiness_probe only colors a resource red/green — it never
+# WHY: Tilt's readiness_probe only colors a resource red/green , it never
 # restarts a local_resource serve_cmd. When Vite/the API comes up but isn't
 # actually serving (hung, port race, dep not ready), the process stays alive
 # and Tilt sits red until someone clicks Restart. On an unattended wall panel
@@ -52,7 +52,7 @@ done
 unhealthy=0
 while true; do
   if ! kill -0 "$child" 2>/dev/null; then
-    # Process exited on its own — surface its code, let Tilt restart.
+    # Process exited on its own , surface its code, let Tilt restart.
     wait "$child"; exit $?
   fi
 
@@ -61,7 +61,7 @@ while true; do
   else
     (( unhealthy += poll_interval )) || true
     if (( unhealthy >= fail_window )); then
-      echo "watchdog: $health_url unhealthy for ${fail_window}s — restarting" >&2
+      echo "watchdog: $health_url unhealthy for ${fail_window}s , restarting" >&2
       cleanup
       exit 1
     fi

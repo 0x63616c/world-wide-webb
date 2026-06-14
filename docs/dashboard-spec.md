@@ -1,4 +1,4 @@
-# Control Center — Evee Dashboard spec
+# Control Center , Evee Dashboard spec
 
 Fixed landscape wall panel (iPad Pro): physical panel 1366×1024; board content grid
 1366×1000 (`BOARD_W`×`BOARD_H`). Auto-scaled to viewport. Dark, deep
@@ -13,10 +13,10 @@ address lives in source. See `scripts/save-home-location.sh` and www-mqp.
 
 ## Stack (mirrors the `evee` repo)
 
-- **apps/web** — Vite, React 19, TypeScript, Tailwind v4, TanStack Router, tRPC client + React Query.
-- **apps/api** — Bun, tRPC v11, Drizzle + Postgres, Zod env. Integrations: Home Assistant, UniFi, Open-Meteo, Tesla (via HA).
-- **packages/api** — shared tRPC `AppRouter` type.
-- **Tilt** — Postgres (docker-compose) + api (`:4201`) + web (`:4200`). Secrets via `op inject -i tilt/op-secrets.tpl`.
+- **products/control-center/web** , Vite, React 19, TypeScript, Tailwind v4, TanStack Router, tRPC client + React Query.
+- **products/control-center/api** , Bun, tRPC v11, Drizzle + Postgres, Zod env. Integrations: Home Assistant, UniFi, Open-Meteo, Tesla (via HA).
+- **packages/api** , shared tRPC `AppRouter` type.
+- **Tilt** , Postgres (docker-compose) + api (`:4201`) + web (`:4200`). Secrets via `op inject -i tilt/op-secrets.tpl`.
 
 ## Grid layout (`gridTemplateAreas`)
 
@@ -29,11 +29,11 @@ tesla tesla tesla tesla  dogcam dogcam dogcam dogcam  ac   ac   ac   ac
 event event event event  dogcam dogcam dogcam dogcam  ac   ac   ac   ac
 ```
 
-(Per chat final: Next 12 Hours top-middle, Dog Cam bottom-middle — same 4×2 footprint.)
+(Per chat final: Next 12 Hours top-middle, Dog Cam bottom-middle , same 4×2 footprint.)
 
 ---
 
-## Tiles — data, source, states
+## Tiles , data, source, states
 
 ### 1. Clock / Greeting  (`clock`)
 - **Data:** current time (12h), date, greeting (Good morning/afternoon/evening/night by hour), location label.
@@ -52,18 +52,18 @@ event event event event  dogcam dogcam dogcam dogcam  ac   ac   ac   ac
 
 ### 4. Tesla  (`tesla`)
 - **Data:** name (Model Y), nick (Evee), locked bool, place label, lat/lon (map marker), charging bool, charge rate mi/hr, battery %, range mi, odometer, cabin temp °F.
-- **Source:** Home Assistant Tesla entities — `sensor.*_battery`, `binary_sensor.*_charging`, `*_charge_rate`, `lock.*` / `binary_sensor.*_locked`, `device_tracker.*` (lat/lon), `sensor.*_range`, `sensor.*_odometer`, `sensor.*_inside_temp`. Entity ids resolved at runtime by domain+name match; configurable via env.
+- **Source:** Home Assistant Tesla entities , `sensor.*_battery`, `binary_sensor.*_charging`, `*_charge_rate`, `lock.*` / `binary_sensor.*_locked`, `device_tracker.*` (lat/lon), `sensor.*_range`, `sensor.*_odometer`, `sensor.*_inside_temp`. Entity ids resolved at runtime by domain+name match; configurable via env.
 - **Map:** recreate the design's lo-fi SVG sketch (no tile API), parked-at-home marker.
-- **States:** online / asleep (Tesla sleeps — show last-known + "Asleep"), charging/idle, locked/unlocked, parked/driving, loading, error. Refetch every 60s.
+- **States:** online / asleep (Tesla sleeps , show last-known + "Asleep"), charging/idle, locked/unlocked, parked/driving, loading, error. Refetch every 60s.
 
 ### 5. Dog Cam  (`dogcam`)
 - **Data:** snapshot still URL, stream URL, label ("Living Room"), live bool, REC clock.
-- **Source:** Home Assistant camera entity — snapshot `/api/camera_proxy/<entity>`, stream via HLS endpoint. **Video feed left as designed-but-stubbed**; APIs (`camera.snapshot`, `camera.streamInfo`) are fully designed.
+- **Source:** Home Assistant camera entity , snapshot `/api/camera_proxy/<entity>`, stream via HLS endpoint. **Video feed left as designed-but-stubbed**; APIs (`camera.snapshot`, `camera.streamInfo`) are fully designed.
 - **States:** covered (frosted, default), live (revealed snapshot/feed), offline, loading.
 
 ### 6. Controls  (`ctrl`)
 - **Data:** lamps {on, count, warmth sub}, lights {on}, fan {on, speed sub}, "More" placeholder.
-- **Source:** Home Assistant — `light.*` (lamps group + ceiling lights), `fan.*`. Read state; toggle via `light.turn_on/off`, `fan.turn_on/off`. Optimistic UI, reconcile on poll.
+- **Source:** Home Assistant , `light.*` (lamps group + ceiling lights), `fan.*`. Read state; toggle via `light.turn_on/off`, `fan.turn_on/off`. Optimistic UI, reconcile on poll.
 - **States:** on/off per control + sub-status, optimistic pending, error (revert). Refetch every 30s.
 
 ### 7. Next 12 Hours  (`hourly`)
@@ -73,7 +73,7 @@ event event event event  dogcam dogcam dogcam dogcam  ac   ac   ac   ac
 
 ### 8. Climate / A/C  (`ac`)
 - **Data:** target setpoint (65–80), ambient/current room temp, mode (cool/auto/heat), action (Cooling/Heating/Auto/Idle).
-- **Source:** Home Assistant `climate.*` — `current_temperature`, `temperature` (setpoint), `hvac_mode`, `hvac_action`. Set via `climate.set_temperature`, `climate.set_hvac_mode`.
+- **Source:** Home Assistant `climate.*` , `current_temperature`, `temperature` (setpoint), `hvac_mode`, `hvac_action`. Set via `climate.set_temperature`, `climate.set_hvac_mode`.
 - **States:** cooling/heating/auto/idle, setpoint drag (optimistic, debounced write), loading, error. Refetch every 30s.
 
 ### 9. Upcoming Events  (`event`)

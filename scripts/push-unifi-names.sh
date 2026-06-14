@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Push the (non-secret) UniFi ip->device-name map to the NAS for the enricher
 # (www-cs0o). The UniFi API key stays on THIS box; only the resulting names map
-# travels. Run after renaming devices in UniFi, or cron it for freshness —
+# travels. Run after renaming devices in UniFi, or cron it for freshness ,
 # unmapped/stale IPs degrade gracefully to gateway PTR names, never break flows.
 #
 #   ./scripts/push-unifi-names.sh

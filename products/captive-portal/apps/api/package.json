@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@repo/api": "workspace:*",
+    "@control-center/api": "workspace:*",
     "@repo/logger": "workspace:*",
     "@trpc/server": "^11.17.0"
   },

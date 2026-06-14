@@ -4,7 +4,7 @@
 # OBW_INTERVAL seconds by the LaunchDaemon installed by install-orbstack-watchdog.sh.
 #
 # WHY: twice now the whole prod stack has gone down because the OrbStack VM /
-# docker engine WEDGED — once from an OOM RCU-stall (a runaway container), once
+# docker engine WEDGED , once from an OOM RCU-stall (a runaway container), once
 # from stuck NFS bind-mount ops jamming dockerd's task-create path. The signature
 # is identical and recognisable: docker ACCEPTS a command but never returns (a
 # hang, not an error), so `cloudflared` can't run → the tunnel drops → Cloudflare
@@ -27,13 +27,13 @@ OBW_STATE_DIR="${OBW_STATE_DIR:-/usr/local/var/orbstack-watchdog}"
 OBW_STATE_FILE="${OBW_STATE_FILE:-$OBW_STATE_DIR/state}"   # "<consec> <last_restart_epoch>"
 OBW_LOG="${OBW_LOG:-$OBW_STATE_DIR/watchdog.log}"
 
-# --- pure decision logic (TESTABLE — no side effects) ------------------------
+# --- pure decision logic (TESTABLE , no side effects) ------------------------
 # obw_decide <consec> <threshold> <secs_since_last_restart> <cooldown>
 #   echoes exactly one of: ok | watch | cooldown | restart
 #   - ok       : last probe healthy (consec == 0)
-#   - watch    : some hangs but below threshold — keep watching, don't act
-#   - cooldown : threshold reached but a restart happened too recently — hold off
-#   - restart  : threshold reached AND cooldown elapsed — recover now
+#   - watch    : some hangs but below threshold , keep watching, don't act
+#   - cooldown : threshold reached but a restart happened too recently , hold off
+#   - restart  : threshold reached AND cooldown elapsed , recover now
 obw_decide() {
   local consec="$1" threshold="$2" since="$3" cooldown="$4"
   if [ "$consec" -lt "$threshold" ]; then
@@ -61,7 +61,7 @@ obw_probe_docker() {
 
 # --- recovery: hard-restart OrbStack by exact PID, then relaunch -------------
 # Mirrors the proven manual recovery. Targets ONLY the OrbStack app + its vmgr
-# helper by exact PID (never a loose pkill — this box is shared).
+# helper by exact PID (never a loose pkill , this box is shared).
 obw_restart_orbstack() {
   local app vmgr
   vmgr="$(pgrep -f 'Helper vmgr -build-id' | head -1)"
@@ -94,17 +94,17 @@ obw_main() {
 
   case "$action" in
     restart)
-      obw_log "docker hung ${consec}x (>= ${OBW_THRESHOLD}) — hard-restarting OrbStack"
+      obw_log "docker hung ${consec}x (>= ${OBW_THRESHOLD}) , hard-restarting OrbStack"
       obw_restart_orbstack
       consec=0
       last_restart="$now"
       obw_log "OrbStack relaunched"
       ;;
     cooldown)
-      obw_log "docker hung ${consec}x but within ${OBW_COOLDOWN}s cooldown — holding"
+      obw_log "docker hung ${consec}x but within ${OBW_COOLDOWN}s cooldown , holding"
       ;;
     watch)
-      obw_log "docker hung ${consec}x (< ${OBW_THRESHOLD}) — watching"
+      obw_log "docker hung ${consec}x (< ${OBW_THRESHOLD}) , watching"
       ;;
     ok) ;; # healthy: stay quiet
   esac

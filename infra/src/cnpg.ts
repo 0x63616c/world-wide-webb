@@ -15,7 +15,7 @@
 import * as k8s from "@pulumi/kubernetes";
 import type * as pulumi from "@pulumi/pulumi";
 
-// The app's prod identity (apps/api/src/env.ts defaults: user postgres, db
+// The app's prod identity (products/control-center/api/src/env.ts defaults: user postgres, db
 // control_center). CNPG provisions exactly these so DATABASE_URL still resolves.
 const DB_NAME = "control_center";
 const DB_OWNER = "postgres";

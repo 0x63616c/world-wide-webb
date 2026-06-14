@@ -31,15 +31,6 @@ const requiredWorkspaceGlobs = [
   "products/*/packages/*",
 ] as const;
 
-const existingRuntimePaths = [
-  "apps/web",
-  "apps/api",
-  "apps/worker",
-  "apps/media-worker",
-  "apps/drizzle",
-  "apps/map-provision",
-] as const;
-
 async function readJson<T>(relativePath: string): Promise<T> {
   const file = Bun.file(join(root, relativePath));
   if (!(await file.exists())) {
@@ -65,13 +56,6 @@ for (const glob of requiredWorkspaceGlobs) {
   assert(workspaceGlobs.has(glob), `Root package.json missing workspace glob ${glob}`);
 }
 
-for (const runtimePath of existingRuntimePaths) {
-  assert(
-    existsSync(join(root, runtimePath)),
-    `Existing runtime path moved too early: ${runtimePath}`,
-  );
-}
-
 for (const slug of productSlugs) {
   const folder = `products/${slug}`;
   assert(existsSync(join(root, folder)), `Missing product folder ${folder}`);
@@ -93,6 +77,7 @@ for (const slug of productSlugs) {
       manifest.runtimeStatus === "compatibility-wrapper" ||
       manifest.runtimeStatus === "frontend-moved" ||
       manifest.runtimeStatus === "api-boundary" ||
+      manifest.runtimeStatus === "runtime-moved" ||
       manifest.runtimeStatus === "shell",
     `${folder}/product.json runtimeStatus must describe the temporary M4 state`,
   );

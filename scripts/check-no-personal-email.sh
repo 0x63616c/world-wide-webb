@@ -4,14 +4,14 @@
 # noreply address; the iCloud login email must never land in tracked content.
 #
 # Why a HASH and not base64: base64 is trivially reversible, so it cannot hide a
-# secret — it only worked for the home-address guard because that guard encodes a
+# secret , it only worked for the home-address guard because that guard encodes a
 # low-sensitivity *building-name fragment*, not the full private value. An email's
 # sensitive part IS the local-part, so there is no harmless fragment to encode.
 # Instead this guard stores a ONE-WAY SHA-256 digest: the cleartext email appears
 # NOWHERE in this repo, and the stored digest is irreversible. The guard extracts
 # email-shaped tokens from each staged file, lowercases + hashes each, and blocks
 # on a digest match. It never prints the matched token (that would re-leak it to
-# the terminal / CI logs) — only "<redacted>" with the file:line.
+# the terminal / CI logs) , only "<redacted>" with the file:line.
 #
 # The real email lives only in 1Password / the git global identity; this keeps it
 # out of the public repo for good. Mirrors the other blocking pre-commit guards.
@@ -26,7 +26,7 @@ BLOCKED_DIGESTS=(
 
 # TEST-ONLY: hermetic tests inject an EXTRA throwaway digest (space/comma
 # separated) so they can exercise the full extract→hash→block path with a
-# disposable address (e.g. test@example.com) — the real email is never needed,
+# disposable address (e.g. test@example.com) , the real email is never needed,
 # and this only ever ADDS to the blocked set, so it can't weaken the guard.
 if [ -n "${PERSONAL_EMAIL_SHA256_EXTRA:-}" ]; then
   IFS=', ' read -r -a _extra <<<"$PERSONAL_EMAIL_SHA256_EXTRA"
@@ -53,7 +53,7 @@ is_blocked_digest() {
   return 1
 }
 
-# Sanctioned surfaces — the guard's own files (they contain no cleartext email).
+# Sanctioned surfaces , the guard's own files (they contain no cleartext email).
 is_sanctioned() {
   case "$1" in
     scripts/check-no-personal-email.sh) return 0 ;;
@@ -78,14 +78,14 @@ for f in "$@"; do
     token="${match#*:}"
     lc="$(printf '%s' "$token" | tr '[:upper:]' '[:lower:]')"
     if is_blocked_digest "$(sha256_hex "$lc")"; then
-      # Never echo the token itself — that would re-leak the email.
+      # Never echo the token itself , that would re-leak the email.
       violations+=("$f:$lineno: <redacted personal email>")
     fi
   done < <(grep -InoE "$EMAIL_RE" "$f" 2>/dev/null || true)
 done
 
 if [ ${#violations[@]} -gt 0 ]; then
-  echo "✗ Personal email reintroduced — keep it out of the public repo:" >&2
+  echo "✗ Personal email reintroduced , keep it out of the public repo:" >&2
   printf '   %s\n' "${violations[@]}" >&2
   echo "" >&2
   echo "Your commit identity is the GitHub noreply address; the personal login" >&2

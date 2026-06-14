@@ -20,15 +20,15 @@ log() { printf '[setup-workspace] %s\n' "$*"; }
 fail() { log "FATAL: $*"; exit 1; }
 
 # ── 1. Prereqs ────────────────────────────────────────────────────────────────
-command -v tilt >/dev/null || fail "tilt not found — brew install tilt-dev/tap/tilt"
-command -v bun  >/dev/null || fail "bun not found — see https://bun.sh"
+command -v tilt >/dev/null || fail "tilt not found , brew install tilt-dev/tap/tilt"
+command -v bun  >/dev/null || fail "bun not found , see https://bun.sh"
 command -v op   >/dev/null || fail "op (1Password CLI) not found"
-docker info >/dev/null 2>&1 || fail "docker daemon not reachable — start OrbStack/Docker"
-op whoami >/dev/null 2>&1 || fail "op not authenticated — run: eval \$(op signin)"
+docker info >/dev/null 2>&1 || fail "docker daemon not reachable , start OrbStack/Docker"
+op whoami >/dev/null 2>&1 || fail "op not authenticated , run: eval \$(op signin)"
 
 # ── 2. Start (or reuse) the Tilt stack ────────────────────────────────────────
 if curl -fsS -o /dev/null --max-time 2 "http://localhost:${PORT_TILT}/" 2>/dev/null; then
-  log "Tilt already running on :${PORT_TILT} — reusing"
+  log "Tilt already running on :${PORT_TILT} , reusing"
 else
   log "Starting Tilt dev stack (logs → ${TILT_LOG})"
   nohup tilt up --stream=true >"$TILT_LOG" 2>&1 &
@@ -43,7 +43,7 @@ for _ in $(seq 1 120); do
   fi
   sleep 2
 done
-[ "${READY:-}" = "1" ] || fail "web app never came up — check: tail -f ${TILT_LOG}"
+[ "${READY:-}" = "1" ] || fail "web app never came up , check: tail -f ${TILT_LOG}"
 log "Web app is live on :${PORT_WEB}"
 
 # ── 4. Surface the views in cmux ──────────────────────────────────────────────
@@ -52,7 +52,7 @@ if command -v cmux >/dev/null; then
   cmux open "http://localhost:${PORT_TILT}" || true
   cmux open "http://localhost:${PORT_WEB}" || true
 else
-  log "cmux not found — open these manually:"
+  log "cmux not found , open these manually:"
 fi
 
 cat <<EOF

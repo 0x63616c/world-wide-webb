@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run --cwd ../../../apps/web storybook",
-    "build": "bun run --cwd ../../../apps/web build-storybook",
-    "test": "bun run --cwd ../../../apps/web test",
-    "typecheck": "bun run --cwd ../../../apps/web typecheck"
+    "dev": "bun run --cwd ../../../products/control-center/web storybook",
+    "build": "bun run --cwd ../../../products/control-center/web build-storybook",
+    "test": "bun run --cwd ../../../products/control-center/web test",
+    "typecheck": "bun run --cwd ../../../products/control-center/web typecheck"
   }
 }

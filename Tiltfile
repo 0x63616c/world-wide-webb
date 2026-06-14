@@ -28,30 +28,30 @@ for line in secrets_raw.strip().split("\n"):
 local_resource(
     "install",
     cmd="bun install",
-    deps=["package.json", "bun.lock", "apps/api/package.json", "apps/web/package.json", "packages/api/package.json"],
+    deps=["package.json", "bun.lock", "products/control-center/api/package.json", "products/control-center/web/package.json", "packages/api/package.json"],
     allow_parallel=True,
     labels=["tooling"],
 )
 
 # db-migrate: one-shot, runs pending Drizzle migrations before the API boots.
-# Gating `api` on this guarantees the schema is current on a fresh/reset DB —
+# Gating `api` on this guarantees the schema is current on a fresh/reset DB ,
 # otherwise the API starts against an unmigrated schema and the device-sync loop
 # dies on its first heartbeat write. Re-runs on migration-file changes; no-ops
 # when the DB is already up to date.
 local_resource(
     "db-migrate",
-    cmd="DATABASE_URL='postgresql://cc:cc@localhost:%d/controlcenter' bun run --cwd apps/api db:migrate" % port_postgres,
-    deps=["apps/api/src/db/migrations"],
+    cmd="DATABASE_URL='postgresql://cc:cc@localhost:%d/controlcenter' bun run --cwd products/control-center/api db:migrate" % port_postgres,
+    deps=["products/control-center/api/src/db/migrations"],
     resource_deps=["postgres", "install"],
     labels=["backend"],
 )
 
 # api: bun --watch owns the file watch. Tilt orchestrates startup, bun handles reloads.
 # Wrapped in the watchdog so a sustained-unhealthy /up (alive but not serving)
-# exits non-zero and Tilt restarts it — no manual UI click on the wall panel.
+# exits non-zero and Tilt restarts it , no manual UI click on the wall panel.
 local_resource(
     "api",
-    serve_cmd="scripts/serve-with-watchdog.sh http://localhost:%d/up 20 15 -- bun --watch apps/api/src/server.ts" % port_api,
+    serve_cmd="scripts/serve-with-watchdog.sh http://localhost:%d/up 20 15 -- bun --watch products/control-center/api/src/server.ts" % port_api,
     serve_env={
         "PORT": str(port_api),
         "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
@@ -79,13 +79,13 @@ local_resource(
 
 # worker: the continuous reconcile/ingest loops (device-sync, weather-ingest)
 # that used to run inside the api now live in a dedicated worker app + image
-# (apps/worker, www-xjba), so dev must run it too or those loops never fire locally.
+# (products/control-center/worker, www-xjba), so dev must run it too or those loops never fire locally.
 # Same env as the api (DB + HA token + home location); bun --watch owns the file
 # watch. No readiness probe / watchdog: the worker serves no HTTP, so there is no
-# URL to poll — bun --watch restarts it on a crash, and Tilt surfaces its logs.
+# URL to poll , bun --watch restarts it on a crash, and Tilt surfaces its logs.
 local_resource(
     "worker",
-    serve_cmd="bun --watch apps/worker/src/index.ts",
+    serve_cmd="bun --watch products/control-center/worker/src/index.ts",
     serve_env={
         "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
         "HA_TOKEN": secrets["HA_TOKEN"],
@@ -101,12 +101,12 @@ local_resource(
     labels=["backend"],
 )
 
-# web: Vite owns HMR. No `deps=` — same reasoning as api.
+# web: Vite owns HMR. No `deps=` , same reasoning as api.
 # Watchdog-wrapped for the same self-heal reason as api (this is the one that
 # usually fails to come up). Vite cold start is slower, so a longer grace.
 local_resource(
     "web",
-    serve_cmd="scripts/serve-with-watchdog.sh http://localhost:%d/ 30 15 -- bun run --cwd apps/web dev --port %d" % (port_web, port_web),
+    serve_cmd="scripts/serve-with-watchdog.sh http://localhost:%d/ 30 15 -- bun run --cwd products/control-center/web dev --port %d" % (port_web, port_web),
     serve_env={
         "API_PORT": str(port_api),
     },
@@ -121,10 +121,10 @@ local_resource(
     ],
 )
 
-# Storybook — auto-started with the dev stack so it's always available for tile work.
+# Storybook , auto-started with the dev stack so it's always available for tile work.
 local_resource(
     "storybook",
-    serve_cmd="bun run --cwd apps/web storybook",
+    serve_cmd="bun run --cwd products/control-center/web storybook",
     resource_deps=["install"],
     labels=["frontend"],
     links=[
@@ -132,10 +132,10 @@ local_resource(
     ],
 )
 
-# Drizzle Studio — manual, opt-in.
+# Drizzle Studio , manual, opt-in.
 local_resource(
     "drizzle-studio",
-    serve_cmd="bun run --cwd apps/api db:studio",
+    serve_cmd="bun run --cwd products/control-center/api db:studio",
     resource_deps=["postgres"],
     auto_init=False,
     trigger_mode=TRIGGER_MODE_MANUAL,
@@ -149,7 +149,7 @@ local_resource(
 cmd_button(
     name="db-migrate",
     resource="postgres",
-    argv=["sh", "-c", "bun run --cwd apps/api db:migrate"],
+    argv=["sh", "-c", "bun run --cwd products/control-center/api db:migrate"],
     text="Migrate DB",
     icon_name="upgrade",
     location=location.RESOURCE,
@@ -160,7 +160,7 @@ cmd_button(
     resource="postgres",
     argv=[
         "sh", "-c",
-        "docker compose exec -T postgres psql -U cc -d controlcenter -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' && bun run --cwd apps/api db:migrate",
+        "docker compose exec -T postgres psql -U cc -d controlcenter -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' && bun run --cwd products/control-center/api db:migrate",
     ],
     text="Reset DB",
     icon_name="delete_forever",

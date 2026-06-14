@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@repo/api": "workspace:*"
+    "@control-center/api": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

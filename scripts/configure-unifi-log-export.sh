@@ -6,7 +6,7 @@ set -euo pipefail
 #   - Remote syslog (SIEM)  -> <NAS>:514
 #
 # Uses the UniFi *local* API key (op://Homelab/UniFi/local_api_key, X-API-KEY header).
-# That key authenticates against the private controller API, including set/setting —
+# That key authenticates against the private controller API, including set/setting ,
 # so these two settings (whose collector/SIEM fields are NOT in the read-only
 # integration API) can be written here. Reversible: re-run with DISABLE=1 to turn off.
 #
@@ -24,7 +24,7 @@ set_setting(){ req -X POST -H "Content-Type: application/json" "$API/set/setting
   | python3 -c "import sys,json;d=json.load(sys.stdin);print(' ',d['meta'])"; }
 
 # Networks to export flows for: LANs + any guest networks (e.g. a future
-# www-guest SSID's network) — WANs excluded.
+# www-guest SSID's network) , WANs excluded.
 LAN_IDS=$(req "$API/rest/networkconf" | python3 -c "
 import sys,json
 print(json.dumps([n['_id'] for n in json.load(sys.stdin)['data'] if n.get('purpose') in ('corporate','guest')]))")

@@ -4,13 +4,13 @@
 # WHY: a story is only "documented" when its meta enables Storybook autodocs, so
 # addon-docs generates the Docs page (args table + descriptions). Without it a
 # component lands in Storybook with stories but no doc surface. This is the
-# mechanical invariant that keeps every component's Docs page present — mirroring
+# mechanical invariant that keeps every component's Docs page present , mirroring
 # the other blocking content guards (e.g. scripts/check-fake-data.sh).
 #
 # A story counts as documented if the file EITHER:
 #   1. references `autodocs` directly (e.g. tags: ["autodocs"]), OR
 #   2. uses a sanctioned meta factory that injects autodocs for us. Today that is
-#      `defineTileMeta` (apps/web/src/components/tiles/__stories__/factory.ts adds
+#      `defineTileMeta` (products/control-center/web/src/components/tiles/__stories__/factory.ts adds
 #      tags: ["autodocs", ...]). Add new factory names to FACTORY_NAMES below.
 #
 # Usage:
@@ -18,7 +18,7 @@
 #   check-storybook-docs.sh              # no args -> all tracked *.stories.tsx
 #
 # Shared by lefthook pre-commit (fast, staged) AND CI's test job (authoritative
-# backstop, all tracked files — pre-commit is bypassable with --no-verify).
+# backstop, all tracked files , pre-commit is bypassable with --no-verify).
 
 set -euo pipefail
 

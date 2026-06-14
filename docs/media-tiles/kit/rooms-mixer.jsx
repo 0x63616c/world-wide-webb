@@ -1,5 +1,5 @@
 /* ============================================================
-   ROOMS · VERTICAL MIXER — locking & grouping exploration
+   ROOMS · VERTICAL MIXER , locking & grouping exploration
    Chosen direction: vertical fader console (was B).
    - faders REORDERED + GROUPED by live group (Line-in cluster)
    - LOCK gangs faders: drag one, all move by same delta,
@@ -298,9 +298,9 @@ function LinkRoomBtn({ grouped, coord, onClick }) {
       onClick={coord ? undefined : onClick}
       title={
         coord
-          ? "Coordinator — anchors the group"
+          ? "Coordinator , anchors the group"
           : grouped
-            ? "In group — tap to remove"
+            ? "In group , tap to remove"
             : "Tap to add to group"
       }
       aria-label="group toggle"
@@ -321,7 +321,7 @@ function LinkRoomBtn({ grouped, coord, onClick }) {
   );
 }
 
-/* dedicated master fader (gangs all rooms) — no room label */
+/* dedicated master fader (gangs all rooms) , no room label */
 function MasterFader({ value, onChange, h = 110, showVal = true }) {
   return (
     <div
@@ -410,7 +410,7 @@ function GroupCap({ children, right }) {
   );
 }
 
-/* icon-only global link/lock — top-right of the tile header */
+/* icon-only global link/lock , top-right of the tile header */
 function GlobalLockBtn({ on, onClick }) {
   return (
     <button
@@ -435,7 +435,7 @@ function GlobalLockBtn({ on, onClick }) {
 
 /* =================== TILE VARIATIONS (4×3 · 431×319) =================== */
 
-/* V1 · Filled group panel — Line-in cluster boxed, lock chip in its cap */
+/* V1 · Filled group panel , Line-in cluster boxed, lock chip in its cap */
 function MixerTileV1() {
   const m = useMixer();
   const gLocked = m.groupLock.linein || m.globalLock;
@@ -511,7 +511,7 @@ function MixerTileV1() {
   );
 }
 
-/* V2 · Bracket rail — flat row, grouped pair tied by an accent bracket + lock below */
+/* V2 · Bracket rail , flat row, grouped pair tied by an accent bracket + lock below */
 function MixerTileV2() {
   const m = useMixer();
   const gLocked = m.groupLock.linein || m.globalLock;
@@ -585,7 +585,7 @@ function MixerTileV2() {
   );
 }
 
-/* V3 · Master + group — a master ALL fader gangs everything; group lock for Line-in */
+/* V3 · Master + group , a master ALL fader gangs everything; group lock for Line-in */
 function MixerTileV3() {
   const m = useMixer();
   const avg = mean(m.vols);
@@ -653,7 +653,7 @@ function MixerTileV3() {
 
 /* =================== MIXER MODAL VARIATIONS (960×680) =================== */
 
-/* MV1 · Grouped panels — group rooms live, per-group + global lock, mutes */
+/* MV1 · Grouped panels , group rooms live, per-group + global lock, mutes */
 function MixerModalV1() {
   const m = useGroupMixer();
   const grouped = ORDER.filter((n) => m.member[n] === "linein");
@@ -670,10 +670,10 @@ function MixerModalV1() {
     >
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <div style={{ fontSize: 13.5, color: T.ink3, marginBottom: 14 }}>
-          Tap a room’s link to group it. Lock a group — or all rooms — to move its faders together.
+          Tap a room’s link to group it. Lock a group , or all rooms , to move its faders together.
         </div>
         <div style={{ flex: 1, display: "flex", gap: 16, alignItems: "stretch" }}>
-          {/* grouped panel — flexes with member count */}
+          {/* grouped panel , flexes with member count */}
           <div
             style={{
               flex: grouped.length,
@@ -726,7 +726,7 @@ function MixerModalV1() {
               ))}
             </div>
           </div>
-          {/* ungrouped panel — flexes with member count */}
+          {/* ungrouped panel , flexes with member count */}
           <div
             style={{
               flex: Math.max(ungrouped.length, 1.4),
@@ -797,7 +797,7 @@ function MixerModalV1() {
   );
 }
 
-/* MV2 · Master + flat row — dedicated ALL master, group ribbon over the faders */
+/* MV2 · Master + flat row , dedicated ALL master, group ribbon over the faders */
 function MixerModalV2() {
   const m = useMixer();
   const avg = mean(m.vols);
@@ -1022,12 +1022,12 @@ function SoundSystemBody() {
   return (
     <React.Fragment>
       <Section
-        title="Tile — grouped + lockable faders"
-        note="3 takes on the same feature — V1 is the pick"
+        title="Tile , grouped + lockable faders"
+        note="3 takes on the same feature , V1 is the pick"
       >
         <Frame
           tag="V1"
-          name="Filled group panel — Line-in boxed, lock in its cap"
+          name="Filled group panel , Line-in boxed, lock in its cap"
           size="4×3 · 431×319"
           badge={{ text: "Chosen ✓", tone: "selected" }}
         >
@@ -1035,7 +1035,7 @@ function SoundSystemBody() {
         </Frame>
         <Frame
           tag="V2"
-          name="Bracket rail — flat row, grouped pair bracketed + lock"
+          name="Bracket rail , flat row, grouped pair bracketed + lock"
           size="4×3 · 431×319"
           badge={{ text: "Variation", tone: "hold" }}
         >
@@ -1043,7 +1043,7 @@ function SoundSystemBody() {
         </Frame>
         <Frame
           tag="V3"
-          name="Master + group — ALL fader gangs everything"
+          name="Master + group , ALL fader gangs everything"
           size="4×3 · 431×319"
           badge={{ text: "Variation", tone: "hold" }}
         >
@@ -1056,14 +1056,14 @@ function SoundSystemBody() {
       >
         <Frame
           tag="MV1"
-          name="Grouped panels — tap-to-group live, per-group & global lock, mutes"
+          name="Grouped panels , tap-to-group live, per-group & global lock, mutes"
           size="960×680"
         >
           <MixerModalV1 />
         </Frame>
         <Frame
           tag="MV2"
-          name="Master + flat row — dedicated ALL master + group ribbon"
+          name="Master + flat row , dedicated ALL master + group ribbon"
           size="960×680"
         >
           <MixerModalV2 />
@@ -1072,7 +1072,7 @@ function SoundSystemBody() {
       <Section title="Modal · Per-room Source" note="960×680 · the default modal">
         <Frame
           tag="SRC"
-          name="Per-room source picker — grouped rooms badged"
+          name="Per-room source picker , grouped rooms badged"
           size="960×680"
           badge={{ text: "Default ✓", tone: "selected" }}
         >
@@ -1087,14 +1087,14 @@ window.SoundSystemCard = {
   name: "Sound System",
   count: "3 tiles · 2 modals",
   Body: SoundSystemBody,
-  title: "Sound System — tile + modal explorations",
-  sub: "The multi-room volume console (renamed from Rooms). Vertical faders reordered and grouped by the live group (Desk + Bedroom on Line-in); lock to gang faders so they move together preserving offsets, per group or globally. Two modals only — Mixer (group rooms live, lock, mute) and Per-room Source. Everything here is draggable.",
+  title: "Sound System , tile + modal explorations",
+  sub: "The multi-room volume console (renamed from Rooms). Vertical faders reordered and grouped by the live group (Desk + Bedroom on Line-in); lock to gang faders so they move together preserving offsets, per group or globally. Two modals only , Mixer (group rooms live, lock, mute) and Per-room Source. Everything here is draggable.",
 };
 if (window.__SOLO__ !== false && document.getElementById("root")) {
   ReactDOM.createRoot(document.getElementById("root")).render(
     <Stage
-      title="Sound System · Vertical Mixer — locking & grouping"
-      sub="The vertical fader console, built out as the chosen direction. Faders are reordered and grouped by the live group (Desk + Bedroom on Line-in). Tap a LOCK to gang faders — drag one and the locked set moves together, keeping their offsets and stopping at 0/100. Lock per group or globally. Modals: Mixer + Per-room Source."
+      title="Sound System · Vertical Mixer , locking & grouping"
+      sub="The vertical fader console, built out as the chosen direction. Faders are reordered and grouped by the live group (Desk + Bedroom on Line-in). Tap a LOCK to gang faders , drag one and the locked set moves together, keeping their offsets and stopping at 0/100. Lock per group or globally. Modals: Mixer + Per-room Source."
     >
       <SoundSystemBody />
     </Stage>,

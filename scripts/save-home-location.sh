@@ -22,7 +22,7 @@ DEF_RADIUS="1"
 
 echo "Saving your real home location to 1Password ($VAULT/$ITEM)."
 echo "Type your real values. The [brackets] show a PUBLIC placeholder, not your"
-echo "home — press Enter only if you actually want the placeholder."
+echo "home , press Enter only if you actually want the placeholder."
 echo ""
 
 read -rp "Latitude  [$DEF_LAT]: " LAT;    LAT="${LAT:-$DEF_LAT}"
@@ -67,6 +67,6 @@ fi
 echo "Verifying..."
 for field in lat lon place_name radius_miles; do
   REF="op://$VAULT/$ITEM/$field"
-  op read "$REF" >/dev/null && echo "  ok — $REF"
+  op read "$REF" >/dev/null && echo "  ok , $REF"
 done
 echo "Done."

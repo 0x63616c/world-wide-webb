@@ -18,7 +18,7 @@ push-state.json
 # Lock files (various runtime locks)
 *.lock
 
-# Credential key (encryption key for federation peer auth — never commit)
+# Credential key (encryption key for federation peer auth , never commit)
 .beads-credential-key
 
 # Local version tracking (prevents upgrade notification spam after git ops)
@@ -59,7 +59,7 @@ backup/
 # exports/backups that cannot represent deletions, so committing them is the
 # documented beads anti-pattern and was the source of perpetual dirty-tree noise.
 # A fresh clone reconstructs the full issue set from refs/dolt/data via
-# `scripts/bootstrap-beads.sh` — no reliance on these files.
+# `scripts/bootstrap-beads.sh` , no reliance on these files.
 issues.jsonl
 interactions.jsonl
 events.jsonl
@@ -80,7 +80,7 @@ bd.db
 # Config files (metadata.json, config.yaml) are tracked by git by default
 # since no pattern above ignores them.
 
-# Local config (may hold linear.api_key — never commit)
+# Local config (may hold linear.api_key , never commit)
 config.yaml
 
 # Linear pull timestamp (local-only, per-machine)

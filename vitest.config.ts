@@ -1,14 +1,14 @@
 import { defineConfig } from "vitest/config";
 
 // Root workspace: api + web unit tests. Storybook browser tests run separately via
-// `bunx vitest --project storybook` from apps/web (requires Playwright/Chromium).
+// `bunx vitest --project storybook` from products/control-center/web (requires Playwright/Chromium).
 export default defineConfig({
   test: {
     projects: [
-      "apps/api",
-      "apps/web",
-      "apps/worker",
-      "apps/media-worker",
+      "products/control-center/api",
+      "products/control-center/web",
+      "products/control-center/worker",
+      "products/control-center/media-worker",
       "products/captive-portal/apps/api",
       "products/captive-portal/apps/frontend",
       "packages/logger",
@@ -32,7 +32,11 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["json-summary", "text-summary"],
-      include: ["apps/*/src/**", "products/*/apps/*/src/**", "packages/*/src/**"],
+      include: [
+        "products/control-center/*/src/**",
+        "products/*/apps/*/src/**",
+        "packages/*/src/**",
+      ],
       exclude: [
         "**/*.test.*",
         "**/*.spec.*",

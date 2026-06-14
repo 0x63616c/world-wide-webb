@@ -1,7 +1,7 @@
-# Builds the iOS Capacitor kiosk shell (apps/web/ios) and uploads it to TestFlight.
+# Builds the iOS Capacitor kiosk shell (products/control-center/web/ios) and uploads it to TestFlight.
 # The app is a thin native wrapper that loads https://dashboard.worldwidewebb.co at
-# runtime (apps/web/capacitor.config.ts), so this only needs to ship when the native
-# shell changes — plus a monthly cron to refresh the 90-day TestFlight build expiry.
+# runtime (products/control-center/web/capacitor.config.ts), so this only needs to ship when the native
+# shell changes , plus a monthly cron to refresh the 90-day TestFlight build expiry.
 # It targets the same bundle id as the original "Evee" app, so builds land as updates
 # to the existing TestFlight app (was 1.0, build 48). Signing reuses fastlane match
 # against github.com/0x63616c/certificates. Secrets live on this repo (see www-w1a4).
@@ -11,12 +11,12 @@ on:
   push:
     branches: [main]
     paths:
-      - "apps/web/ios/**"
-      - "apps/web/capacitor.config.ts"
-      - "apps/web/package.json"
+      - "products/control-center/web/ios/**"
+      - "products/control-center/web/capacitor.config.ts"
+      - "products/control-center/web/package.json"
       - ".github/workflows/ios-build.yml"
   schedule:
-    - cron: "0 12 1 * *" # 1st of every month at noon UTC — keeps the TestFlight build fresh (90-day expiry)
+    - cron: "0 12 1 * *" # 1st of every month at noon UTC , keeps the TestFlight build fresh (90-day expiry)
   workflow_dispatch:
 
 concurrency:
@@ -30,7 +30,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: apps/web/ios
+        working-directory: products/control-center/web/ios
     steps:
       - uses: actions/checkout@v4
 
@@ -49,18 +49,18 @@ jobs:
 
       - name: Build web
         run: bun run build
-        working-directory: apps/web
+        working-directory: products/control-center/web
 
       - name: Capacitor sync
         run: bunx cap sync ios
-        working-directory: apps/web
+        working-directory: products/control-center/web
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
           bundler-cache: true
-          working-directory: apps/web/ios
+          working-directory: products/control-center/web/ios
 
       - name: Build and upload to TestFlight
         run: bundle exec fastlane release

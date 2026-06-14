@@ -54,7 +54,7 @@ if [ -d "$EVEE_OP_DIR" ]; then
 fi
 
 echo "Verifying..."
-op read "$REF" >/dev/null && echo "  ok — $REF is readable"
+op read "$REF" >/dev/null && echo "  ok , $REF is readable"
 echo ""
 echo "Done. Reference: $REF"
 echo ""

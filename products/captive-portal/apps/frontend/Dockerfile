@@ -15,7 +15,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY products/amp/package.json ./products/amp/package.json
 COPY products/captive-portal/package.json ./products/captive-portal/package.json
-COPY products/captive-portal/apps/api/package.json ./products/captive-portal/apps/api/package.json
+COPY products/captive-portal/products/control-center/api/package.json ./products/captive-portal/products/control-center/api/package.json
 COPY products/captive-portal/apps/frontend/package.json ./products/captive-portal/apps/frontend/package.json
 COPY products/control-center/package.json ./products/control-center/package.json
 COPY products/control-center/api/package.json ./products/control-center/api/package.json
@@ -25,10 +25,10 @@ COPY products/control-center/storybook/package.json ./products/control-center/st
 COPY products/control-center/web/package.json ./products/control-center/web/package.json
 COPY products/control-center/worker/package.json ./products/control-center/worker/package.json
 COPY products/text-your-ex/package.json ./products/text-your-ex/package.json
-COPY apps/web/package.json ./apps/web/package.json
-COPY apps/api/package.json ./apps/api/package.json
-COPY apps/worker/package.json ./apps/worker/package.json
-COPY apps/media-worker/package.json ./apps/media-worker/package.json
+COPY products/control-center/web/package.json ./products/control-center/web/package.json
+COPY products/control-center/api/package.json ./products/control-center/api/package.json
+COPY products/control-center/worker/package.json ./products/control-center/worker/package.json
+COPY products/control-center/media-worker/package.json ./products/control-center/media-worker/package.json
 COPY packages/api/package.json ./packages/api/package.json
 COPY packages/logger/package.json ./packages/logger/package.json
 COPY packages/platform/package.json ./packages/platform/package.json
@@ -47,13 +47,13 @@ COPY tsconfig.json ./tsconfig.json
 # At RUNTIME the portal is self-contained (it talks to the api only over HTTP via
 # the nginx proxy). But at BUILD time its tRPC client imports the AppRouter TYPE
 # from @cc/api/trpc (www-q002.19), so tsc -b needs the api source + workspace
-# packages present to resolve the type, same as apps/web's Dockerfile. These are
+# packages present to resolve the type, same as products/control-center/web's Dockerfile. These are
 # type-only; nothing from api lands in the shipped static bundle.
-COPY apps/api/src ./apps/api/src
-COPY apps/api/tsconfig.json ./apps/api/tsconfig.json
+COPY products/control-center/api/src ./products/control-center/api/src
+COPY products/control-center/api/tsconfig.json ./products/control-center/api/tsconfig.json
 COPY packages ./packages
-COPY products/captive-portal/apps/api/src ./products/captive-portal/apps/api/src
-COPY products/captive-portal/apps/api/tsconfig.json ./products/captive-portal/apps/api/tsconfig.json
+COPY products/captive-portal/products/control-center/api/src ./products/captive-portal/products/control-center/api/src
+COPY products/captive-portal/products/control-center/api/tsconfig.json ./products/captive-portal/products/control-center/api/tsconfig.json
 COPY products/captive-portal/apps/frontend ./products/captive-portal/apps/frontend
 
 # Build the static bundle. `build` is `tsc -b && vite build`; output lands at

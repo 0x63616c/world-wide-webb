@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Blocks commits that introduce an em dash (U+2014, "—") into staged source.
+# Blocks commits that introduce an em dash (U+2014, ",") into staged source.
 # Calum's style rule is absolute: no em dashes, ever, comments included. This
 # makes it a mechanical invariant instead of relying on review to catch it
 # (mirrors the other check-no-* / check-fake-data guards). Use commas,

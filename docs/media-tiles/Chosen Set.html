@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Control Center — Chosen Set</title>
+<title>Control Center , Chosen Set</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -48,8 +48,8 @@
     'now-playing': {status:'chosen', pick:'A · Horizontal split', keep:'B–H as variations', drop:'Output Routing modal', modals:'Transport & Scrub · TV Remote'},
     'sound-system': {status:'chosen', pick:'V1 · Filled group panel', keep:'V2 / V3 variations', drop:'Group Builder · old Rooms A–J', modals:'Mixer · Per-room Source'},
     'app-launcher': {status:'chosen', pick:'L3 · Hero app', keep:'L1 / L2 / L5 / L4 / L6 variations', drop:'Monochrome 27-app modal', modals:'All Apps (full-color)'},
-    'quick-play': {status:'chosen', pick:'Q1 · Horizontal artwork rail', keep:'Q2–Q5 variations', drop:'—', modals:'Favorites · Spotify'},
-    'scenes': {status:'parked', pick:'Parked — revisit later', keep:'S1–S5 on hold', drop:'—', modals:'—'},
+    'quick-play': {status:'chosen', pick:'Q1 · Horizontal artwork rail', keep:'Q2–Q5 variations', drop:',', modals:'Favorites · Spotify'},
+    'scenes': {status:'parked', pick:'Parked , revisit later', keep:'S1–S5 on hold', drop:',', modals:','},
   };
   const STATUS = {
     chosen:   {label:'Chosen',    fg:T.acc,   bg:T.accDim, bd:T.accLine},
@@ -64,7 +64,7 @@
   }
 
   function DecisionBar({d}){
-    const cell = (label, value, accent)=> value && value!=='—' ? (
+    const cell = (label, value, accent)=> value && value!==',' ? (
       <div style={{minWidth:0}}>
         <div style={{font:`600 9.5px ${T.ui}`, letterSpacing:'0.12em', textTransform:'uppercase', color:T.ink3, marginBottom:5}}>{label}</div>
         <div style={{fontSize:13, color: accent||T.ink2, lineHeight:1.4}}>{value}</div>
@@ -75,7 +75,7 @@
         padding:'16px 20px', background:T.tile, border:`1px solid ${T.hair}`, borderRadius:14}}>
         {cell('Pick', d.pick, d.status==='chosen'?T.ink:T.ink2)}
         {cell('Keep', d.keep)}
-        {cell('Going', d.drop, d.drop!=='—'?T.ink2:undefined) || <div><div style={{font:`600 9.5px ${T.ui}`, letterSpacing:'0.12em', textTransform:'uppercase', color:T.ink3, marginBottom:5}}>Going</div><div style={{fontSize:13, color:T.ink3}}>nothing cut</div></div>}
+        {cell('Going', d.drop, d.drop!==','?T.ink2:undefined) || <div><div style={{font:`600 9.5px ${T.ui}`, letterSpacing:'0.12em', textTransform:'uppercase', color:T.ink3, marginBottom:5}}>Going</div><div style={{fontSize:13, color:T.ink3}}>nothing cut</div></div>}
         {cell('Modals kept', d.modals)}
       </div>
     );
@@ -129,9 +129,9 @@
         <div style={{padding:'0 56px 130px'}}>
           <div style={{maxWidth:1640, margin:'0 auto'}}>
             <div style={{padding:'52px 0 4px'}}>
-              <h1 style={{margin:0, fontSize:42, fontWeight:600, letterSpacing:'-0.035em'}}>Chosen Set — directions &amp; variations</h1>
+              <h1 style={{margin:0, fontSize:42, fontWeight:600, letterSpacing:'-0.035em'}}>Chosen Set , directions &amp; variations</h1>
               <p style={{margin:'16px 0 0', maxWidth:900, color:T.ink2, fontSize:15.5, lineHeight:1.6}}>
-                The picked direction for each card, its variations, and what’s staying vs going — reflecting every call so far.
+                The picked direction for each card, its variations, and what’s staying vs going , reflecting every call so far.
                 Each card leads with the chosen tile (badged), then its alternates, then only the modals we’re keeping.
                 <strong style={{color:T.ink}}> Sound System</strong> is the renamed Rooms card (Mixer + Per-room Source only).
                 <strong style={{color:T.ink}}> Quick-Play</strong> is locked to Q1; only <strong style={{color:T.ink}}>Scenes</strong> stays parked (dimmed).

@@ -1,5 +1,5 @@
 /* ============================================================
-   SCENES — 5 tile archetypes + 2 modals (runner + schedule)
+   SCENES , 5 tile archetypes + 2 modals (runner + schedule)
    Scenes: Music Everywhere (active), Movie, Quiet, Off.
    ============================================================ */
 var useState = React.useState;
@@ -141,7 +141,7 @@ function ScenesS2() {
       </div>
       <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ width: 6, height: 6, borderRadius: 99, background: T.acc }} />
-        <span style={{ fontSize: 12.5, color: T.ink2 }}>Active — {cur.n}</span>
+        <span style={{ fontSize: 12.5, color: T.ink2 }}>Active , {cur.n}</span>
         <span style={{ marginLeft: "auto", font: `400 12px ${T.mono}`, color: T.ink3 }}>
           {cur.rooms} · {cur.src}
         </span>
@@ -588,7 +588,7 @@ function ModalSchedule() {
 function ScenesBody() {
   return (
     <React.Fragment>
-      <Section title="Tiles" note="5 archetypes — S1 through S5">
+      <Section title="Tiles" note="5 archetypes , S1 through S5">
         <Frame tag="S1" name="2×2 icon grid" size="3×2 · 319×207">
           <ScenesS1 />
         </Frame>
@@ -605,11 +605,11 @@ function ScenesBody() {
           <ScenesS5 />
         </Frame>
       </Section>
-      <Section title="Modal — runner & schedule" note="760×560">
+      <Section title="Modal , runner & schedule" note="760×560">
         <Frame tag="M1" name="Scene runner + “what it sets” peek" size="760×560">
           <ModalRunner />
         </Frame>
-        <Frame tag="M2" name="Schedule — per-scene triggers" size="760×560">
+        <Frame tag="M2" name="Schedule , per-scene triggers" size="760×560">
           <ModalSchedule />
         </Frame>
       </Section>
@@ -621,7 +621,7 @@ window.ScenesCard = {
   name: "Scenes",
   count: "5 tiles · 2 modals",
   Body: ScenesBody,
-  title: "Scenes — tile + modal explorations",
+  title: "Scenes , tile + modal explorations",
   sub: "One-tap presets that set rooms, source and volume across the house: Music Everywhere, Movie, Quiet, Off. The active scene lights the accent. Five tile takes (icon grid → pill bar → hero card → annotated list → radial dial), plus a scene-runner modal that peeks at exactly what each scene sets and an optional schedule.",
 };
 if (window.__SOLO__ !== false && document.getElementById("root")) {
