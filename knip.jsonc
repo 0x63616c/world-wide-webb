@@ -43,7 +43,10 @@
     ".": {
       // scripts/*.ts are standalone one-time Bun scripts (OAuth flows, save scripts)
       // invoked directly by their companion .sh wrappers, never imported.
-      "entry": ["scripts/*.ts"]
+      // scripts/*.mjs are standalone node CLIs (verify-wall-panel.mjs, run by the
+      // operator/CI) + their hermetic node tests (test-*.mjs); panel-health.mjs is
+      // imported by both, so its exports are reached from these entries (www-jtp0.7).
+      "entry": ["scripts/*.ts", "scripts/*.mjs"]
     },
     "products/control-center/api": {
       // server.ts = Docker CMD; purge.ts = the portal data-hygiene cronJob

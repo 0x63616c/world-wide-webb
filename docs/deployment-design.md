@@ -39,7 +39,13 @@ Cluster-level machinery, all declared in `infra/` and reconciled by the same `pu
   the SSD (not NFS).
 - **cloudflared** runs **in-cluster** as a Deployment with **2 replicas** (HA, never an HPA) and
   owns the public `*.worldwidewebb.co` routing; tunnel ingress is declared in the Pulumi
-  cloudflare provider.
+  cloudflare provider. Control Center's wall panel is served at the **private** route
+  `app.cc.worldwidewebb.co` behind a Cloudflare **Access** kiosk service-token policy (a
+  default-deny `*.worldwidewebb.co` floor sits under it). `/trpc` is same-origin behind that
+  host, so there is **no external `api.cc` route** (the api is an internal-only service). The
+  legacy public host `dashboard.worldwidewebb.co` stays live as temporary compatibility until the
+  iOS/wall-panel cutover is verified, then retired per
+  `docs/k3s-migration/cc-legacy-route-retirement.md` (www-jtp0.7).
 
 Three things stay on the host by hand (manual runtime): Tailscale, the Home Assistant VM, and
 OrbStack.
@@ -215,6 +221,18 @@ Rollback artifacts are the live production database, the nightly NAS backups, an
 snapshot directory. Human review is required before production dump capture, final snapshots,
 non-scratch restores, backup path changes, or destructive cleanup. Scratch restore validation
 must delete only scratch resources after evidence is recorded.
+
+**M7 production data cutover (www-jtp0.7.7).** Moving live Control Center data into the product
+CNPG cluster follows `docs/k3s-migration/cc-cutover-runbook.md`, which layers M7 safety gates on
+top of the row-count tool above: `scripts/cc-cutover-semantic-checks.sql` runs IDENTICALLY on the
+source and the restored DB (then diffed) to prove `device_state`/`integration_sync_status`/weather/
+`lamp_mode`/media/`job` survived intact (counts alone don't prove semantics);
+`scripts/cc-cutover-preflight.sh` is a red-first gate that refuses the cutover until the rehearsal
+report (`cc-restore-rehearsal-report.md`), final snapshots, recorded counts, a named rollback
+target, and explicit approval are all present; `scripts/cc-post-cutover-smoke.sh` (www-jtp0.7.9)
+proves the stack came back healthy; and `scripts/verify-wall-panel.mjs` (www-jtp0.7.10) verifies
+the panel at exactly 1366×1024 on `app.cc`. `POSTGRES_HOST` is already `control-center-rw`, so for
+prod the cutover is a DATA move, not a code change.
 
 **Captive Portal product database provisioning (www-jtp0.5.5).** The Captive Portal now has its
 own CNPG `Cluster` named `captive-portal`, app database `captive_portal`, read-write Service

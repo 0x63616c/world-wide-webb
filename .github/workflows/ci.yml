@@ -368,6 +368,17 @@ jobs:
         # never lands on plaintext. Fast (bash), runs before the slow Playwright
         # install. Mirrors the orbstack-watchdog gate above.
         run: bash scripts/test-portal-lan.sh
+      - name: Control Center cutover tooling tests
+        # Hermetic self-tests of the M7 production-cutover tooling (www-jtp0.7):
+        # the red-first preflight gate (refuses cutover until rehearsal/snapshot/
+        # counts/rollback/approval present), the post-cutover smoke dry-run plan,
+        # and the wall-panel health classifier (1366x1024 + CF-error/skeleton
+        # markers, mirrored from iOS KioskHealth). No cluster/DB/network/secrets.
+        # Fast, runs before the slow Playwright install. Mirrors the gates above.
+        run: |
+          bash scripts/test-cc-cutover-preflight.sh
+          bash scripts/test-cc-post-cutover-smoke.sh
+          node scripts/test-panel-health.mjs
       - name: Install Playwright Chromium (for Storybook browser tests)
         run: bunx playwright install --with-deps chromium
       - name: Typecheck

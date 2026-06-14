@@ -53,6 +53,16 @@ describe("desiredIngressRules", () => {
     expect(hosts).not.toContain("app.cp.worldwidewebb.co");
   });
 
+  // .7.4 contract: /trpc is same-origin behind app.cc, so the api service is
+  // internal-only. No api.cc.* external hostname may ever leak into the shipped
+  // ingress (the primitive-level guard lives in exposure.test.ts; this asserts it
+  // end-to-end over the REAL control-center routes, not a synthetic product).
+  test("never emits an external api.cc route (same-origin /trpc)", () => {
+    const hosts = desiredIngressRules(ZONE).map((r) => r.hostname);
+    expect(hosts).not.toContain("api.cc.worldwidewebb.co");
+    expect(hosts.some((h) => h.startsWith("api.cc."))).toBe(false);
+  });
+
   test("renders future public/private product route shapes without undeclared APIs", () => {
     const amp = defineProduct("amp");
     const textYourEx = defineProduct("text-your-ex");
