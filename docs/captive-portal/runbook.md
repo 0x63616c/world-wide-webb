@@ -22,7 +22,7 @@ Assistant (the auto-pop "Join www-guest" sheet). Hard-won findings:
   purely hostname-vs-IP, Apple applies stricter rules (ATS / captive heuristics) to
   real-domain captive pages. This is why commercial captive portals use IPs.
   Recovering the hostname is tracked (low pri) in **www-q002.28**.
-- **gzip OFF** for the portal nginx (`apps/captive-portal/_portal_locations.conf`,
+- **gzip OFF** for the portal nginx (`products/captive-portal/apps/frontend/_portal_locations.conf`,
   enforced by `scripts/check-portal-nginx.sh`): the CNA can fail to decompress a
   gzipped captive page. Defensive even on the raw-IP path.
 

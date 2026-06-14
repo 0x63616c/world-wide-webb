@@ -5,8 +5,8 @@
 # so host runtime scripts live in the home dir, same as com.calum.k8s-apiserver-forward.
 # Stage the two artifacts into $HOME first (from a machine that has the repo):
 #   scp scripts/portal-443-forward.sh homelab:~/portal-443-forward.sh
-#   scp apps/captive-portal/deploy/com.calum.portal-443-forward.plist homelab:~/
-#   scp apps/captive-portal/deploy/install-portal-443-forward.sh homelab:~/
+#   scp products/captive-portal/apps/frontend/deploy/com.calum.portal-443-forward.plist homelab:~/
+#   scp products/captive-portal/apps/frontend/deploy/install-portal-443-forward.sh homelab:~/
 # then run THIS on the mini with a tty for sudo:
 #   ssh -t homelab 'bash ~/install-portal-443-forward.sh'
 set -euo pipefail

@@ -9,7 +9,7 @@
 # NodePort only. Disabling the orb HTTPS proxy is GUI-only in OrbStack 2.1.1 and
 # needs a full restart; this forward is the surgical, restart-free fix and mirrors
 # the blessed `com.calum.k8s-apiserver-forward` primitive. :443 is privileged, so
-# this runs as a root LaunchDaemon (see apps/captive-portal/deploy/).
+# this runs as a root LaunchDaemon (see products/captive-portal/apps/frontend/deploy/).
 #
 # The portal Service terminates TLS itself with the cert-manager-issued
 # captive-portal.worldwidewebb.co cert, so this is a raw TCP passthrough: the LAN

@@ -48,7 +48,7 @@ One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (
 7. Step + email persist in sessionStorage; mid-flow refresh restores position.
 8. Exact copy deck; no em dashes; SSID name and the word "guest" never appear in user-facing copy.
 
-**Frontend (`apps/captive-portal`)**
+**Frontend (`products/captive-portal/apps/frontend`)**
 
 1. Vite + React 19 + TypeScript + Tailwind v4 + shadcn/ui, homogenous with `apps/web`.
 2. OTP input built on shadcn `input-otp` (auto-advance, paste, backspace, numeric-only, `autocomplete="one-time-code"`).
@@ -117,7 +117,7 @@ One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (
 
 **Decisions (overrides of the Implementation Brief)**
 
-1. Monorepo app in control-center, not a standalone server: frontend `apps/captive-portal`, backend in `apps/api` (tRPC), deploy via Pulumi/k3s.
+1. Monorepo app in control-center, not a standalone server: frontend `products/captive-portal/apps/frontend`, backend currently in `apps/api` (tRPC) until the M5 backend split, deploy via Pulumi/k3s.
 2. Postgres (existing) instead of Redis/in-memory TTL store.
 3. Resend instead of generic SMTP; mocked (log + store the code) until creds land.
 4. shadcn/ui on Tailwind v4 instead of hand-ported CSS primitives; design tokens still match `theme.css` 1:1.

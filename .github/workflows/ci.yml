@@ -106,7 +106,7 @@ jobs:
               # The storybook image also bundles the captive-portal Storybook (the
               # composed /captive-portal ref), so a portal change must rebuild it
               # (www-q002.2/.5).
-              - 'apps/captive-portal/**'
+              - 'products/captive-portal/**'
               - 'packages/**'
               - 'bun.lock'
             # infra-only changes (the Pulumi program + workload specs) deploy
@@ -119,13 +119,13 @@ jobs:
             # rebuilds solely on its own changes (no packages/ or bun.lock dep).
             drizzle:
               - 'apps/drizzle/**'
-            # Captive portal: a static nginx image built solely from its own tree
+            # Captive portal: a static nginx image built solely from its own product tree
             # (the build pulls workspace deps, so the root lockfile counts too). It
             # does NOT bundle @repo/api, it talks to the api only over HTTP via the
             # scoped nginx proxy, so an apps/api change does not rebuild it
             # (www-q002.2). Its nginx.conf + Dockerfile are part of the image.
             captiveportal:
-              - 'apps/captive-portal/**'
+              - 'products/captive-portal/**'
               - 'bun.lock'
             # Basemap provisioner (www-hn1i): a self-contained alpine + pmtiles
             # CLI + sh image, no workspace deps, so it rebuilds solely on its
@@ -597,7 +597,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/captive-portal/Dockerfile
+          file: products/captive-portal/apps/frontend/Dockerfile
           platforms: linux/arm64
           push: true
           tags: |

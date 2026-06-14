@@ -3,5 +3,5 @@
   "slug": "captive-portal",
   "displayName": "Captive Portal",
   "productFolder": "products/captive-portal",
-  "runtimeStatus": "top-level-until-m4-move"
+  "runtimeStatus": "frontend-moved"
 }

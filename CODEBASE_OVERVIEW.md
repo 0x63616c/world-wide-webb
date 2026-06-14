@@ -35,8 +35,8 @@ deploy
 - `apps/api` - Bun tRPC backend, DB schema, migrations, routers, services, and shared domain logic.
 - `apps/worker` - Continuous interval workers for home-state reconciliation and ingest.
 - `apps/media-worker` - Heavier queue/media workers, isolated from 1s home-control loops.
-- `apps/captive-portal` - Guest WiFi captive portal frontend.
 - `products/control-center` - Product-owned Control Center boundary. Today it contains compatibility wrapper packages for web, api, worker, media-worker, Storybook, and iOS while source remains in `apps/*`; later M7 tickets move CI, infra, and source fully behind these paths.
+- `products/captive-portal/apps/frontend` - Guest WiFi captive portal frontend product app.
 - `packages/api` - Browser-safe type bridge that re-exports the API router type only.
 - `packages/logger` - Shared pino logger with centralized redaction and runtime-safe config.
 - `packages/platform` - Pure platform foundation package for product identity, target, exposure, secret, database, backup, and Control Center representation primitives.

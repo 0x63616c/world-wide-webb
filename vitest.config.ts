@@ -9,6 +9,7 @@ export default defineConfig({
       "apps/web",
       "apps/worker",
       "apps/media-worker",
+      "products/captive-portal/apps/frontend",
       "packages/logger",
       "packages/platform",
       // The `infra` project's default test glob also covers infra/unifi/test/**
@@ -30,7 +31,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["json-summary", "text-summary"],
-      include: ["apps/*/src/**", "packages/*/src/**"],
+      include: ["apps/*/src/**", "products/*/apps/*/src/**", "packages/*/src/**"],
       exclude: [
         "**/*.test.*",
         "**/*.spec.*",

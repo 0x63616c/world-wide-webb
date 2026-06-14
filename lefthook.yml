@@ -26,7 +26,7 @@ pre-commit:
       # www-79k). The token is sanctioned only in the guard script itself.
       run: bash scripts/check-no-ofelia.sh {staged_files}
     portal-nginx:
-      glob: "apps/captive-portal/*.conf"
+      glob: "products/captive-portal/apps/frontend/*.conf"
       # BLOCKING: the captive-portal nginx must stay k8s-correct, no Swarm-era
       # `resolver 127.0.0.11` or $variable upstream (left every portal API call at
       # nginx 500: "no host in upstream :4201"). www-q002.25.

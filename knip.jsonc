@@ -88,7 +88,7 @@
       // Tests are in test/ - declare explicitly so knip registers them as entries.
       "entry": ["test/**/*.test.ts"]
     },
-    "apps/captive-portal": {
+    "products/captive-portal/apps/frontend": {
       // `geist` ships the self-hosted Geist + Geist Mono woff2, vendored into
       // public/fonts and consumed via a CSS @font-face url() in theme.css
       // (captive webviews block CDNs, www-q002.3). That's an asset edge knip

@@ -14,7 +14,7 @@ test.skip lines in flow-matrix.spec.ts, read the OTP back via the mock sender st
 ## Run it
 
 ```bash
-# from apps/captive-portal
+# from products/captive-portal/apps/frontend
 bun run e2e          # headless, starts the Vite dev server on :4205 itself
 bun run e2e:ui       # Playwright UI mode for authoring
 ```

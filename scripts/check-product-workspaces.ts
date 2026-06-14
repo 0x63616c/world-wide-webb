@@ -36,7 +36,6 @@ const existingRuntimePaths = [
   "apps/api",
   "apps/worker",
   "apps/media-worker",
-  "apps/captive-portal",
   "apps/drizzle",
   "apps/map-provision",
 ] as const;
@@ -92,6 +91,7 @@ for (const slug of productSlugs) {
   assert(
     manifest.runtimeStatus === "top-level-until-m4-move" ||
       manifest.runtimeStatus === "compatibility-wrapper" ||
+      manifest.runtimeStatus === "frontend-moved" ||
       manifest.runtimeStatus === "shell",
     `${folder}/product.json runtimeStatus must describe the temporary M4 state`,
   );

@@ -15,8 +15,8 @@
 
 set -euo pipefail
 
-NGINX_CONF="${1:-apps/captive-portal/nginx.conf}"
-LOCATIONS_CONF="${2:-apps/captive-portal/_portal_locations.conf}"
+NGINX_CONF="${1:-products/captive-portal/apps/frontend/nginx.conf}"
+LOCATIONS_CONF="${2:-products/captive-portal/apps/frontend/_portal_locations.conf}"
 
 fail=0
 err() {

@@ -7,13 +7,18 @@ WORKDIR /app
 
 # Copy workspace manifests so bun can resolve workspace packages.
 COPY package.json bun.lock ./
+COPY products/amp/package.json ./products/amp/package.json
+COPY products/captive-portal/package.json ./products/captive-portal/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/api/package.json ./apps/api/package.json
 COPY apps/worker/package.json ./apps/worker/package.json
 COPY apps/media-worker/package.json ./apps/media-worker/package.json
-COPY apps/captive-portal/package.json ./apps/captive-portal/package.json
+COPY products/captive-portal/apps/frontend/package.json ./products/captive-portal/apps/frontend/package.json
+COPY products/control-center/package.json ./products/control-center/package.json
+COPY products/text-your-ex/package.json ./products/text-your-ex/package.json
 COPY packages/api/package.json ./packages/api/package.json
 COPY packages/logger/package.json ./packages/logger/package.json
+COPY packages/platform/package.json ./packages/platform/package.json
 # Infra Pulumi workspaces (www-j934.1/.2/.3): root package.json declares these, so
 # bun install needs their manifests in the build context (www-272b).
 COPY infra/package.json ./infra/package.json
@@ -31,15 +36,15 @@ COPY apps/api/tsconfig.json ./apps/api/tsconfig.json
 COPY apps/web ./apps/web
 # The portal Storybook is composed into the host as a sibling /captive-portal ref
 # (apps/web/.storybook/main.ts), so its source + own build are needed here too.
-COPY apps/captive-portal ./apps/captive-portal
+COPY products/captive-portal/apps/frontend ./products/captive-portal/apps/frontend
 COPY packages ./packages
 
 # Build the host storybook bundle (apps/web/storybook-static) AND the captive-portal
-# storybook bundle (apps/captive-portal/storybook-static). The runtime stage places
+# storybook bundle (products/captive-portal/apps/frontend/storybook-static). The runtime stage places
 # the portal build at /captive-portal so the host's static `refs` entry resolves in
 # production (without it the composed sidebar section is blank, www-q002.2/.5).
 RUN bun run --cwd apps/web build-storybook
-RUN bun run --cwd apps/captive-portal build-storybook
+RUN bun run --cwd products/captive-portal/apps/frontend build-storybook
 
 
 # Stage 2: nginx serves the storybook bundle.
@@ -52,7 +57,7 @@ COPY apps/web/nginx-storybook.conf /etc/nginx/conf.d/app.conf
 COPY --from=builder /app/apps/web/storybook-static /usr/share/nginx/html
 # Sibling path the host Storybook's `refs` points at for static builds; serving the
 # portal build here makes storybook.worldwidewebb.co/captive-portal resolve.
-COPY --from=builder /app/apps/captive-portal/storybook-static /usr/share/nginx/html/captive-portal
+COPY --from=builder /app/products/captive-portal/apps/frontend/storybook-static /usr/share/nginx/html/captive-portal
 
 EXPOSE 6006
 

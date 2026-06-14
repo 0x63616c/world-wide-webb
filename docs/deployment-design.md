@@ -162,8 +162,8 @@ own built-in HTTPS proxy (`network.https: true`, serving `*.orb.local`) already 
 wildcard host `:443`, so `expose_services` only lands `:443` on a random NodePort. This raw-TCP
 passthrough (the portal terminates its own TLS) is the surgical, restart-free fix. It is a
 **system** LaunchDaemon, not a user LaunchAgent, because `:443` is privileged. Install/reinstall
-on the mini with `apps/captive-portal/deploy/install-portal-443-forward.sh` (runs `sudo`);
-artifacts: `scripts/portal-443-forward.sh` + `apps/captive-portal/deploy/com.calum.portal-443-forward.plist`.
+on the mini with `products/captive-portal/apps/frontend/deploy/install-portal-443-forward.sh` (runs `sudo`);
+artifacts: `scripts/portal-443-forward.sh` + `products/captive-portal/apps/frontend/deploy/com.calum.portal-443-forward.plist`.
 `KeepAlive`, so it self-restores after a reboot/OrbStack restart. Doc-managed like the other
 host launchd jobs (apiserver-forward, NFS, watchdog); GOAL boundary 5 wants these under a Pulumi
 `LaunchdJob` `command.remote` component, which was never built, tracked in www-j934.22.

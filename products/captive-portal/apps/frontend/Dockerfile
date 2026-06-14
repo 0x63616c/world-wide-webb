@@ -4,7 +4,7 @@
 # SECURITY BOUNDARY: guests on the open guest WLAN are untrusted. This nginx
 # proxies ONLY /api/trpc/portal.* to the dashboard api (api:4201) and 404s every
 # other /api path, so a guest can never reach a dashboard procedure
-# (lights/climate/Sonos). See apps/captive-portal/nginx.conf + docs/captive-portal.
+# (lights/climate/Sonos). See products/captive-portal/apps/frontend/nginx.conf + docs/captive-portal.
 
 FROM oven/bun:1.2-alpine AS builder
 
@@ -13,13 +13,18 @@ WORKDIR /app
 # Install workspace deps. Copy root manifests first so bun resolves the
 # workspace graph before copying source, keeps the layer cache effective.
 COPY package.json bun.lock ./
-COPY apps/captive-portal/package.json ./apps/captive-portal/package.json
+COPY products/amp/package.json ./products/amp/package.json
+COPY products/captive-portal/package.json ./products/captive-portal/package.json
+COPY products/captive-portal/apps/frontend/package.json ./products/captive-portal/apps/frontend/package.json
+COPY products/control-center/package.json ./products/control-center/package.json
+COPY products/text-your-ex/package.json ./products/text-your-ex/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/api/package.json ./apps/api/package.json
 COPY apps/worker/package.json ./apps/worker/package.json
 COPY apps/media-worker/package.json ./apps/media-worker/package.json
 COPY packages/api/package.json ./packages/api/package.json
 COPY packages/logger/package.json ./packages/logger/package.json
+COPY packages/platform/package.json ./packages/platform/package.json
 # Infra Pulumi workspaces (www-j934.1/.2/.3): root package.json declares these, so
 # bun install needs their manifests in the build context (www-272b).
 COPY infra/package.json ./infra/package.json
@@ -29,7 +34,7 @@ COPY infra/unifi/package.json ./infra/unifi/package.json
 # --ignore-scripts skips the lefthook prepare hook (needs git, not in alpine image).
 RUN bun install --frozen-lockfile --ignore-scripts
 
-# Root tsconfig must be present so the app tsconfig can extend ../../tsconfig.json.
+# Root tsconfig must be present so the app tsconfig can extend ../../../../tsconfig.json.
 COPY tsconfig.json ./tsconfig.json
 
 # At RUNTIME the portal is self-contained (it talks to the api only over HTTP via
@@ -40,11 +45,11 @@ COPY tsconfig.json ./tsconfig.json
 COPY apps/api/src ./apps/api/src
 COPY apps/api/tsconfig.json ./apps/api/tsconfig.json
 COPY packages ./packages
-COPY apps/captive-portal ./apps/captive-portal
+COPY products/captive-portal/apps/frontend ./products/captive-portal/apps/frontend
 
 # Build the static bundle. `build` is `tsc -b && vite build`; output lands at
-# apps/captive-portal/dist.
-RUN bun run --cwd apps/captive-portal build
+# products/captive-portal/apps/frontend/dist.
+RUN bun run --cwd products/captive-portal/apps/frontend build
 
 
 # Stage 2: nginx serves the static bundle, scope-proxies the portal api, and
@@ -58,14 +63,14 @@ RUN apk add --no-cache openssl
 # Replace the default nginx config with ours: the server blocks (:80 + :443) and
 # the shared scoped-proxy location include they both pull in.
 RUN rm /etc/nginx/conf.d/default.conf
-COPY apps/captive-portal/nginx.conf /etc/nginx/conf.d/app.conf
-COPY apps/captive-portal/_portal_locations.conf /etc/nginx/_portal_locations.conf
+COPY products/captive-portal/apps/frontend/nginx.conf /etc/nginx/conf.d/app.conf
+COPY products/captive-portal/apps/frontend/_portal_locations.conf /etc/nginx/_portal_locations.conf
 
 # Entrypoint: self-signed placeholder cert on a fresh volume + a cert-reload loop,
 # then exec nginx (see the script header for why).
-COPY apps/captive-portal/docker-entrypoint-portal.sh /docker-entrypoint-portal.sh
+COPY products/captive-portal/apps/frontend/docker-entrypoint-portal.sh /docker-entrypoint-portal.sh
 
-COPY --from=builder /app/apps/captive-portal/dist /usr/share/nginx/html
+COPY --from=builder /app/products/captive-portal/apps/frontend/dist /usr/share/nginx/html
 
 EXPOSE 80 443
 
