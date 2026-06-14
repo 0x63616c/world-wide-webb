@@ -617,13 +617,14 @@ export type ControlCenterServiceName =
   | "drizzle"
   | "cloudflared";
 
-export type ProductServiceDeclaration = Readonly<{
-  service: ControlCenterServiceName;
-  workloadName: string;
-  image: string;
-  exposure: WebExposure | InternalServiceExposure | null;
-  secretUsage?: ServiceSecretUsage;
-}>;
+export type ProductServiceDeclaration<ServiceName extends string = ControlCenterServiceName> =
+  Readonly<{
+    service: ServiceName;
+    workloadName: string;
+    image: string;
+    exposure: WebExposure | InternalServiceExposure | null;
+    secretUsage?: ServiceSecretUsage;
+  }>;
 
 export type ControlCenterProductManifest = Readonly<{
   product: ProductIdentity;
@@ -636,6 +637,20 @@ export type ControlCenterProductManifest = Readonly<{
   secretUsages: Readonly<Record<ControlCenterSecretUsageName, ServiceSecretUsage>>;
   database: ProductDatabase;
   backup: DatabaseBackup;
+}>;
+
+export type AmpServiceName = "app";
+
+export type AmpProductManifest = Readonly<{
+  product: ProductIdentity;
+  target: HomelabTarget;
+  app: Readonly<{
+    exposure: WebExposure;
+  }>;
+  services: Readonly<Record<AmpServiceName, ProductServiceDeclaration<AmpServiceName>>>;
+  secretUsages: Readonly<Record<string, never>>;
+  database: null;
+  backup: null;
 }>;
 
 function mainImage(product: ProductIdentity, service: string): string {
@@ -722,5 +737,30 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
     secretUsages,
     database,
     backup,
+  };
+}
+
+export function ampProductManifest(): AmpProductManifest {
+  const product = defineProduct("amp");
+  const target = homelabTarget;
+  const appExposure = privateWeb(product, target, { host: "app" });
+
+  return {
+    product,
+    target,
+    app: {
+      exposure: appExposure,
+    },
+    services: {
+      app: {
+        service: "app",
+        workloadName: product.serviceName("app"),
+        image: mainImage(product, "app"),
+        exposure: appExposure,
+      },
+    },
+    secretUsages: {},
+    database: null,
+    backup: null,
   };
 }
