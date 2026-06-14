@@ -781,7 +781,7 @@ class Component extends DCLogic {
           barColor: (STATUS_META[col.key] || STATUS_META.ready).c,
           typeLabel: tm.label, typeStyle: this.badge(tm),
           prioLabel: pb.label, prioStyle: pb.style,
-          style: { padding: 15, paddingLeft: 18, gap: 0, position: 'relative', overflow: 'hidden' },
+          style: { padding: 15, paddingLeft: 18, gap: 0, position: 'relative', overflow: 'hidden', flexShrink: 0 },
           onClick: () => this.openDetail(it.id),
           onDragStart: (e) => { try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.id); } catch (err) {} this.setState({ dragId: it.id }); },
           onDragEnd: () => this.setState({ dragId: null, dragOverCol: null })
