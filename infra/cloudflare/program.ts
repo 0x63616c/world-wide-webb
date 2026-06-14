@@ -19,7 +19,7 @@
 
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
-import { desiredAccessApps } from "./src/access.ts";
+import { type AccessInclude, desiredAccessApps } from "./src/access.ts";
 import { desiredCnames, desiredIngressRules } from "./src/routes.ts";
 
 const cfg = new pulumi.Config();
@@ -31,7 +31,19 @@ const zoneName = cfg.require("zoneName");
 const accountId = cfg.requireSecret("accountId");
 const zoneId = cfg.requireSecret("zoneId");
 const tunnelId = cfg.requireSecret("tunnelId");
-const allowedEmail = cfg.requireSecret("allowedEmail");
+
+function accessInclude(
+  include: AccessInclude,
+): cloudflare.types.input.ZeroTrustAccessPolicyInclude {
+  switch (include.kind) {
+    case "email-config":
+      return { emails: [cfg.requireSecret(include.configKey)] };
+    case "service-token-config":
+      return { serviceTokens: [cfg.requireSecret(include.configKey)] };
+    case "everyone":
+      return { everyone: true };
+  }
+}
 
 // Provider authenticated by the account-owned API token (secret config).
 //
@@ -52,14 +64,34 @@ const opts: pulumi.CustomResourceOptions = { provider, protect: true };
 // "storybook"). Keeps logical names short + readable in state.
 const sub = (host: string) => host.split(".")[0];
 
-// --- Access apps + their allow/email policies (adopt-only) ---
-// Field set mirrors what `pulumi import` recorded as the v5 provider's meaningful
-// inputs (accountId, name, type, tags, httpOnlyCookieAttribute) so the import is
-// zero-diff. The provider DERIVES selfHostedDomains from `name` and treats
-// sessionDuration / appLauncherVisible / autoRedirectToIdentity as managed
-// defaults, so declaring them here would show a spurious update - left off.
+const accessName = (host: string) =>
+  host.replace(`.${zoneName}`, "").replace("*", "wildcard").replaceAll(".", "-");
+
+function accessPolicyResourceName(appName: string, policyName: string): string {
+  if ((appName === "storybook" || appName === "drizzle") && policyName === "email-otp") {
+    return `${appName}-policy`;
+  }
+
+  return `${appName}-${policyName}`;
+}
+
+function accessPolicyInputName(appDomain: string, policyName: string): string {
+  if (
+    (appDomain === `storybook.${zoneName}` || appDomain === `drizzle.${zoneName}`) &&
+    policyName === "email-otp"
+  ) {
+    return appDomain;
+  }
+
+  return policyName;
+}
+
+// --- Access apps + policies ---
+// The provider DERIVES selfHostedDomains from `name` and treats sessionDuration /
+// appLauncherVisible / autoRedirectToIdentity as managed defaults, so declaring
+// them here would show a spurious update.
 for (const app of desiredAccessApps(zoneName)) {
-  const name = sub(app.domain);
+  const name = accessName(app.domain);
   const cfApp = new cloudflare.ZeroTrustAccessApplication(
     name,
     {
@@ -72,21 +104,21 @@ for (const app of desiredAccessApps(zoneName)) {
     opts,
   );
 
-  // The single allow policy: email-OTP, the email from SECRET config (never a
-  // repo literal). precedence 1 matches the live policy.
-  new cloudflare.ZeroTrustAccessPolicy(
-    `${name}-policy`,
-    {
-      accountId,
-      // Live policies are app-scoped; the provider models the link via applicationId.
-      applicationId: cfApp.id,
-      name: app.domain,
-      decision: app.decision,
-      precedence: 1,
-      includes: [{ emails: [allowedEmail] }],
-    },
-    opts,
-  );
+  for (const policy of app.policies) {
+    new cloudflare.ZeroTrustAccessPolicy(
+      accessPolicyResourceName(name, policy.name),
+      {
+        accountId,
+        // Live policies are app-scoped; the provider models the link via applicationId.
+        applicationId: cfApp.id,
+        name: accessPolicyInputName(app.domain, policy.name),
+        decision: policy.decision,
+        precedence: policy.precedence,
+        includes: [accessInclude(policy.include)],
+      },
+      opts,
+    );
+  }
 }
 
 // --- Tunnel ingress config (adopt-only) ---
