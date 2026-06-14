@@ -14,7 +14,9 @@ COPY products/captive-portal/apps/api/package.json ./products/captive-portal/app
 COPY products/captive-portal/apps/frontend/package.json ./products/captive-portal/apps/frontend/package.json
 COPY products/captive-portal/package.json ./products/captive-portal/package.json
 COPY products/control-center/api/package.json ./products/control-center/api/package.json
+COPY products/control-center/drizzle/package.json ./products/control-center/drizzle/package.json
 COPY products/control-center/ios/package.json ./products/control-center/ios/package.json
+COPY products/control-center/map-provision/package.json ./products/control-center/map-provision/package.json
 COPY products/control-center/media-worker/package.json ./products/control-center/media-worker/package.json
 COPY products/control-center/package.json ./products/control-center/package.json
 COPY products/control-center/storybook/package.json ./products/control-center/storybook/package.json
