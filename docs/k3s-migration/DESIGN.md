@@ -356,7 +356,7 @@ per-app arm64 image builds, GHCR push, **digest pinning** (only changed services
 push to main
   → changes  (dorny/paths-filter; drop the `bosun`/infra-bosun filter, add an `infra` filter)
   → test     (typecheck · biome · knip · guards · vitest coverage · badges) - unchanged, still gates deploy
-  → build-{web,api,worker,media-worker,storybook,drizzle,captive-portal}  (arm64 → GHCR :sha + :main)
+  → build-{web,api,worker,media-worker,storybook,drizzle,captive-portal,map-provision,amp}  (arm64 → GHCR :sha + :main)
       (build-bosun DELETED)
   → deploy   (REPLACED):
        - collect per-image :main digests (same as today: buildx imagetools inspect)
@@ -370,7 +370,10 @@ push to main
 
 - **Digest pinning preserved:** the digest map becomes Pulumi stack config; a changed digest
   changes the rendered Deployment image, so only that workload's pods roll. Same property as
-  today's `docker stack deploy` digest pin, without bosun (www-czg lineage).
+  today's `docker stack deploy` digest pin, without bosun (www-czg lineage). Most repos are
+  still keyed as `control-center-<svc>` → `<svc>`, while product-native images can keep their
+  full service key, e.g. AMP uses `ghcr.io/0x63616c/amp-app` with
+  `ccinfra:imageDigests.amp-app`.
 - **Marker logic removed:** `cancel-in-progress` + the `refs/deploy/main` marker existed to
   stop rapid pushes stranding undeployed commits under Swarm's webhook model. With
   `pulumi up` reconciling the whole declared stack to the latest committed digests on every

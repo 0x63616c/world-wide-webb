@@ -33,6 +33,7 @@ describe("serviceSpecs image digest pinning", () => {
     const specs = specsWith();
     expect(imageOf(specs, "api")).toBe("ghcr.io/0x63616c/control-center-api:main");
     expect(imageOf(specs, "web")).toBe("ghcr.io/0x63616c/control-center-web:main");
+    expect(imageOf(specs, "amp-app")).toBe("ghcr.io/0x63616c/amp-app:main");
   });
 
   test("pins the GHCR ref by digest when one is supplied for that service", () => {
@@ -45,6 +46,11 @@ describe("serviceSpecs image digest pinning", () => {
     expect(imageOf(specs, "web")).toBe(`ghcr.io/0x63616c/control-center-web@${VALID}`);
     // worker has no digest, so it must NOT roll: still the mutable tag.
     expect(imageOf(specs, "worker")).toBe("ghcr.io/0x63616c/control-center-worker:main");
+  });
+
+  test("pins the AMP image through its product-aware repository name", () => {
+    const specs = specsWith({ "amp-app": VALID });
+    expect(imageOf(specs, "amp-app")).toBe(`ghcr.io/0x63616c/amp-app@${VALID}`);
   });
 
   test("the upstream cloudflared image is never digest-pinned by this map", () => {

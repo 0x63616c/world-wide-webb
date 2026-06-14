@@ -20,12 +20,18 @@ import { ExternalService, Workload } from "./component.ts";
 // Empty in local/dev applies, where :main is fine.
 export type ImageDigests = Record<string, string>;
 
+const IMAGE_REPOSITORIES = {
+  "amp-app": "ghcr.io/0x63616c/amp-app",
+} as const satisfies Record<string, string>;
+
 // GHCR image ref. Digest-pinned (@sha256:…) when CI supplied a digest for this
 // service, else the mutable :main tag (local applies, first deploy before any
 // digest is set). The digest is validated shape-wise so a malformed config value
 // can't silently produce an unpullable ref.
 const ghcr = (name: string, digests: ImageDigests = {}): string => {
-  const base = `ghcr.io/0x63616c/control-center-${name}`;
+  const base =
+    IMAGE_REPOSITORIES[name as keyof typeof IMAGE_REPOSITORIES] ??
+    `ghcr.io/0x63616c/control-center-${name}`;
   const digest = digests[name];
   if (digest) {
     if (!/^sha256:[0-9a-f]{64}$/.test(digest)) {
@@ -246,6 +252,15 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       env: { TZ, POSTGRES_HOST },
       ports: [{ containerPort: 4983, expose: "cluster" }],
       volumes: [{ mountPath: "/app", claim: "drizzle-data" }],
+      imagePullSecrets: [GHCR_PULL_SECRET],
+    },
+    {
+      name: "amp-app",
+      image: ghcr("amp-app", digests),
+      replicas: 1,
+      resources: { memory: "64M" },
+      env: { TZ },
+      ports: [{ containerPort: 80, expose: "cluster" }],
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {

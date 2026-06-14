@@ -12,6 +12,8 @@ const baseServiceOptions = {
   storybookReplicas: 0,
 };
 
+const separateProductWorkloads = new Set(["amp-app"]);
+
 describe("Control Center platform representation", () => {
   test("declares Control Center app identity and target app surface", () => {
     const manifest = controlCenterProductManifest();
@@ -24,6 +26,7 @@ describe("Control Center platform representation", () => {
   test("declares every current Control Center workload without renaming it", () => {
     const manifest = controlCenterProductManifest();
     const currentNames = serviceSpecs(baseServiceOptions)
+      .filter((service) => !separateProductWorkloads.has(service.name))
       .map((service) => service.name)
       .sort();
     const manifestNames = Object.values(manifest.services)

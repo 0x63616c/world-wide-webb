@@ -79,7 +79,7 @@ solution, captive-portal LAN exposure, and the UniFi import plan are all in
 push to main
   → changes  (dorny/paths-filter; per-app filters + an `infra/**` filter)
   → test     (typecheck · biome · knip · guards · vitest coverage · badges), gates deploy
-  → build-{web,api,worker,media-worker,storybook,drizzle,captive-portal}  (arm64 → GHCR :sha + :main)
+  → build-{web,api,worker,media-worker,storybook,drizzle,captive-portal,map-provision,amp}  (arm64 → GHCR :sha + :main)
   → deploy:
        - collect per-image :main digests (buildx imagetools inspect)
        - join the tailnet with an EPHEMERAL Tailscale auth key (tag:ci), reach homelab's apiserver
@@ -91,10 +91,12 @@ push to main
 
 **Digest pinning** is preserved as Pulumi stack config: a changed digest changes the rendered
 Deployment image, so only that workload's pods roll, the same property as the old
-`docker stack deploy` digest pin, without bosun. `pulumi up` is **declarative-convergent** (it
-reconciles the whole declared stack to the latest committed digests every green run), so the
-old `refs/deploy/main` marker, `mark-deployed`, and `deploy-drift.yml` are gone, the latest run
-always converges prod to `main`.
+`docker stack deploy` digest pin, without bosun. Most image repos are still
+`control-center-<svc>`, while product-native repos can use their full service key, e.g.
+AMP uses `ghcr.io/0x63616c/amp-app` with `ccinfra:imageDigests.amp-app`. `pulumi up` is
+**declarative-convergent** (it reconciles the whole declared stack to the latest committed
+digests every green run), so the old `refs/deploy/main` marker, `mark-deployed`, and
+`deploy-drift.yml` are gone, the latest run always converges prod to `main`.
 
 Forced full redeploy: `gh workflow run ci.yml --ref main` (rebuilds + redeploys everything).
 

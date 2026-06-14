@@ -26,6 +26,8 @@ describe("AMP runtime config", () => {
       "COPY --from=builder /app/products/amp/dist /usr/share/nginx/html",
     );
     expect(dockerfile).toContain("RUN bun run --cwd products/amp build");
+    expect(dockerfile).toContain("COPY products/captive-portal/apps/frontend/package.json");
+    expect(dockerfile).not.toContain("COPY apps/captive-portal/package.json");
     expect(dockerfile).not.toMatch(/SECRET|DATABASE|API_/);
   });
 });
