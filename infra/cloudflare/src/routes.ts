@@ -12,7 +12,11 @@
 // captive-portal is intentionally absent from BOTH: it is LAN-only, reached over
 // the OrbStack LoadBalancer on the mini's en1 (DESIGN §5a), never tunneled.
 
-import { controlCenterProductManifest, type ProductServiceDeclaration } from "@repo/platform";
+import {
+  ampProductManifest,
+  controlCenterProductManifest,
+  type ProductServiceDeclaration,
+} from "@repo/platform";
 
 /** The CNAME target every tunnel-routed hostname points at. */
 export function tunnelCnameTarget(tunnelId: string): string {
@@ -107,13 +111,21 @@ export function cloudflareRoutesForExposures(
 }
 
 function productRoutes(): CloudflareRoutes {
-  const manifest = controlCenterProductManifest();
+  const ccManifest = controlCenterProductManifest();
+  const ampManifest = ampProductManifest();
 
   return cloudflareRoutesForExposures([
     {
-      exposure: manifest.app.exposure,
+      exposure: ccManifest.app.exposure,
       origin: "http://web:80",
       comment: "platform:control-center private app route",
+    },
+    // AMP v0: stateless private-web app, no api.amp route (www-jtp0.8.6).
+    // Any future api.amp surface requires a human review checkpoint before apply.
+    {
+      exposure: ampManifest.app.exposure,
+      origin: "http://amp-app:80",
+      comment: "platform:amp private app route",
     },
   ]);
 }

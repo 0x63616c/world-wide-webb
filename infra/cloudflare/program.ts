@@ -60,9 +60,10 @@ const provider = new cloudflare.Provider(
 );
 const opts: pulumi.CustomResourceOptions = { provider, protect: true };
 
-// Stable Pulumi resource name from a hostname ("storybook.worldwidewebb.co" ->
-// "storybook"). Keeps logical names short + readable in state.
-const sub = (host: string) => host.split(".")[0];
+// Stable Pulumi resource name from a hostname ("app.amp.worldwidewebb.co" →
+// "app.amp"). Strips the zone suffix so multi-label subdomains like app.cc and
+// app.amp produce distinct, CF-correct record names (split(".")[0] would collide).
+const sub = (host: string) => host.replace(`.${zoneName}`, "");
 
 const accessName = (host: string) =>
   host.replace(`.${zoneName}`, "").replace("*", "wildcard").replaceAll(".", "-");

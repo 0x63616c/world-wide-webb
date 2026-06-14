@@ -9,12 +9,13 @@ import { accessAppsForPrivateWeb, desiredAccessApps } from "../src/access.ts";
 const ZONE = "worldwidewebb.co";
 
 describe("desiredAccessApps", () => {
-  test("declares the wildcard block floor, app.cc kiosk, hooks CI, and legacy tooling apps", () => {
+  test("declares the wildcard block floor, app.amp email-otp, app.cc kiosk, hooks CI, and legacy tooling apps", () => {
     const domains = desiredAccessApps(ZONE)
       .map((a) => a.domain)
       .sort();
     expect(domains).toEqual([
       "*.worldwidewebb.co",
+      "app.amp.worldwidewebb.co",
       "app.cc.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "hooks.worldwidewebb.co",
@@ -61,6 +62,22 @@ describe("desiredAccessApps", () => {
         precedence: 1,
       },
     ]);
+  });
+
+  test("protects app.amp with email-otp (private-web; no service token, no api.amp)", () => {
+    const ampApp = desiredAccessApps(ZONE).find((app) => app.domain === "app.amp.worldwidewebb.co");
+
+    expect(ampApp?.policies).toEqual([
+      {
+        decision: "allow",
+        include: { configKey: "allowedEmail", kind: "email-config" },
+        name: "email-otp",
+        precedence: 1,
+      },
+    ]);
+    // api.amp must NOT appear: AMP v0 is stateless with no public API route.
+    const domains = desiredAccessApps(ZONE).map((a) => a.domain);
+    expect(domains).not.toContain("api.amp.worldwidewebb.co");
   });
 
   test("keeps Storybook and Drizzle on email OTP with no literal personal email", () => {

@@ -22,11 +22,12 @@ import {
 const ZONE = "worldwidewebb.co";
 
 describe("desiredIngressRules", () => {
-  test("declares product-derived app.cc plus the legacy ingress hosts with their origins", () => {
+  test("declares product-derived app.amp, app.cc plus the legacy ingress hosts with their origins", () => {
     const byHost = Object.fromEntries(
       desiredIngressRules(ZONE).map((r) => [r.hostname, r.service]),
     );
     expect(Object.keys(byHost).sort()).toEqual([
+      "app.amp.worldwidewebb.co",
       "app.cc.worldwidewebb.co",
       "dashboard.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
@@ -36,8 +37,14 @@ describe("desiredIngressRules", () => {
     ]);
     expect(byHost["dashboard.worldwidewebb.co"]).toBe("http://web:80");
     expect(byHost["app.cc.worldwidewebb.co"]).toBe("http://web:80");
+    expect(byHost["app.amp.worldwidewebb.co"]).toBe("http://amp-app:80");
     expect(byHost["portainer.worldwidewebb.co"]).toBe("http://portainer:9000");
     expect(byHost["hooks.worldwidewebb.co"]).toBe("http://bosun-agent:4202");
+  });
+
+  test("api.amp is NEVER tunneled (AMP v0 is stateless; no public API route)", () => {
+    const hosts = desiredIngressRules(ZONE).map((r) => r.hostname);
+    expect(hosts).not.toContain("api.amp.worldwidewebb.co");
   });
 
   test("captive-portal is NEVER tunneled (LAN-only)", () => {
@@ -79,11 +86,12 @@ describe("desiredIngressRules", () => {
 });
 
 describe("desiredCnames", () => {
-  test("declares product-derived app.cc plus legacy proxied CNAMEs incl. stray hooks-test", () => {
+  test("declares product-derived app.amp, app.cc plus legacy proxied CNAMEs incl. stray hooks-test", () => {
     const hosts = desiredCnames(ZONE)
       .map((c) => c.hostname)
       .sort();
     expect(hosts).toEqual([
+      "app.amp.worldwidewebb.co",
       "app.cc.worldwidewebb.co",
       "dashboard.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
@@ -114,6 +122,8 @@ describe("desiredCnames", () => {
     expect(byHost["hooks-test.worldwidewebb.co"]).toBe(
       "EVEE-218 webhook test (apex naming, covered by Universal SSL)",
     );
+    // product-derived platform route comment (not a frozen legacy value)
+    expect(byHost["app.amp.worldwidewebb.co"]).toBe("platform:amp private app route");
     // no comment live -> undefined (must not invent one, or it's a diff)
     expect(byHost["hooks.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["portainer.worldwidewebb.co"]).toBeUndefined();

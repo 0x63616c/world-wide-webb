@@ -8,7 +8,11 @@
 // endpoint fails account-owned tokens by design). It already carries the account
 // + zone scopes incl. DNS:Edit. Don't re-trip the /user verify dead end.
 
-import { controlCenterProductManifest, type ProductServiceDeclaration } from "@repo/platform";
+import {
+  ampProductManifest,
+  controlCenterProductManifest,
+  type ProductServiceDeclaration,
+} from "@repo/platform";
 
 type AccessConfigKey = "allowedEmail" | "ciClientId" | "kioskClientId";
 
@@ -111,12 +115,16 @@ export function accessAppsForPrivateWeb(
  * The desired Access apps for zone `<zone>`.
  */
 export function desiredAccessApps(zone: string): DesiredAccessApp[] {
-  const manifest = controlCenterProductManifest();
+  const ccManifest = controlCenterProductManifest();
+  const ampManifest = ampProductManifest();
 
   return [
     wildcardBlockFloor(zone),
+    // Private-web products: AMP uses email-OTP (human web access); the CC
+    // dashboard uses a kiosk service-token (iPad wall panel, not human login).
     ...accessAppsForPrivateWeb([
-      { exposure: manifest.app.exposure, policy: "kiosk-service-token" },
+      { exposure: ccManifest.app.exposure, policy: "kiosk-service-token" },
+      { exposure: ampManifest.app.exposure, policy: "email-otp" },
     ]),
     accessApp(`storybook.${zone}`, [emailOtpPolicy()]),
     accessApp(`drizzle.${zone}`, [emailOtpPolicy()]),
