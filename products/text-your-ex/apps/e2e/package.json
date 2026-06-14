@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "pretest": "bun run --cwd ../web build",
+    "pretest": "bun run --cwd ../frontend build",
     "test": "playwright test"
   },
   "devDependencies": {
