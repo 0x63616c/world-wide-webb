@@ -17,3 +17,20 @@ repo-platform-identity	^(infra/(Pulumi|package).*|infra/(cloudflare|unifi)/Pulum
 repo-platform-identity	^(infra/(program\.ts|test/.*|cloudflare/.*|unifi/program\.ts)|knip\.jsonc)$	.*\bcontrol-center\b.*	Pulumi project, resource-token, and ownership-tag identity must be handled by previewed state-safe rename tickets.
 allowed-compatibility-alias	.*	(control_center|control-center-rw|cc-postgres|/Users/calum/control-center/media|control-center/portal-lan)	Database, service, backup, or host-path compatibility alias kept until explicit production migration.
 control-center-product-identity	^(products/control-center/.*|packages/platform/.*|docs/platform/.*|apps/web/public/maps/README\.md|apps/captive-portal/_portal_locations\.conf|scripts/(migrate-pg-to-cnpg|pg-snapshot-restore|portal-443-forward|portal-lan|mount-homelab-drive|provision-orbstack|save-homelab-drive|save-postgres-password|save-spotify-credentials)\.sh|scripts/spotify-oauth\.ts|apps/drizzle/.*|apps/api/.*|apps/worker/.*|apps/media-worker/.*|apps/captive-portal/.*|docs/(deployment-design|k3s-migration/.*|captive-portal/.*|logging|writing-scalable-typescript/.*|perf-lab-recommendation)\.md)$	.*\b(control-center|control_center)\b.*	Control Center product, Kubernetes, database, or product-runtime identity, not repo identity by default.
+# --- Additional classifications added by www-jtp0.9.7 ---
+# Historical plan docs: reference products/control-center paths by implementation detail, archived context.
+historical-only-docs	^docs/superpowers/plans/.*$	.*\bcontrol-center\b.*	Historical superpowers implementation plan, retained as archive.
+# Current operational/spec docs that describe the product by its product path (not repo identity).
+control-center-product-identity	^docs/(dashboard-spec|amp/operations|captive-portal/.*)\.md$	.*\bcontrol-center\b.*	Product-level doc referencing the Control Center product by path; not repo-level identity.
+# Build config files (biome.json, tsconfig, vitest) referencing products/control-center paths.
+control-center-product-identity	^(biome\.json|tsconfig.*\.json|vitest\.config\.ts)$	.*\bcontrol-center\b.*	Build/lint config referencing products/control-center sub-paths; product path, not repo identity.
+# Tiltfile dev environment: references products/control-center paths and product lane labels.
+control-center-product-identity	^Tiltfile$	.*\bcontrol-center\b.*	Tilt dev stack references products/control-center paths and product lane labels.
+# GitHub Actions iOS workflow: all references are products/control-center/web/ios product paths.
+control-center-product-identity	^\.github/workflows/ios-build\.yml$	.*\bcontrol-center\b.*	iOS build workflow references products/control-center/web/ios product path only.
+# Repo-level scripts that reference products/control-center/ paths in their implementation.
+control-center-product-identity	^scripts/(check-control-center-product-boundary|check-control-center-ci-split|check-tilt-product-lanes|check-product-ci-isolation|check-product-doc-paths|check-storybook-docs|check-fake-data|coverage|test-map-provision|verify-wall-panel|cc-post-cutover-smoke)(\.(ts|sh|mjs))?$	.*\bcontrol-center\b.*	Script operates on or validates the Control Center product by its product path or slug.
+# packages/api (@cc/api bridge) and packages/logger reference the @control-center/api product scope.
+control-center-product-identity	^packages/(api|logger)/.*$	.*\bcontrol-center\b.*	Bridge package and logger reference @control-center/api product scope; pending rename in www-jtp0.9.4.
+# Products outside control-center (captive-portal, amp, text-your-ex, project-management) referencing control-center product paths or product scope.
+control-center-product-identity	^products/(captive-portal|amp|text-your-ex|project-management)/.*$	.*\bcontrol-center\b.*	Sibling product referencing the Control Center product by path or @control-center/* scope.
