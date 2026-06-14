@@ -44,5 +44,8 @@
     "@biomejs/biome",
     "esbuild",
     "lefthook"
-  ]
+  ],
+  "dependencies": {
+    "bdui": "^0.0.38"
+  }
 }

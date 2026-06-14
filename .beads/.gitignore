@@ -63,6 +63,7 @@ backup/
 issues.jsonl
 interactions.jsonl
 events.jsonl
+beads.jsonl
 
 # Per-project environment file (Dolt connection config, GH#2520)
 .env

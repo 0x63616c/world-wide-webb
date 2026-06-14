@@ -7,8 +7,8 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "Headroom OpenAI",
       "options": {
-        "baseURL": "http://127.0.0.1:8790/v1",
-        "apiKey": "headroom_local"
+        // "baseURL": "http://127.0.0.1:8790/v1",
+        // "apiKey": "headroom_local"
       },
       "models": {
         "gpt-5.5-fast": {
