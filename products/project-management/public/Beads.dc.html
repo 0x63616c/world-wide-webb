@@ -795,7 +795,7 @@ class Component extends DCLogic {
       return {
         label: c.label, count: statusCount(c.key),
         onClick: () => this.setState({ statusFilter: c.key }),
-        style: { display: 'inline-flex', alignItems: 'center', padding: '7px 13px', borderRadius: 8, border: 'none', background: active ? tint : 'transparent', color: active ? accent : 'var(--ink-2)', fontSize: 13, fontWeight: active ? 600 : 500, fontFamily: 'var(--ui)', cursor: 'pointer', letterSpacing: '-0.01em', boxShadow: active ? ('inset 0 0 0 1px ' + accent) : 'none', transition: 'all .14s ease' },
+        style: { display: 'inline-flex', alignItems: 'center', padding: '5px 13px', borderRadius: 8, border: 'none', background: active ? tint : 'transparent', color: active ? accent : 'var(--ink-2)', fontSize: 13, fontWeight: active ? 600 : 500, fontFamily: 'var(--ui)', cursor: 'pointer', letterSpacing: '-0.01em', boxShadow: active ? ('inset 0 0 0 1px ' + accent) : 'none', transition: 'all .14s ease' },
         dotStyle: { width: 6, height: 6, borderRadius: 999, background: accent, marginRight: 7, flex: '0 0 auto', opacity: c.key === 'all' ? 0 : 1 }
       };
     });
