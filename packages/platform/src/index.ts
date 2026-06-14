@@ -333,6 +333,9 @@ function opSecret(item: string, field: string): SecretCatalogEntry {
 }
 
 export const secretCatalog = {
+  captivePortal: {
+    postgresPassword: opSecret("Captive Portal Postgres", "password"),
+  },
   cloudflare: {
     tunnelToken: opSecret("Cloudflare Tunnel evee-webhooks", "connector_token"),
   },
@@ -494,6 +497,7 @@ export type ProductDatabase = Readonly<{
   auth: Readonly<{
     kind: "database-owned-basic-auth";
     secretName: string;
+    password: SecretCatalogEntry;
   }>;
   storageClass: string;
   size: string;
@@ -502,6 +506,7 @@ export type ProductDatabase = Readonly<{
 
 export type ProductDatabaseOptions = Readonly<{
   size: string;
+  authPassword?: SecretCatalogEntry;
   authSecretName?: string;
   owner?: string;
   storageClass?: string;
@@ -515,6 +520,19 @@ const defaultDatabaseResources = {
 
 function databaseNameFor(product: ProductIdentity): string {
   return product.slug.replaceAll("-", "_");
+}
+
+function databasePasswordFor(product: ProductIdentity): SecretCatalogEntry {
+  switch (product.slug) {
+    case "control-center":
+      return secretCatalog.controlCenter.postgresPassword;
+    case "captive-portal":
+      return secretCatalog.captivePortal.postgresPassword;
+    case "amp":
+    case "text-your-ex":
+      return opSecret(`${product.slug} Postgres`, "password");
+  }
+  return assertNever(product.slug);
 }
 
 export function defineProductDatabase(
@@ -532,7 +550,11 @@ export function defineProductDatabase(
     owner: options.owner ?? "postgres",
     rwServiceName: `${product.slug}-rw`,
     authSecretName,
-    auth: { kind: "database-owned-basic-auth", secretName: authSecretName },
+    auth: {
+      kind: "database-owned-basic-auth",
+      secretName: authSecretName,
+      password: options.authPassword ?? databasePasswordFor(product),
+    },
     storageClass: options.storageClass ?? "local-path",
     size: options.size,
     resources: options.resources ?? defaultDatabaseResources,
@@ -653,6 +675,24 @@ export type AmpProductManifest = Readonly<{
   backup: null;
 }>;
 
+export type CaptivePortalServiceName = "app" | "api";
+export type CaptivePortalSecretUsageName = "api";
+
+export type CaptivePortalProductManifest = Readonly<{
+  product: ProductIdentity;
+  target: HomelabTarget;
+  app: Readonly<{
+    exposure: WebExposure;
+    legacyHostname: "captive-portal.worldwidewebb.co";
+  }>;
+  services: Readonly<
+    Record<CaptivePortalServiceName, ProductServiceDeclaration<CaptivePortalServiceName>>
+  >;
+  secretUsages: Readonly<Record<CaptivePortalSecretUsageName, ServiceSecretUsage>>;
+  database: ProductDatabase;
+  backup: DatabaseBackup;
+}>;
+
 function mainImage(product: ProductIdentity, service: string): string {
   return `${product.imageRepository(service)}:main`;
 }
@@ -662,6 +702,7 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
   const target = homelabTarget;
   const secretUsages = controlCenterServiceSecretUsages();
   const database = defineProductDatabase(product, target, {
+    authPassword: secretCatalog.controlCenter.postgresPassword,
     authSecretName: "cc-postgres-auth",
     size: "5Gi",
   });
@@ -762,5 +803,60 @@ export function ampProductManifest(): AmpProductManifest {
     secretUsages: {},
     database: null,
     backup: null,
+  };
+}
+
+export function captivePortalProductManifest(): CaptivePortalProductManifest {
+  const product = defineProduct("captive-portal");
+  const target = homelabTarget;
+  const appExposure = captivePortalWeb(product, target, { host: "app" });
+  const database = defineProductDatabase(product, target, {
+    authPassword: secretCatalog.captivePortal.postgresPassword,
+    authSecretName: "captive-portal-postgres-auth",
+    size: "2Gi",
+  });
+  const backup = defineDatabaseBackup(database, target, {
+    name: "captive-portal-pg-backup",
+    schedule: "15 1 * * *",
+  });
+  const apiSecretUsage = defineServiceSecretUsage(
+    product,
+    "api",
+    {
+      POSTGRES_PASSWORD: secretCatalog.captivePortal.postgresPassword,
+      RESEND_API_KEY: secretCatalog.resend.apiKey,
+      RESEND_FROM: secretCatalog.resend.fromAddress,
+      UNIFI_API_KEY: secretCatalog.unifi.localApiKey,
+      WIFI_PASSWORD: secretCatalog.wifiGuest.password,
+      WIFI_SSID: secretCatalog.wifiGuest.ssid,
+    },
+    { targetSecretName: "cc-secrets-captive-portal-api" },
+  );
+
+  return {
+    product,
+    target,
+    app: {
+      exposure: appExposure,
+      legacyHostname: "captive-portal.worldwidewebb.co",
+    },
+    services: {
+      app: {
+        service: "app",
+        workloadName: "captive-portal",
+        image: "ghcr.io/0x63616c/control-center-captive-portal:main",
+        exposure: appExposure,
+      },
+      api: {
+        service: "api",
+        workloadName: product.serviceName("api"),
+        image: mainImage(product, "api"),
+        exposure: internalService({ port: 4211 }),
+        secretUsage: apiSecretUsage,
+      },
+    },
+    secretUsages: { api: apiSecretUsage },
+    database,
+    backup,
   };
 }

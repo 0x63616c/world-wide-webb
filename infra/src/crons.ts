@@ -15,7 +15,11 @@
 
 import type * as k8s from "@pulumi/kubernetes";
 import type * as pulumi from "@pulumi/pulumi";
-import { controlCenterProductManifest, type DatabaseBackup } from "@repo/platform";
+import {
+  captivePortalProductManifest,
+  controlCenterProductManifest,
+  type DatabaseBackup,
+} from "@repo/platform";
 import type { CronJobSpec } from "./component.ts";
 import { ScheduledJob } from "./component.ts";
 
@@ -70,6 +74,7 @@ export function postgresBackupCronSpec(backup: DatabaseBackup, nasNfsServer: str
 const controlCenterManifest = controlCenterProductManifest();
 const controlCenterBackup = controlCenterManifest.backup;
 const controlCenterPostgresHost = controlCenterManifest.database.rwServiceName;
+const captivePortalBackup = captivePortalProductManifest().backup;
 
 /**
  * @public - the declared CronJob set (pure data). nasNfsServer is threaded into
@@ -117,15 +122,10 @@ export function cronSpecs(nasNfsServer: string): CronJobSpec[] {
       imagePullSecrets: ["ghcr-pull"],
     },
 
-    // NEW nightly logical backup to the NAS (RECON decision 5 / GOAL Phase 3).
-    // Today there are NO Postgres backups (CNPG autobackup:false). This pg_dumps
-    // the control_center DB and writes a DATED control_center-YYYYMMDD.sql.gz onto
-    // an NFS PV pointed at the NAS backup path. The pg image major MUST match the
-    // CNPG server major (PG 18, cnpg.ts) or pg_dump aborts on a version mismatch;
-    // bump both together on a CNPG major upgrade. 01:00 LA, off-peak and ahead of
-    // the 02:00 purge. The NFS PV carries the mandatory NFSv3 mount options
-    // (render layer); the DS420+ is v3-only (DESIGN §5b).
+    // Control Center stays on the compatibility backup path until that live path
+    // migration gets explicit review. New product backups use the platform path.
     postgresBackupCronSpec(controlCenterBackup, nasNfsServer),
+    postgresBackupCronSpec(captivePortalBackup, nasNfsServer),
   ];
 }
 

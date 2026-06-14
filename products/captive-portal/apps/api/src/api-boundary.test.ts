@@ -21,7 +21,14 @@ describe("captive portal product API boundary", () => {
       service: "captive-portal-api",
       routerBoundary: "portal-only",
       integrationDependencies: ["resend", "unifi"],
-      secretNames: ["RESEND_API_KEY", "RESEND_FROM", "UNIFI_API_KEY", "WIFI_PASSWORD"],
+      secretNames: [
+        "POSTGRES_PASSWORD",
+        "RESEND_API_KEY",
+        "RESEND_FROM",
+        "UNIFI_API_KEY",
+        "WIFI_PASSWORD",
+        "WIFI_SSID",
+      ],
     });
   });
 });

@@ -33,8 +33,8 @@ const eso = installEso({
   chartVersion: "2.6.0",
 });
 
-// CNPG operator + the single-instance control-center Cluster (www-j934.5). The
-// auth ExternalSecret depends on ESO's store being up, so order after eso.
+// CNPG operator + product-owned Postgres Clusters. The auth ExternalSecrets
+// depend on ESO's store being up, so order after eso.
 const cnpg = installCnpg({
   provider: cluster.provider,
   namespace: APP_NAMESPACE,
@@ -86,11 +86,11 @@ const services = deployServices({
 });
 
 // Scheduled jobs (www-j934.7): portal-data-purge + map-extract re-homed to k8s
-// CronJobs, plus the NEW nightly pg-backup to the NAS. NO docker-image-prune
+// CronJobs, plus product Postgres backups to the NAS. NO docker-image-prune
 // (kubelet image GC) and NO portal-cert-renew (cert-manager owns TLS). The
-// pg-backup NFS PV reuses nasNfsServer; the purge job's POSTGRES_PASSWORD comes
-// from its ESO Secret (secrets-map.ts), the backup's creds from the CNPG-managed
-// cc-postgres-auth Secret, so order after eso + cnpg.
+// backup NFS PVs reuse nasNfsServer; the purge job's POSTGRES_PASSWORD comes
+// from its ESO Secret (secrets-map.ts), backup creds come from CNPG-managed
+// basic-auth Secrets, so order after eso + cnpg.
 const crons = deployCrons({
   provider: cluster.provider,
   namespace: APP_NAMESPACE,
@@ -101,6 +101,8 @@ const crons = deployCrons({
 export const externalSecretNames = eso.externalSecrets.map((e) => e.metadata.name);
 export const appNamespaceName = cluster.namespace.metadata.name;
 export const cnpgClusterName = cnpg.cluster.metadata.name;
+export const cnpgClusterNames = cnpg.clusters.map((c) => c.metadata.name);
+export const cnpgAuthSecretNames = cnpg.authSecrets.map((s) => s.metadata.name);
 export const portalCertificateName = certManager.certificate.metadata.name;
 export const workloadNames = services.workloads.map((w) => w.deployment.metadata.name);
 export const cronJobNames = crons.jobs.map((j) => j.cronJob.metadata.name);

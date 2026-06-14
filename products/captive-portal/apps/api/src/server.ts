@@ -12,7 +12,7 @@ const CORS_HEADERS: Record<string, string> = {
 };
 
 function portFromEnv(): number {
-  const raw = Bun.env.PORT ?? "4202";
+  const raw = Bun.env.PORT ?? "4211";
   const port = Number(raw);
   if (!Number.isInteger(port) || port <= 0) {
     throw new Error(`Invalid PORT for captive portal API: ${raw}`);

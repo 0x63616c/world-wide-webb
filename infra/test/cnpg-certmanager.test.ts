@@ -68,6 +68,41 @@ describe("installCnpg", () => {
     expect(spec.target.template.type).toBe("kubernetes.io/basic-auth");
     expect(spec.target.template.data.username).toBe("postgres");
   });
+
+  test("installs both Control Center and Captive Portal product databases", async () => {
+    const res = cnpg.installCnpg({
+      provider: provider(),
+      namespace: "control-center",
+      operatorVersion: "1.29.1",
+    });
+
+    expect(res.clusters).toHaveLength(2);
+    expect(res.authSecrets).toHaveLength(2);
+
+    const clusterSpecs = await Promise.all(
+      res.clusters.map((cluster) =>
+        get<{
+          instances: number;
+          bootstrap: { initdb: { database: string } };
+          storage: { size: string; storageClass: string };
+          resources: { limits: { memory: string }; requests: { cpu: string; memory: string } };
+          superuserSecret: { name: string };
+        }>(cluster, "spec"),
+      ),
+    );
+    expect(clusterSpecs.map((spec) => spec.bootstrap.initdb.database).sort()).toEqual([
+      "captive_portal",
+      "control_center",
+    ]);
+    expect(
+      clusterSpecs.find((spec) => spec.bootstrap.initdb.database === "captive_portal"),
+    ).toMatchObject({
+      instances: 1,
+      storage: { size: "2Gi" },
+      resources: { limits: { memory: "768Mi" }, requests: { cpu: "500m", memory: "384Mi" } },
+      superuserSecret: { name: "captive-portal-postgres-auth" },
+    });
+  });
 });
 
 describe("installCertManager", () => {

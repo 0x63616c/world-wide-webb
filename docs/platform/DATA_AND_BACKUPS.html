@@ -96,6 +96,7 @@
             <li><code>defineProductDatabase()</code> models the per-product CNPG contract in <code>@repo/platform</code>, including database name, owner, auth secret, read-write service, storage, and resource defaults.</li>
             <li><code>defineDatabaseBackup()</code> makes a backup declaration mandatory for every product database. There is intentionally no per-app disable knob.</li>
             <li>The Control Center manifest uses compatibility options to represent the current <code>control-center</code> cluster, <code>control_center</code> database, <code>cc-postgres-auth</code> secret, and <code>pg-backup</code> CronJob.</li>
+            <li>The Captive Portal manifest represents the product-owned <code>captive-portal</code> CNPG cluster, <code>captive_portal</code> database, <code>captive-portal-rw</code> service, <code>captive-portal-postgres-auth</code> secret, and <code>captive-portal-pg-backup</code> CronJob.</li>
             <li>The future NAS path derives as <code>backups/world-wide-webb/&lt;product&gt;/postgres</code>, but M1 does not move the live backup destination from the current <code>backups/postgres</code> path.</li>
           </ul>
         </section>
@@ -107,7 +108,19 @@
             <li>The adapter derives CronJob name, schedule, PG image, database host/name, auth secret mount, backup mount, NFS export, NAS subpath, and dated gzip filename from the platform declaration instead of Control Center-only constants.</li>
             <li>The default product path remains <code>backups/world-wide-webb/&lt;product&gt;/postgres</code>, matching the platform NAS root.</li>
             <li>Control Center intentionally uses a compatibility declaration for now: CronJob <code>pg-backup</code>, schedule <code>0 1 * * *</code>, database <code>control_center</code>, service <code>control-center-rw</code>, auth secret <code>cc-postgres-auth</code>, and NAS subpath <code>backups/postgres</code>.</li>
+            <li>Captive Portal uses the standard product path now: CronJob <code>captive-portal-pg-backup</code>, schedule <code>15 1 * * *</code>, database <code>captive_portal</code>, service <code>captive-portal-rw</code>, auth secret <code>captive-portal-postgres-auth</code>, and NAS subpath <code>backups/world-wide-webb/captive-portal/postgres</code>.</li>
             <li>Moving Control Center's live backup destination to <code>backups/world-wide-webb/control-center/postgres</code> is a future reviewed production-path migration, not an incidental primitive refactor.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>M5 Captive Portal Database Contract</h2>
+          <ul>
+            <li>Captive Portal has a product-owned CNPG cluster named <code>captive-portal</code> with app database <code>captive_portal</code>, owner <code>postgres</code>, read-write service <code>captive-portal-rw</code>, and local-path storage.</li>
+            <li>The app credential lives in the CNPG basic-auth Secret <code>captive-portal-postgres-auth</code>, bridged from <code>op://Homelab/Captive Portal Postgres/password</code>. It does not reuse the Control Center Postgres credential.</li>
+            <li>The Captive Portal API declares only its required secret inputs: <code>POSTGRES_PASSWORD</code>, <code>RESEND_API_KEY</code>, <code>RESEND_FROM</code>, <code>UNIFI_API_KEY</code>, <code>WIFI_PASSWORD</code>, and <code>WIFI_SSID</code>.</li>
+            <li>The nightly backup writes <code>captive_portal-YYYYMMDD.sql.gz</code> to <code>/volume1/Homelab/backups/world-wide-webb/captive-portal/postgres/</code>.</li>
+            <li>This provisions the destination database and backup path only. Moving portal tables out of Control Center still requires reviewed export, scratch restore, final snapshot, validation, and cutover.</li>
           </ul>
         </section>
 
@@ -136,10 +149,11 @@
             <li><strong>Target schema:</strong> preserve table names/types where product behavior depends on them. Keep IDs stable.</li>
             <li><strong>Export:</strong> take both a custom-format dump and a plain SQL gzip dump before cutover.</li>
             <li><strong>Restore rehearsal:</strong> restore into a scratch database, run migrations, validate row counts and semantic queries.</li>
+            <li><strong>Human review:</strong> stop before any production database apply, final snapshot, or non-scratch restore. Record the approved source, target, scratch cluster, and rollback plan.</li>
             <li><strong>Write freeze:</strong> pause writers for a short maintenance window when needed.</li>
             <li><strong>Final snapshot:</strong> export again after freeze, restore to target, validate counts and key queries.</li>
             <li><strong>Cutover:</strong> deploy app pointing at target database and verify health, flows, and backups.</li>
-            <li><strong>Rollback:</strong> keep old database and dumps untouched until the new database survives backup and restore validation.</li>
+            <li><strong>Rollback:</strong> keep old database and dumps untouched until the new database survives backup and restore validation. For Captive Portal, leave the old Control Center portal tables untouched and scale any new product DB consumers to zero if provisioning fails.</li>
             <li><strong>Post-cutover:</strong> run a backup, restore it into scratch, and compare counts again.</li>
           </ol>
         </section>
@@ -157,6 +171,7 @@
           <div class="code-block"><pre><code>scripts/pg-snapshot-restore.sh --dry-run --source production --scratch &lt;scratch-cluster&gt;
 scripts/pg-snapshot-restore.sh --source production --scratch &lt;scratch-cluster&gt; --output-dir ./.pg-snapshots
 scripts/pg-snapshot-restore.sh --compare-counts source-counts.tsv scratch-counts.tsv</code></pre></div>
+          <p>For Captive Portal, use the same commands against an approved portal source and scratch target before the product database becomes authoritative. The restore proof must compare row counts before any production apply or cutover.</p>
         </section>
 
         <section>

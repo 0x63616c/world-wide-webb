@@ -58,10 +58,10 @@ OrbStack.
 ├─ CLUSTER (declared in infra/, applied by `pulumi up --stack prod`) ─────────────────┤
 │  external-secrets (ESO) + 1Password SDK provider  → native k8s Secrets              │
 │  cert-manager + CF DNS-01 ClusterIssuer            → portal TLS Certificate         │
-│  cnpg operator → Cluster "control-center" (local-path PVC on SSD)                   │
+│  cnpg operator → Clusters "control-center" + "captive-portal" (local SSD PVCs)     │
 │  cloudflared Deployment ×2 (HA, never autoscale)                                    │
 │  Deployments: api · worker · web · storybook · captive-portal · drizzle · media-w.  │
-│  CronJobs (infra/src/crons.ts): portal-data-purge · pg-backup · map-extract         │
+│  CronJobs: portal-data-purge · pg-backup · captive-portal-pg-backup · map-extract   │
 ├─ EXTERNAL STATE (Pulumi providers, Pulumi Cloud backend) ───────────────────────────┤
 │  cloudflare: Access apps/policies + tunnel ingress   · unifi: adopt-only import     │
 └──────────────────────────────────────────────────────────────────────────────────┘
@@ -107,9 +107,11 @@ Forced full redeploy: `gh workflow run ci.yml --ref main` (rebuilds + redeploys 
 Cron jobs are **Kubernetes `CronJob`s declared in `infra/src/crons.ts`**, NOT bosun
 `cronJob()` and NOT a third-party scheduler. They run on `TZ=America/Los_Angeles` (set as a pod
 env), so a `0 3 * * *` schedule fires at 03:00 LA. Today: `portal-data-purge` (nightly DB
-cleanup), `pg-backup` (nightly logical backup to the NAS), `map-extract` (monthly basemap
-refresh, www-hn1i, runs the `map-provision` image in force mode; the build date is resolved at
-runtime because Protomaps deletes daily builds after ~7 days, so a pinned date rots). The old
+cleanup against the compatibility Control Center database), `pg-backup` (Control Center nightly
+logical backup to the unchanged compatibility NAS path), `captive-portal-pg-backup` (Captive
+Portal nightly logical backup to its product NAS path), `map-extract` (monthly basemap refresh,
+www-hn1i, runs the `map-provision` image in force mode; the build date is resolved at runtime
+because Protomaps deletes daily builds after ~7 days, so a pinned date rots). The old
 `docker-image-prune` cron is gone, kubelet image GC replaces it.
 
 **Basemap self-provisioning (www-hn1i):** the web Deployment carries a `map-provision`
@@ -213,6 +215,32 @@ Rollback artifacts are the live production database, the nightly NAS backups, an
 snapshot directory. Human review is required before production dump capture, final snapshots,
 non-scratch restores, backup path changes, or destructive cleanup. Scratch restore validation
 must delete only scratch resources after evidence is recorded.
+
+**Captive Portal product database provisioning (www-jtp0.5.5).** The Captive Portal now has its
+own CNPG `Cluster` named `captive-portal`, app database `captive_portal`, read-write Service
+`captive-portal-rw`, and basic-auth Secret `captive-portal-postgres-auth`. Its product API
+manifest explicitly declares only the secrets it can read: `POSTGRES_PASSWORD`, `RESEND_API_KEY`,
+`RESEND_FROM`, `UNIFI_API_KEY`, `WIFI_PASSWORD`, and `WIFI_SSID`. The nightly backup CronJob is
+`captive-portal-pg-backup`; it runs at `15 1 * * *`, uses the same PG 18 dump image as the CNPG
+server, reads the password from `captive-portal-postgres-auth`, and writes dated
+`captive_portal-YYYYMMDD.sql.gz` artifacts under
+`backups/world-wide-webb/captive-portal/postgres` on the NAS. Control Center remains unchanged:
+`pg-backup` still writes `control_center-YYYYMMDD.sql.gz` to `backups/postgres`.
+
+Captive Portal restore validation uses the same additive proof tool as Control Center. Before any
+production database apply that captures or restores portal data, stop for human review and record
+the approved source, scratch cluster, and output directory. Then run:
+
+```bash
+scripts/pg-snapshot-restore.sh --dry-run --source production --scratch <scratch-cluster>
+scripts/pg-snapshot-restore.sh --source production --scratch <scratch-cluster> --output-dir <private-dir>
+scripts/pg-snapshot-restore.sh --compare-counts <source.tsv> <scratch.tsv>
+```
+
+Rollback note: this provisioning step must leave the old Control Center portal tables untouched.
+If the Captive Portal database, auth Secret, service discovery, or backup job fails to provision,
+scale any new Captive Portal product DB consumers to zero and keep the existing Control Center
+portal path serving until the product database is fixed and restore validation passes.
 
 ---
 

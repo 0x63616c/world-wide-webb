@@ -28,11 +28,11 @@ table, the backup section, and every NFS-touching child ticket's AC.
 ├─ CLUSTER (declared in infra/, applied by `pulumi up`) ──────────────────────────────┤
 │  external-secrets (ESO) + 1Password SDK provider  → native k8s Secrets              │
 │  cert-manager + CF DNS-01 ClusterIssuer            → portal TLS Certificate         │
-│  cnpg operator → Cluster "control-center" (local-path PVC on SSD)                   │
+│  cnpg operator → Clusters "control-center" + "captive-portal" (local SSD PVCs)     │
 │  cloudflared Deployment ×2 (HA, never autoscale)                                    │
 │  Deployments: api · worker · web · storybook · captive-portal · drizzle             │
 │  Deployment (scaled per spike): media-worker                                        │
-│  CronJobs: portal-data-purge · portal-cert-renew(→cert-manager) · map-extract       │
+│  CronJobs: portal-data-purge · pg-backup · captive-portal-pg-backup · map-extract   │
 ├─ EXTERNAL STATE (Pulumi providers, Pulumi Cloud backend) ───────────────────────────┤
 │  cloudflare: Access apps/policies/tags + tunnel ingress (re-homed from bosun)       │
 │  unifi (filipowm, bridged): ADOPT-ONLY import of existing net/wlan/dns/user/syslog  │
@@ -75,11 +75,12 @@ need **zero changes**. The cluster reads 1Password once per refresh interval (po
 etcd), which structurally fixes the bosun op rate-limit churn (RECON decision 4,
 [[bosun-agent-op-rate-limit]]).
 
-**Postgres.** CloudNativePG (CNPG) operator managing a single-instance `Cluster` on a
-**local-path PVC on the mini's SSD** (NOT NFS: corruption footgun + the DS420+ is 2GB RAM).
-Nightly logical backups run through the `pg-backup` CronJob and write to the NAS-backed
-compatibility path `backups/postgres`; the platform-root backup path migration is deferred
-until after the proven compatibility path has a replacement backup and restore proof.
+**Postgres.** CloudNativePG (CNPG) operator managing single-instance product `Cluster`s on
+**local-path PVCs on the mini's SSD** (NOT NFS: corruption footgun + the DS420+ is 2GB RAM).
+Control Center keeps its compatibility cluster/database/backup path for now. Captive Portal has
+its own product cluster, database, auth secret, service discovery, and nightly NAS backup. The
+Control Center platform-root backup path migration is deferred until after the proven
+compatibility path has a replacement backup and restore proof.
 
 **TLS.** cert-manager with a CF **DNS-01** `ClusterIssuer` (the portal is LAN-only, HTTP-01
 can't reach it). The CF API token (`op://Homelab/Cloudflare API/credential`) is
@@ -131,6 +132,7 @@ the 8GB node schedules everything. The two services with a www-ke9a cpu reservat
 | **captive-portal** | Deployment + **LoadBalancer** `:443/:80` (spike passed, §5a) | 1 | 64M | 32M mem | none | control-center-captive-portal | LAN-only, NEVER tunneled. Cert from cert-manager into a mounted volume; nginx proxies only `/api/trpc/portal.*`. LAN reach via a LoadBalancer Service republished on en1 (192.168.0.147) by OrbStack `expose_services`, replacing the `portal-lan` proxy + `:42069` hack. |
 | **drizzle** | Deployment + ClusterIP `:4983` | 1 | 256M | 128M mem | MASTERPASS, POSTGRES_PASSWORD | control-center-drizzle | route `drizzle.worldwidewebb.co`; CF Access email-OTP gate. Persists in a `drizzle-data` PVC. |
 | **postgres** | CNPG `Cluster` (1 instance) + Service | 1 | 768M | 384M mem, 0.5 cpu | superuser/app creds via CNPG Secret (POSTGRES_PASSWORD bridged) | CNPG-managed PG image | local-path PVC on SSD. Replaces the `postgres()` builder + named `pgdata` volume. CNPG owns the Service the app connects to. |
+| **captive-portal postgres** | CNPG `Cluster` `captive-portal` (1 instance) + Service `captive-portal-rw` | 1 | 768M | 384M mem, 0.5 cpu | superuser/app creds via `captive-portal-postgres-auth` | CNPG-managed PG image | Product-owned database `captive_portal` on local-path SSD. This provisions the target database before portal data migration; existing Control Center portal tables stay untouched until cutover. |
 | **cloudflared** | Deployment | **2** (HA) | 128M | 64M mem, 0.25 cpu | TUNNEL_TOKEN | cloudflare/cloudflared:2025.10.1 | `--token-file /run/secrets/TUNNEL_TOKEN`. Public ingress; outbound-only. |
 | **bosun-agent** | **DELETED** | - | - | - | - | - | The CI deploy webhook receiver is removed; GH Actions runs `pulumi up` directly (§6). 1P "Bosun Webhook Token" + GH secret deleted (§9). |
 
@@ -159,7 +161,8 @@ worker, media-worker, portal-data-purge), preserving the weather-ingest LA-local
 | external-secrets operator + 1P `ClusterSecretStore` | Deployment(s) + CRDs | secret sync, root token `op://Homelab/Service Account Auth Token: Homelab` |
 | cert-manager + CF DNS-01 `ClusterIssuer` | Deployment(s) + CRDs | portal TLS |
 | cnpg operator | Deployment + CRDs | Postgres |
-| **pg-backup** | `CronJob` (NEW) | nightly CNPG/pg_dump → NAS via an NFS PV with `mountOptions: [nfsvers=3, nolock, tcp]` (§ below) |
+| **pg-backup** | `CronJob` | Control Center nightly CNPG/pg_dump → unchanged NAS compatibility path `backups/postgres` via an NFS PV with `mountOptions: [nfsvers=3, nolock, tcp]` (§ below) |
+| **captive-portal-pg-backup** | `CronJob` | Captive Portal nightly CNPG/pg_dump → product NAS path `backups/world-wide-webb/captive-portal/postgres` via the same NFS PV pattern. |
 | local-path provisioner | (OrbStack built-in) | SSD-backed PVCs for CNPG + drizzle-data + maps |
 
 **Nightly NAS backup (new, RECON decision 5 / GOAL Phase 3).** The live Control Center
@@ -173,6 +176,18 @@ reviewed. New product backups derive the platform NAS path
 NFS PV - which MUST carry **`mountOptions: [nfsvers=3, nolock, tcp]`** (the DS420+ is NFSv3-only;
 a v4 default mount gets "Connection refused"). One manual run must produce a dated file visible
 via `ls` on the NAS (Phase 3 acceptance).
+
+**Captive Portal product database and backup (www-jtp0.5.5).** The platform manifest now declares
+Captive Portal as its own product with CNPG cluster `captive-portal`, app database
+`captive_portal`, owner `postgres`, read-write Service `captive-portal-rw`, and auth Secret
+`captive-portal-postgres-auth` bridged from `op://Homelab/Captive Portal Postgres/password`.
+The product API's explicit secret access is `POSTGRES_PASSWORD`, `RESEND_API_KEY`, `RESEND_FROM`,
+`UNIFI_API_KEY`, `WIFI_PASSWORD`, and `WIFI_SSID`; it does not reuse the Control Center database
+credential. `captive-portal-pg-backup` runs at `15 1 * * *` LA, reads the mounted basic-auth
+secret, and writes dated `captive_portal-YYYYMMDD.sql.gz` artifacts under
+`backups/world-wide-webb/captive-portal/postgres`. This is provisioning only, not the data
+cutover: existing Control Center portal tables remain the rollback source until a reviewed
+export, scratch restore, final snapshot, and cutover are complete.
 
 ---
 
@@ -214,6 +229,14 @@ DB: `control_center`.
 | 6 | **Verify counts** | `pg-snapshot-restore.sh` captures every non-system schema/table count, shows source vs scratch side by side, and exits non-zero on mismatch | on ANY mismatch: STOP, do not cut over; source + pgdata intact, investigate |
 | 7 | **Preserve source** | `docker volume ls` still shows `control-center_pgdata` | the volume is the rollback artifact; keep it |
 | 8 | **Point app at CNPG** | api/worker DATABASE host = CNPG Service; deploy writers on k3s | revert env to Swarm PG host, scale Swarm writers back |
+
+Captive Portal follows the same data-safety rule for its product extraction: no production portal
+data apply, final snapshot, or non-scratch restore happens without human review first. Restore
+validation uses `scripts/pg-snapshot-restore.sh` with a scratch target and count comparison before
+any product database consumer is allowed to become authoritative. Rollback for the provisioning
+phase is intentionally simple: leave the old Control Center portal tables untouched, and if the
+new Captive Portal cluster/auth Secret/service discovery/backup fails, scale any new Captive
+Portal product DB consumers to zero while the old portal path continues serving.
 
 Counts in steps 2 and 6 must be surfaced side by side and **identical**. The reusable
 `scripts/pg-snapshot-restore.sh` guard rejects `production` / `control-center` as scratch targets
