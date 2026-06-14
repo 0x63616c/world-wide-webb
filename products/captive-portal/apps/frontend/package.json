@@ -16,7 +16,7 @@
     "e2e:ui": "playwright test --ui"
   },
   "dependencies": {
-    "@cc/api": "workspace:*",
+    "@cc/captive-portal-api": "workspace:*",
     "@trpc/client": "^11.17.0",
     "@trpc/server": "^11.17.0",
     "clsx": "^2.1.1",

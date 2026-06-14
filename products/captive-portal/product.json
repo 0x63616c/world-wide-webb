@@ -3,5 +3,5 @@
   "slug": "captive-portal",
   "displayName": "Captive Portal",
   "productFolder": "products/captive-portal",
-  "runtimeStatus": "frontend-moved"
+  "runtimeStatus": "api-boundary"
 }

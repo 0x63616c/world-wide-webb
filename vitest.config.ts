@@ -9,6 +9,7 @@ export default defineConfig({
       "apps/web",
       "apps/worker",
       "apps/media-worker",
+      "products/captive-portal/apps/api",
       "products/captive-portal/apps/frontend",
       "packages/logger",
       "packages/platform",

@@ -59,9 +59,9 @@ One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (
 7. A11y: labels tied to inputs, `role="alert"`, `aria-invalid`/`aria-describedby`, focus rings, ≥44px targets.
 8. Own Storybook, composed (refs) into the web host Storybook as a separate sidebar section. Blocking gate: screens work (www-q002.6) starts only once the component library is browsable in the composed host (www-q002.5).
 
-**Backend (in `apps/api`)**
+**Backend (`products/captive-portal/apps/api`)**
 
-1. tRPC `portal` router: `sendCode`, `verifyCode`, `checkPassword`, `status`.
+1. Product-owned tRPC `portal` router boundary: `sendCode`, `verifyCode`, `checkPassword`, `authorize`, `status`, `resetAttempts`.
 2. UniFi never calls us; it redirects the guest's browser with query params (`mac`/`id`, `ap`, `ssid`, `t`, `url`), the MAC is carried through the whole flow.
 3. `EmailSender` interface: mock impl logs via `@repo/logger` AND stores the code (dev-readable, Calum's "print the 6 thing"); Resend impl behind the same interface once creds land (`scripts/save-resend.sh`).
 4. WiFi password check compares against the op-delivered `WIFI_PASSWORD` secret (item `WiFi Guest Credentials`, set via `scripts/save-wifi-guest.sh`).
@@ -91,7 +91,7 @@ One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (
 2. k8s `Service type: LoadBalancer` (republished on the mini's LAN NIC by OrbStack `expose_services`) and NO tunnel ingress, the portal must never be reachable through cloudflared.
 3. LAN-only via split-horizon DNS: UniFi local DNS record `captive-portal.worldwidewebb.co → Mini LAN IP`; the public wildcard resolves to Cloudflare which has no route (dead end).
 4. TLS: Let's Encrypt via Cloudflare DNS-01, issued/renewed by cert-manager, the cert mounted into the portal nginx.
-5. nginx proxies ONLY `/api/trpc/portal.*` to `api:4201`; every other path 404s, guests can never reach dashboard procedures (lights/climate/Sonos).
+5. nginx proxies ONLY `/api/trpc/portal.*`; every other path 404s, guests can never reach dashboard procedures (lights/climate/Sonos). During the M5 cutover window the proxy can still target the previous Control Center API-backed route for rollback.
 
 **Security**
 
@@ -117,7 +117,7 @@ One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (
 
 **Decisions (overrides of the Implementation Brief)**
 
-1. Monorepo app in control-center, not a standalone server: frontend `products/captive-portal/apps/frontend`, backend currently in `apps/api` (tRPC) until the M5 backend split, deploy via Pulumi/k3s.
+1. Monorepo app in control-center, not a standalone server: frontend `products/captive-portal/apps/frontend`, product API boundary `products/captive-portal/apps/api`, deploy via Pulumi/k3s.
 2. Postgres (existing) instead of Redis/in-memory TTL store.
 3. Resend instead of generic SMTP; mocked (log + store the code) until creds land.
 4. shadcn/ui on Tailwind v4 instead of hand-ported CSS primitives; design tokens still match `theme.css` 1:1.

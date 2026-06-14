@@ -92,6 +92,7 @@ for (const slug of productSlugs) {
     manifest.runtimeStatus === "top-level-until-m4-move" ||
       manifest.runtimeStatus === "compatibility-wrapper" ||
       manifest.runtimeStatus === "frontend-moved" ||
+      manifest.runtimeStatus === "api-boundary" ||
       manifest.runtimeStatus === "shell",
     `${folder}/product.json runtimeStatus must describe the temporary M4 state`,
   );

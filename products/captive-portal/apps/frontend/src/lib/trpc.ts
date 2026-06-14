@@ -4,7 +4,7 @@
 // in production; the dev server proxies it. The flow drives this imperatively
 // (reducer + effects, src/flow/effects.ts), so this is the vanilla client, not
 // the React Query variant.
-import type { AppRouter } from "@cc/api/trpc";
+import type { CaptivePortalApiRouter } from "@cc/captive-portal-api/trpc";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import type { PortalClient } from "@/flow/effects";
 
@@ -12,7 +12,7 @@ import type { PortalClient } from "@/flow/effects";
  *  portal's scoped boundary; nginx 404s every other /api path. */
 const PORTAL_TRPC_URL = "/api/trpc";
 
-const trpc = createTRPCClient<AppRouter>({
+const trpc = createTRPCClient<CaptivePortalApiRouter>({
   links: [httpBatchLink({ url: PORTAL_TRPC_URL })],
 });
 

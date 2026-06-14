@@ -94,6 +94,11 @@
       // (captive webviews block CDNs, www-q002.3). That's an asset edge knip
       // can't see, so it isn't flagged as an unused devDependency.
       "ignoreDependencies": ["geist"]
+    },
+    "products/captive-portal/apps/api": {
+      // src/index.ts and server.ts are auto-detected from exports/scripts; tests
+      // are colocated in src/.
+      "entry": ["src/**/*.test.ts"]
     }
   }
 }
