@@ -160,6 +160,32 @@ scripts/pg-snapshot-restore.sh --compare-counts source-counts.tsv scratch-counts
         </section>
 
         <section>
+          <h2>M2 Proven Restore Evidence</h2>
+          <p>The first restore proof used a private local snapshot directory outside PGDATA and outside any CNPG PVC: <code>/Users/calum/control-center-pg-snapshots/www-jtp0.2.5-20260613-171514</code>.</p>
+          <table>
+            <thead><tr><th>Artifact</th><th>Observed value</th></tr></thead>
+            <tbody>
+              <tr><td>Custom dump</td><td><code>control_center-20260613-171532.dump</code>, about <code>4.1M</code></td></tr>
+              <tr><td>Plain SQL gzip</td><td><code>control_center-20260613-171532.sql.gz</code>, about <code>4.1M</code></td></tr>
+              <tr><td>Source counts</td><td><code>source-counts-20260613-171532.tsv</code>, <code>368B</code></td></tr>
+              <tr><td>Scratch counts</td><td><code>scratch-counts-20260613-restore.tsv</code></td></tr>
+              <tr><td>Scratch target</td><td>Temporary CNPG cluster <code>cc-restore-scratch</code>, deleted after validation.</td></tr>
+            </tbody>
+          </table>
+          <p>Counts matched exactly, including the Drizzle ledger and largest weather table: <code>drizzle.__drizzle_migrations|7|7</code> and <code>public.weather_reading|463104|463104</code>.</p>
+        </section>
+
+        <section>
+          <h2>Human Review Checkpoints</h2>
+          <ul>
+            <li>Production dump capture requires explicit human approval before any dump command runs.</li>
+            <li>Final pre-cutover snapshots require explicit approval and a documented writer-quiesce plan.</li>
+            <li>Any non-scratch restore, including restore into a product production database, requires explicit approval.</li>
+            <li>Deleting old dumps, deleting scratch artifacts, changing backup paths, or removing rollback databases requires explicit approval.</li>
+          </ul>
+        </section>
+
+        <section>
           <h2>Per-Product Data Notes</h2>
           <div class="grid">
             <article class="card">

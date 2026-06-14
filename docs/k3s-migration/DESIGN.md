@@ -215,7 +215,10 @@ DB: `control_center`.
 
 Counts in steps 2 and 6 must be surfaced side by side and **identical**. The reusable
 `scripts/pg-snapshot-restore.sh` guard rejects `production` / `control-center` as scratch targets
-so an operator cannot accidentally overwrite the live database while proving a restore. Old pgdata
+so an operator cannot accidentally overwrite the live database while proving a restore. M2 proved
+this with `control_center-20260613-171532.dump` restored into temporary scratch cluster
+`cc-restore-scratch`; source and scratch row counts matched exactly, including
+`drizzle.__drizzle_migrations|7|7` and `public.weather_reading|463104|463104`. Old pgdata
 preserved (GOAL Phase 4 acceptance). The full cutover (tunnel switch, Swarm teardown) is §7.
 
 ---

@@ -184,6 +184,34 @@ omitted, the value lands in the wrong (default `pulumi`/project) namespace, `inf
 it, and builds silently never roll** (the deploy "succeeds" but pods stay on the old digest).
 This is the single most important deploy invariant to get right.
 
+**Postgres backup status and restore proof (www-jtp0.2).** The live backup CronJob is
+`pg-backup` in namespace `control-center`, derived from the platform `DatabaseBackup` primitive
+while preserving the compatibility path `backups/postgres`. Operator commands:
+
+```bash
+kubectl --context cc-homelab -n control-center get cronjob pg-backup -o wide
+kubectl --context cc-homelab -n control-center create job --from=cronjob/pg-backup pg-backup-manual-$(date +%Y%m%d%H%M%S)
+kubectl --context cc-homelab -n control-center wait --for=condition=complete --timeout=180s job/<job-name>
+kubectl --context cc-homelab -n control-center logs job/<job-name>
+```
+
+Manual backup proof from M2: job `pg-backup-manual-20260613164659` completed `1/1` in 5s and
+wrote `/backup/control_center-20260613.sql.gz`; the NAS-backed compatibility path contained
+`control_center-20260613.sql.gz` at `4284983` bytes. Dump/restore proof uses the private local
+directory `/Users/calum/control-center-pg-snapshots/www-jtp0.2.5-20260613-171514` and the additive
+tool:
+
+```bash
+scripts/pg-snapshot-restore.sh --dry-run --source production --scratch <scratch-cluster>
+scripts/pg-snapshot-restore.sh --source production --scratch <scratch-cluster> --output-dir <private-dir>
+scripts/pg-snapshot-restore.sh --compare-counts <source.tsv> <scratch.tsv>
+```
+
+Rollback artifacts are the live production database, the nightly NAS backups, and the private
+snapshot directory. Human review is required before production dump capture, final snapshots,
+non-scratch restores, backup path changes, or destructive cleanup. Scratch restore validation
+must delete only scratch resources after evidence is recorded.
+
 ---
 
 ## 7. Acceptance criteria
