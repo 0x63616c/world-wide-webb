@@ -1,0 +1,26 @@
+# Text Your Ex - API image (Bun/Hono). No static files.
+FROM oven/bun:1.2.19 AS build
+WORKDIR /app
+
+COPY package.json bun.lock ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/frontend/package.json apps/frontend/package.json
+COPY apps/e2e/package.json apps/e2e/package.json
+RUN bun install --frozen-lockfile
+
+COPY apps/api ./apps/api
+COPY package.json ./package.json
+
+# ── runtime ──
+FROM oven/bun:1.2.19 AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+ENV APP_ENV=production
+ENV PORT=8787
+
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/apps/api ./apps/api
+COPY --from=build /app/package.json ./package.json
+
+EXPOSE 8787
+CMD ["bun", "run", "apps/api/src/index.ts"]

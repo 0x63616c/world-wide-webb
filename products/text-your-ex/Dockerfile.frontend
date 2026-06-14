@@ -1,0 +1,24 @@
+# Text Your Ex - frontend image (nginx static).
+# VITE_API_BASE must be set at build time to the production API URL.
+# e.g. --build-arg VITE_API_BASE=https://api.tye.worldwidewebb.co
+FROM oven/bun:1.2.19 AS build
+WORKDIR /app
+ARG VITE_API_BASE
+ENV VITE_API_BASE=${VITE_API_BASE}
+
+COPY package.json bun.lock ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/frontend/package.json apps/frontend/package.json
+COPY apps/e2e/package.json apps/e2e/package.json
+RUN bun install --frozen-lockfile
+
+COPY apps/frontend ./apps/frontend
+RUN bun run --cwd apps/frontend build
+
+# ── runtime: nginx serves the static bundle ──
+FROM nginx:1.27-alpine AS runtime
+COPY --from=build /app/apps/frontend/dist /usr/share/nginx/html
+# SPA: fall through to index.html for any unknown path
+RUN printf 'server {\n  listen 80;\n  root /usr/share/nginx/html;\n  index index.html;\n  location / { try_files $uri $uri/ /index.html; }\n}\n' \
+  > /etc/nginx/conf.d/default.conf
+EXPOSE 80
