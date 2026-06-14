@@ -93,7 +93,10 @@
       "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
     },
     {
-      "includes": ["**/products/text-your-ex/apps/api/src/__tests__/**"],
+      "includes": [
+        "**/products/text-your-ex/apps/api/src/__tests__/**",
+        "**/products/text-your-ex/apps/e2e/**"
+      ],
       "linter": {
         "rules": {
           "style": { "noProcessEnv": "off", "noNonNullAssertion": "off" }
