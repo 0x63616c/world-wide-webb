@@ -156,7 +156,8 @@ against the loopback context can fail post-reboot. The job is `KeepAlive` so it 
 
 **`com.calum.portal-443-forward` root LaunchDaemon (www-j934.20).** Forwards the mini's LAN
 en1 `192.168.0.147:443` → the k8s captive-portal LB `192.168.139.2:443`, so
-`https://captive-portal.worldwidewebb.co` is reachable on the LAN with the cert-manager cert.
+`https://app.cp.worldwidewebb.co` and the legacy
+`https://captive-portal.worldwidewebb.co` are reachable on the LAN with the cert-manager cert.
 OrbStack `expose_services` republishes the portal LB's `:80` onto en1 but NOT `:443`: OrbStack's
 own built-in HTTPS proxy (`network.https: true`, serving `*.orb.local`) already holds the
 wildcard host `:443`, so `expose_services` only lands `:443` on a random NodePort. This raw-TCP

@@ -52,7 +52,9 @@ if ! sync_real_cert; then
         # before acme issues the real cert (typically within minutes of boot).
         openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
             -nodes -keyout "$LIVE_KEY" -out "$LIVE_FULLCHAIN" -days 365 \
-            -subj "/CN=captive-portal.worldwidewebb.co" >/dev/null 2>&1
+            -subj "/CN=app.cp.worldwidewebb.co" \
+            -addext "subjectAltName=DNS:app.cp.worldwidewebb.co,DNS:captive-portal.worldwidewebb.co" \
+            >/dev/null 2>&1
     fi
 fi
 

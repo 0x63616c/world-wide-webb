@@ -144,7 +144,7 @@ never a literal in the public repo (no-personal-email guard).
 |---|---|---|---|
 | **docker-image-prune** | **DELETED** | - | kubelet image GC replaces it (high 85% / low 80%, eval 5m). External prune tools break kubelet's accounting (RECON decision 7); no image-prune CronJob exists in k3s. |
 | **portal-data-purge** | `CronJob` | `0 2 * * *` | runs the api image, `command: bun purge.js`; needs POSTGRES_PASSWORD only. `concurrencyPolicy: Forbid`, `restartPolicy: Never`, history limits 3/1. |
-| **portal-cert-renew** | **cert-manager** `Certificate` + DNS-01 `ClusterIssuer` | continuous (renewBefore window) | acme.sh cron retired; cert-manager issues/renews `captive-portal.worldwidewebb.co` and writes the secret cert-manager-side. The portal mounts that secret (§5a). |
+| **portal-cert-renew** | **cert-manager** `Certificate` + DNS-01 `ClusterIssuer` | continuous (renewBefore window) | acme.sh cron retired; cert-manager issues/renews `app.cp.worldwidewebb.co` plus legacy `captive-portal.worldwidewebb.co` and writes the secret cert-manager-side. The portal mounts that secret (§5a). |
 | **map-extract** | `CronJob` (monthly, `23 5 3 * *`) | monthly refresh | **superseded by www-hn1i:** runs the in-repo `map-provision` image in force mode, resolves the newest Protomaps build at runtime (a pinned date rots in ~7 days), extracts into the `maps` PV atomically. First-provision is the web pod's `map-provision` initContainer (if-missing mode), so nothing is manual; `kubectl create job --from=cronjob/map-extract` remains for ad-hoc refresh. |
 
 `TZ=America/Los_Angeles` is set as a pod env on every workload that has it today (api,
@@ -242,9 +242,10 @@ never had ([[orbstack-swarm-lan-port-exposure]] is now obsolete - that workaroun
   workaround are **deleted**. The `portal-edge` attachable overlay is gone (k8s ClusterIP
   service discovery replaces it).
 - Split-horizon DNS already resolves `captive-portal.worldwidewebb.co → 192.168.0.147`
-  (UniFi static record, exists). Since `expose_services` republishes on en1 (.147), the
-  existing record needs no change. nginx still proxies ONLY `/api/trpc/portal.*` to `api`,
-  404ing every other `/api`.
+  (UniFi static record, exists). `app.cp.worldwidewebb.co` is the nested product hostname for
+  the cutover and must resolve to the same Mini LAN IP before UniFi redirect changes. nginx
+  serves both names from the same cert-manager Secret and still proxies ONLY
+  `/api/trpc/portal.*` to `api`, 404ing every other `/api`.
 
 ## 5b. media-worker NFS  **[Phase 0b spike: PASSED, with a DESIGN-CRITICAL constraint]**
 

@@ -12,8 +12,8 @@
 import * as k8s from "@pulumi/kubernetes";
 import type * as pulumi from "@pulumi/pulumi";
 
-// The portal hostname the Certificate is issued for (LAN-only, never tunneled).
-const PORTAL_HOST = "captive-portal.worldwidewebb.co";
+// The portal hostnames the Certificate is issued for (LAN-only, never tunneled).
+const PORTAL_HOSTS = ["captive-portal.worldwidewebb.co", "app.cp.worldwidewebb.co"] as const;
 // The k8s Secret cert-manager mounts the issued cert into; the portal Deployment
 // (www-j934.6) mounts the same Secret for its TLS.
 const PORTAL_TLS_SECRET = "captive-portal-tls";
@@ -147,7 +147,7 @@ export function installCertManager(args: CertManagerArgs): CertManagerResources 
       metadata: { name: "captive-portal-tls", namespace },
       spec: {
         secretName: PORTAL_TLS_SECRET,
-        dnsNames: [PORTAL_HOST],
+        dnsNames: [...PORTAL_HOSTS],
         issuerRef: { name: "letsencrypt-dns", kind: "ClusterIssuer" },
       },
     },
