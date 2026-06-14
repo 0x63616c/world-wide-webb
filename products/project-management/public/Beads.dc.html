@@ -174,6 +174,15 @@
     <sc-if value="{{ isEpics }}">
       <div style="height:100%; overflow:auto; padding:22px;">
         <div style="max-width:1180px; margin:0 auto; display:flex; flex-direction:column; gap:16px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span class="mono" style="font-size:11px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em;">Sort</span>
+            <select class="bd-input" value="{{ epicSort }}" onChange="{{ onEpicSort }}" style="padding:8px 12px; background:var(--tile); border:1px solid var(--hair); border-radius:9px; color:var(--ink-2); font-size:13px; font-family:var(--ui); cursor:pointer;">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="progress">Most complete</option>
+              <option value="name">Name (A–Z)</option>
+            </select>
+          </div>
           <sc-for list="{{ epicsView }}" as="epic" hint-placeholder-count="3">
             <div class="tile" style="padding:0; overflow:hidden;">
               <div onClick="{{ epic.toggle }}" style="display:flex; align-items:center; gap:16px; padding:20px 22px; cursor:pointer;">
@@ -189,16 +198,24 @@
               </div>
               <sc-if value="{{ epic.expanded }}">
                 <div style="border-top:1px solid var(--hair);">
-                  <sc-for list="{{ epic.children }}" as="row" hint-placeholder-count="3">
-                    <div class="bd-row" onClick="{{ row.onClick }}" style="{{ row.style }}">
-                      <span class="mono" style="font-size:13px; color:var(--ink-2);">{{ row.idLabel }}</span>
-                      <span><span style="{{ row.typeStyle }}">{{ row.typeLabel }}</span></span>
-                      <span><span style="{{ row.statusStyle }}">{{ row.statusLabel }}</span></span>
-                      <span style="font-size:14px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ row.title }}</span>
-                      <span style="{{ row.assigneeStyle }}">{{ row.assignee }}</span>
-                      <span><span style="{{ row.prioStyle }}">{{ row.prioLabel }}</span></span>
-                      <span class="mono" style="text-align:right; font-size:12px; color:var(--ink-3);">{{ row.depText }}</span>
-                    </div>
+                  <sc-for list="{{ epic.milestoneGroups }}" as="grp" hint-placeholder-count="2">
+                    <sc-if value="{{ grp.showHeader }}">
+                      <div style="display:flex; align-items:center; gap:8px; padding:9px 18px 7px; background:rgba(255,255,255,0.015);">
+                        <span class="mono" style="font-size:10.5px; font-weight:600; letter-spacing:0.04em; color:var(--ink-2); text-transform:uppercase;">{{ grp.label }}</span>
+                        <span class="mono" style="font-size:10.5px; color:var(--ink-3);">{{ grp.count }}</span>
+                      </div>
+                    </sc-if>
+                    <sc-for list="{{ grp.rows }}" as="row" hint-placeholder-count="3">
+                      <div class="bd-row" onClick="{{ row.onClick }}" style="{{ row.style }}">
+                        <span class="mono" style="font-size:13px; color:var(--ink-2);">{{ row.idLabel }}</span>
+                        <span><span style="{{ row.typeStyle }}">{{ row.typeLabel }}</span></span>
+                        <span><span style="{{ row.statusStyle }}">{{ row.statusLabel }}</span></span>
+                        <span style="font-size:14px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ row.title }}</span>
+                        <span style="{{ row.assigneeStyle }}">{{ row.assignee }}</span>
+                        <span><span style="{{ row.prioStyle }}">{{ row.prioLabel }}</span></span>
+                        <span class="mono" style="text-align:right; font-size:12px; color:var(--ink-3);">{{ row.depText }}</span>
+                      </div>
+                    </sc-for>
                   </sc-for>
                 </div>
               </sc-if>
@@ -210,8 +227,15 @@
 
     <!-- ---------- BOARD (hero) ---------- -->
     <sc-if value="{{ isBoard }}">
-      <div style="height:100%; overflow:hidden; padding:20px;">
-        <div style="display:grid; grid-template-columns:repeat(4, minmax(280px, 1fr)); gap:16px; height:100%; min-height:0;">
+      <div style="height:100%; overflow:hidden; padding:20px; display:flex; flex-direction:column; gap:14px;">
+        <div style="flex:0 0 auto; display:flex; align-items:center; gap:10px;">
+          <span class="mono" style="font-size:11px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em;">Milestone</span>
+          <select class="bd-input" value="{{ milestoneFilter }}" onChange="{{ onMilestoneFilter }}" style="padding:8px 12px; background:var(--tile); border:1px solid var(--hair); border-radius:9px; color:var(--ink-2); font-size:13px; font-family:var(--ui); cursor:pointer;">
+            <option value="all">All milestones</option>
+            <sc-for list="{{ milestoneOptions }}" as="m"><option value="{{ m.value }}">{{ m.label }}</option></sc-for>
+          </select>
+        </div>
+        <div style="flex:1 1 auto; min-height:0; display:grid; grid-template-columns:repeat(4, minmax(280px, 1fr)); gap:16px;">
           <sc-for list="{{ boardColumns }}" as="col" hint-placeholder-count="4">
             <div onDragOver="{{ col.onDragOver }}" onDrop="{{ col.onDrop }}" onDragLeave="{{ col.onDragLeave }}" style="{{ col.style }}">
               <div style="flex:0 0 auto; display:flex; align-items:center; gap:9px; padding:13px 16px; border-bottom:1px solid var(--hair);">
@@ -547,6 +571,8 @@ class Component extends DCLogic {
     density: 'comfortable',
     statusFilter: 'all',
     typeFilter: 'all',
+    milestoneFilter: 'all',
+    epicSort: 'newest',
     sortKey: null,
     sortDir: 'asc',
     font: (() => { try { return localStorage.getItem('beads-ui-font') || 'geist'; } catch (e) { return 'geist'; } })(),
@@ -798,12 +824,31 @@ class Component extends DCLogic {
     });
 
     // epics
-    const epicsView = issues.filter((i) => i.type === 'epic').sort((a, b) => (b.ts || 0) - (a.ts || 0)).map((ep) => {
+    // A milestone is a label like milestone-3 or m7; group an epic's children under their milestone.
+    const milestoneOf = (k) => { const labs = k.labels || []; return labs.find((l) => /^milestone-\d+$/.test(l)) || labs.find((l) => /^m\d+$/.test(l)) || null; };
+    const msNum = (k) => { const m = (k.match(/\d+/) || [])[0]; return m ? parseInt(m, 10) : 9999; };
+    const epicSorters = {
+      newest: (a, b) => (b.ts || 0) - (a.ts || 0),
+      oldest: (a, b) => (a.ts || 0) - (b.ts || 0),
+      progress: (a, b) => (b._pct || 0) - (a._pct || 0),
+      name: (a, b) => (a.title || '').localeCompare(b.title || ''),
+    };
+    const epicsRaw = issues.filter((i) => i.type === 'epic').map((ep) => {
+      const kids = (ep.children || []).map((cid) => this.byId(cid)).filter(Boolean);
+      const done = kids.filter((k) => k.status === 'closed').length;
+      ep._pct = Math.round((done / (kids.length || 1)) * 100);
+      return ep;
+    });
+    const epicsView = epicsRaw.sort(epicSorters[st.epicSort] || epicSorters.newest).map((ep) => {
       const kids = (ep.children || []).map((cid) => this.byId(cid)).filter(Boolean);
       const done = kids.filter((k) => k.status === 'closed').length;
       const total = kids.length || 1;
       const pct = Math.round((done / total) * 100);
       const expanded = !!st.expanded[ep.id];
+      const gmap = new Map();
+      kids.forEach((k) => { const m = milestoneOf(k) || 'No milestone'; if (!gmap.has(m)) gmap.set(m, []); gmap.get(m).push(k); });
+      const gkeys = [...gmap.keys()].sort((a, b) => { if (a === 'No milestone') return 1; if (b === 'No milestone') return -1; return msNum(a) - msNum(b); });
+      const milestoneGroups = gkeys.map((k) => ({ label: k === 'No milestone' ? k : k.toUpperCase(), count: gmap.get(k).length, showHeader: gkeys.length > 1 || k !== 'No milestone', rows: gmap.get(k).map((r) => this.toDisplay(r)) }));
       return {
         id: ep.id, idLabel: ep.id.toUpperCase(), title: ep.title,
         countLabel: done + '/' + kids.length,
@@ -811,14 +856,15 @@ class Component extends DCLogic {
         chevronStyle: { transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .16s ease', flex: '0 0 auto' },
         expanded,
         toggle: () => this.toggleEpic(ep.id),
-        children: kids.map((k) => this.toDisplay(k))
+        milestoneGroups
       };
     });
 
     // board
     const colKey = (it) => (it.status in STATUS_META ? it.status : 'ready');
+    const msFilter = st.milestoneFilter;
     const boardColumns = BOARD_COLS.map((col) => {
-      const cards = issues.filter((i) => i.type !== 'epic' && colKey(i) === col.key).map((it) => {
+      const cards = issues.filter((i) => i.type !== 'epic' && colKey(i) === col.key && (msFilter === 'all' || (i.labels || []).includes(msFilter))).map((it) => {
         const tm = TYPE_META[it.type] || TYPE_META.task;
         const pb = this.prioBadge(it.p);
         return {
@@ -921,6 +967,10 @@ class Component extends DCLogic {
 
       epicsView,
       boardColumns,
+      epicSort: st.epicSort, onEpicSort: (e) => this.setState({ epicSort: e.target.value }),
+      milestoneFilter: st.milestoneFilter, onMilestoneFilter: (e) => this.setState({ milestoneFilter: e.target.value }),
+      hasMilestoneFilter: st.milestoneFilter !== 'all',
+      milestoneOptions: (() => { const s = new Set(); issues.forEach((i) => (i.labels || []).forEach((l) => { if (/^milestone-\d+$/.test(l) || /^m\d+$/.test(l)) s.add(l); })); return [...s].sort((a, b) => { const na = parseInt((a.match(/\d+/) || [9999])[0], 10), nb = parseInt((b.match(/\d+/) || [9999])[0], 10); return na - nb; }).map((l) => ({ value: l, label: l.toUpperCase() })); })(),
 
       hasSelected: !!selected, selected, closeDetail: () => this.closeDetail(),
       confirmClose: st.confirmClose, discardAndClose: () => this.discardAndClose(), cancelConfirm: () => this.setState({ confirmClose: false }),
