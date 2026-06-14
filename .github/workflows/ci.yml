@@ -745,7 +745,7 @@ jobs:
       - name: Build and push tye-api image
         uses: docker/build-push-action@v6
         with:
-          context: products/text-your-ex
+          context: .
           file: products/text-your-ex/Dockerfile.api
           platforms: linux/arm64
           push: true
@@ -778,7 +778,7 @@ jobs:
       - name: Build and push tye-frontend image
         uses: docker/build-push-action@v6
         with:
-          context: products/text-your-ex
+          context: .
           file: products/text-your-ex/Dockerfile.frontend
           platforms: linux/arm64
           push: true
