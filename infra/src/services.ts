@@ -264,6 +264,34 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {
+      name: "tye-api",
+      image: ghcr("tye-api", digests),
+      replicas: 1,
+      resources: { memory: "256M" },
+      secrets: mount(["POSTGRES_PASSWORD"]),
+      // Secret is product-scoped to tye-secrets-api (not the cc-secrets-* default).
+      secretName: "tye-secrets-api",
+      env: {
+        TZ,
+        APP_ENV: "production",
+        NODE_ENV: "production",
+        POSTGRES_HOST: "text-your-ex-rw",
+        POSTGRES_DB: "text_your_ex",
+        POSTGRES_USER: "postgres",
+      },
+      ports: [{ containerPort: 8787, expose: "cluster" }],
+      imagePullSecrets: [GHCR_PULL_SECRET],
+    },
+    {
+      name: "tye-frontend",
+      image: ghcr("tye-frontend", digests),
+      replicas: 1,
+      resources: { memory: "64M" },
+      env: { TZ },
+      ports: [{ containerPort: 80, expose: "cluster" }],
+      imagePullSecrets: [GHCR_PULL_SECRET],
+    },
+    {
       name: "cloudflared",
       image: "cloudflare/cloudflared:2025.10.1",
       replicas: cloudflaredReplicas, // HA (2) at cutover; 0 pre-cutover so it

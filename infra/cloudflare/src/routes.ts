@@ -16,6 +16,7 @@ import {
   ampProductManifest,
   controlCenterProductManifest,
   type ProductServiceDeclaration,
+  textYourExProductManifest,
 } from "@repo/platform";
 
 /** The CNAME target every tunnel-routed hostname points at. */
@@ -111,23 +112,31 @@ export function cloudflareRoutesForExposures(
 }
 
 function productRoutes(): CloudflareRoutes {
-  const ccManifest = controlCenterProductManifest();
-  const ampManifest = ampProductManifest();
+  const cc = controlCenterProductManifest();
+  const amp = ampProductManifest();
+  const tye = textYourExProductManifest();
 
-  return cloudflareRoutesForExposures([
+  const sources: CloudflareExposureSource[] = [
     {
-      exposure: ccManifest.app.exposure,
+      exposure: cc.app.exposure,
       origin: "http://web:80",
       comment: "platform:control-center private app route",
     },
     // AMP v0: stateless private-web app, no api.amp route (www-jtp0.8.6).
     // Any future api.amp surface requires a human review checkpoint before apply.
     {
-      exposure: ampManifest.app.exposure,
+      exposure: amp.app.exposure,
       origin: "http://amp-app:80",
       comment: "platform:amp private app route",
     },
-  ]);
+    {
+      exposure: tye.app.exposure,
+      origin: "http://tye-frontend:80",
+      comment: "platform:text-your-ex public app route",
+    },
+  ];
+
+  return cloudflareRoutesForExposures(sources);
 }
 
 /** The live tunnel ingress rules for zone `<zone>` (adopt-only import target). */

@@ -82,6 +82,44 @@
     {
       "includes": ["**/infra/unifi/program.ts", "**/infra/unifi/src/**"],
       "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
+    },
+    {
+      "includes": [
+        "**/products/text-your-ex/apps/api/src/env.ts",
+        "**/products/text-your-ex/apps/api/src/db/index.ts",
+        "**/products/text-your-ex/apps/api/src/index.ts",
+        "**/products/text-your-ex/apps/api/src/seed.ts"
+      ],
+      "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
+    },
+    {
+      "includes": [
+        "**/products/text-your-ex/apps/api/src/__tests__/**",
+        "**/products/text-your-ex/apps/e2e/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": { "noProcessEnv": "off", "noNonNullAssertion": "off" }
+        }
+      }
+    },
+    {
+      "includes": ["**/products/text-your-ex/docs/design-reference/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useButtonType": "off",
+            "noSvgWithoutTitle": "off",
+            "useKeyWithClickEvents": "off",
+            "noStaticElementInteractions": "off",
+            "useSemanticElements": "off"
+          },
+          "suspicious": { "noArrayIndexKey": "off", "noConsole": "off" },
+          "style": { "noNonNullAssertion": "off", "useTemplate": "off" },
+          "complexity": { "useLiteralKeys": "off" },
+          "correctness": { "noUnusedVariables": "off", "noUnusedImports": "off" }
+        }
+      }
     }
   ]
 }

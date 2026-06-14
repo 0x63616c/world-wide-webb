@@ -342,6 +342,9 @@ export const secretCatalog = {
   controlCenter: {
     postgresPassword: opSecret("Control Center Postgres", "password"),
   },
+  textYourEx: {
+    postgresPassword: opSecret("text-your-ex Postgres", "password"),
+  },
   drizzle: {
     masterpass: opSecret("Drizzle Gateway", "masterpass"),
   },
@@ -693,6 +696,21 @@ export type CaptivePortalProductManifest = Readonly<{
   backup: DatabaseBackup;
 }>;
 
+export type TyeServiceName = "api" | "frontend";
+export type TyeSecretUsageName = "api";
+
+export type TyeProductManifest = Readonly<{
+  product: ProductIdentity;
+  target: HomelabTarget;
+  app: Readonly<{
+    exposure: WebExposure;
+  }>;
+  services: Readonly<Record<TyeServiceName, ProductServiceDeclaration<TyeServiceName>>>;
+  secretUsages: Readonly<Record<TyeSecretUsageName, ServiceSecretUsage>>;
+  database: ProductDatabase;
+  backup: DatabaseBackup;
+}>;
+
 function mainImage(product: ProductIdentity, service: string): string {
   return `${product.imageRepository(service)}:main`;
 }
@@ -853,6 +871,53 @@ export function captivePortalProductManifest(): CaptivePortalProductManifest {
         image: mainImage(product, "api"),
         exposure: internalService({ port: 4211 }),
         secretUsage: apiSecretUsage,
+      },
+    },
+    secretUsages: { api: apiSecretUsage },
+    database,
+    backup,
+  };
+}
+
+export function textYourExProductManifest(): TyeProductManifest {
+  const product = defineProduct("text-your-ex");
+  const target = homelabTarget;
+  const appExposure = publicWeb(product, target, { host: "app" });
+  const database = defineProductDatabase(product, target, {
+    authPassword: secretCatalog.textYourEx.postgresPassword,
+    authSecretName: "tye-postgres-auth",
+    size: "2Gi",
+  });
+  const backup = defineDatabaseBackup(database, target, {
+    name: "tye-pg-backup",
+    schedule: "30 1 * * *",
+  });
+  const apiSecretUsage = defineServiceSecretUsage(
+    product,
+    "api",
+    {
+      POSTGRES_PASSWORD: secretCatalog.textYourEx.postgresPassword,
+    },
+    { targetSecretName: "tye-secrets-api" },
+  );
+
+  return {
+    product,
+    target,
+    app: { exposure: appExposure },
+    services: {
+      api: {
+        service: "api",
+        workloadName: product.serviceName("api"),
+        image: mainImage(product, "api"),
+        exposure: internalService({ port: 8787 }),
+        secretUsage: apiSecretUsage,
+      },
+      frontend: {
+        service: "frontend",
+        workloadName: product.serviceName("frontend"),
+        image: mainImage(product, "frontend"),
+        exposure: appExposure,
       },
     },
     secretUsages: { api: apiSecretUsage },

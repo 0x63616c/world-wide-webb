@@ -16,6 +16,7 @@ import {
   captivePortalProductManifest,
   controlCenterProductManifest,
   type ProductDatabase,
+  textYourExProductManifest,
 } from "@repo/platform";
 
 export interface CnpgArgs {
@@ -34,7 +35,11 @@ export interface CnpgResources {
 }
 
 function productDatabases(): ProductDatabase[] {
-  return [controlCenterProductManifest().database, captivePortalProductManifest().database];
+  return [
+    controlCenterProductManifest().database,
+    captivePortalProductManifest().database,
+    textYourExProductManifest().database,
+  ];
 }
 
 function externalSecretResourceName(database: ProductDatabase): string {

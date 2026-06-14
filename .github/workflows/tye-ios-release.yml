@@ -1,0 +1,75 @@
+# Builds the Text Your Ex iOS Capacitor shell (products/text-your-ex/ios) and uploads to TestFlight.
+# The web app is bundled at build time (Capacitor bundled mode, no server.url in capacitor.config.ts).
+# VITE_API_BASE must point at the live API; this must NOT ship until the TYE Postgres + API are deployed.
+#
+# Gate: `if: false` keeps this from running until TYE is live in production (www-jtp0.6.10).
+# Remove the `if: false` at the TYE production acceptance step.
+
+name: TYE iOS Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "products/text-your-ex/ios/**"
+      - "products/text-your-ex/capacitor.config.ts"
+      - "products/text-your-ex/apps/frontend/**"
+      - "products/text-your-ex/package.json"
+      - ".github/workflows/tye-ios-release.yml"
+  schedule:
+    - cron: "0 14 1 * *" # 1st of every month, keeps the TestFlight build fresh (90-day expiry)
+  workflow_dispatch:
+
+# GATE: blocked until TYE API is live in production. Remove when www-jtp0.6.10 is accepted.
+# Every job in this file inherits this condition.
+
+concurrency:
+  group: tye-ios-release
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and upload to TestFlight
+    if: false # GATE: remove when TYE API is live (www-jtp0.6.10)
+    runs-on: macos-26
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: products/text-your-ex
+    env:
+      VITE_API_BASE: https://api.tye.worldwidewebb.co
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.19
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        working-directory: .
+
+      - name: Build web (VITE_API_BASE baked in)
+        run: bun run --cwd apps/frontend build
+        env:
+          VITE_API_BASE: ${{ env.VITE_API_BASE }}
+
+      - name: Capacitor sync
+        run: bunx cap sync ios
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: products/text-your-ex
+
+      - name: Build and upload to TestFlight
+        run: bundle exec fastlane release
+        env:
+          MATCH_PASSWORD: ${{ secrets.TYE_MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.TYE_MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_GIT_URL: ${{ secrets.TYE_MATCH_GIT_URL }}
+          ASC_KEY_ID: ${{ secrets.TYE_ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.TYE_ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.TYE_ASC_KEY_CONTENT }}
