@@ -78,6 +78,18 @@ const expectedServices: readonly ServiceBoundary[] = [
   },
 ] as const;
 
+const dockerfilesWithWorkspaceManifests = [
+  `${productRoot}/api/Dockerfile`,
+  `${productRoot}/drizzle/Dockerfile`,
+  `${productRoot}/map-provision/Dockerfile`,
+  `${productRoot}/media-worker/Dockerfile`,
+  `${productRoot}/web/Dockerfile`,
+  `${productRoot}/web/Dockerfile.storybook`,
+  `${productRoot}/worker/Dockerfile`,
+  "products/amp/Dockerfile",
+  "products/captive-portal/apps/frontend/Dockerfile",
+] as const;
+
 function readJson(relativePath: string): JsonRecord {
   return JSON.parse(readFileSync(join(repoRoot, relativePath), "utf8")) as JsonRecord;
 }
@@ -157,6 +169,18 @@ for (const service of expectedServices) {
       `${service.oldRuntimePath} must be moved under ${productRoot}`,
     );
   }
+}
+
+for (const dockerfilePath of dockerfilesWithWorkspaceManifests) {
+  const dockerfile = readFileSync(join(repoRoot, dockerfilePath), "utf8");
+  assert(
+    !dockerfile.includes("apps/captive-portal/package.json"),
+    `${dockerfilePath} must not copy deleted apps/captive-portal/package.json`,
+  );
+  assert(
+    !dockerfile.includes("products/captive-portal/products/control-center"),
+    `${dockerfilePath} must not copy self-nested products/captive-portal/products/control-center paths`,
+  );
 }
 
 assert(
