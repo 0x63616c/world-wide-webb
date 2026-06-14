@@ -218,6 +218,7 @@
               <div style="flex:1 1 auto; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:11px; padding:14px;">
                 <sc-for list="{{ col.cards }}" as="card" hint-placeholder-count="2">
                   <div class="tile bd-card" draggable="true" onDragStart="{{ card.onDragStart }}" onDragEnd="{{ card.onDragEnd }}" onClick="{{ card.onClick }}" style="{{ card.style }}">
+                    <span style="position:absolute; left:0; top:0; bottom:0; width:3px; background:{{ card.barColor }};"></span>
                     <div style="font-size:14.5px; font-weight:500; line-height:1.35; color:var(--ink); margin-bottom:13px; letter-spacing:-0.01em;">{{ card.title }}</div>
                     <div style="display:flex; align-items:center; gap:8px;">
                       <span style="{{ card.typeStyle }}">{{ card.typeLabel }}</span>
@@ -777,9 +778,10 @@ class Component extends DCLogic {
         return {
           id: it.id, idLabel: it.id.toUpperCase(), title: it.title,
           chevN: it.p <= 2 ? 3 - it.p : 0, chevColor: (PRIO_META[it.p] || {}).c || 'var(--ink-3)',
+          barColor: (STATUS_META[col.key] || STATUS_META.ready).c,
           typeLabel: tm.label, typeStyle: this.badge(tm),
           prioLabel: pb.label, prioStyle: pb.style,
-          style: { padding: 15, gap: 0 },
+          style: { padding: 15, paddingLeft: 18, gap: 0, position: 'relative', overflow: 'hidden' },
           onClick: () => this.openDetail(it.id),
           onDragStart: (e) => { try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.id); } catch (err) {} this.setState({ dragId: it.id }); },
           onDragEnd: () => this.setState({ dragId: null, dragOverCol: null })
