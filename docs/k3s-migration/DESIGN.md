@@ -77,7 +77,9 @@ etcd), which structurally fixes the bosun op rate-limit churn (RECON decision 4,
 
 **Postgres.** CloudNativePG (CNPG) operator managing a single-instance `Cluster` on a
 **local-path PVC on the mini's SSD** (NOT NFS: corruption footgun + the DS420+ is 2GB RAM).
-New nightly logical backups to the NAS (today no backups exist, `autobackup:false`).
+Nightly logical backups run through the `pg-backup` CronJob and write to the NAS-backed
+compatibility path `backups/postgres`; the platform-root backup path migration is deferred
+until after the proven compatibility path has a replacement backup and restore proof.
 
 **TLS.** cert-manager with a CF **DNS-01** `ClusterIssuer` (the portal is LAN-only, HTTP-01
 can't reach it). The CF API token (`op://Homelab/Cloudflare API/credential`) is
