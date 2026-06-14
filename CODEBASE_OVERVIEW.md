@@ -38,6 +38,8 @@ deploy
 - `products/control-center` - Product-owned Control Center boundary. Runtime app source now lives under this product folder while production image names, workload names, routes, and namespace stay unchanged.
 - `products/captive-portal/apps/api` - Captive Portal product API boundary, exposing only the portal tRPC surface.
 - `products/captive-portal/apps/frontend` - Guest WiFi captive portal frontend product app.
+- `products/text-your-ex` - Text Your Ex product shell (package + manifest). Non-deployed until its M6 import lands; carries a CI path filter now so the lane is visible.
+- `products/amp` - AMP product: a static nginx single-page app built from its own tree, deployed via its own image + CI lane.
 - `packages/api` - Browser-safe type bridge that re-exports the API router type only.
 - `packages/logger` - Shared pino logger with centralized redaction and runtime-safe config.
 - `packages/platform` - Pure platform foundation package for product identity, target, exposure, secret, database, backup, and Control Center representation primitives.

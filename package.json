@@ -21,6 +21,7 @@
     "test:control-center-ci-split": "bun scripts/check-control-center-ci-split.ts",
     "test:product-ci-isolation": "bun scripts/check-product-ci-isolation.ts",
     "test:tilt-product-lanes": "bun scripts/check-tilt-product-lanes.ts",
+    "test:product-doc-paths": "bun scripts/check-product-doc-paths.ts",
     "test:amp-ci-deploy": "bun scripts/check-amp-ci-deploy.ts",
     "test:coverage": "bash scripts/coverage.sh",
     "identity:audit": "scripts/check-rename-identity.py",

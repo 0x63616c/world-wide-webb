@@ -358,6 +358,7 @@ jobs:
           bun run check:control-center-product-boundary
           bun run test:product-ci-isolation
           bun run test:tilt-product-lanes
+          bun run test:product-doc-paths
           bun run test:amp-ci-deploy
       - name: Captive-portal LAN-edge proxy topology tests
         # Hermetic self-test of the portal-lan TLS-on-:42069 + http->https

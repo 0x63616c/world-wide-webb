@@ -26,7 +26,8 @@
 - `products/control-center/api/src/server.ts`: Bun+tRPC API entrypoint. Routers under `products/control-center/api/src/trpc/routers`, domain logic under `products/control-center/api/src/services`.
 - `products/control-center/worker`: fast interval loops; imports domain cycles via `@control-center/api/worker` (`products/control-center/api/src/worker-deps.ts`).
 - `products/control-center/media-worker`: heavier queue/media work; imports via `@control-center/api/media`.
-- `products/control-center`: product-owned boundary. Current packages = compatibility wrappers delegating to legacy `apps/*` paths until M7 tickets move CI, infra, source fully behind product paths.
+- `products/control-center`: product-owned boundary holding the Control Center runtime (web/api/worker/media-worker). The M4 product-folder move landed (www-jtp0.4.4); product-owned paths are authoritative, no top-level `apps/*` runtime remains.
+- `products/captive-portal`, `products/text-your-ex`, `products/amp`: the other three product lanes. `amp` is a deployed static app; `text-your-ex` is a non-deployed shell until its M6 import. Each owns its own folder, CI path filter, and (where deployed) image.
 - `packages/api`: browser-safe type bridge only. No backend runtime code in web bundle.
 - `packages/logger`: shared backend logger. Backend uses `@repo/logger`, not `console.*`.
 - `packages/platform`: pure platform foundation package. Product/platform work prefer its typed product, target, exposure, secret, database, backup, manifest primitives over new infra string soup.
@@ -52,6 +53,7 @@
 ## Infra And Deploy
 
 - Push to `main` runs CI, builds changed arm64 images, then `pulumi up --stack prod` against homelab k8s. Infra-only changes deploy without rebuilding images.
+- CI is product-aware (www-jtp0.4.6): `.github/workflows/ci.yml` has a per-product path filter (`web`/`api`/`captiveportal`/`textyourex`/`amp` + shared `packages/`/`bun.lock`). A single product's change rebuilds and rolls only that product, a Text-Your-Ex-only change must NOT rebuild Control Center; shared `packages/` changes conservatively rebuild dependents. Regressions are caught by `bun run test:product-ci-isolation`. The local Tilt stack is product-laned the same way (`bun run test:tilt-product-lanes`).
 - Pulumi image digest config MUST use `ccinfra:` namespace, e.g. `ccinfra:imageDigests.<svc>`. Without it, builds succeed but pods don't roll.
 - Cron-style work belongs in Kubernetes `CronJob`s in `infra/src/crons.ts`, not legacy scheduler labels or third-party scheduler.
 - Ops/deploy-path changes MUST update relevant docs same change, especially `docs/deployment-design.md` and `docs/k3s-migration/DESIGN.md`.
