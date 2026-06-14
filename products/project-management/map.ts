@@ -5,6 +5,8 @@ export interface RawIssue {
   id: string;
   title: string;
   description?: string;
+  acceptance_criteria?: string;
+  notes?: string;
   status: string;
   priority: number;
   issue_type: string;
@@ -28,8 +30,12 @@ export interface DesignIssue {
   blockedBy: string[];
   blocks: string[];
   desc: string;
+  acceptance: string; // acceptance_criteria; "" if none
+  notes: string; // free-form notes; "" if none
   children?: string[];
   ts: number; // updated_at (fallback created_at) as epoch ms; 0 if unknown. For sorting.
+  created: number; // created_at as epoch ms; 0 if unknown
+  createdBy: string; // short handle of the creator
 }
 
 // bd issue_type -> mockup type. Anything unrecognized falls back to 'task'.
@@ -131,13 +137,17 @@ export function mapIssues(raw: RawIssue[]): DesignIssue[] {
       type,
       title: issue.title,
       status: mapStatus(issue.status),
-      p: Math.min(Math.max(issue.priority ?? 2, 0), 5),
+      p: Math.min(Math.max(issue.priority ?? 2, 0), 4),
       assignee: mapAssignee(issue.owner, issue.created_by),
       labels: issue.labels ?? [],
       blockedBy: blockedByMap.get(issue.id) ?? [],
       blocks: blocksMap.get(issue.id) ?? [],
       desc: issue.description ?? "",
+      acceptance: issue.acceptance_criteria ?? "",
+      notes: issue.notes ?? "",
       ts: parseTs(issue.updated_at ?? issue.created_at),
+      created: parseTs(issue.created_at),
+      createdBy: mapAssignee(issue.created_by),
     };
     if (type === "epic") out.children = childrenMap.get(issue.id) ?? [];
     return out;
@@ -150,10 +160,14 @@ if (import.meta.main) {
       id: "www-epic",
       title: "Big Epic",
       description: "the epic",
+      acceptance_criteria: "- [ ] ships\n- [ ] tested",
+      notes: "some notes",
       status: "in_progress",
       priority: 0,
       issue_type: "epic",
       owner: "6991398+0x63616c@users.noreply.github.com",
+      created_by: "6991398+0x63616c@users.noreply.github.com",
+      created_at: "2026-06-01T12:00:00Z",
       labels: ["area:core"],
     },
     {
@@ -170,7 +184,7 @@ if (import.meta.main) {
       id: "www-b",
       title: "Second child (blocked)",
       status: "blocked",
-      priority: 5, // clamps to 3
+      priority: 5, // clamps to 4 (PRIO_META is P0..P4)
       issue_type: "bug",
       // child of the epic AND blocked by www-a
       dependencies: [
@@ -199,6 +213,10 @@ if (import.meta.main) {
   assert(epic.status === "in_progress", "epic status mapped");
   assert(epic.p === 0, "epic p=0");
   assert(epic.assignee === "0x63616c", "epic assignee from + email");
+  assert(epic.acceptance === "- [ ] ships\n- [ ] tested", "epic acceptance mapped");
+  assert(epic.notes === "some notes", "epic notes mapped");
+  assert(epic.created === Date.parse("2026-06-01T12:00:00Z"), "epic created ts mapped");
+  assert(epic.createdBy === "0x63616c", "epic createdBy from + email");
 
   assert(a.type === "feature", "a type");
   assert(a.status === "ready", "a status (open->ready)");
@@ -209,7 +227,8 @@ if (import.meta.main) {
 
   assert(b.type === "bug", "b type");
   assert(b.status === "blocked", "b status");
-  assert(b.p === 3, "b p clamped to 3");
+  assert(b.p === 4, "b p clamped to 4");
+  assert(b.acceptance === "" && b.notes === "", "b has empty acceptance/notes");
   assert(b.assignee === "", "b unassigned");
   assert(b.blockedBy.length === 1 && b.blockedBy[0] === "www-a", "b blockedBy www-a (ghost dropped)");
   assert(b.blocks.length === 0, "b blocks nothing");

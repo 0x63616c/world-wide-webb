@@ -54,6 +54,7 @@
   .bd-newbtn { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:8px; border:1px solid var(--acc-line); background:var(--acc); color:#fff; font-size:13px; font-weight:500; font-family:var(--ui); cursor:pointer; letter-spacing:-0.01em; white-space:nowrap; transition:filter .14s ease; }
   .bd-newbtn:hover { filter:brightness(1.1); }
   .bd-sortcol:hover { color: var(--ink) !important; }
+  .bd-link:hover { text-decoration: underline; }
   .bd-iconbtn { display:inline-flex; align-items:center; justify-content:center; width:34px; height:32px; border-radius:8px; border:1px solid var(--hair); background:transparent; color:var(--ink-2); cursor:pointer; transition:all .14s ease; }
   .bd-iconbtn:hover { color:var(--ink); border-color:var(--hair-2); background:var(--nest); }
   .bd-fontcard { display:flex; flex-direction:column; gap:10px; text-align:left; padding:18px; border-radius:14px; border:1px solid var(--hair); background:var(--tile); cursor:pointer; transition:all .14s ease; }
@@ -266,7 +267,12 @@
             </div>
             <div style="display:flex; flex-direction:column; gap:6px;">
               <span class="cap">Epic</span>
-              <span style="font-size:14px; color:var(--ink-2);">{{ selected.epicLabel }}</span>
+              <sc-if value="{{ selected.hasEpic }}">
+                <span class="bd-link" onClick="{{ selected.openEpic }}" style="font-size:14px; color:var(--acc-line); cursor:pointer; width:fit-content;">{{ selected.epicLabel }}</span>
+              </sc-if>
+              <sc-if value="{{ selected.noEpic }}">
+                <span style="font-size:14px; color:var(--ink-2);">-</span>
+              </sc-if>
             </div>
           </div>
 
@@ -283,6 +289,37 @@
           <div style="display:flex; flex-direction:column; gap:9px;">
             <span class="cap">Description</span>
             <p style="margin:0; font-size:14px; line-height:1.6; color:var(--ink-2);">{{ selected.description }}</p>
+          </div>
+
+          <sc-if value="{{ selected.hasAcceptance }}">
+            <div style="display:flex; flex-direction:column; gap:9px;">
+              <span class="cap">Acceptance criteria</span>
+              <p style="margin:0; font-size:13.5px; line-height:1.7; color:var(--ink-2); white-space:pre-wrap; font-family:var(--mono);">{{ selected.acceptance }}</p>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ selected.hasNotes }}">
+            <div style="display:flex; flex-direction:column; gap:9px;">
+              <span class="cap">Notes</span>
+              <p style="margin:0; font-size:13.5px; line-height:1.7; color:var(--ink-2); white-space:pre-wrap;">{{ selected.notes }}</p>
+            </div>
+          </sc-if>
+
+          <div style="display:flex; gap:32px; flex-wrap:wrap;">
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <span class="cap">Created</span>
+              <span style="font-size:13.5px; color:var(--ink-2);">{{ selected.createdLabel }}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <span class="cap">Updated</span>
+              <span style="font-size:13.5px; color:var(--ink-2);">{{ selected.updatedLabel }}</span>
+            </div>
+            <sc-if value="{{ selected.hasCreatedBy }}">
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <span class="cap">Created by</span>
+                <span style="font-size:13px; color:var(--ink-2); font-family:var(--mono);">{{ selected.createdBy }}</span>
+              </div>
+            </sc-if>
           </div>
 
           <div style="display:flex; flex-direction:column; gap:11px;">
@@ -495,6 +532,7 @@ class Component extends DCLogic {
   }
 
   byId(id) { return this.state.issues.find((x) => x.id === id); }
+  fmtDate(ms) { if (!ms) return '-'; return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
   isCompact() { return true; }
 
   badge(meta) { return { ...PILL, color: meta.c, background: meta.b, border: '1px solid ' + meta.l }; }
@@ -742,9 +780,15 @@ class Component extends DCLogic {
         id: sel.id, title: sel.title,
         typeLabel: tm.label, typeStyle: this.badge(tm),
         assignee: av.assignee, assigneeStyle: { ...av.assigneeStyle, fontSize: 14 },
-        epicLabel: epicParent ? epicParent.id : '-',
+        epicLabel: epicParent ? epicParent.title : '-',
+        hasEpic: !!epicParent, noEpic: !epicParent,
+        openEpic: epicParent ? () => this.openDetail(epicParent.id) : () => {},
         labels: sel.labels || [], noLabels: !(sel.labels && sel.labels.length),
         description: sel.desc,
+        acceptance: sel.acceptance || '', hasAcceptance: !!(sel.acceptance && sel.acceptance.trim()),
+        notes: sel.notes || '', hasNotes: !!(sel.notes && sel.notes.trim()),
+        createdLabel: this.fmtDate(sel.created), updatedLabel: this.fmtDate(sel.ts),
+        createdBy: sel.createdBy || '-', hasCreatedBy: !!(sel.createdBy && sel.createdBy.trim()),
         statusOptions, prioOptions,
         depRows, hasDeps: depRows.length > 0, noDeps: depRows.length === 0,
         activity
