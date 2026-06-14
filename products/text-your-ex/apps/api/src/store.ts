@@ -285,6 +285,7 @@ export async function listJarsForUser(userId: string): Promise<JarSummaryDTO[]> 
         jarTotalCents: members.reduce((s, m) => s + m.tally_cents, 0),
         myTallyCents: mine?.tally_cents ?? 0,
         myDaysClean: daysClean(mine?.streak_start_at ?? null),
+        myShareStreak: !!mine?.share_streak,
       };
     }),
   );

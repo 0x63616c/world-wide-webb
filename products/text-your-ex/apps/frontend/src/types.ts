@@ -39,6 +39,7 @@ export interface JarSummaryDTO {
   jarTotalCents: number;
   myTallyCents: number;
   myDaysClean: number;
+  myShareStreak: boolean;
 }
 
 export interface JarDetailDTO {

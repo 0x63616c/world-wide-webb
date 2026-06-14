@@ -135,11 +135,11 @@ export function LogSlip({ ctx }: { ctx: AppCtx }) {
       </Btn>
 
       {confirming && (
-        <button
-          type="button"
+        // biome-ignore lint/a11y/noStaticElementInteractions: dismiss backdrop, not a semantic action
+        <div
+          role="presentation"
           onClick={() => setConfirming(false)}
           style={{
-            all: "unset",
             position: "absolute",
             inset: 0,
             zIndex: 180,
@@ -212,7 +212,7 @@ export function LogSlip({ ctx }: { ctx: AppCtx }) {
               Actually I'm strong, never mind
             </button>
           </div>
-        </button>
+        </div>
       )}
     </Screen>
   );

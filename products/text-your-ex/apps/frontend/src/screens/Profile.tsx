@@ -13,34 +13,24 @@ export function Profile({ ctx }: { ctx: AppCtx }) {
   const [shares, setShares] = useState<Record<string, boolean>>({});
   const [notif, setNotif] = useState<NotifPrefs | null>(me?.notifPrefs ?? null);
 
+  const meId = me?.id;
   useEffect(() => {
-    if (!me) return;
+    if (!meId) return;
     let alive = true;
     api
       .jars()
-      .then(async (js) => {
+      .then((js) => {
         if (!alive) return;
         setJars(js);
-        // resolve my share-streak per jar from each detail
         const map: Record<string, boolean> = {};
-        await Promise.all(
-          js.map(async (j) => {
-            try {
-              const d = await api.jar(j.id);
-              const mine = d.members.find((m) => m.user.id === me.id);
-              if (mine) map[j.id] = mine.shareStreak;
-            } catch {
-              /* ignore */
-            }
-          }),
-        );
-        if (alive) setShares(map);
+        for (const j of js) map[j.id] = j.myShareStreak;
+        setShares(map);
       })
       .catch(() => {});
     return () => {
       alive = false;
     };
-  }, [me]);
+  }, [meId]);
 
   const totalDamage = jars.reduce((s, j) => s + j.myTallyCents, 0);
   const bestStreak = jars.reduce((m, j) => Math.max(m, j.myDaysClean), 0);

@@ -285,11 +285,11 @@ export function ReportMember({ ctx }: { ctx: AppCtx }) {
       </Btn>
 
       {picking && (
-        <button
-          type="button"
+        // biome-ignore lint/a11y/noStaticElementInteractions: dismiss backdrop, not a semantic action
+        <div
+          role="presentation"
           onClick={() => setPicking(false)}
           style={{
-            all: "unset",
             position: "absolute",
             inset: 0,
             zIndex: 180,
@@ -394,7 +394,7 @@ export function ReportMember({ ctx }: { ctx: AppCtx }) {
               })}
             </div>
           </div>
-        </button>
+        </div>
       )}
       <EvidenceViewer
         shots={shots}
