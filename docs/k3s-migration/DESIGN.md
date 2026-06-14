@@ -208,12 +208,14 @@ DB: `control_center`.
 | 2 | **Capture source counts** | per-table `SELECT count(*)` against Swarm postgres; record in transcript | n/a (read-only) |
 | 3 | **Dump** | `pg_dump -Fc control_center` from the Swarm PG into a file held off the pgdata volume | n/a; pgdata untouched |
 | 4 | **Bring up CNPG** | CNPG `Cluster` Running, empty DB created | delete the CNPG Cluster + its PVC; nothing migrated yet |
-| 5 | **Restore** | `pg_restore` the dump into CNPG | drop/recreate the CNPG DB and re-restore; source untouched |
-| 6 | **Verify counts** | per-table `count(*)` from CNPG, shown side-by-side vs step 2 | on ANY mismatch: STOP, do not cut over; source + pgdata intact, investigate |
+| 5 | **Restore** | `scripts/pg-snapshot-restore.sh --source production --scratch <scratch-cluster>` restores into an explicit scratch target only | scratch can be dropped/recreated; source untouched |
+| 6 | **Verify counts** | `pg-snapshot-restore.sh` captures every non-system schema/table count, shows source vs scratch side by side, and exits non-zero on mismatch | on ANY mismatch: STOP, do not cut over; source + pgdata intact, investigate |
 | 7 | **Preserve source** | `docker volume ls` still shows `control-center_pgdata` | the volume is the rollback artifact; keep it |
 | 8 | **Point app at CNPG** | api/worker DATABASE host = CNPG Service; deploy writers on k3s | revert env to Swarm PG host, scale Swarm writers back |
 
-Counts in steps 2 and 6 must be surfaced side by side and **identical**. Old pgdata
+Counts in steps 2 and 6 must be surfaced side by side and **identical**. The reusable
+`scripts/pg-snapshot-restore.sh` guard rejects `production` / `control-center` as scratch targets
+so an operator cannot accidentally overwrite the live database while proving a restore. Old pgdata
 preserved (GOAL Phase 4 acceptance). The full cutover (tunnel switch, Swarm teardown) is §7.
 
 ---

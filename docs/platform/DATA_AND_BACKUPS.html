@@ -145,6 +145,21 @@
         </section>
 
         <section>
+          <h2>M2 Snapshot And Restore Tooling</h2>
+          <p><code>scripts/pg-snapshot-restore.sh</code> is the reusable platform-era proof tool for product database snapshots and scratch restores. It is additive and does not replace the live backup CronJob.</p>
+          <ul>
+            <li>It captures exact row counts for every non-system schema/table, including <code>drizzle.__drizzle_migrations</code>.</li>
+            <li>It writes both a custom-format dump and a plain SQL gzip dump.</li>
+            <li>It restores only into an explicit scratch target; <code>production</code> and <code>control-center</code> are rejected as scratch targets.</li>
+            <li>It captures scratch row counts and fails non-zero on any mismatch with a stop message.</li>
+            <li>It never reads or prints password values; auth stays inside CNPG pods.</li>
+          </ul>
+          <div class="code-block"><pre><code>scripts/pg-snapshot-restore.sh --dry-run --source production --scratch &lt;scratch-cluster&gt;
+scripts/pg-snapshot-restore.sh --source production --scratch &lt;scratch-cluster&gt; --output-dir ./.pg-snapshots
+scripts/pg-snapshot-restore.sh --compare-counts source-counts.tsv scratch-counts.tsv</code></pre></div>
+        </section>
+
+        <section>
           <h2>Per-Product Data Notes</h2>
           <div class="grid">
             <article class="card">
