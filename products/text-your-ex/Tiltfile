@@ -1,0 +1,56 @@
+# Tiltfile - run Text Your Ex locally (no Kubernetes, just local processes).
+#
+#   tilt up        → starts the API (:8787) + web dev server (:5173), live UI at :10350
+#   tilt down      → stops everything
+#
+# Open the app at http://localhost:5173
+# View it framed as an iPhone 16 Pro Max: http://localhost:5173/?device=16promax
+
+WEB_PORT = 5173
+API_PORT = 8787
+
+# Install dependencies once (re-runs only when a package.json changes).
+local_resource(
+    'install',
+    cmd='bun install',
+    deps=[
+        'package.json',
+        'web/package.json',
+        'server/package.json',
+        'e2e/package.json',
+    ],
+    labels=['setup'],
+)
+
+# API server (Bun + Hono + SQLite). Seeds demo data on first boot.
+local_resource(
+    'api',
+    serve_cmd='bun run --cwd server dev',
+    serve_env={'PORT': str(API_PORT)},
+    resource_deps=['install'],
+    readiness_probe=probe(
+        period_secs=2,
+        http_get=http_get_action(port=API_PORT, path='/api/health'),
+    ),
+    links=[link('http://localhost:%d/api/health' % API_PORT, 'health')],
+    labels=['app'],
+)
+
+# Web dev server (Vite + React). Proxies /api to the API server.
+local_resource(
+    'web',
+    serve_cmd='bun run --cwd web dev',
+    resource_deps=['api'],
+    readiness_probe=probe(
+        period_secs=2,
+        http_get=http_get_action(port=WEB_PORT, path='/'),
+    ),
+    links=[
+        link('http://localhost:%d' % WEB_PORT, 'app'),
+        link('http://localhost:%d/?device=16promax' % WEB_PORT, 'iPhone 16 Pro Max'),
+    ],
+    labels=['app'],
+)
+
+print('Text Your Ex - web on :%d, api on :%d' % (WEB_PORT, API_PORT))
+print('iPhone 16 Pro Max view: http://localhost:%d/?device=16promax' % WEB_PORT)
