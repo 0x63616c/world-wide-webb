@@ -137,7 +137,29 @@ export function targetStatus(name: TargetName): TargetStatus {
   return assertNever(name);
 }
 
-export type WebHostOptions = Readonly<{ host: string }>;
+export type TlsCoverageMode = "exact-host" | "product-wildcard";
+
+export type ExactHostTlsCoverage = Readonly<{
+  kind: "exact-host";
+  hostname: string;
+  dnsNames: readonly [string];
+}>;
+
+export type ProductWildcardTlsCoverage = Readonly<{
+  kind: "product-wildcard";
+  hostname: string;
+  productHostnameSuffix: string;
+  dnsNames: readonly [string];
+}>;
+
+export type TlsCoverage = ExactHostTlsCoverage | ProductWildcardTlsCoverage;
+
+export type WebTlsRequirement = Readonly<{
+  required: true;
+  coverage: TlsCoverage;
+}>;
+
+export type WebHostOptions = Readonly<{ host: string; tlsCoverage?: TlsCoverageMode }>;
 
 export type WebExposure =
   | Readonly<{
@@ -146,6 +168,7 @@ export type WebExposure =
       target: ImplementedTargetName;
       host: string;
       hostname: string;
+      tls: WebTlsRequirement;
     }>
   | Readonly<{
       kind: "private-web";
@@ -153,6 +176,7 @@ export type WebExposure =
       target: ImplementedTargetName;
       host: string;
       hostname: string;
+      tls: WebTlsRequirement;
       cloudflareAccess: true;
     }>
   | Readonly<{
@@ -161,6 +185,7 @@ export type WebExposure =
       target: ImplementedTargetName;
       host: string;
       hostname: string;
+      tls: WebTlsRequirement;
       humanReview: Readonly<{
         required: true;
         reason: "Captive portal exposure changes UniFi, LAN forwarding, DNS, and TLS behavior.";
@@ -177,17 +202,58 @@ function webHostname(product: ProductIdentity, target: HomelabTarget, host: stri
   return `${host}.${product.dnsCode}.${target.domain}`;
 }
 
+function productHostnameSuffix(product: ProductIdentity, target: HomelabTarget): string {
+  return `${product.dnsCode}.${target.domain}`;
+}
+
+function webTlsRequirement(
+  product: ProductIdentity,
+  target: HomelabTarget,
+  hostname: string,
+  mode: TlsCoverageMode = "exact-host",
+): WebTlsRequirement {
+  switch (mode) {
+    case "exact-host":
+      return {
+        required: true,
+        coverage: {
+          kind: "exact-host",
+          hostname,
+          dnsNames: [hostname],
+        },
+      };
+    case "product-wildcard": {
+      const suffix = productHostnameSuffix(product, target);
+      const wildcardHostname = `*.${suffix}`;
+
+      return {
+        required: true,
+        coverage: {
+          kind: "product-wildcard",
+          hostname: wildcardHostname,
+          productHostnameSuffix: suffix,
+          dnsNames: [wildcardHostname],
+        },
+      };
+    }
+  }
+  return assertNever(mode);
+}
+
 export function publicWeb(
   product: ProductIdentity,
   target: HomelabTarget,
   options: WebHostOptions,
 ): WebExposure {
+  const hostname = webHostname(product, target, options.host);
+
   return {
     kind: "public-web",
     policy: "public",
     target: target.name,
     host: options.host,
-    hostname: webHostname(product, target, options.host),
+    hostname,
+    tls: webTlsRequirement(product, target, hostname, options.tlsCoverage),
   };
 }
 
@@ -196,12 +262,15 @@ export function privateWeb(
   target: HomelabTarget,
   options: WebHostOptions,
 ): WebExposure {
+  const hostname = webHostname(product, target, options.host);
+
   return {
     kind: "private-web",
     policy: "private",
     target: target.name,
     host: options.host,
-    hostname: webHostname(product, target, options.host),
+    hostname,
+    tls: webTlsRequirement(product, target, hostname, options.tlsCoverage),
     cloudflareAccess: true,
   };
 }
@@ -211,12 +280,15 @@ export function captivePortalWeb(
   target: HomelabTarget,
   options: WebHostOptions,
 ): WebExposure {
+  const hostname = webHostname(product, target, options.host);
+
   return {
     kind: "captive-portal-web",
     policy: "captive",
     target: target.name,
     host: options.host,
-    hostname: webHostname(product, target, options.host),
+    hostname,
+    tls: webTlsRequirement(product, target, hostname, options.tlsCoverage),
     humanReview: {
       required: true,
       reason: "Captive portal exposure changes UniFi, LAN forwarding, DNS, and TLS behavior.",

@@ -16,7 +16,27 @@ describe("exposure intent primitives", () => {
       kind: "public-web",
       hostname: "api.tye.worldwidewebb.co",
       policy: "public",
+      tls: {
+        coverage: {
+          dnsNames: ["api.tye.worldwidewebb.co"],
+          hostname: "api.tye.worldwidewebb.co",
+          kind: "exact-host",
+        },
+        required: true,
+      },
     });
+  });
+
+  test.each([
+    ["control-center", "app", "app.cc.worldwidewebb.co"],
+    ["captive-portal", "app", "app.cp.worldwidewebb.co"],
+    ["text-your-ex", "app", "app.tye.worldwidewebb.co"],
+    ["text-your-ex", "api", "api.tye.worldwidewebb.co"],
+  ] as const)("derives nested hostnames for %s %s", (slug, host, hostname) => {
+    const exposure = publicWeb(defineProduct(slug), homelabTarget, { host });
+
+    expect(exposure.hostname).toBe(hostname);
+    expect(exposure.hostname).not.toBe(`${slug}.worldwidewebb.co`);
   });
 
   test("declares private web hostnames with Cloudflare Access intent", () => {
@@ -59,5 +79,22 @@ describe("exposure intent primitives", () => {
 
     expect(appOnly.hostname).toBe("app.cc.worldwidewebb.co");
     expect(appOnly.hostname).not.toBe("api.cc.worldwidewebb.co");
+  });
+
+  test("models product-wildcard TLS as explicit coverage for nested hosts", () => {
+    const exposure = captivePortalWeb(defineProduct("captive-portal"), homelabTarget, {
+      host: "app",
+      tlsCoverage: "product-wildcard",
+    });
+
+    expect(exposure.tls).toEqual({
+      coverage: {
+        dnsNames: ["*.cp.worldwidewebb.co"],
+        hostname: "*.cp.worldwidewebb.co",
+        kind: "product-wildcard",
+        productHostnameSuffix: "cp.worldwidewebb.co",
+      },
+      required: true,
+    });
   });
 });
