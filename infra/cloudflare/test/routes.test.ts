@@ -1,5 +1,17 @@
+import {
+  defineProduct,
+  homelabTarget,
+  internalService,
+  privateWeb,
+  publicWeb,
+} from "@repo/platform";
 import { describe, expect, test } from "vitest";
-import { desiredCnames, desiredIngressRules, tunnelCnameTarget } from "../src/routes.ts";
+import {
+  cloudflareRoutesForExposures,
+  desiredCnames,
+  desiredIngressRules,
+  tunnelCnameTarget,
+} from "../src/routes.ts";
 
 // ADOPT-ONLY (www-j934.2): the ingress rules + CNAMEs must mirror the LIVE state
 // (verified 2026-06-11) exactly for a zero-diff import. Ingress = 5 hosts;
@@ -10,11 +22,12 @@ import { desiredCnames, desiredIngressRules, tunnelCnameTarget } from "../src/ro
 const ZONE = "worldwidewebb.co";
 
 describe("desiredIngressRules", () => {
-  test("declares the five live ingress hosts with their origins", () => {
+  test("declares product-derived app.cc plus the legacy ingress hosts with their origins", () => {
     const byHost = Object.fromEntries(
       desiredIngressRules(ZONE).map((r) => [r.hostname, r.service]),
     );
     expect(Object.keys(byHost).sort()).toEqual([
+      "app.cc.worldwidewebb.co",
       "dashboard.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "hooks.worldwidewebb.co",
@@ -22,6 +35,7 @@ describe("desiredIngressRules", () => {
       "storybook.worldwidewebb.co",
     ]);
     expect(byHost["dashboard.worldwidewebb.co"]).toBe("http://web:80");
+    expect(byHost["app.cc.worldwidewebb.co"]).toBe("http://web:80");
     expect(byHost["portainer.worldwidewebb.co"]).toBe("http://portainer:9000");
     expect(byHost["hooks.worldwidewebb.co"]).toBe("http://bosun-agent:4202");
   });
@@ -29,15 +43,48 @@ describe("desiredIngressRules", () => {
   test("captive-portal is NEVER tunneled (LAN-only)", () => {
     const hosts = desiredIngressRules(ZONE).map((r) => r.hostname);
     expect(hosts).not.toContain("captive-portal.worldwidewebb.co");
+    expect(hosts).not.toContain("app.cp.worldwidewebb.co");
+  });
+
+  test("renders future public/private product route shapes without undeclared APIs", () => {
+    const amp = defineProduct("amp");
+    const textYourEx = defineProduct("text-your-ex");
+    const routes = cloudflareRoutesForExposures([
+      { exposure: privateWeb(amp, homelabTarget, { host: "app" }), origin: "http://amp-web:80" },
+      {
+        exposure: publicWeb(textYourEx, homelabTarget, { host: "app" }),
+        origin: "http://tye-web:80",
+      },
+      {
+        exposure: publicWeb(textYourEx, homelabTarget, { host: "api" }),
+        origin: "http://tye-api:4201",
+      },
+      { exposure: internalService({ port: 4201 }), origin: "http://internal:4201" },
+    ]);
+
+    expect(routes.ingressRules.map((route) => route.hostname).sort()).toEqual([
+      "api.tye.worldwidewebb.co",
+      "app.amp.worldwidewebb.co",
+      "app.tye.worldwidewebb.co",
+    ]);
+    expect(routes.cnames.map((route) => route.hostname).sort()).toEqual([
+      "api.tye.worldwidewebb.co",
+      "app.amp.worldwidewebb.co",
+      "app.tye.worldwidewebb.co",
+    ]);
+    expect(routes.ingressRules.map((route) => route.hostname)).not.toContain(
+      "api.amp.worldwidewebb.co",
+    );
   });
 });
 
 describe("desiredCnames", () => {
-  test("declares all six live proxied CNAMEs incl. the stray hooks-test", () => {
+  test("declares product-derived app.cc plus legacy proxied CNAMEs incl. stray hooks-test", () => {
     const hosts = desiredCnames(ZONE)
       .map((c) => c.hostname)
       .sort();
     expect(hosts).toEqual([
+      "app.cc.worldwidewebb.co",
       "dashboard.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "hooks-test.worldwidewebb.co",

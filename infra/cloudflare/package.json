@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@repo/platform": "workspace:*",
     "@pulumi/pulumi": "^3.145.0",
     "@pulumi/cloudflare": "^5.49.0"
   },

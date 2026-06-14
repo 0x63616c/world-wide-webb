@@ -1,13 +1,9 @@
 // Tunnel ingress + proxied DNS for control-center, a pure Pulumi-friendly
 // declaration.
 //
-// ADOPT-ONLY (www-j934.2): these mirror the LIVE tunnel ingress + proxied CNAMEs
-// (verified 2026-06-11) EXACTLY, so the first `pulumi preview` after `pulumi
-// import` is 0 create / 0 delete / 0 replace. We import what is DEPLOYED, warts
-// and all: that includes `portainer` (retiring at cutover, www-j934.9) and a
-// stray `hooks-test` CNAME. Their removals become explicit, reviewable diffs at
-// their scheduled phases (portainer at cutover; hooks + hooks-test at the CI
-// rework, www-j934.14/.15), NOT silent drops here.
+// M3 adds product-derived nested hosts while preserving the imported legacy
+// hostnames as an explicit migration matrix. Legacy removals stay reviewable
+// diffs in later cutover tickets, NOT silent drops here.
 //
 // Ingress and CNAMEs are SEPARATE lists because the live state isn't symmetric:
 // every ingress host has a CNAME, but `hooks-test` has a CNAME with NO ingress
@@ -15,6 +11,8 @@
 //
 // captive-portal is intentionally absent from BOTH: it is LAN-only, reached over
 // the OrbStack LoadBalancer on the mini's en1 (DESIGN §5a), never tunneled.
+
+import { controlCenterProductManifest, type ProductServiceDeclaration } from "@repo/platform";
 
 /** The CNAME target every tunnel-routed hostname points at. */
 export function tunnelCnameTarget(tunnelId: string): string {
@@ -40,10 +38,21 @@ export interface DesiredCname {
   comment?: string;
 }
 
+export type CloudflareExposureSource = Readonly<{
+  exposure: ProductServiceDeclaration["exposure"];
+  origin: string;
+  comment?: string;
+}>;
+
+export type CloudflareRoutes = Readonly<{
+  ingressRules: readonly DesiredIngressRule[];
+  cnames: readonly DesiredCname[];
+}>;
+
 // LIVE tunnel ingress (5 hosts + the implicit catchall 404). Ports match the
 // origins cloudflared forwards to. `portainer` + `hooks` are present today and
 // retire later as explicit diffs (see header).
-const INGRESS: Record<string, string> = {
+const LEGACY_INGRESS: Record<string, string> = {
   dashboard: "http://web:80",
   portainer: "http://portainer:9000",
   // Frozen legacy origin: the live `hooks` ingress still points at the old
@@ -60,7 +69,7 @@ const INGRESS: Record<string, string> = {
 // Frozen legacy CF comment values: dashboard/storybook carry an ownership-tagged
 // route comment baked into live Cloudflare state. Adopt-only must match them
 // byte-for-byte for a zero-diff import; they are intentionally immutable here.
-const CNAME_COMMENTS: Record<string, string | undefined> = {
+const LEGACY_CNAME_COMMENTS: Record<string, string | undefined> = {
   dashboard: "bosun:control-center tunnel route",
   storybook: "bosun:control-center tunnel route",
   drizzle: "Drizzle Gateway via evee-webhooks tunnel (www-0ub8)",
@@ -69,20 +78,66 @@ const CNAME_COMMENTS: Record<string, string | undefined> = {
   portainer: undefined,
 };
 
+export function cloudflareRoutesForExposures(
+  sources: readonly CloudflareExposureSource[],
+): CloudflareRoutes {
+  const exposed = sources.filter(
+    (
+      source,
+    ): source is CloudflareExposureSource & {
+      exposure: Extract<
+        ProductServiceDeclaration["exposure"],
+        { kind: "public-web" | "private-web" }
+      >;
+    } => source.exposure?.kind === "public-web" || source.exposure?.kind === "private-web",
+  );
+
+  return {
+    ingressRules: exposed.map((source) => ({
+      hostname: source.exposure.hostname,
+      service: source.origin,
+    })),
+    cnames: exposed.map((source) => ({
+      hostname: source.exposure.hostname,
+      proxied: true as const,
+      target: tunnelCnameTarget,
+      comment: source.comment,
+    })),
+  };
+}
+
+function productRoutes(): CloudflareRoutes {
+  const manifest = controlCenterProductManifest();
+
+  return cloudflareRoutesForExposures([
+    {
+      exposure: manifest.app.exposure,
+      origin: "http://web:80",
+      comment: "platform:control-center private app route",
+    },
+  ]);
+}
+
 /** The live tunnel ingress rules for zone `<zone>` (adopt-only import target). */
 export function desiredIngressRules(zone: string): DesiredIngressRule[] {
-  return Object.entries(INGRESS).map(([sub, service]) => ({
-    hostname: `${sub}.${zone}`,
-    service,
-  }));
+  return [
+    ...productRoutes().ingressRules,
+    ...Object.entries(LEGACY_INGRESS).map(([sub, service]) => ({
+      hostname: `${sub}.${zone}`,
+      service,
+    })),
+  ];
 }
 
 /** The live proxied CNAMEs for zone `<zone>` (adopt-only import target). */
 export function desiredCnames(zone: string): DesiredCname[] {
-  return Object.entries(CNAME_COMMENTS).map(([sub, comment]) => ({
-    hostname: `${sub}.${zone}`,
-    proxied: true,
-    target: tunnelCnameTarget,
-    comment,
-  }));
+  return [
+    ...productRoutes().cnames,
+    ...Object.entries(LEGACY_CNAME_COMMENTS).map(([sub, comment]) => ({
+      hostname: `${sub}.${zone}`,
+      proxied: true as const,
+      target: tunnelCnameTarget,
+      comment,
+    })),
+  ];
 }
