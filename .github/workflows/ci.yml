@@ -47,6 +47,7 @@ jobs:
       storybook: ${{ steps.filter.outputs.storybook }}
       drizzle: ${{ steps.filter.outputs.drizzle }}
       captiveportal: ${{ steps.filter.outputs.captiveportal }}
+      textyourex: ${{ steps.filter.outputs.textyourex }}
       amp: ${{ steps.filter.outputs.amp }}
       mapprovision: ${{ steps.filter.outputs.mapprovision }}
       # infra-only changes (Pulumi program / specs) deploy without any image
@@ -135,6 +136,15 @@ jobs:
             # (www-q002.2). Its nginx.conf + Dockerfile are part of the image.
             captiveportal:
               - 'products/captive-portal/**'
+              - 'bun.lock'
+            # Text Your Ex: a non-deployed product shell until the M6 import
+            # (www-jtp0.4.5). It still gets a product-level change output so CI is
+            # product-aware and isolation is provable now, a TYE-only change must
+            # set textyourex and nothing else. Shares only root workspace deps +
+            # platform packages, no image build job exists yet (lands in M6).
+            textyourex:
+              - 'products/text-your-ex/**'
+              - 'packages/**'
               - 'bun.lock'
             # AMP: a static nginx app from its product tree. It shares only root
             # workspace deps and platform packages, so unrelated product changes
@@ -346,6 +356,7 @@ jobs:
           bun run test:product-workspaces
           bun run test:control-center-ci-split
           bun run check:control-center-product-boundary
+          bun run test:product-ci-isolation
           bun run test:amp-ci-deploy
       - name: Captive-portal LAN-edge proxy topology tests
         # Hermetic self-test of the portal-lan TLS-on-:42069 + http->https
