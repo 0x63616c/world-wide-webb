@@ -104,6 +104,10 @@ for (const app of desiredAccessApps(zoneName, applyAccessGate)) {
     {
       accountId,
       name: app.domain,
+      // The CF API (v5.49.1) requires `domain` (or destinations) on CREATE of a
+      // self-hosted app: "domain or destinations must be set (12130)". The
+      // imported legacy apps had it populated from import; new ones must set it.
+      domain: app.domain,
       type: app.type,
       httpOnlyCookieAttribute: true,
       tags: [app.tag],
