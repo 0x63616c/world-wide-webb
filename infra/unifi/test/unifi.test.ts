@@ -127,8 +127,8 @@ describe("guestAccess explicit fields (www-jtp0.5.9)", () => {
   });
 });
 
-describe("app.cp.worldwidewebb.co split-DNS record (www-jtp0.5.9, additive, gated)", () => {
-  // app.cp.worldwidewebb.co is the M5 TARGET hostname. It does NOT exist on the
+describe("app--cp.worldwidewebb.co split-DNS record (www-jtp0.5.9, additive, gated)", () => {
+  // app--cp.worldwidewebb.co is the M5 TARGET hostname. It does NOT exist on the
   // controller yet; it is a NEW (non-imported) additive DNS record gated behind
   // the applyAppCp option flag. It points to the same Mini LAN IP as
   // captive-portal.worldwidewebb.co. Applying it requires Calum to set the flag
@@ -151,11 +151,11 @@ describe("app.cp.worldwidewebb.co split-DNS record (www-jtp0.5.9, additive, gate
   test("appCpDns is an A record pointing to 192.168.0.147 when applyAppCp is true", async () => {
     const adopted = mod.adoptExisting(testProvider(), [], { applyAppCp: true });
     expect(adopted.appCpDns).toBeDefined();
-    // The record resolves app.cp.worldwidewebb.co to the Mini LAN IP, the same
+    // The record resolves app--cp.worldwidewebb.co to the Mini LAN IP, the same
     // host as captive-portal.worldwidewebb.co, on both the default and guest VLANs.
     // biome: cast through unknown to avoid non-null assertion (toBeDefined() guards above)
     const appCpDns = adopted.appCpDns as NonNullable<typeof adopted.appCpDns>;
-    expect(await get<string>(appCpDns, "name")).toBe("app.cp.worldwidewebb.co");
+    expect(await get<string>(appCpDns, "name")).toBe("app--cp.worldwidewebb.co");
     expect(await get<string>(appCpDns, "value")).toBe("192.168.0.147");
     expect(await get<string>(appCpDns, "type")).toBe("A");
     expect(await get<boolean>(appCpDns, "enabled")).toBe(true);

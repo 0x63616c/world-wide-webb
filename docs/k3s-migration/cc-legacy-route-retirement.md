@@ -1,6 +1,6 @@
 # Legacy route retirement checklist: `dashboard.worldwidewebb.co` (www-jtp0.7.11)
 
-Control Center's private app route is now `app.cc.worldwidewebb.co` (behind a
+Control Center's private app route is now `app--cc.worldwidewebb.co` (behind a
 Cloudflare Access kiosk service-token policy). The legacy public host
 `dashboard.worldwidewebb.co` is kept alive as temporary compatibility until the iOS
 TestFlight build and the wall panel are verified on the new route. This is the
@@ -11,7 +11,7 @@ explicit approval, and not before www-jtp0.7.10 (wall-panel verification) passes
 
 - [ ] www-jtp0.7.7 production data cutover complete and verified.
 - [ ] www-jtp0.7.8 iOS kiosk shipped: a TestFlight build defaulting to
-      `https://app.cc.worldwidewebb.co` is installed on the iPad.
+      `https://app--cc.worldwidewebb.co` is installed on the iPad.
 - [ ] www-jtp0.7.10 wall-panel verified healthy at 1366×1024 on `app.cc`
       (`scripts/verify-wall-panel.mjs` PASS + human screenshot review).
 - [ ] The installed kiosk has run for a soak period on `app.cc` with the watchdog

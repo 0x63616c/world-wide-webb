@@ -9,7 +9,7 @@ describe("Captive Portal platform representation", () => {
     expect(manifest.product.namespace).toBe("captive-portal");
     expect(manifest.app.exposure).toMatchObject({
       kind: "captive-portal-web",
-      hostname: "app.cp.worldwidewebb.co",
+      hostname: "app--cp.worldwidewebb.co",
       policy: "captive",
     });
     expect(manifest.services.api.exposure).toMatchObject({

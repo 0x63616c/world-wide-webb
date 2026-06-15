@@ -15,11 +15,11 @@ This is documented in `apps/api/src/cc-coupling-boundary.test.ts` and
 
 The coupling will be removed when:
 1. www-jtp0.5.7 (REQUIRES CALUM): runtime cut to product DB + product-owned router
-2. www-jtp0.5.8 (REQUIRES CALUM): LAN TLS and hostname cut to `app.cp.worldwidewebb.co`
+2. www-jtp0.5.8 (REQUIRES CALUM): LAN TLS and hostname cut to `app--cp.worldwidewebb.co`
 3. www-jtp0.5.10 (REQUIRES CALUM): production guest onboarding cutover validated
 
 **LEGACY hostname:** `captive-portal.worldwidewebb.co` (still live in production).
-**TARGET hostname:** `app.cp.worldwidewebb.co` (M5; DNS declared in `infra/unifi`,
+**TARGET hostname:** `app--cp.worldwidewebb.co` (M5; DNS declared in `infra/unifi`,
 gated behind `ccunifi:applyAppCp=true`; REQUIRES CALUM to apply).
 
 **ROLLBACK NOTE:** Do not drop old portal tables or the legacy DNS record until at

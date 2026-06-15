@@ -138,14 +138,14 @@ describe("installCertManager", () => {
       version: "v1.20.2",
     });
     const spec = await get<{ dnsNames: string[]; secretName: string }>(res.certificate, "spec");
-    expect(spec.dnsNames).toEqual(["captive-portal.worldwidewebb.co", "app.cp.worldwidewebb.co"]);
+    expect(spec.dnsNames).toEqual(["captive-portal.worldwidewebb.co", "app--cp.worldwidewebb.co"]);
     expect(spec.secretName).toBe("captive-portal-tls");
   });
 
   test("the portal nginx TLS vhost accepts both legacy and app.cp names", () => {
     const conf = readFileSync("products/captive-portal/apps/frontend/nginx.conf", "utf8");
 
-    expect(conf).toContain("server_name captive-portal.worldwidewebb.co app.cp.worldwidewebb.co;");
+    expect(conf).toContain("server_name captive-portal.worldwidewebb.co app--cp.worldwidewebb.co;");
   });
 
   test("the placeholder certificate subject prefers app.cp and keeps legacy SAN", () => {
@@ -154,9 +154,9 @@ describe("installCertManager", () => {
       "utf8",
     );
 
-    expect(entrypoint).toContain('-subj "/CN=app.cp.worldwidewebb.co"');
+    expect(entrypoint).toContain('-subj "/CN=app--cp.worldwidewebb.co"');
     expect(entrypoint).toContain(
-      "subjectAltName=DNS:app.cp.worldwidewebb.co,DNS:captive-portal.worldwidewebb.co",
+      "subjectAltName=DNS:app--cp.worldwidewebb.co,DNS:captive-portal.worldwidewebb.co",
     );
   });
 });

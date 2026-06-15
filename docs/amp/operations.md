@@ -13,11 +13,11 @@ Status: **CURRENT** (www-jtp0.8.8). AMP v0 is live as a stateless private web pr
 | Kubernetes namespace | `amp` |
 | Workload | `amp-app` (Deployment) |
 | Image | `ghcr.io/0x63616c/amp-app:main` |
-| Exposure | `privateWeb` at `app.amp.worldwidewebb.co` |
+| Exposure | `privateWeb` at `app--amp.worldwidewebb.co` |
 | Access policy | Cloudflare Access email-OTP (`allowedEmail` from Pulumi config) |
 | Database | None (stateless) |
 | Secrets | None (no ESO ExternalSecret for AMP) |
-| API surface | None (`api.amp.worldwidewebb.co` is not declared) |
+| API surface | None (`api--amp.worldwidewebb.co` is not declared) |
 
 ---
 
@@ -26,8 +26,8 @@ Status: **CURRENT** (www-jtp0.8.8). AMP v0 is live as a stateless private web pr
 AMP is a static nginx SPA with no backend, no database, and no secrets. The Kubernetes
 `Deployment` runs one or more replicas of the nginx image; there is no `Cluster` (CNPG),
 no `PersistentVolumeClaim`, and no `ExternalSecret`. The product is exposed exclusively
-through the Cloudflare tunnel at `app.amp.worldwidewebb.co` behind Cloudflare Access
-email-OTP. There is no `api.amp.worldwidewebb.co` route by default.
+through the Cloudflare tunnel at `app--amp.worldwidewebb.co` behind Cloudflare Access
+email-OTP. There is no `api--amp.worldwidewebb.co` route by default.
 
 Declarative home:
 
@@ -49,7 +49,7 @@ kubectl --context cc-homelab -n amp exec -it deployment/amp-app -- \
   wget -qO- http://localhost:80/
 
 # External (unauthenticated request should return 302 to CF Access login):
-curl -sI https://app.amp.worldwidewebb.co/
+curl -sI https://app--amp.worldwidewebb.co/
 ```
 
 ---
@@ -71,7 +71,7 @@ connection errors are expected (there is no database).
 ```bash
 # CF tunnel ingress rule and CNAME:
 pulumi --cwd infra/cloudflare stack output --stack prod 2>/dev/null | grep amp
-dig app.amp.worldwidewebb.co
+dig app--amp.worldwidewebb.co
 # Expected: CNAME to <tunnelId>.cfargotunnel.com
 ```
 
@@ -114,9 +114,9 @@ platform contract used by control-center and captive-portal:
 
 ---
 
-## Extension: adding an API route (`api.amp.worldwidewebb.co`)
+## Extension: adding an API route (`api--amp.worldwidewebb.co`)
 
-AMP v0 has no API surface. The `api.amp.worldwidewebb.co` hostname is intentionally absent
+AMP v0 has no API surface. The `api--amp.worldwidewebb.co` hostname is intentionally absent
 from `desiredAccessApps()` and `desiredIngressRules()` (enforced by the routes test:
 "api.amp is NEVER tunneled").
 
@@ -126,7 +126,7 @@ To add an API route in a future version:
    (or `publicWeb` if the API should be public).
 2. Add a `CloudflareExposureSource` entry in `productRoutes()` in `infra/cloudflare/src/routes.ts`.
 3. Update `desiredAccessApps()` in `infra/cloudflare/src/access.ts` to include the policy
-   for `api.amp.worldwidewebb.co` (email-otp or service-token as appropriate).
+   for `api--amp.worldwidewebb.co` (email-otp or service-token as appropriate).
 4. Update the test in `infra/cloudflare/test/routes.test.ts` to add `api.amp` to the
    expected ingress/CNAME lists. Update the negative assertion accordingly.
 5. **Human review checkpoint required** before any `pulumi up --stack prod` that creates the

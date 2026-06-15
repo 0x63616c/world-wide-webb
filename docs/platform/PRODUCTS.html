@@ -50,10 +50,10 @@
           <table>
             <thead><tr><th>Product</th><th>Required app surface</th><th>External API surface</th><th>Policy</th></tr></thead>
             <tbody>
-              <tr><td>Control Center</td><td><code>app.cc.worldwidewebb.co</code></td><td>Not automatic. Declare <code>api.cc</code> only if an external client needs it.</td><td><span class="chip chip-private">private</span> Cloudflare Access.</td></tr>
-              <tr><td>Captive Portal</td><td><code>app.cp.worldwidewebb.co</code></td><td>Internal or captive-scoped. Prefer same-origin/internal API for the captive flow.</td><td><span class="chip chip-captive">captive</span> LAN/guest exposure.</td></tr>
-              <tr><td>Text Your Ex</td><td><code>app.tye.worldwidewebb.co</code></td><td><code>api.tye.worldwidewebb.co</code> is required for bundled iOS.</td><td><span class="chip chip-public">public</span> web and API.</td></tr>
-              <tr><td>AMP</td><td><code>app.amp.worldwidewebb.co</code></td><td>Not automatic. Declare <code>api.amp</code> only when AMP needs it.</td><td><span class="chip chip-private">private</span> Cloudflare Access.</td></tr>
+              <tr><td>Control Center</td><td><code>app--cc.worldwidewebb.co</code></td><td>Not automatic. Declare <code>api.cc</code> only if an external client needs it.</td><td><span class="chip chip-private">private</span> Cloudflare Access.</td></tr>
+              <tr><td>Captive Portal</td><td><code>app--cp.worldwidewebb.co</code></td><td>Internal or captive-scoped. Prefer same-origin/internal API for the captive flow.</td><td><span class="chip chip-captive">captive</span> LAN/guest exposure.</td></tr>
+              <tr><td>Text Your Ex</td><td><code>app--tye.worldwidewebb.co</code></td><td><code>api--tye.worldwidewebb.co</code> is required for bundled iOS.</td><td><span class="chip chip-public">public</span> web and API.</td></tr>
+              <tr><td>AMP</td><td><code>app--amp.worldwidewebb.co</code></td><td>Not automatic. Declare <code>api.amp</code> only when AMP needs it.</td><td><span class="chip chip-private">private</span> Cloudflare Access.</td></tr>
             </tbody>
           </table>
         </section>
@@ -93,7 +93,7 @@
             <ul>
               <li>Runs on homelab k3s for this migration.</li>
               <li>Uses public app and API routes.</li>
-              <li>Uses a bundled Capacitor iOS app that points at <code>api.tye.worldwidewebb.co</code>.</li>
+              <li>Uses a bundled Capacitor iOS app that points at <code>api--tye.worldwidewebb.co</code>.</li>
               <li>Starts production with an empty database, not demo seed data.</li>
               <li>Uses its own CNPG Postgres cluster and platform-managed backups.</li>
             </ul>

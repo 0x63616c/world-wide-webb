@@ -8,12 +8,12 @@ import type { CapacitorConfig } from "@capacitor/cli";
 // This is a Capacitor CLI config file run under node by `cap`, not browser/app code,
 // so process.env is the intended override mechanism for the dev server URL.
 // www-jtp0.3.7: production host is the Control Center product route
-// app.cc.worldwidewebb.co (CF route -> web:80 + kiosk service-token Access, both
+// app--cc.worldwidewebb.co (CF route -> web:80 + kiosk service-token Access, both
 // declared in infra/cloudflare). Legacy dashboard.worldwidewebb.co stays live
 // until this TestFlight build is verified on the wall panel; roll back by
 // reverting this default while the legacy route is kept active.
 // biome-ignore lint/style/noProcessEnv: node-side CLI config, env override is intentional
-const serverUrl = process.env.CAPACITOR_DEV_SERVER_URL || "https://app.cc.worldwidewebb.co";
+const serverUrl = process.env.CAPACITOR_DEV_SERVER_URL || "https://app--cc.worldwidewebb.co";
 
 // CF Access headers (www-cuuw): the plan's preferred path was `server.headers` on
 // this config. VERIFIED against the installed Capacitor 8 SDK

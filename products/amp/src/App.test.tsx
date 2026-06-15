@@ -10,7 +10,7 @@ describe("AMP shell", () => {
       screen.getByRole("heading", { level: 1, name: "Application Management Plane" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("AMP")).toHaveLength(2);
-    expect(screen.getByText("app.amp.worldwidewebb.co")).toBeInTheDocument();
+    expect(screen.getByText("app--amp.worldwidewebb.co")).toBeInTheDocument();
     expect(
       screen.getByText("No platform operations are wired into AMP v0 yet."),
     ).toBeInTheDocument();

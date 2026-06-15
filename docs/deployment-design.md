@@ -40,7 +40,7 @@ Cluster-level machinery, all declared in `infra/` and reconciled by the same `pu
 - **cloudflared** runs **in-cluster** as a Deployment with **2 replicas** (HA, never an HPA) and
   owns the public `*.worldwidewebb.co` routing; tunnel ingress is declared in the Pulumi
   cloudflare provider. Control Center's wall panel is served at the **private** route
-  `app.cc.worldwidewebb.co` behind a Cloudflare **Access** kiosk service-token policy (a
+  `app--cc.worldwidewebb.co` behind a Cloudflare **Access** kiosk service-token policy (a
   default-deny `*.worldwidewebb.co` floor sits under it). `/trpc` is same-origin behind that
   host, so there is **no external `api.cc` route** (the api is an internal-only service). The
   legacy public host `dashboard.worldwidewebb.co` stays live as temporary compatibility until the
@@ -166,7 +166,7 @@ against the loopback context can fail post-reboot. The job is `KeepAlive` so it 
 
 **`com.calum.portal-443-forward` root LaunchDaemon (www-j934.20).** Forwards the mini's LAN
 en1 `192.168.0.147:443` → the k8s captive-portal LB `192.168.139.2:443`, so
-`https://app.cp.worldwidewebb.co` and the legacy
+`https://app--cp.worldwidewebb.co` and the legacy
 `https://captive-portal.worldwidewebb.co` are reachable on the LAN with the cert-manager cert.
 OrbStack `expose_services` republishes the portal LB's `:80` onto en1 but NOT `:443`: OrbStack's
 own built-in HTTPS proxy (`network.https: true`, serving `*.orb.local`) already holds the

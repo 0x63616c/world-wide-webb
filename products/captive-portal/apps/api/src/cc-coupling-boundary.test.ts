@@ -9,7 +9,7 @@
 //     (www-jtp0.5.7, REQUIRES CALUM).
 //
 //   - captive-portal.worldwidewebb.co is the LEGACY hostname still in production.
-//     The TARGET is app.cp.worldwidewebb.co (M5; hostname cutover is
+//     The TARGET is app--cp.worldwidewebb.co (M5; hostname cutover is
 //     www-jtp0.5.8, REQUIRES CALUM).
 //
 //   - This file is the authoritative machine-readable record of the coupling.
@@ -48,7 +48,7 @@ describe("CC coupling boundary contract (www-jtp0.5.11)", () => {
     expect(captivePortalApiDependencies.sharedRuntimeImports.length).toBeGreaterThan(0);
   });
 
-  it("declares the TARGET hostname for M5 migration (app.cp.worldwidewebb.co)", () => {
+  it("declares the TARGET hostname for M5 migration (app--cp.worldwidewebb.co)", () => {
     // Documents the intended target. The CURRENT live hostname is captive-portal.worldwidewebb.co.
     // When www-jtp0.5.8 (REQUIRES CALUM) is applied, update this declaration.
     expect(captivePortalApiDependencies).toMatchObject({
@@ -57,7 +57,7 @@ describe("CC coupling boundary contract (www-jtp0.5.11)", () => {
     });
     // The target hostname is a doc-only fact here, not a runtime config field yet.
     // The canonical reference is docs/captive-portal/runbook.md and docs/captive-portal/tls.md.
-    const targetHostname = "app.cp.worldwidewebb.co";
+    const targetHostname = "app--cp.worldwidewebb.co";
     const legacyHostname = "captive-portal.worldwidewebb.co";
     expect(targetHostname).not.toBe(legacyHostname);
     // Assert both are valid FQDN shapes (catches accidental trailing dots or typos).

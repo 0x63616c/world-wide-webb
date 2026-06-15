@@ -77,7 +77,7 @@
             <p><strong>Repo identity:</strong> this repo will eventually be renamed to <code>world-wide-webb</code>.</p>
             <p><strong>Product layout:</strong> products live under <code>products/&lt;name&gt;</code>.</p>
             <p><strong>Product set:</strong> <code>control-center</code>, <code>captive-portal</code>, <code>text-your-ex</code>, and <code>amp</code>. Short labels are networking-only and derived from product names.</p>
-            <p><strong>Hostnames:</strong> nested product hostnames are allowed, but TLS is explicit. <code>*.worldwidewebb.co</code> does not cover <code>app.cc.worldwidewebb.co</code>.</p>
+            <p><strong>Hostnames:</strong> product hosts are flattened to a single label (<code>app--cc.worldwidewebb.co</code>) so the free <code>*.worldwidewebb.co</code> Universal SSL covers them, no paid ACM (www-kbiy).</p>
             <p><strong>Database standard:</strong> per-product CNPG Postgres clusters, not SQLite or libSQL.</p>
             <p><strong>Backups:</strong> platform-managed, mandatory, backed up to the NAS, retained forever.</p>
             <p><strong>Cloud:</strong> target-aware design, but this migration ships homelab k3s only.</p>

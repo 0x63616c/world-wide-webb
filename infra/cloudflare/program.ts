@@ -21,7 +21,6 @@ import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
 import { type AccessInclude, desiredAccessApps } from "./src/access.ts";
 import { desiredCnames, desiredIngressRules } from "./src/routes.ts";
-import { applyNestedTlsCertPacks, nestedTlsCertPacks } from "./src/tls.ts";
 
 const cfg = new pulumi.Config();
 // zoneName is the public domain (plaintext). The account/zone/tunnel ids + the
@@ -32,12 +31,6 @@ const zoneName = cfg.require("zoneName");
 const accountId = cfg.requireSecret("accountId");
 const zoneId = cfg.requireSecret("zoneId");
 const tunnelId = cfg.requireSecret("tunnelId");
-// applyNestedTls gates ACM CertificatePack resources for nested-host wildcards
-// (*.tye.*, *.cc.*, *.amp.*). Default false: the live stack is unaffected
-// until Calum explicitly enables it AFTER confirming ACM is subscribed on the
-// zone. Set via: pulumi config set applyNestedTls true --stack prod
-const applyNestedTls = cfg.getBoolean("applyNestedTls") ?? false;
-
 function accessInclude(
   include: AccessInclude,
 ): cloudflare.types.input.ZeroTrustAccessPolicyInclude {
@@ -66,9 +59,9 @@ const provider = new cloudflare.Provider(
 );
 const opts: pulumi.CustomResourceOptions = { provider, protect: true };
 
-// Stable Pulumi resource name from a hostname ("app.amp.worldwidewebb.co" →
-// "app.amp"). Strips the zone suffix so multi-label subdomains like app.cc and
-// app.amp produce distinct, CF-correct record names (split(".")[0] would collide).
+// Stable Pulumi resource name from a hostname ("app--amp.worldwidewebb.co" →
+// "app--amp"). Strips the zone suffix to a single-label record name (hosts are
+// flattened to one label, so each product route is already distinct, www-kbiy).
 const sub = (host: string) => host.replace(`.${zoneName}`, "");
 
 const accessName = (host: string) =>
@@ -180,19 +173,14 @@ for (const c of desiredCnames(zoneName)) {
   );
 }
 
-// --- Nested-host TLS: ACM CertificatePack per product wildcard (flag-gated) ---
-// Cloudflare Universal SSL covers apex + *.worldwidewebb.co (one level only).
-// Product nested hosts (app.tye.*, app.cc.*, app.amp.*) require ACM advanced
-// cert packs. The `applyNestedTls` flag (default false) keeps the live stack
-// unaffected until Calum has confirmed ACM is subscribed and reviews the plan.
-if (applyNestedTls) {
-  applyNestedTlsCertPacks(nestedTlsCertPacks(zoneName), zoneId, { provider });
-}
+// TLS: product hosts are flattened to a single label (`app--cc.worldwidewebb.co`),
+// so Cloudflare's free Universal SSL `*.worldwidewebb.co` (one-level wildcard)
+// covers every product route automatically. No ACM / CertificatePack needed
+// (removed in www-kbiy).
 
 export const summary = {
   zoneName,
   accessApps: desiredAccessApps(zoneName).map((a) => a.domain),
   ingressHosts: desiredIngressRules(zoneName).map((r) => r.hostname),
   cnames: desiredCnames(zoneName).map((c) => c.hostname),
-  nestedTlsEnabled: applyNestedTls,
 };

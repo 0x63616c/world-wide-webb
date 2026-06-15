@@ -49,7 +49,7 @@
           <h2>M1 Foundation Contract</h2>
           <ul>
             <li><code>@repo/platform</code> implements exposure intent declarations named <code>publicWeb()</code>, <code>privateWeb()</code>, <code>captivePortalWeb()</code>, and <code>internalService()</code>.</li>
-            <li>These declarations derive nested hostnames from product DNS codes and the homelab target domain, for example <code>app.cc.worldwidewebb.co</code> and <code>api.tye.worldwidewebb.co</code>.</li>
+            <li>These declarations derive single-label hostnames from product DNS codes and the homelab target domain, for example <code>app--cc.worldwidewebb.co</code> and <code>api--tye.worldwidewebb.co</code>.</li>
             <li>M1 does not change live Cloudflare routes, Access policies, cert-manager certificates, UniFi DNS, guest portal redirects, LAN forwarding, or iOS URLs.</li>
             <li><code>captivePortalWeb()</code> carries an explicit human-review marker because later implementation touches UniFi, LAN forwarding, DNS, and TLS together.</li>
           </ul>
@@ -59,22 +59,22 @@
           <h2>Hostname Rules</h2>
           <ul>
             <li>Product namespace hosts are not created by default: no bare <code>cc.worldwidewebb.co</code>, <code>cp.worldwidewebb.co</code>, <code>tye.worldwidewebb.co</code>, or <code>amp.worldwidewebb.co</code>.</li>
-            <li>Service hostnames are explicit, for example <code>app.cc.worldwidewebb.co</code>.</li>
-            <li>Short DNS labels are derived by the networking primitive from the product slug: <code>control-center</code> to <code>cc</code>, <code>captive-portal</code> to <code>cp</code>, <code>text-your-ex</code> to <code>tye</code>, and <code>amp</code> remains <code>amp</code>.</li>
-            <li>Nested product hostnames are intentional. Do not rely on a root wildcard cert for them: <code>*.worldwidewebb.co</code> covers <code>dashboard.worldwidewebb.co</code>, but not <code>app.cc.worldwidewebb.co</code>.</li>
+            <li>Service hostnames are explicit and flattened to a single label, for example <code>app--cc.worldwidewebb.co</code>.</li>
+            <li>Short DNS labels are derived by the networking primitive from the product slug: <code>control-center</code> to <code>cc</code>, <code>captive-portal</code> to <code>cp</code>, <code>text-your-ex</code> to <code>tye</code>, and <code>amp</code> remains <code>amp</code>. The service host is then <code>&lt;host&gt;--&lt;code&gt;</code> (e.g. <code>app--cc</code>), one label, joined by a double hyphen.</li>
+            <li>Single-label hosts are covered by the free root wildcard: <code>*.worldwidewebb.co</code> covers both <code>dashboard.worldwidewebb.co</code> and <code>app--cc.worldwidewebb.co</code>. This is the whole reason hosts are flattened (<code>app--cc</code>) instead of nested (<code>app.cc</code>): a 2-label host would need paid Cloudflare ACM, a single label does not (www-kbiy).</li>
             <li>APIs do not automatically get external hostnames. External API routes are app-specific and declared only when needed.</li>
             <li>Public routes are opt-in. New routes default private or internal by platform policy.</li>
           </ul>
         </section>
 
         <section>
-          <h2>TLS Contract For Nested Hosts</h2>
-          <p>Nested product hostnames are a platform feature, not a reason to flatten route names. The platform must make certificate coverage explicit for every exposure.</p>
+          <h2>TLS Contract For Product Hosts</h2>
+          <p>Product hosts are flattened to a single label (<code>app--cc</code>), so the free Cloudflare Universal SSL <code>*.worldwidewebb.co</code> covers every Cloudflare-proxied route automatically. No ACM, no per-host edge cert. The platform still makes certificate coverage explicit for every exposure (the <code>exact-host</code> coverage model in <code>@repo/platform</code>).</p>
           <table>
             <thead><tr><th>Path</th><th>TLS requirement</th><th>Notes</th></tr></thead>
             <tbody>
-              <tr><td>Cloudflare-proxied web</td><td>Cloudflare edge certificate covers the exact nested host, or the product wildcard such as <code>*.cc.worldwidewebb.co</code>.</td><td>The tunnel can keep origin routing private, but the browser still needs a valid edge cert for the nested hostname.</td></tr>
-              <tr><td>Captive portal LAN</td><td>cert-manager issues an exact certificate for <code>app.cp.worldwidewebb.co</code>, or a product wildcard <code>*.cp.worldwidewebb.co</code>.</td><td>Cloudflare is not in the traffic path, so LAN clients need the k8s-served certificate to be valid.</td></tr>
+              <tr><td>Cloudflare-proxied web</td><td>Free Universal SSL <code>*.worldwidewebb.co</code> covers the single-label host (<code>app--cc.worldwidewebb.co</code>) automatically.</td><td>The tunnel keeps origin routing private; the single-label host means the browser's edge cert is the free root wildcard, no ACM.</td></tr>
+              <tr><td>Captive portal LAN</td><td>cert-manager issues an exact certificate for <code>app--cp.worldwidewebb.co</code> (Cloudflare is not in the LAN path, so this is a dedicated Let's Encrypt cert, not the CF wildcard).</td><td>LAN clients need the k8s-served certificate to be valid; a single exact host, no wildcard needed.</td></tr>
               <tr><td>iOS app URLs</td><td>The production URL must have valid public-trust TLS before TestFlight points at it.</td><td>Do not retire legacy hostnames until the shipped app version has moved.</td></tr>
             </tbody>
           </table>
@@ -85,14 +85,14 @@
           <table>
             <thead><tr><th>Route</th><th>Exposure</th><th>Notes</th></tr></thead>
             <tbody>
-              <tr><td><code>app.cc.worldwidewebb.co</code></td><td>Private web</td><td>Replaces dashboard route. Cloudflare Access-gated.</td></tr>
-              <tr><td><code>api.cc.worldwidewebb.co</code></td><td>Private web, optional</td><td>Only created if an external Control Center API route is required.</td></tr>
-              <tr><td><code>app.cp.worldwidewebb.co</code></td><td>Captive portal web</td><td>LAN/guest-network path, not normal public Cloudflare web.</td></tr>
-              <tr><td><code>api.cp.worldwidewebb.co</code></td><td>Scoped/internal by default</td><td>Prefer same-origin or internal API for captive-webview safety unless proven otherwise.</td></tr>
-              <tr><td><code>app.tye.worldwidewebb.co</code></td><td>Public web</td><td>Browser entrypoint for Text Your Ex.</td></tr>
-              <tr><td><code>api.tye.worldwidewebb.co</code></td><td>Public web/API</td><td>Required by bundled iOS app through <code>VITE_API_BASE</code>.</td></tr>
-              <tr><td><code>app.amp.worldwidewebb.co</code></td><td>Private web</td><td>Management plane app.</td></tr>
-              <tr><td><code>api.amp.worldwidewebb.co</code></td><td>Private web, optional</td><td>Only created if AMP needs an external API surface.</td></tr>
+              <tr><td><code>app--cc.worldwidewebb.co</code></td><td>Private web</td><td>Replaces dashboard route. Cloudflare Access-gated.</td></tr>
+              <tr><td><code>api--cc.worldwidewebb.co</code></td><td>Private web, optional</td><td>Only created if an external Control Center API route is required.</td></tr>
+              <tr><td><code>app--cp.worldwidewebb.co</code></td><td>Captive portal web</td><td>LAN/guest-network path, not normal public Cloudflare web.</td></tr>
+              <tr><td><code>api--cp.worldwidewebb.co</code></td><td>Scoped/internal by default</td><td>Prefer same-origin or internal API for captive-webview safety unless proven otherwise.</td></tr>
+              <tr><td><code>app--tye.worldwidewebb.co</code></td><td>Public web</td><td>Browser entrypoint for Text Your Ex.</td></tr>
+              <tr><td><code>api--tye.worldwidewebb.co</code></td><td>Public web/API</td><td>Required by bundled iOS app through <code>VITE_API_BASE</code>.</td></tr>
+              <tr><td><code>app--amp.worldwidewebb.co</code></td><td>Private web</td><td>Management plane app.</td></tr>
+              <tr><td><code>api--amp.worldwidewebb.co</code></td><td>Private web, optional</td><td>Only created if AMP needs an external API surface.</td></tr>
             </tbody>
           </table>
         </section>
@@ -140,7 +140,7 @@
           <h2>Captive Portal Network Contract</h2>
           <p>Captive Portal is a platform networking primitive because it spans app code, k8s, host networking, UniFi, DNS, certificates, and device captive network behavior.</p>
           <ul>
-            <li>Configure UniFi local DNS for <code>app.cp.worldwidewebb.co</code> to the Mini LAN path.</li>
+            <li>Configure UniFi local DNS for <code>app--cp.worldwidewebb.co</code> to the Mini LAN path.</li>
             <li>Update any host-level forwarding that still points at the old <code>control-center/captive-portal</code> service identity.</li>
             <li>Configure guest portal redirect URL to the new app host.</li>
             <li>Preserve or replace firewall/walled-garden rules deliberately.</li>

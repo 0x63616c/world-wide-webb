@@ -37,7 +37,7 @@ jobs:
       run:
         working-directory: products/text-your-ex
     env:
-      VITE_API_BASE: https://api.tye.worldwidewebb.co
+      VITE_API_BASE: https://api--tye.worldwidewebb.co
     steps:
       - uses: actions/checkout@v4
 

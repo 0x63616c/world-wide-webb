@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 // www-jtp0.3.7: the iOS kiosk shell must default to the product host
-// app.cc.worldwidewebb.co (Control Center's private app route), with the local
+// app--cc.worldwidewebb.co (Control Center's private app route), with the local
 // dev-server env override still honoured. Legacy dashboard.worldwidewebb.co is
 // retired only after a verified TestFlight build, but the SHIPPED default must
 // already be app.cc.
@@ -21,7 +21,7 @@ describe("capacitor kiosk server config", () => {
   test("production default URL is the app.cc product host", async () => {
     vi.stubEnv("CAPACITOR_DEV_SERVER_URL", "");
     const config = await loadConfig();
-    expect(config.server?.url).toBe("https://app.cc.worldwidewebb.co");
+    expect(config.server?.url).toBe("https://app--cc.worldwidewebb.co");
   });
 
   test("CAPACITOR_DEV_SERVER_URL still overrides for local dev", async () => {

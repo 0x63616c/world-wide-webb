@@ -2,7 +2,7 @@
 
 The captive portal is a **LAN-only** service (no Cloudflare tunnel; reachable on
 the Mini's LAN IP via UniFi split-horizon DNS, see the [migration design §5a](../k3s-migration/DESIGN.md)).
-But the guest WLAN is **open**, so HTTPS on `app.cp.worldwidewebb.co` is non-negotiable:
+But the guest WLAN is **open**, so HTTPS on `app--cp.worldwidewebb.co` is non-negotiable:
 a guest typing a WiFi password over plain HTTP on an open network is unacceptable. The
 legacy `captive-portal.worldwidewebb.co` name stays on the cert during cutover. We need a
 **publicly-trusted** cert (so no device shows a warning) for hosts that take **no inbound
@@ -36,7 +36,7 @@ calls to Let's Encrypt and to the Cloudflare DNS API.
 
 ## Issuance + renewal
 
-A cert-manager **`Certificate`** resource covers `app.cp.worldwidewebb.co` and legacy
+A cert-manager **`Certificate`** resource covers `app--cp.worldwidewebb.co` and legacy
 `captive-portal.worldwidewebb.co`, then references the DNS-01 `ClusterIssuer`. cert-manager
 issues it once and then renews it continuously inside the `renewBefore` window, writing the
 refreshed cert back into the same Secret. There is no scheduled job and no always-on
@@ -56,6 +56,6 @@ in the portal image, www-q002.2.)
 cert-manager surfaces the `Certificate` status (Ready, `notAfter`, renewal state)
 natively, so a stuck renewal is visible via `kubectl get certificate` well before the
 cert goes invalid. The probe does a TLS connect to the public hostname, which only
-resolves once the UniFi local DNS records (`app.cp.worldwidewebb.co` and legacy
+resolves once the UniFi local DNS records (`app--cp.worldwidewebb.co` and legacy
 `captive-portal.worldwidewebb.co → Mini LAN IP`) exist, so health is sequenced with DNS to
 avoid a red purely from deploy ordering.

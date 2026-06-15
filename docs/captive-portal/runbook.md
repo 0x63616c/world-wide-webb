@@ -12,11 +12,11 @@ Postgres database is the source of truth and the legacy hostname stays live.**
 
 | Item | Current (legacy) | Target (M5) | Status |
 |---|---|---|---|
-| **Hostname** | `captive-portal.worldwidewebb.co` | `app.cp.worldwidewebb.co` | REQUIRES CALUM (www-jtp0.5.8) |
+| **Hostname** | `captive-portal.worldwidewebb.co` | `app--cp.worldwidewebb.co` | REQUIRES CALUM (www-jtp0.5.8) |
 | **TLS cert** | `captive-portal-tls` covers legacy | Updated to cover `app.cp.*` | REQUIRES CALUM (www-jtp0.5.8) |
-| **UniFi portal hostname** | `captive-portal.worldwidewebb.co` | `app.cp.worldwidewebb.co` | REQUIRES CALUM (www-jtp0.5.9 declared, not applied) |
+| **UniFi portal hostname** | `captive-portal.worldwidewebb.co` | `app--cp.worldwidewebb.co` | REQUIRES CALUM (www-jtp0.5.9 declared, not applied) |
 | **App.cp DNS record** | Not on controller | A record -> 192.168.0.147 | REQUIRES CALUM (applyAppCp=true + pulumi up) |
-| **Walled-garden allowance** | `192.168.0.147` | Add `app.cp.worldwidewebb.co` | REQUIRES CALUM (Hotspot Portal console, www-jtp0.5.10) |
+| **Walled-garden allowance** | `192.168.0.147` | Add `app--cp.worldwidewebb.co` | REQUIRES CALUM (Hotspot Portal console, www-jtp0.5.10) |
 | **Runtime routing** | CC API (`@control-center/api/portal-router`) | Product-owned router | REQUIRES CALUM (www-jtp0.5.7) |
 | **Database** | CC Postgres (`portal_guest` etc.) | Captive Portal Postgres | REQUIRES CALUM (www-jtp0.5.7) |
 
@@ -27,7 +27,7 @@ cycle after cutover is validated (www-jtp0.5.10).
 
 **Raw-IP CNA path is unaffected by hostname migration:** `http://192.168.0.147/`
 remains the Apple CNA captive sheet URL. Real browsers will use the new
-`app.cp.worldwidewebb.co` HTTPS URL once the DNS record and cert are applied.
+`app--cp.worldwidewebb.co` HTTPS URL once the DNS record and cert are applied.
 
 ## Apple captive sheet (CNA): MUST be raw-IP HTTP (www-q002.26, 2026-06-12)
 
@@ -106,7 +106,7 @@ once, so unauthorize it first, then force a pre-auth HTTP hit:
 with empty args. As of www-jtp0.5.9, the live fields are now explicitly declared
 on the Pulumi `GuestAccess` resource: `auth=custom`, `portalEnabled=true`,
 `portalUseHostname=true`, `portalHostname=captive-portal.worldwidewebb.co`,
-`ecEnabled=false`, `expire=43200`. The `app.cp.worldwidewebb.co` A record is also
+`ecEnabled=false`, `expire=43200`. The `app--cp.worldwidewebb.co` A record is also
 declared (gated; set `ccunifi:applyAppCp=true` and run `pulumi up` after the
 walled-garden step, REQUIRES CALUM www-jtp0.5.10). The walled-garden allowance
 itself stays unmanaged/direct-API (no `@pulumiverse/unifi` resource for

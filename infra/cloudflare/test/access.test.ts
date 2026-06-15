@@ -15,8 +15,8 @@ describe("desiredAccessApps", () => {
       .sort();
     expect(domains).toEqual([
       "*.worldwidewebb.co",
-      "app.amp.worldwidewebb.co",
-      "app.cc.worldwidewebb.co",
+      "app--amp.worldwidewebb.co",
+      "app--cc.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "hooks.worldwidewebb.co",
       "storybook.worldwidewebb.co",
@@ -38,7 +38,7 @@ describe("desiredAccessApps", () => {
 
   test("supports kiosk service-token access for app.cc", () => {
     const dashboard = desiredAccessApps(ZONE).find(
-      (app) => app.domain === "app.cc.worldwidewebb.co",
+      (app) => app.domain === "app--cc.worldwidewebb.co",
     );
 
     expect(dashboard?.policies).toEqual([
@@ -65,7 +65,9 @@ describe("desiredAccessApps", () => {
   });
 
   test("protects app.amp with email-otp (private-web; no service token, no api.amp)", () => {
-    const ampApp = desiredAccessApps(ZONE).find((app) => app.domain === "app.amp.worldwidewebb.co");
+    const ampApp = desiredAccessApps(ZONE).find(
+      (app) => app.domain === "app--amp.worldwidewebb.co",
+    );
 
     expect(ampApp?.policies).toEqual([
       {
@@ -77,7 +79,7 @@ describe("desiredAccessApps", () => {
     ]);
     // api.amp must NOT appear: AMP v0 is stateless with no public API route.
     const domains = desiredAccessApps(ZONE).map((a) => a.domain);
-    expect(domains).not.toContain("api.amp.worldwidewebb.co");
+    expect(domains).not.toContain("api--amp.worldwidewebb.co");
   });
 
   test("keeps Storybook and Drizzle on email OTP with no literal personal email", () => {
@@ -105,7 +107,7 @@ describe("desiredAccessApps", () => {
         { exposure: privateWeb(amp, homelabTarget, { host: "app" }), policy: "email-otp" },
         { exposure: publicWeb(textYourEx, homelabTarget, { host: "app" }), policy: "email-otp" },
       ]).map((app) => app.domain),
-    ).toEqual(["app.amp.worldwidewebb.co"]);
+    ).toEqual(["app--amp.worldwidewebb.co"]);
   });
 
   test("every app carries the live ownership tag so the import is zero-diff", () => {

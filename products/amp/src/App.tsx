@@ -5,7 +5,7 @@ type ProductFact = {
 
 const productFacts = [
   { label: "Product", value: "AMP" },
-  { label: "Route", value: "app.amp.worldwidewebb.co" },
+  { label: "Route", value: "app--amp.worldwidewebb.co" },
   { label: "Data model", value: "Stateless v0" },
   { label: "Exposure", value: "Private Cloudflare Access" },
 ] as const satisfies readonly ProductFact[];

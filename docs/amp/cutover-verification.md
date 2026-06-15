@@ -17,11 +17,11 @@ pulumi preview --stack prod --cwd infra/cloudflare
 
 Expected diff (zero deletes, zero replaces):
 
-- 1 `ZeroTrustAccessApplication` create (`app.amp.worldwidewebb.co`)
+- 1 `ZeroTrustAccessApplication` create (`app--amp.worldwidewebb.co`)
 - 1 `ZeroTrustAccessPolicy` create (`app-amp-email-otp`)
-- 1 `ZeroTrustTunnelCloudflaredConfig` update (adds `app.amp.worldwidewebb.co` ingress rule)
+- 1 `ZeroTrustTunnelCloudflaredConfig` update (adds `app--amp.worldwidewebb.co` ingress rule)
 - 1 `Record` create (`app.amp` CNAME to tunnel)
-- `api.amp.worldwidewebb.co` must NOT appear in the preview output
+- `api--amp.worldwidewebb.co` must NOT appear in the preview output
 
 If the preview shows any delete or replace, stop and investigate before applying.
 
@@ -100,18 +100,18 @@ kubectl --context cc-homelab -n amp exec -it deployment/amp-app -- \
 
 ```bash
 # Unauthenticated request MUST be denied (redirect to CF Access login):
-curl -sI https://app.amp.worldwidewebb.co/
+curl -sI https://app--amp.worldwidewebb.co/
 # Expected: HTTP 302 redirect to Cloudflare Access login page, NOT 200
 
-# TLS cert is valid for app.amp.worldwidewebb.co:
-openssl s_client -connect app.amp.worldwidewebb.co:443 \
-  -servername app.amp.worldwidewebb.co </dev/null 2>/dev/null \
+# TLS cert is valid for app--amp.worldwidewebb.co:
+openssl s_client -connect app--amp.worldwidewebb.co:443 \
+  -servername app--amp.worldwidewebb.co </dev/null 2>/dev/null \
   | openssl x509 -noout -subject -dates
-# Expected: subject includes *.worldwidewebb.co or app.amp.worldwidewebb.co
+# Expected: subject includes *.worldwidewebb.co or app--amp.worldwidewebb.co
 
 # Authenticated access (requires a device enrolled in Cloudflare Access or a
 # valid CF_Authorization JWT):
-# 1. Open https://app.amp.worldwidewebb.co in a browser enrolled in Access
+# 1. Open https://app--amp.worldwidewebb.co in a browser enrolled in Access
 # 2. Authenticate via email OTP (the allowedEmail from Pulumi config)
 # 3. Confirm HTTP 200 and the AMP app renders
 ```
@@ -145,7 +145,7 @@ kubectl --context cc-homelab -n amp scale deployment amp-app --replicas=1
 - [ ] kubectl: namespace, deployment, pod Running, service present, no PVC/cluster
 - [ ] kubectl logs: nginx startup, no crash loops, no DB errors
 - [ ] Internal health: `localhost:80` returns 200
-- [ ] TLS: valid cert for `app.amp.worldwidewebb.co`
+- [ ] TLS: valid cert for `app--amp.worldwidewebb.co`
 - [ ] Unauthenticated: `curl -sI` returns 302 to CF Access login
 - [ ] Authenticated: browser access after email OTP returns 200
 - [ ] Rollback drill: scale-to-zero tested or rollback path documented and understood

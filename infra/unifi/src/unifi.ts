@@ -16,7 +16,7 @@
 // walled garden (rest/portalconf), NetFlow IPFIX, traffic_flow, and the 2 auto
 // IPS firewall rules. The provider has no resource we instantiate for them.
 // For the M5 app.cp migration: the walled-garden pre-auth allowance for
-// app.cp.worldwidewebb.co (rest/portalconf) also has no provider resource and
+// app--cp.worldwidewebb.co (rest/portalconf) also has no provider resource and
 // stays unmanaged/direct-API (REQUIRES CALUM, www-jtp0.5.10).
 
 import * as pulumi from "@pulumi/pulumi";
@@ -84,7 +84,7 @@ export interface AdoptedResources {
   guestAccess: unifi.setting.GuestAccess;
   fixedIpUsers: unifi.iam.User[];
   /**
-   * @public - additive A record for app.cp.worldwidewebb.co -> 192.168.0.147,
+   * @public - additive A record for app--cp.worldwidewebb.co -> 192.168.0.147,
    * present only when opts.applyAppCp is true. This is the M5 target hostname
    * for the captive portal product. REQUIRES CALUM to apply: set the applyAppCp
    * config flag and run pulumi up AFTER confirming the walled-garden step
@@ -96,7 +96,7 @@ export interface AdoptedResources {
 /** Options for adoptExisting. */
 export interface AdoptExistingOpts {
   /**
-   * When true, creates the additive A record for app.cp.worldwidewebb.co -> 192.168.0.147.
+   * When true, creates the additive A record for app--cp.worldwidewebb.co -> 192.168.0.147.
    * Defaults to false (safe). Set only after the walled-garden pre-auth step is
    * confirmed (REQUIRES CALUM, www-jtp0.5.10).
    */
@@ -262,7 +262,7 @@ export function adoptExisting(
       ),
   );
 
-  // app.cp.worldwidewebb.co: additive A record, M5 target hostname (www-jtp0.5.9).
+  // app--cp.worldwidewebb.co: additive A record, M5 target hostname (www-jtp0.5.9).
   // Created only when opts.applyAppCp is true to prevent premature apply.
   // This is NOT imported (the record does not exist on the controller yet);
   // protect:true is NOT set here because the resource does not yet exist.
@@ -272,7 +272,7 @@ export function adoptExisting(
     ? new unifi.dns.Record(
         "app-cp-dns",
         {
-          name: "app.cp.worldwidewebb.co",
+          name: "app--cp.worldwidewebb.co",
           value: "192.168.0.147",
           type: "A",
           enabled: true,

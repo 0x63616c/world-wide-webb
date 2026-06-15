@@ -93,7 +93,7 @@ textYourEx.service("api", {
 textYourEx.database({
   size: "5Gi",
 });</code></pre></div>
-          <p>The app definition derives <code>products/text-your-ex</code>, namespace <code>text-your-ex</code>, image names, labels, secrets, Pulumi names, and backup paths. Networking primitives derive DNS labels from product names instead of passing short labels through general app code, so <code>publicWeb({ host: "api" })</code> can produce <code>api.tye.worldwidewebb.co</code> and the required TLS coverage.</p>
+          <p>The app definition derives <code>products/text-your-ex</code>, namespace <code>text-your-ex</code>, image names, labels, secrets, Pulumi names, and backup paths. Networking primitives derive DNS labels from product names instead of passing short labels through general app code, so <code>publicWeb({ host: "api" })</code> can produce <code>api--tye.worldwidewebb.co</code> and the required TLS coverage.</p>
         </section>
 
         <section>

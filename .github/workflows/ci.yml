@@ -784,7 +784,7 @@ jobs:
           platforms: linux/arm64
           push: true
           build-args: |
-            VITE_API_BASE=https://api.tye.worldwidewebb.co
+            VITE_API_BASE=https://api--tye.worldwidewebb.co
           tags: |
             ghcr.io/0x63616c/control-center-tye-frontend:${{ github.sha }}
             ghcr.io/0x63616c/control-center-tye-frontend:${{ github.ref_name == 'main' && 'main' || github.sha }}

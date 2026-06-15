@@ -5,7 +5,7 @@ email with a 6-digit code, enters the WiFi password, and gets 30 days of interne
 per device.
 
 **Hostname:** `captive-portal.worldwidewebb.co` (LEGACY, still live in production
-as of 2026-06-14). Migration target is `app.cp.worldwidewebb.co` (M5 epic
+as of 2026-06-14). Migration target is `app--cp.worldwidewebb.co` (M5 epic
 www-jtp0.5; cutover REQUIRES CALUM, see runbook.md M5 status table).
 
 **Product boundary:** the captive portal is now a standalone product in

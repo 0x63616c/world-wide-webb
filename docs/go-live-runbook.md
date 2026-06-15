@@ -20,29 +20,27 @@ If `git push` / commit signing fail with "agent refused operation", unlock the
 1Password desktop app (the SSH key that authenticates GitHub + signs commits is
 served by it). Everything below assumes pushes work.
 
-## 1. KEYSTONE, enable nested-host TLS (unblocks ALL public/private product routes)
+## 1. TLS: free, no billing action (www-kbiy, DONE in code)
 
-`app.tye` / `app.cc` / `app.amp` currently fail TLS (`sslv3 alert handshake
-failure`): they are 2-label subdomains and Cloudflare Universal SSL only covers
-`*.worldwidewebb.co` (one level). The per-product cert packs are already coded
-(`infra/cloudflare/src/tls.ts`), flag-gated and inert. To activate:
+Product hosts are **flattened to a single label**: `app--tye`, `app--cc`,
+`app--amp`, `app--cp` (double hyphen). A single-label host IS covered by the free
+Cloudflare Universal SSL `*.worldwidewebb.co`, so there is **no ACM, no paid cert,
+no billing step**. The old dotted 2-label form (`app` dot `tye` dot the zone) was
+what required paid ACM; flattening to one label removes that need entirely.
 
-1. Subscribe **Advanced Certificate Manager (ACM)** on the `worldwidewebb.co`
-   zone: Cloudflare dashboard → SSL/TLS → Edge Certificates → ACM. *(Paid,
-   account-level, the one billing action.)*
-2. `cd infra/cloudflare && pulumi config set applyNestedTls true --stack prod`
-3. `pulumi preview --stack prod` , expect 3 `CertificatePack` creates
-   (`*.cc`, `*.tye`, `*.amp`).
-4. `pulumi up --stack prod`
-5. Verify: `openssl s_client -servername app.tye.worldwidewebb.co -connect app.tye.worldwidewebb.co:443 </dev/null 2>/dev/null | grep "Verify return code"` → `0 (ok)`.
+This lands automatically on the next `pulumi up` of the cloudflare stack (the
+`deploy` job runs it on push to `main`). To verify after deploy:
 
-After this, `app.tye` (public) and `app.amp` (behind Access) resolve over HTTPS.
-`app.cc` additionally needs its Access kiosk service token to load.
+```
+curl -s -o /dev/null -w "%{http_code} ssl_verify=%{ssl_verify_result}\n" https://app--tye.worldwidewebb.co
+```
+Expect `ssl_verify=0` (handshake OK) and a real status (200 public; 302/403 for
+the Access-gated `app--cc`/`app--amp`).
 
 ## 2. Text Your Ex, finish acceptance (mostly done)
 
-TYE is deployed. Once step 1 makes `app.tye` reachable:
-- Smoke `https://app.tye.worldwidewebb.co` in a browser (the same flow verified
+TYE is deployed. Once the cloudflare stack rolls and `app--tye` is reachable:
+- Smoke `https://app--tye.worldwidewebb.co` in a browser (the same flow verified
   locally: sign in → jar → log a slip → confirm DB write).
 - iOS TestFlight (6.9): the workflow exists gated `if: false`; remove that once
   `api.tye` is live and you want the bundled app to ship.
@@ -66,7 +64,7 @@ LAN-only, NOT Cloudflare. Sequence (detail in `docs/captive-portal/runbook.md`):
    (`products/captive-portal/scripts/portal-{export,import,validate}.sh`, gated
    behind `PORTAL_*_PROD_APPROVED=1`).
 7. **Physical:** join `www-guest` on a phone, confirm the portal loads at
-   `app.cp.worldwidewebb.co` with valid TLS (cert-manager DNS-01).
+   `app--cp.worldwidewebb.co` with valid TLS (cert-manager DNS-01).
 
 ## 5. Control Center → app.cc + P0 data migration (M7)
 
@@ -96,7 +94,7 @@ detail):
 
 ## Done-state checklist
 
-- [ ] ACM enabled, `applyNestedTls=true`, app.tye/app.cc/app.amp serve valid TLS
+- [x] Hosts flattened (`app--tye`/`app--cc`/`app--amp`), free Universal SSL serves valid TLS (www-kbiy, no ACM)
 - [ ] TYE acceptance smoked in browser
 - [ ] AMP cutover verified
 - [ ] app.cp portal live on guest WiFi (physical)

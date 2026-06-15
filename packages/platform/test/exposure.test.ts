@@ -14,12 +14,12 @@ describe("exposure intent primitives", () => {
 
     expect(exposure).toMatchObject({
       kind: "public-web",
-      hostname: "api.tye.worldwidewebb.co",
+      hostname: "api--tye.worldwidewebb.co",
       policy: "public",
       tls: {
         coverage: {
-          dnsNames: ["api.tye.worldwidewebb.co"],
-          hostname: "api.tye.worldwidewebb.co",
+          dnsNames: ["api--tye.worldwidewebb.co"],
+          hostname: "api--tye.worldwidewebb.co",
           kind: "exact-host",
         },
         required: true,
@@ -28,10 +28,10 @@ describe("exposure intent primitives", () => {
   });
 
   test.each([
-    ["control-center", "app", "app.cc.worldwidewebb.co"],
-    ["captive-portal", "app", "app.cp.worldwidewebb.co"],
-    ["text-your-ex", "app", "app.tye.worldwidewebb.co"],
-    ["text-your-ex", "api", "api.tye.worldwidewebb.co"],
+    ["control-center", "app", "app--cc.worldwidewebb.co"],
+    ["captive-portal", "app", "app--cp.worldwidewebb.co"],
+    ["text-your-ex", "app", "app--tye.worldwidewebb.co"],
+    ["text-your-ex", "api", "api--tye.worldwidewebb.co"],
   ] as const)("derives nested hostnames for %s %s", (slug, host, hostname) => {
     const exposure = publicWeb(defineProduct(slug), homelabTarget, { host });
 
@@ -45,7 +45,7 @@ describe("exposure intent primitives", () => {
     expect(exposure).toMatchObject({
       cloudflareAccess: true,
       kind: "private-web",
-      hostname: "app.cc.worldwidewebb.co",
+      hostname: "app--cc.worldwidewebb.co",
       policy: "private",
     });
   });
@@ -61,7 +61,7 @@ describe("exposure intent primitives", () => {
         reason: "Captive portal exposure changes UniFi, LAN forwarding, DNS, and TLS behavior.",
       },
       kind: "captive-portal-web",
-      hostname: "app.cp.worldwidewebb.co",
+      hostname: "app--cp.worldwidewebb.co",
       policy: "captive",
     });
   });
@@ -77,24 +77,7 @@ describe("exposure intent primitives", () => {
   test("does not create external API hostnames unless a service declares one", () => {
     const appOnly = privateWeb(defineProduct("control-center"), homelabTarget, { host: "app" });
 
-    expect(appOnly.hostname).toBe("app.cc.worldwidewebb.co");
-    expect(appOnly.hostname).not.toBe("api.cc.worldwidewebb.co");
-  });
-
-  test("models product-wildcard TLS as explicit coverage for nested hosts", () => {
-    const exposure = captivePortalWeb(defineProduct("captive-portal"), homelabTarget, {
-      host: "app",
-      tlsCoverage: "product-wildcard",
-    });
-
-    expect(exposure.tls).toEqual({
-      coverage: {
-        dnsNames: ["*.cp.worldwidewebb.co"],
-        hostname: "*.cp.worldwidewebb.co",
-        kind: "product-wildcard",
-        productHostnameSuffix: "cp.worldwidewebb.co",
-      },
-      required: true,
-    });
+    expect(appOnly.hostname).toBe("app--cc.worldwidewebb.co");
+    expect(appOnly.hostname).not.toBe("api--cc.worldwidewebb.co");
   });
 });

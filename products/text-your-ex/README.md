@@ -77,7 +77,7 @@ apps/
       env.ts          buildDatabaseUrl() (k8s ESO pattern + DATABASE_URL override)
       seed.ts         demo data; guards on APP_ENV=production (no-op) + users table empty
       index.ts        entry: runMigrations + ensureSeed + buildApp()
-      server.ts       CORS allow-list (app.tye.worldwidewebb.co, localhost:*, capacitor://)
+      server.ts       CORS allow-list (app--tye.worldwidewebb.co, localhost:*, capacitor://)
   frontend/           React + TS app (iPhone frame, 16 screens)
     src/
       api.ts          typed client (VITE_API_BASE baked at Docker build time)
@@ -98,7 +98,7 @@ Two images, built by CI on push to main:
 | `control-center-tye-frontend` | `Dockerfile.frontend` | `ghcr.io/0x63616c/` |
 
 The API image sets `APP_ENV=production` (seed guard). The frontend image bakes `VITE_API_BASE`
-at build time via `--build-arg VITE_API_BASE=https://api.tye.worldwidewebb.co`.
+at build time via `--build-arg VITE_API_BASE=https://api--tye.worldwidewebb.co`.
 
 ### Production acceptance checklist (www-jtp0.6.10)
 
@@ -106,13 +106,13 @@ Before TYE goes live, verify ALL of the following with Calum:
 
 - [ ] `pulumi up` applied TYE CNPG cluster + API + frontend workloads
 - [ ] `kubectl get pod -n text-your-ex` shows api + frontend Running
-- [ ] `curl https://app.tye.worldwidewebb.co/api/health` returns `{"ok":true}`
+- [ ] `curl https://app--tye.worldwidewebb.co/api/health` returns `{"ok":true}`
 - [ ] Browser: Sign in with Apple demo logs in as Calum, jars + slips visible
 - [ ] Phone OTP flow: any 6 digits creates a new account
 - [ ] Jar creation, slip log, anonymous report flow tested end-to-end
 - [ ] Postgres backup CronJob fired and artifact present on NAS
 - [ ] iOS TestFlight: remove `if: false` gate in `tye-ios-release.yml`, build completes
-- [ ] TestFlight build installs on iPad, loads `https://app.tye.worldwidewebb.co`
+- [ ] TestFlight build installs on iPad, loads `https://app--tye.worldwidewebb.co`
 - [ ] Production: `ensureSeed()` is a no-op (users table is empty, app starts clean)
 
 ## Not in v1

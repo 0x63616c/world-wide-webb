@@ -119,7 +119,7 @@
             <li>Redesign its backend/API/storage as product-owned.</li>
             <li>Move portal data from Control Center Postgres into Captive Portal Postgres with export, rehearsal, final snapshot, validation, and rollback.</li>
             <li>Preserve UniFi guest onboarding, split DNS, cert-manager TLS, firewall/walled-garden rules, and Apple CNA behavior.</li>
-            <li>Acceptance: real guest onboarding works on the production guest network through <code>app.cp.worldwidewebb.co</code> with valid LAN-served TLS for that nested hostname.</li>
+            <li>Acceptance: real guest onboarding works on the production guest network through <code>app--cp.worldwidewebb.co</code> with valid LAN-served TLS for that nested hostname.</li>
           </ul>
         </section>
 
@@ -130,8 +130,8 @@
             <li>Ship app and API to production on homelab k3s.</li>
             <li>Move from current SQLite prototype to product Postgres.</li>
             <li>Ensure production starts empty, while local dev can still seed demo data explicitly.</li>
-            <li>Standardize bundled iOS TestFlight workflow with <code>VITE_API_BASE</code> pointing at <code>api.tye.worldwidewebb.co</code>.</li>
-            <li>Acceptance: web production route works, API health works over valid TLS on <code>api.tye.worldwidewebb.co</code>, database persists, backups run, and TestFlight build targets the production API.</li>
+            <li>Standardize bundled iOS TestFlight workflow with <code>VITE_API_BASE</code> pointing at <code>api--tye.worldwidewebb.co</code>.</li>
+            <li>Acceptance: web production route works, API health works over valid TLS on <code>api--tye.worldwidewebb.co</code>, database persists, backups run, and TestFlight build targets the production API.</li>
           </ul>
         </section>
 

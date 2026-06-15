@@ -137,29 +137,25 @@ export function targetStatus(name: TargetName): TargetStatus {
   return assertNever(name);
 }
 
-export type TlsCoverageMode = "exact-host" | "product-wildcard";
-
+// Hosts are flattened to a single label (`app--cc`), so the free root wildcard
+// `*.worldwidewebb.co` always covers them. There is exactly one coverage model:
+// the exact single host. (The old `product-wildcard` mode built a 2-label
+// `*.cc.worldwidewebb.co` wildcard that only paid ACM could issue; it was removed
+// with ACM, www-kbiy.)
 export type ExactHostTlsCoverage = Readonly<{
   kind: "exact-host";
   hostname: string;
   dnsNames: readonly [string];
 }>;
 
-export type ProductWildcardTlsCoverage = Readonly<{
-  kind: "product-wildcard";
-  hostname: string;
-  productHostnameSuffix: string;
-  dnsNames: readonly [string];
-}>;
-
-export type TlsCoverage = ExactHostTlsCoverage | ProductWildcardTlsCoverage;
+export type TlsCoverage = ExactHostTlsCoverage;
 
 export type WebTlsRequirement = Readonly<{
   required: true;
   coverage: TlsCoverage;
 }>;
 
-export type WebHostOptions = Readonly<{ host: string; tlsCoverage?: TlsCoverageMode }>;
+export type WebHostOptions = Readonly<{ host: string }>;
 
 export type WebExposure =
   | Readonly<{
@@ -199,45 +195,21 @@ export type InternalServiceExposure = Readonly<{
 }>;
 
 function webHostname(product: ProductIdentity, target: HomelabTarget, host: string): string {
-  return `${host}.${product.dnsCode}.${target.domain}`;
+  // Flattened to a SINGLE label `<host>--<dnsCode>` (e.g. `app--cc`) so the free
+  // Cloudflare Universal SSL `*.worldwidewebb.co` (one-label wildcard) covers it.
+  // A dotted "app dot cc" host would be two labels deep and would need paid ACM.
+  return `${host}--${product.dnsCode}.${target.domain}`;
 }
 
-function productHostnameSuffix(product: ProductIdentity, target: HomelabTarget): string {
-  return `${product.dnsCode}.${target.domain}`;
-}
-
-function webTlsRequirement(
-  product: ProductIdentity,
-  target: HomelabTarget,
-  hostname: string,
-  mode: TlsCoverageMode = "exact-host",
-): WebTlsRequirement {
-  switch (mode) {
-    case "exact-host":
-      return {
-        required: true,
-        coverage: {
-          kind: "exact-host",
-          hostname,
-          dnsNames: [hostname],
-        },
-      };
-    case "product-wildcard": {
-      const suffix = productHostnameSuffix(product, target);
-      const wildcardHostname = `*.${suffix}`;
-
-      return {
-        required: true,
-        coverage: {
-          kind: "product-wildcard",
-          hostname: wildcardHostname,
-          productHostnameSuffix: suffix,
-          dnsNames: [wildcardHostname],
-        },
-      };
-    }
-  }
-  return assertNever(mode);
+function webTlsRequirement(hostname: string): WebTlsRequirement {
+  return {
+    required: true,
+    coverage: {
+      kind: "exact-host",
+      hostname,
+      dnsNames: [hostname],
+    },
+  };
 }
 
 export function publicWeb(
@@ -253,7 +225,7 @@ export function publicWeb(
     target: target.name,
     host: options.host,
     hostname,
-    tls: webTlsRequirement(product, target, hostname, options.tlsCoverage),
+    tls: webTlsRequirement(hostname),
   };
 }
 
@@ -270,7 +242,7 @@ export function privateWeb(
     target: target.name,
     host: options.host,
     hostname,
-    tls: webTlsRequirement(product, target, hostname, options.tlsCoverage),
+    tls: webTlsRequirement(hostname),
     cloudflareAccess: true,
   };
 }
@@ -288,7 +260,7 @@ export function captivePortalWeb(
     target: target.name,
     host: options.host,
     hostname,
-    tls: webTlsRequirement(product, target, hostname, options.tlsCoverage),
+    tls: webTlsRequirement(hostname),
     humanReview: {
       required: true,
       reason: "Captive portal exposure changes UniFi, LAN forwarding, DNS, and TLS behavior.",

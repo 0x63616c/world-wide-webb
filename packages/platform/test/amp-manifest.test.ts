@@ -9,7 +9,7 @@ describe("AMP platform representation", () => {
     expect(manifest.product.namespace).toBe("amp");
     expect(manifest.app.exposure).toMatchObject({
       kind: "private-web",
-      hostname: "app.amp.worldwidewebb.co",
+      hostname: "app--amp.worldwidewebb.co",
       cloudflareAccess: true,
     });
   });
