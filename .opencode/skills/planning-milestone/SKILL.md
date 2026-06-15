@@ -101,7 +101,7 @@ Avoid vague tickets like:
 Prefer tickets like:
 
 - `Add product app registry and derive namespace/resource names`
-- `Issue cert-manager certificate for app.cp.worldwidewebb.co`
+- `Issue cert-manager certificate for app--cp.worldwidewebb.co`
 - `Prove Control Center Postgres dump restores into scratch CNPG cluster`
 
 ## Recommendations And Questions

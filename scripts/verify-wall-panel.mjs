@@ -6,9 +6,9 @@
 // without a browser); this driver just supplies the live DOM facts.
 //
 // The private route sits behind Cloudflare Access (kiosk service token), so when
-// verifying app.cc directly you must pass the service-token headers, exactly as the
+// verifying app--cc directly you must pass the service-token headers, exactly as the
 // iOS kiosk injects them:
-//   CC_PANEL_URL=https://app.cc.worldwidewebb.co \
+//   CC_PANEL_URL=https://app--cc.worldwidewebb.co \
 //   CF_ACCESS_CLIENT_ID=... CF_ACCESS_CLIENT_SECRET=... \
 //   node scripts/verify-wall-panel.mjs
 // (secrets come from 1Password; never hardcode. They are sent only as request
@@ -26,7 +26,7 @@ import { chromium } from "playwright";
 import { classifyPanel, PANEL_HEIGHT, PANEL_WIDTH } from "./panel-health.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const URL = process.env.CC_PANEL_URL || "https://app.cc.worldwidewebb.co";
+const URL = process.env.CC_PANEL_URL || "https://app--cc.worldwidewebb.co";
 const OUT =
   process.env.CC_PANEL_SCREENSHOT || resolve(HERE, "../docs/screenshots/wall-panel-verify.png");
 const CF_ID = process.env.CF_ACCESS_CLIENT_ID || "";
