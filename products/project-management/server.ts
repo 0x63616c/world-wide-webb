@@ -1,22 +1,17 @@
 /**
  * beads-ui backend.
  *
- * Serves the Claude Design handoff bundle (the worldwidewebb "DC" prototype in
- * ./public) verbatim, and feeds it LIVE beads data. It shells out to the `bd`
- * CLI (--json) to read the project's issues, keeps an in-memory snapshot, and
- * periodically runs `bd dolt pull` so the snapshot tracks the remote. Read-only:
- * it never writes issues. /api/board-data returns the issues mapped into the
- * exact shape the prototype consumes (see map.ts).
+ * Serves the React SPA (./dist in prod; Vite dev server proxies /api here in dev)
+ * and feeds it live beads data. Shells out to the `bd` CLI, keeps an in-memory
+ * snapshot, and periodically runs `bd dolt pull`. Read-only: never writes issues.
  */
 import { join } from "node:path";
 import { mapIssues, type RawIssue } from "./map";
 
 const PORT = Number(process.env.BEADS_UI_PORT ?? 8791);
-// Run bd against the repo root (parent of tools/beads-ui) so it resolves the
-// CC project regardless of which worktree launched us.
 const REPO_ROOT = join(import.meta.dir, "..", "..");
 const SYNC_INTERVAL_MS = Number(process.env.BEADS_UI_SYNC_MS ?? 30_000);
-const PUBLIC = join(import.meta.dir, "public");
+const DIST = join(import.meta.dir, "dist");
 
 type Snapshot = {
   issues: RawIssue[];
@@ -64,7 +59,6 @@ async function syncFromRemote(): Promise<void> {
   if (snapshot.syncing) return;
   snapshot.syncing = true;
   try {
-    // Pull remote dolt changes (read direction only; we never push from here).
     await run(["bd", "dolt", "pull"], 90_000).catch((e) => {
       snapshot.lastError = `pull: ${String(e)}`;
     });
@@ -97,14 +91,29 @@ const MIME: Record<string, string> = {
 };
 
 async function serveStatic(pathname: string): Promise<Response> {
-  // "/" serves the prototype entry.
-  const rel = pathname === "/" ? "/Beads.dc.html" : decodeURIComponent(pathname);
-  const file = Bun.file(join(PUBLIC, rel));
-  if (!(await file.exists())) return new Response("not found", { status: 404 });
-  const ext = rel.slice(rel.lastIndexOf("."));
-  return new Response(file, {
-    headers: { "content-type": MIME[ext] ?? "application/octet-stream" },
-  });
+  const rel = pathname === "/" ? "/index.html" : decodeURIComponent(pathname);
+  const file = Bun.file(join(DIST, rel));
+  if (await file.exists()) {
+    const ext = rel.slice(rel.lastIndexOf("."));
+    return new Response(file, {
+      headers: { "content-type": MIME[ext] ?? "application/octet-stream" },
+    });
+  }
+  // SPA fallback: let React Router handle unknown paths
+  const index = Bun.file(join(DIST, "index.html"));
+  if (await index.exists()) {
+    return new Response(index, { headers: { "content-type": "text/html; charset=utf-8" } });
+  }
+  return new Response("not found", { status: 404 });
+}
+
+interface RawComment {
+  id?: string;
+  body?: string;
+  content?: string;
+  author?: string;
+  created_by?: string;
+  created_at?: string;
 }
 
 Bun.serve({
@@ -129,6 +138,25 @@ Bun.serve({
     if (p === "/api/sync" && req.method === "POST") {
       await syncFromRemote();
       return json({ ok: true, lastSyncAt: snapshot.lastSyncAt, error: snapshot.lastError });
+    }
+
+    const commentsMatch = /^\/api\/comments\/([^/]+)$/.exec(p);
+    if (commentsMatch) {
+      const id = decodeURIComponent(commentsMatch[1]);
+      try {
+        const out = await run(["bd", "comments", id, "--json"], 15_000);
+        const raw = JSON.parse(out) as RawComment[] | { comments?: RawComment[] };
+        const list: RawComment[] = Array.isArray(raw) ? raw : (raw.comments ?? []);
+        const mapped = list.map((c, i) => ({
+          id: c.id ?? String(i),
+          body: c.body ?? c.content ?? "",
+          author: c.author ?? c.created_by ?? "unknown",
+          created_at: c.created_at ?? new Date().toISOString(),
+        }));
+        return json(mapped);
+      } catch {
+        return json([]);
+      }
     }
 
     if (p.startsWith("/api/")) return json({ error: "not found" }, 404);

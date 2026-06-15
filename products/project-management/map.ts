@@ -11,12 +11,17 @@ export interface RawIssue {
   priority: number;
   issue_type: string;
   owner?: string;
+  assignee?: string;
   created_by?: string;
   created_at?: string;
   updated_at?: string;
+  started_at?: string;
   closed_at?: string;
   labels?: string[];
   dependencies?: { issue_id: string; depends_on_id: string; type: string }[];
+  comment_count?: number;
+  dependent_count?: number;
+  dependency_count?: number;
 }
 
 export interface DesignIssue {
@@ -30,12 +35,16 @@ export interface DesignIssue {
   blockedBy: string[];
   blocks: string[];
   desc: string;
-  acceptance: string; // acceptance_criteria; "" if none
-  notes: string; // free-form notes; "" if none
+  acceptance: string;
+  notes: string;
   children?: string[];
-  ts: number; // updated_at (fallback created_at) as epoch ms; 0 if unknown. For sorting.
-  created: number; // created_at as epoch ms; 0 if unknown
-  createdBy: string; // short handle of the creator
+  ts: number;
+  created: number;
+  createdBy: string;
+  startedAt: number;
+  commentCount: number;
+  dependentCount: number;
+  dependencyCount: number;
 }
 
 // bd issue_type -> mockup type. Anything unrecognized falls back to 'task'.
@@ -148,6 +157,10 @@ export function mapIssues(raw: RawIssue[]): DesignIssue[] {
       ts: parseTs(issue.updated_at ?? issue.created_at),
       created: parseTs(issue.created_at),
       createdBy: mapAssignee(issue.created_by),
+      startedAt: parseTs(issue.started_at),
+      commentCount: issue.comment_count ?? 0,
+      dependentCount: issue.dependent_count ?? 0,
+      dependencyCount: issue.dependency_count ?? 0,
     };
     if (type === "epic") out.children = childrenMap.get(issue.id) ?? [];
     return out;
