@@ -1,11 +1,11 @@
-# control-center
+# world-wide-webb
 
-[![CI](https://github.com/0x63616c/control-center/actions/workflows/ci.yml/badge.svg)](https://github.com/0x63616c/control-center/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/control-center/main/.github/badges/coverage.json)](https://github.com/0x63616c/control-center/actions/workflows/ci.yml)
-[![Files](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/control-center/main/.github/badges/files.json)](https://github.com/0x63616c/control-center)
-[![Lines](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/control-center/main/.github/badges/loc.json)](https://github.com/0x63616c/control-center)
-[![Commit](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/control-center/main/.github/badges/commit.json)](https://github.com/0x63616c/control-center/commits/main)
-[![Last commit](https://img.shields.io/github/last-commit/0x63616c/control-center)](https://github.com/0x63616c/control-center/commits)
+[![CI](https://github.com/0x63616c/world-wide-webb/actions/workflows/ci.yml/badge.svg)](https://github.com/0x63616c/world-wide-webb/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/world-wide-webb/main/.github/badges/coverage.json)](https://github.com/0x63616c/world-wide-webb/actions/workflows/ci.yml)
+[![Files](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/world-wide-webb/main/.github/badges/files.json)](https://github.com/0x63616c/world-wide-webb)
+[![Lines](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/world-wide-webb/main/.github/badges/loc.json)](https://github.com/0x63616c/world-wide-webb)
+[![Commit](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x63616c/world-wide-webb/main/.github/badges/commit.json)](https://github.com/0x63616c/world-wide-webb/commits/main)
+[![Last commit](https://img.shields.io/github/last-commit/0x63616c/world-wide-webb)](https://github.com/0x63616c/world-wide-webb/commits)
 
 Smart-home wall-panel dashboard for a fixed **1366×1024** iPad Pro panel (the board
 content grid is 1366×1000, `BOARD_W`×`BOARD_H`) mounted
