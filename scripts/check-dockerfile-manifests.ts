@@ -91,13 +91,38 @@ for (const df of FULL_INSTALL_DOCKERFILES) {
   }
 }
 
+// --- 4b. Assert no full-install Dockerfile uses a FLOATING oven/bun base tag ---
+//
+// `oven/bun:1-alpine` / `:latest` drift to the newest bun (e.g. 1.3.x), whose
+// lockfile format the 1.2-generated bun.lock can't satisfy under
+// --frozen-lockfile ("lockfile had changes"). Pin to a minor (oven/bun:1.2...),
+// matching the CI setup-bun pin. This has broken builds twice (amp, captive-portal).
+const FLOATING_BUN = /FROM\s+oven\/bun:(1-|latest|1\s|1$)/;
+const floatingBunOffenders: string[] = [];
+for (const df of FULL_INSTALL_DOCKERFILES) {
+  if (!existsSync(join(ROOT, df))) continue;
+  const content = readFileSync(join(ROOT, df), "utf8");
+  for (const line of content.split("\n")) {
+    if (FLOATING_BUN.test(line.trim())) {
+      floatingBunOffenders.push(`  ${df}: ${line.trim()}`);
+      exitCode = 1;
+    }
+  }
+}
+
 // --- 5. Report ---
+
+if (floatingBunOffenders.length > 0) {
+  console.error(
+    `✗ Floating oven/bun base tag(s) (drift to a lockfile-incompatible bun); pin to a minor like oven/bun:1.2-alpine:\n${floatingBunOffenders.join("\n")}\n`,
+  );
+}
 
 if (exitCode === 0) {
   console.log(
-    `✓ All ${FULL_INSTALL_DOCKERFILES.length} frozen-install Dockerfiles cover all ${workspaceManifests.length} workspace manifests from bun.lock.`,
+    `✓ All ${FULL_INSTALL_DOCKERFILES.length} frozen-install Dockerfiles cover all ${workspaceManifests.length} workspace manifests from bun.lock, and use pinned bun base tags.`,
   );
-} else {
+} else if (allMissing.length > 0) {
   console.error(
     `✗ ${allMissing.length} Dockerfile(s) are missing workspace manifests in their COPY list:\n`,
   );

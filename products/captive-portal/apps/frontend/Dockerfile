@@ -6,7 +6,7 @@
 # other /api path, so a guest can never reach a dashboard procedure
 # (lights/climate/Sonos). See products/captive-portal/apps/frontend/nginx.conf + docs/captive-portal.
 
-FROM oven/bun:1-alpine AS builder
+FROM oven/bun:1.2-alpine AS builder
 
 WORKDIR /app
 
