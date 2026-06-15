@@ -9,8 +9,21 @@ import { accessAppsForPrivateWeb, desiredAccessApps } from "../src/access.ts";
 const ZONE = "worldwidewebb.co";
 
 describe("desiredAccessApps", () => {
-  test("declares the wildcard block floor, app.amp email-otp, app.cc kiosk, hooks CI, and legacy tooling apps", () => {
+  test("DEFAULT (gate off): only per-product CC/AMP route apps, NO wildcard floor or tooling locks", () => {
+    // www-b6ad: the zone-wide access gate is off by default so the *.<zone>
+    // default-deny floor can never block a currently-public host (live dashboard,
+    // public app--tye) before it has an explicit bypass.
     const domains = desiredAccessApps(ZONE)
+      .map((a) => a.domain)
+      .sort();
+    expect(domains).toEqual(["app--amp.worldwidewebb.co", "app--cc.worldwidewebb.co"]);
+    expect(domains).not.toContain("*.worldwidewebb.co");
+    expect(domains).not.toContain("storybook.worldwidewebb.co");
+    expect(domains).not.toContain("hooks.worldwidewebb.co");
+  });
+
+  test("declares the wildcard block floor, app.amp email-otp, app.cc kiosk, hooks CI, and legacy tooling apps", () => {
+    const domains = desiredAccessApps(ZONE, true)
       .map((a) => a.domain)
       .sort();
     expect(domains).toEqual([
@@ -24,7 +37,7 @@ describe("desiredAccessApps", () => {
   });
 
   test("models the default-deny wildcard floor as an explicit deny policy", () => {
-    const floor = desiredAccessApps(ZONE).find((app) => app.domain === "*.worldwidewebb.co");
+    const floor = desiredAccessApps(ZONE, true).find((app) => app.domain === "*.worldwidewebb.co");
 
     expect(floor?.policies).toEqual([
       {
@@ -37,7 +50,7 @@ describe("desiredAccessApps", () => {
   });
 
   test("supports kiosk service-token access for app.cc", () => {
-    const dashboard = desiredAccessApps(ZONE).find(
+    const dashboard = desiredAccessApps(ZONE, true).find(
       (app) => app.domain === "app--cc.worldwidewebb.co",
     );
 
@@ -52,7 +65,9 @@ describe("desiredAccessApps", () => {
   });
 
   test("keeps hooks on CI service-token access, not human-only SSO", () => {
-    const hooks = desiredAccessApps(ZONE).find((app) => app.domain === "hooks.worldwidewebb.co");
+    const hooks = desiredAccessApps(ZONE, true).find(
+      (app) => app.domain === "hooks.worldwidewebb.co",
+    );
 
     expect(hooks?.policies).toEqual([
       {
@@ -65,7 +80,7 @@ describe("desiredAccessApps", () => {
   });
 
   test("protects app.amp with email-otp (private-web; no service token, no api.amp)", () => {
-    const ampApp = desiredAccessApps(ZONE).find(
+    const ampApp = desiredAccessApps(ZONE, true).find(
       (app) => app.domain === "app--amp.worldwidewebb.co",
     );
 
@@ -78,13 +93,13 @@ describe("desiredAccessApps", () => {
       },
     ]);
     // api.amp must NOT appear: AMP v0 is stateless with no public API route.
-    const domains = desiredAccessApps(ZONE).map((a) => a.domain);
+    const domains = desiredAccessApps(ZONE, true).map((a) => a.domain);
     expect(domains).not.toContain("api--amp.worldwidewebb.co");
   });
 
   test("keeps Storybook and Drizzle on email OTP with no literal personal email", () => {
     for (const domain of ["storybook.worldwidewebb.co", "drizzle.worldwidewebb.co"]) {
-      const app = desiredAccessApps(ZONE).find((entry) => entry.domain === domain);
+      const app = desiredAccessApps(ZONE, true).find((entry) => entry.domain === domain);
 
       expect(app?.policies).toEqual([
         {
@@ -95,7 +110,9 @@ describe("desiredAccessApps", () => {
         },
       ]);
     }
-    expect(JSON.stringify(desiredAccessApps(ZONE))).not.toMatch(/[A-Z0-9._%+-]+@[A-Z0-9.-]+/i);
+    expect(JSON.stringify(desiredAccessApps(ZONE, true))).not.toMatch(
+      /[A-Z0-9._%+-]+@[A-Z0-9.-]+/i,
+    );
   });
 
   test("derives future privateWeb apps without gating publicWeb", () => {
@@ -111,7 +128,7 @@ describe("desiredAccessApps", () => {
   });
 
   test("every app carries the live ownership tag so the import is zero-diff", () => {
-    for (const app of desiredAccessApps(ZONE)) {
+    for (const app of desiredAccessApps(ZONE, true)) {
       expect(app.tag).toBe("bosun:control-center");
     }
   });
