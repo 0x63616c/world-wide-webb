@@ -77,6 +77,101 @@ describe("adoptExisting", () => {
   });
 });
 
+// ─── www-jtp0.5.9: guest_access explicit fields + app.cp split-DNS ───────────
+//
+// RED-FIRST: these tests fail until the implementation below is in place.
+//
+// guest_access is currently declared with `{}` in adoptExisting, so the mock
+// echoes back an empty state and all field assertions below return undefined.
+// The app.cp tests fail because adoptExisting has no third argument yet.
+//
+// REQUIRES CALUM to apply: declaring these fields makes the resource managed,
+// but the import + protect:true opts mean Pulumi only asserts they match the
+// live controller (no mutation). The walled-garden allowance for app.cp has NO
+// provider resource and stays unmanaged/direct-API (REQUIRES CALUM, www-jtp0.5.10).
+
+describe("guestAccess explicit fields (www-jtp0.5.9)", () => {
+  test("auth is declared as 'custom' (External Portal Server mode, not hotspot/none)", async () => {
+    const adopted = mod.adoptExisting(testProvider(), []);
+    expect(await get<string>(adopted.guestAccess, "auth")).toBe("custom");
+  });
+
+  test("portalEnabled is true", async () => {
+    const adopted = mod.adoptExisting(testProvider(), []);
+    expect(await get<boolean>(adopted.guestAccess, "portalEnabled")).toBe(true);
+  });
+
+  test("portalUseHostname is true (redirect to FQDN, not raw IP)", async () => {
+    const adopted = mod.adoptExisting(testProvider(), []);
+    expect(await get<boolean>(adopted.guestAccess, "portalUseHostname")).toBe(true);
+  });
+
+  test("portalHostname is the legacy captive-portal FQDN (before M5 cutover)", async () => {
+    // captive-portal.worldwidewebb.co remains the live hostname until app.cp
+    // cutover is approved and applied (www-jtp0.5.8, REQUIRES CALUM). This
+    // field documents the current live value, not the target.
+    const adopted = mod.adoptExisting(testProvider(), []);
+    expect(await get<string>(adopted.guestAccess, "portalHostname")).toBe(
+      "captive-portal.worldwidewebb.co",
+    );
+  });
+
+  test("ecEnabled is false (params arrive plaintext; ec blob breaks the SPA)", async () => {
+    const adopted = mod.adoptExisting(testProvider(), []);
+    expect(await get<boolean>(adopted.guestAccess, "ecEnabled")).toBe(false);
+  });
+
+  test("expire is 43200 minutes (30-day session lifetime, matching authorize-guest)", async () => {
+    const adopted = mod.adoptExisting(testProvider(), []);
+    expect(await get<number>(adopted.guestAccess, "expire")).toBe(43200);
+  });
+});
+
+describe("app.cp.worldwidewebb.co split-DNS record (www-jtp0.5.9, additive, gated)", () => {
+  // app.cp.worldwidewebb.co is the M5 TARGET hostname. It does NOT exist on the
+  // controller yet; it is a NEW (non-imported) additive DNS record gated behind
+  // the applyAppCp option flag. It points to the same Mini LAN IP as
+  // captive-portal.worldwidewebb.co. Applying it requires Calum to set the flag
+  // and run pulumi up (REQUIRES CALUM).
+  //
+  // WALLED GARDEN NOTE: the walled-garden allowance for app.cp (rest/portalconf)
+  // has NO @pulumiverse/unifi resource and stays UNMANAGED / direct-API.
+  // This must be applied via the UniFi console or API separately (REQUIRES CALUM).
+
+  test("appCpDns is absent when applyAppCp option is not set (default safe)", () => {
+    const adopted = mod.adoptExisting(testProvider(), []);
+    expect(adopted.appCpDns).toBeUndefined();
+  });
+
+  test("appCpDns is absent when applyAppCp is explicitly false", () => {
+    const adopted = mod.adoptExisting(testProvider(), [], { applyAppCp: false });
+    expect(adopted.appCpDns).toBeUndefined();
+  });
+
+  test("appCpDns is an A record pointing to 192.168.0.147 when applyAppCp is true", async () => {
+    const adopted = mod.adoptExisting(testProvider(), [], { applyAppCp: true });
+    expect(adopted.appCpDns).toBeDefined();
+    // The record resolves app.cp.worldwidewebb.co to the Mini LAN IP, the same
+    // host as captive-portal.worldwidewebb.co, on both the default and guest VLANs.
+    // biome: cast through unknown to avoid non-null assertion (toBeDefined() guards above)
+    const appCpDns = adopted.appCpDns as NonNullable<typeof adopted.appCpDns>;
+    expect(await get<string>(appCpDns, "name")).toBe("app.cp.worldwidewebb.co");
+    expect(await get<string>(appCpDns, "value")).toBe("192.168.0.147");
+    expect(await get<string>(appCpDns, "type")).toBe("A");
+    expect(await get<boolean>(appCpDns, "enabled")).toBe(true);
+  });
+
+  test("the legacy captive-portal DNS record is always present regardless of applyAppCp", async () => {
+    // The old hostname stays live (compatibility) until production validation
+    // confirms app.cp works end-to-end (www-jtp0.5.8 + www-jtp0.5.10).
+    const adopted = mod.adoptExisting(testProvider(), [], { applyAppCp: true });
+    expect(await get<string>(adopted.captivePortalDns, "name")).toBe(
+      "captive-portal.worldwidewebb.co",
+    );
+    expect(await get<string>(adopted.captivePortalDns, "value")).toBe("192.168.0.147");
+  });
+});
+
 describe("createGuestVlan (additive, gated, OPEN captive-portal guest net)", () => {
   test("OPEN isolated guest SSID (no passphrase) + the single scoped portal allow rule", async () => {
     // No passphrase: www-guest is an OPEN network. Access is gated by the

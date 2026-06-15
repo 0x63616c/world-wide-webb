@@ -40,7 +40,15 @@ function loadFixedIpReservations(): FixedIpReservation[] {
 const provider = makeProvider();
 const reservations = loadFixedIpReservations();
 
-const adopted = adoptExisting(provider, reservations);
+const cfg = new pulumi.Config("ccunifi");
+
+// applyAppCp (www-jtp0.5.9): when true, creates the additive A record for
+// app.cp.worldwidewebb.co -> 192.168.0.147. Defaults to false. Set only after
+// the walled-garden pre-auth allowance for app.cp is confirmed in the UniFi
+// Hotspot Portal console (REQUIRES CALUM, www-jtp0.5.10).
+const adopted = adoptExisting(provider, reservations, {
+  applyAppCp: cfg.getBoolean("applyAppCp") ?? false,
+});
 
 // www-guest VLAN/SSID: NEW, additive, applied ONLY when explicitly enabled in
 // a separate approved `pulumi up` (NOT during adopt-only import). Guarded so the
@@ -48,7 +56,6 @@ const adopted = adoptExisting(provider, reservations);
 // NOT the `unifi:` namespace, that belongs to the provider, and Pulumi would
 // try to pass these keys to it ("not a valid configuration key"). Use a project
 // namespace for our own flags.
-const cfg = new pulumi.Config("ccunifi");
 if (cfg.getBoolean("applyGuest")) {
   const guest = createGuestVlan(provider, {
     vlanId: cfg.requireNumber("guestVlanId"),

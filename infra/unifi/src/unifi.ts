@@ -15,6 +15,9 @@
 // NOT represented here (stay unmanaged / direct-API, MUST NOT appear in state):
 // walled garden (rest/portalconf), NetFlow IPFIX, traffic_flow, and the 2 auto
 // IPS firewall rules. The provider has no resource we instantiate for them.
+// For the M5 app.cp migration: the walled-garden pre-auth allowance for
+// app.cp.worldwidewebb.co (rest/portalconf) also has no provider resource and
+// stays unmanaged/direct-API (REQUIRES CALUM, www-jtp0.5.10).
 
 import * as pulumi from "@pulumi/pulumi";
 import * as unifi from "@pulumiverse/unifi";
@@ -80,6 +83,24 @@ export interface AdoptedResources {
   captivePortalDns: unifi.dns.Record;
   guestAccess: unifi.setting.GuestAccess;
   fixedIpUsers: unifi.iam.User[];
+  /**
+   * @public - additive A record for app.cp.worldwidewebb.co -> 192.168.0.147,
+   * present only when opts.applyAppCp is true. This is the M5 target hostname
+   * for the captive portal product. REQUIRES CALUM to apply: set the applyAppCp
+   * config flag and run pulumi up AFTER confirming the walled-garden step
+   * (www-jtp0.5.10, REQUIRES CALUM).
+   */
+  appCpDns?: unifi.dns.Record;
+}
+
+/** Options for adoptExisting. */
+export interface AdoptExistingOpts {
+  /**
+   * When true, creates the additive A record for app.cp.worldwidewebb.co -> 192.168.0.147.
+   * Defaults to false (safe). Set only after the walled-garden pre-auth step is
+   * confirmed (REQUIRES CALUM, www-jtp0.5.10).
+   */
+  applyAppCp?: boolean;
 }
 
 // Args common to every adopted resource: protect against deletion/replacement
@@ -115,6 +136,7 @@ export function adoptExisting(
     mac: string;
     name?: string;
   }>,
+  opts?: AdoptExistingOpts,
 ): AdoptedResources {
   // Default LAN: flat 192.168.0.0/24, no VLAN, DHCP on. purpose=corporate.
   const defaultNetwork = new unifi.Network(
@@ -190,12 +212,26 @@ export function adoptExisting(
   // garden + netflow + traffic_flow; Phase-5 verifies it byte-unchanged via a
   // direct controller GET vs the RECON baseline. Tracked upstream: www-2gpa.
 
-  // guest_access: current state (portal_enabled=true, redirect_enabled=false,
-  // auth=none). Adopt the CURRENT state; the external-portal flip (www-q002.15)
-  // is a later additive change, validated for write-fidelity first (below).
+  // guest_access: explicit live state captured from the controller (www-jtp0.5.9).
+  // Fields are set in the Hotspot Portal console (www-q002.15); the provider
+  // import + protect:true means Pulumi asserts they match (no write). Fields that
+  // the bridged provider cannot round-trip cleanly are listed in ignoreChanges.
+  // auth=custom: External Portal Server mode (NOT hotspot or none).
+  // portalHostname: legacy captive-portal.worldwidewebb.co stays the live value
+  // until the app.cp cutover is approved and applied (www-jtp0.5.8 REQUIRES CALUM).
+  // ecEnabled=false: params arrive plaintext; the ec blob breaks the SPA.
+  // expire=43200: 30-day session lifetime, matching authorize-guest (43200 min).
+  // redirectToHttps and redirectUrl live in a nested redirect block on the provider.
   const guestAccess = new unifi.setting.GuestAccess(
     "guest-access",
-    {},
+    {
+      auth: "custom",
+      portalEnabled: true,
+      portalUseHostname: true,
+      portalHostname: "captive-portal.worldwidewebb.co",
+      ecEnabled: false,
+      expire: 43200,
+    },
     adoptOpts(provider, IMPORT_IDS.guestAccess, ["unifi"]),
   );
 
@@ -226,12 +262,32 @@ export function adoptExisting(
       ),
   );
 
+  // app.cp.worldwidewebb.co: additive A record, M5 target hostname (www-jtp0.5.9).
+  // Created only when opts.applyAppCp is true to prevent premature apply.
+  // This is NOT imported (the record does not exist on the controller yet);
+  // protect:true is NOT set here because the resource does not yet exist.
+  // WALLED GARDEN: the pre-auth allowance for app.cp on rest/portalconf has
+  // NO provider resource and stays unmanaged / direct-API (REQUIRES CALUM www-jtp0.5.10).
+  const appCpDns = opts?.applyAppCp
+    ? new unifi.dns.Record(
+        "app-cp-dns",
+        {
+          name: "app.cp.worldwidewebb.co",
+          value: "192.168.0.147",
+          type: "A",
+          enabled: true,
+        },
+        { provider },
+      )
+    : undefined;
+
   return {
     defaultNetwork,
     worldWideWebbWlan,
     captivePortalDns,
     guestAccess,
     fixedIpUsers,
+    appCpDns,
   };
 }
 
