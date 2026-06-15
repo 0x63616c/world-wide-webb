@@ -113,19 +113,32 @@ export function accessAppsForPrivateWeb(
 
 /**
  * The desired Access apps for zone `<zone>`.
+ *
+ * `includeGate` (default false) toggles the zone-wide access gate (www-cuuw):
+ * a `*.<zone>` default-DENY floor plus tooling locks (storybook/drizzle/hooks).
+ * It is OFF by default because the floor's wildcard also catches any currently
+ * PUBLIC host that lacks an explicit allow above it, e.g. the live `dashboard`
+ * wall panel (until it cuts over to `app--cc`) and public `app--tye`. Enabling
+ * it before those have an explicit bypass would lock them out (www-b6ad). The
+ * per-product private-route apps (CC/AMP) are ALWAYS returned: they gate the
+ * product hosts themselves and are safe to apply independent of the floor.
  */
-export function desiredAccessApps(zone: string): DesiredAccessApp[] {
+export function desiredAccessApps(zone: string, includeGate = false): DesiredAccessApp[] {
   const ccManifest = controlCenterProductManifest();
   const ampManifest = ampProductManifest();
 
+  // Private-web products: AMP uses email-OTP (human web access); the CC
+  // dashboard uses a kiosk service-token (iPad wall panel, not human login).
+  const productApps = accessAppsForPrivateWeb([
+    { exposure: ccManifest.app.exposure, policy: "kiosk-service-token" },
+    { exposure: ampManifest.app.exposure, policy: "email-otp" },
+  ]);
+
+  if (!includeGate) return productApps;
+
   return [
     wildcardBlockFloor(zone),
-    // Private-web products: AMP uses email-OTP (human web access); the CC
-    // dashboard uses a kiosk service-token (iPad wall panel, not human login).
-    ...accessAppsForPrivateWeb([
-      { exposure: ccManifest.app.exposure, policy: "kiosk-service-token" },
-      { exposure: ampManifest.app.exposure, policy: "email-otp" },
-    ]),
+    ...productApps,
     accessApp(`storybook.${zone}`, [emailOtpPolicy()]),
     accessApp(`drizzle.${zone}`, [emailOtpPolicy()]),
     accessApp(`hooks.${zone}`, [serviceTokenPolicy("ci-service-token", "ciClientId")]),

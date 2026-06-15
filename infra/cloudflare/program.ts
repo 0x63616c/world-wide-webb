@@ -1,9 +1,15 @@
-// Pulumi program for the control-center Cloudflare edge state (www-j934.2).
+// Pulumi program for the control-center Cloudflare edge state.
 //
-// ADOPT-ONLY this milestone: every resource here mirrors the DEPLOYED Cloudflare
-// state (declaring only what is LIVE per www-cuuw), is `pulumi import`-ed, and is marked
-// `protect: true`. The acceptance gate is that the first `pulumi preview` after
-// import shows 0 create / 0 delete / 0 replace. NO `pulumi up`/apply this ticket.
+// LIVE DEPLOY TARGET (was adopt-only at import, www-j934.2; promoted www-kbiy).
+// This stack now drives the live Cloudflare edge: tunnel ingress routing, proxied
+// DNS, and per-product Access apps. The original "mirror, do not apply" import era
+// is over, `pulumi up` here is a real prod mutation. (Until CI owns it, www-cred,
+// it is applied by hand.) Every resource is still `protect: true`.
+//
+// The zone-wide ACCESS GATE (default-deny *.<zone> floor + tooling locks, www-cuuw)
+// is flag-gated OFF by `applyAccessGate` (see below): applying the floor would
+// block any currently-public host without an explicit bypass (the live dashboard
+// panel, public app--tye), so it stays off until www-cuuw/www-b6ad add those.
 //
 // Config (all from 1Password via `pulumi config set [--secret]`, NEVER literals):
 //   cloudflare apiToken   op://Homelab/Cloudflare API/credential   (account-owned;
@@ -11,11 +17,6 @@
 //                          NOT /user/tokens/verify)
 //   accountId / zoneId / tunnelId / zoneName   op://Homelab/Cloudflare API/*
 //   allowedEmail                               the OTP allow email (PII; SECRET config)
-//
-// SERVICE-TOKEN SECRETS ARE NEVER USED HERE: the deployed apps use email-OTP
-// includes, so no service token is referenced at all. (The dashboard
-// service-token app + Block floor are deferred to www-jhly.) If a future resource
-// needs a token, it references the token by id, never the client secret.
 
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
@@ -31,6 +32,12 @@ const zoneName = cfg.require("zoneName");
 const accountId = cfg.requireSecret("accountId");
 const zoneId = cfg.requireSecret("zoneId");
 const tunnelId = cfg.requireSecret("tunnelId");
+// applyAccessGate gates the zone-wide access gate (www-cuuw): the *.<zone>
+// default-deny floor + tooling locks. Default false so the floor never blocks a
+// currently-public host (the live dashboard panel, public app--tye) before each
+// has an explicit bypass (www-b6ad). The per-product CC/AMP route Access apps are
+// always applied. Flip via: pulumi config set applyAccessGate true --stack prod
+const applyAccessGate = cfg.getBoolean("applyAccessGate") ?? false;
 function accessInclude(
   include: AccessInclude,
 ): cloudflare.types.input.ZeroTrustAccessPolicyInclude {
@@ -90,7 +97,7 @@ function accessPolicyInputName(appDomain: string, policyName: string): string {
 // The provider DERIVES selfHostedDomains from `name` and treats sessionDuration /
 // appLauncherVisible / autoRedirectToIdentity as managed defaults, so declaring
 // them here would show a spurious update.
-for (const app of desiredAccessApps(zoneName)) {
+for (const app of desiredAccessApps(zoneName, applyAccessGate)) {
   const name = accessName(app.domain);
   const cfApp = new cloudflare.ZeroTrustAccessApplication(
     name,
@@ -147,15 +154,14 @@ new cloudflare.ZeroTrustTunnelCloudflaredConfig(
 // "automatic", proxied. `content` is the tunnel target (tunnelId from config =
 // the live tunnel UUID, so the target matches live).
 //
-// !!! KNOWN v5 IMPORT ARTIFACT, DO NOT "FIX" BY APPLYING !!!
+// KNOWN v5 IMPORT ARTIFACT (benign, self-heals on apply):
 // `pulumi preview` shows each Record with a benign `~ update [+content,
 // +allowOverwrite]`. This is NOT drift: @pulumi/cloudflare 5.49.1 does not
 // round-trip a proxied CNAME's `content` (or the input-only `allowOverwrite`) on
 // `pulumi import`, so import recorded content=null while the program supplies the
 // VALUE-IDENTICAL live target (verified: live `dig`/API content ==
-// <tunnelId>.cfargotunnel.com). The pending update is a no-op; it self-heals on
-// the first LEGITIMATE apply (Phase-4 cutover). Do NOT run `pulumi up` here just
-// to silence the preview - adopt-only this ticket (www-j934.2; ruling B).
+// <tunnelId>.cfargotunnel.com). The update is a no-op that self-heals on apply
+// (www-kbiy promoted this stack to a live deploy target).
 for (const c of desiredCnames(zoneName)) {
   new cloudflare.Record(
     sub(c.hostname),
@@ -180,7 +186,7 @@ for (const c of desiredCnames(zoneName)) {
 
 export const summary = {
   zoneName,
-  accessApps: desiredAccessApps(zoneName).map((a) => a.domain),
+  accessApps: desiredAccessApps(zoneName, applyAccessGate).map((a) => a.domain),
   ingressHosts: desiredIngressRules(zoneName).map((r) => r.hostname),
   cnames: desiredCnames(zoneName).map((c) => c.hostname),
 };
