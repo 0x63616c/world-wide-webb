@@ -9,16 +9,21 @@ import { accessAppsForPrivateWeb, desiredAccessApps } from "../src/access.ts";
 const ZONE = "worldwidewebb.co";
 
 describe("desiredAccessApps", () => {
-  test("DEFAULT (gate off): only per-product CC/AMP route apps, NO wildcard floor or tooling locks", () => {
-    // www-b6ad: the zone-wide access gate is off by default so the *.<zone>
-    // default-deny floor can never block a currently-public host (live dashboard,
-    // public app--tye) before it has an explicit bypass.
+  test("DEFAULT (gate off): product routes + existing tooling, but NO wildcard floor or hooks lock", () => {
+    // www-b6ad: the not-yet-live gate additions (the *.<zone> default-deny floor
+    // and the hooks CI lock) are off by default, so the floor can never block a
+    // currently-public host (live dashboard, public app--tye) before it has an
+    // explicit bypass. Already-live storybook/drizzle protections are kept.
     const domains = desiredAccessApps(ZONE)
       .map((a) => a.domain)
       .sort();
-    expect(domains).toEqual(["app--amp.worldwidewebb.co", "app--cc.worldwidewebb.co"]);
+    expect(domains).toEqual([
+      "app--amp.worldwidewebb.co",
+      "app--cc.worldwidewebb.co",
+      "drizzle.worldwidewebb.co",
+      "storybook.worldwidewebb.co",
+    ]);
     expect(domains).not.toContain("*.worldwidewebb.co");
-    expect(domains).not.toContain("storybook.worldwidewebb.co");
     expect(domains).not.toContain("hooks.worldwidewebb.co");
   });
 
