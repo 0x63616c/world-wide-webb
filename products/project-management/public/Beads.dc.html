@@ -235,10 +235,10 @@
     <sc-if value="{{ isBoard }}">
       <div style="height:100%; overflow:hidden; padding:20px; display:flex; flex-direction:column; gap:14px;">
         <div style="flex:0 0 auto; display:flex; align-items:center; gap:10px;">
-          <span class="mono" style="font-size:11px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em;">Milestone</span>
-          <select class="bd-input" value="{{ milestoneFilter }}" onChange="{{ onMilestoneFilter }}" style="padding:8px 12px; background:var(--tile); border:1px solid var(--hair); border-radius:9px; color:var(--ink-2); font-size:13px; font-family:var(--ui); cursor:pointer;">
-            <option value="all">All milestones</option>
-            <sc-for list="{{ milestoneOptions }}" as="m"><option value="{{ m.value }}">{{ m.label }}</option></sc-for>
+          <span class="mono" style="font-size:11px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em;">Epic</span>
+          <select class="bd-input" value="{{ epicFilter }}" onChange="{{ onEpicFilter }}" style="padding:8px 12px; background:var(--tile); border:1px solid var(--hair); border-radius:9px; color:var(--ink-2); font-size:13px; font-family:var(--ui); cursor:pointer;">
+            <option value="all">All epics</option>
+            <sc-for list="{{ epicOptions }}" as="ep"><option value="{{ ep.value }}">{{ ep.label }}</option></sc-for>
           </select>
           <span class="mono" style="font-size:11px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em; margin-left:6px;">Type</span>
           <select class="bd-input" value="{{ boardTypeFilter }}" onChange="{{ onBoardTypeFilter }}" style="padding:8px 12px; background:var(--tile); border:1px solid var(--hair); border-radius:9px; color:var(--ink-2); font-size:13px; font-family:var(--ui); cursor:pointer;">
@@ -586,7 +586,7 @@ class Component extends DCLogic {
     density: 'comfortable',
     statusFilter: 'all',
     typeFilter: 'all',
-    milestoneFilter: 'all',
+    epicFilter: 'all',
     epicSort: 'newest',
     sortKey: null,
     sortDir: 'asc',
@@ -908,10 +908,13 @@ class Component extends DCLogic {
 
     // board
     const colKey = (it) => (it.status in STATUS_META ? it.status : 'ready');
-    const msFilter = st.milestoneFilter;
+    const epFilter = st.epicFilter;
     const btFilter = st.typeFilter;
+    const epicChildSet = epFilter !== 'all'
+      ? new Set((issues.find((i) => i.id === epFilter) || {children: []}).children || [])
+      : null;
     const boardColumns = BOARD_COLS.map((col) => {
-      const cards = issues.filter((i) => i.type !== 'epic' && colKey(i) === col.key && (msFilter === 'all' || (i.labels || []).includes(msFilter)) && (btFilter === 'all' || i.type === btFilter)).map((it) => {
+      const cards = issues.filter((i) => i.type !== 'epic' && colKey(i) === col.key && (epicChildSet === null || epicChildSet.has(i.id)) && (btFilter === 'all' || i.type === btFilter)).map((it) => {
         const tm = TYPE_META[it.type] || TYPE_META.task;
         const pb = this.prioBadge(it.p);
         return {
@@ -1018,9 +1021,9 @@ class Component extends DCLogic {
       boardColumns,
       epicSort: st.epicSort, onEpicSort: (e) => this.setState({ epicSort: e.target.value }),
       boardTypeFilter: st.typeFilter, onBoardTypeFilter: (e) => this.setState({ typeFilter: e.target.value }),
-      milestoneFilter: st.milestoneFilter, onMilestoneFilter: (e) => this.setState({ milestoneFilter: e.target.value }),
-      hasMilestoneFilter: st.milestoneFilter !== 'all',
-      milestoneOptions: (() => { const s = new Set(); issues.forEach((i) => (i.labels || []).forEach((l) => { if (/^milestone-\d+$/.test(l) || /^m\d+$/.test(l)) s.add(l); })); return [...s].sort((a, b) => { const na = parseInt((a.match(/\d+/) || [9999])[0], 10), nb = parseInt((b.match(/\d+/) || [9999])[0], 10); return na - nb; }).map((l) => ({ value: l, label: l.toUpperCase() })); })(),
+      epicFilter: st.epicFilter, onEpicFilter: (e) => this.setState({ epicFilter: e.target.value }),
+      epicOptions: issues.filter((i) => i.type === 'epic').map((ep) => ({ value: ep.id, label: ep.title.slice(0, 40) })),
+      hasMilestoneFilter: st.epicFilter !== 'all',
 
       hasSelected: !!selected, selected, closeDetail: () => this.closeDetail(),
       confirmClose: st.confirmClose, discardAndClose: () => this.discardAndClose(), cancelConfirm: () => this.setState({ confirmClose: false }),
