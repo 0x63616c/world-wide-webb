@@ -1,11 +1,10 @@
 import { getLogger } from "@repo/logger";
-import { and, desc, eq, isNotNull, lt } from "drizzle-orm";
+import { and, eq, isNotNull, lt } from "drizzle-orm";
 import { findLight } from "../config/lights";
 import { db } from "../db/index";
-import { deviceCommands, deviceState, integrationSyncStatus } from "../db/schema";
+import { deviceState, integrationSyncStatus } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
-import { CommandStatus } from "./device-command-service";
 import { DeviceKind, mapHaToReported, stateEquals } from "./device-state-mapping";
 
 const SYNC_INTEGRATION_ID = "homeassistant";
@@ -101,28 +100,10 @@ export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> 
         .update(deviceState)
         .set({ desiredUntilUtc: null, desiredState: null, desiredAtUtc: null })
         .where(eq(deviceState.id, device.id));
-      await confirmLatestSentCommand(device.id, now);
     }
   }
 
   await sweepExpiredWindows(now);
-}
-
-async function confirmLatestSentCommand(deviceId: string, at: Date): Promise<void> {
-  const rows = await db
-    .select()
-    .from(deviceCommands)
-    .where(
-      and(eq(deviceCommands.deviceId, deviceId), eq(deviceCommands.status, CommandStatus.Sent)),
-    )
-    .orderBy(desc(deviceCommands.issuedAtUtc))
-    .limit(1);
-  const row = rows[0];
-  if (!row) return;
-  await db
-    .update(deviceCommands)
-    .set({ status: CommandStatus.Confirmed, confirmedAtUtc: at })
-    .where(eq(deviceCommands.id, row.id));
 }
 
 export async function sweepExpiredWindows(now: Date): Promise<void> {
@@ -143,50 +124,10 @@ export async function sweepExpiredWindows(now: Date): Promise<void> {
     )
       continue;
 
-    const desired = device.desiredState;
-    const reported = device.reportedState ?? null;
-    const settled = stateEquals(reported, desired);
-
     await db
       .update(deviceState)
       .set({ desiredUntilUtc: null, desiredState: null, desiredAtUtc: null })
       .where(eq(deviceState.id, device.id));
-
-    if (!settled) {
-      const rows = await db
-        .select()
-        .from(deviceCommands)
-        .where(
-          and(
-            eq(deviceCommands.deviceId, device.id),
-            eq(deviceCommands.status, CommandStatus.Sent),
-          ),
-        )
-        .orderBy(desc(deviceCommands.issuedAtUtc))
-        .limit(1);
-      const row = rows[0];
-      if (row) {
-        const elapsedMs = device.desiredUntilUtc
-          ? now.getTime() - device.desiredUntilUtc.getTime()
-          : undefined;
-        getLogger().warn(
-          {
-            deviceId: device.id,
-            entityId: device.entityId,
-            desired: device.desiredState,
-            elapsedMs,
-          },
-          "command marked timeout , desired window expired",
-        );
-        await db
-          .update(deviceCommands)
-          .set({
-            status: CommandStatus.Timeout,
-            error: "Desired window expired before HA reflected change",
-          })
-          .where(eq(deviceCommands.id, row.id));
-      }
-    }
   }
 }
 

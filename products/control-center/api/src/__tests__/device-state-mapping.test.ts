@@ -215,6 +215,61 @@ describe("sanitizeClimateDesired", () => {
   });
 });
 
+// ─── mergeDeviceState (light) ────────────────────────────────────────────────
+// Desired-authoritative (www-7d5b.2.4): desired is the effective state when
+// present; pending means HA has not yet converged with it.
+describe("mergeDeviceState (light)", () => {
+  it("returns desiredState with pending=true while reported has not converged", () => {
+    const result = mergeDeviceState({
+      reportedState: { on: false },
+      desiredState: { on: true },
+      available: true,
+    });
+    expect(result).toEqual({ state: { on: true }, pending: true, available: true });
+  });
+
+  it("returns desiredState with pending=false once reported converges (within tolerance)", () => {
+    const result = mergeDeviceState({
+      reportedState: { on: true, brightness: 200, color: { rgb: [0, 2, 254] } },
+      desiredState: { on: true, brightness: 200, color: { rgb: [0, 0, 255] } },
+      available: true,
+    });
+    expect(result.state).toEqual({ on: true, brightness: 200, color: { rgb: [0, 0, 255] } });
+    expect(result.pending).toBe(false);
+  });
+
+  it("returns reportedState with pending=false when desired is null", () => {
+    const result = mergeDeviceState({
+      reportedState: { on: false },
+      desiredState: null,
+      available: true,
+    });
+    expect(result).toEqual({ state: { on: false }, pending: false, available: true });
+  });
+
+  it("overlays a bare {on} desired onto reported brightness/colour (no zeroing, not pending)", () => {
+    // www-7d5b.2.4 regression: a bare on/off toggle writes only { on } and must
+    // NOT zero out brightness/colour, nor sit perpetually pending.
+    const result = mergeDeviceState({
+      reportedState: { on: true, brightness: 200, color: { rgb: [255, 0, 0] } },
+      desiredState: { on: true },
+      available: true,
+    });
+    expect(result.state).toEqual({ on: true, brightness: 200, color: { rgb: [255, 0, 0] } });
+    expect(result.pending).toBe(false);
+  });
+
+  it("a specified desired field overrides reported and drives pending", () => {
+    const result = mergeDeviceState({
+      reportedState: { on: true, brightness: 200, color: { rgb: [255, 0, 0] } },
+      desiredState: { on: true, color: { rgb: [0, 0, 255] } },
+      available: true,
+    });
+    expect(result.state).toEqual({ on: true, brightness: 200, color: { rgb: [0, 0, 255] } });
+    expect(result.pending).toBe(true);
+  });
+});
+
 describe("mergeDeviceState (climate)", () => {
   it("surfaces LIVE reported ambient/action even when a stale desired carries them (www-dnpj)", () => {
     const merged = mergeDeviceState({

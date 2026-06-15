@@ -34,7 +34,6 @@ vi.mock("../integrations/homeassistant", () => ({
 
 // ─── import after mocks ──────────────────────────────────────────────────────
 
-import { mergeDeviceState } from "../services/device-state-mapping";
 import {
   reconcile,
   runDeviceSyncCycle,
@@ -116,79 +115,6 @@ class SelectChain {
 function makeSelectChain(rows: unknown[]): SelectChain {
   return new SelectChain(rows);
 }
-
-// ─── mergeDeviceState tests ──────────────────────────────────────────────────
-
-// Desired-authoritative (www-7d5b.2.4): desired is the effective state when
-// present; pending means HA has not yet converged with it. The old 5s
-// desiredUntilUtc window is retired.
-describe("mergeDeviceState", () => {
-  it("returns desiredState with pending=true while reported has not converged", () => {
-    const device = makeDevice({
-      reportedState: { on: false },
-      desiredState: { on: true },
-      available: true,
-    });
-
-    const result = mergeDeviceState(device as Parameters<typeof mergeDeviceState>[0]);
-    // on differs (reported off, desired on) → not converged → pending.
-    expect(result).toEqual({ state: { on: true }, pending: true, available: true });
-  });
-
-  it("returns desiredState with pending=false once reported converges (within tolerance)", () => {
-    const device = makeDevice({
-      reportedState: { on: true, brightness: 200, color: { rgb: [0, 2, 254] } },
-      desiredState: { on: true, brightness: 200, color: { rgb: [0, 0, 255] } },
-      available: true,
-    });
-
-    const result = mergeDeviceState(device as Parameters<typeof mergeDeviceState>[0]);
-    expect(result.state).toEqual({ on: true, brightness: 200, color: { rgb: [0, 0, 255] } });
-    expect(result.pending).toBe(false);
-  });
-
-  it("returns reportedState with pending=false when desired is null", () => {
-    const device = makeDevice({
-      reportedState: { on: false },
-      desiredState: null,
-      available: true,
-    });
-
-    const result = mergeDeviceState(device as Parameters<typeof mergeDeviceState>[0]);
-    expect(result).toEqual({ state: { on: false }, pending: false, available: true });
-  });
-
-  // www-7d5b.2.4 regression: desired is a PARTIAL overlay. A bare on/off toggle
-  // writes only { on } , it must NOT zero out the brightness/colour the panel
-  // shows, nor sit perpetually pending. Unspecified fields fall back to reported.
-  it("overlays a bare {on} desired onto reported brightness/colour (no zeroing, not pending)", () => {
-    const device = makeDevice({
-      reportedState: { on: true, brightness: 200, color: { rgb: [255, 0, 0] } },
-      desiredState: { on: true },
-      available: true,
-    });
-
-    const result = mergeDeviceState(device as Parameters<typeof mergeDeviceState>[0]);
-    // brightness + colour come from reported (desired didn't specify them).
-    expect(result.state).toEqual({ on: true, brightness: 200, color: { rgb: [255, 0, 0] } });
-    // Only `on` is specified and it matches → converged → not pending.
-    expect(result.pending).toBe(false);
-  });
-
-  it("a SPECIFIED desired field still overrides reported and drives pending", () => {
-    const device = makeDevice({
-      reportedState: { on: true, brightness: 200, color: { rgb: [255, 0, 0] } },
-      desiredState: { on: true, color: { rgb: [0, 0, 255] } },
-      available: true,
-    });
-
-    const result = mergeDeviceState(device as Parameters<typeof mergeDeviceState>[0]);
-    // Specified colour wins; unspecified brightness falls back to reported.
-    expect(result.state).toEqual({ on: true, brightness: 200, color: { rgb: [0, 0, 255] } });
-    // Specified colour diverges from reported → pending until the enforcer converges.
-    expect(result.pending).toBe(true);
-  });
-});
 
 // ─── reconcile tests ─────────────────────────────────────────────────────────
 
@@ -366,7 +292,9 @@ describe("sweepExpiredWindows", () => {
     expect(updateSet).not.toHaveBeenCalled();
   });
 
-  it("marks command as timeout and clears overlay when window expires without confirmation", async () => {
+  it("clears the desired window when it expires (no device_commands rows created)", async () => {
+    // mutations no longer create device_commands rows, so sweepExpiredWindows just
+    // clears the window — no timeout marking needed (www-7d5b.4).
     const now = new Date();
     const expired = makeDevice({
       reportedState: { on: false },
@@ -375,11 +303,7 @@ describe("sweepExpiredWindows", () => {
       available: true,
     });
 
-    const sentCommand = { id: 42, status: "sent", action: "setOn", deviceId: "dev-1" };
-
-    mockDbSelect
-      .mockReturnValueOnce(makeSelectChain([expired])) // expired devices
-      .mockReturnValueOnce(makeSelectChain([sentCommand])); // sent command lookup
+    mockDbSelect.mockReturnValueOnce(makeSelectChain([expired]));
 
     const updateSet = vi.fn().mockReturnThis();
     const updateWhere = vi.fn().mockResolvedValue(undefined);
@@ -395,15 +319,8 @@ describe("sweepExpiredWindows", () => {
         (c[0] as Record<string, unknown>).desiredUntilUtc === null,
     );
     expect(clearCall).toBeDefined();
-
-    const timeoutCall = updateSet.mock.calls.find(
-      (c: unknown[]) =>
-        typeof c[0] === "object" &&
-        c[0] !== null &&
-        "status" in (c[0] as Record<string, unknown>) &&
-        (c[0] as Record<string, unknown>).status === "timeout",
-    );
-    expect(timeoutCall).toBeDefined();
+    // No second select or update for deviceCommands — the function is gone.
+    expect(mockDbSelect).toHaveBeenCalledTimes(1);
   });
 });
 
