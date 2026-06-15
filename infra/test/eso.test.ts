@@ -58,6 +58,13 @@ describe("SERVICE_SECRETS", () => {
   });
 });
 
+describe("SERVICE_SECRETS: tye-api (www-jtp0)", () => {
+  test("tye-api entry present with POSTGRES_PASSWORD pointing at the TYE 1P item", () => {
+    expect("tye-api" in map.SERVICE_SECRETS).toBe(true);
+    expect(map.SERVICE_SECRETS["tye-api"].POSTGRES_PASSWORD).toBe("text-your-ex Postgres/password");
+  });
+});
+
 describe("installEso", () => {
   test("emits one ExternalSecret per service, each with matching data entries", async () => {
     const provider = new (await import("@pulumi/kubernetes")).Provider("test", { context: "x" });
@@ -77,5 +84,25 @@ describe("installEso", () => {
     expect(keys).toContain("Resend/from-address");
     // refreshInterval set so rotations propagate without a redeploy (AC).
     expect(spec.refreshInterval).toBe("1h");
+  });
+
+  test("tye-api ExternalSecret targets cc-secrets-tye-api with POSTGRES_PASSWORD (www-jtp0)", async () => {
+    const provider = new (await import("@pulumi/kubernetes")).Provider("test2", { context: "x" });
+    const res = eso.installEso({ provider, appNamespace: "control-center", chartVersion: "2.6.0" });
+
+    // Resolve all specs and find the one whose target Secret is cc-secrets-tye-api.
+    const allSpecs = await Promise.all(
+      res.externalSecrets.map((es) =>
+        get<{
+          target: { name: string };
+          data: { secretKey: string; remoteRef: { key: string } }[];
+        }>(es, "spec"),
+      ),
+    );
+    const tyeSpec = allSpecs.find((s) => s.target.name === "cc-secrets-tye-api");
+    expect(tyeSpec).toBeDefined();
+    expect(tyeSpec?.data).toHaveLength(1);
+    expect(tyeSpec?.data[0].secretKey).toBe("POSTGRES_PASSWORD");
+    expect(tyeSpec?.data[0].remoteRef.key).toBe("text-your-ex Postgres/password");
   });
 });

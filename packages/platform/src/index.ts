@@ -898,7 +898,7 @@ export function textYourExProductManifest(): TyeProductManifest {
     {
       POSTGRES_PASSWORD: secretCatalog.textYourEx.postgresPassword,
     },
-    { targetSecretName: "tye-secrets-api" },
+    { targetSecretName: "cc-secrets-tye-api" },
   );
 
   return {

@@ -269,8 +269,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       replicas: 1,
       resources: { memory: "256M" },
       secrets: mount(["POSTGRES_PASSWORD"]),
-      // Secret is product-scoped to tye-secrets-api (not the cc-secrets-* default).
-      secretName: "tye-secrets-api",
+      // secretName defaults to cc-secrets-tye-api (ESO-synced from op://Homelab/text-your-ex Postgres/password).
       env: {
         TZ,
         APP_ENV: "production",

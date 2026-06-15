@@ -6,6 +6,7 @@ import {
   defineServiceSecretUsage,
   secretCatalog,
   serviceSecretMap,
+  textYourExProductManifest,
 } from "../src/index.ts";
 
 describe("secret catalog and service usage", () => {
@@ -31,8 +32,16 @@ describe("secret catalog and service usage", () => {
     });
   });
 
-  test("can represent current Control Center service secrets exactly", () => {
-    expect(serviceSecretMap(controlCenterServiceSecretUsages())).toEqual(SERVICE_SECRETS);
+  test("can represent all deployed service secrets exactly (CC + TYE)", () => {
+    // SERVICE_SECRETS covers every workload that has an ESO ExternalSecret.
+    // Merge CC usages (keyed by service name) with TYE usages (prefixed tye-<service>
+    // to avoid key collision with CC's own "api" key).
+    const tye = textYourExProductManifest().secretUsages;
+    const tyePrefixed = Object.fromEntries(
+      Object.entries(tye).map(([svc, usage]) => [`tye-${svc}`, usage]),
+    );
+    const allUsages = { ...controlCenterServiceSecretUsages(), ...tyePrefixed };
+    expect(serviceSecretMap(allUsages)).toEqual(SERVICE_SECRETS);
   });
 
   test("keeps services with no declared secrets absent", () => {

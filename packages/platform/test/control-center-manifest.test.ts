@@ -51,8 +51,12 @@ describe("Control Center platform representation", () => {
 
   test("keeps current service secret usage exactly representable", () => {
     const manifest = controlCenterProductManifest();
-
-    expect(serviceSecretMap(manifest.secretUsages)).toEqual(SERVICE_SECRETS);
+    // SERVICE_SECRETS covers CC + other products (tye-api added in www-jtp0.6.6).
+    // The CC manifest's secretUsages covers only CC services; assert those are a subset.
+    const ccMap = serviceSecretMap(manifest.secretUsages);
+    for (const [service, secrets] of Object.entries(ccMap)) {
+      expect(SERVICE_SECRETS[service]).toEqual(secrets);
+    }
   });
 
   test("keeps current database and backup behavior representable", () => {

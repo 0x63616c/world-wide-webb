@@ -56,4 +56,10 @@ export const SERVICE_SECRETS: Record<string, ServiceSecrets> = {
   "portal-data-purge": {
     POSTGRES_PASSWORD: "Control Center Postgres/password",
   },
+  // tye-api reads /run/secrets/POSTGRES_PASSWORD (POSTGRES_PASSWORD_FILE default)
+  // to build its DATABASE_URL pointing at the text-your-ex CNPG cluster (text-your-ex-rw).
+  // 1P item: op://Homelab/text-your-ex Postgres/password
+  "tye-api": {
+    POSTGRES_PASSWORD: "text-your-ex Postgres/password",
+  },
 };
