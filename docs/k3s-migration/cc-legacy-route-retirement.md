@@ -10,11 +10,12 @@ explicit approval, and not before www-jtp0.7.10 (wall-panel verification) passes
 ## Do NOT retire until ALL of these are true
 
 - [ ] www-jtp0.7.7 production data cutover complete and verified.
-- [ ] www-jtp0.7.8 iOS kiosk shipped: a TestFlight build defaulting to
-      `https://app--cc.worldwidewebb.co` is installed on the iPad.
-- [ ] www-jtp0.7.10 wall-panel verified healthy at 1366×1024 on `app.cc`
+- [x] www-jtp0.7.8 iOS kiosk shipped: TestFlight build 60 confirmed running on the iPad
+      with `capacitor.config.ts` defaulting to `https://app--cc.worldwidewebb.co`
+      (closed as duplicate of www-jtp0.3.7, 2026-06-15).
+- [ ] www-jtp0.7.10 wall-panel verified healthy at 1366×1024 on `app--cc`
       (`scripts/verify-wall-panel.mjs` PASS + human screenshot review).
-- [ ] The installed kiosk has run for a soak period on `app.cc` with the watchdog
+- [ ] The installed kiosk has run for a soak period on `app--cc` with the watchdog
       recovering normally (no fallback to the legacy host).
 - [ ] Calum explicitly approves retirement.
 
