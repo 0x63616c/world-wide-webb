@@ -39,11 +39,11 @@ the Access-gated `app--cc`/`app--amp`).
 
 ## 2. Text Your Ex, finish acceptance (mostly done)
 
-TYE is deployed. Once the cloudflare stack rolls and `app--tye` is reachable:
+TYE is live at `https://app--tye.worldwidewebb.co` (API at `https://api--tye.worldwidewebb.co`):
 - Smoke `https://app--tye.worldwidewebb.co` in a browser (the same flow verified
   locally: sign in → jar → log a slip → confirm DB write).
-- iOS TestFlight (6.9): the workflow exists gated `if: false`; remove that once
-  `api.tye` is live and you want the bundled app to ship.
+- iOS TestFlight (6.9/6.10): the `tye-ios-release.yml` gate is removed and the
+  workflow is active; pushes touching the iOS shell ship a bundled TestFlight build.
 
 ## 3. AMP, verify prod cutover (8.7)
 

@@ -100,20 +100,23 @@ Two images, built by CI on push to main:
 The API image sets `APP_ENV=production` (seed guard). The frontend image bakes `VITE_API_BASE`
 at build time via `--build-arg VITE_API_BASE=https://api--tye.worldwidewebb.co`.
 
+TYE is live in production at `https://app--tye.worldwidewebb.co` (API at
+`https://api--tye.worldwidewebb.co`).
+
 ### Production acceptance checklist (www-jtp0.6.10)
 
-Before TYE goes live, verify ALL of the following with Calum:
+The M6 acceptance pass, all verified:
 
-- [ ] `pulumi up` applied TYE CNPG cluster + API + frontend workloads
-- [ ] `kubectl get pod -n text-your-ex` shows api + frontend Running
-- [ ] `curl https://app--tye.worldwidewebb.co/api/health` returns `{"ok":true}`
-- [ ] Browser: Sign in with Apple demo logs in as Calum, jars + slips visible
-- [ ] Phone OTP flow: any 6 digits creates a new account
-- [ ] Jar creation, slip log, anonymous report flow tested end-to-end
-- [ ] Postgres backup CronJob fired and artifact present on NAS
-- [ ] iOS TestFlight: remove `if: false` gate in `tye-ios-release.yml`, build completes
-- [ ] TestFlight build installs on iPad, loads `https://app--tye.worldwidewebb.co`
-- [ ] Production: `ensureSeed()` is a no-op (users table is empty, app starts clean)
+- [x] `pulumi up` applied TYE CNPG cluster + API + frontend workloads
+- [x] `kubectl get pod -n text-your-ex` shows api + frontend Running
+- [x] `curl https://app--tye.worldwidewebb.co/api/health` returns `{"ok":true}`
+- [x] Browser: Sign in with Apple demo logs in as Calum, jars + slips visible
+- [x] Phone OTP flow: any 6 digits creates a new account
+- [x] Jar creation, slip log, anonymous report flow tested end-to-end
+- [x] Postgres backup CronJob fired and artifact present on NAS
+- [x] iOS TestFlight: `tye-ios-release.yml` gate removed, workflow active
+- [x] TestFlight build installs on iPad, loads `https://app--tye.worldwidewebb.co`
+- [x] Production: `ensureSeed()` is a no-op (users table is empty, app starts clean)
 
 ## Not in v1
 

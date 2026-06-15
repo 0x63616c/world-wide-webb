@@ -1,9 +1,8 @@
 # Builds the Text Your Ex iOS Capacitor shell (products/text-your-ex/ios) and uploads to TestFlight.
 # The web app is bundled at build time (Capacitor bundled mode, no server.url in capacitor.config.ts).
-# VITE_API_BASE must point at the live API; this must NOT ship until the TYE Postgres + API are deployed.
+# VITE_API_BASE points at the live production API (https://api--tye.worldwidewebb.co).
 #
-# Gate: `if: false` keeps this from running until TYE is live in production (www-jtp0.6.10).
-# Remove the `if: false` at the TYE production acceptance step.
+# TYE is live in production (www-jtp0.6.10), so this workflow is active.
 
 name: TYE iOS Release
 
@@ -20,9 +19,6 @@ on:
     - cron: "0 14 1 * *" # 1st of every month, keeps the TestFlight build fresh (90-day expiry)
   workflow_dispatch:
 
-# GATE: blocked until TYE API is live in production. Remove when www-jtp0.6.10 is accepted.
-# Every job in this file inherits this condition.
-
 concurrency:
   group: tye-ios-release
   cancel-in-progress: true
@@ -30,7 +26,6 @@ concurrency:
 jobs:
   build:
     name: Build and upload to TestFlight
-    if: false # GATE: remove when TYE API is live (www-jtp0.6.10)
     runs-on: macos-26
     timeout-minutes: 30
     defaults:
