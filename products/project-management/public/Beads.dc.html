@@ -910,9 +910,21 @@ class Component extends DCLogic {
     const colKey = (it) => (it.status in STATUS_META ? it.status : 'ready');
     const epFilter = st.epicFilter;
     const btFilter = st.typeFilter;
-    const epicChildSet = epFilter !== 'all'
-      ? new Set((issues.find((i) => i.id === epFilter) || {children: []}).children || [])
-      : null;
+    const epicChildSet = (() => {
+      if (epFilter === 'all') return null;
+      const set = new Set();
+      const byId = (id) => issues.find((i) => i.id === id);
+      const collect = (id) => {
+        const issue = byId(id);
+        if (!issue) return;
+        for (const cid of (issue.children || [])) {
+          set.add(cid);
+          collect(cid);
+        }
+      };
+      collect(epFilter);
+      return set;
+    })();
     const boardColumns = BOARD_COLS.map((col) => {
       const cards = issues.filter((i) => i.type !== 'epic' && colKey(i) === col.key && (epicChildSet === null || epicChildSet.has(i.id)) && (btFilter === 'all' || i.type === btFilter)).map((it) => {
         const tm = TYPE_META[it.type] || TYPE_META.task;
