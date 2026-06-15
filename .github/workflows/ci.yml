@@ -352,6 +352,7 @@ jobs:
         run: bash scripts/test-map-provision.sh
       - name: Product CI wiring guards
         run: |
+          bun run test:dockerfile-manifests
           bun run test:product-workspaces
           bun run test:control-center-ci-split
           bun run check:control-center-product-boundary

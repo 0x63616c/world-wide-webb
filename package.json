@@ -17,6 +17,7 @@
   "scripts": {
     "dev": "tilt up",
     "test": "vitest run",
+    "test:dockerfile-manifests": "bun scripts/check-dockerfile-manifests.ts",
     "test:product-workspaces": "bun scripts/check-product-workspaces.ts",
     "test:control-center-ci-split": "bun scripts/check-control-center-ci-split.ts",
     "test:product-ci-isolation": "bun scripts/check-product-ci-isolation.ts",
