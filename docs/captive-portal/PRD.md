@@ -1,6 +1,21 @@
 # Captive Portal PRD, guest WiFi onboarding (www-q002)
 
-One line: a UniFi external captive portal at `captive-portal.worldwidewebb.co` (LAN-only) where a guest verifies their email with a 6-digit code, enters the WiFi password, and gets 30 days of internet per device. Design is 1:1 from `docs/captive-portal/design/`.
+One line: a UniFi external captive portal (LAN-only) where a guest verifies their
+email with a 6-digit code, enters the WiFi password, and gets 30 days of internet
+per device.
+
+**Hostname:** `captive-portal.worldwidewebb.co` (LEGACY, still live in production
+as of 2026-06-14). Migration target is `app.cp.worldwidewebb.co` (M5 epic
+www-jtp0.5; cutover REQUIRES CALUM, see runbook.md M5 status table).
+
+**Product boundary:** the captive portal is now a standalone product in
+`products/captive-portal/` with its own API, frontend, and (after M5 cutover) its
+own Postgres cluster. Until www-jtp0.5.7 is applied (REQUIRES CALUM), the runtime
+still routes through the Control Center API and the CC Postgres database is the
+source of truth for all portal tables (`portal_guest`, `portal_code`,
+`portal_attempt`, `portal_authorization`).
+
+Design is 1:1 from `docs/captive-portal/design/`.
 
 **Goals**
 
