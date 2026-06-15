@@ -161,7 +161,6 @@ jobs:
             # infra-only change is handled by the separate `infra` filter above,
             # the deploy job fires on `any_app || infra`.
             any_app:
-              - 'apps/**'
               - 'products/control-center/**'
               - 'packages/**'
               - 'products/amp/**'

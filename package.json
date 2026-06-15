@@ -3,7 +3,6 @@
   "private": true,
   "license": "MIT",
   "workspaces": [
-    "apps/*",
     "products/control-center/*",
     "products/*",
     "!products/project-management",
