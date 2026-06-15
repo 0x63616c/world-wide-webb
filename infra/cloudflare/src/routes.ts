@@ -39,7 +39,7 @@ export interface DesiredCname {
   // The record's CF `comment`, matching live EXACTLY for a zero-diff import.
   // These vary per record (frozen legacy values below: dashboard/storybook carry
   // a legacy ownership-tagged route comment, drizzle/hooks-test carry legacy evee
-  // comments, hooks/portainer have none); `undefined` = no comment.
+  // comments); `undefined` = no comment.
   comment?: string;
 }
 
@@ -54,33 +54,26 @@ export type CloudflareRoutes = Readonly<{
   cnames: readonly DesiredCname[];
 }>;
 
-// LIVE tunnel ingress (5 hosts + the implicit catchall 404). Ports match the
-// origins cloudflared forwards to. `portainer` + `hooks` are present today and
-// retire later as explicit diffs (see header).
+// LIVE tunnel ingress (3 hosts + the implicit catchall 404). Ports match the
+// origins cloudflared forwards to. The dead `portainer` + `hooks` routes (origins
+// removed with bosun) were pruned in www-oa74.
 const LEGACY_INGRESS: Record<string, string> = {
   dashboard: "http://web:80",
-  portainer: "http://portainer:9000",
-  // Frozen legacy origin: the live `hooks` ingress still points at the old
-  // webhook-receiver service name. Adopt-only must match it byte-for-byte; the
-  // record retires as an explicit diff at the CI rework (www-j934.14/.15).
-  hooks: "http://bosun-agent:4202",
   storybook: "http://storybook:6006",
   drizzle: "http://drizzle:4983",
 };
 
-// LIVE proxied CNAMEs: the 5 ingress hosts PLUS the stray `hooks-test` leftover.
+// LIVE proxied CNAMEs: the 3 ingress hosts PLUS the stray `hooks-test` leftover.
 // Each carries its exact live CF comment (varied; legacy evee comments on
-// drizzle/hooks-test, none on hooks/portainer) so the import is zero-diff.
-// Frozen legacy CF comment values: dashboard/storybook carry an ownership-tagged
-// route comment baked into live Cloudflare state. Adopt-only must match them
-// byte-for-byte for a zero-diff import; they are intentionally immutable here.
+// drizzle/hooks-test). Frozen legacy CF comment values: dashboard/storybook carry
+// an ownership-tagged route comment baked into live Cloudflare state; they are
+// intentionally immutable here. The dead `hooks` + `portainer` CNAMEs were pruned
+// in www-oa74.
 const LEGACY_CNAME_COMMENTS: Record<string, string | undefined> = {
   dashboard: "bosun:control-center tunnel route",
   storybook: "bosun:control-center tunnel route",
   drizzle: "Drizzle Gateway via evee-webhooks tunnel (www-0ub8)",
   "hooks-test": "EVEE-218 webhook test (apex naming, covered by Universal SSL)",
-  hooks: undefined,
-  portainer: undefined,
 };
 
 export function cloudflareRoutesForExposures(
