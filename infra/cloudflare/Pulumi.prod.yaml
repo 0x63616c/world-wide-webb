@@ -10,7 +10,7 @@ config:
   control-center-cloudflare:tunnelId:
     secure: AAABANey+hk/ECyTuWEAgrLRwf5XV5DXEJ08MPWQFvqV0Y0IBgvD39ANEPESpVpHAA4G9lUye4dtNs8nmY7QXbIfDW8=
   control-center-cloudflare:zoneName: worldwidewebb.co
-  control-center-cloudflare:kioskClientId:
-    secure: AAABABqTpLdLPCxc1hWYjCNbGSnvRIkoxdUgabIBJDNAG77ih6tixERctxJDV6DY9bhPUYfpy9j931t2w3Ajqbn1XuqrS4k=
   control-center-cloudflare:ciClientId:
     secure: AAABACsqHbau/ipUH6pTLW/ZK+6N/07Pr3o2LVUC0vaMVLBzMMuRmYI6s1IpBOBw5u6hMdWBD7bhmWj/JMD3xvBR/CzRgSw=
+  control-center-cloudflare:kioskTokenId:
+    secure: AAABAAxCBdFuE/9OBh3z51qiHAY1807osaDMQE7mKcnZv4F0g+4vwfoJzfc+LTTbkVzggyyvpGtISbaCLGWFdgSxPnw=

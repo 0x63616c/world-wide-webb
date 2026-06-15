@@ -62,7 +62,7 @@ describe("desiredAccessApps", () => {
     expect(dashboard?.policies).toEqual([
       {
         decision: "allow",
-        include: { configKey: "kioskClientId", kind: "service-token-config" },
+        include: { configKey: "kioskTokenId", kind: "service-token-config" },
         name: "kiosk-service-token",
         precedence: 1,
       },

@@ -14,7 +14,10 @@ import {
   type ProductServiceDeclaration,
 } from "@repo/platform";
 
-type AccessConfigKey = "allowedEmail" | "ciClientId" | "kioskClientId";
+// kioskTokenId: the CF service token *id* (UUID) for the kiosk token — NOT
+// the client_id (.access suffix). Access policies reference token_id; the
+// client_id is only sent in CF-Access-Client-Id headers by the iOS kiosk app.
+type AccessConfigKey = "allowedEmail" | "ciClientId" | "kioskTokenId";
 
 export type AccessInclude =
   | Readonly<{ kind: "email-config"; configKey: "allowedEmail" }>
@@ -70,7 +73,7 @@ function emailOtpPolicy(): DesiredAccessPolicy {
 
 function serviceTokenPolicy(
   name: "ci-service-token" | "kiosk-service-token",
-  configKey: "ciClientId" | "kioskClientId",
+  configKey: "ciClientId" | "kioskTokenId",
 ): DesiredAccessPolicy {
   return {
     name,
@@ -105,7 +108,7 @@ export function accessAppsForPrivateWeb(
     .map((source) =>
       accessApp(source.exposure.hostname, [
         source.policy === "kiosk-service-token"
-          ? serviceTokenPolicy("kiosk-service-token", "kioskClientId")
+          ? serviceTokenPolicy("kiosk-service-token", "kioskTokenId")
           : emailOtpPolicy(),
       ]),
     );
