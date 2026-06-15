@@ -21,7 +21,6 @@ type ProductManifest = Readonly<{
 
 const root = process.cwd();
 const requiredWorkspaceGlobs = [
-  "apps/*",
   "packages/*",
   "infra",
   "infra/unifi",
