@@ -21,6 +21,7 @@ import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
 import { type AccessInclude, desiredAccessApps } from "./src/access.ts";
 import { desiredCnames, desiredIngressRules } from "./src/routes.ts";
+import { applyNestedTlsCertPacks, nestedTlsCertPacks } from "./src/tls.ts";
 
 const cfg = new pulumi.Config();
 // zoneName is the public domain (plaintext). The account/zone/tunnel ids + the
@@ -31,6 +32,11 @@ const zoneName = cfg.require("zoneName");
 const accountId = cfg.requireSecret("accountId");
 const zoneId = cfg.requireSecret("zoneId");
 const tunnelId = cfg.requireSecret("tunnelId");
+// applyNestedTls gates ACM CertificatePack resources for nested-host wildcards
+// (*.tye.*, *.cc.*, *.amp.*). Default false: the live stack is unaffected
+// until Calum explicitly enables it AFTER confirming ACM is subscribed on the
+// zone. Set via: pulumi config set applyNestedTls true --stack prod
+const applyNestedTls = cfg.getBoolean("applyNestedTls") ?? false;
 
 function accessInclude(
   include: AccessInclude,
@@ -174,9 +180,19 @@ for (const c of desiredCnames(zoneName)) {
   );
 }
 
+// --- Nested-host TLS: ACM CertificatePack per product wildcard (flag-gated) ---
+// Cloudflare Universal SSL covers apex + *.worldwidewebb.co (one level only).
+// Product nested hosts (app.tye.*, app.cc.*, app.amp.*) require ACM advanced
+// cert packs. The `applyNestedTls` flag (default false) keeps the live stack
+// unaffected until Calum has confirmed ACM is subscribed and reviews the plan.
+if (applyNestedTls) {
+  applyNestedTlsCertPacks(nestedTlsCertPacks(zoneName), zoneId, { provider });
+}
+
 export const summary = {
   zoneName,
   accessApps: desiredAccessApps(zoneName).map((a) => a.domain),
   ingressHosts: desiredIngressRules(zoneName).map((r) => r.hostname),
   cnames: desiredCnames(zoneName).map((c) => c.hostname),
+  nestedTlsEnabled: applyNestedTls,
 };
