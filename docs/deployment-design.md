@@ -231,7 +231,7 @@ source and the restored DB (then diffed) to prove `device_state`/`integration_sy
 report (`cc-restore-rehearsal-report.md`), final snapshots, recorded counts, a named rollback
 target, and explicit approval are all present; `scripts/cc-post-cutover-smoke.sh` (www-jtp0.7.9)
 proves the stack came back healthy; and `scripts/verify-wall-panel.mjs` (www-jtp0.7.10) verifies
-the panel at exactly 1366×1024 on `app.cc`. `POSTGRES_HOST` is already `control-center-rw`, so for
+the panel at exactly 1366×1024 on `app--cc`. `POSTGRES_HOST` is already `control-center-rw`, so for
 prod the cutover is a DATA move, not a code change.
 
 **Captive Portal product database provisioning (www-jtp0.5.5).** The Captive Portal now has its
