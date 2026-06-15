@@ -18,9 +18,13 @@ export const PORTAL_TABLES = [
   "portal_authorization",
 ] as const;
 
+/** @public - union of the four portal table names; used as a discriminant in validation results. */
 export type PortalTable = (typeof PORTAL_TABLES)[number];
 
-/** Fixture shape for testing: a minimal representation of each table's rows. */
+/**
+ * @public - minimal shape of a portal_guest row for migration fixture testing.
+ * Scripts use this type to represent rows read from the source database.
+ */
 export interface PortalGuestRow {
   id: string; // gst_<id>
   name: string;
@@ -37,6 +41,7 @@ export interface PortalCodeRow {
   createdAtUtc: Date;
 }
 
+/** @public - minimal shape of a portal_attempt row for migration fixture testing. */
 export interface PortalAttemptRow {
   id: string; // att_<id>
   mac: string;
