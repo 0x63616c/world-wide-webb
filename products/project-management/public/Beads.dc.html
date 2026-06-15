@@ -240,6 +240,15 @@
             <option value="all">All milestones</option>
             <sc-for list="{{ milestoneOptions }}" as="m"><option value="{{ m.value }}">{{ m.label }}</option></sc-for>
           </select>
+          <span class="mono" style="font-size:11px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em; margin-left:6px;">Type</span>
+          <select class="bd-input" value="{{ boardTypeFilter }}" onChange="{{ onBoardTypeFilter }}" style="padding:8px 12px; background:var(--tile); border:1px solid var(--hair); border-radius:9px; color:var(--ink-2); font-size:13px; font-family:var(--ui); cursor:pointer;">
+            <option value="all">All types</option>
+            <option value="feature">Feature</option>
+            <option value="bug">Bug</option>
+            <option value="task">Task</option>
+            <option value="chore">Chore</option>
+            <option value="epic">Epic</option>
+          </select>
         </div>
         <div style="flex:1 1 auto; min-height:0; display:grid; grid-template-columns:repeat(4, minmax(280px, 1fr)); gap:16px;">
           <sc-for list="{{ boardColumns }}" as="col" hint-placeholder-count="4">
@@ -301,7 +310,7 @@
       <button onClick="{{ closeDetail }}" aria-label="Close" style="position:absolute; inset:0; border:none; padding:0; cursor:default; background:rgba(0,0,0,.5); animation:{{ selected.backdropAnim }};"></button>
       <aside style="position:relative; width:760px; max-width:92vw; height:100%; background:var(--tile); border-left:1px solid var(--hair); box-shadow:-24px 0 64px -24px rgba(0,0,0,.8); display:flex; flex-direction:column; animation:{{ selected.drawerAnim }};">
         <div style="flex:0 0 auto; display:flex; align-items:center; gap:12px; padding:20px 22px; border-bottom:1px solid var(--hair);">
-          <span class="mono" style="font-size:13px; color:var(--ink-2);">{{ selected.idLabel }}</span>
+          <span class="mono" style="font-size:16px; font-weight:600; color:var(--ink);">{{ selected.idLabel }}</span>
           <span style="{{ selected.typeStyle }}">{{ selected.typeLabel }}</span>
           <span style="margin-left:auto;"></span>
           <sc-if value="{{ selected.isDirty }}">
@@ -313,6 +322,23 @@
         </div>
         <div class="modal-scroll" style="flex:1 1 auto; min-height:0; overflow:auto; padding:24px 22px; display:flex; flex-direction:column; gap:26px;">
           <h1 style="margin:0; font-size:23px; font-weight:600; line-height:1.25; letter-spacing:-0.02em; color:var(--ink);">{{ selected.title }}</h1>
+
+          <div style="display:flex; gap:32px; flex-wrap:wrap;">
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <span class="cap">Created</span>
+              <span style="font-size:13.5px; color:var(--ink-2);">{{ selected.createdLabel }}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <span class="cap">Updated</span>
+              <span style="font-size:13.5px; color:var(--ink-2);">{{ selected.updatedLabel }}</span>
+            </div>
+            <sc-if value="{{ selected.hasCreatedBy }}">
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <span class="cap">Created by</span>
+                <span style="font-size:13px; color:var(--ink-2); font-family:var(--mono);">{{ selected.createdBy }}</span>
+              </div>
+            </sc-if>
+          </div>
 
           <div style="display:flex; flex-direction:column; gap:9px;">
             <span class="cap">Status</span>
@@ -340,7 +366,7 @@
             <div style="display:flex; flex-direction:column; gap:6px;">
               <span class="cap">Epic</span>
               <sc-if value="{{ selected.hasEpic }}">
-                <span class="bd-link" onClick="{{ selected.openEpic }}" style="font-size:14px; color:var(--acc-line); cursor:pointer; width:fit-content;">{{ selected.epicLabel }}</span>
+                <button onClick="{{ selected.openEpic }}" style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; background:var(--nest); border:1px solid var(--hair); border-radius:8px; font-size:12px; font-weight:500; color:var(--ink-2); cursor:pointer; font-family:var(--mono); letter-spacing:0.01em; transition:border-color .14s, color .14s; width:fit-content;">{{ selected.epicLabel }}</button>
               </sc-if>
               <sc-if value="{{ selected.noEpic }}">
                 <span style="font-size:14px; color:var(--ink-2);">-</span>
@@ -376,23 +402,6 @@
               <div class="md">{{ selected.notes }}</div>
             </div>
           </sc-if>
-
-          <div style="display:flex; gap:32px; flex-wrap:wrap;">
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <span class="cap">Created</span>
-              <span style="font-size:13.5px; color:var(--ink-2);">{{ selected.createdLabel }}</span>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <span class="cap">Updated</span>
-              <span style="font-size:13.5px; color:var(--ink-2);">{{ selected.updatedLabel }}</span>
-            </div>
-            <sc-if value="{{ selected.hasCreatedBy }}">
-              <div style="display:flex; flex-direction:column; gap:6px;">
-                <span class="cap">Created by</span>
-                <span style="font-size:13px; color:var(--ink-2); font-family:var(--mono);">{{ selected.createdBy }}</span>
-              </div>
-            </sc-if>
-          </div>
 
           <div style="display:flex; flex-direction:column; gap:11px;">
             <span class="cap">Dependencies</span>
@@ -433,7 +442,7 @@
             <div style="font-size:13px; color:var(--ink-2); line-height:1.5; margin-bottom:18px;">You have unsaved edits to this issue. Closing now will discard them.</div>
             <div style="display:flex; gap:9px; justify-content:flex-end; align-items:center;">
               <span class="mono" style="font-size:10.5px; color:var(--ink-3); margin-right:auto;">Enter to discard · Esc to keep editing</span>
-              <button onClick="{{ cancelConfirm }}" class="bd-seg">Keep editing</button>
+              <button onClick="{{ cancelConfirm }}" class="bd-seg" style="white-space:nowrap;">Keep editing</button>
               <button onClick="{{ discardAndClose }}" class="bd-savebtn" style="background:#f85149; border-color:#f85149;">Discard</button>
             </div>
           </div>
@@ -633,10 +642,11 @@ class Component extends DCLogic {
       .then((data) => this.setState({ issues: (data && data.issues) || [], loaded: true, lastSync: (data && data.meta && data.meta.lastSyncAt) || null }))
       .catch((err) => console.error('[beads-ui] load failed:', err));
   }
-  // Human-readable "time since": just now / 12s / 4m / 2h / 3d ago.
-  relTime(iso) {
-    if (!iso) return null;
-    const then = Date.parse(iso);
+  // Human-readable "time since": just now / 12s / 4m / 2h / 3d / 2mo ago.
+  // Accepts ISO string or epoch ms number.
+  relTime(isoOrMs) {
+    if (!isoOrMs) return null;
+    const then = typeof isoOrMs === 'number' ? isoOrMs : Date.parse(isoOrMs);
     if (Number.isNaN(then)) return null;
     const s = Math.max(0, Math.round((Date.now() - then) / 1000));
     if (s < 5) return 'just now';
@@ -645,11 +655,22 @@ class Component extends DCLogic {
     if (m < 60) return m + 'm ago';
     const h = Math.floor(m / 60);
     if (h < 24) return h + 'h ago';
-    return Math.floor(h / 24) + 'd ago';
+    const d = Math.floor(h / 24);
+    if (d < 30) return d + 'd ago';
+    const mo = Math.floor(d / 30);
+    if (mo < 12) return mo + 'mo ago';
+    return Math.floor(mo / 12) + 'y ago';
   }
 
   byId(id) { return this.state.issues.find((x) => x.id === id); }
-  fmtDate(ms) { if (!ms) return '-'; return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+  fmtDate(ms) {
+    if (!ms) return '-';
+    const d = new Date(ms);
+    const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const rel = this.relTime(ms);
+    return date + ' at ' + time + (rel ? '  (' + rel + ')' : '');
+  }
   isCompact() { return true; }
 
   badge(meta) { return { ...PILL, color: meta.c, background: meta.b, border: '1px solid ' + meta.l }; }
@@ -888,8 +909,9 @@ class Component extends DCLogic {
     // board
     const colKey = (it) => (it.status in STATUS_META ? it.status : 'ready');
     const msFilter = st.milestoneFilter;
+    const btFilter = st.typeFilter;
     const boardColumns = BOARD_COLS.map((col) => {
-      const cards = issues.filter((i) => i.type !== 'epic' && colKey(i) === col.key && (msFilter === 'all' || (i.labels || []).includes(msFilter))).map((it) => {
+      const cards = issues.filter((i) => i.type !== 'epic' && colKey(i) === col.key && (msFilter === 'all' || (i.labels || []).includes(msFilter)) && (btFilter === 'all' || i.type === btFilter)).map((it) => {
         const tm = TYPE_META[it.type] || TYPE_META.task;
         const pb = this.prioBadge(it.p);
         return {
@@ -939,7 +961,7 @@ class Component extends DCLogic {
       (sel.blocks || []).forEach((id) => { const d = this.byId(id); if (d) depRows.push({ id: d.id, idLabel: d.id.toUpperCase(), title: d.title, rel: 'Blocks', relColor: '#f4c063', onClick: () => this.openDetail(d.id) }); });
       const activity = [
         { text: 'Issue created', meta: (sel.type === 'epic' ? 'epic' : 'opened') + ' · ' + this.fmtDate(sel.created) },
-        { text: sel.assignee ? 'Claimed by ' + sel.assignee : 'Awaiting assignment', meta: sel.assignee ? 'assignee set' : 'unassigned' },
+        { text: sel.assignee ? 'Claimed by ' + sel.assignee : 'Awaiting assignment', meta: (sel.assignee ? 'assignee set' : 'unassigned') + (sel.startedAt ? ' · ' + this.fmtDate(sel.startedAt) : '') },
         { text: 'Status set to ' + (STATUS_META[sel.status] || STATUS_META.ready).label, meta: 'updated · ' + this.fmtDate(sel.ts) }
       ];
       selected = {
@@ -948,7 +970,7 @@ class Component extends DCLogic {
         drawerAnim: st.detailClosing ? 'bdDrawerOut .19s cubic-bezier(.4,0,1,1) forwards' : 'bdDrawerIn .22s cubic-bezier(.16,1,.3,1)',
         typeLabel: tm.label, typeStyle: this.badge(tm),
         assignee: av.assignee, assigneeStyle: { ...av.assigneeStyle, fontSize: 14 },
-        epicLabel: epicParent ? epicParent.title : '-',
+        epicLabel: epicParent ? epicParent.id.toUpperCase() + ': open epic' : '-',
         hasEpic: !!epicParent, noEpic: !epicParent,
         openEpic: epicParent ? () => this.openDetail(epicParent.id) : () => {},
         labels: sel.labels || [], noLabels: !(sel.labels && sel.labels.length),
@@ -956,6 +978,7 @@ class Component extends DCLogic {
         acceptance: sel.acceptance || '', hasAcceptance: !!(sel.acceptance && sel.acceptance.trim()),
         notes: sel.notes || '', hasNotes: !!(sel.notes && sel.notes.trim()),
         createdLabel: this.fmtDate(sel.created), updatedLabel: this.fmtDate(sel.ts),
+        createdAge: this.relTime(sel.created),
         createdBy: sel.createdBy || '-', hasCreatedBy: !!(sel.createdBy && sel.createdBy.trim()),
         statusOptions, prioOptions,
         isDirty: this.isDirty(), saveDraft: () => this.saveDraft(),
@@ -994,6 +1017,7 @@ class Component extends DCLogic {
       epicsView,
       boardColumns,
       epicSort: st.epicSort, onEpicSort: (e) => this.setState({ epicSort: e.target.value }),
+      boardTypeFilter: st.typeFilter, onBoardTypeFilter: (e) => this.setState({ typeFilter: e.target.value }),
       milestoneFilter: st.milestoneFilter, onMilestoneFilter: (e) => this.setState({ milestoneFilter: e.target.value }),
       hasMilestoneFilter: st.milestoneFilter !== 'all',
       milestoneOptions: (() => { const s = new Set(); issues.forEach((i) => (i.labels || []).forEach((l) => { if (/^milestone-\d+$/.test(l) || /^m\d+$/.test(l)) s.add(l); })); return [...s].sort((a, b) => { const na = parseInt((a.match(/\d+/) || [9999])[0], 10), nb = parseInt((b.match(/\d+/) || [9999])[0], 10); return na - nb; }).map((l) => ({ value: l, label: l.toUpperCase() })); })(),
