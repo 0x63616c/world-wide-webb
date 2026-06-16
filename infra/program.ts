@@ -19,10 +19,10 @@ import { deployCrons } from "./src/crons.ts";
 import { installEso } from "./src/eso.ts";
 import { deployServices } from "./src/services.ts";
 
-const cfg = new pulumi.Config("ccinfra");
+const cfg = new pulumi.Config("wwwinfra");
 // kubeContext selects the target cluster. Default cc-homelab (prod, homelab's
 // OrbStack reached over the tailnet); a machine-local staging cluster overrides
-// it (e.g. `pulumi config set ccinfra:kubeContext orbstack`). CI points the
+// it (e.g. `pulumi config set wwwinfra:kubeContext orbstack`). CI points the
 // provider at the context name in its own kubeconfig (the homelab kube-apiserver
 // over the tailnet). www-j934 repoint.
 const cluster = makeCluster(cfg.get("kubeContext"));
@@ -52,11 +52,11 @@ const certManager = installCertManager({
 // App workloads (www-j934.6). media-worker replicas: 1 to PROVE it Running +
 // NFS-mounted (www-6mz7 un-park), then re-apply at 0 to park it until the
 // Phase-4 cutover (Boundary 6, 8GB co-residency with Swarm). Drive via
-// `pulumi config set ccinfra:mediaWorkerReplicas 1|0`; default 0 (parked).
+// `pulumi config set wwwinfra:mediaWorkerReplicas 1|0`; default 0 (parked).
 // cloudflaredReplicas: 0 for a pre-cutover bring-up so the k3s cloudflared does
 // NOT register the live tunnel token alongside Swarm (a prod split-brain); the
 // cutover (www-j934.9 / DESIGN §7 step 3) flips it to 2 (HA) as Swarm comes down.
-// Drive via `pulumi config set ccinfra:cloudflaredReplicas 0|2`; default 2.
+// Drive via `pulumi config set wwwinfra:cloudflaredReplicas 0|2`; default 2.
 // nasNfsServer defaults to the NAS LAN IP. The NFS PV is mounted by KUBELET in
 // the node netns, which on homelab (the prod target) reaches the home LAN
 // directly (DESIGN 5b spike). The pod-egress no-route limitation (DESIGN 5c)
@@ -78,7 +78,7 @@ const services = deployServices({
   cloudflaredReplicas: cfg.getNumber("cloudflaredReplicas") ?? 2,
   // storybook/drizzle default to 0: trimmed 8GB steady-state so the control plane
   // survives a cold reboot (www-j934.9). Both are Access-gated dev tools; bring up
-  // on demand via `pulumi config set ccinfra:storybookReplicas 1` (or drizzle).
+  // on demand via `pulumi config set wwwinfra:storybookReplicas 1` (or drizzle).
   storybookReplicas: cfg.getNumber("storybookReplicas") ?? 0,
   drizzleReplicas: cfg.getNumber("drizzleReplicas") ?? 0,
   nasNfsServer,

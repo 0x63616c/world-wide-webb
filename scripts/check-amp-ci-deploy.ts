@@ -66,7 +66,7 @@ const deploy = jobBlock("deploy");
 for (const required of [
   "build-amp",
   "amp-app",
-  'pulumi config set --path "ccinfra:imageDigests.$svc"',
+  'pulumi config set --path "wwwinfra:imageDigests.$svc"',
 ] as const) {
   assertContains(deploy, required, `deploy job must include ${required}`);
 }

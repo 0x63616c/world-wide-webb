@@ -1,7 +1,7 @@
 config:
-  ccinfra:mediaWorkerReplicas: "0"
-  ccinfra:kubeContext: cc-homelab
-  ccinfra:cloudflaredReplicas: "2"
-  ccinfra:storybookReplicas: "0"
-  ccinfra:drizzleReplicas: "0"
-  ccinfra:imageDigests: {}
+  wwwinfra:mediaWorkerReplicas: "0"
+  wwwinfra:kubeContext: cc-homelab
+  wwwinfra:cloudflaredReplicas: "2"
+  wwwinfra:storybookReplicas: "0"
+  wwwinfra:drizzleReplicas: "0"
+  wwwinfra:imageDigests: {}

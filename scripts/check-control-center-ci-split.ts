@@ -66,8 +66,8 @@ assert(
 );
 
 assert(
-  workflow.includes('pulumi config set --path "ccinfra:imageDigests.$svc"'),
-  "deploy must keep ccinfra:imageDigests namespace",
+  workflow.includes('pulumi config set --path "wwwinfra:imageDigests.$svc"'),
+  "deploy must keep wwwinfra:imageDigests namespace",
 );
 
 for (const script of requiredProductScripts) {

@@ -96,7 +96,7 @@ const mount = (names: string[]) => names.map((name) => ({ name, ref: "eso" }));
  *   (www-j934.9). Both are Access-gated internal/dev tools, not prod-critical, so
  *   they default to 0 to leave the control plane ~1-2GB headroom to survive a
  *   cold reboot. Bring either up on demand with `pulumi config set
- *   ccinfra:<svc>Replicas 1`.
+ *   wwwinfra:<svc>Replicas 1`.
  */
 export interface ServiceSpecOptions {
   mediaWorkerReplicas: number;

@@ -34,7 +34,7 @@ export interface CertManagerArgs {
   // Optional ACME registration email (a non-secret contact address). Omitted by
   // default: today's acme.sh registers anonymously, and a personal email must
   // not be hardcoded in this public repo (no-personal-email guard). Set via
-  // `pulumi config set ccinfra:acmeEmail` if a contact address is wanted.
+  // `pulumi config set wwwinfra:acmeEmail` if a contact address is wanted.
   acmeEmail?: string;
   // cert-manager install manifest version (www-j934.4 preflight pin: v1.20.2).
   version: string;

@@ -13,7 +13,7 @@ export const APP_NAMESPACE = "control-center";
 // Default kubeconfig context. The prod target is homelab's OrbStack cluster,
 // reached over the tailnet via the `cc-homelab` context (server
 // homelab.tail8c014d.ts.net:26443, tls-server-name k8s.orb.local). Machine-local
-// staging on a different box overrides `ccinfra:kubeContext` (e.g. a bare
+// staging on a different box overrides `wwwinfra:kubeContext` (e.g. a bare
 // `orbstack` context for the MacBook's own cluster). www-j934 repoint.
 const DEFAULT_CONTEXT = "cc-homelab";
 
