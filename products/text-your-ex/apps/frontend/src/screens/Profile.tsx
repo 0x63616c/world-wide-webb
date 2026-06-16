@@ -4,14 +4,13 @@ import type { AppCtx } from "../appctx";
 import { Toggle } from "../bits";
 import { Icon } from "../icons";
 import { money, T } from "../theme";
-import type { JarSummaryDTO, NotifPrefs } from "../types";
+import type { JarSummaryDTO } from "../types";
 import { Avatar, Screen, TopBar } from "../ui";
 
 export function Profile({ ctx }: { ctx: AppCtx }) {
   const me = ctx.me;
   const [jars, setJars] = useState<JarSummaryDTO[]>([]);
   const [shares, setShares] = useState<Record<string, boolean>>({});
-  const [notif, setNotif] = useState<NotifPrefs | null>(me?.notifPrefs ?? null);
 
   const meId = me?.id;
   useEffect(() => {
@@ -44,37 +43,7 @@ export function Profile({ ctx }: { ctx: AppCtx }) {
     }
   };
 
-  const toggleNotif = async (key: keyof NotifPrefs, v: boolean) => {
-    if (!notif) return;
-    const next = { ...notif, [key]: v };
-    setNotif(next);
-    try {
-      const updated = await api.updateMe({ notifPrefs: next });
-      ctx.setMe(updated);
-    } catch {
-      setNotif(notif);
-    }
-  };
-
-  if (!me || !notif) return null;
-
-  const notifRow = (label: string, sub: string, key: keyof NotifPrefs) => (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "14px 16px",
-        borderTop: `1px solid ${T.hair2}`,
-      }}
-    >
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 15.5, fontWeight: 600 }}>{label}</div>
-        <div style={{ fontSize: 12.5, color: T.sec, marginTop: 1 }}>{sub}</div>
-      </div>
-      <Toggle on={notif[key]} onChange={(v) => toggleNotif(key, v)} />
-    </div>
-  );
+  if (!me) return null;
 
   return (
     <Screen>
@@ -168,35 +137,6 @@ export function Profile({ ctx }: { ctx: AppCtx }) {
         {jars.length === 0 && (
           <div style={{ padding: "14px 16px", color: T.ter, fontSize: 14 }}>Join a jar first.</div>
         )}
-      </div>
-
-      <div
-        style={{
-          fontSize: 12,
-          color: T.sec,
-          fontWeight: 600,
-          margin: "0 4px 10px",
-          textTransform: "uppercase",
-          letterSpacing: "0.04em",
-        }}
-      >
-        Notify me when…
-      </div>
-      <div
-        style={{
-          background: T.surface,
-          border: `1px solid ${T.hair}`,
-          borderRadius: 18,
-          overflow: "hidden",
-          marginBottom: 26,
-        }}
-      >
-        <div style={{ borderTop: "none" }}>
-          {notifRow("Someone caves", "A slip gets logged in your jar", "slips")}
-        </div>
-        {notifRow("You're reported", "Time to fess up or fight it", "reports")}
-        {notifRow("Someone joins", "Fresh meat enters a jar", "joins")}
-        {notifRow("Jar milestones", "The pot crosses $50, $100…", "milestones")}
       </div>
 
       <button

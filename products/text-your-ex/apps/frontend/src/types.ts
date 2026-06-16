@@ -9,16 +9,8 @@ export interface UserDTO {
   exes: string[];
 }
 
-export interface NotifPrefs {
-  slips: boolean;
-  reports: boolean;
-  joins: boolean;
-  milestones: boolean;
-}
-
 export interface MeDTO extends UserDTO {
   phone: string | null;
-  notifPrefs: NotifPrefs;
 }
 
 export interface MemberDTO {

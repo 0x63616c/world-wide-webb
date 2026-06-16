@@ -8,7 +8,6 @@ import type {
   JarSummaryDTO,
   MeDTO,
   MemberDTO,
-  NotifPrefs,
   ReportDTO,
   UserDTO,
 } from "./types";
@@ -40,7 +39,6 @@ type UserRow = {
   phone: string | null;
   apple_id: string | null;
   auth_provider: string;
-  notif_prefs: string;
   created_at: number;
 };
 type MembershipRow = {
@@ -100,7 +98,6 @@ export async function getMe(userId: string): Promise<MeDTO | null> {
   return {
     ...(await serializeUser(u)),
     phone: u.phone,
-    notifPrefs: JSON.parse(u.notif_prefs) as NotifPrefs,
   };
 }
 
@@ -158,10 +155,6 @@ export async function updateUser(
     userId,
   ]);
   return getUser(userId);
-}
-
-export async function setNotifPrefs(userId: string, prefs: NotifPrefs): Promise<void> {
-  await pool.query("UPDATE users SET notif_prefs=$1 WHERE id=$2", [JSON.stringify(prefs), userId]);
 }
 
 export async function setExes(userId: string, exes: string[]): Promise<void> {

@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { requireUser } from "./auth";
-import { appleBundleId } from "./env";
+import { appleBundleId, isProduction } from "./env";
+import { resetAndSeed } from "./seed";
 import * as store from "./store";
 
 export type Env = { Variables: { userId: string | null; token: string } };
@@ -27,14 +28,34 @@ async function verifyAppleToken(identityToken: string): Promise<{ sub: string }>
 api.get("/health", (c) => c.json({ ok: true }));
 
 // ─────────────────────────── auth ───────────────────────────
-// Demo endpoint for web/dev: signs in as the seeded primary user without a real
-// Apple session (the native build uses /auth/apple).
-api.post("/auth/demo", async (c) => {
+// Non-production dev/test login seam (404 in production). The native "Sign in
+// with Apple" sheet can't run in a browser, so local dev and the e2e suite mint
+// a session here instead. { as: "new" } creates a fresh empty-profile user (the
+// first-run setup flow); otherwise it logs in as the seeded primary user.
+api.post("/auth/dev", async (c) => {
+  if (isProduction()) return c.json({ error: "not_found" }, 404);
+  const body = await c.req.json<{ as?: "new" | "calum" }>().catch(() => ({}) as { as?: string });
+  if (body.as === "new") {
+    const fresh = await store.createUser({
+      name: "",
+      appleId: `dev_${crypto.randomUUID()}`,
+      authProvider: "apple",
+    });
+    const token = await store.createSession(fresh.id);
+    return c.json({ token, user: await store.getMe(fresh.id), isNew: true });
+  }
   const seeded = await store.findUserByPhone("+15550000001");
   const user =
     seeded ?? (await store.createUser({ name: "Calum", color: "#5E5CE6", exes: ["Christie"] }));
   const token = await store.createSession(user.id);
   return c.json({ token, user: await store.getMe(user.id), isNew: false });
+});
+
+// Non-production test seam: truncate + reseed for per-test isolation (404 in prod).
+api.post("/test/reset", async (c) => {
+  if (isProduction()) return c.json({ error: "not_found" }, 404);
+  await resetAndSeed();
+  return c.json({ ok: true });
 });
 
 // Real Sign In with Apple: verifies the JWT from the native
@@ -78,7 +99,6 @@ api.patch("/me", async (c) => {
     emoji?: string | null;
     photo?: string | null;
     exes?: string[];
-    notifPrefs?: import("./types").NotifPrefs;
   }>();
   if (
     body.name !== undefined ||
@@ -94,7 +114,6 @@ api.patch("/me", async (c) => {
     });
   }
   if (body.exes !== undefined) await store.setExes(uid, body.exes);
-  if (body.notifPrefs !== undefined) await store.setNotifPrefs(uid, body.notifPrefs);
   return c.json(await store.getMe(uid));
 });
 

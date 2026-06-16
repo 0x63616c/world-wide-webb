@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { openJar, signInDemo } from "./helpers";
+import { openJar, signInAsCalum } from "./helpers";
+
+// Each test starts from the seeded baseline (non-prod reset seam) so
+// absolute assertions on seeded values stay order-independent.
+test.beforeEach(async ({ request }) => {
+  await request.post("/api/test/reset");
+});
 
 test("onboarding shows the wordmark and taglines", async ({ page }) => {
   await page.goto("/");
@@ -9,7 +15,7 @@ test("onboarding shows the wordmark and taglines", async ({ page }) => {
 });
 
 test("Apple sign-in lands on home with seeded jars and total damage", async ({ page }) => {
-  await signInDemo(page);
+  await signInAsCalum(page);
   // Calum is in two jars; total damage = 4000 + 3000 = $70
   await expect(page.getByTestId("total-damage")).toHaveText("$70");
   await expect(page.getByText("The Group Chat")).toBeVisible();
@@ -17,7 +23,7 @@ test("Apple sign-in lands on home with seeded jars and total damage", async ({ p
 });
 
 test("jar detail shows the pot, rule, and wall of shame ordered by tally", async ({ page }) => {
-  await signInDemo(page);
+  await signInAsCalum(page);
   await openJar(page, "The Group Chat");
   // pot total = 6500 + 4000 = $105
   await expect(page.getByTestId("jar-pot")).toHaveText("$105");

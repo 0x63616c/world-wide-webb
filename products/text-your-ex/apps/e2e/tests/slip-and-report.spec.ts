@@ -1,9 +1,15 @@
 import { expect, test } from "@playwright/test";
-import { openJar, shameRow, signInDemo, signUpPhone } from "./helpers";
+import { openJar, shameRow, signInAsCalum, signUpNew } from "./helpers";
+
+// Each test starts from the seeded baseline (non-prod reset seam) so
+// absolute assertions on seeded values stay order-independent.
+test.beforeEach(async ({ request }) => {
+  await request.post("/api/test/reset");
+});
 
 test("logging a slip bumps the tally, resets streak, grows the pot", async ({ page }) => {
   // fresh user + own jar for isolation
-  await signUpPhone(page, "5552000001", "Slipper");
+  await signUpNew(page, "Slipper");
   await page.getByRole("button", { name: "Join a jar with a code" }).click();
   await page.getByPlaceholder("Type or paste code").fill("XEX24K");
   await page.getByRole("button", { name: "Preview jar" }).click();
@@ -29,7 +35,7 @@ test("logging a slip bumps the tally, resets streak, grows the pot", async ({ pa
 test("reporting a member with evidence + anonymous toggle reaches the snitched screen", async ({
   page,
 }) => {
-  await signInDemo(page);
+  await signInAsCalum(page);
   await openJar(page, "The Group Chat");
   await page.getByRole("button", { name: "Report" }).click();
   await expect(page.getByText("Caught someone red-handed?")).toBeVisible();
@@ -51,7 +57,7 @@ test("reporting a member with evidence + anonymous toggle reaches the snitched s
 });
 
 test("confirm/deny: owning the seeded report adds to Calum's tally", async ({ page }) => {
-  await signInDemo(page);
+  await signInAsCalum(page);
   await page.getByTestId("tab-activity").click();
   await expect(page.getByText("You've been reported")).toBeVisible();
   await page.getByText("says you texted your ex", { exact: false }).click();

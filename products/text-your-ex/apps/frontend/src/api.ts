@@ -5,7 +5,6 @@ import type {
   JarPreviewDTO,
   JarSummaryDTO,
   MeDTO,
-  NotifPrefs,
   ReportDTO,
 } from "./types";
 
@@ -59,7 +58,6 @@ class ApiError extends Error {
 
 export const api = {
   // auth
-  signInDemo: () => req<{ token: string; user: MeDTO; isNew: boolean }>("POST", "/auth/demo"),
   signInWithApple: (identityToken: string) =>
     req<{ token: string; user: MeDTO; isNew: boolean }>("POST", "/auth/apple", { identityToken }),
   logout: () => req<{ ok: boolean }>("POST", "/auth/logout"),
@@ -72,7 +70,6 @@ export const api = {
     emoji?: string | null;
     photo?: string | null;
     exes?: string[];
-    notifPrefs?: NotifPrefs;
   }) => req<MeDTO>("PATCH", "/me", patch),
 
   // jars

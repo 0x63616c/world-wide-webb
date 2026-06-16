@@ -150,6 +150,9 @@ export default function App() {
       .then((u) => {
         setMeState(u);
         setTabState("home");
+        // A user with no name yet (Apple declined to share / first run) must
+        // complete profile setup before using the app.
+        if (!u.name?.trim()) setStack([{ name: "setup", params: {} }]);
         refreshPending();
       })
       .catch(() => {

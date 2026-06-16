@@ -240,15 +240,24 @@ export async function seed(): Promise<void> {
   }
 }
 
+// Truncate everything and reseed. Used by `bun run seed:reset`, by the server
+// boot when TYE_RESET=1 (e2e clean slate), and by the non-production /test/reset
+// seam for per-test isolation.
+export async function resetAndSeed(): Promise<void> {
+  await pool.query(`
+    TRUNCATE report_evidence, reports, activity, slips, memberships,
+             sessions, otps, user_exes, jars, users RESTART IDENTITY CASCADE
+  `);
+  await seed();
+}
+
 // `bun run seed` or `bun run seed:reset` - explicit local dev reset + seed
 if (import.meta.main) {
   await runMigrations();
   if (process.env.TYE_RESET === "1") {
-    await pool.query(`
-      TRUNCATE report_evidence, reports, activity, slips, memberships,
-               sessions, otps, user_exes, jars, users RESTART IDENTITY CASCADE
-    `);
+    await resetAndSeed();
+  } else {
+    await seed();
   }
-  await seed();
   await pool.end();
 }

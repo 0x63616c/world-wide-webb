@@ -13,20 +13,21 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
     if (busy) return;
     setBusy(true);
     try {
-      if (Capacitor.isNativePlatform()) {
-        const { response } = await SignInWithApple.authorize({
-          clientId: "co.worldwidewebb.textyourex",
-          redirectURI: "",
-          scopes: "name email",
-        });
-        const { token, user, isNew } = await api.signInWithApple(response.identityToken);
-        ctx.signIn(token, user);
-        if (isNew || !user.name) ctx.nav("setup", {});
-      } else {
-        // Web/dev: fall back to the demo endpoint (no real Apple session locally).
-        const { token, user } = await api.signInDemo();
-        ctx.signIn(token, user);
+      // Real "Sign in with Apple" only works inside the native iOS app (the Apple
+      // sheet can't run in a browser). On web the button is inert; local dev and
+      // e2e mint a session through the non-production /auth/dev seam instead.
+      if (!Capacitor.isNativePlatform()) {
+        setBusy(false);
+        return;
       }
+      const { response } = await SignInWithApple.authorize({
+        clientId: "co.worldwidewebb.textyourex",
+        redirectURI: "",
+        scopes: "name email",
+      });
+      const { token, user, isNew } = await api.signInWithApple(response.identityToken);
+      ctx.signIn(token, user);
+      if (isNew || !user.name) ctx.nav("setup", {});
     } catch {
       setBusy(false);
     }

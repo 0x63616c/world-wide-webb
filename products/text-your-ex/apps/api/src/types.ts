@@ -11,14 +11,6 @@ export interface UserDTO {
 
 export interface MeDTO extends UserDTO {
   phone: string | null;
-  notifPrefs: NotifPrefs;
-}
-
-export interface NotifPrefs {
-  slips: boolean;
-  reports: boolean;
-  joins: boolean;
-  milestones: boolean;
 }
 
 export interface MemberDTO {

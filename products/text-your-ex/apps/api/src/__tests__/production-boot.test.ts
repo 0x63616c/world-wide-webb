@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { pool } from "../db/index";
 import { runMigrations } from "../db/migrate";
 import { ensureSeed } from "../seed";
@@ -6,6 +6,13 @@ import { ensureSeed } from "../seed";
 // DB-integration suite, only runs with a real Postgres (DATABASE_URL); skips in
 // the default unit gate. See store.test.ts for the rationale.
 const HAS_DB = !!process.env.DATABASE_URL;
+
+beforeAll(async () => {
+  if (!HAS_DB) return;
+  // Ensure the schema exists before the truncate in beforeEach (this file
+  // otherwise only migrates inside the test bodies, which run after beforeEach).
+  await runMigrations();
+});
 
 beforeEach(async () => {
   if (!HAS_DB) return;

@@ -40,3 +40,9 @@ export function requireDatabaseUrl(): string {
   }
   return url;
 }
+
+// Centralized APP_ENV check so the rest of the app doesn't read process.env
+// directly (biome noProcessEnv); production guards go through this.
+export function isProduction(): boolean {
+  return process.env.APP_ENV === "production";
+}
