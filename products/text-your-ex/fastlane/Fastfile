@@ -195,7 +195,10 @@ platform :ios do
   lane :release do
     setup_ci # ephemeral CI keychain; no-op locally
 
-    match(type: "appstore", api_key: asc_key, app_identifier: bundle_id, readonly: true)
+    # force:true regenerates the profile from the App ID's current capabilities so
+    # the (now-enabled) Sign In with Apple entitlement is included. Drop back to
+    # readonly:true once a capability-bearing profile is committed to the certs repo.
+    match(type: "appstore", api_key: asc_key, app_identifier: bundle_id, readonly: false, force: true)
 
     update_code_signing_settings(
       use_automatic_signing: false,
