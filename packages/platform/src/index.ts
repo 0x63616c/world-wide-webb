@@ -882,7 +882,7 @@ export function textYourExProductManifest(): TyeProductManifest {
         service: "api",
         workloadName: product.serviceName("api"),
         image: mainImage(product, "api"),
-        exposure: internalService({ port: 8787 }),
+        exposure: publicWeb(product, target, { host: "api" }),
         secretUsage: apiSecretUsage,
       },
       frontend: {

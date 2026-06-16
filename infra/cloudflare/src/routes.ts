@@ -127,6 +127,11 @@ function productRoutes(): CloudflareRoutes {
       origin: "http://tye-frontend:80",
       comment: "platform:text-your-ex public app route",
     },
+    {
+      exposure: tye.services.api.exposure,
+      origin: "http://tye-api:8787",
+      comment: "platform:text-your-ex public api route",
+    },
   ];
 
   return cloudflareRoutesForExposures(sources);

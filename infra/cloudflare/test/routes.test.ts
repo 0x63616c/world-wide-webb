@@ -22,11 +22,12 @@ import {
 const ZONE = "worldwidewebb.co";
 
 describe("desiredIngressRules", () => {
-  test("declares product-derived app.amp, app.cc plus the legacy ingress hosts with their origins", () => {
+  test("declares product-derived app.amp, app.cc, app.tye, api.tye plus the legacy ingress hosts with their origins", () => {
     const byHost = Object.fromEntries(
       desiredIngressRules(ZONE).map((r) => [r.hostname, r.service]),
     );
     expect(Object.keys(byHost).sort()).toEqual([
+      "api--tye.worldwidewebb.co",
       "app--amp.worldwidewebb.co",
       "app--cc.worldwidewebb.co",
       "app--tye.worldwidewebb.co",
@@ -38,6 +39,7 @@ describe("desiredIngressRules", () => {
     expect(byHost["app--cc.worldwidewebb.co"]).toBe("http://web:80");
     expect(byHost["app--amp.worldwidewebb.co"]).toBe("http://amp-app:80");
     expect(byHost["app--tye.worldwidewebb.co"]).toBe("http://tye-frontend:80");
+    expect(byHost["api--tye.worldwidewebb.co"]).toBe("http://tye-api:8787");
     expect(byHost["portainer.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["hooks.worldwidewebb.co"]).toBeUndefined();
   });
@@ -96,11 +98,12 @@ describe("desiredIngressRules", () => {
 });
 
 describe("desiredCnames", () => {
-  test("declares product-derived app.amp, app.cc plus legacy proxied CNAMEs incl. stray hooks-test", () => {
+  test("declares product-derived app.amp, app.cc, app.tye, api.tye plus legacy proxied CNAMEs incl. stray hooks-test", () => {
     const hosts = desiredCnames(ZONE)
       .map((c) => c.hostname)
       .sort();
     expect(hosts).toEqual([
+      "api--tye.worldwidewebb.co",
       "app--amp.worldwidewebb.co",
       "app--cc.worldwidewebb.co",
       "app--tye.worldwidewebb.co",
