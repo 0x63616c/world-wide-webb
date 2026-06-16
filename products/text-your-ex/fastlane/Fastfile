@@ -123,13 +123,18 @@ platform :ios do
     bid = Spaceship::ConnectAPI::BundleId.all.find { |b| b.identifier == bundle_id }
     UI.user_error!("Bundle id #{bundle_id} not registered - run setup_ios first") unless bid
 
-    # create_capability takes the type as a positional arg. If it's already on,
-    # Apple returns a 409 / "already exists" we can treat as success (idempotent).
+    # NOTE: enabling APPLE_ID_AUTH via Spaceship has been unreliable (the
+    # regenerated profile didn't carry the entitlement). The dependable path is
+    # one click in the Apple Developer portal: Identifiers -> the tye App ID ->
+    # check "Sign In with Apple" -> Save. After that, re-wire CODE_SIGN_ENTITLEMENTS
+    # (App.entitlements is already in the repo) and the release lane signs it.
+    # This lane is kept as the automated attempt; it surfaces the real error
+    # rather than masking it, and only treats a genuine "already exists" as ok.
     begin
       bid.create_capability("APPLE_ID_AUTH")
       UI.success("Enabled Sign In with Apple on #{bundle_id}")
     rescue => e
-      raise unless e.message =~ /already|exist|409|entitlement/i
+      raise unless e.message =~ /already exist|ENTITY_ERROR.*exist|409/i
       UI.success("Sign In with Apple already enabled on #{bundle_id}")
     end
 
@@ -190,11 +195,7 @@ platform :ios do
   lane :release do
     setup_ci # ephemeral CI keychain; no-op locally
 
-    # force: true regenerates the provisioning profile from the App ID's current
-    # capabilities each build, so a newly-enabled capability (Sign In with Apple)
-    # is always reflected. readonly:true only fetches the existing profile, which
-    # lagged behind the capability enablement and failed the entitlement check.
-    match(type: "appstore", api_key: asc_key, app_identifier: bundle_id, readonly: false, force: true)
+    match(type: "appstore", api_key: asc_key, app_identifier: bundle_id, readonly: true)
 
     update_code_signing_settings(
       use_automatic_signing: false,
