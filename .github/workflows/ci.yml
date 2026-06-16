@@ -278,7 +278,7 @@ jobs:
 
           body=$(cat <<EOF
           $marker
-          #### $status_icon Pulumi preview on \`worldwidewebb/control-center/prod\`
+          #### $status_icon Pulumi preview on \`worldwidewebb/world-wide-webb/prod\`
 
           <details open>
           <summary>Pulumi report</summary>

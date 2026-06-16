@@ -1,4 +1,4 @@
-name: control-center-unifi
+name: world-wide-webb-unifi
 runtime:
   name: nodejs
   options:
@@ -6,7 +6,7 @@ runtime:
     typescript: false
     nodeargs: ""
 description: >
-  UniFi network config for control-center (www-j934.3), adopt-only via
+  UniFi network config for world-wide-webb (www-j934.3), adopt-only via
   @pulumiverse/unifi. Separate Pulumi project from the k8s stack so a cluster
   apply never touches network state. See src/unifi.ts header for the full
   Boundary-1 contract.
