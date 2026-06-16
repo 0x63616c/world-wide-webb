@@ -1,1 +1,1 @@
-{config: {'ccunifi:applyGuest': "true", 'ccunifi:guestVlanId': "20", 'ccunifi:guestSubnet': 192.168.20.1/24, 'ccunifi:guestDhcpStart': 192.168.20.6, 'ccunifi:guestDhcpStop': 192.168.20.254}}
+{config: {'ccunifi:applyGuest': "true", 'ccunifi:guestVlanId': "20", 'ccunifi:guestSubnet': 192.168.20.1/24, 'ccunifi:guestDhcpStart': 192.168.20.6, 'ccunifi:guestDhcpStop': 192.168.20.254, 'control-center-unifi:addAppCpDnsRecord': "true"}}

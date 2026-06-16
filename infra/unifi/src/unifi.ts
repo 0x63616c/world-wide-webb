@@ -229,6 +229,9 @@ export function adoptExisting(
       portalEnabled: true,
       portalUseHostname: true,
       portalHostname: "captive-portal.worldwidewebb.co",
+      // customIp: required by provider when auth=custom; the Mini LAN IP that
+      // serves the captive portal (same host as app--cp.worldwidewebb.co).
+      customIp: "192.168.0.147",
       ecEnabled: false,
       expire: 43200,
     },
