@@ -146,7 +146,7 @@ export function createLogger(opts: CreateLoggerOptions): Logger {
 export function getLogger(): Logger {
   if (_root === null) {
     throw new Error(
-      "@repo/logger: getLogger() called before createLogger(). " +
+      "@www/logger: getLogger() called before createLogger(). " +
         "Call createLogger({ service }) once at process startup.",
     );
   }

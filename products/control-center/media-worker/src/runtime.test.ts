@@ -8,7 +8,7 @@
  * the next setTimeout being scheduled. `tick()` does both.
  */
 
-import type { Logger } from "@repo/logger";
+import type { Logger } from "@www/logger";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkerRuntime } from "./runtime";
 

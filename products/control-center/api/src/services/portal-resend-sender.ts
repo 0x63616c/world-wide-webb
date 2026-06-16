@@ -8,7 +8,7 @@
  * Copy follows the portal's UI voice ("confirm it's you"); per PRD flow rule 8
  * it never names the SSID or uses the word "guest" in user-facing text.
  */
-import { getLogger } from "@repo/logger";
+import { getLogger } from "@www/logger";
 import type { EmailSender } from "./portal-service";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";

@@ -1,5 +1,5 @@
-import { getLogger } from "@repo/logger";
 import { initTRPC, TRPCError } from "@trpc/server";
+import { getLogger } from "@www/logger";
 import { HaError } from "../integrations/homeassistant/types";
 import { PortalError } from "../services/portal-service";
 import type { Context } from "./context";

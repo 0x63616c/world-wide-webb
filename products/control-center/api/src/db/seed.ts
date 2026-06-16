@@ -2,7 +2,7 @@
  * Seeds the events table with upcoming concert data.
  * Run with: bun run products/control-center/api/src/db/seed.ts
  */
-import { createLogger } from "@repo/logger";
+import { createLogger } from "@www/logger";
 import { db, pool } from "./index";
 import { events } from "./schema";
 

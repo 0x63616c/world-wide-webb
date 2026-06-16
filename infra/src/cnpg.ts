@@ -17,7 +17,7 @@ import {
   controlCenterProductManifest,
   type ProductDatabase,
   textYourExProductManifest,
-} from "@repo/platform";
+} from "@www/platform";
 
 export interface CnpgArgs {
   provider: k8s.Provider;

@@ -1,4 +1,4 @@
-// Tests for @repo/logger: level resolution, redaction, and child binding.
+// Tests for @www/logger: level resolution, redaction, and child binding.
 // Run via: bun run test (vitest)
 import pino, { type DestinationStream } from "pino";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -64,7 +64,7 @@ describe("child logger binding", () => {
   });
 });
 
-// The REDACT_PATHS list from @repo/logger/src/index.ts, duplicated here to
+// The REDACT_PATHS list from @www/logger/src/index.ts, duplicated here to
 // build a self-contained synchronous test logger. Both lists must stay in sync.
 // Tests exercise the exact paths against the real secret and api object shapes.
 const REDACT_PATHS = [
@@ -144,7 +144,7 @@ function getFirstLogLine(lines: readonly LogLine[]): LogLine {
   return lines[0];
 }
 
-// Builds a pino logger wired with the same redact config as @repo/logger and
+// Builds a pino logger wired with the same redact config as @www/logger and
 // captures output synchronously via an in-memory write shim.
 function buildTestLogger() {
   const lines: LogLine[] = [];

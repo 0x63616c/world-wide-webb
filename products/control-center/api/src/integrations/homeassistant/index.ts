@@ -1,4 +1,4 @@
-import { getLogger } from "@repo/logger";
+import { getLogger } from "@www/logger";
 import { z } from "zod";
 import { env } from "../../env";
 import { type HaEntity, HaError, haEntitySchema } from "./types";

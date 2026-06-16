@@ -6,10 +6,10 @@
  *
  * It reuses the same DATABASE_URL wiring as the api (env.ts builds it from the
  * mounted POSTGRES_PASSWORD secret), connects, runs one purge pass, logs the
- * per-table counts via @repo/logger, and closes the pool. A failure exits
+ * per-table counts via @www/logger, and closes the pool. A failure exits
  * non-zero so the job is recorded as failed (no silent swallow).
  */
-import { createLogger } from "@repo/logger";
+import { createLogger } from "@www/logger";
 import { db, pool } from "./db/index";
 import { purgePortalData } from "./services/portal-purge-service";
 

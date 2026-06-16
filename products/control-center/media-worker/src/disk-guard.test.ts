@@ -48,7 +48,7 @@ const { mockLog } = vi.hoisted(() => {
   return { mockLog: log };
 });
 
-vi.mock("@repo/logger", () => ({
+vi.mock("@www/logger", () => ({
   createLogger: () => mockLog,
 }));
 

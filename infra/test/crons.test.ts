@@ -4,7 +4,7 @@ import {
   defineProduct,
   defineProductDatabase,
   homelabTarget,
-} from "@repo/platform";
+} from "@www/platform";
 import { beforeAll, describe, expect, test } from "vitest";
 import type { CronJobSpec } from "../src/component.ts";
 import { renderCronJob } from "../src/component.ts";

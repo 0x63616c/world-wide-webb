@@ -10,7 +10,7 @@
  * fabricated data (www-51hf.33, A3, A4).
  */
 
-import { getLogger } from "@repo/logger";
+import { getLogger } from "@www/logger";
 import { SpotifyError } from "./errors";
 import type {
   SpotifyBrowseResult,

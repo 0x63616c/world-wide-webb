@@ -17,7 +17,7 @@ import {
   controlCenterProductManifest,
   type ProductServiceDeclaration,
   textYourExProductManifest,
-} from "@repo/platform";
+} from "@www/platform";
 
 /** The CNAME target every tunnel-routed hostname points at. */
 export function tunnelCnameTarget(tunnelId: string): string {

@@ -20,7 +20,7 @@ import {
   controlCenterProductManifest,
   type DatabaseBackup,
   textYourExProductManifest,
-} from "@repo/platform";
+} from "@www/platform";
 import type { CronJobSpec } from "./component.ts";
 import { ScheduledJob } from "./component.ts";
 

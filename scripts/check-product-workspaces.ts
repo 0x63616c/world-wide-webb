@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { type ProductSlug, productSlugs } from "@repo/platform";
+import { type ProductSlug, productSlugs } from "@www/platform";
 
 type RootPackageJson = Readonly<{
   workspaces?: readonly string[];

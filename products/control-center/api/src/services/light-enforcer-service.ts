@@ -16,7 +16,7 @@
  * detection) because HA round-trips rgb/kelvin/brightness with small deltas.
  */
 
-import { getLogger } from "@repo/logger";
+import { getLogger } from "@www/logger";
 import { eq, inArray } from "drizzle-orm";
 import { LampMode } from "../config/lamp-scenes";
 import { findLight, LIGHTS, LightControl, LightKind, lightControl } from "../config/lights";

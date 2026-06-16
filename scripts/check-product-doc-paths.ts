@@ -5,7 +5,7 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { productSlugs } from "@repo/platform";
+import { productSlugs } from "@www/platform";
 
 const repoRoot = import.meta.dir.replace(/\/scripts$/, "");
 const read = (rel: string) => readFileSync(join(repoRoot, rel), "utf8");

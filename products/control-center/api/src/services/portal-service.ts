@@ -16,7 +16,7 @@
  * Services THROW on error/unconfigured, never return a fabricated success.
  */
 import { randomInt } from "node:crypto";
-import { getLogger } from "@repo/logger";
+import { getLogger } from "@www/logger";
 import type { UnifiGuestClient } from "../integrations/unifi";
 
 // ─── domain rows (repo contract; shaped like the drizzle rows the adapter returns)

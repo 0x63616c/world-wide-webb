@@ -23,7 +23,7 @@
     "db:studio": "bunx drizzle-kit studio"
   },
   "dependencies": {
-    "@repo/logger": "*",
+    "@www/logger": "*",
     "@trpc/server": "^11.17.0",
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.8.3",

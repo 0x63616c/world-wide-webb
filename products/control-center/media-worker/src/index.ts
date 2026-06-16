@@ -22,7 +22,7 @@ import {
   runMigrations,
   runPlaylistPollerCycle,
 } from "@control-center/api/media";
-import { createLogger } from "@repo/logger";
+import { createLogger } from "@www/logger";
 
 // Root logger for this process. All structured lines from media-worker code
 // bind service: "media-worker" and env automatically. Shared @control-center/api domain

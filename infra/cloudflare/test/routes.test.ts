@@ -4,7 +4,7 @@ import {
   internalService,
   privateWeb,
   publicWeb,
-} from "@repo/platform";
+} from "@www/platform";
 import { describe, expect, test } from "vitest";
 import {
   cloudflareRoutesForExposures,

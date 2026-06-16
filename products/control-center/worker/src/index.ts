@@ -21,7 +21,7 @@ import {
   runSonosVolumeEnforcerCycle,
   runWeatherIngestCycle,
 } from "@control-center/api/worker";
-import { createLogger } from "@repo/logger";
+import { createLogger } from "@www/logger";
 import { createWorkerRuntime } from "./runtime";
 import type { Worker } from "./types";
 

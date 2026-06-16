@@ -1,4 +1,4 @@
-import { getLogger } from "@repo/logger";
+import { getLogger } from "@www/logger";
 import { eq, inArray } from "drizzle-orm";
 import {
   assignMoodColors,

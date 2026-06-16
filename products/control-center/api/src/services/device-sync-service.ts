@@ -1,4 +1,4 @@
-import { getLogger } from "@repo/logger";
+import { getLogger } from "@www/logger";
 import { and, eq, isNotNull, lt } from "drizzle-orm";
 import { findLight } from "../config/lights";
 import { db } from "../db/index";

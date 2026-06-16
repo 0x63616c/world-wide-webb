@@ -1,5 +1,5 @@
 {
-  "name": "@repo/infra-cloudflare",
+  "name": "@www/infra-cloudflare",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@repo/platform": "workspace:*",
+    "@www/platform": "workspace:*",
     "@pulumi/pulumi": "^3.145.0",
     "@pulumi/cloudflare": "^5.49.0"
   },

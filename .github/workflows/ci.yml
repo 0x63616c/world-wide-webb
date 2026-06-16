@@ -925,7 +925,7 @@ jobs:
           # can't keep a phantom pin, then set each service's digest path.
           # The key MUST be namespaced `wwwinfra:imageDigests` to match the program's
           # `new Config("wwwinfra").getObject("imageDigests")`. A bare `--path
-          # imageDigests.<svc>` writes under the PROJECT namespace (control-center:),
+          # imageDigests.<svc>` writes under the PROJECT namespace (world-wide-webb:),
           # which the program never reads, so every image silently renders `:main`
           # (mutable tag) and pods NEVER roll to the freshly built build (www-j934.9).
           pulumi config rm wwwinfra:imageDigests --stack prod >/dev/null 2>&1 || true

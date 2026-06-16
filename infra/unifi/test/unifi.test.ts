@@ -106,13 +106,12 @@ describe("guestAccess explicit fields (www-jtp0.5.9)", () => {
     expect(await get<boolean>(adopted.guestAccess, "portalUseHostname")).toBe(true);
   });
 
-  test("portalHostname is the legacy captive-portal FQDN (before M5 cutover)", async () => {
-    // captive-portal.worldwidewebb.co remains the live hostname until app.cp
-    // cutover is approved and applied (www-jtp0.5.8, REQUIRES CALUM). This
-    // field documents the current live value, not the target.
+  test("portalHostname is the M5 product hostname (app--cp, post-cutover)", async () => {
+    // app--cp.worldwidewebb.co is now the live hostname after the M5 cutover
+    // (www-jtp0.5.8 cert Ready, www-jtp0.5.9 UniFi DNS live, www-jtp0.3.6 applied).
     const adopted = mod.adoptExisting(testProvider(), []);
     expect(await get<string>(adopted.guestAccess, "portalHostname")).toBe(
-      "captive-portal.worldwidewebb.co",
+      "app--cp.worldwidewebb.co",
     );
   });
 

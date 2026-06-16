@@ -18,7 +18,7 @@
  * still enforces on/off), so the two never fight over lamp colour.
  */
 
-import { getLogger } from "@repo/logger";
+import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
 import {
   LAMP_MODE_SPEED_CONFIG,

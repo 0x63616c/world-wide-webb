@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createLogger } from "@repo/logger";
+import { createLogger } from "@www/logger";
 import { pool } from "./index";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

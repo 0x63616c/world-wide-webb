@@ -6,7 +6,7 @@
  * cycle never kills its own loop or a sibling's , but generalizes it: stats are
  * accumulated per worker and exposed via stats().
  */
-import type { Logger } from "@repo/logger";
+import type { Logger } from "@www/logger";
 import type { Worker, WorkerRuntime, WorkerStats } from "./types";
 
 // Mutable per-worker bookkeeping. Kept in a closure (no module-global state) so

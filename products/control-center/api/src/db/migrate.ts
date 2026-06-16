@@ -1,6 +1,6 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getLogger } from "@repo/logger";
+import { getLogger } from "@www/logger";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { db } from "./index";
 

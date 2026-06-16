@@ -17,7 +17,7 @@
  * no tolerance band needed, unlike HA colour/brightness.
  */
 
-import { getLogger } from "@repo/logger";
+import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index";
 import type { DeviceSpeakerState } from "../db/schema";

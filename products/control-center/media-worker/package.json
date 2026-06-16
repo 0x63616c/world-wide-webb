@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@control-center/api": "workspace:*",
-    "@repo/logger": "workspace:*"
+    "@www/logger": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.3.13",

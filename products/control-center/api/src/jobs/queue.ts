@@ -16,7 +16,7 @@
  *   the queue guarantees at-least-once delivery, not exactly-once.
  */
 
-import { getLogger } from "@repo/logger";
+import { getLogger } from "@www/logger";
 import { sql } from "drizzle-orm";
 import { db } from "../db/index";
 import { job } from "../db/schema";

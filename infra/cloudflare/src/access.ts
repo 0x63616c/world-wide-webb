@@ -12,7 +12,7 @@ import {
   ampProductManifest,
   controlCenterProductManifest,
   type ProductServiceDeclaration,
-} from "@repo/platform";
+} from "@www/platform";
 
 // kioskTokenId: the CF service token *id* (UUID) for the kiosk token — NOT
 // the client_id (.access suffix). Access policies reference token_id; the

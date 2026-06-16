@@ -1,4 +1,4 @@
-import { defineProduct, homelabTarget, privateWeb, publicWeb } from "@repo/platform";
+import { defineProduct, homelabTarget, privateWeb, publicWeb } from "@www/platform";
 import { describe, expect, test } from "vitest";
 import { accessAppsForPrivateWeb, desiredAccessApps } from "../src/access.ts";
 

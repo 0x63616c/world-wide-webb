@@ -16,7 +16,7 @@
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { getLogger } from "@repo/logger";
+import { getLogger } from "@www/logger";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "../db/index";
 import { mediaItem, mediaSource } from "../db/schema";
