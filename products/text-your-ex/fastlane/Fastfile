@@ -190,7 +190,11 @@ platform :ios do
   lane :release do
     setup_ci # ephemeral CI keychain; no-op locally
 
-    match(type: "appstore", api_key: asc_key, app_identifier: bundle_id, readonly: true)
+    # force: true regenerates the provisioning profile from the App ID's current
+    # capabilities each build, so a newly-enabled capability (Sign In with Apple)
+    # is always reflected. readonly:true only fetches the existing profile, which
+    # lagged behind the capability enablement and failed the entitlement check.
+    match(type: "appstore", api_key: asc_key, app_identifier: bundle_id, readonly: false, force: true)
 
     update_code_signing_settings(
       use_automatic_signing: false,
