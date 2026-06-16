@@ -97,9 +97,7 @@ push to main
 
 **Digest pinning** is preserved as Pulumi stack config: a changed digest changes the rendered
 Deployment image, so only that workload's pods roll, the same property as the old
-`docker stack deploy` digest pin, without bosun. Most image repos are still
-`control-center-<svc>`, while product-native repos can use their full service key, e.g.
-AMP uses `ghcr.io/0x63616c/amp-app` with `ccinfra:imageDigests.amp-app`. `pulumi up` is
+`docker stack deploy` digest pin, without bosun. Image repos follow the `www-<product-code>-<component>` convention (e.g. `www-cc-api`, `www-cp-portal`, `www-amp-app`). AMP uses `ghcr.io/0x63616c/www-amp-app` with `wwwinfra:imageDigests.amp-app`. `pulumi up` is
 **declarative-convergent** (it reconciles the whole declared stack to the latest committed
 digests every green run), so the old `refs/deploy/main` marker, `mark-deployed`, and
 `deploy-drift.yml` are gone, the latest run always converges prod to `main`.
@@ -187,11 +185,12 @@ ExternalSecret at once on startup spikes memory).
 runs 2 replicas for tunnel HA. This is a committed stack-config value, not a code default;
 keep it at 2 (HA only, never an HPA).
 
-**`ccinfra:imageDigests` namespace requirement.** The CI deploy job MUST set the per-image
-digest map WITH the `ccinfra:` config namespace prefix, i.e.
-`pulumi config set --path ccinfra:imageDigests.<svc> <digest>`. **If the `ccinfra:` prefix is
+**`wwwinfra:imageDigests` namespace requirement.** The CI deploy job MUST set the per-image
+digest map WITH the `wwwinfra:` config namespace prefix, i.e.
+`pulumi config set --path wwwinfra:imageDigests.<svc> <digest>`. **If the `wwwinfra:` prefix is
 omitted, the value lands in the wrong (default `pulumi`/project) namespace, `infra/` never reads
 it, and builds silently never roll** (the deploy "succeeds" but pods stay on the old digest).
+The program reads `new Config("wwwinfra").getObject("imageDigests")`; the key must match.
 This is the single most important deploy invariant to get right.
 
 **Postgres backup status and restore proof (www-jtp0.2).** The live backup CronJob is

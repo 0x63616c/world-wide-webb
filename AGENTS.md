@@ -54,7 +54,7 @@
 
 - Push to `main` runs CI, builds changed arm64 images, then `pulumi up --stack prod` against homelab k8s. Infra-only changes deploy without rebuilding images.
 - CI is product-aware (www-jtp0.4.6): `.github/workflows/ci.yml` has a per-product path filter (`web`/`api`/`captiveportal`/`textyourex`/`amp` + shared `packages/`/`bun.lock`). A single product's change rebuilds and rolls only that product, a Text-Your-Ex-only change must NOT rebuild Control Center; shared `packages/` changes conservatively rebuild dependents. Regressions are caught by `bun run test:product-ci-isolation`. The local Tilt stack is product-laned the same way (`bun run test:tilt-product-lanes`).
-- Pulumi image digest config MUST use `ccinfra:` namespace, e.g. `ccinfra:imageDigests.<svc>`. Without it, builds succeed but pods don't roll.
+- Pulumi image digest config MUST use `wwwinfra:` namespace, e.g. `wwwinfra:imageDigests.<svc>`. Without it, builds succeed but pods don't roll.
 - Cron-style work belongs in Kubernetes `CronJob`s in `infra/src/crons.ts`, not legacy scheduler labels or third-party scheduler.
 - Ops/deploy-path changes MUST update relevant docs same change, especially `docs/deployment-design.md` and `docs/k3s-migration/DESIGN.md`.
 

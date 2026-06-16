@@ -34,11 +34,11 @@ CNPG, and the Cloudflare tunnel via in-cluster `cloudflared` (2 replicas).
 
 1. **Push to `main`.** GitHub Actions (`.github/workflows/ci.yml`) path-filters which
    images changed and builds only those (`web`, `api`, `worker`, `media-worker`,
-   `storybook`, `drizzle`, `captive-portal`), pushing `ghcr.io/0x63616c/control-center-*:main`.
+   `storybook`, `drizzle`, `captive-portal`), pushing to GHCR as `ghcr.io/0x63616c/www-cc-<svc>:main` (Control Center), `www-cp-portal:main` (captive portal), `www-tye-*:main` (TYE), `www-amp-app:main`.
 2. **The `deploy` job joins the tailnet** on an ephemeral `tag:ci` auth key (so the
    runner can reach homelab's kube-apiserver), reads each image's `:main` digest, and
    sets the per-image digest map as Pulumi config (`pulumi config set --path
-   ccinfra:imageDigests.<svc>`).
+   wwwinfra:imageDigests.<svc>`).
 3. **`pulumi up --stack prod`** reconciles the cluster. Images are **pinned by digest**,
    so only the workloads whose digest actually changed roll (www-czg lineage). The
    ephemeral node is revoked after the deploy.

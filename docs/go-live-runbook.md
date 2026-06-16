@@ -88,8 +88,7 @@ detail):
 - 9.3: rename the GitHub repo? (in-code refs are ready once you decide.)
 - 9.4: `@repo/*` / `@cc/*` / `@tye/*` / `@product/*` → what final scope convention?
 - 9.5: GHCR image names → world-wide-webb naming.
-- 9.6: Pulumi project rename, keep the `ccinfra:` config namespace (decoupled;
-  renaming it without re-keying silently breaks digest pins).
+- 9.6: Pulumi config namespace renamed `ccinfra:` → `wwwinfra:` (done). Pulumi project name rename (control-center → world-wide-webb) requires `pulumi stack rename` in Pulumi Cloud + Calum approval.
 - 9.8 / 9.9: prod cutover on the renamed identity, then remove old aliases.
 
 ## Done-state checklist

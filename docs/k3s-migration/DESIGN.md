@@ -55,8 +55,8 @@ untouched). The kubeconfig context **`cc-homelab`** points at
 apiserver cert: `docker.orb.local, k8s.orb.local, kubernetes(.default…), localhost, orbstack`) and
 the cluster CA + client cert, so any tailnet node (this Mac, a CI runner on an ephemeral
 `tag:ci` key) drives homelab's cluster with full TLS verification. `infra/src/cluster.ts` reads
-the context from `ccinfra:kubeContext` (default `cc-homelab`); a machine-local staging cluster
-overrides it (`pulumi config set ccinfra:kubeContext orbstack`).
+the context from `wwwinfra:kubeContext` (default `cc-homelab`); a machine-local staging cluster
+overrides it (`pulumi config set wwwinfra:kubeContext orbstack`).
 
 **IaC.** Pulumi TypeScript in this monorepo under `infra/`. A `ComponentResource`
 vocabulary succeeds bosun's `service()` / `cronJob()` builders, so a service is still
@@ -124,13 +124,13 @@ the 8GB node schedules everything. The two services with a www-ke9a cpu reservat
 
 | Service | k8s resource | replicas | limits.mem (www-ke9a) | requests | secrets (ESO → /run/secrets) | image | notes |
 |---|---|---|---|---|---|---|---|
-| **api** | Deployment + ClusterIP Service `:4201` | 1 | 512M | 256M mem, 0.5 cpu | HA_TOKEN, UNIFI_API_KEY, WIFI_SSID/PASSWORD, POSTGRES_PASSWORD, HOME_LAT/LON/PLACE_NAME/RADIUS_MILES, SPOTIFY_*, RESEND_API_KEY/FROM | control-center-api | request-only; readiness `GET /up`, liveness `/up`; `/health/climate` as a startup-time check. HA via an **ExternalName** Service `ha` → the host's own tailnet FQDN `homelab.tail8c014d.ts.net` (`:8123`) - see §5c; host LAN IP / `host.orb.internal` are unreachable from pods. UniFi via `https://192.168.0.1`. |
-| **worker** | Deployment | 1 | 384M | 192M mem | HA_TOKEN, UNIFI_API_KEY, WIFI_SSID/PASSWORD, POSTGRES_PASSWORD, HOME_*, SPOTIFY_* | control-center-worker | no Service (no traffic); the reconcile/ingest loops. Secrets mirror api (deploy-config test asserts lockstep). |
-| **media-worker** | Deployment | **1** (spike passed, §5b) | 1G | 256M mem | POSTGRES_PASSWORD, OPENROUTER_API_KEY | control-center-media-worker | NFS PV for the Synology media share (replaces the host bind mount), **`mountOptions: [nfsvers=3, nolock, tcp]`** (DS420+ is NFSv3-only - §5b). Un-parks www-6mz7. |
-| **web** | Deployment + ClusterIP `:80` | 1 | 96M | 48M mem | none | control-center-web | route `dashboard.worldwidewebb.co`; reverse-proxies `/api`→`api:4201`. Basemap `/maps/*.pmtiles` from a `maps` PV populated by `map-extract` (§ below). |
-| **storybook** | Deployment + ClusterIP `:6006` | 1 | 96M | 48M mem | none | control-center-storybook | route `storybook.worldwidewebb.co`; CF Access email-OTP gate (`CF_ACCESS_ALLOWED_EMAIL`). |
-| **captive-portal** | Deployment + **LoadBalancer** `:443/:80` (spike passed, §5a) | 1 | 64M | 32M mem | none | control-center-captive-portal | LAN-only, NEVER tunneled. Cert from cert-manager into a mounted volume; nginx proxies only `/api/trpc/portal.*`. LAN reach via a LoadBalancer Service republished on en1 (192.168.0.147) by OrbStack `expose_services`, replacing the `portal-lan` proxy + `:42069` hack. |
-| **drizzle** | Deployment + ClusterIP `:4983` | 1 | 256M | 128M mem | MASTERPASS, POSTGRES_PASSWORD | control-center-drizzle | route `drizzle.worldwidewebb.co`; CF Access email-OTP gate. Persists in a `drizzle-data` PVC. |
+| **api** | Deployment + ClusterIP Service `:4201` | 1 | 512M | 256M mem, 0.5 cpu | HA_TOKEN, UNIFI_API_KEY, WIFI_SSID/PASSWORD, POSTGRES_PASSWORD, HOME_LAT/LON/PLACE_NAME/RADIUS_MILES, SPOTIFY_*, RESEND_API_KEY/FROM | www-cc-api | request-only; readiness `GET /up`, liveness `/up`; `/health/climate` as a startup-time check. HA via an **ExternalName** Service `ha` → the host's own tailnet FQDN `homelab.tail8c014d.ts.net` (`:8123`) - see §5c; host LAN IP / `host.orb.internal` are unreachable from pods. UniFi via `https://192.168.0.1`. |
+| **worker** | Deployment | 1 | 384M | 192M mem | HA_TOKEN, UNIFI_API_KEY, WIFI_SSID/PASSWORD, POSTGRES_PASSWORD, HOME_*, SPOTIFY_* | www-cc-worker | no Service (no traffic); the reconcile/ingest loops. Secrets mirror api (deploy-config test asserts lockstep). |
+| **media-worker** | Deployment | **1** (spike passed, §5b) | 1G | 256M mem | POSTGRES_PASSWORD, OPENROUTER_API_KEY | www-cc-media-worker | NFS PV for the Synology media share (replaces the host bind mount), **`mountOptions: [nfsvers=3, nolock, tcp]`** (DS420+ is NFSv3-only - §5b). Un-parks www-6mz7. |
+| **web** | Deployment + ClusterIP `:80` | 1 | 96M | 48M mem | none | www-cc-web | route `dashboard.worldwidewebb.co`; reverse-proxies `/api`→`api:4201`. Basemap `/maps/*.pmtiles` from a `maps` PV populated by `map-extract` (§ below). |
+| **storybook** | Deployment + ClusterIP `:6006` | 1 | 96M | 48M mem | none | www-cc-storybook | route `storybook.worldwidewebb.co`; CF Access email-OTP gate (`CF_ACCESS_ALLOWED_EMAIL`). |
+| **captive-portal** | Deployment + **LoadBalancer** `:443/:80` (spike passed, §5a) | 1 | 64M | 32M mem | none | www-cp-portal | LAN-only, NEVER tunneled. Cert from cert-manager into a mounted volume; nginx proxies only `/api/trpc/portal.*`. LAN reach via a LoadBalancer Service republished on en1 (192.168.0.147) by OrbStack `expose_services`, replacing the `portal-lan` proxy + `:42069` hack. |
+| **drizzle** | Deployment + ClusterIP `:4983` | 1 | 256M | 128M mem | MASTERPASS, POSTGRES_PASSWORD | www-cc-drizzle | route `drizzle.worldwidewebb.co`; CF Access email-OTP gate. Persists in a `drizzle-data` PVC. |
 | **postgres** | CNPG `Cluster` (1 instance) + Service | 1 | 768M | 384M mem, 0.5 cpu | superuser/app creds via CNPG Secret (POSTGRES_PASSWORD bridged) | CNPG-managed PG image | local-path PVC on SSD. Replaces the `postgres()` builder + named `pgdata` volume. CNPG owns the Service the app connects to. |
 | **captive-portal postgres** | CNPG `Cluster` `captive-portal` (1 instance) + Service `captive-portal-rw` | 1 | 768M | 384M mem, 0.5 cpu | superuser/app creds via `captive-portal-postgres-auth` | CNPG-managed PG image | Product-owned database `captive_portal` on local-path SSD. This provisions the target database before portal data migration; existing Control Center portal tables stay untouched until cutover. |
 | **cloudflared** | Deployment | **2** (HA) | 128M | 64M mem, 0.25 cpu | TUNNEL_TOKEN | cloudflare/cloudflared:2025.10.1 | `--token-file /run/secrets/TUNNEL_TOKEN`. Public ingress; outbound-only. |
@@ -317,7 +317,7 @@ netns reaches the home LAN is **per-machine**:
   connections arrive as source `127.0.0.1` and match neither export rule).
 
 The conclusion: the LAN IP is correct, and the live media-worker mount proof belongs on
-**homelab**, not the MacBook. The `nasNfsServer` knob (`ccinfra:nasNfsServer`, default
+**homelab**, not the MacBook. The `nasNfsServer` knob (`wwwinfra:nasNfsServer`, default
 `192.168.0.218`) exists only so a node with a genuinely different path to the NAS could override
 it; do **not** flip it to the tailnet IP (that only ever "worked" as a dead-end on the MacBook,
 and even there the NAS denied it). No NAS-side change (TUN flip, export-rule edit) is needed once
@@ -396,9 +396,8 @@ push to main
 - **Digest pinning preserved:** the digest map becomes Pulumi stack config; a changed digest
   changes the rendered Deployment image, so only that workload's pods roll. Same property as
   today's `docker stack deploy` digest pin, without bosun (www-czg lineage). Most repos are
-  still keyed as `control-center-<svc>` → `<svc>`, while product-native images can keep their
-  full service key, e.g. AMP uses `ghcr.io/0x63616c/amp-app` with
-  `ccinfra:imageDigests.amp-app`.
+  keyed as `www-cc-<svc>`, `www-cp-portal`, `www-tye-*`, `www-amp-app` (see M9 image rename www-jtp0.9.5). Digest pins go under
+  `wwwinfra:imageDigests.<key>`, e.g. `wwwinfra:imageDigests.amp-app`.
 - **Marker logic removed:** `cancel-in-progress` + the `refs/deploy/main` marker existed to
   stop rapid pushes stranding undeployed commits under Swarm's webhook model. With
   `pulumi up` reconciling the whole declared stack to the latest committed digests on every

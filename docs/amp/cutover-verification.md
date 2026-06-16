@@ -34,7 +34,7 @@ any workload rolls:
 
 ```bash
 # Digest must be set (non-empty):
-pulumi config get --stack prod ccinfra:imageDigests.amp-app
+pulumi config get --stack prod wwwinfra:imageDigests.amp-app
 
 # Cross-check the GHCR tag:
 gh api /orgs/0x63616c/packages/container/amp-app/versions \
