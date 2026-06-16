@@ -217,8 +217,8 @@ export function adoptExisting(
   // import + protect:true means Pulumi asserts they match (no write). Fields that
   // the bridged provider cannot round-trip cleanly are listed in ignoreChanges.
   // auth=custom: External Portal Server mode (NOT hotspot or none).
-  // portalHostname: legacy captive-portal.worldwidewebb.co stays the live value
-  // until the app.cp cutover is approved and applied (www-jtp0.5.8 REQUIRES CALUM).
+  // portalHostname: cut to app--cp.worldwidewebb.co (www-jtp0.3.6). cert-manager
+  // has issued the cert (www-jtp0.5.8), UniFi local DNS A record is live (www-jtp0.5.9).
   // ecEnabled=false: params arrive plaintext; the ec blob breaks the SPA.
   // expire=43200: 30-day session lifetime, matching authorize-guest (43200 min).
   // redirectToHttps and redirectUrl live in a nested redirect block on the provider.
@@ -228,7 +228,7 @@ export function adoptExisting(
       auth: "custom",
       portalEnabled: true,
       portalUseHostname: true,
-      portalHostname: "captive-portal.worldwidewebb.co",
+      portalHostname: "app--cp.worldwidewebb.co",
       // customIp: required by provider when auth=custom; the Mini LAN IP that
       // serves the captive portal (same host as app--cp.worldwidewebb.co).
       customIp: "192.168.0.147",
