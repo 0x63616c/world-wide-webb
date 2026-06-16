@@ -1017,7 +1017,7 @@ class Component extends DCLogic {
         check: st.font === f.key ? '✓' : ''
       })),
       issuesCount: issues.length, epicsCount: issues.filter((i) => i.type === 'epic').length,
-      syncLabel: st.lastSync ? 'synced ' + this.relTime(st.lastSync, st.now) + ' tick=' + st.now : '', hasSync: !!st.lastSync,
+      syncLabel: st.lastSync ? 'synced ' + this.relTime(st.lastSync, st.now) : '', hasSync: !!st.lastSync,
       densityOn: this.isCompact(), toggleDensity: () => this.toggleDensity(),
       openNew: () => this.openNew(),
 

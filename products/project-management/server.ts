@@ -15,7 +15,7 @@ const PORT = Number(process.env.BEADS_UI_PORT ?? 8791);
 // Run bd against the repo root (parent of tools/beads-ui) so it resolves the
 // CC project regardless of which worktree launched us.
 const REPO_ROOT = join(import.meta.dir, "..", "..");
-const SYNC_INTERVAL_MS = Number(process.env.BEADS_UI_SYNC_MS ?? 30_000);
+const SYNC_INTERVAL_MS = Number(process.env.BEADS_UI_SYNC_MS ?? 10_000);
 const PUBLIC = join(import.meta.dir, "public");
 
 type Snapshot = {
