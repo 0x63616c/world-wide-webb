@@ -138,7 +138,7 @@ Design is 1:1 from `docs/captive-portal/design/`.
 4. shadcn/ui on Tailwind v4 instead of hand-ported CSS primitives; design tokens still match `theme.css` 1:1.
 5. Domain `captive-portal.worldwidewebb.co` (never `captive.`), LAN-only via split-horizon DNS + DNS-01 TLS.
 6. Storybook: yes, composed into the existing host, and a blocking gate before screens (two reversals of the early "no storybook" call).
-7. No PRs ever; worktrees merge to `main`; commit scope carries the `CC-` ticket id.
+7. No PRs ever; worktrees merge to `main`; commit scope carries the `www-` ticket id.
 
 **Milestones and tickets (epic www-q002)**
 

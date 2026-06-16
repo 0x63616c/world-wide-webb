@@ -6,7 +6,7 @@
 - `opencode.jsonc` already loads `CLAUDE.md`, `README.md`, main ops docs as instructions. Don't duplicate here unless detail is easy-to-miss working rule.
 - Before writing/editing/reviewing TypeScript/TSX, use `writing-scalable-typescript` skill when available, follow `docs/writing-scalable-typescript/README.md`.
 - Use Beads for durable tracking: `bd prime`, `bd ready`, `bd show <id>`, `bd update <id> --claim`, `bd close <id>`. Don't treat `.beads/issues.jsonl` as source of truth or run `bd import` during normal work.
-- Mentioning any `CC-*` Beads ticket: include id AND title, e.g. `www-4jvw - Add recap skill and www-ticket title rule`.
+- Mentioning any `www-*` Beads ticket: include id AND title, e.g. `www-4jvw - Add recap skill and www-ticket title rule`.
 - Calum asks to research/compare/price/verify current external facts: check online when sensible. Don't rely on stale model knowledge for live/vendor-specific info.
 
 ## Commands

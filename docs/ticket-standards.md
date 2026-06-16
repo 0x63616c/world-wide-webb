@@ -135,7 +135,7 @@ What is truly mechanical (blocks at the git layer) vs skill-owned vs lint backst
 
 | Rule | Enforced by | Strength |
 |---|---|---|
-| Commit names a real `CC-` ticket + area | `commit-msg` lefthook (`check-commit-msg.sh`) | **mechanical, blocks** |
+| Commit names a real `www-` ticket + area | `commit-msg` lefthook (`check-commit-msg.sh`) | **mechanical, blocks** |
 | Feature work happens in a worktree | global `guard-worktree-git.sh` PreToolUse hook | **mechanical, blocks** |
 | No fake data | `check-fake-data.sh` pre-commit | **mechanical, blocks** |
 | No third-party scheduler / no home address / no secrets | the no-scheduler + no-address pre-commit guards + gitleaks | **mechanical, blocks** |
