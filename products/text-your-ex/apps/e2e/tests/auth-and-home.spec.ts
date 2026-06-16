@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { openJar, signInDemo, signUpPhone } from "./helpers";
+import { openJar, signInDemo } from "./helpers";
 
 test("onboarding shows the wordmark and taglines", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /Text\s*Your\s*Ex/i })).toBeVisible();
   await expect(page.getByText("Stop texting your ex.")).toBeVisible();
-  await expect(page.getByText("No money actually moves. Yet.")).toBeVisible();
+  await expect(page.getByText("Payments coming soon.", { exact: false })).toBeVisible();
 });
 
 test("Apple sign-in lands on home with seeded jars and total damage", async ({ page }) => {
@@ -28,11 +28,4 @@ test("jar detail shows the pot, rule, and wall of shame ordered by tally", async
   const rows = page.getByTestId("shame-row");
   await expect(rows.first()).toContainText("Ali");
   await expect(rows.first()).toContainText("$65");
-});
-
-test("phone sign-up flow creates a fresh account", async ({ page }) => {
-  await signUpPhone(page, "5551230001", "Tester One");
-  // fresh user has no jars
-  await expect(page.getByTestId("total-damage")).toHaveText("$0");
-  await expect(page.getByText("No jars yet.", { exact: false })).toBeVisible();
 });

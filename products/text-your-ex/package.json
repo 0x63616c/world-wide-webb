@@ -19,9 +19,10 @@
     "start": "NODE_ENV=production bun run --cwd apps/api start",
     "typecheck": "bun run --cwd apps/api typecheck && bun run --cwd apps/frontend typecheck",
     "test:e2e": "bun run --cwd apps/e2e test",
-    "ios:sync": "bun run build && cap sync ios",
+    "patch:ios-spm": "node scripts/patch-ios-spm.mjs",
+    "ios:sync": "bun run build && bun run patch:ios-spm && cap sync ios",
     "ios:open": "cap open ios",
-    "ios:sim": "cap run ios --livereload --external --public-host=localhost"
+    "ios:sim": "bun run patch:ios-spm && cap run ios --livereload --external --public-host=localhost"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.0",
