@@ -7,7 +7,7 @@ import { renderCronJob } from "../src/component.ts";
 
 const purge: CronJobSpec = {
   name: "portal-data-purge",
-  image: "ghcr.io/0x63616c/control-center-api:main",
+  image: "ghcr.io/0x63616c/www-cc-api:main",
   schedule: "0 2 * * *",
   command: ["bun", "purge.js"],
   secrets: [{ name: "POSTGRES_PASSWORD", ref: "op://Homelab/Control Center Postgres/password" }],

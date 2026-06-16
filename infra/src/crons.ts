@@ -25,7 +25,7 @@ import type { CronJobSpec } from "./component.ts";
 import { ScheduledJob } from "./component.ts";
 
 // GHCR image ref (mutable :main tag; CI digest-pins at deploy). Mirrors services.ts.
-const ghcr = (name: string) => `ghcr.io/0x63616c/control-center-${name}:main`;
+const ghcr = (name: string) => `ghcr.io/0x63616c/www-cc-${name}:main`;
 
 const TZ = "America/Los_Angeles";
 

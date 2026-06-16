@@ -21,7 +21,7 @@ describe("AMP platform representation", () => {
     expect(manifest.services.app).toMatchObject({
       service: "app",
       workloadName: "amp-app",
-      image: "ghcr.io/0x63616c/amp-app:main",
+      image: "ghcr.io/0x63616c/www-amp-app:main",
     });
     expect(manifest.services.app.exposure).toEqual(manifest.app.exposure);
     expect(manifest.services).not.toHaveProperty("api");

@@ -64,7 +64,7 @@ describe("portal-data-purge", () => {
 
   test("runs the api image's purge entrypoint nightly at 02:00 LA", () => {
     const c = purge();
-    expect(c?.image).toBe("ghcr.io/0x63616c/control-center-api:main");
+    expect(c?.image).toBe("ghcr.io/0x63616c/www-cc-api:main");
     expect(c?.schedule).toBe("0 2 * * *");
     expect(c?.command).toEqual(["bun", "purge.js"]);
     expect(c?.env?.TZ).toBe("America/Los_Angeles");
@@ -108,7 +108,7 @@ describe("map-extract (www-hn1i: self-refreshing, runtime-resolved build)", () =
 
   test("runs the in-repo provisioner image in force mode (refresh even when present)", () => {
     const c = extract();
-    expect(c?.image).toBe("ghcr.io/0x63616c/control-center-map-provision:main");
+    expect(c?.image).toBe("ghcr.io/0x63616c/www-cc-map-provision:main");
     expect(c?.command).toEqual(["/provision.sh", "force"]);
   });
 

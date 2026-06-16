@@ -54,7 +54,7 @@ export function defineProduct(slug: ProductSlug): ProductIdentity {
     }),
     pulumiName: productPrefix,
     serviceName: productPrefix,
-    imageRepository: (component) => `ghcr.io/0x63616c/${slug}-${component}`,
+    imageRepository: (component) => `ghcr.io/0x63616c/www-${dnsCodes[slug]}-${component}`,
     backupPathParts: (component) => ["backups", "world-wide-webb", slug, component],
   };
 }
@@ -747,7 +747,7 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
       "captive-portal": {
         service: "captive-portal",
         workloadName: "captive-portal",
-        image: mainImage(product, "captive-portal"),
+        image: mainImage(captivePortalProduct, "portal"),
         exposure: captivePortalWeb(captivePortalProduct, target, { host: "app" }),
       },
       drizzle: {

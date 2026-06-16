@@ -31,26 +31,26 @@ const VALID = `sha256:${"a".repeat(64)}`;
 describe("serviceSpecs image digest pinning", () => {
   test("falls back to the :main tag when no digest is supplied", () => {
     const specs = specsWith();
-    expect(imageOf(specs, "api")).toBe("ghcr.io/0x63616c/control-center-api:main");
-    expect(imageOf(specs, "web")).toBe("ghcr.io/0x63616c/control-center-web:main");
-    expect(imageOf(specs, "amp-app")).toBe("ghcr.io/0x63616c/amp-app:main");
+    expect(imageOf(specs, "api")).toBe("ghcr.io/0x63616c/www-cc-api:main");
+    expect(imageOf(specs, "web")).toBe("ghcr.io/0x63616c/www-cc-web:main");
+    expect(imageOf(specs, "amp-app")).toBe("ghcr.io/0x63616c/www-amp-app:main");
   });
 
   test("pins the GHCR ref by digest when one is supplied for that service", () => {
     const specs = specsWith({ api: VALID });
-    expect(imageOf(specs, "api")).toBe(`ghcr.io/0x63616c/control-center-api@${VALID}`);
+    expect(imageOf(specs, "api")).toBe(`ghcr.io/0x63616c/www-cc-api@${VALID}`);
   });
 
   test("pins only the services in the map; the rest stay on :main", () => {
     const specs = specsWith({ web: VALID });
-    expect(imageOf(specs, "web")).toBe(`ghcr.io/0x63616c/control-center-web@${VALID}`);
+    expect(imageOf(specs, "web")).toBe(`ghcr.io/0x63616c/www-cc-web@${VALID}`);
     // worker has no digest, so it must NOT roll: still the mutable tag.
-    expect(imageOf(specs, "worker")).toBe("ghcr.io/0x63616c/control-center-worker:main");
+    expect(imageOf(specs, "worker")).toBe("ghcr.io/0x63616c/www-cc-worker:main");
   });
 
   test("pins the AMP image through its product-aware repository name", () => {
     const specs = specsWith({ "amp-app": VALID });
-    expect(imageOf(specs, "amp-app")).toBe(`ghcr.io/0x63616c/amp-app@${VALID}`);
+    expect(imageOf(specs, "amp-app")).toBe(`ghcr.io/0x63616c/www-amp-app@${VALID}`);
   });
 
   test("the upstream cloudflared image is never digest-pinned by this map", () => {

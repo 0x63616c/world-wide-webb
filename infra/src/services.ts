@@ -20,8 +20,12 @@ import { ExternalService, Workload } from "./component.ts";
 // Empty in local/dev applies, where :main is fine.
 export type ImageDigests = Record<string, string>;
 
+// Images that don't follow the default www-cc-<name> prefix.
 const IMAGE_REPOSITORIES = {
-  "amp-app": "ghcr.io/0x63616c/amp-app",
+  "captive-portal": "ghcr.io/0x63616c/www-cp-portal",
+  "tye-api": "ghcr.io/0x63616c/www-tye-api",
+  "tye-frontend": "ghcr.io/0x63616c/www-tye-web",
+  "amp-app": "ghcr.io/0x63616c/www-amp-app",
 } as const satisfies Record<string, string>;
 
 // GHCR image ref. Digest-pinned (@sha256:…) when CI supplied a digest for this
@@ -31,7 +35,7 @@ const IMAGE_REPOSITORIES = {
 const ghcr = (name: string, digests: ImageDigests = {}): string => {
   const base =
     IMAGE_REPOSITORIES[name as keyof typeof IMAGE_REPOSITORIES] ??
-    `ghcr.io/0x63616c/control-center-${name}`;
+    `ghcr.io/0x63616c/www-cc-${name}`;
   const digest = digests[name];
   if (digest) {
     if (!/^sha256:[0-9a-f]{64}$/.test(digest)) {

@@ -16,7 +16,7 @@ describe("product identity", () => {
     expect(app.imageNamespace).toBe("control-center");
     expect(app.pulumiName("api")).toBe("control-center-api");
     expect(app.serviceName("api")).toBe("control-center-api");
-    expect(app.imageRepository("api")).toBe("ghcr.io/0x63616c/control-center-api");
+    expect(app.imageRepository("api")).toBe("ghcr.io/0x63616c/www-cc-api");
     expect(app.backupPathParts("postgres")).toEqual([
       "backups",
       "world-wide-webb",
