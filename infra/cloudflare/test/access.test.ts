@@ -126,8 +126,8 @@ describe("desiredAccessApps", () => {
 
     expect(
       accessAppsForPrivateWeb([
-        { exposure: privateWeb(amp, homelabTarget, { host: "app" }), policy: "email-otp" },
-        { exposure: publicWeb(textYourEx, homelabTarget, { host: "app" }), policy: "email-otp" },
+        { exposure: privateWeb(amp, homelabTarget, { host: "app" }), policies: ["email-otp"] },
+        { exposure: publicWeb(textYourEx, homelabTarget, { host: "app" }), policies: ["email-otp"] },
       ]).map((app) => app.domain),
     ).toEqual(["app--amp.worldwidewebb.co"]);
   });

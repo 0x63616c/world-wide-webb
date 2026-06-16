@@ -108,11 +108,13 @@ export function accessAppsForPrivateWeb(
     .map((source) =>
       accessApp(
         source.exposure.hostname,
-        source.policies.map((p) =>
-          p === "kiosk-service-token"
-            ? serviceTokenPolicy("kiosk-service-token", "kioskTokenId")
-            : emailOtpPolicy(),
-        ),
+        source.policies.map((p, i) => {
+          const policy =
+            p === "kiosk-service-token"
+              ? serviceTokenPolicy("kiosk-service-token", "kioskTokenId")
+              : emailOtpPolicy();
+          return { ...policy, precedence: i + 1 };
+        }),
       ),
     );
 }
