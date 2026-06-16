@@ -117,7 +117,7 @@
       <sc-if value="{{ hasSync }}">
         <span title="Last synced from remote" style="display:inline-flex; align-items:center; gap:7px; padding:0 4px; font-size:12px; color:var(--ink-3); white-space:nowrap;">
           <span style="width:6px; height:6px; border-radius:999px; background:#3fb950; flex:0 0 auto;"></span>
-          Synced {{ syncLabel }}
+          {{ syncLabel }}
         </span>
       </sc-if>
       <button onClick="{{ viewSettings }}" class="bd-iconbtn" aria-label="Settings" style="{{ settingsBtnStyle }}">
@@ -605,7 +605,7 @@ class Component extends DCLogic {
     issues: [],
     loaded: false,
     lastSync: null,
-    tick: 0
+    now: Date.now()
   };
 
   // Live data: the design's SEED is replaced with the project's real beads
@@ -616,7 +616,7 @@ class Component extends DCLogic {
     this.loadData();
     this.__poll = setInterval(() => this.loadData(), 10000);
     // Re-render every 5s so the "synced N ago" label stays live between polls.
-    this.__tick = setInterval(() => this.setState({ tick: this.state.tick + 1 }), 5000);
+    this.__tick = setInterval(() => this.setState({ now: Date.now() }), 1000);
     // Esc closes whatever overlay is open. When the detail drawer has unsaved edits, Esc/X first
     // raises a confirm: Enter discards + closes, Esc dismisses the confirm and keeps the edits.
     this.__onKey = (e) => {
@@ -644,11 +644,11 @@ class Component extends DCLogic {
   }
   // Human-readable "time since": just now / 12s / 4m / 2h / 3d / 2mo ago.
   // Accepts ISO string or epoch ms number.
-  relTime(isoOrMs) {
+  relTime(isoOrMs, now = Date.now()) {
     if (!isoOrMs) return null;
     const then = typeof isoOrMs === 'number' ? isoOrMs : Date.parse(isoOrMs);
     if (Number.isNaN(then)) return null;
-    const s = Math.max(0, Math.round((Date.now() - then) / 1000));
+    const s = Math.max(0, Math.round((now - then) / 1000));
     if (s < 5) return 'just now';
     if (s < 60) return s + 's ago';
     const m = Math.floor(s / 60);
@@ -1017,7 +1017,7 @@ class Component extends DCLogic {
         check: st.font === f.key ? '✓' : ''
       })),
       issuesCount: issues.length, epicsCount: issues.filter((i) => i.type === 'epic').length,
-      syncLabel: this.relTime(st.lastSync), hasSync: !!st.lastSync,
+      syncLabel: st.lastSync ? 'synced ' + this.relTime(st.lastSync, st.now) + ' tick=' + st.now : '', hasSync: !!st.lastSync,
       densityOn: this.isCompact(), toggleDensity: () => this.toggleDensity(),
       openNew: () => this.openNew(),
 
