@@ -54,7 +54,7 @@ describe("desiredAccessApps", () => {
     ]);
   });
 
-  test("supports kiosk service-token access for app.cc", () => {
+  test("supports kiosk service-token access for app.cc (+ email-OTP fallback for browser, CC-d15)", () => {
     const dashboard = desiredAccessApps(ZONE, true).find(
       (app) => app.domain === "app--cc.worldwidewebb.co",
     );
@@ -65,6 +65,12 @@ describe("desiredAccessApps", () => {
         include: { configKey: "kioskTokenId", kind: "service-token-config" },
         name: "kiosk-service-token",
         precedence: 1,
+      },
+      {
+        decision: "allow",
+        include: { configKey: "allowedEmail", kind: "email-config" },
+        name: "email-otp",
+        precedence: 2,
       },
     ]);
   });

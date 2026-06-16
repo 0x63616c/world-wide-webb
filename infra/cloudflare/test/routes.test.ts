@@ -14,10 +14,10 @@ import {
 } from "../src/routes.ts";
 
 // ADOPT-ONLY (www-j934.2): the ingress rules + CNAMEs must mirror the LIVE state
-// exactly. Ingress = 3 legacy hosts (dashboard/storybook/drizzle) + 3 product
-// hosts; CNAMEs = the legacy hosts PLUS the stray hooks-test leftover (asymmetric
-// on purpose). The dead portainer + hooks routes were pruned in www-oa74.
-// captive-portal is never tunneled (LAN-only).
+// exactly. Ingress = 2 legacy hosts (storybook/drizzle) + 4 product hosts;
+// CNAMEs = the legacy hosts PLUS the stray hooks-test leftover (asymmetric on
+// purpose). dashboard.worldwidewebb.co removed in CC-2ff. The dead portainer +
+// hooks routes were pruned in www-oa74. captive-portal is never tunneled (LAN-only).
 
 const ZONE = "worldwidewebb.co";
 
@@ -31,11 +31,10 @@ describe("desiredIngressRules", () => {
       "app--amp.worldwidewebb.co",
       "app--cc.worldwidewebb.co",
       "app--tye.worldwidewebb.co",
-      "dashboard.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "storybook.worldwidewebb.co",
     ]);
-    expect(byHost["dashboard.worldwidewebb.co"]).toBe("http://web:80");
+    expect(byHost["dashboard.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["app--cc.worldwidewebb.co"]).toBe("http://web:80");
     expect(byHost["app--amp.worldwidewebb.co"]).toBe("http://amp-app:80");
     expect(byHost["app--tye.worldwidewebb.co"]).toBe("http://tye-frontend:80");
@@ -107,7 +106,6 @@ describe("desiredCnames", () => {
       "app--amp.worldwidewebb.co",
       "app--cc.worldwidewebb.co",
       "app--tye.worldwidewebb.co",
-      "dashboard.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "hooks-test.worldwidewebb.co",
       "storybook.worldwidewebb.co",
@@ -125,8 +123,9 @@ describe("desiredCnames", () => {
   test("each CNAME carries its EXACT live comment (zero-diff import; varies per record)", () => {
     const byHost = Object.fromEntries(desiredCnames(ZONE).map((c) => [c.hostname, c.comment]));
     // frozen legacy ownership-tagged route comment (live CF value, kept verbatim)
-    expect(byHost["dashboard.worldwidewebb.co"]).toBe("bosun:control-center tunnel route");
     expect(byHost["storybook.worldwidewebb.co"]).toBe("bosun:control-center tunnel route");
+    // dashboard.worldwidewebb.co retired in CC-2ff
+    expect(byHost).not.toHaveProperty("dashboard.worldwidewebb.co");
     // legacy evee comments (kept verbatim so import is zero-diff)
     expect(byHost["drizzle.worldwidewebb.co"]).toBe(
       "Drizzle Gateway via evee-webhooks tunnel (www-0ub8)",

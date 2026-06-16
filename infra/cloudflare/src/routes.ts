@@ -58,7 +58,6 @@ export type CloudflareRoutes = Readonly<{
 // origins cloudflared forwards to. The dead `portainer` + `hooks` routes (origins
 // removed with bosun) were pruned in www-oa74.
 const LEGACY_INGRESS: Record<string, string> = {
-  dashboard: "http://web:80",
   storybook: "http://storybook:6006",
   drizzle: "http://drizzle:4983",
 };
@@ -70,7 +69,6 @@ const LEGACY_INGRESS: Record<string, string> = {
 // intentionally immutable here. The dead `hooks` + `portainer` CNAMEs were pruned
 // in www-oa74.
 const LEGACY_CNAME_COMMENTS: Record<string, string | undefined> = {
-  dashboard: "bosun:control-center tunnel route",
   storybook: "bosun:control-center tunnel route",
   drizzle: "Drizzle Gateway via evee-webhooks tunnel (www-0ub8)",
   "hooks-test": "EVEE-218 webhook test (apex naming, covered by Universal SSL)",
