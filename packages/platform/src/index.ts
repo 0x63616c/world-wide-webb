@@ -834,7 +834,7 @@ export function captivePortalProductManifest(): CaptivePortalProductManifest {
       app: {
         service: "app",
         workloadName: "captive-portal",
-        image: "ghcr.io/0x63616c/control-center-captive-portal:main",
+        image: mainImage(product, "portal"),
         exposure: appExposure,
       },
       api: {
