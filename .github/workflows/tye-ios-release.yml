@@ -37,7 +37,8 @@ jobs:
       # immutable tye App ID; team is the shared WWW Apple team.
       BUNDLE_ID: co.worldwidewebb.textyourex
       APPLE_TEAM_ID: X9E4HG27NK
-      IOS_PROJECT: App/App.xcodeproj
+      # Relative to the fastlane working dir (products/text-your-ex).
+      IOS_PROJECT: ios/App/App.xcodeproj
       IOS_SCHEME: App
       INITIAL_BUILD_NUMBER: "0"
     steps:
