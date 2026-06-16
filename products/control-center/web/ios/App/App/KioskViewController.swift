@@ -46,32 +46,6 @@ class KioskViewController: CAPBridgeViewController {
         webView.load(request)
     }
 
-    // Capacitor's initial load has no headers, so CF Access redirects to its login
-    // page before viewDidAppear can re-issue with the service token. Intercept that
-    // redirect here and cancel it, then immediately reload the origin with the token
-    // headers. This fires before WKWebView follows the redirect, so the login page
-    // is never shown (www-llpc).
-    func webView(
-        _ webView: WKWebView,
-        decidePolicyFor navigationAction: WKNavigationAction,
-        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
-    ) {
-        if let url = navigationAction.request.url,
-           url.host?.contains("cloudflareaccess.com") == true,
-           let access = kioskAccess,
-           let origin = bridge?.config.appStartServerURL
-        {
-            decisionHandler(.cancel)
-            var request = URLRequest(url: origin)
-            for (name, value) in access.headers {
-                request.setValue(value, forHTTPHeaderField: name)
-            }
-            webView.load(request)
-            return
-        }
-        decisionHandler(.allow)
-    }
-
     // The kiosk is unattended, so it must recover on its own from a Cloudflare
     // outage that leaves the WKWebView stuck on an error page (www-bwoy) or, once
     // gated, on the CF Access login interstitial after cookie expiry (www-cuuw).
