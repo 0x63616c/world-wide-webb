@@ -123,12 +123,14 @@ platform :ios do
     bid = Spaceship::ConnectAPI::BundleId.all.find { |b| b.identifier == bundle_id }
     UI.user_error!("Bundle id #{bundle_id} not registered - run setup_ios first") unless bid
 
-    already = bid.get_capabilities.any? { |c| c.id.to_s.include?("APPLE_ID_AUTH") }
-    if already
-      UI.success("Sign In with Apple already enabled on #{bundle_id}")
-    else
-      bid.create_capability(capability_type: "APPLE_ID_AUTH")
+    # create_capability takes the type as a positional arg. If it's already on,
+    # Apple returns a 409 / "already exists" we can treat as success (idempotent).
+    begin
+      bid.create_capability("APPLE_ID_AUTH")
       UI.success("Enabled Sign In with Apple on #{bundle_id}")
+    rescue => e
+      raise unless e.message =~ /already|exist|409|entitlement/i
+      UI.success("Sign In with Apple already enabled on #{bundle_id}")
     end
 
     # force:true regenerates the profile so it includes the new capability.
