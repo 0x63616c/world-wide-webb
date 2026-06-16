@@ -172,51 +172,6 @@ export function ActivityRow({ a, showJar }: { a: ActivityDTO; showJar?: boolean 
   );
 }
 
-// dark numeric keypad for phone / OTP entry
-export function NumberPad({ onPress }: { onPress: (k: string) => void }) {
-  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "del"];
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(3,1fr)",
-        gap: 12,
-        maxWidth: 320,
-        margin: "0 auto",
-      }}
-    >
-      {keys.map((k, i) =>
-        k === "" ? (
-          // biome-ignore lint/suspicious/noArrayIndexKey: fixed numpad layout, spacers have no stable identity
-          <div key={`empty-${i}`} />
-        ) : (
-          <button
-            key={k}
-            type="button"
-            onClick={() => onPress(k)}
-            style={{
-              height: 60,
-              borderRadius: 16,
-              cursor: "pointer",
-              background: k === "del" ? "transparent" : T.surface2,
-              border: k === "del" ? "none" : `1px solid ${T.hair}`,
-              color: T.text,
-              fontFamily: T.disp,
-              fontWeight: 700,
-              fontSize: 26,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {k === "del" ? "⌫" : k}
-          </button>
-        ),
-      )}
-    </div>
-  );
-}
-
 export interface AvatarDraft {
   name: string;
   color: string;

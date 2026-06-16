@@ -38,6 +38,7 @@ type UserRow = {
   emoji: string | null;
   photo: string | null;
   phone: string | null;
+  apple_id: string | null;
   auth_provider: string;
   notif_prefs: string;
   created_at: number;
@@ -109,12 +110,13 @@ export async function createUser(opts: {
   emoji?: string | null;
   photo?: string | null;
   phone?: string | null;
+  appleId?: string | null;
   authProvider?: string;
   exes?: string[];
 }): Promise<UserDTO> {
   const uid = id("usr");
   await pool.query(
-    "INSERT INTO users (id, name, color, emoji, photo, phone, auth_provider, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+    "INSERT INTO users (id, name, color, emoji, photo, phone, apple_id, auth_provider, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
     [
       uid,
       opts.name,
@@ -122,6 +124,7 @@ export async function createUser(opts: {
       opts.emoji ?? null,
       opts.photo ?? null,
       opts.phone ?? null,
+      opts.appleId ?? null,
       opts.authProvider ?? "demo",
       now(),
     ],
@@ -195,23 +198,14 @@ export async function deleteSession(token: string): Promise<void> {
   await pool.query("DELETE FROM sessions WHERE token=$1", [token]);
 }
 
-// ─────────────────────────── otp (pretend) ───────────────────────────
-export async function requestOtp(phone: string): Promise<string> {
-  const code = "000000"; // pretend SMS - any 6 digits also accepted on verify
-  await pool.query(
-    "INSERT INTO otps (phone, code, created_at) VALUES ($1,$2,$3) ON CONFLICT (phone) DO UPDATE SET code=EXCLUDED.code, created_at=EXCLUDED.created_at",
-    [phone, code, now()],
-  );
-  return code;
-}
-
-export function verifyOtp(_phone: string, code: string): boolean {
-  // Pretend integration: accept any 6-digit numeric code.
-  return /^\d{6}$/.test(code);
-}
-
 export async function findUserByPhone(phone: string): Promise<UserDTO | null> {
   const { rows } = await pool.query<UserRow>("SELECT * FROM users WHERE phone = $1", [phone]);
+  const u = rows[0];
+  return u ? serializeUser(u) : null;
+}
+
+export async function findUserByAppleId(appleId: string): Promise<UserDTO | null> {
+  const { rows } = await pool.query<UserRow>("SELECT * FROM users WHERE apple_id = $1", [appleId]);
   const u = rows[0];
   return u ? serializeUser(u) : null;
 }

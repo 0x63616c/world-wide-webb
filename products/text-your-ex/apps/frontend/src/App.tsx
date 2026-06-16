@@ -104,8 +104,6 @@ const SCREENS: Record<ScreenName, (p: { ctx: AppCtx }) => React.ReactNode> = {
   invite: S.Invite,
   activity: S.ActivityTab,
   profile: S.Profile,
-  phone: S.PhoneEntry,
-  code: S.CodeEntry,
   setup: S.SetupProfile,
   editProfile: S.EditProfile,
 };
@@ -238,7 +236,7 @@ export default function App() {
         <div
           key={route.name + JSON.stringify(route.params)}
           className="screen-anim"
-          style={{ minHeight: "100%" }}
+          style={{ minHeight: "100%", flex: 1, display: "flex", flexDirection: "column" }}
         >
           <Cmp ctx={ctx} />
         </div>
@@ -265,7 +263,9 @@ export default function App() {
         }}
       >
         <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <div style={{ flex: 1, overflow: "auto" }}>{inner}</div>
+          <div style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column" }}>
+            {inner}
+          </div>
         </div>
       </div>
     );

@@ -65,18 +65,6 @@ export function Settle({ ctx }: { ctx: AppCtx }) {
           <span style={{ color: T.sec }}>Your slips in {jar?.name ?? "this jar"}</span>
           <span style={{ fontWeight: 700, fontFamily: T.disp }}>{money(owe)}</span>
         </div>
-        <div style={{ height: 1, background: T.hair2, margin: "8px 0" }} />
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: 15,
-            padding: "6px 0",
-          }}
-        >
-          <span style={{ color: T.sec }}>Processing fee</span>
-          <span style={{ fontWeight: 700, fontFamily: T.disp, color: T.green }}>$0.00</span>
-        </div>
       </div>
 
       <div style={{ position: "relative" }}>
@@ -112,8 +100,8 @@ export function Settle({ ctx }: { ctx: AppCtx }) {
       <p
         style={{ textAlign: "center", fontSize: 13, color: T.ter, marginTop: 16, lineHeight: 1.45 }}
       >
-        Right now this is purely a guilt scoreboard - no card gets charged. Apple Pay drops in
-        later. The shame, however, is live.
+        Right now this is purely a guilt scoreboard. Payments are coming soon. The shame, however,
+        is live.
       </p>
     </Screen>
   );

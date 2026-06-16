@@ -27,26 +27,30 @@ export function Invite({ ctx }: { ctx: AppCtx }) {
 
   const code = jar?.inviteCode ?? "······";
   const link = `textyourex.app/j/${code}`;
+  const ready = !!jar?.inviteCode;
+  const shareText = `Join my "${jar?.name ?? "guilt"}" jar on Text Your Ex. Code: ${code} -> ${link}`;
 
   const copy = () => {
-    if (navigator.clipboard) navigator.clipboard.writeText(link).catch(() => {});
+    if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
   };
 
-  const shareApps = [
-    { name: "Messages", bg: "#34C759", glyph: "💬" },
-    { name: "WhatsApp", bg: "#25D366", glyph: "🟢" },
-    {
-      name: "Instagram",
-      bg: "linear-gradient(45deg,#FEDA75,#FA7E1E,#D62976,#962FBF)",
-      glyph: "📸",
-    },
-    { name: "Copy link", bg: T.surface2, glyph: "🔗" },
-  ];
+  const share = async () => {
+    // Native share sheet on iOS WKWebView + web; falls back to copy where unsupported.
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: "Text Your Ex", text: shareText, url: `https://${link}` });
+        return;
+      } catch {
+        // user dismissed or unsupported, fall through to copy
+      }
+    }
+    copy();
+  };
 
   return (
-    <Screen>
+    <Screen style={{ display: "flex", flexDirection: "column", paddingBottom: 44 }}>
       <TopBar onBack={() => ctx.back()} title="Invite to jar" />
       {fresh && (
         <div
@@ -64,120 +68,101 @@ export function Invite({ ctx }: { ctx: AppCtx }) {
           ✓ Jar created. Now drag your friends down with you.
         </div>
       )}
-      <div style={{ textAlign: "center", padding: "6px 0 4px" }}>
-        <div style={{ fontSize: 13.5, color: T.sec, fontWeight: 600, marginBottom: 8 }}>
-          SHARE THIS CODE
-        </div>
-        <div
-          style={{
-            fontFamily: T.disp,
-            fontWeight: 800,
-            fontSize: 52,
-            color: T.gold,
-            letterSpacing: "0.08em",
-          }}
-        >
-          {code}
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={copy}
-        style={{
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          background: T.surface,
-          border: `1px solid ${T.hair}`,
-          borderRadius: 16,
-          padding: "14px 16px",
-          margin: "20px 0 26px",
-          cursor: "pointer",
-          color: T.text,
-        }}
-      >
-        <span style={{ flex: 1, textAlign: "left", fontFamily: T.ui, fontSize: 15, color: T.sec }}>
-          {link}
-        </span>
-        <span
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            color: copied ? T.green : T.gold,
-            fontFamily: T.ui,
-            fontWeight: 700,
-            fontSize: 14,
-          }}
-        >
-          {copied ? (
-            <>
-              <Icon.check style={{ width: 16, height: 16 }} /> Copied
-            </>
-          ) : (
-            <>
-              <Icon.copy /> Copy
-            </>
-          )}
-        </span>
-      </button>
 
       <div
         style={{
-          fontSize: 12,
-          color: T.sec,
-          fontWeight: 600,
-          marginBottom: 14,
-          textTransform: "uppercase",
-          letterSpacing: "0.04em",
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 18,
         }}
       >
-        Send it via
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 30 }}>
-        {shareApps.map((a) => (
-          <button
-            key={a.name}
-            type="button"
-            onClick={a.name === "Copy link" ? copy : undefined}
+        <div
+          style={{
+            fontSize: 13,
+            color: T.sec,
+            fontWeight: 600,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+          }}
+        >
+          Your jar code
+        </div>
+        <button
+          type="button"
+          onClick={copy}
+          style={{
+            width: "100%",
+            background: T.surface,
+            border: `1px solid ${T.hair}`,
+            borderRadius: 22,
+            padding: "28px 16px",
+            cursor: "pointer",
+            color: T.text,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 14,
+          }}
+        >
+          <span
             style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 8,
-              width: 72,
+              fontFamily: T.disp,
+              fontWeight: 800,
+              fontSize: 56,
+              color: T.gold,
+              letterSpacing: "0.1em",
             }}
           >
-            <div
-              style={{
-                width: 60,
-                height: 60,
-                borderRadius: 16,
-                background: a.bg,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 26,
-                border: a.name === "Copy link" ? `1px solid ${T.hair}` : "none",
-              }}
-            >
-              {a.glyph}
-            </div>
-            <span style={{ fontFamily: T.ui, fontSize: 11.5, color: T.sec, fontWeight: 600 }}>
-              {a.name}
-            </span>
-          </button>
-        ))}
+            {code}
+          </span>
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              color: copied ? T.green : T.sec,
+              fontFamily: T.ui,
+              fontWeight: 700,
+              fontSize: 14,
+            }}
+          >
+            {copied ? (
+              <>
+                <Icon.check style={{ width: 16, height: 16 }} /> Copied to clipboard
+              </>
+            ) : (
+              <>
+                <Icon.copy /> Tap to copy code
+              </>
+            )}
+          </span>
+        </button>
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: 13.5,
+            color: T.sec,
+            lineHeight: 1.45,
+            margin: 0,
+            maxWidth: 260,
+          }}
+        >
+          Send the code to your friends. They enter it on "Join a jar" to drag themselves down with
+          you.
+        </p>
       </div>
 
-      <Btn kind="gold" onClick={() => ctx.nav("jar", { jarId }, true)}>
-        {fresh ? "Take me to my jar" : "Done"}
-      </Btn>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, flexShrink: 0 }}>
+        <Btn kind="gold" disabled={!ready} onClick={share}>
+          Share invite
+        </Btn>
+        <Btn kind="ghost" onClick={() => ctx.nav("jar", { jarId }, true)}>
+          {fresh ? "Take me to my jar" : "Done"}
+        </Btn>
+      </div>
     </Screen>
   );
 }

@@ -16,9 +16,10 @@ export const T = {
   ui: "'Hanken Grotesk', system-ui, sans-serif",
 } as const;
 
+// Whole-dollar only across the app (steps enforce whole dollars). Rounding here
+// also makes the pot count-up tick $0 -> $N in integers, never fractional cents.
 export function money(cents: number): string {
-  const v = cents / 100;
-  return `$${Number.isInteger(v) ? v : v.toFixed(2)}`;
+  return `$${Math.round(cents / 100)}`;
 }
 
 // Mirror of the design's streakLabel, computed from the member DTO.

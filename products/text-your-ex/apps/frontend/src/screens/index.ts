@@ -1,5 +1,5 @@
 export { ActivityTab } from "./ActivityTab";
-export { CodeEntry, EditProfile, PhoneEntry, SetupProfile } from "./Auth";
+export { EditProfile, SetupProfile } from "./Auth";
 export { ConfirmDeny } from "./ConfirmDeny";
 export { Create } from "./Create";
 export { Home } from "./Home";

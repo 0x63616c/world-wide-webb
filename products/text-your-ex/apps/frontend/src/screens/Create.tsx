@@ -28,7 +28,7 @@ export function Create({ ctx }: { ctx: AppCtx }) {
   };
 
   return (
-    <Screen>
+    <Screen style={{ display: "flex", flexDirection: "column", paddingBottom: 44 }}>
       <TopBar onBack={() => ctx.back()} title="New jar" />
       <p style={{ color: T.sec, fontSize: 15, lineHeight: 1.4, margin: "2px 0 24px" }}>
         Round up the friends who'll keep you honest.
@@ -60,12 +60,12 @@ export function Create({ ctx }: { ctx: AppCtx }) {
           border: `1px solid ${T.hair}`,
           borderRadius: 20,
           padding: "22px 0",
-          marginBottom: 30,
         }}
       >
         <Stepper cents={cents} onChange={setCents} step={100} />
       </div>
 
+      <div style={{ flex: 1, minHeight: 24 }} />
       <Btn kind="gold" disabled={!name.trim() || busy} onClick={create}>
         Create jar & invite friends
       </Btn>

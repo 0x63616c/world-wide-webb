@@ -52,5 +52,8 @@
   ],
   "dependencies": {
     "bdui": "^0.0.38"
+  },
+  "patchedDependencies": {
+    "@capacitor-community/apple-sign-in@7.1.0": "patches/@capacitor-community%2Fapple-sign-in@7.1.0.patch"
   }
 }

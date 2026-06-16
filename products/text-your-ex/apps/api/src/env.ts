@@ -22,6 +22,12 @@ export function buildDatabaseUrl(): string | undefined {
   return `postgresql://${user}:${encodeURIComponent(password)}@${host}:${port}/${name}`;
 }
 
+// Apple bundle id used as the `aud` claim when verifying Sign In with Apple
+// identity tokens. Must match the App ID registered in the Apple Developer Portal.
+export function appleBundleId(): string {
+  return process.env.APPLE_BUNDLE_ID ?? "co.worldwidewebb.textyourex";
+}
+
 // Boot-time guard: production must have a configured database URL. Call this from
 // the api entrypoint so a misconfigured deploy fails fast instead of lazily.
 export function requireDatabaseUrl(): string {

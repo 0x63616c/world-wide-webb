@@ -13,8 +13,6 @@ export type ScreenName =
   | "invite"
   | "activity"
   | "profile"
-  | "phone"
-  | "code"
   | "setup"
   | "editProfile";
 

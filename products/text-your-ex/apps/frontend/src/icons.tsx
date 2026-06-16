@@ -4,11 +4,21 @@ type P = SVGProps<SVGSVGElement>;
 
 export const Icon = {
   back: (p: P) => (
-    <svg aria-hidden="true" width="11" height="18" viewBox="0 0 11 18" fill="none" {...p}>
+    // Left chevron carries more ink on the right, so nudge left (marginLeft -2)
+    // to sit optically centered inside the round IconBtn.
+    <svg
+      aria-hidden="true"
+      width="9"
+      height="15"
+      viewBox="0 0 11 18"
+      fill="none"
+      {...p}
+      style={{ marginLeft: -2, ...(p.style as object) }}
+    >
       <path
         d="M9 1L2 9l7 8"
         stroke="currentColor"
-        strokeWidth="2.2"
+        strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

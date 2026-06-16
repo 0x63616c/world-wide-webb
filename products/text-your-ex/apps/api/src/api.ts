@@ -1,5 +1,7 @@
 import { Hono } from "hono";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import { requireUser } from "./auth";
+import { appleBundleId } from "./env";
 import * as store from "./store";
 
 export type Env = { Variables: { userId: string | null; token: string } };
@@ -8,11 +10,25 @@ export const api = new Hono<Env>();
 
 const unauth = { error: "not_authenticated" } as const;
 
+// Sign In with Apple: verify the identity token against Apple's public JWKS.
+// audience must equal the app's bundle id; no Apple private key is needed.
+const APPLE_JWKS = createRemoteJWKSet(new URL("https://appleid.apple.com/auth/keys"));
+
+async function verifyAppleToken(identityToken: string): Promise<{ sub: string }> {
+  const { payload } = await jwtVerify(identityToken, APPLE_JWKS, {
+    issuer: "https://appleid.apple.com",
+    audience: appleBundleId(),
+  });
+  if (!payload.sub) throw new Error("missing sub in Apple JWT");
+  return { sub: payload.sub };
+}
+
 // ─────────────────────────── health ───────────────────────────
 api.get("/health", (c) => c.json({ ok: true }));
 
 // ─────────────────────────── auth ───────────────────────────
-// "Sign in with Apple" demo: log in as the seeded primary user.
+// Demo endpoint for web/dev: signs in as the seeded primary user without a real
+// Apple session (the native build uses /auth/apple).
 api.post("/auth/demo", async (c) => {
   const seeded = await store.findUserByPhone("+15550000001");
   const user =
@@ -21,19 +37,21 @@ api.post("/auth/demo", async (c) => {
   return c.json({ token, user: await store.getMe(user.id), isNew: false });
 });
 
-api.post("/auth/otp/request", async (c) => {
-  const { phone } = await c.req.json<{ phone: string }>();
-  if (!phone) return c.json({ error: "phone_required" }, 400);
-  const code = await store.requestOtp(phone);
-  return c.json({ ok: true, code }); // code echoed for the pretend/demo flow
-});
-
-api.post("/auth/otp/verify", async (c) => {
-  const { phone, code } = await c.req.json<{ phone: string; code: string }>();
-  if (!(await store.verifyOtp(phone, code))) return c.json({ error: "bad_code" }, 400);
-  const existing = await store.findUserByPhone(phone);
+// Real Sign In with Apple: verifies the JWT from the native
+// ASAuthorizationAppleIDProvider flow, then finds or creates the user.
+api.post("/auth/apple", async (c) => {
+  const { identityToken } = await c.req.json<{ identityToken: string }>();
+  if (!identityToken) return c.json({ error: "identity_token_required" }, 400);
+  let sub: string;
+  try {
+    ({ sub } = await verifyAppleToken(identityToken));
+  } catch {
+    return c.json({ error: "invalid_apple_token" }, 401);
+  }
+  const existing = await store.findUserByAppleId(sub);
   const isNew = !existing;
-  const user = existing ?? (await store.createUser({ name: "", phone, authProvider: "phone" }));
+  const user =
+    existing ?? (await store.createUser({ name: "", appleId: sub, authProvider: "apple" }));
   const token = await store.createSession(user.id);
   return c.json({ token, user: await store.getMe(user.id), isNew });
 });

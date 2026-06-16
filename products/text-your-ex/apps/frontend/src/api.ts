@@ -60,13 +60,8 @@ class ApiError extends Error {
 export const api = {
   // auth
   signInDemo: () => req<{ token: string; user: MeDTO; isNew: boolean }>("POST", "/auth/demo"),
-  requestOtp: (phone: string) =>
-    req<{ ok: boolean; code: string }>("POST", "/auth/otp/request", { phone }),
-  verifyOtp: (phone: string, code: string) =>
-    req<{ token: string; user: MeDTO; isNew: boolean }>("POST", "/auth/otp/verify", {
-      phone,
-      code,
-    }),
+  signInWithApple: (identityToken: string) =>
+    req<{ token: string; user: MeDTO; isNew: boolean }>("POST", "/auth/apple", { identityToken }),
   logout: () => req<{ ok: boolean }>("POST", "/auth/logout"),
 
   // me
