@@ -1,0 +1,47 @@
+# One-shot, manually-dispatched: enables the Sign In with Apple (APPLE_ID_AUTH)
+# capability on the tye App ID and force-regenerates the provisioning profile so
+# it carries the com.apple.developer.applesignin entitlement. After this runs
+# once, the regular TYE iOS Release lane (match readonly) signs the entitled app.
+# Re-runnable safely (the lane is idempotent).
+
+name: TYE iOS - Enable Sign In with Apple
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: tye-ios-enable-apple-sign-in
+  cancel-in-progress: true
+
+jobs:
+  enable:
+    name: Enable Sign In with Apple
+    runs-on: macos-26
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: products/text-your-ex
+    env:
+      BUNDLE_ID: co.worldwidewebb.textyourex
+      APPLE_TEAM_ID: X9E4HG27NK
+      IOS_PROJECT: ios/App/App.xcodeproj
+      IOS_SCHEME: App
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: products/text-your-ex
+
+      - name: Enable Sign In with Apple + refresh profile
+        run: bundle exec fastlane enable_apple_sign_in
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}

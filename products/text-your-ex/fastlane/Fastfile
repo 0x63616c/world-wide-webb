@@ -104,6 +104,38 @@ platform :ios do
     match(type: "appstore", api_key: asc_key, app_identifier: bundle_id, readonly: false)
   end
 
+  # Run ONCE (locally or via the tye-ios-enable-apple-sign-in workflow) to turn on
+  # Sign In with Apple for this app. It enables the APPLE_ID_AUTH capability on the
+  # App ID and force-regenerates the provisioning profile so it carries the
+  # com.apple.developer.applesignin entitlement; the regular release lane (match
+  # readonly) then picks that profile up. Idempotent.
+  desc "Enable Sign In with Apple on the App ID + refresh the profile"
+  lane :enable_apple_sign_in do
+    require "spaceship"
+    require "base64"
+
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key: Base64.decode64(ENV.fetch("ASC_KEY_CONTENT"))
+    )
+
+    bid = Spaceship::ConnectAPI::BundleId.all.find { |b| b.identifier == bundle_id }
+    UI.user_error!("Bundle id #{bundle_id} not registered - run setup_ios first") unless bid
+
+    already = bid.get_capabilities.any? { |c| c.id.to_s.include?("APPLE_ID_AUTH") }
+    if already
+      UI.success("Sign In with Apple already enabled on #{bundle_id}")
+    else
+      bid.create_capability(capability_type: "APPLE_ID_AUTH")
+      UI.success("Enabled Sign In with Apple on #{bundle_id}")
+    end
+
+    # force:true regenerates the profile so it includes the new capability.
+    match(type: "appstore", api_key: asc_key, app_identifier: bundle_id, readonly: false, force: true)
+    UI.success("Profile refreshed with Sign In with Apple. Re-run the release lane to ship it.")
+  end
+
   # Run ONCE per app (setup-app.sh calls it). Creates an internal TestFlight group
   # set to receive ALL builds and adds the account holder as a tester, so every
   # future tagged build appears in TestFlight with no clicks. Key-based (no Apple
