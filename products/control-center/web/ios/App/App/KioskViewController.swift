@@ -51,7 +51,7 @@ class KioskViewController: CAPBridgeViewController {
     // redirect here and cancel it, then immediately reload the origin with the token
     // headers. This fires before WKWebView follows the redirect, so the login page
     // is never shown (www-llpc).
-    override func webView(
+    func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
