@@ -50,7 +50,7 @@ const OWNERSHIP_TAG = "bosun:control-center";
 
 export type PrivateWebAccessSource = Readonly<{
   exposure: ProductServiceDeclaration["exposure"];
-  policy: "email-otp" | "kiosk-service-token";
+  policies: readonly ("email-otp" | "kiosk-service-token")[];
 }>;
 
 function accessApp(domain: string, policies: readonly DesiredAccessPolicy[]): DesiredAccessApp {
@@ -106,11 +106,14 @@ export function accessAppsForPrivateWeb(
       } => source.exposure?.kind === "private-web",
     )
     .map((source) =>
-      accessApp(source.exposure.hostname, [
-        source.policy === "kiosk-service-token"
-          ? serviceTokenPolicy("kiosk-service-token", "kioskTokenId")
-          : emailOtpPolicy(),
-      ]),
+      accessApp(
+        source.exposure.hostname,
+        source.policies.map((p) =>
+          p === "kiosk-service-token"
+            ? serviceTokenPolicy("kiosk-service-token", "kioskTokenId")
+            : emailOtpPolicy(),
+        ),
+      ),
     );
 }
 
@@ -137,8 +140,8 @@ export function desiredAccessApps(zone: string, includeGate = false): DesiredAcc
     // Private-web products: AMP uses email-OTP (human web access); the CC
     // dashboard uses a kiosk service-token (iPad wall panel, not human login).
     ...accessAppsForPrivateWeb([
-      { exposure: ccManifest.app.exposure, policy: "kiosk-service-token" },
-      { exposure: ampManifest.app.exposure, policy: "email-otp" },
+      { exposure: ccManifest.app.exposure, policies: ["kiosk-service-token", "email-otp"] },
+      { exposure: ampManifest.app.exposure, policies: ["email-otp"] },
     ]),
     // Already-live tooling protections (kept regardless of the gate flag).
     accessApp(`storybook.${zone}`, [emailOtpPolicy()]),
