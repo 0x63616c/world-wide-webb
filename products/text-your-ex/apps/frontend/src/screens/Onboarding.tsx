@@ -53,6 +53,11 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
     }
   };
 
+  // On the native shell the OS safe-area insets are already applied by the app
+  // wrapper, so the screen must NOT also add the web-mockup status-bar clearance
+  // (that double padding is what pushed the badge down and left a big bottom gap).
+  const native = Capacitor.isNativePlatform();
+
   return (
     <div
       style={{
@@ -62,12 +67,18 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
         fontFamily: T.ui,
         display: "flex",
         flexDirection: "column",
-        padding: "0 28px 44px",
+        padding: `0 28px ${native ? 12 : 44}px`,
         boxSizing: "border-box",
       }}
     >
       <div
-        style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 60, flexShrink: 0 }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          paddingTop: native ? 10 : 60,
+          flexShrink: 0,
+        }}
       >
         <div
           style={{
