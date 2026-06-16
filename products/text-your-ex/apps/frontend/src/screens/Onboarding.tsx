@@ -8,9 +8,13 @@ import { T } from "../theme";
 
 export function Onboarding({ ctx }: { ctx: AppCtx }) {
   const [busy, setBusy] = useState(false);
+  // Surfaced on-screen so a failed sign-in shows WHY (which stage, what error)
+  // instead of the silent "Sign Up Not Completed" with no detail.
+  const [err, setErr] = useState<string | null>(null);
 
   const signInApple = async () => {
     if (busy) return;
+    setErr(null);
     setBusy(true);
     try {
       // Real "Sign in with Apple" only works inside the native iOS app (the Apple
@@ -20,15 +24,31 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
         setBusy(false);
         return;
       }
-      const { response } = await SignInWithApple.authorize({
-        clientId: "co.worldwidewebb.textyourex",
-        redirectURI: "",
-        scopes: "name email",
-      });
-      const { token, user, isNew } = await api.signInWithApple(response.identityToken);
-      ctx.signIn(token, user);
-      if (isNew || !user.name) ctx.nav("setup", {});
-    } catch {
+      let identityToken: string;
+      try {
+        const { response } = await SignInWithApple.authorize({
+          clientId: "co.worldwidewebb.textyourex",
+          redirectURI: "",
+          scopes: "name email",
+        });
+        identityToken = response.identityToken;
+      } catch (e) {
+        // Native Apple sheet failed (config / entitlement / cancel).
+        setErr(`Apple sheet: ${(e as { message?: string })?.message ?? JSON.stringify(e)}`);
+        setBusy(false);
+        return;
+      }
+      try {
+        const { token, user, isNew } = await api.signInWithApple(identityToken);
+        ctx.signIn(token, user);
+        if (isNew || !user.name) ctx.nav("setup", {});
+      } catch (e) {
+        // The token was minted but our API rejected it (e.g. aud mismatch -> 401).
+        setErr(`API: ${(e as { message?: string })?.message ?? JSON.stringify(e)}`);
+        setBusy(false);
+      }
+    } catch (e) {
+      setErr(`${(e as { message?: string })?.message ?? JSON.stringify(e)}`);
       setBusy(false);
     }
   };
@@ -146,6 +166,20 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
         >
           <Icon.apple style={{ marginTop: -2 }} /> Sign in with Apple
         </button>
+        {err && (
+          <p
+            style={{
+              textAlign: "center",
+              fontSize: 12,
+              color: T.red,
+              margin: "2px 0 0",
+              lineHeight: 1.35,
+              wordBreak: "break-word",
+            }}
+          >
+            {err}
+          </p>
+        )}
         <p
           style={{
             textAlign: "center",

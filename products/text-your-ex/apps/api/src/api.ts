@@ -1,5 +1,6 @@
+import { createLogger } from "@www/logger";
 import { Hono } from "hono";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, decodeJwt, decodeProtectedHeader, jwtVerify } from "jose";
 import { requireUser } from "./auth";
 import { appleBundleId, isProduction } from "./env";
 import { resetAndSeed } from "./seed";
@@ -8,6 +9,8 @@ import * as store from "./store";
 export type Env = { Variables: { userId: string | null; token: string } };
 
 export const api = new Hono<Env>();
+
+const log = createLogger({ service: "tye-api" });
 
 const unauth = { error: "not_authenticated" } as const;
 
@@ -61,12 +64,43 @@ api.post("/test/reset", async (c) => {
 // Real Sign In with Apple: verifies the JWT from the native
 // ASAuthorizationAppleIDProvider flow, then finds or creates the user.
 api.post("/auth/apple", async (c) => {
-  const { identityToken } = await c.req.json<{ identityToken: string }>();
-  if (!identityToken) return c.json({ error: "identity_token_required" }, 400);
+  const { identityToken } = await c.req.json<{ identityToken?: string }>();
+  if (!identityToken) {
+    log.warn("auth/apple: missing identityToken in body");
+    return c.json({ error: "identity_token_required" }, 400);
+  }
+
+  // Decode WITHOUT verifying first, so the logs show exactly what the device
+  // sent (the token itself is never logged - only its non-secret claims). The
+  // most common failure is an `aud` that doesn't match our bundle id.
+  try {
+    const header = decodeProtectedHeader(identityToken);
+    const payload = decodeJwt(identityToken);
+    log.info(
+      {
+        alg: header.alg,
+        kid: header.kid,
+        aud: payload.aud,
+        iss: payload.iss,
+        sub: payload.sub,
+        exp: payload.exp,
+        expectedAud: appleBundleId(),
+        tokenLen: identityToken.length,
+      },
+      "auth/apple: token received",
+    );
+  } catch (e) {
+    log.warn({ err: (e as Error).message }, "auth/apple: token could not be decoded");
+  }
+
   let sub: string;
   try {
     ({ sub } = await verifyAppleToken(identityToken));
-  } catch {
+  } catch (e) {
+    log.warn(
+      { err: (e as Error).name, msg: (e as Error).message, expectedAud: appleBundleId() },
+      "auth/apple: verification failed",
+    );
     return c.json({ error: "invalid_apple_token" }, 401);
   }
   const existing = await store.findUserByAppleId(sub);
@@ -74,6 +108,7 @@ api.post("/auth/apple", async (c) => {
   const user =
     existing ?? (await store.createUser({ name: "", appleId: sub, authProvider: "apple" }));
   const token = await store.createSession(user.id);
+  log.info({ sub, isNew, userId: user.id }, "auth/apple: signed in");
   return c.json({ token, user: await store.getMe(user.id), isNew });
 });
 
