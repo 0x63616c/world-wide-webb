@@ -33,6 +33,13 @@ jobs:
         working-directory: products/text-your-ex
     env:
       VITE_API_BASE: https://api--tye.worldwidewebb.co
+      # App identifiers the Fastfile requires (non-secret). bundle id is the
+      # immutable tye App ID; team is the shared WWW Apple team.
+      BUNDLE_ID: co.worldwidewebb.textyourex
+      APPLE_TEAM_ID: X9E4HG27NK
+      IOS_PROJECT: App/App.xcodeproj
+      IOS_SCHEME: App
+      INITIAL_BUILD_NUMBER: "0"
     steps:
       - uses: actions/checkout@v4
 
@@ -42,6 +49,13 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+        working-directory: .
+
+      - name: Patch apple-sign-in SPM for Capacitor 8
+        # iOS-only: widen the plugin's capacitor-swift-pm pin so xcodebuild SPM
+        # resolution doesn't conflict with the app's Capacitor 8. Kept out of root
+        # bun patchedDependencies so it can't break the server/web Docker builds.
+        run: node products/text-your-ex/scripts/patch-ios-spm.mjs
         working-directory: .
 
       - name: Build web (VITE_API_BASE baked in)
@@ -60,11 +74,16 @@ jobs:
           working-directory: products/text-your-ex
 
       - name: Build and upload to TestFlight
+        # The ASC API key, match passphrase and certificates repo are account-level
+        # and shared across every WWW app (one distribution cert signs all), so we
+        # reuse the same repo secrets the control-center iOS build uses. The earlier
+        # TYE_*-prefixed names were never set, which resolved to an empty .p8 and
+        # failed Spaceship with "invalid curve name".
         run: bundle exec fastlane release
         env:
-          MATCH_PASSWORD: ${{ secrets.TYE_MATCH_PASSWORD }}
-          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.TYE_MATCH_GIT_BASIC_AUTHORIZATION }}
-          MATCH_GIT_URL: ${{ secrets.TYE_MATCH_GIT_URL }}
-          ASC_KEY_ID: ${{ secrets.TYE_ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.TYE_ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.TYE_ASC_KEY_CONTENT }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
