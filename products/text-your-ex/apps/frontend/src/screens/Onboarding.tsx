@@ -34,7 +34,13 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
         identityToken = response.identityToken;
       } catch (e) {
         // Native Apple sheet failed (config / entitlement / cancel).
-        setErr(`Apple sheet: ${(e as { message?: string })?.message ?? JSON.stringify(e)}`);
+        // Dump all properties — non-enumerable ones too — so Xcode / Safari
+        // Web Inspector shows the full native error (code, domain, description).
+        const code = (e as { code?: unknown })?.code;
+        const msg = (e as { message?: string })?.message;
+        const full = JSON.stringify(e, Object.getOwnPropertyNames(e as object));
+        console.error("[tye] signInApple native error", { code, message: msg, full });
+        setErr(`Apple sheet code=${code ?? "?"}: ${msg ?? full}`);
         setBusy(false);
         return;
       }
