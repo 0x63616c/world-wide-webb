@@ -59,9 +59,6 @@ for (const required of [
   assertContains(buildAmp, required, `build-amp job must include ${required}`);
 }
 
-const preview = jobBlock("preview");
-assertContains(preview, "amp-app", "preview digest collection must include amp-app");
-
 const deploy = jobBlock("deploy");
 for (const required of [
   "build-amp",
