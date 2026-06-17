@@ -64,8 +64,8 @@ describe("WHITE_SCENE_KELVIN", () => {
 });
 
 describe("LAMP_MODE_SPEED_CONFIG", () => {
-  it("has a config per speed with Fast floored at a Hue-safe 1000ms interval", () => {
-    expect(LAMP_MODE_SPEED_CONFIG[LampModeSpeed.Fast].intervalMs).toBe(1000);
+  it("has a config per speed with Hue-safe intervals and 2x ratio between steps", () => {
+    expect(LAMP_MODE_SPEED_CONFIG[LampModeSpeed.Fast].intervalMs).toBe(4000);
     expect(LAMP_MODE_SPEED_CONFIG[LampModeSpeed.Slow].intervalMs).toBeGreaterThan(
       LAMP_MODE_SPEED_CONFIG[LampModeSpeed.Medium].intervalMs,
     );

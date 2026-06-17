@@ -98,14 +98,13 @@ export interface LampModeSpeedConfig {
 }
 
 /**
- * Speed presets. Fast floors at 1000ms: with 7 lamps that is ~7 light commands
- * per tick, the safe ceiling for the Hue bridge , faster risks dropped commands
- * that break the wave's phase. transition stays ~10% under the interval.
+ * Speed presets. Ratio between steps is 2x (slow=4×fast). transition stays
+ * ~10% under the interval. Hue bridge handles 7 lamps at 4000ms safely.
  */
 export const LAMP_MODE_SPEED_CONFIG: Record<LampModeSpeed, LampModeSpeedConfig> = {
-  [LampModeSpeed.Slow]: { intervalMs: 4000, transitionS: 3.5 },
-  [LampModeSpeed.Medium]: { intervalMs: 2000, transitionS: 1.8 },
-  [LampModeSpeed.Fast]: { intervalMs: 1000, transitionS: 0.9 },
+  [LampModeSpeed.Slow]: { intervalMs: 16000, transitionS: 14.0 },
+  [LampModeSpeed.Medium]: { intervalMs: 8000, transitionS: 7.0 },
+  [LampModeSpeed.Fast]: { intervalMs: 4000, transitionS: 3.5 },
 };
 
 /**

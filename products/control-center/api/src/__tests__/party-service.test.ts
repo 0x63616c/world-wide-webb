@@ -21,7 +21,7 @@ import { decidePartyAction, partyTurnOnParams } from "../services/party-service"
 describe("partyTurnOnParams", () => {
   it("builds light.turn_on params with rgb + transition for a lamp", () => {
     const params = partyTurnOnParams("light.desk", [0, 255, 0], LampModeSpeed.Medium);
-    expect(params).toEqual({ entity_id: "light.desk", rgb_color: [0, 255, 0], transition: 1.8 });
+    expect(params).toEqual({ entity_id: "light.desk", rgb_color: [0, 255, 0], transition: 7 });
   });
 });
 
