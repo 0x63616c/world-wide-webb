@@ -10,6 +10,8 @@
 #   bun run --filter @tye/api seed         (dev mode, seeds if empty)
 #   bun run --filter @tye/api seed:reset   (dev mode, truncates then seeds)
 
+load('ext://uibutton', 'cmd_button')
+
 WEB_PORT = 5173
 API_PORT = 8787
 PG_PORT  = 5432
@@ -17,16 +19,16 @@ PG_DB    = 'text_your_ex'
 PG_USER  = 'postgres'
 PG_PASS  = 'devpass'
 
-# Local Postgres (docker) for the API to connect to.
+# Local Postgres (docker) for the API to connect to. [reload]
 local_resource(
     'postgres',
     serve_cmd=(
-        'docker run --rm --name tye-postgres'
-        ' -e POSTGRES_DB=%s'
-        ' -e POSTGRES_USER=%s'
-        ' -e POSTGRES_PASSWORD=%s'
-        ' -p %d:5432'
-        ' -v tye-postgres-data:/var/lib/postgresql/data'
+        'docker rm -f tye-postgres 2>/dev/null; docker run --rm --name tye-postgres' +
+        ' -e POSTGRES_DB=%s' +
+        ' -e POSTGRES_USER=%s' +
+        ' -e POSTGRES_PASSWORD=%s' +
+        ' -p %d:5432' +
+        ' -v tye-postgres-data:/var/lib/postgresql/data' +
         ' postgres:17-alpine'
     ) % (PG_DB, PG_USER, PG_PASS, PG_PORT),
     readiness_probe=probe(
@@ -73,7 +75,7 @@ local_resource(
 
 # Web dev server (Vite + React). Proxies /api to the API server.
 local_resource(
-    'apps/frontend',
+    'frontend',
     serve_cmd='bun run --cwd apps/frontend dev',
     resource_deps=['api'],
     readiness_probe=probe(
@@ -89,3 +91,15 @@ local_resource(
 
 print('Text Your Ex - web on :%d, api on :%d, postgres on :%d' % (WEB_PORT, API_PORT, PG_PORT))
 print('iPhone 16 Pro Max view: http://localhost:%d/?device=16promax' % WEB_PORT)
+
+# Button: open iOS simulator with live-reload pointing at local dev server.
+cmd_button(
+    'ios-simulator',
+    argv=[
+        'sh', '-c',
+        'bunx cap run ios --live-reload --host localhost --port %d --target-name "iPhone 17 Pro Max"' % WEB_PORT,
+    ],
+    resource='frontend',
+    icon_name='phone_iphone',
+    text='iOS Simulator',
+)

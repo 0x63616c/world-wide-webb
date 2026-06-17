@@ -22,7 +22,7 @@
     "patch:ios-spm": "node scripts/patch-ios-spm.mjs",
     "ios:sync": "bun run build && bun run patch:ios-spm && cap sync ios",
     "ios:open": "cap open ios",
-    "ios:sim": "bun run patch:ios-spm && cap run ios --livereload --external --public-host=localhost"
+    "ios:sim": "bun run patch:ios-spm && cap run ios --live-reload --host localhost --port 5173"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.0",

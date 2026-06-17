@@ -282,7 +282,7 @@ export default function App() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "#0a0a0b",
+        background: "#000",
       }}
     >
       <div style={{ transform: `scale(${scale})`, transformOrigin: "center center" }}>
