@@ -9,7 +9,7 @@
 // then it's scaled to 0 and parked until cutover. The other 8 stay up.
 
 import * as k8s from "@pulumi/kubernetes";
-import type * as pulumi from "@pulumi/pulumi";
+import * as pulumi from "@pulumi/pulumi";
 import type { WorkloadSpec } from "./component.ts";
 import { ExternalService, Workload } from "./component.ts";
 
@@ -271,7 +271,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       replicas: 1,
       resources: { memory: "256M" },
       secrets: mount(["POSTGRES_PASSWORD"]),
-      // secretName defaults to cc-secrets-tye-api (ESO-synced from op://Homelab/text-your-ex Postgres/password).
+      // secretName defaults to cc-secrets-tye-api (from vault: TEXT_YOUR_EX_POSTGRES__PASSWORD).
       env: {
         TZ,
         APP_ENV: "production",
@@ -332,10 +332,12 @@ export interface ServicesArgs {
   nasNfsServer: string;
   // Per-service image digest pins from CI (name -> sha256:…); see ghcr().
   imageDigests?: ImageDigests;
+  // Decrypted vault from vault.ts (CC-k8t7).
+  vault: Record<string, string>;
 }
 
 export interface ServicesResources {
-  ghcrPullSecret: k8s.apiextensions.CustomResource;
+  ghcrPullSecret: k8s.core.v1.Secret;
   haService: ExternalService;
   pvcs: k8s.core.v1.PersistentVolumeClaim[];
   workloads: Workload[];
@@ -363,32 +365,24 @@ export function deployServices(args: ServicesArgs): ServicesResources {
     drizzleReplicas,
     nasNfsServer,
     imageDigests,
+    vault,
   } = args;
   const opts = { provider };
 
-  // GHCR pull secret: ESO templates a .dockerconfigjson from the GHCR token, so
-  // no base64 is hand-assembled in Pulumi (the token value never touches state).
-  const ghcrPullSecret = new k8s.apiextensions.CustomResource(
-    "es-ghcr-pull",
+  // GHCR pull secret: native dockerconfigjson Secret built from the PAT in vault.
+  // The token is wrapped in pulumi.secret() so it's encrypted in Pulumi state.
+  const pat = vault["GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN"];
+  if (!pat) throw new Error("vault key GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN not found");
+  const authB64 = Buffer.from(`0x63616c:${pat}`).toString("base64");
+  const dockerconfigjson = JSON.stringify({
+    auths: { "ghcr.io": { username: "0x63616c", password: pat, auth: authB64 } },
+  });
+  const ghcrPullSecret = new k8s.core.v1.Secret(
+    "ghcr-pull",
     {
-      apiVersion: "external-secrets.io/v1",
-      kind: "ExternalSecret",
-      metadata: { name: "es-ghcr-pull", namespace },
-      spec: {
-        refreshInterval: "1h",
-        secretStoreRef: { kind: "ClusterSecretStore", name: "onepassword" },
-        target: {
-          name: GHCR_PULL_SECRET,
-          template: {
-            type: "kubernetes.io/dockerconfigjson",
-            data: {
-              ".dockerconfigjson":
-                '{"auths":{"ghcr.io":{"username":"0x63616c","password":"{{ .token }}","auth":"{{ printf "0x63616c:%s" .token | b64enc }}"}}}',
-            },
-          },
-        },
-        data: [{ secretKey: "token", remoteRef: { key: "GitHub Personal Access Token/token" } }],
-      },
+      metadata: { name: GHCR_PULL_SECRET, namespace },
+      type: "kubernetes.io/dockerconfigjson",
+      stringData: { ".dockerconfigjson": pulumi.secret(dockerconfigjson) },
     },
     opts,
   );

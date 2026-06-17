@@ -8,11 +8,15 @@ set -euo pipefail
 #
 #   ./scripts/push-unifi-names.sh
 
-NAS_HOST="${NAS_HOST:-$(op read "op://Homelab/Synology DSM/host")}"
-NAS_USER="${NAS_USER:-$(op read "op://Homelab/Synology DSM/username")}"
-SSHPASS="$(op read "op://Homelab/Synology DSM/password")"; export SSHPASS
-KEY="$(op read "op://Homelab/UniFi/local_api_key")"
-HOST="$(op read "op://Homelab/UniFi/controller_url" | sed -E 's#^(https?://[^/]+).*#\1#')"
+_VAULT_PATH="$(cd "$(dirname "$0")/.." && pwd)/secrets/vault.yaml"
+SOPS_AGE_KEY=$(security find-generic-password -a "$USER" -s "age-world-wide-webb-private-key" -w)
+export SOPS_AGE_KEY
+_extract() { sops -d "$_VAULT_PATH" | grep "^$1:" | cut -d' ' -f2-; }
+NAS_HOST="${NAS_HOST:-$(_extract SYNOLOGY_DSM__HOST)}"
+NAS_USER="${NAS_USER:-admin}"
+SSHPASS="$(_extract SYNOLOGY_DSM__PASSWORD)"; export SSHPASS
+KEY="$(_extract UNIFI__LOCAL_API_KEY)"
+HOST="$(_extract UNIFI__CONTROLLER_URL | sed -E 's#^(https?://[^/]+).*#\1#')"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 ssh_opts=(-o StrictHostKeyChecking=accept-new -o ConnectTimeout=15)
 

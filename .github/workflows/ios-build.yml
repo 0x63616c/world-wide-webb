@@ -4,7 +4,7 @@
 # shell changes , plus a monthly cron to refresh the 90-day TestFlight build expiry.
 # It targets the same bundle id as the original "Evee" app, so builds land as updates
 # to the existing TestFlight app (was 1.0, build 48). Signing reuses fastlane match
-# against github.com/0x63616c/certificates. Secrets live on this repo (see www-w1a4).
+# against github.com/0x63616c/certificates. Secrets from SOPS vault (CC-k8t7).
 name: iOS Build
 
 on:
@@ -28,11 +28,47 @@ jobs:
     name: Build & Upload to TestFlight
     runs-on: macos-26
     timeout-minutes: 20
+    # Protected environment: AGE_PRIVATE_KEY is gated here (CC-k8t7).
+    environment: prod
     defaults:
       run:
         working-directory: products/control-center/web/ios
     steps:
       - uses: actions/checkout@v4
+
+      # Decrypt vault — the only step touching AGE_PRIVATE_KEY. No set -x here.
+      - name: Decrypt vault (SOPS+age)
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
+        run: |
+          brew install sops age 2>/dev/null || true
+
+          extract() { sops -d "$GITHUB_WORKSPACE/secrets/vault.yaml" | grep "^$1:" | cut -d' ' -f2-; }
+
+          MATCH_PWD=$(extract APP_STORE_CONNECT_API__MATCH_PASSWORD)
+          GIT_AUTH=$(extract MATCH_GIT_BASIC_AUTHORIZATION)
+          KEY_ID=$(extract APP_STORE_CONNECT_API__KEY_ID)
+          ISSUER_ID=$(extract APP_STORE_CONNECT_API__ISSUER_ID)
+          P8=$(extract APP_STORE_CONNECT_API__P8_CONTENT)
+          CF_ID=$(extract CF_ACCESS_KIOSK_TOKEN__CLIENT_ID)
+          CF_SECRET=$(extract CF_ACCESS_KIOSK_TOKEN__CLIENT_SECRET)
+
+          echo "::add-mask::$MATCH_PWD"
+          echo "::add-mask::$GIT_AUTH"
+          echo "::add-mask::$KEY_ID"
+          echo "::add-mask::$ISSUER_ID"
+          echo "::add-mask::$P8"
+          echo "::add-mask::$CF_ID"
+          echo "::add-mask::$CF_SECRET"
+
+          echo "MATCH_PASSWORD=$MATCH_PWD" >> "$GITHUB_ENV"
+          echo "MATCH_GIT_BASIC_AUTHORIZATION=$GIT_AUTH" >> "$GITHUB_ENV"
+          echo "ASC_KEY_ID=$KEY_ID" >> "$GITHUB_ENV"
+          echo "ASC_ISSUER_ID=$ISSUER_ID" >> "$GITHUB_ENV"
+          echo "ASC_KEY_CONTENT=$P8" >> "$GITHUB_ENV"
+          echo "CF_ACCESS_KIOSK_CLIENT_ID=$CF_ID" >> "$GITHUB_ENV"
+          echo "CF_ACCESS_KIOSK_CLIENT_SECRET=$CF_SECRET" >> "$GITHUB_ENV"
+          echo "MATCH_GIT_URL=https://github.com/0x63616c/certificates.git" >> "$GITHUB_ENV"
 
       # Fail fast on a regression in the kiosk recovery logic (www-bwoy) before
       # the expensive web build + TestFlight upload. Pure swiftc, no deps.
@@ -65,16 +101,12 @@ jobs:
       - name: Build and upload to TestFlight
         run: bundle exec fastlane release
         env:
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-          # CF Access kiosk service token (www-cuuw) baked into the build's Info.plist
-          # via Fastfile xcargs. Repo secrets sourced from the "CF Access Kiosk
-          # Token" 1Password item (created by scripts/save-cf-access-tokens.sh).
-          # Absent until then -> build settings resolve empty -> no headers sent
-          # (kiosk behaves exactly as today on an open dashboard).
-          CF_ACCESS_KIOSK_CLIENT_ID: ${{ secrets.CF_ACCESS_KIOSK_CLIENT_ID }}
-          CF_ACCESS_KIOSK_CLIENT_SECRET: ${{ secrets.CF_ACCESS_KIOSK_CLIENT_SECRET }}
+          # All from GITHUB_ENV set by "Decrypt vault" step.
+          MATCH_PASSWORD: ${{ env.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ env.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_GIT_URL: ${{ env.MATCH_GIT_URL }}
+          ASC_KEY_ID: ${{ env.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ env.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ env.ASC_KEY_CONTENT }}
+          CF_ACCESS_KIOSK_CLIENT_ID: ${{ env.CF_ACCESS_KIOSK_CLIENT_ID }}
+          CF_ACCESS_KIOSK_CLIENT_SECRET: ${{ env.CF_ACCESS_KIOSK_CLIENT_SECRET }}

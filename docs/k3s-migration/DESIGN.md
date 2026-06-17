@@ -26,7 +26,7 @@ table, the backup section, and every NFS-touching child ticket's AC.
 │  OrbStack 2.1.1 → built-in single-node Kubernetes (kubelet image GC)                │
 │   └ "Expose services to local network devices" ON (LAN reach for the portal)        │
 ├─ CLUSTER (declared in infra/, applied by `pulumi up`) ──────────────────────────────┤
-│  external-secrets (ESO) + 1Password SDK provider  → native k8s Secrets              │
+│  SOPS+age loadVault() (infra/src/vault.ts, CC-k8t7) → native k8s Secrets            │
 │  cert-manager + CF DNS-01 ClusterIssuer            → portal TLS Certificate         │
 │  cnpg operator → Clusters "control-center" + "captive-portal" (local SSD PVCs)     │
 │  cloudflared Deployment ×2 (HA, never autoscale)                                    │
@@ -68,12 +68,10 @@ declared in one typed place. State lives in **Pulumi Cloud** under Calum's perso
 cheap stack swap (RECON decision 13): components take cluster/provider as inputs, no host
 path is hardcoded into a component's contract.
 
-**Secrets.** External Secrets Operator with the **1Password SDK provider** (a
-service-account token, NO Connect server). ESO syncs each declared 1P field into a native
-k8s `Secret`; pods mount them at the existing `/run/secrets/<NAME>` paths, so app images
-need **zero changes**. The cluster reads 1Password once per refresh interval (pods read
-etcd), which structurally fixes the bosun op rate-limit churn (RECON decision 4,
-[[bosun-agent-op-rate-limit]]).
+**Secrets.** _(Originally ESO + 1Password SDK; replaced by SOPS+age in CC-k8t7.)_ `loadVault()`
+in `infra/src/vault.ts` decrypts `secrets/vault.yaml` at Pulumi deploy time and creates native
+k8s `Secret`s per workload; pods mount them at `/run/secrets/<NAME>` paths unchanged.
+No ESO operator; no 1Password API calls at deploy time (1Password is cold-backup only).
 
 **Postgres.** CloudNativePG (CNPG) operator managing single-instance product `Cluster`s on
 **local-path PVCs on the mini's SSD** (NOT NFS: corruption footgun + the DS420+ is 2GB RAM).
@@ -191,25 +189,20 @@ export, scratch restore, final snapshot, and cutover are complete.
 
 ---
 
-## 3. Secrets via ESO
+## 3. Secrets via SOPS+age _(originally ESO; replaced CC-k8t7)_
 
-- One `ClusterSecretStore` of provider `onepassword-sdk` (or `1password` SDK kind),
-  authenticated by the **service-account token** (no Connect). The token is the single
-  bootstrap secret, seeded into a k8s Secret `op-service-account` once (out-of-band, from
-  `op`), never committed.
-- One `ExternalSecret` per service whose `data` maps `/run/secrets/<NAME>` → the 1P
-  `op://Homelab/<item>/<field>` ref already declared in `deploy.config.ts`. ESO writes a
-  native `Secret`; the Deployment mounts it as files at `/run/secrets`, byte-identical to
-  the current docker-secret layout, so `env.ts` reading `/run/secrets/POSTGRES_PASSWORD` is
-  unchanged.
-- `refreshInterval` modest (e.g. 1h) so a rotated 1P value propagates without a redeploy.
-- Acceptance (Phase 3): `kubectl get externalsecret -A` all `SecretSynced/Ready=True`; no
-  secret VALUE ever printed.
+- `loadVault()` in `infra/src/vault.ts` decrypts `secrets/vault.yaml` at `pulumi up` time
+  using `SOPS_AGE_KEY` (from the `prod` GitHub environment `AGE_PRIVATE_KEY` secret, or
+  from macOS Keychain locally).
+- `serviceSecretData(service, vault)` looks up each service's env names from
+  `infra/src/secrets-map.ts` (mapping `ENV_NAME → VAULT__KEY`) and creates one native
+  `k8s.core.v1.Secret` per service, values wrapped in `pulumi.secret()`.
+- Pods mount them at `/run/secrets/<NAME>` paths unchanged.
+- Acceptance: `kubectl get secret -n default | grep cc-secrets`; no secret VALUE ever printed.
 
-CNPG owns the Postgres credential lifecycle. The app's `POSTGRES_PASSWORD` must match what
-CNPG provisions: bridge by having ESO sync the existing `op://Homelab/Control Center
-Postgres/password` into the CNPG `Cluster`'s superuser/app secret (so the migrated data and
-the same password line up), rather than letting CNPG mint a random one.
+CNPG Postgres credentials are also vault-driven: `postgresVaultKey()` maps each product
+slug to its vault key (`CONTROL_CENTER_POSTGRES__PASSWORD`, etc.), creating a
+`kubernetes.io/basic-auth` native Secret for CNPG to use.
 
 ---
 

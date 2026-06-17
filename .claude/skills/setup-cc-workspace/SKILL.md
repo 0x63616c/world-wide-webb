@@ -45,6 +45,6 @@ Raw stream: `/tmp/cc-tilt.log`. Stop everything with `tilt down`.
 
 ## Notes
 
-- Secrets load via `op inject` from 1Password, so `op` must be authenticated first.
+- Secrets load from the SOPS vault (`secrets/vault.yaml`) via `scripts/secrets.sh` (age key in macOS Keychain).
 - Cold start is ~30–60s (api boots, db migrates, then web). The script blocks until :4200 serves.
 - Hot reload: `bun --watch` for the api, Vite HMR for the web , no restart needed after edits.

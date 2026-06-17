@@ -2,7 +2,7 @@
 # capability on the tye App ID and force-regenerates the provisioning profile so
 # it carries the com.apple.developer.applesignin entitlement. After this runs
 # once, the regular TYE iOS Release lane (match readonly) signs the entitled app.
-# Re-runnable safely (the lane is idempotent).
+# Re-runnable safely (the lane is idempotent). Secrets from SOPS vault (CC-k8t7).
 
 name: TYE iOS - Enable Sign In with Apple
 
@@ -18,6 +18,8 @@ jobs:
     name: Enable Sign In with Apple
     runs-on: macos-26
     timeout-minutes: 20
+    # Protected environment: AGE_PRIVATE_KEY is gated here (CC-k8t7).
+    environment: prod
     defaults:
       run:
         working-directory: products/text-your-ex
@@ -29,6 +31,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Decrypt vault — the only step touching AGE_PRIVATE_KEY. No set -x here.
+      - name: Decrypt vault (SOPS+age)
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
+        run: |
+          brew install sops age 2>/dev/null || true
+
+          extract() { sops -d "$GITHUB_WORKSPACE/secrets/vault.yaml" | grep "^$1:" | cut -d' ' -f2-; }
+
+          MATCH_PWD=$(extract APP_STORE_CONNECT_API__MATCH_PASSWORD)
+          GIT_AUTH=$(extract MATCH_GIT_BASIC_AUTHORIZATION)
+          KEY_ID=$(extract APP_STORE_CONNECT_API__KEY_ID)
+          ISSUER_ID=$(extract APP_STORE_CONNECT_API__ISSUER_ID)
+          P8=$(extract APP_STORE_CONNECT_API__P8_CONTENT)
+
+          echo "::add-mask::$MATCH_PWD"
+          echo "::add-mask::$GIT_AUTH"
+          echo "::add-mask::$KEY_ID"
+          echo "::add-mask::$ISSUER_ID"
+          echo "::add-mask::$P8"
+
+          echo "MATCH_PASSWORD=$MATCH_PWD" >> "$GITHUB_ENV"
+          echo "MATCH_GIT_BASIC_AUTHORIZATION=$GIT_AUTH" >> "$GITHUB_ENV"
+          echo "ASC_KEY_ID=$KEY_ID" >> "$GITHUB_ENV"
+          echo "ASC_ISSUER_ID=$ISSUER_ID" >> "$GITHUB_ENV"
+          echo "ASC_KEY_CONTENT=$P8" >> "$GITHUB_ENV"
+          echo "MATCH_GIT_URL=https://github.com/0x63616c/certificates.git" >> "$GITHUB_ENV"
+
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -39,9 +69,9 @@ jobs:
       - name: Enable Sign In with Apple + refresh profile
         run: bundle exec fastlane enable_apple_sign_in
         env:
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          MATCH_PASSWORD: ${{ env.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ env.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_GIT_URL: ${{ env.MATCH_GIT_URL }}
+          ASC_KEY_ID: ${{ env.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ env.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ env.ASC_KEY_CONTENT }}

@@ -11,11 +11,11 @@
 // block any currently-public host without an explicit bypass (the live dashboard
 // panel, public app--tye), so it stays off until www-cuuw/www-b6ad add those.
 //
-// Config (all from 1Password via `pulumi config set [--secret]`, NEVER literals):
-//   cloudflare apiToken   op://Homelab/Cloudflare API/credential   (account-owned;
+// Config (all via `pulumi config set [--secret]`, NEVER literals):
+//   cloudflare apiToken   CLOUDFLARE_API__CREDENTIAL in vault (account-owned;
 //                          verify via GET /accounts/{account_id}/tokens/verify,
 //                          NOT /user/tokens/verify)
-//   accountId / zoneId / tunnelId / zoneName   op://Homelab/Cloudflare API/*
+//   accountId / zoneId / tunnelId / zoneName   CLOUDFLARE_API__* in vault
 //   allowedEmail                               the OTP allow email (PII; SECRET config)
 
 import * as cloudflare from "@pulumi/cloudflare";

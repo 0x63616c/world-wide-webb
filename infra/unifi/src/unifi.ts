@@ -41,7 +41,7 @@ export const IMPORT_IDS = {
 
 /**
  * @public - the UniFi provider, configured from env (the program wires these
- * from op:// refs). apiKey auth against the local controller; allowInsecure for
+ * from SOPS vault via env). apiKey auth against the local controller; allowInsecure for
  * the UCG self-signed cert. Consumed by the program; no internal consumer here.
  */
 export function makeProvider(creds?: {
@@ -72,7 +72,7 @@ export function makeProvider(creds?: {
 function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) {
-    throw new Error(`${name} must be set (the program sources it from op://Homelab/UniFi).`);
+    throw new Error(`${name} must be set (inject from SOPS vault via scripts/secrets.sh).`);
   }
   return v;
 }

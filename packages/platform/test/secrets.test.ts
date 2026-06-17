@@ -32,16 +32,20 @@ describe("secret catalog and service usage", () => {
     });
   });
 
-  test("can represent all deployed service secrets exactly (CC + TYE)", () => {
-    // SERVICE_SECRETS covers every workload that has an ESO ExternalSecret.
-    // Merge CC usages (keyed by service name) with TYE usages (prefixed tye-<service>
-    // to avoid key collision with CC's own "api" key).
+  test("env-key coverage: platform secret usages and infra SERVICE_SECRETS agree on env names per service (CC-k8t7: values now vault keys not remoteRef)", () => {
+    // SERVICE_SECRETS values are now vault keys (ITEM__FIELD), not 1P remoteRef.
+    // Assert env-name set coverage only; value format changed in CC-k8t7.
     const tye = textYourExProductManifest().secretUsages;
     const tyePrefixed = Object.fromEntries(
       Object.entries(tye).map(([svc, usage]) => [`tye-${svc}`, usage]),
     );
     const allUsages = { ...controlCenterServiceSecretUsages(), ...tyePrefixed };
-    expect(serviceSecretMap(allUsages)).toEqual(SERVICE_SECRETS);
+    const platformMap = serviceSecretMap(allUsages);
+    for (const [service, platformSecrets] of Object.entries(platformMap)) {
+      const infraKeys = Object.keys(SERVICE_SECRETS[service] ?? {}).sort();
+      const platformKeys = Object.keys(platformSecrets).sort();
+      expect(infraKeys).toEqual(platformKeys);
+    }
   });
 
   test("keeps services with no declared secrets absent", () => {

@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
-# Reads each dev secret via `op read` (shim-cached, no rate-limit risk).
-# Replaces `op inject` in the Tiltfile. Output: KEY=VALUE lines.
+# Decrypts secrets/vault.yaml and emits KEY=VALUE lines for Tilt.
+# SOPS+age based. Age key from macOS Keychain (CC-k8t7 migration).
+# Age key is read from macOS Keychain — no manual env setup needed locally.
 set -euo pipefail
 
-printf 'HA_TOKEN=%s\n'           "$(op read 'op://Homelab/Home Assistant Token/credential')"
-printf 'UNIFI_API_KEY=%s\n'      "$(op read 'op://Homelab/UniFi/local_api_key')"
-printf 'WIFI_SSID=%s\n'          "$(op read 'op://Homelab/WiFi Guest Credentials/ssid')"
-printf 'WIFI_PASSWORD=%s\n'      "$(op read 'op://Homelab/WiFi Guest Credentials/password')"
-printf 'HOME_LAT=%s\n'           "$(op read 'op://Homelab/Home Location/lat')"
-printf 'HOME_LON=%s\n'           "$(op read 'op://Homelab/Home Location/lon')"
-printf 'HOME_PLACE_NAME=%s\n'    "$(op read 'op://Homelab/Home Location/place_name')"
-printf 'HOME_RADIUS_MILES=%s\n'  "$(op read 'op://Homelab/Home Location/radius_miles')"
+SOPS_AGE_KEY=$(security find-generic-password -a "$USER" -s "age-world-wide-webb-private-key" -w)
+export SOPS_AGE_KEY
+
+extract() { sops -d secrets/vault.yaml | grep "^$1:" | cut -d' ' -f2-; }
+
+printf 'HA_TOKEN=%s\n'           "$(extract HOME_ASSISTANT_TOKEN__CREDENTIAL)"
+printf 'UNIFI_API_KEY=%s\n'      "$(extract UNIFI__LOCAL_API_KEY)"
+printf 'WIFI_SSID=%s\n'          "$(extract WIFI_GUEST_CREDENTIALS__SSID)"
+printf 'WIFI_PASSWORD=%s\n'      "$(extract WIFI_GUEST_CREDENTIALS__PASSWORD)"
+printf 'HOME_LAT=%s\n'           "$(extract HOME_LOCATION__LAT)"
+printf 'HOME_LON=%s\n'           "$(extract HOME_LOCATION__LON)"
+printf 'HOME_PLACE_NAME=%s\n'    "$(extract HOME_LOCATION__PLACE_NAME)"
+printf 'HOME_RADIUS_MILES=%s\n'  "$(extract HOME_LOCATION__RADIUS_MILES)"

@@ -13,7 +13,7 @@ const api: WorkloadSpec = {
   image: "ghcr.io/0x63616c/www-cc-api:main",
   replicas: 1,
   resources: { memory: "512M", reserveCpus: "0.5" },
-  secrets: [{ name: "POSTGRES_PASSWORD", ref: "op://Homelab/Control Center Postgres/password" }],
+  secrets: [{ name: "POSTGRES_PASSWORD", ref: "cc-secrets-api" }],
   env: { NODE_ENV: "production", TZ: "America/Los_Angeles" },
   ports: [{ containerPort: 4201, expose: "cluster" }],
 };

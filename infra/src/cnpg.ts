@@ -5,13 +5,13 @@
 // Credential bridge (the key correctness point): the app connects as
 // postgres@<svc>:5432/<db> with the password declared by the product manifest.
 // CNPG must use THAT password, not mint a random one, so migrated data and each
-// app's POSTGRES_PASSWORD line up. ESO syncs the password into a
-// kubernetes.io/basic-auth Secret (username "postgres"), which the Cluster
-// references via bootstrap.initdb.secret + superuserSecret. (ESO must create
-// that Secret before initdb runs; the operator retries until it appears.)
+// app's POSTGRES_PASSWORD line up. A native kubernetes.io/basic-auth Secret
+// (username "postgres") is created from the SOPS vault (CC-k8t7: replaced ESO
+// ExternalSecrets). The Cluster references it via bootstrap.initdb.secret +
+// superuserSecret. (Secret must exist before initdb runs; the operator retries.)
 
 import * as k8s from "@pulumi/kubernetes";
-import type * as pulumi from "@pulumi/pulumi";
+import * as pulumi from "@pulumi/pulumi";
 import {
   captivePortalProductManifest,
   controlCenterProductManifest,
@@ -24,13 +24,15 @@ export interface CnpgArgs {
   namespace: pulumi.Input<string>;
   // CNPG operator install manifest version (www-j934.4 preflight pin: 1.29.1).
   operatorVersion: string;
+  // Decrypted vault from vault.ts (CC-k8t7).
+  vault: Record<string, string>;
 }
 
 export interface CnpgResources {
   operator: k8s.yaml.ConfigFile;
-  authSecrets: k8s.apiextensions.CustomResource[];
+  authSecrets: k8s.core.v1.Secret[];
   clusters: k8s.apiextensions.CustomResource[];
-  authSecret: k8s.apiextensions.CustomResource;
+  authSecret: k8s.core.v1.Secret;
   cluster: k8s.apiextensions.CustomResource;
 }
 
@@ -42,33 +44,38 @@ function productDatabases(): ProductDatabase[] {
   ];
 }
 
-function externalSecretResourceName(database: ProductDatabase): string {
-  if (database.product === "control-center") return "es-postgres-auth";
-  return `es-${database.authSecretName}`;
+function postgresVaultKey(product: string): string {
+  switch (product) {
+    case "control-center":
+      return "CONTROL_CENTER_POSTGRES__PASSWORD";
+    case "captive-portal":
+      return "CAPTIVE_PORTAL_POSTGRES__PASSWORD";
+    case "text-your-ex":
+      return "TEXT_YOUR_EX_POSTGRES__PASSWORD";
+    default:
+      throw new Error(`cnpg: no vault key for product "${product}"`);
+  }
 }
 
 function createAuthSecret(
   database: ProductDatabase,
+  vault: Record<string, string>,
   namespace: pulumi.Input<string>,
   opts: pulumi.CustomResourceOptions,
-): k8s.apiextensions.CustomResource {
-  return new k8s.apiextensions.CustomResource(
-    externalSecretResourceName(database),
+): k8s.core.v1.Secret {
+  const vaultKey = postgresVaultKey(database.product);
+  const password = vault[vaultKey];
+  if (password === undefined) {
+    throw new Error(`cnpg: vault key "${vaultKey}" not found`);
+  }
+  return new k8s.core.v1.Secret(
+    database.authSecretName,
     {
-      apiVersion: "external-secrets.io/v1",
-      kind: "ExternalSecret",
-      metadata: { name: externalSecretResourceName(database), namespace },
-      spec: {
-        refreshInterval: "1h",
-        secretStoreRef: { kind: "ClusterSecretStore", name: "onepassword" },
-        target: {
-          name: database.authSecretName,
-          template: {
-            type: "kubernetes.io/basic-auth",
-            data: { username: database.owner, password: "{{ .password }}" },
-          },
-        },
-        data: [{ secretKey: "password", remoteRef: { key: database.auth.password.remoteRef } }],
+      metadata: { name: database.authSecretName, namespace },
+      type: "kubernetes.io/basic-auth",
+      stringData: {
+        username: database.owner,
+        password: pulumi.secret(password),
       },
     },
     opts,
@@ -79,7 +86,7 @@ function createCluster(
   database: ProductDatabase,
   namespace: pulumi.Input<string>,
   operator: k8s.yaml.ConfigFile,
-  authSecret: k8s.apiextensions.CustomResource,
+  authSecret: k8s.core.v1.Secret,
   opts: pulumi.CustomResourceOptions,
 ): k8s.apiextensions.CustomResource {
   return new k8s.apiextensions.CustomResource(
@@ -113,7 +120,7 @@ function createCluster(
  * Deployments point DATABASE hosts at the read-write Services CNPG creates.
  */
 export function installCnpg(args: CnpgArgs): CnpgResources {
-  const { provider, namespace, operatorVersion } = args;
+  const { provider, namespace, operatorVersion, vault } = args;
   const opts = { provider };
 
   const operator = new k8s.yaml.ConfigFile(
@@ -125,7 +132,7 @@ export function installCnpg(args: CnpgArgs): CnpgResources {
   );
 
   const databases = productDatabases();
-  const authSecrets = databases.map((database) => createAuthSecret(database, namespace, opts));
+  const authSecrets = databases.map((database) => createAuthSecret(database, vault, namespace, opts));
   const clusters = databases.map((database, index) =>
     createCluster(database, namespace, operator, authSecrets[index], opts),
   );

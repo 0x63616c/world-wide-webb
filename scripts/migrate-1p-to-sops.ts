@@ -128,7 +128,7 @@ if (skipped.length > 0) {
 // Write plaintext YAML
 const repoRoot = join(import.meta.dir, "..");
 mkdirSync(join(repoRoot, "secrets"), { recursive: true });
-const outPath = join(repoRoot, "secrets", "world-wide-webb.yaml");
+const outPath = join(repoRoot, "secrets", "vault.yaml");
 
 const yamlLines = Object.entries(secrets)
   .sort(([a], [b]) => a.localeCompare(b))

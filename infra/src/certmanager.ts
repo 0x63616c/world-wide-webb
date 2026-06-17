@@ -6,8 +6,8 @@
 // runtime via the CF API. Those are cert-manager's business, NOT Pulumi-managed,
 // so this module creates ZERO Cloudflare resources in Pulumi state, it can't
 // collide with the architect's CF import (.2). The CF API token reaches
-// cert-manager through an ESO-synced k8s Secret (op://Homelab/Cloudflare API/
-// credential, the validated account-owned token), never a Pulumi CF resource.
+// cert-manager through a native k8s Secret built from the SOPS vault
+// (CLOUDFLARE_API__CREDENTIAL, the validated account-owned token), never a Pulumi CF resource.
 
 import * as k8s from "@pulumi/kubernetes";
 import type * as pulumi from "@pulumi/pulumi";

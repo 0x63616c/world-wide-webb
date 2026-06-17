@@ -16,7 +16,9 @@
     ".opencode/**", // OpenCode plugins (loaded at runtime by the opencode host, never imported)
     "docs/media-tiles/**", // Design handoff bundle (prototypes/reference, not app code)
     "docs/captive-portal/design/**", // Captive portal design handoff (reference, not app code)
-    "products/text-your-ex/docs/design-reference/**" // Text Your Ex design-reference mockups (.jsx prototypes, not built/imported)
+    "products/text-your-ex/docs/design-reference/**", // Text Your Ex design-reference mockups (.jsx prototypes, not built/imported)
+    "**/ios/DerivedData/**", // Xcode build artifacts (generated, not source)
+    "**/ios/**/public/**" // Capacitor web-bundle copies synced into iOS project (not source)
   ],
 
   // Real runtime deps with no JS-visible import edge.
@@ -38,7 +40,9 @@
   ],
 
   // `tilt` is the dev-stack binary invoked by the root `dev` script; not an npm dep.
-  "ignoreBinaries": ["tilt", "scripts/check-rename-identity.py"],
+  // `security` is the macOS Keychain CLI used by vault.ts + migrate-1p-to-sops.ts to
+  // retrieve the age private key at runtime; not an npm dep (CC-k8t7).
+  "ignoreBinaries": ["tilt", "scripts/check-rename-identity.py", "security"],
 
   "workspaces": {
     ".": {

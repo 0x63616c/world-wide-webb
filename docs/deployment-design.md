@@ -19,7 +19,7 @@ alive on `homelab` (the Mac Mini).
 still declared in one typed place (a `ComponentResource` vocabulary succeeds bosun's
 `service()` / `cronJob()` builders). `pulumi up --stack prod` reconciles the OrbStack built-in
 **Kubernetes** cluster on `homelab` to match it. State lives in **Pulumi Cloud** (Calum's
-personal account; token `op://Homelab/Pulumi/access-token`).
+personal account; token from SOPS vault `PULUMI_ACCESS_TOKEN__TOKEN`).
 
 When you push to `main`: **GitHub Actions builds the changed images** (off the Mini), pushes
 them to GHCR, then the deploy job **joins the tailnet on an ephemeral `tag:ci` auth key** (so
@@ -29,10 +29,10 @@ node is revoked after the deploy.
 
 Cluster-level machinery, all declared in `infra/` and reconciled by the same `pulumi up`:
 
-- **External Secrets Operator (ESO)** with the **1Password SDK provider** syncs each declared
-  1P field into a native k8s `Secret`; pods mount them at the existing `/run/secrets/<NAME>`
-  paths, so app images need zero changes. The cluster reads 1Password once per refresh interval
-  (pods read etcd), which structurally fixes the old bosun per-deploy `op` rate-limit churn.
+- **SOPS+age vault secrets**: `loadVault()` in `infra/src/vault.ts` decrypts `secrets/vault.yaml`
+  at Pulumi deploy time and creates native k8s `Secret`s per workload; pods mount them at
+  `/run/secrets/<NAME>` paths unchanged. No ESO operator; no 1Password API calls at deploy
+  time (1Password is cold-backup only, CC-k8t7).
 - **cert-manager** with a Cloudflare **DNS-01** ClusterIssuer issues/renews the captive-portal
   TLS cert (the portal is LAN-only, HTTP-01 can't reach it).
 - **CloudNativePG (CNPG)** runs Postgres as a single-instance `Cluster` on a local-path PVC on
@@ -62,7 +62,7 @@ OrbStack.
 │  OrbStack → built-in single-node Kubernetes (kubelet image GC)                      │
 │   └ "Expose services to local network devices" ON (LAN reach for the portal)        │
 ├─ CLUSTER (declared in infra/, applied by `pulumi up --stack prod`) ─────────────────┤
-│  external-secrets (ESO) + 1Password SDK provider  → native k8s Secrets              │
+│  SOPS+age loadVault() (infra/src/vault.ts)         → native k8s Secrets              │
 │  cert-manager + CF DNS-01 ClusterIssuer            → portal TLS Certificate         │
 │  cnpg operator → Clusters "control-center" + "captive-portal" (local SSD PVCs)     │
 │  cloudflared Deployment ×2 (HA, never autoscale)                                    │
@@ -89,7 +89,7 @@ push to main
   → deploy:
        - collect per-image :main digests (buildx imagetools inspect)
        - join the tailnet with an EPHEMERAL Tailscale auth key (tag:ci), reach homelab's apiserver
-       - `pulumi login` (Pulumi Cloud, op://Homelab/Pulumi/access-token)
+       - `pulumi login` (Pulumi Cloud; token from SOPS vault via `prod` environment)
        - `pulumi config set --path` the per-image digest map (see the namespace note below)
        - `pulumi up --yes --stack prod`  → only services whose digest changed roll
        - revoke/expire the ephemeral key; leave the tailnet
@@ -177,9 +177,9 @@ artifacts: `scripts/portal-443-forward.sh` + `products/captive-portal/apps/front
 host launchd jobs (apiserver-forward, NFS, watchdog); GOAL boundary 5 wants these under a Pulumi
 `LaunchdJob` `command.remote` component, which was never built, tracked in www-j934.22.
 
-**ESO controller memory limit: `256Mi`.** The external-secrets controller's limit must be
-**256Mi**, not 192Mi, it gets **OOMKilled on a cold-start reconcile** at 192Mi (syncing every
-ExternalSecret at once on startup spikes memory).
+**ESO removed (CC-k8t7).** The external-secrets operator and 1Password SDK provider have been
+removed from the cluster. Secrets now flow from `secrets/vault.yaml` via `loadVault()` at
+Pulumi deploy time. The `256Mi` ESO memory limit note is obsolete.
 
 **`cloudflaredReplicas=2`, committed in `infra/Pulumi.prod.yaml`.** The in-cluster cloudflared
 runs 2 replicas for tunnel HA. This is a committed stack-config value, not a code default;

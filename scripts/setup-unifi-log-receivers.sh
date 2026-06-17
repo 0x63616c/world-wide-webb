@@ -11,16 +11,20 @@ set -euo pipefail
 # Why containers (not Log Center / bosun): Docker is already installed on the NAS;
 # bosun can't publish UDP host ports and NFS-in-container hangs on OrbStack (www-6mz7),
 # so the receivers live on the NAS itself. Run from the dev box; it SSHes to the NAS
-# using the DSM admin login in 1Password (op://Homelab/Synology DSM/*).
+# using the DSM admin login from the SOPS vault (CC-k8t7).
 #
 #   ./scripts/setup-unifi-log-receivers.sh
 #
 # Idempotent: re-running cleanly recreates both containers. To point the gateway at
 # these receivers, run scripts/configure-unifi-log-export.sh afterwards.
 
-NAS_HOST="${NAS_HOST:-$(op read "op://Homelab/Synology DSM/host")}"
-NAS_USER="${NAS_USER:-$(op read "op://Homelab/Synology DSM/username")}"
-SSHPASS="$(op read "op://Homelab/Synology DSM/password")"; export SSHPASS
+_VAULT_PATH="$(cd "$(dirname "$0")/.." && pwd)/secrets/vault.yaml"
+SOPS_AGE_KEY=$(security find-generic-password -a "$USER" -s "age-world-wide-webb-private-key" -w)
+export SOPS_AGE_KEY
+_extract() { sops -d "$_VAULT_PATH" | grep "^$1:" | cut -d' ' -f2-; }
+NAS_HOST="${NAS_HOST:-$(_extract SYNOLOGY_DSM__HOST)}"
+NAS_USER="${NAS_USER:-admin}"
+SSHPASS="$(_extract SYNOLOGY_DSM__PASSWORD)"; export SSHPASS
 CONF_LOCAL="$(dirname "$0")/unifi-syslog-ng.conf"
 
 command -v sshpass >/dev/null || { echo "FATAL: sshpass required (brew install hudochenkov/sshpass/sshpass)" >&2; exit 1; }

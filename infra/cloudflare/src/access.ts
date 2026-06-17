@@ -3,7 +3,7 @@
 // legacy hosts remain explicit until their cutover tickets retire them.
 
 // CF token verification NOTE (www-j934.2): the admin token
-// (op://Homelab/Cloudflare API/credential) is ACCOUNT-OWNED, so it verifies via
+// (CLOUDFLARE_API__CREDENTIAL in vault) is ACCOUNT-OWNED, so it verifies via
 // GET /accounts/{account_id}/tokens/verify, NOT /user/tokens/verify (the user
 // endpoint fails account-owned tokens by design). It already carries the account
 // + zone scopes incl. DNS:Edit. Don't re-trip the /user verify dead end.

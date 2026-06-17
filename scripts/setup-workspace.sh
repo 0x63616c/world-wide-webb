@@ -5,7 +5,7 @@
 #
 # Idempotent: if Tilt is already running it just re-opens the views.
 # Prereqs (the script checks and fails fast with the fix): docker running,
-# tilt, bun, and an authenticated `op` (1Password) for `op inject` secrets.
+# tilt, bun, and the SOPS vault (via scripts/secrets.sh) for secrets.
 set -euo pipefail
 
 PORT_WEB=4200

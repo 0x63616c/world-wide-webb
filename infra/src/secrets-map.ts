@@ -1,30 +1,27 @@
 // The per-service secret inventory: the source of truth for what each service
-// mounts at /run/secrets/<NAME>. ESO turns each entry into an ExternalSecret
-// that syncs the 1P field into a native k8s Secret, mounted byte-identically to
-// the prior docker-secret layout so env.ts is unchanged (www-j934.4).
-//
-// This map (or a successor in packages/core) is the sole truth for the mount set.
-// Each value is the `op://Homelab/<here>` suffix: "<Item>/<field>".
+// mounts at /run/secrets/<NAME>. Each value is a VAULT_KEY in secrets/vault.yaml
+// (ITEM__FIELD format). vault.ts reads the vault and creates a native k8s Secret
+// per service (CC-k8t7: migrated from ESO+1Password to SOPS+age).
 
-/** A service's secret env-name -> 1P "Item/field" suffix (under op://Homelab). */
+/** A service's secret env-name -> VAULT_KEY in secrets/vault.yaml. */
 export type ServiceSecrets = Record<string, string>;
 
 // api: full secret set. Resend was removed when the captive portal went
 // password-only (www-p9hx); the 1Password "Resend" item is kept for audit but
 // no longer synced to any workload.
 const apiSecrets: ServiceSecrets = {
-  HA_TOKEN: "Home Assistant Token/credential",
-  UNIFI_API_KEY: "UniFi/local_api_key",
-  WIFI_SSID: "WiFi Guest Credentials/ssid",
-  WIFI_PASSWORD: "WiFi Guest Credentials/password",
-  POSTGRES_PASSWORD: "Control Center Postgres/password",
-  HOME_LAT: "Home Location/lat",
-  HOME_LON: "Home Location/lon",
-  HOME_PLACE_NAME: "Home Location/place_name",
-  HOME_RADIUS_MILES: "Home Location/radius_miles",
-  SPOTIFY_CLIENT_ID: "Spotify/client_id",
-  SPOTIFY_CLIENT_SECRET: "Spotify/client_secret",
-  SPOTIFY_REFRESH_TOKEN: "Spotify/refresh_token",
+  HA_TOKEN: "HOME_ASSISTANT_TOKEN__CREDENTIAL",
+  UNIFI_API_KEY: "UNIFI__LOCAL_API_KEY",
+  WIFI_SSID: "WIFI_GUEST_CREDENTIALS__SSID",
+  WIFI_PASSWORD: "WIFI_GUEST_CREDENTIALS__PASSWORD",
+  POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
+  HOME_LAT: "HOME_LOCATION__LAT",
+  HOME_LON: "HOME_LOCATION__LON",
+  HOME_PLACE_NAME: "HOME_LOCATION__PLACE_NAME",
+  HOME_RADIUS_MILES: "HOME_LOCATION__RADIUS_MILES",
+  SPOTIFY_CLIENT_ID: "SPOTIFY__CLIENT_ID",
+  SPOTIFY_CLIENT_SECRET: "SPOTIFY__CLIENT_SECRET",
+  SPOTIFY_REFRESH_TOKEN: "SPOTIFY__REFRESH_TOKEN",
 };
 
 // worker: identical to api (the api/worker secret sets are kept in lockstep;
@@ -32,34 +29,34 @@ const apiSecrets: ServiceSecrets = {
 const workerSecrets: ServiceSecrets = { ...apiSecrets };
 
 /**
- * @public - the secret inventory per k8s workload. Consumed by eso.ts to emit
- * one ExternalSecret per service; the test asserts it matches deploy.config.ts.
+ * @public - the secret inventory per k8s workload. Consumed by secrets.ts to
+ * emit one native k8s Secret per service; the test asserts it matches deploy.config.ts.
  * web / storybook / captive-portal have NO secrets (absent here on purpose).
  */
 export const SERVICE_SECRETS: Record<string, ServiceSecrets> = {
   api: apiSecrets,
   worker: workerSecrets,
   "media-worker": {
-    POSTGRES_PASSWORD: "Control Center Postgres/password",
-    OPENROUTER_API_KEY: "OpenRouter/credential",
+    POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
+    OPENROUTER_API_KEY: "OPENROUTER__CREDENTIAL",
   },
   drizzle: {
-    MASTERPASS: "Drizzle Gateway/masterpass",
-    POSTGRES_PASSWORD: "Control Center Postgres/password",
+    MASTERPASS: "DRIZZLE_GATEWAY__MASTERPASS",
+    POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
   },
   cloudflared: {
-    TUNNEL_TOKEN: "Cloudflare Tunnel evee-webhooks/connector_token",
+    TUNNEL_TOKEN: "CLOUDFLARE_TUNNEL_EVEE_WEBHOOKS__CONNECTOR_TOKEN",
   },
   // The portal-data-purge CronJob (www-j934.7) runs the api image's purge.js and
   // builds DATABASE_URL from the mounted POSTGRES_PASSWORD; it needs that one
   // secret synced into cc-secrets-portal-data-purge (the CronJob's default mount).
   "portal-data-purge": {
-    POSTGRES_PASSWORD: "Control Center Postgres/password",
+    POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
   },
   // tye-api reads /run/secrets/POSTGRES_PASSWORD (POSTGRES_PASSWORD_FILE default)
   // to build its DATABASE_URL pointing at the text-your-ex CNPG cluster (text-your-ex-rw).
-  // 1P item: op://Homelab/text-your-ex Postgres/password
+  // vault key: TEXT_YOUR_EX_POSTGRES__PASSWORD
   "tye-api": {
-    POSTGRES_PASSWORD: "text-your-ex Postgres/password",
+    POSTGRES_PASSWORD: "TEXT_YOUR_EX_POSTGRES__PASSWORD",
   },
 };

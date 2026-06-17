@@ -1,23 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Saves the Synology "Homelab drive" connection details to 1Password (Homelab vault)
-# so deploy.config.ts can mount it into the media-worker container via fromOp(...) ,
-# keeping the NAS IP/credentials OUT of this (public) repo. (www-kp4k.7)
+# Saves the Synology "Homelab drive" connection details to the SOPS vault
+# so the api can mount it into the media-worker container, keeping the
+# NAS IP/credentials OUT of this (public) repo. (www-kp4k.7)
 #
-# Recommended: NFS (no password, IP-allowlisted on the NAS , robust for Linux containers).
+# Recommended: NFS (no password, IP-allowlisted on the NAS, robust for Linux containers).
 # SMB also supported (needs the Synology user you're creating).
 
-ITEM="Homelab Drive"
-VAULT="Homelab"
-BASE="op://$VAULT/$ITEM"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "== Synology 'Homelab drive' -> 1Password ($VAULT/$ITEM) =="
+echo "== Synology 'Homelab drive' -> SOPS vault =="
 echo
 
 # --- protocol ---------------------------------------------------------------
 echo "Protocol:"
-echo "  1) nfs   (recommended , Control Panel > File Services > NFS > Enable;"
+echo "  1) nfs   (recommended, Control Panel > File Services > NFS > Enable;"
 echo "           then the shared folder > Edit > NFS Permissions > add a rule for"
 echo "           the Mac Mini's IP, Squash = 'Map all users to admin', read/write)"
 echo "  2) smb   (uses the Synology user you're creating)"
@@ -41,47 +39,12 @@ else
 fi
 [ -n "$SHARE" ] || { echo "FATAL: empty share" >&2; exit 1; }
 
-# --- credentials (smb only) -------------------------------------------------
-USERNAME=""; PASSWORD=""
-if [ "$PROTOCOL" = "smb" ]; then
-  read -rp "Synology username (the user you created): " USERNAME
-  [ -n "$USERNAME" ] || { echo "FATAL: empty username" >&2; exit 1; }
-  read -rsp "Synology password: " PASSWORD; echo
-  [ -n "$PASSWORD" ] || { echo "FATAL: empty password" >&2; exit 1; }
-fi
+# --- write to vault ---------------------------------------------------------
+echo "$PROTOCOL" | "$REPO_ROOT/scripts/set-secret.sh" HOMELAB_DRIVE__PROTOCOL
+echo "$HOST"     | "$REPO_ROOT/scripts/set-secret.sh" HOMELAB_DRIVE__HOST
+echo "$SHARE"    | "$REPO_ROOT/scripts/set-secret.sh" HOMELAB_DRIVE__SHARE
 
-# --- write to 1Password -----------------------------------------------------
-FIELDS=(
-  "protocol[text]=$PROTOCOL"
-  "host[text]=$HOST"
-  "share[text]=$SHARE"
-  "username[text]=$USERNAME"
-  "password[password]=$PASSWORD"
-)
-
-if op item get "$ITEM" --vault "$VAULT" >/dev/null 2>&1; then
-  op item edit "$ITEM" --vault "$VAULT" "${FIELDS[@]}" >/dev/null
-  echo "Updated existing item."
-else
-  op item create --vault "$VAULT" --category "Server" --title "$ITEM" "${FIELDS[@]}" >/dev/null
-  echo "Created item."
-fi
-
-# --- invalidate the op-shim cache for each ref (REQUIRED on write) -----------
-EVEE_OP_DIR="${OP_CACHE_DIR:-$HOME/.local/share/evee-op}"
-if [ -d "$EVEE_OP_DIR" ]; then
-  for f in protocol host share username password; do
-    REF="$BASE/$f"
-    KEY_HASH=$(printf '%s' "$REF" | shasum -a 256 | cut -d' ' -f1)
-    rm -f "$EVEE_OP_DIR/$KEY_HASH"
-  done
-fi
-
-# --- verify -----------------------------------------------------------------
-echo "Verifying..."
-op read "$BASE/host" >/dev/null && op read "$BASE/share" >/dev/null && echo "  ok"
 echo
-echo "Stored. deploy.config.ts will reference:"
-echo "  $BASE/{protocol,host,share$( [ "$PROTOCOL" = smb ] && echo ',username,password')}"
+echo "Stored vault keys: HOMELAB_DRIVE__PROTOCOL, HOMELAB_DRIVE__HOST, HOMELAB_DRIVE__SHARE"
 echo
 echo "Free space target: the 92-video playlist at 1080p AV1 is ~108GB; 1TB is ample."

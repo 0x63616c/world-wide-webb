@@ -10,10 +10,10 @@ pulumi.runtime.setMocks({
   },
 });
 
-let eso: typeof import("../src/eso.ts");
+let esoModule: typeof import("../src/eso.ts");
 let map: typeof import("../src/secrets-map.ts");
 beforeAll(async () => {
-  eso = await import("../src/eso.ts");
+  esoModule = await import("../src/eso.ts");
   map = await import("../src/secrets-map.ts");
 });
 
@@ -31,8 +31,6 @@ describe("SERVICE_SECRETS", () => {
   test("worker mirrors api exactly (lockstep, www-51hf.35)", () => {
     const api = Object.keys(map.SERVICE_SECRETS.api).sort();
     const worker = Object.keys(map.SERVICE_SECRETS.worker).sort();
-    // Resend was removed when the portal went password-only (www-p9hx); api and
-    // worker secret sets are now identical.
     expect(worker).toEqual(api);
     for (const [k, v] of Object.entries(map.SERVICE_SECRETS.api)) {
       expect(map.SERVICE_SECRETS.worker[k]).toBe(v);
@@ -45,61 +43,69 @@ describe("SERVICE_SECRETS", () => {
     expect("captive-portal" in map.SERVICE_SECRETS).toBe(false);
   });
 
-  test("every ref is an Item/field suffix (no leading op:// or vault, no value)", () => {
+  test("every ref is a VAULT_KEY (SCREAMING_SNAKE_CASE with __ separator, no Item/field slash form)", () => {
     for (const secrets of Object.values(map.SERVICE_SECRETS)) {
       for (const ref of Object.values(secrets)) {
-        expect(ref).toMatch(/^[^/]+\/[^/]+$/);
-        expect(ref.startsWith("op://")).toBe(false);
+        // Must be ITEM__FIELD format: no slash, contains double underscore
+        expect(ref).not.toMatch(/\//);
+        expect(ref).toMatch(/__/);
+        expect(ref).toBe(ref.toUpperCase());
       }
     }
   });
 });
 
 describe("SERVICE_SECRETS: tye-api (www-jtp0)", () => {
-  test("tye-api entry present with POSTGRES_PASSWORD pointing at the TYE 1P item", () => {
+  test("tye-api entry present with POSTGRES_PASSWORD pointing at vault key", () => {
     expect("tye-api" in map.SERVICE_SECRETS).toBe(true);
-    expect(map.SERVICE_SECRETS["tye-api"].POSTGRES_PASSWORD).toBe("text-your-ex Postgres/password");
+    expect(map.SERVICE_SECRETS["tye-api"].POSTGRES_PASSWORD).toBe("TEXT_YOUR_EX_POSTGRES__PASSWORD");
   });
 });
 
-describe("installEso", () => {
-  test("emits one ExternalSecret per service, each with matching data entries", async () => {
+describe("installEso (native Secrets, CC-k8t7)", () => {
+  test("emits one native Secret per service entry", async () => {
     const provider = new (await import("@pulumi/kubernetes")).Provider("test", { context: "x" });
-    const res = eso.installEso({ provider, appNamespace: "control-center", chartVersion: "2.6.0" });
-    expect(res.externalSecrets).toHaveLength(Object.keys(map.SERVICE_SECRETS).length);
+    const mockVault: Record<string, string> = {};
+    // populate all vault keys referenced by SERVICE_SECRETS
+    for (const secrets of Object.values(map.SERVICE_SECRETS)) {
+      for (const vaultKey of Object.values(secrets)) {
+        mockVault[vaultKey] = `mock-${vaultKey}`;
+      }
+    }
 
-    // The api ExternalSecret carries all 14 api refs as data[].remoteRef.key.
-    const apiEs = res.externalSecrets[0];
-    const spec = await get<{
-      refreshInterval: string;
-      data: { secretKey: string; remoteRef: { key: string } }[];
-    }>(apiEs, "spec");
-    const apiCount = Object.keys(map.SERVICE_SECRETS.api).length;
-    expect(spec.data).toHaveLength(apiCount);
-    const keys = spec.data.map((d) => d.remoteRef.key);
-    expect(keys).toContain("Home Assistant Token/credential");
-    expect(keys).toContain("WiFi Guest Credentials/password");
-    // refreshInterval set so rotations propagate without a redeploy (AC).
-    expect(spec.refreshInterval).toBe("1h");
+    const res = esoModule.installEso({ provider, appNamespace: "control-center", vault: mockVault });
+    expect(res.externalSecrets).toHaveLength(Object.keys(map.SERVICE_SECRETS).length);
   });
 
-  test("tye-api ExternalSecret targets cc-secrets-tye-api with POSTGRES_PASSWORD (www-jtp0)", async () => {
+  test("api Secret has expected env keys in stringData", async () => {
     const provider = new (await import("@pulumi/kubernetes")).Provider("test2", { context: "x" });
-    const res = eso.installEso({ provider, appNamespace: "control-center", chartVersion: "2.6.0" });
+    const mockVault: Record<string, string> = {};
+    for (const secrets of Object.values(map.SERVICE_SECRETS)) {
+      for (const vaultKey of Object.values(secrets)) {
+        mockVault[vaultKey] = `mock-${vaultKey}`;
+      }
+    }
 
-    // Resolve all specs and find the one whose target Secret is cc-secrets-tye-api.
-    const allSpecs = await Promise.all(
-      res.externalSecrets.map((es) =>
-        get<{
-          target: { name: string };
-          data: { secretKey: string; remoteRef: { key: string } }[];
-        }>(es, "spec"),
-      ),
+    const res = esoModule.installEso({ provider, appNamespace: "control-center", vault: mockVault });
+    const apiSecret = res.externalSecrets[0];
+    const stringData = await get<Record<string, string>>(apiSecret, "stringData");
+    expect(Object.keys(stringData)).toContain("HA_TOKEN");
+    expect(Object.keys(stringData)).toContain("WIFI_PASSWORD");
+  });
+
+  test("tye-api Secret is present (www-jtp0)", async () => {
+    const provider = new (await import("@pulumi/kubernetes")).Provider("test3", { context: "x" });
+    const mockVault: Record<string, string> = {};
+    for (const secrets of Object.values(map.SERVICE_SECRETS)) {
+      for (const vaultKey of Object.values(secrets)) {
+        mockVault[vaultKey] = `mock-${vaultKey}`;
+      }
+    }
+
+    const res = esoModule.installEso({ provider, appNamespace: "control-center", vault: mockVault });
+    const names = await Promise.all(
+      res.externalSecrets.map((s) => get<{ name: string }>(s, "metadata").then((m) => m.name)),
     );
-    const tyeSpec = allSpecs.find((s) => s.target.name === "cc-secrets-tye-api");
-    expect(tyeSpec).toBeDefined();
-    expect(tyeSpec?.data).toHaveLength(1);
-    expect(tyeSpec?.data[0].secretKey).toBe("POSTGRES_PASSWORD");
-    expect(tyeSpec?.data[0].remoteRef.key).toBe("text-your-ex Postgres/password");
+    expect(names).toContain("cc-secrets-tye-api");
   });
 });

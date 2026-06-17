@@ -1,0 +1,7 @@
+# CODEOWNERS: security-sensitive paths require review before merge (CC-k8t7).
+# These paths gate access to AGE_PRIVATE_KEY (decrypts all 114 production secrets).
+
+.github/workflows/**          @0x63616c
+secrets/**                    @0x63616c
+scripts/secrets.sh            @0x63616c
+infra/src/vault.ts            @0x63616c

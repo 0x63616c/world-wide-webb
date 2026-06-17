@@ -31,12 +31,20 @@ function get<T>(r: pulumi.Resource, prop: string): Promise<T> {
 
 const provider = () => new k8s.Provider("test", { context: "x" });
 
+// Mock vault with all postgres passwords used by CNPG (CC-k8t7).
+const mockVault: Record<string, string> = {
+  CONTROL_CENTER_POSTGRES__PASSWORD: "mock-cc-pw",
+  CAPTIVE_PORTAL_POSTGRES__PASSWORD: "mock-cp-pw",
+  TEXT_YOUR_EX_POSTGRES__PASSWORD: "mock-tye-pw",
+};
+
 describe("installCnpg", () => {
   test("single-instance Cluster on local-path with the www-ke9a 768M cap, bridged credential", async () => {
     const res = cnpg.installCnpg({
       provider: provider(),
       namespace: "control-center",
       operatorVersion: "1.29.1",
+      vault: mockVault,
     });
     const spec = await get<{
       instances: number;
@@ -49,24 +57,23 @@ describe("installCnpg", () => {
     expect(spec.storage.storageClass).toBe("local-path");
     expect(spec.resources.limits.memory).toBe("768Mi");
     expect(spec.resources.requests.cpu).toBe("500m");
-    // Adopt the bridged password (NOT a generated one): both refs point at the
-    // same ESO-synced basic-auth secret, and the DB/owner match the app.
+    // Bridged password: both refs point at the same native basic-auth secret.
     expect(spec.bootstrap.initdb.database).toBe("control_center");
     expect(spec.bootstrap.initdb.owner).toBe("postgres");
     expect(spec.bootstrap.initdb.secret.name).toBe(spec.superuserSecret.name);
   });
 
-  test("the auth ExternalSecret builds a kubernetes.io/basic-auth secret", async () => {
+  test("the auth Secret is kubernetes.io/basic-auth with username=postgres (CC-k8t7)", async () => {
     const res = cnpg.installCnpg({
       provider: provider(),
       namespace: "control-center",
       operatorVersion: "1.29.1",
+      vault: mockVault,
     });
-    const spec = await get<{
-      target: { template: { type: string; data: Record<string, string> } };
-    }>(res.authSecret, "spec");
-    expect(spec.target.template.type).toBe("kubernetes.io/basic-auth");
-    expect(spec.target.template.data.username).toBe("postgres");
+    const type = await get<string>(res.authSecret, "type");
+    const stringData = await get<{ username: string }>(res.authSecret, "stringData");
+    expect(type).toBe("kubernetes.io/basic-auth");
+    expect(stringData.username).toBe("postgres");
   });
 
   test("installs Control Center, Captive Portal, and Text Your Ex product databases", async () => {
@@ -74,6 +81,7 @@ describe("installCnpg", () => {
       provider: provider(),
       namespace: "control-center",
       operatorVersion: "1.29.1",
+      vault: mockVault,
     });
 
     expect(res.clusters).toHaveLength(3);

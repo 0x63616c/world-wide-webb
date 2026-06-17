@@ -5,17 +5,21 @@ set -euo pipefail
 #   - NetFlow/IPFIX export  -> <NAS>:2055, sampling OFF (full flows), 1-min export
 #   - Remote syslog (SIEM)  -> <NAS>:514
 #
-# Uses the UniFi *local* API key (op://Homelab/UniFi/local_api_key, X-API-KEY header).
+# Uses the UniFi *local* API key (UNIFI__LOCAL_API_KEY in vault, X-API-KEY header).
 # That key authenticates against the private controller API, including set/setting ,
 # so these two settings (whose collector/SIEM fields are NOT in the read-only
 # integration API) can be written here. Reversible: re-run with DISABLE=1 to turn off.
 #
 #   ./scripts/configure-unifi-log-export.sh
 
-KEY="$(op read "op://Homelab/UniFi/local_api_key")"
-CTRL="$(op read "op://Homelab/UniFi/controller_url")"
+_VAULT="$(cd "$(dirname "$0")/.." && pwd)/secrets/vault.yaml"
+SOPS_AGE_KEY=$(security find-generic-password -a "$USER" -s "age-world-wide-webb-private-key" -w)
+export SOPS_AGE_KEY
+_x() { sops -d "$_VAULT" | grep "^$1:" | cut -d' ' -f2-; }
+KEY="$(_x UNIFI__LOCAL_API_KEY)"
+CTRL="$(_x UNIFI__CONTROLLER_URL)"
 HOST="$(printf '%s' "$CTRL" | sed -E 's#^(https?://[^/]+).*#\1#')"
-NAS="${NAS_HOST:-$(op read "op://Homelab/Synology DSM/host")}"
+NAS="${NAS_HOST:-$(_x SYNOLOGY_DSM__HOST)}"
 API="$HOST/proxy/network/api/s/default"
 DISABLE="${DISABLE:-0}"
 

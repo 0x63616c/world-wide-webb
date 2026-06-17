@@ -21,11 +21,6 @@ permissions:
   contents: read
   packages: write
 
-  # Pulumi PR previews post the diff as a pull request comment. Job-level
-  # permissions narrow this to the preview job, but declaring it here keeps the
-  # workflow's required token capabilities visible in one place.
-  pull-requests: write
-
 # Stop a superseded push from running builds in parallel: a newer push to the
 # same ref cancels the in-progress run instantly instead of letting both burn
 # runner minutes. Combined with per-job timeout-minutes below, this caps the
@@ -167,142 +162,6 @@ jobs:
               - 'products/text-your-ex/**'
               - 'bun.lock'
 
-  # Pull-request infra preview: show the Pulumi diff before merge. This reuses
-  # the same tailnet + kubeconfig + GHCR digest-pin path as the main deploy job,
-  # but runs preview only and posts/updates a single PR comment per branch update.
-  preview:
-    needs: [changes]
-    if: needs.changes.outputs.infra == 'true' && github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      packages: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Connect to Tailscale (ephemeral)
-        uses: tailscale/github-action@v3
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-          args: --accept-routes
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.2.19
-
-      - name: Install deps
-        run: bun install --frozen-lockfile
-
-      - name: Log in to ghcr.io (read manifests)
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
-
-      - name: Collect image digests
-        id: digests
-        run: |
-          declare -A out=()
-          for entry in www-cc-web:web www-cc-api:api www-cc-worker:worker www-cc-media-worker:media-worker www-cc-storybook:storybook www-cc-drizzle:drizzle www-cp-portal:captive-portal www-cc-map-provision:map-provision www-amp-app:amp-app www-tye-api:tye-api www-tye-web:tye-frontend; do
-            repo="${entry%%:*}"
-            name="${entry#*:}"
-            d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$repo:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
-            if [ -n "$d" ]; then
-              out[$name]="$d"
-            fi
-          done
-          json='{}'
-          for k in "${!out[@]}"; do
-            json=$(jq -cn --argjson cur "$json" --arg k "$k" --arg v "${out[$k]}" '$cur + {($k): $v}')
-          done
-          echo "Image digests: $json"
-          echo "map=$json" >> "$GITHUB_OUTPUT"
-
-      - name: Write kubeconfig
-        env:
-          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
-        run: |
-          mkdir -p "$HOME/.kube"
-          printf '%s' "$KUBECONFIG_B64" | base64 -d > "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
-
-      - name: Install Pulumi CLI
-        uses: pulumi/actions@v7
-
-      - name: Write preview config
-        env:
-          DIGEST_MAP: ${{ steps.digests.outputs.map }}
-          PREVIEW_CONFIG: ${{ runner.temp }}/Pulumi.preview.yaml
-        run: |
-          ruby -ryaml -rjson -e '
-            data = YAML.load_file("infra/Pulumi.prod.yaml")
-            data.fetch("config")["wwwinfra:imageDigests"] = JSON.parse(ENV.fetch("DIGEST_MAP"))
-            File.write(ENV.fetch("PREVIEW_CONFIG"), data.to_yaml)
-          '
-          echo "PREVIEW_CONFIG=$PREVIEW_CONFIG" >> "$GITHUB_ENV"
-
-      - name: Pulumi preview (prod)
-        id: preview
-        env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-        run: |
-          set +e
-          pulumi login
-          pulumi preview --stack prod --diff --config-file "$PREVIEW_CONFIG" --suppress-progress --cwd infra 2>&1 | tee "$RUNNER_TEMP/pulumi-preview.txt"
-          status=${PIPESTATUS[0]}
-          {
-            echo "status=$status"
-            echo "output<<EOF"
-            sed -E 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/pulumi-preview.txt"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-          exit 0
-
-      - name: Post Pulumi preview comment
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PREVIEW_STATUS: ${{ steps.preview.outputs.status }}
-          PREVIEW_OUTPUT: ${{ steps.preview.outputs.output }}
-        run: |
-          marker='<!-- control-center-pulumi-preview -->'
-          status_icon=':white_check_mark:'
-          if [ "$PREVIEW_STATUS" != "0" ]; then
-            status_icon=':x:'
-          fi
-
-          body=$(cat <<EOF
-          $marker
-          #### $status_icon Pulumi preview on \`worldwidewebb/world-wide-webb/prod\`
-
-          <details open>
-          <summary>Pulumi report</summary>
-
-          \`\`\`
-          $PREVIEW_OUTPUT
-          \`\`\`
-
-          </details>
-          EOF
-          )
-
-          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate \
-            --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -n 1)
-          if [ -n "$comment_id" ]; then
-            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" >/dev/null
-          else
-            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -f body="$body" >/dev/null
-          fi
-
-      - name: Fail if Pulumi preview failed
-        if: steps.preview.outputs.status != '0'
-        run: exit 1
-
   # Test gate: typecheck + full vitest suite with coverage. Runs on every push
   # (the repo previously built and DEPLOYED without ever running tests). Deploy
   # depends on this passing. Also refreshes the self-hosted coverage/LOC badge
@@ -428,7 +287,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       # The Docker builder image has no .git, so the commit timestamp must be
       # computed here (where the repo is checked out) and passed in as a build-arg.
@@ -473,7 +332,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push api image
         uses: docker/build-push-action@v6
@@ -507,7 +366,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push worker image
         uses: docker/build-push-action@v6
@@ -538,7 +397,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push media-worker image
         uses: docker/build-push-action@v6
@@ -573,7 +432,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push storybook image
         uses: docker/build-push-action@v6
@@ -608,7 +467,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push drizzle image
         uses: docker/build-push-action@v6
@@ -641,7 +500,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push captive-portal image
         uses: docker/build-push-action@v6
@@ -674,7 +533,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push map-provision image
         uses: docker/build-push-action@v6
@@ -707,7 +566,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push AMP image
         uses: docker/build-push-action@v6
@@ -740,7 +599,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push tye-api image
         uses: docker/build-push-action@v6
@@ -773,7 +632,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push tye-frontend image
         uses: docker/build-push-action@v6
@@ -811,8 +670,43 @@ jobs:
       !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Protected environment: AGE_PRIVATE_KEY is scoped to this env so it never
+    # appears on PR runners (CC-k8t7 age-key = skeleton key for all 114 secrets).
+    environment: prod
     steps:
       - uses: actions/checkout@v4
+
+      # Decrypt vault — the ONLY step that touches AGE_PRIVATE_KEY. Installs sops
+      # + age, decrypts secrets/vault.yaml, and masks each value before exporting.
+      # No set -x around this block. Values flow into subsequent steps via GITHUB_ENV.
+      - name: Decrypt vault (SOPS+age)
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
+        run: |
+          # Install sops
+          curl -fsSL https://github.com/getsops/sops/releases/download/v3.9.0/sops-v3.9.0.linux.amd64 \
+            -o /usr/local/bin/sops && chmod +x /usr/local/bin/sops
+          # Install age
+          curl -fsSL https://github.com/FiloSottile/age/releases/download/v1.2.1/age-v1.2.1-linux-amd64.tar.gz \
+            | tar -xzC /usr/local/bin --strip-components=1 age/age age/age-keygen
+
+          extract() { sops -d secrets/vault.yaml | grep "^$1:" | cut -d' ' -f2-; }
+
+          TS_CLIENT_ID=$(extract TAILSCALE_OAUTH_CLIENT__CLIENT_ID)
+          TS_CLIENT_SECRET=$(extract TAILSCALE_OAUTH_CLIENT__SECRET)
+          PULUMI_TOKEN=$(extract PULUMI__ACCESS_TOKEN)
+          KUBECONFIG_B64_VAL=$(extract KUBECONFIG__B64)
+
+          echo "::add-mask::$TS_CLIENT_ID"
+          echo "::add-mask::$TS_CLIENT_SECRET"
+          echo "::add-mask::$PULUMI_TOKEN"
+          echo "::add-mask::$KUBECONFIG_B64_VAL"
+
+          echo "TS_OAUTH_CLIENT_ID=$TS_CLIENT_ID" >> "$GITHUB_ENV"
+          echo "TS_OAUTH_SECRET=$TS_CLIENT_SECRET" >> "$GITHUB_ENV"
+          echo "PULUMI_ACCESS_TOKEN=$PULUMI_TOKEN" >> "$GITHUB_ENV"
+          echo "KUBECONFIG_B64=$KUBECONFIG_B64_VAL" >> "$GITHUB_ENV"
+          # SOPS_AGE_KEY flows into the pulumi up step via secrets.AGE_PRIVATE_KEY
 
       # Read each app image's current :main digest. A pinned digest renders the
       # workload's image as @sha256:… in the Pulumi program (infra/src/services.ts
@@ -824,7 +718,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Collect image digests
         id: digests
@@ -856,8 +750,8 @@ jobs:
       - name: Connect to Tailscale (ephemeral)
         uses: tailscale/github-action@v3
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
           tags: tag:ci
           # Ephemeral node so it's removed from the tailnet when the runner exits.
           args: --accept-routes
@@ -880,13 +774,8 @@ jobs:
       #   - the kube API cert has NO tailnet SAN (SANs: k8s.orb.local, localhost),
       #     so the cluster entry sets `tls-server-name: k8s.orb.local` and embeds
       #     the OrbStack CA; auth is the OrbStack client cert/key.
-      # All of that lives INSIDE the secret blob KUBECONFIG_B64, which holds a
-      # complete kubeconfig base64-encoded (base64 is the safe transport for a
-      # multi-line, cert-bearing value in a GH secret). We decode it to a temp
-      # file. Passed via env and decoded with no echo; the value never logs.
+      # All of that lives INSIDE the vault KUBECONFIG__B64, decoded from the env.
       - name: Write kubeconfig
-        env:
-          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
         run: |
           mkdir -p "$HOME/.kube"
           printf '%s' "$KUBECONFIG_B64" | base64 -d > "$HOME/.kube/config"
@@ -895,7 +784,9 @@ jobs:
       - name: pulumi up (deploy to k3s)
         working-directory: infra
         env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          # PULUMI_ACCESS_TOKEN set by "Decrypt vault" step via GITHUB_ENV.
+          # SOPS_AGE_KEY flows in here so loadVault() in program.ts can decrypt.
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
           # No KUBECONFIG override: kubectl and the Pulumi k8s provider both
           # default to $HOME/.kube/config, where the "Write kubeconfig" step put
           # it. (A `${{ env.HOME }}` expression evaluates to empty in the env

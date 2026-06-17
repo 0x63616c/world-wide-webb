@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Saves Spotify Web API credentials to 1Password (Homelab vault, item "Spotify")
-# so the control-center api/worker can drive playback via the Spotify Web API at
-# deploy time (deploy.config.ts fromOp) and in local dev. Stores three concealed
-# fields: client_id, client_secret, refresh_token.
+# Saves Spotify Web API credentials to the SOPS vault so the control-center
+# api/worker can drive playback via the Spotify Web API. Stores three fields:
+# client_id, client_secret, refresh_token.
 #
 # The refresh_token is minted here via a one-time OAuth Authorization Code flow
 # (scripts/spotify-oauth.ts): the script opens the Spotify consent page in your
@@ -11,10 +10,8 @@
 # control is Premium-only) and a Spotify Developer App (see Step 1 below).
 set -euo pipefail
 
-ITEM="Spotify"
-VAULT="Homelab"
 REDIRECT_URI="${SPOTIFY_REDIRECT_URI:-http://127.0.0.1:8888/callback}"
-
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 cat <<EOF
@@ -64,40 +61,9 @@ if [ "$PRODUCT" != "premium" ]; then
   echo ""
 fi
 
-if op item get "$ITEM" --vault "$VAULT" >/dev/null 2>&1; then
-  op item edit "$ITEM" --vault "$VAULT" \
-    "client_id[password]=$CLIENT_ID" \
-    "client_secret[password]=$CLIENT_SECRET" \
-    "refresh_token[password]=$REFRESH_TOKEN" >/dev/null
-  echo "Updated existing 1Password item: $ITEM"
-else
-  op item create \
-    --vault "$VAULT" \
-    --category "API Credential" \
-    --title "$ITEM" \
-    "client_id[password]=$CLIENT_ID" \
-    "client_secret[password]=$CLIENT_SECRET" \
-    "refresh_token[password]=$REFRESH_TOKEN" >/dev/null
-  echo "Created 1Password item: $ITEM"
-fi
+echo "$CLIENT_ID"     | "$REPO_ROOT/scripts/set-secret.sh" SPOTIFY__CLIENT_ID
+echo "$CLIENT_SECRET" | "$REPO_ROOT/scripts/set-secret.sh" SPOTIFY__CLIENT_SECRET
+echo "$REFRESH_TOKEN" | "$REPO_ROOT/scripts/set-secret.sh" SPOTIFY__REFRESH_TOKEN
 
-# Invalidate the op shim cache for each ref so the next read is fresh.
-EVEE_OP_DIR="${OP_CACHE_DIR:-$HOME/.local/share/evee-op}"
-if [ -d "$EVEE_OP_DIR" ]; then
-  for field in client_id client_secret refresh_token; do
-    REF="op://$VAULT/$ITEM/$field"
-    KEY_HASH=$(printf '%s' "$REF" | shasum -a 256 | cut -d' ' -f1)
-    rm -f "$EVEE_OP_DIR/$KEY_HASH"
-  done
-  echo "Cache invalidated."
-fi
-
-echo "Verifying..."
-for field in client_id client_secret refresh_token; do
-  REF="op://$VAULT/$ITEM/$field"
-  op read "$REF" >/dev/null && echo "  ok , $REF"
-done
 echo ""
-echo "Done. Spotify creds are in 1Password ($VAULT/$ITEM)."
-echo "I can now wire SPOTIFY_CLIENT_ID/SECRET/REFRESH_TOKEN into deploy.config.ts"
-echo "and build the integration end-to-end."
+echo "Done. Vault keys: SPOTIFY__CLIENT_ID, SPOTIFY__CLIENT_SECRET, SPOTIFY__REFRESH_TOKEN"

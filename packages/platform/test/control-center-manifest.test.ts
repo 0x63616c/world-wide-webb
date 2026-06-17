@@ -49,13 +49,14 @@ describe("Control Center platform representation", () => {
     expect(manifest.services.cloudflared.image).toBe(currentImages.cloudflared);
   });
 
-  test("keeps current service secret usage exactly representable", () => {
+  test("keeps current service secret usage exactly representable (CC-k8t7: env names only, values now vault keys)", () => {
     const manifest = controlCenterProductManifest();
-    // SERVICE_SECRETS covers CC + other products (tye-api added in www-jtp0.6.6).
-    // The CC manifest's secretUsages covers only CC services; assert those are a subset.
+    // SERVICE_SECRETS values are now vault keys (CC-k8t7). Assert env-name set only.
     const ccMap = serviceSecretMap(manifest.secretUsages);
-    for (const [service, secrets] of Object.entries(ccMap)) {
-      expect(SERVICE_SECRETS[service]).toEqual(secrets);
+    for (const [service, platformSecrets] of Object.entries(ccMap)) {
+      const infraKeys = Object.keys(SERVICE_SECRETS[service] ?? {}).sort();
+      const platformKeys = Object.keys(platformSecrets).sort();
+      expect(infraKeys).toEqual(platformKeys);
     }
   });
 

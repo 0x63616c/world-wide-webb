@@ -1,15 +1,10 @@
-// Pulumi program for the control-center k3s cluster stack (www-j934.4 onward).
+// Pulumi program for the control-center k3s cluster stack (CC-k8t7: migrated to
+// SOPS+age secrets). Decrypts secrets/vault.yaml once (via vault.ts) and creates
+// native k8s Secrets per workload — no ESO, no 1Password SDK, no in-cluster age
+// key. The /run/secrets/<NAME> mount contract in component.ts is unchanged.
 //
-// Wires the cluster provider + namespace and the External Secrets Operator with
-// the 1Password SDK provider (www-j934.4): one ClusterSecretStore + one
-// ExternalSecret per service, syncing op://Homelab fields into k8s Secrets the
-// Deployments mount at /run/secrets/<NAME>. CNPG + cert-manager (www-j934.5), the
-// app Workloads (www-j934.6), and the CronJobs (www-j934.7) extend this program in
-// their own commits.
-//
-// Bootstrap (out-of-band, once): the 1P service-account token Secret
-// `op-service-account` in the external-secrets namespace, seeded by
-// scripts/seed-op-service-account.sh. Never committed.
+// Local `pulumi up`: age key from macOS Keychain (zero setup).
+// CI deploy: SOPS_AGE_KEY injected from AGE_PRIVATE_KEY GitHub secret.
 
 import * as pulumi from "@pulumi/pulumi";
 import { installCertManager } from "./src/certmanager.ts";
@@ -18,6 +13,7 @@ import { installCnpg } from "./src/cnpg.ts";
 import { deployCrons } from "./src/crons.ts";
 import { installEso } from "./src/eso.ts";
 import { deployServices } from "./src/services.ts";
+import { loadVault } from "./src/vault.ts";
 
 const cfg = new pulumi.Config("wwwinfra");
 // kubeContext selects the target cluster. Default cc-homelab (prod, homelab's
@@ -27,18 +23,22 @@ const cfg = new pulumi.Config("wwwinfra");
 // over the tailnet). www-j934 repoint.
 const cluster = makeCluster(cfg.get("kubeContext"));
 
+// Decrypt vault once; all secrets flow from this (CC-k8t7).
+const vault = loadVault();
+
+// Native k8s Secrets per workload from vault (replaces ESO ExternalSecrets).
 const eso = installEso({
   provider: cluster.provider,
   appNamespace: APP_NAMESPACE,
-  chartVersion: "2.6.0",
+  vault,
 });
 
-// CNPG operator + product-owned Postgres Clusters. The auth ExternalSecrets
-// depend on ESO's store being up, so order after eso.
+// CNPG operator + product-owned Postgres Clusters with native basic-auth Secrets.
 const cnpg = installCnpg({
   provider: cluster.provider,
   namespace: APP_NAMESPACE,
   operatorVersion: "1.29.1",
+  vault,
 });
 
 // cert-manager + CF DNS-01 ClusterIssuer + portal TLS Certificate (www-j934.5).
@@ -83,6 +83,7 @@ const services = deployServices({
   drizzleReplicas: cfg.getNumber("drizzleReplicas") ?? 0,
   nasNfsServer,
   imageDigests: cfg.getObject<Record<string, string>>("imageDigests") ?? {},
+  vault,
 });
 
 // Scheduled jobs (www-j934.7): portal-data-purge + map-extract re-homed to k8s

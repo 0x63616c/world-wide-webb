@@ -11,9 +11,9 @@
 // override with UNIFI_FIXED_IP_MANIFEST). The manifest holds ONLY genuine
 // `use_fixedip` reservations (derived via scripts/gen-fixed-ip-manifest.ts, the
 // single source of truth; www-j934.3.1). The provider creds come from env,
-// sourced from op://Homelab/UniFi (never printed, never committed):
-//   UNIFI_API_URL  = op://Homelab/UniFi/controller_url  (https://192.168.0.1)
-//   UNIFI_API_KEY  = op://Homelab/UniFi/local_api_key
+// sourced from SOPS vault via env (never printed, never committed):
+//   UNIFI_API_URL  = UNIFI__CONTROLLER_URL  (https://192.168.0.1)
+//   UNIFI_API_KEY  = UNIFI__LOCAL_API_KEY
 //
 // The www-guest VLAN/SSID is additive and gated behind `unifi:applyGuest`
 // (default false), so the import-only phase declares only adopted resources.

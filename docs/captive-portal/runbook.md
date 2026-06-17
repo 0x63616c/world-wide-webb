@@ -118,7 +118,7 @@ Pulumi adopt may show that as drift on the next preview.
 ## Live controller state (read-only probe, www-q002.15, 2026-06-10)
 
 Captured BEFORE any change, via the UniFi controller API
-(`X-API-KEY: op://Homelab/UniFi/local_api_key`, `https://192.168.0.1`):
+(`X-API-KEY: UNIFI__LOCAL_API_KEY` from vault, `https://192.168.0.1`):
 
 - **Controller:** UniFi Network `10.4.57` (UniFi OS Cloud Gateway Fiber).
 - **Site:** one site, `internalReference: default` (id `88f7af54-98f8-306a-a1c7-c9349722b1f6`).
@@ -312,7 +312,7 @@ flip to external-portal mode (`redirect_enabled: true`, the external URL set).
 ## Human steps (Calum)
 
 1. **WiFi password:** run `scripts/save-wifi-guest.sh` (already added) to store the
-   guest SSID + password in 1Password (`WiFi Guest Credentials`). The api/worker
+   guest SSID + password in the SOPS vault (`WIFI_GUEST_CREDENTIALS__*`). The api/worker
    read `WIFI_PASSWORD` from there to validate a guest's entry. Then set that SAME
    password on the `www-guest` WLAN in the UniFi console (the controller stores its
    own copy; the two must match).

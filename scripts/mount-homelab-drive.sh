@@ -20,10 +20,14 @@ LABEL="co.worldwidewebb.homelab-drive"
 
 [ "$(id -u)" -ne 0 ] || { echo "FATAL: run as calum, NOT sudo (it needs op as you)" >&2; exit 1; }
 
-# --- read NAS details from 1Password (kept out of the public repo) ----------
-HOST=$(op read "op://Homelab/Homelab Drive/host")
-SHARE=$(op read "op://Homelab/Homelab Drive/share")
-PROTOCOL=$(op read "op://Homelab/Homelab Drive/protocol")
+# --- read NAS details from SOPS vault (kept out of the public repo) ----------
+VAULT_PATH="$(cd "$(dirname "$0")/.." && pwd)/secrets/vault.yaml"
+SOPS_AGE_KEY=$(security find-generic-password -a "$USER" -s "age-world-wide-webb-private-key" -w)
+export SOPS_AGE_KEY
+extract() { sops -d "$VAULT_PATH" | grep "^$1:" | cut -d' ' -f2-; }
+HOST=$(extract HOMELAB_DRIVE__HOST)
+SHARE=$(extract HOMELAB_DRIVE__SHARE)
+PROTOCOL=$(extract HOMELAB_DRIVE__PROTOCOL)
 [ -n "$HOST" ] && [ -n "$SHARE" ] || { echo "FATAL: missing host/share in 1Password (run save-homelab-drive.sh first)" >&2; exit 1; }
 [ "$PROTOCOL" = "nfs" ] || { echo "FATAL: this installer is NFS-only (protocol=$PROTOCOL)" >&2; exit 1; }
 echo "NAS: $HOST:$SHARE  ->  $MOUNTPOINT"

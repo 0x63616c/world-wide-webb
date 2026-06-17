@@ -7,9 +7,9 @@
 // the hand-curated state that mixed in 19 non-reservations and dropped the
 // portal host (homeassistant .147).
 //
-// Usage (creds sourced from op://Homelab/UniFi, never committed):
+// Usage (creds from SOPS vault, never committed):
 //   UNIFI_API_URL=https://192.168.0.1 \
-//   UNIFI_API_KEY=<local_api_key> \
+//   UNIFI_API_KEY=<local_api_key from UNIFI__LOCAL_API_KEY> \
 //   bun infra/unifi/scripts/gen-fixed-ip-manifest.ts
 //
 // Writes to $UNIFI_FIXED_IP_MANIFEST or ~/cc-j934-unifi-baseline/fixed-ip-manifest.json.
@@ -23,7 +23,7 @@ import { type RawUnifiUser, selectFixedIpReservations } from "../src/manifest.ts
 function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) {
-    throw new Error(`${name} must be set (source it from op://Homelab/UniFi).`);
+    throw new Error(`${name} must be set (inject from SOPS vault via scripts/secrets.sh).`);
   }
   return v;
 }

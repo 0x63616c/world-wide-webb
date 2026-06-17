@@ -7,11 +7,15 @@ set -euo pipefail
 #
 #   ./scripts/unifi-flow-report.sh
 
-NAS_HOST="${NAS_HOST:-$(op read "op://Homelab/Synology DSM/host")}"
-NAS_USER="${NAS_USER:-$(op read "op://Homelab/Synology DSM/username")}"
-SSHPASS="$(op read "op://Homelab/Synology DSM/password")"; export SSHPASS
-KEY="$(op read "op://Homelab/UniFi/local_api_key")"
-CTRL="$(op read "op://Homelab/UniFi/controller_url")"
+_VAULT="$(cd "$(dirname "$0")/.." && pwd)/secrets/vault.yaml"
+SOPS_AGE_KEY=$(security find-generic-password -a "$USER" -s "age-world-wide-webb-private-key" -w)
+export SOPS_AGE_KEY
+_x() { sops -d "$_VAULT" | grep "^$1:" | cut -d' ' -f2-; }
+NAS_HOST="${NAS_HOST:-$(_x SYNOLOGY_DSM__HOST)}"
+NAS_USER="${NAS_USER:-admin}"
+SSHPASS="$(_x SYNOLOGY_DSM__PASSWORD)"; export SSHPASS
+KEY="$(_x UNIFI__LOCAL_API_KEY)"
+CTRL="$(_x UNIFI__CONTROLLER_URL)"
 HOST="$(printf '%s' "$CTRL" | sed -E 's#^(https?://[^/]+).*#\1#')"
 DIR="$(cd "$(dirname "$0")" && pwd)"; TMP="$(mktemp -d)"
 ssh_opts=(-o StrictHostKeyChecking=accept-new -o ConnectTimeout=15)

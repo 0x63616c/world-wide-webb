@@ -1,138 +1,61 @@
-// External Secrets Operator + the 1Password SDK provider (www-j934.4).
-//
-// ESO syncs each declared op://Homelab field into a native k8s Secret; the
-// Deployments (www-j934.6) mount that Secret as files at /run/secrets/<NAME>,
-// byte-identical to today's docker-secret layout, so env.ts needs zero changes.
-// The cluster reads 1Password ONCE per refreshInterval (pods read etcd), which
-// also fixes the per-deploy op rate-limit churn (the old per-write op fan-out).
-//
-// Bootstrap: the single seed secret is the 1P SERVICE-ACCOUNT token, applied
-// out-of-band into Secret `op-service-account` in the external-secrets namespace
-// (NEVER committed; see scripts/seed-op-service-account.sh). Everything else
-// flows through ESO from there.
+// Native k8s Secrets per workload (CC-k8t7: replaces ESO+1Password with
+// decrypt-in-Pulumi from secrets/vault.yaml). One Secret per SERVICE_SECRETS
+// entry, same names as before (cc-secrets-<service>) so the /run/secrets/<NAME>
+// mount contract in component.ts is untouched.
 
 import * as k8s from "@pulumi/kubernetes";
-import type * as pulumi from "@pulumi/pulumi";
+import * as pulumi from "@pulumi/pulumi";
+import type { ServiceSecrets } from "./secrets-map.ts";
 import { SERVICE_SECRETS } from "./secrets-map.ts";
 
-// The 1P vault every ref lives in (the service-account token is scoped to it).
-const VAULT = "Homelab";
-// The k8s Secret (in the ESO namespace) holding the bootstrap service-account
-// token, seeded out-of-band. ESO's ClusterSecretStore reads it.
-const BOOTSTRAP_SECRET = "op-service-account";
-const BOOTSTRAP_KEY = "token";
-// Rotated 1P values propagate within this window without a redeploy (AC).
-const REFRESH_INTERVAL = "1h";
-
-export interface EsoArgs {
+export interface SecretsArgs {
   provider: k8s.Provider;
-  // Namespace the ExternalSecrets + synced Secrets land in (the app namespace).
   appNamespace: pulumi.Input<string>;
-  // Pin the ESO Helm chart version (www-j934.4 preflight: chart 2.6.0).
-  chartVersion: string;
+  vault: Record<string, string>;
 }
 
-export interface EsoResources {
-  release: k8s.helm.v3.Release;
-  store: k8s.apiextensions.CustomResource;
-  externalSecrets: k8s.apiextensions.CustomResource[];
+export interface SecretsResources {
+  // Kept for program.ts export compat; each entry is a native Secret, not an ExternalSecret.
+  externalSecrets: k8s.core.v1.Secret[];
 }
 
-/**
- * @public - installs ESO, wires the 1P SDK ClusterSecretStore, and emits one
- * ExternalSecret per service (from SERVICE_SECRETS). Consumed by the cluster
- * program (www-j934.6); no internal consumer in this ESO ticket yet.
- */
-export function installEso(args: EsoArgs): EsoResources {
-  const { provider, appNamespace, chartVersion } = args;
-  const opts = { provider };
+function createServiceSecret(
+  service: string,
+  secrets: ServiceSecrets,
+  vault: Record<string, string>,
+  namespace: pulumi.Input<string>,
+  opts: pulumi.CustomResourceOptions,
+): k8s.core.v1.Secret {
+  const stringData: Record<string, pulumi.Output<string>> = {};
+  for (const [envName, vaultKey] of Object.entries(secrets)) {
+    const value = vault[vaultKey];
+    if (value === undefined) {
+      throw new Error(`vault key "${vaultKey}" not found (needed by ${service}/${envName})`);
+    }
+    stringData[envName] = pulumi.secret(value);
+  }
 
-  // The external-secrets namespace is created + owned by the seed step
-  // (scripts/seed-op-service-account.sh) because the bootstrap token Secret must
-  // exist there BEFORE this program runs. We reference it by name rather than
-  // declare it, so the two don't fight over ownership.
-  const esoNamespaceName = "external-secrets";
-
-  // ESO operator + CRDs. createNamespace:false (the seed owns it); installCRDs so
-  // the ClusterSecretStore/ExternalSecret CRDs exist before we declare them
-  // (Pulumi orders via dependsOn below).
-  const release = new k8s.helm.v3.Release(
-    "external-secrets",
+  return new k8s.core.v1.Secret(
+    `cc-secrets-${service}`,
     {
-      chart: "external-secrets",
-      version: chartVersion,
-      namespace: esoNamespaceName,
-      createNamespace: false,
-      repositoryOpts: { repo: "https://charts.external-secrets.io" },
-      values: {
-        installCRDs: true,
-        // 8GB node: keep the footprint small, no extra webhooks/metrics stacks.
-        replicaCount: 1,
-        // 256Mi limit: the controller OOMKilled (exit 137) at 192Mi on a cold
-        // start when it reconciles ALL ExternalSecrets at once (www-j934.9 cutover);
-        // 256Mi gives the reconcile-storm headroom without bloating the 8GB node.
-        resources: { requests: { cpu: "25m", memory: "96Mi" }, limits: { memory: "256Mi" } },
-        webhook: {
-          resources: { requests: { cpu: "10m", memory: "32Mi" }, limits: { memory: "96Mi" } },
-        },
-        certController: {
-          resources: { requests: { cpu: "10m", memory: "32Mi" }, limits: { memory: "96Mi" } },
-        },
-      },
+      metadata: { name: `cc-secrets-${service}`, namespace },
+      stringData,
     },
     opts,
   );
+}
 
-  // The 1P SDK ClusterSecretStore, authenticated by the bootstrap service-account
-  // token Secret. Cluster-scoped so every namespace's ExternalSecrets can use it.
-  const store = new k8s.apiextensions.CustomResource(
-    "onepassword",
-    {
-      apiVersion: "external-secrets.io/v1",
-      kind: "ClusterSecretStore",
-      metadata: { name: "onepassword" },
-      spec: {
-        provider: {
-          onepasswordSDK: {
-            vault: VAULT,
-            auth: {
-              serviceAccountSecretRef: {
-                name: BOOTSTRAP_SECRET,
-                key: BOOTSTRAP_KEY,
-                namespace: esoNamespaceName,
-              },
-            },
-          },
-        },
-      },
-    },
-    { ...opts, dependsOn: [release] },
+/**
+ * @public - creates one native k8s Secret per workload from the decrypted SOPS
+ * vault. Replaces ESO ExternalSecrets (CC-k8t7). Consumed by the cluster program.
+ */
+export function installEso(args: SecretsArgs): SecretsResources {
+  const { provider, appNamespace, vault } = args;
+  const opts = { provider };
+
+  const externalSecrets = Object.entries(SERVICE_SECRETS).map(([service, secrets]) =>
+    createServiceSecret(service, secrets, vault, appNamespace, opts),
   );
 
-  // One ExternalSecret per service: each maps env-name -> op://Homelab/Item/field
-  // into a single Secret named cc-secrets-<service>, whose keys become the files
-  // under /run/secrets/<NAME> when mounted (www-j934.6).
-  const externalSecrets = Object.entries(SERVICE_SECRETS).map(([service, secrets]) => {
-    const data = Object.entries(secrets).map(([envName, itemField]) => ({
-      secretKey: envName,
-      remoteRef: { key: itemField },
-    }));
-    return new k8s.apiextensions.CustomResource(
-      `es-${service}`,
-      {
-        apiVersion: "external-secrets.io/v1",
-        kind: "ExternalSecret",
-        metadata: { name: `cc-secrets-${service}`, namespace: appNamespace },
-        spec: {
-          refreshInterval: REFRESH_INTERVAL,
-          secretStoreRef: { kind: "ClusterSecretStore", name: "onepassword" },
-          target: { name: `cc-secrets-${service}`, creationPolicy: "Owner" },
-          data,
-        },
-      },
-      { ...opts, dependsOn: [store] },
-    );
-  });
-
-  return { release, store, externalSecrets };
+  return { externalSecrets };
 }
