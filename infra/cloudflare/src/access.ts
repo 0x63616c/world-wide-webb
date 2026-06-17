@@ -26,7 +26,13 @@ export type AccessInclude =
 
 type DesiredAccessPolicy = Readonly<{
   name: string;
-  decision: "allow" | "deny";
+  // "non_identity" is CF's "Service Auth" action: it validates the service-token
+  // headers on the request directly and short-circuits with a CF_Authorization
+  // cookie. "allow" is identity-based, so a service token presented to an "allow"
+  // policy is recognized (service_token_status:true) but NOT authorized
+  // (auth_status:NONE) — CF redirects to the IdP login. Headless callers
+  // (iPad kiosk, CI) MUST use non_identity. (www-azu2 root-cause: CC-d15 gate.)
+  decision: "allow" | "deny" | "non_identity";
   precedence: number;
   include: AccessInclude;
 }>;
@@ -77,7 +83,8 @@ function serviceTokenPolicy(
 ): DesiredAccessPolicy {
   return {
     name,
-    decision: "allow",
+    // Service Auth (non_identity), NOT allow — see DesiredAccessPolicy.decision.
+    decision: "non_identity",
     precedence: 1,
     include: { kind: "service-token-config", configKey },
   };

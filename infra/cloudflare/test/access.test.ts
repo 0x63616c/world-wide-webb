@@ -61,7 +61,9 @@ describe("desiredAccessApps", () => {
 
     expect(dashboard?.policies).toEqual([
       {
-        decision: "allow",
+        // Service Auth: an "allow" policy is identity-based and redirects a
+        // valid service token to login (auth_status:NONE); non_identity grants it.
+        decision: "non_identity",
         include: { configKey: "kioskTokenId", kind: "service-token-config" },
         name: "kiosk-service-token",
         precedence: 1,
@@ -82,7 +84,7 @@ describe("desiredAccessApps", () => {
 
     expect(hooks?.policies).toEqual([
       {
-        decision: "allow",
+        decision: "non_identity",
         include: { configKey: "ciClientId", kind: "service-token-config" },
         name: "ci-service-token",
         precedence: 1,
