@@ -682,7 +682,7 @@ jobs:
           extract() { sops -d secrets/vault.yaml | grep "^$1:" | cut -d' ' -f2-; }
 
           TS_CLIENT_ID=$(extract TAILSCALE_OAUTH_CLIENT__CLIENT_ID)
-          TS_CLIENT_SECRET=$(extract TAILSCALE_OAUTH_CLIENT__SECRET)
+          TS_CLIENT_SECRET=$(extract TAILSCALE_OAUTH_CLIENT__CLIENT_SECRET)
           PULUMI_TOKEN=$(extract PULUMI__ACCESS_TOKEN)
           KUBECONFIG_B64_VAL=$(extract KUBECONFIG__B64)
 
