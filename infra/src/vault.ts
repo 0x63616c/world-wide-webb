@@ -26,7 +26,8 @@ export function loadVault(): Record<string, string> {
 
   const vaultPath = new URL("../../secrets/vault.yaml", import.meta.url).pathname;
   const plaintext = execSync(`sops -d "${vaultPath}"`, { encoding: "utf8" });
-  return yaml.parse(plaintext) as Record<string, string>;
+  const parsed = yaml.parse(plaintext) as Record<string, unknown>;
+  return Object.fromEntries(Object.entries(parsed).map(([k, v]) => [k, String(v)]));
 }
 
 /** @public */
