@@ -371,7 +371,7 @@ export function deployServices(args: ServicesArgs): ServicesResources {
 
   // GHCR pull secret: native dockerconfigjson Secret built from the PAT in vault.
   // The token is wrapped in pulumi.secret() so it's encrypted in Pulumi state.
-  const pat = vault["GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN"];
+  const pat = vault.GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN;
   if (!pat) throw new Error("vault key GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN not found");
   const authB64 = Buffer.from(`0x63616c:${pat}`).toString("base64");
   const dockerconfigjson = JSON.stringify({

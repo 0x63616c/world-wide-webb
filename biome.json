@@ -56,7 +56,9 @@
       "!**/experiments",
       "!**/docs/media-tiles",
       "!**/docs/captive-portal/design",
-      "!**/products/project-management"
+      "!**/products/project-management",
+      "!**/DerivedData",
+      "!**/ios/App/App/public/assets"
     ]
   },
   "overrides": [

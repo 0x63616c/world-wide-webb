@@ -12,13 +12,16 @@ import { SERVICE_SECRETS } from "./secrets-map.ts";
 
 /** @public */
 export function loadVault(): Record<string, string> {
-  let ageKey = process.env["SOPS_AGE_KEY"];
+  // biome-ignore lint/style/noProcessEnv: Pulumi program; env is the only channel for AGE key injection
+  let ageKey = process.env.SOPS_AGE_KEY;
   if (!ageKey) {
     ageKey = execSync(
-      `security find-generic-password -a "${process.env["USER"]}" -s "age-world-wide-webb-private-key" -w`,
+      // biome-ignore lint/style/noProcessEnv: USER is a standard POSIX env var, always set
+      `security find-generic-password -a "${process.env.USER}" -s "age-world-wide-webb-private-key" -w`,
       { encoding: "utf8" },
     ).trim();
-    process.env["SOPS_AGE_KEY"] = ageKey;
+    // biome-ignore lint/style/noProcessEnv: propagate key for sops child process
+    process.env.SOPS_AGE_KEY = ageKey;
   }
 
   const vaultPath = new URL("../../secrets/vault.yaml", import.meta.url).pathname;
@@ -36,7 +39,9 @@ export function serviceSecretData(
     Object.entries(secrets).map(([envName, vaultKey]) => {
       const value = vault[vaultKey];
       if (value === undefined) {
-        throw new Error(`vault.ts: vault key "${vaultKey}" not found (needed by ${service}/${envName})`);
+        throw new Error(
+          `vault.ts: vault key "${vaultKey}" not found (needed by ${service}/${envName})`,
+        );
       }
       return [envName, pulumi.secret(value)];
     }),

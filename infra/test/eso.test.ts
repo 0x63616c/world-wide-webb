@@ -58,7 +58,9 @@ describe("SERVICE_SECRETS", () => {
 describe("SERVICE_SECRETS: tye-api (www-jtp0)", () => {
   test("tye-api entry present with POSTGRES_PASSWORD pointing at vault key", () => {
     expect("tye-api" in map.SERVICE_SECRETS).toBe(true);
-    expect(map.SERVICE_SECRETS["tye-api"].POSTGRES_PASSWORD).toBe("TEXT_YOUR_EX_POSTGRES__PASSWORD");
+    expect(map.SERVICE_SECRETS["tye-api"].POSTGRES_PASSWORD).toBe(
+      "TEXT_YOUR_EX_POSTGRES__PASSWORD",
+    );
   });
 });
 
@@ -73,7 +75,11 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
       }
     }
 
-    const res = esoModule.installEso({ provider, appNamespace: "control-center", vault: mockVault });
+    const res = esoModule.installEso({
+      provider,
+      appNamespace: "control-center",
+      vault: mockVault,
+    });
     expect(res.externalSecrets).toHaveLength(Object.keys(map.SERVICE_SECRETS).length);
   });
 
@@ -86,7 +92,11 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
       }
     }
 
-    const res = esoModule.installEso({ provider, appNamespace: "control-center", vault: mockVault });
+    const res = esoModule.installEso({
+      provider,
+      appNamespace: "control-center",
+      vault: mockVault,
+    });
     const apiSecret = res.externalSecrets[0];
     const stringData = await get<Record<string, string>>(apiSecret, "stringData");
     expect(Object.keys(stringData)).toContain("HA_TOKEN");
@@ -102,7 +112,11 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
       }
     }
 
-    const res = esoModule.installEso({ provider, appNamespace: "control-center", vault: mockVault });
+    const res = esoModule.installEso({
+      provider,
+      appNamespace: "control-center",
+      vault: mockVault,
+    });
     const names = await Promise.all(
       res.externalSecrets.map((s) => get<{ name: string }>(s, "metadata").then((m) => m.name)),
     );

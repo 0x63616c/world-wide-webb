@@ -132,7 +132,9 @@ export function installCnpg(args: CnpgArgs): CnpgResources {
   );
 
   const databases = productDatabases();
-  const authSecrets = databases.map((database) => createAuthSecret(database, vault, namespace, opts));
+  const authSecrets = databases.map((database) =>
+    createAuthSecret(database, vault, namespace, opts),
+  );
   const clusters = databases.map((database, index) =>
     createCluster(database, namespace, operator, authSecrets[index], opts),
   );

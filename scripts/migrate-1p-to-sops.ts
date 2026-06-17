@@ -7,28 +7,33 @@
  * encrypts in-place with SOPS+age. Requires age key in macOS keychain.
  */
 
-import { execSync } from "child_process";
-import { writeFileSync, mkdirSync } from "fs";
-import { join } from "path";
+import { execSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 const zipPath = process.argv[2];
-if (!zipPath || !zipPath.endsWith(".1pux")) {
+if (!zipPath?.endsWith(".1pux")) {
   console.error("Usage: bun scripts/migrate-1p-to-sops.ts <export.1pux>");
   process.exit(1);
 }
 
 // Extract JSON from zip
 console.log("Extracting export from .1pux...");
-const rawJson = execSync(`unzip -p "${zipPath}" export.data`, { encoding: "utf8", maxBuffer: 50 * 1024 * 1024 });
+const rawJson = execSync(`unzip -p "${zipPath}" export.data`, {
+  encoding: "utf8",
+  maxBuffer: 50 * 1024 * 1024,
+});
 const raw = JSON.parse(rawJson);
 
 // Filter to Homelab vault only
+// biome-ignore lint/suspicious/noExplicitAny: parsing opaque 1P export JSON
 const homelabVault = raw.accounts[0].vaults.find((v: any) => v.attrs.name === "Homelab");
 if (!homelabVault) {
   console.error("❌ No Homelab vault found in export. Check vault name.");
   process.exit(1);
 }
-const items: any[] = homelabVault.items;
+// biome-ignore lint/suspicious/noExplicitAny: parsing opaque 1P export JSON
+const items: any[] = (homelabVault as { items: unknown[] }).items;
 console.log(`✓ Found Homelab vault with ${items.length} items`);
 
 function toEnvKey(...parts: string[]): string {
@@ -39,6 +44,7 @@ function toEnvKey(...parts: string[]): string {
     .replace(/^_|_$/g, "");
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: parsing opaque 1P export JSON
 function extractValue(v: any): string | null {
   if (!v) return null;
   if (typeof v.string === "string" && v.string !== "") return v.string;
@@ -90,8 +96,10 @@ for (const item of items) {
         try {
           const b64 = execSync(
             `unzip -p "${zipPath}" "files/${documentId}__${fileName}" | base64`,
-            { encoding: "utf8", shell: "/bin/zsh" }
-          ).trim().replace(/\s/g, "");
+            { encoding: "utf8", shell: "/bin/zsh" },
+          )
+            .trim()
+            .replace(/\s/g, "");
           const ext = (fileName.split(".").pop() ?? "file").toUpperCase();
           secrets[`${prefix}__${ext}_CONTENT`] = b64;
         } catch (e) {
@@ -138,7 +146,7 @@ const yamlLines = Object.entries(secrets)
     return `${k}: ${escaped}`;
   });
 
-writeFileSync(outPath, yamlLines.join("\n") + "\n");
+writeFileSync(outPath, `${yamlLines.join("\n")}\n`);
 console.log(`✓ Wrote ${Object.keys(secrets).length} secrets to ${outPath}`);
 console.log("\nKeys written:");
 for (const k of Object.keys(secrets).sort()) {
@@ -149,7 +157,7 @@ for (const k of Object.keys(secrets).sort()) {
 console.log("\nEncrypting with SOPS...");
 const ageKey = execSync(
   `security find-generic-password -a "$USER" -s "age-world-wide-webb-private-key" -w`,
-  { encoding: "utf8" }
+  { encoding: "utf8" },
 ).trim();
 
 execSync(`sops --encrypt --in-place ${outPath}`, {
@@ -176,12 +184,23 @@ for (const line of decrypted.split("\n")) {
   decryptedKeys.add(key);
 
   if (!val.trim() || val.trim() === "|" || val.trim() === "|-") {
-    if (!key.endsWith("_PEM") && !key.endsWith("_KEY") && !key.includes("FASTLANE_SESSION") && !key.includes("PRIVATE_KEY")) {
+    if (
+      !key.endsWith("_PEM") &&
+      !key.endsWith("_KEY") &&
+      !key.includes("FASTLANE_SESSION") &&
+      !key.includes("PRIVATE_KEY")
+    ) {
       errors.push(`EMPTY value: ${key}`);
     }
   }
 
-  if ((key.includes("PRIVATE_KEY") || key.includes("_PEM")) && val && !val.includes("-----BEGIN") && val !== "|" && val !== "|-") {
+  if (
+    (key.includes("PRIVATE_KEY") || key.includes("_PEM")) &&
+    val &&
+    !val.includes("-----BEGIN") &&
+    val !== "|" &&
+    val !== "|-"
+  ) {
     errors.push(`BAD PEM format: ${key}`);
   }
 
