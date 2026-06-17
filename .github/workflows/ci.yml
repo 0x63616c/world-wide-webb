@@ -676,7 +676,7 @@ jobs:
           curl -fsSL https://github.com/getsops/sops/releases/download/v3.9.0/sops-v3.9.0.linux.amd64 \
             -o /usr/local/bin/sops && chmod +x /usr/local/bin/sops
           # Install age
-          curl -fsSL https://github.com/FiloSottile/age/releases/download/v1.2.1/age-v1.2.1-linux-amd64.tar.gz \
+          curl -fsSL https://github.com/FiloSottile/age/releases/download/v1.3.1/age-v1.3.1-linux-amd64.tar.gz \
             | tar -xzC /usr/local/bin --strip-components=1 age/age age/age-keygen
 
           extract() { sops -d secrets/vault.yaml | grep "^$1:" | cut -d' ' -f2-; }
