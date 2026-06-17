@@ -49,8 +49,6 @@ const SECRET_FILE_ENV = [
   "SPOTIFY_CLIENT_ID",
   "SPOTIFY_CLIENT_SECRET",
   "SPOTIFY_REFRESH_TOKEN",
-  "RESEND_API_KEY",
-  "RESEND_FROM",
 ] as const;
 export function hydrateSecretFiles(
   src: Record<string, string | undefined> = process.env,
@@ -127,14 +125,6 @@ export const envSchema = z.object({
   SPOTIFY_CLIENT_ID: z.string().default(""),
   SPOTIFY_CLIENT_SECRET: z.string().default(""),
   SPOTIFY_REFRESH_TOKEN: z.string().default(""),
-
-  // Resend email API for the captive-portal verification code (www-q002.11).
-  // Optional , empty disables the real sender so the api boots without it and
-  // the portal router falls back to the mock sender in dev/test. In production
-  // the router THROWS if these are absent (no silent fake-send). Delivered from
-  // 1Password (item "Resend": credential + from-address) via the secret rail.
-  RESEND_API_KEY: z.string().default(""),
-  RESEND_FROM: z.string().default(""),
 });
 
 export const env = envSchema.parse(process.env);

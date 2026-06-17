@@ -1,11 +1,9 @@
 export const captivePortalApiDependencies = {
   service: "captive-portal-api",
   routerBoundary: "portal-only",
-  integrationDependencies: ["resend", "unifi"] as const,
+  integrationDependencies: ["unifi"] as const,
   secretNames: [
     "POSTGRES_PASSWORD",
-    "RESEND_API_KEY",
-    "RESEND_FROM",
     "UNIFI_API_KEY",
     "WIFI_PASSWORD",
     "WIFI_SSID",

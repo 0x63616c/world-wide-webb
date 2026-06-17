@@ -1,23 +1,16 @@
 /**
- * Drizzle/Postgres adapter for PortalRepo (www-q002.9). The portal service is
- * pure logic over the PortalRepo interface; this is the one place that touches
- * SQL. Stripe-style ids (gst_/otp_/att_/auth_), UTC timestamps, idempotent
- * upserts keyed by the natural keys the DB enforces (mac for authorizations,
- * mac+kind for attempts).
+ * Drizzle/Postgres adapter for PortalRepo (www-q002.9, password-only since
+ * www-p9hx). The portal service is pure logic over the PortalRepo interface;
+ * this is the one place that touches SQL. Stripe-style ids (auth_), UTC
+ * timestamps, idempotent upserts keyed by the natural keys the DB enforces
+ * (mac for authorizations, a constant id for the global rate-limit singleton).
  */
 import { randomBytes } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../db/schema";
-import type {
-  PortalAttemptRow,
-  PortalAuthorizationRow,
-  PortalCodeRow,
-  PortalGuestRow,
-  PortalRepo,
-} from "./portal-service";
-
-type AttemptKind = "code" | "password";
+import { PORTAL_RATE_LIMIT_ID } from "../db/schema";
+import type { PortalAuthorizationRow, PortalRateLimitRow, PortalRepo } from "./portal-service";
 
 function newId(prefix: string): string {
   return `${prefix}_${randomBytes(4).toString("hex")}`;
@@ -25,99 +18,31 @@ function newId(prefix: string): string {
 
 export function createDrizzlePortalRepo(db: NodePgDatabase<typeof schema>): PortalRepo {
   return {
-    async createGuest(name, email, now): Promise<PortalGuestRow> {
-      const [row] = await db
-        .insert(schema.portalGuest)
-        .values({ id: newId("gst"), name, email, createdAtUtc: now })
-        .returning();
-      return row;
-    },
-
-    async newestGuestByEmail(email): Promise<PortalGuestRow | null> {
+    async getRateLimit(): Promise<PortalRateLimitRow | null> {
       const [row] = await db
         .select()
-        .from(schema.portalGuest)
-        .where(eq(schema.portalGuest.email, email))
-        .orderBy(desc(schema.portalGuest.createdAtUtc))
+        .from(schema.portalRateLimit)
+        .where(eq(schema.portalRateLimit.id, PORTAL_RATE_LIMIT_ID))
         .limit(1);
       return row ?? null;
     },
 
-    async newestUnconsumedCodeForGuest(guestId): Promise<PortalCodeRow | null> {
+    async bumpWrongAttempt(dateUtc, now): Promise<number> {
+      // Atomic upsert: increment within the same UTC day, reset to 1 across a
+      // day rollover. The CASE compares the STORED date to the incoming one.
       const [row] = await db
-        .select()
-        .from(schema.portalCode)
-        .where(and(eq(schema.portalCode.guestId, guestId), eq(schema.portalCode.consumed, false)))
-        .orderBy(desc(schema.portalCode.createdAtUtc))
-        .limit(1);
-      return row ?? null;
-    },
-
-    async consumeCodesForGuest(guestId): Promise<void> {
-      await db
-        .update(schema.portalCode)
-        .set({ consumed: true })
-        .where(eq(schema.portalCode.guestId, guestId));
-    },
-
-    async createCode(guestId, code, expiresAtUtc, now): Promise<PortalCodeRow> {
-      const [row] = await db
-        .insert(schema.portalCode)
-        .values({
-          id: newId("otp"),
-          guestId,
-          code,
-          consumed: false,
-          expiresAtUtc,
-          createdAtUtc: now,
-        })
-        .returning();
-      return row;
-    },
-
-    async markCodeConsumed(codeId): Promise<void> {
-      await db
-        .update(schema.portalCode)
-        .set({ consumed: true })
-        .where(eq(schema.portalCode.id, codeId));
-    },
-
-    async getAttempt(mac, kind): Promise<PortalAttemptRow | null> {
-      const [row] = await db
-        .select()
-        .from(schema.portalAttempt)
-        .where(and(eq(schema.portalAttempt.mac, mac), eq(schema.portalAttempt.kind, kind)))
-        .limit(1);
-      if (!row) return null;
-      return {
-        mac: row.mac,
-        kind: row.kind,
-        wrongCount: row.wrongCount,
-        lockedUntilUtc: row.lockedUntilUtc,
-      };
-    },
-
-    async upsertAttempt(mac, kind, wrongCount, lockedUntilUtc): Promise<void> {
-      await db
-        .insert(schema.portalAttempt)
-        .values({
-          id: newId("att"),
-          mac,
-          kind,
-          wrongCount,
-          windowStartedAtUtc: new Date(),
-          lockedUntilUtc,
-        })
+        .insert(schema.portalRateLimit)
+        .values({ id: PORTAL_RATE_LIMIT_ID, dateUtc, wrongAttempts: 1, updatedAtUtc: now })
         .onConflictDoUpdate({
-          target: [schema.portalAttempt.mac, schema.portalAttempt.kind],
-          set: { wrongCount, lockedUntilUtc },
-        });
-    },
-
-    async clearAttempt(mac, kind: AttemptKind): Promise<void> {
-      await db
-        .delete(schema.portalAttempt)
-        .where(and(eq(schema.portalAttempt.mac, mac), eq(schema.portalAttempt.kind, kind)));
+          target: schema.portalRateLimit.id,
+          set: {
+            wrongAttempts: sql`case when ${schema.portalRateLimit.dateUtc} = ${dateUtc} then ${schema.portalRateLimit.wrongAttempts} + 1 else 1 end`,
+            dateUtc,
+            updatedAtUtc: now,
+          },
+        })
+        .returning();
+      return row.wrongAttempts;
     },
 
     async findAuthorizationByMac(mac): Promise<PortalAuthorizationRow | null> {
@@ -129,18 +54,13 @@ export function createDrizzlePortalRepo(db: NodePgDatabase<typeof schema>): Port
       return row ?? null;
     },
 
-    async upsertAuthorization(
-      mac,
-      guestId,
-      grantedAtUtc,
-      expiresAtUtc,
-    ): Promise<PortalAuthorizationRow> {
+    async upsertAuthorization(mac, grantedAtUtc, expiresAtUtc): Promise<PortalAuthorizationRow> {
       const [row] = await db
         .insert(schema.portalAuthorization)
-        .values({ id: newId("auth"), mac, guestId, grantedAtUtc, expiresAtUtc })
+        .values({ id: newId("auth"), mac, grantedAtUtc, expiresAtUtc })
         .onConflictDoUpdate({
           target: schema.portalAuthorization.mac,
-          set: { guestId, grantedAtUtc, expiresAtUtc },
+          set: { grantedAtUtc, expiresAtUtc },
         })
         .returning();
       return row;

@@ -33,7 +33,9 @@ if [[ "${PORTAL_VALIDATE_PROD_APPROVED:-0}" != "1" ]]; then
   echo "REHEARSAL MODE (set PORTAL_VALIDATE_PROD_APPROVED=1 for production)" >&2
 fi
 
-TABLES=(portal_guest portal_code portal_attempt portal_authorization)
+# Password-only since www-p9hx: portal_guest / portal_code / portal_attempt were
+# dropped; portal_authorization (mac-only) + portal_rate_limit remain.
+TABLES=(portal_authorization portal_rate_limit)
 FAILURES=0
 
 count_rows() {
@@ -94,48 +96,10 @@ else
   FAILURES=$((FAILURES + 1))
 fi
 
-# Newest code: count unconsumed, non-expired codes.
-SRC_CODES="$(run_query "${SOURCE_POSTGRES_HOST}" "${SOURCE_POSTGRES_PORT}" "${SOURCE_POSTGRES_DB}" \
-  "SELECT COUNT(*) FROM portal_code WHERE consumed = false AND expires_at_utc > NOW();")"
-DST_CODES="$(run_query "${DEST_POSTGRES_HOST}" "${DEST_POSTGRES_PORT}" "${DEST_POSTGRES_DB}" \
-  "SELECT COUNT(*) FROM portal_code WHERE consumed = false AND expires_at_utc > NOW();")"
-if [[ "${SRC_CODES}" == "${DST_CODES}" ]]; then
-  echo "  [OK]   active (unconsumed) codes: ${SRC_CODES}"
-else
-  echo "  [FAIL] active codes: source=${SRC_CODES} dest=${DST_CODES}"
-  FAILURES=$((FAILURES + 1))
-fi
-
-# Attempt lockout: count locked attempts (locked_until_utc > now).
-SRC_LOCKED="$(run_query "${SOURCE_POSTGRES_HOST}" "${SOURCE_POSTGRES_PORT}" "${SOURCE_POSTGRES_DB}" \
-  "SELECT COUNT(*) FROM portal_attempt WHERE locked_until_utc IS NOT NULL AND locked_until_utc > NOW();")"
-DST_LOCKED="$(run_query "${DEST_POSTGRES_HOST}" "${DEST_POSTGRES_PORT}" "${DEST_POSTGRES_DB}" \
-  "SELECT COUNT(*) FROM portal_attempt WHERE locked_until_utc IS NOT NULL AND locked_until_utc > NOW();")"
-if [[ "${SRC_LOCKED}" == "${DST_LOCKED}" ]]; then
-  echo "  [OK]   locked attempts: ${SRC_LOCKED}"
-else
-  echo "  [FAIL] locked attempts: source=${SRC_LOCKED} dest=${DST_LOCKED}"
-  FAILURES=$((FAILURES + 1))
-fi
-
-# FK integrity: any dangling code->guest reference.
-DANGLING_CODES="$(run_query "${DEST_POSTGRES_HOST}" "${DEST_POSTGRES_PORT}" "${DEST_POSTGRES_DB}" \
-  "SELECT COUNT(*) FROM portal_code c WHERE NOT EXISTS (SELECT 1 FROM portal_guest g WHERE g.id = c.guest_id);")"
-if [[ "${DANGLING_CODES}" == "0" ]]; then
-  echo "  [OK]   portal_code foreign keys intact"
-else
-  echo "  [FAIL] portal_code has ${DANGLING_CODES} dangling guest_id references"
-  FAILURES=$((FAILURES + 1))
-fi
-
-DANGLING_AUTHS="$(run_query "${DEST_POSTGRES_HOST}" "${DEST_POSTGRES_PORT}" "${DEST_POSTGRES_DB}" \
-  "SELECT COUNT(*) FROM portal_authorization a WHERE NOT EXISTS (SELECT 1 FROM portal_guest g WHERE g.id = a.guest_id);")"
-if [[ "${DANGLING_AUTHS}" == "0" ]]; then
-  echo "  [OK]   portal_authorization foreign keys intact"
-else
-  echo "  [FAIL] portal_authorization has ${DANGLING_AUTHS} dangling guest_id references"
-  FAILURES=$((FAILURES + 1))
-fi
+# Password-only since www-p9hx: portal_code / portal_attempt / portal_guest were
+# dropped, so the code-count, attempt-lockout, and guest foreign-key integrity
+# checks are gone. portal_authorization is now keyed by MAC alone (no guest_id),
+# so there are no foreign keys left to validate.
 
 echo ""
 if [[ "${FAILURES}" -eq 0 ]]; then

@@ -2,7 +2,6 @@ import { Button } from "@/components/Button";
 import { CheckIcon } from "@/components/icons";
 
 interface AlreadyConnectedProps {
-  email: string;
   /** "Continue browsing", open the default page. */
   onPrimary: () => void;
   /** "Not you? Sign in again", restart the flow. */

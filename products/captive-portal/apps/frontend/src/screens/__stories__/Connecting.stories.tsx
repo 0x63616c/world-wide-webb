@@ -5,7 +5,6 @@ const meta: Meta<typeof Connecting> = {
   title: "Captive Portal/Screens/Connecting",
   component: Connecting,
   tags: ["autodocs"],
-  args: { email: "john@example.com" },
   parameters: {
     docs: {
       description: {

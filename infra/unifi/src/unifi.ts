@@ -217,8 +217,11 @@ export function adoptExisting(
   // import + protect:true means Pulumi asserts they match (no write). Fields that
   // the bridged provider cannot round-trip cleanly are listed in ignoreChanges.
   // auth=custom: External Portal Server mode (NOT hotspot or none).
-  // portalHostname: cut to app--cp.worldwidewebb.co (www-jtp0.3.6). cert-manager
-  // has issued the cert (www-jtp0.5.8), UniFi local DNS A record is live (www-jtp0.5.9).
+  // portalUseHostname=FALSE: Apple's Captive Network Assistant only renders the
+  // captive sheet from a RAW-IP HTTP landing (http://192.168.0.147/...), NOT a
+  // real domain (www-q002.26). www-jtp0.3.6 flipped this to a hostname and broke
+  // real-device auth; www-p9hx reverts it. The app--cp cert/DNS stay wired
+  // (harmless) but the guest redirect targets customIp directly.
   // ecEnabled=false: params arrive plaintext; the ec blob breaks the SPA.
   // expire=43200: 30-day session lifetime, matching authorize-guest (43200 min).
   // redirectToHttps and redirectUrl live in a nested redirect block on the provider.
@@ -227,10 +230,11 @@ export function adoptExisting(
     {
       auth: "custom",
       portalEnabled: true,
-      portalUseHostname: true,
+      portalUseHostname: false,
       portalHostname: "app--cp.worldwidewebb.co",
       // customIp: required by provider when auth=custom; the Mini LAN IP that
-      // serves the captive portal (same host as app--cp.worldwidewebb.co).
+      // serves the captive portal. With portalUseHostname=false the guest is
+      // redirected here by raw IP over HTTP (the only thing Apple's CNA renders).
       customIp: "192.168.0.147",
       ecEnabled: false,
       expire: 43200,

@@ -101,9 +101,12 @@ describe("guestAccess explicit fields (www-jtp0.5.9)", () => {
     expect(await get<boolean>(adopted.guestAccess, "portalEnabled")).toBe(true);
   });
 
-  test("portalUseHostname is true (redirect to FQDN, not raw IP)", async () => {
+  test("portalUseHostname is false (raw-IP HTTP redirect for Apple's CNA, www-p9hx)", async () => {
+    // Apple's Captive Network Assistant only renders the captive sheet from a
+    // raw-IP HTTP landing, not a real domain (www-q002.26); www-jtp0.3.6 broke
+    // this with a hostname redirect and www-p9hx reverts it.
     const adopted = mod.adoptExisting(testProvider(), []);
-    expect(await get<boolean>(adopted.guestAccess, "portalUseHostname")).toBe(true);
+    expect(await get<boolean>(adopted.guestAccess, "portalUseHostname")).toBe(false);
   });
 
   test("portalHostname is the M5 product hostname (app--cp, post-cutover)", async () => {

@@ -145,9 +145,14 @@ curls. Net state:
   `guest -> 192.168.0.147:80,443` (idx 22000), the Mini `.147` DHCP reservation,
   and the split-horizon DNS record `captive-portal.worldwidewebb.co -> 192.168.0.147`.
   The portal app answers HTTP 200 at both `https://192.168.0.147/` and the hostname.
-- **WiFi-password step is GONE:** www-guest is open, so `scripts/save-wifi-guest.sh`
-  / mirroring a WLAN password no longer applies. Access is gated by the portal, not
-  a passphrase.
+- **Password-only portal (www-p9hx):** the `www-guest` SSID stays OPEN (no WPA
+  passphrase); access is gated by the portal, which now asks for a single SHARED
+  password the guest types in the captive sheet (no email/OTP, which Apple's CNA
+  can't complete). That shared password is `env.WIFI_PASSWORD`, sourced from 1P
+  `WiFi Guest Credentials/password` via ESO. **To change it:** edit the 1P item,
+  bust the op shim cache for that ref, and redeploy the api so ESO re-syncs the
+  k8s Secret. Wrong attempts are capped GLOBALLY at 1000 per UTC day
+  (`portal_rate_limit` singleton), not per-device.
 
 ### Apple Captive Network Assistant compatibility (www-q002.26)
 

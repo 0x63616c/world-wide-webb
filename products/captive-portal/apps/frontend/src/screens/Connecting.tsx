@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 // (screens.jsx is the copy source of truth, not the deck's "Authenticating").
 const STEPS = ["Checking the password", "Assigning your session", "Opening the gateway"];
 
-export function Connecting({ email }: { email: string }) {
+export function Connecting() {
   const [step, setStep] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setStep((s) => Math.min(s + 1, STEPS.length - 1)), 900);
@@ -23,9 +23,6 @@ export function Connecting({ email }: { email: string }) {
         <h1 className="wwb-h1">Getting you online</h1>
         <p className="wwb-sub" style={{ marginTop: 8 }}>
           {STEPS[step]}…
-        </p>
-        <p className="wwb-mono-faint" style={{ marginTop: 18 }}>
-          {email}
         </p>
       </div>
     </div>

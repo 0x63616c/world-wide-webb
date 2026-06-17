@@ -1,28 +1,22 @@
 /**
- * Integration tests for the captive-portal service (www-q002.9).
+ * Integration tests for the captive-portal service (www-q002.9, password-only
+ * since www-p9hx).
  *
- * Exercises the full router matrix against a real in-memory DB substitute
- * (a hand-rolled fake honouring the queries the service makes), a mock email
- * sender, a mock UniFi guest client, and an injected clock. No network, no real
- * Postgres. Covers: send-code + 30s cooldown, verify correct/wrong/expired/
- * lockout-after-3, password correct/wrong/lockout, status fresh/active/lapsed,
- * and the idempotent authorize step.
+ * Exercises the password-only router matrix against an in-memory PortalRepo, a
+ * mock UniFi guest client, and an injected clock. No network, no real Postgres.
+ * Covers: password correct/wrong/unconfigured, the GLOBAL daily wrong-attempt
+ * limit (cap + day rollover reset), the idempotent mac-only authorize step, and
+ * status fresh/active/expired/heal.
  */
 import { describe, expect, it, vi } from "vitest";
 import type { UnifiGuestAuthorization, UnifiGuestClient } from "../integrations/unifi";
-import {
-  createPortalService,
-  type EmailSender,
-  PortalError,
-  PortalErrorCode,
-} from "../services/portal-service";
+import { createPortalService, PortalError, PortalErrorCode } from "../services/portal-service";
 import { makeInMemoryPortalRepo } from "./helpers/in-memory-portal-repo";
 
 const MAC = "aa:bb:cc:dd:ee:ff";
-const NAME = "Ada Lovelace";
-const EMAIL = "ada@example.com";
+const PW = "correct-horse";
 
-// A clock we advance manually so cooldown/expiry windows are deterministic.
+// A clock we advance manually so expiry / day-rollover windows are deterministic.
 function makeClock(startMs = Date.UTC(2026, 5, 10, 12, 0, 0)) {
   let now = startMs;
   return {
@@ -30,16 +24,6 @@ function makeClock(startMs = Date.UTC(2026, 5, 10, 12, 0, 0)) {
     advance: (ms: number) => {
       now += ms;
     },
-  };
-}
-
-function makeMockSender(): EmailSender & { lastCode: (email: string) => string | undefined } {
-  const store = new Map<string, string>();
-  return {
-    async sendCode(email, code) {
-      store.set(email, code);
-    },
-    lastCode: (email) => store.get(email),
   };
 }
 
@@ -67,138 +51,34 @@ function makeMockUnifi(): UnifiGuestClient & {
 function setup(opts: { wifiPassword?: string } = {}) {
   const clock = makeClock();
   const repo = makeInMemoryPortalRepo();
-  const sender = makeMockSender();
   const unifi = makeMockUnifi();
   const svc = createPortalService({
     repo,
-    sender,
     unifi,
-    wifiPassword: opts.wifiPassword ?? "hunter2",
+    wifiPassword: opts.wifiPassword ?? PW,
     now: clock.now,
   });
-  return { svc, db: repo, sender, unifi, clock };
+  return { svc, db: repo, unifi, clock };
 }
-
-describe("portal.sendCode", () => {
-  it("creates a 6-digit code, stores the guest, and the mock sender captures it", async () => {
-    const { svc, sender } = setup();
-    const res = await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    expect(res.cooldownSeconds).toBe(30);
-    const code = sender.lastCode(EMAIL);
-    expect(code).toMatch(/^\d{6}$/);
-  });
-
-  it("enforces a 30s resend cooldown server-side (keyed by email)", async () => {
-    const { svc, clock } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    await expect(svc.sendCode({ mac: MAC, name: NAME, email: EMAIL })).rejects.toMatchObject({
-      code: PortalErrorCode.ResendCooldown,
-    });
-    // After 30s the resend is allowed and supersedes the prior code.
-    clock.advance(30_000);
-    await expect(svc.sendCode({ mac: MAC, name: NAME, email: EMAIL })).resolves.toBeTruthy();
-  });
-
-  it("a resend consumes the prior unconsumed code (one live code per guest)", async () => {
-    const { svc, sender, clock } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    const first = sender.lastCode(EMAIL);
-    clock.advance(30_000);
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    const second = sender.lastCode(EMAIL);
-    // The old code no longer verifies (superseded); the new one does.
-    await expect(
-      svc.verifyCode({ mac: MAC, email: EMAIL, code: first ?? "" }),
-    ).rejects.toMatchObject({ code: PortalErrorCode.WrongCode });
-    await expect(
-      svc.verifyCode({ mac: MAC, email: EMAIL, code: second ?? "" }),
-    ).resolves.toMatchObject({
-      verified: true,
-    });
-  });
-});
-
-describe("portal.verifyCode", () => {
-  it("accepts the correct code and consumes it", async () => {
-    const { svc, sender } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    const code = sender.lastCode(EMAIL) ?? "";
-    await expect(svc.verifyCode({ mac: MAC, email: EMAIL, code })).resolves.toMatchObject({
-      verified: true,
-    });
-    // Re-using a consumed code fails.
-    await expect(svc.verifyCode({ mac: MAC, email: EMAIL, code })).rejects.toMatchObject({
-      code: PortalErrorCode.WrongCode,
-    });
-  });
-
-  it("rejects a wrong code and increments the per-mac attempt counter", async () => {
-    const { svc } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    await expect(svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" })).rejects.toMatchObject({
-      code: PortalErrorCode.WrongCode,
-    });
-  });
-
-  it("locks the device after 3 wrong codes (RateLimited)", async () => {
-    const { svc } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    await expect(svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" })).rejects.toMatchObject({
-      code: PortalErrorCode.WrongCode,
-    });
-    await expect(svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" })).rejects.toMatchObject({
-      code: PortalErrorCode.WrongCode,
-    });
-    await expect(svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" })).rejects.toMatchObject({
-      code: PortalErrorCode.RateLimited,
-    });
-    // Further attempts stay locked even with the right code.
-    await expect(svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" })).rejects.toMatchObject({
-      code: PortalErrorCode.RateLimited,
-    });
-  });
-
-  it("distinguishes an expired code from a wrong code", async () => {
-    const { svc, sender, clock } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    const code = sender.lastCode(EMAIL) ?? "";
-    clock.advance(10 * 60_000 + 1); // past the 10-minute TTL
-    await expect(svc.verifyCode({ mac: MAC, email: EMAIL, code })).rejects.toMatchObject({
-      code: PortalErrorCode.ExpiredCode,
-    });
-  });
-
-  it("a correct code resets the wrong-code counter", async () => {
-    const { svc, sender } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
-    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
-    const code = sender.lastCode(EMAIL) ?? "";
-    await expect(svc.verifyCode({ mac: MAC, email: EMAIL, code })).resolves.toMatchObject({
-      verified: true,
-    });
-  });
-});
 
 describe("portal.checkPassword", () => {
   it("accepts the correct WiFi password", async () => {
-    const { svc } = setup({ wifiPassword: "hunter2" });
-    await expect(svc.checkPassword({ mac: MAC, password: "hunter2" })).resolves.toEqual({
-      ok: true,
+    const { svc } = setup();
+    await expect(svc.checkPassword({ mac: MAC, password: PW })).resolves.toEqual({ ok: true });
+  });
+
+  it("rejects a wrong password as WrongPassword", async () => {
+    const { svc } = setup();
+    await expect(svc.checkPassword({ mac: MAC, password: "nope" })).rejects.toMatchObject({
+      code: PortalErrorCode.WrongPassword,
     });
   });
 
-  it("rejects a wrong password and locks after 3 attempts", async () => {
-    const { svc } = setup({ wifiPassword: "hunter2" });
-    await expect(svc.checkPassword({ mac: MAC, password: "x" })).rejects.toMatchObject({
-      code: PortalErrorCode.WrongPassword,
-    });
-    await expect(svc.checkPassword({ mac: MAC, password: "x" })).rejects.toMatchObject({
-      code: PortalErrorCode.WrongPassword,
-    });
-    await expect(svc.checkPassword({ mac: MAC, password: "x" })).rejects.toMatchObject({
-      code: PortalErrorCode.RateLimited,
-    });
+  it("a correct password never increments the wrong-attempt counter", async () => {
+    const { svc, db } = setup();
+    await svc.checkPassword({ mac: MAC, password: PW });
+    await svc.checkPassword({ mac: MAC, password: PW });
+    expect(db.wrongAttemptsToday()).toBe(0);
   });
 
   it("throws when the WiFi password is unconfigured (services throw, never fake)", async () => {
@@ -207,28 +87,66 @@ describe("portal.checkPassword", () => {
       code: PortalErrorCode.NotConfigured,
     });
   });
+});
 
-  it("password and code lockouts are independent (separate kinds)", async () => {
-    const { svc, sender } = setup({ wifiPassword: "hunter2" });
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    // Burn the code counter to lockout.
-    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
-    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
-    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
-    // The password path is still open for this mac.
-    void sender;
-    await expect(svc.checkPassword({ mac: MAC, password: "hunter2" })).resolves.toEqual({
-      ok: true,
+describe("portal global daily wrong-attempt limit (www-p9hx)", () => {
+  // Hammer N wrong attempts; returns the last error code seen.
+  async function hammer(svc: ReturnType<typeof setup>["svc"], n: number): Promise<string> {
+    let last = "";
+    for (let i = 0; i < n; i++) {
+      last = await svc.checkPassword({ mac: MAC, password: "wrong" }).then(
+        () => "OK",
+        (e: PortalError) => e.code,
+      );
+    }
+    return last;
+  }
+
+  it("locks globally after 1000 wrong attempts in a UTC day", async () => {
+    const { svc, db } = setup();
+    // The first 999 wrong attempts are WrongPassword.
+    expect(await hammer(svc, 999)).toBe(PortalErrorCode.WrongPassword);
+    expect(db.wrongAttemptsToday()).toBe(999);
+    // The 1000th flips to RateLimited.
+    expect(await hammer(svc, 1)).toBe(PortalErrorCode.RateLimited);
+    // Even the CORRECT password is now rejected (globally locked for the day).
+    await expect(svc.checkPassword({ mac: MAC, password: PW })).rejects.toMatchObject({
+      code: PortalErrorCode.RateLimited,
     });
+  });
+
+  it("is GLOBAL, not per-MAC: rotating the MAC does not reset the counter", async () => {
+    const { svc } = setup();
+    for (let i = 0; i < 999; i++) {
+      await svc.checkPassword({ mac: `mac-${i}`, password: "wrong" }).catch(() => {});
+    }
+    // A brand-new MAC still hits the global wall on the 1000th attempt.
+    await expect(svc.checkPassword({ mac: "fresh-mac", password: "wrong" })).rejects.toMatchObject({
+      code: PortalErrorCode.RateLimited,
+    });
+  });
+
+  it("resets the counter when the UTC day rolls over", async () => {
+    const { svc, clock, db } = setup();
+    for (let i = 0; i < 1000; i++) {
+      await svc.checkPassword({ mac: MAC, password: "wrong" }).catch(() => {});
+    }
+    await expect(svc.checkPassword({ mac: MAC, password: PW })).rejects.toMatchObject({
+      code: PortalErrorCode.RateLimited,
+    });
+    // Next UTC day: the counter is stale → the correct password works again.
+    clock.advance(24 * 60 * 60 * 1000);
+    await expect(svc.checkPassword({ mac: MAC, password: PW })).resolves.toEqual({ ok: true });
+    // And a wrong attempt the new day starts the count at 1, not 1001.
+    await svc.checkPassword({ mac: MAC, password: "wrong" }).catch(() => {});
+    expect(db.wrongAttemptsToday()).toBe(1);
   });
 });
 
-describe("portal.authorize (idempotent)", () => {
+describe("portal.authorize (idempotent, mac-only)", () => {
   it("authorizes the device via UniFi with minutes=43200 and writes a 30-day DB row", async () => {
     const { svc, db, unifi, clock } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    const guestId = db.firstGuestId();
-    const res = await svc.authorize({ mac: MAC, guestId });
+    const res = await svc.authorize({ mac: MAC });
     expect(res.authorized).toBe(true);
     expect(unifi.authorizeCalls).toEqual([{ mac: MAC, minutes: 43200 }]);
     const row = db.findAuthorization(MAC);
@@ -239,13 +157,9 @@ describe("portal.authorize (idempotent)", () => {
 
   it("re-submitting does not double-authorize (one row per mac; idempotent)", async () => {
     const { svc, db, unifi } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    const guestId = db.firstGuestId();
-    await svc.authorize({ mac: MAC, guestId });
-    await svc.authorize({ mac: MAC, guestId });
-    // Exactly one authorization row for the mac.
+    await svc.authorize({ mac: MAC });
+    await svc.authorize({ mac: MAC });
     expect(db.authorizationCount(MAC)).toBe(1);
-    // UniFi may be called again (idempotent on the controller) but the DB stays single-row.
     expect(unifi.authorizeCalls.length).toBeGreaterThanOrEqual(1);
   });
 });
@@ -257,27 +171,21 @@ describe("portal.status", () => {
   });
 
   it("returns 'active' (AlreadyConnected) for a live authorization", async () => {
-    const { svc, db } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    const guestId = db.firstGuestId();
-    await svc.authorize({ mac: MAC, guestId });
+    const { svc } = setup();
+    await svc.authorize({ mac: MAC });
     await expect(svc.status({ mac: MAC })).resolves.toMatchObject({ state: "active" });
   });
 
   it("returns 'expired' (SessionExpired) when the 30-day window lapsed", async () => {
-    const { svc, db, clock } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    const guestId = db.firstGuestId();
-    await svc.authorize({ mac: MAC, guestId });
+    const { svc, clock } = setup();
+    await svc.authorize({ mac: MAC });
     clock.advance(31 * 86_400_000); // 31 days
     await expect(svc.status({ mac: MAC })).resolves.toMatchObject({ state: "expired" });
   });
 
   it("heals the controller: an active DB row with no controller grant re-fires authorizeGuest", async () => {
-    const { svc, db, unifi } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    const guestId = db.firstGuestId();
-    await svc.authorize({ mac: MAC, guestId });
+    const { svc, unifi } = setup();
+    await svc.authorize({ mac: MAC });
     unifi.setActive(null); // controller lost the grant (reboot)
     const callsBefore = unifi.authorizeCalls.length;
     await svc.status({ mac: MAC });
@@ -287,84 +195,9 @@ describe("portal.status", () => {
 
 describe("PortalError", () => {
   it("is an Error subclass carrying a typed code", () => {
-    const e = new PortalError(PortalErrorCode.WrongCode, "nope");
+    const e = new PortalError(PortalErrorCode.WrongPassword, "nope");
     expect(e).toBeInstanceOf(Error);
-    expect(e.code).toBe(PortalErrorCode.WrongCode);
-  });
-});
-
-// ── Validator-required explicit coverage (www-q002.9) ──────────────────────────
-// The schema layer can't enforce these, so they're proven here at the service.
-
-describe("one-active-code-per-guest (www-q002.9)", () => {
-  it("after two sendCodes exactly one usable code remains for the guest", async () => {
-    const { svc, db, sender, clock } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    const guestId = db.firstGuestId();
-    const first = sender.lastCode(EMAIL) ?? "";
-    clock.advance(30_000); // clear the resend cooldown
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    const second = sender.lastCode(EMAIL) ?? "";
-
-    // Exactly one unconsumed (usable) code row exists.
-    expect(db.unconsumedCodeCount(guestId)).toBe(1);
-    // And it is the second one: the first no longer verifies, the second does.
-    expect(first).not.toBe(second);
-    await expect(svc.verifyCode({ mac: MAC, email: EMAIL, code: first })).rejects.toMatchObject({
-      code: PortalErrorCode.WrongCode,
-    });
-    await expect(svc.verifyCode({ mac: MAC, email: EMAIL, code: second })).resolves.toMatchObject({
-      verified: true,
-    });
-  });
-});
-
-describe("attempt-reset semantics (www-q002.9)", () => {
-  it("resets the wrong-code counter on SUCCESS", async () => {
-    const { svc, db, sender } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
-    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
-    expect(db.attemptWrongCount(MAC, "code")).toBe(2);
-    const code = sender.lastCode(EMAIL) ?? "";
-    await svc.verifyCode({ mac: MAC, email: EMAIL, code });
-    expect(db.attemptWrongCount(MAC, "code")).toBe(0);
-  });
-
-  it("resets the wrong-password counter on SUCCESS", async () => {
-    const { svc, db } = setup({ wifiPassword: "hunter2" });
-    await svc.checkPassword({ mac: MAC, password: "x" }).catch(() => {});
-    expect(db.attemptWrongCount(MAC, "password")).toBe(1);
-    await svc.checkPassword({ mac: MAC, password: "hunter2" });
-    expect(db.attemptWrongCount(MAC, "password")).toBe(0);
-  });
-
-  it("resets the wrong-code counter on RESEND (a new sendCode clears the code lock)", async () => {
-    const { svc, db, clock } = setup();
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
-    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
-    expect(db.attemptWrongCount(MAC, "code")).toBe(2);
-    clock.advance(30_000); // past the resend cooldown
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    expect(db.attemptWrongCount(MAC, "code")).toBe(0);
-  });
-
-  it("resets BOTH counters on BACK (resetAttempts)", async () => {
-    const { svc, db } = setup({ wifiPassword: "hunter2" });
-    await svc.sendCode({ mac: MAC, name: NAME, email: EMAIL });
-    await svc.verifyCode({ mac: MAC, email: EMAIL, code: "000000" }).catch(() => {});
-    await svc.checkPassword({ mac: MAC, password: "x" }).catch(() => {});
-    expect(db.attemptWrongCount(MAC, "code")).toBe(1);
-    expect(db.attemptWrongCount(MAC, "password")).toBe(1);
-    await expect(svc.resetAttempts({ mac: MAC })).resolves.toEqual({ reset: true });
-    expect(db.attemptWrongCount(MAC, "code")).toBe(0);
-    expect(db.attemptWrongCount(MAC, "password")).toBe(0);
-  });
-
-  it("resetAttempts is idempotent (no prior counter is a no-op)", async () => {
-    const { svc } = setup();
-    await expect(svc.resetAttempts({ mac: MAC })).resolves.toEqual({ reset: true });
+    expect(e.code).toBe(PortalErrorCode.WrongPassword);
   });
 });
 

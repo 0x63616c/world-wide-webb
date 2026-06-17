@@ -6,12 +6,12 @@ const meta: Meta<typeof WifiPassword> = {
   title: "Captive Portal/Screens/WifiPassword",
   component: WifiPassword,
   tags: ["autodocs"],
-  args: { onSubmit: noop, onBack: noop },
+  args: { agreed: true, onAgreeChange: noop, onSubmit: noop, onOpenTerms: noop },
   parameters: {
     docs: {
       description: {
         component:
-          "Wi-Fi password step (after email verified). States: awaiting, filled+shown, wrong password, network failure.",
+          "The sole entry screen (password-only portal). States: awaiting, terms not yet agreed, filled+shown, wrong password, network failure.",
       },
     },
   },
@@ -20,6 +20,10 @@ export default meta;
 type Story = StoryObj<typeof WifiPassword>;
 
 export const Awaiting: Story = {};
+export const TermsNotAgreed: Story = {
+  name: "Terms not agreed (submit disabled)",
+  args: { agreed: false, initialValue: "guest-passw0rd" },
+};
 export const FilledShown: Story = {
   name: "Filled · shown",
   args: { initialValue: "guest-passw0rd", initialShow: true },

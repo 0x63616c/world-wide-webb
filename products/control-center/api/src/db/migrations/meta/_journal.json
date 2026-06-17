@@ -50,6 +50,13 @@
       "when": 1781080313542,
       "tag": "0007_equal_sharon_ventura",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781200000000,
+      "tag": "0008_password_only_portal",
+      "breakpoints": true
     }
   ]
 }

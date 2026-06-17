@@ -28,16 +28,13 @@ function get<T>(r: pulumi.Resource, prop: string): Promise<T> {
 }
 
 describe("SERVICE_SECRETS", () => {
-  test("worker mirrors api minus the Resend keys (lockstep, www-51hf.35)", () => {
+  test("worker mirrors api exactly (lockstep, www-51hf.35)", () => {
     const api = Object.keys(map.SERVICE_SECRETS.api).sort();
     const worker = Object.keys(map.SERVICE_SECRETS.worker).sort();
-    expect(api).toContain("RESEND_API_KEY");
-    expect(api).toContain("RESEND_FROM");
-    expect(worker).not.toContain("RESEND_API_KEY");
-    expect(worker).not.toContain("RESEND_FROM");
-    // Every non-Resend api key is present in worker, identical ref.
+    // Resend was removed when the portal went password-only (www-p9hx); api and
+    // worker secret sets are now identical.
+    expect(worker).toEqual(api);
     for (const [k, v] of Object.entries(map.SERVICE_SECRETS.api)) {
-      if (k.startsWith("RESEND_")) continue;
       expect(map.SERVICE_SECRETS.worker[k]).toBe(v);
     }
   });
@@ -81,7 +78,7 @@ describe("installEso", () => {
     expect(spec.data).toHaveLength(apiCount);
     const keys = spec.data.map((d) => d.remoteRef.key);
     expect(keys).toContain("Home Assistant Token/credential");
-    expect(keys).toContain("Resend/from-address");
+    expect(keys).toContain("WiFi Guest Credentials/password");
     // refreshInterval set so rotations propagate without a redeploy (AC).
     expect(spec.refreshInterval).toBe("1h");
   });

@@ -1,8 +1,21 @@
 # Captive Portal PRD, guest WiFi onboarding (www-q002)
 
-One line: a UniFi external captive portal (LAN-only) where a guest verifies their
-email with a 6-digit code, enters the WiFi password, and gets 30 days of internet
-per device.
+One line: a UniFi external captive portal (LAN-only) where a guest enters a shared
+WiFi password and gets 30 days of internet per device.
+
+> **PASSWORD-ONLY (www-p9hx, supersedes the email/OTP sections below).** Real-device
+> testing proved email-OTP unworkable inside Apple's Captive Network Assistant (the
+> sandboxed sheet can't reach Mail pre-auth; on the cellular-less iPad panel it's
+> dead). The portal is now **password-only**: a single screen (shared WiFi password
+> + "I agree" terms checkbox) → authorize. **Removed:** the email/name landing,
+> Sending/Verify screens, OTP input, `sendCode`/`verifyCode`, `portal_code` +
+> `portal_guest` tables, the per-MAC lock + `portal_attempt`, and the Resend
+> integration (1P creds kept, unused). **Identity is the device MAC alone**
+> (`portal_authorization` has no `guest_id`). **Rate limiting is GLOBAL**: a
+> `portal_rate_limit` singleton caps wrong password attempts at **1000 per UTC day**
+> (an open SSID lets attackers rotate MACs, so a per-device lock is meaningless).
+> The surviving router surface is `checkPassword`, `authorize({mac})`, `status`.
+> Everything below this banner describing email/codes is historical context.
 
 **Hostname:** `captive-portal.worldwidewebb.co` (LEGACY, still live in production
 as of 2026-06-14). Migration target is `app--cp.worldwidewebb.co` (M5 epic

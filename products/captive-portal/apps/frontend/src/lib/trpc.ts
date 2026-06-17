@@ -20,10 +20,7 @@ const trpc = createTRPCClient<CaptivePortalApiRouter>({
  *  runner needs, every call goes through portal.* (the only procedures the
  *  nginx allowlist passes; batches stay under /api/trpc/portal.*). */
 export const portalClient: PortalClient = {
-  sendCode: (input) => trpc.portal.sendCode.mutate(input),
-  verifyCode: (input) => trpc.portal.verifyCode.mutate(input),
   checkPassword: (input) => trpc.portal.checkPassword.mutate(input),
   authorize: (input) => trpc.portal.authorize.mutate(input),
   status: (input) => trpc.portal.status.query(input),
-  resetAttempts: (input) => trpc.portal.resetAttempts.mutate(input),
 };

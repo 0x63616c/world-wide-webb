@@ -5,7 +5,7 @@ const meta: Meta<typeof AlreadyConnected> = {
   title: "Captive Portal/Screens/AlreadyConnected",
   component: AlreadyConnected,
   tags: ["autodocs"],
-  args: { email: "john@example.com", onPrimary: () => {}, onReset: () => {} },
+  args: { onPrimary: () => {}, onReset: () => {} },
   parameters: {
     docs: {
       description: {

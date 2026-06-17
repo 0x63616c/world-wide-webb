@@ -9,7 +9,9 @@
 /** A service's secret env-name -> 1P "Item/field" suffix (under op://Homelab). */
 export type ServiceSecrets = Record<string, string>;
 
-// api: full set incl. Resend (the only service that emails).
+// api: full secret set. Resend was removed when the captive portal went
+// password-only (www-p9hx); the 1Password "Resend" item is kept for audit but
+// no longer synced to any workload.
 const apiSecrets: ServiceSecrets = {
   HA_TOKEN: "Home Assistant Token/credential",
   UNIFI_API_KEY: "UniFi/local_api_key",
@@ -23,13 +25,11 @@ const apiSecrets: ServiceSecrets = {
   SPOTIFY_CLIENT_ID: "Spotify/client_id",
   SPOTIFY_CLIENT_SECRET: "Spotify/client_secret",
   SPOTIFY_REFRESH_TOKEN: "Spotify/refresh_token",
-  RESEND_API_KEY: "Resend/credential",
-  RESEND_FROM: "Resend/from-address",
 };
 
-// worker: mirrors api minus Resend (deploy-config.test.ts asserts the overlap
-// stays in lockstep, www-51hf.35).
-const { RESEND_API_KEY: _r1, RESEND_FROM: _r2, ...workerSecrets } = apiSecrets;
+// worker: identical to api (the api/worker secret sets are kept in lockstep;
+// deploy-config.test.ts asserts the overlap, www-51hf.35).
+const workerSecrets: ServiceSecrets = { ...apiSecrets };
 
 /**
  * @public - the secret inventory per k8s workload. Consumed by eso.ts to emit

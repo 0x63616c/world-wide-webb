@@ -290,76 +290,35 @@ export const mediaItem = pgTable(
 // spec's Redis suggestion (Calum override): codes/counters are short-lived
 // rows, cleaned up by a scheduled CronJob (not a worker loop). UTC throughout.
 
-// A verified guest. One row per (name, email) submission; a returning guest
-// gets a fresh row each onboarding rather than dedup, guests are ephemeral
-// and the authorization row (keyed by device MAC) is the durable artifact.
-export const portalGuest = pgTable("portal_guest", {
-  id: text("id").primaryKey(), // Stripe-style gst_<id>
-  name: text("name").notNull(),
-  email: text("email").notNull(),
-  createdAtUtc: timestamp("created_at_utc", { withTimezone: true }).notNull().defaultNow(),
+// Global wrong-password rate limit (www-p9hx). The portal is password-only: a
+// single shared WiFi password (no email/OTP), so there is no per-device identity
+// to meaningfully rate-limit (an open SSID lets an attacker rotate MACs freely).
+// Instead a single global counter caps wrong password attempts per UTC calendar
+// day. `dateUtc` (YYYY-MM-DD) scopes the count to one day; crossing midnight UTC
+// resets it. Singleton: exactly one row, id = PORTAL_RATE_LIMIT_ID.
+export const portalRateLimit = pgTable("portal_rate_limit", {
+  id: text("id").primaryKey(), // constant 'global'
+  dateUtc: text("date_utc").notNull(), // YYYY-MM-DD (UTC) the count applies to
+  wrongAttempts: integer("wrong_attempts").notNull().default(0),
+  updatedAtUtc: timestamp("updated_at_utc", { withTimezone: true }).notNull().defaultNow(),
 });
-
-// A 6-digit email verification code. Stored PLAINTEXT by design (www-q002.8):
-// 10-minute TTL, LAN-only surface, single-home threat model, and the mock
-// sender must surface the code for dev/E2E. Expires 10 minutes after creation;
-// `consumed` flips on successful verify (or when superseded by a resend), so at
-// most one unconsumed code is live per guest at a time.
-export const portalCode = pgTable(
-  "portal_code",
-  {
-    id: text("id").primaryKey(), // Stripe-style otp_<id>
-    guestId: text("guest_id")
-      .notNull()
-      .references(() => portalGuest.id, { onDelete: "cascade" }),
-    code: text("code").notNull(),
-    expiresAtUtc: timestamp("expires_at_utc", { withTimezone: true }).notNull(),
-    consumed: boolean("consumed").notNull().default(false),
-    createdAtUtc: timestamp("created_at_utc", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    // The active-code lookup (newest unconsumed code for a guest) + the resend
-    // cooldown check both filter on guest_id + consumed.
-    index("portal_code_guest_consumed_idx").on(t.guestId, t.consumed),
-  ],
-);
-
-// Per-device wrong-attempt counters. The device MAC (carried through the whole
-// flow from the UniFi redirect) is the rate-limit unit; `kind` separates the
-// wrong-code counter from the wrong-password counter so they lock independently.
-// 3 wrong → lockedUntilUtc set (RateLimited); reset to 0 on success/back/resend.
-// One row per (mac, kind), upserted each attempt.
-export const portalAttempt = pgTable(
-  "portal_attempt",
-  {
-    id: text("id").primaryKey(), // Stripe-style att_<id>
-    mac: text("mac").notNull(),
-    kind: text("kind").notNull(), // 'code' | 'password'
-    wrongCount: integer("wrong_count").notNull().default(0),
-    windowStartedAtUtc: timestamp("window_started_at_utc", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    // Set when the device is locked out; null when not locked.
-    lockedUntilUtc: timestamp("locked_until_utc", { withTimezone: true }),
-  },
-  (t) => [uniqueIndex("portal_attempt_mac_kind_idx").on(t.mac, t.kind)],
-);
 
 // A granted device authorization. The DB is the source of truth for the 30-day
 // window (mirrors the lights desired-state model); UniFi is the actuator. One
 // row per device MAC (unique) so re-authorizing the same device is an
 // idempotent upsert. status(mac) reads this: active (now < expires) →
-// AlreadyConnected; expired row → SessionExpired; none → fresh flow.
+// AlreadyConnected; expired row → SessionExpired; none → fresh flow. Password-only
+// means the MAC is the sole identity, no guest row.
 export const portalAuthorization = pgTable(
   "portal_authorization",
   {
     id: text("id").primaryKey(), // Stripe-style auth_<id>
     mac: text("mac").notNull(),
-    guestId: text("guest_id")
-      .notNull()
-      .references(() => portalGuest.id, { onDelete: "cascade" }),
     grantedAtUtc: timestamp("granted_at_utc", { withTimezone: true }).notNull().defaultNow(),
     expiresAtUtc: timestamp("expires_at_utc", { withTimezone: true }).notNull(),
   },
   (t) => [uniqueIndex("portal_authorization_mac_idx").on(t.mac)],
 );
+
+/** @public - constant primary key for the portalRateLimit singleton row. */
+export const PORTAL_RATE_LIMIT_ID = "global";

@@ -17,7 +17,7 @@ function shapeFor(cause: unknown) {
   return formatter({
     error,
     type: "mutation" as const,
-    path: "portal.verifyCode",
+    path: "portal.checkPassword",
     input: undefined,
     ctx: undefined,
     shape: {
@@ -30,8 +30,8 @@ function shapeFor(cause: unknown) {
 
 describe("portal error shape (www-q002.19)", () => {
   it("surfaces portalCode in error.data when the cause is a PortalError", () => {
-    const shape = shapeFor(new PortalError(PortalErrorCode.WrongCode, "nope"));
-    expect((shape.data as { portalCode?: string }).portalCode).toBe(PortalErrorCode.WrongCode);
+    const shape = shapeFor(new PortalError(PortalErrorCode.WrongPassword, "nope"));
+    expect((shape.data as { portalCode?: string }).portalCode).toBe(PortalErrorCode.WrongPassword);
   });
 
   it("surfaces RATE_LIMITED for a lockout PortalError", () => {
@@ -45,10 +45,10 @@ describe("portal error shape (www-q002.19)", () => {
   });
 
   it("leaves the default shape fields intact (code/httpStatus still present)", () => {
-    const shape = shapeFor(new PortalError(PortalErrorCode.ExpiredCode, "expired"));
+    const shape = shapeFor(new PortalError(PortalErrorCode.NotConfigured, "unconfigured"));
     const data = shape.data as { code?: string; httpStatus?: number; portalCode?: string };
     expect(data.code).toBe("BAD_REQUEST");
     expect(data.httpStatus).toBe(400);
-    expect(data.portalCode).toBe(PortalErrorCode.ExpiredCode);
+    expect(data.portalCode).toBe(PortalErrorCode.NotConfigured);
   });
 });

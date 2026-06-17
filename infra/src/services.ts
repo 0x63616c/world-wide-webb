@@ -136,8 +136,6 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
         "SPOTIFY_CLIENT_ID",
         "SPOTIFY_CLIENT_SECRET",
         "SPOTIFY_REFRESH_TOKEN",
-        "RESEND_API_KEY",
-        "RESEND_FROM",
       ]),
       env: haEnv,
       ports: [{ containerPort: 4201, expose: "cluster" }],

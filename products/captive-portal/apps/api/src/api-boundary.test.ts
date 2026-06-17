@@ -20,11 +20,9 @@ describe("captive portal product API boundary", () => {
     expect(captivePortalApiDependencies).toMatchObject({
       service: "captive-portal-api",
       routerBoundary: "portal-only",
-      integrationDependencies: ["resend", "unifi"],
+      integrationDependencies: ["unifi"],
       secretNames: [
         "POSTGRES_PASSWORD",
-        "RESEND_API_KEY",
-        "RESEND_FROM",
         "UNIFI_API_KEY",
         "WIFI_PASSWORD",
         "WIFI_SSID",

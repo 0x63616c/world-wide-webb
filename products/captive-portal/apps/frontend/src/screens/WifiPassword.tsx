@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/Alert";
 import { Button } from "@/components/Button";
+import { CheckboxRow } from "@/components/CheckboxRow";
 import { Field } from "@/components/Field";
 import { LockIcon } from "@/components/icons";
 import { TextInput } from "@/components/TextInput";
@@ -9,19 +10,24 @@ interface WifiPasswordProps {
   error?: string | null;
   networkError?: boolean;
   busy?: boolean;
+  agreed: boolean;
+  onAgreeChange: (v: boolean) => void;
   onSubmit: (password: string) => void;
-  onBack: () => void;
+  onOpenTerms: () => void;
   initialValue?: string;
   initialShow?: boolean;
 }
 
-// Asked after the email is verified: the host shares the network password.
+// The sole entry screen (password-only portal, www-p9hx): the guest types the
+// shared Wi-Fi password and agrees to the terms, then connects. No email/OTP.
 export function WifiPassword({
   error,
   networkError,
   busy,
+  agreed,
+  onAgreeChange,
   onSubmit,
-  onBack,
+  onOpenTerms,
   initialValue = "",
   initialShow = false,
 }: WifiPasswordProps) {
@@ -46,7 +52,7 @@ export function WifiPassword({
           >
             <h1 className="wwb-h1">Enter the Wi-Fi password</h1>
             <p className="wwb-sub" style={{ marginTop: 10 }}>
-              Ask your host for the password to access this network.
+              Ask your host for the password to get online.
             </p>
           </div>
 
@@ -90,21 +96,29 @@ export function WifiPassword({
                 {show ? "Hide" : "Show"}
               </button>
             </Field>
-            <Button type="submit" variant="primary" loading={busy} disabled={!pw}>
+
+            <div style={{ marginTop: 2 }}>
+              <CheckboxRow id="w-terms" checked={agreed} onChange={onAgreeChange}>
+                I agree to the{" "}
+                {/* biome-ignore lint/a11y/useValidAnchor: in-app link that opens the Terms screen */}
+                <a
+                  href="#terms"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onOpenTerms();
+                  }}
+                >
+                  terms of use
+                </a>
+                .
+              </CheckboxRow>
+            </div>
+
+            <Button type="submit" variant="primary" loading={busy} disabled={!pw || !agreed}>
               Connect to Wi-Fi
             </Button>
           </form>
         </div>
-        <p className="wwb-foot" style={{ textAlign: "center", marginTop: 18 }}>
-          <button
-            type="button"
-            className="wwb-resend-btn"
-            onClick={onBack}
-            style={{ fontSize: 12.5 }}
-          >
-            Go back
-          </button>
-        </p>
       </div>
     </div>
   );
