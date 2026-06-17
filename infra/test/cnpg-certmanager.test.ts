@@ -115,11 +115,12 @@ describe("installCnpg", () => {
 });
 
 describe("installCertManager", () => {
-  test("the CF-token ExternalSecret lives in the cert-manager namespace, not the app ns", async () => {
+  test("the CF-token Secret lives in the cert-manager namespace, not the app ns", async () => {
     const res = cm.installCertManager({
       provider: provider(),
       namespace: "control-center",
       version: "v1.20.2",
+      vault: { CLOUDFLARE_API__CREDENTIAL: "test-token" },
     });
     const meta = await get<{ namespace: string }>(res.cfTokenSecret, "metadata");
     // ClusterIssuer solver reads its token from the controller's namespace.
@@ -131,6 +132,7 @@ describe("installCertManager", () => {
       provider: provider(),
       namespace: "control-center",
       version: "v1.20.2",
+      vault: { CLOUDFLARE_API__CREDENTIAL: "test-token" },
     });
     const spec = await get<{
       acme: { email?: string; solvers: { dns01: { cloudflare: unknown } }[] };
@@ -144,6 +146,7 @@ describe("installCertManager", () => {
       provider: provider(),
       namespace: "control-center",
       version: "v1.20.2",
+      vault: { CLOUDFLARE_API__CREDENTIAL: "test-token" },
     });
     const spec = await get<{ dnsNames: string[]; secretName: string }>(res.certificate, "spec");
     expect(spec.dnsNames).toEqual(["captive-portal.worldwidewebb.co", "app--cp.worldwidewebb.co"]);

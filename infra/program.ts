@@ -47,6 +47,7 @@ const certManager = installCertManager({
   namespace: APP_NAMESPACE,
   acmeEmail: cfg.get("acmeEmail"),
   version: "v1.20.2",
+  vault,
 });
 
 // App workloads (www-j934.6). media-worker replicas: 1 to PROVE it Running +

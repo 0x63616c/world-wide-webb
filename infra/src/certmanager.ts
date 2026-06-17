@@ -10,26 +10,26 @@
 // (CLOUDFLARE_API__CREDENTIAL, the validated account-owned token), never a Pulumi CF resource.
 
 import * as k8s from "@pulumi/kubernetes";
-import type * as pulumi from "@pulumi/pulumi";
+import * as pulumi from "@pulumi/pulumi";
 
 // The portal hostnames the Certificate is issued for (LAN-only, never tunneled).
 const PORTAL_HOSTS = ["captive-portal.worldwidewebb.co", "app--cp.worldwidewebb.co"] as const;
 // The k8s Secret cert-manager mounts the issued cert into; the portal Deployment
 // (www-j934.6) mounts the same Secret for its TLS.
 const PORTAL_TLS_SECRET = "captive-portal-tls";
-// The ESO-synced Secret holding the CF API token for the DNS-01 solver.
+// The Secret holding the CF API token for the DNS-01 solver.
 const CF_TOKEN_SECRET = "cloudflare-api-token";
 const CF_TOKEN_KEY = "token";
 // A ClusterIssuer's solver reads its apiTokenSecretRef from the cert-manager
 // CONTROLLER's namespace, NOT the Certificate's namespace. So the CF-token
-// Secret + its ExternalSecret must live here, not in the app namespace.
+// Secret must live here, not in the app namespace.
 const CERT_MANAGER_NAMESPACE = "cert-manager";
 // Let's Encrypt production ACME directory.
 const ACME_SERVER = "https://acme-v02.api.letsencrypt.org/directory";
 
 export interface CertManagerArgs {
   provider: k8s.Provider;
-  // Namespace for the portal Certificate + the CF-token ExternalSecret.
+  // Namespace for the portal Certificate.
   namespace: pulumi.Input<string>;
   // Optional ACME registration email (a non-secret contact address). Omitted by
   // default: today's acme.sh registers anonymously, and a personal email must
@@ -38,11 +38,13 @@ export interface CertManagerArgs {
   acmeEmail?: string;
   // cert-manager install manifest version (www-j934.4 preflight pin: v1.20.2).
   version: string;
+  // Decrypted SOPS vault — provides CLOUDFLARE_API__CREDENTIAL for the DNS-01 solver.
+  vault: Record<string, string>;
 }
 
 export interface CertManagerResources {
   install: k8s.yaml.ConfigFile;
-  cfTokenSecret: k8s.apiextensions.CustomResource;
+  cfTokenSecret: k8s.core.v1.Secret;
   issuer: k8s.apiextensions.CustomResource;
   certificate: k8s.apiextensions.CustomResource;
 }
@@ -53,7 +55,7 @@ export interface CertManagerResources {
  * internal consumer in this ticket yet.
  */
 export function installCertManager(args: CertManagerArgs): CertManagerResources {
-  const { provider, namespace, acmeEmail, version } = args;
+  const { provider, namespace, acmeEmail, version, vault } = args;
   const opts = { provider };
 
   // cert-manager controller + webhook + cainjector + CRDs, one manifest.
@@ -87,25 +89,14 @@ export function installCertManager(args: CertManagerArgs): CertManagerResources 
     opts,
   );
 
-  // The CF API token for the DNS-01 solver, synced by ESO (NOT a Pulumi CF
-  // resource). Account-owned token, already validated (Zone.DNS:Edit +
-  // Zone.Zone:Read covered).
-  const cfTokenSecret = new k8s.apiextensions.CustomResource(
-    "es-cloudflare-token",
+  // The CF API token for the DNS-01 solver, from the SOPS vault (CC-k8t7).
+  // In the cert-manager namespace so the ClusterIssuer's DNS-01 solver can read it.
+  const cfTokenSecret = new k8s.core.v1.Secret(
+    "cloudflare-api-token",
     {
-      apiVersion: "external-secrets.io/v1",
-      kind: "ExternalSecret",
-      // In the cert-manager namespace, NOT the app namespace, so the
-      // ClusterIssuer's DNS-01 solver can read it (see CERT_MANAGER_NAMESPACE).
-      metadata: { name: "es-cloudflare-token", namespace: CERT_MANAGER_NAMESPACE },
-      spec: {
-        refreshInterval: "1h",
-        secretStoreRef: { kind: "ClusterSecretStore", name: "onepassword" },
-        target: { name: CF_TOKEN_SECRET, creationPolicy: "Owner" },
-        data: [{ secretKey: CF_TOKEN_KEY, remoteRef: { key: "Cloudflare API/credential" } }],
-      },
+      metadata: { name: CF_TOKEN_SECRET, namespace: CERT_MANAGER_NAMESPACE },
+      stringData: { [CF_TOKEN_KEY]: pulumi.secret(vault.CLOUDFLARE_API__CREDENTIAL) },
     },
-    // The cert-manager namespace is created by the install manifest.
     { ...opts, dependsOn: [install] },
   );
 
