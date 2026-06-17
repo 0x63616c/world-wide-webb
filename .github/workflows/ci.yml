@@ -272,6 +272,7 @@ jobs:
     if: needs.changes.outputs.web == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
+    environment: prod
     steps:
       - uses: actions/checkout@v4
 
@@ -283,11 +284,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: ./.github/actions/ghcr-login
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
 
       # The Docker builder image has no .git, so the commit timestamp must be
       # computed here (where the repo is checked out) and passed in as a build-arg.
@@ -317,6 +316,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
+    environment: prod
     steps:
       - uses: actions/checkout@v4
 
@@ -328,11 +328,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: ./.github/actions/ghcr-login
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push api image
         uses: docker/build-push-action@v6
@@ -352,6 +350,7 @@ jobs:
     if: needs.changes.outputs.worker == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
+    environment: prod
     steps:
       - uses: actions/checkout@v4
 
@@ -362,11 +361,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: ./.github/actions/ghcr-login
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push worker image
         uses: docker/build-push-action@v6
@@ -386,6 +383,7 @@ jobs:
     if: needs.changes.outputs.mediaworker == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
+    environment: prod
     steps:
       - uses: actions/checkout@v4
 
@@ -393,11 +391,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: ./.github/actions/ghcr-login
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push media-worker image
         uses: docker/build-push-action@v6
@@ -417,6 +413,7 @@ jobs:
     if: needs.changes.outputs.storybook == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
+    environment: prod
     steps:
       - uses: actions/checkout@v4
 
@@ -428,11 +425,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: ./.github/actions/ghcr-login
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push storybook image
         uses: docker/build-push-action@v6
@@ -452,6 +447,7 @@ jobs:
     if: needs.changes.outputs.drizzle == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
+    environment: prod
     steps:
       - uses: actions/checkout@v4
 
@@ -463,11 +459,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: ./.github/actions/ghcr-login
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push drizzle image
         uses: docker/build-push-action@v6
@@ -487,6 +481,7 @@ jobs:
     if: needs.changes.outputs.captiveportal == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
+    environment: prod
     steps:
       - uses: actions/checkout@v4
 
@@ -496,11 +491,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: ./.github/actions/ghcr-login
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push captive-portal image
         uses: docker/build-push-action@v6
@@ -520,6 +513,7 @@ jobs:
     if: needs.changes.outputs.mapprovision == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
+    environment: prod
     steps:
       - uses: actions/checkout@v4
 
@@ -529,11 +523,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: ./.github/actions/ghcr-login
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push map-provision image
         uses: docker/build-push-action@v6
@@ -553,6 +545,7 @@ jobs:
     if: needs.changes.outputs.amp == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
+    environment: prod
     steps:
       - uses: actions/checkout@v4
 
@@ -562,11 +555,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: ./.github/actions/ghcr-login
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push AMP image
         uses: docker/build-push-action@v6
@@ -586,6 +577,7 @@ jobs:
     if: needs.changes.outputs.textyourex == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
+    environment: prod
     steps:
       - uses: actions/checkout@v4
 
@@ -595,11 +587,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: ./.github/actions/ghcr-login
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push tye-api image
         uses: docker/build-push-action@v6
@@ -619,6 +609,7 @@ jobs:
     if: needs.changes.outputs.textyourex == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
+    environment: prod
     steps:
       - uses: actions/checkout@v4
 
@@ -628,11 +619,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: ./.github/actions/ghcr-login
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push tye-frontend image
         uses: docker/build-push-action@v6
@@ -697,15 +686,19 @@ jobs:
           PULUMI_TOKEN=$(extract PULUMI__ACCESS_TOKEN)
           KUBECONFIG_B64_VAL=$(extract KUBECONFIG__B64)
 
+          GHCR_PAT_VAL=$(extract GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN)
+
           echo "::add-mask::$TS_CLIENT_ID"
           echo "::add-mask::$TS_CLIENT_SECRET"
           echo "::add-mask::$PULUMI_TOKEN"
           echo "::add-mask::$KUBECONFIG_B64_VAL"
+          echo "::add-mask::$GHCR_PAT_VAL"
 
           echo "TS_OAUTH_CLIENT_ID=$TS_CLIENT_ID" >> "$GITHUB_ENV"
           echo "TS_OAUTH_SECRET=$TS_CLIENT_SECRET" >> "$GITHUB_ENV"
           echo "PULUMI_ACCESS_TOKEN=$PULUMI_TOKEN" >> "$GITHUB_ENV"
           echo "KUBECONFIG_B64=$KUBECONFIG_B64_VAL" >> "$GITHUB_ENV"
+          echo "GHCR_PAT=$GHCR_PAT_VAL" >> "$GITHUB_ENV"
           # SOPS_AGE_KEY flows into the pulumi up step via secrets.AGE_PRIVATE_KEY
 
       # Read each app image's current :main digest. A pinned digest renders the
@@ -718,7 +711,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ env.GHCR_PAT }}
 
       - name: Collect image digests
         id: digests

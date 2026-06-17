@@ -1,0 +1,24 @@
+name: GHCR Login (vault PAT)
+description: Install sops+age, extract GHCR PAT from SOPS vault, login to ghcr.io
+inputs:
+  age-key:
+    required: true
+    description: SOPS age private key (AGE_PRIVATE_KEY env secret)
+runs:
+  using: composite
+  steps:
+    - name: Install sops + age (arm64)
+      shell: bash
+      run: |
+        curl -fsSL https://github.com/getsops/sops/releases/download/v3.9.0/sops-v3.9.0.linux.arm64 \
+          -o /usr/local/bin/sops && chmod +x /usr/local/bin/sops
+        curl -fsSL https://github.com/FiloSottile/age/releases/download/v1.2.1/age-v1.2.1-linux-arm64.tar.gz \
+          | tar -xzC /usr/local/bin --strip-components=1 age/age age/age-keygen
+    - name: Extract GHCR PAT and login
+      shell: bash
+      env:
+        SOPS_AGE_KEY: ${{ inputs.age-key }}
+      run: |
+        GHCR_PAT=$(sops -d secrets/vault.yaml | grep "^GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN:" | cut -d' ' -f2-)
+        echo "::add-mask::$GHCR_PAT"
+        echo "$GHCR_PAT" | docker login ghcr.io -u 0x63616c --password-stdin

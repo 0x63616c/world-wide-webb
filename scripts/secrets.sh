@@ -13,4 +13,4 @@ if [ $# -eq 0 ]; then
 fi
 
 SOPS_AGE_KEY=$(security find-generic-password -a "$USER" -s "age-world-wide-webb-private-key" -w) \
-  sops exec-env "$(dirname "$0")/../secrets/world-wide-webb.yaml" "$*"
+  sops exec-env "$(dirname "$0")/../secrets/vault.yaml" "$*"
