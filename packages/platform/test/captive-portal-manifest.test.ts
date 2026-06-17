@@ -51,8 +51,6 @@ describe("Captive Portal platform representation", () => {
     });
     expect(Object.keys(manifest.secretUsages.api.secrets).sort()).toEqual([
       "POSTGRES_PASSWORD",
-      "RESEND_API_KEY",
-      "RESEND_FROM",
       "UNIFI_API_KEY",
       "WIFI_PASSWORD",
       "WIFI_SSID",

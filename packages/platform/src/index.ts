@@ -335,10 +335,6 @@ export const secretCatalog = {
   openRouter: {
     apiKey: opSecret("OpenRouter", "credential"),
   },
-  resend: {
-    apiKey: opSecret("Resend", "credential"),
-    fromAddress: opSecret("Resend", "from-address"),
-  },
   spotify: {
     clientId: opSecret("Spotify", "client_id"),
     clientSecret: opSecret("Spotify", "client_secret"),
@@ -398,8 +394,6 @@ export function controlCenterServiceSecretUsages(): Record<
     SPOTIFY_CLIENT_ID: secretCatalog.spotify.clientId,
     SPOTIFY_CLIENT_SECRET: secretCatalog.spotify.clientSecret,
     SPOTIFY_REFRESH_TOKEN: secretCatalog.spotify.refreshToken,
-    RESEND_API_KEY: secretCatalog.resend.apiKey,
-    RESEND_FROM: secretCatalog.resend.fromAddress,
   } as const;
   const workerSecrets = {
     HA_TOKEN: secretCatalog.homeAssistant.token,
@@ -814,8 +808,6 @@ export function captivePortalProductManifest(): CaptivePortalProductManifest {
     "api",
     {
       POSTGRES_PASSWORD: secretCatalog.captivePortal.postgresPassword,
-      RESEND_API_KEY: secretCatalog.resend.apiKey,
-      RESEND_FROM: secretCatalog.resend.fromAddress,
       UNIFI_API_KEY: secretCatalog.unifi.localApiKey,
       WIFI_PASSWORD: secretCatalog.wifiGuest.password,
       WIFI_SSID: secretCatalog.wifiGuest.ssid,

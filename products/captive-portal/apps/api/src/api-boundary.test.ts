@@ -6,14 +6,7 @@ describe("captive portal product API boundary", () => {
   it("exposes only the captive portal tRPC procedures", () => {
     const procedures = Object.keys(captivePortalApiRouter._def.procedures).sort();
 
-    expect(procedures).toEqual([
-      "portal.authorize",
-      "portal.checkPassword",
-      "portal.resetAttempts",
-      "portal.sendCode",
-      "portal.status",
-      "portal.verifyCode",
-    ]);
+    expect(procedures).toEqual(["portal.authorize", "portal.checkPassword", "portal.status"]);
   });
 
   it("declares the service integrations and secret inputs it depends on", () => {
@@ -21,12 +14,7 @@ describe("captive portal product API boundary", () => {
       service: "captive-portal-api",
       routerBoundary: "portal-only",
       integrationDependencies: ["unifi"],
-      secretNames: [
-        "POSTGRES_PASSWORD",
-        "UNIFI_API_KEY",
-        "WIFI_PASSWORD",
-        "WIFI_SSID",
-      ],
+      secretNames: ["POSTGRES_PASSWORD", "UNIFI_API_KEY", "WIFI_PASSWORD", "WIFI_SSID"],
     });
   });
 });
