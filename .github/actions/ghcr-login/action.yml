@@ -1,9 +1,7 @@
 name: GHCR Login (vault PAT)
 description: Install sops+age, extract GHCR PAT from SOPS vault, login to ghcr.io
-inputs:
-  age-key:
-    required: true
-    description: SOPS age private key (AGE_PRIVATE_KEY env secret)
+# SOPS_AGE_KEY must be set as env on the calling step (not an input — multiline
+# secrets passed through composite inputs lose their newlines and fail to parse).
 runs:
   using: composite
   steps:
@@ -16,8 +14,6 @@ runs:
           | tar -xzC /usr/local/bin --strip-components=1 age/age age/age-keygen
     - name: Extract GHCR PAT and login
       shell: bash
-      env:
-        SOPS_AGE_KEY: ${{ inputs.age-key }}
       run: |
         GHCR_PAT=$(sops -d secrets/vault.yaml | grep "^GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN:" | cut -d' ' -f2-)
         echo "::add-mask::$GHCR_PAT"

@@ -285,8 +285,8 @@ jobs:
 
       - name: Log in to GHCR
         uses: ./.github/actions/ghcr-login
-        with:
-          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
 
       # The Docker builder image has no .git, so the commit timestamp must be
       # computed here (where the repo is checked out) and passed in as a build-arg.
@@ -329,8 +329,8 @@ jobs:
 
       - name: Log in to GHCR
         uses: ./.github/actions/ghcr-login
-        with:
-          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push api image
         uses: docker/build-push-action@v6
@@ -362,8 +362,8 @@ jobs:
 
       - name: Log in to GHCR
         uses: ./.github/actions/ghcr-login
-        with:
-          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push worker image
         uses: docker/build-push-action@v6
@@ -392,8 +392,8 @@ jobs:
 
       - name: Log in to GHCR
         uses: ./.github/actions/ghcr-login
-        with:
-          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push media-worker image
         uses: docker/build-push-action@v6
@@ -426,8 +426,8 @@ jobs:
 
       - name: Log in to GHCR
         uses: ./.github/actions/ghcr-login
-        with:
-          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push storybook image
         uses: docker/build-push-action@v6
@@ -460,8 +460,8 @@ jobs:
 
       - name: Log in to GHCR
         uses: ./.github/actions/ghcr-login
-        with:
-          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push drizzle image
         uses: docker/build-push-action@v6
@@ -492,8 +492,8 @@ jobs:
 
       - name: Log in to GHCR
         uses: ./.github/actions/ghcr-login
-        with:
-          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push captive-portal image
         uses: docker/build-push-action@v6
@@ -524,8 +524,8 @@ jobs:
 
       - name: Log in to GHCR
         uses: ./.github/actions/ghcr-login
-        with:
-          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push map-provision image
         uses: docker/build-push-action@v6
@@ -556,8 +556,8 @@ jobs:
 
       - name: Log in to GHCR
         uses: ./.github/actions/ghcr-login
-        with:
-          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push AMP image
         uses: docker/build-push-action@v6
@@ -588,8 +588,8 @@ jobs:
 
       - name: Log in to GHCR
         uses: ./.github/actions/ghcr-login
-        with:
-          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push tye-api image
         uses: docker/build-push-action@v6
@@ -620,8 +620,8 @@ jobs:
 
       - name: Log in to GHCR
         uses: ./.github/actions/ghcr-login
-        with:
-          age-key: ${{ secrets.AGE_PRIVATE_KEY }}
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
 
       - name: Build and push tye-frontend image
         uses: docker/build-push-action@v6
