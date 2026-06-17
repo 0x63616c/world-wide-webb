@@ -53,6 +53,11 @@ pre-commit:
       # (the guard hardcodes the exemption). Staged-only: legacy cleans up as
       # touched. Hermetic tests in scripts/test-check-no-em-dash.sh (www-9pvp).
       run: bash scripts/check-no-em-dash.sh {staged_files}
+    no-plaintext-secrets:
+      glob: "secrets/*.yaml"
+      # BLOCKING: rejects any secrets/*.yaml that is not SOPS-encrypted.
+      # Valid SOPS files always contain a `sops:` metadata block.
+      run: bash scripts/check-sops-encrypted.sh {staged_files}
     gitleaks:
       # BLOCKING: scans the staged diff for secrets (prefixed tokens, private
       # keys, high-entropy strings). Config + allowlist live in .gitleaks.toml.
