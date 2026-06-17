@@ -170,3 +170,19 @@ cmd_button(
     location=location.RESOURCE,
     requires_confirmation=True,
 )
+
+# Boot the iOS kiosk shell in the iPad Pro simulator with live-reload pointing at
+# the local web dev server (port_web). Capacitor config lives in
+# products/control-center/web, so run cap from there. iPad Pro 13-inch (M5) is the
+# closest installed sim to the 1366x1024 wall panel.
+cmd_button(
+    name="ipad-simulator",
+    resource="web",
+    argv=[
+        "sh", "-c",
+        'cd products/control-center/web && bunx cap run ios --live-reload --host localhost --port %d --target-name "iPad Pro 13-inch (M5)"' % port_web,
+    ],
+    text="iPad Simulator",
+    icon_name="tablet_mac",
+    location=location.RESOURCE,
+)

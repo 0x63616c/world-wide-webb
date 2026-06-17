@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "cap:sync": "bun run build && bunx cap sync ios",
     "cap:open": "bunx cap open ios",
-    "ios:sim": "bunx cap run ios --live-reload --port 4200 --host localhost",
+    "ios:sim": "bunx cap run ios --live-reload --port 4200 --host localhost --target-name \"iPad Pro 13-inch (M5)\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
