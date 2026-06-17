@@ -6,7 +6,7 @@
  */
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
-import { portalAuthorization, portalRateLimit, PORTAL_RATE_LIMIT_ID } from "../db/schema";
+import { PORTAL_RATE_LIMIT_ID, portalAuthorization, portalRateLimit } from "../db/schema";
 
 // Helper: find a column config by its SQL column name.
 function col(table: ReturnType<typeof getTableConfig>, name: string) {

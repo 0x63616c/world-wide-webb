@@ -76,10 +76,13 @@ describe("wrong password is inline only (no client lockout, server enforces glob
 
 describe("double-submit lock", () => {
   it("PASSWORD_SUBMIT while busy is ignored", () => {
-    const { state, effects } = reducer(start({ busy: true, form: { password: "", agreed: true } }), {
-      type: "PASSWORD_SUBMIT",
-      password: "x",
-    });
+    const { state, effects } = reducer(
+      start({ busy: true, form: { password: "", agreed: true } }),
+      {
+        type: "PASSWORD_SUBMIT",
+        password: "x",
+      },
+    );
     expect(effects).toEqual([]);
     expect(state.busy).toBe(true);
   });

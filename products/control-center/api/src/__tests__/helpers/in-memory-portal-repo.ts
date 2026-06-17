@@ -26,8 +26,7 @@ export function makeInMemoryPortalRepo(): PortalRepo & {
       return rateLimit;
     },
     async bumpWrongAttempt(dateUtc, now) {
-      const next =
-        rateLimit && rateLimit.dateUtc === dateUtc ? rateLimit.wrongAttempts + 1 : 1;
+      const next = rateLimit && rateLimit.dateUtc === dateUtc ? rateLimit.wrongAttempts + 1 : 1;
       rateLimit = { id: "global", dateUtc, wrongAttempts: next, updatedAtUtc: now };
       return next;
     },

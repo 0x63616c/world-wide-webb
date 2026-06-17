@@ -14,10 +14,11 @@ describe("validatePassword(), Wi-Fi password", () => {
     expect(validatePassword(pw)).toBe(msg);
   });
 
-  it.each(["123456", "guest-passw0rd", "a-perfectly-fine-password"])(
-    "accepts %o (returns null)",
-    (pw) => {
-      expect(validatePassword(pw)).toBeNull();
-    },
-  );
+  it.each([
+    "123456",
+    "guest-passw0rd",
+    "a-perfectly-fine-password",
+  ])("accepts %o (returns null)", (pw) => {
+    expect(validatePassword(pw)).toBeNull();
+  });
 });
