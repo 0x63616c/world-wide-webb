@@ -11,5 +11,14 @@
         ]
       }
     ]
+  },
+  "permissions": {
+    "deny": [
+      "Read(secrets/**)",
+      "Bash(sops -d*)",
+      "Bash(sops --decrypt*)",
+      "Bash(cat secrets/*)",
+      "Bash(sops decrypt*)"
+    ]
   }
 }

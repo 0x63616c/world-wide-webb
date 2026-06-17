@@ -103,6 +103,36 @@ Reusable multi-agent orchestration scripts live in `.claude/workflows/` (run via
   - **Intended use:** scope + approve the plan with Calum first, then launch. Conservative git, commits per feature, no `git push` unless `args.push:true`.
 - **`wf-finish-dashboard.mjs`** (untracked, repo root `.claude/`), the original one-shot that finished the dashboard; `ship` is its generalization. Kept for reference.
 
+## Secrets (SOPS + age) — DO NOT READ
+
+All secrets live in `secrets/world-wide-webb.yaml`, SOPS-encrypted with a post-quantum age key (ML-KEM-768 + X25519). This is the single source of truth, migrated off 1Password (www-k8t7). 1Password is now cold-backup only.
+
+**Env var naming:** each key is `ITEM__FIELD` (double underscore), SCREAMING_SNAKE_CASE, derived from the 1P item title + field name. E.g. `CLOUDFLARE_API__CREDENTIAL`, `SPOTIFY__CLIENT_ID`, `CONTROL_CENTER_POSTGRES__PASSWORD`.
+
+**Using secrets (the ONLY sanctioned way):**
+```bash
+scripts/secrets.sh <command>          # injects all secrets as env vars, runs command
+scripts/secrets.sh bun run dev        # e.g. dev server with secrets
+scripts/secrets.sh pulumi up --stack prod
+```
+`scripts/secrets.sh` wraps `sops exec-env` — decrypts in-memory, injects as env vars into the subprocess, NEVER prints plaintext to stdout.
+
+**FORBIDDEN — never run these (they leak plaintext into the conversation):**
+- `sops -d` / `sops --decrypt` / `sops decrypt` — dumps plaintext to stdout
+- `cat secrets/*` or Read tool on `secrets/**` — encrypted, but never read it anyway
+- `scripts/secrets.sh env` / `... -- echo $SECRET` — dumps the injected env
+
+These are blocked by `.claude/settings.json` deny rules + the `no-plaintext-secrets` lefthook guard.
+
+**Adding / editing / rotating a secret:**
+```bash
+SOPS_AGE_KEY=$(security find-generic-password -a "$USER" -s "age-world-wide-webb-private-key" -w) \
+  sops secrets/world-wide-webb.yaml   # opens decrypted in $EDITOR, re-encrypts on save+quit
+```
+Plaintext only ever lives in the editor buffer, never on disk.
+
+**Age key:** lives in macOS Keychain (`age-world-wide-webb-private-key`), public key in `.sops.yaml`. Private key is also in 1P cold backup ("SOPS Age worldwidewebb Key", Homelab vault). Re-run the full 1P→SOPS migration with `bun scripts/migrate-1p-to-sops.ts <export.1pux>`.
+
 ## Tooling
 
 - Tail multiple k8s pods/containers → `stern <selector>` (color-coded per pod/container). E.g. `stern control-center` tails all pods matching the selector. Prefer over `kubectl logs -f` for multi-pod debugging.
