@@ -23,6 +23,22 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 Register a new app + mint its profile against the shared match repo
 
+### ios enable_apple_sign_in
+
+```sh
+[bundle exec] fastlane ios enable_apple_sign_in
+```
+
+Enable Sign In with Apple on the App ID + refresh the profile
+
+### ios setup_testflight
+
+```sh
+[bundle exec] fastlane ios setup_testflight
+```
+
+Create an internal TestFlight group + add the account holder as a tester
+
 ### ios release
 
 ```sh

@@ -103,6 +103,10 @@ Reusable multi-agent orchestration scripts live in `.claude/workflows/` (run via
   - **Intended use:** scope + approve the plan with Calum first, then launch. Conservative git, commits per feature, no `git push` unless `args.push:true`.
 - **`wf-finish-dashboard.mjs`** (untracked, repo root `.claude/`), the original one-shot that finished the dashboard; `ship` is its generalization. Kept for reference.
 
+## Tooling
+
+- Tail multiple k8s pods/containers → `stern <selector>` (color-coded per pod/container). E.g. `stern control-center` tails all pods matching the selector. Prefer over `kubectl logs -f` for multi-pod debugging.
+
 ## Architecture Overview
 
 Smart-home wall-panel dashboard, fixed 1366×1024. `products/control-center/web` renders tiles from shared primitives under `products/control-center/web/src/components/ui/`; `products/control-center/api` is a tRPC backend whose services THROW on error/unconfigured (never return constants). The QueryClient retries infinitely so tiles recover from outages.
