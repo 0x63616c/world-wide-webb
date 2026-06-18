@@ -47,7 +47,7 @@ const cnpg = installCnpg({
 // cert-manager + CF DNS-01 ClusterIssuer + portal TLS Certificate (www-j934.5).
 const certManager = installCertManager({
   provider: cluster.provider,
-  namespace: namespaces["control-center"],
+  namespace: namespaces["captive-portal"],
   acmeEmail: cfg.get("acmeEmail"),
   version: "v1.20.2",
   vault,
@@ -98,7 +98,7 @@ const services = deployServices({
 // basic-auth Secrets, so order after eso + cnpg.
 const crons = deployCrons({
   provider: cluster.provider,
-  namespace: namespaces["control-center"],
+  namespaces,
   nasNfsServer,
 });
 

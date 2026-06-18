@@ -32,8 +32,26 @@ beforeAll(async () => {
 // The NAS server (default LAN IP) the pg-backup NFS PV points at, threaded in the
 // same way services.ts threads it into the media-worker volume (www-j934.17).
 const NAS = "192.168.0.218";
+const testNamespaces = {
+  "control-center": "control-center",
+  "captive-portal": "captive-portal",
+  "text-your-ex": "text-your-ex",
+  amp: "amp",
+  platform: "platform",
+} as const;
 
-const byName = (specs: CronJobSpec[], name: string) => specs.find((s) => s.name === name);
+function get<T>(r: pulumi.Resource, prop: string): Promise<T> {
+  const out = (r as unknown as Record<string, pulumi.Output<T>>)[prop];
+  return new Promise((resolve) => {
+    out.apply((value) => {
+      resolve(value);
+      return value;
+    });
+  });
+}
+
+type CronSpec = ReturnType<typeof crons.cronSpecs>[number];
+const byName = (specs: CronSpec[], name: string) => specs.find((s) => s.name === name);
 
 describe("cronSpecs: the declared CronJob set", () => {
   test("declares product backups plus portal-data-purge and map-extract (no image-prune, no cert-renew)", () => {
@@ -74,6 +92,7 @@ describe("portal-data-purge", () => {
     const c = purge();
     // In k3s the api default host "postgres" does not resolve; the CNPG Service does.
     expect(c?.env?.POSTGRES_HOST).toBe("control-center-rw");
+    expect(c?.namespaceName).toBe("control-center");
     expect(c?.secrets?.map((s) => s.name)).toEqual(["POSTGRES_PASSWORD"]);
   });
 
@@ -220,6 +239,7 @@ describe("captive-portal-pg-backup", () => {
       nfs: { server: NAS, path: "/volume1/Homelab" },
       subPath: "backups/world-wide-webb/captive-portal/postgres",
     });
+    expect(c?.namespaceName).toBe("captive-portal");
   });
 });
 
@@ -253,6 +273,7 @@ describe("tye-pg-backup (www-jtp0.6.7)", () => {
   test("mounts the tye-postgres-auth secret for the DB password", () => {
     const c = backup();
     expect(c?.extraSecretMounts?.some((m) => m.secretName === "tye-postgres-auth")).toBe(true);
+    expect(c?.namespaceName).toBe("text-your-ex");
   });
 
   test("writes under the TYE NAS path", () => {
@@ -268,7 +289,24 @@ describe("tye-pg-backup (www-jtp0.6.7)", () => {
 describe("deployCrons (Pulumi wiring)", () => {
   test("instantiates a ScheduledJob per declared cron", async () => {
     const provider = new (await import("@pulumi/kubernetes")).Provider("test", { context: "x" });
-    const res = crons.deployCrons({ provider, namespace: "control-center", nasNfsServer: NAS });
+    const res = crons.deployCrons({ provider, namespaces: testNamespaces, nasNfsServer: NAS });
     expect(res.jobs).toHaveLength(crons.cronSpecs(NAS).length);
+  });
+
+  test("instantiates CronJobs in their owning namespaces", async () => {
+    const provider = new (await import("@pulumi/kubernetes")).Provider("test-namespaces", {
+      context: "x",
+    });
+    const res = crons.deployCrons({ provider, namespaces: testNamespaces, nasNfsServer: NAS });
+    const metadata = await Promise.all(
+      res.jobs.map((job) => get<{ name: string; namespace: string }>(job.cronJob, "metadata")),
+    );
+
+    expect(metadata.find((m) => m.name === "pg-backup")?.namespace).toBe("control-center");
+    expect(metadata.find((m) => m.name === "map-extract")?.namespace).toBe("control-center");
+    expect(metadata.find((m) => m.name === "captive-portal-pg-backup")?.namespace).toBe(
+      "captive-portal",
+    );
+    expect(metadata.find((m) => m.name === "tye-pg-backup")?.namespace).toBe("text-your-ex");
   });
 });

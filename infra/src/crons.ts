@@ -21,9 +21,12 @@ import {
   type DatabaseBackup,
   textYourExProductManifest,
 } from "@www/platform";
+import type { InfraNamespaceName } from "./cluster.ts";
 import type { CronJobSpec } from "./component.ts";
 import { ScheduledJob } from "./component.ts";
 import { SERVICE_SECRET_TARGETS } from "./secrets-map.ts";
+
+export type OwnedCronJobSpec = CronJobSpec & { namespaceName: InfraNamespaceName };
 
 // GHCR image ref (mutable :main tag; CI digest-pins at deploy). Mirrors services.ts.
 const ghcr = (name: string) => `ghcr.io/0x63616c/www-cc-${name}:main`;
@@ -55,9 +58,13 @@ function postgresBackupCommand(backup: DatabaseBackup): string[] {
  * @public - adapts the platform product backup intent into the infra CronJob
  * vocabulary while keeping renderCronJob responsible for k8s object details.
  */
-export function postgresBackupCronSpec(backup: DatabaseBackup, nasNfsServer: string): CronJobSpec {
+export function postgresBackupCronSpec(
+  backup: DatabaseBackup,
+  nasNfsServer: string,
+): OwnedCronJobSpec {
   return {
     name: backup.name,
+    namespaceName: backup.product,
     image: backup.image,
     schedule: backup.schedule,
     command: postgresBackupCommand(backup),
@@ -85,7 +92,7 @@ const tyeBackup = textYourExProductManifest().backup;
  * (www-j934.17); the NAS LAN IP by default. Consumed by deployCrons + the unit
  * tests; no other internal consumer.
  */
-export function cronSpecs(nasNfsServer: string): CronJobSpec[] {
+export function cronSpecs(nasNfsServer: string): OwnedCronJobSpec[] {
   return [
     // Captive-portal data hygiene (www-q002.18): a daily one-shot running the api
     // IMAGE's bundled purge.js entrypoint (NOT a worker loop). Deletes consumed/
@@ -94,6 +101,7 @@ export function cronSpecs(nasNfsServer: string): CronJobSpec[] {
     // because the api default "postgres" host doesn't resolve in k3s. 02:00 LA.
     {
       name: "portal-data-purge",
+      namespaceName: "control-center",
       image: ghcr("api"),
       schedule: "0 2 * * *",
       command: ["bun", "purge.js"],
@@ -116,6 +124,7 @@ export function cronSpecs(nasNfsServer: string): CronJobSpec[] {
     // refresh: `kubectl create job --from=cronjob/map-extract <name>`.
     {
       name: "map-extract",
+      namespaceName: "control-center",
       image: ghcr("map-provision"),
       schedule: "23 5 3 * *",
       command: ["/provision.sh", "force"],
@@ -136,7 +145,7 @@ export function cronSpecs(nasNfsServer: string): CronJobSpec[] {
 
 export interface CronsArgs {
   provider: k8s.Provider;
-  namespace: pulumi.Input<string>;
+  namespaces: Readonly<Record<InfraNamespaceName, pulumi.Input<string>>>;
   // NFS server for the NAS backup PV; the NAS LAN IP by default. kubelet mounts
   // the PV from the node netns (reaches the LAN on homelab, DESIGN §5b); the
   // pod-egress no-route limit (§5c) does not apply to PV mounts. www-j934.17.
@@ -152,9 +161,10 @@ export interface CronsResources {
  * cluster program (program.ts); no other internal consumer in this ticket.
  */
 export function deployCrons(args: CronsArgs): CronsResources {
-  const { provider, namespace, nasNfsServer } = args;
+  const { provider, namespaces, nasNfsServer } = args;
   const jobs = cronSpecs(nasNfsServer).map(
-    (spec) => new ScheduledJob({ ...spec, provider, namespace }, { provider }),
+    ({ namespaceName, ...spec }) =>
+      new ScheduledJob({ ...spec, provider, namespace: namespaces[namespaceName] }, { provider }),
   );
   return { jobs };
 }

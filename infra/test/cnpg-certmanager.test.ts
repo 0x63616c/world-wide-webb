@@ -182,11 +182,13 @@ describe("installCertManager", () => {
   test("the portal Certificate covers the legacy and nested app.cp LAN hosts", async () => {
     const res = cm.installCertManager({
       provider: provider(),
-      namespace: "control-center",
+      namespace: "captive-portal",
       version: "v1.20.2",
       vault: { CLOUDFLARE_API__CREDENTIAL: "test-token" },
     });
+    const meta = await get<{ namespace: string }>(res.certificate, "metadata");
     const spec = await get<{ dnsNames: string[]; secretName: string }>(res.certificate, "spec");
+    expect(meta.namespace).toBe("captive-portal");
     expect(spec.dnsNames).toEqual(["captive-portal.worldwidewebb.co", "app--cp.worldwidewebb.co"]);
     expect(spec.secretName).toBe("captive-portal-tls");
   });
