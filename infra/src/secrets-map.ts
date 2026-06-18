@@ -33,7 +33,7 @@ const workerSecrets: ServiceSecrets = { ...apiSecrets };
  * emit one native k8s Secret per service; the test asserts it matches deploy.config.ts.
  * web / storybook / captive-portal have NO secrets (absent here on purpose).
  */
-export const SERVICE_SECRETS: Record<string, ServiceSecrets> = {
+export const SERVICE_SECRETS = {
   api: apiSecrets,
   worker: workerSecrets,
   "media-worker": {
@@ -59,4 +59,4 @@ export const SERVICE_SECRETS: Record<string, ServiceSecrets> = {
   "tye-api": {
     POSTGRES_PASSWORD: "TEXT_YOUR_EX_POSTGRES__PASSWORD",
   },
-};
+} satisfies Record<string, ServiceSecrets>;

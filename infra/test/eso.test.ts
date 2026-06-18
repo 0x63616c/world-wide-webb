@@ -27,6 +27,14 @@ function get<T>(r: pulumi.Resource, prop: string): Promise<T> {
   });
 }
 
+const testNamespaces = {
+  "control-center": "control-center",
+  "captive-portal": "captive-portal",
+  "text-your-ex": "text-your-ex",
+  amp: "amp",
+  platform: "platform",
+} as const;
+
 describe("SERVICE_SECRETS", () => {
   test("worker mirrors api exactly (lockstep, www-51hf.35)", () => {
     const api = Object.keys(map.SERVICE_SECRETS.api).sort();
@@ -77,7 +85,7 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
 
     const res = esoModule.installEso({
       provider,
-      appNamespace: "control-center",
+      namespaces: testNamespaces,
       vault: mockVault,
     });
     expect(res.externalSecrets).toHaveLength(Object.keys(map.SERVICE_SECRETS).length);
@@ -94,7 +102,7 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
 
     const res = esoModule.installEso({
       provider,
-      appNamespace: "control-center",
+      namespaces: testNamespaces,
       vault: mockVault,
     });
     const apiSecret = res.externalSecrets[0];
@@ -114,12 +122,31 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
 
     const res = esoModule.installEso({
       provider,
-      appNamespace: "control-center",
+      namespaces: testNamespaces,
       vault: mockVault,
     });
     const names = await Promise.all(
       res.externalSecrets.map((s) => get<{ name: string }>(s, "metadata").then((m) => m.name)),
     );
     expect(names).toContain("cc-secrets-tye-api");
+  });
+
+  test("routes service Secrets to their owner namespaces", async () => {
+    const provider = new (await import("@pulumi/kubernetes")).Provider("test4", { context: "x" });
+    const mockVault: Record<string, string> = {};
+    for (const secrets of Object.values(map.SERVICE_SECRETS)) {
+      for (const vaultKey of Object.values(secrets)) {
+        mockVault[vaultKey] = `mock-${vaultKey}`;
+      }
+    }
+
+    const res = esoModule.installEso({ provider, namespaces: testNamespaces, vault: mockVault });
+    const metadata = await Promise.all(
+      res.externalSecrets.map((s) => get<{ name: string; namespace: string }>(s, "metadata")),
+    );
+
+    expect(metadata.find((m) => m.name === "cc-secrets-api")?.namespace).toBe("control-center");
+    expect(metadata.find((m) => m.name === "cc-secrets-cloudflared")?.namespace).toBe("platform");
+    expect(metadata.find((m) => m.name === "cc-secrets-tye-api")?.namespace).toBe("text-your-ex");
   });
 });

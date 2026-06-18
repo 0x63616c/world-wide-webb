@@ -35,7 +35,8 @@ export function serviceSecretData(
   service: string,
   vault: Record<string, string>,
 ): Record<string, pulumi.Output<string>> {
-  const secrets: ServiceSecrets = SERVICE_SECRETS[service] ?? {};
+  const secrets: ServiceSecrets =
+    (SERVICE_SECRETS as Record<string, ServiceSecrets>)[service] ?? {};
   return Object.fromEntries(
     Object.entries(secrets).map(([envName, vaultKey]) => {
       const value = vault[vaultKey];

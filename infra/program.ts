@@ -32,7 +32,7 @@ const vault = loadVault();
 // Native k8s Secrets per workload from vault (replaces ESO ExternalSecrets).
 const eso = installEso({
   provider: cluster.provider,
-  appNamespace: namespaces["control-center"],
+  namespaces,
   vault,
 });
 

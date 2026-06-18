@@ -5,12 +5,13 @@
 
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
+import type { InfraNamespaceName } from "./cluster.ts";
 import type { ServiceSecrets } from "./secrets-map.ts";
 import { SERVICE_SECRETS } from "./secrets-map.ts";
 
 export interface SecretsArgs {
   provider: k8s.Provider;
-  appNamespace: pulumi.Input<string>;
+  namespaces: Readonly<Record<InfraNamespaceName, pulumi.Input<string>>>;
   vault: Record<string, string>;
 }
 
@@ -18,6 +19,18 @@ export interface SecretsResources {
   // Kept for program.ts export compat; each entry is a native Secret, not an ExternalSecret.
   externalSecrets: k8s.core.v1.Secret[];
 }
+
+const SERVICE_NAMESPACES = {
+  api: "control-center",
+  worker: "control-center",
+  "media-worker": "control-center",
+  drizzle: "control-center",
+  cloudflared: "platform",
+  "portal-data-purge": "control-center",
+  "tye-api": "text-your-ex",
+} as const satisfies Record<keyof typeof SERVICE_SECRETS, InfraNamespaceName>;
+
+type ServiceSecretName = keyof typeof SERVICE_SECRETS;
 
 function createServiceSecret(
   service: string,
@@ -50,11 +63,13 @@ function createServiceSecret(
  * vault. Replaces ESO ExternalSecrets (CC-k8t7). Consumed by the cluster program.
  */
 export function installEso(args: SecretsArgs): SecretsResources {
-  const { provider, appNamespace, vault } = args;
+  const { provider, namespaces, vault } = args;
   const opts = { provider };
 
-  const externalSecrets = Object.entries(SERVICE_SECRETS).map(([service, secrets]) =>
-    createServiceSecret(service, secrets, vault, appNamespace, opts),
+  const externalSecrets = (
+    Object.entries(SERVICE_SECRETS) as [ServiceSecretName, ServiceSecrets][]
+  ).map(([service, secrets]) =>
+    createServiceSecret(service, secrets, vault, namespaces[SERVICE_NAMESPACES[service]], opts),
   );
 
   return { externalSecrets };

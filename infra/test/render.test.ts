@@ -275,6 +275,42 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
       specOf(serviceSpecs({ ...baseOpts, cloudflaredReplicas: 2 }), "cloudflared")?.replicas,
     ).toBe(2);
   });
+
+  test("assigns product workloads to owner namespaces with namespace-local names", () => {
+    const specs = serviceSpecs(baseOpts).map((spec) => ({
+      logicalName: spec.logicalName,
+      name: spec.name,
+      namespaceName: spec.namespaceName,
+    }));
+
+    expect(specs).toEqual(
+      expect.arrayContaining([
+        { logicalName: "control-center-api", name: "api", namespaceName: "control-center" },
+        { logicalName: "control-center-web", name: "web", namespaceName: "control-center" },
+        { logicalName: "control-center-worker", name: "worker", namespaceName: "control-center" },
+        {
+          logicalName: "control-center-media-worker",
+          name: "media-worker",
+          namespaceName: "control-center",
+        },
+        {
+          logicalName: "control-center-storybook",
+          name: "storybook",
+          namespaceName: "control-center",
+        },
+        { logicalName: "control-center-drizzle", name: "drizzle", namespaceName: "control-center" },
+        { logicalName: "captive-portal-portal", name: "portal", namespaceName: "captive-portal" },
+        { logicalName: "text-your-ex-api", name: "api", namespaceName: "text-your-ex" },
+        {
+          logicalName: "text-your-ex-frontend",
+          name: "frontend",
+          namespaceName: "text-your-ex",
+        },
+        { logicalName: "amp-app", name: "app", namespaceName: "amp" },
+        { logicalName: "platform-cloudflared", name: "cloudflared", namespaceName: "platform" },
+      ]),
+    );
+  });
 });
 
 // www-hn1i: initContainers, first user is the web map-provision init, which
