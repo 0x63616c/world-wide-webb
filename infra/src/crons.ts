@@ -19,6 +19,7 @@ import {
   captivePortalProductManifest,
   controlCenterProductManifest,
   type DatabaseBackup,
+  defineProduct,
   textYourExProductManifest,
 } from "@www/platform";
 import type { InfraNamespaceName } from "./cluster.ts";
@@ -28,8 +29,10 @@ import { SERVICE_SECRET_TARGETS } from "./secrets-map.ts";
 
 export type OwnedCronJobSpec = CronJobSpec & { namespaceName: InfraNamespaceName };
 
+const controlCenterProduct = defineProduct("control-center");
+
 // GHCR image ref (mutable :main tag; CI digest-pins at deploy). Mirrors services.ts.
-const ghcr = (name: string) => `ghcr.io/0x63616c/www-cc-${name}:main`;
+const ghcr = (name: string) => `${controlCenterProduct.imageRepository(name)}:main`;
 
 const TZ = "America/Los_Angeles";
 

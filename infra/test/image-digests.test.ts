@@ -8,9 +8,9 @@ import { type ImageDigests, serviceSpecs } from "../src/services.ts";
 // that workload rolls on `pulumi up` (the www-czg property, now driven by the
 // digest-pinned Pulumi program).
 
-const imageOf = (specs: ReturnType<typeof serviceSpecs>, name: string): string => {
-  const spec = specs.find((s) => s.name === name);
-  if (!spec) throw new Error(`no spec for ${name}`);
+const imageOf = (specs: ReturnType<typeof serviceSpecs>, logicalName: string): string => {
+  const spec = specs.find((s) => s.logicalName === logicalName);
+  if (!spec) throw new Error(`no spec for ${logicalName}`);
   return spec.image;
 };
 
@@ -31,21 +31,31 @@ const VALID = `sha256:${"a".repeat(64)}`;
 describe("serviceSpecs image digest pinning", () => {
   test("falls back to the :main tag when no digest is supplied", () => {
     const specs = specsWith();
-    expect(imageOf(specs, "api")).toBe("ghcr.io/0x63616c/www-cc-api:main");
-    expect(imageOf(specs, "web")).toBe("ghcr.io/0x63616c/www-cc-web:main");
+    expect(imageOf(specs, "control-center-api")).toBe(
+      "ghcr.io/0x63616c/www-control-center-api:main",
+    );
+    expect(imageOf(specs, "control-center-web")).toBe(
+      "ghcr.io/0x63616c/www-control-center-web:main",
+    );
     expect(imageOf(specs, "amp-app")).toBe("ghcr.io/0x63616c/www-amp-app:main");
   });
 
   test("pins the GHCR ref by digest when one is supplied for that service", () => {
     const specs = specsWith({ api: VALID });
-    expect(imageOf(specs, "api")).toBe(`ghcr.io/0x63616c/www-cc-api@${VALID}`);
+    expect(imageOf(specs, "control-center-api")).toBe(
+      `ghcr.io/0x63616c/www-control-center-api@${VALID}`,
+    );
   });
 
   test("pins only the services in the map; the rest stay on :main", () => {
     const specs = specsWith({ web: VALID });
-    expect(imageOf(specs, "web")).toBe(`ghcr.io/0x63616c/www-cc-web@${VALID}`);
+    expect(imageOf(specs, "control-center-web")).toBe(
+      `ghcr.io/0x63616c/www-control-center-web@${VALID}`,
+    );
     // worker has no digest, so it must NOT roll: still the mutable tag.
-    expect(imageOf(specs, "worker")).toBe("ghcr.io/0x63616c/www-cc-worker:main");
+    expect(imageOf(specs, "control-center-worker")).toBe(
+      "ghcr.io/0x63616c/www-control-center-worker:main",
+    );
   });
 
   test("pins the AMP image through its product-aware repository name", () => {
@@ -55,7 +65,7 @@ describe("serviceSpecs image digest pinning", () => {
 
   test("the upstream cloudflared image is never digest-pinned by this map", () => {
     const specs = specsWith({ cloudflared: VALID } as ImageDigests);
-    expect(imageOf(specs, "cloudflared")).toBe("cloudflare/cloudflared:2025.10.1");
+    expect(imageOf(specs, "platform-cloudflared")).toBe("cloudflare/cloudflared:2025.10.1");
   });
 
   test("rejects a malformed digest so a bad config value can't ship an unpullable ref", () => {

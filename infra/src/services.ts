@@ -10,7 +10,11 @@
 
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
-import { controlCenterProductManifest, textYourExProductManifest } from "@www/platform";
+import {
+  controlCenterProductManifest,
+  defineProduct,
+  textYourExProductManifest,
+} from "@www/platform";
 import type { InfraNamespaceName } from "./cluster.ts";
 import type { WorkloadSpec } from "./component.ts";
 import { ExternalService, Workload } from "./component.ts";
@@ -24,12 +28,23 @@ import { SERVICE_SECRET_TARGETS } from "./secrets-map.ts";
 export type ImageDigests = Record<string, string>;
 export type OwnedWorkloadSpec = WorkloadSpec & { namespaceName: InfraNamespaceName };
 
-// Images that don't follow the default www-cc-<name> prefix.
+const controlCenterProduct = defineProduct("control-center");
+const captivePortalProduct = defineProduct("captive-portal");
+const textYourExProduct = defineProduct("text-your-ex");
+const ampProduct = defineProduct("amp");
+
 const IMAGE_REPOSITORIES = {
-  "captive-portal": "ghcr.io/0x63616c/www-cp-portal",
-  "tye-api": "ghcr.io/0x63616c/www-tye-api",
-  "tye-frontend": "ghcr.io/0x63616c/www-tye-web",
-  "amp-app": "ghcr.io/0x63616c/www-amp-app",
+  api: controlCenterProduct.imageRepository("api"),
+  worker: controlCenterProduct.imageRepository("worker"),
+  "media-worker": controlCenterProduct.imageRepository("media-worker"),
+  web: controlCenterProduct.imageRepository("web"),
+  storybook: controlCenterProduct.imageRepository("storybook"),
+  drizzle: controlCenterProduct.imageRepository("drizzle"),
+  "map-provision": controlCenterProduct.imageRepository("map-provision"),
+  "captive-portal": captivePortalProduct.imageRepository("portal"),
+  "tye-api": textYourExProduct.imageRepository("api"),
+  "tye-frontend": textYourExProduct.imageRepository("frontend"),
+  "amp-app": ampProduct.imageRepository("app"),
 } as const satisfies Record<string, string>;
 
 // GHCR image ref. Digest-pinned (@sha256:…) when CI supplied a digest for this
@@ -37,9 +52,8 @@ const IMAGE_REPOSITORIES = {
 // digest is set). The digest is validated shape-wise so a malformed config value
 // can't silently produce an unpullable ref.
 const ghcr = (name: string, digests: ImageDigests = {}): string => {
-  const base =
-    IMAGE_REPOSITORIES[name as keyof typeof IMAGE_REPOSITORIES] ??
-    `ghcr.io/0x63616c/www-cc-${name}`;
+  const base = IMAGE_REPOSITORIES[name as keyof typeof IMAGE_REPOSITORIES];
+  if (!base) throw new Error(`no image repository configured for ${name}`);
   const digest = digests[name];
   if (digest) {
     if (!/^sha256:[0-9a-f]{64}$/.test(digest)) {

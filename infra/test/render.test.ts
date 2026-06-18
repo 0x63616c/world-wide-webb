@@ -10,7 +10,7 @@ import { serviceSpecs } from "../src/services.ts";
 
 const api: WorkloadSpec = {
   name: "api",
-  image: "ghcr.io/0x63616c/www-cc-api:main",
+  image: "ghcr.io/0x63616c/www-control-center-api:main",
   replicas: 1,
   resources: { memory: "512M", reserveCpus: "0.5" },
   secrets: [{ name: "POSTGRES_PASSWORD", ref: "test-secret-ref" }],
@@ -66,7 +66,7 @@ describe("renderWorkload", () => {
   test("expose:lan yields a LoadBalancer Service (OrbStack LAN expose, §5a)", () => {
     const portal: WorkloadSpec = {
       name: "captive-portal",
-      image: "ghcr.io/0x63616c/www-cp-portal:main",
+      image: "ghcr.io/0x63616c/www-captive-portal-portal:main",
       replicas: 1,
       ports: [
         { containerPort: 443, expose: "lan" },
@@ -85,7 +85,7 @@ describe("renderWorkload", () => {
   test("expose:none yields no Service", () => {
     const worker: WorkloadSpec = {
       name: "worker",
-      image: "ghcr.io/0x63616c/www-cc-worker:main",
+      image: "ghcr.io/0x63616c/www-control-center-worker:main",
       replicas: 1,
     };
     expect(renderWorkload(worker).services).toHaveLength(0);
@@ -94,7 +94,7 @@ describe("renderWorkload", () => {
   test("an NFS volume emits mountOptions [nfsvers=3, nolock, tcp] (DS420+ is NFSv3-only, §5b)", () => {
     const media: WorkloadSpec = {
       name: "media-worker",
-      image: "ghcr.io/0x63616c/www-cc-media-worker:main",
+      image: "ghcr.io/0x63616c/www-control-center-media-worker:main",
       replicas: 1,
       volumes: [
         {
@@ -145,7 +145,7 @@ describe("renderWorkload: www-j934.6 extensions", () => {
   test("extraSecretMounts mount a secret as files at their own path (portal TLS)", () => {
     const portal: WorkloadSpec = {
       name: "captive-portal",
-      image: "ghcr.io/0x63616c/www-cp-portal:main",
+      image: "ghcr.io/0x63616c/www-captive-portal-portal:main",
       replicas: 1,
       resources: { memory: "64M" },
       extraSecretMounts: [{ secretName: "captive-portal-tls", mountPath: "/etc/tls" }],
@@ -164,7 +164,7 @@ describe("renderWorkload: www-j934.6 extensions", () => {
   test("extraSecretMounts items rename keys to file paths (cert-manager tls.crt -> fullchain.pem)", () => {
     const portal: WorkloadSpec = {
       name: "captive-portal",
-      image: "ghcr.io/0x63616c/www-cp-portal:main",
+      image: "ghcr.io/0x63616c/www-captive-portal-portal:main",
       replicas: 1,
       resources: { memory: "64M" },
       extraSecretMounts: [
@@ -195,7 +195,7 @@ describe("renderWorkload: NFS PV + PVC pair (www-j934.6)", () => {
   test("an NFS volume emits a statically-bound PVC alongside the PV", () => {
     const mw: WorkloadSpec = {
       name: "media-worker",
-      image: "ghcr.io/0x63616c/www-cc-media-worker:main",
+      image: "ghcr.io/0x63616c/www-control-center-media-worker:main",
       replicas: 1,
       resources: { memory: "1G" },
       volumes: [
@@ -360,14 +360,14 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
 describe("renderWorkload: initContainers (www-hn1i)", () => {
   const webWithInit: WorkloadSpec = {
     name: "web",
-    image: "ghcr.io/0x63616c/www-cc-web:main",
+    image: "ghcr.io/0x63616c/www-control-center-web:main",
     replicas: 1,
     ports: [{ containerPort: 80, expose: "cluster" }],
     volumes: [{ mountPath: "/usr/share/nginx/html/maps", claim: "maps", readOnly: true }],
     initContainers: [
       {
         name: "map-provision",
-        image: "ghcr.io/0x63616c/www-cc-map-provision:main",
+        image: "ghcr.io/0x63616c/www-control-center-map-provision:main",
         command: ["/provision.sh"],
         volumes: [{ mountPath: "/out", claim: "maps" }],
       },
@@ -378,7 +378,7 @@ describe("renderWorkload: initContainers (www-hn1i)", () => {
     const r = renderWorkload(webWithInit);
     const init = r.deployment.spec.template.spec.initContainers?.[0];
     expect(init?.name).toBe("map-provision");
-    expect(init?.image).toBe("ghcr.io/0x63616c/www-cc-map-provision:main");
+    expect(init?.image).toBe("ghcr.io/0x63616c/www-control-center-map-provision:main");
     expect(init?.command).toEqual(["/provision.sh"]);
   });
 
@@ -429,7 +429,7 @@ describe("serviceSpecs: web map-provision initContainer (www-hn1i)", () => {
   test("web declares the map-provision initContainer in if-missing mode", () => {
     const init = web()?.initContainers?.[0];
     expect(init?.name).toBe("map-provision");
-    expect(init?.image).toContain("www-cc-map-provision");
+    expect(init?.image).toContain("www-control-center-map-provision");
     // Default (no `force` arg) is if-missing: instant no-op when the file exists,
     // so rollouts on a provisioned PVC are unaffected.
     expect(init?.command).toEqual(["/provision.sh"]);
@@ -442,6 +442,8 @@ describe("serviceSpecs: web map-provision initContainer (www-hn1i)", () => {
       imageDigests: { "map-provision": `sha256:${"a".repeat(64)}` },
     });
     const init = specs.find((s) => s.name === "web")?.initContainers?.[0];
-    expect(init?.image).toBe(`ghcr.io/0x63616c/www-cc-map-provision@sha256:${"a".repeat(64)}`);
+    expect(init?.image).toBe(
+      `ghcr.io/0x63616c/www-control-center-map-provision@sha256:${"a".repeat(64)}`,
+    );
   });
 });
