@@ -237,16 +237,15 @@ jobs:
           bash scripts/test-cc-cutover-preflight.sh
           bash scripts/test-cc-post-cutover-smoke.sh
           node scripts/test-panel-health.mjs
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            playwright-chromium-${{ runner.os }}-
       - name: Install Playwright Chromium (for Storybook browser tests)
         run: bunx playwright install --with-deps chromium
-      - name: Typecheck
-        run: bun run typecheck
-      - name: Dead code (knip, zero-tolerance)
-        # Authoritative backstop for the lefthook pre-push guard (which a
-        # --no-verify bypass or an uninstalled hook can skip). knip exits non-zero
-        # on ANY unused file/export/dep, the repo is held at zero dead code.
-        # `deploy` needs `test`, so a regression blocks the prod deploy (www-k6p1).
-        run: bunx knip
       - name: Test with coverage (unit jsdom + Storybook chromium, merged)
         run: bun run test:coverage
       - name: Regenerate badge JSON
@@ -267,8 +266,32 @@ jobs:
             git push || true
           fi
 
+  # Typecheck + dead-code run in parallel with the coverage suite so type
+  # errors and knip regressions surface without waiting for Playwright to
+  # install and all tests to run. Build jobs and deploy depend on both
+  # `test` and `typecheck` passing (www-q2p5).
+  typecheck:
+    needs: [changes]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.19
+      - name: Install deps
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Dead code (knip, zero-tolerance)
+        # Authoritative backstop for the lefthook pre-push guard (which a
+        # --no-verify bypass or an uninstalled hook can skip). knip exits non-zero
+        # on ANY unused file/export/dep, the repo is held at zero dead code.
+        # `deploy` needs `typecheck`, so a regression blocks the prod deploy (www-k6p1).
+        run: bunx knip
+
   build-web:
-    needs: [changes, test]
+    needs: [changes, test, typecheck]
     if: needs.changes.outputs.web == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -312,7 +335,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=web
 
   build-api:
-    needs: [changes, test]
+    needs: [changes, test, typecheck]
     if: needs.changes.outputs.api == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -346,7 +369,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=api
 
   build-worker:
-    needs: [changes, test]
+    needs: [changes, test, typecheck]
     if: needs.changes.outputs.worker == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -379,7 +402,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=worker
 
   build-media-worker:
-    needs: [changes, test]
+    needs: [changes, test, typecheck]
     if: needs.changes.outputs.mediaworker == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -409,7 +432,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=media-worker
 
   build-storybook:
-    needs: [changes, test]
+    needs: [changes, test, typecheck]
     if: needs.changes.outputs.storybook == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -443,7 +466,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=storybook
 
   build-drizzle:
-    needs: [changes, test]
+    needs: [changes, test, typecheck]
     if: needs.changes.outputs.drizzle == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -477,7 +500,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=drizzle
 
   build-captive-portal:
-    needs: [changes, test]
+    needs: [changes, test, typecheck]
     if: needs.changes.outputs.captiveportal == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -509,7 +532,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=captive-portal
 
   build-map-provision:
-    needs: [changes, test]
+    needs: [changes, test, typecheck]
     if: needs.changes.outputs.mapprovision == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -541,7 +564,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=map-provision
 
   build-amp:
-    needs: [changes, test]
+    needs: [changes, test, typecheck]
     if: needs.changes.outputs.amp == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -573,7 +596,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=amp
 
   build-tye-api:
-    needs: [changes, test]
+    needs: [changes, test, typecheck]
     if: needs.changes.outputs.textyourex == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -605,7 +628,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=tye-api
 
   build-tye-frontend:
-    needs: [changes, test]
+    needs: [changes, test, typecheck]
     if: needs.changes.outputs.textyourex == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -648,7 +671,7 @@ jobs:
   # declarative-convergent, so the latest green run always reconciles prod to the
   # committed digests, no deploy marker needed (www-bom8 retired).
   deploy:
-    needs: [changes, test, build-web, build-api, build-worker, build-media-worker, build-storybook, build-drizzle, build-captive-portal, build-map-provision, build-amp, build-tye-api, build-tye-frontend]
+    needs: [changes, test, typecheck, build-web, build-api, build-worker, build-media-worker, build-storybook, build-drizzle, build-captive-portal, build-map-provision, build-amp, build-tye-api, build-tye-frontend]
     # always() lets us run even when some build jobs were skipped (no changes).
     # We proceed when: on main, an app OR infra changed, and no build failed.
     if: |
