@@ -1,31 +1,5 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "headroom/gpt-5.5-fast",
-  "small_model": "headroom/gpt-5.4-fast",
-  "provider": {
-    "headroom": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Headroom OpenAI",
-      "options": {
-        // "baseURL": "http://127.0.0.1:8790/v1",
-        // "apiKey": "headroom_local"
-      },
-      "models": {
-        "gpt-5.5-fast": {
-          "name": "GPT-5.5 Fast",
-          "id": "gpt-5.5-fast",
-          "reasoning": true,
-          "tool_call": true
-        },
-        "gpt-5.4-fast": {
-          "name": "GPT-5.4 Fast",
-          "id": "gpt-5.4-fast",
-          "reasoning": true,
-          "tool_call": true
-        }
-      }
-    }
-  },
   "lsp": true,
   "plugin": ["opencode-beads", "@slkiser/opencode-quota"],
   "command": {

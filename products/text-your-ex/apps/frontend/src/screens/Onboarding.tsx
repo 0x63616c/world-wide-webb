@@ -6,55 +6,86 @@ import type { AppCtx } from "../appctx";
 import { Icon } from "../icons";
 import { T } from "../theme";
 
+type SignInLogEntry = {
+  readonly at: string;
+  readonly message: string;
+};
+
+function describeError(error: unknown): { code: unknown; message: string; full: string } {
+  const code = (error as { code?: unknown })?.code;
+  const message = (error as { message?: string })?.message ?? "unknown error";
+  let full: string;
+  try {
+    full = JSON.stringify(error, Object.getOwnPropertyNames(error as object));
+  } catch {
+    full = String(error);
+  }
+  return { code, message, full };
+}
+
 export function Onboarding({ ctx }: { ctx: AppCtx }) {
   const [busy, setBusy] = useState(false);
-  // Surfaced on-screen so a failed sign-in shows WHY (which stage, what error)
-  // instead of the silent "Sign Up Not Completed" with no detail.
   const [err, setErr] = useState<string | null>(null);
+  const [signInLog, setSignInLog] = useState<SignInLogEntry[]>([]);
+
+  const addLog = (message: string) => {
+    const at = new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    setSignInLog((entries) => [...entries.slice(-5), { at, message }]);
+  };
 
   const signInApple = async () => {
     if (busy) return;
     setErr(null);
+    setSignInLog([]);
     setBusy(true);
+    addLog("tap received");
     try {
       // Real "Sign in with Apple" only works inside the native iOS app (the Apple
       // sheet can't run in a browser). On web the button is inert; local dev and
       // e2e mint a session through the non-production /auth/dev seam instead.
       if (!Capacitor.isNativePlatform()) {
+        addLog("not native, skipping Apple sheet");
         setBusy(false);
         return;
       }
       let identityToken: string;
       try {
+        addLog("opening native Apple sheet");
         const { response } = await SignInWithApple.authorize({
           clientId: "co.worldwidewebb.textyourex",
           redirectURI: "",
           scopes: "name email",
         });
         identityToken = response.identityToken;
+        addLog(`Apple returned identity token (${identityToken.length} chars)`);
       } catch (e) {
-        // Native Apple sheet failed (config / entitlement / cancel).
-        // Dump all properties — non-enumerable ones too — so Xcode / Safari
-        // Web Inspector shows the full native error (code, domain, description).
-        const code = (e as { code?: unknown })?.code;
-        const msg = (e as { message?: string })?.message;
-        const full = JSON.stringify(e, Object.getOwnPropertyNames(e as object));
-        console.error("[tye] signInApple native error", { code, message: msg, full });
-        setErr(`Apple sheet code=${code ?? "?"}: ${msg ?? full}`);
+        const { code, message, full } = describeError(e);
+        addLog(`Apple authorize failed code=${code ?? "?"}`);
+        console.error("[tye] signInApple native error", { code, message, full });
+        setErr(`Apple authorize failed before API. code=${code ?? "?"}: ${message || full}`);
         setBusy(false);
         return;
       }
       try {
+        addLog("posting identity token to API");
         const { token, user, isNew } = await api.signInWithApple(identityToken);
+        addLog("API sign-in succeeded");
         ctx.signIn(token, user);
         if (isNew || !user.name) ctx.nav("setup", {});
       } catch (e) {
-        // The token was minted but our API rejected it (e.g. aud mismatch -> 401).
-        setErr(`API: ${(e as { message?: string })?.message ?? JSON.stringify(e)}`);
+        const { message, full } = describeError(e);
+        addLog("API rejected Apple token");
+        setErr(`API rejected Apple token: ${message || full}`);
         setBusy(false);
       }
     } catch (e) {
-      setErr(`${(e as { message?: string })?.message ?? JSON.stringify(e)}`);
+      const { message, full } = describeError(e);
+      addLog("unexpected sign-in failure");
+      setErr(message || full);
       setBusy(false);
     }
   };
@@ -116,6 +147,52 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
           EST. AFTER THE BREAKUP
         </span>
       </div>
+      {(err || signInLog.length > 0) && (
+        <div
+          style={{
+            marginTop: 14,
+            border: `1px solid ${err ? "rgba(255,69,58,0.35)" : T.hair}`,
+            background: err ? "rgba(255,69,58,0.12)" : T.surface,
+            borderRadius: 16,
+            padding: 12,
+            flexShrink: 0,
+          }}
+        >
+          {err && (
+            <p
+              style={{
+                fontSize: 13,
+                color: T.red,
+                margin: "0 0 8px",
+                lineHeight: 1.35,
+                wordBreak: "break-word",
+                fontWeight: 700,
+              }}
+            >
+              {err}
+            </p>
+          )}
+          {signInLog.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {signInLog.map((entry) => (
+                <p
+                  key={`${entry.at}-${entry.message}`}
+                  style={{
+                    margin: 0,
+                    color: T.sec,
+                    fontSize: 11,
+                    lineHeight: 1.3,
+                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {entry.at} {entry.message}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <div
         style={{
           flex: 1,
@@ -183,20 +260,6 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
         >
           <Icon.apple style={{ marginTop: -2 }} /> Sign in with Apple
         </button>
-        {err && (
-          <p
-            style={{
-              textAlign: "center",
-              fontSize: 12,
-              color: T.red,
-              margin: "2px 0 0",
-              lineHeight: 1.35,
-              wordBreak: "break-word",
-            }}
-          >
-            {err}
-          </p>
-        )}
         <p
           style={{
             textAlign: "center",
