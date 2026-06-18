@@ -2,6 +2,7 @@ default_platform(:ios)
 
 require "base64"
 require "fileutils"
+require "open3"
 require "tmpdir"
 require "spaceship"
 
@@ -43,6 +44,37 @@ end
 
 def ios_project
   ENV.fetch("IOS_PROJECT", "App/App.xcodeproj")
+end
+
+def run_capture!(*cmd)
+  stdout, stderr, status = Open3.capture3(*cmd)
+  UI.user_error!("#{cmd.join(' ')} failed: #{stderr}") unless status.success?
+  stdout
+end
+
+def plist_value!(plist_path, key_path)
+  run_capture!("/usr/libexec/PlistBuddy", "-c", "Print #{key_path}", plist_path).strip
+end
+
+def verify_apple_sign_in_entitlements!(ipa_path:, profile_path:)
+  UI.message("Verifying signed app + provisioning profile carry Sign in with Apple")
+  Dir.mktmpdir("tye-siwa-") do |dir|
+    run_capture!("unzip", "-q", ipa_path, "-d", dir)
+    app_path = Dir[File.join(dir, "Payload", "*.app")].first
+    UI.user_error!("No .app found in #{ipa_path}") unless app_path
+
+    app_entitlements = File.join(dir, "app-entitlements.plist")
+    File.write(app_entitlements, run_capture!("codesign", "-d", "--entitlements", ":-", app_path))
+    app_value = plist_value!(app_entitlements, ":com.apple.developer.applesignin:0")
+    UI.user_error!("Signed app is missing Sign in with Apple entitlement") unless app_value == "Default"
+
+    profile_plist = File.join(dir, "profile.plist")
+    File.write(profile_plist, run_capture!("security", "cms", "-D", "-i", profile_path))
+    profile_value = plist_value!(profile_plist, ":Entitlements:com.apple.developer.applesignin:0")
+    UI.user_error!("Provisioning profile is missing Sign in with Apple entitlement") unless profile_value == "Default"
+
+    UI.success("Sign in with Apple entitlement verified in signed app and profile")
+  end
 end
 
 platform :ios do
@@ -226,6 +258,11 @@ platform :ios do
       output_directory: "./build",
       clean: true,
       codesigning_identity: "Apple Distribution"
+    )
+
+    verify_apple_sign_in_entitlements!(
+      ipa_path: lane_context[SharedValues::IPA_OUTPUT_PATH],
+      profile_path: ENV.fetch("sigh_#{bundle_id}_appstore_profile-path")
     )
 
     begin

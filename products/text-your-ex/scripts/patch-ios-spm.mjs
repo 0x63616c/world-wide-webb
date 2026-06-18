@@ -8,6 +8,9 @@
 // resolution, never the web/server bundles), so it lives here and runs in the
 // iOS pipeline + local cap sync, instead of a root bun `patchedDependencies`
 // which would force every Docker image's `bun install` to carry the patch file.
+// Also patches the plugin's native error bridge to include NSError domain/code
+// in JS. Apple's sheet often reports only "Sign up not completed" until dismissed;
+// the extra fields make the on-device diagnostic panel useful.
 // Idempotent.
 import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -15,6 +18,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const pkgJson = require.resolve("@capacitor-community/apple-sign-in/package.json");
 const swift = pkgJson.replace(/package\.json$/, "Package.swift");
+const pluginSwift = pkgJson.replace(/package\.json$/, "ios/Sources/SignInWithApple/Plugin.swift");
 
 const before = readFileSync(swift, "utf8");
 const after = before.replace(
@@ -27,5 +31,27 @@ if (after.includes('"7.0.0"..<"9.0.0"')) {
   console.log(`apple-sign-in SPM patched (capacitor-swift-pm <9.0.0): ${swift}`);
 } else {
   console.error(`patch-ios-spm: could not apply patch to ${swift}`);
+  process.exit(1);
+}
+
+const pluginBefore = readFileSync(pluginSwift, "utf8");
+const pluginAfter = pluginBefore.replace(
+  / {8}call\.reject\(error\.localizedDescription\)/,
+  `        let nsError = error as NSError
+        let userInfo = nsError.userInfo.reduce(into: [String: String]()) { result, entry in
+            result[String(describing: entry.key)] = String(describing: entry.value)
+        }
+        call.reject(nsError.localizedDescription, "\\(nsError.domain):\\(nsError.code)", nsError, [
+            "domain": nsError.domain,
+            "code": nsError.code,
+            "userInfo": userInfo
+        ])`,
+);
+
+if (pluginAfter.includes('"domain": nsError.domain')) {
+  if (pluginAfter !== pluginBefore) writeFileSync(pluginSwift, pluginAfter);
+  console.log(`apple-sign-in native error bridge patched: ${pluginSwift}`);
+} else {
+  console.error(`patch-ios-spm: could not apply native error patch to ${pluginSwift}`);
   process.exit(1);
 }
