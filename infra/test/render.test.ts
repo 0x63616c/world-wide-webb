@@ -439,7 +439,7 @@ describe("serviceSpecs: web map-provision initContainer (www-hn1i)", () => {
   test("the init image is digest-pinnable like every other CI-built image", () => {
     const specs = serviceSpecs({
       ...baseOpts,
-      imageDigests: { "map-provision": `sha256:${"a".repeat(64)}` },
+      imageDigests: { "control-center-map-provision": `sha256:${"a".repeat(64)}` },
     });
     const init = specs.find((s) => s.name === "web")?.initContainers?.[0];
     expect(init?.image).toBe(

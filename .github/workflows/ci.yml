@@ -306,8 +306,8 @@ jobs:
             BUILD_HASH=${{ github.sha }}
             BUILD_TIME=${{ env.BUILD_TIME }}
           tags: |
-            ghcr.io/0x63616c/www-cc-web:${{ github.sha }}
-            ghcr.io/0x63616c/www-cc-web:${{ github.ref_name == 'main' && 'main' || github.sha }}
+            ghcr.io/0x63616c/www-control-center-web:${{ github.sha }}
+            ghcr.io/0x63616c/www-control-center-web:${{ github.ref_name == 'main' && 'main' || github.sha }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
 
@@ -340,8 +340,8 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: |
-            ghcr.io/0x63616c/www-cc-api:${{ github.sha }}
-            ghcr.io/0x63616c/www-cc-api:${{ github.ref_name == 'main' && 'main' || github.sha }}
+            ghcr.io/0x63616c/www-control-center-api:${{ github.sha }}
+            ghcr.io/0x63616c/www-control-center-api:${{ github.ref_name == 'main' && 'main' || github.sha }}
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
 
@@ -373,8 +373,8 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: |
-            ghcr.io/0x63616c/www-cc-worker:${{ github.sha }}
-            ghcr.io/0x63616c/www-cc-worker:${{ github.ref_name == 'main' && 'main' || github.sha }}
+            ghcr.io/0x63616c/www-control-center-worker:${{ github.sha }}
+            ghcr.io/0x63616c/www-control-center-worker:${{ github.ref_name == 'main' && 'main' || github.sha }}
           cache-from: type=gha,scope=worker
           cache-to: type=gha,mode=max,scope=worker
 
@@ -403,8 +403,8 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: |
-            ghcr.io/0x63616c/www-cc-media-worker:${{ github.sha }}
-            ghcr.io/0x63616c/www-cc-media-worker:${{ github.ref_name == 'main' && 'main' || github.sha }}
+            ghcr.io/0x63616c/www-control-center-media-worker:${{ github.sha }}
+            ghcr.io/0x63616c/www-control-center-media-worker:${{ github.ref_name == 'main' && 'main' || github.sha }}
           cache-from: type=gha,scope=media-worker
           cache-to: type=gha,mode=max,scope=media-worker
 
@@ -437,8 +437,8 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: |
-            ghcr.io/0x63616c/www-cc-storybook:${{ github.sha }}
-            ghcr.io/0x63616c/www-cc-storybook:${{ github.ref_name == 'main' && 'main' || github.sha }}
+            ghcr.io/0x63616c/www-control-center-storybook:${{ github.sha }}
+            ghcr.io/0x63616c/www-control-center-storybook:${{ github.ref_name == 'main' && 'main' || github.sha }}
           cache-from: type=gha,scope=storybook
           cache-to: type=gha,mode=max,scope=storybook
 
@@ -471,8 +471,8 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: |
-            ghcr.io/0x63616c/www-cc-drizzle:${{ github.sha }}
-            ghcr.io/0x63616c/www-cc-drizzle:${{ github.ref_name == 'main' && 'main' || github.sha }}
+            ghcr.io/0x63616c/www-control-center-drizzle:${{ github.sha }}
+            ghcr.io/0x63616c/www-control-center-drizzle:${{ github.ref_name == 'main' && 'main' || github.sha }}
           cache-from: type=gha,scope=drizzle
           cache-to: type=gha,mode=max,scope=drizzle
 
@@ -503,8 +503,8 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: |
-            ghcr.io/0x63616c/www-cp-portal:${{ github.sha }}
-            ghcr.io/0x63616c/www-cp-portal:${{ github.ref_name == 'main' && 'main' || github.sha }}
+            ghcr.io/0x63616c/www-captive-portal-portal:${{ github.sha }}
+            ghcr.io/0x63616c/www-captive-portal-portal:${{ github.ref_name == 'main' && 'main' || github.sha }}
           cache-from: type=gha,scope=captive-portal
           cache-to: type=gha,mode=max,scope=captive-portal
 
@@ -535,8 +535,8 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: |
-            ghcr.io/0x63616c/www-cc-map-provision:${{ github.sha }}
-            ghcr.io/0x63616c/www-cc-map-provision:${{ github.ref_name == 'main' && 'main' || github.sha }}
+            ghcr.io/0x63616c/www-control-center-map-provision:${{ github.sha }}
+            ghcr.io/0x63616c/www-control-center-map-provision:${{ github.ref_name == 'main' && 'main' || github.sha }}
           cache-from: type=gha,scope=map-provision
           cache-to: type=gha,mode=max,scope=map-provision
 
@@ -599,8 +599,8 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: |
-            ghcr.io/0x63616c/www-tye-api:${{ github.sha }}
-            ghcr.io/0x63616c/www-tye-api:${{ github.ref_name == 'main' && 'main' || github.sha }}
+            ghcr.io/0x63616c/www-text-your-ex-api:${{ github.sha }}
+            ghcr.io/0x63616c/www-text-your-ex-api:${{ github.ref_name == 'main' && 'main' || github.sha }}
           cache-from: type=gha,scope=tye-api
           cache-to: type=gha,mode=max,scope=tye-api
 
@@ -633,8 +633,8 @@ jobs:
           build-args: |
             VITE_API_BASE=https://api--tye.worldwidewebb.co
           tags: |
-            ghcr.io/0x63616c/www-tye-web:${{ github.sha }}
-            ghcr.io/0x63616c/www-tye-web:${{ github.ref_name == 'main' && 'main' || github.sha }}
+            ghcr.io/0x63616c/www-text-your-ex-frontend:${{ github.sha }}
+            ghcr.io/0x63616c/www-text-your-ex-frontend:${{ github.ref_name == 'main' && 'main' || github.sha }}
           cache-from: type=gha,scope=tye-frontend
           cache-to: type=gha,mode=max,scope=tye-frontend
 
@@ -717,10 +717,10 @@ jobs:
         id: digests
         run: |
           # Map each built app image to its current :main manifest digest. The
-          # service KEY matches the ghcr() name arg, which is the Pulumi imageDigests
-          # config key. Repo names follow www-<code>-<image> convention (www-jtp0.9.5).
+          # KEY is product-component scoped and matches the Pulumi imageDigests
+          # config key, while repo names use full product slugs.
           declare -A out=()
-          for entry in www-cc-web:web www-cc-api:api www-cc-worker:worker www-cc-media-worker:media-worker www-cc-storybook:storybook www-cc-drizzle:drizzle www-cp-portal:captive-portal www-cc-map-provision:map-provision www-amp-app:amp-app www-tye-api:tye-api www-tye-web:tye-frontend; do
+          for entry in www-control-center-web:control-center-web www-control-center-api:control-center-api www-control-center-worker:control-center-worker www-control-center-media-worker:control-center-media-worker www-control-center-storybook:control-center-storybook www-control-center-drizzle:control-center-drizzle www-captive-portal-portal:captive-portal-portal www-control-center-map-provision:control-center-map-provision www-amp-app:amp-app www-text-your-ex-api:text-your-ex-api www-text-your-ex-frontend:text-your-ex-frontend; do
             repo="${entry%%:*}"
             name="${entry#*:}"
             d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$repo:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)

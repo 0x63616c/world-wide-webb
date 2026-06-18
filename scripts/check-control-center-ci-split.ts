@@ -70,6 +70,34 @@ assert(
   "deploy must keep wwwinfra:imageDigests namespace",
 );
 
+for (const image of [
+  "www-control-center-api",
+  "www-control-center-web",
+  "www-control-center-worker",
+  "www-control-center-media-worker",
+  "www-control-center-storybook",
+  "www-control-center-drizzle",
+  "www-control-center-map-provision",
+] as const) {
+  assert(workflow.includes(`ghcr.io/0x63616c/${image}:`), `workflow must build ${image}`);
+}
+
+for (const digestKey of [
+  "control-center-api",
+  "control-center-web",
+  "control-center-worker",
+  "control-center-media-worker",
+  "control-center-storybook",
+  "control-center-drizzle",
+  "control-center-map-provision",
+] as const) {
+  assert(workflow.includes(`:${digestKey}`), `digest collection must emit ${digestKey}`);
+}
+
+for (const oldImage of ["www-cc-api", "www-cc-web", "www-cc-worker"] as const) {
+  assert(!workflow.includes(oldImage), `workflow must not use old shorthand image ${oldImage}`);
+}
+
 for (const script of requiredProductScripts) {
   assert(
     productPackage.scripts?.[script],

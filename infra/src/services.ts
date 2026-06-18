@@ -34,34 +34,67 @@ const textYourExProduct = defineProduct("text-your-ex");
 const ampProduct = defineProduct("amp");
 
 const IMAGE_REPOSITORIES = {
-  api: controlCenterProduct.imageRepository("api"),
-  worker: controlCenterProduct.imageRepository("worker"),
-  "media-worker": controlCenterProduct.imageRepository("media-worker"),
-  web: controlCenterProduct.imageRepository("web"),
-  storybook: controlCenterProduct.imageRepository("storybook"),
-  drizzle: controlCenterProduct.imageRepository("drizzle"),
-  "map-provision": controlCenterProduct.imageRepository("map-provision"),
-  "captive-portal": captivePortalProduct.imageRepository("portal"),
-  "tye-api": textYourExProduct.imageRepository("api"),
-  "tye-frontend": textYourExProduct.imageRepository("frontend"),
-  "amp-app": ampProduct.imageRepository("app"),
-} as const satisfies Record<string, string>;
+  api: {
+    digestKey: controlCenterProduct.imageDigestKey("api"),
+    repository: controlCenterProduct.imageRepository("api"),
+  },
+  worker: {
+    digestKey: controlCenterProduct.imageDigestKey("worker"),
+    repository: controlCenterProduct.imageRepository("worker"),
+  },
+  "media-worker": {
+    digestKey: controlCenterProduct.imageDigestKey("media-worker"),
+    repository: controlCenterProduct.imageRepository("media-worker"),
+  },
+  web: {
+    digestKey: controlCenterProduct.imageDigestKey("web"),
+    repository: controlCenterProduct.imageRepository("web"),
+  },
+  storybook: {
+    digestKey: controlCenterProduct.imageDigestKey("storybook"),
+    repository: controlCenterProduct.imageRepository("storybook"),
+  },
+  drizzle: {
+    digestKey: controlCenterProduct.imageDigestKey("drizzle"),
+    repository: controlCenterProduct.imageRepository("drizzle"),
+  },
+  "map-provision": {
+    digestKey: controlCenterProduct.imageDigestKey("map-provision"),
+    repository: controlCenterProduct.imageRepository("map-provision"),
+  },
+  "captive-portal": {
+    digestKey: captivePortalProduct.imageDigestKey("portal"),
+    repository: captivePortalProduct.imageRepository("portal"),
+  },
+  "tye-api": {
+    digestKey: textYourExProduct.imageDigestKey("api"),
+    repository: textYourExProduct.imageRepository("api"),
+  },
+  "tye-frontend": {
+    digestKey: textYourExProduct.imageDigestKey("frontend"),
+    repository: textYourExProduct.imageRepository("frontend"),
+  },
+  "amp-app": {
+    digestKey: ampProduct.imageDigestKey("app"),
+    repository: ampProduct.imageRepository("app"),
+  },
+} as const satisfies Record<string, { digestKey: string; repository: string }>;
 
 // GHCR image ref. Digest-pinned (@sha256:…) when CI supplied a digest for this
 // service, else the mutable :main tag (local applies, first deploy before any
 // digest is set). The digest is validated shape-wise so a malformed config value
 // can't silently produce an unpullable ref.
 const ghcr = (name: string, digests: ImageDigests = {}): string => {
-  const base = IMAGE_REPOSITORIES[name as keyof typeof IMAGE_REPOSITORIES];
-  if (!base) throw new Error(`no image repository configured for ${name}`);
-  const digest = digests[name];
+  const image = IMAGE_REPOSITORIES[name as keyof typeof IMAGE_REPOSITORIES];
+  if (!image) throw new Error(`no image repository configured for ${name}`);
+  const digest = digests[image.digestKey];
   if (digest) {
     if (!/^sha256:[0-9a-f]{64}$/.test(digest)) {
-      throw new Error(`imageDigests.${name} is not a sha256:<64-hex> digest: ${digest}`);
+      throw new Error(`imageDigests.${image.digestKey} is not a sha256:<64-hex> digest: ${digest}`);
     }
-    return `${base}@${digest}`;
+    return `${image.repository}@${digest}`;
   }
-  return `${base}:main`;
+  return `${image.repository}:main`;
 };
 // The imagePullSecret name (dockerconfigjson built by ESO from the GHCR token).
 const GHCR_PULL_SECRET = "ghcr-pull";

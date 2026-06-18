@@ -41,14 +41,14 @@ describe("serviceSpecs image digest pinning", () => {
   });
 
   test("pins the GHCR ref by digest when one is supplied for that service", () => {
-    const specs = specsWith({ api: VALID });
+    const specs = specsWith({ "control-center-api": VALID });
     expect(imageOf(specs, "control-center-api")).toBe(
       `ghcr.io/0x63616c/www-control-center-api@${VALID}`,
     );
   });
 
   test("pins only the services in the map; the rest stay on :main", () => {
-    const specs = specsWith({ web: VALID });
+    const specs = specsWith({ "control-center-web": VALID });
     expect(imageOf(specs, "control-center-web")).toBe(
       `ghcr.io/0x63616c/www-control-center-web@${VALID}`,
     );
@@ -69,7 +69,7 @@ describe("serviceSpecs image digest pinning", () => {
   });
 
   test("rejects a malformed digest so a bad config value can't ship an unpullable ref", () => {
-    expect(() => specsWith({ api: "not-a-digest" })).toThrow(/sha256/);
-    expect(() => specsWith({ api: "sha256:tooshort" })).toThrow(/sha256/);
+    expect(() => specsWith({ "control-center-api": "not-a-digest" })).toThrow(/sha256/);
+    expect(() => specsWith({ "control-center-api": "sha256:tooshort" })).toThrow(/sha256/);
   });
 });
