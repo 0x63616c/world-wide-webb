@@ -1,20 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { cronSpecs } from "../../../infra/src/crons.ts";
 import { SERVICE_SECRETS } from "../../../infra/src/secrets-map.ts";
-import { serviceSpecs } from "../../../infra/src/services.ts";
 import { controlCenterProductManifest, serviceSecretMap } from "../src/index.ts";
-
-const baseServiceOptions = {
-  cloudflaredReplicas: 2,
-  drizzleReplicas: 0,
-  mediaWorkerReplicas: 0,
-  nasNfsServer: "192.168.0.218",
-  storybookReplicas: 0,
-};
-
-// Workloads owned by other products, excluded from the Control Center manifest
-// comparison: amp (amp-app) and text-your-ex (tye-api, tye-frontend).
-const separateProductWorkloads = new Set(["amp-app", "tye-api", "tye-frontend"]);
 
 describe("Control Center platform representation", () => {
   test("declares Control Center app identity and target app surface", () => {
@@ -25,28 +12,30 @@ describe("Control Center platform representation", () => {
     expect(manifest.app.legacyHostname).toBe("dashboard.worldwidewebb.co");
   });
 
-  test("declares every current Control Center workload without renaming it", () => {
+  test("declares every Control Center workload with namespace-local names", () => {
     const manifest = controlCenterProductManifest();
-    const currentNames = serviceSpecs(baseServiceOptions)
-      .filter((service) => !separateProductWorkloads.has(service.name))
-      .map((service) => service.name)
-      .sort();
     const manifestNames = Object.values(manifest.services)
       .map((service) => service.workloadName)
       .sort();
 
-    expect(manifestNames).toEqual(currentNames);
+    expect(manifestNames).toEqual([
+      "api",
+      "captive-portal",
+      "cloudflared",
+      "drizzle",
+      "media-worker",
+      "storybook",
+      "web",
+      "worker",
+    ]);
   });
 
-  test("keeps current GHCR and external image behavior representable", () => {
+  test("declares full-slug GHCR image intent and keeps external images unchanged", () => {
     const manifest = controlCenterProductManifest();
-    const currentImages = Object.fromEntries(
-      serviceSpecs(baseServiceOptions).map((service) => [service.name, service.image]),
-    );
 
-    expect(manifest.services.api.image).toBe(currentImages.api);
-    expect(manifest.services.web.image).toBe(currentImages.web);
-    expect(manifest.services.cloudflared.image).toBe(currentImages.cloudflared);
+    expect(manifest.services.api.image).toBe("ghcr.io/0x63616c/www-control-center-api:main");
+    expect(manifest.services.web.image).toBe("ghcr.io/0x63616c/www-control-center-web:main");
+    expect(manifest.services.cloudflared.image).toBe("cloudflare/cloudflared:2025.10.1");
   });
 
   test("keeps current service secret usage exactly representable (CC-k8t7: env names only, values now vault keys)", () => {

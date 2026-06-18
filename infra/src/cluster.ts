@@ -1,14 +1,17 @@
-// The k8s Provider + shared namespace for the control-center cluster stack
-// (www-j934.4 onward). The provider targets the OrbStack single-node cluster via
+// The k8s Provider + product/platform namespaces for the homelab k3s stack.
+// The provider targets the OrbStack single-node cluster via
 // a kubeconfig context. Passing the provider in as an INPUT to every component
 // (Workload, ESO, CNPG, …) keeps the vocabulary cluster-agnostic, so a future
 // Hetzner cluster is a provider swap, not a rewrite (RECON decision 13 / DESIGN
 // section 1).
 
 import * as k8s from "@pulumi/kubernetes";
+import { type ProductSlug, productSlugs } from "@www/platform";
 
-// The app namespace every control-center workload + its synced Secrets live in.
-export const APP_NAMESPACE = "control-center";
+export const PLATFORM_NAMESPACE = "platform";
+
+export type InfraNamespaceName = ProductSlug | typeof PLATFORM_NAMESPACE;
+export type InfraNamespaces = Readonly<Record<InfraNamespaceName, k8s.core.v1.Namespace>>;
 
 // Default kubeconfig context. The prod target is homelab's OrbStack cluster,
 // reached over the tailnet via the `cc-homelab` context (server
@@ -19,12 +22,12 @@ const DEFAULT_CONTEXT = "cc-homelab";
 
 export interface ClusterResources {
   provider: k8s.Provider;
-  namespace: k8s.core.v1.Namespace;
+  namespaces: InfraNamespaces;
 }
 
 /**
- * @public - the cluster provider + app namespace, the shared base every Phase-3
- * component builds on. `context` overridable for tests / a future cluster.
+ * @public - the cluster provider + product/platform namespaces, the shared base
+ * every component builds on. `context` overridable for tests / a future cluster.
  */
 // Pin the k8s provider PLUGIN version so a future `pulumi up` can't auto-pull a
 // newer plugin that drifts from the @pulumi/kubernetes SDK schema and forces
@@ -35,10 +38,12 @@ const K8S_PLUGIN_VERSION = "4.21.0";
 
 export function makeCluster(context: string = DEFAULT_CONTEXT): ClusterResources {
   const provider = new k8s.Provider("orbstack", { context }, { version: K8S_PLUGIN_VERSION });
-  const namespace = new k8s.core.v1.Namespace(
-    APP_NAMESPACE,
-    { metadata: { name: APP_NAMESPACE } },
-    { provider },
-  );
-  return { provider, namespace };
+  const namespaceNames = [...productSlugs, PLATFORM_NAMESPACE] as const;
+  const namespaces = Object.fromEntries(
+    namespaceNames.map((name) => [
+      name,
+      new k8s.core.v1.Namespace(name, { metadata: { name } }, { provider }),
+    ]),
+  ) as InfraNamespaces;
+  return { provider, namespaces };
 }

@@ -8,7 +8,7 @@
 
 import * as pulumi from "@pulumi/pulumi";
 import { installCertManager } from "./src/certmanager.ts";
-import { APP_NAMESPACE, makeCluster } from "./src/cluster.ts";
+import { makeCluster } from "./src/cluster.ts";
 import { installCnpg } from "./src/cnpg.ts";
 import { deployCrons } from "./src/crons.ts";
 import { installEso } from "./src/eso.ts";
@@ -22,6 +22,9 @@ const cfg = new pulumi.Config("wwwinfra");
 // provider at the context name in its own kubeconfig (the homelab kube-apiserver
 // over the tailnet). www-j934 repoint.
 const cluster = makeCluster(cfg.get("kubeContext"));
+const namespaces = Object.fromEntries(
+  Object.entries(cluster.namespaces).map(([name, namespace]) => [name, namespace.metadata.name]),
+) as Record<keyof typeof cluster.namespaces, pulumi.Output<string>>;
 
 // Decrypt vault once; all secrets flow from this (CC-k8t7).
 const vault = loadVault();
@@ -29,14 +32,14 @@ const vault = loadVault();
 // Native k8s Secrets per workload from vault (replaces ESO ExternalSecrets).
 const eso = installEso({
   provider: cluster.provider,
-  appNamespace: APP_NAMESPACE,
+  appNamespace: namespaces["control-center"],
   vault,
 });
 
 // CNPG operator + product-owned Postgres Clusters with native basic-auth Secrets.
 const cnpg = installCnpg({
   provider: cluster.provider,
-  namespace: APP_NAMESPACE,
+  namespace: namespaces["control-center"],
   operatorVersion: "1.29.1",
   vault,
 });
@@ -44,7 +47,7 @@ const cnpg = installCnpg({
 // cert-manager + CF DNS-01 ClusterIssuer + portal TLS Certificate (www-j934.5).
 const certManager = installCertManager({
   provider: cluster.provider,
-  namespace: APP_NAMESPACE,
+  namespace: namespaces["control-center"],
   acmeEmail: cfg.get("acmeEmail"),
   version: "v1.20.2",
   vault,
@@ -74,7 +77,7 @@ const nasNfsServer = cfg.get("nasNfsServer") ?? "192.168.0.218";
 
 const services = deployServices({
   provider: cluster.provider,
-  namespace: APP_NAMESPACE,
+  namespaces,
   mediaWorkerReplicas: cfg.getNumber("mediaWorkerReplicas") ?? 0,
   cloudflaredReplicas: cfg.getNumber("cloudflaredReplicas") ?? 2,
   // storybook/drizzle default to 0: trimmed 8GB steady-state so the control plane
@@ -95,13 +98,16 @@ const services = deployServices({
 // basic-auth Secrets, so order after eso + cnpg.
 const crons = deployCrons({
   provider: cluster.provider,
-  namespace: APP_NAMESPACE,
+  namespace: namespaces["control-center"],
   nasNfsServer,
 });
 
 // Surface resource names (not values) for the Phase-3 acceptance checks.
 export const externalSecretNames = eso.externalSecrets.map((e) => e.metadata.name);
-export const appNamespaceName = cluster.namespace.metadata.name;
+export const namespaceNames = Object.fromEntries(
+  Object.entries(cluster.namespaces).map(([name, namespace]) => [name, namespace.metadata.name]),
+);
+export const appNamespaceName = cluster.namespaces["control-center"].metadata.name;
 export const cnpgClusterName = cnpg.cluster.metadata.name;
 export const cnpgClusterNames = cnpg.clusters.map((c) => c.metadata.name);
 export const cnpgAuthSecretNames = cnpg.authSecrets.map((s) => s.metadata.name);

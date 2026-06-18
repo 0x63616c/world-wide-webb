@@ -16,6 +16,8 @@ describe("Captive Portal platform representation", () => {
       kind: "internal-service",
       port: 4211,
     });
+    expect(manifest.services.app.image).toBe("ghcr.io/0x63616c/www-captive-portal-portal:main");
+    expect(manifest.services.api.image).toBe("ghcr.io/0x63616c/www-captive-portal-api:main");
   });
 
   test("declares a product-owned CNPG database and mandatory NAS backup", () => {

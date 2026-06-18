@@ -38,6 +38,7 @@ export interface InitContainerSpec {
 }
 
 export interface WorkloadSpec {
+  logicalName?: string;
   name: string;
   image: string;
   replicas: number;
@@ -58,6 +59,7 @@ export interface WorkloadSpec {
 }
 
 export interface CronJobSpec {
+  logicalName?: string;
   name: string;
   image: string;
   schedule: string;
@@ -488,7 +490,8 @@ export class Workload extends pulumi.ComponentResource {
 
   constructor(args: WorkloadArgs, opts?: pulumi.ComponentResourceOptions) {
     const { provider, namespace, ...spec } = args;
-    super("control-center:infra:Workload", spec.name, {}, opts);
+    const logicalName = spec.logicalName ?? spec.name;
+    super("control-center:infra:Workload", logicalName, {}, opts);
 
     const rendered = renderWorkload(spec);
     const childOpts: pulumi.ComponentResourceOptions = { parent: this, provider };
@@ -500,14 +503,14 @@ export class Workload extends pulumi.ComponentResource {
     this.persistentVolumeClaims = rendered.persistentVolumeClaims.map(
       (pvc) =>
         new k8s.core.v1.PersistentVolumeClaim(
-          pvc.metadata.name,
+          `${logicalName}-${pvc.metadata.name}`,
           { metadata: { namespace, ...pvc.metadata }, spec: pvc.spec as never },
           pvOpts,
         ),
     );
 
     this.deployment = new k8s.apps.v1.Deployment(
-      spec.name,
+      logicalName,
       {
         metadata: { namespace, ...rendered.deployment.metadata },
         spec: rendered.deployment.spec as never,
@@ -518,7 +521,7 @@ export class Workload extends pulumi.ComponentResource {
     this.services = rendered.services.map(
       (svc) =>
         new k8s.core.v1.Service(
-          svc.metadata.name,
+          `${logicalName}-${svc.metadata.name}`,
           { metadata: { namespace, ...svc.metadata }, spec: svc.spec as never },
           childOpts,
         ),
@@ -573,7 +576,8 @@ export class ScheduledJob extends pulumi.ComponentResource {
 
   constructor(args: ScheduledJobArgs, opts?: pulumi.ComponentResourceOptions) {
     const { provider, namespace, ...spec } = args;
-    super("control-center:infra:ScheduledJob", spec.name, {}, opts);
+    const logicalName = spec.logicalName ?? spec.name;
+    super("control-center:infra:ScheduledJob", logicalName, {}, opts);
 
     const rendered = renderCronJob(spec);
     const childOpts: pulumi.ComponentResourceOptions = { parent: this, provider };
@@ -584,14 +588,14 @@ export class ScheduledJob extends pulumi.ComponentResource {
     this.persistentVolumeClaims = rendered.persistentVolumeClaims.map(
       (pvc) =>
         new k8s.core.v1.PersistentVolumeClaim(
-          pvc.metadata.name,
+          `${logicalName}-${pvc.metadata.name}`,
           { metadata: { namespace, ...pvc.metadata }, spec: pvc.spec as never },
           childOpts,
         ),
     );
 
     this.cronJob = new k8s.batch.v1.CronJob(
-      spec.name,
+      logicalName,
       {
         metadata: { namespace, ...rendered.cronJob.metadata },
         spec: rendered.cronJob.spec as never,

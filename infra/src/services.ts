@@ -10,6 +10,7 @@
 
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
+import type { InfraNamespaceName } from "./cluster.ts";
 import type { WorkloadSpec } from "./component.ts";
 import { ExternalService, Workload } from "./component.ts";
 
@@ -19,6 +20,7 @@ import { ExternalService, Workload } from "./component.ts";
 // `pulumi up` (the www-czg digest-pin property, now driven by Pulumi config).
 // Empty in local/dev applies, where :main is fine.
 export type ImageDigests = Record<string, string>;
+export type OwnedWorkloadSpec = WorkloadSpec & { namespaceName: InfraNamespaceName };
 
 // Images that don't follow the default www-cc-<name> prefix.
 const IMAGE_REPOSITORIES = {
@@ -108,7 +110,7 @@ export interface ServiceSpecOptions {
 }
 
 /** @public - all app WorkloadSpecs, parameterised by {@link ServiceSpecOptions}. */
-export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
+export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
   const {
     mediaWorkerReplicas,
     cloudflaredReplicas,
@@ -119,7 +121,9 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
   } = opts;
   return [
     {
+      logicalName: "control-center-api",
       name: "api",
+      namespaceName: "control-center",
       image: ghcr("api", digests),
       replicas: 1,
       resources: { memory: "512M", reserveCpus: "0.5" },
@@ -142,7 +146,9 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {
+      logicalName: "control-center-worker",
       name: "worker",
+      namespaceName: "control-center",
       image: ghcr("worker", digests),
       replicas: 1,
       resources: { memory: "384M" },
@@ -164,7 +170,9 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {
+      logicalName: "control-center-media-worker",
       name: "media-worker",
+      namespaceName: "control-center",
       image: ghcr("media-worker", digests),
       replicas: mediaWorkerReplicas,
       resources: { memory: "1G" },
@@ -183,7 +191,9 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {
+      logicalName: "control-center-web",
       name: "web",
+      namespaceName: "control-center",
       image: ghcr("web", digests),
       replicas: 1,
       resources: { memory: "96M" },
@@ -208,7 +218,9 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {
+      logicalName: "control-center-storybook",
       name: "storybook",
+      namespaceName: "control-center",
       image: ghcr("storybook", digests),
       replicas: storybookReplicas,
       resources: { memory: "96M" },
@@ -217,7 +229,9 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {
-      name: "captive-portal",
+      logicalName: "captive-portal-portal",
+      name: "portal",
+      namespaceName: "captive-portal",
       image: ghcr("captive-portal", digests),
       replicas: 1,
       resources: { memory: "64M" },
@@ -246,7 +260,9 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {
+      logicalName: "control-center-drizzle",
       name: "drizzle",
+      namespaceName: "control-center",
       image: ghcr("drizzle", digests),
       replicas: drizzleReplicas,
       resources: { memory: "256M" },
@@ -257,7 +273,9 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {
-      name: "amp-app",
+      logicalName: "amp-app",
+      name: "app",
+      namespaceName: "amp",
       image: ghcr("amp-app", digests),
       replicas: 1,
       resources: { memory: "64M" },
@@ -266,7 +284,9 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {
-      name: "tye-api",
+      logicalName: "text-your-ex-api",
+      name: "api",
+      namespaceName: "text-your-ex",
       image: ghcr("tye-api", digests),
       replicas: 1,
       resources: { memory: "256M" },
@@ -284,7 +304,9 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {
-      name: "tye-frontend",
+      logicalName: "text-your-ex-frontend",
+      name: "frontend",
+      namespaceName: "text-your-ex",
       image: ghcr("tye-frontend", digests),
       replicas: 1,
       resources: { memory: "64M" },
@@ -293,7 +315,9 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {
+      logicalName: "platform-cloudflared",
       name: "cloudflared",
+      namespaceName: "platform",
       image: "cloudflare/cloudflared:2025.10.1",
       replicas: cloudflaredReplicas, // HA (2) at cutover; 0 pre-cutover so it
       // does not hold the live tunnel token alongside Swarm (www-j934.9 / §7).
@@ -316,7 +340,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): WorkloadSpec[] {
 
 export interface ServicesArgs {
   provider: k8s.Provider;
-  namespace: pulumi.Input<string>;
+  namespaces: Readonly<Record<InfraNamespaceName, pulumi.Input<string>>>;
   // media-worker replicas: 1 to prove, 0 to park (Boundary 6).
   mediaWorkerReplicas: number;
   // cloudflared replicas: 0 for a pre-cutover bring-up (no live-token split with
@@ -337,7 +361,7 @@ export interface ServicesArgs {
 }
 
 export interface ServicesResources {
-  ghcrPullSecret: k8s.core.v1.Secret;
+  ghcrPullSecrets: k8s.core.v1.Secret[];
   haService: ExternalService;
   pvcs: k8s.core.v1.PersistentVolumeClaim[];
   workloads: Workload[];
@@ -358,7 +382,7 @@ const LOCAL_PATH_CLAIMS: { name: string; size: string }[] = [
 export function deployServices(args: ServicesArgs): ServicesResources {
   const {
     provider,
-    namespace,
+    namespaces,
     mediaWorkerReplicas,
     cloudflaredReplicas,
     storybookReplicas,
@@ -377,20 +401,29 @@ export function deployServices(args: ServicesArgs): ServicesResources {
   const dockerconfigjson = JSON.stringify({
     auths: { "ghcr.io": { username: "0x63616c", password: pat, auth: authB64 } },
   });
-  const ghcrPullSecret = new k8s.core.v1.Secret(
-    "ghcr-pull",
-    {
-      metadata: { name: GHCR_PULL_SECRET, namespace },
-      type: "kubernetes.io/dockerconfigjson",
-      stringData: { ".dockerconfigjson": pulumi.secret(dockerconfigjson) },
-    },
-    opts,
+  const ghcrNamespaces = ["control-center", "captive-portal", "text-your-ex", "amp"] as const;
+  const ghcrPullSecrets = ghcrNamespaces.map(
+    (namespaceName) =>
+      new k8s.core.v1.Secret(
+        `${namespaceName}-ghcr-pull`,
+        {
+          metadata: { name: GHCR_PULL_SECRET, namespace: namespaces[namespaceName] },
+          type: "kubernetes.io/dockerconfigjson",
+          stringData: { ".dockerconfigjson": pulumi.secret(dockerconfigjson) },
+        },
+        opts,
+      ),
   );
 
   // `ha` -> the host's tailnet FQDN (api/worker reach `http://ha:8123`, which
   // CNAMEs to the host socat via the locally-routed tailnet IP, www-j934.17).
   const haService = new ExternalService(
-    { name: "ha", externalName: HA_TAILNET_FQDN, provider, namespace },
+    {
+      name: "ha",
+      externalName: HA_TAILNET_FQDN,
+      provider,
+      namespace: namespaces["control-center"],
+    },
     opts,
   );
 
@@ -400,7 +433,7 @@ export function deployServices(args: ServicesArgs): ServicesResources {
       new k8s.core.v1.PersistentVolumeClaim(
         c.name,
         {
-          metadata: { name: c.name, namespace },
+          metadata: { name: c.name, namespace: namespaces["control-center"] },
           spec: {
             accessModes: ["ReadWriteOnce"],
             storageClassName: "local-path",
@@ -418,7 +451,10 @@ export function deployServices(args: ServicesArgs): ServicesResources {
     drizzleReplicas,
     nasNfsServer,
     imageDigests,
-  }).map((spec) => new Workload({ ...spec, provider, namespace }, opts));
+  }).map(
+    ({ namespaceName, ...spec }) =>
+      new Workload({ ...spec, provider, namespace: namespaces[namespaceName] }, opts),
+  );
 
-  return { ghcrPullSecret, haService, pvcs, workloads };
+  return { ghcrPullSecrets, haService, pvcs, workloads };
 }
