@@ -1,6 +1,6 @@
 // The control-center app workloads on k3s (www-j934.6): the Pulumi-era successor
 // to deploy.config.ts's service() declarations. Each is a WorkloadSpec fed to
-// the Workload component; secrets come from the ESO cc-secrets-<name> Secrets
+// the Workload component; secrets come from product-derived service Secrets
 // (www-j934.4), images from GHCR via an imagePullSecret, caps are the www-ke9a
 // values verbatim. postgres is CNPG (www-j934.5), not here.
 //
@@ -13,6 +13,7 @@ import * as pulumi from "@pulumi/pulumi";
 import type { InfraNamespaceName } from "./cluster.ts";
 import type { WorkloadSpec } from "./component.ts";
 import { ExternalService, Workload } from "./component.ts";
+import { SERVICE_SECRET_TARGETS } from "./secrets-map.ts";
 
 // Per-service GHCR image digest map, name -> "sha256:…", set by the CI deploy job
 // (`pulumi config set --path imageDigests.<svc>`). A pinned digest renders the
@@ -76,7 +77,7 @@ const haEnv = {
   POSTGRES_HOST,
 };
 
-// secretsFor: a marker list so the Workload mounts cc-secrets-<name>; the actual
+// secretsFor: a marker list so the Workload mounts its configured service Secret; the actual
 // refs live in eso.ts (the ExternalSecrets). We only need a non-empty list here
 // to trigger the /run/secrets mount (the render layer reads .length).
 const mount = (names: string[]) => names.map((name) => ({ name, ref: "eso" }));
@@ -141,6 +142,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
         "SPOTIFY_CLIENT_SECRET",
         "SPOTIFY_REFRESH_TOKEN",
       ]),
+      secretName: SERVICE_SECRET_TARGETS.api.secretName,
       env: haEnv,
       ports: [{ containerPort: 4201, expose: "cluster" }],
       imagePullSecrets: [GHCR_PULL_SECRET],
@@ -166,6 +168,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
         "SPOTIFY_CLIENT_SECRET",
         "SPOTIFY_REFRESH_TOKEN",
       ]),
+      secretName: SERVICE_SECRET_TARGETS.worker.secretName,
       env: haEnv,
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
@@ -177,6 +180,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       replicas: mediaWorkerReplicas,
       resources: { memory: "1G" },
       secrets: mount(["POSTGRES_PASSWORD", "OPENROUTER_API_KEY"]),
+      secretName: SERVICE_SECRET_TARGETS["media-worker"].secretName,
       env: { NODE_ENV: "production", APP_ENV: "production", TZ, POSTGRES_HOST },
       // NFS PV for the Synology media share. The DS420+ exports ONLY
       // /volume1/Homelab (not its subdirs), so mount that export and subPath
@@ -267,6 +271,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       replicas: drizzleReplicas,
       resources: { memory: "256M" },
       secrets: mount(["MASTERPASS", "POSTGRES_PASSWORD"]),
+      secretName: SERVICE_SECRET_TARGETS.drizzle.secretName,
       env: { TZ, POSTGRES_HOST },
       ports: [{ containerPort: 4983, expose: "cluster" }],
       volumes: [{ mountPath: "/app", claim: "drizzle-data" }],
@@ -291,7 +296,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       replicas: 1,
       resources: { memory: "256M" },
       secrets: mount(["POSTGRES_PASSWORD"]),
-      // secretName defaults to cc-secrets-tye-api (from vault: TEXT_YOUR_EX_POSTGRES__PASSWORD).
+      secretName: SERVICE_SECRET_TARGETS["tye-api"].secretName,
       env: {
         TZ,
         APP_ENV: "production",
@@ -323,6 +328,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       // does not hold the live tunnel token alongside Swarm (www-j934.9 / §7).
       resources: { memory: "128M", reserveCpus: "0.25" },
       secrets: mount(["TUNNEL_TOKEN"]),
+      secretName: SERVICE_SECRET_TARGETS.cloudflared.secretName,
       // k8s `command` REPLACES the image entrypoint (unlike Swarm, which appends
       // to it), so the binary `cloudflared` must lead, then its `tunnel ...` args.
       command: [

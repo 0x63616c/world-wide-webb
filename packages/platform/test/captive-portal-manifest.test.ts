@@ -49,7 +49,7 @@ describe("Captive Portal platform representation", () => {
     expect(manifest.secretUsages.api).toMatchObject({
       product: "captive-portal",
       service: "api",
-      targetSecretName: "cc-secrets-captive-portal-api",
+      targetSecretName: "captive-portal-secrets-api",
     });
     expect(Object.keys(manifest.secretUsages.api.secrets).sort()).toEqual([
       "POSTGRES_PASSWORD",

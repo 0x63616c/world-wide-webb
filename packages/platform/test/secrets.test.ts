@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { SERVICE_SECRETS } from "../../../infra/src/secrets-map.ts";
+import { SERVICE_SECRETS, type ServiceSecrets } from "../../../infra/src/secrets-map.ts";
 import {
   controlCenterServiceSecretUsages,
   defineProduct,
@@ -41,8 +41,9 @@ describe("secret catalog and service usage", () => {
     );
     const allUsages = { ...controlCenterServiceSecretUsages(), ...tyePrefixed };
     const platformMap = serviceSecretMap(allUsages);
+    const infraSecretMap = SERVICE_SECRETS as Record<string, ServiceSecrets>;
     for (const [service, platformSecrets] of Object.entries(platformMap)) {
-      const infraKeys = Object.keys(SERVICE_SECRETS[service] ?? {}).sort();
+      const infraKeys = Object.keys(infraSecretMap[service] ?? {}).sort();
       const platformKeys = Object.keys(platformSecrets).sort();
       expect(infraKeys).toEqual(platformKeys);
     }
@@ -56,14 +57,20 @@ describe("secret catalog and service usage", () => {
     expect("captive-portal" in secrets).toBe(false);
   });
 
-  test("supports current compatibility secret names without changing the future convention", () => {
-    const usage = controlCenterServiceSecretUsages().api;
+  test("product service usages no longer use cc-secrets compatibility names", () => {
+    const usages = {
+      ...controlCenterServiceSecretUsages(),
+      ...textYourExProductManifest().secretUsages,
+    };
 
-    expect(usage.targetSecretName).toBe("cc-secrets-api");
-    expect(
-      defineServiceSecretUsage(defineProduct("control-center"), "api", {
-        HA_TOKEN: secretCatalog.homeAssistant.token,
-      }).targetSecretName,
-    ).toBe("control-center-secrets-api");
+    expect(controlCenterServiceSecretUsages().api.targetSecretName).toBe(
+      "control-center-secrets-api",
+    );
+    expect(controlCenterServiceSecretUsages().cloudflared.targetSecretName).toBe(
+      "platform-secrets-cloudflared",
+    );
+    for (const usage of Object.values(usages)) {
+      expect(usage.targetSecretName).not.toMatch(/^cc-secrets-/);
+    }
   });
 });

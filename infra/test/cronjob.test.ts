@@ -10,7 +10,7 @@ const purge: CronJobSpec = {
   image: "ghcr.io/0x63616c/www-cc-api:main",
   schedule: "0 2 * * *",
   command: ["bun", "purge.js"],
-  secrets: [{ name: "POSTGRES_PASSWORD", ref: "cc-secrets-portal-data-purge" }],
+  secrets: [{ name: "POSTGRES_PASSWORD", ref: "test-secret-ref" }],
   env: { TZ: "America/Los_Angeles" },
 };
 

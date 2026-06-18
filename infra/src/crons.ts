@@ -23,6 +23,7 @@ import {
 } from "@www/platform";
 import type { CronJobSpec } from "./component.ts";
 import { ScheduledJob } from "./component.ts";
+import { SERVICE_SECRET_TARGETS } from "./secrets-map.ts";
 
 // GHCR image ref (mutable :main tag; CI digest-pins at deploy). Mirrors services.ts.
 const ghcr = (name: string) => `ghcr.io/0x63616c/www-cc-${name}:main`;
@@ -97,6 +98,7 @@ export function cronSpecs(nasNfsServer: string): CronJobSpec[] {
       schedule: "0 2 * * *",
       command: ["bun", "purge.js"],
       secrets: [{ name: "POSTGRES_PASSWORD", ref: "eso" }],
+      secretName: SERVICE_SECRET_TARGETS["portal-data-purge"].secretName,
       env: { TZ, POSTGRES_HOST: controlCenterPostgresHost },
       // Carry the GHCR pull secret like the workloads do, rather than leaning
       // on package visibility staying public (www-hn1i).

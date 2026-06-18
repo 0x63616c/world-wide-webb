@@ -13,7 +13,7 @@ const api: WorkloadSpec = {
   image: "ghcr.io/0x63616c/www-cc-api:main",
   replicas: 1,
   resources: { memory: "512M", reserveCpus: "0.5" },
-  secrets: [{ name: "POSTGRES_PASSWORD", ref: "cc-secrets-api" }],
+  secrets: [{ name: "POSTGRES_PASSWORD", ref: "test-secret-ref" }],
   env: { NODE_ENV: "production", TZ: "America/Los_Angeles" },
   ports: [{ containerPort: 4201, expose: "cluster" }],
 };
@@ -43,8 +43,7 @@ describe("renderWorkload", () => {
     // The secret rides a projected/secret volume, not env, so values never land
     // in the pod spec.
     const vol = r.deployment.spec.template.spec.volumes.find((v) => v.name === mount?.name);
-    // Defaults to the ESO-synced Secret name cc-secrets-<name> (www-j934.4).
-    expect(vol?.secret?.secretName).toBe("cc-secrets-api");
+    expect(vol?.secret?.secretName).toBe("api-secrets");
   });
 
   test("plain env is passed through as env vars (no secret values)", () => {
@@ -123,14 +122,14 @@ describe("renderWorkload", () => {
 });
 
 describe("renderWorkload: www-j934.6 extensions", () => {
-  test("secretName defaults to cc-secrets-<name>, override honored", () => {
+  test("secretName has a neutral fallback and product-derived overrides are honored", () => {
     const def = renderWorkload(api).deployment.spec.template.spec.volumes.find(
       (v) => v.name === "secrets",
     );
-    expect(def?.secret?.secretName).toBe("cc-secrets-api");
-    const over = renderWorkload({ ...api, secretName: "custom-secret" });
+    expect(def?.secret?.secretName).toBe("api-secrets");
+    const over = renderWorkload({ ...api, secretName: "control-center-secrets-api" });
     const vol = over.deployment.spec.template.spec.volumes.find((v) => v.name === "secrets");
-    expect(vol?.secret?.secretName).toBe("custom-secret");
+    expect(vol?.secret?.secretName).toBe("control-center-secrets-api");
   });
 
   test("imagePullSecrets land on the pod spec", () => {
@@ -281,33 +280,65 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
       logicalName: spec.logicalName,
       name: spec.name,
       namespaceName: spec.namespaceName,
+      secretName: spec.secretName,
     }));
 
     expect(specs).toEqual(
       expect.arrayContaining([
-        { logicalName: "control-center-api", name: "api", namespaceName: "control-center" },
-        { logicalName: "control-center-web", name: "web", namespaceName: "control-center" },
-        { logicalName: "control-center-worker", name: "worker", namespaceName: "control-center" },
-        {
+        expect.objectContaining({
+          logicalName: "control-center-api",
+          name: "api",
+          namespaceName: "control-center",
+          secretName: "control-center-secrets-api",
+        }),
+        expect.objectContaining({
+          logicalName: "control-center-web",
+          name: "web",
+          namespaceName: "control-center",
+        }),
+        expect.objectContaining({
+          logicalName: "control-center-worker",
+          name: "worker",
+          namespaceName: "control-center",
+        }),
+        expect.objectContaining({
           logicalName: "control-center-media-worker",
           name: "media-worker",
           namespaceName: "control-center",
-        },
-        {
+        }),
+        expect.objectContaining({
           logicalName: "control-center-storybook",
           name: "storybook",
           namespaceName: "control-center",
-        },
-        { logicalName: "control-center-drizzle", name: "drizzle", namespaceName: "control-center" },
-        { logicalName: "captive-portal-portal", name: "portal", namespaceName: "captive-portal" },
-        { logicalName: "text-your-ex-api", name: "api", namespaceName: "text-your-ex" },
-        {
+        }),
+        expect.objectContaining({
+          logicalName: "control-center-drizzle",
+          name: "drizzle",
+          namespaceName: "control-center",
+        }),
+        expect.objectContaining({
+          logicalName: "captive-portal-portal",
+          name: "portal",
+          namespaceName: "captive-portal",
+        }),
+        expect.objectContaining({
+          logicalName: "text-your-ex-api",
+          name: "api",
+          namespaceName: "text-your-ex",
+          secretName: "text-your-ex-secrets-api",
+        }),
+        expect.objectContaining({
           logicalName: "text-your-ex-frontend",
           name: "frontend",
           namespaceName: "text-your-ex",
-        },
-        { logicalName: "amp-app", name: "app", namespaceName: "amp" },
-        { logicalName: "platform-cloudflared", name: "cloudflared", namespaceName: "platform" },
+        }),
+        expect.objectContaining({ logicalName: "amp-app", name: "app", namespaceName: "amp" }),
+        expect.objectContaining({
+          logicalName: "platform-cloudflared",
+          name: "cloudflared",
+          namespaceName: "platform",
+          secretName: "platform-secrets-cloudflared",
+        }),
       ]),
     );
   });

@@ -413,42 +413,25 @@ export function controlCenterServiceSecretUsages(): Record<
   } as const;
 
   return {
-    api: defineServiceSecretUsage(controlCenter, "api", apiSecrets, {
-      targetSecretName: "cc-secrets-api",
+    api: defineServiceSecretUsage(controlCenter, "api", apiSecrets),
+    worker: defineServiceSecretUsage(controlCenter, "worker", workerSecrets),
+    "media-worker": defineServiceSecretUsage(controlCenter, "media-worker", {
+      POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
+      OPENROUTER_API_KEY: secretCatalog.openRouter.apiKey,
     }),
-    worker: defineServiceSecretUsage(controlCenter, "worker", workerSecrets, {
-      targetSecretName: "cc-secrets-worker",
+    drizzle: defineServiceSecretUsage(controlCenter, "drizzle", {
+      MASTERPASS: secretCatalog.drizzle.masterpass,
+      POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
     }),
-    "media-worker": defineServiceSecretUsage(
-      controlCenter,
-      "media-worker",
-      {
-        POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
-        OPENROUTER_API_KEY: secretCatalog.openRouter.apiKey,
-      },
-      { targetSecretName: "cc-secrets-media-worker" },
-    ),
-    drizzle: defineServiceSecretUsage(
-      controlCenter,
-      "drizzle",
-      {
-        MASTERPASS: secretCatalog.drizzle.masterpass,
-        POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
-      },
-      { targetSecretName: "cc-secrets-drizzle" },
-    ),
     cloudflared: defineServiceSecretUsage(
       controlCenter,
       "cloudflared",
       { TUNNEL_TOKEN: secretCatalog.cloudflare.tunnelToken },
-      { targetSecretName: "cc-secrets-cloudflared" },
+      { targetSecretName: "platform-secrets-cloudflared" },
     ),
-    "portal-data-purge": defineServiceSecretUsage(
-      controlCenter,
-      "portal-data-purge",
-      { POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword },
-      { targetSecretName: "cc-secrets-portal-data-purge" },
-    ),
+    "portal-data-purge": defineServiceSecretUsage(controlCenter, "portal-data-purge", {
+      POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
+    }),
   };
 }
 
@@ -805,17 +788,12 @@ export function captivePortalProductManifest(): CaptivePortalProductManifest {
     name: "captive-portal-pg-backup",
     schedule: "15 1 * * *",
   });
-  const apiSecretUsage = defineServiceSecretUsage(
-    product,
-    "api",
-    {
-      POSTGRES_PASSWORD: secretCatalog.captivePortal.postgresPassword,
-      UNIFI_API_KEY: secretCatalog.unifi.localApiKey,
-      WIFI_PASSWORD: secretCatalog.wifiGuest.password,
-      WIFI_SSID: secretCatalog.wifiGuest.ssid,
-    },
-    { targetSecretName: "cc-secrets-captive-portal-api" },
-  );
+  const apiSecretUsage = defineServiceSecretUsage(product, "api", {
+    POSTGRES_PASSWORD: secretCatalog.captivePortal.postgresPassword,
+    UNIFI_API_KEY: secretCatalog.unifi.localApiKey,
+    WIFI_PASSWORD: secretCatalog.wifiGuest.password,
+    WIFI_SSID: secretCatalog.wifiGuest.ssid,
+  });
 
   return {
     product,
@@ -858,14 +836,9 @@ export function textYourExProductManifest(): TyeProductManifest {
     name: "tye-pg-backup",
     schedule: "30 1 * * *",
   });
-  const apiSecretUsage = defineServiceSecretUsage(
-    product,
-    "api",
-    {
-      POSTGRES_PASSWORD: secretCatalog.textYourEx.postgresPassword,
-    },
-    { targetSecretName: "cc-secrets-tye-api" },
-  );
+  const apiSecretUsage = defineServiceSecretUsage(product, "api", {
+    POSTGRES_PASSWORD: secretCatalog.textYourEx.postgresPassword,
+  });
 
   return {
     product,

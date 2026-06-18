@@ -1,13 +1,13 @@
 // Native k8s Secrets per workload (CC-k8t7: replaces ESO+1Password with
 // decrypt-in-Pulumi from secrets/vault.yaml). One Secret per SERVICE_SECRETS
-// entry, same names as before (cc-secrets-<service>) so the /run/secrets/<NAME>
+// entry, named from product/service ownership so the /run/secrets/<NAME>
 // mount contract in component.ts is untouched.
 
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import type { InfraNamespaceName } from "./cluster.ts";
 import type { ServiceSecrets } from "./secrets-map.ts";
-import { SERVICE_SECRETS } from "./secrets-map.ts";
+import { SERVICE_SECRET_TARGETS, SERVICE_SECRETS, type ServiceSecretName } from "./secrets-map.ts";
 
 export interface SecretsArgs {
   provider: k8s.Provider;
@@ -20,20 +20,8 @@ export interface SecretsResources {
   externalSecrets: k8s.core.v1.Secret[];
 }
 
-const SERVICE_NAMESPACES = {
-  api: "control-center",
-  worker: "control-center",
-  "media-worker": "control-center",
-  drizzle: "control-center",
-  cloudflared: "platform",
-  "portal-data-purge": "control-center",
-  "tye-api": "text-your-ex",
-} as const satisfies Record<keyof typeof SERVICE_SECRETS, InfraNamespaceName>;
-
-type ServiceSecretName = keyof typeof SERVICE_SECRETS;
-
 function createServiceSecret(
-  service: string,
+  service: ServiceSecretName,
   secrets: ServiceSecrets,
   vault: Record<string, string>,
   namespace: pulumi.Input<string>,
@@ -49,9 +37,9 @@ function createServiceSecret(
   }
 
   return new k8s.core.v1.Secret(
-    `cc-secrets-${service}`,
+    SERVICE_SECRET_TARGETS[service].secretName,
     {
-      metadata: { name: `cc-secrets-${service}`, namespace },
+      metadata: { name: SERVICE_SECRET_TARGETS[service].secretName, namespace },
       stringData,
     },
     opts,
@@ -69,7 +57,13 @@ export function installEso(args: SecretsArgs): SecretsResources {
   const externalSecrets = (
     Object.entries(SERVICE_SECRETS) as [ServiceSecretName, ServiceSecrets][]
   ).map(([service, secrets]) =>
-    createServiceSecret(service, secrets, vault, namespaces[SERVICE_NAMESPACES[service]], opts),
+    createServiceSecret(
+      service,
+      secrets,
+      vault,
+      namespaces[SERVICE_SECRET_TARGETS[service].namespaceName],
+      opts,
+    ),
   );
 
   return { externalSecrets };

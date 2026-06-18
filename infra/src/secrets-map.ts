@@ -3,6 +3,9 @@
 // (ITEM__FIELD format). vault.ts reads the vault and creates a native k8s Secret
 // per service (CC-k8t7: migrated from ESO+1Password to SOPS+age).
 
+import { defineProduct, type ProductIdentity } from "@www/platform";
+import type { InfraNamespaceName } from "./cluster.ts";
+
 /** A service's secret env-name -> VAULT_KEY in secrets/vault.yaml. */
 export type ServiceSecrets = Record<string, string>;
 
@@ -49,7 +52,7 @@ export const SERVICE_SECRETS = {
   },
   // The portal-data-purge CronJob (www-j934.7) runs the api image's purge.js and
   // builds DATABASE_URL from the mounted POSTGRES_PASSWORD; it needs that one
-  // secret synced into cc-secrets-portal-data-purge (the CronJob's default mount).
+  // secret synced into the product-derived CronJob mount Secret.
   "portal-data-purge": {
     POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
   },
@@ -60,3 +63,48 @@ export const SERVICE_SECRETS = {
     POSTGRES_PASSWORD: "TEXT_YOUR_EX_POSTGRES__PASSWORD",
   },
 } satisfies Record<string, ServiceSecrets>;
+
+export type ServiceSecretName = keyof typeof SERVICE_SECRETS;
+
+export type ServiceSecretTarget = Readonly<{
+  namespaceName: InfraNamespaceName;
+  secretName: string;
+}>;
+
+function productSecretName(product: ProductIdentity, service: string): string {
+  return `${product.slug}-secrets-${service}`;
+}
+
+const controlCenter = defineProduct("control-center");
+const textYourEx = defineProduct("text-your-ex");
+
+export const SERVICE_SECRET_TARGETS = {
+  api: {
+    namespaceName: controlCenter.namespace,
+    secretName: productSecretName(controlCenter, "api"),
+  },
+  worker: {
+    namespaceName: controlCenter.namespace,
+    secretName: productSecretName(controlCenter, "worker"),
+  },
+  "media-worker": {
+    namespaceName: controlCenter.namespace,
+    secretName: productSecretName(controlCenter, "media-worker"),
+  },
+  drizzle: {
+    namespaceName: controlCenter.namespace,
+    secretName: productSecretName(controlCenter, "drizzle"),
+  },
+  cloudflared: {
+    namespaceName: "platform",
+    secretName: "platform-secrets-cloudflared",
+  },
+  "portal-data-purge": {
+    namespaceName: controlCenter.namespace,
+    secretName: productSecretName(controlCenter, "portal-data-purge"),
+  },
+  "tye-api": {
+    namespaceName: textYourEx.namespace,
+    secretName: productSecretName(textYourEx, "api"),
+  },
+} as const satisfies Record<ServiceSecretName, ServiceSecretTarget>;

@@ -128,7 +128,7 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
     const names = await Promise.all(
       res.externalSecrets.map((s) => get<{ name: string }>(s, "metadata").then((m) => m.name)),
     );
-    expect(names).toContain("cc-secrets-tye-api");
+    expect(names).toContain("text-your-ex-secrets-api");
   });
 
   test("routes service Secrets to their owner namespaces", async () => {
@@ -145,8 +145,14 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
       res.externalSecrets.map((s) => get<{ name: string; namespace: string }>(s, "metadata")),
     );
 
-    expect(metadata.find((m) => m.name === "cc-secrets-api")?.namespace).toBe("control-center");
-    expect(metadata.find((m) => m.name === "cc-secrets-cloudflared")?.namespace).toBe("platform");
-    expect(metadata.find((m) => m.name === "cc-secrets-tye-api")?.namespace).toBe("text-your-ex");
+    expect(metadata.find((m) => m.name === "control-center-secrets-api")?.namespace).toBe(
+      "control-center",
+    );
+    expect(metadata.find((m) => m.name === "platform-secrets-cloudflared")?.namespace).toBe(
+      "platform",
+    );
+    expect(metadata.find((m) => m.name === "text-your-ex-secrets-api")?.namespace).toBe(
+      "text-your-ex",
+    );
   });
 });

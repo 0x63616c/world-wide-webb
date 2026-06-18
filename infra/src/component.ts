@@ -68,6 +68,7 @@ export interface CronJobSpec {
   env?: Record<string, string>;
   resources?: ResourceSpec;
   volumes?: VolumeSpec[];
+  secretName?: string;
   suspend?: boolean;
   extraSecretMounts?: {
     secretName: string;
@@ -274,7 +275,7 @@ function buildPod(p: PodInputs): {
     volumeMounts.push({ name: "secrets", mountPath: "/run/secrets", readOnly: true });
     podVolumes.push({
       name: "secrets",
-      secret: { secretName: p.secretName ?? `cc-secrets-${p.name}` },
+      secret: { secretName: p.secretName ?? `${p.name}-secrets` },
     });
   }
 
