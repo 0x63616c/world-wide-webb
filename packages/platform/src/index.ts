@@ -21,6 +21,7 @@ export type ProductIdentity = Readonly<{
   pulumiName: (component: string) => string;
   serviceName: (component: string) => string;
   imageRepository: (component: string) => string;
+  imageDigestKey: (component: string) => string;
   backupPathParts: (
     component: string,
   ) => readonly ["backups", "world-wide-webb", ProductSlug, string];
@@ -54,7 +55,8 @@ export function defineProduct(slug: ProductSlug): ProductIdentity {
     }),
     pulumiName: productPrefix,
     serviceName: productPrefix,
-    imageRepository: (component) => `ghcr.io/0x63616c/www-${dnsCodes[slug]}-${component}`,
+    imageRepository: (component) => `ghcr.io/0x63616c/www-${slug}-${component}`,
+    imageDigestKey: productPrefix,
     backupPathParts: (component) => ["backups", "world-wide-webb", slug, component],
   };
 }

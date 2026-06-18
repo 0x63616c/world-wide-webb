@@ -16,7 +16,8 @@ describe("product identity", () => {
     expect(app.imageNamespace).toBe("control-center");
     expect(app.pulumiName("api")).toBe("control-center-api");
     expect(app.serviceName("api")).toBe("control-center-api");
-    expect(app.imageRepository("api")).toBe("ghcr.io/0x63616c/www-cc-api");
+    expect(app.imageRepository("api")).toBe("ghcr.io/0x63616c/www-control-center-api");
+    expect(app.imageDigestKey("api")).toBe("control-center-api");
     expect(app.backupPathParts("postgres")).toEqual([
       "backups",
       "world-wide-webb",
@@ -32,14 +33,16 @@ describe("product identity", () => {
   });
 
   test.each([
-    ["captive-portal", "cp"],
-    ["text-your-ex", "tye"],
-    ["amp", "amp"],
-  ] as const)("derives networking-only DNS code for %s", (slug, dnsCode) => {
+    ["captive-portal", "cp", "ghcr.io/0x63616c/www-captive-portal-api", "captive-portal-api"],
+    ["text-your-ex", "tye", "ghcr.io/0x63616c/www-text-your-ex-api", "text-your-ex-api"],
+    ["amp", "amp", "ghcr.io/0x63616c/www-amp-api", "amp-api"],
+  ] as const)("derives full-slug global naming and networking-only DNS code for %s", (slug, dnsCode, imageRepository, imageDigestKey) => {
     const app = defineProduct(slug);
 
     expect(app.dnsCode).toBe(dnsCode);
     expect(app.namespace).toBe(slug);
     expect(app.folder).toBe(`products/${slug}`);
+    expect(app.imageRepository("api")).toBe(imageRepository);
+    expect(app.imageDigestKey("api")).toBe(imageDigestKey);
   });
 });
