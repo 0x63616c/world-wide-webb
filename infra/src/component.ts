@@ -508,6 +508,7 @@ export class Workload extends pulumi.ComponentResource {
     const rendered = renderWorkload(spec);
     const childOpts: pulumi.ComponentResourceOptions = { parent: this, provider };
     const pvOpts = { ...childOpts, deleteBeforeReplace: true };
+    const serviceOpts = { ...childOpts, deleteBeforeReplace: true };
 
     this.persistentVolumes = rendered.persistentVolumes.map(
       (pv) => new k8s.core.v1.PersistentVolume(pv.metadata.name, pv as never, pvOpts),
@@ -535,7 +536,7 @@ export class Workload extends pulumi.ComponentResource {
         new k8s.core.v1.Service(
           `${logicalName}-${svc.metadata.name}`,
           { metadata: { namespace, ...svc.metadata }, spec: svc.spec as never },
-          { ...childOpts, aliases: legacyAliases(spec.legacyLogicalName) },
+          { ...serviceOpts, aliases: legacyAliases(spec.legacyLogicalName) },
         ),
     );
 
@@ -596,16 +597,17 @@ export class ScheduledJob extends pulumi.ComponentResource {
 
     const rendered = renderCronJob(spec);
     const childOpts: pulumi.ComponentResourceOptions = { parent: this, provider };
+    const pvOpts = { ...childOpts, deleteBeforeReplace: true };
 
     this.persistentVolumes = rendered.persistentVolumes.map(
-      (pv) => new k8s.core.v1.PersistentVolume(pv.metadata.name, pv as never, childOpts),
+      (pv) => new k8s.core.v1.PersistentVolume(pv.metadata.name, pv as never, pvOpts),
     );
     this.persistentVolumeClaims = rendered.persistentVolumeClaims.map(
       (pvc) =>
         new k8s.core.v1.PersistentVolumeClaim(
           `${logicalName}-${pvc.metadata.name}`,
           { metadata: { namespace, ...pvc.metadata }, spec: pvc.spec as never },
-          { ...childOpts, aliases: legacyAliases(pvc.metadata.name) },
+          { ...pvOpts, aliases: legacyAliases(pvc.metadata.name) },
         ),
     );
 
