@@ -247,6 +247,43 @@ this with `control_center-20260613-171532.dump` restored into temporary scratch 
 `drizzle.__drizzle_migrations|7|7` and `public.weather_reading|463104|463104`. Old pgdata
 preserved (GOAL Phase 4 acceptance). The full cutover (tunnel switch, Swarm teardown) is §7.
 
+### 4.1 Product CNPG local-name migration workflow (www-0y64.2)
+
+Use this when a product already has a product-slug CNPG Cluster and must move to the platform
+standard local Kubernetes name `postgres` inside that product namespace. **Never rename the live
+CNPG Cluster in place.** CNPG owns stateful pods, Services, and PVCs; in-place renames risk orphaning
+or deleting the rollback artifact. The safe path is create-next-to-old, copy, validate, switch,
+soak, then clean up only after evidence exists.
+
+| # | Step | Command shape | Rollback |
+|---|---|---|---|
+| 1 | **Declare the new local-name target** | Update the product database declaration so Pulumi creates a new CNPG `Cluster` named `postgres`, a `postgres-rw` Service, and a new auth Secret if needed. Leave the old product-slug Cluster and PVCs declared/protected for the migration window. | Revert the declaration before switching consumers; the old product-slug cluster is still authoritative. |
+| 2 | **Apply additive infra only** | `scripts/secrets.sh pulumi up --stack prod` after confirming preview creates the new Cluster and does **not** delete old Cluster/PVC resources. | Delete the empty new Cluster/PVC if no restore has happened. |
+| 3 | **Quiesce writers** | Scale every product writer to zero: API, workers, cron jobs, queue consumers, and one-off jobs. Record the pre-freeze replica counts. | Scale writers back to the recorded old counts. |
+| 4 | **Capture source evidence** | Capture source row counts, a schema-only dump, and both final dumps from the old product-slug Cluster. For scratch proof, use `scripts/pg-snapshot-restore.sh --source <old-cluster> --scratch <scratch-cluster> --output-dir <evidence-dir>`. | Read-only; old cluster remains untouched. |
+| 5 | **Restore into the new `postgres` Cluster** | Restore the final custom-format dump into the new local-name Cluster with `pg_restore --clean --if-exists --no-owner --no-acl`. This is the only non-scratch restore and requires human review before running. | Drop/recreate the new local-name database from the preserved dump; old cluster remains untouched. |
+| 6 | **Validate rows and schema** | Capture target row counts from `postgres`, then run `scripts/pg-snapshot-restore.sh --compare-counts <evidence-dir>/source-counts.tsv <evidence-dir>/target-counts.tsv`. Diff source vs target schema-only dumps into `<evidence-dir>/schema.diff`; it must be empty or explicitly investigated before continuing. | On any mismatch, keep writers stopped or roll them back to the old Cluster. Do not switch. |
+| 7 | **Switch consumers** | Change product `POSTGRES_HOST` from the old `*-rw` Service to `postgres-rw`, then roll/restart every writer. | Set `POSTGRES_HOST` back to the old `*-rw` Service and restart consumers. This is the rollback path until cleanup. |
+| 8 | **Smoke checks** | Run product-specific health checks, worker/queue checks, a backup proof, and any UI/API smoke. Save output as `<evidence-dir>/smoke.txt`; passing lines must be explicit. | If smoke fails, switch `POSTGRES_HOST` back to old `*-rw`, restart consumers, and investigate the new Cluster offline. |
+| 9 | **Soak window** | Keep the old product-slug Cluster and PVCs intact through a recorded soak window. Save `<evidence-dir>/soak.txt` with start, end, observed backup status, and `SOAK COMPLETE`. | Switch `POSTGRES_HOST` back to old `*-rw` during the soak if the new Cluster regresses. |
+| 10 | **Cleanup preflight** | Run `CNPG_MIGRATION_PRODUCT=<product> CNPG_MIGRATION_NAMESPACE=<ns> CNPG_OLD_CLUSTER=<old> CNPG_NEW_CLUSTER=postgres CNPG_LOCAL_NAME_EVIDENCE_DIR=<evidence-dir> CNPG_CLEANUP_APPROVED=yes scripts/cnpg-local-name-preflight.sh`. It must print `READY`. | If it blocks, do not delete anything; keep the old Cluster/PVCs. |
+| 11 | **Cleanup** | Only after the preflight is green, remove the old product-slug Cluster/PVC declarations or delete the old live resources per the reviewed plan. | After cleanup, rollback uses the final dumps/backups, not the old live Cluster. |
+
+Required evidence files for cleanup preflight:
+
+```text
+<evidence-dir>/source-counts.tsv
+<evidence-dir>/target-counts.tsv
+<evidence-dir>/schema.diff      # empty
+<evidence-dir>/smoke.txt        # contains PASS and no FAIL
+<evidence-dir>/soak.txt         # contains SOAK COMPLETE
+```
+
+`scripts/cnpg-local-name-preflight.sh` is a cleanup gate, not a migration executor. It has no
+Kubernetes side effects and exists to make destructive cleanup refuse to run before validation
+evidence exists. Future product migrations such as `captive-portal` and `text-your-ex` should use
+this exact evidence shape so operators do not invent per-product cleanup rules.
+
 ---
 
 ## 5a. Captive-portal LAN exposure  **[Phase 0a spike: PASSED]**

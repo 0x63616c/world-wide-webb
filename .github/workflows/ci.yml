@@ -230,12 +230,14 @@ jobs:
         # Hermetic self-tests of the M7 production-cutover tooling (www-jtp0.7):
         # the red-first preflight gate (refuses cutover until rehearsal/snapshot/
         # counts/rollback/approval present), the post-cutover smoke dry-run plan,
-        # and the wall-panel health classifier (1366x1024 + CF-error/skeleton
-        # markers, mirrored from iOS KioskHealth). No cluster/DB/network/secrets.
-        # Fast, runs before the slow Playwright install. Mirrors the gates above.
+        # the CNPG local-name cleanup guard, and the wall-panel health classifier
+        # (1366x1024 + CF-error/skeleton markers, mirrored from iOS KioskHealth).
+        # No cluster/DB/network/secrets. Fast, runs before the slow Playwright
+        # install. Mirrors the gates above.
         run: |
           bash scripts/test-cc-cutover-preflight.sh
           bash scripts/test-cc-post-cutover-smoke.sh
+          bash scripts/test-cnpg-local-name-preflight.sh
           node scripts/test-panel-health.mjs
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -693,7 +695,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Decrypt vault — the ONLY step that touches AGE_PRIVATE_KEY. Installs sops
+      # Decrypt vault, the ONLY step that touches AGE_PRIVATE_KEY. Installs sops
       # + age, decrypts secrets/vault.yaml, and masks each value before exporting.
       # No set -x around this block. Values flow into subsequent steps via GITHUB_ENV.
       - name: Decrypt vault (SOPS+age)

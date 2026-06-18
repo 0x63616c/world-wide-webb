@@ -272,6 +272,18 @@ If the Captive Portal database, auth Secret, service discovery, or backup job fa
 scale any new Captive Portal product DB consumers to zero and keep the existing Control Center
 portal path serving until the product database is fixed and restore validation passes.
 
+**Product CNPG local-name migrations (www-0y64.2).** When normalizing a product database from a
+product-slug CNPG Cluster name to the local name `postgres`, do **not** rename the live Cluster in
+place. Create the new `postgres` Cluster alongside the old product-slug Cluster, quiesce writers,
+dump from the old Cluster, restore into the new Cluster, compare row counts, diff schema-only dumps,
+switch consumers by changing `POSTGRES_HOST` to `postgres-rw`, run smoke checks, then keep the old
+Cluster/PVCs through a recorded soak window. Rollback before cleanup is always: set `POSTGRES_HOST`
+back to the old `*-rw` Service and restart consumers. Destructive cleanup is gated by
+`scripts/cnpg-local-name-preflight.sh`, which refuses to go green unless the evidence directory has
+matching `source-counts.tsv` / `target-counts.tsv`, an empty `schema.diff`, passing `smoke.txt`, a
+`SOAK COMPLETE` record in `soak.txt`, and `CNPG_CLEANUP_APPROVED=yes`. Full operator sequence lives
+in `docs/k3s-migration/DESIGN.md` §4.1.
+
 ---
 
 ## 7. Acceptance criteria

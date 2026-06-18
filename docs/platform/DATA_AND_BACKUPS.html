@@ -159,6 +159,22 @@
         </section>
 
         <section>
+          <h2>CNPG Local-Name Migration Contract</h2>
+          <p>When a product database moves from a product-slug CNPG Cluster name to the platform local name <code>postgres</code>, the migration is a side-by-side data move, not an in-place rename.</p>
+          <ol>
+            <li><strong>Create target:</strong> declare the new <code>postgres</code> CNPG Cluster and <code>postgres-rw</code> Service alongside the old product-slug Cluster.</li>
+            <li><strong>Preserve rollback:</strong> keep the old Cluster, Service, and PVCs intact until after validation and soak.</li>
+            <li><strong>Freeze writes:</strong> scale every API, worker, cron, queue, and one-off writer to zero before the final dump.</li>
+            <li><strong>Copy data:</strong> dump from the old Cluster and restore into the new local-name Cluster after human review.</li>
+            <li><strong>Validate:</strong> compare exact row counts with <code>scripts/pg-snapshot-restore.sh --compare-counts</code> and diff schema-only dumps.</li>
+            <li><strong>Switch:</strong> move consumers by changing <code>POSTGRES_HOST</code> from old <code>*-rw</code> to <code>postgres-rw</code>, then restart them.</li>
+            <li><strong>Rollback:</strong> before cleanup, switch <code>POSTGRES_HOST</code> back to the old <code>*-rw</code> Service and restart consumers.</li>
+            <li><strong>Soak:</strong> record a soak window with successful app smoke checks and backup proof while old storage remains available.</li>
+            <li><strong>Cleanup gate:</strong> run <code>scripts/cnpg-local-name-preflight.sh</code>; it refuses old Cluster/PVC cleanup unless count, schema, smoke, soak, and approval evidence exists.</li>
+          </ol>
+        </section>
+
+        <section>
           <h2>M2 Snapshot And Restore Tooling</h2>
           <p><code>scripts/pg-snapshot-restore.sh</code> is the reusable platform-era proof tool for product database snapshots and scratch restores. It is additive and does not replace the live backup CronJob.</p>
           <ul>
