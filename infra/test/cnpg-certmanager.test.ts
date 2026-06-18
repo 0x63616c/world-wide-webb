@@ -84,7 +84,7 @@ describe("installCnpg", () => {
     expect(stringData.username).toBe("postgres");
   });
 
-  test("installs Control Center, Captive Portal, and Text Your Ex product databases", async () => {
+  test("installs product databases and retains Text Your Ex legacy DB during local-name migration", async () => {
     const res = cnpg.installCnpg({
       provider: provider(),
       namespaces: testNamespaces,
@@ -92,8 +92,8 @@ describe("installCnpg", () => {
       vault: mockVault,
     });
 
-    expect(res.clusters).toHaveLength(3);
-    expect(res.authSecrets).toHaveLength(3);
+    expect(res.clusters).toHaveLength(4);
+    expect(res.authSecrets).toHaveLength(4);
 
     const clusterSpecs = await Promise.all(
       res.clusters.map((cluster) =>
@@ -109,6 +109,7 @@ describe("installCnpg", () => {
     expect(clusterSpecs.map((spec) => spec.bootstrap.initdb.database).sort()).toEqual([
       "captive_portal",
       "control_center",
+      "text_your_ex",
       "text_your_ex",
     ]);
     expect(
@@ -142,7 +143,9 @@ describe("installCnpg", () => {
     expect(clusterMetadata.find((m) => m.name === "captive-portal")?.namespace).toBe(
       "captive-portal",
     );
+    expect(clusterMetadata.find((m) => m.name === "postgres")?.namespace).toBe("text-your-ex");
     expect(clusterMetadata.find((m) => m.name === "text-your-ex")?.namespace).toBe("text-your-ex");
+    expect(secretMetadata.find((m) => m.name === "postgres-auth")?.namespace).toBe("text-your-ex");
     expect(secretMetadata.find((m) => m.name === "captive-portal-postgres-auth")?.namespace).toBe(
       "captive-portal",
     );

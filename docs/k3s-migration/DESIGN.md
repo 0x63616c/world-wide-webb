@@ -282,8 +282,16 @@ Required evidence files for cleanup preflight:
 
 `scripts/cnpg-local-name-preflight.sh` is a cleanup gate, not a migration executor. It has no
 Kubernetes side effects and exists to make destructive cleanup refuse to run before validation
-evidence exists. Future product migrations such as `captive-portal` and `text-your-ex` should use
-this exact evidence shape so operators do not invent per-product cleanup rules.
+evidence exists. Product migrations should use this exact evidence shape so operators do not invent
+per-product cleanup rules.
+
+**Text Your Ex result (www-0y64.3, 2026-06-18):** `text-your-ex` was cut over to local names with
+new `Cluster/postgres`, Services `postgres-rw`/`postgres-ro`/`postgres-r`, and auth Secret
+`postgres-auth`; the API runs with `POSTGRES_HOST=postgres-rw`. The legacy `Cluster/text-your-ex`,
+Services, and PVC `text-your-ex-1` remain declared and live for rollback through soak. Evidence is
+stored at `/Users/calum/control-center-pg-snapshots/www-0y64.3-tye-db-local-name-20260618` with
+matching source/target row counts, empty `schema.diff`, passing API DB smoke, passing backup smoke,
+and server-side dry-run rollback commands.
 
 ---
 

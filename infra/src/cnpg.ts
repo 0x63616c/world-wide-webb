@@ -39,10 +39,12 @@ export interface CnpgResources {
 }
 
 function productDatabases(): ProductDatabase[] {
+  const textYourEx = textYourExProductManifest();
   return [
     controlCenterProductManifest().database,
     captivePortalProductManifest().database,
-    textYourExProductManifest().database,
+    textYourEx.database,
+    ...textYourEx.retainedLegacyDatabases,
   ];
 }
 

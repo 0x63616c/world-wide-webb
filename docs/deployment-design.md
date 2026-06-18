@@ -287,6 +287,14 @@ matching `source-counts.tsv` / `target-counts.tsv`, an empty `schema.diff`, pass
 `SOAK COMPLETE` record in `soak.txt`, and `CNPG_CLEANUP_APPROVED=yes`. Full operator sequence lives
 in `docs/k3s-migration/DESIGN.md` §4.1.
 
+**Text Your Ex local-name cutover (www-0y64.3).** Text Your Ex now uses the namespace-local CNPG
+`Cluster/postgres` and API `POSTGRES_HOST=postgres-rw` in namespace `text-your-ex`. The old
+`Cluster/text-your-ex`, its `text-your-ex-rw`/`-ro`/`-r` Services, and PVC `text-your-ex-1` remain
+live for rollback through the soak window. Cutover evidence is private on Calum's machine at
+`/Users/calum/control-center-pg-snapshots/www-0y64.3-tye-db-local-name-20260618`: source/target
+row counts match, `schema.diff` is empty, `smoke.txt` contains the API DB read/write PASS, and
+`backup-smoke.txt` proves `tye-pg-backup` writes from `postgres-rw`.
+
 ---
 
 ## 7. Acceptance criteria

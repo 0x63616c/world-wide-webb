@@ -668,6 +668,7 @@ export type TyeProductManifest = Readonly<{
   services: Readonly<Record<TyeServiceName, ProductServiceDeclaration<TyeServiceName>>>;
   secretUsages: Readonly<Record<TyeSecretUsageName, ServiceSecretUsage>>;
   database: ProductDatabase;
+  retainedLegacyDatabases: readonly ProductDatabase[];
   backup: DatabaseBackup;
 }>;
 
@@ -846,13 +847,19 @@ export function textYourExProductManifest(): TyeProductManifest {
   const appExposure = publicWeb(product, target, { host: "app" });
   const database = defineProductDatabase(product, target, {
     authPassword: secretCatalog.textYourEx.postgresPassword,
-    authSecretName: "tye-postgres-auth",
-    clusterName: "text-your-ex",
-    readServiceName: "text-your-ex-r",
-    roServiceName: "text-your-ex-ro",
-    rwServiceName: "text-your-ex-rw",
     size: "2Gi",
   });
+  const retainedLegacyDatabases = [
+    defineProductDatabase(product, target, {
+      authPassword: secretCatalog.textYourEx.postgresPassword,
+      authSecretName: "tye-postgres-auth",
+      clusterName: "text-your-ex",
+      readServiceName: "text-your-ex-r",
+      roServiceName: "text-your-ex-ro",
+      rwServiceName: "text-your-ex-rw",
+      size: "2Gi",
+    }),
+  ];
   const backup = defineDatabaseBackup(database, target, {
     name: "tye-pg-backup",
     schedule: "30 1 * * *",
@@ -882,6 +889,7 @@ export function textYourExProductManifest(): TyeProductManifest {
     },
     secretUsages: { api: apiSecretUsage },
     database,
+    retainedLegacyDatabases,
     backup,
   };
 }

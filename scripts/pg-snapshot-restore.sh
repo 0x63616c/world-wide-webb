@@ -90,7 +90,7 @@ compare_counts() {
   [ -s "$source_file" ] || die "source counts file missing or empty: $source_file"
   [ -s "$scratch_file" ] || die "scratch counts file missing or empty: $scratch_file"
   tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' RETURN
+  trap "rm -rf '$tmp'" RETURN
   source_sorted="$tmp/source.tsv"
   scratch_sorted="$tmp/scratch.tsv"
   sort "$source_file" >"$source_sorted"

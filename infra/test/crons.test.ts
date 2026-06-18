@@ -258,7 +258,7 @@ describe("tye-pg-backup (www-jtp0.6.7)", () => {
 
   test("dumps text_your_ex database from the CNPG rw service", () => {
     const cmd = (backup()?.command ?? []).join(" ");
-    expect(cmd).toContain("pg_dump -h text-your-ex-rw");
+    expect(cmd).toContain("pg_dump -h postgres-rw");
     expect(cmd).toContain("-d text_your_ex");
     expect(cmd).toContain("gzip");
     expect(cmd).toContain("pipefail");
@@ -272,7 +272,7 @@ describe("tye-pg-backup (www-jtp0.6.7)", () => {
 
   test("mounts the current TYE postgres auth secret for the DB password", () => {
     const c = backup();
-    expect(c?.extraSecretMounts?.some((m) => m.secretName === "tye-postgres-auth")).toBe(true);
+    expect(c?.extraSecretMounts?.some((m) => m.secretName === "postgres-auth")).toBe(true);
     expect(c?.namespaceName).toBe("text-your-ex");
   });
 
