@@ -89,7 +89,9 @@ carries account + zone scopes incl. `Zone.DNS:Edit`. This replaces the bosun
 
 **Ingress.** `cloudflared` runs **in-cluster** as a Deployment, **2 replicas** (HA only,
 never an HPA). It owns the public `*.worldwidewebb.co` routing; tunnel ingress is declared
-in the Pulumi cloudflare provider (re-homed from `packages/bosun/src/reconcile/routes.ts`).
+in the Pulumi cloudflare provider (re-homed from `packages/bosun/src/reconcile/routes.ts`). Since
+the tunnel runs in `platform`, every product origin must use namespace-qualified Kubernetes
+service DNS (`<service>.<namespace>.svc.cluster.local`) rather than product-local service names.
 
 **Cloudflare re-home reality (www-j934.2, adopt-only).** What is DEPLOYED in CF today (and
 what `infra/cloudflare/` adopts) is the www-cuuw *subset*, not the full reconcile-code plan:

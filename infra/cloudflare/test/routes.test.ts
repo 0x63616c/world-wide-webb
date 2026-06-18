@@ -35,10 +35,16 @@ describe("desiredIngressRules", () => {
       "storybook.worldwidewebb.co",
     ]);
     expect(byHost["dashboard.worldwidewebb.co"]).toBeUndefined();
-    expect(byHost["app--cc.worldwidewebb.co"]).toBe("http://web:80");
-    expect(byHost["app--amp.worldwidewebb.co"]).toBe("http://amp-app:80");
-    expect(byHost["app--tye.worldwidewebb.co"]).toBe("http://tye-frontend:80");
-    expect(byHost["api--tye.worldwidewebb.co"]).toBe("http://tye-api:8787");
+    expect(byHost["app--cc.worldwidewebb.co"]).toBe(
+      "http://web.control-center.svc.cluster.local:80",
+    );
+    expect(byHost["app--amp.worldwidewebb.co"]).toBe("http://app.amp.svc.cluster.local:80");
+    expect(byHost["app--tye.worldwidewebb.co"]).toBe(
+      "http://frontend.text-your-ex.svc.cluster.local:80",
+    );
+    expect(byHost["api--tye.worldwidewebb.co"]).toBe(
+      "http://api.text-your-ex.svc.cluster.local:8787",
+    );
     expect(byHost["portainer.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["hooks.worldwidewebb.co"]).toBeUndefined();
   });

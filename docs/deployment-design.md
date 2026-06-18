@@ -46,7 +46,9 @@ Cluster-level machinery, all declared in `infra/` and reconciled by the same `pu
   the SSD (not NFS).
 - **cloudflared** runs **in-cluster** in the `platform` namespace as a Deployment with **2 replicas** (HA, never an HPA) and
   owns the public `*.worldwidewebb.co` routing; tunnel ingress is declared in the Pulumi
-  cloudflare provider. Control Center's wall panel is served at the **private** route
+  cloudflare provider. Because cloudflared is outside the product namespaces, origins must use
+  namespace-qualified Kubernetes service DNS such as `web.control-center.svc.cluster.local`, never
+  product-local names like `web`. Control Center's wall panel is served at the **private** route
   `app--cc.worldwidewebb.co` behind a Cloudflare **Access** kiosk service-token policy (a
   default-deny `*.worldwidewebb.co` floor sits under it). `/trpc` is same-origin behind that
   host, so there is **no external `api.cc` route** (the api is an internal-only service). The

@@ -58,8 +58,8 @@ export type CloudflareRoutes = Readonly<{
 // origins cloudflared forwards to. The dead `portainer` + `hooks` routes (origins
 // removed with bosun) were pruned in www-oa74.
 const LEGACY_INGRESS: Record<string, string> = {
-  storybook: "http://storybook:6006",
-  drizzle: "http://drizzle:4983",
+  storybook: "http://storybook.control-center.svc.cluster.local:6006",
+  drizzle: "http://drizzle.control-center.svc.cluster.local:4983",
 };
 
 // LIVE proxied CNAMEs: the 3 ingress hosts PLUS the stray `hooks-test` leftover.
@@ -110,24 +110,24 @@ function productRoutes(): CloudflareRoutes {
   const sources: CloudflareExposureSource[] = [
     {
       exposure: cc.app.exposure,
-      origin: "http://web:80",
+      origin: "http://web.control-center.svc.cluster.local:80",
       comment: "platform:control-center private app route",
     },
     // AMP v0: stateless private-web app, no api.amp route (www-jtp0.8.6).
     // Any future api.amp surface requires a human review checkpoint before apply.
     {
       exposure: amp.app.exposure,
-      origin: "http://amp-app:80",
+      origin: "http://app.amp.svc.cluster.local:80",
       comment: "platform:amp private app route",
     },
     {
       exposure: tye.app.exposure,
-      origin: "http://tye-frontend:80",
+      origin: "http://frontend.text-your-ex.svc.cluster.local:80",
       comment: "platform:text-your-ex public app route",
     },
     {
       exposure: tye.services.api.exposure,
-      origin: "http://tye-api:8787",
+      origin: "http://api.text-your-ex.svc.cluster.local:8787",
       comment: "platform:text-your-ex public api route",
     },
   ];
