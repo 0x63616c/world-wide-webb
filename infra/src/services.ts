@@ -80,6 +80,18 @@ const IMAGE_REPOSITORIES = {
   },
 } as const satisfies Record<string, { digestKey: string; repository: string }>;
 
+const IMAGE_DIGEST_KEYS = new Set(
+  Object.values(IMAGE_REPOSITORIES).map((image) => image.digestKey),
+);
+
+function validateImageDigests(digests: ImageDigests): void {
+  for (const key of Object.keys(digests)) {
+    if (!IMAGE_DIGEST_KEYS.has(key)) {
+      throw new Error(`imageDigests.${key} is not a known product-component image key`);
+    }
+  }
+}
+
 // GHCR image ref. Digest-pinned (@sha256:…) when CI supplied a digest for this
 // service, else the mutable :main tag (local applies, first deploy before any
 // digest is set). The digest is validated shape-wise so a malformed config value
@@ -169,6 +181,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     nasNfsServer,
     imageDigests: digests = {},
   } = opts;
+  validateImageDigests(digests);
   return [
     {
       logicalName: "control-center-api",
