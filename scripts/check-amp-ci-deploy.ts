@@ -48,7 +48,7 @@ assertContains(anyAppFilter, "'products/amp/**'", "any_app must deploy for AMP p
 
 const buildAmp = jobBlock("build-amp");
 for (const required of [
-  "needs: [changes, test]",
+  "needs: [changes, test, typecheck]",
   "needs.changes.outputs.amp == 'true'",
   "file: products/amp/Dockerfile",
   `ghcr.io/0x63616c/www-amp-app:${expressionOpen}{ github.sha }}`,
