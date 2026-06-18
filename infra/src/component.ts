@@ -39,6 +39,8 @@ export interface InitContainerSpec {
 
 export interface WorkloadSpec {
   logicalName?: string;
+  // Pulumi state alias for one-time namespace/product-name migrations.
+  legacyLogicalName?: string;
   name: string;
   image: string;
   replicas: number;
@@ -60,6 +62,8 @@ export interface WorkloadSpec {
 
 export interface CronJobSpec {
   logicalName?: string;
+  // Pulumi state alias for one-time namespace/product-name migrations.
+  legacyLogicalName?: string;
   name: string;
   image: string;
   schedule: string;
@@ -376,6 +380,10 @@ function buildInitContainer(
   };
 }
 
+function legacyAliases(name: string | undefined): pulumi.Alias[] | undefined {
+  return name ? [{ name }] : undefined;
+}
+
 export function renderWorkload(w: WorkloadSpec): RenderedWorkload {
   const labels = { app: w.name };
   const { container, podVolumes, persistentVolumes, persistentVolumeClaims } = buildPod(w);
@@ -492,7 +500,10 @@ export class Workload extends pulumi.ComponentResource {
   constructor(args: WorkloadArgs, opts?: pulumi.ComponentResourceOptions) {
     const { provider, namespace, ...spec } = args;
     const logicalName = spec.logicalName ?? spec.name;
-    super("control-center:infra:Workload", logicalName, {}, opts);
+    const aliases = spec.legacyLogicalName
+      ? [...(opts?.aliases ?? []), { name: spec.legacyLogicalName }]
+      : opts?.aliases;
+    super("control-center:infra:Workload", logicalName, {}, { ...opts, aliases });
 
     const rendered = renderWorkload(spec);
     const childOpts: pulumi.ComponentResourceOptions = { parent: this, provider };
@@ -506,7 +517,7 @@ export class Workload extends pulumi.ComponentResource {
         new k8s.core.v1.PersistentVolumeClaim(
           `${logicalName}-${pvc.metadata.name}`,
           { metadata: { namespace, ...pvc.metadata }, spec: pvc.spec as never },
-          pvOpts,
+          { ...pvOpts, aliases: legacyAliases(pvc.metadata.name) },
         ),
     );
 
@@ -516,7 +527,7 @@ export class Workload extends pulumi.ComponentResource {
         metadata: { namespace, ...rendered.deployment.metadata },
         spec: rendered.deployment.spec as never,
       },
-      childOpts,
+      { ...childOpts, aliases: legacyAliases(spec.legacyLogicalName) },
     );
 
     this.services = rendered.services.map(
@@ -524,7 +535,7 @@ export class Workload extends pulumi.ComponentResource {
         new k8s.core.v1.Service(
           `${logicalName}-${svc.metadata.name}`,
           { metadata: { namespace, ...svc.metadata }, spec: svc.spec as never },
-          childOpts,
+          { ...childOpts, aliases: legacyAliases(spec.legacyLogicalName) },
         ),
     );
 
@@ -578,7 +589,10 @@ export class ScheduledJob extends pulumi.ComponentResource {
   constructor(args: ScheduledJobArgs, opts?: pulumi.ComponentResourceOptions) {
     const { provider, namespace, ...spec } = args;
     const logicalName = spec.logicalName ?? spec.name;
-    super("control-center:infra:ScheduledJob", logicalName, {}, opts);
+    const aliases = spec.legacyLogicalName
+      ? [...(opts?.aliases ?? []), { name: spec.legacyLogicalName }]
+      : opts?.aliases;
+    super("control-center:infra:ScheduledJob", logicalName, {}, { ...opts, aliases });
 
     const rendered = renderCronJob(spec);
     const childOpts: pulumi.ComponentResourceOptions = { parent: this, provider };
@@ -591,7 +605,7 @@ export class ScheduledJob extends pulumi.ComponentResource {
         new k8s.core.v1.PersistentVolumeClaim(
           `${logicalName}-${pvc.metadata.name}`,
           { metadata: { namespace, ...pvc.metadata }, spec: pvc.spec as never },
-          childOpts,
+          { ...childOpts, aliases: legacyAliases(pvc.metadata.name) },
         ),
     );
 
@@ -601,7 +615,7 @@ export class ScheduledJob extends pulumi.ComponentResource {
         metadata: { namespace, ...rendered.cronJob.metadata },
         spec: rendered.cronJob.spec as never,
       },
-      childOpts,
+      { ...childOpts, aliases: legacyAliases(spec.legacyLogicalName) },
     );
 
     this.registerOutputs({ cronJob: this.cronJob.id });

@@ -185,6 +185,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
   return [
     {
       logicalName: "control-center-api",
+      legacyLogicalName: "api",
       name: "api",
       namespaceName: "control-center",
       image: ghcr("api", digests),
@@ -211,6 +212,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     },
     {
       logicalName: "control-center-worker",
+      legacyLogicalName: "worker",
       name: "worker",
       namespaceName: "control-center",
       image: ghcr("worker", digests),
@@ -236,6 +238,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     },
     {
       logicalName: "control-center-media-worker",
+      legacyLogicalName: "media-worker",
       name: "media-worker",
       namespaceName: "control-center",
       image: ghcr("media-worker", digests),
@@ -263,6 +266,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     },
     {
       logicalName: "control-center-web",
+      legacyLogicalName: "web",
       name: "web",
       namespaceName: "control-center",
       image: ghcr("web", digests),
@@ -290,6 +294,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     },
     {
       logicalName: "control-center-storybook",
+      legacyLogicalName: "storybook",
       name: "storybook",
       namespaceName: "control-center",
       image: ghcr("storybook", digests),
@@ -301,6 +306,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     },
     {
       logicalName: "captive-portal-portal",
+      legacyLogicalName: "captive-portal",
       name: "portal",
       namespaceName: "captive-portal",
       image: ghcr("captive-portal", digests),
@@ -332,6 +338,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     },
     {
       logicalName: "control-center-drizzle",
+      legacyLogicalName: "drizzle",
       name: "drizzle",
       namespaceName: "control-center",
       image: ghcr("drizzle", digests),
@@ -357,6 +364,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     },
     {
       logicalName: "text-your-ex-api",
+      legacyLogicalName: "tye-api",
       name: "api",
       namespaceName: "text-your-ex",
       image: ghcr("tye-api", digests),
@@ -377,6 +385,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     },
     {
       logicalName: "text-your-ex-frontend",
+      legacyLogicalName: "tye-frontend",
       name: "frontend",
       namespaceName: "text-your-ex",
       image: ghcr("tye-frontend", digests),
@@ -388,6 +397,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     },
     {
       logicalName: "platform-cloudflared",
+      legacyLogicalName: "cloudflared",
       name: "cloudflared",
       namespaceName: "platform",
       image: "cloudflare/cloudflared:2025.10.1",
