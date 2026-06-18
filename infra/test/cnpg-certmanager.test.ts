@@ -117,7 +117,7 @@ describe("installCnpg", () => {
       instances: 1,
       storage: { size: "2Gi" },
       resources: { limits: { memory: "768Mi" }, requests: { cpu: "500m", memory: "384Mi" } },
-      superuserSecret: { name: "captive-portal-postgres-auth" },
+      superuserSecret: { name: "postgres-auth" },
     });
   });
 
@@ -139,16 +139,19 @@ describe("installCnpg", () => {
     expect(clusterMetadata.find((m) => m.name === "control-center")?.namespace).toBe(
       "control-center",
     );
-    expect(clusterMetadata.find((m) => m.name === "captive-portal")?.namespace).toBe(
-      "captive-portal",
-    );
-    expect(clusterMetadata.find((m) => m.name === "text-your-ex")?.namespace).toBe("text-your-ex");
-    expect(secretMetadata.find((m) => m.name === "captive-portal-postgres-auth")?.namespace).toBe(
-      "captive-portal",
-    );
-    expect(secretMetadata.find((m) => m.name === "tye-postgres-auth")?.namespace).toBe(
-      "text-your-ex",
-    );
+    expect(clusterMetadata.find((m) => m.name === "postgres")?.namespace).toBe("captive-portal");
+    expect(
+      clusterMetadata
+        .filter((m) => m.name === "postgres")
+        .map((m) => m.namespace)
+        .sort(),
+    ).toEqual(["captive-portal", "text-your-ex"]);
+    expect(
+      secretMetadata
+        .filter((m) => m.name === "postgres-auth")
+        .map((m) => m.namespace)
+        .sort(),
+    ).toEqual(["captive-portal", "text-your-ex"]);
   });
 });
 

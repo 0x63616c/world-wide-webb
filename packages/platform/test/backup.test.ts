@@ -10,6 +10,8 @@ describe("platform backup primitive", () => {
   test("renders current Control Center pg-backup compatibility output", () => {
     const database = defineProductDatabase(defineProduct("control-center"), homelabTarget, {
       authSecretName: "cc-postgres-auth",
+      clusterName: "control-center",
+      rwServiceName: "control-center-rw",
       size: "5Gi",
     });
     const backup = defineDatabaseBackup(database, homelabTarget, {

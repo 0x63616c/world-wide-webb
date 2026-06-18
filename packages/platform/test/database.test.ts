@@ -5,6 +5,10 @@ describe("product CNPG database primitive", () => {
   test("renders current Control Center CNPG identity without behavior change", () => {
     const database = defineProductDatabase(defineProduct("control-center"), homelabTarget, {
       authSecretName: "cc-postgres-auth",
+      clusterName: "control-center",
+      rwServiceName: "control-center-rw",
+      roServiceName: "control-center-ro",
+      readServiceName: "control-center-r",
       size: "5Gi",
     });
 
@@ -13,6 +17,8 @@ describe("product CNPG database primitive", () => {
       clusterName: "control-center",
       databaseName: "control_center",
       owner: "postgres",
+      readServiceName: "control-center-r",
+      roServiceName: "control-center-ro",
       rwServiceName: "control-center-rw",
       size: "5Gi",
       storageClass: "local-path",
@@ -24,14 +30,17 @@ describe("product CNPG database primitive", () => {
     });
   });
 
-  test("derives per-product defaults from product identity", () => {
+  test("defaults Kubernetes resources to namespace-local postgres names", () => {
     const database = defineProductDatabase(defineProduct("text-your-ex"), homelabTarget, {
       size: "5Gi",
     });
 
     expect(database.databaseName).toBe("text_your_ex");
-    expect(database.authSecretName).toBe("text-your-ex-postgres-auth");
-    expect(database.rwServiceName).toBe("text-your-ex-rw");
+    expect(database.clusterName).toBe("postgres");
+    expect(database.authSecretName).toBe("postgres-auth");
+    expect(database.rwServiceName).toBe("postgres-rw");
+    expect(database.roServiceName).toBe("postgres-ro");
+    expect(database.readServiceName).toBe("postgres-r");
   });
 
   test("marks database-owned auth separately from service secret usage", () => {

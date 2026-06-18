@@ -57,7 +57,7 @@ export const SERVICE_SECRETS = {
     POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
   },
   // tye-api reads /run/secrets/POSTGRES_PASSWORD (POSTGRES_PASSWORD_FILE default)
-  // to build its DATABASE_URL pointing at the text-your-ex CNPG cluster (text-your-ex-rw).
+  // to build its DATABASE_URL pointing at the namespace-local CNPG rw Service (postgres-rw).
   // vault key: TEXT_YOUR_EX_POSTGRES__PASSWORD
   "tye-api": {
     POSTGRES_PASSWORD: "TEXT_YOUR_EX_POSTGRES__PASSWORD",

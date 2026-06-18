@@ -447,6 +447,8 @@ export type ProductDatabase = Readonly<{
   databaseName: string;
   owner: string;
   rwServiceName: string;
+  roServiceName: string;
+  readServiceName: string;
   authSecretName: string;
   auth: Readonly<{
     kind: "database-owned-basic-auth";
@@ -462,7 +464,11 @@ export type ProductDatabaseOptions = Readonly<{
   size: string;
   authPassword?: SecretCatalogEntry;
   authSecretName?: string;
+  clusterName?: string;
   owner?: string;
+  rwServiceName?: string;
+  roServiceName?: string;
+  readServiceName?: string;
   storageClass?: string;
   resources?: DatabaseResources;
 }>;
@@ -494,15 +500,18 @@ export function defineProductDatabase(
   target: HomelabTarget,
   options: ProductDatabaseOptions,
 ): ProductDatabase {
-  const authSecretName = options.authSecretName ?? `${product.slug}-postgres-auth`;
+  const clusterName = options.clusterName ?? "postgres";
+  const authSecretName = options.authSecretName ?? "postgres-auth";
 
   return {
     product: product.slug,
     target: target.name,
-    clusterName: product.slug,
+    clusterName,
     databaseName: databaseNameFor(product),
     owner: options.owner ?? "postgres",
-    rwServiceName: `${product.slug}-rw`,
+    rwServiceName: options.rwServiceName ?? `${clusterName}-rw`,
+    roServiceName: options.roServiceName ?? `${clusterName}-ro`,
+    readServiceName: options.readServiceName ?? `${clusterName}-r`,
     authSecretName,
     auth: {
       kind: "database-owned-basic-auth",
@@ -673,6 +682,10 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
   const database = defineProductDatabase(product, target, {
     authPassword: secretCatalog.controlCenter.postgresPassword,
     authSecretName: "cc-postgres-auth",
+    clusterName: "control-center",
+    rwServiceName: "control-center-rw",
+    roServiceName: "control-center-ro",
+    readServiceName: "control-center-r",
     size: "5Gi",
   });
   const backup = defineDatabaseBackup(database, target, {
@@ -781,7 +794,6 @@ export function captivePortalProductManifest(): CaptivePortalProductManifest {
   const appExposure = captivePortalWeb(product, target, { host: "app" });
   const database = defineProductDatabase(product, target, {
     authPassword: secretCatalog.captivePortal.postgresPassword,
-    authSecretName: "captive-portal-postgres-auth",
     size: "2Gi",
   });
   const backup = defineDatabaseBackup(database, target, {
@@ -829,7 +841,6 @@ export function textYourExProductManifest(): TyeProductManifest {
   const appExposure = publicWeb(product, target, { host: "app" });
   const database = defineProductDatabase(product, target, {
     authPassword: secretCatalog.textYourEx.postgresPassword,
-    authSecretName: "tye-postgres-auth",
     size: "2Gi",
   });
   const backup = defineDatabaseBackup(database, target, {
