@@ -246,13 +246,16 @@ proves the stack came back healthy; and `scripts/verify-wall-panel.mjs` (www-jtp
 the panel at exactly 1366×1024 on `app--cc`. `POSTGRES_HOST` is already `control-center-rw`, so for
 prod the cutover is a DATA move, not a code change.
 
-**Captive Portal product database provisioning (www-jtp0.5.5, www-0y64.1).** The Captive Portal now has its
-own namespace-local CNPG `Cluster` named `postgres`, app database `captive_portal`, read-write Service
-`postgres-rw`, and basic-auth Secret `postgres-auth`. Its product API
+**Captive Portal product database provisioning (www-jtp0.5.5, www-0y64.1).** The Captive Portal has its
+own product CNPG database declaration for app database `captive_portal`. The platform primitive now
+defaults new product databases to namespace-local names (`postgres`, `postgres-rw`, `postgres-auth`),
+but the live Captive Portal cluster intentionally remains on its existing `captive-portal` /
+`captive-portal-rw` / `captive-portal-postgres-auth` names until the reviewed local-name cutover runs.
+Its product API
 manifest explicitly declares only the secrets it can read: `POSTGRES_PASSWORD`, `RESEND_API_KEY`,
 `RESEND_FROM`, `UNIFI_API_KEY`, `WIFI_PASSWORD`, and `WIFI_SSID`. The nightly backup CronJob is
 `captive-portal-pg-backup`; it runs at `15 1 * * *`, uses the same PG 18 dump image as the CNPG
-server, reads the password from `postgres-auth`, and writes dated
+server, reads the password from the mounted CNPG auth Secret, and writes dated
 `captive_portal-YYYYMMDD.sql.gz` artifacts under
 `backups/world-wide-webb/captive-portal/postgres` on the NAS. Control Center remains unchanged:
 `pg-backup` still writes `control_center-YYYYMMDD.sql.gz` to `backups/postgres`.

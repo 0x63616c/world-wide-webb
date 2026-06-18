@@ -138,7 +138,7 @@ full-slug GHCR repositories pulled with a product-local `imagePullSecret`.
 | **captive portal app** | Deployment + **LoadBalancer** `:443/:80` in `captive-portal` | 1 | 64M | 32M mem | none | www-captive-portal-portal | LAN-only, NEVER tunneled. Cert from cert-manager into a mounted volume; nginx proxies only `/api/trpc/portal.*`. LAN reach via a LoadBalancer Service republished on en1 (192.168.0.147) by OrbStack `expose_services`, replacing the `portal-lan` proxy + `:42069` hack. |
 | **drizzle** | Deployment + ClusterIP `:4983` in `control-center` | 1 | 256M | 128M mem | MASTERPASS, POSTGRES_PASSWORD | www-control-center-drizzle | route `drizzle.worldwidewebb.co`; CF Access email-OTP gate. Persists in a `drizzle-data` PVC. |
 | **postgres** | CNPG `Cluster` (1 instance) + Service | 1 | 768M | 384M mem, 0.5 cpu | superuser/app creds via CNPG Secret (POSTGRES_PASSWORD bridged) | CNPG-managed PG image | local-path PVC on SSD. Replaces the `postgres()` builder + named `pgdata` volume. CNPG owns the Service the app connects to. |
-| **captive-portal postgres** | CNPG `Cluster` `postgres` (1 instance) + Service `postgres-rw` | 1 | 768M | 384M mem, 0.5 cpu | superuser/app creds via `postgres-auth` | CNPG-managed PG image | Product-owned database `captive_portal` on local-path SSD. This provisions the target database before portal data migration; existing Control Center portal tables stay untouched until cutover. |
+| **captive-portal postgres** | CNPG `Cluster` `captive-portal` (1 instance) + Service `captive-portal-rw` until the www-0y64 local-name cutover | 1 | 768M | 384M mem, 0.5 cpu | superuser/app creds via `captive-portal-postgres-auth` | CNPG-managed PG image | Product-owned database `captive_portal` on local-path SSD. The platform primitive defaults future product DBs to local names; this live cluster keeps legacy names until side-by-side data migration. |
 | **cloudflared** | Deployment in `platform` | **2** (HA) | 128M | 64M mem, 0.25 cpu | TUNNEL_TOKEN | cloudflare/cloudflared:2025.10.1 | `--token-file /run/secrets/TUNNEL_TOKEN`. Public ingress; outbound-only. |
 | **bosun-agent** | **DELETED** | - | - | - | - | - | The CI deploy webhook receiver is removed; GH Actions runs `pulumi up` directly (§6). 1P "Bosun Webhook Token" + GH secret deleted (§9). |
 
@@ -183,10 +183,11 @@ NFS PV - which MUST carry **`mountOptions: [nfsvers=3, nolock, tcp]`** (the DS42
 a v4 default mount gets "Connection refused"). One manual run must produce a dated file visible
 via `ls` on the NAS (Phase 3 acceptance).
 
-**Captive Portal product database and backup (www-jtp0.5.5, www-0y64.1).** The platform manifest now declares
-Captive Portal as its own product with namespace-local CNPG cluster `postgres`, app database
-`captive_portal`, owner `postgres`, read-write Service `postgres-rw`, and auth Secret
-`postgres-auth` bridged from `op://Homelab/Captive Portal Postgres/password`.
+**Captive Portal product database and backup (www-jtp0.5.5, www-0y64.1).** The platform manifest declares
+Captive Portal as its own product with app database `captive_portal` and owner `postgres`. The DB
+primitive defaults future product databases to namespace-local names (`postgres`, `postgres-rw`,
+`postgres-auth`), but this live cluster intentionally remains on `captive-portal`,
+`captive-portal-rw`, and `captive-portal-postgres-auth` until the reviewed local-name migration runs.
 The product API's explicit secret access is `POSTGRES_PASSWORD`, `RESEND_API_KEY`, `RESEND_FROM`,
 `UNIFI_API_KEY`, `WIFI_PASSWORD`, and `WIFI_SSID`; it does not reuse the Control Center database
 credential. `captive-portal-pg-backup` runs at `15 1 * * *` LA, reads the mounted basic-auth

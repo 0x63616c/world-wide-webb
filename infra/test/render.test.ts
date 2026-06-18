@@ -349,7 +349,7 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
     const textYourExApi = specs.find((spec) => spec.logicalName === "text-your-ex-api");
 
     expect(controlCenterApi?.env?.POSTGRES_HOST).toBe("control-center-rw");
-    expect(textYourExApi?.env?.POSTGRES_HOST).toBe("postgres-rw");
+    expect(textYourExApi?.env?.POSTGRES_HOST).toBe("text-your-ex-rw");
     expect(textYourExApi?.env?.POSTGRES_DB).toBe("text_your_ex");
   });
 });

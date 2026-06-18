@@ -794,6 +794,11 @@ export function captivePortalProductManifest(): CaptivePortalProductManifest {
   const appExposure = captivePortalWeb(product, target, { host: "app" });
   const database = defineProductDatabase(product, target, {
     authPassword: secretCatalog.captivePortal.postgresPassword,
+    authSecretName: "captive-portal-postgres-auth",
+    clusterName: "captive-portal",
+    readServiceName: "captive-portal-r",
+    roServiceName: "captive-portal-ro",
+    rwServiceName: "captive-portal-rw",
     size: "2Gi",
   });
   const backup = defineDatabaseBackup(database, target, {
@@ -841,6 +846,11 @@ export function textYourExProductManifest(): TyeProductManifest {
   const appExposure = publicWeb(product, target, { host: "app" });
   const database = defineProductDatabase(product, target, {
     authPassword: secretCatalog.textYourEx.postgresPassword,
+    authSecretName: "tye-postgres-auth",
+    clusterName: "text-your-ex",
+    readServiceName: "text-your-ex-r",
+    roServiceName: "text-your-ex-ro",
+    rwServiceName: "text-your-ex-rw",
     size: "2Gi",
   });
   const backup = defineDatabaseBackup(database, target, {
