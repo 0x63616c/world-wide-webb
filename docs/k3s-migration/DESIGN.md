@@ -110,28 +110,34 @@ all retire. Digest pinning + path filters are preserved (§6).
 
 ## 2. Per-service / per-cron mapping
 
-All 10 services + 4 crons from [`deploy.config.ts`](../../deploy.config.ts). Memory caps
-are the www-ke9a hard caps already inlined per service in `deploy.config.ts` (carried over
-verbatim as k8s `limits.memory`); `requests.memory` is set conservatively below the cap so
-the 8GB node schedules everything. The two services with a www-ke9a cpu reservation
-(`reserveCpus`) get a matching `requests.cpu`. Secrets are ESO-synced and mounted at
-`/run/secrets/<NAME>`; images are GHCR `ghcr.io/0x63616c/control-center-*` pulled with an
-`imagePullSecret`.
+Services and crons are split by owner namespace. Product workloads live in
+`control-center`, `captive-portal`, `text-your-ex`, and `amp`; shared edge runtime lives in
+`platform` (`cloudflared` and its tunnel-token Secret). Kubernetes metadata names are local
+inside those namespaces, for example `api` in both `control-center` and `text-your-ex`; Pulumi
+logical names and global image/digest names use full product slugs, for example
+`control-center-api` and `text-your-ex-api`. DNS is the deliberate exception: hostnames keep
+the short `dnsCode` form such as `app--cc.worldwidewebb.co`.
+
+Memory caps are the www-ke9a hard caps already inlined per service; `requests.memory` is set
+conservatively below the cap so the 8GB node schedules everything. The two services with a
+www-ke9a cpu reservation (`reserveCpus`) get a matching `requests.cpu`. Secrets are native
+k8s `Secret`s created from the SOPS+age vault and mounted at `/run/secrets/<NAME>`; images are
+full-slug GHCR repositories pulled with a product-local `imagePullSecret`.
 
 ### Services
 
-| Service | k8s resource | replicas | limits.mem (www-ke9a) | requests | secrets (ESO → /run/secrets) | image | notes |
+| Service | k8s resource | replicas | limits.mem (www-ke9a) | requests | secrets (`/run/secrets`) | image | notes |
 |---|---|---|---|---|---|---|---|
-| **api** | Deployment + ClusterIP Service `:4201` | 1 | 512M | 256M mem, 0.5 cpu | HA_TOKEN, UNIFI_API_KEY, WIFI_SSID/PASSWORD, POSTGRES_PASSWORD, HOME_LAT/LON/PLACE_NAME/RADIUS_MILES, SPOTIFY_*, RESEND_API_KEY/FROM | www-cc-api | request-only; readiness `GET /up`, liveness `/up`; `/health/climate` as a startup-time check. HA via an **ExternalName** Service `ha` → the host's own tailnet FQDN `homelab.tail8c014d.ts.net` (`:8123`) - see §5c; host LAN IP / `host.orb.internal` are unreachable from pods. UniFi via `https://192.168.0.1`. |
-| **worker** | Deployment | 1 | 384M | 192M mem | HA_TOKEN, UNIFI_API_KEY, WIFI_SSID/PASSWORD, POSTGRES_PASSWORD, HOME_*, SPOTIFY_* | www-cc-worker | no Service (no traffic); the reconcile/ingest loops. Secrets mirror api (deploy-config test asserts lockstep). |
-| **media-worker** | Deployment | **1** (spike passed, §5b) | 1G | 256M mem | POSTGRES_PASSWORD, OPENROUTER_API_KEY | www-cc-media-worker | NFS PV for the Synology media share (replaces the host bind mount), **`mountOptions: [nfsvers=3, nolock, tcp]`** (DS420+ is NFSv3-only - §5b). Un-parks www-6mz7. |
-| **web** | Deployment + ClusterIP `:80` | 1 | 96M | 48M mem | none | www-cc-web | route `dashboard.worldwidewebb.co`; reverse-proxies `/api`→`api:4201`. Basemap `/maps/*.pmtiles` from a `maps` PV populated by `map-extract` (§ below). |
-| **storybook** | Deployment + ClusterIP `:6006` | 1 | 96M | 48M mem | none | www-cc-storybook | route `storybook.worldwidewebb.co`; CF Access email-OTP gate (`CF_ACCESS_ALLOWED_EMAIL`). |
-| **captive-portal** | Deployment + **LoadBalancer** `:443/:80` (spike passed, §5a) | 1 | 64M | 32M mem | none | www-cp-portal | LAN-only, NEVER tunneled. Cert from cert-manager into a mounted volume; nginx proxies only `/api/trpc/portal.*`. LAN reach via a LoadBalancer Service republished on en1 (192.168.0.147) by OrbStack `expose_services`, replacing the `portal-lan` proxy + `:42069` hack. |
-| **drizzle** | Deployment + ClusterIP `:4983` | 1 | 256M | 128M mem | MASTERPASS, POSTGRES_PASSWORD | www-cc-drizzle | route `drizzle.worldwidewebb.co`; CF Access email-OTP gate. Persists in a `drizzle-data` PVC. |
+| **api** | Deployment + ClusterIP Service `:4201` in `control-center` | 1 | 512M | 256M mem, 0.5 cpu | HA_TOKEN, UNIFI_API_KEY, WIFI_SSID/PASSWORD, POSTGRES_PASSWORD, HOME_LAT/LON/PLACE_NAME/RADIUS_MILES, SPOTIFY_* | www-control-center-api | request-only; readiness `GET /up`, liveness `/up`; `/health/climate` as a startup-time check. HA via an **ExternalName** Service `ha` → the host's own tailnet FQDN `homelab.tail8c014d.ts.net` (`:8123`) - see §5c; host LAN IP / `host.orb.internal` are unreachable from pods. UniFi via `https://192.168.0.1`. |
+| **worker** | Deployment in `control-center` | 1 | 384M | 192M mem | HA_TOKEN, UNIFI_API_KEY, WIFI_SSID/PASSWORD, POSTGRES_PASSWORD, HOME_*, SPOTIFY_* | www-control-center-worker | no Service (no traffic); the reconcile/ingest loops. Secrets mirror api. |
+| **media-worker** | Deployment in `control-center` | **1** (spike passed, §5b) | 1G | 256M mem | POSTGRES_PASSWORD, OPENROUTER_API_KEY | www-control-center-media-worker | NFS PV for the Synology media share (replaces the host bind mount), **`mountOptions: [nfsvers=3, nolock, tcp]`** (DS420+ is NFSv3-only - §5b). Un-parks www-6mz7. |
+| **web** | Deployment + ClusterIP `:80` in `control-center` | 1 | 96M | 48M mem | none | www-control-center-web | route `dashboard.worldwidewebb.co`; reverse-proxies `/api`→`api:4201`. Basemap `/maps/*.pmtiles` from a `maps` PV populated by `map-extract` (§ below). |
+| **storybook** | Deployment + ClusterIP `:6006` in `control-center` | 1 | 96M | 48M mem | none | www-control-center-storybook | route `storybook.worldwidewebb.co`; CF Access email-OTP gate (`CF_ACCESS_ALLOWED_EMAIL`). |
+| **captive portal app** | Deployment + **LoadBalancer** `:443/:80` in `captive-portal` | 1 | 64M | 32M mem | none | www-captive-portal-portal | LAN-only, NEVER tunneled. Cert from cert-manager into a mounted volume; nginx proxies only `/api/trpc/portal.*`. LAN reach via a LoadBalancer Service republished on en1 (192.168.0.147) by OrbStack `expose_services`, replacing the `portal-lan` proxy + `:42069` hack. |
+| **drizzle** | Deployment + ClusterIP `:4983` in `control-center` | 1 | 256M | 128M mem | MASTERPASS, POSTGRES_PASSWORD | www-control-center-drizzle | route `drizzle.worldwidewebb.co`; CF Access email-OTP gate. Persists in a `drizzle-data` PVC. |
 | **postgres** | CNPG `Cluster` (1 instance) + Service | 1 | 768M | 384M mem, 0.5 cpu | superuser/app creds via CNPG Secret (POSTGRES_PASSWORD bridged) | CNPG-managed PG image | local-path PVC on SSD. Replaces the `postgres()` builder + named `pgdata` volume. CNPG owns the Service the app connects to. |
 | **captive-portal postgres** | CNPG `Cluster` `captive-portal` (1 instance) + Service `captive-portal-rw` | 1 | 768M | 384M mem, 0.5 cpu | superuser/app creds via `captive-portal-postgres-auth` | CNPG-managed PG image | Product-owned database `captive_portal` on local-path SSD. This provisions the target database before portal data migration; existing Control Center portal tables stay untouched until cutover. |
-| **cloudflared** | Deployment | **2** (HA) | 128M | 64M mem, 0.25 cpu | TUNNEL_TOKEN | cloudflare/cloudflared:2025.10.1 | `--token-file /run/secrets/TUNNEL_TOKEN`. Public ingress; outbound-only. |
+| **cloudflared** | Deployment in `platform` | **2** (HA) | 128M | 64M mem, 0.25 cpu | TUNNEL_TOKEN | cloudflare/cloudflared:2025.10.1 | `--token-file /run/secrets/TUNNEL_TOKEN`. Public ingress; outbound-only. |
 | **bosun-agent** | **DELETED** | - | - | - | - | - | The CI deploy webhook receiver is removed; GH Actions runs `pulumi up` directly (§6). 1P "Bosun Webhook Token" + GH secret deleted (§9). |
 
 CF identifiers/Access client-ids that today ride bosun-agent's secret block (CF_ACCOUNT_ID,
@@ -145,9 +151,9 @@ never a literal in the public repo (no-personal-email guard).
 | Cron | k8s resource | schedule (TZ=America/Los_Angeles) | mapping |
 |---|---|---|---|
 | **docker-image-prune** | **DELETED** | - | kubelet image GC replaces it (high 85% / low 80%, eval 5m). External prune tools break kubelet's accounting (RECON decision 7); no image-prune CronJob exists in k3s. |
-| **portal-data-purge** | `CronJob` | `0 2 * * *` | runs the api image, `command: bun purge.js`; needs POSTGRES_PASSWORD only. `concurrencyPolicy: Forbid`, `restartPolicy: Never`, history limits 3/1. |
+| **portal-data-purge** | `CronJob` in `control-center` | `0 2 * * *` | runs the Control Center api image, `command: bun purge.js`; needs POSTGRES_PASSWORD only. `concurrencyPolicy: Forbid`, `restartPolicy: Never`, history limits 3/1. |
 | **portal-cert-renew** | **cert-manager** `Certificate` + DNS-01 `ClusterIssuer` | continuous (renewBefore window) | acme.sh cron retired; cert-manager issues/renews `app--cp.worldwidewebb.co` plus legacy `captive-portal.worldwidewebb.co` and writes the secret cert-manager-side. The portal mounts that secret (§5a). |
-| **map-extract** | `CronJob` (monthly, `23 5 3 * *`) | monthly refresh | **superseded by www-hn1i:** runs the in-repo `map-provision` image in force mode, resolves the newest Protomaps build at runtime (a pinned date rots in ~7 days), extracts into the `maps` PV atomically. First-provision is the web pod's `map-provision` initContainer (if-missing mode), so nothing is manual; `kubectl create job --from=cronjob/map-extract` remains for ad-hoc refresh. |
+| **map-extract** | `CronJob` in `control-center` (monthly, `23 5 3 * *`) | monthly refresh | **superseded by www-hn1i:** runs the in-repo `map-provision` image in force mode, resolves the newest Protomaps build at runtime (a pinned date rots in ~7 days), extracts into the `maps` PV atomically. First-provision is the web pod's `map-provision` initContainer (if-missing mode), so nothing is manual; `kubectl create job --from=cronjob/map-extract` remains for ad-hoc refresh. |
 
 `TZ=America/Los_Angeles` is set as a pod env on every workload that has it today (api,
 worker, media-worker, portal-data-purge), preserving the weather-ingest LA-local parsing.
@@ -388,9 +394,11 @@ push to main
 
 - **Digest pinning preserved:** the digest map becomes Pulumi stack config; a changed digest
   changes the rendered Deployment image, so only that workload's pods roll. Same property as
-  today's `docker stack deploy` digest pin, without bosun (www-czg lineage). Most repos are
-  keyed as `www-cc-<svc>`, `www-cp-portal`, `www-tye-*`, `www-amp-app` (see M9 image rename www-jtp0.9.5). Digest pins go under
-  `wwwinfra:imageDigests.<key>`, e.g. `wwwinfra:imageDigests.amp-app`.
+  today's `docker stack deploy` digest pin, without bosun (www-czg lineage). Repos use full
+  product slugs, for example `www-control-center-api`, `www-captive-portal-portal`,
+  `www-text-your-ex-api`, and `www-amp-app`. Digest pins go under product-component keys such as
+  `wwwinfra:imageDigests.control-center-api`, `wwwinfra:imageDigests.text-your-ex-api`, and
+  `wwwinfra:imageDigests.amp-app`.
 - **Marker logic removed:** `cancel-in-progress` + the `refs/deploy/main` marker existed to
   stop rapid pushes stranding undeployed commits under Swarm's webhook model. With
   `pulumi up` reconciling the whole declared stack to the latest committed digests on every
@@ -411,7 +419,7 @@ push to main
 
 8GB ⇒ no parallel full stacks (boundary 6). Sequence:
 
-1. **Pre-cutover (no prod impact):** cluster infra (ESO, cert-manager, CNPG operator),
+1. **Pre-cutover (no prod impact):** cluster infra (SOPS-backed native Secrets, cert-manager, CNPG operator),
    Pulumi cloudflare/unifi state, and all Deployments are applied to k3s **with cloudflared
    NOT yet holding the live tunnel token** and the portal LB up. Pods Running, but public
    traffic still flows through Swarm cloudflared. (k3s app pods + Swarm can momentarily
@@ -547,7 +555,7 @@ k3s is serving prod** (Phase 6), so deletion can't strand the live deploy.
    - `reconcile/access.ts` (CF Access) + `reconcile/routes.ts` (tunnel ingress) → Pulumi
      cloudflare provider (Phase 2, zero-diff import proven).
    - `scheduler.ts` → k8s CronJobs (Phase 3).
-   - `reconcile/secrets.ts` (op rail) → ESO (Phase 3).
+   - `reconcile/secrets.ts` (op rail) → SOPS-backed native k8s Secrets (Phase 3).
 2. **Switch the deploy path:** the new CI `pulumi up` job (§6) is green end-to-end on a real
    push **before** `build-bosun`/`deploy`/`mark-deployed` are removed. Delete
    `deploy-drift.yml`, the `build-bosun` job, the webhook `deploy` job, `mark-deployed`, and

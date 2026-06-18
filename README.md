@@ -27,21 +27,32 @@ cluster.
 
 `infra/` (Pulumi TypeScript) → `pulumi up --stack prod` reconciles the **OrbStack
 built-in Kubernetes** cluster on `homelab` to match the declared stack. Secrets
-via the External Secrets Operator (1Password), TLS via cert-manager, Postgres via
-CNPG, and the Cloudflare tunnel via in-cluster `cloudflared` (2 replicas).
+via SOPS+age vault decryption at deploy time, TLS via cert-manager, Postgres via
+CNPG, and the Cloudflare tunnel via in-cluster `cloudflared` (2 replicas in the
+`platform` namespace).
 
 ## Deploy path (push → live)
 
 1. **Push to `main`.** GitHub Actions (`.github/workflows/ci.yml`) path-filters which
    images changed and builds only those (`web`, `api`, `worker`, `media-worker`,
-   `storybook`, `drizzle`, `captive-portal`), pushing to GHCR as `ghcr.io/0x63616c/www-cc-<svc>:main` (Control Center), `www-cp-portal:main` (captive portal), `www-tye-*:main` (TYE), `www-amp-app:main`.
+   `storybook`, `drizzle`, `captive-portal`, `map-provision`, `amp`, `text-your-ex`),
+   pushing to full product-slug GHCR repositories such as
+   `ghcr.io/0x63616c/www-control-center-api:main`,
+   `www-captive-portal-portal:main`, `www-text-your-ex-api:main`, and
+   `www-amp-app:main`.
 2. **The `deploy` job joins the tailnet** on an ephemeral `tag:ci` auth key (so the
    runner can reach homelab's kube-apiserver), reads each image's `:main` digest, and
    sets the per-image digest map as Pulumi config (`pulumi config set --path
-   wwwinfra:imageDigests.<svc>`).
+   wwwinfra:imageDigests.<product-component>`, for example
+   `control-center-api` or `text-your-ex-api`).
 3. **`pulumi up --stack prod`** reconciles the cluster. Images are **pinned by digest**,
    so only the workloads whose digest actually changed roll (www-czg lineage). The
    ephemeral node is revoked after the deploy.
+
+Runtime Kubernetes names are local inside each product namespace: Control Center has
+`api` and `web` in `control-center`, Text Your Ex has `api` and `frontend` in
+`text-your-ex`, and AMP has `app` in `amp`. Global names use full product slugs;
+DNS host labels keep the short `dnsCode` form such as `app--cc.worldwidewebb.co`.
 
 Code changes are build-bound; an `infra/**`-only change still triggers a `pulumi up`.
 Three things stay on the host by hand: Tailscale, the Home Assistant VM, and OrbStack.
@@ -79,6 +90,6 @@ bunx biome check .   # lint/format (add --write to auto-fix)
 
 ## More
 
-- `docs/k3s-migration/DESIGN.md`, the deploy program: Pulumi components, secrets (ESO), TLS (cert-manager), Postgres (CNPG), in-cluster cloudflared, the CI pulumi-up pipeline.
+- `docs/k3s-migration/DESIGN.md`, the deploy program: Pulumi components, SOPS-backed k8s Secrets, TLS (cert-manager), Postgres (CNPG), in-cluster cloudflared, the CI pulumi-up pipeline.
 - `docs/deployment-design.md`, operator-facing deploy overview + recovery knobs.
 - `CLAUDE.md`, conventions, enforced guards, and instructions for AI agents.

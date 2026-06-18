@@ -29,6 +29,13 @@ node is revoked after the deploy.
 
 Cluster-level machinery, all declared in `infra/` and reconciled by the same `pulumi up`:
 
+- **Namespaces:** product workloads live in product-owned namespaces,
+  `control-center`, `captive-portal`, `text-your-ex`, and `amp`. Shared edge runtime lives in
+  `platform`, currently the in-cluster `cloudflared` Deployment and tunnel-token Secret. Names
+  inside a namespace stay local (`api`, `web`, `frontend`, `app`); Pulumi logical names and other
+  global names use full product slugs (`control-center-api`, `text-your-ex-api`). DNS remains the
+  exception: flattened hostnames use each product's `dnsCode`, for example `app--cc`.
+
 - **SOPS+age vault secrets**: `loadVault()` in `infra/src/vault.ts` decrypts `secrets/vault.yaml`
   at Pulumi deploy time and creates native k8s `Secret`s per workload; pods mount them at
   `/run/secrets/<NAME>` paths unchanged. No ESO operator; no 1Password API calls at deploy
@@ -37,7 +44,7 @@ Cluster-level machinery, all declared in `infra/` and reconciled by the same `pu
   TLS cert (the portal is LAN-only, HTTP-01 can't reach it).
 - **CloudNativePG (CNPG)** runs Postgres as a single-instance `Cluster` on a local-path PVC on
   the SSD (not NFS).
-- **cloudflared** runs **in-cluster** as a Deployment with **2 replicas** (HA, never an HPA) and
+- **cloudflared** runs **in-cluster** in the `platform` namespace as a Deployment with **2 replicas** (HA, never an HPA) and
   owns the public `*.worldwidewebb.co` routing; tunnel ingress is declared in the Pulumi
   cloudflare provider. Control Center's wall panel is served at the **private** route
   `app--cc.worldwidewebb.co` behind a Cloudflare **Access** kiosk service-token policy (a
@@ -64,10 +71,10 @@ OrbStack.
 ├─ CLUSTER (declared in infra/, applied by `pulumi up --stack prod`) ─────────────────┤
 │  SOPS+age loadVault() (infra/src/vault.ts)         → native k8s Secrets              │
 │  cert-manager + CF DNS-01 ClusterIssuer            → portal TLS Certificate         │
-│  cnpg operator → Clusters "control-center" + "captive-portal" (local SSD PVCs)     │
-│  cloudflared Deployment ×2 (HA, never autoscale)                                    │
-│  Deployments: api · worker · web · storybook · captive-portal · drizzle · media-w.  │
-│  CronJobs: portal-data-purge · pg-backup · captive-portal-pg-backup · map-extract   │
+│  cnpg operator → product Clusters in product namespaces (local SSD PVCs)            │
+│  platform namespace → cloudflared Deployment ×2 (HA, never autoscale)               │
+│  product namespaces → local Deployments: api · web · worker · frontend · app        │
+│  product namespaces → owner CronJobs: pg-backup · captive-portal-pg-backup · tye    │
 ├─ EXTERNAL STATE (Pulumi providers, Pulumi Cloud backend) ───────────────────────────┤
 │  cloudflare: Access apps/policies + tunnel ingress   · unifi: adopt-only import     │
 └──────────────────────────────────────────────────────────────────────────────────┘
@@ -97,7 +104,11 @@ push to main
 
 **Digest pinning** is preserved as Pulumi stack config: a changed digest changes the rendered
 Deployment image, so only that workload's pods roll, the same property as the old
-`docker stack deploy` digest pin, without bosun. Image repos follow the `www-<product-code>-<component>` convention (e.g. `www-cc-api`, `www-cp-portal`, `www-amp-app`). AMP uses `ghcr.io/0x63616c/www-amp-app` with `wwwinfra:imageDigests.amp-app`. `pulumi up` is
+`docker stack deploy` digest pin, without bosun. Image repos use full product slugs outside DNS,
+for example `www-control-center-api`, `www-captive-portal-portal`,
+`www-text-your-ex-api`, and `www-amp-app`. Digest keys match the product-component name, for
+example `wwwinfra:imageDigests.control-center-api` and
+`wwwinfra:imageDigests.text-your-ex-api`. `pulumi up` is
 **declarative-convergent** (it reconciles the whole declared stack to the latest committed
 digests every green run), so the old `refs/deploy/main` marker, `mark-deployed`, and
 `deploy-drift.yml` are gone, the latest run always converges prod to `main`.
