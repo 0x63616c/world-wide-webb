@@ -39,7 +39,7 @@ const eso = installEso({
 // CNPG operator + product-owned Postgres Clusters with native basic-auth Secrets.
 const cnpg = installCnpg({
   provider: cluster.provider,
-  namespace: namespaces["control-center"],
+  namespaces,
   operatorVersion: "1.29.1",
   vault,
 });

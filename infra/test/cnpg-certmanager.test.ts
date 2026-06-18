@@ -38,11 +38,19 @@ const mockVault: Record<string, string> = {
   TEXT_YOUR_EX_POSTGRES__PASSWORD: "mock-tye-pw",
 };
 
+const testNamespaces = {
+  "control-center": "control-center",
+  "captive-portal": "captive-portal",
+  "text-your-ex": "text-your-ex",
+  amp: "amp",
+  platform: "platform",
+} as const;
+
 describe("installCnpg", () => {
   test("single-instance Cluster on local-path with the www-ke9a 768M cap, bridged credential", async () => {
     const res = cnpg.installCnpg({
       provider: provider(),
-      namespace: "control-center",
+      namespaces: testNamespaces,
       operatorVersion: "1.29.1",
       vault: mockVault,
     });
@@ -66,7 +74,7 @@ describe("installCnpg", () => {
   test("the auth Secret is kubernetes.io/basic-auth with username=postgres (CC-k8t7)", async () => {
     const res = cnpg.installCnpg({
       provider: provider(),
-      namespace: "control-center",
+      namespaces: testNamespaces,
       operatorVersion: "1.29.1",
       vault: mockVault,
     });
@@ -79,7 +87,7 @@ describe("installCnpg", () => {
   test("installs Control Center, Captive Portal, and Text Your Ex product databases", async () => {
     const res = cnpg.installCnpg({
       provider: provider(),
-      namespace: "control-center",
+      namespaces: testNamespaces,
       operatorVersion: "1.29.1",
       vault: mockVault,
     });
@@ -111,6 +119,36 @@ describe("installCnpg", () => {
       resources: { limits: { memory: "768Mi" }, requests: { cpu: "500m", memory: "384Mi" } },
       superuserSecret: { name: "captive-portal-postgres-auth" },
     });
+  });
+
+  test("creates product database resources in their owning namespaces", async () => {
+    const res = cnpg.installCnpg({
+      provider: provider(),
+      namespaces: testNamespaces,
+      operatorVersion: "1.29.1",
+      vault: mockVault,
+    });
+
+    const clusterMetadata = await Promise.all(
+      res.clusters.map((cluster) => get<{ name: string; namespace: string }>(cluster, "metadata")),
+    );
+    const secretMetadata = await Promise.all(
+      res.authSecrets.map((secret) => get<{ name: string; namespace: string }>(secret, "metadata")),
+    );
+
+    expect(clusterMetadata.find((m) => m.name === "control-center")?.namespace).toBe(
+      "control-center",
+    );
+    expect(clusterMetadata.find((m) => m.name === "captive-portal")?.namespace).toBe(
+      "captive-portal",
+    );
+    expect(clusterMetadata.find((m) => m.name === "text-your-ex")?.namespace).toBe("text-your-ex");
+    expect(secretMetadata.find((m) => m.name === "captive-portal-postgres-auth")?.namespace).toBe(
+      "captive-portal",
+    );
+    expect(secretMetadata.find((m) => m.name === "tye-postgres-auth")?.namespace).toBe(
+      "text-your-ex",
+    );
   });
 });
 

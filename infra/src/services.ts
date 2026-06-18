@@ -10,6 +10,7 @@
 
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
+import { controlCenterProductManifest, textYourExProductManifest } from "@www/platform";
 import type { InfraNamespaceName } from "./cluster.ts";
 import type { WorkloadSpec } from "./component.ts";
 import { ExternalService, Workload } from "./component.ts";
@@ -64,7 +65,8 @@ const TZ = "America/Los_Angeles";
 // DATABASE_URL as postgres://postgres:<pw>@$POSTGRES_HOST:5432/control_center;
 // the default host "postgres" was the Swarm service name and does NOT resolve in
 // k3s, so set it to the CNPG Service explicitly (a live-deploy finding).
-const POSTGRES_HOST = "control-center-rw";
+const controlCenterDatabase = controlCenterProductManifest().database;
+const textYourExDatabase = textYourExProductManifest().database;
 
 // Shared non-secret env for api + worker (HA reached via the in-cluster `ha`
 // Service name now, not host.docker.internal; DB via the CNPG Service).
@@ -74,7 +76,7 @@ const haEnv = {
   TZ,
   HA_URL: `http://ha:${HA_PORT}`,
   UNIFI_CONTROLLER_URL: "https://192.168.0.1",
-  POSTGRES_HOST,
+  POSTGRES_HOST: controlCenterDatabase.rwServiceName,
 };
 
 // secretsFor: a marker list so the Workload mounts its configured service Secret; the actual
@@ -181,7 +183,12 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       resources: { memory: "1G" },
       secrets: mount(["POSTGRES_PASSWORD", "OPENROUTER_API_KEY"]),
       secretName: SERVICE_SECRET_TARGETS["media-worker"].secretName,
-      env: { NODE_ENV: "production", APP_ENV: "production", TZ, POSTGRES_HOST },
+      env: {
+        NODE_ENV: "production",
+        APP_ENV: "production",
+        TZ,
+        POSTGRES_HOST: controlCenterDatabase.rwServiceName,
+      },
       // NFS PV for the Synology media share. The DS420+ exports ONLY
       // /volume1/Homelab (not its subdirs), so mount that export and subPath
       // into media/. nfsvers=3 is enforced by the render layer (DS420+ is v3-only).
@@ -272,7 +279,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       resources: { memory: "256M" },
       secrets: mount(["MASTERPASS", "POSTGRES_PASSWORD"]),
       secretName: SERVICE_SECRET_TARGETS.drizzle.secretName,
-      env: { TZ, POSTGRES_HOST },
+      env: { TZ, POSTGRES_HOST: controlCenterDatabase.rwServiceName },
       ports: [{ containerPort: 4983, expose: "cluster" }],
       volumes: [{ mountPath: "/app", claim: "drizzle-data" }],
       imagePullSecrets: [GHCR_PULL_SECRET],
@@ -301,8 +308,8 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
         TZ,
         APP_ENV: "production",
         NODE_ENV: "production",
-        POSTGRES_HOST: "text-your-ex-rw",
-        POSTGRES_DB: "text_your_ex",
+        POSTGRES_HOST: textYourExDatabase.rwServiceName,
+        POSTGRES_DB: textYourExDatabase.databaseName,
         POSTGRES_USER: "postgres",
       },
       ports: [{ containerPort: 8787, expose: "cluster" }],

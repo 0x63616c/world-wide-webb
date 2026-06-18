@@ -342,6 +342,16 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
       ]),
     );
   });
+
+  test("derives POSTGRES_HOST from product database manifests", () => {
+    const specs = serviceSpecs(baseOpts);
+    const controlCenterApi = specs.find((spec) => spec.logicalName === "control-center-api");
+    const textYourExApi = specs.find((spec) => spec.logicalName === "text-your-ex-api");
+
+    expect(controlCenterApi?.env?.POSTGRES_HOST).toBe("control-center-rw");
+    expect(textYourExApi?.env?.POSTGRES_HOST).toBe("text-your-ex-rw");
+    expect(textYourExApi?.env?.POSTGRES_DB).toBe("text_your_ex");
+  });
 });
 
 // www-hn1i: initContainers, first user is the web map-provision init, which

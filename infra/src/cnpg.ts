@@ -16,12 +16,14 @@ import {
   captivePortalProductManifest,
   controlCenterProductManifest,
   type ProductDatabase,
+  type ProductSlug,
   textYourExProductManifest,
 } from "@www/platform";
+import type { InfraNamespaceName } from "./cluster.ts";
 
 export interface CnpgArgs {
   provider: k8s.Provider;
-  namespace: pulumi.Input<string>;
+  namespaces: Readonly<Record<InfraNamespaceName, pulumi.Input<string>>>;
   // CNPG operator install manifest version (www-j934.4 preflight pin: 1.29.1).
   operatorVersion: string;
   // Decrypted vault from vault.ts (CC-k8t7).
@@ -44,18 +46,12 @@ function productDatabases(): ProductDatabase[] {
   ];
 }
 
-function postgresVaultKey(product: string): string {
-  switch (product) {
-    case "control-center":
-      return "CONTROL_CENTER_POSTGRES__PASSWORD";
-    case "captive-portal":
-      return "CAPTIVE_PORTAL_POSTGRES__PASSWORD";
-    case "text-your-ex":
-      return "TEXT_YOUR_EX_POSTGRES__PASSWORD";
-    default:
-      throw new Error(`cnpg: no vault key for product "${product}"`);
-  }
-}
+const POSTGRES_VAULT_KEYS = {
+  "control-center": "CONTROL_CENTER_POSTGRES__PASSWORD",
+  "captive-portal": "CAPTIVE_PORTAL_POSTGRES__PASSWORD",
+  "text-your-ex": "TEXT_YOUR_EX_POSTGRES__PASSWORD",
+  amp: "AMP_POSTGRES__PASSWORD",
+} as const satisfies Record<ProductSlug, string>;
 
 function createAuthSecret(
   database: ProductDatabase,
@@ -63,7 +59,7 @@ function createAuthSecret(
   namespace: pulumi.Input<string>,
   opts: pulumi.CustomResourceOptions,
 ): k8s.core.v1.Secret {
-  const vaultKey = postgresVaultKey(database.product);
+  const vaultKey = POSTGRES_VAULT_KEYS[database.product];
   const password = vault[vaultKey];
   if (password === undefined) {
     throw new Error(`cnpg: vault key "${vaultKey}" not found`);
@@ -120,7 +116,7 @@ function createCluster(
  * Deployments point DATABASE hosts at the read-write Services CNPG creates.
  */
 export function installCnpg(args: CnpgArgs): CnpgResources {
-  const { provider, namespace, operatorVersion, vault } = args;
+  const { provider, namespaces, operatorVersion, vault } = args;
   const opts = { provider };
 
   const operator = new k8s.yaml.ConfigFile(
@@ -133,10 +129,10 @@ export function installCnpg(args: CnpgArgs): CnpgResources {
 
   const databases = productDatabases();
   const authSecrets = databases.map((database) =>
-    createAuthSecret(database, vault, namespace, opts),
+    createAuthSecret(database, vault, namespaces[database.product], opts),
   );
   const clusters = databases.map((database, index) =>
-    createCluster(database, namespace, operator, authSecrets[index], opts),
+    createCluster(database, namespaces[database.product], operator, authSecrets[index], opts),
   );
 
   return { operator, authSecrets, clusters, authSecret: authSecrets[0], cluster: clusters[0] };
