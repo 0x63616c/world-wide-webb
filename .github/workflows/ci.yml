@@ -239,13 +239,18 @@ jobs:
           node scripts/test-panel-health.mjs
       - name: Cache Playwright browsers
         uses: actions/cache@v4
+        id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('**/package.json') }}
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
             playwright-chromium-${{ runner.os }}-
       - name: Install Playwright Chromium (for Storybook browser tests)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: bunx playwright install --with-deps chromium
+      - name: Install Playwright system deps (cached binary)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: bunx playwright install-deps chromium
       - name: Test with coverage (unit jsdom + Storybook chromium, merged)
         run: bun run test:coverage
       - name: Regenerate badge JSON
