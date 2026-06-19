@@ -107,6 +107,72 @@ describe("runTicketWorkflowRunner", () => {
     expect(fake.calls).not.toContain("push-main");
     expect(fake.calls).not.toContain("close-ticket");
   });
+
+  it("enqueues reviewer-verified tickets to the merge queue instead of merging inline", async () => {
+    const fake = fakeRunnerActivities();
+    const requests: unknown[] = [];
+    const result = await runTicketWorkflowRunner(baseInput(), fake.activities, {
+      enqueueAndWait: async (request) => {
+        requests.push(request);
+        return {
+          status: "merged",
+          ticketId: request.ticketId,
+          requestId: request.requestId,
+          mergeCommitSha: "merge123",
+          pushed: true,
+          closed: true,
+        };
+      },
+    });
+
+    expect(result.status).toBe("merged");
+    expect(requests).toEqual([
+      expect.objectContaining({
+        ticketId: "www-proof",
+        ticketWorkflowId: "ticket_www-proof",
+        branch: "www-proof-proof-ticket",
+        commitSha: "abc123",
+        strategy: "merge",
+      }),
+    ]);
+    expect(fake.calls).not.toContain("update-main");
+    expect(fake.calls).not.toContain("push-main");
+  });
+
+  it("handles retryable merge queue results as failed ticket workflow results", async () => {
+    const fake = fakeRunnerActivities();
+    const result = await runTicketWorkflowRunner(baseInput(), fake.activities, {
+      enqueueAndWait: async (request) => ({
+        status: "retryable-failure",
+        ticketId: request.ticketId,
+        requestId: request.requestId,
+        failedStep: "push-main",
+        attempt: 1,
+        reason: "remote moved",
+      }),
+    });
+
+    expect(result.status).toBe("failed");
+    expect(result.mergeResult).toEqual(expect.objectContaining({ failedStep: "push-main" }));
+  });
+
+  it("handles human-blocked merge queue results as human ticket workflow results", async () => {
+    const fake = fakeRunnerActivities();
+    const result = await runTicketWorkflowRunner(baseInput(), fake.activities, {
+      enqueueAndWait: async (request) => ({
+        status: "human-blocked",
+        ticketId: request.ticketId,
+        requestId: request.requestId,
+        failedStep: "final-gates",
+        reason: "gates exhausted",
+      }),
+    });
+
+    expect(result.status).toBe("human");
+    expect(result.mergeResult).toEqual(
+      expect.objectContaining({ failedStep: "final-gates", humanEscalated: true }),
+    );
+  });
 });
 
 function baseInput(): TicketWorkflowRunnerInput {

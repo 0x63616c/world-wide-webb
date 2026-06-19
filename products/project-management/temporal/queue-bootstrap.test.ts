@@ -4,9 +4,10 @@ import {
   DEFAULT_TICKET_QUEUE_FINAL_GATES,
   ensureTicketQueueWorkflowWithClient,
   LEGACY_TICKET_QUEUE_WORKFLOW_ID,
+  MERGE_QUEUE_WORKFLOW_ID,
   TICKET_QUEUE_WORKFLOW_ID,
 } from "./queue-bootstrap";
-import { ticketQueueWorkflow } from "./workflows";
+import { enqueueMergeSignal, mergeQueueWorkflow, ticketQueueWorkflow } from "./workflows";
 
 describe("ensureTicketQueueWorkflowWithClient", () => {
   it("uses the renamed ticket queue workflow id", () => {
@@ -34,6 +35,7 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
         taskQueue: "project-management",
         runtimeLogRoot: "/logs",
       },
+      async () => [],
     );
 
     expect(starts).toEqual([
@@ -55,6 +57,24 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
           ],
         },
       ],
+      [
+        mergeQueueWorkflow,
+        {
+          workflowId: MERGE_QUEUE_WORKFLOW_ID,
+          workflowIdConflictPolicy: WorkflowIdConflictPolicy.USE_EXISTING,
+          taskQueue: "project-management",
+          args: [
+            {
+              repoRoot: "/repo",
+              taskQueue: "project-management",
+              finalGates: DEFAULT_TICKET_QUEUE_FINAL_GATES,
+              runtimeLogRoot: "/logs",
+              maxMergeAttempts: 3,
+              maxHistoryEvents: 100,
+            },
+          ],
+        },
+      ],
     ]);
     expect(terminations).toEqual([
       {
@@ -69,8 +89,8 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
     await ensureTicketQueueWorkflowWithClient(
       {
         workflow: {
-          start: async () => {
-            events.push(`start:${TICKET_QUEUE_WORKFLOW_ID}`);
+          start: async (_workflow, options) => {
+            events.push(`start:${options.workflowId}`);
           },
           getHandle: (workflowId: string) => ({
             terminate: async () => {
@@ -84,10 +104,12 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
         taskQueue: "project-management",
         runtimeLogRoot: "/logs",
       },
+      async () => [],
     );
 
     expect(events).toEqual([
       `start:${TICKET_QUEUE_WORKFLOW_ID}`,
+      `start:${MERGE_QUEUE_WORKFLOW_ID}`,
       `terminate:${LEGACY_TICKET_QUEUE_WORKFLOW_ID}`,
     ]);
   });
@@ -115,7 +137,57 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
           taskQueue: "project-management",
           runtimeLogRoot: "/logs",
         },
+        async () => [],
       ),
     ).resolves.toBeUndefined();
+  });
+
+  it("signals existing verified tickets into an already-running merge queue on startup", async () => {
+    const signals: unknown[] = [];
+    await ensureTicketQueueWorkflowWithClient(
+      {
+        workflow: {
+          start: async () => {},
+          getHandle: (workflowId: string) => ({
+            signal: async (...args: unknown[]) => {
+              signals.push({ workflowId, args });
+            },
+            terminate: async () => {},
+          }),
+        },
+      },
+      {
+        repoRoot: "/repo",
+        taskQueue: "project-management",
+        runtimeLogRoot: "/logs",
+      },
+      async () => [
+        {
+          ticketId: "www-verified",
+          title: "Verified ticket",
+          acceptanceCriteria: "- [ ] verified",
+          comments: ["reviewed"],
+          branch: "www-verified-ticket",
+          commitSha: "abc123",
+        },
+      ],
+    );
+
+    expect(signals).toEqual([
+      {
+        workflowId: MERGE_QUEUE_WORKFLOW_ID,
+        args: [
+          enqueueMergeSignal,
+          expect.objectContaining({
+            requestId: "merge_www_verified_abc123",
+            ticketId: "www-verified",
+            ticketWorkflowId: "ticket_www-verified",
+            branch: "www-verified-ticket",
+            commitSha: "abc123",
+            runtimeLogRoot: "/logs",
+          }),
+        ],
+      },
+    ]);
   });
 });

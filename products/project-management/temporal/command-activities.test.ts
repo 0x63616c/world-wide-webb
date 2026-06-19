@@ -11,6 +11,7 @@ import {
   pushBeads,
   pushMain,
   readReadyTicketWorkflowQueue,
+  readVerifiedMergeQueue,
   resolveOpenCodeSession,
   runFinalGates,
   startTmuxCommand,
@@ -517,6 +518,55 @@ describe("ticket command activities", () => {
         stderr: "",
       })),
     ).rejects.toMatchObject({ type: "NoReadyTicketWorkflows", nonRetryable: false });
+  });
+
+  it("reads existing open ticket-verified items for merge queue reconciliation", async () => {
+    const commands: ActivityCommand[] = [];
+    const result = await readVerifiedMergeQueue({ repoRoot: "/repo" }, async (command) => {
+      commands.push(command);
+      if (command.args[0] === "list") {
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify([
+            { id: "www-verified", title: "Verified", status: "open", labels: ["ticket-verified"] },
+            {
+              id: "www-human",
+              title: "Human",
+              status: "open",
+              labels: ["ticket-verified", "ticket-human"],
+            },
+          ]),
+          stderr: "",
+        };
+      }
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify([
+          {
+            id: "www-verified",
+            title: "Verified",
+            status: "open",
+            labels: ["ticket-verified"],
+            acceptance_criteria: "- [ ] verified",
+            metadata: { ticket_branch: "www-verified-branch", ticket_commit: "abc123" },
+            comments: [{ text: "## Reviewer findings\n\nNo findings." }],
+          },
+        ]),
+        stderr: "",
+      };
+    });
+
+    expect(result).toEqual([
+      {
+        ticketId: "www-verified",
+        title: "Verified",
+        acceptanceCriteria: "- [ ] verified",
+        comments: ["## Reviewer findings\n\nNo findings."],
+        branch: "www-verified-branch",
+        commitSha: "abc123",
+      },
+    ]);
+    expect(commands[0]?.args).toContain("ticket-verified");
   });
 });
 

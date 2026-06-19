@@ -68,6 +68,7 @@ export type BeadsTicketComment = {
 export type BeadsTicketDetails = BeadsTicket & {
   acceptanceCriteria: string;
   comments: readonly BeadsTicketComment[];
+  metadata?: Readonly<Record<string, string>>;
 };
 
 export function buildQueueCommand(queue: TicketQueue): BeadsCommand {
@@ -277,6 +278,7 @@ function parseTicketDetail(value: unknown): BeadsTicketDetails[] {
   if (!isBeadsTicket(value)) return [];
   const candidate = value as Record<string, unknown>;
   const comments = Array.isArray(candidate.comments) ? candidate.comments : [];
+  const metadata = parseMetadata(candidate.metadata);
   return [
     {
       id: value.id,
@@ -284,6 +286,7 @@ function parseTicketDetail(value: unknown): BeadsTicketDetails[] {
       status: value.status,
       labels: value.labels,
       acceptanceCriteria: stringField(candidate, "acceptance_criteria"),
+      ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
       comments: comments.flatMap((comment) => {
         if (!comment || typeof comment !== "object") return [];
         const record = comment as Record<string, unknown>;
@@ -295,6 +298,15 @@ function parseTicketDetail(value: unknown): BeadsTicketDetails[] {
       }),
     } satisfies BeadsTicketDetails,
   ];
+}
+
+function parseMetadata(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object") return {};
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).flatMap(([key, entry]) =>
+      typeof entry === "string" ? [[key, entry]] : [],
+    ),
+  );
 }
 
 function stringField(record: Record<string, unknown>, key: string): string {

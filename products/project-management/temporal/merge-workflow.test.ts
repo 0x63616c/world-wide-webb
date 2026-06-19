@@ -1,11 +1,21 @@
 import { describe, expect, it } from "vitest";
 import type { MergeActivityResult } from "./command-activities";
 import {
+  cancelMergeQueueRequest,
+  enqueueMergeQueueRequest,
+  type MergeQueueActivities,
+  type MergeQueueMutableState,
+  type MergeQueueRequest,
   type MergeWorkflowActivities,
   type MergeWorkflowInput,
   type MergeWorkflowStep,
+  mergeQueueSnapshot,
+  processMergeQueueRequest,
+  processNextMergeQueueEntry,
+  recordMergeQueueResult,
   runSerializedMergeQueueWorkflow,
   runSerializedMergeWorkflow,
+  shouldContinueMergeQueueAsNew,
 } from "./workflows";
 
 describe("runSerializedMergeWorkflow", () => {
@@ -241,6 +251,246 @@ describe("runSerializedMergeWorkflow", () => {
   });
 });
 
+describe("processMergeQueueRequest", () => {
+  it("asserts clean main, merges, finalizes Beads, and returns a merged queue result", async () => {
+    const fake = fakeMergeQueueActivities();
+    const result = await processMergeQueueRequest(queueInput(), queueRequest(), fake.activities);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "merged",
+        ticketId: "www-queue",
+        requestId: "merge_www_queue_abc123",
+        pushed: true,
+        closed: true,
+      }),
+    );
+    expect(fake.calls).toEqual([
+      "assert-clean-main",
+      "update-main",
+      "merge-ticket-branch",
+      "final-gates",
+      "push-main",
+      "close-ticket",
+      "push-beads",
+      "resolve-head",
+    ]);
+  });
+
+  it("human-blocks dirty main before fetch, merge, gates, push, or close", async () => {
+    const fake = fakeMergeQueueActivities({ failStep: "assert-clean-main" });
+    const result = await processMergeQueueRequest(queueInput(), queueRequest(), fake.activities);
+
+    expect(result).toEqual(
+      expect.objectContaining({ status: "human-blocked", failedStep: "assert-clean-main" }),
+    );
+    expect(fake.calls).toEqual(["assert-clean-main"]);
+  });
+
+  it("human-blocks local ahead or diverged main from update-main without merging", async () => {
+    const fake = fakeMergeQueueActivities({ failStep: "update-main" });
+    const result = await processMergeQueueRequest(queueInput(), queueRequest(), fake.activities);
+
+    expect(result).toEqual(
+      expect.objectContaining({ status: "human-blocked", failedStep: "update-main" }),
+    );
+    expect(fake.calls).toEqual(["assert-clean-main", "update-main"]);
+  });
+
+  it("retries a remote-moved push from update-main without force-pushing", async () => {
+    const fake = fakeMergeQueueActivities({ failStep: "push-main", failStepLimit: 1 });
+    const result = await processMergeQueueRequest(queueInput(), queueRequest(), fake.activities);
+
+    expect(result.status).toBe("merged");
+    expect(fake.calls).toEqual([
+      "assert-clean-main",
+      "update-main",
+      "merge-ticket-branch",
+      "final-gates",
+      "push-main",
+      "assert-clean-main",
+      "update-main",
+      "merge-ticket-branch",
+      "final-gates",
+      "push-main",
+      "close-ticket",
+      "push-beads",
+      "resolve-head",
+    ]);
+  });
+
+  it("retries merge conflicts up to max attempts before escalating ticket-human", async () => {
+    const fake = fakeMergeQueueActivities({ failStep: "merge-ticket-branch" });
+    const result = await processMergeQueueRequest(queueInput(), queueRequest(), fake.activities);
+
+    expect(result).toEqual(
+      expect.objectContaining({ status: "human-blocked", failedStep: "merge-ticket-branch" }),
+    );
+    expect(fake.calls).toEqual([
+      "assert-clean-main",
+      "update-main",
+      "merge-ticket-branch",
+      "assert-clean-main",
+      "update-main",
+      "merge-ticket-branch",
+      "assert-clean-main",
+      "update-main",
+      "merge-ticket-branch",
+      "escalate-human",
+    ]);
+  });
+
+  it("retries final gates up to max attempts before escalating ticket-human", async () => {
+    const fake = fakeMergeQueueActivities({ failStep: "final-gates" });
+    const result = await processMergeQueueRequest(queueInput(), queueRequest(), fake.activities);
+
+    expect(result).toEqual(
+      expect.objectContaining({ status: "human-blocked", failedStep: "final-gates" }),
+    );
+    expect(fake.calls).toEqual([
+      "assert-clean-main",
+      "update-main",
+      "merge-ticket-branch",
+      "final-gates",
+      "assert-clean-main",
+      "update-main",
+      "merge-ticket-branch",
+      "final-gates",
+      "assert-clean-main",
+      "update-main",
+      "merge-ticket-branch",
+      "final-gates",
+      "escalate-human",
+    ]);
+  });
+
+  it("does not rerun git merge after main was pushed but Beads finalization fails", async () => {
+    const fake = fakeMergeQueueActivities({ failStep: "close-ticket" });
+    const result = await processMergeQueueRequest(queueInput(), queueRequest(), fake.activities);
+
+    expect(result).toEqual(
+      expect.objectContaining({ status: "human-blocked", failedStep: "close-ticket" }),
+    );
+    expect(fake.calls).toEqual([
+      "assert-clean-main",
+      "update-main",
+      "merge-ticket-branch",
+      "final-gates",
+      "push-main",
+      "close-ticket",
+    ]);
+  });
+
+  it("human-blocks Beads push failure after closing without rerunning git merge", async () => {
+    const fake = fakeMergeQueueActivities({ failStep: "push-beads" });
+    const result = await processMergeQueueRequest(queueInput(), queueRequest(), fake.activities);
+
+    expect(result).toEqual(
+      expect.objectContaining({ status: "human-blocked", failedStep: "push-beads" }),
+    );
+    expect(fake.calls).toEqual([
+      "assert-clean-main",
+      "update-main",
+      "merge-ticket-branch",
+      "final-gates",
+      "push-main",
+      "close-ticket",
+      "push-beads",
+    ]);
+  });
+});
+
+describe("merge queue state", () => {
+  it("keeps FIFO order, suppresses duplicates, cancels queued requests, and snapshots state", () => {
+    const state = mergeQueueState();
+    const first = queueRequest({
+      ticketId: "www-first",
+      ticketWorkflowId: "ticket_www-first",
+      requestId: "merge_first",
+    });
+    const second = queueRequest({
+      ticketId: "www-second",
+      ticketWorkflowId: "ticket_www-second",
+      requestId: "merge_second",
+    });
+
+    expect(enqueueMergeQueueRequest(state, first)).toBe("queued");
+    expect(enqueueMergeQueueRequest(state, first)).toBe("duplicate");
+    expect(enqueueMergeQueueRequest(state, second)).toBe("queued");
+    expect(cancelMergeQueueRequest(state, "www-second")).toBe("cancelled");
+
+    expect(mergeQueueSnapshot(state).queued.map((entry) => entry.request.ticketId)).toEqual([
+      "www-first",
+    ]);
+  });
+
+  it("suppresses duplicates while active or completed and reports compaction readiness", () => {
+    const state = mergeQueueState();
+    const request = queueRequest();
+
+    expect(enqueueMergeQueueRequest(state, request)).toBe("queued");
+    state.active = state.queued.shift() ?? null;
+    expect(enqueueMergeQueueRequest(state, request)).toBe("duplicate");
+    recordMergeQueueResult(state, request, {
+      status: "merged",
+      ticketId: request.ticketId,
+      requestId: request.requestId,
+      mergeCommitSha: "merge123",
+      pushed: true,
+      closed: true,
+    });
+    state.active = null;
+    expect(enqueueMergeQueueRequest(state, request)).toBe("duplicate");
+    expect(shouldContinueMergeQueueAsNew(state, 1)).toBe(false);
+    expect(
+      enqueueMergeQueueRequest(
+        state,
+        queueRequest({ ticketId: "www-next", requestId: "merge_next" }),
+      ),
+    ).toBe("queued");
+    expect(shouldContinueMergeQueueAsNew(state, 1)).toBe(true);
+  });
+
+  it("processes the next queued entry and signals the waiting ticket workflow", async () => {
+    const state = mergeQueueState();
+    const first = queueRequest({
+      ticketId: "www-first",
+      ticketWorkflowId: "ticket_www-first",
+      requestId: "merge_first",
+    });
+    const second = queueRequest({
+      ticketId: "www-second",
+      ticketWorkflowId: "ticket_www-second",
+      requestId: "merge_second",
+    });
+    const fake = fakeMergeQueueActivities();
+    const signals: unknown[] = [];
+
+    enqueueMergeQueueRequest(state, first);
+    enqueueMergeQueueRequest(state, second);
+
+    const result = await processNextMergeQueueEntry(
+      queueInput(),
+      state,
+      fake.activities,
+      async (ticketWorkflowId, mergeResult) => {
+        signals.push({ ticketWorkflowId, mergeResult });
+      },
+    );
+
+    expect(result).toEqual(expect.objectContaining({ ticketId: "www-first", status: "merged" }));
+    expect(state.active).toBeNull();
+    expect(state.completedCount).toBe(1);
+    expect(state.queued.map((entry) => entry.request.ticketId)).toEqual(["www-second"]);
+    expect(signals).toEqual([
+      {
+        ticketWorkflowId: "ticket_www-first",
+        mergeResult: expect.objectContaining({ ticketId: "www-first", requestId: "merge_first" }),
+      },
+    ]);
+  });
+});
+
 function baseInput(overrides: Partial<MergeWorkflowInput> = {}): MergeWorkflowInput {
   const ticketId = overrides.ticketId ?? "www-3agy.11";
   return {
@@ -251,6 +501,92 @@ function baseInput(overrides: Partial<MergeWorkflowInput> = {}): MergeWorkflowIn
     strategy: "cherry-pick",
     finalGates: [{ label: "test", command: "bun", args: ["run", "test"] }],
     ...overrides,
+  };
+}
+
+function queueInput() {
+  return {
+    repoRoot: "/repo",
+    taskQueue: "project-management",
+    finalGates: [{ label: "test", command: "bun", args: ["run", "test"] }],
+    maxMergeAttempts: 3,
+  } as const;
+}
+
+function queueRequest(overrides: Partial<MergeQueueRequest> = {}): MergeQueueRequest {
+  return {
+    requestId: "merge_www_queue_abc123",
+    ticketId: "www-queue",
+    ticketWorkflowId: "ticket_www-queue",
+    title: "Queue ticket",
+    branch: "www-queue-queue-ticket",
+    commitSha: "abc123",
+    strategy: "merge",
+    acceptanceCriteria: "- [ ] queue passes",
+    comments: [],
+    requestedAt: "2026-06-19T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function mergeQueueState(): MergeQueueMutableState {
+  return { queued: [], active: null, completedCount: 0, completed: new Map() };
+}
+
+function fakeMergeQueueActivities(
+  options: { readonly failStep?: string; readonly failStepLimit?: number } = {},
+): { readonly activities: MergeQueueActivities; readonly calls: string[] } {
+  const calls: string[] = [];
+  let matchingFailures = 0;
+  const run = async (step: string): Promise<MergeActivityResult> => {
+    calls.push(step);
+    const shouldFail = step === options.failStep;
+    if (shouldFail) matchingFailures += 1;
+    const ok =
+      !shouldFail || matchingFailures > (options.failStepLimit ?? Number.POSITIVE_INFINITY);
+    return {
+      ok,
+      records: ok
+        ? []
+        : [
+            {
+              activity: step,
+              command: { command: step, args: [] },
+              exitCode: 1,
+              stdout: "",
+              stderr: `${step} failed`,
+            },
+          ],
+    };
+  };
+  return {
+    calls,
+    activities: {
+      assertCleanMainActivity: async () => run("assert-clean-main"),
+      updateMainActivity: async () => run("update-main"),
+      mergeTicketBranchActivity: async () => run("merge-ticket-branch"),
+      runFinalGatesActivity: async () => run("final-gates"),
+      pushMainActivity: async () => run("push-main"),
+      closeTicketActivity: async () => run("close-ticket"),
+      pushBeadsActivity: async () => run("push-beads"),
+      resolveGitHeadActivity: async () => {
+        calls.push("resolve-head");
+        return { ok: true, commitSha: "merge123", records: [] };
+      },
+      readVerifiedMergeQueueActivity: async () => [],
+      escalateTicketHumanActivity: async () => run("escalate-human"),
+      startTicketMergeFixActivity: async () => ({
+        sessionName: "ticket_www-queue_mergefix_1",
+        startedAtMs: 1,
+        stdoutLogPath: "/tmp/stdout",
+        stderrLogPath: "/tmp/stderr",
+        exitCodePath: "/tmp/exit",
+        records: [],
+        agent: "ticket-mergefix",
+        model: "openai/gpt-5.5",
+        promptPath: "/tmp/prompt",
+      }),
+    },
   };
 }
 

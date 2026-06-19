@@ -52,6 +52,10 @@ export type UpdateMainInput = {
   readonly repoRoot: string;
 };
 
+export type AssertCleanMainInput = {
+  readonly repoRoot: string;
+};
+
 export type MergeTicketBranchInput = {
   readonly repoRoot: string;
   readonly branch: string;
@@ -116,11 +120,20 @@ export type ReadReadyTicketWorkflowQueueInput = {
   readonly repoRoot: string;
 };
 
+export type ReadVerifiedMergeQueueInput = {
+  readonly repoRoot: string;
+};
+
 export type ReadyTicketWorkflowQueueTicket = {
   readonly ticketId: string;
   readonly title: string;
   readonly acceptanceCriteria: string;
   readonly comments: readonly string[];
+};
+
+export type VerifiedMergeQueueTicket = ReadyTicketWorkflowQueueTicket & {
+  readonly branch: string;
+  readonly commitSha: string | null;
 };
 
 export type WriteTicketMetadataInput = TicketBeadsInput & {
@@ -288,6 +301,12 @@ export async function updateMainActivity(input: UpdateMainInput): Promise<MergeA
   return updateMain(input, runCommand);
 }
 
+export async function assertCleanMainActivity(
+  input: AssertCleanMainInput,
+): Promise<MergeActivityResult> {
+  return assertCleanMain(input, runCommand);
+}
+
 export async function mergeTicketBranchActivity(
   input: MergeTicketBranchInput,
 ): Promise<MergeActivityResult> {
@@ -332,6 +351,12 @@ export async function readReadyTicketWorkflowQueueActivity(
   input: ReadReadyTicketWorkflowQueueInput,
 ): Promise<ReadyTicketWorkflowQueueTicket[]> {
   return readReadyTicketWorkflowQueue(input, runCommand);
+}
+
+export async function readVerifiedMergeQueueActivity(
+  input: ReadVerifiedMergeQueueInput,
+): Promise<VerifiedMergeQueueTicket[]> {
+  return readVerifiedMergeQueue(input, runCommand);
 }
 
 export async function writeTicketWorkflowMetadataActivity(
@@ -512,6 +537,23 @@ export async function updateMain(
       },
     },
   ]);
+}
+
+export async function assertCleanMain(
+  input: AssertCleanMainInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  const result = await run({
+    command: "git",
+    args: ["status", "--porcelain"],
+    cwd: input.repoRoot,
+  });
+  const record = commandRecord(
+    "assert-clean-main",
+    { command: "git", args: ["status", "--porcelain"], cwd: input.repoRoot },
+    result,
+  );
+  return { ok: result.exitCode === 0 && result.stdout.trim().length === 0, records: [record] };
 }
 
 export async function mergeTicketBranch(
@@ -723,6 +765,49 @@ export async function readReadyTicketWorkflowQueue(
       acceptanceCriteria: details?.acceptanceCriteria ?? "No acceptance criteria provided.",
       comments: details?.comments.map((comment) => comment.text) ?? [],
     };
+  });
+}
+
+export async function readVerifiedMergeQueue(
+  input: ReadVerifiedMergeQueueInput,
+  run: ActivityCommandRunner,
+): Promise<VerifiedMergeQueueTicket[]> {
+  const adapter = new BeadsAdapter(async (command) => {
+    const result = await run({
+      command: command.command,
+      args: command.args,
+      cwd: input.repoRoot,
+      stdin: command.stdin,
+    });
+    if (result.exitCode !== 0) {
+      throw ApplicationFailure.create({
+        message: result.stderr.trim() || result.stdout.trim() || "bd command failed",
+        type: "BeadsCommandFailed",
+        nonRetryable: true,
+      });
+    }
+    return result.stdout;
+  });
+  const verified = (await adapter.verifiedQueue()).filter(
+    (ticket) => ticket.status === "open" && !ticket.labels.includes(TICKET_WORKFLOW_LABELS.human),
+  );
+  if (verified.length === 0) return [];
+
+  const details = await adapter.showTickets(verified.map((ticket) => ticket.id));
+  return details.flatMap((ticket) => {
+    if (ticket.status !== "open" || ticket.labels.includes(TICKET_WORKFLOW_LABELS.human)) return [];
+    const metadata = parseTicketMetadata(ticket);
+    if (!metadata.branch) return [];
+    return [
+      {
+        ticketId: ticket.id,
+        title: ticket.title,
+        acceptanceCriteria: ticket.acceptanceCriteria || "No acceptance criteria provided.",
+        comments: ticket.comments.map((comment) => comment.text),
+        branch: metadata.branch,
+        commitSha: metadata.commit || null,
+      },
+    ];
   });
 }
 
@@ -1022,6 +1107,27 @@ type ShownTicket = {
   readonly labels: readonly string[];
   readonly comments: readonly string[];
 };
+
+function parseTicketMetadata(ticket: unknown): {
+  readonly branch: string;
+  readonly commit: string;
+} {
+  if (!ticket || typeof ticket !== "object") return { branch: "", commit: "" };
+  const candidate = ticket as Record<string, unknown>;
+  const metadata =
+    candidate.metadata && typeof candidate.metadata === "object"
+      ? (candidate.metadata as Record<string, unknown>)
+      : candidate;
+  return {
+    branch: stringField(metadata, TICKET_METADATA_KEYS.branch),
+    commit: stringField(metadata, TICKET_METADATA_KEYS.commit),
+  };
+}
+
+function stringField(record: Record<string, unknown>, key: string): string {
+  const value = record[key];
+  return typeof value === "string" ? value : "";
+}
 
 function parseShownTicket(stdout: string): ShownTicket | null {
   const parsed: unknown = JSON.parse(stdout);
