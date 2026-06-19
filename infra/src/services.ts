@@ -11,6 +11,7 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import {
+  captivePortalProductManifest,
   controlCenterProductManifest,
   defineProduct,
   textYourExProductManifest,
@@ -65,6 +66,10 @@ const IMAGE_REPOSITORIES = {
   "captive-portal": {
     digestKey: captivePortalProduct.imageDigestKey("portal"),
     repository: captivePortalProduct.imageRepository("portal"),
+  },
+  "captive-portal-api": {
+    digestKey: captivePortalProduct.imageDigestKey("api"),
+    repository: captivePortalProduct.imageRepository("api"),
   },
   "tye-api": {
     digestKey: textYourExProduct.imageDigestKey("api"),
@@ -125,6 +130,8 @@ const TZ = "America/Los_Angeles";
 // the default host "postgres" was the Swarm service name and does NOT resolve in
 // k3s, so set it to the CNPG Service explicitly (a live-deploy finding).
 const controlCenterDatabase = controlCenterProductManifest().database;
+const captivePortalManifest = captivePortalProductManifest();
+const captivePortalDatabase = captivePortalManifest.database;
 const textYourExDatabase = textYourExProductManifest().database;
 
 // Shared non-secret env for api + worker (HA reached via the in-cluster `ha`
@@ -334,6 +341,27 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
           ],
         },
       ],
+      imagePullSecrets: [GHCR_PULL_SECRET],
+    },
+    {
+      logicalName: "captive-portal-api",
+      name: "api",
+      namespaceName: "captive-portal",
+      image: ghcr("captive-portal-api", digests),
+      replicas: 1,
+      resources: { memory: "256M" },
+      secrets: mount(["POSTGRES_PASSWORD", "UNIFI_API_KEY", "WIFI_PASSWORD", "WIFI_SSID"]),
+      secretName: captivePortalManifest.secretUsages.api.targetSecretName,
+      env: {
+        TZ,
+        APP_ENV: "production",
+        NODE_ENV: "production",
+        PORT: "4211",
+        POSTGRES_HOST: captivePortalDatabase.rwServiceName,
+        POSTGRES_DB: captivePortalDatabase.databaseName,
+        POSTGRES_USER: captivePortalDatabase.owner,
+      },
+      ports: [{ containerPort: 4211, expose: "cluster" }],
       imagePullSecrets: [GHCR_PULL_SECRET],
     },
     {

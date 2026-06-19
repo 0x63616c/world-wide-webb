@@ -39,10 +39,12 @@ export interface CnpgResources {
 }
 
 function productDatabases(): ProductDatabase[] {
+  const captivePortal = captivePortalProductManifest();
   const textYourEx = textYourExProductManifest();
   return [
     controlCenterProductManifest().database,
-    captivePortalProductManifest().database,
+    captivePortal.database,
+    ...captivePortal.retainedLegacyDatabases,
     textYourEx.database,
     ...textYourEx.retainedLegacyDatabases,
   ];
@@ -66,8 +68,12 @@ function createAuthSecret(
   if (password === undefined) {
     throw new Error(`cnpg: vault key "${vaultKey}" not found`);
   }
+  const resourceName =
+    database.product === "captive-portal" && database.authSecretName === "postgres-auth"
+      ? "captive-portal-postgres-auth-current"
+      : database.authSecretName;
   return new k8s.core.v1.Secret(
-    database.authSecretName,
+    resourceName,
     {
       metadata: { name: database.authSecretName, namespace },
       type: "kubernetes.io/basic-auth",
@@ -87,8 +93,12 @@ function createCluster(
   authSecret: k8s.core.v1.Secret,
   opts: pulumi.CustomResourceOptions,
 ): k8s.apiextensions.CustomResource {
+  const resourceName =
+    database.product === "captive-portal" && database.clusterName === "postgres"
+      ? "captive-portal-postgres-current"
+      : database.clusterName;
   return new k8s.apiextensions.CustomResource(
-    database.clusterName,
+    resourceName,
     {
       apiVersion: "postgresql.cnpg.io/v1",
       kind: "Cluster",

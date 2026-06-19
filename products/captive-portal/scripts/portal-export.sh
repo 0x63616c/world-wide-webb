@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Portal data export script (www-jtp0.5.6).
 #
-# Exports the four portal tables from Control Center Postgres using pg_dump.
+# Exports the current portal tables from Control Center Postgres using pg_dump.
 # Produces TWO output files per run:
 #   <OUTPUT_DIR>/portal_export_<TIMESTAMP>.dump   - pg_dump custom format (for pg_restore)
 #   <OUTPUT_DIR>/portal_export_<TIMESTAMP>.sql.gz - plain SQL gzip (human-readable backup)
@@ -23,7 +23,7 @@
 
 set -euo pipefail
 
-TABLES=(portal_guest portal_code portal_attempt portal_authorization)
+TABLES=(portal_authorization portal_rate_limit)
 
 : "${POSTGRES_HOST:?POSTGRES_HOST must be set}"
 : "${POSTGRES_DB:?POSTGRES_DB must be set}"
@@ -101,5 +101,4 @@ for t in "${TABLES[@]}"; do
 done
 
 echo ""
-echo "Export complete. ROLLBACK NOTE: Control Center database is the source of truth"
-echo "until the final cutover is approved and validated (www-jtp0.5.7 REQUIRES CALUM)."
+echo "Export complete. ROLLBACK NOTE: keep the source database untouched until soak completes."

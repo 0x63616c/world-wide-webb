@@ -51,6 +51,7 @@ const FULL_INSTALL_DOCKERFILES = [
   "products/control-center/web/Dockerfile",
   "products/control-center/web/Dockerfile.storybook",
   "products/amp/Dockerfile",
+  "products/captive-portal/Dockerfile.api",
   "products/captive-portal/apps/frontend/Dockerfile",
   "products/text-your-ex/Dockerfile.api",
   "products/text-your-ex/Dockerfile.frontend",

@@ -94,7 +94,7 @@ solution, captive-portal LAN exposure, and the UniFi import plan are all in
 push to main
   → changes  (dorny/paths-filter; per-app filters + an `infra/**` filter)
   → test     (typecheck · biome · knip · guards · vitest coverage · badges), gates deploy
-  → build-{web,api,worker,media-worker,storybook,drizzle,captive-portal,map-provision,amp}  (arm64 → GHCR :sha + :main)
+  → build-{web,api,worker,media-worker,storybook,drizzle,captive-portal,captive-portal-api,map-provision,amp}  (arm64 → GHCR :sha + :main)
   → deploy:
        - collect per-image :main digests (buildx imagetools inspect)
        - join the tailnet with an EPHEMERAL Tailscale auth key (tag:ci), reach homelab's apiserver
@@ -108,7 +108,7 @@ push to main
 Deployment image, so only that workload's pods roll, the same property as the old
 `docker stack deploy` digest pin, without bosun. Image repos use full product slugs outside DNS,
 for example `www-control-center-api`, `www-captive-portal-portal`,
-`www-text-your-ex-api`, and `www-amp-app`. Digest keys match the product-component name, for
+`www-captive-portal-api`, `www-text-your-ex-api`, and `www-amp-app`. Digest keys match the product-component name, for
 example `wwwinfra:imageDigests.control-center-api` and
 `wwwinfra:imageDigests.text-your-ex-api`. `pulumi up` is
 **declarative-convergent** (it reconciles the whole declared stack to the latest committed
@@ -246,17 +246,17 @@ proves the stack came back healthy; and `scripts/verify-wall-panel.mjs` (www-jtp
 the panel at exactly 1366×1024 on `app--cc`. `POSTGRES_HOST` is already `control-center-rw`, so for
 prod the cutover is a DATA move, not a code change.
 
-**Captive Portal product database provisioning (www-jtp0.5.5, www-0y64.1).** The Captive Portal has its
-own product CNPG database declaration for app database `captive_portal`. The platform primitive now
-defaults new product databases to namespace-local names (`postgres`, `postgres-rw`, `postgres-auth`),
-but the live Captive Portal cluster intentionally remains on its existing `captive-portal` /
-`captive-portal-rw` / `captive-portal-postgres-auth` names until the reviewed local-name cutover runs.
-Its product API
-manifest explicitly declares only the secrets it can read: `POSTGRES_PASSWORD`, `RESEND_API_KEY`,
-`RESEND_FROM`, `UNIFI_API_KEY`, `WIFI_PASSWORD`, and `WIFI_SSID`. The nightly backup CronJob is
-`captive-portal-pg-backup`; it runs at `15 1 * * *`, uses the same PG 18 dump image as the CNPG
-server, reads the password from the mounted CNPG auth Secret, and writes dated
-`captive_portal-YYYYMMDD.sql.gz` artifacts under
+**Captive Portal product database cutover (www-jtp0.5.5, www-0y64.4).** The Captive Portal has its
+own product CNPG database declaration for app database `captive_portal`. Its current DB is the
+namespace-local `Cluster/postgres` with Services `postgres-rw` / `postgres-ro` / `postgres-r` and
+auth Secret `postgres-auth`; the old `Cluster/captive-portal`, `captive-portal-rw` Service, auth
+Secret `captive-portal-postgres-auth`, and PVC stay retained for rollback through the soak window.
+The frontend Deployment proxies portal-only tRPC traffic to the product API Service
+`api.captive-portal.svc.cluster.local:4211`; the API Deployment runs with `POSTGRES_HOST=postgres-rw`
+and explicitly declares only the secrets it can read: `POSTGRES_PASSWORD`, `UNIFI_API_KEY`,
+`WIFI_PASSWORD`, and `WIFI_SSID`. The nightly backup CronJob is `captive-portal-pg-backup`; it runs at
+`15 1 * * *`, uses the same PG 18 dump image as the CNPG server, reads the password from mounted
+`postgres-auth`, and writes dated `captive_portal-YYYYMMDD.sql.gz` artifacts under
 `backups/world-wide-webb/captive-portal/postgres` on the NAS. Control Center remains unchanged:
 `pg-backup` still writes `control_center-YYYYMMDD.sql.gz` to `backups/postgres`.
 
@@ -270,10 +270,11 @@ scripts/pg-snapshot-restore.sh --source production --scratch <scratch-cluster> -
 scripts/pg-snapshot-restore.sh --compare-counts <source.tsv> <scratch.tsv>
 ```
 
-Rollback note: this provisioning step must leave the old Control Center portal tables untouched.
-If the Captive Portal database, auth Secret, service discovery, or backup job fails to provision,
-scale any new Captive Portal product DB consumers to zero and keep the existing Control Center
-portal path serving until the product database is fixed and restore validation passes.
+Rollback note: this cutover must leave the old Control Center portal tables and retained legacy
+`captive-portal` CNPG cluster untouched. If the Captive Portal database, auth Secret, service
+discovery, API Deployment, proxy path, or backup job fails, roll the portal frontend proxy back to
+the Control Center API path or point consumers at the retained legacy database service until restore
+validation passes.
 
 **Product CNPG local-name migrations (www-0y64.2).** When normalizing a product database from a
 product-slug CNPG Cluster name to the local name `postgres`, do **not** rename the live Cluster in

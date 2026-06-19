@@ -653,6 +653,7 @@ export type CaptivePortalProductManifest = Readonly<{
   >;
   secretUsages: Readonly<Record<CaptivePortalSecretUsageName, ServiceSecretUsage>>;
   database: ProductDatabase;
+  retainedLegacyDatabases: readonly ProductDatabase[];
   backup: DatabaseBackup;
 }>;
 
@@ -795,13 +796,19 @@ export function captivePortalProductManifest(): CaptivePortalProductManifest {
   const appExposure = captivePortalWeb(product, target, { host: "app" });
   const database = defineProductDatabase(product, target, {
     authPassword: secretCatalog.captivePortal.postgresPassword,
-    authSecretName: "captive-portal-postgres-auth",
-    clusterName: "captive-portal",
-    readServiceName: "captive-portal-r",
-    roServiceName: "captive-portal-ro",
-    rwServiceName: "captive-portal-rw",
     size: "2Gi",
   });
+  const retainedLegacyDatabases = [
+    defineProductDatabase(product, target, {
+      authPassword: secretCatalog.captivePortal.postgresPassword,
+      authSecretName: "captive-portal-postgres-auth",
+      clusterName: "captive-portal",
+      readServiceName: "captive-portal-r",
+      roServiceName: "captive-portal-ro",
+      rwServiceName: "captive-portal-rw",
+      size: "2Gi",
+    }),
+  ];
   const backup = defineDatabaseBackup(database, target, {
     name: "captive-portal-pg-backup",
     schedule: "15 1 * * *",
@@ -837,6 +844,7 @@ export function captivePortalProductManifest(): CaptivePortalProductManifest {
     },
     secretUsages: { api: apiSecretUsage },
     database,
+    retainedLegacyDatabases,
     backup,
   };
 }

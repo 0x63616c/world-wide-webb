@@ -346,9 +346,12 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
   test("derives POSTGRES_HOST from product database manifests", () => {
     const specs = serviceSpecs(baseOpts);
     const controlCenterApi = specs.find((spec) => spec.logicalName === "control-center-api");
+    const captivePortalApi = specs.find((spec) => spec.logicalName === "captive-portal-api");
     const textYourExApi = specs.find((spec) => spec.logicalName === "text-your-ex-api");
 
     expect(controlCenterApi?.env?.POSTGRES_HOST).toBe("control-center-rw");
+    expect(captivePortalApi?.env?.POSTGRES_HOST).toBe("postgres-rw");
+    expect(captivePortalApi?.env?.POSTGRES_DB).toBe("captive_portal");
     expect(textYourExApi?.env?.POSTGRES_HOST).toBe("postgres-rw");
     expect(textYourExApi?.env?.POSTGRES_DB).toBe("text_your_ex");
   });

@@ -228,12 +228,10 @@ describe("captive-portal-pg-backup", () => {
     const cmd = (c?.command ?? []).join(" ");
 
     expect(c?.schedule).toBe("15 1 * * *");
-    expect(cmd).toContain("pg_dump -h captive-portal-rw");
+    expect(cmd).toContain("pg_dump -h postgres-rw");
     expect(cmd).toContain("-d captive_portal");
     expect(cmd).toContain("captive_portal-");
-    expect(c?.extraSecretMounts?.some((m) => m.secretName === "captive-portal-postgres-auth")).toBe(
-      true,
-    );
+    expect(c?.extraSecretMounts?.some((m) => m.secretName === "postgres-auth")).toBe(true);
     expect(c?.volumes?.[0]).toMatchObject({
       mountPath: "/backup",
       nfs: { server: NAS, path: "/volume1/Homelab" },

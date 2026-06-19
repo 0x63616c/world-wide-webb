@@ -115,6 +115,17 @@ for (const lane of ["web", "api", "amp"] as const) {
 }
 
 // 6. Infra-only changes deploy via pulumi with no image rebuild.
+const captivePortalOnly = ["products/captive-portal/apps/api/src/server.ts"] as const;
+assert(
+  blockMatchesAny(filters.captiveportal, captivePortalOnly),
+  "Captive Portal-only change must set captiveportal",
+);
+assert(
+  blockMatchesAny(filters.any_app, captivePortalOnly),
+  "Captive Portal-only change must set any_app so deploy runs after image builds",
+);
+
+// 7. Infra-only changes deploy via pulumi with no image rebuild.
 const infraOnly = ["infra/src/crons.ts"] as const;
 assert(!blockMatchesAny(filters.any_app, infraOnly), "infra-only change must not set any_app");
 assert(blockMatchesAny(filterBlock("infra"), infraOnly), "infra-only change must set infra");

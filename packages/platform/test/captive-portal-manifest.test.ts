@@ -24,24 +24,32 @@ describe("Captive Portal platform representation", () => {
     const manifest = captivePortalProductManifest();
 
     expect(manifest.database).toMatchObject({
-      authSecretName: "captive-portal-postgres-auth",
-      clusterName: "captive-portal",
+      authSecretName: "postgres-auth",
+      clusterName: "postgres",
       databaseName: "captive_portal",
       owner: "postgres",
-      readServiceName: "captive-portal-r",
-      roServiceName: "captive-portal-ro",
-      rwServiceName: "captive-portal-rw",
+      readServiceName: "postgres-r",
+      roServiceName: "postgres-ro",
+      rwServiceName: "postgres-rw",
       size: "2Gi",
       storageClass: "local-path",
     });
-    expect(manifest.backup).toMatchObject({
+    expect(manifest.retainedLegacyDatabases).toHaveLength(1);
+    expect(manifest.retainedLegacyDatabases[0]).toMatchObject({
       authSecretName: "captive-portal-postgres-auth",
+      clusterName: "captive-portal",
+      readServiceName: "captive-portal-r",
+      roServiceName: "captive-portal-ro",
+      rwServiceName: "captive-portal-rw",
+    });
+    expect(manifest.backup).toMatchObject({
+      authSecretName: "postgres-auth",
       databaseName: "captive_portal",
       filenamePrefix: "captive_portal-",
       name: "captive-portal-pg-backup",
       nasSubPath: "backups/world-wide-webb/captive-portal/postgres",
       required: true,
-      serviceHost: "captive-portal-rw",
+      serviceHost: "postgres-rw",
     });
   });
 

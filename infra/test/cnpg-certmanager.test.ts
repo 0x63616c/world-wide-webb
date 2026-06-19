@@ -84,7 +84,7 @@ describe("installCnpg", () => {
     expect(stringData.username).toBe("postgres");
   });
 
-  test("installs product databases and retains Text Your Ex legacy DB during local-name migration", async () => {
+  test("installs product databases and retains legacy DBs during local-name migrations", async () => {
     const res = cnpg.installCnpg({
       provider: provider(),
       namespaces: testNamespaces,
@@ -92,8 +92,8 @@ describe("installCnpg", () => {
       vault: mockVault,
     });
 
-    expect(res.clusters).toHaveLength(4);
-    expect(res.authSecrets).toHaveLength(4);
+    expect(res.clusters).toHaveLength(5);
+    expect(res.authSecrets).toHaveLength(5);
 
     const clusterSpecs = await Promise.all(
       res.clusters.map((cluster) =>
@@ -108,18 +108,30 @@ describe("installCnpg", () => {
     );
     expect(clusterSpecs.map((spec) => spec.bootstrap.initdb.database).sort()).toEqual([
       "captive_portal",
+      "captive_portal",
       "control_center",
       "text_your_ex",
       "text_your_ex",
     ]);
     expect(
-      clusterSpecs.find((spec) => spec.bootstrap.initdb.database === "captive_portal"),
+      clusterSpecs.find(
+        (spec) =>
+          spec.bootstrap.initdb.database === "captive_portal" &&
+          spec.superuserSecret.name === "postgres-auth",
+      ),
     ).toMatchObject({
       instances: 1,
       storage: { size: "2Gi" },
       resources: { limits: { memory: "768Mi" }, requests: { cpu: "500m", memory: "384Mi" } },
-      superuserSecret: { name: "captive-portal-postgres-auth" },
+      superuserSecret: { name: "postgres-auth" },
     });
+    expect(
+      clusterSpecs.find(
+        (spec) =>
+          spec.bootstrap.initdb.database === "captive_portal" &&
+          spec.superuserSecret.name === "captive-portal-postgres-auth",
+      ),
+    ).toBeDefined();
   });
 
   test("creates product database resources in their owning namespaces", async () => {
@@ -140,12 +152,22 @@ describe("installCnpg", () => {
     expect(clusterMetadata.find((m) => m.name === "control-center")?.namespace).toBe(
       "control-center",
     );
+    expect(
+      clusterMetadata.find((m) => m.name === "postgres" && m.namespace === "captive-portal"),
+    ).toBeDefined();
     expect(clusterMetadata.find((m) => m.name === "captive-portal")?.namespace).toBe(
       "captive-portal",
     );
-    expect(clusterMetadata.find((m) => m.name === "postgres")?.namespace).toBe("text-your-ex");
+    expect(
+      clusterMetadata.find((m) => m.name === "postgres" && m.namespace === "text-your-ex"),
+    ).toBeDefined();
     expect(clusterMetadata.find((m) => m.name === "text-your-ex")?.namespace).toBe("text-your-ex");
-    expect(secretMetadata.find((m) => m.name === "postgres-auth")?.namespace).toBe("text-your-ex");
+    expect(
+      secretMetadata.find((m) => m.name === "postgres-auth" && m.namespace === "captive-portal"),
+    ).toBeDefined();
+    expect(
+      secretMetadata.find((m) => m.name === "postgres-auth" && m.namespace === "text-your-ex"),
+    ).toBeDefined();
     expect(secretMetadata.find((m) => m.name === "captive-portal-postgres-auth")?.namespace).toBe(
       "captive-portal",
     );
@@ -200,6 +222,16 @@ describe("installCertManager", () => {
     const conf = readFileSync("products/captive-portal/apps/frontend/nginx.conf", "utf8");
 
     expect(conf).toContain("server_name captive-portal.worldwidewebb.co app--cp.worldwidewebb.co;");
+  });
+
+  test("the portal nginx proxy targets the product API service", () => {
+    const conf = readFileSync(
+      "products/captive-portal/apps/frontend/_portal_locations.conf",
+      "utf8",
+    );
+
+    expect(conf).toContain("proxy_pass http://api.captive-portal.svc.cluster.local:4211;");
+    expect(conf).not.toContain("api.control-center.svc.cluster.local");
   });
 
   test("the placeholder certificate subject prefers app.cp and keeps legacy SAN", () => {

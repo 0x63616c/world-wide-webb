@@ -35,10 +35,10 @@ CNPG, and the Cloudflare tunnel via in-cluster `cloudflared` (2 replicas in the
 
 1. **Push to `main`.** GitHub Actions (`.github/workflows/ci.yml`) path-filters which
    images changed and builds only those (`web`, `api`, `worker`, `media-worker`,
-   `storybook`, `drizzle`, `captive-portal`, `map-provision`, `amp`, `text-your-ex`),
+   `storybook`, `drizzle`, `captive-portal`, `captive-portal-api`, `map-provision`, `amp`, `text-your-ex`),
    pushing to full product-slug GHCR repositories such as
    `ghcr.io/0x63616c/www-control-center-api:main`,
-   `www-captive-portal-portal:main`, `www-text-your-ex-api:main`, and
+   `www-captive-portal-portal:main`, `www-captive-portal-api:main`, `www-text-your-ex-api:main`, and
    `www-amp-app:main`.
 2. **The `deploy` job joins the tailnet** on an ephemeral `tag:ci` auth key (so the
    runner can reach homelab's kube-apiserver), reads each image's `:main` digest, and

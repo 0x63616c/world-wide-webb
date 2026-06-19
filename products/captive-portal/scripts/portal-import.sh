@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Portal data import script (www-jtp0.5.6).
 #
-# Imports the four portal tables into Captive Portal Postgres from a
+# Imports the current portal tables into Captive Portal Postgres from a
 # pg_dump custom-format file produced by portal-export.sh.
 #
 # REQUIRES CALUM - production import (www-jtp0.5.7):
@@ -20,7 +20,7 @@
 
 set -euo pipefail
 
-TABLES=(portal_guest portal_code portal_attempt portal_authorization)
+TABLES=(portal_authorization portal_rate_limit)
 
 : "${POSTGRES_HOST:?POSTGRES_HOST must be set}"
 : "${POSTGRES_DB:?POSTGRES_DB must be set}"
@@ -76,5 +76,4 @@ echo ""
 echo "Validation: compare row counts above against portal-export.sh output."
 echo "Then run portal-validate.sh for semantic checks."
 echo ""
-echo "ROLLBACK NOTE: Control Center database is the source of truth until the"
-echo "final cutover is approved and validated (www-jtp0.5.7 REQUIRES CALUM)."
+echo "ROLLBACK NOTE: keep the source database untouched until soak completes."

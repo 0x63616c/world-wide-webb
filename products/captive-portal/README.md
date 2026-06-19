@@ -6,24 +6,24 @@ The frontend app lives in `products/captive-portal/apps/frontend`.
 
 The product-owned API boundary lives in `products/captive-portal/apps/api`. It exposes only the portal tRPC surface (`portal.sendCode`, `portal.verifyCode`, `portal.checkPassword`, `portal.authorize`, `portal.status`, and `portal.resetAttempts`) and declares its Resend, UniFi, logger, and secret inputs explicitly.
 
-## M5 coupling status (2026-06-14)
+## M5 coupling status (2026-06-18)
 
-**The CC API coupling is INTENTIONAL and TEMPORARY.** The product API still imports
-`portalRouter` and `createContext` from `@control-center/api` as a rollback path.
+**The CC API code coupling is INTENTIONAL and TEMPORARY.** The product API still imports
+`portalRouter` and `createContext` from `@control-center/api` as a rollback path, but production
+runtime traffic now goes through the Captive Portal API Deployment and product Postgres.
 This is documented in `apps/api/src/cc-coupling-boundary.test.ts` and
 `apps/api/src/dependencies.ts` (`sharedRuntimeImports`).
 
-The coupling will be removed when:
-1. www-jtp0.5.7 (REQUIRES CALUM): runtime cut to product DB + product-owned router
-2. www-jtp0.5.8 (REQUIRES CALUM): LAN TLS and hostname cut to `app--cp.worldwidewebb.co`
-3. www-jtp0.5.10 (REQUIRES CALUM): production guest onboarding cutover validated
+The remaining code coupling will be removed when:
+1. Product-owned portal router/context replace the borrowed `@control-center/api` modules
+2. LAN TLS and hostname cut to `app--cp.worldwidewebb.co` is validated
+3. Production guest onboarding cutover is fully soaked
 
 **LEGACY hostname:** `captive-portal.worldwidewebb.co` (still live in production).
 **TARGET hostname:** `app--cp.worldwidewebb.co` (M5; DNS declared in `infra/unifi`,
 gated behind `ccunifi:applyAppCp=true`; REQUIRES CALUM to apply).
 
-**ROLLBACK NOTE:** Do not drop old portal tables or the legacy DNS record until at
-least one successful backup/restore cycle after cutover is validated.
+**ROLLBACK NOTE:** Do not drop old portal tables, the retained `captive-portal` CNPG cluster, or the legacy DNS record until at least one successful backup/restore cycle after cutover is validated.
 
 Migration tooling is in `products/captive-portal/scripts/` (`portal-export.sh`,
 `portal-import.sh`, `portal-validate.sh`) and tested in

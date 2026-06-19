@@ -4,9 +4,9 @@
 // tRPC router and createContext from the Control Center API package. This is an
 // INTENTIONAL TEMPORARY state:
 //
-//   - The Control Center database (CC Postgres) is the source of truth for all
-//     portal tables until the final cutover is approved and validated
-//     (www-jtp0.5.7, REQUIRES CALUM).
+//   - Runtime traffic uses the Captive Portal product database, but the router
+//     and context code are still borrowed from @control-center/api until the
+//     product-owned backend extraction is complete.
 //
 //   - captive-portal.worldwidewebb.co is the LEGACY hostname still in production.
 //     The TARGET is app--cp.worldwidewebb.co (M5; hostname cutover is
@@ -18,9 +18,9 @@
 //     the coupling is explicitly acknowledged, NOT that it is gone.
 //
 // To REMOVE the coupling, these steps are required (in order):
-//   1. www-jtp0.5.7 (REQUIRES CALUM): cut runtime to product DB + product router.
-//   2. www-jtp0.5.8 (REQUIRES CALUM): cut LAN TLS and hostname to app.cp.
-//   3. www-jtp0.5.10 (REQUIRES CALUM): production guest onboarding cutover.
+//   1. Move portal router/context ownership out of @control-center/api.
+//   2. Validate LAN TLS and hostname cut to app.cp.
+//   3. Validate production guest onboarding after soak.
 //   4. Remove @control-center/api/portal-router and @control-center/api/trpc-context
 //      from sharedRuntimeImports and update the assertions in this file.
 //
@@ -32,8 +32,8 @@ import { captivePortalApiDependencies } from "./dependencies";
 
 describe("CC coupling boundary contract (www-jtp0.5.11)", () => {
   it("declares the CC API imports that the product still borrows (M5 rollback path)", () => {
-    // These imports are the TEMPORARY coupling between captive-portal product and
-    // the Control Center API. They exist so production can roll back to CC routing.
+    // These imports are the TEMPORARY code coupling between captive-portal product
+    // and the Control Center API package. Runtime DB ownership is product-local.
     // When M5 cutover is complete and validated, this list becomes empty.
     expect(captivePortalApiDependencies.sharedRuntimeImports).toEqual([
       "@control-center/api/portal-router",

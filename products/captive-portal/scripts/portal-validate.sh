@@ -105,8 +105,7 @@ echo ""
 if [[ "${FAILURES}" -eq 0 ]]; then
   echo "RESULT: validation PASSED - ready for human review checkpoint"
   echo ""
-  echo "ROLLBACK NOTE: Control Center database is the source of truth until"
-  echo "the final cutover is approved and validated (www-jtp0.5.7 REQUIRES CALUM)."
+  echo "ROLLBACK NOTE: keep the source database untouched until soak completes."
   exit 0
 else
   echo "RESULT: validation FAILED (${FAILURES} check(s) failed)"
