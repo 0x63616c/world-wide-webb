@@ -415,7 +415,7 @@ export async function inspectTmuxSession(
 ): Promise<InspectTmuxSessionResult> {
   const command: ActivityCommand = {
     command: "tmux",
-    args: ["has-session", "-t", input.sessionName],
+    args: ["has-session", "-t", `=${input.sessionName}`],
   };
   const result = await run(command);
   const record = commandRecord("inspect-tmux-session", command, result);

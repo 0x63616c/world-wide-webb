@@ -148,7 +148,7 @@ describe("ticket command activities", () => {
     expect(dead.alive).toBe(false);
     expect(alive.record.command).toEqual({
       command: "tmux",
-      args: ["has-session", "-t", "ticket_www-3agy.8_review_1"],
+      args: ["has-session", "-t", "=ticket_www-3agy.8_review_1"],
     });
   });
 
