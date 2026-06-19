@@ -19,6 +19,22 @@ Then open `http://127.0.0.1:8791/`.
 
 Env: `BEADS_UI_PORT` (default 8791), `BEADS_UI_SYNC_MS` (default 30000).
 
+## Manual ticket artifact cleanup
+
+After a workflow ticket has merged and closed, inspect its generated worktree, tmux sessions, and
+prompt/log evidence with a dry run:
+
+```bash
+bun products/project-management/scripts/cleanup-ticket-artifacts.ts www-3agy.20 --repo-root "$PWD"
+```
+
+The command only targets registered git worktrees under `.worktrees/tickets/<ticket-id>-*` and
+exact workflow tmux sessions named `ticket_<ticket-id>_<build|review|mergefix>_<attempt>`. By
+default it removes no tmux sessions and preserves prompt/log/exit-code evidence in the
+project-management cache log directory. Apply cleanup with `--execute`, add `--kill-tmux` to kill
+only those exact ticket sessions, and add `--remove-evidence` only when human-review evidence is no
+longer needed.
+
 ## Temporal workflow scaffold
 
 The workflow runtime scaffold lives under `temporal/`:
