@@ -181,6 +181,8 @@ export async function startTicketReviewer(
         "opencode",
         "run",
         "--dangerously-skip-permissions",
+        "--format",
+        "json",
         "--agent",
         TICKET_REVIEWER_AGENT,
         "--model",
@@ -370,22 +372,18 @@ ${gateBlock || "- No final gates configured"}
 }
 
 export function parseTicketReviewerVerdict(output: string): TicketReviewerVerdict {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(extractJsonObject(output));
-  } catch (error) {
-    throw ApplicationFailure.nonRetryable(
-      error instanceof Error ? error.message : "reviewer output could not be parsed",
-      "InvalidReviewerOutput",
-    );
+  for (const candidate of reviewerVerdictCandidates(output)) {
+    try {
+      const parsed: unknown = JSON.parse(candidate);
+      if (isTicketReviewerVerdict(parsed)) return parsed;
+    } catch {
+      // Keep scanning, opencode --format json emits an event stream, not a single payload.
+    }
   }
-  if (!isTicketReviewerVerdict(parsed)) {
-    throw ApplicationFailure.nonRetryable(
-      "reviewer output did not match the required verdict schema",
-      "InvalidReviewerOutput",
-    );
-  }
-  return parsed;
+  throw ApplicationFailure.nonRetryable(
+    "reviewer output did not contain a verdict JSON object",
+    "InvalidReviewerOutput",
+  );
 }
 
 export function formatTicketReviewerFindings(verdict: TicketReviewerVerdict): string {
@@ -430,6 +428,54 @@ function extractJsonObject(output: string): string {
     throw new Error("reviewer output did not contain a JSON object");
   }
   return trimmed.slice(start, end + 1);
+}
+
+function reviewerVerdictCandidates(output: string): string[] {
+  const candidates: string[] = [];
+  collectTextCandidates(output, candidates);
+
+  for (const line of output.split(/\r?\n/).reverse()) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    candidates.push(trimmed);
+    try {
+      collectJsonStrings(JSON.parse(trimmed), candidates);
+    } catch {
+      // Formatted output lines often are not JSON events.
+    }
+  }
+
+  return candidates;
+}
+
+function collectJsonStrings(value: unknown, candidates: string[]): void {
+  if (typeof value === "string") {
+    collectTextCandidates(value, candidates);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectJsonStrings(item, candidates);
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  candidates.push(JSON.stringify(value));
+  for (const nested of Object.values(value)) collectJsonStrings(nested, candidates);
+}
+
+function collectTextCandidates(text: string, candidates: string[]): void {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  candidates.push(trimmed);
+  for (const line of trimmed.split(/\r?\n/).reverse()) {
+    const candidate = line.trim();
+    if (!candidate) continue;
+    candidates.push(candidate);
+    try {
+      candidates.push(extractJsonObject(candidate));
+    } catch {
+      // A text line may be normal transcript output.
+    }
+  }
 }
 
 function isTicketReviewerVerdict(value: unknown): value is TicketReviewerVerdict {

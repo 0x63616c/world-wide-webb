@@ -200,7 +200,7 @@ describe("ticket reviewer activity", () => {
         "ticket_www-3agy.10_review_1",
         "-c",
         "/repo/.worktrees/tickets/www-3agy.10-reviewer",
-        "('opencode' 'run' '--dangerously-skip-permissions' '--agent' 'ticket-reviewer' '--model' 'openai/gpt-5.5-fast' 'Follow the attached ticket-reviewer prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.10_review_1.prompt.md' > '/cache/logs/ticket_www-3agy.10_review_1.stdout.log' 2> '/cache/logs/ticket_www-3agy.10_review_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy.10_review_1.exitcode'",
+        "('opencode' 'run' '--dangerously-skip-permissions' '--format' 'json' '--agent' 'ticket-reviewer' '--model' 'openai/gpt-5.5-fast' 'Follow the attached ticket-reviewer prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.10_review_1.prompt.md' > '/cache/logs/ticket_www-3agy.10_review_1.stdout.log' 2> '/cache/logs/ticket_www-3agy.10_review_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy.10_review_1.exitcode'",
       ],
     });
   });
@@ -250,6 +250,28 @@ describe("ticket reviewer activity", () => {
         }),
       ).verdict,
     ).toBe("human");
+
+    expect(
+      parseTicketReviewerVerdict(
+        [
+          JSON.stringify({ type: "step_start", part: { type: "step-start" } }),
+          JSON.stringify({
+            type: "tool_use",
+            part: {
+              type: "tool",
+              state: {
+                output: JSON.stringify({
+                  verdict: "pass",
+                  summary: "Verified from command output.",
+                  findings: [],
+                  acceptanceEvidence: ["printed by reviewer command"],
+                }),
+              },
+            },
+          }),
+        ].join("\n"),
+      ).verdict,
+    ).toBe("pass");
   });
 
   it("rejects malformed reviewer verdicts at the parser boundary", () => {
@@ -257,7 +279,7 @@ describe("ticket reviewer activity", () => {
       parseTicketReviewerVerdict(
         JSON.stringify({ verdict: "maybe", summary: "bad", findings: [], acceptanceEvidence: [] }),
       ),
-    ).toThrow("reviewer output did not match the required verdict schema");
+    ).toThrow("reviewer output did not contain a verdict JSON object");
   });
 
   it("formats structured reviewer findings for the Beads comment boundary", () => {
