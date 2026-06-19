@@ -59,6 +59,7 @@ local_resource(
 local_resource(
     'temporal',
     serve_cmd='bun run temporal:server',
+    deps=PROJECT_CONFIG_DEPS,
     resource_deps=['install'],
     readiness_probe=probe(
         period_secs=2,
