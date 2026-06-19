@@ -264,7 +264,7 @@ export async function inspectTmuxSessionActivity(
   return inspectTmuxSession(input, runCommand);
 }
 
-export async function waitForTmuxSessionActivity(
+export async function waitForAgentRunCompletionActivity(
   input: WaitForTmuxSessionInput,
 ): Promise<WaitForTmuxSessionResult> {
   return waitForTmuxSession(input, runCommand);

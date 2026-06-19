@@ -140,7 +140,7 @@ function fakeRunnerActivities(
           promptPath: "/logs/review.prompt.md",
         };
       },
-      waitForTmuxSessionActivity: async (input) => {
+      waitForAgentRunCompletionActivity: async (input) => {
         calls.push(`wait:${input.sessionName}`);
         return {
           sessionName: input.sessionName,

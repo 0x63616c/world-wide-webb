@@ -145,7 +145,7 @@ export type TicketWorkflowRunnerActivities = Pick<
   typeof commandActivities,
   | "claimTicketActivity"
   | "createTicketWorktreeActivity"
-  | "waitForTmuxSessionActivity"
+  | "waitForAgentRunCompletionActivity"
   | "resolveGitHeadActivity"
   | "resolveOpenCodeSessionActivity"
   | "writeTicketWorkflowMetadataActivity"
@@ -310,7 +310,7 @@ export async function runTicketWorkflowRunner(
       continue;
     }
 
-    const builderWait = await runnerActivities.waitForTmuxSessionActivity({
+    const builderWait = await runnerActivities.waitForAgentRunCompletionActivity({
       sessionName: builder.sessionName,
       stdoutLogPath: builder.stdoutLogPath,
       stderrLogPath: builder.stderrLogPath,
@@ -385,7 +385,7 @@ export async function runTicketWorkflowRunner(
       });
       if (reviewer.records.some((record) => record.exitCode !== 0)) continue;
 
-      const reviewerWait = await runnerActivities.waitForTmuxSessionActivity({
+      const reviewerWait = await runnerActivities.waitForAgentRunCompletionActivity({
         sessionName: reviewer.sessionName,
         stdoutLogPath: reviewer.stdoutLogPath,
         stderrLogPath: reviewer.stderrLogPath,
