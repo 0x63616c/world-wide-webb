@@ -10,6 +10,7 @@
  */
 import { join } from "node:path";
 import { mapIssues, type RawIssue } from "./map";
+import { workflowDashboardForIssues } from "./workflow";
 
 export type Snapshot = {
   issues: RawIssue[];
@@ -75,8 +76,29 @@ export async function fetchIssues(snapshot: Snapshot, repoRoot: string): Promise
     ["bd", "list", "--all", "--json", "-n", "0", "--no-pager"],
     repoRoot,
   );
-  snapshot.issues = JSON.parse(out) as RawIssue[];
+  const listedIssues = parseRawIssues(out);
+  snapshot.issues = await fetchIssueDetails(listedIssues, repoRoot);
   snapshot.lastFetchAt = new Date().toISOString();
+}
+
+async function fetchIssueDetails(listedIssues: RawIssue[], repoRoot: string): Promise<RawIssue[]> {
+  if (listedIssues.length === 0) return [];
+  try {
+    const out = await runBdCommand(
+      ["bd", "show", ...listedIssues.map((issue) => issue.id), "--json"],
+      repoRoot,
+      90_000,
+    );
+    const detailedIssues = parseRawIssues(out);
+    return detailedIssues.length > 0 ? detailedIssues : listedIssues;
+  } catch {
+    return listedIssues;
+  }
+}
+
+function parseRawIssues(stdout: string): RawIssue[] {
+  const parsed: unknown = JSON.parse(stdout);
+  return Array.isArray(parsed) ? (parsed as RawIssue[]) : [];
 }
 
 export async function syncFromRemote(snapshot: Snapshot, repoRoot: string): Promise<void> {
@@ -140,8 +162,10 @@ export function createRequestHandler(
     const p = url.pathname;
 
     if (p === "/api/board-data") {
+      const issues = mapIssues(options.snapshot.issues);
       return json({
-        issues: mapIssues(options.snapshot.issues),
+        issues,
+        workflow: workflowDashboardForIssues(issues),
         meta: {
           lastSyncAt: options.snapshot.lastSyncAt,
           lastFetchAt: options.snapshot.lastFetchAt,

@@ -15,6 +15,8 @@ export interface RawIssue {
   updated_at?: string;
   closed_at?: string;
   labels?: string[];
+  metadata?: Record<string, unknown>;
+  comments?: { body?: string; text?: string; content?: string }[];
   dependencies?: { issue_id: string; depends_on_id: string; type: string }[];
 }
 
@@ -26,6 +28,8 @@ export interface DesignIssue {
   p: number;
   assignee: string;
   labels: string[];
+  metadata?: Record<string, unknown>;
+  comments?: { body?: string; text?: string; content?: string }[];
   blockedBy: string[];
   blocks: string[];
   desc: string;
@@ -139,6 +143,8 @@ export function mapIssues(raw: RawIssue[]): DesignIssue[] {
       p: Math.min(Math.max(issue.priority ?? 2, 0), 4),
       assignee: mapAssignee(issue.owner, issue.created_by),
       labels: issue.labels ?? [],
+      metadata: issue.metadata,
+      comments: issue.comments,
       blockedBy: blockedByMap.get(issue.id) ?? [],
       blocks: blocksMap.get(issue.id) ?? [],
       desc: issue.description ?? "",

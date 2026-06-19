@@ -27,6 +27,16 @@ describe("createRequestHandler", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       issues: [expect.objectContaining({ id: "www-a", status: "ready" })],
+      workflow: {
+        activeRuns: [],
+        columns: [
+          { id: "ready", label: "ticket-ready", title: "Builder", tickets: [] },
+          { id: "review", label: "ticket-review", title: "Review", tickets: [] },
+          { id: "verified", label: "ticket-verified", title: "Verified", tickets: [] },
+          { id: "retry", label: "ticket-retry", title: "Retry", tickets: [] },
+          { id: "human", label: "ticket-human", title: "Human", tickets: [] },
+        ],
+      },
       meta: {
         lastSyncAt: null,
         lastFetchAt: "2026-06-01T12:00:00.000Z",

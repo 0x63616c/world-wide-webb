@@ -249,8 +249,15 @@
             <option value="chore">Chore</option>
             <option value="epic">Epic</option>
           </select>
+          <sc-if value="{{ hasWorkflow }}">
+            <div style="display:flex; gap:6px; margin-left:auto; background:var(--tile); border:1px solid var(--hair); border-radius:11px; padding:4px;">
+              <sc-for list="{{ workflowFilters }}" as="wf" hint-placeholder-count="6">
+                <button onClick="{{ wf.onClick }}" style="{{ wf.style }}">{{ wf.label }}<span style="margin-left:6px; font-family:var(--mono); font-size:10.5px; opacity:.72;">{{ wf.count }}</span></button>
+              </sc-for>
+            </div>
+          </sc-if>
         </div>
-        <div style="flex:1 1 auto; min-height:0; display:grid; grid-template-columns:repeat(4, minmax(280px, 1fr)); gap:16px;">
+        <div style="{{ boardGridStyle }}">
           <sc-for list="{{ boardColumns }}" as="col" hint-placeholder-count="4">
             <div onDragOver="{{ col.onDragOver }}" onDrop="{{ col.onDrop }}" onDragLeave="{{ col.onDragLeave }}" style="{{ col.style }}">
               <div style="flex:0 0 auto; display:flex; align-items:center; gap:9px; padding:13px 16px; border-bottom:1px solid var(--hair);">
@@ -270,6 +277,22 @@
                       <span style="{{ card.typeStyle }}">{{ card.typeLabel }}</span>
                       <span class="pips" data-n="{{ card.chevN }}" style="margin-left:auto; display:inline-flex; gap:3px;"></span>
                     </div>
+                    <sc-if value="{{ card.hasWorkflow }}">
+                      <div style="margin-top:12px; padding-top:11px; border-top:1px solid var(--hair); display:flex; flex-direction:column; gap:8px;">
+                        <div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">
+                          <span class="mono" style="font-size:10.5px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em;">{{ card.phaseLabel }}</span>
+                          <sc-if value="{{ card.hasActiveRun }}"><span style="{{ card.runStyle }}">{{ card.activeRunLabel }}</span></sc-if>
+                          <sc-if value="{{ card.hasAttempts }}"><span class="mono" style="font-size:10.5px; color:var(--ink-3);">attempt {{ card.attempts }}</span></sc-if>
+                        </div>
+                        <sc-if value="{{ card.hasTmux }}"><code style="font-size:11px; color:var(--ink-2); background:var(--nest); border:1px solid var(--hair); border-radius:7px; padding:5px 7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ card.tmuxAttachCommand }}</code></sc-if>
+                        <sc-if value="{{ card.hasOpenCode }}"><span class="mono" style="font-size:11px; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">OpenCode {{ card.openCodeLabel }}</span></sc-if>
+                        <sc-if value="{{ card.hasLinks }}">
+                          <div style="display:flex; gap:7px; flex-wrap:wrap;">
+                            <sc-for list="{{ card.links }}" as="lnk" hint-placeholder-count="2"><a class="bd-link mono" href="{{ lnk.href }}" target="_blank" rel="noreferrer" onClick="{{ lnk.onClick }}" style="font-size:11px; color:var(--acc-line); text-decoration:none;">{{ lnk.label }}</a></sc-for>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-if>
                   </div>
                 </sc-for>
               </div>
@@ -603,6 +626,8 @@ class Component extends DCLogic {
     dragId: null,
     dragOverCol: null,
     issues: [],
+    workflowDashboard: null,
+    workflowQueueFilter: 'all',
     loaded: false,
     lastSync: null,
     now: Date.now()
@@ -639,7 +664,7 @@ class Component extends DCLogic {
   loadData() {
     fetch('/api/board-data')
       .then((r) => r.json())
-      .then((data) => this.setState({ issues: (data && data.issues) || [], loaded: true, lastSync: (data && data.meta && data.meta.lastSyncAt) || null }))
+      .then((data) => this.setState({ issues: (data && data.issues) || [], workflowDashboard: (data && data.workflow) || null, loaded: true, lastSync: (data && data.meta && data.meta.lastSyncAt) || null }))
       .catch((err) => console.error('[beads-ui] load failed:', err));
   }
   // Human-readable "time since": just now / 12s / 4m / 2h / 3d / 2mo ago.
@@ -910,6 +935,17 @@ class Component extends DCLogic {
     const colKey = (it) => (it.status in STATUS_META ? it.status : 'ready');
     const epFilter = st.epicFilter;
     const btFilter = st.typeFilter;
+    const workflow = st.workflowDashboard;
+    const hasWorkflow = !!(workflow && workflow.columns && workflow.columns.length);
+    const workflowIssue = (id) => {
+      if (!hasWorkflow) return null;
+      for (const col of workflow.columns) {
+        const found = (col.tickets || []).find((ticket) => ticket.id === id);
+        if (found) return found;
+      }
+      return null;
+    };
+    const workflowAccent = { ready: '#0070f3', review: '#3fb950', verified: '#a371f7', retry: '#f4c063', human: '#f85149' };
     const epicChildSet = (() => {
       if (epFilter === 'all') return null;
       const set = new Set();
@@ -925,16 +961,31 @@ class Component extends DCLogic {
       collect(epFilter);
       return set;
     })();
-    const boardColumns = BOARD_COLS.map((col) => {
-      const cards = issues.filter((i) => i.type !== 'epic' && colKey(i) === col.key && (epicChildSet === null || epicChildSet.has(i.id)) && (btFilter === 'all' || i.type === btFilter)).map((it) => {
+    const boardSourceColumns = hasWorkflow ? workflow.columns.map((col) => ({ key: col.id, label: col.title, ticketIds: (col.tickets || []).map((ticket) => ticket.id) })) : BOARD_COLS;
+    const boardColumns = boardSourceColumns.filter((col) => st.workflowQueueFilter === 'all' || st.workflowQueueFilter === col.key).map((col) => {
+      const sourceIssues = hasWorkflow ? (col.ticketIds || []).map((id) => this.byId(id)).filter(Boolean) : issues.filter((i) => colKey(i) === col.key);
+      const cards = sourceIssues.filter((i) => i.type !== 'epic' && (epicChildSet === null || epicChildSet.has(i.id)) && (btFilter === 'all' || i.type === btFilter)).map((it) => {
         const tm = TYPE_META[it.type] || TYPE_META.task;
         const pb = this.prioBadge(it.p);
+        const wf = workflowIssue(it.id);
+        const link = (kind, href) => ({ label: kind, href, onClick: (e) => e.stopPropagation() });
+        const links = wf ? [ ...(wf.logLinks || []).map((href) => link('log', href)), ...(wf.promptLinks || []).map((href) => link('prompt', href)) ] : [];
+        const runColor = wf ? (workflowAccent[wf.queue] || 'var(--acc)') : 'var(--acc)';
         return {
           id: it.id, idLabel: it.id.toUpperCase(), title: it.title,
           chevN: it.p <= 2 ? 3 - it.p : 0,
-          barColor: (STATUS_META[col.key] || STATUS_META.ready).c,
+          barColor: hasWorkflow ? (workflowAccent[col.key] || 'var(--acc)') : (STATUS_META[col.key] || STATUS_META.ready).c,
           typeLabel: tm.label, typeStyle: this.badge(tm),
           prioLabel: pb.label, prioStyle: pb.style,
+          hasWorkflow: !!wf,
+          phaseLabel: wf ? 'phase ' + wf.phase : '',
+          hasActiveRun: !!(wf && wf.activeRun),
+          activeRunLabel: wf && wf.activeRun ? wf.activeRun + ' running' : '',
+          runStyle: { display: 'inline-flex', alignItems: 'center', padding: '3px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 600, color: runColor, background: 'rgba(255,255,255,.04)', border: '1px solid ' + runColor },
+          hasAttempts: !!(wf && wf.attempts !== null), attempts: wf && wf.attempts !== null ? wf.attempts : '',
+          hasTmux: !!(wf && wf.tmuxAttachCommand), tmuxAttachCommand: wf ? wf.tmuxAttachCommand : '',
+          hasOpenCode: !!(wf && (wf.openCodeSessionId || wf.openCodeSessionTitle)), openCodeLabel: wf ? [wf.openCodeSessionTitle, wf.openCodeSessionId].filter(Boolean).join(' · ') : '',
+          hasLinks: links.length > 0, links,
           style: { padding: 15, paddingLeft: 18, gap: 0, position: 'relative', overflow: 'hidden', flexShrink: 0, opacity: st.dragId === it.id ? 0.4 : 1 },
           onClick: () => this.openDetail(it.id),
           onDragStart: (e) => { try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.id); } catch (err) {} this.setState({ dragId: it.id }); },
@@ -942,7 +993,7 @@ class Component extends DCLogic {
         };
       });
       const over = st.dragOverCol === col.key;
-      const sm = STATUS_META[col.key];
+      const sm = STATUS_META[col.key] || { c: workflowAccent[col.key] || 'var(--acc)', l: 'rgba(255,255,255,.28)' };
       return {
         label: col.label, count: cards.length, cards,
         dotStyle: { width: 8, height: 8, borderRadius: 999, background: sm.c, flex: '0 0 auto', boxShadow: '0 0 8px ' + sm.l },
@@ -951,6 +1002,11 @@ class Component extends DCLogic {
         onDragLeave: () => { if (st.dragOverCol === col.key) this.setState({ dragOverCol: null }); },
         onDrop: (e) => { e.preventDefault(); const id = st.dragId; if (id) this.updateIssue(id, { status: col.key }); this.setState({ dragId: null, dragOverCol: null }); }
       };
+    });
+    const workflowFilters = [{ id: 'all', title: 'All', count: hasWorkflow ? workflow.columns.reduce((sum, col) => sum + (col.tickets || []).length, 0) : 0 }].concat(hasWorkflow ? workflow.columns.map((col) => ({ id: col.id, title: col.title, count: (col.tickets || []).length })) : []).map((filter) => {
+      const active = st.workflowQueueFilter === filter.id;
+      const accent = filter.id === 'all' ? 'var(--acc)' : (workflowAccent[filter.id] || 'var(--acc)');
+      return { label: filter.title, count: filter.count, onClick: () => this.setState({ workflowQueueFilter: filter.id }), style: { display: 'inline-flex', alignItems: 'center', padding: '5px 11px', borderRadius: 8, border: 'none', background: active ? 'rgba(255,255,255,.055)' : 'transparent', color: active ? accent : 'var(--ink-2)', fontSize: 12.5, fontWeight: active ? 600 : 500, fontFamily: 'var(--ui)', cursor: 'pointer', letterSpacing: '-0.01em', boxShadow: active ? ('inset 0 0 0 1px ' + accent) : 'none', transition: 'all .14s ease' } };
     });
 
     // detail
@@ -1031,6 +1087,9 @@ class Component extends DCLogic {
 
       epicsView,
       boardColumns,
+      boardGridStyle: { flex: '1 1 auto', minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(' + Math.max(1, boardColumns.length) + ', minmax(220px, 1fr))', gap: 16 },
+      hasWorkflow,
+      workflowFilters,
       epicSort: st.epicSort, onEpicSort: (e) => this.setState({ epicSort: e.target.value }),
       boardTypeFilter: st.typeFilter, onBoardTypeFilter: (e) => this.setState({ typeFilter: e.target.value }),
       epicFilter: st.epicFilter, onEpicFilter: (e) => this.setState({ epicFilter: e.target.value }),
