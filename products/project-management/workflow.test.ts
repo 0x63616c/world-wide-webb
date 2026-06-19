@@ -40,6 +40,48 @@ describe("Beads detail template", () => {
       drawer.indexOf('<span class="cap">Activity</span>'),
     );
   });
+
+  it("renders workflow card metadata without tmux commands", async () => {
+    const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
+    const boardStart = html.indexOf("<!-- ---------- BOARD (hero) ---------- -->");
+    const boardEnd = html.indexOf("<!-- ===================== SETTINGS ===================== -->");
+    const board = html.slice(boardStart, boardEnd);
+
+    expect(board).toContain("{{ card.updatedRelative }}");
+    expect(board).toContain('title="{{ card.updatedTitle }}"');
+    expect(board).toContain("{{ card.hasAttempts }}");
+    expect(html).toContain("wf.attempts > 1");
+    expect(board).not.toContain("{{ card.tmuxAttachCommand }}");
+  });
+
+  it("renders detail copy targets as dark-ui copy surfaces", async () => {
+    const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
+    const drawerStart = html.indexOf(
+      "<!-- ===================== DETAIL DRAWER ===================== -->",
+    );
+    const drawerEnd = html.indexOf(
+      "<!-- ===================== NEW ISSUE MODAL ===================== -->",
+    );
+    const drawer = html.slice(drawerStart, drawerEnd);
+
+    expect(drawer).toContain("bd-copy-id");
+    expect(drawer).toContain("{{ selected.copyTicketId }}");
+    expect(drawer).toContain("{{ selected.idCopied }}");
+    expect(drawer).toContain("bd-terminal-copy");
+    expect(drawer).toContain("{{ selected.copyTmux }}");
+    expect(drawer).toContain("{{ selected.tmuxCopyLabel }}");
+    expect(drawer).not.toContain("Copy tmux</button>");
+  });
+
+  it("defines copied and failed copy states without throwing", async () => {
+    const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
+
+    expect(html).toContain("copiedTarget: null");
+    expect(html).toContain("workflowControlStatus: 'Copied'");
+    expect(html).toContain("workflowControlStatus: 'Copy failed'");
+    expect(html).toContain("try {");
+    expect(html).toContain("} catch (err) {");
+  });
 });
 
 describe("workflowDashboardForIssues", () => {
@@ -74,6 +116,7 @@ describe("workflowDashboardForIssues", () => {
       workflowIssue("www-verified", "ready", ["ticket-verified"], {
         assignee: "",
         title: "Verified ticket",
+        metadata: { ticket_phase: "review" },
       }),
       workflowIssue("www-retry", "ready", ["ticket-ready", "ticket-retry"], {
         assignee: "",
@@ -104,6 +147,9 @@ describe("workflowDashboardForIssues", () => {
       ["www-review", "reviewer"],
       ["www-retry", "builder"],
     ]);
+    expect(dashboard.columns[3].tickets[0]).toEqual(
+      expect.objectContaining({ id: "www-verified", phase: "review", activeRun: null }),
+    );
     expect(dashboard.columns[1].tickets[0]).toEqual(
       expect.objectContaining({
         phase: "build",
@@ -176,6 +222,42 @@ describe("workflowDashboardForIssues", () => {
         "www-shipped",
       ]),
     );
+  });
+
+  it("does not show builder or reviewer active runs outside active build and review queues", () => {
+    const dashboard = workflowDashboardForIssues([
+      workflowIssue("www-queued-build", "blocked", ["ticket-ready"], {
+        metadata: { ticket_phase: "build" },
+      }),
+      workflowIssue("www-human-review", "blocked", ["ticket-human"], {
+        metadata: { ticket_phase: "review" },
+      }),
+      workflowIssue("www-shipped-review", "closed", ["ticket-verified"], {
+        metadata: { ticket_phase: "shipped", ticket_last_result: "shipped" },
+      }),
+      workflowIssue("www-ready-build", "ready", ["ticket-ready"], {
+        metadata: { ticket_phase: "build" },
+      }),
+      workflowIssue("www-review-active", "ready", ["ticket-review"], {
+        metadata: { ticket_phase: "review" },
+      }),
+    ]);
+
+    expect(dashboard.activeRuns.map((ticket) => [ticket.id, ticket.activeRun])).toEqual([
+      ["www-ready-build", "builder"],
+      ["www-review-active", "reviewer"],
+    ]);
+    expect(
+      dashboard.columns.flatMap((column) =>
+        column.tickets
+          .filter((ticket) => ticket.id !== "www-ready-build" && ticket.id !== "www-review-active")
+          .map((ticket) => [ticket.id, ticket.activeRun]),
+      ),
+    ).toEqual([
+      ["www-queued-build", null],
+      ["www-human-review", null],
+      ["www-shipped-review", null],
+    ]);
   });
 });
 
