@@ -3,11 +3,16 @@ import {
   type ActivityCommand,
   type ActivityCommandRunner,
   classifyTmuxSessionName,
+  closeTicket,
   createTicketWorktree,
   inspectTmuxSession,
+  mergeTicketBranch,
+  pushMain,
+  runFinalGates,
   startTmuxCommand,
   ticketWorktreeNames,
   tmuxSessionName,
+  updateMain,
 } from "./command-activities";
 
 describe("ticket activity naming", () => {
@@ -138,6 +143,64 @@ describe("ticket command activities", () => {
       command: "tmux",
       args: ["has-session", "-t", "ticket_www-3agy.8_review_1"],
     });
+  });
+
+  it("updates main before deterministic merge and only pushes or closes through explicit commands", async () => {
+    const { run, commands } = fakeRunner();
+
+    await updateMain({ repoRoot: "/repo" }, run);
+    await mergeTicketBranch(
+      {
+        repoRoot: "/repo",
+        branch: "www-3agy.11-ticket-workflow",
+        commitSha: "abc123",
+        strategy: "cherry-pick",
+      },
+      run,
+    );
+    await runFinalGates(
+      {
+        repoRoot: "/repo",
+        gates: [{ label: "test", command: "bun", args: ["run", "test"] }],
+      },
+      run,
+    );
+    await pushMain({ repoRoot: "/repo" }, run);
+    await closeTicket({ repoRoot: "/repo", ticketId: "www-3agy.11" }, run);
+
+    expect(commands).toEqual([
+      { command: "git", args: ["fetch", "origin", "main"], cwd: "/repo" },
+      { command: "git", args: ["checkout", "main"], cwd: "/repo" },
+      { command: "git", args: ["pull", "--ff-only", "origin", "main"], cwd: "/repo" },
+      { command: "git", args: ["cherry-pick", "abc123"], cwd: "/repo" },
+      { command: "bun", args: ["run", "test"], cwd: "/repo" },
+      { command: "git", args: ["push", "origin", "main"], cwd: "/repo" },
+      {
+        command: "bd",
+        args: [
+          "close",
+          "www-3agy.11",
+          "--reason",
+          "Merged to main after serialized merge workflow",
+        ],
+        cwd: "/repo",
+      },
+    ]);
+  });
+
+  it("stops a failing deterministic merge command without running later commands in the Activity", async () => {
+    const result = await updateMain({ repoRoot: "/repo" }, async (command) => {
+      if (command.args.includes("checkout")) {
+        return { exitCode: 1, stdout: "", stderr: "checkout failed" };
+      }
+      return { exitCode: 0, stdout: "", stderr: "" };
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.records.map((record) => record.activity)).toEqual([
+      "fetch-main",
+      "checkout-main",
+    ]);
   });
 });
 

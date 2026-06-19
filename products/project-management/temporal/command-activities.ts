@@ -31,6 +31,43 @@ export type ActivityRecord = {
   readonly stderr: string;
 };
 
+export type FinalGateCommand = {
+  readonly label: string;
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly cwd?: string;
+};
+
+export type UpdateMainInput = {
+  readonly repoRoot: string;
+};
+
+export type MergeTicketBranchInput = {
+  readonly repoRoot: string;
+  readonly branch: string;
+  readonly commitSha?: string;
+  readonly strategy: "cherry-pick" | "merge";
+};
+
+export type RunFinalGatesInput = {
+  readonly repoRoot: string;
+  readonly gates: readonly FinalGateCommand[];
+};
+
+export type PushMainInput = {
+  readonly repoRoot: string;
+};
+
+export type CloseTicketInput = {
+  readonly ticketId: string;
+  readonly repoRoot: string;
+};
+
+export type MergeActivityResult = {
+  readonly ok: boolean;
+  readonly records: readonly ActivityRecord[];
+};
+
 export type TicketNamingInput = {
   readonly repoRoot: string;
   readonly ticketId: string;
@@ -138,6 +175,30 @@ export async function inspectTmuxSessionActivity(
   return inspectTmuxSession(input, runCommand);
 }
 
+export async function updateMainActivity(input: UpdateMainInput): Promise<MergeActivityResult> {
+  return updateMain(input, runCommand);
+}
+
+export async function mergeTicketBranchActivity(
+  input: MergeTicketBranchInput,
+): Promise<MergeActivityResult> {
+  return mergeTicketBranch(input, runCommand);
+}
+
+export async function runFinalGatesActivity(
+  input: RunFinalGatesInput,
+): Promise<MergeActivityResult> {
+  return runFinalGates(input, runCommand);
+}
+
+export async function pushMainActivity(input: PushMainInput): Promise<MergeActivityResult> {
+  return pushMain(input, runCommand);
+}
+
+export async function closeTicketActivity(input: CloseTicketInput): Promise<MergeActivityResult> {
+  return closeTicket(input, runCommand);
+}
+
 export async function createTicketWorktree(
   input: CreateTicketWorktreeInput,
   run: ActivityCommandRunner,
@@ -202,6 +263,97 @@ export async function inspectTmuxSession(
   return { sessionName: input.sessionName, alive: result.exitCode === 0, record };
 }
 
+export async function updateMain(
+  input: UpdateMainInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  return runMergeCommands(run, [
+    {
+      activity: "fetch-main",
+      command: { command: "git", args: ["fetch", "origin", "main"], cwd: input.repoRoot },
+    },
+    {
+      activity: "checkout-main",
+      command: { command: "git", args: ["checkout", "main"], cwd: input.repoRoot },
+    },
+    {
+      activity: "pull-main",
+      command: {
+        command: "git",
+        args: ["pull", "--ff-only", "origin", "main"],
+        cwd: input.repoRoot,
+      },
+    },
+  ]);
+}
+
+export async function mergeTicketBranch(
+  input: MergeTicketBranchInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  const target =
+    input.strategy === "cherry-pick" ? (input.commitSha ?? input.branch) : input.branch;
+  const args =
+    input.strategy === "cherry-pick" ? ["cherry-pick", target] : ["merge", "--no-ff", input.branch];
+
+  return runMergeCommands(run, [
+    {
+      activity: input.strategy,
+      command: { command: "git", args, cwd: input.repoRoot },
+    },
+  ]);
+}
+
+export async function runFinalGates(
+  input: RunFinalGatesInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  return runMergeCommands(
+    run,
+    input.gates.map((gate) => ({
+      activity: `final-gate:${gate.label}`,
+      command: {
+        command: gate.command,
+        args: gate.args,
+        cwd: gate.cwd ?? input.repoRoot,
+      },
+    })),
+  );
+}
+
+export async function pushMain(
+  input: PushMainInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  return runMergeCommands(run, [
+    {
+      activity: "push-main",
+      command: { command: "git", args: ["push", "origin", "main"], cwd: input.repoRoot },
+    },
+  ]);
+}
+
+export async function closeTicket(
+  input: CloseTicketInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  return runMergeCommands(run, [
+    {
+      activity: "close-ticket",
+      command: {
+        command: "bd",
+        args: [
+          "close",
+          input.ticketId,
+          "--reason",
+          "Merged to main after serialized merge workflow",
+        ],
+        cwd: input.repoRoot,
+      },
+    },
+  ]);
+}
+
 export async function runCommand(command: ActivityCommand): Promise<ActivityCommandResult> {
   const proc = Bun.spawn([command.command, ...command.args], {
     cwd: command.cwd,
@@ -250,6 +402,20 @@ function commandRecord(
     stdout: result.stdout,
     stderr: result.stderr,
   };
+}
+
+async function runMergeCommands(
+  run: ActivityCommandRunner,
+  commands: readonly { readonly activity: string; readonly command: ActivityCommand }[],
+): Promise<MergeActivityResult> {
+  const records: ActivityRecord[] = [];
+  for (const entry of commands) {
+    const result = await run(entry.command);
+    const record = commandRecord(entry.activity, entry.command, result);
+    records.push(record);
+    if (result.exitCode !== 0) return { ok: false, records };
+  }
+  return { ok: true, records };
 }
 
 function slugifyTicketTitle(title: string): string {
