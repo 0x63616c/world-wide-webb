@@ -3,7 +3,8 @@ import { WorkflowIdConflictPolicy } from "@temporalio/common";
 import { defaultRuntimeLogRoot, type FinalGateCommand } from "./command-activities";
 import { type TicketQueueWorkflowInput, ticketQueueWorkflow } from "./workflows";
 
-export const TICKET_QUEUE_WORKFLOW_ID = "ticket_queue_main";
+export const TICKET_QUEUE_WORKFLOW_ID = "ticket_queue";
+export const LEGACY_TICKET_QUEUE_WORKFLOW_ID = "ticket_queue_main";
 export const TICKET_QUEUE_TASK_QUEUE = "project-management";
 
 export const DEFAULT_TICKET_QUEUE_FINAL_GATES = [
@@ -37,6 +38,9 @@ export type TicketQueueWorkflowStartClient = {
         readonly args: readonly [TicketQueueWorkflowInput];
       },
     ): Promise<unknown>;
+    getHandle(workflowId: string): {
+      terminate(reason?: string): Promise<unknown>;
+    };
   };
 };
 
@@ -82,4 +86,32 @@ export async function ensureTicketQueueWorkflowWithClient(
     taskQueue: options.taskQueue,
     args: [input],
   });
+  await terminateLegacyTicketQueueWorkflow(client);
+}
+
+async function terminateLegacyTicketQueueWorkflow(
+  client: TicketQueueWorkflowStartClient,
+): Promise<void> {
+  try {
+    await client.workflow
+      .getHandle(LEGACY_TICKET_QUEUE_WORKFLOW_ID)
+      .terminate(`renamed to ${TICKET_QUEUE_WORKFLOW_ID}`);
+  } catch (error) {
+    if (isIgnorableLegacyTicketQueueTerminationError(error)) return;
+    throw error;
+  }
+}
+
+function isIgnorableLegacyTicketQueueTerminationError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+
+  const errorText = `${error.name} ${error.message}`.toLowerCase();
+  return (
+    errorText.includes("not found") ||
+    errorText.includes("not_found") ||
+    errorText.includes("notfound") ||
+    errorText.includes("already closed") ||
+    errorText.includes("already completed") ||
+    errorText.includes("workflow execution already")
+  );
 }
