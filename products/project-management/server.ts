@@ -98,7 +98,7 @@ async function fetchIssueDetails(listedIssues: RawIssue[], repoRoot: string): Pr
   if (listedIssues.length === 0) return [];
   try {
     const out = await runBdCommand(
-      ["bd", "show", ...listedIssues.map((issue) => issue.id), "--json"],
+      ["bd", "show", ...listedIssues.map((issue) => issue.id), "--json", "--include-comments"],
       repoRoot,
       90_000,
     );

@@ -21,6 +21,14 @@ describe("mapIssues", () => {
         priority: 1,
         issue_type: "feature",
         owner: "bob@example.com",
+        comments: [
+          {
+            id: "comment_1",
+            author: "6991398+0x63616c@users.noreply.github.com",
+            text: "## Builder summary\n\nBuilt it.",
+            created_at: "2026-06-02T12:00:00Z",
+          },
+        ],
         dependencies: [{ issue_id: "www-a", depends_on_id: "www-epic", type: "parent-child" }],
       },
       {
@@ -57,6 +65,14 @@ describe("mapIssues", () => {
         assignee: "bob",
         blockedBy: [],
         blocks: ["www-b"],
+        comments: [
+          {
+            id: "comment_1",
+            author: "0x63616c",
+            text: "## Builder summary\n\nBuilt it.",
+            created: Date.parse("2026-06-02T12:00:00Z"),
+          },
+        ],
       }),
       expect.objectContaining({
         id: "www-b",

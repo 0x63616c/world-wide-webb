@@ -181,8 +181,6 @@ export async function startTicketReviewer(
         "opencode",
         "run",
         "--dangerously-skip-permissions",
-        "--format",
-        "json",
         "--agent",
         TICKET_REVIEWER_AGENT,
         "--model",
@@ -251,7 +249,7 @@ export function buildTicketBuilderPrompt(input: TicketBuilderInput): TicketBuild
 
   return {
     promptPath,
-    prompt: `# Ticket Builder\n\nTicket: ${input.ticketId} - ${input.title}\nAttempt: ${input.attempt}\n\n## Required Reading\n\nRun \`bd show ${input.ticketId}\` before editing. Read ticket comments and relevant project instructions before changing files.\n\n## Acceptance Criteria\n\n${input.acceptanceCriteria}\n\n## Existing Comments\n\n${commentBlock}\n\n## Hard Rules\n\n- Work only in this worktree: ${input.worktreePath}\n- Build the smallest correct implementation that satisfies the acceptance criteria.\n- Commit and push the ticket branch when implementation is complete. If commit signing fails because the local 1Password signing agent has no identity, retry the same commit with \`--no-gpg-sign\` and report that in the handoff.\n- If OpenCode changes \`.opencode/package.json\` as a tool self-update side effect, revert that file before committing.\n- Leave a Beads handoff comment with changed files and verification.\n- Never close Beads tickets. Do not run \`bd close\`, do not mark the ticket complete, and do not merge to main.\n`,
+    prompt: `# Ticket Builder\n\nTicket: ${input.ticketId} - ${input.title}\nAttempt: ${input.attempt}\n\n## Required Reading\n\nRun \`bd show ${input.ticketId}\` before editing. Read ticket comments and relevant project instructions before changing files.\n\n## Acceptance Criteria\n\n${input.acceptanceCriteria}\n\n## Existing Comments\n\n${commentBlock}\n\n## Hard Rules\n\n- Work only in this worktree: ${input.worktreePath}\n- Build the smallest correct implementation that satisfies the acceptance criteria.\n- Commit and push the ticket branch when implementation is complete. If commit signing fails because the local 1Password signing agent has no identity, retry the same commit with \`--no-gpg-sign\` and report that in the handoff.\n- If OpenCode changes \`.opencode/package.json\` as a tool self-update side effect, revert that file before committing.\n- Leave a Beads handoff comment headed \`## Builder summary\` with changed files, commit SHA, pushed branch, and verification.\n- Move the ticket to review with \`bd update ${input.ticketId} --add-label ticket-review --remove-label ticket-ready --remove-label ticket-retry\`.\n- Never close Beads tickets. Do not run \`bd close\`, do not mark the ticket complete, and do not merge to main.\n`,
   };
 }
 
@@ -296,18 +294,15 @@ ${commentBlock}
 - Do not commit or push.
 - Run only focused, non-destructive checks when needed.
 
-## Required Output
+## Required Beads Handoff
 
-Your final action must be a shell command that prints exactly one JSON object matching this shape, for example \`printf '%s\\n' '{"verdict":"pass","summary":"...","findings":[],"acceptanceEvidence":["..."]}'\`. Do not just write the JSON in chat, the workflow reads command output.
+Your final action is Beads state, not printed JSON. Leave a Beads comment headed \`## Reviewer findings\` with findings and acceptance evidence, then move the ticket to exactly ONE outcome label:
 
-{
-  "verdict": "pass" | "fail" | "human",
-  "summary": "short reviewer summary",
-  "findings": [
-    { "severity": "blocker" | "major" | "minor", "file": "path or null", "line": 1, "message": "specific finding" }
-  ],
-  "acceptanceEvidence": ["AC item: evidence"]
-}
+- Pass: \`bd update ${input.ticketId} --add-label ticket-verified --remove-label ticket-review --remove-label ticket-ready --remove-label ticket-retry\`
+- Changes needed: \`bd update ${input.ticketId} --add-label ticket-retry --remove-label ticket-review --remove-label ticket-verified\`
+- Human needed: \`bd update ${input.ticketId} --add-label ticket-human --remove-label ticket-review --remove-label ticket-ready --remove-label ticket-verified --remove-label ticket-retry\`
+
+Do not print a verdict JSON object. The workflow verifies Beads labels/comments directly with \`verifyReviewerHandoffActivity\`.
 `,
   };
 }

@@ -14,6 +14,8 @@ import {
   ticketWorktreeNames,
   tmuxSessionName,
   updateMain,
+  verifyBuilderHandoff,
+  verifyReviewerHandoff,
   waitForTmuxSession,
 } from "./command-activities";
 
@@ -282,6 +284,68 @@ describe("ticket command activities", () => {
       },
     ]);
     expect(commands.flatMap((command) => command.args)).not.toContain("close");
+  });
+
+  it("verifies builder handoff from Beads labels and comments", async () => {
+    const result = await verifyBuilderHandoff(
+      { repoRoot: "/repo", ticketId: "www-3agy.18" },
+      async () => ({
+        exitCode: 0,
+        stdout: JSON.stringify({
+          labels: ["ticket-review"],
+          comments: [{ body: "## Builder summary\n\nBuilt and pushed abc123." }],
+        }),
+        stderr: "",
+      }),
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        ok: true,
+        handoff: "review",
+        hasBuilderComment: true,
+        labels: ["ticket-review"],
+      }),
+    );
+  });
+
+  it("verifies reviewer handoff from exactly one Beads outcome label", async () => {
+    const result = await verifyReviewerHandoff(
+      { repoRoot: "/repo", ticketId: "www-3agy.18" },
+      async () => ({
+        exitCode: 0,
+        stdout: JSON.stringify({
+          labels: ["ticket-verified"],
+          comments: [{ body: "## Reviewer findings\n\nNo findings." }],
+        }),
+        stderr: "",
+      }),
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        ok: true,
+        handoff: "verified",
+        hasReviewerComment: true,
+        labels: ["ticket-verified"],
+      }),
+    );
+  });
+
+  it("rejects ambiguous reviewer outcome labels", async () => {
+    const result = await verifyReviewerHandoff(
+      { repoRoot: "/repo", ticketId: "www-3agy.18" },
+      async () => ({
+        exitCode: 0,
+        stdout: JSON.stringify({
+          labels: ["ticket-verified", "ticket-retry"],
+          comments: [{ body: "## Reviewer findings\n\nConflicting labels." }],
+        }),
+        stderr: "",
+      }),
+    );
+
+    expect(result).toEqual(expect.objectContaining({ ok: false, handoff: "ambiguous" }));
   });
 });
 

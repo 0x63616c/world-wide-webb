@@ -101,6 +101,20 @@ export type WriteTicketCommentInput = TicketBeadsInput & {
   readonly body: string;
 };
 
+export type VerifyTicketHandoffInput = TicketBeadsInput;
+
+export type BuilderHandoffResult = MergeActivityResult & {
+  readonly handoff: "review" | "missing";
+  readonly labels: readonly string[];
+  readonly hasBuilderComment: boolean;
+};
+
+export type ReviewerHandoffResult = MergeActivityResult & {
+  readonly handoff: "verified" | "retry" | "human" | "missing" | "ambiguous";
+  readonly labels: readonly string[];
+  readonly hasReviewerComment: boolean;
+};
+
 export type MergeActivityResult = {
   readonly ok: boolean;
   readonly records: readonly ActivityRecord[];
@@ -294,6 +308,18 @@ export async function moveTicketToVerifiedActivity(
   input: TicketBeadsInput,
 ): Promise<MergeActivityResult> {
   return moveTicketToVerified(input, runCommand);
+}
+
+export async function verifyBuilderHandoffActivity(
+  input: VerifyTicketHandoffInput,
+): Promise<BuilderHandoffResult> {
+  return verifyBuilderHandoff(input, runCommand);
+}
+
+export async function verifyReviewerHandoffActivity(
+  input: VerifyTicketHandoffInput,
+): Promise<ReviewerHandoffResult> {
+  return verifyReviewerHandoff(input, runCommand);
 }
 
 export async function escalateTicketHumanActivity(
@@ -624,6 +650,77 @@ export async function moveTicketToVerified(
   ]);
 }
 
+export async function verifyBuilderHandoff(
+  input: VerifyTicketHandoffInput,
+  run: ActivityCommandRunner,
+): Promise<BuilderHandoffResult> {
+  const record = await runShowTicket(input, run, "verify-builder-handoff");
+  if (record.exitCode !== 0) {
+    return {
+      ok: false,
+      records: [record],
+      handoff: "missing",
+      labels: [],
+      hasBuilderComment: false,
+    };
+  }
+
+  const ticket = parseShownTicket(record.stdout);
+  const labels = ticket?.labels ?? [];
+  const hasBuilderComment =
+    ticket?.comments.some((comment) =>
+      /builder (summary|handoff)|## builder summary/i.test(comment),
+    ) ?? false;
+  const handoff =
+    labels.includes(TICKET_WORKFLOW_LABELS.review) && hasBuilderComment ? "review" : "missing";
+
+  return { ok: handoff === "review", records: [record], handoff, labels, hasBuilderComment };
+}
+
+export async function verifyReviewerHandoff(
+  input: VerifyTicketHandoffInput,
+  run: ActivityCommandRunner,
+): Promise<ReviewerHandoffResult> {
+  const record = await runShowTicket(input, run, "verify-reviewer-handoff");
+  if (record.exitCode !== 0) {
+    return {
+      ok: false,
+      records: [record],
+      handoff: "missing",
+      labels: [],
+      hasReviewerComment: false,
+    };
+  }
+
+  const ticket = parseShownTicket(record.stdout);
+  const labels = ticket?.labels ?? [];
+  const outcomes = [
+    ["verified", TICKET_WORKFLOW_LABELS.verified],
+    ["retry", TICKET_WORKFLOW_LABELS.retry],
+    ["human", TICKET_WORKFLOW_LABELS.human],
+  ] as const;
+  const present = outcomes.filter(([, label]) => labels.includes(label));
+  const hasReviewerComment =
+    ticket?.comments.some((comment) =>
+      /reviewer (findings|handoff)|## reviewer findings/i.test(comment),
+    ) ?? false;
+  const handoff = !hasReviewerComment
+    ? "missing"
+    : present.length === 1
+      ? present[0][0]
+      : present.length === 0
+        ? "missing"
+        : "ambiguous";
+
+  return {
+    ok: handoff === "verified" || handoff === "retry" || handoff === "human",
+    records: [record],
+    handoff,
+    labels,
+    hasReviewerComment,
+  };
+}
+
 export async function escalateTicketHuman(
   input: EscalateTicketHumanInput,
   run: ActivityCommandRunner,
@@ -734,6 +831,60 @@ async function runMergeCommands(
     if (result.exitCode !== 0) return { ok: false, records };
   }
   return { ok: true, records };
+}
+
+async function runShowTicket(
+  input: TicketBeadsInput,
+  run: ActivityCommandRunner,
+  activity: string,
+): Promise<ActivityRecord> {
+  const result = await run({
+    command: "bd",
+    args: ["show", input.ticketId, "--json", "--include-comments"],
+    cwd: input.repoRoot,
+  });
+  return commandRecord(
+    activity,
+    {
+      command: "bd",
+      args: ["show", input.ticketId, "--json", "--include-comments"],
+      cwd: input.repoRoot,
+    },
+    result,
+  );
+}
+
+type ShownTicket = {
+  readonly labels: readonly string[];
+  readonly comments: readonly string[];
+};
+
+function parseShownTicket(stdout: string): ShownTicket | null {
+  const parsed: unknown = JSON.parse(stdout);
+  const value = Array.isArray(parsed) ? parsed[0] : parsed;
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  return {
+    labels: parseStringArray(candidate.labels),
+    comments: parseCommentBodies(candidate.comments),
+  };
+}
+
+function parseStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+
+function parseCommentBodies(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((comment) => {
+    if (typeof comment === "string") return [comment];
+    if (!comment || typeof comment !== "object") return [];
+    const candidate = comment as Record<string, unknown>;
+    for (const key of ["text", "body", "comment", "content"] as const) {
+      if (typeof candidate[key] === "string") return [candidate[key]];
+    }
+    return [];
+  });
 }
 
 function slugifyTicketTitle(title: string): string {

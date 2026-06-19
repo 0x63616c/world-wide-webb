@@ -16,8 +16,24 @@ export interface RawIssue {
   closed_at?: string;
   labels?: string[];
   metadata?: Record<string, unknown>;
-  comments?: { body?: string; text?: string; content?: string }[];
+  comments?: RawIssueComment[];
   dependencies?: { issue_id: string; depends_on_id: string; type: string }[];
+}
+
+export interface RawIssueComment {
+  id?: string;
+  author?: string;
+  body?: string;
+  text?: string;
+  content?: string;
+  created_at?: string;
+}
+
+export interface DesignIssueComment {
+  id: string;
+  author: string;
+  text: string;
+  created: number;
 }
 
 export interface DesignIssue {
@@ -29,7 +45,7 @@ export interface DesignIssue {
   assignee: string;
   labels: string[];
   metadata?: Record<string, unknown>;
-  comments?: { body?: string; text?: string; content?: string }[];
+  comments: DesignIssueComment[];
   blockedBy: string[];
   blocks: string[];
   desc: string;
@@ -144,7 +160,7 @@ export function mapIssues(raw: RawIssue[]): DesignIssue[] {
       assignee: mapAssignee(issue.owner, issue.created_by),
       labels: issue.labels ?? [],
       metadata: issue.metadata,
-      comments: issue.comments,
+      comments: mapComments(issue.comments),
       blockedBy: blockedByMap.get(issue.id) ?? [],
       blocks: blocksMap.get(issue.id) ?? [],
       desc: issue.description ?? "",
@@ -156,5 +172,20 @@ export function mapIssues(raw: RawIssue[]): DesignIssue[] {
     };
     if (type === "epic") out.children = childrenMap.get(issue.id) ?? [];
     return out;
+  });
+}
+
+function mapComments(comments: RawIssueComment[] | undefined): DesignIssueComment[] {
+  return (comments ?? []).flatMap((comment, index) => {
+    const text = (comment.text ?? comment.body ?? comment.content ?? "").trim();
+    if (!text) return [];
+    return [
+      {
+        id: comment.id ?? `comment_${index}`,
+        author: mapAssignee(comment.author),
+        text,
+        created: parseTs(comment.created_at),
+      },
+    ];
   });
 }

@@ -48,7 +48,10 @@ describe("workflowDashboardForIssues", () => {
         metadata: { ticket_phase: "review", ticket_opencode_session_title: "Review session" },
         comments: [
           {
-            body: "prompt /cache/logs/ticket_www-review_review_1.prompt.md\nlog /cache/logs/ticket_www-review_review_1.stderr.log",
+            id: "comment_1",
+            author: "reviewer",
+            text: "prompt /cache/logs/ticket_www-review_review_1.prompt.md\nlog /cache/logs/ticket_www-review_review_1.stderr.log",
+            created: Date.parse("2026-06-02T12:00:00Z"),
           },
         ],
       },

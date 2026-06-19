@@ -38,11 +38,7 @@ export type WorkflowDashboardIssueInput = Pick<
   "id" | "title" | "labels" | "status" | "assignee"
 > & {
   readonly metadata?: Record<string, unknown>;
-  readonly comments?: readonly {
-    readonly body?: string;
-    readonly text?: string;
-    readonly content?: string;
-  }[];
+  readonly comments?: DesignIssue["comments"];
 };
 
 export type WorkflowDashboardIssue = {
@@ -202,9 +198,7 @@ function parseOpenCodeSession(
 }
 
 function commentsText(comments: WorkflowDashboardIssueInput["comments"]): string {
-  return (comments ?? [])
-    .map((comment) => comment.body ?? comment.text ?? comment.content ?? "")
-    .join("\n");
+  return (comments ?? []).map((comment) => comment.text).join("\n");
 }
 
 function linksFromMetadata(metadata: Record<string, unknown>, keys: readonly string[]): string[] {

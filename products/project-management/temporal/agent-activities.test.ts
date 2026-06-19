@@ -155,18 +155,15 @@ describe("ticket reviewer activity", () => {
       - Do not commit or push.
       - Run only focused, non-destructive checks when needed.
 
-      ## Required Output
+      ## Required Beads Handoff
 
-      Your final action must be a shell command that prints exactly one JSON object matching this shape, for example \`printf '%s\\n' '{"verdict":"pass","summary":"...","findings":[],"acceptanceEvidence":["..."]}'\`. Do not just write the JSON in chat, the workflow reads command output.
+      Your final action is Beads state, not printed JSON. Leave a Beads comment headed \`## Reviewer findings\` with findings and acceptance evidence, then move the ticket to exactly ONE outcome label:
 
-      {
-        "verdict": "pass" | "fail" | "human",
-        "summary": "short reviewer summary",
-        "findings": [
-          { "severity": "blocker" | "major" | "minor", "file": "path or null", "line": 1, "message": "specific finding" }
-        ],
-        "acceptanceEvidence": ["AC item: evidence"]
-      }
+      - Pass: \`bd update www-3agy.10 --add-label ticket-verified --remove-label ticket-review --remove-label ticket-ready --remove-label ticket-retry\`
+      - Changes needed: \`bd update www-3agy.10 --add-label ticket-retry --remove-label ticket-review --remove-label ticket-verified\`
+      - Human needed: \`bd update www-3agy.10 --add-label ticket-human --remove-label ticket-review --remove-label ticket-ready --remove-label ticket-verified --remove-label ticket-retry\`
+
+      Do not print a verdict JSON object. The workflow verifies Beads labels/comments directly with \`verifyReviewerHandoffActivity\`.
       "
     `);
   });
@@ -200,7 +197,7 @@ describe("ticket reviewer activity", () => {
         "ticket_www-3agy.10_review_1",
         "-c",
         "/repo/.worktrees/tickets/www-3agy.10-reviewer",
-        "('opencode' 'run' '--dangerously-skip-permissions' '--format' 'json' '--agent' 'ticket-reviewer' '--model' 'openai/gpt-5.5-fast' 'Follow the attached ticket-reviewer prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.10_review_1.prompt.md' > '/cache/logs/ticket_www-3agy.10_review_1.stdout.log' 2> '/cache/logs/ticket_www-3agy.10_review_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy.10_review_1.exitcode'",
+        "('opencode' 'run' '--dangerously-skip-permissions' '--agent' 'ticket-reviewer' '--model' 'openai/gpt-5.5-fast' 'Follow the attached ticket-reviewer prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.10_review_1.prompt.md' > '/cache/logs/ticket_www-3agy.10_review_1.stdout.log' 2> '/cache/logs/ticket_www-3agy.10_review_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy.10_review_1.exitcode'",
       ],
     });
   });

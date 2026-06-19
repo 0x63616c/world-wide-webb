@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { TicketReviewerVerdict } from "./agent-activities";
 import type { MergeActivityResult } from "./command-activities";
 import {
   runTicketWorkflowRunner,
@@ -30,12 +29,10 @@ describe("runTicketWorkflowRunner", () => {
       ["wait-builder", true],
       ["resolve-commit", true],
       ["write-builder-metadata", true],
-      ["write-builder-comment", true],
-      ["move-review", true],
+      ["verify-builder-handoff", true],
       ["start-reviewer", true],
       ["wait-reviewer", true],
-      ["write-reviewer-comment", true],
-      ["move-verified", true],
+      ["verify-reviewer-handoff", true],
       ["merge", true],
     ]);
     expect(fake.calls).toEqual([
@@ -45,13 +42,10 @@ describe("runTicketWorkflowRunner", () => {
       "wait:ticket_www-proof_build_1",
       "resolve-head",
       "write-metadata:review:abc123",
-      "comment:builder-summary",
-      "move-review",
+      "verify-builder-handoff",
       "start-reviewer",
       "wait:ticket_www-proof_review_1",
-      "parse-reviewer",
-      "comment:reviewer-findings",
-      "move-verified",
+      "verify-reviewer-handoff",
       "update-main",
       "merge-ticket-branch:merge",
       "final-gates",
@@ -60,13 +54,14 @@ describe("runTicketWorkflowRunner", () => {
     ]);
   });
 
-  it("does not verify or merge when reviewer verdict fails", async () => {
-    const fake = fakeRunnerActivities({ reviewerVerdict: "fail" });
+  it("loops retries and escalates human when reviewer keeps requesting retry", async () => {
+    const fake = fakeRunnerActivities({ reviewerHandoff: "retry" });
     const result = await runTicketWorkflowRunner(baseInput(), fake.activities);
 
-    expect(result.status).toBe("failed");
-    expect(fake.calls).toContain("comment:reviewer-findings");
-    expect(fake.calls).not.toContain("move-verified");
+    expect(result.status).toBe("human");
+    expect(fake.calls).toContain("verify-reviewer-handoff");
+    expect(fake.calls.filter((call) => call === "start-builder")).toHaveLength(2);
+    expect(fake.calls).toContain("escalate-human");
     expect(fake.calls).not.toContain("push-main");
     expect(fake.calls).not.toContain("close-ticket");
   });
@@ -83,7 +78,9 @@ function baseInput(): TicketWorkflowRunnerInput {
 }
 
 function fakeRunnerActivities(
-  options: { readonly reviewerVerdict?: TicketReviewerVerdict["verdict"] } = {},
+  options: {
+    readonly reviewerHandoff?: "verified" | "retry" | "human" | "missing" | "ambiguous";
+  } = {},
 ): {
   readonly activities: TicketWorkflowRunnerActivities;
   readonly calls: string[];
@@ -139,9 +136,7 @@ function fakeRunnerActivities(
           sessionName: input.sessionName,
           completed: true,
           exitCode: 0,
-          stdout: input.sessionName.includes("review")
-            ? reviewerJson(options.reviewerVerdict ?? "pass")
-            : "Builder summary",
+          stdout: input.sessionName.includes("review") ? "Reviewer completed" : "Builder summary",
           stderr: "",
           records: [],
         };
@@ -154,21 +149,23 @@ function fakeRunnerActivities(
         calls.push(`write-metadata:${input.metadata.phase}:${input.metadata.commit}`);
         return ok();
       },
-      writeTicketCommentActivity: async (input) => {
-        calls.push(`comment:${input.kind}`);
-        return ok();
+      verifyBuilderHandoffActivity: async () => {
+        calls.push("verify-builder-handoff");
+        return {
+          ...ok(),
+          handoff: "review",
+          labels: ["ticket-review"],
+          hasBuilderComment: true,
+        };
       },
-      moveTicketToReviewActivity: async () => {
-        calls.push("move-review");
-        return ok();
-      },
-      moveTicketToVerifiedActivity: async () => {
-        calls.push("move-verified");
-        return ok();
-      },
-      parseTicketReviewerVerdictActivity: async (output) => {
-        calls.push("parse-reviewer");
-        return JSON.parse(output) as TicketReviewerVerdict;
+      verifyReviewerHandoffActivity: async () => {
+        calls.push("verify-reviewer-handoff");
+        return {
+          ...ok(),
+          handoff: options.reviewerHandoff ?? "verified",
+          labels: [options.reviewerHandoff === "retry" ? "ticket-retry" : "ticket-verified"],
+          hasReviewerComment: true,
+        };
       },
       updateMainActivity: async () => {
         calls.push("update-main");
@@ -190,7 +187,10 @@ function fakeRunnerActivities(
         calls.push("close-ticket");
         return ok();
       },
-      escalateTicketHumanActivity: async () => ok(),
+      escalateTicketHumanActivity: async () => {
+        calls.push("escalate-human");
+        return ok();
+      },
       startTicketMergeFixActivity: async () => ({
         sessionName: "ticket_www-proof_mergefix_1",
         stdoutLogPath: "/logs/mergefix.stdout.log",
@@ -203,13 +203,4 @@ function fakeRunnerActivities(
       }),
     },
   };
-}
-
-function reviewerJson(verdict: TicketReviewerVerdict["verdict"]): string {
-  return JSON.stringify({
-    verdict,
-    summary: verdict === "pass" ? "verified" : "needs work",
-    findings: [],
-    acceptanceEvidence: ["proof checked"],
-  });
 }
