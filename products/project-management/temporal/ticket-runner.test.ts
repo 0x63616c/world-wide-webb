@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { TicketWorkflowMetadata } from "../beads-adapter";
 import type { MergeActivityResult } from "./command-activities";
 import {
   runTicketWorkflowRunner,
@@ -26,30 +27,36 @@ describe("runTicketWorkflowRunner", () => {
       ["claim-ticket", true],
       ["create-worktree", true],
       ["start-builder", true],
+      ["write-builder-start-metadata", true],
       ["wait-builder", true],
       ["resolve-builder-session", true],
       ["resolve-commit", true],
-      ["write-builder-metadata", true],
+      ["write-builder-completion-metadata", true],
       ["verify-builder-handoff", true],
       ["start-reviewer", true],
+      ["write-reviewer-start-metadata", true],
       ["wait-reviewer", true],
       ["resolve-reviewer-session", true],
       ["verify-reviewer-handoff", true],
+      ["write-reviewer-completion-metadata", true],
       ["merge", true],
     ]);
     expect(fake.calls).toEqual([
       "claim",
       "create-worktree",
       "start-builder",
+      "write-metadata:builder-started:build:1:ticket_www-proof_build_1:/logs/build.prompt.md:/logs/build.stdout.log:/logs/build.stderr.log",
       "wait:ticket_www-proof_build_1",
       "resolve-session:ticket-builder:1000",
       "resolve-head",
-      "write-metadata:review:abc123:Proof ticket (ses_builder)",
+      "write-metadata:builder-passed:review:1:ticket_www-proof_build_1:/logs/build.prompt.md:/logs/build.stdout.log:/logs/build.stderr.log",
       "verify-builder-handoff",
       "start-reviewer",
+      "write-metadata:reviewer-started:review:1:ticket_www-proof_review_1:/logs/review.prompt.md:/logs/review.stdout.log:/logs/review.stderr.log",
       "wait:ticket_www-proof_review_1",
       "resolve-session:ticket-reviewer:2000",
       "verify-reviewer-handoff",
+      "write-metadata:reviewer-verified:verified:1:ticket_www-proof_review_1:/logs/review.prompt.md:/logs/review.stdout.log:/logs/review.stderr.log",
       "update-main",
       "merge-ticket-branch:merge",
       "final-gates",
@@ -57,6 +64,35 @@ describe("runTicketWorkflowRunner", () => {
       "close-ticket",
       "push-beads",
     ]);
+    expect(fake.metadata).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          phase: "build",
+          attempt: 1,
+          branch: "www-proof-proof-ticket",
+          worktree: "/repo/.worktrees/tickets/www-proof-proof-ticket",
+          tmuxSession: "ticket_www-proof_build_1",
+          promptPath: "/logs/build.prompt.md",
+          stdoutLog: "/logs/build.stdout.log",
+          stderrLog: "/logs/build.stderr.log",
+          lastResult: "builder-started",
+        }),
+        expect.objectContaining({
+          phase: "review",
+          tmuxSession: "ticket_www-proof_review_1",
+          promptPath: "/logs/review.prompt.md",
+          stdoutLog: "/logs/review.stdout.log",
+          stderrLog: "/logs/review.stderr.log",
+          lastResult: "reviewer-started",
+        }),
+        expect.objectContaining({
+          phase: "verified",
+          openCodeSession: "Review proof ticket (ses_reviewer)",
+          commit: "abc123",
+          lastResult: "reviewer-verified",
+        }),
+      ]),
+    );
   });
 
   it("loops retries and escalates human when reviewer keeps requesting retry", async () => {
@@ -90,12 +126,15 @@ function fakeRunnerActivities(
 ): {
   readonly activities: TicketWorkflowRunnerActivities;
   readonly calls: string[];
+  readonly metadata: TicketWorkflowMetadata[];
 } {
   const calls: string[] = [];
+  const metadata: TicketWorkflowMetadata[] = [];
   const ok = (): MergeActivityResult => ({ ok: true, records: [] });
 
   return {
     calls,
+    metadata,
     activities: {
       claimTicketActivity: async () => {
         calls.push("claim");
@@ -165,8 +204,9 @@ function fakeRunnerActivities(
         };
       },
       writeTicketWorkflowMetadataActivity: async (input) => {
+        metadata.push(input.metadata);
         calls.push(
-          `write-metadata:${input.metadata.phase}:${input.metadata.commit}:${input.metadata.openCodeSession}`,
+          `write-metadata:${input.metadata.lastResult}:${input.metadata.phase}:${input.metadata.attempt}:${input.metadata.tmuxSession}:${input.metadata.promptPath}:${input.metadata.stdoutLog}:${input.metadata.stderrLog}`,
         );
         return ok();
       },

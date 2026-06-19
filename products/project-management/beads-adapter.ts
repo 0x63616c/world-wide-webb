@@ -17,10 +17,14 @@ export type TicketQueue = keyof typeof TICKET_QUEUE_LABELS;
 
 export const TICKET_METADATA_KEYS = {
   phase: "ticket_phase",
+  attempt: "ticket_attempt",
   attempts: "ticket_attempts",
   branch: "ticket_branch",
   worktree: "ticket_worktree",
   tmuxSession: "ticket_tmux_session",
+  promptPath: "ticket_prompt_path",
+  stdoutLog: "ticket_stdout_log",
+  stderrLog: "ticket_stderr_log",
   openCodeSession: "ticket_opencode_session",
   commit: "ticket_commit",
   lastResult: "ticket_last_result",
@@ -28,10 +32,13 @@ export const TICKET_METADATA_KEYS = {
 
 export type TicketWorkflowMetadata = {
   phase: string;
-  attempts: number;
+  attempt: number;
   branch: string;
   worktree: string;
   tmuxSession: string;
+  promptPath: string;
+  stdoutLog: string;
+  stderrLog: string;
   openCodeSession: string;
   commit: string;
   lastResult: string;
@@ -93,13 +100,21 @@ export function buildMetadataCommand(
       "--set-metadata",
       `${TICKET_METADATA_KEYS.phase}=${metadata.phase}`,
       "--set-metadata",
-      `${TICKET_METADATA_KEYS.attempts}=${metadata.attempts}`,
+      `${TICKET_METADATA_KEYS.attempt}=${metadata.attempt}`,
+      "--set-metadata",
+      `${TICKET_METADATA_KEYS.attempts}=${metadata.attempt}`,
       "--set-metadata",
       `${TICKET_METADATA_KEYS.branch}=${metadata.branch}`,
       "--set-metadata",
       `${TICKET_METADATA_KEYS.worktree}=${metadata.worktree}`,
       "--set-metadata",
       `${TICKET_METADATA_KEYS.tmuxSession}=${metadata.tmuxSession}`,
+      "--set-metadata",
+      `${TICKET_METADATA_KEYS.promptPath}=${metadata.promptPath}`,
+      "--set-metadata",
+      `${TICKET_METADATA_KEYS.stdoutLog}=${metadata.stdoutLog}`,
+      "--set-metadata",
+      `${TICKET_METADATA_KEYS.stderrLog}=${metadata.stderrLog}`,
       "--set-metadata",
       `${TICKET_METADATA_KEYS.openCodeSession}=${metadata.openCodeSession}`,
       "--set-metadata",

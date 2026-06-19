@@ -6,6 +6,7 @@ import {
   sleep,
   startChild,
 } from "@temporalio/workflow";
+import type { TicketWorkflowMetadata } from "../beads-adapter";
 import type * as projectActivities from "./activities";
 import type * as agentActivities from "./agent-activities";
 import type * as commandActivities from "./command-activities";
@@ -106,14 +107,17 @@ export type TicketWorkflowRunnerStep =
   | "claim-ticket"
   | "create-worktree"
   | "start-builder"
+  | "write-builder-start-metadata"
   | "wait-builder"
   | "resolve-commit"
   | "resolve-builder-session"
-  | "write-builder-metadata"
+  | "write-builder-completion-metadata"
   | "verify-builder-handoff"
   | "start-reviewer"
+  | "write-reviewer-start-metadata"
   | "wait-reviewer"
   | "resolve-reviewer-session"
+  | "write-reviewer-completion-metadata"
   | "verify-reviewer-handoff"
   | "retry-requested"
   | "human-handoff"
@@ -420,6 +424,21 @@ export async function runTicketWorkflowRunner(
       continue;
     }
 
+    const builderStartMetadata = await runnerActivities.writeTicketWorkflowMetadataActivity({
+      ticketId: input.ticketId,
+      repoRoot: input.repoRoot,
+      metadata: ticketRunMetadata({
+        phase: "build",
+        attempt: builderAttempt,
+        branch: worktree.branchName,
+        worktreePath: worktree.worktreePath,
+        run: builder,
+        lastResult: "builder-started",
+      }),
+    });
+    steps.push({ step: "write-builder-start-metadata", ok: builderStartMetadata.ok });
+    if (!builderStartMetadata.ok) continue;
+
     const builderWait = await runnerActivities.waitForAgentRunCompletionActivity({
       sessionName: builder.sessionName,
       stdoutLogPath: builder.stdoutLogPath,
@@ -427,7 +446,21 @@ export async function runTicketWorkflowRunner(
       exitCodePath: builder.exitCodePath,
     });
     steps.push({ step: "wait-builder", ok: builderWait.completed && builderWait.exitCode === 0 });
-    if (!builderWait.completed || builderWait.exitCode !== 0) continue;
+    if (!builderWait.completed || builderWait.exitCode !== 0) {
+      await runnerActivities.writeTicketWorkflowMetadataActivity({
+        ticketId: input.ticketId,
+        repoRoot: input.repoRoot,
+        metadata: ticketRunMetadata({
+          phase: "build",
+          attempt: builderAttempt,
+          branch: worktree.branchName,
+          worktreePath: worktree.worktreePath,
+          run: builder,
+          lastResult: builderWait.completed ? "builder-failed" : "builder-timeout",
+        }),
+      });
+      continue;
+    }
 
     const builderOpenCodeSession = await runnerActivities.resolveOpenCodeSessionActivity({
       worktreePath: worktree.worktreePath,
@@ -442,27 +475,27 @@ export async function runTicketWorkflowRunner(
       ref: "HEAD",
     });
     steps.push({ step: "resolve-commit", ok: head.ok });
-    if (!head.ok || !head.commitSha) continue;
     commitSha = head.commitSha;
 
     const metadata = await runnerActivities.writeTicketWorkflowMetadataActivity({
       ticketId: input.ticketId,
       repoRoot: input.repoRoot,
-      metadata: {
+      metadata: ticketRunMetadata({
         phase: "review",
-        attempts: builderAttempt,
+        attempt: builderAttempt,
         branch: worktree.branchName,
-        worktree: worktree.worktreePath,
-        tmuxSession: builder.sessionName,
+        worktreePath: worktree.worktreePath,
+        run: builder,
         openCodeSession: formatOpenCodeSession(
           builderOpenCodeSession.title,
           builderOpenCodeSession.sessionId,
         ),
-        commit: head.commitSha,
+        commit: head.commitSha ?? "",
         lastResult: "builder-passed",
-      },
+      }),
     });
-    steps.push({ step: "write-builder-metadata", ok: metadata.ok });
+    steps.push({ step: "write-builder-completion-metadata", ok: metadata.ok });
+    if (!head.ok || !head.commitSha) continue;
 
     const builderHandoff = await runnerActivities.verifyBuilderHandoffActivity({
       ticketId: input.ticketId,
@@ -495,6 +528,22 @@ export async function runTicketWorkflowRunner(
       });
       if (reviewer.records.some((record) => record.exitCode !== 0)) continue;
 
+      const reviewerStartMetadata = await runnerActivities.writeTicketWorkflowMetadataActivity({
+        ticketId: input.ticketId,
+        repoRoot: input.repoRoot,
+        metadata: ticketRunMetadata({
+          phase: "review",
+          attempt: reviewerAttempt,
+          branch: worktree.branchName,
+          worktreePath: worktree.worktreePath,
+          run: reviewer,
+          commit: head.commitSha,
+          lastResult: "reviewer-started",
+        }),
+      });
+      steps.push({ step: "write-reviewer-start-metadata", ok: reviewerStartMetadata.ok });
+      if (!reviewerStartMetadata.ok) continue;
+
       const reviewerWait = await runnerActivities.waitForAgentRunCompletionActivity({
         sessionName: reviewer.sessionName,
         stdoutLogPath: reviewer.stdoutLogPath,
@@ -505,7 +554,22 @@ export async function runTicketWorkflowRunner(
         step: "wait-reviewer",
         ok: reviewerWait.completed && reviewerWait.exitCode === 0,
       });
-      if (!reviewerWait.completed || reviewerWait.exitCode !== 0) continue;
+      if (!reviewerWait.completed || reviewerWait.exitCode !== 0) {
+        await runnerActivities.writeTicketWorkflowMetadataActivity({
+          ticketId: input.ticketId,
+          repoRoot: input.repoRoot,
+          metadata: ticketRunMetadata({
+            phase: "review",
+            attempt: reviewerAttempt,
+            branch: worktree.branchName,
+            worktreePath: worktree.worktreePath,
+            run: reviewer,
+            commit: head.commitSha,
+            lastResult: reviewerWait.completed ? "reviewer-failed" : "reviewer-timeout",
+          }),
+        });
+        continue;
+      }
 
       const reviewerOpenCodeSession = await runnerActivities.resolveOpenCodeSessionActivity({
         worktreePath: worktree.worktreePath,
@@ -521,6 +585,25 @@ export async function runTicketWorkflowRunner(
       });
       steps.push({ step: "verify-reviewer-handoff", ok: reviewerHandoff.ok });
       comments = [...comments, agentOutput(reviewerWait)].filter(Boolean);
+      const reviewerMetadata = await runnerActivities.writeTicketWorkflowMetadataActivity({
+        ticketId: input.ticketId,
+        repoRoot: input.repoRoot,
+        metadata: ticketRunMetadata({
+          phase: phaseFromReviewerHandoff(reviewerHandoff.handoff),
+          attempt: reviewerAttempt,
+          branch: worktree.branchName,
+          worktreePath: worktree.worktreePath,
+          run: reviewer,
+          openCodeSession: formatOpenCodeSession(
+            reviewerOpenCodeSession.title,
+            reviewerOpenCodeSession.sessionId,
+          ),
+          commit: head.commitSha,
+          lastResult: `reviewer-${reviewerHandoff.handoff}`,
+        }),
+      });
+      steps.push({ step: "write-reviewer-completion-metadata", ok: reviewerMetadata.ok });
+      if (!reviewerMetadata.ok) continue;
       if (reviewerHandoff.handoff === "human") {
         steps.push({ step: "human-handoff", ok: true });
         return humanTicketWorkflowRunner(
@@ -768,6 +851,52 @@ function humanTicketWorkflowRunner(
 
 function agentOutput(result: commandActivities.WaitForTmuxSessionResult): string {
   return [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
+}
+
+type TicketRunMetadataInput = {
+  readonly phase: string;
+  readonly attempt: number;
+  readonly branch: string;
+  readonly worktreePath: string;
+  readonly run: Pick<
+    commandActivities.StartTmuxCommandResult,
+    "sessionName" | "stdoutLogPath" | "stderrLogPath"
+  > & { readonly promptPath: string };
+  readonly openCodeSession?: string;
+  readonly commit?: string;
+  readonly lastResult: string;
+};
+
+function ticketRunMetadata(input: TicketRunMetadataInput): TicketWorkflowMetadata {
+  return {
+    phase: input.phase,
+    attempt: input.attempt,
+    branch: input.branch,
+    worktree: input.worktreePath,
+    tmuxSession: input.run.sessionName,
+    promptPath: input.run.promptPath,
+    stdoutLog: input.run.stdoutLogPath,
+    stderrLog: input.run.stderrLogPath,
+    openCodeSession: input.openCodeSession ?? "",
+    commit: input.commit ?? "",
+    lastResult: input.lastResult,
+  };
+}
+
+function phaseFromReviewerHandoff(
+  handoff: commandActivities.ReviewerHandoffResult["handoff"],
+): string {
+  switch (handoff) {
+    case "verified":
+      return "verified";
+    case "retry":
+      return "build";
+    case "human":
+      return "human";
+    case "missing":
+    case "ambiguous":
+      return "review";
+  }
 }
 
 function formatOpenCodeSession(title: string | null, sessionId: string | null): string {
