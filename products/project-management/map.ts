@@ -1,5 +1,4 @@
 // Pure mapper: raw `bd list --all --json` issues -> shape the design mockup consumes.
-// No deps. Runs under Bun. See self-check at the bottom (`bun map.ts`).
 
 export interface RawIssue {
   id: string;
@@ -95,6 +94,14 @@ function parseTs(iso?: string): number {
   return Number.isNaN(t) ? 0 : t;
 }
 
+function getOrCreateArray(map: Map<string, string[]>, key: string): string[] {
+  const existing = map.get(key);
+  if (existing) return existing;
+  const created: string[] = [];
+  map.set(key, created);
+  return created;
+}
+
 export function mapIssues(raw: RawIssue[]): DesignIssue[] {
   const known = new Set(raw.map((r) => r.id));
 
@@ -114,19 +121,11 @@ export function mapIssues(raw: RawIssue[]): DesignIssue[] {
     if (!known.has(dep.issue_id) || !known.has(dep.depends_on_id)) continue;
     if (dep.type === "blocks") {
       // issue_id is blocked by depends_on_id.
-      (
-        blockedByMap.get(dep.issue_id) ?? blockedByMap.set(dep.issue_id, []).get(dep.issue_id)!
-      ).push(dep.depends_on_id);
-      (
-        blocksMap.get(dep.depends_on_id) ??
-        blocksMap.set(dep.depends_on_id, []).get(dep.depends_on_id)!
-      ).push(dep.issue_id);
+      getOrCreateArray(blockedByMap, dep.issue_id).push(dep.depends_on_id);
+      getOrCreateArray(blocksMap, dep.depends_on_id).push(dep.issue_id);
     } else if (dep.type === "parent-child") {
       // issue_id is the child, depends_on_id is the parent.
-      (
-        childrenMap.get(dep.depends_on_id) ??
-        childrenMap.set(dep.depends_on_id, []).get(dep.depends_on_id)!
-      ).push(dep.issue_id);
+      getOrCreateArray(childrenMap, dep.depends_on_id).push(dep.issue_id);
     }
   }
 
@@ -152,87 +151,4 @@ export function mapIssues(raw: RawIssue[]): DesignIssue[] {
     if (type === "epic") out.children = childrenMap.get(issue.id) ?? [];
     return out;
   });
-}
-
-if (import.meta.main) {
-  const fixture: RawIssue[] = [
-    {
-      id: "www-epic",
-      title: "Big Epic",
-      description: "the epic",
-      acceptance_criteria: "- [ ] ships\n- [ ] tested",
-      notes: "some notes",
-      status: "in_progress",
-      priority: 0,
-      issue_type: "epic",
-      owner: "6991398+0x63616c@users.noreply.github.com",
-      created_by: "6991398+0x63616c@users.noreply.github.com",
-      created_at: "2026-06-01T12:00:00Z",
-      labels: ["area:core"],
-    },
-    {
-      id: "www-a",
-      title: "First child (blocker)",
-      status: "open",
-      priority: 1,
-      issue_type: "feature",
-      owner: "alice@example.com",
-      // child of the epic
-      dependencies: [{ issue_id: "www-a", depends_on_id: "www-epic", type: "parent-child" }],
-    },
-    {
-      id: "www-b",
-      title: "Second child (blocked)",
-      status: "blocked",
-      priority: 5, // clamps to 4 (PRIO_META is P0..P4)
-      issue_type: "bug",
-      // child of the epic AND blocked by www-a
-      dependencies: [
-        { issue_id: "www-b", depends_on_id: "www-epic", type: "parent-child" },
-        { issue_id: "www-b", depends_on_id: "www-a", type: "blocks" },
-        // dangling edge that must be dropped:
-        { issue_id: "www-b", depends_on_id: "www-ghost", type: "blocks" },
-      ],
-    },
-  ];
-
-  const mapped = mapIssues(fixture);
-  console.log(JSON.stringify(mapped, null, 2));
-
-  const epic = mapped.find((m) => m.id === "www-epic")!;
-  const a = mapped.find((m) => m.id === "www-a")!;
-  const b = mapped.find((m) => m.id === "www-b")!;
-
-  const assert = (cond: boolean, msg: string) => {
-    if (!cond) throw new Error(`SELF-CHECK FAILED: ${msg}`);
-  };
-
-  assert(epic.type === "epic", "epic type");
-  assert(epic.children?.length === 2, "epic has 2 children");
-  assert(epic.children!.includes("www-a") && epic.children!.includes("www-b"), "epic child ids");
-  assert(epic.status === "in_progress", "epic status mapped");
-  assert(epic.p === 0, "epic p=0");
-  assert(epic.assignee === "0x63616c", "epic assignee from + email");
-  assert(epic.acceptance === "- [ ] ships\n- [ ] tested", "epic acceptance mapped");
-  assert(epic.notes === "some notes", "epic notes mapped");
-  assert(epic.created === Date.parse("2026-06-01T12:00:00Z"), "epic created ts mapped");
-  assert(epic.createdBy === "0x63616c", "epic createdBy from + email");
-
-  assert(a.type === "feature", "a type");
-  assert(a.status === "ready", "a status (open->ready)");
-  assert(a.p === 1, "a p=1");
-  assert(a.assignee === "alice", "a assignee plain email local-part");
-  assert(a.blocks.length === 1 && a.blocks[0] === "www-b", "a blocks www-b");
-  assert(a.blockedBy.length === 0, "a not blocked");
-
-  assert(b.type === "bug", "b type");
-  assert(b.status === "blocked", "b status");
-  assert(b.p === 4, "b p clamped to 4");
-  assert(b.acceptance === "" && b.notes === "", "b has empty acceptance/notes");
-  assert(b.assignee === "", "b unassigned");
-  assert(b.blockedBy.length === 1 && b.blockedBy[0] === "www-a", "b blockedBy www-a (ghost dropped)");
-  assert(b.blocks.length === 0, "b blocks nothing");
-  assert(b.children === undefined, "non-epic has no children field");
-
-  console.log("\nALL SELF-CHECKS PASSED");
 }

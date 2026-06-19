@@ -11,14 +11,7 @@
 import { join } from "node:path";
 import { mapIssues, type RawIssue } from "./map";
 
-const PORT = Number(process.env.BEADS_UI_PORT ?? 8791);
-// Run bd against the repo root (parent of tools/beads-ui) so it resolves the
-// CC project regardless of which worktree launched us.
-const REPO_ROOT = join(import.meta.dir, "..", "..");
-const SYNC_INTERVAL_MS = Number(process.env.BEADS_UI_SYNC_MS ?? 10_000);
-const PUBLIC = join(import.meta.dir, "public");
-
-type Snapshot = {
+export type Snapshot = {
   issues: RawIssue[];
   lastSyncAt: string | null;
   lastFetchAt: string | null;
@@ -26,17 +19,40 @@ type Snapshot = {
   syncing: boolean;
 };
 
-const snapshot: Snapshot = {
-  issues: [],
-  lastSyncAt: null,
-  lastFetchAt: null,
-  lastError: null,
-  syncing: false,
+export type ServerOptions = {
+  port: number;
+  repoRoot: string;
+  syncIntervalMs: number;
+  publicDir: string;
 };
 
-async function run(cmd: string[], timeoutMs = 60_000): Promise<string> {
-  const proc = Bun.spawn(cmd, {
-    cwd: REPO_ROOT,
+export function defaultServerOptions(): ServerOptions {
+  return {
+    port: Number(process.env.BEADS_UI_PORT ?? 8791),
+    // Run bd against the repo root so it resolves this project regardless of launch cwd.
+    repoRoot: join(import.meta.dir, "..", ".."),
+    syncIntervalMs: Number(process.env.BEADS_UI_SYNC_MS ?? 30_000),
+    publicDir: join(import.meta.dir, "public"),
+  };
+}
+
+export function initialSnapshot(): Snapshot {
+  return {
+    issues: [],
+    lastSyncAt: null,
+    lastFetchAt: null,
+    lastError: null,
+    syncing: false,
+  };
+}
+
+export async function runBdCommand(
+  cmd: readonly string[],
+  repoRoot: string,
+  timeoutMs = 60_000,
+): Promise<string> {
+  const proc = Bun.spawn([...cmd], {
+    cwd: repoRoot,
     stdout: "pipe",
     stderr: "pipe",
     env: { ...process.env },
@@ -54,21 +70,24 @@ async function run(cmd: string[], timeoutMs = 60_000): Promise<string> {
   return stdout;
 }
 
-async function fetchIssues(): Promise<void> {
-  const out = await run(["bd", "list", "--all", "--json", "-n", "0", "--no-pager"]);
+export async function fetchIssues(snapshot: Snapshot, repoRoot: string): Promise<void> {
+  const out = await runBdCommand(
+    ["bd", "list", "--all", "--json", "-n", "0", "--no-pager"],
+    repoRoot,
+  );
   snapshot.issues = JSON.parse(out) as RawIssue[];
   snapshot.lastFetchAt = new Date().toISOString();
 }
 
-async function syncFromRemote(): Promise<void> {
+export async function syncFromRemote(snapshot: Snapshot, repoRoot: string): Promise<void> {
   if (snapshot.syncing) return;
   snapshot.syncing = true;
   try {
     // Pull remote dolt changes (read direction only; we never push from here).
-    await run(["bd", "dolt", "pull"], 90_000).catch((e) => {
+    await runBdCommand(["bd", "dolt", "pull"], repoRoot, 90_000).catch((e: unknown) => {
       snapshot.lastError = `pull: ${String(e)}`;
     });
-    await fetchIssues();
+    await fetchIssues(snapshot, repoRoot);
     snapshot.lastSyncAt = new Date().toISOString();
     if (snapshot.lastError?.startsWith("pull:") !== true) snapshot.lastError = null;
   } catch (e) {
@@ -78,7 +97,7 @@ async function syncFromRemote(): Promise<void> {
   }
 }
 
-function json(data: unknown, status = 200): Response {
+export function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: { "content-type": "application/json", "cache-control": "no-store" },
@@ -96,10 +115,10 @@ const MIME: Record<string, string> = {
   ".woff": "font/woff",
 };
 
-async function serveStatic(pathname: string): Promise<Response> {
+export async function serveStatic(pathname: string, publicDir: string): Promise<Response> {
   // "/" serves the prototype entry.
   const rel = pathname === "/" ? "/Beads.dc.html" : decodeURIComponent(pathname);
-  const file = Bun.file(join(PUBLIC, rel));
+  const file = Bun.file(join(publicDir, rel));
   if (!(await file.exists())) return new Response("not found", { status: 404 });
   const ext = rel.slice(rel.lastIndexOf("."));
   return new Response(file, {
@@ -107,37 +126,64 @@ async function serveStatic(pathname: string): Promise<Response> {
   });
 }
 
-Bun.serve({
-  port: PORT,
-  async fetch(req) {
+export type RequestHandlerOptions = {
+  snapshot: Snapshot;
+  syncFromRemote: () => Promise<void>;
+  serveStatic: (pathname: string) => Promise<Response>;
+};
+
+export function createRequestHandler(
+  options: RequestHandlerOptions,
+): (req: Request) => Promise<Response> {
+  return async (req) => {
     const url = new URL(req.url);
     const p = url.pathname;
 
     if (p === "/api/board-data") {
       return json({
-        issues: mapIssues(snapshot.issues),
+        issues: mapIssues(options.snapshot.issues),
         meta: {
-          lastSyncAt: snapshot.lastSyncAt,
-          lastFetchAt: snapshot.lastFetchAt,
-          lastError: snapshot.lastError,
-          syncing: snapshot.syncing,
-          count: snapshot.issues.length,
+          lastSyncAt: options.snapshot.lastSyncAt,
+          lastFetchAt: options.snapshot.lastFetchAt,
+          lastError: options.snapshot.lastError,
+          syncing: options.snapshot.syncing,
+          count: options.snapshot.issues.length,
         },
       });
     }
 
     if (p === "/api/sync" && req.method === "POST") {
-      await syncFromRemote();
-      return json({ ok: true, lastSyncAt: snapshot.lastSyncAt, error: snapshot.lastError });
+      await options.syncFromRemote();
+      return json({
+        ok: true,
+        lastSyncAt: options.snapshot.lastSyncAt,
+        error: options.snapshot.lastError,
+      });
     }
 
     if (p.startsWith("/api/")) return json({ error: "not found" }, 404);
 
-    return serveStatic(p);
-  },
-});
+    return options.serveStatic(p);
+  };
+}
 
-console.log(`[beads-ui] http://127.0.0.1:${PORT}  (repo: ${REPO_ROOT})`);
+export async function startServer(options = defaultServerOptions()): Promise<void> {
+  const snapshot = initialSnapshot();
+  const handler = createRequestHandler({
+    snapshot,
+    syncFromRemote: () => syncFromRemote(snapshot, options.repoRoot),
+    serveStatic: (pathname) => serveStatic(pathname, options.publicDir),
+  });
 
-await syncFromRemote();
-setInterval(syncFromRemote, SYNC_INTERVAL_MS);
+  Bun.serve({
+    port: options.port,
+    fetch: handler,
+  });
+
+  console.warn(`[beads-ui] http://127.0.0.1:${options.port}  (repo: ${options.repoRoot})`);
+
+  await syncFromRemote(snapshot, options.repoRoot);
+  setInterval(() => void syncFromRemote(snapshot, options.repoRoot), options.syncIntervalMs);
+}
+
+if (import.meta.main) await startServer();
