@@ -21,10 +21,11 @@ describe("Temporal dev stack", () => {
 
   it("keeps Tilt resource ordering explicit", async () => {
     const tiltfile = await readProjectFile("Tiltfile");
-
     expect(tiltfile).toContain("docker_compose('docker-compose.temporal.yml')");
     expect(tiltfile).toContain("resource_deps=['install', 'temporal-postgres']");
-    expect(tiltfile).toContain("resource_deps=['install', 'temporal']");
+    expect(tiltfile).toContain("'temporal-ready'");
+    expect(tiltfile).toContain("resource_deps=['install', 'temporal-ready']");
     expect(tiltfile).toContain("resource_deps=['install', 'worker']");
+    expect(tiltfile).toContain("temporal operator cluster health");
   });
 });

@@ -82,6 +82,13 @@ dc_resource(
 )
 
 local_resource(
+    'temporal-ready',
+    cmd='docker compose -f docker-compose.temporal.yml exec -T temporal temporal operator cluster health --address 127.0.0.1:%d' % TEMPORAL_PORT,
+    resource_deps=['temporal'],
+    labels=['worker'],
+)
+
+local_resource(
     'worker',
     serve_cmd='bun run worker:temporal',
     deps=PROJECT_CONFIG_DEPS + PROJECT_TS_DEPS,
@@ -90,7 +97,7 @@ local_resource(
         'TEMPORAL_NAMESPACE': TEMPORAL_NAMESPACE,
         'TEMPORAL_TASK_QUEUE': TEMPORAL_TASK_QUEUE,
     },
-    resource_deps=['install', 'temporal'],
+    resource_deps=['install', 'temporal-ready'],
     labels=['worker'],
 )
 
