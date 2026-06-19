@@ -100,7 +100,7 @@ cmd_button(
         'bunx cap run ios --live-reload --host localhost --port %d --target-name "iPhone 17 Pro Max"' % WEB_PORT,
     ],
     resource='frontend',
-    icon_name='phone_iphone',
+    icon_name='developer_mode',
     text='iOS Simulator',
 )
 
@@ -109,6 +109,6 @@ cmd_button(
     'ios-phone',
     argv=['scripts/run-on-iphone.sh'],
     resource='frontend',
-    icon_name='iphone',
+    icon_name='phone_iphone',
     text='Run on iPhone',
 )
