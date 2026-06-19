@@ -10,6 +10,7 @@ It runs the Claude Design `Beads.dc.html` prototype (worldwidewebb design system
 bun run dev            # serves on http://127.0.0.1:8791
 bun run start          # same server, non-watch
 bun run dev:temporal   # starts Temporal dev server plus the project-management worker
+tilt up                # starts the UI, Temporal dev server, and Temporal worker
 bun run test           # Vitest unit tests for mapper/server/workflow helpers
 bun run typecheck      # TypeScript check for the standalone product
 ```

@@ -1,0 +1,74 @@
+# Tiltfile - run Project Management locally.
+#
+#   tilt up        starts the UI (:8791), Temporal (:7233), and worker
+#   tilt down      stops the local processes
+#
+# Open the app at http://127.0.0.1:8791
+
+load('ext://uibutton', 'cmd_button')
+
+UI_PORT = 8791
+TEMPORAL_PORT = 7233
+TEMPORAL_NAMESPACE = 'project-management'
+TEMPORAL_TASK_QUEUE = 'project-management'
+TEMPORAL_ADDRESS = '127.0.0.1:%d' % TEMPORAL_PORT
+
+local_resource(
+    'install',
+    cmd='bun install --frozen-lockfile',
+    deps=['package.json', '../../bun.lock'],
+    labels=['setup'],
+)
+
+local_resource(
+    'temporal',
+    serve_cmd='bun run temporal:server',
+    resource_deps=['install'],
+    readiness_probe=probe(
+        period_secs=2,
+        tcp_socket=tcp_socket_action(port=TEMPORAL_PORT),
+    ),
+    labels=['worker'],
+)
+
+local_resource(
+    'worker',
+    serve_cmd='bun run worker:temporal',
+    serve_env={
+        'TEMPORAL_ADDRESS': TEMPORAL_ADDRESS,
+        'TEMPORAL_NAMESPACE': TEMPORAL_NAMESPACE,
+        'TEMPORAL_TASK_QUEUE': TEMPORAL_TASK_QUEUE,
+    },
+    resource_deps=['install', 'temporal'],
+    labels=['worker'],
+)
+
+local_resource(
+    'ui',
+    serve_cmd='bun run dev',
+    serve_env={
+        'BEADS_UI_PORT': str(UI_PORT),
+        'TEMPORAL_ADDRESS': TEMPORAL_ADDRESS,
+        'TEMPORAL_NAMESPACE': TEMPORAL_NAMESPACE,
+    },
+    resource_deps=['install', 'worker'],
+    readiness_probe=probe(
+        period_secs=2,
+        http_get=http_get_action(port=UI_PORT, path='/'),
+    ),
+    links=[
+        link('http://127.0.0.1:%d' % UI_PORT, 'app'),
+        link('http://127.0.0.1:%d/api/board-data' % UI_PORT, 'board data'),
+    ],
+    labels=['app'],
+)
+
+cmd_button(
+    'sync-beads',
+    argv=['sh', '-c', 'curl -fsS -X POST http://127.0.0.1:%d/api/sync >/dev/null' % UI_PORT],
+    resource='ui',
+    icon_name='sync',
+    text='Sync Beads',
+)
+
+print('Project Management - UI on :%d, Temporal on :%d' % (UI_PORT, TEMPORAL_PORT))
