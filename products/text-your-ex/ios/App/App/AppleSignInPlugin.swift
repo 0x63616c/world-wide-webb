@@ -22,13 +22,9 @@ public class AppleSignInPlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         let attemptId = call.getString("attemptId") ?? "attempt_unknown"
-        let state = call.getString("state") ?? "state_unknown"
-        let nonce = call.getString("nonce") ?? "nonce_unknown"
 
         let request = ASAuthorizationAppleIDProvider().createRequest()
         request.requestedScopes = [.fullName, .email]
-        request.state = state
-        request.nonce = nonce
 
         let controller = ASAuthorizationController(authorizationRequests: [request])
         controller.delegate = self
