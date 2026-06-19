@@ -363,23 +363,57 @@
             </sc-if>
           </div>
 
-          <div style="display:flex; flex-direction:column; gap:9px;">
-            <span class="cap">Status</span>
-            <div style="display:flex; gap:7px; flex-wrap:wrap;">
-              <sc-for list="{{ selected.statusOptions }}" as="opt" hint-placeholder-count="4">
-                <button class="bd-seg" onClick="{{ opt.onClick }}" style="{{ opt.style }}">{{ opt.label }}</button>
-              </sc-for>
+          <sc-if value="{{ selected.hasWorkflowControls }}">
+            <div style="display:flex; flex-direction:column; gap:10px; padding:13px; background:var(--nest); border:1px solid var(--hair); border-radius:13px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                  <span class="cap">Workflow controls</span>
+                  <span class="mono" style="font-size:11px; color:var(--ink-3);">{{ selected.workflowPhaseLabel }}</span>
+                </div>
+                <span class="mono" style="font-size:11px; color:var(--ink-3);">{{ workflowControlStatus }}</span>
+              </div>
+              <div style="display:flex; gap:7px; flex-wrap:wrap;">
+                <sc-for list="{{ selected.workflowControls }}" as="ctl" hint-placeholder-count="5">
+                  <button class="bd-seg" onClick="{{ ctl.onClick }}" style="{{ ctl.style }}">{{ ctl.label }}</button>
+                </sc-for>
+              </div>
+              <sc-if value="{{ selected.hasTmux }}">
+                <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                  <code style="flex:1 1 auto; min-width:0; font-size:11px; color:var(--ink-2); background:var(--tile); border:1px solid var(--hair); border-radius:8px; padding:7px 9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ selected.tmuxAttachCommand }}</code>
+                  <button class="bd-seg" onClick="{{ selected.copyTmux }}" style="white-space:nowrap;">Copy tmux</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ selected.hasWorkflowLinks }}">
+                <div style="display:flex; gap:7px; flex-wrap:wrap;">
+                  <sc-for list="{{ selected.workflowLinks }}" as="lnk" hint-placeholder-count="3">
+                    <a class="bd-link mono" href="{{ lnk.href }}" target="_blank" rel="noreferrer" onClick="{{ lnk.onClick }}" style="font-size:11px; color:var(--acc-line); text-decoration:none;">{{ lnk.label }}</a>
+                  </sc-for>
+                </div>
+              </sc-if>
             </div>
-          </div>
+          </sc-if>
 
-          <div style="display:flex; flex-direction:column; gap:9px;">
-            <span class="cap">Priority</span>
-            <div style="display:flex; gap:7px; flex-wrap:wrap;">
-              <sc-for list="{{ selected.prioOptions }}" as="opt" hint-placeholder-count="4">
-                <button class="bd-seg" onClick="{{ opt.onClick }}" style="{{ opt.style }}">{{ opt.label }}</button>
-              </sc-for>
+          <sc-if value="{{ selected.showDirectEdit }}">
+            <div style="display:flex; flex-direction:column; gap:9px;">
+              <span class="cap">Status</span>
+              <div style="display:flex; gap:7px; flex-wrap:wrap;">
+                <sc-for list="{{ selected.statusOptions }}" as="opt" hint-placeholder-count="4">
+                  <button class="bd-seg" onClick="{{ opt.onClick }}" style="{{ opt.style }}">{{ opt.label }}</button>
+                </sc-for>
+              </div>
             </div>
-          </div>
+          </sc-if>
+
+          <sc-if value="{{ selected.showDirectEdit }}">
+            <div style="display:flex; flex-direction:column; gap:9px;">
+              <span class="cap">Priority</span>
+              <div style="display:flex; gap:7px; flex-wrap:wrap;">
+                <sc-for list="{{ selected.prioOptions }}" as="opt" hint-placeholder-count="4">
+                  <button class="bd-seg" onClick="{{ opt.onClick }}" style="{{ opt.style }}">{{ opt.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
             <div style="display:flex; flex-direction:column; gap:6px;">
@@ -628,6 +662,7 @@ class Component extends DCLogic {
     issues: [],
     workflowDashboard: null,
     workflowQueueFilter: 'all',
+    workflowControlStatus: '',
     loaded: false,
     lastSync: null,
     now: Date.now()
@@ -761,6 +796,34 @@ class Component extends DCLogic {
   updateIssue(id, patch) {
     const issues = this.state.issues.map((x) => (x.id === id ? { ...x, ...patch } : x));
     this.setState({ issues });
+  }
+
+  workflowFileHref(path) {
+    if (!path) return '#';
+    if (/^https?:\/\//.test(path)) return path;
+    return '/api/workflow-log?path=' + encodeURIComponent(path);
+  }
+
+  workflowAction(ticketId, action) {
+    const reason = action === 'mark-human' ? (window.prompt('Why mark this ticket human?') || 'Marked human from UI') : undefined;
+    this.setState({ workflowControlStatus: action + '…' });
+    fetch('/api/workflow-control', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ticketId, action, reason })
+    })
+      .then((r) => { if (!r.ok) throw new Error('workflow control failed'); return r.json(); })
+      .then(() => { this.setState({ workflowControlStatus: action + ' sent' }); this.loadData(); })
+      .catch((err) => { console.error('[beads-ui] workflow control failed:', err); this.setState({ workflowControlStatus: action + ' failed' }); });
+  }
+
+  copyText(text) {
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => this.setState({ workflowControlStatus: 'tmux copied' })).catch(() => this.setState({ workflowControlStatus: text }));
+      return;
+    }
+    this.setState({ workflowControlStatus: text });
   }
 
   setView(v) { this.setState({ view: v }); }
@@ -968,7 +1031,7 @@ class Component extends DCLogic {
         const tm = TYPE_META[it.type] || TYPE_META.task;
         const pb = this.prioBadge(it.p);
         const wf = workflowIssue(it.id);
-        const link = (kind, href) => ({ label: kind, href, onClick: (e) => e.stopPropagation() });
+        const link = (kind, href) => ({ label: kind, href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() });
         const links = wf ? [ ...(wf.logLinks || []).map((href) => link('log', href)), ...(wf.promptLinks || []).map((href) => link('prompt', href)) ] : [];
         const runColor = wf ? (workflowAccent[wf.queue] || 'var(--acc)') : 'var(--acc)';
         return {
@@ -1035,6 +1098,16 @@ class Component extends DCLogic {
         { text: sel.assignee ? 'Claimed by ' + sel.assignee : 'Awaiting assignment', meta: (sel.assignee ? 'assignee set' : 'unassigned') + (sel.startedAt ? ' · ' + this.fmtDate(sel.startedAt) : '') },
         { text: 'Status set to ' + (STATUS_META[sel.status] || STATUS_META.ready).label, meta: 'updated · ' + this.fmtDate(sel.ts) }
       ];
+      const wf = workflowIssue(sel.id);
+      const workflowLinks = wf ? [
+        ...(wf.logLinks || []).map((href) => ({ label: 'log', href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() })),
+        ...(wf.promptLinks || []).map((href) => ({ label: 'prompt', href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() }))
+      ] : [];
+      const workflowButton = (label, action, color) => ({
+        label,
+        onClick: () => this.workflowAction(sel.id, action),
+        style: { display: 'inline-flex', alignItems: 'center', padding: '7px 12px', borderRadius: 9, fontSize: 12.5, fontWeight: 500, fontFamily: 'var(--ui)', cursor: 'pointer', background: 'var(--tile-2)', border: '1px solid ' + color, color, transition: 'all .14s ease' }
+      });
       selected = {
         id: sel.id, idLabel: sel.id.toUpperCase(), title: sel.title,
         backdropAnim: st.detailClosing ? 'bdFadeOut .18s ease forwards' : 'bdFadeIn .18s ease',
@@ -1051,7 +1124,18 @@ class Component extends DCLogic {
         createdLabel: this.fmtDate(sel.created), updatedLabel: this.fmtDate(sel.ts),
         createdAge: this.relTime(sel.created),
         createdBy: sel.createdBy || '-', hasCreatedBy: !!(sel.createdBy && sel.createdBy.trim()),
-        statusOptions, prioOptions,
+        statusOptions, prioOptions, showDirectEdit: !wf,
+        hasWorkflowControls: !!wf,
+        workflowPhaseLabel: wf ? 'phase ' + wf.phase : '',
+        workflowControls: wf ? [
+          workflowButton('Pause', 'pause', '#f4c063'),
+          workflowButton('Resume', 'resume', '#3fb950'),
+          workflowButton('Retry', 'retry', '#0070f3'),
+          workflowButton('Mark human', 'mark-human', '#f85149')
+        ] : [],
+        hasTmux: !!(wf && wf.tmuxAttachCommand), tmuxAttachCommand: wf ? wf.tmuxAttachCommand : '',
+        copyTmux: wf ? () => this.copyText(wf.tmuxAttachCommand || '') : () => {},
+        hasWorkflowLinks: workflowLinks.length > 0, workflowLinks,
         isDirty: this.isDirty(), saveDraft: () => this.saveDraft(),
         depRows, hasDeps: depRows.length > 0, noDeps: depRows.length === 0,
         activity
@@ -1097,6 +1181,7 @@ class Component extends DCLogic {
       hasMilestoneFilter: st.epicFilter !== 'all',
 
       hasSelected: !!selected, selected, closeDetail: () => this.closeDetail(),
+      workflowControlStatus: st.workflowControlStatus,
       confirmClose: st.confirmClose, discardAndClose: () => this.discardAndClose(), cancelConfirm: () => this.setState({ confirmClose: false }),
 
       newOpen: st.newOpen, closeNew: () => this.closeNew(), createIssue: () => this.createIssue(),

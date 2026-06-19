@@ -1,5 +1,9 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createRequestHandler, initialSnapshot, type Snapshot } from "./server";
+import type { WorkflowControlClient, WorkflowControlRequest } from "./workflow-control";
 
 describe("createRequestHandler", () => {
   it("serves mapped board data from the current snapshot", async () => {
@@ -18,6 +22,8 @@ describe("createRequestHandler", () => {
     };
     const handler = createRequestHandler({
       snapshot,
+      workflowControlClient: fakeWorkflowControlClient(),
+      workflowLogRoots: [],
       syncFromRemote: async () => {},
       serveStatic: async () => new Response("static"),
     });
@@ -52,6 +58,8 @@ describe("createRequestHandler", () => {
     const snapshot = initialSnapshot();
     const handler = createRequestHandler({
       snapshot,
+      workflowControlClient: fakeWorkflowControlClient(),
+      workflowLogRoots: [],
       syncFromRemote: async () => {
         syncCount += 1;
         snapshot.lastSyncAt = "2026-06-01T12:00:00.000Z";
@@ -73,4 +81,98 @@ describe("createRequestHandler", () => {
       error: null,
     });
   });
+
+  it.each([
+    ["pause", undefined],
+    ["resume", undefined],
+    ["retry", undefined],
+    ["mark-human", "Needs Calum"],
+  ] as const)("signals Temporal for %s workflow controls", async (action, reason) => {
+    const calls: WorkflowControlRequest[] = [];
+    const handler = createRequestHandler({
+      snapshot: initialSnapshot(),
+      workflowControlClient: fakeWorkflowControlClient(calls),
+      workflowLogRoots: [],
+      syncFromRemote: async () => {},
+      serveStatic: async () => new Response("static"),
+    });
+
+    const response = await handler(
+      new Request("http://127.0.0.1/api/workflow-control", {
+        method: "POST",
+        body: JSON.stringify({ ticketId: "www-3agy.14", action, reason }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(calls).toEqual([{ ticketId: "www-3agy.14", action, reason }]);
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      result: {
+        ticketId: "www-3agy.14",
+        workflowId: "ticket_www-3agy.14",
+        action,
+        signaled: true,
+      },
+    });
+  });
+
+  it("rejects invalid workflow control payloads before signaling", async () => {
+    const calls: WorkflowControlRequest[] = [];
+    const handler = createRequestHandler({
+      snapshot: initialSnapshot(),
+      workflowControlClient: fakeWorkflowControlClient(calls),
+      workflowLogRoots: [],
+      syncFromRemote: async () => {},
+      serveStatic: async () => new Response("static"),
+    });
+
+    const response = await handler(
+      new Request("http://127.0.0.1/api/workflow-control", {
+        method: "POST",
+        body: JSON.stringify({ ticketId: "www-3agy.14", action: "close" }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(calls).toEqual([]);
+  });
+
+  it("serves workflow logs only from configured log roots", async () => {
+    const logRoot = await mkdtemp(join(tmpdir(), "project-management-logs-"));
+    const logPath = join(logRoot, "ticket_www-3agy.14_build_1.stdout.log");
+    await writeFile(logPath, "builder output");
+    const handler = createRequestHandler({
+      snapshot: initialSnapshot(),
+      workflowControlClient: fakeWorkflowControlClient(),
+      workflowLogRoots: [logRoot],
+      syncFromRemote: async () => {},
+      serveStatic: async () => new Response("static"),
+    });
+
+    const ok = await handler(
+      new Request(`http://127.0.0.1/api/workflow-log?path=${encodeURIComponent(logPath)}`),
+    );
+    const outside = await handler(
+      new Request("http://127.0.0.1/api/workflow-log?path=/etc/passwd"),
+    );
+
+    expect(ok.status).toBe(200);
+    await expect(ok.text()).resolves.toBe("builder output");
+    expect(outside.status).toBe(403);
+  });
 });
+
+function fakeWorkflowControlClient(calls: WorkflowControlRequest[] = []): WorkflowControlClient {
+  return {
+    async signalTicketWorkflow(request) {
+      calls.push(request);
+      return {
+        ticketId: request.ticketId,
+        workflowId: `ticket_${request.ticketId}`,
+        action: request.action,
+        signaled: true,
+      };
+    },
+  };
+}

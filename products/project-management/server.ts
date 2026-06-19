@@ -8,9 +8,16 @@
  * it never writes issues. /api/board-data returns the issues mapped into the
  * exact shape the prototype consumes (see map.ts).
  */
-import { join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { mapIssues, type RawIssue } from "./map";
+import { defaultRuntimeLogRoot } from "./temporal/command-activities";
 import { workflowDashboardForIssues } from "./workflow";
+import {
+  createTemporalWorkflowControlClient,
+  isWorkflowControlAction,
+  type WorkflowControlClient,
+} from "./workflow-control";
 
 export type Snapshot = {
   issues: RawIssue[];
@@ -25,6 +32,7 @@ export type ServerOptions = {
   repoRoot: string;
   syncIntervalMs: number;
   publicDir: string;
+  workflowLogRoots: readonly string[];
 };
 
 export function defaultServerOptions(): ServerOptions {
@@ -34,6 +42,10 @@ export function defaultServerOptions(): ServerOptions {
     repoRoot: join(import.meta.dir, "..", ".."),
     syncIntervalMs: Number(process.env.BEADS_UI_SYNC_MS ?? 30_000),
     publicDir: join(import.meta.dir, "public"),
+    workflowLogRoots: [
+      defaultRuntimeLogRoot(),
+      join(import.meta.dir, "..", "..", ".tickets", "logs"),
+    ],
   };
 }
 
@@ -150,6 +162,8 @@ export async function serveStatic(pathname: string, publicDir: string): Promise<
 
 export type RequestHandlerOptions = {
   snapshot: Snapshot;
+  workflowControlClient: WorkflowControlClient;
+  workflowLogRoots: readonly string[];
   syncFromRemote: () => Promise<void>;
   serveStatic: (pathname: string) => Promise<Response>;
 };
@@ -185,16 +199,85 @@ export function createRequestHandler(
       });
     }
 
+    if (p === "/api/workflow-control" && req.method === "POST") {
+      return handleWorkflowControl(req, options.workflowControlClient);
+    }
+
+    if (p === "/api/workflow-log") {
+      return serveWorkflowLog(url.searchParams.get("path"), options.workflowLogRoots);
+    }
+
     if (p.startsWith("/api/")) return json({ error: "not found" }, 404);
 
     return options.serveStatic(p);
   };
 }
 
+async function serveWorkflowLog(
+  path: string | null,
+  workflowLogRoots: readonly string[],
+): Promise<Response> {
+  if (!path) return new Response("path is required", { status: 400 });
+  const resolvedPath = resolve(path);
+  const allowed = workflowLogRoots.map((root) => resolve(root));
+  if (!allowed.some((root) => resolvedPath === root || resolvedPath.startsWith(`${root}/`))) {
+    return new Response("log path is outside allowed roots", { status: 403 });
+  }
+
+  try {
+    const text = await readFile(resolvedPath, "utf8");
+    return new Response(text, { headers: { "content-type": "text/plain; charset=utf-8" } });
+  } catch {
+    return new Response("not found", { status: 404 });
+  }
+}
+
+async function handleWorkflowControl(
+  req: Request,
+  workflowControlClient: WorkflowControlClient,
+): Promise<Response> {
+  const body = await parseJsonObject(req);
+  const ticketId = stringBodyField(body, "ticketId");
+  const action = stringBodyField(body, "action");
+  const reason = stringBodyField(body, "reason", false);
+
+  if (!ticketId || !action || !isWorkflowControlAction(action)) {
+    return json({ error: "ticketId and valid action are required" }, 400);
+  }
+
+  const result = await workflowControlClient.signalTicketWorkflow({ ticketId, action, reason });
+  return json({ ok: true, result });
+}
+
+async function parseJsonObject(req: Request): Promise<Record<string, unknown>> {
+  try {
+    const parsed: unknown = await req.json();
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function stringBodyField(
+  body: Record<string, unknown>,
+  key: string,
+  required = true,
+): string | undefined {
+  const value = body[key];
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (trimmed) return trimmed;
+  return required ? undefined : "";
+}
+
 export async function startServer(options = defaultServerOptions()): Promise<void> {
   const snapshot = initialSnapshot();
   const handler = createRequestHandler({
     snapshot,
+    workflowControlClient: createTemporalWorkflowControlClient(),
+    workflowLogRoots: options.workflowLogRoots,
     syncFromRemote: () => syncFromRemote(snapshot, options.repoRoot),
     serveStatic: (pathname) => serveStatic(pathname, options.publicDir),
   });
