@@ -108,7 +108,9 @@ function workflowDashboardIssue(
     phase,
     activeRun: activeRunForPhase(metadataPhase),
     assignee: issue.assignee,
-    attempts: numberMeta(metadata, TICKET_METADATA_KEYS.attempts),
+    attempts:
+      numberMeta(metadata, TICKET_METADATA_KEYS.attempt) ??
+      numberMeta(metadata, TICKET_METADATA_KEYS.attempts),
     tmuxSession,
     tmuxAttachCommand: tmuxSession ? `tmux attach -t ${tmuxSession}` : null,
     openCodeSessionId: openCode.id,
