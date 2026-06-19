@@ -121,7 +121,7 @@ function workflowDashboardIssue(
     queue: queue.id,
     queueLabel: queue.label,
     phase,
-    activeRun: activeRunForPhase(phase),
+    activeRun: activeRunForPhase(queue.id, phase),
     assignee: issue.assignee,
     attempts: numberMeta(metadata, TICKET_METADATA_KEYS.attempts),
     tmuxSession,
@@ -211,17 +211,13 @@ function fallbackPhaseForIssue(
   return issue.labels.includes(TICKET_WORKFLOW_LABELS.retry) ? "build" : phaseFromQueue(queue);
 }
 
-function activeRunForPhase(phase: string | null): WorkflowDashboardRunRole | null {
-  switch (phase) {
-    case "build":
-      return "builder";
-    case "review":
-      return "reviewer";
-    case "merge":
-      return "merge";
-    default:
-      return null;
-  }
+function activeRunForPhase(
+  queue: WorkflowDashboardQueueId,
+  phase: string | null,
+): WorkflowDashboardRunRole | null {
+  if (queue === "ready" && phase === "build") return "builder";
+  if (queue === "review" && phase === "review") return "reviewer";
+  return null;
 }
 
 function stringMeta(metadata: Record<string, unknown>, key: string): string | null {
