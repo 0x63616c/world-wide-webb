@@ -5,11 +5,11 @@
   "description": "Live web UI for this project's beads issues (Claude Design prototype wired to bd).",
   "scripts": {
     "start": "bun run server.ts",
-    "dev": "bun run server.ts",
+    "dev": "bun --watch server.ts",
     "dev:temporal": "bun run scripts/start-temporal-dev.ts",
     "temporal:server": "mkdir -p .temporal && temporal server start-dev --namespace project-management --db-filename .temporal/project-management.db",
     "queue:temporal": "bun run temporal/start-ticket-queue.ts",
-    "worker:temporal": "bun run temporal/worker.ts",
+    "worker:temporal": "bun --watch temporal/worker.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

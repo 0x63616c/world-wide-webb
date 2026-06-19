@@ -17,6 +17,8 @@ bun run typecheck      # TypeScript check for the standalone product
 
 Then open `http://127.0.0.1:8791/`.
 
+`bun run dev` and `bun run worker:temporal` use Bun watch mode, so server and worker source edits restart their own process. `temporal:server` is not watched; it persists workflow state in `.temporal/project-management.db` and should only be restarted when the Temporal server itself needs to change.
+
 Env: `BEADS_UI_PORT` (default 8791), `BEADS_UI_SYNC_MS` (default 30000).
 
 ## Manual ticket artifact cleanup
@@ -63,6 +65,7 @@ Worker env: `TEMPORAL_ADDRESS` (default `127.0.0.1:7233`), `TEMPORAL_NAMESPACE` 
 
 - `server.ts` - Bun server, no deps. Shells `bd list --all --json` against the repo root and keeps an in-memory snapshot. Every 30s it runs `bd dolt pull` (read-only) then re-lists, so the UI tracks the dolt **remote**. It never writes or pushes issues.
 - `temporal:server` - starts Temporal dev server with `--db-filename .temporal/project-management.db`, so local workflow executions survive Temporal server restarts. The `.temporal/` directory is repo-local and gitignored.
+- `worker:temporal` - starts the local Temporal worker in Bun watch mode, so activity/worker code edits restart the worker. Active workflow executions keep their history in Temporal; deterministic workflow definition changes may still require starting a new execution.
 - `map.ts` - pure mapper from raw `bd` issues to the prototype's shape (status/type/priority + the blockedBy/blocks/epic-children graph from bd dependencies). Covered by `map.test.ts`.
 - `workflow.ts` - pure workflow-column helper for testable UI/workflow logic before Temporal lands.
 - `temporal/` - Temporal runtime scaffold with deterministic workflows separated from non-deterministic activities.
