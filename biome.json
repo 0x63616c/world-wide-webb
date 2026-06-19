@@ -56,7 +56,7 @@
       "!**/experiments",
       "!**/docs/media-tiles",
       "!**/docs/captive-portal/design",
-      "!**/products/project-management",
+      "!**/products/project-management/public",
       "!**/DerivedData",
       "!**/ios/App/App/public/assets"
     ]
@@ -79,6 +79,10 @@
     },
     {
       "includes": ["**/packages/logger/src/**"],
+      "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
+    },
+    {
+      "includes": ["**/products/project-management/server.ts"],
       "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
     },
     {

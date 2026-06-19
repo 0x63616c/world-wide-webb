@@ -18,6 +18,10 @@
     "remember": {
       "description": "Save a durable memory globally by default, or locally with --local",
       "template": "Use the remember skill to save a durable memory. Arguments: $ARGUMENTS"
+    },
+    "ticket": {
+      "description": "Create or update Beads tickets through the canonical writing-tickets workflow",
+      "template": "Use the writing-tickets skill to create or update Beads tickets immediately. Arguments: $ARGUMENTS"
     }
   },
   "permission": {

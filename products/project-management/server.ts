@@ -8,17 +8,19 @@
  * it never writes issues. /api/board-data returns the issues mapped into the
  * exact shape the prototype consumes (see map.ts).
  */
-import { join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { mapIssues, type RawIssue } from "./map";
+import { defaultRuntimeLogRoot } from "./temporal/command-activities";
+import { workflowDashboardForIssues } from "./workflow";
+import {
+  createTemporalWorkflowControlClient,
+  isWorkflowControlAction,
+  type WorkflowControlClient,
+} from "./workflow-control";
+import { workflowMetricsForIssues } from "./workflow-metrics";
 
-const PORT = Number(process.env.BEADS_UI_PORT ?? 8791);
-// Run bd against the repo root (parent of tools/beads-ui) so it resolves the
-// CC project regardless of which worktree launched us.
-const REPO_ROOT = join(import.meta.dir, "..", "..");
-const SYNC_INTERVAL_MS = Number(process.env.BEADS_UI_SYNC_MS ?? 10_000);
-const PUBLIC = join(import.meta.dir, "public");
-
-type Snapshot = {
+export type Snapshot = {
   issues: RawIssue[];
   lastSyncAt: string | null;
   lastFetchAt: string | null;
@@ -26,17 +28,45 @@ type Snapshot = {
   syncing: boolean;
 };
 
-const snapshot: Snapshot = {
-  issues: [],
-  lastSyncAt: null,
-  lastFetchAt: null,
-  lastError: null,
-  syncing: false,
+export type ServerOptions = {
+  port: number;
+  repoRoot: string;
+  syncIntervalMs: number;
+  publicDir: string;
+  workflowLogRoots: readonly string[];
 };
 
-async function run(cmd: string[], timeoutMs = 60_000): Promise<string> {
-  const proc = Bun.spawn(cmd, {
-    cwd: REPO_ROOT,
+export function defaultServerOptions(): ServerOptions {
+  return {
+    port: Number(process.env.BEADS_UI_PORT ?? 8791),
+    // Run bd against the repo root so it resolves this project regardless of launch cwd.
+    repoRoot: join(import.meta.dir, "..", ".."),
+    syncIntervalMs: Number(process.env.BEADS_UI_SYNC_MS ?? 30_000),
+    publicDir: join(import.meta.dir, "public"),
+    workflowLogRoots: [
+      defaultRuntimeLogRoot(),
+      join(import.meta.dir, "..", "..", ".tickets", "logs"),
+    ],
+  };
+}
+
+export function initialSnapshot(): Snapshot {
+  return {
+    issues: [],
+    lastSyncAt: null,
+    lastFetchAt: null,
+    lastError: null,
+    syncing: false,
+  };
+}
+
+export async function runBdCommand(
+  cmd: readonly string[],
+  repoRoot: string,
+  timeoutMs = 60_000,
+): Promise<string> {
+  const proc = Bun.spawn([...cmd], {
+    cwd: repoRoot,
     stdout: "pipe",
     stderr: "pipe",
     env: { ...process.env },
@@ -54,21 +84,45 @@ async function run(cmd: string[], timeoutMs = 60_000): Promise<string> {
   return stdout;
 }
 
-async function fetchIssues(): Promise<void> {
-  const out = await run(["bd", "list", "--all", "--json", "-n", "0", "--no-pager"]);
-  snapshot.issues = JSON.parse(out) as RawIssue[];
+export async function fetchIssues(snapshot: Snapshot, repoRoot: string): Promise<void> {
+  const out = await runBdCommand(
+    ["bd", "list", "--all", "--json", "-n", "0", "--no-pager"],
+    repoRoot,
+  );
+  const listedIssues = parseRawIssues(out);
+  snapshot.issues = await fetchIssueDetails(listedIssues, repoRoot);
   snapshot.lastFetchAt = new Date().toISOString();
 }
 
-async function syncFromRemote(): Promise<void> {
+async function fetchIssueDetails(listedIssues: RawIssue[], repoRoot: string): Promise<RawIssue[]> {
+  if (listedIssues.length === 0) return [];
+  try {
+    const out = await runBdCommand(
+      ["bd", "show", ...listedIssues.map((issue) => issue.id), "--json", "--include-comments"],
+      repoRoot,
+      90_000,
+    );
+    const detailedIssues = parseRawIssues(out);
+    return detailedIssues.length > 0 ? detailedIssues : listedIssues;
+  } catch {
+    return listedIssues;
+  }
+}
+
+function parseRawIssues(stdout: string): RawIssue[] {
+  const parsed: unknown = JSON.parse(stdout);
+  return Array.isArray(parsed) ? (parsed as RawIssue[]) : [];
+}
+
+export async function syncFromRemote(snapshot: Snapshot, repoRoot: string): Promise<void> {
   if (snapshot.syncing) return;
   snapshot.syncing = true;
   try {
     // Pull remote dolt changes (read direction only; we never push from here).
-    await run(["bd", "dolt", "pull"], 90_000).catch((e) => {
+    await runBdCommand(["bd", "dolt", "pull"], repoRoot, 90_000).catch((e: unknown) => {
       snapshot.lastError = `pull: ${String(e)}`;
     });
-    await fetchIssues();
+    await fetchIssues(snapshot, repoRoot);
     snapshot.lastSyncAt = new Date().toISOString();
     if (snapshot.lastError?.startsWith("pull:") !== true) snapshot.lastError = null;
   } catch (e) {
@@ -78,7 +132,7 @@ async function syncFromRemote(): Promise<void> {
   }
 }
 
-function json(data: unknown, status = 200): Response {
+export function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: { "content-type": "application/json", "cache-control": "no-store" },
@@ -96,10 +150,10 @@ const MIME: Record<string, string> = {
   ".woff": "font/woff",
 };
 
-async function serveStatic(pathname: string): Promise<Response> {
+export async function serveStatic(pathname: string, publicDir: string): Promise<Response> {
   // "/" serves the prototype entry.
   const rel = pathname === "/" ? "/Beads.dc.html" : decodeURIComponent(pathname);
-  const file = Bun.file(join(PUBLIC, rel));
+  const file = Bun.file(join(publicDir, rel));
   if (!(await file.exists())) return new Response("not found", { status: 404 });
   const ext = rel.slice(rel.lastIndexOf("."));
   return new Response(file, {
@@ -107,37 +161,138 @@ async function serveStatic(pathname: string): Promise<Response> {
   });
 }
 
-Bun.serve({
-  port: PORT,
-  async fetch(req) {
+export type RequestHandlerOptions = {
+  snapshot: Snapshot;
+  workflowControlClient: WorkflowControlClient;
+  workflowLogRoots: readonly string[];
+  syncFromRemote: () => Promise<void>;
+  serveStatic: (pathname: string) => Promise<Response>;
+};
+
+export function createRequestHandler(
+  options: RequestHandlerOptions,
+): (req: Request) => Promise<Response> {
+  return async (req) => {
     const url = new URL(req.url);
     const p = url.pathname;
 
     if (p === "/api/board-data") {
+      const issues = mapIssues(options.snapshot.issues);
       return json({
-        issues: mapIssues(snapshot.issues),
+        issues,
+        workflow: workflowDashboardForIssues(issues),
+        metrics: workflowMetricsForIssues(issues),
         meta: {
-          lastSyncAt: snapshot.lastSyncAt,
-          lastFetchAt: snapshot.lastFetchAt,
-          lastError: snapshot.lastError,
-          syncing: snapshot.syncing,
-          count: snapshot.issues.length,
+          lastSyncAt: options.snapshot.lastSyncAt,
+          lastFetchAt: options.snapshot.lastFetchAt,
+          lastError: options.snapshot.lastError,
+          syncing: options.snapshot.syncing,
+          count: options.snapshot.issues.length,
         },
       });
     }
 
     if (p === "/api/sync" && req.method === "POST") {
-      await syncFromRemote();
-      return json({ ok: true, lastSyncAt: snapshot.lastSyncAt, error: snapshot.lastError });
+      await options.syncFromRemote();
+      return json({
+        ok: true,
+        lastSyncAt: options.snapshot.lastSyncAt,
+        error: options.snapshot.lastError,
+      });
+    }
+
+    if (p === "/api/workflow-control" && req.method === "POST") {
+      return handleWorkflowControl(req, options.workflowControlClient);
+    }
+
+    if (p === "/api/workflow-log") {
+      return serveWorkflowLog(url.searchParams.get("path"), options.workflowLogRoots);
     }
 
     if (p.startsWith("/api/")) return json({ error: "not found" }, 404);
 
-    return serveStatic(p);
-  },
-});
+    return options.serveStatic(p);
+  };
+}
 
-console.log(`[beads-ui] http://127.0.0.1:${PORT}  (repo: ${REPO_ROOT})`);
+async function serveWorkflowLog(
+  path: string | null,
+  workflowLogRoots: readonly string[],
+): Promise<Response> {
+  if (!path) return new Response("path is required", { status: 400 });
+  const resolvedPath = resolve(path);
+  const allowed = workflowLogRoots.map((root) => resolve(root));
+  if (!allowed.some((root) => resolvedPath === root || resolvedPath.startsWith(`${root}/`))) {
+    return new Response("log path is outside allowed roots", { status: 403 });
+  }
 
-await syncFromRemote();
-setInterval(syncFromRemote, SYNC_INTERVAL_MS);
+  try {
+    const text = await readFile(resolvedPath, "utf8");
+    return new Response(text, { headers: { "content-type": "text/plain; charset=utf-8" } });
+  } catch {
+    return new Response("not found", { status: 404 });
+  }
+}
+
+async function handleWorkflowControl(
+  req: Request,
+  workflowControlClient: WorkflowControlClient,
+): Promise<Response> {
+  const body = await parseJsonObject(req);
+  const ticketId = stringBodyField(body, "ticketId");
+  const action = stringBodyField(body, "action");
+  const reason = stringBodyField(body, "reason", false);
+
+  if (!ticketId || !action || !isWorkflowControlAction(action)) {
+    return json({ error: "ticketId and valid action are required" }, 400);
+  }
+
+  const result = await workflowControlClient.signalTicketWorkflow({ ticketId, action, reason });
+  return json({ ok: true, result });
+}
+
+async function parseJsonObject(req: Request): Promise<Record<string, unknown>> {
+  try {
+    const parsed: unknown = await req.json();
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function stringBodyField(
+  body: Record<string, unknown>,
+  key: string,
+  required = true,
+): string | undefined {
+  const value = body[key];
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (trimmed) return trimmed;
+  return required ? undefined : "";
+}
+
+export async function startServer(options = defaultServerOptions()): Promise<void> {
+  const snapshot = initialSnapshot();
+  const handler = createRequestHandler({
+    snapshot,
+    workflowControlClient: createTemporalWorkflowControlClient(),
+    workflowLogRoots: options.workflowLogRoots,
+    syncFromRemote: () => syncFromRemote(snapshot, options.repoRoot),
+    serveStatic: (pathname) => serveStatic(pathname, options.publicDir),
+  });
+
+  Bun.serve({
+    port: options.port,
+    fetch: handler,
+  });
+
+  console.warn(`[beads-ui] http://127.0.0.1:${options.port}  (repo: ${options.repoRoot})`);
+
+  await syncFromRemote(snapshot, options.repoRoot);
+  setInterval(() => void syncFromRemote(snapshot, options.repoRoot), options.syncIntervalMs);
+}
+
+if (import.meta.main) await startServer();
