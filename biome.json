@@ -50,6 +50,7 @@
       "!**/*.gen.ts",
       "!**/.tilt",
       "!**/.beads",
+      "!**/.worktrees",
       "!**/coverage",
       "!**/.claude",
       "!**/.cmux",
