@@ -283,6 +283,9 @@ export async function runTicketWorkflowRunner(
     step: "start-builder",
     ok: builder.records.every((record) => record.exitCode === 0),
   });
+  if (builder.records.some((record) => record.exitCode !== 0)) {
+    return failedTicketWorkflowRunner(input.ticketId, steps, worktree, builder.sessionName);
+  }
 
   const builderWait = await runnerActivities.waitForTmuxSessionActivity({
     sessionName: builder.sessionName,
@@ -348,6 +351,15 @@ export async function runTicketWorkflowRunner(
     step: "start-reviewer",
     ok: reviewer.records.every((record) => record.exitCode === 0),
   });
+  if (reviewer.records.some((record) => record.exitCode !== 0)) {
+    return failedTicketWorkflowRunner(
+      input.ticketId,
+      steps,
+      worktree,
+      builder.sessionName,
+      reviewer.sessionName,
+    );
+  }
 
   const reviewerWait = await runnerActivities.waitForTmuxSessionActivity({
     sessionName: reviewer.sessionName,

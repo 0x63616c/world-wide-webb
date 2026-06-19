@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { ApplicationFailure } from "@temporalio/activity";
 import {
   type ActivityCommandRunner,
   type ActivityRecord,
@@ -127,8 +128,9 @@ export async function startTicketBuilder(
         TICKET_BUILDER_AGENT,
         "--model",
         TICKET_BUILDER_MODEL,
-        "--prompt-file",
+        "--file",
         prompt.promptPath,
+        "Follow the attached ticket-builder prompt exactly.",
       ],
     },
     runCommand ?? defaultActivityCommandRunner,
@@ -181,8 +183,9 @@ export async function startTicketReviewer(
         TICKET_REVIEWER_AGENT,
         "--model",
         TICKET_REVIEWER_MODEL,
-        "--prompt-file",
+        "--file",
         prompt.promptPath,
+        "Follow the attached ticket-reviewer prompt exactly.",
       ],
     },
     runCommand ?? defaultActivityCommandRunner,
@@ -217,8 +220,9 @@ export async function startTicketMergeFix(
         TICKET_MERGEFIX_AGENT,
         "--model",
         TICKET_MERGEFIX_MODEL,
-        "--prompt-file",
+        "--file",
         prompt.promptPath,
+        "Follow the attached ticket-mergefix prompt exactly.",
       ],
     },
     runCommand ?? defaultActivityCommandRunner,
@@ -362,9 +366,20 @@ ${gateBlock || "- No final gates configured"}
 }
 
 export function parseTicketReviewerVerdict(output: string): TicketReviewerVerdict {
-  const parsed: unknown = JSON.parse(extractJsonObject(output));
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extractJsonObject(output));
+  } catch (error) {
+    throw ApplicationFailure.nonRetryable(
+      error instanceof Error ? error.message : "reviewer output could not be parsed",
+      "InvalidReviewerOutput",
+    );
+  }
   if (!isTicketReviewerVerdict(parsed)) {
-    throw new Error("reviewer output did not match the required verdict schema");
+    throw ApplicationFailure.nonRetryable(
+      "reviewer output did not match the required verdict schema",
+      "InvalidReviewerOutput",
+    );
   }
   return parsed;
 }
