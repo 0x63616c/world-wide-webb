@@ -50,8 +50,8 @@ Demo invite code: **`XEX24K`** (The Group Chat).
 | Command | What it does |
 |---|---|
 | `tilt up` | Full local stack (Postgres + API + Vite) |
-| `bun run seed` | Seed demo data (dev only, no-op in production) |
-| `bun run seed:reset` | Truncate + reseed (dev only) |
+| `bun run seed` | Explicitly seed demo data (dev only, no-op in production) |
+| `bun run seed:reset` | Truncate + explicitly reseed (dev/e2e only) |
 | `bun run build` | Build the web app to `apps/frontend/dist` |
 | `bun run test:e2e` | Playwright E2E suite (requires DATABASE_URL) |
 | `bun run ios:sync` | Build web + sync to Capacitor iOS |
@@ -84,7 +84,7 @@ apps/
       api.ts          Hono routes (auth, me, jars, slips, reports, activity)
       auth.ts         bearer-token middleware
       env.ts          buildDatabaseUrl() (k8s ESO pattern + DATABASE_URL override)
-      seed.ts         demo data; guards on APP_ENV=production (no-op) + users table empty
+      seed.ts         explicit demo/e2e seed data; guarded off in production
       index.ts        entry: runMigrations + ensureSeed + buildApp()
       server.ts       CORS allow-list (app--tye.worldwidewebb.co, localhost:*, capacitor://)
   frontend/           React + TS app (iPhone frame, 16 screens)

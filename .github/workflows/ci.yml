@@ -307,18 +307,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (ubuntu-24.04-arm), no QEMU emulation. The deploy
-      # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
-      # runs amd64, so images are built linux/arm64 only. Dropping the emulated
-      # amd64 leg removed the 5-10x QEMU slowdown that dominated build time (www-4yt).
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: ./.github/actions/ghcr-login
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-
       # The Docker builder image has no .git, so the commit timestamp must be
       # computed here (where the repo is checked out) and passed in as a build-arg.
       # Unix-ms = author commit time × 1000; the badge renders "time since commit"
@@ -327,20 +315,16 @@ jobs:
         run: echo "BUILD_TIME=$(( $(git show -s --format=%ct HEAD) * 1000 ))" >> "$GITHUB_ENV"
 
       - name: Build and push web image
-        uses: docker/build-push-action@v6
+        uses: ./.github/actions/build-product-image
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         with:
-          context: .
-          file: products/control-center/web/Dockerfile
-          platforms: linux/arm64
-          push: true
+          image: www-control-center-web
+          dockerfile: products/control-center/web/Dockerfile
+          cache-scope: web
           build-args: |
             BUILD_HASH=${{ github.sha }}
             BUILD_TIME=${{ env.BUILD_TIME }}
-          tags: |
-            ghcr.io/0x63616c/www-control-center-web:${{ github.sha }}
-            ghcr.io/0x63616c/www-control-center-web:${{ github.ref_name == 'main' && 'main' || github.sha }}
-          cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
 
   build-api:
     needs: [changes, test, typecheck]
@@ -351,30 +335,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (ubuntu-24.04-arm), no QEMU emulation. The deploy
-      # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
-      # runs amd64, so images are built linux/arm64 only. Dropping the emulated
-      # amd64 leg removed the 5-10x QEMU slowdown that dominated build time (www-4yt).
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: ./.github/actions/ghcr-login
+      - name: Build and push api image
+        uses: ./.github/actions/build-product-image
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-
-      - name: Build and push api image
-        uses: docker/build-push-action@v6
         with:
-          context: .
-          file: products/control-center/api/Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ghcr.io/0x63616c/www-control-center-api:${{ github.sha }}
-            ghcr.io/0x63616c/www-control-center-api:${{ github.ref_name == 'main' && 'main' || github.sha }}
-          cache-from: type=gha,scope=api
-          cache-to: type=gha,mode=max,scope=api
+          image: www-control-center-api
+          dockerfile: products/control-center/api/Dockerfile
+          cache-scope: api
 
   build-worker:
     needs: [changes, test, typecheck]
@@ -385,29 +353,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (ubuntu-24.04-arm), no QEMU emulation. The deploy
-      # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
-      # runs amd64, so images are built linux/arm64 only.
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: ./.github/actions/ghcr-login
+      - name: Build and push worker image
+        uses: ./.github/actions/build-product-image
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-
-      - name: Build and push worker image
-        uses: docker/build-push-action@v6
         with:
-          context: .
-          file: products/control-center/worker/Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ghcr.io/0x63616c/www-control-center-worker:${{ github.sha }}
-            ghcr.io/0x63616c/www-control-center-worker:${{ github.ref_name == 'main' && 'main' || github.sha }}
-          cache-from: type=gha,scope=worker
-          cache-to: type=gha,mode=max,scope=worker
+          image: www-control-center-worker
+          dockerfile: products/control-center/worker/Dockerfile
+          cache-scope: worker
 
   build-media-worker:
     needs: [changes, test, typecheck]
@@ -418,26 +371,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: ./.github/actions/ghcr-login
+      - name: Build and push media-worker image
+        uses: ./.github/actions/build-product-image
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-
-      - name: Build and push media-worker image
-        uses: docker/build-push-action@v6
         with:
-          context: .
-          file: products/control-center/media-worker/Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ghcr.io/0x63616c/www-control-center-media-worker:${{ github.sha }}
-            ghcr.io/0x63616c/www-control-center-media-worker:${{ github.ref_name == 'main' && 'main' || github.sha }}
-          cache-from: type=gha,scope=media-worker
-          cache-to: type=gha,mode=max,scope=media-worker
+          image: www-control-center-media-worker
+          dockerfile: products/control-center/media-worker/Dockerfile
+          cache-scope: media-worker
 
   build-storybook:
     needs: [changes, test, typecheck]
@@ -448,30 +389,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (ubuntu-24.04-arm), no QEMU emulation. The deploy
-      # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
-      # runs amd64, so images are built linux/arm64 only. Dropping the emulated
-      # amd64 leg removed the 5-10x QEMU slowdown that dominated build time (www-4yt).
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: ./.github/actions/ghcr-login
+      - name: Build and push storybook image
+        uses: ./.github/actions/build-product-image
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-
-      - name: Build and push storybook image
-        uses: docker/build-push-action@v6
         with:
-          context: .
-          file: products/control-center/web/Dockerfile.storybook
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ghcr.io/0x63616c/www-control-center-storybook:${{ github.sha }}
-            ghcr.io/0x63616c/www-control-center-storybook:${{ github.ref_name == 'main' && 'main' || github.sha }}
-          cache-from: type=gha,scope=storybook
-          cache-to: type=gha,mode=max,scope=storybook
+          image: www-control-center-storybook
+          dockerfile: products/control-center/web/Dockerfile.storybook
+          cache-scope: storybook
 
   build-drizzle:
     needs: [changes, test, typecheck]
@@ -482,30 +407,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (ubuntu-24.04-arm), no QEMU emulation. The deploy
-      # target (homelab Mac Mini under OrbStack) is arm64 and nothing in prod
-      # runs amd64, so images are built linux/arm64 only. Dropping the emulated
-      # amd64 leg removed the 5-10x QEMU slowdown that dominated build time (www-4yt).
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: ./.github/actions/ghcr-login
+      - name: Build and push drizzle image
+        uses: ./.github/actions/build-product-image
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-
-      - name: Build and push drizzle image
-        uses: docker/build-push-action@v6
         with:
-          context: .
-          file: products/control-center/drizzle/Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ghcr.io/0x63616c/www-control-center-drizzle:${{ github.sha }}
-            ghcr.io/0x63616c/www-control-center-drizzle:${{ github.ref_name == 'main' && 'main' || github.sha }}
-          cache-from: type=gha,scope=drizzle
-          cache-to: type=gha,mode=max,scope=drizzle
+          image: www-control-center-drizzle
+          dockerfile: products/control-center/drizzle/Dockerfile
+          cache-scope: drizzle
 
   build-captive-portal:
     needs: [changes, test, typecheck]
@@ -516,28 +425,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (deploy target is the arm64 Mac Mini), same as the
-      # other image builds; no QEMU emulation (www-4yt).
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: ./.github/actions/ghcr-login
+      - name: Build and push captive-portal image
+        uses: ./.github/actions/build-product-image
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-
-      - name: Build and push captive-portal image
-        uses: docker/build-push-action@v6
         with:
-          context: .
-          file: products/captive-portal/apps/frontend/Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ghcr.io/0x63616c/www-captive-portal-portal:${{ github.sha }}
-            ghcr.io/0x63616c/www-captive-portal-portal:${{ github.ref_name == 'main' && 'main' || github.sha }}
-          cache-from: type=gha,scope=captive-portal
-          cache-to: type=gha,mode=max,scope=captive-portal
+          image: www-captive-portal-portal
+          dockerfile: products/captive-portal/apps/frontend/Dockerfile
+          cache-scope: captive-portal
 
   build-captive-portal-api:
     needs: [changes, test, typecheck]
@@ -548,26 +443,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: ./.github/actions/ghcr-login
+      - name: Build and push captive-portal-api image
+        uses: ./.github/actions/build-product-image
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-
-      - name: Build and push captive-portal-api image
-        uses: docker/build-push-action@v6
         with:
-          context: .
-          file: products/captive-portal/Dockerfile.api
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ghcr.io/0x63616c/www-captive-portal-api:${{ github.sha }}
-            ghcr.io/0x63616c/www-captive-portal-api:${{ github.ref_name == 'main' && 'main' || github.sha }}
-          cache-from: type=gha,scope=captive-portal-api
-          cache-to: type=gha,mode=max,scope=captive-portal-api
+          image: www-captive-portal-api
+          dockerfile: products/captive-portal/Dockerfile.api
+          cache-scope: captive-portal-api
 
   build-map-provision:
     needs: [changes, test, typecheck]
@@ -578,28 +461,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (deploy target is the arm64 Mac Mini), same as the
-      # other image builds; no QEMU emulation (www-4yt).
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: ./.github/actions/ghcr-login
+      - name: Build and push map-provision image
+        uses: ./.github/actions/build-product-image
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-
-      - name: Build and push map-provision image
-        uses: docker/build-push-action@v6
         with:
-          context: .
-          file: products/control-center/map-provision/Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ghcr.io/0x63616c/www-control-center-map-provision:${{ github.sha }}
-            ghcr.io/0x63616c/www-control-center-map-provision:${{ github.ref_name == 'main' && 'main' || github.sha }}
-          cache-from: type=gha,scope=map-provision
-          cache-to: type=gha,mode=max,scope=map-provision
+          image: www-control-center-map-provision
+          dockerfile: products/control-center/map-provision/Dockerfile
+          cache-scope: map-provision
 
   build-amp:
     needs: [changes, test, typecheck]
@@ -610,28 +479,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (deploy target is the arm64 Mac Mini), same as the
-      # other image builds; no QEMU emulation (www-4yt).
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: ./.github/actions/ghcr-login
+      - name: Build and push AMP image
+        uses: ./.github/actions/build-product-image
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-
-      - name: Build and push AMP image
-        uses: docker/build-push-action@v6
         with:
-          context: .
-          file: products/amp/Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ghcr.io/0x63616c/www-amp-app:${{ github.sha }}
-            ghcr.io/0x63616c/www-amp-app:${{ github.ref_name == 'main' && 'main' || github.sha }}
-          cache-from: type=gha,scope=amp
-          cache-to: type=gha,mode=max,scope=amp
+          image: www-amp-app
+          dockerfile: products/amp/Dockerfile
+          cache-scope: amp
 
   build-tye-api:
     needs: [changes, test, typecheck]
@@ -642,28 +497,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (deploy target is the arm64 Mac Mini), same as the
-      # other image builds; no QEMU emulation (www-4yt).
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: ./.github/actions/ghcr-login
+      - name: Build and push tye-api image
+        uses: ./.github/actions/build-product-image
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-
-      - name: Build and push tye-api image
-        uses: docker/build-push-action@v6
         with:
-          context: .
-          file: products/text-your-ex/Dockerfile.api
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ghcr.io/0x63616c/www-text-your-ex-api:${{ github.sha }}
-            ghcr.io/0x63616c/www-text-your-ex-api:${{ github.ref_name == 'main' && 'main' || github.sha }}
-          cache-from: type=gha,scope=tye-api
-          cache-to: type=gha,mode=max,scope=tye-api
+          image: www-text-your-ex-api
+          dockerfile: products/text-your-ex/Dockerfile.api
+          cache-scope: tye-api
 
   build-tye-frontend:
     needs: [changes, test, typecheck]
@@ -674,30 +515,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Native arm64 runner (deploy target is the arm64 Mac Mini), same as the
-      # other image builds; no QEMU emulation (www-4yt).
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: ./.github/actions/ghcr-login
+      - name: Build and push tye-frontend image
+        uses: ./.github/actions/build-product-image
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-
-      - name: Build and push tye-frontend image
-        uses: docker/build-push-action@v6
         with:
-          context: .
-          file: products/text-your-ex/Dockerfile.frontend
-          platforms: linux/arm64
-          push: true
+          image: www-text-your-ex-frontend
+          dockerfile: products/text-your-ex/Dockerfile.frontend
+          cache-scope: tye-frontend
           build-args: |
             VITE_API_BASE=https://api--tye.worldwidewebb.co
-          tags: |
-            ghcr.io/0x63616c/www-text-your-ex-frontend:${{ github.sha }}
-            ghcr.io/0x63616c/www-text-your-ex-frontend:${{ github.ref_name == 'main' && 'main' || github.sha }}
-          cache-from: type=gha,scope=tye-frontend
-          cache-to: type=gha,mode=max,scope=tye-frontend
 
   # After the images build on main, deploy to the homelab k3s cluster with
   # `pulumi up` (www-j934.14). The runner joins the tailnet with an EPHEMERAL

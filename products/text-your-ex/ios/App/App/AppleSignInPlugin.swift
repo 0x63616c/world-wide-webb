@@ -24,6 +24,7 @@ public class AppleSignInPlugin: CAPPlugin, CAPBridgedPlugin {
         let attemptId = call.getString("attemptId") ?? "attempt_unknown"
 
         let request = ASAuthorizationAppleIDProvider().createRequest()
+        request.requestedOperation = .operationLogin
         request.requestedScopes = [.fullName, .email]
 
         let controller = ASAuthorizationController(authorizationRequests: [request])
@@ -76,15 +77,21 @@ extension AppleSignInPlugin: ASAuthorizationControllerDelegate {
             return
         }
 
-        logger.info("Apple sign-in returned identity token attemptId=\(attemptId, privacy: .public) hasAuthorizationCode=\(credential.authorizationCode != nil, privacy: .public)")
-        call.resolve([
+        let fullName = credential.fullName.flatMap { PersonNameComponentsFormatter().string(from: $0).trimmingCharacters(in: .whitespacesAndNewlines) }
+        logger.info("Apple sign-in returned identity token attemptId=\(attemptId, privacy: .public) hasAuthorizationCode=\(credential.authorizationCode != nil, privacy: .public) hasFullName=\(fullName?.isEmpty == false, privacy: .public)")
+
+        var response: [String: Any] = [
             "identityToken": identityToken,
             "hasAuthorizationCode": credential.authorizationCode != nil,
             "user": credential.user,
             "attemptId": attemptId,
             "state": credential.state ?? state,
             "nonce": nonce
-        ])
+        ]
+        if let fullName, !fullName.isEmpty {
+            response["fullName"] = fullName
+        }
+        call.resolve(response)
         finish()
     }
 

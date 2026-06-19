@@ -14,6 +14,7 @@ export type AppleSignInResponse = {
   readonly identityToken: string;
   readonly hasAuthorizationCode: boolean;
   readonly user: string;
+  readonly fullName?: string;
   readonly attemptId: string;
   readonly state: string;
   readonly nonce: string;

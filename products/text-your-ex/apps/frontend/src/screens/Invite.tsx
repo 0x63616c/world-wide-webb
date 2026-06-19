@@ -159,9 +159,6 @@ export function Invite({ ctx }: { ctx: AppCtx }) {
         <Btn kind="gold" disabled={!ready} onClick={share}>
           Share invite
         </Btn>
-        <Btn kind="ghost" onClick={() => ctx.nav("jar", { jarId }, true)}>
-          {fresh ? "Take me to my jar" : "Done"}
-        </Btn>
       </div>
     </Screen>
   );

@@ -42,6 +42,7 @@ export interface AppCtx {
   /** auth screens call this after a successful sign-in / verify */
   signIn: (token: string, me: MeDTO) => void;
   signOut: () => void;
+  sessionExpired: boolean;
 
   /** fire the flying-money animation (used after logging a slip) */
   fireBurst: () => void;

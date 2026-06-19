@@ -5,6 +5,7 @@ import type { AppCtx } from "../appctx";
 import { Icon } from "../icons";
 import { authorizeAppleSignIn, createAppleSignInRequest } from "../native/appleSignIn";
 import { T } from "../theme";
+import { DevBadge, PAGE_TOP_PADDING } from "../ui";
 
 const SIGNUP_EYEBROWS = [
   "DO NOT TEXT THEM",
@@ -14,28 +15,18 @@ const SIGNUP_EYEBROWS = [
   "ONE TEXT FROM A FINE",
 ] as const;
 
-type SignInLogEntry = {
-  readonly at: string;
-  readonly message: string;
-};
-
-function describeError(error: unknown): { code: unknown; message: string; full: string } {
-  const code = (error as { code?: unknown })?.code;
+function describeError(error: unknown): {
+  message: string;
+} {
   const message = (error as { message?: string })?.message ?? "unknown error";
-  let full: string;
-  try {
-    full = JSON.stringify(error, Object.getOwnPropertyNames(error as object));
-  } catch {
-    full = String(error);
-  }
-  return { code, message, full };
+  return { message };
 }
 
 export function Onboarding({ ctx }: { ctx: AppCtx }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [signInLog, setSignInLog] = useState<SignInLogEntry[]>([]);
   const [eyebrowIndex, setEyebrowIndex] = useState(0);
+  const titleLines = ctx.sessionExpired ? ["Still", "Texting", "Them?"] : ["Don't", "Text", "Your Ex."];
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -44,71 +35,46 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
     return () => window.clearInterval(id);
   }, []);
 
-  const addLog = (message: string) => {
-    const at = new Date().toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-    setSignInLog((entries) => [...entries.slice(-5), { at, message }]);
-  };
-
   const signInApple = async () => {
     if (busy) return;
     setErr(null);
-    setSignInLog([]);
     setBusy(true);
-    addLog("tap received");
     try {
       // Real "Sign in with Apple" only works inside the native iOS app (the Apple
       // sheet can't run in a browser). On web the button is inert; local dev and
       // e2e mint a session through the non-production /auth/dev seam instead.
       if (!Capacitor.isNativePlatform()) {
-        addLog("not native, skipping Apple sheet");
         setBusy(false);
         return;
       }
       let identityToken: string;
+      let fullName: string | undefined;
       try {
         const request = createAppleSignInRequest();
-        addLog(`opening native Apple sheet attempt=${request.attemptId}`);
         const response = await authorizeAppleSignIn(request);
         identityToken = response.identityToken;
-        addLog(
-          `Apple returned identity token (${identityToken.length} chars) attempt=${response.attemptId} code=${response.hasAuthorizationCode}`,
-        );
+        fullName = response.fullName;
       } catch (e) {
-        const { code, message, full } = describeError(e);
-        addLog(`Apple authorize failed code=${code ?? "?"}`);
-        console.error("[tye] signInApple native error", { code, message, full });
-        setErr(`Apple authorize failed before API. code=${code ?? "?"}: ${message || full}`);
+        console.error("[tye] signInApple native error", e);
         setBusy(false);
         return;
       }
       try {
-        addLog("posting identity token to API");
-        const { token, user, isNew } = await api.signInWithApple(identityToken);
-        addLog("API sign-in succeeded");
+        const { token, user, isNew } = await api.signInWithApple({ identityToken, fullName });
         ctx.signIn(token, user);
-        if (isNew || !user.name) ctx.nav("setup", {});
+        if (isNew) ctx.nav("setup", {});
       } catch (e) {
-        const { message, full } = describeError(e);
-        addLog("API rejected Apple token");
-        setErr(`API rejected Apple token: ${message || full}`);
+        console.error("[tye] signInApple API error", e);
+        setErr("Apple sign-in could not be verified. Please try again.");
         setBusy(false);
       }
     } catch (e) {
-      const { message, full } = describeError(e);
-      addLog("unexpected sign-in failure");
-      setErr(message || full);
+      const { message } = describeError(e);
+      console.error("[tye] signInApple unexpected error", e);
+      setErr(message);
       setBusy(false);
     }
   };
-
-  // On the native shell the OS safe-area insets are already applied by the app
-  // wrapper, so the screen must NOT also add the web-mockup status-bar clearance
-  // (that double padding is what pushed the badge down and left a big bottom gap).
-  const native = Capacitor.isNativePlatform();
 
   return (
     <div
@@ -122,7 +88,7 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
         fontFamily: T.ui,
         display: "flex",
         flexDirection: "column",
-        padding: `0 28px ${native ? 12 : 44}px`,
+        padding: `0 28px ${PAGE_TOP_PADDING}px`,
         boxSizing: "border-box",
       }}
     >
@@ -132,7 +98,7 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
           alignItems: "center",
           justifyContent: "space-between",
           gap: 10,
-          paddingTop: native ? 10 : 60,
+          paddingTop: PAGE_TOP_PADDING,
           flexShrink: 0,
         }}
       >
@@ -205,51 +171,31 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
             </span>
           </span>
         </div>
+        <DevBadge />
       </div>
-      {(err || signInLog.length > 0) && (
+      {err && (
         <div
           style={{
             marginTop: 14,
-            border: `1px solid ${err ? "rgba(255,69,58,0.35)" : T.hair}`,
-            background: err ? "rgba(255,69,58,0.12)" : T.surface,
+            border: "1px solid rgba(255,69,58,0.35)",
+            background: "rgba(255,69,58,0.12)",
             borderRadius: 16,
             padding: 12,
             flexShrink: 0,
           }}
         >
-          {err && (
-            <p
-              style={{
-                fontSize: 13,
-                color: T.red,
-                margin: "0 0 8px",
-                lineHeight: 1.35,
-                wordBreak: "break-word",
-                fontWeight: 700,
-              }}
-            >
-              {err}
-            </p>
-          )}
-          {signInLog.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {signInLog.map((entry) => (
-                <p
-                  key={`${entry.at}-${entry.message}`}
-                  style={{
-                    margin: 0,
-                    color: T.sec,
-                    fontSize: 11,
-                    lineHeight: 1.3,
-                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {entry.at} {entry.message}
-                </p>
-              ))}
-            </div>
-          )}
+          <p
+            style={{
+              fontSize: 13,
+              color: T.red,
+              margin: 0,
+              lineHeight: 1.35,
+              wordBreak: "break-word",
+              fontWeight: 700,
+            }}
+          >
+            {err}
+          </p>
         </div>
       )}
       <div
@@ -273,11 +219,20 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
             width: "100%",
           }}
         >
-          Don't
-          <br />
-          Text
-          <br />
-          Your <span style={{ color: T.gold }}>Ex.</span>
+          {titleLines.map((line, index) => (
+            <span key={line}>
+              {line === "Your Ex." ? (
+                <>
+                  Your <span style={{ color: T.gold }}>Ex.</span>
+                </>
+              ) : line === "Them?" ? (
+                <span style={{ color: T.gold }}>Them?</span>
+              ) : (
+                line
+              )}
+              {index < titleLines.length - 1 && <br />}
+            </span>
+          ))}
         </h1>
         <p
           style={{
@@ -290,12 +245,24 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
             width: "100%",
           }}
         >
-          Stop texting your ex.
-          <br />
-          Or don't, but <span style={{ color: T.gold }}>pay up.</span>
+          {ctx.sessionExpired ? (
+            <>
+              Your local session expired.
+              <br />
+              Continue with Apple to get back in.
+            </>
+          ) : (
+            <>
+              Stop texting your ex.
+              <br />
+              Or don't, but <span style={{ color: T.gold }}>pay up.</span>
+            </>
+          )}
         </p>
         <p style={{ width: "100%", fontSize: 16, color: T.sec, lineHeight: 1.45, margin: 0 }}>
-          A shared guilt jar for you and the friends who already know who you shouldn't be texting.
+          {ctx.sessionExpired
+            ? "We cleared the stale device token because the server no longer recognized it."
+            : "A shared guilt jar for you and the friends who already know who you shouldn't be texting."}
         </p>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, flexShrink: 0 }}>
@@ -321,7 +288,7 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
             opacity: busy ? 0.6 : 1,
           }}
         >
-          <Icon.apple style={{ marginTop: -2 }} /> Sign in with Apple
+          <Icon.apple style={{ marginTop: -2 }} /> {ctx.sessionExpired ? "Continue with Apple" : "Sign in with Apple"}
         </button>
       </div>
     </div>

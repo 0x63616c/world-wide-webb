@@ -103,38 +103,16 @@ export function Join({ ctx }: { ctx: AppCtx }) {
   return (
     <Screen>
       <TopBar onBack={() => ctx.back()} title="Join a jar" />
-      <p style={{ color: T.sec, fontSize: 15, lineHeight: 1.4, margin: "2px 0 26px" }}>
-        Got an invite code? Punch it in. <span style={{ color: T.ter }}>(try XEX24K)</span>
+      <p style={{ color: T.sec, fontSize: 15, lineHeight: 1.4, margin: "2px 0 18px" }}>
+        Got an invite code? Enter it here. <span style={{ color: T.ter }}>(try XEX24K)</span>
       </p>
-      <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 26 }}>
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <div
-            key={i}
-            style={{
-              width: 46,
-              height: 58,
-              borderRadius: 13,
-              background: T.surface2,
-              border: `1.5px solid ${code.length === i ? T.gold : T.hair}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontFamily: T.disp,
-              fontWeight: 800,
-              fontSize: 26,
-            }}
-          >
-            {code[i] || ""}
-          </div>
-        ))}
-      </div>
       <input
         value={code}
         onChange={(e) => {
           setCode(e.target.value.toUpperCase().slice(0, 6));
           setErr(null);
         }}
-        placeholder="Type or paste code"
+        placeholder="Invite code"
         style={{ ...inputStyle, textAlign: "center", marginBottom: 14, letterSpacing: "0.1em" }}
       />
       {err && (

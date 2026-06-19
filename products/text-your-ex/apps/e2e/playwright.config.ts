@@ -33,8 +33,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      // The API runs migrations + seeds the demo data on startup (APP_ENV=development).
-      // TYE_RESET=1 truncates all tables before seeding (clean slate per run).
+      // TYE_RESET=1 truncates all tables before explicit e2e seeding.
       command: `TYE_RESET=1 DATABASE_URL=${DATABASE_URL} APP_ENV=development PORT=${PORT} bun run ${root}/apps/api/src/index.ts`,
       port: PORT,
       timeout: 30_000,

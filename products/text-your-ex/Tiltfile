@@ -103,3 +103,12 @@ cmd_button(
     icon_name='phone_iphone',
     text='iOS Simulator',
 )
+
+# Button: build, install, and launch the native shell on Calum's physical iPhone.
+cmd_button(
+    'ios-phone',
+    argv=['scripts/run-on-iphone.sh'],
+    resource='frontend',
+    icon_name='iphone',
+    text='Run on iPhone',
+)

@@ -3,7 +3,7 @@ import { api } from "../api";
 import type { AppCtx } from "../appctx";
 import { T } from "../theme";
 import { Btn, Screen, TopBar } from "../ui";
-import { type AvatarDraft, AvatarEditor, inputStyle, labelStyle } from "./common";
+import { type AvatarDraft, AvatarEditor } from "./common";
 
 // ─────────────────────── New-user profile setup ───────────────────────
 export function SetupProfile({ ctx }: { ctx: AppCtx }) {
@@ -16,11 +16,10 @@ export function SetupProfile({ ctx }: { ctx: AppCtx }) {
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
-    if (!draft.name.trim() || busy) return;
+    if (busy) return;
     setBusy(true);
     try {
       const me = await api.updateMe({
-        name: draft.name.trim(),
         color: draft.color,
         emoji: draft.emoji,
         photo: draft.photo,
@@ -33,41 +32,37 @@ export function SetupProfile({ ctx }: { ctx: AppCtx }) {
   };
 
   return (
-    <Screen>
-      <TopBar onBack={() => ctx.back()} title="" />
-      <div style={{ textAlign: "center", marginBottom: 6 }}>
-        <h1
-          style={{
-            fontFamily: T.disp,
-            fontWeight: 800,
-            fontSize: 32,
-            letterSpacing: "-0.03em",
-            margin: "0 0 6px",
-          }}
-        >
-          Make it official
-        </h1>
-        <p style={{ color: T.sec, fontSize: 15.5, lineHeight: 1.4, margin: 0 }}>
-          Your friends need to know whose shame is whose.
-        </p>
-      </div>
-      <div style={{ margin: "28px 0 26px" }}>
+    <Screen style={{ minHeight: "100%", display: "flex", flexDirection: "column", paddingBottom: 24 }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 28,
+          textAlign: "center",
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              fontFamily: T.disp,
+              fontWeight: 800,
+              fontSize: 32,
+              letterSpacing: "-0.03em",
+              margin: "0 0 6px",
+            }}
+          >
+            Make it official
+          </h1>
+          <p style={{ color: T.sec, fontSize: 15.5, lineHeight: 1.4, margin: 0 }}>
+            Make your profile feel like yours.
+          </p>
+        </div>
         <AvatarEditor draft={draft} setDraft={setDraft} />
       </div>
-      <span style={labelStyle}>Display name</span>
-      <input
-        value={draft.name}
-        onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-        placeholder="Calum"
-        style={{
-          ...inputStyle,
-          fontSize: 18,
-          fontFamily: T.disp,
-          fontWeight: 700,
-          marginBottom: 26,
-        }}
-      />
-      <Btn kind="gold" disabled={!draft.name.trim() || busy} onClick={save}>
+      <Btn kind="gold" disabled={busy} onClick={save}>
         Start the shame →
       </Btn>
     </Screen>
@@ -92,7 +87,6 @@ export function EditProfile({ ctx }: { ctx: AppCtx }) {
     setBusy(true);
     try {
       const me = await api.updateMe({
-        name: draft.name.trim() || cur.name,
         color: draft.color,
         emoji: draft.emoji,
         photo: draft.photo,
@@ -130,19 +124,6 @@ export function EditProfile({ ctx }: { ctx: AppCtx }) {
       <div style={{ margin: "20px 0 26px" }}>
         <AvatarEditor draft={draft} setDraft={setDraft} />
       </div>
-      <span style={labelStyle}>Display name</span>
-      <input
-        value={draft.name}
-        onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-        placeholder="Your name"
-        style={{
-          ...inputStyle,
-          fontSize: 18,
-          fontFamily: T.disp,
-          fontWeight: 700,
-          marginBottom: 26,
-        }}
-      />
       <Btn kind="gold" disabled={busy} onClick={save}>
         Save changes
       </Btn>

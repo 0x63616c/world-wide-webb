@@ -135,6 +135,7 @@ export default function App() {
   const [stack, setStack] = useState<Route[]>([]);
   const [burst, setBurst] = useState(false);
   const [hasPendingReport, setHasPendingReport] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const scale = useFit();
 
   const refreshPending = useCallback(() => {
@@ -163,6 +164,7 @@ export default function App() {
       })
       .catch(() => {
         setToken(null);
+        setSessionExpired(true);
       })
       .finally(() => setBooted(true));
   }, [refreshPending]);
@@ -182,6 +184,7 @@ export default function App() {
   const signIn = useCallback((token: string, user: MeDTO) => {
     setToken(token);
     setMeState(user);
+    setSessionExpired(false);
     setStack([]);
     setTabState("home");
     api
@@ -196,6 +199,7 @@ export default function App() {
     setMeState(null);
     setStack([]);
     setTabState("onboarding");
+    setSessionExpired(false);
     setHasPendingReport(false);
   }, []);
 
@@ -219,6 +223,7 @@ export default function App() {
     tab: goTab,
     signIn,
     signOut,
+    sessionExpired,
     fireBurst,
     hasPendingReport,
     refreshPending,

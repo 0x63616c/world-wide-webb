@@ -84,3 +84,7 @@ docs/screenshots/
 
 # bv (beads viewer) local config and caches
 .bv/
+
+# OTP migrator secret data, contains Ente exports and derived OTP seeds.
+products/otp-migrator/raw-data/ente/
+products/otp-migrator/data/ente/

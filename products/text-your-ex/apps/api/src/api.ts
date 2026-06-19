@@ -47,9 +47,8 @@ api.post("/auth/dev", async (c) => {
     const token = await store.createSession(fresh.id);
     return c.json({ token, user: await store.getMe(fresh.id), isNew: true });
   }
-  const seeded = await store.findUserByPhone("+15550000001");
-  const user =
-    seeded ?? (await store.createUser({ name: "Calum", color: "#5E5CE6", exes: ["Christie"] }));
+  const user = await store.findUserByPhone("+15550000001");
+  if (!user) return c.json({ error: "seeded_user_not_found" }, 404);
   const token = await store.createSession(user.id);
   return c.json({ token, user: await store.getMe(user.id), isNew: false });
 });
@@ -64,7 +63,10 @@ api.post("/test/reset", async (c) => {
 // Real Sign In with Apple: verifies the JWT from the native
 // ASAuthorizationAppleIDProvider flow, then finds or creates the user.
 api.post("/auth/apple", async (c) => {
-  const { identityToken } = await c.req.json<{ identityToken?: string }>();
+  const { identityToken, fullName } = await c.req.json<{
+    identityToken?: string;
+    fullName?: string;
+  }>();
   if (!identityToken) {
     log.warn("auth/apple: missing identityToken in body");
     return c.json({ error: "identity_token_required" }, 400);
@@ -97,16 +99,33 @@ api.post("/auth/apple", async (c) => {
   try {
     ({ sub } = await verifyAppleToken(identityToken));
   } catch (e) {
+    const message = (e as Error).message;
     log.warn(
-      { err: (e as Error).name, msg: (e as Error).message, expectedAud: appleBundleId() },
+      { err: (e as Error).name, msg: message, expectedAud: appleBundleId() },
       "auth/apple: verification failed",
     );
-    return c.json({ error: "invalid_apple_token" }, 401);
+    return c.json(
+      {
+        error: "invalid_apple_token",
+        ...(isProduction() ? {} : { message, expectedAud: appleBundleId() }),
+      },
+      401,
+    );
   }
   const existing = await store.findUserByAppleId(sub);
   const isNew = !existing;
-  const user =
-    existing ?? (await store.createUser({ name: "", appleId: sub, authProvider: "apple" }));
+  const appleName = fullName?.trim();
+  if (!existing && !appleName) {
+    log.warn({ sub }, "auth/apple: missing fullName for new Apple user");
+    return c.json({ error: "apple_full_name_required" }, 400);
+  }
+  let user = existing;
+  if (!user) {
+    if (!appleName) {
+      throw new Error("unreachable missing Apple fullName guard");
+    }
+    user = await store.createUser({ name: appleName, appleId: sub, authProvider: "apple" });
+  }
   const token = await store.createSession(user.id);
   log.info({ sub, isNew, userId: user.id }, "auth/apple: signed in");
   return c.json({ token, user: await store.getMe(user.id), isNew });
@@ -129,20 +148,13 @@ api.patch("/me", async (c) => {
   const uid = requireUser(c);
   if (!uid) return c.json(unauth, 401);
   const body = await c.req.json<{
-    name?: string;
     color?: string;
     emoji?: string | null;
     photo?: string | null;
     exes?: string[];
   }>();
-  if (
-    body.name !== undefined ||
-    body.color !== undefined ||
-    body.emoji !== undefined ||
-    body.photo !== undefined
-  ) {
+  if (body.color !== undefined || body.emoji !== undefined || body.photo !== undefined) {
     await store.updateUser(uid, {
-      name: body.name,
       color: body.color,
       emoji: body.emoji,
       photo: body.photo,

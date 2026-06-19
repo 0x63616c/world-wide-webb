@@ -1,0 +1,45 @@
+name: Build and push ARM64 image
+description: Reusable product image build for CI, with shared GHCR auth/login + Buildx cache settings.
+inputs:
+  image:
+    description: Full image repository name without registry, e.g. www-control-center-web
+    required: true
+  dockerfile:
+    description: Dockerfile path for the image
+    required: true
+  context:
+    description: Build context path
+    default: .
+  platforms:
+    description: Buildx platform list
+    default: linux/arm64
+  cache-scope:
+    description: Buildx cache scope string
+    required: true
+  build-args:
+    description: Docker build args string (multiline key=value)
+    required: false
+runs:
+  using: composite
+  steps:
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to GHCR
+      uses: ./.github/actions/ghcr-login
+      env:
+        SOPS_AGE_KEY: ${{ env.SOPS_AGE_KEY }}
+
+    - name: Build and push image
+      uses: docker/build-push-action@v6
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.dockerfile }}
+        platforms: ${{ inputs.platforms }}
+        push: true
+        build-args: ${{ inputs.build-args }}
+        tags: |
+          ghcr.io/0x63616c/${{ inputs.image }}:${{ github.sha }}
+          ghcr.io/0x63616c/${{ inputs.image }}:${{ github.ref_name == 'main' && 'main' || github.sha }}
+        cache-from: type=gha,scope=${{ inputs.cache-scope }}
+        cache-to: type=gha,mode=max,scope=${{ inputs.cache-scope }}

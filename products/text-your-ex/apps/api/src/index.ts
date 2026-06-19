@@ -1,6 +1,6 @@
 import { runMigrations } from "./db/migrate";
 import { requireDatabaseUrl } from "./env";
-import { ensureSeed, resetAndSeed } from "./seed";
+import { resetAndSeed } from "./seed";
 import { buildApp } from "./server";
 
 // Fail fast at boot if the database is not configured (buildDatabaseUrl returns
@@ -8,12 +8,9 @@ import { buildApp } from "./server";
 requireDatabaseUrl();
 
 await runMigrations();
-// TYE_RESET=1 forces a clean reseed at boot (e2e). Otherwise seed only if empty.
-// Both paths are no-ops in production (guarded in seed / ensureSeed).
+// TYE_RESET=1 is only for e2e/dev reset runs. Normal local app boot must stay empty.
 if (process.env.TYE_RESET === "1" && process.env.APP_ENV !== "production") {
   await resetAndSeed();
-} else {
-  await ensureSeed();
 }
 
 const app = buildApp();

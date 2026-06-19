@@ -6,7 +6,7 @@ import { Icon } from "../icons";
 import { getNativeAppInfo } from "../native/appInfo";
 import { money, T } from "../theme";
 import type { JarSummaryDTO } from "../types";
-import { Avatar, Screen, TopBar } from "../ui";
+import { Avatar, DevBadge, Screen, TopBar } from "../ui";
 
 export function Profile({ ctx }: { ctx: AppCtx }) {
   const me = ctx.me;
@@ -63,7 +63,7 @@ export function Profile({ ctx }: { ctx: AppCtx }) {
 
   return (
     <Screen>
-      <TopBar title="Profile" />
+      <TopBar title="Profile" trailing={<DevBadge />} />
 
       <button
         type="button"

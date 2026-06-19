@@ -40,7 +40,9 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
     } catch {
       /* ignore */
     }
-    throw new ApiError(res.status, (detail as { error?: string })?.error ?? res.statusText, detail);
+    const apiDetail = detail as { error?: string; message?: string };
+    const message = [apiDetail?.error, apiDetail?.message].filter(Boolean).join(": ");
+    throw new ApiError(res.status, message || res.statusText, detail);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -58,14 +60,13 @@ class ApiError extends Error {
 
 export const api = {
   // auth
-  signInWithApple: (identityToken: string) =>
-    req<{ token: string; user: MeDTO; isNew: boolean }>("POST", "/auth/apple", { identityToken }),
+  signInWithApple: (input: { identityToken: string; fullName?: string }) =>
+    req<{ token: string; user: MeDTO; isNew: boolean }>("POST", "/auth/apple", input),
   logout: () => req<{ ok: boolean }>("POST", "/auth/logout"),
 
   // me
   me: () => req<MeDTO>("GET", "/me"),
   updateMe: (patch: {
-    name?: string;
     color?: string;
     emoji?: string | null;
     photo?: string | null;

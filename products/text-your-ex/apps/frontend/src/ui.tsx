@@ -2,12 +2,25 @@ import { type CSSProperties, type ReactNode, useState } from "react";
 import { Icon } from "./icons";
 import { T } from "./theme";
 
+export const PAGE_TOP_PADDING = 22;
+
 export type AvatarUser = {
   name: string;
   color: string;
   emoji?: string | null;
   photo?: string | null;
 };
+
+function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2)
+    return words
+      .slice(0, 2)
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase();
+  return (words[0]?.[0] ?? "?").toUpperCase();
+}
 
 export function Avatar({
   user,
@@ -47,7 +60,7 @@ export function Avatar({
         overflow: "hidden",
       }}
     >
-      {user.emoji || user.name.slice(0, 2)}
+      {user.emoji || initials(user.name)}
     </div>
   );
 }
@@ -66,6 +79,27 @@ export function AvatarStack({ users, size = 28 }: { users: AvatarUser[]; size?: 
         </div>
       ))}
     </div>
+  );
+}
+
+export function DevBadge() {
+  if (!import.meta.env.DEV) return null;
+  return (
+    <span
+      style={{
+        border: `1px solid ${T.hair}`,
+        borderRadius: 999,
+        color: T.gold,
+        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+        fontSize: 11,
+        fontWeight: 700,
+        padding: "5px 8px",
+        letterSpacing: "0.04em",
+        whiteSpace: "nowrap",
+      }}
+    >
+      LOCAL DEV
+    </span>
   );
 }
 
@@ -202,7 +236,7 @@ export function TopBar({
         display: "flex",
         alignItems: "center",
         gap: 12,
-        paddingTop: 64,
+        paddingTop: PAGE_TOP_PADDING,
         paddingBottom: 12,
         minHeight: 38,
       }}

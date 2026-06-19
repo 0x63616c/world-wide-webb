@@ -65,74 +65,77 @@ export function LogSlip({ ctx }: { ctx: AppCtx }) {
   }
 
   return (
-    <Screen>
+    <Screen style={{ display: "flex", flexDirection: "column" }}>
       <TopBar onBack={() => ctx.back()} title="Fess up" />
-      <p
-        style={{
-          fontFamily: T.disp,
-          fontWeight: 700,
-          fontSize: 26,
-          letterSpacing: "-0.02em",
-          lineHeight: 1.1,
-          margin: "6px 0 26px",
-        }}
-      >
-        So you <span style={{ color: T.red }}>caved.</span> How much is that gonna cost you?
-      </p>
+      <div style={{ width: "100%" }}>
+        <p
+          style={{
+            width: "100%",
+            fontFamily: T.disp,
+            fontWeight: 700,
+            fontSize: 26,
+            letterSpacing: "-0.02em",
+            lineHeight: 1.1,
+            margin: "6px 0 26px",
+          }}
+        >
+          So you <span style={{ color: T.red }}>caved.</span> How much is that gonna cost you?
+        </p>
 
-      <div style={{ marginBottom: 30 }}>
-        <Stepper cents={cents} onChange={setCents} step={jar.defaultCents} />
-        <div style={{ textAlign: "center", fontSize: 12.5, color: T.ter, marginTop: 12 }}>
-          jar default is {money(jar.defaultCents)} a slip
-        </div>
-      </div>
-
-      {myExes.length > 0 && (
-        <div style={{ marginBottom: 22 }}>
-          <span style={labelStyle}>
-            Which one? <span style={{ color: T.ter }}>(private - only you see this)</span>
-          </span>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {myExes.map((e) => (
-              <button
-                key={e}
-                type="button"
-                onClick={() => setEx(e === ex ? null : e)}
-                style={{
-                  padding: "9px 16px",
-                  borderRadius: 999,
-                  cursor: "pointer",
-                  fontFamily: T.ui,
-                  fontWeight: 600,
-                  fontSize: 14.5,
-                  background: e === ex ? T.gold : T.surface2,
-                  color: e === ex ? "#000" : T.text,
-                  border: `1px solid ${e === ex ? T.gold : T.hair}`,
-                }}
-              >
-                {e}
-              </button>
-            ))}
+        <div style={{ width: "100%", marginBottom: 30 }}>
+          <Stepper cents={cents} onChange={setCents} step={jar.defaultCents} />
+          <div style={{ textAlign: "center", fontSize: 12.5, color: T.ter, marginTop: 12 }}>
+            jar default is {money(jar.defaultCents)} a slip
           </div>
         </div>
-      )}
 
-      <div style={{ marginBottom: 28 }}>
-        <span style={labelStyle}>
-          Wanna explain yourself? <span style={{ color: T.ter }}>(optional)</span>
-        </span>
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          rows={2}
-          placeholder="“it was a moment of weakness…”"
-          style={inputStyle}
-        />
+        {myExes.length > 0 && (
+          <div style={{ width: "100%", marginBottom: 22 }}>
+            <span style={labelStyle}>
+              Which one? <span style={{ color: T.ter }}>(private - only you see this)</span>
+            </span>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {myExes.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => setEx(e === ex ? null : e)}
+                  style={{
+                    padding: "9px 16px",
+                    borderRadius: 999,
+                    cursor: "pointer",
+                    fontFamily: T.ui,
+                    fontWeight: 600,
+                    fontSize: 14.5,
+                    background: e === ex ? T.gold : T.surface2,
+                    color: e === ex ? "#000" : T.text,
+                    border: `1px solid ${e === ex ? T.gold : T.hair}`,
+                  }}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ width: "100%", marginBottom: 28 }}>
+          <span style={labelStyle}>
+            Wanna explain yourself? <span style={{ color: T.ter }}>(optional)</span>
+          </span>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            placeholder="“it was a moment of weakness…”"
+            style={inputStyle}
+          />
+        </div>
+
+        <Btn kind="red" onClick={() => setConfirming(true)}>
+          Add {money(cents)} to my shame
+        </Btn>
       </div>
-
-      <Btn kind="red" onClick={() => setConfirming(true)}>
-        Add {money(cents)} to my shame
-      </Btn>
 
       {confirming && (
         // biome-ignore lint/a11y/noStaticElementInteractions: dismiss backdrop, not a semantic action

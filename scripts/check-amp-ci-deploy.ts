@@ -50,11 +50,10 @@ const buildAmp = jobBlock("build-amp");
 for (const required of [
   "needs: [changes, test, typecheck]",
   "needs.changes.outputs.amp == 'true'",
-  "file: products/amp/Dockerfile",
-  `ghcr.io/0x63616c/www-amp-app:${expressionOpen}{ github.sha }}`,
-  `ghcr.io/0x63616c/www-amp-app:${expressionOpen}{ github.ref_name == 'main' && 'main' || github.sha }}`,
-  "cache-from: type=gha,scope=amp",
-  "cache-to: type=gha,mode=max,scope=amp",
+  "uses: ./.github/actions/build-product-image",
+  "cache-scope: amp",
+  "image: www-amp-app",
+  "dockerfile: products/amp/Dockerfile",
 ] as const) {
   assertContains(buildAmp, required, `build-amp job must include ${required}`);
 }
