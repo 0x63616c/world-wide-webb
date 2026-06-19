@@ -1,4 +1,11 @@
-import { defineQuery, defineSignal, proxyActivities, setHandler } from "@temporalio/workflow";
+import {
+  defineQuery,
+  defineSignal,
+  proxyActivities,
+  setHandler,
+  sleep,
+  startChild,
+} from "@temporalio/workflow";
 import type * as projectActivities from "./activities";
 import type * as agentActivities from "./agent-activities";
 import type * as commandActivities from "./command-activities";
@@ -159,6 +166,44 @@ const ticketWorkflowRunnerActivityProxies = proxyActivities<TicketWorkflowRunner
   startToCloseTimeout: "10 minutes",
 });
 
+export type TicketQueueWorkflowInput = {
+  readonly repoRoot: string;
+  readonly finalGates: readonly commandActivities.FinalGateCommand[];
+  readonly runtimeLogRoot?: string;
+  readonly baseRef?: string;
+  readonly requirePushedBranch?: boolean;
+  readonly mergeStrategy?: "cherry-pick" | "merge";
+  readonly pollIntervalMs?: number;
+  readonly maxTicketsPerPoll?: number;
+};
+
+export type TicketQueueWorkflowActivities = Pick<
+  typeof commandActivities,
+  "readReadyTicketWorkflowQueueActivity"
+>;
+
+export type TicketQueueWorkflowChildInput = {
+  readonly ticketId: string;
+  readonly input: TicketWorkflowInput;
+};
+
+export type TicketQueueWorkflowBatchResult = {
+  readonly started: readonly string[];
+  readonly skipped: readonly string[];
+};
+
+export type TicketChildWorkflowStarter = (
+  child: TicketQueueWorkflowChildInput,
+) => Promise<"started" | "skipped">;
+
+const ticketQueueActivityProxies = proxyActivities<TicketQueueWorkflowActivities>({
+  startToCloseTimeout: "1 minute",
+  retry: {
+    initialInterval: "15 seconds",
+    maximumInterval: "15 seconds",
+  },
+});
+
 const TICKET_RUNNER_MAX_BUILDER_ATTEMPTS = 2;
 const TICKET_RUNNER_MAX_REVIEWER_ATTEMPTS = 2;
 
@@ -166,6 +211,71 @@ export async function mergeWorkflow(
   input: MergeWorkflowQueueInput,
 ): Promise<MergeWorkflowQueueResult> {
   return runSerializedMergeQueueWorkflow(input, mergeActivityProxies);
+}
+
+export async function ticketQueueWorkflow(input: TicketQueueWorkflowInput): Promise<never> {
+  const pollIntervalMs = input.pollIntervalMs ?? 15_000;
+
+  while (true) {
+    const tickets = await ticketQueueActivityProxies.readReadyTicketWorkflowQueueActivity({
+      repoRoot: input.repoRoot,
+    });
+    await runTicketQueueBatch(input, tickets, startTicketChildWorkflow);
+    await sleep(pollIntervalMs);
+  }
+}
+
+export async function runTicketQueueBatch(
+  input: TicketQueueWorkflowInput,
+  tickets: readonly commandActivities.ReadyTicketWorkflowQueueTicket[],
+  start: TicketChildWorkflowStarter,
+): Promise<TicketQueueWorkflowBatchResult> {
+  const selectedTickets = tickets.slice(0, input.maxTicketsPerPoll ?? tickets.length);
+  const results = await Promise.all(
+    selectedTickets.map(async (ticket) => {
+      const child: TicketQueueWorkflowChildInput = {
+        ticketId: ticket.ticketId,
+        input: {
+          ticketId: ticket.ticketId,
+          runner: {
+            title: ticket.title,
+            repoRoot: input.repoRoot,
+            acceptanceCriteria: ticket.acceptanceCriteria,
+            comments: ticket.comments,
+            finalGates: input.finalGates,
+            runtimeLogRoot: input.runtimeLogRoot,
+            baseRef: input.baseRef,
+            requirePushedBranch: input.requirePushedBranch,
+            mergeStrategy: input.mergeStrategy,
+          },
+        },
+      };
+      return { ticketId: ticket.ticketId, status: await start(child) };
+    }),
+  );
+
+  return {
+    started: results
+      .filter((result) => result.status === "started")
+      .map((result) => result.ticketId),
+    skipped: results
+      .filter((result) => result.status === "skipped")
+      .map((result) => result.ticketId),
+  };
+}
+
+async function startTicketChildWorkflow(
+  child: TicketQueueWorkflowChildInput,
+): Promise<"started" | "skipped"> {
+  try {
+    await startChild(ticketWorkflow, {
+      workflowId: ticketWorkflowId(child.ticketId),
+      args: [child.input],
+    });
+    return "started";
+  } catch {
+    return "skipped";
+  }
 }
 
 export async function runSerializedMergeQueueWorkflow(
@@ -609,6 +719,10 @@ export async function ticketWorkflow(input: TicketWorkflowInput): Promise<Ticket
   }
 
   return state;
+}
+
+function ticketWorkflowId(ticketId: string): string {
+  return `ticket_${ticketId}`;
 }
 
 function failedTicketWorkflowRunner(

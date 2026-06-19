@@ -7,6 +7,7 @@ import {
   buildFailedReviewRequeueCommand,
   buildMetadataCommand,
   buildQueueCommand,
+  buildShowTicketsCommand,
   isDownstreamBlockedProbeResult,
   TICKET_METADATA_KEYS,
   TICKET_QUEUE_LABELS,
@@ -159,6 +160,35 @@ describe("BeadsAdapter", () => {
       buildFailedReviewRequeueCommand("www-3agy.4"),
       buildCommentCommand("www-3agy.4", "escalation", "Human input needed"),
     ]);
+  });
+
+  it("reads full ticket details for workflow runner input", async () => {
+    const commands: BeadsCommand[] = [];
+    const adapter = new BeadsAdapter(async (command) => {
+      commands.push(command);
+      return JSON.stringify([
+        {
+          id: "www-3agy.19",
+          title: "Start ticket workflow worktrees from latest origin main",
+          status: "open",
+          labels: ["ticket-ready"],
+          acceptance_criteria: "- [ ] worktree uses origin/main",
+          comments: [{ body: "## Context\n\nUse latest main." }],
+        },
+      ]);
+    });
+
+    await expect(adapter.showTickets(["www-3agy.19"])).resolves.toEqual([
+      {
+        id: "www-3agy.19",
+        title: "Start ticket workflow worktrees from latest origin main",
+        status: "open",
+        labels: ["ticket-ready"],
+        acceptanceCriteria: "- [ ] worktree uses origin/main",
+        comments: [{ text: "## Context\n\nUse latest main." }],
+      },
+    ]);
+    expect(commands).toEqual([buildShowTicketsCommand(["www-3agy.19"])]);
   });
 });
 

@@ -10,6 +10,7 @@ import {
   mergeTicketBranch,
   pushBeads,
   pushMain,
+  readReadyTicketWorkflowQueue,
   resolveOpenCodeSession,
   runFinalGates,
   startTmuxCommand,
@@ -374,6 +375,80 @@ describe("ticket command activities", () => {
     );
 
     expect(result).toEqual(expect.objectContaining({ ok: false, handoff: "ambiguous" }));
+  });
+
+  it("reads ticket-ready workflow queue details through Beads", async () => {
+    const commands: ActivityCommand[] = [];
+    const result = await readReadyTicketWorkflowQueue({ repoRoot: "/repo" }, async (command) => {
+      commands.push(command);
+      if (command.args[0] === "list") {
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify([
+            {
+              id: "www-3agy.19",
+              title: "Start ticket workflow worktrees from latest origin main",
+              status: "open",
+              labels: ["ticket-ready"],
+            },
+          ]),
+          stderr: "",
+        };
+      }
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify([
+          {
+            id: "www-3agy.19",
+            title: "Start ticket workflow worktrees from latest origin main",
+            status: "open",
+            labels: ["ticket-ready"],
+            acceptance_criteria: "- [ ] worktree starts from latest main",
+            comments: [{ text: "## Builder context\n\nKeep it small." }],
+          },
+        ]),
+        stderr: "",
+      };
+    });
+
+    expect(result).toEqual([
+      {
+        ticketId: "www-3agy.19",
+        title: "Start ticket workflow worktrees from latest origin main",
+        acceptanceCriteria: "- [ ] worktree starts from latest main",
+        comments: ["## Builder context\n\nKeep it small."],
+      },
+    ]);
+    expect(commands.map((command) => command.args[0])).toEqual(["list", "show"]);
+    expect(commands[0]).toEqual({
+      command: "bd",
+      args: [
+        "list",
+        "--json",
+        "--no-pager",
+        "-n",
+        "0",
+        "--status",
+        "open",
+        "--label",
+        "ticket-ready",
+        "--ready",
+        "--exclude-label",
+        "ticket-human",
+      ],
+      cwd: "/repo",
+      stdin: undefined,
+    });
+  });
+
+  it("throws a retryable empty-queue failure so Temporal owns polling", async () => {
+    await expect(
+      readReadyTicketWorkflowQueue({ repoRoot: "/repo" }, async () => ({
+        exitCode: 0,
+        stdout: "[]",
+        stderr: "",
+      })),
+    ).rejects.toMatchObject({ type: "NoReadyTicketWorkflows", nonRetryable: false });
   });
 });
 

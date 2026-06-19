@@ -8,6 +8,7 @@
     "dev": "bun run server.ts",
     "dev:temporal": "bun run scripts/start-temporal-dev.ts",
     "temporal:server": "temporal server start-dev --namespace project-management",
+    "queue:temporal": "bun run temporal/start-ticket-queue.ts",
     "worker:temporal": "bun run temporal/worker.ts",
     "test": "vitest run",
     "test:watch": "vitest",

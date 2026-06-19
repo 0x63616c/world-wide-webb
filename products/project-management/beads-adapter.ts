@@ -52,6 +52,15 @@ export type BeadsTicket = {
   labels: readonly string[];
 };
 
+export type BeadsTicketComment = {
+  text: string;
+};
+
+export type BeadsTicketDetails = BeadsTicket & {
+  acceptanceCriteria: string;
+  comments: readonly BeadsTicketComment[];
+};
+
 export function buildQueueCommand(queue: TicketQueue): BeadsCommand {
   const args = [
     "list",
@@ -146,6 +155,13 @@ export function buildDownstreamBlockedProbeCommand(downstreamTicketId: string): 
   };
 }
 
+export function buildShowTicketsCommand(ticketIds: readonly string[]): BeadsCommand {
+  return {
+    command: "bd",
+    args: ["show", ...ticketIds, "--json", "--include-comments", "--no-pager"],
+  };
+}
+
 export function isDownstreamBlockedProbeResult(stdout: string): boolean {
   return parseTickets(stdout).length === 0;
 }
@@ -171,6 +187,12 @@ export class BeadsAdapter {
 
   async humanQueue(): Promise<BeadsTicket[]> {
     return this.readQueue("human");
+  }
+
+  async showTickets(ticketIds: readonly string[]): Promise<BeadsTicketDetails[]> {
+    if (ticketIds.length === 0) return [];
+    const stdout = await this.#run(buildShowTicketsCommand(ticketIds));
+    return parseTicketDetails(stdout);
   }
 
   async writeMetadata(ticketId: string, metadata: TicketWorkflowMetadata): Promise<void> {
@@ -210,6 +232,12 @@ function parseTickets(stdout: string): BeadsTicket[] {
   return parsed.flatMap((ticket) => (isBeadsTicket(ticket) ? [ticket] : []));
 }
 
+function parseTicketDetails(stdout: string): BeadsTicketDetails[] {
+  const parsed: unknown = JSON.parse(stdout);
+  const tickets = Array.isArray(parsed) ? parsed : [parsed];
+  return tickets.flatMap(parseTicketDetail);
+}
+
 function isBeadsTicket(value: unknown): value is BeadsTicket {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
@@ -220,4 +248,33 @@ function isBeadsTicket(value: unknown): value is BeadsTicket {
     Array.isArray(candidate.labels) &&
     candidate.labels.every((label) => typeof label === "string")
   );
+}
+
+function parseTicketDetail(value: unknown): BeadsTicketDetails[] {
+  if (!isBeadsTicket(value)) return [];
+  const candidate = value as Record<string, unknown>;
+  const comments = Array.isArray(candidate.comments) ? candidate.comments : [];
+  return [
+    {
+      id: value.id,
+      title: value.title,
+      status: value.status,
+      labels: value.labels,
+      acceptanceCriteria: stringField(candidate, "acceptance_criteria"),
+      comments: comments.flatMap((comment) => {
+        if (!comment || typeof comment !== "object") return [];
+        const record = comment as Record<string, unknown>;
+        const text =
+          stringField(record, "text") ||
+          stringField(record, "body") ||
+          stringField(record, "content");
+        return text ? [{ text }] : [];
+      }),
+    } satisfies BeadsTicketDetails,
+  ];
+}
+
+function stringField(record: Record<string, unknown>, key: string): string {
+  const value = record[key];
+  return typeof value === "string" ? value : "";
 }

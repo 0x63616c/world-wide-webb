@@ -1,6 +1,8 @@
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { ApplicationFailure } from "@temporalio/activity";
 import {
+  BeadsAdapter,
   buildCommentCommand,
   buildMetadataCommand,
   TICKET_WORKFLOW_LABELS,
@@ -107,6 +109,17 @@ export type EscalateTicketHumanInput = {
 export type TicketBeadsInput = {
   readonly ticketId: string;
   readonly repoRoot: string;
+};
+
+export type ReadReadyTicketWorkflowQueueInput = {
+  readonly repoRoot: string;
+};
+
+export type ReadyTicketWorkflowQueueTicket = {
+  readonly ticketId: string;
+  readonly title: string;
+  readonly acceptanceCriteria: string;
+  readonly comments: readonly string[];
 };
 
 export type WriteTicketMetadataInput = TicketBeadsInput & {
@@ -312,6 +325,12 @@ export async function pushBeadsActivity(input: PushBeadsInput): Promise<MergeAct
 
 export async function claimTicketActivity(input: TicketBeadsInput): Promise<MergeActivityResult> {
   return claimTicket(input, runCommand);
+}
+
+export async function readReadyTicketWorkflowQueueActivity(
+  input: ReadReadyTicketWorkflowQueueInput,
+): Promise<ReadyTicketWorkflowQueueTicket[]> {
+  return readReadyTicketWorkflowQueue(input, runCommand);
 }
 
 export async function writeTicketWorkflowMetadataActivity(
@@ -633,6 +652,54 @@ export async function claimTicket(
       command: { command: "bd", args: ["update", input.ticketId, "--claim"], cwd: input.repoRoot },
     },
   ]);
+}
+
+export async function readReadyTicketWorkflowQueue(
+  input: ReadReadyTicketWorkflowQueueInput,
+  run: ActivityCommandRunner,
+): Promise<ReadyTicketWorkflowQueueTicket[]> {
+  const adapter = new BeadsAdapter(async (command) => {
+    const result = await run({
+      command: command.command,
+      args: command.args,
+      cwd: input.repoRoot,
+      stdin: command.stdin,
+    });
+    if (result.exitCode !== 0) {
+      throw ApplicationFailure.create({
+        message: result.stderr.trim() || result.stdout.trim() || "bd command failed",
+        type: "BeadsCommandFailed",
+        nonRetryable: true,
+      });
+    }
+    return result.stdout;
+  });
+  const queued = await adapter.builderQueue();
+
+  if (queued.length === 0) {
+    throw ApplicationFailure.create({
+      message: "No ticket-ready Beads tickets are ready to run",
+      type: "NoReadyTicketWorkflows",
+      nonRetryable: false,
+    });
+  }
+
+  const detailsById = new Map(
+    (await adapter.showTickets(queued.map((ticket) => ticket.id))).map((ticket) => [
+      ticket.id,
+      ticket,
+    ]),
+  );
+
+  return queued.map((ticket) => {
+    const details = detailsById.get(ticket.id);
+    return {
+      ticketId: ticket.id,
+      title: ticket.title,
+      acceptanceCriteria: details?.acceptanceCriteria ?? "No acceptance criteria provided.",
+      comments: details?.comments.map((comment) => comment.text) ?? [],
+    };
+  });
 }
 
 export async function writeTicketWorkflowMetadata(
