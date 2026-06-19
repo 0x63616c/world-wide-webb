@@ -32,6 +32,8 @@ const metadata: TicketWorkflowMetadata = {
 describe("ticket workflow labels", () => {
   it("defines the workflow labels used by Beads queues", () => {
     expect(TICKET_WORKFLOW_LABELS).toEqual({
+      backlog: "ticket-backlog",
+      queued: "ticket-queued",
       ready: "ticket-ready",
       review: "ticket-review",
       verified: "ticket-verified",
@@ -48,7 +50,7 @@ describe("ticket workflow labels", () => {
 });
 
 describe("buildQueueCommand", () => {
-  it("exposes the builder queue from ticket-ready without treating ticket-human as ready work", () => {
+  it("exposes the builder queue from ticket-ready without treating human or backlog tickets as ready work", () => {
     expect(buildQueueCommand("builder")).toEqual({
       command: "bd",
       args: [
@@ -64,6 +66,8 @@ describe("buildQueueCommand", () => {
         "--ready",
         "--exclude-label",
         "ticket-human",
+        "--exclude-label",
+        "ticket-backlog",
       ],
     });
   });

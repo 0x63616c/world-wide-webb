@@ -40,6 +40,7 @@ describe("createRequestHandler", () => {
       workflow: {
         activeRuns: [],
         columns: [
+          { id: "backlog", label: "ticket-backlog", title: "Backlog", tickets: [] },
           { id: "queued", label: "ticket-queued", title: "Queued", tickets: [] },
           { id: "ready", label: "ticket-ready", title: "Builder", tickets: [] },
           { id: "review", label: "ticket-review", title: "Review", tickets: [] },

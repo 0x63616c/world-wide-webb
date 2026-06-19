@@ -22,7 +22,8 @@ export function workflowColumnsForIssues(
 }
 
 export const WORKFLOW_DASHBOARD_QUEUES = [
-  { id: "queued", label: "ticket-queued", title: "Queued" },
+  { id: "backlog", label: TICKET_WORKFLOW_LABELS.backlog, title: "Backlog" },
+  { id: "queued", label: TICKET_WORKFLOW_LABELS.queued, title: "Queued" },
   { id: "ready", label: TICKET_WORKFLOW_LABELS.ready, title: "Builder" },
   { id: "review", label: TICKET_WORKFLOW_LABELS.review, title: "Review" },
   { id: "verified", label: TICKET_WORKFLOW_LABELS.verified, title: "Verified" },
@@ -65,6 +66,8 @@ export type WorkflowDashboardColumn = (typeof WORKFLOW_DASHBOARD_QUEUES)[number]
   readonly tickets: readonly WorkflowDashboardIssue[];
 };
 
+export type WorkflowDashboardColumnFilter = "all" | readonly WorkflowDashboardQueueId[];
+
 export type WorkflowDashboard = {
   readonly columns: readonly WorkflowDashboardColumn[];
   readonly activeRuns: readonly WorkflowDashboardIssue[];
@@ -86,6 +89,15 @@ export function workflowDashboardForIssues(
     })),
     activeRuns: tickets.filter((ticket) => ticket.activeRun !== null),
   };
+}
+
+export function workflowDashboardColumnsForFilter(
+  dashboard: WorkflowDashboard,
+  selectedColumns: WorkflowDashboardColumnFilter,
+): readonly WorkflowDashboardColumn[] {
+  if (selectedColumns === "all" || selectedColumns.length === 0) return dashboard.columns;
+  const selected = new Set(selectedColumns);
+  return dashboard.columns.filter((column) => selected.has(column.id));
 }
 
 function workflowDashboardIssue(
@@ -141,30 +153,42 @@ function queueForIssue(
   const phase = stringMeta(metadata, TICKET_METADATA_KEYS.phase);
   const lastResult = stringMeta(metadata, TICKET_METADATA_KEYS.lastResult);
   const hasWorkflowLabel = Object.values(TICKET_WORKFLOW_LABELS).some((label) => labels.has(label));
+  const hasBacklogState = labels.has(TICKET_WORKFLOW_LABELS.backlog) || phase === "backlog";
+  const hasQueuedState = labels.has(TICKET_WORKFLOW_LABELS.queued) || phase === "queued";
 
   if (issue.status === "closed") {
     return phase === "closed" ||
       phase === "shipped" ||
       lastResult === "merge-passed" ||
       lastResult === "shipped"
-      ? WORKFLOW_DASHBOARD_QUEUES[5]
+      ? workflowQueue("shipped")
       : null;
   }
 
-  if (!hasWorkflowLabel) return null;
-  if (labels.has(TICKET_WORKFLOW_LABELS.human)) return WORKFLOW_DASHBOARD_QUEUES[4];
+  if (!hasWorkflowLabel && !hasBacklogState && !hasQueuedState) return null;
+  if (hasBacklogState) return workflowQueue("backlog");
+  if (labels.has(TICKET_WORKFLOW_LABELS.human)) return workflowQueue("human");
   if (issue.status === "blocked" || (issue.blockedBy?.length ?? 0) > 0) {
-    return WORKFLOW_DASHBOARD_QUEUES[0];
+    return workflowQueue("queued");
   }
-  if (labels.has(TICKET_WORKFLOW_LABELS.retry)) return WORKFLOW_DASHBOARD_QUEUES[1];
-  if (labels.has(TICKET_WORKFLOW_LABELS.verified)) return WORKFLOW_DASHBOARD_QUEUES[3];
-  if (labels.has(TICKET_WORKFLOW_LABELS.review)) return WORKFLOW_DASHBOARD_QUEUES[2];
-  if (labels.has(TICKET_WORKFLOW_LABELS.ready)) return WORKFLOW_DASHBOARD_QUEUES[1];
+  if (hasQueuedState) return workflowQueue("queued");
+  if (labels.has(TICKET_WORKFLOW_LABELS.retry)) return workflowQueue("ready");
+  if (labels.has(TICKET_WORKFLOW_LABELS.verified)) return workflowQueue("verified");
+  if (labels.has(TICKET_WORKFLOW_LABELS.review)) return workflowQueue("review");
+  if (labels.has(TICKET_WORKFLOW_LABELS.ready)) return workflowQueue("ready");
   return null;
+}
+
+function workflowQueue(id: WorkflowDashboardQueueId): (typeof WORKFLOW_DASHBOARD_QUEUES)[number] {
+  const queue = WORKFLOW_DASHBOARD_QUEUES.find((candidate) => candidate.id === id);
+  if (!queue) throw new Error(`Unknown workflow queue: ${id}`);
+  return queue;
 }
 
 function phaseFromQueue(queue: WorkflowDashboardQueueId): string {
   switch (queue) {
+    case "backlog":
+      return "backlog";
     case "queued":
       return "queued";
     case "ready":
