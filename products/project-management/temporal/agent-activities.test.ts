@@ -30,6 +30,7 @@ describe("ticket builder activity", () => {
     expect(prompt.prompt).toContain("Never close Beads tickets");
     expect(prompt.prompt).toContain("Do not run `bd close`");
     expect(prompt.prompt).toContain("Commit and push the ticket branch");
+    expect(prompt.prompt).toContain("revert that file before committing");
   });
 
   it("archives the prompt and starts opencode in tmux with explicit agent and model", async () => {
