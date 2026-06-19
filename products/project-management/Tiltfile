@@ -14,6 +14,41 @@ TEMPORAL_NAMESPACE = 'project-management'
 TEMPORAL_TASK_QUEUE = 'project-management'
 TEMPORAL_ADDRESS = '127.0.0.1:%d' % TEMPORAL_PORT
 
+PROJECT_CONFIG_DEPS = [
+    'package.json',
+    'tsconfig.json',
+    'Tiltfile',
+    '../../bun.lock',
+]
+
+PROJECT_TS_DEPS = [
+    'beads-adapter.ts',
+    'map.ts',
+    'server.ts',
+    'ticket-artifact-cleanup.ts',
+    'workflow-control.ts',
+    'workflow-metrics.ts',
+    'workflow.ts',
+    'scripts/cleanup-ticket-artifacts.ts',
+    'scripts/start-temporal-dev.ts',
+    'temporal/activities.ts',
+    'temporal/agent-activities.ts',
+    'temporal/command-activities.ts',
+    'temporal/queue-bootstrap.ts',
+    'temporal/start-ticket-queue.ts',
+    'temporal/state.ts',
+    'temporal/worker.ts',
+    'temporal/workflows.ts',
+]
+
+UI_ASSET_DEPS = [
+    'public/Beads.dc.html',
+    'public/support.js',
+    'public/_ds',
+    'public/_fonts',
+    'public/media',
+]
+
 local_resource(
     'install',
     cmd='bun install --frozen-lockfile',
@@ -41,6 +76,7 @@ local_resource(
 local_resource(
     'worker',
     serve_cmd='bun run worker:temporal',
+    deps=PROJECT_CONFIG_DEPS + PROJECT_TS_DEPS,
     serve_env={
         'TEMPORAL_ADDRESS': TEMPORAL_ADDRESS,
         'TEMPORAL_NAMESPACE': TEMPORAL_NAMESPACE,
@@ -53,6 +89,7 @@ local_resource(
 local_resource(
     'ui',
     serve_cmd='bun run dev',
+    deps=PROJECT_CONFIG_DEPS + PROJECT_TS_DEPS + UI_ASSET_DEPS,
     serve_env={
         'BEADS_UI_PORT': str(UI_PORT),
         'TEMPORAL_ADDRESS': TEMPORAL_ADDRESS,
