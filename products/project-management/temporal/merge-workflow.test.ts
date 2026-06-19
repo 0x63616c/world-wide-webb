@@ -37,6 +37,9 @@ describe("runSerializedMergeWorkflow", () => {
       "update-main",
       "merge-ticket-branch",
       "final-gates",
+      "merge-fix",
+      "final-gates",
+      "escalate-human",
     ]);
     expect(fake.maxConcurrent).toBe(1);
   });
@@ -71,27 +74,102 @@ describe("runSerializedMergeWorkflow", () => {
     expect(fake.maxConcurrent).toBe(1);
   });
 
-  it("does not run gates, push main, or close the ticket after a merge conflict", async () => {
+  it("invokes merge-fix in the merge worktree after a merge conflict, reruns gates, then closes", async () => {
     const fake = fakeMergeActivities("merge-ticket-branch");
     const result = await runSerializedMergeWorkflow(baseInput(), fake.activities);
 
     expect(result).toEqual(
       expect.objectContaining({
-        status: "failed",
-        failedStep: "merge-ticket-branch",
-        pushed: false,
-        closed: false,
+        status: "merged",
+        failedStep: null,
+        pushed: true,
+        closed: true,
       }),
     );
-    expect(fake.calls).toEqual(["update-main", "merge-ticket-branch"]);
+    expect(fake.calls).toEqual([
+      "update-main",
+      "merge-ticket-branch",
+      "merge-fix",
+      "final-gates",
+      "push-main",
+      "close-ticket",
+    ]);
     expect(result.steps.map((step) => [step.step, step.ok])).toEqual([
       ["update-main", true],
       ["merge-ticket-branch", false],
+      ["merge-fix", true],
+      ["final-gates", true],
+      ["push-main", true],
+      ["close-ticket", true],
     ]);
   });
 
-  it("runs final gates on main before push and does not close the ticket when gates fail", async () => {
+  it("runs merge-fix after final gates fail and reruns deterministic gates before push", async () => {
+    const fake = fakeMergeActivities("final-gates", undefined, { failStepLimit: 1 });
+    const result = await runSerializedMergeWorkflow(baseInput(), fake.activities);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "merged",
+        failedStep: null,
+        pushed: true,
+        closed: true,
+      }),
+    );
+    expect(fake.calls).toEqual([
+      "update-main",
+      "merge-ticket-branch",
+      "final-gates",
+      "merge-fix",
+      "final-gates",
+      "push-main",
+      "close-ticket",
+    ]);
+  });
+
+  it("escalates repeated deterministic gate failures to ticket-human without pushing or closing", async () => {
     const fake = fakeMergeActivities("final-gates");
+    const result = await runSerializedMergeWorkflow(
+      baseInput({ maxMergeFixAttempts: 2 }),
+      fake.activities,
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "failed",
+        failedStep: "final-gates",
+        pushed: false,
+        closed: false,
+        humanEscalated: true,
+      }),
+    );
+    expect(fake.calls).toEqual([
+      "update-main",
+      "merge-ticket-branch",
+      "final-gates",
+      "merge-fix",
+      "final-gates",
+      "merge-fix",
+      "final-gates",
+      "escalate-human",
+    ]);
+    expect(result.steps.map((step) => [step.step, step.ok])).toEqual([
+      ["update-main", true],
+      ["merge-ticket-branch", true],
+      ["final-gates", false],
+      ["merge-fix", true],
+      ["final-gates", false],
+      ["merge-fix", true],
+      ["final-gates", false],
+      ["escalate-human", true],
+    ]);
+  });
+
+  it("does not rerun final gates after a failed merge-fix launch", async () => {
+    const fake = fakeMergeActivities("final-gates", undefined, {
+      failStepLimit: 1,
+      failMergeFix: true,
+    });
     const result = await runSerializedMergeWorkflow(baseInput(), fake.activities);
 
     expect(result).toEqual(
@@ -100,9 +178,23 @@ describe("runSerializedMergeWorkflow", () => {
         failedStep: "final-gates",
         pushed: false,
         closed: false,
+        humanEscalated: true,
       }),
     );
-    expect(fake.calls).toEqual(["update-main", "merge-ticket-branch", "final-gates"]);
+    expect(fake.calls).toEqual([
+      "update-main",
+      "merge-ticket-branch",
+      "final-gates",
+      "merge-fix",
+      "escalate-human",
+    ]);
+    expect(result.steps.map((step) => [step.step, step.ok])).toEqual([
+      ["update-main", true],
+      ["merge-ticket-branch", true],
+      ["final-gates", false],
+      ["merge-fix", false],
+      ["escalate-human", true],
+    ]);
   });
 
   it("does not close the ticket when push main fails", async () => {
@@ -137,6 +229,7 @@ function baseInput(overrides: Partial<MergeWorkflowInput> = {}): MergeWorkflowIn
 function fakeMergeActivities(
   failStep?: MergeWorkflowStep,
   failTicketId?: string,
+  options: { readonly failStepLimit?: number; readonly failMergeFix?: boolean } = {},
 ): {
   readonly activities: MergeWorkflowActivities;
   readonly calls: MergeWorkflowStep[];
@@ -147,6 +240,7 @@ function fakeMergeActivities(
   let maxConcurrent = 0;
 
   let currentTicketId: string | null = null;
+  let matchingFailures = 0;
 
   async function run(step: MergeWorkflowStep, ticketId: string): Promise<MergeActivityResult> {
     active += 1;
@@ -159,7 +253,18 @@ function fakeMergeActivities(
       failTicketId === undefined ||
       ticketId === failTicketId ||
       ticketId.startsWith(`${failTicketId}-`);
-    return { ok: !(step === failStep && ticketMatches), records: [] };
+    const stepShouldFail = step === failStep && ticketMatches;
+    const mergeFixShouldFail =
+      options.failMergeFix === true && step === "merge-fix" && ticketMatches;
+    if (stepShouldFail) matchingFailures += 1;
+    return {
+      ok: !(
+        mergeFixShouldFail ||
+        (stepShouldFail &&
+          (options.failStepLimit === undefined || matchingFailures <= options.failStepLimit))
+      ),
+      records: [],
+    };
   }
 
   return {
@@ -173,6 +278,28 @@ function fakeMergeActivities(
       runFinalGatesActivity: async () => run("final-gates", currentTicketId ?? ""),
       pushMainActivity: async () => run("push-main", currentTicketId ?? ""),
       closeTicketActivity: async (input) => run("close-ticket", input.ticketId),
+      startTicketMergeFixActivity: async (input) => {
+        const result = await run("merge-fix", input.ticketId);
+        return {
+          ...result,
+          records: [
+            {
+              activity: "start-tmux-command",
+              command: { command: "tmux", args: ["new-session"], cwd: input.repoRoot },
+              exitCode: result.ok ? 0 : 1,
+              stdout: "",
+              stderr: result.ok ? "" : "tmux failed",
+            },
+          ],
+          sessionName: `ticket_${input.ticketId}_mergefix_${input.attempt}`,
+          stdoutLogPath: "/tmp/mergefix.stdout.log",
+          stderrLogPath: "/tmp/mergefix.stderr.log",
+          agent: "ticket-mergefix",
+          model: "openai/gpt-5.5",
+          promptPath: "/tmp/mergefix.prompt.md",
+        };
+      },
+      escalateTicketHumanActivity: async (input) => run("escalate-human", input.ticketId),
     },
   };
 }

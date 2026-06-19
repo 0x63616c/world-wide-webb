@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { TICKET_WORKFLOW_LABELS } from "../beads-adapter";
 
 export const TICKET_WORKTREE_ROOT = ".worktrees/tickets";
 
@@ -61,6 +62,12 @@ export type PushMainInput = {
 export type CloseTicketInput = {
   readonly ticketId: string;
   readonly repoRoot: string;
+};
+
+export type EscalateTicketHumanInput = {
+  readonly ticketId: string;
+  readonly repoRoot: string;
+  readonly reason: string;
 };
 
 export type MergeActivityResult = {
@@ -197,6 +204,12 @@ export async function pushMainActivity(input: PushMainInput): Promise<MergeActiv
 
 export async function closeTicketActivity(input: CloseTicketInput): Promise<MergeActivityResult> {
   return closeTicket(input, runCommand);
+}
+
+export async function escalateTicketHumanActivity(
+  input: EscalateTicketHumanInput,
+): Promise<MergeActivityResult> {
+  return escalateTicketHuman(input, runCommand);
 }
 
 export async function createTicketWorktree(
@@ -349,6 +362,42 @@ export async function closeTicket(
           "Merged to main after serialized merge workflow",
         ],
         cwd: input.repoRoot,
+      },
+    },
+  ]);
+}
+
+export async function escalateTicketHuman(
+  input: EscalateTicketHumanInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  return runMergeCommands(run, [
+    {
+      activity: "mark-ticket-human",
+      command: {
+        command: "bd",
+        args: [
+          "update",
+          input.ticketId,
+          "--add-label",
+          TICKET_WORKFLOW_LABELS.human,
+          "--remove-label",
+          TICKET_WORKFLOW_LABELS.ready,
+          "--remove-label",
+          TICKET_WORKFLOW_LABELS.review,
+          "--remove-label",
+          TICKET_WORKFLOW_LABELS.verified,
+        ],
+        cwd: input.repoRoot,
+      },
+    },
+    {
+      activity: "comment-ticket-escalation",
+      command: {
+        command: "bd",
+        args: ["comment", input.ticketId, "--stdin"],
+        cwd: input.repoRoot,
+        stdin: `## Escalation\n\n${input.reason}`,
       },
     },
   ]);

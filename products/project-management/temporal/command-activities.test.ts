@@ -5,6 +5,7 @@ import {
   classifyTmuxSessionName,
   closeTicket,
   createTicketWorktree,
+  escalateTicketHuman,
   inspectTmuxSession,
   mergeTicketBranch,
   pushMain,
@@ -201,6 +202,45 @@ describe("ticket command activities", () => {
       "fetch-main",
       "checkout-main",
     ]);
+  });
+
+  it("escalates repeated merge failure to ticket-human without closing the ticket", async () => {
+    const { run, commands } = fakeRunner();
+
+    await escalateTicketHuman(
+      {
+        repoRoot: "/repo",
+        ticketId: "www-3agy.12",
+        reason: "Merge fix attempts exhausted.",
+      },
+      run,
+    );
+
+    expect(commands).toEqual([
+      {
+        command: "bd",
+        args: [
+          "update",
+          "www-3agy.12",
+          "--add-label",
+          "ticket-human",
+          "--remove-label",
+          "ticket-ready",
+          "--remove-label",
+          "ticket-review",
+          "--remove-label",
+          "ticket-verified",
+        ],
+        cwd: "/repo",
+      },
+      {
+        command: "bd",
+        args: ["comment", "www-3agy.12", "--stdin"],
+        cwd: "/repo",
+        stdin: "## Escalation\n\nMerge fix attempts exhausted.",
+      },
+    ]);
+    expect(commands.flatMap((command) => command.args)).not.toContain("close");
   });
 });
 

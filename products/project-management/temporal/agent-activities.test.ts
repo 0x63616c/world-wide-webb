@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
   buildTicketBuilderPrompt,
+  buildTicketMergeFixPrompt,
   buildTicketReviewerPrompt,
   formatTicketReviewerFindings,
   parseTicketReviewerVerdict,
   startTicketBuilder,
+  startTicketMergeFix,
   startTicketReviewer,
   TICKET_BUILDER_AGENT,
   TICKET_BUILDER_MODEL,
+  TICKET_MERGEFIX_AGENT,
+  TICKET_MERGEFIX_MODEL,
   TICKET_REVIEWER_AGENT,
   TICKET_REVIEWER_MODEL,
   type TicketBuilderPrompt,
+  type TicketMergeFixPrompt,
   type TicketReviewerPrompt,
 } from "./agent-activities";
 import type { ActivityCommand, ActivityCommandRunner } from "./command-activities";
@@ -57,6 +62,56 @@ describe("ticket builder activity", () => {
         "-c",
         "/repo/.worktrees/tickets/www-3agy.9-builder",
         "'opencode' 'run' '--agent' 'ticket-builder' '--model' 'openai/gpt-5.5' '--prompt-file' '/cache/logs/ticket_www-3agy.9_build_1.prompt.md' > '/cache/logs/ticket_www-3agy.9_build_1.stdout.log' 2> '/cache/logs/ticket_www-3agy.9_build_1.stderr.log'",
+      ],
+    });
+  });
+});
+
+describe("ticket merge-fix activity", () => {
+  it("builds a bounded prompt in the merge worktree context", () => {
+    const prompt = buildTicketMergeFixPrompt(mergeFixInput());
+
+    expect(prompt.promptPath).toBe("/cache/logs/ticket_www-3agy.12_mergefix_1.prompt.md");
+    expect(prompt.prompt).toContain("Merge worktree: /repo");
+    expect(prompt.prompt).toContain("Failed deterministic step: final-gates");
+    expect(prompt.prompt).toContain("final-gate:test");
+    expect(prompt.prompt).toContain(
+      "Leave the worktree ready for the deterministic merge workflow to rerun final gates",
+    );
+    expect(prompt.prompt).toContain("Keep the fix bounded to this attempt");
+    expect(prompt.prompt).toContain("Do not push, commit unrelated work, close Beads tickets");
+  });
+
+  it("archives the prompt and starts opencode in tmux with the merge-fix agent", async () => {
+    const prompts: TicketMergeFixPrompt[] = [];
+    const commands: ActivityCommand[] = [];
+    const result = await startTicketMergeFix(
+      mergeFixInput(),
+      async (prompt) => {
+        prompts.push(prompt);
+      },
+      fakeRunner(commands),
+    );
+
+    expect(prompts).toHaveLength(1);
+    expect(result).toEqual(
+      expect.objectContaining({
+        agent: TICKET_MERGEFIX_AGENT,
+        model: TICKET_MERGEFIX_MODEL,
+        sessionName: "ticket_www-3agy.12_mergefix_1",
+        promptPath: "/cache/logs/ticket_www-3agy.12_mergefix_1.prompt.md",
+      }),
+    );
+    expect(commands[1]).toEqual({
+      command: "tmux",
+      args: [
+        "new-session",
+        "-d",
+        "-s",
+        "ticket_www-3agy.12_mergefix_1",
+        "-c",
+        "/repo",
+        "'opencode' 'run' '--agent' 'ticket-mergefix' '--model' 'openai/gpt-5.5' '--prompt-file' '/cache/logs/ticket_www-3agy.12_mergefix_1.prompt.md' > '/cache/logs/ticket_www-3agy.12_mergefix_1.stdout.log' 2> '/cache/logs/ticket_www-3agy.12_mergefix_1.stderr.log'",
       ],
     });
   });
@@ -255,6 +310,30 @@ function reviewerInput() {
     attempt: 1,
     acceptanceCriteria: "- [ ] Reviewer uses explicit cheaper model/agent by default",
     comments: ["Builder summary: changed agent-activities.ts."],
+    runtimeLogRoot: "/cache/logs",
+  };
+}
+
+function mergeFixInput() {
+  return {
+    ticketId: "www-3agy.12",
+    title: "Implement merge-fix agent fallback",
+    repoRoot: "/repo",
+    branch: "www-3agy.12-implement-merge-fix-agent-fallback",
+    attempt: 1,
+    failedStep: "final-gates",
+    failureRecords: [
+      {
+        activity: "final-gate:test",
+        command: { command: "bun", args: ["run", "test"], cwd: "/repo" },
+        exitCode: 1,
+        stdout: "",
+        stderr: "test failed",
+      },
+    ],
+    finalGates: [{ label: "test", command: "bun", args: ["run", "test"] }],
+    acceptanceCriteria: "- [ ] Deterministic gates rerun after merge-fix",
+    comments: ["Reviewer found a deterministic gate failure."],
     runtimeLogRoot: "/cache/logs",
   };
 }

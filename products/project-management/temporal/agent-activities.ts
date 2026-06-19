@@ -1,6 +1,8 @@
 import { join } from "node:path";
 import {
   type ActivityCommandRunner,
+  type ActivityRecord,
+  type FinalGateCommand,
   type StartTmuxCommandResult,
   startTmuxCommand,
 } from "./command-activities";
@@ -9,6 +11,8 @@ export const TICKET_BUILDER_AGENT = "ticket-builder";
 export const TICKET_BUILDER_MODEL = "openai/gpt-5.5";
 export const TICKET_REVIEWER_AGENT = "ticket-reviewer";
 export const TICKET_REVIEWER_MODEL = "openai/gpt-5.5-fast";
+export const TICKET_MERGEFIX_AGENT = "ticket-mergefix";
+export const TICKET_MERGEFIX_MODEL = "openai/gpt-5.5";
 
 export const TICKET_REVIEWER_VERDICTS = ["pass", "fail", "human"] as const;
 
@@ -54,6 +58,31 @@ export type TicketReviewerPrompt = {
 export type TicketReviewerActivityResult = StartTmuxCommandResult & {
   readonly agent: typeof TICKET_REVIEWER_AGENT;
   readonly model: typeof TICKET_REVIEWER_MODEL;
+  readonly promptPath: string;
+};
+
+export type TicketMergeFixInput = {
+  readonly ticketId: string;
+  readonly title: string;
+  readonly repoRoot: string;
+  readonly branch: string;
+  readonly attempt: number;
+  readonly failedStep: string;
+  readonly failureRecords: readonly ActivityRecord[];
+  readonly finalGates: readonly FinalGateCommand[];
+  readonly acceptanceCriteria: string;
+  readonly comments: readonly string[];
+  readonly runtimeLogRoot?: string;
+};
+
+export type TicketMergeFixPrompt = {
+  readonly prompt: string;
+  readonly promptPath: string;
+};
+
+export type TicketMergeFixActivityResult = StartTmuxCommandResult & {
+  readonly agent: typeof TICKET_MERGEFIX_AGENT;
+  readonly model: typeof TICKET_MERGEFIX_MODEL;
   readonly promptPath: string;
 };
 
@@ -119,6 +148,12 @@ export async function startTicketReviewerActivity(
   return startTicketReviewer(input, defaultPromptWriter, undefined);
 }
 
+export async function startTicketMergeFixActivity(
+  input: TicketMergeFixInput,
+): Promise<TicketMergeFixActivityResult> {
+  return startTicketMergeFix(input, defaultPromptWriter, undefined);
+}
+
 export async function startTicketReviewer(
   input: TicketReviewerInput,
   writePrompt: (prompt: TicketReviewerPrompt) => Promise<void>,
@@ -151,6 +186,42 @@ export async function startTicketReviewer(
     ...tmuxResult,
     agent: TICKET_REVIEWER_AGENT,
     model: TICKET_REVIEWER_MODEL,
+    promptPath: prompt.promptPath,
+  };
+}
+
+export async function startTicketMergeFix(
+  input: TicketMergeFixInput,
+  writePrompt: (prompt: TicketMergeFixPrompt) => Promise<void>,
+  runCommand?: ActivityCommandRunner,
+): Promise<TicketMergeFixActivityResult> {
+  const prompt = buildTicketMergeFixPrompt(input);
+  await writePrompt(prompt);
+  const tmuxResult = await startTmuxCommand(
+    {
+      ticketId: input.ticketId,
+      kind: "mergefix",
+      attempt: input.attempt,
+      cwd: input.repoRoot,
+      runtimeLogRoot: input.runtimeLogRoot,
+      command: [
+        "opencode",
+        "run",
+        "--agent",
+        TICKET_MERGEFIX_AGENT,
+        "--model",
+        TICKET_MERGEFIX_MODEL,
+        "--prompt-file",
+        prompt.promptPath,
+      ],
+    },
+    runCommand ?? defaultActivityCommandRunner,
+  );
+
+  return {
+    ...tmuxResult,
+    agent: TICKET_MERGEFIX_AGENT,
+    model: TICKET_MERGEFIX_MODEL,
     promptPath: prompt.promptPath,
   };
 }
@@ -225,6 +296,65 @@ Return exactly one JSON object, with no markdown wrapper, matching this shape:
   };
 }
 
+export function buildTicketMergeFixPrompt(input: TicketMergeFixInput): TicketMergeFixPrompt {
+  const promptPath = join(
+    input.runtimeLogRoot ?? ".tickets/logs",
+    `ticket_${input.ticketId}_mergefix_${input.attempt}.prompt.md`,
+  );
+  const commentBlock =
+    input.comments.length > 0 ? input.comments.join("\n\n---\n\n") : "No comments.";
+  const failureBlock =
+    input.failureRecords.length > 0
+      ? input.failureRecords.map(formatActivityRecord).join("\n\n")
+      : "No command records were captured.";
+  const gateBlock = input.finalGates
+    .map((gate) => `- ${gate.label}: ${[gate.command, ...gate.args].join(" ")}`)
+    .join("\n");
+
+  return {
+    promptPath,
+    prompt: `# Ticket Merge Fix
+
+Ticket: ${input.ticketId} - ${input.title}
+Attempt: ${input.attempt}
+Branch: ${input.branch}
+Merge worktree: ${input.repoRoot}
+Failed deterministic step: ${input.failedStep}
+
+## Required Reading
+
+- Run \`bd show ${input.ticketId}\` and read the ticket description, labels, comments, and acceptance criteria.
+- Inspect the current merge/worktree state in \`${input.repoRoot}\`. The deterministic merge workflow has already failed and left this worktree as the repair context.
+- Review the failure records below before editing.
+
+## Acceptance Criteria
+
+${input.acceptanceCriteria}
+
+## Existing Comments
+
+${commentBlock}
+
+## Failed Command Records
+
+${failureBlock}
+
+## Deterministic Gates That Will Rerun
+
+${gateBlock || "- No final gates configured"}
+
+## Hard Rules
+
+- Work only in this merge/worktree context: ${input.repoRoot}
+- Fix only the merge conflict or post-merge gate failure that blocks this merge.
+- Leave the worktree ready for the deterministic merge workflow to rerun final gates.
+- Do not push, commit unrelated work, close Beads tickets, or run \`bd close\`.
+- Do not remove tests or weaken gates to make the merge pass.
+- Keep the fix bounded to this attempt; if the correct repair is unclear, report that human input is needed.
+`,
+  };
+}
+
 export function parseTicketReviewerVerdict(output: string): TicketReviewerVerdict {
   const parsed: unknown = JSON.parse(extractJsonObject(output));
   if (!isTicketReviewerVerdict(parsed)) {
@@ -252,6 +382,17 @@ ${findings}
 ## Acceptance evidence
 
 ${evidence}`;
+}
+
+function formatActivityRecord(record: ActivityRecord): string {
+  return `### ${record.activity}
+
+Command: ${[record.command.command, ...record.command.args].join(" ")}
+Exit: ${record.exitCode}
+Stdout:
+${record.stdout || "(empty)"}
+Stderr:
+${record.stderr || "(empty)"}`;
 }
 
 function extractJsonObject(output: string): string {
@@ -305,7 +446,9 @@ function formatReviewerFinding(finding: TicketReviewerFinding): string {
   return `- ${finding.severity}: ${location} - ${finding.message}`;
 }
 
-async function defaultPromptWriter(prompt: TicketBuilderPrompt): Promise<void> {
+async function defaultPromptWriter(
+  prompt: TicketBuilderPrompt | TicketReviewerPrompt | TicketMergeFixPrompt,
+): Promise<void> {
   await Bun.write(prompt.promptPath, prompt.prompt);
 }
 
