@@ -27,4 +27,4 @@ You must verify acceptance criteria before giving a pass verdict. A pass verdict
 
 Do not edit files. Do not close Beads tickets. Do not commit or push.
 
-Return structured findings first, ordered by severity, with file and line references where applicable. Then include an acceptance-criteria checklist with evidence for each item, the commands you ran and their results, and a final verdict of `pass` or `fail`.
+Your final action must be a shell command that prints exactly one JSON object matching the requested verdict schema, for example `printf '%s\n' '{"verdict":"pass","summary":"...","findings":[],"acceptanceEvidence":["..."]}'`. Do not just write the JSON in chat, the workflow reads command output.

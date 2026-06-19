@@ -157,7 +157,7 @@ describe("ticket reviewer activity", () => {
 
       ## Required Output
 
-      Return exactly one JSON object, with no markdown wrapper, matching this shape:
+      Your final action must be a shell command that prints exactly one JSON object matching this shape, for example \`printf '%s\\n' '{"verdict":"pass","summary":"...","findings":[],"acceptanceEvidence":["..."]}'\`. Do not just write the JSON in chat, the workflow reads command output.
 
       {
         "verdict": "pass" | "fail" | "human",
