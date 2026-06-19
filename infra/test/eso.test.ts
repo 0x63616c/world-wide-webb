@@ -72,6 +72,17 @@ describe("SERVICE_SECRETS: tye-api (www-jtp0)", () => {
   });
 });
 
+describe("SERVICE_SECRETS: captive-portal-api", () => {
+  test("captive-portal-api entry matches the product API runtime contract", () => {
+    expect(map.SERVICE_SECRETS["captive-portal-api"]).toEqual({
+      POSTGRES_PASSWORD: "CAPTIVE_PORTAL_POSTGRES__PASSWORD",
+      UNIFI_API_KEY: "UNIFI__LOCAL_API_KEY",
+      WIFI_PASSWORD: "WIFI_GUEST_CREDENTIALS__PASSWORD",
+      WIFI_SSID: "WIFI_GUEST_CREDENTIALS__SSID",
+    });
+  });
+});
+
 describe("installEso (native Secrets, CC-k8t7)", () => {
   test("emits one native Secret per service entry", async () => {
     const provider = new (await import("@pulumi/kubernetes")).Provider("test", { context: "x" });
@@ -129,6 +140,7 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
       res.externalSecrets.map((s) => get<{ name: string }>(s, "metadata").then((m) => m.name)),
     );
     expect(names).toContain("text-your-ex-secrets-api");
+    expect(names).toContain("captive-portal-secrets-api");
   });
 
   test("routes service Secrets to their owner namespaces", async () => {
@@ -150,6 +162,9 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
     );
     expect(metadata.find((m) => m.name === "platform-secrets-cloudflared")?.namespace).toBe(
       "platform",
+    );
+    expect(metadata.find((m) => m.name === "captive-portal-secrets-api")?.namespace).toBe(
+      "captive-portal",
     );
     expect(metadata.find((m) => m.name === "text-your-ex-secrets-api")?.namespace).toBe(
       "text-your-ex",
