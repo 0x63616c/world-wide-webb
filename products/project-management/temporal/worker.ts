@@ -1,5 +1,6 @@
 import { NativeConnection, Worker } from "@temporalio/worker";
 import * as activities from "./activities";
+import * as agentActivities from "./agent-activities";
 import * as commandActivities from "./command-activities";
 
 const TASK_QUEUE = "project-management";
@@ -25,7 +26,7 @@ export async function runTemporalWorker(options = defaultTemporalWorkerOptions()
     namespace: options.namespace,
     taskQueue: options.taskQueue,
     workflowsPath: new URL("./workflows.ts", import.meta.url).pathname,
-    activities: { ...activities, ...commandActivities },
+    activities: { ...activities, ...commandActivities, ...agentActivities },
   });
 
   console.warn(
