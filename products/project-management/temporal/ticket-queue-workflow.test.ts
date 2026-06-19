@@ -89,4 +89,36 @@ describe("runTicketQueueBatch", () => {
 
     expect(result).toEqual({ started: ["www-start"], skipped: ["www-skip"] });
   });
+
+  it("does not start duplicate child workflows when old and new queues overlap", async () => {
+    const started = new Set<string>();
+    const tickets = [
+      {
+        ticketId: "www-overlap",
+        title: "Overlap",
+        acceptanceCriteria: "- [ ] overlap",
+        comments: [],
+      },
+    ];
+    const startOnce = async (child: TicketQueueWorkflowChildInput) => {
+      if (started.has(child.ticketId)) return "skipped" as const;
+      started.add(child.ticketId);
+      return "started" as const;
+    };
+
+    const oldQueueResult = await runTicketQueueBatch(
+      { repoRoot: "/repo", finalGates: [] },
+      tickets,
+      startOnce,
+    );
+    const newQueueResult = await runTicketQueueBatch(
+      { repoRoot: "/repo", finalGates: [] },
+      tickets,
+      startOnce,
+    );
+
+    expect(oldQueueResult).toEqual({ started: ["www-overlap"], skipped: [] });
+    expect(newQueueResult).toEqual({ started: [], skipped: ["www-overlap"] });
+    expect([...started]).toEqual(["www-overlap"]);
+  });
 });
