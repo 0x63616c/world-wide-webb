@@ -8,8 +8,9 @@
 // resolution, never the web/server bundles), so it lives here and runs in the
 // iOS pipeline + local cap sync, instead of a root bun `patchedDependencies`
 // which would force every Docker image's `bun install` to carry the patch file.
-// Also patches the plugin's native error bridge to include NSError domain/code
-// in JS. Apple's sheet often reports only "Sign up not completed" until dismissed;
+// Also patches the plugin's native flow to follow Apple's documented
+// ASAuthorizationController setup, and bridges NSError domain/code in JS.
+// Apple's sheet often reports only "Sign up not completed" until dismissed;
 // the extra fields make the on-device diagnostic panel useful.
 // Idempotent.
 import { readFileSync, writeFileSync } from "node:fs";
@@ -35,7 +36,13 @@ if (after.includes('"7.0.0"..<"9.0.0"')) {
 }
 
 const pluginBefore = readFileSync(pluginSwift, "utf8");
-const pluginAfter = pluginBefore.replace(
+const withPresentationProvider = pluginBefore.replace(
+  / {8}authorizationController\.delegate = self\n {8}authorizationController\.performRequests\(\)/,
+  `        authorizationController.delegate = self
+        authorizationController.presentationContextProvider = self
+        authorizationController.performRequests()`,
+);
+const pluginAfter = withPresentationProvider.replace(
   / {8}call\.reject\(error\.localizedDescription\)/,
   `        let nsError = error as NSError
         let userInfo = nsError.userInfo.reduce(into: [String: String]()) { result, entry in
@@ -48,10 +55,27 @@ const pluginAfter = pluginBefore.replace(
         ])`,
 );
 
-if (pluginAfter.includes('"domain": nsError.domain')) {
-  if (pluginAfter !== pluginBefore) writeFileSync(pluginSwift, pluginAfter);
+const presentationExtension = `
+
+extension SignInWithApple: ASAuthorizationControllerPresentationContextProviding {
+    public func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        return self.bridge?.viewController?.view.window ?? ASPresentationAnchor()
+    }
+}
+`;
+
+const finalPlugin = pluginAfter.includes("ASAuthorizationControllerPresentationContextProviding")
+  ? pluginAfter
+  : `${pluginAfter.trimEnd()}${presentationExtension}`;
+
+if (
+  finalPlugin.includes("authorizationController.presentationContextProvider = self") &&
+  finalPlugin.includes("ASAuthorizationControllerPresentationContextProviding") &&
+  finalPlugin.includes('"domain": nsError.domain')
+) {
+  if (finalPlugin !== pluginBefore) writeFileSync(pluginSwift, finalPlugin);
   console.log(`apple-sign-in native error bridge patched: ${pluginSwift}`);
 } else {
-  console.error(`patch-ios-spm: could not apply native error patch to ${pluginSwift}`);
+  console.error(`patch-ios-spm: could not apply native Apple auth patches to ${pluginSwift}`);
   process.exit(1);
 }
