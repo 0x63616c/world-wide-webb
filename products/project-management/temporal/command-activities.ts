@@ -380,7 +380,20 @@ export async function createTicketWorktree(
   run: ActivityCommandRunner,
 ): Promise<CreateTicketWorktreeResult> {
   const names = ticketWorktreeNames(input);
-  const records = [
+  const baseRef = input.baseRef ?? "HEAD";
+  const records: ActivityRecord[] = [];
+
+  if (baseRef === "origin/main") {
+    records.push(
+      await runRecorded("refresh-origin-main", run, {
+        command: "git",
+        args: ["fetch", "origin", "main:refs/remotes/origin/main"],
+        cwd: input.repoRoot,
+      }),
+    );
+  }
+
+  records.push(
     await runRecorded("create-worktree-parent", run, {
       command: "mkdir",
       args: ["-p", dirname(names.worktreePath)],
@@ -388,17 +401,10 @@ export async function createTicketWorktree(
     }),
     await runRecorded("create-worktree", run, {
       command: "git",
-      args: [
-        "worktree",
-        "add",
-        "-b",
-        names.branchName,
-        names.worktreePath,
-        input.baseRef ?? "HEAD",
-      ],
+      args: ["worktree", "add", "-b", names.branchName, names.worktreePath, baseRef],
       cwd: input.repoRoot,
     }),
-  ];
+  );
 
   return { ...names, records };
 }
