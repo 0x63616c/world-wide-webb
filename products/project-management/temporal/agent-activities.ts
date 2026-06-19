@@ -7,6 +7,12 @@ import {
 
 export const TICKET_BUILDER_AGENT = "ticket-builder";
 export const TICKET_BUILDER_MODEL = "openai/gpt-5.5";
+export const TICKET_REVIEWER_AGENT = "ticket-reviewer";
+export const TICKET_REVIEWER_MODEL = "openai/gpt-5.5-fast";
+
+export const TICKET_REVIEWER_VERDICTS = ["pass", "fail", "human"] as const;
+
+export type TicketReviewerVerdictKind = (typeof TICKET_REVIEWER_VERDICTS)[number];
 
 export type TicketBuilderInput = {
   readonly ticketId: string;
@@ -27,6 +33,42 @@ export type TicketBuilderActivityResult = StartTmuxCommandResult & {
   readonly agent: typeof TICKET_BUILDER_AGENT;
   readonly model: typeof TICKET_BUILDER_MODEL;
   readonly promptPath: string;
+};
+
+export type TicketReviewerInput = {
+  readonly ticketId: string;
+  readonly title: string;
+  readonly branch: string;
+  readonly worktreePath: string;
+  readonly attempt: number;
+  readonly acceptanceCriteria: string;
+  readonly comments: readonly string[];
+  readonly runtimeLogRoot?: string;
+};
+
+export type TicketReviewerPrompt = {
+  readonly prompt: string;
+  readonly promptPath: string;
+};
+
+export type TicketReviewerActivityResult = StartTmuxCommandResult & {
+  readonly agent: typeof TICKET_REVIEWER_AGENT;
+  readonly model: typeof TICKET_REVIEWER_MODEL;
+  readonly promptPath: string;
+};
+
+export type TicketReviewerFinding = {
+  readonly severity: "blocker" | "major" | "minor";
+  readonly file: string | null;
+  readonly line: number | null;
+  readonly message: string;
+};
+
+export type TicketReviewerVerdict = {
+  readonly verdict: TicketReviewerVerdictKind;
+  readonly summary: string;
+  readonly findings: readonly TicketReviewerFinding[];
+  readonly acceptanceEvidence: readonly string[];
 };
 
 export async function startTicketBuilderActivity(
@@ -71,6 +113,48 @@ export async function startTicketBuilder(
   };
 }
 
+export async function startTicketReviewerActivity(
+  input: TicketReviewerInput,
+): Promise<TicketReviewerActivityResult> {
+  return startTicketReviewer(input, defaultPromptWriter, undefined);
+}
+
+export async function startTicketReviewer(
+  input: TicketReviewerInput,
+  writePrompt: (prompt: TicketReviewerPrompt) => Promise<void>,
+  runCommand?: ActivityCommandRunner,
+): Promise<TicketReviewerActivityResult> {
+  const prompt = buildTicketReviewerPrompt(input);
+  await writePrompt(prompt);
+  const tmuxResult = await startTmuxCommand(
+    {
+      ticketId: input.ticketId,
+      kind: "review",
+      attempt: input.attempt,
+      cwd: input.worktreePath,
+      runtimeLogRoot: input.runtimeLogRoot,
+      command: [
+        "opencode",
+        "run",
+        "--agent",
+        TICKET_REVIEWER_AGENT,
+        "--model",
+        TICKET_REVIEWER_MODEL,
+        "--prompt-file",
+        prompt.promptPath,
+      ],
+    },
+    runCommand ?? defaultActivityCommandRunner,
+  );
+
+  return {
+    ...tmuxResult,
+    agent: TICKET_REVIEWER_AGENT,
+    model: TICKET_REVIEWER_MODEL,
+    promptPath: prompt.promptPath,
+  };
+}
+
 export function buildTicketBuilderPrompt(input: TicketBuilderInput): TicketBuilderPrompt {
   const promptPath = join(
     input.runtimeLogRoot ?? ".tickets/logs",
@@ -83,6 +167,142 @@ export function buildTicketBuilderPrompt(input: TicketBuilderInput): TicketBuild
     promptPath,
     prompt: `# Ticket Builder\n\nTicket: ${input.ticketId} - ${input.title}\nAttempt: ${input.attempt}\n\n## Required Reading\n\nRun \`bd show ${input.ticketId}\` before editing. Read ticket comments and relevant project instructions before changing files.\n\n## Acceptance Criteria\n\n${input.acceptanceCriteria}\n\n## Existing Comments\n\n${commentBlock}\n\n## Hard Rules\n\n- Work only in this worktree: ${input.worktreePath}\n- Build the smallest correct implementation that satisfies the acceptance criteria.\n- Commit and push the ticket branch when implementation is complete.\n- Leave a Beads handoff comment with changed files and verification.\n- Never close Beads tickets. Do not run \`bd close\`, do not mark the ticket complete, and do not merge to main.\n`,
   };
+}
+
+export function buildTicketReviewerPrompt(input: TicketReviewerInput): TicketReviewerPrompt {
+  const promptPath = join(
+    input.runtimeLogRoot ?? ".tickets/logs",
+    `ticket_${input.ticketId}_review_${input.attempt}.prompt.md`,
+  );
+  const commentBlock =
+    input.comments.length > 0 ? input.comments.join("\n\n---\n\n") : "No comments.";
+
+  return {
+    promptPath,
+    prompt: `# Ticket Reviewer
+
+Ticket: ${input.ticketId} - ${input.title}
+Attempt: ${input.attempt}
+Branch: ${input.branch}
+Worktree: ${input.worktreePath}
+
+## Required Reading
+
+- Run \`bd show ${input.ticketId}\` and read the ticket description, labels, comments, and acceptance criteria.
+- Inspect the implementation in branch \`${input.branch}\` from worktree \`${input.worktreePath}\`.
+- Review the branch/worktree diff. Do not rely on builder summaries.
+- Verify every acceptance criterion below with observed evidence.
+
+## Acceptance Criteria
+
+${input.acceptanceCriteria}
+
+## Existing Comments
+
+${commentBlock}
+
+## Hard Rules
+
+- Do not edit files.
+- Do not merge.
+- Do not close Beads tickets. Do not run \`bd close\`.
+- Do not commit or push.
+- Run only focused, non-destructive checks when needed.
+
+## Required Output
+
+Return exactly one JSON object, with no markdown wrapper, matching this shape:
+
+{
+  "verdict": "pass" | "fail" | "human",
+  "summary": "short reviewer summary",
+  "findings": [
+    { "severity": "blocker" | "major" | "minor", "file": "path or null", "line": 1, "message": "specific finding" }
+  ],
+  "acceptanceEvidence": ["AC item: evidence"]
+}
+`,
+  };
+}
+
+export function parseTicketReviewerVerdict(output: string): TicketReviewerVerdict {
+  const parsed: unknown = JSON.parse(extractJsonObject(output));
+  if (!isTicketReviewerVerdict(parsed)) {
+    throw new Error("reviewer output did not match the required verdict schema");
+  }
+  return parsed;
+}
+
+export function formatTicketReviewerFindings(verdict: TicketReviewerVerdict): string {
+  const findings =
+    verdict.findings.length > 0 ? verdict.findings.map(formatReviewerFinding).join("\n") : "- None";
+  const evidence =
+    verdict.acceptanceEvidence.length > 0
+      ? verdict.acceptanceEvidence.map((entry) => `- ${entry}`).join("\n")
+      : "- No acceptance evidence reported";
+
+  return `Verdict: ${verdict.verdict}
+
+${verdict.summary}
+
+## Findings
+
+${findings}
+
+## Acceptance evidence
+
+${evidence}`;
+}
+
+function extractJsonObject(output: string): string {
+  const trimmed = output.trim();
+  const fenced = /```(?:json)?\s*([\s\S]*?)\s*```/.exec(trimmed);
+  if (fenced) return fenced[1].trim();
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+  if (start === -1 || end === -1 || end < start) {
+    throw new Error("reviewer output did not contain a JSON object");
+  }
+  return trimmed.slice(start, end + 1);
+}
+
+function isTicketReviewerVerdict(value: unknown): value is TicketReviewerVerdict {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    isReviewerVerdict(candidate.verdict) &&
+    typeof candidate.summary === "string" &&
+    Array.isArray(candidate.findings) &&
+    candidate.findings.every(isTicketReviewerFinding) &&
+    Array.isArray(candidate.acceptanceEvidence) &&
+    candidate.acceptanceEvidence.every((entry) => typeof entry === "string")
+  );
+}
+
+function isTicketReviewerFinding(value: unknown): value is TicketReviewerFinding {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    isReviewerFindingSeverity(candidate.severity) &&
+    (typeof candidate.file === "string" || candidate.file === null) &&
+    (typeof candidate.line === "number" || candidate.line === null) &&
+    typeof candidate.message === "string"
+  );
+}
+
+function isReviewerVerdict(value: unknown): value is TicketReviewerVerdictKind {
+  return TICKET_REVIEWER_VERDICTS.some((verdict) => verdict === value);
+}
+
+function isReviewerFindingSeverity(value: unknown): value is TicketReviewerFinding["severity"] {
+  return value === "blocker" || value === "major" || value === "minor";
+}
+
+function formatReviewerFinding(finding: TicketReviewerFinding): string {
+  const location = finding.file
+    ? `${finding.file}${finding.line === null ? "" : `:${finding.line}`}`
+    : "no file";
+  return `- ${finding.severity}: ${location} - ${finding.message}`;
 }
 
 async function defaultPromptWriter(prompt: TicketBuilderPrompt): Promise<void> {

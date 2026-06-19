@@ -121,6 +121,24 @@ export function buildCommentCommand(
   };
 }
 
+export function buildFailedReviewRequeueCommand(ticketId: string): BeadsCommand {
+  return {
+    command: "bd",
+    args: [
+      "update",
+      ticketId,
+      "--add-label",
+      TICKET_WORKFLOW_LABELS.ready,
+      "--add-label",
+      TICKET_WORKFLOW_LABELS.retry,
+      "--remove-label",
+      TICKET_WORKFLOW_LABELS.review,
+      "--remove-label",
+      TICKET_WORKFLOW_LABELS.verified,
+    ],
+  };
+}
+
 export function buildDownstreamBlockedProbeCommand(downstreamTicketId: string): BeadsCommand {
   return {
     command: "bd",
@@ -165,6 +183,10 @@ export class BeadsAdapter {
 
   async writeReviewerFindings(ticketId: string, body: string): Promise<void> {
     await this.#run(buildCommentCommand(ticketId, "reviewer-findings", body));
+  }
+
+  async requeueFailedReview(ticketId: string): Promise<void> {
+    await this.#run(buildFailedReviewRequeueCommand(ticketId));
   }
 
   async writeEscalation(ticketId: string, body: string): Promise<void> {

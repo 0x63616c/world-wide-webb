@@ -78,6 +78,27 @@ describe("ticketWorkflow state machine", () => {
     expect(state.terminalReason).toBe("reviewer-failed");
   });
 
+  it("routes a failed review back to builder retry instead of reviewing again", () => {
+    const state = transitionTicketWorkflow(
+      {
+        ...initialTicketWorkflowState("www-review-retry"),
+        phase: "review",
+        builderAttempts: 1,
+        reviewerAttempts: 1,
+      },
+      { type: "complete-step", outcome: "reviewer-failed" },
+    );
+
+    expect(state).toEqual(
+      expect.objectContaining({
+        phase: "build",
+        builderAttempts: 2,
+        reviewerAttempts: 1,
+        lastOutcome: "reviewer-failed",
+      }),
+    );
+  });
+
   it("accepts pause, resume, retry, mark-human, and cancel signals", () => {
     let state = initialTicketWorkflowState("www-controls");
 

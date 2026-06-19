@@ -4,6 +4,7 @@ import {
   type BeadsCommand,
   buildCommentCommand,
   buildDownstreamBlockedProbeCommand,
+  buildFailedReviewRequeueCommand,
   buildMetadataCommand,
   buildQueueCommand,
   isDownstreamBlockedProbeResult,
@@ -111,6 +112,24 @@ describe("metadata and comments", () => {
       "## Escalation\n\nNeeds Calum",
     );
   });
+
+  it("builds a failed-review requeue command for ticket-ready plus ticket-retry", () => {
+    expect(buildFailedReviewRequeueCommand("www-3agy.10")).toEqual({
+      command: "bd",
+      args: [
+        "update",
+        "www-3agy.10",
+        "--add-label",
+        "ticket-ready",
+        "--add-label",
+        "ticket-retry",
+        "--remove-label",
+        "ticket-review",
+        "--remove-label",
+        "ticket-verified",
+      ],
+    });
+  });
 });
 
 describe("BeadsAdapter", () => {
@@ -129,6 +148,7 @@ describe("BeadsAdapter", () => {
     await adapter.writeMetadata("www-3agy.4", metadata);
     await adapter.writeBuilderSummary("www-3agy.4", "Built adapter");
     await adapter.writeReviewerFindings("www-3agy.4", "No findings");
+    await adapter.requeueFailedReview("www-3agy.4");
     await adapter.writeEscalation("www-3agy.4", "Human input needed");
 
     expect(commands).toEqual([
@@ -136,6 +156,7 @@ describe("BeadsAdapter", () => {
       buildMetadataCommand("www-3agy.4", metadata),
       buildCommentCommand("www-3agy.4", "builder-summary", "Built adapter"),
       buildCommentCommand("www-3agy.4", "reviewer-findings", "No findings"),
+      buildFailedReviewRequeueCommand("www-3agy.4"),
       buildCommentCommand("www-3agy.4", "escalation", "Human input needed"),
     ]);
   });

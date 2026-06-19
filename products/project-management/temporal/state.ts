@@ -221,8 +221,8 @@ function retryOrHuman(
       lastOutcome: outcome,
     });
   }
-  return enterPhase(state, "review", {
-    reviewerAttempts: state.reviewerAttempts + 1,
+  return enterPhase(state, "build", {
+    builderAttempts: state.builderAttempts + 1,
     lastOutcome: outcome,
   });
 }
