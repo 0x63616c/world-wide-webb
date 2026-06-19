@@ -32,7 +32,7 @@ Full plan: `~/.claude/plans/hazy-splashing-twilight.md`. This file IS the comple
 
 ### Local / Tilt / scripts
 - [ ] `grep -rnE "op read|op://|op item|op inject" tilt/ scripts/ infra/ | grep -v migrate-1p-to-sops || echo CLEAN` prints `CLEAN`.
-- [ ] `test ! -e tilt/op-secrets.tpl && grep -q 'sops -d' tilt/load-secrets.sh && echo OK` prints `OK`.
+- [ ] `test ! -e tilt/op-secrets.tpl && grep -q 'sops -d' products/control-center/tilt/load-secrets.sh && echo OK` prints `OK`.
 - [ ] `test -x scripts/set-secret.sh && echo OK` prints `OK`; `grep -l 'op item create\|op item edit' scripts/save-*.sh || echo CLEAN` prints `CLEAN`.
 
 ### Docs

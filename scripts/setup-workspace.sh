@@ -31,7 +31,7 @@ if curl -fsS -o /dev/null --max-time 2 "http://localhost:${PORT_TILT}/" 2>/dev/n
   log "Tilt already running on :${PORT_TILT} , reusing"
 else
   log "Starting Tilt dev stack (logs → ${TILT_LOG})"
-  nohup tilt up --stream=true >"$TILT_LOG" 2>&1 &
+  nohup bun run --filter @product/control-center dev -- --stream=true >"$TILT_LOG" 2>&1 &
   disown
 fi
 

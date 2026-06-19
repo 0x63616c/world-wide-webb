@@ -28,7 +28,7 @@ scripts/setup-workspace.sh
 ```
 
 That's it. The script: checks prereqs (docker, tilt, bun, authenticated `op`) →
-starts `tilt up` detached (logs to `/tmp/cc-tilt.log`) → waits for the web app
+starts `bun run dev` detached (logs to `/tmp/cc-tilt.log`) → waits for the web app
 on :4200 → `cmux open`s the Tilt UI (:10350) and the app (:4200).
 
 ## What You Get

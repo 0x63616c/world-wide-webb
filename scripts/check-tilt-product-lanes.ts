@@ -8,12 +8,18 @@
 // Red-first: against the original tier-only Tiltfile (labels=["backend"] etc.)
 // this check fails because no resource carries a product-lane or shared label.
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { productSlugs } from "@www/platform";
 
 const repoRoot = import.meta.dir.replace(/\/scripts$/, "");
-const tiltfile = readFileSync(join(repoRoot, "Tiltfile"), "utf8");
+const rootTiltfile = join(repoRoot, "Tiltfile");
+const controlCenterTiltfile = join(repoRoot, "products/control-center/Tiltfile");
+assert(
+  !existsSync(rootTiltfile),
+  "Control Center Tilt config must live under products/control-center, not the repo root",
+);
+const tiltfile = readFileSync(controlCenterTiltfile, "utf8");
 
 // Sanctioned non-product lane for shared platform infra (postgres, install).
 const SHARED_LANE = "shared";

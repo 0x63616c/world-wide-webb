@@ -12,7 +12,7 @@
 ## Commands
 
 - Install deps: `bun install --frozen-lockfile`. `bun`/`bunx` only, never `npm`/`npx`.
-- Dev stack: `bun run dev` starts Tilt for local Postgres, API, workers, web, Storybook.
+- Dev stack: `bun run dev` starts `products/control-center/Tiltfile` for local Postgres, API, workers, web, Storybook.
 - Unit tests: `bun run test`. Never run bare `bun test`, breaks `vi.mock`, reports false failures.
 - Focused tests/typecheck: `bun run --filter @control-center/web test`, `bun run --filter @control-center/api typecheck`, etc.
 - Control Center product wrappers: `bun run --filter @product/control-center dev:web`, `dev:api`, `dev:worker`, `dev:media-worker`, `dev:storybook`, `dev:db`, `ios:sync`, `ios:open`, `ios:sim`.

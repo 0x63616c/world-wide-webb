@@ -67,7 +67,7 @@ nightly DB purge and the nightly Postgres backup to the NAS). They run on
 ## Local development
 
 ```bash
-bun run dev          # tilt up, local stack (postgres + api + web + storybook)
+bun run dev          # runs products/control-center/Tiltfile (postgres + api + web + storybook)
 bun run --filter @control-center/web dev          # product wrapper for the web dev server
 bun run --filter @control-center/api typecheck    # product wrapper around the legacy api package
 bun run --filter @product/control-center dev:web  # product-scoped web dev command

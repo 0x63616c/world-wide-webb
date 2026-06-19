@@ -3,12 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "dev": "tilt up",
     "dev:web": "bun run --filter @control-center/web dev",
     "dev:api": "bun run --filter @control-center/api dev",
     "dev:worker": "bun run --filter @control-center/worker dev",
     "dev:media-worker": "bun run --filter @control-center/media-worker dev",
     "dev:storybook": "bun run --filter @control-center/storybook dev",
-    "dev:db": "docker compose up postgres",
+    "dev:db": "docker compose -f docker-compose.yml up postgres",
     "ios:sync": "bun run --filter @control-center/ios ios:sync",
     "ios:open": "bun run --filter @control-center/ios ios:open",
     "ios:sim": "bun run --filter @control-center/ios ios:sim"

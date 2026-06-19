@@ -178,7 +178,7 @@ The repo is moving toward a multi-product platform shape documented in `docs/pla
 
 Control Center now has a product boundary at `products/control-center`. For M7 compatibility, the product packages delegate to the legacy `products/control-center/web`, `products/control-center/api`, `products/control-center/worker`, and `products/control-center/media-worker` source paths so production behavior does not change until the CI, infra, database, and route cutovers land.
 
-CI path filters treat `products/control-center/**` as a Control Center app change, while unrelated `products/*` folders do not rebuild or deploy Control Center unless shared `packages/**` or `bun.lock` changes. Product-scoped local commands live on `@product/control-center`, including `dev:web`, `dev:api`, `dev:worker`, `dev:media-worker`, `dev:storybook`, `dev:db`, and `ios:*` aliases.
+CI path filters treat `products/control-center/**` as a Control Center app change, while unrelated `products/*` folders do not rebuild or deploy Control Center unless shared `packages/**` or `bun.lock` changes. The Control Center Tiltfile lives at `products/control-center/Tiltfile`; root `bun run dev` delegates to the product package. Product-scoped local commands live on `@product/control-center`, including `dev`, `dev:web`, `dev:api`, `dev:worker`, `dev:media-worker`, `dev:storybook`, `dev:db`, and `ios:*` aliases.
 
 M1 foundation lives in `packages/platform`. It is representation-only today: `controlCenterProductManifest()` proves Control Center can be expressed through the new model without changing the current Pulumi production path.
 

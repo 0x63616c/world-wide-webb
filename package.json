@@ -14,7 +14,7 @@
     "infra/cloudflare"
   ],
   "scripts": {
-    "dev": "tilt up",
+    "dev": "bun run --filter @product/control-center dev",
     "test": "vitest run",
     "test:dockerfile-manifests": "bun scripts/check-dockerfile-manifests.ts",
     "test:product-workspaces": "bun scripts/check-product-workspaces.ts",
