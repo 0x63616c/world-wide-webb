@@ -75,6 +75,7 @@ export type ResolveGitHeadResult = {
 export type ResolveOpenCodeSessionInput = {
   readonly worktreePath: string;
   readonly agent: string;
+  readonly startedAfterMs?: number;
 };
 
 export type ResolveOpenCodeSessionResult = {
@@ -90,6 +91,10 @@ export type PushMainInput = {
 
 export type CloseTicketInput = {
   readonly ticketId: string;
+  readonly repoRoot: string;
+};
+
+export type PushBeadsInput = {
   readonly repoRoot: string;
 };
 
@@ -170,6 +175,7 @@ export type StartTmuxCommandInput = TmuxSessionInput & {
 
 export type StartTmuxCommandResult = {
   readonly sessionName: string;
+  readonly startedAtMs: number;
   readonly stdoutLogPath: string;
   readonly stderrLogPath: string;
   readonly exitCodePath: string;
@@ -300,6 +306,10 @@ export async function closeTicketActivity(input: CloseTicketInput): Promise<Merg
   return closeTicket(input, runCommand);
 }
 
+export async function pushBeadsActivity(input: PushBeadsInput): Promise<MergeActivityResult> {
+  return pushBeads(input, runCommand);
+}
+
 export async function claimTicketActivity(input: TicketBeadsInput): Promise<MergeActivityResult> {
   return claimTicket(input, runCommand);
 }
@@ -384,6 +394,7 @@ export async function startTmuxCommand(
   const stderrLogPath = join(logRoot, `${sessionName}.stderr.log`);
   const exitCodePath = join(logRoot, `${sessionName}.exitcode`);
   const shellCommand = `(${shellJoin(input.command)} > ${shellQuote(stdoutLogPath)} 2> ${shellQuote(stderrLogPath)}); printf '%s' "$?" > ${shellQuote(exitCodePath)}`;
+  const startedAtMs = Date.now();
   const records = [
     await runRecorded("create-tmux-log-dir", run, {
       command: "mkdir",
@@ -395,7 +406,7 @@ export async function startTmuxCommand(
     }),
   ];
 
-  return { sessionName, stdoutLogPath, stderrLogPath, exitCodePath, records };
+  return { sessionName, startedAtMs, stdoutLogPath, stderrLogPath, exitCodePath, records };
 }
 
 export async function inspectTmuxSession(
@@ -540,22 +551,31 @@ export async function resolveOpenCodeSession(
   run: ActivityCommandRunner,
 ): Promise<ResolveOpenCodeSessionResult> {
   const dbPath = join(homedir(), ".local/share/opencode/opencode.db");
-  const sql = [
-    "select id || char(9) || title from session",
-    `where directory = ${quoteSql(input.worktreePath)}`,
-    `and agent = ${quoteSql(input.agent)}`,
-    "order by time_updated desc limit 1;",
-  ].join(" ");
-  const command = { command: "sqlite3", args: ["-readonly", dbPath, sql] };
-  const result = await run(command);
-  const record = commandRecord("resolve-opencode-session", command, result);
-  const [sessionId, title] = record.stdout.trim().split("\t");
-  return {
-    ok: record.exitCode === 0 && !!sessionId,
-    sessionId: sessionId || null,
-    title: title || null,
-    records: [record],
-  };
+  const records: ActivityRecord[] = [];
+
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    const filters = [
+      `directory = ${quoteSql(input.worktreePath)}`,
+      `agent = ${quoteSql(input.agent)}`,
+      ...(input.startedAfterMs ? [`time_updated >= ${input.startedAfterMs}`] : []),
+    ];
+    const sql = [
+      "select id || char(9) || title from session",
+      `where ${filters.join(" and ")}`,
+      "order by time_updated desc limit 1;",
+    ].join(" ");
+    const command = { command: "sqlite3", args: ["-readonly", dbPath, sql] };
+    const result = await run(command);
+    const record = commandRecord("resolve-opencode-session", command, result);
+    records.push(record);
+    const [sessionId, title] = record.stdout.trim().split("\t");
+    if (record.exitCode === 0 && sessionId) {
+      return { ok: true, sessionId, title: title || null, records };
+    }
+    await sleep(250);
+  }
+
+  return { ok: false, sessionId: null, title: null, records };
 }
 
 export async function pushMain(
@@ -587,6 +607,18 @@ export async function closeTicket(
         ],
         cwd: input.repoRoot,
       },
+    },
+  ]);
+}
+
+export async function pushBeads(
+  input: PushBeadsInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  return runMergeCommands(run, [
+    {
+      activity: "push-beads",
+      command: { command: "bd", args: ["dolt", "push"], cwd: input.repoRoot },
     },
   ]);
 }

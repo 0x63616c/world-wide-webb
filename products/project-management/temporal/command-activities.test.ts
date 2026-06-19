@@ -8,6 +8,7 @@ import {
   escalateTicketHuman,
   inspectTmuxSession,
   mergeTicketBranch,
+  pushBeads,
   pushMain,
   resolveOpenCodeSession,
   runFinalGates,
@@ -212,6 +213,7 @@ describe("ticket command activities", () => {
     );
     await pushMain({ repoRoot: "/repo" }, run);
     await closeTicket({ repoRoot: "/repo", ticketId: "www-3agy.11" }, run);
+    await pushBeads({ repoRoot: "/repo" }, run);
 
     expect(commands).toEqual([
       { command: "git", args: ["fetch", "origin", "main"], cwd: "/repo" },
@@ -230,6 +232,7 @@ describe("ticket command activities", () => {
         ],
         cwd: "/repo",
       },
+      { command: "bd", args: ["dolt", "push"], cwd: "/repo" },
     ]);
   });
 

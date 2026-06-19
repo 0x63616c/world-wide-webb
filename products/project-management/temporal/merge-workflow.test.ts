@@ -34,6 +34,7 @@ describe("runSerializedMergeWorkflow", () => {
       "final-gates",
       "push-main",
       "close-ticket",
+      "push-beads",
       "update-main",
       "merge-ticket-branch",
       "final-gates",
@@ -63,6 +64,7 @@ describe("runSerializedMergeWorkflow", () => {
       ["final-gates", true],
       ["push-main", true],
       ["close-ticket", true],
+      ["push-beads", true],
     ]);
     expect(fake.calls).toEqual([
       "update-main",
@@ -70,6 +72,7 @@ describe("runSerializedMergeWorkflow", () => {
       "final-gates",
       "push-main",
       "close-ticket",
+      "push-beads",
     ]);
     expect(fake.maxConcurrent).toBe(1);
   });
@@ -93,6 +96,7 @@ describe("runSerializedMergeWorkflow", () => {
       "final-gates",
       "push-main",
       "close-ticket",
+      "push-beads",
     ]);
     expect(result.steps.map((step) => [step.step, step.ok])).toEqual([
       ["update-main", true],
@@ -101,6 +105,7 @@ describe("runSerializedMergeWorkflow", () => {
       ["final-gates", true],
       ["push-main", true],
       ["close-ticket", true],
+      ["push-beads", true],
     ]);
   });
 
@@ -124,6 +129,7 @@ describe("runSerializedMergeWorkflow", () => {
       "final-gates",
       "push-main",
       "close-ticket",
+      "push-beads",
     ]);
   });
 
@@ -211,6 +217,28 @@ describe("runSerializedMergeWorkflow", () => {
     );
     expect(fake.calls).toEqual(["update-main", "merge-ticket-branch", "final-gates", "push-main"]);
   });
+
+  it("fails after closing when Beads sync push fails", async () => {
+    const fake = fakeMergeActivities("push-beads");
+    const result = await runSerializedMergeWorkflow(baseInput(), fake.activities);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "failed",
+        failedStep: "push-beads",
+        pushed: true,
+        closed: true,
+      }),
+    );
+    expect(fake.calls).toEqual([
+      "update-main",
+      "merge-ticket-branch",
+      "final-gates",
+      "push-main",
+      "close-ticket",
+      "push-beads",
+    ]);
+  });
 });
 
 function baseInput(overrides: Partial<MergeWorkflowInput> = {}): MergeWorkflowInput {
@@ -278,6 +306,7 @@ function fakeMergeActivities(
       runFinalGatesActivity: async () => run("final-gates", currentTicketId ?? ""),
       pushMainActivity: async () => run("push-main", currentTicketId ?? ""),
       closeTicketActivity: async (input) => run("close-ticket", input.ticketId),
+      pushBeadsActivity: async () => run("push-beads", currentTicketId ?? ""),
       startTicketMergeFixActivity: async (input) => {
         const result = await run("merge-fix", input.ticketId);
         return {
@@ -292,6 +321,7 @@ function fakeMergeActivities(
             },
           ],
           sessionName: `ticket_${input.ticketId}_mergefix_${input.attempt}`,
+          startedAtMs: 3000,
           stdoutLogPath: "/tmp/mergefix.stdout.log",
           stderrLogPath: "/tmp/mergefix.stderr.log",
           exitCodePath: "/tmp/mergefix.exitcode",

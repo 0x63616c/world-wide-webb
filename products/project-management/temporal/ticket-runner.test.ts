@@ -42,19 +42,20 @@ describe("runTicketWorkflowRunner", () => {
       "create-worktree",
       "start-builder",
       "wait:ticket_www-proof_build_1",
-      "resolve-session:ticket-builder",
+      "resolve-session:ticket-builder:1000",
       "resolve-head",
       "write-metadata:review:abc123:Proof ticket (ses_builder)",
       "verify-builder-handoff",
       "start-reviewer",
       "wait:ticket_www-proof_review_1",
-      "resolve-session:ticket-reviewer",
+      "resolve-session:ticket-reviewer:2000",
       "verify-reviewer-handoff",
       "update-main",
       "merge-ticket-branch:merge",
       "final-gates",
       "push-main",
       "close-ticket",
+      "push-beads",
     ]);
   });
 
@@ -114,6 +115,7 @@ function fakeRunnerActivities(
         calls.push("start-builder");
         return {
           sessionName: "ticket_www-proof_build_1",
+          startedAtMs: 1000,
           stdoutLogPath: "/logs/build.stdout.log",
           stderrLogPath: "/logs/build.stderr.log",
           exitCodePath: "/logs/build.exitcode",
@@ -128,6 +130,7 @@ function fakeRunnerActivities(
         calls.push("start-reviewer");
         return {
           sessionName: "ticket_www-proof_review_1",
+          startedAtMs: 2000,
           stdoutLogPath: "/logs/review.stdout.log",
           stderrLogPath: "/logs/review.stderr.log",
           exitCodePath: "/logs/review.exitcode",
@@ -153,7 +156,7 @@ function fakeRunnerActivities(
         return { ok: true, commitSha: "abc123", records: [] };
       },
       resolveOpenCodeSessionActivity: async (input) => {
-        calls.push(`resolve-session:${input.agent}`);
+        calls.push(`resolve-session:${input.agent}:${input.startedAfterMs}`);
         return {
           ok: true,
           sessionId: input.agent === "ticket-builder" ? "ses_builder" : "ses_reviewer",
@@ -205,12 +208,17 @@ function fakeRunnerActivities(
         calls.push("close-ticket");
         return ok();
       },
+      pushBeadsActivity: async () => {
+        calls.push("push-beads");
+        return ok();
+      },
       escalateTicketHumanActivity: async () => {
         calls.push("escalate-human");
         return ok();
       },
       startTicketMergeFixActivity: async () => ({
         sessionName: "ticket_www-proof_mergefix_1",
+        startedAtMs: 3000,
         stdoutLogPath: "/logs/mergefix.stdout.log",
         stderrLogPath: "/logs/mergefix.stderr.log",
         exitCodePath: "/logs/mergefix.exitcode",

@@ -53,6 +53,7 @@ export type MergeWorkflowStep =
   | "final-gates"
   | "push-main"
   | "close-ticket"
+  | "push-beads"
   | "escalate-human";
 
 export type MergeWorkflowStepResult = {
@@ -135,6 +136,7 @@ export type MergeWorkflowActivities = Pick<
   | "runFinalGatesActivity"
   | "pushMainActivity"
   | "closeTicketActivity"
+  | "pushBeadsActivity"
   | "escalateTicketHumanActivity"
 > &
   Pick<typeof agentActivities, "startTicketMergeFixActivity">;
@@ -236,6 +238,10 @@ export async function runSerializedMergeWorkflow(
   steps.push({ step: "close-ticket", ...closeTicket });
   if (!closeTicket.ok) return failedMerge(input.ticketId, "close-ticket", steps);
 
+  const pushBeads = await mergeActivities.pushBeadsActivity({ repoRoot: input.repoRoot });
+  steps.push({ step: "push-beads", ...pushBeads });
+  if (!pushBeads.ok) return failedMerge(input.ticketId, "push-beads", steps);
+
   return {
     ticketId: input.ticketId,
     status: "merged",
@@ -316,6 +322,7 @@ export async function runTicketWorkflowRunner(
     const builderOpenCodeSession = await runnerActivities.resolveOpenCodeSessionActivity({
       worktreePath: worktree.worktreePath,
       agent: "ticket-builder",
+      startedAfterMs: builder.startedAtMs,
     });
     steps.push({ step: "resolve-builder-session", ok: builderOpenCodeSession.ok });
     if (builderOpenCodeSession.ok) builderOpenCodeSessionId = builderOpenCodeSession.sessionId;
@@ -393,6 +400,7 @@ export async function runTicketWorkflowRunner(
       const reviewerOpenCodeSession = await runnerActivities.resolveOpenCodeSessionActivity({
         worktreePath: worktree.worktreePath,
         agent: "ticket-reviewer",
+        startedAfterMs: reviewer.startedAtMs,
       });
       steps.push({ step: "resolve-reviewer-session", ok: reviewerOpenCodeSession.ok });
       if (reviewerOpenCodeSession.ok) reviewerOpenCodeSessionId = reviewerOpenCodeSession.sessionId;
@@ -537,6 +545,10 @@ async function pushAndCloseMergedTicket(
   });
   steps.push({ step: "close-ticket", ...closeTicket });
   if (!closeTicket.ok) return failedMerge(input.ticketId, "close-ticket", steps);
+
+  const pushBeads = await mergeActivities.pushBeadsActivity({ repoRoot: input.repoRoot });
+  steps.push({ step: "push-beads", ...pushBeads });
+  if (!pushBeads.ok) return failedMerge(input.ticketId, "push-beads", steps);
 
   return {
     ticketId: input.ticketId,
