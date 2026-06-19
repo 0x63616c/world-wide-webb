@@ -95,6 +95,7 @@ export type TicketWorkflowRunnerInput = {
   readonly runtimeLogRoot?: string;
   readonly baseRef?: string;
   readonly requirePushedBranch?: boolean;
+  readonly mergeStrategy?: "cherry-pick" | "merge";
 };
 
 export type TicketWorkflowRunnerStep =
@@ -412,7 +413,7 @@ export async function runTicketWorkflowRunner(
       repoRoot: input.repoRoot,
       branch: worktree.branchName,
       commitSha: head.commitSha,
-      strategy: "cherry-pick",
+      strategy: input.mergeStrategy ?? "merge",
       finalGates: input.finalGates,
       acceptanceCriteria: input.acceptanceCriteria,
       comments: input.comments,

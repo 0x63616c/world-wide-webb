@@ -53,7 +53,7 @@ describe("runTicketWorkflowRunner", () => {
       "comment:reviewer-findings",
       "move-verified",
       "update-main",
-      "merge-ticket-branch",
+      "merge-ticket-branch:merge",
       "final-gates",
       "push-main",
       "close-ticket",
@@ -171,8 +171,8 @@ function fakeRunnerActivities(
         calls.push("update-main");
         return ok();
       },
-      mergeTicketBranchActivity: async () => {
-        calls.push("merge-ticket-branch");
+      mergeTicketBranchActivity: async (input) => {
+        calls.push(`merge-ticket-branch:${input.strategy}`);
         return ok();
       },
       runFinalGatesActivity: async () => {
