@@ -27,11 +27,13 @@ describe("runTicketWorkflowRunner", () => {
       ["create-worktree", true],
       ["start-builder", true],
       ["wait-builder", true],
+      ["resolve-builder-session", true],
       ["resolve-commit", true],
       ["write-builder-metadata", true],
       ["verify-builder-handoff", true],
       ["start-reviewer", true],
       ["wait-reviewer", true],
+      ["resolve-reviewer-session", true],
       ["verify-reviewer-handoff", true],
       ["merge", true],
     ]);
@@ -40,11 +42,13 @@ describe("runTicketWorkflowRunner", () => {
       "create-worktree",
       "start-builder",
       "wait:ticket_www-proof_build_1",
+      "resolve-session:ticket-builder",
       "resolve-head",
-      "write-metadata:review:abc123",
+      "write-metadata:review:abc123:Proof ticket (ses_builder)",
       "verify-builder-handoff",
       "start-reviewer",
       "wait:ticket_www-proof_review_1",
+      "resolve-session:ticket-reviewer",
       "verify-reviewer-handoff",
       "update-main",
       "merge-ticket-branch:merge",
@@ -61,6 +65,7 @@ describe("runTicketWorkflowRunner", () => {
     expect(result.status).toBe("human");
     expect(fake.calls).toContain("verify-reviewer-handoff");
     expect(fake.calls.filter((call) => call === "start-builder")).toHaveLength(2);
+    expect(fake.calls).toContain("resume-builder:ses_builder");
     expect(fake.calls).toContain("escalate-human");
     expect(fake.calls).not.toContain("push-main");
     expect(fake.calls).not.toContain("close-ticket");
@@ -104,7 +109,8 @@ function fakeRunnerActivities(
           records: [],
         };
       },
-      startTicketBuilderActivity: async () => {
+      startTicketBuilderActivity: async (input) => {
+        if (input.resumeSessionId) calls.push(`resume-builder:${input.resumeSessionId}`);
         calls.push("start-builder");
         return {
           sessionName: "ticket_www-proof_build_1",
@@ -117,7 +123,8 @@ function fakeRunnerActivities(
           promptPath: "/logs/build.prompt.md",
         };
       },
-      startTicketReviewerActivity: async () => {
+      startTicketReviewerActivity: async (input) => {
+        if (input.resumeSessionId) calls.push(`resume-reviewer:${input.resumeSessionId}`);
         calls.push("start-reviewer");
         return {
           sessionName: "ticket_www-proof_review_1",
@@ -145,8 +152,19 @@ function fakeRunnerActivities(
         calls.push("resolve-head");
         return { ok: true, commitSha: "abc123", records: [] };
       },
+      resolveOpenCodeSessionActivity: async (input) => {
+        calls.push(`resolve-session:${input.agent}`);
+        return {
+          ok: true,
+          sessionId: input.agent === "ticket-builder" ? "ses_builder" : "ses_reviewer",
+          title: input.agent === "ticket-builder" ? "Proof ticket" : "Review proof ticket",
+          records: [],
+        };
+      },
       writeTicketWorkflowMetadataActivity: async (input) => {
-        calls.push(`write-metadata:${input.metadata.phase}:${input.metadata.commit}`);
+        calls.push(
+          `write-metadata:${input.metadata.phase}:${input.metadata.commit}:${input.metadata.openCodeSession}`,
+        );
         return ok();
       },
       verifyBuilderHandoffActivity: async () => {

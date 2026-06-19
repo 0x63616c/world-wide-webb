@@ -72,6 +72,18 @@ export type ResolveGitHeadResult = {
   readonly records: readonly ActivityRecord[];
 };
 
+export type ResolveOpenCodeSessionInput = {
+  readonly worktreePath: string;
+  readonly agent: string;
+};
+
+export type ResolveOpenCodeSessionResult = {
+  readonly ok: boolean;
+  readonly sessionId: string | null;
+  readonly title: string | null;
+  readonly records: readonly ActivityRecord[];
+};
+
 export type PushMainInput = {
   readonly repoRoot: string;
 };
@@ -272,6 +284,12 @@ export async function resolveGitHeadActivity(
   input: ResolveGitHeadInput,
 ): Promise<ResolveGitHeadResult> {
   return resolveGitHead(input, runCommand);
+}
+
+export async function resolveOpenCodeSessionActivity(
+  input: ResolveOpenCodeSessionInput,
+): Promise<ResolveOpenCodeSessionResult> {
+  return resolveOpenCodeSession(input, runCommand);
 }
 
 export async function pushMainActivity(input: PushMainInput): Promise<MergeActivityResult> {
@@ -515,6 +533,29 @@ export async function resolveGitHead(
   ];
   const commitSha = result.exitCode === 0 ? result.stdout.trim() || null : null;
   return { ok: commitSha !== null, commitSha, records };
+}
+
+export async function resolveOpenCodeSession(
+  input: ResolveOpenCodeSessionInput,
+  run: ActivityCommandRunner,
+): Promise<ResolveOpenCodeSessionResult> {
+  const dbPath = join(homedir(), ".local/share/opencode/opencode.db");
+  const sql = [
+    "select id || char(9) || title from session",
+    `where directory = ${quoteSql(input.worktreePath)}`,
+    `and agent = ${quoteSql(input.agent)}`,
+    "order by time_updated desc limit 1;",
+  ].join(" ");
+  const command = { command: "sqlite3", args: ["-readonly", dbPath, sql] };
+  const result = await run(command);
+  const record = commandRecord("resolve-opencode-session", command, result);
+  const [sessionId, title] = record.stdout.trim().split("\t");
+  return {
+    ok: record.exitCode === 0 && !!sessionId,
+    sessionId: sessionId || null,
+    title: title || null,
+    records: [record],
+  };
 }
 
 export async function pushMain(
@@ -885,6 +926,10 @@ function parseCommentBodies(value: unknown): string[] {
     }
     return [];
   });
+}
+
+function quoteSql(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
 }
 
 function slugifyTicketTitle(title: string): string {

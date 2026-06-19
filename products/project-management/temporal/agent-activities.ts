@@ -27,6 +27,7 @@ export type TicketBuilderInput = {
   readonly acceptanceCriteria: string;
   readonly comments: readonly string[];
   readonly runtimeLogRoot?: string;
+  readonly resumeSessionId?: string;
 };
 
 export type TicketBuilderPrompt = {
@@ -49,6 +50,7 @@ export type TicketReviewerInput = {
   readonly acceptanceCriteria: string;
   readonly comments: readonly string[];
   readonly runtimeLogRoot?: string;
+  readonly resumeSessionId?: string;
 };
 
 export type TicketReviewerPrompt = {
@@ -125,6 +127,7 @@ export async function startTicketBuilder(
         "opencode",
         "run",
         "--dangerously-skip-permissions",
+        ...(input.resumeSessionId ? ["--session", input.resumeSessionId] : []),
         "--agent",
         TICKET_BUILDER_AGENT,
         "--model",
@@ -181,6 +184,7 @@ export async function startTicketReviewer(
         "opencode",
         "run",
         "--dangerously-skip-permissions",
+        ...(input.resumeSessionId ? ["--session", input.resumeSessionId] : []),
         "--agent",
         TICKET_REVIEWER_AGENT,
         "--model",
@@ -249,7 +253,7 @@ export function buildTicketBuilderPrompt(input: TicketBuilderInput): TicketBuild
 
   return {
     promptPath,
-    prompt: `# Ticket Builder\n\nTicket: ${input.ticketId} - ${input.title}\nAttempt: ${input.attempt}\n\n## Required Reading\n\nRun \`bd show ${input.ticketId}\` before editing. Read ticket comments and relevant project instructions before changing files.\n\n## Acceptance Criteria\n\n${input.acceptanceCriteria}\n\n## Existing Comments\n\n${commentBlock}\n\n## Hard Rules\n\n- Work only in this worktree: ${input.worktreePath}\n- Build the smallest correct implementation that satisfies the acceptance criteria.\n- Commit and push the ticket branch when implementation is complete. If commit signing fails because the local 1Password signing agent has no identity, retry the same commit with \`--no-gpg-sign\` and report that in the handoff.\n- If OpenCode changes \`.opencode/package.json\` as a tool self-update side effect, revert that file before committing.\n- Leave a Beads handoff comment headed \`## Builder summary\` with changed files, commit SHA, pushed branch, and verification.\n- Move the ticket to review with \`bd update ${input.ticketId} --add-label ticket-review --remove-label ticket-ready --remove-label ticket-retry\`.\n- Never close Beads tickets. Do not run \`bd close\`, do not mark the ticket complete, and do not merge to main.\n`,
+    prompt: `# Ticket Builder\n\nTicket: ${input.ticketId} - ${input.title}\nAttempt: ${input.attempt}${input.resumeSessionId ? " (same OpenCode session retry)" : ""}\n\n## Required Reading\n\nRun \`bd show ${input.ticketId}\` before editing. Read ticket comments and relevant project instructions before changing files.\n\n## Acceptance Criteria\n\n${input.acceptanceCriteria}\n\n## Existing Comments\n\n${commentBlock}\n\n## Hard Rules\n\n- Work only in this worktree: ${input.worktreePath}\n- Build the smallest correct implementation that satisfies the acceptance criteria.\n- Commit and push the ticket branch when implementation is complete. If commit signing fails because the local 1Password signing agent has no identity, retry the same commit with \`--no-gpg-sign\` and report that in the handoff.\n- If OpenCode changes \`.opencode/package.json\` as a tool self-update side effect, revert that file before committing.\n- Leave a Beads handoff comment headed \`## Builder summary\` with changed files, commit SHA, pushed branch, and verification.\n- Move the ticket to review with \`bd update ${input.ticketId} --add-label ticket-review --remove-label ticket-ready --remove-label ticket-retry\`.\n- Never close Beads tickets. Do not run \`bd close\`, do not mark the ticket complete, and do not merge to main.\n`,
   };
 }
 
@@ -266,7 +270,7 @@ export function buildTicketReviewerPrompt(input: TicketReviewerInput): TicketRev
     prompt: `# Ticket Reviewer
 
 Ticket: ${input.ticketId} - ${input.title}
-Attempt: ${input.attempt}
+Attempt: ${input.attempt}${input.resumeSessionId ? " (same OpenCode session retry)" : ""}
 Branch: ${input.branch}
 Worktree: ${input.worktreePath}
 

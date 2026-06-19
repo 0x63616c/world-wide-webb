@@ -9,6 +9,7 @@ import {
   inspectTmuxSession,
   mergeTicketBranch,
   pushMain,
+  resolveOpenCodeSession,
   runFinalGates,
   startTmuxCommand,
   ticketWorktreeNames,
@@ -230,6 +231,30 @@ describe("ticket command activities", () => {
         cwd: "/repo",
       },
     ]);
+  });
+
+  it("resolves the latest OpenCode session for a worktree and agent", async () => {
+    const commands: ActivityCommand[] = [];
+    const result = await resolveOpenCodeSession(
+      {
+        worktreePath: "/repo/.worktrees/tickets/www-proof-proof-ticket",
+        agent: "ticket-builder",
+      },
+      async (command) => {
+        commands.push(command);
+        return { exitCode: 0, stdout: "ses_builder\tProof ticket\n", stderr: "" };
+      },
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({ ok: true, sessionId: "ses_builder", title: "Proof ticket" }),
+    );
+    expect(commands[0]).toEqual(
+      expect.objectContaining({
+        command: "sqlite3",
+        args: expect.arrayContaining(["-readonly"]),
+      }),
+    );
   });
 
   it("stops a failing deterministic merge command without running later commands in the Activity", async () => {

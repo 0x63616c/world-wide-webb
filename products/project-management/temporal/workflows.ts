@@ -100,10 +100,12 @@ export type TicketWorkflowRunnerStep =
   | "start-builder"
   | "wait-builder"
   | "resolve-commit"
+  | "resolve-builder-session"
   | "write-builder-metadata"
   | "verify-builder-handoff"
   | "start-reviewer"
   | "wait-reviewer"
+  | "resolve-reviewer-session"
   | "verify-reviewer-handoff"
   | "retry-requested"
   | "human-handoff"
@@ -143,6 +145,7 @@ export type TicketWorkflowRunnerActivities = Pick<
   | "createTicketWorktreeActivity"
   | "waitForTmuxSessionActivity"
   | "resolveGitHeadActivity"
+  | "resolveOpenCodeSessionActivity"
   | "writeTicketWorkflowMetadataActivity"
   | "verifyBuilderHandoffActivity"
   | "verifyReviewerHandoffActivity"
@@ -266,9 +269,14 @@ export async function runTicketWorkflowRunner(
     step: "create-worktree",
     ok: worktree.records.every((record) => record.exitCode === 0),
   });
+  if (worktree.records.some((record) => record.exitCode !== 0)) {
+    return failedTicketWorkflowRunner(input.ticketId, steps, worktree);
+  }
 
   let builderSessionName: string | null = null;
   let reviewerSessionName: string | null = null;
+  let builderOpenCodeSessionId: string | null = null;
+  let reviewerOpenCodeSessionId: string | null = null;
   let commitSha: string | null = null;
   let comments = [...(input.comments ?? [])];
 
@@ -285,6 +293,7 @@ export async function runTicketWorkflowRunner(
       acceptanceCriteria: input.acceptanceCriteria,
       comments,
       runtimeLogRoot: input.runtimeLogRoot,
+      resumeSessionId: builderAttempt > 1 ? (builderOpenCodeSessionId ?? undefined) : undefined,
     });
     builderSessionName = builder.sessionName;
     steps.push({
@@ -304,6 +313,13 @@ export async function runTicketWorkflowRunner(
     steps.push({ step: "wait-builder", ok: builderWait.completed && builderWait.exitCode === 0 });
     if (!builderWait.completed || builderWait.exitCode !== 0) continue;
 
+    const builderOpenCodeSession = await runnerActivities.resolveOpenCodeSessionActivity({
+      worktreePath: worktree.worktreePath,
+      agent: "ticket-builder",
+    });
+    steps.push({ step: "resolve-builder-session", ok: builderOpenCodeSession.ok });
+    if (builderOpenCodeSession.ok) builderOpenCodeSessionId = builderOpenCodeSession.sessionId;
+
     const head = await runnerActivities.resolveGitHeadActivity({
       repoRoot: worktree.worktreePath,
       ref: "HEAD",
@@ -321,7 +337,10 @@ export async function runTicketWorkflowRunner(
         branch: worktree.branchName,
         worktree: worktree.worktreePath,
         tmuxSession: builder.sessionName,
-        openCodeSession: builder.sessionName,
+        openCodeSession: formatOpenCodeSession(
+          builderOpenCodeSession.title,
+          builderOpenCodeSession.sessionId,
+        ),
         commit: head.commitSha,
         lastResult: "builder-passed",
       },
@@ -350,6 +369,7 @@ export async function runTicketWorkflowRunner(
         acceptanceCriteria: input.acceptanceCriteria,
         comments,
         runtimeLogRoot: input.runtimeLogRoot,
+        resumeSessionId: reviewerAttempt > 1 ? (reviewerOpenCodeSessionId ?? undefined) : undefined,
       });
       reviewerSessionName = reviewer.sessionName;
       steps.push({
@@ -369,6 +389,13 @@ export async function runTicketWorkflowRunner(
         ok: reviewerWait.completed && reviewerWait.exitCode === 0,
       });
       if (!reviewerWait.completed || reviewerWait.exitCode !== 0) continue;
+
+      const reviewerOpenCodeSession = await runnerActivities.resolveOpenCodeSessionActivity({
+        worktreePath: worktree.worktreePath,
+        agent: "ticket-reviewer",
+      });
+      steps.push({ step: "resolve-reviewer-session", ok: reviewerOpenCodeSession.ok });
+      if (reviewerOpenCodeSession.ok) reviewerOpenCodeSessionId = reviewerOpenCodeSession.sessionId;
 
       const reviewerHandoff = await runnerActivities.verifyReviewerHandoffActivity({
         ticketId: input.ticketId,
@@ -615,6 +642,11 @@ function humanTicketWorkflowRunner(
 
 function agentOutput(result: commandActivities.WaitForTmuxSessionResult): string {
   return [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
+}
+
+function formatOpenCodeSession(title: string | null, sessionId: string | null): string {
+  if (!sessionId) return "unknown";
+  return title ? `${title} (${sessionId})` : sessionId;
 }
 
 function applySignal(

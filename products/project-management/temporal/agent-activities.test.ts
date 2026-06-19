@@ -66,6 +66,17 @@ describe("ticket builder activity", () => {
       ],
     });
   });
+
+  it("resumes the same OpenCode session when retrying the builder", async () => {
+    const commands: ActivityCommand[] = [];
+    await startTicketBuilder(
+      { ...baseInput(), attempt: 2, resumeSessionId: "ses_builder" },
+      async () => {},
+      fakeRunner(commands),
+    );
+
+    expect(commands[1].args.join(" ")).toContain("'--session' 'ses_builder'");
+  });
 });
 
 describe("ticket merge-fix activity", () => {
@@ -200,6 +211,17 @@ describe("ticket reviewer activity", () => {
         "('opencode' 'run' '--dangerously-skip-permissions' '--agent' 'ticket-reviewer' '--model' 'openai/gpt-5.5-fast' 'Follow the attached ticket-reviewer prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.10_review_1.prompt.md' > '/cache/logs/ticket_www-3agy.10_review_1.stdout.log' 2> '/cache/logs/ticket_www-3agy.10_review_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy.10_review_1.exitcode'",
       ],
     });
+  });
+
+  it("resumes the same OpenCode session when retrying the reviewer", async () => {
+    const commands: ActivityCommand[] = [];
+    await startTicketReviewer(
+      { ...reviewerInput(), attempt: 2, resumeSessionId: "ses_reviewer" },
+      async () => {},
+      fakeRunner(commands),
+    );
+
+    expect(commands[1].args.join(" ")).toContain("'--session' 'ses_reviewer'");
   });
 
   it("parses pass, fail, and human reviewer verdicts from structured output", () => {
