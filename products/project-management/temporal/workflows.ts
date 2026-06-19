@@ -325,7 +325,7 @@ export async function runTicketWorkflowRunner(
     ticketId: input.ticketId,
     repoRoot: input.repoRoot,
     kind: "builder-summary",
-    body: builderWait.stdout || "Builder completed with no stdout.",
+    body: agentOutput(builderWait) || "Builder completed with no output.",
   });
   steps.push({ step: "write-builder-comment", ok: builderComment.ok });
 
@@ -345,7 +345,7 @@ export async function runTicketWorkflowRunner(
     worktreePath: worktree.worktreePath,
     attempt: 1,
     acceptanceCriteria: input.acceptanceCriteria,
-    comments: [...(input.comments ?? []), builderWait.stdout].filter(Boolean),
+    comments: [...(input.comments ?? []), agentOutput(builderWait)].filter(Boolean),
     runtimeLogRoot: input.runtimeLogRoot,
   });
   steps.push({
@@ -379,12 +379,13 @@ export async function runTicketWorkflowRunner(
     );
   }
 
-  const verdict = await runnerActivities.parseTicketReviewerVerdictActivity(reviewerWait.stdout);
+  const reviewerOutput = agentOutput(reviewerWait);
+  const verdict = await runnerActivities.parseTicketReviewerVerdictActivity(reviewerOutput);
   const reviewerComment = await runnerActivities.writeTicketCommentActivity({
     ticketId: input.ticketId,
     repoRoot: input.repoRoot,
     kind: "reviewer-findings",
-    body: reviewerWait.stdout,
+    body: reviewerOutput,
   });
   steps.push({ step: "write-reviewer-comment", ok: reviewerComment.ok });
   if (verdict.verdict !== "pass" || !reviewerComment.ok) {
@@ -583,6 +584,10 @@ function failedTicketWorkflowRunner(
     mergeResult: null,
     steps,
   };
+}
+
+function agentOutput(result: commandActivities.WaitForTmuxSessionResult): string {
+  return [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
 }
 
 function applySignal(

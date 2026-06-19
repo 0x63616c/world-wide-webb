@@ -124,6 +124,7 @@ export async function startTicketBuilder(
       command: [
         "opencode",
         "run",
+        "--dangerously-skip-permissions",
         "--agent",
         TICKET_BUILDER_AGENT,
         "--model",
@@ -179,6 +180,7 @@ export async function startTicketReviewer(
       command: [
         "opencode",
         "run",
+        "--dangerously-skip-permissions",
         "--agent",
         TICKET_REVIEWER_AGENT,
         "--model",
@@ -216,6 +218,7 @@ export async function startTicketMergeFix(
       command: [
         "opencode",
         "run",
+        "--dangerously-skip-permissions",
         "--agent",
         TICKET_MERGEFIX_AGENT,
         "--model",
