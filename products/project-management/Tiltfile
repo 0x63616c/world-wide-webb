@@ -10,6 +10,7 @@ load('ext://uibutton', 'cmd_button')
 UI_PORT = 8791
 TEMPORAL_PORT = 7233
 TEMPORAL_UI_PORT = 8233
+TEMPORAL_WORKER_HEALTH_PORT = 8792
 TEMPORAL_NAMESPACE = 'project-management'
 TEMPORAL_TASK_QUEUE = 'project-management'
 TEMPORAL_ADDRESS = '127.0.0.1:%d' % TEMPORAL_PORT
@@ -96,8 +97,14 @@ local_resource(
         'TEMPORAL_ADDRESS': TEMPORAL_ADDRESS,
         'TEMPORAL_NAMESPACE': TEMPORAL_NAMESPACE,
         'TEMPORAL_TASK_QUEUE': TEMPORAL_TASK_QUEUE,
+        'TEMPORAL_WORKER_HEALTH_PORT': str(TEMPORAL_WORKER_HEALTH_PORT),
     },
     resource_deps=['install', 'temporal-ready'],
+    readiness_probe=probe(
+        period_secs=2,
+        http_get=http_get_action(port=TEMPORAL_WORKER_HEALTH_PORT, path='/health'),
+    ),
+    links=[link('http://127.0.0.1:%d/health' % TEMPORAL_WORKER_HEALTH_PORT, 'worker health')],
     labels=['worker'],
 )
 

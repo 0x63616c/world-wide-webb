@@ -26,6 +26,19 @@ describe("Temporal dev stack", () => {
     expect(tiltfile).toContain("'temporal-ready'");
     expect(tiltfile).toContain("resource_deps=['install', 'temporal-ready']");
     expect(tiltfile).toContain("resource_deps=['install', 'worker']");
+    expect(tiltfile).toContain("readiness_probe=probe(");
+    expect(tiltfile).toContain("TEMPORAL_WORKER_HEALTH_PORT");
+    expect(tiltfile).toContain(
+      "http_get=http_get_action(port=TEMPORAL_WORKER_HEALTH_PORT, path='/health')",
+    );
     expect(tiltfile).toContain("temporal operator cluster health");
+  });
+
+  it("exposes a worker-owned health endpoint", async () => {
+    const worker = await readProjectFile("temporal/worker.ts");
+
+    expect(worker).toContain("TEMPORAL_WORKER_HEALTH_PORT");
+    expect(worker).toContain('pathname !== "/health"');
+    expect(worker).toContain("startHealthServer(options)");
   });
 });

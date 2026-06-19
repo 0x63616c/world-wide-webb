@@ -10,6 +10,7 @@ export type TemporalWorkerOptions = {
   readonly address: string;
   readonly namespace: string;
   readonly taskQueue: string;
+  readonly healthPort: number;
 };
 
 export function defaultTemporalWorkerOptions(): TemporalWorkerOptions {
@@ -17,7 +18,27 @@ export function defaultTemporalWorkerOptions(): TemporalWorkerOptions {
     address: Bun.env.TEMPORAL_ADDRESS ?? "127.0.0.1:7233",
     namespace: Bun.env.TEMPORAL_NAMESPACE ?? "project-management",
     taskQueue: Bun.env.TEMPORAL_TASK_QUEUE ?? TASK_QUEUE,
+    healthPort: Number(Bun.env.TEMPORAL_WORKER_HEALTH_PORT ?? "8792"),
   };
+}
+
+function startHealthServer(options: TemporalWorkerOptions): ReturnType<typeof Bun.serve> {
+  return Bun.serve({
+    hostname: "127.0.0.1",
+    port: options.healthPort,
+    fetch(request) {
+      const { pathname } = new URL(request.url);
+
+      if (pathname !== "/health") return new Response("not found", { status: 404 });
+
+      return Response.json({
+        ok: true,
+        temporalAddress: options.address,
+        namespace: options.namespace,
+        taskQueue: options.taskQueue,
+      });
+    },
+  });
 }
 
 async function waitForTemporal(address: string, timeoutMs: number): Promise<void> {
@@ -61,7 +82,13 @@ export async function runTemporalWorker(options = defaultTemporalWorkerOptions()
     repoRoot: Bun.env.REPO_ROOT ?? new URL("../../..", import.meta.url).pathname,
   });
 
-  await worker.run();
+  const healthServer = startHealthServer(options);
+
+  try {
+    await worker.run();
+  } finally {
+    healthServer.stop();
+  }
 }
 
 if (import.meta.main) await runTemporalWorker();
