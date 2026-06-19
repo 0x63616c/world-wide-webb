@@ -26,6 +26,22 @@ describe("workflowColumnsForIssues", () => {
 });
 
 describe("Beads detail template", () => {
+  it("exposes created and updated timestamps in the sortable issues table", async () => {
+    const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
+    const issuesStart = html.indexOf("<!-- ---------- ISSUES ---------- -->");
+    const issuesEnd = html.indexOf("<!-- ---------- EPICS ---------- -->");
+    const issues = html.slice(issuesStart, issuesEnd);
+
+    expect(issues).toContain("{{ row.createdLabel }}");
+    expect(issues).toContain("{{ row.updatedLabel }}");
+    expect(issues).toContain('title="{{ row.createdTitle }}"');
+    expect(issues).toContain('title="{{ row.updatedTitle }}"');
+    expect(html).toContain("{ key: 'created', label: 'Created' }");
+    expect(html).toContain("{ key: 'updated', label: 'Updated' }");
+    expect(html).toContain("case 'created': return it.created || 0;");
+    expect(html).toContain("case 'updated': return it.updated || 0;");
+  });
+
   it("renders comments after dependencies and activity in the detail drawer", async () => {
     const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
     const drawerStart = html.indexOf(

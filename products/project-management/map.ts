@@ -54,6 +54,7 @@ export interface DesignIssue {
   children?: string[];
   ts: number; // updated_at (fallback created_at) as epoch ms; 0 if unknown. For sorting.
   created: number; // created_at as epoch ms; 0 if unknown
+  updated: number; // updated_at as epoch ms; 0 if unknown
   createdBy: string; // short handle of the creator
 }
 
@@ -168,6 +169,7 @@ export function mapIssues(raw: RawIssue[]): DesignIssue[] {
       notes: issue.notes ?? "",
       ts: parseTs(issue.updated_at ?? issue.created_at),
       created: parseTs(issue.created_at),
+      updated: parseTs(issue.updated_at),
       createdBy: mapAssignee(issue.created_by),
     };
     if (type === "epic") out.children = childrenMap.get(issue.id) ?? [];

@@ -175,6 +175,8 @@
               <span style="font-size:14px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ row.title }}</span>
               <span style="{{ row.assigneeStyle }}">{{ row.assignee }}</span>
               <span><span style="{{ row.prioStyle }}">{{ row.prioLabel }}</span></span>
+              <span class="mono" title="{{ row.createdTitle }}" style="font-size:12px; color:var(--ink-3); white-space:nowrap;">{{ row.createdLabel }}</span>
+              <span class="mono" title="{{ row.updatedTitle }}" style="font-size:12px; color:var(--ink-3); white-space:nowrap;">{{ row.updatedLabel }}</span>
               <span class="mono" style="text-align:right; font-size:12px; color:var(--ink-3);">{{ row.depText }}</span>
             </div>
           </sc-for>
@@ -655,7 +657,7 @@ const BOARD_COLS = [
   { key: 'closed',      label: 'Closed' }
 ];
 const PILL = { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 500, lineHeight: 1, whiteSpace: 'nowrap', fontFamily: 'var(--ui)', letterSpacing: '-0.01em' };
-const GRID = '96px 96px 132px minmax(0,1fr) 122px 132px 64px';
+const GRID = '88px 86px 118px minmax(180px,1fr) 110px 80px 88px 88px 52px';
 
 const SEED = [
   { id: 'bd-a3f8', type: 'epic', title: 'Add `bdui` binary for UI daemon control', status: 'in_progress', p: 1, assignee: 'claude', labels: ['bdui', 'infra'], blockedBy: [], blocks: [], desc: 'Ship a single `bdui` binary that starts, stops and restarts the local UI daemon with PID tracking, so users run one command and get a browser.', children: ['bd-7f3a', 'bd-4d21', 'bd-2e88', 'bd-6a05', 'bd-0f19', 'bd-5c63'] },
@@ -784,11 +786,13 @@ class Component extends DCLogic {
     return date + ' at ' + time + (rel ? '  (' + rel + ')' : '');
   }
   exactDate(ms) {
-    if (!ms) return '-';
+    if (!ms) return '';
     const d = new Date(ms);
-    const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
-    return date + ' at ' + time;
+    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+  timeCell(ms) {
+    if (!ms) return { label: '', title: '' };
+    return { label: this.relTime(ms) || this.exactDate(ms), title: this.exactDate(ms) };
   }
   isCompact() { return true; }
 
@@ -815,6 +819,8 @@ class Component extends DCLogic {
     const sm = STATUS_META[it.status] || STATUS_META.ready;
     const pb = this.prioBadge(it.p);
     const av = this.assigneeView(it.assignee);
+    const createdCell = this.timeCell(it.created);
+    const updatedCell = this.timeCell(it.updated);
     return {
       id: it.id, idLabel: it.id.toUpperCase(),
       typeLabel: tm.label, typeStyle: this.badge(tm),
@@ -822,6 +828,8 @@ class Component extends DCLogic {
       statusLabel: sm.label, statusStyle: this.badge(sm),
       assignee: av.assignee, assigneeStyle: av.assigneeStyle,
       prioLabel: pb.label, prioStyle: pb.style,
+      createdLabel: createdCell.label, createdTitle: createdCell.title,
+      updatedLabel: updatedCell.label, updatedTitle: updatedCell.title,
       depText: this.depText(it),
       style: this.rowStyle(),
       onClick: () => this.openDetail(it.id)
@@ -962,6 +970,8 @@ class Component extends DCLogic {
           case 'title': return it.title.toLowerCase();
           case 'assignee': return (it.assignee || '').toLowerCase();
           case 'priority': return it.p;
+          case 'created': return it.created || 0;
+          case 'updated': return it.updated || 0;
           case 'deps': return (it.blockedBy ? it.blockedBy.length : 0) + (it.blocks ? it.blocks.length : 0);
           default: return 0;
         }
@@ -1038,6 +1048,8 @@ class Component extends DCLogic {
       { key: 'title', label: 'Title' },
       { key: 'assignee', label: 'Assignee' },
       { key: 'priority', label: 'Priority' },
+      { key: 'created', label: 'Created' },
+      { key: 'updated', label: 'Updated' },
       { key: 'deps', label: 'Deps', right: true }
     ].map((c) => {
       const active = sortKey === c.key;

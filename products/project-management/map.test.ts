@@ -21,6 +21,8 @@ describe("mapIssues", () => {
         priority: 1,
         issue_type: "feature",
         owner: "bob@example.com",
+        created_at: "not-a-date",
+        updated_at: "2026-06-03T12:00:00Z",
         comments: [
           {
             id: "comment_1",
@@ -63,6 +65,8 @@ describe("mapIssues", () => {
         status: "ready",
         p: 1,
         assignee: "bob",
+        created: 0,
+        updated: Date.parse("2026-06-03T12:00:00Z"),
         blockedBy: [],
         blocks: ["www-b"],
         comments: [
