@@ -1,4 +1,6 @@
 export const TICKET_WORKFLOW_LABELS = {
+  backlog: "ticket-backlog",
+  queued: "ticket-queued",
   ready: "ticket-ready",
   review: "ticket-review",
   verified: "ticket-verified",
@@ -82,7 +84,13 @@ export function buildQueueCommand(queue: TicketQueue): BeadsCommand {
   ];
 
   if (queue === "builder") {
-    args.push("--ready", "--exclude-label", TICKET_WORKFLOW_LABELS.human);
+    args.push(
+      "--ready",
+      "--exclude-label",
+      TICKET_WORKFLOW_LABELS.human,
+      "--exclude-label",
+      TICKET_WORKFLOW_LABELS.backlog,
+    );
   }
 
   return { command: "bd", args };

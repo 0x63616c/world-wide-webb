@@ -697,7 +697,7 @@ class Component extends DCLogic {
     issues: [],
     workflowDashboard: null,
     workflowMetrics: null,
-    workflowQueueFilter: 'all',
+    workflowQueueFilter: [],
     workflowControlStatus: '',
     loaded: false,
     lastSync: null,
@@ -860,6 +860,22 @@ class Component extends DCLogic {
       return;
     }
     this.setState({ workflowControlStatus: text });
+  }
+
+  selectedWorkflowQueues() {
+    const raw = this.state.workflowQueueFilter;
+    if (Array.isArray(raw)) return raw;
+    return raw && raw !== 'all' ? [raw] : [];
+  }
+
+  toggleWorkflowQueueFilter(id) {
+    if (id === 'all') {
+      this.setState({ workflowQueueFilter: [] });
+      return;
+    }
+    const selected = this.selectedWorkflowQueues();
+    const next = selected.includes(id) ? selected.filter((key) => key !== id) : selected.concat([id]);
+    this.setState({ workflowQueueFilter: next });
   }
 
   fmtMs(ms) {
@@ -1054,7 +1070,7 @@ class Component extends DCLogic {
       }
       return null;
     };
-    const workflowAccent = { queued: '#8a8a8a', ready: '#0070f3', review: '#3fb950', verified: '#a371f7', human: '#f85149', shipped: '#a371f7' };
+    const workflowAccent = { backlog: '#f4c063', queued: '#8a8a8a', ready: '#0070f3', review: '#3fb950', verified: '#a371f7', human: '#f85149', shipped: '#a371f7' };
     const epicChildSet = (() => {
       if (epFilter === 'all') return null;
       const set = new Set();
@@ -1070,8 +1086,10 @@ class Component extends DCLogic {
       collect(epFilter);
       return set;
     })();
+    const selectedWorkflowQueues = this.selectedWorkflowQueues();
+    const selectedWorkflowQueueSet = new Set(selectedWorkflowQueues);
     const boardSourceColumns = hasWorkflow ? workflow.columns.map((col) => ({ key: col.id, label: col.title, ticketIds: (col.tickets || []).map((ticket) => ticket.id) })) : BOARD_COLS;
-    const boardColumns = boardSourceColumns.filter((col) => st.workflowQueueFilter === 'all' || st.workflowQueueFilter === col.key).map((col) => {
+    const boardColumns = boardSourceColumns.filter((col) => !hasWorkflow || selectedWorkflowQueueSet.size === 0 || selectedWorkflowQueueSet.has(col.key)).map((col) => {
       const sourceIssues = hasWorkflow ? (col.ticketIds || []).map((id) => this.byId(id)).filter(Boolean) : issues.filter((i) => colKey(i) === col.key);
       const cards = sourceIssues.filter((i) => i.type !== 'epic' && (epicChildSet === null || epicChildSet.has(i.id)) && (btFilter === 'all' || i.type === btFilter)).map((it) => {
         const tm = TYPE_META[it.type] || TYPE_META.task;
@@ -1113,9 +1131,9 @@ class Component extends DCLogic {
       };
     });
     const workflowFilters = [{ id: 'all', title: 'All', count: hasWorkflow ? workflow.columns.reduce((sum, col) => sum + (col.tickets || []).length, 0) : 0 }].concat(hasWorkflow ? workflow.columns.map((col) => ({ id: col.id, title: col.title, count: (col.tickets || []).length })) : []).map((filter) => {
-      const active = st.workflowQueueFilter === filter.id;
+      const active = filter.id === 'all' ? selectedWorkflowQueueSet.size === 0 : selectedWorkflowQueueSet.has(filter.id);
       const accent = filter.id === 'all' ? 'var(--acc)' : (workflowAccent[filter.id] || 'var(--acc)');
-      return { label: filter.title, count: filter.count, onClick: () => this.setState({ workflowQueueFilter: filter.id }), style: { display: 'inline-flex', alignItems: 'center', padding: '5px 11px', borderRadius: 8, border: 'none', background: active ? 'rgba(255,255,255,.055)' : 'transparent', color: active ? accent : 'var(--ink-2)', fontSize: 12.5, fontWeight: active ? 600 : 500, fontFamily: 'var(--ui)', cursor: 'pointer', letterSpacing: '-0.01em', boxShadow: active ? ('inset 0 0 0 1px ' + accent) : 'none', transition: 'all .14s ease' } };
+      return { label: filter.title, count: filter.count, onClick: () => this.toggleWorkflowQueueFilter(filter.id), style: { display: 'inline-flex', alignItems: 'center', padding: '5px 11px', borderRadius: 8, border: 'none', background: active ? 'rgba(255,255,255,.055)' : 'transparent', color: active ? accent : 'var(--ink-2)', fontSize: 12.5, fontWeight: active ? 600 : 500, fontFamily: 'var(--ui)', cursor: 'pointer', letterSpacing: '-0.01em', boxShadow: active ? ('inset 0 0 0 1px ' + accent) : 'none', transition: 'all .14s ease' } };
     });
     const metricCounts = metrics && metrics.counts ? [
       ['Started', metrics.counts.started], ['Built', metrics.counts.built], ['Reviewed', metrics.counts.reviewed], ['Merged', metrics.counts.merged], ['Closed', metrics.counts.closed], ['Failed', metrics.counts.failed], ['Retried', metrics.counts.retried], ['Human', metrics.counts.humanEscalated]

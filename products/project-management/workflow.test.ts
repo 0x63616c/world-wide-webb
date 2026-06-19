@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { workflowColumnsForIssues, workflowDashboardForIssues } from "./workflow";
+import {
+  workflowColumnsForIssues,
+  workflowDashboardColumnsForFilter,
+  workflowDashboardForIssues,
+} from "./workflow";
 
 describe("workflowColumnsForIssues", () => {
   it("groups issues into workflow columns without losing issue order", () => {
@@ -92,6 +96,7 @@ describe("workflowDashboardForIssues", () => {
     expect(
       dashboard.columns.map((column) => [column.id, column.tickets.map((ticket) => ticket.id)]),
     ).toEqual([
+      ["backlog", []],
       ["queued", []],
       ["ready", ["www-build", "www-retry"]],
       ["review", ["www-review"]],
@@ -104,7 +109,7 @@ describe("workflowDashboardForIssues", () => {
       ["www-review", "reviewer"],
       ["www-retry", "builder"],
     ]);
-    expect(dashboard.columns[1].tickets[0]).toEqual(
+    expect(dashboard.columns[2].tickets[0]).toEqual(
       expect.objectContaining({
         phase: "build",
         attempts: 2,
@@ -116,7 +121,7 @@ describe("workflowDashboardForIssues", () => {
         lastResult: "builder-timeout",
       }),
     );
-    expect(dashboard.columns[2].tickets[0]).toEqual(
+    expect(dashboard.columns[3].tickets[0]).toEqual(
       expect.objectContaining({
         logLinks: ["/cache/logs/ticket_www-review_review_1.stderr.log"],
         promptLinks: ["/cache/logs/ticket_www-review_review_1.prompt.md"],
@@ -124,8 +129,13 @@ describe("workflowDashboardForIssues", () => {
     );
   });
 
-  it("orders workflow lanes and classifies queued, retry, and shipped tickets without duplicates", () => {
+  it("orders workflow lanes and classifies backlog, queued, retry, and shipped tickets without duplicates", () => {
     const dashboard = workflowDashboardForIssues([
+      workflowIssue("www-backlog-label", "ready", ["ticket-backlog"]),
+      workflowIssue("www-backlog-phase", "ready", ["ticket-ready"], {
+        metadata: { ticket_phase: "backlog" },
+      }),
+      workflowIssue("www-backlog-blocked", "blocked", ["ticket-backlog", "ticket-ready"]),
       workflowIssue("www-queued-blocked", "blocked", ["ticket-ready"]),
       workflowIssue("www-queued-not-ready", "ready", ["ticket-ready"], {
         blockedBy: ["www-parent"],
@@ -143,6 +153,7 @@ describe("workflowDashboardForIssues", () => {
     ]);
 
     expect(dashboard.columns.map((column) => [column.id, column.title])).toEqual([
+      ["backlog", "Backlog"],
       ["queued", "Queued"],
       ["ready", "Builder"],
       ["review", "Review"],
@@ -153,6 +164,7 @@ describe("workflowDashboardForIssues", () => {
     expect(
       dashboard.columns.map((column) => [column.id, column.tickets.map((ticket) => ticket.id)]),
     ).toEqual([
+      ["backlog", ["www-backlog-label", "www-backlog-phase", "www-backlog-blocked"]],
       ["queued", ["www-queued-blocked", "www-queued-not-ready"]],
       ["ready", ["www-retry"]],
       ["review", ["www-review"]],
@@ -160,13 +172,16 @@ describe("workflowDashboardForIssues", () => {
       ["human", ["www-human"]],
       ["shipped", ["www-shipped"]],
     ]);
-    expect(dashboard.columns[1].tickets[0]).toEqual(
+    expect(dashboard.columns[2].tickets[0]).toEqual(
       expect.objectContaining({ id: "www-retry", phase: "build", attempts: 3 }),
     );
     expect(
       new Set(dashboard.columns.flatMap((column) => column.tickets.map((ticket) => ticket.id))),
     ).toEqual(
       new Set([
+        "www-backlog-label",
+        "www-backlog-phase",
+        "www-backlog-blocked",
         "www-queued-blocked",
         "www-queued-not-ready",
         "www-retry",
@@ -175,6 +190,37 @@ describe("workflowDashboardForIssues", () => {
         "www-human",
         "www-shipped",
       ]),
+    );
+    expect(dashboard.columns.flatMap((column) => column.tickets)).toHaveLength(10);
+  });
+
+  it("filters workflow columns with all-only, multi-select, deselect, and stable ordering", () => {
+    const dashboard = workflowDashboardForIssues([
+      workflowIssue("www-backlog", "ready", ["ticket-backlog"]),
+      workflowIssue("www-build", "ready", ["ticket-ready"]),
+      workflowIssue("www-review", "ready", ["ticket-review"]),
+      workflowIssue("www-human", "ready", ["ticket-human"]),
+    ]);
+
+    expect(workflowDashboardColumnsForFilter(dashboard, "all").map((column) => column.id)).toEqual([
+      "backlog",
+      "queued",
+      "ready",
+      "review",
+      "verified",
+      "human",
+      "shipped",
+    ]);
+    expect(
+      workflowDashboardColumnsForFilter(dashboard, ["human", "ready", "backlog"]).map(
+        (column) => column.id,
+      ),
+    ).toEqual(["backlog", "ready", "human"]);
+    expect(
+      workflowDashboardColumnsForFilter(dashboard, ["human", "backlog"]).map((c) => c.id),
+    ).toEqual(["backlog", "human"]);
+    expect(workflowDashboardColumnsForFilter(dashboard, []).map((column) => column.id)).toEqual(
+      dashboard.columns.map((column) => column.id),
     );
   });
 });
