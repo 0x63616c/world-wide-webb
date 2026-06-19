@@ -9,6 +9,7 @@ load('ext://uibutton', 'cmd_button')
 
 UI_PORT = 8791
 TEMPORAL_PORT = 7233
+TEMPORAL_UI_PORT = 8233
 TEMPORAL_NAMESPACE = 'project-management'
 TEMPORAL_TASK_QUEUE = 'project-management'
 TEMPORAL_ADDRESS = '127.0.0.1:%d' % TEMPORAL_PORT
@@ -28,6 +29,12 @@ local_resource(
         period_secs=2,
         tcp_socket=tcp_socket_action(port=TEMPORAL_PORT),
     ),
+    links=[
+        link(
+            'http://localhost:%d/namespaces/%s/workflows' % (TEMPORAL_UI_PORT, TEMPORAL_NAMESPACE),
+            'Temporal Workflows',
+        ),
+    ],
     labels=['worker'],
 )
 
