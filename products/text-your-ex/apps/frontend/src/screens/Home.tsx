@@ -84,21 +84,29 @@ export function Home({ ctx }: { ctx: AppCtx }) {
             {money(myTotal)}
           </div>
         </div>
-        <div style={{ textAlign: "right" }}>
+        <div
+          style={{
+            alignSelf: "stretch",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+            textAlign: "right",
+          }}
+        >
           <div
             style={{
               fontFamily: T.disp,
               fontWeight: 800,
-              fontSize: 30,
+              fontSize: 44,
               color: T.green,
               lineHeight: 1,
+              letterSpacing: "-0.03em",
             }}
           >
             {bestStreak}
           </div>
-          <div style={{ fontSize: 12, color: T.sec, fontWeight: 600, marginTop: 2 }}>
-            days clean
-          </div>
+          <div style={{ fontSize: 12, color: T.sec, fontWeight: 600 }}>days clean</div>
         </div>
       </div>
 

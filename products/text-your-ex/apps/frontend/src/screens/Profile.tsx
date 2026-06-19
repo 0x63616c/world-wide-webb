@@ -3,6 +3,7 @@ import { api } from "../api";
 import type { AppCtx } from "../appctx";
 import { Toggle } from "../bits";
 import { Icon } from "../icons";
+import { getNativeAppInfo } from "../native/appInfo";
 import { money, T } from "../theme";
 import type { JarSummaryDTO } from "../types";
 import { Avatar, Screen, TopBar } from "../ui";
@@ -11,6 +12,7 @@ export function Profile({ ctx }: { ctx: AppCtx }) {
   const me = ctx.me;
   const [jars, setJars] = useState<JarSummaryDTO[]>([]);
   const [shares, setShares] = useState<Record<string, boolean>>({});
+  const [appVersion, setAppVersion] = useState("v1.0");
 
   const meId = me?.id;
   useEffect(() => {
@@ -30,6 +32,20 @@ export function Profile({ ctx }: { ctx: AppCtx }) {
       alive = false;
     };
   }, [meId]);
+
+  useEffect(() => {
+    let alive = true;
+    getNativeAppInfo()
+      .then((info) => {
+        if (!alive || !info) return;
+        const build = info.build ? ` (${info.build})` : "";
+        setAppVersion(`v${info.version}${build}`);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const totalDamage = jars.reduce((s, j) => s + j.myTallyCents, 0);
   const bestStreak = jars.reduce((m, j) => Math.max(m, j.myDaysClean), 0);
@@ -158,7 +174,7 @@ export function Profile({ ctx }: { ctx: AppCtx }) {
         Sign out
       </button>
       <p style={{ textAlign: "center", fontSize: 12, color: T.ter, marginTop: 16 }}>
-        Text Your Ex · v1.0 · made with poor impulse control
+        Text Your Ex · {appVersion} · made for people with poor impulse control
       </p>
     </Screen>
   );

@@ -9,9 +9,9 @@ test.beforeEach(async ({ request }) => {
 
 test("onboarding shows the wordmark and taglines", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Text\s*Your\s*Ex/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Don't\s*Text\s*Your\s*Ex/i })).toBeVisible();
   await expect(page.getByText("Stop texting your ex.")).toBeVisible();
-  await expect(page.getByText("Payments coming soon.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Payments coming soon.", { exact: false })).toHaveCount(0);
 });
 
 test("Apple sign-in lands on home with seeded jars and total damage", async ({ page }) => {

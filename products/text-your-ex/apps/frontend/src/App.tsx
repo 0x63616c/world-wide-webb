@@ -108,6 +108,12 @@ const SCREENS: Record<ScreenName, (p: { ctx: AppCtx }) => React.ReactNode> = {
   editProfile: S.EditProfile,
 };
 
+type ScrollMode = "auto" | "hidden";
+
+const ROUTE_SCROLL_MODE: Partial<Record<ScreenName, ScrollMode>> = {
+  onboarding: "hidden",
+};
+
 function useFit() {
   const [scale, setScale] = useState(1);
   useEffect(() => {
@@ -201,6 +207,8 @@ export default function App() {
   const route: Route = stack.length
     ? stack[stack.length - 1]
     : { name: tab as ScreenName, params: {} };
+  const routeKey = route.name + JSON.stringify(route.params);
+  const scrollMode = ROUTE_SCROLL_MODE[route.name] ?? "auto";
 
   const ctx: AppCtx = {
     me,
@@ -237,7 +245,7 @@ export default function App() {
         </div>
       ) : (
         <div
-          key={route.name + JSON.stringify(route.params)}
+          key={routeKey}
           className="screen-anim"
           style={{ minHeight: "100%", flex: 1, display: "flex", flexDirection: "column" }}
         >
@@ -266,7 +274,10 @@ export default function App() {
         }}
       >
         <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <div style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column" }}>
+          <div
+            key={routeKey}
+            style={{ flex: 1, overflow: scrollMode, display: "flex", flexDirection: "column" }}
+          >
             {inner}
           </div>
         </div>
@@ -286,7 +297,12 @@ export default function App() {
       }}
     >
       <div style={{ transform: `scale(${scale})`, transformOrigin: "center center" }}>
-        <IOSDevice width={DEVICE.w} height={DEVICE.h}>
+        <IOSDevice
+          width={DEVICE.w}
+          height={DEVICE.h}
+          scrollMode={scrollMode}
+          scrollResetKey={routeKey}
+        >
           {inner}
         </IOSDevice>
       </div>

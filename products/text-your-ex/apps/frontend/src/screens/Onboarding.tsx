@@ -1,10 +1,18 @@
 import { Capacitor } from "@capacitor/core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { AppCtx } from "../appctx";
 import { Icon } from "../icons";
 import { authorizeAppleSignIn, createAppleSignInRequest } from "../native/appleSignIn";
 import { T } from "../theme";
+
+const SIGNUP_EYEBROWS = [
+  "DO NOT TEXT THEM",
+  "EST. AFTER THE BREAKUP",
+  "BLOCKED BUT CURIOUS",
+  "YOUR FRIENDS WARNED YOU",
+  "ONE TEXT FROM A FINE",
+] as const;
 
 type SignInLogEntry = {
   readonly at: string;
@@ -27,6 +35,14 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [signInLog, setSignInLog] = useState<SignInLogEntry[]>([]);
+  const [eyebrowIndex, setEyebrowIndex] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setEyebrowIndex((current) => (current + 1) % SIGNUP_EYEBROWS.length);
+    }, 7500);
+    return () => window.clearInterval(id);
+  }, []);
 
   const addLog = (message: string) => {
     const at = new Date().toLocaleTimeString([], {
@@ -98,6 +114,9 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
     <div
       style={{
         flex: 1,
+        height: "100%",
+        minHeight: 0,
+        overflow: "hidden",
         background: T.bg,
         color: T.text,
         fontFamily: T.ui,
@@ -111,40 +130,81 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
         style={{
           display: "flex",
           alignItems: "center",
+          justifyContent: "space-between",
           gap: 10,
           paddingTop: native ? 10 : 60,
           flexShrink: 0,
         }}
       >
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 13,
-            background: T.gold,
-            color: "#000",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: T.disp,
-            fontWeight: 800,
-            fontSize: 26,
-            transform: "rotate(-6deg)",
-          }}
-        >
-          $
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 13,
+              background: T.gold,
+              color: "#000",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: T.disp,
+              fontWeight: 800,
+              fontSize: 26,
+              transform: "rotate(-6deg)",
+              flexShrink: 0,
+            }}
+          >
+            $
+          </div>
+          <span
+            style={{
+              position: "relative",
+              display: "grid",
+              width: "100%",
+              minHeight: 18,
+              overflow: "hidden",
+              flexShrink: 1,
+              minWidth: 0,
+            }}
+          >
+            {SIGNUP_EYEBROWS.map((label) => (
+              <span
+                key={label}
+                aria-hidden
+                style={{
+                  gridArea: "1 / 1",
+                  visibility: "hidden",
+                  whiteSpace: "nowrap",
+                  fontFamily: T.ui,
+                  fontWeight: 700,
+                  fontSize: 15,
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {label}
+              </span>
+            ))}
+            <span
+              key={SIGNUP_EYEBROWS[eyebrowIndex]}
+              style={{
+                gridArea: "1 / 1",
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                animation: "tye-eyebrow-in 520ms cubic-bezier(.2,.8,.2,1) both",
+                whiteSpace: "nowrap",
+                fontFamily: T.ui,
+                fontWeight: 700,
+                fontSize: 15,
+                color: T.sec,
+                letterSpacing: "0.04em",
+              }}
+            >
+              {SIGNUP_EYEBROWS[eyebrowIndex]}
+            </span>
+          </span>
         </div>
-        <span
-          style={{
-            fontFamily: T.ui,
-            fontWeight: 700,
-            fontSize: 15,
-            color: T.sec,
-            letterSpacing: "0.04em",
-          }}
-        >
-          EST. AFTER THE BREAKUP
-        </span>
       </div>
       {(err || signInLog.length > 0) && (
         <div
@@ -195,6 +255,8 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
       <div
         style={{
           flex: 1,
+          minHeight: 0,
+          width: "100%",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
@@ -208,13 +270,14 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
             lineHeight: 0.92,
             letterSpacing: "-0.045em",
             margin: 0,
+            width: "100%",
           }}
         >
+          Don't
+          <br />
           Text
           <br />
-          Your
-          <br />
-          <span style={{ color: T.gold }}>Ex.</span>
+          Your <span style={{ color: T.gold }}>Ex.</span>
         </h1>
         <p
           style={{
@@ -224,13 +287,14 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
             lineHeight: 1.15,
             letterSpacing: "-0.02em",
             margin: "26px 0 10px",
+            width: "100%",
           }}
         >
           Stop texting your ex.
           <br />
           Or don't, but <span style={{ color: T.gold }}>pay up.</span>
         </p>
-        <p style={{ fontSize: 16, color: T.sec, lineHeight: 1.45, margin: 0, maxWidth: 300 }}>
+        <p style={{ width: "100%", fontSize: 16, color: T.sec, lineHeight: 1.45, margin: 0 }}>
           A shared guilt jar for you and the friends who already know who you shouldn't be texting.
         </p>
       </div>
@@ -259,17 +323,6 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
         >
           <Icon.apple style={{ marginTop: -2 }} /> Sign in with Apple
         </button>
-        <p
-          style={{
-            textAlign: "center",
-            fontSize: 12,
-            color: T.ter,
-            margin: "4px 0 0",
-            lineHeight: 1.4,
-          }}
-        >
-          Payments coming soon. The shame is real though.
-        </p>
       </div>
     </div>
   );

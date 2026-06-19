@@ -94,10 +94,14 @@ export function IOSDevice({
   children,
   width = 402,
   height = 874,
+  scrollMode = "auto",
+  scrollResetKey,
 }: {
   children: ReactNode;
   width?: number;
   height?: number;
+  scrollMode?: "auto" | "hidden";
+  scrollResetKey?: string;
 }) {
   return (
     <div
@@ -133,7 +137,10 @@ export function IOSDevice({
       </div>
       {/* content */}
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-        <div style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column" }}>
+        <div
+          key={scrollResetKey}
+          style={{ flex: 1, overflow: scrollMode, display: "flex", flexDirection: "column" }}
+        >
           {children}
         </div>
       </div>
