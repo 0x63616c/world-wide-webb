@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   buildTicketBuilderPrompt,
@@ -130,6 +131,21 @@ describe("ticket merge-fix activity", () => {
 });
 
 describe("ticket reviewer activity", () => {
+  it("keeps the static reviewer agent aligned with Beads handoff", () => {
+    const agentPrompt = readFileSync(
+      new URL("../../../.opencode/agent/ticket-reviewer.md", import.meta.url),
+      "utf8",
+    );
+
+    expect(agentPrompt).toContain("Your final action is Beads state, not printed JSON");
+    expect(agentPrompt).toContain("## Reviewer findings");
+    expect(agentPrompt).toContain("--add-label ticket-verified");
+    expect(agentPrompt).toContain("--add-label ticket-retry");
+    expect(agentPrompt).toContain("--add-label ticket-human");
+    expect(agentPrompt).not.toContain("prints exactly one JSON object");
+    expect(agentPrompt).not.toContain("workflow reads command output");
+  });
+
   it("builds a prompt with ticket, comments, branch, worktree, acceptance criteria, and no-merge rules", () => {
     const prompt = buildTicketReviewerPrompt(reviewerInput());
 
