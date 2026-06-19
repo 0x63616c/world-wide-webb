@@ -231,6 +231,28 @@ describe("ticket command activities", () => {
       {
         command: "bd",
         args: [
+          "update",
+          "www-3agy.11",
+          "--set-metadata",
+          "ticket_phase=shipped",
+          "--set-metadata",
+          "ticket_last_result=shipped",
+          "--remove-label",
+          "ticket-ready",
+          "--remove-label",
+          "ticket-review",
+          "--remove-label",
+          "ticket-verified",
+          "--remove-label",
+          "ticket-retry",
+          "--remove-label",
+          "ticket-human",
+        ],
+        cwd: "/repo",
+      },
+      {
+        command: "bd",
+        args: [
           "close",
           "www-3agy.11",
           "--reason",
@@ -240,6 +262,37 @@ describe("ticket command activities", () => {
       },
       { command: "bd", args: ["dolt", "push"], cwd: "/repo" },
     ]);
+  });
+
+  it("marks auto tickets shipped and clears active workflow labels before close", async () => {
+    const { run, commands } = fakeRunner();
+
+    const result = await closeTicket({ repoRoot: "/repo", ticketId: "www-3agy.11" }, run);
+
+    expect(result.ok).toBe(true);
+    expect(commands[0]).toEqual({
+      command: "bd",
+      args: [
+        "update",
+        "www-3agy.11",
+        "--set-metadata",
+        "ticket_phase=shipped",
+        "--set-metadata",
+        "ticket_last_result=shipped",
+        "--remove-label",
+        "ticket-ready",
+        "--remove-label",
+        "ticket-review",
+        "--remove-label",
+        "ticket-verified",
+        "--remove-label",
+        "ticket-retry",
+        "--remove-label",
+        "ticket-human",
+      ],
+      cwd: "/repo",
+    });
+    expect(commands[1]?.args[0]).toBe("close");
   });
 
   it("resolves the latest OpenCode session for a worktree and agent", async () => {

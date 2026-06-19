@@ -131,8 +131,9 @@ function workflowDashboardIssue(
 }
 
 function queueForIssue(
-  issue: Pick<WorkflowDashboardIssueInput, "labels">,
+  issue: Pick<WorkflowDashboardIssueInput, "labels" | "status">,
 ): (typeof WORKFLOW_DASHBOARD_QUEUES)[number] | null {
+  if (issue.status === "closed") return null;
   const labels = new Set(issue.labels);
   if (labels.has(TICKET_WORKFLOW_LABELS.human)) return WORKFLOW_DASHBOARD_QUEUES[4];
   if (labels.has(TICKET_WORKFLOW_LABELS.retry)) return WORKFLOW_DASHBOARD_QUEUES[3];
