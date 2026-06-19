@@ -94,7 +94,8 @@ function workflowDashboardIssue(
 ): WorkflowDashboardIssue {
   const metadata = issue.metadata ?? {};
   const metadataPhase = stringMeta(metadata, TICKET_METADATA_KEYS.phase);
-  const phase = queue.id === "shipped" ? "shipped" : (metadataPhase ?? fallbackPhaseForIssue(issue, queue.id));
+  const phase =
+    queue.id === "shipped" ? "shipped" : (metadataPhase ?? fallbackPhaseForIssue(issue, queue.id));
   const tmuxSession = stringMeta(metadata, TICKET_METADATA_KEYS.tmuxSession);
   const openCode = parseOpenCodeSession(
     stringMeta(metadata, TICKET_METADATA_KEYS.openCodeSession),
