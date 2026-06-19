@@ -26,7 +26,9 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [eyebrowIndex, setEyebrowIndex] = useState(0);
-  const titleLines = ctx.sessionExpired ? ["Still", "Texting", "Them?"] : ["Don't", "Text", "Your Ex."];
+  const titleLines = ctx.sessionExpired
+    ? ["Still", "Texting", "Them?"]
+    : ["Don't", "Text", "Your Ex."];
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -288,7 +290,8 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
             opacity: busy ? 0.6 : 1,
           }}
         >
-          <Icon.apple style={{ marginTop: -2 }} /> {ctx.sessionExpired ? "Continue with Apple" : "Sign in with Apple"}
+          <Icon.apple style={{ marginTop: -2 }} />{" "}
+          {ctx.sessionExpired ? "Continue with Apple" : "Sign in with Apple"}
         </button>
       </div>
     </div>

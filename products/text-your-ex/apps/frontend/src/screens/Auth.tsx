@@ -32,7 +32,9 @@ export function SetupProfile({ ctx }: { ctx: AppCtx }) {
   };
 
   return (
-    <Screen style={{ minHeight: "100%", display: "flex", flexDirection: "column", paddingBottom: 24 }}>
+    <Screen
+      style={{ minHeight: "100%", display: "flex", flexDirection: "column", paddingBottom: 24 }}
+    >
       <div
         style={{
           flex: 1,
