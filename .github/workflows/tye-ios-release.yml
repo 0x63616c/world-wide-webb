@@ -83,13 +83,6 @@ jobs:
         run: bun install --frozen-lockfile
         working-directory: .
 
-      - name: Patch apple-sign-in SPM for Capacitor 8
-        # iOS-only: widen the plugin's capacitor-swift-pm pin so xcodebuild SPM
-        # resolution doesn't conflict with the app's Capacitor 8. Kept out of root
-        # bun patchedDependencies so it can't break the server/web Docker builds.
-        run: node products/text-your-ex/scripts/patch-ios-spm.mjs
-        working-directory: .
-
       - name: Build web (VITE_API_BASE baked in)
         run: bun run --cwd apps/frontend build
         env:

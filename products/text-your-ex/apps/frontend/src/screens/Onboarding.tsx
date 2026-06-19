@@ -1,9 +1,9 @@
 import { Capacitor } from "@capacitor/core";
-import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import { useState } from "react";
 import { api } from "../api";
 import type { AppCtx } from "../appctx";
 import { Icon } from "../icons";
+import { authorizeAppleSignIn, createAppleSignInRequest } from "../native/appleSignIn";
 import { T } from "../theme";
 
 type SignInLogEntry = {
@@ -54,14 +54,13 @@ export function Onboarding({ ctx }: { ctx: AppCtx }) {
       }
       let identityToken: string;
       try {
-        addLog("opening native Apple sheet");
-        const { response } = await SignInWithApple.authorize({
-          clientId: "co.worldwidewebb.textyourex",
-          redirectURI: "",
-          scopes: "name email",
-        });
+        const request = createAppleSignInRequest();
+        addLog(`opening native Apple sheet attempt=${request.attemptId}`);
+        const response = await authorizeAppleSignIn(request);
         identityToken = response.identityToken;
-        addLog(`Apple returned identity token (${identityToken.length} chars)`);
+        addLog(
+          `Apple returned identity token (${identityToken.length} chars) attempt=${response.attemptId} code=${response.hasAuthorizationCode}`,
+        );
       } catch (e) {
         const { code, message, full } = describeError(e);
         addLog(`Apple authorize failed code=${code ?? "?"}`);
