@@ -79,6 +79,20 @@ describe("workflowDashboardForIssues", () => {
         labels: ["ticket-ready", "ticket-human"],
         metadata: { ticket_phase: "human" },
       },
+      {
+        id: "www-shipped",
+        title: "Shipped ticket",
+        status: "closed",
+        assignee: "",
+        labels: [
+          "ticket-ready",
+          "ticket-review",
+          "ticket-verified",
+          "ticket-retry",
+          "ticket-human",
+        ],
+        metadata: { ticket_phase: "shipped", ticket_last_result: "shipped" },
+      },
     ]);
 
     expect(
@@ -94,6 +108,9 @@ describe("workflowDashboardForIssues", () => {
       ["www-build", "builder"],
       ["www-review", "reviewer"],
     ]);
+    expect(
+      dashboard.columns.flatMap((column) => column.tickets.map((ticket) => ticket.id)),
+    ).not.toContain("www-shipped");
     expect(dashboard.columns[0].tickets[0]).toEqual(
       expect.objectContaining({
         phase: "build",

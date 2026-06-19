@@ -5,6 +5,7 @@ import {
   BeadsAdapter,
   buildCommentCommand,
   buildMetadataCommand,
+  TICKET_METADATA_KEYS,
   TICKET_WORKFLOW_LABELS,
   type TicketCommentKind,
   type TicketWorkflowMetadata,
@@ -619,7 +620,24 @@ export async function closeTicket(
   input: CloseTicketInput,
   run: ActivityCommandRunner,
 ): Promise<MergeActivityResult> {
+  const workflowLabels = Object.values(TICKET_WORKFLOW_LABELS);
   return runMergeCommands(run, [
+    {
+      activity: "mark-ticket-shipped",
+      command: {
+        command: "bd",
+        args: [
+          "update",
+          input.ticketId,
+          "--set-metadata",
+          `${TICKET_METADATA_KEYS.phase}=shipped`,
+          "--set-metadata",
+          `${TICKET_METADATA_KEYS.lastResult}=shipped`,
+          ...workflowLabels.flatMap((label) => ["--remove-label", label]),
+        ],
+        cwd: input.repoRoot,
+      },
+    },
     {
       activity: "close-ticket",
       command: {
