@@ -2,6 +2,7 @@ import { NativeConnection, Worker } from "@temporalio/worker";
 import * as activities from "./activities";
 import * as agentActivities from "./agent-activities";
 import * as commandActivities from "./command-activities";
+import { ensureTicketQueueWorkflow } from "./queue-bootstrap";
 
 const TASK_QUEUE = "project-management";
 
@@ -32,6 +33,13 @@ export async function runTemporalWorker(options = defaultTemporalWorkerOptions()
   console.warn(
     `[project-management temporal] worker listening on ${options.address} namespace=${options.namespace} taskQueue=${options.taskQueue}`,
   );
+
+  await ensureTicketQueueWorkflow({
+    address: options.address,
+    namespace: options.namespace,
+    taskQueue: options.taskQueue,
+    repoRoot: Bun.env.REPO_ROOT ?? new URL("../../..", import.meta.url).pathname,
+  });
 
   await worker.run();
 }
