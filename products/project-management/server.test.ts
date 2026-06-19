@@ -33,6 +33,10 @@ describe("createRequestHandler", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       issues: [expect.objectContaining({ id: "www-a", status: "ready" })],
+      metrics: expect.objectContaining({
+        counts: expect.objectContaining({ started: 0, closed: 0 }),
+        durations: expect.objectContaining({ samples: 0 }),
+      }),
       workflow: {
         activeRuns: [],
         columns: [

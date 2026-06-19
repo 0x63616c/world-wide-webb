@@ -257,6 +257,24 @@
             </div>
           </sc-if>
         </div>
+        <sc-if value="{{ hasWorkflowMetrics }}">
+          <div style="flex:0 0 auto; display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1.2fr) minmax(0,1fr); gap:10px;">
+            <div style="display:flex; gap:7px; flex-wrap:wrap; align-items:center; min-width:0; padding:10px 12px; background:var(--tile); border:1px solid var(--hair); border-radius:13px;">
+              <sc-for list="{{ metricCounts }}" as="m" hint-placeholder-count="8">
+                <span class="mono" style="font-size:11px; color:var(--ink-3); background:var(--nest); border:1px solid var(--hair); border-radius:999px; padding:3px 8px; white-space:nowrap;">{{ m.label }} <b style="color:var(--ink-2); font-weight:600;">{{ m.value }}</b></span>
+              </sc-for>
+            </div>
+            <div style="display:flex; gap:7px; flex-wrap:wrap; align-items:center; min-width:0; padding:10px 12px; background:var(--tile); border:1px solid var(--hair); border-radius:13px;">
+              <sc-for list="{{ durationMetrics }}" as="m" hint-placeholder-count="4">
+                <span class="mono" style="font-size:11px; color:var(--ink-3); white-space:nowrap;">{{ m.label }} <b style="color:var(--ink-2); font-weight:600;">{{ m.value }}</b></span>
+              </sc-for>
+            </div>
+            <div style="display:flex; flex-direction:column; justify-content:center; gap:3px; min-width:0; padding:9px 12px; background:var(--tile); border:1px solid var(--hair); border-radius:13px;">
+              <span class="mono" style="font-size:10.5px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ openCodeMetric }}</span>
+              <span class="mono" style="font-size:10.5px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ quotaMetric }}</span>
+            </div>
+          </div>
+        </sc-if>
         <div style="{{ boardGridStyle }}">
           <sc-for list="{{ boardColumns }}" as="col" hint-placeholder-count="4">
             <div onDragOver="{{ col.onDragOver }}" onDrop="{{ col.onDrop }}" onDragLeave="{{ col.onDragLeave }}" style="{{ col.style }}">
@@ -661,6 +679,7 @@ class Component extends DCLogic {
     dragOverCol: null,
     issues: [],
     workflowDashboard: null,
+    workflowMetrics: null,
     workflowQueueFilter: 'all',
     workflowControlStatus: '',
     loaded: false,
@@ -699,7 +718,7 @@ class Component extends DCLogic {
   loadData() {
     fetch('/api/board-data')
       .then((r) => r.json())
-      .then((data) => this.setState({ issues: (data && data.issues) || [], workflowDashboard: (data && data.workflow) || null, loaded: true, lastSync: (data && data.meta && data.meta.lastSyncAt) || null }))
+      .then((data) => this.setState({ issues: (data && data.issues) || [], workflowDashboard: (data && data.workflow) || null, workflowMetrics: (data && data.metrics) || null, loaded: true, lastSync: (data && data.meta && data.meta.lastSyncAt) || null }))
       .catch((err) => console.error('[beads-ui] load failed:', err));
   }
   // Human-readable "time since": just now / 12s / 4m / 2h / 3d / 2mo ago.
@@ -824,6 +843,15 @@ class Component extends DCLogic {
       return;
     }
     this.setState({ workflowControlStatus: text });
+  }
+
+  fmtMs(ms) {
+    if (ms === null || ms === undefined) return '-';
+    if (ms < 1000) return Math.round(ms) + 'ms';
+    const sec = ms / 1000;
+    if (sec < 60) return sec.toFixed(sec < 10 ? 1 : 0) + 's';
+    const min = sec / 60;
+    return min.toFixed(min < 10 ? 1 : 0) + 'm';
   }
 
   setView(v) { this.setState({ view: v }); }
@@ -1000,6 +1028,7 @@ class Component extends DCLogic {
     const btFilter = st.typeFilter;
     const workflow = st.workflowDashboard;
     const hasWorkflow = !!(workflow && workflow.columns && workflow.columns.length);
+    const metrics = st.workflowMetrics;
     const workflowIssue = (id) => {
       if (!hasWorkflow) return null;
       for (const col of workflow.columns) {
@@ -1071,6 +1100,18 @@ class Component extends DCLogic {
       const accent = filter.id === 'all' ? 'var(--acc)' : (workflowAccent[filter.id] || 'var(--acc)');
       return { label: filter.title, count: filter.count, onClick: () => this.setState({ workflowQueueFilter: filter.id }), style: { display: 'inline-flex', alignItems: 'center', padding: '5px 11px', borderRadius: 8, border: 'none', background: active ? 'rgba(255,255,255,.055)' : 'transparent', color: active ? accent : 'var(--ink-2)', fontSize: 12.5, fontWeight: active ? 600 : 500, fontFamily: 'var(--ui)', cursor: 'pointer', letterSpacing: '-0.01em', boxShadow: active ? ('inset 0 0 0 1px ' + accent) : 'none', transition: 'all .14s ease' } };
     });
+    const metricCounts = metrics && metrics.counts ? [
+      ['Started', metrics.counts.started], ['Built', metrics.counts.built], ['Reviewed', metrics.counts.reviewed], ['Merged', metrics.counts.merged], ['Closed', metrics.counts.closed], ['Failed', metrics.counts.failed], ['Retried', metrics.counts.retried], ['Human', metrics.counts.humanEscalated]
+    ].map(([label, value]) => ({ label, value })) : [];
+    const durationMetrics = metrics && metrics.durations ? [
+      ['Avg', metrics.durations.averageMs], ['P50', metrics.durations.p50Ms], ['P90', metrics.durations.p90Ms], ['P95', metrics.durations.p95Ms]
+    ].map(([label, value]) => ({ label, value: this.fmtMs(value) })) : [];
+    const openCodeMetric = metrics && metrics.openCode && metrics.openCode.available
+      ? 'OpenCode ' + metrics.openCode.sessions + ' sessions' + (metrics.openCode.tokens === null ? '' : ' · ' + metrics.openCode.tokens + ' tokens') + (metrics.openCode.costUsd === null ? '' : ' · $' + metrics.openCode.costUsd.toFixed(3))
+      : 'OpenCode stats unavailable';
+    const quotaMetric = metrics && metrics.quota && metrics.quota.error
+      ? 'Quota parse failed: ' + metrics.quota.error
+      : (metrics && metrics.quota && metrics.quota.available ? 'Quota snapshot available' : 'Quota unavailable');
 
     // detail
     let selected = null;
@@ -1174,6 +1215,11 @@ class Component extends DCLogic {
       boardGridStyle: { flex: '1 1 auto', minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(' + Math.max(1, boardColumns.length) + ', minmax(220px, 1fr))', gap: 16 },
       hasWorkflow,
       workflowFilters,
+      hasWorkflowMetrics: !!metrics,
+      metricCounts,
+      durationMetrics,
+      openCodeMetric,
+      quotaMetric,
       epicSort: st.epicSort, onEpicSort: (e) => this.setState({ epicSort: e.target.value }),
       boardTypeFilter: st.typeFilter, onBoardTypeFilter: (e) => this.setState({ typeFilter: e.target.value }),
       epicFilter: st.epicFilter, onEpicFilter: (e) => this.setState({ epicFilter: e.target.value }),

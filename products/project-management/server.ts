@@ -18,6 +18,7 @@ import {
   isWorkflowControlAction,
   type WorkflowControlClient,
 } from "./workflow-control";
+import { workflowMetricsForIssues } from "./workflow-metrics";
 
 export type Snapshot = {
   issues: RawIssue[];
@@ -180,6 +181,7 @@ export function createRequestHandler(
       return json({
         issues,
         workflow: workflowDashboardForIssues(issues),
+        metrics: workflowMetricsForIssues(issues),
         meta: {
           lastSyncAt: options.snapshot.lastSyncAt,
           lastFetchAt: options.snapshot.lastFetchAt,
