@@ -18,11 +18,7 @@ const activities = proxyActivities<typeof projectActivities>({
   startToCloseTimeout: "1 minute",
 });
 
-const mergeCommandActivityProxies = proxyActivities<typeof commandActivities>({
-  startToCloseTimeout: "10 minutes",
-});
-
-const mergeAgentActivityProxies = proxyActivities<typeof agentActivities>({
+const mergeActivityProxies = proxyActivities<MergeWorkflowActivities>({
   startToCloseTimeout: "10 minutes",
 });
 
@@ -160,18 +156,14 @@ export type TicketWorkflowRunnerActivities = Pick<
   > &
   MergeWorkflowActivities;
 
-const ticketWorkflowRunnerActivityProxies = {
-  ...mergeCommandActivityProxies,
-  ...mergeAgentActivityProxies,
-} as TicketWorkflowRunnerActivities;
+const ticketWorkflowRunnerActivityProxies = proxyActivities<TicketWorkflowRunnerActivities>({
+  startToCloseTimeout: "10 minutes",
+});
 
 export async function mergeWorkflow(
   input: MergeWorkflowQueueInput,
 ): Promise<MergeWorkflowQueueResult> {
-  return runSerializedMergeQueueWorkflow(input, {
-    ...mergeCommandActivityProxies,
-    ...mergeAgentActivityProxies,
-  });
+  return runSerializedMergeQueueWorkflow(input, mergeActivityProxies);
 }
 
 export async function runSerializedMergeQueueWorkflow(
