@@ -14,6 +14,7 @@ import {
   ticketWorktreeNames,
   tmuxSessionName,
   updateMain,
+  waitForTmuxSession,
 } from "./command-activities";
 
 describe("ticket activity naming", () => {
@@ -144,6 +145,40 @@ describe("ticket command activities", () => {
       command: "tmux",
       args: ["has-session", "-t", "ticket_www-3agy.8_review_1"],
     });
+  });
+
+  it("waits for tmux completion and reads stdout/stderr logs", async () => {
+    const commands: ActivityCommand[] = [];
+    let inspectCount = 0;
+    const result = await waitForTmuxSession(
+      {
+        sessionName: "ticket_www-3agy.17_build_1",
+        stdoutLogPath: "/cache/stdout.log",
+        stderrLogPath: "/cache/stderr.log",
+        pollIntervalMs: 1,
+        timeoutMs: 100,
+      },
+      async (command) => {
+        commands.push(command);
+        if (command.command === "tmux") {
+          inspectCount += 1;
+          return { exitCode: inspectCount === 1 ? 0 : 1, stdout: "", stderr: "" };
+        }
+        if (command.args.includes("/cache/stdout.log")) {
+          return { exitCode: 0, stdout: "agent output", stderr: "" };
+        }
+        return { exitCode: 0, stdout: "agent errors", stderr: "" };
+      },
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        completed: true,
+        stdout: "agent output",
+        stderr: "agent errors",
+      }),
+    );
+    expect(commands.filter((command) => command.command === "tmux")).toHaveLength(2);
   });
 
   it("updates main before deterministic merge and only pushes or closes through explicit commands", async () => {

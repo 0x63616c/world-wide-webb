@@ -1,6 +1,12 @@
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { TICKET_WORKFLOW_LABELS } from "../beads-adapter";
+import {
+  buildCommentCommand,
+  buildMetadataCommand,
+  TICKET_WORKFLOW_LABELS,
+  type TicketCommentKind,
+  type TicketWorkflowMetadata,
+} from "../beads-adapter";
 
 export const TICKET_WORKTREE_ROOT = ".worktrees/tickets";
 
@@ -55,6 +61,17 @@ export type RunFinalGatesInput = {
   readonly gates: readonly FinalGateCommand[];
 };
 
+export type ResolveGitHeadInput = {
+  readonly repoRoot: string;
+  readonly ref: string;
+};
+
+export type ResolveGitHeadResult = {
+  readonly ok: boolean;
+  readonly commitSha: string | null;
+  readonly records: readonly ActivityRecord[];
+};
+
 export type PushMainInput = {
   readonly repoRoot: string;
 };
@@ -68,6 +85,20 @@ export type EscalateTicketHumanInput = {
   readonly ticketId: string;
   readonly repoRoot: string;
   readonly reason: string;
+};
+
+export type TicketBeadsInput = {
+  readonly ticketId: string;
+  readonly repoRoot: string;
+};
+
+export type WriteTicketMetadataInput = TicketBeadsInput & {
+  readonly metadata: TicketWorkflowMetadata;
+};
+
+export type WriteTicketCommentInput = TicketBeadsInput & {
+  readonly kind: TicketCommentKind;
+  readonly body: string;
 };
 
 export type MergeActivityResult = {
@@ -128,6 +159,22 @@ export type InspectTmuxSessionResult = {
   readonly record: ActivityRecord;
 };
 
+export type WaitForTmuxSessionInput = {
+  readonly sessionName: string;
+  readonly stdoutLogPath: string;
+  readonly stderrLogPath: string;
+  readonly pollIntervalMs?: number;
+  readonly timeoutMs?: number;
+};
+
+export type WaitForTmuxSessionResult = {
+  readonly sessionName: string;
+  readonly completed: boolean;
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly records: readonly ActivityRecord[];
+};
+
 export function ticketWorktreeNames(input: TicketNamingInput): TicketWorktreeNames {
   const slug = slugifyTicketTitle(input.title);
   const leafName = `${input.ticketId}-${slug}`;
@@ -182,6 +229,12 @@ export async function inspectTmuxSessionActivity(
   return inspectTmuxSession(input, runCommand);
 }
 
+export async function waitForTmuxSessionActivity(
+  input: WaitForTmuxSessionInput,
+): Promise<WaitForTmuxSessionResult> {
+  return waitForTmuxSession(input, runCommand);
+}
+
 export async function updateMainActivity(input: UpdateMainInput): Promise<MergeActivityResult> {
   return updateMain(input, runCommand);
 }
@@ -198,12 +251,46 @@ export async function runFinalGatesActivity(
   return runFinalGates(input, runCommand);
 }
 
+export async function resolveGitHeadActivity(
+  input: ResolveGitHeadInput,
+): Promise<ResolveGitHeadResult> {
+  return resolveGitHead(input, runCommand);
+}
+
 export async function pushMainActivity(input: PushMainInput): Promise<MergeActivityResult> {
   return pushMain(input, runCommand);
 }
 
 export async function closeTicketActivity(input: CloseTicketInput): Promise<MergeActivityResult> {
   return closeTicket(input, runCommand);
+}
+
+export async function claimTicketActivity(input: TicketBeadsInput): Promise<MergeActivityResult> {
+  return claimTicket(input, runCommand);
+}
+
+export async function writeTicketWorkflowMetadataActivity(
+  input: WriteTicketMetadataInput,
+): Promise<MergeActivityResult> {
+  return writeTicketWorkflowMetadata(input, runCommand);
+}
+
+export async function writeTicketCommentActivity(
+  input: WriteTicketCommentInput,
+): Promise<MergeActivityResult> {
+  return writeTicketComment(input, runCommand);
+}
+
+export async function moveTicketToReviewActivity(
+  input: TicketBeadsInput,
+): Promise<MergeActivityResult> {
+  return moveTicketToReview(input, runCommand);
+}
+
+export async function moveTicketToVerifiedActivity(
+  input: TicketBeadsInput,
+): Promise<MergeActivityResult> {
+  return moveTicketToVerified(input, runCommand);
 }
 
 export async function escalateTicketHumanActivity(
@@ -276,6 +363,39 @@ export async function inspectTmuxSession(
   return { sessionName: input.sessionName, alive: result.exitCode === 0, record };
 }
 
+export async function waitForTmuxSession(
+  input: WaitForTmuxSessionInput,
+  run: ActivityCommandRunner,
+): Promise<WaitForTmuxSessionResult> {
+  const timeoutMs = input.timeoutMs ?? 10 * 60_000;
+  const pollIntervalMs = input.pollIntervalMs ?? 2_000;
+  const startedAt = Date.now();
+  const records: ActivityRecord[] = [];
+
+  while (Date.now() - startedAt <= timeoutMs) {
+    const inspected = await inspectTmuxSession({ sessionName: input.sessionName }, run);
+    records.push(inspected.record);
+    if (!inspected.alive) {
+      return {
+        sessionName: input.sessionName,
+        completed: true,
+        stdout: await readLogFile(input.stdoutLogPath, run),
+        stderr: await readLogFile(input.stderrLogPath, run),
+        records,
+      };
+    }
+    await sleep(pollIntervalMs);
+  }
+
+  return {
+    sessionName: input.sessionName,
+    completed: false,
+    stdout: await readLogFile(input.stdoutLogPath, run),
+    stderr: await readLogFile(input.stderrLogPath, run),
+    records,
+  };
+}
+
 export async function updateMain(
   input: UpdateMainInput,
   run: ActivityCommandRunner,
@@ -334,6 +454,30 @@ export async function runFinalGates(
   );
 }
 
+export async function resolveGitHead(
+  input: ResolveGitHeadInput,
+  run: ActivityCommandRunner,
+): Promise<ResolveGitHeadResult> {
+  const result = await run({
+    command: "git",
+    args: ["rev-parse", "--verify", `${input.ref}^{commit}`],
+    cwd: input.repoRoot,
+  });
+  const records = [
+    commandRecord(
+      "resolve-git-head",
+      {
+        command: "git",
+        args: ["rev-parse", "--verify", `${input.ref}^{commit}`],
+        cwd: input.repoRoot,
+      },
+      result,
+    ),
+  ];
+  const commitSha = result.exitCode === 0 ? result.stdout.trim() || null : null;
+  return { ok: commitSha !== null, commitSha, records };
+}
+
 export async function pushMain(
   input: PushMainInput,
   run: ActivityCommandRunner,
@@ -360,6 +504,106 @@ export async function closeTicket(
           input.ticketId,
           "--reason",
           "Merged to main after serialized merge workflow",
+        ],
+        cwd: input.repoRoot,
+      },
+    },
+  ]);
+}
+
+export async function claimTicket(
+  input: TicketBeadsInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  return runMergeCommands(run, [
+    {
+      activity: "claim-ticket",
+      command: { command: "bd", args: ["update", input.ticketId, "--claim"], cwd: input.repoRoot },
+    },
+  ]);
+}
+
+export async function writeTicketWorkflowMetadata(
+  input: WriteTicketMetadataInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  const command = buildMetadataCommand(input.ticketId, input.metadata);
+  return runMergeCommands(run, [
+    {
+      activity: "write-ticket-metadata",
+      command: {
+        command: command.command,
+        args: command.args,
+        stdin: command.stdin,
+        cwd: input.repoRoot,
+      },
+    },
+  ]);
+}
+
+export async function writeTicketComment(
+  input: WriteTicketCommentInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  const command = buildCommentCommand(input.ticketId, input.kind, input.body);
+  return runMergeCommands(run, [
+    {
+      activity: `write-${input.kind}`,
+      command: {
+        command: command.command,
+        args: command.args,
+        stdin: command.stdin,
+        cwd: input.repoRoot,
+      },
+    },
+  ]);
+}
+
+export async function moveTicketToReview(
+  input: TicketBeadsInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  return runMergeCommands(run, [
+    {
+      activity: "move-ticket-review",
+      command: {
+        command: "bd",
+        args: [
+          "update",
+          input.ticketId,
+          "--add-label",
+          TICKET_WORKFLOW_LABELS.review,
+          "--remove-label",
+          TICKET_WORKFLOW_LABELS.ready,
+          "--remove-label",
+          TICKET_WORKFLOW_LABELS.retry,
+        ],
+        cwd: input.repoRoot,
+      },
+    },
+  ]);
+}
+
+export async function moveTicketToVerified(
+  input: TicketBeadsInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  return runMergeCommands(run, [
+    {
+      activity: "move-ticket-verified",
+      command: {
+        command: "bd",
+        args: [
+          "update",
+          input.ticketId,
+          "--add-label",
+          TICKET_WORKFLOW_LABELS.verified,
+          "--remove-label",
+          TICKET_WORKFLOW_LABELS.review,
+          "--remove-label",
+          TICKET_WORKFLOW_LABELS.ready,
+          "--remove-label",
+          TICKET_WORKFLOW_LABELS.retry,
         ],
         cwd: input.repoRoot,
       },
@@ -424,6 +668,18 @@ export async function runCommand(command: ActivityCommand): Promise<ActivityComm
   ]);
 
   return { stdout, stderr, exitCode };
+}
+
+async function readLogFile(path: string, run: ActivityCommandRunner): Promise<string> {
+  const result = await run({
+    command: "sh",
+    args: ["-c", 'cat "$1" 2>/dev/null || true', "sh", path],
+  });
+  return result.stdout;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function runRecorded(

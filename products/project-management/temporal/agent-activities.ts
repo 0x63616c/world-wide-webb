@@ -154,6 +154,12 @@ export async function startTicketMergeFixActivity(
   return startTicketMergeFix(input, defaultPromptWriter, undefined);
 }
 
+export async function parseTicketReviewerVerdictActivity(
+  output: string,
+): Promise<TicketReviewerVerdict> {
+  return parseTicketReviewerVerdict(output);
+}
+
 export async function startTicketReviewer(
   input: TicketReviewerInput,
   writePrompt: (prompt: TicketReviewerPrompt) => Promise<void>,

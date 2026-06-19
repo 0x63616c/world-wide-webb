@@ -85,6 +85,50 @@ export type MergeWorkflowQueueResult = {
   readonly results: readonly MergeWorkflowResult[];
 };
 
+export type TicketWorkflowRunnerInput = {
+  readonly ticketId: string;
+  readonly title: string;
+  readonly repoRoot: string;
+  readonly acceptanceCriteria: string;
+  readonly comments?: readonly string[];
+  readonly finalGates: readonly commandActivities.FinalGateCommand[];
+  readonly runtimeLogRoot?: string;
+  readonly baseRef?: string;
+  readonly requirePushedBranch?: boolean;
+};
+
+export type TicketWorkflowRunnerStep =
+  | "claim-ticket"
+  | "create-worktree"
+  | "start-builder"
+  | "wait-builder"
+  | "resolve-commit"
+  | "write-builder-metadata"
+  | "write-builder-comment"
+  | "move-review"
+  | "start-reviewer"
+  | "wait-reviewer"
+  | "write-reviewer-comment"
+  | "move-verified"
+  | "merge";
+
+export type TicketWorkflowRunnerStepResult = {
+  readonly step: TicketWorkflowRunnerStep;
+  readonly ok: boolean;
+};
+
+export type TicketWorkflowRunnerResult = {
+  readonly ticketId: string;
+  readonly status: "merged" | "failed" | "human";
+  readonly branch: string | null;
+  readonly worktreePath: string | null;
+  readonly commitSha: string | null;
+  readonly builderSessionName: string | null;
+  readonly reviewerSessionName: string | null;
+  readonly mergeResult: MergeWorkflowResult | null;
+  readonly steps: readonly TicketWorkflowRunnerStepResult[];
+};
+
 export type MergeWorkflowActivities = Pick<
   typeof commandActivities,
   | "updateMainActivity"
@@ -95,6 +139,30 @@ export type MergeWorkflowActivities = Pick<
   | "escalateTicketHumanActivity"
 > &
   Pick<typeof agentActivities, "startTicketMergeFixActivity">;
+
+export type TicketWorkflowRunnerActivities = Pick<
+  typeof commandActivities,
+  | "claimTicketActivity"
+  | "createTicketWorktreeActivity"
+  | "waitForTmuxSessionActivity"
+  | "resolveGitHeadActivity"
+  | "writeTicketWorkflowMetadataActivity"
+  | "writeTicketCommentActivity"
+  | "moveTicketToReviewActivity"
+  | "moveTicketToVerifiedActivity"
+> &
+  Pick<
+    typeof agentActivities,
+    | "startTicketBuilderActivity"
+    | "startTicketReviewerActivity"
+    | "parseTicketReviewerVerdictActivity"
+  > &
+  MergeWorkflowActivities;
+
+const ticketWorkflowRunnerActivityProxies = {
+  ...mergeCommandActivityProxies,
+  ...mergeAgentActivityProxies,
+} as TicketWorkflowRunnerActivities;
 
 export async function mergeWorkflow(
   input: MergeWorkflowQueueInput,
@@ -186,6 +254,187 @@ export async function runSerializedMergeWorkflow(
   };
 }
 
+export async function runTicketWorkflowRunner(
+  input: TicketWorkflowRunnerInput,
+  runnerActivities: TicketWorkflowRunnerActivities,
+): Promise<TicketWorkflowRunnerResult> {
+  const steps: TicketWorkflowRunnerStepResult[] = [];
+  const claim = await runnerActivities.claimTicketActivity({
+    ticketId: input.ticketId,
+    repoRoot: input.repoRoot,
+  });
+  steps.push({ step: "claim-ticket", ok: claim.ok });
+  if (!claim.ok) return failedTicketWorkflowRunner(input.ticketId, steps);
+
+  const worktree = await runnerActivities.createTicketWorktreeActivity({
+    ticketId: input.ticketId,
+    title: input.title,
+    repoRoot: input.repoRoot,
+    baseRef: input.baseRef,
+  });
+  steps.push({
+    step: "create-worktree",
+    ok: worktree.records.every((record) => record.exitCode === 0),
+  });
+
+  const builder = await runnerActivities.startTicketBuilderActivity({
+    ticketId: input.ticketId,
+    title: input.title,
+    worktreePath: worktree.worktreePath,
+    attempt: 1,
+    acceptanceCriteria: input.acceptanceCriteria,
+    comments: input.comments ?? [],
+    runtimeLogRoot: input.runtimeLogRoot,
+  });
+  steps.push({
+    step: "start-builder",
+    ok: builder.records.every((record) => record.exitCode === 0),
+  });
+
+  const builderWait = await runnerActivities.waitForTmuxSessionActivity({
+    sessionName: builder.sessionName,
+    stdoutLogPath: builder.stdoutLogPath,
+    stderrLogPath: builder.stderrLogPath,
+  });
+  steps.push({ step: "wait-builder", ok: builderWait.completed });
+  if (!builderWait.completed)
+    return failedTicketWorkflowRunner(input.ticketId, steps, worktree, builder.sessionName);
+
+  const head = await runnerActivities.resolveGitHeadActivity({
+    repoRoot: worktree.worktreePath,
+    ref: "HEAD",
+  });
+  steps.push({ step: "resolve-commit", ok: head.ok });
+  if (!head.ok || !head.commitSha)
+    return failedTicketWorkflowRunner(input.ticketId, steps, worktree, builder.sessionName);
+
+  const metadata = await runnerActivities.writeTicketWorkflowMetadataActivity({
+    ticketId: input.ticketId,
+    repoRoot: input.repoRoot,
+    metadata: {
+      phase: "review",
+      attempts: 1,
+      branch: worktree.branchName,
+      worktree: worktree.worktreePath,
+      tmuxSession: builder.sessionName,
+      openCodeSession: builder.sessionName,
+      commit: head.commitSha,
+      lastResult: "builder-passed",
+    },
+  });
+  steps.push({ step: "write-builder-metadata", ok: metadata.ok });
+
+  const builderComment = await runnerActivities.writeTicketCommentActivity({
+    ticketId: input.ticketId,
+    repoRoot: input.repoRoot,
+    kind: "builder-summary",
+    body: builderWait.stdout || "Builder completed with no stdout.",
+  });
+  steps.push({ step: "write-builder-comment", ok: builderComment.ok });
+
+  const reviewMove = await runnerActivities.moveTicketToReviewActivity({
+    ticketId: input.ticketId,
+    repoRoot: input.repoRoot,
+  });
+  steps.push({ step: "move-review", ok: reviewMove.ok });
+  if (!metadata.ok || !builderComment.ok || !reviewMove.ok) {
+    return failedTicketWorkflowRunner(input.ticketId, steps, worktree, builder.sessionName);
+  }
+
+  const reviewer = await runnerActivities.startTicketReviewerActivity({
+    ticketId: input.ticketId,
+    title: input.title,
+    branch: worktree.branchName,
+    worktreePath: worktree.worktreePath,
+    attempt: 1,
+    acceptanceCriteria: input.acceptanceCriteria,
+    comments: [...(input.comments ?? []), builderWait.stdout].filter(Boolean),
+    runtimeLogRoot: input.runtimeLogRoot,
+  });
+  steps.push({
+    step: "start-reviewer",
+    ok: reviewer.records.every((record) => record.exitCode === 0),
+  });
+
+  const reviewerWait = await runnerActivities.waitForTmuxSessionActivity({
+    sessionName: reviewer.sessionName,
+    stdoutLogPath: reviewer.stdoutLogPath,
+    stderrLogPath: reviewer.stderrLogPath,
+  });
+  steps.push({ step: "wait-reviewer", ok: reviewerWait.completed });
+  if (!reviewerWait.completed) {
+    return failedTicketWorkflowRunner(
+      input.ticketId,
+      steps,
+      worktree,
+      builder.sessionName,
+      reviewer.sessionName,
+    );
+  }
+
+  const verdict = await runnerActivities.parseTicketReviewerVerdictActivity(reviewerWait.stdout);
+  const reviewerComment = await runnerActivities.writeTicketCommentActivity({
+    ticketId: input.ticketId,
+    repoRoot: input.repoRoot,
+    kind: "reviewer-findings",
+    body: reviewerWait.stdout,
+  });
+  steps.push({ step: "write-reviewer-comment", ok: reviewerComment.ok });
+  if (verdict.verdict !== "pass" || !reviewerComment.ok) {
+    return failedTicketWorkflowRunner(
+      input.ticketId,
+      steps,
+      worktree,
+      builder.sessionName,
+      reviewer.sessionName,
+    );
+  }
+
+  const verified = await runnerActivities.moveTicketToVerifiedActivity({
+    ticketId: input.ticketId,
+    repoRoot: input.repoRoot,
+  });
+  steps.push({ step: "move-verified", ok: verified.ok });
+  if (!verified.ok) {
+    return failedTicketWorkflowRunner(
+      input.ticketId,
+      steps,
+      worktree,
+      builder.sessionName,
+      reviewer.sessionName,
+    );
+  }
+
+  const mergeResult = await runSerializedMergeWorkflow(
+    {
+      ticketId: input.ticketId,
+      title: input.title,
+      repoRoot: input.repoRoot,
+      branch: worktree.branchName,
+      commitSha: head.commitSha,
+      strategy: "cherry-pick",
+      finalGates: input.finalGates,
+      acceptanceCriteria: input.acceptanceCriteria,
+      comments: input.comments,
+      runtimeLogRoot: input.runtimeLogRoot,
+    },
+    runnerActivities,
+  );
+  steps.push({ step: "merge", ok: mergeResult.status === "merged" });
+
+  return {
+    ticketId: input.ticketId,
+    status: mergeResult.status === "merged" ? "merged" : "failed",
+    branch: worktree.branchName,
+    worktreePath: worktree.worktreePath,
+    commitSha: head.commitSha,
+    builderSessionName: builder.sessionName,
+    reviewerSessionName: reviewer.sessionName,
+    mergeResult,
+    steps,
+  };
+}
+
 async function runMergeFixThenFinalGates(
   input: MergeWorkflowInput,
   mergeActivities: MergeWorkflowActivities,
@@ -262,6 +511,7 @@ async function pushAndCloseMergedTicket(
 export type TicketWorkflowInput = {
   readonly ticketId: string;
   readonly events?: readonly TicketWorkflowEvent[];
+  readonly runner?: Omit<TicketWorkflowRunnerInput, "ticketId">;
 };
 
 export const ticketWorkflowStateQuery = defineQuery<TicketWorkflowState>("ticketWorkflowState");
@@ -293,7 +543,39 @@ export async function ticketWorkflow(input: TicketWorkflowInput): Promise<Ticket
 
   state = applyTicketWorkflowEvents(input.ticketId, input.events ?? []);
 
+  if (input.runner) {
+    const result = await runTicketWorkflowRunner(
+      { ticketId: input.ticketId, ...input.runner },
+      ticketWorkflowRunnerActivityProxies,
+    );
+    state = transitionTicketWorkflow(state, { type: "start-build" });
+    state = transitionTicketWorkflow(state, {
+      type: "complete-step",
+      outcome: result.status === "merged" ? "merge-passed" : "merge-failed",
+    });
+  }
+
   return state;
+}
+
+function failedTicketWorkflowRunner(
+  ticketId: string,
+  steps: readonly TicketWorkflowRunnerStepResult[],
+  worktree?: commandActivities.CreateTicketWorktreeResult,
+  builderSessionName: string | null = null,
+  reviewerSessionName: string | null = null,
+): TicketWorkflowRunnerResult {
+  return {
+    ticketId,
+    status: "failed",
+    branch: worktree?.branchName ?? null,
+    worktreePath: worktree?.worktreePath ?? null,
+    commitSha: null,
+    builderSessionName,
+    reviewerSessionName,
+    mergeResult: null,
+    steps,
+  };
 }
 
 function applySignal(
