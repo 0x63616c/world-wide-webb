@@ -1,6 +1,6 @@
 # Tiltfile - run Project Management locally.
 #
-#   tilt up        starts the UI (:8791), Temporal (:7233), and worker
+#   tilt up        starts Postgres, Temporal (:7233), Temporal UI (:8233), the worker, and UI (:8791)
 #   tilt down      stops the local processes
 #
 # Open the app at http://127.0.0.1:8791
@@ -56,15 +56,22 @@ local_resource(
     labels=['setup'],
 )
 
-local_resource(
+docker_compose('docker-compose.temporal.yml')
+
+dc_resource(
+    'temporal-postgres',
+    labels=['worker'],
+)
+
+dc_resource(
     'temporal',
-    serve_cmd='bun run temporal:server',
-    deps=PROJECT_CONFIG_DEPS,
-    resource_deps=['install'],
-    readiness_probe=probe(
-        period_secs=2,
-        tcp_socket=tcp_socket_action(port=TEMPORAL_PORT),
-    ),
+    resource_deps=['install', 'temporal-postgres'],
+    labels=['worker'],
+)
+
+dc_resource(
+    'temporal-ui',
+    resource_deps=['temporal'],
     links=[
         link(
             'http://localhost:%d/namespaces/%s/workflows' % (TEMPORAL_UI_PORT, TEMPORAL_NAMESPACE),

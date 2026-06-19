@@ -20,7 +20,27 @@ export function defaultTemporalWorkerOptions(): TemporalWorkerOptions {
   };
 }
 
+async function waitForTemporal(address: string, timeoutMs: number): Promise<void> {
+  const [hostname, portText] = address.split(":");
+  const port = Number(portText);
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    try {
+      const socket = await Bun.connect({ hostname, port, socket: {} });
+      socket.end();
+      return;
+    } catch {
+      await Bun.sleep(250);
+    }
+  }
+
+  throw new Error(`Timed out waiting for Temporal at ${address}`);
+}
+
 export async function runTemporalWorker(options = defaultTemporalWorkerOptions()): Promise<void> {
+  await waitForTemporal(options.address, 30_000);
+
   const connection = await NativeConnection.connect({ address: options.address });
   const worker = await Worker.create({
     connection,
