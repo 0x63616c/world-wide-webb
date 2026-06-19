@@ -158,7 +158,7 @@ export function buildDownstreamBlockedProbeCommand(downstreamTicketId: string): 
 export function buildShowTicketsCommand(ticketIds: readonly string[]): BeadsCommand {
   return {
     command: "bd",
-    args: ["show", ...ticketIds, "--json", "--include-comments", "--no-pager"],
+    args: ["show", ...ticketIds, "--json", "--include-comments"],
   };
 }
 
