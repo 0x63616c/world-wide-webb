@@ -62,6 +62,7 @@ Worker env: `TEMPORAL_ADDRESS` (default `127.0.0.1:7233`), `TEMPORAL_NAMESPACE` 
 ## How it works
 
 - `server.ts` - Bun server, no deps. Shells `bd list --all --json` against the repo root and keeps an in-memory snapshot. Every 30s it runs `bd dolt pull` (read-only) then re-lists, so the UI tracks the dolt **remote**. It never writes or pushes issues.
+- `temporal:server` - starts Temporal dev server with `--db-filename .temporal/project-management.db`, so local workflow executions survive Temporal server restarts. The `.temporal/` directory is repo-local and gitignored.
 - `map.ts` - pure mapper from raw `bd` issues to the prototype's shape (status/type/priority + the blockedBy/blocks/epic-children graph from bd dependencies). Covered by `map.test.ts`.
 - `workflow.ts` - pure workflow-column helper for testable UI/workflow logic before Temporal lands.
 - `temporal/` - Temporal runtime scaffold with deterministic workflows separated from non-deterministic activities.

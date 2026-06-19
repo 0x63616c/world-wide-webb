@@ -23,6 +23,9 @@ build/
 # Tilt
 .tilt/
 
+# Local Temporal dev-server persistence
+.temporal/
+
 # Vite
 .vite/
 

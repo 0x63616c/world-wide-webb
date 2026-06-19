@@ -7,7 +7,7 @@
     "start": "bun run server.ts",
     "dev": "bun run server.ts",
     "dev:temporal": "bun run scripts/start-temporal-dev.ts",
-    "temporal:server": "temporal server start-dev --namespace project-management",
+    "temporal:server": "mkdir -p .temporal && temporal server start-dev --namespace project-management --db-filename .temporal/project-management.db",
     "queue:temporal": "bun run temporal/start-ticket-queue.ts",
     "worker:temporal": "bun run temporal/worker.ts",
     "test": "vitest run",
