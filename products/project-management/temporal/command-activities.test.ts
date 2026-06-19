@@ -38,22 +38,22 @@ describe("ticket activity naming", () => {
 
   it("builds deterministic tmux session names and classifies known phases", () => {
     expect(tmuxSessionName({ ticketId: "www-3agy.8", kind: "review", attempt: 1 })).toBe(
-      "ticket_www-3agy.8_review_1",
+      "ticket_www-3agy_8_review_1",
     );
     expect(tmuxSessionName({ ticketId: "www-3agy.8", kind: "mergefix", attempt: 3 })).toBe(
-      "ticket_www-3agy.8_mergefix_3",
+      "ticket_www-3agy_8_mergefix_3",
     );
 
     expect(tmuxSessionName({ ticketId: "www-3agy.8", kind: "build", attempt: 2 })).toBe(
-      "ticket_www-3agy.8_build_2",
+      "ticket_www-3agy_8_build_2",
     );
-    expect(classifyTmuxSessionName("ticket_www-3agy.8_review_1")).toEqual({
-      ticketId: "www-3agy.8",
+    expect(classifyTmuxSessionName("ticket_www-3agy_8_review_1")).toEqual({
+      ticketId: "www-3agy_8",
       kind: "review",
       attempt: 1,
     });
-    expect(classifyTmuxSessionName("ticket_www-3agy.8_unknown_1")).toBeNull();
-    expect(classifyTmuxSessionName("ticket_www-3agy.8_build_0")).toBeNull();
+    expect(classifyTmuxSessionName("ticket_www-3agy_8_unknown_1")).toBeNull();
+    expect(classifyTmuxSessionName("ticket_www-3agy_8_build_0")).toBeNull();
   });
 });
 
@@ -109,10 +109,10 @@ describe("ticket command activities", () => {
 
     expect(result).toEqual(
       expect.objectContaining({
-        sessionName: "ticket_www-3agy.8_build_1",
-        stdoutLogPath: "/cache/project-management/logs/ticket_www-3agy.8_build_1.stdout.log",
-        stderrLogPath: "/cache/project-management/logs/ticket_www-3agy.8_build_1.stderr.log",
-        exitCodePath: "/cache/project-management/logs/ticket_www-3agy.8_build_1.exitcode",
+        sessionName: "ticket_www-3agy_8_build_1",
+        stdoutLogPath: "/cache/project-management/logs/ticket_www-3agy_8_build_1.stdout.log",
+        stderrLogPath: "/cache/project-management/logs/ticket_www-3agy_8_build_1.stderr.log",
+        exitCodePath: "/cache/project-management/logs/ticket_www-3agy_8_build_1.exitcode",
       }),
     );
     expect(commands[0]).toEqual({
@@ -125,10 +125,10 @@ describe("ticket command activities", () => {
         "new-session",
         "-d",
         "-s",
-        "ticket_www-3agy.8_build_1",
+        "ticket_www-3agy_8_build_1",
         "-c",
         "/repo/.worktrees/tickets/www-3agy.8-implement-worktree-and-tmux-activities",
-        "('opencode' 'run' '--model' 'sonnet' 'Build it' > '/cache/project-management/logs/ticket_www-3agy.8_build_1.stdout.log' 2> '/cache/project-management/logs/ticket_www-3agy.8_build_1.stderr.log'); printf '%s' \"$?\" > '/cache/project-management/logs/ticket_www-3agy.8_build_1.exitcode'",
+        "('opencode' 'run' '--model' 'sonnet' 'Build it' > '/cache/project-management/logs/ticket_www-3agy_8_build_1.stdout.log' 2> '/cache/project-management/logs/ticket_www-3agy_8_build_1.stderr.log'); printf '%s' \"$?\" > '/cache/project-management/logs/ticket_www-3agy_8_build_1.exitcode'",
       ],
     });
     expect(result.records.map((record) => record.command)).toEqual(commands);
@@ -136,11 +136,11 @@ describe("ticket command activities", () => {
 
   it("inspects tmux liveness through fake tmux has-session", async () => {
     const alive = await inspectTmuxSession(
-      { sessionName: "ticket_www-3agy.8_review_1" },
+      { sessionName: "ticket_www-3agy_8_review_1" },
       fakeTmuxStatusRunner(true),
     );
     const dead = await inspectTmuxSession(
-      { sessionName: "ticket_www-3agy.8_review_1" },
+      { sessionName: "ticket_www-3agy_8_review_1" },
       fakeTmuxStatusRunner(false),
     );
 
@@ -148,7 +148,7 @@ describe("ticket command activities", () => {
     expect(dead.alive).toBe(false);
     expect(alive.record.command).toEqual({
       command: "tmux",
-      args: ["has-session", "-t", "=ticket_www-3agy.8_review_1"],
+      args: ["has-session", "-t", "=ticket_www-3agy_8_review_1"],
     });
   });
 
@@ -157,7 +157,7 @@ describe("ticket command activities", () => {
     let inspectCount = 0;
     const result = await waitForTmuxSession(
       {
-        sessionName: "ticket_www-3agy.17_build_1",
+        sessionName: "ticket_www-3agy_17_build_1",
         stdoutLogPath: "/cache/stdout.log",
         stderrLogPath: "/cache/stderr.log",
         exitCodePath: "/cache/exitcode.log",

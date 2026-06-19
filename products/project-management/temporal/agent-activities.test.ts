@@ -49,7 +49,7 @@ describe("ticket builder activity", () => {
       expect.objectContaining({
         agent: TICKET_BUILDER_AGENT,
         model: TICKET_BUILDER_MODEL,
-        sessionName: "ticket_www-3agy.9_build_1",
+        sessionName: "ticket_www-3agy_9_build_1",
         promptPath: "/cache/logs/ticket_www-3agy.9_build_1.prompt.md",
       }),
     );
@@ -59,10 +59,10 @@ describe("ticket builder activity", () => {
         "new-session",
         "-d",
         "-s",
-        "ticket_www-3agy.9_build_1",
+        "ticket_www-3agy_9_build_1",
         "-c",
         "/repo/.worktrees/tickets/www-3agy.9-builder",
-        "('opencode' 'run' '--dangerously-skip-permissions' '--agent' 'ticket-builder' '--model' 'openai/gpt-5.5' 'Follow the attached ticket-builder prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.9_build_1.prompt.md' > '/cache/logs/ticket_www-3agy.9_build_1.stdout.log' 2> '/cache/logs/ticket_www-3agy.9_build_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy.9_build_1.exitcode'",
+        "('opencode' 'run' '--dangerously-skip-permissions' '--agent' 'ticket-builder' '--model' 'openai/gpt-5.5' 'Follow the attached ticket-builder prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.9_build_1.prompt.md' > '/cache/logs/ticket_www-3agy_9_build_1.stdout.log' 2> '/cache/logs/ticket_www-3agy_9_build_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy_9_build_1.exitcode'",
       ],
     });
   });
@@ -110,7 +110,7 @@ describe("ticket merge-fix activity", () => {
       expect.objectContaining({
         agent: TICKET_MERGEFIX_AGENT,
         model: TICKET_MERGEFIX_MODEL,
-        sessionName: "ticket_www-3agy.12_mergefix_1",
+        sessionName: "ticket_www-3agy_12_mergefix_1",
         promptPath: "/cache/logs/ticket_www-3agy.12_mergefix_1.prompt.md",
       }),
     );
@@ -120,10 +120,10 @@ describe("ticket merge-fix activity", () => {
         "new-session",
         "-d",
         "-s",
-        "ticket_www-3agy.12_mergefix_1",
+        "ticket_www-3agy_12_mergefix_1",
         "-c",
         "/repo",
-        "('opencode' 'run' '--dangerously-skip-permissions' '--agent' 'ticket-mergefix' '--model' 'openai/gpt-5.5' 'Follow the attached ticket-mergefix prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.12_mergefix_1.prompt.md' > '/cache/logs/ticket_www-3agy.12_mergefix_1.stdout.log' 2> '/cache/logs/ticket_www-3agy.12_mergefix_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy.12_mergefix_1.exitcode'",
+        "('opencode' 'run' '--dangerously-skip-permissions' '--agent' 'ticket-mergefix' '--model' 'openai/gpt-5.5' 'Follow the attached ticket-mergefix prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.12_mergefix_1.prompt.md' > '/cache/logs/ticket_www-3agy_12_mergefix_1.stdout.log' 2> '/cache/logs/ticket_www-3agy_12_mergefix_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy_12_mergefix_1.exitcode'",
       ],
     });
   });
@@ -195,7 +195,7 @@ describe("ticket reviewer activity", () => {
       expect.objectContaining({
         agent: TICKET_REVIEWER_AGENT,
         model: TICKET_REVIEWER_MODEL,
-        sessionName: "ticket_www-3agy.10_review_1",
+        sessionName: "ticket_www-3agy_10_review_1",
         promptPath: "/cache/logs/ticket_www-3agy.10_review_1.prompt.md",
       }),
     );
@@ -205,10 +205,10 @@ describe("ticket reviewer activity", () => {
         "new-session",
         "-d",
         "-s",
-        "ticket_www-3agy.10_review_1",
+        "ticket_www-3agy_10_review_1",
         "-c",
         "/repo/.worktrees/tickets/www-3agy.10-reviewer",
-        "('opencode' 'run' '--dangerously-skip-permissions' '--agent' 'ticket-reviewer' '--model' 'openai/gpt-5.5-fast' 'Follow the attached ticket-reviewer prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.10_review_1.prompt.md' > '/cache/logs/ticket_www-3agy.10_review_1.stdout.log' 2> '/cache/logs/ticket_www-3agy.10_review_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy.10_review_1.exitcode'",
+        "('opencode' 'run' '--dangerously-skip-permissions' '--agent' 'ticket-reviewer' '--model' 'openai/gpt-5.5-fast' 'Follow the attached ticket-reviewer prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.10_review_1.prompt.md' > '/cache/logs/ticket_www-3agy_10_review_1.stdout.log' 2> '/cache/logs/ticket_www-3agy_10_review_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy_10_review_1.exitcode'",
       ],
     });
   });

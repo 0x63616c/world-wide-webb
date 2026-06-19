@@ -223,7 +223,7 @@ export function ticketWorktreeNames(input: TicketNamingInput): TicketWorktreeNam
 export function tmuxSessionName(input: TmuxSessionInput): string {
   assertPositiveAttempt(input.attempt);
   assertTmuxTicketId(input.ticketId);
-  return `ticket_${input.ticketId}_${input.kind}_${input.attempt}`;
+  return `ticket_${tmuxSafeTicketId(input.ticketId)}_${input.kind}_${input.attempt}`;
 }
 
 export function classifyTmuxSessionName(sessionName: string): ParsedTmuxSessionName | null {
@@ -982,6 +982,10 @@ function assertTmuxTicketId(ticketId: string): void {
   if (!/^[a-zA-Z0-9_.-]+$/.test(ticketId)) {
     throw new Error(`ticket id is not safe for deterministic tmux session names: ${ticketId}`);
   }
+}
+
+function tmuxSafeTicketId(ticketId: string): string {
+  return ticketId.replaceAll(".", "_");
 }
 
 function shellJoin(command: readonly string[]): string {
