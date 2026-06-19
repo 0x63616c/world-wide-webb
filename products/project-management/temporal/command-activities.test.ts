@@ -59,7 +59,7 @@ describe("ticket activity naming", () => {
 });
 
 describe("ticket command activities", () => {
-  it("creates the parent directory and git worktree through command records", async () => {
+  it("refreshes origin/main before creating a worktree from that base ref", async () => {
     const { run, commands } = fakeRunner();
     const result = await createTicketWorktree(
       {
@@ -73,6 +73,11 @@ describe("ticket command activities", () => {
 
     expect(result.branchName.startsWith("www-3agy.8")).toBe(true);
     expect(commands).toEqual([
+      {
+        command: "git",
+        args: ["fetch", "origin", "main:refs/remotes/origin/main"],
+        cwd: "/repo",
+      },
       {
         command: "mkdir",
         args: ["-p", "/repo/.worktrees/tickets"],

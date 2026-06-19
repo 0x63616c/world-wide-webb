@@ -117,6 +117,8 @@ The last three lines are the commit/merge discipline, baked into the checklist, 
 | **`/starting-ticket`** | beginning work on a ticket | `bd show` + DoR check (refuse if unmet) → `bd update --claim` → `git pull --rebase` → `EnterWorktree` named `www-xxx-slug` → write the red test first (feature/bug) → surface the ticket DoD. |
 | **`/finish-ticket`** | work is done, closing out | Run gates capturing output (refuse if red) → verify each AC item (screenshot for UI) → commit `type(area/www-xxx)` → push branch → open PR to `main` → merge after green checks → `bd close` → harden-as-you-go audit. |
 
+Manual operator path: when starting a ticket without the Temporal queue, update the main checkout with `git fetch origin main:refs/remotes/origin/main` and `git pull --ff-only origin main` before creating the ticket worktree from `origin/main`. The Temporal ticket queue mirrors this by refreshing `origin/main` immediately before `git worktree add -b ... origin/main`.
+
 All three are **rigid** skills: announce them, create a TodoWrite item per checklist step, follow exactly. They do not improvise away the discipline.
 
 ---
