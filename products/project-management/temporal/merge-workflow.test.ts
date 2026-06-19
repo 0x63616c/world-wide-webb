@@ -294,6 +294,7 @@ function fakeMergeActivities(
           sessionName: `ticket_${input.ticketId}_mergefix_${input.attempt}`,
           stdoutLogPath: "/tmp/mergefix.stdout.log",
           stderrLogPath: "/tmp/mergefix.stderr.log",
+          exitCodePath: "/tmp/mergefix.exitcode",
           agent: "ticket-mergefix",
           model: "openai/gpt-5.5",
           promptPath: "/tmp/mergefix.prompt.md",

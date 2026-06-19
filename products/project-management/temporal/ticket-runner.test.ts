@@ -113,6 +113,7 @@ function fakeRunnerActivities(
           sessionName: "ticket_www-proof_build_1",
           stdoutLogPath: "/logs/build.stdout.log",
           stderrLogPath: "/logs/build.stderr.log",
+          exitCodePath: "/logs/build.exitcode",
           records: [],
           agent: "ticket-builder",
           model: "openai/gpt-5.5",
@@ -125,6 +126,7 @@ function fakeRunnerActivities(
           sessionName: "ticket_www-proof_review_1",
           stdoutLogPath: "/logs/review.stdout.log",
           stderrLogPath: "/logs/review.stderr.log",
+          exitCodePath: "/logs/review.exitcode",
           records: [],
           agent: "ticket-reviewer",
           model: "openai/gpt-5.5-fast",
@@ -136,6 +138,7 @@ function fakeRunnerActivities(
         return {
           sessionName: input.sessionName,
           completed: true,
+          exitCode: 0,
           stdout: input.sessionName.includes("review")
             ? reviewerJson(options.reviewerVerdict ?? "pass")
             : "Builder summary",
@@ -192,6 +195,7 @@ function fakeRunnerActivities(
         sessionName: "ticket_www-proof_mergefix_1",
         stdoutLogPath: "/logs/mergefix.stdout.log",
         stderrLogPath: "/logs/mergefix.stderr.log",
+        exitCodePath: "/logs/mergefix.exitcode",
         records: [],
         agent: "ticket-mergefix",
         model: "openai/gpt-5.5",

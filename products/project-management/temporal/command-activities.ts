@@ -146,6 +146,7 @@ export type StartTmuxCommandResult = {
   readonly sessionName: string;
   readonly stdoutLogPath: string;
   readonly stderrLogPath: string;
+  readonly exitCodePath: string;
   readonly records: readonly ActivityRecord[];
 };
 
@@ -163,6 +164,7 @@ export type WaitForTmuxSessionInput = {
   readonly sessionName: string;
   readonly stdoutLogPath: string;
   readonly stderrLogPath: string;
+  readonly exitCodePath?: string;
   readonly pollIntervalMs?: number;
   readonly timeoutMs?: number;
 };
@@ -170,6 +172,7 @@ export type WaitForTmuxSessionInput = {
 export type WaitForTmuxSessionResult = {
   readonly sessionName: string;
   readonly completed: boolean;
+  readonly exitCode: number | null;
   readonly stdout: string;
   readonly stderr: string;
   readonly records: readonly ActivityRecord[];
@@ -335,7 +338,8 @@ export async function startTmuxCommand(
   const logRoot = input.runtimeLogRoot ?? defaultRuntimeLogRoot();
   const stdoutLogPath = join(logRoot, `${sessionName}.stdout.log`);
   const stderrLogPath = join(logRoot, `${sessionName}.stderr.log`);
-  const shellCommand = `${shellJoin(input.command)} > ${shellQuote(stdoutLogPath)} 2> ${shellQuote(stderrLogPath)}`;
+  const exitCodePath = join(logRoot, `${sessionName}.exitcode`);
+  const shellCommand = `(${shellJoin(input.command)} > ${shellQuote(stdoutLogPath)} 2> ${shellQuote(stderrLogPath)}); printf '%s' "$?" > ${shellQuote(exitCodePath)}`;
   const records = [
     await runRecorded("create-tmux-log-dir", run, {
       command: "mkdir",
@@ -347,7 +351,7 @@ export async function startTmuxCommand(
     }),
   ];
 
-  return { sessionName, stdoutLogPath, stderrLogPath, records };
+  return { sessionName, stdoutLogPath, stderrLogPath, exitCodePath, records };
 }
 
 export async function inspectTmuxSession(
@@ -379,6 +383,9 @@ export async function waitForTmuxSession(
       return {
         sessionName: input.sessionName,
         completed: true,
+        exitCode: input.exitCodePath
+          ? parseExitCode(await readLogFile(input.exitCodePath, run))
+          : null,
         stdout: await readLogFile(input.stdoutLogPath, run),
         stderr: await readLogFile(input.stderrLogPath, run),
         records,
@@ -390,10 +397,16 @@ export async function waitForTmuxSession(
   return {
     sessionName: input.sessionName,
     completed: false,
+    exitCode: input.exitCodePath ? parseExitCode(await readLogFile(input.exitCodePath, run)) : null,
     stdout: await readLogFile(input.stdoutLogPath, run),
     stderr: await readLogFile(input.stderrLogPath, run),
     records,
   };
+}
+
+function parseExitCode(value: string): number | null {
+  const parsed = Number(value.trim());
+  return Number.isInteger(parsed) ? parsed : null;
 }
 
 export async function updateMain(

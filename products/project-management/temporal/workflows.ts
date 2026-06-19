@@ -291,9 +291,10 @@ export async function runTicketWorkflowRunner(
     sessionName: builder.sessionName,
     stdoutLogPath: builder.stdoutLogPath,
     stderrLogPath: builder.stderrLogPath,
+    exitCodePath: builder.exitCodePath,
   });
-  steps.push({ step: "wait-builder", ok: builderWait.completed });
-  if (!builderWait.completed)
+  steps.push({ step: "wait-builder", ok: builderWait.completed && builderWait.exitCode === 0 });
+  if (!builderWait.completed || builderWait.exitCode !== 0)
     return failedTicketWorkflowRunner(input.ticketId, steps, worktree, builder.sessionName);
 
   const head = await runnerActivities.resolveGitHeadActivity({
@@ -365,9 +366,10 @@ export async function runTicketWorkflowRunner(
     sessionName: reviewer.sessionName,
     stdoutLogPath: reviewer.stdoutLogPath,
     stderrLogPath: reviewer.stderrLogPath,
+    exitCodePath: reviewer.exitCodePath,
   });
-  steps.push({ step: "wait-reviewer", ok: reviewerWait.completed });
-  if (!reviewerWait.completed) {
+  steps.push({ step: "wait-reviewer", ok: reviewerWait.completed && reviewerWait.exitCode === 0 });
+  if (!reviewerWait.completed || reviewerWait.exitCode !== 0) {
     return failedTicketWorkflowRunner(
       input.ticketId,
       steps,

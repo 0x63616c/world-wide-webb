@@ -108,6 +108,7 @@ describe("ticket command activities", () => {
         sessionName: "ticket_www-3agy.8_build_1",
         stdoutLogPath: "/cache/project-management/logs/ticket_www-3agy.8_build_1.stdout.log",
         stderrLogPath: "/cache/project-management/logs/ticket_www-3agy.8_build_1.stderr.log",
+        exitCodePath: "/cache/project-management/logs/ticket_www-3agy.8_build_1.exitcode",
       }),
     );
     expect(commands[0]).toEqual({
@@ -123,7 +124,7 @@ describe("ticket command activities", () => {
         "ticket_www-3agy.8_build_1",
         "-c",
         "/repo/.worktrees/tickets/www-3agy.8-implement-worktree-and-tmux-activities",
-        "'opencode' 'run' '--model' 'sonnet' 'Build it' > '/cache/project-management/logs/ticket_www-3agy.8_build_1.stdout.log' 2> '/cache/project-management/logs/ticket_www-3agy.8_build_1.stderr.log'",
+        "('opencode' 'run' '--model' 'sonnet' 'Build it' > '/cache/project-management/logs/ticket_www-3agy.8_build_1.stdout.log' 2> '/cache/project-management/logs/ticket_www-3agy.8_build_1.stderr.log'); printf '%s' \"$?\" > '/cache/project-management/logs/ticket_www-3agy.8_build_1.exitcode'",
       ],
     });
     expect(result.records.map((record) => record.command)).toEqual(commands);
@@ -155,6 +156,7 @@ describe("ticket command activities", () => {
         sessionName: "ticket_www-3agy.17_build_1",
         stdoutLogPath: "/cache/stdout.log",
         stderrLogPath: "/cache/stderr.log",
+        exitCodePath: "/cache/exitcode.log",
         pollIntervalMs: 1,
         timeoutMs: 100,
       },
@@ -167,6 +169,9 @@ describe("ticket command activities", () => {
         if (command.args.includes("/cache/stdout.log")) {
           return { exitCode: 0, stdout: "agent output", stderr: "" };
         }
+        if (command.args.includes("/cache/exitcode.log")) {
+          return { exitCode: 0, stdout: "0", stderr: "" };
+        }
         return { exitCode: 0, stdout: "agent errors", stderr: "" };
       },
     );
@@ -174,6 +179,7 @@ describe("ticket command activities", () => {
     expect(result).toEqual(
       expect.objectContaining({
         completed: true,
+        exitCode: 0,
         stdout: "agent output",
         stderr: "agent errors",
       }),
