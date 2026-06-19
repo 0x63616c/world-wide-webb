@@ -135,7 +135,8 @@ describe("ticket reviewer activity", () => {
 
       - Run \`bd show www-3agy.10\` and read the ticket description, labels, comments, and acceptance criteria.
       - Inspect the implementation in branch \`www-3agy.10-implement-opencode-reviewer-activity\` from worktree \`/repo/.worktrees/tickets/www-3agy.10-reviewer\`.
-      - Review the branch/worktree diff. Do not rely on builder summaries.
+      - Review the builder commit delta with \`git diff HEAD^..HEAD\` and \`git show --stat --oneline HEAD\`. Do not use \`origin/main...HEAD\`, because ticket branches are based on the orchestration branch and that compares the whole epic.
+      - Do not rely on builder summaries.
       - Verify every acceptance criterion below with observed evidence.
 
       ## Acceptance Criteria

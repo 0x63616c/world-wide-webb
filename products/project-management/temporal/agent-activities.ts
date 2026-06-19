@@ -274,7 +274,8 @@ Worktree: ${input.worktreePath}
 
 - Run \`bd show ${input.ticketId}\` and read the ticket description, labels, comments, and acceptance criteria.
 - Inspect the implementation in branch \`${input.branch}\` from worktree \`${input.worktreePath}\`.
-- Review the branch/worktree diff. Do not rely on builder summaries.
+- Review the builder commit delta with \`git diff HEAD^..HEAD\` and \`git show --stat --oneline HEAD\`. Do not use \`origin/main...HEAD\`, because ticket branches are based on the orchestration branch and that compares the whole epic.
+- Do not rely on builder summaries.
 - Verify every acceptance criterion below with observed evidence.
 
 ## Acceptance Criteria
