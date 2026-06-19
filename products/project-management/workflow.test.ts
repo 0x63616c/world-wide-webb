@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { workflowColumnsForIssues, workflowDashboardForIssues } from "./workflow";
 
@@ -20,15 +21,33 @@ describe("workflowColumnsForIssues", () => {
   });
 });
 
+describe("Beads detail template", () => {
+  it("renders comments after dependencies and activity in the detail drawer", async () => {
+    const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
+    const drawerStart = html.indexOf(
+      "<!-- ===================== DETAIL DRAWER ===================== -->",
+    );
+    const drawerEnd = html.indexOf(
+      "<!-- ===================== NEW ISSUE MODAL ===================== -->",
+    );
+    const drawer = html.slice(drawerStart, drawerEnd);
+
+    expect(drawer.indexOf('<span class="cap">Dependencies</span>')).toBeGreaterThan(0);
+    expect(drawer.indexOf('<span class="cap">Activity</span>')).toBeGreaterThan(
+      drawer.indexOf('<span class="cap">Dependencies</span>'),
+    );
+    expect(drawer.indexOf('<span class="cap">Comments</span>')).toBeGreaterThan(
+      drawer.indexOf('<span class="cap">Activity</span>'),
+    );
+  });
+});
+
 describe("workflowDashboardForIssues", () => {
   it("maps ticket workflow labels and metadata into dashboard columns", () => {
     const dashboard = workflowDashboardForIssues([
-      {
-        id: "www-build",
-        title: "Build ticket",
-        status: "in_progress",
+      workflowIssue("www-build", "in_progress", ["ticket-ready"], {
         assignee: "claude",
-        labels: ["ticket-ready"],
+        title: "Build ticket",
         metadata: {
           ticket_phase: "build",
           ticket_attempts: "2",
@@ -38,13 +57,10 @@ describe("workflowDashboardForIssues", () => {
           ticket_prompt_path: "/cache/logs/ticket_www-build_builder.prompt.md",
           ticket_last_result: "builder-timeout",
         },
-      },
-      {
-        id: "www-review",
-        title: "Review ticket",
-        status: "ready",
+      }),
+      workflowIssue("www-review", "ready", ["ticket-review"], {
         assignee: "reviewer",
-        labels: ["ticket-review"],
+        title: "Review ticket",
         metadata: { ticket_phase: "review", ticket_opencode_session_title: "Review session" },
         comments: [
           {
@@ -54,64 +70,41 @@ describe("workflowDashboardForIssues", () => {
             created: Date.parse("2026-06-02T12:00:00Z"),
           },
         ],
-      },
-      {
-        id: "www-verified",
+      }),
+      workflowIssue("www-verified", "ready", ["ticket-verified"], {
+        assignee: "",
         title: "Verified ticket",
-        status: "ready",
+      }),
+      workflowIssue("www-retry", "ready", ["ticket-ready", "ticket-retry"], {
         assignee: "",
-        labels: ["ticket-verified"],
-        metadata: {},
-      },
-      {
-        id: "www-retry",
         title: "Retry ticket",
-        status: "ready",
-        assignee: "",
-        labels: ["ticket-ready", "ticket-retry"],
-        metadata: {},
-      },
-      {
-        id: "www-human",
+      }),
+      workflowIssue("www-human", "blocked", ["ticket-ready", "ticket-human"], {
         title: "Human ticket",
-        status: "blocked",
-        assignee: "Calum",
-        labels: ["ticket-ready", "ticket-human"],
         metadata: { ticket_phase: "human" },
-      },
-      {
-        id: "www-shipped",
+      }),
+      workflowIssue("www-shipped", "closed", ["ticket-verified"], {
         title: "Shipped ticket",
-        status: "closed",
-        assignee: "",
-        labels: [
-          "ticket-ready",
-          "ticket-review",
-          "ticket-verified",
-          "ticket-retry",
-          "ticket-human",
-        ],
         metadata: { ticket_phase: "shipped", ticket_last_result: "shipped" },
-      },
+      }),
     ]);
 
     expect(
       dashboard.columns.map((column) => [column.id, column.tickets.map((ticket) => ticket.id)]),
     ).toEqual([
-      ["ready", ["www-build"]],
+      ["queued", []],
+      ["ready", ["www-build", "www-retry"]],
       ["review", ["www-review"]],
       ["verified", ["www-verified"]],
-      ["retry", ["www-retry"]],
       ["human", ["www-human"]],
+      ["shipped", ["www-shipped"]],
     ]);
     expect(dashboard.activeRuns.map((ticket) => [ticket.id, ticket.activeRun])).toEqual([
       ["www-build", "builder"],
       ["www-review", "reviewer"],
+      ["www-retry", "builder"],
     ]);
-    expect(
-      dashboard.columns.flatMap((column) => column.tickets.map((ticket) => ticket.id)),
-    ).not.toContain("www-shipped");
-    expect(dashboard.columns[0].tickets[0]).toEqual(
+    expect(dashboard.columns[1].tickets[0]).toEqual(
       expect.objectContaining({
         phase: "build",
         attempts: 2,
@@ -123,11 +116,84 @@ describe("workflowDashboardForIssues", () => {
         lastResult: "builder-timeout",
       }),
     );
-    expect(dashboard.columns[1].tickets[0]).toEqual(
+    expect(dashboard.columns[2].tickets[0]).toEqual(
       expect.objectContaining({
         logLinks: ["/cache/logs/ticket_www-review_review_1.stderr.log"],
         promptLinks: ["/cache/logs/ticket_www-review_review_1.prompt.md"],
       }),
     );
   });
+
+  it("orders workflow lanes and classifies queued, retry, and shipped tickets without duplicates", () => {
+    const dashboard = workflowDashboardForIssues([
+      workflowIssue("www-queued-blocked", "blocked", ["ticket-ready"]),
+      workflowIssue("www-queued-not-ready", "ready", ["ticket-ready"], {
+        blockedBy: ["www-parent"],
+      }),
+      workflowIssue("www-retry", "ready", ["ticket-ready", "ticket-retry"], {
+        metadata: { ticket_attempts: "3", ticket_last_result: "reviewer-failed" },
+      }),
+      workflowIssue("www-review", "ready", ["ticket-review"]),
+      workflowIssue("www-verified", "ready", ["ticket-verified"]),
+      workflowIssue("www-human", "blocked", ["ticket-human"]),
+      workflowIssue("www-shipped", "closed", ["ticket-verified"], {
+        metadata: { ticket_phase: "closed", ticket_last_result: "merge-passed" },
+      }),
+      workflowIssue("www-closed-manual", "closed", ["ticket-ready"]),
+    ]);
+
+    expect(dashboard.columns.map((column) => [column.id, column.title])).toEqual([
+      ["queued", "Queued"],
+      ["ready", "Builder"],
+      ["review", "Review"],
+      ["verified", "Verified"],
+      ["human", "Human"],
+      ["shipped", "Shipped"],
+    ]);
+    expect(
+      dashboard.columns.map((column) => [column.id, column.tickets.map((ticket) => ticket.id)]),
+    ).toEqual([
+      ["queued", ["www-queued-blocked", "www-queued-not-ready"]],
+      ["ready", ["www-retry"]],
+      ["review", ["www-review"]],
+      ["verified", ["www-verified"]],
+      ["human", ["www-human"]],
+      ["shipped", ["www-shipped"]],
+    ]);
+    expect(dashboard.columns[1].tickets[0]).toEqual(
+      expect.objectContaining({ id: "www-retry", phase: "build", attempts: 3 }),
+    );
+    expect(
+      new Set(dashboard.columns.flatMap((column) => column.tickets.map((ticket) => ticket.id))),
+    ).toEqual(
+      new Set([
+        "www-queued-blocked",
+        "www-queued-not-ready",
+        "www-retry",
+        "www-review",
+        "www-verified",
+        "www-human",
+        "www-shipped",
+      ]),
+    );
+  });
 });
+
+type WorkflowIssueInput = Parameters<typeof workflowDashboardForIssues>[0][number];
+
+function workflowIssue(
+  id: string,
+  status: WorkflowIssueInput["status"],
+  labels: string[],
+  overrides: Partial<WorkflowIssueInput> = {},
+): WorkflowIssueInput {
+  return {
+    id,
+    title: id,
+    status,
+    assignee: "Calum",
+    labels,
+    blockedBy: [],
+    ...overrides,
+  };
+}

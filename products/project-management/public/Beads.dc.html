@@ -276,7 +276,7 @@
           </div>
         </sc-if>
         <div style="{{ boardGridStyle }}">
-          <sc-for list="{{ boardColumns }}" as="col" hint-placeholder-count="4">
+          <sc-for list="{{ boardColumns }}" as="col" hint-placeholder-count="6">
             <div onDragOver="{{ col.onDragOver }}" onDrop="{{ col.onDrop }}" onDragLeave="{{ col.onDragLeave }}" style="{{ col.style }}">
               <div style="flex:0 0 auto; display:flex; align-items:center; gap:9px; padding:13px 16px; border-bottom:1px solid var(--hair);">
                 <span style="{{ col.dotStyle }}"></span>
@@ -478,23 +478,6 @@
             </div>
           </sc-if>
 
-          <sc-if value="{{ selected.hasComments }}">
-            <div style="display:flex; flex-direction:column; gap:11px;">
-              <span class="cap">Comments</span>
-              <div style="display:flex; flex-direction:column; gap:10px;">
-                <sc-for list="{{ selected.comments }}" as="comment" hint-placeholder-count="3">
-                  <article style="display:flex; flex-direction:column; gap:8px; padding:13px; background:var(--tile-2); border:1px solid var(--hair); border-radius:13px;">
-                    <div style="display:flex; align-items:center; gap:10px; min-width:0;">
-                      <span class="mono" style="font-size:11.5px; color:var(--ink); background:var(--nest); border:1px solid var(--hair); border-radius:999px; padding:3px 8px;">{{ comment.author }}</span>
-                      <span class="mono" style="font-size:11px; color:var(--ink-3);">{{ comment.createdLabel }}</span>
-                    </div>
-                    <div class="md">{{ comment.text }}</div>
-                  </article>
-                </sc-for>
-              </div>
-            </div>
-          </sc-if>
-
           <div style="display:flex; flex-direction:column; gap:11px;">
             <span class="cap">Dependencies</span>
             <sc-if value="{{ selected.hasDeps }}">
@@ -525,6 +508,23 @@
               </sc-for>
             </div>
           </div>
+
+          <sc-if value="{{ selected.hasComments }}">
+            <div style="display:flex; flex-direction:column; gap:11px;">
+              <span class="cap">Comments</span>
+              <div style="display:flex; flex-direction:column; gap:10px;">
+                <sc-for list="{{ selected.comments }}" as="comment" hint-placeholder-count="3">
+                  <article style="display:flex; flex-direction:column; gap:8px; padding:13px; background:var(--tile-2); border:1px solid var(--hair); border-radius:13px;">
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                      <span class="mono" style="font-size:11.5px; color:var(--ink); background:var(--nest); border:1px solid var(--hair); border-radius:999px; padding:3px 8px;">{{ comment.author }}</span>
+                      <span class="mono" style="font-size:11px; color:var(--ink-3);">{{ comment.createdLabel }}</span>
+                    </div>
+                    <div class="md">{{ comment.text }}</div>
+                  </article>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
         </div>
       </aside>
       <sc-if value="{{ confirmClose }}">
@@ -1054,7 +1054,7 @@ class Component extends DCLogic {
       }
       return null;
     };
-    const workflowAccent = { ready: '#0070f3', review: '#3fb950', verified: '#a371f7', retry: '#f4c063', human: '#f85149' };
+    const workflowAccent = { queued: '#8a8a8a', ready: '#0070f3', review: '#3fb950', verified: '#a371f7', human: '#f85149', shipped: '#a371f7' };
     const epicChildSet = (() => {
       if (epFilter === 'all') return null;
       const set = new Set();

@@ -22,11 +22,12 @@ export function workflowColumnsForIssues(
 }
 
 export const WORKFLOW_DASHBOARD_QUEUES = [
+  { id: "queued", label: "ticket-queued", title: "Queued" },
   { id: "ready", label: TICKET_WORKFLOW_LABELS.ready, title: "Builder" },
   { id: "review", label: TICKET_WORKFLOW_LABELS.review, title: "Review" },
   { id: "verified", label: TICKET_WORKFLOW_LABELS.verified, title: "Verified" },
-  { id: "retry", label: TICKET_WORKFLOW_LABELS.retry, title: "Retry" },
   { id: "human", label: TICKET_WORKFLOW_LABELS.human, title: "Human" },
+  { id: "shipped", label: "ticket-shipped", title: "Shipped" },
 ] as const;
 
 export type WorkflowDashboardQueueId = (typeof WORKFLOW_DASHBOARD_QUEUES)[number]["id"];
@@ -37,6 +38,7 @@ export type WorkflowDashboardIssueInput = Pick<
   DesignIssue,
   "id" | "title" | "labels" | "status" | "assignee"
 > & {
+  readonly blockedBy?: DesignIssue["blockedBy"];
   readonly metadata?: Record<string, unknown>;
   readonly comments?: DesignIssue["comments"];
 };
@@ -92,7 +94,7 @@ function workflowDashboardIssue(
 ): WorkflowDashboardIssue {
   const metadata = issue.metadata ?? {};
   const metadataPhase = stringMeta(metadata, TICKET_METADATA_KEYS.phase);
-  const phase = metadataPhase ?? phaseFromQueue(queue.id);
+  const phase = queue.id === "shipped" ? "shipped" : (metadataPhase ?? fallbackPhaseForIssue(issue, queue.id));
   const tmuxSession = stringMeta(metadata, TICKET_METADATA_KEYS.tmuxSession);
   const openCode = parseOpenCodeSession(
     stringMeta(metadata, TICKET_METADATA_KEYS.openCodeSession),
@@ -106,11 +108,9 @@ function workflowDashboardIssue(
     queue: queue.id,
     queueLabel: queue.label,
     phase,
-    activeRun: activeRunForPhase(metadataPhase),
+    activeRun: activeRunForPhase(phase),
     assignee: issue.assignee,
-    attempts:
-      numberMeta(metadata, TICKET_METADATA_KEYS.attempt) ??
-      numberMeta(metadata, TICKET_METADATA_KEYS.attempts),
+    attempts: numberMeta(metadata, TICKET_METADATA_KEYS.attempts),
     tmuxSession,
     tmuxAttachCommand: tmuxSession ? `tmux attach -t ${tmuxSession}` : null,
     openCodeSessionId: openCode.id,
@@ -133,31 +133,57 @@ function workflowDashboardIssue(
 }
 
 function queueForIssue(
-  issue: Pick<WorkflowDashboardIssueInput, "labels" | "status">,
+  issue: Pick<WorkflowDashboardIssueInput, "labels" | "status" | "blockedBy" | "metadata">,
 ): (typeof WORKFLOW_DASHBOARD_QUEUES)[number] | null {
-  if (issue.status === "closed") return null;
   const labels = new Set(issue.labels);
+  const metadata = issue.metadata ?? {};
+  const phase = stringMeta(metadata, TICKET_METADATA_KEYS.phase);
+  const lastResult = stringMeta(metadata, TICKET_METADATA_KEYS.lastResult);
+  const hasWorkflowLabel = Object.values(TICKET_WORKFLOW_LABELS).some((label) => labels.has(label));
+
+  if (issue.status === "closed") {
+    return phase === "closed" ||
+      phase === "shipped" ||
+      lastResult === "merge-passed" ||
+      lastResult === "shipped"
+      ? WORKFLOW_DASHBOARD_QUEUES[5]
+      : null;
+  }
+
+  if (!hasWorkflowLabel) return null;
   if (labels.has(TICKET_WORKFLOW_LABELS.human)) return WORKFLOW_DASHBOARD_QUEUES[4];
-  if (labels.has(TICKET_WORKFLOW_LABELS.retry)) return WORKFLOW_DASHBOARD_QUEUES[3];
-  if (labels.has(TICKET_WORKFLOW_LABELS.verified)) return WORKFLOW_DASHBOARD_QUEUES[2];
-  if (labels.has(TICKET_WORKFLOW_LABELS.review)) return WORKFLOW_DASHBOARD_QUEUES[1];
-  if (labels.has(TICKET_WORKFLOW_LABELS.ready)) return WORKFLOW_DASHBOARD_QUEUES[0];
+  if (issue.status === "blocked" || (issue.blockedBy?.length ?? 0) > 0) {
+    return WORKFLOW_DASHBOARD_QUEUES[0];
+  }
+  if (labels.has(TICKET_WORKFLOW_LABELS.retry)) return WORKFLOW_DASHBOARD_QUEUES[1];
+  if (labels.has(TICKET_WORKFLOW_LABELS.verified)) return WORKFLOW_DASHBOARD_QUEUES[3];
+  if (labels.has(TICKET_WORKFLOW_LABELS.review)) return WORKFLOW_DASHBOARD_QUEUES[2];
+  if (labels.has(TICKET_WORKFLOW_LABELS.ready)) return WORKFLOW_DASHBOARD_QUEUES[1];
   return null;
 }
 
 function phaseFromQueue(queue: WorkflowDashboardQueueId): string {
   switch (queue) {
+    case "queued":
+      return "queued";
     case "ready":
       return "ready";
     case "review":
       return "review";
     case "verified":
       return "verified";
-    case "retry":
-      return "build";
     case "human":
       return "human";
+    case "shipped":
+      return "closed";
   }
+}
+
+function fallbackPhaseForIssue(
+  issue: Pick<WorkflowDashboardIssueInput, "labels">,
+  queue: WorkflowDashboardQueueId,
+): string {
+  return issue.labels.includes(TICKET_WORKFLOW_LABELS.retry) ? "build" : phaseFromQueue(queue);
 }
 
 function activeRunForPhase(phase: string | null): WorkflowDashboardRunRole | null {
