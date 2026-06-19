@@ -3,6 +3,10 @@ import { join } from "node:path";
 
 const repoRoot = import.meta.dir.replace(/\/scripts$/, "");
 const workflow = readFileSync(join(repoRoot, ".github/workflows/ci.yml"), "utf8");
+const buildProductImageAction = readFileSync(
+  join(repoRoot, ".github/actions/build-product-image/action.yml"),
+  "utf8",
+);
 const productPackage = JSON.parse(
   readFileSync(join(repoRoot, "products/control-center/package.json"), "utf8"),
 ) as { scripts?: Record<string, string> };
@@ -79,8 +83,13 @@ for (const image of [
   "www-control-center-drizzle",
   "www-control-center-map-provision",
 ] as const) {
-  assert(workflow.includes(`ghcr.io/0x63616c/${image}:`), `workflow must build ${image}`);
+  assert(workflow.includes(`image: ${image}`), `workflow must build ${image}`);
 }
+
+assert(
+  buildProductImageAction.includes(`ghcr.io/0x63616c/$` + "{{ inputs.image }}:"),
+  "reusable build action must push images to ghcr.io/0x63616c",
+);
 
 for (const digestKey of [
   "control-center-api",
