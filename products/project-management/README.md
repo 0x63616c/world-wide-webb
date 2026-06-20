@@ -18,7 +18,7 @@ bun run typecheck      # TypeScript check for the standalone product
 
 Then open `http://127.0.0.1:8791/`.
 
-`bun run dev` and `bun run worker:temporal` use Bun watch mode, so server and worker source edits restart their own process. `temporal:server` is not watched; it runs Temporal against a Docker Postgres database in the named Compose volume `project-management_temporal-postgres-data`, and should only be restarted when the Temporal server itself needs to change.
+`bun run dev` and `bun run worker:temporal` use Bun watch mode, so server and worker source edits restart their own process. `temporal:server` is not watched; it runs Temporal against the shared Docker Postgres service in the named Compose volume `project-management_postgres-data`, and should only be restarted when the Temporal server itself needs to change.
 
 Temporal data survives `tilt down` / `tilt up` and `docker compose -f docker-compose.temporal.yml down` because the Postgres volume is preserved. To intentionally wipe local workflow history and start from a fresh Temporal database, run:
 
@@ -71,7 +71,7 @@ Worker env: `TEMPORAL_ADDRESS` (default `127.0.0.1:7233`), `TEMPORAL_NAMESPACE` 
 ## How it works
 
 - `server.ts` - Bun server, no deps. Shells `bd list --all --json` against the repo root and keeps an in-memory snapshot. Every 30s it runs `bd dolt pull` (read-only) then re-lists, so the UI tracks the dolt **remote**. It never writes or pushes issues.
-- `temporal:server` - starts `temporalio/auto-setup` with Postgres persistence. The `temporal-postgres` Compose service owns the named `temporal-postgres-data` Docker volume; Temporal auto-initializes and migrates its schema before serving `127.0.0.1:7233`.
+- `temporal:server` - starts `temporalio/auto-setup` with Postgres persistence. The `postgres` Compose service owns the named `postgres-data` Docker volume; Temporal auto-initializes its own database, and Tilt creates the separate `project_management` database in the same Postgres instance before the app uses it.
 - `worker:temporal` - starts the local Temporal worker in Bun watch mode, so activity/worker code edits restart the worker. Active workflow executions keep their history in Temporal; deterministic workflow definition changes may still require starting a new execution.
 - `map.ts` - pure mapper from raw `bd` issues to the prototype's shape (status/type/priority + the blockedBy/blocks/epic-children graph from bd dependencies). Covered by `map.test.ts`.
 - `workflow.ts` - pure workflow-column helper for testable UI/workflow logic before Temporal lands.

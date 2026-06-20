@@ -1,5 +1,5 @@
 services:
-  temporal-postgres:
+  postgres:
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: temporal
@@ -13,19 +13,19 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - temporal-postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
 
   temporal:
     image: temporalio/auto-setup:1.28.1
     depends_on:
-      temporal-postgres:
+      postgres:
         condition: service_healthy
     environment:
       DB: postgres12
       DB_PORT: "5432"
       POSTGRES_USER: temporal
       POSTGRES_PWD: temporal
-      POSTGRES_SEEDS: temporal-postgres
+      POSTGRES_SEEDS: postgres
       DEFAULT_NAMESPACE: project-management
       DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
       TEMPORAL_ADDRESS: temporal:7233
@@ -51,4 +51,4 @@ services:
       - "8233:8080"
 
 volumes:
-  temporal-postgres-data:
+  postgres-data:

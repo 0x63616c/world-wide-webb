@@ -14,7 +14,7 @@ describe("Temporal dev stack", () => {
     const compose = await readProjectFile("docker-compose.temporal.yml");
 
     expect(`${packageJson}\n${tiltfile}`).not.toContain("--db-filename");
-    expect(compose).toContain("temporal-postgres-data");
+    expect(compose).toContain("postgres-data");
     expect(compose).toContain("DB: postgres12");
     expect(compose).toContain("temporalio/auto-setup");
     expect(compose).toContain('"--address", "temporal:7233"');
@@ -23,7 +23,7 @@ describe("Temporal dev stack", () => {
   it("keeps Tilt resource ordering explicit", async () => {
     const tiltfile = await readProjectFile("Tiltfile");
     expect(tiltfile).toContain("docker_compose('docker-compose.temporal.yml')");
-    expect(tiltfile).toContain("resource_deps=['install', 'temporal-postgres']");
+    expect(tiltfile).toContain("resource_deps=['install', 'postgres']");
     expect(tiltfile).toContain("'temporal-ready'");
     expect(tiltfile).toContain(
       "deps=['docker-compose.temporal.yml', 'temporal/dynamicconfig/development-sql.yaml']",
@@ -44,9 +44,11 @@ describe("Temporal dev stack", () => {
     const compose = await readProjectFile("docker-compose.temporal.yml");
 
     expect(compose).toContain('"5433:5432"');
+    expect(compose).toContain("POSTGRES_SEEDS: postgres");
     expect(tiltfile).toContain("PROJECT_MANAGEMENT_DATABASE_URL");
-    expect(tiltfile).toContain("postgresql://temporal:temporal@127.0.0.1:5433/project_management");
+    expect(tiltfile).toContain("127.0.0.1:5433/project_management");
     expect(tiltfile).toContain("'project-management-db'");
+    expect(tiltfile).toContain("exec -T postgres psql");
     expect(tiltfile).toContain("CREATE DATABASE project_management");
     expect(tiltfile).toContain("WHERE NOT EXISTS");
     expect(tiltfile).toContain(

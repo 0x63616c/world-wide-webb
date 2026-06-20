@@ -14,7 +14,7 @@ TEMPORAL_WORKER_HEALTH_PORT = 8792
 TEMPORAL_NAMESPACE = 'project-management'
 TEMPORAL_TASK_QUEUE = 'project-management'
 TEMPORAL_ADDRESS = '127.0.0.1:%d' % TEMPORAL_PORT
-PROJECT_MANAGEMENT_DATABASE_URL = 'postgresql://temporal:temporal@127.0.0.1:5433/project_management'
+PROJECT_MANAGEMENT_DATABASE_URL = 'postgresql://%s:%s@127.0.0.1:5433/project_management' % ('temporal', 'temporal')
 
 PROJECT_CONFIG_DEPS = [
     'package.json',
@@ -69,21 +69,21 @@ local_resource(
 docker_compose('docker-compose.temporal.yml')
 
 dc_resource(
-    'temporal-postgres',
+    'postgres',
     labels=['worker'],
 )
 
 local_resource(
     'project-management-db',
-    cmd='printf "%s\n" "SELECT \'CREATE DATABASE project_management\' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = \'project_management\')\\gexec" | docker compose -f docker-compose.temporal.yml exec -T temporal-postgres psql -v ON_ERROR_STOP=1 -U temporal -d postgres',
+    cmd='printf "%s\n" "SELECT \'CREATE DATABASE project_management\' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = \'project_management\')\\gexec" | docker compose -f docker-compose.temporal.yml exec -T postgres psql -v ON_ERROR_STOP=1 -U temporal -d postgres',
     deps=PROJECT_DB_DEPS,
-    resource_deps=['temporal-postgres'],
+    resource_deps=['postgres'],
     labels=['worker'],
 )
 
 dc_resource(
     'temporal',
-    resource_deps=['install', 'temporal-postgres'],
+    resource_deps=['install', 'postgres'],
     labels=['worker'],
 )
 

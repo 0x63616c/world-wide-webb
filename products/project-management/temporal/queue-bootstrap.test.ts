@@ -95,7 +95,7 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
         {
           workflowId: STUCK_TICKET_RECOVERY_WORKFLOW_ID,
           workflowIdConflictPolicy: WorkflowIdConflictPolicy.USE_EXISTING,
-          taskQueue: "project-management",
+          taskQueue: "main",
           args: [
             {
               repoRoot: "/repo",
