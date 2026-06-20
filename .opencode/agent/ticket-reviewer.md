@@ -2,7 +2,7 @@
 name: ticket-reviewer
 description: Reviews one Beads ticket implementation against acceptance criteria; use with opencode run --agent ticket-reviewer.
 mode: all
-model: openai/gpt-5.4-mini
+model: openai/gpt-5.5-fast
 steps: 80
 permission:
   read: allow

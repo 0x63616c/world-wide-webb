@@ -2,7 +2,7 @@
 name: ticket-mergefix
 description: Repairs merge conflicts or post-merge gate failures inside the active ticket merge worktree.
 mode: all
-model: openai/gpt-5.4-mini
+model: openai/gpt-5.5
 steps: 8
 permission:
   read: allow

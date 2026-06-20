@@ -9,7 +9,7 @@ import {
 } from "./command-activities";
 
 export const TICKET_BUILDER_AGENT = "ticket-builder";
-export const TICKET_BUILDER_MODEL = "openai/gpt-5.5";
+export const TICKET_BUILDER_MODEL = "openai/gpt-5.3-codex-spark";
 export const TICKET_REVIEWER_AGENT = "ticket-reviewer";
 export const TICKET_REVIEWER_MODEL = "openai/gpt-5.5-fast";
 export const TICKET_MERGEFIX_AGENT = "ticket-mergefix";
@@ -130,8 +130,6 @@ export async function startTicketBuilder(
         ...(input.resumeSessionId ? ["--session", input.resumeSessionId] : []),
         "--agent",
         TICKET_BUILDER_AGENT,
-        "--model",
-        TICKET_BUILDER_MODEL,
         "Follow the attached ticket-builder prompt exactly.",
         "--file",
         prompt.promptPath,
@@ -187,8 +185,6 @@ export async function startTicketReviewer(
         ...(input.resumeSessionId ? ["--session", input.resumeSessionId] : []),
         "--agent",
         TICKET_REVIEWER_AGENT,
-        "--model",
-        TICKET_REVIEWER_MODEL,
         "Follow the attached ticket-reviewer prompt exactly.",
         "--file",
         prompt.promptPath,
@@ -225,8 +221,6 @@ export async function startTicketMergeFix(
         "--dangerously-skip-permissions",
         "--agent",
         TICKET_MERGEFIX_AGENT,
-        "--model",
-        TICKET_MERGEFIX_MODEL,
         "Follow the attached ticket-mergefix prompt exactly.",
         "--file",
         prompt.promptPath,

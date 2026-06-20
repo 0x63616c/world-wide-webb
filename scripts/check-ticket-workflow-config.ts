@@ -32,7 +32,7 @@ const requiredSkillText = [
 
 const requiredBuilderText = [
   "name: ticket-builder",
-  "model: openai/gpt-5.5",
+  "model: openai/gpt-5.3-codex-spark",
   "steps: 80",
   "Never close Beads tickets",
   "Do not run `bd close`",

@@ -229,7 +229,7 @@ function fakeRunnerActivities(
           exitCodePath: "/logs/build.exitcode",
           records: [],
           agent: "ticket-builder",
-          model: "openai/gpt-5.5",
+          model: "openai/gpt-5.3-codex-spark",
           promptPath: "/logs/build.prompt.md",
         };
       },
