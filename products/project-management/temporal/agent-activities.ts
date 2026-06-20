@@ -7,6 +7,7 @@ import {
   type StartTmuxCommandResult,
   startTmuxCommand,
 } from "./command-activities";
+import { recordTicketWorkflowRunStart } from "./ticket-workflow-run-store";
 
 export const TICKET_BUILDER_AGENT = "ticket-builder";
 export const TICKET_BUILDER_MODEL = "openai/gpt-5.5-fast";
@@ -139,6 +140,16 @@ export async function startTicketBuilder(
     },
     runCommand ?? defaultActivityCommandRunner,
   );
+  await recordTicketWorkflowRunStart({
+    ticketId: input.ticketId,
+    phase: "build",
+    attempt: input.attempt,
+    tmuxSession: tmuxResult.sessionName,
+    promptPath: prompt.promptPath,
+    stdoutLogPath: tmuxResult.stdoutLogPath,
+    stderrLogPath: tmuxResult.stderrLogPath,
+    startedAt: new Date(tmuxResult.startedAtMs),
+  });
 
   return {
     ...tmuxResult,
@@ -196,6 +207,16 @@ export async function startTicketReviewer(
     },
     runCommand ?? defaultActivityCommandRunner,
   );
+  await recordTicketWorkflowRunStart({
+    ticketId: input.ticketId,
+    phase: "review",
+    attempt: input.attempt,
+    tmuxSession: tmuxResult.sessionName,
+    promptPath: prompt.promptPath,
+    stdoutLogPath: tmuxResult.stdoutLogPath,
+    stderrLogPath: tmuxResult.stderrLogPath,
+    startedAt: new Date(tmuxResult.startedAtMs),
+  });
 
   return {
     ...tmuxResult,
@@ -234,6 +255,16 @@ export async function startTicketMergeFix(
     },
     runCommand ?? defaultActivityCommandRunner,
   );
+  await recordTicketWorkflowRunStart({
+    ticketId: input.ticketId,
+    phase: "mergefix",
+    attempt: input.attempt,
+    tmuxSession: tmuxResult.sessionName,
+    promptPath: prompt.promptPath,
+    stdoutLogPath: tmuxResult.stdoutLogPath,
+    stderrLogPath: tmuxResult.stderrLogPath,
+    startedAt: new Date(tmuxResult.startedAtMs),
+  });
 
   return {
     ...tmuxResult,

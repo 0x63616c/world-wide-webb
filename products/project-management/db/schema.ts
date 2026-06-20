@@ -67,8 +67,36 @@ export const workflowArtifacts = pgTable(
   ],
 );
 
+export const ticketWorkflowRuns = pgTable(
+  "ticket_workflow_run",
+  {
+    id: text("id").primaryKey(),
+    ticketId: text("ticket_id").notNull(),
+    phase: text("phase").notNull(),
+    attempt: integer("attempt").notNull(),
+    tmuxSession: text("tmux_session").notNull(),
+    promptPath: text("prompt_path"),
+    stdoutLogPath: text("stdout_log_path").notNull(),
+    stderrLogPath: text("stderr_log_path").notNull(),
+    stdout: text("stdout").notNull().default(""),
+    stderr: text("stderr").notNull().default(""),
+    stdoutBytes: integer("stdout_bytes").notNull().default(0),
+    stderrBytes: integer("stderr_bytes").notNull().default(0),
+    status: text("status").notNull().default("running"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("ticket_workflow_run_tmux_session_idx").on(table.tmuxSession),
+    index("ticket_workflow_run_ticket_id_idx").on(table.ticketId),
+    index("ticket_workflow_run_status_idx").on(table.status),
+  ],
+);
+
 export const schema = {
   workflowRuns,
   workflowEvents,
   workflowArtifacts,
+  ticketWorkflowRuns,
 };
