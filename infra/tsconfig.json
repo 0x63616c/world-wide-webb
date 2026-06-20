@@ -3,5 +3,5 @@
   "compilerOptions": {
     "allowImportingTsExtensions": true
   },
-  "include": ["src", "test", "program.ts"]
+  "include": ["src", "test", "scripts", "program.ts"]
 }
