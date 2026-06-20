@@ -723,6 +723,54 @@ describe("ticket command activities", () => {
     expect(result.ok).toBe(true);
     expect(result.plan.actions).toEqual([]);
   });
+
+  it("does not requeue the ticket when cleanup fails", async () => {
+    const commands: ActivityCommand[] = [];
+    const result = await recoverStuckTicket(
+      {
+        repoRoot: "/repo",
+        runtimeLogRoot: "/logs",
+        workflowStatus: "missing",
+        workflowStatusDetail: "not found",
+        candidate: {
+          ticketId: "www-stuck",
+          title: "Stuck",
+          workflowId: "ticket_www-stuck",
+          reason: "ticket phase is review",
+          branch: "www-stuck-branch",
+          worktree: "/repo/.worktrees/tickets/www-stuck-branch",
+          tmuxSession: "",
+          stdoutLog: "",
+          stderrLog: "",
+          promptPath: "",
+        },
+      },
+      async (command) => {
+        commands.push(command);
+        if (command.args.includes("worktree") && command.args.includes("list")) {
+          return {
+            exitCode: 0,
+            stdout: "worktree /repo/.worktrees/tickets/www-stuck-branch\n",
+            stderr: "",
+          };
+        }
+        if (command.command === "git" && command.args.includes("worktree")) {
+          return { exitCode: 1, stdout: "", stderr: "locked worktree" };
+        }
+        return { exitCode: 0, stdout: "", stderr: "" };
+      },
+      async () => [],
+    );
+
+    const updateCommand = commands.find(
+      (command) => command.command === "bd" && command.args[0] === "update",
+    );
+
+    expect(result.ok).toBe(false);
+    expect(updateCommand?.args).toContain("ticket-human");
+    expect(updateCommand?.args).not.toContain("ticket-ready");
+    expect(updateCommand?.args).toContain("ticket_last_result=recovery-cleanup-failed");
+  });
 });
 
 function fakeRunner(): {

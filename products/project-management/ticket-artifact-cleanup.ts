@@ -111,8 +111,8 @@ export function isTicketWorkflowBranch(
 ): boolean {
   assertSafeTicketId(ticketId);
   if (branchName === "main" || branchName === "master") return false;
-  if (expectedBranchName && branchName === expectedBranchName) return true;
-  return branchName.startsWith(`${ticketId}-`);
+  if (!branchName.startsWith(`${ticketId}-`)) return false;
+  return expectedBranchName ? branchName === expectedBranchName : true;
 }
 
 function parseRemoteBranch(

@@ -69,4 +69,26 @@ describe("planTicketArtifactCleanup", () => {
     expect(plan.preservedEvidencePaths).toEqual([]);
     expect(plan.ignoredTmuxSessions).toEqual(["ticket_www-3agy_22_mergefix_1"]);
   });
+
+  it("does not trust non-matching branch metadata for cleanup", () => {
+    const plan = planTicketArtifactCleanup({
+      ticketId: "www-3agy.20",
+      repoRoot: "/repo",
+      runtimeLogRoot: "/cache/logs",
+      worktreePaths: [],
+      localBranches: ["unrelated-branch", "www-3agy.20-safe-branch"],
+      remoteBranches: ["origin/unrelated-branch", "origin/www-3agy.20-safe-branch"],
+      tmuxSessions: [],
+      evidenceFileNames: [],
+      branchName: "unrelated-branch",
+      removeBranches: true,
+    });
+
+    expect(plan.actions).toEqual([]);
+    expect(plan.ignoredLocalBranches).toEqual(["unrelated-branch", "www-3agy.20-safe-branch"]);
+    expect(plan.ignoredRemoteBranches).toEqual([
+      "origin/unrelated-branch",
+      "origin/www-3agy.20-safe-branch",
+    ]);
+  });
 });

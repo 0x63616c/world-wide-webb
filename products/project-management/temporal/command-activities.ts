@@ -1009,8 +1009,40 @@ export async function recoverStuckTicket(
     records.push(record);
   }
 
+  const cleanupSucceeded = cleanup.every((result) => result.ok);
   const recoveredAt = new Date().toISOString();
-  const metadataRecord = await runRecordedCommand("mark-ticket-recovered", run, {
+  const metadataRecord = await runRecordedCommand(
+    cleanupSucceeded ? "mark-ticket-recovered" : "mark-ticket-recovery-failed",
+    run,
+    cleanupSucceeded
+      ? recoveredTicketCommand(input, recoveredAt, cleanup)
+      : failedRecoveryCommand(input, recoveredAt, cleanup),
+  );
+  records.push(metadataRecord);
+
+  const commentRecord = await runRecordedCommand("comment-ticket-recovery", run, {
+    command: "bd",
+    args: ["comment", input.candidate.ticketId, "--stdin"],
+    cwd: input.repoRoot,
+    stdin: recoveryComment(input, plan, cleanup),
+  });
+  records.push(commentRecord);
+
+  return {
+    ticketId: input.candidate.ticketId,
+    ok: cleanupSucceeded && metadataRecord.exitCode === 0 && commentRecord.exitCode === 0,
+    plan,
+    cleanup,
+    records,
+  };
+}
+
+function recoveredTicketCommand(
+  input: RecoverStuckTicketInput,
+  recoveredAt: string,
+  cleanup: readonly StuckTicketRecoveryCleanupResult[],
+): ActivityCommand {
+  return {
     command: "bd",
     args: [
       "update",
@@ -1039,26 +1071,33 @@ export async function recoverStuckTicket(
       `ticket_recovery_cleanup=${cleanupSummary(cleanup)}`,
     ],
     cwd: input.repoRoot,
-  });
-  records.push(metadataRecord);
+  };
+}
 
-  const commentRecord = await runRecordedCommand("comment-ticket-recovery", run, {
-    command: "bd",
-    args: ["comment", input.candidate.ticketId, "--stdin"],
-    cwd: input.repoRoot,
-    stdin: recoveryComment(input, plan, cleanup),
-  });
-  records.push(commentRecord);
-
+function failedRecoveryCommand(
+  input: RecoverStuckTicketInput,
+  recoveredAt: string,
+  cleanup: readonly StuckTicketRecoveryCleanupResult[],
+): ActivityCommand {
   return {
-    ticketId: input.candidate.ticketId,
-    ok:
-      cleanup.every((result) => result.ok) &&
-      metadataRecord.exitCode === 0 &&
-      commentRecord.exitCode === 0,
-    plan,
-    cleanup,
-    records,
+    command: "bd",
+    args: [
+      "update",
+      input.candidate.ticketId,
+      "--add-label",
+      TICKET_WORKFLOW_LABELS.human,
+      "--set-metadata",
+      `${TICKET_METADATA_KEYS.phase}=recovery-failed`,
+      "--set-metadata",
+      `${TICKET_METADATA_KEYS.lastResult}=recovery-cleanup-failed`,
+      "--set-metadata",
+      `ticket_recovered_at=${recoveredAt}`,
+      "--set-metadata",
+      `ticket_recovery_reason=${input.workflowStatusDetail}`,
+      "--set-metadata",
+      `ticket_recovery_cleanup=${cleanupSummary(cleanup)}`,
+    ],
+    cwd: input.repoRoot,
   };
 }
 
