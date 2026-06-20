@@ -2,80 +2,52 @@
 
 ## Start Here
 
-- Read `CODEBASE_OVERVIEW.md` first. Compact map of runtime shape, entrypoints, where changes belong.
-- `opencode.jsonc` already loads `CLAUDE.md`, `README.md`, main ops docs as instructions. Don't duplicate here unless detail is easy-to-miss working rule.
-- Before writing/editing/reviewing TypeScript/TSX, use `writing-scalable-typescript` skill when available, follow `docs/writing-scalable-typescript/README.md`.
-- Use Beads for durable tracking: `bd prime`, `bd ready`, `bd show <id>`, `bd update <id> --claim`, `bd close <id>`. Don't treat `.beads/issues.jsonl` as source of truth or run `bd import` during normal work.
-- Mentioning any `www-*` Beads ticket: include id AND title, e.g. `www-4jvw - Add recap skill and www-ticket title rule`.
-- Calum asks to research/compare/price/verify current external facts: check online when sensible. Don't rely on stale model knowledge for live/vendor-specific info.
+- Read `CODEBASE_OVERVIEW.md` first.
+- Use `bd` for durable task tracking.
+- Before writing or reviewing TypeScript or TSX, use the `writing-scalable-typescript` skill when available.
 
 ## Commands
 
-- Install deps: `bun install --frozen-lockfile`. `bun`/`bunx` only, never `npm`/`npx`.
-- Dev stack: `bun run dev` starts `products/control-center/Tiltfile` for local Postgres, API, workers, web, Storybook.
-- Unit tests: `bun run test`. Never run bare `bun test`, breaks `vi.mock`, reports false failures.
-- Focused tests/typecheck: `bun run --filter @control-center/web test`, `bun run --filter @control-center/api typecheck`, etc.
-- Control Center product wrappers: `bun run --filter @product/control-center dev:web`, `dev:api`, `dev:worker`, `dev:media-worker`, `dev:storybook`, `dev:db`, `ios:sync`, `ios:open`, `ios:sim`.
-- Full gates before shipping code: `bun run test`, `bun run typecheck`, `bunx biome check .`, `bun run knip`.
-- Coverage/browser suite: `bun run test:coverage` slower, needs Playwright Chromium. Storybook browser tests run from `products/control-center/web` with `bunx vitest --project storybook`.
-- In `.claude/worktrees/*`, `bunx biome check .` scans zero files because `biome.json` excludes `.claude`. Use lefthook-style tracked-file command or explicit paths instead.
+- Install deps: `bun install --frozen-lockfile`.
+- Dev stack: `bun run dev`.
+- Tests: `bun run test`.
+- Typecheck: `bun run typecheck`.
+- Lint: `bunx biome check .`.
+- Dead code: `bun run knip`.
 
-## Architecture
+## Current Shape
 
-- `products/control-center/web`: React wall panel + Storybook + Capacitor iOS shell. Main route `products/control-center/web/src/routes/index.tsx`, renders `Board`.
-- `products/control-center/api/src/server.ts`: Bun+tRPC API entrypoint. Routers under `products/control-center/api/src/trpc/routers`, domain logic under `products/control-center/api/src/services`.
-- `products/control-center/worker`: fast interval loops; imports domain cycles via `@control-center/api/worker` (`products/control-center/api/src/worker-deps.ts`).
-- `products/control-center/media-worker`: heavier queue/media work; imports via `@control-center/api/media`.
-- `products/control-center`: product-owned boundary holding the Control Center runtime (web/api/worker/media-worker). The M4 product-folder move landed (www-jtp0.4.4); product-owned paths are authoritative, no top-level `apps/*` runtime remains.
-- `products/captive-portal`, `products/text-your-ex`, `products/amp`: the other three product lanes. `amp` is a deployed static app; `text-your-ex` is a non-deployed shell until its M6 import. Each owns its own folder, CI path filter, and (where deployed) image.
-- `packages/api`: browser-safe type bridge only. No backend runtime code in web bundle.
-- `packages/logger`: shared backend logger. Backend uses `@repo/logger`, not `console.*`.
-- `packages/platform`: pure platform foundation package. Product/platform work prefer its typed product, target, exposure, secret, database, backup, manifest primitives over new infra string soup.
-- `infra/`: current Pulumi+k8s deploy program. Old bosun/Swarm docs historical only.
+- `products/control-center/web`, React board, Storybook, Capacitor iOS shell.
+- `products/control-center/api`, Bun + tRPC API and domain logic.
+- `products/control-center/worker`, fast interval loops.
+- `products/control-center/media-worker`, heavier queue and media jobs.
+- `products/control-center/storybook`, wrapper around web Storybook.
+- `products/project-management`, standalone Beads UI and Temporal workflow package.
+- `products/text-your-ex`, split into `apps/frontend`, `apps/api`, `apps/e2e`.
+- `products/captive-portal`, split into `apps/frontend` and `apps/api`.
+- `products/amp`, static app.
+- `packages/api`, `packages/logger`, `packages/platform`, shared support packages.
+- `infra`, current Pulumi + Kubernetes deploy program.
 
-## Product Invariants
+## Invariants
 
-- Wall panel fixed, not responsive: physical viewport `1366x1024`, board content `BOARD_W=1366`, `BOARD_H=1000` in `products/control-center/web/src/lib/grid-constants.ts`.
-- Tile placement + sizing belong in `products/control-center/web/src/lib/tile-registry.ts`, not board layout rewrites.
-- Tiles must use shared primitives from `products/control-center/web/src/components/ui/`: `TileHeader`, `StatCell`, `Pill`, `Skeleton`, `TileWrapper`.
-- No fake data. Unavailable data renders skeleton/error + recovers. `FALLBACK`, `PLACEHOLDER` uppercase identifiers banned; `DEMO_`/`demo_` allowed only in sanctioned service/test files enforced by `scripts/check-fake-data.sh`.
-- Storybook-first for new UI components where practical. Every story must enable autodocs directly or via sanctioned meta factory.
-- IDs default Stripe-style `prefix_<id>` unless user asks otherwise.
+- Fixed wall panel, `1366x1024`, not responsive.
+- Tile placement belongs in `products/control-center/web/src/lib/tile-registry.ts`.
+- Use shared UI primitives from `products/control-center/web/src/components/ui/`.
+- No fake or placeholder data.
+- Storybook-first for new UI.
+- IDs default to `prefix_<id>`.
+- Backend code uses structured logging.
 
-## Data And Integrations
+## Infra
 
-- API config parsed in `products/control-center/api/src/env.ts`. Prod secrets mount as files under `/run/secrets/<NAME>`, hydrate at boot.
-- Real secrets live in 1Password Homelab. Never commit `.env`, secret values, private home-location values, keys, or placeholder creds.
-- Drizzle schema: `products/control-center/api/src/db/schema.ts`. Generate migrations with `bun run --filter @control-center/api db:generate`; API + workers run migrations at boot.
-- Desired state DB-authoritative for managed devices. Frontend writes desired state, workers reconcile to integrations, reported state observed separately.
-- House climate: target `climate.home`. HA entities named `evee` are Tesla, NOT home thermostat.
+- Push to `main` triggers CI and deploy.
+- CI builds only changed product images.
+- Pulumi digest pins use `wwwinfra:imageDigests.*`.
+- Cron jobs live in `infra/src/crons.ts`.
 
-## Infra And Deploy
+## Workflow
 
-- Push to `main` runs CI, builds changed arm64 images, then `pulumi up --stack prod` against homelab k8s. Infra-only changes deploy without rebuilding images.
-- CI is product-aware (www-jtp0.4.6): `.github/workflows/ci.yml` has a per-product path filter (`web`/`api`/`captiveportal`/`textyourex`/`amp` + shared `packages/`/`bun.lock`). A single product's change rebuilds and rolls only that product, a Text-Your-Ex-only change must NOT rebuild Control Center; shared `packages/` changes conservatively rebuild dependents. Regressions are caught by `bun run test:product-ci-isolation`. The local Tilt stack is product-laned the same way (`bun run test:tilt-product-lanes`).
-- Pulumi image digest config MUST use `wwwinfra:` namespace, e.g. `wwwinfra:imageDigests.<svc>`. Without it, builds succeed but pods don't roll.
-- Cron-style work belongs in Kubernetes `CronJob`s in `infra/src/crons.ts`, not legacy scheduler labels or third-party scheduler.
-- Ops/deploy-path changes MUST update relevant docs same change, especially `docs/deployment-design.md` and `docs/k3s-migration/DESIGN.md`.
-
-## Platform Migration
-
-- Platform/product split work? Read `docs/platform/README.html` + `docs/platform/NORTH_STAR.html` first. Repo = platform team building paved roads for app teams.
-- Platform primitives make right thing easy: derive names from app context, avoid magic strings, standardize shared infra, expose only necessary customization, no duplicate Kubernetes/Cloudflare/secret/backup wiring across products.
-- Product DBs = CNPG Postgres clusters with mandatory platform-managed NAS backups. Backups not optional.
-- Secrets stay central in 1Password Homelab, but each product/service must explicitly declare which secrets it accesses. Shared secrets OK when genuinely shared.
-- Isolate product work under `products/<name>`. Keep Control Center, Captive Portal, Text Your Ex, AMP separate: separate namespaces, CI/deploy paths, route policies.
-
-## Git And Tickets
-
-- Feature work in ticket-id-led worktree, e.g. `www-xxx-short-slug`. Never develop in shared main checkout.
-- Testing agent/opencode/plugin/skill changes from worktree? Launch test session under `tmux` from that worktree so it loads worktree files. Keep probes quick, low timeouts ~5s, always kill the `tmux` session you created when done.
-- Ships through PRs to `main`. Push ticket branch, open PR, wait green checks, merge via GitHub, then close Beads issue.
-- Commit subjects must be `type(area/www-xxx): desc`; commit-msg hook validates ticket id with `bd show`.
-- Pre-push runs Biome, Knip, then non-blocking Beads sync. Knip zero-tolerance; deliberate unused public exports need `/** @public, reason */`.
-- Before ending session with code changes: run relevant gates, check `git status`, commit, push, verify branch up to date with origin.
-
-## Shell Safety
-
-- Non-interactive flags for aliasable file commands: `cp -f`, `mv -f`, `rm -f`, `rm -rf`, `scp -o BatchMode=yes`, `ssh -o BatchMode=yes`.
-- Never loose `pkill`/`killall` on shared machine. Ports: `fkill :<port>`.
+- Work in ticket-named worktrees.
+- Do not use PRs for shipping.
+- Keep docs current when behavior changes.
