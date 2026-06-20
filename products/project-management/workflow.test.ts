@@ -122,15 +122,15 @@ describe("workflowDashboardForIssues", () => {
         title: "Verified ticket",
         metadata: { ticket_phase: "review" },
       }),
-      workflowIssue("www-retry", "ready", ["ticket-ready", "ticket-retry"], {
+      workflowIssue("www-retry", "ready", ["ticket-retry"], {
         assignee: "",
         title: "Retry ticket",
       }),
-      workflowIssue("www-human", "blocked", ["ticket-ready", "ticket-human"], {
+      workflowIssue("www-human", "blocked", ["ticket-human"], {
         title: "Human ticket",
         metadata: { ticket_phase: "human" },
       }),
-      workflowIssue("www-shipped", "closed", ["ticket-verified"], {
+      workflowIssue("www-shipped", "closed", [], {
         title: "Shipped ticket",
         metadata: { ticket_phase: "shipped", ticket_last_result: "shipped" },
       }),
@@ -186,13 +186,13 @@ describe("workflowDashboardForIssues", () => {
       workflowIssue("www-queued-not-ready", "ready", ["ticket-ready"], {
         blockedBy: ["www-parent"],
       }),
-      workflowIssue("www-retry", "ready", ["ticket-ready", "ticket-retry"], {
+      workflowIssue("www-retry", "ready", ["ticket-retry"], {
         metadata: { ticket_attempts: "3", ticket_last_result: "reviewer-failed" },
       }),
       workflowIssue("www-review", "ready", ["ticket-review"]),
       workflowIssue("www-verified", "ready", ["ticket-verified"]),
       workflowIssue("www-human", "blocked", ["ticket-human"]),
-      workflowIssue("www-shipped", "closed", ["ticket-verified"], {
+      workflowIssue("www-shipped", "closed", [], {
         metadata: { ticket_phase: "closed", ticket_last_result: "merge-passed" },
       }),
       workflowIssue("www-closed-manual", "closed", ["ticket-ready"]),
@@ -278,7 +278,7 @@ describe("workflowDashboardForIssues", () => {
       workflowIssue("www-human-review", "blocked", ["ticket-human"], {
         metadata: { ticket_phase: "review" },
       }),
-      workflowIssue("www-shipped-review", "closed", ["ticket-verified"], {
+      workflowIssue("www-shipped-review", "closed", [], {
         metadata: { ticket_phase: "shipped", ticket_last_result: "shipped" },
       }),
       workflowIssue("www-ready-build", "ready", ["ticket-ready"], {
@@ -304,6 +304,14 @@ describe("workflowDashboardForIssues", () => {
       ["www-human-review", null],
       ["www-shipped-review", null],
     ]);
+  });
+
+  it("rejects workflow tickets with multiple active lifecycle labels", () => {
+    expect(() =>
+      workflowDashboardForIssues([
+        workflowIssue("www-conflict", "ready", ["ticket-review", "ticket-human"]),
+      ]),
+    ).toThrow("Conflicting ticket lifecycle labels: ticket-review, ticket-human");
   });
 });
 

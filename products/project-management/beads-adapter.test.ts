@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACTIVE_TICKET_LIFECYCLE_LABELS,
+  assertNoConflictingTicketLifecycleLabels,
   BeadsAdapter,
   type BeadsCommand,
   buildCommentCommand,
@@ -7,6 +9,7 @@ import {
   buildFailedReviewRequeueCommand,
   buildMetadataCommand,
   buildQueueCommand,
+  buildRetryQueueCommand,
   buildShowTicketsCommand,
   isDownstreamBlockedProbeResult,
   TICKET_METADATA_KEYS,
@@ -39,7 +42,16 @@ describe("ticket workflow labels", () => {
       verified: "ticket-verified",
       retry: "ticket-retry",
       human: "ticket-human",
+      shipped: "ticket-shipped",
     });
+    expect(ACTIVE_TICKET_LIFECYCLE_LABELS).toEqual([
+      "ticket-ready",
+      "ticket-review",
+      "ticket-verified",
+      "ticket-retry",
+      "ticket-human",
+      "ticket-shipped",
+    ]);
     expect(TICKET_QUEUE_LABELS).toEqual({
       builder: "ticket-ready",
       review: "ticket-review",
@@ -77,6 +89,42 @@ describe("buildQueueCommand", () => {
     expect(buildQueueCommand("verified").args).toContain("ticket-verified");
     expect(buildQueueCommand("human").args).toContain("ticket-human");
     expect(buildQueueCommand("human").args).not.toContain("--ready");
+  });
+
+  it("exposes retry tickets as builder work without needing ticket-ready", () => {
+    expect(buildRetryQueueCommand()).toEqual({
+      command: "bd",
+      args: [
+        "list",
+        "--json",
+        "--no-pager",
+        "-n",
+        "0",
+        "--status",
+        "open",
+        "--label",
+        "ticket-retry",
+        "--ready",
+        "--exclude-label",
+        "ticket-human",
+        "--exclude-label",
+        "ticket-backlog",
+      ],
+    });
+  });
+});
+
+describe("ticket lifecycle label invariant", () => {
+  it("rejects multiple active lifecycle labels", () => {
+    expect(() =>
+      assertNoConflictingTicketLifecycleLabels(["ticket-review", "ticket-human"]),
+    ).toThrow("Conflicting ticket lifecycle labels: ticket-review, ticket-human");
+  });
+
+  it("allows non-lifecycle labels and one active lifecycle label", () => {
+    expect(() =>
+      assertNoConflictingTicketLifecycleLabels(["project-management", "ticket-retry"]),
+    ).not.toThrow();
   });
 });
 
@@ -129,20 +177,24 @@ describe("metadata and comments", () => {
     );
   });
 
-  it("builds a failed-review requeue command for ticket-ready plus ticket-retry", () => {
+  it("builds a failed-review requeue command with only the retry lifecycle label", () => {
     expect(buildFailedReviewRequeueCommand("www-3agy.10")).toEqual({
       command: "bd",
       args: [
         "update",
         "www-3agy.10",
         "--add-label",
-        "ticket-ready",
-        "--add-label",
         "ticket-retry",
+        "--remove-label",
+        "ticket-ready",
         "--remove-label",
         "ticket-review",
         "--remove-label",
         "ticket-verified",
+        "--remove-label",
+        "ticket-human",
+        "--remove-label",
+        "ticket-shipped",
       ],
     });
   });
@@ -153,8 +205,9 @@ describe("BeadsAdapter", () => {
     const commands: BeadsCommand[] = [];
     const adapter = new BeadsAdapter(async (command) => {
       commands.push(command);
+      const labels = command.args.includes("ticket-retry") ? ["ticket-retry"] : ["ticket-ready"];
       return JSON.stringify([
-        { id: "www-3agy.4", title: "Define adapter", status: "open", labels: ["ticket-ready"] },
+        { id: "www-3agy.4", title: "Define adapter", status: "open", labels },
       ]);
     });
 
@@ -169,6 +222,7 @@ describe("BeadsAdapter", () => {
 
     expect(commands).toEqual([
       buildQueueCommand("builder"),
+      buildRetryQueueCommand(),
       buildMetadataCommand("www-3agy.4", metadata),
       buildCommentCommand("www-3agy.4", "builder-summary", "Built adapter"),
       buildCommentCommand("www-3agy.4", "reviewer-findings", "No findings"),

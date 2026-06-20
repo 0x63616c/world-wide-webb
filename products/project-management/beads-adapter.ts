@@ -6,7 +6,19 @@ export const TICKET_WORKFLOW_LABELS = {
   verified: "ticket-verified",
   retry: "ticket-retry",
   human: "ticket-human",
+  shipped: "ticket-shipped",
 } as const;
+
+export const ACTIVE_TICKET_LIFECYCLE_LABELS = [
+  TICKET_WORKFLOW_LABELS.ready,
+  TICKET_WORKFLOW_LABELS.review,
+  TICKET_WORKFLOW_LABELS.verified,
+  TICKET_WORKFLOW_LABELS.retry,
+  TICKET_WORKFLOW_LABELS.human,
+  TICKET_WORKFLOW_LABELS.shipped,
+] as const;
+
+export type ActiveTicketLifecycleLabel = (typeof ACTIVE_TICKET_LIFECYCLE_LABELS)[number];
 
 export const TICKET_QUEUE_LABELS = {
   builder: TICKET_WORKFLOW_LABELS.ready,
@@ -97,6 +109,53 @@ export function buildQueueCommand(queue: TicketQueue): BeadsCommand {
   return { command: "bd", args };
 }
 
+export function buildRetryQueueCommand(): BeadsCommand {
+  return {
+    command: "bd",
+    args: [
+      "list",
+      "--json",
+      "--no-pager",
+      "-n",
+      "0",
+      "--status",
+      "open",
+      "--label",
+      TICKET_WORKFLOW_LABELS.retry,
+      "--ready",
+      "--exclude-label",
+      TICKET_WORKFLOW_LABELS.human,
+      "--exclude-label",
+      TICKET_WORKFLOW_LABELS.backlog,
+    ],
+  };
+}
+
+export function activeTicketLifecycleLabels(
+  labels: readonly string[],
+): readonly ActiveTicketLifecycleLabel[] {
+  const labelSet = new Set(labels);
+  return ACTIVE_TICKET_LIFECYCLE_LABELS.filter((label) => labelSet.has(label));
+}
+
+export function assertNoConflictingTicketLifecycleLabels(labels: readonly string[]): void {
+  const present = activeTicketLifecycleLabels(labels);
+  if (present.length > 1) {
+    throw new Error(`Conflicting ticket lifecycle labels: ${present.join(", ")}`);
+  }
+}
+
+export function lifecycleTransitionLabelArgs(
+  target: ActiveTicketLifecycleLabel | null,
+): readonly string[] {
+  return [
+    ...(target ? ["--add-label", target] : []),
+    ...ACTIVE_TICKET_LIFECYCLE_LABELS.flatMap((label) =>
+      label === target ? [] : ["--remove-label", label],
+    ),
+  ];
+}
+
 export function buildMetadataCommand(
   ticketId: string,
   metadata: TicketWorkflowMetadata,
@@ -157,18 +216,7 @@ export function buildCommentCommand(
 export function buildFailedReviewRequeueCommand(ticketId: string): BeadsCommand {
   return {
     command: "bd",
-    args: [
-      "update",
-      ticketId,
-      "--add-label",
-      TICKET_WORKFLOW_LABELS.ready,
-      "--add-label",
-      TICKET_WORKFLOW_LABELS.retry,
-      "--remove-label",
-      TICKET_WORKFLOW_LABELS.review,
-      "--remove-label",
-      TICKET_WORKFLOW_LABELS.verified,
-    ],
+    args: ["update", ticketId, ...lifecycleTransitionLabelArgs(TICKET_WORKFLOW_LABELS.retry)],
   };
 }
 
@@ -198,7 +246,9 @@ export class BeadsAdapter {
   }
 
   async builderQueue(): Promise<BeadsTicket[]> {
-    return this.readQueue("builder");
+    const ready = await this.readQueue("builder");
+    const retry = parseTickets(await this.#run(buildRetryQueueCommand()));
+    return uniqueTicketsById([...ready, ...retry]);
   }
 
   async reviewQueue(): Promise<BeadsTicket[]> {
@@ -248,6 +298,15 @@ export class BeadsAdapter {
     const stdout = await this.#run(buildQueueCommand(queue));
     return parseTickets(stdout);
   }
+}
+
+function uniqueTicketsById(tickets: readonly BeadsTicket[]): BeadsTicket[] {
+  const seen = new Set<string>();
+  return tickets.filter((ticket) => {
+    if (seen.has(ticket.id)) return false;
+    seen.add(ticket.id);
+    return true;
+  });
 }
 
 function parseTickets(stdout: string): BeadsTicket[] {

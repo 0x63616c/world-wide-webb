@@ -13,7 +13,7 @@ describe("workflowMetricsForIssues", () => {
         ticket_opencode_tokens: 1000,
         ticket_opencode_cost_usd: 0.25,
       }),
-      issue("www-b", "open", ["ticket-ready", "ticket-retry"], {
+      issue("www-b", "open", ["ticket-retry"], {
         ticket_phase: "build",
         ticket_attempts: 2,
         ticket_last_result: "builder-timeout",

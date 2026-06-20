@@ -1,4 +1,8 @@
-import { TICKET_METADATA_KEYS, TICKET_WORKFLOW_LABELS } from "./beads-adapter";
+import {
+  assertNoConflictingTicketLifecycleLabels,
+  TICKET_METADATA_KEYS,
+  TICKET_WORKFLOW_LABELS,
+} from "./beads-adapter";
 import type { DesignIssue } from "./map";
 
 const WORKFLOW_COLUMNS = [
@@ -28,7 +32,7 @@ export const WORKFLOW_DASHBOARD_QUEUES = [
   { id: "review", label: TICKET_WORKFLOW_LABELS.review, title: "Review" },
   { id: "verified", label: TICKET_WORKFLOW_LABELS.verified, title: "Verified" },
   { id: "human", label: TICKET_WORKFLOW_LABELS.human, title: "Human" },
-  { id: "shipped", label: "ticket-shipped", title: "Shipped" },
+  { id: "shipped", label: TICKET_WORKFLOW_LABELS.shipped, title: "Shipped" },
 ] as const;
 
 export type WorkflowDashboardQueueId = (typeof WORKFLOW_DASHBOARD_QUEUES)[number]["id"];
@@ -149,6 +153,7 @@ function queueForIssue(
   issue: Pick<WorkflowDashboardIssueInput, "labels" | "status" | "blockedBy" | "metadata">,
 ): (typeof WORKFLOW_DASHBOARD_QUEUES)[number] | null {
   const labels = new Set(issue.labels);
+  assertNoConflictingTicketLifecycleLabels(issue.labels);
   const metadata = issue.metadata ?? {};
   const phase = stringMeta(metadata, TICKET_METADATA_KEYS.phase);
   const lastResult = stringMeta(metadata, TICKET_METADATA_KEYS.lastResult);

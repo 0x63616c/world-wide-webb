@@ -29,8 +29,8 @@ Do not edit files. Do not close Beads tickets. Do not commit or push.
 
 Your final action is Beads state, not printed JSON. Leave a Beads comment headed `## Reviewer findings` with findings and acceptance evidence, then move the ticket to exactly ONE outcome label:
 
-- Pass: `bd update <ticket-id> --add-label ticket-verified --remove-label ticket-review --remove-label ticket-ready --remove-label ticket-retry`
-- Changes needed: `bd update <ticket-id> --add-label ticket-retry --remove-label ticket-review --remove-label ticket-verified`
-- Human needed: `bd update <ticket-id> --add-label ticket-human --remove-label ticket-review --remove-label ticket-ready --remove-label ticket-verified --remove-label ticket-retry`
+- Pass: `bd update <ticket-id> --add-label ticket-verified --remove-label ticket-ready --remove-label ticket-review --remove-label ticket-retry --remove-label ticket-human --remove-label ticket-shipped`
+- Changes needed: `bd update <ticket-id> --add-label ticket-retry --remove-label ticket-ready --remove-label ticket-review --remove-label ticket-verified --remove-label ticket-human --remove-label ticket-shipped`
+- Human needed: `bd update <ticket-id> --add-label ticket-human --remove-label ticket-ready --remove-label ticket-review --remove-label ticket-verified --remove-label ticket-retry --remove-label ticket-shipped`
 
 Do not print a verdict JSON object. The workflow verifies Beads labels/comments directly.

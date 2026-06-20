@@ -8,6 +8,8 @@ import {
   escalateTicketHuman,
   inspectTmuxSession,
   mergeTicketBranch,
+  moveTicketToReview,
+  moveTicketToVerified,
   pushBeads,
   pushMain,
   readReadyTicketWorkflowQueue,
@@ -239,10 +241,6 @@ describe("ticket command activities", () => {
           "--set-metadata",
           "ticket_last_result=shipped",
           "--remove-label",
-          "ticket-backlog",
-          "--remove-label",
-          "ticket-queued",
-          "--remove-label",
           "ticket-ready",
           "--remove-label",
           "ticket-review",
@@ -252,6 +250,8 @@ describe("ticket command activities", () => {
           "ticket-retry",
           "--remove-label",
           "ticket-human",
+          "--remove-label",
+          "ticket-shipped",
         ],
         cwd: "/repo",
       },
@@ -285,10 +285,6 @@ describe("ticket command activities", () => {
         "--set-metadata",
         "ticket_last_result=shipped",
         "--remove-label",
-        "ticket-backlog",
-        "--remove-label",
-        "ticket-queued",
-        "--remove-label",
         "ticket-ready",
         "--remove-label",
         "ticket-review",
@@ -298,10 +294,70 @@ describe("ticket command activities", () => {
         "ticket-retry",
         "--remove-label",
         "ticket-human",
+        "--remove-label",
+        "ticket-shipped",
       ],
       cwd: "/repo",
     });
     expect(commands[1]?.args[0]).toBe("close");
+  });
+
+  it("cleans stale lifecycle labels when moving from build to review", async () => {
+    const { run, commands } = fakeRunner();
+
+    await moveTicketToReview({ repoRoot: "/repo", ticketId: "www-3agy.21" }, run);
+
+    expect(commands).toEqual([
+      {
+        command: "bd",
+        args: [
+          "update",
+          "www-3agy.21",
+          "--add-label",
+          "ticket-review",
+          "--remove-label",
+          "ticket-ready",
+          "--remove-label",
+          "ticket-verified",
+          "--remove-label",
+          "ticket-retry",
+          "--remove-label",
+          "ticket-human",
+          "--remove-label",
+          "ticket-shipped",
+        ],
+        cwd: "/repo",
+      },
+    ]);
+  });
+
+  it("cleans stale lifecycle labels when moving from review to verified", async () => {
+    const { run, commands } = fakeRunner();
+
+    await moveTicketToVerified({ repoRoot: "/repo", ticketId: "www-3agy.21" }, run);
+
+    expect(commands).toEqual([
+      {
+        command: "bd",
+        args: [
+          "update",
+          "www-3agy.21",
+          "--add-label",
+          "ticket-verified",
+          "--remove-label",
+          "ticket-ready",
+          "--remove-label",
+          "ticket-review",
+          "--remove-label",
+          "ticket-retry",
+          "--remove-label",
+          "ticket-human",
+          "--remove-label",
+          "ticket-shipped",
+        ],
+        cwd: "/repo",
+      },
+    ]);
   });
 
   it("resolves the latest OpenCode session for a worktree and agent", async () => {
@@ -369,6 +425,10 @@ describe("ticket command activities", () => {
           "ticket-review",
           "--remove-label",
           "ticket-verified",
+          "--remove-label",
+          "ticket-retry",
+          "--remove-label",
+          "ticket-shipped",
         ],
         cwd: "/repo",
       },
@@ -486,7 +546,7 @@ describe("ticket command activities", () => {
         comments: ["## Builder context\n\nKeep it small."],
       },
     ]);
-    expect(commands.map((command) => command.args[0])).toEqual(["list", "show"]);
+    expect(commands.map((command) => command.args[0])).toEqual(["list", "list", "show"]);
     expect(commands[0]).toEqual({
       command: "bd",
       args: [
@@ -508,6 +568,7 @@ describe("ticket command activities", () => {
       cwd: "/repo",
       stdin: undefined,
     });
+    expect(commands[1]?.args).toContain("ticket-retry");
   });
 
   it("throws a retryable empty-queue failure so Temporal owns polling", async () => {
