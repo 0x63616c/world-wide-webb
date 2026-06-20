@@ -11,14 +11,15 @@ import {
   enqueueMergeSignal,
   MERGE_QUEUE_WORKFLOW_ID,
   type MergeQueueRequest,
-  type MergeQueueWorkflowInput,
   mergeQueueRequestId,
   mergeQueueWorkflow,
+  STUCK_TICKET_RECOVERY_WORKFLOW_ID,
+  stuckTicketRecoveryWorkflow,
   type TicketQueueWorkflowInput,
   ticketQueueWorkflow,
 } from "./workflows";
 
-export { MERGE_QUEUE_WORKFLOW_ID } from "./workflows";
+export { MERGE_QUEUE_WORKFLOW_ID, STUCK_TICKET_RECOVERY_WORKFLOW_ID } from "./workflows";
 
 export const TICKET_QUEUE_WORKFLOW_ID = "ticket_queue";
 export const LEGACY_TICKET_QUEUE_WORKFLOW_ID = "ticket_queue_main";
@@ -47,12 +48,18 @@ export type TicketQueueBootstrapResult = {
 export type TicketQueueWorkflowStartClient = {
   readonly workflow: {
     start(
-      workflow: typeof ticketQueueWorkflow | typeof mergeQueueWorkflow,
+      workflow:
+        | typeof ticketQueueWorkflow
+        | typeof mergeQueueWorkflow
+        | typeof stuckTicketRecoveryWorkflow,
       options: {
-        readonly workflowId: typeof TICKET_QUEUE_WORKFLOW_ID | typeof MERGE_QUEUE_WORKFLOW_ID;
+        readonly workflowId:
+          | typeof TICKET_QUEUE_WORKFLOW_ID
+          | typeof MERGE_QUEUE_WORKFLOW_ID
+          | typeof STUCK_TICKET_RECOVERY_WORKFLOW_ID;
         readonly workflowIdConflictPolicy: WorkflowIdConflictPolicy;
         readonly taskQueue: string;
-        readonly args: readonly [TicketQueueWorkflowInput | MergeQueueWorkflowInput];
+        readonly args: readonly unknown[];
       },
     ): Promise<unknown>;
     getHandle(workflowId: string): {
@@ -78,7 +85,7 @@ export async function ensureTicketQueueWorkflow(
 ): Promise<TicketQueueBootstrapResult> {
   const connection = await Connection.connect({ address: options.address });
   const client = new Client({ connection, namespace: options.namespace });
-  await ensureTicketQueueWorkflowWithClient(client, options);
+  await ensureTicketQueueWorkflowWithClient(client as TicketQueueWorkflowStartClient, options);
 
   return {
     workflowId: TICKET_QUEUE_WORKFLOW_ID,
@@ -89,7 +96,8 @@ export async function ensureTicketQueueWorkflow(
 
 export async function ensureTicketQueueWorkflowWithClient(
   client: TicketQueueWorkflowStartClient,
-  options: Omit<TicketQueueBootstrapOptions, "address" | "namespace">,
+  options: Omit<TicketQueueBootstrapOptions, "address" | "namespace"> &
+    Partial<Pick<TicketQueueBootstrapOptions, "address" | "namespace">>,
   readVerifiedTickets: VerifiedMergeQueueReader = () =>
     readVerifiedMergeQueue({ repoRoot: options.repoRoot }, runCommand),
 ): Promise<void> {
@@ -120,6 +128,21 @@ export async function ensureTicketQueueWorkflowWithClient(
         runtimeLogRoot: options.runtimeLogRoot ?? defaultRuntimeLogRoot(),
         maxMergeAttempts: 3,
         maxHistoryEvents: 100,
+      },
+    ],
+  });
+  await client.workflow.start(stuckTicketRecoveryWorkflow, {
+    workflowId: STUCK_TICKET_RECOVERY_WORKFLOW_ID,
+    workflowIdConflictPolicy: WorkflowIdConflictPolicy.USE_EXISTING,
+    taskQueue: options.taskQueue,
+    args: [
+      {
+        repoRoot: options.repoRoot,
+        runtimeLogRoot: options.runtimeLogRoot ?? defaultRuntimeLogRoot(),
+        temporalAddress: options.address ?? "127.0.0.1:7233",
+        temporalNamespace: options.namespace ?? "project-management",
+        pollIntervalMs: 60_000,
+        maxTicketsPerPoll: 10,
       },
     ],
   });

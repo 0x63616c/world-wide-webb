@@ -142,6 +142,10 @@ function formatAction(action: TicketArtifactCleanupAction): string {
   switch (action.kind) {
     case "remove-worktree":
       return `git worktree remove ${action.path}`;
+    case "remove-local-branch":
+      return `git branch -D ${action.branch}`;
+    case "remove-remote-branch":
+      return `git push ${action.remote} --delete ${action.branch}`;
     case "kill-tmux-session":
       return `tmux kill-session -t =${action.sessionName}`;
     case "remove-evidence":
@@ -153,6 +157,12 @@ async function executeAction(action: TicketArtifactCleanupAction, repoRoot: stri
   switch (action.kind) {
     case "remove-worktree":
       await runText("git", ["-C", repoRoot, "worktree", "remove", action.path]);
+      return;
+    case "remove-local-branch":
+      await runText("git", ["-C", repoRoot, "branch", "-D", action.branch]);
+      return;
+    case "remove-remote-branch":
+      await runText("git", ["-C", repoRoot, "push", action.remote, "--delete", action.branch]);
       return;
     case "kill-tmux-session":
       await runText("tmux", ["kill-session", "-t", `=${action.sessionName}`]);

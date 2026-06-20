@@ -5,9 +5,15 @@ import {
   ensureTicketQueueWorkflowWithClient,
   LEGACY_TICKET_QUEUE_WORKFLOW_ID,
   MERGE_QUEUE_WORKFLOW_ID,
+  STUCK_TICKET_RECOVERY_WORKFLOW_ID,
   TICKET_QUEUE_WORKFLOW_ID,
 } from "./queue-bootstrap";
-import { enqueueMergeSignal, mergeQueueWorkflow, ticketQueueWorkflow } from "./workflows";
+import {
+  enqueueMergeSignal,
+  mergeQueueWorkflow,
+  stuckTicketRecoveryWorkflow,
+  ticketQueueWorkflow,
+} from "./workflows";
 
 describe("ensureTicketQueueWorkflowWithClient", () => {
   it("uses the renamed ticket queue workflow id", () => {
@@ -75,6 +81,24 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
           ],
         },
       ],
+      [
+        stuckTicketRecoveryWorkflow,
+        {
+          workflowId: STUCK_TICKET_RECOVERY_WORKFLOW_ID,
+          workflowIdConflictPolicy: WorkflowIdConflictPolicy.USE_EXISTING,
+          taskQueue: "project-management",
+          args: [
+            {
+              repoRoot: "/repo",
+              runtimeLogRoot: "/logs",
+              temporalAddress: "127.0.0.1:7233",
+              temporalNamespace: "project-management",
+              pollIntervalMs: 60_000,
+              maxTicketsPerPoll: 10,
+            },
+          ],
+        },
+      ],
     ]);
     expect(terminations).toEqual([
       {
@@ -110,6 +134,7 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
     expect(events).toEqual([
       `start:${TICKET_QUEUE_WORKFLOW_ID}`,
       `start:${MERGE_QUEUE_WORKFLOW_ID}`,
+      `start:${STUCK_TICKET_RECOVERY_WORKFLOW_ID}`,
       `terminate:${LEGACY_TICKET_QUEUE_WORKFLOW_ID}`,
     ]);
   });
