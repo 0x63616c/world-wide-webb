@@ -12,7 +12,7 @@ import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { mapIssues, type RawIssue } from "./map";
 import { defaultRuntimeLogRoot } from "./temporal/command-activities";
-import { workflowDashboardForIssues } from "./workflow";
+import { type WorkflowDashboardArtifactTexts, workflowDashboardForIssues } from "./workflow";
 import {
   createTemporalWorkflowControlClient,
   isWorkflowControlAction,
@@ -178,9 +178,13 @@ export function createRequestHandler(
 
     if (p === "/api/board-data") {
       const issues = mapIssues(options.snapshot.issues);
+      const workflowArtifactTexts = await collectWorkflowArtifactTexts(
+        issues,
+        options.workflowLogRoots,
+      );
       return json({
         issues,
-        workflow: workflowDashboardForIssues(issues),
+        workflow: workflowDashboardForIssues(issues, workflowArtifactTexts),
         metrics: workflowMetricsForIssues(issues),
         meta: {
           lastSyncAt: options.snapshot.lastSyncAt,
@@ -215,14 +219,75 @@ export function createRequestHandler(
   };
 }
 
+async function collectWorkflowArtifactTexts(
+  issues: ReturnType<typeof mapIssues>,
+  workflowLogRoots: readonly string[],
+): Promise<WorkflowDashboardArtifactTexts> {
+  const paths = new Set<string>();
+  for (const issue of issues) {
+    const metadata = issue.metadata ?? {};
+    for (const path of linksFromMetadata(metadata, [
+      "ticket_log",
+      "ticket_log_path",
+      "ticket_stdout_log",
+      "ticket_stderr_log",
+      "ticket_prompt",
+      "ticket_prompt_path",
+    ])) {
+      paths.add(path);
+      addExitCodeSibling(paths, path);
+    }
+    for (const path of linksMatching(
+      issue.comments.map((comment) => comment.text).join("\n"),
+      /\S+\.(?:log|prompt\.md)\b/g,
+    )) {
+      paths.add(path);
+      addExitCodeSibling(paths, path);
+    }
+  }
+
+  const entries = await Promise.all(
+    [...paths].map(
+      async (path) => [path, await readWorkflowArtifactText(path, workflowLogRoots)] as const,
+    ),
+  );
+  return Object.fromEntries(
+    entries.filter((entry): entry is readonly [string, string] => entry[1] !== null),
+  );
+}
+
+function addExitCodeSibling(paths: Set<string>, path: string): void {
+  if (/\.(?:stdout|stderr)\.log$/.test(path)) {
+    paths.add(path.replace(/\.(?:stdout|stderr)\.log$/, ".exitcode"));
+  }
+}
+
+async function readWorkflowArtifactText(
+  path: string,
+  workflowLogRoots: readonly string[],
+): Promise<string | null> {
+  if (/^https?:\/\//.test(path)) return null;
+  const resolvedPath = resolve(path);
+  if (!isAllowedWorkflowPath(resolvedPath, workflowLogRoots)) return null;
+  try {
+    return await readFile(resolvedPath, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+function isAllowedWorkflowPath(path: string, workflowLogRoots: readonly string[]): boolean {
+  const allowed = workflowLogRoots.map((root) => resolve(root));
+  return allowed.some((root) => path === root || path.startsWith(`${root}/`));
+}
+
 async function serveWorkflowLog(
   path: string | null,
   workflowLogRoots: readonly string[],
 ): Promise<Response> {
   if (!path) return new Response("path is required", { status: 400 });
   const resolvedPath = resolve(path);
-  const allowed = workflowLogRoots.map((root) => resolve(root));
-  if (!allowed.some((root) => resolvedPath === root || resolvedPath.startsWith(`${root}/`))) {
+  if (!isAllowedWorkflowPath(resolvedPath, workflowLogRoots)) {
     return new Response("log path is outside allowed roots", { status: 403 });
   }
 
@@ -232,6 +297,21 @@ async function serveWorkflowLog(
   } catch {
     return new Response("not found", { status: 404 });
   }
+}
+
+function linksFromMetadata(metadata: Record<string, unknown>, keys: readonly string[]): string[] {
+  return keys.flatMap((key) => {
+    const value = metadata[key];
+    if (typeof value === "string" && value.trim()) return [value.trim()];
+    if (Array.isArray(value)) {
+      return value.filter((item): item is string => typeof item === "string");
+    }
+    return [];
+  });
+}
+
+function linksMatching(text: string, pattern: RegExp): string[] {
+  return [...text.matchAll(pattern)].map((match) => match[0]);
 }
 
 async function handleWorkflowControl(

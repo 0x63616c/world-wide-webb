@@ -321,6 +321,83 @@ describe("workflowDashboardForIssues", () => {
       ["www-shipped-review", null],
     ]);
   });
+
+  it("surfaces builder-exhausted failure details with log excerpt and exit status", () => {
+    const dashboard = workflowDashboardForIssues(
+      [
+        workflowIssue("www-build-fail", "blocked", ["ticket-human"], {
+          title: "Build failing ticket",
+          metadata: {
+            ticket_phase: "build",
+            ticket_attempts: "2",
+            ticket_stderr_log: "/cache/logs/ticket_www-build-fail_build_2.stderr.log",
+            ticket_last_result: "builder-failed",
+          },
+        }),
+      ],
+      {
+        "/cache/logs/ticket_www-build-fail_build_2.stderr.log":
+          "bun run typecheck\nproducts/project-management/workflow.ts:12: failed\nlast useful line",
+        "/cache/logs/ticket_www-build-fail_build_2.exitcode": "1",
+      },
+    );
+
+    expect(dashboard.columns[5].tickets[0].exhaustion).toEqual({
+      stopReason: "Stopped: builder attempt limit hit.",
+      builderLimitHit: true,
+      reviewerLimitHit: false,
+      builderFailure: {
+        ticketId: "www-build-fail",
+        ticketTitle: "Build failing ticket",
+        attempt: 2,
+        phase: "build",
+        commandName: "ticket-builder",
+        exitStatus: 1,
+        excerpt:
+          "bun run typecheck\nproducts/project-management/workflow.ts:12: failed\nlast useful line",
+        artifactLink: "/cache/logs/ticket_www-build-fail_build_2.stderr.log",
+      },
+      reviewerFailure: null,
+    });
+  });
+
+  it("surfaces reviewer-exhausted failure details with findings, references, and gate", () => {
+    const dashboard = workflowDashboardForIssues([
+      workflowIssue("www-review-fail", "blocked", ["ticket-human"], {
+        title: "Review failing ticket",
+        metadata: {
+          ticket_phase: "review",
+          ticket_attempts: "2",
+          ticket_stderr_log: "/cache/logs/ticket_www-review-fail_review_2.stderr.log",
+          ticket_last_result: "reviewer-ambiguous",
+        },
+        comments: [
+          {
+            id: "comment_1",
+            author: "ticket-reviewer",
+            text: "## Reviewer findings\n\nBlocking AC failed: screenshot gate missing.\nproducts/project-management/public/Beads.dc.html:421 needs a log link.",
+            created: Date.parse("2026-06-20T12:00:00Z"),
+          },
+        ],
+      }),
+    ]);
+
+    expect(dashboard.columns[5].tickets[0].exhaustion).toEqual(
+      expect.objectContaining({
+        stopReason: "Stopped: reviewer attempt limit hit.",
+        builderLimitHit: false,
+        reviewerLimitHit: true,
+        builderFailure: null,
+        reviewerFailure: {
+          role: "ticket-reviewer",
+          findingSummary: "Blocking AC failed: screenshot gate missing.",
+          fileLineReferences: ["products/project-management/public/Beads.dc.html:421"],
+          blockingCriterionOrGate: "Blocking AC failed: screenshot gate missing.",
+          artifactLink: "/cache/logs/ticket_www-review-fail_review_2.stderr.log",
+        },
+      }),
+    );
+  });
 });
 
 type WorkflowIssueInput = Parameters<typeof workflowDashboardForIssues>[0][number];

@@ -316,6 +316,12 @@
                           </div>
                         </div>
                         <sc-if value="{{ card.hasOpenCode }}"><span class="mono" style="font-size:11px; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">OpenCode {{ card.openCodeLabel }}</span></sc-if>
+                        <sc-if value="{{ card.hasExhaustion }}">
+                          <div style="display:flex; flex-direction:column; gap:5px; padding:9px; border:1px solid rgba(248,81,73,.34); border-radius:10px; background:rgba(248,81,73,.075);">
+                            <span class="mono" style="font-size:10.5px; color:#f85149; text-transform:uppercase; letter-spacing:.08em;">{{ card.exhaustionReason }}</span>
+                            <span style="font-size:12px; line-height:1.35; color:var(--ink-2); overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; white-space:pre-line;">{{ card.exhaustionExcerpt }}</span>
+                          </div>
+                        </sc-if>
                         <sc-if value="{{ card.hasLinks }}">
                           <div style="display:flex; gap:7px; flex-wrap:wrap;">
                             <sc-for list="{{ card.links }}" as="lnk" hint-placeholder-count="2"><a class="bd-link mono" href="{{ lnk.href }}" target="_blank" rel="noreferrer" onClick="{{ lnk.onClick }}" style="font-size:11px; color:var(--acc-line); text-decoration:none;">{{ lnk.label }}</a></sc-for>
@@ -422,6 +428,32 @@
                   <sc-for list="{{ selected.workflowLinks }}" as="lnk" hint-placeholder-count="3">
                     <a class="bd-link mono" href="{{ lnk.href }}" target="_blank" rel="noreferrer" onClick="{{ lnk.onClick }}" style="font-size:11px; color:var(--acc-line); text-decoration:none;">{{ lnk.label }}</a>
                   </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ selected.hasExhaustion }}">
+                <div style="display:flex; flex-direction:column; gap:11px; padding:12px; border:1px solid rgba(248,81,73,.34); border-radius:12px; background:rgba(248,81,73,.075);">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                    <span class="cap" style="color:#f85149;">Workflow stop reason</span>
+                    <span class="mono" style="font-size:11px; color:#f85149;">{{ selected.exhaustion.limitLabel }}</span>
+                  </div>
+                  <div style="font-size:13px; color:var(--ink); line-height:1.45;">{{ selected.exhaustion.stopReason }}</div>
+                  <sc-if value="{{ selected.exhaustion.hasBuilder }}">
+                    <div style="display:flex; flex-direction:column; gap:7px; padding-top:9px; border-top:1px solid var(--hair);">
+                      <span class="cap">Builder failure</span>
+                      <div class="mono" style="font-size:11.5px; color:var(--ink-2); line-height:1.6;">{{ selected.exhaustion.builderMeta }}</div>
+                      <pre style="margin:0; max-height:160px; overflow:auto; white-space:pre-wrap; font-family:var(--mono); font-size:11.5px; line-height:1.45; color:var(--ink-2); background:#050505; border:1px solid var(--hair); border-radius:10px; padding:10px;">{{ selected.exhaustion.builderExcerpt }}</pre>
+                      <sc-if value="{{ selected.exhaustion.hasBuilderArtifact }}"><a class="bd-link mono" href="{{ selected.exhaustion.builderArtifactHref }}" target="_blank" rel="noreferrer" style="font-size:11px; color:var(--acc-line); text-decoration:none;">Open full builder log</a></sc-if>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ selected.exhaustion.hasReviewer }}">
+                    <div style="display:flex; flex-direction:column; gap:7px; padding-top:9px; border-top:1px solid var(--hair);">
+                      <span class="cap">Reviewer failure</span>
+                      <div style="font-size:13px; color:var(--ink-2); line-height:1.45;">{{ selected.exhaustion.reviewerSummary }}</div>
+                      <div class="mono" style="font-size:11.5px; color:var(--ink-3); line-height:1.6; white-space:pre-wrap;">{{ selected.exhaustion.reviewerBlocking }}</div>
+                      <sc-if value="{{ selected.exhaustion.hasReviewerRefs }}"><div class="mono" style="font-size:11px; color:var(--ink-2);">Refs: {{ selected.exhaustion.reviewerRefs }}</div></sc-if>
+                      <sc-if value="{{ selected.exhaustion.hasReviewerArtifact }}"><a class="bd-link mono" href="{{ selected.exhaustion.reviewerArtifactHref }}" target="_blank" rel="noreferrer" style="font-size:11px; color:var(--acc-line); text-decoration:none;">Open full reviewer log</a></sc-if>
+                    </div>
+                  </sc-if>
                 </div>
               </sc-if>
             </div>
@@ -1141,6 +1173,8 @@ class Component extends DCLogic {
         const wf = workflowIssue(it.id);
         const link = (kind, href) => ({ label: kind, href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() });
         const links = wf ? [ ...(wf.logLinks || []).map((href) => link('log', href)), ...(wf.promptLinks || []).map((href) => link('prompt', href)) ] : [];
+        const exhaustion = wf && wf.exhaustion ? wf.exhaustion : null;
+        const cardExhaustionExcerpt = exhaustion && exhaustion.builderFailure ? exhaustion.builderFailure.excerpt : (exhaustion && exhaustion.reviewerFailure ? exhaustion.reviewerFailure.findingSummary : '');
         const runColor = wf ? (workflowAccent[wf.queue] || 'var(--acc)') : 'var(--acc)';
         return {
           id: it.id, idLabel: it.id.toUpperCase(), title: it.title,
@@ -1157,6 +1191,7 @@ class Component extends DCLogic {
           updatedTitle: this.exactDate(it.ts),
           hasAttempts: !!(wf && wf.attempts !== null && wf.attempts > 1), attempts: wf && wf.attempts !== null ? wf.attempts : '',
           hasOpenCode: !!(wf && (wf.openCodeSessionId || wf.openCodeSessionTitle)), openCodeLabel: wf ? [wf.openCodeSessionTitle, wf.openCodeSessionId].filter(Boolean).join(' · ') : '',
+          hasExhaustion: !!exhaustion, exhaustionReason: exhaustion ? exhaustion.stopReason : '', exhaustionExcerpt: cardExhaustionExcerpt,
           hasLinks: links.length > 0, links,
           style: { padding: 15, paddingLeft: 18, gap: 0, position: 'relative', overflow: 'hidden', flexShrink: 0, opacity: st.dragId === it.id ? 0.4 : 1 },
           onClick: () => this.openDetail(it.id),
@@ -1229,6 +1264,26 @@ class Component extends DCLogic {
         ...(wf.logLinks || []).map((href) => ({ label: 'log', href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() })),
         ...(wf.promptLinks || []).map((href) => ({ label: 'prompt', href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() }))
       ] : [];
+      const exhaustion = wf && wf.exhaustion ? wf.exhaustion : null;
+      const builderFailure = exhaustion && exhaustion.builderFailure ? exhaustion.builderFailure : null;
+      const reviewerFailure = exhaustion && exhaustion.reviewerFailure ? exhaustion.reviewerFailure : null;
+      const exitLabel = builderFailure && builderFailure.exitStatus !== null ? 'exit ' + builderFailure.exitStatus : 'exit unavailable';
+      const exhaustionView = exhaustion ? {
+        stopReason: exhaustion.stopReason,
+        limitLabel: exhaustion.builderLimitHit && exhaustion.reviewerLimitHit ? 'builder + reviewer' : (exhaustion.builderLimitHit ? 'builder limit' : 'reviewer limit'),
+        hasBuilder: !!builderFailure,
+        builderMeta: builderFailure ? builderFailure.ticketId.toUpperCase() + ' · ' + builderFailure.ticketTitle + '\nattempt ' + (builderFailure.attempt || '-') + ' · phase ' + builderFailure.phase + ' · ' + builderFailure.commandName + ' · ' + exitLabel : '',
+        builderExcerpt: builderFailure ? builderFailure.excerpt : '',
+        hasBuilderArtifact: !!(builderFailure && builderFailure.artifactLink),
+        builderArtifactHref: builderFailure && builderFailure.artifactLink ? this.workflowFileHref(builderFailure.artifactLink) : '#',
+        hasReviewer: !!reviewerFailure,
+        reviewerSummary: reviewerFailure ? reviewerFailure.role + ': ' + reviewerFailure.findingSummary : '',
+        reviewerBlocking: reviewerFailure ? reviewerFailure.blockingCriterionOrGate : '',
+        hasReviewerRefs: !!(reviewerFailure && reviewerFailure.fileLineReferences && reviewerFailure.fileLineReferences.length),
+        reviewerRefs: reviewerFailure && reviewerFailure.fileLineReferences ? reviewerFailure.fileLineReferences.join(', ') : '',
+        hasReviewerArtifact: !!(reviewerFailure && reviewerFailure.artifactLink),
+        reviewerArtifactHref: reviewerFailure && reviewerFailure.artifactLink ? this.workflowFileHref(reviewerFailure.artifactLink) : '#'
+      } : null;
       const workflowButton = (label, action, color) => ({
         label,
         onClick: () => this.workflowAction(sel.id, action),
@@ -1265,6 +1320,7 @@ class Component extends DCLogic {
         copyTmux: wf ? () => this.copyText(wf.tmuxAttachCommand || '', 'tmux') : () => {},
         tmuxCopyLabel: st.copiedTarget === 'tmux' ? 'Copied' : 'Copy', tmuxCopied: st.copiedTarget === 'tmux',
         hasWorkflowLinks: workflowLinks.length > 0, workflowLinks,
+        hasExhaustion: !!exhaustionView, exhaustion: exhaustionView,
         isDirty: this.isDirty(), saveDraft: () => this.saveDraft(),
         depRows, hasDeps: depRows.length > 0, noDeps: depRows.length === 0,
         activity

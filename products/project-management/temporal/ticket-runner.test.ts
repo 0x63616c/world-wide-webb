@@ -104,6 +104,9 @@ describe("runTicketWorkflowRunner", () => {
     expect(fake.calls.filter((call) => call === "start-builder")).toHaveLength(2);
     expect(fake.calls).toContain("resume-builder:ses_builder");
     expect(fake.calls).toContain("escalate-human");
+    expect(fake.calls).toContain(
+      "escalate-reason:Ticket workflow stopped because the reviewer attempt limit was hit (2 attempt(s)).",
+    );
     expect(fake.calls).not.toContain("push-main");
     expect(fake.calls).not.toContain("close-ticket");
   });
@@ -318,8 +321,9 @@ function fakeRunnerActivities(
         calls.push("push-beads");
         return ok();
       },
-      escalateTicketHumanActivity: async () => {
+      escalateTicketHumanActivity: async (input) => {
         calls.push("escalate-human");
+        calls.push(`escalate-reason:${input.reason}`);
         return ok();
       },
       startTicketMergeFixActivity: async () => ({

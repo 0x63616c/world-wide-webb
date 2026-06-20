@@ -60,6 +60,36 @@ export type WorkflowDashboardIssue = {
   readonly logLinks: readonly string[];
   readonly promptLinks: readonly string[];
   readonly lastResult: string | null;
+  readonly exhaustion: WorkflowDashboardExhaustion | null;
+};
+
+export type WorkflowDashboardArtifactTexts = Readonly<Record<string, string>>;
+
+export type WorkflowDashboardExhaustion = {
+  readonly stopReason: string;
+  readonly builderLimitHit: boolean;
+  readonly reviewerLimitHit: boolean;
+  readonly builderFailure: WorkflowDashboardBuilderFailure | null;
+  readonly reviewerFailure: WorkflowDashboardReviewerFailure | null;
+};
+
+export type WorkflowDashboardBuilderFailure = {
+  readonly ticketId: string;
+  readonly ticketTitle: string;
+  readonly attempt: number | null;
+  readonly phase: string;
+  readonly commandName: string;
+  readonly exitStatus: number | null;
+  readonly excerpt: string;
+  readonly artifactLink: string | null;
+};
+
+export type WorkflowDashboardReviewerFailure = {
+  readonly role: string;
+  readonly findingSummary: string;
+  readonly fileLineReferences: readonly string[];
+  readonly blockingCriterionOrGate: string;
+  readonly artifactLink: string | null;
 };
 
 export type WorkflowDashboardColumn = (typeof WORKFLOW_DASHBOARD_QUEUES)[number] & {
@@ -75,11 +105,12 @@ export type WorkflowDashboard = {
 
 export function workflowDashboardForIssues(
   issues: readonly WorkflowDashboardIssueInput[],
+  artifactTexts: WorkflowDashboardArtifactTexts = {},
 ): WorkflowDashboard {
   const tickets = issues.flatMap((issue) => {
     const queue = queueForIssue(issue);
     if (!queue) return [];
-    return [workflowDashboardIssue(issue, queue)];
+    return [workflowDashboardIssue(issue, queue, artifactTexts)];
   });
 
   return {
@@ -103,6 +134,7 @@ export function workflowDashboardColumnsForFilter(
 function workflowDashboardIssue(
   issue: WorkflowDashboardIssueInput,
   queue: (typeof WORKFLOW_DASHBOARD_QUEUES)[number],
+  artifactTexts: WorkflowDashboardArtifactTexts,
 ): WorkflowDashboardIssue {
   const metadata = issue.metadata ?? {};
   const metadataPhase = stringMeta(metadata, TICKET_METADATA_KEYS.phase);
@@ -115,6 +147,22 @@ function workflowDashboardIssue(
   );
   const text = commentsText(issue.comments);
 
+  const attempts = numberMeta(metadata, TICKET_METADATA_KEYS.attempts);
+  const lastResult = stringMeta(metadata, TICKET_METADATA_KEYS.lastResult);
+  const logLinks = uniqueLinks([
+    ...linksFromMetadata(metadata, [
+      "ticket_log",
+      "ticket_log_path",
+      "ticket_stdout_log",
+      "ticket_stderr_log",
+    ]),
+    ...linksMatching(text, /\S+\.log\b/g),
+  ]);
+  const promptLinks = uniqueLinks([
+    ...linksFromMetadata(metadata, ["ticket_prompt", "ticket_prompt_path"]),
+    ...linksMatching(text, /\S+\.prompt\.md\b/g),
+  ]);
+
   return {
     id: issue.id,
     title: issue.title,
@@ -123,26 +171,173 @@ function workflowDashboardIssue(
     phase,
     activeRun: activeRunForPhase(queue.id, phase),
     assignee: issue.assignee,
-    attempts: numberMeta(metadata, TICKET_METADATA_KEYS.attempts),
+    attempts,
     tmuxSession,
     tmuxAttachCommand: tmuxSession ? `tmux attach -t ${tmuxSession}` : null,
     openCodeSessionId: openCode.id,
     openCodeSessionTitle: openCode.title,
-    logLinks: uniqueLinks([
-      ...linksFromMetadata(metadata, [
-        "ticket_log",
-        "ticket_log_path",
-        "ticket_stdout_log",
-        "ticket_stderr_log",
-      ]),
-      ...linksMatching(text, /\S+\.log\b/g),
-    ]),
-    promptLinks: uniqueLinks([
-      ...linksFromMetadata(metadata, ["ticket_prompt", "ticket_prompt_path"]),
-      ...linksMatching(text, /\S+\.prompt\.md\b/g),
-    ]),
-    lastResult: stringMeta(metadata, TICKET_METADATA_KEYS.lastResult),
+    logLinks,
+    promptLinks,
+    lastResult,
+    exhaustion: exhaustionForIssue({
+      issue,
+      queueId: queue.id,
+      phase,
+      attempts,
+      lastResult,
+      logLinks,
+      artifactTexts,
+    }),
   };
+}
+
+function exhaustionForIssue(input: {
+  readonly issue: WorkflowDashboardIssueInput;
+  readonly queueId: WorkflowDashboardQueueId;
+  readonly phase: string;
+  readonly attempts: number | null;
+  readonly lastResult: string | null;
+  readonly logLinks: readonly string[];
+  readonly artifactTexts: WorkflowDashboardArtifactTexts;
+}): WorkflowDashboardExhaustion | null {
+  if (input.queueId !== "human") return null;
+  const comments = commentsText(input.issue.comments);
+  const builderLimitHit = isBuilderLimit(input.lastResult, comments);
+  const reviewerLimitHit = isReviewerLimit(input.lastResult, comments);
+  if (!builderLimitHit && !reviewerLimitHit) return null;
+
+  return {
+    stopReason: stopReasonText(builderLimitHit, reviewerLimitHit),
+    builderLimitHit,
+    reviewerLimitHit,
+    builderFailure: builderLimitHit
+      ? builderFailureForIssue(
+          input.issue,
+          input.phase,
+          input.attempts,
+          input.logLinks,
+          input.artifactTexts,
+        )
+      : null,
+    reviewerFailure: reviewerLimitHit
+      ? reviewerFailureForIssue(comments, input.logLinks, input.artifactTexts)
+      : null,
+  };
+}
+
+function isBuilderLimit(lastResult: string | null, comments: string): boolean {
+  if (lastResult?.startsWith("builder-")) return true;
+  return /builder (attempt|limit)|builder-step-exhausted/i.test(comments);
+}
+
+function isReviewerLimit(lastResult: string | null, comments: string): boolean {
+  if (lastResult?.startsWith("reviewer-")) return true;
+  return /reviewer (attempt|limit)|reviewer-step-exhausted/i.test(comments);
+}
+
+function stopReasonText(builderLimitHit: boolean, reviewerLimitHit: boolean): string {
+  if (builderLimitHit && reviewerLimitHit)
+    return "Stopped: builder and reviewer attempt limits hit.";
+  if (builderLimitHit) return "Stopped: builder attempt limit hit.";
+  return "Stopped: reviewer attempt limit hit.";
+}
+
+function builderFailureForIssue(
+  issue: WorkflowDashboardIssueInput,
+  phase: string,
+  attempt: number | null,
+  logLinks: readonly string[],
+  artifactTexts: WorkflowDashboardArtifactTexts,
+): WorkflowDashboardBuilderFailure {
+  const artifactLink = preferredLogLink(logLinks, "stderr") ?? preferredLogLink(logLinks, "stdout");
+  const excerpt = conciseExcerpt(artifactLink ? artifactTexts[artifactLink] : null);
+  const exitStatus = exitStatusForArtifact(artifactLink, artifactTexts);
+  return {
+    ticketId: issue.id,
+    ticketTitle: issue.title,
+    attempt,
+    phase,
+    commandName: "ticket-builder",
+    exitStatus,
+    excerpt,
+    artifactLink,
+  };
+}
+
+function reviewerFailureForIssue(
+  comments: string,
+  logLinks: readonly string[],
+  artifactTexts: WorkflowDashboardArtifactTexts,
+): WorkflowDashboardReviewerFailure {
+  const artifactLink = preferredLogLink(logLinks, "stderr") ?? preferredLogLink(logLinks, "stdout");
+  const logExcerpt = conciseExcerpt(artifactLink ? artifactTexts[artifactLink] : null);
+  const findingText = reviewerFindingsText(comments) || logExcerpt;
+  return {
+    role: "ticket-reviewer",
+    findingSummary:
+      firstContentLine(findingText) || "Reviewer attempt failed without a structured finding.",
+    fileLineReferences: uniqueLinks(
+      linksMatching(
+        findingText,
+        /\S+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|yml|yaml|css|html):\d+(?::\d+)?/g,
+      ),
+    ),
+    blockingCriterionOrGate:
+      firstMatchingLine(findingText, /acceptance|criterion|gate|blocking|must|failed/i) ||
+      "Blocking acceptance criterion or gate was not identified.",
+    artifactLink,
+  };
+}
+
+function preferredLogLink(logLinks: readonly string[], kind: "stderr" | "stdout"): string | null {
+  return logLinks.find((link) => link.includes(`.${kind}.log`)) ?? null;
+}
+
+function exitStatusForArtifact(
+  artifactLink: string | null,
+  artifactTexts: WorkflowDashboardArtifactTexts,
+): number | null {
+  if (!artifactLink) return null;
+  const exitCodePath = artifactLink.replace(/\.(?:stdout|stderr)\.log$/, ".exitcode");
+  const raw = artifactTexts[exitCodePath]?.trim();
+  if (!raw) return null;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function conciseExcerpt(text: string | null | undefined): string {
+  const lines = (text ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return "No stderr/log excerpt available.";
+  return lines.slice(-8).join("\n").slice(0, 1200);
+}
+
+function reviewerFindingsText(comments: string): string {
+  const marker = /##\s+Reviewer findings/i.exec(comments);
+  if (!marker) return comments;
+  const after = comments.slice(marker.index + marker[0].length);
+  const nextHeading = /\n##\s+/.exec(after);
+  return (nextHeading ? after.slice(0, nextHeading.index) : after).trim();
+}
+
+function firstContentLine(text: string): string | null {
+  return (
+    text
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^[-*]\s+/, "").trim())
+      .find((line) => line && !line.startsWith("#")) ?? null
+  );
+}
+
+function firstMatchingLine(text: string, pattern: RegExp): string | null {
+  return (
+    text
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^[-*]\s+/, "").trim())
+      .find((line) => pattern.test(line)) ?? null
+  );
 }
 
 function queueForIssue(

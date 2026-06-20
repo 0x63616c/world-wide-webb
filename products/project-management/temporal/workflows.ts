@@ -946,7 +946,7 @@ export async function runTicketWorkflowRunner(
   const escalation = await runnerActivities.escalateTicketHumanActivity({
     ticketId: input.ticketId,
     repoRoot: input.repoRoot,
-    reason: `Ticket workflow exhausted ${TICKET_RUNNER_MAX_BUILDER_ATTEMPTS} builder attempt(s) or ${TICKET_RUNNER_MAX_REVIEWER_ATTEMPTS} reviewer attempt(s).`,
+    reason: ticketExhaustionReason(commitSha, reviewerSessionName),
   });
   steps.push({ step: "human-handoff", ok: escalation.ok });
   if (escalation.ok && commitSha) {
@@ -966,6 +966,16 @@ export async function runTicketWorkflowRunner(
     builderSessionName,
     reviewerSessionName,
   );
+}
+
+function ticketExhaustionReason(
+  commitSha: string | null,
+  reviewerSessionName: string | null,
+): string {
+  if (commitSha && reviewerSessionName) {
+    return `Ticket workflow stopped because the reviewer attempt limit was hit (${TICKET_RUNNER_MAX_REVIEWER_ATTEMPTS} attempt(s)).`;
+  }
+  return `Ticket workflow stopped because the builder attempt limit was hit (${TICKET_RUNNER_MAX_BUILDER_ATTEMPTS} attempt(s)).`;
 }
 
 async function runMergeFixThenFinalGates(
