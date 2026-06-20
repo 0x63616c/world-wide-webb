@@ -9,7 +9,7 @@ import {
 } from "./command-activities";
 
 export const TICKET_BUILDER_AGENT = "ticket-builder";
-export const TICKET_BUILDER_MODEL = "openai/gpt-5.3-codex-spark";
+export const TICKET_BUILDER_MODEL = "openai/gpt-5.5-fast";
 export const TICKET_REVIEWER_AGENT = "ticket-reviewer";
 export const TICKET_REVIEWER_MODEL = "openai/gpt-5.5-fast";
 export const TICKET_MERGEFIX_AGENT = "ticket-mergefix";
