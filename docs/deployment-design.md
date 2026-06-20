@@ -206,6 +206,14 @@ it, and builds silently never roll** (the deploy "succeeds" but pods stay on the
 The program reads `new Config("wwwinfra").getObject("imageDigests")`; the key must match.
 This is the single most important deploy invariant to get right.
 
+**Local prod deploy digest safety (www-z8mv).** The `prod` Pulumi stack refuses to render app
+Deployments unless every app image has a `wwwinfra:imageDigests.<product-component>` pin. This
+prevents a local `pulumi up --stack prod` with an empty or mis-namespaced digest map from replacing
+pods with mutable private `:main` images, which can ImagePullBackOff on homelab. The CI deploy path
+collects every current GHCR `:main` manifest digest, clears the old map, writes the complete
+`wwwinfra:imageDigests` map, then runs `pulumi up`, so normal main deploys still converge. For local
+prod repair, first set the same digest map, or run a non-prod stack if you intentionally want `:main`.
+
 **Postgres backup status and restore proof (www-jtp0.2).** The live backup CronJob is
 `pg-backup` in namespace `control-center`, derived from the platform `DatabaseBackup` primitive
 while preserving the compatibility path `backups/postgres`. Operator commands:

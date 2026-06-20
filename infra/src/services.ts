@@ -25,7 +25,7 @@ import { SERVICE_SECRET_TARGETS } from "./secrets-map.ts";
 // (`pulumi config set --path imageDigests.<svc>`). A pinned digest renders the
 // image as @sha256:… so only the workloads whose digest changed roll on a
 // `pulumi up` (the www-czg digest-pin property, now driven by Pulumi config).
-// Empty in local/dev applies, where :main is fine.
+// Empty only in non-prod local/dev applies, where :main is fine.
 export type ImageDigests = Record<string, string>;
 export type OwnedWorkloadSpec = WorkloadSpec & { namespaceName: InfraNamespaceName };
 
@@ -88,6 +88,9 @@ const IMAGE_REPOSITORIES = {
 const IMAGE_DIGEST_KEYS = new Set(
   Object.values(IMAGE_REPOSITORIES).map((image) => image.digestKey),
 );
+const REQUIRED_IMAGE_DIGEST_KEYS = Object.values(IMAGE_REPOSITORIES).map(
+  (image) => image.digestKey,
+);
 
 function validateImageDigests(digests: ImageDigests): void {
   for (const key of Object.keys(digests)) {
@@ -95,6 +98,21 @@ function validateImageDigests(digests: ImageDigests): void {
       throw new Error(`imageDigests.${key} is not a known product-component image key`);
     }
   }
+}
+
+function validateRequiredImageDigests(digests: ImageDigests): void {
+  const missing = REQUIRED_IMAGE_DIGEST_KEYS.filter((key) => !digests[key]);
+  if (missing.length > 0) {
+    throw new Error(
+      `prod stack requires wwwinfra:imageDigests pins for app images; missing: ${missing.join(
+        ", ",
+      )}`,
+    );
+  }
+}
+
+export function shouldRequireImageDigestPins(stackName: string): boolean {
+  return stackName === "prod";
 }
 
 // GHCR image ref. Digest-pinned (@sha256:…) when CI supplied a digest for this
@@ -161,8 +179,10 @@ const mount = (names: string[]) => names.map((name) => ({ name, ref: "eso" }));
  *   default. The PV is mounted by kubelet in the node netns, which on homelab (the
  *   prod target) reaches the home LAN directly (DESIGN 5b); the pod-egress no-route
  *   limit (DESIGN 5c) does not apply to PV mounts. www-j934.17.
- * - imageDigests: CI-supplied digest pin map (name -> sha256:…); absent in local
- *   applies, where every image falls back to the :main tag. www-j934.14.
+ * - imageDigests: CI-supplied digest pin map (name -> sha256:…); absent only in
+ *   non-prod local applies, where every image falls back to the :main tag. www-j934.14.
+ * - requireImageDigestPins: prod safety guard. Refuse to render app Deployments
+ *   with mutable/private :main images when wwwinfra:imageDigests is incomplete.
  * - storybookReplicas / drizzleReplicas: trim knobs for the 8GB steady-state
  *   (www-j934.9). Both are Access-gated internal/dev tools, not prod-critical, so
  *   they default to 0 to leave the control plane ~1-2GB headroom to survive a
@@ -176,6 +196,7 @@ export interface ServiceSpecOptions {
   drizzleReplicas: number;
   nasNfsServer: string;
   imageDigests?: ImageDigests;
+  requireImageDigestPins?: boolean;
 }
 
 /** @public - all app WorkloadSpecs, parameterised by {@link ServiceSpecOptions}. */
@@ -187,8 +208,10 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     drizzleReplicas,
     nasNfsServer,
     imageDigests: digests = {},
+    requireImageDigestPins = false,
   } = opts;
   validateImageDigests(digests);
+  if (requireImageDigestPins) validateRequiredImageDigests(digests);
   return [
     {
       logicalName: "control-center-api",
@@ -467,6 +490,8 @@ export interface ServicesArgs {
   nasNfsServer: string;
   // Per-service image digest pins from CI (name -> sha256:…); see ghcr().
   imageDigests?: ImageDigests;
+  // Prod stack guard against rendering app Deployments with mutable :main images.
+  requireImageDigestPins?: boolean;
   // Decrypted vault from vault.ts (CC-k8t7).
   vault: Record<string, string>;
 }
@@ -500,6 +525,7 @@ export function deployServices(args: ServicesArgs): ServicesResources {
     drizzleReplicas,
     nasNfsServer,
     imageDigests,
+    requireImageDigestPins,
     vault,
   } = args;
   const opts = { provider };
@@ -562,6 +588,7 @@ export function deployServices(args: ServicesArgs): ServicesResources {
     drizzleReplicas,
     nasNfsServer,
     imageDigests,
+    requireImageDigestPins,
   }).map(
     ({ namespaceName, ...spec }) =>
       new Workload({ ...spec, provider, namespace: namespaces[namespaceName] }, opts),

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { type ImageDigests, serviceSpecs } from "../src/services.ts";
+import { type ImageDigests, serviceSpecs, shouldRequireImageDigestPins } from "../src/services.ts";
 
 // The digest-pinning seam (www-j934.14): the CI deploy job sets a per-service
 // digest map as Pulumi config (`imageDigests.<svc>`), serviceSpecs renders each
@@ -27,6 +27,20 @@ const specsWith = (imageDigests?: ImageDigests): ReturnType<typeof serviceSpecs>
   });
 
 const VALID = `sha256:${"a".repeat(64)}`;
+const ALL_IMAGE_DIGESTS = {
+  "control-center-api": VALID,
+  "control-center-worker": VALID,
+  "control-center-media-worker": VALID,
+  "control-center-web": VALID,
+  "control-center-storybook": VALID,
+  "control-center-drizzle": VALID,
+  "control-center-map-provision": VALID,
+  "captive-portal-portal": VALID,
+  "captive-portal-api": VALID,
+  "text-your-ex-api": VALID,
+  "text-your-ex-frontend": VALID,
+  "amp-app": VALID,
+} satisfies ImageDigests;
 
 describe("serviceSpecs image digest pinning", () => {
   test("falls back to the :main tag when no digest is supplied", () => {
@@ -77,5 +91,42 @@ describe("serviceSpecs image digest pinning", () => {
   test("rejects a malformed digest so a bad config value can't ship an unpullable ref", () => {
     expect(() => specsWith({ "control-center-api": "not-a-digest" })).toThrow(/sha256/);
     expect(() => specsWith({ "control-center-api": "sha256:tooshort" })).toThrow(/sha256/);
+  });
+
+  test("refuses prod app Deployment rendering when digest pins are missing", () => {
+    expect(() =>
+      serviceSpecs({
+        mediaWorkerReplicas: 0,
+        cloudflaredReplicas: 2,
+        storybookReplicas: 0,
+        drizzleReplicas: 0,
+        nasNfsServer: "192.168.0.218",
+        imageDigests: {},
+        requireImageDigestPins: shouldRequireImageDigestPins("prod"),
+      }),
+    ).toThrow(/prod stack requires wwwinfra:imageDigests pins/);
+  });
+
+  test("allows prod app Deployment rendering when every digest pin is present", () => {
+    const specs = serviceSpecs({
+      mediaWorkerReplicas: 0,
+      cloudflaredReplicas: 2,
+      storybookReplicas: 0,
+      drizzleReplicas: 0,
+      nasNfsServer: "192.168.0.218",
+      imageDigests: ALL_IMAGE_DIGESTS,
+      requireImageDigestPins: shouldRequireImageDigestPins("prod"),
+    });
+    expect(imageOf(specs, "control-center-api")).toBe(
+      `ghcr.io/0x63616c/www-control-center-api@${VALID}`,
+    );
+    expect(imageOf(specs, "text-your-ex-api")).toBe(
+      `ghcr.io/0x63616c/www-text-your-ex-api@${VALID}`,
+    );
+  });
+
+  test("keeps non-prod local stacks on the optional digest-pin path", () => {
+    expect(shouldRequireImageDigestPins("dev")).toBe(false);
+    expect(specsWith().length).toBeGreaterThan(0);
   });
 });

@@ -12,10 +12,11 @@ import { makeCluster } from "./src/cluster.ts";
 import { installCnpg } from "./src/cnpg.ts";
 import { deployCrons } from "./src/crons.ts";
 import { installEso } from "./src/eso.ts";
-import { deployServices } from "./src/services.ts";
+import { deployServices, shouldRequireImageDigestPins } from "./src/services.ts";
 import { loadVault } from "./src/vault.ts";
 
 const cfg = new pulumi.Config("wwwinfra");
+const stackName = pulumi.getStack();
 // kubeContext selects the target cluster. Default cc-homelab (prod, homelab's
 // OrbStack reached over the tailnet); a machine-local staging cluster overrides
 // it (e.g. `pulumi config set wwwinfra:kubeContext orbstack`). CI points the
@@ -69,8 +70,9 @@ const certManager = installCertManager({
 // imageDigests: per-service image digest pins (name -> "sha256:…"). The CI deploy
 // job writes these with `pulumi config set --path imageDigests.<svc>` from the
 // freshly built :main manifests, so a `pulumi up` rolls only the workloads whose
-// digest changed (the www-czg digest-pin guarantee, now config-driven). Empty in
-// local applies, where services fall back to :main.
+// digest changed (the www-czg digest-pin guarantee, now config-driven). In prod,
+// the program refuses to render app Deployments unless this map is complete.
+// Non-prod local applies may omit it and fall back to :main.
 
 // The NAS NFS server, shared by the media-worker share and the pg-backup target.
 const nasNfsServer = cfg.get("nasNfsServer") ?? "192.168.0.218";
@@ -87,6 +89,7 @@ const services = deployServices({
   drizzleReplicas: cfg.getNumber("drizzleReplicas") ?? 0,
   nasNfsServer,
   imageDigests: cfg.getObject<Record<string, string>>("imageDigests") ?? {},
+  requireImageDigestPins: shouldRequireImageDigestPins(stackName),
   vault,
 });
 
