@@ -61,7 +61,9 @@
   .bd-savebtn { height:32px; padding:0 15px; border-radius:10px; border:1px solid var(--acc-line); background:var(--acc); color:#fff; font-size:13px; font-weight:500; font-family:var(--ui); cursor:pointer; letter-spacing:-0.01em; transition:filter .14s ease; }
   .bd-savebtn:hover { filter:brightness(1.1); }
   .bd-sortcol:hover { color: var(--ink) !important; }
-  .bd-link:hover { text-decoration: underline; }
+  .bd-link { color: var(--ink); text-decoration: none; transition: color .14s ease, text-decoration-color .14s ease, outline-color .14s ease; }
+  .bd-link:hover { color: var(--ink); text-decoration: underline; text-decoration-thickness: 1.3px; }
+  .bd-link:focus-visible { outline: 1.5px solid rgba(255,255,255,0.65); outline-offset: 2px; border-radius: 4px; color: var(--ink); }
   .bd-iconbtn { display:inline-flex; align-items:center; justify-content:center; width:34px; height:32px; border-radius:8px; border:1px solid var(--hair); background:transparent; color:var(--ink-2); cursor:pointer; transition:all .14s ease; }
   .bd-iconbtn:hover { color:var(--ink); border-color:var(--hair-2); background:var(--nest); }
   .bd-copy-id { display:inline-flex; align-items:center; gap:8px; border:1px solid transparent; border-radius:10px; background:transparent; color:var(--ink); cursor:pointer; padding:5px 7px; margin:-5px -7px; transition:background .14s ease, border-color .14s ease, color .14s ease; }
@@ -324,7 +326,7 @@
                         </sc-if>
                         <sc-if value="{{ card.hasLinks }}">
                           <div style="display:flex; gap:7px; flex-wrap:wrap;">
-                            <sc-for list="{{ card.links }}" as="lnk" hint-placeholder-count="2"><a class="bd-link mono" href="{{ lnk.href }}" target="_blank" rel="noreferrer" onClick="{{ lnk.onClick }}" style="font-size:11px; color:var(--acc-line); text-decoration:none;">{{ lnk.label }}</a></sc-for>
+                             <sc-for list="{{ card.links }}" as="lnk" hint-placeholder-count="2"><a class="bd-link mono" href="{{ lnk.href }}" target="_blank" rel="noreferrer" onClick="{{ lnk.onClick }}" style="font-size:11px;">{{ lnk.label }}</a></sc-for>
                           </div>
                         </sc-if>
                       </div>
@@ -371,7 +373,7 @@
         <div style="flex:0 0 auto; display:flex; align-items:center; gap:12px; padding:20px 22px; border-bottom:1px solid var(--hair);">
           <button class="bd-copy-id mono" onClick="{{ selected.copyTicketId }}" title="Copy ticket id" style="font-size:16px; font-weight:600;">
             <span>{{ selected.idLabel }}</span>
-            <sc-if value="{{ selected.idCopied }}"><span style="font-size:11px; color:var(--acc-line); font-family:var(--ui); font-weight:500;">Copied</span></sc-if>
+            <sc-if value="{{ selected.idCopied }}"><span style="font-size:11px; color:var(--ink); font-family:var(--ui); font-weight:500;">Copied</span></sc-if>
           </button>
           <span style="{{ selected.typeStyle }}">{{ selected.typeLabel }}</span>
           <span style="margin-left:auto;"></span>
@@ -413,15 +415,15 @@
               </div>
               <sc-if value="{{ selected.hasTmux }}">
                 <button class="bd-terminal-copy mono" onClick="{{ selected.copyTmux }}" title="Copy tmux command">
-                  <span style="flex:0 0 auto; color:var(--acc-line);">$</span>
+                  <span style="flex:0 0 auto; color:var(--ink);">$</span>
                   <code style="flex:1 1 auto; min-width:0; font-size:11px; color:inherit; background:transparent; border:none; padding:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ selected.tmuxAttachCommand }}</code>
-                  <span style="flex:0 0 auto; font-size:11px; color:var(--acc-line); font-family:var(--ui);">{{ selected.tmuxCopyLabel }}</span>
+                  <span style="flex:0 0 auto; font-size:11px; color:var(--ink); font-family:var(--ui);">{{ selected.tmuxCopyLabel }}</span>
                 </button>
               </sc-if>
               <sc-if value="{{ selected.hasWorkflowLinks }}">
                 <div style="display:flex; gap:7px; flex-wrap:wrap;">
                   <sc-for list="{{ selected.workflowLinks }}" as="lnk" hint-placeholder-count="3">
-                    <a class="bd-link mono" href="{{ lnk.href }}" target="_blank" rel="noreferrer" onClick="{{ lnk.onClick }}" style="font-size:11px; color:var(--acc-line); text-decoration:none;">{{ lnk.label }}</a>
+                    <a class="bd-link mono" href="{{ lnk.href }}" target="_blank" rel="noreferrer" onClick="{{ lnk.onClick }}" style="font-size:11px;">{{ lnk.label }}</a>
                   </sc-for>
                 </div>
               </sc-if>
@@ -437,7 +439,7 @@
                       <span class="cap">Builder failure</span>
                       <div class="mono" style="font-size:11.5px; color:var(--ink-2); line-height:1.6;">{{ selected.exhaustion.builderMeta }}</div>
                       <pre style="margin:0; max-height:160px; overflow:auto; white-space:pre-wrap; font-family:var(--mono); font-size:11.5px; line-height:1.45; color:var(--ink-2); background:#050505; border:1px solid var(--hair); border-radius:10px; padding:10px;">{{ selected.exhaustion.builderExcerpt }}</pre>
-                      <sc-if value="{{ selected.exhaustion.hasBuilderArtifact }}"><a class="bd-link mono" href="{{ selected.exhaustion.builderArtifactHref }}" target="_blank" rel="noreferrer" style="font-size:11px; color:var(--acc-line); text-decoration:none;">Open full builder log</a></sc-if>
+                      <sc-if value="{{ selected.exhaustion.hasBuilderArtifact }}"><a class="bd-link mono" href="{{ selected.exhaustion.builderArtifactHref }}" target="_blank" rel="noreferrer" style="font-size:11px;">Open full builder log</a></sc-if>
                     </div>
                   </sc-if>
                   <sc-if value="{{ selected.exhaustion.hasReviewer }}">
@@ -446,7 +448,7 @@
                       <div style="font-size:13px; color:var(--ink-2); line-height:1.45;">{{ selected.exhaustion.reviewerSummary }}</div>
                       <div class="mono" style="font-size:11.5px; color:var(--ink-3); line-height:1.6; white-space:pre-wrap;">{{ selected.exhaustion.reviewerBlocking }}</div>
                       <sc-if value="{{ selected.exhaustion.hasReviewerRefs }}"><div class="mono" style="font-size:11px; color:var(--ink-2);">Refs: {{ selected.exhaustion.reviewerRefs }}</div></sc-if>
-                      <sc-if value="{{ selected.exhaustion.hasReviewerArtifact }}"><a class="bd-link mono" href="{{ selected.exhaustion.reviewerArtifactHref }}" target="_blank" rel="noreferrer" style="font-size:11px; color:var(--acc-line); text-decoration:none;">Open full reviewer log</a></sc-if>
+                      <sc-if value="{{ selected.exhaustion.hasReviewerArtifact }}"><a class="bd-link mono" href="{{ selected.exhaustion.reviewerArtifactHref }}" target="_blank" rel="noreferrer" style="font-size:11px;">Open full reviewer log</a></sc-if>
                     </div>
                   </sc-if>
                 </div>
@@ -460,16 +462,16 @@
                 <span class="cap">Close command preview</span>
                 <span style="font-size:12px; color:var(--ink-3);">Copy only. This never runs bd.</span>
               </div>
-              <span style="font-size:11px; color:var(--acc-line); font-family:var(--ui);">{{ selected.closeCommandCopyLabel }}</span>
+              <span style="font-size:11px; color:var(--ink); font-family:var(--ui);">{{ selected.closeCommandCopyLabel }}</span>
             </div>
             <label style="display:flex; flex-direction:column; gap:7px;">
               <span class="mono" style="font-size:11px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em;">Reason</span>
               <textarea class="bd-input" value="{{ selected.closeReason }}" onInput="{{ selected.onCloseReasonInput }}" rows="3" style="width:100%; box-sizing:border-box; resize:vertical; min-height:76px; padding:10px 12px; background:#050505; border:1px solid var(--hair); border-radius:10px; color:var(--ink); font-size:13px; line-height:1.45; font-family:var(--ui);"></textarea>
             </label>
             <button class="bd-terminal-copy mono" onClick="{{ selected.copyCloseCommand }}" title="Copy bd close command">
-              <span style="flex:0 0 auto; color:var(--acc-line);">$</span>
+              <span style="flex:0 0 auto; color:var(--ink);">$</span>
               <code style="flex:1 1 auto; min-width:0; font-size:11px; color:inherit; background:transparent; border:none; padding:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ selected.closeCommand }}</code>
-              <span style="flex:0 0 auto; font-size:11px; color:var(--acc-line); font-family:var(--ui);">Copy</span>
+              <span style="flex:0 0 auto; font-size:11px; color:var(--ink); font-family:var(--ui);">Copy</span>
             </button>
           </div>
 
