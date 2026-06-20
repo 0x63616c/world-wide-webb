@@ -424,6 +424,40 @@ describe("merge queue state", () => {
     expect(shouldContinueMergeQueueAsNew(state, 1)).toBe(true);
   });
 
+  it("allows a completed ticket to requeue with a new ticket plus commit request id", () => {
+    const state = mergeQueueState();
+    const request = queueRequest({
+      ticketId: "www-retry",
+      requestId: "merge_www_retry_oldcommit",
+      commitSha: "oldcommit",
+    });
+
+    expect(enqueueMergeQueueRequest(state, request)).toBe("queued");
+    state.active = state.queued.shift() ?? null;
+    recordMergeQueueResult(state, request, {
+      status: "retryable-failure",
+      ticketId: request.ticketId,
+      requestId: request.requestId,
+      failedStep: "final-gates",
+      attempt: 1,
+      reason: "final-gates failed",
+      records: [],
+    });
+    state.active = null;
+
+    expect(enqueueMergeQueueRequest(state, request)).toBe("duplicate");
+    expect(
+      enqueueMergeQueueRequest(
+        state,
+        queueRequest({
+          ticketId: "www-retry",
+          requestId: "merge_www_retry_newcommit",
+          commitSha: "newcommit",
+        }),
+      ),
+    ).toBe("queued");
+  });
+
   it("processes the next queued entry and signals the waiting ticket workflow", async () => {
     const state = mergeQueueState();
     const first = queueRequest({

@@ -2,6 +2,7 @@ import { WorkflowIdConflictPolicy } from "@temporalio/common";
 import { describe, expect, it } from "vitest";
 import {
   ensureTicketQueueWorkflowWithClient,
+  LEGACY_MERGE_QUEUE_WORKFLOW_ID,
   LEGACY_TICKET_QUEUE_WORKFLOW_ID,
   MERGE_QUEUE_WORKFLOW_ID,
   STUCK_TICKET_RECOVERY_WORKFLOW_ID,
@@ -12,6 +13,10 @@ import { mergeQueueWorkflow, stuckTicketRecoveryWorkflow, ticketQueueWorkflow } 
 describe("ensureTicketQueueWorkflowWithClient", () => {
   it("uses the renamed ticket queue workflow id", () => {
     expect(TICKET_QUEUE_WORKFLOW_ID).toBe("ticket_queue");
+  });
+
+  it("uses the renamed merge queue workflow id", () => {
+    expect(MERGE_QUEUE_WORKFLOW_ID).toBe("merge_queue");
   });
 
   it("starts the long-lived queue workflow with an idempotent workflow id and safe cap", async () => {
@@ -63,6 +68,10 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
     ]);
     expect(terminations).toEqual([
       {
+        workflowId: LEGACY_MERGE_QUEUE_WORKFLOW_ID,
+        reason: `renamed to ${MERGE_QUEUE_WORKFLOW_ID}`,
+      },
+      {
         workflowId: LEGACY_TICKET_QUEUE_WORKFLOW_ID,
         reason: `renamed to ${TICKET_QUEUE_WORKFLOW_ID}`,
       },
@@ -93,6 +102,7 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
       `start:${TICKET_QUEUE_WORKFLOW_ID}`,
       `start:${MERGE_QUEUE_WORKFLOW_ID}`,
       `start:${STUCK_TICKET_RECOVERY_WORKFLOW_ID}`,
+      `terminate:${LEGACY_MERGE_QUEUE_WORKFLOW_ID}`,
       `terminate:${LEGACY_TICKET_QUEUE_WORKFLOW_ID}`,
     ]);
   });

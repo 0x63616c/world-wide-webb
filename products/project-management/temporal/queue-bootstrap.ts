@@ -12,6 +12,7 @@ export { MERGE_QUEUE_WORKFLOW_ID, STUCK_TICKET_RECOVERY_WORKFLOW_ID } from "./wo
 
 export const TICKET_QUEUE_WORKFLOW_ID = "ticket_queue";
 export const LEGACY_TICKET_QUEUE_WORKFLOW_ID = "ticket_queue_main";
+export const LEGACY_MERGE_QUEUE_WORKFLOW_ID = "ticket_merge_queue";
 export const TICKET_QUEUE_TASK_QUEUE = "project-management";
 export type TicketQueueBootstrapOptions = {
   readonly address: string;
@@ -90,7 +91,21 @@ export async function ensureTicketQueueWorkflowWithClient(
     workflowIdConflictPolicy: WorkflowIdConflictPolicy.USE_EXISTING,
     taskQueue: options.taskQueue,
   });
+  await terminateLegacyMergeQueueWorkflow(client);
   await terminateLegacyTicketQueueWorkflow(client);
+}
+
+async function terminateLegacyMergeQueueWorkflow(
+  client: TicketQueueWorkflowStartClient,
+): Promise<void> {
+  try {
+    await client.workflow
+      .getHandle(LEGACY_MERGE_QUEUE_WORKFLOW_ID)
+      .terminate(`renamed to ${MERGE_QUEUE_WORKFLOW_ID}`);
+  } catch (error) {
+    if (isIgnorableLegacyTicketQueueTerminationError(error)) return;
+    throw error;
+  }
 }
 
 async function terminateLegacyTicketQueueWorkflow(

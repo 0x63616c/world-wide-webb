@@ -24,7 +24,7 @@ import {
   transitionTicketWorkflow,
 } from "./state";
 
-export const MERGE_QUEUE_WORKFLOW_ID = "ticket_merge_queue";
+export const MERGE_QUEUE_WORKFLOW_ID = "merge_queue";
 export const STUCK_TICKET_RECOVERY_WORKFLOW_ID = "stuck_ticket_recovery";
 
 const activities = proxyActivities<typeof projectActivities>({
@@ -1259,7 +1259,6 @@ export function recordMergeQueueResult(
   result: MergeQueueResult,
 ): void {
   state.completed.set(request.requestId, result);
-  state.completed.set(request.ticketId, result);
   state.completedCount += 1;
 }
 
@@ -1307,7 +1306,6 @@ function hasMergeQueueRequest(
     ) ||
     state.active?.request.ticketId === request.ticketId ||
     state.active?.request.requestId === request.requestId ||
-    state.completed.has(request.ticketId) ||
     state.completed.has(request.requestId)
   );
 }
