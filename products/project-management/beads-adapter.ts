@@ -15,6 +15,14 @@ export const TICKET_QUEUE_LABELS = {
   human: TICKET_WORKFLOW_LABELS.human,
 } as const;
 
+const MANUAL_TICKET_LABEL = "manual";
+
+export const BUILDER_QUEUE_EXCLUDED_LABELS = [
+  TICKET_WORKFLOW_LABELS.human,
+  TICKET_WORKFLOW_LABELS.backlog,
+  MANUAL_TICKET_LABEL,
+] as const;
+
 export type TicketQueue = keyof typeof TICKET_QUEUE_LABELS;
 
 export const TICKET_METADATA_KEYS = {
@@ -87,10 +95,7 @@ export function buildQueueCommand(queue: TicketQueue): BeadsCommand {
   if (queue === "builder") {
     args.push(
       "--ready",
-      "--exclude-label",
-      TICKET_WORKFLOW_LABELS.human,
-      "--exclude-label",
-      TICKET_WORKFLOW_LABELS.backlog,
+      ...BUILDER_QUEUE_EXCLUDED_LABELS.flatMap((label) => ["--exclude-label", label]),
     );
   }
 
@@ -198,7 +203,7 @@ export class BeadsAdapter {
   }
 
   async builderQueue(): Promise<BeadsTicket[]> {
-    return this.readQueue("builder");
+    return (await this.readQueue("builder")).filter(isBuilderQueueTicket);
   }
 
   async reviewQueue(): Promise<BeadsTicket[]> {
@@ -248,6 +253,14 @@ export class BeadsAdapter {
     const stdout = await this.#run(buildQueueCommand(queue));
     return parseTickets(stdout);
   }
+}
+
+function isBuilderQueueTicket(ticket: BeadsTicket): boolean {
+  const labels = new Set(ticket.labels);
+  return (
+    labels.has(TICKET_WORKFLOW_LABELS.ready) &&
+    BUILDER_QUEUE_EXCLUDED_LABELS.every((label) => !labels.has(label))
+  );
 }
 
 function parseTickets(stdout: string): BeadsTicket[] {
