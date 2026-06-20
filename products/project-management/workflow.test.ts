@@ -256,6 +256,33 @@ describe("workflowDashboardForIssues", () => {
     expect(dashboard.columns.flatMap((column) => column.tickets)).toHaveLength(10);
   });
 
+  it("routes unclaimed ticket-ready issues to queued until builder metadata exists", () => {
+    const dashboard = workflowDashboardForIssues([
+      workflowIssue("www-unclaimed", "ready", ["ticket-ready"]),
+      workflowIssue("www-phase-build", "ready", ["ticket-ready"], {
+        metadata: { ticket_phase: "build" },
+      }),
+      workflowIssue("www-tmux-build", "ready", ["ticket-ready"], {
+        metadata: { ticket_tmux_session: "ticket_www-tmux-build_1" },
+      }),
+      workflowIssue("www-session-build", "ready", ["ticket-ready"], {
+        metadata: { ticket_opencode_session: "Builder run (ses_builder)" },
+      }),
+    ]);
+
+    expect(
+      dashboard.columns.map((column) => [column.id, column.tickets.map((ticket) => ticket.id)]),
+    ).toEqual([
+      ["backlog", []],
+      ["queued", ["www-unclaimed"]],
+      ["ready", ["www-phase-build", "www-tmux-build", "www-session-build"]],
+      ["review", []],
+      ["verified", []],
+      ["human", []],
+      ["shipped", []],
+    ]);
+  });
+
   it("filters workflow columns with all-only, multi-select, deselect, and stable ordering", () => {
     const dashboard = workflowDashboardForIssues([
       workflowIssue("www-backlog", "ready", ["ticket-backlog"]),

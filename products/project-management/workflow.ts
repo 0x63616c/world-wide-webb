@@ -350,6 +350,10 @@ function queueForIssue(
   const hasWorkflowLabel = Object.values(TICKET_WORKFLOW_LABELS).some((label) => labels.has(label));
   const hasBacklogState = labels.has(TICKET_WORKFLOW_LABELS.backlog) || phase === "backlog";
   const hasQueuedState = labels.has(TICKET_WORKFLOW_LABELS.queued) || phase === "queued";
+  const hasBuilderRunState =
+    phase === "build" ||
+    stringMeta(metadata, TICKET_METADATA_KEYS.tmuxSession) !== null ||
+    stringMeta(metadata, TICKET_METADATA_KEYS.openCodeSession) !== null;
 
   if (issue.status === "closed") {
     return phase === "closed" ||
@@ -370,7 +374,9 @@ function queueForIssue(
   if (labels.has(TICKET_WORKFLOW_LABELS.retry)) return workflowQueue("ready");
   if (labels.has(TICKET_WORKFLOW_LABELS.verified)) return workflowQueue("verified");
   if (labels.has(TICKET_WORKFLOW_LABELS.review)) return workflowQueue("review");
-  if (labels.has(TICKET_WORKFLOW_LABELS.ready)) return workflowQueue("ready");
+  if (labels.has(TICKET_WORKFLOW_LABELS.ready)) {
+    return hasBuilderRunState ? workflowQueue("ready") : workflowQueue("queued");
+  }
   return null;
 }
 
