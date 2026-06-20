@@ -42,7 +42,7 @@ describe("createRequestHandler", () => {
           { id: "queued", label: "ticket-queued", title: "Queued", tickets: [] },
           { id: "ready", label: "ticket-ready", title: "Builder", tickets: [] },
           { id: "review", label: "ticket-review", title: "Review", tickets: [] },
-          { id: "verified", label: "ticket-verified", title: "Verified", tickets: [] },
+          { id: "verified", label: "ticket-verified", title: "Merge Queue", tickets: [] },
           { id: "human", label: "ticket-human", title: "Human", tickets: [] },
           { id: "shipped", label: "ticket-shipped", title: "Shipped", tickets: [] },
         ],

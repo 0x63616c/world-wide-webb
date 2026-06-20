@@ -250,7 +250,7 @@ describe("workflowDashboardForIssues", () => {
       ["queued", "Queued"],
       ["ready", "Builder"],
       ["review", "Review"],
-      ["verified", "Verified"],
+      ["verified", "Merge Queue"],
       ["human", "Human"],
       ["shipped", "Shipped"],
     ]);
