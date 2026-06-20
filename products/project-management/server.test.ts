@@ -1,10 +1,25 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createRequestHandler, initialSnapshot, type Snapshot } from "./server";
 
 describe("createRequestHandler", () => {
+  it("serves the app entrypoint HTML for root requests", async () => {
+    const handler = createRequestHandler({
+      snapshot: initialSnapshot(),
+      workflowLogRoots: [],
+      syncFromRemote: async () => {},
+      serveStatic: async () =>
+        new Response(await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8")),
+    });
+
+    const response = await handler(new Request("http://127.0.0.1/"));
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toContain("<title>Project Management UI</title>");
+  });
+
   it("serves mapped board data from the current snapshot", async () => {
     const snapshot: Snapshot = {
       ...initialSnapshot(),
