@@ -314,30 +314,16 @@
                       <span class="pips" data-n="{{ card.chevN }}" style="margin-left:auto; display:inline-flex; gap:3px;"></span>
                     </div>
                     <sc-if value="{{ card.hasWorkflow }}">
-                      <div style="margin-top:12px; padding-top:11px; border-top:1px solid var(--hair); display:flex; flex-direction:column; gap:8px;">
-                        <div style="display:flex; align-items:center; gap:8px; min-width:0;">
-                          <div style="display:flex; align-items:center; gap:7px; min-width:0;">
-                            <span class="mono" style="font-size:10.5px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em; white-space:nowrap;">{{ card.phaseLabel }}</span>
-                            <sc-if value="{{ card.hasActiveRun }}"><span style="{{ card.runStyle }}">{{ card.activeRunLabel }}</span></sc-if>
-                          </div>
-                           <div style="margin-left:auto; display:flex; align-items:center; gap:7px; min-width:0;">
-                             <span class="bd-auto-chip" style="{{ card.autoStyle }}" title="Automated ticket">{{ card.autoLabel }}</span>
-                             <span class="mono" title="{{ card.updatedTitle }}" style="font-size:10.5px; color:var(--ink-3); white-space:nowrap;">{{ card.updatedRelative }}</span>
-                             <sc-if value="{{ card.hasAttempts }}"><span class="mono" style="font-size:10.5px; color:var(--ink-2); border:1px solid var(--hair); background:var(--nest); border-radius:999px; padding:2px 7px; white-space:nowrap;">attempt {{ card.attempts }}</span></sc-if>
-                           </div>
-                        </div>
-                        <sc-if value="{{ card.hasOpenCode }}"><span class="mono" style="font-size:11px; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">OpenCode {{ card.openCodeLabel }}</span></sc-if>
+                      <div style="margin-top:12px; padding-top:11px; border-top:1px solid var(--hair); display:flex; flex-direction:column; gap:7px;">
                         <sc-if value="{{ card.hasExhaustion }}">
                           <div style="display:flex; flex-direction:column; gap:5px; padding:9px; border:1px solid rgba(248,81,73,.34); border-radius:10px; background:rgba(248,81,73,.075);">
                             <span class="mono" style="font-size:10.5px; color:#f85149; text-transform:uppercase; letter-spacing:.08em;">{{ card.exhaustionReason }}</span>
                             <span style="font-size:12px; line-height:1.35; color:var(--ink-2); overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; white-space:pre-line;">{{ card.exhaustionExcerpt }}</span>
                           </div>
                         </sc-if>
-                        <sc-if value="{{ card.hasLinks }}">
-                          <div style="display:flex; gap:7px; flex-wrap:wrap;">
-                             <sc-for list="{{ card.links }}" as="lnk" hint-placeholder-count="2"><a class="bd-link mono" href="{{ lnk.href }}" target="_blank" rel="noreferrer" onClick="{{ lnk.onClick }}" style="font-size:11px;">{{ lnk.label }}</a></sc-for>
-                          </div>
-                        </sc-if>
+                        <div style="display:flex; justify-content:flex-end;">
+                          <span class="bd-auto-chip" style="{{ card.autoStyle }}" title="Automated ticket">{{ card.autoLabel }}</span>
+                        </div>
                       </div>
                     </sc-if>
                   </div>
@@ -1206,17 +1192,21 @@ class Component extends DCLogic {
     const selectedWorkflowQueues = this.selectedWorkflowQueues();
     const selectedWorkflowQueueSet = new Set(selectedWorkflowQueues);
     const boardSourceColumns = hasWorkflow ? workflow.columns.map((col) => ({ key: col.id, label: col.title, ticketIds: (col.tickets || []).map((ticket) => ticket.id) })) : BOARD_COLS;
-    const boardColumns = boardSourceColumns.filter((col) => !hasWorkflow || selectedWorkflowQueueSet.size === 0 || selectedWorkflowQueueSet.has(col.key)).map((col) => {
-      const sourceIssues = hasWorkflow ? (col.ticketIds || []).map((id) => this.byId(id)).filter(Boolean) : issues.filter((i) => colKey(i) === col.key);
-       const cards = sourceIssues.filter((i) => i.type !== 'epic' && (epicChildSet === null || epicChildSet.has(i.id)) && (btFilter === 'all' || i.type === btFilter)).map((it) => {
+      const boardColumns = boardSourceColumns.filter((col) => !hasWorkflow || selectedWorkflowQueueSet.size === 0 || selectedWorkflowQueueSet.has(col.key)).map((col) => {
+        const sourceIssues = hasWorkflow ? (col.ticketIds || []).map((id) => this.byId(id)).filter(Boolean) : issues.filter((i) => colKey(i) === col.key);
+        const cards = sourceIssues.filter((i) => i.type !== 'epic' && (epicChildSet === null || epicChildSet.has(i.id)) && (btFilter === 'all' || i.type === btFilter)).map((it) => {
         const tm = TYPE_META[it.type] || TYPE_META.task;
         const pb = this.prioBadge(it.p);
         const wf = workflowIssue(it.id);
-        const link = (kind, href) => ({ label: kind, href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() });
-        const links = wf ? [ ...(wf.logLinks || []).map((href) => link('log', href)), ...(wf.promptLinks || []).map((href) => link('prompt', href)) ] : [];
+        const workflowLink = (kind, href) => ({
+          label: kind === 'prompt' ? 'Open workflow prompt' : 'Open workflow log',
+          href: this.workflowFileHref(href),
+          onClick: (e) => e.stopPropagation(),
+        });
         const exhaustion = wf && wf.exhaustion ? wf.exhaustion : null;
-        const cardExhaustionExcerpt = exhaustion && exhaustion.builderFailure ? exhaustion.builderFailure.excerpt : (exhaustion && exhaustion.reviewerFailure ? exhaustion.reviewerFailure.findingSummary : '');
-        const runColor = wf ? (workflowAccent[wf.queue] || 'var(--acc)') : 'var(--acc)';
+        const cardExhaustionExcerpt = exhaustion && exhaustion.builderFailure
+          ? exhaustion.builderFailure.excerpt
+          : (exhaustion && exhaustion.reviewerFailure ? exhaustion.reviewerFailure.findingSummary : '');
         return {
           id: it.id, idLabel: it.id.toUpperCase(), title: it.title,
           chevN: it.p <= 2 ? 3 - it.p : 0,
@@ -1227,19 +1217,18 @@ class Component extends DCLogic {
           autoLabel: !!it.automated ? 'Auto' : '',
           autoStyle: !!it.automated ? { display: 'inline-flex', alignItems: 'center', justifyContent: 'center' } : { display: 'none' },
           hasWorkflow: !!wf,
-          phaseLabel: wf ? wf.phase : '',
-          hasActiveRun: !!(wf && wf.activeRun),
-          activeRunLabel: wf && wf.activeRun ? wf.activeRun + ' running' : '',
-          runStyle: { display: 'inline-flex', alignItems: 'center', padding: '3px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 600, color: runColor, background: 'rgba(255,255,255,.04)', border: '1px solid ' + runColor },
-          updatedRelative: this.relTime(it.ts, st.now) || '-',
-          updatedTitle: this.exactDate(it.ts),
-          hasAttempts: !!(wf && wf.attempts !== null && wf.attempts > 1), attempts: wf && wf.attempts !== null ? wf.attempts : '',
-          hasOpenCode: !!(wf && (wf.openCodeSessionId || wf.openCodeSessionTitle)), openCodeLabel: wf ? [wf.openCodeSessionTitle, wf.openCodeSessionId].filter(Boolean).join(' · ') : '',
-          hasExhaustion: !!exhaustion, exhaustionReason: exhaustion ? exhaustion.stopReason : '', exhaustionExcerpt: cardExhaustionExcerpt,
-          hasLinks: links.length > 0, links,
+          hasExhaustion: !!exhaustion,
+          exhaustionReason: exhaustion ? exhaustion.stopReason : '',
+          exhaustionExcerpt: cardExhaustionExcerpt,
           style: { padding: 15, paddingLeft: 18, gap: 0, position: 'relative', overflow: 'hidden', flexShrink: 0, opacity: st.dragId === it.id ? 0.4 : 1 },
           onClick: () => this.openDetail(it.id),
-          onDragStart: (e) => { try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.id); } catch (err) {} this.setState({ dragId: it.id }); },
+          onDragStart: (e) => {
+            try {
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', it.id);
+            } catch (err) {}
+            this.setState({ dragId: it.id });
+          },
           onDragEnd: () => this.setState({ dragId: null, dragOverCol: null })
         };
       });
@@ -1306,10 +1295,12 @@ class Component extends DCLogic {
       const closeReason = this.closeReasonFor(sel);
       const closeCommand = this.closeCommandFor(sel);
       const wf = workflowIssue(sel.id);
-      const workflowLinks = wf ? [
-        ...(wf.logLinks || []).map((href) => ({ label: 'log', href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() })),
-        ...(wf.promptLinks || []).map((href) => ({ label: 'prompt', href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() }))
-      ] : [];
+      const workflowLinks = wf
+        ? [
+            ...(wf.logLinks || []).map((href) => workflowLink('log', href)),
+            ...(wf.promptLinks || []).map((href) => workflowLink('prompt', href)),
+          ]
+        : [];
       const exhaustion = wf && wf.exhaustion ? wf.exhaustion : null;
       const builderFailure = exhaustion && exhaustion.builderFailure ? exhaustion.builderFailure : null;
       const reviewerFailure = exhaustion && exhaustion.reviewerFailure ? exhaustion.reviewerFailure : null;

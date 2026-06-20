@@ -67,17 +67,30 @@ describe("Beads detail template", () => {
     );
   });
 
-  it("renders workflow card metadata without tmux commands", async () => {
+  it("removes compact workflow phase/status clutter from the board cards", async () => {
     const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
     const boardStart = html.indexOf("<!-- ---------- BOARD (hero) ---------- -->");
     const boardEnd = html.indexOf("<!-- ===================== SETTINGS ===================== -->");
     const board = html.slice(boardStart, boardEnd);
 
-    expect(board).toContain("{{ card.updatedRelative }}");
-    expect(board).toContain('title="{{ card.updatedTitle }}"');
-    expect(board).toContain("{{ card.hasAttempts }}");
-    expect(html).toContain("wf.attempts > 1");
+    expect(board).not.toContain("{{ card.updatedRelative }}");
+    expect(board).not.toContain('title="{{ card.updatedTitle }}"');
+    expect(board).not.toContain("{{ card.phaseLabel }}");
+    expect(board).not.toContain("{{ card.hasAttempts }}");
+    expect(board).not.toContain("{{ card.hasActiveRun }}");
+    expect(board).not.toContain("{{ card.hasOpenCode }}");
+    expect(board).not.toContain("{{ card.hasLinks }}");
+    expect(board).not.toContain("wf.attempts > 1");
     expect(board).not.toContain("{{ card.tmuxAttachCommand }}");
+  });
+
+  it("keeps detail actions and rewrites workflow action labels", async () => {
+    const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
+    expect(html).toContain("workflowLink('log'");
+    expect(html).toContain("workflowLink('prompt'");
+    expect(html).toContain("label: kind === 'prompt' ? 'Open workflow prompt' : 'Open workflow log'");
+    expect(html).not.toContain("log log");
+    expect(html).not.toContain("prompt prompt");
   });
 
   it("renders detail copy targets as dark-ui copy surfaces", async () => {
