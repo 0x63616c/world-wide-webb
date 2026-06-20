@@ -22,6 +22,10 @@ export function defaultTemporalWorkerOptions(): TemporalWorkerOptions {
   };
 }
 
+function shouldStartTicketQueue(): boolean {
+  return Bun.env.START_TICKET_QUEUE === "1" || Bun.env.START_TICKET_QUEUE === "true";
+}
+
 function startHealthServer(options: TemporalWorkerOptions): ReturnType<typeof Bun.serve> {
   return Bun.serve({
     hostname: "127.0.0.1",
@@ -74,12 +78,14 @@ export async function runTemporalWorker(options = defaultTemporalWorkerOptions()
       `[project-management temporal] worker listening on ${options.address} namespace=${options.namespace} taskQueue=${options.taskQueue}`,
     );
 
-    await ensureTicketQueueWorkflow({
-      address: options.address,
-      namespace: options.namespace,
-      taskQueue: options.taskQueue,
-      repoRoot: Bun.env.REPO_ROOT ?? new URL("../../..", import.meta.url).pathname,
-    });
+    if (shouldStartTicketQueue()) {
+      await ensureTicketQueueWorkflow({
+        address: options.address,
+        namespace: options.namespace,
+        taskQueue: options.taskQueue,
+        repoRoot: Bun.env.REPO_ROOT ?? new URL("../../..", import.meta.url).pathname,
+      });
+    }
 
     await worker.run();
   } finally {

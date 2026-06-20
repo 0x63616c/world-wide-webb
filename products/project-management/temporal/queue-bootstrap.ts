@@ -14,8 +14,10 @@ import {
   type MergeQueueWorkflowInput,
   mergeQueueRequestId,
   mergeQueueWorkflow,
+  type TicketQueueConfig,
   type TicketQueueWorkflowInput,
   ticketQueueWorkflow,
+  updateTicketQueueConfigSignal,
 } from "./workflows";
 
 export { MERGE_QUEUE_WORKFLOW_ID } from "./workflows";
@@ -23,6 +25,8 @@ export { MERGE_QUEUE_WORKFLOW_ID } from "./workflows";
 export const TICKET_QUEUE_WORKFLOW_ID = "ticket_queue";
 export const LEGACY_TICKET_QUEUE_WORKFLOW_ID = "ticket_queue_main";
 export const TICKET_QUEUE_TASK_QUEUE = "project-management";
+export const DEFAULT_MAX_ACTIVE_TICKET_WORKFLOWS = 3;
+export const DEFAULT_MAX_TICKETS_PER_POLL = 3;
 
 export const DEFAULT_TICKET_QUEUE_FINAL_GATES = [
   { label: "test", command: "bun", args: ["run", "test"] },
@@ -57,6 +61,10 @@ export type TicketQueueWorkflowStartClient = {
     ): Promise<unknown>;
     getHandle(workflowId: string): {
       signal?(signal: typeof enqueueMergeSignal, request: MergeQueueRequest): Promise<unknown>;
+      signal?(
+        signal: typeof updateTicketQueueConfigSignal,
+        config: TicketQueueConfig,
+      ): Promise<unknown>;
       terminate(reason?: string): Promise<unknown>;
     };
   };
@@ -97,9 +105,11 @@ export async function ensureTicketQueueWorkflowWithClient(
     repoRoot: options.repoRoot,
     finalGates: DEFAULT_TICKET_QUEUE_FINAL_GATES,
     runtimeLogRoot: options.runtimeLogRoot ?? defaultRuntimeLogRoot(),
-    baseRef: "origin/main",
+    baseRef: "HEAD",
     requirePushedBranch: true,
     pollIntervalMs: 15_000,
+    maxActiveTicketWorkflows: DEFAULT_MAX_ACTIVE_TICKET_WORKFLOWS,
+    maxTicketsPerPoll: DEFAULT_MAX_TICKETS_PER_POLL,
   };
 
   await client.workflow.start(ticketQueueWorkflow, {
@@ -107,6 +117,10 @@ export async function ensureTicketQueueWorkflowWithClient(
     workflowIdConflictPolicy: WorkflowIdConflictPolicy.USE_EXISTING,
     taskQueue: options.taskQueue,
     args: [input],
+  });
+  await signalTicketQueueConfig(client, {
+    maxActiveTicketWorkflows: DEFAULT_MAX_ACTIVE_TICKET_WORKFLOWS,
+    maxTicketsPerPoll: DEFAULT_MAX_TICKETS_PER_POLL,
   });
   await client.workflow.start(mergeQueueWorkflow, {
     workflowId: MERGE_QUEUE_WORKFLOW_ID,
@@ -125,6 +139,15 @@ export async function ensureTicketQueueWorkflowWithClient(
   });
   await reconcileVerifiedTicketsWithMergeQueue(client, options, await readVerifiedTickets());
   await terminateLegacyTicketQueueWorkflow(client);
+}
+
+async function signalTicketQueueConfig(
+  client: TicketQueueWorkflowStartClient,
+  config: TicketQueueConfig,
+): Promise<void> {
+  const handle = client.workflow.getHandle(TICKET_QUEUE_WORKFLOW_ID);
+  if (!handle.signal) return;
+  await handle.signal(updateTicketQueueConfigSignal, config);
 }
 
 export async function reconcileVerifiedTicketsWithMergeQueue(

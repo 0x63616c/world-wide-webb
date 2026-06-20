@@ -4,6 +4,7 @@ import {
   defineQuery,
   defineSignal,
   getExternalWorkflowHandle,
+  ParentClosePolicy,
   proxyActivities,
   setHandler,
   sleep,
@@ -286,7 +287,15 @@ export type TicketQueueWorkflowInput = {
   readonly mergeStrategy?: "cherry-pick" | "merge";
   readonly pollIntervalMs?: number;
   readonly maxTicketsPerPoll?: number;
+  readonly maxActiveTicketWorkflows?: number;
 };
+
+export type TicketQueueConfig = Pick<
+  TicketQueueWorkflowInput,
+  "maxActiveTicketWorkflows" | "maxTicketsPerPoll"
+>;
+
+export const DEFAULT_MAX_ACTIVE_TICKET_WORKFLOWS = 3;
 
 export type TicketQueueWorkflowActivities = Pick<
   typeof commandActivities,
@@ -328,6 +337,8 @@ export const enqueueMergeSignal = defineSignal<[MergeQueueRequest]>("enqueueMerg
 export const cancelMergeSignal = defineSignal<[string, string]>("cancelMerge");
 export const ticketMergeResultSignal = defineSignal<[MergeQueueResult]>("ticketMergeResult");
 export const mergeQueueSnapshotQuery = defineQuery<MergeQueueSnapshot>("mergeQueueSnapshot");
+export const updateTicketQueueConfigSignal =
+  defineSignal<[TicketQueueConfig]>("updateTicketQueueConfig");
 
 export async function mergeQueueWorkflow(input: MergeQueueWorkflowInput): Promise<never> {
   const state: MergeQueueMutableState = {
@@ -380,12 +391,29 @@ async function signalTicketMergeResult(
 
 export async function ticketQueueWorkflow(input: TicketQueueWorkflowInput): Promise<never> {
   const pollIntervalMs = input.pollIntervalMs ?? 15_000;
+  let config: TicketQueueConfig = {
+    maxActiveTicketWorkflows: input.maxActiveTicketWorkflows,
+    maxTicketsPerPoll: input.maxTicketsPerPoll,
+  };
+  const activeTicketIds = new Set<string>();
+
+  setHandler(updateTicketQueueConfigSignal, (nextConfig) => {
+    config = { ...config, ...nextConfig };
+  });
 
   while (true) {
+    await condition(
+      () => activeTicketIds.size < resolveMaxActiveTicketWorkflows({ ...input, ...config }),
+    );
     const tickets = await ticketQueueActivityProxies.readReadyTicketWorkflowQueueActivity({
       repoRoot: input.repoRoot,
     });
-    await runTicketQueueBatch(input, tickets, startTicketChildWorkflow);
+    await runTicketQueueBatch(
+      { ...input, ...config },
+      tickets,
+      (child) => startTrackedTicketChildWorkflow(child, activeTicketIds),
+      activeTicketIds.size,
+    );
     await sleep(pollIntervalMs);
   }
 }
@@ -394,8 +422,16 @@ export async function runTicketQueueBatch(
   input: TicketQueueWorkflowInput,
   tickets: readonly commandActivities.ReadyTicketWorkflowQueueTicket[],
   start: TicketChildWorkflowStarter,
+  activeTicketWorkflowCount = 0,
 ): Promise<TicketQueueWorkflowBatchResult> {
-  const selectedTickets = tickets.slice(0, input.maxTicketsPerPoll ?? tickets.length);
+  const availableSlots = Math.max(
+    0,
+    resolveMaxActiveTicketWorkflows(input) - activeTicketWorkflowCount,
+  );
+  const selectedTickets = tickets.slice(
+    0,
+    Math.min(input.maxTicketsPerPoll ?? tickets.length, availableSlots),
+  );
   const results = await Promise.all(
     selectedTickets.map(async (ticket) => {
       const child: TicketQueueWorkflowChildInput = {
@@ -429,13 +465,23 @@ export async function runTicketQueueBatch(
   };
 }
 
-async function startTicketChildWorkflow(
+function resolveMaxActiveTicketWorkflows(input: TicketQueueWorkflowInput): number {
+  return Math.max(0, input.maxActiveTicketWorkflows ?? DEFAULT_MAX_ACTIVE_TICKET_WORKFLOWS);
+}
+
+async function startTrackedTicketChildWorkflow(
   child: TicketQueueWorkflowChildInput,
+  activeTicketIds: Set<string>,
 ): Promise<"started" | "skipped"> {
   try {
-    await startChild(ticketWorkflow, {
+    const handle = await startChild(ticketWorkflow, {
       workflowId: ticketWorkflowId(child.ticketId),
       args: [child.input],
+      parentClosePolicy: ParentClosePolicy.ABANDON,
+    });
+    activeTicketIds.add(child.ticketId);
+    void handle.result().finally(() => {
+      activeTicketIds.delete(child.ticketId);
     });
     return "started";
   } catch {

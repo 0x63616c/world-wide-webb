@@ -1,21 +1,29 @@
 import { WorkflowIdConflictPolicy } from "@temporalio/common";
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_MAX_ACTIVE_TICKET_WORKFLOWS,
+  DEFAULT_MAX_TICKETS_PER_POLL,
   DEFAULT_TICKET_QUEUE_FINAL_GATES,
   ensureTicketQueueWorkflowWithClient,
   LEGACY_TICKET_QUEUE_WORKFLOW_ID,
   MERGE_QUEUE_WORKFLOW_ID,
   TICKET_QUEUE_WORKFLOW_ID,
 } from "./queue-bootstrap";
-import { enqueueMergeSignal, mergeQueueWorkflow, ticketQueueWorkflow } from "./workflows";
+import {
+  enqueueMergeSignal,
+  mergeQueueWorkflow,
+  ticketQueueWorkflow,
+  updateTicketQueueConfigSignal,
+} from "./workflows";
 
 describe("ensureTicketQueueWorkflowWithClient", () => {
   it("uses the renamed ticket queue workflow id", () => {
     expect(TICKET_QUEUE_WORKFLOW_ID).toBe("ticket_queue");
   });
 
-  it("starts the long-lived queue workflow with an idempotent workflow id", async () => {
+  it("starts the long-lived queue workflow with an idempotent workflow id and safe cap", async () => {
     const starts: unknown[] = [];
+    const signals: unknown[] = [];
     const terminations: unknown[] = [];
     await ensureTicketQueueWorkflowWithClient(
       {
@@ -24,6 +32,9 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
             starts.push(args);
           },
           getHandle: (workflowId: string) => ({
+            signal: async (...args: unknown[]) => {
+              signals.push({ workflowId, args });
+            },
             terminate: async (reason?: string) => {
               terminations.push({ workflowId, reason });
             },
@@ -50,9 +61,11 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
               repoRoot: "/repo",
               finalGates: DEFAULT_TICKET_QUEUE_FINAL_GATES,
               runtimeLogRoot: "/logs",
-              baseRef: "origin/main",
+              baseRef: "HEAD",
               requirePushedBranch: true,
               pollIntervalMs: 15_000,
+              maxActiveTicketWorkflows: DEFAULT_MAX_ACTIVE_TICKET_WORKFLOWS,
+              maxTicketsPerPoll: DEFAULT_MAX_TICKETS_PER_POLL,
             },
           ],
         },
@@ -75,6 +88,18 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
           ],
         },
       ],
+    ]);
+    expect(signals).toEqual([
+      {
+        workflowId: TICKET_QUEUE_WORKFLOW_ID,
+        args: [
+          updateTicketQueueConfigSignal,
+          {
+            maxActiveTicketWorkflows: DEFAULT_MAX_ACTIVE_TICKET_WORKFLOWS,
+            maxTicketsPerPoll: DEFAULT_MAX_TICKETS_PER_POLL,
+          },
+        ],
+      },
     ]);
     expect(terminations).toEqual([
       {
@@ -174,6 +199,16 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
     );
 
     expect(signals).toEqual([
+      {
+        workflowId: TICKET_QUEUE_WORKFLOW_ID,
+        args: [
+          updateTicketQueueConfigSignal,
+          {
+            maxActiveTicketWorkflows: DEFAULT_MAX_ACTIVE_TICKET_WORKFLOWS,
+            maxTicketsPerPoll: DEFAULT_MAX_TICKETS_PER_POLL,
+          },
+        ],
+      },
       {
         workflowId: MERGE_QUEUE_WORKFLOW_ID,
         args: [

@@ -90,6 +90,41 @@ describe("runTicketQueueBatch", () => {
     expect(result).toEqual({ started: ["www-start"], skipped: ["www-skip"] });
   });
 
+  it("does not start more tickets than active workflow slots", async () => {
+    const children: TicketQueueWorkflowChildInput[] = [];
+    const result = await runTicketQueueBatch(
+      {
+        repoRoot: "/repo",
+        finalGates: [],
+        maxActiveTicketWorkflows: 3,
+        maxTicketsPerPoll: 3,
+      },
+      [
+        {
+          ticketId: "www-running-a",
+          title: "Running A",
+          acceptanceCriteria: "- [ ] a",
+          comments: [],
+        },
+        {
+          ticketId: "www-running-b",
+          title: "Running B",
+          acceptanceCriteria: "- [ ] b",
+          comments: [],
+        },
+        { ticketId: "www-later", title: "Later", acceptanceCriteria: "- [ ] later", comments: [] },
+      ],
+      async (child) => {
+        children.push(child);
+        return "started";
+      },
+      2,
+    );
+
+    expect(result).toEqual({ started: ["www-running-a"], skipped: [] });
+    expect(children.map((child) => child.ticketId)).toEqual(["www-running-a"]);
+  });
+
   it("does not start duplicate child workflows when old and new queues overlap", async () => {
     const started = new Set<string>();
     const tickets = [
