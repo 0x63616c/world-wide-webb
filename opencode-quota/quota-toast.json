@@ -1,0 +1,7 @@
+{
+  "enableToast": false,
+  "maintainerAnnouncements": {
+    "enabled": false,
+    "home": false
+  }
+}

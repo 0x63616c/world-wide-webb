@@ -42,7 +42,8 @@ Thumbs.db
 .claude/settings.local.json
 
 # OpenCode local quota state
-opencode-quota/
+opencode-quota/*
+!opencode-quota/quota-toast.json
 
 # Test coverage
 coverage/
