@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Advisory ticket lint , the drift backstop for docs/ticket-standards.md.
+# Advisory ticket lint for ticket hygiene (missing AC, prose AC, untyped spikes, aging P0s, stalled).
 #
 # We can't hook `bd create`, so this catches tickets created off-skill. It is
 # NON-BLOCKING: it prints warnings and ALWAYS exits 0. Run it in a backlog scrub.
@@ -65,5 +65,5 @@ printf '%s\n' "$rows" | while IFS=$'\t' read -r id warns title; do
   printf '%-12s %-40s %s\n' "$id" "$warns" "$title"
 done
 echo
-echo "See docs/ticket-standards.md. Fix via /new-ticket standards; exit 0 (advisory)."
+echo "Fix via /new-ticket or /writing-tickets; exit 0 (advisory)."
 exit 0

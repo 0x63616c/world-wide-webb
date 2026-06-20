@@ -625,7 +625,7 @@ k3s is serving prod** (Phase 6), so deletion can't strand the live deploy.
    to this doc), README deploy section, CLAUDE.md Architecture/Scheduling/Worker paragraphs +
    the third-party-scheduler guard rationale, recovery runbook (reboot/login-scoped note),
    plus touch-ups in logging.md, acceptance-checklist.md, captive-portal/{PRD,runbook,tls}.md,
-   unifi-logging.md, ticket-standards.md, and the coverage.sh / portal-lan.sh comments.
+   unifi-logging.md, and the coverage.sh / portal-lan.sh comments.
 6. **bd memories:** DELETE `bosun-deploy-two-phase-config-prune`,
    `bosun-render-changes-lag-one-deploy`, `bosun-secret-prune-before-deploy`; REWRITE
    `auto-deploy-webhook-path`, `access-gate-design-cc-cuuw`; revisit the global

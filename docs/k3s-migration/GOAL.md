@@ -2,7 +2,7 @@
 
 This file IS the goal condition. Inputs: `docs/k3s-migration/RECON.md` (grounded facts +
 Calum's approved decisions, follow them; do not re-litigate). Epic: `bd show www-j934`.
-Execute via the normal ticket lifecycle (`docs/ticket-standards.md`); use the `ship`
+Execute via the normal ticket lifecycle; use the `ship`
 workflow on www-j934 for the build phases once children are filed, parallelizing where
 safe. Every claim below must be PROVEN IN THE TRANSCRIPT (command shown + output shown) -
 an assertion without surfaced evidence does not count.
@@ -101,7 +101,7 @@ original phase checklist below is the spec; the 4 gaps above are the only boxes 
       table (all 10 services + 4 crons → k8s resource type), data-migration runbook with
       rollback at each step, UniFi import plan + www-guest VLAN design (cross-VLAN portal
       path), CI pipeline design, cutover + reboot-test plan, bosun-removal order.
-- [ ] Child bd tickets filed under www-j934 (each Ready per ticket-standards: type,
+- [ ] Child bd tickets filed under www-j934 (each Ready: type,
       priority, area, checkbox AC), with deps encoding the phase order. Surface `bd list
       --parent www-j934` (or epic tree) output.
 

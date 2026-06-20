@@ -5,7 +5,7 @@ Use this file as a `/goal` condition: `/goal @docs/media-tiles/GOAL.md`.
 Build, real-integrate, Storybook, and ship to PROD the 4 media tiles specified in
 `docs/media-tiles/IMPLEMENTATION_HANDOFF.md`, then verify them live in a browser. Drive the
 build with the **Workflow tool** (the `ship` workflow on epic `www-c2pc`, `push:true`),
-parallelizing the 4 tiles. Follow `docs/ticket-standards.md` and the verified, live-tested facts
+parallelizing the 4 tiles. Follow the verified, live-tested facts
 in `docs/media-tiles/INTEGRATION-NOTES.md`. Do NOT re-discover the integrations , they are
 documented and confirmed working.
 

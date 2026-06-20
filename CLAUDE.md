@@ -36,19 +36,19 @@ Durable sync is the Dolt git remote: **`refs/dolt/data` on origin**, established
 
 ## Dev lifecycle (www-w6j2: how we work)
 
-Every ticket follows one lifecycle, defined once in **`docs/ticket-standards.md`** (READ IT before creating, starting, or finishing work). The spine:
+Every ticket follows one lifecycle:
 
 ```
 /new-ticket  →  /starting-ticket  →  (build, TDD)  →  /finish-ticket
    open             in_progress                            closed
 ```
 
-- **`/new-ticket`**, create a *Ready* ticket: type (mapped to a real bd type), priority, area, and checkbox AC with the per-type Definition of Done auto-appended. Never hand-type house rules into AC; the skill generates them.
-- **`/starting-ticket`**, Definition-of-Ready gate (refuse if unmet) → `bd update --claim` → `git pull --rebase` → `EnterWorktree` named `www-xxx-slug` → **red test first** → surface the DoD.
-- **`/finish-ticket`**, gates green (REFUSE on red) → verify every AC item (screenshot@1366×1024 for UI) → commit `type(area/www-xxx)` → **PR to `main`** (self-merge, branch protection requires it) → `bd close` → harden audit.
+- **`/new-ticket`**, create a *Ready* ticket: type (mapped to a real bd type), priority, area, and checkbox AC.
+- **`/starting-ticket`**, Definition-of-Ready gate (refuse if unmet) → `bd update --claim` → `git pull --rebase` → `EnterWorktree` named `www-xxx-slug` → **red test first**.
+- **`/finish-ticket`**, gates green (REFUSE on red) → verify every AC item (screenshot@1366×1024 for UI) → commit `type(area/www-xxx)` → merge to main → `bd close`.
 - **`ship`** (workflow) is the same lifecycle parallelized for a whole epic, hands-off. Use the skills for human-in-the-loop work; use `ship` for an approved epic.
 
-The standards doc holds the taxonomy, Definition of Ready, Definition of Done (+ per-type adders), priority rubric, AC format, and the enforcement matrix. `scripts/lint-tickets.sh` is the advisory backstop.
+The merge queue handles branch→main merge automatically after verification. `scripts/lint-tickets.sh` is the advisory backstop for ticket hygiene.
 
 ## Session Completion
 
@@ -98,7 +98,7 @@ bun run dev         # products/control-center/Tiltfile local dev stack
 
 Reusable multi-agent orchestration scripts live in `.claude/workflows/` (run via the Workflow tool: `Workflow({ name: '<n>', args: {...} })`).
 
-- **`ship`**, Factory-Missions-style pipeline for shipping a bd issue/epic end-to-end. Beads is the shared mission state: scope writes a validation contract into the epic's `--design`, each feature becomes a child issue with `--acceptance` + a `milestone-N` label + deps for serial order; it builds → validates → fixes **per milestone**, then hardens and finalizes. Resumable after a crash via `args.resume=<epicId>`. It is the manual dev lifecycle parallelized and follows the same `docs/ticket-standards.md` (taxonomy, Definition of Ready/Done, `type(area/www-xxx)` commits).
+- **`ship`**, Factory-Missions-style pipeline for shipping a bd issue/epic end-to-end. Beads is the shared mission state: scope writes a validation contract into the epic's `--design`, each feature becomes a child issue with `--acceptance` + a `milestone-N` label + deps for serial order; it builds → validates → fixes **per milestone**, then hardens and finalizes. Resumable after a crash via `args.resume=<epicId>`. It is the manual dev lifecycle parallelized (taxonomy, Definition of Ready/Done, `type(area/www-xxx)` commits).
   - **Model tiers** (rule: haiku is a good validator but a bad coder, so it never writes code): `opus` scopes, `sonnet` does ALL coding (build/fix/harden), `haiku` runs the adversarial validators + bd/gate bookkeeping.
   - **Intended use:** scope + approve the plan with Calum first, then launch. Conservative git, commits per feature, no `git push` unless `args.push:true`.
 - **`wf-finish-dashboard.mjs`** (untracked, repo root `.claude/`), the original one-shot that finished the dashboard; `ship` is its generalization. Kept for reference.

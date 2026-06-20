@@ -281,6 +281,7 @@ Worktree: ${input.worktreePath}
 - Review the builder commit delta with \`git diff HEAD^..HEAD\` and \`git show --stat --oneline HEAD\`. Do not use \`origin/main...HEAD\`, because ticket branches are based on the orchestration branch and that compares the whole epic.
 - Do not rely on builder summaries.
 - Verify every acceptance criterion below with observed evidence.
+- Ignore any acceptance criterion about merging to main, pushing branches, opening PRs, or closing Beads tickets — those are handled by the merge queue after verification, not by the reviewer. Only verify implementation and quality criteria.
 
 ## Acceptance Criteria
 

@@ -121,7 +121,7 @@ update `changes` filters (40, 122-126, 147). Delete `deploy-drift.yml`.
 **Docs:** `deployment-design.md` full rewrite; README deploy section; CLAUDE.md
 Architecture/Scheduling/Worker paragraphs + third-party-scheduler guard rationale; touch-ups in logging.md,
 acceptance-checklist.md, captive-portal/{PRD,runbook,tls}.md, unifi-logging.md,
-ticket-standards.md, coverage.sh + portal-lan.sh comments.
+coverage.sh + portal-lan.sh comments.
 
 **Guards:** third-party-scheduler-guard ADAPT (new rationale: k8s CronJob is the scheduler; guard still
 blocks that-scheduler). All other guards keep. Drop `bosun` from new-ticket SKILL.md area list.

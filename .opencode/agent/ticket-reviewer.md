@@ -25,6 +25,8 @@ For ticket workflow branches, review the builder commit delta first: `git diff H
 
 You must verify acceptance criteria before choosing the pass handoff. A pass handoff is allowed only when every acceptance criterion is satisfied by observed evidence. If any criterion is unverified, partially satisfied, or blocked, choose the retry handoff with specific findings.
 
+Ignore any acceptance criterion about merging to main, pushing branches, opening PRs, or closing Beads tickets — those are handled by the merge queue after verification, not by the reviewer. Only verify implementation and quality criteria (code correctness, tests, gates, screenshots, etc.).
+
 Do not edit files. Do not close Beads tickets. Do not commit or push.
 
 Your final action is Beads state, not printed JSON. Leave a Beads comment headed `## Reviewer findings` with findings and acceptance evidence, then move the ticket to exactly ONE outcome label:
