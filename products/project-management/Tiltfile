@@ -14,6 +14,7 @@ TEMPORAL_WORKER_HEALTH_PORT = 8792
 TEMPORAL_NAMESPACE = 'project-management'
 TEMPORAL_TASK_QUEUE = 'project-management'
 TEMPORAL_ADDRESS = '127.0.0.1:%d' % TEMPORAL_PORT
+PROJECT_MANAGEMENT_DATABASE_URL = 'postgresql://temporal:temporal@127.0.0.1:5433/project_management'
 
 PROJECT_CONFIG_DEPS = [
     'package.json',
@@ -32,6 +33,9 @@ PROJECT_TS_DEPS = [
     'workflow.ts',
     'scripts/cleanup-ticket-artifacts.ts',
     'scripts/start-temporal-dev.ts',
+    'db/client.ts',
+    'db/migrate.ts',
+    'db/schema.ts',
     'temporal/activities.ts',
     'temporal/agent-activities.ts',
     'temporal/command-activities.ts',
@@ -40,6 +44,11 @@ PROJECT_TS_DEPS = [
     'temporal/state.ts',
     'temporal/worker.ts',
     'temporal/workflows.ts',
+]
+
+PROJECT_DB_DEPS = [
+    'docker-compose.temporal.yml',
+    'db/migrations/0001_workflow_observability.sql',
 ]
 
 UI_ASSET_DEPS = [
@@ -61,6 +70,14 @@ docker_compose('docker-compose.temporal.yml')
 
 dc_resource(
     'temporal-postgres',
+    labels=['worker'],
+)
+
+local_resource(
+    'project-management-db',
+    cmd='printf "%s\n" "SELECT \'CREATE DATABASE project_management\' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = \'project_management\')\\gexec" | docker compose -f docker-compose.temporal.yml exec -T temporal-postgres psql -v ON_ERROR_STOP=1 -U temporal -d postgres',
+    deps=PROJECT_DB_DEPS,
+    resource_deps=['temporal-postgres'],
     labels=['worker'],
 )
 
@@ -99,8 +116,9 @@ local_resource(
         'TEMPORAL_NAMESPACE': TEMPORAL_NAMESPACE,
         'TEMPORAL_TASK_QUEUE': TEMPORAL_TASK_QUEUE,
         'TEMPORAL_WORKER_HEALTH_PORT': str(TEMPORAL_WORKER_HEALTH_PORT),
+        'PROJECT_MANAGEMENT_DATABASE_URL': PROJECT_MANAGEMENT_DATABASE_URL,
     },
-    resource_deps=['install', 'temporal-ready'],
+    resource_deps=['install', 'temporal-ready', 'project-management-db'],
     readiness_probe=probe(
         period_secs=2,
         exec=exec_action(
@@ -119,6 +137,7 @@ local_resource(
         'BEADS_UI_PORT': str(UI_PORT),
         'TEMPORAL_ADDRESS': TEMPORAL_ADDRESS,
         'TEMPORAL_NAMESPACE': TEMPORAL_NAMESPACE,
+        'PROJECT_MANAGEMENT_DATABASE_URL': PROJECT_MANAGEMENT_DATABASE_URL,
     },
     resource_deps=['install', 'worker'],
     readiness_probe=probe(

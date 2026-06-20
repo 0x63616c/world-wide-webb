@@ -10,6 +10,7 @@
  */
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { runProjectManagementMigrations } from "./db/migrate";
 import { mapIssues, type RawIssue } from "./map";
 import { defaultRuntimeLogRoot } from "./temporal/command-activities";
 import { workflowDashboardForIssues } from "./workflow";
@@ -34,6 +35,7 @@ export type ServerOptions = {
   syncIntervalMs: number;
   publicDir: string;
   workflowLogRoots: readonly string[];
+  runMigrations: () => Promise<void>;
 };
 
 export function defaultServerOptions(): ServerOptions {
@@ -47,6 +49,7 @@ export function defaultServerOptions(): ServerOptions {
       defaultRuntimeLogRoot(),
       join(import.meta.dir, "..", "..", ".tickets", "logs"),
     ],
+    runMigrations: runProjectManagementMigrations,
   };
 }
 
@@ -275,6 +278,8 @@ function stringBodyField(
 }
 
 export async function startServer(options = defaultServerOptions()): Promise<void> {
+  await options.runMigrations();
+
   const snapshot = initialSnapshot();
   const handler = createRequestHandler({
     snapshot,
