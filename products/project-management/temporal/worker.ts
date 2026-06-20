@@ -5,7 +5,7 @@ import * as agentActivities from "./agent-activities";
 import * as commandActivities from "./command-activities";
 import { ensureTicketQueueWorkflow } from "./queue-bootstrap";
 
-const TASK_QUEUE = "main";
+const TASK_QUEUE = "project-management";
 
 export type TemporalWorkerOptions = {
   readonly address: string;

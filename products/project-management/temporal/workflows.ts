@@ -337,7 +337,7 @@ export async function mergeWorkflow(
 export const enqueueMergeSignal = defineSignal<[MergeQueueRequest]>("enqueueMerge");
 export const ticketMergeResultSignal = defineSignal<[MergeQueueResult]>("ticketMergeResult");
 
-export async function mergeQueueWorkflow(input: MergeQueueWorkflowInput): Promise<never> {
+export async function mergeQueueWorkflow(input: MergeQueueWorkflowInput = {}): Promise<never> {
   const state: MergeQueueMutableState = {
     queued: [...(input.initialQueued ?? [])].map((request) => ({
       request,

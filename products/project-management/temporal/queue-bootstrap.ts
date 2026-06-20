@@ -12,7 +12,7 @@ export { MERGE_QUEUE_WORKFLOW_ID, STUCK_TICKET_RECOVERY_WORKFLOW_ID } from "./wo
 
 export const TICKET_QUEUE_WORKFLOW_ID = "ticket_queue";
 export const LEGACY_TICKET_QUEUE_WORKFLOW_ID = "ticket_queue_main";
-export const TICKET_QUEUE_TASK_QUEUE = "main";
+export const TICKET_QUEUE_TASK_QUEUE = "project-management";
 export type TicketQueueBootstrapOptions = {
   readonly address: string;
   readonly namespace: string;
