@@ -579,6 +579,26 @@ export async function createTicketWorktree(
       args: ["-p", dirname(names.worktreePath)],
       cwd: input.repoRoot,
     }),
+    await runRecorded("remove-existing-worktree", run, {
+      command: "sh",
+      args: [
+        "-c",
+        'git -C "$1" worktree remove --force "$2" 2>/dev/null || true',
+        "sh",
+        input.repoRoot,
+        names.worktreePath,
+      ],
+    }),
+    await runRecorded("remove-existing-branch", run, {
+      command: "sh",
+      args: [
+        "-c",
+        'git -C "$1" branch -D "$2" 2>/dev/null || true',
+        "sh",
+        input.repoRoot,
+        names.branchName,
+      ],
+    }),
     await runRecorded("create-worktree", run, {
       command: "git",
       args: ["worktree", "add", "-b", names.branchName, names.worktreePath, baseRef],

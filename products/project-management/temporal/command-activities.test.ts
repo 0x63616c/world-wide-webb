@@ -89,6 +89,26 @@ describe("ticket command activities", () => {
         cwd: "/repo",
       },
       {
+        command: "sh",
+        args: [
+          "-c",
+          'git -C "$1" worktree remove --force "$2" 2>/dev/null || true',
+          "sh",
+          "/repo",
+          "/repo/.worktrees/tickets/www-3agy.8-implement-worktree-and-tmux-activities",
+        ],
+      },
+      {
+        command: "sh",
+        args: [
+          "-c",
+          'git -C "$1" branch -D "$2" 2>/dev/null || true',
+          "sh",
+          "/repo",
+          "www-3agy.8-implement-worktree-and-tmux-activities",
+        ],
+      },
+      {
         command: "git",
         args: [
           "worktree",
@@ -102,6 +122,51 @@ describe("ticket command activities", () => {
       },
     ]);
     expect(result.records.map((record) => record.command)).toEqual(commands);
+  });
+
+  it("removes an exact stale ticket worktree and branch before recreating from the latest base", async () => {
+    const { run, commands } = fakeRunner();
+    const result = await createTicketWorktree(
+      {
+        repoRoot: "/repo",
+        ticketId: "www-stale",
+        title: "Use fresh agent config",
+        baseRef: "origin/main",
+      },
+      run,
+    );
+
+    expect(result.records.map((record) => record.activity)).toEqual([
+      "refresh-origin-main",
+      "create-worktree-parent",
+      "remove-existing-worktree",
+      "remove-existing-branch",
+      "create-worktree",
+    ]);
+    expect(commands).toContainEqual(
+      expect.objectContaining({
+        command: "sh",
+        args: [
+          "-c",
+          'git -C "$1" worktree remove --force "$2" 2>/dev/null || true',
+          "sh",
+          "/repo",
+          "/repo/.worktrees/tickets/www-stale-use-fresh-agent-config",
+        ],
+      }),
+    );
+    expect(commands.at(-1)).toEqual({
+      command: "git",
+      args: [
+        "worktree",
+        "add",
+        "-b",
+        "www-stale-use-fresh-agent-config",
+        "/repo/.worktrees/tickets/www-stale-use-fresh-agent-config",
+        "origin/main",
+      ],
+      cwd: "/repo",
+    });
   });
 
   it("starts OpenCode-like commands in deterministic tmux sessions with stdout/stderr logs", async () => {
