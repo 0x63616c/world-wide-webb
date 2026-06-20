@@ -132,7 +132,7 @@ export async function startTicketBuilder(
         ...(input.resumeSessionId ? ["--session", input.resumeSessionId] : []),
         "--agent",
         TICKET_BUILDER_AGENT,
-        "Follow the attached ticket-builder prompt exactly.",
+        "Set the deterministic goal from the attached ticket-builder prompt before implementation work begins, then follow the prompt exactly.",
         "--file",
         prompt.promptPath,
       ],
@@ -248,13 +248,20 @@ export function buildTicketBuilderPrompt(input: TicketBuilderInput): TicketBuild
     input.runtimeLogRoot ?? ".tickets/logs",
     `ticket_${input.ticketId}_build_${input.attempt}.prompt.md`,
   );
+  const goal = buildTicketBuilderGoal(input);
   const commentBlock =
     input.comments.length > 0 ? input.comments.join("\n\n---\n\n") : "No comments.";
 
   return {
     promptPath,
-    prompt: `# Ticket Builder\n\nTicket: ${input.ticketId} - ${input.title}\nAttempt: ${input.attempt}${input.resumeSessionId ? " (same OpenCode session retry)" : ""}\n\n## Required Reading\n\nRun \`bd show ${input.ticketId}\` before editing. Read ticket comments and relevant project instructions before changing files.\n\n## Acceptance Criteria\n\n${input.acceptanceCriteria}\n\n## Existing Comments\n\n${commentBlock}\n\n## Hard Rules\n\n- Work only in this worktree: ${input.worktreePath}\n- Build the smallest correct implementation that satisfies the acceptance criteria.\n- Commit and push the ticket branch when implementation is complete. If commit signing fails because the local 1Password signing agent has no identity, retry the same commit with \`--no-gpg-sign\` and report that in the handoff.\n- If OpenCode changes \`.opencode/package.json\` as a tool self-update side effect, revert that file before committing.\n- Leave a Beads handoff comment headed \`## Builder summary\` with changed files, commit SHA, pushed branch, and verification.\n- Do not move Beads lifecycle labels. Do not add or remove \`ticket-ready\`, \`ticket-review\`, \`ticket-retry\`, \`ticket-human\`, \`ticket-verified\`, or \`ticket-shipped\`; the workflow moves labels after verifying your handoff.\n- Never close Beads tickets. Do not run \`bd close\`, do not mark the ticket complete, and do not merge to main.\n`,
+    prompt: `# Ticket Builder\n\nTicket: ${input.ticketId} - ${input.title}\nAttempt: ${input.attempt}${input.resumeSessionId ? " (same OpenCode session retry)" : ""}\n\n## Deterministic Goal\n\nBefore implementation work begins, set this exact goal in your session. Do not paraphrase it, and do not rely on any private plugin state file:\n\n\`\`\`text\n${goal}\n\`\`\`\n\n## Required Reading\n\nRun \`bd show ${input.ticketId}\` before editing. Read the complete ticket record before changing files, including title, description, design, notes, acceptance criteria, labels, dependencies, status, assignee, and every comment. Read relevant project instructions before changing files.\n\n## Acceptance Criteria\n\n${input.acceptanceCriteria}\n\n## Existing Comments\n\n${commentBlock}\n\n## Hard Rules\n\n- Work only in this worktree: ${input.worktreePath}\n- Build the smallest correct implementation that satisfies the acceptance criteria.\n- Commit and push the ticket branch when implementation is complete. If commit signing fails because the local 1Password signing agent has no identity, retry the same commit with \`--no-gpg-sign\` and report that in the handoff.\n- If OpenCode changes \`.opencode/package.json\` as a tool self-update side effect, revert that file before committing.\n- Leave a Beads handoff comment headed \`## Builder summary\` with changed files, commit SHA, pushed branch, verification results, blockers, and follow-up.\n- Do not move Beads lifecycle labels. Do not add or remove \`ticket-ready\`, \`ticket-review\`, \`ticket-retry\`, \`ticket-human\`, \`ticket-verified\`, or \`ticket-shipped\`; the workflow moves labels after verifying your handoff.\n- Never close Beads tickets. Do not run \`bd close\`, do not mark the ticket complete, and do not merge to main.\n`,
   };
+}
+
+export function buildTicketBuilderGoal(
+  input: Pick<TicketBuilderInput, "ticketId" | "title">,
+): string {
+  return `Build ticket ${input.ticketId} - ${input.title}: first read the complete Beads ticket record with bd show ${input.ticketId}, including title, description, design, notes, acceptance criteria, labels, dependencies, status, assignee, and every comment. End with a focused pushed ticket-branch commit whose scope contains ${input.ticketId}; either satisfy every acceptance criterion with evidence or explicitly block with a concrete reason; run and record focused verification; and leave a Beads comment headed "## Builder summary" containing changed files, commit SHA, pushed branch, verification results, blockers, and follow-up. Do not close, relabel, merge, mark the ticket complete, or move Beads lifecycle labels.`;
 }
 
 export function buildTicketReviewerPrompt(input: TicketReviewerInput): TicketReviewerPrompt {
