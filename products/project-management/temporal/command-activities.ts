@@ -21,6 +21,11 @@ import {
   type TicketArtifactCleanupAction,
   type TicketArtifactCleanupPlan,
 } from "../ticket-artifact-cleanup";
+import {
+  syncTicketWorkflowRunOutput,
+  type TicketWorkflowRunQueryClient,
+  type TicketWorkflowRunStatus,
+} from "./ticket-workflow-run-store";
 
 export const TICKET_WORKTREE_ROOT = ".worktrees/tickets";
 
@@ -331,6 +336,10 @@ export type WaitForTmuxSessionInput = {
   readonly builderHandoff?: TicketBeadsInput;
   readonly pollIntervalMs?: number;
   readonly timeoutMs?: number;
+};
+
+export type WaitForTmuxSessionSyncOptions = {
+  readonly ticketWorkflowRunClient?: TicketWorkflowRunQueryClient;
 };
 
 export type WaitForTmuxSessionResult = {
@@ -667,6 +676,7 @@ export async function inspectTmuxSession(
 export async function waitForTmuxSession(
   input: WaitForTmuxSessionInput,
   run: ActivityCommandRunner,
+  options: WaitForTmuxSessionSyncOptions = {},
 ): Promise<WaitForTmuxSessionResult> {
   const timeoutMs = input.timeoutMs ?? 10 * 60_000;
   const pollIntervalMs = input.pollIntervalMs ?? 2_000;
@@ -676,15 +686,29 @@ export async function waitForTmuxSession(
   while (Date.now() - startedAt <= timeoutMs) {
     const inspected = await inspectTmuxSession({ sessionName: input.sessionName }, run);
     records.push(inspected.record);
+    await syncTmuxLogOutput(input, run, options.ticketWorkflowRunClient);
     if (!inspected.alive) {
+      const exitCode = input.exitCodePath
+        ? parseExitCode(await readLogFile(input.exitCodePath, run))
+        : null;
+      const stdout = await readLogFile(input.stdoutLogPath, run);
+      const stderr = await readLogFile(input.stderrLogPath, run);
+      await syncTicketWorkflowRunOutput(
+        {
+          tmuxSession: input.sessionName,
+          stdout,
+          stderr,
+          status: ticketWorkflowRunStatus(true, exitCode),
+          completedAt: new Date(),
+        },
+        options.ticketWorkflowRunClient,
+      );
       return {
         sessionName: input.sessionName,
         completed: true,
-        exitCode: input.exitCodePath
-          ? parseExitCode(await readLogFile(input.exitCodePath, run))
-          : null,
-        stdout: await readLogFile(input.stdoutLogPath, run),
-        stderr: await readLogFile(input.stderrLogPath, run),
+        exitCode,
+        stdout,
+        stderr,
         records,
       };
     }
@@ -703,12 +727,24 @@ export async function waitForTmuxSession(
             kill,
           ),
         );
+        const stdout = await readLogFile(input.stdoutLogPath, run);
+        const stderr = await readLogFile(input.stderrLogPath, run);
+        await syncTicketWorkflowRunOutput(
+          {
+            tmuxSession: input.sessionName,
+            stdout,
+            stderr,
+            status: ticketWorkflowRunStatus(kill.exitCode === 0, kill.exitCode === 0 ? 0 : null),
+            completedAt: new Date(),
+          },
+          options.ticketWorkflowRunClient,
+        );
         return {
           sessionName: input.sessionName,
           completed: kill.exitCode === 0,
           exitCode: kill.exitCode === 0 ? 0 : null,
-          stdout: await readLogFile(input.stdoutLogPath, run),
-          stderr: await readLogFile(input.stderrLogPath, run),
+          stdout,
+          stderr,
           records,
         };
       }
@@ -716,14 +752,52 @@ export async function waitForTmuxSession(
     await sleep(pollIntervalMs);
   }
 
+  const stdout = await readLogFile(input.stdoutLogPath, run);
+  const stderr = await readLogFile(input.stderrLogPath, run);
+  const exitCode = input.exitCodePath
+    ? parseExitCode(await readLogFile(input.exitCodePath, run))
+    : null;
+  await syncTicketWorkflowRunOutput(
+    {
+      tmuxSession: input.sessionName,
+      stdout,
+      stderr,
+      status: ticketWorkflowRunStatus(false, exitCode),
+      completedAt: new Date(),
+    },
+    options.ticketWorkflowRunClient,
+  );
   return {
     sessionName: input.sessionName,
     completed: false,
-    exitCode: input.exitCodePath ? parseExitCode(await readLogFile(input.exitCodePath, run)) : null,
-    stdout: await readLogFile(input.stdoutLogPath, run),
-    stderr: await readLogFile(input.stderrLogPath, run),
+    exitCode,
+    stdout,
+    stderr,
     records,
   };
+}
+
+async function syncTmuxLogOutput(
+  input: WaitForTmuxSessionInput,
+  run: ActivityCommandRunner,
+  client?: TicketWorkflowRunQueryClient,
+): Promise<void> {
+  await syncTicketWorkflowRunOutput(
+    {
+      tmuxSession: input.sessionName,
+      stdout: await readLogFile(input.stdoutLogPath, run),
+      stderr: await readLogFile(input.stderrLogPath, run),
+    },
+    client,
+  );
+}
+
+function ticketWorkflowRunStatus(
+  completed: boolean,
+  exitCode: number | null,
+): TicketWorkflowRunStatus {
+  if (!completed) return "timed_out";
+  return exitCode === 0 ? "completed" : "failed";
 }
 
 function parseExitCode(value: string): number | null {

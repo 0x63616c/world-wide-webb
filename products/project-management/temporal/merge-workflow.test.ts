@@ -49,6 +49,7 @@ describe("runSerializedMergeWorkflow", () => {
       "merge-ticket-branch",
       "final-gates",
       "merge-fix",
+      "wait-merge-fix",
       "final-gates",
       "escalate-human",
     ]);
@@ -105,6 +106,7 @@ describe("runSerializedMergeWorkflow", () => {
       "update-main",
       "merge-ticket-branch",
       "merge-fix",
+      "wait-merge-fix",
       "final-gates",
       "sync-main-for-push",
       "push-main",
@@ -115,6 +117,7 @@ describe("runSerializedMergeWorkflow", () => {
       ["update-main", true],
       ["merge-ticket-branch", false],
       ["merge-fix", true],
+      ["wait-merge-fix", true],
       ["final-gates", true],
       ["sync-main-for-push", true],
       ["push-main", true],
@@ -140,6 +143,7 @@ describe("runSerializedMergeWorkflow", () => {
       "merge-ticket-branch",
       "final-gates",
       "merge-fix",
+      "wait-merge-fix",
       "final-gates",
       "sync-main-for-push",
       "push-main",
@@ -169,8 +173,10 @@ describe("runSerializedMergeWorkflow", () => {
       "merge-ticket-branch",
       "final-gates",
       "merge-fix",
+      "wait-merge-fix",
       "final-gates",
       "merge-fix",
+      "wait-merge-fix",
       "final-gates",
       "escalate-human",
     ]);
@@ -179,8 +185,10 @@ describe("runSerializedMergeWorkflow", () => {
       ["merge-ticket-branch", true],
       ["final-gates", false],
       ["merge-fix", true],
+      ["wait-merge-fix", true],
       ["final-gates", false],
       ["merge-fix", true],
+      ["wait-merge-fix", true],
       ["final-gates", false],
       ["escalate-human", true],
     ]);
@@ -624,6 +632,14 @@ function fakeMergeQueueActivities(
         model: "openai/gpt-5.5",
         promptPath: "/tmp/prompt",
       }),
+      waitForAgentRunCompletionActivity: async () => ({
+        sessionName: "ticket_www-queue_mergefix_1",
+        completed: true,
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+        records: [],
+      }),
     },
   };
 }
@@ -703,6 +719,17 @@ function fakeMergeActivities(
           agent: "ticket-mergefix",
           model: "openai/gpt-5.5",
           promptPath: "/tmp/mergefix.prompt.md",
+        };
+      },
+      waitForAgentRunCompletionActivity: async (input) => {
+        calls.push("wait-merge-fix");
+        return {
+          sessionName: input.sessionName,
+          completed: true,
+          exitCode: 0,
+          stdout: "",
+          stderr: "",
+          records: [],
         };
       },
       escalateTicketHumanActivity: async (input) => run("escalate-human", input.ticketId),

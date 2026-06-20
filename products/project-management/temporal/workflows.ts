@@ -143,6 +143,7 @@ export type MergeWorkflowStep =
   | "update-main"
   | "merge-ticket-branch"
   | "merge-fix"
+  | "wait-merge-fix"
   | "final-gates"
   | "sync-main-for-push"
   | "push-main"
@@ -234,6 +235,7 @@ export type MergeWorkflowActivities = Pick<
   | "closeTicketActivity"
   | "pushBeadsActivity"
   | "escalateTicketHumanActivity"
+  | "waitForAgentRunCompletionActivity"
 > &
   Pick<typeof agentActivities, "startTicketMergeFixActivity">;
 
@@ -1180,6 +1182,19 @@ async function runMergeFixThenFinalGates(
     steps.push({ step: "merge-fix", ok: mergeFixOk, records: mergeFix.records });
     if (!mergeFixOk) continue;
 
+    const mergeFixWait = await mergeActivities.waitForAgentRunCompletionActivity({
+      sessionName: mergeFix.sessionName,
+      stdoutLogPath: mergeFix.stdoutLogPath,
+      stderrLogPath: mergeFix.stderrLogPath,
+      exitCodePath: mergeFix.exitCodePath,
+    });
+    steps.push({
+      step: "wait-merge-fix",
+      ok: mergeFixWait.completed && mergeFixWait.exitCode === 0,
+      records: mergeFixWait.records,
+    });
+    if (!mergeFixWait.completed || mergeFixWait.exitCode !== 0) continue;
+
     const finalGates = await mergeActivities.runFinalGatesActivity({
       repoRoot: input.repoRoot,
       gates: input.finalGates,
@@ -1546,6 +1561,7 @@ function mergeQueueStepFromLegacy(step: MergeWorkflowStep | null): MergeQueueSte
     case "push-beads":
       return step;
     case "merge-fix":
+    case "wait-merge-fix":
     case "escalate-human":
     case null:
       return "merge-ticket-branch";
