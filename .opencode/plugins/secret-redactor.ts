@@ -1,4 +1,4 @@
-import type { Plugin } from "@opencode-ai/plugin"
+import type { Plugin } from "@opencode-ai/plugin";
 
 const PATTERNS: ReadonlyArray<{ label: string; pattern: RegExp }> = [
   // -- Age secret keys (corrected: handles PQ, H1, etc. variants) --
@@ -20,7 +20,8 @@ const PATTERNS: ReadonlyArray<{ label: string; pattern: RegExp }> = [
   { label: "aws_access_key", pattern: /AKIA[0-9A-Z]{16}/g },
   {
     label: "aws_secret_key",
-    pattern: /(?:aws_secret_access_key|AWS_SECRET_ACCESS_KEY|SecretAccessKey)[=:\s"']+([A-Za-z0-9/+=]{40})/g,
+    pattern:
+      /(?:aws_secret_access_key|AWS_SECRET_ACCESS_KEY|SecretAccessKey)[=:\s"']+([A-Za-z0-9/+=]{40})/g,
   },
 
   // -- AI providers --
@@ -65,7 +66,8 @@ const PATTERNS: ReadonlyArray<{ label: string; pattern: RegExp }> = [
   { label: "bearer_token", pattern: /Bearer\s+[A-Za-z0-9\-._~+/]+=*/g },
   {
     label: "private_key",
-    pattern: /-----BEGIN\s+(?:RSA\s+|EC\s+|ED25519\s+|DSA\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(?:RSA\s+|EC\s+|ED25519\s+|DSA\s+)?PRIVATE\s+KEY-----/g,
+    pattern:
+      /-----BEGIN\s+(?:RSA\s+|EC\s+|ED25519\s+|DSA\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(?:RSA\s+|EC\s+|ED25519\s+|DSA\s+)?PRIVATE\s+KEY-----/g,
   },
 
   // -- Database URLs --
@@ -93,126 +95,124 @@ const PATTERNS: ReadonlyArray<{ label: string; pattern: RegExp }> = [
   // -- Generic env var secrets (last -- most generic) --
   {
     label: "env_secret",
-    pattern: /(?:PASSWORD|PASSWD|SECRET|API_KEY|PRIVATE_KEY|ACCESS_KEY|AUTH_TOKEN|ENCRYPTION_KEY|SIGNING_KEY|DB_PASSWORD|DATABASE_PASSWORD)\s*[=:]\s*["']?([^\s"']{8,})["']?/gi,
+    pattern:
+      /(?:PASSWORD|PASSWD|SECRET|API_KEY|PRIVATE_KEY|ACCESS_KEY|AUTH_TOKEN|ENCRYPTION_KEY|SIGNING_KEY|DB_PASSWORD|DATABASE_PASSWORD)\s*[=:]\s*["']?([^\s"']{8,})["']?/gi,
   },
-]
+];
 
-const REDACT_OUTPUT_TOOLS = ["bash", "read", "grep", "webfetch"]
-const UNREDACT_ARGS_TOOLS = ["bash", "write", "edit"]
-const MIN_SECRET_LENGTH = 8
+const REDACT_OUTPUT_TOOLS = ["bash", "read", "grep", "webfetch"];
+const UNREDACT_ARGS_TOOLS = ["bash", "write", "edit"];
+const MIN_SECRET_LENGTH = 8;
 
 interface Vault {
-  store(label: string, value: string): string
-  scrubText(text: string): string
-  unscrubText(text: string): string
+  store(label: string, value: string): string;
+  scrubText(text: string): string;
+  unscrubText(text: string): string;
 }
 
 function createVault(): Vault {
-  const mapping = new Map<string, string>()
-  let counter = 0
+  const mapping = new Map<string, string>();
+  let counter = 0;
 
   return {
     store(label: string, value: string): string {
-      if (value.length < MIN_SECRET_LENGTH) return value
-      const existing = [...mapping.entries()].find(([, v]) => v === value)
-      if (existing) return existing[0]
-      const token = `__SR_${label.toUpperCase()}_${counter++}__`
-      mapping.set(token, value)
-      return token
+      if (value.length < MIN_SECRET_LENGTH) return value;
+      const existing = [...mapping.entries()].find(([, v]) => v === value);
+      if (existing) return existing[0];
+      const token = `__SR_${label.toUpperCase()}_${counter++}__`;
+      mapping.set(token, value);
+      return token;
     },
     scrubText(text: string): string {
-      let result = text
+      let result = text;
       for (const [token] of mapping) {
-        result = result.replaceAll(token, `[REDACTED:${token}]`)
+        result = result.replaceAll(token, `[REDACTED:${token}]`);
       }
-      return result
+      return result;
     },
     unscrubText(text: string): string {
-      let result = text
+      let result = text;
       for (const [token, value] of mapping) {
-        result = result.replaceAll(token, value)
+        result = result.replaceAll(token, value);
       }
-      return result
+      return result;
     },
-  }
+  };
 }
 
 function detectSecrets(text: string): Array<{ label: string; value: string }> {
-  const results: Array<{ label: string; value: string }> = []
+  const results: Array<{ label: string; value: string }> = [];
   for (const { label, pattern } of PATTERNS) {
-    const regex = new RegExp(pattern.source, pattern.flags)
-    let match: RegExpExecArray | null
-    while ((match = regex.exec(text)) !== null) {
-      const value = match[0]
+    const regex = new RegExp(pattern.source, pattern.flags);
+    let match = regex.exec(text);
+    while (match !== null) {
+      const value = match[0];
       if (value.length >= MIN_SECRET_LENGTH) {
-        results.push({ label, value })
+        results.push({ label, value });
       }
+      match = regex.exec(text);
     }
   }
-  return results
+  return results;
 }
 
 function redactDeep(value: unknown, vault: Vault): unknown {
   if (typeof value === "string") {
-    const detected = detectSecrets(value)
-    let result = value
+    const detected = detectSecrets(value);
+    let result = value;
     for (const secret of detected) {
-      const token = vault.store(secret.label, secret.value)
-      result = result.replaceAll(secret.value, token)
+      const token = vault.store(secret.label, secret.value);
+      result = result.replaceAll(secret.value, token);
     }
-    return result
+    return result;
   }
   if (Array.isArray(value)) {
-    return value.map((item) => redactDeep(item, vault))
+    return value.map((item) => redactDeep(item, vault));
   }
   if (value && typeof value === "object") {
-    const result: Record<string, unknown> = {}
+    const result: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(value)) {
-      result[key] = redactDeep(val, vault)
+      result[key] = redactDeep(val, vault);
     }
-    return result
+    return result;
   }
-  return value
+  return value;
 }
 
 function unredactDeep(value: unknown, vault: Vault): unknown {
-  if (typeof value === "string") return vault.unscrubText(value)
-  if (Array.isArray(value)) return value.map((item) => unredactDeep(item, vault))
+  if (typeof value === "string") return vault.unscrubText(value);
+  if (Array.isArray(value)) return value.map((item) => unredactDeep(item, vault));
   if (value && typeof value === "object") {
-    const result: Record<string, unknown> = {}
+    const result: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(value)) {
-      result[key] = unredactDeep(val, vault)
+      result[key] = unredactDeep(val, vault);
     }
-    return result
+    return result;
   }
-  return value
+  return value;
 }
 
 export default (async () => {
-  const vaults = new Map<string, Vault>()
+  const vaults = new Map<string, Vault>();
 
   function getVault(sessionId?: string): Vault {
-    const key = sessionId || "default"
-    if (!vaults.has(key)) vaults.set(key, createVault())
-    return vaults.get(key)!
+    const key = sessionId || "default";
+    if (!vaults.has(key)) vaults.set(key, createVault());
+    const vault = vaults.get(key);
+    if (!vault) throw new Error("vault missing after set");
+    return vault;
   }
 
   return {
     "tool.execute.after": async (input, output) => {
-      if (!REDACT_OUTPUT_TOOLS.includes(input.tool)) return
-      const sessionKey = (output as any).metadata?.sessionID || "default"
-      const vault = getVault(sessionKey)
-      const before = output.output
-      output.output = redactDeep(output.output, vault) as string
-      if (before !== output.output) {
-        console.log(`[secret-redactor] Redacted secrets in ${input.tool} output`)
-      }
+      if (!REDACT_OUTPUT_TOOLS.includes(input.tool)) return;
+      const vault = getVault(input.sessionID);
+      output.output = redactDeep(output.output, vault) as string;
     },
     "tool.execute.before": async (input, output) => {
-      if (!UNREDACT_ARGS_TOOLS.includes(input.tool)) return
-      const sessionKey = (output as any).metadata?.sessionID || "default"
-      const vault = getVault(sessionKey)
-      output.args = unredactDeep(output.args, vault) as typeof output.args
+      if (!UNREDACT_ARGS_TOOLS.includes(input.tool)) return;
+      const vault = getVault(input.sessionID);
+      output.args = unredactDeep(output.args, vault) as typeof output.args;
     },
-  }
-}) satisfies Plugin
+  };
+}) satisfies Plugin;

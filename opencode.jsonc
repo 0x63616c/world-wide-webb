@@ -75,8 +75,5 @@
       "prompt": "{file:./.opencode/prompts/code-review.txt}"
     }
   },
-  "instructions": [
-    "CLAUDE.md",
-    "README.md"
-  ]
+    "instructions": ["CLAUDE.md", "README.md"]
 }
