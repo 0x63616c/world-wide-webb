@@ -12,7 +12,7 @@
 - Dev stack: `bun run dev`.
 - Tests: `bun run test`.
 - Typecheck: `bun run typecheck`.
-- Lint: `bunx biome check .`.
+- Lint: `bun run lint`.
 - Dead code: `bun run knip`.
 
 ## Current Shape
@@ -42,7 +42,7 @@
 ## Infra
 
 - Push to `main` triggers CI and deploy.
-- CI builds only changed product images.
+- CI/deploy is product-aware: per-product path filters build only changed product images plus shared-package dependents.
 - Pulumi digest pins use `wwwinfra:imageDigests.*`.
 - Cron jobs live in `infra/src/crons.ts`.
 
