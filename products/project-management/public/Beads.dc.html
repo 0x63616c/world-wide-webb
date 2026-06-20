@@ -425,6 +425,25 @@
             </div>
           </sc-if>
 
+          <div style="display:flex; flex-direction:column; gap:10px; padding:13px; background:var(--nest); border:1px solid var(--hair); border-radius:13px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+              <div style="display:flex; flex-direction:column; gap:4px;">
+                <span class="cap">Close command preview</span>
+                <span style="font-size:12px; color:var(--ink-3);">Copy only. This never runs bd.</span>
+              </div>
+              <span style="font-size:11px; color:var(--acc-line); font-family:var(--ui);">{{ selected.closeCommandCopyLabel }}</span>
+            </div>
+            <label style="display:flex; flex-direction:column; gap:7px;">
+              <span class="mono" style="font-size:11px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em;">Reason</span>
+              <textarea class="bd-input" value="{{ selected.closeReason }}" onInput="{{ selected.onCloseReasonInput }}" rows="3" style="width:100%; box-sizing:border-box; resize:vertical; min-height:76px; padding:10px 12px; background:#050505; border:1px solid var(--hair); border-radius:10px; color:var(--ink); font-size:13px; line-height:1.45; font-family:var(--ui);"></textarea>
+            </label>
+            <button class="bd-terminal-copy mono" onClick="{{ selected.copyCloseCommand }}" title="Copy bd close command">
+              <span style="flex:0 0 auto; color:var(--acc-line);">$</span>
+              <code style="flex:1 1 auto; min-width:0; font-size:11px; color:inherit; background:transparent; border:none; padding:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ selected.closeCommand }}</code>
+              <span style="flex:0 0 auto; font-size:11px; color:var(--acc-line); font-family:var(--ui);">Copy</span>
+            </button>
+          </div>
+
           <sc-if value="{{ selected.showDirectEdit }}">
             <div style="display:flex; flex-direction:column; gap:9px;">
               <span class="cap">Status</span>
@@ -714,6 +733,7 @@ class Component extends DCLogic {
     workflowQueueFilter: [],
     workflowControlStatus: '',
     copiedTarget: null,
+    closeReasons: {},
     loaded: false,
     lastSync: null,
     now: Date.now()
@@ -861,6 +881,27 @@ class Component extends DCLogic {
     if (!path) return '#';
     if (/^https?:\/\//.test(path)) return path;
     return '/api/workflow-log?path=' + encodeURIComponent(path);
+  }
+
+  shellQuote(value) {
+    return "'" + String(value).replace(/'/g, "'\"'\"'") + "'";
+  }
+
+  defaultCloseReason(issue) {
+    return 'Completed: ' + issue.title;
+  }
+
+  closeReasonFor(issue) {
+    const saved = this.state.closeReasons[issue.id];
+    return typeof saved === 'string' ? saved : this.defaultCloseReason(issue);
+  }
+
+  setCloseReason(issueId, reason) {
+    this.setState({ closeReasons: { ...this.state.closeReasons, [issueId]: reason } });
+  }
+
+  closeCommandFor(issue) {
+    return 'bd close ' + this.shellQuote(issue.id) + ' --reason ' + this.shellQuote(this.closeReasonFor(issue));
   }
 
   workflowAction(ticketId, action) {
@@ -1212,6 +1253,8 @@ class Component extends DCLogic {
         text: comment.text || '',
         createdLabel: comment.created ? this.fmtDate(comment.created) : 'unknown time'
       })).filter((comment) => comment.text.trim());
+      const closeReason = this.closeReasonFor(sel);
+      const closeCommand = this.closeCommandFor(sel);
       const wf = workflowIssue(sel.id);
       const workflowLinks = wf ? [
         ...(wf.logLinks || []).map((href) => ({ label: 'log', href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() })),
@@ -1225,6 +1268,11 @@ class Component extends DCLogic {
       selected = {
         id: sel.id, idLabel: sel.id.toUpperCase(), title: sel.title,
         copyTicketId: () => this.copyText(sel.id, 'ticket-id'), idCopied: st.copiedTarget === 'ticket-id',
+        closeReason,
+        closeCommand,
+        onCloseReasonInput: (e) => this.setCloseReason(sel.id, e.target.value),
+        copyCloseCommand: () => this.copyText(closeCommand, 'close-command'),
+        closeCommandCopyLabel: st.copiedTarget === 'close-command' ? 'Copied' : 'Preview',
         backdropAnim: st.detailClosing ? 'bdFadeOut .18s ease forwards' : 'bdFadeIn .18s ease',
         drawerAnim: st.detailClosing ? 'bdDrawerOut .19s cubic-bezier(.4,0,1,1) forwards' : 'bdDrawerIn .22s cubic-bezier(.16,1,.3,1)',
         typeLabel: tm.label, typeStyle: this.badge(tm),

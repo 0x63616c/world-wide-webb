@@ -77,6 +77,37 @@ describe("Beads detail template", () => {
     expect(drawer).not.toContain("Copy tmux</button>");
   });
 
+  it("renders a copy-only close command preview with editable reason", async () => {
+    const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
+    const drawerStart = html.indexOf(
+      "<!-- ===================== DETAIL DRAWER ===================== -->",
+    );
+    const drawerEnd = html.indexOf(
+      "<!-- ===================== NEW ISSUE MODAL ===================== -->",
+    );
+    const drawer = html.slice(drawerStart, drawerEnd);
+
+    expect(drawer).toContain("Close command preview");
+    expect(drawer).toContain("Copy only. This never runs bd.");
+    expect(drawer).toContain("{{ selected.closeReason }}");
+    expect(drawer).toContain("{{ selected.onCloseReasonInput }}");
+    expect(drawer).toContain("{{ selected.closeCommand }}");
+    expect(drawer).toContain("{{ selected.copyCloseCommand }}");
+    expect(html).toContain("defaultCloseReason(issue)");
+    expect(html).toContain("return 'Completed: ' + issue.title;");
+    expect(html).toContain("return 'bd close ' + this.shellQuote(issue.id)");
+  });
+
+  it("copies the close command without invoking workflow mutations", async () => {
+    const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
+
+    expect(html).toContain("copyCloseCommand: () => this.copyText(closeCommand, 'close-command')");
+    expect(html).toContain("closeCommandCopyLabel");
+    expect(html).toContain("copiedTarget: null");
+    expect(html).not.toContain("workflowAction(sel.id, 'close'");
+    expect(html).not.toContain("action: 'close'");
+  });
+
   it("defines copied and failed copy states without throwing", async () => {
     const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
 
