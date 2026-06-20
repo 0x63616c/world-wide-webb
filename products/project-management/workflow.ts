@@ -63,8 +63,15 @@ export type WorkflowDashboardIssue = {
   readonly openCodeSessionTitle: string | null;
   readonly logLinks: readonly string[];
   readonly promptLinks: readonly string[];
+  readonly temporalLink: WorkflowDashboardTemporalLink | null;
   readonly lastResult: string | null;
   readonly exhaustion: WorkflowDashboardExhaustion | null;
+};
+
+export type WorkflowDashboardTemporalLink = {
+  readonly workflowId: string;
+  readonly runId: string | null;
+  readonly href: string;
 };
 
 export type WorkflowDashboardArtifactTexts = Readonly<Record<string, string>>;
@@ -166,6 +173,7 @@ function workflowDashboardIssue(
     ...linksFromMetadata(metadata, ["ticket_prompt", "ticket_prompt_path"]),
     ...linksMatching(text, /\S+\.prompt\.md\b/g),
   ]);
+  const temporalLink = temporalLinkForIssue(issue, metadata);
 
   return {
     id: issue.id,
@@ -182,6 +190,7 @@ function workflowDashboardIssue(
     openCodeSessionTitle: openCode.title,
     logLinks,
     promptLinks,
+    temporalLink,
     lastResult,
     exhaustion: exhaustionForIssue({
       issue,
@@ -193,6 +202,62 @@ function workflowDashboardIssue(
       artifactTexts,
     }),
   };
+}
+
+function temporalLinkForIssue(
+  issue: Pick<WorkflowDashboardIssueInput, "id">,
+  metadata: Record<string, unknown>,
+): WorkflowDashboardTemporalLink | null {
+  const explicitHref = stringMeta(metadata, "ticket_temporal_url");
+  if (explicitHref) {
+    return {
+      workflowId: stringMeta(metadata, "ticket_temporal_workflow_id") ?? `ticket_${issue.id}`,
+      runId: stringMeta(metadata, "ticket_temporal_run_id"),
+      href: explicitHref,
+    };
+  }
+
+  if (!hasTicketWorkflowMetadata(metadata)) return null;
+
+  const workflowId =
+    stringMeta(metadata, "ticket_temporal_workflow_id") ??
+    stringMeta(metadata, "ticket_workflow_id") ??
+    `ticket_${issue.id}`;
+  const runId =
+    stringMeta(metadata, "ticket_temporal_run_id") ??
+    stringMeta(metadata, "ticket_workflow_run_id");
+  return {
+    workflowId,
+    runId,
+    href: temporalWorkflowHref("project-management", workflowId, runId),
+  };
+}
+
+function hasTicketWorkflowMetadata(metadata: Record<string, unknown>): boolean {
+  return [
+    TICKET_METADATA_KEYS.phase,
+    TICKET_METADATA_KEYS.attempts,
+    TICKET_METADATA_KEYS.tmuxSession,
+    TICKET_METADATA_KEYS.openCodeSession,
+    TICKET_METADATA_KEYS.lastResult,
+    TICKET_METADATA_KEYS.branch,
+    TICKET_METADATA_KEYS.worktree,
+    TICKET_METADATA_KEYS.promptPath,
+    TICKET_METADATA_KEYS.stdoutLog,
+    TICKET_METADATA_KEYS.stderrLog,
+    "ticket_temporal_workflow_id",
+    "ticket_workflow_id",
+    "ticket_temporal_run_id",
+    "ticket_workflow_run_id",
+  ].some((key) => stringMeta(metadata, key) !== null || numberMeta(metadata, key) !== null);
+}
+
+function temporalWorkflowHref(namespace: string, workflowId: string, runId: string | null): string {
+  const encodedNamespace = encodeURIComponent(namespace);
+  const encodedWorkflowId = encodeURIComponent(workflowId);
+  if (!runId)
+    return `http://127.0.0.1:8233/namespaces/${encodedNamespace}/workflows/${encodedWorkflowId}`;
+  return `http://127.0.0.1:8233/namespaces/${encodedNamespace}/workflows/${encodedWorkflowId}/${encodeURIComponent(runId)}/history`;
 }
 
 function exhaustionForIssue(input: {

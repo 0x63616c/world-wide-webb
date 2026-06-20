@@ -99,6 +99,26 @@ describe("Beads detail template", () => {
     expect(drawer).not.toContain("Copy tmux</button>");
   });
 
+  it("renders a top-level Temporal action only when a workflow deep link exists", async () => {
+    const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
+    const drawerStart = html.indexOf(
+      "<!-- ===================== DETAIL DRAWER ===================== -->",
+    );
+    const drawerEnd = html.indexOf(
+      "<!-- ===================== NEW ISSUE MODAL ===================== -->",
+    );
+    const drawer = html.slice(drawerStart, drawerEnd);
+
+    expect(drawer).toContain("{{ selected.hasTemporalLink }}");
+    expect(drawer).toContain('href="{{ selected.temporalHref }}"');
+    expect(drawer).toContain("Open in Temporal");
+    expect(drawer.indexOf("Open in Temporal")).toBeLessThan(
+      drawer.indexOf("{{ selected.tmuxAttachCommand }}"),
+    );
+    expect(html).toContain("const temporalLink = wf && wf.temporalLink ? wf.temporalLink : null;");
+    expect(html).toContain("hasTemporalLink: !!temporalLink");
+  });
+
   it("renders a copy-only close command preview with editable reason", async () => {
     const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
     const drawerStart = html.indexOf(
@@ -214,6 +234,11 @@ describe("workflowDashboardForIssues", () => {
         openCodeSessionTitle: "Builder run",
         logLinks: ["/cache/logs/ticket_www-build_builder.stdout.log"],
         promptLinks: ["/cache/logs/ticket_www-build_builder.prompt.md"],
+        temporalLink: {
+          workflowId: "ticket_www-build",
+          runId: null,
+          href: "http://127.0.0.1:8233/namespaces/project-management/workflows/ticket_www-build",
+        },
         lastResult: "builder-timeout",
       }),
     );
@@ -318,6 +343,33 @@ describe("workflowDashboardForIssues", () => {
       ["human", []],
       ["shipped", []],
     ]);
+  });
+
+  it("builds Temporal deep links from ticket workflow metadata", () => {
+    const dashboard = workflowDashboardForIssues([
+      workflowIssue("www-run", "ready", ["ticket-ready"], {
+        metadata: {
+          ticket_phase: "build",
+          ticket_temporal_workflow_id: "ticket_www-run_custom",
+          ticket_temporal_run_id: "run_123",
+        },
+      }),
+      workflowIssue("www-no-metadata", "ready", ["ticket-ready"]),
+    ]);
+
+    expect(dashboard.columns[1].tickets[0]).toEqual(
+      expect.objectContaining({ id: "www-no-metadata", temporalLink: null }),
+    );
+    expect(dashboard.columns[2].tickets[0]).toEqual(
+      expect.objectContaining({
+        id: "www-run",
+        temporalLink: {
+          workflowId: "ticket_www-run_custom",
+          runId: "run_123",
+          href: "http://127.0.0.1:8233/namespaces/project-management/workflows/ticket_www-run_custom/run_123/history",
+        },
+      }),
+    );
   });
 
   it("filters workflow columns with all-only, multi-select, deselect, and stable ordering", () => {
