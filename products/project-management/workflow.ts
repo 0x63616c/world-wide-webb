@@ -30,7 +30,7 @@ export const WORKFLOW_DASHBOARD_QUEUES = [
   { id: "queued", label: TICKET_WORKFLOW_LABELS.queued, title: "Queued" },
   { id: "ready", label: TICKET_WORKFLOW_LABELS.ready, title: "Builder" },
   { id: "review", label: TICKET_WORKFLOW_LABELS.review, title: "Review" },
-  { id: "verified", label: TICKET_WORKFLOW_LABELS.verified, title: "Verified" },
+  { id: "verified", label: TICKET_WORKFLOW_LABELS.verified, title: "Merge Queue" },
   { id: "human", label: TICKET_WORKFLOW_LABELS.human, title: "Human" },
   { id: "shipped", label: TICKET_WORKFLOW_LABELS.shipped, title: "Shipped" },
 ] as const;

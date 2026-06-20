@@ -1186,7 +1186,7 @@ class Component extends DCLogic {
       }
       return null;
     };
-    const workflowAccent = { backlog: '#f4c063', queued: '#8a8a8a', ready: '#0070f3', review: '#3fb950', verified: '#a371f7', human: '#f85149', shipped: '#a371f7' };
+    const workflowAccent = { backlog: '#6e6e6e', queued: '#f4c063', ready: '#0070f3', review: '#3fb950', verified: '#a371f7', human: '#f85149', shipped: '#3fb950' };
     const epicChildSet = (() => {
       if (epFilter === 'all') return null;
       const set = new Set();
@@ -1226,7 +1226,7 @@ class Component extends DCLogic {
           autoLabel: !!it.automated ? 'Auto' : '',
           autoStyle: !!it.automated ? { display: 'inline-flex', alignItems: 'center', justifyContent: 'center' } : { display: 'none' },
           hasWorkflow: !!wf,
-          phaseLabel: wf ? 'phase ' + wf.phase : '',
+          phaseLabel: wf ? wf.phase : '',
           hasActiveRun: !!(wf && wf.activeRun),
           activeRunLabel: wf && wf.activeRun ? wf.activeRun + ' running' : '',
           runStyle: { display: 'inline-flex', alignItems: 'center', padding: '3px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 600, color: runColor, background: 'rgba(255,255,255,.04)', border: '1px solid ' + runColor },
@@ -1354,7 +1354,7 @@ class Component extends DCLogic {
         createdBy: sel.createdBy || '-', hasCreatedBy: !!(sel.createdBy && sel.createdBy.trim()),
         statusOptions, prioOptions, showDirectEdit: !wf,
         hasWorkflowDetails: !!wf,
-        workflowPhaseLabel: wf ? 'phase ' + wf.phase : '',
+        workflowPhaseLabel: wf ? wf.phase : '',
         hasTmux: !!(wf && wf.tmuxAttachCommand), tmuxAttachCommand: wf ? wf.tmuxAttachCommand : '',
         copyTmux: wf ? () => this.copyText(wf.tmuxAttachCommand || '', 'tmux') : () => {},
         tmuxCopyLabel: st.copiedTarget === 'tmux' ? 'Copied' : 'Copy', tmuxCopied: st.copiedTarget === 'tmux',
