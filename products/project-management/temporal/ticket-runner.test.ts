@@ -31,6 +31,7 @@ describe("runTicketWorkflowRunner", () => {
       ["write-builder-start-metadata", true],
       ["wait-builder", true],
       ["resolve-builder-session", true],
+      ["capture-builder-usage", true],
       ["resolve-commit", true],
       ["write-builder-completion-metadata", true],
       ["verify-builder-handoff", true],
@@ -40,6 +41,7 @@ describe("runTicketWorkflowRunner", () => {
       ["write-reviewer-start-metadata", true],
       ["wait-reviewer", true],
       ["resolve-reviewer-session", true],
+      ["capture-reviewer-usage", true],
       ["verify-reviewer-handoff", true],
       ["write-reviewer-completion-metadata", true],
       ["merge", true],
@@ -52,6 +54,7 @@ describe("runTicketWorkflowRunner", () => {
       "write-metadata:builder-started:build:1:ticket_www-proof_build_1:/logs/build.prompt.md:/logs/build.stdout.log:/logs/build.stderr.log",
       "wait:ticket_www-proof_build_1",
       "resolve-session:ticket-builder:1000",
+      "capture-usage:builder:ses_builder",
       "resolve-head",
       "write-metadata:builder-passed:review:1:ticket_www-proof_build_1:/logs/build.prompt.md:/logs/build.stdout.log:/logs/build.stderr.log",
       "verify-builder-handoff",
@@ -61,6 +64,7 @@ describe("runTicketWorkflowRunner", () => {
       "write-metadata:reviewer-started:review:1:ticket_www-proof_review_1:/logs/review.prompt.md:/logs/review.stdout.log:/logs/review.stderr.log",
       "wait:ticket_www-proof_review_1",
       "resolve-session:ticket-reviewer:2000",
+      "capture-usage:reviewer:ses_reviewer",
       "verify-reviewer-handoff",
       "write-metadata:reviewer-verified:verified:1:ticket_www-proof_review_1:/logs/review.prompt.md:/logs/review.stdout.log:/logs/review.stderr.log",
       "update-main",
@@ -296,11 +300,30 @@ function fakeRunnerActivities(
       },
       resolveOpenCodeSessionActivity: async (input) => {
         calls.push(`resolve-session:${input.agent}:${input.startedAfterMs}`);
+        const sessionId = input.agent === "ticket-builder" ? "ses_builder" : input.agent === "ticket-reviewer" ? "ses_reviewer" : "ses_mergefix";
         return {
           ok: true,
-          sessionId: input.agent === "ticket-builder" ? "ses_builder" : "ses_reviewer",
-          title: input.agent === "ticket-builder" ? "Proof ticket" : "Review proof ticket",
+          sessionId,
+          title: input.agent === "ticket-builder" ? "Proof ticket" : input.agent === "ticket-reviewer" ? "Review proof ticket" : "Merge fix proof ticket",
           records: [],
+        };
+      },
+      captureOpenCodeUsageActivity: async (input) => {
+        calls.push(`capture-usage:${input.role}:${input.opencodeSessionId}`);
+        return {
+          ok: true,
+          usage: {
+            sessionId: input.opencodeSessionId ?? "",
+            title: null,
+            agent: null,
+            model: null,
+            costUsd: 0,
+            tokensInput: 0,
+            tokensOutput: 0,
+            tokensReasoning: 0,
+            tokensCacheRead: 0,
+            tokensCacheWrite: 0,
+          },
         };
       },
       writeTicketWorkflowMetadataActivity: async (input) => {

@@ -49,6 +49,9 @@ describe("runSerializedMergeWorkflow", () => {
       "merge-ticket-branch",
       "final-gates",
       "merge-fix",
+      "wait-merge-fix",
+      "resolve-merge-fix-session",
+      "capture-merge-fix-usage",
       "final-gates",
       "escalate-human",
     ]);
@@ -105,6 +108,9 @@ describe("runSerializedMergeWorkflow", () => {
       "update-main",
       "merge-ticket-branch",
       "merge-fix",
+      "wait-merge-fix",
+      "resolve-merge-fix-session",
+      "capture-merge-fix-usage",
       "final-gates",
       "sync-main-for-push",
       "push-main",
@@ -115,6 +121,9 @@ describe("runSerializedMergeWorkflow", () => {
       ["update-main", true],
       ["merge-ticket-branch", false],
       ["merge-fix", true],
+      ["wait-merge-fix", true],
+      ["resolve-merge-fix-session", true],
+      ["capture-merge-fix-usage", true],
       ["final-gates", true],
       ["sync-main-for-push", true],
       ["push-main", true],
@@ -140,6 +149,9 @@ describe("runSerializedMergeWorkflow", () => {
       "merge-ticket-branch",
       "final-gates",
       "merge-fix",
+      "wait-merge-fix",
+      "resolve-merge-fix-session",
+      "capture-merge-fix-usage",
       "final-gates",
       "sync-main-for-push",
       "push-main",
@@ -169,8 +181,14 @@ describe("runSerializedMergeWorkflow", () => {
       "merge-ticket-branch",
       "final-gates",
       "merge-fix",
+      "wait-merge-fix",
+      "resolve-merge-fix-session",
+      "capture-merge-fix-usage",
       "final-gates",
       "merge-fix",
+      "wait-merge-fix",
+      "resolve-merge-fix-session",
+      "capture-merge-fix-usage",
       "final-gates",
       "escalate-human",
     ]);
@@ -179,8 +197,14 @@ describe("runSerializedMergeWorkflow", () => {
       ["merge-ticket-branch", true],
       ["final-gates", false],
       ["merge-fix", true],
+      ["wait-merge-fix", true],
+      ["resolve-merge-fix-session", true],
+      ["capture-merge-fix-usage", true],
       ["final-gates", false],
       ["merge-fix", true],
+      ["wait-merge-fix", true],
+      ["resolve-merge-fix-session", true],
+      ["capture-merge-fix-usage", true],
       ["final-gates", false],
       ["escalate-human", true],
     ]);
@@ -624,6 +648,32 @@ function fakeMergeQueueActivities(
         model: "openai/gpt-5.5",
         promptPath: "/tmp/prompt",
       }),
+      waitForAgentRunCompletionActivity: async (input) => {
+        calls.push("wait-merge-fix");
+        return { sessionName: input.sessionName, completed: true, exitCode: 0, stdout: "", stderr: "", records: [] };
+      },
+      resolveOpenCodeSessionActivity: async () => {
+        calls.push("resolve-merge-fix-session");
+        return { ok: true, sessionId: "ses_mergefix", title: "Merge fix", records: [] };
+      },
+      captureOpenCodeUsageActivity: async () => {
+        calls.push("capture-merge-fix-usage");
+        return {
+          ok: true,
+          usage: {
+            sessionId: "ses_mergefix",
+            title: null,
+            agent: null,
+            model: null,
+            costUsd: 0,
+            tokensInput: 0,
+            tokensOutput: 0,
+            tokensReasoning: 0,
+            tokensCacheRead: 0,
+            tokensCacheWrite: 0,
+          },
+        };
+      },
     },
   };
 }
@@ -703,6 +753,32 @@ function fakeMergeActivities(
           agent: "ticket-mergefix",
           model: "openai/gpt-5.5",
           promptPath: "/tmp/mergefix.prompt.md",
+        };
+      },
+      waitForAgentRunCompletionActivity: async (input) => {
+        calls.push("wait-merge-fix");
+        return { sessionName: input.sessionName, completed: true, exitCode: 0, stdout: "", stderr: "", records: [] };
+      },
+      resolveOpenCodeSessionActivity: async () => {
+        calls.push("resolve-merge-fix-session");
+        return { ok: true, sessionId: "ses_mergefix", title: "Merge fix", records: [] };
+      },
+      captureOpenCodeUsageActivity: async () => {
+        calls.push("capture-merge-fix-usage");
+        return {
+          ok: true,
+          usage: {
+            sessionId: "ses_mergefix",
+            title: null,
+            agent: null,
+            model: null,
+            costUsd: 0,
+            tokensInput: 0,
+            tokensOutput: 0,
+            tokensReasoning: 0,
+            tokensCacheRead: 0,
+            tokensCacheWrite: 0,
+          },
         };
       },
       escalateTicketHumanActivity: async (input) => run("escalate-human", input.ticketId),

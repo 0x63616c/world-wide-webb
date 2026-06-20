@@ -15,6 +15,7 @@ import { mapIssues, type RawIssue } from "./map";
 import { defaultRuntimeLogRoot } from "./temporal/command-activities";
 import { type WorkflowDashboardArtifactTexts, workflowDashboardForIssues } from "./workflow";
 import { workflowMetricsForIssues } from "./workflow-metrics";
+import { loadWorkflowUsageSummaries, type WorkflowUsageSummary } from "./opencode-usage";
 
 export type Snapshot = {
   issues: RawIssue[];
@@ -31,6 +32,9 @@ export type ServerOptions = {
   publicDir: string;
   workflowLogRoots: readonly string[];
   runMigrations: () => Promise<void>;
+  workflowUsageLoader: (
+    ticketIds: readonly string[],
+  ) => Promise<Record<string, WorkflowUsageSummary>>;
 };
 
 export function defaultServerOptions(): ServerOptions {
@@ -45,6 +49,7 @@ export function defaultServerOptions(): ServerOptions {
       join(import.meta.dir, "..", "..", ".tickets", "logs"),
     ],
     runMigrations: runProjectManagementMigrations,
+    workflowUsageLoader: loadWorkflowUsageSummaries,
   };
 }
 
@@ -162,6 +167,9 @@ export async function serveStatic(pathname: string, publicDir: string): Promise<
 export type RequestHandlerOptions = {
   snapshot: Snapshot;
   workflowLogRoots: readonly string[];
+  workflowUsageLoader?: (
+    ticketIds: readonly string[],
+  ) => Promise<Record<string, WorkflowUsageSummary>>;
   syncFromRemote: () => Promise<void>;
   serveStatic: (pathname: string) => Promise<Response>;
 };
@@ -179,9 +187,13 @@ export function createRequestHandler(
         issues,
         options.workflowLogRoots,
       );
+      const usage = await (options.workflowUsageLoader ?? emptyWorkflowUsage)(
+        issues.map((issue) => issue.id),
+      );
       return json({
         issues,
         workflow: workflowDashboardForIssues(issues, workflowArtifactTexts),
+        workflowUsage: usage,
         metrics: workflowMetricsForIssues(issues),
         meta: {
           lastSyncAt: options.snapshot.lastSyncAt,
@@ -210,6 +222,10 @@ export function createRequestHandler(
 
     return options.serveStatic(p);
   };
+}
+
+async function emptyWorkflowUsage(): Promise<Record<string, WorkflowUsageSummary>> {
+  return {};
 }
 
 async function collectWorkflowArtifactTexts(
@@ -314,6 +330,7 @@ export async function startServer(options = defaultServerOptions()): Promise<voi
   const handler = createRequestHandler({
     snapshot,
     workflowLogRoots: options.workflowLogRoots,
+    workflowUsageLoader: options.workflowUsageLoader,
     syncFromRemote: () => syncFromRemote(snapshot, options.repoRoot),
     serveStatic: (pathname) => serveStatic(pathname, options.publicDir),
   });

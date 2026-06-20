@@ -21,6 +21,11 @@ import {
   type TicketArtifactCleanupAction,
   type TicketArtifactCleanupPlan,
 } from "../ticket-artifact-cleanup";
+import {
+  captureOpenCodeUsageActivitySafe,
+  type CaptureOpenCodeUsageInput,
+  type CaptureOpenCodeUsageResult,
+} from "../opencode-usage";
 
 export const TICKET_WORKTREE_ROOT = ".worktrees/tickets";
 
@@ -452,6 +457,12 @@ export async function resolveOpenCodeSessionActivity(
   input: ResolveOpenCodeSessionInput,
 ): Promise<ResolveOpenCodeSessionResult> {
   return resolveOpenCodeSession(input, runCommand);
+}
+
+export async function captureOpenCodeUsageActivity(
+  input: CaptureOpenCodeUsageInput,
+): Promise<CaptureOpenCodeUsageResult> {
+  return captureOpenCodeUsageActivitySafe(input, runCommand);
 }
 
 export async function pushMainActivity(input: PushMainInput): Promise<MergeActivityResult> {

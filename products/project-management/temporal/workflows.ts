@@ -143,6 +143,9 @@ export type MergeWorkflowStep =
   | "update-main"
   | "merge-ticket-branch"
   | "merge-fix"
+  | "wait-merge-fix"
+  | "resolve-merge-fix-session"
+  | "capture-merge-fix-usage"
   | "final-gates"
   | "sync-main-for-push"
   | "push-main"
@@ -193,6 +196,7 @@ export type TicketWorkflowRunnerStep =
   | "wait-builder"
   | "resolve-commit"
   | "resolve-builder-session"
+  | "capture-builder-usage"
   | "write-builder-completion-metadata"
   | "verify-builder-handoff"
   | "validate-builder"
@@ -201,6 +205,7 @@ export type TicketWorkflowRunnerStep =
   | "write-reviewer-start-metadata"
   | "wait-reviewer"
   | "resolve-reviewer-session"
+  | "capture-reviewer-usage"
   | "write-reviewer-completion-metadata"
   | "verify-reviewer-handoff"
   | "retry-requested"
@@ -234,6 +239,9 @@ export type MergeWorkflowActivities = Pick<
   | "closeTicketActivity"
   | "pushBeadsActivity"
   | "escalateTicketHumanActivity"
+  | "waitForAgentRunCompletionActivity"
+  | "resolveOpenCodeSessionActivity"
+  | "captureOpenCodeUsageActivity"
 > &
   Pick<typeof agentActivities, "startTicketMergeFixActivity">;
 
@@ -254,6 +262,7 @@ export type TicketWorkflowRunnerActivities = Pick<
   | "waitForAgentRunCompletionActivity"
   | "resolveGitHeadActivity"
   | "resolveOpenCodeSessionActivity"
+  | "captureOpenCodeUsageActivity"
   | "writeTicketWorkflowMetadataActivity"
   | "writeTicketCommentActivity"
   | "moveTicketToReviewActivity"
@@ -834,6 +843,21 @@ export async function runTicketWorkflowRunner(
       },
     });
     steps.push({ step: "wait-builder", ok: builderWait.completed && builderWait.exitCode === 0 });
+    const builderOpenCodeSession = await runnerActivities.resolveOpenCodeSessionActivity({
+      worktreePath: worktree.worktreePath,
+      agent: "ticket-builder",
+      startedAfterMs: builder.startedAtMs,
+    });
+    steps.push({ step: "resolve-builder-session", ok: builderOpenCodeSession.ok });
+    if (builderOpenCodeSession.ok) builderOpenCodeSessionId = builderOpenCodeSession.sessionId;
+
+    const builderUsage = await runnerActivities.captureOpenCodeUsageActivity({
+      ticketId: input.ticketId,
+      role: "builder",
+      attempt: builderAttempt,
+      opencodeSessionId: builderOpenCodeSession.sessionId,
+    });
+    steps.push({ step: "capture-builder-usage", ok: builderUsage.ok });
     if (!builderWait.completed || builderWait.exitCode !== 0) {
       await runnerActivities.writeTicketWorkflowMetadataActivity({
         ticketId: input.ticketId,
@@ -844,19 +868,15 @@ export async function runTicketWorkflowRunner(
           branch: worktree.branchName,
           worktreePath: worktree.worktreePath,
           run: builder,
+          openCodeSession: formatOpenCodeSession(
+            builderOpenCodeSession.title,
+            builderOpenCodeSession.sessionId,
+          ),
           lastResult: builderWait.completed ? "builder-failed" : "builder-timeout",
         }),
       });
       continue;
     }
-
-    const builderOpenCodeSession = await runnerActivities.resolveOpenCodeSessionActivity({
-      worktreePath: worktree.worktreePath,
-      agent: "ticket-builder",
-      startedAfterMs: builder.startedAtMs,
-    });
-    steps.push({ step: "resolve-builder-session", ok: builderOpenCodeSession.ok });
-    if (builderOpenCodeSession.ok) builderOpenCodeSessionId = builderOpenCodeSession.sessionId;
 
     const head = await runnerActivities.resolveGitHeadActivity({
       repoRoot: worktree.worktreePath,
@@ -988,6 +1008,21 @@ export async function runTicketWorkflowRunner(
         ok: reviewerWait.completed && reviewerWait.exitCode === 0,
       });
       if (!reviewerWait.completed || reviewerWait.exitCode !== 0) {
+        const reviewerOpenCodeSession = await runnerActivities.resolveOpenCodeSessionActivity({
+          worktreePath: worktree.worktreePath,
+          agent: "ticket-reviewer",
+          startedAfterMs: reviewer.startedAtMs,
+        });
+        steps.push({ step: "resolve-reviewer-session", ok: reviewerOpenCodeSession.ok });
+        if (reviewerOpenCodeSession.ok) reviewerOpenCodeSessionId = reviewerOpenCodeSession.sessionId;
+
+        const reviewerUsage = await runnerActivities.captureOpenCodeUsageActivity({
+          ticketId: input.ticketId,
+          role: "reviewer",
+          attempt: reviewerAttempt,
+          opencodeSessionId: reviewerOpenCodeSession.sessionId,
+        });
+        steps.push({ step: "capture-reviewer-usage", ok: reviewerUsage.ok });
         await runnerActivities.writeTicketWorkflowMetadataActivity({
           ticketId: input.ticketId,
           repoRoot: config.repoRoot,
@@ -998,6 +1033,10 @@ export async function runTicketWorkflowRunner(
             worktreePath: worktree.worktreePath,
             run: reviewer,
             commit: head.commitSha,
+            openCodeSession: formatOpenCodeSession(
+              reviewerOpenCodeSession.title,
+              reviewerOpenCodeSession.sessionId,
+            ),
             lastResult: reviewerWait.completed ? "reviewer-failed" : "reviewer-timeout",
           }),
         });
@@ -1011,6 +1050,14 @@ export async function runTicketWorkflowRunner(
       });
       steps.push({ step: "resolve-reviewer-session", ok: reviewerOpenCodeSession.ok });
       if (reviewerOpenCodeSession.ok) reviewerOpenCodeSessionId = reviewerOpenCodeSession.sessionId;
+
+      const reviewerUsage = await runnerActivities.captureOpenCodeUsageActivity({
+        ticketId: input.ticketId,
+        role: "reviewer",
+        attempt: reviewerAttempt,
+        opencodeSessionId: reviewerOpenCodeSession.sessionId,
+      });
+      steps.push({ step: "capture-reviewer-usage", ok: reviewerUsage.ok });
 
       const reviewerHandoff = await runnerActivities.verifyReviewerHandoffActivity({
         ticketId: input.ticketId,
@@ -1179,6 +1226,34 @@ async function runMergeFixThenFinalGates(
       mergeFix.records.length > 0 && mergeFix.records.every((record) => record.exitCode === 0);
     steps.push({ step: "merge-fix", ok: mergeFixOk, records: mergeFix.records });
     if (!mergeFixOk) continue;
+
+    const mergeFixWait = await mergeActivities.waitForAgentRunCompletionActivity({
+      sessionName: mergeFix.sessionName,
+      stdoutLogPath: mergeFix.stdoutLogPath,
+      stderrLogPath: mergeFix.stderrLogPath,
+      exitCodePath: mergeFix.exitCodePath,
+    });
+    const mergeFixCompleted = mergeFixWait.completed && mergeFixWait.exitCode === 0;
+    steps.push({ step: "wait-merge-fix", ok: mergeFixCompleted, records: mergeFixWait.records });
+    if (!mergeFixCompleted) continue;
+
+    const openCodeSession = await mergeActivities.resolveOpenCodeSessionActivity({
+      worktreePath: input.repoRoot,
+      agent: "ticket-mergefix",
+      startedAfterMs: mergeFix.startedAtMs,
+    });
+    steps.push({
+      step: "resolve-merge-fix-session",
+      ok: openCodeSession.ok,
+      records: openCodeSession.records,
+    });
+    const mergeFixUsage = await mergeActivities.captureOpenCodeUsageActivity({
+      ticketId: input.ticketId,
+      role: "mergefix",
+      attempt,
+      opencodeSessionId: openCodeSession.sessionId,
+    });
+    steps.push({ step: "capture-merge-fix-usage", ok: mergeFixUsage.ok, records: [] });
 
     const finalGates = await mergeActivities.runFinalGatesActivity({
       repoRoot: input.repoRoot,
@@ -1546,6 +1621,9 @@ function mergeQueueStepFromLegacy(step: MergeWorkflowStep | null): MergeQueueSte
     case "push-beads":
       return step;
     case "merge-fix":
+    case "wait-merge-fix":
+    case "resolve-merge-fix-session":
+    case "capture-merge-fix-usage":
     case "escalate-human":
     case null:
       return "merge-ticket-branch";

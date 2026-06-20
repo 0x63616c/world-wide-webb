@@ -1,4 +1,13 @@
-import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  doublePrecision,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 export const workflowRuns = pgTable(
   "workflow_runs",
@@ -67,8 +76,35 @@ export const workflowArtifacts = pgTable(
   ],
 );
 
+export const workflowOpenCodeUsage = pgTable(
+  "workflow_opencode_usage",
+  {
+    id: text("id").primaryKey(),
+    ticketId: text("ticket_id").notNull(),
+    role: text("role").notNull(),
+    attempt: integer("attempt"),
+    opencodeSessionId: text("opencode_session_id").notNull(),
+    title: text("title"),
+    agent: text("agent"),
+    model: text("model"),
+    costUsd: doublePrecision("cost_usd").notNull().default(0),
+    tokensInput: integer("tokens_input").notNull().default(0),
+    tokensOutput: integer("tokens_output").notNull().default(0),
+    tokensReasoning: integer("tokens_reasoning").notNull().default(0),
+    tokensCacheRead: integer("tokens_cache_read").notNull().default(0),
+    tokensCacheWrite: integer("tokens_cache_write").notNull().default(0),
+    capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("workflow_opencode_usage_session_idx").on(table.opencodeSessionId),
+    index("workflow_opencode_usage_ticket_id_idx").on(table.ticketId),
+  ],
+);
+
 export const schema = {
   workflowRuns,
   workflowEvents,
   workflowArtifacts,
+  workflowOpenCodeUsage,
 };

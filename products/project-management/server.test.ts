@@ -62,6 +62,7 @@ describe("createRequestHandler", () => {
           { id: "shipped", label: "ticket-shipped", title: "Shipped", tickets: [] },
         ],
       },
+      workflowUsage: {},
       meta: {
         lastSyncAt: null,
         lastFetchAt: "2026-06-01T12:00:00.000Z",
@@ -70,6 +71,46 @@ describe("createRequestHandler", () => {
         count: 1,
       },
     });
+  });
+
+  it("includes workflow usage summaries in board data", async () => {
+    const snapshot: Snapshot = {
+      ...initialSnapshot(),
+      issues: [
+        {
+          id: "www-usage",
+          title: "Usage ticket",
+          status: "closed",
+          priority: 2,
+          issue_type: "task",
+          labels: ["ticket-shipped"],
+        },
+      ],
+    };
+    const handler = createRequestHandler({
+      snapshot,
+      workflowLogRoots: [],
+      workflowUsageLoader: async (ticketIds) => ({
+        [ticketIds[0] ?? ""]: {
+          ticketId: "www-usage",
+          totalTokens: 123,
+          costUsd: 0.25,
+          runs: [],
+        },
+      }),
+      syncFromRemote: async () => {},
+      serveStatic: async () => new Response("static"),
+    });
+
+    const response = await handler(new Request("http://127.0.0.1/api/board-data"));
+
+    await expect(response.json()).resolves.toEqual(
+      expect.objectContaining({
+        workflowUsage: {
+          "www-usage": { ticketId: "www-usage", totalTokens: 123, costUsd: 0.25, runs: [] },
+        },
+      }),
+    );
   });
 
   it("triggers sync only for POST /api/sync", async () => {

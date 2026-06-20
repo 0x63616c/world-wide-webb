@@ -436,6 +436,33 @@
                   </sc-for>
                 </div>
               </sc-if>
+              <sc-if value="{{ selected.hasWorkflowUsage }}">
+                <div style="display:flex; flex-direction:column; gap:10px; padding-top:10px; border-top:1px solid var(--hair);">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                    <span class="cap">Usage</span>
+                    <span class="mono" style="font-size:11px; color:var(--ink-2);">{{ selected.workflowUsage.totalLabel }}</span>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:9px;">
+                    <div style="display:flex; flex-direction:column; gap:3px; padding:10px; border:1px solid var(--hair); border-radius:10px; background:#050505;">
+                      <span class="mono" style="font-size:10.5px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em;">Tokens</span>
+                      <span class="mono" style="font-size:17px; color:var(--ink);">{{ selected.workflowUsage.tokensLabel }}</span>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:3px; padding:10px; border:1px solid var(--hair); border-radius:10px; background:#050505;">
+                      <span class="mono" style="font-size:10.5px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em;">Cost</span>
+                      <span class="mono" style="font-size:17px; color:var(--ink);">{{ selected.workflowUsage.costLabel }}</span>
+                    </div>
+                  </div>
+                  <div style="display:flex; flex-direction:column; gap:7px;">
+                    <sc-for list="{{ selected.workflowUsage.runs }}" as="run" hint-placeholder-count="2">
+                      <div style="display:grid; grid-template-columns:86px 1fr auto; gap:9px; align-items:center; padding:8px 10px; border:1px solid var(--hair); border-radius:10px; background:var(--tile-2);">
+                        <span class="mono" style="font-size:11px; color:var(--ink); text-transform:uppercase;">{{ run.roleLabel }}</span>
+                        <span class="mono" style="font-size:11px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ run.sessionLabel }}</span>
+                        <span class="mono" style="font-size:11px; color:var(--ink-2); white-space:nowrap;">{{ run.usageLabel }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
               <sc-if value="{{ selected.hasExhaustion }}">
                 <div style="display:flex; flex-direction:column; gap:11px; padding:12px; border:1px solid rgba(248,81,73,.34); border-radius:12px; background:rgba(248,81,73,.075);">
                   <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
@@ -771,6 +798,7 @@ class Component extends DCLogic {
     issues: [],
     workflowDashboard: null,
     workflowMetrics: null,
+    workflowUsage: {},
     workflowQueueFilter: [],
     copyStatus: '',
     copiedTarget: null,
@@ -812,7 +840,7 @@ class Component extends DCLogic {
   loadData() {
     fetch('/api/board-data')
       .then((r) => r.json())
-      .then((data) => this.setState({ issues: (data && data.issues) || [], workflowDashboard: (data && data.workflow) || null, workflowMetrics: (data && data.metrics) || null, loaded: true, lastSync: (data && data.meta && data.meta.lastSyncAt) || null }))
+      .then((data) => this.setState({ issues: (data && data.issues) || [], workflowDashboard: (data && data.workflow) || null, workflowMetrics: (data && data.metrics) || null, workflowUsage: (data && data.workflowUsage) || {}, loaded: true, lastSync: (data && data.meta && data.meta.lastSyncAt) || null }))
       .catch((err) => console.error('[beads-ui] load failed:', err));
   }
   // Human-readable "time since": just now / 12s / 4m / 2h / 3d / 2mo ago.
@@ -995,6 +1023,16 @@ class Component extends DCLogic {
     if (sec < 60) return sec.toFixed(sec < 10 ? 1 : 0) + 's';
     const min = sec / 60;
     return min.toFixed(min < 10 ? 1 : 0) + 'm';
+  }
+
+  fmtTokens(tokens) {
+    const n = Number(tokens || 0);
+    return n.toLocaleString('en-US');
+  }
+
+  fmtUsd(cost) {
+    const n = Number(cost || 0);
+    return '$' + n.toFixed(n < 1 ? 4 : 2);
   }
 
   setView(v) { this.setState({ view: v }); }
@@ -1306,6 +1344,17 @@ class Component extends DCLogic {
       const closeReason = this.closeReasonFor(sel);
       const closeCommand = this.closeCommandFor(sel);
       const wf = workflowIssue(sel.id);
+      const usage = st.workflowUsage && st.workflowUsage[sel.id] ? st.workflowUsage[sel.id] : null;
+      const workflowUsageView = usage ? {
+        totalLabel: this.fmtTokens(usage.totalTokens) + ' tokens · ' + this.fmtUsd(usage.costUsd),
+        tokensLabel: this.fmtTokens(usage.totalTokens),
+        costLabel: this.fmtUsd(usage.costUsd),
+        runs: (usage.runs || []).map((run) => ({
+          roleLabel: run.role + (run.attempt ? ' ' + run.attempt : ''),
+          sessionLabel: run.title || run.sessionId,
+          usageLabel: this.fmtTokens(run.totalTokens) + ' tok · ' + this.fmtUsd(run.costUsd)
+        }))
+      } : null;
       const workflowLinks = wf ? [
         ...(wf.logLinks || []).map((href) => ({ label: 'log', href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() })),
         ...(wf.promptLinks || []).map((href) => ({ label: 'prompt', href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() }))
@@ -1356,6 +1405,8 @@ class Component extends DCLogic {
         statusOptions, prioOptions, showDirectEdit: !wf,
         hasWorkflowDetails: !!wf,
         workflowPhaseLabel: wf ? wf.phase : '',
+        hasWorkflowUsage: !!workflowUsageView,
+        workflowUsage: workflowUsageView,
         hasTmux: !!(wf && wf.tmuxAttachCommand), tmuxAttachCommand: wf ? wf.tmuxAttachCommand : '',
         copyTmux: wf ? () => this.copyText(wf.tmuxAttachCommand || '', 'tmux') : () => {},
         tmuxCopyLabel: st.copiedTarget === 'tmux' ? 'Copied' : 'Copy', tmuxCopied: st.copiedTarget === 'tmux',
