@@ -1,4 +1,5 @@
 import { NativeConnection, Worker } from "@temporalio/worker";
+import { runProjectManagementMigrations } from "../db/migrate";
 import * as activities from "./activities";
 import * as agentActivities from "./agent-activities";
 import * as commandActivities from "./command-activities";
@@ -12,6 +13,14 @@ export type TemporalWorkerOptions = {
   readonly taskQueue: string;
   readonly healthPort: number;
 };
+
+export type TemporalWorkerDependencies = {
+  readonly runMigrations: () => Promise<void>;
+};
+
+export function defaultTemporalWorkerDependencies(): TemporalWorkerDependencies {
+  return { runMigrations: runProjectManagementMigrations };
+}
 
 export function defaultTemporalWorkerOptions(): TemporalWorkerOptions {
   return {
@@ -61,9 +70,14 @@ async function connectToTemporal(address: string, timeoutMs: number): Promise<Na
   throw new Error(`Timed out connecting to Temporal at ${address}`, { cause: lastError });
 }
 
-export async function runTemporalWorker(options = defaultTemporalWorkerOptions()): Promise<void> {
+export async function runTemporalWorker(
+  options = defaultTemporalWorkerOptions(),
+  dependencies = defaultTemporalWorkerDependencies(),
+): Promise<void> {
   let healthServer: ReturnType<typeof Bun.serve> | undefined;
   try {
+    await dependencies.runMigrations();
+
     const connection = await connectToTemporal(options.address, 30_000);
     healthServer = startHealthServer(options);
     const worker = await Worker.create({
