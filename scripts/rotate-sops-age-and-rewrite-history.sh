@@ -113,7 +113,11 @@ SOPS_AGE_KEY=$(cat "$OLD_KEY_FILE") sops -d secrets/vault.yaml > "$PLAINTEXT_VAU
 
 info "Encrypting temporary vault with new key..."
 
-SOPS_AGE_KEY="$NEW_PRIVKEY" sops encrypt --age "$NEW_PUBKEY" --output "$NEW_VAULT_FILE" "$PLAINTEXT_VAULT_FILE" \
+SOPS_AGE_KEY="$NEW_PRIVKEY" sops encrypt \
+  --age "$NEW_PUBKEY" \
+  --filename-override secrets/vault.yaml \
+  --output "$NEW_VAULT_FILE" \
+  "$PLAINTEXT_VAULT_FILE" \
   || die "New key failed to encrypt temporary vault."
 
 # ── Verify before touching Keychain or 1Password ─────────────────────────────
