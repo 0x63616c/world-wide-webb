@@ -26,6 +26,12 @@ describe("workflowColumnsForIssues", () => {
 });
 
 describe("Beads detail template", () => {
+  it("sets the document title in the prototype HTML", async () => {
+    const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
+
+    expect(html).toContain("<title>Project Management UI</title>");
+  });
+
   it("exposes created and updated timestamps in the sortable issues table", async () => {
     const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
     const issuesStart = html.indexOf("<!-- ---------- ISSUES ---------- -->");
