@@ -10,7 +10,7 @@
     "temporal:server": "docker compose -f docker-compose.temporal.yml up temporal temporal-ui",
     "temporal:reset": "docker compose -f docker-compose.temporal.yml down --volumes --remove-orphans",
     "queue:temporal": "bun run temporal/start-ticket-queue.ts",
-    "worker:temporal": "bun --watch temporal/worker.ts",
+    "worker:temporal": "bun temporal/worker.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

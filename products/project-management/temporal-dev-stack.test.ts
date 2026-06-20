@@ -25,13 +25,14 @@ describe("Temporal dev stack", () => {
     expect(tiltfile).toContain("docker_compose('docker-compose.temporal.yml')");
     expect(tiltfile).toContain("resource_deps=['install', 'temporal-postgres']");
     expect(tiltfile).toContain("'temporal-ready'");
+    expect(tiltfile).toContain(
+      "deps=['docker-compose.temporal.yml', 'temporal/dynamicconfig/development-sql.yaml']",
+    );
     expect(tiltfile).toContain("resource_deps=['install', 'temporal-ready']");
     expect(tiltfile).toContain("resource_deps=['install', 'worker']");
     expect(tiltfile).toContain("readiness_probe=probe(");
     expect(tiltfile).toContain("TEMPORAL_WORKER_HEALTH_PORT");
-    expect(tiltfile).toContain(
-      "http_get=http_get_action(port=TEMPORAL_WORKER_HEALTH_PORT, path='/health')",
-    );
+    expect(tiltfile).toContain("http://127.0.0.1:%d/health' % TEMPORAL_WORKER_HEALTH_PORT");
     expect(tiltfile).toContain("temporal operator cluster health");
     expect(tiltfile).toContain("--address temporal:%d");
   });

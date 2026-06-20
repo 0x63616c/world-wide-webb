@@ -85,6 +85,7 @@ dc_resource(
 local_resource(
     'temporal-ready',
     cmd='docker compose -f docker-compose.temporal.yml exec -T temporal temporal operator cluster health --address temporal:%d' % TEMPORAL_PORT,
+    deps=['docker-compose.temporal.yml', 'temporal/dynamicconfig/development-sql.yaml'],
     resource_deps=['temporal'],
     labels=['worker'],
 )
@@ -102,7 +103,9 @@ local_resource(
     resource_deps=['install', 'temporal-ready'],
     readiness_probe=probe(
         period_secs=2,
-        http_get=http_get_action(port=TEMPORAL_WORKER_HEALTH_PORT, path='/health'),
+        exec=exec_action(
+            command=['curl', '-fsS', 'http://127.0.0.1:%d/health' % TEMPORAL_WORKER_HEALTH_PORT],
+        ),
     ),
     links=[link('http://127.0.0.1:%d/health' % TEMPORAL_WORKER_HEALTH_PORT, 'worker health')],
     labels=['worker'],

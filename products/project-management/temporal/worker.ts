@@ -60,31 +60,30 @@ async function waitForTemporal(address: string, timeoutMs: number): Promise<void
 }
 
 export async function runTemporalWorker(options = defaultTemporalWorkerOptions()): Promise<void> {
-  await waitForTemporal(options.address, 30_000);
-
-  const connection = await NativeConnection.connect({ address: options.address });
-  const worker = await Worker.create({
-    connection,
-    namespace: options.namespace,
-    taskQueue: options.taskQueue,
-    workflowsPath: new URL("./workflows.ts", import.meta.url).pathname,
-    activities: { ...activities, ...commandActivities, ...agentActivities },
-  });
-
-  console.warn(
-    `[project-management temporal] worker listening on ${options.address} namespace=${options.namespace} taskQueue=${options.taskQueue}`,
-  );
-
-  await ensureTicketQueueWorkflow({
-    address: options.address,
-    namespace: options.namespace,
-    taskQueue: options.taskQueue,
-    repoRoot: Bun.env.REPO_ROOT ?? new URL("../../..", import.meta.url).pathname,
-  });
-
   const healthServer = startHealthServer(options);
 
   try {
+    await waitForTemporal(options.address, 30_000);
+    const connection = await NativeConnection.connect({ address: options.address });
+    const worker = await Worker.create({
+      connection,
+      namespace: options.namespace,
+      taskQueue: options.taskQueue,
+      workflowsPath: new URL("./workflows.ts", import.meta.url).pathname,
+      activities: { ...activities, ...commandActivities, ...agentActivities },
+    });
+
+    console.warn(
+      `[project-management temporal] worker listening on ${options.address} namespace=${options.namespace} taskQueue=${options.taskQueue}`,
+    );
+
+    await ensureTicketQueueWorkflow({
+      address: options.address,
+      namespace: options.namespace,
+      taskQueue: options.taskQueue,
+      repoRoot: Bun.env.REPO_ROOT ?? new URL("../../..", import.meta.url).pathname,
+    });
+
     await worker.run();
   } finally {
     healthServer.stop();
