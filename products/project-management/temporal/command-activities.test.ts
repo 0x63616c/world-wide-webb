@@ -267,6 +267,57 @@ describe("ticket command activities", () => {
     expect(commands.filter((command) => command.command === "tmux")).toHaveLength(2);
   });
 
+  it("treats a verified builder handoff as completion and kills the exact builder tmux session", async () => {
+    const commands: ActivityCommand[] = [];
+    const result = await waitForTmuxSession(
+      {
+        sessionName: "ticket_www-proof_build_1",
+        stdoutLogPath: "/cache/stdout.log",
+        stderrLogPath: "/cache/stderr.log",
+        exitCodePath: "/cache/exitcode.log",
+        builderHandoff: { ticketId: "www-proof", repoRoot: "/repo" },
+        pollIntervalMs: 1,
+        timeoutMs: 100,
+      },
+      async (command) => {
+        commands.push(command);
+        if (command.command === "tmux" && command.args[0] === "has-session") {
+          return { exitCode: 0, stdout: "", stderr: "" };
+        }
+        if (command.command === "tmux" && command.args[0] === "kill-session") {
+          return { exitCode: 0, stdout: "", stderr: "" };
+        }
+        if (command.command === "bd") {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify([
+              {
+                labels: ["ticket-ready"],
+                comments: [{ text: "## Builder summary\n\nBuilt and pushed." }],
+              },
+            ]),
+            stderr: "",
+          };
+        }
+        if (command.args.includes("/cache/stdout.log")) {
+          return { exitCode: 0, stdout: "builder output", stderr: "" };
+        }
+        if (command.args.includes("/cache/stderr.log")) {
+          return { exitCode: 0, stdout: "", stderr: "" };
+        }
+        return { exitCode: 0, stdout: "0", stderr: "" };
+      },
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({ completed: true, exitCode: 0, stdout: "builder output" }),
+    );
+    expect(commands).toContainEqual({
+      command: "tmux",
+      args: ["kill-session", "-t", "=ticket_www-proof_build_1"],
+    });
+  });
+
   it("updates main before deterministic merge and only pushes or closes through explicit commands", async () => {
     const { run, commands } = fakeRunner();
 

@@ -328,6 +328,7 @@ export type WaitForTmuxSessionInput = {
   readonly stdoutLogPath: string;
   readonly stderrLogPath: string;
   readonly exitCodePath?: string;
+  readonly builderHandoff?: TicketBeadsInput;
   readonly pollIntervalMs?: number;
   readonly timeoutMs?: number;
 };
@@ -686,6 +687,31 @@ export async function waitForTmuxSession(
         stderr: await readLogFile(input.stderrLogPath, run),
         records,
       };
+    }
+    if (input.builderHandoff) {
+      const handoff = await verifyBuilderHandoff(input.builderHandoff, run);
+      records.push(...handoff.records);
+      if (handoff.ok) {
+        const kill = await run({
+          command: "tmux",
+          args: ["kill-session", "-t", `=${input.sessionName}`],
+        });
+        records.push(
+          commandRecord(
+            "kill-builder-session-after-handoff",
+            { command: "tmux", args: ["kill-session", "-t", `=${input.sessionName}`] },
+            kill,
+          ),
+        );
+        return {
+          sessionName: input.sessionName,
+          completed: kill.exitCode === 0,
+          exitCode: kill.exitCode === 0 ? 0 : null,
+          stdout: await readLogFile(input.stdoutLogPath, run),
+          stderr: await readLogFile(input.stderrLogPath, run),
+          records,
+        };
+      }
     }
     await sleep(pollIntervalMs);
   }

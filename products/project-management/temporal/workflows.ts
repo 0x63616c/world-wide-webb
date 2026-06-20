@@ -828,6 +828,10 @@ export async function runTicketWorkflowRunner(
       stdoutLogPath: builder.stdoutLogPath,
       stderrLogPath: builder.stderrLogPath,
       exitCodePath: builder.exitCodePath,
+      builderHandoff: {
+        ticketId: input.ticketId,
+        repoRoot: config.repoRoot,
+      },
     });
     steps.push({ step: "wait-builder", ok: builderWait.completed && builderWait.exitCode === 0 });
     if (!builderWait.completed || builderWait.exitCode !== 0) {
