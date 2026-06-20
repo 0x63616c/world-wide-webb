@@ -105,11 +105,11 @@ describe("runTicketWorkflowRunner", () => {
 
     expect(result.status).toBe("human");
     expect(fake.calls).toContain("verify-reviewer-handoff");
-    expect(fake.calls.filter((call) => call === "start-builder")).toHaveLength(2);
+    expect(fake.calls.filter((call) => call === "start-builder")).toHaveLength(3);
     expect(fake.calls).toContain("resume-builder:ses_builder");
     expect(fake.calls).toContain("escalate-human");
     expect(fake.calls).toContain(
-      "escalate-reason:Ticket workflow stopped because the reviewer attempt limit was hit (2 attempt(s)).",
+      "escalate-reason:Ticket workflow stopped because the reviewer attempt limit was hit (3 attempt(s)).",
     );
     expect(fake.calls).not.toContain("push-main");
     expect(fake.calls).not.toContain("close-ticket");
@@ -160,7 +160,7 @@ describe("runTicketWorkflowRunner", () => {
     });
 
     expect(result.status).toBe("human");
-    expect(fake.calls.filter((call) => call === "start-builder")).toHaveLength(2);
+    expect(fake.calls.filter((call) => call === "start-builder")).toHaveLength(3);
     expect(fake.calls).toContain("requeue-ticket");
   });
 

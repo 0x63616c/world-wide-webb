@@ -343,8 +343,8 @@ const mergeQueuePollActivityProxies = proxyActivities<
   },
 });
 
-const TICKET_RUNNER_MAX_BUILDER_ATTEMPTS = 2;
-const TICKET_RUNNER_MAX_REVIEWER_ATTEMPTS = 2;
+const TICKET_RUNNER_MAX_BUILDER_ATTEMPTS = 3;
+const TICKET_RUNNER_MAX_REVIEWER_ATTEMPTS = 3;
 
 export async function mergeWorkflow(
   input: MergeWorkflowQueueInput,
