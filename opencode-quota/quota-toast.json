@@ -1,5 +1,6 @@
 {
   "enableToast": false,
+  "formatStyle": "allWindows",
   "maintainerAnnouncements": {
     "enabled": false,
     "home": false
