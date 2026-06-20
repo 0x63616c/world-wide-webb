@@ -128,6 +128,21 @@ info "  After storing in 1Password, the script will continue."
 info ""
 read -r -p "Press Enter when done (or Ctrl+C to abort)... "
 
+# ── Re-encrypt vault (fresh ciphertext, old key excluded) ────────────────────
+# IMPORTANT: decrypt with OLD key BEFORE updating .sops.yaml, otherwise
+# sops -d tries the new key which can't read old ciphertext.
+
+info "Re-encrypting secrets/vault.yaml with new key..."
+
+# Decrypt with old Keychain key, then re-encrypt with new public key
+OLD_KEYCHAIN_RAW=$(security find-generic-password -a "$USER" -s "age-world-wide-webb-private-key" -w 2>/dev/null)
+
+SOPS_AGE_KEY="$OLD_KEYCHAIN_RAW" sops -d secrets/vault.yaml \
+  | SOPS_AGE_KEY="$NEW_PRIVKEY" sops encrypt -o secrets/vault.yaml /dev/stdin \
+  || die "Re-encryption failed. Check that the old key can still decrypt the vault."
+
+unset OLD_KEYCHAIN_RAW
+
 # ── Update .sops.yaml ────────────────────────────────────────────────────────
 
 info "Updating .sops.yaml with new public key..."
@@ -135,16 +150,6 @@ info "Updating .sops.yaml with new public key..."
 sed -i '' "s|^  age:.*|  age: $NEW_PUBKEY|" .sops.yaml
 
 info ".sops.yaml updated"
-
-# ── Re-encrypt vault (fresh ciphertext, old key excluded) ────────────────────
-
-info "Re-encrypting secrets/vault.yaml with new key..."
-
-# Decrypt with OLD key, then encrypt with NEW public key (from updated .sops.yaml)
-# This produces fresh ciphertext that only the new key can decrypt.
-sops -d secrets/vault.yaml \
-  | SOPS_AGE_KEY="$NEW_PRIVKEY" sops encrypt --config .sops.yaml -o secrets/vault.yaml /dev/stdin \
-  || die "Re-encryption failed. Check that the old key can still decrypt the vault."
 
 # ── Verify ────────────────────────────────────────────────────────────────────
 
