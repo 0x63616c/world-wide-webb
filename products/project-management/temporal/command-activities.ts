@@ -929,10 +929,16 @@ export async function readVerifiedMergeQueue(
   const verified = (await adapter.verifiedQueue()).filter(
     (ticket) => ticket.status === "open" && !ticket.labels.includes(TICKET_WORKFLOW_LABELS.human),
   );
-  if (verified.length === 0) return [];
+  if (verified.length === 0) {
+    throw ApplicationFailure.create({
+      message: "No ticket-verified Beads tickets are ready to merge",
+      type: "NoVerifiedMergeQueueTickets",
+      nonRetryable: false,
+    });
+  }
 
   const details = await adapter.showTickets(verified.map((ticket) => ticket.id));
-  return details.flatMap((ticket) => {
+  const mergeCandidates = details.flatMap((ticket) => {
     if (ticket.status !== "open" || ticket.labels.includes(TICKET_WORKFLOW_LABELS.human)) return [];
     const metadata = parseTicketMetadata(ticket);
     if (!metadata.branch) return [];
@@ -947,6 +953,15 @@ export async function readVerifiedMergeQueue(
       },
     ];
   });
+  if (mergeCandidates.length === 0) {
+    throw ApplicationFailure.create({
+      message: "No ticket-verified Beads tickets have merge metadata",
+      type: "NoVerifiedMergeQueueTickets",
+      nonRetryable: false,
+    });
+  }
+
+  return mergeCandidates;
 }
 
 export async function readStuckTicketRecoveryCandidates(
@@ -967,12 +982,27 @@ export async function readStuckTicketRecoveryCandidates(
   }
 
   const tickets = parseRecoveryTicketList(listRecord.stdout);
-  if (tickets.length === 0) return [];
+  if (tickets.length === 0) {
+    throw ApplicationFailure.create({
+      message: "No workflow-owned Beads tickets need stuck-ticket recovery",
+      type: "NoStuckTicketRecoveryCandidates",
+      nonRetryable: false,
+    });
+  }
 
   const adapter = beadsAdapter(input.repoRoot, run);
 
   const details = await adapter.showTickets(tickets.map((ticket) => ticket.id));
-  return details.flatMap((ticket) => recoveryCandidateFromTicket(ticket));
+  const candidates = details.flatMap((ticket) => recoveryCandidateFromTicket(ticket));
+  if (candidates.length === 0) {
+    throw ApplicationFailure.create({
+      message: "No workflow-owned Beads tickets need stuck-ticket recovery",
+      type: "NoStuckTicketRecoveryCandidates",
+      nonRetryable: false,
+    });
+  }
+
+  return candidates;
 }
 
 export async function inspectTicketWorkflowExecution(

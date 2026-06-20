@@ -634,6 +634,52 @@ describe("ticket command activities", () => {
     expect(commands[0]?.args).toContain("ticket-verified");
   });
 
+  it("throws a retryable empty merge-queue failure so Temporal owns polling", async () => {
+    await expect(
+      readVerifiedMergeQueue({ repoRoot: "/repo" }, async () => ({
+        exitCode: 0,
+        stdout: "[]",
+        stderr: "",
+      })),
+    ).rejects.toMatchObject({ type: "NoVerifiedMergeQueueTickets", nonRetryable: false });
+  });
+
+  it("throws a retryable merge-queue failure when verified tickets lack merge metadata", async () => {
+    await expect(
+      readVerifiedMergeQueue({ repoRoot: "/repo" }, async (command) => {
+        if (command.args[0] === "list") {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify([
+              {
+                id: "www-verified",
+                title: "Verified",
+                status: "open",
+                labels: ["ticket-verified"],
+              },
+            ]),
+            stderr: "",
+          };
+        }
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify([
+            {
+              id: "www-verified",
+              title: "Verified",
+              status: "open",
+              labels: ["ticket-verified"],
+              acceptance_criteria: "- [ ] verified",
+              metadata: {},
+              comments: [],
+            },
+          ]),
+          stderr: "",
+        };
+      }),
+    ).rejects.toMatchObject({ type: "NoVerifiedMergeQueueTickets", nonRetryable: false });
+  });
+
   it("reads workflow-owned tickets as stuck recovery candidates", async () => {
     const result = await readStuckTicketRecoveryCandidates(
       { repoRoot: "/repo" },
@@ -681,6 +727,19 @@ describe("ticket command activities", () => {
         branch: "www-stuck-branch",
       }),
     ]);
+  });
+
+  it("throws a retryable empty stuck-recovery failure so Temporal owns polling", async () => {
+    await expect(
+      readStuckTicketRecoveryCandidates({ repoRoot: "/repo" }, async () => ({
+        exitCode: 0,
+        stdout: "[]",
+        stderr: "",
+      })),
+    ).rejects.toMatchObject({
+      type: "NoStuckTicketRecoveryCandidates",
+      nonRetryable: false,
+    });
   });
 
   it("recovers a stuck ticket with exact ticket-scoped artifact cleanup and Beads metadata", async () => {

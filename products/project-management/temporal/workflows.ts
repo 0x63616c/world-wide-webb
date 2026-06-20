@@ -1,4 +1,5 @@
 import {
+  CancellationScope,
   condition,
   defineSignal,
   getExternalWorkflowHandle,
@@ -325,6 +326,16 @@ const stuckTicketRecoveryActivityProxies = proxyActivities<StuckTicketRecoveryAc
   },
 });
 
+const mergeQueuePollActivityProxies = proxyActivities<
+  Pick<MergeQueueActivities, "readVerifiedMergeQueueActivity">
+>({
+  startToCloseTimeout: "1 minute",
+  retry: {
+    initialInterval: "15 seconds",
+    maximumInterval: "15 seconds",
+  },
+});
+
 const TICKET_RUNNER_MAX_BUILDER_ATTEMPTS = 2;
 const TICKET_RUNNER_MAX_REVIEWER_ATTEMPTS = 2;
 
@@ -354,12 +365,12 @@ export async function mergeQueueWorkflow(input: MergeQueueWorkflowInput = {}): P
 
   while (true) {
     const config = await mergeQueueActivityProxies.loadTicketWorkflowConfigActivity();
-    for (const request of await readExistingVerifiedMergeRequests(config)) {
-      enqueueMergeQueueRequest(state, request);
-    }
     if (state.queued.length === 0) {
-      await sleep(config.ticketQueuePollIntervalMs);
-      continue;
+      const polledRequests = await waitForMergeQueueWork(config, state);
+      for (const request of polledRequests) {
+        enqueueMergeQueueRequest(state, request);
+      }
+      if (state.queued.length === 0) continue;
     }
     await processNextMergeQueueEntry(
       config,
@@ -408,7 +419,6 @@ export async function stuckTicketRecoveryWorkflow(
         repoRoot: config.repoRoot,
       });
     await runStuckTicketRecoveryBatch(config, candidates, stuckTicketRecoveryActivityProxies);
-    await sleep(config.stuckTicketRecoveryPollIntervalMs);
   }
 }
 
@@ -1234,7 +1244,7 @@ function hasMergeQueueRequest(
 async function readExistingVerifiedMergeRequests(
   input: commandActivities.TicketWorkflowRuntimeConfig,
 ): Promise<readonly MergeQueueRequest[]> {
-  const tickets = await mergeQueueActivityProxies.readVerifiedMergeQueueActivity({
+  const tickets = await mergeQueuePollActivityProxies.readVerifiedMergeQueueActivity({
     repoRoot: input.repoRoot,
   });
   return tickets.map((ticket) => ({
@@ -1245,6 +1255,22 @@ async function readExistingVerifiedMergeRequests(
     strategy: "merge",
     requestedAt: new Date(0).toISOString(),
   }));
+}
+
+async function waitForMergeQueueWork(
+  input: commandActivities.TicketWorkflowRuntimeConfig,
+  state: Pick<MergeQueueMutableState, "queued">,
+): Promise<readonly MergeQueueRequest[]> {
+  const pollScope = new CancellationScope();
+  const polled = pollScope.run(() => readExistingVerifiedMergeRequests(input));
+  const signaled = condition(() => state.queued.length > 0).then(() => [] as const);
+
+  const winner = await Promise.race([polled, signaled]);
+  if (state.queued.length > 0) {
+    pollScope.cancel();
+    polled.catch(() => undefined);
+  }
+  return winner;
 }
 
 export function mergeQueueRequestId(ticketId: string, commitSha: string | null): string {
