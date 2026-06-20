@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapIssues, type RawIssue } from "./map";
+import { isAutomated, mapIssues, type RawIssue } from "./map";
 
 describe("mapIssues", () => {
   it("maps bd issues into the design issue graph", () => {
@@ -65,6 +65,7 @@ describe("mapIssues", () => {
         status: "ready",
         p: 1,
         assignee: "bob",
+        automated: false,
         created: 0,
         updated: Date.parse("2026-06-03T12:00:00Z"),
         blockedBy: [],
@@ -84,9 +85,19 @@ describe("mapIssues", () => {
         status: "blocked",
         p: 4,
         assignee: "",
+        automated: false,
         blockedBy: ["www-a"],
         blocks: [],
       }),
     ]);
+  });
+
+  it("marks automated issues from ticket-* labels", () => {
+    expect(isAutomated(["ticket-ready", "ui"])).toBe(true);
+    expect(isAutomated(["manual", "infra"])).toBe(false);
+  });
+
+  it("treats uppercase ticket-like labels as automated", () => {
+    expect(isAutomated(["Ticket-Review", "manual"])).toBe(true);
   });
 });
