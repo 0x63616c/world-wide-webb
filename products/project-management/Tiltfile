@@ -84,7 +84,7 @@ dc_resource(
 
 local_resource(
     'temporal-ready',
-    cmd='docker compose -f docker-compose.temporal.yml exec -T temporal temporal operator cluster health --address 127.0.0.1:%d' % TEMPORAL_PORT,
+    cmd='docker compose -f docker-compose.temporal.yml exec -T temporal temporal operator cluster health --address temporal:%d' % TEMPORAL_PORT,
     resource_deps=['temporal'],
     labels=['worker'],
 )

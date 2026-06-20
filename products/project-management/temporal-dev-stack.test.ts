@@ -17,6 +17,7 @@ describe("Temporal dev stack", () => {
     expect(compose).toContain("temporal-postgres-data");
     expect(compose).toContain("DB: postgres12");
     expect(compose).toContain("temporalio/auto-setup");
+    expect(compose).toContain('"--address", "temporal:7233"');
   });
 
   it("keeps Tilt resource ordering explicit", async () => {
@@ -32,6 +33,7 @@ describe("Temporal dev stack", () => {
       "http_get=http_get_action(port=TEMPORAL_WORKER_HEALTH_PORT, path='/health')",
     );
     expect(tiltfile).toContain("temporal operator cluster health");
+    expect(tiltfile).toContain("--address temporal:%d");
   });
 
   it("exposes a worker-owned health endpoint", async () => {
