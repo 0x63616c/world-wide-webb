@@ -24,7 +24,7 @@ export { MERGE_QUEUE_WORKFLOW_ID } from "./workflows";
 
 export const TICKET_QUEUE_WORKFLOW_ID = "ticket_queue";
 export const LEGACY_TICKET_QUEUE_WORKFLOW_ID = "ticket_queue_main";
-export const TICKET_QUEUE_TASK_QUEUE = "project-management";
+export const TICKET_QUEUE_TASK_QUEUE = "main";
 export const DEFAULT_MAX_ACTIVE_TICKET_WORKFLOWS = 3;
 export const DEFAULT_MAX_TICKETS_PER_POLL = 3;
 

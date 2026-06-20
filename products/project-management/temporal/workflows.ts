@@ -26,7 +26,7 @@ import {
   transitionTicketWorkflow,
 } from "./state";
 
-export const MERGE_QUEUE_WORKFLOW_ID = "ticket_merge_queue";
+export const MERGE_QUEUE_WORKFLOW_ID = "merge_queue";
 
 const activities = proxyActivities<typeof projectActivities>({
   startToCloseTimeout: "1 minute",

@@ -43,7 +43,7 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
       },
       {
         repoRoot: "/repo",
-        taskQueue: "project-management",
+        taskQueue: "main",
         runtimeLogRoot: "/logs",
       },
       async () => [],
@@ -55,7 +55,7 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
         {
           workflowId: TICKET_QUEUE_WORKFLOW_ID,
           workflowIdConflictPolicy: WorkflowIdConflictPolicy.USE_EXISTING,
-          taskQueue: "project-management",
+          taskQueue: "main",
           args: [
             {
               repoRoot: "/repo",
@@ -75,11 +75,11 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
         {
           workflowId: MERGE_QUEUE_WORKFLOW_ID,
           workflowIdConflictPolicy: WorkflowIdConflictPolicy.USE_EXISTING,
-          taskQueue: "project-management",
+          taskQueue: "main",
           args: [
             {
               repoRoot: "/repo",
-              taskQueue: "project-management",
+              taskQueue: "main",
               finalGates: DEFAULT_TICKET_QUEUE_FINAL_GATES,
               runtimeLogRoot: "/logs",
               maxMergeAttempts: 3,
@@ -126,7 +126,7 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
       },
       {
         repoRoot: "/repo",
-        taskQueue: "project-management",
+        taskQueue: "main",
         runtimeLogRoot: "/logs",
       },
       async () => [],
@@ -159,7 +159,7 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
         },
         {
           repoRoot: "/repo",
-          taskQueue: "project-management",
+          taskQueue: "main",
           runtimeLogRoot: "/logs",
         },
         async () => [],
@@ -183,7 +183,7 @@ describe("ensureTicketQueueWorkflowWithClient", () => {
       },
       {
         repoRoot: "/repo",
-        taskQueue: "project-management",
+        taskQueue: "main",
         runtimeLogRoot: "/logs",
       },
       async () => [

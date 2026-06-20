@@ -507,7 +507,7 @@ function baseInput(overrides: Partial<MergeWorkflowInput> = {}): MergeWorkflowIn
 function queueInput() {
   return {
     repoRoot: "/repo",
-    taskQueue: "project-management",
+    taskQueue: "main",
     finalGates: [{ label: "test", command: "bun", args: ["run", "test"] }],
     maxMergeAttempts: 3,
   } as const;
