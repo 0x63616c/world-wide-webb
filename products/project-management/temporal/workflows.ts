@@ -1,7 +1,5 @@
 import {
   condition,
-  continueAsNew,
-  defineQuery,
   defineSignal,
   getExternalWorkflowHandle,
   ParentClosePolicy,
@@ -20,7 +18,6 @@ import {
   type IssueTransitionResult,
   initialTicketWorkflowState,
   type TicketWorkflowEvent,
-  type TicketWorkflowSignal,
   type TicketWorkflowState,
   transitionIssueState,
   transitionTicketWorkflow,
@@ -62,12 +59,6 @@ export type MergeWorkflowInput = {
 };
 
 export type MergeQueueWorkflowInput = {
-  readonly repoRoot: string;
-  readonly taskQueue: string;
-  readonly finalGates: readonly commandActivities.FinalGateCommand[];
-  readonly runtimeLogRoot?: string;
-  readonly maxMergeAttempts?: number;
-  readonly maxHistoryEvents?: number;
   readonly initialQueued?: readonly MergeQueueRequest[];
   readonly completedCount?: number;
 };
@@ -75,15 +66,10 @@ export type MergeQueueWorkflowInput = {
 export type MergeQueueRequest = {
   readonly requestId: string;
   readonly ticketId: string;
-  readonly ticketWorkflowId: string;
-  readonly title: string;
   readonly branch: string;
   readonly commitSha?: string | null;
   readonly strategy: "cherry-pick" | "merge";
-  readonly acceptanceCriteria: string;
-  readonly comments: readonly string[];
   readonly requestedAt: string;
-  readonly runtimeLogRoot?: string;
 };
 
 export type MergeQueueStep =
@@ -187,15 +173,6 @@ export type MergeWorkflowQueueResult = {
 
 export type TicketWorkflowRunnerInput = {
   readonly ticketId: string;
-  readonly title: string;
-  readonly repoRoot: string;
-  readonly acceptanceCriteria: string;
-  readonly comments?: readonly string[];
-  readonly finalGates: readonly commandActivities.FinalGateCommand[];
-  readonly runtimeLogRoot?: string;
-  readonly baseRef?: string;
-  readonly requirePushedBranch?: boolean;
-  readonly mergeStrategy?: "cherry-pick" | "merge";
 };
 
 export type TicketMergeQueueClient = {
@@ -254,7 +231,11 @@ export type MergeWorkflowActivities = Pick<
 export type MergeQueueActivities = MergeWorkflowActivities &
   Pick<
     typeof commandActivities,
-    "assertCleanMainActivity" | "readVerifiedMergeQueueActivity" | "resolveGitHeadActivity"
+    | "assertCleanMainActivity"
+    | "readVerifiedMergeQueueActivity"
+    | "resolveGitHeadActivity"
+    | "loadTicketWorkflowConfigActivity"
+    | "loadTicketWorkflowTicketDetailsActivity"
   >;
 
 export type TicketWorkflowRunnerActivities = Pick<
@@ -267,6 +248,8 @@ export type TicketWorkflowRunnerActivities = Pick<
   | "writeTicketWorkflowMetadataActivity"
   | "verifyBuilderHandoffActivity"
   | "verifyReviewerHandoffActivity"
+  | "loadTicketWorkflowConfigActivity"
+  | "loadTicketWorkflowTicketDetailsActivity"
 > &
   Pick<typeof agentActivities, "startTicketBuilderActivity" | "startTicketReviewerActivity"> &
   MergeWorkflowActivities;
@@ -280,19 +263,11 @@ const mergeQueueActivityProxies = proxyActivities<MergeQueueActivities>({
 });
 
 export type TicketQueueWorkflowInput = {
-  readonly repoRoot: string;
-  readonly finalGates: readonly commandActivities.FinalGateCommand[];
-  readonly runtimeLogRoot?: string;
-  readonly baseRef?: string;
-  readonly requirePushedBranch?: boolean;
-  readonly mergeStrategy?: "cherry-pick" | "merge";
-  readonly pollIntervalMs?: number;
-  readonly maxTicketsPerPoll?: number;
-  readonly maxActiveTicketWorkflows?: number;
+  readonly initialActiveTicketIds?: readonly string[];
 };
 
 export type TicketQueueConfig = Pick<
-  TicketQueueWorkflowInput,
+  commandActivities.TicketWorkflowRuntimeConfig,
   "maxActiveTicketWorkflows" | "maxTicketsPerPoll"
 >;
 
@@ -300,12 +275,11 @@ export const DEFAULT_MAX_ACTIVE_TICKET_WORKFLOWS = 3;
 
 export type TicketQueueWorkflowActivities = Pick<
   typeof commandActivities,
-  "readReadyTicketWorkflowQueueActivity"
+  "readReadyTicketWorkflowQueueActivity" | "loadTicketWorkflowConfigActivity"
 >;
 
 export type TicketQueueWorkflowChildInput = {
   readonly ticketId: string;
-  readonly input: TicketWorkflowInput;
 };
 
 export type TicketQueueWorkflowBatchResult = {
@@ -314,12 +288,7 @@ export type TicketQueueWorkflowBatchResult = {
 };
 
 export type StuckTicketRecoveryWorkflowInput = {
-  readonly repoRoot: string;
-  readonly runtimeLogRoot: string;
-  readonly temporalAddress: string;
-  readonly temporalNamespace: string;
-  readonly pollIntervalMs?: number;
-  readonly maxTicketsPerPoll?: number;
+  readonly lastRecovered?: readonly string[];
 };
 
 export type StuckTicketRecoveryActivities = Pick<
@@ -327,6 +296,7 @@ export type StuckTicketRecoveryActivities = Pick<
   | "readStuckTicketRecoveryCandidatesActivity"
   | "inspectTicketWorkflowExecutionActivity"
   | "recoverStuckTicketActivity"
+  | "loadTicketWorkflowConfigActivity"
 >;
 
 export type StuckTicketRecoveryBatchResult = {
@@ -365,11 +335,7 @@ export async function mergeWorkflow(
 }
 
 export const enqueueMergeSignal = defineSignal<[MergeQueueRequest]>("enqueueMerge");
-export const cancelMergeSignal = defineSignal<[string, string]>("cancelMerge");
 export const ticketMergeResultSignal = defineSignal<[MergeQueueResult]>("ticketMergeResult");
-export const mergeQueueSnapshotQuery = defineQuery<MergeQueueSnapshot>("mergeQueueSnapshot");
-export const updateTicketQueueConfigSignal =
-  defineSignal<[TicketQueueConfig]>("updateTicketQueueConfig");
 
 export async function mergeQueueWorkflow(input: MergeQueueWorkflowInput): Promise<never> {
   const state: MergeQueueMutableState = {
@@ -385,31 +351,22 @@ export async function mergeQueueWorkflow(input: MergeQueueWorkflowInput): Promis
   setHandler(enqueueMergeSignal, (request) => {
     enqueueMergeQueueRequest(state, request);
   });
-  setHandler(cancelMergeSignal, (ticketId) => {
-    cancelMergeQueueRequest(state, ticketId);
-  });
-  setHandler(mergeQueueSnapshotQuery, () => mergeQueueSnapshot(state));
-
-  for (const request of await readExistingVerifiedMergeRequests(input)) {
-    enqueueMergeQueueRequest(state, request);
-  }
 
   while (true) {
-    await condition(() => state.queued.length > 0);
+    const config = await mergeQueueActivityProxies.loadTicketWorkflowConfigActivity();
+    for (const request of await readExistingVerifiedMergeRequests(config)) {
+      enqueueMergeQueueRequest(state, request);
+    }
+    if (state.queued.length === 0) {
+      await sleep(config.ticketQueuePollIntervalMs);
+      continue;
+    }
     await processNextMergeQueueEntry(
-      input,
+      config,
       state,
       mergeQueueActivityProxies,
       signalTicketMergeResult,
     );
-
-    if (shouldContinueMergeQueueAsNew(state, input.maxHistoryEvents ?? 100)) {
-      await continueAsNew<typeof mergeQueueWorkflow>({
-        ...input,
-        initialQueued: state.queued.map((entry) => entry.request),
-        completedCount: 0,
-      });
-    }
   }
 }
 
@@ -420,56 +377,47 @@ async function signalTicketMergeResult(
   await getExternalWorkflowHandle(ticketWorkflowId).signal(ticketMergeResultSignal, result);
 }
 
-export async function ticketQueueWorkflow(input: TicketQueueWorkflowInput): Promise<never> {
-  const pollIntervalMs = input.pollIntervalMs ?? 15_000;
-  let config: TicketQueueConfig = {
-    maxActiveTicketWorkflows: input.maxActiveTicketWorkflows,
-    maxTicketsPerPoll: input.maxTicketsPerPoll,
-  };
-  const activeTicketIds = new Set<string>();
-
-  setHandler(updateTicketQueueConfigSignal, (nextConfig) => {
-    config = { ...config, ...nextConfig };
-  });
+export async function ticketQueueWorkflow(input: TicketQueueWorkflowInput = {}): Promise<never> {
+  const activeTicketIds = new Set(input.initialActiveTicketIds ?? []);
 
   while (true) {
-    await condition(
-      () => activeTicketIds.size < resolveMaxActiveTicketWorkflows({ ...input, ...config }),
-    );
+    const config = await ticketQueueActivityProxies.loadTicketWorkflowConfigActivity();
+    await condition(() => activeTicketIds.size < resolveMaxActiveTicketWorkflows(config));
     const tickets = await ticketQueueActivityProxies.readReadyTicketWorkflowQueueActivity({
-      repoRoot: input.repoRoot,
+      repoRoot: config.repoRoot,
     });
     await runTicketQueueBatch(
-      { ...input, ...config },
+      config,
       tickets,
       (child) => startTrackedTicketChildWorkflow(child, activeTicketIds),
       activeTicketIds.size,
     );
-    await sleep(pollIntervalMs);
+    await sleep(config.ticketQueuePollIntervalMs);
   }
 }
 
 export async function stuckTicketRecoveryWorkflow(
-  input: StuckTicketRecoveryWorkflowInput,
+  input: StuckTicketRecoveryWorkflowInput = {},
 ): Promise<never> {
-  const pollIntervalMs = input.pollIntervalMs ?? 60_000;
+  void input;
 
   while (true) {
+    const config = await stuckTicketRecoveryActivityProxies.loadTicketWorkflowConfigActivity();
     const candidates =
       await stuckTicketRecoveryActivityProxies.readStuckTicketRecoveryCandidatesActivity({
-        repoRoot: input.repoRoot,
+        repoRoot: config.repoRoot,
       });
-    await runStuckTicketRecoveryBatch(input, candidates, stuckTicketRecoveryActivityProxies);
-    await sleep(pollIntervalMs);
+    await runStuckTicketRecoveryBatch(config, candidates, stuckTicketRecoveryActivityProxies);
+    await sleep(config.stuckTicketRecoveryPollIntervalMs);
   }
 }
 
 export async function runStuckTicketRecoveryBatch(
-  input: StuckTicketRecoveryWorkflowInput,
+  input: commandActivities.TicketWorkflowRuntimeConfig,
   candidates: readonly commandActivities.StuckTicketRecoveryCandidate[],
   recoveryActivities: StuckTicketRecoveryActivities,
 ): Promise<StuckTicketRecoveryBatchResult> {
-  const selectedCandidates = candidates.slice(0, input.maxTicketsPerPoll ?? candidates.length);
+  const selectedCandidates = candidates.slice(0, input.stuckTicketRecoveryMaxTicketsPerPoll);
   const results = await Promise.all(
     selectedCandidates.map(async (candidate) => {
       const status = await recoveryActivities.inspectTicketWorkflowExecutionActivity({
@@ -505,7 +453,7 @@ export async function runStuckTicketRecoveryBatch(
 }
 
 export async function runTicketQueueBatch(
-  input: TicketQueueWorkflowInput,
+  input: commandActivities.TicketWorkflowRuntimeConfig,
   tickets: readonly commandActivities.ReadyTicketWorkflowQueueTicket[],
   start: TicketChildWorkflowStarter,
   activeTicketWorkflowCount = 0,
@@ -514,28 +462,11 @@ export async function runTicketQueueBatch(
     0,
     resolveMaxActiveTicketWorkflows(input) - activeTicketWorkflowCount,
   );
-  const selectedTickets = tickets.slice(
-    0,
-    Math.min(input.maxTicketsPerPoll ?? tickets.length, availableSlots),
-  );
+  const selectedTickets = tickets.slice(0, Math.min(input.maxTicketsPerPoll, availableSlots));
   const results = await Promise.all(
     selectedTickets.map(async (ticket) => {
       const child: TicketQueueWorkflowChildInput = {
         ticketId: ticket.ticketId,
-        input: {
-          ticketId: ticket.ticketId,
-          runner: {
-            title: ticket.title,
-            repoRoot: input.repoRoot,
-            acceptanceCriteria: ticket.acceptanceCriteria,
-            comments: ticket.comments,
-            finalGates: input.finalGates,
-            runtimeLogRoot: input.runtimeLogRoot,
-            baseRef: input.baseRef,
-            requirePushedBranch: input.requirePushedBranch,
-            mergeStrategy: input.mergeStrategy,
-          },
-        },
       };
       return { ticketId: ticket.ticketId, status: await start(child) };
     }),
@@ -551,7 +482,9 @@ export async function runTicketQueueBatch(
   };
 }
 
-function resolveMaxActiveTicketWorkflows(input: TicketQueueWorkflowInput): number {
+function resolveMaxActiveTicketWorkflows(
+  input: Pick<commandActivities.TicketWorkflowRuntimeConfig, "maxActiveTicketWorkflows">,
+): number {
   return Math.max(0, input.maxActiveTicketWorkflows ?? DEFAULT_MAX_ACTIVE_TICKET_WORKFLOWS);
 }
 
@@ -562,7 +495,7 @@ async function startTrackedTicketChildWorkflow(
   try {
     const handle = await startChild(ticketWorkflow, {
       workflowId: ticketWorkflowId(child.ticketId),
-      args: [child.input],
+      args: [{ ticketId: child.ticketId }],
       parentClosePolicy: ParentClosePolicy.ABANDON,
     });
     activeTicketIds.add(child.ticketId);
@@ -593,11 +526,11 @@ export async function runSerializedMergeQueueWorkflow(
 }
 
 export async function processMergeQueueRequest(
-  input: MergeQueueWorkflowInput,
+  input: commandActivities.TicketWorkflowRuntimeConfig,
   request: MergeQueueRequest,
   mergeActivities: MergeQueueActivities,
 ): Promise<MergeQueueResult> {
-  const maxAttempts = Math.max(1, input.maxMergeAttempts ?? 3);
+  const maxAttempts = Math.max(1, input.maxMergeAttempts);
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const assertClean = await mergeActivities.assertCleanMainActivity({ repoRoot: input.repoRoot });
     if (!assertClean.ok) {
@@ -751,18 +684,23 @@ export async function runTicketWorkflowRunner(
   mergeQueue: TicketMergeQueueClient = inlineMergeQueueClient(input, runnerActivities),
 ): Promise<TicketWorkflowRunnerResult> {
   const steps: TicketWorkflowRunnerStepResult[] = [];
+  const config = await runnerActivities.loadTicketWorkflowConfigActivity();
+  const ticket = await runnerActivities.loadTicketWorkflowTicketDetailsActivity({
+    ticketId: input.ticketId,
+    repoRoot: config.repoRoot,
+  });
   const claim = await runnerActivities.claimTicketActivity({
     ticketId: input.ticketId,
-    repoRoot: input.repoRoot,
+    repoRoot: config.repoRoot,
   });
   steps.push({ step: "claim-ticket", ok: claim.ok });
   if (!claim.ok) return failedTicketWorkflowRunner(input.ticketId, steps);
 
   const worktree = await runnerActivities.createTicketWorktreeActivity({
     ticketId: input.ticketId,
-    title: input.title,
-    repoRoot: input.repoRoot,
-    baseRef: input.baseRef,
+    title: ticket.title,
+    repoRoot: config.repoRoot,
+    baseRef: config.baseRef,
   });
   steps.push({
     step: "create-worktree",
@@ -777,7 +715,7 @@ export async function runTicketWorkflowRunner(
   let builderOpenCodeSessionId: string | null = null;
   let reviewerOpenCodeSessionId: string | null = null;
   let commitSha: string | null = null;
-  let comments = [...(input.comments ?? [])];
+  let comments = [...ticket.comments];
 
   for (
     let builderAttempt = 1;
@@ -786,12 +724,12 @@ export async function runTicketWorkflowRunner(
   ) {
     const builder = await runnerActivities.startTicketBuilderActivity({
       ticketId: input.ticketId,
-      title: input.title,
+      title: ticket.title,
       worktreePath: worktree.worktreePath,
       attempt: builderAttempt,
-      acceptanceCriteria: input.acceptanceCriteria,
+      acceptanceCriteria: ticket.acceptanceCriteria,
       comments,
-      runtimeLogRoot: input.runtimeLogRoot,
+      runtimeLogRoot: config.runtimeLogRoot,
       resumeSessionId: builderAttempt > 1 ? (builderOpenCodeSessionId ?? undefined) : undefined,
     });
     builderSessionName = builder.sessionName;
@@ -805,7 +743,7 @@ export async function runTicketWorkflowRunner(
 
     const builderStartMetadata = await runnerActivities.writeTicketWorkflowMetadataActivity({
       ticketId: input.ticketId,
-      repoRoot: input.repoRoot,
+      repoRoot: config.repoRoot,
       metadata: ticketRunMetadata({
         phase: "build",
         attempt: builderAttempt,
@@ -828,7 +766,7 @@ export async function runTicketWorkflowRunner(
     if (!builderWait.completed || builderWait.exitCode !== 0) {
       await runnerActivities.writeTicketWorkflowMetadataActivity({
         ticketId: input.ticketId,
-        repoRoot: input.repoRoot,
+        repoRoot: config.repoRoot,
         metadata: ticketRunMetadata({
           phase: "build",
           attempt: builderAttempt,
@@ -858,7 +796,7 @@ export async function runTicketWorkflowRunner(
 
     const metadata = await runnerActivities.writeTicketWorkflowMetadataActivity({
       ticketId: input.ticketId,
-      repoRoot: input.repoRoot,
+      repoRoot: config.repoRoot,
       metadata: ticketRunMetadata({
         phase: "review",
         attempt: builderAttempt,
@@ -878,7 +816,7 @@ export async function runTicketWorkflowRunner(
 
     const builderHandoff = await runnerActivities.verifyBuilderHandoffActivity({
       ticketId: input.ticketId,
-      repoRoot: input.repoRoot,
+      repoRoot: config.repoRoot,
     });
     steps.push({ step: "verify-builder-handoff", ok: builderHandoff.ok });
     if (!metadata.ok || !builderHandoff.ok) continue;
@@ -891,13 +829,13 @@ export async function runTicketWorkflowRunner(
     ) {
       const reviewer = await runnerActivities.startTicketReviewerActivity({
         ticketId: input.ticketId,
-        title: input.title,
+        title: ticket.title,
         branch: worktree.branchName,
         worktreePath: worktree.worktreePath,
         attempt: reviewerAttempt,
-        acceptanceCriteria: input.acceptanceCriteria,
+        acceptanceCriteria: ticket.acceptanceCriteria,
         comments,
-        runtimeLogRoot: input.runtimeLogRoot,
+        runtimeLogRoot: config.runtimeLogRoot,
         resumeSessionId: reviewerAttempt > 1 ? (reviewerOpenCodeSessionId ?? undefined) : undefined,
       });
       reviewerSessionName = reviewer.sessionName;
@@ -909,7 +847,7 @@ export async function runTicketWorkflowRunner(
 
       const reviewerStartMetadata = await runnerActivities.writeTicketWorkflowMetadataActivity({
         ticketId: input.ticketId,
-        repoRoot: input.repoRoot,
+        repoRoot: config.repoRoot,
         metadata: ticketRunMetadata({
           phase: "review",
           attempt: reviewerAttempt,
@@ -936,7 +874,7 @@ export async function runTicketWorkflowRunner(
       if (!reviewerWait.completed || reviewerWait.exitCode !== 0) {
         await runnerActivities.writeTicketWorkflowMetadataActivity({
           ticketId: input.ticketId,
-          repoRoot: input.repoRoot,
+          repoRoot: config.repoRoot,
           metadata: ticketRunMetadata({
             phase: "review",
             attempt: reviewerAttempt,
@@ -960,13 +898,13 @@ export async function runTicketWorkflowRunner(
 
       const reviewerHandoff = await runnerActivities.verifyReviewerHandoffActivity({
         ticketId: input.ticketId,
-        repoRoot: input.repoRoot,
+        repoRoot: config.repoRoot,
       });
       steps.push({ step: "verify-reviewer-handoff", ok: reviewerHandoff.ok });
       comments = [...comments, agentOutput(reviewerWait)].filter(Boolean);
       const reviewerMetadata = await runnerActivities.writeTicketWorkflowMetadataActivity({
         ticketId: input.ticketId,
-        repoRoot: input.repoRoot,
+        repoRoot: config.repoRoot,
         metadata: ticketRunMetadata({
           phase: phaseFromReviewerHandoff(reviewerHandoff.handoff),
           attempt: reviewerAttempt,
@@ -1003,15 +941,10 @@ export async function runTicketWorkflowRunner(
       const mergeResult = await mergeQueue.enqueueAndWait({
         requestId: mergeQueueRequestId(input.ticketId, head.commitSha),
         ticketId: input.ticketId,
-        ticketWorkflowId: ticketWorkflowId(input.ticketId),
-        title: input.title,
         branch: worktree.branchName,
         commitSha: head.commitSha,
-        strategy: input.mergeStrategy ?? "merge",
-        acceptanceCriteria: input.acceptanceCriteria,
-        comments,
+        strategy: config.mergeStrategy,
         requestedAt: new Date(0).toISOString(),
-        runtimeLogRoot: input.runtimeLogRoot,
       });
       steps.push({ step: "merge", ok: mergeResult.status === "merged" });
 
@@ -1031,7 +964,7 @@ export async function runTicketWorkflowRunner(
 
   const escalation = await runnerActivities.escalateTicketHumanActivity({
     ticketId: input.ticketId,
-    repoRoot: input.repoRoot,
+    repoRoot: config.repoRoot,
     reason: ticketExhaustionReason(commitSha, reviewerSessionName),
   });
   steps.push({ step: "human-handoff", ok: escalation.ok });
@@ -1144,50 +1077,23 @@ async function pushAndCloseMergedTicket(
 export type TicketWorkflowInput = {
   readonly ticketId: string;
   readonly events?: readonly TicketWorkflowEvent[];
-  readonly runner?: Omit<TicketWorkflowRunnerInput, "ticketId">;
 };
-
-export const ticketWorkflowStateQuery = defineQuery<TicketWorkflowState>("ticketWorkflowState");
-export const pauseTicketWorkflowSignal = defineSignal("pauseTicketWorkflow");
-export const resumeTicketWorkflowSignal = defineSignal("resumeTicketWorkflow");
-export const retryTicketWorkflowSignal = defineSignal("retryTicketWorkflow");
-export const markTicketHumanSignal = defineSignal<[string]>("markTicketHuman");
-export const cancelTicketWorkflowSignal = defineSignal<[string]>("cancelTicketWorkflow");
 
 export async function ticketWorkflow(input: TicketWorkflowInput): Promise<TicketWorkflowState> {
   let state = initialTicketWorkflowState(input.ticketId);
 
-  setHandler(ticketWorkflowStateQuery, () => state);
-  setHandler(pauseTicketWorkflowSignal, () => {
-    state = applySignal(state, { type: "pause" });
-  });
-  setHandler(resumeTicketWorkflowSignal, () => {
-    state = applySignal(state, { type: "resume" });
-  });
-  setHandler(retryTicketWorkflowSignal, () => {
-    state = applySignal(state, { type: "retry" });
-  });
-  setHandler(markTicketHumanSignal, (reason) => {
-    state = applySignal(state, { type: "mark-human", reason });
-  });
-  setHandler(cancelTicketWorkflowSignal, (reason) => {
-    state = applySignal(state, { type: "cancel", reason });
-  });
-
   state = applyTicketWorkflowEvents(input.ticketId, input.events ?? []);
 
-  if (input.runner) {
-    const result = await runTicketWorkflowRunner(
-      { ticketId: input.ticketId, ...input.runner },
-      ticketWorkflowRunnerActivityProxies,
-      temporalMergeQueueClient(),
-    );
-    state = transitionTicketWorkflow(state, { type: "start-build" });
-    state = transitionTicketWorkflow(state, {
-      type: "complete-step",
-      outcome: result.status === "merged" ? "merge-passed" : "merge-failed",
-    });
-  }
+  const result = await runTicketWorkflowRunner(
+    { ticketId: input.ticketId },
+    ticketWorkflowRunnerActivityProxies,
+    temporalMergeQueueClient(),
+  );
+  state = transitionTicketWorkflow(state, { type: "start-build" });
+  state = transitionTicketWorkflow(state, {
+    type: "complete-step",
+    outcome: result.status === "merged" ? "merge-passed" : "merge-failed",
+  });
 
   return state;
 }
@@ -1213,23 +1119,28 @@ function temporalMergeQueueClient(): TicketMergeQueueClient {
 }
 
 function inlineMergeQueueClient(
-  input: TicketWorkflowRunnerInput,
+  _input: TicketWorkflowRunnerInput,
   runnerActivities: TicketWorkflowRunnerActivities,
 ): TicketMergeQueueClient {
   return {
     enqueueAndWait: async (request) => {
+      const config = await runnerActivities.loadTicketWorkflowConfigActivity();
+      const ticket = await runnerActivities.loadTicketWorkflowTicketDetailsActivity({
+        ticketId: request.ticketId,
+        repoRoot: config.repoRoot,
+      });
       const result = await runSerializedMergeWorkflow(
         {
           ticketId: request.ticketId,
-          title: request.title,
-          repoRoot: input.repoRoot,
+          title: ticket.title,
+          repoRoot: config.repoRoot,
           branch: request.branch,
           commitSha: request.commitSha ?? undefined,
           strategy: request.strategy,
-          finalGates: input.finalGates,
-          acceptanceCriteria: request.acceptanceCriteria,
-          comments: request.comments,
-          runtimeLogRoot: input.runtimeLogRoot,
+          finalGates: config.finalGates,
+          acceptanceCriteria: ticket.acceptanceCriteria,
+          comments: ticket.comments,
+          runtimeLogRoot: config.runtimeLogRoot,
         },
         runnerActivities,
       );
@@ -1261,16 +1172,6 @@ export function enqueueMergeQueueRequest(
   return "queued";
 }
 
-export function cancelMergeQueueRequest(
-  state: MergeQueueMutableState,
-  ticketId: string,
-): "cancelled" | "missing" {
-  const index = state.queued.findIndex((entry) => entry.request.ticketId === ticketId);
-  if (index < 0) return "missing";
-  state.queued.splice(index, 1);
-  return "cancelled";
-}
-
 export function recordMergeQueueResult(
   state: MergeQueueMutableState,
   request: MergeQueueRequest,
@@ -1297,7 +1198,7 @@ export function shouldContinueMergeQueueAsNew(
 }
 
 export async function processNextMergeQueueEntry(
-  input: MergeQueueWorkflowInput,
+  input: commandActivities.TicketWorkflowRuntimeConfig,
   state: MergeQueueMutableState,
   mergeActivities: MergeQueueActivities,
   signalResult: (ticketWorkflowId: string, result: MergeQueueResult) => Promise<void>,
@@ -1309,7 +1210,7 @@ export async function processNextMergeQueueEntry(
   const result = await processMergeQueueRequest(input, next.request, mergeActivities);
   recordMergeQueueResult(state, next.request, result);
   state.active = null;
-  await signalResult(next.request.ticketWorkflowId, result);
+  await signalResult(ticketWorkflowId(next.request.ticketId), result);
   return result;
 }
 
@@ -1331,7 +1232,7 @@ function hasMergeQueueRequest(
 }
 
 async function readExistingVerifiedMergeRequests(
-  input: MergeQueueWorkflowInput,
+  input: commandActivities.TicketWorkflowRuntimeConfig,
 ): Promise<readonly MergeQueueRequest[]> {
   const tickets = await mergeQueueActivityProxies.readVerifiedMergeQueueActivity({
     repoRoot: input.repoRoot,
@@ -1339,15 +1240,10 @@ async function readExistingVerifiedMergeRequests(
   return tickets.map((ticket) => ({
     requestId: mergeQueueRequestId(ticket.ticketId, ticket.commitSha),
     ticketId: ticket.ticketId,
-    ticketWorkflowId: ticketWorkflowId(ticket.ticketId),
-    title: ticket.title,
     branch: ticket.branch,
     commitSha: ticket.commitSha,
     strategy: "merge",
-    acceptanceCriteria: ticket.acceptanceCriteria,
-    comments: ticket.comments,
     requestedAt: new Date(0).toISOString(),
-    runtimeLogRoot: input.runtimeLogRoot,
   }));
 }
 
@@ -1519,13 +1415,6 @@ function phaseFromReviewerHandoff(
 function formatOpenCodeSession(title: string | null, sessionId: string | null): string {
   if (!sessionId) return "unknown";
   return title ? `${title} (${sessionId})` : sessionId;
-}
-
-function applySignal(
-  state: TicketWorkflowState,
-  signal: TicketWorkflowSignal,
-): TicketWorkflowState {
-  return transitionTicketWorkflow(state, { type: "signal", signal });
 }
 
 function failedMerge(

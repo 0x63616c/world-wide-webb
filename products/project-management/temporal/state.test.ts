@@ -99,32 +99,14 @@ describe("ticketWorkflow state machine", () => {
     );
   });
 
-  it("accepts pause, resume, retry, mark-human, and cancel signals", () => {
-    let state = initialTicketWorkflowState("www-controls");
-
-    state = transitionTicketWorkflow(state, { type: "signal", signal: { type: "pause" } });
-    expect(state.paused).toBe(true);
-
-    state = transitionTicketWorkflow(state, { type: "signal", signal: { type: "resume" } });
-    expect(state.paused).toBe(false);
-
-    state = transitionTicketWorkflow(state, { type: "signal", signal: { type: "retry" } });
-    expect(state).toEqual(expect.objectContaining({ phase: "build", builderAttempts: 1 }));
-
-    state = transitionTicketWorkflow(state, {
-      type: "signal",
-      signal: { type: "mark-human", reason: "needs review" },
-    });
-    expect(state).toEqual(
-      expect.objectContaining({ phase: "human", terminalReason: "needs review" }),
+  it("ignores later events once a ticket reaches a terminal phase", () => {
+    const closed = transitionTicketWorkflow(
+      { ...initialTicketWorkflowState("www-closed"), phase: "closed", terminalReason: "merged" },
+      { type: "start-build" },
     );
 
-    const cancelled = transitionTicketWorkflow(initialTicketWorkflowState("www-cancel"), {
-      type: "signal",
-      signal: { type: "cancel", reason: "duplicate" },
-    });
-    expect(cancelled).toEqual(
-      expect.objectContaining({ phase: "human", terminalReason: "cancelled: duplicate" }),
+    expect(closed).toEqual(
+      expect.objectContaining({ phase: "closed", terminalReason: "merged", builderAttempts: 0 }),
     );
   });
 });

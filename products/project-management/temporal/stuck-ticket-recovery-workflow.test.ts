@@ -1,13 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { runStuckTicketRecoveryBatch, type StuckTicketRecoveryWorkflowInput } from "./workflows";
+import type { TicketWorkflowRuntimeConfig } from "./command-activities";
+import { runStuckTicketRecoveryBatch } from "./workflows";
 
 const input = {
   repoRoot: "/repo",
   runtimeLogRoot: "/logs",
+  finalGates: [],
+  baseRef: "HEAD",
+  requirePushedBranch: true,
+  mergeStrategy: "merge",
+  ticketQueuePollIntervalMs: 15_000,
+  maxActiveTicketWorkflows: 3,
+  maxTicketsPerPoll: 3,
+  maxMergeAttempts: 3,
+  maxMergeHistoryEvents: 100,
+  stuckTicketRecoveryPollIntervalMs: 60_000,
+  stuckTicketRecoveryMaxTicketsPerPoll: 2,
   temporalAddress: "127.0.0.1:7233",
   temporalNamespace: "project-management",
-  maxTicketsPerPoll: 2,
-} as const satisfies StuckTicketRecoveryWorkflowInput;
+} as const satisfies TicketWorkflowRuntimeConfig;
 
 describe("runStuckTicketRecoveryBatch", () => {
   it("limits each poll to the configured batch size", async () => {
@@ -23,6 +34,7 @@ describe("runStuckTicketRecoveryBatch", () => {
         recovered.push(candidate.ticketId);
         return recoveryResult(candidate.ticketId, true);
       },
+      loadTicketWorkflowConfigActivity: async () => input,
     });
 
     expect(inspected).toEqual(["ticket_www-a", "ticket_www-b"]);
@@ -42,6 +54,7 @@ describe("runStuckTicketRecoveryBatch", () => {
         recovered.push(candidate.ticketId);
         return recoveryResult(candidate.ticketId, true);
       },
+      loadTicketWorkflowConfigActivity: async () => input,
     });
 
     expect(recovered).toEqual(["www-dead"]);
@@ -60,6 +73,7 @@ describe("runStuckTicketRecoveryBatch", () => {
         }),
         recoverStuckTicketActivity: async ({ candidate }) =>
           recoveryResult(candidate.ticketId, candidate.ticketId !== "www-fails"),
+        loadTicketWorkflowConfigActivity: async () => input,
       },
     );
 

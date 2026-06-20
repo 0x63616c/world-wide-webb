@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { MergeActivityResult } from "./command-activities";
+import type { MergeActivityResult, TicketWorkflowRuntimeConfig } from "./command-activities";
 import {
-  cancelMergeQueueRequest,
   enqueueMergeQueueRequest,
   type MergeQueueActivities,
   type MergeQueueMutableState,
@@ -401,26 +400,20 @@ describe("processMergeQueueRequest", () => {
 });
 
 describe("merge queue state", () => {
-  it("keeps FIFO order, suppresses duplicates, cancels queued requests, and snapshots state", () => {
+  it("keeps FIFO order, suppresses duplicates, and snapshots state", () => {
     const state = mergeQueueState();
     const first = queueRequest({
       ticketId: "www-first",
-      ticketWorkflowId: "ticket_www-first",
       requestId: "merge_first",
     });
-    const second = queueRequest({
-      ticketId: "www-second",
-      ticketWorkflowId: "ticket_www-second",
-      requestId: "merge_second",
-    });
+    const second = queueRequest({ ticketId: "www-second", requestId: "merge_second" });
 
     expect(enqueueMergeQueueRequest(state, first)).toBe("queued");
     expect(enqueueMergeQueueRequest(state, first)).toBe("duplicate");
     expect(enqueueMergeQueueRequest(state, second)).toBe("queued");
-    expect(cancelMergeQueueRequest(state, "www-second")).toBe("cancelled");
-
     expect(mergeQueueSnapshot(state).queued.map((entry) => entry.request.ticketId)).toEqual([
       "www-first",
+      "www-second",
     ]);
   });
 
@@ -455,12 +448,10 @@ describe("merge queue state", () => {
     const state = mergeQueueState();
     const first = queueRequest({
       ticketId: "www-first",
-      ticketWorkflowId: "ticket_www-first",
       requestId: "merge_first",
     });
     const second = queueRequest({
       ticketId: "www-second",
-      ticketWorkflowId: "ticket_www-second",
       requestId: "merge_second",
     });
     const fake = fakeMergeQueueActivities();
@@ -504,26 +495,33 @@ function baseInput(overrides: Partial<MergeWorkflowInput> = {}): MergeWorkflowIn
   };
 }
 
-function queueInput() {
+function queueInput(): TicketWorkflowRuntimeConfig {
   return {
     repoRoot: "/repo",
-    taskQueue: "main",
     finalGates: [{ label: "test", command: "bun", args: ["run", "test"] }],
+    runtimeLogRoot: "/logs",
+    baseRef: "HEAD",
+    requirePushedBranch: true,
+    mergeStrategy: "merge",
+    ticketQueuePollIntervalMs: 15_000,
+    maxActiveTicketWorkflows: 3,
+    maxTicketsPerPoll: 3,
     maxMergeAttempts: 3,
-  } as const;
+    maxMergeHistoryEvents: 100,
+    stuckTicketRecoveryPollIntervalMs: 60_000,
+    stuckTicketRecoveryMaxTicketsPerPoll: 10,
+    temporalAddress: "127.0.0.1:7233",
+    temporalNamespace: "project-management",
+  };
 }
 
 function queueRequest(overrides: Partial<MergeQueueRequest> = {}): MergeQueueRequest {
   return {
     requestId: "merge_www_queue_abc123",
     ticketId: "www-queue",
-    ticketWorkflowId: "ticket_www-queue",
-    title: "Queue ticket",
     branch: "www-queue-queue-ticket",
     commitSha: "abc123",
     strategy: "merge",
-    acceptanceCriteria: "- [ ] queue passes",
-    comments: [],
     requestedAt: "2026-06-19T00:00:00.000Z",
     ...overrides,
   };
@@ -574,6 +572,13 @@ function fakeMergeQueueActivities(
         return { ok: true, commitSha: "merge123", records: [] };
       },
       readVerifiedMergeQueueActivity: async () => [],
+      loadTicketWorkflowConfigActivity: async () => queueInput(),
+      loadTicketWorkflowTicketDetailsActivity: async (input) => ({
+        ticketId: input.ticketId,
+        title: "Queue ticket",
+        acceptanceCriteria: "- [ ] queue passes",
+        comments: [],
+      }),
       escalateTicketHumanActivity: async () => run("escalate-human"),
       startTicketMergeFixActivity: async () => ({
         sessionName: "ticket_www-queue_mergefix_1",

@@ -14,11 +14,6 @@ import { runProjectManagementMigrations } from "./db/migrate";
 import { mapIssues, type RawIssue } from "./map";
 import { defaultRuntimeLogRoot } from "./temporal/command-activities";
 import { type WorkflowDashboardArtifactTexts, workflowDashboardForIssues } from "./workflow";
-import {
-  createTemporalWorkflowControlClient,
-  isWorkflowControlAction,
-  type WorkflowControlClient,
-} from "./workflow-control";
 import { workflowMetricsForIssues } from "./workflow-metrics";
 
 export type Snapshot = {
@@ -166,7 +161,6 @@ export async function serveStatic(pathname: string, publicDir: string): Promise<
 
 export type RequestHandlerOptions = {
   snapshot: Snapshot;
-  workflowControlClient: WorkflowControlClient;
   workflowLogRoots: readonly string[];
   syncFromRemote: () => Promise<void>;
   serveStatic: (pathname: string) => Promise<Response>;
@@ -206,10 +200,6 @@ export function createRequestHandler(
         lastSyncAt: options.snapshot.lastSyncAt,
         error: options.snapshot.lastError,
       });
-    }
-
-    if (p === "/api/workflow-control" && req.method === "POST") {
-      return handleWorkflowControl(req, options.workflowControlClient);
     }
 
     if (p === "/api/workflow-log") {
@@ -317,53 +307,12 @@ function linksMatching(text: string, pattern: RegExp): string[] {
   return [...text.matchAll(pattern)].map((match) => match[0]);
 }
 
-async function handleWorkflowControl(
-  req: Request,
-  workflowControlClient: WorkflowControlClient,
-): Promise<Response> {
-  const body = await parseJsonObject(req);
-  const ticketId = stringBodyField(body, "ticketId");
-  const action = stringBodyField(body, "action");
-  const reason = stringBodyField(body, "reason", false);
-
-  if (!ticketId || !action || !isWorkflowControlAction(action)) {
-    return json({ error: "ticketId and valid action are required" }, 400);
-  }
-
-  const result = await workflowControlClient.signalTicketWorkflow({ ticketId, action, reason });
-  return json({ ok: true, result });
-}
-
-async function parseJsonObject(req: Request): Promise<Record<string, unknown>> {
-  try {
-    const parsed: unknown = await req.json();
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
-  }
-}
-
-function stringBodyField(
-  body: Record<string, unknown>,
-  key: string,
-  required = true,
-): string | undefined {
-  const value = body[key];
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  if (trimmed) return trimmed;
-  return required ? undefined : "";
-}
-
 export async function startServer(options = defaultServerOptions()): Promise<void> {
   await options.runMigrations();
 
   const snapshot = initialSnapshot();
   const handler = createRequestHandler({
     snapshot,
-    workflowControlClient: createTemporalWorkflowControlClient(),
     workflowLogRoots: options.workflowLogRoots,
     syncFromRemote: () => syncFromRemote(snapshot, options.repoRoot),
     serveStatic: (pathname) => serveStatic(pathname, options.publicDir),

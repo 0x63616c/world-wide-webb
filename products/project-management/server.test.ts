@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createRequestHandler, initialSnapshot, type Snapshot } from "./server";
-import type { WorkflowControlClient, WorkflowControlRequest } from "./workflow-control";
 
 describe("createRequestHandler", () => {
   it("serves mapped board data from the current snapshot", async () => {
@@ -22,7 +21,6 @@ describe("createRequestHandler", () => {
     };
     const handler = createRequestHandler({
       snapshot,
-      workflowControlClient: fakeWorkflowControlClient(),
       workflowLogRoots: [],
       syncFromRemote: async () => {},
       serveStatic: async () => new Response("static"),
@@ -64,7 +62,6 @@ describe("createRequestHandler", () => {
     const snapshot = initialSnapshot();
     const handler = createRequestHandler({
       snapshot,
-      workflowControlClient: fakeWorkflowControlClient(),
       workflowLogRoots: [],
       syncFromRemote: async () => {
         syncCount += 1;
@@ -88,16 +85,9 @@ describe("createRequestHandler", () => {
     });
   });
 
-  it.each([
-    ["pause", undefined],
-    ["resume", undefined],
-    ["retry", undefined],
-    ["mark-human", "Needs Calum"],
-  ] as const)("signals Temporal for %s workflow controls", async (action, reason) => {
-    const calls: WorkflowControlRequest[] = [];
+  it("does not expose manual workflow control endpoints", async () => {
     const handler = createRequestHandler({
       snapshot: initialSnapshot(),
-      workflowControlClient: fakeWorkflowControlClient(calls),
       workflowLogRoots: [],
       syncFromRemote: async () => {},
       serveStatic: async () => new Response("static"),
@@ -106,42 +96,11 @@ describe("createRequestHandler", () => {
     const response = await handler(
       new Request("http://127.0.0.1/api/workflow-control", {
         method: "POST",
-        body: JSON.stringify({ ticketId: "www-3agy.14", action, reason }),
+        body: JSON.stringify({ ticketId: "www-3agy.14", action: "retry" }),
       }),
     );
 
-    expect(response.status).toBe(200);
-    expect(calls).toEqual([{ ticketId: "www-3agy.14", action, reason }]);
-    await expect(response.json()).resolves.toEqual({
-      ok: true,
-      result: {
-        ticketId: "www-3agy.14",
-        workflowId: "ticket_www-3agy.14",
-        action,
-        signaled: true,
-      },
-    });
-  });
-
-  it("rejects invalid workflow control payloads before signaling", async () => {
-    const calls: WorkflowControlRequest[] = [];
-    const handler = createRequestHandler({
-      snapshot: initialSnapshot(),
-      workflowControlClient: fakeWorkflowControlClient(calls),
-      workflowLogRoots: [],
-      syncFromRemote: async () => {},
-      serveStatic: async () => new Response("static"),
-    });
-
-    const response = await handler(
-      new Request("http://127.0.0.1/api/workflow-control", {
-        method: "POST",
-        body: JSON.stringify({ ticketId: "www-3agy.14", action: "close" }),
-      }),
-    );
-
-    expect(response.status).toBe(400);
-    expect(calls).toEqual([]);
+    expect(response.status).toBe(404);
   });
 
   it("serves workflow logs only from configured log roots", async () => {
@@ -150,7 +109,6 @@ describe("createRequestHandler", () => {
     await writeFile(logPath, "builder output");
     const handler = createRequestHandler({
       snapshot: initialSnapshot(),
-      workflowControlClient: fakeWorkflowControlClient(),
       workflowLogRoots: [logRoot],
       syncFromRemote: async () => {},
       serveStatic: async () => new Response("static"),
@@ -168,17 +126,3 @@ describe("createRequestHandler", () => {
     expect(outside.status).toBe(403);
   });
 });
-
-function fakeWorkflowControlClient(calls: WorkflowControlRequest[] = []): WorkflowControlClient {
-  return {
-    async signalTicketWorkflow(request) {
-      calls.push(request);
-      return {
-        ticketId: request.ticketId,
-        workflowId: `ticket_${request.ticketId}`,
-        action: request.action,
-        signaled: true,
-      };
-    },
-  };
-}

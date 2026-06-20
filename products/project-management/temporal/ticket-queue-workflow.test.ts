@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { TicketWorkflowRuntimeConfig } from "./command-activities";
 import { runTicketQueueBatch, type TicketQueueWorkflowChildInput } from "./workflows";
 
 describe("runTicketQueueBatch", () => {
@@ -6,12 +7,8 @@ describe("runTicketQueueBatch", () => {
     const children: TicketQueueWorkflowChildInput[] = [];
     const result = await runTicketQueueBatch(
       {
-        repoRoot: "/repo",
-        finalGates: [{ label: "test", command: "bun", args: ["run", "test"] }],
-        runtimeLogRoot: "/logs",
+        ...baseConfig(),
         baseRef: "origin/main",
-        requirePushedBranch: true,
-        mergeStrategy: "merge",
       },
       [
         {
@@ -37,37 +34,9 @@ describe("runTicketQueueBatch", () => {
     expect(children).toEqual([
       {
         ticketId: "www-3agy.19",
-        input: {
-          ticketId: "www-3agy.19",
-          runner: {
-            title: "Start ticket workflow worktrees from latest origin main",
-            repoRoot: "/repo",
-            acceptanceCriteria: "- [ ] worktree starts from latest main",
-            comments: ["## Context\n\nUse latest main."],
-            finalGates: [{ label: "test", command: "bun", args: ["run", "test"] }],
-            runtimeLogRoot: "/logs",
-            baseRef: "origin/main",
-            requirePushedBranch: true,
-            mergeStrategy: "merge",
-          },
-        },
       },
       {
         ticketId: "www-3agy.20",
-        input: {
-          ticketId: "www-3agy.20",
-          runner: {
-            title: "Add manual cleanup for completed ticket workflow artifacts",
-            repoRoot: "/repo",
-            acceptanceCriteria: "- [ ] cleanup is safe",
-            comments: [],
-            finalGates: [{ label: "test", command: "bun", args: ["run", "test"] }],
-            runtimeLogRoot: "/logs",
-            baseRef: "origin/main",
-            requirePushedBranch: true,
-            mergeStrategy: "merge",
-          },
-        },
       },
     ]);
   });
@@ -75,8 +44,7 @@ describe("runTicketQueueBatch", () => {
   it("reports duplicate child workflows as skipped without blocking the batch", async () => {
     const result = await runTicketQueueBatch(
       {
-        repoRoot: "/repo",
-        finalGates: [],
+        ...baseConfig(),
         maxTicketsPerPoll: 2,
       },
       [
@@ -94,8 +62,7 @@ describe("runTicketQueueBatch", () => {
     const children: TicketQueueWorkflowChildInput[] = [];
     const result = await runTicketQueueBatch(
       {
-        repoRoot: "/repo",
-        finalGates: [],
+        ...baseConfig(),
         maxActiveTicketWorkflows: 3,
         maxTicketsPerPoll: 3,
       },
@@ -141,19 +108,34 @@ describe("runTicketQueueBatch", () => {
       return "started" as const;
     };
 
-    const oldQueueResult = await runTicketQueueBatch(
-      { repoRoot: "/repo", finalGates: [] },
-      tickets,
-      startOnce,
-    );
-    const newQueueResult = await runTicketQueueBatch(
-      { repoRoot: "/repo", finalGates: [] },
-      tickets,
-      startOnce,
-    );
+    const oldQueueResult = await runTicketQueueBatch(baseConfig(), tickets, startOnce);
+    const newQueueResult = await runTicketQueueBatch(baseConfig(), tickets, startOnce);
 
     expect(oldQueueResult).toEqual({ started: ["www-overlap"], skipped: [] });
     expect(newQueueResult).toEqual({ started: [], skipped: ["www-overlap"] });
     expect([...started]).toEqual(["www-overlap"]);
   });
 });
+
+function baseConfig(
+  overrides: Partial<TicketWorkflowRuntimeConfig> = {},
+): TicketWorkflowRuntimeConfig {
+  return {
+    repoRoot: "/repo",
+    finalGates: [{ label: "test", command: "bun", args: ["run", "test"] }],
+    runtimeLogRoot: "/logs",
+    baseRef: "HEAD",
+    requirePushedBranch: true,
+    mergeStrategy: "merge",
+    ticketQueuePollIntervalMs: 15_000,
+    maxActiveTicketWorkflows: 3,
+    maxTicketsPerPoll: 3,
+    maxMergeAttempts: 3,
+    maxMergeHistoryEvents: 100,
+    stuckTicketRecoveryPollIntervalMs: 60_000,
+    stuckTicketRecoveryMaxTicketsPerPoll: 10,
+    temporalAddress: "127.0.0.1:7233",
+    temporalNamespace: "project-management",
+    ...overrides,
+  };
+}

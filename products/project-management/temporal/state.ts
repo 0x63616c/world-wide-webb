@@ -68,17 +68,9 @@ export type TicketWorkflowOutcome =
   | "merge-passed"
   | "merge-failed";
 
-export type TicketWorkflowSignal =
-  | { readonly type: "pause" }
-  | { readonly type: "resume" }
-  | { readonly type: "retry" }
-  | { readonly type: "mark-human"; readonly reason: string }
-  | { readonly type: "cancel"; readonly reason: string };
-
 export type TicketWorkflowEvent =
   | { readonly type: "start-build" }
-  | { readonly type: "complete-step"; readonly outcome: TicketWorkflowOutcome }
-  | { readonly type: "signal"; readonly signal: TicketWorkflowSignal };
+  | { readonly type: "complete-step"; readonly outcome: TicketWorkflowOutcome };
 
 export type TicketWorkflowOptions = {
   readonly maxBuilderAttempts: number;
@@ -90,7 +82,6 @@ export type TicketWorkflowState = {
   readonly phase: TicketWorkflowPhase;
   readonly builderAttempts: number;
   readonly reviewerAttempts: number;
-  readonly paused: boolean;
   readonly terminalReason: string | null;
   readonly lastOutcome: TicketWorkflowOutcome | null;
   readonly history: readonly string[];
@@ -107,7 +98,6 @@ export function initialTicketWorkflowState(ticketId: string): TicketWorkflowStat
     phase: "ready",
     builderAttempts: 0,
     reviewerAttempts: 0,
-    paused: false,
     terminalReason: null,
     lastOutcome: null,
     history: ["ready"],
@@ -120,8 +110,6 @@ export function transitionTicketWorkflow(
   options: TicketWorkflowOptions = DEFAULT_TICKET_WORKFLOW_OPTIONS,
 ): TicketWorkflowState {
   if (state.phase === "closed" || state.phase === "human") return state;
-  if (event.type === "signal") return applyTicketWorkflowSignal(state, event.signal);
-  if (state.paused) return state;
 
   switch (event.type) {
     case "start-build":
@@ -142,27 +130,6 @@ export function applyTicketWorkflowEvents(
   let state = initialTicketWorkflowState(ticketId);
   for (const event of events) state = transitionTicketWorkflow(state, event, options);
   return state;
-}
-
-function applyTicketWorkflowSignal(
-  state: TicketWorkflowState,
-  signal: TicketWorkflowSignal,
-): TicketWorkflowState {
-  switch (signal.type) {
-    case "pause":
-      return { ...state, paused: true, history: [...state.history, "pause"] };
-    case "resume":
-      return { ...state, paused: false, history: [...state.history, "resume"] };
-    case "retry":
-      return enterPhase({ ...state, paused: false }, "build", {
-        builderAttempts: state.builderAttempts + 1,
-        lastOutcome: null,
-      });
-    case "mark-human":
-      return enterPhase(state, "human", { terminalReason: signal.reason });
-    case "cancel":
-      return enterPhase(state, "human", { terminalReason: `cancelled: ${signal.reason}` });
-  }
 }
 
 function applyStepOutcome(

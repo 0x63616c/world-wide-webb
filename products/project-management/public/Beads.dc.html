@@ -402,19 +402,14 @@
             </sc-if>
           </div>
 
-          <sc-if value="{{ selected.hasWorkflowControls }}">
+          <sc-if value="{{ selected.hasWorkflowDetails }}">
             <div style="display:flex; flex-direction:column; gap:10px; padding:13px; background:var(--nest); border:1px solid var(--hair); border-radius:13px;">
               <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
                 <div style="display:flex; flex-direction:column; gap:4px;">
-                  <span class="cap">Workflow controls</span>
+                  <span class="cap">Workflow</span>
                   <span class="mono" style="font-size:11px; color:var(--ink-3);">{{ selected.workflowPhaseLabel }}</span>
                 </div>
-                <span class="mono" style="font-size:11px; color:var(--ink-3);">{{ workflowControlStatus }}</span>
-              </div>
-              <div style="display:flex; gap:7px; flex-wrap:wrap;">
-                <sc-for list="{{ selected.workflowControls }}" as="ctl" hint-placeholder-count="5">
-                  <button class="bd-seg" onClick="{{ ctl.onClick }}" style="{{ ctl.style }}">{{ ctl.label }}</button>
-                </sc-for>
+                <span class="mono" style="font-size:11px; color:var(--ink-3);">{{ copyStatus }}</span>
               </div>
               <sc-if value="{{ selected.hasTmux }}">
                 <button class="bd-terminal-copy mono" onClick="{{ selected.copyTmux }}" title="Copy tmux command">
@@ -765,7 +760,7 @@ class Component extends DCLogic {
     workflowDashboard: null,
     workflowMetrics: null,
     workflowQueueFilter: [],
-    workflowControlStatus: '',
+    copyStatus: '',
     copiedTarget: null,
     closeReasons: {},
     loaded: false,
@@ -944,34 +939,21 @@ class Component extends DCLogic {
     return 'bd close ' + this.shellQuote(issue.id) + ' --reason ' + this.shellQuote(this.closeReasonFor(issue));
   }
 
-  workflowAction(ticketId, action) {
-    const reason = action === 'mark-human' ? (window.prompt('Why mark this ticket human?') || 'Marked human from UI') : undefined;
-    this.setState({ workflowControlStatus: action + '…' });
-    fetch('/api/workflow-control', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ticketId, action, reason })
-    })
-      .then((r) => { if (!r.ok) throw new Error('workflow control failed'); return r.json(); })
-      .then(() => { this.setState({ workflowControlStatus: action + ' sent' }); this.loadData(); })
-      .catch((err) => { console.error('[beads-ui] workflow control failed:', err); this.setState({ workflowControlStatus: action + ' failed' }); });
-  }
-
   copyText(text, target) {
     if (!text) return;
     const onCopied = () => {
       if (this.__copyTimer) clearTimeout(this.__copyTimer);
-      this.setState({ copiedTarget: target, workflowControlStatus: 'Copied' });
+      this.setState({ copiedTarget: target, copyStatus: 'Copied' });
       this.__copyTimer = setTimeout(() => this.setState({ copiedTarget: null }), 1400);
     };
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(onCopied).catch(() => this.setState({ workflowControlStatus: 'Copy failed' }));
+        navigator.clipboard.writeText(text).then(onCopied).catch(() => this.setState({ copyStatus: 'Copy failed' }));
         return;
       }
-      this.setState({ workflowControlStatus: 'Copy unavailable' });
+      this.setState({ copyStatus: 'Copy unavailable' });
     } catch (err) {
-      this.setState({ workflowControlStatus: 'Copy failed' });
+      this.setState({ copyStatus: 'Copy failed' });
     }
   }
 
@@ -1327,11 +1309,6 @@ class Component extends DCLogic {
         hasReviewerArtifact: !!(reviewerFailure && reviewerFailure.artifactLink),
         reviewerArtifactHref: reviewerFailure && reviewerFailure.artifactLink ? this.workflowFileHref(reviewerFailure.artifactLink) : '#'
       } : null;
-      const workflowButton = (label, action, color) => ({
-        label,
-        onClick: () => this.workflowAction(sel.id, action),
-        style: { display: 'inline-flex', alignItems: 'center', padding: '7px 12px', borderRadius: 9, fontSize: 12.5, fontWeight: 500, fontFamily: 'var(--ui)', cursor: 'pointer', background: 'var(--tile-2)', border: '1px solid ' + color, color, transition: 'all .14s ease' }
-      });
       selected = {
         id: sel.id, idLabel: sel.id.toUpperCase(), title: sel.title,
         copyTicketId: () => this.copyText(sel.id, 'ticket-id'), idCopied: st.copiedTarget === 'ticket-id',
@@ -1356,14 +1333,8 @@ class Component extends DCLogic {
         createdAge: this.relTime(sel.created),
         createdBy: sel.createdBy || '-', hasCreatedBy: !!(sel.createdBy && sel.createdBy.trim()),
         statusOptions, prioOptions, showDirectEdit: !wf,
-        hasWorkflowControls: !!wf,
+        hasWorkflowDetails: !!wf,
         workflowPhaseLabel: wf ? 'phase ' + wf.phase : '',
-        workflowControls: wf ? [
-          workflowButton('Pause', 'pause', '#f4c063'),
-          workflowButton('Resume', 'resume', '#3fb950'),
-          workflowButton('Retry', 'retry', '#0070f3'),
-          workflowButton('Mark human', 'mark-human', '#f85149')
-        ] : [],
         hasTmux: !!(wf && wf.tmuxAttachCommand), tmuxAttachCommand: wf ? wf.tmuxAttachCommand : '',
         copyTmux: wf ? () => this.copyText(wf.tmuxAttachCommand || '', 'tmux') : () => {},
         tmuxCopyLabel: st.copiedTarget === 'tmux' ? 'Copied' : 'Copy', tmuxCopied: st.copiedTarget === 'tmux',
@@ -1419,7 +1390,7 @@ class Component extends DCLogic {
       hasMilestoneFilter: st.epicFilter !== 'all',
 
       hasSelected: !!selected, selected, closeDetail: () => this.closeDetail(),
-      workflowControlStatus: st.workflowControlStatus,
+      copyStatus: st.copyStatus,
       confirmClose: st.confirmClose, discardAndClose: () => this.discardAndClose(), cancelConfirm: () => this.setState({ confirmClose: false }),
 
       newOpen: st.newOpen, closeNew: () => this.closeNew(), createIssue: () => this.createIssue(),

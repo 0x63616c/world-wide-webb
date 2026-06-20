@@ -120,16 +120,16 @@ describe("Beads detail template", () => {
     expect(html).toContain("copyCloseCommand: () => this.copyText(closeCommand, 'close-command')");
     expect(html).toContain("closeCommandCopyLabel");
     expect(html).toContain("copiedTarget: null");
-    expect(html).not.toContain("workflowAction(sel.id, 'close'");
-    expect(html).not.toContain("action: 'close'");
+    expect(html).not.toContain("workflowAction");
+    expect(html).not.toContain("/api/workflow-control");
   });
 
   it("defines copied and failed copy states without throwing", async () => {
     const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
 
     expect(html).toContain("copiedTarget: null");
-    expect(html).toContain("workflowControlStatus: 'Copied'");
-    expect(html).toContain("workflowControlStatus: 'Copy failed'");
+    expect(html).toContain("copyStatus: 'Copied'");
+    expect(html).toContain("copyStatus: 'Copy failed'");
     expect(html).toContain("try {");
     expect(html).toContain("} catch (err) {");
   });

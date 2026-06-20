@@ -58,6 +58,36 @@ export type FinalGateCommand = {
   readonly cwd?: string;
 };
 
+export type TicketWorkflowRuntimeConfig = {
+  readonly repoRoot: string;
+  readonly finalGates: readonly FinalGateCommand[];
+  readonly runtimeLogRoot: string;
+  readonly baseRef: string;
+  readonly requirePushedBranch: boolean;
+  readonly mergeStrategy: "cherry-pick" | "merge";
+  readonly ticketQueuePollIntervalMs: number;
+  readonly maxActiveTicketWorkflows: number;
+  readonly maxTicketsPerPoll: number;
+  readonly maxMergeAttempts: number;
+  readonly maxMergeHistoryEvents: number;
+  readonly stuckTicketRecoveryPollIntervalMs: number;
+  readonly stuckTicketRecoveryMaxTicketsPerPoll: number;
+  readonly temporalAddress: string;
+  readonly temporalNamespace: string;
+};
+
+export type TicketWorkflowTicketDetailsInput = {
+  readonly ticketId: string;
+  readonly repoRoot: string;
+};
+
+export type TicketWorkflowTicketDetails = {
+  readonly ticketId: string;
+  readonly title: string;
+  readonly acceptanceCriteria: string;
+  readonly comments: readonly string[];
+};
+
 export type UpdateMainInput = {
   readonly repoRoot: string;
 };
@@ -405,6 +435,16 @@ export async function pushBeadsActivity(input: PushBeadsInput): Promise<MergeAct
 
 export async function claimTicketActivity(input: TicketBeadsInput): Promise<MergeActivityResult> {
   return claimTicket(input, runCommand);
+}
+
+export async function loadTicketWorkflowConfigActivity(): Promise<TicketWorkflowRuntimeConfig> {
+  return loadTicketWorkflowConfig();
+}
+
+export async function loadTicketWorkflowTicketDetailsActivity(
+  input: TicketWorkflowTicketDetailsInput,
+): Promise<TicketWorkflowTicketDetails> {
+  return loadTicketWorkflowTicketDetails(input, runCommand);
 }
 
 export async function readReadyTicketWorkflowQueueActivity(
@@ -797,26 +837,62 @@ export async function claimTicket(
   ]);
 }
 
+export function loadTicketWorkflowConfig(): TicketWorkflowRuntimeConfig {
+  return {
+    repoRoot: Bun.env.REPO_ROOT ?? new URL("../../..", import.meta.url).pathname,
+    finalGates: [
+      { label: "test", command: "bun", args: ["run", "test"] },
+      { label: "typecheck", command: "bun", args: ["run", "typecheck"] },
+      { label: "biome", command: "bunx", args: ["biome", "check", "."] },
+    ],
+    runtimeLogRoot: Bun.env.TICKET_WORKFLOW_RUNTIME_LOG_ROOT ?? defaultRuntimeLogRoot(),
+    baseRef: Bun.env.TICKET_WORKFLOW_BASE_REF ?? "HEAD",
+    requirePushedBranch: envBoolean(Bun.env.TICKET_WORKFLOW_REQUIRE_PUSHED_BRANCH, true),
+    mergeStrategy: envMergeStrategy(Bun.env.TICKET_WORKFLOW_MERGE_STRATEGY),
+    ticketQueuePollIntervalMs: envInteger(Bun.env.TICKET_QUEUE_POLL_INTERVAL_MS, 15_000),
+    maxActiveTicketWorkflows: envInteger(Bun.env.TICKET_QUEUE_MAX_ACTIVE, 3),
+    maxTicketsPerPoll: envInteger(Bun.env.TICKET_QUEUE_MAX_PER_POLL, 3),
+    maxMergeAttempts: envInteger(Bun.env.TICKET_MERGE_MAX_ATTEMPTS, 3),
+    maxMergeHistoryEvents: envInteger(Bun.env.TICKET_MERGE_MAX_HISTORY_EVENTS, 100),
+    stuckTicketRecoveryPollIntervalMs: envInteger(
+      Bun.env.STUCK_TICKET_RECOVERY_POLL_INTERVAL_MS,
+      60_000,
+    ),
+    stuckTicketRecoveryMaxTicketsPerPoll: envInteger(
+      Bun.env.STUCK_TICKET_RECOVERY_MAX_PER_POLL,
+      10,
+    ),
+    temporalAddress: Bun.env.TEMPORAL_ADDRESS ?? "127.0.0.1:7233",
+    temporalNamespace: Bun.env.TEMPORAL_NAMESPACE ?? "project-management",
+  };
+}
+
+export async function loadTicketWorkflowTicketDetails(
+  input: TicketWorkflowTicketDetailsInput,
+  run: ActivityCommandRunner,
+): Promise<TicketWorkflowTicketDetails> {
+  const adapter = beadsAdapter(input.repoRoot, run);
+  const [ticket] = await adapter.showTickets([input.ticketId]);
+  if (!ticket) {
+    throw ApplicationFailure.create({
+      message: `Ticket ${input.ticketId} was not found`,
+      type: "TicketNotFound",
+      nonRetryable: true,
+    });
+  }
+  return {
+    ticketId: ticket.id,
+    title: ticket.title,
+    acceptanceCriteria: ticket.acceptanceCriteria || "No acceptance criteria provided.",
+    comments: ticket.comments.map((comment) => comment.text),
+  };
+}
+
 export async function readReadyTicketWorkflowQueue(
   input: ReadReadyTicketWorkflowQueueInput,
   run: ActivityCommandRunner,
 ): Promise<ReadyTicketWorkflowQueueTicket[]> {
-  const adapter = new BeadsAdapter(async (command) => {
-    const result = await run({
-      command: command.command,
-      args: command.args,
-      cwd: input.repoRoot,
-      stdin: command.stdin,
-    });
-    if (result.exitCode !== 0) {
-      throw ApplicationFailure.create({
-        message: result.stderr.trim() || result.stdout.trim() || "bd command failed",
-        type: "BeadsCommandFailed",
-        nonRetryable: true,
-      });
-    }
-    return result.stdout;
-  });
+  const adapter = beadsAdapter(input.repoRoot, run);
   const queued = await adapter.builderQueue();
 
   if (queued.length === 0) {
@@ -849,22 +925,7 @@ export async function readVerifiedMergeQueue(
   input: ReadVerifiedMergeQueueInput,
   run: ActivityCommandRunner,
 ): Promise<VerifiedMergeQueueTicket[]> {
-  const adapter = new BeadsAdapter(async (command) => {
-    const result = await run({
-      command: command.command,
-      args: command.args,
-      cwd: input.repoRoot,
-      stdin: command.stdin,
-    });
-    if (result.exitCode !== 0) {
-      throw ApplicationFailure.create({
-        message: result.stderr.trim() || result.stdout.trim() || "bd command failed",
-        type: "BeadsCommandFailed",
-        nonRetryable: true,
-      });
-    }
-    return result.stdout;
-  });
+  const adapter = beadsAdapter(input.repoRoot, run);
   const verified = (await adapter.verifiedQueue()).filter(
     (ticket) => ticket.status === "open" && !ticket.labels.includes(TICKET_WORKFLOW_LABELS.human),
   );
@@ -908,22 +969,7 @@ export async function readStuckTicketRecoveryCandidates(
   const tickets = parseRecoveryTicketList(listRecord.stdout);
   if (tickets.length === 0) return [];
 
-  const adapter = new BeadsAdapter(async (command) => {
-    const result = await run({
-      command: command.command,
-      args: command.args,
-      cwd: input.repoRoot,
-      stdin: command.stdin,
-    });
-    if (result.exitCode !== 0) {
-      throw ApplicationFailure.create({
-        message: result.stderr.trim() || result.stdout.trim() || "bd command failed",
-        type: "BeadsCommandFailed",
-        nonRetryable: true,
-      });
-    }
-    return result.stdout;
-  });
+  const adapter = beadsAdapter(input.repoRoot, run);
 
   const details = await adapter.showTickets(tickets.map((ticket) => ticket.id));
   return details.flatMap((ticket) => recoveryCandidateFromTicket(ticket));
@@ -1393,6 +1439,40 @@ function parseTicketMetadata(ticket: unknown): {
     branch: stringField(metadata, TICKET_METADATA_KEYS.branch),
     commit: stringField(metadata, TICKET_METADATA_KEYS.commit),
   };
+}
+
+function beadsAdapter(repoRoot: string, run: ActivityCommandRunner): BeadsAdapter {
+  return new BeadsAdapter(async (command) => {
+    const result = await run({
+      command: command.command,
+      args: command.args,
+      cwd: repoRoot,
+      stdin: command.stdin,
+    });
+    if (result.exitCode !== 0) {
+      throw ApplicationFailure.create({
+        message: result.stderr.trim() || result.stdout.trim() || "bd command failed",
+        type: "BeadsCommandFailed",
+        nonRetryable: true,
+      });
+    }
+    return result.stdout;
+  });
+}
+
+function envInteger(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function envBoolean(value: string | undefined, fallback: boolean): boolean {
+  if (!value) return fallback;
+  return value === "1" || value.toLowerCase() === "true";
+}
+
+function envMergeStrategy(value: string | undefined): "cherry-pick" | "merge" {
+  return value === "cherry-pick" ? "cherry-pick" : "merge";
 }
 
 function parseRecoveryTicketList(stdout: string): BeadsTicket[] {

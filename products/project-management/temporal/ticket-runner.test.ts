@@ -132,7 +132,6 @@ describe("runTicketWorkflowRunner", () => {
     expect(requests).toEqual([
       expect.objectContaining({
         ticketId: "www-proof",
-        ticketWorkflowId: "ticket_www-proof",
         branch: "www-proof-proof-ticket",
         commitSha: "abc123",
         strategy: "merge",
@@ -181,10 +180,6 @@ describe("runTicketWorkflowRunner", () => {
 function baseInput(): TicketWorkflowRunnerInput {
   return {
     ticketId: "www-proof",
-    title: "Proof ticket",
-    repoRoot: "/repo",
-    acceptanceCriteria: "- [ ] proof passes",
-    finalGates: [{ label: "test", command: "bun", args: ["run", "test"] }],
   };
 }
 
@@ -205,6 +200,29 @@ function fakeRunnerActivities(
     calls,
     metadata,
     activities: {
+      loadTicketWorkflowConfigActivity: async () => ({
+        repoRoot: "/repo",
+        finalGates: [{ label: "test", command: "bun", args: ["run", "test"] }],
+        runtimeLogRoot: "/logs",
+        baseRef: "HEAD",
+        requirePushedBranch: true,
+        mergeStrategy: "merge",
+        ticketQueuePollIntervalMs: 15_000,
+        maxActiveTicketWorkflows: 3,
+        maxTicketsPerPoll: 3,
+        maxMergeAttempts: 3,
+        maxMergeHistoryEvents: 100,
+        stuckTicketRecoveryPollIntervalMs: 60_000,
+        stuckTicketRecoveryMaxTicketsPerPoll: 10,
+        temporalAddress: "127.0.0.1:7233",
+        temporalNamespace: "project-management",
+      }),
+      loadTicketWorkflowTicketDetailsActivity: async () => ({
+        ticketId: "www-proof",
+        title: "Proof ticket",
+        acceptanceCriteria: "- [ ] proof passes",
+        comments: [],
+      }),
       claimTicketActivity: async () => {
         calls.push("claim");
         return ok();

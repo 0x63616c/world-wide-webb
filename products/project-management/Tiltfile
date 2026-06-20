@@ -28,7 +28,6 @@ PROJECT_TS_DEPS = [
     'map.ts',
     'server.ts',
     'ticket-artifact-cleanup.ts',
-    'workflow-control.ts',
     'workflow-metrics.ts',
     'workflow.ts',
     'scripts/cleanup-ticket-artifacts.ts',
