@@ -436,7 +436,7 @@ push to main
          runner can reach the homelab kube-apiserver over the tailnet
        - `pulumi login` (Pulumi Cloud, op://Homelab/Pulumi/access-token)
        - `pulumi config set` the per-image digest map (digest-pinned image refs)
-       - `pulumi up --yes` against the prod stack → only services whose digest changed roll
+       - `pulumi up --yes` against the prod stack → live-checks `ghcr-pull`, then only services whose digest changed roll
        - revoke/expire the ephemeral key; leave the tailnet
 ```
 
@@ -460,6 +460,13 @@ push to main
 - **Reboot/path filters:** keep per-app filters; add `infra/**` → triggers a `pulumi up`
   (infra-only change with no image rebuild still converges). Drop the `bosun`/`deploy.config`
   filter entries.
+- **GHCR pull secret preflight (www-n32z):** when CI supplies image digests, the Pulumi program
+  live-checks `ghcr-pull` before it renders workloads. It verifies that `ghcr-pull` is a
+  `kubernetes.io/dockerconfigjson` Secret with `.dockerconfigjson` data in `control-center`,
+  `captive-portal`, `text-your-ex`, and `amp`. If Pulumi state thinks the Secret exists but the live
+  cluster lost it, this fails before workloads roll into anonymous GHCR pulls and `ImagePullBackOff`.
+  Recovery: targeted `pulumi refresh` + `pulumi up` for the missing `<namespace>-ghcr-pull` Secret,
+  then rerun the preflight/deploy.
 
 ---
 

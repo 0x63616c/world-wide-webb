@@ -206,6 +206,28 @@ it, and builds silently never roll** (the deploy "succeeds" but pods stay on the
 The program reads `new Config("wwwinfra").getObject("imageDigests")`; the key must match.
 This is the single most important deploy invariant to get right.
 
+**GHCR pull secret preflight (www-n32z).** When CI supplies image digests, the Pulumi program runs a
+live preflight before rendering workloads. It asserts that `ghcr-pull` exists as a
+`kubernetes.io/dockerconfigjson` Secret with `.dockerconfigjson` data in every namespace that
+declares private GHCR workloads: `control-center`, `captive-portal`, `text-your-ex`, and `amp`.
+This catches Pulumi-state drift where the Secret is missing from the live cluster but still present
+in state before kubelet starts pulling anonymously and throwing `ImagePullBackOff` / `unauthorized`.
+You can run the same check manually with `bun run --filter @www/infra verify:ghcr-pull-secrets`.
+Recovery is a targeted refresh and up for the missing Secret, then rerun the deploy:
+
+```bash
+cd infra
+pulumi login
+pulumi stack select prod
+pulumi refresh --yes --stack prod --target urn:pulumi:prod::world-wide-webb::kubernetes:core/v1:Secret::<namespace>-ghcr-pull
+pulumi up --yes --stack prod --target urn:pulumi:prod::world-wide-webb::kubernetes:core/v1:Secret::<namespace>-ghcr-pull
+bun run --filter @www/infra verify:ghcr-pull-secrets
+```
+
+Replace `<namespace>` with the failing namespace, for example `control-center`. If more than one
+namespace is missing, repeat the two targeted Pulumi commands for each failing Secret, or run a full
+`pulumi refresh` followed by `pulumi up` when Calum approves broader reconciliation.
+
 **Postgres backup status and restore proof (www-jtp0.2).** The live backup CronJob is
 `pg-backup` in namespace `control-center`, derived from the platform `DatabaseBackup` primitive
 while preserving the compatibility path `backups/postgres`. Operator commands:

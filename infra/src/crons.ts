@@ -25,6 +25,7 @@ import {
 import type { InfraNamespaceName } from "./cluster.ts";
 import type { CronJobSpec } from "./component.ts";
 import { ScheduledJob } from "./component.ts";
+import { GHCR_PULL_SECRET_NAME } from "./ghcr-pull-secrets.ts";
 import { SERVICE_SECRET_TARGETS } from "./secrets-map.ts";
 
 export type OwnedCronJobSpec = CronJobSpec & { namespaceName: InfraNamespaceName };
@@ -113,7 +114,7 @@ export function cronSpecs(nasNfsServer: string): OwnedCronJobSpec[] {
       env: { TZ, POSTGRES_HOST: controlCenterPostgresHost },
       // Carry the GHCR pull secret like the workloads do, rather than leaning
       // on package visibility staying public (www-hn1i).
-      imagePullSecrets: ["ghcr-pull"],
+      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
 
     // Tesla-map basemap refresher (www-gma → www-hn1i). Runs the in-repo
@@ -135,7 +136,7 @@ export function cronSpecs(nasNfsServer: string): OwnedCronJobSpec[] {
       volumes: [{ mountPath: "/out", claim: "maps" }],
       // A NEW GHCR package is born private on first push; without the pull
       // secret the first scheduled run ImagePullBackOffs (www-hn1i).
-      imagePullSecrets: ["ghcr-pull"],
+      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
 
     // Control Center stays on the compatibility backup path until that live path

@@ -6,7 +6,8 @@
   "main": "src/index.ts",
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:ghcr-pull-secrets": "bun scripts/verify-ghcr-pull-secrets.ts"
   },
   "dependencies": {
     "@pulumi/kubernetes": "^4.21.0",

@@ -19,6 +19,7 @@ import {
 import type { InfraNamespaceName } from "./cluster.ts";
 import type { WorkloadSpec } from "./component.ts";
 import { ExternalService, Workload } from "./component.ts";
+import { GHCR_PULL_SECRET_NAME, GHCR_PULL_SECRET_NAMESPACES } from "./ghcr-pull-secrets.ts";
 import { SERVICE_SECRET_TARGETS } from "./secrets-map.ts";
 
 // Per-service GHCR image digest map, name -> "sha256:…", set by the CI deploy job
@@ -114,7 +115,6 @@ const ghcr = (name: string, digests: ImageDigests = {}): string => {
   return `${image.repository}:main`;
 };
 // The imagePullSecret name (dockerconfigjson built by ESO from the GHCR token).
-const GHCR_PULL_SECRET = "ghcr-pull";
 // HA is reached via the host's TAILSCALE FQDN, NOT the LAN IP (www-j934.17):
 // OrbStack k8s pods can't route to 192.168.0.0/24 or raw host ports, but the
 // Mac locally routes its OWN tailnet IP (utun) to its 0.0.0.0-bound socats, so
@@ -215,7 +215,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       secretName: SERVICE_SECRET_TARGETS.api.secretName,
       env: haEnv,
       ports: [{ containerPort: 4201, expose: "cluster" }],
-      imagePullSecrets: [GHCR_PULL_SECRET],
+      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
     {
       logicalName: "control-center-worker",
@@ -241,7 +241,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       ]),
       secretName: SERVICE_SECRET_TARGETS.worker.secretName,
       env: haEnv,
-      imagePullSecrets: [GHCR_PULL_SECRET],
+      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
     {
       logicalName: "control-center-media-worker",
@@ -269,7 +269,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
           subPath: "media",
         },
       ],
-      imagePullSecrets: [GHCR_PULL_SECRET],
+      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
     {
       logicalName: "control-center-web",
@@ -297,7 +297,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
           volumes: [{ mountPath: "/out", claim: "maps" }],
         },
       ],
-      imagePullSecrets: [GHCR_PULL_SECRET],
+      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
     {
       logicalName: "control-center-storybook",
@@ -309,7 +309,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       resources: { memory: "96M" },
       env: { TZ },
       ports: [{ containerPort: 6006, expose: "cluster" }],
-      imagePullSecrets: [GHCR_PULL_SECRET],
+      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
     {
       logicalName: "captive-portal-portal",
@@ -341,7 +341,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
           ],
         },
       ],
-      imagePullSecrets: [GHCR_PULL_SECRET],
+      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
     {
       logicalName: "captive-portal-api",
@@ -362,7 +362,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
         POSTGRES_USER: captivePortalDatabase.owner,
       },
       ports: [{ containerPort: 4211, expose: "cluster" }],
-      imagePullSecrets: [GHCR_PULL_SECRET],
+      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
     {
       logicalName: "control-center-drizzle",
@@ -377,7 +377,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       env: { TZ, POSTGRES_HOST: controlCenterDatabase.rwServiceName },
       ports: [{ containerPort: 4983, expose: "cluster" }],
       volumes: [{ mountPath: "/app", claim: "drizzle-data" }],
-      imagePullSecrets: [GHCR_PULL_SECRET],
+      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
     {
       logicalName: "amp-app",
@@ -388,7 +388,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       resources: { memory: "64M" },
       env: { TZ },
       ports: [{ containerPort: 80, expose: "cluster" }],
-      imagePullSecrets: [GHCR_PULL_SECRET],
+      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
     {
       logicalName: "text-your-ex-api",
@@ -409,7 +409,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
         POSTGRES_USER: "postgres",
       },
       ports: [{ containerPort: 8787, expose: "cluster" }],
-      imagePullSecrets: [GHCR_PULL_SECRET],
+      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
     {
       logicalName: "text-your-ex-frontend",
@@ -421,7 +421,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       resources: { memory: "64M" },
       env: { TZ },
       ports: [{ containerPort: 80, expose: "cluster" }],
-      imagePullSecrets: [GHCR_PULL_SECRET],
+      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
     {
       logicalName: "platform-cloudflared",
@@ -512,13 +512,12 @@ export function deployServices(args: ServicesArgs): ServicesResources {
   const dockerconfigjson = JSON.stringify({
     auths: { "ghcr.io": { username: "0x63616c", password: pat, auth: authB64 } },
   });
-  const ghcrNamespaces = ["control-center", "captive-portal", "text-your-ex", "amp"] as const;
-  const ghcrPullSecrets = ghcrNamespaces.map(
+  const ghcrPullSecrets = GHCR_PULL_SECRET_NAMESPACES.map(
     (namespaceName) =>
       new k8s.core.v1.Secret(
         `${namespaceName}-ghcr-pull`,
         {
-          metadata: { name: GHCR_PULL_SECRET, namespace: namespaces[namespaceName] },
+          metadata: { name: GHCR_PULL_SECRET_NAME, namespace: namespaces[namespaceName] },
           type: "kubernetes.io/dockerconfigjson",
           stringData: { ".dockerconfigjson": pulumi.secret(dockerconfigjson) },
         },

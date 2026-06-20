@@ -12,16 +12,18 @@ import { makeCluster } from "./src/cluster.ts";
 import { installCnpg } from "./src/cnpg.ts";
 import { deployCrons } from "./src/crons.ts";
 import { installEso } from "./src/eso.ts";
+import { verifyLiveGhcrPullSecrets } from "./src/ghcr-pull-secret-preflight.ts";
 import { deployServices } from "./src/services.ts";
 import { loadVault } from "./src/vault.ts";
 
 const cfg = new pulumi.Config("wwwinfra");
+const kubeContext = cfg.get("kubeContext");
 // kubeContext selects the target cluster. Default cc-homelab (prod, homelab's
 // OrbStack reached over the tailnet); a machine-local staging cluster overrides
 // it (e.g. `pulumi config set wwwinfra:kubeContext orbstack`). CI points the
 // provider at the context name in its own kubeconfig (the homelab kube-apiserver
 // over the tailnet). www-j934 repoint.
-const cluster = makeCluster(cfg.get("kubeContext"));
+const cluster = makeCluster(kubeContext);
 const namespaces = Object.fromEntries(
   Object.entries(cluster.namespaces).map(([name, namespace]) => [name, namespace.metadata.name]),
 ) as Record<keyof typeof cluster.namespaces, pulumi.Output<string>>;
@@ -74,6 +76,11 @@ const certManager = installCertManager({
 
 // The NAS NFS server, shared by the media-worker share and the pg-backup target.
 const nasNfsServer = cfg.get("nasNfsServer") ?? "192.168.0.218";
+const imageDigests = cfg.getObject<Record<string, string>>("imageDigests") ?? {};
+
+if (Object.keys(imageDigests).length > 0) {
+  verifyLiveGhcrPullSecrets({ context: kubeContext });
+}
 
 const services = deployServices({
   provider: cluster.provider,
@@ -86,7 +93,7 @@ const services = deployServices({
   storybookReplicas: cfg.getNumber("storybookReplicas") ?? 0,
   drizzleReplicas: cfg.getNumber("drizzleReplicas") ?? 0,
   nasNfsServer,
-  imageDigests: cfg.getObject<Record<string, string>>("imageDigests") ?? {},
+  imageDigests,
   vault,
 });
 
