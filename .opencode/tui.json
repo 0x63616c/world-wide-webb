@@ -1,7 +1,6 @@
 {
   "$schema": "https://opencode.ai/tui.json",
   "plugin": [
-    "./tui/smoke-sidebar.tsx",
     "./tui/goal-sidebar.tsx",
     [
       "./tui/reply-attention.js",
@@ -13,7 +12,6 @@
         "debounceMs": 4000,
         "afplayPath": "/System/Library/Sounds/Glass.aiff"
       }
-    ],
-    "./tui/context-breakdown.tsx"
+    ]
   ]
 }
