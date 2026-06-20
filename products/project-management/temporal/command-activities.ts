@@ -1437,8 +1437,7 @@ export async function verifyBuilderHandoff(
     ticket?.comments.some((comment) =>
       /builder (summary|handoff)|## builder summary/i.test(comment),
     ) ?? false;
-  const handoff =
-    labels.includes(TICKET_WORKFLOW_LABELS.review) && hasBuilderComment ? "review" : "missing";
+  const handoff = hasBuilderComment ? "review" : "missing";
 
   return { ok: handoff === "review", records: [record], handoff, labels, hasBuilderComment };
 }
