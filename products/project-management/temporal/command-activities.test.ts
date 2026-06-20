@@ -566,6 +566,8 @@ describe("ticket command activities", () => {
         "ticket-human",
         "--exclude-label",
         "ticket-backlog",
+        "--exclude-label",
+        "manual",
       ],
       cwd: "/repo",
       stdin: undefined,

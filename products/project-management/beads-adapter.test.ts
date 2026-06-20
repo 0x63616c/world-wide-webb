@@ -4,6 +4,7 @@ import {
   assertNoConflictingTicketLifecycleLabels,
   BeadsAdapter,
   type BeadsCommand,
+  BUILDER_QUEUE_EXCLUDED_LABELS,
   buildCommentCommand,
   buildDownstreamBlockedProbeCommand,
   buildFailedReviewRequeueCommand,
@@ -58,6 +59,7 @@ describe("ticket workflow labels", () => {
       verified: "ticket-verified",
       human: "ticket-human",
     });
+    expect(BUILDER_QUEUE_EXCLUDED_LABELS).toEqual(["ticket-human", "ticket-backlog", "manual"]);
   });
 });
 
@@ -80,6 +82,8 @@ describe("buildQueueCommand", () => {
         "ticket-human",
         "--exclude-label",
         "ticket-backlog",
+        "--exclude-label",
+        "manual",
       ],
     });
   });
@@ -201,6 +205,40 @@ describe("metadata and comments", () => {
 });
 
 describe("BeadsAdapter", () => {
+  it("selects only normal ticket-ready issues for the auto-builder queue", async () => {
+    const adapter = new BeadsAdapter(async () =>
+      JSON.stringify([
+        {
+          id: "www-manual",
+          title: "Manual ticket",
+          status: "open",
+          labels: ["ticket-ready", "manual"],
+        },
+        {
+          id: "www-human",
+          title: "Human ticket",
+          status: "open",
+          labels: ["ticket-ready", "ticket-human"],
+        },
+        {
+          id: "www-normal",
+          title: "Normal ticket",
+          status: "open",
+          labels: ["ticket-ready"],
+        },
+      ]),
+    );
+
+    await expect(adapter.builderQueue()).resolves.toEqual([
+      {
+        id: "www-normal",
+        title: "Normal ticket",
+        status: "open",
+        labels: ["ticket-ready"],
+      },
+    ]);
+  });
+
   it("runs queue, metadata, and comment commands through the injected boundary", async () => {
     const commands: BeadsCommand[] = [];
     const adapter = new BeadsAdapter(async (command) => {
