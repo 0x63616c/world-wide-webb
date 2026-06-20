@@ -6,10 +6,10 @@
 #
 # Phase 1 (always runs):
 #   - Requires clean main, up to date with origin
-#   - Generates new age keypair, stores in Keychain + prompts for 1Password
-#   - Updates .sops.yaml with new public key
-#   - Decrypts vault with OLD key, re-encrypts with NEW key (fresh ciphertext)
+#   - Generates new age keypair
+#   - Decrypts vault with OLD key, re-encrypts with NEW key to a temp file
 #   - Verifies new key works, old key no longer applies
+#   - Replaces vault, updates .sops.yaml, then stores new key in Keychain + 1Password
 #   - Commits rotation
 #
 # Phase 2 (only with --rewrite-history):
@@ -38,11 +38,15 @@ warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 die()   { error "$@"; exit 1; }
 
+umask 077
+
 # Temp files — cleaned up on exit
 # age-keygen -o refuses to write to an existing file, so use temp dir paths
 TEMP_DIR=$(mktemp -d)
 NEW_KEY_FILE="$TEMP_DIR/new-key.txt"
 OLD_KEY_FILE="$TEMP_DIR/old-key.txt"
+PLAINTEXT_VAULT_FILE="$TEMP_DIR/vault.plain.yaml"
+NEW_VAULT_FILE="$TEMP_DIR/vault.new.yaml"
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
 # ─── Phase 0: Prerequisites ──────────────────────────────────────────────────
@@ -100,6 +104,62 @@ OLD_PUBKEY=$(sed -n 's/^.*age: *//p' .sops.yaml | tr -d '[:space:]')
 info "New public key: $NEW_PUBKEY"
 info "Old public key: $OLD_PUBKEY"
 
+# ── Re-encrypt vault (fresh ciphertext, old key excluded) ────────────────────
+
+info "Decrypting existing vault with old key..."
+
+SOPS_AGE_KEY=$(cat "$OLD_KEY_FILE") sops -d secrets/vault.yaml > "$PLAINTEXT_VAULT_FILE" \
+  || die "Old key cannot decrypt secrets/vault.yaml. Keychain may not contain the key for this vault."
+
+info "Encrypting temporary vault with new key..."
+
+SOPS_AGE_KEY="$NEW_PRIVKEY" sops encrypt --age "$NEW_PUBKEY" -o "$NEW_VAULT_FILE" "$PLAINTEXT_VAULT_FILE" \
+  || die "New key failed to encrypt temporary vault."
+
+# ── Verify before touching Keychain or 1Password ─────────────────────────────
+
+info "Verifying temporary re-encrypted vault..."
+
+if ! SOPS_AGE_KEY=$(cat "$NEW_KEY_FILE") sops -d "$NEW_VAULT_FILE" >/dev/null 2>&1; then
+  die "FATAL: New key cannot decrypt temporary vault. Keychain and 1Password were not changed."
+fi
+info "New key decrypts temporary vault: OK"
+
+if SOPS_AGE_KEY=$(cat "$OLD_KEY_FILE") sops -d "$NEW_VAULT_FILE" >/dev/null 2>&1; then
+  die "FATAL: Old key can still decrypt temporary vault. Keychain and 1Password were not changed."
+fi
+info "Old key rejected by temporary vault: OK"
+
+# ── Apply verified vault and config ──────────────────────────────────────────
+
+info "Replacing secrets/vault.yaml with verified re-encrypted vault..."
+
+mv "$NEW_VAULT_FILE" secrets/vault.yaml
+
+# ── Update .sops.yaml ────────────────────────────────────────────────────────
+
+info "Updating .sops.yaml with new public key..."
+
+sed -i '' "s|^[[:space:]]*age:.*|    age: $NEW_PUBKEY|" .sops.yaml
+
+info ".sops.yaml updated"
+
+# ── Final verify ─────────────────────────────────────────────────────────────
+
+info "Verifying final vault state..."
+
+# Verify NEW key can decrypt
+if ! SOPS_AGE_KEY=$(cat "$NEW_KEY_FILE") sops -d secrets/vault.yaml >/dev/null 2>&1; then
+  die "FATAL: New key cannot decrypt vault after re-encryption!"
+fi
+info "New key decrypts vault: OK"
+
+# Verify OLD key CANNOT decrypt
+if SOPS_AGE_KEY=$(cat "$OLD_KEY_FILE") sops -d secrets/vault.yaml >/dev/null 2>&1; then
+  die "FATAL: Old key can still decrypt the vault! Re-encryption did not exclude it."
+fi
+info "Old key rejected: OK"
+
 # ── Store new private key in Keychain ────────────────────────────────────────
 
 info "Storing new private key in Keychain..."
@@ -124,48 +184,9 @@ info "  Item: 'SOPS Age worldwidewebb Key' (Homelab vault)"
 info "  Field: replace the private key value with the NEW key"
 info ""
 info "  The new key is at: $NEW_KEY_FILE"
-info "  After storing in 1Password, the script will continue."
+info "  The vault and Keychain already verified successfully."
 info ""
 read -r -p "Press Enter when done (or Ctrl+C to abort)... "
-
-# ── Re-encrypt vault (fresh ciphertext, old key excluded) ────────────────────
-# IMPORTANT: decrypt with OLD key BEFORE updating .sops.yaml, otherwise
-# sops -d tries the new key which can't read old ciphertext.
-
-info "Re-encrypting secrets/vault.yaml with new key..."
-
-# Decrypt with old Keychain key, then re-encrypt with new public key
-OLD_KEYCHAIN_RAW=$(security find-generic-password -a "$USER" -s "age-world-wide-webb-private-key" -w 2>/dev/null)
-
-SOPS_AGE_KEY="$OLD_KEYCHAIN_RAW" sops -d secrets/vault.yaml \
-  | SOPS_AGE_KEY="$NEW_PRIVKEY" sops encrypt -o secrets/vault.yaml /dev/stdin \
-  || die "Re-encryption failed. Check that the old key can still decrypt the vault."
-
-unset OLD_KEYCHAIN_RAW
-
-# ── Update .sops.yaml ────────────────────────────────────────────────────────
-
-info "Updating .sops.yaml with new public key..."
-
-sed -i '' "s|^  age:.*|  age: $NEW_PUBKEY|" .sops.yaml
-
-info ".sops.yaml updated"
-
-# ── Verify ────────────────────────────────────────────────────────────────────
-
-info "Verifying re-encryption..."
-
-# Verify NEW key can decrypt
-if ! SOPS_AGE_KEY=$(cat "$NEW_KEY_FILE") sops -d secrets/vault.yaml >/dev/null 2>&1; then
-  die "FATAL: New key cannot decrypt vault after re-encryption!"
-fi
-info "New key decrypts vault: OK"
-
-# Verify OLD key CANNOT decrypt
-if SOPS_AGE_KEY=$(cat "$OLD_KEY_FILE") sops -d secrets/vault.yaml >/dev/null 2>&1; then
-  die "FATAL: Old key can still decrypt the vault! Re-encryption did not exclude it."
-fi
-info "Old key rejected: OK"
 
 # ── Commit rotation ──────────────────────────────────────────────────────────
 
