@@ -43,7 +43,9 @@
   input::placeholder, textarea::placeholder { color: var(--ink-3); }
   select option { background: #0a0a0a; color: #ededed; }
   button { font-family: var(--ui); }
-  .bd-row:hover { background: rgba(255,255,255,0.018); }
+   .bd-row:hover { background: rgba(255,255,255,0.018); }
+   .bd-auto-chip { font-size: 11px; line-height: 1; display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; background: rgba(63,185,80,.13); color: #86e7a0; border: 1px solid rgba(63,185,80,.38); }
+   .bd-auto-chip:before { content: ""; width: 5px; height: 5px; border-radius: 999px; background: #3fb950; box-shadow: 0 0 0 3px rgba(63,185,80,.18); }
   .bd-card { cursor: pointer; transition: border-color .16s ease, transform .12s ease, box-shadow .16s ease; }
   .bd-card:hover { border-color: var(--hair-2); }
   .bd-card:active { cursor: grabbing; }
@@ -154,6 +156,10 @@
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.8" style="position:absolute; left:12px; pointer-events:none;"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
             <input class="bd-input" type="text" placeholder="Search issues…" value="{{ search }}" onInput="{{ onSearch }}" style="width:260px; padding:9px 12px 9px 34px; background:var(--tile); border:1px solid var(--hair); border-radius:10px; color:var(--ink); font-size:13.5px; font-family:var(--ui);">
           </div>
+          <label style="display:flex; align-items:center; gap:8px; padding:9px 11px; border:1px solid var(--hair); border-radius:10px; background:var(--tile); font-size:12px; color:var(--ink-2); font-family:var(--ui);">
+            <input type="checkbox" checked="{{ automatedOnlyChecked }}" onChange="{{ toggleAutomatedOnly }}" style="margin:0; width:14px; height:14px;" aria-label="Show only automated tickets" />
+            Auto only
+          </label>
           <select class="bd-input" value="{{ filterType }}" onChange="{{ onTypeFilter }}" style="padding:9px 12px; background:var(--tile); border:1px solid var(--hair); border-radius:10px; color:var(--ink-2); font-size:13px; font-family:var(--ui); cursor:pointer;">
             <option value="all">All types</option>
             <option value="feature">Feature</option>
@@ -176,12 +182,13 @@
               <span><span style="{{ row.statusStyle }}">{{ row.statusLabel }}</span></span>
               <span style="font-size:14px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ row.title }}</span>
               <span style="{{ row.assigneeStyle }}">{{ row.assignee }}</span>
-              <span><span style="{{ row.prioStyle }}">{{ row.prioLabel }}</span></span>
-              <span class="mono" title="{{ row.createdTitle }}" style="font-size:12px; color:var(--ink-3); white-space:nowrap;">{{ row.createdLabel }}</span>
-              <span class="mono" title="{{ row.updatedTitle }}" style="font-size:12px; color:var(--ink-3); white-space:nowrap;">{{ row.updatedLabel }}</span>
-              <span class="mono" style="text-align:right; font-size:12px; color:var(--ink-3);">{{ row.depText }}</span>
-            </div>
-          </sc-for>
+                <span><span style="{{ row.prioStyle }}">{{ row.prioLabel }}</span></span>
+                <span class="mono" title="{{ row.createdTitle }}" style="font-size:12px; color:var(--ink-3); white-space:nowrap;">{{ row.createdLabel }}</span>
+                <span class="mono" title="{{ row.updatedTitle }}" style="font-size:12px; color:var(--ink-3); white-space:nowrap;">{{ row.updatedLabel }}</span>
+                <span class="mono" style="text-align:right; font-size:12px; color:var(--ink-3);">{{ row.depText }}</span>
+                <span class="bd-auto-chip" style="{{ row.autoStyle }}" title="Automated ticket">{{ row.autoLabel }}</span>
+              </div>
+            </sc-for>
         </div>
       </div>
     </sc-if>
@@ -312,10 +319,11 @@
                             <span class="mono" style="font-size:10.5px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em; white-space:nowrap;">{{ card.phaseLabel }}</span>
                             <sc-if value="{{ card.hasActiveRun }}"><span style="{{ card.runStyle }}">{{ card.activeRunLabel }}</span></sc-if>
                           </div>
-                          <div style="margin-left:auto; display:flex; align-items:center; gap:7px; min-width:0;">
-                            <span class="mono" title="{{ card.updatedTitle }}" style="font-size:10.5px; color:var(--ink-3); white-space:nowrap;">{{ card.updatedRelative }}</span>
-                            <sc-if value="{{ card.hasAttempts }}"><span class="mono" style="font-size:10.5px; color:var(--ink-2); border:1px solid var(--hair); background:var(--nest); border-radius:999px; padding:2px 7px; white-space:nowrap;">attempt {{ card.attempts }}</span></sc-if>
-                          </div>
+                           <div style="margin-left:auto; display:flex; align-items:center; gap:7px; min-width:0;">
+                             <span class="bd-auto-chip" style="{{ card.autoStyle }}" title="Automated ticket">{{ card.autoLabel }}</span>
+                             <span class="mono" title="{{ card.updatedTitle }}" style="font-size:10.5px; color:var(--ink-3); white-space:nowrap;">{{ card.updatedRelative }}</span>
+                             <sc-if value="{{ card.hasAttempts }}"><span class="mono" style="font-size:10.5px; color:var(--ink-2); border:1px solid var(--hair); background:var(--nest); border-radius:999px; padding:2px 7px; white-space:nowrap;">attempt {{ card.attempts }}</span></sc-if>
+                           </div>
                         </div>
                         <sc-if value="{{ card.hasOpenCode }}"><span class="mono" style="font-size:11px; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">OpenCode {{ card.openCodeLabel }}</span></sc-if>
                         <sc-if value="{{ card.hasExhaustion }}">
@@ -705,7 +713,7 @@ const BOARD_COLS = [
   { key: 'closed',      label: 'Closed' }
 ];
 const PILL = { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 500, lineHeight: 1, whiteSpace: 'nowrap', fontFamily: 'var(--ui)', letterSpacing: '-0.01em' };
-const GRID = '88px 86px 118px minmax(180px,1fr) 110px 80px 88px 88px 52px';
+const GRID = '88px 86px 118px minmax(180px,1fr) 110px 80px 88px 88px 52px 74px';
 
 const SEED = [
   { id: 'bd-a3f8', type: 'epic', title: 'Add `bdui` binary for UI daemon control', status: 'in_progress', p: 1, assignee: 'claude', labels: ['bdui', 'infra'], blockedBy: [], blocks: [], desc: 'Ship a single `bdui` binary that starts, stops and restarts the local UI daemon with PID tracking, so users run one command and get a browser.', children: ['bd-7f3a', 'bd-4d21', 'bd-2e88', 'bd-6a05', 'bd-0f19', 'bd-5c63'] },
@@ -742,6 +750,7 @@ class Component extends DCLogic {
     density: 'comfortable',
     statusFilter: 'all',
     typeFilter: 'all',
+    automatedOnly: false,
     epicFilter: 'all',
     epicSort: 'newest',
     sortKey: null,
@@ -880,6 +889,9 @@ class Component extends DCLogic {
       createdLabel: createdCell.label, createdTitle: createdCell.title,
       updatedLabel: updatedCell.label, updatedTitle: updatedCell.title,
       depText: this.depText(it),
+      automated: !!it.automated,
+      autoLabel: !!it.automated ? 'Auto' : '',
+      autoStyle: !!it.automated ? { display: 'inline-flex', alignItems: 'center', justifyContent: 'center' } : { display: 'none' },
       style: this.rowStyle(),
       onClick: () => this.openDetail(it.id)
     };
@@ -1009,11 +1021,12 @@ class Component extends DCLogic {
   }
 
   filtered() {
-    const { statusFilter, typeFilter, search, sortKey, sortDir } = this.state;
+    const { statusFilter, typeFilter, automatedOnly, search, sortKey, sortDir } = this.state;
     const q = search.trim().toLowerCase();
     const rows = this.state.issues.filter((it) => {
       if (statusFilter !== 'all' && it.status !== statusFilter) return false;
       if (typeFilter !== 'all' && it.type !== typeFilter) return false;
+      if (automatedOnly && !it.automated) return false;
       if (q && !(it.title.toLowerCase().includes(q) || it.id.toLowerCase().includes(q))) return false;
       return true;
     });
@@ -1030,6 +1043,7 @@ class Component extends DCLogic {
           case 'created': return it.created || 0;
           case 'updated': return it.updated || 0;
           case 'deps': return (it.blockedBy ? it.blockedBy.length : 0) + (it.blocks ? it.blocks.length : 0);
+          case 'automated': return it.automated ? 1 : 0;
           default: return 0;
         }
       };
@@ -1107,7 +1121,8 @@ class Component extends DCLogic {
       { key: 'priority', label: 'Priority' },
       { key: 'created', label: 'Created' },
       { key: 'updated', label: 'Updated' },
-      { key: 'deps', label: 'Deps', right: true }
+      { key: 'deps', label: 'Deps', right: true },
+      { key: 'automated', label: 'Auto' }
     ].map((c) => {
       const active = sortKey === c.key;
       return {
@@ -1192,7 +1207,7 @@ class Component extends DCLogic {
     const boardSourceColumns = hasWorkflow ? workflow.columns.map((col) => ({ key: col.id, label: col.title, ticketIds: (col.tickets || []).map((ticket) => ticket.id) })) : BOARD_COLS;
     const boardColumns = boardSourceColumns.filter((col) => !hasWorkflow || selectedWorkflowQueueSet.size === 0 || selectedWorkflowQueueSet.has(col.key)).map((col) => {
       const sourceIssues = hasWorkflow ? (col.ticketIds || []).map((id) => this.byId(id)).filter(Boolean) : issues.filter((i) => colKey(i) === col.key);
-      const cards = sourceIssues.filter((i) => i.type !== 'epic' && (epicChildSet === null || epicChildSet.has(i.id)) && (btFilter === 'all' || i.type === btFilter)).map((it) => {
+       const cards = sourceIssues.filter((i) => i.type !== 'epic' && (epicChildSet === null || epicChildSet.has(i.id)) && (btFilter === 'all' || i.type === btFilter)).map((it) => {
         const tm = TYPE_META[it.type] || TYPE_META.task;
         const pb = this.prioBadge(it.p);
         const wf = workflowIssue(it.id);
@@ -1207,6 +1222,9 @@ class Component extends DCLogic {
           barColor: hasWorkflow ? (workflowAccent[col.key] || 'var(--acc)') : (STATUS_META[col.key] || STATUS_META.ready).c,
           typeLabel: tm.label, typeStyle: this.badge(tm),
           prioLabel: pb.label, prioStyle: pb.style,
+          automated: !!it.automated,
+          autoLabel: !!it.automated ? 'Auto' : '',
+          autoStyle: !!it.automated ? { display: 'inline-flex', alignItems: 'center', justifyContent: 'center' } : { display: 'none' },
           hasWorkflow: !!wf,
           phaseLabel: wf ? 'phase ' + wf.phase : '',
           hasActiveRun: !!(wf && wf.activeRun),
@@ -1372,6 +1390,9 @@ class Component extends DCLogic {
       filterType: st.typeFilter, onTypeFilter: (e) => this.setState({ typeFilter: e.target.value }),
       filteredIssues,
       headerCols,
+      toggleAutomatedOnly: () => this.setState({ automatedOnly: !st.automatedOnly }),
+      automatedOnly: st.automatedOnly,
+      automatedOnlyChecked: st.automatedOnly,
       filteredCountLabel: filteredIssues.length + ' of ' + issues.length,
       tableHeaderStyle: { display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', gap: 16, padding: '13px 22px', position: 'sticky', top: 0, background: '#000', zIndex: 2 },
 

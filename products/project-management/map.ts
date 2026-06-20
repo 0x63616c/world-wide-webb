@@ -44,6 +44,7 @@ export interface DesignIssue {
   p: number;
   assignee: string;
   labels: string[];
+  automated: boolean;
   metadata?: Record<string, unknown>;
   comments: DesignIssueComment[];
   blockedBy: string[];
@@ -108,6 +109,12 @@ function mapAssignee(owner?: string, createdBy?: string): string {
   return local.trim();
 }
 
+const AUTOMATED_LABEL_PREFIX = "ticket-";
+
+export function isAutomated(labels: readonly string[]): boolean {
+  return labels.some((label) => label.toLowerCase().startsWith(AUTOMATED_LABEL_PREFIX));
+}
+
 // ISO timestamp -> epoch ms; 0 when missing/unparseable (sorts oldest).
 function parseTs(iso?: string): number {
   if (!iso) return 0;
@@ -160,6 +167,7 @@ export function mapIssues(raw: RawIssue[]): DesignIssue[] {
       p: Math.min(Math.max(issue.priority ?? 2, 0), 4),
       assignee: mapAssignee(issue.owner, issue.created_by),
       labels: issue.labels ?? [],
+      automated: isAutomated(issue.labels ?? []),
       metadata: issue.metadata,
       comments: mapComments(issue.comments),
       blockedBy: blockedByMap.get(issue.id) ?? [],
