@@ -1369,8 +1369,18 @@ export async function processNextMergeQueueEntry(
   const result = await processMergeQueueRequest(input, next.request, mergeActivities);
   recordMergeQueueResult(state, next.request, result);
   state.active = null;
-  await signalResult(ticketWorkflowId(next.request.ticketId), result);
+  try {
+    await signalResult(ticketWorkflowId(next.request.ticketId), result);
+  } catch (error) {
+    if (!isIgnorableMergeResultSignalError(error)) throw error;
+  }
   return result;
+}
+
+function isIgnorableMergeResultSignalError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return message.includes("not found") || message.includes("already completed");
 }
 
 function hasMergeQueueRequest(

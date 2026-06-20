@@ -512,6 +512,30 @@ describe("merge queue state", () => {
       },
     ]);
   });
+
+  it("keeps the merge queue alive when a completed ticket workflow cannot be signaled", async () => {
+    const state = mergeQueueState();
+    const request = queueRequest({
+      ticketId: "www-polled",
+      requestId: "merge_polled",
+    });
+    const fake = fakeMergeQueueActivities();
+
+    enqueueMergeQueueRequest(state, request);
+
+    const result = await processNextMergeQueueEntry(
+      queueInput(),
+      state,
+      fake.activities,
+      async () => {
+        throw new Error("workflow execution already completed");
+      },
+    );
+
+    expect(result).toEqual(expect.objectContaining({ ticketId: "www-polled", status: "merged" }));
+    expect(state.active).toBeNull();
+    expect(state.completed.get("merge_polled")).toEqual(result);
+  });
 });
 
 function baseInput(overrides: Partial<MergeWorkflowInput> = {}): MergeWorkflowInput {
