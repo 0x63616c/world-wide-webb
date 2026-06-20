@@ -67,6 +67,9 @@
   .bd-link { color: var(--ink); text-decoration: none; transition: color .14s ease, text-decoration-color .14s ease, outline-color .14s ease; }
   .bd-link:hover { color: var(--ink); text-decoration: underline; text-decoration-thickness: 1.3px; }
   .bd-link:focus-visible { outline: 1.5px solid rgba(255,255,255,0.65); outline-offset: 2px; border-radius: 4px; color: var(--ink); }
+  .bd-action-link { display:inline-flex; align-items:center; gap:8px; height:32px; padding:0 12px; border-radius:9px; border:1px solid var(--acc-line); background:rgba(0,112,243,.16); color:var(--ink); font-size:12px; font-weight:600; font-family:var(--ui); text-decoration:none; transition:background .14s ease, border-color .14s ease, color .14s ease; }
+  .bd-action-link:hover { background:rgba(0,112,243,.24); border-color:var(--acc-line); color:#fff; text-decoration:none; }
+  .bd-action-link:focus-visible { outline:1.5px solid rgba(255,255,255,.68); outline-offset:2px; }
   .bd-iconbtn { display:inline-flex; align-items:center; justify-content:center; width:34px; height:32px; border-radius:8px; border:1px solid var(--hair); background:transparent; color:var(--ink-2); cursor:pointer; transition:all .14s ease; }
   .bd-iconbtn:hover { color:var(--ink); border-color:var(--hair-2); background:var(--nest); }
   .bd-copy-id { display:inline-flex; align-items:center; gap:8px; border:1px solid transparent; border-radius:10px; background:transparent; color:var(--ink); cursor:pointer; padding:5px 7px; margin:-5px -7px; transition:background .14s ease, border-color .14s ease, color .14s ease; }
@@ -420,7 +423,12 @@
                   <span class="cap">Workflow</span>
                   <span class="mono" style="font-size:11px; color:var(--ink-3);">{{ selected.workflowPhaseLabel }}</span>
                 </div>
-                <span class="mono" style="font-size:11px; color:var(--ink-3);">{{ copyStatus }}</span>
+                <div style="display:flex; align-items:center; gap:10px; margin-left:auto;">
+                  <sc-if value="{{ selected.hasTemporalLink }}">
+                    <a class="bd-action-link" href="{{ selected.temporalHref }}" target="_blank" rel="noreferrer" title="{{ selected.temporalTitle }}">Open in Temporal</a>
+                  </sc-if>
+                  <span class="mono" style="font-size:11px; color:var(--ink-3);">{{ copyStatus }}</span>
+                </div>
               </div>
               <sc-if value="{{ selected.hasTmux }}">
                 <button class="bd-terminal-copy mono" onClick="{{ selected.copyTmux }}" title="Copy tmux command">
@@ -1306,9 +1314,10 @@ class Component extends DCLogic {
       const closeReason = this.closeReasonFor(sel);
       const closeCommand = this.closeCommandFor(sel);
       const wf = workflowIssue(sel.id);
+      const temporalLink = wf && wf.temporalLink ? wf.temporalLink : null;
       const workflowLinks = wf ? [
-        ...(wf.logLinks || []).map((href) => ({ label: 'log', href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() })),
-        ...(wf.promptLinks || []).map((href) => ({ label: 'prompt', href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() }))
+        ...(wf.logLinks || []).map((href) => ({ label: 'Open workflow log', href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() })),
+        ...(wf.promptLinks || []).map((href) => ({ label: 'Open workflow prompt', href: this.workflowFileHref(href), onClick: (e) => e.stopPropagation() }))
       ] : [];
       const exhaustion = wf && wf.exhaustion ? wf.exhaustion : null;
       const builderFailure = exhaustion && exhaustion.builderFailure ? exhaustion.builderFailure : null;
@@ -1356,6 +1365,9 @@ class Component extends DCLogic {
         statusOptions, prioOptions, showDirectEdit: !wf,
         hasWorkflowDetails: !!wf,
         workflowPhaseLabel: wf ? wf.phase : '',
+        hasTemporalLink: !!temporalLink,
+        temporalHref: temporalLink ? temporalLink.href : '#',
+        temporalTitle: temporalLink ? 'Open ' + temporalLink.workflowId + (temporalLink.runId ? ' run ' + temporalLink.runId : '') + ' in Temporal' : '',
         hasTmux: !!(wf && wf.tmuxAttachCommand), tmuxAttachCommand: wf ? wf.tmuxAttachCommand : '',
         copyTmux: wf ? () => this.copyText(wf.tmuxAttachCommand || '', 'tmux') : () => {},
         tmuxCopyLabel: st.copiedTarget === 'tmux' ? 'Copied' : 'Copy', tmuxCopied: st.copiedTarget === 'tmux',
