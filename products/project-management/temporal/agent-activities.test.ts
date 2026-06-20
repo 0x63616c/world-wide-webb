@@ -63,7 +63,7 @@ describe("ticket builder activity", () => {
         "ticket_www-3agy_9_build_1",
         "-c",
         "/repo/.worktrees/tickets/www-3agy.9-builder",
-        "('opencode' 'run' '--dangerously-skip-permissions' '--agent' 'ticket-builder' 'Follow the attached ticket-builder prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.9_build_1.prompt.md' > '/cache/logs/ticket_www-3agy_9_build_1.stdout.log' 2> '/cache/logs/ticket_www-3agy_9_build_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy_9_build_1.exitcode'",
+        "('opencode' 'run' '--dangerously-skip-permissions' '--format' 'json' '--agent' 'ticket-builder' 'Follow the attached ticket-builder prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.9_build_1.prompt.md' > '/cache/logs/ticket_www-3agy_9_build_1.stdout.log' 2> '/cache/logs/ticket_www-3agy_9_build_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy_9_build_1.exitcode'",
       ],
     });
   });
@@ -124,7 +124,7 @@ describe("ticket merge-fix activity", () => {
         "ticket_www-3agy_12_mergefix_1",
         "-c",
         "/repo",
-        "('opencode' 'run' '--dangerously-skip-permissions' '--agent' 'ticket-mergefix' 'Follow the attached ticket-mergefix prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.12_mergefix_1.prompt.md' > '/cache/logs/ticket_www-3agy_12_mergefix_1.stdout.log' 2> '/cache/logs/ticket_www-3agy_12_mergefix_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy_12_mergefix_1.exitcode'",
+        "('opencode' 'run' '--dangerously-skip-permissions' '--format' 'json' '--agent' 'ticket-mergefix' 'Follow the attached ticket-mergefix prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.12_mergefix_1.prompt.md' > '/cache/logs/ticket_www-3agy_12_mergefix_1.stdout.log' 2> '/cache/logs/ticket_www-3agy_12_mergefix_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy_12_mergefix_1.exitcode'",
       ],
     });
   });
@@ -225,7 +225,7 @@ describe("ticket reviewer activity", () => {
         "ticket_www-3agy_10_review_1",
         "-c",
         "/repo/.worktrees/tickets/www-3agy.10-reviewer",
-        "('opencode' 'run' '--dangerously-skip-permissions' '--agent' 'ticket-reviewer' 'Follow the attached ticket-reviewer prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.10_review_1.prompt.md' > '/cache/logs/ticket_www-3agy_10_review_1.stdout.log' 2> '/cache/logs/ticket_www-3agy_10_review_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy_10_review_1.exitcode'",
+        "('opencode' 'run' '--dangerously-skip-permissions' '--format' 'json' '--agent' 'ticket-reviewer' 'Follow the attached ticket-reviewer prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.10_review_1.prompt.md' > '/cache/logs/ticket_www-3agy_10_review_1.stdout.log' 2> '/cache/logs/ticket_www-3agy_10_review_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy_10_review_1.exitcode'",
       ],
     });
   });

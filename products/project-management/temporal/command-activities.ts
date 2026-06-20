@@ -109,6 +109,10 @@ export type RunFinalGatesInput = {
   readonly gates: readonly FinalGateCommand[];
 };
 
+export type SyncMainForPushInput = {
+  readonly repoRoot: string;
+};
+
 export type ResolveGitHeadInput = {
   readonly repoRoot: string;
   readonly ref: string;
@@ -431,6 +435,12 @@ export async function runFinalGatesActivity(
   return runFinalGates(input, runCommand);
 }
 
+export async function syncMainForPushActivity(
+  input: SyncMainForPushInput,
+): Promise<MergeActivityResult> {
+  return syncMainForPush(input, runCommand);
+}
+
 export async function resolveGitHeadActivity(
   input: ResolveGitHeadInput,
 ): Promise<ResolveGitHeadResult> {
@@ -748,6 +758,59 @@ export async function runFinalGates(
       },
     })),
   );
+}
+
+export async function syncMainForPush(
+  input: SyncMainForPushInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  const records: ActivityRecord[] = [];
+  const fetch = await run({
+    command: "git",
+    args: ["fetch", "origin", "main"],
+    cwd: input.repoRoot,
+  });
+  records.push(
+    commandRecord(
+      "sync-main-for-push:fetch",
+      { command: "git", args: ["fetch", "origin", "main"], cwd: input.repoRoot },
+      fetch,
+    ),
+  );
+  if (fetch.exitCode !== 0) return { ok: false, records };
+
+  const containsRemote = await run({
+    command: "git",
+    args: ["merge-base", "--is-ancestor", "origin/main", "HEAD"],
+    cwd: input.repoRoot,
+  });
+  records.push(
+    commandRecord(
+      "sync-main-for-push:contains-remote",
+      {
+        command: "git",
+        args: ["merge-base", "--is-ancestor", "origin/main", "HEAD"],
+        cwd: input.repoRoot,
+      },
+      containsRemote,
+    ),
+  );
+  if (containsRemote.exitCode === 0) return { ok: true, records };
+  if (containsRemote.exitCode !== 1) return { ok: false, records };
+
+  const rebase = await run({
+    command: "git",
+    args: ["rebase", "origin/main"],
+    cwd: input.repoRoot,
+  });
+  records.push(
+    commandRecord(
+      "sync-main-for-push:rebase",
+      { command: "git", args: ["rebase", "origin/main"], cwd: input.repoRoot },
+      rebase,
+    ),
+  );
+  return { ok: rebase.exitCode === 0, records };
 }
 
 export async function validateTicketImplementation(

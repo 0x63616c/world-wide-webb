@@ -3,7 +3,6 @@ name: ticket-builder
 description: Implements one Beads ticket end-to-end without closing it; use with opencode run --agent ticket-builder.
 mode: all
 model: openai/gpt-5.3-codex-spark
-steps: 80
 permission:
   read: allow
   edit: allow

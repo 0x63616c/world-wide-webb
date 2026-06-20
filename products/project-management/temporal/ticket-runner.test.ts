@@ -64,6 +64,7 @@ describe("runTicketWorkflowRunner", () => {
       "update-main",
       "merge-ticket-branch:merge",
       "final-gates",
+      "sync-main-for-push",
       "push-main",
       "close-ticket",
       "push-beads",
@@ -347,6 +348,10 @@ function fakeRunnerActivities(
       },
       runFinalGatesActivity: async () => {
         calls.push("final-gates");
+        return ok();
+      },
+      syncMainForPushActivity: async () => {
+        calls.push("sync-main-for-push");
         return ok();
       },
       pushMainActivity: async () => {

@@ -78,6 +78,7 @@ export type MergeQueueStep =
   | "update-main"
   | "merge-ticket-branch"
   | "final-gates"
+  | "sync-main-for-push"
   | "push-main"
   | "close-ticket"
   | "push-beads";
@@ -87,6 +88,7 @@ export const MERGE_QUEUE_STEPS = [
   "update-main",
   "merge-ticket-branch",
   "final-gates",
+  "sync-main-for-push",
   "push-main",
   "close-ticket",
   "push-beads",
@@ -142,6 +144,7 @@ export type MergeWorkflowStep =
   | "merge-ticket-branch"
   | "merge-fix"
   | "final-gates"
+  | "sync-main-for-push"
   | "push-main"
   | "close-ticket"
   | "push-beads"
@@ -225,6 +228,7 @@ export type MergeWorkflowActivities = Pick<
   | "updateMainActivity"
   | "mergeTicketBranchActivity"
   | "runFinalGatesActivity"
+  | "syncMainForPushActivity"
   | "pushMainActivity"
   | "closeTicketActivity"
   | "pushBeadsActivity"
@@ -345,6 +349,7 @@ const mergeQueuePollActivityProxies = proxyActivities<
 
 const TICKET_RUNNER_MAX_BUILDER_ATTEMPTS = 3;
 const TICKET_RUNNER_MAX_REVIEWER_ATTEMPTS = 3;
+const MERGE_PUSH_MAX_ATTEMPTS = 3;
 
 export async function mergeWorkflow(
   input: MergeWorkflowQueueInput,
@@ -548,67 +553,71 @@ export async function processMergeQueueRequest(
   mergeActivities: MergeQueueActivities,
 ): Promise<MergeQueueResult> {
   const maxAttempts = Math.max(1, input.maxMergeAttempts);
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const assertClean = await mergeActivities.assertCleanMainActivity({ repoRoot: input.repoRoot });
-    if (!assertClean.ok) {
-      return humanBlocked(request, "assert-clean-main", "main has uncommitted local changes");
-    }
-
-    const updateMain = await mergeActivities.updateMainActivity({ repoRoot: input.repoRoot });
-    if (!updateMain.ok)
-      return humanBlocked(request, "update-main", activityFailureReason(updateMain));
-
-    const mergeBranch = await mergeActivities.mergeTicketBranchActivity({
-      repoRoot: input.repoRoot,
-      branch: request.branch,
-      commitSha: request.commitSha ?? undefined,
-      strategy: request.strategy,
-    });
-    if (!mergeBranch.ok) {
-      return retryableFailure(request, "merge-ticket-branch", attempt, mergeBranch);
-    }
-
-    const finalGates = await mergeActivities.runFinalGatesActivity({
-      repoRoot: input.repoRoot,
-      gates: input.finalGates,
-    });
-    if (!finalGates.ok) {
-      return retryableFailure(request, "final-gates", attempt, finalGates);
-    }
-
-    const pushMain = await mergeActivities.pushMainActivity({ repoRoot: input.repoRoot });
-    if (!pushMain.ok) {
-      if (attempt < maxAttempts) {
-        continue;
-      }
-      return humanBlocked(request, "push-main", activityFailureReason(pushMain));
-    }
-
-    const closeTicket = await mergeActivities.closeTicketActivity({
-      ticketId: request.ticketId,
-      repoRoot: input.repoRoot,
-    });
-    if (!closeTicket.ok)
-      return humanBlocked(request, "close-ticket", activityFailureReason(closeTicket));
-
-    const pushBeads = await mergeActivities.pushBeadsActivity({ repoRoot: input.repoRoot });
-    if (!pushBeads.ok) return humanBlocked(request, "push-beads", activityFailureReason(pushBeads));
-
-    const head = await mergeActivities.resolveGitHeadActivity({
-      repoRoot: input.repoRoot,
-      ref: "HEAD",
-    });
-    return {
-      status: "merged",
-      ticketId: request.ticketId,
-      requestId: request.requestId,
-      mergeCommitSha: head.commitSha,
-      pushed: true,
-      closed: true,
-    };
+  const assertClean = await mergeActivities.assertCleanMainActivity({ repoRoot: input.repoRoot });
+  if (!assertClean.ok) {
+    return humanBlocked(request, "assert-clean-main", "main has uncommitted local changes");
   }
 
-  return humanBlocked(request, "push-main", "merge queue attempts exhausted");
+  const updateMain = await mergeActivities.updateMainActivity({ repoRoot: input.repoRoot });
+  if (!updateMain.ok)
+    return humanBlocked(request, "update-main", activityFailureReason(updateMain));
+
+  const mergeBranch = await mergeActivities.mergeTicketBranchActivity({
+    repoRoot: input.repoRoot,
+    branch: request.branch,
+    commitSha: request.commitSha ?? undefined,
+    strategy: request.strategy,
+  });
+  if (!mergeBranch.ok) {
+    return retryableFailure(request, "merge-ticket-branch", 1, mergeBranch);
+  }
+
+  const finalGates = await mergeActivities.runFinalGatesActivity({
+    repoRoot: input.repoRoot,
+    gates: input.finalGates,
+  });
+  if (!finalGates.ok) {
+    return retryableFailure(request, "final-gates", 1, finalGates);
+  }
+
+  const pushed = await pushMainWithRemoteAdvanceRetry(
+    input.repoRoot,
+    input.finalGates,
+    mergeActivities,
+    maxAttempts,
+  );
+  if (!pushed.ok) {
+    if (pushed.failedStep === "sync-main-for-push") {
+      return retryableFailure(request, "sync-main-for-push", 1, pushed.result);
+    }
+    if (pushed.failedStep === "final-gates") {
+      return retryableFailure(request, "final-gates", 1, pushed.result);
+    }
+    return humanBlocked(request, "push-main", activityFailureReason(pushed.result));
+  }
+
+  const closeTicket = await mergeActivities.closeTicketActivity({
+    ticketId: request.ticketId,
+    repoRoot: input.repoRoot,
+  });
+  if (!closeTicket.ok)
+    return humanBlocked(request, "close-ticket", activityFailureReason(closeTicket));
+
+  const pushBeads = await mergeActivities.pushBeadsActivity({ repoRoot: input.repoRoot });
+  if (!pushBeads.ok) return humanBlocked(request, "push-beads", activityFailureReason(pushBeads));
+
+  const head = await mergeActivities.resolveGitHeadActivity({
+    repoRoot: input.repoRoot,
+    ref: "HEAD",
+  });
+  return {
+    status: "merged",
+    ticketId: request.ticketId,
+    requestId: request.requestId,
+    mergeCommitSha: head.commitSha,
+    pushed: true,
+    closed: true,
+  };
 }
 
 export async function runSerializedMergeWorkflow(
@@ -653,9 +662,14 @@ export async function runSerializedMergeWorkflow(
     );
   }
 
-  const pushMain = await mergeActivities.pushMainActivity({ repoRoot: input.repoRoot });
-  steps.push({ step: "push-main", ...pushMain });
-  if (!pushMain.ok) return failedMerge(input.ticketId, "push-main", steps);
+  const pushed = await pushMainWithRemoteAdvanceRetry(
+    input.repoRoot,
+    input.finalGates,
+    mergeActivities,
+    MERGE_PUSH_MAX_ATTEMPTS,
+    steps,
+  );
+  if (!pushed.ok) return failedMerge(input.ticketId, pushed.failedStep, steps);
 
   const closeTicket = await mergeActivities.closeTicketActivity({
     ticketId: input.ticketId,
@@ -676,6 +690,53 @@ export async function runSerializedMergeWorkflow(
     closed: true,
     humanEscalated: false,
     steps,
+  };
+}
+
+type PushMainWithRemoteAdvanceRetryResult =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly failedStep: "sync-main-for-push" | "final-gates" | "push-main";
+      readonly result: commandActivities.MergeActivityResult;
+    };
+
+async function pushMainWithRemoteAdvanceRetry(
+  repoRoot: string,
+  finalGates: readonly commandActivities.FinalGateCommand[],
+  mergeActivities: MergeWorkflowActivities,
+  maxAttempts: number,
+  steps?: MergeWorkflowStepResult[],
+): Promise<PushMainWithRemoteAdvanceRetryResult> {
+  let lastPush: commandActivities.MergeActivityResult | null = null;
+  for (let attempt = 1; attempt <= Math.max(1, maxAttempts); attempt += 1) {
+    const syncMain = await mergeActivities.syncMainForPushActivity({ repoRoot });
+    steps?.push({ step: "sync-main-for-push", ...syncMain });
+    if (!syncMain.ok) {
+      return { ok: false, failedStep: "sync-main-for-push", result: syncMain };
+    }
+
+    if (syncMain.records.some((record) => record.activity === "sync-main-for-push:rebase")) {
+      const finalGatesResult = await mergeActivities.runFinalGatesActivity({
+        repoRoot,
+        gates: finalGates,
+      });
+      steps?.push({ step: "final-gates", ...finalGatesResult });
+      if (!finalGatesResult.ok) {
+        return { ok: false, failedStep: "final-gates", result: finalGatesResult };
+      }
+    }
+
+    const pushMain = await mergeActivities.pushMainActivity({ repoRoot });
+    steps?.push({ step: "push-main", ...pushMain });
+    if (pushMain.ok) return { ok: true };
+    lastPush = pushMain;
+  }
+
+  return {
+    ok: false,
+    failedStep: "push-main",
+    result: lastPush ?? { ok: false, records: [] },
   };
 }
 
@@ -1129,9 +1190,14 @@ async function pushAndCloseMergedTicket(
   mergeActivities: MergeWorkflowActivities,
   steps: MergeWorkflowStepResult[],
 ): Promise<MergeWorkflowResult> {
-  const pushMain = await mergeActivities.pushMainActivity({ repoRoot: input.repoRoot });
-  steps.push({ step: "push-main", ...pushMain });
-  if (!pushMain.ok) return failedMerge(input.ticketId, "push-main", steps);
+  const pushed = await pushMainWithRemoteAdvanceRetry(
+    input.repoRoot,
+    input.finalGates,
+    mergeActivities,
+    MERGE_PUSH_MAX_ATTEMPTS,
+    steps,
+  );
+  if (!pushed.ok) return failedMerge(input.ticketId, pushed.failedStep, steps);
 
   const closeTicket = await mergeActivities.closeTicketActivity({
     ticketId: input.ticketId,
@@ -1461,6 +1527,7 @@ function mergeQueueStepFromLegacy(step: MergeWorkflowStep | null): MergeQueueSte
     case "update-main":
     case "merge-ticket-branch":
     case "final-gates":
+    case "sync-main-for-push":
     case "push-main":
     case "close-ticket":
     case "push-beads":
