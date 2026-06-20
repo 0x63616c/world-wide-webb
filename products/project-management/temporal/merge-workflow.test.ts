@@ -318,48 +318,28 @@ describe("processMergeQueueRequest", () => {
     ]);
   });
 
-  it("retries merge conflicts up to max attempts before escalating ticket-human", async () => {
+  it("returns retryable merge conflicts to the ticket workflow without blind queue retries", async () => {
     const fake = fakeMergeQueueActivities({ failStep: "merge-ticket-branch" });
     const result = await processMergeQueueRequest(queueInput(), queueRequest(), fake.activities);
 
     expect(result).toEqual(
-      expect.objectContaining({ status: "human-blocked", failedStep: "merge-ticket-branch" }),
+      expect.objectContaining({ status: "retryable-failure", failedStep: "merge-ticket-branch" }),
     );
-    expect(fake.calls).toEqual([
-      "assert-clean-main",
-      "update-main",
-      "merge-ticket-branch",
-      "assert-clean-main",
-      "update-main",
-      "merge-ticket-branch",
-      "assert-clean-main",
-      "update-main",
-      "merge-ticket-branch",
-      "escalate-human",
-    ]);
+    expect(fake.calls).toEqual(["assert-clean-main", "update-main", "merge-ticket-branch"]);
   });
 
-  it("retries final gates up to max attempts before escalating ticket-human", async () => {
+  it("returns final gate failures to the ticket workflow without blind queue retries", async () => {
     const fake = fakeMergeQueueActivities({ failStep: "final-gates" });
     const result = await processMergeQueueRequest(queueInput(), queueRequest(), fake.activities);
 
     expect(result).toEqual(
-      expect.objectContaining({ status: "human-blocked", failedStep: "final-gates" }),
+      expect.objectContaining({ status: "retryable-failure", failedStep: "final-gates" }),
     );
     expect(fake.calls).toEqual([
       "assert-clean-main",
       "update-main",
       "merge-ticket-branch",
       "final-gates",
-      "assert-clean-main",
-      "update-main",
-      "merge-ticket-branch",
-      "final-gates",
-      "assert-clean-main",
-      "update-main",
-      "merge-ticket-branch",
-      "final-gates",
-      "escalate-human",
     ]);
   });
 

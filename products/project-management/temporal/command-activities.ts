@@ -8,6 +8,7 @@ import {
   type BeadsTicket,
   type BeadsTicketDetails,
   buildCommentCommand,
+  buildFailedReviewRequeueCommand,
   buildMetadataCommand,
   lifecycleTransitionLabelArgs,
   TICKET_METADATA_KEYS,
@@ -280,6 +281,15 @@ export type CreateTicketWorktreeInput = TicketNamingInput & {
   readonly baseRef?: string;
 };
 
+export type PrepareTicketWorktreeInput = {
+  readonly worktreePath: string;
+};
+
+export type ValidateTicketImplementationInput = {
+  readonly worktreePath: string;
+  readonly gates: readonly FinalGateCommand[];
+};
+
 export type CreateTicketWorktreeResult = TicketWorktreeNames & {
   readonly records: readonly ActivityRecord[];
 };
@@ -367,6 +377,18 @@ export async function createTicketWorktreeActivity(
   input: CreateTicketWorktreeInput,
 ): Promise<CreateTicketWorktreeResult> {
   return createTicketWorktree(input, runCommand);
+}
+
+export async function prepareTicketWorktreeActivity(
+  input: PrepareTicketWorktreeInput,
+): Promise<MergeActivityResult> {
+  return prepareTicketWorktree(input, runCommand);
+}
+
+export async function validateTicketImplementationActivity(
+  input: ValidateTicketImplementationInput,
+): Promise<MergeActivityResult> {
+  return validateTicketImplementation(input, runCommand);
 }
 
 export async function startTmuxCommandActivity(
@@ -501,6 +523,10 @@ export async function moveTicketToVerifiedActivity(
   return moveTicketToVerified(input, runCommand);
 }
 
+export async function requeueTicketActivity(input: TicketBeadsInput): Promise<MergeActivityResult> {
+  return requeueTicket(input, runCommand);
+}
+
 export async function verifyBuilderHandoffActivity(
   input: VerifyTicketHandoffInput,
 ): Promise<BuilderHandoffResult> {
@@ -551,6 +577,22 @@ export async function createTicketWorktree(
   );
 
   return { ...names, records };
+}
+
+export async function prepareTicketWorktree(
+  input: PrepareTicketWorktreeInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  return runMergeCommands(run, [
+    {
+      activity: "install-dependencies",
+      command: {
+        command: "bun",
+        args: ["install", "--frozen-lockfile"],
+        cwd: input.worktreePath,
+      },
+    },
+  ]);
 }
 
 export async function startTmuxCommand(
@@ -708,6 +750,51 @@ export async function runFinalGates(
   );
 }
 
+export async function validateTicketImplementation(
+  input: ValidateTicketImplementationInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  const records: ActivityRecord[] = [];
+  const format = await runRecorded("format", run, {
+    command: "bun",
+    args: ["run", "format"],
+    cwd: input.worktreePath,
+  });
+  records.push(format);
+  if (format.exitCode !== 0) return { ok: false, records };
+
+  const cleanAfterFormat = await runRecorded("assert-clean-after-format", run, {
+    command: "git",
+    args: ["status", "--porcelain"],
+    cwd: input.worktreePath,
+  });
+  records.push(cleanAfterFormat);
+  if (cleanAfterFormat.exitCode !== 0 || cleanAfterFormat.stdout.trim().length > 0) {
+    return { ok: false, records };
+  }
+
+  const gates = await runFinalGates(
+    {
+      repoRoot: input.worktreePath,
+      gates: input.gates,
+    },
+    run,
+  );
+  records.push(...gates.records);
+  if (!gates.ok) return { ok: false, records };
+
+  const cleanAfterGates = await runRecorded("assert-clean-after-gates", run, {
+    command: "git",
+    args: ["status", "--porcelain"],
+    cwd: input.worktreePath,
+  });
+  records.push(cleanAfterGates);
+  return {
+    ok: cleanAfterGates.exitCode === 0 && cleanAfterGates.stdout.trim().length === 0,
+    records,
+  };
+}
+
 export async function resolveGitHead(
   input: ResolveGitHeadInput,
   run: ActivityCommandRunner,
@@ -840,11 +927,7 @@ export async function claimTicket(
 export function loadTicketWorkflowConfig(): TicketWorkflowRuntimeConfig {
   return {
     repoRoot: Bun.env.REPO_ROOT ?? new URL("../../..", import.meta.url).pathname,
-    finalGates: [
-      { label: "test", command: "bun", args: ["run", "test"] },
-      { label: "typecheck", command: "bun", args: ["run", "typecheck"] },
-      { label: "biome", command: "bunx", args: ["biome", "check", "."] },
-    ],
+    finalGates: [{ label: "gate", command: "bun", args: ["run", "gate"] }],
     runtimeLogRoot: Bun.env.TICKET_WORKFLOW_RUNTIME_LOG_ROOT ?? defaultRuntimeLogRoot(),
     baseRef: Bun.env.TICKET_WORKFLOW_BASE_REF ?? "HEAD",
     requirePushedBranch: envBoolean(Bun.env.TICKET_WORKFLOW_REQUIRE_PUSHED_BRANCH, true),
@@ -1247,6 +1330,23 @@ export async function moveTicketToVerified(
           input.ticketId,
           ...lifecycleTransitionLabelArgs(TICKET_WORKFLOW_LABELS.verified),
         ],
+        cwd: input.repoRoot,
+      },
+    },
+  ]);
+}
+
+export async function requeueTicket(
+  input: TicketBeadsInput,
+  run: ActivityCommandRunner,
+): Promise<MergeActivityResult> {
+  const command = buildFailedReviewRequeueCommand(input.ticketId);
+  return runMergeCommands(run, [
+    {
+      activity: "requeue-ticket",
+      command: {
+        command: command.command,
+        args: command.args,
         cwd: input.repoRoot,
       },
     },

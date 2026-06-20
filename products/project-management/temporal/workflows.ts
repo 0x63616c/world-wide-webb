@@ -108,6 +108,7 @@ export type MergeQueueResult =
       readonly failedStep: MergeQueueStep;
       readonly attempt: number;
       readonly reason: string;
+      readonly records: readonly commandActivities.ActivityRecord[];
     }
   | {
       readonly status: "human-blocked";
@@ -183,6 +184,7 @@ export type TicketMergeQueueClient = {
 export type TicketWorkflowRunnerStep =
   | "claim-ticket"
   | "create-worktree"
+  | "prepare-worktree"
   | "start-builder"
   | "write-builder-start-metadata"
   | "wait-builder"
@@ -190,6 +192,7 @@ export type TicketWorkflowRunnerStep =
   | "resolve-builder-session"
   | "write-builder-completion-metadata"
   | "verify-builder-handoff"
+  | "validate-builder"
   | "start-reviewer"
   | "write-reviewer-start-metadata"
   | "wait-reviewer"
@@ -247,6 +250,10 @@ export type TicketWorkflowRunnerActivities = Pick<
   | "resolveGitHeadActivity"
   | "resolveOpenCodeSessionActivity"
   | "writeTicketWorkflowMetadataActivity"
+  | "writeTicketCommentActivity"
+  | "requeueTicketActivity"
+  | "prepareTicketWorktreeActivity"
+  | "validateTicketImplementationActivity"
   | "verifyBuilderHandoffActivity"
   | "verifyReviewerHandoffActivity"
   | "loadTicketWorkflowConfigActivity"
@@ -558,15 +565,7 @@ export async function processMergeQueueRequest(
       strategy: request.strategy,
     });
     if (!mergeBranch.ok) {
-      if (attempt < maxAttempts) {
-        continue;
-      }
-      await mergeActivities.escalateTicketHumanActivity({
-        ticketId: request.ticketId,
-        repoRoot: input.repoRoot,
-        reason: `Merge queue failed at merge-ticket-branch after ${maxAttempts} attempt(s).`,
-      });
-      return humanBlocked(request, "merge-ticket-branch", activityFailureReason(mergeBranch));
+      return retryableFailure(request, "merge-ticket-branch", attempt, mergeBranch);
     }
 
     const finalGates = await mergeActivities.runFinalGatesActivity({
@@ -574,15 +573,7 @@ export async function processMergeQueueRequest(
       gates: input.finalGates,
     });
     if (!finalGates.ok) {
-      if (attempt < maxAttempts) {
-        continue;
-      }
-      await mergeActivities.escalateTicketHumanActivity({
-        ticketId: request.ticketId,
-        repoRoot: input.repoRoot,
-        reason: `Merge queue final gates failed after ${maxAttempts} attempt(s).`,
-      });
-      return humanBlocked(request, "final-gates", activityFailureReason(finalGates));
+      return retryableFailure(request, "final-gates", attempt, finalGates);
     }
 
     const pushMain = await mergeActivities.pushMainActivity({ repoRoot: input.repoRoot });
@@ -720,6 +711,9 @@ export async function runTicketWorkflowRunner(
     return failedTicketWorkflowRunner(input.ticketId, steps, worktree);
   }
 
+  const prepared = await prepareWorktreeOrFail(input, config, worktree, runnerActivities, steps);
+  if (!prepared) return failedTicketWorkflowRunner(input.ticketId, steps, worktree);
+
   let builderSessionName: string | null = null;
   let reviewerSessionName: string | null = null;
   let builderOpenCodeSessionId: string | null = null;
@@ -831,6 +825,44 @@ export async function runTicketWorkflowRunner(
     steps.push({ step: "verify-builder-handoff", ok: builderHandoff.ok });
     if (!metadata.ok || !builderHandoff.ok) continue;
     comments = [...comments, agentOutput(builderWait)].filter(Boolean);
+
+    const validation = await runnerActivities.validateTicketImplementationActivity({
+      worktreePath: worktree.worktreePath,
+      gates: config.finalGates,
+    });
+    steps.push({ step: "validate-builder", ok: validation.ok });
+    if (!validation.ok) {
+      const validationComment = workflowValidationComment(validation.records);
+      await runnerActivities.writeTicketCommentActivity({
+        ticketId: input.ticketId,
+        repoRoot: config.repoRoot,
+        kind: "workflow-validation",
+        body: validationComment,
+      });
+      await runnerActivities.requeueTicketActivity({
+        ticketId: input.ticketId,
+        repoRoot: config.repoRoot,
+      });
+      comments = [...comments, `## Workflow validation\n\n${validationComment}`];
+      await runnerActivities.writeTicketWorkflowMetadataActivity({
+        ticketId: input.ticketId,
+        repoRoot: config.repoRoot,
+        metadata: ticketRunMetadata({
+          phase: "build",
+          attempt: builderAttempt,
+          branch: worktree.branchName,
+          worktreePath: worktree.worktreePath,
+          run: builder,
+          openCodeSession: formatOpenCodeSession(
+            builderOpenCodeSession.title,
+            builderOpenCodeSession.sessionId,
+          ),
+          commit: head.commitSha,
+          lastResult: "workflow-validation-failed",
+        }),
+      });
+      continue;
+    }
 
     for (
       let reviewerAttempt = 1;
@@ -958,6 +990,23 @@ export async function runTicketWorkflowRunner(
       });
       steps.push({ step: "merge", ok: mergeResult.status === "merged" });
 
+      if (mergeResult.status === "retryable-failure") {
+        const mergeComment = mergeQueueRetryComment(mergeResult);
+        await runnerActivities.writeTicketCommentActivity({
+          ticketId: input.ticketId,
+          repoRoot: config.repoRoot,
+          kind: "workflow-validation",
+          body: mergeComment,
+        });
+        await runnerActivities.requeueTicketActivity({
+          ticketId: input.ticketId,
+          repoRoot: config.repoRoot,
+        });
+        comments = [...comments, `## Workflow validation\n\n${mergeComment}`];
+        steps.push({ step: "retry-requested", ok: true });
+        break;
+      }
+
       return {
         ticketId: input.ticketId,
         status: ticketStatusFromMergeResult(mergeResult),
@@ -995,6 +1044,28 @@ export async function runTicketWorkflowRunner(
     builderSessionName,
     reviewerSessionName,
   );
+}
+
+async function prepareWorktreeOrFail(
+  input: TicketWorkflowRunnerInput,
+  config: commandActivities.TicketWorkflowRuntimeConfig,
+  worktree: commandActivities.CreateTicketWorktreeResult,
+  runnerActivities: TicketWorkflowRunnerActivities,
+  steps: TicketWorkflowRunnerStepResult[],
+): Promise<boolean> {
+  const prepared = await runnerActivities.prepareTicketWorktreeActivity({
+    worktreePath: worktree.worktreePath,
+  });
+  steps.push({ step: "prepare-worktree", ok: prepared.ok });
+  if (prepared.ok) return true;
+
+  await runnerActivities.writeTicketCommentActivity({
+    ticketId: input.ticketId,
+    repoRoot: config.repoRoot,
+    kind: "workflow-validation",
+    body: workflowValidationComment(prepared.records),
+  });
+  return false;
 }
 
 function ticketExhaustionReason(
@@ -1323,6 +1394,62 @@ function humanBlocked(
     failedStep,
     reason,
   };
+}
+
+function retryableFailure(
+  request: MergeQueueRequest,
+  failedStep: MergeQueueStep,
+  attempt: number,
+  result: commandActivities.MergeActivityResult,
+): MergeQueueResult {
+  return {
+    status: "retryable-failure",
+    ticketId: request.ticketId,
+    requestId: request.requestId,
+    failedStep,
+    attempt,
+    reason: activityFailureReason(result),
+    records: result.records,
+  };
+}
+
+function workflowValidationComment(records: readonly commandActivities.ActivityRecord[]): string {
+  return [
+    "Deterministic workflow validation failed. Fix the recorded command failure, commit the fix, and move the ticket back to review.",
+    "",
+    formatActivityRecords(records),
+  ].join("\n");
+}
+
+function mergeQueueRetryComment(
+  result: Extract<MergeQueueResult, { status: "retryable-failure" }>,
+): string {
+  return [
+    `Serialized merge failed at ${result.failedStep}. The ticket is being returned to the builder instead of human review.`,
+    `Reason: ${result.reason}`,
+    "",
+    formatActivityRecords(result.records),
+  ].join("\n");
+}
+
+function formatActivityRecords(records: readonly commandActivities.ActivityRecord[]): string {
+  if (records.length === 0) return "No command records were captured.";
+  return records.map(formatActivityRecord).join("\n\n");
+}
+
+function formatActivityRecord(record: commandActivities.ActivityRecord): string {
+  const command = [record.command.command, ...record.command.args].join(" ");
+  const stdout = record.stdout.trim();
+  const stderr = record.stderr.trim();
+  return [
+    `### ${record.activity}`,
+    `Command: ${command}`,
+    `Exit: ${record.exitCode}`,
+    stdout ? `stdout:\n\`\`\`\n${stdout}\n\`\`\`` : null,
+    stderr ? `stderr:\n\`\`\`\n${stderr}\n\`\`\`` : null,
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
 }
 
 function activityFailureReason(result: commandActivities.MergeActivityResult): string {

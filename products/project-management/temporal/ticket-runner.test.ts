@@ -26,6 +26,7 @@ describe("runTicketWorkflowRunner", () => {
     expect(result.steps.map((step) => [step.step, step.ok])).toEqual([
       ["claim-ticket", true],
       ["create-worktree", true],
+      ["prepare-worktree", true],
       ["start-builder", true],
       ["write-builder-start-metadata", true],
       ["wait-builder", true],
@@ -33,6 +34,7 @@ describe("runTicketWorkflowRunner", () => {
       ["resolve-commit", true],
       ["write-builder-completion-metadata", true],
       ["verify-builder-handoff", true],
+      ["validate-builder", true],
       ["start-reviewer", true],
       ["write-reviewer-start-metadata", true],
       ["wait-reviewer", true],
@@ -44,6 +46,7 @@ describe("runTicketWorkflowRunner", () => {
     expect(fake.calls).toEqual([
       "claim",
       "create-worktree",
+      "prepare-worktree",
       "start-builder",
       "write-metadata:builder-started:build:1:ticket_www-proof_build_1:/logs/build.prompt.md:/logs/build.stdout.log:/logs/build.stderr.log",
       "wait:ticket_www-proof_build_1",
@@ -51,6 +54,7 @@ describe("runTicketWorkflowRunner", () => {
       "resolve-head",
       "write-metadata:builder-passed:review:1:ticket_www-proof_build_1:/logs/build.prompt.md:/logs/build.stdout.log:/logs/build.stderr.log",
       "verify-builder-handoff",
+      "validate-builder",
       "start-reviewer",
       "write-metadata:reviewer-started:review:1:ticket_www-proof_review_1:/logs/review.prompt.md:/logs/review.stdout.log:/logs/review.stderr.log",
       "wait:ticket_www-proof_review_1",
@@ -151,11 +155,13 @@ describe("runTicketWorkflowRunner", () => {
         failedStep: "push-main",
         attempt: 1,
         reason: "remote moved",
+        records: [],
       }),
     });
 
-    expect(result.status).toBe("failed");
-    expect(result.mergeResult).toEqual(expect.objectContaining({ failedStep: "push-main" }));
+    expect(result.status).toBe("human");
+    expect(fake.calls.filter((call) => call === "start-builder")).toHaveLength(2);
+    expect(fake.calls).toContain("requeue-ticket");
   });
 
   it("handles human-blocked merge queue results as human ticket workflow results", async () => {
@@ -236,6 +242,10 @@ function fakeRunnerActivities(
           records: [],
         };
       },
+      prepareTicketWorktreeActivity: async () => {
+        calls.push("prepare-worktree");
+        return ok();
+      },
       startTicketBuilderActivity: async (input) => {
         if (input.resumeSessionId) calls.push(`resume-builder:${input.resumeSessionId}`);
         calls.push("start-builder");
@@ -305,6 +315,18 @@ function fakeRunnerActivities(
           labels: ["ticket-review"],
           hasBuilderComment: true,
         };
+      },
+      validateTicketImplementationActivity: async () => {
+        calls.push("validate-builder");
+        return ok();
+      },
+      writeTicketCommentActivity: async (input) => {
+        calls.push(`write-comment:${input.kind}`);
+        return ok();
+      },
+      requeueTicketActivity: async () => {
+        calls.push("requeue-ticket");
+        return ok();
       },
       verifyReviewerHandoffActivity: async () => {
         calls.push("verify-reviewer-handoff");

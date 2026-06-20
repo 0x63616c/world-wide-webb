@@ -187,7 +187,7 @@ jobs:
         # Lint gate in CI, not just the lefthook pre-commit hook: a --no-verify
         # bypass (or a hook that isn't installed on a contributor's machine)
         # would otherwise ship lint regressions undetected (www-355t.6).
-        run: bunx biome check .
+        run: bun run lint
       - name: Storybook docs guard
         # Authoritative backstop for the lefthook pre-commit `storybook-docs`
         # hook (bypassable with --no-verify): fails the test job if any tracked
@@ -293,10 +293,11 @@ jobs:
         run: bun run typecheck
       - name: Dead code (knip, zero-tolerance)
         # Authoritative backstop for the lefthook pre-push guard (which a
-        # --no-verify bypass or an uninstalled hook can skip). knip exits non-zero
-        # on ANY unused file/export/dep, the repo is held at zero dead code.
+        # --no-verify bypass or an uninstalled hook can skip). Export-level checks
+        # are disabled in the shared script because Temporal registers runtime
+        # activity/workflow exports dynamically by name.
         # `deploy` needs `typecheck`, so a regression blocks the prod deploy (www-k6p1).
-        run: bunx knip
+        run: bun run knip
 
   build-web:
     needs: [changes, test, typecheck]

@@ -198,11 +198,16 @@ export function buildMetadataCommand(
   };
 }
 
-export type TicketCommentKind = "builder-summary" | "reviewer-findings" | "escalation";
+export type TicketCommentKind =
+  | "builder-summary"
+  | "reviewer-findings"
+  | "workflow-validation"
+  | "escalation";
 
 const COMMENT_HEADINGS = {
   "builder-summary": "Builder summary",
   "reviewer-findings": "Reviewer findings",
+  "workflow-validation": "Workflow validation",
   escalation: "Escalation",
 } as const satisfies Record<TicketCommentKind, string>;
 
