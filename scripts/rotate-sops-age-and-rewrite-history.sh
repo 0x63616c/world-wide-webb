@@ -39,9 +39,11 @@ error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 die()   { error "$@"; exit 1; }
 
 # Temp files — cleaned up on exit
-NEW_KEY_FILE=$(mktemp)
-OLD_KEY_FILE=$(mktemp)
-trap 'rm -f "$NEW_KEY_FILE" "$OLD_KEY_FILE"' EXIT
+# age-keygen -o refuses to write to an existing file, so use temp dir paths
+TEMP_DIR=$(mktemp -d)
+NEW_KEY_FILE="$TEMP_DIR/new-key.txt"
+OLD_KEY_FILE="$TEMP_DIR/old-key.txt"
+trap 'rm -rf "$TEMP_DIR"' EXIT
 
 # ─── Phase 0: Prerequisites ──────────────────────────────────────────────────
 
