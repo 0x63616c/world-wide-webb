@@ -701,11 +701,25 @@ describe("ticket command activities", () => {
     ).rejects.toMatchObject({ type: "NoReadyTicketWorkflows", nonRetryable: false });
   });
 
-  it("reads existing open ticket-verified items for merge queue reconciliation", async () => {
+  it("reads existing open and claimed ticket-verified items for merge queue reconciliation", async () => {
     const commands: ActivityCommand[] = [];
     const result = await readVerifiedMergeQueue({ repoRoot: "/repo" }, async (command) => {
       commands.push(command);
       if (command.args[0] === "list") {
+        if (command.args.includes("in_progress")) {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify([
+              {
+                id: "www-claimed",
+                title: "Claimed verified",
+                status: "in_progress",
+                labels: ["ticket-verified"],
+              },
+            ]),
+            stderr: "",
+          };
+        }
         return {
           exitCode: 0,
           stdout: JSON.stringify([
@@ -732,6 +746,15 @@ describe("ticket command activities", () => {
             metadata: { ticket_branch: "www-verified-branch", ticket_commit: "abc123" },
             comments: [{ text: "## Reviewer findings\n\nNo findings." }],
           },
+          {
+            id: "www-claimed",
+            title: "Claimed verified",
+            status: "in_progress",
+            labels: ["ticket-verified"],
+            acceptance_criteria: "- [ ] claimed",
+            metadata: { ticket_branch: "www-claimed-branch", ticket_commit: "def456" },
+            comments: [{ text: "## Reviewer findings\n\nClaimed ticket verified." }],
+          },
         ]),
         stderr: "",
       };
@@ -746,8 +769,17 @@ describe("ticket command activities", () => {
         branch: "www-verified-branch",
         commitSha: "abc123",
       },
+      {
+        ticketId: "www-claimed",
+        title: "Claimed verified",
+        acceptanceCriteria: "- [ ] claimed",
+        comments: ["## Reviewer findings\n\nClaimed ticket verified."],
+        branch: "www-claimed-branch",
+        commitSha: "def456",
+      },
     ]);
     expect(commands[0]?.args).toContain("ticket-verified");
+    expect(commands[1]?.args).toContain("in_progress");
   });
 
   it("throws a retryable empty merge-queue failure so Temporal owns polling", async () => {

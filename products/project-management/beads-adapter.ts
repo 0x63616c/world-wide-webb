@@ -29,6 +29,8 @@ export const TICKET_QUEUE_LABELS = {
 
 const MANUAL_TICKET_LABEL = "manual";
 
+const VERIFIED_MERGE_QUEUE_STATUSES = ["open", "in_progress"] as const;
+
 export const BUILDER_QUEUE_EXCLUDED_LABELS = [
   TICKET_WORKFLOW_LABELS.human,
   TICKET_WORKFLOW_LABELS.backlog,
@@ -112,6 +114,25 @@ export function buildQueueCommand(queue: TicketQueue): BeadsCommand {
   }
 
   return { command: "bd", args };
+}
+
+export function buildVerifiedQueueCommand(
+  status: (typeof VERIFIED_MERGE_QUEUE_STATUSES)[number],
+): BeadsCommand {
+  return {
+    command: "bd",
+    args: [
+      "list",
+      "--json",
+      "--no-pager",
+      "-n",
+      "0",
+      "--status",
+      status,
+      "--label",
+      TICKET_WORKFLOW_LABELS.verified,
+    ],
+  };
 }
 
 export function buildRetryQueueCommand(): BeadsCommand {
@@ -268,7 +289,12 @@ export class BeadsAdapter {
   }
 
   async verifiedQueue(): Promise<BeadsTicket[]> {
-    return this.readQueue("verified");
+    const queues = await Promise.all(
+      VERIFIED_MERGE_QUEUE_STATUSES.map(async (status) =>
+        parseTickets(await this.#run(buildVerifiedQueueCommand(status))),
+      ),
+    );
+    return uniqueTicketsById(queues.flat());
   }
 
   async humanQueue(): Promise<BeadsTicket[]> {

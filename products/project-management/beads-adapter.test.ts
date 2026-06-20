@@ -12,6 +12,7 @@ import {
   buildQueueCommand,
   buildRetryQueueCommand,
   buildShowTicketsCommand,
+  buildVerifiedQueueCommand,
   isDownstreamBlockedProbeResult,
   TICKET_METADATA_KEYS,
   TICKET_QUEUE_LABELS,
@@ -93,6 +94,21 @@ describe("buildQueueCommand", () => {
     expect(buildQueueCommand("verified").args).toContain("ticket-verified");
     expect(buildQueueCommand("human").args).toContain("ticket-human");
     expect(buildQueueCommand("human").args).not.toContain("--ready");
+  });
+
+  it("exposes claimed verified tickets for merge queue automation", () => {
+    expect(buildVerifiedQueueCommand("open").args).toEqual([
+      "list",
+      "--json",
+      "--no-pager",
+      "-n",
+      "0",
+      "--status",
+      "open",
+      "--label",
+      "ticket-verified",
+    ]);
+    expect(buildVerifiedQueueCommand("in_progress").args).toContain("in_progress");
   });
 
   it("exposes retry tickets as builder work without needing ticket-ready", () => {
@@ -266,6 +282,40 @@ describe("BeadsAdapter", () => {
       buildCommentCommand("www-3agy.4", "reviewer-findings", "No findings"),
       buildFailedReviewRequeueCommand("www-3agy.4"),
       buildCommentCommand("www-3agy.4", "escalation", "Human input needed"),
+    ]);
+  });
+
+  it("includes open and in-progress verified tickets in merge queue order", async () => {
+    const commands: BeadsCommand[] = [];
+    const adapter = new BeadsAdapter(async (command) => {
+      commands.push(command);
+      if (command.args.includes("open")) {
+        return JSON.stringify([
+          { id: "www-open", title: "Open verified", status: "open", labels: ["ticket-verified"] },
+        ]);
+      }
+      return JSON.stringify([
+        {
+          id: "www-claimed",
+          title: "Claimed verified",
+          status: "in_progress",
+          labels: ["ticket-verified"],
+        },
+      ]);
+    });
+
+    await expect(adapter.verifiedQueue()).resolves.toEqual([
+      { id: "www-open", title: "Open verified", status: "open", labels: ["ticket-verified"] },
+      {
+        id: "www-claimed",
+        title: "Claimed verified",
+        status: "in_progress",
+        labels: ["ticket-verified"],
+      },
+    ]);
+    expect(commands).toEqual([
+      buildVerifiedQueueCommand("open"),
+      buildVerifiedQueueCommand("in_progress"),
     ]);
   });
 

@@ -1119,7 +1119,8 @@ export async function readVerifiedMergeQueue(
 ): Promise<VerifiedMergeQueueTicket[]> {
   const adapter = beadsAdapter(input.repoRoot, run);
   const verified = (await adapter.verifiedQueue()).filter(
-    (ticket) => ticket.status === "open" && !ticket.labels.includes(TICKET_WORKFLOW_LABELS.human),
+    (ticket) =>
+      isMergeableVerifiedTicket(ticket) && !ticket.labels.includes(TICKET_WORKFLOW_LABELS.human),
   );
   if (verified.length === 0) {
     throw ApplicationFailure.create({
@@ -1131,7 +1132,12 @@ export async function readVerifiedMergeQueue(
 
   const details = await adapter.showTickets(verified.map((ticket) => ticket.id));
   const mergeCandidates = details.flatMap((ticket) => {
-    if (ticket.status !== "open" || ticket.labels.includes(TICKET_WORKFLOW_LABELS.human)) return [];
+    if (
+      !isMergeableVerifiedTicket(ticket) ||
+      ticket.labels.includes(TICKET_WORKFLOW_LABELS.human)
+    ) {
+      return [];
+    }
     const metadata = parseTicketMetadata(ticket);
     if (!metadata.branch) return [];
     return [
@@ -1154,6 +1160,10 @@ export async function readVerifiedMergeQueue(
   }
 
   return mergeCandidates;
+}
+
+function isMergeableVerifiedTicket(ticket: { readonly status: string }): boolean {
+  return ticket.status === "open" || ticket.status === "in_progress";
 }
 
 export async function readStuckTicketRecoveryCandidates(
