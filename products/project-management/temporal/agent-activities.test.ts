@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  buildTicketBuilderGoal,
   buildTicketBuilderPrompt,
   buildTicketMergeFixPrompt,
   buildTicketReviewerPrompt,
@@ -22,17 +23,37 @@ import {
 import type { ActivityCommand, ActivityCommandRunner } from "./command-activities";
 
 describe("ticket builder activity", () => {
+  it("builds a deterministic goal from ticket identity and workflow expectations", () => {
+    const goal = buildTicketBuilderGoal(baseInput());
+
+    expect(goal).toBe(
+      'Build ticket www-3agy.9 - Implement OpenCode builder Activity: first read the complete Beads ticket record with bd show www-3agy.9, including title, description, design, notes, acceptance criteria, labels, dependencies, status, assignee, and every comment. End with a focused pushed ticket-branch commit whose scope contains www-3agy.9; either satisfy every acceptance criterion with evidence or explicitly block with a concrete reason; run and record focused verification; and leave a Beads comment headed "## Builder summary" containing changed files, commit SHA, pushed branch, verification results, blockers, and follow-up. Do not close, relabel, merge, mark the ticket complete, or move Beads lifecycle labels.',
+    );
+  });
+
   it("builds a prompt that forbids ticket closure and requires ticket context", () => {
     const prompt = buildTicketBuilderPrompt(baseInput());
 
     expect(prompt.promptPath).toBe("/cache/logs/ticket_www-3agy.9_build_1.prompt.md");
+    expect(prompt.prompt).toContain("## Deterministic Goal");
+    expect(prompt.prompt).toContain(
+      "Before implementation work begins, set this exact goal in your session",
+    );
+    expect(prompt.prompt).toContain("do not rely on any private plugin state file");
+    expect(prompt.prompt).toContain(
+      "including title, description, design, notes, acceptance criteria, labels, dependencies, status, assignee, and every comment",
+    );
     expect(prompt.prompt).toContain("Run `bd show www-3agy.9` before editing");
     expect(prompt.prompt).toContain("- [ ] Builder uses explicit OpenCode agent/model");
     expect(prompt.prompt).toContain("Never close Beads tickets");
     expect(prompt.prompt).toContain("Do not run `bd close`");
+    expect(prompt.prompt).toContain("Do not close, relabel, merge, mark the ticket complete");
     expect(prompt.prompt).toContain("Commit and push the ticket branch");
     expect(prompt.prompt).toContain("revert that file before committing");
     expect(prompt.prompt).toContain("Do not move Beads lifecycle labels");
+    expect(prompt.prompt).toContain(
+      "with changed files, commit SHA, pushed branch, verification results, blockers, and follow-up",
+    );
     expect(prompt.prompt).not.toContain("--add-label ticket-review");
   });
 
@@ -65,7 +86,7 @@ describe("ticket builder activity", () => {
         "ticket_www-3agy_9_build_1",
         "-c",
         "/repo/.worktrees/tickets/www-3agy.9-builder",
-        "('opencode' 'run' '--dangerously-skip-permissions' '--format' 'json' '--agent' 'ticket-builder' 'Follow the attached ticket-builder prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.9_build_1.prompt.md' > '/cache/logs/ticket_www-3agy_9_build_1.stdout.log' 2> '/cache/logs/ticket_www-3agy_9_build_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy_9_build_1.exitcode'",
+        "('opencode' 'run' '--dangerously-skip-permissions' '--format' 'json' '--agent' 'ticket-builder' 'Set the deterministic goal from the attached ticket-builder prompt before implementation work begins, then follow the prompt exactly.' '--file' '/cache/logs/ticket_www-3agy.9_build_1.prompt.md' > '/cache/logs/ticket_www-3agy_9_build_1.stdout.log' 2> '/cache/logs/ticket_www-3agy_9_build_1.stderr.log'); printf '%s' \"$?\" > '/cache/logs/ticket_www-3agy_9_build_1.exitcode'",
       ],
     });
   });
