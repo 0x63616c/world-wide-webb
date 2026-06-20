@@ -348,7 +348,6 @@ function queueForIssue(
   issue: Pick<WorkflowDashboardIssueInput, "labels" | "status" | "blockedBy" | "metadata">,
 ): (typeof WORKFLOW_DASHBOARD_QUEUES)[number] | null {
   const labels = new Set(issue.labels);
-  assertNoConflictingTicketLifecycleLabels(issue.labels);
   const metadata = issue.metadata ?? {};
   const phase = stringMeta(metadata, TICKET_METADATA_KEYS.phase);
   const lastResult = stringMeta(metadata, TICKET_METADATA_KEYS.lastResult);
@@ -368,6 +367,8 @@ function queueForIssue(
       ? workflowQueue("shipped")
       : null;
   }
+
+  assertNoConflictingTicketLifecycleLabels(issue.labels);
 
   if (!hasWorkflowLabel && !hasBacklogState && !hasQueuedState) return null;
   if (hasBacklogState) return workflowQueue("backlog");

@@ -107,27 +107,28 @@ local_resource(
     labels=['worker'],
 )
 
-local_resource(
-    'worker',
-    serve_cmd='bun run worker:temporal',
-    deps=PROJECT_CONFIG_DEPS + PROJECT_TS_DEPS,
-    serve_env={
-        'TEMPORAL_ADDRESS': TEMPORAL_ADDRESS,
-        'TEMPORAL_NAMESPACE': TEMPORAL_NAMESPACE,
-        'TEMPORAL_TASK_QUEUE': TEMPORAL_TASK_QUEUE,
-        'TEMPORAL_WORKER_HEALTH_PORT': str(TEMPORAL_WORKER_HEALTH_PORT),
-        'PROJECT_MANAGEMENT_DATABASE_URL': PROJECT_MANAGEMENT_DATABASE_URL,
-    },
-    resource_deps=['install', 'temporal-ready', 'project-management-db'],
-    readiness_probe=probe(
-        period_secs=2,
-        exec=exec_action(
-            command=['curl', '-fsS', 'http://127.0.0.1:%d/health' % TEMPORAL_WORKER_HEALTH_PORT],
-        ),
-    ),
-    links=[link('http://127.0.0.1:%d/health' % TEMPORAL_WORKER_HEALTH_PORT, 'worker health')],
-    labels=['worker'],
-)
+# TEMP: commented this out because i want to not run the worker yet til im ready (calum) and stuff is fixed... ill let u know claude
+# local_resource(
+#     'worker',
+#     serve_cmd='bun run worker:temporal',
+#     deps=PROJECT_CONFIG_DEPS + PROJECT_TS_DEPS,
+#     serve_env={
+#         'TEMPORAL_ADDRESS': TEMPORAL_ADDRESS,
+#         'TEMPORAL_NAMESPACE': TEMPORAL_NAMESPACE,
+#         'TEMPORAL_TASK_QUEUE': TEMPORAL_TASK_QUEUE,
+#         'TEMPORAL_WORKER_HEALTH_PORT': str(TEMPORAL_WORKER_HEALTH_PORT),
+#         'PROJECT_MANAGEMENT_DATABASE_URL': PROJECT_MANAGEMENT_DATABASE_URL,
+#     },
+#     resource_deps=['install', 'temporal-ready', 'project-management-db'],
+#     readiness_probe=probe(
+#         period_secs=2,
+#         exec=exec_action(
+#             command=['curl', '-fsS', 'http://127.0.0.1:%d/health' % TEMPORAL_WORKER_HEALTH_PORT],
+#         ),
+#     ),
+#     links=[link('http://127.0.0.1:%d/health' % TEMPORAL_WORKER_HEALTH_PORT, 'worker health')],
+#     labels=['worker'],
+# )
 
 local_resource(
     'ui',

@@ -457,12 +457,20 @@ describe("workflowDashboardForIssues", () => {
     );
   });
 
-  it("rejects workflow tickets with multiple active lifecycle labels", () => {
+  it("rejects open workflow tickets with multiple active lifecycle labels", () => {
     expect(() =>
       workflowDashboardForIssues([
         workflowIssue("www-conflict", "ready", ["ticket-review", "ticket-human"]),
       ]),
     ).toThrow("Conflicting ticket lifecycle labels: ticket-review, ticket-human");
+  });
+
+  it("allows closed tickets to keep historical lifecycle labels", () => {
+    expect(() =>
+      workflowDashboardForIssues([
+        workflowIssue("www-archived", "closed", ["ticket-retry", "ticket-human"]),
+      ]),
+    ).not.toThrow();
   });
 });
 
