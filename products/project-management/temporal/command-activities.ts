@@ -1,8 +1,12 @@
+import { readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { ApplicationFailure } from "@temporalio/activity";
+import { Client, Connection } from "@temporalio/client";
 import {
   BeadsAdapter,
+  type BeadsTicket,
+  type BeadsTicketDetails,
   buildCommentCommand,
   buildMetadataCommand,
   TICKET_METADATA_KEYS,
@@ -10,6 +14,11 @@ import {
   type TicketCommentKind,
   type TicketWorkflowMetadata,
 } from "../beads-adapter";
+import {
+  planTicketArtifactCleanup,
+  type TicketArtifactCleanupAction,
+  type TicketArtifactCleanupPlan,
+} from "../ticket-artifact-cleanup";
 
 export const TICKET_WORKTREE_ROOT = ".worktrees/tickets";
 
@@ -122,6 +131,56 @@ export type ReadReadyTicketWorkflowQueueInput = {
 
 export type ReadVerifiedMergeQueueInput = {
   readonly repoRoot: string;
+};
+
+export type ReadStuckTicketRecoveryCandidatesInput = {
+  readonly repoRoot: string;
+};
+
+export type StuckTicketRecoveryCandidate = {
+  readonly ticketId: string;
+  readonly title: string;
+  readonly workflowId: string;
+  readonly reason: string;
+  readonly branch: string;
+  readonly worktree: string;
+  readonly tmuxSession: string;
+  readonly stdoutLog: string;
+  readonly stderrLog: string;
+  readonly promptPath: string;
+};
+
+export type InspectTicketWorkflowExecutionInput = {
+  readonly address: string;
+  readonly namespace: string;
+  readonly workflowId: string;
+};
+
+export type TicketWorkflowExecutionStatus =
+  | { readonly status: "running"; readonly detail: string }
+  | { readonly status: "missing"; readonly detail: string }
+  | { readonly status: "closed"; readonly detail: string };
+
+export type RecoverStuckTicketInput = {
+  readonly repoRoot: string;
+  readonly runtimeLogRoot: string;
+  readonly candidate: StuckTicketRecoveryCandidate;
+  readonly workflowStatus: Exclude<TicketWorkflowExecutionStatus["status"], "running">;
+  readonly workflowStatusDetail: string;
+};
+
+export type StuckTicketRecoveryCleanupResult = {
+  readonly action: TicketArtifactCleanupAction;
+  readonly ok: boolean;
+  readonly record: ActivityRecord;
+};
+
+export type RecoverStuckTicketResult = {
+  readonly ticketId: string;
+  readonly ok: boolean;
+  readonly plan: TicketArtifactCleanupPlan;
+  readonly cleanup: readonly StuckTicketRecoveryCleanupResult[];
+  readonly records: readonly ActivityRecord[];
 };
 
 export type ReadyTicketWorkflowQueueTicket = {
@@ -357,6 +416,24 @@ export async function readVerifiedMergeQueueActivity(
   input: ReadVerifiedMergeQueueInput,
 ): Promise<VerifiedMergeQueueTicket[]> {
   return readVerifiedMergeQueue(input, runCommand);
+}
+
+export async function readStuckTicketRecoveryCandidatesActivity(
+  input: ReadStuckTicketRecoveryCandidatesInput,
+): Promise<StuckTicketRecoveryCandidate[]> {
+  return readStuckTicketRecoveryCandidates(input, runCommand);
+}
+
+export async function inspectTicketWorkflowExecutionActivity(
+  input: InspectTicketWorkflowExecutionInput,
+): Promise<TicketWorkflowExecutionStatus> {
+  return inspectTicketWorkflowExecution(input);
+}
+
+export async function recoverStuckTicketActivity(
+  input: RecoverStuckTicketInput,
+): Promise<RecoverStuckTicketResult> {
+  return recoverStuckTicket(input, runCommand, readDirectoryNames);
 }
 
 export async function writeTicketWorkflowMetadataActivity(
@@ -811,6 +888,219 @@ export async function readVerifiedMergeQueue(
   });
 }
 
+export async function readStuckTicketRecoveryCandidates(
+  input: ReadStuckTicketRecoveryCandidatesInput,
+  run: ActivityCommandRunner,
+): Promise<StuckTicketRecoveryCandidate[]> {
+  const listRecord = await run({
+    command: "bd",
+    args: ["list", "--json", "--no-pager", "-n", "0", "--status", "open"],
+    cwd: input.repoRoot,
+  });
+  if (listRecord.exitCode !== 0) {
+    throw ApplicationFailure.create({
+      message: listRecord.stderr.trim() || listRecord.stdout.trim() || "bd list failed",
+      type: "BeadsCommandFailed",
+      nonRetryable: true,
+    });
+  }
+
+  const tickets = parseRecoveryTicketList(listRecord.stdout);
+  if (tickets.length === 0) return [];
+
+  const adapter = new BeadsAdapter(async (command) => {
+    const result = await run({
+      command: command.command,
+      args: command.args,
+      cwd: input.repoRoot,
+      stdin: command.stdin,
+    });
+    if (result.exitCode !== 0) {
+      throw ApplicationFailure.create({
+        message: result.stderr.trim() || result.stdout.trim() || "bd command failed",
+        type: "BeadsCommandFailed",
+        nonRetryable: true,
+      });
+    }
+    return result.stdout;
+  });
+
+  const details = await adapter.showTickets(tickets.map((ticket) => ticket.id));
+  return details.flatMap((ticket) => recoveryCandidateFromTicket(ticket));
+}
+
+export async function inspectTicketWorkflowExecution(
+  input: InspectTicketWorkflowExecutionInput,
+): Promise<TicketWorkflowExecutionStatus> {
+  try {
+    const connection = await Connection.connect({ address: input.address });
+    const client = new Client({ connection, namespace: input.namespace });
+    const description = await client.workflow.getHandle(input.workflowId).describe();
+    const rawStatus = String(
+      description.status?.name ?? description.status ?? "unknown",
+    ).toLowerCase();
+    if (rawStatus.includes("running")) return { status: "running", detail: rawStatus };
+    return { status: "closed", detail: rawStatus };
+  } catch (error) {
+    if (isWorkflowNotFoundError(error)) {
+      return { status: "missing", detail: error instanceof Error ? error.message : "not found" };
+    }
+    throw error;
+  }
+}
+
+export async function recoverStuckTicket(
+  input: RecoverStuckTicketInput,
+  run: ActivityCommandRunner,
+  readNames: (path: string) => Promise<readonly string[]>,
+): Promise<RecoverStuckTicketResult> {
+  const worktreePaths = parseWorktreePaths(
+    (
+      await run({
+        command: "git",
+        args: ["-C", input.repoRoot, "worktree", "list", "--porcelain"],
+      })
+    ).stdout,
+  );
+  const localBranches = parseLines(
+    (
+      await run({
+        command: "git",
+        args: ["-C", input.repoRoot, "branch", "--format=%(refname:short)"],
+      })
+    ).stdout,
+  );
+  const remoteBranches = parseLines(
+    (
+      await run({
+        command: "git",
+        args: ["-C", input.repoRoot, "branch", "-r", "--format=%(refname:short)"],
+      })
+    ).stdout,
+  );
+  const tmuxSessions = parseLines(
+    (
+      await run({
+        command: "tmux",
+        args: ["list-sessions", "-F", "#S"],
+      })
+    ).stdout,
+  );
+  const evidenceFileNames = await readNames(input.runtimeLogRoot);
+  const plan = planTicketArtifactCleanup({
+    ticketId: input.candidate.ticketId,
+    repoRoot: input.repoRoot,
+    runtimeLogRoot: input.runtimeLogRoot,
+    worktreePaths,
+    localBranches,
+    remoteBranches,
+    tmuxSessions,
+    evidenceFileNames,
+    branchName: input.candidate.branch,
+    killTmuxSessions: true,
+    removeBranches: true,
+  });
+
+  const cleanup: StuckTicketRecoveryCleanupResult[] = [];
+  const records: ActivityRecord[] = [];
+  for (const action of plan.actions) {
+    const record = await runCleanupAction(action, input.repoRoot, run);
+    cleanup.push({ action, ok: record.exitCode === 0, record });
+    records.push(record);
+  }
+
+  const cleanupSucceeded = cleanup.every((result) => result.ok);
+  const recoveredAt = new Date().toISOString();
+  const metadataRecord = await runRecordedCommand(
+    cleanupSucceeded ? "mark-ticket-recovered" : "mark-ticket-recovery-failed",
+    run,
+    cleanupSucceeded
+      ? recoveredTicketCommand(input, recoveredAt, cleanup)
+      : failedRecoveryCommand(input, recoveredAt, cleanup),
+  );
+  records.push(metadataRecord);
+
+  const commentRecord = await runRecordedCommand("comment-ticket-recovery", run, {
+    command: "bd",
+    args: ["comment", input.candidate.ticketId, "--stdin"],
+    cwd: input.repoRoot,
+    stdin: recoveryComment(input, plan, cleanup),
+  });
+  records.push(commentRecord);
+
+  return {
+    ticketId: input.candidate.ticketId,
+    ok: cleanupSucceeded && metadataRecord.exitCode === 0 && commentRecord.exitCode === 0,
+    plan,
+    cleanup,
+    records,
+  };
+}
+
+function recoveredTicketCommand(
+  input: RecoverStuckTicketInput,
+  recoveredAt: string,
+  cleanup: readonly StuckTicketRecoveryCleanupResult[],
+): ActivityCommand {
+  return {
+    command: "bd",
+    args: [
+      "update",
+      input.candidate.ticketId,
+      "--add-label",
+      TICKET_WORKFLOW_LABELS.ready,
+      "--add-label",
+      TICKET_WORKFLOW_LABELS.retry,
+      "--remove-label",
+      TICKET_WORKFLOW_LABELS.queued,
+      "--remove-label",
+      TICKET_WORKFLOW_LABELS.review,
+      "--remove-label",
+      TICKET_WORKFLOW_LABELS.verified,
+      "--remove-label",
+      TICKET_WORKFLOW_LABELS.human,
+      "--set-metadata",
+      `${TICKET_METADATA_KEYS.phase}=recovered`,
+      "--set-metadata",
+      `${TICKET_METADATA_KEYS.lastResult}=recovered-${input.workflowStatus}`,
+      "--set-metadata",
+      `ticket_recovered_at=${recoveredAt}`,
+      "--set-metadata",
+      `ticket_recovery_reason=${input.workflowStatusDetail}`,
+      "--set-metadata",
+      `ticket_recovery_cleanup=${cleanupSummary(cleanup)}`,
+    ],
+    cwd: input.repoRoot,
+  };
+}
+
+function failedRecoveryCommand(
+  input: RecoverStuckTicketInput,
+  recoveredAt: string,
+  cleanup: readonly StuckTicketRecoveryCleanupResult[],
+): ActivityCommand {
+  return {
+    command: "bd",
+    args: [
+      "update",
+      input.candidate.ticketId,
+      "--add-label",
+      TICKET_WORKFLOW_LABELS.human,
+      "--set-metadata",
+      `${TICKET_METADATA_KEYS.phase}=recovery-failed`,
+      "--set-metadata",
+      `${TICKET_METADATA_KEYS.lastResult}=recovery-cleanup-failed`,
+      "--set-metadata",
+      `ticket_recovered_at=${recoveredAt}`,
+      "--set-metadata",
+      `ticket_recovery_reason=${input.workflowStatusDetail}`,
+      "--set-metadata",
+      `ticket_recovery_cleanup=${cleanupSummary(cleanup)}`,
+    ],
+    cwd: input.repoRoot,
+  };
+}
+
 export async function writeTicketWorkflowMetadata(
   input: WriteTicketMetadataInput,
   run: ActivityCommandRunner,
@@ -1122,6 +1412,175 @@ function parseTicketMetadata(ticket: unknown): {
     branch: stringField(metadata, TICKET_METADATA_KEYS.branch),
     commit: stringField(metadata, TICKET_METADATA_KEYS.commit),
   };
+}
+
+function parseRecoveryTicketList(stdout: string): BeadsTicket[] {
+  const parsed: unknown = JSON.parse(stdout);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.flatMap((ticket) => {
+    if (!ticket || typeof ticket !== "object") return [];
+    const candidate = ticket as Record<string, unknown>;
+    const labels = parseStringArray(candidate.labels);
+    if (
+      typeof candidate.id !== "string" ||
+      typeof candidate.title !== "string" ||
+      typeof candidate.status !== "string"
+    ) {
+      return [];
+    }
+    return [{ id: candidate.id, title: candidate.title, status: candidate.status, labels }];
+  });
+}
+
+function hasWorkflowOwnedState(ticket: BeadsTicket): boolean {
+  const labels = new Set(ticket.labels);
+  return (
+    labels.has(TICKET_WORKFLOW_LABELS.queued) ||
+    labels.has(TICKET_WORKFLOW_LABELS.review) ||
+    labels.has(TICKET_WORKFLOW_LABELS.verified) ||
+    labels.has(TICKET_WORKFLOW_LABELS.human)
+  );
+}
+
+function recoveryCandidateFromTicket(ticket: BeadsTicketDetails): StuckTicketRecoveryCandidate[] {
+  if (ticket.status !== "open") return [];
+  const labels = new Set(ticket.labels);
+  if (labels.has(TICKET_WORKFLOW_LABELS.backlog)) return [];
+  const metadata = ticket.metadata ?? {};
+  const branch = stringField(metadata, TICKET_METADATA_KEYS.branch);
+  const worktree = stringField(metadata, TICKET_METADATA_KEYS.worktree);
+  const tmuxSession = stringField(metadata, TICKET_METADATA_KEYS.tmuxSession);
+  const phase = stringField(metadata, TICKET_METADATA_KEYS.phase);
+  if (!hasWorkflowOwnedState(ticket) && phase.length === 0) return [];
+  return [
+    {
+      ticketId: ticket.id,
+      title: ticket.title,
+      workflowId: `ticket_${ticket.id}`,
+      reason: phase ? `ticket phase is ${phase}` : "ticket has workflow-owned label",
+      branch,
+      worktree,
+      tmuxSession,
+      promptPath: stringField(metadata, TICKET_METADATA_KEYS.promptPath),
+      stdoutLog: stringField(metadata, TICKET_METADATA_KEYS.stdoutLog),
+      stderrLog: stringField(metadata, TICKET_METADATA_KEYS.stderrLog),
+    },
+  ];
+}
+
+function isWorkflowNotFoundError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const text = `${error.name} ${error.message}`.toLowerCase();
+  return text.includes("not found") || text.includes("not_found") || text.includes("notfound");
+}
+
+function parseWorktreePaths(output: string): string[] {
+  return output
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("worktree "))
+    .map((line) => line.slice("worktree ".length));
+}
+
+function parseLines(output: string): string[] {
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+async function readDirectoryNames(path: string): Promise<string[]> {
+  try {
+    const entries = await readdir(path, { withFileTypes: true });
+    return entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
+  } catch {
+    return [];
+  }
+}
+
+async function runCleanupAction(
+  action: TicketArtifactCleanupAction,
+  repoRoot: string,
+  run: ActivityCommandRunner,
+): Promise<ActivityRecord> {
+  switch (action.kind) {
+    case "remove-worktree":
+      return runRecordedCommand("cleanup-remove-worktree", run, {
+        command: "git",
+        args: ["-C", repoRoot, "worktree", "remove", action.path],
+      });
+    case "remove-local-branch":
+      return runRecordedCommand("cleanup-remove-local-branch", run, {
+        command: "git",
+        args: ["-C", repoRoot, "branch", "-D", action.branch],
+      });
+    case "remove-remote-branch":
+      return runRecordedCommand("cleanup-remove-remote-branch", run, {
+        command: "git",
+        args: ["-C", repoRoot, "push", action.remote, "--delete", action.branch],
+      });
+    case "kill-tmux-session":
+      return runRecordedCommand("cleanup-kill-tmux-session", run, {
+        command: "tmux",
+        args: ["kill-session", "-t", `=${action.sessionName}`],
+      });
+    case "remove-evidence":
+      return runRecordedCommand("cleanup-remove-evidence", run, {
+        command: "rm",
+        args: ["-f", action.path],
+      });
+  }
+}
+
+async function runRecordedCommand(
+  activity: string,
+  run: ActivityCommandRunner,
+  command: ActivityCommand,
+): Promise<ActivityRecord> {
+  return commandRecord(activity, command, await run(command));
+}
+
+function cleanupSummary(cleanup: readonly StuckTicketRecoveryCleanupResult[]): string {
+  const passed = cleanup.filter((result) => result.ok).length;
+  return `${passed}/${cleanup.length} cleanup actions succeeded`;
+}
+
+function recoveryComment(
+  input: RecoverStuckTicketInput,
+  plan: TicketArtifactCleanupPlan,
+  cleanup: readonly StuckTicketRecoveryCleanupResult[],
+): string {
+  const actionLines = cleanup.map(
+    (result) => `- ${result.ok ? "ok" : "failed"}: ${formatCleanupAction(result.action)}`,
+  );
+  return [
+    "## Recovery summary",
+    "",
+    `Recovered ${input.candidate.ticketId} because ${input.workflowStatusDetail}.`,
+    `Workflow status: ${input.workflowStatus}.`,
+    "",
+    "Cleanup actions:",
+    ...(actionLines.length > 0 ? actionLines : ["- none"]),
+    "",
+    "Preserved evidence:",
+    ...(plan.preservedEvidencePaths.length > 0
+      ? plan.preservedEvidencePaths.map((path) => `- ${path}`)
+      : ["- none"]),
+  ].join("\n");
+}
+
+function formatCleanupAction(action: TicketArtifactCleanupAction): string {
+  switch (action.kind) {
+    case "remove-worktree":
+      return `worktree ${action.path}`;
+    case "remove-local-branch":
+      return `local branch ${action.branch}`;
+    case "remove-remote-branch":
+      return `remote branch ${action.remote}/${action.branch}`;
+    case "kill-tmux-session":
+      return `tmux session ${action.sessionName}`;
+    case "remove-evidence":
+      return `evidence ${action.path}`;
+  }
 }
 
 function stringField(record: Record<string, unknown>, key: string): string {

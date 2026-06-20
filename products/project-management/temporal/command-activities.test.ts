@@ -11,7 +11,9 @@ import {
   pushBeads,
   pushMain,
   readReadyTicketWorkflowQueue,
+  readStuckTicketRecoveryCandidates,
   readVerifiedMergeQueue,
+  recoverStuckTicket,
   resolveOpenCodeSession,
   runFinalGates,
   startTmuxCommand,
@@ -567,6 +569,207 @@ describe("ticket command activities", () => {
       },
     ]);
     expect(commands[0]?.args).toContain("ticket-verified");
+  });
+
+  it("reads workflow-owned tickets as stuck recovery candidates", async () => {
+    const result = await readStuckTicketRecoveryCandidates(
+      { repoRoot: "/repo" },
+      async (command) => {
+        if (command.args[0] === "list") {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify([
+              { id: "www-stuck", title: "Stuck", status: "open", labels: ["ticket-review"] },
+              { id: "www-ready", title: "Ready", status: "open", labels: ["ticket-ready"] },
+            ]),
+            stderr: "",
+          };
+        }
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify([
+            {
+              id: "www-stuck",
+              title: "Stuck",
+              status: "open",
+              labels: ["ticket-review"],
+              acceptance_criteria: "- [ ] recover",
+              metadata: {
+                ticket_phase: "review",
+                ticket_branch: "www-stuck-branch",
+                ticket_worktree: "/repo/.worktrees/tickets/www-stuck-branch",
+                ticket_tmux_session: "ticket_www-stuck_review_1",
+                ticket_stdout_log: "/logs/ticket_www-stuck_review_1.stdout.log",
+                ticket_stderr_log: "/logs/ticket_www-stuck_review_1.stderr.log",
+                ticket_prompt_path: "/logs/ticket_www-stuck_review_1.prompt.md",
+              },
+              comments: [],
+            },
+          ]),
+          stderr: "",
+        };
+      },
+    );
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        ticketId: "www-stuck",
+        workflowId: "ticket_www-stuck",
+        branch: "www-stuck-branch",
+      }),
+    ]);
+  });
+
+  it("recovers a stuck ticket with exact ticket-scoped artifact cleanup and Beads metadata", async () => {
+    const commands: ActivityCommand[] = [];
+    const result = await recoverStuckTicket(
+      {
+        repoRoot: "/repo",
+        runtimeLogRoot: "/logs",
+        workflowStatus: "missing",
+        workflowStatusDetail: "not found",
+        candidate: {
+          ticketId: "www-stuck",
+          title: "Stuck",
+          workflowId: "ticket_www-stuck",
+          reason: "ticket phase is review",
+          branch: "www-stuck-branch",
+          worktree: "/repo/.worktrees/tickets/www-stuck-branch",
+          tmuxSession: "ticket_www-stuck_review_1",
+          stdoutLog: "",
+          stderrLog: "",
+          promptPath: "",
+        },
+      },
+      async (command) => {
+        commands.push(command);
+        if (command.args.includes("worktree")) {
+          return {
+            exitCode: 0,
+            stdout:
+              "worktree /repo/.worktrees/tickets/www-stuck-branch\nworktree /repo/.worktrees/tickets/www-other-branch\n",
+            stderr: "",
+          };
+        }
+        if (command.args.includes("--format=%(refname:short)")) {
+          return command.args.includes("-r")
+            ? { exitCode: 0, stdout: "origin/www-stuck-branch\norigin/main\n", stderr: "" }
+            : { exitCode: 0, stdout: "www-stuck-branch\nmain\n", stderr: "" };
+        }
+        if (command.command === "tmux" && command.args[0] === "list-sessions") {
+          return {
+            exitCode: 0,
+            stdout: "ticket_www-stuck_review_1\nticket_www-other_review_1\n",
+            stderr: "",
+          };
+        }
+        return { exitCode: 0, stdout: "", stderr: "" };
+      },
+      async () => ["ticket_www-stuck_review_1.stdout.log"],
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.plan.actions).toEqual([
+      { kind: "remove-worktree", path: "/repo/.worktrees/tickets/www-stuck-branch" },
+      { kind: "remove-local-branch", branch: "www-stuck-branch" },
+      { kind: "remove-remote-branch", remote: "origin", branch: "www-stuck-branch" },
+      { kind: "kill-tmux-session", sessionName: "ticket_www-stuck_review_1" },
+    ]);
+    expect(result.plan.preservedEvidencePaths).toEqual([
+      "/logs/ticket_www-stuck_review_1.stdout.log",
+    ]);
+    expect(commands).toContainEqual(
+      expect.objectContaining({
+        command: "bd",
+        args: expect.arrayContaining([
+          "--add-label",
+          "ticket-ready",
+          "--set-metadata",
+          "ticket_last_result=recovered-missing",
+        ]),
+      }),
+    );
+  });
+
+  it("tolerates missing recovery artifacts by updating Beads without cleanup actions", async () => {
+    const result = await recoverStuckTicket(
+      {
+        repoRoot: "/repo",
+        runtimeLogRoot: "/missing-logs",
+        workflowStatus: "closed",
+        workflowStatusDetail: "terminated",
+        candidate: {
+          ticketId: "www-empty",
+          title: "Empty",
+          workflowId: "ticket_www-empty",
+          reason: "ticket has workflow-owned label",
+          branch: "www-empty-branch",
+          worktree: "",
+          tmuxSession: "",
+          stdoutLog: "",
+          stderrLog: "",
+          promptPath: "",
+        },
+      },
+      async (command) => {
+        if (command.command === "git" || command.command === "tmux") {
+          return { exitCode: 0, stdout: "", stderr: "" };
+        }
+        return { exitCode: 0, stdout: "", stderr: "" };
+      },
+      async () => [],
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.plan.actions).toEqual([]);
+  });
+
+  it("does not requeue the ticket when cleanup fails", async () => {
+    const commands: ActivityCommand[] = [];
+    const result = await recoverStuckTicket(
+      {
+        repoRoot: "/repo",
+        runtimeLogRoot: "/logs",
+        workflowStatus: "missing",
+        workflowStatusDetail: "not found",
+        candidate: {
+          ticketId: "www-stuck",
+          title: "Stuck",
+          workflowId: "ticket_www-stuck",
+          reason: "ticket phase is review",
+          branch: "www-stuck-branch",
+          worktree: "/repo/.worktrees/tickets/www-stuck-branch",
+          tmuxSession: "",
+          stdoutLog: "",
+          stderrLog: "",
+          promptPath: "",
+        },
+      },
+      async (command) => {
+        commands.push(command);
+        if (command.args.includes("worktree") && command.args.includes("list")) {
+          return {
+            exitCode: 0,
+            stdout: "worktree /repo/.worktrees/tickets/www-stuck-branch\n",
+            stderr: "",
+          };
+        }
+        if (command.command === "git" && command.args.includes("worktree")) {
+          return { exitCode: 1, stdout: "", stderr: "locked worktree" };
+        }
+        return { exitCode: 0, stdout: "", stderr: "" };
+      },
+      async () => [],
+    );
+
+    const updateCommand = commands.find(
+      (command) => command.command === "bd" && command.args[0] === "update",
+    );
+
+    expect(result.ok).toBe(false);
+    expect(updateCommand?.args).toContain("ticket-human");
+    expect(updateCommand?.args).not.toContain("ticket-ready");
+    expect(updateCommand?.args).toContain("ticket_last_result=recovery-cleanup-failed");
   });
 });
 

@@ -26,7 +26,8 @@ import {
   transitionTicketWorkflow,
 } from "./state";
 
-export const MERGE_QUEUE_WORKFLOW_ID = "merge_queue";
+export const MERGE_QUEUE_WORKFLOW_ID = "ticket_merge_queue";
+export const STUCK_TICKET_RECOVERY_WORKFLOW_ID = "stuck_ticket_recovery";
 
 const activities = proxyActivities<typeof projectActivities>({
   startToCloseTimeout: "1 minute",
@@ -312,12 +313,42 @@ export type TicketQueueWorkflowBatchResult = {
   readonly skipped: readonly string[];
 };
 
+export type StuckTicketRecoveryWorkflowInput = {
+  readonly repoRoot: string;
+  readonly runtimeLogRoot: string;
+  readonly temporalAddress: string;
+  readonly temporalNamespace: string;
+  readonly pollIntervalMs?: number;
+  readonly maxTicketsPerPoll?: number;
+};
+
+export type StuckTicketRecoveryActivities = Pick<
+  typeof commandActivities,
+  | "readStuckTicketRecoveryCandidatesActivity"
+  | "inspectTicketWorkflowExecutionActivity"
+  | "recoverStuckTicketActivity"
+>;
+
+export type StuckTicketRecoveryBatchResult = {
+  readonly recovered: readonly string[];
+  readonly skippedLive: readonly string[];
+  readonly failed: readonly string[];
+};
+
 export type TicketChildWorkflowStarter = (
   child: TicketQueueWorkflowChildInput,
 ) => Promise<"started" | "skipped">;
 
 const ticketQueueActivityProxies = proxyActivities<TicketQueueWorkflowActivities>({
   startToCloseTimeout: "1 minute",
+  retry: {
+    initialInterval: "15 seconds",
+    maximumInterval: "15 seconds",
+  },
+});
+
+const stuckTicketRecoveryActivityProxies = proxyActivities<StuckTicketRecoveryActivities>({
+  startToCloseTimeout: "10 minutes",
   retry: {
     initialInterval: "15 seconds",
     maximumInterval: "15 seconds",
@@ -416,6 +447,61 @@ export async function ticketQueueWorkflow(input: TicketQueueWorkflowInput): Prom
     );
     await sleep(pollIntervalMs);
   }
+}
+
+export async function stuckTicketRecoveryWorkflow(
+  input: StuckTicketRecoveryWorkflowInput,
+): Promise<never> {
+  const pollIntervalMs = input.pollIntervalMs ?? 60_000;
+
+  while (true) {
+    const candidates =
+      await stuckTicketRecoveryActivityProxies.readStuckTicketRecoveryCandidatesActivity({
+        repoRoot: input.repoRoot,
+      });
+    await runStuckTicketRecoveryBatch(input, candidates, stuckTicketRecoveryActivityProxies);
+    await sleep(pollIntervalMs);
+  }
+}
+
+export async function runStuckTicketRecoveryBatch(
+  input: StuckTicketRecoveryWorkflowInput,
+  candidates: readonly commandActivities.StuckTicketRecoveryCandidate[],
+  recoveryActivities: StuckTicketRecoveryActivities,
+): Promise<StuckTicketRecoveryBatchResult> {
+  const selectedCandidates = candidates.slice(0, input.maxTicketsPerPoll ?? candidates.length);
+  const results = await Promise.all(
+    selectedCandidates.map(async (candidate) => {
+      const status = await recoveryActivities.inspectTicketWorkflowExecutionActivity({
+        address: input.temporalAddress,
+        namespace: input.temporalNamespace,
+        workflowId: candidate.workflowId,
+      });
+      if (status.status === "running")
+        return { ticketId: candidate.ticketId, status: "live" } as const;
+      const recovered = await recoveryActivities.recoverStuckTicketActivity({
+        repoRoot: input.repoRoot,
+        runtimeLogRoot: input.runtimeLogRoot,
+        candidate,
+        workflowStatus: status.status,
+        workflowStatusDetail: status.detail,
+      });
+      return {
+        ticketId: candidate.ticketId,
+        status: recovered.ok ? "recovered" : "failed",
+      } as const;
+    }),
+  );
+
+  return {
+    recovered: results
+      .filter((result) => result.status === "recovered")
+      .map((result) => result.ticketId),
+    skippedLive: results
+      .filter((result) => result.status === "live")
+      .map((result) => result.ticketId),
+    failed: results.filter((result) => result.status === "failed").map((result) => result.ticketId),
+  };
 }
 
 export async function runTicketQueueBatch(
