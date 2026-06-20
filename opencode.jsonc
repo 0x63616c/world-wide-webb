@@ -63,10 +63,6 @@
   },
   "instructions": [
     "CLAUDE.md",
-    "README.md",
-    "docs/acceptance-checklist.md",
-    "docs/deployment-design.md",
-    "docs/logging.md",
-    "docs/unifi-logging.md"
+    "README.md"
   ]
 }
