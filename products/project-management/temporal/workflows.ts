@@ -196,6 +196,7 @@ export type TicketWorkflowRunnerStep =
   | "write-builder-completion-metadata"
   | "verify-builder-handoff"
   | "validate-builder"
+  | "move-ticket-review"
   | "start-reviewer"
   | "write-reviewer-start-metadata"
   | "wait-reviewer"
@@ -255,6 +256,7 @@ export type TicketWorkflowRunnerActivities = Pick<
   | "resolveOpenCodeSessionActivity"
   | "writeTicketWorkflowMetadataActivity"
   | "writeTicketCommentActivity"
+  | "moveTicketToReviewActivity"
   | "requeueTicketActivity"
   | "prepareTicketWorktreeActivity"
   | "validateTicketImplementationActivity"
@@ -924,6 +926,13 @@ export async function runTicketWorkflowRunner(
       });
       continue;
     }
+
+    const moveToReview = await runnerActivities.moveTicketToReviewActivity({
+      ticketId: input.ticketId,
+      repoRoot: config.repoRoot,
+    });
+    steps.push({ step: "move-ticket-review", ok: moveToReview.ok });
+    if (!moveToReview.ok) continue;
 
     for (
       let reviewerAttempt = 1;

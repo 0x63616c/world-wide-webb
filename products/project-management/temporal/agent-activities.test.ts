@@ -32,6 +32,8 @@ describe("ticket builder activity", () => {
     expect(prompt.prompt).toContain("Do not run `bd close`");
     expect(prompt.prompt).toContain("Commit and push the ticket branch");
     expect(prompt.prompt).toContain("revert that file before committing");
+    expect(prompt.prompt).toContain("Do not move Beads lifecycle labels");
+    expect(prompt.prompt).not.toContain("--add-label ticket-review");
   });
 
   it("archives the prompt and starts opencode in tmux with explicit agent and model", async () => {
@@ -165,7 +167,7 @@ describe("ticket reviewer activity", () => {
       - Review the builder commit delta with \`git diff HEAD^..HEAD\` and \`git show --stat --oneline HEAD\`. Do not use \`origin/main...HEAD\`, because ticket branches are based on the orchestration branch and that compares the whole epic.
       - Do not rely on builder summaries.
       - Verify every acceptance criterion below with observed evidence.
-      - Ignore any acceptance criterion about merging to main, pushing branches, opening PRs, or closing Beads tickets — those are handled by the merge queue after verification, not by the reviewer. Only verify implementation and quality criteria.
+      - Ignore any acceptance criterion about merging to main, pushing branches, opening PRs, or closing Beads tickets, those are handled by the merge queue after verification, not by the reviewer. Only verify implementation and quality criteria.
 
       ## Acceptance Criteria
 

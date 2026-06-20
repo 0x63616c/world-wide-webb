@@ -444,13 +444,13 @@ describe("ticket command activities", () => {
     expect(commands.flatMap((command) => command.args)).not.toContain("close");
   });
 
-  it("verifies builder handoff from Beads labels and comments", async () => {
+  it("verifies builder handoff from the builder summary comment", async () => {
     const result = await verifyBuilderHandoff(
       { repoRoot: "/repo", ticketId: "www-3agy.18" },
       async () => ({
         exitCode: 0,
         stdout: JSON.stringify({
-          labels: ["ticket-review"],
+          labels: ["ticket-ready"],
           comments: [{ body: "## Builder summary\n\nBuilt and pushed abc123." }],
         }),
         stderr: "",
@@ -462,7 +462,7 @@ describe("ticket command activities", () => {
         ok: true,
         handoff: "review",
         hasBuilderComment: true,
-        labels: ["ticket-review"],
+        labels: ["ticket-ready"],
       }),
     );
   });

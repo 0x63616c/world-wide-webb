@@ -35,6 +35,7 @@ describe("runTicketWorkflowRunner", () => {
       ["write-builder-completion-metadata", true],
       ["verify-builder-handoff", true],
       ["validate-builder", true],
+      ["move-ticket-review", true],
       ["start-reviewer", true],
       ["write-reviewer-start-metadata", true],
       ["wait-reviewer", true],
@@ -55,6 +56,7 @@ describe("runTicketWorkflowRunner", () => {
       "write-metadata:builder-passed:review:1:ticket_www-proof_build_1:/logs/build.prompt.md:/logs/build.stdout.log:/logs/build.stderr.log",
       "verify-builder-handoff",
       "validate-builder",
+      "move-ticket-review",
       "start-reviewer",
       "write-metadata:reviewer-started:review:1:ticket_www-proof_review_1:/logs/review.prompt.md:/logs/review.stdout.log:/logs/review.stderr.log",
       "wait:ticket_www-proof_review_1",
@@ -313,9 +315,13 @@ function fakeRunnerActivities(
         return {
           ...ok(),
           handoff: "review",
-          labels: ["ticket-review"],
+          labels: ["ticket-ready"],
           hasBuilderComment: true,
         };
+      },
+      moveTicketToReviewActivity: async () => {
+        calls.push("move-ticket-review");
+        return ok();
       },
       validateTicketImplementationActivity: async () => {
         calls.push("validate-builder");
