@@ -99,7 +99,7 @@ describe("Beads detail template", () => {
     expect(drawer).not.toContain("Copy tmux</button>");
   });
 
-  it("renders a copy-only close command preview with editable reason", async () => {
+  it("does not render close command preview fields in the detail drawer", async () => {
     const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
     const drawerStart = html.indexOf(
       "<!-- ===================== DETAIL DRAWER ===================== -->",
@@ -109,22 +109,22 @@ describe("Beads detail template", () => {
     );
     const drawer = html.slice(drawerStart, drawerEnd);
 
-    expect(drawer).toContain("Close command preview");
-    expect(drawer).toContain("Copy only. This never runs bd.");
-    expect(drawer).toContain("{{ selected.closeReason }}");
-    expect(drawer).toContain("{{ selected.onCloseReasonInput }}");
-    expect(drawer).toContain("{{ selected.closeCommand }}");
-    expect(drawer).toContain("{{ selected.copyCloseCommand }}");
-    expect(html).toContain("defaultCloseReason(issue)");
-    expect(html).toContain("return 'Completed: ' + issue.title;");
-    expect(html).toContain("return 'bd close ' + this.shellQuote(issue.id)");
+    expect(drawer).not.toContain("Close command preview");
+    expect(drawer).not.toContain("{{ selected.closeReason }}");
+    expect(drawer).not.toContain("{{ selected.onCloseReasonInput }}");
+    expect(drawer).not.toContain("{{ selected.closeCommand }}");
+    expect(drawer).not.toContain("{{ selected.copyCloseCommand }}");
+    expect(html).not.toContain("defaultCloseReason(issue)");
+    expect(html).not.toContain("this.shellQuote(issue.id)");
   });
 
-  it("copies the close command without invoking workflow mutations", async () => {
+  it("does not expose a close-command copy action", async () => {
     const html = await readFile(new URL("./public/Beads.dc.html", import.meta.url), "utf8");
 
-    expect(html).toContain("copyCloseCommand: () => this.copyText(closeCommand, 'close-command')");
-    expect(html).toContain("closeCommandCopyLabel");
+    expect(html).not.toContain(
+      "copyCloseCommand: () => this.copyText(closeCommand, 'close-command')",
+    );
+    expect(html).not.toContain("closeCommandCopyLabel");
     expect(html).toContain("copiedTarget: null");
     expect(html).not.toContain("workflowAction");
     expect(html).not.toContain("/api/workflow-control");
