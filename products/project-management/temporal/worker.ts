@@ -41,30 +41,27 @@ function startHealthServer(options: TemporalWorkerOptions): ReturnType<typeof Bu
   });
 }
 
-async function waitForTemporal(address: string, timeoutMs: number): Promise<void> {
-  const [hostname, portText] = address.split(":");
-  const port = Number(portText);
+async function connectToTemporal(address: string, timeoutMs: number): Promise<NativeConnection> {
   const deadline = Date.now() + timeoutMs;
+  let lastError: unknown;
 
   while (Date.now() < deadline) {
     try {
-      const socket = await Bun.connect({ hostname, port, socket: {} });
-      socket.end();
-      return;
-    } catch {
+      return await NativeConnection.connect({ address });
+    } catch (error) {
+      lastError = error;
       await Bun.sleep(250);
     }
   }
 
-  throw new Error(`Timed out waiting for Temporal at ${address}`);
+  throw new Error(`Timed out connecting to Temporal at ${address}`, { cause: lastError });
 }
 
 export async function runTemporalWorker(options = defaultTemporalWorkerOptions()): Promise<void> {
-  const healthServer = startHealthServer(options);
-
+  let healthServer: ReturnType<typeof Bun.serve> | undefined;
   try {
-    await waitForTemporal(options.address, 30_000);
-    const connection = await NativeConnection.connect({ address: options.address });
+    const connection = await connectToTemporal(options.address, 30_000);
+    healthServer = startHealthServer(options);
     const worker = await Worker.create({
       connection,
       namespace: options.namespace,
@@ -86,7 +83,7 @@ export async function runTemporalWorker(options = defaultTemporalWorkerOptions()
 
     await worker.run();
   } finally {
-    healthServer.stop();
+    healthServer?.stop();
   }
 }
 
