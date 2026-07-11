@@ -43,6 +43,12 @@ bun run knip
 
 Use `bun` and `bunx`, never `npm` or `npx`.
 
+## Task tracking
+
+Beads (`bd`) is no longer used for task tracking (dropped 2026-07-11). The old
+tickets are archived under [`docs/beads-archive/`](docs/beads-archive/)  - 
+`OPEN-IDEAS.md` for the unfinished ideas, `beads-export.jsonl` for the full raw dump.
+
 ## Docs
 
 - `CODEBASE_OVERVIEW.md`, repo map and runtime shape.

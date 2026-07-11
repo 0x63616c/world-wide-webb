@@ -33,4 +33,8 @@ regexes = [
 paths = [
   '''scripts/check-.*\.sh''',
   '''bun\.lock''',
+  # Archived Beads ticket dump (dropped bd 2026-07-11). Free-text ticket bodies
+  # and memory "key":"..." fields trip generic-api-key; these are not credentials
+  # (repo secrets live in 1Password op:// only). See docs/beads-archive/README.md.
+  '''docs/beads-archive/.*''',
 ]

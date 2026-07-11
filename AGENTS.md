@@ -3,7 +3,10 @@
 ## Start Here
 
 - Read `CODEBASE_OVERVIEW.md` first.
-- Use `bd` for durable task tracking.
+- **Beads (`bd`) is no longer used** for task tracking (dropped 2026-07-11). Do not
+  create, query, or rely on `bd` tickets. The old tickets are archived in
+  `docs/beads-archive/` - `OPEN-IDEAS.md` holds the unfinished ideas, and
+  `beads-export.jsonl` is the full raw dump. Pull ideas from there as needed.
 - Before writing or reviewing TypeScript or TSX, use the `writing-scalable-typescript` skill when available.
 
 ## Commands
@@ -48,6 +51,6 @@
 
 ## Workflow
 
-- Work in ticket-named worktrees.
+- Work in task-named worktrees (name them after the task; no `bd` ticket ID required).
 - Do not use PRs for shipping.
 - Keep docs current when behavior changes.
