@@ -255,6 +255,23 @@ export const settings = pgTable("settings", {
   updatedAtUtc: timestamp("updated_at_utc", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Latest known TestFlight build of the wall-panel iOS shell, a SINGLETON row
+// (id = ASC_BUILD_STATUS_SINGLETON_ID). Written by the asc-version-poll worker
+// (App Store Connect /v1/builds), read by the system.appUpdateStatus tRPC query
+// so the board can raise an "update available" banner. One row is enough: build
+// numbers are contiguous (fastlane latest_testflight_build_number + 1), so
+// "builds behind" is latest - installed with no history needed. Modeled on the
+// lamp_mode / settings keyed-singleton pattern.
+export const ASC_BUILD_STATUS_SINGLETON_ID = "singleton";
+
+export const ascBuildStatus = pgTable("asc_build_status", {
+  id: text("id").primaryKey(),
+  buildNumber: integer("build_number").notNull(),
+  marketingVersion: text("marketing_version").notNull(),
+  uploadedAtUtc: timestamp("uploaded_at_utc", { withTimezone: true }).notNull(),
+  fetchedAtUtc: timestamp("fetched_at_utc", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Media ingest pipeline tables (www-kp4k). media_source tracks YouTube playlists
 // and ad-hoc video collections; media_item is each individual video moving through
 // the download/metadata pipeline. The worker barrel re-exports these for the

@@ -82,10 +82,14 @@ export default defineConfig({
   // - @capacitor/*: lib/brightness (idle-dim) pulls these in; the board's idle
   //   hooks reach them transitively, so a cold cache optimizes them mid-test.
   // (Reproduce the CI condition locally by clearing node_modules/.vite first.)
+  // @capacitor/app joined via AppUpdateBanner (its stories pull lib/app-update).
   optimizeDeps: {
     include: [
       "@tanstack/react-router",
+      "@capacitor/app",
       "@capacitor/core",
+      "@capacitor/haptics",
+      "@capacitor/status-bar",
       "@capacitor-community/screen-brightness",
     ],
   },

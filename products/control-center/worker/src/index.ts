@@ -14,6 +14,7 @@
 import {
   env,
   reconcilePartyMode,
+  runAscVersionPollCycle,
   runClimateEnforcerCycle,
   runDeviceSyncCycle,
   runEnforcerCycle,
@@ -88,6 +89,15 @@ const workers: Worker[] = [
     intervalMs: 5 * 60_000,
     runOnStart: true,
     run: runWeatherIngestCycle,
+  },
+  {
+    // App Store Connect TestFlight-build poller: upserts the latest installable
+    // shell build into asc_build_status so the board can show "update available".
+    // 1/min is ~1.7% of ASC's 3600/hr budget; a no-op when ASC_* env is unset.
+    name: "asc-version-poll",
+    intervalMs: 60_000,
+    runOnStart: true,
+    run: runAscVersionPollCycle,
   },
 ];
 

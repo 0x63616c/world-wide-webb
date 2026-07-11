@@ -64,6 +64,13 @@
       "when": 1783798914987,
       "tag": "0009_pretty_madame_hydra",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783800715086,
+      "tag": "0010_yellow_grandmaster",
+      "breakpoints": true
     }
   ]
 }

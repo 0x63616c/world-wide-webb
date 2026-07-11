@@ -25,6 +25,12 @@ const apiSecrets: ServiceSecrets = {
   SPOTIFY_CLIENT_ID: "SPOTIFY__CLIENT_ID",
   SPOTIFY_CLIENT_SECRET: "SPOTIFY__CLIENT_SECRET",
   SPOTIFY_REFRESH_TOKEN: "SPOTIFY__REFRESH_TOKEN",
+  // App Store Connect API key, used by the asc-version-poll worker to detect
+  // newer TestFlight builds of the wall-panel shell. Same vault item CI uses
+  // for the fastlane upload (ios-build.yml re-exports these ASC_* names).
+  ASC_KEY_ID: "APP_STORE_CONNECT_API__KEY_ID",
+  ASC_ISSUER_ID: "APP_STORE_CONNECT_API__ISSUER_ID",
+  ASC_KEY_CONTENT: "APP_STORE_CONNECT_API__P8_CONTENT",
 };
 
 // worker: identical to api (the api/worker secret sets are kept in lockstep;

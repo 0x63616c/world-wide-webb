@@ -307,6 +307,13 @@ function opSecret(item: string, field: string): SecretCatalogEntry {
 }
 
 export const secretCatalog = {
+  // The .p8 rides the item as the AuthKey_*.p8 file attachment; in the SOPS
+  // vault it is APP_STORE_CONNECT_API__P8_CONTENT (same item CI's fastlane uses).
+  appStoreConnect: {
+    keyId: opSecret("App Store Connect API", "key id"),
+    issuerId: opSecret("App Store Connect API", "issuer id"),
+    p8Content: opSecret("App Store Connect API", "AuthKey_TJ8M46SFSQ.p8"),
+  },
   captivePortal: {
     postgresPassword: opSecret("Captive Portal Postgres", "password"),
   },
@@ -396,6 +403,9 @@ export function controlCenterServiceSecretUsages(): Record<
     SPOTIFY_CLIENT_ID: secretCatalog.spotify.clientId,
     SPOTIFY_CLIENT_SECRET: secretCatalog.spotify.clientSecret,
     SPOTIFY_REFRESH_TOKEN: secretCatalog.spotify.refreshToken,
+    ASC_KEY_ID: secretCatalog.appStoreConnect.keyId,
+    ASC_ISSUER_ID: secretCatalog.appStoreConnect.issuerId,
+    ASC_KEY_CONTENT: secretCatalog.appStoreConnect.p8Content,
   } as const;
   const workerSecrets = {
     HA_TOKEN: secretCatalog.homeAssistant.token,
@@ -410,6 +420,9 @@ export function controlCenterServiceSecretUsages(): Record<
     SPOTIFY_CLIENT_ID: secretCatalog.spotify.clientId,
     SPOTIFY_CLIENT_SECRET: secretCatalog.spotify.clientSecret,
     SPOTIFY_REFRESH_TOKEN: secretCatalog.spotify.refreshToken,
+    ASC_KEY_ID: secretCatalog.appStoreConnect.keyId,
+    ASC_ISSUER_ID: secretCatalog.appStoreConnect.issuerId,
+    ASC_KEY_CONTENT: secretCatalog.appStoreConnect.p8Content,
   } as const;
 
   return {
