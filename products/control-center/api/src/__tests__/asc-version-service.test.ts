@@ -116,6 +116,21 @@ describe("signAscJwt", () => {
     );
     expect(valid).toBe(true);
   });
+
+  it("accepts a base64-encoded .p8 (vault format, fastlane is_key_content_base64)", async () => {
+    const { pem, publicKey } = await generateP8Pem();
+    const base64Pem = Buffer.from(pem).toString("base64");
+    const jwt = await signAscJwt("TESTKEY123", "issuer-uuid", base64Pem, 1_750_000_000_000);
+
+    const [headerPart, payloadPart, sigPart] = jwt.split(".");
+    const valid = await crypto.subtle.verify(
+      { name: "ECDSA", hash: "SHA-256" },
+      publicKey,
+      Buffer.from(sigPart, "base64url"),
+      new TextEncoder().encode(`${headerPart}.${payloadPart}`),
+    );
+    expect(valid).toBe(true);
+  });
 });
 
 describe("parseAscBuildsResponse", () => {
