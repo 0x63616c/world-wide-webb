@@ -120,6 +120,11 @@ export function deriveSources(rooms: SoundSystemRoom[]): GroupSource[] {
     const isDeskHardware = coord.uuid === DESK_LINE_IN_UUID && coord.sourceKind === "line-in";
     const isTvHardware = coord.uuid === BEAM_UUID && coord.sourceKind === "tv";
     if (isDeskHardware || isTvHardware) continue;
+    // Post-leave residue: a speaker that just left a group can retain a stale
+    // source URI (e.g. line-in pointed at its own uuid) while its transport
+    // sits STOPPED. That's not a live session , skip it. A paused session
+    // (PAUSED_PLAYBACK) still counts as live and stays.
+    if (coord.transportState === "STOPPED") continue;
     sessionCandidates.push(coord);
   }
 

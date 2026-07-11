@@ -274,6 +274,43 @@ describe("deriveSources , Desk group playing Spotify (hardware anchor also has a
   });
 });
 
+describe("deriveSources , phantom session from post-leave residue (STOPPED coordinator)", () => {
+  // A speaker that just left a group often retains a stale line-in CurrentURI
+  // pointed at ITS OWN uuid (not the Desk hardware anchor) while its transport
+  // sits STOPPED , real post-leave shape verified live. That residue must never
+  // spawn a session card; only a genuinely PLAYING/PAUSED coordinator counts.
+  function postLeaveResidueHouse(): RoomFixture[] {
+    return [
+      room({ name: "Living Room", uuid: LR_UUID, deviceIp: LR_IP }),
+      room({ name: "Desk", uuid: DESK_UUID, deviceIp: DESK_IP }),
+      room({ name: "Bedroom", uuid: BEDROOM_UUID, deviceIp: BEDROOM_IP }),
+      room({ name: "Bathroom", uuid: BATHROOM_UUID, deviceIp: BATHROOM_IP }),
+      room({
+        name: "Kitchen",
+        uuid: KITCHEN_UUID,
+        deviceIp: KITCHEN_IP,
+        coordinatorUuid: KITCHEN_UUID,
+        memberUuids: [KITCHEN_UUID],
+        isCoordinator: true,
+        transportState: "STOPPED",
+        sourceLabel: "Line-In",
+        sourceKind: "line-in",
+      }),
+    ];
+  }
+
+  it("does not spawn a phantom session card for the STOPPED residue coordinator", () => {
+    const sources = deriveSources(postLeaveResidueHouse());
+    expect(sources).toHaveLength(2);
+    expect(sources.some((s) => s.id === `src_session_${KITCHEN_UUID}`)).toBe(false);
+  });
+
+  it("membershipByUuid: the residue room maps to null, not a phantom session", () => {
+    const membership = membershipByUuid(postLeaveResidueHouse());
+    expect(membership[KITCHEN_UUID]).toBeNull();
+  });
+});
+
 describe("deriveSources , trackLine formatting", () => {
   it("falls back to title alone when artist is null", () => {
     const rooms = [
