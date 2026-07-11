@@ -188,14 +188,16 @@ function SourceCard({ source, selected, onSelect, onAll }: SourceCardProps) {
       </button>
 
       {/* Jack dot , only the selected card shows a patch connector poking out
-          the right edge, reading as "this is what's plugged in". */}
+          the right edge, reading as "this is what's plugged in". Centered in
+          the 20px column gutter (right: -15 puts the 10px dot at 5..15px past
+          the card edge) so it never overlaps the speaker rows. */}
       {selected && (
         <span
           aria-hidden="true"
           style={{
             position: "absolute",
             top: "50%",
-            right: -25,
+            right: -15,
             width: 10,
             height: 10,
             borderRadius: "50%",

@@ -154,8 +154,9 @@ export function deriveSources(rooms: SoundSystemRoom[]): GroupSource[] {
  * Maps each room uuid to the GroupSource.id it should follow, or null when the
  * room's group is idle. A room matches a source when the source's anchorUuid
  * equals the room's coordinatorUuid AND that source is live (playing) , except
- * the two hardware cards also match their own anchor room while stopped (so the
- * anchor room itself always shows as "with" its own hardware source).
+ * the two hardware cards also match while stopped (membership is patch-bay
+ * wiring/topology, not playback , a speaker joined to the stopped Desk group
+ * is still "with" Desk).
  *
  * A single anchorUuid can have more than one matching source , e.g. the Desk
  * group playing Spotify has both the (stopped) "src_desk_linein" hardware card
@@ -168,20 +169,19 @@ export function membershipByUuid(rooms: SoundSystemRoom[]): Record<string, strin
 
   for (const room of rooms) {
     let matched: string | null = null;
-    let matchedHardwareForAnchor: string | null = null;
+    let matchedHardware: string | null = null;
     for (const source of sources) {
       if (source.anchorUuid !== room.coordinatorUuid) continue;
       if (source.playing) {
         matched = source.id;
         break;
       }
-      const isAnchorRoomItself = room.uuid === source.anchorUuid;
       const isHardware = source.id === "src_desk_linein" || source.id === "src_tv";
-      if (isHardware && isAnchorRoomItself && matchedHardwareForAnchor === null) {
-        matchedHardwareForAnchor = source.id;
+      if (isHardware && matchedHardware === null) {
+        matchedHardware = source.id;
       }
     }
-    result[room.uuid] = matched ?? matchedHardwareForAnchor;
+    result[room.uuid] = matched ?? matchedHardware;
   }
 
   return result;

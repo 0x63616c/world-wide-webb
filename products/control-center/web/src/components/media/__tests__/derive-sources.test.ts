@@ -230,6 +230,43 @@ describe("deriveSources , live 3-source state (2026-07-11)", () => {
   });
 });
 
+describe("membershipByUuid , follower of a STOPPED hardware group", () => {
+  // Regression: joining a speaker to the Desk group while line-in is not
+  // playing must still read as membership (patch-bay wiring is topology, not
+  // playback) , otherwise the optimistic join snaps back to "off" on the next
+  // poll reconcile.
+  function stoppedDeskGroupHouse(): RoomFixture[] {
+    return [
+      room({
+        // Living Room has joined the (stopped) Desk group.
+        name: "Living Room",
+        uuid: LR_UUID,
+        deviceIp: LR_IP,
+        coordinatorUuid: DESK_UUID,
+        memberUuids: [DESK_UUID, LR_UUID],
+        isCoordinator: false,
+      }),
+      room({ name: "Desk", uuid: DESK_UUID, deviceIp: DESK_IP }),
+      room({ name: "Bedroom", uuid: BEDROOM_UUID, deviceIp: BEDROOM_IP }),
+    ];
+  }
+
+  it("Living Room (follower of the stopped Desk group) maps to the hardware card", () => {
+    const membership = membershipByUuid(stoppedDeskGroupHouse());
+    expect(membership[LR_UUID]).toBe("src_desk_linein");
+  });
+
+  it("Desk (anchor) still maps to its own hardware card", () => {
+    const membership = membershipByUuid(stoppedDeskGroupHouse());
+    expect(membership[DESK_UUID]).toBe("src_desk_linein");
+  });
+
+  it("Bedroom (idle, own group) stays null", () => {
+    const membership = membershipByUuid(stoppedDeskGroupHouse());
+    expect(membership[BEDROOM_UUID]).toBeNull();
+  });
+});
+
 describe("deriveSources , Desk group playing Spotify (hardware anchor also has a live session)", () => {
   function deskSpotifyHouse(): RoomFixture[] {
     return [
