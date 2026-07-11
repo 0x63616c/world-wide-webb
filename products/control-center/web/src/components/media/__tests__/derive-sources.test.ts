@@ -230,6 +230,50 @@ describe("deriveSources , live 3-source state (2026-07-11)", () => {
   });
 });
 
+describe("deriveSources , Desk group playing Spotify (hardware anchor also has a live session)", () => {
+  function deskSpotifyHouse(): RoomFixture[] {
+    return [
+      room({ name: "Living Room", uuid: LR_UUID, deviceIp: LR_IP }),
+      room({
+        name: "Desk",
+        uuid: DESK_UUID,
+        deviceIp: DESK_IP,
+        transportState: "PLAYING",
+        sourceLabel: "Spotify",
+        sourceKind: "spotify",
+        trackTitle: "C'est La Vie",
+        trackArtist: "Twin Diplomacy",
+      }),
+      room({ name: "Bathroom", uuid: BATHROOM_UUID, deviceIp: BATHROOM_IP }),
+      room({
+        // Kitchen has joined the Desk group; every follower carries the
+        // coordinator's group-level values.
+        name: "Kitchen",
+        uuid: KITCHEN_UUID,
+        deviceIp: KITCHEN_IP,
+        coordinatorUuid: DESK_UUID,
+        memberUuids: [DESK_UUID, KITCHEN_UUID],
+        isCoordinator: false,
+        transportState: "PLAYING",
+        sourceLabel: "Spotify",
+        sourceKind: "spotify",
+        trackTitle: "C'est La Vie",
+        trackArtist: "Twin Diplomacy",
+      }),
+    ];
+  }
+
+  it("membershipByUuid: Kitchen (follower) maps to the live Desk session, not null", () => {
+    const membership = membershipByUuid(deskSpotifyHouse());
+    expect(membership[KITCHEN_UUID]).toBe(`src_session_${DESK_UUID}`);
+  });
+
+  it("membershipByUuid: Desk (anchor) maps to its own live session, not the stopped hardware card", () => {
+    const membership = membershipByUuid(deskSpotifyHouse());
+    expect(membership[DESK_UUID]).toBe(`src_session_${DESK_UUID}`);
+  });
+});
+
 describe("deriveSources , trackLine formatting", () => {
   it("falls back to title alone when artist is null", () => {
     const rooms = [
