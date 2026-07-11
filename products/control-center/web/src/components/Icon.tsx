@@ -20,6 +20,7 @@ import {
   MapPin,
   Moon,
   Plus,
+  Settings,
   Sparkles,
   Sun,
   Thermometer,
@@ -56,7 +57,8 @@ export type IconName =
   | "sparkles"
   | "globe"
   | "speaker"
-  | "apps";
+  | "apps"
+  | "settings";
 
 export interface IconProps {
   name: IconName;
@@ -101,6 +103,7 @@ export const GLYPHS: Record<IconName, LucideIcon> = {
   globe: Globe,
   speaker: Volume2,
   apps: LayoutGrid,
+  settings: Settings,
 };
 
 export function Icon({ name, s = 22, c = "currentColor", sw = 1.7 }: IconProps) {

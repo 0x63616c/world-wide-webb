@@ -26,4 +26,7 @@ export const POLL = {
   events: 5 * 60 * 1000,
   camera: 30 * 1000,
   dogcam: 30 * 1000,
+  // Wall-panel settings are global + rarely changed; a 15s poll picks up an edit
+  // made on another panel within one tick without hammering the API.
+  settings: 15 * 1000,
 } as const;

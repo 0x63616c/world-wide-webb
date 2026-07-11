@@ -57,6 +57,13 @@
       "when": 1781200000000,
       "tag": "0008_password_only_portal",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783798914987,
+      "tag": "0009_pretty_madame_hydra",
+      "breakpoints": true
     }
   ]
 }
