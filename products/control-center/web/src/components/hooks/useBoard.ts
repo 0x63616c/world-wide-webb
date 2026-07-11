@@ -16,7 +16,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { dimTo, restore } from "../../lib/brightness";
+import { dimTo, wakeTo } from "../../lib/brightness";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -440,9 +440,14 @@ function useIdleTimer({
   onActive,
   shouldDefer,
   enabled = true,
-}: UseIdleTimerOptions): void {
+}: UseIdleTimerOptions): { poke: () => void } {
   const cbRef = useRef({ onIdle, onActive, shouldDefer });
   cbRef.current = { onIdle, onActive, shouldDefer };
+
+  // Holds the live effect's `arm` so poke() can rearm/undim from the outside
+  // (e.g. a wake tap that the dim overlay swallowed before the stage saw it).
+  // No-op between mounts / while disabled.
+  const armRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (!enabled) return;
@@ -471,6 +476,7 @@ function useIdleTimer({
       window.clearTimeout(timer);
       timer = window.setTimeout(fire, ms);
     };
+    armRef.current = arm;
 
     // keydown has no meaningful target on the stage (focus may sit on a tile or
     // body), so it rides window; the rest are stage-local pan/tap signals.
@@ -483,12 +489,17 @@ function useIdleTimer({
 
     return () => {
       window.clearTimeout(timer);
+      armRef.current = () => {};
       for (const type of IDLE_EVENTS) {
         const target: EventTarget = type === "keydown" ? window : stage;
         target.removeEventListener(type, arm);
       }
     };
   }, [stageRef, ms, enabled]);
+
+  // Stable handle: forwards to the current mount's arm (or no-op when unmounted).
+  const poke = useCallback(() => armRef.current(), []);
+  return { poke };
 }
 
 // ─── useIdleReset ─────────────────────────────────────────────────────────────
@@ -521,8 +532,8 @@ export function useIdleReset({
   pointerDown,
   idleMs = IDLE_RESET_MS,
   enabled = true,
-}: UseIdleResetOptions): void {
-  useIdleTimer({
+}: UseIdleResetOptions): { poke: () => void } {
+  return useIdleTimer({
     stageRef,
     ms: idleMs,
     enabled,
@@ -537,23 +548,26 @@ type UseIdleDimOptions = {
   stageRef: React.RefObject<HTMLDivElement | null>;
   /** True while a pointer is held , never dim mid-interaction. */
   pointerDown: React.RefObject<boolean>;
-  /** Feature toggle; false disables dimming entirely (and restores if dimmed). */
+  /** Feature toggle; false disables dimming entirely (and wakes if dimmed). */
   enabled: boolean;
   /** Idle window in ms before dimming. */
   timeoutMs: number;
   /** Dim target as a 0..1 brightness fraction. */
   level: number;
+  /** Awake backlight (0..1) the panel holds when NOT dimmed, overriding the OS. */
+  activeBrightness: number;
 };
 
 /**
- * Dims the panel after `timeoutMs` of no interaction and restores on the next
- * interaction. On the native iPad shell this drives the real backlight (see
- * lib/brightness); in a browser dimTo/restore are no-ops and the caller renders
- * the CSS dim overlay off the returned `dimmed` flag instead.
+ * Dims the panel after `timeoutMs` of no interaction and wakes it (back to the
+ * active brightness) on the next interaction. On the native iPad shell this
+ * drives the real backlight absolutely (see lib/brightness), overriding the OS
+ * brightness; in a browser dimTo/wakeTo are no-ops and the caller renders the
+ * CSS dim overlay off the returned `dimmed` flag instead.
  *
- * The brightness side-effect lives in an effect keyed on (enabled, dimmed,
- * level) , NOT inside the timer callbacks , so a live level change while dimmed
- * re-applies, and disabling mid-dim restores immediately.
+ * The brightness side-effect lives in an effect keyed on (enabled, dimmed, level,
+ * activeBrightness) , NOT inside the timer callbacks , so a live level/brightness
+ * change re-applies immediately and disabling mid-dim wakes at once.
  */
 export function useIdleDim({
   stageRef,
@@ -561,10 +575,11 @@ export function useIdleDim({
   enabled,
   timeoutMs,
   level,
-}: UseIdleDimOptions): { dimmed: boolean } {
+  activeBrightness,
+}: UseIdleDimOptions): { dimmed: boolean; wake: () => void } {
   const [dimmed, setDimmed] = useState(false);
 
-  useIdleTimer({
+  const { poke } = useIdleTimer({
     stageRef,
     ms: timeoutMs,
     enabled,
@@ -574,22 +589,29 @@ export function useIdleDim({
   });
 
   // Disabled mid-dim: clear the flag so the overlay clears too. The effect below
-  // then restores the backlight.
+  // then wakes the backlight.
   useEffect(() => {
     if (!enabled && dimmed) setDimmed(false);
   }, [enabled, dimmed]);
 
-  // Apply the backlight off the resolved state. restore() is a safe no-op when
-  // nothing is dimmed, so the else-branch covers mount, wake, and disable alike.
+  // Apply the backlight off the resolved state. The else-branch (awake, disabled,
+  // mount) drives the panel to its active brightness , the app always owns the
+  // backlight, so a hand-dimmed iPad still comes up at the configured level.
   useEffect(() => {
     if (enabled && dimmed) void dimTo(level);
-    else void restore();
-  }, [enabled, dimmed, level]);
+    else void wakeTo(activeBrightness);
+  }, [enabled, dimmed, level, activeBrightness]);
 
-  // Never leave the backlight dimmed if the board unmounts mid-dim.
-  useEffect(() => () => void restore(), []);
+  // Never leave the backlight dimmed if the board unmounts mid-dim. Read the live
+  // active brightness through a ref so the once-only cleanup uses the latest.
+  const activeRef = useRef(activeBrightness);
+  activeRef.current = activeBrightness;
+  useEffect(() => () => void wakeTo(activeRef.current), []);
 
-  return { dimmed };
+  // `wake` = poke the timer: undoes the dim (onActive) AND rearms the window, so
+  // the dim overlay can swallow the first tap (keeping it off the tile) while
+  // still waking the panel.
+  return { dimmed, wake: poke };
 }
 
 // ─── getVisibleTiles ──────────────────────────────────────────────────────────

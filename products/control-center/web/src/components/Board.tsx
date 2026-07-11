@@ -193,20 +193,41 @@ function BuildHashBadge() {
 // browser path (Storybook + any non-native context) where there is no real
 // backlight to drop. On the native iPad shell this stays invisible (`active`
 // is gated off isNativeDisplay in Board) because the screen-brightness plugin
-// dims the actual backlight instead. Pointer-transparent so the first tap wakes
-// the board (rearming the idle timer) rather than being swallowed here. Opacity
-// is `1 - level` so a 25% dim level reads as a 75%-opaque scrim.
-function DimOverlay({ active, level }: { active: boolean; level: number }) {
+// dims the actual backlight instead. When dimmed the overlay CAPTURES pointer
+// events: the first tap lands here (never on a tile), calls onWake to brighten +
+// rearm the idle windows, and is swallowed , so the next tap is the first that
+// actually interacts. `showScrim` paints the browser darkening (opacity `1-level`,
+// so a 25% dim reads as a 75%-opaque scrim); on the native iPad the backlight is
+// already dim, so the overlay stays invisible (opacity 0) but still shields taps.
+function DimOverlay({
+  active,
+  level,
+  showScrim,
+  onWake,
+}: {
+  active: boolean;
+  level: number;
+  showScrim: boolean;
+  onWake: () => void;
+}) {
   return (
     <div
       aria-hidden="true"
       data-testid="dim-overlay"
+      onPointerDown={
+        active
+          ? (e) => {
+              e.preventDefault();
+              onWake();
+            }
+          : undefined
+      }
       style={{
         position: "fixed",
         inset: 0,
         background: "#000",
-        pointerEvents: "none",
-        opacity: active ? 1 - level : 0,
+        pointerEvents: active ? "auto" : "none",
+        opacity: active && showScrim ? 1 - level : 0,
         transition: "opacity 0.6s ease",
         zIndex: 300,
       }}
@@ -447,7 +468,7 @@ export function Board() {
     const cy = stage.scrollTop + stage.clientHeight / 2;
     return Math.hypot(cx - HOME_CX, cy - HOME_CY) < HOME_DEADZONE_PX;
   }, []);
-  useIdleReset({
+  const { poke: pokeReset } = useIdleReset({
     stageRef,
     goHome,
     isHome,
@@ -460,13 +481,23 @@ export function Board() {
   // this drops the real backlight; in the browser `dimmed` drives the DimOverlay
   // scrim below. Independent of the home-reset window above , same activity
   // model, different timeout.
-  const { dimmed } = useIdleDim({
+  const { dimmed, wake: wakeDim } = useIdleDim({
     stageRef,
     pointerDown,
     enabled: settings.idleDimEnabled,
     timeoutMs: settings.idleDimTimeoutMs,
     level: settings.idleDimLevel,
+    activeBrightness: settings.activeBrightness,
   });
+
+  // The wake tap: the dim overlay swallows the first touch so it never reaches a
+  // tile, then calls this to un-dim AND rearm BOTH idle windows (the swallowed
+  // tap never hit the stage listeners, so poke them by hand). The next tap lands
+  // on the board normally.
+  const wake = useCallback(() => {
+    wakeDim();
+    pokeReset();
+  }, [wakeDim, pokeReset]);
 
   // Recenter on a tile AND open its detail modal, kicked off together. Shared by
   // the plain-tap and keyboard activation paths.
@@ -645,9 +676,10 @@ export function Board() {
           onJump={userJump}
         />
       </div>
-      {/* Idle dim scrim (browser path). Sits above the board + its chrome but
-          below modals (which portal to <body>), so the whole panel darkens. */}
-      <DimOverlay active={dimmed && cssDim} level={settings.idleDimLevel} />
+      {/* Idle dim overlay. Sits above the board + its chrome but below modals
+          (which portal to <body>). Renders whenever dimmed (native too) so it can
+          swallow the wake tap; `cssDim` decides whether it also paints a scrim. */}
+      <DimOverlay active={dimmed} level={settings.idleDimLevel} showScrim={cssDim} onWake={wake} />
       <TileModalHost entry={activeModal} onClose={() => setActiveModal(null)} />
     </div>
   );

@@ -10,14 +10,18 @@
  */
 
 import {
+  clampBrightness,
   clampDimLevel,
+  MAX_BRIGHTNESS,
   MAX_DIM_LEVEL,
   MAX_IDLE_TIMEOUT_MS,
+  MIN_BRIGHTNESS,
   MIN_DIM_LEVEL,
   MIN_IDLE_TIMEOUT_MS,
   resetSettings,
   SNAP_MODE_LABEL,
   SNAP_MODES,
+  setActiveBrightness,
   setIdleDimEnabled,
   setIdleDimLevel,
   setIdleDimTimeoutMs,
@@ -112,6 +116,7 @@ function Section({ children }: { children: React.ReactNode }) {
 
 export function SettingsPanel() {
   const settings = useSettings();
+  const brightnessPercent = Math.round(settings.activeBrightness * 100);
   const dimMinutes = Math.round(settings.idleDimTimeoutMs / MS_PER_MIN);
   const dimPercent = Math.round(settings.idleDimLevel * 100);
   const recenterMinutes = Math.round(settings.recenterTimeoutMs / MS_PER_MIN);
@@ -120,6 +125,15 @@ export function SettingsPanel() {
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
       <Section>
         <SectionTitle>Display</SectionTitle>
+        <Slider
+          label="Brightness"
+          value={brightnessPercent}
+          min={Math.round(MIN_BRIGHTNESS * 100)}
+          max={Math.round(MAX_BRIGHTNESS * 100)}
+          step={1}
+          format={(n) => `${n}%`}
+          onChange={(pct) => setActiveBrightness(clampBrightness(pct / 100))}
+        />
         <Row
           label="Dim when idle"
           sub="Lower the panel brightness after a period of no interaction."

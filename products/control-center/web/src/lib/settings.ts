@@ -31,6 +31,10 @@ export const SNAP_MODE_LABEL: Record<SnapMode, string> = {
 // ─── settings shape + bounds ──────────────────────────────────────────────────
 
 export interface Settings {
+  /** Active (awake) backlight the panel drives itself, overriding whatever the
+   *  OS brightness slider is set to. Clamped to [0.01, 1] (1%..100%). Idle
+   *  dimming drops from here down to idleDimLevel. */
+  activeBrightness: number;
   /** When true, the panel dims after the idle window; false disables dimming. */
   idleDimEnabled: boolean;
   /** Idle window before dimming, in ms. Clamped to [1min, 60min]. */
@@ -53,8 +57,13 @@ export const MIN_IDLE_TIMEOUT_MS = 60_000; // 1 min
 export const MAX_IDLE_TIMEOUT_MS = 60 * 60_000; // 60 min
 export const MIN_DIM_LEVEL = 0.01; // 1 %
 export const MAX_DIM_LEVEL = 0.99; // 99 %
+// Active brightness goes to a full 100% (unlike the dim level, which stays below
+// full so "dimmed" always reads darker than "awake").
+export const MIN_BRIGHTNESS = 0.01; // 1 %
+export const MAX_BRIGHTNESS = 1; // 100 %
 
 const DEFAULTS: Settings = {
+  activeBrightness: 1,
   idleDimEnabled: true,
   idleDimTimeoutMs: 10 * 60_000,
   idleDimLevel: 0.25,
@@ -68,6 +77,7 @@ const DEFAULTS: Settings = {
 // `cc-board-snap-mode` is reused verbatim so an existing SnapModeSwitcher choice
 // migrates into the store with no data loss.
 const KEYS = {
+  activeBrightness: "cc-active-brightness",
   idleDimEnabled: "cc-idle-dim-enabled",
   idleDimTimeoutMs: "cc-idle-dim-timeout-ms",
   idleDimLevel: "cc-idle-dim-level",
@@ -90,6 +100,11 @@ export function clampDimLevel(level: number): number {
   return Math.min(MAX_DIM_LEVEL, Math.max(MIN_DIM_LEVEL, level));
 }
 
+export function clampBrightness(level: number): number {
+  if (!Number.isFinite(level)) return DEFAULTS.activeBrightness;
+  return Math.min(MAX_BRIGHTNESS, Math.max(MIN_BRIGHTNESS, level));
+}
+
 // ─── best-effort localStorage IO ──────────────────────────────────────────────
 
 function readRaw(key: string): string | null {
@@ -109,6 +124,7 @@ function writeRaw(key: string, value: string): void {
 }
 
 function loadInitial(): Settings {
+  const brightness = readRaw(KEYS.activeBrightness);
   const enabled = readRaw(KEYS.idleDimEnabled);
   const timeout = readRaw(KEYS.idleDimTimeoutMs);
   const level = readRaw(KEYS.idleDimLevel);
@@ -118,6 +134,8 @@ function loadInitial(): Settings {
   const recenterTimeout = readRaw(KEYS.recenterTimeoutMs);
   const buildBadge = readRaw(KEYS.showBuildBadge);
   return {
+    activeBrightness:
+      brightness === null ? DEFAULTS.activeBrightness : clampBrightness(Number(brightness)),
     idleDimEnabled: enabled === null ? DEFAULTS.idleDimEnabled : enabled === "true",
     idleDimTimeoutMs:
       timeout === null ? DEFAULTS.idleDimTimeoutMs : clampIdleTimeoutMs(Number(timeout)),
@@ -204,6 +222,11 @@ export function hydrateSettings(next: Partial<Settings>): void {
 }
 
 // ─── setters (module-level, stable) ───────────────────────────────────────────
+
+export function setActiveBrightness(level: number): void {
+  const clamped = clampBrightness(level);
+  patch("activeBrightness", clamped, String(clamped));
+}
 
 export function setIdleDimEnabled(v: boolean): void {
   patch("idleDimEnabled", v, String(v));

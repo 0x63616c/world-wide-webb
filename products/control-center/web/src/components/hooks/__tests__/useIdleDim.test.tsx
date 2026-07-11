@@ -5,16 +5,16 @@ import { useIdleDim } from "../useBoard";
 
 // Stub the native brightness bridge so the timer logic is exercised without a
 // Capacitor shell. isNativeDisplay stays false (jsdom), matching production
-// browser behaviour; the spies just prove dimTo/restore fire at the right time.
+// browser behaviour; the spies just prove dimTo/wakeTo fire at the right time.
 const dimTo = vi.fn();
-const restore = vi.fn();
+const wakeTo = vi.fn();
 vi.mock("../../../lib/brightness", () => ({
   isNativeDisplay: () => false,
   dimTo: (level: number) => dimTo(level),
-  restore: () => restore(),
+  wakeTo: (level: number) => wakeTo(level),
 }));
 
-type Props = { enabled: boolean; timeoutMs: number; level: number };
+type Props = { enabled: boolean; timeoutMs: number; level: number; activeBrightness: number };
 
 function setup(opts: Partial<Props> & { pointerDown?: React.RefObject<boolean> }) {
   const stage = document.createElement("div");
@@ -31,6 +31,7 @@ function setup(opts: Partial<Props> & { pointerDown?: React.RefObject<boolean> }
         enabled: opts.enabled ?? true,
         timeoutMs: opts.timeoutMs ?? 10_000,
         level: opts.level ?? 0.25,
+        activeBrightness: opts.activeBrightness ?? 1,
       },
     },
   );
@@ -42,7 +43,7 @@ describe("useIdleDim", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     dimTo.mockClear();
-    restore.mockClear();
+    wakeTo.mockClear();
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -59,16 +60,16 @@ describe("useIdleDim", () => {
     expect(dimTo).toHaveBeenCalledWith(0.25);
   });
 
-  it("restores on the next interaction after dimming", () => {
-    const { stage, result } = setup({ timeoutMs: 10_000 });
+  it("wakes to the active brightness on the next interaction after dimming", () => {
+    const { stage, result } = setup({ timeoutMs: 10_000, activeBrightness: 0.8 });
     act(() => vi.advanceTimersByTime(10_000));
     expect(result.current.dimmed).toBe(true);
 
-    restore.mockClear();
+    wakeTo.mockClear();
     act(() => stage.dispatchEvent(new Event("pointerdown")));
 
     expect(result.current.dimmed).toBe(false);
-    expect(restore).toHaveBeenCalledTimes(1);
+    expect(wakeTo).toHaveBeenLastCalledWith(0.8);
   });
 
   it("an interaction before the window resets the timer (no dim)", () => {
@@ -88,7 +89,7 @@ describe("useIdleDim", () => {
 
     act(() => vi.advanceTimersByTime(5_000));
     // New timeout re-mounts the timer effect (ms is a dep) and re-arms.
-    act(() => rerender({ enabled: true, timeoutMs: 30_000, level: 0.25 }));
+    act(() => rerender({ enabled: true, timeoutMs: 30_000, level: 0.25, activeBrightness: 1 }));
 
     act(() => vi.advanceTimersByTime(10_000));
     expect(result.current.dimmed).toBe(false);
@@ -105,16 +106,16 @@ describe("useIdleDim", () => {
     expect(dimTo).not.toHaveBeenCalled();
   });
 
-  it("restores immediately when disabled mid-dim", () => {
-    const { result, rerender } = setup({ enabled: true, timeoutMs: 10_000 });
+  it("wakes immediately when disabled mid-dim", () => {
+    const { result, rerender } = setup({ enabled: true, timeoutMs: 10_000, activeBrightness: 0.7 });
     act(() => vi.advanceTimersByTime(10_000));
     expect(result.current.dimmed).toBe(true);
 
-    restore.mockClear();
-    act(() => rerender({ enabled: false, timeoutMs: 10_000, level: 0.25 }));
+    wakeTo.mockClear();
+    act(() => rerender({ enabled: false, timeoutMs: 10_000, level: 0.25, activeBrightness: 0.7 }));
 
     expect(result.current.dimmed).toBe(false);
-    expect(restore).toHaveBeenCalled();
+    expect(wakeTo).toHaveBeenLastCalledWith(0.7);
   });
 
   it("does not dim while a pointer is held, then dims after release", () => {
@@ -129,12 +130,29 @@ describe("useIdleDim", () => {
     expect(result.current.dimmed).toBe(true);
   });
 
+  it("wake() un-dims and rearms the timer (the overlay-swallowed tap path)", () => {
+    const { result } = setup({ timeoutMs: 10_000 });
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(result.current.dimmed).toBe(true);
+
+    wakeTo.mockClear();
+    // The dim overlay swallows the tap (never reaches the stage listeners), so it
+    // calls wake() directly to un-dim + drive the backlight back to active.
+    act(() => result.current.wake());
+    expect(result.current.dimmed).toBe(false);
+    expect(wakeTo).toHaveBeenCalledTimes(1);
+
+    // ...and the window is rearmed: it dims again a full timeout later.
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(result.current.dimmed).toBe(true);
+  });
+
   it("re-applies brightness when the level changes mid-dim", () => {
     const { rerender } = setup({ timeoutMs: 10_000, level: 0.25 });
     act(() => vi.advanceTimersByTime(10_000));
     expect(dimTo).toHaveBeenLastCalledWith(0.25);
 
-    act(() => rerender({ enabled: true, timeoutMs: 10_000, level: 0.5 }));
+    act(() => rerender({ enabled: true, timeoutMs: 10_000, level: 0.5, activeBrightness: 1 }));
     expect(dimTo).toHaveBeenLastCalledWith(0.5);
   });
 });

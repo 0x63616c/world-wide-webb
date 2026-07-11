@@ -27,6 +27,9 @@ const TIMEOUT_MIN_MS = 60_000;
 const TIMEOUT_MAX_MS = 3_600_000;
 
 export const settingsSchema = z.object({
+  /** Active (awake) backlight the panel drives itself, overriding the OS
+   *  brightness. 0.01..1 (1% .. 100%). Idle drops from here to idleDimLevel. */
+  activeBrightness: z.number().min(0.01).max(1),
   idleDimEnabled: z.boolean(),
   idleDimTimeoutMs: z.number().min(TIMEOUT_MIN_MS).max(TIMEOUT_MAX_MS),
   idleDimLevel: z.number().min(0.01).max(0.99),
@@ -52,6 +55,7 @@ export type SettingsPatch = z.infer<typeof settingsPatchSchema>;
 /** Baseline settings returned when no row exists yet, and the merge floor for
  *  every read/write so a newly-added field falls back to its default. */
 export const DEFAULTS: Settings = {
+  activeBrightness: 1,
   idleDimEnabled: true,
   idleDimTimeoutMs: 600_000,
   idleDimLevel: 0.25,

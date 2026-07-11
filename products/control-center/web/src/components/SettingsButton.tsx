@@ -21,24 +21,26 @@ export function SettingsButton() {
         onClick={() => setOpen(true)}
         style={{
           position: "absolute",
-          bottom: 12,
-          right: 12,
+          bottom: 16,
+          right: 16,
           // The overlay layer is pointer-events:none; opt this control back in.
           pointerEvents: "auto",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          width: 34,
-          height: 34,
+          // 48px clears Apple's 44px minimum touch target , easy to tap on the
+          // wall panel without zooming in on the little gear.
+          width: 48,
+          height: 48,
           padding: 0,
           background: "rgba(12, 14, 17, 0.92)",
           border: "1px solid var(--hair-2)",
-          borderRadius: 8,
+          borderRadius: 10,
           color: "var(--ink-2)",
           cursor: "pointer",
         }}
       >
-        <Icon name="settings" s={18} />
+        <Icon name="settings" s={22} />
       </button>
       <Modal
         open={open}
