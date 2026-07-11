@@ -83,6 +83,8 @@ The tRPC root router lives in `products/control-center/api/src/trpc/routers/inde
 
 Most business logic lives in `products/control-center/api/src/services`. Important services include climate, controls, device state/commands, light and climate enforcers, party mode, weather ingest/read, network, Tesla, Apple TV, Spotify, Sonos, playlist polling, YouTube ingest, and captive portal flows.
 
+The Sonos sound-system query classifies each group's source from the coordinator's `GetMediaInfo` URI (`sourceKind`: line-in/tv/spotify/airplay/other/idle) and carries now-playing metadata. The web Groups modal (patch-bay UX, opened from the Sound System tile) moves speakers between live sources via `sonosGroupJoin`/`sonosGroupLeave`, grabbing TV audio to the Beam first when needed.
+
 A key pattern is DB-authoritative desired state:
 
 ```text

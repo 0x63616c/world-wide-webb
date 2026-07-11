@@ -9,7 +9,14 @@
  */
 
 import { SonosError } from "./errors";
-import type { PositionInfo, SonosFavorite, TransportInfo, ZoneGroup, ZoneMember } from "./types";
+import type {
+  MediaInfo,
+  PositionInfo,
+  SonosFavorite,
+  TransportInfo,
+  ZoneGroup,
+  ZoneMember,
+} from "./types";
 
 // Sonos UPnP service control paths (verified against hardware, www-c2pc).
 const PATH_RENDERING_CONTROL = "/MediaRenderer/RenderingControl/Control";
@@ -136,6 +143,21 @@ export class SonosClient {
     }
 
     return { trackTitle, trackArtist, albumArtUri, durationSeconds, positionSeconds };
+  }
+
+  /**
+   * Returns the device's current transport source URI. The URI scheme
+   * classifies the source (x-rincon-stream = line-in, x-sonos-htastream = TV,
+   * x-rincon:<uuid> = following that group, "" = no source).
+   */
+  async getMediaInfo(): Promise<MediaInfo> {
+    const xml = await this.soapRequest(
+      PATH_AV_TRANSPORT,
+      SVC_AV_TRANSPORT,
+      "GetMediaInfo",
+      `<InstanceID>0</InstanceID>`,
+    );
+    return { currentUri: extractText(xml, "CurrentURI") ?? "" };
   }
 
   /** Starts playback. THROWS on any failure. */

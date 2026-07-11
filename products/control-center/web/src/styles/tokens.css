@@ -20,6 +20,7 @@
   --acc-line: rgba(0, 112, 243, 0.45);
   --acc-glow: 0 0 0 1px rgba(0, 112, 243, 0.4), 0 0 26px -6px rgba(0, 112, 243, 0.5);
   --amber: #f4c063;
+  --teal: #6fdbcb;
   --r: 20px;
   --ui: "Space Grotesk Variable", "Space Grotesk", "SF Pro Display", system-ui, sans-serif;
   --mono: "Space Mono", ui-monospace, monospace;

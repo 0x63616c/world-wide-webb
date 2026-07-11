@@ -225,6 +225,44 @@ describe("SonosClient.getTransportInfo", () => {
   });
 });
 
+// ---- GetMediaInfo ----------------------------------------------------------
+
+describe("SonosClient.getMediaInfo", () => {
+  it("getMediaInfo returns the CurrentURI", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        okResponse(
+          soapEnvelope(`<u:GetMediaInfoResponse xmlns:u="urn:schemas-upnp-org:service:AVTransport:1">
+      <NrTracks>1</NrTracks>
+      <CurrentURI>x-rincon-stream:RINCON_804AF28AAB2001400:0</CurrentURI>
+      <PlayMedium>NETWORK</PlayMedium>
+    </u:GetMediaInfoResponse>`),
+        ),
+      ),
+    );
+    const info = await new SonosClient("192.168.0.152").getMediaInfo();
+    expect(info.currentUri).toBe("x-rincon-stream:RINCON_804AF28AAB2001400:0");
+  });
+
+  it("getMediaInfo returns empty currentUri for an idle device (verified live: empty element)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        okResponse(
+          soapEnvelope(`<u:GetMediaInfoResponse xmlns:u="urn:schemas-upnp-org:service:AVTransport:1">
+      <NrTracks>0</NrTracks>
+      <CurrentURI></CurrentURI>
+      <PlayMedium>NONE</PlayMedium>
+    </u:GetMediaInfoResponse>`),
+        ),
+      ),
+    );
+    const info = await new SonosClient("192.168.0.193").getMediaInfo();
+    expect(info.currentUri).toBe("");
+  });
+});
+
 // ---- GetPositionInfo -------------------------------------------------------
 
 describe("SonosClient.getPositionInfo", () => {

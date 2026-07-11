@@ -53,6 +53,7 @@ const baseProps: SoundSystemTileViewProps = {
   onToggleGroupLock: vi.fn(),
   onOpenMixer: vi.fn(),
   onOpenSource: vi.fn(),
+  onOpenGroups: vi.fn(),
 };
 
 describe("SoundSystemTileView , loading/error", () => {
@@ -70,6 +71,7 @@ describe("SoundSystemTileView , loading/error", () => {
         onToggleGroupLock={vi.fn()}
         onOpenMixer={vi.fn()}
         onOpenSource={vi.fn()}
+        onOpenGroups={vi.fn()}
       />,
     );
     expect(
