@@ -60,7 +60,7 @@ describe("useGroupMembership, poll reconcile gated on fetch time", () => {
   });
 
   it("prunes rooms absent from the poll", () => {
-    const initialPolled = { "uuid-A": "src-1", "uuid-B": "src-2" };
+    const initialPolled: Record<string, string | null> = { "uuid-A": "src-1", "uuid-B": "src-2" };
     const { result, rerender } = renderHook(({ polled, at }) => useGroupMembership(polled, at), {
       initialProps: { polled: initialPolled, at: 10_000 },
     });
