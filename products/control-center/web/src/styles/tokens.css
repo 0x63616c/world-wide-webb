@@ -388,6 +388,34 @@
 .modal-scroll::-webkit-scrollbar {
   display: none;
 }
+/* Visible dark-themed scrollbar variant , for modal bodies (e.g. Settings) that
+   can overflow and want the scroll affordance shown ALWAYS while content
+   overflows, not just on scroll. Styling ::-webkit-scrollbar with an explicit
+   width forces a classic (non-overlay) always-present bar; scrollbar-gutter
+   reserves the space so the content never shifts when it appears. */
+.modal-scroll-visible {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-3) var(--nest);
+  scrollbar-gutter: stable;
+}
+.modal-scroll-visible::-webkit-scrollbar {
+  width: 10px;
+}
+.modal-scroll-visible::-webkit-scrollbar-track {
+  background: var(--nest);
+  border-radius: 999px;
+}
+.modal-scroll-visible::-webkit-scrollbar-thumb {
+  background: var(--ink-3);
+  border-radius: 999px;
+  /* Inset the thumb from the track edge so it reads as a floating pill. */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.modal-scroll-visible::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-2);
+  background-clip: padding-box;
+}
 /* Modal entrance , backdrop fades in, panel rises + scales up from slightly
    below. transform-origin center so the scale reads as a gentle "pop". Honours
    prefers-reduced-motion (no movement for motion-sensitive users). */

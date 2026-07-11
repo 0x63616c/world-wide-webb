@@ -23,6 +23,12 @@ export interface ModalProps {
   // unaffected. Capped to the board so a modal never exceeds the 1366x1024 panel.
   width?: number;
   maxHeight?: number;
+  /**
+   * Whether the body's scrollbar is shown when content overflows. Defaults to
+   * "hidden" (the original behaviour); "visible" shows a dark-themed scrollbar
+   * , used where the body genuinely scrolls (e.g. the Settings panel).
+   */
+  scrollbar?: "hidden" | "visible";
 }
 
 // Stable id so the dialog can be aria-labelledby its own title node.
@@ -35,6 +41,7 @@ export function Modal({
   children,
   width = 640,
   maxHeight = 720,
+  scrollbar = "hidden",
 }: ModalProps) {
   // Clamp to the board so a modal never overflows the 1366x1024 wall panel.
   const panelWidth = Math.min(width, 1280);
@@ -166,7 +173,10 @@ export function Modal({
         {/* Scrollable body , uniform padding matches the header scale.
             .modal-scroll only hides the scrollbar; sizing comes from the panel
             (flex:1), so the body stays within the 640px panel width. */}
-        <div className="modal-scroll" style={{ padding: 20, overflowY: "auto", flex: 1 }}>
+        <div
+          className={scrollbar === "visible" ? "modal-scroll-visible" : "modal-scroll"}
+          style={{ padding: 20, overflowY: "auto", flex: 1 }}
+        >
           {children}
         </div>
       </div>

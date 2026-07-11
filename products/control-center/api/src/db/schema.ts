@@ -228,6 +228,33 @@ export const lampMode = pgTable("lamp_mode", {
   updatedAtUtc: timestamp("updated_at_utc", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Global control-center settings, a SINGLETON row (id = SETTINGS_SINGLETON_ID).
+// Holds the wall panel's durable preferences (idle-dim, recenter, dev overlays,
+// snap mode) as a single JSON blob so new fields can be added without a column
+// migration. The web client reads/writes the whole Settings object; the shape,
+// defaults, and validation live in services/settings-service.ts. Modeled on the
+// lamp_mode keyed-singleton pattern.
+export const SETTINGS_SINGLETON_ID = "singleton";
+
+// Kept as a structural type here so the jsonb column is typed; the authoritative
+// Settings shape + Zod schema + defaults live in services/settings-service.ts.
+export interface SettingsValue {
+  idleDimEnabled: boolean;
+  idleDimTimeoutMs: number;
+  idleDimLevel: number;
+  recenterEnabled: boolean;
+  recenterTimeoutMs: number;
+  showFps: boolean;
+  showBuildBadge: boolean;
+  snapMode: "proximity" | "mandatory" | "mandatory-settle" | "none" | "spring";
+}
+
+export const settings = pgTable("settings", {
+  id: text("id").primaryKey(),
+  value: jsonb("value").$type<SettingsValue>().notNull(),
+  updatedAtUtc: timestamp("updated_at_utc", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Media ingest pipeline tables (www-kp4k). media_source tracks YouTube playlists
 // and ad-hoc video collections; media_item is each individual video moving through
 // the download/metadata pipeline. The worker barrel re-exports these for the

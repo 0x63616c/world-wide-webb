@@ -6,7 +6,9 @@
  *  useUserPanSignal  , user-driven vs programmatic scroll discrimination
  *  useBoardSnap      , settle/spring-snap logic (SmoothDamp + scrollend/idle)
  *  useBoardDragPan   , desktop mouse-drag-to-pan shim
+ *  useIdleTimer      , generic "fire after N ms idle" primitive (shared)
  *  useIdleReset      , return to the home view after an idle timeout
+ *  useIdleDim        , dim the panel after a configurable idle timeout
  *  getVisibleTiles   , pure windowing filter (no hook, no side effects)
  *
  * The Board component still owns the DOM ref, the modal state, and the render
@@ -14,6 +16,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { dimTo, restore } from "../../lib/brightness";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -391,7 +394,7 @@ export function useBoardDragPan({
   return { suppressClick, onPointerDown, onPointerMove, endDrag };
 }
 
-// ─── useIdleReset ─────────────────────────────────────────────────────────────
+// ─── useIdleTimer (shared idle primitive) ─────────────────────────────────────
 
 /** Idle window before the board returns to the home (clock) view. */
 export const IDLE_RESET_MS = 10 * 60_000;
@@ -399,7 +402,96 @@ export const IDLE_RESET_MS = 10 * 60_000;
 // Interaction events that count as "the panel is in use" and rearm the timer.
 // pointerdown/touchstart cover taps; wheel/scroll cover panning; keydown covers
 // the keyboard nav path. Listed once so attach + detach stay in lockstep.
-const IDLE_RESET_EVENTS = ["pointerdown", "touchstart", "wheel", "scroll", "keydown"] as const;
+const IDLE_EVENTS = ["pointerdown", "touchstart", "wheel", "scroll", "keydown"] as const;
+
+type UseIdleTimerOptions = {
+  stageRef: React.RefObject<HTMLDivElement | null>;
+  /** Idle window in ms. */
+  ms: number;
+  /** Fired once the window elapses with no interaction (and no deferral). */
+  onIdle: () => void;
+  /** Fired on the first interaction AFTER onIdle fired , e.g. to undo it. */
+  onActive?: () => void;
+  /** When it returns true at fire time, defer (reschedule) instead of firing. */
+  shouldDefer?: () => boolean;
+  /** When false the timer + listeners are inert (the feature is disabled). */
+  enabled?: boolean;
+};
+
+/**
+ * Generic "do X after `ms` of no interaction, undo X on the next interaction"
+ * primitive. The board's idle-reset and idle-dim both ride this so the activity
+ * model (which events count, the held-pointer deferral, attach/detach lockstep)
+ * lives in exactly one place.
+ *
+ * WHY a self-rescheduling timeout rather than setInterval: a fired timer that
+ * can't act yet (shouldDefer true , e.g. a pointer still held) must defer
+ * WITHOUT counting that wait as a fresh idle window , it reschedules one short
+ * tick later and re-checks, so a held finger never silently consumes the budget.
+ *
+ * Callbacks are read through a ref so the effect mounts once per (stage, ms,
+ * enabled) and never re-attaches listeners just because a fresh closure was
+ * passed in.
+ */
+function useIdleTimer({
+  stageRef,
+  ms,
+  onIdle,
+  onActive,
+  shouldDefer,
+  enabled = true,
+}: UseIdleTimerOptions): void {
+  const cbRef = useRef({ onIdle, onActive, shouldDefer });
+  cbRef.current = { onIdle, onActive, shouldDefer };
+
+  useEffect(() => {
+    if (!enabled) return;
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    let timer = 0;
+    // Whether onIdle has fired since the last interaction , gates onActive so it
+    // fires exactly once per idle→active transition.
+    let idle = false;
+
+    const fire = () => {
+      if (cbRef.current.shouldDefer?.()) {
+        timer = window.setTimeout(fire, 1_000);
+        return;
+      }
+      idle = true;
+      cbRef.current.onIdle();
+    };
+
+    const arm = () => {
+      if (idle) {
+        idle = false;
+        cbRef.current.onActive?.();
+      }
+      window.clearTimeout(timer);
+      timer = window.setTimeout(fire, ms);
+    };
+
+    // keydown has no meaningful target on the stage (focus may sit on a tile or
+    // body), so it rides window; the rest are stage-local pan/tap signals.
+    for (const type of IDLE_EVENTS) {
+      const target: EventTarget = type === "keydown" ? window : stage;
+      target.addEventListener(type, arm, { passive: true });
+    }
+
+    arm();
+
+    return () => {
+      window.clearTimeout(timer);
+      for (const type of IDLE_EVENTS) {
+        const target: EventTarget = type === "keydown" ? window : stage;
+        target.removeEventListener(type, arm);
+      }
+    };
+  }, [stageRef, ms, enabled]);
+}
+
+// ─── useIdleReset ─────────────────────────────────────────────────────────────
 
 type UseIdleResetOptions = {
   stageRef: React.RefObject<HTMLDivElement | null>;
@@ -411,6 +503,8 @@ type UseIdleResetOptions = {
   pointerDown: React.RefObject<boolean>;
   /** Idle window in ms; defaults to IDLE_RESET_MS (injectable for tests). */
   idleMs?: number;
+  /** When false the recenter never fires (feature disabled). Defaults true. */
+  enabled?: boolean;
 };
 
 /**
@@ -418,11 +512,7 @@ type UseIdleResetOptions = {
  * so an unattended wall panel resettles on the clock. Pure/decoupled: it takes a
  * `goHome` navigator and an `isHome` predicate, so the Board wires the concrete
  * jumpTo-to-world-center while this stays unit-testable without real DOM scroll.
- *
- * WHY a self-rescheduling timeout rather than setInterval: a fired timer that
- * can't act yet (already home, or a pointer still held) must defer WITHOUT
- * counting that wait as a fresh idle window , it reschedules one short tick later
- * and re-checks, so a held finger never silently consumes the 60s budget.
+ * Deferral (held pointer OR already-home) rides useIdleTimer.shouldDefer.
  */
 export function useIdleReset({
   stageRef,
@@ -430,50 +520,76 @@ export function useIdleReset({
   isHome,
   pointerDown,
   idleMs = IDLE_RESET_MS,
+  enabled = true,
 }: UseIdleResetOptions): void {
-  // Latest callbacks held in a ref so the timer wiring (below) mounts once and
-  // never re-attaches listeners just because a fresh closure was passed in.
-  const cbRef = useRef({ goHome, isHome });
-  cbRef.current = { goHome, isHome };
+  useIdleTimer({
+    stageRef,
+    ms: idleMs,
+    enabled,
+    onIdle: goHome,
+    shouldDefer: () => pointerDown.current || isHome(),
+  });
+}
 
+// ─── useIdleDim ───────────────────────────────────────────────────────────────
+
+type UseIdleDimOptions = {
+  stageRef: React.RefObject<HTMLDivElement | null>;
+  /** True while a pointer is held , never dim mid-interaction. */
+  pointerDown: React.RefObject<boolean>;
+  /** Feature toggle; false disables dimming entirely (and restores if dimmed). */
+  enabled: boolean;
+  /** Idle window in ms before dimming. */
+  timeoutMs: number;
+  /** Dim target as a 0..1 brightness fraction. */
+  level: number;
+};
+
+/**
+ * Dims the panel after `timeoutMs` of no interaction and restores on the next
+ * interaction. On the native iPad shell this drives the real backlight (see
+ * lib/brightness); in a browser dimTo/restore are no-ops and the caller renders
+ * the CSS dim overlay off the returned `dimmed` flag instead.
+ *
+ * The brightness side-effect lives in an effect keyed on (enabled, dimmed,
+ * level) , NOT inside the timer callbacks , so a live level change while dimmed
+ * re-applies, and disabling mid-dim restores immediately.
+ */
+export function useIdleDim({
+  stageRef,
+  pointerDown,
+  enabled,
+  timeoutMs,
+  level,
+}: UseIdleDimOptions): { dimmed: boolean } {
+  const [dimmed, setDimmed] = useState(false);
+
+  useIdleTimer({
+    stageRef,
+    ms: timeoutMs,
+    enabled,
+    shouldDefer: () => pointerDown.current,
+    onIdle: () => setDimmed(true),
+    onActive: () => setDimmed(false),
+  });
+
+  // Disabled mid-dim: clear the flag so the overlay clears too. The effect below
+  // then restores the backlight.
   useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
+    if (!enabled && dimmed) setDimmed(false);
+  }, [enabled, dimmed]);
 
-    let timer = 0;
+  // Apply the backlight off the resolved state. restore() is a safe no-op when
+  // nothing is dimmed, so the else-branch covers mount, wake, and disable alike.
+  useEffect(() => {
+    if (enabled && dimmed) void dimTo(level);
+    else void restore();
+  }, [enabled, dimmed, level]);
 
-    const fire = () => {
-      // Mid-interaction or already home: don't navigate. Re-check shortly so the
-      // reset still happens once the finger lifts, without resetting the budget.
-      if (pointerDown.current || cbRef.current.isHome()) {
-        timer = window.setTimeout(fire, 1_000);
-        return;
-      }
-      cbRef.current.goHome();
-    };
+  // Never leave the backlight dimmed if the board unmounts mid-dim.
+  useEffect(() => () => void restore(), []);
 
-    const arm = () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(fire, idleMs);
-    };
-
-    // keydown has no meaningful target on the stage (focus may sit on a tile or
-    // body), so it rides window; the rest are stage-local pan/tap signals.
-    for (const type of IDLE_RESET_EVENTS) {
-      const target: EventTarget = type === "keydown" ? window : stage;
-      target.addEventListener(type, arm, { passive: true });
-    }
-
-    arm();
-
-    return () => {
-      window.clearTimeout(timer);
-      for (const type of IDLE_RESET_EVENTS) {
-        const target: EventTarget = type === "keydown" ? window : stage;
-        target.removeEventListener(type, arm);
-      }
-    };
-  }, [stageRef, pointerDown, idleMs]);
+  return { dimmed };
 }
 
 // ─── getVisibleTiles ──────────────────────────────────────────────────────────

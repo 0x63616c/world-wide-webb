@@ -1,10 +1,12 @@
 import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BUILD_HASH, BUILD_TIME } from "../config/build";
+import { isNativeDisplay } from "../lib/brightness";
 import { BOARD_H, BOARD_W, tileWorldRect, WORLD_H, WORLD_W } from "../lib/grid-constants";
 import { useAnyModalOpen } from "../lib/modal-open-store";
 import { BENTO_RECTS } from "../lib/placeholder-tiles";
 import { formatRelativeAge } from "../lib/relative-age";
+import { type SnapMode, useSettings } from "../lib/settings";
 import { HOME_TILE, TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
 import {
@@ -12,11 +14,13 @@ import {
   useBoardDragPan,
   useBoardSnap,
   useBoardViewport,
+  useIdleDim,
   useIdleReset,
   useUserPanSignal,
 } from "./hooks/useBoard";
 import { MINIMAP_LEFT, MINIMAP_TOP, MINIMAP_WIDTH, Minimap } from "./Minimap";
 import { PlaceholderTile } from "./PlaceholderTile";
+import { SettingsButton } from "./SettingsButton";
 import { getTileModalEntry } from "./tiles/modals/registry";
 import { TileModalHost } from "./tiles/modals/TileModalHost";
 import type { TileModalEntry } from "./tiles/modals/types";
@@ -37,17 +41,9 @@ const HOME_DEADZONE_PX = 8;
 // scroll-snap (browser does the momentum + snapping on the compositor thread ,
 // no JS spring to fight, so no Mac-trackpad jitter); "spring" is the legacy
 // hand-rolled SmoothDamp magnetic snap, kept only so it can be compared head to
-// head on-device. Once Calum picks a winner, delete the others + the switcher.
-const SNAP_MODES = ["proximity", "mandatory", "mandatory-settle", "none", "spring"] as const;
-type SnapMode = (typeof SNAP_MODES)[number];
-const SNAP_MODE_KEY = "cc-board-snap-mode";
-const SNAP_MODE_LABEL: Record<SnapMode, string> = {
-  proximity: "snap: gentle",
-  mandatory: "snap: paged",
-  "mandatory-settle": "snap: paged+",
-  none: "snap: off",
-  spring: "snap: spring (old)",
-};
+// head on-device. The mode vocabulary + persistence live in lib/settings (the
+// settings panel exposes the picker); this map is the board-rendering half.
+//
 // CSS scroll-snap-type per mode; "spring" disables native snap (JS drives it).
 // "mandatory-settle" keeps native mandatory paging but ALSO runs the JS settle
 // (see onSettle) as a safety net: iOS Safari only re-snaps after a momentum
@@ -60,17 +56,6 @@ const SNAP_CSS: Record<SnapMode, string> = {
   none: "none",
   spring: "none",
 };
-function loadSnapMode(): SnapMode {
-  // try/catch: localStorage is absent in SSR and some test envs, and throws in
-  // private-mode Safari. A missing/blocked store just falls back to the default.
-  try {
-    const saved = window.localStorage?.getItem(SNAP_MODE_KEY);
-    if (saved && (SNAP_MODES as readonly string[]).includes(saved)) return saved as SnapMode;
-  } catch {
-    // ignore , fall through to the default
-  }
-  return "proximity";
-}
 
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -203,32 +188,28 @@ function BuildHashBadge() {
   );
 }
 
-// Dev-only switcher to flip the board's settle feel live, on-device. Pinned
-// bottom-right above the FPS meter; cycles through SNAP_MODES on tap. Temporary
-// (see SNAP_MODES note) , remove once the winning feel is chosen.
-function SnapModeSwitcher({ mode, onCycle }: { mode: SnapMode; onCycle: () => void }) {
+// Full-screen black scrim that fades in when the panel idles, for the CSS/
+// browser path (Storybook + any non-native context) where there is no real
+// backlight to drop. On the native iPad shell this stays invisible (`active`
+// is gated off isNativeDisplay in Board) because the screen-brightness plugin
+// dims the actual backlight instead. Pointer-transparent so the first tap wakes
+// the board (rearming the idle timer) rather than being swallowed here. Opacity
+// is `1 - level` so a 25% dim level reads as a 75%-opaque scrim.
+function DimOverlay({ active, level }: { active: boolean; level: number }) {
   return (
-    <button
-      type="button"
-      onClick={onCycle}
+    <div
+      aria-hidden="true"
+      data-testid="dim-overlay"
       style={{
-        position: "absolute",
-        bottom: 28,
-        right: 12,
-        pointerEvents: "auto",
-        padding: "4px 9px",
-        background: "rgba(12, 14, 17, 0.92)",
-        border: "1px solid var(--hair-2)",
-        borderRadius: 6,
-        fontFamily: "var(--mono)",
-        fontSize: 11,
-        letterSpacing: "-0.02em",
-        color: "var(--ink-2)",
-        cursor: "pointer",
+        position: "fixed",
+        inset: 0,
+        background: "#000",
+        pointerEvents: "none",
+        opacity: active ? 1 - level : 0,
+        transition: "opacity 0.6s ease",
+        zIndex: 300,
       }}
-    >
-      {SNAP_MODE_LABEL[mode]}
-    </button>
+    />
   );
 }
 
@@ -295,18 +276,13 @@ export function Board() {
   const stageRef = useRef<HTMLDivElement>(null);
   const [activeModal, setActiveModal] = useState<TileModalEntry | null>(null);
 
-  // Live-switchable settle feel (see SNAP_MODES). Persisted to localStorage.
-  const [snapMode, setSnapMode] = useState<SnapMode>(loadSnapMode);
-  useEffect(() => {
-    try {
-      window.localStorage?.setItem(SNAP_MODE_KEY, snapMode);
-    } catch {
-      // ignore , persistence is best-effort (blocked/full store)
-    }
-  }, [snapMode]);
-  const cycleSnapMode = useCallback(() => {
-    setSnapMode((m) => SNAP_MODES[(SNAP_MODES.indexOf(m) + 1) % SNAP_MODES.length]);
-  }, []);
+  // Live settings (idle-dim behaviour, FPS readout, snap-mode) from the shared
+  // store. Edits made in the settings panel apply here with no prop-drilling;
+  // snapMode replaces the old localStorage-backed useState.
+  const settings = useSettings();
+  const snapMode = settings.snapMode;
+  // CSS dim scrim only in the browser; on the native shell the backlight dims.
+  const cssDim = !isNativeDisplay();
 
   // Mirrors modal-open state into a ref so the memoized pointer handlers can bail
   // without being re-created. While a modal is open the board must NOT pan: a
@@ -470,7 +446,26 @@ export function Board() {
     const cy = stage.scrollTop + stage.clientHeight / 2;
     return Math.hypot(cx - HOME_CX, cy - HOME_CY) < HOME_DEADZONE_PX;
   }, []);
-  useIdleReset({ stageRef, goHome, isHome, pointerDown });
+  useIdleReset({
+    stageRef,
+    goHome,
+    isHome,
+    pointerDown,
+    idleMs: settings.recenterTimeoutMs,
+    enabled: settings.recenterEnabled,
+  });
+
+  // Dim the panel after its own (configurable) idle window. On the iPad shell
+  // this drops the real backlight; in the browser `dimmed` drives the DimOverlay
+  // scrim below. Independent of the home-reset window above , same activity
+  // model, different timeout.
+  const { dimmed } = useIdleDim({
+    stageRef,
+    pointerDown,
+    enabled: settings.idleDimEnabled,
+    timeoutMs: settings.idleDimTimeoutMs,
+    level: settings.idleDimLevel,
+  });
 
   // Recenter on a tile AND open its detail modal, kicked off together. Shared by
   // the plain-tap and keyboard activation paths.
@@ -634,9 +629,9 @@ export function Board() {
           FPS readout, and modal anchored to the screen regardless of pan. */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 200 }}>
         <ConnectionLostBanner />
-        <FpsMeter />
-        <BuildHashBadge />
-        <SnapModeSwitcher mode={snapMode} onCycle={cycleSnapMode} />
+        {settings.showFps ? <FpsMeter /> : null}
+        {settings.showBuildBadge ? <BuildHashBadge /> : null}
+        <SettingsButton />
         <CenteredTileLabel label={centeredLabel} panSignal={panSignal} />
         <Minimap
           view={view}
@@ -648,6 +643,9 @@ export function Board() {
           onJump={userJump}
         />
       </div>
+      {/* Idle dim scrim (browser path). Sits above the board + its chrome but
+          below modals (which portal to <body>), so the whole panel darkens. */}
+      <DimOverlay active={dimmed && cssDim} level={settings.idleDimLevel} />
       <TileModalHost entry={activeModal} onClose={() => setActiveModal(null)} />
     </div>
   );

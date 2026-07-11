@@ -7,6 +7,7 @@ import { healthRouter } from "./health";
 import { mediaRouter } from "./media";
 import { networkRouter } from "./network";
 import { portalRouter } from "./portal";
+import { settingsRouter } from "./settings";
 import { teslaRouter } from "./tesla";
 import { weatherRouter } from "./weather";
 
@@ -21,6 +22,7 @@ export const appRouter = router({
   events: eventsRouter,
   media: mediaRouter,
   portal: portalRouter,
+  settings: settingsRouter,
 });
 
 export type AppRouter = typeof appRouter;
