@@ -52,10 +52,6 @@ coverage/
 # TypeScript build cache
 *.tsbuildinfo
 
-# Beads / Dolt files (added by bd init)
-.dolt/
-.beads-credential-key
-
 # Tesla map basemap tiles , large, host locally / on homelab (see www-gma)
 apps/web/public/maps/*.pmtiles
 
@@ -69,11 +65,6 @@ storybook-static
 
 # Runtime scheduler lock , ephemeral, never commit
 .claude/scheduled_tasks.lock
-
-# beads `--shared` hook dir , beads' hook lifecycle is owned by lefthook, NOT
-# beads (www-sg4p). This dir only appears if someone runs `bd hooks install
-# --shared`, which hijacks core.hooksPath; never commit it. Don't run that.
-.beads-hooks/
 
 # PR/verification screenshots , kept on local disk for reference, never tracked
 # (referenced nowhere in docs/code; purged from history in www-st5j to keep the

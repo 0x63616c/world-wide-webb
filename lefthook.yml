@@ -69,27 +69,15 @@ pre-commit:
     # commit and conflicted on every worktree→main merge (www-w6j2.8). CI keeps
     # all four badges (files/loc/commit/coverage) current on main.
 
-commit-msg:
-  commands:
-    conventional-commit:
-      # BLOCKING: subject must be a Conventional Commit AND reference a real bd
-      # ticket id (validated via `bd show`). Degrades gracefully when bd is offline.
-      # {1} is the path to the commit message file lefthook passes to this stage.
-      run: bash scripts/check-commit-msg.sh {1}
-
 pre-push:
   # piped: run commands sequentially in priority order and ABORT the chain on the
-  # first failure. This is what makes biome-lint truly fail-fast: when it fails,
-  # beads-sync is skipped entirely, so we never pay the slow (~15-90s) dolt push
-  # for code that's about to be rejected (www-lh1a). Without piped, lefthook runs
-  # every command regardless of earlier failures (priority only reorders them).
+  # first failure, so a biome-lint failure skips the slower knip-deadcode run
+  # (www-lh1a). Without piped, lefthook runs every command regardless of earlier
+  # failures (priority only reorders them).
   piped: true
   commands:
     biome-lint:
-      # Runs FIRST (priority 1). Combined with `piped: true` above, a lint failure
-      # here aborts the push before beads-sync runs, instead of relying on the
-      # alphabetical accident ('beads-sync' would otherwise sort first and run the
-      # slow dolt push even on a doomed push).
+      # Runs FIRST (priority 1); a failure here aborts the push before knip runs.
       priority: 1
       # BLOCKING: mirror CI's `biome check .` lint gate so a lint regression can
       # never reach the remote (CI runs the same check and `deploy` depends on it,
@@ -101,56 +89,9 @@ pre-push:
       # trips on untracked local WIP. biome.json includes still apply.
       run: bun run lint:tracked
     knip-deadcode:
-      # Runs AFTER biome-lint (priority 2), BEFORE the slow beads-sync. BLOCKING,
-      # BLOCKING: knip catches unused files/dependencies before push. Export-level
-      # detection is disabled inside `bun run knip` because Temporal registers
-      # workflow/activity exports dynamically by name.
+      # Runs AFTER biome-lint (priority 2). BLOCKING: knip catches unused
+      # files/dependencies before push. Export-level detection is disabled inside
+      # `bun run knip` because Temporal registers workflow/activity exports
+      # dynamically by name.
       priority: 2
       run: bun run knip
-    beads-sync:
-      # Runs AFTER knip-deadcode (priority 3) and only if it passed (piped chain),
-      # so we pay the slow dolt push exactly once the code push has cleared lint.
-      priority: 3
-      # NON-BLOCKING: publish beads issue history (refs/dolt/data) to origin
-      # alongside the code being pushed. This is the durable sync channel
-      # (www-sg4p); `dolt.auto-push` is intentionally OFF because per-write
-      # auto-pushes livelock under parallel agents contending on the shared
-      # parent .git. Sync rides here instead, once per `git push`, batched.
-      # A sync failure warns but never blocks the code push (run it manually
-      # with `bd dolt push`). Skips cleanly if bd isn't installed.
-      run: |
-        command -v bd >/dev/null 2>&1 || exit 0
-        timeout 90 bd dolt push || echo "beads: 'bd dolt push' failed/timed out, issues NOT synced; run it manually with 'bd dolt push'" >&2
-        exit 0
-
-post-merge:
-  commands:
-    beads-pull:
-      # NON-BLOCKING: pull beads issue history from origin after `git pull`/merge
-      # so the local Dolt DB tracks teammates' issue changes. Failure warns only.
-      run: |
-        command -v bd >/dev/null 2>&1 || exit 0
-        timeout 90 bd dolt pull || echo "beads: 'bd dolt pull' failed/timed out, run it manually with 'bd dolt pull'" >&2
-        exit 0
-
-post-checkout:
-  commands:
-    beads-sync:
-      # NON-BLOCKING: beads' own branch-aware post-checkout logic ({1}=prev-HEAD
-      # {2}=new-HEAD {3}=1 for a branch checkout, 0 for a file checkout, bd skips
-      # file checkouts itself, so no pull on `git checkout -- file`).
-      run: |
-        command -v bd >/dev/null 2>&1 || exit 0
-        BD_GIT_HOOK=1 timeout 90 bd hooks run post-checkout {1} {2} {3} || true
-        exit 0
-
-prepare-commit-msg:
-  commands:
-    beads-identity:
-      # NON-BLOCKING: beads adds agent identity trailers to the commit BODY (for
-      # forensics). It does not touch the subject, so the commit-msg conventional-
-      # commit guard still passes. {1}=msg file {2}=source {3}=commit sha.
-      run: |
-        command -v bd >/dev/null 2>&1 || exit 0
-        BD_GIT_HOOK=1 bd hooks run prepare-commit-msg {1} {2} {3} || true
-        exit 0

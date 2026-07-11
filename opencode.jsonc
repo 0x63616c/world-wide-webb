@@ -1,7 +1,7 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "lsp": true,
-  "plugin": ["opencode-beads", "@slkiser/opencode-quota", "./.opencode/plugins/secret-redactor.ts"],
+  "plugin": ["@slkiser/opencode-quota", "./.opencode/plugins/secret-redactor.ts"],
   "command": {
     "recap": {
       "description": "Recap the current conversation; pass 'full' for the entire session",
@@ -51,7 +51,7 @@
     "lsp": "allow"
   },
   "watcher": {
-    "ignore": ["node_modules/**", ".git/**", ".beads/**", ".turbo/**", "dist/**"]
+    "ignore": ["node_modules/**", ".git/**", ".turbo/**", "dist/**"]
   },
   "agent": {
     "code-review": {
