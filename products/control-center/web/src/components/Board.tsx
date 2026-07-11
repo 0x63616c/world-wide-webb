@@ -8,6 +8,7 @@ import { BENTO_RECTS } from "../lib/placeholder-tiles";
 import { formatRelativeAge } from "../lib/relative-age";
 import { type SnapMode, useSettings } from "../lib/settings";
 import { HOME_TILE, TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
+import { AppUpdateBanner } from "./AppUpdateBanner";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
 import {
   getVisibleTiles,
@@ -629,6 +630,7 @@ export function Board() {
           FPS readout, and modal anchored to the screen regardless of pan. */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 200 }}>
         <ConnectionLostBanner />
+        <AppUpdateBanner />
         {settings.showFps ? <FpsMeter /> : null}
         {settings.showBuildBadge ? <BuildHashBadge /> : null}
         <SettingsButton />
