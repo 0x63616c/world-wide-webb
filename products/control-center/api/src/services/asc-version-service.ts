@@ -61,7 +61,13 @@ function base64url(input: string | Uint8Array): string {
   return Buffer.from(bytes).toString("base64url");
 }
 
-function pemToPkcs8(pem: string): ArrayBuffer {
+function pemToPkcs8(keyContent: string): ArrayBuffer {
+  // The vault stores the .p8 base64-encoded (fastlane consumes it with
+  // is_key_content_base64: true), so the mounted secret usually has no PEM
+  // armor. Accept both: decode to PEM when the armor is missing.
+  const pem = keyContent.includes("BEGIN")
+    ? keyContent
+    : Buffer.from(keyContent.replace(/\s+/g, ""), "base64").toString("utf-8");
   const b64 = pem
     .replace(/-----BEGIN [^-]+-----/, "")
     .replace(/-----END [^-]+-----/, "")
