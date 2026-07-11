@@ -30,6 +30,8 @@ export interface GroupsModalViewProps {
   onTapSpeaker: (uuid: string) => void;
   /** ALL button on the selected source. */
   onAll: () => void;
+  /** Latest join/leave/grab mutation error message, or null , rendered under the columns. */
+  errorText?: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -243,10 +245,9 @@ interface SpeakerRowProps {
   onTap: () => void;
 }
 
-function SpeakerRow({ uuid, name, followedSource, isAnchorOfSelected, onTap }: SpeakerRowProps) {
+function SpeakerRow({ name, followedSource, isAnchorOfSelected, onTap }: SpeakerRowProps) {
   return (
     <button
-      key={uuid}
       type="button"
       disabled={isAnchorOfSelected}
       aria-pressed={followedSource != null}
@@ -340,6 +341,7 @@ export function GroupsModalView({
   onSelectSource,
   onTapSpeaker,
   onAll,
+  errorText,
 }: GroupsModalViewProps) {
   const selectedSource = sources.find((s) => s.id === selectedSourceId);
 
@@ -408,6 +410,10 @@ export function GroupsModalView({
           </div>
         </div>
       </div>
+
+      {errorText && (
+        <div style={{ marginTop: 12, fontSize: 11, color: "var(--amber)" }}>{errorText}</div>
+      )}
     </Modal>
   );
 }

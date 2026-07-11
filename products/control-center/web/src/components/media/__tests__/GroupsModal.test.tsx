@@ -29,55 +29,72 @@ vi.mock("@/lib/modal-open-store", () => ({
 
 // ── Mock tRPC ─────────────────────────────────────────────────────────────────
 
-const mockJoinMutate = vi.fn();
-const mockLeaveMutate = vi.fn();
-const mockGrabMutateAsync = vi.fn().mockResolvedValue(undefined);
-const mockInvalidate = vi.fn().mockResolvedValue(undefined);
-
-type Opts = { onSettled?: () => void };
-const capturedOpts: { join?: Opts; leave?: Opts; grab?: Opts } = {};
-const callOrder: string[] = [];
+const {
+  mockJoinMutate,
+  mockLeaveMutate,
+  mockGrabMutateAsync,
+  mockSetLineInMutateAsync,
+  mockInvalidate,
+  callOrder,
+  makeMutateMock,
+} = vi.hoisted(() => {
+  const callOrder: string[] = [];
+  // mutate() wrappers run the mutate fn synchronously, and , matching
+  // react-query , invoke BOTH the per-call onError (passed to .mutate) and the
+  // hook-level onError (passed to .useMutation) when it throws, then always
+  // fire onSettled. Tests simulate a failed join/leave with
+  // mockJoinMutate.mockImplementationOnce(() => { throw new Error(...) }).
+  function makeMutateMock(label: string, mutateFn: (input: unknown) => void) {
+    return (hookOpts?: { onSettled?: () => void; onError?: (err: unknown) => void }) => ({
+      mutate: (input: unknown, callOpts?: { onError?: (err: unknown) => void }) => {
+        callOrder.push(label);
+        try {
+          mutateFn(input);
+          hookOpts?.onSettled?.();
+        } catch (err) {
+          callOpts?.onError?.(err);
+          hookOpts?.onError?.(err);
+          hookOpts?.onSettled?.();
+        }
+      },
+    });
+  }
+  return {
+    mockJoinMutate: vi.fn(),
+    mockLeaveMutate: vi.fn(),
+    mockGrabMutateAsync: vi.fn().mockResolvedValue(undefined),
+    mockSetLineInMutateAsync: vi.fn().mockResolvedValue(undefined),
+    mockInvalidate: vi.fn().mockResolvedValue(undefined),
+    callOrder,
+    makeMutateMock,
+  };
+});
 
 vi.mock("@/lib/trpc", () => ({
   trpc: {
     useUtils: () => ({ media: { soundSystem: { invalidate: mockInvalidate } } }),
     media: {
-      sonosGroupJoin: {
-        useMutation: (opts?: Opts) => {
-          capturedOpts.join = opts;
-          return {
-            mutate: (input: unknown) => {
-              callOrder.push("join");
-              mockJoinMutate(input);
-              opts?.onSettled?.();
-            },
-          };
-        },
-      },
-      sonosGroupLeave: {
-        useMutation: (opts?: Opts) => {
-          capturedOpts.leave = opts;
-          return {
-            mutate: (input: unknown) => {
-              callOrder.push("leave");
-              mockLeaveMutate(input);
-              opts?.onSettled?.();
-            },
-          };
-        },
-      },
+      sonosGroupJoin: { useMutation: makeMutateMock("join", mockJoinMutate) },
+      sonosGroupLeave: { useMutation: makeMutateMock("leave", mockLeaveMutate) },
       sonosGrabTvToBeam: {
-        useMutation: (opts?: Opts) => {
-          capturedOpts.grab = opts;
-          return {
-            mutateAsync: async (input: unknown) => {
-              callOrder.push("grab");
-              mockGrabMutateAsync(input);
-              opts?.onSettled?.();
-              return undefined;
-            },
-          };
-        },
+        useMutation: (hookOpts?: { onSettled?: () => void }) => ({
+          mutateAsync: async (input: unknown) => {
+            callOrder.push("grab");
+            const result = mockGrabMutateAsync(input);
+            hookOpts?.onSettled?.();
+            return result;
+          },
+        }),
+      },
+      sonosSetLineIn: {
+        useMutation: (hookOpts?: { onSettled?: () => void }) => ({
+          mutateAsync: async (input: unknown) => {
+            callOrder.push("setLineIn");
+            const result = mockSetLineInMutateAsync(input);
+            hookOpts?.onSettled?.();
+            return result;
+          },
+        }),
       },
     },
   },
@@ -86,6 +103,8 @@ vi.mock("@/lib/trpc", () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  mockGrabMutateAsync.mockResolvedValue(undefined);
+  mockSetLineInMutateAsync.mockResolvedValue(undefined);
   callOrder.length = 0;
 });
 
@@ -157,8 +176,11 @@ describe("GroupsModal , join (idle speaker tap)", () => {
     );
 
     // Default selection: no source is playing -> falls back to src_desk_linein.
+    // Desk's sourceKind is "idle" in this fixture, so a line-in grab lands
+    // (awaited) before the join fires.
     fireEvent.click(screen.getByLabelText("Bedroom, off"));
 
+    await waitFor(() => expect(mockJoinMutate).toHaveBeenCalled());
     expect(mockJoinMutate).toHaveBeenCalledWith({
       memberIp: bedroom.deviceIp,
       coordinatorUuid: DESK_LINE_IN_UUID,
@@ -240,6 +262,136 @@ describe("GroupsModal , TV grab ordering", () => {
   });
 });
 
+describe("GroupsModal , Desk line-in grab symmetry", () => {
+  it("awaits sonosSetLineIn before firing sonosGroupJoin when the desk isn't already on line-in", async () => {
+    render(
+      <GroupsModal
+        open
+        onClose={vi.fn()}
+        rooms={[desk, tv, bedroom, kitchen]}
+        dataUpdatedAt={1000}
+      />,
+    );
+
+    // Default selection is Desk (nothing playing), desk sourceKind is "idle".
+    fireEvent.click(screen.getByLabelText("Bedroom, off"));
+
+    await waitFor(() => expect(mockJoinMutate).toHaveBeenCalled());
+
+    expect(mockSetLineInMutateAsync).toHaveBeenCalledWith({
+      deviceIp: desk.deviceIp,
+      sourceUuid: DESK_LINE_IN_UUID,
+    });
+    expect(mockJoinMutate).toHaveBeenCalledWith({
+      memberIp: bedroom.deviceIp,
+      coordinatorUuid: DESK_LINE_IN_UUID,
+    });
+    expect(callOrder.indexOf("setLineIn")).toBeGreaterThanOrEqual(0);
+    expect(callOrder.indexOf("setLineIn")).toBeLessThan(callOrder.indexOf("join"));
+  });
+
+  it("does not grab the desk line-in when it's already on line-in", async () => {
+    const deskOnLineIn = room({ ...desk, sourceKind: "line-in" });
+    render(
+      <GroupsModal
+        open
+        onClose={vi.fn()}
+        rooms={[deskOnLineIn, tv, bedroom, kitchen]}
+        dataUpdatedAt={1000}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Bedroom, off"));
+
+    await waitFor(() => expect(mockJoinMutate).toHaveBeenCalled());
+    expect(mockSetLineInMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("aborts the join and reverts the optimistic LED when the desk grab rejects", async () => {
+    mockSetLineInMutateAsync.mockRejectedValueOnce(new Error("desk grab failed"));
+    render(
+      <GroupsModal
+        open
+        onClose={vi.fn()}
+        rooms={[desk, tv, bedroom, kitchen]}
+        dataUpdatedAt={1000}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Bedroom, off"));
+
+    await waitFor(() => expect(mockSetLineInMutateAsync).toHaveBeenCalled());
+    expect(mockJoinMutate).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Bedroom, off")).toBeInTheDocument();
+    expect(screen.getByText("desk grab failed")).toBeInTheDocument();
+  });
+});
+
+describe("GroupsModal , TV grab failure aborts join", () => {
+  it("aborts the join and reverts the optimistic LED when the TV grab rejects", async () => {
+    mockGrabMutateAsync.mockRejectedValueOnce(new Error("tv grab failed"));
+    render(
+      <GroupsModal
+        open
+        onClose={vi.fn()}
+        rooms={[desk, tv, bedroom, kitchen]}
+        dataUpdatedAt={1000}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Select Living Room · TV"));
+    fireEvent.click(screen.getByLabelText("Bedroom, off"));
+
+    await waitFor(() => expect(mockGrabMutateAsync).toHaveBeenCalled());
+    expect(mockJoinMutate).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Bedroom, off")).toBeInTheDocument();
+    expect(screen.getByText("tv grab failed")).toBeInTheDocument();
+  });
+});
+
+describe("GroupsModal , join/leave mutation error reverts optimistic state", () => {
+  it("reverts the optimistic LED when sonosGroupJoin itself fails", async () => {
+    mockJoinMutate.mockImplementationOnce(() => {
+      throw new Error("join failed");
+    });
+    const deskOnLineIn = room({ ...desk, sourceKind: "line-in" });
+    render(
+      <GroupsModal
+        open
+        onClose={vi.fn()}
+        rooms={[deskOnLineIn, tv, bedroom, kitchen]}
+        dataUpdatedAt={1000}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Bedroom, off"));
+
+    await waitFor(() => expect(screen.getByText("join failed")).toBeInTheDocument());
+    expect(screen.getByLabelText("Bedroom, off")).toBeInTheDocument();
+  });
+
+  it("reverts the optimistic LED when sonosGroupLeave itself fails", async () => {
+    mockLeaveMutate.mockImplementationOnce(() => {
+      throw new Error("leave failed");
+    });
+    const deskPlaying = room({ ...desk, transportState: "PLAYING", sourceKind: "line-in" });
+    const bedroomJoined = { ...bedroom, coordinatorUuid: DESK_LINE_IN_UUID };
+    render(
+      <GroupsModal
+        open
+        onClose={vi.fn()}
+        rooms={[deskPlaying, tv, bedroomJoined, kitchen]}
+        dataUpdatedAt={1000}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Bedroom, following Desk"));
+
+    await waitFor(() => expect(screen.getByText("leave failed")).toBeInTheDocument());
+    expect(screen.getByLabelText("Bedroom, following Desk")).toBeInTheDocument();
+  });
+});
+
 describe("GroupsModal , ALL", () => {
   it("joins every non-anchor speaker that isn't already a member to the selected source", async () => {
     const deskPlaying = room({ ...desk, transportState: "PLAYING", sourceKind: "line-in" });
@@ -257,10 +409,35 @@ describe("GroupsModal , ALL", () => {
 
     // Bedroom already follows Desk -> not re-joined. Kitchen is idle -> joined.
     // Desk and Living Room (TV anchor) are anchors of other sources -> never joined.
-    expect(mockJoinMutate).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockJoinMutate).toHaveBeenCalledTimes(1));
     expect(mockJoinMutate).toHaveBeenCalledWith({
       memberIp: kitchen.deviceIp,
       coordinatorUuid: DESK_LINE_IN_UUID,
+    });
+  });
+
+  it("grabs the TV exactly once (not per-speaker) when fanning out to an idle beam", async () => {
+    render(
+      <GroupsModal
+        open
+        onClose={vi.fn()}
+        rooms={[desk, tv, bedroom, kitchen]}
+        dataUpdatedAt={1000}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Select Living Room · TV"));
+    fireEvent.click(screen.getByLabelText("Send all speakers to Living Room · TV"));
+
+    await waitFor(() => expect(mockJoinMutate).toHaveBeenCalledTimes(2));
+    expect(mockGrabMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockJoinMutate).toHaveBeenCalledWith({
+      memberIp: bedroom.deviceIp,
+      coordinatorUuid: BEAM_UUID,
+    });
+    expect(mockJoinMutate).toHaveBeenCalledWith({
+      memberIp: kitchen.deviceIp,
+      coordinatorUuid: BEAM_UUID,
     });
   });
 });
@@ -276,7 +453,7 @@ describe("GroupsModal , invalidate", () => {
       />,
     );
     fireEvent.click(screen.getByLabelText("Bedroom, off"));
-    expect(mockInvalidate).toHaveBeenCalled();
+    await waitFor(() => expect(mockInvalidate).toHaveBeenCalled());
   });
 
   it("invalidates soundSystem after a leave mutation settles", async () => {

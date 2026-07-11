@@ -11,13 +11,13 @@
  * media.soundSystem query , this container does NOT run a second poll.
  */
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { GroupsModalView } from "./GroupsModalView";
 import { useGroupMembership } from "./hooks/useGroupMembership";
 import type { GroupSource, SoundSystemRoom } from "./lib/derive-sources";
 import { deriveSources, membershipByUuid } from "./lib/derive-sources";
-import { BEAM_UUID } from "./lib/sonos-constants";
+import { BEAM_UUID, DESK_LINE_IN_UUID } from "./lib/sonos-constants";
 
 export interface GroupsModalProps {
   open: boolean;
@@ -30,49 +30,100 @@ function defaultSourceId(sources: GroupSource[]): string {
   return sources.find((s) => s.playing)?.id ?? "src_desk_linein";
 }
 
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : "Something went wrong";
+}
+
 export function GroupsModal({ open, onClose, rooms, dataUpdatedAt }: GroupsModalProps) {
   const utils = trpc.useUtils();
 
   const sources = deriveSources(rooms);
-  const polled = membershipByUuid(rooms);
+  const polled = useMemo(() => membershipByUuid(rooms), [rooms]);
   const { member, setMember } = useGroupMembership(polled, dataUpdatedAt);
 
-  // Default selection is computed once at mount (first playing source, else the
-  // Desk hardware card); afterwards it's purely user-driven via onSelectSource.
+  // Default selection (first playing source, else the Desk hardware card) is
+  // recomputed every time the modal transitions to open, not just at mount ,
+  // otherwise a stale selection from a previous open lingers.
   const [selectedSourceId, setSelectedSourceId] = useState<string>(() => defaultSourceId(sources));
+  const [errorText, setErrorText] = useState<string | null>(null);
+
+  // Only the open-rising-edge should reset selection; `sources` is
+  // intentionally excluded so a live poll update never yanks the user's
+  // manual selection while the modal is open.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+  useEffect(() => {
+    if (open) setSelectedSourceId(defaultSourceId(sources));
+  }, [open]);
 
   const invalidate = () => {
     utils.media.soundSystem.invalidate();
   };
 
-  const groupJoin = trpc.media.sonosGroupJoin.useMutation({ onSettled: invalidate });
-  const groupLeave = trpc.media.sonosGroupLeave.useMutation({ onSettled: invalidate });
+  const onMutationError = (err: unknown) => setErrorText(errorMessage(err));
+
+  const groupJoin = trpc.media.sonosGroupJoin.useMutation({
+    onSettled: invalidate,
+    onError: onMutationError,
+  });
+  const groupLeave = trpc.media.sonosGroupLeave.useMutation({
+    onSettled: invalidate,
+    onError: onMutationError,
+  });
   const grabTv = trpc.media.sonosGrabTvToBeam.useMutation({ onSettled: invalidate });
+  const setLineIn = trpc.media.sonosSetLineIn.useMutation({ onSettled: invalidate });
 
   const selectedSource = sources.find((s) => s.id === selectedSourceId) ?? sources[0];
 
-  // Join a single speaker to `source`. When the source is the TV and the beam
-  // isn't already playing TV, the beam must first be "grabbed" onto the TV input
-  // , awaited via mutateAsync so the subsequent join always targets a live TV
-  // group, never a stale/idle beam coordinator.
-  async function joinSpeaker(room: SoundSystemRoom, source: GroupSource) {
-    setMember(room.uuid, source.id);
-
+  // Grabs the hardware jack (TV or Desk line-in) onto its floor card, awaited
+  // so a subsequent join always targets a live hardware group, never a
+  // stale/idle coordinator , mirrors the TV-grab-before-join path for both
+  // hardware cards. Returns false (and surfaces errorText) on failure so the
+  // caller aborts instead of joining into a source that never actually grabbed.
+  async function grabHardwareIfNeeded(source: GroupSource): Promise<boolean> {
     if (source.kind === "tv") {
       const beamRoom = rooms.find((r) => r.uuid === BEAM_UUID);
       if (beamRoom && beamRoom.sourceKind !== "tv") {
         try {
           await grabTv.mutateAsync({ beamIp: beamRoom.deviceIp, beamUuid: BEAM_UUID });
         } catch (err) {
-          // Surface the failed TV-grab so the join attempt (which still
-          // follows) isn't silently mysterious; the mutation's own error
-          // state is also available via grabTv.error for the UI.
-          console.error("GroupsModal: sonosGrabTvToBeam failed", err);
+          setErrorText(errorMessage(err));
+          return false;
+        }
+      }
+    } else if (source.id === "src_desk_linein") {
+      const deskRoom = rooms.find((r) => r.uuid === DESK_LINE_IN_UUID);
+      if (deskRoom && deskRoom.sourceKind !== "line-in") {
+        try {
+          await setLineIn.mutateAsync({
+            deviceIp: deskRoom.deviceIp,
+            sourceUuid: DESK_LINE_IN_UUID,
+          });
+        } catch (err) {
+          setErrorText(errorMessage(err));
+          return false;
         }
       }
     }
+    return true;
+  }
 
-    groupJoin.mutate({ memberIp: room.deviceIp, coordinatorUuid: source.anchorUuid });
+  // Join a single speaker to `source`. Assumes any hardware-jack grab this
+  // source needed has already landed (grabHardwareIfNeeded , called once by
+  // the caller, not per-speaker; see onAll). Reverts the optimistic LED if the
+  // join mutation itself fails.
+  function joinSpeaker(room: SoundSystemRoom, source: GroupSource) {
+    const previous = member[room.uuid] ?? null;
+    setMember(room.uuid, source.id);
+    groupJoin.mutate(
+      { memberIp: room.deviceIp, coordinatorUuid: source.anchorUuid },
+      { onError: () => setMember(room.uuid, previous) },
+    );
+  }
+
+  async function joinSpeakerWithGrab(room: SoundSystemRoom, source: GroupSource) {
+    const grabbed = await grabHardwareIfNeeded(source);
+    if (!grabbed) return;
+    joinSpeaker(room, source);
   }
 
   function onTapSpeaker(uuid: string) {
@@ -85,24 +136,33 @@ export function GroupsModal({ open, onClose, rooms, dataUpdatedAt }: GroupsModal
     if (!room) return;
 
     if (member[uuid] === source.id) {
+      const previous = member[uuid] ?? null;
       setMember(uuid, null);
-      groupLeave.mutate({ memberIp: room.deviceIp, memberUuid: uuid });
+      groupLeave.mutate(
+        { memberIp: room.deviceIp, memberUuid: uuid },
+        { onError: () => setMember(uuid, previous) },
+      );
       return;
     }
 
-    void joinSpeaker(room, source);
+    void joinSpeakerWithGrab(room, source);
   }
 
-  function onAll() {
+  async function onAll() {
     const source = selectedSource;
     if (!source) return;
+    // Single grab for the whole fan-out , grabbed once, awaited, THEN every
+    // join fires; a per-speaker grab would fire the same mutation once per
+    // idle room.
+    const grabbed = await grabHardwareIfNeeded(source);
+    if (!grabbed) return;
     // Skip any speaker that anchors a source (its own or another's) , anchoring
     // a source means it drives that group, so it can never be fanned INTO one.
     const anchorUuids = new Set(sources.map((s) => s.anchorUuid));
     for (const room of rooms) {
       if (anchorUuids.has(room.uuid)) continue;
       if (member[room.uuid] === source.id) continue;
-      void joinSpeaker(room, source);
+      joinSpeaker(room, source);
     }
   }
 
@@ -117,6 +177,7 @@ export function GroupsModal({ open, onClose, rooms, dataUpdatedAt }: GroupsModal
       onSelectSource={setSelectedSourceId}
       onTapSpeaker={onTapSpeaker}
       onAll={onAll}
+      errorText={errorText}
     />
   );
 }
