@@ -359,6 +359,65 @@ describe("getSoundSystem , source classification wiring", () => {
   });
 });
 
+describe("getSoundSystem , multi-room group carries coordinator source (www-51hf review)", () => {
+  // Kitchen joins the Desk group as a plain member (its own zone entry, not
+  // the bonded RF satellite). Every member must carry the GROUP's sourceKind
+  // and track metadata , read once from the coordinator , never queried
+  // per-member (GetMediaInfo/GetPositionInfo are transport-level UPnP calls
+  // that only the coordinator answers meaningfully).
+  const DESK_GROUP_WITH_KITCHEN_TOPOLOGY = [
+    {
+      coordinatorUuid: "RINCON_74CA6093255801400",
+      members: [{ uuid: "RINCON_74CA6093255801400", zoneName: "Living Room", ip: LIVING_ROOM_IP }],
+    },
+    {
+      coordinatorUuid: "RINCON_804AF28AAB2001400",
+      members: [
+        { uuid: "RINCON_804AF28AAB2001400", zoneName: "Desk", ip: DESK_COORD_IP },
+        { uuid: "RINCON_804AF288FDBA01400", zoneName: "Desk + Bonded", ip: DESK_BONDED_IP },
+        { uuid: "RINCON_74CA60AA5F4C01400", zoneName: "Kitchen", ip: KITCHEN_IP },
+      ],
+    },
+    {
+      coordinatorUuid: "RINCON_804AF28CFD6801400",
+      members: [{ uuid: "RINCON_804AF28CFD6801400", zoneName: "Bedroom", ip: BEDROOM_IP }],
+    },
+    {
+      coordinatorUuid: "RINCON_F85C2420570401400",
+      members: [{ uuid: "RINCON_F85C2420570401400", zoneName: "Bathroom", ip: BATHROOM_IP }],
+    },
+  ];
+
+  function setupDeskGroupWithKitchen() {
+    setupHappyPath();
+    mockClients[LIVING_ROOM_IP].getZoneGroupState.mockResolvedValue(
+      DESK_GROUP_WITH_KITCHEN_TOPOLOGY,
+    );
+    mockClients[DESK_COORD_IP].getPositionInfo.mockResolvedValue({
+      trackTitle: "Line 6",
+      trackArtist: null,
+      albumArtUri: null,
+    });
+  }
+
+  it("Kitchen (member of the Desk group) carries the coordinator's sourceKind and track metadata", async () => {
+    setupDeskGroupWithKitchen();
+    const result = await getSoundSystem();
+    const kitchen = result.rooms.find((r) => r.name === "Kitchen");
+    expect(kitchen?.coordinatorUuid).toBe("RINCON_804AF28AAB2001400");
+    expect(kitchen?.sourceKind).toBe("line-in");
+    expect(kitchen?.sourceLabel).toBe("Line-In");
+    expect(kitchen?.trackTitle).toBe("Line 6");
+  });
+
+  it("never queries GetMediaInfo/GetPositionInfo against Kitchen's own device , the group coordinator answers for the whole group", async () => {
+    setupDeskGroupWithKitchen();
+    await getSoundSystem();
+    expect(mockClients[KITCHEN_IP].getMediaInfo).not.toHaveBeenCalled();
+    expect(mockClients[KITCHEN_IP].getPositionInfo).not.toHaveBeenCalled();
+  });
+});
+
 describe("getSoundSystem , per-room identity (www-7u9z)", () => {
   it("exposes each room's own uuid and deviceIp for per-room writes", async () => {
     setupHappyPath();

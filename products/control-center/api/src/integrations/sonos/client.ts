@@ -157,7 +157,7 @@ export class SonosClient {
       "GetMediaInfo",
       `<InstanceID>0</InstanceID>`,
     );
-    return { currentUri: extractText(xml, "CurrentURI") ?? "" };
+    return { currentUri: decodeXmlEntities(extractText(xml, "CurrentURI") ?? "") };
   }
 
   /** Starts playback. THROWS on any failure. */

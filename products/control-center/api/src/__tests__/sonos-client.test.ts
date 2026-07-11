@@ -261,6 +261,23 @@ describe("SonosClient.getMediaInfo", () => {
     const info = await new SonosClient("192.168.0.193").getMediaInfo();
     expect(info.currentUri).toBe("");
   });
+
+  it("decodes XML entities in the CurrentURI (e.g. &amp; -> &)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        okResponse(
+          soapEnvelope(`<u:GetMediaInfoResponse xmlns:u="urn:schemas-upnp-org:service:AVTransport:1">
+      <NrTracks>1</NrTracks>
+      <CurrentURI>x-sonos-spotify:spotify%3atrack%3a2JB6?sid=12&amp;flags=8224</CurrentURI>
+      <PlayMedium>NETWORK</PlayMedium>
+    </u:GetMediaInfoResponse>`),
+        ),
+      ),
+    );
+    const info = await new SonosClient("192.168.0.152").getMediaInfo();
+    expect(info.currentUri).toBe("x-sonos-spotify:spotify%3atrack%3a2JB6?sid=12&flags=8224");
+  });
 });
 
 // ---- GetPositionInfo -------------------------------------------------------
