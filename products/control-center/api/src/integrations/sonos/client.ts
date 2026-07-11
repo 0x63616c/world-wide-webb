@@ -127,10 +127,12 @@ export class SonosClient {
     let albumArtUri: string | null = null;
 
     if (rawMetadata && rawMetadata.trim().length > 0) {
-      // TrackMetaData contains a DIDL-Lite XML fragment (CDATA-wrapped in the envelope).
-      trackTitle = extractText(rawMetadata, "dc:title");
-      trackArtist = extractText(rawMetadata, "dc:creator");
-      albumArtUri = extractText(rawMetadata, "upnp:albumArtURI");
+      // TrackMetaData carries an entity-encoded DIDL-Lite fragment (same firmware
+      // behavior as ZoneGroupState, www-51hf.56), decode before extracting.
+      const didl = decodeXmlEntities(rawMetadata);
+      trackTitle = extractText(didl, "dc:title");
+      trackArtist = extractText(didl, "dc:creator");
+      albumArtUri = extractText(didl, "upnp:albumArtURI");
     }
 
     return { trackTitle, trackArtist, albumArtUri, durationSeconds, positionSeconds };

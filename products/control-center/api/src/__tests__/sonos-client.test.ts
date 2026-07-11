@@ -258,6 +258,35 @@ describe("SonosClient.getPositionInfo", () => {
     expect(pos.durationSeconds).toBeNull();
     expect(pos.positionSeconds).toBeNull();
   });
+
+  it("getPositionInfo decodes entity-encoded TrackMetaData (real firmware shape)", async () => {
+    const didl =
+      '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/">' +
+      '<item id="-1" parentID="-1">' +
+      "<dc:title>Bounce Back</dc:title><dc:creator>Ben Miller</dc:creator>" +
+      "<upnp:albumArtURI>https://i.scdn.co/image/abc</upnp:albumArtURI>" +
+      "</item></DIDL-Lite>";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        okResponse(
+          soapEnvelope(`<u:GetPositionInfoResponse xmlns:u="urn:schemas-upnp-org:service:AVTransport:1">
+      <Track>1</Track>
+      <TrackDuration>0:03:38</TrackDuration>
+      <TrackMetaData>${entityEncode(didl)}</TrackMetaData>
+      <RelTime>0:00:30</RelTime>
+    </u:GetPositionInfoResponse>`),
+        ),
+      ),
+    );
+
+    const client = new SonosClient(LIVING_ROOM_IP);
+    const info = await client.getPositionInfo();
+
+    expect(info.trackTitle).toBe("Bounce Back");
+    expect(info.trackArtist).toBe("Ben Miller");
+    expect(info.albumArtUri).toBe("https://i.scdn.co/image/abc");
+  });
 });
 
 // ---- Transport write commands ----------------------------------------------
