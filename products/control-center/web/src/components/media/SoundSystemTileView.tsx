@@ -51,6 +51,8 @@ export interface SoundSystemTileViewProps {
   onOpenMixer: () => void;
   /** Open the per-room Source picker, focused on the tapped room. */
   onOpenSource: (uuid: string) => void;
+  /** Open the Groups modal (patch-bay source/speaker routing). */
+  onOpenGroups: () => void;
 }
 
 /** A room is "active" (boxed in the accent panel) when its group is playing. */
@@ -411,6 +413,32 @@ function GlobalLockBtn({ on, onToggle }: { on: boolean; onToggle: () => void }) 
   );
 }
 
+function GroupsBtn({ onOpen }: { onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Open groups"
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen();
+      }}
+      style={{
+        width: 38,
+        height: 38,
+        borderRadius: 10,
+        display: "grid",
+        placeItems: "center",
+        padding: 0,
+        cursor: "pointer",
+        border: "1px solid var(--hair)",
+        background: "var(--tile-2)",
+      }}
+    >
+      <Icon name="groups" s={18} c="var(--ink-2)" />
+    </button>
+  );
+}
+
 // ── Main view ─────────────────────────────────────────────────────────────────
 
 export function SoundSystemTileView({
@@ -425,6 +453,7 @@ export function SoundSystemTileView({
   onToggleGroupLock,
   onOpenMixer,
   onOpenSource,
+  onOpenGroups,
 }: SoundSystemTileViewProps) {
   // The tile owns its tap surface: tapping it (outside the faders/buttons) opens
   // the full Mixer modal , the canonical `ownsTap` detail-modal pattern.
@@ -434,7 +463,12 @@ export function SoundSystemTileView({
         <TileHeader
           icon="speaker"
           title="Sound System"
-          right={<GlobalLockBtn on={false} onToggle={onToggleGlobalLock} />}
+          right={
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <GroupsBtn onOpen={onOpenGroups} />
+              <GlobalLockBtn on={false} onToggle={onToggleGlobalLock} />
+            </div>
+          }
         />
         <Skeleton w="100%" h={120} />
       </Tile>
@@ -455,7 +489,12 @@ export function SoundSystemTileView({
       <TileHeader
         icon="speaker"
         title="Sound System"
-        right={<GlobalLockBtn on={globalLock} onToggle={onToggleGlobalLock} />}
+        right={
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <GroupsBtn onOpen={onOpenGroups} />
+            <GlobalLockBtn on={globalLock} onToggle={onToggleGlobalLock} />
+          </div>
+        }
       />
 
       {rooms.length === 0 ? (

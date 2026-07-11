@@ -24,6 +24,7 @@ import {
   Sparkles,
   Sun,
   Thermometer,
+  Users,
   Video,
   Volume2,
   Wifi,
@@ -58,7 +59,8 @@ export type IconName =
   | "globe"
   | "speaker"
   | "apps"
-  | "settings";
+  | "settings"
+  | "groups";
 
 export interface IconProps {
   name: IconName;
@@ -104,6 +106,7 @@ export const GLYPHS: Record<IconName, LucideIcon> = {
   speaker: Volume2,
   apps: LayoutGrid,
   settings: Settings,
+  groups: Users,
 };
 
 export function Icon({ name, s = 22, c = "currentColor", sw = 1.7 }: IconProps) {

@@ -11,6 +11,7 @@
 
 import { useCallback, useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { GroupsModal } from "./GroupsModal";
 import { useMixer } from "./hooks/useMixer";
 import { useThrottledVolume } from "./hooks/useThrottledVolume";
 import { MixerModal } from "./MixerModal";
@@ -28,6 +29,7 @@ export function SoundSystemTile() {
 
   const [mixerOpen, setMixerOpen] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(false);
+  const [groupsOpen, setGroupsOpen] = useState(false);
 
   const setVolMutation = trpc.media.sonosSetVolume.useMutation();
   const setMuteMutation = trpc.media.sonosSetMute.useMutation();
@@ -73,6 +75,7 @@ export function SoundSystemTile() {
         onToggleGroupLock={() => {}}
         onOpenMixer={() => {}}
         onOpenSource={() => {}}
+        onOpenGroups={() => {}}
       />
     );
   }
@@ -102,6 +105,14 @@ export function SoundSystemTile() {
         onToggleGroupLock={mixer.toggleGroupLock}
         onOpenMixer={() => setMixerOpen(true)}
         onOpenSource={() => setSourceOpen(true)}
+        onOpenGroups={() => setGroupsOpen(true)}
+      />
+
+      <GroupsModal
+        open={groupsOpen}
+        onClose={() => setGroupsOpen(false)}
+        rooms={rooms}
+        dataUpdatedAt={dataUpdatedAt}
       />
 
       <MixerModal

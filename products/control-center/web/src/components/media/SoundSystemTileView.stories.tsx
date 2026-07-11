@@ -92,6 +92,7 @@ const meta = {
     onToggleGroupLock: fn(),
     onOpenMixer: fn(),
     onOpenSource: fn(),
+    onOpenGroups: fn(),
   },
 } satisfies Meta<typeof SoundSystemTileView>;
 
