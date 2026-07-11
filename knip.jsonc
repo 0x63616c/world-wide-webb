@@ -46,7 +46,9 @@
   // `tilt` is the dev-stack binary invoked by the root `dev` script; not an npm dep.
   // `security` is the macOS Keychain CLI used by vault.ts + migrate-1p-to-sops.ts to
   // retrieve the age private key at runtime; not an npm dep (CC-k8t7).
-  "ignoreBinaries": ["tilt", "scripts/check-rename-identity.py", "security"],
+  // `kubectl` is spawned by the infra ghcr-pull-secret preflight to read live
+  // Secrets during `pulumi up`; a system binary on the deploy runner, not an npm dep.
+  "ignoreBinaries": ["tilt", "scripts/check-rename-identity.py", "security", "kubectl"],
 
   "workspaces": {
     ".": {

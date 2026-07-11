@@ -74,17 +74,15 @@ export default defineConfig({
       "@": resolve(__dirname, "src"),
     },
   },
-  // Pre-bundle the router so Vite never discovers + optimizes it MID-RUN during
-  // the Storybook browser test project (which extends this config). The storybook
-  // preview imports the tile-registry, which transitively pulls in container tiles
-  // → lib/trpc → @tanstack/react-router; on a cold CI cache Vite optimized it
-  // mid-test, forcing a reload that failed the run ("Vite unexpectedly reloaded a
-  // test"). Listing it here pre-bundles it up front so the run is deterministic.
+  // Pre-bundle deps Vite would otherwise discover + optimize MID-RUN during the
+  // Storybook browser test project (which extends this config), forcing a reload
+  // that fails the run ("Vite unexpectedly reloaded a test") on a cold CI cache.
+  // - @tanstack/react-router: the storybook preview imports the tile-registry →
+  //   container tiles → lib/trpc → @tanstack/react-router.
+  // - @capacitor/*: lib/brightness (idle-dim) pulls these in; the board's idle
+  //   hooks reach them transitively, so a cold cache optimizes them mid-test.
   // (Reproduce the CI condition locally by clearing node_modules/.vite first.)
-  // Same story for the Capacitor packages since AppUpdateBanner joined the
-  // Board overlay: its stories pull lib/app-update → @capacitor/core (and the
-  // Board chain reaches screen-brightness/haptics/status-bar), which a cold CI
-  // cache optimized mid-test and failed the storybook run.
+  // @capacitor/app joined via AppUpdateBanner (its stories pull lib/app-update).
   optimizeDeps: {
     include: [
       "@tanstack/react-router",

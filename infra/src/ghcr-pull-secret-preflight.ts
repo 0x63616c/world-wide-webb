@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { GHCR_PULL_SECRET_NAME, GHCR_PULL_SECRET_NAMESPACES } from "./ghcr-pull-secrets.ts";
 
 type KubectlResult = {
@@ -10,15 +11,15 @@ export type GhcrPullSecretPreflightOptions = {
   context?: string;
 };
 
+// Pulumi runs this program under its Node runtime (not Bun), so use the
+// cross-runtime node:child_process API rather than Bun.spawnSync (which is
+// undefined under Node and threw `ReferenceError: Bun is not defined`).
 function kubectl(args: string[]): KubectlResult {
-  const proc = Bun.spawnSync(["kubectl", ...args], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const proc = spawnSync("kubectl", args, { encoding: "utf8" });
   return {
-    exitCode: proc.exitCode,
-    stdout: new TextDecoder().decode(proc.stdout).trim(),
-    stderr: new TextDecoder().decode(proc.stderr).trim(),
+    exitCode: proc.status ?? 1,
+    stdout: (proc.stdout ?? "").trim(),
+    stderr: (proc.stderr ?? "").trim(),
   };
 }
 
