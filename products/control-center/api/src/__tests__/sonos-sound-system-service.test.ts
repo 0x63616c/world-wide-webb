@@ -8,6 +8,34 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SonosError } from "../integrations/sonos";
+import { classifySourceUri } from "../services/sonos-sound-system-service";
+
+describe("classifySourceUri", () => {
+  it("classifies line-in", () => {
+    expect(classifySourceUri("x-rincon-stream:RINCON_804AF28AAB2001400:0")).toBe("line-in");
+  });
+  it("classifies TV (htastream)", () => {
+    expect(classifySourceUri("x-sonos-htastream:RINCON_74CA6093255801400:spdif")).toBe("tv");
+  });
+  it("classifies Spotify Connect vli sessions (verified live)", () => {
+    expect(classifySourceUri("x-sonos-vli:RINCON_804AF28CFD6801400:2,spotify:da4995741e")).toBe(
+      "spotify",
+    );
+  });
+  it("classifies queue-based Spotify", () => {
+    expect(classifySourceUri("x-rincon-queue:RINCON_X#0")).toBe("other");
+    expect(classifySourceUri("x-sonos-spotify:spotify%3atrack%3a2JB6?sid=12")).toBe("spotify");
+  });
+  it("classifies AirPlay vli sessions", () => {
+    expect(classifySourceUri("x-sonos-vli:RINCON_X:1,airplay:abc")).toBe("airplay");
+  });
+  it("empty URI is idle", () => {
+    expect(classifySourceUri("")).toBe("idle");
+  });
+  it("follow URIs are idle for classification (the follower has no own source)", () => {
+    expect(classifySourceUri("x-rincon:RINCON_804AF28AAB2001400")).toBe("idle");
+  });
+});
 
 // ─── mock DB (desired-volume overlay, www-5mek) ───────────────────────────────
 
@@ -40,17 +68,28 @@ type MockClient = {
   getVolume: ReturnType<typeof vi.fn>;
   getMute: ReturnType<typeof vi.fn>;
   getTransportInfo: ReturnType<typeof vi.fn>;
+  getMediaInfo: ReturnType<typeof vi.fn>;
+  getPositionInfo: ReturnType<typeof vi.fn>;
 };
 
 const mockClients: Record<string, MockClient> = {};
 
+const EMPTY_POSITION_INFO = { trackTitle: null, trackArtist: null, albumArtUri: null };
+
 function makeMockClient(): MockClient {
-  return {
+  const client = {
     getZoneGroupState: vi.fn(),
     getVolume: vi.fn(),
     getMute: vi.fn(),
     getTransportInfo: vi.fn(),
+    getMediaInfo: vi.fn(),
+    getPositionInfo: vi.fn(),
   };
+  // Default every coordinator to idle/empty so tests that don't care about
+  // source classification (most of them) don't need to stub these per-IP.
+  client.getMediaInfo.mockResolvedValue({ currentUri: "" });
+  client.getPositionInfo.mockResolvedValue(EMPTY_POSITION_INFO);
+  return client;
 }
 
 vi.mock("../integrations/sonos", async (importOriginal) => {
@@ -114,11 +153,17 @@ function setupHappyPath() {
   mockClients[LIVING_ROOM_IP].getVolume.mockResolvedValue(45);
   mockClients[LIVING_ROOM_IP].getMute.mockResolvedValue(false);
   mockClients[LIVING_ROOM_IP].getTransportInfo.mockResolvedValue({ state: "PLAYING" });
+  // Living Room is idle , no source playing (real-shaped: empty CurrentURI).
+  mockClients[LIVING_ROOM_IP].getMediaInfo.mockResolvedValue({ currentUri: "" });
 
   mockClients[DESK_COORD_IP] = makeMockClient();
   mockClients[DESK_COORD_IP].getVolume.mockResolvedValue(60);
   mockClients[DESK_COORD_IP].getMute.mockResolvedValue(false);
   mockClients[DESK_COORD_IP].getTransportInfo.mockResolvedValue({ state: "PAUSED_PLAYBACK" });
+  // Desk is on line-in (real-shaped URI anchored to the Desk coordinator UUID).
+  mockClients[DESK_COORD_IP].getMediaInfo.mockResolvedValue({
+    currentUri: "x-rincon-stream:RINCON_804AF28AAB2001400:0",
+  });
 
   // Bonded RF member , volume/mute are queried but it is not shown as its own room.
   mockClients[DESK_BONDED_IP] = makeMockClient();
@@ -279,6 +324,38 @@ describe("getSoundSystem , per-device data (A11)", () => {
     // memberUuids includes both the coordinator and the bonded RF member
     expect(desk?.memberUuids).toContain("RINCON_804AF28AAB2001400");
     expect(desk?.memberUuids).toContain("RINCON_804AF288FDBA01400");
+  });
+});
+
+describe("getSoundSystem , source classification wiring", () => {
+  it("classifies and labels the Desk group's line-in source from the coordinator's CurrentURI", async () => {
+    setupHappyPath();
+    const result = await getSoundSystem();
+    const desk = result.rooms.find((r) => r.name === "Desk");
+    expect(desk?.sourceKind).toBe("line-in");
+    expect(desk?.sourceLabel).toBe("Line-In");
+  });
+
+  it("classifies an idle group (empty CurrentURI) with a null sourceLabel", async () => {
+    setupHappyPath();
+    const result = await getSoundSystem();
+    const lr = result.rooms.find((r) => r.name === "Living Room");
+    expect(lr?.sourceKind).toBe("idle");
+    expect(lr?.sourceLabel).toBeNull();
+  });
+
+  it("carries the coordinator's now-playing metadata onto every member of the group", async () => {
+    setupHappyPath();
+    mockClients[DESK_COORD_IP].getPositionInfo.mockResolvedValue({
+      trackTitle: "Line 6",
+      trackArtist: null,
+      albumArtUri: null,
+    });
+    const result = await getSoundSystem();
+    const desk = result.rooms.find((r) => r.name === "Desk");
+    expect(desk?.trackTitle).toBe("Line 6");
+    expect(desk?.trackArtist).toBeNull();
+    expect(desk?.albumArtUri).toBeNull();
   });
 });
 

@@ -46,6 +46,36 @@ function roomRank(name: string): number {
   return i === -1 ? ROOM_ORDER.length : i;
 }
 
+// Hardware source anchors (verified live 2026-07-11). Desk line-in jack and the
+// Living Room Beam's TV/ARC input — the two always-rendered Groups sources.
+export const DESK_LINE_IN_UUID = "RINCON_804AF28AAB2001400";
+export const BEAM_UUID = "RINCON_74CA6093255801400";
+
+export type SourceKind = "line-in" | "tv" | "spotify" | "airplay" | "other" | "idle";
+
+/** Classifies a coordinator CurrentURI into a source kind. Pure. */
+export function classifySourceUri(uri: string): SourceKind {
+  if (uri === "" || uri.startsWith("x-rincon:")) return "idle";
+  if (uri.startsWith("x-rincon-stream:")) return "line-in";
+  if (uri.startsWith("x-sonos-htastream:")) return "tv";
+  if (uri.startsWith("x-sonos-spotify:")) return "spotify";
+  if (uri.startsWith("x-sonos-vli:")) {
+    if (uri.includes(",spotify:")) return "spotify";
+    if (uri.includes(",airplay:")) return "airplay";
+    return "other";
+  }
+  return "other";
+}
+
+const SOURCE_LABELS: Record<SourceKind, string | null> = {
+  "line-in": "Line-In",
+  tv: "TV",
+  spotify: "Spotify",
+  airplay: "AirPlay",
+  other: null,
+  idle: null,
+};
+
 /** @public , shape for the soundSystem tRPC query response; consumed by the media router and the Sound System tile */
 export interface SoundSystemRoom {
   /** Human-readable room name (this player's ZoneName). */
@@ -66,8 +96,14 @@ export interface SoundSystemRoom {
   muted: boolean;
   /** Group transport state from the coordinator: "PLAYING" | "PAUSED_PLAYBACK" | "STOPPED". */
   transportState: string;
-  /** Source label (reserved for future source classification; always null today). */
+  /** Human source label from the group coordinator's stream, null when idle/unknown. */
   sourceLabel: string | null;
+  /** Classified source kind of this room's group (coordinator's CurrentURI). */
+  sourceKind: SourceKind;
+  /** Now-playing metadata from the group coordinator; null when the source has none. */
+  trackTitle: string | null;
+  trackArtist: string | null;
+  albumArtUri: string | null;
 }
 
 export interface SoundSystemResult {
@@ -98,17 +134,23 @@ export async function getSoundSystem(): Promise<SoundSystemResult> {
       );
     }
     const memberUuids = group.members.map((m) => m.uuid);
-    const transportP = new SonosClient(coordinatorMember.ip).getTransportInfo();
+    const coordinatorClient = new SonosClient(coordinatorMember.ip);
+    const transportP = coordinatorClient.getTransportInfo();
+    const mediaP = coordinatorClient.getMediaInfo();
+    const positionP = coordinatorClient.getPositionInfo();
 
     return group.members
       .filter((m) => m.uuid !== DESK_RF_BONDED_UUID)
       .map(async (member): Promise<SoundSystemRoom> => {
         const deviceClient = new SonosClient(member.ip);
-        const [volume, muted, transportInfo] = await Promise.all([
+        const [volume, muted, transportInfo, mediaInfo, positionInfo] = await Promise.all([
           deviceClient.getVolume(),
           deviceClient.getMute(),
           transportP,
+          mediaP,
+          positionP,
         ]);
+        const sourceKind = classifySourceUri(mediaInfo.currentUri);
         return {
           name: member.zoneName,
           uuid: member.uuid,
@@ -119,7 +161,11 @@ export async function getSoundSystem(): Promise<SoundSystemResult> {
           volume,
           muted,
           transportState: transportInfo.state,
-          sourceLabel: null,
+          sourceLabel: SOURCE_LABELS[sourceKind],
+          sourceKind,
+          trackTitle: positionInfo.trackTitle,
+          trackArtist: positionInfo.trackArtist,
+          albumArtUri: positionInfo.albumArtUri,
         };
       });
   });

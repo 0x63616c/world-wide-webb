@@ -90,6 +90,10 @@ const SoundSystemRoomSchema = z.object({
   muted: z.boolean(),
   transportState: z.string(),
   sourceLabel: z.string().nullable(),
+  sourceKind: z.enum(["line-in", "tv", "spotify", "airplay", "other", "idle"]),
+  trackTitle: z.string().nullable(),
+  trackArtist: z.string().nullable(),
+  albumArtUri: z.string().nullable(),
 });
 
 const SoundSystemSchema = z.object({
