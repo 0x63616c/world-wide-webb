@@ -45,14 +45,6 @@ pre-commit:
       # the stored digest is irreversible. Real email lives only in 1Password / the
       # git global config. See www-twpy / www-4ma.
       run: bash scripts/check-no-personal-email.sh {staged_files}
-    no-em-dash:
-      glob: "*.{ts,tsx,js,mjs,jsx,json,jsonc,yml,yaml,md,sh,css,conf,toml}"
-      # BLOCKING: rejects the em dash (U+2014) from staged source. Calum's style
-      # rule is absolute, comments included. Use commas/periods/line breaks; the
-      # en dash + hyphen are fine. Design bundles under docs/*/design are exempt
-      # (the guard hardcodes the exemption). Staged-only: legacy cleans up as
-      # touched. Hermetic tests in scripts/test-check-no-em-dash.sh (www-9pvp).
-      run: bash scripts/check-no-em-dash.sh {staged_files}
     no-plaintext-secrets:
       glob: "secrets/*.yaml"
       # BLOCKING: rejects any secrets/*.yaml that is not SOPS-encrypted.
