@@ -22,8 +22,6 @@ const REFETCH_MS = 5 * 60_000;
  */
 export function AppUpdateBanner() {
   const [installedBuild, setInstalledBuild] = useState<number | null>(null);
-  const [dismissedBuild, setDismissedBuild] = useState<number | null>(null);
-  const { raiseNotification, clearNotification } = useNotifications();
 
   useEffect(() => {
     let cancelled = false;
@@ -35,10 +33,19 @@ export function AppUpdateBanner() {
     };
   }, []);
 
+  // A plain browser (dev, tests, Storybook) has no installed build to compare
+  // against; bailing before the query child mounts also keeps Board renderable
+  // without a tRPC provider in component tests.
+  if (installedBuild === null) return null;
+  return <AppUpdateBannerQuery installedBuild={installedBuild} />;
+}
+
+function AppUpdateBannerQuery({ installedBuild }: { installedBuild: number }) {
+  const [dismissedBuild, setDismissedBuild] = useState<number | null>(null);
+  const { raiseNotification, clearNotification } = useNotifications();
+
   const { data: status } = trpc.system.appUpdateStatus.useQuery(undefined, {
     refetchInterval: REFETCH_MS,
-    // A plain browser has no installed build to compare against , skip entirely.
-    enabled: installedBuild !== null,
   });
 
   const banner: AppUpdateBannerModel | null = computeAppUpdateBanner(
