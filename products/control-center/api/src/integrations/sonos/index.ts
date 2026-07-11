@@ -12,6 +12,7 @@ export { SonosClient } from "./client";
 export { SonosError } from "./errors";
 /** @public , consumed by the media router procedures in subsequent milestones */
 export type {
+  MediaInfo,
   PositionInfo,
   SonosFavorite,
   TransportInfo,

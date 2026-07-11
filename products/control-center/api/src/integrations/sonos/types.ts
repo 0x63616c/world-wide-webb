@@ -44,3 +44,9 @@ export interface PositionInfo {
   /** Current position in seconds, or null. */
   positionSeconds: number | null;
 }
+
+/** Result of GetMediaInfo. currentUri is "" when the device has no source. */
+export interface MediaInfo {
+  /** Raw CurrentURI, e.g. "x-rincon-stream:RINCON_...:0"; empty string when idle. */
+  currentUri: string;
+}
