@@ -29,8 +29,10 @@ const ascBuildsResponseSchema = z.object({
   data: z.array(
     z.object({
       attributes: z.object({
-        version: z.string(),
-        uploadedDate: z.string(),
+        // Strict digits: parseInt would silently accept "68x"; a non-numeric
+        // build number must fail loudly, not truncate.
+        version: z.string().regex(/^\d+$/, "build version must be numeric"),
+        uploadedDate: z.string().datetime({ offset: true }),
       }),
     }),
   ),
@@ -109,9 +111,6 @@ export function parseAscBuildsResponse(json: unknown): AscBuild | null {
   const build = parsed.data[0];
   if (!build) return null;
   const buildNumber = Number.parseInt(build.attributes.version, 10);
-  if (!Number.isFinite(buildNumber)) {
-    throw new Error(`ASC build version is not numeric: ${build.attributes.version}`);
-  }
   const marketingVersion =
     parsed.included?.find((i) => i.type === "preReleaseVersions")?.attributes?.version ?? "";
   return { buildNumber, marketingVersion, uploadedDate: build.attributes.uploadedDate };
@@ -128,9 +127,13 @@ export async function getLatestAscBuild(): Promise<AscBuild | null> {
     const jwt = await signAscJwt(env.ASC_KEY_ID, env.ASC_ISSUER_ID, env.ASC_KEY_CONTENT);
     // processingState=VALID: only count builds that are actually installable,
     // so a build still PROCESSING in TestFlight never shows as an update.
+    // sort=-uploadedDate, not -version: ASC's version is a string field, so a
+    // version sort risks lexicographic order ("9" > "100"); upload order IS
+    // build order here (fastlane assigns latest_testflight_build_number + 1
+    // per upload), so the newest upload is the numeric max.
     const url =
       `${ASC_BASE_URL}/v1/builds?filter[app]=${env.ASC_APP_ID}` +
-      `&filter[processingState]=VALID&sort=-version&limit=1&include=preReleaseVersion`;
+      `&filter[processingState]=VALID&sort=-uploadedDate&limit=1&include=preReleaseVersion`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${jwt}` },
       signal: AbortSignal.timeout(8000),

@@ -138,7 +138,17 @@ describe("parseAscBuildsResponse", () => {
   });
 
   it("throws loudly on a non-numeric build version", () => {
-    expect(() => parseAscBuildsResponse(buildsResponse("not-a-number"))).toThrow(/not numeric/);
+    expect(() => parseAscBuildsResponse(buildsResponse("not-a-number"))).toThrow(/numeric/);
+  });
+
+  it("rejects a build version with trailing garbage rather than truncating it", () => {
+    expect(() => parseAscBuildsResponse(buildsResponse("68x"))).toThrow(/numeric/);
+  });
+
+  it("rejects a malformed uploadedDate at the edge", () => {
+    const res = buildsResponse();
+    for (const build of res.data) build.attributes.uploadedDate = "not-a-date";
+    expect(() => parseAscBuildsResponse(res)).toThrow();
   });
 
   it("throws loudly on a malformed payload", () => {
@@ -169,7 +179,9 @@ describe("getLatestAscBuild", () => {
     const url = String(fetchSpy.mock.calls[0]?.[0]);
     expect(url).toContain("filter[app]=6762095888");
     expect(url).toContain("filter[processingState]=VALID");
-    expect(url).toContain("sort=-version");
+    // Upload order, not version order: ASC's version field is a string and a
+    // -version sort risks lexicographic ordering across digit boundaries.
+    expect(url).toContain("sort=-uploadedDate");
   });
 
   it("returns null on an ASC error response instead of throwing", async () => {
