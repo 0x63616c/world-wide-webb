@@ -72,20 +72,38 @@ store** (DB row), not in-process memory. This mirrors the existing
 
 ### 2. ASC client - `api/src/services/asc.ts`
 
+All field names below are **verified against the live ASC API** via a smoke
+call (2026-07-11): 200 OK, JWT auth works, 55 builds, latest build `68`.
+
 - Build a short-lived ES256 JWT signed with the `.p8` key
   (`ASC_KEY_CONTENT`), header `{ alg: "ES256", kid: ASC_KEY_ID, typ: "JWT" }`,
-  payload `{ iss: ASC_ISSUER_ID, aud: "appstoreconnect-v1", exp: now+ ~10min }`.
+  payload `{ iss: ASC_ISSUER_ID, aud: "appstoreconnect-v1", iat: now, exp:
+  now + ~10min }`. Sign with **Web Crypto** (`crypto.subtle`, ECDSA P-256 /
+  SHA-256), which emits the raw R||S signature JWT ES256 requires. (Bun's
+  `node:crypto` EC signing with `dsaEncoding: "ieee-p1363"` threw
+  `RangeError: Length out of range of buffer` during the smoke test - use
+  `subtle`, not `createSign`.)
 - `getLatestBuild(): Promise<AscBuild | null>` - GET
-  `https://api.appstoreconnect.apple.com/v1/builds` with
-  `filter[app]=ASC_APP_ID`, `sort=-version`, `limit=1`, `Authorization:
-  Bearer <jwt>`.
-- Parse response: `data[0].attributes.version` (build number string),
-  `data[0].attributes.uploadedDate` (ISO). Marketing version comes from the
-  related `preReleaseVersion`/`version` include if needed, otherwise the build's
-  own `attributes.version` string is the build number and marketing version can
-  be read from the app's live `CFBundleShortVersionString` reported by the
-  client (we already have installed `version`); store what ASC returns.
-- Returns `null` on any failure (caller keeps last cache).
+  `https://api.appstoreconnect.apple.com/v1/builds` with:
+  - `filter[app]=ASC_APP_ID` (`6762095888`)
+  - `filter[processingState]=VALID` - only count builds that are actually
+    installable (drops PROCESSING/INVALID), which removes the TestFlight
+    processing-lag concern
+  - `sort=-version`, `limit=1`
+  - `include=preReleaseVersion` - to read the marketing version
+  - `Authorization: Bearer <jwt>`
+- Parse response (verified shape):
+  - `data[0].attributes.version` - build number as a **string** (`"68"`);
+    parse to int for comparison.
+  - `data[0].attributes.uploadedDate` - ISO 8601 with offset
+    (`2026-06-17T11:27:37-07:00`) - the "released ago" source.
+  - `data[0].attributes.processingState` (`VALID`), `expired`, `expirationDate`
+    also available (not required, but `expired` could later flag a stale
+    installed build).
+  - Marketing version: from the `included[]` array, the `preReleaseVersions`
+    entry `.attributes.version` (`"1.0"`). Confirmed present with the include.
+- Returns `AscBuild { buildNumber: number, marketingVersion: string,
+  uploadedDate: string }` or `null` on any failure (caller keeps last cache).
 
 ### 3. Worker cycle - `asc-version-poll`
 
@@ -145,21 +163,36 @@ Edge cases:
 ## Secrets / infra
 
 The ASC credentials already exist, committed to `secrets/vault.yaml`
-(SOPS-encrypted, values encrypted at rest). Key names:
+(SOPS-encrypted, values encrypted at rest). Runtime env-name -> vault key:
 
-- `APP_STORE_CONNECT_API__KEY_ID` -> `ASC_KEY_ID`
-- `APP_STORE_CONNECT_API__ISSUER_ID` -> `ASC_ISSUER_ID`
-- `APP_STORE_CONNECT_API__P8_CONTENT` -> `ASC_KEY_CONTENT` (the `.p8`)
-- `APP_STORE_CONNECT_API__APPLE_ID` -> `ASC_APP_ID` (`6762095888`)
+- `ASC_KEY_ID`      <- `APP_STORE_CONNECT_API__KEY_ID`
+- `ASC_ISSUER_ID`   <- `APP_STORE_CONNECT_API__ISSUER_ID`
+- `ASC_KEY_CONTENT` <- `APP_STORE_CONNECT_API__P8_CONTENT` (the `.p8` body)
+
+Note: the vault's `APP_STORE_CONNECT_API__APPLE_ID` is the Apple **account
+email**, NOT the numeric app id. `ASC_APP_ID` = `6762095888` is not currently a
+vault key. Since it is non-sensitive, add it as a plain env/default (a constant
+in the ASC client or a non-secret env with default `6762095888`) rather than a
+new SOPS entry.
 
 CI (`.github/workflows/ios-build.yml`) already decrypts these and re-exports the
-`ASC_*` names. So there is **no new secret to provision**. The runtime work is:
+`ASC_*` names, so there is **no new secret to provision**. Secret flow is an
+explicit allowlist (verified): SOPS -> k8s Secret -> file mounted at
+`/run/secrets/<ENV_NAME>` -> `env.ts` hydrates into `process.env`. Worker shares
+`env.ts` via `@control-center/api/worker`. The exact edit points:
 
-- Route the existing SOPS keys to the worker pod via the generic secret-sync
-  layer (`infra/src/secrets-map.ts` / `vault.ts`) - the mechanism is generic
-  and currently names no ASC keys, so add them there.
-- Add the `ASC_*` names to `api/src/env.ts` (`SECRET_FILE_ENV` hydration list +
-  Zod schema).
+1. `infra/src/secrets-map.ts` `apiSecrets` (~L15-28) - add `ASC_KEY_ID`,
+   `ASC_ISSUER_ID`, `ASC_KEY_CONTENT` mapped to their vault keys. `workerSecrets`
+   spreads `apiSecrets` (~L32), so the worker inherits them automatically.
+2. `infra/src/services.ts` - add the three names to the worker `mount([...])`
+   list (~L251-264) and the api list (~L224-237) to keep them in lockstep.
+3. `products/control-center/api/src/env.ts` - add the three names to
+   `SECRET_FILE_ENV` (~L38-52) AND to `envSchema` (~L72-128) as
+   `z.string().default("")`; add `ASC_APP_ID` to the schema with default
+   `"6762095888"` (non-secret, no file mount needed).
+
+No changes needed in `eso.ts`, `vault.ts`, or `component.ts` - they iterate the
+maps/lists generically.
 
 `ASC_APP_ID` is the ASC numeric app resource id (not the bundle id), needed for
 `filter[app]`. Value `6762095888` (fastlane log + App Store Connect URL);
@@ -190,9 +223,15 @@ This wiring is lighter than a fresh secret - just extending existing sync.
 
 1. Confirm the exact persistence pattern `weather-ingest` uses and match it for
    the cache store (dedicated table vs KV row).
-2. Confirm the marketing-version source (ASC build include vs installed value).
-3. Verify SOPS `APP_STORE_CONNECT_API__APPLE_ID` equals `6762095888` when wiring
-   secrets (a quick decrypt check, done as part of the secret-sync change).
 
-Resolved: `ASC_APP_ID = 6762095888`; ASC creds already in `secrets/vault.yaml`
-(no new secret to provision).
+Resolved:
+- `ASC_APP_ID = 6762095888`.
+- ASC creds already in `secrets/vault.yaml` (SOPS keys `APP_STORE_CONNECT_API__*`)
+  and in 1Password `homelab / App Store Connect API` (the `.p8` is the attachment
+  `AuthKey_TJ8M46SFSQ.p8`). No new secret to provision.
+- ASC response shape verified live (build# = `attributes.version` string,
+  `uploadedDate` ISO+offset, marketing via `preReleaseVersions` include,
+  `processingState=VALID` filter for installable builds).
+- ES256 signing uses Web Crypto (`crypto.subtle`), not Bun `node:crypto`.
+- The vault `APP_STORE_CONNECT_API__APPLE_ID` field is the Apple *account email*,
+  not the numeric app id; `filter[app]` uses `6762095888`.
