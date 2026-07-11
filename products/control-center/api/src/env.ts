@@ -49,6 +49,9 @@ const SECRET_FILE_ENV = [
   "SPOTIFY_CLIENT_ID",
   "SPOTIFY_CLIENT_SECRET",
   "SPOTIFY_REFRESH_TOKEN",
+  "ASC_KEY_ID",
+  "ASC_ISSUER_ID",
+  "ASC_KEY_CONTENT",
 ] as const;
 export function hydrateSecretFiles(
   src: Record<string, string | undefined> = process.env,
@@ -125,6 +128,16 @@ export const envSchema = z.object({
   SPOTIFY_CLIENT_ID: z.string().default(""),
   SPOTIFY_CLIENT_SECRET: z.string().default(""),
   SPOTIFY_REFRESH_TOKEN: z.string().default(""),
+
+  // App Store Connect API key for the asc-version-poll worker (detects newer
+  // TestFlight builds of the wall-panel shell). Optional , empty string
+  // disables the poll so api/worker boot without it (same pattern as HA_TOKEN).
+  // ASC_APP_ID is the app's numeric ASC resource id , NOT secret (it is in the
+  // public App Store URL), so it defaults here instead of riding the secret rail.
+  ASC_KEY_ID: z.string().default(""),
+  ASC_ISSUER_ID: z.string().default(""),
+  ASC_KEY_CONTENT: z.string().default(""),
+  ASC_APP_ID: z.string().default("6762095888"),
 });
 
 export const env = envSchema.parse(process.env);

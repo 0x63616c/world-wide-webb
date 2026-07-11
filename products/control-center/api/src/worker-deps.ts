@@ -11,6 +11,7 @@
  */
 export { runMigrations } from "./db/migrate";
 export { env } from "./env";
+export { runAscVersionPollCycle } from "./services/asc-version-service";
 export { runClimateEnforcerCycle } from "./services/climate-enforcer-service";
 export { runDeviceSyncCycle } from "./services/device-sync-service";
 export { runEnforcerCycle } from "./services/light-enforcer-service";
