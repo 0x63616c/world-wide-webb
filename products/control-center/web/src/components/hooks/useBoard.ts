@@ -560,10 +560,10 @@ type UseIdleDimOptions = {
 
 /**
  * Dims the panel after `timeoutMs` of no interaction and wakes it (back to the
- * active brightness) on the next interaction. On the native iPad shell this
- * drives the real backlight absolutely (see lib/brightness), overriding the OS
- * brightness; in a browser dimTo/wakeTo are no-ops and the caller renders the
- * CSS dim overlay off the returned `dimmed` flag instead.
+ * active brightness) on the next interaction. This drives the real iPad backlight
+ * absolutely (see lib/brightness), overriding the OS brightness. It is native
+ * only: off-device dimTo/wakeTo are no-ops, and the caller passes `enabled: false`
+ * in a browser so the whole feature (timer + returned `dimmed`) stays inert.
  *
  * The brightness side-effect lives in an effect keyed on (enabled, dimmed, level,
  * activeBrightness) , NOT inside the timer callbacks , so a live level/brightness

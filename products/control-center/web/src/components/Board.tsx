@@ -189,27 +189,14 @@ function BuildHashBadge() {
   );
 }
 
-// Full-screen black scrim that fades in when the panel idles, for the CSS/
-// browser path (Storybook + any non-native context) where there is no real
-// backlight to drop. On the native iPad shell this stays invisible (`active`
-// is gated off isNativeDisplay in Board) because the screen-brightness plugin
-// dims the actual backlight instead. When dimmed the overlay CAPTURES pointer
-// events: the first tap lands here (never on a tile), calls onWake to brighten +
-// rearm the idle windows, and is swallowed , so the next tap is the first that
-// actually interacts. `showScrim` paints the browser darkening (opacity `1-level`,
-// so a 25% dim reads as a 75%-opaque scrim); on the native iPad the backlight is
-// already dim, so the overlay stays invisible (opacity 0) but still shields taps.
-function DimOverlay({
-  active,
-  level,
-  showScrim,
-  onWake,
-}: {
-  active: boolean;
-  level: number;
-  showScrim: boolean;
-  onWake: () => void;
-}) {
+// Invisible full-screen shield, rendered only while the panel is dimmed. Idle
+// dimming is native-only (gated off isNativeDisplay in Board), and on the iPad
+// the screen-brightness plugin drops the real backlight , so there is nothing to
+// paint here. This layer exists purely to CAPTURE the wake tap: the first touch
+// lands here (never on a tile), calls onWake to brighten + rearm the idle
+// windows, and is swallowed , so the next tap is the first that actually
+// interacts. Off-device the feature is inert, so this never renders active.
+function DimOverlay({ active, onWake }: { active: boolean; onWake: () => void }) {
   return (
     <div
       aria-hidden="true"
@@ -225,10 +212,7 @@ function DimOverlay({
       style={{
         position: "fixed",
         inset: 0,
-        background: "#000",
         pointerEvents: active ? "auto" : "none",
-        opacity: active && showScrim ? 1 - level : 0,
-        transition: "opacity 0.6s ease",
         zIndex: 300,
       }}
     />
@@ -303,8 +287,9 @@ export function Board() {
   // snapMode replaces the old localStorage-backed useState.
   const settings = useSettings();
   const snapMode = settings.snapMode;
-  // CSS dim scrim only in the browser; on the native shell the backlight dims.
-  const cssDim = !isNativeDisplay();
+  // Idle dimming is native-only: off-device (browser/Storybook) there is no
+  // backlight to drop, so the whole feature is a no-op rather than a CSS scrim.
+  const nativeDisplay = isNativeDisplay();
 
   // Mirrors modal-open state into a ref so the memoized pointer handlers can bail
   // without being re-created. While a modal is open the board must NOT pan: a
@@ -477,14 +462,14 @@ export function Board() {
     enabled: settings.recenterEnabled,
   });
 
-  // Dim the panel after its own (configurable) idle window. On the iPad shell
-  // this drops the real backlight; in the browser `dimmed` drives the DimOverlay
-  // scrim below. Independent of the home-reset window above , same activity
-  // model, different timeout.
+  // Dim the panel after its own (configurable) idle window , native only: it
+  // drops the real iPad backlight, so off-device it stays disabled (no-op, no
+  // scrim). Independent of the home-reset window above , same activity model,
+  // different timeout.
   const { dimmed, wake: wakeDim } = useIdleDim({
     stageRef,
     pointerDown,
-    enabled: settings.idleDimEnabled,
+    enabled: settings.idleDimEnabled && nativeDisplay,
     timeoutMs: settings.idleDimTimeoutMs,
     level: settings.idleDimLevel,
     activeBrightness: settings.activeBrightness,
@@ -676,10 +661,9 @@ export function Board() {
           onJump={userJump}
         />
       </div>
-      {/* Idle dim overlay. Sits above the board + its chrome but below modals
-          (which portal to <body>). Renders whenever dimmed (native too) so it can
-          swallow the wake tap; `cssDim` decides whether it also paints a scrim. */}
-      <DimOverlay active={dimmed} level={settings.idleDimLevel} showScrim={cssDim} onWake={wake} />
+      {/* Idle dim tap-shield (native only). Sits above the board + its chrome but
+          below modals (which portal to <body>) so it swallows the wake tap. */}
+      <DimOverlay active={dimmed} onWake={wake} />
       <TileModalHost entry={activeModal} onClose={() => setActiveModal(null)} />
     </div>
   );
