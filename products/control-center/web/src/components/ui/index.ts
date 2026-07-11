@@ -12,8 +12,8 @@ export type { SegmentedOption, SegmentedProps } from "./Segmented";
 export { Segmented } from "./Segmented";
 export { Skeleton } from "./Skeleton";
 /** @public , shared tile-author primitive surface; the settings panel imports it directly (www-k6p1). */
-export type { SliderProps } from "./Slider";
-export { Slider } from "./Slider";
+export type { RangeSliderProps, SliderProps } from "./Slider";
+export { RangeSlider, Slider } from "./Slider";
 export { Stat } from "./Stat";
 export { StatusDot } from "./StatusDot";
 /** @public , shared tile-author primitive surface; the settings panel imports it directly (www-k6p1). */

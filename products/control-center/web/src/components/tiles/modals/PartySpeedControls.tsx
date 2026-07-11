@@ -11,7 +11,7 @@
  * the canonical display strings the wiring + tests rely on.
  */
 
-import type { CSSProperties } from "react";
+import { Slider } from "../../ui/Slider";
 
 // ─── speed model ───────────────────────────────────────────────────────────────
 
@@ -97,58 +97,28 @@ export function PartySpeedSegmented({ value, onChange, disabled }: SpeedWidgetPr
 // ─── (b) speed slider ───────────────────────────────────────────────────────────
 
 /**
- * Three-stop slider over the .range track. Snaps to the discrete speeds (no
- * in-between values , speed is categorical), with tick labels beneath. Reuses the
- * shared .range styling so the thumb/track match the brightness bar.
+ * Three-stop slider , the shared Slider in stops mode. Snaps to the discrete
+ * speeds (no in-between values , speed is categorical), with the stop labels
+ * beneath, so the thumb/track match every other slider in the app.
  */
 export function PartySpeedSlider({ value, onChange, disabled }: SpeedWidgetProps) {
   const idx = speedIndex(value);
-  const max = PARTY_SPEEDS.length - 1;
-  // Fill the track up to the active stop (--p drives the .range gradient).
-  const pct = max === 0 ? 0 : (idx / max) * 100;
 
   return (
-    <div style={{ opacity: disabled ? 0.4 : 1 }}>
-      <input
-        className="range"
-        type="range"
-        min={0}
-        max={max}
-        step={1}
-        value={idx}
-        aria-label="Party speed"
-        aria-valuetext={PARTY_SPEEDS[idx]?.label}
-        disabled={disabled}
-        onChange={(e) => {
-          const next = PARTY_SPEEDS[Number(e.currentTarget.value)];
-          if (next) onChange(next.speed);
-        }}
-        style={{ "--p": `${pct}%` } as CSSProperties}
-      />
-      {/* Tick labels aligned to the stops: first left, last right, middle centered. */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginTop: 8,
-          fontSize: 12,
-        }}
-      >
-        {PARTY_SPEEDS.map(({ speed, label }) => (
-          <span
-            key={speed}
-            className="mono"
-            style={{
-              color: speed === value ? "var(--acc)" : "var(--ink-3)",
-              textTransform: "uppercase",
-              letterSpacing: ".06em",
-            }}
-          >
-            {label}
-          </span>
-        ))}
-      </div>
-    </div>
+    <Slider
+      value={idx}
+      min={0}
+      max={PARTY_SPEEDS.length - 1}
+      step={1}
+      label="Party speed"
+      showHeader={false}
+      disabled={disabled}
+      stops={PARTY_SPEEDS.map(({ label }) => label)}
+      onChange={(next) => {
+        const speed = PARTY_SPEEDS[next];
+        if (speed) onChange(speed.speed);
+      }}
+    />
   );
 }
 

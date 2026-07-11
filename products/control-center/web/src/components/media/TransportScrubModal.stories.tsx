@@ -49,7 +49,7 @@ export const StreamingPlaying: Story = {
   play: async () => {
     const dialog = document.body.querySelector("[role='dialog']");
     await expect(dialog).toBeTruthy();
-    const scrub = document.body.querySelector("[data-scrub]");
+    const scrub = document.body.querySelector("input[type='range'][aria-label='Seek']");
     await expect(scrub).toBeTruthy();
     const pauseBtn = document.body.querySelector("[aria-label='Pause']");
     await expect(pauseBtn).toBeTruthy();
@@ -91,7 +91,7 @@ export const LineIn: Story = {
   play: async () => {
     const noSeek = document.body.querySelector("[data-no-seek]");
     await expect(noSeek).toBeTruthy();
-    const scrub = document.body.querySelector("[data-scrub]");
+    const scrub = document.body.querySelector("input[type='range'][aria-label='Seek']");
     await expect(scrub).toBeFalsy();
   },
 };

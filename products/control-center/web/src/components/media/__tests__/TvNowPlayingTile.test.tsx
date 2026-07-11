@@ -195,31 +195,17 @@ describe("TvNowPlayingTileView , transport callbacks (A19)", () => {
     expect(onNext).toHaveBeenCalledTimes(1);
   });
 
-  it("calls onSeek when scrub bar is clicked (A19)", () => {
+  it("calls onSeek on release with the dragged position (A19)", () => {
     const onSeek = vi.fn();
-    const { container } = render(<TvNowPlayingTileView {...streamingProps} onSeek={onSeek} />);
-    const scrub = container.querySelector("[data-scrub]") as HTMLElement;
-    expect(scrub).toBeInTheDocument();
+    render(<TvNowPlayingTileView {...streamingProps} onSeek={onSeek} />);
+    const scrub = screen.getByRole("slider", { name: "Seek" });
 
-    // Mock bounding rect so the click fraction resolves to a real value.
-    vi.spyOn(scrub, "getBoundingClientRect").mockReturnValue({
-      left: 0,
-      right: 200,
-      width: 200,
-      top: 0,
-      bottom: 6,
-      height: 6,
-      x: 0,
-      y: 0,
-      toJSON: () => {},
-    } as DOMRect);
-
-    // Click at 100px on a 200px-wide, 3600s-long scrub bar → ~1800s
-    fireEvent.click(scrub, { clientX: 100 });
+    // Drag to 1800s then release , seek fires once on release.
+    fireEvent.change(scrub, { target: { value: "1800" } });
+    expect(onSeek).not.toHaveBeenCalled();
+    fireEvent.pointerUp(scrub);
     expect(onSeek).toHaveBeenCalledTimes(1);
-    const pos = onSeek.mock.calls[0][0] as number;
-    expect(pos).toBeGreaterThan(1700);
-    expect(pos).toBeLessThan(1900);
+    expect(onSeek).toHaveBeenCalledWith(1800);
   });
 });
 
@@ -355,25 +341,19 @@ describe("TvNowPlayingTileView , scrubber visibility (www-dhhr)", () => {
     artworkUrl: null,
   };
 
-  it("track background is not the tile surface color (visible on the tile)", () => {
+  it("renders the shared Slider scrub variant with the standard rail", () => {
     const { container } = render(<TvNowPlayingTileView {...props} />);
-    const track = container.querySelector("[data-scrub]") as HTMLElement;
-    expect(track.style.background).not.toContain("tile-2");
-    expect(track.style.background).not.toBe("");
+    const scrub = container.querySelector("input.range.range-scrub") as HTMLInputElement;
+    expect(scrub).toBeInTheDocument();
+    // --p drives the shared fill gradient; must reflect the playback fraction.
+    expect(scrub.style.getPropertyValue("--p")).toContain("%");
   });
 
-  it("fill uses a defined token, not the nonexistent --ink-1", () => {
+  it("reflects the playback position in the slider value", () => {
     const { container } = render(<TvNowPlayingTileView {...props} />);
-    const fill = container.querySelector("[data-scrub-fill]") as HTMLElement;
-    expect(fill).toBeInTheDocument();
-    expect(fill.style.background).not.toContain("--ink-1");
-  });
-
-  it("renders a thumb positioned at the playback fraction", () => {
-    const { container } = render(<TvNowPlayingTileView {...props} />);
-    const thumb = container.querySelector("[data-scrub-thumb]") as HTMLElement;
-    expect(thumb).toBeInTheDocument();
-    expect(thumb.style.left).toContain("%");
+    const scrub = container.querySelector("input.range-scrub") as HTMLInputElement;
+    expect(scrub.value).toBe("2");
+    expect(scrub.max).toBe("987");
   });
 });
 

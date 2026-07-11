@@ -291,6 +291,17 @@
   height: 30px;
 }
 
+/* Thin scrub variant , media progress bars. Slim rail + small thumb so it
+   reads as a seek bar rather than a settings control. */
+.range-scrub {
+  height: 6px;
+}
+.range-scrub::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  border-width: 3px;
+}
+
 /* dual-thumb range (heat_cool low/high) , two native sliders stacked over one
    track. The input elements are pointer-transparent; only their thumbs receive
    pointer events, so neither slider's full-width track blocks the other thumb. */

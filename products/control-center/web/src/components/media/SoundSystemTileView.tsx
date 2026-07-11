@@ -13,9 +13,8 @@
  * Pure presentational , no tRPC. The container (SoundSystemTile) wires the data.
  */
 
-import { useRef } from "react";
 import { Icon } from "@/components/Icon";
-import { Skeleton, Tile, TileHeader } from "@/components/ui";
+import { Skeleton, Slider, Tile, TileHeader } from "@/components/ui";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -97,49 +96,7 @@ interface FaderProps {
 }
 
 function Fader({ room, volume, muted, accent, linked, coord, onChange, onOpenSource }: FaderProps) {
-  const trackRef = useRef<HTMLDivElement>(null);
-
-  function valueFromClientY(clientY: number): number {
-    const el = trackRef.current;
-    if (!el) return volume;
-    const rect = el.getBoundingClientRect();
-    // Vertical fader: top of the track is 100, bottom is 0.
-    const ratio = 1 - (clientY - rect.top) / rect.height;
-    return clampVolume(ratio * 100);
-  }
-
-  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    onChange(valueFromClientY(e.clientY));
-  }
-
-  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    // Only while the pointer is pressed (captured drags report buttons > 0).
-    if (e.buttons === 0) return;
-    onChange(valueFromClientY(e.clientY));
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
-    let next: number | null = null;
-    if (e.key === "ArrowUp" || e.key === "ArrowRight") next = volume + 1;
-    else if (e.key === "ArrowDown" || e.key === "ArrowLeft") next = volume - 1;
-    else if (e.key === "PageUp") next = volume + 10;
-    else if (e.key === "PageDown") next = volume - 10;
-    if (next !== null) {
-      e.preventDefault();
-      onChange(clampVolume(next));
-    }
-  }
-
-  const fillColor = muted ? "var(--ink-3)" : accent ? "var(--acc)" : "var(--ink-2)";
   const valueColor = muted ? "var(--ink-3)" : accent ? "var(--ink)" : "var(--ink-2)";
-  const barStyle = {
-    position: "absolute",
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: 8,
-    borderRadius: 99,
-  } as const;
 
   return (
     <div
@@ -161,59 +118,29 @@ function Fader({ room, volume, muted, accent, linked, coord, onChange, onOpenSou
         {volume}
       </span>
 
-      {/* Vertical fader: track + bottom-anchored fill + thumb, pointer/keys driven.
-          A native range can't render this design (and overflows vertically, www-tdad);
-          role=slider + arrow keys give equivalent semantics. */}
+      {/* Vertical fader , the shared Slider rotated (auto-length fills the tile).
+          Idle groups + muted rooms dim the whole control rather than swapping to a
+          grey rail; ganged rooms get the accent ring around the track (www-a5rl). */}
       <div
-        ref={trackRef}
-        role="slider"
-        tabIndex={0}
-        aria-label={`${room.name} volume`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={volume}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onKeyDown={handleKeyDown}
-        // A drag/tap on the fader must not bubble to the tile's open-mixer surface.
-        onClick={(e) => e.stopPropagation()}
         style={{
-          position: "relative",
           flex: 1,
           minHeight: 0,
           width: 40,
-          cursor: "ns-resize",
-          touchAction: "none",
-          outline: "none",
+          display: "flex",
+          justifyContent: "center",
+          opacity: muted ? 0.45 : accent ? 1 : 0.6,
+          outline: linked ? "2px solid var(--acc)" : "none",
+          borderRadius: 999,
         }}
       >
-        {/* track */}
-        <div style={{ ...barStyle, top: 0, bottom: 0, background: "var(--nest)" }} />
-        {/* fill */}
-        <div
-          style={{
-            ...barStyle,
-            bottom: 0,
-            height: `${volume}%`,
-            background: fillColor,
-            opacity: muted ? 0.5 : 1,
-          }}
-        />
-        {/* thumb */}
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            transform: "translateX(-50%)",
-            bottom: `calc(${volume}% - 9px)`,
-            width: 18,
-            height: 18,
-            borderRadius: 99,
-            background: "#fff",
-            boxShadow: linked
-              ? "0 0 0 2px var(--acc), 0 1px 4px rgba(0, 0, 0, 0.5)"
-              : "0 1px 4px rgba(0, 0, 0, 0.5)",
-          }}
+        <Slider
+          value={volume}
+          min={0}
+          max={100}
+          label={`${room.name} volume`}
+          showHeader={false}
+          orientation="vertical"
+          onChange={(v) => onChange(clampVolume(v))}
         />
       </div>
 

@@ -18,9 +18,8 @@
  * correctly in Storybook and tests without a query provider.
  */
 
-import type { CSSProperties } from "react";
 import { useState } from "react";
-import { Chip, Modal, StatusDot } from "@/components/ui";
+import { Chip, Modal, RangeSlider, Slider, StatusDot } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -301,9 +300,6 @@ function ZoneControlStrip({
   const effectiveTarget = dragTarget ?? zone.targetTemperature ?? zone.minTemp;
   const effectiveLow = dragLow ?? zone.targetTempLow ?? zone.minTemp;
   const effectiveHigh = dragHigh ?? zone.targetTempHigh ?? zone.maxTemp;
-  const sliderPct = ((effectiveTarget - zone.minTemp) / (zone.maxTemp - zone.minTemp)) * 100;
-  const lowPct = ((effectiveLow - zone.minTemp) / (zone.maxTemp - zone.minTemp)) * 100;
-  const highPct = ((effectiveHigh - zone.minTemp) / (zone.maxTemp - zone.minTemp)) * 100;
 
   return (
     <section
@@ -343,22 +339,17 @@ function ZoneControlStrip({
               {effectiveTarget}°F
             </span>
           </div>
-          <input
-            className="range"
-            type="range"
+          <Slider
+            value={effectiveTarget}
             min={zone.minTemp}
             max={zone.maxTemp}
-            value={effectiveTarget}
-            aria-label={`${zone.name} target temperature`}
-            onChange={(e) => {
-              const val = Number(e.currentTarget.value);
+            label={`${zone.name} target temperature`}
+            showHeader={false}
+            onChange={(val) => {
               setDragTarget(val);
               onSetTarget(val);
             }}
-            onMouseUp={() => setDragTarget(null)}
-            onTouchEnd={() => setDragTarget(null)}
-            // --p drives the .range fill gradient
-            style={{ "--p": `${sliderPct}%` } as CSSProperties}
+            onChangeEnd={() => setDragTarget(null)}
           />
         </div>
       )}
@@ -372,47 +363,29 @@ function ZoneControlStrip({
               {effectiveLow}–{effectiveHigh}°F
             </span>
           </div>
-          <div className="range-dual" style={{ position: "relative" }}>
-            <div
-              className="range-dual-track"
-              style={
-                {
-                  "--lo": `${lowPct}%`,
-                  "--hi": `${highPct}%`,
-                } as CSSProperties
+          <RangeSlider
+            low={effectiveLow}
+            high={effectiveHigh}
+            min={zone.minTemp}
+            max={zone.maxTemp}
+            minGap={2}
+            label={`${zone.name} temperature`}
+            lowLabel={`${zone.name} low temperature`}
+            highLabel={`${zone.name} high temperature`}
+            onChange={(next) => {
+              if (next.low !== effectiveLow) {
+                setDragLow(next.low);
+                onSetRange(next.low, effectiveHigh);
+              } else {
+                setDragHigh(next.high);
+                onSetRange(effectiveLow, next.high);
               }
-            />
-            <input
-              className="range-thumb"
-              type="range"
-              min={zone.minTemp}
-              max={zone.maxTemp}
-              value={effectiveLow}
-              aria-label={`${zone.name} low temperature`}
-              onChange={(e) => {
-                const val = Math.min(Number(e.currentTarget.value), effectiveHigh - 2);
-                setDragLow(val);
-                onSetRange(val, effectiveHigh);
-              }}
-              onMouseUp={() => setDragLow(null)}
-              onTouchEnd={() => setDragLow(null)}
-            />
-            <input
-              className="range-thumb"
-              type="range"
-              min={zone.minTemp}
-              max={zone.maxTemp}
-              value={effectiveHigh}
-              aria-label={`${zone.name} high temperature`}
-              onChange={(e) => {
-                const val = Math.max(Number(e.currentTarget.value), effectiveLow + 2);
-                setDragHigh(val);
-                onSetRange(effectiveLow, val);
-              }}
-              onMouseUp={() => setDragHigh(null)}
-              onTouchEnd={() => setDragHigh(null)}
-            />
-          </div>
+            }}
+            onChangeEnd={() => {
+              setDragLow(null);
+              setDragHigh(null);
+            }}
+          />
         </div>
       )}
     </section>

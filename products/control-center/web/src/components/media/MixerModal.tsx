@@ -11,7 +11,7 @@
  * Built from shared ui primitives (A17): Modal.
  */
 
-import { Modal } from "@/components/ui";
+import { Modal, Slider } from "@/components/ui";
 import type { MixerState } from "./hooks/useMixer";
 import type { SoundSystemRoom } from "./SoundSystemTileView";
 
@@ -77,24 +77,26 @@ function RoomRow({ room, volume, muted, globalLock, onVolumeChange, onMuteToggle
         )}
       </div>
 
-      {/* Volume slider */}
-      <input
-        type="range"
-        aria-label={`${room.name} volume`}
-        min={0}
-        max={100}
-        step={1}
-        value={volume}
-        onChange={(e) => onVolumeChange(Number(e.target.value))}
+      {/* Volume slider , shared Slider rail; muted rows dim, gang-lock rows get
+          the accent ring around the whole track. */}
+      <div
         style={{
           flex: 1,
-          accentColor: globalLock ? "var(--accent)" : "var(--ink-1)",
-          cursor: "pointer",
           opacity: muted ? 0.4 : 1,
           outline: globalLock ? "2px solid var(--accent)" : "none",
-          borderRadius: 4,
+          borderRadius: 999,
         }}
-      />
+      >
+        <Slider
+          value={volume}
+          min={0}
+          max={100}
+          step={1}
+          label={`${room.name} volume`}
+          showHeader={false}
+          onChange={onVolumeChange}
+        />
+      </div>
 
       {/* Volume value */}
       <span

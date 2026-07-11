@@ -10,9 +10,8 @@
  * than firing a request that silently no-ops.
  */
 
-import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
-import { ControlTap, Modal } from "@/components/ui";
+import { ControlTap, Modal, Slider } from "@/components/ui";
 import type { ControlKey, ControlsViewData } from "./ControlsTileView";
 import { ControlsGridView } from "./ControlsTileView";
 import type { PartySelection } from "./modals/PartySpeedControls";
@@ -112,27 +111,19 @@ export function ExpandedControlsModalView({
               {brightness}%
             </span>
           </div>
-          <input
-            className="range range-lg"
-            type="range"
+          <Slider
+            value={brightness}
             min={0}
             max={100}
-            value={brightness}
-            aria-label="Brightness"
+            label="Brightness"
+            showHeader={false}
+            size="lg"
             disabled={lampsOff}
-            onChange={(e) => {
-              const pct = Number(e.currentTarget.value);
+            onChange={(pct) => {
               setBrightness(pct);
               if (brightnessDebounceRef.current) clearTimeout(brightnessDebounceRef.current);
               brightnessDebounceRef.current = setTimeout(() => onBrightness(pct), 400);
             }}
-            // --p drives the .range fill gradient (acc up to the value, dim after).
-            style={
-              {
-                opacity: lampsOff ? 0.4 : 1,
-                "--p": `${brightness}%`,
-              } as CSSProperties
-            }
           />
         </section>
 

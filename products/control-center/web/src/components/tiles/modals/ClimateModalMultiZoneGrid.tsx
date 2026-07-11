@@ -26,10 +26,9 @@
  *   gap 10 between label and control inside a card
  */
 
-import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { ClimateHouseSummaryHeader } from "@/components/ClimateHouseSummaryHeader";
-import { Chip, Modal, Stat } from "@/components/ui";
+import { Chip, Modal, RangeSlider, Slider, Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -110,10 +109,6 @@ const ACTION_LABELS: Record<HvacAction, string> = {
 };
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-
-function pct(v: number, min: number, max: number): number {
-  return ((v - min) / (max - min)) * 100;
-}
 
 function clampLow(next: number, high: number, min: number): number {
   return Math.min(Math.max(next, min), high - GAP);
@@ -232,29 +227,24 @@ function ZoneCard({
         zone.mode === "auto") &&
         (() => {
           const displayTarget = dragTarget ?? zone.target;
-          const p = pct(displayTarget, zone.minTemp, zone.maxTemp);
           return (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span className="cap">{zone.minTemp}°</span>
                 <span className="cap">{zone.maxTemp}°</span>
               </div>
-              <input
-                className="range"
-                type="range"
+              <Slider
+                value={displayTarget}
                 min={zone.minTemp}
                 max={zone.maxTemp}
-                value={displayTarget}
-                aria-label={`${zone.name} target temperature`}
-                style={{ "--p": `${p}%` } as CSSProperties}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
+                label={`${zone.name} target temperature`}
+                showHeader={false}
+                onChange={(val) => {
                   setDragTarget(val);
                   if (debounceRef.current) clearTimeout(debounceRef.current);
                   debounceRef.current = setTimeout(() => onSetTarget(zone.entityId, val), 400);
                 }}
-                onMouseUp={() => setDragTarget(null)}
-                onTouchEnd={() => setDragTarget(null)}
+                onChangeEnd={() => setDragTarget(null)}
               />
             </div>
           );
@@ -264,50 +254,36 @@ function ZoneCard({
         (() => {
           const lo = dragLow ?? zone.targetLow;
           const hi = dragHigh ?? zone.targetHigh;
-          const loPct = pct(lo, zone.minTemp, zone.maxTemp);
-          const hiPct = pct(hi, zone.minTemp, zone.maxTemp);
           return (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span className="cap">{zone.minTemp}°</span>
                 <span className="cap">{zone.maxTemp}°</span>
               </div>
-              <div className="range-dual" style={{ position: "relative" }}>
-                <div
-                  className="range-dual-track"
-                  style={{ "--lo": `${loPct}%`, "--hi": `${hiPct}%` } as CSSProperties}
-                />
-                <input
-                  className="range-thumb"
-                  type="range"
-                  min={zone.minTemp}
-                  max={zone.maxTemp}
-                  value={lo}
-                  aria-label={`${zone.name} low temperature`}
-                  onChange={(e) => {
-                    const val = clampLow(parseInt(e.target.value, 10), hi, zone.minTemp);
+              <RangeSlider
+                low={lo}
+                high={hi}
+                min={zone.minTemp}
+                max={zone.maxTemp}
+                label={`${zone.name} temperature`}
+                lowLabel={`${zone.name} low temperature`}
+                highLabel={`${zone.name} high temperature`}
+                onChange={(next) => {
+                  if (next.low !== lo) {
+                    const val = clampLow(next.low, hi, zone.minTemp);
                     setDragLow(val);
                     onSetRange(zone.entityId, val, hi);
-                  }}
-                  onMouseUp={() => setDragLow(null)}
-                  onTouchEnd={() => setDragLow(null)}
-                />
-                <input
-                  className="range-thumb"
-                  type="range"
-                  min={zone.minTemp}
-                  max={zone.maxTemp}
-                  value={hi}
-                  aria-label={`${zone.name} high temperature`}
-                  onChange={(e) => {
-                    const val = clampHigh(parseInt(e.target.value, 10), lo, zone.maxTemp);
+                  } else {
+                    const val = clampHigh(next.high, lo, zone.maxTemp);
                     setDragHigh(val);
                     onSetRange(zone.entityId, lo, val);
-                  }}
-                  onMouseUp={() => setDragHigh(null)}
-                  onTouchEnd={() => setDragHigh(null)}
-                />
-              </div>
+                  }
+                }}
+                onChangeEnd={() => {
+                  setDragLow(null);
+                  setDragHigh(null);
+                }}
+              />
             </div>
           );
         })()}

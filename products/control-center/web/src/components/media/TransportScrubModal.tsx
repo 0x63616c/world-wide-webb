@@ -16,8 +16,8 @@
  * Built exclusively from shared ui primitives (A17): Modal, Skeleton.
  */
 
-import { useRef, useState } from "react";
-import { Modal } from "@/components/ui";
+import { useState } from "react";
+import { Modal, Slider } from "@/components/ui";
 import type { TvSource } from "./TvNowPlayingTileView";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -83,93 +83,26 @@ interface ScrubBarProps {
 }
 
 function ScrubBar({ position, duration, onSeek }: ScrubBarProps) {
-  // Local draft: null = use position prop; set when dragging.
-  const [draftPct, setDraftPct] = useState<number | null>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const dragging = useRef(false);
-
-  const displayPct =
-    draftPct !== null ? draftPct : duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
-
-  function pctFromPointer(clientX: number): number {
-    if (!trackRef.current) return 0;
-    const rect = trackRef.current.getBoundingClientRect();
-    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) * 100;
-  }
-
-  function handlePointerDown(e: React.PointerEvent) {
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    dragging.current = true;
-    setDraftPct(pctFromPointer(e.clientX));
-  }
-
-  function handlePointerMove(e: React.PointerEvent) {
-    if (!dragging.current) return;
-    setDraftPct(pctFromPointer(e.clientX));
-  }
-
-  function handlePointerUp(e: React.PointerEvent) {
-    if (!dragging.current) return;
-    dragging.current = false;
-    const pct = pctFromPointer(e.clientX);
-    setDraftPct(null);
-    onSeek((pct / 100) * duration);
-  }
+  // Local draft: null = follow the position prop; set while dragging so the
+  // seek only fires on release (a drag doesn't spam seeks).
+  const [draft, setDraft] = useState<number | null>(null);
+  const displayPosition = draft ?? Math.min(position, duration);
 
   return (
     <div>
-      <div
-        ref={trackRef}
-        data-scrub
-        role="slider"
-        aria-label="Seek"
-        aria-valuenow={Math.round(displayPct)}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        tabIndex={0}
-        style={{
-          position: "relative",
-          height: 8,
-          borderRadius: 999,
-          background: "var(--tile-2)",
-          cursor: "pointer",
-          touchAction: "none",
+      <Slider
+        value={displayPosition}
+        min={0}
+        max={Math.max(1, duration)}
+        label="Seek"
+        showHeader={false}
+        size="scrub"
+        onChange={setDraft}
+        onChangeEnd={(final) => {
+          setDraft(null);
+          onSeek(final);
         }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowRight") onSeek(Math.min(duration, position + 10));
-          if (e.key === "ArrowLeft") onSeek(Math.max(0, position - 10));
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            height: "100%",
-            width: `${displayPct}%`,
-            borderRadius: 999,
-            background: "var(--ink-1)",
-            pointerEvents: "none",
-          }}
-        />
-        {/* Thumb */}
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: `${displayPct}%`,
-            transform: "translate(-50%, -50%)",
-            width: 16,
-            height: 16,
-            borderRadius: "50%",
-            background: "var(--ink-1)",
-            pointerEvents: "none",
-          }}
-        />
-      </div>
+      />
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
         <span className="mono" style={{ fontSize: 12, color: "var(--ink-2)" }}>
           {formatTime(position)}

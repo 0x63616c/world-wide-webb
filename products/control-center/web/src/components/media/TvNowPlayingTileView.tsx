@@ -7,7 +7,8 @@
  * exact slot while pending (A18).
  */
 
-import { Skeleton, Tile, TileHeader } from "@/components/ui";
+import { useState } from "react";
+import { Skeleton, Slider, Tile, TileHeader } from "@/components/ui";
 
 // ── Helper: format seconds → M:SS or H:MM:SS ─────────────────────────────────
 
@@ -129,64 +130,25 @@ interface ScrubBarProps {
 }
 
 function ScrubBar({ position, duration, onSeek }: ScrubBarProps) {
-  const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
+  // Local draft so a drag seeks once on release rather than spamming seeks.
+  const [draft, setDraft] = useState<number | null>(null);
+  const displayPosition = draft ?? Math.min(position, duration);
 
   return (
     <div style={{ flexShrink: 0 }}>
-      {/* Track + fill */}
-      <div
-        data-scrub
-        role="slider"
-        aria-label="Seek"
-        aria-valuenow={Math.round(pct)}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        tabIndex={0}
-        style={{
-          position: "relative",
-          height: 6,
-          borderRadius: 999,
-          // --hair-2, not --tile-2: the track must read against the tile surface.
-          background: "var(--hair-2)",
-          cursor: "pointer",
+      <Slider
+        value={displayPosition}
+        min={0}
+        max={Math.max(1, duration)}
+        label="Seek"
+        showHeader={false}
+        size="scrub"
+        onChange={setDraft}
+        onChangeEnd={(final) => {
+          setDraft(null);
+          onSeek(final);
         }}
-        onClick={(e) => {
-          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-          const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-          onSeek(fraction * duration);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowRight") onSeek(Math.min(duration, position + 10));
-          if (e.key === "ArrowLeft") onSeek(Math.max(0, position - 10));
-        }}
-      >
-        <div
-          data-scrub-fill
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            height: "100%",
-            width: `${pct}%`,
-            borderRadius: 999,
-            background: "var(--ink)",
-          }}
-        />
-        {/* Thumb - keeps the scrubber legible even at ~0% progress */}
-        <div
-          data-scrub-thumb
-          style={{
-            position: "absolute",
-            left: `${pct}%`,
-            top: "50%",
-            transform: "translate(-50%, -50%)",
-            width: 12,
-            height: 12,
-            borderRadius: "50%",
-            background: "var(--ink)",
-          }}
-        />
-      </div>
+      />
       {/* Position / duration */}
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
         <span className="mono" style={{ fontSize: 11, color: "var(--ink-2)" }}>

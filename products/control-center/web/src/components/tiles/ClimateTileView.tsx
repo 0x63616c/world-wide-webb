@@ -13,7 +13,7 @@
  */
 
 import { useState } from "react";
-import { Skeleton, Tile, TileHeader, TileStatus } from "@/components/ui";
+import { RangeSlider, Skeleton, Slider, Tile, TileHeader, TileStatus } from "@/components/ui";
 
 // ─── types & constants ──────────────────────────────────────────────────────
 
@@ -258,24 +258,21 @@ export function ClimateTileView(props: ClimateTileViewProps) {
           const displayTarget = dragTarget ?? props.target;
           return (
             <div style={{ position: "relative", paddingBottom: 28, marginBottom: 18 }}>
-              <input
-                className="range"
-                type="range"
+              <Slider
+                value={displayTarget}
                 min={vMin}
                 max={vMax}
-                value={displayTarget}
-                style={{ "--p": `${pct(displayTarget, vMin, vMax)}%` } as React.CSSProperties}
-                onChange={(e) => {
+                label="Target temperature"
+                showHeader={false}
+                testId="slider"
+                onChange={(next) => {
                   // Track may extend past MAX to show the ambient caret, but the
                   // setpoint itself stays clamped to the settable band.
-                  const val = clampTarget(parseInt(e.target.value, 10));
+                  const val = clampTarget(next);
                   setDragTarget(val);
                   onSetTarget(val);
                 }}
-                onMouseUp={() => setDragTarget(null)}
-                onTouchEnd={() => setDragTarget(null)}
-                aria-label="Target temperature"
-                data-testid="slider"
+                onChangeEnd={() => setDragTarget(null)}
               />
               <AmbientCaret ambient={ambient} min={vMin} max={vMax} />
               <EndLabels min={vMin} max={vMax} />
@@ -288,54 +285,35 @@ export function ClimateTileView(props: ClimateTileViewProps) {
           const lo = dragLow ?? props.targetLow;
           const hi = dragHigh ?? props.targetHigh;
           return (
-            <div
-              className="range-dual"
-              style={{ position: "relative", paddingBottom: 28, marginBottom: 18 }}
-            >
-              <div
-                className="range-dual-track"
-                style={
-                  {
-                    "--lo": `${pct(lo, vMin, vMax)}%`,
-                    "--hi": `${pct(hi, vMin, vMax)}%`,
-                  } as React.CSSProperties
-                }
-              />
-              <input
-                className="range-thumb"
-                type="range"
-                min={vMin}
-                max={vMax}
-                value={lo}
-                onChange={(e) => {
-                  const val = clampLow(parseInt(e.target.value, 10), hi);
+            <RangeSlider
+              low={lo}
+              high={hi}
+              min={vMin}
+              max={vMax}
+              label="Temperature"
+              lowLabel="Low temperature"
+              highLabel="High temperature"
+              testId="slider"
+              style={{ paddingBottom: 28, marginBottom: 18 }}
+              onChange={(next) => {
+                if (next.low !== lo) {
+                  const val = clampLow(next.low, hi);
                   setDragLow(val);
                   onSetRange(val, hi);
-                }}
-                onMouseUp={() => setDragLow(null)}
-                onTouchEnd={() => setDragLow(null)}
-                aria-label="Low temperature"
-                data-testid="slider-low"
-              />
-              <input
-                className="range-thumb"
-                type="range"
-                min={vMin}
-                max={vMax}
-                value={hi}
-                onChange={(e) => {
-                  const val = clampHigh(parseInt(e.target.value, 10), lo);
+                } else {
+                  const val = clampHigh(next.high, lo);
                   setDragHigh(val);
                   onSetRange(lo, val);
-                }}
-                onMouseUp={() => setDragHigh(null)}
-                onTouchEnd={() => setDragHigh(null)}
-                aria-label="High temperature"
-                data-testid="slider-high"
-              />
+                }
+              }}
+              onChangeEnd={() => {
+                setDragLow(null);
+                setDragHigh(null);
+              }}
+            >
               <AmbientCaret ambient={ambient} min={vMin} max={vMax} />
               <EndLabels min={vMin} max={vMax} />
-            </div>
+            </RangeSlider>
           );
         })()}
 
