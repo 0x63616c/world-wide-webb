@@ -81,8 +81,19 @@ export default defineConfig({
   // mid-test, forcing a reload that failed the run ("Vite unexpectedly reloaded a
   // test"). Listing it here pre-bundles it up front so the run is deterministic.
   // (Reproduce the CI condition locally by clearing node_modules/.vite first.)
+  // Same story for the Capacitor packages since AppUpdateBanner joined the
+  // Board overlay: its stories pull lib/app-update → @capacitor/core (and the
+  // Board chain reaches screen-brightness/haptics/status-bar), which a cold CI
+  // cache optimized mid-test and failed the storybook run.
   optimizeDeps: {
-    include: ["@tanstack/react-router"],
+    include: [
+      "@tanstack/react-router",
+      "@capacitor/app",
+      "@capacitor/core",
+      "@capacitor/haptics",
+      "@capacitor/status-bar",
+      "@capacitor-community/screen-brightness",
+    ],
   },
   server: {
     host: true,
