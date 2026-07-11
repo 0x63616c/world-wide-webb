@@ -20,7 +20,9 @@ import { SourceModal } from "./SourceModal";
 const SOUND_POLL_MS = 10_000;
 
 export function SoundSystemTile() {
-  const { data, isError } = trpc.media.soundSystem.useQuery(undefined, {
+  // dataUpdatedAt gates useMixer's reconcile: only a snapshot fetched after a
+  // fader's last local edit may overwrite it (www-tavs stale-poll snap-back).
+  const { data, isError, dataUpdatedAt } = trpc.media.soundSystem.useQuery(undefined, {
     refetchInterval: SOUND_POLL_MS,
   });
 
@@ -54,6 +56,7 @@ export function SoundSystemTile() {
       volume: r.volume,
       muted: r.muted,
     })),
+    dataUpdatedAt,
   );
 
   if (!data) {

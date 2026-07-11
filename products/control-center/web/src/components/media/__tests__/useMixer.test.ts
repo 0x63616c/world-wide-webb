@@ -16,13 +16,13 @@ function twoRoomSetup(volA: number, volB: number) {
     { coordinatorUuid: "uuid-A", name: "Room A", volume: volA, muted: false },
     { coordinatorUuid: "uuid-B", name: "Room B", volume: volB, muted: false },
   ];
-  return renderHook(() => useMixer(rooms));
+  return renderHook(() => useMixer(rooms, 1));
 }
 
 describe("useMixer , initial state", () => {
   it("exposes vols, member, globalLock, groupLock, mutes fields", () => {
     const rooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
-    const { result } = renderHook(() => useMixer(rooms));
+    const { result } = renderHook(() => useMixer(rooms, 1));
     expect(result.current).toMatchObject({
       vols: expect.any(Object),
       member: expect.any(Object),
@@ -43,7 +43,7 @@ describe("useMixer , initial state", () => {
       { coordinatorUuid: "uuid-A", name: "Room A", volume: 42, muted: false },
       { coordinatorUuid: "uuid-B", name: "Room B", volume: 77, muted: false },
     ];
-    const { result } = renderHook(() => useMixer(rooms));
+    const { result } = renderHook(() => useMixer(rooms, 1));
     expect(result.current.vols["uuid-A"]).toBe(42);
     expect(result.current.vols["uuid-B"]).toBe(77);
   });
@@ -53,14 +53,14 @@ describe("useMixer , initial state", () => {
       { coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: true },
       { coordinatorUuid: "uuid-B", name: "Room B", volume: 50, muted: false },
     ];
-    const { result } = renderHook(() => useMixer(rooms));
+    const { result } = renderHook(() => useMixer(rooms, 1));
     expect(result.current.mutes["uuid-A"]).toBe(true);
     expect(result.current.mutes["uuid-B"]).toBe(false);
   });
 
   it("starts with groupLock off and globalLock off", () => {
     const { result } = renderHook(() =>
-      useMixer([{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }]),
+      useMixer([{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }], 1),
     );
     expect(result.current.groupLock).toBe(false);
     expect(result.current.globalLock).toBe(false);
@@ -96,7 +96,7 @@ describe("useMixer , gang-lock algorithm (groupLock)", () => {
       { uuid: "uuid-A", coordinatorUuid: "grp-shared", name: "Room A", volume: volA, muted: false },
       { uuid: "uuid-B", coordinatorUuid: "grp-shared", name: "Room B", volume: volB, muted: false },
     ];
-    return renderHook(() => useMixer(rooms));
+    return renderHook(() => useMixer(rooms, 1));
   }
 
   it("moves all members by the same delta when groupLock is on", () => {
@@ -153,7 +153,7 @@ describe("useMixer , solo fader for coordinator-grouped rooms (www-ecc2)", () =>
       { uuid: "lr", coordinatorUuid: "grp", name: "Living Room", volume: volLr, muted: false },
       { uuid: "kit", coordinatorUuid: "grp", name: "Kitchen", volume: volKit, muted: false },
     ];
-    return renderHook(() => useMixer(rooms));
+    return renderHook(() => useMixer(rooms, 1));
   }
 
   it("moves ONLY the dragged room when both locks are off (even when grouped)", () => {
@@ -176,7 +176,7 @@ describe("useMixer , solo fader for coordinator-grouped rooms (www-ecc2)", () =>
       { uuid: "lr", coordinatorUuid: "grp", name: "Living Room", volume: 50, muted: false },
       { uuid: "bed", coordinatorUuid: "solo", name: "Bedroom", volume: 30, muted: false },
     ];
-    const { result } = renderHook(() => useMixer(rooms));
+    const { result } = renderHook(() => useMixer(rooms, 1));
     act(() => result.current.setRoomVolume("lr", 60));
     expect(result.current.vols.lr).toBe(60);
     expect(result.current.vols.bed).toBe(30); // untouched , different group
@@ -197,7 +197,7 @@ describe("useMixer , solo fader for coordinator-grouped rooms (www-ecc2)", () =>
       { uuid: "kit", coordinatorUuid: "grp", name: "Kitchen", volume: 60, muted: false },
       { uuid: "bed", coordinatorUuid: "solo", name: "Bedroom", volume: 30, muted: false },
     ];
-    const { result } = renderHook(() => useMixer(rooms));
+    const { result } = renderHook(() => useMixer(rooms, 1));
     act(() => result.current.toggleGroupLock());
     act(() => result.current.setRoomVolume("lr", 55)); // +5
     expect(result.current.vols.lr).toBe(55);
@@ -211,7 +211,7 @@ describe("useMixer , solo fader for coordinator-grouped rooms (www-ecc2)", () =>
       { uuid: "kit", coordinatorUuid: "grp", name: "Kitchen", volume: 60, muted: false },
       { uuid: "bed", coordinatorUuid: "solo", name: "Bedroom", volume: 30, muted: false },
     ];
-    const { result } = renderHook(() => useMixer(rooms));
+    const { result } = renderHook(() => useMixer(rooms, 1));
     act(() => result.current.setGlobalLock(true));
     act(() => result.current.setRoomVolume("lr", 55)); // +5
     expect(result.current.vols.lr).toBe(55);
@@ -224,7 +224,7 @@ describe("useMixer , solo fader for coordinator-grouped rooms (www-ecc2)", () =>
       { uuid: "lr", coordinatorUuid: "grp", name: "Living Room", volume: 50, muted: false },
       { uuid: "bed", coordinatorUuid: "solo", name: "Bedroom", volume: 30, muted: false },
     ];
-    const { result } = renderHook(() => useMixer(rooms));
+    const { result } = renderHook(() => useMixer(rooms, 1));
     act(() => result.current.setGlobalLock(true));
     act(() => result.current.toggleGroupLock());
     act(() => result.current.setRoomVolume("lr", 55)); // +5
@@ -255,7 +255,7 @@ describe("useMixer , globalLock", () => {
 describe("useMixer , join / leave", () => {
   it("join adds a uuid to the gang member set", () => {
     const { result } = renderHook(() =>
-      useMixer([{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }]),
+      useMixer([{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }], 1),
     );
     act(() => result.current.join("uuid-X"));
     expect(result.current.member["uuid-X"]).toBe(true);
@@ -263,7 +263,7 @@ describe("useMixer , join / leave", () => {
 
   it("leave removes a uuid from the gang member set", () => {
     const { result } = renderHook(() =>
-      useMixer([{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }]),
+      useMixer([{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }], 1),
     );
     act(() => result.current.join("uuid-X"));
     act(() => result.current.leave("uuid-X"));
@@ -274,7 +274,7 @@ describe("useMixer , join / leave", () => {
 describe("useMixer , toggleMute", () => {
   it("flips a room's mute state", () => {
     const { result } = renderHook(() =>
-      useMixer([{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }]),
+      useMixer([{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }], 1),
     );
     act(() => result.current.toggleMute("uuid-A"));
     expect(result.current.mutes["uuid-A"]).toBe(true);
@@ -286,7 +286,7 @@ describe("useMixer , toggleMute", () => {
 describe("useMixer , toggleGroupLock", () => {
   it("flips groupLock on/off", () => {
     const { result } = renderHook(() =>
-      useMixer([{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }]),
+      useMixer([{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }], 1),
     );
     expect(result.current.groupLock).toBe(false);
     act(() => result.current.toggleGroupLock());
@@ -302,7 +302,7 @@ describe("useMixer , room removal / stale uuid cleanup (www-ddo9.2)", () => {
       { coordinatorUuid: "uuid-A", name: "Room A", volume: 40, muted: false },
       { coordinatorUuid: "uuid-B", name: "Room B", volume: 60, muted: false },
     ];
-    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms, 1), {
       initialProps: { rooms: twoRooms },
     });
     expect(Object.keys(result.current.vols)).toHaveLength(2);
@@ -320,7 +320,7 @@ describe("useMixer , room removal / stale uuid cleanup (www-ddo9.2)", () => {
       { coordinatorUuid: "uuid-A", name: "Room A", volume: 40, muted: false },
       { coordinatorUuid: "uuid-B", name: "Room B", volume: 60, muted: false },
     ];
-    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms, 1), {
       initialProps: { rooms: twoRooms },
     });
 
@@ -341,7 +341,7 @@ describe("useMixer , dynamic rooms prop (www-51hf.49)", () => {
   it("re-syncs vols when a new room is added to the rooms prop", () => {
     // Start with one room.
     const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 40, muted: false }];
-    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms, 1), {
       initialProps: { rooms: initialRooms },
     });
     expect(result.current.vols["uuid-A"]).toBe(40);
@@ -360,7 +360,7 @@ describe("useMixer , dynamic rooms prop (www-51hf.49)", () => {
 
   it("new room participates in gang-lock after rooms prop update", () => {
     // Start with one room.
-    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
+    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms, 1), {
       initialProps: {
         rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 40, muted: false }],
       },
@@ -384,112 +384,113 @@ describe("useMixer , dynamic rooms prop (www-51hf.49)", () => {
   });
 });
 
-describe("useMixer , poll reconcile with edit cooldown (www-tavs)", () => {
-  // These tests exercise the [rooms] effect reconciliation: existing rooms whose
-  // last edit was longer ago than COOLDOWN_MS should adopt the polled volume/mute.
+describe("useMixer , poll reconcile gated on fetch time (www-tavs)", () => {
+  // These tests exercise the [rooms] effect reconciliation: a polled snapshot may
+  // only overwrite a room when the snapshot was FETCHED AFTER that room's last
+  // local edit (dataUpdatedAt > lastEditAt). A stale snapshot must never win,
+  // no matter how much wall-clock time has passed since the edit.
 
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.setSystemTime(10_000);
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it("(a) poll with new volume for existing room with no recent edit updates the fader", () => {
+  it("(a) poll with new volume for an unedited room updates the fader", () => {
     const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
-    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
-      initialProps: { rooms: initialRooms },
+    const { result, rerender } = renderHook(({ rooms, at }) => useMixer(rooms, at), {
+      initialProps: { rooms: initialRooms, at: 10_000 },
     });
     expect(result.current.vols["uuid-A"]).toBe(50);
 
-    // Advance time well past COOLDOWN_MS (3000ms) without any local edit.
-    vi.advanceTimersByTime(5000);
-
-    // Poll returns new volume from the Sonos system.
+    // Poll returns new volume from the Sonos system, fetched later.
     rerender({
       rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 70, muted: false }],
+      at: 20_000,
     });
 
     expect(result.current.vols["uuid-A"]).toBe(70);
   });
 
-  it("(b) poll within COOLDOWN_MS of a local edit does NOT overwrite the fader", () => {
+  it("(b) snapshot fetched BEFORE a local edit never overwrites, however old the edit", () => {
     const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
-    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
-      initialProps: { rooms: initialRooms },
+    const { result, rerender } = renderHook(({ rooms, at }) => useMixer(rooms, at), {
+      initialProps: { rooms: initialRooms, at: 9_000 },
     });
 
-    // Local edit at t=0.
+    // Local edit at t=10s.
     act(() => result.current.setRoomVolume("uuid-A", 65));
     expect(result.current.vols["uuid-A"]).toBe(65);
 
-    // Poll arrives 1 second later (within 3s cooldown) with a different value.
-    vi.advanceTimersByTime(1000);
+    // A full minute passes; re-renders keep replaying the CACHED snapshot that
+    // was fetched at t=9s (before the edit) , the old 3s cooldown design let
+    // this snap the fader back once the cooldown expired.
+    vi.setSystemTime(70_000);
     rerender({
       rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }],
+      at: 9_000,
     });
 
-    // Must not overwrite , local edit wins during cooldown.
+    // Stale snapshot must not overwrite the local edit.
     expect(result.current.vols["uuid-A"]).toBe(65);
   });
 
-  it("(b2) poll AFTER cooldown expires does overwrite the fader", () => {
+  it("(b2) snapshot fetched AFTER the edit does overwrite the fader", () => {
     const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
-    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
-      initialProps: { rooms: initialRooms },
+    const { result, rerender } = renderHook(({ rooms, at }) => useMixer(rooms, at), {
+      initialProps: { rooms: initialRooms, at: 9_000 },
     });
 
-    // Local edit at t=0.
+    // Local edit at t=10s.
     act(() => result.current.setRoomVolume("uuid-A", 65));
 
-    // Wait past cooldown (3001ms).
-    vi.advanceTimersByTime(3001);
-
-    // Poll arrives with a system-updated value.
+    // Next poll lands at t=15s , fetched after the edit, so the system's word
+    // (e.g. an adopt of a Sonos-app change) wins.
+    vi.setSystemTime(15_000);
     rerender({
       rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 72, muted: false }],
+      at: 15_000,
     });
 
-    // Cooldown expired , poll should win.
     expect(result.current.vols["uuid-A"]).toBe(72);
   });
 
-  it("(c) mute reconciles the same way , poll updates mute after cooldown", () => {
+  it("(c) mute reconciles the same way , fresh poll updates mute", () => {
     const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
-    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
-      initialProps: { rooms: initialRooms },
+    const { result, rerender } = renderHook(({ rooms, at }) => useMixer(rooms, at), {
+      initialProps: { rooms: initialRooms, at: 10_000 },
     });
     expect(result.current.mutes["uuid-A"]).toBe(false);
 
-    // Advance past cooldown.
-    vi.advanceTimersByTime(5000);
-
-    // Poll says the speaker is now muted.
+    // Poll fetched later says the speaker is now muted.
     rerender({
       rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: true }],
+      at: 20_000,
     });
 
     expect(result.current.mutes["uuid-A"]).toBe(true);
   });
 
-  it("(c2) mute toggleMute stamps cooldown , poll within cooldown does NOT overwrite mute", () => {
+  it("(c2) stale snapshot does NOT overwrite a local mute toggle", () => {
     const initialRooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
-    const { result, rerender } = renderHook(({ rooms }) => useMixer(rooms), {
-      initialProps: { rooms: initialRooms },
+    const { result, rerender } = renderHook(({ rooms, at }) => useMixer(rooms, at), {
+      initialProps: { rooms: initialRooms, at: 9_000 },
     });
 
-    // Local mute toggle at t=0.
+    // Local mute toggle at t=10s.
     act(() => result.current.toggleMute("uuid-A"));
     expect(result.current.mutes["uuid-A"]).toBe(true);
 
-    // Poll within cooldown says muted=false (the old state).
-    vi.advanceTimersByTime(500);
+    // Re-render replays the snapshot fetched at t=9s (muted=false, pre-toggle).
+    vi.setSystemTime(30_000);
     rerender({
       rooms: [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }],
+      at: 9_000,
     });
 
-    // Must not overwrite , local toggle wins during cooldown.
     expect(result.current.mutes["uuid-A"]).toBe(true);
   });
 
@@ -500,22 +501,47 @@ describe("useMixer , poll reconcile with edit cooldown (www-tavs)", () => {
     const rooms = [{ coordinatorUuid: "uuid-A", name: "Room A", volume: 50, muted: false }];
     let renderCount = 0;
     const { rerender } = renderHook(
-      ({ r }) => {
+      ({ r, at }) => {
         renderCount++;
-        return useMixer(r);
+        return useMixer(r, at);
       },
-      { initialProps: { r: rooms } },
+      { initialProps: { r: rooms, at: 10_000 } },
     );
     const baseRenderCount = renderCount;
 
-    // Re-render 10 times with identical rooms (simulating 10 polls with no change).
-    vi.advanceTimersByTime(5000);
+    // Re-render 10 times with identical rooms (simulating 10 fresh polls with no change).
     for (let i = 0; i < 10; i++) {
-      rerender({ r: rooms });
+      rerender({ r: rooms, at: 20_000 + i });
     }
 
     // Render count should not balloon (at most 1 extra per rerender from React , no loop).
     // The critical thing is it doesn't exceed baseRenderCount + 10 by more than ~10.
     expect(renderCount).toBeLessThanOrEqual(baseRenderCount + 20);
+  });
+
+  it("(e) two-fader regression: dragging B never snaps a previously-edited A back", () => {
+    // Field bug: move fader A, then grab fader B a few seconds later. B's drag
+    // re-renders the tile with the CACHED poll snapshot (fetched before A's
+    // edit); under the 3s cooldown A snapped back to its old value until the
+    // next 10s poll restored it.
+    const staleRooms = [
+      { uuid: "A", coordinatorUuid: "A", name: "Living Room", volume: 72, muted: false },
+      { uuid: "B", coordinatorUuid: "B", name: "Bedroom", volume: 73, muted: false },
+    ];
+    const { result, rerender } = renderHook(({ rooms, at }) => useMixer(rooms, at), {
+      initialProps: { rooms: staleRooms, at: 5_000 },
+    });
+
+    // t=10s: user drags A down to 30.
+    act(() => result.current.setRoomVolume("A", 30));
+
+    // t=13.5s (past the old 3s cooldown): user grabs B; each pointermove
+    // re-renders with the same stale snapshot.
+    vi.setSystemTime(13_500);
+    act(() => result.current.setRoomVolume("B", 50));
+    rerender({ rooms: staleRooms.map((r) => ({ ...r })), at: 5_000 });
+
+    expect(result.current.vols.A).toBe(30);
+    expect(result.current.vols.B).toBe(50);
   });
 });

@@ -106,10 +106,13 @@ function applyGangDelta(
   return next;
 }
 
-/** Edit cooldown in ms , polls within this window after a local edit are ignored (www-tavs). */
-const COOLDOWN_MS = 3000;
-
-export function useMixer(rooms: MixerRoom[]): MixerState {
+/**
+ * @param rooms Polled room snapshot from media.soundSystem.
+ * @param dataUpdatedAt When that snapshot was FETCHED (react-query dataUpdatedAt,
+ *   epoch ms; 0 while no data). Reconciliation is gated on it: a snapshot may
+ *   only overwrite a room it was fetched after that room's last local edit.
+ */
+export function useMixer(rooms: MixerRoom[], dataUpdatedAt: number): MixerState {
   const [vols, setVols] = useState<Record<string, number>>(() =>
     Object.fromEntries(rooms.map((r) => [roomKey(r), r.volume])),
   );
@@ -127,17 +130,19 @@ export function useMixer(rooms: MixerRoom[]): MixerState {
   groupOf.current = Object.fromEntries(rooms.map((r) => [roomKey(r), r.coordinatorUuid]));
 
   // www-tavs: tracks the last time a local edit (setRoomVolume / toggleMute) was
-  // made for each roomKey. Polls within COOLDOWN_MS of a local edit are ignored
-  // so the fader doesn't snap back to a stale polled value mid-drag.
+  // made for each roomKey. A polled snapshot only overwrites a room when it was
+  // fetched AFTER that room's last local edit (dataUpdatedAt > lastEditAt) , a
+  // stale cached snapshot replayed by an unrelated re-render (e.g. dragging a
+  // second fader) can never snap an edited fader back.
   const lastEditAt = useRef<Record<string, number>>({});
 
   // Re-sync vols and mutes when the rooms array changes (www-tavs):
   //  - Seed new rooms (vol + mute from the poll, they have no local edit yet).
   //  - Prune rooms no longer in the prop (www-ddo9.2).
-  //  - For EXISTING rooms, overwrite vol/mute from the poll UNLESS a local edit
-  //    happened within COOLDOWN_MS , desired-vs-reported reconcile.
+  //  - For EXISTING rooms, overwrite vol/mute from the poll only when the poll
+  //    was fetched after the room's last local edit , desired-vs-reported
+  //    reconcile that a stale snapshot can never win.
   useEffect(() => {
-    const now = Date.now();
     const currentUuids = new Set(rooms.map((r) => roomKey(r)));
     setVols((prev) => {
       const next = { ...prev };
@@ -148,14 +153,15 @@ export function useMixer(rooms: MixerRoom[]): MixerState {
           // New room: seed from poll.
           next[key] = r.volume;
           changed = true;
-        } else if (now - (lastEditAt.current[key] ?? 0) >= COOLDOWN_MS) {
-          // Existing room, past cooldown: reconcile from poll if value differs.
+        } else if (dataUpdatedAt > (lastEditAt.current[key] ?? 0)) {
+          // Existing room, snapshot fetched after the last local edit:
+          // reconcile from poll if value differs.
           if (next[key] !== r.volume) {
             next[key] = r.volume;
             changed = true;
           }
         }
-        // Within cooldown: leave existing local value untouched.
+        // Snapshot older than the local edit: leave the local value untouched.
       }
       // Prune rooms that are no longer in the prop.
       for (const uuid of Object.keys(next)) {
@@ -177,14 +183,15 @@ export function useMixer(rooms: MixerRoom[]): MixerState {
           // New room: seed from poll.
           next[key] = r.muted;
           changed = true;
-        } else if (now - (lastEditAt.current[key] ?? 0) >= COOLDOWN_MS) {
-          // Existing room, past cooldown: reconcile from poll if value differs.
+        } else if (dataUpdatedAt > (lastEditAt.current[key] ?? 0)) {
+          // Existing room, snapshot fetched after the last local edit:
+          // reconcile from poll if value differs.
           if (next[key] !== r.muted) {
             next[key] = r.muted;
             changed = true;
           }
         }
-        // Within cooldown: leave existing local value untouched.
+        // Snapshot older than the local edit: leave the local value untouched.
       }
       // Prune rooms that are no longer in the prop.
       for (const uuid of Object.keys(next)) {
@@ -196,7 +203,7 @@ export function useMixer(rooms: MixerRoom[]): MixerState {
       // Same stable-reference guard as setVols above (www-w6ug).
       return changed ? next : prev;
     });
-  }, [rooms]);
+  }, [rooms, dataUpdatedAt]);
 
   const setRoomVolume = useCallback(
     (uuid: string, target: number) => {
