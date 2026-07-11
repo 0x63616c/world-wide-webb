@@ -144,18 +144,28 @@ Edge cases:
 
 ## Secrets / infra
 
-`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_CONTENT` currently exist only as GitHub
-Actions / Fastlane secrets. To run the poll at runtime they must be wired into
-the **worker** (and api if it ever signs) environment:
+The ASC credentials already exist, committed to `secrets/vault.yaml`
+(SOPS-encrypted, values encrypted at rest). Key names:
 
-- Add `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_CONTENT`, `ASC_APP_ID` to
-  `api/src/env.ts` - the `SECRET_FILE_ENV` hydration list and the Zod schema.
-- Provision the secret via Pulumi so it reaches the worker pod (follow the
-  existing secret wiring, e.g. how `HA_TOKEN` / `UNIFI_API_KEY` are provided).
-- `ASC_APP_ID` is the ASC numeric app resource id (not the bundle id) - needed
-  for `filter[app]`. Capture it during implementation.
+- `APP_STORE_CONNECT_API__KEY_ID` -> `ASC_KEY_ID`
+- `APP_STORE_CONNECT_API__ISSUER_ID` -> `ASC_ISSUER_ID`
+- `APP_STORE_CONNECT_API__P8_CONTENT` -> `ASC_KEY_CONTENT` (the `.p8`)
+- `APP_STORE_CONNECT_API__APPLE_ID` -> `ASC_APP_ID` (`6762095888`)
 
-This secret wiring is the main new infrastructure work.
+CI (`.github/workflows/ios-build.yml`) already decrypts these and re-exports the
+`ASC_*` names. So there is **no new secret to provision**. The runtime work is:
+
+- Route the existing SOPS keys to the worker pod via the generic secret-sync
+  layer (`infra/src/secrets-map.ts` / `vault.ts`) - the mechanism is generic
+  and currently names no ASC keys, so add them there.
+- Add the `ASC_*` names to `api/src/env.ts` (`SECRET_FILE_ENV` hydration list +
+  Zod schema).
+
+`ASC_APP_ID` is the ASC numeric app resource id (not the bundle id), needed for
+`filter[app]`. Value `6762095888` (fastlane log + App Store Connect URL);
+confirm it matches SOPS `APP_STORE_CONNECT_API__APPLE_ID`. Not sensitive.
+
+This wiring is lighter than a fresh secret - just extending existing sync.
 
 ## Error handling
 
@@ -180,5 +190,9 @@ This secret wiring is the main new infrastructure work.
 
 1. Confirm the exact persistence pattern `weather-ingest` uses and match it for
    the cache store (dedicated table vs KV row).
-2. Capture the real `ASC_APP_ID`.
-3. Confirm the marketing-version source (ASC build include vs installed value).
+2. Confirm the marketing-version source (ASC build include vs installed value).
+3. Verify SOPS `APP_STORE_CONNECT_API__APPLE_ID` equals `6762095888` when wiring
+   secrets (a quick decrypt check, done as part of the secret-sync change).
+
+Resolved: `ASC_APP_ID = 6762095888`; ASC creds already in `secrets/vault.yaml`
+(no new secret to provision).
