@@ -1,8 +1,14 @@
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type * as schema from "../db/schema";
-import { daysUntil, listEvents } from "../services/events-service";
+import {
+  createEvent,
+  daysUntil,
+  deleteEvent,
+  listEvents,
+  updateEvent,
+} from "../services/events-service";
 
 type Db = NodePgDatabase<typeof schema>;
 
@@ -123,5 +129,110 @@ describe("listEvents", () => {
     const result = await listEvents(db, now);
 
     expect(result[0].days).toBe(0);
+  });
+
+  it("surfaces the row id so the manage UI can target it", async () => {
+    const now = new Date("2025-06-01T12:00:00-07:00");
+    const rows = [{ id: 42, name: "Show", place: "Venue", date: now, createdAt: now }];
+    const result = await listEvents(makeMockDb(rows), now);
+    expect(result[0].id).toBe(42);
+  });
+});
+
+// ─── createEvent / updateEvent / deleteEvent with mocked DB ────────────────
+
+describe("createEvent", () => {
+  it("inserts the parsed date and returns the mapped row", async () => {
+    const now = new Date("2026-06-12T12:00:00-07:00");
+    const values = vi.fn().mockReturnValue({
+      returning: () =>
+        Promise.resolve([
+          {
+            id: 7,
+            name: "SOSA",
+            place: "Expo Park",
+            date: new Date("2026-06-15T03:00:00Z"),
+            createdAt: now,
+          },
+        ]),
+    });
+    const db = { insert: () => ({ values }) } as unknown as Db;
+
+    const row = await createEvent(
+      db,
+      { name: "SOSA", place: "Expo Park", date: "2026-06-15T03:00:00Z" },
+      now,
+    );
+
+    // The service parses the ISO string to a real Date before inserting.
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "SOSA",
+        place: "Expo Park",
+        date: new Date("2026-06-15T03:00:00Z"),
+      }),
+    );
+    // 2026-06-15T03:00Z = Jun 14 8pm PT; from Jun 12 (now) that is 2 days.
+    expect(row).toMatchObject({ id: 7, name: "SOSA", place: "Expo Park", days: 2 });
+  });
+});
+
+describe("updateEvent", () => {
+  it("updates by id and returns the mapped row", async () => {
+    const now = new Date("2026-06-12T12:00:00-07:00");
+    const db = {
+      update: () => ({
+        set: () => ({
+          where: () => ({
+            returning: () =>
+              Promise.resolve([
+                {
+                  id: 7,
+                  name: "New",
+                  place: "New Venue",
+                  date: new Date("2026-06-14T03:00:00Z"),
+                  createdAt: now,
+                },
+              ]),
+          }),
+        }),
+      }),
+    } as unknown as Db;
+
+    const row = await updateEvent(
+      db,
+      7,
+      { name: "New", place: "New Venue", date: "2026-06-14T03:00:00Z" },
+      now,
+    );
+    // 2026-06-14T03:00Z = Jun 13 8pm PT; from Jun 12 (now) that is 1 day.
+    expect(row).toMatchObject({ id: 7, name: "New", place: "New Venue", days: 1 });
+  });
+
+  it("throws when the id does not exist", async () => {
+    const db = {
+      update: () => ({
+        set: () => ({ where: () => ({ returning: () => Promise.resolve([]) }) }),
+      }),
+    } as unknown as Db;
+    await expect(
+      updateEvent(db, 999, { name: "x", place: "", date: "2026-06-14T03:00:00Z" }),
+    ).rejects.toThrow("event 999 not found");
+  });
+});
+
+describe("deleteEvent", () => {
+  it("deletes by id and returns the id", async () => {
+    const db = {
+      delete: () => ({ where: () => ({ returning: () => Promise.resolve([{ id: 7 }]) }) }),
+    } as unknown as Db;
+    expect(await deleteEvent(db, 7)).toEqual({ id: 7 });
+  });
+
+  it("throws when the id does not exist", async () => {
+    const db = {
+      delete: () => ({ where: () => ({ returning: () => Promise.resolve([]) }) }),
+    } as unknown as Db;
+    await expect(deleteEvent(db, 999)).rejects.toThrow("event 999 not found");
   });
 });

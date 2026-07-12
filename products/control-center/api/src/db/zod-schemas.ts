@@ -19,5 +19,15 @@ export const EventSelectSchema = createSelectSchema(events, {
   // returning so the router output carries a string, not a native Date.
   date: z.string(),
 })
-  .pick({ name: true, place: true, date: true })
+  // `id` is surfaced so the manage UI can target edit/delete on a specific row.
+  .pick({ id: true, name: true, place: true, date: true })
   .extend({ days: z.number().int().nonnegative() });
+
+// events.create / events.update input: the writable fields. `name` and `date`
+// are required; `place` is the optional location/venue (defaults to "" when the
+// user leaves it blank). `date` is an ISO-8601 string the service parses to a Date.
+export const EventInputSchema = z.object({
+  name: z.string().trim().min(1, "name is required"),
+  place: z.string().trim().default(""),
+  date: z.string().datetime({ offset: true }),
+});
