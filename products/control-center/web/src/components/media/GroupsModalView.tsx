@@ -80,7 +80,7 @@ function EqBars({ sourceId }: EqBarsProps) {
   return (
     <div
       aria-hidden="true"
-      style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 14, flexShrink: 0 }}
+      style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 22, flexShrink: 0 }}
     >
       {[0, 1, 2].map((i) => (
         <span
@@ -135,8 +135,8 @@ function SourceCard({ source, selected, onSelect }: SourceCardProps) {
         style={{
           width: "100%",
           display: "flex",
-          flexDirection: "column",
-          gap: 4,
+          alignItems: "center",
+          gap: 10,
           background: "transparent",
           border: "none",
           cursor: disabled ? "default" : "pointer",
@@ -146,7 +146,7 @@ function SourceCard({ source, selected, onSelect }: SourceCardProps) {
           color: "inherit",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
             <span
               style={{
@@ -177,19 +177,19 @@ function SourceCard({ source, selected, onSelect }: SourceCardProps) {
               </span>
             )}
           </div>
-          {source.playing && <EqBars sourceId={source.id} />}
+          <span
+            style={{
+              fontSize: 10,
+              color: "var(--ink-3)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {statusLine(source)}
+          </span>
         </div>
-        <span
-          style={{
-            fontSize: 10,
-            color: "var(--ink-3)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {statusLine(source)}
-        </span>
+        {source.playing && <EqBars sourceId={source.id} />}
       </button>
     </div>
   );
@@ -308,12 +308,12 @@ export function GroupsModalView({
     <Modal open={open} onClose={onClose} title="Groups" width={640} maxHeight={760}>
       <style>{`
         @keyframes gmEq {
-          0%, 100% { height: 4px; }
-          50% { height: 14px; }
+          0%, 100% { height: 5px; }
+          50% { height: 22px; }
         }
         .gm-eq-bar {
-          width: 3px;
-          height: 4px;
+          width: 4px;
+          height: 5px;
           border-radius: 1px;
           background: var(--sc);
           animation: gmEq var(--eq-dur, 1s) ease-in-out infinite;
@@ -322,7 +322,7 @@ export function GroupsModalView({
         @media (prefers-reduced-motion: reduce) {
           .gm-eq-bar {
             animation: none;
-            height: 8px;
+            height: 13px;
           }
         }
       `}</style>

@@ -73,6 +73,24 @@ export const Default: Story = {
   },
 };
 
+export const TodayEvent: Story = {
+  name: "Populated , day-0 renders 'Today'",
+  args: {
+    status: "populated",
+    events: [
+      { name: "Gorgon City", place: "Sound Nightclub", days: 0 },
+      { name: "Chris Lake", place: "Shrine Expo Hall", days: 10 },
+      { name: "John Summit", place: "Hollywood Palladium", days: 54 },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // day-0 event shows "Today", not "0 days"
+    await expect(canvas.getByText("Today")).toBeInTheDocument();
+    expect(canvas.queryByText("0")).toBeNull();
+  },
+};
+
 export const MultipleEvents: Story = {
   name: "Populated , 4+ events (truncated to 3)",
   args: {

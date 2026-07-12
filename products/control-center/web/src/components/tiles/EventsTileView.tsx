@@ -25,6 +25,7 @@ function EventItem({
 }) {
   // Accent green for the nearest upcoming event OR any event within 3 days
   const dayColor = nearest || event.days <= 3 ? "var(--acc)" : "var(--ink)";
+  const isToday = event.days === 0;
 
   return (
     <div
@@ -37,20 +38,35 @@ function EventItem({
       }}
     >
       <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginBottom: 9 }}>
-        <span
-          className="mono"
-          style={{
-            fontSize: 32,
-            fontWeight: 700,
-            lineHeight: 0.82,
-            color: dayColor,
-          }}
-        >
-          {event.days}
-        </span>
-        <span className="cap" style={{ fontSize: 11 }}>
-          days
-        </span>
+        {isToday ? (
+          <span
+            style={{
+              fontSize: 32,
+              fontWeight: 700,
+              lineHeight: 0.82,
+              color: dayColor,
+            }}
+          >
+            Today
+          </span>
+        ) : (
+          <>
+            <span
+              className="mono"
+              style={{
+                fontSize: 32,
+                fontWeight: 700,
+                lineHeight: 0.82,
+                color: dayColor,
+              }}
+            >
+              {event.days}
+            </span>
+            <span className="cap" style={{ fontSize: 11 }}>
+              days
+            </span>
+          </>
+        )}
       </div>
       <div
         style={{
