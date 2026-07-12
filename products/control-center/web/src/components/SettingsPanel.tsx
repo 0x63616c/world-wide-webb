@@ -198,9 +198,6 @@ export function SettingsPanel() {
   const dimPercent = Math.round(settings.idleDimLevel * 100);
   const recenterMinutes = Math.round(settings.recenterTimeoutMs / MS_PER_MIN);
 
-  const themeFadeSec = settings.themeFadeMs / 1000;
-  const dimFadeSec = settings.dimFadeMs / 1000;
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
       <Section>

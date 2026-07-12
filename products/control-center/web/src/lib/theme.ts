@@ -109,6 +109,7 @@ export function useThemeController(): void {
   // is a dependency of the effect below; each boundary timer bumps it).
   const [tick, setTick] = useState(0);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tick` is not read in the body on purpose , it exists solely so the boundary timer's setTick re-runs this effect at sunrise/sunset.
   useEffect(() => {
     if (themeMode !== "auto") {
       applyTheme(themeMode, themeFadeMs);

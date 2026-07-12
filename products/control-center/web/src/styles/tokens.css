@@ -586,13 +586,13 @@ html.theme-fade *::after {
     border-color var(--theme-fade-ms, 1200ms) ease,
     fill var(--theme-fade-ms, 1200ms) ease,
     stroke var(--theme-fade-ms, 1200ms) ease,
-    box-shadow var(--theme-fade-ms, 1200ms) ease !important;
+    box-shadow var(--theme-fade-ms, 1200ms) ease;
 }
 @media (prefers-reduced-motion: reduce) {
   html.theme-fade,
   html.theme-fade *,
   html.theme-fade *::before,
   html.theme-fade *::after {
-    transition: none !important;
+    transition: none;
   }
 }
