@@ -34,7 +34,7 @@ export type Next12HoursViewProps = {
 // skeleton so the title + legend are present from first paint.
 const HoursLegend = (
   <span className="mono" style={{ fontSize: 11, display: "flex", gap: 10 }}>
-    <span style={{ color: "var(--hair-3)" }}>┈ Feels</span>
+    <span style={{ color: "rgba(255,255,255,0.35)" }}>┈ Feels</span>
     <span style={{ color: "var(--acc)" }}>▮ Temp</span>
   </span>
 );
@@ -165,7 +165,7 @@ export function Next12HoursView(props: Next12HoursViewProps) {
             <polyline
               points={fpts}
               fill="none"
-              stroke="var(--hair-2)"
+              stroke="rgba(255,255,255,0.18)"
               strokeWidth={1}
               strokeDasharray="2 5"
               strokeLinecap="round"
@@ -178,7 +178,7 @@ export function Next12HoursView(props: Next12HoursViewProps) {
                 cx={colCx(i)}
                 cy={bandH - barH(f)}
                 r={1}
-                fill="var(--hair-2)"
+                fill="rgba(255,255,255,0.18)"
                 opacity={0.45}
               />
             ))}

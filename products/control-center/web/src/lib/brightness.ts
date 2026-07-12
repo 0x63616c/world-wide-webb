@@ -30,46 +30,17 @@ async function setBacklight(level: number): Promise<void> {
   if (!isNativeDisplay()) return;
   try {
     await ScreenBrightness.setBrightness({ brightness: level });
-    lastLevel = level;
   } catch {
     // Best-effort , a brightness failure must never crash the board.
   }
 }
 
-// ─── ramped transitions ───────────────────────────────────────────────────────
-// The backlight has no native transition, so a "fade" is a stepped ramp from
-// the last level this module set. Only one ramp runs at a time: a new dim/wake
-// call cancels the in-flight ramp and starts from wherever it got to, so a tap
-// mid-dim brightens from the current level rather than snapping.
-
-const RAMP_STEP_MS = 40; // ~25 steps/second , visually continuous on the panel
-
-let lastLevel: number | null = null;
-let rampToken = 0;
-
-async function rampBacklight(target: number, durationMs: number): Promise<void> {
-  if (!isNativeDisplay()) return;
-  const token = ++rampToken;
-  const from = lastLevel;
-  // No known starting point (first call after boot) or no fade requested: jump.
-  if (from === null || durationMs <= 0 || Math.abs(target - from) < 0.005) {
-    await setBacklight(target);
-    return;
-  }
-  const steps = Math.max(1, Math.round(durationMs / RAMP_STEP_MS));
-  for (let i = 1; i <= steps; i++) {
-    if (token !== rampToken) return; // superseded by a newer dim/wake
-    await setBacklight(from + ((target - from) * i) / steps);
-    if (i < steps) await new Promise((r) => setTimeout(r, RAMP_STEP_MS));
-  }
+/** Drop the backlight to the (absolute) idle dim `level`. */
+export async function dimTo(level: number): Promise<void> {
+  await setBacklight(level);
 }
 
-/** Fade the backlight to the (absolute) idle dim `level` over `durationMs`. */
-export async function dimTo(level: number, durationMs = 0): Promise<void> {
-  await rampBacklight(level, durationMs);
-}
-
-/** Fade the backlight to the (absolute) active/awake `level` over `durationMs`. */
-export async function wakeTo(level: number, durationMs = 0): Promise<void> {
-  await rampBacklight(level, durationMs);
+/** Drive the backlight to the (absolute) active/awake `level`. */
+export async function wakeTo(level: number): Promise<void> {
+  await setBacklight(level);
 }

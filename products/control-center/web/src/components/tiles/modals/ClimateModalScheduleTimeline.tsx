@@ -350,7 +350,7 @@ function SegmentHandles({
               width: 14,
               height: 14,
               borderRadius: "50%",
-              background: "var(--thumb)",
+              background: "#fff",
               border: "3px solid var(--tile)",
               boxShadow: "0 0 0 1px rgba(255,255,255,0.2), 0 2px 6px -1px rgba(0,0,0,0.6)",
               cursor: "ns-resize",

@@ -1,7 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { useThemeController } from "./lib/theme";
 import { queryClient, trpc, trpcClient } from "./lib/trpc";
 import { useSettingsSync } from "./lib/useSettingsSync";
 import { startVersionCheck } from "./lib/version-check";
@@ -22,13 +21,6 @@ function SettingsSync() {
   return null;
 }
 
-// Resolves the synced theme preference (auto tracks the sun) onto <html
-// data-theme> with a cross-fade. Needs the tRPC providers, hence a component.
-function ThemeController() {
-  useThemeController();
-  return null;
-}
-
 export function App() {
   // Kiosk auto-refresh (www-ss8s): poll the deployed build stamp and hard-reload
   // once when an OTA deploy ships a new SHA. No-op in local dev (hash "dev").
@@ -38,7 +30,6 @@ export function App() {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <SettingsSync />
-        <ThemeController />
         <RouterProvider router={router} />
       </QueryClientProvider>
     </trpc.Provider>

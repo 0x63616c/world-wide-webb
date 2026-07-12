@@ -172,8 +172,8 @@ describe("Next12Hours", () => {
     const stroke = polyline?.getAttribute("stroke") ?? "";
     // Must NOT be the old hex color
     expect(stroke).not.toBe("#6E747D");
-    // Must be the low-contrast hairline token (theme-aware since light mode)
-    expect(stroke).toBe("var(--hair-2)");
+    // Must be an rgba value (low-contrast white)
+    expect(stroke).toMatch(/^rgba\(/);
   });
 
   it("www-lad: section header uses TileHeader primitive (no hand-rolled flex row)", () => {

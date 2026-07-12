@@ -20,24 +20,8 @@
   --acc-line: rgba(0, 112, 243, 0.45);
   --acc-glow: 0 0 0 1px rgba(0, 112, 243, 0.4), 0 0 26px -6px rgba(0, 112, 243, 0.5);
   --amber: #f4c063;
-  --amber-dim: rgba(244, 192, 99, 0.1);
-  --amber-line: rgba(244, 192, 99, 0.35);
   --teal: #6fdbcb;
   --r: 20px;
-
-  /* Surface-detail tokens , extracted from previously hard-coded literals so
-     the light theme can restyle them. Values here are byte-identical to the
-     old literals; dark mode renders exactly as before. */
-  --dot-idle: #3a3a3a;
-  --thumb: #ffffff;
-  --tile-inset: rgba(255, 255, 255, 0.035);
-  --shadow-tile: 0 10px 30px -18px rgba(0, 0, 0, 0.8);
-  --shadow-thumb: 0 4px 10px -2px rgba(0, 0, 0, 0.7);
-  --scanline: rgba(255, 255, 255, 0.018);
-  /* Off-state switch track. Matches --tile-2 in dark (the historical literal);
-     one step darker than the panel surface in light so an off switch still
-     reads against a white modal. */
-  --sw-track: #111111;
   --ui: "Space Grotesk Variable", "Space Grotesk", "SF Pro Display", system-ui, sans-serif;
   --mono: "Space Mono", ui-monospace, monospace;
 
@@ -55,49 +39,6 @@
   /* Overflow panel surface tokens , layered above the tile surface */
   --bg-2: var(--tile-2);
   --bg-3: var(--nest);
-}
-
-/* ===== Light theme , Geist-style light neutrals over the same token names.
-   Dark stays the :root default; the theme controller (lib/theme.ts) stamps
-   data-theme="light" on <html> to activate this block. Accent stays Vercel
-   blue; amber/teal darken for contrast on white. ===== */
-:root[data-theme="light"] {
-  --bg: #e8e8e8;
-  --tile: #ffffff;
-  --tile-2: #f5f5f5;
-  --nest: #ececec;
-  --hair: rgba(0, 0, 0, 0.08);
-  --hair-2: rgba(0, 0, 0, 0.14);
-  --hair-3: rgba(0, 0, 0, 0.34);
-  --ink: #171717;
-  --ink-2: #666666;
-  --ink-3: #909090;
-  --acc: #0070f3;
-  --acc-2: #0061d5;
-  --acc-muted: #b9c6d8;
-  --acc-dim: rgba(0, 112, 243, 0.09);
-  --acc-line: rgba(0, 112, 243, 0.4);
-  --acc-glow: 0 0 0 1px rgba(0, 112, 243, 0.35), 0 0 26px -6px rgba(0, 112, 243, 0.35);
-  --amber: #a16207;
-  --amber-dim: rgba(161, 98, 7, 0.1);
-  --amber-line: rgba(161, 98, 7, 0.35);
-  --teal: #0f766e;
-
-  --dot-idle: #c4c4c4;
-  --thumb: #ffffff;
-  --tile-inset: rgba(255, 255, 255, 0.6);
-  --shadow-tile: 0 10px 30px -18px rgba(0, 0, 0, 0.25);
-  --shadow-thumb: 0 4px 10px -2px rgba(0, 0, 0, 0.25);
-  --scanline: rgba(0, 0, 0, 0.02);
-  --sw-track: #dedede;
-}
-
-/* Decorative bento placeholders: in dark their half-opacity #0a0a0a fill all but
-   vanishes into the black board; in light a half-opacity white card still reads
-   as a real tile, so recess them onto the nest surface instead. */
-:root[data-theme="light"] .tile-placeholder {
-  background: var(--nest);
-  box-shadow: none;
 }
 
 * {
@@ -140,8 +81,8 @@
   border: 1px solid var(--hair);
   border-radius: var(--r);
   box-shadow:
-    inset 0 1px 0 0 var(--tile-inset),
-    var(--shadow-tile);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.035),
+    0 10px 30px -18px rgba(0, 0, 0, 0.8);
   position: relative;
   transition:
     border-color 0.2s ease,
@@ -216,8 +157,8 @@
   color: var(--acc);
 }
 .pill.amber {
-  background: var(--amber-dim);
-  border-color: var(--amber-line);
+  background: rgba(244, 192, 99, 0.1);
+  border-color: rgba(244, 192, 99, 0.35);
   color: var(--amber);
 }
 
@@ -250,7 +191,7 @@
   width: var(--w);
   height: var(--h);
   border-radius: 999px;
-  background: var(--sw-track);
+  background: #111111;
   border: 1px solid var(--hair-2);
   position: relative;
   cursor: pointer;
@@ -304,7 +245,7 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--dot-idle);
+  background: #3a3a3a;
   transition: all 0.18s;
 }
 .tap.on .sd {
@@ -319,12 +260,7 @@
   width: 100%;
   height: 8px;
   border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    var(--acc-2),
-    var(--acc) var(--p, 50%),
-    var(--nest) var(--p, 50%)
-  );
+  background: linear-gradient(90deg, var(--acc-2), var(--acc) var(--p, 50%), #181818 var(--p, 50%));
   outline: none;
   cursor: pointer;
   /* A drag on the slider adjusts the slider, never pans the board behind it. */
@@ -336,11 +272,11 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: var(--thumb);
+  background: #fff;
   border: 4px solid var(--tile);
   box-shadow:
     0 0 0 1px var(--hair-2),
-    var(--shadow-thumb);
+    0 4px 10px -2px rgba(0, 0, 0, 0.7);
   cursor: grab;
 }
 .range::-webkit-slider-thumb:active {
@@ -383,10 +319,10 @@
   /* filled band between low and high; outside is the dim rail */
   background: linear-gradient(
     90deg,
-    var(--nest) var(--lo, 0%),
+    #181818 var(--lo, 0%),
     var(--acc-2) var(--lo, 0%),
     var(--acc) var(--hi, 100%),
-    var(--nest) var(--hi, 100%)
+    #181818 var(--hi, 100%)
   );
 }
 .range-thumb {
@@ -410,11 +346,11 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: var(--thumb);
+  background: #fff;
   border: 4px solid var(--tile);
   box-shadow:
     0 0 0 1px var(--hair-2),
-    var(--shadow-thumb);
+    0 4px 10px -2px rgba(0, 0, 0, 0.7);
   cursor: grab;
   pointer-events: auto;
 }
@@ -449,7 +385,7 @@
   position: relative;
   border-radius: 14px;
   overflow: hidden;
-  background: var(--tile);
+  background: #0a0a0a;
   border: 1px solid var(--hair);
 }
 .board::-webkit-scrollbar {
@@ -544,13 +480,17 @@
   position: relative;
   border-radius: 14px;
   overflow: hidden;
-  background: var(--tile);
+  background: #0a0a0a;
   border: 1px solid var(--hair);
 }
 .scan {
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(0deg, var(--scanline) 0 2px, transparent 2px 4px);
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.018) 0 2px,
+    transparent 2px 4px
+  );
   pointer-events: none;
   z-index: 3;
 }
@@ -558,7 +498,7 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--dot-idle);
+  background: #3a3a3a;
 }
 .pnl {
   background: var(--tile);
@@ -569,30 +509,4 @@
   border-style: dashed;
   border-color: var(--hair-2);
   background: transparent;
-}
-
-/* ===== Theme cross-fade , the theme controller (lib/theme.ts) adds .theme-fade
-   to <html> for the duration of a light↔dark swap so every token-driven color
-   glides to its new value instead of snapping. Scoped to a transient class so
-   steady-state rendering pays zero transition cost. --theme-fade-ms is stamped
-   inline by the controller from the synced setting. ===== */
-html.theme-fade,
-html.theme-fade *,
-html.theme-fade *::before,
-html.theme-fade *::after {
-  transition:
-    background-color var(--theme-fade-ms, 1200ms) ease,
-    color var(--theme-fade-ms, 1200ms) ease,
-    border-color var(--theme-fade-ms, 1200ms) ease,
-    fill var(--theme-fade-ms, 1200ms) ease,
-    stroke var(--theme-fade-ms, 1200ms) ease,
-    box-shadow var(--theme-fade-ms, 1200ms) ease;
-}
-@media (prefers-reduced-motion: reduce) {
-  html.theme-fade,
-  html.theme-fade *,
-  html.theme-fade *::before,
-  html.theme-fade *::after {
-    transition: none;
-  }
 }

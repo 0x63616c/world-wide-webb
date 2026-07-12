@@ -28,18 +28,6 @@ export const SNAP_MODE_LABEL: Record<SnapMode, string> = {
   spring: "spring (old)",
 };
 
-// ─── theme vocabulary (shared with lib/theme) ─────────────────────────────────
-// `auto` follows the sun at the home location: light after sunrise, dark after
-// sunset, both shifted by themeSunOffsetMin. The switching logic lives in
-// lib/theme.ts; this is just the persisted preference.
-export const THEME_MODES = ["auto", "light", "dark"] as const;
-export type ThemeMode = (typeof THEME_MODES)[number];
-export const THEME_MODE_LABEL: Record<ThemeMode, string> = {
-  auto: "auto",
-  light: "light",
-  dark: "dark",
-};
-
 // ─── settings shape + bounds ──────────────────────────────────────────────────
 
 export interface Settings {
@@ -63,15 +51,6 @@ export interface Settings {
   showBuildBadge: boolean;
   /** Board settle feel (see SNAP_MODES). */
   snapMode: SnapMode;
-  /** Board color theme (see THEME_MODES). */
-  themeMode: ThemeMode;
-  /** Auto-theme switch offset in minutes relative to sunrise/sunset. Positive
-   *  switches later (+30 ≈ hold light until civil twilight ends). */
-  themeSunOffsetMin: number;
-  /** Light↔dark cross-fade duration in ms (0 = instant). */
-  themeFadeMs: number;
-  /** Idle-dim backlight ramp duration in ms (0 = instant). */
-  dimFadeMs: number;
 }
 
 export const MIN_IDLE_TIMEOUT_MS = 60_000; // 1 min
@@ -82,12 +61,6 @@ export const MAX_DIM_LEVEL = 0.99; // 99 %
 // full so "dimmed" always reads darker than "awake").
 export const MIN_BRIGHTNESS = 0.01; // 1 %
 export const MAX_BRIGHTNESS = 1; // 100 %
-// Fades cap at 10s; the sun offset stays within ±2h of the event (mirrors the
-// server-side settingsSchema bounds so a synced value always round-trips).
-export const MIN_FADE_MS = 0;
-export const MAX_FADE_MS = 10_000;
-export const MIN_SUN_OFFSET_MIN = -120;
-export const MAX_SUN_OFFSET_MIN = 120;
 
 const DEFAULTS: Settings = {
   activeBrightness: 1,
@@ -99,11 +72,6 @@ const DEFAULTS: Settings = {
   showFps: false,
   showBuildBadge: true,
   snapMode: "mandatory-settle",
-  // Dark default preserves the panel's historical look until a user opts in.
-  themeMode: "dark",
-  themeSunOffsetMin: 30,
-  themeFadeMs: 1200,
-  dimFadeMs: 1000,
 };
 
 // `cc-board-snap-mode` is reused verbatim so an existing SnapModeSwitcher choice
@@ -118,10 +86,6 @@ const KEYS = {
   showFps: "cc-show-fps",
   showBuildBadge: "cc-show-build-badge",
   snapMode: "cc-board-snap-mode",
-  themeMode: "cc-theme-mode",
-  themeSunOffsetMin: "cc-theme-sun-offset-min",
-  themeFadeMs: "cc-theme-fade-ms",
-  dimFadeMs: "cc-dim-fade-ms",
 } as const;
 
 // ─── clamps ───────────────────────────────────────────────────────────────────
@@ -139,16 +103,6 @@ export function clampDimLevel(level: number): number {
 export function clampBrightness(level: number): number {
   if (!Number.isFinite(level)) return DEFAULTS.activeBrightness;
   return Math.min(MAX_BRIGHTNESS, Math.max(MIN_BRIGHTNESS, level));
-}
-
-export function clampFadeMs(ms: number, fallback: number): number {
-  if (!Number.isFinite(ms)) return fallback;
-  return Math.min(MAX_FADE_MS, Math.max(MIN_FADE_MS, Math.round(ms)));
-}
-
-export function clampSunOffsetMin(min: number): number {
-  if (!Number.isFinite(min)) return DEFAULTS.themeSunOffsetMin;
-  return Math.min(MAX_SUN_OFFSET_MIN, Math.max(MIN_SUN_OFFSET_MIN, Math.round(min)));
 }
 
 // ─── best-effort localStorage IO ──────────────────────────────────────────────
@@ -179,10 +133,6 @@ function loadInitial(): Settings {
   const recenterEnabled = readRaw(KEYS.recenterEnabled);
   const recenterTimeout = readRaw(KEYS.recenterTimeoutMs);
   const buildBadge = readRaw(KEYS.showBuildBadge);
-  const themeMode = readRaw(KEYS.themeMode);
-  const themeSunOffset = readRaw(KEYS.themeSunOffsetMin);
-  const themeFade = readRaw(KEYS.themeFadeMs);
-  const dimFade = readRaw(KEYS.dimFadeMs);
   return {
     activeBrightness:
       brightness === null ? DEFAULTS.activeBrightness : clampBrightness(Number(brightness)),
@@ -202,20 +152,6 @@ function loadInitial(): Settings {
       snap && (SNAP_MODES as readonly string[]).includes(snap)
         ? (snap as SnapMode)
         : DEFAULTS.snapMode,
-    themeMode:
-      themeMode && (THEME_MODES as readonly string[]).includes(themeMode)
-        ? (themeMode as ThemeMode)
-        : DEFAULTS.themeMode,
-    themeSunOffsetMin:
-      themeSunOffset === null
-        ? DEFAULTS.themeSunOffsetMin
-        : clampSunOffsetMin(Number(themeSunOffset)),
-    themeFadeMs:
-      themeFade === null
-        ? DEFAULTS.themeFadeMs
-        : clampFadeMs(Number(themeFade), DEFAULTS.themeFadeMs),
-    dimFadeMs:
-      dimFade === null ? DEFAULTS.dimFadeMs : clampFadeMs(Number(dimFade), DEFAULTS.dimFadeMs),
   };
 }
 
@@ -325,25 +261,6 @@ export function setShowBuildBadge(v: boolean): void {
 
 export function setSnapMode(mode: SnapMode): void {
   patch("snapMode", mode, mode);
-}
-
-export function setThemeMode(mode: ThemeMode): void {
-  patch("themeMode", mode, mode);
-}
-
-export function setThemeSunOffsetMin(min: number): void {
-  const clamped = clampSunOffsetMin(min);
-  patch("themeSunOffsetMin", clamped, String(clamped));
-}
-
-export function setThemeFadeMs(ms: number): void {
-  const clamped = clampFadeMs(ms, DEFAULTS.themeFadeMs);
-  patch("themeFadeMs", clamped, String(clamped));
-}
-
-export function setDimFadeMs(ms: number): void {
-  const clamped = clampFadeMs(ms, DEFAULTS.dimFadeMs);
-  patch("dimFadeMs", clamped, String(clamped));
 }
 
 /**

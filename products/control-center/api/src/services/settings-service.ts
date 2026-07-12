@@ -22,23 +22,9 @@ export const SnapMode = {
 } as const;
 export type SnapMode = (typeof SnapMode)[keyof typeof SnapMode];
 
-/** Valid board color themes. Auto follows the sun at the home location. */
-export const ThemeMode = {
-  Auto: "auto",
-  Light: "light",
-  Dark: "dark",
-} as const;
-export type ThemeMode = (typeof ThemeMode)[keyof typeof ThemeMode];
-
 // Idle-dim and recenter timeouts share the same valid window: 1 minute .. 1 hour.
 const TIMEOUT_MIN_MS = 60_000;
 const TIMEOUT_MAX_MS = 3_600_000;
-
-// Theme/dim fades cap at 10s; sunset offset stays within ±2 hours of the event.
-const FADE_MIN_MS = 0;
-const FADE_MAX_MS = 10_000;
-const SUN_OFFSET_MIN_MIN = -120;
-const SUN_OFFSET_MAX_MIN = 120;
 
 export const settingsSchema = z.object({
   /** Active (awake) backlight the panel drives itself, overriding the OS
@@ -58,17 +44,6 @@ export const settingsSchema = z.object({
     SnapMode.None,
     SnapMode.Spring,
   ]),
-  /** Board color theme. `auto` tracks the sun: light after sunrise, dark after
-   *  sunset (shifted by themeSunOffsetMin), from the home-location sun times
-   *  already ingested with the weather. */
-  themeMode: z.enum([ThemeMode.Auto, ThemeMode.Light, ThemeMode.Dark]),
-  /** Auto-theme switch offset in minutes relative to sunrise/sunset. Positive
-   *  switches later (e.g. +30 ≈ wait for civil twilight to end). */
-  themeSunOffsetMin: z.number().min(SUN_OFFSET_MIN_MIN).max(SUN_OFFSET_MAX_MIN),
-  /** Light↔dark cross-fade duration in ms (0 = instant). */
-  themeFadeMs: z.number().min(FADE_MIN_MS).max(FADE_MAX_MS),
-  /** Idle-dim backlight ramp duration in ms (0 = instant). */
-  dimFadeMs: z.number().min(FADE_MIN_MS).max(FADE_MAX_MS),
 });
 
 /** A partial patch: any subset of the full settings object. */
@@ -89,11 +64,6 @@ export const DEFAULTS: Settings = {
   showFps: false,
   showBuildBadge: true,
   snapMode: SnapMode.MandatorySettle,
-  // Dark default preserves the panel's historical look until a user opts in.
-  themeMode: ThemeMode.Dark,
-  themeSunOffsetMin: 30,
-  themeFadeMs: 1200,
-  dimFadeMs: 1000,
 };
 
 type Database = NodePgDatabase<typeof schema>;

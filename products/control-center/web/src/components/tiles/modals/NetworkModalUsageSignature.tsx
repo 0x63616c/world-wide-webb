@@ -87,7 +87,7 @@ const CLASS_META: Record<
   call: {
     label: "Video call",
     color: "var(--amber)",
-    bgColor: "var(--amber-dim)",
+    bgColor: "rgba(244, 192, 99, 0.12)",
     description: "Symmetric",
   },
   backup: {

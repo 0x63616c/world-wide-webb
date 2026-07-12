@@ -292,14 +292,14 @@ export function SolarDayArcGraphic({
 
         {/* Sun disc , outer glow ring + main dot, rides the arc at current progress */}
         {/* Glow ring: only visible during daytime */}
-        <circle cx={sunDotX} cy={sunDotY} r={isDaytime ? 14 : 0} fill="var(--amber-dim)" />
+        <circle cx={sunDotX} cy={sunDotY} r={isDaytime ? 14 : 0} fill="rgba(244, 192, 99, 0.12)" />
         {/* Main dot */}
         <circle
           cx={sunDotX}
           cy={sunDotY}
           r={isDaytime ? 7 : 5}
           fill={isDaytime ? "var(--amber)" : "var(--ink-3)"}
-          stroke={isDaytime ? "color-mix(in srgb, var(--amber) 50%, transparent)" : "var(--hair-2)"}
+          stroke={isDaytime ? "rgba(244, 192, 99, 0.5)" : "var(--hair-2)"}
           strokeWidth={2}
         />
 

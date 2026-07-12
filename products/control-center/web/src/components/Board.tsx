@@ -249,7 +249,7 @@ function CenteredTileLabel({ label, panSignal }: { label: string | undefined; pa
         left: MINIMAP_LEFT + MINIMAP_WIDTH + 6,
         top: MINIMAP_TOP + 6,
         padding: "3px 8px",
-        background: "color-mix(in srgb, var(--tile-2) 92%, transparent)",
+        background: "rgba(12, 14, 17, 0.92)",
         border: "1px solid var(--hair-2)",
         borderRadius: 6,
         fontFamily: "var(--ui)",
@@ -473,7 +473,6 @@ export function Board() {
     timeoutMs: settings.idleDimTimeoutMs,
     level: settings.idleDimLevel,
     activeBrightness: settings.activeBrightness,
-    fadeMs: settings.dimFadeMs,
   });
 
   // The wake tap: the dim overlay swallows the first touch so it never reaches a

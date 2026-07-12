@@ -556,8 +556,6 @@ type UseIdleDimOptions = {
   level: number;
   /** Awake backlight (0..1) the panel holds when NOT dimmed, overriding the OS. */
   activeBrightness: number;
-  /** Dim/wake backlight ramp duration in ms (0 = instant). */
-  fadeMs: number;
 };
 
 /**
@@ -578,7 +576,6 @@ export function useIdleDim({
   timeoutMs,
   level,
   activeBrightness,
-  fadeMs,
 }: UseIdleDimOptions): { dimmed: boolean; wake: () => void } {
   const [dimmed, setDimmed] = useState(false);
 
@@ -600,13 +597,9 @@ export function useIdleDim({
   // Apply the backlight off the resolved state. The else-branch (awake, disabled,
   // mount) drives the panel to its active brightness , the app always owns the
   // backlight, so a hand-dimmed iPad still comes up at the configured level.
-  // The ramp duration is read through a ref so a fade-length edit doesn't
-  // retrigger the effect (which would re-ramp to the same level).
-  const fadeRef = useRef(fadeMs);
-  fadeRef.current = fadeMs;
   useEffect(() => {
-    if (enabled && dimmed) void dimTo(level, fadeRef.current);
-    else void wakeTo(activeBrightness, fadeRef.current);
+    if (enabled && dimmed) void dimTo(level);
+    else void wakeTo(activeBrightness);
   }, [enabled, dimmed, level, activeBrightness]);
 
   // Never leave the backlight dimmed if the board unmounts mid-dim. Read the live

@@ -86,7 +86,7 @@ export function ControlTap({
               borderRadius: "50%",
               background: swatch,
               // Subtle ring so pale swatches (warm white) stay visible on the tile.
-              boxShadow: "inset 0 0 0 1px var(--hair-2)",
+              boxShadow: "inset 0 0 0 1px rgba(255,255,255,.18)",
             }}
           />
         ) : icon === "fan" ? (

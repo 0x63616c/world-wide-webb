@@ -140,7 +140,7 @@ function TrafficChart({
       barW: colW - BAR_GAP,
       downH: Math.round((bucket.down / maxBytes) * (HALF - 4)),
       upH: Math.round((bucket.up / maxBytes) * (HALF - 4)),
-      downColor: isPeak ? "var(--acc)" : isSelected ? "var(--acc-2)" : "var(--acc-line)",
+      downColor: isPeak ? "var(--acc)" : isSelected ? "var(--acc-2)" : "rgba(0,112,243,0.45)",
       upColor: isPeak ? "var(--amber)" : isSelected ? "#d4a84b" : "rgba(244,192,99,0.4)",
     };
   });

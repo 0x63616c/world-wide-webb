@@ -4,5 +4,5 @@
 // real tiles and non-interactive (the board renders it in a pointer-events:none
 // layer), so it never intercepts taps or opens a modal.
 export function PlaceholderTile() {
-  return <div className="tile tile-placeholder" style={{ height: "100%", opacity: 0.5 }} />;
+  return <div className="tile" style={{ height: "100%", opacity: 0.5 }} />;
 }

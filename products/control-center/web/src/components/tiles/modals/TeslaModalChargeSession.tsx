@@ -288,7 +288,7 @@ export function TeslaModalChargeSession({
       : chargingState === "stopped"
         ? "var(--amber)"
         : "var(--ink-3)";
-  const ringTrack = "var(--hair)";
+  const ringTrack = "rgba(255,255,255,0.06)";
 
   return (
     <Modal open={open} onClose={onClose} title="Tesla" width={640} maxHeight={720}>
@@ -465,8 +465,8 @@ export function TeslaModalChargeSession({
             justifyContent: "center",
             gap: 10,
             borderRadius: 15,
-            background: isCharging ? "var(--amber-dim)" : "var(--acc-dim)",
-            border: `1px solid ${isCharging ? "var(--amber-line)" : "var(--acc-line)"}`,
+            background: isCharging ? "rgba(244, 192, 99, 0.08)" : "var(--acc-dim)",
+            border: `1px solid ${isCharging ? "rgba(244, 192, 99, 0.3)" : "var(--acc-line)"}`,
             color: isCharging ? "var(--amber)" : "var(--acc)",
             font: "inherit",
             fontSize: 16,
