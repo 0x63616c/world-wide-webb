@@ -453,6 +453,47 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
     {
+      // Plex Media Server (third-party). Serves the Synology media share to the
+      // Apple TV. Not a control-center product component, but co-located in the
+      // control-center namespace to reuse the media NFS share + a local-path PVC.
+      logicalName: "control-center-plex",
+      name: "plex",
+      namespaceName: "control-center",
+      // Version-pinned public image (multi-arch; arm64 manifest for the OrbStack
+      // node). Third-party like cloudflared: no GHCR pull secret, no digest pin.
+      image: "plexinc/pms-docker:1.43.2.10687-563d026ea",
+      replicas: 1,
+      resources: { memory: "1G", reserveCpus: "0.5" },
+      env: {
+        TZ,
+        HOSTNAME: "Plex",
+        // No PLEX_CLAIM: plex.tv/claim tokens expire in ~4 min so none can be
+        // pre-stored. The server boots UNCLAIMED; claim it once via the web UI
+        // (docs/plex.md). ADVERTISE_IP publishes the Mac-host LAN address so
+        // clients get a directly-reachable URL, not the OrbStack-internal pod IP:
+        // the LoadBalancer port below is republished by OrbStack on the Mac host
+        // at 192.168.0.147:32400 (en0 LAN). Update if the Mac's LAN IP changes.
+        ADVERTISE_IP: "http://192.168.0.147:32400",
+      },
+      // Plex config/metadata (SQLite) MUST live on fast local disk, never NFS
+      // (SQLite over NFS corrupts). local-path PVC on the OrbStack SSD.
+      // The media share is the same NFS export + subPath as media-worker, mounted
+      // read-only; point a Plex library at /data (docs/plex.md).
+      volumes: [
+        { mountPath: "/config", claim: "plex-config" },
+        {
+          mountPath: "/data",
+          nfs: { server: nasNfsServer, path: "/volume1/Homelab" },
+          subPath: "media",
+          readOnly: true,
+        },
+      ],
+      // LAN LoadBalancer on :32400 (republished on the Mac host by OrbStack
+      // expose_services, same mechanism as the captive-portal LB), so the Apple
+      // TV on 192.168.0.0/24 reaches Plex directly.
+      ports: [{ containerPort: 32400, expose: "lan" }],
+    },
+    {
       logicalName: "platform-cloudflared",
       legacyLogicalName: "cloudflared",
       name: "cloudflared",
@@ -515,6 +556,9 @@ export interface ServicesResources {
 const LOCAL_PATH_CLAIMS: { name: string; size: string }[] = [
   { name: "drizzle-data", size: "1Gi" },
   { name: "maps", size: "2Gi" },
+  // Plex config/metadata/thumbnails on the OrbStack SSD (SQLite must not be on
+  // NFS). Mounted at /config by the plex workload above.
+  { name: "plex-config", size: "10Gi" },
 ];
 
 /**
