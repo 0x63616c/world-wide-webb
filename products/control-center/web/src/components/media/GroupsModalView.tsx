@@ -136,9 +136,7 @@ function SourceCard({ source, selected, onSelect, onAll }: SourceCardProps) {
           border: "none",
           cursor: "pointer",
           textAlign: "left",
-          // Selected card only grows downward (room for the ALL button) , same
-          // horizontal padding as unselected so content never shifts sideways.
-          padding: selected ? "10px 12px 26px 12px" : "10px 12px",
+          padding: "10px 12px",
           font: "inherit",
           color: "inherit",
         }}
@@ -183,6 +181,11 @@ function SourceCard({ source, selected, onSelect, onAll }: SourceCardProps) {
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
+            // Selected card grows downward to fit the ALL button; the status
+            // line rides down with it, ending 10px from the bottom edge , the
+            // same breathing room the title has at the top. The extra right
+            // padding keeps a long track line from running under ALL.
+            ...(selected ? { marginTop: 16, paddingRight: 64 } : {}),
           }}
         >
           {statusLine(source)}
