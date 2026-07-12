@@ -165,7 +165,7 @@ function TempCurveChart({ slots, activeIdx, onHover }: TempCurveChartProps) {
               y1={y}
               x2={CHART_W}
               y2={y}
-              stroke="rgba(255,255,255,0.06)"
+              stroke="var(--hair)"
               strokeWidth={1}
             />
           );
@@ -175,7 +175,7 @@ function TempCurveChart({ slots, activeIdx, onHover }: TempCurveChartProps) {
         <polyline
           points={polyPoints(feelsPts)}
           fill="none"
-          stroke="rgba(255,255,255,0.28)"
+          stroke="var(--hair-3)"
           strokeWidth={1.5}
           strokeDasharray="3 5"
           strokeLinecap="round"
@@ -198,7 +198,7 @@ function TempCurveChart({ slots, activeIdx, onHover }: TempCurveChartProps) {
           y1={0}
           x2={activeX}
           y2={CHART_H}
-          stroke="rgba(255,255,255,0.14)"
+          stroke="var(--hair-2)"
           strokeWidth={1}
           strokeDasharray="3 3"
         />

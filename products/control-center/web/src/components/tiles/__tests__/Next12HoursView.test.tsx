@@ -108,12 +108,12 @@ describe("Next12HoursView , populated state", () => {
     expect(parseFloat(opacity)).toBeLessThan(1);
   });
 
-  it("feels-like polyline uses rgba stroke, not a hex colour", () => {
+  it("feels-like polyline uses the hairline token, not a hex colour", () => {
     const { container } = render(<Next12HoursView {...populatedProps} />);
     const polyline = container.querySelector("polyline");
     const stroke = polyline?.getAttribute("stroke") ?? "";
     expect(stroke).not.toBe("#6E747D");
-    expect(stroke).toMatch(/^rgba\(/);
+    expect(stroke).toBe("var(--hair-2)");
   });
 
   // Regression: feels-like hotter than the hottest temp must stay inside the band,

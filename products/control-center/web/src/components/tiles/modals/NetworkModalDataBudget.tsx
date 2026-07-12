@@ -167,7 +167,7 @@ interface BudgetBarProps {
 function BudgetBar({ usedGb, capGb }: BudgetBarProps) {
   const pct = Math.min((usedGb / capGb) * 100, 100);
   const overBudget = usedGb > capGb;
-  const fillColor = overBudget ? "#f4c063" : "var(--acc)";
+  const fillColor = overBudget ? "var(--amber)" : "var(--acc)";
   return (
     // Use the semantic <meter> element , biome requires it over role="meter".
     // appearance:none drops the browser default so our gradient takes over.
@@ -184,7 +184,7 @@ function BudgetBar({ usedGb, capGb }: BudgetBarProps) {
         borderRadius: 999,
         width: "100%",
         // Static filled track: accent up to pct%, dim rail after.
-        background: `linear-gradient(90deg, ${fillColor} ${pct}%, #181818 ${pct}%)`,
+        background: `linear-gradient(90deg, ${fillColor} ${pct}%, var(--nest) ${pct}%)`,
         border: "none",
       }}
     />

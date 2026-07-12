@@ -206,8 +206,8 @@ export function EventsModalCountdownSpotlight({
                     style={
                       ev.days <= 14 && ev.days > 3
                         ? {
-                            background: "rgba(244, 192, 99, 0.1)",
-                            borderColor: "rgba(244, 192, 99, 0.35)",
+                            background: "var(--amber-dim)",
+                            borderColor: "var(--amber-line)",
                             color: "var(--amber)",
                           }
                         : undefined

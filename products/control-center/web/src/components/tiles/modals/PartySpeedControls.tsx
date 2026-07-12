@@ -81,7 +81,7 @@ export function PartySpeedSegmented({ value, onChange, disabled }: SpeedWidgetPr
               fontSize: 14,
               fontWeight: 500,
               letterSpacing: ".02em",
-              color: active ? "#ffffff" : "var(--ink-2)",
+              color: active ? "var(--thumb)" : "var(--ink-2)",
               background: active ? "var(--acc)" : "transparent",
               transition: "background .12s ease, color .12s ease",
             }}
@@ -177,7 +177,7 @@ export function PartyControl({ value, onSelect, disabled }: PartyControlProps) {
         // Active off → muted neutral fill; active speed → party gradient. Inactive →
         // transparent. White text on the gradient, ink on the muted off pill.
         const background = active ? (isOff ? "var(--hair-2)" : PARTY_GRADIENT) : "transparent";
-        const color = active ? (isOff ? "var(--ink)" : "#ffffff") : "var(--ink-2)";
+        const color = active ? (isOff ? "var(--ink)" : "var(--thumb)") : "var(--ink-2)";
         return (
           <button
             key={option}

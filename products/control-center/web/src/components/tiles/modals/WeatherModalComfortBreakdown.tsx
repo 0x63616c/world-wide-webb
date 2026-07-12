@@ -212,7 +212,7 @@ function GaugeRow({ label, value, gauge }: GaugeRowProps) {
         style={{
           height: 8,
           borderRadius: 999,
-          background: "#181818",
+          background: "var(--nest)",
           overflow: "hidden",
           flex: 1,
         }}

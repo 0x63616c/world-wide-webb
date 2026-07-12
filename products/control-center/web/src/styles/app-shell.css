@@ -12,10 +12,17 @@ html,
 body {
   margin: 0;
   height: 100%;
-  background: #000;
+  /* Token-driven so the light theme repaints the document behind the board.
+     Falls back to black before tokens.css parses (dark is the default). */
+  background: var(--bg, #000);
   color-scheme: dark;
   overscroll-behavior: none;
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+html[data-theme="light"],
+html[data-theme="light"] body {
+  color-scheme: light;
 }
 
 #root {

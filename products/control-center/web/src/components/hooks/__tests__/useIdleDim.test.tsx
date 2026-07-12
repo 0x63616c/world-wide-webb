@@ -10,11 +10,17 @@ const dimTo = vi.fn();
 const wakeTo = vi.fn();
 vi.mock("../../../lib/brightness", () => ({
   isNativeDisplay: () => false,
-  dimTo: (level: number) => dimTo(level),
-  wakeTo: (level: number) => wakeTo(level),
+  dimTo: (level: number, durationMs?: number) => dimTo(level, durationMs),
+  wakeTo: (level: number, durationMs?: number) => wakeTo(level, durationMs),
 }));
 
-type Props = { enabled: boolean; timeoutMs: number; level: number; activeBrightness: number };
+type Props = {
+  enabled: boolean;
+  timeoutMs: number;
+  level: number;
+  activeBrightness: number;
+  fadeMs: number;
+};
 
 function setup(opts: Partial<Props> & { pointerDown?: React.RefObject<boolean> }) {
   const stage = document.createElement("div");
@@ -32,6 +38,7 @@ function setup(opts: Partial<Props> & { pointerDown?: React.RefObject<boolean> }
         timeoutMs: opts.timeoutMs ?? 10_000,
         level: opts.level ?? 0.25,
         activeBrightness: opts.activeBrightness ?? 1,
+        fadeMs: opts.fadeMs ?? 0,
       },
     },
   );
@@ -57,7 +64,7 @@ describe("useIdleDim", () => {
     act(() => vi.advanceTimersByTime(10_000));
 
     expect(result.current.dimmed).toBe(true);
-    expect(dimTo).toHaveBeenCalledWith(0.25);
+    expect(dimTo).toHaveBeenCalledWith(0.25, 0);
   });
 
   it("wakes to the active brightness on the next interaction after dimming", () => {
@@ -69,7 +76,7 @@ describe("useIdleDim", () => {
     act(() => stage.dispatchEvent(new Event("pointerdown")));
 
     expect(result.current.dimmed).toBe(false);
-    expect(wakeTo).toHaveBeenLastCalledWith(0.8);
+    expect(wakeTo).toHaveBeenLastCalledWith(0.8, 0);
   });
 
   it("an interaction before the window resets the timer (no dim)", () => {
@@ -89,7 +96,9 @@ describe("useIdleDim", () => {
 
     act(() => vi.advanceTimersByTime(5_000));
     // New timeout re-mounts the timer effect (ms is a dep) and re-arms.
-    act(() => rerender({ enabled: true, timeoutMs: 30_000, level: 0.25, activeBrightness: 1 }));
+    act(() =>
+      rerender({ enabled: true, timeoutMs: 30_000, level: 0.25, activeBrightness: 1, fadeMs: 0 }),
+    );
 
     act(() => vi.advanceTimersByTime(10_000));
     expect(result.current.dimmed).toBe(false);
@@ -112,10 +121,18 @@ describe("useIdleDim", () => {
     expect(result.current.dimmed).toBe(true);
 
     wakeTo.mockClear();
-    act(() => rerender({ enabled: false, timeoutMs: 10_000, level: 0.25, activeBrightness: 0.7 }));
+    act(() =>
+      rerender({
+        enabled: false,
+        timeoutMs: 10_000,
+        level: 0.25,
+        activeBrightness: 0.7,
+        fadeMs: 0,
+      }),
+    );
 
     expect(result.current.dimmed).toBe(false);
-    expect(wakeTo).toHaveBeenLastCalledWith(0.7);
+    expect(wakeTo).toHaveBeenLastCalledWith(0.7, 0);
   });
 
   it("does not dim while a pointer is held, then dims after release", () => {
@@ -147,12 +164,23 @@ describe("useIdleDim", () => {
     expect(result.current.dimmed).toBe(true);
   });
 
+  it("passes the configured fade duration through to dim and wake", () => {
+    const { stage } = setup({ timeoutMs: 10_000, level: 0.25, fadeMs: 1_000 });
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(dimTo).toHaveBeenLastCalledWith(0.25, 1_000);
+
+    act(() => stage.dispatchEvent(new Event("pointerdown")));
+    expect(wakeTo).toHaveBeenLastCalledWith(1, 1_000);
+  });
+
   it("re-applies brightness when the level changes mid-dim", () => {
     const { rerender } = setup({ timeoutMs: 10_000, level: 0.25 });
     act(() => vi.advanceTimersByTime(10_000));
-    expect(dimTo).toHaveBeenLastCalledWith(0.25);
+    expect(dimTo).toHaveBeenLastCalledWith(0.25, 0);
 
-    act(() => rerender({ enabled: true, timeoutMs: 10_000, level: 0.5, activeBrightness: 1 }));
-    expect(dimTo).toHaveBeenLastCalledWith(0.5);
+    act(() =>
+      rerender({ enabled: true, timeoutMs: 10_000, level: 0.5, activeBrightness: 1, fadeMs: 0 }),
+    );
+    expect(dimTo).toHaveBeenLastCalledWith(0.5, 0);
   });
 });

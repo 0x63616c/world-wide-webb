@@ -33,7 +33,7 @@ export function SettingsButton() {
           width: 48,
           height: 48,
           padding: 0,
-          background: "rgba(12, 14, 17, 0.92)",
+          background: "color-mix(in srgb, var(--tile-2) 92%, transparent)",
           border: "1px solid var(--hair-2)",
           borderRadius: 10,
           color: "var(--ink-2)",

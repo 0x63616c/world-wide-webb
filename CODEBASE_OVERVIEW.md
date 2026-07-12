@@ -62,6 +62,8 @@ Tile placement is centralized in `products/control-center/web/src/lib/tile-regis
 
 Data access is through tRPC React Query in `products/control-center/web/src/lib/trpc.ts`. Queries retry with bounded exponential backoff; mutations do not retry. Unavailable data should render skeleton/error states, not invented values.
 
+Theming is CSS-custom-property based. Dark is the `:root` default in `products/control-center/web/src/styles/tokens.css`; the light palette lives in the `:root[data-theme="light"]` block of the same file (same token names, light values). `products/control-center/web/src/lib/theme.ts` resolves the synced `themeMode` setting (`auto` | `light` | `dark`, in the settings singleton) onto `<html data-theme>` and cross-fades swaps via the transient `html.theme-fade` class; `auto` follows sunrise/sunset from `weather.now` shifted by the `themeSunOffsetMin` setting. Component colors must come from tokens (or be genuinely scene-intrinsic, e.g. map canvases and camera scrims) so both themes render correctly.
+
 ## API
 
 The API entrypoint is `products/control-center/api/src/server.ts`. It creates the root logger, runs migrations, then serves with `Bun.serve()`.
