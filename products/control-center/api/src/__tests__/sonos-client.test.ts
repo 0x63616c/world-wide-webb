@@ -433,6 +433,53 @@ describe("SonosClient.setAVTransportURI", () => {
   });
 });
 
+// ---- BecomeCoordinatorOfStandaloneGroup (group leave) ------------------------
+
+describe("SonosClient.becomeCoordinatorOfStandaloneGroup", () => {
+  it("sends the BecomeCoordinatorOfStandaloneGroup AVTransport action", async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        okResponse(soapEnvelope("<u:BecomeCoordinatorOfStandaloneGroupResponse/>")),
+      );
+    vi.stubGlobal("fetch", mockFetch);
+    const client = new SonosClient("192.168.0.63");
+    await client.becomeCoordinatorOfStandaloneGroup();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("AVTransport");
+    expect(init.headers as Record<string, string>).toMatchObject({
+      SOAPACTION: expect.stringContaining("BecomeCoordinatorOfStandaloneGroup"),
+    });
+  });
+
+  it("throws SonosError on SOAP fault", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(soapFaultResponse())));
+    const client = new SonosClient("192.168.0.63");
+    await expect(client.becomeCoordinatorOfStandaloneGroup()).rejects.toBeInstanceOf(SonosError);
+  });
+});
+
+// ---- SOAP fault readability --------------------------------------------------
+
+describe("SonosClient SOAP fault on HTTP 500", () => {
+  // Real firmware returns faults as HTTP 500 with an <s:Fault> body. The error
+  // must carry the parsed UPnP errorCode/description, not a raw XML dump.
+  it("parses the UPnP fault out of an HTTP 500 body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve(soapFaultResponse()),
+      }),
+    );
+    const client = new SonosClient(LIVING_ROOM_IP);
+    await expect(client.setAVTransportURI("x-rincon:RINCON_X", "")).rejects.toThrow(
+      /SOAP fault 714 , IllegalMimeType/,
+    );
+  });
+});
+
 // ---- GetZoneGroupState -----------------------------------------------------
 
 describe("SonosClient.getZoneGroupState", () => {

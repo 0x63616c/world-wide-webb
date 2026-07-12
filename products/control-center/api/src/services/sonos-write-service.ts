@@ -68,19 +68,21 @@ export async function sonosGroupJoin({
 }
 
 /**
- * Removes a member from its current group, making it standalone again.
- * Uses x-rincon-stream:<memberUuid>:0 which points the device at its own
- * line-in input (the standard Sonos "leave group" pattern). THROWS on any failure.
+ * Removes a member from its current group, making it standalone again, via
+ * BecomeCoordinatorOfStandaloneGroup , the canonical leave action. (Pointing
+ * the transport at x-rincon-stream:<own-uuid>:0 faults with UPnP 714 on
+ * devices without a line-in jack, e.g. the Beam.) THROWS on any failure.
+ * memberUuid is unused but kept in the signature , the tRPC input shape is
+ * shared with the web client.
  */
 export async function sonosGroupLeave({
   memberIp,
-  memberUuid,
 }: {
   memberIp: string;
   memberUuid: string;
 }): Promise<void> {
   const client = new SonosClient(memberIp);
-  await client.setAVTransportURI(`x-rincon-stream:${memberUuid}:0`, "");
+  await client.becomeCoordinatorOfStandaloneGroup();
 }
 
 /**

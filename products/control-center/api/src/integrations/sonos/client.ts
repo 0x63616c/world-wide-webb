@@ -216,6 +216,21 @@ export class SonosClient {
     );
   }
 
+  /**
+   * Removes this device from its current group, making it a standalone
+   * coordinator again , the canonical Sonos "leave group" action. Unlike
+   * pointing the transport at a stream URI, this works on every device
+   * (a Beam has no line-in to point at) and never starts playback.
+   */
+  async becomeCoordinatorOfStandaloneGroup(): Promise<void> {
+    await this.soapRequest(
+      PATH_AV_TRANSPORT,
+      SVC_AV_TRANSPORT,
+      "BecomeCoordinatorOfStandaloneGroup",
+      `<InstanceID>0</InstanceID>`,
+    );
+  }
+
   // --------------------------------------------------------------------------
   // ZoneGroupTopology , whole-house grouping topology
   // --------------------------------------------------------------------------
@@ -299,16 +314,18 @@ export class SonosClient {
 
     const text = await res.text();
 
-    if (!res.ok) {
-      throw new SonosError(`${action}: HTTP ${res.status} , ${text.slice(0, 200)}`);
-    }
-
     // A SOAP fault arrives as HTTP 500 OR sometimes 200 with a <s:Fault> body.
+    // Parse the fault BEFORE the generic HTTP check so callers get the UPnP
+    // errorCode/description, not a raw XML dump.
     if (text.includes("<s:Fault") || text.includes("<S:Fault")) {
       const errCode = extractText(text, "errorCode") ?? "?";
       const errDesc =
         extractText(text, "errorDescription") ?? extractText(text, "faultstring") ?? "SOAP fault";
       throw new SonosError(`${action}: SOAP fault ${errCode} , ${errDesc}`);
+    }
+
+    if (!res.ok) {
+      throw new SonosError(`${action}: HTTP ${res.status} , ${text.slice(0, 200)}`);
     }
 
     return text;

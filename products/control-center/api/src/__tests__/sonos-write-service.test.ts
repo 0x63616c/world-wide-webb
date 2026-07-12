@@ -17,6 +17,7 @@ type MockClient = {
   next: ReturnType<typeof vi.fn>;
   previous: ReturnType<typeof vi.fn>;
   setAVTransportURI: ReturnType<typeof vi.fn>;
+  becomeCoordinatorOfStandaloneGroup: ReturnType<typeof vi.fn>;
 };
 
 const mockClients: Record<string, MockClient> = {};
@@ -30,6 +31,7 @@ function makeMockClient(): MockClient {
     next: vi.fn().mockResolvedValue(undefined),
     previous: vi.fn().mockResolvedValue(undefined),
     setAVTransportURI: vi.fn().mockResolvedValue(undefined),
+    becomeCoordinatorOfStandaloneGroup: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -166,19 +168,23 @@ describe("sonosGroupJoin (A12)", () => {
 // ─── group leave ──────────────────────────────────────────────────────────────
 
 describe("sonosGroupLeave (A12)", () => {
-  it("calls setAVTransportURI with x-rincon-stream:<memberUuid>:0 to go standalone", async () => {
+  // Regression: leave must use BecomeCoordinatorOfStandaloneGroup, NOT
+  // x-rincon-stream:<own-uuid>:0 , the stream URI points the device at its own
+  // line-in, which faults (UPnP 500) on devices without one (Beam, One) and
+  // wrongly starts line-in playback on devices that have one.
+  it("calls becomeCoordinatorOfStandaloneGroup, never setAVTransportURI", async () => {
     const MEMBER_UUID = "RINCON_804AF28CFD6801400";
     mockClients[BEDROOM_IP] = makeMockClient();
     await sonosGroupLeave({ memberIp: BEDROOM_IP, memberUuid: MEMBER_UUID });
-    expect(mockClients[BEDROOM_IP].setAVTransportURI).toHaveBeenCalledWith(
-      `x-rincon-stream:${MEMBER_UUID}:0`,
-      "",
-    );
+    expect(mockClients[BEDROOM_IP].becomeCoordinatorOfStandaloneGroup).toHaveBeenCalledOnce();
+    expect(mockClients[BEDROOM_IP].setAVTransportURI).not.toHaveBeenCalled();
   });
 
   it("throws SonosError when leave fails", async () => {
     mockClients[KITCHEN_IP] = makeMockClient();
-    mockClients[KITCHEN_IP].setAVTransportURI.mockRejectedValue(new SonosError("ECONNREFUSED"));
+    mockClients[KITCHEN_IP].becomeCoordinatorOfStandaloneGroup.mockRejectedValue(
+      new SonosError("ECONNREFUSED"),
+    );
     await expect(
       sonosGroupLeave({ memberIp: KITCHEN_IP, memberUuid: "RINCON_74CA60AA5F4C01400" }),
     ).rejects.toBeInstanceOf(SonosError);
