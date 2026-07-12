@@ -374,7 +374,9 @@ export function EventsModalManage({
                       {ev.name}
                     </span>
                     <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
-                      {formatDate(ev.date)}
+                      {/* Event lands today (days === 0): say "Today" rather than
+                          the absolute date, matching the Agenda variant's TODAY. */}
+                      {ev.days === 0 ? "Today" : formatDate(ev.date)}
                       {ev.place ? ` · ${ev.place}` : ""}
                     </span>
                   </div>
