@@ -51,8 +51,6 @@ const baseProps: SoundSystemTileViewProps = {
   onFaderChange: vi.fn(),
   onToggleGlobalLock: vi.fn(),
   onToggleGroupLock: vi.fn(),
-  onOpenMixer: vi.fn(),
-  onOpenSource: vi.fn(),
   onOpenGroups: vi.fn(),
 };
 
@@ -69,8 +67,6 @@ describe("SoundSystemTileView , loading/error", () => {
         onFaderChange={vi.fn()}
         onToggleGlobalLock={vi.fn()}
         onToggleGroupLock={vi.fn()}
-        onOpenMixer={vi.fn()}
-        onOpenSource={vi.fn()}
         onOpenGroups={vi.fn()}
       />,
     );
@@ -110,33 +106,21 @@ describe("SoundSystemTileView , populated (A22)", () => {
     expect(onToggleGlobalLock).toHaveBeenCalledTimes(1);
   });
 
-  it("calls onOpenMixer when the tile surface is tapped", () => {
-    const onOpenMixer = vi.fn();
-    const { container } = render(<SoundSystemTileView {...baseProps} onOpenMixer={onOpenMixer} />);
-    // The tile owns its tap surface (ownsTap) , tapping it opens the Mixer.
+  it("calls onOpenGroups when the tile surface is tapped", () => {
+    const onOpenGroups = vi.fn();
+    const { container } = render(
+      <SoundSystemTileView {...baseProps} onOpenGroups={onOpenGroups} />,
+    );
+    // The tile owns its tap surface (ownsTap) , tapping it opens the Groups modal.
     const tile = container.querySelector(".tile");
     expect(tile).not.toBeNull();
     fireEvent.click(tile as Element);
-    expect(onOpenMixer).toHaveBeenCalledTimes(1);
+    expect(onOpenGroups).toHaveBeenCalledTimes(1);
   });
 
-  it("does not open the mixer when a fader's source button is tapped", () => {
-    const onOpenMixer = vi.fn();
-    const onOpenSource = vi.fn();
-    render(
-      <SoundSystemTileView {...baseProps} onOpenMixer={onOpenMixer} onOpenSource={onOpenSource} />,
-    );
-    fireEvent.click(screen.getByLabelText(/living room source/i));
-    expect(onOpenSource).toHaveBeenCalledWith("uuid-lr");
-    expect(onOpenMixer).not.toHaveBeenCalled();
-  });
-
-  it("renders a per-room source trigger and calls onOpenSource with the room uuid", () => {
-    const onOpenSource = vi.fn();
-    render(<SoundSystemTileView {...baseProps} onOpenSource={onOpenSource} />);
-    const trigger = screen.getByLabelText(/living room source/i);
-    fireEvent.click(trigger);
-    expect(onOpenSource).toHaveBeenCalledWith("uuid-lr");
+  it("does not render a per-room source trigger (Source picker removed)", () => {
+    render(<SoundSystemTileView {...baseProps} />);
+    expect(screen.queryByLabelText(/living room source/i)).not.toBeInTheDocument();
   });
 
   it("shows muted indicator for muted rooms", () => {

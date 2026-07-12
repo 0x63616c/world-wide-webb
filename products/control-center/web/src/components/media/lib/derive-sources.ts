@@ -36,6 +36,12 @@ export interface GroupSource {
   label: string; // "Desk · Line-In", "Living Room · TV", "Bedroom · Spotify"
   kind: SourceKind;
   playing: boolean; // group transportState === "PLAYING"
+  // Whether this source can be selected/routed in the modal. The two hardware
+  // floor cards differ: Desk line-in is always selectable (route to it even
+  // while idle), but the TV card is selectable ONLY while the Beam is actually
+  // on its TV input and playing , when the Apple TV is off there is nothing to
+  // route, so the Living Room · TV source must not be selectable (www-tvoff).
+  selectable: boolean;
   trackLine: string | null; // "Artist — Title" | app label | null (never fabricated)
   isSession: boolean; // dynamic card (SESSION badge)
   colorVar: string; // "--acc" | "--amber" | "--teal" | next in SESSION_HUES
@@ -91,6 +97,7 @@ export function deriveSources(rooms: SoundSystemRoom[]): GroupSource[] {
     label: labelFor(desk?.name ?? "Desk", "Line-In"),
     kind: "line-in",
     playing: deskPlaying,
+    selectable: true,
     trackLine: deskPlaying && desk ? trackLineFor(desk) : null,
     isSession: false,
     colorVar: "--acc",
@@ -104,6 +111,9 @@ export function deriveSources(rooms: SoundSystemRoom[]): GroupSource[] {
     label: labelFor(tv?.name ?? "Living Room", "TV"),
     kind: "tv",
     playing: tvPlaying,
+    // Off = not selectable: the Beam only counts as a live TV source while it
+    // is on its TV input and playing (Apple TV on) , www-tvoff.
+    selectable: tvPlaying,
     trackLine: tvPlaying && tv ? trackLineFor(tv) : null,
     isSession: false,
     colorVar: "--amber",
@@ -142,6 +152,7 @@ export function deriveSources(rooms: SoundSystemRoom[]): GroupSource[] {
     label: labelFor(coord.name, coord.sourceLabel),
     kind: coord.sourceKind,
     playing: coord.transportState === "PLAYING",
+    selectable: true,
     trackLine: trackLineFor(coord),
     isSession: true,
     colorVar: SESSION_HUES[i % SESSION_HUES.length],

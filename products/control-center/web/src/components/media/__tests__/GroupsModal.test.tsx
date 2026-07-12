@@ -215,53 +215,12 @@ describe("GroupsModal , leave (member speaker tap)", () => {
   });
 });
 
-describe("GroupsModal , TV grab ordering", () => {
-  it("awaits sonosGrabTvToBeam before firing sonosGroupJoin when the beam isn't already on tv", async () => {
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[desk, tv, bedroom, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
-
-    fireEvent.click(screen.getByLabelText("Select Living Room · TV"));
-    fireEvent.click(screen.getByLabelText("Bedroom, off"));
-
-    await waitFor(() => expect(mockJoinMutate).toHaveBeenCalled());
-
-    expect(mockGrabMutateAsync).toHaveBeenCalledWith({
-      beamIp: tv.deviceIp,
-      beamUuid: BEAM_UUID,
-    });
-    expect(mockJoinMutate).toHaveBeenCalledWith({
-      memberIp: bedroom.deviceIp,
-      coordinatorUuid: BEAM_UUID,
-    });
-    expect(callOrder.indexOf("grab")).toBeGreaterThanOrEqual(0);
-    expect(callOrder.indexOf("grab")).toBeLessThan(callOrder.indexOf("join"));
-  });
-
-  it("does not grab the TV when the beam is already on tv", async () => {
-    const tvOnAlready = room({ ...tv, sourceKind: "tv" });
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[desk, tvOnAlready, bedroom, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
-
-    fireEvent.click(screen.getByLabelText("Select Living Room · TV"));
-    fireEvent.click(screen.getByLabelText("Bedroom, off"));
-
-    await waitFor(() => expect(mockJoinMutate).toHaveBeenCalled());
-    expect(mockGrabMutateAsync).not.toHaveBeenCalled();
-  });
-});
-
+// NOTE: the TV source is selectable only while the Beam is actually on its TV
+// input and playing (Apple TV on, www-tvoff) , at which point the beam is
+// already on tv, so the grab-tv-to-beam path never fires through the UI. The
+// former "TV grab ordering" tests selected an *idle* TV card, which is no
+// longer possible, so they were removed. The desk line-in grab symmetry below
+// still applies (the Desk card stays selectable while idle).
 describe("GroupsModal , Desk line-in grab symmetry", () => {
   it("awaits sonosSetLineIn before firing sonosGroupJoin when the desk isn't already on line-in", async () => {
     render(
@@ -324,28 +283,6 @@ describe("GroupsModal , Desk line-in grab symmetry", () => {
     expect(mockJoinMutate).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Bedroom, off")).toBeInTheDocument();
     expect(screen.getByText("desk grab failed")).toBeInTheDocument();
-  });
-});
-
-describe("GroupsModal , TV grab failure aborts join", () => {
-  it("aborts the join and reverts the optimistic LED when the TV grab rejects", async () => {
-    mockGrabMutateAsync.mockRejectedValueOnce(new Error("tv grab failed"));
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[desk, tv, bedroom, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
-
-    fireEvent.click(screen.getByLabelText("Select Living Room · TV"));
-    fireEvent.click(screen.getByLabelText("Bedroom, off"));
-
-    await waitFor(() => expect(mockGrabMutateAsync).toHaveBeenCalled());
-    expect(mockJoinMutate).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Bedroom, off")).toBeInTheDocument();
-    expect(screen.getByText("tv grab failed")).toBeInTheDocument();
   });
 });
 
@@ -439,56 +376,6 @@ describe("GroupsModal , anchor captured by another group", () => {
 
     expect(mockLeaveMutate).not.toHaveBeenCalled();
     expect(mockJoinMutate).not.toHaveBeenCalled();
-  });
-});
-
-describe("GroupsModal , ALL", () => {
-  it("joins every non-anchor speaker that isn't already a member to the selected source", async () => {
-    const deskPlaying = room({ ...desk, transportState: "PLAYING", sourceKind: "line-in" });
-    const bedroomJoined = { ...bedroom, coordinatorUuid: DESK_LINE_IN_UUID };
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[deskPlaying, tv, bedroomJoined, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
-
-    fireEvent.click(screen.getByLabelText("Send all speakers to Desk · Line-In"));
-
-    // Bedroom already follows Desk -> not re-joined. Kitchen is idle -> joined.
-    // Desk and Living Room (TV anchor) are anchors of other sources -> never joined.
-    await waitFor(() => expect(mockJoinMutate).toHaveBeenCalledTimes(1));
-    expect(mockJoinMutate).toHaveBeenCalledWith({
-      memberIp: kitchen.deviceIp,
-      coordinatorUuid: DESK_LINE_IN_UUID,
-    });
-  });
-
-  it("grabs the TV exactly once (not per-speaker) when fanning out to an idle beam", async () => {
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[desk, tv, bedroom, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
-
-    fireEvent.click(screen.getByLabelText("Select Living Room · TV"));
-    fireEvent.click(screen.getByLabelText("Send all speakers to Living Room · TV"));
-
-    await waitFor(() => expect(mockJoinMutate).toHaveBeenCalledTimes(2));
-    expect(mockGrabMutateAsync).toHaveBeenCalledTimes(1);
-    expect(mockJoinMutate).toHaveBeenCalledWith({
-      memberIp: bedroom.deviceIp,
-      coordinatorUuid: BEAM_UUID,
-    });
-    expect(mockJoinMutate).toHaveBeenCalledWith({
-      memberIp: kitchen.deviceIp,
-      coordinatorUuid: BEAM_UUID,
-    });
   });
 });
 

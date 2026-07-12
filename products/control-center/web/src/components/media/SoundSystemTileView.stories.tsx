@@ -90,8 +90,6 @@ const meta = {
     onFaderChange: fn(),
     onToggleGlobalLock: fn(),
     onToggleGroupLock: fn(),
-    onOpenMixer: fn(),
-    onOpenSource: fn(),
     onOpenGroups: fn(),
   },
 } satisfies Meta<typeof SoundSystemTileView>;
@@ -102,13 +100,13 @@ type Story = StoryObj<typeof meta>;
 export const Populated: Story = {
   args: { status: "populated" },
   play: async ({ args, canvasElement }) => {
-    // Tapping a room name opens the per-room source picker.
-    const sourceTrigger = canvasElement.querySelector<HTMLButtonElement>(
-      "[aria-label='Living Room source']",
-    );
-    await expect(sourceTrigger).toBeTruthy();
-    sourceTrigger?.click();
-    await expect(args.onOpenSource).toHaveBeenCalledWith("lr");
+    // The room name is display-only now , no per-room source picker button.
+    await expect(canvasElement.querySelector("[aria-label='Living Room source']")).toBeNull();
+    // Tapping the tile surface opens the Groups modal.
+    const tile = canvasElement.querySelector<HTMLElement>(".tile");
+    await expect(tile).toBeTruthy();
+    tile?.click();
+    await expect(args.onOpenGroups).toHaveBeenCalled();
   },
 };
 

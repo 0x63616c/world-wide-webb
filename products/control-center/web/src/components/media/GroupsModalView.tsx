@@ -4,7 +4,7 @@
  * Two-column layout: Sources (the small set of things that can drive a group ,
  * hardware floor cards + live sessions, see deriveSources) on the left, the
  * real speaker/room list on the right. Tapping a speaker toggles whether it
- * follows the selected source; ALL fans the selected source out to every room.
+ * follows the selected source.
  *
  * Pure presentational , no tRPC, no data hooks. All state (selection, group
  * membership) is driven by props; the container (Task 7) owns the mutations.
@@ -28,8 +28,6 @@ export interface GroupsModalViewProps {
   onSelectSource: (sourceId: string) => void;
   /** Tap a speaker row: container decides join vs leave from `member`. */
   onTapSpeaker: (uuid: string) => void;
-  /** ALL button on the selected source. */
-  onAll: () => void;
   /** Latest join/leave/grab mutation error message, or null , rendered under the columns. */
   errorText?: string | null;
 }
@@ -50,6 +48,9 @@ const KIND_LABEL: Record<SourceKind, string> = {
 };
 
 function statusLine(source: GroupSource): string {
+  // A non-selectable source (e.g. the TV card with the Apple TV off) reads as
+  // "Off" , there is nothing to route, so don't dress it up as a live input.
+  if (!source.selectable) return "Off";
   const detail = KIND_LABEL[source.kind];
   return source.trackLine ? `${detail} · ${source.trackLine}` : detail;
 }
@@ -103,10 +104,12 @@ interface SourceCardProps {
   source: GroupSource;
   selected: boolean;
   onSelect: () => void;
-  onAll: () => void;
 }
 
-function SourceCard({ source, selected, onSelect, onAll }: SourceCardProps) {
+function SourceCard({ source, selected, onSelect }: SourceCardProps) {
+  // A non-selectable source (TV card, Apple TV off) is dimmed and inert , no
+  // select, no highlight (www-tvoff).
+  const disabled = !source.selectable;
   return (
     <div
       style={
@@ -115,6 +118,7 @@ function SourceCard({ source, selected, onSelect, onAll }: SourceCardProps) {
           position: "relative",
           overflow: "visible",
           borderRadius: 12,
+          opacity: disabled ? 0.5 : 1,
           background: selected ? "color-mix(in srgb, var(--sc) 14%, transparent)" : "var(--tile-2)",
           border: selected
             ? "1px solid color-mix(in srgb, var(--sc) 45%, transparent)"
@@ -124,6 +128,7 @@ function SourceCard({ source, selected, onSelect, onAll }: SourceCardProps) {
     >
       <button
         type="button"
+        disabled={disabled}
         aria-pressed={selected}
         aria-label={`Select ${source.label}`}
         onClick={onSelect}
@@ -134,7 +139,7 @@ function SourceCard({ source, selected, onSelect, onAll }: SourceCardProps) {
           gap: 4,
           background: "transparent",
           border: "none",
-          cursor: "pointer",
+          cursor: disabled ? "default" : "pointer",
           textAlign: "left",
           padding: "10px 12px",
           font: "inherit",
@@ -181,42 +186,11 @@ function SourceCard({ source, selected, onSelect, onAll }: SourceCardProps) {
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
-            // Selected card grows downward to fit the ALL button; the status
-            // line rides down with it, ending 10px from the bottom edge , the
-            // same breathing room the title has at the top. The extra right
-            // padding keeps a long track line from running under ALL.
-            ...(selected ? { marginTop: 16, paddingRight: 64 } : {}),
           }}
         >
           {statusLine(source)}
         </span>
       </button>
-
-      {/* ALL , sibling to the select button (never nested inside it) so the
-          card stays valid, non-nested interactive markup. */}
-      {selected && (
-        <button
-          type="button"
-          aria-label={`Send all speakers to ${source.label}`}
-          onClick={onAll}
-          style={{
-            position: "absolute",
-            right: 12,
-            bottom: 10,
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.04em",
-            color: "var(--sc)",
-            background: "color-mix(in srgb, var(--sc) 14%, transparent)",
-            border: "none",
-            borderRadius: 6,
-            padding: "3px 8px",
-            cursor: "pointer",
-          }}
-        >
-          ALL
-        </button>
-      )}
     </div>
   );
 }
@@ -326,7 +300,6 @@ export function GroupsModalView({
   selectedSourceId,
   onSelectSource,
   onTapSpeaker,
-  onAll,
   errorText,
 }: GroupsModalViewProps) {
   const selectedSource = sources.find((s) => s.id === selectedSourceId);
@@ -365,7 +338,6 @@ export function GroupsModalView({
                 source={source}
                 selected={source.id === selectedSourceId}
                 onSelect={() => onSelectSource(source.id)}
-                onAll={onAll}
               />
             ))}
           </div>

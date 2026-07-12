@@ -10,6 +10,9 @@
  * Faders are custom-drawn and pointer/keyboard draggable , a native range can't be
  * styled to the design and (www-tdad) overflows the card in vertical writing mode.
  *
+ * Tapping the tile surface opens the Groups modal (the per-room Source picker and
+ * the old Mixer modal were both removed , www-tvoff).
+ *
  * Pure presentational , no tRPC. The container (SoundSystemTile) wires the data.
  */
 
@@ -46,11 +49,7 @@ export interface SoundSystemTileViewProps {
   onFaderChange: (uuid: string, value: number) => void;
   onToggleGlobalLock: () => void;
   onToggleGroupLock: () => void;
-  /** Open the full Mixer modal (group join/leave, mute). */
-  onOpenMixer: () => void;
-  /** Open the per-room Source picker, focused on the tapped room. */
-  onOpenSource: (uuid: string) => void;
-  /** Open the Groups modal (patch-bay source/speaker routing). */
+  /** Open the Groups modal (patch-bay source/speaker routing) , the tile's tap surface. */
   onOpenGroups: () => void;
 }
 
@@ -94,10 +93,9 @@ interface FaderProps {
   /** Group coordinator of a real multi-room group , render the name blue (www-a5rl). */
   coord: boolean;
   onChange: (value: number) => void;
-  onOpenSource: () => void;
 }
 
-function Fader({ room, volume, muted, accent, linked, coord, onChange, onOpenSource }: FaderProps) {
+function Fader({ room, volume, muted, accent, linked, coord, onChange }: FaderProps) {
   const valueColor = muted ? "var(--ink-3)" : accent ? "var(--ink)" : "var(--ink-2)";
 
   return (
@@ -146,16 +144,11 @@ function Fader({ room, volume, muted, accent, linked, coord, onChange, onOpenSou
         />
       </div>
 
-      {/* Room name , tap to open the per-room source picker (A25/A31). A group
-          coordinator's name is blue (www-a5rl): it replaces the old COORD sublabel. */}
+      {/* Room name , display only (a group coordinator's name is blue, www-a5rl,
+          replacing the old COORD sublabel). No longer a tap target: the per-room
+          Source picker was removed, and the whole tile now opens the Groups modal. */}
       <div style={{ textAlign: "center", lineHeight: 1.1, maxWidth: "100%" }}>
-        <button
-          type="button"
-          aria-label={`${room.name} source`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenSource();
-          }}
+        <span
           style={{
             display: "block",
             maxWidth: "100%",
@@ -165,14 +158,10 @@ function Fader({ room, volume, muted, accent, linked, coord, onChange, onOpenSou
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
-            border: "none",
-            background: "transparent",
-            padding: 0,
-            cursor: "pointer",
           }}
         >
           {room.name}
-        </button>
+        </span>
       </div>
     </div>
   );
@@ -196,7 +185,6 @@ interface GroupPanelProps {
   /** Group-lock control , shown in the cap of the accent panel only. */
   lock?: { on: boolean; dimmed: boolean; onToggle: () => void };
   onFaderChange: (uuid: string, value: number) => void;
-  onOpenSource: (uuid: string) => void;
 }
 
 function GroupPanel({
@@ -210,7 +198,6 @@ function GroupPanel({
   coordUuids,
   lock,
   onFaderChange,
-  onOpenSource,
 }: GroupPanelProps) {
   return (
     <div
@@ -303,7 +290,6 @@ function GroupPanel({
             linked={linked}
             coord={coordUuids.has(room.uuid)}
             onChange={(value) => onFaderChange(room.uuid, value)}
-            onOpenSource={() => onOpenSource(room.uuid)}
           />
         ))}
       </div>
@@ -340,32 +326,6 @@ function GlobalLockBtn({ on, onToggle }: { on: boolean; onToggle: () => void }) 
   );
 }
 
-function GroupsBtn({ onOpen }: { onOpen: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label="Open groups"
-      onClick={(e) => {
-        e.stopPropagation();
-        onOpen();
-      }}
-      style={{
-        width: 38,
-        height: 38,
-        borderRadius: 10,
-        display: "grid",
-        placeItems: "center",
-        padding: 0,
-        cursor: "pointer",
-        border: "1px solid var(--hair)",
-        background: "var(--tile-2)",
-      }}
-    >
-      <Icon name="groups" s={18} c="var(--ink-2)" />
-    </button>
-  );
-}
-
 // ── Main view ─────────────────────────────────────────────────────────────────
 
 export function SoundSystemTileView({
@@ -378,24 +338,17 @@ export function SoundSystemTileView({
   onFaderChange,
   onToggleGlobalLock,
   onToggleGroupLock,
-  onOpenMixer,
-  onOpenSource,
   onOpenGroups,
 }: SoundSystemTileViewProps) {
-  // The tile owns its tap surface: tapping it (outside the faders/buttons) opens
-  // the full Mixer modal , the canonical `ownsTap` detail-modal pattern.
+  // The tile owns its tap surface: tapping it (outside the faders/lock button)
+  // opens the Groups modal , the canonical `ownsTap` detail-modal pattern.
   if (status !== "populated") {
     return (
-      <Tile padding={18} style={{ gap: 0 }} onClick={onOpenMixer}>
+      <Tile padding={18} style={{ gap: 0 }} onClick={onOpenGroups}>
         <TileHeader
           icon="speaker"
           title="Sound System"
-          right={
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <GroupsBtn onOpen={onOpenGroups} />
-              <GlobalLockBtn on={false} onToggle={onToggleGlobalLock} />
-            </div>
-          }
+          right={<GlobalLockBtn on={false} onToggle={onToggleGlobalLock} />}
         />
         <Skeleton w="100%" h={120} />
       </Tile>
@@ -412,16 +365,11 @@ export function SoundSystemTileView({
   const showGroupLock = active.length > 1;
 
   return (
-    <Tile padding={18} style={{ gap: 0 }} onClick={onOpenMixer}>
+    <Tile padding={18} style={{ gap: 0 }} onClick={onOpenGroups}>
       <TileHeader
         icon="speaker"
         title="Sound System"
-        right={
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <GroupsBtn onOpen={onOpenGroups} />
-            <GlobalLockBtn on={globalLock} onToggle={onToggleGlobalLock} />
-          </div>
-        }
+        right={<GlobalLockBtn on={globalLock} onToggle={onToggleGlobalLock} />}
       />
 
       {rooms.length === 0 ? (
@@ -446,7 +394,6 @@ export function SoundSystemTileView({
                   : undefined
               }
               onFaderChange={onFaderChange}
-              onOpenSource={onOpenSource}
             />
           )}
           {idle.length > 0 && (
@@ -460,7 +407,6 @@ export function SoundSystemTileView({
               linked={globalLock}
               coordUuids={coordUuids}
               onFaderChange={onFaderChange}
-              onOpenSource={onOpenSource}
             />
           )}
         </div>

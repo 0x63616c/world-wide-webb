@@ -73,7 +73,6 @@ const meta = {
     speakers,
     onSelectSource: fn(),
     onTapSpeaker: fn(),
-    onAll: fn(),
   },
 } satisfies Meta<typeof GroupsModalView>;
 
@@ -84,8 +83,9 @@ type Story = StoryObj<typeof meta>;
 export const FloorSilent: Story = {
   args: {
     sources: [
-      { ...deskSource, playing: false, trackLine: null },
-      { ...tvSource, playing: false, trackLine: null },
+      { ...deskSource, playing: false, selectable: true, trackLine: null },
+      // Apple TV off , TV card not playing, so it is not selectable (www-tvoff).
+      { ...tvSource, playing: false, selectable: false, trackLine: null },
     ],
     member: {
       [BEAM_UUID]: null,
@@ -99,6 +99,13 @@ export const FloorSilent: Story = {
   play: async () => {
     const dialog = document.body.querySelector("[role='dialog']");
     await expect(dialog).toBeTruthy();
+    // The TV source (Apple TV off) is rendered disabled and reads "Off".
+    const tvBtn = dialog?.querySelector<HTMLButtonElement>(
+      "[aria-label='Select Living Room · TV']",
+    );
+    await expect(tvBtn).toBeTruthy();
+    await expect(tvBtn?.disabled).toBe(true);
+    await expect(dialog?.textContent).toContain("Off");
   },
 };
 
@@ -106,8 +113,8 @@ export const FloorSilent: Story = {
 export const TwoLive: Story = {
   args: {
     sources: [
-      { ...deskSource, playing: true, trackLine: null },
-      { ...tvSource, playing: true, trackLine: null },
+      { ...deskSource, playing: true, selectable: true, trackLine: null },
+      { ...tvSource, playing: true, selectable: true, trackLine: null },
     ],
     member: {
       [BEAM_UUID]: "src_tv",
@@ -125,11 +132,12 @@ export const TwoLive: Story = {
 export const ThreeWithSession: Story = {
   args: {
     sources: [
-      { ...deskSource, playing: true, trackLine: null },
-      { ...tvSource, playing: true, trackLine: null },
+      { ...deskSource, playing: true, selectable: true, trackLine: null },
+      { ...tvSource, playing: true, selectable: true, trackLine: null },
       {
         ...bedroomSessionSource,
         playing: true,
+        selectable: true,
         trackLine: "Twin Diplomacy — C'est La Vie",
       },
     ],
@@ -144,13 +152,13 @@ export const ThreeWithSession: Story = {
   },
 };
 
-// Kitchen + Bathroom patched to the Desk source; the TV card (not playing) is
-// selected, so its own anchor row (Living Room) reads disabled.
+// Kitchen + Bathroom patched to the Desk source; the (live) TV card is selected,
+// so its own anchor row (Living Room) reads disabled.
 export const MidPatch: Story = {
   args: {
     sources: [
-      { ...deskSource, playing: true, trackLine: null },
-      { ...tvSource, playing: false, trackLine: null },
+      { ...deskSource, playing: true, selectable: true, trackLine: null },
+      { ...tvSource, playing: true, selectable: true, trackLine: null },
     ],
     member: {
       [BEAM_UUID]: "src_tv",

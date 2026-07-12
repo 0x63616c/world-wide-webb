@@ -114,6 +114,12 @@ describe("deriveSources , silent house", () => {
     });
   });
 
+  it("Desk stays selectable while idle, but the TV card is not (Apple TV off, www-tvoff)", () => {
+    const [desk, tv] = sources;
+    expect(desk.selectable).toBe(true);
+    expect(tv.selectable).toBe(false);
+  });
+
   it("membershipByUuid: anchors map to their own hardware card even while stopped", () => {
     const membership = membershipByUuid(rooms);
     expect(membership[DESK_UUID]).toBe("src_desk_linein");
@@ -189,6 +195,8 @@ describe("deriveSources , live 3-source state (2026-07-11)", () => {
     expect(tv.playing).toBe(true);
     expect(desk.trackLine).toBeNull();
     expect(tv.trackLine).toBeNull();
+    // TV is live (Apple TV on) , the TV card is selectable (www-tvoff).
+    expect(tv.selectable).toBe(true);
   });
 
   it("the session card carries the formatted Artist — Title track line and SESSION badge", () => {

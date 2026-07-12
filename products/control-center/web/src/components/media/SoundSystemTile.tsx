@@ -5,8 +5,9 @@
  * are infrequent). Renders Skeleton while pending/error (A18). On success passes
  * all rooms to useMixer for local gang-lock state, then renders SoundSystemTileView.
  *
- * Opens MixerModal on expand. Opens SourceModal when a room name is tapped
- * (A25/A31) , selecting Line-in writes the room's source via sonosSetLineIn.
+ * Tapping the tile opens the GroupsModal (patch-bay source/speaker routing). The
+ * old MixerModal and per-room SourceModal were removed , the Groups modal is the
+ * one control surface that matters (www-tvoff).
  */
 
 import { useCallback, useState } from "react";
@@ -14,9 +15,7 @@ import { trpc } from "@/lib/trpc";
 import { GroupsModal } from "./GroupsModal";
 import { useMixer } from "./hooks/useMixer";
 import { useThrottledVolume } from "./hooks/useThrottledVolume";
-import { MixerModal } from "./MixerModal";
 import { SoundSystemTileView } from "./SoundSystemTileView";
-import { SourceModal } from "./SourceModal";
 
 const SOUND_POLL_MS = 10_000;
 
@@ -27,12 +26,9 @@ export function SoundSystemTile() {
     refetchInterval: SOUND_POLL_MS,
   });
 
-  const [mixerOpen, setMixerOpen] = useState(false);
-  const [sourceOpen, setSourceOpen] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(false);
 
   const setVolMutation = trpc.media.sonosSetVolume.useMutation();
-  const setMuteMutation = trpc.media.sonosSetMute.useMutation();
 
   // www-83z4: throttle the network write to ~200ms (leading + trailing) so a
   // fader drag sends at most ~1 UPnP write per 200ms per speaker.
@@ -44,9 +40,6 @@ export function SoundSystemTile() {
       [setVolMutation],
     ),
   );
-  const groupJoinMutation = trpc.media.sonosGroupJoin.useMutation();
-  const groupLeaveMutation = trpc.media.sonosGroupLeave.useMutation();
-  const setLineInMutation = trpc.media.sonosSetLineIn.useMutation();
 
   const rooms = data?.rooms ?? [];
 
@@ -73,8 +66,6 @@ export function SoundSystemTile() {
         onFaderChange={() => {}}
         onToggleGlobalLock={() => {}}
         onToggleGroupLock={() => {}}
-        onOpenMixer={() => {}}
-        onOpenSource={() => {}}
         onOpenGroups={() => {}}
       />
     );
@@ -103,8 +94,6 @@ export function SoundSystemTile() {
         onFaderChange={handleFaderChange}
         onToggleGlobalLock={() => mixer.setGlobalLock(!mixer.globalLock)}
         onToggleGroupLock={mixer.toggleGroupLock}
-        onOpenMixer={() => setMixerOpen(true)}
-        onOpenSource={() => setSourceOpen(true)}
         onOpenGroups={() => setGroupsOpen(true)}
       />
 
@@ -113,43 +102,6 @@ export function SoundSystemTile() {
         onClose={() => setGroupsOpen(false)}
         rooms={rooms}
         dataUpdatedAt={dataUpdatedAt}
-      />
-
-      <MixerModal
-        open={mixerOpen}
-        onClose={() => setMixerOpen(false)}
-        rooms={rooms}
-        mixer={mixer}
-        onSetVolume={(uuid, value) => {
-          // Local fader instant; network write throttled via writeVolume.
-          mixer.setRoomVolume(uuid, value);
-          const room = rooms.find((r) => r.uuid === uuid);
-          if (room) writeVolume(room.deviceIp, Math.round(value));
-        }}
-        onSetMute={(uuid, muted) => {
-          mixer.toggleMute(uuid);
-          const room = rooms.find((r) => r.uuid === uuid);
-          if (room) setMuteMutation.mutate({ deviceIp: room.deviceIp, muted });
-        }}
-        onGroupJoin={(memberIp, coordinatorUuid) =>
-          groupJoinMutation.mutate({ memberIp, coordinatorUuid })
-        }
-        onGroupLeave={(memberIp, memberUuid) => groupLeaveMutation.mutate({ memberIp, memberUuid })}
-      />
-
-      <SourceModal
-        open={sourceOpen}
-        onClose={() => setSourceOpen(false)}
-        rooms={rooms}
-        onSetSource={(uuid, source) => {
-          // Only Line-in has a backend write today; a player's own UUID is its
-          // line-in stream source (x-rincon-stream:<uuid>:0). Other sources have
-          // no mutation yet , never actuate with fake data.
-          const room = rooms.find((r) => r.uuid === uuid);
-          if (room && source === "Line-in") {
-            setLineInMutation.mutate({ deviceIp: room.deviceIp, sourceUuid: room.uuid });
-          }
-        }}
       />
     </>
   );

@@ -161,24 +161,6 @@ export function GroupsModal({ open, onClose, rooms, dataUpdatedAt }: GroupsModal
     void joinSpeakerWithGrab(room, source);
   }
 
-  async function onAll() {
-    const source = selectedSource;
-    if (!source) return;
-    // Single grab for the whole fan-out , grabbed once, awaited, THEN every
-    // join fires; a per-speaker grab would fire the same mutation once per
-    // idle room.
-    const grabbed = await grabHardwareIfNeeded(source);
-    if (!grabbed) return;
-    // Skip any speaker that anchors a source (its own or another's) , anchoring
-    // a source means it drives that group, so it can never be fanned INTO one.
-    const anchorUuids = new Set(sources.map((s) => s.anchorUuid));
-    for (const room of rooms) {
-      if (anchorUuids.has(room.uuid)) continue;
-      if (member[room.uuid] === source.id) continue;
-      joinSpeaker(room, source);
-    }
-  }
-
   return (
     <GroupsModalView
       open={open}
@@ -189,7 +171,6 @@ export function GroupsModal({ open, onClose, rooms, dataUpdatedAt }: GroupsModal
       selectedSourceId={selectedSource?.id ?? "src_desk_linein"}
       onSelectSource={setSelectedSourceId}
       onTapSpeaker={onTapSpeaker}
-      onAll={onAll}
       errorText={errorText}
     />
   );
