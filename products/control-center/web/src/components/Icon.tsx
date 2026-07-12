@@ -19,6 +19,7 @@ import {
   LockOpen,
   MapPin,
   Moon,
+  PawPrint,
   Plus,
   Settings,
   Sparkles,
@@ -49,6 +50,7 @@ export type IconName =
   | "pin"
   | "cam"
   | "dog"
+  | "paw"
   | "calendar"
   | "plus"
   | "bell"
@@ -95,6 +97,7 @@ export const GLYPHS: Record<IconName, LucideIcon> = {
   pin: MapPin,
   cam: Video,
   dog: Dog,
+  paw: PawPrint,
   calendar: Calendar,
   plus: Plus,
   bell: Bell,

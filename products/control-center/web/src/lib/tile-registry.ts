@@ -14,6 +14,7 @@ import { ControlsTile } from "../components/tiles/ControlsTile";
 import { ControlsTileView } from "../components/tiles/ControlsTileView";
 import { DogCamTile } from "../components/tiles/DogCamTile";
 import { DogCamTileView } from "../components/tiles/DogCamTileView";
+import { DogModeTile, DogModeTileView } from "../components/tiles/DogModeTileView";
 import { EventsTile } from "../components/tiles/EventsTile";
 import { EventsTileView } from "../components/tiles/EventsTileView";
 import { NetworkTile } from "../components/tiles/NetworkTile";
@@ -33,6 +34,7 @@ type TileComponent =
   | typeof Next12Hours
   | typeof ControlsTile
   | typeof DogCamTile
+  | typeof DogModeTile
   | typeof ClimateTile
   | typeof EventsTile
   | typeof TvNowPlayingTile
@@ -48,6 +50,7 @@ type TileViewComponent =
   | typeof Next12HoursView
   | typeof ControlsTileView
   | typeof DogCamTileView
+  | typeof DogModeTileView
   | typeof ClimateTileView
   | typeof EventsTileView
   | typeof TvNowPlayingTileView
@@ -167,6 +170,16 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     viewComponent: ClimateTileView,
     worldCol: 34,
     worldRow: 33,
+    cols: 4,
+    rows: 3,
+  },
+  {
+    id: "tile_dogmode",
+    label: "Dog Mode",
+    component: DogModeTile,
+    viewComponent: DogModeTileView,
+    worldCol: 38,
+    worldRow: 27,
     cols: 4,
     rows: 3,
   },
