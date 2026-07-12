@@ -4,7 +4,7 @@
  * secondary line; here it drives the entire view.
  *
  * Layout logic:
- *  - Top: horizontal comfort ribbon , one coloured segment per hour, labelled
+ *  - Top: horizontal comfort ribbon , one colored segment per hour, labeled
  *    beneath, classified by feels into Cold / Cool / Mild / Warm bands using
  *    fixed thresholds (no invented data, purely derived from real feels values).
  *  - Middle: "Sharpest drop" stat callout (largest negative feels delta between
@@ -138,7 +138,7 @@ export function Next12HoursModalComfortBand({
                     gap: 0,
                   }}
                 >
-                  {/* Coloured segment */}
+                  {/* Colored segment */}
                   <div
                     title={`${h.t}: ${h.feels}° feels , ${cfg.label}`}
                     style={{

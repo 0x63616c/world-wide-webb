@@ -2,9 +2,9 @@
  * tv-app-logos , brand-mark lookup for Apple TV apps (www-0z4f).
  *
  * The design renders each app as its real, full-color brand mark (YouTube play
- * box, Netflix "N", Prime/Hulu/Disney+ wordmarks, …) rather than a grey letter
+ * box, Netflix "N", Prime/Hulu/Disney+ wordmarks, …) rather than a gray letter
  * avatar. App names arrive verbatim from Home Assistant's `source_list`, so we
- * normalise the name and look up a hand-built mark; anything we don't have a
+ * normalize the name and look up a hand-built mark; anything we don't have a
  * mark for falls back to a tasteful 2-letter monospace glyph (NOT fake data ,
  * a deterministic typographic stand-in derived from the real app name).
  *

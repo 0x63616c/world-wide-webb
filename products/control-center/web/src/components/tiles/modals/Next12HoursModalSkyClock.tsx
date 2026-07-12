@@ -6,7 +6,7 @@
  * night hours wrap around midnight. A clock-face projection makes day/night
  * structure immediately legible: the illuminated arc (sunrise→sunset) glows in
  * --acc, the dark arc dims to --nest, and each hour's spoke radiates outward at
- * the angle you already read intuitively from a clock. Spoke length and colour
+ * the angle you already read intuitively from a clock. Spoke length and color
  * encode temperature; condition icons orbit the ring. You see "hot afternoon,
  * cool night" as a shape, not as a list of numbers.
  *
@@ -39,7 +39,7 @@ export interface Next12HoursModalSkyClockProps {
   onClose: () => void;
   /** Up to 12 hourly entries from the weather router */
   hours: HourlyEntry[];
-  /** Current conditions for the centre display and solar arc painting */
+  /** Current conditions for the center display and solar arc painting */
   now: SkyClockNow;
 }
 
@@ -59,7 +59,7 @@ function hourToRad(h: number): number {
   return (h / 24) * Math.PI * 2 - Math.PI / 2;
 }
 
-/** Point on a circle of radius r at angle θ (rad), centred at (cx, cy) */
+/** Point on a circle of radius r at angle θ (rad), centered at (cx, cy) */
 function pt(cx: number, cy: number, r: number, θ: number) {
   return { x: cx + r * Math.cos(θ), y: cy + r * Math.sin(θ) };
 }
@@ -69,7 +69,7 @@ function pt(cx: number, cy: number, r: number, θ: number) {
  * large-arc-flag is set when the arc spans > π (180°).
  */
 function arcPath(cx: number, cy: number, r: number, θ1: number, θ2: number): string {
-  // Normalise so θ2 > θ1 (go clockwise)
+  // Normalize so θ2 > θ1 (go clockwise)
   if (θ2 < θ1) θ2 += Math.PI * 2;
   const span = θ2 - θ1;
   const large = span > Math.PI ? 1 : 0;
@@ -83,7 +83,7 @@ function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
 }
 
-/** Map temperature value into a fill colour between cool (blue) and warm (amber) */
+/** Map temperature value into a fill color between cool (blue) and warm (amber) */
 function tempColor(temp: number, tMin: number, tMax: number): string {
   const t = clamp((temp - tMin) / (tMax - tMin || 1), 0, 1);
   // Lerp hue: 210° (cool blue) → 38° (warm amber)
@@ -110,7 +110,7 @@ const DIAL_SIZE = 440;
 const CX = DIAL_SIZE / 2;
 const CY = DIAL_SIZE / 2;
 const R_OUTER = 180; // outer ring
-const R_ARC = 172; // day/night arc stroke centre
+const R_ARC = 172; // day/night arc stroke center
 const R_ICON = 148; // condition icons
 const R_SPOKE_MIN = 60; // shortest spoke (lowest temp)
 const R_SPOKE_MAX = 128; // longest spoke (highest temp)
@@ -282,7 +282,7 @@ export function Next12HoursModalSkyClock({
             const spokeEnd = pt(CX, CY, spokeR, θ);
             const iconPos = pt(CX, CY, R_ICON, θ);
 
-            // Invisible hit-target rect centred on the icon ring position
+            // Invisible hit-target rect centered on the icon ring position
             const hitPos = pt(CX, CY, R_ICON, θ);
 
             return (
@@ -401,7 +401,7 @@ export function Next12HoursModalSkyClock({
             );
           })}
 
-          {/* ── centre: current temp + condition ── */}
+          {/* ── center: current temp + condition ── */}
           <circle cx={CX} cy={CY} r={48} fill="var(--tile)" stroke="var(--hair)" strokeWidth={1} />
           <text
             x={CX}

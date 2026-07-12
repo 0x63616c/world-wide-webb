@@ -10,7 +10,7 @@
  * Layout: a single scrolling column. Left gutter carries the day count in
  * large monospace so urgency reads at a glance , no header, no chrome, just
  * the data. Name + place sit right of the gutter. A StatusDot encodes urgency
- * at the row level for colour-blind legibility alongside the accent.
+ * at the row level for color-blind legibility alongside the accent.
  *
  * PURE view: all data arrives via props. No trpc/hooks. Composes trivially in
  * Storybook and unit tests. Width 560 (narrow agenda as briefed), maxHeight 760.
@@ -34,7 +34,7 @@ export interface EventsModalFullAgendaProps {
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
-// Matches the tile's own rule: days <= 3 renders with the accent colour.
+// Matches the tile's own rule: days <= 3 renders with the accent color.
 const URGENT_THRESHOLD = 3;
 
 // ─── view ─────────────────────────────────────────────────────────────────────

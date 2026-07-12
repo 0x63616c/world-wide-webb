@@ -1,7 +1,7 @@
 // All process.env reads for the logger (LOG_LEVEL, LOG_PRETTY, APP_ENV) live
 // HERE and nowhere else, call sites never read env directly. See docs/logging.md §3.
 //
-// NOTE: we deliberately do NOT key behaviour on process.env.NODE_ENV. The api,
+// NOTE: we deliberately do NOT key behavior on process.env.NODE_ENV. The api,
 // worker and media-worker ship as bun single-file bundles, and bun INLINES
 // process.env.NODE_ENV to a build-time literal, so a NODE_ENV check is frozen
 // at build and ignores the container's runtime env (it crash-looped prod once,
@@ -139,7 +139,7 @@ export function createLogger(opts: CreateLoggerOptions): Logger {
 /**
  * Process-wide accessor. createLogger() registers the root; getLogger()
  * returns it. Throws if called before createLogger, a hard signal that a
- * module logged before the process initialised its logger (no silent
+ * module logged before the process initialized its logger (no silent
  * default root). Used by shared @control-center/api domain services that run under
  * multiple process roots (api + media-worker). See docs/logging.md §2.
  */

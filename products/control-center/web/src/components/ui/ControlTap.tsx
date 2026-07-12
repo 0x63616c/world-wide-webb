@@ -36,7 +36,7 @@ export function ControlTap({
 
   // The bulb (Lights) glyph swaps by on-state for evee parity (www-cojw): a lit
   // Lightbulb when on, a struck-through LightbulbOff when off. lamp/fan keep a
-  // single glyph and signal state purely via colour (+ fan spin).
+  // single glyph and signal state purely via color (+ fan spin).
   const glyph: IconName = icon === "bulb" && !on ? "bulb-off" : icon;
 
   return (

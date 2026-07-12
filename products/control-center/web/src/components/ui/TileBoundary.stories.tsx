@@ -8,7 +8,7 @@ function ThrowingChild(): React.ReactNode {
   throw new Error("simulated tile render failure");
 }
 
-// Healthy neighbour to prove sibling isolation.
+// Healthy neighbor to prove sibling isolation.
 function HealthyChild() {
   return (
     <div

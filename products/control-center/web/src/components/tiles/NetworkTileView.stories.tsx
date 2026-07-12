@@ -39,7 +39,7 @@ export const Populated: Story = {
   },
 };
 
-// Offline , StatusDot renders grey dot instead of green dot
+// Offline , StatusDot renders gray dot instead of green dot
 export const Offline: Story = {
   args: {
     status: "populated",
@@ -54,7 +54,7 @@ export const Offline: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("world-wide-webb")).toBeInTheDocument();
     await expect(canvas.getByText("999ms")).toBeInTheDocument();
-    // Offline label is never rendered , only the StatusDot colour changes
+    // Offline label is never rendered , only the StatusDot color changes
     await expect(canvas.queryByText("Offline")).not.toBeInTheDocument();
     // Offline StatusDot renders inline-styled span , no .dot class (that only appears online)
     await expect(canvasElement.querySelector(".dot")).toBeNull();

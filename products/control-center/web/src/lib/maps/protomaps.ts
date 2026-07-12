@@ -2,10 +2,10 @@
  * Shared MapLibre + PMTiles bootstrap helpers used by TeslaMap,
  * TeslaModalLiveMapCommand, and TeslaModalRangeReach.
  *
- * WHY a shared module: all three components initialise a MapLibre instance
+ * WHY a shared module: all three components initialize a MapLibre instance
  * with the same dark dashboard palette, the same pmtiles protocol guard, and
  * the same blue-teardrop car-pin element. Inlining copies led to drift (the
- * interactive modal had a slightly different road-colour pass than the tile map).
+ * interactive modal had a slightly different road-color pass than the tile map).
  * Extracting here gives a single source of truth so future palette tweaks are
  * applied everywhere at once.
  *
@@ -59,7 +59,7 @@ export interface BuildDarkStyleOpts {
 
 /**
  * Build a MapLibre StyleSpecification with the dashboard dark palette.
- * All tile components use this so colour tweaks are applied everywhere at once.
+ * All tile components use this so color tweaks are applied everywhere at once.
  */
 export function buildDarkStyle(opts: BuildDarkStyleOpts = {}): maplibregl.StyleSpecification {
   const { includeLabels = false, glyphsUrl } = opts;
@@ -69,7 +69,7 @@ export function buildDarkStyle(opts: BuildDarkStyleOpts = {}): maplibregl.StyleS
   // Drop symbol layers when labels are not wanted (tile map, compact modals).
   const visibleLayers = includeLabels ? baseLayers : baseLayers.filter((l) => l.type !== "symbol");
 
-  // Dashboard colour pass , keep everything dark to match the --tile palette.
+  // Dashboard color pass , keep everything dark to match the --tile palette.
   const themedLayers = visibleLayers.map((layer) => {
     const l = { ...layer } as maplibregl.LayerSpecification & {
       paint?: Record<string, unknown>;

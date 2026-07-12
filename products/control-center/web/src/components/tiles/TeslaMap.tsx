@@ -6,7 +6,7 @@ import { buildDarkStyle, createCarPinElement, registerPmtilesProtocol } from "@/
 
 // HOME_CENTER (public placeholder, single source of truth in config/home.ts)
 // is the map fallback when lat/lon are null (car location unavailable / API
-// outage) so the map still renders centred rather than a blank grey canvas.
+// outage) so the map still renders centered rather than a blank gray canvas.
 
 // ── Component ─────────────────────────────────────────────────────────────────
 

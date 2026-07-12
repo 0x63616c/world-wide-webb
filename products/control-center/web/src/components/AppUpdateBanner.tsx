@@ -24,12 +24,12 @@ export function AppUpdateBanner() {
   const [installedBuild, setInstalledBuild] = useState<number | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    let canceled = false;
     void getInstalledBuildNumber().then((build) => {
-      if (!cancelled) setInstalledBuild(build);
+      if (!canceled) setInstalledBuild(build);
     });
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, []);
 

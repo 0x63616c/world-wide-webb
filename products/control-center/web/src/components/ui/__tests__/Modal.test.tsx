@@ -65,7 +65,7 @@ describe("Modal , open", () => {
     expect(screen.getByTestId("child")).toBeInTheDocument();
   });
 
-  it("renders a close button labelled 'Close'", () => {
+  it("renders a close button labeled 'Close'", () => {
     render(
       <Modal open={true} onClose={vi.fn()} title="Lamps">
         body

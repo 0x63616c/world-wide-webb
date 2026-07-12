@@ -213,7 +213,7 @@ describe("ExpandedControlsModalView , party control", () => {
 // ─── brightness slider ────────────────────────────────────────────────────────
 
 describe("ExpandedControlsModalView , brightness slider", () => {
-  it("renders a 0..100 range slider labelled Brightness", () => {
+  it("renders a 0..100 range slider labeled Brightness", () => {
     render(<ExpandedControlsModalView {...baseProps()} />);
     const slider = screen.getByLabelText("Brightness") as HTMLInputElement;
     expect(slider).toBeInTheDocument();

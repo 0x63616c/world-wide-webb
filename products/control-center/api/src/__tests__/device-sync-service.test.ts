@@ -1,6 +1,6 @@
 /**
  * Tests for device-sync-service.
- * Mocks DB and HA; tests reconcile logic and sweep behaviour.
+ * Mocks DB and HA; tests reconcile logic and sweep behavior.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

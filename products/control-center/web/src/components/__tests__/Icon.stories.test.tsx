@@ -10,14 +10,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import { GLYPHS } from "../Icon";
 import * as stories from "../Icon.stories";
 
-const { Gallery, Sizes, Colours, StrokeWidth, FanSpin } = composeStories(stories);
+const { Gallery, Sizes, Colors, StrokeWidth, FanSpin } = composeStories(stories);
 
 afterEach(cleanup);
 
 const ICON_NAMES = Object.keys(GLYPHS);
 
 describe("Icon stories , Gallery", () => {
-  it("renders one labelled cell per IconName", async () => {
+  it("renders one labeled cell per IconName", async () => {
     const { container } = render(<Gallery />);
     if (Gallery.play) await Gallery.play({ canvasElement: container });
     const cells = container.querySelectorAll("[data-cell]");
@@ -36,10 +36,10 @@ describe("Icon stories , Sizes", () => {
   });
 });
 
-describe("Icon stories , Colours", () => {
-  it("renders multiple svgs at different colours", async () => {
-    const { container } = render(<Colours />);
-    if (Colours.play) await Colours.play({ canvasElement: container });
+describe("Icon stories , Colors", () => {
+  it("renders multiple svgs at different colors", async () => {
+    const { container } = render(<Colors />);
+    if (Colors.play) await Colors.play({ canvasElement: container });
     const svgs = container.querySelectorAll("svg");
     expect(svgs.length).toBeGreaterThanOrEqual(3);
   });

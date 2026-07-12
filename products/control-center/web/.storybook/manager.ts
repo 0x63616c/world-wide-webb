@@ -6,7 +6,7 @@ const eveeTheme = create({
   base: "dark",
   brandTitle: "Control Center",
 
-  // App/UI chrome colours from tokens.css
+  // App/UI chrome colors from tokens.css
   appBg: "#060708",
   appContentBg: "#0c0e11",
   appPreviewBg: "#060708",

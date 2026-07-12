@@ -5,7 +5,7 @@
  * module has two halves:
  *
  *  1. The ENGINE , an in-process animation loop that, each tick, drives every
- *     lamp to its `partyColorsAtTick` colour via `light.turn_on` with an HA
+ *     lamp to its `partyColorsAtTick` color via `light.turn_on` with an HA
  *     `transition` crossfade. Timing is too fine-grained to route through the 1s
  *     enforcer, so the engine talks to HA directly. await-before-reschedule so
  *     ticks never overlap; per-tick try/catch so a transient HA error can't kill
@@ -14,8 +14,8 @@
  *     and starts/stops/restarts the engine. Because the DB row is truth, party
  *     survives a worker restart: the reconciler re-arms the engine on next cycle.
  *
- * The enforcer yields the COLOUR dimension to the engine while mode=party (it
- * still enforces on/off), so the two never fight over lamp colour.
+ * The enforcer yields the COLOR dimension to the engine while mode=party (it
+ * still enforces on/off), so the two never fight over lamp color.
  */
 
 import { getLogger } from "@www/logger";
@@ -102,7 +102,7 @@ export interface PartyEngine {
 
 /**
  * Create a party animation engine. State lives in this closure (no module-global
- * mutable vars). One tick computes the wave colours and fires one
+ * mutable vars). One tick computes the wave colors and fires one
  * `light.turn_on`-with-transition per lamp; the next tick is scheduled only after
  * the current one settles (await-before-reschedule).
  */
@@ -138,7 +138,7 @@ function createPartyEngine(): PartyEngine {
   return {
     start(next: LampModeSpeed) {
       // Restart cleanly so a speed change re-times immediately; preserve tick so
-      // the wave continues its phase rather than snapping back to colour 0.
+      // the wave continues its phase rather than snapping back to color 0.
       if (timer !== null) {
         clearTimeout(timer);
         timer = null;

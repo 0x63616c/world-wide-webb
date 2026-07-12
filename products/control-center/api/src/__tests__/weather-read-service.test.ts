@@ -55,7 +55,7 @@ describe("readWeatherHourly", () => {
     expect(hours[0].temp).toBe(72);
     expect(hours.length).toBe(2);
     expect(hours.every((x) => typeof x.isoTime === "string")).toBe(true);
-    // second slot is labelled by hour number, not "Now"
+    // second slot is labeled by hour number, not "Now"
     expect(hours[1].t).not.toBe("Now");
   });
 

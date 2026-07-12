@@ -8,7 +8,7 @@ export const eventsRouter = router({
     .input(z.object({}).optional())
     // EventSelectSchema is derived from createSelectSchema(events): id + name +
     // place come directly from DB column types; date is overridden to z.string()
-    // (the service serialises the timestamptz to ISO); days is extended as the
+    // (the service serializes the timestamptz to ISO); days is extended as the
     // computed days-until field.  No hand-written shadow needed.
     .output(z.array(EventSelectSchema))
     .query(async ({ ctx }) => {

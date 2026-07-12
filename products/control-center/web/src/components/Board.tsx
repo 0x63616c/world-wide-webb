@@ -282,7 +282,7 @@ export function Board() {
   const stageRef = useRef<HTMLDivElement>(null);
   const [activeModal, setActiveModal] = useState<TileModalEntry | null>(null);
 
-  // Live settings (idle-dim behaviour, FPS readout, snap-mode) from the shared
+  // Live settings (idle-dim behavior, FPS readout, snap-mode) from the shared
   // store. Edits made in the settings panel apply here with no prop-drilling;
   // snapMode replaces the old localStorage-backed useState.
   const settings = useSettings();

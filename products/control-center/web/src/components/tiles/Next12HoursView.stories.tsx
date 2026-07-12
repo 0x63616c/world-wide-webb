@@ -66,7 +66,7 @@ export const Populated: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Next 12 Hours")).toBeInTheDocument();
-    // Legend items confirm both series are labelled.
+    // Legend items confirm both series are labeled.
     await expect(canvas.getByText("┈ Feels")).toBeInTheDocument();
     await expect(canvas.getByText("▮ Temp")).toBeInTheDocument();
     // First hour label.

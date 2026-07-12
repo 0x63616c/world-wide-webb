@@ -11,7 +11,7 @@
  *
  * Gradient bands encode sky state: deep indigo at the arc's tips (night),
  * shifting through warm amber (golden hour) into a cool-white day band in the
- * centre. The night band wraps continuously so midnight-to-sunrise reads as
+ * center. The night band wraps continuously so midnight-to-sunrise reads as
  * the same darkness as post-sunset.
  *
  * Mid: 3 Stat cells , Day length, Daylight remaining, Sun position %.

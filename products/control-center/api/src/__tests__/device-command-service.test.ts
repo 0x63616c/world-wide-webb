@@ -1,6 +1,6 @@
 /**
  * Tests for device-command-service.
- * Mocks DB and HA; verifies DB writes and HA dispatch behaviour.
+ * Mocks DB and HA; verifies DB writes and HA dispatch behavior.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

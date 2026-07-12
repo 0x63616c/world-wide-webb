@@ -5,7 +5,7 @@ import { useIdleDim } from "../useBoard";
 
 // Stub the native brightness bridge so the timer logic is exercised without a
 // Capacitor shell. isNativeDisplay stays false (jsdom), matching production
-// browser behaviour; the spies just prove dimTo/wakeTo fire at the right time.
+// browser behavior; the spies just prove dimTo/wakeTo fire at the right time.
 const dimTo = vi.fn();
 const wakeTo = vi.fn();
 vi.mock("../../../lib/brightness", () => ({

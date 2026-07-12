@@ -10,7 +10,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMixer } from "../hooks/useMixer";
 
-// Helper: initialise hook with a simple two-room locked gang.
+// Helper: initialize hook with a simple two-room locked gang.
 function twoRoomSetup(volA: number, volB: number) {
   const rooms = [
     { coordinatorUuid: "uuid-A", name: "Room A", volume: volA, muted: false },

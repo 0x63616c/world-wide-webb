@@ -11,7 +11,7 @@ const meta: Meta<typeof Field> = {
     docs: {
       description: {
         component:
-          "A labelled control with an optional leading icon, an error-message slot, and a 3px focus ring. The same Field wraps name, email and password inputs. Error sets aria-invalid + aria-describedby and renders a role=alert message.",
+          "A labeled control with an optional leading icon, an error-message slot, and a 3px focus ring. The same Field wraps name, email and password inputs. Error sets aria-invalid + aria-describedby and renders a role=alert message.",
       },
     },
   },

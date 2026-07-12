@@ -15,7 +15,7 @@ import {
 const key = (c: readonly number[]) => JSON.stringify(c);
 
 describe("MOOD_PALETTE", () => {
-  it("holds enough distinct colours for every lamp to be unique", () => {
+  it("holds enough distinct colors for every lamp to be unique", () => {
     const distinct = new Set(MOOD_PALETTE.map(key));
     expect(distinct.size).toBe(MOOD_PALETTE.length); // no dupes in the palette
     expect(MOOD_PALETTE.length).toBeGreaterThanOrEqual(7); // one per lamp (7 lamps)
@@ -29,7 +29,7 @@ describe("MOOD_PALETTE", () => {
 });
 
 describe("assignMoodColors", () => {
-  it("returns one UNIQUE palette colour per lamp", () => {
+  it("returns one UNIQUE palette color per lamp", () => {
     const n = 7;
     const colors = assignMoodColors(n);
     expect(colors).toHaveLength(n);
@@ -37,7 +37,7 @@ describe("assignMoodColors", () => {
     const palette = new Set(MOOD_PALETTE.map(key));
     for (const c of colors) expect(palette.has(key(c))).toBe(true);
 
-    // The whole ask: every lamp a distinct colour, no repeats.
+    // The whole ask: every lamp a distinct color, no repeats.
     expect(new Set(colors.map(key)).size).toBe(n);
   });
 
@@ -81,7 +81,7 @@ describe("LAMP_MODE_SPEED_CONFIG", () => {
 });
 
 describe("partyColorsAtTick", () => {
-  it("gives one colour per lamp, each drawn from PARTY_PALETTE", () => {
+  it("gives one color per lamp, each drawn from PARTY_PALETTE", () => {
     const colors = partyColorsAtTick(0, 7);
     expect(colors).toHaveLength(7);
     const palette = new Set(PARTY_PALETTE.map(key));
@@ -93,7 +93,7 @@ describe("partyColorsAtTick", () => {
     expect(colors.map(key)).toEqual(PARTY_PALETTE.map(key));
   });
 
-  it("advances every lamp by one colour each tick (rolling wave)", () => {
+  it("advances every lamp by one color each tick (rolling wave)", () => {
     const n = PARTY_PALETTE.length;
     const t0 = partyColorsAtTick(0, n);
     const t1 = partyColorsAtTick(1, n);
@@ -103,7 +103,7 @@ describe("partyColorsAtTick", () => {
     }
   });
 
-  it("wraps mod-N and is deterministic (same tick → same colours)", () => {
+  it("wraps mod-N and is deterministic (same tick → same colors)", () => {
     const n = PARTY_PALETTE.length;
     expect(partyColorsAtTick(n, 4).map(key)).toEqual(partyColorsAtTick(0, 4).map(key));
     expect(partyColorsAtTick(5, 7).map(key)).toEqual(partyColorsAtTick(5, 7).map(key));

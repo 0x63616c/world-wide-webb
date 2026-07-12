@@ -98,10 +98,10 @@ function mapHaClimate(entity: HaEntity): DeviceClimateState {
 }
 
 /**
- * Extract a light's colour from HA attributes: an `rgb_color` triple or a white
+ * Extract a light's color from HA attributes: an `rgb_color` triple or a white
  * `color_temp_kelvin`. Returns undefined when neither is present (e.g. a plain
- * on/off switch, or a light HA hasn't reported colour for yet) so we never
- * fabricate a colour. Whichever colour mode HA reports is the one we record.
+ * on/off switch, or a light HA hasn't reported color for yet) so we never
+ * fabricate a color. Whichever color mode HA reports is the one we record.
  */
 function mapHaColor(entity: HaEntity): LightColor | undefined {
   const rgb = entity.attributes.rgb_color;
@@ -201,9 +201,9 @@ export function isActivelyConditioning(reported: DeviceClimateState): boolean {
 }
 
 /**
- * Exact colour equality (used for reported-vs-reported change detection). The
+ * Exact color equality (used for reported-vs-reported change detection). The
  * enforcer applies its own tolerances for desired-vs-reported drift; here we
- * want a precise compare so a genuine colour change registers.
+ * want a precise compare so a genuine color change registers.
  */
 function colorEquals(a: LightColor | undefined, b: LightColor | undefined): boolean {
   if (a === b) return true;
@@ -223,7 +223,7 @@ export interface MergedDeviceState {
 }
 
 // Tolerances for desired-vs-reported convergence (pending detection). HA does not
-// round-trip colour/brightness exactly, so a per-channel/absolute slack stops a
+// round-trip color/brightness exactly, so a per-channel/absolute slack stops a
 // freshly-actuated light from reading as perpetually "pending". Mirrors the
 // enforcer's drift tolerances (kept local to avoid a circular import , the
 // enforcer imports from this module).
@@ -231,7 +231,7 @@ const RGB_CHANNEL_TOLERANCE = 12;
 const KELVIN_TOLERANCE = 250;
 const BRIGHTNESS_TOLERANCE = 3;
 
-/** True when two colours are within HA round-trip tolerance (or both absent). */
+/** True when two colors are within HA round-trip tolerance (or both absent). */
 function colorConverged(a: LightColor | undefined, b: LightColor | undefined): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
@@ -248,9 +248,9 @@ function colorConverged(a: LightColor | undefined, b: LightColor | undefined): b
 /**
  * Tolerant convergence of the desired fields that are SPECIFIED vs reported.
  * Desired is a PARTIAL overlay: only the fields it actually carries are intent,
- * so a desired that omits brightness/colour (e.g. a bare on/off toggle) must NOT
- * count as diverged just because reported has a colour. `on` is always specified;
- * brightness/colour are compared only when desired specifies them.
+ * so a desired that omits brightness/color (e.g. a bare on/off toggle) must NOT
+ * count as diverged just because reported has a color. `on` is always specified;
+ * brightness/color are compared only when desired specifies them.
  */
 function converged(desired: DeviceStateValue, reported: DeviceStateValue): boolean {
   // Climate uses its own commandable-field convergence (www-unxz.2).
@@ -268,8 +268,8 @@ function converged(desired: DeviceStateValue, reported: DeviceStateValue): boole
   ) {
     return false;
   }
-  // Only a SPECIFIED desired colour can diverge; an absent desired colour means
-  // "no colour intent" → reflect reported, never perpetually pending.
+  // Only a SPECIFIED desired color can diverge; an absent desired color means
+  // "no color intent" → reflect reported, never perpetually pending.
   if (desired.color != null && !colorConverged(desired.color, reported.color)) {
     return false;
   }
@@ -280,8 +280,8 @@ function converged(desired: DeviceStateValue, reported: DeviceStateValue): boole
  * Merge reported and desired into the effective state. Desired is the source of
  * truth, but it is a PARTIAL OVERLAY: each field desired specifies wins (the
  * enforcer drives HA to it); fields desired omits fall back to reported. So a
- * bare on/off toggle (`{on}`) still shows the real brightness/colour from HA
- * instead of zeros, and `activeScene` derives from the effective colour. This
+ * bare on/off toggle (`{on}`) still shows the real brightness/color from HA
+ * instead of zeros, and `activeScene` derives from the effective color. This
  * matches the enforcer, which only actuates the fields desired specifies
  * (www-7d5b.2.4). `pending` is true only while a SPECIFIED desired field has not
  * yet converged with reported. The old 5s desiredUntilUtc window is retired.

@@ -21,7 +21,7 @@ const TILE_STATUS_ARG_TYPE: TileArgType = {
 };
 
 /**
- * Factory for a labelled boolean toggle argType (online, live, etc.).
+ * Factory for a labeled boolean toggle argType (online, live, etc.).
  * Pass a human-readable description so each tile's intent is clear in Storybook.
  */
 export function boolArgType(description: string): TileArgType {

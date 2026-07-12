@@ -389,7 +389,7 @@ describe("getControlsState", () => {
     expect(state.lamps.brightness).toBe(75);
   });
 
-  it("www-91bl: keeps last-known desired brightness when all lamps are off (bar greys, keeps level)", async () => {
+  it("www-91bl: keeps last-known desired brightness when all lamps are off (bar grays, keeps level)", async () => {
     mockIsConfigured.mockReturnValue(true);
     // Both lamps OFF but desired brightness persists (255→100%, 128→50%): the bar
     // must show the level it will resume to (avg 75%), NOT drop to 0%.
@@ -555,9 +555,9 @@ describe("getControlsState", () => {
     expect(state.fan.on).toBe(false);
   });
 
-  // ─── activeScene derivation (from desired colours) ──────────────────────────
+  // ─── activeScene derivation (from desired colors) ──────────────────────────
 
-  it("activeScene='blue' when every on-lamp's desired colour is BLUE_RGB", async () => {
+  it("activeScene='blue' when every on-lamp's desired color is BLUE_RGB", async () => {
     mockIsConfigured.mockReturnValue(true);
     const rows = [
       lampRow("lamp-1", "light.living_room_globe", { on: true, color: { rgb: [0, 0, 255] } }),
@@ -570,7 +570,7 @@ describe("getControlsState", () => {
     expect(state.lamps.activeScene).toBe(LampScene.Blue);
   });
 
-  it("activeScene='white' when on-lamps' desired colour is WHITE_SCENE_KELVIN", async () => {
+  it("activeScene='white' when on-lamps' desired color is WHITE_SCENE_KELVIN", async () => {
     mockIsConfigured.mockReturnValue(true);
     const rows = [
       lampRow("lamp-1", "light.living_room_globe", {
@@ -585,7 +585,7 @@ describe("getControlsState", () => {
     expect(state.lamps.activeScene).toBe(LampScene.White);
   });
 
-  it("activeScene=null when on-lamps disagree on non-palette colours", async () => {
+  it("activeScene=null when on-lamps disagree on non-palette colors", async () => {
     mockIsConfigured.mockReturnValue(true);
     const rows = [
       lampRow("lamp-1", "light.living_room_globe", { on: true, color: { rgb: [255, 0, 0] } }),
@@ -598,7 +598,7 @@ describe("getControlsState", () => {
     expect(state.lamps.activeScene).toBeNull();
   });
 
-  it("activeScene='mood' when every on-lamp shows a MOOD_PALETTE colour (varied wash, www-vhht)", async () => {
+  it("activeScene='mood' when every on-lamp shows a MOOD_PALETTE color (varied wash, www-vhht)", async () => {
     mockIsConfigured.mockReturnValue(true);
     const rows = [
       lampRow("lamp-1", "light.living_room_globe", {
@@ -679,9 +679,9 @@ describe("toggleControl", () => {
     }
   });
 
-  it("toggling a lamp ON preserves its existing desired colour (scene survives a toggle)", async () => {
+  it("toggling a lamp ON preserves its existing desired color (scene survives a toggle)", async () => {
     mockIsConfigured.mockReturnValue(true);
-    // One lamp already has a blue desired colour; turning lamps on must keep it.
+    // One lamp already has a blue desired color; turning lamps on must keep it.
     mockDbSelect.mockReturnValue(
       makeSelectChain([
         lampRow("lamp-1", "light.living_room_globe", { on: false, color: { rgb: [0, 0, 255] } }),
@@ -691,7 +691,7 @@ describe("toggleControl", () => {
 
     await toggleControl(ControlKey.Lamps, true);
 
-    // The desired written for the globe carries its preserved colour , no HA call.
+    // The desired written for the globe carries its preserved color , no HA call.
     expect(mockCallService).not.toHaveBeenCalled();
     expect(writes.get("light.living_room_globe")?.desiredState).toMatchObject({
       on: true,
@@ -933,11 +933,11 @@ describe("setLampScene", () => {
       rgbByEntity.set(entityId, JSON.stringify(desired?.color?.rgb));
     }
 
-    // Every lamp gets a DISTINCT colour , no repeats across the room.
+    // Every lamp gets a DISTINCT color , no repeats across the room.
     const distinct = new Set(rgbByEntity.values());
     expect(distinct.size).toBe(LAMP_ENTITY_IDS.length);
 
-    // Each colour must come from the curated palette.
+    // Each color must come from the curated palette.
     const paletteSet = new Set(MOOD_PALETTE.map((c) => JSON.stringify(c)));
     for (const rgb of rgbByEntity.values()) {
       expect(paletteSet.has(rgb)).toBe(true);
@@ -959,7 +959,7 @@ describe("setLampScene", () => {
 
     await setLampScene(LampScene.Red);
 
-    // The lamp_mode singleton is upserted (to 'none') so party yields the colour.
+    // The lamp_mode singleton is upserted (to 'none') so party yields the color.
     expect(mockDbInsert).toHaveBeenCalledWith(lampMode);
   });
 });
@@ -1166,9 +1166,9 @@ describe("getControlsState activeScene='party'", () => {
     mockGetEntities.mockResolvedValue([]);
   });
 
-  it("reports activeScene='party' when the lamp_mode row is party (overriding colour)", async () => {
+  it("reports activeScene='party' when the lamp_mode row is party (overriding color)", async () => {
     mockIsConfigured.mockReturnValue(true);
-    // Lamps are blue, but the party mode row overrides the colour-derived scene.
+    // Lamps are blue, but the party mode row overrides the color-derived scene.
     mockSelectWithMode(
       [lampRow("lamp-1", "light.living_room_globe", { on: true, color: { rgb: [0, 0, 255] } })],
       LampMode.Party,
@@ -1179,7 +1179,7 @@ describe("getControlsState activeScene='party'", () => {
     expect(state.lamps.activeScene).toBe(LampMode.Party);
   });
 
-  it("falls back to the colour-derived scene when the lamp_mode row is none", async () => {
+  it("falls back to the color-derived scene when the lamp_mode row is none", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockSelectWithMode(
       [lampRow("lamp-1", "light.living_room_globe", { on: true, color: { rgb: [0, 0, 255] } })],

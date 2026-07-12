@@ -48,7 +48,7 @@ export interface ScheduleZone {
   ambient: number;
   /** Current committed setpoint from HA , seeds the active segment. */
   currentTarget: number;
-  /** HA hvac_action , drives the "now" caret colour. */
+  /** HA hvac_action , drives the "now" caret color. */
   action: "cooling" | "heating" | "idle" | "off";
   /** HA min_temp for this entity , lower bound of temp axis. */
   minTemp: number;

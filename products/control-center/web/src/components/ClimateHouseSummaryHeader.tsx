@@ -7,7 +7,7 @@
  * status/schedule label. The only differences are the label text in the second
  * column and an optional right-side element (the Schedule modal adds a caret
  * legend pill). Extracting here ensures visual consistency and a single place
- * to tweak padding/radius/colour tokens.
+ * to tweak padding/radius/color tokens.
  *
  * PURE , no hooks, no trpc. All data arrives via props.
  */
@@ -19,7 +19,7 @@ import { Stat } from "./ui";
 export interface ClimateHouseSummaryHeaderProps {
   /** House-average ambient temperature in °F. Displayed as "{Math.round(avgF)}°F". */
   avgAmbientF: number;
-  /** Whether any zone is actively cooling or heating , drives Stat accent colour. */
+  /** Whether any zone is actively cooling or heating , drives Stat accent color. */
   anyActive: boolean;
   /** Label for the second column (e.g. "Status", "Schedule"). */
   secondLabel: string;

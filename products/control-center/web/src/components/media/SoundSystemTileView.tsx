@@ -122,7 +122,7 @@ function Fader({ room, volume, muted, accent, linked, coord, onChange, onOpenSou
 
       {/* Vertical fader , the shared Slider rotated (auto-length fills the tile).
           Idle groups + muted rooms dim the whole control rather than swapping to a
-          grey rail; ganged rooms get the accent ring around the track (www-a5rl). */}
+          gray rail; ganged rooms get the accent ring around the track (www-a5rl). */}
       <div
         style={{
           flex: 1,

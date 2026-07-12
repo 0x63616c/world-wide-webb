@@ -2,7 +2,7 @@
  * Tests for the party engine + reconcilePartyMode worker (www-7d5b.3.3).
  *
  * The reconcile decision is a PURE function (decidePartyAction) tested directly.
- * The engine's tick (which drives HA) is tested via its pure colour/param build;
+ * The engine's tick (which drives HA) is tested via its pure color/param build;
  * a cycle-level test stubs the engine to prove reconcile drives start/stop.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";

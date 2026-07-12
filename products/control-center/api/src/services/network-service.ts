@@ -7,9 +7,9 @@ import { UnifiStatus, unifi } from "../integrations/unifi";
 // ---------------------------------------------------------------------------
 
 interface TrafficBucket {
-  /** Download bytes (raw; the chart normalises for display). */
+  /** Download bytes (raw; the chart normalizes for display). */
   down: number;
-  /** Upload bytes (raw; the chart normalises for display). */
+  /** Upload bytes (raw; the chart normalizes for display). */
   up: number;
 }
 

@@ -46,7 +46,7 @@ export const Idle: Story = {
   },
 };
 
-/** At least one zone is actively conditioning , accent colour active. */
+/** At least one zone is actively conditioning , accent color active. */
 export const Active: Story = {
   args: {
     avgAmbientF: 68.8,

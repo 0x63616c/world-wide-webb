@@ -12,7 +12,7 @@ import { SETTINGS_SINGLETON_ID, settings } from "../db/schema";
 // client reads/writes; field names and types MUST NOT drift. Stored as a single
 // jsonb `value` on the settings singleton row (services own the shape, not the DB).
 
-/** Valid snap-drag behaviours for the tile board. */
+/** Valid snap-drag behaviors for the tile board. */
 export const SnapMode = {
   Proximity: "proximity",
   Mandatory: "mandatory",
@@ -22,7 +22,7 @@ export const SnapMode = {
 } as const;
 export type SnapMode = (typeof SnapMode)[keyof typeof SnapMode];
 
-/** Valid board colour themes. Auto follows the sun at the home location. */
+/** Valid board color themes. Auto follows the sun at the home location. */
 export const ThemeMode = {
   Auto: "auto",
   Light: "light",
@@ -58,7 +58,7 @@ export const settingsSchema = z.object({
     SnapMode.None,
     SnapMode.Spring,
   ]),
-  /** Board colour theme. `auto` tracks the sun: light after sunrise, dark after
+  /** Board color theme. `auto` tracks the sun: light after sunrise, dark after
    *  sunset (shifted by themeSunOffsetMin), from the home-location sun times
    *  already ingested with the weather. */
   themeMode: z.enum([ThemeMode.Auto, ThemeMode.Light, ThemeMode.Dark]),

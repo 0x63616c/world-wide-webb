@@ -1,7 +1,7 @@
 /**
  * Vitest setup: seed the process-wide @www/logger root so that getLogger()
  * never throws "called before createLogger" in unit tests. All output is
- * suppressed (level: "silent") , tests assert behaviour, not log lines.
+ * suppressed (level: "silent") , tests assert behavior, not log lines.
  */
 import { createLogger } from "@www/logger";
 

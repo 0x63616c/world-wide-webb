@@ -81,7 +81,7 @@ function lerp01(value: number, min: number, max: number): number {
 }
 
 /**
- * Map a normalised [0, 1] heat fraction to a CSS color. Cold side uses --acc
+ * Map a normalized [0, 1] heat fraction to a CSS color. Cold side uses --acc
  * (the green accent, which reads as "cool" on this dark panel) transitioning
  * through a neutral mid to --amber (warm gold) at the hot end. Pure CSS custom
  * props can't be lerped, so we compute the channel mix here using the token
@@ -183,7 +183,7 @@ function ZoneCell({
       aria-pressed={selected}
       onClick={onSelect}
       style={{
-        // Background tint at ~18% opacity so the zone colour reads against the
+        // Background tint at ~18% opacity so the zone color reads against the
         // dark tile surface without washing it out.
         background: selected
           ? `color-mix(in srgb, ${color} 28%, var(--tile-2))`

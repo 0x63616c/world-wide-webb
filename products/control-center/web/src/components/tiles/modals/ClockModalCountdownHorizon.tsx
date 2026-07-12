@@ -118,7 +118,7 @@ function HorizonRuler({ maxDays }: { maxDays: number }) {
   );
 }
 
-/** Single event row: big day count left, name+place centre, dot on shared ruler. */
+/** Single event row: big day count left, name+place center, dot on shared ruler. */
 function EventRow({
   event,
   maxDays,

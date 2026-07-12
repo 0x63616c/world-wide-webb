@@ -4,7 +4,7 @@
  * WHY this layout: The Clock tile says "Good evening" without ever explaining
  * why , which greeting bucket applies, when it ends, or how that maps to the
  * real sun. This modal makes the hidden logic legible. A tall vertical ribbon
- * on the left shows all 24 hours as a proportional strip, coloured by the four
+ * on the left shows all 24 hours as a proportional strip, colored by the four
  * greeting bands (night/morning/afternoon/evening). Two sun/moon markers sit at
  * the exact pixel row for today's real sunrise and sunset (from the weather
  * router). A live "now" line sweeps down the ribbon, showing exactly where the
@@ -222,7 +222,7 @@ export function ClockModalTimeOfDayRhythm({
               border: "1px solid var(--hair-2)",
             }}
           >
-            {/* Greeting band fills , coloured by time-of-day */}
+            {/* Greeting band fills , colored by time-of-day */}
             {BANDS.map((band, i) => {
               const top = fractionToPx(band.startHour / 24);
               const height = fractionToPx((band.endHour - band.startHour) / 24);
@@ -369,7 +369,7 @@ export function ClockModalTimeOfDayRhythm({
             </div>
           </section>
 
-          {/* Band legend , small colour chips so the ribbon colours are named */}
+          {/* Band legend , small color chips so the ribbon colors are named */}
           <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <span className="cap">Greeting bands</span>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

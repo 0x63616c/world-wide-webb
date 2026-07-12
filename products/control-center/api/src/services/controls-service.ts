@@ -37,18 +37,18 @@ interface LampState {
   pending: boolean;
   /**
    * The active lamp scene. "party" (and any future animated mode) when the
-   * lamp_mode row is set; otherwise the colour scene every on-lamp agrees on,
-   * derived from DESIRED colours (white/red/blue, or mood when every lamp shows
-   * a MOOD_PALETTE colour, www-vhht). null when no mode is set and lamps
-   * disagree, are off, or show a custom colour (www-7d5b.3.4).
+   * lamp_mode row is set; otherwise the color scene every on-lamp agrees on,
+   * derived from DESIRED colors (white/red/blue, or mood when every lamp shows
+   * a MOOD_PALETTE color, www-vhht). null when no mode is set and lamps
+   * disagree, are off, or show a custom color (www-7d5b.3.4).
    */
   activeScene: ActiveScene | null;
 }
 
 /**
- * The active lamp scene reported to the UI: one of the colour scenes, or an
+ * The active lamp scene reported to the UI: one of the color scenes, or an
  * animated lamp mode (currently just "party"). Never "none" , that maps to
- * "no mode set", which falls through to the colour-derived scene or null.
+ * "no mode set", which falls through to the color-derived scene or null.
  */
 type ActiveScene = LampScene | typeof LampMode.Party;
 
@@ -86,7 +86,7 @@ export type FanMode = (typeof FanMode)[keyof typeof FanMode];
 // The app-command window (www-unxz.1). A control mutation writes desired and
 // returns WITHOUT actuating HA , the enforcer pushes desired→HA. While
 // `now < desiredUntilUtc` the enforcer pushes regardless of control policy, so a
-// freshly-set desired is honoured even on an `adopt` wall-switch fixture (which
+// freshly-set desired is honored even on an `adopt` wall-switch fixture (which
 // would otherwise revert it on the next cycle). The enforcer runs ~1s; 10s covers
 // slow HA round-trips so the desired is pushed before the window lapses.
 const COMMAND_WINDOW_MS = 10_000;
@@ -166,16 +166,16 @@ function effectiveLight(row: typeof deviceState.$inferSelect | undefined): Effec
   return { on, state, available: merged.available, pending: merged.pending };
 }
 
-// ─── activeScene derivation (from desired colours) ────────────────────────────
+// ─── activeScene derivation (from desired colors) ────────────────────────────
 
 function rgbEquals(a: readonly number[] | undefined, b: readonly number[]): boolean {
   return !!a && a.length === 3 && a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
 }
 
-/** Map one desired colour to the scene it represents, or null. Exact compare ,
+/** Map one desired color to the scene it represents, or null. Exact compare ,
  *  these are our OWN written values, so no HA round-trip tolerance is needed.
- *  A MOOD_PALETTE colour maps to Mood (www-vhht): mood writes a distinct palette
- *  colour per lamp, so per-lamp palette membership is the mood signature ,
+ *  A MOOD_PALETTE color maps to Mood (www-vhht): mood writes a distinct palette
+ *  color per lamp, so per-lamp palette membership is the mood signature ,
  *  RED_RGB/BLUE_RGB are deliberately absent from the palette, so no ambiguity. */
 function colorToScene(color: LightColor | undefined): LampScene | null {
   if (!color) return null;
@@ -187,9 +187,9 @@ function colorToScene(color: LightColor | undefined): LampScene | null {
 }
 
 /**
- * Derive the active scene from the desired colours of the on-lamps. Every on-lamp
+ * Derive the active scene from the desired colors of the on-lamps. Every on-lamp
  * must agree on the same scene; otherwise null (lamps off, mixed or custom
- * colours). Mood counts as agreement: every lamp shows some MOOD_PALETTE colour
+ * colors). Mood counts as agreement: every lamp shows some MOOD_PALETTE color
  * (they differ per lamp by design, www-vhht). The party mode overrides this from
  * the lamp_mode row (added in www-7d5b.3.4 via deriveActiveScene's caller).
  */
@@ -243,7 +243,7 @@ export async function getControlsState(): Promise<ControlsState> {
   // Brightness drives the modal's level bar. When lamps are ON it is the avg live
   // level of the on-lamps. When ALL lamps are OFF we report the avg last-known
   // DESIRED level (which persists across a toggle) so the bar keeps its fill and
-  // the frontend greys it out, instead of dropping to 0% (www-91bl). Only a truly
+  // the frontend grays it out, instead of dropping to 0% (www-91bl). Only a truly
   // unknown level (no lamp has any brightness) falls back to 0 (an empty bar).
   const brightnessSource = anyLampOn
     ? lampsOn
@@ -291,7 +291,7 @@ export async function getControlsState(): Promise<ControlsState> {
  * Resolve the active scene. The persistent lamp_mode row wins: a non-"none" mode
  * (e.g. "party") is reported directly , the animation is owned by the worker, so
  * the API can't read it from memory and must take it from the DB row (www-7d5b.3.4).
- * Otherwise it falls back to the colour scene the on-lamps' desired colours agree
+ * Otherwise it falls back to the color scene the on-lamps' desired colors agree
  * on (www-7d5b.2.4).
  */
 async function resolveActiveScene(
@@ -304,9 +304,9 @@ async function resolveActiveScene(
 
 /**
  * Clear any persistent lamp mode (upsert the singleton row to "none"). The party
- * worker OWNS the colour dimension while mode=party (the enforcer yields colour to
- * it), so an explicit manual colour/scene command must end party , otherwise the
- * animation keeps overwriting the user's colour every tick and the scene never
+ * worker OWNS the color dimension while mode=party (the enforcer yields color to
+ * it), so an explicit manual color/scene command must end party , otherwise the
+ * animation keeps overwriting the user's color every tick and the scene never
  * sticks. Turning the lamps OFF clears it too, so party never silently resurrects
  * on the next lamp-on (www-hu8p). DB-unreachable is swallowed: the scene/toggle
  * actuation still fires, so the command is never a silent no-op.
@@ -347,7 +347,7 @@ async function readLampMode(): Promise<LampMode> {
  * Upsert the desired state for a set of managed lights. Desired is STICKY (no
  * expiry) , it is the source of truth the enforcer continuously reconciles.
  * `mutate` derives the new desired from the existing one (so a brightness change
- * keeps the colour, a toggle keeps the scene).
+ * keeps the color, a toggle keeps the scene).
  *
  * Each write also stamps a short `desiredUntilUtc` COMMAND WINDOW (www-unxz.1):
  * the mutations no longer actuate HA themselves, so the enforcer must PUSH this
@@ -464,8 +464,8 @@ function fixtureEntries(): LightEntry[] {
  * For lamps/lights: writes the on/off intent to device_state DESIRED (+ a command
  * window) and returns , it does NOT actuate HA in the hot path. The light enforcer
  * pushes desired→HA within its ~1s cycle (it pushes regardless of policy while the
- * command window is open, so even an `adopt` wall-switch honours the tap). Turning
- * a lamp ON preserves its existing desired colour/brightness (the scene survives a
+ * command window is open, so even an `adopt` wall-switch honors the tap). Turning
+ * a lamp ON preserves its existing desired color/brightness (the scene survives a
  * toggle). Fan stays the climate fan_mode path (evee parity). Throws when HA is
  * unconfigured. Returns the desired-authoritative state.
  */
@@ -481,7 +481,7 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
       // intact so a durable party re-arms when the lamps come back.
       if (!on) await clearLampMode();
       const entries = lampEntries();
-      // Toggle ON preserves the existing desired colour/brightness (scene survives
+      // Toggle ON preserves the existing desired color/brightness (scene survives
       // a toggle); OFF just flips on. The desired write is the source of truth; the
       // enforcer pushes it to HA within the command window.
       await writeDesired(entries, (_entry, prev) =>
@@ -509,8 +509,8 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
 }
 
 /**
- * Per-lamp desired colour for a scene. white/red/blue are uniform; mood assigns
- * each lamp a UNIQUE random palette colour (different every call). Returned in
+ * Per-lamp desired color for a scene. white/red/blue are uniform; mood assigns
+ * each lamp a UNIQUE random palette color (different every call). Returned in
  * LAMP_ENTITY_IDS order so it lines up with the lamp entries.
  */
 function sceneColors(scene: LampScene): LightColor[] {
@@ -527,10 +527,10 @@ function sceneColors(scene: LampScene): LightColor[] {
 }
 
 /**
- * Apply a colour scene to every lamp: writes the colour into device_state DESIRED
+ * Apply a color scene to every lamp: writes the color into device_state DESIRED
  * (on=true) AND actuates HA immediately. activeScene then reflects the scene from
  * desired , including "mood", where each lamp gets a distinct random palette
- * colour and palette membership is the signature (www-vhht). Throws when HA is
+ * color and palette membership is the signature (www-vhht). Throws when HA is
  * unconfigured.
  */
 export async function setLampScene(scene: LampScene): Promise<ControlsState> {
@@ -538,8 +538,8 @@ export async function setLampScene(scene: LampScene): Promise<ControlsState> {
     throw new Error("Home Assistant is not configured");
   }
 
-  // A manual scene is an explicit colour intent , end party so its worker stops
-  // overwriting the scene's colour every animation tick (www-hu8p).
+  // A manual scene is an explicit color intent , end party so its worker stops
+  // overwriting the scene's color every animation tick (www-hu8p).
   await clearLampMode();
 
   const entries = lampEntries();
@@ -557,7 +557,7 @@ export async function setLampScene(scene: LampScene): Promise<ControlsState> {
 
 /**
  * Set brightness (0..100 %) on every lamp: writes brightness into device_state
- * DESIRED (on=true, preserving each lamp's existing colour) AND actuates HA. The
+ * DESIRED (on=true, preserving each lamp's existing color) AND actuates HA. The
  * pct is clamped. Throws when HA is unconfigured.
  */
 export async function setLampBrightness(pct: number): Promise<ControlsState> {
@@ -579,7 +579,7 @@ export async function setLampBrightness(pct: number): Promise<ControlsState> {
 
 /**
  * Set the persistent lamp mode (www-7d5b.3.4). Writes the lamp_mode singleton row
- * ({ mode, speed }); the party WORKER reconciles that row (start/stop the colour
+ * ({ mode, speed }); the party WORKER reconciles that row (start/stop the color
  * animation), so this only records intent , it does NOT drive HA itself. Starting
  * party with NO lamps currently on is a no-op (nothing to animate; the row stays
  * "none"). Throws when HA is unconfigured (parity with the other mutations, so the

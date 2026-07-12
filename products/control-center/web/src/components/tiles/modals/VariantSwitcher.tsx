@@ -2,7 +2,7 @@
  * VariantSwitcher , floating segmented selector that sits ABOVE the open detail
  * modal and lets you swap between a tile's designed modal variants live.
  *
- * Portaled to <body> (like the Modal) as a fixed, top-centred pill bar layered
+ * Portaled to <body> (like the Modal) as a fixed, top-centered pill bar layered
  * above the Modal overlay (zIndex 110 > the Modal's 100). The portal is load-
  * bearing: in-tree it lives under #stage's own stacking context and 110 would
  * never beat the body-level Modal. Only shown when a tile has >1 variant.
@@ -25,7 +25,7 @@ export function VariantSwitcher({ variants, activeSlug, onSelect }: VariantSwitc
   // Modal , leaving it buried behind the backdrop. Same context ⇒ 110 > 100 wins.
   return createPortal(
     <div
-      // Fixed top-centre, above the Modal (z 100). pointerEvents none on the
+      // Fixed top-center, above the Modal (z 100). pointerEvents none on the
       // wrapper so it never blocks backdrop clicks outside the pill bar itself.
       style={{
         position: "fixed",

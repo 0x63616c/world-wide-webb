@@ -138,7 +138,7 @@ function SectionTitle({ children }: { children: string }) {
   );
 }
 
-// One labelled row: name (+ optional sub / (i) hint) left, control right.
+// One labeled row: name (+ optional sub / (i) hint) left, control right.
 function Row({
   label,
   sub,
@@ -166,7 +166,7 @@ function Row({
   );
 }
 
-// A full-width labelled field: name (+ optional sub / (i) hint) stacked above a
+// A full-width labeled field: name (+ optional sub / (i) hint) stacked above a
 // control that spans the panel (used for the segmented pickers).
 function StackField({
   label,
@@ -204,7 +204,7 @@ export function SettingsPanel() {
         <SectionTitle>Appearance</SectionTitle>
         <StackField
           label="Theme"
-          sub="Colour theme for every panel , synced across devices."
+          sub="Color theme for every panel , synced across devices."
           info="Light and dark force one look. Auto follows the sun at the home location: light after sunrise, dark after sunset, using the sun times from the weather feed. The offset below shifts both switch points."
         >
           <Segmented

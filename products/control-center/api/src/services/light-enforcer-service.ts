@@ -31,7 +31,7 @@ import { isLightState, type MappedHaState, mapHaToReported } from "./device-stat
 const ENFORCER_INTEGRATION_ID = "light-enforcer";
 const ENFORCER_DOMAINS = ["light", "switch"] as const;
 
-// Drift tolerances. HA does not round-trip colour/brightness exactly (e.g. it
+// Drift tolerances. HA does not round-trip color/brightness exactly (e.g. it
 // reports [0,0,255] back as [0,2,254]); a per-channel/absolute slack stops the
 // enforcer from fighting its own writes forever. Tuned per team-lead's guidance.
 const RGB_CHANNEL_TOLERANCE = 12;
@@ -41,11 +41,11 @@ const BRIGHTNESS_TOLERANCE = 3;
 // Entity ids the enforcer manages: every LIGHTS entry (lamps + fixtures).
 const MANAGED_ENTITY_IDS: readonly string[] = LIGHTS.map((l) => l.entityId);
 
-/** True when two colours are within HA round-trip tolerance (or both absent). */
+/** True when two colors are within HA round-trip tolerance (or both absent). */
 function colorConverged(a: LightColor | undefined, b: LightColor | undefined): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
-  // A device is in one colour mode at a time; rgb-vs-kelvin is a real divergence.
+  // A device is in one color mode at a time; rgb-vs-kelvin is a real divergence.
   const aKelvin = a.kelvin != null;
   const bKelvin = b.kelvin != null;
   if (aKelvin !== bKelvin) return false;
@@ -58,7 +58,7 @@ function colorConverged(a: LightColor | undefined, b: LightColor | undefined): b
 
 /**
  * Tolerant desired-vs-reported convergence check used for DRIFT detection. On/off
- * must match exactly; brightness and colour within tolerance. (Exact equality is
+ * must match exactly; brightness and color within tolerance. (Exact equality is
  * stateEquals in device-state-mapping, used for reported-change detection.)
  */
 export function lightStateConverged(
@@ -66,7 +66,7 @@ export function lightStateConverged(
   reported: DeviceLightState,
 ): boolean {
   if (desired.on !== reported.on) return false;
-  // When the light is off, brightness/colour are irrelevant , off is off.
+  // When the light is off, brightness/color are irrelevant , off is off.
   if (!desired.on) return true;
   const desiredBrightness = desired.brightness;
   const reportedBrightness = reported.brightness;
@@ -102,10 +102,10 @@ export type EnforcementDecision =
 
 /**
  * Pure reconcile decision for one device. No I/O , the cycle executes the result.
- * `partyActive` makes the enforcer YIELD COLOUR to the party engine for lamps
+ * `partyActive` makes the enforcer YIELD COLOR to the party engine for lamps
  * (www-7d5b.3.3): on/off is still enforced (so the wave stays lit), but a
- * colour-only divergence is ignored so the 1s enforcer never fights the
- * animation. Switch fixtures have no colour, so party is a no-op for them.
+ * color-only divergence is ignored so the 1s enforcer never fights the
+ * animation. Switch fixtures have no color, so party is a no-op for them.
  *
  * The app-command window (www-unxz.1): the control mutations no longer push to HA
  * themselves , they write desired + a short `desiredUntilUtc` and return. So on
@@ -133,7 +133,7 @@ export function decideEnforcement(
   if (device.desiredState == null) return { kind: "seed", desired: reported };
 
   // Steady state: only act on genuine drift. While party is active the party
-  // engine owns colour, so compare on/off only (yield colour); otherwise full
+  // engine owns color, so compare on/off only (yield color); otherwise full
   // tolerant compare.
   const converged = partyActive
     ? device.desiredState.on === reported.on
@@ -185,8 +185,8 @@ async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> {
     .from(deviceState)
     .where(inArray(deviceState.entityId, [...MANAGED_ENTITY_IDS]));
   const now = new Date();
-  // While party mode is active the party engine owns lamp COLOUR; the enforcer
-  // yields colour (but still enforces on/off) so the two don't fight (www-7d5b.3.3).
+  // While party mode is active the party engine owns lamp COLOR; the enforcer
+  // yields color (but still enforces on/off) so the two don't fight (www-7d5b.3.3).
   const partyActive = await isPartyActive();
 
   for (const row of rows) {
@@ -205,10 +205,10 @@ async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> {
       desiredUntilUtc: row.desiredUntilUtc ?? null,
     };
 
-    // Colour-yield applies only to lamps (light domain); switch fixtures have no
-    // colour, so party never affects them.
-    const yieldColour = partyActive && entry.kind === LightKind.Lamp;
-    const decision = decideEnforcement(device, mapped, yieldColour, now);
+    // Color-yield applies only to lamps (light domain); switch fixtures have no
+    // color, so party never affects them.
+    const yieldColor = partyActive && entry.kind === LightKind.Lamp;
+    const decision = decideEnforcement(device, mapped, yieldColor, now);
     await applyDecision(device, decision, mapped, now);
   }
 }
@@ -274,13 +274,13 @@ async function applyDecision(
       return;
     }
     case "push": {
-      // Re-assert desired onto HA. on→turn_on (with brightness/colour); off→turn_off.
+      // Re-assert desired onto HA. on→turn_on (with brightness/color); off→turn_off.
       getLogger().debug(
         {
           entityId: device.entityId,
           on: decision.desired.on,
           brightness: decision.desired.brightness,
-          // Colour logged as kelvin or rgb tuple , never a raw object that could
+          // Color logged as kelvin or rgb tuple , never a raw object that could
           // contain unexpected fields. Never logs HA_TOKEN or auth headers.
           color:
             decision.desired.color?.kelvin != null

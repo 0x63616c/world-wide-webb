@@ -19,7 +19,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 // ─── Gallery ─────────────────────────────────────────────────────────────────
-// Renders every IconName in a labelled grid , new icons appear automatically.
+// Renders every IconName in a labeled grid , new icons appear automatically.
 
 export const Gallery: Story = {
   render: () => (
@@ -51,7 +51,7 @@ export const Gallery: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // Every icon name gets a labelled cell.
+    // Every icon name gets a labeled cell.
     const cells = canvasElement.querySelectorAll("[data-cell]");
     expect(cells).toHaveLength(ICON_NAMES.length);
     // Spot-check specific well-known icons are present.
@@ -80,9 +80,9 @@ export const Sizes: Story = {
   },
 };
 
-// ─── Colours ─────────────────────────────────────────────────────────────────
+// ─── Colors ─────────────────────────────────────────────────────────────────
 
-export const Colours: Story = {
+export const Colors: Story = {
   render: () => (
     <div style={{ display: "flex", gap: 20, padding: 20 }}>
       {["#f59e0b", "#3b82f6", "#10b981", "#ef4444", "currentColor"].map((c) => (

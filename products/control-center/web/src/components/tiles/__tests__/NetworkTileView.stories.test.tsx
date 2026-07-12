@@ -38,7 +38,7 @@ describe("NetworkTileView stories", () => {
     expect(screen.queryByText("Offline")).not.toBeInTheDocument();
   });
 
-  it("Offline: StatusDot does NOT have className=dot (grey offline state)", async () => {
+  it("Offline: StatusDot does NOT have className=dot (gray offline state)", async () => {
     const { container } = render(<Offline />);
     if (Offline.play) await Offline.play({ canvasElement: container });
     // Offline StatusDot renders an inline-styled span , no .dot class present

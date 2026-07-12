@@ -33,7 +33,7 @@ function currentApplied(): ResolvedTheme {
 
 /**
  * Stamp the resolved theme on <html>. When it differs from what's applied, the
- * swap runs under a transient .theme-fade class so every token-driven colour
+ * swap runs under a transient .theme-fade class so every token-driven color
  * transitions over `fadeMs` (0 = instant). Exported for tests.
  */
 export function applyTheme(next: ResolvedTheme, fadeMs: number): void {

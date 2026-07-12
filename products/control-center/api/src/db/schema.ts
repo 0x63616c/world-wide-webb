@@ -67,10 +67,10 @@ export const events = pgTable("events", {
 // Ported from evee device-state-sync pattern. Desired window is 5s for CC.
 
 /**
- * Colour of a light: either an RGB triple or a white colour temperature in
- * Kelvin (mutually exclusive in practice, HA reports whichever colour mode is
+ * Color of a light: either an RGB triple or a white color temperature in
+ * Kelvin (mutually exclusive in practice, HA reports whichever color mode is
  * active). Carried in desired/reported state so the DB-authoritative enforcer
- * can drive and detect colour drift, not just on/off + brightness (www-7d5b.2.2).
+ * can drive and detect color drift, not just on/off + brightness (www-7d5b.2.2).
  */
 export interface LightColor {
   rgb?: [number, number, number];
@@ -214,7 +214,7 @@ export const weatherDailyReading = pgTable(
 );
 
 // Persistent lamp mode, a SINGLETON row (id = LAMP_MODE_SINGLETON_ID). Holds the
-// active animated lamp mode that can't be inferred from a colour snapshot, so it
+// active animated lamp mode that can't be inferred from a color snapshot, so it
 // must be durable: the worker reconciles it (start/stop the party engine) and
 // re-arms after a restart. `mode` is 'none' | 'party' (LampMode); `speed` is
 // 'slow' | 'medium' | 'fast' (LampModeSpeed) and only meaningful for animated

@@ -1,5 +1,5 @@
 /**
- * NetworkModalUsageSignature , behavioural read of the 24-bucket traffic window.
+ * NetworkModalUsageSignature , behavioral read of the 24-bucket traffic window.
  *
  * WHY this layout: the tile shows raw down/up totals but has no insight layer.
  * The same 24 buckets that drive the sparklines carry enough information to
@@ -188,7 +188,7 @@ export function NetworkModalUsageSignature({
         <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <span className="cap">Activity signature , last 2 hours</span>
 
-          {/* Ribbon: each segment is 1/24 wide, colour-coded by class.
+          {/* Ribbon: each segment is 1/24 wide, color-coded by class.
               role="img" lets aria-label describe the ribbon as a visual summary
               so screen readers get the intent without iterating 24 divs. */}
           <div

@@ -89,14 +89,14 @@ export function Next12HoursView(props: Next12HoursViewProps) {
 
   // Measured bar-band dimensions drive the value→height scale (h) and the
   // feels-like overlay's pixel coords (w). Bar heights are px so MIN_BAR and
-  // LABEL_HEADROOM are honoured at any tile size.
+  // LABEL_HEADROOM are honored at any tile size.
   const bandW = w || INITIAL_W;
   const bandH = h || INITIAL_H;
   const barH = (val: number) =>
     MIN_BAR + ((val - gMin) / (gMax - gMin || 1)) * Math.max(0, bandH - LABEL_HEADROOM - MIN_BAR);
 
-  // Feels-like overlay coords. x = column centre ((i+0.5)/n) , identical to where
-  // each flex:1 column centres , so the line tracks the bars without any matching math.
+  // Feels-like overlay coords. x = column center ((i+0.5)/n) , identical to where
+  // each flex:1 column centers , so the line tracks the bars without any matching math.
   const colCx = (i: number) => ((i + 0.5) * bandW) / n;
   const fpts = feels
     .map((f, i) => `${colCx(i).toFixed(1)},${(bandH - barH(f)).toFixed(1)}`)

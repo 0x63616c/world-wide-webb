@@ -202,7 +202,7 @@ describe("SoundSystemTileView , group panels (www-xlyf)", () => {
     expect(screen.queryByText("COORD")).not.toBeInTheDocument();
     const deskName = screen.getByText("Desk");
     expect(deskName).toHaveStyle({ color: "var(--acc)" });
-    // A non-coordinator member keeps its normal (non-accent-blue) name colour.
+    // A non-coordinator member keeps its normal (non-accent-blue) name color.
     expect(screen.getByText("Bedroom")).not.toHaveStyle({ color: "var(--acc)" });
   });
 

@@ -200,7 +200,7 @@ export function Next12HoursModalThermalDayArc({
   // Map a °F value to a Y pixel coordinate (top = hot, bottom = cold).
   const yOf = (val: number) => PAD_TOP + lerp(val, gMax, gMin, 0, innerH);
 
-  // Map hour index to the centre X of its column.
+  // Map hour index to the center X of its column.
   const xOf = (i: number) => i * colW + colW / 2;
 
   // Build SVG polyline point strings for temp and feels lines.

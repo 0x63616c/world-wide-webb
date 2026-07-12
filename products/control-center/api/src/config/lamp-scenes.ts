@@ -5,7 +5,7 @@
  *  - white → uniform crisp daylight white via color_temp_kelvin
  *  - red   → uniform pure-red rgb_color
  *  - blue  → uniform pure-blue rgb_color
- *  - mood  → EACH lamp gets a DIFFERENT colour, assigned RANDOMLY from
+ *  - mood  → EACH lamp gets a DIFFERENT color, assigned RANDOMLY from
  *            MOOD_PALETTE on every invocation (no repeats , each lamp is
  *            unique). The point of "mood" is a varied purples/blues/party wash
  *            that's different every time you tap it.
@@ -31,8 +31,8 @@ export const BLUE_RGB: RgbColor = [0, 0, 255];
 
 /**
  * Curated purples/blues/party palette for the "mood" scene. Must hold at least
- * as many DISTINCT colours as there are lamps so every lamp can get a unique
- * one. Colours are assigned randomly per invocation (see assignMoodColors).
+ * as many DISTINCT colors as there are lamps so every lamp can get a unique
+ * one. Colors are assigned randomly per invocation (see assignMoodColors).
  */
 export const MOOD_PALETTE: readonly RgbColor[] = [
   [148, 0, 211], // violet
@@ -59,10 +59,10 @@ function shuffle<T>(items: readonly T[], rng: () => number = Math.random): T[] {
 }
 
 /**
- * Pick `count` UNIQUE mood colours, randomly assigned. Shuffles the palette and
- * takes the first `count` , so each lamp gets a distinct colour and the mapping
+ * Pick `count` UNIQUE mood colors, randomly assigned. Shuffles the palette and
+ * takes the first `count` , so each lamp gets a distinct color and the mapping
  * is different on every call. `count` must be ≤ MOOD_PALETTE.length (guaranteed
- * by config: the palette holds at least one colour per lamp).
+ * by config: the palette holds at least one color per lamp).
  */
 export function assignMoodColors(count: number, rng: () => number = Math.random): RgbColor[] {
   return shuffle(MOOD_PALETTE, rng).slice(0, count);
@@ -72,7 +72,7 @@ export function assignMoodColors(count: number, rng: () => number = Math.random)
 
 /**
  * Persistent ANIMATED lamp mode (distinct from the momentary scenes above).
- * "none" = no animation; "party" = the rolling colour wave. Stored in the
+ * "none" = no animation; "party" = the rolling color wave. Stored in the
  * lamp_mode DB row and reconciled by the worker (www-7d5b.3.x).
  */
 export const LampMode = {
@@ -90,7 +90,7 @@ export const LampModeSpeed = {
 export type LampModeSpeed = (typeof LampModeSpeed)[keyof typeof LampModeSpeed];
 
 export interface LampModeSpeedConfig {
-  /** ms between colour-advance ticks. */
+  /** ms between color-advance ticks. */
   intervalMs: number;
   /** HA `transition` (seconds) per tick , a crossfade ~10% under the interval so
    *  each fade settles before the next command, giving a continuous flow. */
@@ -108,7 +108,7 @@ export const LAMP_MODE_SPEED_CONFIG: Record<LampModeSpeed, LampModeSpeedConfig> 
 };
 
 /**
- * Ordered party palette , the colour CYCLE each lamp walks through. Order is the
+ * Ordered party palette , the color CYCLE each lamp walks through. Order is the
  * wave sequence (tweakable for feel); a spectrum-ish flow reads best. Includes
  * the canonical red/green/blue/orange plus magenta/cyan for a fuller rainbow.
  * Unlike MOOD_PALETTE this is NOT shuffled: the wave is deterministic.
@@ -123,10 +123,10 @@ export const PARTY_PALETTE: readonly RgbColor[] = [
 ] as const;
 
 /**
- * Deterministic colour wave: at `tick`, lamp `i` shows
- * PARTY_PALETTE[(i + tick) % N]. Adjacent lamps are phase-offset by one colour,
+ * Deterministic color wave: at `tick`, lamp `i` shows
+ * PARTY_PALETTE[(i + tick) % N]. Adjacent lamps are phase-offset by one color,
  * and each tick advances every lamp by one, so over N ticks every lamp visits
- * every colour. Pure + RNG-free → fully testable. Returns one colour per lamp,
+ * every color. Pure + RNG-free → fully testable. Returns one color per lamp,
  * in lamp order.
  */
 export function partyColorsAtTick(tick: number, lampCount: number): RgbColor[] {

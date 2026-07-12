@@ -247,9 +247,9 @@ describe("mergeDeviceState (light)", () => {
     expect(result).toEqual({ state: { on: false }, pending: false, available: true });
   });
 
-  it("overlays a bare {on} desired onto reported brightness/colour (no zeroing, not pending)", () => {
+  it("overlays a bare {on} desired onto reported brightness/color (no zeroing, not pending)", () => {
     // www-7d5b.2.4 regression: a bare on/off toggle writes only { on } and must
-    // NOT zero out brightness/colour, nor sit perpetually pending.
+    // NOT zero out brightness/color, nor sit perpetually pending.
     const result = mergeDeviceState({
       reportedState: { on: true, brightness: 200, color: { rgb: [255, 0, 0] } },
       desiredState: { on: true },

@@ -9,7 +9,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useThrottledVolume } from "../hooks/useThrottledVolume";
 
-describe("useThrottledVolume , throttle behaviour (www-83z4)", () => {
+describe("useThrottledVolume , throttle behavior (www-83z4)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });

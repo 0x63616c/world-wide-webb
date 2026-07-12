@@ -1,6 +1,6 @@
 /**
  * Wall-panel settings , a singleton external store for the small set of
- * on-device preferences the settings gear panel edits (idle-dim behaviour, the
+ * on-device preferences the settings gear panel edits (idle-dim behavior, the
  * FPS readout, the snap-mode experiment). Mirrors useNotifications.ts: one
  * module-level state object, a listener set, and useSyncExternalStore, so any
  * component (the panel, the board, the FPS meter, the idle-dim hook) reads the
@@ -63,7 +63,7 @@ export interface Settings {
   showBuildBadge: boolean;
   /** Board settle feel (see SNAP_MODES). */
   snapMode: SnapMode;
-  /** Board colour theme (see THEME_MODES). */
+  /** Board color theme (see THEME_MODES). */
   themeMode: ThemeMode;
   /** Auto-theme switch offset in minutes relative to sunrise/sunset. Positive
    *  switches later (+30 ≈ hold light until civil twilight ends). */

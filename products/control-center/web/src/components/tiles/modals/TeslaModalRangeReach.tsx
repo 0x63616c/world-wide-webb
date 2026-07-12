@@ -12,7 +12,7 @@
  * pill. Wide modal so the range circle at LA scale isn't clipped at the panel edges.
  *
  * The range circle is a MapLibre GeoJSON fill layer. Miles are converted to
- * metres (the GeoJSON circle source expects metres in the turf-style circle
+ * meters (the GeoJSON circle source expects meters in the turf-style circle
  * approximation) via a polygon generated client-side , no external dependency,
  * just the parametric circle formula: N points around the arc at radius R.
  *
@@ -33,8 +33,8 @@ import { buildDarkStyle, createCarPinElement, registerPmtilesProtocol } from "@/
 
 // Home anchor (public placeholder) , single source of truth in config/home.ts.
 
-// Miles → metres conversion for the circle geometry.
-const MILES_TO_METRES = 1609.344;
+// Miles → meters conversion for the circle geometry.
+const MILES_TO_METERS = 1609.344;
 
 // Number of polygon vertices for the range circle approximation. 64 gives a
 // smooth-looking circle without meaningfully increasing GeoJSON payload size.
@@ -68,23 +68,23 @@ function haversineMiles(aLat: number, aLon: number, bLat: number, bLon: number):
 
 /**
  * Build a GeoJSON Polygon approximating a circle of radiusMiles around a
- * lat/lon centre using the parametric arc formula. Returns coordinates in
+ * lat/lon center using the parametric arc formula. Returns coordinates in
  * [lon, lat] order (GeoJSON convention). The polygon is closed (first === last).
  */
 function circlePolygon(
-  centreLat: number,
-  centreLon: number,
+  centerLat: number,
+  centerLon: number,
   radiusMiles: number,
   steps: number,
 ): RangePolygon {
-  const radiusRad = (radiusMiles * MILES_TO_METRES) / 6371000; // earth radius in metres
+  const radiusRad = (radiusMiles * MILES_TO_METERS) / 6371000; // earth radius in meters
   const coords: [number, number][] = [];
   for (let i = 0; i <= steps; i++) {
     const angle = (2 * Math.PI * i) / steps;
-    const lat = centreLat + (radiusRad * Math.cos(angle) * 180) / Math.PI;
+    const lat = centerLat + (radiusRad * Math.cos(angle) * 180) / Math.PI;
     const lon =
-      centreLon +
-      (radiusRad * Math.sin(angle) * 180) / (Math.PI * Math.cos((centreLat * Math.PI) / 180));
+      centerLon +
+      (radiusRad * Math.sin(angle) * 180) / (Math.PI * Math.cos((centerLat * Math.PI) / 180));
     coords.push([lon, lat]);
   }
   return { type: "Polygon", coordinates: [coords] };
@@ -117,7 +117,7 @@ function RangeMap({ carLat, carLon, rangeMiles }: RangeMapProps) {
 
     let map: maplibregl.Map;
     try {
-      // Keep labels on the range modal , wider zoom benefits from neighbourhood labels
+      // Keep labels on the range modal , wider zoom benefits from neighborhood labels
       // so the user can orient within the reach circle.
       map = new maplibregl.Map({
         container: containerRef.current,

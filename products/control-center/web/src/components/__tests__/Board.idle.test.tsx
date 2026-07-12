@@ -121,7 +121,7 @@ describe("Board idle reset (real wiring)", () => {
     expect(calls.length).toBeGreaterThan(0);
   });
 
-  it("still resets after a cancelled touch (pointercancel clears the held ref)", () => {
+  it("still resets after a canceled touch (pointercancel clears the held ref)", () => {
     // Regression for the live failure: an OS-stolen touch fires pointercancel
     // with no pointerup. If that left the held-pointer ref stuck true, fire()
     // would defer forever and the board would NEVER return home. pointercancel

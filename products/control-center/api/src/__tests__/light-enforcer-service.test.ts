@@ -172,8 +172,8 @@ describe("decideEnforcement", () => {
     expect(d.kind).toBe("unreachable");
   });
 
-  it("yields COLOUR to the party engine while party active (no push on colour drift)", () => {
-    // mode=party: the party engine owns lamp colour, so a colour-only divergence
+  it("yields COLOR to the party engine while party active (no push on color drift)", () => {
+    // mode=party: the party engine owns lamp color, so a color-only divergence
     // must NOT trigger an enforce push , otherwise the 1s enforcer fights the
     // animation. on/off matches here, so the enforcer stands down.
     const d = decideEnforcement(
@@ -188,7 +188,7 @@ describe("decideEnforcement", () => {
   });
 
   it("still enforces ON/OFF for lamps while party active", () => {
-    // Party yields colour, NOT on/off: a lamp HA-reported off while desired on
+    // Party yields color, NOT on/off: a lamp HA-reported off while desired on
     // must still be pushed back on so the wave stays lit.
     const d = decideEnforcement(
       dev({
@@ -363,7 +363,7 @@ describe("runEnforcerCycle", () => {
         kind: "light",
         entityId: "light.living_room_globe",
         domain: "light",
-        desiredState: { on: true }, // bare toggle , no brightness/colour intent
+        desiredState: { on: true }, // bare toggle , no brightness/color intent
         reportedState: { on: true, brightness: 10 }, // stale
         available: true,
       },

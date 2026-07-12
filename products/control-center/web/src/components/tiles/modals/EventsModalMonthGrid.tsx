@@ -69,7 +69,7 @@ function daysInMonth(year: number, month: number): number {
 }
 
 /**
- * Urgency heat colour for an event day. days=0 is today (hottest), up to 7
+ * Urgency heat color for an event day. days=0 is today (hottest), up to 7
  * shows amber, 8–14 shows a mid-accent, beyond that a dim accent dot.
  * Uses only CSS custom props from tokens.css , no raw hex.
  */
@@ -190,7 +190,7 @@ export function EventsModalMonthGrid({ open, onClose, events, today }: EventsMod
             const isToday = day === todayD;
             const eventsOnDay = eventsByDay.get(key) ?? [];
             const hasEvent = eventsOnDay.length > 0;
-            // Smallest days value among events on this day (determines heat colour).
+            // Smallest days value among events on this day (determines heat color).
             const minDays = hasEvent ? Math.min(...eventsOnDay.map((e) => e.days)) : null;
             const isSelected = selectedDay === key;
 
@@ -238,7 +238,7 @@ export function EventsModalMonthGrid({ open, onClose, events, today }: EventsMod
               >
                 <span>{day}</span>
 
-                {/* Accent dot under the day number , hotter colour = sooner event. */}
+                {/* Accent dot under the day number , hotter color = sooner event. */}
                 {hasEvent && minDays !== null && (
                   <span
                     aria-hidden="true"
@@ -315,7 +315,7 @@ export function EventsModalMonthGrid({ open, onClose, events, today }: EventsMod
                   >
                     {ev.place}
                   </span>
-                  {/* Days-until badge. days=0 shows "Today" in accent colour. */}
+                  {/* Days-until badge. days=0 shows "Today" in accent color. */}
                   <span
                     className="cap"
                     style={{

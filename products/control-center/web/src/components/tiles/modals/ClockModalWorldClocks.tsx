@@ -28,7 +28,7 @@ interface ClockZone {
   city: string;
   /** IANA timezone string, e.g. "America/New_York". */
   tz: string;
-  /** True for the home row , pinned at top, rendered with the accent colour. */
+  /** True for the home row , pinned at top, rendered with the accent color. */
   home?: boolean;
 }
 

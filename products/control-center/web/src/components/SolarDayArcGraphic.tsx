@@ -75,7 +75,7 @@ function arcX(progress: number, arcWidth: number, padX: number): number {
  * Build the SVG cubic-bezier "horizon hump" path string.
  * The path goes from (padX, midY) to (padX+arcWidth, midY), rising to
  * peakOffset above the midY line. Control points are symmetric about the
- * centre for a natural convex curve.
+ * center for a natural convex curve.
  */
 function buildArcPath(padX: number, midY: number, arcWidth: number, peakOffset: number): string {
   const x0 = padX;
@@ -154,8 +154,8 @@ export function SolarDayArcGraphic({
       >
         <defs>
           {/* Sky gradient: deep indigo (night) → amber (golden hour) → pale sky (day).
-              Runs horizontally so colour shifts from dawn on left through noon at
-              centre to dusk on right , parallels the sky palette at each arc point. */}
+              Runs horizontally so color shifts from dawn on left through noon at
+              center to dusk on right , parallels the sky palette at each arc point. */}
           <linearGradient
             id={skyGradId}
             x1="0"
@@ -187,7 +187,7 @@ export function SolarDayArcGraphic({
           </clipPath>
         </defs>
 
-        {/* Sky colour fill inside the arc */}
+        {/* Sky color fill inside the arc */}
         <rect
           x={padX}
           y={0}

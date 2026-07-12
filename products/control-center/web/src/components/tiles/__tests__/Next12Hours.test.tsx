@@ -170,7 +170,7 @@ describe("Next12Hours", () => {
     const polyline = container.querySelector("polyline");
     expect(polyline).not.toBeNull();
     const stroke = polyline?.getAttribute("stroke") ?? "";
-    // Must NOT be the old hex colour
+    // Must NOT be the old hex color
     expect(stroke).not.toBe("#6E747D");
     // Must be the low-contrast hairline token (theme-aware since light mode)
     expect(stroke).toBe("var(--hair-2)");

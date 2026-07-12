@@ -25,7 +25,7 @@ export interface ModalProps {
   maxHeight?: number;
   /**
    * Whether the body's scrollbar is shown when content overflows. Defaults to
-   * "hidden" (the original behaviour); "visible" shows a dark-themed scrollbar
+   * "hidden" (the original behavior); "visible" shows a dark-themed scrollbar
    * , used where the body genuinely scrolls (e.g. the Settings panel).
    */
   scrollbar?: "hidden" | "visible";

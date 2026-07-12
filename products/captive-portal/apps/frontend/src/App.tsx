@@ -57,11 +57,11 @@ export function App() {
   // fresh password screen. Runs once.
   useEffect(() => {
     if (!mac || stateRef.current.step !== "password") return;
-    let cancelled = false;
+    let canceled = false;
     portalClient
       .status({ mac })
       .then((res) => {
-        if (cancelled) return;
+        if (canceled) return;
         const ev = statusToEvent(res.state);
         if (ev) rawDispatch(ev);
       })
@@ -69,7 +69,7 @@ export function App() {
         // No status (network/unconfigured): stay on the password screen.
       });
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, [mac]);
 

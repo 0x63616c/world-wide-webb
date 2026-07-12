@@ -23,7 +23,7 @@ function makeBuckets(baseDn: number, baseUp: number): Array<{ down: number; up: 
   });
 }
 
-// Healthy home WAN , fast fibre, low ping
+// Healthy home WAN , fast fiber, low ping
 const healthyBuckets = makeBuckets(180, 45);
 
 const healthyData = {

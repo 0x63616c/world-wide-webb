@@ -8,7 +8,7 @@
  *   barH(val) = MIN_BAR + ((val - gMin) / (gMax - gMin || 1)) * (bandH - LABEL_HEADROOM - MIN_BAR)
  *             = 14 + ((val - gMin) / range) * (200 - 22 - 14)
  *             = 14 + ((val - gMin) / range) * 164
- * The feels-like overlay stays an SVG polyline; column centres are colCx(i)=(i+0.5)*bandW/n.
+ * The feels-like overlay stays an SVG polyline; column centers are colCx(i)=(i+0.5)*bandW/n.
  */
 
 import "@testing-library/jest-dom";

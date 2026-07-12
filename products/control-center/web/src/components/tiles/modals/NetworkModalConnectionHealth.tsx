@@ -1,7 +1,7 @@
 /**
  * NetworkModalConnectionHealth , WAN health detail modal for the Network tile.
  *
- * WHY this layout: the tile surfaces ping only as a tiny grey "12ms" label , it
+ * WHY this layout: the tile surfaces ping only as a tiny gray "12ms" label , it
  * communicates connectivity but not health. This modal promotes WAN health to the
  * hero: a large BorderProgressRing encircles the live latency number and grades it
  * green (good) → amber (degraded) by threshold, surfacing at a glance whether the
@@ -12,7 +12,7 @@
  * and what's the average. A footer row anchors the SSID and 2-hour totals , context
  * the tile already shows, kept here for completeness without visual weight.
  *
- * The ring is colour-graded by threshold rather than mapped to bucket max, because
+ * The ring is color-graded by threshold rather than mapped to bucket max, because
  * latency meaning is absolute (>100ms always hurts), not relative to the session.
  *
  * PURE view: all data + callbacks arrive via props , no trpc/hooks. Composes
@@ -54,7 +54,7 @@ export interface NetworkModalConnectionHealthProps {
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
-// Latency thresholds for ring colour grading (absolute, not relative to session).
+// Latency thresholds for ring color grading (absolute, not relative to session).
 // ≤ 60ms = healthy green, 61-100ms = amber caution, > 100ms = muted red.
 const PING_GOOD_MS = 60;
 const PING_WARN_MS = 100;
@@ -81,7 +81,7 @@ function fmtMbps(mbps: number): string {
   return mbps.toFixed(1);
 }
 
-/** Derive latency ring colour from ping thresholds. */
+/** Derive latency ring color from ping thresholds. */
 function pingColor(ms: number): string {
   if (ms <= PING_GOOD_MS) return "var(--acc)";
   if (ms <= PING_WARN_MS) return "var(--amber)";
@@ -117,7 +117,7 @@ export function NetworkModalConnectionHealth({
   const avgDown =
     bucketsDown.length > 0 ? bucketsDown.reduce((s, v) => s + v, 0) / bucketsDown.length : 0;
 
-  // Ring progress: clamp ping to [0, PING_SCALE_MS] then normalise to [0, 1].
+  // Ring progress: clamp ping to [0, PING_SCALE_MS] then normalize to [0, 1].
   // Higher = worse, so a healthy 15ms fills only ~7.5% of the ring (subtle);
   // a struggling 150ms fills 75% (visibly alarming) , exactly the right mapping.
   const ringProgress = Math.min(ping / PING_SCALE_MS, 1);
@@ -151,7 +151,7 @@ export function NetworkModalConnectionHealth({
           </Pill>
 
           {/* Ping gauge: BorderProgressRing wraps the latency readout.
-              The ring traces the border of the gauge card, colour-graded by
+              The ring traces the border of the gauge card, color-graded by
               threshold so healthy vs degraded links read at a glance. */}
           <div
             style={{

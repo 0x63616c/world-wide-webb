@@ -49,7 +49,7 @@ export function daysUntil(target: Date, now: Date = new Date()): number {
   return Math.max(0, Math.round(diff / (1000 * 60 * 60 * 24)));
 }
 
-/** Map a raw DB row to the API row shape (adds computed `days`, serialises date). */
+/** Map a raw DB row to the API row shape (adds computed `days`, serializes date). */
 function toEventRow(r: typeof schema.events.$inferSelect, now: Date): EventRow {
   return {
     id: r.id,

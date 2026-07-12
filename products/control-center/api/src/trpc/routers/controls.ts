@@ -33,7 +33,7 @@ const lampStateSchema = z.object({
     .enum([LampScene.White, LampScene.Mood, LampScene.Red, LampScene.Blue, LampMode.Party])
     .nullable()
     .describe(
-      "The active lamp scene: 'party' when the lamp_mode row is set, else the colour scene every on-lamp agrees on (from desired colours; a MOOD_PALETTE colour on every lamp reads as 'mood'); null when no mode and lamps disagree, are off, or show a custom colour",
+      "The active lamp scene: 'party' when the lamp_mode row is set, else the color scene every on-lamp agrees on (from desired colors; a MOOD_PALETTE color on every lamp reads as 'mood'); null when no mode and lamps disagree, are off, or show a custom color",
     ),
 });
 
@@ -113,15 +113,15 @@ export const controlsRouter = router({
     }),
 
   /**
-   * Apply a colour scene to every lamp. "mood" gives each lamp a distinct
-   * palette colour; white/red/blue are uniform. Returns merged state.
+   * Apply a color scene to every lamp. "mood" gives each lamp a distinct
+   * palette color; white/red/blue are uniform. Returns merged state.
    */
   setLampScene: publicProcedure
     .input(
       z.object({
         scene: z
           .enum([LampScene.White, LampScene.Mood, LampScene.Red, LampScene.Blue])
-          .describe("Lamp colour scene to apply across all lamps"),
+          .describe("Lamp color scene to apply across all lamps"),
       }),
     )
     .output(controlsStateSchema)
@@ -170,7 +170,7 @@ export const controlsRouter = router({
       z.object({
         mode: z
           .enum([LampMode.None, LampMode.Party])
-          .describe("Lamp mode: 'none' clears any animation, 'party' starts the colour wave"),
+          .describe("Lamp mode: 'none' clears any animation, 'party' starts the color wave"),
         speed: z
           .enum([LampModeSpeed.Slow, LampModeSpeed.Medium, LampModeSpeed.Fast])
           .optional()

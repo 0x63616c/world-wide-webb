@@ -14,7 +14,7 @@
  * fighting a human turning a knob is never right for audio.
  *
  * Volume compares EXACTLY (integer 0-100, round-trips losslessly over UPnP) ,
- * no tolerance band needed, unlike HA colour/brightness.
+ * no tolerance band needed, unlike HA color/brightness.
  */
 
 import { getLogger } from "@www/logger";
@@ -96,7 +96,7 @@ export function decideSpeakerEnforcement(
   if (inCommandWindow) return { kind: "push", desired: { volume: target } };
 
   // Outside the window: an external change at/below the cap is adopted as the new
-  // intent (Sonos app / hardware buttons win). Above the cap it is NOT honoured ,
+  // intent (Sonos app / hardware buttons win). Above the cap it is NOT honored ,
   // push the cap back down and leave the raw desired alone.
   if (reported.volume > SPEAKER_MAX_VOLUME) {
     return { kind: "cap", desired: { volume: SPEAKER_MAX_VOLUME } };

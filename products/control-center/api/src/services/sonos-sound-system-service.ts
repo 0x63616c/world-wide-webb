@@ -10,7 +10,7 @@
  *
  * Why per-player, not per-group: a Sonos group is named after its coordinator,
  * so a "play everywhere" group would collapse the whole house into a single
- * fader labelled after one room. Per-player rooms always show all 5; grouping is
+ * fader labeled after one room. Per-player rooms always show all 5; grouping is
  * expressed by a shared `coordinatorUuid` and ganged in the mixer UI.
  *
  * Design rules:
