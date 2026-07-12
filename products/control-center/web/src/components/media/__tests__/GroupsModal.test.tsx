@@ -392,6 +392,56 @@ describe("GroupsModal , join/leave mutation error reverts optimistic state", () 
   });
 });
 
+describe("GroupsModal , anchor captured by another group", () => {
+  // Regression: join Desk into the TV group, then select the Desk source ,
+  // the Desk row must stay tappable so it can be pulled back out; the anchor
+  // lock only applies while the anchor actually stands alone / drives its
+  // own source.
+  const tvPlaying = room({ ...tv, transportState: "PLAYING", sourceKind: "tv" });
+  const deskCaptured = room({ ...desk, coordinatorUuid: BEAM_UUID, isCoordinator: false });
+
+  it("tapping the captured anchor with its own source selected fires sonosGroupLeave", async () => {
+    render(
+      <GroupsModal
+        open
+        onClose={vi.fn()}
+        rooms={[deskCaptured, tvPlaying, bedroom, kitchen]}
+        dataUpdatedAt={1000}
+      />,
+    );
+
+    // Select the Desk source, then tap the Desk speaker row (currently
+    // following Living Room) to release it back to standalone.
+    fireEvent.click(screen.getByLabelText("Select Desk · Line-In"));
+    fireEvent.click(screen.getByLabelText("Desk, following Living Room"));
+
+    expect(mockLeaveMutate).toHaveBeenCalledWith({
+      memberIp: deskCaptured.deviceIp,
+      memberUuid: DESK_LINE_IN_UUID,
+    });
+    expect(mockJoinMutate).not.toHaveBeenCalled();
+    // Optimistic LED: desk now reads as with its own source.
+    expect(screen.getByLabelText("Desk, following Desk")).toBeInTheDocument();
+  });
+
+  it("tapping a standalone anchor with its own source selected stays a no-op", () => {
+    render(
+      <GroupsModal
+        open
+        onClose={vi.fn()}
+        rooms={[desk, tv, bedroom, kitchen]}
+        dataUpdatedAt={1000}
+      />,
+    );
+
+    // Default selection is Desk; the Desk row anchors it and stands alone.
+    fireEvent.click(screen.getByLabelText("Desk, following Desk"));
+
+    expect(mockLeaveMutate).not.toHaveBeenCalled();
+    expect(mockJoinMutate).not.toHaveBeenCalled();
+  });
+});
+
 describe("GroupsModal , ALL", () => {
   it("joins every non-anchor speaker that isn't already a member to the selected source", async () => {
     const deskPlaying = room({ ...desk, transportState: "PLAYING", sourceKind: "line-in" });

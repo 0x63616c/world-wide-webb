@@ -129,11 +129,24 @@ export function GroupsModal({ open, onClose, rooms, dataUpdatedAt }: GroupsModal
   function onTapSpeaker(uuid: string) {
     const source = selectedSource;
     if (!source) return;
-    // Anchor guard: the view already disables the anchor row, but the container
-    // never emits a join/leave for it either.
-    if (uuid === source.anchorUuid) return;
     const room = rooms.find((r) => r.uuid === uuid);
     if (!room) return;
+
+    // Anchor guard: a standalone anchor (or one driving this source) can't
+    // join or leave its own source , no-op, mirroring the view's disabled row.
+    // But an anchor CAPTURED by another group (e.g. Desk joined into the TV
+    // group) must stay actionable: tapping it releases it back to standalone,
+    // where membership maps it to its own hardware card again.
+    if (uuid === source.anchorUuid) {
+      const followed = member[uuid] ?? null;
+      if (followed == null || followed === source.id) return;
+      setMember(uuid, source.id);
+      groupLeave.mutate(
+        { memberIp: room.deviceIp, memberUuid: uuid },
+        { onError: () => setMember(uuid, followed) },
+      );
+      return;
+    }
 
     if (member[uuid] === source.id) {
       const previous = member[uuid] ?? null;

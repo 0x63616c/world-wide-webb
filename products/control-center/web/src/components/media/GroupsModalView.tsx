@@ -136,7 +136,9 @@ function SourceCard({ source, selected, onSelect, onAll }: SourceCardProps) {
           border: "none",
           cursor: "pointer",
           textAlign: "left",
-          padding: selected ? "10px 40px 26px 12px" : "10px 12px",
+          // Selected card only grows downward (room for the ALL button) , same
+          // horizontal padding as unselected so content never shifts sideways.
+          padding: selected ? "10px 12px 26px 12px" : "10px 12px",
           font: "inherit",
           color: "inherit",
         }}
@@ -186,27 +188,6 @@ function SourceCard({ source, selected, onSelect, onAll }: SourceCardProps) {
           {statusLine(source)}
         </span>
       </button>
-
-      {/* Jack dot , only the selected card shows a patch connector poking out
-          the right edge, reading as "this is what's plugged in". Centered in
-          the 20px column gutter (right: -15 puts the 10px dot at 5..15px past
-          the card edge) so it never overlaps the speaker rows. */}
-      {selected && (
-        <span
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: "50%",
-            right: -15,
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: "var(--sc)",
-            boxShadow: "0 0 8px var(--sc)",
-            transform: "translateY(-50%)",
-          }}
-        />
-      )}
 
       {/* ALL , sibling to the select button (never nested inside it) so the
           card stays valid, non-nested interactive markup. */}
@@ -396,8 +377,14 @@ export function GroupsModalView({
               const followedSource = followedId
                 ? sources.find((s) => s.id === followedId)
                 : undefined;
+              // Anchor lock only while the anchor actually stands alone or
+              // drives this source , an anchor captured by ANOTHER group must
+              // stay tappable so it can be pulled back out (container turns
+              // that tap into a leave).
               const isAnchorOfSelected =
-                selectedSource != null && sp.uuid === selectedSource.anchorUuid;
+                selectedSource != null &&
+                sp.uuid === selectedSource.anchorUuid &&
+                (followedId == null || followedId === selectedSource.id);
               return (
                 <SpeakerRow
                   key={sp.uuid}
