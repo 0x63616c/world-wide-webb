@@ -12,6 +12,7 @@ vi.mock("../integrations/homeassistant", () => {
   return { ha, HomeAssistantClient: vi.fn(() => ha) };
 });
 
+import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import { getCameraInfo } from "../services/camera-service";
 
@@ -26,34 +27,47 @@ beforeEach(() => {
 });
 
 describe("getCameraInfo", () => {
-  it("returns null when HA is not configured", async () => {
+  // The tile is driven by go2rtc (direct RTSP), NOT Home Assistant. HA has
+  // crashed repeatedly in production, so an HA outage must never blank it.
+  it("still populates the tile when HA is not configured", async () => {
     mockedHa.isConfigured.mockReturnValue(false);
 
     const result = await getCameraInfo();
 
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result?.label).toBe(env.CAMERA_LABEL);
+    expect(result?.online).toBe(true);
+    expect(result?.streamUrl).toBe("/media/camera-stream");
+    expect(result?.entityId).toBeNull();
+    expect(result?.snapshotUrl).toBeNull();
     expect(mockedHa.getEntities).not.toHaveBeenCalled();
   });
 
-  it("returns null when getEntities throws", async () => {
+  it("still populates the tile when HA is unreachable (getEntities throws)", async () => {
     mockedHa.isConfigured.mockReturnValue(true);
     mockedHa.getEntities.mockRejectedValue(new Error("network error"));
 
     const result = await getCameraInfo();
 
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result?.label).toBe(env.CAMERA_LABEL);
+    expect(result?.online).toBe(true);
+    expect(result?.streamUrl).toBe("/media/camera-stream");
+    expect(result?.entityId).toBeNull();
   });
 
-  it("returns null when no camera entities exist", async () => {
+  it("still populates the tile when HA has no camera entities", async () => {
     mockedHa.isConfigured.mockReturnValue(true);
     mockedHa.getEntities.mockResolvedValue([]);
 
     const result = await getCameraInfo();
 
-    expect(result).toBeNull();
+    expect(result?.streamUrl).toBe("/media/camera-stream");
+    expect(result?.online).toBe(true);
+    expect(result?.entityId).toBeNull();
   });
 
-  it("prefers entity containing 'living' in entity_id", async () => {
+  it("enriches label + entityId from a preferred HA entity", async () => {
     mockedHa.isConfigured.mockReturnValue(true);
     mockedHa.getEntities.mockResolvedValue([
       {
@@ -63,21 +77,20 @@ describe("getCameraInfo", () => {
         last_updated: "2024-01-01T00:00:00Z",
       },
       {
-        entity_id: "camera.living_room_dog_cam",
+        entity_id: "camera.bedroom_cam",
         state: "streaming",
-        attributes: { friendly_name: "Living Room Dog Cam" },
+        attributes: { friendly_name: "Bedroom Cam" },
         last_updated: "2024-01-01T00:00:00Z",
       },
     ]);
 
     const result = await getCameraInfo();
 
-    expect(result?.entityId).toBe("camera.living_room_dog_cam");
-    expect(result?.label).toBe("Living Room Dog Cam");
+    expect(result?.entityId).toBe("camera.bedroom_cam");
+    expect(result?.label).toBe("Bedroom Cam");
     expect(result?.online).toBe(true);
-    // snapshotUrl is null until www-2x4 wires an authenticated proxy route
     expect(result?.snapshotUrl).toBeNull();
-    expect(result?.streamUrl).toBeNull();
+    expect(result?.streamUrl).toBe("/media/camera-stream");
   });
 
   it("prefers entity containing 'dog' in friendly_name", async () => {
@@ -121,28 +134,31 @@ describe("getCameraInfo", () => {
     expect(result?.online).toBe(true);
   });
 
-  it("marks entity with state 'unavailable' as offline", async () => {
+  it("stays online even when the HA entity reports 'unavailable'", async () => {
+    // go2rtc, not HA, owns liveness. An HA entity going unavailable (a common
+    // symptom of HA itself being sick) must not black out a working stream.
     mockedHa.isConfigured.mockReturnValue(true);
     mockedHa.getEntities.mockResolvedValue([
       {
-        entity_id: "camera.living_room",
+        entity_id: "camera.bedroom",
         state: "unavailable",
-        attributes: { friendly_name: "Living Room" },
+        attributes: { friendly_name: "Bedroom" },
         last_updated: "2024-01-01T00:00:00Z",
       },
     ]);
 
     const result = await getCameraInfo();
 
-    expect(result?.online).toBe(false);
-    expect(result?.entityId).toBe("camera.living_room");
+    expect(result?.online).toBe(true);
+    expect(result?.entityId).toBe("camera.bedroom");
+    expect(result?.streamUrl).toBe("/media/camera-stream");
   });
 
-  it("uses entity_id as label when friendly_name is absent", async () => {
+  it("keeps the configured label when friendly_name is absent", async () => {
     mockedHa.isConfigured.mockReturnValue(true);
     mockedHa.getEntities.mockResolvedValue([
       {
-        entity_id: "camera.living_room",
+        entity_id: "camera.bedroom",
         state: "idle",
         attributes: {},
         last_updated: "2024-01-01T00:00:00Z",
@@ -151,6 +167,7 @@ describe("getCameraInfo", () => {
 
     const result = await getCameraInfo();
 
-    expect(result?.label).toBe("camera.living_room");
+    expect(result?.label).toBe(env.CAMERA_LABEL);
+    expect(result?.entityId).toBe("camera.bedroom");
   });
 });

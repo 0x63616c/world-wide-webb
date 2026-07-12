@@ -138,6 +138,16 @@ export const envSchema = z.object({
   ASC_ISSUER_ID: z.string().default(""),
   ASC_KEY_CONTENT: z.string().default(""),
   ASC_APP_ID: z.string().default("6762095888"),
+
+  // go2rtc, the in-cluster RTSP -> MJPEG bridge for the Camera tile. It holds
+  // the camera's RTSP credentials in its own mounted config Secret, so nothing
+  // secret rides these vars , they are plain, public-safe cluster coordinates
+  // (a ClusterIP service DNS name, a stream name, a display label). The Camera
+  // tile is deliberately independent of Home Assistant: go2rtc talks RTSP to
+  // the camera directly, so the tile stays alive when HA is down.
+  GO2RTC_URL: z.string().url().default("http://go2rtc:1984"),
+  CAMERA_STREAM_NAME: z.string().default("bedroom_mjpeg"),
+  CAMERA_LABEL: z.string().default("Bedroom Cam"),
 });
 
 export const env = envSchema.parse(process.env);

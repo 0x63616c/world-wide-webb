@@ -18,6 +18,7 @@ const baseProps: DogCamTileViewProps = {
   label: "Living Room",
   online: true,
   snapshotUrl: null,
+  streamUrl: null,
   live: false,
   recSecs: 0,
   onToggleLive: vi.fn(),
@@ -31,9 +32,9 @@ describe("DogCamTileView , loading state", () => {
     expect(container.firstChild).toBeInTheDocument();
   });
 
-  it("renders the Dog Cam header", () => {
+  it("renders the Bedroom Cam header", () => {
     render(<DogCamTileView status="loading" live={false} recSecs={0} onToggleLive={vi.fn()} />);
-    expect(screen.getByText("Dog Cam")).toBeInTheDocument();
+    expect(screen.getByText("Bedroom Cam")).toBeInTheDocument();
   });
 
   it("renders the feed button", () => {
@@ -53,9 +54,9 @@ describe("DogCamTileView , loading state", () => {
 });
 
 describe("DogCamTileView , covered (populated, live=false)", () => {
-  it("renders the Dog Cam header", () => {
+  it("renders the Bedroom Cam header", () => {
     render(<DogCamTileView {...baseProps} />);
-    expect(screen.getByText("Dog Cam")).toBeInTheDocument();
+    expect(screen.getByText("Bedroom Cam")).toBeInTheDocument();
   });
 
   it("renders the label from props", () => {
@@ -102,6 +103,24 @@ describe("DogCamTileView , snapshot image", () => {
 
   it("does not render img when snapshotUrl is null", () => {
     render(<DogCamTileView {...baseProps} snapshotUrl={null} />);
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+});
+
+describe("DogCamTileView , live MJPEG stream", () => {
+  it("mounts the stream img when live and streamUrl is provided", () => {
+    render(<DogCamTileView {...baseProps} live={true} streamUrl="/media/camera-stream" />);
+    const img = screen.getByRole("img");
+    expect((img as HTMLImageElement).getAttribute("src")).toBe("/media/camera-stream");
+  });
+
+  it("does NOT mount the stream img while covered , no open MJPEG connection", () => {
+    render(<DogCamTileView {...baseProps} live={false} streamUrl="/media/camera-stream" />);
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("renders no stream img when live but streamUrl is null", () => {
+    render(<DogCamTileView {...baseProps} live={true} streamUrl={null} />);
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 });
@@ -157,9 +176,9 @@ describe("DogCamTileView , tile structure", () => {
 });
 
 describe("DogCamTileView , error state", () => {
-  it("renders the Dog Cam header", () => {
+  it("renders the Bedroom Cam header", () => {
     render(<DogCamTileView status="error" live={false} recSecs={0} onToggleLive={vi.fn()} />);
-    expect(screen.getByText("Dog Cam")).toBeInTheDocument();
+    expect(screen.getByText("Bedroom Cam")).toBeInTheDocument();
   });
 
   it("renders the feed button", () => {

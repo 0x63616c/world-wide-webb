@@ -18,10 +18,12 @@ describe("DogCamTileView stories , Covered", () => {
   it("shows header, label, tap-prompt, and no LIVE badge", async () => {
     const { container } = render(<Covered />);
     if (Covered.play) await Covered.play({ canvasElement: container });
-    expect(screen.getByText("Dog Cam")).toBeInTheDocument();
-    expect(screen.getByText("Living Room")).toBeInTheDocument();
+    // Header title and cover label both read "Bedroom Cam"
+    expect(screen.getAllByText("Bedroom Cam").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/tap to view feed/i)).toBeInTheDocument();
     expect(screen.queryByText("LIVE")).not.toBeInTheDocument();
+    // Stream img is not mounted while covered , no open MJPEG connection
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 });
 
@@ -38,7 +40,7 @@ describe("DogCamTileView stories , Loading", () => {
   it("shows header and button but no status text", async () => {
     const { container } = render(<Loading />);
     if (Loading.play) await Loading.play({ canvasElement: container });
-    expect(screen.getByText("Dog Cam")).toBeInTheDocument();
+    expect(screen.getByText("Bedroom Cam")).toBeInTheDocument();
     expect(screen.getByRole("button")).toBeInTheDocument();
     expect(screen.queryByText(/tap to view feed/i)).not.toBeInTheDocument();
     expect(screen.queryByText("LIVE")).not.toBeInTheDocument();
@@ -49,7 +51,7 @@ describe("DogCamTileView stories , ErrorEmpty", () => {
   it("shows header and button but no status text", async () => {
     const { container } = render(<ErrorEmpty />);
     if (ErrorEmpty.play) await ErrorEmpty.play({ canvasElement: container });
-    expect(screen.getByText("Dog Cam")).toBeInTheDocument();
+    expect(screen.getByText("Bedroom Cam")).toBeInTheDocument();
     expect(screen.queryByText(/tap to view feed/i)).not.toBeInTheDocument();
     expect(screen.queryByText("LIVE")).not.toBeInTheDocument();
   });
@@ -62,6 +64,8 @@ describe("DogCamTileView stories , Live", () => {
     expect(screen.getByText("LIVE")).toBeInTheDocument();
     expect(screen.getByText(/^REC 00:01:15$/)).toBeInTheDocument();
     expect(screen.queryByText(/tap to view feed/i)).not.toBeInTheDocument();
+    // Live mounts the MJPEG stream img pointed at the api proxy
+    expect(screen.getByRole("img")).toHaveAttribute("src", "/media/camera-stream");
   });
 });
 

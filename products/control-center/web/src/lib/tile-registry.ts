@@ -155,7 +155,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
   },
   {
     id: "tile_dogcam",
-    label: "Dog Cam",
+    label: "Bedroom Cam",
     component: DogCamTile,
     viewComponent: DogCamTileView,
     worldCol: 30,

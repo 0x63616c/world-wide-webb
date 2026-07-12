@@ -152,6 +152,23 @@ const captivePortalManifest = captivePortalProductManifest();
 const captivePortalDatabase = captivePortalManifest.database;
 const textYourExDatabase = textYourExProductManifest().database;
 
+// go2rtc: the in-cluster RTSP->MJPEG restreamer for the bedroom camera. It runs
+// in the control-center namespace as a ClusterIP Service on :1984, and the api
+// proxies its MJPEG endpoint at /media/camera-stream. This deliberately does NOT
+// go through Home Assistant: the camera is reachable directly over RTSP, so the
+// tile stays up when HA is down. Only the RTSP credentials are secret (they ride
+// in the composed go2rtc.yaml Secret below); these three are plain env.
+const GO2RTC_SERVICE_NAME = "go2rtc";
+const GO2RTC_PORT = 1984;
+const GO2RTC_CONFIG_SECRET_NAME = "control-center-go2rtc-config";
+const GO2RTC_CONFIG_MOUNT_PATH = "/config";
+// Pinned tag, never :latest — a mutable upstream tag would silently roll the
+// restreamer on every node restart. Not a GHCR image, so no digest pin (an
+// unknown key in wwwinfra:imageDigests hard-fails validateImageDigests).
+const GO2RTC_IMAGE = "alexxit/go2rtc:1.9.9";
+const CAMERA_STREAM_NAME = "bedroom_mjpeg";
+const CAMERA_LABEL = "Bedroom Cam";
+
 // Shared non-secret env for api + worker (HA reached via the in-cluster `ha`
 // Service name now, not host.docker.internal; DB via the CNPG Service).
 const haEnv = {
@@ -161,6 +178,9 @@ const haEnv = {
   HA_URL: `http://ha:${HA_PORT}`,
   UNIFI_CONTROLLER_URL: "https://192.168.0.1",
   POSTGRES_HOST: controlCenterDatabase.rwServiceName,
+  GO2RTC_URL: `http://${GO2RTC_SERVICE_NAME}:${GO2RTC_PORT}`,
+  CAMERA_STREAM_NAME,
+  CAMERA_LABEL,
 };
 
 // secretsFor: a marker list so the Workload mounts its configured service Secret; the actual
@@ -494,6 +514,27 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       ports: [{ containerPort: 32400, expose: "lan" }],
     },
     {
+      // go2rtc restreams the bedroom camera's RTSP feed as MJPEG for the web
+      // tile (the browser can't play RTSP). Public Docker Hub image on a pinned
+      // tag, so no GHCR pull secret and no digest pin. Its whole config is the
+      // composed `control-center-go2rtc-config` Secret (deployServices below),
+      // mounted read-only at go2rtc's default config dir /config — the image's
+      // own entrypoint then reads /config/go2rtc.yaml, so no `command` override
+      // (a k8s `command` REPLACES the entrypoint outright).
+      logicalName: "control-center-go2rtc",
+      name: GO2RTC_SERVICE_NAME,
+      namespaceName: "control-center",
+      image: GO2RTC_IMAGE,
+      replicas: 1,
+      resources: { memory: "256M" },
+      env: { TZ },
+      ports: [{ containerPort: GO2RTC_PORT, expose: "cluster" }],
+      extraSecretMounts: [
+        { secretName: GO2RTC_CONFIG_SECRET_NAME, mountPath: GO2RTC_CONFIG_MOUNT_PATH },
+      ],
+      // Public upstream image; no GHCR pull secret.
+    },
+    {
       logicalName: "platform-cloudflared",
       legacyLogicalName: "cloudflared",
       name: "cloudflared",
@@ -545,6 +586,7 @@ export interface ServicesArgs {
 
 export interface ServicesResources {
   ghcrPullSecrets: k8s.core.v1.Secret[];
+  go2rtcConfigSecret: k8s.core.v1.Secret;
   haService: ExternalService;
   pvcs: k8s.core.v1.PersistentVolumeClaim[];
   workloads: Workload[];
@@ -560,6 +602,43 @@ const LOCAL_PATH_CLAIMS: { name: string; size: string }[] = [
   // NFS). Mounted at /config by the plex workload above.
   { name: "plex-config", size: "10Gi" },
 ];
+
+// The go2rtc config, composed from the vault (the RTSP creds are NOT ESO
+// /run/secrets files: go2rtc only reads a config file, so the credentials are
+// interpolated into the rtsp:// URL here and the whole file ships as one k8s
+// Secret). Username/password are URL-encoded so a `@`, `:` or `/` in the
+// password can't break the URL's authority section.
+// `bedroom` is the raw RTSP pull; `bedroom_mjpeg` is the ffmpeg transcode the
+// browser tile consumes, downscaled to 960px wide (full 1080p MJPEG is ~7 Mbps,
+// wasteful for a small tile).
+function composeGo2rtcConfig(vault: Record<string, string>): string {
+  const required = [
+    "EUFY_BEDROOM_CAM__HOST",
+    "EUFY_BEDROOM_CAM__RTSP_USERNAME",
+    "EUFY_BEDROOM_CAM__RTSP_PASSWORD",
+    "EUFY_BEDROOM_CAM__RTSP_PATH",
+  ] as const;
+  for (const key of required) {
+    if (!vault[key]) throw new Error(`vault key ${key} not found`);
+  }
+  const host = vault.EUFY_BEDROOM_CAM__HOST as string;
+  const username = encodeURIComponent(vault.EUFY_BEDROOM_CAM__RTSP_USERNAME as string);
+  const password = encodeURIComponent(vault.EUFY_BEDROOM_CAM__RTSP_PASSWORD as string);
+  const path = (vault.EUFY_BEDROOM_CAM__RTSP_PATH as string).replace(/^\/+/, "");
+  const rtspUrl = `rtsp://${username}:${password}@${host}:554/${path}`;
+  return [
+    "api:",
+    `  listen: ":${GO2RTC_PORT}"`,
+    "streams:",
+    "  bedroom:",
+    `    - ${rtspUrl}`,
+    `  ${CAMERA_STREAM_NAME}:`,
+    "    - ffmpeg:bedroom#video=mjpeg#width=960",
+    "log:",
+    "  level: info",
+    "",
+  ].join("\n");
+}
 
 /**
  * @public - the GHCR imagePullSecret (ESO dockerconfigjson), the HA headless
@@ -601,6 +680,21 @@ export function deployServices(args: ServicesArgs): ServicesResources {
       ),
   );
 
+  // go2rtc's whole config (including the camera's RTSP credentials), composed
+  // from the vault and shipped as one Secret mounted read-only at /config.
+  // pulumi.secret() keeps the RTSP password encrypted in Pulumi state.
+  const go2rtcConfigSecret = new k8s.core.v1.Secret(
+    GO2RTC_CONFIG_SECRET_NAME,
+    {
+      metadata: {
+        name: GO2RTC_CONFIG_SECRET_NAME,
+        namespace: namespaces["control-center"],
+      },
+      stringData: { "go2rtc.yaml": pulumi.secret(composeGo2rtcConfig(vault)) },
+    },
+    opts,
+  );
+
   // `ha` -> the host's tailnet FQDN (api/worker reach `http://ha:8123`, which
   // CNAMEs to the host socat via the locally-routed tailnet IP, www-j934.17).
   const haService = new ExternalService(
@@ -640,8 +734,13 @@ export function deployServices(args: ServicesArgs): ServicesResources {
     requireImageDigestPins,
   }).map(
     ({ namespaceName, ...spec }) =>
-      new Workload({ ...spec, provider, namespace: namespaces[namespaceName] }, opts),
+      new Workload(
+        { ...spec, provider, namespace: namespaces[namespaceName] },
+        // go2rtc can't start until its config Secret exists (the pod would sit in
+        // ContainerCreating on the missing volume), so order it after the Secret.
+        spec.name === GO2RTC_SERVICE_NAME ? { ...opts, dependsOn: [go2rtcConfigSecret] } : opts,
+      ),
   );
 
-  return { ghcrPullSecrets, haService, pvcs, workloads };
+  return { ghcrPullSecrets, go2rtcConfigSecret, haService, pvcs, workloads };
 }

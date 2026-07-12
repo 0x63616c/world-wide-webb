@@ -16,6 +16,13 @@ export interface DogCamTileViewProps {
   label?: string | null;
   online?: boolean;
   snapshotUrl?: string | null;
+  /**
+   * MJPEG stream URL (the api's /media/camera-stream proxy in front of go2rtc).
+   * A multipart/x-mixed-replace response renders natively in an <img>, which is
+   * why MJPEG was chosen , an <img> cannot send auth headers, so the old HA
+   * camera_proxy approach was unusable.
+   */
+  streamUrl?: string | null;
   /** Whether the live feed overlay is currently visible , local presentation state owned by the container */
   live: boolean;
   /** Elapsed recording seconds , driven by the container's interval */
@@ -28,6 +35,7 @@ export function DogCamTileView({
   label,
   online,
   snapshotUrl,
+  streamUrl,
   live,
   recSecs,
   onToggleLive,
@@ -37,7 +45,8 @@ export function DogCamTileView({
 
   return (
     <Tile padding={22}>
-      <TileHeader icon="cam" title="Dog Cam" />
+      {/* Title MUST stay in sync with the registry label in lib/tile-registry.ts , the minimap and pan labels read it. */}
+      <TileHeader icon="cam" title="Bedroom Cam" />
       {/* Feed shell , fills remaining space */}
       <button
         type="button"
@@ -95,6 +104,28 @@ export function DogCamTileView({
             }}
           />
         )}
+
+        {/*
+          Live MJPEG stream , z-index 2, above the snapshot poster.
+          Mounted ONLY while live: the browser holds the multipart connection open
+          for as long as this <img> exists, so keeping it mounted under the frosted
+          cover would pin an open stream to go2rtc forever. Unmounting on !live
+          tears the connection down.
+        */}
+        {live && streamUrl ? (
+          <img
+            src={streamUrl}
+            alt={label ?? "Live camera feed"}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              zIndex: 2,
+            }}
+          />
+        ) : null}
 
         {/* Scanline overlay , z-index 3 */}
         <div className="scan" />

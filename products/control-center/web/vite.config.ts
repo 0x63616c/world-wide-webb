@@ -106,6 +106,15 @@ export default defineConfig({
         target: `http://localhost:${apiPort}`,
         changeOrigin: true,
       },
+      // Long-lived MJPEG camera stream (multipart/x-mixed-replace) proxied to the
+      // api, which fronts go2rtc. Must NOT be buffered or timed out , the response
+      // never ends by design.
+      "/media/camera-stream": {
+        target: `http://localhost:${apiPort}`,
+        changeOrigin: true,
+        timeout: 0,
+        proxyTimeout: 0,
+      },
     },
   },
 });

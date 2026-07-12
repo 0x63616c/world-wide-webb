@@ -35,6 +35,7 @@ export function DogCamTile() {
       label={data?.label ?? null}
       online={data?.online ?? false}
       snapshotUrl={data?.snapshotUrl ?? null}
+      streamUrl={data?.streamUrl ?? null}
       live={live}
       recSecs={recSecs}
       onToggleLive={() => setLive((v) => !v)}

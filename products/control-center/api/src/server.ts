@@ -3,6 +3,7 @@ import { createLogger } from "@www/logger";
 import { runMigrations } from "./db/migrate";
 import { env } from "./env";
 import { getTvArtwork } from "./services/apple-tv-service";
+import { openCameraStream } from "./services/camera-service";
 import { getClimate } from "./services/climate-service";
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers/index";
@@ -68,6 +69,27 @@ async function handle(req: Request, url: URL): Promise<Response> {
         "Content-Type": artwork.headers.get("content-type") ?? "application/octet-stream",
         // The ?v= param busts on artwork change, so short caching is safe.
         "Cache-Control": "public, max-age=300",
+      },
+    });
+  }
+
+  // Live camera MJPEG proxy. go2rtc holds the RTSP credentials and transcodes
+  // the bedroom stream to MJPEG; the panel just consumes this same-origin path
+  // in an <img>. The body is a long-lived multipart stream, so it is piped
+  // through verbatim and MUST NOT be cached (a max-age here would freeze the
+  // feed on the first frame) and MUST NOT carry any request timeout.
+  if (url.pathname === "/media/camera-stream") {
+    const upstream = await openCameraStream();
+    if (!upstream) {
+      return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
+    }
+    return new Response(upstream.body, {
+      status: 200,
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type":
+          upstream.headers.get("content-type") ?? "multipart/x-mixed-replace; boundary=frame",
+        "Cache-Control": "no-store",
       },
     });
   }

@@ -53,9 +53,9 @@ function renderWithData(overrides?: {
 
 describe("DogCamTile", () => {
   describe("section header", () => {
-    it("renders the 'Dog Cam' section header", () => {
+    it("renders the 'Bedroom Cam' section header", () => {
       renderWithData();
-      expect(screen.getByText("Dog Cam")).toBeDefined();
+      expect(screen.getByText("Bedroom Cam")).toBeDefined();
     });
 
     it("tile wrapper has padding 22", () => {
@@ -113,6 +113,23 @@ describe("DogCamTile", () => {
     it("renders no img when snapshotUrl is null", () => {
       renderWithData({ data: { snapshotUrl: null } });
       expect(screen.queryByRole("img")).toBeNull();
+    });
+  });
+
+  describe("live MJPEG stream", () => {
+    it("passes streamUrl through and mounts the stream img only after tap", () => {
+      vi.useFakeTimers();
+      renderWithData({ data: { streamUrl: "/media/camera-stream" } });
+
+      // Covered: nothing is streaming yet
+      expect(screen.queryByRole("img")).toBeNull();
+
+      act(() => {
+        fireEvent.click(screen.getByRole("button"));
+      });
+
+      const img = screen.getByRole("img");
+      expect(img.getAttribute("src")).toBe("/media/camera-stream");
     });
   });
 
