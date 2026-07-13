@@ -24,6 +24,7 @@
  */
 
 import { BUILD_HASH } from "../../config/build";
+import { nativeAppend } from "./native";
 import { LogRing } from "./ring";
 import * as store from "./store";
 import type { LogEntry, LogLevel } from "./types";
@@ -122,6 +123,9 @@ async function flush(): Promise<void> {
   if (queue.length === 0) return;
   const batch = queue;
   queue = [];
+  // The native mirror (no-op off-device) rides along on every flush: IndexedDB
+  // is the queryable store, the mirror is what survives WebKit evicting it.
+  void nativeAppend(batch);
   try {
     await store.append(batch);
   } catch {

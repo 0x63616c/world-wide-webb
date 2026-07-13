@@ -20,16 +20,13 @@ import { TileStatus } from "@/components/ui";
 import { flushNow } from "../../lib/log/logger";
 import * as store from "../../lib/log/store";
 import { LogsModal } from "../LogsModal";
-import { FrontendLogsTileView, type LogHourBucket } from "./FrontendLogsTileView";
+import { FrontendLogsTileView } from "./FrontendLogsTileView";
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 const BUCKETS = 24;
 const REFRESH_MS = 60 * 1000;
 
-interface Summary {
-  counts: store.LogSummary["counts"];
-  buckets: LogHourBucket[];
-}
+type Summary = store.LogSummary;
 
 export function FrontendLogsTile() {
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -38,11 +35,7 @@ export function FrontendLogsTile() {
   const refresh = useCallback(async () => {
     await flushNow();
     const now = Date.now();
-    const s = await store.summarizeSince(now - WINDOW_MS, now, BUCKETS);
-    setSummary({
-      counts: s.counts,
-      buckets: s.buckets.map((b) => ({ warn: b.warn, error: b.error })),
-    });
+    setSummary(await store.summarizeSince(now - WINDOW_MS, now, BUCKETS));
   }, []);
 
   useEffect(() => {

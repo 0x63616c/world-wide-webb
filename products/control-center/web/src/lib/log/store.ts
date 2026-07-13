@@ -23,9 +23,10 @@
  * bundled local scheme, so the WKWebView origin is an ordinary https origin and
  * WebKit's 7-day cap on script-writable storage applies to it. Daily use of the
  * panel keeps resetting that clock, and requestPersistence() asks WebKit to
- * exempt us outright, but neither is a guarantee. If history is ever observed
- * evaporating, the escape hatch is writing through the Capacitor bridge to
- * native storage, which ITP does not touch.
+ * exempt us outright, but neither is a guarantee. The backstop is native.ts:
+ * every flush also appends to a native JSONL mirror through the Capacitor
+ * bridge (which ITP does not touch), and boot restores from it when this store
+ * comes up evicted.
  */
 
 import { fuzzyMatch } from "./fuzzy";

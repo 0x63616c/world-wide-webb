@@ -4,13 +4,12 @@
  * The wall panel is a TestFlight Capacitor build with no attachable inspector
  * (see LogsModal.tsx); the modal is the only log viewer, and until now the only
  * way to know it was worth opening was to open it. This tile is the tell: the
- * last 24h of the panel's OWN frontend logs , an hourly warn/error histogram
- * (when it got loud) over a full level tally (how loud, how bad). Tapping the
- * tile opens the LogsModal, which the container owns.
+ * last 24h of the panel's OWN frontend logs , an hourly histogram of every
+ * level (when it got loud) over a full level tally (how loud, how bad). Tapping
+ * the tile opens the LogsModal, which the container owns.
  *
- * Debug/info are counted but not charted: on a polling dashboard they are a
- * steady firehose whose bars would flatten the warn/error signal the tile
- * exists to surface.
+ * All four levels are charted, stacked error-on-top so the severe end of the
+ * scale reads first even when debug volume dominates the bar height.
  */
 
 import { Skeleton, Tile, TileHeader, TileStatus } from "@/components/ui";
@@ -26,11 +25,11 @@ const LEVEL_COLOR: Record<LogLevel, string> = {
 
 const CHART_H = 64;
 
+/** Stacking order, topmost first , severity reads from the top of the bar down. */
+const STACK_ORDER = [...LOG_LEVELS].reverse();
+
 /** One hourly slice of the 24h window, oldest first. */
-export interface LogHourBucket {
-  warn: number;
-  error: number;
-}
+export type LogHourBucket = Record<LogLevel, number>;
 
 interface FrontendLogsTileViewBaseProps {
   status: TileStatus;
@@ -44,7 +43,7 @@ interface FrontendLogsTileViewPopulatedProps extends FrontendLogsTileViewBasePro
   status: typeof TileStatus.Populated;
   /** Level tally over the last 24h. */
   counts: Record<LogLevel, number>;
-  /** 24 hourly warn/error buckets, oldest first. */
+  /** 24 hourly per-level buckets, oldest first. */
   buckets: LogHourBucket[];
   onTileTap: () => void;
 }
@@ -53,17 +52,26 @@ export type FrontendLogsTileViewProps =
   | FrontendLogsTileViewLoadingProps
   | FrontendLogsTileViewPopulatedProps;
 
+/**
+ * Comma-grouped up to 5 digits (23,456), then unit-suffixed: 100k, 999k, 1.1m.
+ * The tally row holds four of these side by side on a fixed-width panel, so the
+ * ceiling is "5 characters of digits", not scientific precision.
+ */
 function compact(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (n >= 10_000) return `${Math.round(n / 1000)}k`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}m`;
+  if (n >= 100_000) return `${Math.round(n / 1000)}k`;
   return n.toLocaleString();
+}
+
+function bucketTotal(bucket: LogHourBucket): number {
+  return LOG_LEVELS.reduce((sum, level) => sum + bucket[level], 0);
 }
 
 function FrontendLogsSkeleton() {
   // Real title stays visible while loading; only the data body shimmers.
   return (
     <Tile padding={22}>
-      <TileHeader icon="apps" title="Frontend Logs" right={<Skeleton w={64} h={13} />} />
+      <TileHeader icon="apps" title="Frontend Logs" />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
         <Skeleton w="100%" h={CHART_H} borderRadius={6} />
       </div>
@@ -80,30 +88,21 @@ export function FrontendLogsTileView(props: FrontendLogsTileViewProps) {
   if (props.status === TileStatus.Loading) return <FrontendLogsSkeleton />;
 
   const { counts, buckets, onTileTap } = props;
-  const max = Math.max(...buckets.map((b) => b.warn + b.error), 1);
+  const max = Math.max(...buckets.map(bucketTotal), 1);
 
   return (
     <Tile padding={22} onClick={onTileTap} style={{ cursor: "pointer" }}>
-      <TileHeader
-        icon="apps"
-        title="Frontend Logs"
-        right={
-          <span className="mono" style={{ fontSize: 13, color: LEVEL_COLOR.error }}>
-            {compact(counts.error)} errors
-          </span>
-        }
-      />
+      <TileHeader icon="apps" title="Frontend Logs" />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-        {/* Stacked warn+error per hour; 2px surface gaps; rounded data-ends. A
-            quiet hour keeps a 2px stub so the axis reads as 24 slots, not a
+        {/* Stacked per-level bars per hour; 2px surface gaps; rounded data-ends.
+            A quiet hour keeps a 2px stub so the axis reads as 24 slots, not a
             chart that failed to load. */}
         <div
           data-testid="logs-histogram"
           style={{ display: "flex", alignItems: "flex-end", gap: 2, height: CHART_H }}
         >
           {buckets.map((bucket, i) => {
-            const errH = (bucket.error / max) * CHART_H;
-            const warnH = (bucket.warn / max) * CHART_H;
+            const levels = STACK_ORDER.filter((level) => bucket[level] > 0);
             return (
               <div
                 // biome-ignore lint/suspicious/noArrayIndexKey: fixed hourly slots
@@ -113,30 +112,22 @@ export function FrontendLogsTileView(props: FrontendLogsTileViewProps) {
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "flex-end",
-                  gap: bucket.error > 0 && bucket.warn > 0 ? 2 : 0,
+                  gap: 2,
                   height: "100%",
                 }}
               >
-                {bucket.error > 0 && (
+                {levels.map((level, stackIdx) => (
                   <div
+                    key={level}
                     style={{
-                      height: Math.max(3, errH),
-                      background: LEVEL_COLOR.error,
-                      borderRadius: "2px 2px 0 0",
+                      height: Math.max(3, (bucket[level] / max) * CHART_H),
+                      background: LEVEL_COLOR[level],
+                      borderRadius: stackIdx === 0 ? "2px 2px 0 0" : 0,
+                      opacity: level === "warn" ? 0.85 : 1,
                     }}
                   />
-                )}
-                {bucket.warn > 0 && (
-                  <div
-                    style={{
-                      height: Math.max(3, warnH),
-                      background: LEVEL_COLOR.warn,
-                      borderRadius: bucket.error > 0 ? 0 : "2px 2px 0 0",
-                      opacity: 0.85,
-                    }}
-                  />
-                )}
-                {bucket.error === 0 && bucket.warn === 0 && (
+                ))}
+                {levels.length === 0 && (
                   <div style={{ height: 2, background: "var(--nest)", borderRadius: 1 }} />
                 )}
               </div>
