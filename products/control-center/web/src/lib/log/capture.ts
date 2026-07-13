@@ -92,4 +92,12 @@ export function installCapture(): void {
   window.addEventListener("unhandledrejection", (event) => {
     errorLog.error("unhandled promise rejection", serializeError(event.reason));
   });
+
+  // Connectivity transitions. On a wall panel that cannot be inspected, "the wifi
+  // dropped for 40 seconds at 3am" is otherwise indistinguishable from "the api
+  // broke", and they call for completely different fixes.
+  const netLog = log.child("net");
+  netLog.info(`online: ${navigator.onLine}`);
+  window.addEventListener("offline", () => netLog.error("went offline"));
+  window.addEventListener("online", () => netLog.info("back online"));
 }

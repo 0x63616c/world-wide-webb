@@ -3,6 +3,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
+import { loggingFetch } from "./log/fetch-log";
 import { loggingLink } from "./log/trpc-link";
 
 export const trpc = createTRPCReact<AppRouter>();
@@ -28,6 +29,11 @@ export const queryClient = new QueryClient({
 // Vite proxies /trpc -> the api (API_PORT, default 4201). Same-origin in prod.
 // loggingLink is first in the chain so it observes the whole call, including the
 // time httpBatchLink spends batching and retrying.
+// loggingFetch sits UNDER tRPC and records the HTTP truth (status, content-type,
+// and the body of anything that isn't a clean JSON 200). tRPC's own error only
+// carries an httpStatus when the server replied with a proper tRPC envelope, so
+// without this a 502 HTML page or an Access challenge surfaces as nothing more
+// than "Failed to execute 'json' on 'Response'".
 export const trpcClient = trpc.createClient({
-  links: [loggingLink, httpBatchLink({ url: "/trpc" })],
+  links: [loggingLink, httpBatchLink({ url: "/trpc", fetch: loggingFetch })],
 });
