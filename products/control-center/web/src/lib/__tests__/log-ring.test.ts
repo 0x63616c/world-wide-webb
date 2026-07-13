@@ -7,7 +7,7 @@ function entry(seq: number): LogEntry {
     id: id(seq),
     seq,
     ts: seq,
-    build: "abc1234",
+    sha: "abc1234",
     level: "info",
     source: "test",
     msg: `m${seq}`,

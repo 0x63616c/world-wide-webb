@@ -26,16 +26,16 @@ export interface LogEntry {
   seq: number;
   ts: number;
   /**
-   * Short build hash of the code that emitted this line.
+   * Short git SHA of the code that emitted this line.
    *
    * Carried per ENTRY, not just once at boot, because history outlives deploys:
    * the panel updates over the air (capacitor.config.ts points at the hosted
-   * dashboard), so a 100k-entry store routinely spans several builds. Without
-   * this, "the bug started happening" and "we shipped that afternoon" are two
-   * facts you cannot line up. It also means a line can be blamed on a build
-   * after the fact, which is the whole point of keeping history.
+   * dashboard), so a large store routinely spans several deploys. Without this,
+   * "the bug started happening" and "we shipped that afternoon" are two facts you
+   * cannot line up. It also means a line can be blamed on a commit after the
+   * fact, which is the whole point of keeping history.
    */
-  build: string;
+  sha: string;
   level: LogLevel;
   /** Subsystem tag, e.g. "boot", "trpc", "query", "tile:weather", "console". */
   source: string;

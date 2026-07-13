@@ -14,7 +14,7 @@ function entry(seq: number, over: Partial<LogEntry> = {}): LogEntry {
     id: id(seq),
     seq,
     ts: 1_700_000_000_000 + seq,
-    build: "abc1234",
+    sha: "abc1234",
     level: "info",
     source: "test",
     msg: `message ${seq}`,

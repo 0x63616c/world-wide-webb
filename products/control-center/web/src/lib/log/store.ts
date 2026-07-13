@@ -28,15 +28,16 @@
  * native storage, which ITP does not touch.
  */
 
+import { fuzzyMatch } from "./fuzzy";
 import type { LogEntry, LogLevel } from "./types";
 
 const DB_NAME = "cc-logs";
-// v2: the entries store was re-keyed from the per-session `seq` to the
-// boot-scoped `id`. A v1 database left in place would keep the old keyPath and
-// go on overwriting each reload's history, so the upgrade drops and rebuilds it.
-// Discarding the old rows is fine , they are debug logs, and a v1 store by
-// definition only ever held the current session anyway.
-const DB_VERSION = 2;
+// v2: re-keyed from the per-session `seq` to the boot-scoped `id` (a v1 store
+// overwrote its own history on every reload).
+// v3: entries carry `sha` (was `build`). The upgrade drops and rebuilds either
+// way , these are debug logs, and carrying a legacy field forward through the
+// render path forever is a worse trade than losing a day of them once.
+const DB_VERSION = 3;
 const ENTRIES = "entries";
 const META = "meta";
 const META_KEY = "stats";
@@ -87,7 +88,7 @@ export interface LogQuery {
   levels?: LogLevel[];
   /** Exact source match. Omit for all sources. */
   source?: string;
-  /** Case-insensitive substring match against msg + serialized data. */
+  /** Fuzzy match (see fuzzy.ts) against msg + source + serialized data. */
   search?: string;
   /** Page backwards: return entries older than this entry id. */
   before?: string;
@@ -301,15 +302,17 @@ function matches(entry: LogEntry, q: LogQuery): boolean {
   if (q.levels && !q.levels.includes(entry.level)) return false;
   if (q.source && entry.source !== q.source) return false;
   if (q.search) {
-    const needle = q.search.toLowerCase();
-    if (entry.msg.toLowerCase().includes(needle)) return true;
-    if (entry.source.toLowerCase().includes(needle)) return true;
-    if (entry.data === undefined) return false;
-    try {
-      return JSON.stringify(entry.data).toLowerCase().includes(needle);
-    } catch {
-      return false;
+    // Match against the whole line as one haystack, so a query can span the
+    // message and its payload ("tesla 503") the way it reads on screen.
+    let haystack = `${entry.source} ${entry.msg}`;
+    if (entry.data !== undefined) {
+      try {
+        haystack += ` ${JSON.stringify(entry.data)}`;
+      } catch {
+        // non-serializable data just isn't searchable
+      }
     }
+    return fuzzyMatch(haystack, q.search);
   }
   return true;
 }

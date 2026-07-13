@@ -23,6 +23,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { BUILD_HASH } from "../config/build";
+import { fuzzyMatch } from "../lib/log/fuzzy";
 import { flushNow, getTail, subscribe } from "../lib/log/logger";
 import * as store from "../lib/log/store";
 import { MAX_BYTES, MAX_ENTRIES } from "../lib/log/store";
@@ -39,8 +40,16 @@ const PAGE_SIZE = 500;
 const CONTROL_H = 36;
 const RADIUS = 10;
 
-/** The build currently running. Entries carry their own , see the row column. */
-const BUILD = BUILD_HASH.slice(0, 7);
+/** The git SHA currently running. Entries carry their own , see the SHA column. */
+const SHA = BUILD_HASH.slice(0, 7);
+
+/**
+ * One column template shared by the header and every row, so they cannot drift
+ * apart. The payload column takes 1fr: it is the column with the actual
+ * information in it, and the previous layout let the fixed columns hog width and
+ * then clipped the payload, which is backwards.
+ */
+const GRID = "82px 46px 76px 58px minmax(230px, 32ch) 1fr";
 
 const LEVEL_COLOR: Record<LogLevel, string> = {
   debug: "var(--ink-3, #6b7280)",
@@ -136,16 +145,15 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
       seen.add(e.id);
       deduped.push(e);
     }
-    const needle = search.trim().toLowerCase();
-    return deduped
-      .filter((e) => levels.includes(e.level))
-      .filter((e) => {
-        if (!needle) return true;
-        if (e.msg.toLowerCase().includes(needle)) return true;
-        if (e.source.toLowerCase().includes(needle)) return true;
-        return oneLine(e.data).toLowerCase().includes(needle);
-      })
-      .sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
+    const needle = search.trim();
+    return (
+      deduped
+        .filter((e) => levels.includes(e.level))
+        // Same fuzzy matcher the store pages with, so what you see and what "Load
+        // older" fetches cannot disagree about what "matches".
+        .filter((e) => !needle || fuzzyMatch(`${e.source} ${e.msg} ${oneLine(e.data)}`, needle))
+        .sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
+    );
   }, [older, tail, levels, search]);
 
   // Counted over everything loaded, BEFORE the level filter , the point of the
@@ -234,38 +242,70 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
           </ToolbarButton>
         </div>
 
-        {/* list */}
+        {/* Header + list share one bordered box. The header sits OUTSIDE the
+            scroll container rather than sticky inside it: a sticky header still
+            lets the first row slide under it mid-scroll, which is exactly the
+            clipping this replaces. */}
         <div
-          ref={listRef}
-          onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
           style={{
-            height: LIST_HEIGHT,
-            overflowY: "auto",
             background: "var(--nest)",
             border: "1px solid var(--hair)",
-            borderRadius: 10,
-            fontFamily: "var(--mono, ui-monospace, monospace)",
-            fontSize: 12,
+            borderRadius: RADIUS,
+            overflow: "hidden",
           }}
         >
-          {rows.length === 0 ? (
-            <div style={{ padding: 16, color: "var(--ink-3)", fontFamily: "var(--ui)" }}>
-              No entries match.
-            </div>
-          ) : (
-            <div style={{ height: rows.length * ROW_HEIGHT, position: "relative" }}>
-              <div style={{ transform: `translateY(${first * ROW_HEIGHT}px)` }}>
-                {visible.map((entry) => (
-                  <LogRow
-                    key={entry.id}
-                    entry={entry}
-                    selected={selected?.id === entry.id}
-                    onSelect={() => setSelected(entry)}
-                  />
-                ))}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: GRID,
+              gap: 10,
+              alignItems: "center",
+              height: 28,
+              padding: "0 10px",
+              borderBottom: "1px solid var(--hair)",
+              fontFamily: "var(--ui)",
+              fontSize: 10,
+              letterSpacing: 0.8,
+              textTransform: "uppercase",
+              color: "var(--ink-3)",
+            }}
+          >
+            <span>Time</span>
+            <span>Level</span>
+            <span>Source</span>
+            <span>Git SHA</span>
+            <span>Message</span>
+            <span>Payload</span>
+          </div>
+          <div
+            ref={listRef}
+            onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+            style={{
+              height: LIST_HEIGHT,
+              overflowY: "auto",
+              fontFamily: "var(--mono, ui-monospace, monospace)",
+              fontSize: 12,
+            }}
+          >
+            {rows.length === 0 ? (
+              <div style={{ padding: 16, color: "var(--ink-3)", fontFamily: "var(--ui)" }}>
+                No entries match.
               </div>
-            </div>
-          )}
+            ) : (
+              <div style={{ height: rows.length * ROW_HEIGHT, position: "relative" }}>
+                <div style={{ transform: `translateY(${first * ROW_HEIGHT}px)` }}>
+                  {visible.map((entry) => (
+                    <LogRow
+                      key={entry.id}
+                      entry={entry}
+                      selected={selected?.id === entry.id}
+                      onSelect={() => setSelected(entry)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* detail */}
@@ -311,8 +351,8 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
           <span>
             {rows.length.toLocaleString()} shown · {tail.length.toLocaleString()} in memory ·{" "}
             {historyCount.toLocaleString()} / {MAX_ENTRIES.toLocaleString()} on disk ·{" "}
-            {formatBytes(bytes)} / {formatBytes(MAX_BYTES)} · build{" "}
-            <span style={{ fontFamily: "var(--mono, ui-monospace, monospace)" }}>{BUILD}</span>
+            {formatBytes(bytes)} / {formatBytes(MAX_BYTES)} · git sha{" "}
+            <span style={{ fontFamily: "var(--mono, ui-monospace, monospace)" }}>{SHA}</span>
           </span>
           <span style={{ display: "flex", gap: 12, whiteSpace: "nowrap" }}>
             {LOG_LEVELS.map((level) => (
@@ -341,9 +381,12 @@ function LogRow({
       type="button"
       onClick={onSelect}
       style={{
-        display: "flex",
+        // Same GRID as the header, so the columns line up by construction rather
+        // than by two sets of hand-tuned widths that drift apart.
+        display: "grid",
+        gridTemplateColumns: GRID,
         gap: 10,
-        alignItems: "baseline",
+        alignItems: "center",
         width: "100%",
         height: ROW_HEIGHT,
         padding: "0 10px",
@@ -354,30 +397,26 @@ function LogRow({
         fontSize: "inherit",
         textAlign: "left",
         cursor: "pointer",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
       }}
     >
-      <span style={{ color: "var(--ink-3)", flexShrink: 0 }}>{formatTime(entry.ts)}</span>
-      <span style={{ color: LEVEL_COLOR[entry.level], width: 40, flexShrink: 0 }}>
-        {entry.level}
-      </span>
-      <span style={{ color: "var(--ink-3)", width: 130, flexShrink: 0, overflow: "hidden" }}>
-        {entry.source}
-      </span>
-      {/* The build that emitted this line. History spans deploys (the panel updates
-          over the air), so without this you cannot line up "it started failing"
-          with "we shipped". Dimmed: it is context, not the message. */}
-      <span style={{ color: "var(--ink-3)", opacity: 0.6, width: 62, flexShrink: 0 }}>
-        {entry.build}
-      </span>
-      <span style={{ color: "var(--ink-1)", flexShrink: 0 }}>{entry.msg}</span>
-      <span style={{ color: "var(--ink-3)", overflow: "hidden", textOverflow: "ellipsis" }}>
-        {oneLine(entry.data)}
-      </span>
+      <span style={{ color: "var(--ink-3)" }}>{formatTime(entry.ts)}</span>
+      <span style={{ color: LEVEL_COLOR[entry.level] }}>{entry.level}</span>
+      <span style={ELLIPSIS}>{entry.source}</span>
+      <span style={{ color: "var(--ink-3)", opacity: 0.55 }}>{entry.sha}</span>
+      <span style={{ ...ELLIPSIS, color: "var(--ink-1)" }}>{entry.msg}</span>
+      {/* The payload gets every remaining pixel: it is the column carrying the
+          answer (status codes, failing keys, durations), and it was the one being
+          clipped while the fixed columns sat half-empty. */}
+      <span style={{ ...ELLIPSIS, color: "var(--ink-3)" }}>{oneLine(entry.data)}</span>
     </button>
   );
 }
+
+const ELLIPSIS = {
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+} as const;
 
 /**
  * A level filter chip. Independently toggleable , the levels are a set, not a

@@ -49,11 +49,11 @@ let flushTimer: ReturnType<typeof setInterval> | null = null;
 const BOOT_STAMP = String(Date.now()).padStart(14, "0");
 
 /**
- * The build that is emitting these lines. Short form: 7 chars is what the build
- * badge shows and what you paste into `git show`, and 40 would cost 66 bytes on
+ * The git SHA emitting these lines. Short form: 7 chars is what the build badge
+ * shows and what you paste into `git show`, and a full 40 would cost 66 bytes on
  * every entry for no extra meaning.
  */
-const BUILD = BUILD_HASH.slice(0, 7);
+const SHA = BUILD_HASH.slice(0, 7);
 
 function makeId(n: number): string {
   return `${BOOT_STAMP}-${String(n).padStart(8, "0")}`;
@@ -105,7 +105,7 @@ function write(level: LogLevel, source: string, msg: string, data?: unknown): vo
     id: makeId(n),
     seq: n,
     ts: Date.now(),
-    build: BUILD,
+    sha: SHA,
     level,
     source,
     msg,
