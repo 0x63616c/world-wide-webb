@@ -26,7 +26,8 @@ const TZ = "America/Los_Angeles";
 
 /**
  * Pure helper: whole days from now until `target` in America/Los_Angeles.
- * Returns 0 if target is today or in the past.
+ * Negative for past events, 0 for today. Callers rely on the sign to tell a
+ * stale event apart from one happening today.
  */
 export function daysUntil(target: Date, now: Date = new Date()): number {
   const fmt = (d: Date) =>
@@ -46,7 +47,7 @@ export function daysUntil(target: Date, now: Date = new Date()): number {
   const targetLocal = parse(fmt(target));
 
   const diff = targetLocal.getTime() - todayLocal.getTime();
-  return Math.max(0, Math.round(diff / (1000 * 60 * 60 * 24)));
+  return Math.round(diff / (1000 * 60 * 60 * 24));
 }
 
 /** Map a raw DB row to the API row shape (adds computed `days`, serializes date). */
@@ -60,12 +61,24 @@ function toEventRow(r: typeof schema.events.$inferSelect, now: Date): EventRow {
   };
 }
 
+export interface ListEventsOptions {
+  /** Reference moment; injectable for tests. */
+  now?: Date;
+  /**
+   * Include events whose date has already passed. Off by default: the board
+   * tile and the read modals only ever want what's still ahead. The manage
+   * surface turns it on so stale rows stay editable/deletable.
+   */
+  includePast?: boolean;
+}
+
 export async function listEvents(
   db: NodePgDatabase<typeof schema>,
-  now: Date = new Date(),
+  { now = new Date(), includePast = false }: ListEventsOptions = {},
 ): Promise<EventRow[]> {
   const rows = await db.select().from(schema.events).orderBy(asc(schema.events.date));
-  return rows.map((r) => toEventRow(r, now));
+  const mapped = rows.map((r) => toEventRow(r, now));
+  return includePast ? mapped : mapped.filter((r) => r.days >= 0);
 }
 
 export async function createEvent(

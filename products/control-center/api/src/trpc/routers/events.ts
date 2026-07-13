@@ -5,14 +5,16 @@ import { publicProcedure, router } from "../init";
 
 export const eventsRouter = router({
   list: publicProcedure
-    .input(z.object({}).optional())
+    // Past events are dropped unless includePast is set; only the manage surface
+    // wants them (edit/delete of stale rows).
+    .input(z.object({ includePast: z.boolean().optional() }).optional())
     // EventSelectSchema is derived from createSelectSchema(events): id + name +
     // place come directly from DB column types; date is overridden to z.string()
     // (the service serializes the timestamptz to ISO); days is extended as the
     // computed days-until field.  No hand-written shadow needed.
     .output(z.array(EventSelectSchema))
-    .query(async ({ ctx }) => {
-      return listEvents(ctx.db);
+    .query(async ({ ctx, input }) => {
+      return listEvents(ctx.db, { includePast: input?.includePast });
     }),
 
   create: publicProcedure

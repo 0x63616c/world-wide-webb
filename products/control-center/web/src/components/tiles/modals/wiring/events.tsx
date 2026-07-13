@@ -5,6 +5,8 @@
  *  - trpc.events.list → upcoming events { id, name, place, days, date }
  *    (the router now surfaces the DB row's real `date` timestamptz as ISO-8601
  *    plus the row `id` the manage variant needs to target edit/delete).
+ *    Past events are excluded unless `includePast` is passed; `days` is negative
+ *    for those, so `days === 0` means today and nothing else.
  *
  * The four read variants share the same query. Countdown/FullAgenda/TimelineGaps
  * take the base { name, place, days } shape; MonthGrid additionally consumes the
@@ -22,7 +24,10 @@ import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/type
 import { trpc } from "@/lib/trpc";
 
 function useEventsVariants(): { variants: LiveVariant[]; loading: boolean } {
+  // Read variants show what's ahead; manage also needs the stale rows so they
+  // can be edited or deleted.
   const events = trpc.events.list.useQuery(undefined);
+  const allEvents = trpc.events.list.useQuery({ includePast: true });
   const utils = trpc.useUtils();
 
   const invalidate = () => {
@@ -45,7 +50,7 @@ function useEventsVariants(): { variants: LiveVariant[]; loading: boolean } {
     date: e.date,
   }));
   // Manage variant needs the full row incl. id so it can target edit/delete.
-  const manageRows = ev.map((e) => ({
+  const manageRows = (allEvents.data ?? ev).map((e) => ({
     id: e.id,
     name: e.name,
     place: e.place,

@@ -23,9 +23,14 @@ describe("daysUntil", () => {
     expect(daysUntil(la("2025-06-01"), now)).toBe(0);
   });
 
-  it("returns 0 for a past date", () => {
+  it("returns a negative count for a past date", () => {
     const now = la("2025-06-10");
-    expect(daysUntil(la("2025-06-01"), now)).toBe(0);
+    expect(daysUntil(la("2025-06-01"), now)).toBe(-9);
+  });
+
+  it("returns -1 for yesterday", () => {
+    const now = la("2025-06-02");
+    expect(daysUntil(la("2025-06-01"), now)).toBe(-1);
   });
 
   it("returns 1 for tomorrow", () => {
@@ -102,7 +107,7 @@ describe("listEvents", () => {
     ];
 
     const db = makeMockDb(rows);
-    const result = await listEvents(db, now);
+    const result = await listEvents(db, { now });
 
     expect(result).toHaveLength(2);
     expect(result[0]).toMatchObject({
@@ -119,22 +124,48 @@ describe("listEvents", () => {
     });
   });
 
-  it("sets days=0 for past events rather than negative", async () => {
+  it("drops past events by default so they cannot render as 'Today'", async () => {
     const now = new Date("2025-06-10T12:00:00-07:00");
     const pastDate = new Date("2025-06-01T12:00:00-07:00");
+    const future = new Date("2025-06-12T12:00:00-07:00");
 
+    const rows = [
+      { id: 1, name: "Old Show", place: "Past Venue", date: pastDate, createdAt: now },
+      { id: 2, name: "Next Show", place: "Venue", date: future, createdAt: now },
+    ];
+
+    const result = await listEvents(makeMockDb(rows), { now });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ name: "Next Show", days: 2 });
+  });
+
+  it("keeps an event happening today", async () => {
+    const now = new Date("2025-06-10T08:00:00-07:00");
+    const laterToday = new Date("2025-06-10T23:00:00-07:00");
+    const rows = [{ id: 1, name: "Tonight", place: "Venue", date: laterToday, createdAt: now }];
+
+    const result = await listEvents(makeMockDb(rows), { now });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].days).toBe(0);
+  });
+
+  it("includes past events with negative days when includePast is set", async () => {
+    const now = new Date("2025-06-10T12:00:00-07:00");
+    const pastDate = new Date("2025-06-01T12:00:00-07:00");
     const rows = [{ id: 1, name: "Old Show", place: "Past Venue", date: pastDate, createdAt: now }];
 
-    const db = makeMockDb(rows);
-    const result = await listEvents(db, now);
+    const result = await listEvents(makeMockDb(rows), { now, includePast: true });
 
-    expect(result[0].days).toBe(0);
+    expect(result).toHaveLength(1);
+    expect(result[0].days).toBe(-9);
   });
 
   it("surfaces the row id so the manage UI can target it", async () => {
     const now = new Date("2025-06-01T12:00:00-07:00");
     const rows = [{ id: 42, name: "Show", place: "Venue", date: now, createdAt: now }];
-    const result = await listEvents(makeMockDb(rows), now);
+    const result = await listEvents(makeMockDb(rows), { now });
     expect(result[0].id).toBe(42);
   });
 });

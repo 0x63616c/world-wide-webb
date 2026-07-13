@@ -44,6 +44,7 @@
 
 ## Infra
 
+- "prod" means the homelab cluster; there is no other production environment.
 - Push to `main` triggers CI and deploy.
 - CI/deploy is product-aware: per-product path filters build only changed product images plus shared-package dependents.
 - Pulumi digest pins use `wwwinfra:imageDigests.*`.
