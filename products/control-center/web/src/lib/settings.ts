@@ -12,6 +12,11 @@
  */
 
 import { useSyncExternalStore } from "react";
+import { log } from "./log/logger";
+
+// Every panel setting that changes is a candidate explanation for "why is the
+// board behaving like that" , cheap to record, and the alternative is guessing.
+const settingsLog = log.child("settings");
 
 // ─── snap-mode vocabulary (shared with Board) ─────────────────────────────────
 // The board A/B-tests how it settles; the mode list + labels live here so both
@@ -199,6 +204,7 @@ function shallowEqual(a: Settings, b: Settings): boolean {
 // (patch) also pushes to the server sink so the change syncs to other panels.
 function patch<K extends keyof Settings>(key: K, value: Settings[K], serialized: string): void {
   if (state[key] === value) return;
+  settingsLog.info(`${key} changed`, { from: state[key], to: value });
   state = { ...state, [key]: value };
   writeRaw(KEYS[key], serialized);
   emit();
@@ -269,6 +275,7 @@ export function setSnapMode(mode: SnapMode): void {
  */
 export function resetSettings(): void {
   if (shallowEqual(state, DEFAULTS)) return;
+  settingsLog.warn("reset to defaults");
   state = { ...DEFAULTS };
   for (const key of Object.keys(KEYS) as (keyof Settings)[]) {
     writeRaw(KEYS[key], String(DEFAULTS[key]));

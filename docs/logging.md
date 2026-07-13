@@ -482,15 +482,29 @@ The **1s worker loops stay silent** in steady state (only transitions + periodic
 
 ---
 
-## 7. Web (browser), out of scope, future note
+## 7. Web (browser), shipped separately
 
-`products/control-center/web` is **not** in this effort. pino's browser build exists, but the web
-app's `console.*` usage is a separate, smaller concern (it ships to a kiosk
-WKWebView, no aggregator). When picked up later: a thin `products/control-center/web/src/log.ts`
-wrapper with the same `info/warn/error` shape (no pino dependency required ,
-could be a 20-line console wrapper that no-ops `debug` in prod) can replace
-`console.*` at the React call sites, optionally POSTing `error` lines to an api
-sink. Keep it a separate ticket; do not block the backend rollout on it.
+`products/control-center/web` was **not** part of this effort, and is now covered by its
+own stack in `products/control-center/web/src/lib/log/` (design:
+`docs/superpowers/specs/2026-07-13-frontend-debug-logs-design.md`). It follows this
+section's original suggestion , the same `info/warn/error` vocabulary with a
+`child(source)` binding, and **no pino dependency** , but goes further than a
+console wrapper, because the panel is a TestFlight Capacitor kiosk that no
+external debugger can attach to:
+
+- an in-memory ring (5k entries) is the live tail; IndexedDB (100k, ~50MB, rotated
+  on both caps) is the history that survives the KioskWatchdog's reloads
+- automatic capture: patched `console.*`, `window.onerror`,
+  `unhandledrejection`, a tRPC link (procedure/duration/status/error), and a
+  React Query cache subscriber
+- read on-device via Settings , "View logs", with copy-to-clipboard as the only
+  way logs leave the panel
+
+It does **not** POST to an api sink. That option was considered and dropped: the
+homelab is RAM-constrained and its previous log stack was deliberately removed, and
+a shipper that fails takes the diagnostics down with the thing you are trying to
+diagnose. §4 (redaction) still applies , the tRPC link records the shape of a call,
+not its payloads, unless payload capture is explicitly switched on for that device.
 
 ---
 

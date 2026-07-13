@@ -9,6 +9,7 @@
  * render while its parent toggle is on , an off feature shows just its switch.
  */
 
+import { type CSSProperties, useState } from "react";
 import {
   clampBrightness,
   clampDimLevel,
@@ -32,6 +33,7 @@ import {
   setSnapMode,
   useSettings,
 } from "../lib/settings";
+import { LogsModal } from "./LogsModal";
 import { Segmented } from "./ui/Segmented";
 import { Slider } from "./ui/Slider";
 import { Switch } from "./ui/Switch";
@@ -116,6 +118,7 @@ function Section({ children }: { children: React.ReactNode }) {
 
 export function SettingsPanel() {
   const settings = useSettings();
+  const [logsOpen, setLogsOpen] = useState(false);
   const brightnessPercent = Math.round(settings.activeBrightness * 100);
   const dimMinutes = Math.round(settings.idleDimTimeoutMs / MS_PER_MIN);
   const dimPercent = Math.round(settings.idleDimLevel * 100);
@@ -223,25 +226,30 @@ export function SettingsPanel() {
         />
       </Section>
 
-      {/* Restore every setting to its default (and sync the reset to other panels). */}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-        <button
-          type="button"
-          onClick={resetSettings}
-          style={{
-            padding: "8px 14px",
-            background: "var(--nest)",
-            border: "1px solid var(--hair)",
-            borderRadius: 10,
-            fontFamily: "var(--ui)",
-            fontSize: 13,
-            color: "var(--ink-2)",
-            cursor: "pointer",
-          }}
-        >
+      {/* Left: the debug log viewer , the only window into a TestFlight kiosk
+          build, which no external debugger can attach to. Right: restore every
+          setting to its default (and sync the reset to other panels). */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+        <button type="button" onClick={() => setLogsOpen(true)} style={FOOTER_BUTTON}>
+          View logs
+        </button>
+        <button type="button" onClick={resetSettings} style={FOOTER_BUTTON}>
           Reset to defaults
         </button>
       </div>
+
+      <LogsModal open={logsOpen} onClose={() => setLogsOpen(false)} />
     </div>
   );
 }
+
+const FOOTER_BUTTON: CSSProperties = {
+  padding: "8px 14px",
+  background: "var(--nest)",
+  border: "1px solid var(--hair)",
+  borderRadius: 10,
+  fontFamily: "var(--ui)",
+  fontSize: 13,
+  color: "var(--ink-2)",
+  cursor: "pointer",
+};

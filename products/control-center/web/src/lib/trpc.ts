@@ -3,6 +3,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
+import { loggingLink } from "./log/trpc-link";
 
 export const trpc = createTRPCReact<AppRouter>();
 
@@ -25,6 +26,8 @@ export const queryClient = new QueryClient({
 });
 
 // Vite proxies /trpc -> the api (API_PORT, default 4201). Same-origin in prod.
+// loggingLink is first in the chain so it observes the whole call, including the
+// time httpBatchLink spends batching and retrying.
 export const trpcClient = trpc.createClient({
-  links: [httpBatchLink({ url: "/trpc" })],
+  links: [loggingLink, httpBatchLink({ url: "/trpc" })],
 });
