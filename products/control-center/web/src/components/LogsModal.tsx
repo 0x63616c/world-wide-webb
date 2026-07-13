@@ -13,8 +13,8 @@
  *   - IndexedDB (lib/log/store.query) is the history, paged in on demand. It is
  *     the only source that survives the kiosk watchdog's reloads.
  *
- * Rows are uniform height and windowed: the store holds up to 100k entries and
- * putting those in the DOM would jank a panel whose whole job is to look calm.
+ * Rows are uniform height and windowed: the store holds up to a million entries
+ * and putting those in the DOM would jank a panel whose whole job is to look calm.
  * Expanding an entry therefore opens a detail pane rather than growing the row.
  *
  * Read-only by design: no copy, no clear. The logs are for reading here, on the
@@ -22,6 +22,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { BUILD_HASH } from "../config/build";
 import { flushNow, getTail, subscribe } from "../lib/log/logger";
 import * as store from "../lib/log/store";
 import { MAX_BYTES, MAX_ENTRIES } from "../lib/log/store";
@@ -37,6 +38,9 @@ const PAGE_SIZE = 500;
 /** One height for every control in the toolbar, so the row actually lines up. */
 const CONTROL_H = 36;
 const RADIUS = 10;
+
+/** The build currently running. Entries carry their own , see the row column. */
+const BUILD = BUILD_HASH.slice(0, 7);
 
 const LEVEL_COLOR: Record<LogLevel, string> = {
   debug: "var(--ink-3, #6b7280)",
@@ -54,11 +58,16 @@ function formatTime(ts: number): string {
   return `${hh}:${mm}:${ss}.${ms}`;
 }
 
-/** Bytes as a short human string. KB/MB, one decimal once we're past a MB. */
+/** Bytes as a short human string. Carries through to GB , the cap is 1 GB, and
+ *  "1024.0 MB" is a unit that has given up. */
 function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  const KB = 1024;
+  const MB = KB * 1024;
+  const GB = MB * 1024;
+  if (n < KB) return `${n} B`;
+  if (n < MB) return `${Math.round(n / KB)} KB`;
+  if (n < GB) return `${(n / MB).toFixed(1)} MB`;
+  return `${(n / GB).toFixed(2)} GB`;
 }
 
 function oneLine(data: unknown): string {
@@ -138,6 +147,19 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
       })
       .sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
   }, [older, tail, levels, search]);
+
+  // Counted over everything loaded, BEFORE the level filter , the point of the
+  // tally is to tell you there are 12 errors even while you have errors hidden.
+  const counts = useMemo(() => {
+    const tally: Record<LogLevel, number> = { debug: 0, info: 0, warn: 0, error: 0 };
+    const seen = new Set<string>();
+    for (const e of [...older, ...tail]) {
+      if (seen.has(e.id)) continue;
+      seen.add(e.id);
+      tally[e.level] += 1;
+    }
+    return tally;
+  }, [older, tail]);
 
   const oldestLoadedId = rows.length > 0 ? rows[rows.length - 1].id : undefined;
 
@@ -269,13 +291,36 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
           </pre>
         ) : null}
 
-        {/* Size is shown against the cap, not on its own: "12 MB" means nothing on
-            a wall panel, "12 MB / 50 MB" tells you how close rotation is to
-            dropping your oldest history. Same byte count that drives eviction. */}
-        <div style={{ fontFamily: "var(--ui)", fontSize: 12, color: "var(--ink-3)" }}>
-          {rows.length.toLocaleString()} shown · {tail.length.toLocaleString()} in memory ·{" "}
-          {historyCount.toLocaleString()} / {MAX_ENTRIES.toLocaleString()} on disk ·{" "}
-          {formatBytes(bytes)} / {formatBytes(MAX_BYTES)}
+        {/* Left: what is loaded and how close rotation is to dropping the oldest
+            history , size is shown against the cap because "12 MB" alone means
+            nothing on a wall panel. Right: the level tally, which is counted
+            BEFORE the level filter is applied, so switching ERROR off still tells
+            you how many errors are sitting there. That is the number you want on
+            a panel you glance at. */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            fontFamily: "var(--ui)",
+            fontSize: 12,
+            color: "var(--ink-3)",
+          }}
+        >
+          <span>
+            {rows.length.toLocaleString()} shown · {tail.length.toLocaleString()} in memory ·{" "}
+            {historyCount.toLocaleString()} / {MAX_ENTRIES.toLocaleString()} on disk ·{" "}
+            {formatBytes(bytes)} / {formatBytes(MAX_BYTES)} · build{" "}
+            <span style={{ fontFamily: "var(--mono, ui-monospace, monospace)" }}>{BUILD}</span>
+          </span>
+          <span style={{ display: "flex", gap: 12, whiteSpace: "nowrap" }}>
+            {LOG_LEVELS.map((level) => (
+              <span key={level} style={{ color: LEVEL_COLOR[level] }}>
+                {counts[level].toLocaleString()} {level}
+              </span>
+            ))}
+          </span>
         </div>
       </div>
     </Modal>
@@ -319,6 +364,12 @@ function LogRow({
       </span>
       <span style={{ color: "var(--ink-3)", width: 130, flexShrink: 0, overflow: "hidden" }}>
         {entry.source}
+      </span>
+      {/* The build that emitted this line. History spans deploys (the panel updates
+          over the air), so without this you cannot line up "it started failing"
+          with "we shipped". Dimmed: it is context, not the message. */}
+      <span style={{ color: "var(--ink-3)", opacity: 0.6, width: 62, flexShrink: 0 }}>
+        {entry.build}
       </span>
       <span style={{ color: "var(--ink-1)", flexShrink: 0 }}>{entry.msg}</span>
       <span style={{ color: "var(--ink-3)", overflow: "hidden", textOverflow: "ellipsis" }}>

@@ -23,6 +23,7 @@
  * the one time it is needed it will be there.
  */
 
+import { BUILD_HASH } from "../../config/build";
 import { LogRing } from "./ring";
 import * as store from "./store";
 import type { LogEntry, LogLevel } from "./types";
@@ -46,6 +47,13 @@ let flushTimer: ReturnType<typeof setInterval> | null = null;
  * a single session, which a panel logging flat-out would take weeks to reach.
  */
 const BOOT_STAMP = String(Date.now()).padStart(14, "0");
+
+/**
+ * The build that is emitting these lines. Short form: 7 chars is what the build
+ * badge shows and what you paste into `git show`, and 40 would cost 66 bytes on
+ * every entry for no extra meaning.
+ */
+const BUILD = BUILD_HASH.slice(0, 7);
 
 function makeId(n: number): string {
   return `${BOOT_STAMP}-${String(n).padStart(8, "0")}`;
@@ -97,6 +105,7 @@ function write(level: LogLevel, source: string, msg: string, data?: unknown): vo
     id: makeId(n),
     seq: n,
     ts: Date.now(),
+    build: BUILD,
     level,
     source,
     msg,

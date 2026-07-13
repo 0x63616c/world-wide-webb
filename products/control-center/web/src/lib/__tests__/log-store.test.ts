@@ -14,6 +14,7 @@ function entry(seq: number, over: Partial<LogEntry> = {}): LogEntry {
     id: id(seq),
     seq,
     ts: 1_700_000_000_000 + seq,
+    build: "abc1234",
     level: "info",
     source: "test",
     msg: `message ${seq}`,
@@ -25,6 +26,7 @@ beforeEach(() => {
   // Fresh database per test; store.ts caches the open handle, so drop that too.
   globalThis.indexedDB = new IDBFactory();
   store.resetForTests();
+  store.resetCapsForTests();
 });
 
 describe("log store", () => {
@@ -87,9 +89,12 @@ describe("log store", () => {
   });
 
   it("evicts oldest-first when the byte cap is exceeded", async () => {
-    // One entry whose payload alone blows the 50MB cap: proves eviction is driven
-    // by bytes, not just count. A count-only policy would keep all of these and
-    // fill the disk.
+    // Eviction is driven by BYTES, not just count: one fat payload can be
+    // thousands of times larger than a typical line, so a count-only policy is
+    // how you discover the disk filled up. Caps are shrunk here rather than
+    // writing an actual gigabyte to prove the same thing.
+    store.setCapsForTests({ entries: 1_000_000, bytes: 8 * 1024 * 1024 });
+
     const fat = "x".repeat(400_000);
     const entries = Array.from({ length: 80 }, (_, i) => entry(i, { data: { blob: fat } }));
     await store.append(entries);
@@ -164,6 +169,37 @@ describe("log store", () => {
     // The stale v1 row is gone and the store now keys on `id`.
     expect(rows.map((r) => r.msg)).toEqual(["after upgrade"]);
     expect(rows[0].id).toBe(id(0));
+  });
+
+  it("survives a QuotaExceededError by evicting and retrying", async () => {
+    // Our caps are our own accounting. The browser's QUOTA is not: on iPadOS it is
+    // tighter than we think and can shrink under device storage pressure. If a
+    // quota error were fatal the logger would quietly stop recording on exactly
+    // the day the panel is unhealthy - the one failure this subsystem exists to
+    // prevent. So: drop the oldest half, retry once.
+    await store.append(Array.from({ length: 10 }, (_, i) => entry(i)));
+
+    const real = IDBObjectStore.prototype.put;
+    let thrown = false;
+    IDBObjectStore.prototype.put = function patched(this: IDBObjectStore, ...args: unknown[]) {
+      if (!thrown) {
+        thrown = true;
+        throw new DOMException("quota", "QuotaExceededError");
+      }
+      return (real as (...a: unknown[]) => IDBRequest).apply(this, args);
+    } as typeof real;
+
+    try {
+      await store.append([entry(10, { msg: "after quota" })]);
+    } finally {
+      IDBObjectStore.prototype.put = real;
+    }
+
+    expect(thrown).toBe(true);
+    // The write landed, and the oldest entries were sacrificed to make room.
+    const rows = await store.query({ limit: 1 });
+    expect(rows[0].msg).toBe("after quota");
+    expect(await store.count()).toBeLessThan(11);
   });
 
   it("degrades to a no-op when IndexedDB is unavailable", async () => {

@@ -41,12 +41,38 @@ const ENTRIES = "entries";
 const META = "meta";
 const META_KEY = "stats";
 
-/** Hard caps. Whichever trips first drives eviction. */
-export const MAX_ENTRIES = 100_000;
-export const MAX_BYTES = 50 * 1024 * 1024; // ~50 MB
+/**
+ * Hard caps. Whichever trips first drives eviction.
+ *
+ * These are ceilings, not reservations , the store only grows to what is
+ * actually logged. IndexedDB will hold this much, and requestPersistence() has
+ * been granted on the prod origin, which is what keeps WebKit from evicting it.
+ *
+ * The honest caveat: the panel is WKWebView on iPadOS, where the per-origin quota
+ * is tighter than desktop Chrome's, and 1 GB is near the ceiling rather than
+ * comfortably under it. So the caps alone are not enough , append() also handles
+ * QuotaExceededError by evicting hard and retrying, because the failure mode we
+ * must avoid is the logger silently failing to write on the one day it matters.
+ */
+export const MAX_ENTRIES = 1_000_000;
+export const MAX_BYTES = 1024 * 1024 * 1024; // 1 GB
 
 /** Evict in chunks so a single append doesn't walk the whole store. */
-const PRUNE_SLACK = 2_000;
+const PRUNE_SLACK = 20_000;
+
+// Live caps. Indirected through a mutable object purely so tests can exercise
+// eviction without writing an actual gigabyte to prove a cap works.
+let caps = { entries: MAX_ENTRIES, bytes: MAX_BYTES };
+
+/** Test seam: shrink the caps so eviction is reachable in a unit test. */
+export function setCapsForTests(next: Partial<typeof caps>): void {
+  caps = { ...caps, ...next };
+}
+
+/** Test seam: restore the production caps. */
+export function resetCapsForTests(): void {
+  caps = { entries: MAX_ENTRIES, bytes: MAX_BYTES };
+}
 
 interface Stats {
   bytes: number;
@@ -163,8 +189,66 @@ export async function requestPersistence(): Promise<boolean> {
   }
 }
 
-/** Append a batch. Rotation runs in the same transaction, so caps always hold. */
+/**
+ * Append a batch. Rotation runs in the same transaction, so the caps always hold.
+ *
+ * On QuotaExceededError we drop the oldest half of the store and retry once. The
+ * caps are our own accounting; the QUOTA is the browser's, it is smaller than we
+ * think on iPadOS, and it can shrink under device storage pressure without
+ * warning. Treating a quota error as fatal would mean the logger quietly stops
+ * recording on exactly the day the panel is unhealthy , which is the one failure
+ * this whole subsystem exists to prevent.
+ */
 export async function append(entries: LogEntry[]): Promise<void> {
+  try {
+    await appendOnce(entries);
+  } catch (err) {
+    if (!isQuotaError(err)) throw err;
+    await evictFraction(0.5);
+    await appendOnce(entries);
+  }
+}
+
+function isQuotaError(err: unknown): boolean {
+  return err instanceof DOMException && (err.name === "QuotaExceededError" || err.code === 22);
+}
+
+/** Drop the oldest `fraction` of entries, recomputing the byte total as we go. */
+async function evictFraction(fraction: number): Promise<void> {
+  const db = await openDb();
+  if (!db) return;
+  const total = await count();
+  const target = Math.floor(total * fraction);
+  if (target <= 0) return;
+
+  const tx = db.transaction([ENTRIES, META], "readwrite");
+  const store = tx.objectStore(ENTRIES);
+  let removed = 0;
+  let freed = 0;
+
+  await new Promise<void>((resolve, reject) => {
+    const cursorReq = store.openCursor();
+    cursorReq.onerror = () => reject(cursorReq.error);
+    cursorReq.onsuccess = () => {
+      const cursor = cursorReq.result;
+      if (!cursor || removed >= target) {
+        resolve();
+        return;
+      }
+      freed += entryBytes(cursor.value as LogEntry);
+      removed += 1;
+      cursor.delete();
+      cursor.continue();
+    };
+  });
+
+  const meta = tx.objectStore(META);
+  const stats = ((await promisify(meta.get(META_KEY))) as Stats | undefined) ?? { bytes: 0 };
+  meta.put({ bytes: Math.max(0, stats.bytes - freed) } satisfies Stats, META_KEY);
+  await txDone(tx);
+}
+
+async function appendOnce(entries: LogEntry[]): Promise<void> {
   if (entries.length === 0) return;
   const db = await openDb();
   if (!db) return;
@@ -185,9 +269,9 @@ export async function append(entries: LogEntry[]): Promise<void> {
 
   // Evict oldest-first until both caps hold. Cursor order == seq order ==
   // insertion order, so "oldest" is simply the front of the store.
-  if (count > MAX_ENTRIES || bytes > MAX_BYTES) {
-    const targetCount = Math.max(0, MAX_ENTRIES - PRUNE_SLACK);
-    const targetBytes = MAX_BYTES * 0.9;
+  if (count > caps.entries || bytes > caps.bytes) {
+    const targetCount = Math.max(0, caps.entries - Math.min(PRUNE_SLACK, caps.entries / 10));
+    const targetBytes = caps.bytes * 0.9;
     await new Promise<void>((resolve, reject) => {
       const cursorReq = store.openCursor();
       cursorReq.onerror = () => reject(cursorReq.error);

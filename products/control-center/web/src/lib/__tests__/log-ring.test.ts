@@ -3,7 +3,15 @@ import { LogRing } from "../log/ring";
 import type { LogEntry } from "../log/types";
 
 function entry(seq: number): LogEntry {
-  return { id: id(seq), seq, ts: seq, level: "info", source: "test", msg: `m${seq}` };
+  return {
+    id: id(seq),
+    seq,
+    ts: seq,
+    build: "abc1234",
+    level: "info",
+    source: "test",
+    msg: `m${seq}`,
+  };
 }
 
 function id(seq: number): string {
