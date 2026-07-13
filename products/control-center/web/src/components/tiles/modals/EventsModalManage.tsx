@@ -15,7 +15,7 @@
  */
 
 import { useState } from "react";
-import { Modal } from "@/components/ui";
+import { DatePicker, Modal } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -32,7 +32,7 @@ export interface ManageEventRow {
 export interface EventDraft {
   name: string;
   place: string;
-  /** ISO-8601 string (UTC/offset form) ready for the API. */
+  /** ISO-8601 string ready for the API. Date-only: always local midnight. */
   date: string;
 }
 
@@ -48,25 +48,25 @@ export interface EventsModalManageProps {
 }
 
 // ─── date helpers ───────────────────────────────────────────────────────────
+//
+// Events are date-only , they carry a calendar day, never a time. The API
+// column is still an ISO string, so we round-trip through local midnight: parse
+// the stored ISO back to the local day, and serialize the picked day as local
+// midnight. Both sides read in the same tz, so the day never shifts.
 
-/** ISO string → value for <input type="datetime-local"> (local wall time). */
-function isoToLocalInput(iso: string): string {
+/** ISO string → local day (time stripped). Invalid → null. */
+function isoToDate(iso: string): Date | null {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  // Shift by the local tz offset so toISOString's slice reads as local time.
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
-}
-
-/** datetime-local value → ISO string (offset form) for the API. Empty → null. */
-function localInputToIso(local: string): string | null {
-  if (!local) return null;
-  const d = new Date(local); // interpreted in the browser's local tz
   if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-/** Compact human date for a read row, e.g. "Sat Jul 11, 2026 · 8:00 PM". */
+/** Local day → ISO string for the API. */
+function dateToIso(d: Date): string {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
+}
+
+/** Compact human date for a read row, e.g. "Sat Jul 11, 2026". */
 function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -75,8 +75,6 @@ function formatDate(iso: string): string {
     month: "short",
     day: "numeric",
     year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
   }).format(d);
 }
 
@@ -135,28 +133,28 @@ function actionButtonStyle(kind: "primary" | "ghost" | "danger"): React.CSSPrope
 interface DraftFieldsProps {
   name: string;
   place: string;
-  local: string;
+  date: Date | null;
   onName: (v: string) => void;
   onPlace: (v: string) => void;
-  onLocal: (v: string) => void;
+  onDate: (v: Date) => void;
 }
 
-function DraftFields({ name, place, local, onName, onPlace, onLocal }: DraftFieldsProps) {
+function DraftFields({ name, place, date, onName, onPlace, onDate }: DraftFieldsProps) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div>
-        <label style={labelStyle} htmlFor="ev-name">
-          Name
-        </label>
-        <input
-          id="ev-name"
-          style={inputStyle}
-          value={name}
-          placeholder="Event name"
-          onChange={(e) => onName(e.target.value)}
-        />
-      </div>
       <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <label style={labelStyle} htmlFor="ev-name">
+            Name
+          </label>
+          <input
+            id="ev-name"
+            style={inputStyle}
+            value={name}
+            placeholder="Event name"
+            onChange={(e) => onName(e.target.value)}
+          />
+        </div>
         <div style={{ flex: 1 }}>
           <label style={labelStyle} htmlFor="ev-place">
             Location <span style={{ textTransform: "none", letterSpacing: 0 }}>(optional)</span>
@@ -169,18 +167,10 @@ function DraftFields({ name, place, local, onName, onPlace, onLocal }: DraftFiel
             onChange={(e) => onPlace(e.target.value)}
           />
         </div>
-        <div style={{ flex: 1 }}>
-          <label style={labelStyle} htmlFor="ev-date">
-            Date &amp; time
-          </label>
-          <input
-            id="ev-date"
-            type="datetime-local"
-            style={inputStyle}
-            value={local}
-            onChange={(e) => onLocal(e.target.value)}
-          />
-        </div>
+      </div>
+      <div>
+        <span style={labelStyle}>Date</span>
+        <DatePicker label="Event date" value={date} onChange={onDate} />
       </div>
     </div>
   );
@@ -200,37 +190,39 @@ export function EventsModalManage({
   // Add-form state.
   const [name, setName] = useState("");
   const [place, setPlace] = useState("");
-  const [local, setLocal] = useState("");
+  const [date, setDate] = useState<Date | null>(null);
 
   // Inline-edit state: which row + its working values.
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editPlace, setEditPlace] = useState("");
-  const [editLocal, setEditLocal] = useState("");
+  const [editDate, setEditDate] = useState<Date | null>(null);
 
-  const addValid = name.trim().length > 0 && localInputToIso(local) !== null;
+  const addValid = name.trim().length > 0 && date !== null;
 
   function submitAdd() {
-    const iso = localInputToIso(local);
-    if (!name.trim() || !iso) return;
-    onCreate({ name: name.trim(), place: place.trim(), date: iso });
+    if (!name.trim() || !date) return;
+    onCreate({ name: name.trim(), place: place.trim(), date: dateToIso(date) });
     setName("");
     setPlace("");
-    setLocal("");
+    setDate(null);
   }
 
   function beginEdit(ev: ManageEventRow) {
     setEditingId(ev.id);
     setEditName(ev.name);
     setEditPlace(ev.place);
-    setEditLocal(isoToLocalInput(ev.date));
+    setEditDate(isoToDate(ev.date));
   }
 
   function submitEdit() {
-    if (editingId === null) return;
-    const iso = localInputToIso(editLocal);
-    if (!editName.trim() || !iso) return;
-    onUpdate(editingId, { name: editName.trim(), place: editPlace.trim(), date: iso });
+    if (editingId === null || !editDate) return;
+    if (!editName.trim()) return;
+    onUpdate(editingId, {
+      name: editName.trim(),
+      place: editPlace.trim(),
+      date: dateToIso(editDate),
+    });
     setEditingId(null);
   }
 
@@ -262,10 +254,10 @@ export function EventsModalManage({
           <DraftFields
             name={name}
             place={place}
-            local={local}
+            date={date}
             onName={setName}
             onPlace={setPlace}
-            onLocal={setLocal}
+            onDate={setDate}
           />
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button
@@ -315,10 +307,10 @@ export function EventsModalManage({
                   <DraftFields
                     name={editName}
                     place={editPlace}
-                    local={editLocal}
+                    date={editDate}
                     onName={setEditName}
                     onPlace={setEditPlace}
-                    onLocal={setEditLocal}
+                    onDate={setEditDate}
                   />
                   <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                     <button
@@ -330,7 +322,7 @@ export function EventsModalManage({
                     </button>
                     <button
                       type="button"
-                      disabled={busy || !editName.trim() || localInputToIso(editLocal) === null}
+                      disabled={busy || !editName.trim() || editDate === null}
                       onClick={submitEdit}
                       style={actionButtonStyle("primary")}
                     >
