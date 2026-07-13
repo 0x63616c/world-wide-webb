@@ -217,7 +217,25 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
               fontSize: 13,
             }}
           />
-          <Switch label="Payloads" checked={payloads} onChange={setLogPayloads} />
+          {/* Switch has no visible text of its own (see ui/Switch.tsx), and a bare
+              toggle in a toolbar is unreadable , nobody standing at the panel can
+              guess that this one decides whether request bodies get written to
+              disk. So it carries its own label. */}
+          <span
+            title="Also record tRPC request/response bodies. Off by default: bodies persist to disk, and would include camera URLs and tokens."
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontFamily: "var(--ui)",
+              fontSize: 13,
+              color: "var(--ink-2)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Payloads
+            <Switch label="Log request payloads" checked={payloads} onChange={setLogPayloads} />
+          </span>
           <ToolbarButton onClick={copyAll}>Copy</ToolbarButton>
           <ToolbarButton onClick={() => void loadOlder()} disabled={loadingOlder}>
             {loadingOlder ? "Loading…" : "Load older"}
