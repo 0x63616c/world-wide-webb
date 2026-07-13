@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, within } from "storybook/test";
 import { AppUpdateBannerView } from "./AppUpdateBanner";
 
 // Board-like container so the absolute positioning renders correctly (same
@@ -45,7 +45,6 @@ export const BuildsBehind: Story = {
       message: "Update available",
       detail: "1.0 (68) · 3 builds behind · 2 days old",
     },
-    onDismiss: fn(),
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -63,7 +62,6 @@ export const OneBuildBehind: Story = {
       message: "Update available",
       detail: "1.0 (69) · 1 build behind · 4hrs old",
     },
-    onDismiss: fn(),
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -71,19 +69,17 @@ export const OneBuildBehind: Story = {
   },
 };
 
-// Dismiss button fires the callback (the container then hides until a newer build).
-export const Dismissible: Story = {
+// No dismiss affordance: banner has no button, stays until build catches up.
+export const NoDismissButton: Story = {
   args: {
     model: {
       buildNumber: 68,
       message: "Update available",
       detail: "1.0 (68) · 3 builds behind · 2 days old",
     },
-    onDismiss: fn(),
   },
-  play: async ({ args, canvasElement }) => {
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: /dismiss/i }));
-    await expect(args.onDismiss).toHaveBeenCalledOnce();
+    await expect(canvas.queryByRole("button")).not.toBeInTheDocument();
   },
 };

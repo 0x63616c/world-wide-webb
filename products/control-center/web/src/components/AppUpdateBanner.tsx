@@ -16,9 +16,9 @@ const REFETCH_MS = 5 * 60_000;
  * "Update available" banner (top-right inside .board, below the connection
  * banner's slot) shown when the installed iOS shell is behind the latest
  * TestFlight build in ASC. Feeds the shared notifications store (same www-awm
- * seam as ConnectionLostBanner). Dismissible per build: dismissing hides the
- * banner until an even newer build appears; a reload re-raises it while still
- * behind. Renders nothing in a plain browser (no native shell to be behind).
+ * seam as ConnectionLostBanner). Not dismissible: stays up until the
+ * installed build catches up. Renders nothing in a plain browser (no native
+ * shell to be behind).
  */
 export function AppUpdateBanner() {
   const [installedBuild, setInstalledBuild] = useState<number | null>(null);
@@ -41,7 +41,6 @@ export function AppUpdateBanner() {
 }
 
 function AppUpdateBannerQuery({ installedBuild }: { installedBuild: number }) {
-  const [dismissedBuild, setDismissedBuild] = useState<number | null>(null);
   const { raiseNotification, clearNotification } = useNotifications();
 
   const { data: status } = trpc.system.appUpdateStatus.useQuery(undefined, {
@@ -53,7 +52,7 @@ function AppUpdateBannerQuery({ installedBuild }: { installedBuild: number }) {
     status ?? null,
     Date.now(),
   );
-  const visible = banner !== null && banner.buildNumber !== dismissedBuild;
+  const visible = banner !== null;
 
   // Primitive captures keep the effect's dependency list exact (biome
   // useExhaustiveDependencies) and re-raise when a newer build changes the copy.
@@ -69,19 +68,11 @@ function AppUpdateBannerQuery({ installedBuild }: { installedBuild: number }) {
 
   if (!visible || !banner) return null;
 
-  return (
-    <AppUpdateBannerView model={banner} onDismiss={() => setDismissedBuild(banner.buildNumber)} />
-  );
+  return <AppUpdateBannerView model={banner} />;
 }
 
 /** Presentational banner, exported for Storybook. */
-export function AppUpdateBannerView({
-  model,
-  onDismiss,
-}: {
-  model: AppUpdateBannerModel;
-  onDismiss: () => void;
-}) {
+export function AppUpdateBannerView({ model }: { model: AppUpdateBannerModel }) {
   return (
     <div
       role="status"
@@ -103,8 +94,6 @@ export function AppUpdateBannerView({
         fontFamily: "var(--ui, system-ui)",
         letterSpacing: "-0.01em",
         backdropFilter: "blur(6px)",
-        // The overlay layer is pointerEvents: none; re-enable so ✕ is tappable.
-        pointerEvents: "auto",
       }}
     >
       <span
@@ -121,23 +110,6 @@ export function AppUpdateBannerView({
         {model.message}
         <span style={{ opacity: 0.7 }}> · {model.detail}</span>
       </span>
-      <button
-        type="button"
-        aria-label="Dismiss update notification"
-        onClick={onDismiss}
-        style={{
-          background: "none",
-          border: "none",
-          color: "inherit",
-          opacity: 0.6,
-          cursor: "pointer",
-          padding: "0 2px",
-          fontSize: 14,
-          lineHeight: 1,
-        }}
-      >
-        ✕
-      </button>
     </div>
   );
 }
