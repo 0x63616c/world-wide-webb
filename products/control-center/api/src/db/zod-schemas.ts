@@ -21,7 +21,9 @@ export const EventSelectSchema = createSelectSchema(events, {
 })
   // `id` is surfaced so the manage UI can target edit/delete on a specific row.
   .pick({ id: true, name: true, place: true, date: true })
-  .extend({ days: z.number().int().nonnegative() });
+  // `days` is signed: negative for an event already past (only the manage
+  // surface asks for those), 0 for today.
+  .extend({ days: z.number().int() });
 
 // events.create / events.update input: the writable fields. `name` and `date`
 // are required; `place` is the optional location/venue (defaults to "" when the

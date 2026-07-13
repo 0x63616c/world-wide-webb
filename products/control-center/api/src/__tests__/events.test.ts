@@ -2,6 +2,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { describe, expect, it, vi } from "vitest";
 
 import type * as schema from "../db/schema";
+import { EventSelectSchema } from "../db/zod-schemas";
 import {
   createEvent,
   daysUntil,
@@ -69,6 +70,21 @@ describe("daysUntil", () => {
   it("handles leap year Feb 28 → Mar 1", () => {
     const now = la("2024-02-28");
     expect(daysUntil(la("2024-03-01"), now)).toBe(2);
+  });
+});
+
+// ─── router output schema ─────────────────────────────────────────────────
+
+describe("EventSelectSchema", () => {
+  it("accepts a negative days count so includePast rows can be returned", () => {
+    const row = {
+      id: 1,
+      name: "Old Show",
+      place: "Past Venue",
+      date: "2025-06-01T19:00:00.000Z",
+      days: -9,
+    };
+    expect(EventSelectSchema.parse(row)).toMatchObject({ days: -9 });
   });
 });
 
