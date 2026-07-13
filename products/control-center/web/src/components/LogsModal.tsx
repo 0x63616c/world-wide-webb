@@ -25,6 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { getLogPayloads, setLogPayloads, subscribeLogPayloads } from "../lib/log/config";
 import { flushNow, getTail, subscribe } from "../lib/log/logger";
 import * as store from "../lib/log/store";
+import { MAX_BYTES, MAX_ENTRIES } from "../lib/log/store";
 import { LEVEL_RANK, type LogEntry, type LogLevel } from "../lib/log/types";
 import { Modal } from "./ui/Modal";
 import { Segmented } from "./ui/Segmented";
@@ -57,6 +58,13 @@ function formatTime(ts: number): string {
   const ss = String(d.getSeconds()).padStart(2, "0");
   const ms = String(d.getMilliseconds()).padStart(3, "0");
   return `${hh}:${mm}:${ss}.${ms}`;
+}
+
+/** Bytes as a short human string. KB/MB, one decimal once we're past a MB. */
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function oneLine(data: unknown): string {
@@ -94,6 +102,7 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
   const [search, setSearch] = useState("");
   const [older, setOlder] = useState<LogEntry[]>([]);
   const [historyCount, setHistoryCount] = useState(0);
+  const [bytes, setBytes] = useState(0);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [selected, setSelected] = useState<LogEntry | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -108,7 +117,10 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
     setScrollTop(0);
     listRef.current?.scrollTo({ top: 0 });
     // Push anything still queued to disk so the history count is honest.
-    void flushNow().then(() => store.count().then(setHistoryCount));
+    void flushNow().then(async () => {
+      setHistoryCount(await store.count());
+      setBytes(await store.bytesUsed());
+    });
   }, [open]);
 
   // Newest first: this is opened to answer "what just happened", so the answer
@@ -149,6 +161,7 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
       });
       setOlder((prev) => [...page, ...prev]);
       setHistoryCount(await store.count());
+      setBytes(await store.bytesUsed());
     } finally {
       setLoadingOlder(false);
     }
@@ -167,6 +180,7 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
     await store.clear();
     setOlder([]);
     setHistoryCount(0);
+    setBytes(0);
   }, []);
 
   // Windowing: only the visible slice is in the DOM. The spacer div carries the
@@ -268,9 +282,13 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
           </pre>
         ) : null}
 
+        {/* Size is shown against the cap, not on its own: "12 MB" means nothing on
+            a wall panel, "12 MB / 50 MB" tells you how close rotation is to
+            dropping your oldest history. Same byte count that drives eviction. */}
         <div style={{ fontFamily: "var(--ui)", fontSize: 12, color: "var(--ink-3)" }}>
           {rows.length.toLocaleString()} shown · {tail.length.toLocaleString()} in memory ·{" "}
-          {historyCount.toLocaleString()} on disk
+          {historyCount.toLocaleString()} / {MAX_ENTRIES.toLocaleString()} on disk ·{" "}
+          {formatBytes(bytes)} / {formatBytes(MAX_BYTES)}
         </div>
       </div>
     </Modal>

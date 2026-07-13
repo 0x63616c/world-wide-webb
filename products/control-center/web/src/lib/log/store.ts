@@ -259,6 +259,21 @@ export async function query(q: LogQuery = {}): Promise<LogEntry[]> {
   });
 }
 
+/**
+ * Bytes currently held on disk, per the running total maintained alongside every
+ * append and prune. Approximate by construction (see entryBytes), but it is the
+ * SAME number that drives eviction , so what the viewer shows is what the cap is
+ * actually measured against, rather than a second, prettier estimate that could
+ * disagree with it.
+ */
+export async function bytesUsed(): Promise<number> {
+  const db = await openDb();
+  if (!db) return 0;
+  const tx = db.transaction(META, "readonly");
+  const stats = (await promisify(tx.objectStore(META).get(META_KEY))) as Stats | undefined;
+  return stats?.bytes ?? 0;
+}
+
 /** Entry count. Used by the viewer's footer and by tests. */
 export async function count(): Promise<number> {
   const db = await openDb();
