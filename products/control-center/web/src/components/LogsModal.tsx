@@ -49,7 +49,10 @@ const SHA = BUILD_HASH.slice(0, 7);
  * information in it, and the previous layout let the fixed columns hog width and
  * then clipped the payload, which is backwards.
  */
-const GRID = "82px 46px 76px 58px minmax(230px, 32ch) 1fr";
+const GRID = "146px 46px 76px 58px minmax(230px, 32ch) 1fr";
+
+/** A hair of breathing room so the timestamp doesn't crowd the level beside it. */
+const TIME_CELL = { color: "var(--ink-3)", paddingRight: 6 } as const;
 
 const LEVEL_COLOR: Record<LogLevel, string> = {
   debug: "var(--ink-3, #6b7280)",
@@ -58,13 +61,21 @@ const LEVEL_COLOR: Record<LogLevel, string> = {
   error: "#e5484d",
 };
 
+/**
+ * Date AND time. History now spans a million entries and survives reloads, so it
+ * routinely covers several days , a bare clock time makes "12:03" ambiguous
+ * across them, which is useless precisely when you are scrolling back through an
+ * incident. Year is omitted: it is dead weight on a panel you read at arm's length.
+ */
 function formatTime(ts: number): string {
   const d = new Date(ts);
+  const mon = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
   const hh = String(d.getHours()).padStart(2, "0");
   const mm = String(d.getMinutes()).padStart(2, "0");
   const ss = String(d.getSeconds()).padStart(2, "0");
   const ms = String(d.getMilliseconds()).padStart(3, "0");
-  return `${hh}:${mm}:${ss}.${ms}`;
+  return `${mon}-${day} ${hh}:${mm}:${ss}.${ms}`;
 }
 
 /** Bytes as a short human string. Carries through to GB , the cap is 1 GB, and
@@ -270,7 +281,7 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
               color: "var(--ink-3)",
             }}
           >
-            <span>Time</span>
+            <span style={{ paddingRight: 6 }}>Date / time</span>
             <span>Level</span>
             <span>Source</span>
             <span>Git SHA</span>
@@ -399,7 +410,7 @@ function LogRow({
         cursor: "pointer",
       }}
     >
-      <span style={{ color: "var(--ink-3)" }}>{formatTime(entry.ts)}</span>
+      <span style={TIME_CELL}>{formatTime(entry.ts)}</span>
       <span style={{ color: LEVEL_COLOR[entry.level] }}>{entry.level}</span>
       <span style={ELLIPSIS}>{entry.source}</span>
       <span style={{ color: "var(--ink-3)", opacity: 0.55 }}>{entry.sha}</span>
