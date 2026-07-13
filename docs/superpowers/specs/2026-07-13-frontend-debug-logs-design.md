@@ -65,13 +65,16 @@ bytes (~50MB), whichever trips first. Count-only eviction is how you discover th
 disk filled up. Each entry's `data` is truncated to ~2KB and flagged as truncated,
 so one large payload (a media playlist, a device-state dump) cannot blow the cap.
 
-**Payloads are not logged by default.** The tRPC link records procedure, duration,
-HTTP status and error shape. Request/response bodies are captured only when a
-`logPayloads` setting is on. Rationale: an always-on logger writing plaintext to
-IndexedDB on a wall-mounted device would otherwise persist Tesla coordinates,
-camera stream URLs and auth tokens indefinitely, and `docs/logging.md` §4
-("Redaction, secrets are NEVER logged") is the repo's existing stance for the
-backend. The frontend should not silently diverge from it.
+**Payloads are always logged.** The tRPC link records procedure, duration, HTTP
+status, error shape AND the request input. This was originally shipped behind a
+`logPayloads` toggle defaulting to off, on the reasoning that an always-on logger
+writing plaintext to IndexedDB would persist Tesla coordinates, camera stream URLs
+and auth tokens on a wall-mounted device, diverging from `docs/logging.md` §4
+("Redaction, secrets are NEVER logged"). The panel's owner overrode that: this is
+a private device on a home network that only he can physically reach, the logs
+never leave it, and a failure whose input you cannot see is a failure you end up
+guessing about. The divergence from §4 is therefore deliberate and scoped to the
+web app, not an oversight.
 
 **IndexedDB, not OPFS or SQLite-WASM.** OPFS sync access handles are WebKit's least
 mature storage surface and require a Worker; SQLite-WASM adds ~1MB of wasm to query
@@ -225,7 +228,7 @@ stories driven by real buffer shapes (no fake data, per the repo invariants).
 - `store.ts` — tests against `fake-indexeddb`: append, query by level/source/search,
   prune on both count and byte caps, truncation.
 - `trpc-link.ts` — unit test that a failing call produces an entry with the
-  procedure, status and error, and that payloads are absent unless `logPayloads`.
+  procedure, status and error.
 - `LogsModal` — Storybook stories plus an agent-browser screenshot verifying the
   modal renders at 1366x1024.
 

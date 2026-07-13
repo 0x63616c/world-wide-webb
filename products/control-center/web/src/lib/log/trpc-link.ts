@@ -9,15 +9,18 @@
  * actually returned , which is the sentence you want at 3am, standing at a panel
  * with no devtools.
  *
- * Bodies are logged only when payload capture is enabled (see config.ts). By
- * default we record procedure, type, duration, http status and error shape: the
- * shape of the failure, without persisting camera URLs or tokens to disk.
+ * Request inputs are recorded too. That is a deliberate, explicit choice by the
+ * panel's owner: this is a private wall panel on a home network, the logs never
+ * leave the device, and a failure you cannot see the input for is a failure you
+ * end up guessing about. Note it does mean payloads (which can include Tesla
+ * coordinates and camera URLs) persist in IndexedDB on the device, which is a
+ * divergence from docs/logging.md §4 for the backend , made knowingly, and
+ * scoped to a device only its owner can physically reach.
  */
 
 import type { AppRouter } from "@cc/api/trpc";
 import { TRPCClientError, type TRPCLink } from "@trpc/client";
 import { observable } from "@trpc/server/observable";
-import { getLogPayloads } from "./config";
 import { log } from "./logger";
 
 const trpcLog = log.child("trpc");
@@ -59,7 +62,7 @@ export const loggingLink: TRPCLink<AppRouter> = () => {
             ...base,
             ms: Math.round(performance.now() - started),
             ...errorShape(err),
-            ...(getLogPayloads() ? { input: op.input } : {}),
+            input: op.input,
           });
           observer.error(err);
         },
@@ -71,7 +74,7 @@ export const loggingLink: TRPCLink<AppRouter> = () => {
           trpcLog.debug(`${op.path}`, {
             ...base,
             ms: Math.round(performance.now() - started),
-            ...(getLogPayloads() ? { input: op.input } : {}),
+            input: op.input,
           });
           observer.complete();
         },

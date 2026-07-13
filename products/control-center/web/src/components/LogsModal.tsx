@@ -17,19 +17,16 @@
  * putting those in the DOM would jank a panel whose whole job is to look calm.
  * Expanding an entry therefore opens a detail pane rather than growing the row.
  *
- * Copy/export is not a nicety here , with no devtools and no log shipping, the
- * clipboard is the only way anything leaves this device.
+ * Read-only by design: no copy, no clear. The logs are for reading here, on the
+ * device, which is where the failure is.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { getLogPayloads, setLogPayloads, subscribeLogPayloads } from "../lib/log/config";
 import { flushNow, getTail, subscribe } from "../lib/log/logger";
 import * as store from "../lib/log/store";
 import { MAX_BYTES, MAX_ENTRIES } from "../lib/log/store";
-import { LEVEL_RANK, type LogEntry, type LogLevel } from "../lib/log/types";
+import { LOG_LEVELS, type LogEntry, type LogLevel } from "../lib/log/types";
 import { Modal } from "./ui/Modal";
-import { Segmented } from "./ui/Segmented";
-import { Switch } from "./ui/Switch";
 
 const ROW_HEIGHT = 26;
 const LIST_HEIGHT = 520;
@@ -37,12 +34,9 @@ const LIST_HEIGHT = 520;
 const OVERSCAN = 8;
 const PAGE_SIZE = 500;
 
-const LEVEL_OPTIONS: { value: LogLevel; label: string }[] = [
-  { value: "debug", label: "all" },
-  { value: "info", label: "info+" },
-  { value: "warn", label: "warn+" },
-  { value: "error", label: "errors" },
-];
+/** One height for every control in the toolbar, so the row actually lines up. */
+const CONTROL_H = 36;
+const RADIUS = 10;
 
 const LEVEL_COLOR: Record<LogLevel, string> = {
   debug: "var(--ink-3, #6b7280)",
@@ -77,15 +71,6 @@ function oneLine(data: unknown): string {
   }
 }
 
-function toText(entries: LogEntry[]): string {
-  return entries
-    .map((e) => {
-      const suffix = e.data === undefined ? "" : ` ${oneLine(e.data)}`;
-      return `${new Date(e.ts).toISOString()} ${e.level.toUpperCase().padEnd(5)} ${e.source} ${e.msg}${suffix}`;
-    })
-    .join("\n");
-}
-
 export interface LogsModalProps {
   open: boolean;
   onClose: () => void;
@@ -96,9 +81,10 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
   // and getTail() is memoized behind a dirty flag so this is not a re-render
   // storm even while the app is logging steadily.
   const tail = useSyncExternalStore(subscribe, getTail);
-  const payloads = useSyncExternalStore(subscribeLogPayloads, getLogPayloads);
 
-  const [minLevel, setMinLevel] = useState<LogLevel>("debug");
+  // Levels are a SET, not a floor: on a polling dashboard the debug firehose is
+  // what you want OFF while still seeing info, which "warn and above" cannot say.
+  const [levels, setLevels] = useState<LogLevel[]>([...LOG_LEVELS]);
   const [search, setSearch] = useState("");
   const [older, setOlder] = useState<LogEntry[]>([]);
   const [historyCount, setHistoryCount] = useState(0);
@@ -107,6 +93,12 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
   const [selected, setSelected] = useState<LogEntry | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+
+  const toggleLevel = useCallback((level: LogLevel) => {
+    setLevels((prev) =>
+      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level],
+    );
+  }, []);
 
   // Reset paging whenever the modal is reopened: the tail has moved on, and
   // stale `older` pages would leave a hole between them and the live entries.
@@ -137,7 +129,7 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
     }
     const needle = search.trim().toLowerCase();
     return deduped
-      .filter((e) => LEVEL_RANK[e.level] >= LEVEL_RANK[minLevel])
+      .filter((e) => levels.includes(e.level))
       .filter((e) => {
         if (!needle) return true;
         if (e.msg.toLowerCase().includes(needle)) return true;
@@ -145,7 +137,7 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
         return oneLine(e.data).toLowerCase().includes(needle);
       })
       .sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
-  }, [older, tail, minLevel, search]);
+  }, [older, tail, levels, search]);
 
   const oldestLoadedId = rows.length > 0 ? rows[rows.length - 1].id : undefined;
 
@@ -155,7 +147,7 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
       await flushNow();
       const page = await store.query({
         before: oldestLoadedId,
-        minLevel: minLevel === "debug" ? undefined : minLevel,
+        levels: levels.length === LOG_LEVELS.length ? undefined : levels,
         search: search.trim() || undefined,
         limit: PAGE_SIZE,
       });
@@ -165,23 +157,7 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
     } finally {
       setLoadingOlder(false);
     }
-  }, [oldestLoadedId, minLevel, search]);
-
-  const copyAll = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(toText(rows));
-    } catch {
-      // Clipboard can be denied; the user sees nothing change, which is the same
-      // failure mode as a browser blocking it. Not worth a toast on a wall panel.
-    }
-  }, [rows]);
-
-  const clearAll = useCallback(async () => {
-    await store.clear();
-    setOlder([]);
-    setHistoryCount(0);
-    setBytes(0);
-  }, []);
+  }, [oldestLoadedId, levels, search]);
 
   // Windowing: only the visible slice is in the DOM. The spacer div carries the
   // full scroll height so the scrollbar still reflects the real list length.
@@ -192,55 +168,48 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
   return (
     <Modal open={open} onClose={onClose} title="Logs" width={1240} maxHeight={900}>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {/* controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <Segmented
-            label="Level"
-            options={LEVEL_OPTIONS}
-            value={minLevel}
-            onChange={(v) => setMinLevel(v)}
-          />
+        {/* Controls. Every control in this row is exactly CONTROL_H tall and is
+            stretched to it, rather than each one sizing itself from its own font
+            and padding , which is what made the chips, the search field and the
+            buttons all land on slightly different heights. */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "stretch",
+            gap: 8,
+            height: CONTROL_H,
+          }}
+        >
+          {LOG_LEVELS.map((level) => (
+            <LevelChip
+              key={level}
+              level={level}
+              active={levels.includes(level)}
+              onToggle={() => toggleLevel(level)}
+            />
+          ))}
           <input
             type="search"
             value={search}
-            placeholder="filter…"
+            placeholder="Search message, source, payload…"
             onChange={(e) => setSearch(e.target.value)}
             style={{
               flex: 1,
               minWidth: 200,
-              padding: "7px 10px",
+              height: "100%",
+              padding: "0 12px",
+              margin: 0,
               background: "var(--nest)",
               border: "1px solid var(--hair)",
-              borderRadius: 10,
+              borderRadius: RADIUS,
               color: "var(--ink-1)",
-              fontFamily: "var(--ui)",
+              fontFamily: "var(--mono, ui-monospace, monospace)",
               fontSize: 13,
             }}
           />
-          {/* Switch has no visible text of its own (see ui/Switch.tsx), and a bare
-              toggle in a toolbar is unreadable , nobody standing at the panel can
-              guess that this one decides whether request bodies get written to
-              disk. So it carries its own label. */}
-          <span
-            title="Also record tRPC request/response bodies. Off by default: bodies persist to disk, and would include camera URLs and tokens."
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              fontFamily: "var(--ui)",
-              fontSize: 13,
-              color: "var(--ink-2)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Payloads
-            <Switch label="Log request payloads" checked={payloads} onChange={setLogPayloads} />
-          </span>
-          <ToolbarButton onClick={copyAll}>Copy</ToolbarButton>
           <ToolbarButton onClick={() => void loadOlder()} disabled={loadingOlder}>
             {loadingOlder ? "Loading…" : "Load older"}
           </ToolbarButton>
-          <ToolbarButton onClick={() => void clearAll()}>Clear</ToolbarButton>
         </div>
 
         {/* list */}
@@ -359,6 +328,46 @@ function LogRow({
   );
 }
 
+/**
+ * A level filter chip. Independently toggleable , the levels are a set, not a
+ * threshold. An inactive chip stays legible (dimmed, not hidden) so you can see
+ * at a glance which levels you have switched off, rather than wondering why the
+ * list looks empty.
+ */
+function LevelChip({
+  level,
+  active,
+  onToggle,
+}: {
+  level: LogLevel;
+  active: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onToggle}
+      style={{
+        height: "100%",
+        padding: "0 14px",
+        background: active ? "var(--nest)" : "transparent",
+        border: `1px solid ${active ? "var(--hair)" : "transparent"}`,
+        borderRadius: RADIUS,
+        fontFamily: "var(--mono, ui-monospace, monospace)",
+        fontSize: 12,
+        letterSpacing: 0.5,
+        color: active ? LEVEL_COLOR[level] : "var(--ink-3)",
+        opacity: active ? 1 : 0.45,
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {level.toUpperCase()}
+    </button>
+  );
+}
+
 function ToolbarButton({
   children,
   onClick,
@@ -374,15 +383,17 @@ function ToolbarButton({
       onClick={onClick}
       disabled={disabled}
       style={{
-        padding: "7px 12px",
+        height: "100%",
+        padding: "0 14px",
         background: "var(--nest)",
         border: "1px solid var(--hair)",
-        borderRadius: 10,
+        borderRadius: RADIUS,
         fontFamily: "var(--ui)",
         fontSize: 13,
         color: "var(--ink-2)",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? 0.5 : 1,
+        whiteSpace: "nowrap",
       }}
     >
       {children}

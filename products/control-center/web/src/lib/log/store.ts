@@ -29,7 +29,6 @@
  */
 
 import type { LogEntry, LogLevel } from "./types";
-import { LEVEL_RANK } from "./types";
 
 const DB_NAME = "cc-logs";
 // v2: the entries store was re-keyed from the per-session `seq` to the
@@ -54,8 +53,12 @@ interface Stats {
 }
 
 export interface LogQuery {
-  /** Minimum level, inclusive. Omit for all levels. */
-  minLevel?: LogLevel;
+  /**
+   * Levels to include. Omit for all. This is a SET, not a floor: the viewer's
+   * chips toggle levels independently, so "warn + error, but not info" is a
+   * thing you can ask for , which a minimum-level threshold cannot express.
+   */
+  levels?: LogLevel[];
   /** Exact source match. Omit for all sources. */
   source?: string;
   /** Case-insensitive substring match against msg + serialized data. */
@@ -211,7 +214,7 @@ export async function append(entries: LogEntry[]): Promise<void> {
 }
 
 function matches(entry: LogEntry, q: LogQuery): boolean {
-  if (q.minLevel && LEVEL_RANK[entry.level] < LEVEL_RANK[q.minLevel]) return false;
+  if (q.levels && !q.levels.includes(entry.level)) return false;
   if (q.source && entry.source !== q.source) return false;
   if (q.search) {
     const needle = q.search.toLowerCase();

@@ -41,11 +41,21 @@ describe("log store", () => {
     expect(page.map((r) => r.seq)).toEqual([2, 1]);
   });
 
-  it("filters by minimum level", async () => {
+  it("filters by an arbitrary SET of levels, not a threshold", async () => {
     const levels: LogLevel[] = ["debug", "info", "warn", "error"];
     await store.append(levels.map((level, i) => entry(i, { level })));
-    const rows = await store.query({ minLevel: "warn" });
-    expect(rows.map((r) => r.level).sort()).toEqual(["error", "warn"]);
+
+    expect((await store.query({ levels: ["warn", "error"] })).map((r) => r.level).sort()).toEqual([
+      "error",
+      "warn",
+    ]);
+
+    // The point of a set over a "minimum level": on a polling dashboard the debug
+    // firehose is what you want off while still seeing info. A threshold cannot
+    // express that.
+    expect(
+      (await store.query({ levels: ["info", "warn", "error"] })).map((r) => r.level).sort(),
+    ).toEqual(["error", "info", "warn"]);
   });
 
   it("filters by source", async () => {

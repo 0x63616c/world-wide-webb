@@ -503,8 +503,15 @@ external debugger can attach to:
 It does **not** POST to an api sink. That option was considered and dropped: the
 homelab is RAM-constrained and its previous log stack was deliberately removed, and
 a shipper that fails takes the diagnostics down with the thing you are trying to
-diagnose. §4 (redaction) still applies , the tRPC link records the shape of a call,
-not its payloads, unless payload capture is explicitly switched on for that device.
+diagnose.
+
+**§4 (redaction) is deliberately NOT applied to the web app.** The tRPC link
+records request inputs verbatim. This is an explicit decision by the panel's
+owner, not an oversight: the wall panel is a private device on a home network,
+the logs never leave it, and a failure whose input you cannot see is one you end
+up guessing about. It does mean payloads (Tesla coordinates, camera URLs) sit in
+IndexedDB on the device. §4 continues to bind the backend services without
+exception.
 
 ---
 
