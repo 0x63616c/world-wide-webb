@@ -17,6 +17,8 @@ import { DogCamTileView } from "../components/tiles/DogCamTileView";
 import { DogModeTile, DogModeTileView } from "../components/tiles/DogModeTileView";
 import { EventsTile } from "../components/tiles/EventsTile";
 import { EventsTileView } from "../components/tiles/EventsTileView";
+import { FrontendLogsTile } from "../components/tiles/FrontendLogsTile";
+import { FrontendLogsTileView } from "../components/tiles/FrontendLogsTileView";
 import { NetworkTile } from "../components/tiles/NetworkTile";
 import { NetworkTileView } from "../components/tiles/NetworkTileView";
 import { Next12Hours } from "../components/tiles/Next12Hours";
@@ -28,6 +30,7 @@ import { WeatherNowView } from "../components/tiles/WeatherNowView";
 
 type TileComponent =
   | typeof ClockGreeting
+  | typeof FrontendLogsTile
   | typeof WeatherNow
   | typeof NetworkTile
   | typeof TeslaTile
@@ -44,6 +47,7 @@ type TileComponent =
 
 type TileViewComponent =
   | typeof ClockGreetingView
+  | typeof FrontendLogsTileView
   | typeof WeatherNowView
   | typeof NetworkTileView
   | typeof TeslaTileView
@@ -235,6 +239,17 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     component: QuickPlayTile,
     viewComponent: QuickPlayTileView,
     worldCol: 30,
+    worldRow: 25,
+    cols: 4,
+    rows: 2,
+    ownsTap: true,
+  },
+  {
+    id: "tile_felogs",
+    label: "Frontend Logs",
+    component: FrontendLogsTile,
+    viewComponent: FrontendLogsTileView,
+    worldCol: 34,
     worldRow: 25,
     cols: 4,
     rows: 2,

@@ -88,6 +88,49 @@ describe("log store", () => {
     expect(await store.count()).toBe(0);
   });
 
+  describe("summarizeSince", () => {
+    const T0 = 1_700_000_000_000;
+
+    it("tallies levels and slices them into time buckets, oldest first", async () => {
+      await store.append([
+        entry(1, { ts: T0 + 1_000, level: "error" }), // bucket 0
+        entry(2, { ts: T0 + 1_500, level: "warn" }), // bucket 0
+        entry(3, { ts: T0 + 5_000, level: "info" }), // bucket 1
+        entry(4, { ts: T0 + 9_000, level: "error" }), // bucket 2
+      ]);
+      const summary = await store.summarizeSince(T0, T0 + 12_000, 3);
+      expect(summary.counts).toEqual({ debug: 0, info: 1, warn: 1, error: 2 });
+      expect(summary.buckets.map((b) => b.error)).toEqual([1, 0, 1]);
+      expect(summary.buckets.map((b) => b.warn)).toEqual([1, 0, 0]);
+      expect(summary.buckets.map((b) => b.info)).toEqual([0, 1, 0]);
+    });
+
+    it("excludes entries older than the cutoff", async () => {
+      await store.append([
+        entry(1, { ts: T0 - 5_000, level: "error" }),
+        entry(2, { ts: T0 + 5_000, level: "warn" }),
+      ]);
+      const summary = await store.summarizeSince(T0, T0 + 10_000, 2);
+      expect(summary.counts.error).toBe(0);
+      expect(summary.counts.warn).toBe(1);
+    });
+
+    it("clamps an entry stamped at/after `now` into the last bucket", async () => {
+      await store.append([entry(1, { ts: T0 + 10_000, level: "error" })]);
+      const summary = await store.summarizeSince(T0, T0 + 10_000, 4);
+      expect(summary.buckets[3].error).toBe(1);
+    });
+
+    it("returns an all-zero summary when IndexedDB is unavailable", async () => {
+      // @ts-expect-error deliberately removing the global
+      globalThis.indexedDB = undefined;
+      store.resetForTests();
+      const summary = await store.summarizeSince(T0, T0 + 1_000, 2);
+      expect(summary.counts).toEqual({ debug: 0, info: 0, warn: 0, error: 0 });
+      expect(summary.buckets).toHaveLength(2);
+    });
+  });
+
   it("evicts oldest-first when the byte cap is exceeded", async () => {
     // Eviction is driven by BYTES, not just count: one fat payload can be
     // thousands of times larger than a typical line, so a count-only policy is

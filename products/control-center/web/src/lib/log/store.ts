@@ -349,6 +349,68 @@ export async function query(q: LogQuery = {}): Promise<LogEntry[]> {
   });
 }
 
+export interface LogSummary {
+  /** Total entries per level since the cutoff. */
+  counts: Record<LogLevel, number>;
+  /**
+   * Per-level counts in `bucketCount` equal time slices from the cutoff to
+   * `now`, oldest first. An entry's slice is floor((ts - since) / bucketMs).
+   */
+  buckets: Array<Record<LogLevel, number>>;
+}
+
+function emptyTally(): Record<LogLevel, number> {
+  return { debug: 0, info: 0, warn: 0, error: 0 };
+}
+
+/**
+ * Tally recent history by level, sliced into time buckets , the Frontend Logs
+ * tile's whole data need in one cursor walk.
+ *
+ * Walks newest-first and STOPS at the first entry older than `since`: ids are
+ * `${bootMs}-${seq}` so insertion order is time order per boot, and the tile
+ * asks about the last 24h of a store that may hold weeks , walking only the
+ * recent slice instead of materializing (or even visiting) a million rows is
+ * the point of doing this in the store rather than over query()'s results.
+ * A clock skew across boots can hide at most the skewed sliver; the tile is a
+ * glanceable tally, not an audit.
+ */
+export async function summarizeSince(
+  since: number,
+  now: number,
+  bucketCount: number,
+): Promise<LogSummary> {
+  const counts = emptyTally();
+  const buckets = Array.from({ length: bucketCount }, emptyTally);
+  const db = await openDb();
+  if (!db) return { counts, buckets };
+  const bucketMs = Math.max(1, (now - since) / bucketCount);
+
+  const tx = db.transaction(ENTRIES, "readonly");
+  const entries = tx.objectStore(ENTRIES);
+
+  return new Promise<LogSummary>((resolve, reject) => {
+    const cursorReq = entries.openCursor(null, "prev");
+    cursorReq.onerror = () => reject(cursorReq.error);
+    cursorReq.onsuccess = () => {
+      const cursor = cursorReq.result;
+      if (!cursor) {
+        resolve({ counts, buckets });
+        return;
+      }
+      const entry = cursor.value as LogEntry;
+      if (entry.ts < since) {
+        resolve({ counts, buckets });
+        return;
+      }
+      counts[entry.level] += 1;
+      const slot = Math.min(bucketCount - 1, Math.floor((entry.ts - since) / bucketMs));
+      buckets[slot][entry.level] += 1;
+      cursor.continue();
+    };
+  });
+}
+
 /**
  * Bytes currently held on disk, per the running total maintained alongside every
  * append and prune. Approximate by construction (see entryBytes), but it is the
