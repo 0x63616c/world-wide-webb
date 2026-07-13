@@ -35,6 +35,16 @@ const LIST_HEIGHT = 520;
 /** Rows rendered above/below the viewport, so a fast flick doesn't show blanks. */
 const OVERSCAN = 8;
 const PAGE_SIZE = 500;
+/**
+ * Cap on how many matches a search pulls back from disk in one go. A search runs
+ * against the WHOLE store (up to a million entries), so it needs a ceiling , but
+ * the ceiling has to be visible, because "2,000 matches" silently truncated to
+ * look like "all the matches" is exactly the kind of quiet lie this viewer exists
+ * to prevent. The footer says so when it bites.
+ */
+const SEARCH_LIMIT = 2_000;
+/** Wait for typing to settle before hitting IndexedDB. */
+const SEARCH_DEBOUNCE_MS = 200;
 
 /** One height for every control in the toolbar, so the row actually lines up. */
 const CONTROL_H = 36;
@@ -119,6 +129,8 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
   const [historyCount, setHistoryCount] = useState(0);
   const [bytes, setBytes] = useState(0);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [searchTruncated, setSearchTruncated] = useState(false);
   const [selected, setSelected] = useState<LogEntry | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
@@ -143,6 +155,51 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
       setBytes(await store.bytesUsed());
     });
   }, [open]);
+
+  /**
+   * Search runs against the STORE, not just what happens to be loaded.
+   *
+   * This is the whole point of keeping a million entries on disk. Filtering only
+   * the in-memory set would mean typing "tesla", seeing nothing, and concluding it
+   * never happened , while 900k unsearched entries sat on disk. An empty result
+   * would be indistinguishable from "no matches anywhere in history", which is a
+   * quiet lie of exactly the kind this viewer exists to prevent.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const needle = search.trim();
+    if (!needle) {
+      // Back to the live tail. Any pages fetched for a previous search are stale.
+      setOlder([]);
+      setSearchTruncated(false);
+      setSearching(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        await flushNow();
+        const hits = await store.query({
+          search: needle,
+          levels: levels.length === LOG_LEVELS.length ? undefined : levels,
+          limit: SEARCH_LIMIT,
+        });
+        if (cancelled) return;
+        setOlder(hits);
+        setSearchTruncated(hits.length >= SEARCH_LIMIT);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      setSearching(false);
+    };
+  }, [open, search, levels]);
 
   // Newest first: this is opened to answer "what just happened", so the answer
   // should be the first row, not 5000 rows down.
@@ -360,9 +417,15 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
           }}
         >
           <span>
-            {rows.length.toLocaleString()} shown · {tail.length.toLocaleString()} in memory ·{" "}
-            {historyCount.toLocaleString()} / {MAX_ENTRIES.toLocaleString()} on disk ·{" "}
-            {formatBytes(bytes)} / {formatBytes(MAX_BYTES)} · git sha{" "}
+            {rows.length.toLocaleString()} shown ·{" "}
+            {search.trim()
+              ? searching
+                ? `searching all ${historyCount.toLocaleString()} on disk…`
+                : `searched all ${historyCount.toLocaleString()} on disk${
+                    searchTruncated ? ` (first ${SEARCH_LIMIT.toLocaleString()} matches)` : ""
+                  }`
+              : `${tail.length.toLocaleString()} in memory · ${historyCount.toLocaleString()} / ${MAX_ENTRIES.toLocaleString()} on disk`}{" "}
+            · {formatBytes(bytes)} / {formatBytes(MAX_BYTES)} · git sha{" "}
             <span style={{ fontFamily: "var(--mono, ui-monospace, monospace)" }}>{SHA}</span>
           </span>
           <span style={{ display: "flex", gap: 12, whiteSpace: "nowrap" }}>
