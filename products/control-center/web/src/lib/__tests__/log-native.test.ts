@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { LogFilesystem } from "../log/native";
 import {
+  getMirrorFileUris,
   nativeAppend,
   resetNativeForTests,
   restoreFromNative,
@@ -41,6 +42,9 @@ function makeFakeFs() {
       const data = files.get(path);
       if (data === undefined) throw new Error("File does not exist");
       return { size: data.length };
+    },
+    async getUri({ path }) {
+      return { uri: `file:///fake/${path}` };
     },
     async rename({ from, to }) {
       const data = files.get(from);
@@ -132,6 +136,37 @@ describe("native log mirror", () => {
     );
     expect(restored).toBe(1);
     expect(seen).toEqual([1]);
+  });
+
+  describe("getMirrorFileUris", () => {
+    it("returns [] off-device (no filesystem)", async () => {
+      setFilesystemForTests(null);
+      expect(await getMirrorFileUris()).toEqual([]);
+    });
+
+    it("returns [] when nothing has been written yet", async () => {
+      const { fs } = makeFakeFs();
+      setFilesystemForTests(fs);
+      expect(await getMirrorFileUris()).toEqual([]);
+    });
+
+    it("returns only the current URI when previous doesn't exist", async () => {
+      const { fs } = makeFakeFs();
+      setFilesystemForTests(fs);
+      await nativeAppend([entry(1)]);
+      expect(await getMirrorFileUris()).toEqual([`file:///fake/${CURRENT}`]);
+    });
+
+    it("returns [previous, current] when both generations exist", async () => {
+      const { fs, files } = makeFakeFs();
+      files.set(PREVIOUS, `${JSON.stringify(entry(1))}\n`);
+      files.set(CURRENT, `${JSON.stringify(entry(2))}\n`);
+      setFilesystemForTests(fs);
+      expect(await getMirrorFileUris()).toEqual([
+        `file:///fake/${PREVIOUS}`,
+        `file:///fake/${CURRENT}`,
+      ]);
+    });
   });
 
   it("rotates current to previous when the generation cap trips", async () => {

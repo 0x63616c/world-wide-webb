@@ -51,6 +51,7 @@ export interface LogFilesystem {
     encoding: string;
   }): Promise<{ data: string | Blob }>;
   stat(opts: { path: string; directory: string }): Promise<{ size: number }>;
+  getUri(opts: { path: string; directory: string }): Promise<{ uri: string }>;
   rename(opts: { from: string; to: string; directory: string; toDirectory: string }): Promise<void>;
   deleteFile(opts: { path: string; directory: string }): Promise<void>;
   mkdir(opts: { path: string; directory: string; recursive: boolean }): Promise<void>;
@@ -181,6 +182,35 @@ export async function restoreFromNative(
     return entries.length;
   } catch {
     return 0; // recovery is best-effort; an unreadable mirror is just absent
+  }
+}
+
+/**
+ * Resolve shareable file URIs for the on-disk mirror generations, oldest first
+ * (`previous`, then `current`). This is the export seam: the OS reads these files
+ * directly via the share sheet, so nothing is serialized at share time.
+ *
+ * Best-effort like the rest of the module: returns `[]` off-device (no fs), for
+ * a generation that doesn't exist yet (stat throws → skipped), and on any
+ * unexpected error, rather than throwing into the caller.
+ */
+export async function getMirrorFileUris(): Promise<string[]> {
+  const fs = await getFs();
+  if (!fs) return [];
+  try {
+    const uris: string[] = [];
+    for (const path of [PREVIOUS, CURRENT]) {
+      try {
+        await fs.stat({ path, directory: DATA }); // missing generation throws
+      } catch {
+        continue; // generation doesn't exist yet
+      }
+      const { uri } = await fs.getUri({ path, directory: DATA });
+      uris.push(uri);
+    }
+    return uris;
+  } catch {
+    return []; // export is best-effort; an unresolvable mirror is just absent
   }
 }
 
