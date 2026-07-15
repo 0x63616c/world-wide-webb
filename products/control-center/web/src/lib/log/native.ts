@@ -25,6 +25,7 @@
  * overwrites them with themselves.
  */
 
+import { getDeviceName } from "../device-name";
 import type { LogEntry } from "./types";
 
 const DIR = "cc-logs";
@@ -171,10 +172,12 @@ export async function restoreFromNative(
   if (!fs) return 0;
   try {
     if (!(await isEmpty())) return 0;
-    const entries = [
-      ...(await readGeneration(fs, PREVIOUS)),
-      ...(await readGeneration(fs, CURRENT)),
-    ];
+    const raw = [...(await readGeneration(fs, PREVIOUS)), ...(await readGeneration(fs, CURRENT))];
+    // Backfill `deviceName` on any mirror line written before the field existed.
+    // The mirror is this device's own history, so getDeviceName() is the honest
+    // name to stamp (matches the IndexedDB v3→v4 migration).
+    const deviceName = getDeviceName();
+    const entries = raw.map((e) => (e.deviceName ? e : { ...e, deviceName }));
     for (let i = 0; i < entries.length; i += RESTORE_CHUNK) {
       await append(entries.slice(i, i + RESTORE_CHUNK));
     }

@@ -23,6 +23,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { BUILD_HASH } from "../config/build";
+import { getDeviceName } from "../lib/device-name";
 import { fuzzyMatch } from "../lib/log/fuzzy";
 import { flushNow, getTail, subscribe } from "../lib/log/logger";
 import * as store from "../lib/log/store";
@@ -59,7 +60,17 @@ const SHA = BUILD_HASH.slice(0, 7);
  * information in it, and the previous layout let the fixed columns hog width and
  * then clipped the payload, which is backwards.
  */
-const GRID = "146px 46px 76px 58px minmax(230px, 32ch) 1fr";
+const GRID = "146px 46px 76px 58px 96px minmax(230px, 32ch) 1fr";
+
+/**
+ * The device that emitted an entry. Read-time fallback for rows written before
+ * `deviceName` existed and somehow skipped the store migration (private mode /
+ * quota / degraded store): the store is per-device, so this device's resolved
+ * name is the honest attribution, and nothing renders blank.
+ */
+function deviceLabel(entry: LogEntry): string {
+  return entry.deviceName || getDeviceName();
+}
 
 /** A hair of breathing room so the timestamp doesn't crowd the level beside it. */
 const TIME_CELL = { color: "var(--ink-3)", paddingRight: 6 } as const;
@@ -219,7 +230,11 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
         .filter((e) => levels.includes(e.level))
         // Same fuzzy matcher the store pages with, so what you see and what "Load
         // older" fetches cannot disagree about what "matches".
-        .filter((e) => !needle || fuzzyMatch(`${e.source} ${e.msg} ${oneLine(e.data)}`, needle))
+        .filter(
+          (e) =>
+            !needle ||
+            fuzzyMatch(`${e.source} ${e.msg} ${deviceLabel(e)} ${oneLine(e.data)}`, needle),
+        )
         .sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
     );
   }, [older, tail, levels, search]);
@@ -342,6 +357,7 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
             <span>Level</span>
             <span>Source</span>
             <span>Git SHA</span>
+            <span>Device</span>
             <span>Message</span>
             <span>Payload</span>
           </div>
@@ -477,6 +493,7 @@ function LogRow({
       <span style={{ color: LEVEL_COLOR[entry.level] }}>{entry.level}</span>
       <span style={ELLIPSIS}>{entry.source}</span>
       <span style={{ color: "var(--ink-3)", opacity: 0.55 }}>{entry.sha}</span>
+      <span style={{ ...ELLIPSIS, color: "var(--ink-2)" }}>{deviceLabel(entry)}</span>
       <span style={{ ...ELLIPSIS, color: "var(--ink-1)" }}>{entry.msg}</span>
       {/* The payload gets every remaining pixel: it is the column carrying the
           answer (status codes, failing keys, durations), and it was the one being
