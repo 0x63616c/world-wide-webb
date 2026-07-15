@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { getDeviceName } from "../device-name";
 import type { LogFilesystem } from "../log/native";
 import {
   getMirrorFileUris,
@@ -19,6 +20,7 @@ function entry(seq: number, over: Partial<LogEntry> = {}): LogEntry {
     seq,
     ts: 1_700_000_000_000 + seq,
     sha: "abc1234",
+    deviceName: "test-device",
     level: "info",
     source: "test",
     msg: `message ${seq}`,
@@ -136,6 +138,39 @@ describe("native log mirror", () => {
     );
     expect(restored).toBe(1);
     expect(seen).toEqual([1]);
+  });
+
+  it("backfills deviceName on restored mirror lines that predate the field", async () => {
+    // The mirror is this device's own history, so backfill uses its resolved name.
+    const expected = getDeviceName();
+    const { fs, files } = makeFakeFs();
+    // A legacy line with no deviceName, and a modern line that already carries one.
+    const legacy = {
+      id: id(1),
+      seq: 1,
+      ts: 1,
+      sha: "abc1234",
+      level: "info",
+      source: "old",
+      msg: "legacy",
+    };
+    const modern = entry(2, { deviceName: "other-device" });
+    files.set(CURRENT, `${JSON.stringify(legacy)}\n${JSON.stringify(modern)}\n`);
+    setFilesystemForTests(fs);
+
+    const seen: LogEntry[] = [];
+    const restored = await restoreFromNative(
+      async () => true,
+      async (batch) => {
+        seen.push(...batch);
+      },
+    );
+
+    expect(restored).toBe(2);
+    // The legacy line gains this device's name; the modern line keeps its own.
+    expect(expected).not.toBe("");
+    expect(seen.find((e) => e.seq === 1)?.deviceName).toBe(expected);
+    expect(seen.find((e) => e.seq === 2)?.deviceName).toBe("other-device");
   });
 
   describe("getMirrorFileUris", () => {

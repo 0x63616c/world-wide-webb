@@ -8,6 +8,7 @@ function entry(seq: number): LogEntry {
     seq,
     ts: seq,
     sha: "abc1234",
+    deviceName: "test-device",
     level: "info",
     source: "test",
     msg: `m${seq}`,

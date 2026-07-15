@@ -36,6 +36,16 @@ export interface LogEntry {
    * fact, which is the whole point of keeping history.
    */
   sha: string;
+  /**
+   * Human-readable name of the device that emitted this line (see
+   * lib/device-name.ts). Carried per ENTRY, not once at boot, because a
+   * persisted store can span multiple restored histories and the user can rename
+   * the device over time , so the name that was live when a line was written is
+   * the honest attribution. Old rows written before this field existed are
+   * backfilled on the v3→v4 store upgrade and normalized on native-mirror
+   * restore; the viewer also falls back at read time, so it is never blank.
+   */
+  deviceName: string;
   level: LogLevel;
   /** Subsystem tag, e.g. "boot", "trpc", "query", "tile:weather", "console". */
   source: string;

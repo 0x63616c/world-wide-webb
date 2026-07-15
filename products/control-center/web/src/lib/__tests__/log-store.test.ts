@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it } from "vitest";
+import { getDeviceName } from "../device-name";
 import * as store from "../log/store";
 import type { LogEntry, LogLevel } from "../log/types";
 
@@ -15,6 +16,7 @@ function entry(seq: number, over: Partial<LogEntry> = {}): LogEntry {
     seq,
     ts: 1_700_000_000_000 + seq,
     sha: "abc1234",
+    deviceName: "test-device",
     level: "info",
     source: "test",
     msg: `message ${seq}`,
@@ -75,6 +77,15 @@ describe("log store", () => {
     ]);
     expect((await store.query({ search: "connection" })).map((r) => r.seq)).toEqual([1]);
     expect((await store.query({ search: "502" })).map((r) => r.seq)).toEqual([2]);
+  });
+
+  it("searches the device name too", async () => {
+    await store.append([
+      entry(1, { deviceName: "kitchen-ipad" }),
+      entry(2, { deviceName: "office-laptop" }),
+    ]);
+    expect((await store.query({ search: "kitchen" })).map((r) => r.seq)).toEqual([1]);
+    expect((await store.query({ search: "laptop" })).map((r) => r.seq)).toEqual([2]);
   });
 
   it("honours the limit", async () => {
@@ -212,6 +223,63 @@ describe("log store", () => {
     // The stale v1 row is gone and the store now keys on `id`.
     expect(rows.map((r) => r.msg)).toEqual(["after upgrade"]);
     expect(rows[0].id).toBe(id(0));
+  });
+
+  it("preserves and backfills deviceName on the v3 -> v4 upgrade (existing logs kept)", async () => {
+    // Requirement #6: already-stored logs must be UPDATED, not lost. Seed a v3
+    // store keyed the current way but with rows that predate `deviceName`, then
+    // open at v4 and assert every row survived AND gained the device's name.
+    // The store is per-device, so backfilled rows get this device's resolved name.
+    const expected = getDeviceName();
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.open("cc-logs", 3);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        const s = db.createObjectStore("entries", { keyPath: "id" });
+        s.createIndex("ts", "ts");
+        s.createIndex("level", "level");
+        db.createObjectStore("meta");
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        const s = db.transaction("entries", "readwrite").objectStore("entries");
+        // Deliberately no `deviceName` field on these legacy rows.
+        s.put({
+          id: id(0, 1),
+          seq: 0,
+          ts: 1,
+          sha: "abc1234",
+          level: "info",
+          source: "old",
+          msg: "row 0",
+        });
+        s.put({
+          id: id(1, 1),
+          seq: 1,
+          ts: 2,
+          sha: "abc1234",
+          level: "warn",
+          source: "old",
+          msg: "row 1",
+        });
+        db.close();
+        resolve();
+      };
+      req.onerror = () => reject(req.error);
+    });
+
+    store.resetForTests();
+    const rows = await store.query({ limit: 100 });
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => r.deviceName === expected)).toBe(true);
+    expect(expected).not.toBe("");
+    expect(rows.some((r) => r.msg === "row 0")).toBe(true);
+    expect(rows.some((r) => r.msg === "row 1")).toBe(true);
+  });
+
+  it("starts empty on a fresh v4 database", async () => {
+    // A fresh install creates the store empty , nothing to backfill.
+    expect(await store.count()).toBe(0);
   });
 
   it("survives a QuotaExceededError by evicting and retrying", async () => {

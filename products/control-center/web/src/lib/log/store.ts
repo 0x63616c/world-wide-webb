@@ -29,6 +29,7 @@
  * comes up evicted.
  */
 
+import { getDeviceName } from "../device-name";
 import { fuzzyMatch } from "./fuzzy";
 import type { LogEntry, LogLevel } from "./types";
 
@@ -38,7 +39,10 @@ const DB_NAME = "cc-logs";
 // v3: entries carry `sha` (was `build`). The upgrade drops and rebuilds either
 // way , these are debug logs, and carrying a legacy field forward through the
 // render path forever is a worse trade than losing a day of them once.
-const DB_VERSION = 3;
+// v4: entries carry `deviceName`. Unlike earlier steps this one PRESERVES the
+// existing store and backfills the missing field (the store is per-device, so
+// every existing row was produced by this device , see onupgradeneeded).
+const DB_VERSION = 4;
 const ENTRIES = "entries";
 const META = "meta";
 const META_KEY = "stats";
@@ -116,25 +120,44 @@ function openDb(): Promise<IDBDatabase | null> {
       resolve(null);
       return;
     }
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (event) => {
       const db = req.result;
-      // Unconditionally drop and rebuild. An earlier version of this guarded the
-      // drop on inspecting the existing store's keyPath via req.transaction ,
-      // which can be null, in which case the guard silently skipped the
-      // migration and left the old store (and the overwrite bug) in place. A
-      // migration that quietly does nothing is worse than no migration. These
-      // are debug logs: rebuilding costs nothing, so there is no reason to be
-      // clever about preserving them.
-      if (db.objectStoreNames.contains(ENTRIES)) db.deleteObjectStore(ENTRIES);
-      {
+      const oldVersion = event.oldVersion;
+      const hasEntries = db.objectStoreNames.contains(ENTRIES);
+
+      // v1/v2 were keyed the old way (per-session `seq`, legacy `build` field);
+      // a fresh install has no store at all. In both cases (re)build clean ,
+      // there is nothing worth preserving, and carrying a v1 keyPath forward
+      // would silently reinstate the overwrite-on-reload bug (see types.ts).
+      if (oldVersion < 3 || !hasEntries) {
+        if (hasEntries) db.deleteObjectStore(ENTRIES);
         // keyPath "id" = "<bootMs>-<counter>", fixed-width and zero-padded, so
-        // lexicographic key order IS insertion order across reloads. Keying on
-        // the per-session `seq` instead would make every reload overwrite the
-        // previous session's rows (see types.ts).
+        // lexicographic key order IS insertion order across reloads.
         const store = db.createObjectStore(ENTRIES, { keyPath: "id" });
         store.createIndex("ts", "ts");
         store.createIndex("level", "level");
+      } else {
+        // v3 → v4: the store is already correctly keyed. Requirement: existing
+        // logs must be UPDATED, not lost. Walk the store inside this
+        // versionchange transaction and backfill `deviceName` on any row lacking
+        // it. The store is per-device, so `getDeviceName()` (read synchronously
+        // from localStorage , safe on the main thread here) is the honest name
+        // for every one of these rows.
+        const tx = req.transaction;
+        if (tx) {
+          const store = tx.objectStore(ENTRIES);
+          const deviceName = getDeviceName();
+          const cursorReq = store.openCursor();
+          cursorReq.onsuccess = () => {
+            const cursor = cursorReq.result;
+            if (!cursor) return;
+            const value = cursor.value as LogEntry;
+            if (!value.deviceName) cursor.update({ ...value, deviceName });
+            cursor.continue();
+          };
+        }
       }
+
       if (!db.objectStoreNames.contains(META)) {
         db.createObjectStore(META);
       }
@@ -304,8 +327,9 @@ function matches(entry: LogEntry, q: LogQuery): boolean {
   if (q.source && entry.source !== q.source) return false;
   if (q.search) {
     // Match against the whole line as one haystack, so a query can span the
-    // message and its payload ("tesla 503") the way it reads on screen.
-    let haystack = `${entry.source} ${entry.msg}`;
+    // message, its payload ("tesla 503") and the device name the way it reads on
+    // screen.
+    let haystack = `${entry.source} ${entry.msg} ${entry.deviceName ?? ""}`;
     if (entry.data !== undefined) {
       try {
         haystack += ` ${JSON.stringify(entry.data)}`;

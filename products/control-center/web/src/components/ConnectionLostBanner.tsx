@@ -32,7 +32,9 @@ export function ConnectionLostBanner() {
       aria-live="polite"
       style={{
         position: "absolute",
-        top: 18,
+        // Second slot: the DeviceNameBanner owns the top corner (18); this stacks
+        // below it, and AppUpdateBanner (106) below this, so all three never overlap.
+        top: 62,
         right: 18,
         zIndex: 100,
         display: "flex",
