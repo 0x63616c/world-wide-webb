@@ -27,6 +27,8 @@ import { SchedulesTile } from "../components/tiles/SchedulesTile";
 import { SchedulesTileView } from "../components/tiles/SchedulesTileView";
 import { TeslaTile } from "../components/tiles/TeslaTile";
 import { TeslaTileView } from "../components/tiles/TeslaTileView";
+import { WakesTile } from "../components/tiles/WakesTile";
+import { WakesTileView } from "../components/tiles/WakesTileView";
 import { WeatherNow } from "../components/tiles/WeatherNow";
 import { WeatherNowView } from "../components/tiles/WeatherNowView";
 
@@ -46,7 +48,8 @@ type TileComponent =
   | typeof TvNowPlayingTile
   | typeof SoundSystemTile
   | typeof TvAppsTile
-  | typeof QuickPlayTile;
+  | typeof QuickPlayTile
+  | typeof WakesTile;
 
 type TileViewComponent =
   | typeof ClockGreetingView
@@ -64,7 +67,8 @@ type TileViewComponent =
   | typeof TvNowPlayingTileView
   | typeof SoundSystemTileView
   | typeof TvAppsTileView
-  | typeof QuickPlayTileView;
+  | typeof QuickPlayTileView
+  | typeof WakesTileView;
 
 export type TileRegistryEntry = {
   id: string;
@@ -256,6 +260,17 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     worldCol: 26,
     worldRow: 32,
     cols: 4,
+    rows: 2,
+    ownsTap: true,
+  },
+  {
+    id: "tile_wakes",
+    label: "Wakes",
+    component: WakesTile,
+    viewComponent: WakesTileView,
+    worldCol: 38,
+    worldRow: 30,
+    cols: 2,
     rows: 2,
     ownsTap: true,
   },
