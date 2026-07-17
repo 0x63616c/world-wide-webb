@@ -15,7 +15,14 @@
  * committed (`onMove` doesn't fire) , the wrapper's own position resets to its
  * pre-drag `tiles`-derived spot and a CSS transition animates the spring-back.
  */
-import { type CSSProperties, type ReactNode, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { BOARD_H, BOARD_W, worldCellRect } from "../../lib/grid-constants";
 import { bentoFor } from "../../lib/placeholder-tiles";
 import type { TileRegistryEntry } from "../../lib/tile-registry";
@@ -36,8 +43,10 @@ export type LayoutEditorViewProps = {
   dirty: boolean;
 };
 
-// The editor stages against the fixed wall-panel frame (see CLAUDE.md
-// invariant: "Fixed wall panel, 1366x1024, not responsive").
+// Fallback frame: the fixed wall-panel size (see CLAUDE.md invariant: "Fixed
+// wall panel, 1366x1024, not responsive"). The stage itself fills whatever
+// viewport it's given (a desktop browser is often larger) and the camera fits
+// against the MEASURED size; these are only the pre-measure / jsdom fallback.
 const FRAME_W = 1366;
 const FRAME_H = 1024;
 // Cell margin added around the cluster bbox before fitting the camera.
@@ -80,9 +89,11 @@ type DragState = { id: string; startX: number; startY: number; dx: number; dy: n
 
 type Camera = { bx: number; by: number; scale: number; offsetX: number; offsetY: number };
 
+type Frame = { w: number; h: number };
+
 // Fit-to-cluster camera: bbox of every tile + FIT_MARGIN_CELLS, scaled to fit
 // the frame (minus edit-bar/edge padding), capped at MAX_SCALE, then centered.
-function fitCamera(tiles: LayoutEditorTile[]): Camera {
+function fitCamera(tiles: LayoutEditorTile[], frame: Frame): Camera {
   const rects = tiles.map((t) => worldCellRect(t.worldCol, t.worldRow, t.cols, t.rows));
   const minX = Math.min(...rects.map((r) => r.x));
   const minY = Math.min(...rects.map((r) => r.y));
@@ -93,9 +104,9 @@ function fitCamera(tiles: LayoutEditorTile[]): Camera {
   const by = minY - marginPx;
   const bw = maxX - minX + 2 * marginPx;
   const bh = maxY - minY + 2 * marginPx;
-  const scale = Math.min((FRAME_W - FIT_PAD_X) / bw, (FRAME_H - FIT_PAD_Y) / bh, MAX_SCALE);
-  const offsetX = (FRAME_W - bw * scale) / 2;
-  const offsetY = (FRAME_H - FIT_PAD_Y - bh * scale) / 2;
+  const scale = Math.min((frame.w - FIT_PAD_X) / bw, (frame.h - FIT_PAD_Y) / bh, MAX_SCALE);
+  const offsetX = (frame.w - bw * scale) / 2;
+  const offsetY = (frame.h - FIT_PAD_Y - bh * scale) / 2;
   return { bx, by, scale, offsetX, offsetY };
 }
 
@@ -116,9 +127,28 @@ export function LayoutEditorView({
   // move/up pair never races a stale closure over React state.
   const dragRef = useRef<DragState | null>(null);
 
-  // Refit ONLY when the committed arrangement changes , never mid-drag, since
-  // drag offsets live purely in `drag`/`dragRef`, not in `tiles`.
-  const camera = useMemo(() => fitCamera(tiles), [tiles]);
+  // The stage fills its (fixed, inset: 0) parent, so on a desktop browser it
+  // can be larger than the wall panel. Fit the camera against the measured
+  // size; jsdom (and the pre-measure first paint) fall back to the panel frame.
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [frame, setFrame] = useState<Frame>({ w: FRAME_W, h: FRAME_H });
+  useLayoutEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) setFrame({ w: r.width, h: r.height });
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Refit ONLY when the committed arrangement (or the viewport) changes , never
+  // mid-drag, since drag offsets live purely in `drag`/`dragRef`, not `tiles`.
+  const camera = useMemo(() => fitCamera(tiles, frame), [tiles, frame]);
 
   const toScreen = (wx: number, wy: number) => ({
     x: camera.offsetX + (wx - camera.bx) * camera.scale,
@@ -213,11 +243,12 @@ export function LayoutEditorView({
 
   return (
     <div
+      ref={stageRef}
       data-testid="layout-editor-stage"
       style={{
         position: "relative",
-        width: FRAME_W,
-        height: FRAME_H,
+        width: "100%",
+        height: "100%",
         overflow: "hidden",
         background: "var(--bg)",
         userSelect: "none",

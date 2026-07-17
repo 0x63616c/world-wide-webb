@@ -91,6 +91,15 @@ const meta = {
   tags: ["autodocs"],
   component: LayoutEditorView,
   parameters: { boardWrapper: false, layout: "fullscreen" },
+  // The view fills its parent (production mounts it under LayoutEditor's
+  // `fixed inset: 0` wrapper), so give it the same viewport-filling box here.
+  decorators: [
+    (Story) => (
+      <div style={{ position: "fixed", inset: 0 }}>
+        <Story />
+      </div>
+    ),
+  ],
   args: {
     tiles: DEFAULT_TILES,
     renderTile,
