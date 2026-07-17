@@ -17,6 +17,7 @@ import { formatRelativeAge } from "../lib/relative-age";
 import { type SnapMode, useSettings } from "../lib/settings";
 import { HOME_TILE, type TileRegistryEntry } from "../lib/tile-registry";
 import { useBoardLayout } from "../lib/useBoardLayout";
+import { captureWakeBurst } from "../lib/wake-capture";
 import { AppUpdateBanner } from "./AppUpdateBanner";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
 import { DeviceNameBanner } from "./DeviceNameBanner";
@@ -650,9 +651,14 @@ export function Board() {
   // tap never hit the stage listeners, so poke them by hand). The next tap lands
   // on the board normally.
   const wake = useCallback(() => {
+    // Wake photo: the tap that ends a dim is the "someone approached the
+    // panel" signal, so kick off the front-camera burst (fire-and-forget,
+    // best-effort , see lib/wake-capture). Native panel only: in a browser the
+    // dim overlay never shows, so this path can't fire there anyway.
+    if (nativeDisplay) captureWakeBurst();
     wakeDim();
     pokeReset();
-  }, [wakeDim, pokeReset]);
+  }, [wakeDim, pokeReset, nativeDisplay]);
 
   // Recenter on a tile AND open its detail modal, kicked off together. Shared by
   // the plain-tap and keyboard activation paths.
