@@ -111,7 +111,12 @@ function scanlineSlot(
 
   for (let i = 0; i < positions.length; i++) {
     const pos = positions[(startIndex + i) % positions.length];
-    const candidate: Rect = { worldCol: pos.worldCol, worldRow: pos.worldRow, cols: size.cols, rows: size.rows };
+    const candidate: Rect = {
+      worldCol: pos.worldCol,
+      worldRow: pos.worldRow,
+      cols: size.cols,
+      rows: size.rows,
+    };
     if (!fitsInner(candidate, world)) continue;
     if (placed.some((p) => overlaps(p, candidate))) continue;
     return pos;

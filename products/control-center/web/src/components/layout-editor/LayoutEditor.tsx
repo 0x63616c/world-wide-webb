@@ -13,12 +13,12 @@
  * cancel explicitly.
  */
 import { useEffect, useMemo, useState } from "react";
+import { closeLayoutEditor, useLayoutEditorOpen } from "../../lib/layout-edit-store";
 import { bentoFor } from "../../lib/placeholder-tiles";
 import { TILE_REGISTRY } from "../../lib/tile-registry";
 import { trpc } from "../../lib/trpc";
 import { useBoardLayout } from "../../lib/useBoardLayout";
-import { closeLayoutEditor, useLayoutEditorOpen } from "../../lib/layout-edit-store";
-import { LayoutEditorView, type LayoutEditorTile } from "./LayoutEditorView";
+import { type LayoutEditorTile, LayoutEditorView } from "./LayoutEditorView";
 
 const INVALID_REASON = "board can't fill around this arrangement";
 
@@ -48,12 +48,11 @@ export function LayoutEditor() {
 
   // Re-seed from the current resolved layout on every closed→open transition,
   // never mid-session (a background poll must not clobber in-progress edits).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `layout.tiles` is deliberately omitted — re-seed only on the open transition itself.
   useEffect(() => {
     if (!open) return;
     setStaged(layout.tiles);
     setBaseline(layout.tiles);
-    // Only ever re-seed on the open transition itself.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const saveMutation = trpc.layout.save.useMutation({
@@ -65,7 +64,9 @@ export function LayoutEditor() {
 
   const valid = useMemo(() => {
     try {
-      bentoFor(staged.map((t) => ({ col: t.worldCol, row: t.worldRow, cols: t.cols, rows: t.rows })));
+      bentoFor(
+        staged.map((t) => ({ col: t.worldCol, row: t.worldRow, cols: t.cols, rows: t.rows })),
+      );
       return true;
     } catch {
       return false;
@@ -77,7 +78,9 @@ export function LayoutEditor() {
   const dirty = isDirty(staged, baseline);
 
   const handleMove = (tileId: string, col: number, row: number) => {
-    setStaged((ts) => ts.map((t) => (t.id === tileId ? { ...t, worldCol: col, worldRow: row } : t)));
+    setStaged((ts) =>
+      ts.map((t) => (t.id === tileId ? { ...t, worldCol: col, worldRow: row } : t)),
+    );
   };
 
   const handleReset = () => {

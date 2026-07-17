@@ -45,7 +45,12 @@ vi.mock("@protomaps/basemaps", () => ({
 }));
 
 type MockQueryReturn = {
-  data: { placements: { tileId: string; worldCol: number; worldRow: number }[]; revision: string | null } | undefined;
+  data:
+    | {
+        placements: { tileId: string; worldCol: number; worldRow: number }[];
+        revision: string | null;
+      }
+    | undefined;
   isSuccess: boolean;
   isError: boolean;
 };
@@ -90,7 +95,10 @@ describe("useBoardLayout", () => {
 
   it("first success applies the resolved layout and flips to ready", () => {
     mockQueryReturn = {
-      data: { placements: [{ tileId: "tile_clock", worldCol: 10, worldRow: 12 }], revision: "rev-1" },
+      data: {
+        placements: [{ tileId: "tile_clock", worldCol: 10, worldRow: 12 }],
+        revision: "rev-1",
+      },
       isSuccess: true,
       isError: false,
     };
@@ -132,7 +140,10 @@ describe("useBoardLayout", () => {
 
   it("a refetch returning the SAME revision does not produce a new layout object", () => {
     mockQueryReturn = {
-      data: { placements: [{ tileId: "tile_clock", worldCol: 10, worldRow: 12 }], revision: "rev-1" },
+      data: {
+        placements: [{ tileId: "tile_clock", worldCol: 10, worldRow: 12 }],
+        revision: "rev-1",
+      },
       isSuccess: true,
       isError: false,
     };
@@ -143,7 +154,10 @@ describe("useBoardLayout", () => {
     // Poll returns fresh data (new placements array instance) but the SAME
     // revision , the applied layout must be the identical object, not re-resolved.
     mockQueryReturn = {
-      data: { placements: [{ tileId: "tile_clock", worldCol: 99, worldRow: 99 }], revision: "rev-1" },
+      data: {
+        placements: [{ tileId: "tile_clock", worldCol: 99, worldRow: 99 }],
+        revision: "rev-1",
+      },
       isSuccess: true,
       isError: false,
     };
@@ -156,7 +170,10 @@ describe("useBoardLayout", () => {
 
   it("a refetch returning a CHANGED revision re-resolves the layout", () => {
     mockQueryReturn = {
-      data: { placements: [{ tileId: "tile_clock", worldCol: 10, worldRow: 12 }], revision: "rev-1" },
+      data: {
+        placements: [{ tileId: "tile_clock", worldCol: 10, worldRow: 12 }],
+        revision: "rev-1",
+      },
       isSuccess: true,
       isError: false,
     };
@@ -165,7 +182,10 @@ describe("useBoardLayout", () => {
     const firstLayout = result.current.layout;
 
     mockQueryReturn = {
-      data: { placements: [{ tileId: "tile_clock", worldCol: 30, worldRow: 31 }], revision: "rev-2" },
+      data: {
+        placements: [{ tileId: "tile_clock", worldCol: 30, worldRow: 31 }],
+        revision: "rev-2",
+      },
       isSuccess: true,
       isError: false,
     };

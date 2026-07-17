@@ -13,8 +13,10 @@ import type { ReactNode } from "react";
 import { expect, fireEvent, fn, within } from "storybook/test";
 import { resolveLayout } from "../../lib/board-layout";
 import { tilePixelSize, worldCellRect } from "../../lib/grid-constants";
-import { LayoutEditorView, type LayoutEditorTile } from "./LayoutEditorView";
-
+import * as QuickPlayS from "../media/QuickPlayTileView.stories";
+import * as SoundS from "../media/SoundSystemTileView.stories";
+import * as TvAppsS from "../media/TvAppsTileView.stories";
+import * as TvS from "../media/TvNowPlayingTileView.stories";
 import * as ClimateS from "../tiles/ClimateTileView.stories";
 import * as ClockS from "../tiles/ClockGreetingView.stories";
 import * as ControlsS from "../tiles/ControlsTileView.stories";
@@ -27,10 +29,7 @@ import * as HourlyS from "../tiles/Next12HoursView.stories";
 import * as SchedS from "../tiles/SchedulesTileView.stories";
 import * as TeslaS from "../tiles/TeslaTileView.stories";
 import * as WeatherS from "../tiles/WeatherNowView.stories";
-import * as QuickPlayS from "../media/QuickPlayTileView.stories";
-import * as SoundS from "../media/SoundSystemTileView.stories";
-import * as TvAppsS from "../media/TvAppsTileView.stories";
-import * as TvS from "../media/TvNowPlayingTileView.stories";
+import { type LayoutEditorTile, LayoutEditorView } from "./LayoutEditorView";
 
 // biome-ignore lint/suspicious/noExplicitAny: story args are heterogeneous
 type StoryEntry = { component: React.ComponentType<any>; args: Record<string, unknown> };
@@ -74,7 +73,12 @@ function renderTile(entry: LayoutEditorTile): ReactNode {
 // to via useBoardLayout before any saved placement exists.
 const DEFAULT_TILES: LayoutEditorTile[] = resolveLayout([]).tiles;
 
-function moveTile(tiles: LayoutEditorTile[], id: string, worldCol: number, worldRow: number): LayoutEditorTile[] {
+function moveTile(
+  tiles: LayoutEditorTile[],
+  id: string,
+  worldCol: number,
+  worldRow: number,
+): LayoutEditorTile[] {
   return tiles.map((t) => (t.id === id ? { ...t, worldCol, worldRow } : t));
 }
 
@@ -128,7 +132,11 @@ export const Default: Story = {
     fireEvent.pointerUp(wrapper, { pointerId: 1, clientX: startX, clientY: startY - pitchPx });
 
     await expect(args.onMove).toHaveBeenCalledTimes(1);
-    await expect(args.onMove).toHaveBeenCalledWith("tile_hourly", hourly.worldCol, hourly.worldRow - 1);
+    await expect(args.onMove).toHaveBeenCalledWith(
+      "tile_hourly",
+      hourly.worldCol,
+      hourly.worldRow - 1,
+    );
   },
 };
 
@@ -162,7 +170,11 @@ export const Dirty: Story = {
       clientX: startX + deltaCols * pitchPx,
       clientY: startY,
     });
-    fireEvent.pointerUp(wrapper, { pointerId: 2, clientX: startX + deltaCols * pitchPx, clientY: startY });
+    fireEvent.pointerUp(wrapper, {
+      pointerId: 2,
+      clientX: startX + deltaCols * pitchPx,
+      clientY: startY,
+    });
 
     await expect(args.onMove).not.toHaveBeenCalled();
   },

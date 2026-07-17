@@ -37,6 +37,13 @@ vi.mock("@protomaps/basemaps", () => ({
 import { resolveLayout, type TilePlacement, type TileRegistryEntry } from "./board-layout";
 import { TILE_REGISTRY } from "./tile-registry";
 
+// Assertion helper: registry lookups in these tests are for ids that must
+// exist; failing loudly beats a non-null assertion.
+function must<T>(value: T | undefined): T {
+  if (value === undefined) throw new Error("expected value to be present");
+  return value;
+}
+
 describe("resolveLayout", () => {
   it("uses saved placement over registry default", () => {
     const saved: TilePlacement[] = [{ tileId: "tile_weath", worldCol: 10, worldRow: 10 }];
@@ -66,21 +73,21 @@ describe("resolveLayout", () => {
   });
 
   it("scanlines a new tile whose default is occupied", () => {
-    const felogsDefault = TILE_REGISTRY.find((t) => t.id === "tile_felogs")!;
+    const felogsDefault = must(TILE_REGISTRY.find((t) => t.id === "tile_felogs"));
     // Park tile_clock exactly on tile_felogs's default position/size, so
     // tile_felogs (defaulted, resolved after all saved rows) must scanline off.
     const saved: TilePlacement[] = [
       { tileId: "tile_clock", worldCol: felogsDefault.worldCol, worldRow: felogsDefault.worldRow },
     ];
     const result = resolveLayout(saved);
-    const clock = result.tiles.find((t) => t.id === "tile_clock")!;
-    const felogs = result.tiles.find((t) => t.id === "tile_felogs")!;
+    const clock = must(result.tiles.find((t) => t.id === "tile_clock"));
+    const felogs = must(result.tiles.find((t) => t.id === "tile_felogs"));
     expect(clock.worldCol).toBe(felogsDefault.worldCol);
     expect(clock.worldRow).toBe(felogsDefault.worldRow);
     // felogs must have moved off its default and not overlap clock (or anything else).
-    expect(felogs.worldCol === felogsDefault.worldCol && felogs.worldRow === felogsDefault.worldRow).toBe(
-      false,
-    );
+    expect(
+      felogs.worldCol === felogsDefault.worldCol && felogs.worldRow === felogsDefault.worldRow,
+    ).toBe(false);
     const overlaps = (
       a: { worldCol: number; worldRow: number; cols: number; rows: number },
       b: { worldCol: number; worldRow: number; cols: number; rows: number },
@@ -106,7 +113,11 @@ describe("resolveLayout", () => {
     // Saved: tile_a placed at the ONLY valid inner cell of a 1x1-inner world
     // (achieved via the tiny fixture below in board-layout.ts's internal test hook).
     const saved: TilePlacement[] = [{ tileId: "tile_a", worldCol: 2, worldRow: 2 }];
-    const result = resolveLayout(saved, tinyRegistry, { worldCols: 5, worldRows: 5, wallThickness: 2 });
+    const result = resolveLayout(saved, tinyRegistry, {
+      worldCols: 5,
+      worldRows: 5,
+      wallThickness: 2,
+    });
     expect(result.unplaced).toEqual(["tile_b"]);
     expect(result.tiles.some((t) => t.id === "tile_b")).toBe(false);
   });

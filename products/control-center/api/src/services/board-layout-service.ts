@@ -42,12 +42,11 @@ export async function getBoardLayout(db: Database): Promise<Layout> {
     worldRow: row.worldRow,
   }));
 
-  const revision =
-    rows.length === 0
-      ? null
-      : rows
-          .reduce((max, row) => (row.updatedAtUtc > max ? row.updatedAtUtc : max), rows[0]!.updatedAtUtc)
-          .toISOString();
+  let latest: Date | null = null;
+  for (const row of rows) {
+    if (latest === null || row.updatedAtUtc > latest) latest = row.updatedAtUtc;
+  }
+  const revision = latest === null ? null : latest.toISOString();
 
   return layoutSchema.parse({ placements, revision });
 }

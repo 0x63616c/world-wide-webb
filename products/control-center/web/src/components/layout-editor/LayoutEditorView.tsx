@@ -16,7 +16,7 @@
  * pre-drag `tiles`-derived spot and a CSS transition animates the spring-back.
  */
 import { type CSSProperties, type ReactNode, useMemo, useRef, useState } from "react";
-import { BOARD_H, BOARD_W, tilePixelSize, worldCellRect } from "../../lib/grid-constants";
+import { BOARD_H, BOARD_W, worldCellRect } from "../../lib/grid-constants";
 import { bentoFor } from "../../lib/placeholder-tiles";
 import type { TileRegistryEntry } from "../../lib/tile-registry";
 import { PlaceholderTile } from "../PlaceholderTile";
@@ -64,7 +64,12 @@ const PITCH = CELL_B.x - CELL_A.x;
 type Rect4 = { col: number; row: number; cols: number; rows: number };
 
 function overlapsRect(a: Rect4, b: Rect4): boolean {
-  return a.col < b.col + b.cols && b.col < a.col + a.cols && a.row < b.row + b.rows && b.row < a.row + a.rows;
+  return (
+    a.col < b.col + b.cols &&
+    b.col < a.col + a.cols &&
+    a.row < b.row + b.rows &&
+    b.row < a.row + a.rows
+  );
 }
 
 function clampToInner(value: number, span: number): number {
@@ -127,7 +132,9 @@ export function LayoutEditorView({
   // feedback for that state, not a broken fill render.
   const fill = useMemo(() => {
     try {
-      return bentoFor(tiles.map((t) => ({ col: t.worldCol, row: t.worldRow, cols: t.cols, rows: t.rows })));
+      return bentoFor(
+        tiles.map((t) => ({ col: t.worldCol, row: t.worldRow, cols: t.cols, rows: t.rows })),
+      );
     } catch {
       return null;
     }
@@ -136,7 +143,9 @@ export function LayoutEditorView({
   // At-rest dashed frame: the live board's own viewport, centered on the
   // CURRENT clock tile (the clock is movable like any other tile, no pin).
   const clock = tiles.find((t) => t.home) ?? tiles[0];
-  const clockRect = clock ? worldCellRect(clock.worldCol, clock.worldRow, clock.cols, clock.rows) : null;
+  const clockRect = clock
+    ? worldCellRect(clock.worldCol, clock.worldRow, clock.cols, clock.rows)
+    : null;
   const restFrame = clockRect
     ? {
         x: clockRect.x + clockRect.w / 2 - BOARD_W / 2,
@@ -191,7 +200,12 @@ export function LayoutEditorView({
     const collides = tiles.some(
       (other) =>
         other.id !== tile.id &&
-        overlapsRect(candidate, { col: other.worldCol, row: other.worldRow, cols: other.cols, rows: other.rows }),
+        overlapsRect(candidate, {
+          col: other.worldCol,
+          row: other.worldRow,
+          cols: other.cols,
+          rows: other.rows,
+        }),
     );
     if (collides) return; // spring back , drop not committed, onMove does not fire
     onMove(tile.id, nextCol, nextRow);

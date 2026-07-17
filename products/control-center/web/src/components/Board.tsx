@@ -482,6 +482,7 @@ export function Board() {
 
   // Open centered on the home tile (Clock) using the real client size (pre-paint,
   // no flash). Programmatic: the browser echoes this write as a scroll event.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: layoutStatus is a deliberate extra dep — see the comment at the bottom of this effect.
   useLayoutEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;

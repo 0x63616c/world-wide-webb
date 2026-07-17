@@ -1,6 +1,11 @@
-import { getBoardLayout, layoutSchema, placementSchema, saveBoardLayout } from "../../services/board-layout-service";
-import { publicProcedure, router } from "../init";
 import { z } from "zod";
+import {
+  getBoardLayout,
+  layoutSchema,
+  placementSchema,
+  saveBoardLayout,
+} from "../../services/board-layout-service";
+import { publicProcedure, router } from "../init";
 
 export const layoutRouter = router({
   /** Current board layout: per-tile placements + a revision (max updated_at). */

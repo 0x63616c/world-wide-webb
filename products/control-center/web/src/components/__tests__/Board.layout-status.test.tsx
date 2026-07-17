@@ -96,9 +96,7 @@ describe("Board unplaced-tiles banner", () => {
     mockLayoutReturn = readyWithTiles(["tile_x"]);
     render(<Board />);
 
-    expect(
-      screen.getByText("New tile has no space — edit layout to place it"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("New tile has no space — edit layout to place it")).toBeInTheDocument();
   });
 
   it("does not render the banner when every tile placed", () => {

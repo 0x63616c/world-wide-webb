@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   getBoardLayout,
+  type Placement,
   placementSchema,
   saveBoardLayout,
-  type Placement,
 } from "./board-layout-service";
 
 // ─── minimal in-memory db harness (mirrors the mock-db pattern used by
