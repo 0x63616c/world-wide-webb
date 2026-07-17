@@ -16,13 +16,14 @@ cd "$(dirname "$0")/.."
 
 rm -rf .vitest-reports coverage
 
-# 1) Unit projects (jsdom) -> blob
-bunx vitest run --coverage --reporter=blob --outputFile=.vitest-reports/unit.json
+# 1) Unit projects (jsdom) -> blob. The extra default reporter keeps failure
+# output visible in CI logs (blob alone is silent).
+bunx vitest run --coverage --reporter=blob --reporter=default --outputFile=.vitest-reports/unit.json
 
 # 2) Storybook project (chromium) -> blob. Runs from products/control-center/web; serialized via the
 #    project's fileParallelism:false so it's deterministic.
 ( cd products/control-center/web && bunx vitest run --project storybook --coverage --reporter=blob \
-    --outputFile=../../.vitest-reports/storybook.json )
+    --reporter=default --outputFile=../../.vitest-reports/storybook.json )
 
 # 3) Merge both blobs and emit the combined coverage summary.
 bunx vitest run --mergeReports=.vitest-reports --coverage --coverage.provider=v8 \
