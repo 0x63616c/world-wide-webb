@@ -56,12 +56,17 @@ let mockQueryReturn: MockQueryReturn = {
   isError: false,
 };
 const mockRefetch = vi.fn();
+const mockUseQuery = vi.fn((_input: unknown, options: { enabled?: boolean }) => ({
+  ...mockQueryReturn,
+  refetch: mockRefetch,
+  __options: options,
+}));
 
 vi.mock("./trpc", () => ({
   trpc: {
     layout: {
       get: {
-        useQuery: () => ({ ...mockQueryReturn, refetch: mockRefetch }),
+        useQuery: (input: unknown, options: { enabled?: boolean }) => mockUseQuery(input, options),
       },
     },
   },
@@ -178,5 +183,21 @@ describe("useBoardLayout", () => {
     const { result } = renderHook(() => useBoardLayout());
     result.current.refetch();
     expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("defaults the query to enabled when called with no options (every pre-existing call site)", () => {
+    renderHook(() => useBoardLayout());
+    expect(mockUseQuery).toHaveBeenLastCalledWith(
+      undefined,
+      expect.objectContaining({ enabled: true }),
+    );
+  });
+
+  it("forwards enabled: false to the query (e.g. while the layout editor is open)", () => {
+    renderHook(() => useBoardLayout({ enabled: false }));
+    expect(mockUseQuery).toHaveBeenLastCalledWith(
+      undefined,
+      expect.objectContaining({ enabled: false }),
+    );
   });
 });

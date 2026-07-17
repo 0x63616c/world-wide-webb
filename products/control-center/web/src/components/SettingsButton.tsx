@@ -50,7 +50,7 @@ export function SettingsButton() {
         maxHeight={640}
         scrollbar="visible"
       >
-        <SettingsPanel />
+        <SettingsPanel onClose={() => setOpen(false)} />
       </Modal>
     </>
   );

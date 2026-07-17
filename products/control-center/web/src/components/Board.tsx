@@ -10,6 +10,7 @@ import {
   WORLD_W,
   worldCellRect,
 } from "../lib/grid-constants";
+import { useLayoutEditorOpen } from "../lib/layout-edit-store";
 import { useAnyModalOpen } from "../lib/modal-open-store";
 import { bentoFor } from "../lib/placeholder-tiles";
 import { formatRelativeAge } from "../lib/relative-age";
@@ -28,6 +29,7 @@ import {
   useIdleReset,
   useUserPanSignal,
 } from "./hooks/useBoard";
+import { LayoutEditor } from "./layout-editor/LayoutEditor";
 import { MINIMAP_LEFT, MINIMAP_TOP, MINIMAP_WIDTH, Minimap } from "./Minimap";
 import { PlaceholderTile } from "./PlaceholderTile";
 import { SettingsButton } from "./SettingsButton";
@@ -288,6 +290,39 @@ function DimOverlay({ active, onWake }: { active: boolean; onWake: () => void })
   );
 }
 
+// Mounts <LayoutEditor/> (which reads its own open/closed state off the same
+// store) while animating its entrance: a plain opacity/scale mount would snap
+// straight to its final state (no transition plays on first paint), so this
+// defers the "entered" flip to a rAF after mount, giving the browser one frame
+// at the starting values to transition FROM. Unmounts immediately on close ,
+// only the entrance needs to feel soft, per the binding decision (full-screen
+// overlay, no pan while editing).
+function LayoutEditorOverlay({ open }: { open: boolean }) {
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    if (!open) {
+      setEntered(false);
+      return;
+    }
+    const raf = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(raf);
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      style={{
+        opacity: entered ? 1 : 0,
+        transform: entered ? "scale(1)" : "scale(0.98)",
+        transition: "opacity 200ms ease, transform 200ms ease",
+      }}
+    >
+      <LayoutEditor />
+    </div>
+  );
+}
+
 // Name of the tile currently under the viewport center, shown as a pill while
 // you pan the board manually (mouse-drag or touch), then fading out like the
 // minimap does. The minimap surfaces tile names on hover; this is the same
@@ -362,12 +397,19 @@ export function Board() {
   // backlight to drop, so the whole feature is a no-op rather than a CSS scrim.
   const nativeDisplay = isNativeDisplay();
 
+  // Whether the layout editor overlay is open (Task 7's store; entry is the
+  // settings panel's "Edit layout" row). While open the board itself is fully
+  // frozen , see the modalOpen OR-chain, idle hooks' `enabled`, and the hidden
+  // chrome below , and its own layout poll pauses (the editor stages its own
+  // working copy, so a background refetch here is redundant work).
+  const layoutEditOpen = useLayoutEditorOpen();
+
   // Server-resolved tile placement (blocking first paint + 5s poll, see
   // useBoardLayout). `layoutStatus` gates the loading-stage render below; every
   // hook past this point still runs unconditionally (rules of hooks) and simply
   // operates on the fallback (registry-default) layout until the first settle,
   // which is never shown , the loading stage covers the whole screen.
-  const { status: layoutStatus, layout } = useBoardLayout();
+  const { status: layoutStatus, layout } = useBoardLayout({ enabled: !layoutEditOpen });
 
   // The single source of truth for every cell this render. Placeholders come
   // FIRST so they paint BENEATH the real tiles (DOM order = paint order); real
@@ -411,9 +453,11 @@ export function Board() {
   // catches modals a tile manages on its own (e.g. ControlsTile's expanded view),
   // whose portaled backdrop would otherwise replay presses up the React tree into
   // this stage's drag-pan. OR-ing both keeps the freeze instant for the board's
-  // own open-glide while still covering every other modal.
+  // own open-glide while still covering every other modal. The layout editor is
+  // a full-screen overlay too (no pan while editing, per the binding decision),
+  // so it joins the same freeze chain.
   const anyModalOpen = useAnyModalOpen();
-  const modalOpen = activeModal !== null || anyModalOpen;
+  const modalOpen = activeModal !== null || anyModalOpen || layoutEditOpen;
   const modalOpenRef = useRef(modalOpen);
   useEffect(() => {
     modalOpenRef.current = modalOpen;
@@ -579,7 +623,10 @@ export function Board() {
     isHome,
     pointerDown,
     idleMs: settings.recenterTimeoutMs,
-    enabled: settings.recenterEnabled,
+    // Disabled while the layout editor is open , an idle glide-home mid-edit
+    // would fight the editor's own camera and yank the view out from under a
+    // drag in progress.
+    enabled: settings.recenterEnabled && !layoutEditOpen,
   });
 
   // Dim the panel after its own (configurable) idle window , native only: it
@@ -589,7 +636,9 @@ export function Board() {
   const { dimmed, wake: wakeDim } = useIdleDim({
     stageRef,
     pointerDown,
-    enabled: settings.idleDimEnabled && nativeDisplay,
+    // Disabled while the layout editor is open , dimming the backlight mid-edit
+    // would obscure the very thing being arranged.
+    enabled: settings.idleDimEnabled && nativeDisplay && !layoutEditOpen,
     timeoutMs: settings.idleDimTimeoutMs,
     level: settings.idleDimLevel,
     activeBrightness: settings.activeBrightness,
@@ -776,22 +825,30 @@ export function Board() {
         <UnplacedTilesBanner count={layout.unplaced.length} />
         {settings.showFps ? <FpsMeter /> : null}
         {settings.showBuildBadge ? <BuildHashBadge /> : null}
-        <SettingsButton />
-        <CenteredTileLabel label={centeredLabel} panSignal={panSignal} />
-        <Minimap
-          view={view}
-          panSignal={panSignal}
-          // Both layers derive from the one boardCells list: real tiles (with a
-          // label) and placeholder ghosts (no entry). flatMap narrows `entry`.
-          tiles={boardCells.flatMap((c) => (c.entry ? [{ ...c.rect, label: c.entry.label }] : []))}
-          ghosts={boardCells.flatMap((c) => (c.entry ? [] : [c.rect]))}
-          onJump={userJump}
-        />
+        {/* Hidden while the layout editor is open: it's a full-screen overlay
+            with its own camera/chrome, and none of these read on a frozen board
+            underneath it. */}
+        {layoutEditOpen ? null : <SettingsButton />}
+        {layoutEditOpen ? null : (
+          <CenteredTileLabel label={centeredLabel} panSignal={panSignal} />
+        )}
+        {layoutEditOpen ? null : (
+          <Minimap
+            view={view}
+            panSignal={panSignal}
+            // Both layers derive from the one boardCells list: real tiles (with a
+            // label) and placeholder ghosts (no entry). flatMap narrows `entry`.
+            tiles={boardCells.flatMap((c) => (c.entry ? [{ ...c.rect, label: c.entry.label }] : []))}
+            ghosts={boardCells.flatMap((c) => (c.entry ? [] : [c.rect]))}
+            onJump={userJump}
+          />
+        )}
       </div>
       {/* Idle dim tap-shield (native only). Sits above the board + its chrome but
           below modals (which portal to <body>) so it swallows the wake tap. */}
       <DimOverlay active={dimmed} onWake={wake} />
       <TileModalHost entry={activeModal} onClose={() => setActiveModal(null)} />
+      <LayoutEditorOverlay open={layoutEditOpen} />
     </div>
   );
 }

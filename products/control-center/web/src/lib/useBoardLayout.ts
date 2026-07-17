@@ -33,8 +33,17 @@ export type BoardLayoutState = {
 // query settles, and the permanent fallback if the query only ever errors.
 const DEFAULT_LAYOUT: ResolvedLayout = resolveLayout([]);
 
-export function useBoardLayout(): BoardLayoutState {
-  const query = trpc.layout.get.useQuery(undefined, { refetchInterval: POLL.layout });
+export type UseBoardLayoutOptions = {
+  // Pauses the query (and its poll) while false, e.g. while the layout editor
+  // overlay is open , the editor stages its own working copy, so Board's poll
+  // is redundant work while it's up. Defaults to true (always on), so every
+  // existing call site is unaffected.
+  enabled?: boolean;
+};
+
+export function useBoardLayout(options?: UseBoardLayoutOptions): BoardLayoutState {
+  const enabled = options?.enabled ?? true;
+  const query = trpc.layout.get.useQuery(undefined, { refetchInterval: POLL.layout, enabled });
 
   const [applied, setApplied] = useState<{ layout: ResolvedLayout; revision: string | null }>({
     layout: DEFAULT_LAYOUT,

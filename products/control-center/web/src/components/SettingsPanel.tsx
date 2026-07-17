@@ -11,6 +11,7 @@
 
 import { type CSSProperties, useState } from "react";
 import { deriveDefaultName, setDeviceName, useDeviceName } from "../lib/device-name";
+import { openLayoutEditor } from "../lib/layout-edit-store";
 import {
   clampBrightness,
   clampDimLevel,
@@ -118,7 +119,14 @@ function Section({ children }: { children: React.ReactNode }) {
   return <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>{children}</div>;
 }
 
-export function SettingsPanel() {
+export type SettingsPanelProps = {
+  // Called after "Edit layout" opens the editor, so the host (SettingsButton)
+  // can close the settings modal out of the way. Optional so the panel still
+  // renders standalone (e.g. in Storybook) without a host modal to close.
+  onClose?: () => void;
+};
+
+export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const settings = useSettings();
   const { name: deviceName, isSet: deviceNameSet } = useDeviceName();
   const [logsOpen, setLogsOpen] = useState(false);
@@ -225,6 +233,22 @@ export function SettingsPanel() {
             onChange={setSnapMode}
           />
         </StackField>
+        <Row
+          label="Edit layout"
+          sub="Rearrange tiles on the board."
+          control={
+            <button
+              type="button"
+              onClick={() => {
+                openLayoutEditor();
+                onClose?.();
+              }}
+              style={FOOTER_BUTTON}
+            >
+              Edit layout
+            </button>
+          }
+        />
       </Section>
 
       <Section>
