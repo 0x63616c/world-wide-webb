@@ -1,13 +1,21 @@
 import { QueryErrorResetBoundary } from "@tanstack/react-query";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { BUILD_HASH, BUILD_TIME } from "../config/build";
 import { isNativeDisplay } from "../lib/brightness";
-import { BOARD_H, BOARD_W, tileWorldRect, WORLD_H, WORLD_W } from "../lib/grid-constants";
+import {
+  BOARD_H,
+  BOARD_W,
+  tileWorldRect,
+  WORLD_H,
+  WORLD_W,
+  worldCellRect,
+} from "../lib/grid-constants";
 import { useAnyModalOpen } from "../lib/modal-open-store";
-import { BENTO_RECTS } from "../lib/placeholder-tiles";
+import { bentoFor } from "../lib/placeholder-tiles";
 import { formatRelativeAge } from "../lib/relative-age";
 import { type SnapMode, useSettings } from "../lib/settings";
-import { HOME_TILE, TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
+import { HOME_TILE, type TileRegistryEntry } from "../lib/tile-registry";
+import { useBoardLayout } from "../lib/useBoardLayout";
 import { AppUpdateBanner } from "./AppUpdateBanner";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
 import { DeviceNameBanner } from "./DeviceNameBanner";
@@ -67,42 +75,27 @@ type Rect = { x: number; y: number; w: number; h: number };
 // share identical geometry, so the board positions, windows, snaps, highlights,
 // and centers them through this one shape , there is no separate placeholder
 // render path. Placeholders genuinely have no component/label and live on
-// world-absolute coords, so they stay out of TILE_REGISTRY; the two sources
+// world-absolute coords, so they stay out of the registry; the two sources
 // merge HERE into the single list everything downstream consumes.
 type BoardCell = { id: string; rect: Rect; entry?: TileRegistryEntry };
 
-// The single source of truth for every cell. Placeholders come FIRST so they
-// paint BENEATH the real tiles (DOM order = paint order); real tiles overlay.
-const BOARD_CELLS: BoardCell[] = [
-  ...BENTO_RECTS.map((b) => ({ id: b.id, rect: b.rect })),
-  ...TILE_REGISTRY.map((entry) => ({ id: entry.id, rect: tileWorldRect(entry), entry })),
-];
-
 // The cell whose rect contains world point (cx, cy), or undefined in a gap.
 // Real tiles and placeholders never overlap, so the first match is unambiguous.
-function cellAt(cx: number, cy: number): BoardCell | undefined {
-  return BOARD_CELLS.find(
+// Takes the live `cells` list (server-resolved layout) as a parameter rather
+// than closing over a module-load const, since tile placement is no longer
+// fixed at module load (see useBoardLayout).
+function cellAt(cells: BoardCell[], cx: number, cy: number): BoardCell | undefined {
+  return cells.find(
     ({ rect }) => cx >= rect.x && cx <= rect.x + rect.w && cy >= rect.y && cy <= rect.y + rect.h,
   );
 }
 
-// World-pixel center of the home tile (the Clock). The board opens here and idles
-// back here. Tiles are free-placed now, so "home" is wherever the home tile sits,
-// not the geometric world center.
-const HOME_RECT = tileWorldRect(HOME_TILE);
-const HOME_CX = HOME_RECT.x + HOME_RECT.w / 2;
-const HOME_CY = HOME_RECT.y + HOME_RECT.h / 2;
-
-// First-render SEED only. vw/vh use the panel's target size as a placeholder;
-// the useLayoutEffect below immediately overwrites left/top/vw/vh from the real
-// (full-window) stage size before paint, so on any screen the board opens with
-// the home tile (Clock) centered. Nothing here clips the view to BOARD_W×BOARD_H.
-const INITIAL_VIEW = {
-  left: HOME_CX - BOARD_W / 2,
-  top: HOME_CY - BOARD_H / 2,
-  vw: BOARD_W,
-  vh: BOARD_H,
-};
+// First-render SEED only, used before the layout has resolved (loading stage
+// renders no tiles at all, so the exact value here never shows). BOARD_W/H
+// center it well enough for the one frame it might be visible during the
+// useLayoutEffect below, which overwrites left/top/vw/vh from the real
+// (full-window) stage size once the home tile's resolved position is known.
+const INITIAL_VIEW = { left: 0, top: 0, vw: BOARD_W, vh: BOARD_H };
 
 // Pairs QueryErrorResetBoundary with TileBoundary via resetKey so a recovered
 // query resets the boundary without unmounting or a full page reload.
@@ -186,6 +179,81 @@ function BuildHashBadge() {
     >
       #{BUILD_HASH.slice(0, 7)}
       {age ? ` ${age}` : ""}
+    </div>
+  );
+}
+
+// Full-screen shimmer stage, shown in place of the board while the first
+// `layout.get` is in flight , no tiles, no fake data, just the shared skeleton
+// shimmer gradient (same animation as <Skeleton>) over the board background.
+function BoardLoadingStage() {
+  return (
+    <div
+      data-testid="board-loading"
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "var(--bg)",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(90deg, var(--tile-2) 25%, var(--nest) 50%, var(--tile-2) 75%)",
+          backgroundSize: "200%",
+          animation: "shimmer 1.6s linear infinite",
+          opacity: 0.5,
+        }}
+      />
+    </div>
+  );
+}
+
+// Fixed banner (same visual language as ConnectionLostBanner, one slot below
+// AppUpdateBanner) shown when the resolved layout couldn't place every tile ,
+// e.g. a newly-registered tile with no free space. Points the operator at the
+// editor rather than silently dropping the tile.
+function UnplacedTilesBanner({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        position: "absolute",
+        // Fourth slot: below DeviceNameBanner (18), ConnectionLostBanner (62), and
+        // AppUpdateBanner (106).
+        top: 150,
+        right: 18,
+        zIndex: 100,
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "10px 16px",
+        borderRadius: 12,
+        background: "rgba(244, 192, 99, 0.1)",
+        border: "1px solid rgba(244, 192, 99, 0.35)",
+        color: "var(--amber)",
+        fontSize: 13,
+        fontFamily: "var(--ui)",
+        letterSpacing: "-0.01em",
+        pointerEvents: "none",
+        backdropFilter: "blur(6px)",
+      }}
+    >
+      <span
+        style={{
+          width: 7,
+          height: 7,
+          borderRadius: "50%",
+          background: "var(--amber)",
+          opacity: 0.8,
+          flexShrink: 0,
+        }}
+      />
+      <span>New tile has no space — edit layout to place it</span>
     </div>
   );
 }
@@ -276,8 +344,10 @@ function CenteredTileLabel({ label, panSignal }: { label: string | undefined; pa
  * pan-lab feel test) plus a desktop mouse-drag shim; only tiles near the viewport
  * are mounted (windowing). Zoom is fixed at 1:1 for now.
  *
- * Layout is driven entirely by TILE_REGISTRY via tileWorldRect , adding a tile
- * there places it on the world with no further changes here.
+ * Layout is driven by the server-resolved placement (useBoardLayout →
+ * resolveLayout, Task 5/6): tile position comes from a saved placement when one
+ * exists, else the registry default, adding a tile to the registry places it
+ * on the world with no further changes here.
  */
 export function Board() {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -291,6 +361,46 @@ export function Board() {
   // Idle dimming is native-only: off-device (browser/Storybook) there is no
   // backlight to drop, so the whole feature is a no-op rather than a CSS scrim.
   const nativeDisplay = isNativeDisplay();
+
+  // Server-resolved tile placement (blocking first paint + 5s poll, see
+  // useBoardLayout). `layoutStatus` gates the loading-stage render below; every
+  // hook past this point still runs unconditionally (rules of hooks) and simply
+  // operates on the fallback (registry-default) layout until the first settle,
+  // which is never shown , the loading stage covers the whole screen.
+  const { status: layoutStatus, layout } = useBoardLayout();
+
+  // The single source of truth for every cell this render. Placeholders come
+  // FIRST so they paint BENEATH the real tiles (DOM order = paint order); real
+  // tiles overlay. Regenerates only when the resolved tile set changes (a saved
+  // placement moved, or the poll picked up an edit from another device).
+  const boardCells: BoardCell[] = useMemo(() => {
+    const bento = bentoFor(
+      layout.tiles.map((t) => ({ col: t.worldCol, row: t.worldRow, cols: t.cols, rows: t.rows })),
+    );
+    return [
+      ...bento.map((b) => ({ id: b.id, rect: worldCellRect(b.col, b.row, b.cols, b.rows) })),
+      ...layout.tiles.map((entry) => ({ id: entry.id, rect: tileWorldRect(entry), entry })),
+    ];
+  }, [layout.tiles]);
+
+  const cellAtPoint = useCallback(
+    (cx: number, cy: number) => cellAt(boardCells, cx, cy),
+    [boardCells],
+  );
+
+  // World-pixel center of the home tile (the Clock). The board opens here and
+  // idles back here. Tiles are free-placed, so "home" is wherever the home
+  // tile's RESOLVED position sits (its registry default until a saved
+  // placement moves it), not the geometric world center. Falls back to the
+  // registry's HOME_TILE rect if the resolved list doesn't have it yet (only
+  // during the loading stage, which never renders tiles anyway).
+  const homeEntry = useMemo(
+    () => layout.tiles.find((t) => t.id === HOME_TILE.id) ?? HOME_TILE,
+    [layout.tiles],
+  );
+  const homeRect = useMemo(() => tileWorldRect(homeEntry), [homeEntry]);
+  const homeCx = homeRect.x + homeRect.w / 2;
+  const homeCy = homeRect.y + homeRect.h / 2;
 
   // Mirrors modal-open state into a ref so the memoized pointer handlers can bail
   // without being re-created. While a modal is open the board must NOT pan: a
@@ -332,10 +442,13 @@ export function Board() {
     const stage = stageRef.current;
     if (!stage) return;
     markProgrammatic();
-    stage.scrollLeft = HOME_CX - stage.clientWidth / 2;
-    stage.scrollTop = HOME_CY - stage.clientHeight / 2;
+    stage.scrollLeft = homeCx - stage.clientWidth / 2;
+    stage.scrollTop = homeCy - stage.clientHeight / 2;
     syncView();
-  }, [syncView, markProgrammatic]);
+    // Re-centers whenever the resolved home position changes , covers both the
+    // loading→ready transition (default seed → resolved position, before the
+    // shimmer lifts) and a later poll that moves the home tile.
+  }, [syncView, markProgrammatic, homeCx, homeCy]);
 
   // rAF-throttle scroll → view state so the mounted-tile set tracks the pan
   // without a setState per scroll event.
@@ -356,7 +469,7 @@ export function Board() {
     snapMode,
     pointerDown,
     drag,
-    cellAt,
+    cellAt: cellAtPoint,
   });
 
   // ── drag pan ───────────────────────────────────────────────────────────────
@@ -445,15 +558,15 @@ export function Board() {
   // marked programmatic and never re-shows the minimap (www-5teu).
   const goHome = useCallback(() => {
     markProgrammatic();
-    jumpTo(HOME_CX, HOME_CY, true);
-  }, [jumpTo, markProgrammatic]);
+    jumpTo(homeCx, homeCy, true);
+  }, [jumpTo, markProgrammatic, homeCx, homeCy]);
   const isHome = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return true;
     const cx = stage.scrollLeft + stage.clientWidth / 2;
     const cy = stage.scrollTop + stage.clientHeight / 2;
-    return Math.hypot(cx - HOME_CX, cy - HOME_CY) < HOME_DEADZONE_PX;
-  }, []);
+    return Math.hypot(cx - homeCx, cy - homeCy) < HOME_DEADZONE_PX;
+  }, [homeCx, homeCy]);
   const { poke: pokeReset } = useIdleReset({
     stageRef,
     goHome,
@@ -525,17 +638,22 @@ export function Board() {
   }
 
   // One windowed list for the whole board: real tiles and placeholders alike.
-  const visibleCells = getVisibleTiles(BOARD_CELLS, view);
+  const visibleCells = getVisibleTiles(boardCells, view);
 
   // The cell under the viewport crosshair (world-space center of the view).
   // Updates every scroll frame via `view`; null when the center lands in a gap.
   const centerX = view.left + view.vw / 2;
   const centerY = view.top + view.vh / 2;
-  const centered = cellAt(centerX, centerY);
+  const centered = cellAtPoint(centerX, centerY);
   const centeredId = centered?.id;
   // Label for the centered cell (bento fill has no entry → undefined), surfaced
   // top-left while panning.
   const centeredLabel = centered?.entry?.label;
+
+  // Blocking first paint: the layout hasn't settled (success OR error) yet, so
+  // no tile geometry is trustworthy , render the shimmer stage only. Every hook
+  // above still ran (rules of hooks), it just drives a screen nobody sees.
+  if (layoutStatus === "loading") return <BoardLoadingStage />;
 
   return (
     <div
@@ -584,7 +702,7 @@ export function Board() {
         {/* ONE render path for every cell. Geometry (position, size, snap target,
             centered highlight) is written once and shared; a cell with an `entry`
             renders an interactive tile, one without renders inert bento fill.
-            Placeholders sort first in BOARD_CELLS so they paint underneath. */}
+            Placeholders sort first in boardCells so they paint underneath. */}
         {visibleCells.map(({ id, rect, entry }) => {
           const geometry: React.CSSProperties = {
             position: "absolute",
@@ -649,6 +767,7 @@ export function Board() {
         <DeviceNameBanner />
         <ConnectionLostBanner />
         <AppUpdateBanner />
+        <UnplacedTilesBanner count={layout.unplaced.length} />
         {settings.showFps ? <FpsMeter /> : null}
         {settings.showBuildBadge ? <BuildHashBadge /> : null}
         <SettingsButton />
@@ -656,10 +775,10 @@ export function Board() {
         <Minimap
           view={view}
           panSignal={panSignal}
-          // Both layers derive from the one BOARD_CELLS list: real tiles (with a
+          // Both layers derive from the one boardCells list: real tiles (with a
           // label) and placeholder ghosts (no entry). flatMap narrows `entry`.
-          tiles={BOARD_CELLS.flatMap((c) => (c.entry ? [{ ...c.rect, label: c.entry.label }] : []))}
-          ghosts={BOARD_CELLS.flatMap((c) => (c.entry ? [] : [c.rect]))}
+          tiles={boardCells.flatMap((c) => (c.entry ? [{ ...c.rect, label: c.entry.label }] : []))}
+          ghosts={boardCells.flatMap((c) => (c.entry ? [] : [c.rect]))}
           onJump={userJump}
         />
       </div>
