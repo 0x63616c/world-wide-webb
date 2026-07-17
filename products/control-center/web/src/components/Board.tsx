@@ -311,9 +311,18 @@ function LayoutEditorOverlay({ open }: { open: boolean }) {
 
   if (!open) return null;
 
+  // This wrapper is itself the fixed, viewport-filling box. Its transform (even
+  // the settled scale(1)) makes it the containing block for LayoutEditor's own
+  // `fixed inset: 0` chrome, so it must have real viewport size — an in-flow,
+  // auto-height wrapper would resolve that inset against a 0-height box and
+  // collapse the editor stage.
   return (
     <div
+      data-testid="layout-editor-overlay-wrapper"
       style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
         opacity: entered ? 1 : 0,
         transform: entered ? "scale(1)" : "scale(0.98)",
         transition: "opacity 200ms ease, transform 200ms ease",

@@ -152,6 +152,19 @@ describe("Board , layout edit mode integration", () => {
     expect(stage.contains(overlay)).toBe(false);
   });
 
+  it("sizes the entrance wrapper as the fixed viewport box", () => {
+    // Regression guard: the wrapper's transform (even a settled scale(1)) makes
+    // it the containing block for LayoutEditor's `fixed inset: 0` chrome. An
+    // in-flow auto-height wrapper resolves that inset against a 0-height box,
+    // collapsing the editor stage (height 0 — invisible in real browsers,
+    // undetectable via jsdom rects). Pin the wrapper's own fixed+inset styling.
+    layoutEditOpen = true;
+    render(<Board />);
+    const wrapper = screen.getByTestId("layout-editor-overlay-wrapper");
+    expect(wrapper.style.position).toBe("fixed");
+    expect(wrapper.style.inset).toBe("0px");
+  });
+
   it("passes enabled: !layoutEditOpen through to useBoardLayout (poll pause)", () => {
     layoutEditOpen = false;
     const { rerender } = render(<Board />);
