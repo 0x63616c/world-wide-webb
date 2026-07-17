@@ -5,6 +5,7 @@ import { env } from "./env";
 import { getTvArtwork } from "./services/apple-tv-service";
 import { openCameraStream } from "./services/camera-service";
 import { getClimate } from "./services/climate-service";
+import { readWakePhoto, saveWakePhoto } from "./services/wake-photo-service";
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers/index";
 
@@ -90,6 +91,43 @@ async function handle(req: Request, url: URL): Promise<Response> {
         "Content-Type":
           upstream.headers.get("content-type") ?? "multipart/x-mixed-replace; boundary=frame",
         "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  // Wake-photo ingest: the panel POSTs each burst frame as a raw JPEG body.
+  // Validation (JPEG magic, size cap) lives in the service; any rejection is a
+  // 400 so a misbehaving client can't 500-spam the log.
+  if (url.pathname === "/media/wake-photo" && req.method === "POST") {
+    const headerTs = Number(req.headers.get("x-captured-at"));
+    const capturedAt = Number.isFinite(headerTs) && headerTs > 0 ? headerTs : Date.now();
+    const bytes = new Uint8Array(await req.arrayBuffer());
+    try {
+      const path = await saveWakePhoto(bytes, capturedAt);
+      return Response.json({ path }, { status: 201, headers: CORS_HEADERS });
+    } catch (err) {
+      return new Response(err instanceof Error ? err.message : "invalid wake photo", {
+        status: 400,
+        headers: CORS_HEADERS,
+      });
+    }
+  }
+
+  // Wake-photo bytes for the viewer. Stored files never change, so the
+  // content is immutable-cacheable; traversal/missing both 404 via the
+  // service's null.
+  if (url.pathname.startsWith("/media/wake-photos/")) {
+    const rel = decodeURIComponent(url.pathname.slice("/media/wake-photos/".length));
+    const photo = await readWakePhoto(rel);
+    if (!photo) {
+      return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
+    }
+    return new Response(new Blob([photo.bytes]), {
+      status: 200,
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "image/jpeg",
+        "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
   }

@@ -12,6 +12,7 @@ import { schedulesRouter } from "./schedules";
 import { settingsRouter } from "./settings";
 import { systemRouter } from "./system";
 import { teslaRouter } from "./tesla";
+import { wakePhotosRouter } from "./wake-photos";
 import { weatherRouter } from "./weather";
 
 export const appRouter = router({
@@ -29,6 +30,7 @@ export const appRouter = router({
   schedules: schedulesRouter,
   settings: settingsRouter,
   system: systemRouter,
+  wakePhotos: wakePhotosRouter,
 });
 
 export type AppRouter = typeof appRouter;
