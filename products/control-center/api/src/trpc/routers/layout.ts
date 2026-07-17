@@ -7,7 +7,7 @@ export const layoutRouter = router({
   get: publicProcedure.output(layoutSchema).query(({ ctx }) => getBoardLayout(ctx.db)),
   /** Replace the whole layout (last-write-wins across devices). */
   save: publicProcedure
-    .input(z.object({ placements: z.array(placementSchema) }))
+    .input(z.object({ placements: z.array(placementSchema).max(64) }))
     .output(layoutSchema)
     .mutation(({ ctx, input }) => saveBoardLayout(ctx.db, input.placements)),
 });

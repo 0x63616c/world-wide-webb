@@ -34,7 +34,12 @@ function isDirty(staged: LayoutEditorTile[], original: LayoutEditorTile[]): bool
 export function LayoutEditor() {
   const open = useLayoutEditorOpen();
   const utils = trpc.useUtils();
-  const { layout } = useBoardLayout();
+  // The editor never drives its own poll , it only reads whatever Board's
+  // query has already cached (Board's blocking first paint guarantees the
+  // cache is populated before the editor can open). Without `enabled: false`
+  // here, mounting the editor would re-enable Board's paused poll (Board sets
+  // `enabled: !layoutEditOpen`) via this hook's own query observer.
+  const { layout } = useBoardLayout({ enabled: false });
 
   const [staged, setStaged] = useState<LayoutEditorTile[]>(layout.tiles);
   // The arrangement staging is compared against for `dirty` , reseeded
