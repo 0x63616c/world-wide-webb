@@ -75,6 +75,7 @@ Routes include:
 - `/up` - simple liveness.
 - `/health/climate` - verifies live Home Assistant climate reachability.
 - `/media/tv-artwork` - proxies Home Assistant artwork bytes so tokenized HA URLs stay private.
+- `/media/wake-photo` (POST) + `/media/wake-photos/*` - ingests and serves the panel's wake-from-dim front-camera burst frames (stored under `MEDIA_STORAGE_DIR/wake-photos`).
 - `/trpc/*` - tRPC request handling.
 
 The tRPC root router lives in `products/control-center/api/src/trpc/routers/index.ts` and combines routers for health, weather, network, Tesla, climate, controls, camera, events, media, and portal.
