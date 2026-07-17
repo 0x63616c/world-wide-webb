@@ -151,12 +151,8 @@
           "name": "device_commands_device_id_device_state_id_fk",
           "tableFrom": "device_commands",
           "tableTo": "device_state",
-          "columnsFrom": [
-            "device_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -825,12 +821,8 @@
           "name": "media_item_source_id_media_source_id_fk",
           "tableFrom": "media_item",
           "tableTo": "media_source",
-          "columnsFrom": [
-            "source_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

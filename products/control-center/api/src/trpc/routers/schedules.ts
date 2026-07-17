@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { LIGHTS } from "../../config/lights";
 import {
   createSchedule,
   deleteSchedule,
@@ -14,6 +15,12 @@ import {
 import { publicProcedure, router } from "../init";
 
 export const schedulesRouter = router({
+  // The selectable lights for the schedule editor's target picker (real config,
+  // not a hardcoded web copy). id = the value stored in a schedule's targetIds.
+  lights: publicProcedure.query(() =>
+    LIGHTS.map((l) => ({ id: l.id, label: l.label, room: l.room, kind: l.kind })),
+  ),
+
   list: publicProcedure.query(() => listSchedules()),
 
   create: publicProcedure.input(scheduleInputSchema).mutation(({ input }) => createSchedule(input)),

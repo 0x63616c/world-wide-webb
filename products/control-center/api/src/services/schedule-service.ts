@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "../db/index";
-import type { ScheduleAction, ScheduleTrigger } from "../db/schema";
+import type { ScheduleTrigger } from "../db/schema";
 import { lightSchedules, weatherDailyReading } from "../db/schema";
 
 // ─── Zod shape (authoritative validation for the trpc router) ─────────────────

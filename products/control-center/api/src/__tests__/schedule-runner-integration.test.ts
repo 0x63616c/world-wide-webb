@@ -48,6 +48,9 @@ function makeSelectBuilder() {
   b.where = () => b;
   b.orderBy = () => b;
   b.limit = () => b;
+  // The builder is awaitable: `then` makes it a thenable that resolves to the
+  // table's rows, mimicking a drizzle query builder awaited at the end of a chain.
+  // biome-ignore lint/suspicious/noThenProperty: intentional thenable test double.
   b.then = (onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) =>
     Promise.resolve(resolve()).then(onF, onR);
   return b;
@@ -110,7 +113,7 @@ describe("runScheduleRunnerCycle", () => {
     for (const entityId of ["light.living_room_globe", "light.kitchen_lamp"]) {
       const w = byEntity.get(entityId) as Record<string, unknown> | undefined;
       expect(w, `write for ${entityId}`).toBeTruthy();
-      expect(w!.desiredState).toMatchObject({ on: true, color: { rgb: [255, 0, 0] } });
+      expect(w?.desiredState).toMatchObject({ on: true, color: { rgb: [255, 0, 0] } });
     }
 
     // Schedule stamped fired-today so it won't re-fire.

@@ -16,7 +16,7 @@ describe("actionEndpoints", () => {
   });
   it("gives each target a DISTINCT mood color", () => {
     const eps = actionEndpoints({ on: true, scene: "mood" }, ["a", "b", "c"]);
-    const keys = ["a", "b", "c"].map((k) => JSON.stringify(eps.get(k)!.rgb));
+    const keys = ["a", "b", "c"].map((k) => JSON.stringify(eps.get(k)?.rgb));
     expect(new Set(keys).size).toBe(3);
   });
   it("off action yields on:false endpoints", () => {
@@ -25,9 +25,9 @@ describe("actionEndpoints", () => {
   });
   it("no scene leaves color unset (keep existing)", () => {
     const eps = actionEndpoints({ on: true, brightness: 50 }, ["a"]);
-    const ep = eps.get("a")!;
-    expect(ep.rgb).toBeUndefined();
-    expect(ep.kelvin).toBeUndefined();
-    expect(ep.on).toBe(true);
+    const ep = eps.get("a");
+    expect(ep?.rgb).toBeUndefined();
+    expect(ep?.kelvin).toBeUndefined();
+    expect(ep?.on).toBe(true);
   });
 });

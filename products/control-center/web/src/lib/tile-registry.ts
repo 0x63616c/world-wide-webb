@@ -23,6 +23,8 @@ import { NetworkTile } from "../components/tiles/NetworkTile";
 import { NetworkTileView } from "../components/tiles/NetworkTileView";
 import { Next12Hours } from "../components/tiles/Next12Hours";
 import { Next12HoursView } from "../components/tiles/Next12HoursView";
+import { SchedulesTile } from "../components/tiles/SchedulesTile";
+import { SchedulesTileView } from "../components/tiles/SchedulesTileView";
 import { TeslaTile } from "../components/tiles/TeslaTile";
 import { TeslaTileView } from "../components/tiles/TeslaTileView";
 import { WeatherNow } from "../components/tiles/WeatherNow";
@@ -36,6 +38,7 @@ type TileComponent =
   | typeof TeslaTile
   | typeof Next12Hours
   | typeof ControlsTile
+  | typeof SchedulesTile
   | typeof DogCamTile
   | typeof DogModeTile
   | typeof ClimateTile
@@ -53,6 +56,7 @@ type TileViewComponent =
   | typeof TeslaTileView
   | typeof Next12HoursView
   | typeof ControlsTileView
+  | typeof SchedulesTileView
   | typeof DogCamTileView
   | typeof DogModeTileView
   | typeof ClimateTileView
@@ -152,6 +156,17 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     component: ControlsTile,
     viewComponent: ControlsTileView,
     worldCol: 34,
+    worldRow: 30,
+    cols: 4,
+    rows: 3,
+    ownsTap: true,
+  },
+  {
+    id: "tile_sched",
+    label: "Schedules",
+    component: SchedulesTile,
+    viewComponent: SchedulesTileView,
+    worldCol: 38,
     worldRow: 30,
     cols: 4,
     rows: 3,

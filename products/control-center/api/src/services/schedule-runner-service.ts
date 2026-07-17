@@ -41,7 +41,9 @@ export function fadeProgress(startedMs: number, nowMs: number, fadeMinutes: numb
 /** Read the current desired state for a set of entity ids. */
 async function currentDesired(entityIds: string[]): Promise<Map<string, DeviceLightState | null>> {
   const rows = await db.select().from(deviceState).where(inArray(deviceState.entityId, entityIds));
-  return new Map(rows.map((r) => [r.entityId, (r.desiredState as DeviceLightState | null) ?? null]));
+  return new Map(
+    rows.map((r) => [r.entityId, (r.desiredState as DeviceLightState | null) ?? null]),
+  );
 }
 
 /** Build a FadeEndpoint from an existing desired state (the fade's start point). */
@@ -147,7 +149,8 @@ export async function runScheduleRunnerCycle(): Promise<void> {
     const ids = [...activeFades.keys()];
     const desiredNow = await currentDesired(ids);
     for (const entityId of ids) {
-      const fade = activeFades.get(entityId)!;
+      const fade = activeFades.get(entityId);
+      if (!fade) continue;
       // Abort guard: user (or another schedule) changed desired out from under us.
       const cur = desiredNow.get(entityId) ?? null;
       if (fade.lastWritten && JSON.stringify(cur) !== JSON.stringify(fade.lastWritten)) {

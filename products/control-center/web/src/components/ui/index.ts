@@ -21,6 +21,8 @@ export { StatusDot } from "./StatusDot";
 /** @public , shared tile-author primitive surface; the settings panel imports it directly (www-k6p1). */
 export type { SwitchProps } from "./Switch";
 export { Switch } from "./Switch";
+export type { TextInputProps } from "./TextInput";
+export { TextInput } from "./TextInput";
 export { Tile } from "./Tile";
 /** @public , shared tile-author primitive surface; kept though no internal consumer yet (www-k6p1). */
 export { TileBoundary } from "./TileBoundary";
