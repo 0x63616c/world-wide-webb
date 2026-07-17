@@ -67,5 +67,7 @@
 	<false/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Control Center uses the microphone for hands-free voice control.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Control Center takes a front-camera photo when the panel is woken from sleep.</string>
 </dict>
 </plist>
