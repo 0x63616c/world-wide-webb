@@ -1,0 +1,354 @@
+<!-- PROTOTYPE — throwaway. 4 variants of a wake-photos board tile, switchable
+     via bottom bar / arrow keys. Question: how should wake-photos be viewed on
+     the 1366x1024 panel? Aesthetic copied from control-center tokens.css. -->
+<title>Wake Photos — tile prototype</title>
+<style>
+  :root {
+    --bg: #000; --tile: #0a0a0a; --tile-2: #111; --nest: #181818;
+    --hair: rgba(255,255,255,.07); --hair-2: rgba(255,255,255,.12);
+    --ink: #ededed; --ink-2: #a1a1a1; --ink-3: #6e6e6e;
+    --acc: #0070f3; --acc-dim: rgba(0,112,243,.14); --acc-line: rgba(0,112,243,.45);
+    --amber: #f4c063; --r: 20px;
+    --ui: "Space Grotesk", "SF Pro Display", system-ui, sans-serif;
+    --mono: "Space Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { background: #000; height: 100%; }
+  body { font-family: var(--ui); color: var(--ink); -webkit-font-smoothing: antialiased; letter-spacing: -.01em; overflow: hidden; }
+
+  /* stage = mini board slice, centered */
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); }
+  .variant { display: none; }
+  .variant.on { display: block; }
+
+  .tile {
+    background: var(--tile); border: 1px solid var(--hair); border-radius: var(--r);
+    box-shadow: inset 0 1px 0 0 rgba(255,255,255,.035), 0 10px 30px -18px rgba(0,0,0,.8);
+    position: relative; display: flex; flex-direction: column; padding: 22px;
+  }
+  .sec { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+  .sec .ic { width: 26px; height: 26px; border-radius: 8px; background: var(--nest); border: 1px solid var(--hair); display: grid; place-items: center; color: var(--ink-2); font-size: 13px; }
+  .sec .lbl { font-size: 11.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+  .sec .rt { margin-left: auto; }
+  .cap { font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+  .mono { font-family: var(--mono); letter-spacing: -.02em; }
+  .pill { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px; background: var(--nest); border: 1px solid var(--hair); font-size: 12.5px; color: var(--ink-2); }
+  .pill.on { background: var(--acc-dim); border-color: var(--acc-line); color: var(--acc); }
+  .feed { position: relative; border-radius: 14px; overflow: hidden; background: #0a0a0a; border: 1px solid var(--hair); }
+  .scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 2px, transparent 2px 4px); pointer-events: none; z-index: 3; }
+
+  /* fake wake-photo: dim IR-ish gradient + person silhouette */
+  .ph { position: relative; overflow: hidden; background: #0d0f12; }
+  .ph svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ph .ts { position: absolute; bottom: 8px; left: 10px; z-index: 4; font-family: var(--mono); font-size: 11px; color: rgba(237,237,237,.85); text-shadow: 0 1px 4px #000; }
+
+  /* ── switcher bar ── */
+  #bar { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); z-index: 99;
+    display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-radius: 999px;
+    background: rgba(24,24,24,.92); border: 1px solid var(--hair-2); box-shadow: 0 10px 40px -10px #000; }
+  #bar button { background: var(--tile-2); border: 1px solid var(--hair-2); color: var(--ink); width: 34px; height: 34px; border-radius: 50%; font-size: 15px; cursor: pointer; }
+  #bar button:hover { border-color: var(--acc-line); color: var(--acc); }
+  #bar .name { min-width: 300px; text-align: center; font-size: 13px; color: var(--ink-2); }
+  #bar .name b { color: var(--ink); font-weight: 600; }
+  #hint { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 99; }
+
+  /* ── Variant A: Last Wake ── */
+  #vA .tile { width: 340px; height: 340px; }
+  #vA .feed { flex: 1; cursor: pointer; }
+  #vA .meta { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+
+  /* A's tap-to-grid modal */
+  #gridModal { position: fixed; inset: 0; z-index: 50; display: none; background: rgba(0,0,0,.72); backdrop-filter: blur(6px); place-items: center; }
+  #gridModal.open { display: grid; }
+  #gridModal .panel { width: 1060px; max-height: 82vh; background: var(--tile); border: 1px solid var(--hair-2); border-radius: var(--r); padding: 24px; overflow-y: auto; scrollbar-width: none; }
+  #gridModal .day { margin-bottom: 18px; }
+  #gridModal .g { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-top: 10px; }
+  #gridModal .g .ph { aspect-ratio: 4/3; border-radius: 10px; border: 1px solid var(--hair); cursor: pointer; }
+  #gridModal .g .ph:hover { border-color: var(--acc-line); }
+
+  /* ── Variant B: Wake Strip ── */
+  #vB .tile { width: 700px; height: 300px; }
+  #vB .strip { flex: 1; display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; }
+  #vB .strip::-webkit-scrollbar { display: none; }
+  #vB .ph { flex: 0 0 150px; border-radius: 12px; border: 1px solid var(--hair); cursor: pointer; transition: border-color .15s; }
+  #vB .ph:hover { border-color: var(--acc-line); }
+  #vB .ph.now { border-color: var(--acc-line); box-shadow: 0 0 0 1px rgba(0,112,243,.4), 0 0 26px -6px rgba(0,112,243,.5); }
+  #vB .daynav { display: flex; gap: 8px; margin-top: 12px; }
+  .chip { padding: 7px 14px; border-radius: 11px; font-size: 12.5px; cursor: pointer; font-weight: 500; background: var(--tile-2); border: 1px solid var(--hair); color: var(--ink-2); font-family: inherit; }
+  .chip.on { background: var(--acc-dim); border-color: var(--acc-line); color: var(--acc); }
+
+  /* ── Variant C: Timelapse ── */
+  #vC .tile { width: 430px; height: 380px; }
+  #vC .feed { flex: 1; }
+  #vC .frame { position: absolute; inset: 0; opacity: 0; transition: opacity .12s; }
+  #vC .frame.show { opacity: 1; }
+  #vC .controls { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+  #vC .play { width: 40px; height: 40px; border-radius: 50%; background: var(--acc-dim); border: 1px solid var(--acc-line); color: var(--acc); font-size: 14px; cursor: pointer; }
+  #vC .rail { flex: 1; height: 6px; border-radius: 999px; background: var(--nest); position: relative; cursor: pointer; }
+  #vC .rail .fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--acc); width: 0%; }
+
+  /* ── Variant E: stat tile + fullscreen viewer ── */
+  #vE .tile { width: 200px; height: 200px; cursor: pointer; }
+  #vE .tile:hover { border-color: var(--hair-2); }
+  #vE .big { font-size: 44px; font-weight: 600; line-height: 1; margin-top: auto; }
+  #vE .sub { margin-top: 6px; margin-bottom: 4px; }
+  #viewer { position: fixed; inset: 0; z-index: 60; display: none; background: #000; padding: 28px 40px; flex-direction: column; }
+  #viewer.open { display: flex; }
+  #viewer .top { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  #viewer .seg { display: flex; gap: 8px; margin-left: auto; }
+  #viewer .close { background: var(--tile-2); border: 1px solid var(--hair-2); color: var(--ink); width: 38px; height: 38px; border-radius: 50%; font-size: 15px; cursor: pointer; }
+  #viewer .body { flex: 1; overflow-y: auto; scrollbar-width: none; }
+  #viewer .g { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; margin: 10px 0 20px; }
+  #viewer .g .ph { aspect-ratio: 4/3; border-radius: 10px; border: 1px solid var(--hair); cursor: pointer; }
+  #viewer .g .ph:hover { border-color: var(--acc-line); }
+  #viewer #vLapse { display: none; height: 100%; flex-direction: column; }
+  #viewer.lapse #vLapse { display: flex; }
+  #viewer.lapse #vGrid { display: none; }
+  #vLapse .stagebox { flex: 1; position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--hair); background: #0d0f12; }
+  #vLapse .frame { position: absolute; inset: 0; opacity: 0; transition: opacity .12s; }
+  #vLapse .frame.show { opacity: 1; }
+  #vLapse .controls { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
+  #vLapse .play { width: 44px; height: 44px; border-radius: 50%; background: var(--acc-dim); border: 1px solid var(--acc-line); color: var(--acc); font-size: 15px; cursor: pointer; }
+  #vLapse .rail { flex: 1; height: 6px; border-radius: 999px; background: var(--nest); position: relative; cursor: pointer; }
+  #vLapse .rail .fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--acc); }
+
+  /* ── Variant D: Guestbook mosaic ── */
+  #vD .tile { width: 460px; height: 460px; }
+  #vD .g { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: 10px; }
+  #vD .ph { border-radius: 12px; border: 1px solid var(--hair); cursor: pointer; }
+  #vD .ph:hover { border-color: var(--acc-line); }
+  #vD .ph.big { grid-column: span 2; grid-row: span 2; }
+</style>
+
+<div id="stage">
+  <!-- A: latest photo, tap → day-grouped fullscreen grid -->
+  <div class="variant" id="vA">
+    <div class="tile">
+      <div class="sec"><div class="ic">◉</div><div class="lbl">Last Wake</div>
+        <div class="rt pill on"><span class="mono" style="font-size:11px">14:32</span></div></div>
+      <div class="feed ph" onclick="document.getElementById('gridModal').classList.add('open')">
+        <svg data-seed="1"></svg><div class="scan"></div><div class="ts">TODAY 14:32:07</div>
+      </div>
+      <div class="meta"><span class="cap">12 wakes today</span><span class="cap" style="color:var(--acc)">Tap for history</span></div>
+    </div>
+  </div>
+
+  <!-- B: filmstrip of today, day chips -->
+  <div class="variant" id="vB">
+    <div class="tile">
+      <div class="sec"><div class="ic">▤</div><div class="lbl">Wake Strip</div>
+        <div class="rt cap">12 today</div></div>
+      <div class="strip" id="stripRow"></div>
+      <div class="daynav">
+        <button class="chip on">Today</button><button class="chip">Wed 16</button>
+        <button class="chip">Tue 15</button><button class="chip">Mon 14</button><button class="chip">Older…</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- C: auto-playing timelapse of the day -->
+  <div class="variant" id="vC">
+    <div class="tile">
+      <div class="sec"><div class="ic">▶</div><div class="lbl">Wake Lapse</div>
+        <div class="rt pill"><span class="mono" id="lapseTs" style="font-size:11px">--:--</span></div></div>
+      <div class="feed" id="lapseFeed"><div class="scan"></div></div>
+      <div class="controls">
+        <button class="play" id="playBtn">❚❚</button>
+        <div class="rail" id="rail"><div class="fill" id="railFill"></div></div>
+        <span class="cap" id="lapseIdx">1/12</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- D: mosaic, latest big + recent grid -->
+  <div class="variant" id="vD">
+    <div class="tile">
+      <div class="sec"><div class="ic">▦</div><div class="lbl">Guestbook</div>
+        <div class="rt cap">Last 8 wakes</div></div>
+      <div class="g" id="mosaic"></div>
+    </div>
+  </div>
+</div>
+
+  <!-- E: tiny stat tile, no photos; tap → fullscreen viewer -->
+  <div class="variant" id="vE">
+    <div class="tile" onclick="document.getElementById('viewer').classList.add('open')">
+      <div class="sec"><div class="ic">◉</div><div class="lbl">Wakes</div></div>
+      <div class="big">12</div>
+      <div class="sub cap">today · last 14:32</div>
+    </div>
+  </div>
+
+<!-- E's fullscreen viewer -->
+<div id="viewer">
+  <div class="top">
+    <div class="sec" style="margin:0"><div class="ic">◉</div><div class="lbl">Wake History</div></div>
+    <span class="cap">341 photos · 9.2 GB</span>
+    <div class="seg">
+      <button class="chip on" id="segGrid">Grid</button>
+      <button class="chip" id="segLapse">Timelapse</button>
+      <button class="close" onclick="document.getElementById('viewer').classList.remove('open')">✕</button>
+    </div>
+  </div>
+  <div class="body">
+    <div id="vGrid">
+      <div class="cap" style="color:var(--ink-2)">Today — Thu 17 Jul · 12 wakes</div><div class="g" data-vday="0" data-n="12"></div>
+      <div class="cap" style="color:var(--ink-2)">Wed 16 Jul · 18 wakes</div><div class="g" data-vday="1" data-n="18"></div>
+      <div class="cap" style="color:var(--ink-2)">Tue 15 Jul · 9 wakes</div><div class="g" data-vday="2" data-n="9"></div>
+    </div>
+    <div id="vLapse">
+      <div class="stagebox" id="vLapseBox"><div class="scan"></div></div>
+      <div class="controls">
+        <button class="play" id="vPlayBtn">❚❚</button>
+        <div class="rail" id="vRail"><div class="fill" id="vRailFill" style="width:0%"></div></div>
+        <span class="cap" id="vLapseTs">--:--</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- A's modal -->
+<div id="gridModal" onclick="this.classList.remove('open')">
+  <div class="panel" onclick="event.stopPropagation()">
+    <div class="sec"><div class="ic">◉</div><div class="lbl">Wake History</div><div class="rt cap">341 photos · 9.2 GB</div></div>
+    <div class="day"><div class="cap" style="color:var(--ink-2)">Today — Thu 17 Jul · 12 wakes</div><div class="g" data-day="0" data-n="12"></div></div>
+    <div class="day"><div class="cap" style="color:var(--ink-2)">Wed 16 Jul · 18 wakes</div><div class="g" data-day="1" data-n="18"></div></div>
+    <div class="day"><div class="cap" style="color:var(--ink-2)">Tue 15 Jul · 9 wakes</div><div class="g" data-day="2" data-n="9"></div></div>
+  </div>
+</div>
+
+<div id="bar">
+  <button id="prev">←</button>
+  <div class="name" id="barName"></div>
+  <button id="next">→</button>
+</div>
+<div id="hint" class="pill">PROTOTYPE — ← → to switch, everything tappable</div>
+
+<script>
+  // fake IR-ish wake photo as inline SVG: gradient room + person silhouette
+  const hues = [[210,14],[24,10],[160,9],[280,8],[40,12],[190,11]];
+  function photoSvg(seed) {
+    const [h,s] = hues[seed % hues.length];
+    const px = 28 + (seed * 13) % 44, scale = .8 + ((seed * 7) % 5) / 10;
+    return `<svg viewBox="0 0 100 75" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="g${seed}" cx="50%" cy="42%" r="75%">
+        <stop offset="0%" stop-color="hsl(${h} ${s}% 26%)"/><stop offset="100%" stop-color="hsl(${h} ${s}% 7%)"/>
+      </radialGradient></defs>
+      <rect width="100" height="75" fill="url(#g${seed})"/>
+      <g transform="translate(${px} 30) scale(${scale})" fill="hsl(${h} ${s}% 3%)" opacity=".9">
+        <circle cx="12" cy="8" r="8"/><path d="M-4 45 Q-2 20 12 19 Q26 20 28 45 Z"/>
+      </g>
+      <rect width="100" height="75" fill="black" opacity="0" />
+    </svg>`;
+  }
+  function ph(seed, ts, cls="") {
+    return `<div class="ph ${cls}">${photoSvg(seed)}<div class="scan"></div><div class="ts">${ts}</div></div>`;
+  }
+  const times = ["06:58","07:41","08:15","09:03","09:47","10:22","11:36","12:10","12:54","13:29","14:05","14:32"];
+
+  // seed the fake photos
+  document.querySelector('#vA svg').outerHTML = photoSvg(1).match(/<svg[\s\S]*svg>/)[0];
+  document.getElementById('stripRow').innerHTML =
+    times.map((t,i) => ph(i, t, i === times.length-1 ? "now" : "")).reverse().join("");
+  document.querySelectorAll('#gridModal .g').forEach(g => {
+    const n = +g.dataset.n, d = +g.dataset.day;
+    g.innerHTML = Array.from({length:n}, (_,i) => ph(i + d*7, times[i % times.length])).join("");
+  });
+  document.getElementById('mosaic').innerHTML =
+    ph(11, "14:32", "big") + [10,9,8,7,6].map(i => ph(i, times[i])).join("");
+
+  // variant C: timelapse player
+  const feed = document.getElementById('lapseFeed');
+  feed.insertAdjacentHTML('afterbegin',
+    times.map((t,i) => `<div class="frame" data-i="${i}">${photoSvg(i)}</div>`).join(""));
+  const frames = [...feed.querySelectorAll('.frame')];
+  let idx = 0, playing = true, timer = null;
+  function showFrame(i) {
+    idx = (i + frames.length) % frames.length;
+    frames.forEach((f,j) => f.classList.toggle('show', j === idx));
+    document.getElementById('lapseTs').textContent = times[idx];
+    document.getElementById('lapseIdx').textContent = `${idx+1}/${frames.length}`;
+    document.getElementById('railFill').style.width = `${(idx+1)/frames.length*100}%`;
+  }
+  function setPlaying(p) {
+    playing = p;
+    document.getElementById('playBtn').textContent = p ? "❚❚" : "▶";
+    clearInterval(timer);
+    if (p) timer = setInterval(() => showFrame(idx+1), 450);
+  }
+  document.getElementById('playBtn').onclick = () => setPlaying(!playing);
+  document.getElementById('rail').onclick = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setPlaying(false); showFrame(Math.floor((e.clientX - r.left)/r.width * frames.length));
+  };
+  showFrame(0); setPlaying(true);
+
+  // variant E: viewer grids + timelapse
+  document.querySelectorAll('#vGrid .g').forEach(g => {
+    const n = +g.dataset.n, d = +g.dataset.vday;
+    g.innerHTML = Array.from({length:n}, (_,i) => ph(i + d*7, times[i % times.length])).join("");
+  });
+  const vBox = document.getElementById('vLapseBox');
+  vBox.insertAdjacentHTML('afterbegin',
+    times.map((t,i) => `<div class="frame">${photoSvg(i)}</div>`).join(""));
+  const vFrames = [...vBox.querySelectorAll('.frame')];
+  let vIdx = 0, vPlaying = false, vTimer = null;
+  function vShow(i) {
+    vIdx = (i + vFrames.length) % vFrames.length;
+    vFrames.forEach((f,j) => f.classList.toggle('show', j === vIdx));
+    document.getElementById('vLapseTs').textContent = times[vIdx];
+    document.getElementById('vRailFill').style.width = `${(vIdx+1)/vFrames.length*100}%`;
+  }
+  function vSetPlaying(p) {
+    vPlaying = p;
+    document.getElementById('vPlayBtn').textContent = p ? "❚❚" : "▶";
+    clearInterval(vTimer);
+    if (p) vTimer = setInterval(() => vShow(vIdx+1), 450);
+  }
+  document.getElementById('vPlayBtn').onclick = () => vSetPlaying(!vPlaying);
+  document.getElementById('vRail').onclick = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    vSetPlaying(false); vShow(Math.floor((e.clientX - r.left)/r.width * vFrames.length));
+  };
+  document.getElementById('segGrid').onclick = () => {
+    document.getElementById('viewer').classList.remove('lapse');
+    document.getElementById('segGrid').classList.add('on');
+    document.getElementById('segLapse').classList.remove('on');
+    vSetPlaying(false);
+  };
+  document.getElementById('segLapse').onclick = () => {
+    document.getElementById('viewer').classList.add('lapse');
+    document.getElementById('segLapse').classList.add('on');
+    document.getElementById('segGrid').classList.remove('on');
+    vShow(0); vSetPlaying(true);
+  };
+  vShow(0);
+
+  // switcher
+  const variants = [
+    ["vE", "E — Stat tile (no photos) → fullscreen viewer"],
+    ["vA", "A — Last Wake (tap → history grid)"],
+    ["vB", "B — Wake Strip (today's filmstrip + day chips)"],
+    ["vC", "C — Wake Lapse (auto timelapse + scrub)"],
+    ["vD", "D — Guestbook (mosaic, latest big)"],
+  ];
+  let cur = 0;
+  function show(i) {
+    cur = (i + variants.length) % variants.length;
+    variants.forEach(([id], j) =>
+      document.getElementById(id).classList.toggle('on', j === cur));
+    const [, name] = variants[cur];
+    const [k, rest] = [name.slice(0,1), name.slice(1)];
+    document.getElementById('barName').innerHTML = `<b>${k}</b>${rest}`;
+    document.getElementById('gridModal').classList.remove('open');
+    document.getElementById('viewer').classList.remove('open');
+    vSetPlaying(false);
+  }
+  document.getElementById('prev').onclick = () => show(cur-1);
+  document.getElementById('next').onclick = () => show(cur+1);
+  addEventListener('keydown', e => {
+    if (e.key === "ArrowLeft") show(cur-1);
+    if (e.key === "ArrowRight") show(cur+1);
+  });
+  show(0);
+</script>
