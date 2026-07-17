@@ -35,6 +35,9 @@ import {
   setSnapMode,
   useSettings,
 } from "../lib/settings";
+import { formatTilt } from "../lib/tilt";
+import { formatBattery, useBatteryInfo } from "../lib/useBatteryInfo";
+import { useTiltAngle } from "../lib/useTiltAngle";
 import { LogsModal } from "./LogsModal";
 import { Segmented } from "./ui/Segmented";
 import { Slider } from "./ui/Slider";
@@ -124,12 +127,20 @@ export type SettingsPanelProps = {
   // can close the settings modal out of the way. Optional so the panel still
   // renders standalone (e.g. in Storybook) without a host modal to close.
   onClose?: () => void;
+  // Full-screen overlays owned by the host (they must outlive this panel,
+  // which unmounts with the modal). Optional for the same Storybook reason.
+  onOpenLevel?: () => void;
+  onOpenClean?: () => void;
 };
 
-export function SettingsPanel({ onClose }: SettingsPanelProps) {
+export function SettingsPanel({ onClose, onOpenLevel, onOpenClean }: SettingsPanelProps) {
   const settings = useSettings();
   const { name: deviceName, isSet: deviceNameSet } = useDeviceName();
   const [logsOpen, setLogsOpen] = useState(false);
+  // The panel only exists while the settings modal is open, so both sensors
+  // are live exactly for the modal's lifetime.
+  const battery = useBatteryInfo(true);
+  const tilt = useTiltAngle(true);
   const brightnessPercent = Math.round(settings.activeBrightness * 100);
   const dimMinutes = Math.round(settings.idleDimTimeoutMs / MS_PER_MIN);
   const dimPercent = Math.round(settings.idleDimLevel * 100);
@@ -153,6 +164,27 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             onChange={setDeviceName}
           />
         </StackField>
+        <Row
+          label="Battery"
+          sub="Charge state of this panel."
+          control={
+            <span style={VALUE_TEXT}>{battery ? formatBattery(battery) : "unavailable"}</span>
+          }
+        />
+        <Row
+          label="Level"
+          sub="Open the full screen level to adjust the mount."
+          control={
+            <button
+              type="button"
+              onClick={() => onOpenLevel?.()}
+              style={{ ...VALUE_TEXT, background: "none", border: "none", cursor: "pointer" }}
+            >
+              {tilt.state === "ready" ? formatTilt(tilt.angle) : "--"}
+              <span style={{ color: "var(--ink-3)", marginLeft: 10, fontSize: 15 }}>›</span>
+            </button>
+          }
+        />
       </Section>
 
       <Section>
@@ -199,6 +231,15 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             />
           </>
         ) : null}
+        <Row
+          label="Clean screen"
+          sub="Locks touches while you wipe the screen."
+          control={
+            <button type="button" onClick={() => onOpenClean?.()} style={FOOTER_BUTTON}>
+              Start
+            </button>
+          }
+        />
       </Section>
 
       <Section>
@@ -287,6 +328,13 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     </div>
   );
 }
+
+// Read-only value on the right of a Row (battery / level readouts).
+const VALUE_TEXT: CSSProperties = {
+  fontFamily: "var(--mono)",
+  fontSize: 14,
+  color: "var(--ink)",
+};
 
 const FOOTER_BUTTON: CSSProperties = {
   padding: "8px 14px",

@@ -1,0 +1,74 @@
+import { describe, expect, it } from "vitest";
+import { formatTilt, isLevel, normalizeDegrees, tiltFromGravity } from "./tilt";
+
+const G = 9.81;
+// Gravity reading for a device whose right side has DROPPED by `deg`
+// (device rotated clockwise as seen from the front), in portrait.
+function gravityRightSideLow(deg: number): { gx: number; gy: number } {
+  const rad = (deg * Math.PI) / 180;
+  return { gx: G * Math.sin(rad), gy: -G * Math.cos(rad) };
+}
+
+describe("tiltFromGravity", () => {
+  it("reads 0 for an upright, level portrait device", () => {
+    expect(tiltFromGravity(0, -G, 0)).toBeCloseTo(0, 5);
+  });
+
+  it("is negative when the right side is low", () => {
+    const { gx, gy } = gravityRightSideLow(3);
+    expect(tiltFromGravity(gx, gy, 0)).toBeCloseTo(-3, 5);
+  });
+
+  it("is positive when the right side is high", () => {
+    const { gx, gy } = gravityRightSideLow(-2.5);
+    expect(tiltFromGravity(gx, gy, 0)).toBeCloseTo(2.5, 5);
+  });
+
+  it("compensates for the rendered screen orientation", () => {
+    // Same physical reading, screen rotated 90°: the roll shifts by 90°.
+    const { gx, gy } = gravityRightSideLow(3);
+    const portrait = tiltFromGravity(gx, gy, 0);
+    const landscape = tiltFromGravity(gx, gy, 90);
+    expect(portrait).not.toBeNull();
+    expect(landscape).toBeCloseTo(normalizeDegrees((portrait as number) + 90), 5);
+  });
+
+  it("returns null when the device lies flat", () => {
+    expect(tiltFromGravity(0.05, -0.08, 0)).toBeNull();
+  });
+});
+
+describe("normalizeDegrees", () => {
+  it("wraps into (-180, 180]", () => {
+    expect(normalizeDegrees(0)).toBe(0);
+    expect(normalizeDegrees(190)).toBe(-170);
+    expect(normalizeDegrees(-190)).toBe(170);
+    expect(normalizeDegrees(180)).toBe(180);
+    expect(normalizeDegrees(-180)).toBe(180);
+    expect(normalizeDegrees(360)).toBe(0);
+  });
+});
+
+describe("formatTilt", () => {
+  it("shows a signed one-decimal degree", () => {
+    expect(formatTilt(0.42)).toBe("+0.4°");
+    expect(formatTilt(-2.14)).toBe("-2.1°");
+  });
+
+  it("drops the trailing .0", () => {
+    expect(formatTilt(3.04)).toBe("+3°");
+  });
+
+  it("snaps to 0° inside the flat zone", () => {
+    expect(formatTilt(0.1)).toBe("0°");
+    expect(formatTilt(-0.1)).toBe("0°");
+  });
+});
+
+describe("isLevel", () => {
+  it("is true only inside the flat zone", () => {
+    expect(isLevel(0.1)).toBe(true);
+    expect(isLevel(-0.1)).toBe(true);
+    expect(isLevel(0.2)).toBe(false);
+  });
+});

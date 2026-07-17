@@ -56,5 +56,9 @@ export const Default: Story = {
     await expect(canvas.getByRole("slider", { name: "Dim level" })).toBeInTheDocument();
     await expect(canvas.getByRole("switch", { name: "Dim when idle" })).toBeInTheDocument();
     await expect(canvas.getByRole("switch", { name: "FPS meter" })).toBeInTheDocument();
+    // Device status rows + the cleaning-mode launcher.
+    await expect(canvas.getByText("Battery")).toBeInTheDocument();
+    await expect(canvas.getByText("Level")).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Start" })).toBeInTheDocument();
   },
 };

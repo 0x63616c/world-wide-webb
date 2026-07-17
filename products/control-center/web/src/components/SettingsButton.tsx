@@ -6,12 +6,19 @@
  */
 
 import { useState } from "react";
+import { CleanScreenOverlay } from "./CleanScreenOverlay";
 import { Icon } from "./Icon";
+import { LevelOverlay } from "./LevelOverlay";
 import { SettingsPanel } from "./SettingsPanel";
 import { Modal } from "./ui/Modal";
 
 export function SettingsButton() {
   const [open, setOpen] = useState(false);
+  // Full-screen overlays launched from the panel. Hosted here, not inside
+  // SettingsPanel: both close the settings modal behind them (Tesla-style,
+  // you land back on the board), which unmounts the panel.
+  const [levelOpen, setLevelOpen] = useState(false);
+  const [cleanOpen, setCleanOpen] = useState(false);
 
   return (
     <>
@@ -50,8 +57,20 @@ export function SettingsButton() {
         maxHeight={640}
         scrollbar="visible"
       >
-        <SettingsPanel onClose={() => setOpen(false)} />
+        <SettingsPanel
+          onClose={() => setOpen(false)}
+          onOpenLevel={() => {
+            setOpen(false);
+            setLevelOpen(true);
+          }}
+          onOpenClean={() => {
+            setOpen(false);
+            setCleanOpen(true);
+          }}
+        />
       </Modal>
+      <LevelOverlay open={levelOpen} onClose={() => setLevelOpen(false)} />
+      <CleanScreenOverlay open={cleanOpen} onClose={() => setCleanOpen(false)} />
     </>
   );
 }
