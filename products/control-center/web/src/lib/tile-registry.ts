@@ -212,9 +212,9 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     cols: 4,
     rows: 2,
   },
-  // Media tiles (www-51hf)  --  placed directly above the Clock (www-p74p): the
-  // TV/Sound pair on rows 22-24 and TV Apps/Quick Play on rows 25-26, so the
-  // cluster ends just above the Clock's row 27.
+  // Media tiles (www-51hf)  --  TV, Sound System, TV Apps, Quick Play, and
+  // Frontend Logs. Default positions are V4B layout, overridable via
+  // board_tile_placement rows in the database.
   {
     id: "tile_tv",
     label: "TV",
