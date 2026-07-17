@@ -857,7 +857,7 @@ export function Board() {
         transformed ancestor becomes the containing block for position:fixed
         descendants. LayoutEditorOverlay's own entrance-animation wrapper sets
         `transform: scale(...)`, so nesting it inside #stage would pin
-        LayoutEditor's internal fixed chrome to that wrapper's in-flow box ,
+        LayoutEditor's internal fixed chrome to that wrapper's in-flow box —
         which sits at #stage's current (board-world) scroll offset, i.e.
         completely offscreen. Living outside #stage entirely sidesteps the
         issue regardless of #stage's scroll position. */}
