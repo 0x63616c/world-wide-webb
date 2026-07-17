@@ -711,144 +711,157 @@ export function Board() {
   if (layoutStatus === "loading") return <BoardLoadingStage />;
 
   return (
-    <div
-      id="stage"
-      ref={stageRef}
-      onScroll={onScroll}
-      onPointerDown={onStagePointerDown}
-      onWheel={markUser}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerLeave={endDrag}
-      // pointercancel fires when the OS steals the touch (edge/system gesture,
-      // multi-touch). Without this the held-pointer ref sticks true, which would
-      // freeze drag-pan AND permanently disable the idle reset (it never fires
-      // mid-interaction). Ending the drag here clears that ref on the panel.
-      onPointerCancel={endDrag}
-      style={{
-        position: "fixed",
-        inset: 0,
-        // Modal open: freeze native scroll so the board can't pan behind it.
-        // Both touch and trackpad scroll route through this element, so killing
-        // overflow + touchAction here stops every panning vector at once.
-        overflow: modalOpen ? "hidden" : "auto",
-        background: "var(--bg)",
-        // Pan is one-finger native scroll; no rubber-band past the world edges.
-        touchAction: modalOpen ? "none" : "pan-x pan-y",
-        // Native settle feel: the browser snaps each tile's center to the
-        // viewport center on the compositor thread (no JS spring → no jitter).
-        // "spring"/"none" disable it; see SNAP_MODES.
-        scrollSnapType: modalOpen ? "none" : SNAP_CSS[snapMode],
-        overscrollBehavior: "none",
-        cursor: "grab",
-        scrollbarWidth: "none",
-      }}
-    >
+    <>
       <div
-        id="world"
-        className="e-root"
+        id="stage"
+        ref={stageRef}
+        onScroll={onScroll}
+        onPointerDown={onStagePointerDown}
+        onWheel={markUser}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerLeave={endDrag}
+        // pointercancel fires when the OS steals the touch (edge/system gesture,
+        // multi-touch). Without this the held-pointer ref sticks true, which would
+        // freeze drag-pan AND permanently disable the idle reset (it never fires
+        // mid-interaction). Ending the drag here clears that ref on the panel.
+        onPointerCancel={endDrag}
         style={{
-          position: "relative",
-          width: WORLD_W,
-          height: WORLD_H,
-          backgroundColor: "var(--bg)",
+          position: "fixed",
+          inset: 0,
+          // Modal open: freeze native scroll so the board can't pan behind it.
+          // Both touch and trackpad scroll route through this element, so killing
+          // overflow + touchAction here stops every panning vector at once.
+          overflow: modalOpen ? "hidden" : "auto",
+          background: "var(--bg)",
+          // Pan is one-finger native scroll; no rubber-band past the world edges.
+          touchAction: modalOpen ? "none" : "pan-x pan-y",
+          // Native settle feel: the browser snaps each tile's center to the
+          // viewport center on the compositor thread (no JS spring → no jitter).
+          // "spring"/"none" disable it; see SNAP_MODES.
+          scrollSnapType: modalOpen ? "none" : SNAP_CSS[snapMode],
+          overscrollBehavior: "none",
+          cursor: "grab",
+          scrollbarWidth: "none",
         }}
       >
-        {/* ONE render path for every cell. Geometry (position, size, snap target,
+        <div
+          id="world"
+          className="e-root"
+          style={{
+            position: "relative",
+            width: WORLD_W,
+            height: WORLD_H,
+            backgroundColor: "var(--bg)",
+          }}
+        >
+          {/* ONE render path for every cell. Geometry (position, size, snap target,
             centered highlight) is written once and shared; a cell with an `entry`
             renders an interactive tile, one without renders inert bento fill.
             Placeholders sort first in boardCells so they paint underneath. */}
-        {visibleCells.map(({ id, rect, entry }) => {
-          const geometry: React.CSSProperties = {
-            position: "absolute",
-            left: rect.x,
-            top: rect.y,
-            width: rect.w,
-            height: rect.h,
-            // Snap target: every cell's center docks to the viewport center.
-            scrollSnapAlign: "center",
-          };
-          const centeredClass = id === centeredId ? "is-centered" : undefined;
+          {visibleCells.map(({ id, rect, entry }) => {
+            const geometry: React.CSSProperties = {
+              position: "absolute",
+              left: rect.x,
+              top: rect.y,
+              width: rect.w,
+              height: rect.h,
+              // Snap target: every cell's center docks to the viewport center.
+              scrollSnapAlign: "center",
+            };
+            const centeredClass = id === centeredId ? "is-centered" : undefined;
 
-          // Decorative bento fill: pointer-transparent so it never intercepts
-          // taps, no component, no interaction.
-          if (!entry) {
+            // Decorative bento fill: pointer-transparent so it never intercepts
+            // taps, no component, no interaction.
+            if (!entry) {
+              return (
+                <div
+                  key={id}
+                  className={centeredClass}
+                  style={{ ...geometry, pointerEvents: "none" }}
+                >
+                  <PlaceholderTile />
+                </div>
+              );
+            }
+
+            const TileComponent = entry.component;
             return (
+              // Not a real <button>: the tile body contains its own buttons
+              // (toggles, sliders, "More"), and nesting interactive elements is
+              // invalid. role+tabIndex give the wrapper button semantics while
+              // keeping inner controls separately operable.
+              // biome-ignore lint/a11y/useSemanticElements: nested interactive content forbids a <button>
               <div
                 key={id}
                 className={centeredClass}
-                style={{ ...geometry, pointerEvents: "none" }}
+                style={{ ...geometry, cursor: "pointer" }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${entry.label}`}
+                onClickCapture={(e) => onTileClickCapture(entry, e)}
+                onKeyDown={(e) => {
+                  if (entry.ownsTap) return;
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openModalFor(entry);
+                  }
+                }}
               >
-                <PlaceholderTile />
+                <BoundedTile>
+                  <TileComponent />
+                </BoundedTile>
               </div>
             );
-          }
+          })}
+        </div>
 
-          const TileComponent = entry.component;
-          return (
-            // Not a real <button>: the tile body contains its own buttons
-            // (toggles, sliders, "More"), and nesting interactive elements is
-            // invalid. role+tabIndex give the wrapper button semantics while
-            // keeping inner controls separately operable.
-            // biome-ignore lint/a11y/useSemanticElements: nested interactive content forbids a <button>
-            <div
-              key={id}
-              className={centeredClass}
-              style={{ ...geometry, cursor: "pointer" }}
-              role="button"
-              tabIndex={0}
-              aria-label={`Open ${entry.label}`}
-              onClickCapture={(e) => onTileClickCapture(entry, e)}
-              onKeyDown={(e) => {
-                if (entry.ownsTap) return;
-                if (e.target !== e.currentTarget) return;
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  openModalFor(entry);
-                }
-              }}
-            >
-              <BoundedTile>
-                <TileComponent />
-              </BoundedTile>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Viewport-level overlays: a fixed ancestor-free layer keeps the banner,
+        {/* Viewport-level overlays: a fixed ancestor-free layer keeps the banner,
           FPS readout, and modal anchored to the screen regardless of pan. */}
-      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 200 }}>
-        <DeviceNameBanner />
-        <ConnectionLostBanner />
-        <AppUpdateBanner />
-        <UnplacedTilesBanner count={layout.unplaced.length} />
-        {settings.showFps ? <FpsMeter /> : null}
-        {settings.showBuildBadge ? <BuildHashBadge /> : null}
-        {/* Hidden while the layout editor is open: it's a full-screen overlay
+        <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 200 }}>
+          <DeviceNameBanner />
+          <ConnectionLostBanner />
+          <AppUpdateBanner />
+          <UnplacedTilesBanner count={layout.unplaced.length} />
+          {settings.showFps ? <FpsMeter /> : null}
+          {settings.showBuildBadge ? <BuildHashBadge /> : null}
+          {/* Hidden while the layout editor is open: it's a full-screen overlay
             with its own camera/chrome, and none of these read on a frozen board
             underneath it. */}
-        {layoutEditOpen ? null : <SettingsButton />}
-        {layoutEditOpen ? null : (
-          <CenteredTileLabel label={centeredLabel} panSignal={panSignal} />
-        )}
-        {layoutEditOpen ? null : (
-          <Minimap
-            view={view}
-            panSignal={panSignal}
-            // Both layers derive from the one boardCells list: real tiles (with a
-            // label) and placeholder ghosts (no entry). flatMap narrows `entry`.
-            tiles={boardCells.flatMap((c) => (c.entry ? [{ ...c.rect, label: c.entry.label }] : []))}
-            ghosts={boardCells.flatMap((c) => (c.entry ? [] : [c.rect]))}
-            onJump={userJump}
-          />
-        )}
-      </div>
-      {/* Idle dim tap-shield (native only). Sits above the board + its chrome but
+          {layoutEditOpen ? null : <SettingsButton />}
+          {layoutEditOpen ? null : (
+            <CenteredTileLabel label={centeredLabel} panSignal={panSignal} />
+          )}
+          {layoutEditOpen ? null : (
+            <Minimap
+              view={view}
+              panSignal={panSignal}
+              // Both layers derive from the one boardCells list: real tiles (with a
+              // label) and placeholder ghosts (no entry). flatMap narrows `entry`.
+              tiles={boardCells.flatMap((c) =>
+                c.entry ? [{ ...c.rect, label: c.entry.label }] : [],
+              )}
+              ghosts={boardCells.flatMap((c) => (c.entry ? [] : [c.rect]))}
+              onJump={userJump}
+            />
+          )}
+        </div>
+        {/* Idle dim tap-shield (native only). Sits above the board + its chrome but
           below modals (which portal to <body>) so it swallows the wake tap. */}
-      <DimOverlay active={dimmed} onWake={wake} />
-      <TileModalHost entry={activeModal} onClose={() => setActiveModal(null)} />
+        <DimOverlay active={dimmed} onWake={wake} />
+        <TileModalHost entry={activeModal} onClose={() => setActiveModal(null)} />
+      </div>
+      {/* Mounted as a sibling of #stage, NOT a descendant , #stage is the native
+        scroll container (scrollLeft/Top drive panning), and per spec any
+        transformed ancestor becomes the containing block for position:fixed
+        descendants. LayoutEditorOverlay's own entrance-animation wrapper sets
+        `transform: scale(...)`, so nesting it inside #stage would pin
+        LayoutEditor's internal fixed chrome to that wrapper's in-flow box ,
+        which sits at #stage's current (board-world) scroll offset, i.e.
+        completely offscreen. Living outside #stage entirely sidesteps the
+        issue regardless of #stage's scroll position. */}
       <LayoutEditorOverlay open={layoutEditOpen} />
-    </div>
+    </>
   );
 }

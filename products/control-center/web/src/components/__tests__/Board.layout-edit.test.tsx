@@ -138,6 +138,20 @@ describe("Board , layout edit mode integration", () => {
     expect(screen.getByTestId("layout-editor-stub")).toBeTruthy();
   });
 
+  it("mounts the LayoutEditor overlay outside the transformed/scrolled #stage subtree", () => {
+    // Regression guard: #stage is the native scroll container (scrollLeft/Top
+    // drive panning), so any fixed-position chrome nested inside it renders at
+    // #stage's current board-world scroll offset if an intervening ancestor
+    // also carries a CSS transform (the entrance-animation wrapper does) ,
+    // completely offscreen, even though the DOM nodes all exist. The overlay
+    // must NOT be a descendant of #stage at all.
+    layoutEditOpen = true;
+    render(<Board />);
+    const stage = document.getElementById("stage") as HTMLElement;
+    const overlay = screen.getByTestId("layout-editor-stub");
+    expect(stage.contains(overlay)).toBe(false);
+  });
+
   it("passes enabled: !layoutEditOpen through to useBoardLayout (poll pause)", () => {
     layoutEditOpen = false;
     const { rerender } = render(<Board />);
