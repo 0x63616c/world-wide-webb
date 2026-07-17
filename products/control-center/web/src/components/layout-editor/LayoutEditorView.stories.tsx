@@ -88,6 +88,7 @@ const INVALID_TILES = moveTile(DEFAULT_TILES, "tile_ac", 31, 24);
 
 const meta = {
   title: "LayoutEditor/LayoutEditorView",
+  tags: ["autodocs"],
   component: LayoutEditorView,
   parameters: { boardWrapper: false, layout: "fullscreen" },
   args: {
