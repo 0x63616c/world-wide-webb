@@ -52,6 +52,7 @@
       "!.worktrees",
       "!**/coverage",
       "!**/.claude",
+      "!**/.superpowers",
       "!**/.cmux",
       "!**/experiments",
       "!**/docs/media-tiles",
