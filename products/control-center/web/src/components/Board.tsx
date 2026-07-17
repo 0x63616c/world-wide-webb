@@ -447,8 +447,14 @@ export function Board() {
     syncView();
     // Re-centers whenever the resolved home position changes , covers both the
     // loading→ready transition (default seed → resolved position, before the
-    // shimmer lifts) and a later poll that moves the home tile.
-  }, [syncView, markProgrammatic, homeCx, homeCy]);
+    // shimmer lifts) and a later poll that moves the home tile. `layoutStatus`
+    // is in the deps because the stage div itself is unmounted during loading
+    // (see the shimmer branch below) , without it, a ready-render whose
+    // homeCx/homeCy happen to numerically match the loading-render's defaults
+    // (e.g. empty saved layout, resolveLayout([]) both times) would leave this
+    // effect's deps unchanged, so it would never re-run and the now-mounted
+    // stage would stay uncentered at (0, 0).
+  }, [syncView, markProgrammatic, homeCx, homeCy, layoutStatus]);
 
   // rAF-throttle scroll → view state so the mounted-tile set tracks the pan
   // without a setState per scroll event.
