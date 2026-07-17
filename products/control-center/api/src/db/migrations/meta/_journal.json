@@ -71,6 +71,13 @@
       "when": 1783800715086,
       "tag": "0010_yellow_grandmaster",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784273206242,
+      "tag": "0011_add_light_schedules",
+      "breakpoints": true
     }
   ]
 }

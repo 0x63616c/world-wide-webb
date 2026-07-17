@@ -366,3 +366,38 @@ export const portalAuthorization = pgTable(
 
 /** @public - constant primary key for the portalRateLimit singleton row. */
 export const PORTAL_RATE_LIMIT_ID = "global";
+
+// User-editable light schedules (www-sched). Each row is one schedule the
+// schedule-runner worker fires: on the chosen weekdays, when the resolved trigger
+// time passes, it writes desired light state onto the target device_state rows
+// (the light-enforcer then actuates HA). Trigger/action are jsonb so the shape can
+// grow (future non-light kinds) without a column migration; the authoritative Zod
+// shape lives in services/schedule-service.ts. Modeled on the device_state /
+// settings jsonb-payload pattern.
+export type ScheduleTrigger =
+  | { type: "fixed"; time: string } // "HH:MM" local wall-clock
+  | { type: "sun"; event: "sunrise" | "sunset"; offsetMin: number };
+
+export interface ScheduleAction {
+  on: boolean; // false = turn targets off (scene/brightness ignored)
+  scene?: "white" | "mood" | "red" | "blue"; // LampScene; omitted = keep existing color
+  brightness?: number; // 0..100, optional
+  fadeMinutes?: number; // 0/undefined = snap; >0 = ramp over N minutes
+}
+
+export const lightSchedules = pgTable(
+  "light_schedules",
+  {
+    id: text("id").primaryKey(), // sched_<id>
+    name: text("name").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    days: jsonb("days").$type<number[]>().notNull(), // 0..6 (0=Sun)
+    trigger: jsonb("trigger").$type<ScheduleTrigger>().notNull(),
+    action: jsonb("action").$type<ScheduleAction>().notNull(),
+    targetIds: jsonb("target_ids").$type<string[]>().notNull(), // LIGHTS[].id
+    lastFiredDate: text("last_fired_date"), // YYYY-MM-DD guard: fires once/day
+    createdAtUtc: timestamp("created_at_utc", { withTimezone: true }).notNull().defaultNow(),
+    updatedAtUtc: timestamp("updated_at_utc", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("light_schedules_enabled_idx").on(t.enabled)],
+);

@@ -19,6 +19,7 @@ import {
   runDeviceSyncCycle,
   runEnforcerCycle,
   runMigrations,
+  runScheduleRunnerCycle,
   runSonosVolumeEnforcerCycle,
   runWeatherIngestCycle,
 } from "@control-center/api/worker";
@@ -83,6 +84,15 @@ const workers: Worker[] = [
     intervalMs: 2_000,
     runOnStart: true,
     run: reconcilePartyMode,
+  },
+  {
+    // Light schedules (www-sched): every ~15s, fires due schedules and steps any
+    // in-progress fades, writing DESIRED light state. The light-enforcer actuates
+    // HA — this loop never calls HA itself. 15s keeps a fire at most ~15s late.
+    name: "schedule-runner",
+    intervalMs: 15_000,
+    runOnStart: true,
+    run: runScheduleRunnerCycle,
   },
   {
     name: "weather-ingest",
