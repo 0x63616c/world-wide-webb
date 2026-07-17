@@ -186,7 +186,7 @@ function BuildHashBadge() {
 }
 
 // Full-screen shimmer stage, shown in place of the board while the first
-// `layout.get` is in flight , no tiles, no fake data, just the shared skeleton
+// `layout.get` is in flight — no tiles, no fake data, just the shared skeleton
 // shimmer gradient (same animation as <Skeleton>) over the board background.
 function BoardLoadingStage() {
   return (
@@ -399,8 +399,8 @@ export function Board() {
 
   // Whether the layout editor overlay is open (Task 7's store; entry is the
   // settings panel's "Edit layout" row). While open the board itself is fully
-  // frozen , see the modalOpen OR-chain, idle hooks' `enabled`, and the hidden
-  // chrome below , and its own layout poll pauses (the editor stages its own
+  // frozen — see the modalOpen OR-chain, idle hooks' `enabled`, and the hidden
+  // chrome below — and its own layout poll pauses (the editor stages its own
   // working copy, so a background refetch here is redundant work).
   const layoutEditOpen = useLayoutEditorOpen();
 
@@ -408,7 +408,7 @@ export function Board() {
   // useBoardLayout). `layoutStatus` gates the loading-stage render below; every
   // hook past this point still runs unconditionally (rules of hooks) and simply
   // operates on the fallback (registry-default) layout until the first settle,
-  // which is never shown , the loading stage covers the whole screen.
+  // which is never shown — the loading stage covers the whole screen.
   const { status: layoutStatus, layout } = useBoardLayout({ enabled: !layoutEditOpen });
 
   // The single source of truth for every cell this render. Placeholders come
@@ -489,11 +489,11 @@ export function Board() {
     stage.scrollLeft = homeCx - stage.clientWidth / 2;
     stage.scrollTop = homeCy - stage.clientHeight / 2;
     syncView();
-    // Re-centers whenever the resolved home position changes , covers both the
+    // Re-centers whenever the resolved home position changes — covers both the
     // loading→ready transition (default seed → resolved position, before the
     // shimmer lifts) and a later poll that moves the home tile. `layoutStatus`
     // is in the deps because the stage div itself is unmounted during loading
-    // (see the shimmer branch below) , without it, a ready-render whose
+    // (see the shimmer branch below) — without it, a ready-render whose
     // homeCx/homeCy happen to numerically match the loading-render's defaults
     // (e.g. empty saved layout, resolveLayout([]) both times) would leave this
     // effect's deps unchanged, so it would never re-run and the now-mounted
@@ -623,7 +623,7 @@ export function Board() {
     isHome,
     pointerDown,
     idleMs: settings.recenterTimeoutMs,
-    // Disabled while the layout editor is open , an idle glide-home mid-edit
+    // Disabled while the layout editor is open — an idle glide-home mid-edit
     // would fight the editor's own camera and yank the view out from under a
     // drag in progress.
     enabled: settings.recenterEnabled && !layoutEditOpen,
@@ -636,7 +636,7 @@ export function Board() {
   const { dimmed, wake: wakeDim } = useIdleDim({
     stageRef,
     pointerDown,
-    // Disabled while the layout editor is open , dimming the backlight mid-edit
+    // Disabled while the layout editor is open — dimming the backlight mid-edit
     // would obscure the very thing being arranged.
     enabled: settings.idleDimEnabled && nativeDisplay && !layoutEditOpen,
     timeoutMs: settings.idleDimTimeoutMs,
@@ -706,7 +706,7 @@ export function Board() {
   const centeredLabel = centered?.entry?.label;
 
   // Blocking first paint: the layout hasn't settled (success OR error) yet, so
-  // no tile geometry is trustworthy , render the shimmer stage only. Every hook
+  // no tile geometry is trustworthy — render the shimmer stage only. Every hook
   // above still ran (rules of hooks), it just drives a screen nobody sees.
   if (layoutStatus === "loading") return <BoardLoadingStage />;
 
@@ -852,7 +852,7 @@ export function Board() {
         <DimOverlay active={dimmed} onWake={wake} />
         <TileModalHost entry={activeModal} onClose={() => setActiveModal(null)} />
       </div>
-      {/* Mounted as a sibling of #stage, NOT a descendant , #stage is the native
+      {/* Mounted as a sibling of #stage, NOT a descendant — #stage is the native
         scroll container (scrollLeft/Top drive panning), and per spec any
         transformed ancestor becomes the containing block for position:fixed
         descendants. LayoutEditorOverlay's own entrance-animation wrapper sets

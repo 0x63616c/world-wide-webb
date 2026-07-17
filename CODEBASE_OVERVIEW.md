@@ -58,7 +58,11 @@ The dashboard is not a normal responsive layout. It is a fixed wall-panel world:
 - Panning uses native scroll, plus windowing so only visible cells mount.
 - Idle reset glides back to the home tile, currently the clock.
 
-Tile placement is centralized in `products/control-center/web/src/lib/tile-registry.ts`. Each tile entry defines its id, label, component, detail view component, world position, and size. Moving or resizing a tile should usually be a registry edit, not a board rewrite.
+Tile placement is centralized in `products/control-center/web/src/lib/tile-registry.ts`. Each tile entry defines its id, label, component, detail view component, world position, and size. The registry's coordinates are *defaults* only: the `board_tile_placement` table holds per-tile overrides (world col/row) that win when present, so a user's saved layout survives registry additions/removals without a migration. `resolveLayout` (`products/control-center/web/src/lib`) merges registry defaults with placement overrides and scanline-places any tile the user has never touched.
+
+The `layout` tRPC router exposes `get` (merged, revision-tagged layout) and `save` (writes placement rows, prunes rows for tiles no longer in the registry). `useBoardLayout` blocks first paint on the initial `layout.get`, then polls every 5s (`POLL.layout`); a revision check means a stale poll response can't clobber a locally-saved edit (last-write-wins is scoped by revision).
+
+Layout editing is entered from the settings panel ("Edit layout" row) and opens a full-screen, zoomed-out editor (`components/layout-editor/`) that freezes the board underneath (idle glide-home and idle-dim both disabled while it's open). Tiles drag-and-snap to the grid with overlap spring-back; Save is gated behind the active bento pattern (an invalid arrangement can't be saved), and Reset/Cancel discard the working copy. Any tile without a saved position (including newly-registered tiles) surfaces via an unplaced-tile banner.
 
 Data access is through tRPC React Query in `products/control-center/web/src/lib/trpc.ts`. Queries retry with bounded exponential backoff; mutations do not retry. Unavailable data should render skeleton/error states, not invented values.
 
@@ -110,6 +114,7 @@ Major tables include:
 - `weather_reading` and `weather_daily_reading` - append-only weather history.
 - `lamp_mode` - singleton persistent party-mode state.
 - `media_source` and `media_item` - media pipeline state.
+- `board_tile_placement` - per-tile world position overrides for the board layout editor; absent rows fall back to `tile-registry.ts` defaults.
 
 Both the API and workers run migrations at boot so whichever starts first can safely prepare the schema.
 
