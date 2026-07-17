@@ -120,7 +120,7 @@ export async function listWakePhotos(root = defaultRoot()): Promise<WakePhotoLis
 export async function readWakePhoto(
   relPath: string,
   root = defaultRoot(),
-): Promise<{ bytes: Uint8Array } | null> {
+): Promise<{ bytes: Uint8Array<ArrayBuffer> } | null> {
   const abs = resolve(root, relPath);
   if (abs !== resolve(root) && !abs.startsWith(resolve(root) + sep)) return null;
   try {

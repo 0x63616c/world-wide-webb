@@ -122,7 +122,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
     if (!photo) {
       return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
     }
-    return new Response(new Blob([photo.bytes]), {
+    return new Response(photo.bytes, {
       status: 200,
       headers: {
         ...CORS_HEADERS,
