@@ -49,6 +49,8 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    // The Device section's name field is present (top of the panel).
+    await expect(canvas.getByRole("textbox", { name: "Device name" })).toBeInTheDocument();
     // Both idle-dim sliders + the two feature switches are present.
     await expect(canvas.getByRole("slider", { name: "Dim after" })).toBeInTheDocument();
     await expect(canvas.getByRole("slider", { name: "Dim level" })).toBeInTheDocument();

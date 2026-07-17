@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { getDeviceName } from "../device-name";
 import type { LogFilesystem } from "../log/native";
 import {
+  getMirrorFileUris,
   nativeAppend,
   resetNativeForTests,
   restoreFromNative,
@@ -18,6 +20,7 @@ function entry(seq: number, over: Partial<LogEntry> = {}): LogEntry {
     seq,
     ts: 1_700_000_000_000 + seq,
     sha: "abc1234",
+    deviceName: "test-device",
     level: "info",
     source: "test",
     msg: `message ${seq}`,
@@ -41,6 +44,9 @@ function makeFakeFs() {
       const data = files.get(path);
       if (data === undefined) throw new Error("File does not exist");
       return { size: data.length };
+    },
+    async getUri({ path }) {
+      return { uri: `file:///fake/${path}` };
     },
     async rename({ from, to }) {
       const data = files.get(from);
@@ -132,6 +138,70 @@ describe("native log mirror", () => {
     );
     expect(restored).toBe(1);
     expect(seen).toEqual([1]);
+  });
+
+  it("backfills deviceName on restored mirror lines that predate the field", async () => {
+    // The mirror is this device's own history, so backfill uses its resolved name.
+    const expected = getDeviceName();
+    const { fs, files } = makeFakeFs();
+    // A legacy line with no deviceName, and a modern line that already carries one.
+    const legacy = {
+      id: id(1),
+      seq: 1,
+      ts: 1,
+      sha: "abc1234",
+      level: "info",
+      source: "old",
+      msg: "legacy",
+    };
+    const modern = entry(2, { deviceName: "other-device" });
+    files.set(CURRENT, `${JSON.stringify(legacy)}\n${JSON.stringify(modern)}\n`);
+    setFilesystemForTests(fs);
+
+    const seen: LogEntry[] = [];
+    const restored = await restoreFromNative(
+      async () => true,
+      async (batch) => {
+        seen.push(...batch);
+      },
+    );
+
+    expect(restored).toBe(2);
+    // The legacy line gains this device's name; the modern line keeps its own.
+    expect(expected).not.toBe("");
+    expect(seen.find((e) => e.seq === 1)?.deviceName).toBe(expected);
+    expect(seen.find((e) => e.seq === 2)?.deviceName).toBe("other-device");
+  });
+
+  describe("getMirrorFileUris", () => {
+    it("returns [] off-device (no filesystem)", async () => {
+      setFilesystemForTests(null);
+      expect(await getMirrorFileUris()).toEqual([]);
+    });
+
+    it("returns [] when nothing has been written yet", async () => {
+      const { fs } = makeFakeFs();
+      setFilesystemForTests(fs);
+      expect(await getMirrorFileUris()).toEqual([]);
+    });
+
+    it("returns only the current URI when previous doesn't exist", async () => {
+      const { fs } = makeFakeFs();
+      setFilesystemForTests(fs);
+      await nativeAppend([entry(1)]);
+      expect(await getMirrorFileUris()).toEqual([`file:///fake/${CURRENT}`]);
+    });
+
+    it("returns [previous, current] when both generations exist", async () => {
+      const { fs, files } = makeFakeFs();
+      files.set(PREVIOUS, `${JSON.stringify(entry(1))}\n`);
+      files.set(CURRENT, `${JSON.stringify(entry(2))}\n`);
+      setFilesystemForTests(fs);
+      expect(await getMirrorFileUris()).toEqual([
+        `file:///fake/${PREVIOUS}`,
+        `file:///fake/${CURRENT}`,
+      ]);
+    });
   });
 
   it("rotates current to previous when the generation cap trips", async () => {

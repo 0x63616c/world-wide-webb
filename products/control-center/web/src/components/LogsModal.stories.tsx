@@ -82,3 +82,20 @@ function ChattyHarness() {
 export const Busy: Story = {
   render: () => <ChattyHarness />,
 };
+
+/**
+ * Export is native-only: it shares the on-disk `cc-logs/*.jsonl` mirror files via
+ * the iOS share sheet. In Storybook/web `Capacitor.isNativePlatform()` is false, so
+ * the Export button renders DISABLED in the stories above (that is the honest
+ * off-device state). This story forces `nativeExport` on purely so the enabled
+ * button is visible for visual review , tapping it off-device still can't share,
+ * because the share sheet is an OS surface that only exists on the device.
+ */
+function ExportEnabledHarness() {
+  useEffect(emitOutage, []);
+  return <LogsModal open nativeExport onClose={() => {}} />;
+}
+
+export const ExportEnabled: Story = {
+  render: () => <ExportEnabledHarness />,
+};

@@ -24,6 +24,7 @@
  */
 
 import { BUILD_HASH } from "../../config/build";
+import { getDeviceName } from "../device-name";
 import { nativeAppend } from "./native";
 import { LogRing } from "./ring";
 import * as store from "./store";
@@ -107,6 +108,8 @@ function write(level: LogLevel, source: string, msg: string, data?: unknown): vo
     seq: n,
     ts: Date.now(),
     sha: SHA,
+    // Cheap by design (cached module var), so stamping every write is free.
+    deviceName: getDeviceName(),
     level,
     source,
     msg,

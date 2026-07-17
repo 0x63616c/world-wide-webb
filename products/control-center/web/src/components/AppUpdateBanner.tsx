@@ -79,7 +79,9 @@ export function AppUpdateBannerView({ model }: { model: AppUpdateBannerModel }) 
       aria-live="polite"
       style={{
         position: "absolute",
-        top: 62,
+        // Third slot: stacks below the DeviceNameBanner (18) and ConnectionLostBanner
+        // (62) so all three banners can be visible at once without overlapping.
+        top: 106,
         right: 18,
         zIndex: 100,
         display: "flex",

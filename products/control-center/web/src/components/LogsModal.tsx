@@ -17,14 +17,20 @@
  * and putting those in the DOM would jank a panel whose whole job is to look calm.
  * Expanding an entry therefore opens a detail pane rather than growing the row.
  *
- * Read-only by design: no copy, no clear. The logs are for reading here, on the
- * device, which is where the failure is.
+ * Read-only, with one escape hatch: no copy, no clear, but on the native device
+ * you can Export , this shares the on-disk native log mirror files
+ * (`cc-logs/*.jsonl`) via the iOS share sheet. Nothing is serialized at share
+ * time; we hand the OS the files the mirror already wrote, so export cannot spike
+ * memory or fail on a large store. Off-device the button is disabled.
  */
 
+import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { BUILD_HASH } from "../config/build";
+import { getDeviceName } from "../lib/device-name";
 import { fuzzyMatch } from "../lib/log/fuzzy";
-import { flushNow, getTail, subscribe } from "../lib/log/logger";
+import { flushNow, getTail, log, subscribe } from "../lib/log/logger";
+import { getMirrorFileUris } from "../lib/log/native";
 import * as store from "../lib/log/store";
 import { MAX_BYTES, MAX_ENTRIES } from "../lib/log/store";
 import { LOG_LEVELS, type LogEntry, type LogLevel } from "../lib/log/types";
@@ -59,7 +65,17 @@ const SHA = BUILD_HASH.slice(0, 7);
  * information in it, and the previous layout let the fixed columns hog width and
  * then clipped the payload, which is backwards.
  */
-const GRID = "146px 46px 76px 58px minmax(230px, 32ch) 1fr";
+const GRID = "146px 46px 76px 58px 96px minmax(230px, 32ch) 1fr";
+
+/**
+ * The device that emitted an entry. Read-time fallback for rows written before
+ * `deviceName` existed and somehow skipped the store migration (private mode /
+ * quota / degraded store): the store is per-device, so this device's resolved
+ * name is the honest attribution, and nothing renders blank.
+ */
+function deviceLabel(entry: LogEntry): string {
+  return entry.deviceName || getDeviceName();
+}
 
 /** A hair of breathing room so the timestamp doesn't crowd the level beside it. */
 const TIME_CELL = { color: "var(--ink-3)", paddingRight: 6 } as const;
@@ -113,9 +129,19 @@ function oneLine(data: unknown): string {
 export interface LogsModalProps {
   open: boolean;
   onClose: () => void;
+  /**
+   * Whether the native Export affordance is enabled. Defaults to the real
+   * platform gate; only Storybook/tests pass it to render the enabled visual
+   * off-device (share itself is a native-only OS surface).
+   */
+  nativeExport?: boolean;
 }
 
-export function LogsModal({ open, onClose }: LogsModalProps) {
+export function LogsModal({
+  open,
+  onClose,
+  nativeExport = Capacitor.isNativePlatform(),
+}: LogsModalProps) {
   // Live tail. useSyncExternalStore keeps this correct under concurrent React,
   // and getTail() is memoized behind a dirty flag so this is not a re-render
   // storm even while the app is logging steadily.
@@ -129,6 +155,7 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
   const [historyCount, setHistoryCount] = useState(0);
   const [bytes, setBytes] = useState(0);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchTruncated, setSearchTruncated] = useState(false);
   const [selected, setSelected] = useState<LogEntry | null>(null);
@@ -219,7 +246,11 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
         .filter((e) => levels.includes(e.level))
         // Same fuzzy matcher the store pages with, so what you see and what "Load
         // older" fetches cannot disagree about what "matches".
-        .filter((e) => !needle || fuzzyMatch(`${e.source} ${e.msg} ${oneLine(e.data)}`, needle))
+        .filter(
+          (e) =>
+            !needle ||
+            fuzzyMatch(`${e.source} ${e.msg} ${deviceLabel(e)} ${oneLine(e.data)}`, needle),
+        )
         .sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
     );
   }, [older, tail, levels, search]);
@@ -256,6 +287,44 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
       setLoadingOlder(false);
     }
   }, [oldestLoadedId, levels, search]);
+
+  // Export the on-disk native mirror files via the OS share sheet. We share the
+  // files the mirror has ALREADY written , no IndexedDB read, no serialization ,
+  // so the rescue path cannot spike memory or fail on a million-row store.
+  const handleExport = useCallback(async () => {
+    const exportLog = log.child("logs-export");
+    setExporting(true);
+    try {
+      const uris = await getMirrorFileUris();
+      if (uris.length === 0) {
+        // Mirror hasn't flushed a batch yet (or we're off-device). Honest record,
+        // no error dialog , there is simply nothing on disk to hand the OS.
+        exportLog.warn("no mirror files to export");
+        return;
+      }
+      const { Share } = await import("@capacitor/share");
+      await Share.share({
+        title: "Control Center logs",
+        text: "Control Center native log mirror",
+        files: uris,
+        dialogTitle: "Export logs",
+      });
+      exportLog.info("shared", { files: uris.length });
+    } catch (err) {
+      // Cancelling the share sheet rejects , that is a user choice, not a
+      // failure. Everything else (missing pod, bridge error) is a real error.
+      const message = err instanceof Error ? err.message : String(err);
+      const code =
+        typeof (err as { code?: unknown })?.code === "string" ? (err as { code: string }).code : "";
+      if (/cancel/i.test(message) || /cancel/i.test(code)) {
+        exportLog.debug("share cancelled");
+        return;
+      }
+      exportLog.error("share failed", { message });
+    } finally {
+      setExporting(false);
+    }
+  }, []);
 
   // Windowing: only the visible slice is in the DOM. The spacer div carries the
   // full scroll height so the scrollbar still reflects the real list length.
@@ -308,6 +377,17 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
           <ToolbarButton onClick={() => void loadOlder()} disabled={loadingOlder}>
             {loadingOlder ? "Loading…" : "Load older"}
           </ToolbarButton>
+          <ToolbarButton
+            onClick={() => void handleExport()}
+            disabled={!nativeExport || exporting}
+            title={
+              nativeExport
+                ? "Share the on-disk log mirror files"
+                : "Export available on the device only"
+            }
+          >
+            {exporting ? "Exporting…" : "Export"}
+          </ToolbarButton>
         </div>
 
         {/* Header + list share one bordered box. The header sits OUTSIDE the
@@ -342,6 +422,7 @@ export function LogsModal({ open, onClose }: LogsModalProps) {
             <span>Level</span>
             <span>Source</span>
             <span>Git SHA</span>
+            <span>Device</span>
             <span>Message</span>
             <span>Payload</span>
           </div>
@@ -477,6 +558,7 @@ function LogRow({
       <span style={{ color: LEVEL_COLOR[entry.level] }}>{entry.level}</span>
       <span style={ELLIPSIS}>{entry.source}</span>
       <span style={{ color: "var(--ink-3)", opacity: 0.55 }}>{entry.sha}</span>
+      <span style={{ ...ELLIPSIS, color: "var(--ink-2)" }}>{deviceLabel(entry)}</span>
       <span style={{ ...ELLIPSIS, color: "var(--ink-1)" }}>{entry.msg}</span>
       {/* The payload gets every remaining pixel: it is the column carrying the
           answer (status codes, failing keys, durations), and it was the one being
@@ -536,16 +618,19 @@ function ToolbarButton({
   children,
   onClick,
   disabled,
+  title,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       style={{
         height: "100%",
         padding: "0 14px",

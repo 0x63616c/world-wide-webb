@@ -10,6 +10,7 @@ import { type SnapMode, useSettings } from "../lib/settings";
 import { HOME_TILE, TILE_REGISTRY, type TileRegistryEntry } from "../lib/tile-registry";
 import { AppUpdateBanner } from "./AppUpdateBanner";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
+import { DeviceNameBanner } from "./DeviceNameBanner";
 import {
   getVisibleTiles,
   useBoardDragPan,
@@ -645,6 +646,7 @@ export function Board() {
       {/* Viewport-level overlays: a fixed ancestor-free layer keeps the banner,
           FPS readout, and modal anchored to the screen regardless of pan. */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 200 }}>
+        <DeviceNameBanner />
         <ConnectionLostBanner />
         <AppUpdateBanner />
         {settings.showFps ? <FpsMeter /> : null}

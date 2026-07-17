@@ -10,6 +10,7 @@
  */
 
 import { type CSSProperties, useState } from "react";
+import { deriveDefaultName, setDeviceName, useDeviceName } from "../lib/device-name";
 import {
   clampBrightness,
   clampDimLevel,
@@ -37,6 +38,7 @@ import { LogsModal } from "./LogsModal";
 import { Segmented } from "./ui/Segmented";
 import { Slider } from "./ui/Slider";
 import { Switch } from "./ui/Switch";
+import { TextInput } from "./ui/TextInput";
 
 const MS_PER_MIN = 60_000;
 const MIN_MINUTES = Math.round(MIN_IDLE_TIMEOUT_MS / MS_PER_MIN);
@@ -118,6 +120,7 @@ function Section({ children }: { children: React.ReactNode }) {
 
 export function SettingsPanel() {
   const settings = useSettings();
+  const { name: deviceName, isSet: deviceNameSet } = useDeviceName();
   const [logsOpen, setLogsOpen] = useState(false);
   const brightnessPercent = Math.round(settings.activeBrightness * 100);
   const dimMinutes = Math.round(settings.idleDimTimeoutMs / MS_PER_MIN);
@@ -126,6 +129,24 @@ export function SettingsPanel() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+      <Section>
+        <SectionTitle>Device</SectionTitle>
+        <StackField
+          label="Device name"
+          sub="Names this panel in its logs. Stored on this device only, never shared."
+        >
+          {/* Value shows the user's chosen name (empty until they set one, so the
+              placeholder reveals the auto-derived default); clearing it reverts to
+              that default and re-raises the "set your device name" banner. */}
+          <TextInput
+            label="Device name"
+            value={deviceNameSet ? deviceName : ""}
+            placeholder={deriveDefaultName()}
+            onChange={setDeviceName}
+          />
+        </StackField>
+      </Section>
+
       <Section>
         <SectionTitle>Display</SectionTitle>
         <Slider
