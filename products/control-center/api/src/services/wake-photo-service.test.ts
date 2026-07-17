@@ -39,9 +39,9 @@ describe("wake-photo-service", () => {
   });
 
   it("rejects non-JPEG bytes", async () => {
-    await expect(saveWakePhoto(new TextEncoder().encode("plain text"), Date.UTC(2026, 0, 1), root)).rejects.toThrow(
-      /not a JPEG/,
-    );
+    await expect(
+      saveWakePhoto(new TextEncoder().encode("plain text"), Date.UTC(2026, 0, 1), root),
+    ).rejects.toThrow(/not a JPEG/);
   });
 
   it("rejects oversize bodies", async () => {
