@@ -25,8 +25,7 @@ import {
   runWeatherIngestCycle,
 } from "@control-center/api/worker";
 import { createLogger } from "@www/logger";
-import { createWorkerRuntime } from "./runtime";
-import type { Worker } from "./types";
+import { createWorkerRuntime, type Worker } from "@www/worker-runtime";
 
 const log = createLogger({ service: "worker" });
 
@@ -134,20 +133,8 @@ runtime.start();
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
     log.info({ signal }, "worker stopping");
-    // Emit a final per-worker stats snapshot on shutdown so the last known
-    // health state is captured in the log stream before the process exits.
-    for (const s of runtime.stats()) {
-      log.info(
-        {
-          worker: s.name,
-          totalRuns: s.totalRuns,
-          consecutiveFailures: s.consecutiveFailures,
-          lastDurationMs: s.lastDurationMs,
-          lastError: s.lastError,
-        },
-        "worker shutdown stats",
-      );
-    }
+    // stop() emits the final per-worker stats snapshot ("worker final stats")
+    // so the last known health state is captured before the process exits.
     runtime.stop();
     process.exit(0);
   });

@@ -75,11 +75,10 @@ export function hasSufficientDisk(
   }
 }
 
-// Import the Worker framework from the same package (products/control-center/media-worker owns the
-// framework src since products/control-center/worker co-locates runtime.ts + types.ts; we mirror
-// that by importing from the relative path , both apps bundle their own copy).
-import { createWorkerRuntime } from "./runtime";
-import type { Worker } from "./types";
+// The worker framework (runtime/types) lives in the shared @www/worker-runtime
+// package; both the worker and media-worker apps consume it and bundle their own
+// copy at build time.
+import { createWorkerRuntime, type Worker } from "@www/worker-runtime";
 
 const workers: Worker[] = [
   {
@@ -114,7 +113,9 @@ const workers: Worker[] = [
   },
 ];
 
-const runtime = createWorkerRuntime(workers, { logger: log });
+// statsEveryNRuns: 30 , the queue-worker runs a 2s loop, so a snapshot every 30
+// cycles is ~60s apart (the worker app's 1s loops use the default 60).
+const runtime = createWorkerRuntime(workers, { logger: log, statsEveryNRuns: 30 });
 runtime.start();
 
 // Startup line , the operator anchors liveness on this appearing in docker logs.
