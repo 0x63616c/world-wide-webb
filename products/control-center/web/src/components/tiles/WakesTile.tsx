@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { TileStatus } from "@/components/ui";
 import { trpc } from "@/lib/trpc";
+import { PinGateModal } from "../pin/PinGateModal";
 import { WakePhotoViewer } from "./WakePhotoViewer";
 import { WakesTileView } from "./WakesTileView";
 
@@ -11,6 +12,9 @@ function utcToday(): string {
 
 export function WakesTile() {
   const [viewerOpen, setViewerOpen] = useState(false);
+  // Wake photos sit behind the always-on PIN gate: the tile tap opens the gate,
+  // and only a correct entry hands off to the viewer. Cancel leaves it closed.
+  const [gateOpen, setGateOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const listing = trpc.wakePhotos.list.useQuery(undefined, {
     refetchInterval: 60_000,
@@ -46,7 +50,16 @@ export function WakesTile() {
               })
             : null
         }
-        onOpen={() => setViewerOpen(true)}
+        onOpen={() => setGateOpen(true)}
+      />
+      <PinGateModal
+        open={gateOpen}
+        title="Wake photos"
+        onClose={() => setGateOpen(false)}
+        onSuccess={() => {
+          setGateOpen(false);
+          setViewerOpen(true);
+        }}
       />
       <WakePhotoViewer
         open={viewerOpen}
