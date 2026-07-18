@@ -38,6 +38,7 @@ interface DemoSettings {
   recenter: boolean;
   recenterAfterMin: number;
   snapMode: SnapMode;
+  showMinimap: boolean;
   showFps: boolean;
   showBuildBadge: boolean;
   notifications: boolean;
@@ -53,6 +54,7 @@ const DEFAULTS: DemoSettings = {
   recenter: true,
   recenterAfterMin: 3,
   snapMode: "gentle",
+  showMinimap: true,
   showFps: false,
   showBuildBadge: true,
   notifications: true,
@@ -356,6 +358,18 @@ function pageBlocks(
         {
           title: "Feel",
           rows: [
+            <RowShell
+              key="minimap"
+              label="Minimap"
+              sub="Show the little board map in the corner."
+              control={
+                <Switch
+                  label="Minimap"
+                  checked={s.showMinimap}
+                  onChange={(showMinimap) => patch({ showMinimap })}
+                />
+              }
+            />,
             <div key="snap" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <span style={{ fontFamily: "var(--ui)", fontSize: 15, color: "var(--ink)" }}>
                 Board snap
