@@ -120,6 +120,41 @@ export const Charging: Story = {
   },
 };
 
+// ── Story: Asleep , stale last-known snapshot ────────────────────────────────
+
+export const Asleep: Story = {
+  args: {
+    status: TeslaTileStatus.Populated,
+    locked: true,
+    charging: false,
+    rate: 0,
+    pct: 64,
+    range: 192,
+    odo: "12,345 mi",
+    climate: 66,
+    lat: 34.0537,
+    lon: -118.2428,
+    place: "Home",
+    asleep: true,
+    updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Asleep pill replaces Idle/Charging and carries the snapshot age.
+    expect(canvas.getByText(/Asleep · 2hrs/)).toBeInTheDocument();
+    expect(canvas.queryByText("Idle")).not.toBeInTheDocument();
+    expect(canvas.queryByText(/Charging/)).not.toBeInTheDocument();
+    // Last-known values still render, dimmed: percent + range muted, bar gray.
+    expect(canvas.getByText("64%")).toBeInTheDocument();
+    const range = canvas.getByText("192 mi");
+    expect((range as HTMLElement).style.color).toBe("var(--ink-2)");
+    const fill = canvasElement.querySelector("[data-charge-fill]");
+    expect(fill).toHaveAttribute("data-charging", "false");
+    // Stale data must not look fresh , whole data area is dimmed.
+    expect(canvasElement.querySelector("[data-asleep]")).not.toBeNull();
+  },
+};
+
 // ── Story: Populated , no GPS location (null lat/lon) ────────────────────────
 
 export const NoLocation: Story = {

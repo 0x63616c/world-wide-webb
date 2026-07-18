@@ -44,7 +44,7 @@ vi.mock("@protomaps/basemaps", () => ({
   namedFlavor: vi.fn().mockReturnValue({}),
 }));
 
-const { Loading, ErrorState, Populated, Charging, NoLocation } = composeStories(stories);
+const { Loading, ErrorState, Populated, Charging, NoLocation, Asleep } = composeStories(stories);
 
 afterEach(cleanup);
 
@@ -94,6 +94,19 @@ describe("TeslaTileView stories , Charging (unlocked, charging)", () => {
     expect(screen.getByText("55%")).toBeInTheDocument();
     expect(screen.getByText("165 mi")).toBeInTheDocument();
     expect(screen.getByText("68°F")).toBeInTheDocument();
+  });
+});
+
+describe("TeslaTileView stories , Asleep (stale snapshot)", () => {
+  it("renders Asleep pill with snapshot age, dimmed last-known data, no Idle/Charging", async () => {
+    const { container } = render(<Asleep />);
+    if (Asleep.play) await Asleep.play({ canvasElement: container });
+    expect(screen.getByText(/Asleep · 2hrs/)).toBeInTheDocument();
+    expect(screen.queryByText("Idle")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Charging/)).not.toBeInTheDocument();
+    expect(screen.getByText("64%")).toBeInTheDocument();
+    expect(screen.getByText("192 mi")).toBeInTheDocument();
+    expect(container.querySelector("[data-asleep]")).not.toBeNull();
   });
 });
 

@@ -1,5 +1,6 @@
 import { Icon } from "@/components/Icon";
 import { Skeleton, Stat, Tile, TileHeader, TileStatus } from "@/components/ui";
+import { formatRelativeAge } from "@/lib/relative-age";
 import { TeslaMap } from "./TeslaMap";
 
 // ── Charging bar ─────────────────────────────────────────────────────────────
@@ -8,9 +9,11 @@ interface ChargeProps {
   charging: boolean;
   rate: number;
   pct: number;
+  /** Non-null while the car sleeps: label for the Asleep pill ("Asleep · 2hrs"). */
+  asleepLabel: string | null;
 }
 
-function TeslaCharge({ charging, rate, pct }: ChargeProps) {
+function TeslaCharge({ charging, rate, pct, asleepLabel }: ChargeProps) {
   return (
     <div>
       <div
@@ -21,7 +24,12 @@ function TeslaCharge({ charging, rate, pct }: ChargeProps) {
           marginBottom: 9,
         }}
       >
-        {charging ? (
+        {asleepLabel !== null ? (
+          <span className="pill" style={{ padding: "4px 10px" }}>
+            <Icon name="moon" s={14} />
+            {asleepLabel}
+          </span>
+        ) : charging ? (
           <span className="pill on" style={{ padding: "4px 10px" }}>
             <Icon name="bolt" s={14} />
             Charging · +{rate} mi/hr
@@ -110,6 +118,10 @@ export type TeslaTileViewProps =
       lat: number | null;
       lon: number | null;
       place: string;
+      /** Car is asleep; every value shown is the last-known snapshot, dimmed. */
+      asleep?: boolean;
+      /** ISO timestamp of the snapshot the values came from; null when unknown. */
+      updatedAt?: string | null;
     };
 
 // ── Pure view ────────────────────────────────────────────────────────────────
@@ -118,6 +130,13 @@ export function TeslaTileView(props: TeslaTileViewProps) {
   if (props.status !== TileStatus.Populated) return <TeslaSkeleton />;
 
   const { locked, charging, rate, pct, range, odo, climate, lat, lon, place } = props;
+  const asleep = props.asleep === true;
+  // While asleep every value is a stale snapshot , suppress the live "charging"
+  // treatment (green bar/accent) so stale data never reads as fresh activity.
+  const chargingLive = charging && !asleep;
+  const age =
+    asleep && props.updatedAt ? formatRelativeAge(Date.parse(props.updatedAt), Date.now()) : null;
+  const asleepLabel = asleep ? (age ? `Asleep · ${age}` : "Asleep") : null;
 
   return (
     <Tile padding={22} style={{ gap: 16 }}>
@@ -137,14 +156,25 @@ export function TeslaTileView(props: TeslaTileViewProps) {
         <TeslaMap lat={lat} lon={lon} place={place} />
       </div>
 
-      {/* charging bar */}
-      <TeslaCharge charging={charging} rate={rate} pct={pct} />
+      {/* charge + stats , dimmed as a block while the snapshot is stale */}
+      <div
+        data-asleep={asleep ? "true" : undefined}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+          opacity: asleep ? 0.55 : 1,
+        }}
+      >
+        {/* charging bar */}
+        <TeslaCharge charging={chargingLive} rate={rate} pct={pct} asleepLabel={asleepLabel} />
 
-      {/* stats row */}
-      <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 2 }}>
-        <Stat label="Range" value={`${range} mi`} accent={charging} muted={!charging} />
-        <Stat label="Odometer" value={odo} />
-        <Stat label="Cabin" value={`${climate}°F`} />
+        {/* stats row */}
+        <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 2 }}>
+          <Stat label="Range" value={`${range} mi`} accent={chargingLive} muted={!chargingLive} />
+          <Stat label="Odometer" value={odo} />
+          <Stat label="Cabin" value={`${climate}°F`} />
+        </div>
       </div>
     </Tile>
   );
