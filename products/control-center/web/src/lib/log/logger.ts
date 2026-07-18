@@ -156,6 +156,22 @@ function write(level: LogLevel, source: string, msg: string, data?: unknown): vo
   for (const cb of listeners) cb();
 }
 
+// Post-flush hooks, run after each flush lands in the store. The log shipper is
+// the one caller: it drains IndexedDB (the durable queue) to the backend, so it
+// must observe a batch only once that batch is actually persisted.
+type FlushHook = () => void;
+const flushHooks = new Set<FlushHook>();
+
+/**
+ * Register a hook to run after every flush that lands in the store. Returns an
+ * unsubscribe. Best-effort by contract: a hook is invoked in its own guard and
+ * may not throw into the flush timer or affect logging (see flush()).
+ */
+export function onFlushed(hook: FlushHook): () => void {
+  flushHooks.add(hook);
+  return () => flushHooks.delete(hook);
+}
+
 async function flush(): Promise<void> {
   if (queue.length === 0) return;
   const batch = queue;
@@ -169,6 +185,16 @@ async function flush(): Promise<void> {
     // Persistence is best-effort. A failed flush must not throw into a timer or
     // a visibilitychange handler, and must not resurrect the batch , retrying a
     // batch that failed on quota would just fail again, forever.
+  }
+  // The batch is now durable (or best-effort dropped). Notify post-flush hooks
+  // (the shipper) AFTER the append so a hook reading the store sees this batch.
+  // Each hook is guarded: shipping must never throw into flush or affect logging.
+  for (const hook of flushHooks) {
+    try {
+      hook();
+    } catch {
+      // a hook failure must never affect logging or other hooks
+    }
   }
 }
 

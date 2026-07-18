@@ -14,12 +14,17 @@ import { installCapture } from "./capture";
 import { log, resolveBuild, startFlushing } from "./logger";
 import { restoreFromNative } from "./native";
 import { installQueryLogging } from "./query-log";
+import { startShipping } from "./ship";
 import { append, count, requestPersistence } from "./store";
 
 export function initLogging(): void {
   installCapture();
   startFlushing();
   installQueryLogging(queryClient);
+  // Drain on-device logs to Postgres after each flush tick. Best-effort and
+  // decoupled: a shipping failure never touches logging (see ship.ts). Ships in
+  // the browser too (web sessions have a `web-*` device id).
+  startShipping();
 
   // Warm the two async-resolved identity fields. Both are best-effort and cached;
   // entries captured before they land carry their defaults ("web" build, and the
