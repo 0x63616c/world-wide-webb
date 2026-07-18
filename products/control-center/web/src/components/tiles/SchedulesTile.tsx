@@ -12,7 +12,9 @@ import { TileStatus } from "@/components/ui";
 import { trpc } from "@/lib/trpc";
 import type { ScheduleInput, ScheduleItem } from "./modals/ExpandedSchedulesModalView";
 import { ExpandedSchedulesModalView } from "./modals/ExpandedSchedulesModalView";
+import type { SchedulesRow } from "./SchedulesTileView";
 import { SchedulesTileView } from "./SchedulesTileView";
+import { daysSummary, displayScene, triggerTimeLabel } from "./schedule-scene";
 
 /** Format an ISO timestamp as local "H:MM" for the tile / list labels. */
 function hhmm(iso: string): string {
@@ -52,10 +54,26 @@ export function SchedulesTile() {
   const enabled = schedules.filter((s) => s.enabled);
   const enabledCount = enabled.length;
 
+  // Active schedules ordered soonest-first (those with no upcoming fire last), so
+  // the tile shows the two that fire next and the footer spotlights the first.
+  const fireTime = (s: ScheduleItem): number => {
+    const iso = nextIsoById.get(s.id);
+    return iso ? new Date(iso).getTime() : Infinity;
+  };
+  const ordered = [...enabled].sort((a, b) => fireTime(a) - fireTime(b));
+
+  const rows: SchedulesRow[] = ordered.slice(0, 2).map((s) => ({
+    id: s.id,
+    name: s.name,
+    days: daysSummary(s.days),
+    time: triggerTimeLabel(s.trigger, nextLabelById[s.id] ?? null),
+    scene: displayScene(s.action),
+  }));
+
   // Next upcoming across enabled schedules: the earliest future nextIso.
   const now = Date.now();
-  let nextLabel: string | null = null;
   let nextName = "";
+  let nextTime = "";
   let soonest = Infinity;
   for (const s of enabled) {
     const iso = nextIsoById.get(s.id);
@@ -64,16 +82,16 @@ export function SchedulesTile() {
     if (t >= now && t < soonest) {
       soonest = t;
       nextName = s.name;
-      nextLabel = hhmm(iso);
+      nextTime = hhmm(iso);
     }
   }
-  const nextTileLabel = nextLabel ? `${nextName} · ${nextLabel}` : null;
+  const next = soonest === Infinity ? null : { name: nextName, time: nextTime };
 
   return (
     <>
       <SchedulesTileView
         status={TileStatus.Populated}
-        data={{ enabledCount, nextLabel: nextTileLabel }}
+        data={{ enabledCount, rows, next }}
         onOpen={() => setModalOpen(true)}
       />
       <ExpandedSchedulesModalView
