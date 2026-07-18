@@ -191,7 +191,12 @@ export const weatherReading = pgTable(
     precipProbability: integer("precip_probability"),
     uvIndex: integer("uv_index"),
   },
-  (t) => [index("weather_reading_kind_target_recorded_idx").on(t.kind, t.targetHour, t.recordedAt)],
+  (t) => [
+    index("weather_reading_kind_target_recorded_idx").on(t.kind, t.targetHour, t.recordedAt),
+    // Serves the 30-day retention purge's `recorded_at < cutoff` predicate. The
+    // composite index above can't: recorded_at is its trailing column.
+    index("weather_reading_recorded_at_idx").on(t.recordedAt),
+  ],
 );
 
 // Daily-grain readings (today's hi/lo + sun times, plus the 7-day outlook).
@@ -210,7 +215,11 @@ export const weatherDailyReading = pgTable(
     sunriseIso: text("sunrise_iso"),
     sunsetIso: text("sunset_iso"),
   },
-  (t) => [index("weather_daily_target_recorded_idx").on(t.targetDate, t.recordedAt)],
+  (t) => [
+    index("weather_daily_target_recorded_idx").on(t.targetDate, t.recordedAt),
+    // Serves the 30-day retention purge, same reason as weather_reading's.
+    index("weather_daily_recorded_at_idx").on(t.recordedAt),
+  ],
 );
 
 // Persistent lamp mode, a SINGLETON row (id = LAMP_MODE_SINGLETON_ID). Holds the

@@ -1,0 +1,2 @@
+CREATE INDEX "weather_daily_recorded_at_idx" ON "weather_daily_reading" USING btree ("recorded_at");--> statement-breakpoint
+CREATE INDEX "weather_reading_recorded_at_idx" ON "weather_reading" USING btree ("recorded_at");

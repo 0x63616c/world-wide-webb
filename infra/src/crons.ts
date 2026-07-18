@@ -98,9 +98,12 @@ const tyeBackup = textYourExProductManifest().backup;
  */
 export function cronSpecs(nasNfsServer: string): OwnedCronJobSpec[] {
   return [
-    // Captive-portal data hygiene (www-q002.18): a daily one-shot running the api
-    // IMAGE's bundled purge.js entrypoint (NOT a worker loop). Deletes consumed/
-    // expired codes, stale attempts, and authorizations expired >90 days. Needs
+    // Data hygiene (www-q002.18): a daily one-shot running the api IMAGE's
+    // bundled purge.js entrypoint (NOT a worker loop). Deletes portal
+    // authorizations expired >90 days, and weather_reading /
+    // weather_daily_reading rows recorded >30 days ago (both tables are
+    // append-only and would otherwise grow ~55k rows/day). The name stays
+    // "portal-data-purge" so the existing CronJob object isn't orphaned. Needs
     // only the Postgres password; POSTGRES_HOST points at the CNPG rw Service
     // because the api default "postgres" host doesn't resolve in k3s. 02:00 LA.
     {
