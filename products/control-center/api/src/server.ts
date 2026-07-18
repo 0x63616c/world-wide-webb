@@ -117,18 +117,28 @@ async function handle(req: Request, url: URL): Promise<Response> {
   // Wake-photo ingest: the panel POSTs each burst frame as a raw JPEG body.
   // Validation (JPEG magic, size cap) lives in the service; any rejection is a
   // 400 so a misbehaving client can't 500-spam the log.
+  //
+  // The attribution headers are UNAUTHENTICATED (as is this whole route , the
+  // panel talks same-origin inside the homelab perimeter, there is no client
+  // auth to check). Shape-validate them so arbitrary header bytes can never
+  // land in wake_photo: a malformed value stores as NULL (unattributed), the
+  // same honest state a headerless upload gets.
   if (url.pathname === "/media/wake-photo" && req.method === "POST") {
     const headerTs = Number(req.headers.get("x-captured-at"));
     const capturedAt = Number.isFinite(headerTs) && headerTs > 0 ? headerTs : Date.now();
     const frameHeader = Number(req.headers.get("x-frame-idx"));
     const frameIdx = Number.isFinite(frameHeader) && frameHeader >= 0 ? frameHeader : 0;
+    const rawSession = req.headers.get("x-session-id");
+    const sessionId = rawSession && /^isn_[0-9a-z]{1,32}$/.test(rawSession) ? rawSession : null;
+    const rawDevice = req.headers.get("x-device-id");
+    const deviceId = rawDevice && /^[0-9A-Za-z_-]{1,64}$/.test(rawDevice) ? rawDevice : null;
     const bytes = new Uint8Array(await req.arrayBuffer());
     try {
       const path = await saveWakePhoto(db, bytes, {
         capturedAt,
         frameIdx,
-        deviceId: req.headers.get("x-device-id"),
-        sessionId: req.headers.get("x-session-id"),
+        deviceId,
+        sessionId,
       });
       return Response.json({ path }, { status: 201, headers: CORS_HEADERS });
     } catch (err) {

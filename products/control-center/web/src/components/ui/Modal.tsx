@@ -73,12 +73,18 @@ export function Modal({
   // manages itself , and covers modals that do not exist yet. Logging at each
   // call site instead would be ~15 edits today and a thing to remember forever.
   // `title` is the only identity a modal carries; it is stable enough to group
-  // by and is what a human reading the transcript would name anyway.
+  // by and is what a human reading the transcript would name anyway. Routed
+  // through a ref so a title that changes while open (e.g. a live count in the
+  // heading) doesn't re-run the effect and fabricate a close/open pair the
+  // person never performed.
+  const titleRef = useRef(title);
+  titleRef.current = title;
   useEffect(() => {
     if (!open) return;
-    interaction("modal", "open", `modal.${title}`);
-    return () => interaction("modal", "close", `modal.${title}`);
-  }, [open, title]);
+    const target = `modal.${titleRef.current}`;
+    interaction("modal", "open", target);
+    return () => interaction("modal", "close", target);
+  }, [open]);
 
   // Escape-to-close. Listener is only attached while open so a background
   // (closed) modal never swallows Escape meant for something else.

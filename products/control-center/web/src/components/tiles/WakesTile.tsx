@@ -60,7 +60,15 @@ export function WakesTile() {
         totalBytes={listing.data?.totalBytes ?? 0}
         photoUrl={(path) => `/media/wake-photos/${path}`}
         sessions={sessions.data ?? []}
-        selectedSession={selectedSessionId !== null ? (sessionDetail.data ?? null) : null}
+        // Only hand over a detail that matches the CURRENT selection , while a
+        // newly-selected session's query is in flight, react-query still holds
+        // the previous session's data, which would render the wrong transcript
+        // under the new row's identity.
+        selectedSession={
+          sessionDetail.data && sessionDetail.data.id === selectedSessionId
+            ? sessionDetail.data
+            : null
+        }
         onSelectSession={setSelectedSessionId}
       />
     </>

@@ -1,4 +1,5 @@
 // Drizzle schema. Backend agents add tables here.
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -443,6 +444,14 @@ export const frontendLog = pgTable(
     // bare ts index serves ts-only scans, (level, ts) the level-filtered ones.
     index("frontend_log_ts_idx").on(t.ts),
     index("frontend_log_level_ts_idx").on(t.level, t.ts),
+    // The sessions aggregate (interaction-session-service) reads ui-channel
+    // rows by their JSONB session id , without this partial expression index
+    // every per-session lookup is a full scan of a table that holds 30 days of
+    // EVERY device's debug logs. Partial on source='ui' keeps it tiny: only
+    // interaction rows are indexed, and the service always filters on both.
+    index("frontend_log_ui_session_idx")
+      .on(sql`(${t.data}->>'interactionSessionId')`)
+      .where(sql`${t.source} = 'ui'`),
   ],
 );
 

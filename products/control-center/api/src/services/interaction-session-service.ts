@@ -130,6 +130,11 @@ export async function listInteractionSessions(
     .orderBy(desc(sql`min(${frontendLog.ts})`))
     .limit(limit);
 
+  // Deliberate N+1 (two indexed lookups per session): at panel scale (one
+  // device, tens of visits, limit 50) that is ~100 hits on
+  // frontend_log_ui_session_idx / wake_photo_session_idx per list call, which
+  // is cheaper to own than a three-way JSONB join is to read. Revisit only if
+  // a fleet of devices ever makes this list hot.
   const summaries: InteractionSessionSummary[] = [];
   for (const g of groups) {
     const events = await eventsFor(db, g.id);
