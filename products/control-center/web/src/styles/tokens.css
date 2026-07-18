@@ -400,6 +400,14 @@
 .modal-scroll::-webkit-scrollbar {
   display: none;
 }
+/* Hidden scrollbar for a TimeWheel column , the wheel snaps + fades on its own,
+   so a visible bar would only clutter the picker. Same recipe as .modal-scroll. */
+.timewheel-col {
+  scrollbar-width: none;
+}
+.timewheel-col::-webkit-scrollbar {
+  display: none;
+}
 /* Visible dark-themed scrollbar variant , for modal bodies (e.g. Settings) that
    can overflow and want the scroll affordance shown ALWAYS while content
    overflows, not just on scroll. Styling ::-webkit-scrollbar with an explicit

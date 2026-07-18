@@ -9,7 +9,17 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { Chip, Modal, Segmented, Slider, Switch, TextInput } from "@/components/ui";
+import {
+  Chip,
+  formatHHMM,
+  Modal,
+  parseHHMM,
+  Segmented,
+  Slider,
+  Switch,
+  TextInput,
+  TimeWheel,
+} from "@/components/ui";
 import { Icon } from "../../Icon";
 import {
   type DisplayScene,
@@ -214,12 +224,15 @@ function ScheduleEditor({
         />
         <div style={{ marginTop: 10 }}>
           {draft.trigger.type === "fixed" ? (
-            <TextInput
-              value={draft.trigger.time}
-              onChange={(time) => set({ trigger: { type: "fixed", time } })}
-              label="Time (HH:MM)"
-              placeholder="21:30"
-            />
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <TimeWheel
+                value={parseHHMM(draft.trigger.time)}
+                // minuteStep 1 preserves the arbitrary-minute precision the old
+                // free-text HH:MM field allowed.
+                minuteStep={1}
+                onChange={(t) => set({ trigger: { type: "fixed", time: formatHHMM(t) } })}
+              />
+            </div>
           ) : (
             <Slider
               value={draft.trigger.offsetMin}
