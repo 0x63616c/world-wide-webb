@@ -562,23 +562,22 @@ function BackButton() {
       type="button"
       aria-label="Back to board"
       style={{
-        display: "inline-flex",
+        display: "flex",
         alignItems: "center",
-        gap: 8,
-        padding: "8px 14px",
+        justifyContent: "center",
+        width: 38,
+        height: 38,
+        padding: 0,
         background: "var(--nest)",
         border: "1px solid var(--hair)",
-        borderRadius: 10,
-        fontFamily: "var(--ui)",
-        fontSize: 13,
+        borderRadius: 12,
         color: "var(--ink-2)",
         cursor: "pointer",
+        flexShrink: 0,
+        transform: "rotate(180deg)",
       }}
     >
-      <span style={{ transform: "rotate(180deg)", display: "flex" }}>
-        <Icon name="chevron" s={15} />
-      </span>
-      Board
+      <Icon name="chevron" s={20} />
     </button>
   );
 }
@@ -608,9 +607,9 @@ export function SettingsConceptGroupedCards() {
           gap: 20,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700 }}>Settings</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <BackButton />
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700 }}>Settings</h1>
         </div>
         <nav
           style={{ display: "flex", flexDirection: "column", gap: 4 }}
@@ -863,9 +862,9 @@ export function SettingsConceptSplitDetail() {
           gap: 24,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 700 }}>Settings</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <BackButton />
+          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 700 }}>Settings</h1>
         </div>
         <nav
           style={{ display: "flex", flexDirection: "column", gap: 6 }}
