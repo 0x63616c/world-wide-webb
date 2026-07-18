@@ -42,6 +42,13 @@
 - IDs default to `prefix_<id>`.
 - Backend code uses structured logging.
 
+## Debugging
+
+- Panel/frontend logs are queryable in the control-center Postgres: table
+  `frontend_log`, 30-day retention, tagged with stable `device_id`, display
+  `device_name`, git `sha`, and app `build`. Query it (psql via kubectl exec on
+  `control-center-1`) instead of asking for a device export.
+
 ## Infra
 
 - "prod" means the homelab cluster; there is no other production environment.

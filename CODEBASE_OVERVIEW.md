@@ -153,6 +153,16 @@ It checks media storage free space before claiming download work.
 
 Logger behavior is keyed off runtime env like `APP_ENV`, `LOG_LEVEL`, and `LOG_PRETTY`, not `NODE_ENV`, because Bun can inline `NODE_ENV` in single-file bundles.
 
+Frontend logs (the web app's own log store, `products/control-center/web/src/lib/log/`) are shipped to Postgres: a cursor-tracked shipper pushes every entry to the `logs.ingest` tRPC mutation, which writes the `frontend_log` table (30-day retention, purged daily). Every entry carries a stable `deviceId` (`<model-slug>-<idfv8>`), the mutable display `deviceName`, the git `sha`, and the App Store `build` number. To read panel logs from a desk, query Postgres instead of exporting from the device:
+
+```
+kubectl --context cc-homelab -n control-center exec control-center-1 -c postgres -- \
+  psql -U postgres -d control_center -c "select ts, level, source, msg from frontend_log \
+  where level in ('warn','error') and ts > now() - interval '1 day' order by ts desc limit 100"
+```
+
+Design: `docs/superpowers/specs/2026-07-18-frontend-log-shipping-design.md`.
+
 API config is parsed in `products/control-center/api/src/env.ts`. Production secrets are mounted as files under `/run/secrets/<NAME>` and hydrated at boot. Real credentials and private home-location values live outside git.
 
 ## Deployment
