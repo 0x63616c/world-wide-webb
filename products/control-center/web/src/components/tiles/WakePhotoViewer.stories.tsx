@@ -36,11 +36,32 @@ const DAYS: WakePhotoDay[] = [
 
 const photoUrl = (path: string) => PHOTO_URLS.get(path) ?? svgPhoto(0);
 
+// A visit derived from the interaction log, pointing at the same deterministic
+// SVG frames the photo grid uses.
+const SESSION_START = Date.UTC(2026, 6, 17, 19, 4, 2);
+const SESSIONS = [
+  {
+    id: "isn_9f3ac1d2e4b5",
+    startedAt: SESSION_START,
+    endedAt: SESSION_START + 134_000,
+    durationMs: 134_000,
+    eventCount: 4,
+    endReason: "idle-dim",
+    deviceName: "wall-panel",
+    photoPaths: [...(DAYS[0]?.photos.slice(0, 2).map((p) => p.path) ?? [])],
+  },
+];
+
 const meta = {
   title: "Modals/WakePhotoViewer",
   component: WakePhotoViewer,
   tags: ["autodocs"],
   parameters: modalDocsParameters(),
+  args: {
+    sessions: SESSIONS,
+    selectedSession: null,
+    onSelectSession: fn(),
+  },
 } satisfies Meta<typeof WakePhotoViewer>;
 
 export default meta;
@@ -86,5 +107,23 @@ export const Empty: Story = {
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
     await expect(body.getByText(/No wake photos yet/)).toBeInTheDocument();
+  },
+};
+
+export const Sessions: Story = {
+  args: {
+    open: true,
+    onClose: fn(),
+    days: DAYS,
+    totalCount: 39,
+    totalBytes: 6_400_000,
+    photoUrl,
+  },
+  play: async ({ args, canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByRole("radio", { name: "Sessions" }));
+    await waitFor(() => expect(body.getAllByTestId("session-row")).toHaveLength(1));
+    await userEvent.click(body.getAllByTestId("session-row")[0]);
+    await expect(args.onSelectSession).toHaveBeenCalledWith("isn_9f3ac1d2e4b5");
   },
 };

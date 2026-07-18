@@ -1,9 +1,35 @@
 # Interaction logging (human-attributable panel activity)
 
-Status: **tiers A+B shipped**; tiers C–D and the guards (§4.1–4.3) are still design.
+Status: **tiers A+B shipped**, **wake-photo session correlation shipped**
+(plan `docs/superpowers/plans/2026-07-18-wake-photo-sessions.md`); tiers C–D
+and the guards (§4.1–4.3) are still design.
 
-Decisions taken since the first draft: human-origin only (§7), and the session
-resume window is implemented at the proposed 30s.
+Decisions taken since the first draft:
+
+- Human-origin only (§7). Device-driven changes never reach the ui channel.
+- The session boundary is now the **undim event**: `wake()` calls
+  `startInteractionSession()`, which force-mints a fresh session (a physical
+  approach outranks the 30s resume heuristic) and hands the id to the camera
+  burst. The 60s inactivity timeout remains as a fallback for environments that
+  never dim (browser, Storybook, `idleDimEnabled: false`). Known hole: a person
+  arriving while the panel is already awake joins the previous session; fixing
+  that needs a presence signal (HA motion), not more timing heuristics.
+- Wake photos are indexed in Postgres (`wake_photo`, migration 0015): one row
+  per frame with capturedAt, session id, device id, frame index; bytes stay on
+  disk. The session reference is a plain column, not an FK — the photo lands
+  over HTTP before the 3s-batched log ships the session it names. A boot-time
+  idempotent backfill indexes pre-table photos (NULL on fields the old
+  filename never carried). Retention: 90 days (`wake-photo-purge-service`),
+  the first the photos ever had.
+- Sessions are **derived, not stored** (`interaction-session-service`,
+  `sessions.list` / `sessions.get`): aggregation over `frontend_log`
+  `source='ui'`. No `interaction_session` table — the log's `session/start` /
+  `session/end` entries carry every attribute a session has, and the shipper is
+  idempotent with offline backfill; a second write path could drift.
+- The viewer question (§7) resolved: a **Sessions mode** inside the existing
+  `WakePhotoViewer` (third Segmented mode) — list of visits (photo thumbnail,
+  start, duration, event count, end reason) → per-visit detail (burst frames +
+  ordered transcript).
 
 Goal: every human interaction with the wall panel lands in `frontend_log` so that
 later we can reconstruct "a person walked up at 19:04, woke the panel, opened the

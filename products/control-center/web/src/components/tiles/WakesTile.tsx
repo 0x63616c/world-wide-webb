@@ -11,9 +11,18 @@ function utcToday(): string {
 
 export function WakesTile() {
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const listing = trpc.wakePhotos.list.useQuery(undefined, {
     refetchInterval: 60_000,
   });
+  const sessions = trpc.sessions.list.useQuery(undefined, {
+    refetchInterval: 60_000,
+    enabled: viewerOpen,
+  });
+  const sessionDetail = trpc.sessions.get.useQuery(
+    { id: selectedSessionId ?? "" },
+    { enabled: selectedSessionId !== null },
+  );
 
   const status = listing.isError
     ? TileStatus.Error
@@ -41,11 +50,18 @@ export function WakesTile() {
       />
       <WakePhotoViewer
         open={viewerOpen}
-        onClose={() => setViewerOpen(false)}
+        onClose={() => {
+          setViewerOpen(false);
+          // Reopening starts at the list, not a stale detail.
+          setSelectedSessionId(null);
+        }}
         days={listing.data?.days ?? []}
         totalCount={listing.data?.totalCount ?? 0}
         totalBytes={listing.data?.totalBytes ?? 0}
         photoUrl={(path) => `/media/wake-photos/${path}`}
+        sessions={sessions.data ?? []}
+        selectedSession={selectedSessionId !== null ? (sessionDetail.data ?? null) : null}
+        onSelectSession={setSelectedSessionId}
       />
     </>
   );

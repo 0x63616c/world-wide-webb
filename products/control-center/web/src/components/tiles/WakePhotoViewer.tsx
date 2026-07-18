@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Segmented, type SegmentedOption } from "@/components/ui";
+import { type SessionDetail, SessionDetailView } from "./SessionDetailView";
+import { SessionListView, type SessionSummary } from "./SessionListView";
 
 export interface WakePhotoDay {
   /** YYYY-MM-DD (UTC buckets, straight from wakePhotos.list). */
@@ -15,13 +17,20 @@ export interface WakePhotoViewerProps {
   totalBytes: number;
   /** Maps a listing path to a fetchable URL (the /media/wake-photos/ route). */
   photoUrl: (path: string) => string;
+  /** Visits derived from the interaction log, newest first. */
+  sessions: SessionSummary[];
+  /** The expanded session, when one is selected in the Sessions mode. */
+  selectedSession: SessionDetail | null;
+  /** Select a session (id) or return to the list (null). */
+  onSelectSession: (id: string | null) => void;
 }
 
-type ViewerMode = "grid" | "lapse";
+type ViewerMode = "grid" | "lapse" | "sessions";
 
 const MODE_OPTIONS: readonly SegmentedOption<ViewerMode>[] = [
   { value: "grid", label: "Grid" },
   { value: "lapse", label: "Timelapse" },
+  { value: "sessions", label: "Sessions" },
 ];
 
 const LAPSE_FRAME_MS = 450;
@@ -48,6 +57,9 @@ export function WakePhotoViewer({
   totalCount,
   totalBytes,
   photoUrl,
+  sessions,
+  selectedSession,
+  onSelectSession,
 }: WakePhotoViewerProps) {
   const [mode, setMode] = useState<ViewerMode>("grid");
 
@@ -99,7 +111,19 @@ export function WakePhotoViewer({
           </div>
         </div>
 
-        {days.length === 0 ? (
+        {mode === "sessions" ? (
+          // Sessions render even with zero photos on disk , a browser session
+          // with dimming off is still a visit worth reading back.
+          selectedSession ? (
+            <SessionDetailView
+              session={selectedSession}
+              photoUrl={photoUrl}
+              onBack={() => onSelectSession(null)}
+            />
+          ) : (
+            <SessionListView sessions={sessions} photoUrl={photoUrl} onSelect={onSelectSession} />
+          )
+        ) : days.length === 0 ? (
           <div className="cap" style={{ padding: "48px 0", textAlign: "center" }}>
             No wake photos yet , they appear after the panel is next woken.
           </div>
