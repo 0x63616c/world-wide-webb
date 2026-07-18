@@ -90,6 +90,26 @@ describe("DimOverlay wake tap swallowing", () => {
     expect(screen.queryByTestId("dim-overlay")).toBeNull();
   });
 
+  // Regression (fix #2): the idle timer's window-CAPTURE pointerdown listener
+  // saw the wake tap before the overlay's own handler, un-dimmed, and React's
+  // mid-dispatch flush (microtask checkpoint between listeners) unmounted the
+  // shield before it could swallow anything , the tap clicked the tile under
+  // the finger. While dimmed, raw window events must be inert.
+  it("a raw window pointerdown while dimmed does not un-dim / unmount the shield", () => {
+    renderDimmedBoard();
+
+    act(() => {
+      window.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    });
+    expect(screen.queryByTestId("dim-overlay")).toBeTruthy();
+
+    // The real tap still wakes through the shield, and its click is absorbed.
+    fireEvent.pointerDown(screen.getByTestId("dim-overlay"));
+    fireEvent.click(screen.getByTestId("dim-overlay"));
+    expect(tileTap).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("dim-overlay")).toBeNull();
+  });
+
   it("fallback timer unmounts the shield when no click ever arrives", () => {
     renderDimmedBoard();
     fireEvent.pointerDown(screen.getByTestId("dim-overlay"));

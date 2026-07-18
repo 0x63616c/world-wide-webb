@@ -442,6 +442,16 @@ type UseIdleTimerOptions = {
   onActive?: () => void;
   /** When it returns true at fire time, defer (reschedule) instead of firing. */
   shouldDefer?: () => boolean;
+  /**
+   * When it returns true at EVENT time, the raw activity event is dropped ,
+   * it neither rearms the window nor fires onActive. poke() still works, so a
+   * caller can make itself the only legitimate "activity" source for a while
+   * (the dim overlay does this: while dimmed, the window-capture listeners see
+   * the wake tap BEFORE the overlay's own handler, and un-dimming from here
+   * unmounts the overlay mid-dispatch , React flushes state at the microtask
+   * checkpoint between listeners , so the tap fell through to the tile).
+   */
+  shouldIgnoreEvent?: () => boolean;
   /** When false the timer + listeners are inert (the feature is disabled). */
   enabled?: boolean;
   /**
@@ -473,11 +483,12 @@ function useIdleTimer({
   onIdle,
   onActive,
   shouldDefer,
+  shouldIgnoreEvent,
   enabled = true,
   isProgrammatic,
 }: UseIdleTimerOptions): { poke: () => void } {
-  const cbRef = useRef({ onIdle, onActive, shouldDefer, isProgrammatic });
-  cbRef.current = { onIdle, onActive, shouldDefer, isProgrammatic };
+  const cbRef = useRef({ onIdle, onActive, shouldDefer, shouldIgnoreEvent, isProgrammatic });
+  cbRef.current = { onIdle, onActive, shouldDefer, shouldIgnoreEvent, isProgrammatic };
 
   // Holds the live effect's `arm` so poke() can rearm/undim from the outside
   // (e.g. a wake tap that the dim overlay swallowed before the stage saw it).
@@ -516,6 +527,7 @@ function useIdleTimer({
     // moment the reset fired (and un-dim a panel that just dimmed). Every other
     // event in IDLE_EVENTS is unambiguously a human.
     const onEvent = (event: Event) => {
+      if (cbRef.current.shouldIgnoreEvent?.()) return;
       if (event.type === "scroll" && cbRef.current.isProgrammatic?.current) return;
       arm();
     };
@@ -627,6 +639,13 @@ export function useIdleDim({
   activeBrightness,
 }: UseIdleDimOptions): { dimmed: boolean; wake: () => void } {
   const [dimmed, setDimmed] = useState(false);
+  // Synchronous mirror of `dimmed` for raw event listeners: state is only
+  // current as of the last render, and the wake tap's events race ahead of it.
+  const dimmedRef = useRef(false);
+  const setDimmedNow = useCallback((value: boolean) => {
+    dimmedRef.current = value;
+    setDimmed(value);
+  }, []);
 
   const { poke } = useIdleTimer({
     stage,
@@ -634,8 +653,13 @@ export function useIdleDim({
     ms: timeoutMs,
     enabled,
     shouldDefer: () => pointerDown.current,
-    onIdle: () => setDimmed(true),
-    onActive: () => setDimmed(false),
+    onIdle: () => setDimmedNow(true),
+    onActive: () => setDimmedNow(false),
+    // While dimmed the overlay is the ONLY legitimate waker (it calls wake()).
+    // Raw window/stage events must be inert: the window-capture listener sees
+    // the wake tap before the overlay's handler, and un-dimming from it
+    // unmounts the overlay mid-dispatch, so the tap clicks the tile beneath.
+    shouldIgnoreEvent: () => dimmedRef.current,
   });
 
   // Disabled mid-dim, or the stage went away mid-dim (the board swapped back to
@@ -643,8 +667,8 @@ export function useIdleDim({
   // timer that would have cleared it via onActive is gone. The effect below then
   // wakes the backlight.
   useEffect(() => {
-    if ((!enabled || !stage) && dimmed) setDimmed(false);
-  }, [enabled, stage, dimmed]);
+    if ((!enabled || !stage) && dimmed) setDimmedNow(false);
+  }, [enabled, stage, dimmed, setDimmedNow]);
 
   // Apply the backlight off the resolved state. The else-branch (awake, disabled,
   // mount) drives the panel to its active brightness , the app always owns the

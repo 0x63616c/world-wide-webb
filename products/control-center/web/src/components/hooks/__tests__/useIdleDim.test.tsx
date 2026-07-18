@@ -58,14 +58,23 @@ describe("useIdleDim", () => {
     expect(dimTo).toHaveBeenCalledWith(0.25);
   });
 
-  it("wakes to the active brightness on the next interaction after dimming", () => {
+  // Regression (wake tap clicked through to the tile): the window-capture
+  // activity listener sees the wake tap BEFORE the dim overlay's own handler,
+  // and un-dimming from it unmounted the overlay mid-dispatch (React flushes
+  // state at the microtask checkpoint between listeners), so the tap's click
+  // retargeted to the tile underneath. While dimmed, raw events are therefore
+  // IGNORED , the overlay's explicit wake() is the only way back up.
+  it("ignores raw interaction events while dimmed; only wake() un-dims", () => {
     const { stage, result } = setup({ timeoutMs: 10_000, activeBrightness: 0.8 });
     act(() => vi.advanceTimersByTime(10_000));
     expect(result.current.dimmed).toBe(true);
 
     wakeTo.mockClear();
     act(() => stage.dispatchEvent(new Event("pointerdown")));
+    expect(result.current.dimmed).toBe(true);
+    expect(wakeTo).not.toHaveBeenCalled();
 
+    act(() => result.current.wake());
     expect(result.current.dimmed).toBe(false);
     expect(wakeTo).toHaveBeenLastCalledWith(0.8);
   });
@@ -227,11 +236,14 @@ describe("useIdleDim", () => {
     act(() => vi.advanceTimersByTime(1_000));
     expect(result.current.dimmed).toBe(true);
 
-    // A real finger on the same event still counts.
+    // Awake again, a real finger on the same event still counts as activity.
     isProgrammatic.current = false;
+    act(() => result.current.wake());
+    act(() => vi.advanceTimersByTime(9_000));
     act(() => {
       stage.dispatchEvent(new Event("scroll"));
     });
+    act(() => vi.advanceTimersByTime(1_000));
     expect(result.current.dimmed).toBe(false);
   });
 });
@@ -251,19 +263,23 @@ describe("useIdleDim activity outside the stage", () => {
     document.body.innerHTML = "";
   });
 
-  it("wakes on a tap that lands outside the stage (e.g. inside a portalled modal)", () => {
+  it("a tap outside the stage while dimmed is ignored too (the shield covers modals)", () => {
     const { result } = setup({ timeoutMs: 10_000, activeBrightness: 1 });
     act(() => vi.advanceTimersByTime(10_000));
     expect(result.current.dimmed).toBe(true);
 
+    // The dim overlay sits above every modal, so a real tap inside one lands on
+    // the shield (which calls wake()) , the raw event reaching window here is
+    // exactly the race that used to click through to the tile.
     const modal = document.createElement("div");
     document.body.appendChild(modal);
+    wakeTo.mockClear();
     act(() => {
       modal.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     });
 
-    expect(result.current.dimmed).toBe(false);
-    expect(wakeTo).toHaveBeenCalledWith(1);
+    expect(result.current.dimmed).toBe(true);
+    expect(wakeTo).not.toHaveBeenCalled();
   });
 
   it("does not dim while a tap outside the stage keeps rearming the window", () => {

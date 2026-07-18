@@ -270,7 +270,7 @@ function UnplacedTilesBanner({ count }: { count: number }) {
 // How long the shield lingers after the wake tap if no click ever arrives to
 // release it (pointer cancelled mid-tap, stylus hover, etc.). Long enough for
 // any synthesized click, short enough to never eat a deliberate second tap.
-const DIM_LINGER_FALLBACK_MS = 500;
+const DIM_LINGER_MAX_MS = 500;
 
 // Invisible full-screen shield, rendered only while the panel is dimmed. Idle
 // dimming is native-only (gated off isNativeDisplay in Board), and on the iPad
@@ -316,7 +316,7 @@ function DimOverlay({ active, onWake }: { active: boolean; onWake: () => void })
         if (active) {
           onWake();
           setLingering(true);
-          fallbackRef.current = window.setTimeout(release, DIM_LINGER_FALLBACK_MS);
+          fallbackRef.current = window.setTimeout(release, DIM_LINGER_MAX_MS);
         }
       }}
       onClick={(e) => {
@@ -737,9 +737,11 @@ export function Board() {
   });
 
   // The wake tap: the dim overlay swallows the first touch so it never reaches a
-  // tile, then calls this to un-dim AND rearm BOTH idle windows (the swallowed
-  // tap never hit the stage listeners, so poke them by hand). The next tap lands
-  // on the board normally.
+  // tile, then calls this to un-dim AND rearm BOTH idle windows. While dimmed the
+  // idle timers deliberately IGNORE raw events (shouldIgnoreEvent) , the window-
+  // capture activity listener would otherwise see the tap first, un-dim, and
+  // unmount the shield mid-dispatch so the tap clicked the tile beneath , so this
+  // explicit poke is the only wake path. The next tap lands on the board normally.
   // Dimming means the room went quiet: end the visit so its transcript closes at
   // the moment the panel actually gave up, not SESSION_IDLE_MS later.
   useEffect(() => {
