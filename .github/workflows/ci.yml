@@ -634,3 +634,65 @@ jobs:
             pulumi config set --path "wwwinfra:imageDigests.$svc" "$dig" --stack prod
           done
           pulumi up --yes --stack prod
+
+  # Push a phone ping via ntfy.sh when main CI fails, and a quiet "deployed"
+  # ping when the deploy job succeeds. Terminal job: never fails the pipeline
+  # (curl errors are swallowed), never runs off main. The topic name lives in
+  # the SOPS vault (NTFY_TOPIC), so this job needs the prod environment for
+  # AGE_PRIVATE_KEY, same as deploy. Docs-only pushes (deploy skipped, nothing
+  # failed) send nothing.
+  notify:
+    needs: [changes, test, typecheck, build-web, build-api, build-worker, build-media-worker, build-storybook, build-drizzle, build-captive-portal, build-captive-portal-api, build-map-provision, deploy]
+    if: always() && github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Send ntfy notification
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
+          ANY_FAILED: ${{ contains(needs.*.result, 'failure') }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ "$ANY_FAILED" != "true" ] && [ "$DEPLOY_RESULT" != "success" ]; then
+            echo "Nothing to notify (no failure, no deploy)."
+            exit 0
+          fi
+
+          # Install sops + age to read NTFY_TOPIC from the vault.
+          curl -fsSL https://github.com/getsops/sops/releases/download/v3.13.1/sops-v3.13.1.linux.amd64 \
+            -o /usr/local/bin/sops && chmod +x /usr/local/bin/sops
+          curl -fsSL https://github.com/FiloSottile/age/releases/download/v1.3.1/age-v1.3.1-linux-amd64.tar.gz \
+            | tar -xzC /usr/local/bin --strip-components=1 age/age age/age-keygen
+
+          TOPIC=$(sops -d secrets/vault.yaml | grep '^NTFY_TOPIC:' | cut -d' ' -f2-)
+          echo "::add-mask::$TOPIC"
+          if [ -z "$TOPIC" ]; then
+            echo "NTFY_TOPIC not set in vault; skipping."
+            exit 0
+          fi
+
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          SUBJECT=$(git log -1 --pretty=%s)
+
+          if [ "$ANY_FAILED" = "true" ]; then
+            curl -fsS --max-time 10 \
+              -H "Title: CI failed on main" \
+              -H "Priority: high" \
+              -H "Tags: rotating_light" \
+              -H "Click: $RUN_URL" \
+              -d "$SUBJECT ($SHORT_SHA)" \
+              "https://ntfy.sh/$TOPIC" || true
+          else
+            curl -fsS --max-time 10 \
+              -H "Title: Deployed" \
+              -H "Priority: low" \
+              -H "Tags: rocket" \
+              -H "Click: $RUN_URL" \
+              -d "$SUBJECT ($SHORT_SHA)" \
+              "https://ntfy.sh/$TOPIC" || true
+          fi

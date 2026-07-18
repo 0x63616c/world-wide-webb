@@ -13,10 +13,10 @@ ping when a deploy succeeds. Smallest possible integration: one new job in
 
 - **Trigger:** CI pipeline results on `main` only. Feature branches and PRs
   stay silent.
-- **Server:** public `ntfy.sh`. The topic name is the secret — an unguessable
-  slug (e.g. `www-ci-<random>`), stored as a GitHub Actions secret
-  `NTFY_TOPIC`. It is deliberately NOT in the SOPS vault: the notify job must
-  not need `AGE_PRIVATE_KEY` or the protected `prod` environment.
+- **Server:** public `ntfy.sh`. The topic name is the secret, stored in the
+  SOPS vault as `NTFY_TOPIC` (with the other CI secrets). The notify job
+  therefore uses the protected `prod` environment to get `AGE_PRIVATE_KEY`,
+  same as deploy — main-only, so the key still never reaches PR runners.
 - **Delivery:** subscribe to the topic in the ntfy iOS/Android app.
 
 ## Architecture
@@ -31,7 +31,8 @@ notify:
           build-map-provision, deploy]
   if: always() && github.ref_name == 'main'
   runs-on: ubuntu-latest
-  timeout-minutes: 2
+  timeout-minutes: 5
+  environment: prod   # AGE_PRIVATE_KEY to decrypt vault for NTFY_TOPIC
 ```
 
 Logic inside a single step:
