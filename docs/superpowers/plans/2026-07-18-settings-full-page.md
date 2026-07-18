@@ -72,7 +72,7 @@ products/control-center/api/src/services/settings-service.ts  (modify: schema + 
 
 **Interfaces:**
 - Produces: `PinPadView({ entered, error, onDigit, onBackspace })` — copy from PinConcepts verbatim (incl. the rotated-chevron backspace).
-- Produces: `PinGateModal({ open, title, onClose, onSuccess }: { open: boolean; title: string; onClose: () => void; onSuccess: () => void })` — portal to body, dim backdrop, centered card exactly like the approved `PinUnlockModalConcept` dialog (lock icon chip, title, "<title> is locked" copy, pad, Cancel). Reads `useSettings().pinCode`; wrong full entry clears + flashes error; right entry shows unlocked state ~250 ms then calls `onSuccess`. Registers `registerOpenModal` while open and closes on Escape (copy Modal.tsx's effect). Logs open/close via `interaction("modal", ...)` with target `modal.pin.<title>`.
+- Produces: `PinGateModal({ open, title, onClose, onSuccess }: { open: boolean; title: string; onClose: () => void; onSuccess: () => void })` — portal to body, dim backdrop, centered card exactly like the approved `PinUnlockModalConcept` dialog (lock icon chip, title, "<title> is locked" copy, pad, Cancel). Card size per Calum's approved screenshot: width 720, padding "48px 40px 44px" — the generous Security-card sizing, not a compact dialog. Reads `useSettings().pinCode`; wrong full entry clears + flashes error; right entry shows unlocked state ~250 ms then calls `onSuccess`. Registers `registerOpenModal` while open and closes on Escape (copy Modal.tsx's effect). Logs open/close via `interaction("modal", ...)` with target `modal.pin.<title>`.
 
 **Steps:**
 
