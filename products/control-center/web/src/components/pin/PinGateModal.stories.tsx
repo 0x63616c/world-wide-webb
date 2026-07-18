@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type React from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { setPinCode } from "../../lib/settings";
 import { PinGateModal } from "./PinGateModal";
 
 // Thin wrapper so Storybook infers props from the function-component signature.
@@ -13,6 +14,16 @@ const meta = {
   component: PinGateStory,
   tags: ["autodocs"],
   parameters: { boardWrapper: false, layout: "fullscreen" },
+  // The PIN lives in the shared settings store, which persists to localStorage
+  // across every story in the run (SecurityPage's walkthrough changes it to
+  // 123456). Pin it back to 000000 before each render so this story never
+  // depends on story order.
+  decorators: [
+    (Story) => {
+      setPinCode("000000");
+      return <Story />;
+    },
+  ],
   args: {
     title: "Settings",
     onClose: fn(),
@@ -24,8 +35,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /**
- * Open gate over the fullscreen frame. The store's default PIN in Storybook is
- * 000000, so tapping 0 six times unlocks , the dialog flips to "Unlocked" and
+ * Open gate over the fullscreen frame. The decorator pins the PIN to 000000,
+ * so tapping 0 six times unlocks , the dialog flips to "Unlocked" and
  * (after a short beat) calls onSuccess.
  */
 export const Open: Story = {
