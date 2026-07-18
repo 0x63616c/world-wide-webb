@@ -376,6 +376,9 @@ export function controlCenterServiceSecretUsages(): Record<
     ASC_KEY_ID: secretCatalog.appStoreConnect.keyId,
     ASC_ISSUER_ID: secretCatalog.appStoreConnect.issuerId,
     ASC_KEY_CONTENT: secretCatalog.appStoreConnect.p8Content,
+    // Deploys-tile poller. Only the worker reads it, but api/worker secret sets
+    // are kept in lockstep (www-51hf.35), so it appears in both.
+    GITHUB_ACTIONS_TOKEN: secretCatalog.github.ghcrPat,
   } as const;
   const workerSecrets = {
     HA_TOKEN: secretCatalog.homeAssistant.token,
@@ -393,6 +396,9 @@ export function controlCenterServiceSecretUsages(): Record<
     ASC_KEY_ID: secretCatalog.appStoreConnect.keyId,
     ASC_ISSUER_ID: secretCatalog.appStoreConnect.issuerId,
     ASC_KEY_CONTENT: secretCatalog.appStoreConnect.p8Content,
+    // Deploys-tile poller. Only the worker reads it, but api/worker secret sets
+    // are kept in lockstep (www-51hf.35), so it appears in both.
+    GITHUB_ACTIONS_TOKEN: secretCatalog.github.ghcrPat,
   } as const;
 
   return {
