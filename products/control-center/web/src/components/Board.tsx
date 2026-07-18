@@ -952,10 +952,13 @@ export function Board() {
             with its own camera/chrome, and none of these read on a frozen board
             underneath it. */}
           {layoutEditOpen ? null : <SettingsButton />}
-          {layoutEditOpen ? null : (
+          {/* Minimap + its centered-tile label are one visual unit (the label is
+            positioned relative to the minimap box and reads as part of it), so
+            the showMinimap setting gates both together. */}
+          {layoutEditOpen || !settings.showMinimap ? null : (
             <CenteredTileLabel label={centeredLabel} panSignal={panSignal} />
           )}
-          {layoutEditOpen ? null : (
+          {layoutEditOpen || !settings.showMinimap ? null : (
             <Minimap
               view={view}
               panSignal={panSignal}

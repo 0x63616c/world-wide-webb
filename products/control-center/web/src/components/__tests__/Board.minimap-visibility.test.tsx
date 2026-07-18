@@ -41,6 +41,7 @@ vi.mock("../../lib/useBoardLayout", async () => {
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
 vi.mock("../tiles/modals/registry", () => ({ getTileModalEntry: () => undefined }));
 
+import { resetSettings, setShowMinimap } from "../../lib/settings";
 import { Board } from "../Board";
 import { IDLE_RESET_MS } from "../hooks/useBoard";
 
@@ -67,6 +68,7 @@ afterEach(() => {
   vi.useRealTimers();
   cleanup();
   vi.restoreAllMocks();
+  resetSettings();
 });
 
 // scrollTo is the channel programmatic navigation uses; let the writes through
@@ -147,6 +149,19 @@ describe("Minimap visibility (user-initiated movement only)", () => {
       vi.advanceTimersByTime(2_000);
     });
     expect(minimapOpacity()).toBe("0");
+  });
+
+  it("stays absent entirely when showMinimap is off, even on a user pan", () => {
+    setShowMinimap(false);
+    render(<Board />);
+    const stage = document.getElementById("stage") as HTMLElement;
+    stubScrollTo(stage);
+
+    // A real user pan would normally reveal the minimap + its centered-tile
+    // label; with the setting off, neither ever mounts.
+    userPan(stage, WORLD_W / 2, WORLD_H / 2);
+    expect(screen.queryByTestId("minimap-root")).toBeNull();
+    expect(screen.queryByTestId("centered-tile-label")).toBeNull();
   });
 
   it("shows during the user-initiated tap-to-recenter glide", () => {
