@@ -1,7 +1,12 @@
 # GitHub / Deploy Status Tile — Design
 
 Date: 2026-07-18
-Status: approved, not yet implemented
+Status: implemented 2026-07-18 (worker github-actions-service, github tRPC
+router, DeployTile/DeployModalPipeline, infra secret mount, retention purge).
+Planning notes below resolved: the api/worker secret lockstep is deliberate, so
+the token is mounted to both and only the worker reads it; drizzle tables live
+in api/src/db/schema.ts (migration 0017); ETags were skipped (within budget
+without them); the vault key was confirmed and added by hand.
 
 ## Problem
 
