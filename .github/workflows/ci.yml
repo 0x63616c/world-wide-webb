@@ -503,19 +503,38 @@ jobs:
           KUBECONFIG_B64_VAL=$(extract KUBECONFIG__B64)
 
           GHCR_PAT_VAL=$(extract GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN)
+          NTFY_TOPIC_VAL=$(extract NTFY_TOPIC)
 
           echo "::add-mask::$TS_CLIENT_ID"
           echo "::add-mask::$TS_CLIENT_SECRET"
           echo "::add-mask::$PULUMI_TOKEN"
           echo "::add-mask::$KUBECONFIG_B64_VAL"
           echo "::add-mask::$GHCR_PAT_VAL"
+          echo "::add-mask::$NTFY_TOPIC_VAL"
 
           echo "TS_OAUTH_CLIENT_ID=$TS_CLIENT_ID" >> "$GITHUB_ENV"
           echo "TS_OAUTH_SECRET=$TS_CLIENT_SECRET" >> "$GITHUB_ENV"
           echo "PULUMI_ACCESS_TOKEN=$PULUMI_TOKEN" >> "$GITHUB_ENV"
           echo "KUBECONFIG_B64=$KUBECONFIG_B64_VAL" >> "$GITHUB_ENV"
           echo "GHCR_PAT=$GHCR_PAT_VAL" >> "$GITHUB_ENV"
+          echo "NTFY_TOPIC=$NTFY_TOPIC_VAL" >> "$GITHUB_ENV"
           # SOPS_AGE_KEY flows into the pulumi up step via secrets.AGE_PRIVATE_KEY
+
+      # Heads-up ping the moment the deploy actually begins (vault decrypted,
+      # about to pin digests and run pulumi). min priority: no sound, just a
+      # line in the ntfy list. Never fails the job.
+      - name: Notify deploy start
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -n "$NTFY_TOPIC" ] || { echo "NTFY_TOPIC not set; skipping."; exit 0; }
+          curl -fsS --max-time 10 \
+            -H "Title: Deploy started" \
+            -H "Priority: min" \
+            -H "Tags: hourglass_flowing_sand" \
+            -H "Click: $RUN_URL" \
+            -d "$(git log -1 --pretty=%s) ($(git rev-parse --short HEAD))" \
+            "https://ntfy.sh/$NTFY_TOPIC" || true
 
       # Read each app image's current :main digest. A pinned digest renders the
       # workload's image as @sha256:… in the Pulumi program (infra/src/services.ts
