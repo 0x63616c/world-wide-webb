@@ -20,8 +20,6 @@ describe("settings-service DEFAULTS", () => {
   it("carries the minimap + PIN defaults", () => {
     expect(DEFAULTS.showMinimap).toBe(true);
     expect(DEFAULTS.pinCode).toBe("000000");
-    expect(DEFAULTS.pinLockSettings).toBe(true);
-    expect(DEFAULTS.pinLockWakePhotos).toBe(true);
   });
 });
 
@@ -47,8 +45,6 @@ describe("getSettings", () => {
     const s = await getSettings(fakeDb(legacy));
     expect(s.showMinimap).toBe(true);
     expect(s.pinCode).toBe("000000");
-    expect(s.pinLockSettings).toBe(true);
-    expect(s.pinLockWakePhotos).toBe(true);
   });
 
   it("keeps a stored 1 h idle timeout valid (server cap unchanged)", async () => {

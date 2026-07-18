@@ -6,8 +6,6 @@ import {
   PIN_LENGTH,
   resetSettings,
   setPinCode,
-  setPinLockSettings,
-  setPinLockWakePhotos,
   setShowMinimap,
   useSettings,
 } from "../settings";
@@ -28,8 +26,6 @@ describe("settings defaults", () => {
     const s = read().current;
     expect(s.showMinimap).toBe(true);
     expect(s.pinCode).toBe("000000");
-    expect(s.pinLockSettings).toBe(true);
-    expect(s.pinLockWakePhotos).toBe(true);
   });
 
   it("exports PIN_LENGTH = 6 and DEFAULT_PIN = 000000", () => {
@@ -75,17 +71,9 @@ describe("resetSettings", () => {
   });
 });
 
-describe("minimap + lock setters", () => {
+describe("minimap setter", () => {
   it("toggles showMinimap", () => {
     act(() => setShowMinimap(false));
     expect(read().current.showMinimap).toBe(false);
-  });
-
-  it("toggles the PIN lock flags", () => {
-    act(() => setPinLockSettings(false));
-    act(() => setPinLockWakePhotos(false));
-    const s = read().current;
-    expect(s.pinLockSettings).toBe(false);
-    expect(s.pinLockWakePhotos).toBe(false);
   });
 });

@@ -59,13 +59,9 @@ export interface Settings {
   snapMode: SnapMode;
   /** Show the board minimap (bottom-right). */
   showMinimap: boolean;
-  /** Synced 6-digit PIN gating Settings + Wake photos. NOT auth , purely a
-   *  frontend soft-lock. Exactly 6 digits; default "000000". */
+  /** Synced 6-digit PIN gating Settings + Wake photos (both gates always on).
+   *  NOT auth , purely a frontend soft-lock. Exactly 6 digits; default "000000". */
   pinCode: string;
-  /** Require the PIN before opening the Settings page. */
-  pinLockSettings: boolean;
-  /** Require the PIN before opening the Wake photos viewer. */
-  pinLockWakePhotos: boolean;
 }
 
 export const MIN_IDLE_TIMEOUT_MS = 60_000; // 1 min
@@ -91,8 +87,6 @@ const DEFAULTS: Settings = {
   snapMode: "mandatory-settle",
   showMinimap: true,
   pinCode: DEFAULT_PIN,
-  pinLockSettings: true,
-  pinLockWakePhotos: true,
 };
 
 // `cc-board-snap-mode` is reused verbatim so an existing SnapModeSwitcher choice
@@ -109,8 +103,6 @@ const KEYS = {
   snapMode: "cc-board-snap-mode",
   showMinimap: "cc-show-minimap",
   pinCode: "cc-pin-code",
-  pinLockSettings: "cc-pin-lock-settings",
-  pinLockWakePhotos: "cc-pin-lock-wake-photos",
 } as const;
 
 // ─── clamps ───────────────────────────────────────────────────────────────────
@@ -160,8 +152,6 @@ function loadInitial(): Settings {
   const buildBadge = readRaw(KEYS.showBuildBadge);
   const minimap = readRaw(KEYS.showMinimap);
   const pin = readRaw(KEYS.pinCode);
-  const lockSettings = readRaw(KEYS.pinLockSettings);
-  const lockWakePhotos = readRaw(KEYS.pinLockWakePhotos);
   return {
     activeBrightness:
       brightness === null ? DEFAULTS.activeBrightness : clampBrightness(Number(brightness)),
@@ -183,9 +173,6 @@ function loadInitial(): Settings {
         : DEFAULTS.snapMode,
     showMinimap: minimap === null ? DEFAULTS.showMinimap : minimap === "true",
     pinCode: pin && /^\d{6}$/.test(pin) ? pin : DEFAULTS.pinCode,
-    pinLockSettings: lockSettings === null ? DEFAULTS.pinLockSettings : lockSettings === "true",
-    pinLockWakePhotos:
-      lockWakePhotos === null ? DEFAULTS.pinLockWakePhotos : lockWakePhotos === "true",
   };
 }
 
@@ -312,14 +299,6 @@ export function setShowMinimap(v: boolean): void {
 export function setPinCode(pin: string): void {
   if (!/^\d{6}$/.test(pin)) return;
   patch("pinCode", pin, pin);
-}
-
-export function setPinLockSettings(v: boolean): void {
-  patch("pinLockSettings", v, String(v));
-}
-
-export function setPinLockWakePhotos(v: boolean): void {
-  patch("pinLockWakePhotos", v, String(v));
 }
 
 /**
