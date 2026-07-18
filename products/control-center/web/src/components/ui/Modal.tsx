@@ -8,7 +8,7 @@
  */
 
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { registerOpenModal } from "../../lib/modal-open-store";
 
@@ -57,9 +57,14 @@ export function Modal({
   // Register in the global modal-open count while open so the board freezes its
   // pan for the lifetime of THIS modal , including modals a tile manages itself
   // (ControlsTile's expanded view) that never touch the board's activeModal.
+  // The registered dismisser also lets the board's idle reset close this modal
+  // on its way home. Routed through a ref so a fresh onClose closure each render
+  // never re-registers (which would churn the count and reorder dismissal).
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     if (!open) return;
-    return registerOpenModal();
+    return registerOpenModal(() => onCloseRef.current());
   }, [open]);
 
   // Escape-to-close. Listener is only attached while open so a background

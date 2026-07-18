@@ -4,7 +4,7 @@
  * #stage, same reasoning as Modal), and Escape-to-close for dev keyboards.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { registerOpenModal } from "../lib/modal-open-store";
 import { useTiltAngle } from "../lib/useTiltAngle";
@@ -27,10 +27,14 @@ export function LevelOverlay({ open, onClose }: LevelOverlayProps) {
     if (!open) setAxis("roll");
   }, [open]);
 
-  // Freeze board panning underneath, like every other overlay.
+  // Freeze board panning underneath, like every other overlay, and hand over a
+  // dismisser so the board's idle reset can close this on its way home (ref'd so
+  // a fresh onClose closure never re-registers).
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     if (!open) return;
-    return registerOpenModal();
+    return registerOpenModal(() => onCloseRef.current());
   }, [open]);
 
   useEffect(() => {

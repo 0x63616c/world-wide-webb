@@ -43,6 +43,10 @@ export function CleanScreenOverlay({ open, onClose }: CleanScreenOverlayProps) {
     return () => clearInterval(timer);
   }, [open]);
 
+  // Counts as an open modal (freezes the board) but deliberately registers NO
+  // dismisser: cleaning mode is exactly the state where the panel should ignore
+  // everything for its duration, so the board's idle reset must not close it.
+  // It owns its own exit (hold-to-exit, plus the duration failsafe above).
   useEffect(() => {
     if (!open) return;
     return registerOpenModal();

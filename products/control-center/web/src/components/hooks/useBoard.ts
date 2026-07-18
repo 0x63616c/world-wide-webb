@@ -405,10 +405,25 @@ export function useBoardDragPan({
 /** Idle window before the board returns to the home (clock) view. */
 export const IDLE_RESET_MS = 10 * 60_000;
 
-// Interaction events that count as "the panel is in use" and rearm the timer.
-// pointerdown/touchstart cover taps; wheel/scroll cover panning; keydown covers
-// the keyboard nav path. Listed once so attach + detach stay in lockstep.
-const IDLE_EVENTS = ["pointerdown", "touchstart", "wheel", "scroll", "keydown"] as const;
+// Interaction events that count as "the panel is in use" and rearm the timer,
+// paired with where each is listened for. Listed once so attach + detach stay in
+// lockstep.
+//
+// WHY taps ride `window` and not the stage: every modal portals to <body>, i.e.
+// OUTSIDE the #stage subtree, so a stage-local pointerdown never sees a tap
+// inside an open modal. That left the panel unable to register activity at all
+// while a modal was up , it would dim mid-Settings and stay dim until you closed
+// the modal and tapped the board. Taps are a global "a human is here" signal, so
+// they belong on window; capture phase so an inner stopPropagation can't hide
+// one. wheel/scroll stay stage-local: they are pan signals, and the
+// isProgrammatic guard below is written against the stage's own scroll stream.
+const IDLE_EVENTS = [
+  { type: "pointerdown", target: "window" },
+  { type: "touchstart", target: "window" },
+  { type: "keydown", target: "window" },
+  { type: "wheel", target: "stage" },
+  { type: "scroll", target: "stage" },
+] as const;
 
 type UseIdleTimerOptions = {
   /**
@@ -505,11 +520,9 @@ function useIdleTimer({
       arm();
     };
 
-    // keydown has no meaningful target on the stage (focus may sit on a tile or
-    // body), so it rides window; the rest are stage-local pan/tap signals.
-    for (const type of IDLE_EVENTS) {
-      const target: EventTarget = type === "keydown" ? window : stage;
-      target.addEventListener(type, onEvent, { passive: true });
+    for (const { type, target: where } of IDLE_EVENTS) {
+      const target: EventTarget = where === "window" ? window : stage;
+      target.addEventListener(type, onEvent, { passive: true, capture: true });
     }
 
     arm();
@@ -517,9 +530,9 @@ function useIdleTimer({
     return () => {
       window.clearTimeout(timer);
       armRef.current = () => {};
-      for (const type of IDLE_EVENTS) {
-        const target: EventTarget = type === "keydown" ? window : stage;
-        target.removeEventListener(type, onEvent);
+      for (const { type, target: where } of IDLE_EVENTS) {
+        const target: EventTarget = where === "window" ? window : stage;
+        target.removeEventListener(type, onEvent, { capture: true });
       }
     };
   }, [stage, ms, enabled]);

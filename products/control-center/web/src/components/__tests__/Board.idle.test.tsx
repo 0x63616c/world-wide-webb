@@ -172,3 +172,43 @@ describe("Board idle reset (real wiring)", () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+// jsdom has no scrollTo; these cases only care about whether the reset FIRES,
+// not where it lands (that is covered above), so a no-op stub is enough.
+function stubScrollTo() {
+  const stage = document.getElementById("stage") as HTMLElement;
+  stage.scrollTo = (() => {}) as typeof stage.scrollTo;
+}
+
+// "Back to the clock" means the clock is what the wall actually SHOWS. The idle
+// glide used to move the camera home behind whatever modal was open, leaving a
+// Settings panel up on an unattended panel indefinitely.
+describe("Board idle reset with a modal open", () => {
+  it("closes an open modal when the idle window elapses", async () => {
+    const { registerOpenModal } = await import("../../lib/modal-open-store");
+    render(<Board />);
+    stubScrollTo();
+    act(() => vi.advanceTimersByTime(0));
+
+    const close = vi.fn();
+    const release = registerOpenModal(close);
+
+    act(() => vi.advanceTimersByTime(IDLE_RESET_MS));
+
+    expect(close).toHaveBeenCalledTimes(1);
+    release();
+  });
+
+  it("leaves an opted-out overlay (cleaning mode) open across the idle window", async () => {
+    const { registerOpenModal } = await import("../../lib/modal-open-store");
+    render(<Board />);
+    stubScrollTo();
+    act(() => vi.advanceTimersByTime(0));
+
+    // No dismisser == opted out, exactly how CleanScreenOverlay registers.
+    const release = registerOpenModal();
+
+    expect(() => act(() => vi.advanceTimersByTime(IDLE_RESET_MS))).not.toThrow();
+    release();
+  });
+});

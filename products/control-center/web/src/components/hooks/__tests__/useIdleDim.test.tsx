@@ -235,3 +235,49 @@ describe("useIdleDim", () => {
     expect(result.current.dimmed).toBe(false);
   });
 });
+
+// Regression (dim stuck while a modal is open): modals portal to <body>, i.e.
+// outside the #stage subtree, so stage-local tap listeners never saw a tap
+// inside one. The panel would dim mid-Settings and stay dim until the modal was
+// closed and the board itself tapped. Taps ride window now.
+describe("useIdleDim activity outside the stage", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    dimTo.mockClear();
+    wakeTo.mockClear();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    document.body.innerHTML = "";
+  });
+
+  it("wakes on a tap that lands outside the stage (e.g. inside a portalled modal)", () => {
+    const { result } = setup({ timeoutMs: 10_000, activeBrightness: 1 });
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(result.current.dimmed).toBe(true);
+
+    const modal = document.createElement("div");
+    document.body.appendChild(modal);
+    act(() => {
+      modal.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    });
+
+    expect(result.current.dimmed).toBe(false);
+    expect(wakeTo).toHaveBeenCalledWith(1);
+  });
+
+  it("does not dim while a tap outside the stage keeps rearming the window", () => {
+    const { result } = setup({ timeoutMs: 10_000 });
+    const modal = document.createElement("div");
+    document.body.appendChild(modal);
+
+    for (let i = 0; i < 3; i++) {
+      act(() => vi.advanceTimersByTime(6_000));
+      act(() => {
+        modal.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      });
+    }
+
+    expect(result.current.dimmed).toBe(false);
+  });
+});

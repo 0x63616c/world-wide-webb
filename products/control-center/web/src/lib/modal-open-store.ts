@@ -17,6 +17,9 @@ import { useSyncExternalStore } from "react";
 
 let openCount = 0;
 const listeners = new Set<() => void>();
+// Dismissers for the currently-open modals, in registration order. Only modals
+// that opt in (by passing onDismiss) appear here — see dismissAllModals.
+const dismissers = new Set<() => void>();
 
 function emit() {
   for (const listener of listeners) listener();
@@ -25,17 +28,47 @@ function emit() {
 /**
  * Mark a modal as open. Call on mount/open and invoke the returned disposer on
  * unmount/close so the count stays balanced even if several modals overlap.
+ *
+ * `onDismiss` opts this modal into {@link dismissAllModals}: pass the modal's
+ * close handler so the board's idle reset can tear the panel back down to the
+ * clock. Omit it for overlays that own their own lifetime and must survive an
+ * idle window (the screen-cleaning mode, whose whole point is to ignore input
+ * for its duration).
  */
-export function registerOpenModal(): () => void {
+export function registerOpenModal(onDismiss?: () => void): () => void {
   openCount += 1;
+  if (onDismiss) dismissers.add(onDismiss);
   emit();
   let released = false;
   return () => {
     if (released) return; // idempotent: a double-cleanup must not underflow
     released = true;
     openCount -= 1;
+    if (onDismiss) dismissers.delete(onDismiss);
     emit();
   };
+}
+
+/**
+ * Close every modal that opted in via `registerOpenModal(onDismiss)`.
+ *
+ * Drives the board's idle reset: an unattended panel returns to the clock, and
+ * "the clock" means the board's home view with nothing on top of it — gliding
+ * the camera home behind an open Settings panel leaves the wall showing a modal
+ * nobody opened. Iterates a copy because each dismiss synchronously unregisters.
+ */
+export function dismissAllModals(): void {
+  for (const dismiss of [...dismissers]) dismiss();
+}
+
+/**
+ * True while at least one dismissable modal is open, i.e. an idle reset would
+ * have something to do. The board's reset otherwise defers whenever the camera
+ * is already home , which would strand a modal opened on the home (clock) tile
+ * forever, since the reset that closes it never fires.
+ */
+export function hasDismissableModal(): boolean {
+  return dismissers.size > 0;
 }
 
 function subscribe(callback: () => void): () => void {

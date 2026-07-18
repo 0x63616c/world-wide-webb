@@ -1,5 +1,6 @@
 import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { BUILD_HASH, BUILD_TIME } from "../config/build";
 import { isNativeDisplay } from "../lib/brightness";
 import {
@@ -11,7 +12,7 @@ import {
   worldCellRect,
 } from "../lib/grid-constants";
 import { useLayoutEditorOpen } from "../lib/layout-edit-store";
-import { useAnyModalOpen } from "../lib/modal-open-store";
+import { dismissAllModals, hasDismissableModal, useAnyModalOpen } from "../lib/modal-open-store";
 import { bentoFor } from "../lib/placeholder-tiles";
 import { formatRelativeAge } from "../lib/relative-age";
 import { type SnapMode, useSettings } from "../lib/settings";
@@ -269,25 +270,27 @@ function UnplacedTilesBanner({ count }: { count: number }) {
 // windows, and is swallowed , so the next tap is the first that actually
 // interacts. Off-device the feature is inert, so this never renders active.
 function DimOverlay({ active, onWake }: { active: boolean; onWake: () => void }) {
-  return (
+  // Portalled to <body> at a zIndex above every modal (Modal 100, Level 200,
+  // CleanScreen 300). Rendered inside the board it sat UNDER anything portalled
+  // to body, so a wake tap on an open modal hit the modal instead of this shield
+  // , the panel could not be woken from inside a modal at all.
+  if (!active) return null;
+  return createPortal(
     <div
       aria-hidden="true"
       data-testid="dim-overlay"
-      onPointerDown={
-        active
-          ? (e) => {
-              e.preventDefault();
-              onWake();
-            }
-          : undefined
-      }
+      onPointerDown={(e) => {
+        e.preventDefault();
+        onWake();
+      }}
       style={{
         position: "fixed",
         inset: 0,
-        pointerEvents: active ? "auto" : "none",
-        zIndex: 300,
+        pointerEvents: "auto",
+        zIndex: 400,
       }}
-    />
+    />,
+    document.body,
   );
 }
 
@@ -628,11 +631,23 @@ export function Board() {
   // resettles on the clock. goHome/isHome read the live scroll position; the hook
   // owns the timer + interaction listeners. The glide is app-initiated, so it is
   // marked programmatic and never re-shows the minimap (www-5teu).
+  // Idle also tears down whatever is on top of the board: "back to the clock"
+  // means the clock is what the wall shows, and gliding the camera home behind an
+  // open Settings panel left the panel up indefinitely. Modals opt into this by
+  // registering a dismisser , cleaning mode deliberately does not (see
+  // CleanScreenOverlay), so it survives its own idle window.
   const goHome = useCallback(() => {
+    setActiveModal(null);
+    dismissAllModals();
     markProgrammatic();
     jumpTo(homeCx, homeCy, true);
   }, [jumpTo, markProgrammatic, homeCx, homeCy]);
+  // "Nothing to do" for the idle reset: already parked on the home tile AND
+  // nothing layered on top of it. Without the modal clause a modal opened FROM
+  // the clock would never be closed by idle , the reset defers on isHome and the
+  // window never fires.
   const isHome = useCallback(() => {
+    if (hasDismissableModal()) return false;
     const stage = stageRef.current;
     if (!stage) return true;
     const cx = stage.scrollLeft + stage.clientWidth / 2;
