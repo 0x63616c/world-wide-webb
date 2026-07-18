@@ -31,11 +31,11 @@ describe("product CNPG database primitive", () => {
   });
 
   test("defaults Kubernetes resources to namespace-local postgres names", () => {
-    const database = defineProductDatabase(defineProduct("text-your-ex"), homelabTarget, {
+    const database = defineProductDatabase(defineProduct("captive-portal"), homelabTarget, {
       size: "5Gi",
     });
 
-    expect(database.databaseName).toBe("text_your_ex");
+    expect(database.databaseName).toBe("captive_portal");
     expect(database.clusterName).toBe("postgres");
     expect(database.authSecretName).toBe("postgres-auth");
     expect(database.rwServiceName).toBe("postgres-rw");

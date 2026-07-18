@@ -148,13 +148,13 @@ describe("pg-backup (NEW nightly logical backup to the NAS)", () => {
   const backup = () => byName(crons.cronSpecs(NAS), "pg-backup");
 
   test("derives a product Postgres backup CronJob from the platform backup primitive", () => {
-    const product = defineProduct("text-your-ex");
+    const product = defineProduct("captive-portal");
     const database = defineProductDatabase(product, homelabTarget, { size: "5Gi" });
     const platformBackup = defineDatabaseBackup(database, homelabTarget);
     const spec = crons.postgresBackupCronSpec(platformBackup, NAS);
     const rendered = renderCronJob(spec);
 
-    expect(spec.name).toBe("text-your-ex-pg-backup");
+    expect(spec.name).toBe("captive-portal-pg-backup");
     expect(spec.schedule).toBe("0 1 * * *");
     expect(spec.image).toBe("ghcr.io/cloudnative-pg/postgresql:18");
     expect(spec.command?.join("\n")).toContain("pg_dump -h postgres-rw");

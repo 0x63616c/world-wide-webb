@@ -8,11 +8,7 @@
 // endpoint fails account-owned tokens by design). It already carries the account
 // + zone scopes incl. DNS:Edit. Don't re-trip the /user verify dead end.
 
-import {
-  ampProductManifest,
-  controlCenterProductManifest,
-  type ProductServiceDeclaration,
-} from "@www/platform";
+import { controlCenterProductManifest, type ProductServiceDeclaration } from "@www/platform";
 
 // kioskTokenId: the CF service token *id* (UUID) for the kiosk token — NOT
 // the client_id (.access suffix). Access policies reference token_id; the
@@ -133,24 +129,22 @@ export function accessAppsForPrivateWeb(
  * zone-wide access gate (www-cuuw): the `*.<zone>` default-DENY floor and the
  * `hooks` CI lock. It is OFF by default because the floor's wildcard also catches
  * any currently PUBLIC host that lacks an explicit allow above it, e.g. the live
- * `dashboard` wall panel (until it cuts over to `app--cc`) and public `app--tye`.
- * Enabling it before those have an explicit bypass would lock them out (www-b6ad).
+ * `dashboard` wall panel (until it cuts over to `app--cc`).
+ * Enabling it before that has an explicit bypass would lock it out (www-b6ad).
  *
  * Always returned (safe to apply independent of the floor): the per-product
- * CC/AMP private-route apps (they gate the product hosts themselves), and the
+ * control-center private-route app (it gates the product host itself), and the
  * already-live `storybook`/`drizzle` email-OTP apps (imported + `protect: true`;
  * omitting them would attempt a blocked delete of live protection).
  */
 export function desiredAccessApps(zone: string, includeGate = false): DesiredAccessApp[] {
   const ccManifest = controlCenterProductManifest();
-  const ampManifest = ampProductManifest();
 
   const baseApps: DesiredAccessApp[] = [
-    // Private-web products: AMP uses email-OTP (human web access); the CC
-    // dashboard uses a kiosk service-token (iPad wall panel, not human login).
+    // Private-web products: the CC dashboard uses a kiosk service-token
+    // (iPad wall panel, not human login).
     ...accessAppsForPrivateWeb([
       { exposure: ccManifest.app.exposure, policies: ["kiosk-service-token", "email-otp"] },
-      { exposure: ampManifest.app.exposure, policies: ["email-otp"] },
     ]),
     // Already-live tooling protections (kept regardless of the gate flag).
     accessApp(`storybook.${zone}`, [emailOtpPolicy()]),

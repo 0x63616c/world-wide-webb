@@ -1,4 +1,4 @@
-import { defineProduct, homelabTarget, privateWeb, publicWeb } from "@www/platform";
+import { captivePortalWeb, defineProduct, homelabTarget, privateWeb } from "@www/platform";
 import { describe, expect, test } from "vitest";
 import { accessAppsForPrivateWeb, desiredAccessApps } from "../src/access.ts";
 
@@ -12,13 +12,12 @@ describe("desiredAccessApps", () => {
   test("DEFAULT (gate off): product routes + existing tooling, but NO wildcard floor or hooks lock", () => {
     // www-b6ad: the not-yet-live gate additions (the *.<zone> default-deny floor
     // and the hooks CI lock) are off by default, so the floor can never block a
-    // currently-public host (live dashboard, public app--tye) before it has an
+    // currently-public host (live dashboard) before it has an
     // explicit bypass. Already-live storybook/drizzle protections are kept.
     const domains = desiredAccessApps(ZONE)
       .map((a) => a.domain)
       .sort();
     expect(domains).toEqual([
-      "app--amp.worldwidewebb.co",
       "app--cc.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "storybook.worldwidewebb.co",
@@ -27,13 +26,12 @@ describe("desiredAccessApps", () => {
     expect(domains).not.toContain("hooks.worldwidewebb.co");
   });
 
-  test("declares the wildcard block floor, app.amp email-otp, app.cc kiosk, hooks CI, and legacy tooling apps", () => {
+  test("declares the wildcard block floor, app.cc kiosk, hooks CI, and legacy tooling apps", () => {
     const domains = desiredAccessApps(ZONE, true)
       .map((a) => a.domain)
       .sort();
     expect(domains).toEqual([
       "*.worldwidewebb.co",
-      "app--amp.worldwidewebb.co",
       "app--cc.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "hooks.worldwidewebb.co",
@@ -92,24 +90,6 @@ describe("desiredAccessApps", () => {
     ]);
   });
 
-  test("protects app.amp with email-otp (private-web; no service token, no api.amp)", () => {
-    const ampApp = desiredAccessApps(ZONE, true).find(
-      (app) => app.domain === "app--amp.worldwidewebb.co",
-    );
-
-    expect(ampApp?.policies).toEqual([
-      {
-        decision: "allow",
-        include: { configKey: "allowedEmail", kind: "email-config" },
-        name: "email-otp",
-        precedence: 1,
-      },
-    ]);
-    // api.amp must NOT appear: AMP v0 is stateless with no public API route.
-    const domains = desiredAccessApps(ZONE, true).map((a) => a.domain);
-    expect(domains).not.toContain("api--amp.worldwidewebb.co");
-  });
-
   test("keeps Storybook and Drizzle on email OTP with no literal personal email", () => {
     for (const domain of ["storybook.worldwidewebb.co", "drizzle.worldwidewebb.co"]) {
       const app = desiredAccessApps(ZONE, true).find((entry) => entry.domain === domain);
@@ -128,19 +108,22 @@ describe("desiredAccessApps", () => {
     );
   });
 
-  test("derives future privateWeb apps without gating publicWeb", () => {
-    const amp = defineProduct("amp");
-    const textYourEx = defineProduct("text-your-ex");
+  test("derives privateWeb apps without gating non-private exposures", () => {
+    const controlCenter = defineProduct("control-center");
+    const captivePortal = defineProduct("captive-portal");
 
     expect(
       accessAppsForPrivateWeb([
-        { exposure: privateWeb(amp, homelabTarget, { host: "app" }), policies: ["email-otp"] },
         {
-          exposure: publicWeb(textYourEx, homelabTarget, { host: "app" }),
+          exposure: privateWeb(controlCenter, homelabTarget, { host: "app" }),
+          policies: ["email-otp"],
+        },
+        {
+          exposure: captivePortalWeb(captivePortal, homelabTarget, { host: "app" }),
           policies: ["email-otp"],
         },
       ]).map((app) => app.domain),
-    ).toEqual(["app--amp.worldwidewebb.co"]);
+    ).toEqual(["app--cc.worldwidewebb.co"]);
   });
 
   test("every app carries the live ownership tag so the import is zero-diff", () => {

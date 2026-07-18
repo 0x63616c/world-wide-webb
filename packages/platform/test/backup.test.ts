@@ -36,12 +36,12 @@ describe("platform backup primitive", () => {
   });
 
   test("derives future platform NAS path from product identity", () => {
-    const database = defineProductDatabase(defineProduct("text-your-ex"), homelabTarget, {
+    const database = defineProductDatabase(defineProduct("captive-portal"), homelabTarget, {
       size: "5Gi",
     });
 
     expect(defineDatabaseBackup(database, homelabTarget).nasSubPath).toBe(
-      "backups/world-wide-webb/text-your-ex/postgres",
+      "backups/world-wide-webb/captive-portal/postgres",
     );
   });
 

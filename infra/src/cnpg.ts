@@ -17,7 +17,6 @@ import {
   controlCenterProductManifest,
   type ProductDatabase,
   type ProductSlug,
-  textYourExProductManifest,
 } from "@www/platform";
 import type { InfraNamespaceName } from "./cluster.ts";
 
@@ -40,21 +39,16 @@ export interface CnpgResources {
 
 function productDatabases(): ProductDatabase[] {
   const captivePortal = captivePortalProductManifest();
-  const textYourEx = textYourExProductManifest();
   return [
     controlCenterProductManifest().database,
     captivePortal.database,
     ...captivePortal.retainedLegacyDatabases,
-    textYourEx.database,
-    ...textYourEx.retainedLegacyDatabases,
   ];
 }
 
 const POSTGRES_VAULT_KEYS = {
   "control-center": "CONTROL_CENTER_POSTGRES__PASSWORD",
   "captive-portal": "CAPTIVE_PORTAL_POSTGRES__PASSWORD",
-  "text-your-ex": "TEXT_YOUR_EX_POSTGRES__PASSWORD",
-  amp: "AMP_POSTGRES__PASSWORD",
 } as const satisfies Record<ProductSlug, string>;
 
 function createAuthSecret(

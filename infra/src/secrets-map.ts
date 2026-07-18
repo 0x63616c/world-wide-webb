@@ -68,12 +68,6 @@ export const SERVICE_SECRETS = {
     WIFI_PASSWORD: "WIFI_GUEST_CREDENTIALS__PASSWORD",
     WIFI_SSID: "WIFI_GUEST_CREDENTIALS__SSID",
   },
-  // tye-api reads /run/secrets/POSTGRES_PASSWORD (POSTGRES_PASSWORD_FILE default)
-  // to build its DATABASE_URL pointing at the namespace-local CNPG rw Service (postgres-rw).
-  // vault key: TEXT_YOUR_EX_POSTGRES__PASSWORD
-  "tye-api": {
-    POSTGRES_PASSWORD: "TEXT_YOUR_EX_POSTGRES__PASSWORD",
-  },
 } satisfies Record<string, ServiceSecrets>;
 
 export type ServiceSecretName = keyof typeof SERVICE_SECRETS;
@@ -89,7 +83,6 @@ function productSecretName(product: ProductIdentity, service: string): string {
 
 const controlCenter = defineProduct("control-center");
 const captivePortal = defineProduct("captive-portal");
-const textYourEx = defineProduct("text-your-ex");
 
 export const SERVICE_SECRET_TARGETS = {
   api: {
@@ -119,9 +112,5 @@ export const SERVICE_SECRET_TARGETS = {
   "captive-portal-api": {
     namespaceName: captivePortal.namespace,
     secretName: productSecretName(captivePortal, "api"),
-  },
-  "tye-api": {
-    namespaceName: textYourEx.namespace,
-    secretName: productSecretName(textYourEx, "api"),
   },
 } as const satisfies Record<ServiceSecretName, ServiceSecretTarget>;

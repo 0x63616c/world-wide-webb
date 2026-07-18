@@ -5,17 +5,16 @@ import {
   homelabTarget,
   internalService,
   privateWeb,
-  publicWeb,
 } from "../src/index.ts";
 
 describe("exposure intent primitives", () => {
-  test("declares public web hostnames from product DNS codes", () => {
-    const exposure = publicWeb(defineProduct("text-your-ex"), homelabTarget, { host: "api" });
+  test("declares private web hostnames from product DNS codes", () => {
+    const exposure = privateWeb(defineProduct("control-center"), homelabTarget, { host: "api" });
 
     expect(exposure).toMatchObject({
-      kind: "public-web",
-      hostname: "api--tye.worldwidewebb.co",
-      policy: "public",
+      kind: "private-web",
+      hostname: "api--cc.worldwidewebb.co",
+      policy: "private",
       tls: {
         coverage: {
           dnsNames: ["api--tye.worldwidewebb.co"],
@@ -30,10 +29,9 @@ describe("exposure intent primitives", () => {
   test.each([
     ["control-center", "app", "app--cc.worldwidewebb.co"],
     ["captive-portal", "app", "app--cp.worldwidewebb.co"],
-    ["text-your-ex", "app", "app--tye.worldwidewebb.co"],
-    ["text-your-ex", "api", "api--tye.worldwidewebb.co"],
+    ["control-center", "api", "api--cc.worldwidewebb.co"],
   ] as const)("derives nested hostnames for %s %s", (slug, host, hostname) => {
-    const exposure = publicWeb(defineProduct(slug), homelabTarget, { host });
+    const exposure = privateWeb(defineProduct(slug), homelabTarget, { host });
 
     expect(exposure.hostname).toBe(hostname);
     expect(exposure.hostname).not.toBe(`${slug}.worldwidewebb.co`);

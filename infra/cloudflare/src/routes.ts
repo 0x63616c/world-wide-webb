@@ -12,12 +12,7 @@
 // captive-portal is intentionally absent from BOTH: it is LAN-only, reached over
 // the OrbStack LoadBalancer on the mini's en1 (DESIGN §5a), never tunneled.
 
-import {
-  ampProductManifest,
-  controlCenterProductManifest,
-  type ProductServiceDeclaration,
-  textYourExProductManifest,
-} from "@www/platform";
+import { controlCenterProductManifest, type ProductServiceDeclaration } from "@www/platform";
 
 /** The CNAME target every tunnel-routed hostname points at. */
 export function tunnelCnameTarget(tunnelId: string): string {
@@ -81,11 +76,8 @@ export function cloudflareRoutesForExposures(
     (
       source,
     ): source is CloudflareExposureSource & {
-      exposure: Extract<
-        ProductServiceDeclaration["exposure"],
-        { kind: "public-web" | "private-web" }
-      >;
-    } => source.exposure?.kind === "public-web" || source.exposure?.kind === "private-web",
+      exposure: Extract<ProductServiceDeclaration["exposure"], { kind: "private-web" }>;
+    } => source.exposure?.kind === "private-web",
   );
 
   return {
@@ -104,31 +96,12 @@ export function cloudflareRoutesForExposures(
 
 function productRoutes(): CloudflareRoutes {
   const cc = controlCenterProductManifest();
-  const amp = ampProductManifest();
-  const tye = textYourExProductManifest();
 
   const sources: CloudflareExposureSource[] = [
     {
       exposure: cc.app.exposure,
       origin: "http://web.control-center.svc.cluster.local:80",
       comment: "platform:control-center private app route",
-    },
-    // AMP v0: stateless private-web app, no api.amp route (www-jtp0.8.6).
-    // Any future api.amp surface requires a human review checkpoint before apply.
-    {
-      exposure: amp.app.exposure,
-      origin: "http://app.amp.svc.cluster.local:80",
-      comment: "platform:amp private app route",
-    },
-    {
-      exposure: tye.app.exposure,
-      origin: "http://frontend.text-your-ex.svc.cluster.local:80",
-      comment: "platform:text-your-ex public app route",
-    },
-    {
-      exposure: tye.services.api.exposure,
-      origin: "http://api.text-your-ex.svc.cluster.local:8787",
-      comment: "platform:text-your-ex public api route",
     },
   ];
 

@@ -14,7 +14,6 @@ import {
   captivePortalProductManifest,
   controlCenterProductManifest,
   defineProduct,
-  textYourExProductManifest,
 } from "@www/platform";
 import type { InfraNamespaceName } from "./cluster.ts";
 import type { WorkloadSpec } from "./component.ts";
@@ -32,8 +31,6 @@ export type OwnedWorkloadSpec = WorkloadSpec & { namespaceName: InfraNamespaceNa
 
 const controlCenterProduct = defineProduct("control-center");
 const captivePortalProduct = defineProduct("captive-portal");
-const textYourExProduct = defineProduct("text-your-ex");
-const ampProduct = defineProduct("amp");
 
 const IMAGE_REPOSITORIES = {
   api: {
@@ -71,18 +68,6 @@ const IMAGE_REPOSITORIES = {
   "captive-portal-api": {
     digestKey: captivePortalProduct.imageDigestKey("api"),
     repository: captivePortalProduct.imageRepository("api"),
-  },
-  "tye-api": {
-    digestKey: textYourExProduct.imageDigestKey("api"),
-    repository: textYourExProduct.imageRepository("api"),
-  },
-  "tye-frontend": {
-    digestKey: textYourExProduct.imageDigestKey("frontend"),
-    repository: textYourExProduct.imageRepository("frontend"),
-  },
-  "amp-app": {
-    digestKey: ampProduct.imageDigestKey("app"),
-    repository: ampProduct.imageRepository("app"),
   },
 } as const satisfies Record<string, { digestKey: string; repository: string }>;
 
@@ -150,7 +135,6 @@ const TZ = "America/Los_Angeles";
 const controlCenterDatabase = controlCenterProductManifest().database;
 const captivePortalManifest = captivePortalProductManifest();
 const captivePortalDatabase = captivePortalManifest.database;
-const textYourExDatabase = textYourExProductManifest().database;
 
 // go2rtc: the in-cluster RTSP->MJPEG restreamer for the bedroom camera. It runs
 // in the control-center namespace as a ClusterIP Service on :1984, and the api
@@ -439,50 +423,6 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       env: { TZ, POSTGRES_HOST: controlCenterDatabase.rwServiceName },
       ports: [{ containerPort: 4983, expose: "cluster" }],
       volumes: [{ mountPath: "/app", claim: "drizzle-data" }],
-      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
-    },
-    {
-      logicalName: "amp-app",
-      name: "app",
-      namespaceName: "amp",
-      image: ghcr("amp-app", digests),
-      replicas: 1,
-      resources: { memory: "64M" },
-      env: { TZ },
-      ports: [{ containerPort: 80, expose: "cluster" }],
-      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
-    },
-    {
-      logicalName: "text-your-ex-api",
-      legacyLogicalName: "tye-api",
-      name: "api",
-      namespaceName: "text-your-ex",
-      image: ghcr("tye-api", digests),
-      replicas: 1,
-      resources: { memory: "256M" },
-      secrets: mount(["POSTGRES_PASSWORD"]),
-      secretName: SERVICE_SECRET_TARGETS["tye-api"].secretName,
-      env: {
-        TZ,
-        APP_ENV: "production",
-        NODE_ENV: "production",
-        POSTGRES_HOST: textYourExDatabase.rwServiceName,
-        POSTGRES_DB: textYourExDatabase.databaseName,
-        POSTGRES_USER: "postgres",
-      },
-      ports: [{ containerPort: 8787, expose: "cluster" }],
-      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
-    },
-    {
-      logicalName: "text-your-ex-frontend",
-      legacyLogicalName: "tye-frontend",
-      name: "frontend",
-      namespaceName: "text-your-ex",
-      image: ghcr("tye-frontend", digests),
-      replicas: 1,
-      resources: { memory: "64M" },
-      env: { TZ },
-      ports: [{ containerPort: 80, expose: "cluster" }],
       imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
     {

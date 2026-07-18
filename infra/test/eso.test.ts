@@ -63,15 +63,6 @@ describe("SERVICE_SECRETS", () => {
   });
 });
 
-describe("SERVICE_SECRETS: tye-api (www-jtp0)", () => {
-  test("tye-api entry present with POSTGRES_PASSWORD pointing at vault key", () => {
-    expect("tye-api" in map.SERVICE_SECRETS).toBe(true);
-    expect(map.SERVICE_SECRETS["tye-api"].POSTGRES_PASSWORD).toBe(
-      "TEXT_YOUR_EX_POSTGRES__PASSWORD",
-    );
-  });
-});
-
 describe("SERVICE_SECRETS: captive-portal-api", () => {
   test("captive-portal-api entry matches the product API runtime contract", () => {
     expect(map.SERVICE_SECRETS["captive-portal-api"]).toEqual({

@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { SERVICE_SECRETS, type ServiceSecrets } from "../../../infra/src/secrets-map.ts";
 import {
+  captivePortalProductManifest,
   controlCenterServiceSecretUsages,
   defineProduct,
   defineServiceSecretUsage,
   secretCatalog,
   serviceSecretMap,
-  textYourExProductManifest,
 } from "../src/index.ts";
 
 describe("secret catalog and service usage", () => {
@@ -35,11 +35,11 @@ describe("secret catalog and service usage", () => {
   test("env-key coverage: platform secret usages and infra SERVICE_SECRETS agree on env names per service (CC-k8t7: values now vault keys not remoteRef)", () => {
     // SERVICE_SECRETS values are now vault keys (ITEM__FIELD), not 1P remoteRef.
     // Assert env-name set coverage only; value format changed in CC-k8t7.
-    const tye = textYourExProductManifest().secretUsages;
-    const tyePrefixed = Object.fromEntries(
-      Object.entries(tye).map(([svc, usage]) => [`tye-${svc}`, usage]),
+    const captivePortal = captivePortalProductManifest().secretUsages;
+    const captivePortalPrefixed = Object.fromEntries(
+      Object.entries(captivePortal).map(([svc, usage]) => [`captive-portal-${svc}`, usage]),
     );
-    const allUsages = { ...controlCenterServiceSecretUsages(), ...tyePrefixed };
+    const allUsages = { ...controlCenterServiceSecretUsages(), ...captivePortalPrefixed };
     const platformMap = serviceSecretMap(allUsages);
     const infraSecretMap = SERVICE_SECRETS as Record<string, ServiceSecrets>;
     for (const [service, platformSecrets] of Object.entries(platformMap)) {
@@ -60,7 +60,7 @@ describe("secret catalog and service usage", () => {
   test("product service usages no longer use cc-secrets compatibility names", () => {
     const usages = {
       ...controlCenterServiceSecretUsages(),
-      ...textYourExProductManifest().secretUsages,
+      ...captivePortalProductManifest().secretUsages,
     };
 
     expect(controlCenterServiceSecretUsages().api.targetSecretName).toBe(

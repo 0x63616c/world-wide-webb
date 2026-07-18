@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 import { defineProduct, productSlugs } from "../src/index.ts";
 
 describe("product identity", () => {
-  test("defines the four platform products", () => {
-    expect(productSlugs).toEqual(["control-center", "captive-portal", "text-your-ex", "amp"]);
+  test("defines the two platform products", () => {
+    expect(productSlugs).toEqual(["control-center", "captive-portal"]);
   });
 
   test("derives Control Center identity from the product slug", () => {
@@ -34,8 +34,6 @@ describe("product identity", () => {
 
   test.each([
     ["captive-portal", "cp", "ghcr.io/0x63616c/www-captive-portal-api", "captive-portal-api"],
-    ["text-your-ex", "tye", "ghcr.io/0x63616c/www-text-your-ex-api", "text-your-ex-api"],
-    ["amp", "amp", "ghcr.io/0x63616c/www-amp-api", "amp-api"],
   ] as const)("derives full-slug global naming and networking-only DNS code for %s", (slug, dnsCode, imageRepository, imageDigestKey) => {
     const app = defineProduct(slug);
 

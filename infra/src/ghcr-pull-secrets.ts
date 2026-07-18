@@ -5,8 +5,6 @@ export const GHCR_PULL_SECRET_NAME = "ghcr-pull";
 export const GHCR_PULL_SECRET_NAMESPACES = [
   "control-center",
   "captive-portal",
-  "text-your-ex",
-  "amp",
 ] as const satisfies readonly InfraNamespaceName[];
 
 export type GhcrPullSecretNamespace = (typeof GHCR_PULL_SECRET_NAMESPACES)[number];

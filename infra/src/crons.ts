@@ -20,7 +20,6 @@ import {
   controlCenterProductManifest,
   type DatabaseBackup,
   defineProduct,
-  textYourExProductManifest,
 } from "@www/platform";
 import type { InfraNamespaceName } from "./cluster.ts";
 import type { CronJobSpec } from "./component.ts";
@@ -88,7 +87,6 @@ const controlCenterManifest = controlCenterProductManifest();
 const controlCenterBackup = controlCenterManifest.backup;
 const controlCenterPostgresHost = controlCenterManifest.database.rwServiceName;
 const captivePortalBackup = captivePortalProductManifest().backup;
-const tyeBackup = textYourExProductManifest().backup;
 
 /**
  * @public - the declared CronJob set (pure data). nasNfsServer is threaded into
@@ -146,7 +144,6 @@ export function cronSpecs(nasNfsServer: string): OwnedCronJobSpec[] {
     // migration gets explicit review. New product backups use the platform path.
     postgresBackupCronSpec(controlCenterBackup, nasNfsServer),
     postgresBackupCronSpec(captivePortalBackup, nasNfsServer),
-    postgresBackupCronSpec(tyeBackup, nasNfsServer),
   ];
 }
 

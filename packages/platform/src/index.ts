@@ -1,8 +1,8 @@
-export const productSlugs = ["control-center", "captive-portal", "text-your-ex", "amp"] as const;
+export const productSlugs = ["control-center", "captive-portal"] as const;
 
 export type ProductSlug = (typeof productSlugs)[number];
 
-export type DnsCode = "cc" | "cp" | "tye" | "amp";
+export type DnsCode = "cc" | "cp";
 
 export type ProductLabels = Readonly<{
   "app.kubernetes.io/component": string;
@@ -30,8 +30,6 @@ export type ProductIdentity = Readonly<{
 const dnsCodes = {
   "control-center": "cc",
   "captive-portal": "cp",
-  "text-your-ex": "tye",
-  amp: "amp",
 } as const satisfies Record<ProductSlug, DnsCode>;
 
 function assertNever(value: never): never {
@@ -161,14 +159,6 @@ export type WebHostOptions = Readonly<{ host: string }>;
 
 export type WebExposure =
   | Readonly<{
-      kind: "public-web";
-      policy: "public";
-      target: ImplementedTargetName;
-      host: string;
-      hostname: string;
-      tls: WebTlsRequirement;
-    }>
-  | Readonly<{
       kind: "private-web";
       policy: "private";
       target: ImplementedTargetName;
@@ -211,23 +201,6 @@ function webTlsRequirement(hostname: string): WebTlsRequirement {
       hostname,
       dnsNames: [hostname],
     },
-  };
-}
-
-export function publicWeb(
-  product: ProductIdentity,
-  target: HomelabTarget,
-  options: WebHostOptions,
-): WebExposure {
-  const hostname = webHostname(product, target, options.host);
-
-  return {
-    kind: "public-web",
-    policy: "public",
-    target: target.name,
-    host: options.host,
-    hostname,
-    tls: webTlsRequirement(hostname),
   };
 }
 
@@ -322,9 +295,6 @@ export const secretCatalog = {
   },
   controlCenter: {
     postgresPassword: opSecret("Control Center Postgres", "password"),
-  },
-  textYourEx: {
-    postgresPassword: opSecret("text-your-ex Postgres", "password"),
   },
   drizzle: {
     masterpass: opSecret("Drizzle Gateway", "masterpass"),
@@ -501,9 +471,6 @@ function databasePasswordFor(product: ProductIdentity): SecretCatalogEntry {
       return secretCatalog.controlCenter.postgresPassword;
     case "captive-portal":
       return secretCatalog.captivePortal.postgresPassword;
-    case "amp":
-    case "text-your-ex":
-      return opSecret(`${product.slug} Postgres`, "password");
   }
   return assertNever(product.slug);
 }
@@ -637,20 +604,6 @@ export type ControlCenterProductManifest = Readonly<{
   backup: DatabaseBackup;
 }>;
 
-export type AmpServiceName = "app";
-
-export type AmpProductManifest = Readonly<{
-  product: ProductIdentity;
-  target: HomelabTarget;
-  app: Readonly<{
-    exposure: WebExposure;
-  }>;
-  services: Readonly<Record<AmpServiceName, ProductServiceDeclaration<AmpServiceName>>>;
-  secretUsages: Readonly<Record<string, never>>;
-  database: null;
-  backup: null;
-}>;
-
 export type CaptivePortalServiceName = "app" | "api";
 export type CaptivePortalSecretUsageName = "api";
 
@@ -665,22 +618,6 @@ export type CaptivePortalProductManifest = Readonly<{
     Record<CaptivePortalServiceName, ProductServiceDeclaration<CaptivePortalServiceName>>
   >;
   secretUsages: Readonly<Record<CaptivePortalSecretUsageName, ServiceSecretUsage>>;
-  database: ProductDatabase;
-  retainedLegacyDatabases: readonly ProductDatabase[];
-  backup: DatabaseBackup;
-}>;
-
-export type TyeServiceName = "api" | "frontend";
-export type TyeSecretUsageName = "api";
-
-export type TyeProductManifest = Readonly<{
-  product: ProductIdentity;
-  target: HomelabTarget;
-  app: Readonly<{
-    exposure: WebExposure;
-  }>;
-  services: Readonly<Record<TyeServiceName, ProductServiceDeclaration<TyeServiceName>>>;
-  secretUsages: Readonly<Record<TyeSecretUsageName, ServiceSecretUsage>>;
   database: ProductDatabase;
   retainedLegacyDatabases: readonly ProductDatabase[];
   backup: DatabaseBackup;
@@ -778,31 +715,6 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
   };
 }
 
-export function ampProductManifest(): AmpProductManifest {
-  const product = defineProduct("amp");
-  const target = homelabTarget;
-  const appExposure = privateWeb(product, target, { host: "app" });
-
-  return {
-    product,
-    target,
-    app: {
-      exposure: appExposure,
-    },
-    services: {
-      app: {
-        service: "app",
-        workloadName: product.serviceName("app"),
-        image: mainImage(product, "app"),
-        exposure: appExposure,
-      },
-    },
-    secretUsages: {},
-    database: null,
-    backup: null,
-  };
-}
-
 export function captivePortalProductManifest(): CaptivePortalProductManifest {
   const product = defineProduct("captive-portal");
   const target = homelabTarget;
@@ -853,59 +765,6 @@ export function captivePortalProductManifest(): CaptivePortalProductManifest {
         image: mainImage(product, "api"),
         exposure: internalService({ port: 4211 }),
         secretUsage: apiSecretUsage,
-      },
-    },
-    secretUsages: { api: apiSecretUsage },
-    database,
-    retainedLegacyDatabases,
-    backup,
-  };
-}
-
-export function textYourExProductManifest(): TyeProductManifest {
-  const product = defineProduct("text-your-ex");
-  const target = homelabTarget;
-  const appExposure = publicWeb(product, target, { host: "app" });
-  const database = defineProductDatabase(product, target, {
-    authPassword: secretCatalog.textYourEx.postgresPassword,
-    size: "2Gi",
-  });
-  const retainedLegacyDatabases = [
-    defineProductDatabase(product, target, {
-      authPassword: secretCatalog.textYourEx.postgresPassword,
-      authSecretName: "tye-postgres-auth",
-      clusterName: "text-your-ex",
-      readServiceName: "text-your-ex-r",
-      roServiceName: "text-your-ex-ro",
-      rwServiceName: "text-your-ex-rw",
-      size: "2Gi",
-    }),
-  ];
-  const backup = defineDatabaseBackup(database, target, {
-    name: "tye-pg-backup",
-    schedule: "30 1 * * *",
-  });
-  const apiSecretUsage = defineServiceSecretUsage(product, "api", {
-    POSTGRES_PASSWORD: secretCatalog.textYourEx.postgresPassword,
-  });
-
-  return {
-    product,
-    target,
-    app: { exposure: appExposure },
-    services: {
-      api: {
-        service: "api",
-        workloadName: product.serviceName("api"),
-        image: mainImage(product, "api"),
-        exposure: publicWeb(product, target, { host: "api" }),
-        secretUsage: apiSecretUsage,
-      },
-      frontend: {
-        service: "frontend",
-        workloadName: product.serviceName("frontend"),
-        image: mainImage(product, "frontend"),
-        exposure: appExposure,
       },
     },
     secretUsages: { api: apiSecretUsage },
