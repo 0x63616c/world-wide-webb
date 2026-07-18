@@ -57,10 +57,21 @@ export interface Settings {
   showBuildBadge: boolean;
   /** Board settle feel (see SNAP_MODES). */
   snapMode: SnapMode;
+  /** Show the board minimap (bottom-right). */
+  showMinimap: boolean;
+  /** Synced 6-digit PIN gating Settings + Wake photos. NOT auth , purely a
+   *  frontend soft-lock. Exactly 6 digits; default "000000". */
+  pinCode: string;
+  /** Require the PIN before opening the Settings page. */
+  pinLockSettings: boolean;
+  /** Require the PIN before opening the Wake photos viewer. */
+  pinLockWakePhotos: boolean;
 }
 
 export const MIN_IDLE_TIMEOUT_MS = 60_000; // 1 min
-export const MAX_IDLE_TIMEOUT_MS = 60 * 60_000; // 60 min
+export const MAX_IDLE_TIMEOUT_MS = 10 * 60_000; // 10 min
+export const PIN_LENGTH = 6;
+export const DEFAULT_PIN = "000000";
 export const MIN_DIM_LEVEL = 0.01; // 1 %
 export const MAX_DIM_LEVEL = 0.99; // 99 %
 // Active brightness goes to a full 100% (unlike the dim level, which stays below
@@ -78,6 +89,10 @@ const DEFAULTS: Settings = {
   showFps: false,
   showBuildBadge: true,
   snapMode: "mandatory-settle",
+  showMinimap: true,
+  pinCode: DEFAULT_PIN,
+  pinLockSettings: true,
+  pinLockWakePhotos: true,
 };
 
 // `cc-board-snap-mode` is reused verbatim so an existing SnapModeSwitcher choice
@@ -92,6 +107,10 @@ const KEYS = {
   showFps: "cc-show-fps",
   showBuildBadge: "cc-show-build-badge",
   snapMode: "cc-board-snap-mode",
+  showMinimap: "cc-show-minimap",
+  pinCode: "cc-pin-code",
+  pinLockSettings: "cc-pin-lock-settings",
+  pinLockWakePhotos: "cc-pin-lock-wake-photos",
 } as const;
 
 // ─── clamps ───────────────────────────────────────────────────────────────────
@@ -139,6 +158,10 @@ function loadInitial(): Settings {
   const recenterEnabled = readRaw(KEYS.recenterEnabled);
   const recenterTimeout = readRaw(KEYS.recenterTimeoutMs);
   const buildBadge = readRaw(KEYS.showBuildBadge);
+  const minimap = readRaw(KEYS.showMinimap);
+  const pin = readRaw(KEYS.pinCode);
+  const lockSettings = readRaw(KEYS.pinLockSettings);
+  const lockWakePhotos = readRaw(KEYS.pinLockWakePhotos);
   return {
     activeBrightness:
       brightness === null ? DEFAULTS.activeBrightness : clampBrightness(Number(brightness)),
@@ -158,6 +181,11 @@ function loadInitial(): Settings {
       snap && (SNAP_MODES as readonly string[]).includes(snap)
         ? (snap as SnapMode)
         : DEFAULTS.snapMode,
+    showMinimap: minimap === null ? DEFAULTS.showMinimap : minimap === "true",
+    pinCode: pin && /^\d{6}$/.test(pin) ? pin : DEFAULTS.pinCode,
+    pinLockSettings: lockSettings === null ? DEFAULTS.pinLockSettings : lockSettings === "true",
+    pinLockWakePhotos:
+      lockWakePhotos === null ? DEFAULTS.pinLockWakePhotos : lockWakePhotos === "true",
   };
 }
 
@@ -273,6 +301,25 @@ export function setShowBuildBadge(v: boolean): void {
 
 export function setSnapMode(mode: SnapMode): void {
   patch("snapMode", mode, mode);
+}
+
+export function setShowMinimap(v: boolean): void {
+  patch("showMinimap", v, String(v));
+}
+
+/** Set the synced PIN. No-op unless the input is exactly 6 digits , the schema
+ *  guard, not auth (a wrong-format value never reaches storage or the server). */
+export function setPinCode(pin: string): void {
+  if (!/^\d{6}$/.test(pin)) return;
+  patch("pinCode", pin, pin);
+}
+
+export function setPinLockSettings(v: boolean): void {
+  patch("pinLockSettings", v, String(v));
+}
+
+export function setPinLockWakePhotos(v: boolean): void {
+  patch("pinLockWakePhotos", v, String(v));
 }
 
 /**

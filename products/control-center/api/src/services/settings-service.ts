@@ -44,6 +44,12 @@ export const settingsSchema = z.object({
     SnapMode.None,
     SnapMode.Spring,
   ]),
+  showMinimap: z.boolean(),
+  // The synced soft-lock PIN. NOT auth , the API only enforces the 6-digit shape
+  // and never validates or logs the value.
+  pinCode: z.string().regex(/^\d{6}$/),
+  pinLockSettings: z.boolean(),
+  pinLockWakePhotos: z.boolean(),
 });
 
 /** A partial patch: any subset of the full settings object. */
@@ -64,6 +70,10 @@ export const DEFAULTS: Settings = {
   showFps: false,
   showBuildBadge: true,
   snapMode: SnapMode.MandatorySettle,
+  showMinimap: true,
+  pinCode: "000000",
+  pinLockSettings: true,
+  pinLockWakePhotos: true,
 };
 
 type Database = NodePgDatabase<typeof schema>;
