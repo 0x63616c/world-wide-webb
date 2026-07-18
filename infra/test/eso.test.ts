@@ -30,8 +30,6 @@ function get<T>(r: pulumi.Resource, prop: string): Promise<T> {
 const testNamespaces = {
   "control-center": "control-center",
   "captive-portal": "captive-portal",
-  "text-your-ex": "text-your-ex",
-  amp: "amp",
   platform: "platform",
 } as const;
 
@@ -113,7 +111,7 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
     expect(Object.keys(stringData)).toContain("WIFI_PASSWORD");
   });
 
-  test("tye-api Secret is present (www-jtp0)", async () => {
+  test("captive-portal-api Secret is present", async () => {
     const provider = new (await import("@pulumi/kubernetes")).Provider("test3", { context: "x" });
     const mockVault: Record<string, string> = {};
     for (const secrets of Object.values(map.SERVICE_SECRETS)) {
@@ -130,7 +128,6 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
     const names = await Promise.all(
       res.externalSecrets.map((s) => get<{ name: string }>(s, "metadata").then((m) => m.name)),
     );
-    expect(names).toContain("text-your-ex-secrets-api");
     expect(names).toContain("captive-portal-secrets-api");
   });
 
@@ -156,9 +153,6 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
     );
     expect(metadata.find((m) => m.name === "captive-portal-secrets-api")?.namespace).toBe(
       "captive-portal",
-    );
-    expect(metadata.find((m) => m.name === "text-your-ex-secrets-api")?.namespace).toBe(
-      "text-your-ex",
     );
   });
 });

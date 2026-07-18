@@ -34,11 +34,9 @@ describe("cluster namespaces", () => {
     const res = cluster.makeCluster("test-context");
 
     expect(Object.keys(res.namespaces).sort()).toEqual([
-      "amp",
       "captive-portal",
       "control-center",
       "platform",
-      "text-your-ex",
     ]);
 
     const controlCenterMeta = await get<{ name: string }>(

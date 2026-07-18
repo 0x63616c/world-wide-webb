@@ -9,7 +9,7 @@
 // The zone-wide ACCESS GATE (default-deny *.<zone> floor + tooling locks, www-cuuw)
 // is flag-gated OFF by `applyAccessGate` (see below): applying the floor would
 // block any currently-public host without an explicit bypass (the live dashboard
-// panel, public app--tye), so it stays off until www-cuuw/www-b6ad add those.
+// panel), so it stays off until www-cuuw/www-b6ad add those.
 //
 // Config (all via `pulumi config set [--secret]`, NEVER literals):
 //   cloudflare apiToken   CLOUDFLARE_API__CREDENTIAL in vault (account-owned;
@@ -34,8 +34,8 @@ const zoneId = cfg.requireSecret("zoneId");
 const tunnelId = cfg.requireSecret("tunnelId");
 // applyAccessGate gates the zone-wide access gate (www-cuuw): the *.<zone>
 // default-deny floor + tooling locks. Default false so the floor never blocks a
-// currently-public host (the live dashboard panel, public app--tye) before each
-// has an explicit bypass (www-b6ad). The per-product CC/AMP route Access apps are
+// currently-public host (the live dashboard panel) before each
+// has an explicit bypass (www-b6ad). The per-product control-center route Access app is
 // always applied. Flip via: pulumi config set applyAccessGate true --stack prod
 const applyAccessGate = cfg.getBoolean("applyAccessGate") ?? false;
 function accessInclude(
@@ -66,8 +66,8 @@ const provider = new cloudflare.Provider(
 );
 const opts: pulumi.CustomResourceOptions = { provider, protect: true };
 
-// Stable Pulumi resource name from a hostname ("app--amp.worldwidewebb.co" →
-// "app--amp"). Strips the zone suffix to a single-label record name (hosts are
+// Stable Pulumi resource name from a hostname ("app--cc.worldwidewebb.co" →
+// "app--cc"). Strips the zone suffix to a single-label record name (hosts are
 // flattened to one label, so each product route is already distinct, www-kbiy).
 const sub = (host: string) => host.replace(`.${zoneName}`, "");
 

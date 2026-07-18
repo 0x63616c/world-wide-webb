@@ -14,7 +14,6 @@
     ".opencode/**", // OpenCode plugins (loaded at runtime by the opencode host, never imported)
     "docs/media-tiles/**", // Design handoff bundle (prototypes/reference, not app code)
     "docs/captive-portal/design/**", // Captive portal design handoff (reference, not app code)
-    "products/text-your-ex/docs/design-reference/**", // Text Your Ex design-reference mockups (.jsx prototypes, not built/imported)
     "products/project-management/public/_ds/**", // Design-system bundle served statically by Beads.dc.html.
     "products/project-management/public/support.js", // Static support script referenced from the Project Management HTML bundle.
     "**/ios/DerivedData/**", // Xcode build artifacts (generated, not source)

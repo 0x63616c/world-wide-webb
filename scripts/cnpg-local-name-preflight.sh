@@ -35,7 +35,7 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
 
 Required environment:
-  CNPG_MIGRATION_PRODUCT       Product slug, e.g. captive-portal or text-your-ex.
+  CNPG_MIGRATION_PRODUCT       Product slug, e.g. captive-portal or control-center.
   CNPG_MIGRATION_NAMESPACE     Kubernetes namespace that owns both clusters.
   CNPG_OLD_CLUSTER             Existing product-slug CNPG Cluster to keep until cleanup.
   CNPG_NEW_CLUSTER             New local-name CNPG Cluster. Defaults to postgres.

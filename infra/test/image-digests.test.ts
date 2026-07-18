@@ -37,9 +37,6 @@ const ALL_IMAGE_DIGESTS = {
   "control-center-map-provision": VALID,
   "captive-portal-portal": VALID,
   "captive-portal-api": VALID,
-  "text-your-ex-api": VALID,
-  "text-your-ex-frontend": VALID,
-  "amp-app": VALID,
 } satisfies ImageDigests;
 
 describe("serviceSpecs image digest pinning", () => {
@@ -51,7 +48,6 @@ describe("serviceSpecs image digest pinning", () => {
     expect(imageOf(specs, "control-center-web")).toBe(
       "ghcr.io/0x63616c/www-control-center-web:main",
     );
-    expect(imageOf(specs, "amp-app")).toBe("ghcr.io/0x63616c/www-amp-app:main");
   });
 
   test("pins the GHCR ref by digest when one is supplied for that service", () => {
@@ -70,11 +66,6 @@ describe("serviceSpecs image digest pinning", () => {
     expect(imageOf(specs, "control-center-worker")).toBe(
       "ghcr.io/0x63616c/www-control-center-worker:main",
     );
-  });
-
-  test("pins the AMP image through its product-aware repository name", () => {
-    const specs = specsWith({ "amp-app": VALID });
-    expect(imageOf(specs, "amp-app")).toBe(`ghcr.io/0x63616c/www-amp-app@${VALID}`);
   });
 
   test("the upstream cloudflared image is never digest-pinned by this map", () => {
@@ -119,9 +110,6 @@ describe("serviceSpecs image digest pinning", () => {
     });
     expect(imageOf(specs, "control-center-api")).toBe(
       `ghcr.io/0x63616c/www-control-center-api@${VALID}`,
-    );
-    expect(imageOf(specs, "text-your-ex-api")).toBe(
-      `ghcr.io/0x63616c/www-text-your-ex-api@${VALID}`,
     );
   });
 

@@ -18,15 +18,10 @@ COPY products/control-center/drizzle/package.json ./products/control-center/driz
 COPY products/control-center/map-provision/package.json ./products/control-center/map-provision/package.json
 COPY products/control-center/ios/package.json ./products/control-center/ios/package.json
 COPY products/control-center/storybook/package.json ./products/control-center/storybook/package.json
-COPY products/amp/package.json ./products/amp/package.json
 COPY products/captive-portal/package.json ./products/captive-portal/package.json
 COPY products/captive-portal/apps/api/package.json ./products/captive-portal/apps/api/package.json
 COPY products/captive-portal/apps/frontend/package.json ./products/captive-portal/apps/frontend/package.json
 COPY products/project-management/package.json ./products/project-management/package.json
-COPY products/text-your-ex/package.json ./products/text-your-ex/package.json
-COPY products/text-your-ex/apps/api/package.json ./products/text-your-ex/apps/api/package.json
-COPY products/text-your-ex/apps/e2e/package.json ./products/text-your-ex/apps/e2e/package.json
-COPY products/text-your-ex/apps/frontend/package.json ./products/text-your-ex/apps/frontend/package.json
 COPY packages/api/package.json ./packages/api/package.json
 COPY packages/logger/package.json ./packages/logger/package.json
 COPY packages/platform/package.json ./packages/platform/package.json

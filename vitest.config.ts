@@ -18,10 +18,6 @@ export default defineConfig({
       // (UniFi adopt-only stack, www-j934.3), so no separate project entry is
       // needed; a second entry would double-run those tests.
       "infra",
-      // TYE api: requires DATABASE_URL pointing at a Postgres instance.
-      // Skipped when DATABASE_URL is unset (no-op in local dev without Postgres).
-      // CI wires a postgres service container and sets DATABASE_URL.
-      "products/text-your-ex/apps/api",
     ],
     // 2 workers: measured peak RSS is ~1.5GB per worker (jsdom + React +
     // v8 coverage), so 2 workers use ~3GB total, well within CI's 16GB runner.

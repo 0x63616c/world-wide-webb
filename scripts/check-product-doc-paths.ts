@@ -27,7 +27,7 @@ for (const slug of productSlugs) {
 }
 
 // 2. AGENTS.md must carry the product-aware CI/deploy rule so future agents know
-//    product isolation is enforced (a TYE-only change must not rebuild CC).
+//    product isolation is enforced (a portal-only change must not rebuild CC).
 const agents = read("AGENTS.md");
 assert(
   /product-aware/i.test(agents),

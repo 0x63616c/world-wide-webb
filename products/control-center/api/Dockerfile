@@ -19,15 +19,10 @@ COPY products/control-center/drizzle/package.json products/control-center/drizzl
 COPY products/control-center/map-provision/package.json products/control-center/map-provision/
 COPY products/control-center/ios/package.json products/control-center/ios/
 COPY products/control-center/storybook/package.json products/control-center/storybook/
-COPY products/amp/package.json products/amp/
 COPY products/captive-portal/package.json products/captive-portal/
 COPY products/captive-portal/apps/api/package.json products/captive-portal/apps/api/
 COPY products/captive-portal/apps/frontend/package.json products/captive-portal/apps/frontend/
 COPY products/project-management/package.json products/project-management/
-COPY products/text-your-ex/package.json products/text-your-ex/
-COPY products/text-your-ex/apps/api/package.json products/text-your-ex/apps/api/
-COPY products/text-your-ex/apps/e2e/package.json products/text-your-ex/apps/e2e/
-COPY products/text-your-ex/apps/frontend/package.json products/text-your-ex/apps/frontend/
 COPY packages/api/package.json packages/api/
 COPY packages/logger/package.json packages/logger/
 COPY packages/platform/package.json packages/platform/

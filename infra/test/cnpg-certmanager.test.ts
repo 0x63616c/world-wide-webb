@@ -35,14 +35,11 @@ const provider = () => new k8s.Provider("test", { context: "x" });
 const mockVault: Record<string, string> = {
   CONTROL_CENTER_POSTGRES__PASSWORD: "mock-cc-pw",
   CAPTIVE_PORTAL_POSTGRES__PASSWORD: "mock-cp-pw",
-  TEXT_YOUR_EX_POSTGRES__PASSWORD: "mock-tye-pw",
 };
 
 const testNamespaces = {
   "control-center": "control-center",
   "captive-portal": "captive-portal",
-  "text-your-ex": "text-your-ex",
-  amp: "amp",
   platform: "platform",
 } as const;
 
@@ -92,8 +89,8 @@ describe("installCnpg", () => {
       vault: mockVault,
     });
 
-    expect(res.clusters).toHaveLength(5);
-    expect(res.authSecrets).toHaveLength(5);
+    expect(res.clusters).toHaveLength(3);
+    expect(res.authSecrets).toHaveLength(3);
 
     const clusterSpecs = await Promise.all(
       res.clusters.map((cluster) =>
@@ -110,8 +107,6 @@ describe("installCnpg", () => {
       "captive_portal",
       "captive_portal",
       "control_center",
-      "text_your_ex",
-      "text_your_ex",
     ]);
     expect(
       clusterSpecs.find(
@@ -159,20 +154,10 @@ describe("installCnpg", () => {
       "captive-portal",
     );
     expect(
-      clusterMetadata.find((m) => m.name === "postgres" && m.namespace === "text-your-ex"),
-    ).toBeDefined();
-    expect(clusterMetadata.find((m) => m.name === "text-your-ex")?.namespace).toBe("text-your-ex");
-    expect(
       secretMetadata.find((m) => m.name === "postgres-auth" && m.namespace === "captive-portal"),
-    ).toBeDefined();
-    expect(
-      secretMetadata.find((m) => m.name === "postgres-auth" && m.namespace === "text-your-ex"),
     ).toBeDefined();
     expect(secretMetadata.find((m) => m.name === "captive-portal-postgres-auth")?.namespace).toBe(
       "captive-portal",
-    );
-    expect(secretMetadata.find((m) => m.name === "tye-postgres-auth")?.namespace).toBe(
-      "text-your-ex",
     );
   });
 });

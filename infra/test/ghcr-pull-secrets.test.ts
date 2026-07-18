@@ -22,10 +22,8 @@ describe("GHCR pull secret coverage", () => {
   test("declares the pull secret in every namespace with GHCR services or cron jobs", () => {
     const consumers = [...specsWith(), ...cronSpecs("192.168.0.218")];
     expect(collectGhcrPullSecretNamespaces(consumers)).toEqual([
-      "amp",
       "captive-portal",
       "control-center",
-      "text-your-ex",
     ]);
     expect(() => assertGhcrPullSecretNamespaceCoverage(consumers)).not.toThrow();
   });

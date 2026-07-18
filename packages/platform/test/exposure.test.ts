@@ -17,8 +17,8 @@ describe("exposure intent primitives", () => {
       policy: "private",
       tls: {
         coverage: {
-          dnsNames: ["api--tye.worldwidewebb.co"],
-          hostname: "api--tye.worldwidewebb.co",
+          dnsNames: ["api--cc.worldwidewebb.co"],
+          hostname: "api--cc.worldwidewebb.co",
           kind: "exact-host",
         },
         required: true,

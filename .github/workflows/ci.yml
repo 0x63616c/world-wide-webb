@@ -42,8 +42,6 @@ jobs:
       storybook: ${{ steps.filter.outputs.storybook }}
       drizzle: ${{ steps.filter.outputs.drizzle }}
       captiveportal: ${{ steps.filter.outputs.captiveportal }}
-      textyourex: ${{ steps.filter.outputs.textyourex }}
-      amp: ${{ steps.filter.outputs.amp }}
       mapprovision: ${{ steps.filter.outputs.mapprovision }}
       # infra-only changes (Pulumi program / specs) deploy without any image
       # rebuild: a `pulumi up` must still converge the declared stack.
@@ -132,20 +130,6 @@ jobs:
             captiveportal:
               - 'products/captive-portal/**'
               - 'bun.lock'
-            # Text Your Ex: deployed product with two images (tye-api, tye-frontend).
-            # Includes infra/** so a pure Pulumi change rebuilds and redeploys TYE.
-            textyourex:
-              - 'products/text-your-ex/**'
-              - 'packages/**'
-              - 'bun.lock'
-              - 'infra/**'
-            # AMP: a static nginx app from its product tree. It shares only root
-            # workspace deps and platform packages, so unrelated product changes
-            # must not rebuild it.
-            amp:
-              - 'products/amp/**'
-              - 'packages/**'
-              - 'bun.lock'
             # Basemap provisioner (www-hn1i): a self-contained alpine + pmtiles
             # CLI + sh image, no workspace deps, so it rebuilds solely on its
             # own tree (mirrors drizzle).
@@ -159,8 +143,6 @@ jobs:
               - 'products/control-center/**'
               - 'packages/**'
               - 'products/captive-portal/**'
-              - 'products/amp/**'
-              - 'products/text-your-ex/**'
               - 'bun.lock'
 
   # Test gate: typecheck + full vitest suite with coverage. Runs on every push
@@ -218,7 +200,6 @@ jobs:
           bun run test:product-ci-isolation
           bun run test:tilt-product-lanes
           bun run test:product-doc-paths
-          bun run test:amp-ci-deploy
       - name: Captive-portal LAN-edge proxy topology tests
         # Hermetic self-test of the portal-lan TLS-on-:42069 + http->https
         # redirect topology (www-q002.22), no real docker. Pins that the LAN edge
@@ -471,62 +452,6 @@ jobs:
           dockerfile: products/control-center/map-provision/Dockerfile
           cache-scope: map-provision
 
-  build-amp:
-    needs: [changes, test, typecheck]
-    if: needs.changes.outputs.amp == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 25
-    environment: prod
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build and push AMP image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-amp-app
-          dockerfile: products/amp/Dockerfile
-          cache-scope: amp
-
-  build-tye-api:
-    needs: [changes, test, typecheck]
-    if: needs.changes.outputs.textyourex == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 25
-    environment: prod
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build and push tye-api image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-text-your-ex-api
-          dockerfile: products/text-your-ex/Dockerfile.api
-          cache-scope: tye-api
-
-  build-tye-frontend:
-    needs: [changes, test, typecheck]
-    if: needs.changes.outputs.textyourex == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 25
-    environment: prod
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build and push tye-frontend image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-text-your-ex-frontend
-          dockerfile: products/text-your-ex/Dockerfile.frontend
-          cache-scope: tye-frontend
-          build-args: |
-            VITE_API_BASE=https://api--tye.worldwidewebb.co
-
   # After the images build on main, deploy to the homelab k3s cluster with
   # `pulumi up` (www-j934.14). The runner joins the tailnet with an EPHEMERAL
   # Tailscale key (auto-revoked when the job ends), reaches the kube-apiserver
@@ -537,7 +462,7 @@ jobs:
   # declarative-convergent, so the latest green run always reconciles prod to the
   # committed digests, no deploy marker needed (www-bom8 retired).
   deploy:
-    needs: [changes, test, typecheck, build-web, build-api, build-worker, build-media-worker, build-storybook, build-drizzle, build-captive-portal, build-captive-portal-api, build-map-provision, build-amp, build-tye-api, build-tye-frontend]
+    needs: [changes, test, typecheck, build-web, build-api, build-worker, build-media-worker, build-storybook, build-drizzle, build-captive-portal, build-captive-portal-api, build-map-provision]
     # always() lets us run even when some build jobs were skipped (no changes).
     # We proceed when: on main, an app OR infra changed, and no build failed.
     if: |
@@ -609,7 +534,7 @@ jobs:
           # KEY is product-component scoped and matches the Pulumi imageDigests
           # config key, while repo names use full product slugs.
           declare -A out=()
-          for entry in www-control-center-web:control-center-web www-control-center-api:control-center-api www-control-center-worker:control-center-worker www-control-center-media-worker:control-center-media-worker www-control-center-storybook:control-center-storybook www-control-center-drizzle:control-center-drizzle www-captive-portal-portal:captive-portal-portal www-captive-portal-api:captive-portal-api www-control-center-map-provision:control-center-map-provision www-amp-app:amp-app www-text-your-ex-api:text-your-ex-api www-text-your-ex-frontend:text-your-ex-frontend; do
+          for entry in www-control-center-web:control-center-web www-control-center-api:control-center-api www-control-center-worker:control-center-worker www-control-center-media-worker:control-center-media-worker www-control-center-storybook:control-center-storybook www-control-center-drizzle:control-center-drizzle www-captive-portal-portal:captive-portal-portal www-captive-portal-api:captive-portal-api www-control-center-map-provision:control-center-map-provision; do
             repo="${entry%%:*}"
             name="${entry#*:}"
             d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$repo:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)

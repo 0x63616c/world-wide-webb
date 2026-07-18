@@ -41,7 +41,7 @@ if (workspaceManifests.length === 0) {
 // --- 2. Dockerfiles that run `bun install --frozen-lockfile` against the full workspace graph ---
 //
 // These are built from the repo root (.), so they must COPY every workspace manifest
-// before the frozen install. TYE's old Dockerfile uses a product-dir context and
+// before the frozen install. Some Dockerfiles use a product-dir context and
 // relative paths (apps/*), so it is intentionally excluded.
 
 const FULL_INSTALL_DOCKERFILES = [
@@ -50,11 +50,8 @@ const FULL_INSTALL_DOCKERFILES = [
   "products/control-center/media-worker/Dockerfile",
   "products/control-center/web/Dockerfile",
   "products/control-center/web/Dockerfile.storybook",
-  "products/amp/Dockerfile",
   "products/captive-portal/Dockerfile.api",
   "products/captive-portal/apps/frontend/Dockerfile",
-  "products/text-your-ex/Dockerfile.api",
-  "products/text-your-ex/Dockerfile.frontend",
 ];
 
 // --- 3. Parse each Dockerfile for `COPY <src>/package.json` lines ---
@@ -97,7 +94,7 @@ for (const df of FULL_INSTALL_DOCKERFILES) {
 // `oven/bun:1-alpine` / `:latest` drift to the newest bun (e.g. 1.3.x), whose
 // lockfile format the 1.2-generated bun.lock can't satisfy under
 // --frozen-lockfile ("lockfile had changes"). Pin to a minor (oven/bun:1.2...),
-// matching the CI setup-bun pin. This has broken builds twice (amp, captive-portal).
+// matching the CI setup-bun pin. This has broken builds before (captive-portal).
 const FLOATING_BUN = /FROM\s+oven\/bun:(1-|latest|1\s|1$)/;
 const floatingBunOffenders: string[] = [];
 for (const df of FULL_INSTALL_DOCKERFILES) {

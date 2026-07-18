@@ -86,7 +86,6 @@ const dockerfilesWithWorkspaceManifests = [
   `${productRoot}/web/Dockerfile`,
   `${productRoot}/web/Dockerfile.storybook`,
   `${productRoot}/worker/Dockerfile`,
-  "products/amp/Dockerfile",
   "products/captive-portal/apps/frontend/Dockerfile",
 ] as const;
 

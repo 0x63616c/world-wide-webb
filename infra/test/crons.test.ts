@@ -35,8 +35,6 @@ const NAS = "192.168.0.218";
 const testNamespaces = {
   "control-center": "control-center",
   "captive-portal": "captive-portal",
-  "text-your-ex": "text-your-ex",
-  amp: "amp",
   platform: "platform",
 } as const;
 
@@ -64,7 +62,6 @@ describe("cronSpecs: the declared CronJob set", () => {
       "map-extract",
       "pg-backup",
       "portal-data-purge",
-      "tye-pg-backup",
     ]);
   });
 
@@ -158,11 +155,11 @@ describe("pg-backup (NEW nightly logical backup to the NAS)", () => {
     expect(spec.schedule).toBe("0 1 * * *");
     expect(spec.image).toBe("ghcr.io/cloudnative-pg/postgresql:18");
     expect(spec.command?.join("\n")).toContain("pg_dump -h postgres-rw");
-    expect(spec.command?.join("\n")).toContain("-d text_your_ex");
+    expect(spec.command?.join("\n")).toContain("-d captive_portal");
     expect(spec.volumes?.[0]).toMatchObject({
       mountPath: "/backup",
       nfs: { server: NAS, path: "/volume1/Homelab" },
-      subPath: "backups/world-wide-webb/text-your-ex/postgres",
+      subPath: "backups/world-wide-webb/captive-portal/postgres",
     });
     expect(rendered.cronJob.spec.concurrencyPolicy).toBe("Forbid");
     expect(rendered.cronJob.spec.jobTemplate.spec.template.spec.restartPolicy).toBe("Never");
@@ -241,49 +238,6 @@ describe("captive-portal-pg-backup", () => {
   });
 });
 
-describe("tye-pg-backup (www-jtp0.6.7)", () => {
-  const backup = () => byName(crons.cronSpecs(NAS), "tye-pg-backup");
-
-  test("runs nightly at 01:30 LA and is NOT suspended", () => {
-    const r = renderCronJob(backup() as CronJobSpec);
-    expect(backup()?.schedule).toBe("30 1 * * *");
-    expect(r.cronJob.spec.suspend).toBe(false);
-  });
-
-  test("uses the cloudnative-pg postgresql:18 image (pg_dump version parity)", () => {
-    expect(backup()?.image).toBe("ghcr.io/cloudnative-pg/postgresql:18");
-  });
-
-  test("dumps text_your_ex database from the CNPG rw service", () => {
-    const cmd = (backup()?.command ?? []).join(" ");
-    expect(cmd).toContain("pg_dump -h postgres-rw");
-    expect(cmd).toContain("-d text_your_ex");
-    expect(cmd).toContain("gzip");
-    expect(cmd).toContain("pipefail");
-  });
-
-  test("writes a dated text_your_ex-YYYYMMDD.sql.gz artifact", () => {
-    const cmd = (backup()?.command ?? []).join(" ");
-    expect(cmd).toContain("text_your_ex-");
-    expect(cmd).toMatch(/%Y%m%d/);
-  });
-
-  test("mounts the current TYE postgres auth secret for the DB password", () => {
-    const c = backup();
-    expect(c?.extraSecretMounts?.some((m) => m.secretName === "postgres-auth")).toBe(true);
-    expect(c?.namespaceName).toBe("text-your-ex");
-  });
-
-  test("writes under the TYE NAS path", () => {
-    const c = backup();
-    expect(c?.volumes?.[0]).toMatchObject({
-      mountPath: "/backup",
-      nfs: { server: NAS, path: "/volume1/Homelab" },
-      subPath: "backups/world-wide-webb/text-your-ex/postgres",
-    });
-  });
-});
-
 describe("deployCrons (Pulumi wiring)", () => {
   test("instantiates a ScheduledJob per declared cron", async () => {
     const provider = new (await import("@pulumi/kubernetes")).Provider("test", { context: "x" });
@@ -305,6 +259,5 @@ describe("deployCrons (Pulumi wiring)", () => {
     expect(metadata.find((m) => m.name === "captive-portal-pg-backup")?.namespace).toBe(
       "captive-portal",
     );
-    expect(metadata.find((m) => m.name === "tye-pg-backup")?.namespace).toBe("text-your-ex");
   });
 });
