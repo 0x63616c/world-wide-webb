@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatTilt, isLevel, normalizeDegrees, tiltFromGravity } from "./tilt";
+import { cardinalDeviation, formatTilt, isLevel, normalizeDegrees, tiltFromGravity } from "./tilt";
 
 const G = 9.81;
 // Gravity reading for a device whose right side has DROPPED by `deg`
@@ -35,6 +35,23 @@ describe("tiltFromGravity", () => {
 
   it("returns null when the device lies flat", () => {
     expect(tiltFromGravity(0.05, -0.08, 0)).toBeNull();
+  });
+});
+
+describe("cardinalDeviation", () => {
+  it("passes small angles through", () => {
+    expect(cardinalDeviation(0)).toBe(0);
+    expect(cardinalDeviation(2.3)).toBeCloseTo(2.3, 5);
+    expect(cardinalDeviation(-1.7)).toBeCloseTo(-1.7, 5);
+  });
+
+  it("reads mount error relative to a quarter-turn, not the quarter-turn itself", () => {
+    // The landscape-mounted panel whose roll comes back offset by 90°.
+    expect(cardinalDeviation(90)).toBe(0);
+    expect(cardinalDeviation(90.4)).toBeCloseTo(0.4, 5);
+    expect(cardinalDeviation(-89.6)).toBeCloseTo(0.4, 5);
+    expect(cardinalDeviation(180)).toBe(0);
+    expect(cardinalDeviation(-90)).toBe(0);
   });
 });
 

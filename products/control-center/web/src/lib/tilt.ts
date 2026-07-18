@@ -39,6 +39,19 @@ export function tiltFromGravity(gx: number, gy: number, screenAngle: number): nu
   return normalizeDegrees(-screenRoll);
 }
 
+/**
+ * Deviation from the nearest quarter-turn, in degrees, in [-45, 45].
+ *
+ * The wall panel always hangs a whole number of quarter-turns from portrait,
+ * but iPadOS reports devicemotion axes and screen.orientation.angle
+ * inconsistently inside the webview, so the absolute roll can come back offset
+ * by ±90° (the mounted-landscape panel read "90" instead of "0"). The mount
+ * error the level cares about is the distance to the nearest cardinal angle.
+ */
+export function cardinalDeviation(angle: number): number {
+  return angle - Math.round(angle / 90) * 90;
+}
+
 /** Wrap an angle in degrees to the (-180, 180] range. */
 export function normalizeDegrees(angle: number): number {
   const wrapped = ((angle % 360) + 540) % 360; // 0..360, shifted

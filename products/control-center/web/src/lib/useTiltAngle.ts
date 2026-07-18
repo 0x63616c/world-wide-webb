@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { tiltFromGravity } from "./tilt";
+import { cardinalDeviation, tiltFromGravity } from "./tilt";
 
 // Fraction of each new reading blended into the smoothed angle. ~12 readings
 // to converge, which at the ~60Hz devicemotion rate reads as instant.
@@ -46,17 +46,28 @@ export function useTiltAngle(enabled: boolean): TiltReading {
     function onMotion(event: DeviceMotionEvent) {
       const g = event.accelerationIncludingGravity;
       if (!g || g.x == null || g.y == null) return;
-      const angle = tiltFromGravity(g.x, g.y, screenAngle());
-      if (angle == null) {
+      const roll = tiltFromGravity(g.x, g.y, screenAngle());
+      if (roll == null) {
         smoothed.current = null;
         setReading({ state: "unavailable" });
         return;
       }
+      // The panel hangs a whole number of quarter-turns from portrait, and
+      // iPadOS can mis-report the webview's screen orientation by 90°; only
+      // the deviation from the nearest cardinal angle is a mount error.
+      const angle = cardinalDeviation(roll);
       smoothed.current =
         smoothed.current == null
           ? angle
           : smoothed.current + (angle - smoothed.current) * SMOOTHING;
-      setReading({ state: "ready", angle: smoothed.current });
+      // Publish at 0.1° resolution: raw jitter below that is sensor noise,
+      // and identical readings skip the re-render entirely.
+      const quantized = Math.round(smoothed.current * 10) / 10;
+      setReading((prev) =>
+        prev.state === "ready" && prev.angle === quantized
+          ? prev
+          : { state: "ready", angle: quantized },
+      );
     }
 
     async function subscribe() {

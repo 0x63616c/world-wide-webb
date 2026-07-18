@@ -45,6 +45,10 @@ export function CleanScreenOverlayView({
         fontFamily: "var(--ui)",
         color: "var(--ink)",
         userSelect: "none",
+        // iPad WebKit ignores the unprefixed property and long-press otherwise
+        // starts text selection / the copy callout mid-hold.
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
         // The whole point: wipes land here and go nowhere.
         touchAction: "none",
       }}
@@ -80,6 +84,9 @@ export function CleanScreenOverlayView({
           fontFamily: "var(--ui)",
           color: "var(--ink-2)",
           touchAction: "none",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
           cursor: "pointer",
         }}
       >
