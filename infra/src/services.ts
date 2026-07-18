@@ -259,7 +259,17 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
         "ASC_KEY_CONTENT",
       ]),
       secretName: SERVICE_SECRET_TARGETS.api.secretName,
-      env: haEnv,
+      // Wake photos persist on the NAS media share (same NFS export + subPath
+      // as media-worker); without this mount the api's MEDIA_STORAGE_DIR
+      // writes land in the container overlay fs and vanish on every roll.
+      env: { ...haEnv, MEDIA_STORAGE_DIR: "/app/media" },
+      volumes: [
+        {
+          mountPath: "/app/media",
+          nfs: { server: nasNfsServer, path: "/volume1/Homelab" },
+          subPath: "media",
+        },
+      ],
       ports: [{ containerPort: 4201, expose: "cluster" }],
       imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
@@ -307,6 +317,9 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
         APP_ENV: "production",
         TZ,
         POSTGRES_HOST: controlCenterDatabase.rwServiceName,
+        // Point at the NFS mount below , the env default (/mnt/media) is the
+        // container overlay fs, not the NAS share.
+        MEDIA_STORAGE_DIR: "/app/media",
       },
       // NFS PV for the Synology media share. The DS420+ exports ONLY
       // /volume1/Homelab (not its subdirs), so mount that export and subPath
