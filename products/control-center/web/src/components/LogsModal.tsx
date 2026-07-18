@@ -82,7 +82,7 @@ const SHA = BUILD_HASH.slice(0, 7);
  * information in it, and the previous layout let the fixed columns hog width and
  * then clipped the payload, which is backwards.
  */
-const GRID = "146px 46px 76px 58px 96px minmax(230px, 32ch) 1fr";
+const GRID = "112px 64px 46px 76px 58px 96px minmax(230px, 32ch) 1fr";
 
 /**
  * The device that emitted an entry. Read-time fallback for rows written before
@@ -117,8 +117,22 @@ function formatTime(ts: number): string {
   const hh = String(d.getHours()).padStart(2, "0");
   const mm = String(d.getMinutes()).padStart(2, "0");
   const ss = String(d.getSeconds()).padStart(2, "0");
-  const ms = String(d.getMilliseconds()).padStart(3, "0");
-  return `${mon}-${day} ${hh}:${mm}:${ss}.${ms}`;
+  return `${mon}-${day} ${hh}:${mm}:${ss}`;
+}
+
+/**
+ * "How long ago" at a glance. The absolute timestamp answers "when exactly";
+ * this answers the question actually asked mid-incident, "was that just now or
+ * yesterday", without mental date arithmetic at arm's length.
+ */
+function formatAge(ts: number, now: number): string {
+  const s = Math.max(0, Math.floor((now - ts) / 1000));
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 }
 
 /** Bytes as a short human string. Carries through to GB , the cap is 1 GB, and
@@ -181,6 +195,20 @@ export function LogsModal({
   const [scrollTop, setScrollTop] = useState(0);
   const [listHeight, setListHeight] = useState(LIST_HEIGHT);
   const listRef = useRef<HTMLDivElement>(null);
+  /** True once a page comes back short , there is no more history to fetch. */
+  const [exhausted, setExhausted] = useState(false);
+  /** Re-entrancy guard for scroll-driven paging; state alone lags the events. */
+  const loadingRef = useRef(false);
+
+  // Clock for the Age column. Ticks only while the modal is open; the windowed
+  // list keeps the per-second re-render to a few dozen rows.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!open) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [open]);
 
   // The list sizes itself from the flex layout, so windowing has to follow the
   // measured height rather than a constant , otherwise opening the detail pane
@@ -217,6 +245,7 @@ export function LogsModal({
     setOlder([]);
     setSelected(null);
     setScrollTop(0);
+    setExhausted(false);
     listRef.current?.scrollTo({ top: 0 });
     // Push anything still queued to disk so the history count is honest.
     void flushNow().then(async () => {
@@ -237,31 +266,39 @@ export function LogsModal({
   useEffect(() => {
     if (!open) return;
     const needle = search.trim();
-    if (!needle) {
-      // Back to the live tail. Any pages fetched for a previous search are stale.
+    const subset = levels.length < LOG_LEVELS.length;
+    if (!needle && !subset) {
+      // Back to the live tail. Any pages fetched for a previous filter are stale.
       setOlder([]);
       setSearchTruncated(false);
       setSearching(false);
+      setExhausted(false);
       return;
     }
 
     let cancelled = false;
     setSearching(true);
-    const timer = setTimeout(async () => {
-      try {
-        await flushNow();
-        const hits = await store.query({
-          search: needle,
-          levels: levels.length === LOG_LEVELS.length ? undefined : levels,
-          limit: SEARCH_LIMIT,
-        });
-        if (cancelled) return;
-        setOlder(hits);
-        setSearchTruncated(hits.length >= SEARCH_LIMIT);
-      } finally {
-        if (!cancelled) setSearching(false);
-      }
-    }, SEARCH_DEBOUNCE_MS);
+    // A level chip is a click, not typing , no debounce, fetch immediately.
+    const limit = needle ? SEARCH_LIMIT : PAGE_SIZE;
+    const timer = setTimeout(
+      async () => {
+        try {
+          await flushNow();
+          const hits = await store.query({
+            search: needle || undefined,
+            levels: subset ? levels : undefined,
+            limit,
+          });
+          if (cancelled) return;
+          setOlder(hits);
+          setSearchTruncated(needle ? hits.length >= SEARCH_LIMIT : false);
+          setExhausted(hits.length < limit);
+        } finally {
+          if (!cancelled) setSearching(false);
+        }
+      },
+      needle ? SEARCH_DEBOUNCE_MS : 0,
+    );
 
     return () => {
       cancelled = true;
@@ -313,6 +350,8 @@ export function LogsModal({
   const oldestLoadedId = rows.length > 0 ? rows[rows.length - 1].id : undefined;
 
   const loadOlder = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoadingOlder(true);
     try {
       await flushNow();
@@ -323,9 +362,11 @@ export function LogsModal({
         limit: PAGE_SIZE,
       });
       setOlder((prev) => [...page, ...prev]);
+      setExhausted(page.length < PAGE_SIZE);
       setHistoryCount(await store.count());
       setBytes(await store.bytesUsed());
     } finally {
+      loadingRef.current = false;
       setLoadingOlder(false);
     }
   }, [oldestLoadedId, levels, search]);
@@ -484,9 +525,6 @@ export function LogsModal({
               fontSize: 13,
             }}
           />
-          <ToolbarButton onClick={() => void loadOlder()} disabled={loadingOlder}>
-            {loadingOlder ? "Loading…" : "Load older"}
-          </ToolbarButton>
           <ToolbarButton
             onClick={() => void handleExport()}
             disabled={!nativeExport || exporting}
@@ -544,6 +582,7 @@ export function LogsModal({
             }}
           >
             <span style={{ paddingRight: 6 }}>Date / time</span>
+            <span>Age</span>
             <span>Level</span>
             <span>Source</span>
             <span>Git SHA</span>
@@ -553,7 +592,20 @@ export function LogsModal({
           </div>
           <div
             ref={listRef}
-            onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+            // Infinite scroll: within two screens of the bottom, page in the next
+            // chunk of history unmanned. No "Load older" button , reaching for it
+            // mid-incident was friction exactly when it mattered.
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              setScrollTop(el.scrollTop);
+              if (
+                !exhausted &&
+                !loadingRef.current &&
+                el.scrollTop + el.clientHeight >= el.scrollHeight - listHeight * 2
+              ) {
+                void loadOlder();
+              }
+            }}
             style={{
               flex: 1,
               minHeight: 0,
@@ -573,6 +625,7 @@ export function LogsModal({
                     <LogRow
                       key={entry.id}
                       entry={entry}
+                      now={now}
                       selected={selected?.id === entry.id}
                       onSelect={() => setSelected(entry)}
                     />
@@ -627,13 +680,15 @@ export function LogsModal({
         >
           <span>
             {rows.length.toLocaleString()} shown ·{" "}
-            {search.trim()
+            {search.trim() || levels.length < LOG_LEVELS.length
               ? searching
                 ? `searching all ${historyCount.toLocaleString()} on disk…`
-                : `searched all ${historyCount.toLocaleString()} on disk${
+                : `matched from all ${historyCount.toLocaleString()} on disk${
                     searchTruncated ? ` (first ${SEARCH_LIMIT.toLocaleString()} matches)` : ""
-                  }`
-              : `${tail.length.toLocaleString()} in memory · ${historyCount.toLocaleString()} / ${MAX_ENTRIES.toLocaleString()} on disk`}{" "}
+                  }${loadingOlder ? " · loading older…" : ""}`
+              : `${tail.length.toLocaleString()} in memory · ${historyCount.toLocaleString()} / ${MAX_ENTRIES.toLocaleString()} on disk${
+                  loadingOlder ? " · loading older…" : ""
+                }`}{" "}
             · {formatBytes(bytes)} / {formatBytes(MAX_BYTES)} · git sha{" "}
             <span style={{ fontFamily: "var(--mono, ui-monospace, monospace)" }}>{SHA}</span>
           </span>
@@ -652,10 +707,12 @@ export function LogsModal({
 
 function LogRow({
   entry,
+  now,
   selected,
   onSelect,
 }: {
   entry: LogEntry;
+  now: number;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -683,6 +740,7 @@ function LogRow({
       }}
     >
       <span style={TIME_CELL}>{formatTime(entry.ts)}</span>
+      <span style={{ color: "var(--ink-3)" }}>{formatAge(entry.ts, now)}</span>
       <span style={{ color: LEVEL_COLOR[entry.level] }}>{entry.level}</span>
       <span style={ELLIPSIS}>{entry.source}</span>
       <span style={{ color: "var(--ink-3)", opacity: 0.55 }}>{entry.sha}</span>
