@@ -29,6 +29,13 @@ export interface ModalProps {
    * , used where the body genuinely scrolls (e.g. the Settings panel).
    */
   scrollbar?: "hidden" | "visible";
+  /**
+   * Take the full `maxHeight` rather than sizing to content. Modals whose body
+   * owns its own scroll region (the log viewer's table) need a DEFINITE panel
+   * height , without one, a `height: 100%` child resolves to auto and the whole
+   * body scrolls instead of just the region that should.
+   */
+  fill?: boolean;
 }
 
 // Stable id so the dialog can be aria-labelledby its own title node.
@@ -42,6 +49,7 @@ export function Modal({
   width = 640,
   maxHeight = 720,
   scrollbar = "hidden",
+  fill = false,
 }: ModalProps) {
   // Clamp to the board so a modal never overflows the 1366x1024 wall panel.
   const panelWidth = Math.min(width, 1280);
@@ -118,6 +126,7 @@ export function Modal({
           position: "relative",
           width: panelWidth,
           maxHeight: panelMaxHeight,
+          ...(fill ? { height: panelMaxHeight } : {}),
           display: "flex",
           flexDirection: "column",
           background: "var(--tile)",

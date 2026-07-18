@@ -428,8 +428,21 @@ export function LogsModal({
   const visible = rows.slice(first, first + visibleCount);
 
   return (
-    <Modal open={open} onClose={onClose} title="Logs" width={1240} maxHeight={900}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <Modal open={open} onClose={onClose} title="Logs" width={1240} maxHeight={900} fill>
+      {/* Full height of the modal body, and nothing here scrolls except the log
+          list itself , the toolbar, detail pane and footer stay pinned. A page
+          that scrolls as a whole is wrong for a viewer you open mid-incident:
+          the level tally and the search box slide off exactly when you reach
+          for them. */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          height: "100%",
+          minHeight: 0,
+        }}
+      >
         {/* Controls. Every control in this row is exactly CONTROL_H tall and is
             stretched to it, rather than each one sizing itself from its own font
             and padding , which is what made the chips, the search field and the
@@ -440,6 +453,7 @@ export function LogsModal({
             alignItems: "stretch",
             gap: 8,
             height: CONTROL_H,
+            flexShrink: 0,
           }}
         >
           {LOG_LEVELS.map((level) => (
@@ -505,6 +519,11 @@ export function LogsModal({
             border: "1px solid var(--hair)",
             borderRadius: RADIUS,
             overflow: "hidden",
+            // The box owns the leftover space; the list inside it is the scroller.
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            minHeight: 160,
           }}
         >
           <div
@@ -514,6 +533,7 @@ export function LogsModal({
               gap: 10,
               alignItems: "center",
               height: 28,
+              flexShrink: 0,
               padding: "0 10px",
               borderBottom: "1px solid var(--hair)",
               fontFamily: "var(--ui)",
@@ -535,7 +555,8 @@ export function LogsModal({
             ref={listRef}
             onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
             style={{
-              height: LIST_HEIGHT,
+              flex: 1,
+              minHeight: 0,
               overflowY: "auto",
               fontFamily: "var(--mono, ui-monospace, monospace)",
               fontSize: 12,
@@ -568,6 +589,7 @@ export function LogsModal({
             style={{
               margin: 0,
               maxHeight: 160,
+              flexShrink: 0,
               overflow: "auto",
               padding: 10,
               background: "var(--nest)",
@@ -597,6 +619,7 @@ export function LogsModal({
             alignItems: "center",
             justifyContent: "space-between",
             gap: 12,
+            flexShrink: 0,
             fontFamily: "var(--ui)",
             fontSize: 12,
             color: "var(--ink-3)",
