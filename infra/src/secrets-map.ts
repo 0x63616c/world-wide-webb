@@ -31,6 +31,13 @@ const apiSecrets: ServiceSecrets = {
   ASC_KEY_ID: "APP_STORE_CONNECT_API__KEY_ID",
   ASC_ISSUER_ID: "APP_STORE_CONNECT_API__ISSUER_ID",
   ASC_KEY_CONTENT: "APP_STORE_CONNECT_API__P8_CONTENT",
+  // GitHub PAT for the worker's github-actions deploy poller (Deploys tile).
+  // Only the WORKER consumes it (the api never calls GitHub), but the api/worker
+  // secret sets are deliberately kept in lockstep (www-51hf.35, eso.test.ts), so
+  // it rides the shared base and is mounted to both; api's env leaves it unread.
+  // Named GITHUB_ACTIONS_TOKEN, never GITHUB_TOKEN (reserved by Actions, see
+  // docs/secrets-sops-migration/GOAL.md).
+  GITHUB_ACTIONS_TOKEN: "GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN",
 };
 
 // worker: identical to api (the api/worker secret sets are kept in lockstep;

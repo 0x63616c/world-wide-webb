@@ -241,6 +241,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
         "ASC_KEY_ID",
         "ASC_ISSUER_ID",
         "ASC_KEY_CONTENT",
+        "GITHUB_ACTIONS_TOKEN",
       ]),
       secretName: SERVICE_SECRET_TARGETS.api.secretName,
       // Wake photos persist on the NAS media share (same NFS export + subPath
@@ -281,6 +282,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
         "ASC_KEY_ID",
         "ASC_ISSUER_ID",
         "ASC_KEY_CONTENT",
+        "GITHUB_ACTIONS_TOKEN",
       ]),
       secretName: SERVICE_SECRET_TARGETS.worker.secretName,
       env: haEnv,
