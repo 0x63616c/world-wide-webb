@@ -29,26 +29,46 @@ export class HomeAssistantClient {
     };
   }
 
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+  /**
+   * Single request choke point for every HA call. Owns the timeout, the network
+   * vs non-2xx error mapping to `HaError`, and the `warn` telemetry, then returns
+   * the raw `Response` so callers pick the body shape (json / text / binary).
+   *
+   * `init` must carry its own headers (auth differs per caller); `logPath`
+   * overrides what is logged as `haPath` (used to strip an access token from a
+   * media path before it reaches the logs).
+   */
+  private async haFetch(
+    path: string,
+    init: RequestInit,
+    logPath: string = path,
+  ): Promise<Response> {
     const startedAt = performance.now();
     let res: Response;
     try {
       res = await fetch(`${this.baseUrl}${path}`, {
         ...init,
-        headers: { ...this.authHeaders(), ...(init?.headers ?? {}) },
         signal: AbortSignal.timeout(HA_REQUEST_TIMEOUT_MS),
       });
     } catch (err) {
       const durationMs = +(performance.now() - startedAt).toFixed(1);
       // status 0 = network-level failure (timeout, DNS, refused)
-      getLogger().warn({ haPath: path, haStatus: 0, durationMs }, "ha request failed");
+      getLogger().warn({ haPath: logPath, haStatus: 0, durationMs }, "ha request failed");
       throw new HaError(0, `Network error: ${(err as Error).message}`);
     }
     if (!res.ok) {
       const durationMs = +(performance.now() - startedAt).toFixed(1);
-      getLogger().warn({ haPath: path, haStatus: res.status, durationMs }, "ha request non-2xx");
+      getLogger().warn({ haPath: logPath, haStatus: res.status, durationMs }, "ha request non-2xx");
       throw new HaError(res.status, await res.text());
     }
+    return res;
+  }
+
+  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+    const res = await this.haFetch(path, {
+      ...init,
+      headers: { ...this.authHeaders(), ...(init?.headers ?? {}) },
+    });
     return res.json() as Promise<T>;
   }
 
@@ -77,28 +97,11 @@ export class HomeAssistantClient {
 
   /** Render a Jinja2 template against HA state; returns the rendered string. */
   async renderTemplate(template: string): Promise<string> {
-    const startedAt = performance.now();
-    let res: Response;
-    try {
-      res = await fetch(`${this.baseUrl}/api/template`, {
-        method: "POST",
-        headers: this.authHeaders(),
-        body: JSON.stringify({ template }),
-        signal: AbortSignal.timeout(HA_REQUEST_TIMEOUT_MS),
-      });
-    } catch (err) {
-      const durationMs = +(performance.now() - startedAt).toFixed(1);
-      getLogger().warn({ haPath: "/api/template", haStatus: 0, durationMs }, "ha request failed");
-      throw new HaError(0, `Network error: ${(err as Error).message}`);
-    }
-    if (!res.ok) {
-      const durationMs = +(performance.now() - startedAt).toFixed(1);
-      getLogger().warn(
-        { haPath: "/api/template", haStatus: res.status, durationMs },
-        "ha request non-2xx",
-      );
-      throw new HaError(res.status, await res.text());
-    }
+    const res = await this.haFetch("/api/template", {
+      method: "POST",
+      headers: this.authHeaders(),
+      body: JSON.stringify({ template }),
+    });
     return res.text();
   }
 
@@ -114,25 +117,8 @@ export class HomeAssistantClient {
   async getMedia(path: string): Promise<Response> {
     // entity_picture paths embed an HA access token in the query string ,
     // log only the bare path so the token never reaches the logs.
-    const logPath = path.split("?")[0];
-    const startedAt = performance.now();
-    let res: Response;
-    try {
-      res = await fetch(`${this.baseUrl}${path}`, {
-        headers: { Authorization: `Bearer ${this.token}` },
-        signal: AbortSignal.timeout(HA_REQUEST_TIMEOUT_MS),
-      });
-    } catch (err) {
-      const durationMs = +(performance.now() - startedAt).toFixed(1);
-      getLogger().warn({ haPath: logPath, haStatus: 0, durationMs }, "ha request failed");
-      throw new HaError(0, `Network error: ${(err as Error).message}`);
-    }
-    if (!res.ok) {
-      const durationMs = +(performance.now() - startedAt).toFixed(1);
-      getLogger().warn({ haPath: logPath, haStatus: res.status, durationMs }, "ha request non-2xx");
-      throw new HaError(res.status, await res.text());
-    }
-    return res;
+    const logPath = path.split("?")[0] ?? path;
+    return this.haFetch(path, { headers: { Authorization: `Bearer ${this.token}` } }, logPath);
   }
 }
 
