@@ -12,6 +12,8 @@ import { ClockGreeting } from "../components/tiles/ClockGreeting";
 import { ClockGreetingView } from "../components/tiles/ClockGreetingView";
 import { ControlsTile } from "../components/tiles/ControlsTile";
 import { ControlsTileView } from "../components/tiles/ControlsTileView";
+import { DeployTile } from "../components/tiles/DeployTile";
+import { DeployTileView } from "../components/tiles/DeployTileView";
 import { DogCamTile } from "../components/tiles/DogCamTile";
 import { DogCamTileView } from "../components/tiles/DogCamTileView";
 import { DogModeTile, DogModeTileView } from "../components/tiles/DogModeTileView";
@@ -43,6 +45,7 @@ type TileComponent =
   | typeof SchedulesTile
   | typeof DogCamTile
   | typeof DogModeTile
+  | typeof DeployTile
   | typeof ClimateTile
   | typeof EventsTile
   | typeof TvNowPlayingTile
@@ -62,6 +65,7 @@ type TileViewComponent =
   | typeof SchedulesTileView
   | typeof DogCamTileView
   | typeof DogModeTileView
+  | typeof DeployTileView
   | typeof ClimateTileView
   | typeof EventsTileView
   | typeof TvNowPlayingTileView
@@ -272,6 +276,17 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     worldRow: 30,
     cols: 2,
     rows: 2,
+    ownsTap: true,
+  },
+  {
+    id: "tile_deploys",
+    label: "Deploys",
+    component: DeployTile,
+    viewComponent: DeployTileView,
+    worldCol: 34,
+    worldRow: 24,
+    cols: 4,
+    rows: 3,
     ownsTap: true,
   },
   {
