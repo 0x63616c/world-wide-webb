@@ -58,6 +58,35 @@ export function normalizeDegrees(angle: number): number {
   return wrapped - 180 === -180 ? 180 : wrapped - 180;
 }
 
+/** A single timestamped roll reading, as collected from the raw sensor. */
+export interface TiltSample {
+  /** Milliseconds on an arbitrary monotonic clock. */
+  t: number;
+  angle: number;
+}
+
+/**
+ * Mean of the samples inside the trailing `windowMs`, or null when the window
+ * is empty.
+ *
+ * The accelerometer fires at ~60Hz and every reading carries ~0.5° of jitter,
+ * so publishing per event both re-renders 60 times a second and makes the
+ * readout unreadable. Averaging a fixed time window instead of an exponential
+ * blend keeps the settle time honest (it is exactly `windowMs`) regardless of
+ * how fast the device happens to report.
+ *
+ * Mutates `samples` in place, dropping anything that has aged out, so callers
+ * can keep one array alive for the life of the subscription.
+ */
+export function averageWindow(samples: TiltSample[], now: number, windowMs: number): number | null {
+  const cutoff = now - windowMs;
+  while (samples.length > 0 && samples[0].t < cutoff) samples.shift();
+  if (samples.length === 0) return null;
+  let sum = 0;
+  for (const sample of samples) sum += sample.angle;
+  return sum / samples.length;
+}
+
 /** Format an angle for display: "+0.4°", "-2.1°", "0°" when within `flatZone`. */
 export function formatTilt(angle: number, flatZone = 0.15): string {
   if (Math.abs(angle) < flatZone) return "0°";

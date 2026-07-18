@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { cardinalDeviation, formatTilt, isLevel, normalizeDegrees, tiltFromGravity } from "./tilt";
+import {
+  averageWindow,
+  cardinalDeviation,
+  formatTilt,
+  isLevel,
+  normalizeDegrees,
+  tiltFromGravity,
+} from "./tilt";
 
 const G = 9.81;
 // Gravity reading for a device whose right side has DROPPED by `deg`
@@ -87,5 +94,41 @@ describe("isLevel", () => {
     expect(isLevel(0.1)).toBe(true);
     expect(isLevel(-0.1)).toBe(true);
     expect(isLevel(0.2)).toBe(false);
+  });
+});
+
+describe("averageWindow", () => {
+  it("returns null for an empty window", () => {
+    expect(averageWindow([], 1000, 250)).toBe(null);
+  });
+
+  it("averages every sample inside the window", () => {
+    const samples = [
+      { t: 900, angle: 1 },
+      { t: 950, angle: 2 },
+      { t: 1000, angle: 3 },
+    ];
+    expect(averageWindow(samples, 1000, 250)).toBe(2);
+  });
+
+  it("drops samples that have aged out, in place", () => {
+    const samples = [
+      { t: 100, angle: 40 },
+      { t: 900, angle: 1 },
+      { t: 1000, angle: 3 },
+    ];
+    expect(averageWindow(samples, 1000, 250)).toBe(2);
+    expect(samples).toHaveLength(2);
+  });
+
+  it("returns null once every sample has aged out", () => {
+    const samples = [{ t: 100, angle: 40 }];
+    expect(averageWindow(samples, 1000, 250)).toBe(null);
+    expect(samples).toHaveLength(0);
+  });
+
+  it("smooths jitter that per-reading publishing would expose", () => {
+    const samples = [-0.5, 0.5, -0.4, 0.4].map((angle, i) => ({ t: 1000 + i * 10, angle }));
+    expect(averageWindow(samples, 1040, 250)).toBeCloseTo(0, 5);
   });
 });
