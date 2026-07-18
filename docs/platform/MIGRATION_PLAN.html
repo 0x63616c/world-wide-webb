@@ -47,7 +47,7 @@
               <tr><td>Platform foundation</td><td>Starts first, blocks everyone</td><td>App identity, naming, namespaces, targets, exposure classes, database primitive, backup primitive, secret catalog.</td></tr>
               <tr><td>Networking/TLS</td><td>After exposure contract</td><td>Cloudflare routes, Access policy, cert-manager, UniFi split DNS, captive path, hostname cutover.</td></tr>
               <tr><td>Data/backups</td><td>After database contract</td><td>Per-product CNPG clusters, backup jobs, restore validation, migration snapshots.</td></tr>
-              <tr><td>Product lanes</td><td>After product folder and infra spec seams</td><td>Control Center, Captive Portal, Text Your Ex, AMP.</td></tr>
+              <tr><td>Product lanes</td><td>After product folder and infra spec seams</td><td>Control Center, Captive Portal.</td></tr>
               <tr><td>Local dev/iOS</td><td>After product folder conventions</td><td>Tilt entries, standard iOS scripts/buttons, TestFlight workflow standardization.</td></tr>
               <tr><td>CI/deploy</td><td>After product image/deploy definitions</td><td>Product workflows, path filters, image pushes, Pulumi deploys.</td></tr>
             </tbody>
@@ -104,11 +104,11 @@
         <section>
           <h2>Milestone 4: Product Folders And CI Split</h2>
           <ul>
-            <li>Create <code>products/control-center</code>, <code>products/captive-portal</code>, <code>products/text-your-ex</code>, and <code>products/amp</code>.</li>
+            <li>Create <code>products/control-center</code> and <code>products/captive-portal</code>.</li>
             <li>Move product-owned code behind those boundaries.</li>
             <li>Introduce separate product workflows for CI/deploy.</li>
             <li>Optimize enough for product isolation, not perfect speed.</li>
-            <li>Acceptance: changing Text Your Ex does not rebuild/deploy Control Center unless shared platform code changed.</li>
+            <li>Acceptance: changing Captive Portal does not rebuild/deploy Control Center unless shared platform code changed.</li>
           </ul>
         </section>
 
@@ -124,18 +124,6 @@
         </section>
 
         <section>
-          <h2>Milestone 6: Text Your Ex Product</h2>
-          <ul>
-            <li>Move current <code>text-your-ex</code> app into <code>products/text-your-ex</code>.</li>
-            <li>Ship app and API to production on homelab k3s.</li>
-            <li>Move from current SQLite prototype to product Postgres.</li>
-            <li>Ensure production starts empty, while local dev can still seed demo data explicitly.</li>
-            <li>Standardize bundled iOS TestFlight workflow with <code>VITE_API_BASE</code> pointing at <code>api--tye.worldwidewebb.co</code>.</li>
-            <li>Acceptance: web production route works, API health works over valid TLS on <code>api--tye.worldwidewebb.co</code>, database persists, backups run, and TestFlight build targets the production API.</li>
-          </ul>
-        </section>
-
-        <section>
           <h2>Milestone 7: Control Center Product</h2>
           <ul>
             <li>Make Control Center product-owned without breaking the wall panel.</li>
@@ -143,16 +131,6 @@
             <li>Cut Control Center over to its product CNPG cluster with export, restore rehearsal, row-count validation, final snapshot, and rollback.</li>
             <li>Update the hosted iOS kiosk URL to the new private route.</li>
             <li>Acceptance: wall panel loads at the true 1366x1024 target, no skeleton/error regressions, workers run, and the iOS kiosk build points at the new URL.</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2>Milestone 8: AMP Product</h2>
-          <ul>
-            <li>Build and deploy minimal AMP as a real product.</li>
-            <li>Use private Cloudflare Access exposure.</li>
-            <li>Prove the platform can stand up a new app with the standard product path.</li>
-            <li>Acceptance: AMP has app route, optional API route, CI/deploy, logs, health, and platform-owned database/backups if it declares a database.</li>
           </ul>
         </section>
 

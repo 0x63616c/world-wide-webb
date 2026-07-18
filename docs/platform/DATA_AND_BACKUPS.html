@@ -84,9 +84,7 @@
             <li>Future retention policies must be platform-level decisions, not per-product ad hoc scripts.</li>
           </ul>
           <div class="code-block"><pre><code>/volume1/Homelab/backups/world-wide-webb/control-center/postgres/
-/volume1/Homelab/backups/world-wide-webb/captive-portal/postgres/
-/volume1/Homelab/backups/world-wide-webb/text-your-ex/postgres/
-/volume1/Homelab/backups/world-wide-webb/amp/postgres/</code></pre></div>
+/volume1/Homelab/backups/world-wide-webb/captive-portal/postgres/</code></pre></div>
           <p class="muted">During the Control Center compatibility bridge, the live Control Center backup job continues to write to <code>/volume1/Homelab/backups/postgres/</code> until the production path migration is explicitly reviewed.</p>
         </section>
 
@@ -226,14 +224,6 @@ scripts/pg-snapshot-restore.sh --compare-counts source-counts.tsv scratch-counts
             <article class="card">
               <h3>Captive Portal</h3>
               <p>Portal tables move into Captive Portal's product database: guests, codes, attempts, and authorizations. Preserve enough history and authorization state to avoid breaking active guest access.</p>
-            </article>
-            <article class="card">
-              <h3>Text Your Ex</h3>
-              <p>Current prototype uses SQLite. Production standard is Postgres. Prod starts empty, while local demo seed remains explicit and non-prod.</p>
-            </article>
-            <article class="card">
-              <h3>AMP</h3>
-              <p>AMP declares a database only when it needs durable product state. If it declares one, it gets the same CNPG and backup guarantees.</p>
             </article>
           </div>
         </section>

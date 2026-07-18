@@ -38,14 +38,12 @@
           <h2>What This Captures</h2>
           <div class="grid">
             <article class="card">
-              <h3>Four Products</h3>
+              <h3>Two Products</h3>
               <div class="pill-row">
                 <span class="chip chip-private">private</span>
                 <span class="chip chip-captive">captive</span>
-                <span class="chip chip-public">public</span>
-                <span class="chip chip-private">amp</span>
               </div>
-              <p><code>control-center</code>, <code>captive-portal</code>, <code>text-your-ex</code>, and <code>amp</code> are first-class products under one platform.</p>
+              <p><code>control-center</code> and <code>captive-portal</code> are first-class products under one platform.</p>
             </article>
             <article class="card">
               <h3>Platform Guarantees</h3>
@@ -53,7 +51,7 @@
             </article>
             <article class="card">
               <h3>Production Scope</h3>
-              <p>The migration ends with all four products deployed to homelab k3s through product-aware CI and platform primitives.</p>
+              <p>The migration ends with both products deployed to homelab k3s through product-aware CI and platform primitives.</p>
             </article>
           </div>
         </section>
@@ -76,7 +74,7 @@
           <div class="decision">
             <p><strong>Repo identity:</strong> this repo will eventually be renamed to <code>world-wide-webb</code>.</p>
             <p><strong>Product layout:</strong> products live under <code>products/&lt;name&gt;</code>.</p>
-            <p><strong>Product set:</strong> <code>control-center</code>, <code>captive-portal</code>, <code>text-your-ex</code>, and <code>amp</code>. Short labels are networking-only and derived from product names.</p>
+            <p><strong>Product set:</strong> <code>control-center</code> and <code>captive-portal</code>. Short labels are networking-only and derived from product names.</p>
             <p><strong>Hostnames:</strong> product hosts are flattened to a single label (<code>app--cc.worldwidewebb.co</code>) so the free <code>*.worldwidewebb.co</code> Universal SSL covers them, no paid ACM (www-kbiy).</p>
             <p><strong>Database standard:</strong> per-product CNPG Postgres clusters, not SQLite or libSQL.</p>
             <p><strong>Backups:</strong> platform-managed, mandatory, backed up to the NAS, retained forever.</p>
@@ -87,13 +85,11 @@
         <section>
           <h2>Done Means</h2>
           <ul>
-            <li>All four products have product folders, product namespaces, product CI/deploy paths, and explicit service route declarations where they need external surfaces.</li>
+            <li>Both products have product folders, product namespaces, product CI/deploy paths, and explicit service route declarations where they need external surfaces.</li>
             <li>Control Center still works and is protected by the new private exposure model.</li>
             <li>Captive Portal is its own product with redesigned API/backend/storage and preserved guest-network behavior.</li>
-            <li>Text Your Ex is deployed to production, with bundled iOS TestFlight flow pointing at its hosted API.</li>
-            <li>AMP is deployed as a minimal production management plane shell.</li>
             <li>Every product database is backed up automatically and restore validation is part of the operational contract.</li>
-            <li>App number five is easy to add without copying low-level Kubernetes, Cloudflare, UniFi, secrets, backup, or iOS wiring.</li>
+            <li>App number three is easy to add without copying low-level Kubernetes, Cloudflare, UniFi, secrets, backup, or iOS wiring.</li>
           </ul>
         </section>
 

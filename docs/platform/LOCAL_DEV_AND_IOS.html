@@ -49,7 +49,6 @@
             <thead><tr><th>Mode</th><th>Product</th><th>Behavior</th></tr></thead>
             <tbody>
               <tr><td>Hosted kiosk</td><td>Control Center</td><td>Capacitor shell loads a production URL at runtime. Native build changes only when shell/config changes.</td></tr>
-              <tr><td>Bundled app</td><td>Text Your Ex</td><td>Capacitor bundles built web assets offline. The app talks to hosted API through <code>VITE_API_BASE</code>.</td></tr>
             </tbody>
           </table>
         </section>
@@ -64,18 +63,6 @@ bun run ios:sim</code></pre></div>
             <li><code>ios:sync</code> builds/syncs Capacitor assets.</li>
             <li><code>ios:open</code> opens the Xcode project.</li>
             <li><code>ios:sim</code> runs the app in an available simulator when configured.</li>
-            <li>Control Center should get the same local iOS buttons as Text Your Ex.</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2>Text Your Ex iOS</h2>
-          <ul>
-            <li>Stays bundled app mode.</li>
-            <li>Builds web assets into the app.</li>
-            <li>Uses <code>VITE_API_BASE=https://api--tye.worldwidewebb.co</code> for TestFlight builds.</li>
-            <li>Existing TestFlight pipeline should be standardized when moved into this repo.</li>
-            <li>Docs should match the actual workflow trigger. Current TYE docs mention tags while the workflow runs on main pushes/manual/monthly.</li>
           </ul>
         </section>
 
@@ -100,14 +87,6 @@ bun run ios:sim</code></pre></div>
             <article class="card">
               <h3>Captive Portal</h3>
               <p>Runs portal app/API/database locally. Real guest network verification remains a production or staging network check.</p>
-            </article>
-            <article class="card">
-              <h3>Text Your Ex</h3>
-              <p>Runs app/API/database locally, supports demo seed explicitly, and can open iPhone frame plus real iOS simulator.</p>
-            </article>
-            <article class="card">
-              <h3>AMP</h3>
-              <p>Runs like any other product, proving the platform path for a new internal app.</p>
             </article>
           </div>
         </section>

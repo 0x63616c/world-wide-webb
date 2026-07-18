@@ -30,10 +30,10 @@ node is revoked after the deploy.
 Cluster-level machinery, all declared in `infra/` and reconciled by the same `pulumi up`:
 
 - **Namespaces:** product workloads live in product-owned namespaces,
-  `control-center`, `captive-portal`, `text-your-ex`, and `amp`. Shared edge runtime lives in
+  `control-center` and `captive-portal`. Shared edge runtime lives in
   `platform`, currently the in-cluster `cloudflared` Deployment and tunnel-token Secret. Names
   inside a namespace stay local (`api`, `web`, `frontend`, `app`); Pulumi logical names and other
-  global names use full product slugs (`control-center-api`, `text-your-ex-api`). DNS remains the
+  global names use full product slugs (`control-center-api`, `captive-portal-api`). DNS remains the
   exception: flattened hostnames use each product's `dnsCode`, for example `app--cc`.
 
 - **SOPS+age vault secrets**: `loadVault()` in `infra/src/vault.ts` decrypts `secrets/vault.yaml`
@@ -76,7 +76,7 @@ OrbStack.
 │  cnpg operator → product Clusters in product namespaces (local SSD PVCs)            │
 │  platform namespace → cloudflared Deployment ×2 (HA, never autoscale)               │
 │  product namespaces → local Deployments: api · web · worker · frontend · app        │
-│  product namespaces → owner CronJobs: pg-backup · captive-portal-pg-backup · tye    │
+│  product namespaces → owner CronJobs: pg-backup · captive-portal-pg-backup          │
 ├─ EXTERNAL STATE (Pulumi providers, Pulumi Cloud backend) ───────────────────────────┤
 │  cloudflare: Access apps/policies + tunnel ingress   · unifi: adopt-only import     │
 └──────────────────────────────────────────────────────────────────────────────────┘
@@ -94,7 +94,7 @@ solution, captive-portal LAN exposure, and the UniFi import plan are all in
 push to main
   → changes  (dorny/paths-filter; per-app filters + an `infra/**` filter)
   → test     (typecheck · biome · knip · guards · vitest coverage · badges), gates deploy
-  → build-{web,api,worker,media-worker,storybook,drizzle,captive-portal,captive-portal-api,map-provision,amp}  (arm64 → GHCR :sha + :main)
+  → build-{web,api,worker,media-worker,storybook,drizzle,captive-portal,captive-portal-api,map-provision}  (arm64 → GHCR :sha + :main)
   → deploy:
        - collect per-image :main digests (buildx imagetools inspect)
        - join the tailnet with an EPHEMERAL Tailscale auth key (tag:ci), reach homelab's apiserver
@@ -108,9 +108,9 @@ push to main
 Deployment image, so only that workload's pods roll, the same property as the old
 `docker stack deploy` digest pin, without bosun. Image repos use full product slugs outside DNS,
 for example `www-control-center-api`, `www-captive-portal-portal`,
-`www-captive-portal-api`, `www-text-your-ex-api`, and `www-amp-app`. Digest keys match the product-component name, for
+and `www-captive-portal-api`. Digest keys match the product-component name, for
 example `wwwinfra:imageDigests.control-center-api` and
-`wwwinfra:imageDigests.text-your-ex-api`. `pulumi up` is
+`wwwinfra:imageDigests.captive-portal-api`. `pulumi up` is
 **declarative-convergent** (it reconciles the whole declared stack to the latest committed
 digests every green run), so the old `refs/deploy/main` marker, `mark-deployed`, and
 `deploy-drift.yml` are gone, the latest run always converges prod to `main`.
@@ -217,7 +217,7 @@ prod repair, first set the same digest map, or run a non-prod stack if you inten
 **GHCR pull secret preflight (www-n32z).** When CI supplies image digests, the Pulumi program runs a
 live preflight before rendering workloads. It asserts that `ghcr-pull` exists as a
 `kubernetes.io/dockerconfigjson` Secret with `.dockerconfigjson` data in every namespace that
-declares private GHCR workloads: `control-center`, `captive-portal`, `text-your-ex`, and `amp`.
+declares private GHCR workloads: `control-center` and `captive-portal`.
 This catches Pulumi-state drift where the Secret is missing from the live cluster but still present
 in state before kubelet starts pulling anonymously and throwing `ImagePullBackOff` / `unauthorized`.
 You can run the same check manually with `bun run --filter @www/infra verify:ghcr-pull-secrets`.
@@ -317,14 +317,6 @@ back to the old `*-rw` Service and restart consumers. Destructive cleanup is gat
 matching `source-counts.tsv` / `target-counts.tsv`, an empty `schema.diff`, passing `smoke.txt`, a
 `SOAK COMPLETE` record in `soak.txt`, and `CNPG_CLEANUP_APPROVED=yes`. Full operator sequence lives
 in `docs/k3s-migration/DESIGN.md` §4.1.
-
-**Text Your Ex local-name cutover (www-0y64.3).** Text Your Ex now uses the namespace-local CNPG
-`Cluster/postgres` and API `POSTGRES_HOST=postgres-rw` in namespace `text-your-ex`. The old
-`Cluster/text-your-ex`, its `text-your-ex-rw`/`-ro`/`-r` Services, and PVC `text-your-ex-1` remain
-live for rollback through the soak window. Cutover evidence is private on Calum's machine at
-`/Users/calum/control-center-pg-snapshots/www-0y64.3-tye-db-local-name-20260618`: source/target
-row counts match, `schema.diff` is empty, `smoke.txt` contains the API DB read/write PASS, and
-`backup-smoke.txt` proves `tye-pg-backup` writes from `postgres-rw`.
 
 ---
 

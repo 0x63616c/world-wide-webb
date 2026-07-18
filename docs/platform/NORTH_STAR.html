@@ -36,7 +36,7 @@
           <div class="callout">
             <p><strong>world-wide-webb is a product platform repo.</strong> The platform team owns shared primitives. App teams consume simple declarations. The platform makes the right thing easy and the wrong thing hard.</p>
           </div>
-          <p>The goal is not just to move <code>text-your-ex</code> into this repo. The goal is to reshape the repo so four products can run independently on one homelab k3s platform today, while leaving room for future runtime targets.</p>
+          <p>The goal is to reshape the repo so two products can run independently on one homelab k3s platform today, while leaving room for future runtime targets.</p>
         </section>
 
         <section>
@@ -46,8 +46,6 @@
             <tbody>
               <tr><td><code>control-center</code></td><td>Home dashboard and home automation control plane.</td><td><span class="chip chip-private">private</span> Cloudflare Access.</td></tr>
               <tr><td><code>captive-portal</code></td><td>Guest WiFi onboarding, UniFi authorization, and portal data.</td><td><span class="chip chip-captive">captive</span> LAN exposure, with scoped/internal API.</td></tr>
-              <tr><td><code>text-your-ex</code></td><td>Public consumer app, web plus bundled iOS, backed by its own API and database.</td><td><span class="chip chip-public">public</span> web/API where needed by web and iOS.</td></tr>
-              <tr><td><code>amp</code></td><td>Application Management Plane for internal platform dashboards and future platform operations.</td><td><span class="chip chip-private">private</span> Cloudflare Access.</td></tr>
             </tbody>
           </table>
         </section>
@@ -57,7 +55,7 @@
           <div class="grid">
             <article class="card">
               <h3>Obvious Boundaries</h3>
-              <p><code>products/control-center</code>, <code>products/captive-portal</code>, <code>products/text-your-ex</code>, and <code>products/amp</code> make ownership visible. Shared code lives in platform packages, not hidden inside a product.</p>
+              <p><code>products/control-center</code> and <code>products/captive-portal</code> make ownership visible. Shared code lives in platform packages, not hidden inside a product.</p>
             </article>
             <article class="card">
               <h3>Isolated Products</h3>
@@ -128,8 +126,7 @@ captivePortal.database({
         <section>
           <h2>Explicit Scope Boundaries</h2>
           <div class="decision">
-            <p><strong>In this migration:</strong> all four products ship to homelab k3s, the platform primitives exist, per-product CNPG Postgres clusters exist, backups are automatic, and CI/deploy is product-aware.</p>
-            <p><strong>AMP:</strong> build and deploy it in parallel as a minimal production management-plane shell. It proves the platform path for a new internal app, but it should not block the three existing product migrations from progressing.</p>
+            <p><strong>In this migration:</strong> both products ship to homelab k3s, the platform primitives exist, per-product CNPG Postgres clusters exist, backups are automatic, and CI/deploy is product-aware.</p>
             <p><strong>Cloud:</strong> the platform design is target-aware, but no cloud k3s cluster or cloud storage migration is required in this migration.</p>
             <p><strong>SQLite/libSQL:</strong> not the end state. The database standard is Postgres through CNPG.</p>
             <p><strong>Generic LAN web:</strong> not a platform exposure class until a real product needs it. Captive Portal is a special captive-network exposure, not a generic LAN app.</p>

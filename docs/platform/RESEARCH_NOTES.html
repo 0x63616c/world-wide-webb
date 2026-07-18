@@ -59,19 +59,6 @@
         </section>
 
         <section>
-          <h2>Text Your Ex Shape</h2>
-          <ul>
-            <li>Current repo is self-contained with <code>web</code>, <code>server</code>, <code>e2e</code>, <code>ios</code>, <code>fastlane</code>, and a Dockerfile.</li>
-            <li>Runtime is React/Vite plus Bun/Hono API.</li>
-            <li>Current data is SQLite through <code>bun:sqlite</code>.</li>
-            <li>Server boot currently calls <code>ensureSeed()</code>, which would seed demo data into an empty production database unless changed.</li>
-            <li>Capacitor app is bundled mode with app id <code>co.worldwidewebb.textyourex</code>.</li>
-            <li>TestFlight workflow already exists and supports <code>VITE_API_BASE</code>.</li>
-            <li>Migration-friendly, but needs Postgres, seed gating, platform CI/deploy, and product routes.</li>
-          </ul>
-        </section>
-
-        <section>
           <h2>Postgres Versus SQLite</h2>
           <p>The planning conversation considered SQLite, Litestream, LiteFS, and libSQL/sqld. The end-state decision is Postgres.</p>
           <table>

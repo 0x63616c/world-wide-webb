@@ -12,9 +12,7 @@ Smart-home wall-panel monorepo for the fixed `1366x1024` Control Center panel.
 | `products/control-center/media-worker` | Heavier queue and media jobs. |
 | `products/control-center/storybook` | Thin wrapper around the web Storybook. |
 | `products/project-management` | Standalone Beads UI and Temporal workflow package. |
-| `products/text-your-ex` | Split product with `apps/frontend`, `apps/api`, `apps/e2e`. |
 | `products/captive-portal` | Split product with `apps/frontend` and `apps/api`. |
-| `products/amp` | Static AMP app. |
 | `packages/api` | Browser-safe tRPC type bridge. |
 | `packages/logger` | Shared backend logger. |
 | `packages/platform` | Platform primitives for product identity, secrets, DBs, backups, and manifests. |

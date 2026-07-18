@@ -10,8 +10,6 @@ and rollback steps. Live CF tunnel state is declared in `infra/cloudflare/src/ro
 | Hostname | Product | Exposure | Status |
 |---|---|---|---|
 | `app--cc.worldwidewebb.co` | Control Center | private (CF Access kiosk token) | **live, canonical** |
-| `app--tye.worldwidewebb.co` | Text Your Ex | public | **live, canonical** |
-| `app--amp.worldwidewebb.co` | AMP | private (CF Access) | **live, canonical** |
 | `app--cp.worldwidewebb.co` | Captive Portal | LAN-only (no CF tunnel) | **target, not yet DNS-live** — pending www-jtp0.5.8/5.9 |
 
 ---

@@ -113,11 +113,11 @@ all retire. Digest pinning + path filters are preserved (§6).
 ## 2. Per-service / per-cron mapping
 
 Services and crons are split by owner namespace. Product workloads live in
-`control-center`, `captive-portal`, `text-your-ex`, and `amp`; shared edge runtime lives in
+`control-center` and `captive-portal`; shared edge runtime lives in
 `platform` (`cloudflared` and its tunnel-token Secret). Kubernetes metadata names are local
-inside those namespaces, for example `api` in both `control-center` and `text-your-ex`; Pulumi
+inside those namespaces, for example `api` in both `control-center` and `captive-portal`; Pulumi
 logical names and global image/digest names use full product slugs, for example
-`control-center-api` and `text-your-ex-api`. DNS is the deliberate exception: hostnames keep
+`control-center-api` and `captive-portal-api`. DNS is the deliberate exception: hostnames keep
 the short `dnsCode` form such as `app--cc.worldwidewebb.co`.
 
 Memory caps are the www-ke9a hard caps already inlined per service; `requests.memory` is set
@@ -285,14 +285,6 @@ Kubernetes side effects and exists to make destructive cleanup refuse to run bef
 evidence exists. Product migrations should use this exact evidence shape so operators do not invent
 per-product cleanup rules.
 
-**Text Your Ex result (www-0y64.3, 2026-06-18):** `text-your-ex` was cut over to local names with
-new `Cluster/postgres`, Services `postgres-rw`/`postgres-ro`/`postgres-r`, and auth Secret
-`postgres-auth`; the API runs with `POSTGRES_HOST=postgres-rw`. The legacy `Cluster/text-your-ex`,
-Services, and PVC `text-your-ex-1` remain declared and live for rollback through soak. Evidence is
-stored at `/Users/calum/control-center-pg-snapshots/www-0y64.3-tye-db-local-name-20260618` with
-matching source/target row counts, empty `schema.diff`, passing API DB smoke, passing backup smoke,
-and server-side dry-run rollback commands.
-
 ---
 
 ## 5a. Captive-portal LAN exposure  **[Phase 0a spike: PASSED]**
@@ -428,7 +420,7 @@ per-app arm64 image builds, GHCR push, **digest pinning** (only changed services
 push to main
   → changes  (dorny/paths-filter; drop the `bosun`/infra-bosun filter, add an `infra` filter)
   → test     (typecheck · biome · knip · guards · vitest coverage · badges) - unchanged, still gates deploy
-  → build-{web,api,worker,media-worker,storybook,drizzle,captive-portal,captive-portal-api,map-provision,amp}  (arm64 → GHCR :sha + :main)
+  → build-{web,api,worker,media-worker,storybook,drizzle,captive-portal,captive-portal-api,map-provision}  (arm64 → GHCR :sha + :main)
       (build-bosun DELETED)
   → deploy   (REPLACED):
        - collect per-image :main digests (same as today: buildx imagetools inspect)
@@ -443,10 +435,9 @@ push to main
 - **Digest pinning preserved:** the digest map becomes Pulumi stack config; a changed digest
   changes the rendered Deployment image, so only that workload's pods roll. Same property as
   today's `docker stack deploy` digest pin, without bosun (www-czg lineage). Repos use full
-  product slugs, for example `www-control-center-api`, `www-captive-portal-portal`, `www-captive-portal-api`,
-  `www-text-your-ex-api`, and `www-amp-app`. Digest pins go under product-component keys such as
-  `wwwinfra:imageDigests.control-center-api`, `wwwinfra:imageDigests.text-your-ex-api`, and
-  `wwwinfra:imageDigests.amp-app`.
+  product slugs, for example `www-control-center-api`, `www-captive-portal-portal`, and
+  `www-captive-portal-api`. Digest pins go under product-component keys such as
+  `wwwinfra:imageDigests.control-center-api` and `wwwinfra:imageDigests.captive-portal-api`.
 - **Marker logic removed:** `cancel-in-progress` + the `refs/deploy/main` marker existed to
   stop rapid pushes stranding undeployed commits under Swarm's webhook model. With
   `pulumi up` reconciling the whole declared stack to the latest committed digests on every
@@ -463,7 +454,7 @@ push to main
 - **GHCR pull secret preflight (www-n32z):** when CI supplies image digests, the Pulumi program
   live-checks `ghcr-pull` before it renders workloads. It verifies that `ghcr-pull` is a
   `kubernetes.io/dockerconfigjson` Secret with `.dockerconfigjson` data in `control-center`,
-  `captive-portal`, `text-your-ex`, and `amp`. If Pulumi state thinks the Secret exists but the live
+  and `captive-portal`. If Pulumi state thinks the Secret exists but the live
   cluster lost it, this fails before workloads roll into anonymous GHCR pulls and `ImagePullBackOff`.
   Recovery: targeted `pulumi refresh` + `pulumi up` for the missing `<namespace>-ghcr-pull` Secret,
   then rerun the preflight/deploy.

@@ -53,7 +53,7 @@
           <ul>
             <li><code>defineProduct()</code> derives folder, namespace, DNS code, labels, Pulumi names, image repositories, service names, and backup path parts from one product slug.</li>
             <li><code>homelabTarget</code> is the only implemented target. Future targets are explicit unsupported states, not silent fallthroughs.</li>
-            <li><code>publicWeb()</code>, <code>privateWeb()</code>, <code>captivePortalWeb()</code>, and <code>internalService()</code> model exposure intent only. M1 does not mutate Cloudflare, cert-manager, UniFi, or LAN forwarding.</li>
+            <li><code>privateWeb()</code>, <code>captivePortalWeb()</code>, and <code>internalService()</code> model exposure intent only. M1 does not mutate Cloudflare, cert-manager, UniFi, or LAN forwarding.</li>
             <li><code>defineServiceSecretUsage()</code> and <code>secretCatalog</code> model explicit service secret usage from 1Password Homelab refs, with no secret values in code.</li>
             <li><code>defineProductDatabase()</code> models per-product CNPG intent and can render the current Control Center database shape in compatibility mode.</li>
             <li><code>defineDatabaseBackup()</code> makes database backups mandatory and can render the current <code>pg-backup</code> behavior while also deriving the future platform NAS path.</li>
@@ -76,24 +76,24 @@
         <section>
           <h2>App Definition</h2>
           <p>The app context should be the source of truth. Avoid passing <code>owner</code>, <code>product</code>, <code>namespace</code>, <code>backupPath</code>, or magic string identifiers into every primitive.</p>
-          <div class="code-block"><pre><code>const textYourEx = app({
-  slug: "text-your-ex",
+          <div class="code-block"><pre><code>const captivePortal = app({
+  slug: "captive-portal",
 });
 
-textYourEx.service("app", {
+captivePortal.service("app", {
   image: images.product("app"),
-  exposure: publicWeb({ host: "app" }),
+  exposure: captivePortalWeb({ host: "app" }),
 });
 
-textYourEx.service("api", {
+captivePortal.service("api", {
   image: images.product("api"),
-  exposure: publicWeb({ host: "api" }),
+  exposure: internalService({ host: "api" }),
 });
 
-textYourEx.database({
+captivePortal.database({
   size: "5Gi",
 });</code></pre></div>
-          <p>The app definition derives <code>products/text-your-ex</code>, namespace <code>text-your-ex</code>, image names, labels, secrets, Pulumi names, and backup paths. Networking primitives derive DNS labels from product names instead of passing short labels through general app code, so <code>publicWeb({ host: "api" })</code> can produce <code>api--tye.worldwidewebb.co</code> and the required TLS coverage.</p>
+          <p>The app definition derives <code>products/captive-portal</code>, namespace <code>captive-portal</code>, image names, labels, secrets, Pulumi names, and backup paths. Networking primitives derive DNS labels from product names instead of passing short labels through general app code, so <code>captivePortalWeb({ host: "app" })</code> can produce <code>app--cp.worldwidewebb.co</code> and the required TLS coverage.</p>
         </section>
 
         <section>

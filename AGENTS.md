@@ -26,9 +26,7 @@
 - `products/control-center/media-worker`, heavier queue and media jobs.
 - `products/control-center/storybook`, wrapper around web Storybook.
 - `products/project-management`, standalone Beads UI and Temporal workflow package.
-- `products/text-your-ex`, split into `apps/frontend`, `apps/api`, `apps/e2e`.
 - `products/captive-portal`, split into `apps/frontend` and `apps/api`.
-- `products/amp`, static app.
 - `packages/api`, `packages/logger`, `packages/platform`, shared support packages.
 - `infra`, current Pulumi + Kubernetes deploy program.
 
