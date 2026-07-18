@@ -12,7 +12,11 @@ import {
   worldCellRect,
 } from "../lib/grid-constants";
 import { useLayoutEditorOpen } from "../lib/layout-edit-store";
-import { endInteractionSession, interaction } from "../lib/log/interaction";
+import {
+  endInteractionSession,
+  interaction,
+  startInteractionSession,
+} from "../lib/log/interaction";
 import { dismissAllModals, hasDismissableModal, useAnyModalOpen } from "../lib/modal-open-store";
 import { bentoFor } from "../lib/placeholder-tiles";
 import { formatRelativeAge } from "../lib/relative-age";
@@ -747,9 +751,11 @@ export function Board() {
     // panel" signal, so kick off the front-camera burst (fire-and-forget,
     // best-effort , see lib/wake-capture). Native panel only: in a browser the
     // dim overlay never shows, so this path can't fire there anyway.
-    if (nativeDisplay) captureWakeBurst();
-    // Opens (or resumes, inside the grace window) the interaction session, so a
-    // visit's transcript begins at the approach rather than at the first tap.
+    // Order matters: mint the session FIRST so the burst's frames can carry it.
+    // An undim is the physical start of a visit, so it opens a new session
+    // outright rather than resuming , see startInteractionSession.
+    const sessionId = startInteractionSession();
+    if (nativeDisplay) captureWakeBurst(sessionId);
     interaction("session", "wake", "panel");
     wakeDim();
     pokeReset();

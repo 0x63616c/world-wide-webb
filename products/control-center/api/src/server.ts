@@ -1,11 +1,16 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { createLogger } from "@www/logger";
+import { db } from "./db/index";
 import { runMigrations } from "./db/migrate";
 import { env } from "./env";
 import { getTvArtwork } from "./services/apple-tv-service";
 import { openCameraStream } from "./services/camera-service";
 import { getClimate } from "./services/climate-service";
-import { readWakePhoto, saveWakePhoto } from "./services/wake-photo-service";
+import {
+  backfillWakePhotoIndex,
+  readWakePhoto,
+  saveWakePhoto,
+} from "./services/wake-photo-service";
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers/index";
 
@@ -26,6 +31,20 @@ try {
 } catch (err) {
   log.error({ err }, "migrations failed");
   throw err;
+}
+
+// Index any wake photos that predate the wake_photo table (or that a failed
+// row insert left unindexed). Idempotent, so running on every boot is the
+// cheapest way to guarantee the index converges on the filesystem's truth.
+try {
+  const backfilled = await backfillWakePhotoIndex(db);
+  if (backfilled.inserted > 0) {
+    log.info(backfilled, "backfilled wake photo index");
+  }
+} catch (err) {
+  // Non-fatal: the api can serve without a complete photo index; the next
+  // boot retries.
+  log.error({ err }, "wake photo backfill failed");
 }
 
 // CORS for the Vite dev server (web on :4200). In production the api serves the
@@ -101,9 +120,16 @@ async function handle(req: Request, url: URL): Promise<Response> {
   if (url.pathname === "/media/wake-photo" && req.method === "POST") {
     const headerTs = Number(req.headers.get("x-captured-at"));
     const capturedAt = Number.isFinite(headerTs) && headerTs > 0 ? headerTs : Date.now();
+    const frameHeader = Number(req.headers.get("x-frame-idx"));
+    const frameIdx = Number.isFinite(frameHeader) && frameHeader >= 0 ? frameHeader : 0;
     const bytes = new Uint8Array(await req.arrayBuffer());
     try {
-      const path = await saveWakePhoto(bytes, capturedAt);
+      const path = await saveWakePhoto(db, bytes, {
+        capturedAt,
+        frameIdx,
+        deviceId: req.headers.get("x-device-id"),
+        sessionId: req.headers.get("x-session-id"),
+      });
       return Response.json({ path }, { status: 201, headers: CORS_HEADERS });
     } catch (err) {
       return new Response(err instanceof Error ? err.message : "invalid wake photo", {

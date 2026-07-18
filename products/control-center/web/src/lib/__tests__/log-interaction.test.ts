@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   __resetInteractionSessionForTests,
+  currentInteractionSessionId,
   endInteractionSession,
   interaction,
+  startInteractionSession,
 } from "../log/interaction";
 import { getTail } from "../log/logger";
 
@@ -77,6 +79,35 @@ describe("interaction logging", () => {
     interaction("tile", "tap", "tile_weather");
     const next = uiSince(mark).filter((e) => e.msg === "tile/tap")[1];
     expect(sessionIdOf(next)).not.toBe(first);
+  });
+
+  it("startInteractionSession always mints a fresh id, ignoring the resume window", () => {
+    interaction("tile", "tap", "tile_clock");
+    const first = sessionIdOf(uiSince(mark)[0]);
+    endInteractionSession("idle-dim");
+
+    // Well inside the 30s resume window — but an undim is a NEW visit, so the
+    // physical boundary must win over the timing heuristic.
+    vi.advanceTimersByTime(5_000);
+    const next = startInteractionSession();
+    expect(next).not.toBe(first);
+    expect(next).toMatch(/^isn_[0-9a-z]{12}$/);
+  });
+
+  it("startInteractionSession closes a live session before opening the next", () => {
+    interaction("tile", "tap", "tile_clock");
+    startInteractionSession();
+    const ends = uiSince(mark).filter((e) => e.msg === "session/end");
+    expect(ends).toHaveLength(1);
+    expect(ends[0].data).toMatchObject({ reason: "superseded" });
+  });
+
+  it("exposes the live session id, and null once it ends", () => {
+    expect(currentInteractionSessionId()).toBeNull();
+    interaction("tile", "tap", "tile_clock");
+    expect(currentInteractionSessionId()).toBe(sessionIdOf(uiSince(mark)[0]));
+    endInteractionSession("idle-dim");
+    expect(currentInteractionSessionId()).toBeNull();
   });
 
   it("ending with no live session is a no-op", () => {

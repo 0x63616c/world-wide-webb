@@ -99,6 +99,13 @@
       "when": 1784378871031,
       "tag": "0014_add_frontend_log",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1784386682125,
+      "tag": "0015_tranquil_sway",
+      "breakpoints": true
     }
   ]
 }

@@ -10,6 +10,7 @@ import { mediaRouter } from "./media";
 import { networkRouter } from "./network";
 import { portalRouter } from "./portal";
 import { schedulesRouter } from "./schedules";
+import { sessionsRouter } from "./sessions";
 import { settingsRouter } from "./settings";
 import { systemRouter } from "./system";
 import { teslaRouter } from "./tesla";
@@ -32,6 +33,7 @@ export const appRouter = router({
   schedules: schedulesRouter,
   settings: settingsRouter,
   system: systemRouter,
+  sessions: sessionsRouter,
   wakePhotos: wakePhotosRouter,
 });
 

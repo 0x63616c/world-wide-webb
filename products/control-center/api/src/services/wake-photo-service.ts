@@ -1,13 +1,26 @@
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { getLogger } from "@www/logger";
+import { desc } from "drizzle-orm";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import type * as schema from "../db/schema";
+import { wakePhoto } from "../db/schema";
 import { env } from "../env";
 
 /**
  * Wake photos: front-camera burst frames the wall panel uploads every time it
- * is woken from its idle dim. The filesystem IS the store , no DB table. Files
- * live at <MEDIA_STORAGE_DIR>/wake-photos/YYYY/MM/DD/<capturedAt>-<n>.jpg and
- * the dated directory tree doubles as the listing's day grouping.
+ * is woken from its idle dim. The BYTES live on the filesystem at
+ * <MEDIA_STORAGE_DIR>/wake-photos/YYYY/MM/DD/<capturedAt>-<n>.jpg; the INDEX
+ * lives in Postgres (`wake_photo`), one row per frame, carrying the interaction
+ * session the frame belongs to (spec
+ * docs/specs/2026-07-18-interaction-logging-design.md).
+ *
+ * The dated tree used to BE the store , listing walked it, and a timestamp in a
+ * filename was the only metadata a photo had. The table is what lets a frame be
+ * correlated with a session, attributed to a device, and purged by a cheap
+ * cutoff query. `backfillWakePhotoIndex` heals the gap for photos that predate
+ * the table (their rows are honestly NULL on everything the filename never
+ * carried).
  */
 
 export interface WakePhotoDay {
@@ -22,11 +35,19 @@ export interface WakePhotoListing {
   totalBytes: number;
 }
 
+export interface WakePhotoMeta {
+  capturedAt: number;
+  deviceId: string | null;
+  sessionId: string | null;
+  /** 0-based position within the burst. */
+  frameIdx: number;
+}
+
 /** JPEG SOI + marker prefix , the only content type the panel uploads. */
 const JPEG_MAGIC = [0xff, 0xd8, 0xff];
 const MAX_BYTES = 2 * 1024 * 1024;
 
-function defaultRoot(): string {
+export function defaultWakePhotoRoot(): string {
   return join(env.MEDIA_STORAGE_DIR, "wake-photos");
 }
 
@@ -40,14 +61,21 @@ function dayDirFor(capturedAt: number): { rel: string; day: string } {
 }
 
 /**
- * Validate and persist one burst frame. Returns the stored path relative to the
- * wake-photos root (the same path GET /media/wake-photos/<rel> serves).
- * Throws on non-JPEG content or oversize bodies (services-throw convention).
+ * Validate and persist one burst frame: bytes to disk, index row to Postgres.
+ * Returns the stored path relative to the wake-photos root (the same path
+ * GET /media/wake-photos/<rel> serves). Throws on non-JPEG content or oversize
+ * bodies (services-throw convention).
+ *
+ * Disk write happens FIRST. If the row insert then fails we are left with an
+ * unindexed file, which the backfill (see backfillWakePhotoIndex) heals; the
+ * reverse order would leave a row pointing at bytes that do not exist, which
+ * nothing can heal and which 404s in the viewer.
  */
 export async function saveWakePhoto(
+  db: NodePgDatabase<typeof schema>,
   bytes: Uint8Array,
-  capturedAt: number,
-  root = defaultRoot(),
+  meta: WakePhotoMeta,
+  root = defaultWakePhotoRoot(),
 ): Promise<string> {
   if (bytes.length > MAX_BYTES) {
     throw new Error(`wake photo too large: ${bytes.length} bytes (max ${MAX_BYTES})`);
@@ -55,61 +83,135 @@ export async function saveWakePhoto(
   if (bytes.length < JPEG_MAGIC.length || !JPEG_MAGIC.every((b, i) => bytes[i] === b)) {
     throw new Error("wake photo is not a JPEG");
   }
-  const { rel } = dayDirFor(capturedAt);
+  const { rel } = dayDirFor(meta.capturedAt);
   const dir = join(root, rel);
   await mkdir(dir, { recursive: true });
   // Burst frames share a wake but not a timestamp (each frame stamps its own
   // capture time), so collisions only happen on a same-ms retry , suffix with
   // the count of existing same-ts files to keep every frame.
-  const existing = (await readdir(dir)).filter((f) => f.startsWith(`${capturedAt}-`));
-  const relPath = join(rel, `${capturedAt}-${existing.length}.jpg`);
+  const existing = (await readdir(dir)).filter((f) => f.startsWith(`${meta.capturedAt}-`));
+  const relPath = join(rel, `${meta.capturedAt}-${existing.length}.jpg`);
   await writeFile(join(root, relPath), bytes);
-  getLogger().info({ relPath, bytes: bytes.length }, "wake photo stored");
+
+  await db
+    .insert(wakePhoto)
+    .values({
+      path: relPath,
+      capturedAt: new Date(meta.capturedAt),
+      interactionSessionId: meta.sessionId,
+      deviceId: meta.deviceId,
+      frameIdx: meta.frameIdx,
+      bytes: bytes.length,
+    })
+    // A same-path retry re-uploads identical bytes; the row is already correct.
+    .onConflictDoNothing();
+
+  getLogger().info(
+    { relPath, bytes: bytes.length, sessionId: meta.sessionId },
+    "wake photo stored",
+  );
   return relPath;
 }
 
 /**
- * Walk the dated tree into a newest-first listing (days desc, photos within a
- * day desc by capture time). Sizes are summed for the viewer's storage stat.
- * A missing root (no photo ever taken) is an empty listing, not an error.
+ * Walk the dated tree into a flat, unsorted list of what is physically on disk.
+ * Retained (from the tree-walk listing era) as the backfill's source of truth ,
+ * the filesystem is authoritative for BYTES, the table for metadata.
  */
-export async function listWakePhotos(root = defaultRoot()): Promise<WakePhotoListing> {
-  const days: WakePhotoDay[] = [];
-  let totalCount = 0;
-  let totalBytes = 0;
+async function walkPhotoFiles(
+  root: string,
+): Promise<{ path: string; capturedAt: number; bytes: number }[]> {
+  const out: { path: string; capturedAt: number; bytes: number }[] = [];
 
   let years: string[];
   try {
     years = await readdir(root);
   } catch {
-    return { days: [], totalCount: 0, totalBytes: 0 };
+    return out;
   }
 
-  for (const y of years.sort().reverse()) {
+  for (const y of years) {
     const months = await readdir(join(root, y)).catch(() => [] as string[]);
-    for (const m of months.sort().reverse()) {
+    for (const m of months) {
       const dayDirs = await readdir(join(root, y, m)).catch(() => [] as string[]);
-      for (const dd of dayDirs.sort().reverse()) {
+      for (const dd of dayDirs) {
         const files = await readdir(join(root, y, m, dd)).catch(() => [] as string[]);
-        const photos: WakePhotoDay["photos"] = [];
         for (const f of files) {
           if (!f.endsWith(".jpg")) continue;
           const capturedAt = Number(f.split("-")[0]);
           if (!Number.isFinite(capturedAt)) continue;
           const s = await stat(join(root, y, m, dd, f)).catch(() => null);
           if (!s) continue;
-          photos.push({ path: join(y, m, dd, f), capturedAt });
-          totalCount += 1;
-          totalBytes += s.size;
+          out.push({ path: join(y, m, dd, f), capturedAt, bytes: s.size });
         }
-        if (photos.length === 0) continue;
-        photos.sort((a, b) => b.capturedAt - a.capturedAt);
-        days.push({ day: `${y}-${m}-${dd}`, photos });
       }
     }
   }
 
-  return { days, totalCount, totalBytes };
+  return out;
+}
+
+/**
+ * Index every photo on disk that has no row yet.
+ *
+ * The filesystem was the store for the whole life of this feature, so history
+ * predates the table. Idempotent (`onConflictDoNothing` on the path PK) so it is
+ * safe to run on every api boot , which is how it runs, rather than as a
+ * one-shot script someone has to remember to invoke.
+ *
+ * Backfilled rows are honestly incomplete: the old filename encoded only a
+ * capture timestamp, so session, device and frame index are all NULL. That is
+ * the truth about those photos and the viewer renders them as unattributed
+ * rather than guessing.
+ */
+export async function backfillWakePhotoIndex(
+  db: NodePgDatabase<typeof schema>,
+  root = defaultWakePhotoRoot(),
+): Promise<{ inserted: number; scanned: number }> {
+  const onDisk = await walkPhotoFiles(root);
+  if (onDisk.length === 0) return { inserted: 0, scanned: 0 };
+
+  let inserted = 0;
+  for (const photo of onDisk) {
+    const res = await db
+      .insert(wakePhoto)
+      .values({
+        path: photo.path,
+        capturedAt: new Date(photo.capturedAt),
+        interactionSessionId: null,
+        deviceId: null,
+        frameIdx: null,
+        bytes: photo.bytes,
+      })
+      .onConflictDoNothing();
+    inserted += res.rowCount ?? 0;
+  }
+  return { inserted, scanned: onDisk.length };
+}
+
+/**
+ * Day-grouped listing, newest first, read from the index.
+ *
+ * Returns the identical shape the tree walk did , the viewer and tile are
+ * unchanged by the storage move.
+ */
+export async function listWakePhotos(db: NodePgDatabase<typeof schema>): Promise<WakePhotoListing> {
+  const rows = await db.select().from(wakePhoto).orderBy(desc(wakePhoto.capturedAt));
+
+  const byDay = new Map<string, WakePhotoDay>();
+  let totalBytes = 0;
+  for (const row of rows) {
+    const day = row.capturedAt.toISOString().slice(0, 10);
+    let bucket = byDay.get(day);
+    if (!bucket) {
+      bucket = { day, photos: [] };
+      byDay.set(day, bucket);
+    }
+    bucket.photos.push({ path: row.path, capturedAt: row.capturedAt.getTime() });
+    totalBytes += row.bytes;
+  }
+
+  return { days: [...byDay.values()], totalCount: rows.length, totalBytes };
 }
 
 /**
@@ -119,7 +221,7 @@ export async function listWakePhotos(root = defaultRoot()): Promise<WakePhotoLis
  */
 export async function readWakePhoto(
   relPath: string,
-  root = defaultRoot(),
+  root = defaultWakePhotoRoot(),
 ): Promise<{ bytes: Uint8Array<ArrayBuffer> } | null> {
   const abs = resolve(root, relPath);
   if (abs !== resolve(root) && !abs.startsWith(resolve(root) + sep)) return null;
@@ -128,4 +230,9 @@ export async function readWakePhoto(
   } catch {
     return null;
   }
+}
+
+/** Delete one stored photo's bytes. Missing files are fine (see purge). */
+export async function deleteWakePhotoFile(relPath: string, root = defaultWakePhotoRoot()) {
+  await unlink(join(root, relPath)).catch(() => {});
 }

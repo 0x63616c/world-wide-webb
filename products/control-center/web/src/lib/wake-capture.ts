@@ -10,6 +10,7 @@
  * ~2s catch the tapper while they're still in front of the board.
  */
 
+import { getDeviceId } from "./device-id";
 import { log } from "./log/logger";
 
 export const BURST_DELAYS_MS = [700, 1300, 2000] as const;
@@ -35,16 +36,34 @@ async function grabFrame(video: HTMLVideoElement): Promise<Blob | null> {
   return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY));
 }
 
-async function uploadFrame(blob: Blob): Promise<{ ok: boolean; status: number }> {
-  const res = await fetch("/media/wake-photo", {
-    method: "POST",
-    headers: { "Content-Type": "image/jpeg", "x-captured-at": String(Date.now()) },
-    body: blob,
-  });
+async function uploadFrame(
+  blob: Blob,
+  sessionId: string | null,
+  frameIdx: number,
+): Promise<{ ok: boolean; status: number }> {
+  const headers: Record<string, string> = {
+    "Content-Type": "image/jpeg",
+    "x-captured-at": String(Date.now()),
+    "x-frame-idx": String(frameIdx),
+    "x-device-id": getDeviceId(),
+  };
+  // Omitted rather than sent empty when there is no live session: an absent
+  // header is unambiguously "unattributed", where "" would be a session id that
+  // sorts and groups like a real one.
+  if (sessionId) headers["x-session-id"] = sessionId;
+  const res = await fetch("/media/wake-photo", { method: "POST", headers, body: blob });
   return { ok: res.ok, status: res.status };
 }
 
-async function runBurst(): Promise<void> {
+/** Test seam: exercise the upload headers without a camera. */
+export async function uploadBurstFramesForTests(
+  sessionId: string | null,
+  blobs: Blob[],
+): Promise<void> {
+  for (const [i, blob] of blobs.entries()) await uploadFrame(blob, sessionId, i);
+}
+
+async function runBurst(sessionId: string | null): Promise<void> {
   const startedAt = performance.now();
   wakeLog.info("burst start");
 
@@ -73,7 +92,7 @@ async function runBurst(): Promise<void> {
 
     let uploaded = 0;
     let elapsed = 0;
-    for (const at of BURST_DELAYS_MS) {
+    for (const [frameIdx, at] of BURST_DELAYS_MS.entries()) {
       await sleep(at - elapsed);
       elapsed = at;
       const blob = await grabFrame(video);
@@ -81,7 +100,7 @@ async function runBurst(): Promise<void> {
         wakeLog.warn("frame grab returned nothing", { at });
         continue;
       }
-      const res = await uploadFrame(blob);
+      const res = await uploadFrame(blob, sessionId, frameIdx);
       if (res.ok) uploaded += 1;
       else wakeLog.warn("frame upload rejected", { at, status: res.status, bytes: blob.size });
     }
@@ -100,10 +119,13 @@ async function runBurst(): Promise<void> {
  * already in flight is a no-op (double-taps on the dim overlay must not open
  * two camera streams). `runner` is injectable for tests only.
  */
-export function captureWakeBurst(runner: () => Promise<void> = runBurst): void {
+export function captureWakeBurst(
+  sessionId: string | null,
+  runner: (sessionId: string | null) => Promise<void> = runBurst,
+): void {
   if (burstInFlight) return;
   burstInFlight = true;
-  runner()
+  runner(sessionId)
     .catch((err) =>
       wakeLog.warn("burst failed", {
         name: err instanceof Error ? err.name : "unknown",

@@ -175,6 +175,44 @@ export function interaction(
   });
 }
 
+/**
+ * Force-open a NEW session, ending any live one first.
+ *
+ * Called on undim. An undim is a PHYSICAL boundary , someone walked up to a
+ * dark panel , so it outranks the resume window, which exists only to stitch
+ * together a visit that timing alone would have split. Deliberately does not
+ * consult `lastSessionId`: a fresh approach is a fresh visit even if the last
+ * one ended two seconds ago.
+ *
+ * Returns the id so the caller can hand it to the wake-photo upload, which is
+ * what makes a photo and a transcript the same visit.
+ */
+export function startInteractionSession(): string {
+  endInteractionSession("superseded");
+  const now = Date.now();
+  sessionId = newSessionId();
+  sessionIdx = 0;
+  sessionStartedAt = now;
+  // Suppress the resume path for the interaction that follows this wake , the
+  // session we just minted IS the one it belongs to.
+  lastEndedAt = null;
+  lastSessionId = null;
+  uiLog.info("session/start", { interactionSessionId: sessionId, idx: 0 });
+  armIdleTimer();
+  return sessionId;
+}
+
+/**
+ * The live session id, or null when no visit is in progress.
+ *
+ * Read by the wake-photo upload so each burst frame carries the session it
+ * belongs to. Null is a legitimate answer (dimming disabled, plain browser) ,
+ * the upload path treats it as "unattributed", never as an error.
+ */
+export function currentInteractionSessionId(): string | null {
+  return sessionId;
+}
+
 /** Test seam: drop all session state so cases don't bleed into each other. */
 export function __resetInteractionSessionForTests(): void {
   if (idleTimer) clearTimeout(idleTimer);

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { db } from "../../db/index";
 import { listWakePhotos } from "../../services/wake-photo-service";
 import { publicProcedure, router } from "../init";
 
@@ -17,5 +18,5 @@ export const wakePhotosRouter = router({
   list: publicProcedure
     .input(z.object({}).optional())
     .output(WakePhotoListingSchema)
-    .query(() => listWakePhotos()),
+    .query(() => listWakePhotos(db)),
 });
