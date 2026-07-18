@@ -18,6 +18,9 @@ import { registerOpenModal } from "../../lib/modal-open-store";
 import { Icon } from "../Icon";
 import { BackButton, PageHeader } from "./blocks";
 import { PAGE_BY_KEY, PAGES, type PageKey } from "./pages";
+import { BoardPage } from "./pages/BoardPage";
+import { DevicePage } from "./pages/DevicePage";
+import { DisplayPage } from "./pages/DisplayPage";
 
 export type PageProps = {
   onClose: () => void;
@@ -29,7 +32,11 @@ export type PageProps = {
  * The active-page component registry. Empty for now , page tasks slot their
  * component in under its key. A key with no entry renders nothing.
  */
-const PAGE_COMPONENTS: Partial<Record<PageKey, ComponentType<PageProps>>> = {};
+const PAGE_COMPONENTS: Partial<Record<PageKey, ComponentType<PageProps>>> = {
+  device: DevicePage,
+  display: DisplayPage,
+  board: BoardPage,
+};
 
 export function SettingsPage({
   open,
