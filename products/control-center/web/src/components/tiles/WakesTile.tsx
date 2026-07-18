@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { TileStatus } from "@/components/ui";
+import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
+import { useTileQuery } from "@/lib/useTileQuery";
 import { PinGateModal } from "../pin/PinGateModal";
 import { WakePhotoViewer } from "./WakePhotoViewer";
 import { WakesTileView } from "./WakesTileView";
@@ -17,10 +18,10 @@ export function WakesTile() {
   const [gateOpen, setGateOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const listing = trpc.wakePhotos.list.useQuery(undefined, {
-    refetchInterval: 60_000,
+    refetchInterval: POLL.wakePhotos,
   });
   const sessions = trpc.sessions.list.useQuery(undefined, {
-    refetchInterval: 60_000,
+    refetchInterval: POLL.wakePhotos,
     enabled: viewerOpen,
   });
   const sessionDetail = trpc.sessions.get.useQuery(
@@ -28,11 +29,7 @@ export function WakesTile() {
     { enabled: selectedSessionId !== null },
   );
 
-  const status = listing.isError
-    ? TileStatus.Error
-    : listing.data
-      ? TileStatus.Populated
-      : TileStatus.Loading;
+  const { status } = useTileQuery(listing);
 
   const today = listing.data?.days.find((d) => d.day === utcToday());
   const latest = listing.data?.days[0]?.photos[0];

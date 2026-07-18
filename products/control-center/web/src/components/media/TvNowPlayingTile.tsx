@@ -9,19 +9,21 @@
  */
 
 import { useState } from "react";
+import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
+import { useTileQuery } from "@/lib/useTileQuery";
 import { useLivePosition } from "./hooks/useLivePosition";
 import { TransportScrubModal } from "./TransportScrubModal";
 import { TvNowPlayingTileView } from "./TvNowPlayingTileView";
 import { TvRemoteModal } from "./TvRemoteModal";
 
-// 5-second polling interval , Apple TV state changes quickly during playback.
-const TV_POLL_MS = 5_000;
-
 export function TvNowPlayingTile() {
-  const { data, isError } = trpc.media.tvNowPlaying.useQuery(undefined, {
-    refetchInterval: TV_POLL_MS,
-  });
+  const q = useTileQuery(
+    trpc.media.tvNowPlaying.useQuery(undefined, {
+      refetchInterval: POLL.tvNowPlaying,
+    }),
+  );
+  const data = q.data;
 
   const playMutation = trpc.media.tvPlay.useMutation();
   const pauseMutation = trpc.media.tvPause.useMutation();
@@ -43,7 +45,7 @@ export function TvNowPlayingTile() {
   );
 
   if (!data) {
-    return <TvNowPlayingTileView status={isError ? "error" : "loading"} />;
+    return <TvNowPlayingTileView status={q.status} />;
   }
 
   function handlePlayPause() {
@@ -58,7 +60,7 @@ export function TvNowPlayingTile() {
   return (
     <>
       <TvNowPlayingTileView
-        status="populated"
+        status={q.status}
         state={data.state}
         appName={data.appName}
         mediaTitle={data.mediaTitle}

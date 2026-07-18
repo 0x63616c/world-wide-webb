@@ -23,6 +23,7 @@ import { useCallback, useRef, useState } from "react";
 import { TileStatus } from "@/components/ui";
 import { POLL } from "@/lib/hooks";
 import { type RouterOutputs, trpc } from "@/lib/trpc";
+import { useTileQuery } from "@/lib/useTileQuery";
 import { type ClimateMode, ClimateTileView, GAP, HvacMode, MAX, MIN } from "./ClimateTileView";
 
 // Default single setpoint when turning on from `off` (band midpoint).
@@ -97,7 +98,9 @@ export function ClimateTile() {
     [utils.climate.get, clearLocal],
   );
 
-  const query = trpc.climate.get.useQuery(undefined, { refetchInterval: POLL.climate });
+  const tile = useTileQuery(
+    trpc.climate.get.useQuery(undefined, { refetchInterval: POLL.climate }),
+  );
 
   const setTargetMutation = trpc.climate.setTarget.useMutation({ onSettled: settle });
   const setRangeMutation = trpc.climate.setRange.useMutation({ onSettled: settle });
@@ -147,9 +150,11 @@ export function ClimateTile() {
     [setModeMutation],
   );
 
-  if (!query.data) return <ClimateTileView status={TileStatus.Loading} />;
+  // The climate tile has no distinct error face; an errored poll with nothing
+  // cached shows the loading skeleton (useTileQuery reports Error, collapsed here).
+  if (tile.status !== TileStatus.Populated) return <ClimateTileView status={TileStatus.Loading} />;
 
-  const data = query.data;
+  const data = tile.data;
   const server = setpointsOf(data);
   const mode = localMode ?? data.mode;
   const target = localTarget ?? server.target;

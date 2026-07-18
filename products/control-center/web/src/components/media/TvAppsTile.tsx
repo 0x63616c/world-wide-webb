@@ -7,24 +7,26 @@
  */
 
 import { useState } from "react";
+import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
+import { useTileQuery } from "@/lib/useTileQuery";
 import { AllAppsModal } from "./AllAppsModal";
 import { TvAppsTileView } from "./TvAppsTileView";
 
-const TV_APPS_POLL_MS = 10_000;
-
 export function TvAppsTile() {
-  const { data, isError } = trpc.media.tvApps.useQuery(undefined, {
-    refetchInterval: TV_APPS_POLL_MS,
-  });
+  const q = useTileQuery(
+    trpc.media.tvApps.useQuery(undefined, {
+      refetchInterval: POLL.tvApps,
+    }),
+  );
 
   const launchMutation = trpc.media.tvLaunchApp.useMutation();
   const [allAppsOpen, setAllAppsOpen] = useState(false);
 
-  if (!data) {
+  if (!q.data) {
     return (
       <TvAppsTileView
-        status={isError ? "error" : "loading"}
+        status={q.status}
         apps={[]}
         currentApp={null}
         onLaunchApp={() => {}}
@@ -33,10 +35,11 @@ export function TvAppsTile() {
     );
   }
 
+  const data = q.data;
   return (
     <>
       <TvAppsTileView
-        status="populated"
+        status={q.status}
         apps={data.apps}
         currentApp={data.currentApp}
         onLaunchApp={(app) => launchMutation.mutate({ app })}

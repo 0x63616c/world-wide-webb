@@ -7,24 +7,25 @@
  */
 
 import { useState } from "react";
+import { TileStatus } from "@/components/ui";
+import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
+import { useTileQuery } from "@/lib/useTileQuery";
 import { FavoritesModal } from "./FavoritesModal";
 import type { QuickPlayItem } from "./QuickPlayTileView";
 import { QuickPlayTileView } from "./QuickPlayTileView";
 import { SpotifyModal } from "./SpotifyModal";
 
-const QP_POLL_MS = 30_000;
-
 export function QuickPlayTile() {
   const { data: favData, isError: favError } = trpc.media.sonosFavorites.useQuery(undefined, {
-    refetchInterval: QP_POLL_MS,
+    refetchInterval: POLL.quickPlay,
   });
   const { data: spotifyData, isError: spotifyError } = trpc.media.spotify.browse.useQuery(
     undefined,
-    { refetchInterval: QP_POLL_MS },
+    { refetchInterval: POLL.quickPlay },
   );
   const { data: soundData } = trpc.media.soundSystem.useQuery(undefined, {
-    refetchInterval: QP_POLL_MS,
+    refetchInterval: POLL.quickPlay,
   });
 
   const [favOpen, setFavOpen] = useState(false);
@@ -32,7 +33,13 @@ export function QuickPlayTile() {
 
   const sonosTransportMutation = trpc.media.sonosTransport.useMutation();
 
-  const isLoading = !favData && !favError && !spotifyData && !spotifyError;
+  // The rail merges two independent sources: it has something to show as soon as
+  // either resolves, and is only in error when BOTH failed with nothing cached
+  // (previously an error left it stuck rendering an empty "populated" rail).
+  const q = useTileQuery({
+    data: favData !== undefined || spotifyData !== undefined ? true : undefined,
+    isError: favError && spotifyError,
+  });
 
   // Build unified rail from favorites + spotify recently played.
   const items: QuickPlayItem[] = [
@@ -54,10 +61,10 @@ export function QuickPlayTile() {
 
   const zones = (soundData?.rooms ?? []).map((r) => r.name);
 
-  if (isLoading) {
+  if (q.status !== TileStatus.Populated) {
     return (
       <QuickPlayTileView
-        status="loading"
+        status={q.status}
         items={[]}
         playingItemId={null}
         onPlayItem={() => {}}
@@ -70,7 +77,7 @@ export function QuickPlayTile() {
   return (
     <>
       <QuickPlayTileView
-        status="populated"
+        status={q.status}
         items={items}
         playingItemId={null}
         onPlayItem={() => {}}

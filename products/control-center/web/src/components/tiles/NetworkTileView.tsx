@@ -86,7 +86,9 @@ interface NetworkTileViewBaseProps {
 }
 
 interface NetworkTileViewLoadingProps extends NetworkTileViewBaseProps {
-  status: typeof TileStatus.Loading;
+  // Error shares the loading skeleton: there is no distinct network-error face,
+  // so a dead API reads as "no data yet" (www-355t.13).
+  status: typeof TileStatus.Loading | typeof TileStatus.Error;
 }
 
 interface NetworkTileViewPopulatedProps extends NetworkTileViewBaseProps {
@@ -102,7 +104,7 @@ interface NetworkTileViewPopulatedProps extends NetworkTileViewBaseProps {
 export type NetworkTileViewProps = NetworkTileViewLoadingProps | NetworkTileViewPopulatedProps;
 
 export function NetworkTileView(props: NetworkTileViewProps) {
-  if (props.status === TileStatus.Loading) return <NetworkSkeleton />;
+  if (props.status !== TileStatus.Populated) return <NetworkSkeleton />;
 
   const { isOffline, down, up, ssid, ping, traffic } = props;
 

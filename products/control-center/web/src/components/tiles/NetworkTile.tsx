@@ -1,17 +1,22 @@
+import { TileStatus } from "@/components/ui";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
+import { useTileQuery } from "@/lib/useTileQuery";
 import { NetworkTileView } from "./NetworkTileView";
 
 export function NetworkTile() {
-  const { data } = trpc.network.status.useQuery(undefined, {
-    refetchInterval: POLL.network,
-  });
+  const q = useTileQuery(
+    trpc.network.status.useQuery(undefined, {
+      refetchInterval: POLL.network,
+    }),
+  );
 
-  if (!data) return <NetworkTileView status="loading" />;
+  if (q.status !== TileStatus.Populated) return <NetworkTileView status={q.status} />;
 
+  const data = q.data;
   return (
     <NetworkTileView
-      status="populated"
+      status={q.status}
       isOffline={data.status === "Offline"}
       down={data.down}
       up={data.up}

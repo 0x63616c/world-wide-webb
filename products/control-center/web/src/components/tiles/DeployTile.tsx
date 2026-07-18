@@ -10,9 +10,11 @@
  */
 
 import { useState } from "react";
+import { TileStatus } from "@/components/ui";
 import { POLL, useNow } from "@/lib/hooks";
 import type { RouterOutputs } from "@/lib/trpc";
 import { trpc } from "@/lib/trpc";
+import { useTileQuery } from "@/lib/useTileQuery";
 import type { DeployCommit } from "./DeployTileView";
 import { DeployTileView } from "./DeployTileView";
 import type { DeployModalCommit } from "./modals/DeployModalPipeline";
@@ -69,24 +71,28 @@ export function toModalCommits(status: DeployStatus, nowMs: number): DeployModal
 }
 
 export function DeployTile() {
-  const { data } = trpc.github.status.useQuery(undefined, {
-    refetchInterval: POLL.deploy,
-  });
+  const tile = useTileQuery(
+    trpc.github.status.useQuery(undefined, {
+      refetchInterval: POLL.deploy,
+    }),
+  );
   const now = useNow();
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Loading also covers "configured but the worker has not completed a poll
-  // yet" (no deployed pointer to render): skeleton, never invented data.
-  if (!data || (data.configured && !data.deployedSha)) {
-    return <DeployTileView status="loading" />;
+  // Loading also covers "errored with nothing cached" (the tile has no distinct
+  // error face) and "configured but the worker has not completed a poll yet" (no
+  // deployed pointer to render): skeleton, never invented data.
+  if (tile.status !== TileStatus.Populated || (tile.data.configured && !tile.data.deployedSha)) {
+    return <DeployTileView status={TileStatus.Loading} />;
   }
 
+  const data = tile.data;
   const nowMs = now.getTime();
 
   if (!data.configured) {
     return (
       <DeployTileView
-        status="populated"
+        status={TileStatus.Populated}
         unconfigured
         deployedSha=""
         deployedWhen=""
@@ -132,7 +138,7 @@ export function DeployTile() {
         aria-label="Open deploy pipeline detail"
       >
         <DeployTileView
-          status="populated"
+          status={TileStatus.Populated}
           deployedSha={(data.deployedSha ?? "").slice(0, SHORT_SHA_LEN)}
           deployedWhen={data.deployedAtUtc ? `${formatAgo(data.deployedAtUtc, nowMs)} ago` : ""}
           commitsBehind={data.commitsBehind}

@@ -1,18 +1,22 @@
 import { TileStatus } from "@/components/ui";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
+import { useTileQuery } from "@/lib/useTileQuery";
 import { TeslaTileView } from "./TeslaTileView";
 
 export function TeslaTile() {
-  const { data, isError } = trpc.tesla.get.useQuery(undefined, {
-    refetchInterval: POLL.tesla,
-  });
+  const q = useTileQuery(
+    trpc.tesla.get.useQuery(undefined, {
+      refetchInterval: POLL.tesla,
+    }),
+  );
 
-  if (!data) return <TeslaTileView status={isError ? TileStatus.Error : TileStatus.Loading} />;
+  if (q.status !== TileStatus.Populated) return <TeslaTileView status={q.status} />;
 
+  const data = q.data;
   return (
     <TeslaTileView
-      status={TileStatus.Populated}
+      status={q.status}
       locked={data.locked}
       charging={data.charging}
       rate={data.rate}

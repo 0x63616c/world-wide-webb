@@ -9,7 +9,9 @@
 
 import { useState } from "react";
 import { TileStatus } from "@/components/ui";
+import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
+import { useTileQuery } from "@/lib/useTileQuery";
 import type { ScheduleInput, ScheduleItem } from "./modals/ExpandedSchedulesModalView";
 import { ExpandedSchedulesModalView } from "./modals/ExpandedSchedulesModalView";
 import type { SchedulesRow } from "./SchedulesTileView";
@@ -28,9 +30,10 @@ export function SchedulesTile() {
   const utils = trpc.useUtils();
   const [modalOpen, setModalOpen] = useState(false);
 
-  const list = trpc.schedules.list.useQuery(undefined, { refetchInterval: 30_000 });
-  const nextRuns = trpc.schedules.nextRuns.useQuery(undefined, { refetchInterval: 30_000 });
+  const list = trpc.schedules.list.useQuery(undefined, { refetchInterval: POLL.schedules });
+  const nextRuns = trpc.schedules.nextRuns.useQuery(undefined, { refetchInterval: POLL.schedules });
   const lights = trpc.schedules.lights.useQuery(undefined);
+  const tile = useTileQuery(list);
 
   const invalidate = () => {
     utils.schedules.list.invalidate();
@@ -41,9 +44,9 @@ export function SchedulesTile() {
   const removeMutation = trpc.schedules.remove.useMutation({ onSettled: invalidate });
   const enableMutation = trpc.schedules.setEnabled.useMutation({ onSettled: invalidate });
 
-  if (!list.data) return <SchedulesTileView status={TileStatus.Loading} />;
+  if (tile.status !== TileStatus.Populated) return <SchedulesTileView status={tile.status} />;
 
-  const schedules = list.data as ScheduleItem[];
+  const schedules = tile.data as ScheduleItem[];
   const nextIsoById = new Map((nextRuns.data ?? []).map((r) => [r.id, r.nextIso]));
   const nextLabelById: Record<string, string | null> = {};
   for (const s of schedules) {

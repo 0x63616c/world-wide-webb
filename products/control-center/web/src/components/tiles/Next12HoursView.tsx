@@ -26,7 +26,7 @@ export type HourlyEntry = {
 // Flat props shape: hours is optional so Storybook can spread args without a
 // discriminated-union wrapper. status="populated" with no hours falls back to skeleton.
 export type Next12HoursViewProps = {
-  status: typeof TileStatus.Loading | typeof TileStatus.Populated;
+  status: TileStatus;
   hours?: HourlyEntry[];
 };
 

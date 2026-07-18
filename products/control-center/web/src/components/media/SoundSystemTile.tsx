@@ -11,20 +11,22 @@
  */
 
 import { useCallback, useState } from "react";
+import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
+import { useTileQuery } from "@/lib/useTileQuery";
 import { GroupsModal } from "./GroupsModal";
 import { useMixer } from "./hooks/useMixer";
 import { useThrottledVolume } from "./hooks/useThrottledVolume";
 import { SoundSystemTileView } from "./SoundSystemTileView";
 
-const SOUND_POLL_MS = 10_000;
-
 export function SoundSystemTile() {
   // dataUpdatedAt gates useMixer's reconcile: only a snapshot fetched after a
   // fader's last local edit may overwrite it (www-tavs stale-poll snap-back).
-  const { data, isError, dataUpdatedAt } = trpc.media.soundSystem.useQuery(undefined, {
-    refetchInterval: SOUND_POLL_MS,
+  const query = trpc.media.soundSystem.useQuery(undefined, {
+    refetchInterval: POLL.soundSystem,
   });
+  const q = useTileQuery(query);
+  const { dataUpdatedAt } = query;
 
   const [groupsOpen, setGroupsOpen] = useState(false);
 
@@ -41,7 +43,7 @@ export function SoundSystemTile() {
     ),
   );
 
-  const rooms = data?.rooms ?? [];
+  const rooms = q.data?.rooms ?? [];
 
   const mixer = useMixer(
     rooms.map((r) => ({
@@ -54,10 +56,10 @@ export function SoundSystemTile() {
     dataUpdatedAt,
   );
 
-  if (!data) {
+  if (!q.data) {
     return (
       <SoundSystemTileView
-        status={isError ? "error" : "loading"}
+        status={q.status}
         rooms={[]}
         vols={{}}
         mutes={{}}
@@ -85,7 +87,7 @@ export function SoundSystemTile() {
   return (
     <>
       <SoundSystemTileView
-        status="populated"
+        status={q.status}
         rooms={rooms}
         vols={mixer.vols}
         mutes={mixer.mutes}

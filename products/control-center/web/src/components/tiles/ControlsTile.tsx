@@ -15,8 +15,10 @@
  */
 
 import { useState } from "react";
+import { TileStatus } from "@/components/ui";
 import type { RouterOutputs } from "@/lib/trpc";
 import { trpc } from "@/lib/trpc";
+import { useTileQuery } from "@/lib/useTileQuery";
 import type { ControlKey } from "./ControlsTileView";
 import { ControlsTileView } from "./ControlsTileView";
 import { ExpandedControlsModalView } from "./ExpandedControlsModalView";
@@ -55,7 +57,9 @@ export function ControlsTile() {
   // segmented control + the speed sent with setLampMode. Defaults to Medium.
   const [partySpeed, setPartySpeed] = useState<PartySpeed>(PartySpeed.Medium);
 
-  const { data } = trpc.controls.list.useQuery({}, { refetchInterval: makeRefetchInterval() });
+  const tile = useTileQuery(
+    trpc.controls.list.useQuery({}, { refetchInterval: makeRefetchInterval() }),
+  );
 
   const toggleMutation = trpc.controls.toggle.useMutation({
     // Optimistic flip so the tap responds instantly; pending:true bumps the
@@ -115,11 +119,13 @@ export function ControlsTile() {
 
   function handleToggle(key: ControlKey, currentOn: boolean) {
     // Block mutation until the first query resolves , prevents corrupting an empty cache.
-    if (!data) return;
+    if (tile.status !== TileStatus.Populated) return;
     toggleMutation.mutate({ key, on: !currentOn });
   }
 
-  if (!data) return <ControlsTileView status="loading" />;
+  if (tile.status !== TileStatus.Populated) return <ControlsTileView status={tile.status} />;
+
+  const data = tile.data;
 
   // The full-width party control emits its target: "off" stops party (mode none);
   // any speed starts party at that speed , or re-speeds a running party, since the
@@ -149,7 +155,7 @@ export function ControlsTile() {
   return (
     <>
       <ControlsTileView
-        status="populated"
+        status={TileStatus.Populated}
         data={viewData}
         onToggle={handleToggle}
         onMore={() => setModalOpen(true)}
