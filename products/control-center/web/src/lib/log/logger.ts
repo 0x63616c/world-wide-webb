@@ -61,6 +61,39 @@ function makeId(n: number): string {
   return `${BOOT_STAMP}-${String(n).padStart(8, "0")}`;
 }
 
+/**
+ * App Store / TestFlight build number (CFBundleVersion). Unlike `SHA` (a compile-
+ * time constant) this needs an async Capacitor call, so it starts as "web" and is
+ * upgraded once `resolveBuild()` runs at boot; entries logged before then carry
+ * "web", the same best-effort-late-resolve contract as `deviceName`. Stays "web"
+ * off-device (plain browser / Storybook / tests). See LogEntry.build for why the
+ * binary number is worth carrying alongside the web `sha`.
+ */
+let build = "web";
+
+/** The build number stamped on entries right now. Cheap , stamped on every write. */
+export function getBuild(): string {
+  return build;
+}
+
+/**
+ * Resolve the native build number once, at boot (called from log/boot.ts). Best-
+ * effort: any failure , no native shell, plugin missing, proxy hiccup , leaves
+ * `build` at "web". The @capacitor/app import is dynamic so the plugin never
+ * loads in a plain browser (mirrors app-update.ts).
+ */
+export async function resolveBuild(): Promise<void> {
+  try {
+    const { Capacitor } = await import("@capacitor/core");
+    if (!Capacitor.isNativePlatform()) return;
+    const { App } = await import("@capacitor/app");
+    const info = await App.getInfo();
+    if (info.build) build = info.build;
+  } catch {
+    // best-effort , `build` stays "web"
+  }
+}
+
 // Live-tail subscribers (the viewer). Notified on write, coalesced by React.
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -108,6 +141,7 @@ function write(level: LogLevel, source: string, msg: string, data?: unknown): vo
     seq: n,
     ts: Date.now(),
     sha: SHA,
+    build,
     // Cheap by design (cached module var), so stamping every write is free.
     deviceName: getDeviceName(),
     level,

@@ -95,8 +95,17 @@ export interface LogQuery {
   source?: string;
   /** Fuzzy match (see fuzzy.ts) against msg + source + serialized data. */
   search?: string;
-  /** Page backwards: return entries older than this entry id. */
+  /** Page backwards: return entries older than this entry id (newest-first). */
   before?: string;
+  /**
+   * Page forwards: return entries with id STRICTLY GREATER than this one, in
+   * ASCENDING id (== insertion) order, oldest-first. This is the log shipper's
+   * read , it walks from its last-shipped cursor toward the newest entry.
+   *
+   * Mutually exclusive with `before`: the two name opposite directions, so
+   * passing both is a caller bug and query() throws rather than silently pick one.
+   */
+  after?: string;
   /** Max entries to return. Defaults to 200. */
   limit?: number;
 }
@@ -343,23 +352,34 @@ function matches(entry: LogEntry, q: LogQuery): boolean {
 }
 
 /**
- * Page backwards through history, newest first. Filters are applied while
- * walking the cursor so we never materialize 100k entries to throw most away.
+ * Page through history, applying filters while walking the cursor so we never
+ * materialize 100k entries to throw most away.
+ *
+ * Direction is set by the cursor id given: `after` pages FORWARD (ascending id,
+ * oldest-first) for the shipper draining its backlog; `before` (and the default)
+ * pages BACKWARD (descending id, newest-first) for the viewer. Both are a plain
+ * key range on the primary key , ids are `${bootMs}-${seq}`, zero-padded, so
+ * lexicographic order is insertion order.
  */
 export async function query(q: LogQuery = {}): Promise<LogEntry[]> {
+  if (q.before !== undefined && q.after !== undefined) {
+    throw new Error("log query: `before` and `after` are mutually exclusive");
+  }
   const db = await openDb();
   if (!db) return [];
   const limit = q.limit ?? 200;
-  const range =
-    q.before !== undefined ? IDBKeyRange.upperBound(q.before, /* open */ true) : undefined;
+
+  const [range, direction]: [IDBKeyRange | null, IDBCursorDirection] =
+    q.after !== undefined
+      ? [IDBKeyRange.lowerBound(q.after, /* open */ true), "next"]
+      : [q.before !== undefined ? IDBKeyRange.upperBound(q.before, /* open */ true) : null, "prev"];
 
   const tx = db.transaction(ENTRIES, "readonly");
   const store = tx.objectStore(ENTRIES);
 
   return new Promise<LogEntry[]>((resolve, reject) => {
     const out: LogEntry[] = [];
-    // "prev": descending seq, i.e. newest first.
-    const cursorReq = store.openCursor(range ?? null, "prev");
+    const cursorReq = store.openCursor(range, direction);
     cursorReq.onerror = () => reject(cursorReq.error);
     cursorReq.onsuccess = () => {
       const cursor = cursorReq.result;

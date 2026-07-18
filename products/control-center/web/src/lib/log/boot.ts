@@ -8,9 +8,10 @@
  */
 
 import { BUILD_HASH, BUILD_TIME } from "../../config/build";
+import { resolveDeviceId } from "../device-id";
 import { queryClient } from "../trpc";
 import { installCapture } from "./capture";
-import { log, startFlushing } from "./logger";
+import { log, resolveBuild, startFlushing } from "./logger";
 import { restoreFromNative } from "./native";
 import { installQueryLogging } from "./query-log";
 import { append, count, requestPersistence } from "./store";
@@ -19,6 +20,14 @@ export function initLogging(): void {
   installCapture();
   startFlushing();
   installQueryLogging(queryClient);
+
+  // Warm the two async-resolved identity fields. Both are best-effort and cached;
+  // entries captured before they land carry their defaults ("web" build, and the
+  // persisted/web-fallback device id), which is the accepted late-resolve
+  // contract. `resolveDeviceId` on native replaces the early web-fallback id with
+  // the OS-derived one so this device ships under a stable identity.
+  void resolveBuild();
+  void resolveDeviceId();
 
   const boot = log.child("boot");
   boot.info("app start", {

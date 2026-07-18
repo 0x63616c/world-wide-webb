@@ -46,6 +46,17 @@ export interface LogEntry {
    * restore; the viewer also falls back at read time, so it is never blank.
    */
   deviceName: string;
+  /**
+   * App Store / TestFlight build number (CFBundleVersion), e.g. "80", or "web"
+   * for a plain browser / Storybook session. Optional because rows written before
+   * this field existed lack it, and because it resolves via an async Capacitor
+   * call at boot , entries captured before that resolves carry "web".
+   *
+   * Answers "which BINARY was the panel running", which `sha` alone cannot: the
+   * same sha can be rebuilt, and the native binary lags the over-the-air web
+   * deploy, so sha and build together pin the running artifact.
+   */
+  build?: string;
   level: LogLevel;
   /** Subsystem tag, e.g. "boot", "trpc", "query", "tile:weather", "console". */
   source: string;

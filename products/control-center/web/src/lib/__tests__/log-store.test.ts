@@ -45,6 +45,49 @@ describe("log store", () => {
     expect(page.map((r) => r.seq)).toEqual([2, 1]);
   });
 
+  describe("`after` (ascending forward paging, the shipper's read)", () => {
+    it("returns entries strictly after the id, in ascending order", async () => {
+      await store.append([entry(1), entry(2), entry(3), entry(4)]);
+      // Strictly greater: id(2) itself is excluded; oldest-first from there.
+      expect((await store.query({ after: id(2) })).map((r) => r.seq)).toEqual([3, 4]);
+    });
+
+    it("returns the whole store ascending when the cursor predates everything", async () => {
+      await store.append([entry(1), entry(2), entry(3)]);
+      // A lost/empty cursor re-ships from the start , ascending across all rows.
+      expect((await store.query({ after: id(0) })).map((r) => r.seq)).toEqual([1, 2, 3]);
+    });
+
+    it("returns nothing once the cursor is at the newest entry", async () => {
+      await store.append([entry(1), entry(2)]);
+      expect(await store.query({ after: id(2) })).toEqual([]);
+    });
+
+    it("honours the limit while paging forward (batch cap)", async () => {
+      await store.append(Array.from({ length: 20 }, (_, i) => entry(i + 1)));
+      const page = await store.query({ after: id(0), limit: 5 });
+      expect(page.map((r) => r.seq)).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it("applies level filters while paging forward", async () => {
+      await store.append([
+        entry(1, { level: "debug" }),
+        entry(2, { level: "error" }),
+        entry(3, { level: "info" }),
+        entry(4, { level: "error" }),
+      ]);
+      expect((await store.query({ after: id(0), levels: ["error"] })).map((r) => r.seq)).toEqual([
+        2, 4,
+      ]);
+    });
+
+    it("rejects `before` and `after` together (opposite directions)", async () => {
+      await expect(store.query({ before: id(3), after: id(1) })).rejects.toThrow(
+        /mutually exclusive/,
+      );
+    });
+  });
+
   it("filters by an arbitrary SET of levels, not a threshold", async () => {
     const levels: LogLevel[] = ["debug", "info", "warn", "error"];
     await store.append(levels.map((level, i) => entry(i, { level })));
