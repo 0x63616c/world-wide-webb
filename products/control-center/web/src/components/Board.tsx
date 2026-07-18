@@ -262,6 +262,11 @@ function UnplacedTilesBanner({ count }: { count: number }) {
   );
 }
 
+// How long the shield lingers after the wake tap if no click ever arrives to
+// release it (pointer cancelled mid-tap, stylus hover, etc.). Long enough for
+// any synthesized click, short enough to never eat a deliberate second tap.
+const DIM_LINGER_FALLBACK_MS = 500;
+
 // Invisible full-screen shield, rendered only while the panel is dimmed. Idle
 // dimming is native-only (gated off isNativeDisplay in Board), and on the iPad
 // the screen-brightness plugin drops the real backlight , so there is nothing to
@@ -270,18 +275,50 @@ function UnplacedTilesBanner({ count }: { count: number }) {
 // windows, and is swallowed , so the next tap is the first that actually
 // interacts. Off-device the feature is inert, so this never renders active.
 function DimOverlay({ active, onWake }: { active: boolean; onWake: () => void }) {
+  // The wake tap flips `active` off on pointerdown, but the browser synthesizes
+  // the tap's `click` AFTER pointerup , if the shield unmounted with `active`,
+  // that click would retarget to whatever tile sits under the finger, so the
+  // "swallowed" wake tap opened a modal anyway. Linger until the tap's click
+  // has been absorbed here (or a short fallback), then unmount.
+  const [lingering, setLingering] = useState(false);
+  const fallbackRef = useRef<number | null>(null);
+
+  const release = useCallback(() => {
+    if (fallbackRef.current !== null) window.clearTimeout(fallbackRef.current);
+    fallbackRef.current = null;
+    setLingering(false);
+  }, []);
+
+  // Never leak the fallback timer on unmount.
+  useEffect(
+    () => () => {
+      if (fallbackRef.current !== null) window.clearTimeout(fallbackRef.current);
+    },
+    [],
+  );
+
+  if (!active && !lingering) return null;
   // Portalled to <body> at a zIndex above every modal (Modal 100, Level 200,
   // CleanScreen 300). Rendered inside the board it sat UNDER anything portalled
   // to body, so a wake tap on an open modal hit the modal instead of this shield
   // , the panel could not be woken from inside a modal at all.
-  if (!active) return null;
   return createPortal(
     <div
       aria-hidden="true"
       data-testid="dim-overlay"
       onPointerDown={(e) => {
         e.preventDefault();
-        onWake();
+        if (active) {
+          onWake();
+          setLingering(true);
+          fallbackRef.current = window.setTimeout(release, DIM_LINGER_FALLBACK_MS);
+        }
+      }}
+      onClick={(e) => {
+        // The wake tap's own click ends the linger; a click while still dimmed
+        // (active) is just swallowed like the pointerdown was.
+        e.preventDefault();
+        if (!active) release();
       }}
       style={{
         position: "fixed",
