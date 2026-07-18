@@ -92,6 +92,13 @@
       "when": 1784377212500,
       "tag": "0013_melted_doctor_doom",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1784378871031,
+      "tag": "0014_add_frontend_log",
+      "breakpoints": true
     }
   ]
 }

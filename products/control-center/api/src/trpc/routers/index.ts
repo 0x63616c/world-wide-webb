@@ -5,6 +5,7 @@ import { controlsRouter } from "./controls";
 import { eventsRouter } from "./events";
 import { healthRouter } from "./health";
 import { layoutRouter } from "./layout";
+import { logsRouter } from "./logs";
 import { mediaRouter } from "./media";
 import { networkRouter } from "./network";
 import { portalRouter } from "./portal";
@@ -25,6 +26,7 @@ export const appRouter = router({
   camera: cameraRouter,
   events: eventsRouter,
   layout: layoutRouter,
+  logs: logsRouter,
   media: mediaRouter,
   portal: portalRouter,
   schedules: schedulesRouter,
