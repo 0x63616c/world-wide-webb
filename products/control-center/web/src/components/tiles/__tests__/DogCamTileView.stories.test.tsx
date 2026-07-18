@@ -18,8 +18,8 @@ describe("DogCamTileView stories , Covered", () => {
   it("shows header, label, tap-prompt, and no LIVE badge", async () => {
     const { container } = render(<Covered />);
     if (Covered.play) await Covered.play({ canvasElement: container });
-    // Header title and cover label both read "Bedroom Cam"
-    expect(screen.getAllByText("Bedroom Cam").length).toBeGreaterThanOrEqual(2);
+    // Header title and cover label both read "Living Room Cam"
+    expect(screen.getAllByText("Living Room Cam").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/tap to view feed/i)).toBeInTheDocument();
     expect(screen.queryByText("LIVE")).not.toBeInTheDocument();
     // Stream img is not mounted while covered , no open MJPEG connection
@@ -40,7 +40,7 @@ describe("DogCamTileView stories , Loading", () => {
   it("shows header and button but no status text", async () => {
     const { container } = render(<Loading />);
     if (Loading.play) await Loading.play({ canvasElement: container });
-    expect(screen.getByText("Bedroom Cam")).toBeInTheDocument();
+    expect(screen.getByText("Living Room Cam")).toBeInTheDocument();
     expect(screen.getByRole("button")).toBeInTheDocument();
     expect(screen.queryByText(/tap to view feed/i)).not.toBeInTheDocument();
     expect(screen.queryByText("LIVE")).not.toBeInTheDocument();
@@ -51,7 +51,7 @@ describe("DogCamTileView stories , ErrorEmpty", () => {
   it("shows header and button but no status text", async () => {
     const { container } = render(<ErrorEmpty />);
     if (ErrorEmpty.play) await ErrorEmpty.play({ canvasElement: container });
-    expect(screen.getByText("Bedroom Cam")).toBeInTheDocument();
+    expect(screen.getByText("Living Room Cam")).toBeInTheDocument();
     expect(screen.queryByText(/tap to view feed/i)).not.toBeInTheDocument();
     expect(screen.queryByText("LIVE")).not.toBeInTheDocument();
   });

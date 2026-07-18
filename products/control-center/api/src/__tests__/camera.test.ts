@@ -79,7 +79,7 @@ describe("getCameraInfo", () => {
       {
         entity_id: "camera.bedroom_cam",
         state: "streaming",
-        attributes: { friendly_name: "Bedroom Cam" },
+        attributes: { friendly_name: "Living Room Cam" },
         last_updated: "2024-01-01T00:00:00Z",
       },
     ]);
@@ -87,7 +87,7 @@ describe("getCameraInfo", () => {
     const result = await getCameraInfo();
 
     expect(result?.entityId).toBe("camera.bedroom_cam");
-    expect(result?.label).toBe("Bedroom Cam");
+    expect(result?.label).toBe("Living Room Cam");
     expect(result?.online).toBe(true);
     expect(result?.snapshotUrl).toBeNull();
     expect(result?.streamUrl).toBe("/media/camera-stream");

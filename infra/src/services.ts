@@ -167,7 +167,7 @@ const GO2RTC_CONFIG_MOUNT_PATH = "/config";
 // unknown key in wwwinfra:imageDigests hard-fails validateImageDigests).
 const GO2RTC_IMAGE = "alexxit/go2rtc:1.9.9";
 const CAMERA_STREAM_NAME = "bedroom_mjpeg";
-const CAMERA_LABEL = "Bedroom Cam";
+const CAMERA_LABEL = "Living Room Cam";
 
 // Shared non-secret env for api + worker (HA reached via the in-cluster `ha`
 // Service name now, not host.docker.internal; DB via the CNPG Service).

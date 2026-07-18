@@ -147,7 +147,7 @@ export const envSchema = z.object({
   // the camera directly, so the tile stays alive when HA is down.
   GO2RTC_URL: z.string().url().default("http://go2rtc:1984"),
   CAMERA_STREAM_NAME: z.string().default("bedroom_mjpeg"),
-  CAMERA_LABEL: z.string().default("Bedroom Cam"),
+  CAMERA_LABEL: z.string().default("Living Room Cam"),
 });
 
 export const env = envSchema.parse(process.env);

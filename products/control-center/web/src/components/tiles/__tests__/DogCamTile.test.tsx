@@ -53,9 +53,9 @@ function renderWithData(overrides?: {
 
 describe("DogCamTile", () => {
   describe("section header", () => {
-    it("renders the 'Bedroom Cam' section header", () => {
+    it("renders the 'Living Room Cam' section header", () => {
       renderWithData();
-      expect(screen.getByText("Bedroom Cam")).toBeDefined();
+      expect(screen.getByText("Living Room Cam")).toBeDefined();
     });
 
     it("tile wrapper has padding 22", () => {

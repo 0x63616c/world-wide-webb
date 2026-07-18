@@ -10,7 +10,7 @@ const meta = {
   ...defineTileMeta("DogCamTileView", DogCamTileView),
   args: {
     status: "populated",
-    label: "Bedroom Cam",
+    label: "Living Room Cam",
     online: true,
     snapshotUrl: null,
     streamUrl: null,
@@ -51,7 +51,7 @@ type Story = StoryObj<typeof meta>;
 export const Covered: Story = {
   args: {
     status: "populated",
-    label: "Bedroom Cam",
+    label: "Living Room Cam",
     online: true,
     snapshotUrl: null,
     streamUrl: STREAM_URL,
@@ -60,8 +60,8 @@ export const Covered: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // Header title and the cover label both read "Bedroom Cam".
-    await expect(canvas.getAllByText("Bedroom Cam").length).toBeGreaterThanOrEqual(2);
+    // Header title and the cover label both read "Living Room Cam".
+    await expect(canvas.getAllByText("Living Room Cam").length).toBeGreaterThanOrEqual(2);
     await expect(canvas.getByText(/tap to view feed/i)).toBeInTheDocument();
     await expect(canvas.queryByText("LIVE")).not.toBeInTheDocument();
     // No stream img while covered , the connection must not be open.
@@ -75,7 +75,7 @@ export const Covered: Story = {
 export const Offline: Story = {
   args: {
     status: "populated",
-    label: "Bedroom Cam",
+    label: "Living Room Cam",
     online: false,
     snapshotUrl: null,
     streamUrl: null,
@@ -102,7 +102,7 @@ export const Loading: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Bedroom Cam")).toBeInTheDocument();
+    await expect(canvas.getByText("Living Room Cam")).toBeInTheDocument();
     // Feed button is present but no tap-prompt text while loading
     await expect(canvas.getByRole("button")).toBeInTheDocument();
     await expect(canvas.queryByText(/tap to view feed/i)).not.toBeInTheDocument();
@@ -126,7 +126,7 @@ export const ErrorEmpty: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     // Header still visible; no data rendered while tile retries
-    await expect(canvas.getByText("Bedroom Cam")).toBeInTheDocument();
+    await expect(canvas.getByText("Living Room Cam")).toBeInTheDocument();
     await expect(canvas.getByRole("button")).toBeInTheDocument();
     await expect(canvas.queryByText(/tap to view feed/i)).not.toBeInTheDocument();
     await expect(canvas.queryByText(/camera offline/i)).not.toBeInTheDocument();
@@ -141,7 +141,7 @@ export const ErrorEmpty: Story = {
 export const Live: Story = {
   args: {
     status: "populated",
-    label: "Bedroom Cam",
+    label: "Living Room Cam",
     online: true,
     snapshotUrl: null,
     streamUrl: STREAM_URL,
@@ -185,7 +185,7 @@ export const WithSnapshot: Story = {
 export const ToggleLiveInteraction: Story = {
   args: {
     status: "populated",
-    label: "Bedroom Cam",
+    label: "Living Room Cam",
     online: true,
     snapshotUrl: null,
     streamUrl: STREAM_URL,

@@ -46,7 +46,7 @@ export function DogCamTileView({
   return (
     <Tile padding={22}>
       {/* Title MUST stay in sync with the registry label in lib/tile-registry.ts , the minimap and pan labels read it. */}
-      <TileHeader icon="cam" title="Bedroom Cam" />
+      <TileHeader icon="cam" title="Living Room Cam" />
       {/* Feed shell , fills remaining space */}
       <button
         type="button"

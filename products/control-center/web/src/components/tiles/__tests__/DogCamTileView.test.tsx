@@ -32,9 +32,9 @@ describe("DogCamTileView , loading state", () => {
     expect(container.firstChild).toBeInTheDocument();
   });
 
-  it("renders the Bedroom Cam header", () => {
+  it("renders the Living Room Cam header", () => {
     render(<DogCamTileView status="loading" live={false} recSecs={0} onToggleLive={vi.fn()} />);
-    expect(screen.getByText("Bedroom Cam")).toBeInTheDocument();
+    expect(screen.getByText("Living Room Cam")).toBeInTheDocument();
   });
 
   it("renders the feed button", () => {
@@ -54,9 +54,9 @@ describe("DogCamTileView , loading state", () => {
 });
 
 describe("DogCamTileView , covered (populated, live=false)", () => {
-  it("renders the Bedroom Cam header", () => {
+  it("renders the Living Room Cam header", () => {
     render(<DogCamTileView {...baseProps} />);
-    expect(screen.getByText("Bedroom Cam")).toBeInTheDocument();
+    expect(screen.getByText("Living Room Cam")).toBeInTheDocument();
   });
 
   it("renders the label from props", () => {
@@ -176,9 +176,9 @@ describe("DogCamTileView , tile structure", () => {
 });
 
 describe("DogCamTileView , error state", () => {
-  it("renders the Bedroom Cam header", () => {
+  it("renders the Living Room Cam header", () => {
     render(<DogCamTileView status="error" live={false} recSecs={0} onToggleLive={vi.fn()} />);
-    expect(screen.getByText("Bedroom Cam")).toBeInTheDocument();
+    expect(screen.getByText("Living Room Cam")).toBeInTheDocument();
   });
 
   it("renders the feed button", () => {
