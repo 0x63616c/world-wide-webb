@@ -51,10 +51,15 @@ export const Open: Story = {
     const zero = doc.getByRole("button", { name: "0" });
     for (let i = 0; i < 6; i++) await userEvent.click(zero);
 
-    // Correct entry flips the dialog to the unlocked state.
-    await expect(await doc.findByText("Unlocked")).toBeInTheDocument();
+    // Correct entry flips the dialog to the unlocked state. Generous timeouts:
+    // CI runs this under coverage instrumentation, which is slow enough that
+    // the default 1s findBy window flakes (same reason the Board tests carry
+    // long timeouts under coverage).
+    await expect(
+      await doc.findByText("Unlocked", undefined, { timeout: 10_000 }),
+    ).toBeInTheDocument();
     // And, after the handoff beat, calls onSuccess.
-    await waitFor(() => expect(args.onSuccess).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(args.onSuccess).toHaveBeenCalledTimes(1), { timeout: 10_000 });
   },
 };
 
