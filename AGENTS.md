@@ -52,6 +52,16 @@
 
 ## Workflow
 
-- Work in task-named worktrees (name them after the task; no `bd` ticket ID required).
+- **Default to working directly on `main`.** Only use a worktree when the user
+  explicitly asks for one. If the request does not mention a worktree, do the work
+  in the main checkout. Name worktrees after the task when they are used.
+- **Commit and push extremely often, without asking.** This is continuous delivery:
+  a push to `main` deploys to prod. Commit as soon as a change is coherent (a
+  passing test, a working slice, a doc update) instead of batching work into one
+  large commit, and push every commit immediately.
+- Standing authorization: the user has pre-approved commit + push to `main` for
+  every change they request. Do not pause to ask.
+- Verify before pushing where it is cheap (`bun run typecheck`, relevant tests).
+  If verification fails, fix forward and push again - never sit on unpushed work.
 - Do not use PRs for shipping.
 - Keep docs current when behavior changes.
