@@ -1,5 +1,4 @@
 import { act, renderHook } from "@testing-library/react";
-import { useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useIdleDim } from "../useBoard";
 
@@ -23,8 +22,7 @@ function setup(opts: Partial<Props> & { pointerDown?: React.RefObject<boolean> }
 
   const view = renderHook(
     (props: Props) => {
-      const stageRef = useRef<HTMLDivElement | null>(stage);
-      return useIdleDim({ stageRef, pointerDown: held, ...props });
+      return useIdleDim({ stage, pointerDown: held, ...props });
     },
     {
       initialProps: {
@@ -154,5 +152,86 @@ describe("useIdleDim", () => {
 
     act(() => rerender({ enabled: true, timeoutMs: 10_000, level: 0.5, activeBrightness: 1 }));
     expect(dimTo).toHaveBeenLastCalledWith(0.5);
+  });
+
+  // Regression: the board gates the stage behind a layout-loading screen, so the
+  // stage mounts on a LATER commit than the hook. A ref-based dep never changed
+  // when it arrived, so the timer silently never armed and the panel never
+  // dimmed (which also meant the wake overlay, and its photo burst, never ran).
+  it("arms once the stage mounts on a later commit", () => {
+    const held = { current: false };
+    const stage = document.createElement("div");
+    document.body.appendChild(stage);
+
+    const props = { enabled: true, timeoutMs: 10_000, level: 0.25, activeBrightness: 1 };
+    const { result, rerender } = renderHook(
+      ({ stage }: { stage: HTMLDivElement | null }) =>
+        useIdleDim({ stage, pointerDown: held, ...props }),
+      { initialProps: { stage: null as HTMLDivElement | null } },
+    );
+
+    // No stage yet: nothing to attach to, so no dim.
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(result.current.dimmed).toBe(false);
+
+    // Stage arrives (layout finished loading) - the window must now run.
+    rerender({ stage });
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(result.current.dimmed).toBe(true);
+  });
+
+  it("un-dims if the stage unmounts mid-dim", () => {
+    const held = { current: false };
+    const stage = document.createElement("div");
+    document.body.appendChild(stage);
+
+    const props = { enabled: true, timeoutMs: 10_000, level: 0.25, activeBrightness: 1 };
+    const { result, rerender } = renderHook(
+      ({ stage }: { stage: HTMLDivElement | null }) =>
+        useIdleDim({ stage, pointerDown: held, ...props }),
+      { initialProps: { stage: stage as HTMLDivElement | null } },
+    );
+
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(result.current.dimmed).toBe(true);
+
+    // The stage goes away with the feature still enabled: without this the dim
+    // overlay would stay stranded on screen with no timer left to clear it.
+    act(() => rerender({ stage: null }));
+    expect(result.current.dimmed).toBe(false);
+  });
+
+  it("ignores scroll frames from an app-driven glide", () => {
+    const held = { current: false };
+    const isProgrammatic = { current: true };
+    const stage = document.createElement("div");
+    document.body.appendChild(stage);
+
+    const { result } = renderHook(() =>
+      useIdleDim({
+        stage,
+        isProgrammatic: isProgrammatic as React.RefObject<boolean>,
+        pointerDown: held,
+        enabled: true,
+        timeoutMs: 10_000,
+        level: 0.25,
+        activeBrightness: 1,
+      }),
+    );
+
+    // goHome's smooth glide emits a scroll stream; it must not read as presence.
+    act(() => vi.advanceTimersByTime(9_000));
+    act(() => {
+      stage.dispatchEvent(new Event("scroll"));
+    });
+    act(() => vi.advanceTimersByTime(1_000));
+    expect(result.current.dimmed).toBe(true);
+
+    // A real finger on the same event still counts.
+    isProgrammatic.current = false;
+    act(() => {
+      stage.dispatchEvent(new Event("scroll"));
+    });
+    expect(result.current.dimmed).toBe(false);
   });
 });

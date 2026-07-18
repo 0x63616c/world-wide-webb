@@ -12,10 +12,9 @@ function setup(opts: { isHome: boolean; pointerDown?: boolean }) {
   const goHome = vi.fn();
 
   const { unmount } = renderHook(() => {
-    const stageRef = useRef<HTMLDivElement | null>(stage);
     const pointerDown = useRef(opts.pointerDown ?? false);
     useIdleReset({
-      stageRef,
+      stage,
       goHome,
       isHome: () => opts.isHome,
       pointerDown,
@@ -69,9 +68,8 @@ describe("useIdleReset", () => {
     const held = { current: true };
 
     renderHook(() => {
-      const stageRef = useRef<HTMLDivElement | null>(stage);
       useIdleReset({
-        stageRef,
+        stage,
         goHome,
         isHome: () => false,
         pointerDown: held as React.RefObject<boolean>,

@@ -396,6 +396,16 @@ function CenteredTileLabel({ label, panSignal }: { label: string | undefined; pa
  */
 export function Board() {
   const stageRef = useRef<HTMLDivElement>(null);
+  // The stage as STATE as well as a ref. The stage is gated behind the
+  // layout-loading screen below, so it mounts on a later commit than this
+  // component: effects that must attach listeners to it (the idle timers) need
+  // a dep that actually changes when it arrives, which a stable ref never does.
+  // The callback ref keeps both in lockstep.
+  const [stageEl, setStageEl] = useState<HTMLDivElement | null>(null);
+  const setStage = useCallback((el: HTMLDivElement | null) => {
+    stageRef.current = el;
+    setStageEl(el);
+  }, []);
   const [activeModal, setActiveModal] = useState<TileModalEntry | null>(null);
 
   // Live settings (idle-dim behavior, FPS readout, snap-mode) from the shared
@@ -488,7 +498,8 @@ export function Board() {
   // their visibility off `panSignal`, which bumps only for scroll frames the
   // user caused. App-driven navigation (mount centering, idle reset) marks
   // itself programmatic so those glides never flash the chrome.
-  const { panSignal, markProgrammatic, markUser, onScrollFrame } = useUserPanSignal();
+  const { panSignal, markProgrammatic, markUser, onScrollFrame, isProgrammatic } =
+    useUserPanSignal();
 
   // Open centered on the home tile (Clock) using the real client size (pre-paint,
   // no flash). Programmatic: the browser echoes this write as a scroll event.
@@ -629,7 +640,8 @@ export function Board() {
     return Math.hypot(cx - homeCx, cy - homeCy) < HOME_DEADZONE_PX;
   }, [homeCx, homeCy]);
   const { poke: pokeReset } = useIdleReset({
-    stageRef,
+    stage: stageEl,
+    isProgrammatic,
     goHome,
     isHome,
     pointerDown,
@@ -645,7 +657,8 @@ export function Board() {
   // scrim). Independent of the home-reset window above , same activity model,
   // different timeout.
   const { dimmed, wake: wakeDim } = useIdleDim({
-    stageRef,
+    stage: stageEl,
+    isProgrammatic,
     pointerDown,
     // Disabled while the layout editor is open — dimming the backlight mid-edit
     // would obscure the very thing being arranged.
@@ -730,7 +743,7 @@ export function Board() {
     <>
       <div
         id="stage"
-        ref={stageRef}
+        ref={setStage}
         onScroll={onScroll}
         onPointerDown={onStagePointerDown}
         onWheel={markUser}

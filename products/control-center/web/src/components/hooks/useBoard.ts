@@ -115,6 +115,12 @@ export function useUserPanSignal(): {
   markProgrammatic: () => void;
   markUser: () => void;
   onScrollFrame: () => void;
+  /**
+   * Live "an app-driven glide owns the scroll stream right now" flag. Exposed so
+   * the idle timers can discount the scroll frames the board emits itself , a
+   * goHome glide must not count as the user being present.
+   */
+  isProgrammatic: React.RefObject<boolean>;
 } {
   const [panSignal, setPanSignal] = useState(0);
   const programmatic = useRef(true);
@@ -143,7 +149,7 @@ export function useUserPanSignal(): {
 
   useEffect(() => () => window.clearTimeout(quietTimer.current), []);
 
-  return { panSignal, markProgrammatic, markUser, onScrollFrame };
+  return { panSignal, markProgrammatic, markUser, onScrollFrame, isProgrammatic: programmatic };
 }
 
 // ─── useBoardSnap ─────────────────────────────────────────────────────────────
@@ -405,7 +411,14 @@ export const IDLE_RESET_MS = 10 * 60_000;
 const IDLE_EVENTS = ["pointerdown", "touchstart", "wheel", "scroll", "keydown"] as const;
 
 type UseIdleTimerOptions = {
-  stageRef: React.RefObject<HTMLDivElement | null>;
+  /**
+   * The stage element, or null while it is unmounted. Deliberately the ELEMENT
+   * and not a ref: the board gates the stage behind a layout-loading screen, so
+   * a ref would read null on the first commit and , being referentially stable ,
+   * would never re-run this effect once the real stage arrived, silently killing
+   * every idle window for the life of the page.
+   */
+  stage: HTMLDivElement | null;
   /** Idle window in ms. */
   ms: number;
   /** Fired once the window elapses with no interaction (and no deferral). */
@@ -416,6 +429,12 @@ type UseIdleTimerOptions = {
   shouldDefer?: () => boolean;
   /** When false the timer + listeners are inert (the feature is disabled). */
   enabled?: boolean;
+  /**
+   * True while an app-driven glide owns the scroll stream. Scroll frames are
+   * then ignored as activity , the board's own goHome glide would otherwise
+   * rearm every idle window the instant the reset fired.
+   */
+  isProgrammatic?: React.RefObject<boolean>;
 };
 
 /**
@@ -434,15 +453,16 @@ type UseIdleTimerOptions = {
  * passed in.
  */
 function useIdleTimer({
-  stageRef,
+  stage,
   ms,
   onIdle,
   onActive,
   shouldDefer,
   enabled = true,
+  isProgrammatic,
 }: UseIdleTimerOptions): { poke: () => void } {
-  const cbRef = useRef({ onIdle, onActive, shouldDefer });
-  cbRef.current = { onIdle, onActive, shouldDefer };
+  const cbRef = useRef({ onIdle, onActive, shouldDefer, isProgrammatic });
+  cbRef.current = { onIdle, onActive, shouldDefer, isProgrammatic };
 
   // Holds the live effect's `arm` so poke() can rearm/undim from the outside
   // (e.g. a wake tap that the dim overlay swallowed before the stage saw it).
@@ -450,9 +470,7 @@ function useIdleTimer({
   const armRef = useRef<() => void>(() => {});
 
   useEffect(() => {
-    if (!enabled) return;
-    const stage = stageRef.current;
-    if (!stage) return;
+    if (!enabled || !stage) return;
 
     let timer = 0;
     // Whether onIdle has fired since the last interaction , gates onActive so it
@@ -478,11 +496,20 @@ function useIdleTimer({
     };
     armRef.current = arm;
 
+    // Scroll is the one activity signal the app also emits itself: goHome's
+    // smooth glide fires a frame per tick, which would rearm both windows the
+    // moment the reset fired (and un-dim a panel that just dimmed). Every other
+    // event in IDLE_EVENTS is unambiguously a human.
+    const onEvent = (event: Event) => {
+      if (event.type === "scroll" && cbRef.current.isProgrammatic?.current) return;
+      arm();
+    };
+
     // keydown has no meaningful target on the stage (focus may sit on a tile or
     // body), so it rides window; the rest are stage-local pan/tap signals.
     for (const type of IDLE_EVENTS) {
       const target: EventTarget = type === "keydown" ? window : stage;
-      target.addEventListener(type, arm, { passive: true });
+      target.addEventListener(type, onEvent, { passive: true });
     }
 
     arm();
@@ -492,10 +519,10 @@ function useIdleTimer({
       armRef.current = () => {};
       for (const type of IDLE_EVENTS) {
         const target: EventTarget = type === "keydown" ? window : stage;
-        target.removeEventListener(type, arm);
+        target.removeEventListener(type, onEvent);
       }
     };
-  }, [stageRef, ms, enabled]);
+  }, [stage, ms, enabled]);
 
   // Stable handle: forwards to the current mount's arm (or no-op when unmounted).
   const poke = useCallback(() => armRef.current(), []);
@@ -505,7 +532,10 @@ function useIdleTimer({
 // ─── useIdleReset ─────────────────────────────────────────────────────────────
 
 type UseIdleResetOptions = {
-  stageRef: React.RefObject<HTMLDivElement | null>;
+  /** The stage element, or null while unmounted (see UseIdleTimerOptions). */
+  stage: HTMLDivElement | null;
+  /** True while an app-driven glide owns the scroll stream. */
+  isProgrammatic?: React.RefObject<boolean>;
   /** Navigate the board back to the home view (e.g. jumpTo world-center). */
   goHome: () => void;
   /** True when the viewport is already centered on home (within a deadzone). */
@@ -526,7 +556,8 @@ type UseIdleResetOptions = {
  * Deferral (held pointer OR already-home) rides useIdleTimer.shouldDefer.
  */
 export function useIdleReset({
-  stageRef,
+  stage,
+  isProgrammatic,
   goHome,
   isHome,
   pointerDown,
@@ -534,7 +565,8 @@ export function useIdleReset({
   enabled = true,
 }: UseIdleResetOptions): { poke: () => void } {
   return useIdleTimer({
-    stageRef,
+    stage,
+    isProgrammatic,
     ms: idleMs,
     enabled,
     onIdle: goHome,
@@ -545,7 +577,10 @@ export function useIdleReset({
 // ─── useIdleDim ───────────────────────────────────────────────────────────────
 
 type UseIdleDimOptions = {
-  stageRef: React.RefObject<HTMLDivElement | null>;
+  /** The stage element, or null while unmounted (see UseIdleTimerOptions). */
+  stage: HTMLDivElement | null;
+  /** True while an app-driven glide owns the scroll stream. */
+  isProgrammatic?: React.RefObject<boolean>;
   /** True while a pointer is held , never dim mid-interaction. */
   pointerDown: React.RefObject<boolean>;
   /** Feature toggle; false disables dimming entirely (and wakes if dimmed). */
@@ -570,7 +605,8 @@ type UseIdleDimOptions = {
  * change re-applies immediately and disabling mid-dim wakes at once.
  */
 export function useIdleDim({
-  stageRef,
+  stage,
+  isProgrammatic,
   pointerDown,
   enabled,
   timeoutMs,
@@ -580,7 +616,8 @@ export function useIdleDim({
   const [dimmed, setDimmed] = useState(false);
 
   const { poke } = useIdleTimer({
-    stageRef,
+    stage,
+    isProgrammatic,
     ms: timeoutMs,
     enabled,
     shouldDefer: () => pointerDown.current,
@@ -588,11 +625,13 @@ export function useIdleDim({
     onActive: () => setDimmed(false),
   });
 
-  // Disabled mid-dim: clear the flag so the overlay clears too. The effect below
-  // then wakes the backlight.
+  // Disabled mid-dim, or the stage went away mid-dim (the board swapped back to
+  // its loading screen): clear the flag so the overlay clears too, since the
+  // timer that would have cleared it via onActive is gone. The effect below then
+  // wakes the backlight.
   useEffect(() => {
-    if (!enabled && dimmed) setDimmed(false);
-  }, [enabled, dimmed]);
+    if ((!enabled || !stage) && dimmed) setDimmed(false);
+  }, [enabled, stage, dimmed]);
 
   // Apply the backlight off the resolved state. The else-branch (awake, disabled,
   // mount) drives the panel to its active brightness , the app always owns the
