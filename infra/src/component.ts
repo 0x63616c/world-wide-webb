@@ -220,8 +220,15 @@ const NFS_MOUNT_OPTIONS = ["nfsvers=3", "nolock", "tcp"];
  * ceiling is the NAS export's free space , but the declaration should stay
  * ahead of actual usage so the objects read honestly (the pg dumps outgrew the
  * old 1Gi label once frontend logs landed in Postgres).
+ *
+ * The capacity is part of the PV/PVC NAME (see buildPod): a bound static PVC
+ * cannot be resized in place ("only dynamically provisioned pvc can be
+ * resized"), so a capacity change must arrive as a new PV/PVC pair, not a
+ * mutation. Renaming forces exactly that , the NFS export underneath is
+ * untouched, only the pointer objects churn.
  */
 const NFS_PV_CAPACITY = "10Gi";
+const NFS_PV_NAME_SUFFIX = `-${NFS_PV_CAPACITY.toLowerCase()}`;
 
 function sizeToMib(size: string): number {
   const m = /^(\d+(?:\.\d+)?)\s*([KMG])?i?B?$/i.exec(size.trim());
@@ -313,7 +320,7 @@ function buildPod(p: PodInputs): {
       ...(vol.subPath ? { subPath: vol.subPath } : {}),
     });
     if (vol.nfs) {
-      const pvName = `${p.name}-${volName}`;
+      const pvName = `${p.name}-${volName}${NFS_PV_NAME_SUFFIX}`;
       persistentVolumes.push({
         metadata: { name: pvName },
         spec: {
