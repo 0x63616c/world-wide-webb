@@ -134,7 +134,7 @@ Registered workers currently include:
 - `weather-ingest` every 5m.
 - `asc-version-poll` every 1m (latest TestFlight build of the iOS shell, powering the board's update-available banner).
 
-The runtime in `products/control-center/worker/src/runtime.ts` prevents overlapping cycles per worker, isolates failures, logs failure and recovery transitions, warns on slow cycles, and exposes stats.
+The shared runtime in `packages/worker-runtime` (used by both worker apps) prevents overlapping cycles per worker, isolates failures, logs failure and recovery transitions, warns on slow cycles, and exposes stats.
 
 ### Light schedules
 
