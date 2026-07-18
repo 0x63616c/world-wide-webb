@@ -2,7 +2,7 @@ import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { createElement } from "react";
 import { tilePixelSize } from "@/lib/grid-constants";
 import { defineTileMeta } from "./__stories__/factory";
-import { type DeployCommit, DeployLayout, DeployTileView } from "./DeployTileView";
+import { type DeployCommit, DeployTileView } from "./DeployTileView";
 
 // The tile is not in TILE_REGISTRY yet (its container and router don't exist),
 // so the global BoardDecorator can't derive its footprint. Size it here to the
@@ -45,40 +45,18 @@ const COMMITS: DeployCommit[] = [
     message: "docs: design for GitHub/deploy status tile",
     when: "14m",
     state: "deployed",
-    additions: 286,
-    deletions: 0,
   },
   {
     sha: "6d5d276",
     message: "chore(ci): refresh coverage + loc badges",
     when: "1h",
     state: "skipped",
-    additions: 2,
-    deletions: 2,
   },
   {
     sha: "676314c",
     message: "fix(infra): recreate NFS PVs on capacity change",
     when: "3h",
     state: "deployed",
-    additions: 8,
-    deletions: 1,
-  },
-  {
-    sha: "03eb0cf",
-    message: "fix(web): wake and idle-reset work with modal open",
-    when: "6h",
-    state: "deployed",
-    additions: 239,
-    deletions: 33,
-  },
-  {
-    sha: "6321698",
-    message: "docs: frontend logs queryable in Postgres",
-    when: "8h",
-    state: "deployed",
-    additions: 41,
-    deletions: 9,
   },
 ];
 
@@ -86,7 +64,6 @@ const BASE = {
   status: "populated",
   deployedSha: "ea8aadd",
   deployedWhen: "14m ago",
-  panelSha: "ea8aadd",
   commitsBehind: 0,
   run: null,
   failure: null,
@@ -94,74 +71,107 @@ const BASE = {
   staleFor: null,
 } as const;
 
-const RUN = { jobName: "build-web", stepName: "docker buildx", elapsed: "2m14s", progress: 0.62 };
-
-const FAILURE = {
-  jobName: "deploy",
-  stepName: "pulumi up",
-  logTail: "error: update failed\n  wwwinfra:imageDigests\n  expected 12 entries, got 11",
+export const UpToDate: Story = {
+  args: { ...BASE },
 };
 
-// ---------- Layout A , status dominant ----------
-
-export const A_Status_UpToDate: Story = {
-  args: { ...BASE, layout: DeployLayout.Status },
-};
-
-export const A_Status_Behind: Story = {
+export const Behind: Story = {
   args: {
     ...BASE,
-    layout: DeployLayout.Status,
-    panelSha: "676314c",
-    commitsBehind: 2,
-  },
-};
-
-export const A_Status_Deploying: Story = {
-  args: {
-    ...BASE,
-    layout: DeployLayout.Status,
-    run: RUN,
-    commits: [{ ...COMMITS[0], state: "building" } as DeployCommit, ...COMMITS.slice(1)],
-  },
-};
-
-// ---------- Layout B , pipeline rail ----------
-
-export const B_Rail_Deploying: Story = {
-  args: {
-    ...BASE,
-    layout: DeployLayout.Rail,
-    run: RUN,
-    commitsBehind: 1,
-    panelSha: "676314c",
-    commits: [{ ...COMMITS[0], state: "building" } as DeployCommit, ...COMMITS.slice(1)],
-  },
-};
-
-export const B_Rail_Idle: Story = {
-  args: { ...BASE, layout: DeployLayout.Rail },
-};
-
-// ---------- Layout C , failure forward ----------
-
-export const C_Failure: Story = {
-  args: {
-    ...BASE,
-    layout: DeployLayout.Failure,
-    failure: FAILURE,
     deployedSha: "676314c",
     deployedWhen: "3h ago",
+    commitsBehind: 2,
+    commits: [
+      { ...COMMITS[0], state: "deployed" } as DeployCommit,
+      COMMITS[1] as DeployCommit,
+      { ...COMMITS[2], state: "deployed" } as DeployCommit,
+    ],
+  },
+};
+
+export const Deploying: Story = {
+  args: {
+    ...BASE,
+    deployedSha: "676314c",
+    deployedWhen: "3h ago",
+    run: { jobName: "build-web", stepName: "docker buildx", elapsed: "2m14s" },
+    commits: [{ ...COMMITS[0], state: "building" } as DeployCommit, ...COMMITS.slice(1)],
+  },
+};
+
+export const Failed: Story = {
+  args: {
+    ...BASE,
+    deployedSha: "676314c",
+    deployedWhen: "3h ago",
+    failure: { jobName: "deploy", stepName: "pulumi up" },
     commits: [{ ...COMMITS[0], state: "failed" } as DeployCommit, ...COMMITS.slice(1)],
   },
 };
 
-// ---------- Shared states ----------
-
 export const Stale: Story = {
-  args: { ...BASE, layout: DeployLayout.Status, staleFor: "42m" },
+  args: { ...BASE, staleFor: "42m" },
+};
+
+export const Unconfigured: Story = {
+  args: { ...BASE, unconfigured: true },
 };
 
 export const Loading: Story = {
   args: { status: "loading" },
+};
+
+// Snapshot of the repo's ACTUAL state at 2026-07-18 15:52Z, pulled via
+// `gh run list` + `git log origin/main`: a CI run in flight on the revert
+// commit, last successful deploy 89e8ff3 30m earlier, and everything between
+// either superseded (cancelled by a newer push) or [skip ci]. This is what the
+// tile would have shown on the wall at that moment.
+export const LiveSnapshot: Story = {
+  args: {
+    status: "populated",
+    deployedSha: "89e8ff3",
+    deployedWhen: "30m ago",
+    commitsBehind: 3,
+    run: { jobName: "build-web", stepName: "docker buildx", elapsed: "9m12s" },
+    failure: null,
+    staleFor: null,
+    commits: [
+      {
+        sha: "ff26b8b",
+        message: 'Revert "ci: add a dispatchable apply for the cloudflare edge stack"',
+        when: "9m",
+        state: "building",
+      },
+      {
+        sha: "1147ca3",
+        message: "ci: add a dispatchable apply for the cloudflare edge stack",
+        when: "14m",
+        state: "skipped",
+      },
+      {
+        sha: "9b2b8c7",
+        message: "fix(control-center/web): dim wake tap really is swallowed now",
+        when: "15m",
+        state: "skipped",
+      },
+      {
+        sha: "ddbbaa9",
+        message: "chore(ci/www-afz): refresh coverage + loc badges [skip ci]",
+        when: "22m",
+        state: "skipped",
+      },
+      {
+        sha: "89e8ff3",
+        message: "feat(control-center/web): logs viewer age column + auto-loading history",
+        when: "30m",
+        state: "deployed",
+      },
+      {
+        sha: "ee83592",
+        message: "fix(control-center): apply review findings on session correlation",
+        when: "35m",
+        state: "skipped",
+      },
+    ],
+  },
 };
