@@ -1,22 +1,29 @@
 /**
  * SettingsButton , the gear pinned to the board's bottom-right corner. Owns the
- * open/close state for the settings modal and renders SettingsPanel inside the
- * shared Modal. Replaces the old temporary SnapModeSwitcher slot; the snap-mode
- * control now lives inside the panel alongside the idle-dim + FPS settings.
+ * open/close state for the full-page Settings overlay, which always opens behind
+ * an always-on PIN gate: gear tap → PinGateModal → success → SettingsPage.
+ *
+ * The full-screen overlays launched from inside Settings (level, clean screen)
+ * are hosted here rather than in SettingsPage: both close the page behind them
+ * (Tesla-style, you land back on the board), which unmounts the page.
  */
 
 import { useState } from "react";
 import { CleanScreenOverlay } from "./CleanScreenOverlay";
 import { Icon } from "./Icon";
 import { LevelOverlay } from "./LevelOverlay";
-import { SettingsPanel } from "./SettingsPanel";
-import { Modal } from "./ui/Modal";
+import { PinGateModal } from "./pin/PinGateModal";
+import { SettingsPage } from "./settings-page/SettingsPage";
 
 export function SettingsButton() {
-  const [open, setOpen] = useState(false);
-  // Full-screen overlays launched from the panel. Hosted here, not inside
-  // SettingsPanel: both close the settings modal behind them (Tesla-style,
-  // you land back on the board), which unmounts the panel.
+  // Gate the page behind the PIN: the gear opens the gate; a correct entry
+  // hands off to the page. Two flags so the gate can close before the page
+  // mounts (no double overlay flash).
+  const [gateOpen, setGateOpen] = useState(false);
+  const [pageOpen, setPageOpen] = useState(false);
+  // Full-screen overlays launched from the page. Hosted here, not inside
+  // SettingsPage: both close the page behind them (Tesla-style, you land back
+  // on the board), which unmounts the page.
   const [levelOpen, setLevelOpen] = useState(false);
   const [cleanOpen, setCleanOpen] = useState(false);
 
@@ -25,7 +32,7 @@ export function SettingsButton() {
       <button
         type="button"
         aria-label="Settings"
-        onClick={() => setOpen(true)}
+        onClick={() => setGateOpen(true)}
         style={{
           position: "absolute",
           bottom: 16,
@@ -49,26 +56,27 @@ export function SettingsButton() {
       >
         <Icon name="settings" s={22} />
       </button>
-      <Modal
-        open={open}
-        onClose={() => setOpen(false)}
+      <PinGateModal
+        open={gateOpen}
         title="Settings"
-        width={460}
-        maxHeight={640}
-        scrollbar="visible"
-      >
-        <SettingsPanel
-          onClose={() => setOpen(false)}
-          onOpenLevel={() => {
-            setOpen(false);
-            setLevelOpen(true);
-          }}
-          onOpenClean={() => {
-            setOpen(false);
-            setCleanOpen(true);
-          }}
-        />
-      </Modal>
+        onClose={() => setGateOpen(false)}
+        onSuccess={() => {
+          setGateOpen(false);
+          setPageOpen(true);
+        }}
+      />
+      <SettingsPage
+        open={pageOpen}
+        onClose={() => setPageOpen(false)}
+        onOpenLevel={() => {
+          setPageOpen(false);
+          setLevelOpen(true);
+        }}
+        onOpenClean={() => {
+          setPageOpen(false);
+          setCleanOpen(true);
+        }}
+      />
       <LevelOverlay open={levelOpen} onClose={() => setLevelOpen(false)} />
       <CleanScreenOverlay open={cleanOpen} onClose={() => setCleanOpen(false)} />
     </>
