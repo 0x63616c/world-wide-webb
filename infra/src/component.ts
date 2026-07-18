@@ -214,6 +214,15 @@ export interface RenderedCronJob {
 
 const NFS_MOUNT_OPTIONS = ["nfsvers=3", "nolock", "tcp"];
 
+/**
+ * Declared capacity for statically-provisioned NFS PVs (pg-backup, media
+ * mounts). Kubernetes does not enforce capacity on NFS volumes , the real
+ * ceiling is the NAS export's free space , but the declaration should stay
+ * ahead of actual usage so the objects read honestly (the pg dumps outgrew the
+ * old 1Gi label once frontend logs landed in Postgres).
+ */
+const NFS_PV_CAPACITY = "10Gi";
+
 function sizeToMib(size: string): number {
   const m = /^(\d+(?:\.\d+)?)\s*([KMG])?i?B?$/i.exec(size.trim());
   if (!m) throw new Error(`unparseable memory size: ${size}`);
@@ -308,7 +317,7 @@ function buildPod(p: PodInputs): {
       persistentVolumes.push({
         metadata: { name: pvName },
         spec: {
-          capacity: { storage: "1Gi" },
+          capacity: { storage: NFS_PV_CAPACITY },
           accessModes: ["ReadWriteMany"],
           mountOptions: NFS_MOUNT_OPTIONS,
           nfs: { server: vol.nfs.server, path: vol.nfs.path },
@@ -321,7 +330,7 @@ function buildPod(p: PodInputs): {
           accessModes: ["ReadWriteMany"],
           storageClassName: "",
           volumeName: pvName,
-          resources: { requests: { storage: "1Gi" } },
+          resources: { requests: { storage: NFS_PV_CAPACITY } },
         },
       });
       podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: pvName } });
