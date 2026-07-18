@@ -5,6 +5,7 @@ import {
   formatTilt,
   isLevel,
   normalizeDegrees,
+  pitchFromGravity,
   tiltFromGravity,
 } from "./tilt";
 
@@ -130,5 +131,39 @@ describe("averageWindow", () => {
   it("smooths jitter that per-reading publishing would expose", () => {
     const samples = [-0.5, 0.5, -0.4, 0.4].map((angle, i) => ({ t: 1000 + i * 10, angle }));
     expect(averageWindow(samples, 1040, 250)).toBeCloseTo(0, 5);
+  });
+});
+
+describe("pitchFromGravity", () => {
+  it("reads 0 for a panel hanging flush against the wall", () => {
+    expect(pitchFromGravity(0, -G, 0)).toBeCloseTo(0, 5);
+  });
+
+  it("is positive when the panel leans back, top away from the viewer", () => {
+    // Leaning back by `deg` swings gravity out of the screen plane toward +z.
+    const deg = 10;
+    const rad = (deg * Math.PI) / 180;
+    expect(pitchFromGravity(0, -G * Math.cos(rad), G * Math.sin(rad))).toBeCloseTo(deg, 5);
+  });
+
+  it("is negative when the panel leans forward, top toward the viewer", () => {
+    const rad = (10 * Math.PI) / 180;
+    expect(pitchFromGravity(0, -G * Math.cos(rad), -G * Math.sin(rad))).toBeCloseTo(-10, 5);
+  });
+
+  it("reads +90 lying face-up on a table", () => {
+    expect(pitchFromGravity(0, 0, G)).toBeCloseTo(90, 5);
+  });
+
+  it("ignores rotation within the screen plane (no screenAngle needed)", () => {
+    const rad = (10 * Math.PI) / 180;
+    const gz = G * Math.sin(rad);
+    const inPlane = G * Math.cos(rad);
+    // Same lean, panel rolled 90 degrees within the wall: pitch is unchanged.
+    expect(pitchFromGravity(0, -inPlane, gz)).toBeCloseTo(pitchFromGravity(inPlane, 0, gz) ?? 0, 5);
+  });
+
+  it("returns null for a reading with no usable magnitude", () => {
+    expect(pitchFromGravity(0, 0, 0)).toBe(null);
   });
 });

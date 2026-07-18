@@ -40,6 +40,31 @@ export function tiltFromGravity(gx: number, gy: number, screenAngle: number): nu
 }
 
 /**
+ * Screen-relative PITCH from a devicemotion gravity reading, in degrees.
+ *
+ * Roll (above) measures rotation within the plane of the wall; pitch measures
+ * how far the panel leans out of it , the other thing you care about when
+ * hanging a screen. Zero means perfectly vertical (the gravity vector lies in
+ * the screen plane, so its out-of-plane component `gz` is nil); POSITIVE means
+ * the panel is leaning BACK, top away from the viewer, screen tipped toward the
+ * ceiling.
+ *
+ * Unlike roll this needs no `screenAngle`: `gz` is normal to the display, so it
+ * is unaffected by how the rendered screen is rotated within that plane , which
+ * also sidesteps the iPadOS screen-orientation mis-reporting that forces roll
+ * through cardinalDeviation.
+ *
+ * Returns null when the reading has no usable magnitude (sensor garbage).
+ */
+export function pitchFromGravity(gx: number, gy: number, gz: number): number | null {
+  const inPlane = Math.hypot(gx, gy);
+  if (Math.hypot(inPlane, gz) < 1) return null;
+  // Angle of gravity out of the screen plane. Face-up on a table reads +90°,
+  // hanging flush on a wall reads 0°.
+  return (Math.atan2(gz, inPlane) * 180) / Math.PI;
+}
+
+/**
  * Deviation from the nearest quarter-turn, in degrees, in [-45, 45].
  *
  * The wall panel always hangs a whole number of quarter-turns from portrait,

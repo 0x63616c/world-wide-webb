@@ -15,6 +15,16 @@ import type { TiltReading } from "../lib/useTiltAngle";
 // extreme angles on the 1366x1024 panel.
 const PLANE_OVERDRAW = "-60%";
 
+// Pitch travel: how far the flat horizon rides per degree of lean, and the lean
+// past which it stops moving (beyond ~20° off the wall the number is the useful
+// readout, not the graphic).
+const PITCH_PX_PER_DEG = 18;
+const PITCH_RANGE_DEG = 20;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 const DASH: React.CSSProperties = {
   position: "absolute",
   top: "50%",
@@ -22,14 +32,19 @@ const DASH: React.CSSProperties = {
   height: 2,
 };
 
+/** Which tilt the level is showing: roll (left/right) or pitch (forward/back). */
+export type LevelAxis = "roll" | "pitch";
+
 export interface LevelOverlayViewProps {
   reading: TiltReading;
+  axis: LevelAxis;
+  onSwapAxis: () => void;
   onClose: () => void;
 }
 
-export function LevelOverlayView({ reading, onClose }: LevelOverlayViewProps) {
+export function LevelOverlayView({ reading, axis, onSwapAxis, onClose }: LevelOverlayViewProps) {
   const ready = reading.state === "ready";
-  const angle = ready ? reading.angle : 0;
+  const angle = ready ? (axis === "pitch" ? reading.pitch : reading.angle) : 0;
   const level = ready && isLevel(angle);
 
   return (
@@ -57,9 +72,16 @@ export function LevelOverlayView({ reading, onClose }: LevelOverlayViewProps) {
             top: "-160%",
             height: "210%",
             background: "#fff",
-            // CSS rotate is clockwise-positive: -angle lifts the right edge
-            // of the plane for a positive (right-side-high) tilt.
-            transform: `rotate(${-angle}deg)`,
+            // Roll is a rotation IN the wall plane, so the horizon rotates: CSS
+            // rotate is clockwise-positive, so -angle lifts the plane's right
+            // edge for a positive (right-side-high) tilt. Pitch is a lean OUT of
+            // that plane, which no rotation honestly depicts , the horizon stays
+            // flat and rides up as the panel leans back, like a bubble seen edge
+            // on.
+            transform:
+              axis === "pitch"
+                ? `translateY(${-clamp(angle, -PITCH_RANGE_DEG, PITCH_RANGE_DEG) * PITCH_PX_PER_DEG}px)`
+                : `rotate(${-angle}deg)`,
             transformOrigin: "50% 100%",
           }}
         />
@@ -101,8 +123,38 @@ export function LevelOverlayView({ reading, onClose }: LevelOverlayViewProps) {
       >
         {reading.state === "unavailable"
           ? "Tilt unavailable on this device. Tap anywhere to close."
-          : "Rotate the mount toward 0. Tap anywhere to close."}
+          : axis === "pitch"
+            ? "Tilt the mount toward the wall until 0. Tap anywhere to close."
+            : "Rotate the mount toward 0. Tap anywhere to close."}
       </div>
+
+      {/* Axis swap. The overlay always opens on left/right (the mount error you
+          normally chase); forward/back is a deliberate per-viewing choice, so it
+          is never persisted and never surfaces in the settings modal's readout.
+          stopPropagation keeps the tap off the close-anywhere backdrop. */}
+      <button
+        type="button"
+        data-testid="level-axis-swap"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSwapAxis();
+        }}
+        style={{
+          position: "absolute",
+          bottom: 28,
+          right: 28,
+          padding: "10px 16px",
+          borderRadius: 999,
+          border: "1px solid rgba(255,255,255,0.35)",
+          background: "rgba(0,0,0,0.35)",
+          color: "#fff",
+          font: "inherit",
+          fontSize: 14,
+          cursor: "pointer",
+        }}
+      >
+        {axis === "pitch" ? "Left / right" : "Forward / back"}
+      </button>
     </div>
   );
 }
