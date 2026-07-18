@@ -566,7 +566,9 @@ const LOCAL_PATH_CLAIMS: { name: string; size: string }[] = [
 // `bedroom` is the raw RTSP pull; `bedroom_mjpeg` is the ffmpeg transcode the
 // browser tile consumes, downscaled to 960px wide (full 1080p MJPEG is ~7 Mbps,
 // wasteful for a small tile).
-function composeGo2rtcConfig(vault: Record<string, string>): string {
+//
+// @public - pure YAML assembly, unit-tested in infra/test/services.test.ts.
+export function composeGo2rtcConfig(vault: Record<string, string>): string {
   const required = [
     "EUFY_BEDROOM_CAM__HOST",
     "EUFY_BEDROOM_CAM__RTSP_USERNAME",
@@ -595,6 +597,22 @@ function composeGo2rtcConfig(vault: Record<string, string>): string {
   ].join("\n");
 }
 
+// The GHCR org account the imagePullSecret authenticates as (org-owned PAT).
+const GHCR_USERNAME = "0x63616c";
+
+// The `.dockerconfigjson` payload for the GHCR imagePullSecret: a docker
+// config.json with a single `ghcr.io` auth entry. `auth` is base64("user:pat"),
+// which docker/kubelet decode for the registry Basic-auth header (username and
+// password are also carried plainly, mirroring what `docker login` writes).
+//
+// @public - pure JSON assembly, unit-tested in infra/test/services.test.ts.
+export function composeGhcrDockerConfigJson(pat: string): string {
+  const authB64 = Buffer.from(`${GHCR_USERNAME}:${pat}`).toString("base64");
+  return JSON.stringify({
+    auths: { "ghcr.io": { username: GHCR_USERNAME, password: pat, auth: authB64 } },
+  });
+}
+
 /**
  * @public - the GHCR imagePullSecret (ESO dockerconfigjson), the HA headless
  * Service, and every app Workload. Consumed by the cluster program (www-j934.6).
@@ -618,10 +636,7 @@ export function deployServices(args: ServicesArgs): ServicesResources {
   // The token is wrapped in pulumi.secret() so it's encrypted in Pulumi state.
   const pat = vault.GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN;
   if (!pat) throw new Error("vault key GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN not found");
-  const authB64 = Buffer.from(`0x63616c:${pat}`).toString("base64");
-  const dockerconfigjson = JSON.stringify({
-    auths: { "ghcr.io": { username: "0x63616c", password: pat, auth: authB64 } },
-  });
+  const dockerconfigjson = composeGhcrDockerConfigJson(pat);
   const ghcrPullSecrets = GHCR_PULL_SECRET_NAMESPACES.map(
     (namespaceName) =>
       new k8s.core.v1.Secret(
