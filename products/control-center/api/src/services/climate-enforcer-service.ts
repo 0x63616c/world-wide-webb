@@ -24,14 +24,14 @@
  * only manages the one configured house thermostat.
  */
 
-import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index";
 import type { DeviceClimateState } from "../db/schema";
-import { deviceState, integrationSyncStatus } from "../db/schema";
+import { deviceState } from "../db/schema";
 import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
+import { windowOpen } from "./command-window";
 import {
   climateStateConverged,
   DeviceKind,
@@ -41,6 +41,7 @@ import {
   mapHaToReported,
   sanitizeClimateDesired,
 } from "./device-state-mapping";
+import { heartbeat, runCycle } from "./integration-heartbeat";
 
 const CLIMATE_ENFORCER_INTEGRATION_ID = "climate-enforcer";
 
@@ -102,8 +103,7 @@ export function decideClimateEnforcement(
   // absorb it as the new intent (www-qktc). The adopted desired is the commandable
   // slice of reported; while conditioning the reported fan_mode is the AC
   // asserting its blower (www-pu4m), not intent , keep the prior desired fan.
-  const windowOpen = device.desiredUntilUtc != null && now < device.desiredUntilUtc;
-  if (!windowOpen) {
+  if (!windowOpen(device, now)) {
     const adopted = sanitizeClimateDesired(reported);
     if (conditioning) {
       delete adopted.fanMode;
@@ -121,17 +121,11 @@ export function decideClimateEnforcement(
 }
 
 export async function runClimateEnforcerCycle(): Promise<void> {
-  try {
+  await runCycle(heartbeat(CLIMATE_ENFORCER_INTEGRATION_ID), "climate-enforcer", async () => {
     const entities = await ha.getEntities("climate");
     const entity = entities.find((e) => e.entity_id === env.CLIMATE_ENTITY_ID);
     await reconcileClimate(entity);
-    await markHeartbeat(null);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const consecutiveFailures = (await currentFailureStreak()) + 1;
-    getLogger().error({ err, consecutiveFailures }, "climate-enforcer cycle failed");
-    await markHeartbeat(msg);
-  }
+  });
 }
 
 async function reconcileClimate(entity: HaEntity | undefined): Promise<void> {
@@ -274,32 +268,6 @@ async function pushToHa(entityId: string, desired: DeviceClimateState): Promise<
       fan_mode: desired.fanMode,
     });
   }
-}
-
-async function markHeartbeat(error: string | null): Promise<void> {
-  const now = new Date();
-  const consecutiveFailures = error ? (await currentFailureStreak()) + 1 : 0;
-  await db
-    .insert(integrationSyncStatus)
-    .values({
-      integrationId: CLIMATE_ENFORCER_INTEGRATION_ID,
-      lastPolledAtUtc: now,
-      lastError: error,
-      consecutiveFailures,
-    })
-    .onConflictDoUpdate({
-      target: integrationSyncStatus.integrationId,
-      set: { lastPolledAtUtc: now, lastError: error, consecutiveFailures },
-    });
-}
-
-async function currentFailureStreak(): Promise<number> {
-  const rows = await db
-    .select({ n: integrationSyncStatus.consecutiveFailures })
-    .from(integrationSyncStatus)
-    .where(eq(integrationSyncStatus.integrationId, CLIMATE_ENFORCER_INTEGRATION_ID))
-    .limit(1);
-  return rows[0]?.n ?? 0;
 }
 
 /** The stable device_state id of the singleton thermostat row (for reads). */

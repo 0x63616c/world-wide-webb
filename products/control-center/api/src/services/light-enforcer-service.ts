@@ -22,15 +22,17 @@ import { LampMode } from "../config/lamp-scenes";
 import { findLight, LIGHTS, LightControl, LightKind, lightControl } from "../config/lights";
 import { db } from "../db/index";
 import type { DeviceLightState, LightColor } from "../db/schema";
-import { deviceState, integrationSyncStatus, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
+import { deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
+import { windowOpen } from "./command-window";
 import {
   HaLightService,
   isLightState,
   type MappedHaState,
   mapHaToReported,
 } from "./device-state-mapping";
+import { heartbeat, runCycle } from "./integration-heartbeat";
 
 const ENFORCER_INTEGRATION_ID = "light-enforcer";
 const ENFORCER_DOMAINS = ["light", "switch"] as const;
@@ -146,8 +148,7 @@ export function decideEnforcement(
 
   // Inside the app-command window: the freshly-set desired wins regardless of
   // policy until it converges or the window expires.
-  const inCommandWindow = device.desiredUntilUtc != null && now < device.desiredUntilUtc;
-  if (inCommandWindow) return { kind: "push", desired: device.desiredState };
+  if (windowOpen(device, now)) return { kind: "push", desired: device.desiredState };
 
   return lightControl(device) === LightControl.Enforce
     ? { kind: "push", desired: device.desiredState }
@@ -164,16 +165,10 @@ function buildTurnOnParams(entityId: string, desired: DeviceLightState): Record<
 }
 
 export async function runEnforcerCycle(): Promise<void> {
-  try {
+  await runCycle(heartbeat(ENFORCER_INTEGRATION_ID), "light-enforcer", async () => {
     const snapshot = await fetchSnapshot();
     await reconcile(snapshot);
-    await markHeartbeat(null);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const consecutiveFailures = (await currentFailureStreak()) + 1;
-    getLogger().error({ err, consecutiveFailures }, "light-enforcer cycle failed");
-    await markHeartbeat(msg);
-  }
+  });
 }
 
 async function fetchSnapshot(): Promise<Map<string, HaEntity>> {
@@ -319,30 +314,4 @@ async function applyDecision(
       return;
     }
   }
-}
-
-async function markHeartbeat(error: string | null): Promise<void> {
-  const now = new Date();
-  const consecutiveFailures = error ? (await currentFailureStreak()) + 1 : 0;
-  await db
-    .insert(integrationSyncStatus)
-    .values({
-      integrationId: ENFORCER_INTEGRATION_ID,
-      lastPolledAtUtc: now,
-      lastError: error,
-      consecutiveFailures,
-    })
-    .onConflictDoUpdate({
-      target: integrationSyncStatus.integrationId,
-      set: { lastPolledAtUtc: now, lastError: error, consecutiveFailures },
-    });
-}
-
-async function currentFailureStreak(): Promise<number> {
-  const rows = await db
-    .select({ n: integrationSyncStatus.consecutiveFailures })
-    .from(integrationSyncStatus)
-    .where(eq(integrationSyncStatus.integrationId, ENFORCER_INTEGRATION_ID))
-    .limit(1);
-  return rows[0]?.n ?? 0;
 }

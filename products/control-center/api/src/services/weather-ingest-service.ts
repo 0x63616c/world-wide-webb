@@ -1,9 +1,9 @@
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "../db/index";
-import { integrationSyncStatus, weatherDailyReading, weatherReading } from "../db/schema";
+import { weatherDailyReading, weatherReading } from "../db/schema";
 import { env } from "../env";
+import { heartbeat } from "./integration-heartbeat";
 
 const INGEST_INTEGRATION_ID = "weather";
 
@@ -75,6 +75,7 @@ function hourBoundaryMs(): number {
 }
 
 export async function runWeatherIngestCycle(): Promise<void> {
+  const hb = heartbeat(INGEST_INTEGRATION_ID);
   try {
     const bundle = await fetchOpenMeteoBundle();
     const now = new Date();
@@ -116,38 +117,8 @@ export async function runWeatherIngestCycle(): Promise<void> {
     }));
     if (dailyRows.length > 0) await db.insert(weatherDailyReading).values(dailyRows);
 
-    await markHeartbeat(null);
+    await hb.ok();
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    await markHeartbeat(msg);
+    await hb.fail(err instanceof Error ? err.message : String(err));
   }
-}
-
-async function markHeartbeat(error: string | null): Promise<void> {
-  const now = new Date();
-  // Reset to 0 on success, increment the prior value on error so the column is
-  // a real consecutive-failure streak (www-355t.9). Single sequential poller, so
-  // the read-modify-write is race-free.
-  const consecutiveFailures = error ? (await currentFailureStreak()) + 1 : 0;
-  await db
-    .insert(integrationSyncStatus)
-    .values({
-      integrationId: INGEST_INTEGRATION_ID,
-      lastPolledAtUtc: now,
-      lastError: error,
-      consecutiveFailures,
-    })
-    .onConflictDoUpdate({
-      target: integrationSyncStatus.integrationId,
-      set: { lastPolledAtUtc: now, lastError: error, consecutiveFailures },
-    });
-}
-
-async function currentFailureStreak(): Promise<number> {
-  const rows = await db
-    .select({ n: integrationSyncStatus.consecutiveFailures })
-    .from(integrationSyncStatus)
-    .where(eq(integrationSyncStatus.integrationId, INGEST_INTEGRATION_ID))
-    .limit(1);
-  return rows[0]?.n ?? 0;
 }

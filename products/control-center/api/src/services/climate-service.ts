@@ -7,13 +7,8 @@ import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 import { CLIMATE_DEVICE_ID } from "./climate-enforcer-service";
+import { stampCommandWindow } from "./command-window";
 import { isClimateState, mergeDeviceState, sanitizeClimateDesired } from "./device-state-mapping";
-
-// App-command window for climate mutations (www-unxz.2): a mutation writes desired
-// + this window and returns; the climate enforcer pushes desired→HA within its
-// ~1s cycle. 10s covers slow HA round-trips. Mirrors COMMAND_WINDOW_MS in
-// controls-service.
-const CLIMATE_COMMAND_WINDOW_MS = 10_000;
 
 export const HvacMode = {
   Off: "off",
@@ -168,7 +163,7 @@ function toClimateState(climate: DeviceClimateState): ClimateState {
  */
 async function writeClimateDesired(patch: Partial<DeviceClimateState>): Promise<ClimateState> {
   const now = new Date();
-  const desiredUntil = new Date(now.getTime() + CLIMATE_COMMAND_WINDOW_MS);
+  const desiredUntil = stampCommandWindow(now);
   const rows = await db
     .select()
     .from(deviceState)

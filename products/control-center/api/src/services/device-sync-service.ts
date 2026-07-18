@@ -1,11 +1,11 @@
-import { getLogger } from "@www/logger";
 import { and, eq, isNotNull, lt } from "drizzle-orm";
 import { findLight } from "../config/lights";
 import { db } from "../db/index";
-import { deviceState, integrationSyncStatus } from "../db/schema";
+import { deviceState } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 import { DeviceKind, mapHaToReported, stateEquals } from "./device-state-mapping";
+import { heartbeat, runCycle } from "./integration-heartbeat";
 
 const SYNC_INTEGRATION_ID = "homeassistant";
 // Fan-only since the M2 cutover (www-7d5b.2.6): the light enforcer
@@ -37,16 +37,10 @@ function isEnforcerManagedSpeaker(device: { kind: string }): boolean {
 // www-7d5b.1.2) , this module only exposes the single cycle plus the pure
 // reconcile/sweep helpers it composes.
 export async function runDeviceSyncCycle(): Promise<void> {
-  try {
+  await runCycle(heartbeat(SYNC_INTEGRATION_ID), "device-sync", async () => {
     const snapshot = await fetchSnapshot();
     await reconcile(snapshot);
-    await markHeartbeat(null);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const consecutiveFailures = (await currentFailureStreak()) + 1;
-    getLogger().error({ err, consecutiveFailures }, "device-sync cycle failed");
-    await markHeartbeat(msg);
-  }
+  });
 }
 
 async function fetchSnapshot(): Promise<Map<string, HaEntity>> {
@@ -129,37 +123,4 @@ export async function sweepExpiredWindows(now: Date): Promise<void> {
       .set({ desiredUntilUtc: null, desiredState: null, desiredAtUtc: null })
       .where(eq(deviceState.id, device.id));
   }
-}
-
-async function markHeartbeat(error: string | null): Promise<void> {
-  const now = new Date();
-  // consecutiveFailures is a real streak counter: reset to 0 on success,
-  // increment the prior value on error (www-355t.9). A single in-process poller
-  // runs ticks sequentially, so this read-modify-write is race-free.
-  const consecutiveFailures = error ? (await currentFailureStreak()) + 1 : 0;
-  await db
-    .insert(integrationSyncStatus)
-    .values({
-      integrationId: SYNC_INTEGRATION_ID,
-      lastPolledAtUtc: now,
-      lastError: error,
-      consecutiveFailures,
-    })
-    .onConflictDoUpdate({
-      target: integrationSyncStatus.integrationId,
-      set: {
-        lastPolledAtUtc: now,
-        lastError: error,
-        consecutiveFailures,
-      },
-    });
-}
-
-async function currentFailureStreak(): Promise<number> {
-  const rows = await db
-    .select({ n: integrationSyncStatus.consecutiveFailures })
-    .from(integrationSyncStatus)
-    .where(eq(integrationSyncStatus.integrationId, SYNC_INTEGRATION_ID))
-    .limit(1);
-  return rows[0]?.n ?? 0;
 }

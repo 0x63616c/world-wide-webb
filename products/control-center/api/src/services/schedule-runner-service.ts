@@ -5,6 +5,7 @@ import { findLight, findLightById, LightKind } from "../config/lights";
 import { db } from "../db/index";
 import type { DeviceLightState } from "../db/schema";
 import { deviceState, lightSchedules } from "../db/schema";
+import { stampCommandWindow } from "./command-window";
 import { DeviceKind } from "./device-state-mapping";
 import { actionEndpoints, type FadeEndpoint, interpolateLight } from "./schedule-fade";
 import {
@@ -13,10 +14,6 @@ import {
   localDateKey,
   type ScheduleRow,
 } from "./schedule-service";
-
-// Mirror controls-service: the enforcer pushes desired→HA regardless of policy
-// while now < desiredUntilUtc, so a freshly-written desired is honored promptly.
-const COMMAND_WINDOW_MS = 10_000;
 
 interface Fade {
   end: FadeEndpoint;
@@ -61,7 +58,7 @@ async function writeDesired(entityId: string, desired: DeviceLightState): Promis
   const light = findLight(entityId);
   if (!light) return;
   const now = new Date();
-  const desiredUntil = new Date(now.getTime() + COMMAND_WINDOW_MS);
+  const desiredUntil = stampCommandWindow(now);
   await db
     .insert(deviceState)
     .values({

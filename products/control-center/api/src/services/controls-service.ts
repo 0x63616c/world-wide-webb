@@ -22,6 +22,7 @@ import type { DeviceClimateState, DeviceLightState, LightColor } from "../db/sch
 import { deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import { CLIMATE_DEVICE_ID } from "./climate-enforcer-service";
+import { stampCommandWindow } from "./command-window";
 import { DeviceKind, isClimateState, mergeDeviceState } from "./device-state-mapping";
 
 // ─── types ───────────────────────────────────────────────────────────────────
@@ -82,14 +83,6 @@ export const FanMode = {
   Auto: "auto",
 } as const;
 export type FanMode = (typeof FanMode)[keyof typeof FanMode];
-
-// The app-command window (www-unxz.1). A control mutation writes desired and
-// returns WITHOUT actuating HA , the enforcer pushes desired→HA. While
-// `now < desiredUntilUtc` the enforcer pushes regardless of control policy, so a
-// freshly-set desired is honored even on an `adopt` wall-switch fixture (which
-// would otherwise revert it on the next cycle). The enforcer runs ~1s; 10s covers
-// slow HA round-trips so the desired is pushed before the window lapses.
-const COMMAND_WINDOW_MS = 10_000;
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -378,7 +371,7 @@ async function writeDesired(
   }
   const rowByEntityId = new Map(rows.map((r) => [r.entityId, r]));
   const now = new Date();
-  const desiredUntil = new Date(now.getTime() + COMMAND_WINDOW_MS);
+  const desiredUntil = stampCommandWindow(now);
 
   await Promise.all(
     entries.map(async (entry) => {
@@ -424,7 +417,7 @@ async function writeDesired(
  */
 async function writeFanDesired(fanMode: FanMode): Promise<void> {
   const now = new Date();
-  const desiredUntil = new Date(now.getTime() + COMMAND_WINDOW_MS);
+  const desiredUntil = stampCommandWindow(now);
   try {
     const rows = await db
       .select()

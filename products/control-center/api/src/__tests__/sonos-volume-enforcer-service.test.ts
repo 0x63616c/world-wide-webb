@@ -55,11 +55,11 @@ vi.mock("../integrations/sonos", async (importOriginal) => {
 // ─── import after mocks ───────────────────────────────────────────────────────
 
 import type { DeviceSpeakerState } from "../db/schema";
+import { COMMAND_WINDOW_MS } from "../services/command-window";
 import { TOPOLOGY_ANCHOR_IP } from "../services/sonos-sound-system-service";
 import {
   decideSpeakerEnforcement,
   runSonosVolumeEnforcerCycle,
-  SPEAKER_COMMAND_WINDOW_MS,
   SPEAKER_MAX_VOLUME,
   setSpeakerDesiredVolume,
 } from "../services/sonos-volume-enforcer-service";
@@ -259,7 +259,7 @@ describe("setSpeakerDesiredVolume", () => {
       desiredState: { volume: 42 },
     });
     const until = (inserted.desiredUntilUtc as Date).getTime();
-    expect(until).toBeGreaterThanOrEqual(before + SPEAKER_COMMAND_WINDOW_MS);
+    expect(until).toBeGreaterThanOrEqual(before + COMMAND_WINDOW_MS);
 
     expect(onConflictDoUpdate).toHaveBeenCalledTimes(1);
     const conflict = onConflictDoUpdate.mock.calls[0][0] as { set: Record<string, unknown> };

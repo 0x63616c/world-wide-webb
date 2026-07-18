@@ -21,18 +21,15 @@ import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index";
 import type { DeviceSpeakerState } from "../db/schema";
-import { deviceState, integrationSyncStatus } from "../db/schema";
+import { deviceState } from "../db/schema";
 import { SonosClient } from "../integrations/sonos";
+import { stampCommandWindow, windowOpen } from "./command-window";
 import { DeviceKind, isSpeakerState } from "./device-state-mapping";
+import { heartbeat, runCycle } from "./integration-heartbeat";
 import { DESK_RF_BONDED_UUID, TOPOLOGY_ANCHOR_IP } from "./sonos-sound-system-service";
 
 const ENFORCER_INTEGRATION_ID = "sonos-volume-enforcer";
 const SPEAKER_DOMAIN = "sonos";
-
-// Same window length as the light/climate command window: long enough for the
-// enforcer to win a race with a stale read, short enough that the Sonos app
-// regains control almost immediately after a dashboard tap settles.
-export const SPEAKER_COMMAND_WINDOW_MS = 10_000;
 
 // Backend-only hard volume cap (www-0wbm). Sonos exposes no device-level limit
 // over UPnP and HA has no entity for it, so we enforce it here: the enforcer
@@ -92,8 +89,7 @@ export function decideSpeakerEnforcement(
   const target = capVolume(speaker.desiredState.volume);
   if (reported.volume === target) return { kind: "noop" };
 
-  const inCommandWindow = speaker.desiredUntilUtc != null && now < speaker.desiredUntilUtc;
-  if (inCommandWindow) return { kind: "push", desired: { volume: target } };
+  if (windowOpen(speaker, now)) return { kind: "push", desired: { volume: target } };
 
   // Outside the window: an external change at/below the cap is adopted as the new
   // intent (Sonos app / hardware buttons win). Above the cap it is NOT honored ,
@@ -136,7 +132,7 @@ export async function setSpeakerDesiredVolume({
       label: deviceIp,
       desiredState: desired,
       desiredAtUtc: now,
-      desiredUntilUtc: new Date(now.getTime() + SPEAKER_COMMAND_WINDOW_MS),
+      desiredUntilUtc: stampCommandWindow(now),
       available: true,
     })
     .onConflictDoUpdate({
@@ -144,20 +140,13 @@ export async function setSpeakerDesiredVolume({
       set: {
         desiredState: desired,
         desiredAtUtc: now,
-        desiredUntilUtc: new Date(now.getTime() + SPEAKER_COMMAND_WINDOW_MS),
+        desiredUntilUtc: stampCommandWindow(now),
       },
     });
 }
 
 export async function runSonosVolumeEnforcerCycle(): Promise<void> {
-  try {
-    await reconcile();
-    await markHeartbeat(null);
-  } catch (err) {
-    const consecutiveFailures = (await currentFailureStreak()) + 1;
-    getLogger().error({ err, consecutiveFailures }, "sonos-volume-enforcer cycle failed");
-    await markHeartbeat(err instanceof Error ? err.message : String(err));
-  }
+  await runCycle(heartbeat(ENFORCER_INTEGRATION_ID), "sonos-volume-enforcer", reconcile);
 }
 
 interface LivePlayer {
@@ -311,30 +300,4 @@ async function applyDecision(
       return;
     }
   }
-}
-
-async function markHeartbeat(error: string | null): Promise<void> {
-  const now = new Date();
-  const consecutiveFailures = error ? (await currentFailureStreak()) + 1 : 0;
-  await db
-    .insert(integrationSyncStatus)
-    .values({
-      integrationId: ENFORCER_INTEGRATION_ID,
-      lastPolledAtUtc: now,
-      lastError: error,
-      consecutiveFailures,
-    })
-    .onConflictDoUpdate({
-      target: integrationSyncStatus.integrationId,
-      set: { lastPolledAtUtc: now, lastError: error, consecutiveFailures },
-    });
-}
-
-async function currentFailureStreak(): Promise<number> {
-  const rows = await db
-    .select({ n: integrationSyncStatus.consecutiveFailures })
-    .from(integrationSyncStatus)
-    .where(eq(integrationSyncStatus.integrationId, ENFORCER_INTEGRATION_ID))
-    .limit(1);
-  return rows[0]?.n ?? 0;
 }
