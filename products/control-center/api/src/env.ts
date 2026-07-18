@@ -52,6 +52,7 @@ const SECRET_FILE_ENV = [
   "ASC_KEY_ID",
   "ASC_ISSUER_ID",
   "ASC_KEY_CONTENT",
+  "GITHUB_ACTIONS_TOKEN",
 ] as const;
 export function hydrateSecretFiles(
   src: Record<string, string | undefined> = process.env,
@@ -138,6 +139,15 @@ export const envSchema = z.object({
   ASC_ISSUER_ID: z.string().default(""),
   ASC_KEY_CONTENT: z.string().default(""),
   ASC_APP_ID: z.string().default("6762095888"),
+
+  // GitHub PAT for the worker's github-actions deploy poller (Deploys tile).
+  // Optional , empty string disables the poll so api/worker boot without it.
+  // Named GITHUB_ACTIONS_TOKEN, deliberately NOT GITHUB_TOKEN , that name is
+  // the Actions built-in and reserved (docs/secrets-sops-migration/GOAL.md).
+  // Only the worker uses it; the api never calls GitHub.
+  GITHUB_ACTIONS_TOKEN: z.string().default(""),
+  // The repo the deploy poller watches. Not secret.
+  GITHUB_REPO: z.string().default("0x63616c/world-wide-webb"),
 
   // go2rtc, the in-cluster RTSP -> MJPEG bridge for the Camera tile. It holds
   // the camera's RTSP credentials in its own mounted config Secret, so nothing

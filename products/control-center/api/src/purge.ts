@@ -21,6 +21,7 @@
 import { createLogger } from "@www/logger";
 import { db, pool } from "./db/index";
 import { purgeFrontendLogs } from "./services/frontend-log-purge-service";
+import { purgeGithubRuns } from "./services/github-purge-service";
 import { purgePortalData } from "./services/portal-purge-service";
 import { purgeWakePhotos } from "./services/wake-photo-purge-service";
 import { purgeWeatherData } from "./services/weather-purge-service";
@@ -32,8 +33,16 @@ try {
   const weather = await purgeWeatherData(db);
   const frontendLogs = await purgeFrontendLogs(db);
   const wakePhotos = await purgeWakePhotos(db);
+  const github = await purgeGithubRuns(db);
   log.info(
-    { ...portal, ...weather, frontendLogs: frontendLogs.logs, wakePhotos: wakePhotos.photos },
+    {
+      ...portal,
+      ...weather,
+      frontendLogs: frontendLogs.logs,
+      wakePhotos: wakePhotos.photos,
+      githubRuns: github.runs,
+      githubLogTails: github.logTails,
+    },
     "data purge complete",
   );
   if (weather.truncated) {

@@ -18,6 +18,7 @@ import {
   runClimateEnforcerCycle,
   runDeviceSyncCycle,
   runEnforcerCycle,
+  runGithubPollCycle,
   runMigrations,
   runScheduleRunnerCycle,
   runSonosVolumeEnforcerCycle,
@@ -99,6 +100,16 @@ const workers: Worker[] = [
     intervalMs: 5 * 60_000,
     runOnStart: true,
     run: runWeatherIngestCycle,
+  },
+  {
+    // GitHub Actions deploy poller (Deploys tile): 10s tick, but the cycle
+    // self-gates to one real poll per 60s while no run is in flight, so idle
+    // cost is ~60 req/hr and a deploy is picked up within 10s. A no-op when
+    // GITHUB_ACTIONS_TOKEN is unset.
+    name: "github-actions-poll",
+    intervalMs: 10_000,
+    runOnStart: true,
+    run: runGithubPollCycle,
   },
   {
     // App Store Connect TestFlight-build poller: upserts the latest installable
