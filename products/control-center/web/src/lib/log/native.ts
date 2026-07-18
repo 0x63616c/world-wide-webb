@@ -81,12 +81,34 @@ let fsPromise: Promise<LogFilesystem | null> | null = null;
 // so rotation doesn't stat the file on every flush.
 let currentBytes = 0;
 
+/**
+ * Rebind the plugin onto a plain object. NEVER resolve a promise with the
+ * Capacitor plugin proxy itself: the proxy fabricates a method wrapper for ANY
+ * property , including `then` , so the engine's thenable unwrap on an async
+ * return dispatches a native "Filesystem.then" call, which rejects with
+ * `"then" is not implemented on ios` and poisons the whole fs promise chain
+ * (seen live on the panel, 2026-07-18). A plain object has no `then`, so
+ * awaiting it is inert.
+ */
+export function unproxyFilesystem(fs: LogFilesystem): LogFilesystem {
+  return {
+    appendFile: (o) => fs.appendFile(o),
+    writeFile: (o) => fs.writeFile(o),
+    readFile: (o) => fs.readFile(o),
+    stat: (o) => fs.stat(o),
+    getUri: (o) => fs.getUri(o),
+    rename: (o) => fs.rename(o),
+    deleteFile: (o) => fs.deleteFile(o),
+    mkdir: (o) => fs.mkdir(o),
+  };
+}
+
 async function loadFilesystem(): Promise<LogFilesystem | null> {
   try {
     const { Capacitor } = await import("@capacitor/core");
     if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable("Filesystem")) return null;
     const { Filesystem } = await import("@capacitor/filesystem");
-    return Filesystem as unknown as LogFilesystem;
+    return unproxyFilesystem(Filesystem as unknown as LogFilesystem);
   } catch {
     return null;
   }
@@ -108,10 +130,15 @@ async function init(fs: LogFilesystem): Promise<void> {
 
 function getFs(): Promise<LogFilesystem | null> {
   if (!fsPromise) {
-    fsPromise = loadFilesystem().then(async (fs) => {
-      if (fs) await init(fs);
-      return fs;
-    });
+    fsPromise = loadFilesystem()
+      .then(async (fs) => {
+        if (fs) await init(fs);
+        return fs;
+      })
+      // Belt and braces: getFs() must NEVER reject. Callers `await` it outside
+      // their try blocks (mirror-off is a return, not an error), so a rejection
+      // here becomes an unhandled-rejection storm on every flush.
+      .catch(() => null);
   }
   return fsPromise;
 }

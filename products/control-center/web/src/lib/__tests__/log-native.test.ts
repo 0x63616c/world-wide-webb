@@ -9,6 +9,7 @@ import {
   resetNativeForTests,
   restoreFromNative,
   setFilesystemForTests,
+  unproxyFilesystem,
   writeExportChunk,
 } from "../log/native";
 import type { LogEntry } from "../log/types";
@@ -244,6 +245,36 @@ describe("native log mirror", () => {
       expect(files.has(EXPORT)).toBe(false);
       expect(await getExportFileUri()).toBeNull();
     });
+  });
+
+  it("unproxyFilesystem strips the Capacitor proxy's fabricated thenability", async () => {
+    // The real plugin is a Proxy that manufactures a native method wrapper for
+    // ANY property , including `then`. Awaiting it (or resolving a promise
+    // with it, as an async return does) therefore dispatches "Filesystem.then"
+    // natively, which rejects with `"then" is not implemented on ios`.
+    const { fs } = makeFakeFs();
+    const proxyLike = new Proxy(fs as unknown as Record<string, unknown>, {
+      get(target, prop) {
+        if (prop in target) return target[prop as string];
+        // Every unknown property becomes a "plugin method" , so `then` makes
+        // the proxy a thenable whose unwrap fails, the exact shape that
+        // poisoned the panel's fs promise.
+        if (prop === "then") {
+          return (_res: unknown, rej: (e: Error) => void) =>
+            rej(new Error(`"then" is not implemented on ios`));
+        }
+        return () => Promise.reject(new Error(`"${String(prop)}" is not implemented on ios`));
+      },
+    }) as unknown as LogFilesystem;
+
+    // Sanity: the raw proxy IS a poisoned thenable.
+    await expect(Promise.resolve().then(() => proxyLike)).rejects.toThrow(/not implemented/);
+
+    // Wrapped: awaiting resolves to a working filesystem.
+    const wrapped = await Promise.resolve().then(() => unproxyFilesystem(proxyLike));
+    setFilesystemForTests(wrapped);
+    await nativeAppend([entry(1)]);
+    expect(await getMirrorFileUris()).toHaveLength(1);
   });
 
   it("rotates current to previous when the generation cap trips", async () => {
