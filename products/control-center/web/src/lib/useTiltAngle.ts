@@ -5,9 +5,10 @@
  * level view is open) so the always-on board never pays for sensor wakeups.
  * iOS 13+ gates motion events behind a permission prompt that must be raised
  * from a user gesture; `enabled` flips on a tap, so requesting lazily here
- * satisfies that. Readings are averaged over a trailing window and published
- * once per window , raw accelerometer jitter is ~0.5° at ~60Hz and the level
- * view should settle, not shiver.
+ * satisfies that. The published angle is a ROLLING mean of the trailing
+ * WINDOW_MS, recomputed on every sensor event: raw accelerometer jitter is
+ * ~0.5° at ~60Hz, so the mean is what keeps the readout from shivering, while
+ * still tracking a real rotation as fast as the sensor reports it.
  */
 
 import { useEffect, useState } from "react";
@@ -19,9 +20,9 @@ import {
   tiltFromGravity,
 } from "./tilt";
 
-// Trailing window that each published angle averages, and the interval at
-// which it is published. Long enough that hand jitter and sensor noise cancel,
-// short enough that rotating the mount still feels live.
+// Trailing window each published angle averages. Long enough that hand jitter
+// and sensor noise cancel, short enough that rotating the mount still feels
+// live. The window slides with every reading; it is not a publish interval.
 const WINDOW_MS = 250;
 
 export type TiltReading =
@@ -59,38 +60,34 @@ export function useTiltAngle(enabled: boolean): TiltReading {
     // Pitch rides its own window so the level view can swap axes instantly,
     // without re-subscribing (which on iOS would mean another permission gate).
     const pitchSamples: TiltSample[] = [];
-    // The sensor firing at all is what separates "no readings yet" from "lying
-    // flat, so the mount angle is undefined".
-    let sawEvent = false;
 
     function onMotion(event: DeviceMotionEvent) {
       const g = event.accelerationIncludingGravity;
       if (!g || g.x == null || g.y == null) return;
-      sawEvent = true;
       const now = performance.now();
 
       const pitch = g.z == null ? null : pitchFromGravity(g.x, g.y, g.z);
       if (pitch != null) pitchSamples.push({ t: now, angle: pitch });
 
       const roll = tiltFromGravity(g.x, g.y, screenAngle());
-      if (roll == null) return;
+      if (roll == null) {
+        // Lying flat: the mount angle is undefined, and stale samples from
+        // before it was laid down must not keep feeding the mean.
+        samples.length = 0;
+        pitchSamples.length = 0;
+        setReading((prev) => (prev.state === "unavailable" ? prev : { state: "unavailable" }));
+        return;
+      }
       // The panel hangs a whole number of quarter-turns from portrait, and
       // iPadOS can mis-report the webview's screen orientation by 90°; only
       // the deviation from the nearest cardinal angle is a mount error.
       samples.push({ t: now, angle: cardinalDeviation(roll) });
-    }
 
-    // One publish per window instead of one per reading: ~4 re-renders a
-    // second rather than ~60, and the displayed angle is an honest 250ms mean.
-    const publish = window.setInterval(() => {
-      const now = performance.now();
+      // Publish on every reading , the smoothing is the trailing mean, NOT a
+      // slow publish rate, so a real rotation tracks at the sensor's own pace.
       const mean = averageWindow(samples, now, WINDOW_MS);
+      if (mean == null) return;
       const pitchMean = averageWindow(pitchSamples, now, WINDOW_MS);
-      if (mean == null) {
-        if (sawEvent)
-          setReading((prev) => (prev.state === "unavailable" ? prev : { state: "unavailable" }));
-        return;
-      }
       // Publish at 0.1° resolution: variation below that is sensor noise, and
       // identical readings skip the re-render entirely.
       const quantized = Math.round(mean * 10) / 10;
@@ -100,7 +97,7 @@ export function useTiltAngle(enabled: boolean): TiltReading {
           ? prev
           : { state: "ready", angle: quantized, pitch: quantizedPitch },
       );
-    }, WINDOW_MS);
+    }
 
     async function subscribe() {
       const requestPermission = (DeviceMotionEvent as PermissionedDeviceMotion).requestPermission;
@@ -125,7 +122,6 @@ export function useTiltAngle(enabled: boolean): TiltReading {
 
     return () => {
       cancelled = true;
-      window.clearInterval(publish);
       window.removeEventListener("devicemotion", onMotion);
     };
   }, [enabled]);

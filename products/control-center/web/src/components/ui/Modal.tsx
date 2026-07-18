@@ -175,7 +175,10 @@ export function Modal({
             (flex:1), so the body stays within the 640px panel width. */}
         <div
           className={scrollbar === "visible" ? "modal-scroll-visible" : "modal-scroll"}
-          style={{ padding: 20, overflowY: "auto", flex: 1 }}
+          // minHeight:0 so a flex child that wants to shrink actually can , without
+          // it the body floors at its content height and the panel scrolls as a
+          // whole instead of letting the child own its own scroll region.
+          style={{ padding: 20, overflowY: "auto", flex: 1, minHeight: 0 }}
         >
           {children}
         </div>

@@ -42,6 +42,12 @@ import { LOG_LEVELS, type LogEntry, type LogLevel } from "../lib/log/types";
 import { Modal } from "./ui/Modal";
 
 const ROW_HEIGHT = 26;
+/**
+ * Fallback list height, used only until the list has been measured (first paint,
+ * and in environments without ResizeObserver). The real height comes from the
+ * flex layout: the list is the ONLY thing in this modal that scrolls, so it takes
+ * whatever vertical space the toolbar, detail pane and footer leave behind.
+ */
 const LIST_HEIGHT = 520;
 /** Rows rendered above/below the viewport, so a fast flick doesn't show blanks. */
 const OVERSCAN = 8;
@@ -173,7 +179,20 @@ export function LogsModal({
   const [searchTruncated, setSearchTruncated] = useState(false);
   const [selected, setSelected] = useState<LogEntry | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
+  const [listHeight, setListHeight] = useState(LIST_HEIGHT);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // The list sizes itself from the flex layout, so windowing has to follow the
+  // measured height rather than a constant , otherwise opening the detail pane
+  // shrinks the viewport and we keep rendering rows for the taller one.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!open || !el || typeof ResizeObserver === "undefined") return;
+    setListHeight(el.clientHeight);
+    const ro = new ResizeObserver(() => setListHeight(el.clientHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open]);
 
   const toggleLevel = useCallback((level: LogLevel) => {
     setLevels((prev) =>
@@ -405,7 +424,7 @@ export function LogsModal({
   // Windowing: only the visible slice is in the DOM. The spacer div carries the
   // full scroll height so the scrollbar still reflects the real list length.
   const first = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
-  const visibleCount = Math.ceil(LIST_HEIGHT / ROW_HEIGHT) + OVERSCAN * 2;
+  const visibleCount = Math.ceil(listHeight / ROW_HEIGHT) + OVERSCAN * 2;
   const visible = rows.slice(first, first + visibleCount);
 
   return (
