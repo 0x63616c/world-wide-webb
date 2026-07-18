@@ -454,3 +454,110 @@ export async function runGithubPollCycle(nowMs = Date.now()): Promise<void> {
     await markHeartbeat(msg).catch(() => {});
   }
 }
+
+// ─── read side (github tRPC router) ──────────────────────────────────────────
+
+export const CommitDeployState = {
+  Deployed: "deployed",
+  Building: "building",
+  Failed: "failed",
+  Skipped: "skipped",
+} as const;
+export type CommitDeployState = (typeof CommitDeployState)[keyof typeof CommitDeployState];
+
+interface GithubRunRow {
+  status: string;
+  conclusion: string | null;
+  deployJobConclusion: string | null;
+}
+
+/** Map a run row to the per-commit deploy state the tile feed renders. */
+export function commitStateForRun(run: GithubRunRow): CommitDeployState {
+  if (run.status !== "completed") return CommitDeployState.Building;
+  if (run.deployJobConclusion === "success") return CommitDeployState.Deployed;
+  if (run.conclusion === "failure") return CommitDeployState.Failed;
+  // Green run with deploy skipped by path filters , or jobs not yet resolved.
+  return CommitDeployState.Skipped;
+}
+
+export interface GithubDeployStatus {
+  configured: boolean;
+  lastPolledAtUtc: string | null;
+  consecutiveFailures: number;
+  deployedSha: string | null;
+  deployedAtUtc: string | null;
+  mainHeadSha: string | null;
+  commitsBehind: number;
+  run: { jobName: string; stepName: string; startedAtUtc: string } | null;
+  failure: { jobName: string; stepName: string; logTail: string | null } | null;
+  commits: {
+    sha: string;
+    message: string;
+    author: string;
+    committedAtUtc: string;
+    state: CommitDeployState;
+    changedFileCount: number | null;
+    additions: number | null;
+    deletions: number | null;
+  }[];
+}
+
+/**
+ * One-read status for the Deploys tile. The in-flight/failed verdict comes from
+ * the NEWEST run only: an older failure that a newer green run superseded is
+ * history (visible in the feed), not the pipeline's current state.
+ */
+export async function getGithubDeployStatus(): Promise<GithubDeployStatus> {
+  const statusRows = await db
+    .select()
+    .from(githubPollStatus)
+    .where(eq(githubPollStatus.id, GITHUB_POLL_STATUS_SINGLETON_ID))
+    .limit(1);
+  const envelope = statusRows[0] ?? null;
+
+  const runs = await db.select().from(githubRun).orderBy(desc(githubRun.startedAtUtc)).limit(20);
+  const latest = runs[0] ?? null;
+
+  let run: GithubDeployStatus["run"] = null;
+  let failure: GithubDeployStatus["failure"] = null;
+  if (latest && latest.status !== "completed") {
+    run = {
+      jobName: latest.currentJobName ?? latest.workflowName,
+      stepName: latest.currentStepName ?? "",
+      startedAtUtc: latest.startedAtUtc.toISOString(),
+    };
+  } else if (latest && latest.conclusion === "failure") {
+    const tailRows = await db
+      .select({ logTail: githubRunLogTail.logTail })
+      .from(githubRunLogTail)
+      .where(eq(githubRunLogTail.runId, latest.id))
+      .limit(1);
+    failure = {
+      jobName: latest.failedJobName ?? "unknown job",
+      stepName: latest.failedStepName ?? "unknown step",
+      logTail: tailRows[0]?.logTail ?? null,
+    };
+  }
+
+  return {
+    configured: isGithubConfigured(),
+    lastPolledAtUtc: envelope?.lastPolledAtUtc?.toISOString() ?? null,
+    consecutiveFailures: envelope?.consecutiveFailures ?? 0,
+    deployedSha: envelope?.deployedSha ?? null,
+    deployedAtUtc: envelope?.deployedAtUtc?.toISOString() ?? null,
+    mainHeadSha: envelope?.mainHeadSha ?? null,
+    commitsBehind: envelope?.commitsBehind ?? 0,
+    run,
+    failure,
+    commits: runs.map((r) => ({
+      sha: r.headSha,
+      message: r.commitMessage ?? "(no commit message)",
+      author: r.commitAuthor ?? "unknown",
+      committedAtUtc: r.startedAtUtc.toISOString(),
+      state: commitStateForRun(r),
+      changedFileCount: r.changedFileCount,
+      additions: r.additions,
+      deletions: r.deletions,
+    })),
+  };
+}

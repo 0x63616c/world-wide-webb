@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  commitStateForRun,
   DEPLOY_JOB_NAME,
   IDLE_POLL_MS,
   LOG_TAIL_BYTES,
@@ -167,5 +168,20 @@ describe("shouldPollNow", () => {
   it("waits out the idle gap when nothing is in flight", () => {
     expect(shouldPollNow(1_000_000, false, 1_000_000 + 10_000)).toBe(false);
     expect(shouldPollNow(1_000_000, false, 1_000_000 + IDLE_POLL_MS)).toBe(true);
+  });
+});
+
+describe("commitStateForRun", () => {
+  it("maps run rows to the feed's per-commit deploy state", () => {
+    const base = { status: "completed", conclusion: "success", deployJobConclusion: "success" };
+    expect(commitStateForRun(base)).toBe("deployed");
+    expect(commitStateForRun({ ...base, status: "in_progress", conclusion: null })).toBe(
+      "building",
+    );
+    expect(
+      commitStateForRun({ ...base, conclusion: "failure", deployJobConclusion: "failure" }),
+    ).toBe("failed");
+    // Green run, deploy skipped by path filters: NOT "deployed".
+    expect(commitStateForRun({ ...base, deployJobConclusion: "skipped" })).toBe("skipped");
   });
 });

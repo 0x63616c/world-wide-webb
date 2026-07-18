@@ -3,6 +3,7 @@ import { cameraRouter } from "./camera";
 import { climateRouter } from "./climate";
 import { controlsRouter } from "./controls";
 import { eventsRouter } from "./events";
+import { githubRouter } from "./github";
 import { healthRouter } from "./health";
 import { layoutRouter } from "./layout";
 import { logsRouter } from "./logs";
@@ -26,6 +27,7 @@ export const appRouter = router({
   controls: controlsRouter,
   camera: cameraRouter,
   events: eventsRouter,
+  github: githubRouter,
   layout: layoutRouter,
   logs: logsRouter,
   media: mediaRouter,
