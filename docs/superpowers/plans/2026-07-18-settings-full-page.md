@@ -52,8 +52,8 @@ products/control-center/api/src/services/settings-service.ts  (modify: schema + 
 - Test: `products/control-center/web/src/lib/__tests__/settings.test.ts` (extend existing if present, else create), `products/control-center/api/src/__tests__/settings.test.ts` (extend existing)
 
 **Interfaces:**
-- Produces (web `lib/settings.ts`): `Settings` gains `showMinimap: boolean`, `pinCode: string`, `pinLockSettings: boolean`, `pinLockWakePhotos: boolean`. New exports: `setShowMinimap(v: boolean)`, `setPinCode(pin: string)` (ignores input not matching `/^\d{6}$/`), `setPinLockSettings(v: boolean)`, `setPinLockWakePhotos(v: boolean)`, `PIN_LENGTH = 6`, `DEFAULT_PIN = "000000"`, `MAX_IDLE_TIMEOUT_MS` changed to `10 * 60_000`.
-- Produces (api `settings-service.ts`): `settingsSchema` gains `showMinimap: z.boolean()`, `pinCode: z.string().regex(/^\d{6}$/)`, `pinLockSettings: z.boolean()`, `pinLockWakePhotos: z.boolean()`; `DEFAULTS` gains `showMinimap: true, pinCode: "000000", pinLockSettings: true, pinLockWakePhotos: true`. Server timeout max stays 3_600_000 (do NOT tighten — stored 1 h values must keep validating).
+- Produces (web `lib/settings.ts`): `Settings` gains `showMinimap: boolean`, `pinCode: string`. New exports: `setShowMinimap(v: boolean)`, `setPinCode(pin: string)` (ignores input not matching `/^\d{6}$/`), `PIN_LENGTH = 6`, `DEFAULT_PIN = "000000"`, `MAX_IDLE_TIMEOUT_MS` changed to `10 * 60_000`. (No lock toggles — the PIN gates are always-on per Calum.)
+- Produces (api `settings-service.ts`): `settingsSchema` gains `showMinimap: z.boolean()`, `pinCode: z.string().regex(/^\d{6}$/)`; `DEFAULTS` gains `showMinimap: true, pinCode: "000000"`. Server timeout max stays 3_600_000 (do NOT tighten — stored 1 h values must keep validating).
 
 **Steps:**
 
@@ -150,7 +150,7 @@ Content:
 - Consumes: `PinPadView` (Task 2), `useSettings().pinCode`, `setPinCode`, `setPinLockSettings`, `setPinLockWakePhotos`.
 - Produces: `SecurityPage(props: PageProps)` registered in `PAGE_COMPONENTS`.
 
-Content: Change PIN card with the three-stage flow (verify current against `settings.pinCode` → enter new → confirm new; mismatch restarts at "new" with error; success calls `setPinCode(newPin)` and shows the done state with a "Change again" ActionButton resetting to stage "current"). Locked tiles card: two real switches for `pinLockSettings` / `pinLockWakePhotos`.
+Content: Change PIN card with the three-stage flow (verify current against `settings.pinCode` → enter new → confirm new; mismatch restarts at "new" with error; success calls `setPinCode(newPin)` and shows the done state with a "Change again" ActionButton resetting to stage "current"). NO "Locked tiles" card — the gates are always-on, not configurable (Calum's call).
 
 **Steps:**
 
@@ -160,9 +160,9 @@ Content: Change PIN card with the three-stage flow (verify current against `sett
 ### Task 7: Wire it in — SettingsButton PIN gate + full page, minimap gate, wake-photos gate
 
 **Files:**
-- Modify: `components/SettingsButton.tsx` (drop Modal+SettingsPanel; gear tap → if `settings.pinLockSettings` open `PinGateModal` titled "Settings", success → `SettingsPage`; else straight to page; keep hosting LevelOverlay/CleanScreenOverlay wired to page props)
+- Modify: `components/SettingsButton.tsx` (drop Modal+SettingsPanel; gear tap → always open `PinGateModal` titled "Settings", success → `SettingsPage`; keep hosting LevelOverlay/CleanScreenOverlay wired to page props)
 - Modify: `components/Board.tsx` minimap render site (`settings.showMinimap ? <Minimap .../> : null` — find via `grep -n "<Minimap" src/components/Board.tsx`; also gate the centered-tile label block that positions relative to the minimap if it reads as part of it — check `Board.minimap-visibility.test.tsx` for the existing visibility contract and extend it)
-- Modify: `components/tiles/WakesTile.tsx` (opening `WakePhotoViewer` goes through `PinGateModal` titled "Wake photos" when `pinLockWakePhotos`)
+- Modify: `components/tiles/WakesTile.tsx` (opening `WakePhotoViewer` always goes through `PinGateModal` titled "Wake photos")
 - Delete: `components/SettingsPanel.tsx`, `SettingsPanel.stories.tsx` (LogsModal stays — Debug page uses it)
 - Test: extend `Board.minimap-visibility.test.tsx`; update any tests importing SettingsPanel.
 

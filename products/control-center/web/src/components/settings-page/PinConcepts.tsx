@@ -8,7 +8,6 @@
 
 import { type ReactNode, useState } from "react";
 import { Icon } from "../Icon";
-import { Switch } from "../ui/Switch";
 
 export const PIN_LENGTH = 6;
 const DEFAULT_PIN = "000000";
@@ -381,59 +380,7 @@ export function PinChangeFlowConcept() {
             ) : null}
           </div>
         </section>
-
-        <section>
-          <div
-            style={{
-              fontFamily: "var(--mono)",
-              fontSize: 11,
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-              color: "var(--ink-3)",
-              margin: "0 4px 8px",
-            }}
-          >
-            Locked tiles
-          </div>
-          <div
-            style={{
-              background: "var(--tile)",
-              border: "1px solid var(--hair)",
-              borderRadius: 16,
-              overflow: "hidden",
-            }}
-          >
-            {[
-              { label: "Settings", sub: "Require PIN to open settings." },
-              { label: "Wake photos", sub: "Require PIN to view captured wake photos." },
-            ].map((row, i) => (
-              <div
-                key={row.label}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "14px 20px",
-                  borderTop: i === 0 ? "none" : "1px solid var(--hair)",
-                }}
-              >
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <span style={{ fontSize: 15 }}>{row.label}</span>
-                  <span style={{ fontSize: 12, color: "var(--ink-3)" }}>{row.sub}</span>
-                </div>
-                <DemoLockSwitch label={row.label} />
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
     </div>
   );
-}
-
-// Real shared Switch driven by throwaway local state , the mock rows toggle
-// but persist nothing.
-function DemoLockSwitch({ label }: { label: string }) {
-  const [on, setOn] = useState(true);
-  return <Switch label={`Require PIN for ${label}`} checked={on} onChange={setOn} />;
 }

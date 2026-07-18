@@ -28,14 +28,12 @@ export const UnlockModal: Story = {
   },
 };
 
-/** Security page's change-PIN flow: current -> new -> confirm, plus lock toggles. */
+/** Security page's change-PIN flow: current -> new -> confirm. */
 export const ChangePinFlow: Story = {
   render: () => <PinChangeFlowConcept />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Enter current PIN")).toBeInTheDocument();
-    await expect(
-      canvas.getByRole("switch", { name: "Require PIN for Settings" }),
-    ).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "backspace" })).toBeInTheDocument();
   },
 };
