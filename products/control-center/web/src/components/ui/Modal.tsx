@@ -10,6 +10,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { interaction } from "../../lib/log/interaction";
 import { registerOpenModal } from "../../lib/modal-open-store";
 
 export interface ModalProps {
@@ -66,6 +67,18 @@ export function Modal({
     if (!open) return;
     return registerOpenModal(() => onCloseRef.current());
   }, [open]);
+
+  // Interaction log: EVERY modal in the app is this component, so instrumenting
+  // the open/close lifecycle here covers all of them , including modals a tile
+  // manages itself , and covers modals that do not exist yet. Logging at each
+  // call site instead would be ~15 edits today and a thing to remember forever.
+  // `title` is the only identity a modal carries; it is stable enough to group
+  // by and is what a human reading the transcript would name anyway.
+  useEffect(() => {
+    if (!open) return;
+    interaction("modal", "open", `modal.${title}`);
+    return () => interaction("modal", "close", `modal.${title}`);
+  }, [open, title]);
 
   // Escape-to-close. Listener is only attached while open so a background
   // (closed) modal never swallows Escape meant for something else.

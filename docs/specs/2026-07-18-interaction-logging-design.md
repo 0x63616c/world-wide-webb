@@ -1,6 +1,9 @@
 # Interaction logging (human-attributable panel activity)
 
-Status: **design**. Scope-out only, nothing implemented.
+Status: **tiers A+B shipped**; tiers C–D and the guards (§4.1–4.3) are still design.
+
+Decisions taken since the first draft: human-origin only (§7), and the session
+resume window is implemented at the proposed 30s.
 
 Goal: every human interaction with the wall panel lands in `frontend_log` so that
 later we can reconstruct "a person walked up at 19:04, woke the panel, opened the

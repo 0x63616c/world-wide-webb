@@ -10,6 +10,7 @@
  * `openLayoutEditor()`.
  */
 import { useSyncExternalStore } from "react";
+import { interaction } from "./log/interaction";
 
 let open = false;
 const listeners = new Set<() => void>();
@@ -18,15 +19,19 @@ function emit() {
   for (const listener of listeners) listener();
 }
 
+// Both transitions are only ever reached from a deliberate action (a settings
+// button, the editor's own done/cancel), so they belong on the human channel.
 export function openLayoutEditor(): void {
   if (open) return;
   open = true;
+  interaction("modal", "open", "layout-editor");
   emit();
 }
 
 export function closeLayoutEditor(): void {
   if (!open) return;
   open = false;
+  interaction("modal", "close", "layout-editor");
   emit();
 }
 

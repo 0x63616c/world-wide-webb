@@ -12,6 +12,7 @@
  */
 
 import { useSyncExternalStore } from "react";
+import { interaction } from "./log/interaction";
 import { log } from "./log/logger";
 
 // Every panel setting that changes is a candidate explanation for "why is the
@@ -205,6 +206,11 @@ function shallowEqual(a: Settings, b: Settings): boolean {
 function patch<K extends keyof Settings>(key: K, value: Settings[K], serialized: string): void {
   if (state[key] === value) return;
   settingsLog.info(`${key} changed`, { from: state[key], to: value });
+  // Also on the human-activity channel. `patch` is reached ONLY from the setters
+  // a control calls, never from `hydrateSettings` (the server poll), so every
+  // call here is genuinely someone touching the Settings panel , which is
+  // exactly the human-origin-only rule this channel depends on.
+  interaction("settings", "change", `settings.${key}`, { from: state[key], to: value });
   state = { ...state, [key]: value };
   writeRaw(KEYS[key], serialized);
   emit();
@@ -276,6 +282,7 @@ export function setSnapMode(mode: SnapMode): void {
 export function resetSettings(): void {
   if (shallowEqual(state, DEFAULTS)) return;
   settingsLog.warn("reset to defaults");
+  interaction("settings", "commit", "settings.reset");
   state = { ...DEFAULTS };
   for (const key of Object.keys(KEYS) as (keyof Settings)[]) {
     writeRaw(KEYS[key], String(DEFAULTS[key]));

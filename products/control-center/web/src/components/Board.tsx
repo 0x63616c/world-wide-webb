@@ -12,6 +12,7 @@ import {
   worldCellRect,
 } from "../lib/grid-constants";
 import { useLayoutEditorOpen } from "../lib/layout-edit-store";
+import { endInteractionSession, interaction } from "../lib/log/interaction";
 import { dismissAllModals, hasDismissableModal, useAnyModalOpen } from "../lib/modal-open-store";
 import { bentoFor } from "../lib/placeholder-tiles";
 import { formatRelativeAge } from "../lib/relative-age";
@@ -658,6 +659,13 @@ export function Board() {
   const userJump = useCallback(
     (worldX: number, worldY: number, smooth: boolean) => {
       markUser();
+      // Only the USER-initiated jump is logged, never `jumpTo` itself , goHome
+      // drives the same function on an idle timer, and an app-initiated glide is
+      // not something a person did.
+      interaction("nav", "jump", "minimap", {
+        worldX: Math.round(worldX),
+        worldY: Math.round(worldY),
+      });
       jumpTo(worldX, worldY, smooth);
     },
     [jumpTo, markUser],
@@ -674,6 +682,10 @@ export function Board() {
   // registering a dismisser , cleaning mode deliberately does not (see
   // CleanScreenOverlay), so it survives its own idle window.
   const goHome = useCallback(() => {
+    // The wall going back to the clock is the end of a visit, so close the
+    // interaction session here rather than waiting for its own idle timeout ,
+    // that way the transcript's closing entry carries the real reason.
+    endInteractionSession("idle-reset");
     setActiveModal(null);
     dismissAllModals();
     markProgrammatic();
@@ -724,12 +736,21 @@ export function Board() {
   // tile, then calls this to un-dim AND rearm BOTH idle windows (the swallowed
   // tap never hit the stage listeners, so poke them by hand). The next tap lands
   // on the board normally.
+  // Dimming means the room went quiet: end the visit so its transcript closes at
+  // the moment the panel actually gave up, not SESSION_IDLE_MS later.
+  useEffect(() => {
+    if (dimmed) endInteractionSession("idle-dim");
+  }, [dimmed]);
+
   const wake = useCallback(() => {
     // Wake photo: the tap that ends a dim is the "someone approached the
     // panel" signal, so kick off the front-camera burst (fire-and-forget,
     // best-effort , see lib/wake-capture). Native panel only: in a browser the
     // dim overlay never shows, so this path can't fire there anyway.
     if (nativeDisplay) captureWakeBurst();
+    // Opens (or resumes, inside the grace window) the interaction session, so a
+    // visit's transcript begins at the approach rather than at the first tap.
+    interaction("session", "wake", "panel");
     wakeDim();
     pokeReset();
   }, [wakeDim, pokeReset, nativeDisplay]);
@@ -766,7 +787,19 @@ export function Board() {
       suppressClick.current = false;
       return;
     }
-    if (entry.ownsTap || (e.target as HTMLElement).closest(INTERACTIVE_SELECTOR)) {
+    // Interaction log: one capture-phase handler is the single place every tile
+    // tap passes through, so all 17 tiles (and any tile added later) are covered
+    // without touching a tile component. `kind` records what the tap actually
+    // did, which is the difference between "they poked the Controls tile's own
+    // UI" and "they opened the detail modal" , indistinguishable from the tile
+    // id alone.
+    const ownsTap =
+      entry.ownsTap || Boolean((e.target as HTMLElement).closest(INTERACTIVE_SELECTOR));
+    interaction("tile", "tap", entry.id, {
+      label: entry.label,
+      kind: ownsTap ? "control" : "open-modal",
+    });
+    if (ownsTap) {
       glideToTile(entry);
       return;
     }
