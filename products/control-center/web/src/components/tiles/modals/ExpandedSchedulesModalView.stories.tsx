@@ -49,6 +49,7 @@ const meta = {
     onClose: fn(),
     schedules,
     nextLabelById: { sched_sunrise: "5:20", sched_red: "21:30" },
+    nextUp: { name: "Sunrise on", time: "5:20", scene: "white" },
     lights,
     onCreate: fn(),
     onUpdate: fn(),
@@ -63,8 +64,12 @@ type Story = StoryObj<typeof meta>;
 export const List: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement.ownerDocument.body);
-    await expect(canvas.getByText("Sunrise on")).toBeInTheDocument();
+    await expect(canvas.getByText("Up next")).toBeInTheDocument();
+    await expect(canvas.getByText("Active schedules")).toBeInTheDocument();
+    // "Sunrise on" appears in both the Up-next spotlight and its list row.
+    await expect(canvas.getAllByText("Sunrise on").length).toBeGreaterThan(0);
     await expect(canvas.getByText("Red night")).toBeInTheDocument();
+    await expect(canvas.getByRole("switch", { name: "Enable Red night" })).toBeInTheDocument();
   },
 };
 
@@ -78,7 +83,7 @@ export const Editor: Story = {
 };
 
 export const Empty: Story = {
-  args: { schedules: [], nextLabelById: {} },
+  args: { schedules: [], nextLabelById: {}, nextUp: null },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement.ownerDocument.body);
     await expect(canvas.getByText("No schedules yet.")).toBeInTheDocument();

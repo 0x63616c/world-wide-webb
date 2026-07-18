@@ -14,7 +14,7 @@ import type { ScheduleInput, ScheduleItem } from "./modals/ExpandedSchedulesModa
 import { ExpandedSchedulesModalView } from "./modals/ExpandedSchedulesModalView";
 import type { SchedulesRow } from "./SchedulesTileView";
 import { SchedulesTileView } from "./SchedulesTileView";
-import { daysSummary, displayScene, triggerTimeLabel } from "./schedule-scene";
+import { type DisplayScene, daysSummary, displayScene, triggerTimeLabel } from "./schedule-scene";
 
 /** Format an ISO timestamp as local "H:MM" for the tile / list labels. */
 function hhmm(iso: string): string {
@@ -74,6 +74,7 @@ export function SchedulesTile() {
   const now = Date.now();
   let nextName = "";
   let nextTime = "";
+  let nextScene: DisplayScene = "off";
   let soonest = Infinity;
   for (const s of enabled) {
     const iso = nextIsoById.get(s.id);
@@ -83,9 +84,12 @@ export function SchedulesTile() {
       soonest = t;
       nextName = s.name;
       nextTime = hhmm(iso);
+      nextScene = displayScene(s.action);
     }
   }
   const next = soonest === Infinity ? null : { name: nextName, time: nextTime };
+  // Richer "up next" spotlight for the modal (adds the scene chip).
+  const nextUp = soonest === Infinity ? null : { name: nextName, time: nextTime, scene: nextScene };
 
   return (
     <>
@@ -99,6 +103,7 @@ export function SchedulesTile() {
         onClose={() => setModalOpen(false)}
         schedules={schedules}
         nextLabelById={nextLabelById}
+        nextUp={nextUp}
         lights={lights.data ?? []}
         onCreate={(input: ScheduleInput) => createMutation.mutate(input)}
         onUpdate={(id: string, input: ScheduleInput) => updateMutation.mutate({ id, patch: input })}

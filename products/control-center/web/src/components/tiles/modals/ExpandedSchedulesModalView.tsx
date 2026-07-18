@@ -7,8 +7,18 @@
  * presentational split. Colours are the curated LampScene palette (v1).
  */
 
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { Chip, Modal, Segmented, Slider, Switch, TextInput } from "@/components/ui";
+import { Icon } from "../../Icon";
+import {
+  type DisplayScene,
+  daysSummary,
+  displayScene,
+  SceneChip,
+  SECTION_LABEL,
+  triggerTimeLabel,
+} from "../schedule-scene";
 
 // ─── shared shapes (match the schedules tRPC router I/O) ──────────────────────
 
@@ -51,6 +61,8 @@ export interface ExpandedSchedulesModalViewProps {
   schedules: ScheduleItem[];
   /** id → next fire label (e.g. "21:30"), or null when no upcoming. */
   nextLabelById: Record<string, string | null>;
+  /** The single soonest upcoming fire, spotlighted in the "Up next" card. */
+  nextUp?: { name: string; time: string; scene: DisplayScene } | null;
   lights: LightOption[];
   onCreate: (input: ScheduleInput) => void;
   onUpdate: (id: string, input: ScheduleInput) => void;
@@ -70,12 +82,34 @@ const emptyDraft = (): ScheduleInput => ({
   targetIds: [],
 });
 
-// ─── list row ──────────────────────────────────────────────────────────────────
+// ─── settings-style list sections ────────────────────────────────────────────
 
-function triggerSummary(t: ScheduleTrigger, next: string | null): string {
-  if (t.type === "fixed") return next ?? t.time;
-  const off = t.offsetMin === 0 ? "" : ` ${t.offsetMin > 0 ? "+" : ""}${t.offsetMin}m`;
-  return `${t.event}${off}`;
+/** A grouped inset card with a mono uppercase section label above it. */
+function SectionCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <div style={SECTION_LABEL}>{title}</div>
+      <div
+        style={{
+          background: "var(--nest)",
+          border: "1px solid var(--hair)",
+          borderRadius: 16,
+          overflow: "hidden",
+        }}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/** A hairline-separated row inside a SectionCard. */
+function RowWrap({ first, children }: { first?: boolean; children: ReactNode }) {
+  return (
+    <div style={{ padding: "12px 16px", borderTop: first ? "none" : "1px solid var(--hair)" }}>
+      {children}
+    </div>
+  );
 }
 
 // ─── editor ────────────────────────────────────────────────────────────────────
@@ -334,6 +368,7 @@ export function ExpandedSchedulesModalView({
   onClose,
   schedules,
   nextLabelById,
+  nextUp,
   lights,
   onCreate,
   onUpdate,
@@ -372,7 +407,7 @@ export function ExpandedSchedulesModalView({
       open={open}
       onClose={onClose}
       title="Schedules"
-      width={560}
+      width={620}
       maxHeight={840}
       scrollbar="visible"
     >
@@ -387,58 +422,114 @@ export function ExpandedSchedulesModalView({
           onDelete={del}
         />
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {schedules.length === 0 && (
-            <div style={{ fontSize: 14, color: "var(--ink-3)", padding: "8px 0" }}>
-              No schedules yet.
-            </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {nextUp && (
+            <SectionCard title="Up next">
+              <RowWrap first>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <SceneChip scene={nextUp.scene} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, color: "var(--ink)", fontWeight: 500 }}>
+                      {nextUp.name}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Fires next</div>
+                  </div>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 20, color: "var(--ink)" }}>
+                    {nextUp.time}
+                  </span>
+                </div>
+              </RowWrap>
+            </SectionCard>
           )}
-          {schedules.map((s) => (
-            <div
-              key={s.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: 12,
-                borderRadius: 12,
-                border: "1px solid var(--hair)",
-                background: "var(--nest)",
-              }}
-            >
+
+          <SectionCard title="Active schedules">
+            {schedules.length === 0 ? (
+              <RowWrap first>
+                <div style={{ fontSize: 14, color: "var(--ink-3)" }}>No schedules yet.</div>
+              </RowWrap>
+            ) : (
+              schedules.map((s, i) => (
+                <RowWrap key={s.id} first={i === 0}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                    <SceneChip scene={displayScene(s.action)} />
+                    <button
+                      type="button"
+                      onClick={() => openEdit(s)}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        textAlign: "left",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        font: "inherit",
+                        padding: 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 15,
+                          color: s.enabled ? "var(--ink)" : "var(--ink-3)",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {s.name}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+                        <span style={{ fontFamily: "var(--mono)" }}>
+                          {triggerTimeLabel(s.trigger, nextLabelById[s.id] ?? null)}
+                        </span>{" "}
+                        · {daysSummary(s.days)}
+                      </div>
+                    </button>
+                    <Switch
+                      checked={s.enabled}
+                      onChange={(enabled) => onToggle(s.id, enabled)}
+                      label={`Enable ${s.name}`}
+                    />
+                  </div>
+                </RowWrap>
+              ))
+            )}
+          </SectionCard>
+
+          <SectionCard title="Add">
+            <RowWrap first>
               <button
                 type="button"
-                onClick={() => openEdit(s)}
+                onClick={openNew}
                 style={{
-                  flex: 1,
-                  textAlign: "left",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  width: "100%",
                   background: "none",
                   border: "none",
                   cursor: "pointer",
                   font: "inherit",
+                  padding: 0,
+                  textAlign: "left",
                 }}
               >
-                <div style={{ fontSize: 15, color: "var(--ink-1)", fontWeight: 500 }}>{s.name}</div>
-                <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
-                  {triggerSummary(s.trigger, nextLabelById[s.id] ?? null)} ·{" "}
-                  {s.days.length === 7 ? "every day" : s.days.map((d) => DAY_LABELS[d]).join(" ")} ·{" "}
-                  {s.action.on ? (s.action.scene ?? "on") : "off"}
-                </div>
+                <span
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 9,
+                    border: "1px dashed var(--hair)",
+                    color: "var(--ink-3)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Icon name="plus" s={18} sw={2} />
+                </span>
+                <span style={{ fontSize: 15, color: "var(--ink-2)" }}>New schedule</span>
               </button>
-              <Switch
-                checked={s.enabled}
-                onChange={(enabled) => onToggle(s.id, enabled)}
-                label={`Enable ${s.name}`}
-              />
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={openNew}
-            style={{ ...btnStyle("primary"), marginTop: 6, alignSelf: "flex-start" }}
-          >
-            New schedule
-          </button>
+            </RowWrap>
+          </SectionCard>
         </div>
       )}
     </Modal>
