@@ -1,0 +1,95 @@
+/**
+ * PinPad , dumb presentational keypad: entered-count dots + a 3x4 pad. The
+ * parent owns all state (how many digits entered, error flag) and reacts to
+ * onDigit/onBackspace , this component never sees or stores the PIN itself.
+ * Copied from the approved PinConcepts visual reference.
+ */
+
+import type { ReactNode } from "react";
+import { PIN_LENGTH } from "../../lib/settings";
+import { Icon } from "../Icon";
+
+export function PinPadView({
+  entered,
+  error,
+  onDigit,
+  onBackspace,
+}: {
+  entered: number;
+  /** Paints the dots red (wrong PIN) until the next digit. */
+  error?: boolean;
+  onDigit: (d: string) => void;
+  onBackspace: () => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
+      {/* Entry dots */}
+      <div style={{ display: "flex", gap: 14 }}>
+        {Array.from({ length: PIN_LENGTH }, (_, i) => (
+          <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length positions
+            key={i}
+            style={{
+              width: 14,
+              height: 14,
+              borderRadius: "50%",
+              border: `1.5px solid ${error ? "#c95c5c" : "var(--hair-3)"}`,
+              background: i < entered ? (error ? "#c95c5c" : "var(--ink)") : "transparent",
+              transition: "background 80ms",
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Keypad */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 72px)", gap: 12 }}>
+        {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
+          <PadKey key={d} onClick={() => onDigit(d)} label={d} />
+        ))}
+        <div />
+        <PadKey label="0" onClick={() => onDigit("0")} />
+        <PadKey label="backspace" onClick={onBackspace}>
+          <span style={{ transform: "rotate(180deg)", display: "flex" }}>
+            {/* No dedicated backspace glyph in the icon set; chevron reads fine. */}
+            <Icon name="chevron" s={22} />
+          </span>
+        </PadKey>
+      </div>
+    </div>
+  );
+}
+
+function PadKey({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children?: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      style={{
+        width: 72,
+        height: 72,
+        borderRadius: "50%",
+        background: "var(--nest)",
+        border: "1px solid var(--hair)",
+        color: "var(--ink)",
+        fontFamily: "var(--ui)",
+        fontSize: 26,
+        fontWeight: 500,
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {children ?? label}
+    </button>
+  );
+}
