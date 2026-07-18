@@ -10,9 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ─── mock DB (chainable builder keyed by table) ───────────────────────────────
 
-const { mockDbSelect, mockDbInsert, mockDbUpdate, state } = vi.hoisted(() => ({
+const { mockDbSelect, mockDbUpdate, state } = vi.hoisted(() => ({
   mockDbSelect: vi.fn(),
-  mockDbInsert: vi.fn(),
   mockDbUpdate: vi.fn(),
   state: {
     schedules: [] as unknown[],
@@ -24,7 +23,18 @@ const { mockDbSelect, mockDbInsert, mockDbUpdate, state } = vi.hoisted(() => ({
 }));
 
 vi.mock("../db/index", () => ({
-  db: { select: mockDbSelect, insert: mockDbInsert, update: mockDbUpdate },
+  db: { select: mockDbSelect, update: mockDbUpdate },
+}));
+
+// Fake the desired-state store (its upsert mechanics + command-window stamp are
+// covered by desired-state-store.test). Here we capture only the `desired` the
+// cycle hands it, so this test stays about the fade/scene LOGIC, not drizzle
+// upsert plumbing. The fake keeps real semantics: one recorded write per target.
+vi.mock("../services/desired-state-store", () => ({
+  upsertDesired: (input: Record<string, unknown>) => {
+    state.desiredWrites.push(input);
+    return Promise.resolve();
+  },
 }));
 
 // ─── import after mocks ───────────────────────────────────────────────────────
@@ -65,14 +75,6 @@ beforeEach(() => {
 
   mockDbSelect.mockImplementation(() => makeSelectBuilder());
 
-  // db.insert(deviceState).values(v).onConflictDoUpdate(...) — capture v.
-  mockDbInsert.mockImplementation(() => ({
-    values: (v: Record<string, unknown>) => {
-      state.desiredWrites.push(v);
-      return { onConflictDoUpdate: () => Promise.resolve() };
-    },
-  }));
-
   // db.update(lightSchedules).set(s).where(...) — capture s.
   mockDbUpdate.mockImplementation(() => ({
     set: (s: Record<string, unknown>) => {
@@ -107,13 +109,14 @@ describe("runScheduleRunnerCycle", () => {
 
     await runScheduleRunnerCycle();
 
-    // One desired write per target, on + pure red.
+    // One desired write per target, on + pure red. The store receives the
+    // interpolated desired in its `desired` field.
     const byEntity = new Map(state.desiredWrites.map((w) => [w.entityId, w]));
     expect(byEntity.size).toBe(2);
     for (const entityId of ["light.living_room_globe", "light.kitchen_lamp"]) {
       const w = byEntity.get(entityId) as Record<string, unknown> | undefined;
       expect(w, `write for ${entityId}`).toBeTruthy();
-      expect(w?.desiredState).toMatchObject({ on: true, color: { rgb: [255, 0, 0] } });
+      expect(w?.desired).toMatchObject({ on: true, color: { rgb: [255, 0, 0] } });
     }
 
     // Schedule stamped fired-today so it won't re-fire.

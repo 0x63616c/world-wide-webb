@@ -22,7 +22,7 @@ import type { DeviceClimateState, DeviceLightState, LightColor } from "../db/sch
 import { deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import { CLIMATE_DEVICE_ID } from "./climate-enforcer-service";
-import { stampCommandWindow } from "./command-window";
+import { updateDesired, upsertDesired } from "./desired-state-store";
 import { DeviceKind, isClimateState, mergeDeviceState } from "./device-state-mapping";
 
 // ─── types ───────────────────────────────────────────────────────────────────
@@ -370,40 +370,23 @@ async function writeDesired(
     rows = [];
   }
   const rowByEntityId = new Map(rows.map((r) => [r.entityId, r]));
-  const now = new Date();
-  const desiredUntil = stampCommandWindow(now);
 
   await Promise.all(
     entries.map(async (entry) => {
       const prev =
         (rowByEntityId.get(entry.entityId)?.desiredState as DeviceLightState | null) ?? null;
       const desired = mutate(entry, prev);
-      try {
-        await db
-          .insert(deviceState)
-          .values({
-            id: entry.id,
-            kind: entry.kind === LightKind.Lamp ? DeviceKind.Light : DeviceKind.Switch,
-            entityId: entry.entityId,
-            domain: entry.domain,
-            label: entry.label,
-            desiredState: desired,
-            desiredAtUtc: now,
-            desiredUntilUtc: desiredUntil,
-            available: true,
-          })
-          .onConflictDoUpdate({
-            target: deviceState.entityId,
-            set: { desiredState: desired, desiredAtUtc: now, desiredUntilUtc: desiredUntil },
-          });
-      } catch (writeErr) {
-        // DB unreachable , desired cannot be written; the enforcer will re-seed
-        // from reported next cycle, so the command is never a silent corruption.
-        getLogger().warn(
-          { err: writeErr, entityId: entry.entityId },
-          "writeDesired: DB write failed",
-        );
-      }
+      // The store owns the command-window stamp and throws on DB failure , a
+      // swallowed write would be fabricated success (www-unxz.1). The error
+      // propagates to the tRPC layer, which maps it.
+      await upsertDesired({
+        id: entry.id,
+        kind: entry.kind === LightKind.Lamp ? DeviceKind.Light : DeviceKind.Switch,
+        entityId: entry.entityId,
+        domain: entry.domain,
+        label: entry.label,
+        desired,
+      });
     }),
   );
 }
@@ -411,32 +394,25 @@ async function writeDesired(
 /**
  * Write the fan_mode intent onto the climate row's DESIRED (+ command window),
  * preserving the existing mode/setpoints (www-unxz.2). The climate enforcer pushes
- * the new desired to HA , no ha.callService here. A DB-unreachable write or a
- * not-yet-seeded climate row is swallowed: the enforcer re-seeds next cycle, so
- * the command is never a silent corruption.
+ * the new desired to HA , no ha.callService here. The write goes through the
+ * desired-state store, which throws on DB failure (a swallowed write is fabricated
+ * success); the error propagates to the tRPC layer. A not-yet-seeded climate row
+ * throws "no climate state" (parity with the other climate mutations) , you cannot
+ * command a thermostat the enforcer has not yet seen.
  */
 async function writeFanDesired(fanMode: FanMode): Promise<void> {
-  const now = new Date();
-  const desiredUntil = stampCommandWindow(now);
-  try {
-    const rows = await db
-      .select()
-      .from(deviceState)
-      .where(eq(deviceState.id, CLIMATE_DEVICE_ID))
-      .limit(1);
-    const row = rows[0];
-    if (!row) return; // enforcer hasn't seeded the thermostat yet , nothing to set.
-    const prev = isClimateState(row.desiredState) ? row.desiredState : null;
-    const reported = isClimateState(row.reportedState) ? row.reportedState : null;
-    const base: DeviceClimateState = prev ?? reported ?? { mode: "off" };
-    const desired: DeviceClimateState = { ...base, fanMode };
-    await db
-      .update(deviceState)
-      .set({ desiredState: desired, desiredAtUtc: now, desiredUntilUtc: desiredUntil })
-      .where(eq(deviceState.id, row.id));
-  } catch {
-    // DB unreachable , desired cannot be written; the enforcer re-seeds next cycle.
-  }
+  const rows = await db
+    .select()
+    .from(deviceState)
+    .where(eq(deviceState.id, CLIMATE_DEVICE_ID))
+    .limit(1);
+  const row = rows[0];
+  if (!row) throw new Error("no climate state");
+  const prev = isClimateState(row.desiredState) ? row.desiredState : null;
+  const reported = isClimateState(row.reportedState) ? row.reportedState : null;
+  const base: DeviceClimateState = prev ?? reported ?? { mode: "off" };
+  const desired: DeviceClimateState = { ...base, fanMode };
+  await updateDesired({ id: row.id, desired });
 }
 
 /** All lamp LightEntry rows in LAMP_ENTITY_IDS order. */

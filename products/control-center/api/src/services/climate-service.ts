@@ -7,7 +7,7 @@ import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 import { CLIMATE_DEVICE_ID } from "./climate-enforcer-service";
-import { stampCommandWindow } from "./command-window";
+import { updateDesired } from "./desired-state-store";
 import { isClimateState, mergeDeviceState, sanitizeClimateDesired } from "./device-state-mapping";
 
 export const HvacMode = {
@@ -162,8 +162,6 @@ function toClimateState(climate: DeviceClimateState): ClimateState {
  * the thermostat is the single configured entity (one device_state row).
  */
 async function writeClimateDesired(patch: Partial<DeviceClimateState>): Promise<ClimateState> {
-  const now = new Date();
-  const desiredUntil = stampCommandWindow(now);
   const rows = await db
     .select()
     .from(deviceState)
@@ -181,10 +179,9 @@ async function writeClimateDesired(patch: Partial<DeviceClimateState>): Promise<
   // or a pre-fix desired) which must never persist into desired (www-dnpj).
   const base: DeviceClimateState = prev ?? reported ?? { mode: HvacMode.Off };
   const desired: DeviceClimateState = sanitizeClimateDesired({ ...base, ...patch });
-  await db
-    .update(deviceState)
-    .set({ desiredState: desired, desiredAtUtc: now, desiredUntilUtc: desiredUntil })
-    .where(eq(deviceState.id, row.id));
+  // The store owns the command-window stamp and throws on DB failure (the write is
+  // this mutation's only effect); the error propagates to the tRPC layer.
+  await updateDesired({ id: row.id, desired });
   return toClimateState(
     mergeDeviceState({ ...row, desiredState: desired }).state as DeviceClimateState,
   );

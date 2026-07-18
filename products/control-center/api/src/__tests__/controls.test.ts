@@ -736,6 +736,25 @@ describe("toggleControl", () => {
 
     expect(mockDbInsert).not.toHaveBeenCalledWith(lampMode);
   });
+
+  it("propagates a desired-write failure instead of swallowing it (www-unxz.1)", async () => {
+    // The desired write is the mutation's only effect , a swallowed DB error would
+    // be fabricated success. The store throws; toggleControl lets it propagate.
+    mockIsConfigured.mockReturnValue(true);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+    mockDbInsert.mockImplementation(() => {
+      throw new Error("DB unreachable");
+    });
+
+    await expect(toggleControl(ControlKey.Lamps, true)).rejects.toThrow("DB unreachable");
+  });
+
+  it("toggling the fan throws when the climate row is not yet seeded (parity with climate mutations)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    await expect(toggleControl(ControlKey.Fan, true)).rejects.toThrow("no climate state");
+  });
 });
 
 // ─── router (tRPC caller) tests ───────────────────────────────────────────────
@@ -800,7 +819,11 @@ describe("controlsRouter.toggle", () => {
   it("returns merged state (not just { success: true }) including pending:true", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntities.mockResolvedValue([makeFan("ceiling", "off")]);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
+    // The enforcer has seeded the climate row, so the fan write can update it.
+    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("auto", "auto")]));
+    mockDbUpdate.mockImplementation(() => ({
+      set: () => ({ where: () => Promise.resolve() }),
+    }));
 
     const caller = buildCaller();
     const result = await caller.controls.toggle({ key: ControlKey.Fan, on: true });

@@ -23,7 +23,8 @@ import { db } from "../db/index";
 import type { DeviceSpeakerState } from "../db/schema";
 import { deviceState } from "../db/schema";
 import { SonosClient } from "../integrations/sonos";
-import { stampCommandWindow, windowOpen } from "./command-window";
+import { windowOpen } from "./command-window";
+import { upsertDesired } from "./desired-state-store";
 import { DeviceKind, isSpeakerState } from "./device-state-mapping";
 import { heartbeat, runCycle } from "./integration-heartbeat";
 import { DESK_RF_BONDED_UUID, TOPOLOGY_ANCHOR_IP } from "./sonos-sound-system-service";
@@ -118,31 +119,19 @@ export async function setSpeakerDesiredVolume({
   deviceIp: string;
   volume: number;
 }): Promise<void> {
-  const now = new Date();
   const desired: DeviceSpeakerState = { volume };
-  await db
-    .insert(deviceState)
-    .values({
-      id: speakerDeviceId(deviceIp),
-      kind: DeviceKind.Speaker,
-      entityId: deviceIp,
-      domain: SPEAKER_DOMAIN,
-      // Real label (zone name) is unknown here; the enforcer refreshes it from
-      // topology on its next cycle.
-      label: deviceIp,
-      desiredState: desired,
-      desiredAtUtc: now,
-      desiredUntilUtc: stampCommandWindow(now),
-      available: true,
-    })
-    .onConflictDoUpdate({
-      target: deviceState.entityId,
-      set: {
-        desiredState: desired,
-        desiredAtUtc: now,
-        desiredUntilUtc: stampCommandWindow(now),
-      },
-    });
+  // The store owns the upsert + command-window stamp and throws on DB failure
+  // (the write is this mutation's only effect, so a swallow is fabricated success).
+  await upsertDesired({
+    id: speakerDeviceId(deviceIp),
+    kind: DeviceKind.Speaker,
+    entityId: deviceIp,
+    domain: SPEAKER_DOMAIN,
+    // Real label (zone name) is unknown here; the enforcer refreshes it from
+    // topology on its next cycle.
+    label: deviceIp,
+    desired,
+  });
 }
 
 export async function runSonosVolumeEnforcerCycle(): Promise<void> {

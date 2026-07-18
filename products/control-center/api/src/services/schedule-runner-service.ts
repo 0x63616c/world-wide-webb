@@ -5,7 +5,7 @@ import { findLight, findLightById, LightKind } from "../config/lights";
 import { db } from "../db/index";
 import type { DeviceLightState } from "../db/schema";
 import { deviceState, lightSchedules } from "../db/schema";
-import { stampCommandWindow } from "./command-window";
+import { upsertDesired } from "./desired-state-store";
 import { DeviceKind } from "./device-state-mapping";
 import { actionEndpoints, type FadeEndpoint, interpolateLight } from "./schedule-fade";
 import {
@@ -57,25 +57,16 @@ function endpointFromDesired(s: DeviceLightState | null): FadeEndpoint {
 async function writeDesired(entityId: string, desired: DeviceLightState): Promise<void> {
   const light = findLight(entityId);
   if (!light) return;
-  const now = new Date();
-  const desiredUntil = stampCommandWindow(now);
-  await db
-    .insert(deviceState)
-    .values({
-      id: light.id,
-      kind: light.kind === LightKind.Lamp ? DeviceKind.Light : DeviceKind.Switch,
-      entityId: light.entityId,
-      domain: light.domain,
-      label: light.label,
-      desiredState: desired,
-      desiredAtUtc: now,
-      desiredUntilUtc: desiredUntil,
-      available: true,
-    })
-    .onConflictDoUpdate({
-      target: deviceState.entityId,
-      set: { desiredState: desired, desiredAtUtc: now, desiredUntilUtc: desiredUntil },
-    });
+  // The store owns the upsert + command-window stamp and throws on DB failure; the
+  // cycle catches per-fade (a bad write must not abort the other targets' fades).
+  await upsertDesired({
+    id: light.id,
+    kind: light.kind === LightKind.Lamp ? DeviceKind.Light : DeviceKind.Switch,
+    entityId: light.entityId,
+    domain: light.domain,
+    label: light.label,
+    desired,
+  });
 }
 
 /**
