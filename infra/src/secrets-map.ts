@@ -1,123 +1,73 @@
-// The per-service secret inventory: the source of truth for what each service
-// mounts at /run/secrets/<NAME>. Each value is a VAULT_KEY in secrets/vault.yaml
-// (ITEM__FIELD format). vault.ts reads the vault and creates a native k8s Secret
-// per service (CC-k8t7: migrated from ESO+1Password to SOPS+age).
+// The per-service secret inventory consumed by eso.ts (native k8s Secrets) and
+// vault.ts. This file is now a thin ADAPTER: the single declaration lives in the
+// @www/platform product manifest (secretCatalog + the per-service secretUsages),
+// and the two maps below are DERIVED from it. Each secret value is a VAULT_KEY in
+// secrets/vault.yaml (ITEM__FIELD format); vault.ts reads the vault and creates a
+// native k8s Secret per service (CC-k8t7: migrated from ESO+1Password to SOPS+age).
+//
+// Adding/removing a service secret is a one-line edit in the platform manifest;
+// SERVICE_SECRETS, SERVICE_SECRET_TARGETS, and the services.ts mount markers all
+// follow. infra/test/secrets-derivation.test.ts pins the exact expected content
+// as a golden snapshot so any drift fails loudly.
 
-import { defineProduct, type ProductIdentity } from "@www/platform";
+import {
+  captivePortalProductManifest,
+  controlCenterServiceSecretUsages,
+  type ServiceSecretUsage,
+  serviceSecretMap,
+} from "@www/platform";
 import type { InfraNamespaceName } from "./cluster.ts";
 
 /** A service's secret env-name -> VAULT_KEY in secrets/vault.yaml. */
 export type ServiceSecrets = Record<string, string>;
 
-// api: full secret set. Resend was removed when the captive portal went
-// password-only (www-p9hx); the 1Password "Resend" item is kept for audit but
-// no longer synced to any workload.
-const apiSecrets: ServiceSecrets = {
-  HA_TOKEN: "HOME_ASSISTANT_TOKEN__CREDENTIAL",
-  UNIFI_API_KEY: "UNIFI__LOCAL_API_KEY",
-  WIFI_SSID: "WIFI_GUEST_CREDENTIALS__SSID",
-  WIFI_PASSWORD: "WIFI_GUEST_CREDENTIALS__PASSWORD",
-  POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
-  HOME_LAT: "HOME_LOCATION__LAT",
-  HOME_LON: "HOME_LOCATION__LON",
-  HOME_PLACE_NAME: "HOME_LOCATION__PLACE_NAME",
-  HOME_RADIUS_MILES: "HOME_LOCATION__RADIUS_MILES",
-  SPOTIFY_CLIENT_ID: "SPOTIFY__CLIENT_ID",
-  SPOTIFY_CLIENT_SECRET: "SPOTIFY__CLIENT_SECRET",
-  SPOTIFY_REFRESH_TOKEN: "SPOTIFY__REFRESH_TOKEN",
-  // App Store Connect API key, used by the asc-version-poll worker to detect
-  // newer TestFlight builds of the wall-panel shell. Same vault item CI uses
-  // for the fastlane upload (ios-build.yml re-exports these ASC_* names).
-  ASC_KEY_ID: "APP_STORE_CONNECT_API__KEY_ID",
-  ASC_ISSUER_ID: "APP_STORE_CONNECT_API__ISSUER_ID",
-  ASC_KEY_CONTENT: "APP_STORE_CONNECT_API__P8_CONTENT",
-  // GitHub PAT for the worker's github-actions deploy poller (Deploys tile).
-  // Only the WORKER consumes it (the api never calls GitHub), but the api/worker
-  // secret sets are deliberately kept in lockstep (www-51hf.35, eso.test.ts), so
-  // it rides the shared base and is mounted to both; api's env leaves it unread.
-  // Named GITHUB_ACTIONS_TOKEN, never GITHUB_TOKEN (reserved by Actions, see
-  // docs/secrets-sops-migration/GOAL.md).
-  GITHUB_ACTIONS_TOKEN: "GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN",
-};
+// The infra/eso service keys mapped to their platform manifest usage. The
+// control-center usage names are 1:1 with the infra keys; the captive-portal
+// product API usage is exposed under the `captive-portal-api` eso service key.
+// web / storybook / captive-portal(app) have NO secrets and are absent on purpose.
+const controlCenterUsages = controlCenterServiceSecretUsages();
+const captivePortalUsages = captivePortalProductManifest().secretUsages;
 
-// worker: identical to api (the api/worker secret sets are kept in lockstep;
-// deploy-config.test.ts asserts the overlap, www-51hf.35).
-const workerSecrets: ServiceSecrets = { ...apiSecrets };
+const serviceSecretUsages = {
+  api: controlCenterUsages.api,
+  worker: controlCenterUsages.worker,
+  "media-worker": controlCenterUsages["media-worker"],
+  drizzle: controlCenterUsages.drizzle,
+  cloudflared: controlCenterUsages.cloudflared,
+  "portal-data-purge": controlCenterUsages["portal-data-purge"],
+  "captive-portal-api": captivePortalUsages.api,
+} as const satisfies Record<string, ServiceSecretUsage>;
 
 /**
- * @public - the secret inventory per k8s workload. Consumed by secrets.ts to
- * emit one native k8s Secret per service; the test asserts it matches deploy.config.ts.
- * web / storybook / captive-portal have NO secrets (absent here on purpose).
+ * @public - the secret inventory per k8s workload, DERIVED from the platform
+ * manifest. Consumed by eso.ts to emit one native k8s Secret per service.
  */
-export const SERVICE_SECRETS = {
-  api: apiSecrets,
-  worker: workerSecrets,
-  "media-worker": {
-    POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
-    OPENROUTER_API_KEY: "OPENROUTER__CREDENTIAL",
-  },
-  drizzle: {
-    MASTERPASS: "DRIZZLE_GATEWAY__MASTERPASS",
-    POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
-  },
-  cloudflared: {
-    TUNNEL_TOKEN: "CLOUDFLARE_TUNNEL_EVEE_WEBHOOKS__CONNECTOR_TOKEN",
-  },
-  // The portal-data-purge CronJob (www-j934.7) runs the api image's purge.js and
-  // builds DATABASE_URL from the mounted POSTGRES_PASSWORD; it needs that one
-  // secret synced into the product-derived CronJob mount Secret.
-  "portal-data-purge": {
-    POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
-  },
-  "captive-portal-api": {
-    POSTGRES_PASSWORD: "CAPTIVE_PORTAL_POSTGRES__PASSWORD",
-    UNIFI_API_KEY: "UNIFI__LOCAL_API_KEY",
-    WIFI_PASSWORD: "WIFI_GUEST_CREDENTIALS__PASSWORD",
-    WIFI_SSID: "WIFI_GUEST_CREDENTIALS__SSID",
-  },
-} satisfies Record<string, ServiceSecrets>;
+export const SERVICE_SECRETS = serviceSecretMap(serviceSecretUsages) satisfies Record<
+  string,
+  ServiceSecrets
+>;
 
-export type ServiceSecretName = keyof typeof SERVICE_SECRETS;
+export type ServiceSecretName = keyof typeof serviceSecretUsages;
 
 export type ServiceSecretTarget = Readonly<{
   namespaceName: InfraNamespaceName;
   secretName: string;
 }>;
 
-function productSecretName(product: ProductIdentity, service: string): string {
-  return `${product.slug}-secrets-${service}`;
+function targetOf(usage: ServiceSecretUsage): ServiceSecretTarget {
+  return { namespaceName: usage.namespaceName, secretName: usage.targetSecretName };
 }
 
-const controlCenter = defineProduct("control-center");
-const captivePortal = defineProduct("captive-portal");
-
+/**
+ * @public - the target namespace + Secret name per workload, DERIVED from the
+ * platform manifest usages. Consumed by eso.ts/vault.ts/services.ts/crons.ts.
+ */
 export const SERVICE_SECRET_TARGETS = {
-  api: {
-    namespaceName: controlCenter.namespace,
-    secretName: productSecretName(controlCenter, "api"),
-  },
-  worker: {
-    namespaceName: controlCenter.namespace,
-    secretName: productSecretName(controlCenter, "worker"),
-  },
-  "media-worker": {
-    namespaceName: controlCenter.namespace,
-    secretName: productSecretName(controlCenter, "media-worker"),
-  },
-  drizzle: {
-    namespaceName: controlCenter.namespace,
-    secretName: productSecretName(controlCenter, "drizzle"),
-  },
-  cloudflared: {
-    namespaceName: "platform",
-    secretName: "platform-secrets-cloudflared",
-  },
-  "portal-data-purge": {
-    namespaceName: controlCenter.namespace,
-    secretName: productSecretName(controlCenter, "portal-data-purge"),
-  },
-  "captive-portal-api": {
-    namespaceName: captivePortal.namespace,
-    secretName: productSecretName(captivePortal, "api"),
-  },
+  api: targetOf(serviceSecretUsages.api),
+  worker: targetOf(serviceSecretUsages.worker),
+  "media-worker": targetOf(serviceSecretUsages["media-worker"]),
+  drizzle: targetOf(serviceSecretUsages.drizzle),
+  cloudflared: targetOf(serviceSecretUsages.cloudflared),
+  "portal-data-purge": targetOf(serviceSecretUsages["portal-data-purge"]),
+  "captive-portal-api": targetOf(serviceSecretUsages["captive-portal-api"]),
 } as const satisfies Record<ServiceSecretName, ServiceSecretTarget>;

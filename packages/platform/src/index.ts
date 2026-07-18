@@ -247,17 +247,28 @@ export function internalService(options: { port: number }): InternalServiceExpos
   return { kind: "internal-service", policy: "internal", port: options.port };
 }
 
+// The k8s namespace a service's target Secret lands in. Defaults to the owning
+// product's namespace; only cloudflared varies (it lives in `platform`).
+export type SecretNamespace = ProductSlug | "platform";
+
+// A single declared secret. `vaultKey` is the operative reference: the SOPS
+// ITEM__FIELD key in secrets/vault.yaml that vault.ts/eso.ts resolve (CC-k8t7
+// replaced 1Password+ESO with SOPS+age). `item`/`field` are retained purely as
+// provenance/audit metadata (which 1Password Homelab item the value came from);
+// they are NOT a source of truth for the vault key — e.g. the App Store Connect
+// .p8 rides the item as an `AuthKey_*.p8` file attachment but its vault key is
+// APP_STORE_CONNECT_API__P8_CONTENT, so the mapping is stated explicitly here.
 export type SecretCatalogEntry = Readonly<{
   item: string;
   field: string;
-  remoteRef: string;
-  opPath: string;
+  vaultKey: string;
 }>;
 
 export type ServiceSecretUsage = Readonly<{
   product: ProductSlug;
   service: string;
   mountPath: "/run/secrets";
+  namespaceName: SecretNamespace;
   targetSecretName: string;
   secrets: Readonly<Record<string, SecretCatalogEntry>>;
 }>;
@@ -270,61 +281,72 @@ export type ControlCenterSecretUsageName =
   | "cloudflared"
   | "portal-data-purge";
 
-function opSecret(item: string, field: string): SecretCatalogEntry {
-  return {
-    item,
-    field,
-    remoteRef: `${item}/${field}`,
-    opPath: `op://Homelab/${item}/${field}`,
-  };
+function secret(item: string, field: string, vaultKey: string): SecretCatalogEntry {
+  return { item, field, vaultKey };
 }
 
 export const secretCatalog = {
-  // The .p8 rides the item as the AuthKey_*.p8 file attachment; in the SOPS
-  // vault it is APP_STORE_CONNECT_API__P8_CONTENT (same item CI's fastlane uses).
   appStoreConnect: {
-    keyId: opSecret("App Store Connect API", "key id"),
-    issuerId: opSecret("App Store Connect API", "issuer id"),
-    p8Content: opSecret("App Store Connect API", "AuthKey_TJ8M46SFSQ.p8"),
+    keyId: secret("App Store Connect API", "key id", "APP_STORE_CONNECT_API__KEY_ID"),
+    issuerId: secret("App Store Connect API", "issuer id", "APP_STORE_CONNECT_API__ISSUER_ID"),
+    // The .p8 rides the item as the AuthKey_*.p8 file attachment; in the SOPS
+    // vault it is APP_STORE_CONNECT_API__P8_CONTENT (same item CI's fastlane uses).
+    p8Content: secret(
+      "App Store Connect API",
+      "AuthKey_TJ8M46SFSQ.p8",
+      "APP_STORE_CONNECT_API__P8_CONTENT",
+    ),
   },
   captivePortal: {
-    postgresPassword: opSecret("Captive Portal Postgres", "password"),
+    postgresPassword: secret(
+      "Captive Portal Postgres",
+      "password",
+      "CAPTIVE_PORTAL_POSTGRES__PASSWORD",
+    ),
   },
   cloudflare: {
-    tunnelToken: opSecret("Cloudflare Tunnel evee-webhooks", "connector_token"),
+    tunnelToken: secret(
+      "Cloudflare Tunnel evee-webhooks",
+      "connector_token",
+      "CLOUDFLARE_TUNNEL_EVEE_WEBHOOKS__CONNECTOR_TOKEN",
+    ),
   },
   controlCenter: {
-    postgresPassword: opSecret("Control Center Postgres", "password"),
+    postgresPassword: secret(
+      "Control Center Postgres",
+      "password",
+      "CONTROL_CENTER_POSTGRES__PASSWORD",
+    ),
   },
   drizzle: {
-    masterpass: opSecret("Drizzle Gateway", "masterpass"),
+    masterpass: secret("Drizzle Gateway", "masterpass", "DRIZZLE_GATEWAY__MASTERPASS"),
   },
   github: {
-    ghcrPat: opSecret("GitHub Personal Access Token", "token"),
+    ghcrPat: secret("GitHub Personal Access Token", "token", "GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN"),
   },
   homeAssistant: {
-    token: opSecret("Home Assistant Token", "credential"),
+    token: secret("Home Assistant Token", "credential", "HOME_ASSISTANT_TOKEN__CREDENTIAL"),
   },
   homeLocation: {
-    lat: opSecret("Home Location", "lat"),
-    lon: opSecret("Home Location", "lon"),
-    placeName: opSecret("Home Location", "place_name"),
-    radiusMiles: opSecret("Home Location", "radius_miles"),
+    lat: secret("Home Location", "lat", "HOME_LOCATION__LAT"),
+    lon: secret("Home Location", "lon", "HOME_LOCATION__LON"),
+    placeName: secret("Home Location", "place_name", "HOME_LOCATION__PLACE_NAME"),
+    radiusMiles: secret("Home Location", "radius_miles", "HOME_LOCATION__RADIUS_MILES"),
   },
   openRouter: {
-    apiKey: opSecret("OpenRouter", "credential"),
+    apiKey: secret("OpenRouter", "credential", "OPENROUTER__CREDENTIAL"),
   },
   spotify: {
-    clientId: opSecret("Spotify", "client_id"),
-    clientSecret: opSecret("Spotify", "client_secret"),
-    refreshToken: opSecret("Spotify", "refresh_token"),
+    clientId: secret("Spotify", "client_id", "SPOTIFY__CLIENT_ID"),
+    clientSecret: secret("Spotify", "client_secret", "SPOTIFY__CLIENT_SECRET"),
+    refreshToken: secret("Spotify", "refresh_token", "SPOTIFY__REFRESH_TOKEN"),
   },
   unifi: {
-    localApiKey: opSecret("UniFi", "local_api_key"),
+    localApiKey: secret("UniFi", "local_api_key", "UNIFI__LOCAL_API_KEY"),
   },
   wifiGuest: {
-    password: opSecret("WiFi Guest Credentials", "password"),
-    ssid: opSecret("WiFi Guest Credentials", "ssid"),
+    password: secret("WiFi Guest Credentials", "password", "WIFI_GUEST_CREDENTIALS__PASSWORD"),
+    ssid: secret("WiFi Guest Credentials", "ssid", "WIFI_GUEST_CREDENTIALS__SSID"),
   },
 } as const;
 
@@ -332,24 +354,28 @@ export function defineServiceSecretUsage(
   product: ProductIdentity,
   service: string,
   secrets: Readonly<Record<string, SecretCatalogEntry>>,
-  options: { targetSecretName?: string } = {},
+  options: { targetSecretName?: string; namespaceName?: SecretNamespace } = {},
 ): ServiceSecretUsage {
   return {
     product: product.slug,
     service,
     mountPath: "/run/secrets",
+    namespaceName: options.namespaceName ?? product.namespace,
     targetSecretName: options.targetSecretName ?? `${product.slug}-secrets-${service}`,
     secrets,
   };
 }
 
-export function serviceSecretMap(
-  usages: Readonly<Record<string, ServiceSecretUsage>>,
-): Record<string, Record<string, string>> {
-  const result: Record<string, Record<string, string>> = {};
-  for (const [service, usage] of Object.entries(usages)) {
+// Reshape usages into the flat service -> { envName: vaultKey } view infra
+// consumes (secrets-map.ts SERVICE_SECRETS). Generic over the usage-key set so
+// the caller's literal service keys survive into the result type.
+export function serviceSecretMap<K extends string>(
+  usages: Readonly<Record<K, ServiceSecretUsage>>,
+): Record<K, Record<string, string>> {
+  const result = {} as Record<K, Record<string, string>>;
+  for (const [service, usage] of Object.entries(usages) as [K, ServiceSecretUsage][]) {
     result[service] = Object.fromEntries(
-      Object.entries(usage.secrets).map(([name, entry]) => [name, entry.remoteRef]),
+      Object.entries(usage.secrets).map(([name, entry]) => [name, entry.vaultKey]),
     );
   }
   return result;
@@ -416,7 +442,7 @@ export function controlCenterServiceSecretUsages(): Record<
       controlCenter,
       "cloudflared",
       { TUNNEL_TOKEN: secretCatalog.cloudflare.tunnelToken },
-      { targetSecretName: "platform-secrets-cloudflared" },
+      { targetSecretName: "platform-secrets-cloudflared", namespaceName: "platform" },
     ),
     "portal-data-purge": defineServiceSecretUsage(controlCenter, "portal-data-purge", {
       POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,

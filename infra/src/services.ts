@@ -19,7 +19,7 @@ import type { InfraNamespaceName } from "./cluster.ts";
 import type { WorkloadSpec } from "./component.ts";
 import { ExternalService, Workload } from "./component.ts";
 import { GHCR_PULL_SECRET_NAME, GHCR_PULL_SECRET_NAMESPACES } from "./ghcr-pull-secrets.ts";
-import { SERVICE_SECRET_TARGETS } from "./secrets-map.ts";
+import { SERVICE_SECRET_TARGETS, SERVICE_SECRETS, type ServiceSecretName } from "./secrets-map.ts";
 
 // Per-service GHCR image digest map, name -> "sha256:…", set by the CI deploy job
 // (`pulumi config set --path imageDigests.<svc>`). A pinned digest renders the
@@ -167,10 +167,13 @@ const haEnv = {
   CAMERA_LABEL,
 };
 
-// secretsFor: a marker list so the Workload mounts its configured service Secret; the actual
-// refs live in eso.ts (the ExternalSecrets). We only need a non-empty list here
-// to trigger the /run/secrets mount (the render layer reads .length).
-const mount = (names: string[]) => names.map((name) => ({ name, ref: "eso" }));
+// A marker list so the Workload mounts its configured service Secret; the actual
+// key -> vault-key mapping lives in SERVICE_SECRETS (derived from the platform
+// manifest). The render layer only reads .length to decide whether to attach the
+// /run/secrets volume, so we derive the names straight from SERVICE_SECRETS and
+// this list can never drift from what eso.ts actually syncs.
+const mountSecrets = (service: ServiceSecretName) =>
+  Object.keys(SERVICE_SECRETS[service]).map((name) => ({ name, ref: "eso" }));
 
 /**
  * Replica/topology knobs the program threads in at apply time.
@@ -225,24 +228,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       image: ghcr("api", digests),
       replicas: 1,
       resources: { memory: "512M", reserveCpus: "0.5" },
-      secrets: mount([
-        "HA_TOKEN",
-        "UNIFI_API_KEY",
-        "WIFI_SSID",
-        "WIFI_PASSWORD",
-        "POSTGRES_PASSWORD",
-        "HOME_LAT",
-        "HOME_LON",
-        "HOME_PLACE_NAME",
-        "HOME_RADIUS_MILES",
-        "SPOTIFY_CLIENT_ID",
-        "SPOTIFY_CLIENT_SECRET",
-        "SPOTIFY_REFRESH_TOKEN",
-        "ASC_KEY_ID",
-        "ASC_ISSUER_ID",
-        "ASC_KEY_CONTENT",
-        "GITHUB_ACTIONS_TOKEN",
-      ]),
+      secrets: mountSecrets("api"),
       secretName: SERVICE_SECRET_TARGETS.api.secretName,
       // Wake photos persist on the NAS media share (same NFS export + subPath
       // as media-worker); without this mount the api's MEDIA_STORAGE_DIR
@@ -266,24 +252,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       image: ghcr("worker", digests),
       replicas: 1,
       resources: { memory: "384M" },
-      secrets: mount([
-        "HA_TOKEN",
-        "UNIFI_API_KEY",
-        "WIFI_SSID",
-        "WIFI_PASSWORD",
-        "POSTGRES_PASSWORD",
-        "HOME_LAT",
-        "HOME_LON",
-        "HOME_PLACE_NAME",
-        "HOME_RADIUS_MILES",
-        "SPOTIFY_CLIENT_ID",
-        "SPOTIFY_CLIENT_SECRET",
-        "SPOTIFY_REFRESH_TOKEN",
-        "ASC_KEY_ID",
-        "ASC_ISSUER_ID",
-        "ASC_KEY_CONTENT",
-        "GITHUB_ACTIONS_TOKEN",
-      ]),
+      secrets: mountSecrets("worker"),
       secretName: SERVICE_SECRET_TARGETS.worker.secretName,
       env: haEnv,
       imagePullSecrets: [GHCR_PULL_SECRET_NAME],
@@ -296,7 +265,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       image: ghcr("media-worker", digests),
       replicas: mediaWorkerReplicas,
       resources: { memory: "1G" },
-      secrets: mount(["POSTGRES_PASSWORD", "OPENROUTER_API_KEY"]),
+      secrets: mountSecrets("media-worker"),
       secretName: SERVICE_SECRET_TARGETS["media-worker"].secretName,
       env: {
         NODE_ENV: "production",
@@ -398,7 +367,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       image: ghcr("captive-portal-api", digests),
       replicas: 1,
       resources: { memory: "256M" },
-      secrets: mount(["POSTGRES_PASSWORD", "UNIFI_API_KEY", "WIFI_PASSWORD", "WIFI_SSID"]),
+      secrets: mountSecrets("captive-portal-api"),
       secretName: captivePortalManifest.secretUsages.api.targetSecretName,
       env: {
         TZ,
@@ -420,7 +389,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       image: ghcr("drizzle", digests),
       replicas: drizzleReplicas,
       resources: { memory: "256M" },
-      secrets: mount(["MASTERPASS", "POSTGRES_PASSWORD"]),
+      secrets: mountSecrets("drizzle"),
       secretName: SERVICE_SECRET_TARGETS.drizzle.secretName,
       env: { TZ, POSTGRES_HOST: controlCenterDatabase.rwServiceName },
       ports: [{ containerPort: 4983, expose: "cluster" }],
@@ -498,7 +467,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       replicas: cloudflaredReplicas, // HA (2) at cutover; 0 pre-cutover so it
       // does not hold the live tunnel token alongside Swarm (www-j934.9 / §7).
       resources: { memory: "128M", reserveCpus: "0.25" },
-      secrets: mount(["TUNNEL_TOKEN"]),
+      secrets: mountSecrets("cloudflared"),
       secretName: SERVICE_SECRET_TARGETS.cloudflared.secretName,
       // k8s `command` REPLACES the image entrypoint (unlike Swarm, which appends
       // to it), so the binary `cloudflared` must lead, then its `tunnel ...` args.

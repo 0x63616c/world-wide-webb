@@ -16,7 +16,6 @@ import {
   captivePortalProductManifest,
   controlCenterProductManifest,
   type ProductDatabase,
-  type ProductSlug,
 } from "@www/platform";
 import type { InfraNamespaceName } from "./cluster.ts";
 
@@ -46,18 +45,15 @@ function productDatabases(): ProductDatabase[] {
   ];
 }
 
-const POSTGRES_VAULT_KEYS = {
-  "control-center": "CONTROL_CENTER_POSTGRES__PASSWORD",
-  "captive-portal": "CAPTIVE_PORTAL_POSTGRES__PASSWORD",
-} as const satisfies Record<ProductSlug, string>;
-
 function createAuthSecret(
   database: ProductDatabase,
   vault: Record<string, string>,
   namespace: pulumi.Input<string>,
   opts: pulumi.CustomResourceOptions,
 ): k8s.core.v1.Secret {
-  const vaultKey = POSTGRES_VAULT_KEYS[database.product];
+  // The postgres password's SOPS vault key comes from the product manifest's
+  // database auth declaration (single source, CC-k8t7), not a local copy.
+  const vaultKey = database.auth.password.vaultKey;
   const password = vault[vaultKey];
   if (password === undefined) {
     throw new Error(`cnpg: vault key "${vaultKey}" not found`);

@@ -10,12 +10,11 @@ import {
 } from "../src/index.ts";
 
 describe("secret catalog and service usage", () => {
-  test("models refs as 1Password Homelab item/field references, not values", () => {
+  test("models secrets by their SOPS vault key, keeping 1Password item/field as provenance", () => {
     expect(secretCatalog.homeAssistant.token).toEqual({
       field: "credential",
       item: "Home Assistant Token",
-      opPath: "op://Homelab/Home Assistant Token/credential",
-      remoteRef: "Home Assistant Token/credential",
+      vaultKey: "HOME_ASSISTANT_TOKEN__CREDENTIAL",
     });
   });
 
@@ -26,6 +25,7 @@ describe("secret catalog and service usage", () => {
 
     expect(usage).toMatchObject({
       mountPath: "/run/secrets",
+      namespaceName: "control-center",
       product: "control-center",
       service: "api",
       targetSecretName: "control-center-secrets-api",

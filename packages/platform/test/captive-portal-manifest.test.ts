@@ -1,4 +1,9 @@
 import { describe, expect, test } from "vitest";
+// Relative, test-only import of the product's own boundary declaration (a plain
+// object literal, no runtime coupling) so we can assert it against the deploy
+// manifest without the product depending on @www/platform. Mirrors the existing
+// cross-package relative imports in this test dir (control-center-manifest.test.ts).
+import { captivePortalApiDependencies } from "../../../products/captive-portal/apps/api/src/dependencies.ts";
 import { captivePortalProductManifest } from "../src/index.ts";
 
 describe("Captive Portal platform representation", () => {
@@ -67,8 +72,19 @@ describe("Captive Portal platform representation", () => {
       "WIFI_PASSWORD",
       "WIFI_SSID",
     ]);
-    expect(manifest.secretUsages.api.secrets.POSTGRES_PASSWORD.remoteRef).toBe(
-      "Captive Portal Postgres/password",
+    expect(manifest.secretUsages.api.secrets.POSTGRES_PASSWORD.vaultKey).toBe(
+      "CAPTIVE_PORTAL_POSTGRES__PASSWORD",
     );
+  });
+
+  test("product API dependencies.ts secretNames match the deploy manifest's api secret env names", () => {
+    const manifest = captivePortalProductManifest();
+    const manifestEnvNames = Object.keys(manifest.secretUsages.api.secrets).sort();
+    const declaredNames = [...captivePortalApiDependencies.secretNames].sort();
+
+    // The product's self-declared secret inputs (dependencies.ts, asserted by its
+    // own api-boundary.test.ts) must stay in lockstep with what infra actually
+    // mounts for captive-portal-api, which is derived from this manifest usage.
+    expect(declaredNames).toEqual(manifestEnvNames);
   });
 });
