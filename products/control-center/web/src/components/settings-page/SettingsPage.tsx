@@ -18,9 +18,13 @@ import { registerOpenModal } from "../../lib/modal-open-store";
 import { Icon } from "../Icon";
 import { BackButton, PageHeader } from "./blocks";
 import { PAGE_BY_KEY, PAGES, type PageKey } from "./pages";
+import { AboutPage } from "./pages/AboutPage";
 import { BoardPage } from "./pages/BoardPage";
+import { DebugPage } from "./pages/DebugPage";
 import { DevicePage } from "./pages/DevicePage";
 import { DisplayPage } from "./pages/DisplayPage";
+import { NetworkPage } from "./pages/NetworkPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 
 export type PageProps = {
   onClose: () => void;
@@ -36,6 +40,10 @@ const PAGE_COMPONENTS: Partial<Record<PageKey, ComponentType<PageProps>>> = {
   device: DevicePage,
   display: DisplayPage,
   board: BoardPage,
+  network: NetworkPage,
+  notifications: NotificationsPage,
+  debug: DebugPage,
+  about: AboutPage,
 };
 
 export function SettingsPage({
