@@ -275,7 +275,7 @@ function pageBlocks(
                     label="Dim after"
                     value={s.dimAfterMin}
                     min={1}
-                    max={30}
+                    max={10}
                     step={1}
                     format={(n) => `${n} min`}
                     onChange={(dimAfterMin) => patch({ dimAfterMin })}
@@ -334,7 +334,7 @@ function pageBlocks(
                     label="Recenter after"
                     value={s.recenterAfterMin}
                     min={1}
-                    max={30}
+                    max={10}
                     step={1}
                     format={(n) => `${n} min`}
                     onChange={(recenterAfterMin) => patch({ recenterAfterMin })}
