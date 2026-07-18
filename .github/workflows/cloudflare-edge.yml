@@ -1,0 +1,75 @@
+name: Cloudflare edge
+
+# The `infra/cloudflare` stack (Access apps + tunnel ingress + DNS) has no
+# automated apply: the CI deploy job only runs `pulumi up` on the k8s stack.
+# Edge state therefore drifts from the declared program until someone applies
+# it by hand, which is how the routes for deleted products stayed live.
+#
+# This workflow closes that gap. It defaults to PREVIEW ONLY, because a bad
+# apply here deletes DNS records and Access policies for live hosts. Read the
+# preview, then re-dispatch with apply=true.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply the changes (false = preview only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-edge
+  cancel-in-progress: false
+
+jobs:
+  edge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Protected environment: AGE_PRIVATE_KEY is scoped here so it never appears
+    # on PR runners (it is the skeleton key for the whole vault).
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decrypt vault (SOPS+age)
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
+        run: |
+          curl -fsSL https://github.com/getsops/sops/releases/download/v3.13.1/sops-v3.13.1.linux.amd64 \
+            -o /usr/local/bin/sops && chmod +x /usr/local/bin/sops
+          curl -fsSL https://github.com/FiloSottile/age/releases/download/v1.3.1/age-v1.3.1-linux-amd64.tar.gz \
+            | tar -xzC /usr/local/bin --strip-components=1 age/age age/age-keygen
+
+          extract() { sops -d secrets/vault.yaml | grep "^$1:" | cut -d' ' -f2-; }
+
+          PULUMI_TOKEN=$(extract PULUMI__ACCESS_TOKEN)
+          echo "::add-mask::$PULUMI_TOKEN"
+          echo "PULUMI_ACCESS_TOKEN=$PULUMI_TOKEN" >> "$GITHUB_ENV"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.19
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@v6
+
+      - name: pulumi preview (cloudflare edge)
+        working-directory: infra/cloudflare
+        run: |
+          pulumi login
+          pulumi stack select prod
+          pulumi preview --stack prod --diff
+
+      - name: pulumi up (cloudflare edge)
+        if: inputs.apply
+        working-directory: infra/cloudflare
+        run: |
+          pulumi login
+          pulumi stack select prod
+          pulumi up --yes --stack prod
