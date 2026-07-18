@@ -169,6 +169,12 @@ const ACTION_BUTTON: CSSProperties = {
   cursor: "pointer",
 };
 
+// Sliders end in a thin 8px rail, so a uniform row padding reads tighter under
+// them than under text rows , this evens out the optical spacing.
+function SliderRow({ children }: { children: ReactNode }) {
+  return <div style={{ padding: "2px 0 6px" }}>{children}</div>;
+}
+
 function ChevronValue({ value }: { value: string }) {
   return (
     <span style={{ ...VALUE_TEXT, display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -241,16 +247,17 @@ function pageBlocks(
         {
           title: "Brightness",
           rows: [
-            <Slider
-              key="brightness"
-              label="Brightness"
-              value={s.brightness}
-              min={10}
-              max={100}
-              step={1}
-              format={(n) => `${n}%`}
-              onChange={(brightness) => patch({ brightness })}
-            />,
+            <SliderRow key="brightness">
+              <Slider
+                label="Brightness"
+                value={s.brightness}
+                min={10}
+                max={100}
+                step={1}
+                format={(n) => `${n}%`}
+                onChange={(brightness) => patch({ brightness })}
+              />
+            </SliderRow>,
           ],
         },
         {
@@ -270,26 +277,28 @@ function pageBlocks(
             />,
             ...(s.idleDim
               ? [
-                  <Slider
-                    key="dim-after"
-                    label="Dim after"
-                    value={s.dimAfterMin}
-                    min={1}
-                    max={10}
-                    step={1}
-                    format={(n) => `${n} min`}
-                    onChange={(dimAfterMin) => patch({ dimAfterMin })}
-                  />,
-                  <Slider
-                    key="dim-level"
-                    label="Dim level"
-                    value={s.dimLevel}
-                    min={5}
-                    max={80}
-                    step={1}
-                    format={(n) => `${n}%`}
-                    onChange={(dimLevel) => patch({ dimLevel })}
-                  />,
+                  <SliderRow key="dim-after">
+                    <Slider
+                      label="Dim after"
+                      value={s.dimAfterMin}
+                      min={1}
+                      max={10}
+                      step={1}
+                      format={(n) => `${n} min`}
+                      onChange={(dimAfterMin) => patch({ dimAfterMin })}
+                    />
+                  </SliderRow>,
+                  <SliderRow key="dim-level">
+                    <Slider
+                      label="Dim level"
+                      value={s.dimLevel}
+                      min={5}
+                      max={80}
+                      step={1}
+                      format={(n) => `${n}%`}
+                      onChange={(dimLevel) => patch({ dimLevel })}
+                    />
+                  </SliderRow>,
                 ]
               : []),
           ],
@@ -329,16 +338,17 @@ function pageBlocks(
             />,
             ...(s.recenter
               ? [
-                  <Slider
-                    key="recenter-after"
-                    label="Recenter after"
-                    value={s.recenterAfterMin}
-                    min={1}
-                    max={10}
-                    step={1}
-                    format={(n) => `${n} min`}
-                    onChange={(recenterAfterMin) => patch({ recenterAfterMin })}
-                  />,
+                  <SliderRow key="recenter-after">
+                    <Slider
+                      label="Recenter after"
+                      value={s.recenterAfterMin}
+                      min={1}
+                      max={10}
+                      step={1}
+                      format={(n) => `${n} min`}
+                      onChange={(recenterAfterMin) => patch({ recenterAfterMin })}
+                    />
+                  </SliderRow>,
                 ]
               : []),
           ],
