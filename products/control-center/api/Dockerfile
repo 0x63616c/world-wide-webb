@@ -55,6 +55,12 @@ RUN bun build products/control-center/api/src/purge.ts --target=bun --outfile di
 # a shell for on-box debugging of the wall panel.
 FROM oven/bun:1.2-alpine AS runtime
 
+# Git SHA of the build; CI passes --build-arg BUILD_HASH=${github.sha} (mirrors
+# the web image). Absent (local docker build) it stays "dev", the env.ts
+# default, so routers/health.ts reports what is actually running in prod.
+ARG BUILD_HASH=dev
+ENV BUILD_HASH=$BUILD_HASH
+
 WORKDIR /app
 
 COPY --from=build /app/dist/server.js server.js

@@ -325,6 +325,8 @@ jobs:
           image: www-control-center-api
           dockerfile: products/control-center/api/Dockerfile
           cache-scope: api
+          build-args: |
+            BUILD_HASH=${{ github.sha }}
 
   build-worker:
     needs: [changes, test, typecheck]
