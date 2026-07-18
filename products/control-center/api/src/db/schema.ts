@@ -144,27 +144,6 @@ export const deviceState = pgTable(
   ],
 );
 
-export const deviceCommands = pgTable(
-  "device_commands",
-  {
-    id: serial("id").primaryKey(),
-    deviceId: text("device_id")
-      .notNull()
-      .references(() => deviceState.id, { onDelete: "cascade" }),
-    action: text("action").notNull(),
-    args: jsonb("args").notNull(),
-    status: text("status").notNull(),
-    issuedAtUtc: timestamp("issued_at_utc", { withTimezone: true }).notNull().defaultNow(),
-    sentAtUtc: timestamp("sent_at_utc", { withTimezone: true }),
-    confirmedAtUtc: timestamp("confirmed_at_utc", { withTimezone: true }),
-    error: text("error"),
-  },
-  (t) => [
-    index("device_commands_device_id_issued_idx").on(t.deviceId, t.issuedAtUtc),
-    index("device_commands_status_idx").on(t.status),
-  ],
-);
-
 export const integrationSyncStatus = pgTable("integration_sync_status", {
   integrationId: text("integration_id").primaryKey(),
   lastPolledAtUtc: timestamp("last_polled_at_utc", { withTimezone: true }),

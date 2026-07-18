@@ -25,8 +25,12 @@ import type { DeviceLightState, LightColor } from "../db/schema";
 import { deviceState, integrationSyncStatus, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
-import { HaLightService } from "./device-command-service";
-import { isLightState, type MappedHaState, mapHaToReported } from "./device-state-mapping";
+import {
+  HaLightService,
+  isLightState,
+  type MappedHaState,
+  mapHaToReported,
+} from "./device-state-mapping";
 
 const ENFORCER_INTEGRATION_ID = "light-enforcer";
 const ENFORCER_DOMAINS = ["light", "switch"] as const;

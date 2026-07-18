@@ -31,8 +31,7 @@ import { LAMP_ENTITY_IDS } from "../config/lights";
 import { db } from "../db/index";
 import { deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
-import { HaLightService } from "./device-command-service";
-import { isLightState } from "./device-state-mapping";
+import { HaLightService, isLightState } from "./device-state-mapping";
 
 // ─── pure helpers ──────────────────────────────────────────────────────────────
 

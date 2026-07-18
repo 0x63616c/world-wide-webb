@@ -38,21 +38,6 @@ vi.mock("../db/index", () => ({
   },
 }));
 
-// ─── mock device-command-service ─────────────────────────────────────────────
-
-const { mockCommandDevice } = vi.hoisted(() => ({
-  mockCommandDevice:
-    vi.fn<(input: { id: string; action: string; args: { on?: boolean } }) => Promise<unknown>>(),
-}));
-
-vi.mock("../services/device-command-service", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../services/device-command-service")>();
-  return {
-    ...actual,
-    commandDevice: mockCommandDevice,
-  };
-});
-
 // ─── import after mock ────────────────────────────────────────────────────────
 
 import {
@@ -725,22 +710,12 @@ describe("toggleControl", () => {
     expect(updates.last?.desiredState).toMatchObject({ fanMode: FanMode.Auto });
   });
 
-  it("toggling lamps never calls commandDevice (the enforcer is the safety-net now)", async () => {
-    mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
-
-    await toggleControl(ControlKey.Lamps, true);
-
-    expect(mockCommandDevice).not.toHaveBeenCalled();
-  });
-
   it("the fan is a climate fan_mode written to desired, never a device command or HA call", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("auto", "auto")]));
     captureUpdates();
 
     await expect(toggleControl(ControlKey.Fan, true)).resolves.toBeDefined();
-    expect(mockCommandDevice).not.toHaveBeenCalled();
     expect(mockCallService).not.toHaveBeenCalled();
   });
 

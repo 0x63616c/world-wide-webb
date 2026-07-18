@@ -16,6 +16,11 @@ export const DeviceKind = {
 } as const;
 export type DeviceKind = (typeof DeviceKind)[keyof typeof DeviceKind];
 
+export const HaLightService = {
+  TurnOn: "turn_on",
+  TurnOff: "turn_off",
+} as const;
+
 /**
  * Narrow a DeviceStateValue to a light state. The union now also holds
  * DeviceClimateState (www-unxz.2); a light state has the boolean `on` field, which
