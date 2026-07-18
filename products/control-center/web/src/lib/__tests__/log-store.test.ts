@@ -62,6 +62,20 @@ describe("log store", () => {
     ).toEqual(["error", "info", "warn"]);
   });
 
+  it("counts exactly by level set via the level index", async () => {
+    await store.append([
+      entry(1, { level: "debug" }),
+      entry(2, { level: "debug" }),
+      entry(3, { level: "info" }),
+      entry(4, { level: "warn" }),
+      entry(5, { level: "error" }),
+    ]);
+    expect(await store.countByLevels(["error"])).toBe(1);
+    expect(await store.countByLevels(["warn", "error"])).toBe(2);
+    expect(await store.countByLevels(["debug", "info", "warn", "error"])).toBe(5);
+    expect(await store.countByLevels([])).toBe(0);
+  });
+
   it("filters by source", async () => {
     await store.append([entry(1, { source: "trpc" }), entry(2, { source: "tile:weather" })]);
     const rows = await store.query({ source: "trpc" });

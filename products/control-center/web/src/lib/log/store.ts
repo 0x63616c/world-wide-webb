@@ -451,6 +451,23 @@ export async function bytesUsed(): Promise<number> {
   return stats?.bytes ?? 0;
 }
 
+/**
+ * Exact entry count across the given levels, via the `level` index , O(levels)
+ * index counts, no cursor walk. This is the denominator for the filtered
+ * export's progress bar: the export needs to promise "n of m" before it starts
+ * paging, and estimating m from the unfiltered total would make the bar lie.
+ */
+export async function countByLevels(levels: LogLevel[]): Promise<number> {
+  const db = await openDb();
+  if (!db) return 0;
+  const tx = db.transaction(ENTRIES, "readonly");
+  const index = tx.objectStore(ENTRIES).index("level");
+  const counts = await Promise.all(
+    levels.map((level) => promisify(index.count(IDBKeyRange.only(level)))),
+  );
+  return counts.reduce((sum, n) => sum + n, 0);
+}
+
 /** Entry count. Used by the viewer's footer and by tests. */
 export async function count(): Promise<number> {
   const db = await openDb();

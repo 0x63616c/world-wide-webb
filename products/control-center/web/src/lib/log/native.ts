@@ -31,6 +31,13 @@ import type { LogEntry } from "./types";
 const DIR = "cc-logs";
 const CURRENT = `${DIR}/current.jsonl`;
 const PREVIOUS = `${DIR}/previous.jsonl`;
+/**
+ * Scratch file for a level-filtered export. Unlike the mirror generations this
+ * is not history , it is rebuilt from IndexedDB on every filtered export and
+ * deleted after the share sheet closes, so a 100 MB filtered dump never squats
+ * on the panel's disk.
+ */
+const EXPORT_FILE = `${DIR}/export.jsonl`;
 const GENERATION_MAX_BYTES = 64 * 1024 * 1024;
 /** Restore writes into IndexedDB in chunks so one transaction never holds 100k+ puts. */
 const RESTORE_CHUNK = 5_000;
@@ -41,6 +48,12 @@ const RESTORE_CHUNK = 5_000;
  */
 export interface LogFilesystem {
   appendFile(opts: {
+    path: string;
+    directory: string;
+    data: string;
+    encoding: string;
+  }): Promise<void>;
+  writeFile(opts: {
     path: string;
     directory: string;
     data: string;
@@ -214,6 +227,48 @@ export async function getMirrorFileUris(): Promise<string[]> {
     return uris;
   } catch {
     return []; // export is best-effort; an unresolvable mirror is just absent
+  }
+}
+
+/**
+ * Write one chunk of a level-filtered export. `first` truncates (a fresh export
+ * must not append onto a previous one); later chunks append, so the whole export
+ * never has to exist in memory at once. Returns false when there is no native
+ * filesystem (off-device) , the caller treats that as "export unavailable", not
+ * an error. Unlike the mirror this THROWS on a real write failure: a silently
+ * truncated export is worse than no export.
+ */
+export async function writeExportChunk(entries: LogEntry[], first: boolean): Promise<boolean> {
+  const fs = await getFs();
+  if (!fs) return false;
+  const data = `${entries.map((e) => JSON.stringify(e)).join("\n")}\n`;
+  const opts = { path: EXPORT_FILE, directory: DATA, data, encoding: UTF8 };
+  if (first) await fs.writeFile(opts);
+  else await fs.appendFile(opts);
+  return true;
+}
+
+/** Shareable URI for the export scratch file, or null if it doesn't exist. */
+export async function getExportFileUri(): Promise<string | null> {
+  const fs = await getFs();
+  if (!fs) return null;
+  try {
+    await fs.stat({ path: EXPORT_FILE, directory: DATA });
+    const { uri } = await fs.getUri({ path: EXPORT_FILE, directory: DATA });
+    return uri;
+  } catch {
+    return null;
+  }
+}
+
+/** Drop the export scratch file. Best-effort , a missing file is already gone. */
+export async function deleteExportFile(): Promise<void> {
+  const fs = await getFs();
+  if (!fs) return;
+  try {
+    await fs.deleteFile({ path: EXPORT_FILE, directory: DATA });
+  } catch {
+    // never written, or already cleaned up
   }
 }
 

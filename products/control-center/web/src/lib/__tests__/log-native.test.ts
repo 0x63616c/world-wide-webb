@@ -2,11 +2,14 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { getDeviceName } from "../device-name";
 import type { LogFilesystem } from "../log/native";
 import {
+  deleteExportFile,
+  getExportFileUri,
   getMirrorFileUris,
   nativeAppend,
   resetNativeForTests,
   restoreFromNative,
   setFilesystemForTests,
+  writeExportChunk,
 } from "../log/native";
 import type { LogEntry } from "../log/types";
 
@@ -34,6 +37,9 @@ function makeFakeFs() {
   const fs: LogFilesystem = {
     async appendFile({ path, data }) {
       files.set(path, (files.get(path) ?? "") + data);
+    },
+    async writeFile({ path, data }) {
+      files.set(path, data);
     },
     async readFile({ path }) {
       const data = files.get(path);
@@ -201,6 +207,42 @@ describe("native log mirror", () => {
         `file:///fake/${PREVIOUS}`,
         `file:///fake/${CURRENT}`,
       ]);
+    });
+  });
+
+  describe("filtered export scratch file", () => {
+    const EXPORT = "cc-logs/export.jsonl";
+
+    it("returns false off-device instead of throwing", async () => {
+      setFilesystemForTests(null);
+      expect(await writeExportChunk([entry(1)], true)).toBe(false);
+      expect(await getExportFileUri()).toBeNull();
+      await deleteExportFile(); // must not throw
+    });
+
+    it("first chunk truncates a stale export, later chunks append", async () => {
+      const { fs, files } = makeFakeFs();
+      files.set(EXPORT, "stale previous export\n");
+      setFilesystemForTests(fs);
+
+      expect(await writeExportChunk([entry(1)], true)).toBe(true);
+      expect(await writeExportChunk([entry(2), entry(3)], false)).toBe(true);
+
+      const lines = (files.get(EXPORT) ?? "").trim().split("\n");
+      expect(lines.map((l) => (JSON.parse(l) as LogEntry).seq)).toEqual([1, 2, 3]);
+    });
+
+    it("resolves a URI once written, null before, and deletes cleanly", async () => {
+      const { fs, files } = makeFakeFs();
+      setFilesystemForTests(fs);
+      expect(await getExportFileUri()).toBeNull();
+
+      await writeExportChunk([entry(1)], true);
+      expect(await getExportFileUri()).toBe(`file:///fake/${EXPORT}`);
+
+      await deleteExportFile();
+      expect(files.has(EXPORT)).toBe(false);
+      expect(await getExportFileUri()).toBeNull();
     });
   });
 

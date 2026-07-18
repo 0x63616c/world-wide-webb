@@ -30,7 +30,12 @@ import { BUILD_HASH } from "../config/build";
 import { getDeviceName } from "../lib/device-name";
 import { fuzzyMatch } from "../lib/log/fuzzy";
 import { flushNow, getTail, log, subscribe } from "../lib/log/logger";
-import { getMirrorFileUris } from "../lib/log/native";
+import {
+  deleteExportFile,
+  getExportFileUri,
+  getMirrorFileUris,
+  writeExportChunk,
+} from "../lib/log/native";
 import * as store from "../lib/log/store";
 import { MAX_BYTES, MAX_ENTRIES } from "../lib/log/store";
 import { LOG_LEVELS, type LogEntry, type LogLevel } from "../lib/log/types";
@@ -41,6 +46,12 @@ const LIST_HEIGHT = 520;
 /** Rows rendered above/below the viewport, so a fast flick doesn't show blanks. */
 const OVERSCAN = 8;
 const PAGE_SIZE = 500;
+/**
+ * Page size for the filtered export's store walk. Bigger than the viewer's page
+ * because nothing renders , each page is serialized to JSONL and appended to the
+ * export file, so the bound is transient memory per chunk, not DOM weight.
+ */
+const EXPORT_PAGE = 2_000;
 /**
  * Cap on how many matches a search pulls back from disk in one go. A search runs
  * against the WHOLE store (up to a million entries), so it needs a ceiling , but
@@ -156,6 +167,8 @@ export function LogsModal({
   const [bytes, setBytes] = useState(0);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [exporting, setExporting] = useState(false);
+  /** 0..1 while a filtered export is paging the store; null otherwise. */
+  const [exportProgress, setExportProgress] = useState<number | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchTruncated, setSearchTruncated] = useState(false);
   const [selected, setSelected] = useState<LogEntry | null>(null);
@@ -166,6 +179,16 @@ export function LogsModal({
     setLevels((prev) =>
       prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level],
     );
+  }, []);
+
+  /**
+   * Double-tap solo, mixer-desk style: solo the tapped level; double-tap the
+   * level that is already solo to bring everything back. The two single-click
+   * toggles that fire before dblclick cancel each other out (toggle twice is a
+   * no-op), so the pair of handlers composes without debouncing.
+   */
+  const soloLevel = useCallback((level: LogLevel) => {
+    setLevels((prev) => (prev.length === 1 && prev[0] === level ? [...LOG_LEVELS] : [level]));
   }, []);
 
   // Reset paging whenever the modal is reopened: the tail has moved on, and
@@ -288,13 +311,62 @@ export function LogsModal({
     }
   }, [oldestLoadedId, levels, search]);
 
-  // Export the on-disk native mirror files via the OS share sheet. We share the
-  // files the mirror has ALREADY written , no IndexedDB read, no serialization ,
-  // so the rescue path cannot spike memory or fail on a million-row store.
+  // Export via the OS share sheet. Two shapes, chosen by the level chips:
+  //
+  //   - ALL levels selected: share the on-disk native mirror files as-is , no
+  //     IndexedDB read, no serialization, so the rescue path cannot spike memory
+  //     or fail on a million-row store. Instant, but it is the whole ~128 MB
+  //     mirror.
+  //   - a SUBSET selected: page the store through the level filter and stream
+  //     matching entries into a scratch file, then share that. Chunked on both
+  //     ends (query paging in, appendFile out) so memory stays bounded, and
+  //     countByLevels gives an exact total up front , the progress on the button
+  //     is real, not a spinner. Deselecting debug is the difference between a
+  //     100 MB export and one that actually fits in an iMessage.
   const handleExport = useCallback(async () => {
     const exportLog = log.child("logs-export");
     setExporting(true);
     try {
+      const { Share } = await import("@capacitor/share");
+
+      if (levels.length < LOG_LEVELS.length) {
+        // Filtered export. Flush first so what exports is what the footer counts.
+        await flushNow();
+        const total = await store.countByLevels(levels);
+        if (total === 0) {
+          exportLog.warn("no entries at selected levels", { levels });
+          return;
+        }
+        setExportProgress(0);
+        let before: string | undefined;
+        let written = 0;
+        for (;;) {
+          const page = await store.query({ levels, before, limit: EXPORT_PAGE });
+          if (page.length === 0) break;
+          if (!(await writeExportChunk(page, written === 0))) {
+            exportLog.warn("no native filesystem for filtered export");
+            return;
+          }
+          written += page.length;
+          before = page[page.length - 1].id;
+          setExportProgress(Math.min(1, written / total));
+          if (page.length < EXPORT_PAGE) break;
+        }
+        const uri = await getExportFileUri();
+        if (!uri) {
+          exportLog.error("export file missing after write", { written });
+          return;
+        }
+        await Share.share({
+          title: "Control Center logs",
+          text: `Control Center logs (${levels.join(", ")})`,
+          files: [uri],
+          dialogTitle: "Export logs",
+        });
+        exportLog.info("shared filtered export", { entries: written, levels });
+        return;
+      }
+
       const uris = await getMirrorFileUris();
       if (uris.length === 0) {
         // Mirror hasn't flushed a batch yet (or we're off-device). Honest record,
@@ -302,7 +374,6 @@ export function LogsModal({
         exportLog.warn("no mirror files to export");
         return;
       }
-      const { Share } = await import("@capacitor/share");
       await Share.share({
         title: "Control Center logs",
         text: "Control Center native log mirror",
@@ -322,9 +393,14 @@ export function LogsModal({
       }
       exportLog.error("share failed", { message });
     } finally {
+      // The share sheet has closed (iOS copies the payload on share), so the
+      // scratch file is dead weight , reclaim the disk immediately rather than
+      // leaving a filtered dump around until the next export truncates it.
+      void deleteExportFile();
       setExporting(false);
+      setExportProgress(null);
     }
-  }, []);
+  }, [levels]);
 
   // Windowing: only the visible slice is in the DOM. The spacer div carries the
   // full scroll height so the scrollbar still reflects the real list length.
@@ -353,6 +429,7 @@ export function LogsModal({
               level={level}
               active={levels.includes(level)}
               onToggle={() => toggleLevel(level)}
+              onSolo={() => soloLevel(level)}
             />
           ))}
           <input
@@ -382,11 +459,20 @@ export function LogsModal({
             disabled={!nativeExport || exporting}
             title={
               nativeExport
-                ? "Share the on-disk log mirror files"
+                ? levels.length < LOG_LEVELS.length
+                  ? `Export only ${levels.join(" + ")} entries`
+                  : "Share the on-disk log mirror files (all levels)"
                 : "Export available on the device only"
             }
+            // The button IS the progress bar during a filtered export: the fill
+            // sweeps left to right behind the percentage label.
+            progress={exportProgress ?? undefined}
           >
-            {exporting ? "Exporting…" : "Export"}
+            {exportProgress !== null
+              ? `Exporting ${Math.round(exportProgress * 100)}%`
+              : exporting
+                ? "Exporting…"
+                : "Export"}
           </ToolbarButton>
         </div>
 
@@ -578,22 +664,25 @@ const ELLIPSIS = {
  * A level filter chip. Independently toggleable , the levels are a set, not a
  * threshold. An inactive chip stays legible (dimmed, not hidden) so you can see
  * at a glance which levels you have switched off, rather than wondering why the
- * list looks empty.
+ * list looks empty. Double-tap solos the level (see soloLevel).
  */
 function LevelChip({
   level,
   active,
   onToggle,
+  onSolo,
 }: {
   level: LogLevel;
   active: boolean;
   onToggle: () => void;
+  onSolo: () => void;
 }) {
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onToggle}
+      onDoubleClick={onSolo}
       style={{
         height: "100%",
         padding: "0 14px",
@@ -619,11 +708,14 @@ function ToolbarButton({
   onClick,
   disabled,
   title,
+  progress,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
   title?: string;
+  /** 0..1 , renders a determinate fill behind the label (filtered export). */
+  progress?: number;
 }) {
   return (
     <button
@@ -634,7 +726,10 @@ function ToolbarButton({
       style={{
         height: "100%",
         padding: "0 14px",
-        background: "var(--nest)",
+        background:
+          progress !== undefined
+            ? `linear-gradient(to right, var(--hair) ${progress * 100}%, var(--nest) ${progress * 100}%)`
+            : "var(--nest)",
         border: "1px solid var(--hair)",
         borderRadius: RADIUS,
         fontFamily: "var(--ui)",
