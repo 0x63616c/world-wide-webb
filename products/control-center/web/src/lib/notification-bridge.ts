@@ -28,6 +28,7 @@ const ALERT_SPECS: Record<
 > = {
   "device-name": { category: "system", severity: "warning" },
   "app-update": { category: "system", severity: "info" },
+  "battery-not-charging": { category: "system", severity: "critical" },
   [CONNECTION_ALERT_ID]: { category: "system", severity: "critical" },
 };
 

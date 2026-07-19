@@ -44,6 +44,15 @@ describe("alertToRaise", () => {
     expect(alertToRaise({ id: CONNECTION_ALERT_ID, message: "Unable to connect…" })).toBeNull();
   });
 
+  it("maps the not-charging banner to a system critical", () => {
+    const payload = alertToRaise({
+      id: "battery-not-charging",
+      message: "iPad is not connected to power or charging properly",
+    });
+    expect(payload?.category).toBe("system");
+    expect(payload?.severity).toBe("critical");
+  });
+
   it("ignores an unknown banner id rather than inventing a category", () => {
     expect(alertToRaise({ id: "something-new", message: "hi" })).toBeNull();
   });
