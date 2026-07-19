@@ -10,6 +10,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ReactNode } from "react";
+import { encode } from "uqr";
 import { Icon } from "@/components/Icon";
 import { Tile, TileHeader } from "@/components/ui";
 import { tilePixelSize } from "../../lib/grid-constants";
@@ -433,6 +434,173 @@ const MODALS: { label: string; node: ReactNode }[] = [
   },
 ];
 
+// ─── QR module-shape variations (shown in the picked "quiet label" chrome) ────
+
+type QrShape = {
+  /** Draw one data module. */
+  data: (x: number, y: number, cell: number) => ReactNode;
+  /** Optional finder override; default = data renderer, contiguous. */
+  finder?: (x: number, y: number, cell: number) => ReactNode;
+  /** Replace raw finder modules with three drawn rings. */
+  drawnFinders?: boolean;
+};
+
+function rect(x: number, y: number, cell: number, inset: number, rx: number, key?: string) {
+  return (
+    <rect
+      key={key ?? `${x}-${y}`}
+      x={x * cell + inset * cell}
+      y={y * cell + inset * cell}
+      width={cell * (1 - inset * 2)}
+      height={cell * (1 - inset * 2)}
+      rx={rx * cell}
+      fill="#ededed"
+    />
+  );
+}
+
+function circle(x: number, y: number, cell: number, r: number) {
+  return (
+    <circle
+      key={`${x}-${y}`}
+      cx={(x + 0.5) * cell}
+      cy={(y + 0.5) * cell}
+      r={cell * r}
+      fill="#ededed"
+    />
+  );
+}
+
+function diamond(x: number, y: number, cell: number) {
+  const cx = (x + 0.5) * cell;
+  const cy = (y + 0.5) * cell;
+  const r = cell * 0.5;
+  return (
+    <polygon
+      key={`${x}-${y}`}
+      points={`${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`}
+      fill="#ededed"
+    />
+  );
+}
+
+const QR_SHAPES: { label: string; shape: QrShape }[] = [
+  { label: "dots (shipped)", shape: { data: (x, y, c) => rect(x, y, c, 0.06, 0.5) } },
+  { label: "crisp squares", shape: { data: (x, y, c) => rect(x, y, c, 0, 0) } },
+  {
+    label: "circles airy",
+    shape: { data: (x, y, c) => circle(x, y, c, 0.34), finder: (x, y, c) => rect(x, y, c, 0, 0.3) },
+  },
+  {
+    label: "circles chunky",
+    shape: { data: (x, y, c) => circle(x, y, c, 0.46), finder: (x, y, c) => rect(x, y, c, 0, 0.3) },
+  },
+  { label: "squircle", shape: { data: (x, y, c) => rect(x, y, c, 0.08, 0.3) } },
+  { label: "pixel gap", shape: { data: (x, y, c) => rect(x, y, c, 0.12, 0) } },
+  {
+    label: "round + square eyes",
+    shape: {
+      data: (x, y, c) => rect(x, y, c, 0.06, 0.5),
+      finder: (x, y, c) => rect(x, y, c, 0, 0),
+    },
+  },
+  { label: "diamond", shape: { data: diamond, finder: (x, y, c) => rect(x, y, c, 0, 0.3) } },
+  { label: "blob", shape: { data: (x, y, c) => rect(x, y, c, 0, 0.5) } },
+  {
+    label: "ring eyes",
+    shape: { data: (x, y, c) => circle(x, y, c, 0.38), drawnFinders: true },
+  },
+];
+
+/** Sheet-local QR renderer , same matrix/card as GuestWifiQr, shape pluggable. */
+function ShapedQr({ shape, size }: { shape: QrShape; size: number }) {
+  const qr = encode(STORY_QR, { border: 2, ecc: "M" });
+  const count = qr.size;
+  const cell = size / count;
+  const F = 7;
+  const inF = (x: number, y: number) => {
+    const l = x >= 2 && x < F + 2;
+    const r = x >= count - F - 2 && x < count - 2;
+    const t = y >= 2 && y < F + 2;
+    const b = y >= count - F - 2 && y < count - 2;
+    return (t && (l || r)) || (b && l);
+  };
+  const nodes: ReactNode[] = [];
+  for (let y = 0; y < count; y++) {
+    for (let x = 0; x < count; x++) {
+      if (!qr.data[y]?.[x]) continue;
+      const finder = inF(x, y);
+      if (finder && shape.drawnFinders) continue;
+      nodes.push(finder ? (shape.finder ?? shape.data)(x, y, cell) : shape.data(x, y, cell));
+    }
+  }
+  const origins: [number, number][] = [
+    [2, 2],
+    [count - F - 2, 2],
+    [2, count - F - 2],
+  ];
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        flex: "0 0 auto",
+        borderRadius: 16,
+        background: "#050505",
+        padding: Math.round(size * 0.045),
+        border: "1px solid var(--hair-2)",
+      }}
+    >
+      <svg viewBox={`0 0 ${size} ${size}`} width="100%" height="100%" aria-hidden="true">
+        {nodes}
+        {shape.drawnFinders &&
+          origins.map(([fx, fy]) => (
+            <g key={`${fx}-${fy}`}>
+              <rect
+                x={(fx + 0.5) * cell}
+                y={(fy + 0.5) * cell}
+                width={(F - 1) * cell}
+                height={(F - 1) * cell}
+                rx={cell * 1.8}
+                fill="none"
+                stroke="#ededed"
+                strokeWidth={cell}
+              />
+              <rect
+                x={(fx + 2) * cell}
+                y={(fy + 2) * cell}
+                width={cell * 3}
+                height={cell * 3}
+                rx={cell * 1.1}
+                fill="#ededed"
+              />
+            </g>
+          ))}
+      </svg>
+    </div>
+  );
+}
+
+const QR_VARIATIONS: { label: string; node: ReactNode }[] = QR_SHAPES.map(({ label, shape }) => ({
+  label,
+  node: (
+    <PanelShell title="Guest Wi-Fi">
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 12,
+          padding: "4px 0 20px",
+        }}
+      >
+        <ShapedQr shape={shape} size={240} />
+        <div className="cap">scan to join</div>
+      </div>
+    </PanelShell>
+  ),
+}));
+
 // ─── sheets ───────────────────────────────────────────────────────────────────
 
 function Sheet({ items, zoom, cols }: { items: typeof FACES; zoom: number; cols: number }) {
@@ -476,4 +644,8 @@ export const Faces: Story = {
 
 export const Modals: Story = {
   args: { items: MODALS, zoom: 0.4, cols: 5 },
+};
+
+export const QrVariations: Story = {
+  args: { items: QR_VARIATIONS, zoom: 0.4, cols: 5 },
 };
