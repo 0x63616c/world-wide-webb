@@ -28,10 +28,21 @@ platform :ios do
       is_key_content_base64: true
     )
 
+    # Normally readonly: CI must never mint or revoke signing assets as a side
+    # effect of a routine build. But enabling/removing an App ID capability marks
+    # every existing profile Invalid, and a readonly match happily installs the
+    # stale cached copy , the build then succeeds while silently shipping a binary
+    # without the new entitlement. (Exactly what happened when Push Notifications
+    # was enabled: the profile went Invalid and the next build shipped with no
+    # aps-environment.) Set MATCH_REGENERATE=true for ONE run after a capability
+    # change; force: true regenerates the profile only and leaves certs alone.
+    regenerate = ENV["MATCH_REGENERATE"] == "true"
+    UI.important("MATCH_REGENERATE set , regenerating provisioning profile") if regenerate
     match(
       type: "appstore",
       api_key: api_key,
-      readonly: true
+      readonly: !regenerate,
+      force: regenerate
     )
 
     update_code_signing_settings(

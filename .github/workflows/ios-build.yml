@@ -18,6 +18,15 @@ on:
   schedule:
     - cron: "0 12 1 * *" # 1st of every month at noon UTC , keeps the TestFlight build fresh (90-day expiry)
   workflow_dispatch:
+    inputs:
+      regenerate_profiles:
+        description: >-
+          Regenerate the provisioning profile instead of reusing the cached one.
+          Needed for ONE run after an App ID capability changes (which marks
+          existing profiles Invalid); a normal readonly build would otherwise
+          ship a binary missing the new entitlement.
+        type: boolean
+        default: false
 
 concurrency:
   group: ios-build
@@ -110,3 +119,4 @@ jobs:
           ASC_KEY_CONTENT: ${{ env.ASC_KEY_CONTENT }}
           CF_ACCESS_KIOSK_CLIENT_ID: ${{ env.CF_ACCESS_KIOSK_CLIENT_ID }}
           CF_ACCESS_KIOSK_CLIENT_SECRET: ${{ env.CF_ACCESS_KIOSK_CLIENT_SECRET }}
+          MATCH_REGENERATE: ${{ inputs.regenerate_profiles }}
