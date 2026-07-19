@@ -16,7 +16,6 @@
     "docs/captive-portal/design/**", // Captive portal design handoff (reference, not app code)
     "products/project-management/public/_ds/**", // Design-system bundle served statically by Beads.dc.html.
     "products/project-management/public/support.js", // Static support script referenced from the Project Management HTML bundle.
-    "**/ios/DerivedData/**", // Xcode build artifacts (generated, not source)
     "**/ios/**/public/**" // Capacitor web-bundle copies synced into iOS project (not source)
   ],
 
@@ -24,9 +23,8 @@
   "ignoreDependencies": [
     // Capacitor plugins loaded by the native iOS runtime via `cap sync`,
     // declared in capacitor.config.ts / Package.swift, never `import`ed in TS.
-    // (screen-brightness is now imported from lib/brightness.ts, so knip sees
-    // that edge itself and it no longer needs an ignore entry.)
-    "@capacitor/core",
+    // (@capacitor/core and screen-brightness are now imported directly, so knip
+    // sees those edges itself and they no longer need ignore entries.)
     "@capacitor/ios",
     "@capacitor/haptics",
     "@capacitor/status-bar",
@@ -98,16 +96,14 @@
       "entry": ["load-secret.js"]
     },
     "products/project-management": {
-      // server.ts = web UI entrypoint; temporal worker/queue scripts are launched
-      // by Tilt/package scripts and register workflows/activities by runtime name.
+      // server.ts + temporal worker/queue scripts are auto-detected from package
+      // scripts; the rest are launched by Tilt or register workflows/activities
+      // by runtime name.
       "entry": [
-        "server.ts",
         "workflow.ts",
         "map.ts",
         "workflow-metrics.ts",
         "db/**/*.test.ts",
-        "temporal/worker.ts",
-        "temporal/start-ticket-queue.ts",
         "temporal/**/*.test.ts",
         "*.test.ts",
         "scripts/*.ts"
