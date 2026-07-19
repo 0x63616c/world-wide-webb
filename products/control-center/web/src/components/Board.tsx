@@ -22,6 +22,7 @@ import { dismissAllModals, hasDismissableModal, useAnyModalOpen } from "../lib/m
 import { bentoFor } from "../lib/placeholder-tiles";
 import { formatRelativeAge } from "../lib/relative-age";
 import { type SnapMode, useSettings } from "../lib/settings";
+import { openTileDetail } from "../lib/tile-detail-store";
 import { HOME_TILE, type TileRegistryEntry } from "../lib/tile-registry";
 import { useBoardLayout } from "../lib/useBoardLayout";
 import { captureWakeBurst } from "../lib/wake-capture";
@@ -43,6 +44,8 @@ import { MINIMAP_LEFT, MINIMAP_TOP, MINIMAP_WIDTH, Minimap } from "./Minimap";
 import { NotChargingBanner } from "./NotChargingBanner";
 import { PlaceholderTile } from "./PlaceholderTile";
 import { SettingsButton } from "./SettingsButton";
+import { getTileDetailEntry } from "./tiles/detail/registry";
+import { TileDetailHost } from "./tiles/detail/TileDetailHost";
 import { getTileModalEntry } from "./tiles/modals/registry";
 import { TileModalHost } from "./tiles/modals/TileModalHost";
 import type { TileModalEntry } from "./tiles/modals/types";
@@ -811,11 +814,19 @@ export function Board() {
     pokeReset();
   }, [wakeDim, pokeReset, nativeDisplay]);
 
-  // Recenter on a tile AND open its detail modal, kicked off together. Shared by
-  // the plain-tap and keyboard activation paths.
-  const openModalFor = useCallback(
+  // Recenter + open the tile's detail, kicked off together. Shared by the
+  // plain-tap and keyboard activation paths. New detail registry wins; tiles not
+  // yet migrated fall back to the old modal registry; an "action" entry
+  // (Frontend Logs) runs its deep link instead of opening a page.
+  const activateTile = useCallback(
     (entry: TileRegistryEntry) => {
       glideToTile(entry);
+      const detail = getTileDetailEntry(entry.id);
+      if (detail) {
+        if (detail.kind === "action") detail.run();
+        else openTileDetail(entry.id);
+        return;
+      }
       const modal = getTileModalEntry(entry.id);
       if (modal) setActiveModal(modal);
     },
@@ -849,17 +860,22 @@ export function Board() {
     // did, which is the difference between "they poked the Controls tile's own
     // UI" and "they opened the detail modal" , indistinguishable from the tile
     // id alone.
+    // A tile with a detail-registry entry is migrated to the full-page path: its
+    // whole face opens the page, so a stale `ownsTap` flag no longer swallows
+    // the tap. Inner controls still own their taps via INTERACTIVE_SELECTOR.
+    const migrated = Boolean(getTileDetailEntry(entry.id));
     const ownsTap =
-      entry.ownsTap || Boolean((e.target as HTMLElement).closest(INTERACTIVE_SELECTOR));
+      (!migrated && entry.ownsTap) ||
+      Boolean((e.target as HTMLElement).closest(INTERACTIVE_SELECTOR));
     interaction("tile", "tap", entry.id, {
       label: entry.label,
-      kind: ownsTap ? "control" : "open-modal",
+      kind: ownsTap ? "control" : "open-detail",
     });
     if (ownsTap) {
       glideToTile(entry);
       return;
     }
-    openModalFor(entry);
+    activateTile(entry);
   }
 
   // One windowed list for the whole board: real tiles and placeholders alike.
@@ -971,11 +987,13 @@ export function Board() {
                 aria-label={`Open ${entry.label}`}
                 onClickCapture={(e) => onTileClickCapture(entry, e)}
                 onKeyDown={(e) => {
-                  if (entry.ownsTap) return;
+                  // Migrated tiles ignore the stale ownsTap flag , Enter/Space
+                  // open their detail page like a plain tap would.
+                  if (!getTileDetailEntry(entry.id) && entry.ownsTap) return;
                   if (e.target !== e.currentTarget) return;
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    openModalFor(entry);
+                    activateTile(entry);
                   }
                 }}
               >
@@ -1026,6 +1044,9 @@ export function Board() {
           below modals (which portal to <body>) so it swallows the wake tap. */}
         <DimOverlay active={dimmed} onWake={wake} />
         <TileModalHost entry={activeModal} onClose={() => setActiveModal(null)} />
+        {/* Full-page detail path (store-driven). Registers with modal-open-store,
+          so the existing modalOpen freeze/bail logic covers it automatically. */}
+        <TileDetailHost />
       </div>
       {/* Mounted as a sibling of #stage, NOT a descendant — #stage is the native
         scroll container (scrollLeft/Top drive panning), and per spec any
