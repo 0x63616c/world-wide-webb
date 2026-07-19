@@ -18,6 +18,7 @@ import { statfsSync } from "node:fs";
 import {
   claimAndRun,
   env,
+  registerNotifyHandler,
   registerYoutubeIngestHandler,
   runMigrations,
   runPlaylistPollerCycle,
@@ -44,6 +45,7 @@ try {
 // Handlers must be registered synchronously at startup , the queue-worker
 // starts dispatching immediately after runtime.start().
 registerYoutubeIngestHandler();
+registerNotifyHandler();
 
 // Disk guard: check free space on the media storage volume before each download.
 // Refuses downloads when free bytes fall below 10 GB to protect the NAS.

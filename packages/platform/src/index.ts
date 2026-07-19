@@ -297,6 +297,14 @@ export const secretCatalog = {
       "APP_STORE_CONNECT_API__P8_CONTENT",
     ),
   },
+  apns: {
+    keyId: secret("APNs Auth Key", "key id", "APNS_AUTH_KEY__KEY_ID"),
+    teamId: secret("APNs Auth Key", "team id", "APNS_AUTH_KEY__TEAM_ID"),
+    // Same shape as appStoreConnect.p8Content: the .p8 rides the item as a file
+    // attachment, and the SOPS vault holds it base64-encoded under
+    // APNS_AUTH_KEY__P8_CONTENT. pemToPkcs8() accepts armored PEM or bare base64.
+    p8Content: secret("APNs Auth Key", "AuthKey_Z8CPKZ46G7.p8", "APNS_AUTH_KEY__P8_CONTENT"),
+  },
   captivePortal: {
     postgresPassword: secret(
       "Captive Portal Postgres",
@@ -433,6 +441,11 @@ export function controlCenterServiceSecretUsages(): Record<
     "media-worker": defineServiceSecretUsage(controlCenter, "media-worker", {
       POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
       OPENROUTER_API_KEY: secretCatalog.openRouter.apiKey,
+      // media-worker runs the "notify" job handler (registerNotifyHandler), so it
+      // is the only process that actually talks to APNs. api/worker just enqueue.
+      APNS_KEY_ID: secretCatalog.apns.keyId,
+      APNS_TEAM_ID: secretCatalog.apns.teamId,
+      APNS_KEY_CONTENT: secretCatalog.apns.p8Content,
     }),
     drizzle: defineServiceSecretUsage(controlCenter, "drizzle", {
       MASTERPASS: secretCatalog.drizzle.masterpass,

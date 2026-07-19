@@ -25,6 +25,8 @@ import { NetworkTile } from "../components/tiles/NetworkTile";
 import { NetworkTileView } from "../components/tiles/NetworkTileView";
 import { Next12Hours } from "../components/tiles/Next12Hours";
 import { Next12HoursView } from "../components/tiles/Next12HoursView";
+import { NotificationCenterTile } from "../components/tiles/NotificationCenterTile";
+import { NotificationCenterTileView } from "../components/tiles/NotificationCenterTileView";
 import { SchedulesTile } from "../components/tiles/SchedulesTile";
 import { SchedulesTileView } from "../components/tiles/SchedulesTileView";
 import { TeslaTile } from "../components/tiles/TeslaTile";
@@ -52,6 +54,7 @@ type TileComponent =
   | typeof SoundSystemTile
   | typeof TvAppsTile
   | typeof QuickPlayTile
+  | typeof NotificationCenterTile
   | typeof WakesTile;
 
 type TileViewComponent =
@@ -72,6 +75,7 @@ type TileViewComponent =
   | typeof SoundSystemTileView
   | typeof TvAppsTileView
   | typeof QuickPlayTileView
+  | typeof NotificationCenterTileView
   | typeof WakesTileView;
 
 export type TileRegistryEntry = {
@@ -284,6 +288,20 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     component: DeployTile,
     viewComponent: DeployTileView,
     worldCol: 34,
+    worldRow: 24,
+    cols: 4,
+    rows: 3,
+    ownsTap: true,
+  },
+  // Notification Center. Sits in the free 4x3 block at cols 38-41 / rows 24-26,
+  // directly above Living Room Cam and right of Deploys , the top-right corner
+  // of the cluster, matching where the board's alert banners already appear.
+  {
+    id: "tile_notif",
+    label: "Notifications",
+    component: NotificationCenterTile,
+    viewComponent: NotificationCenterTileView,
+    worldCol: 38,
     worldRow: 24,
     cols: 4,
     rows: 3,

@@ -7,11 +7,13 @@
 
 /** @public , migration runner re-exported so the media-worker can apply pending migrations on boot */
 export { runMigrations } from "./db/migrate";
-export { job, mediaItem, mediaSource } from "./db/schema";
+export { devicePushToken, job, mediaItem, mediaSource, notification } from "./db/schema";
 /** @public , primary config entry-point for the media-worker image; consumed externally */
 export { env } from "./env";
 /** @public , job queue primitives consumed by the media-worker and media tRPC routes */
 export { claimAndRun, enqueueJob, registerHandler } from "./jobs/queue";
+/** @public , `notify` APNs fan-out handler registration; imported by the media-worker to wire handlers */
+export { registerNotifyHandler } from "./services/notification-service";
 /** @public , playlist-poller cycle invoked by the media-worker runtime */
 export { runPlaylistPollerCycle } from "./services/playlist-poller-service";
 /** @public , youtube_ingest handler registration; imported by the media-worker to wire handlers */

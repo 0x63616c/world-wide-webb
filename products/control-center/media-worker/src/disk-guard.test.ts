@@ -28,6 +28,7 @@ vi.mock("@control-center/api/media", () => ({
   env: { NODE_ENV: "test", MEDIA_STORAGE_DIR: "/tmp/test-media" },
   runMigrations: async () => undefined,
   registerYoutubeIngestHandler: () => undefined,
+  registerNotifyHandler: () => undefined,
   claimAndRun: async () => false,
   runPlaylistPollerCycle: async () => undefined,
 }));

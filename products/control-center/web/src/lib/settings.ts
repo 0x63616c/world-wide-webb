@@ -14,6 +14,13 @@
 import { useSyncExternalStore } from "react";
 import { interaction } from "./log/interaction";
 import { log } from "./log/logger";
+import {
+  type NotificationCategory,
+  parseClock,
+  parseMutedCategories,
+  serializeMutedCategories,
+  toggleMutedCategory,
+} from "./notifications";
 
 // Every panel setting that changes is a candidate explanation for "why is the
 // board behaving like that" , cheap to record, and the alternative is guessing.
@@ -62,6 +69,20 @@ export interface Settings {
   /** Synced 6-digit PIN gating Settings + Wake photos (both gates always on).
    *  NOT auth , purely a frontend soft-lock. Exactly 6 digits; default "000000". */
   pinCode: string;
+  /** Push notifications requested for THIS device. Drives the OS permission
+   *  prompt + APNs token registration (lib/push.ts). Device-local by nature:
+   *  a token belongs to one panel, so this must not sync across panels. */
+  pushEnabled: boolean;
+  /** Muted notification categories, comma-separated (e.g. "ci,media"). Encoded
+   *  as a string because the store holds only primitives , parse/serialize via
+   *  parseMutedCategories/serializeMutedCategories in lib/notifications.ts. */
+  mutedCategories: string;
+  /** When true, notifications raised inside the quiet window stay silent. */
+  quietHoursEnabled: boolean;
+  /** Quiet window start, "HH:MM" local. Wraps midnight when after the end. */
+  quietHoursStart: string;
+  /** Quiet window end, "HH:MM" local. */
+  quietHoursEnd: string;
 }
 
 export const MIN_IDLE_TIMEOUT_MS = 60_000; // 1 min
@@ -87,6 +108,11 @@ const DEFAULTS: Settings = {
   snapMode: "mandatory-settle",
   showMinimap: true,
   pinCode: DEFAULT_PIN,
+  pushEnabled: false,
+  mutedCategories: "",
+  quietHoursEnabled: false,
+  quietHoursStart: "22:00",
+  quietHoursEnd: "07:00",
 };
 
 // `cc-board-snap-mode` is reused verbatim so an existing SnapModeSwitcher choice
@@ -103,7 +129,32 @@ const KEYS = {
   snapMode: "cc-board-snap-mode",
   showMinimap: "cc-show-minimap",
   pinCode: "cc-pin-code",
+  pushEnabled: "cc-push-enabled",
+  mutedCategories: "cc-muted-categories",
+  quietHoursEnabled: "cc-quiet-hours-enabled",
+  quietHoursStart: "cc-quiet-hours-start",
+  quietHoursEnd: "cc-quiet-hours-end",
 } as const;
+
+/**
+ * Fields the SERVER does not know about, so a poll must never overwrite them.
+ *
+ * `settings.get` returns a zod-validated object; a field the API's schema has no
+ * key for is simply absent from the response, and `hydrateSettings` would then
+ * fold in the DEFAULT and wipe what the user just chose (within one 15s poll).
+ * Listing a field here keeps hydration from touching it, so it behaves as a
+ * device-local preference until (and unless) the API grows the same key.
+ *
+ * `pushEnabled` is device-local BY DESIGN, not merely pending: an APNs token
+ * belongs to one panel, so "push on" can never be a global truth.
+ */
+const LOCAL_ONLY_KEYS = new Set<keyof Settings>([
+  "pushEnabled",
+  "mutedCategories",
+  "quietHoursEnabled",
+  "quietHoursStart",
+  "quietHoursEnd",
+]);
 
 // ─── clamps ───────────────────────────────────────────────────────────────────
 
@@ -152,6 +203,11 @@ function loadInitial(): Settings {
   const buildBadge = readRaw(KEYS.showBuildBadge);
   const minimap = readRaw(KEYS.showMinimap);
   const pin = readRaw(KEYS.pinCode);
+  const push = readRaw(KEYS.pushEnabled);
+  const muted = readRaw(KEYS.mutedCategories);
+  const quietEnabled = readRaw(KEYS.quietHoursEnabled);
+  const quietStart = readRaw(KEYS.quietHoursStart);
+  const quietEnd = readRaw(KEYS.quietHoursEnd);
   return {
     activeBrightness:
       brightness === null ? DEFAULTS.activeBrightness : clampBrightness(Number(brightness)),
@@ -173,6 +229,17 @@ function loadInitial(): Settings {
         : DEFAULTS.snapMode,
     showMinimap: minimap === null ? DEFAULTS.showMinimap : minimap === "true",
     pinCode: pin && /^\d{6}$/.test(pin) ? pin : DEFAULTS.pinCode,
+    pushEnabled: push === null ? DEFAULTS.pushEnabled : push === "true",
+    // Re-serialized through the codec so a hand-edited / stale storage value
+    // (an unknown category, stray whitespace) can never enter the store.
+    mutedCategories:
+      muted === null
+        ? DEFAULTS.mutedCategories
+        : serializeMutedCategories(parseMutedCategories(muted)),
+    quietHoursEnabled: quietEnabled === null ? DEFAULTS.quietHoursEnabled : quietEnabled === "true",
+    quietHoursStart:
+      quietStart && parseClock(quietStart) !== null ? quietStart : DEFAULTS.quietHoursStart,
+    quietHoursEnd: quietEnd && parseClock(quietEnd) !== null ? quietEnd : DEFAULTS.quietHoursEnd,
   };
 }
 
@@ -240,6 +307,17 @@ function patch<K extends keyof Settings>(key: K, value: Settings[K], serialized:
  */
 export function hydrateSettings(next: Partial<Settings>): void {
   const merged: Settings = { ...DEFAULTS, ...next };
+  // Local-only fields keep whatever this panel has; the server has no opinion on
+  // them, and folding in the DEFAULT here would silently undo a user's choice on
+  // the next poll (see LOCAL_ONLY_KEYS).
+  for (const key of LOCAL_ONLY_KEYS) {
+    // Assigning through a per-key generic keeps the value's type tied to its
+    // key (a blanket Record<string, unknown> cast would erase that).
+    const assign = <K extends keyof Settings>(k: K) => {
+      merged[k] = state[k];
+    };
+    assign(key);
+  }
   if (shallowEqual(state, merged)) return;
   state = merged;
   for (const key of Object.keys(KEYS) as (keyof Settings)[]) {
@@ -299,6 +377,37 @@ export function setShowMinimap(v: boolean): void {
 export function setPinCode(pin: string): void {
   if (!/^\d{6}$/.test(pin)) return;
   patch("pinCode", pin, pin);
+}
+
+export function setPushEnabled(v: boolean): void {
+  patch("pushEnabled", v, String(v));
+}
+
+/** Mute or unmute one notification category (see lib/notifications.ts codec). */
+export function setCategoryMuted(category: NotificationCategory, muted: boolean): void {
+  const next = toggleMutedCategory(state.mutedCategories, category, muted);
+  patch("mutedCategories", next, next);
+}
+
+export function setQuietHoursEnabled(v: boolean): void {
+  patch("quietHoursEnabled", v, String(v));
+}
+
+/** Set the quiet-window start. No-op on a malformed "HH:MM" (schema guard). */
+export function setQuietHoursStart(hhmm: string): void {
+  if (parseClock(hhmm) === null) return;
+  patch("quietHoursStart", hhmm, hhmm);
+}
+
+/** Set the quiet-window end. No-op on a malformed "HH:MM" (schema guard). */
+export function setQuietHoursEnd(hhmm: string): void {
+  if (parseClock(hhmm) === null) return;
+  patch("quietHoursEnd", hhmm, hhmm);
+}
+
+/** The muted categories as a parsed list , the form every consumer wants. */
+export function mutedCategoriesOf(settings: Settings): NotificationCategory[] {
+  return parseMutedCategories(settings.mutedCategories);
 }
 
 /**

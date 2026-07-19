@@ -126,11 +126,16 @@ export const Network: Story = {
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
+// The page's push section registers an APNs token through tRPC, so it needs the
+// harness too , nothing is primed because a mutation has no cache entry to seed
+// (and the story never fires it; push is unsupported off the native shell).
 export const NotificationsEmpty: Story = {
   render: () => (
-    <ColumnFrame>
-      <NotificationsPage />
-    </ColumnFrame>
+    <TrpcHarness prime={() => {}}>
+      <ColumnFrame>
+        <NotificationsPage />
+      </ColumnFrame>
+    </TrpcHarness>
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -163,9 +168,11 @@ function SeedNotifications() {
 
 export const NotificationsActive: Story = {
   render: () => (
-    <ColumnFrame>
-      <SeedNotifications />
-    </ColumnFrame>
+    <TrpcHarness prime={() => {}}>
+      <ColumnFrame>
+        <SeedNotifications />
+      </ColumnFrame>
+    </TrpcHarness>
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

@@ -9,6 +9,7 @@ import { layoutRouter } from "./layout";
 import { logsRouter } from "./logs";
 import { mediaRouter } from "./media";
 import { networkRouter } from "./network";
+import { notificationsRouter } from "./notifications";
 import { portalRouter } from "./portal";
 import { schedulesRouter } from "./schedules";
 import { sessionsRouter } from "./sessions";
@@ -22,6 +23,7 @@ export const appRouter = router({
   health: healthRouter,
   weather: weatherRouter,
   network: networkRouter,
+  notifications: notificationsRouter,
   tesla: teslaRouter,
   climate: climateRouter,
   controls: controlsRouter,

@@ -53,6 +53,9 @@ const SECRET_FILE_ENV = [
   "ASC_ISSUER_ID",
   "ASC_KEY_CONTENT",
   "GITHUB_ACTIONS_TOKEN",
+  "APNS_KEY_ID",
+  "APNS_TEAM_ID",
+  "APNS_KEY_CONTENT",
 ] as const;
 export function hydrateSecretFiles(
   src: Record<string, string | undefined> = process.env,
@@ -155,6 +158,22 @@ export const envSchema = z.object({
   // (a ClusterIP service DNS name, a stream name, a display label). The Camera
   // tile is deliberately independent of Home Assistant: go2rtc talks RTSP to
   // the camera directly, so the tile stays alive when HA is down.
+  // Apple Push Notification service, for the Notification Center's push fan-out
+  // to the iOS shell. Same .p8/ES256 key material shape as the ASC key above and
+  // optional for the same reason , empty string means isApnsConfigured() is
+  // false and the notify job no-ops, so api/worker boot without push configured.
+  // APNS_BUNDLE_ID is the app's bundle identifier (the APNs topic); it is not
+  // secret, so it defaults here instead of riding the secret rail.
+  APNS_KEY_ID: z.string().default(""),
+  APNS_TEAM_ID: z.string().default(""),
+  APNS_KEY_CONTENT: z.string().default(""),
+  APNS_BUNDLE_ID: z.string().default("co.worldwidewebb.theworkflowengine"),
+  // APNs host. The shell app ships via TestFlight, and TestFlight builds carry a
+  // PRODUCTION push entitlement , they are NOT sandbox. So this defaults to the
+  // production host and only a local debug build (installed from Xcode) ever
+  // needs to override it to api.sandbox.push.apple.com.
+  APNS_HOST: z.string().default("https://api.push.apple.com"),
+
   GO2RTC_URL: z.string().url().default("http://go2rtc:1984"),
   CAMERA_STREAM_NAME: z.string().default("bedroom_mjpeg"),
   CAMERA_LABEL: z.string().default("Living Room Cam"),

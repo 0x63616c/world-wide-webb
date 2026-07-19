@@ -51,4 +51,8 @@ export const POLL = {
   quickPlay: 30 * 1000,
   // Wake photos land a few times a day; 60s is well inside a "since I looked" gap.
   wakePhotos: 60 * 1000,
+  // Notifications are the one surface where lag is the failure: an alert the
+  // panel shows a minute late is an alert nobody acted on. 5s matches the board
+  // layout poll (the fastest cadence already in use) and the payload is small.
+  notifications: 5 * 1000,
 } as const;
