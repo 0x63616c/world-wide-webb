@@ -199,7 +199,7 @@ export const Debug: Story = {
     // Modal portals to document.body) rather than resetting immediately.
     const doc = within(canvasElement.ownerDocument.body);
     canvas.getByRole("button", { name: "Reset" }).click();
-    await expect(doc.getByText("Reset settings?")).toBeInTheDocument();
+    await expect(await doc.findByText("Reset settings?")).toBeInTheDocument();
   },
 };
 
