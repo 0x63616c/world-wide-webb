@@ -126,7 +126,5 @@ describe("registry entry", () => {
       cols: 4,
       rows: 3,
     });
-    // The board's tile-detail registry owns the tap now , no ownsTap.
-    expect(entry?.ownsTap).toBeUndefined();
   });
 });

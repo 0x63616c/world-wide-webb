@@ -531,12 +531,6 @@ describe("TILE_REGISTRY , TvNowPlayingTile registration (A31)", () => {
     expect(entry?.cols).toBe(4);
     expect(entry?.rows).toBe(3);
   });
-
-  it("registry entry no longer sets ownsTap (detail page is board-opened)", async () => {
-    const { TILE_REGISTRY } = await import("@/lib/tile-registry");
-    const entry = TILE_REGISTRY.find((t) => t.component === TvNowPlayingTile);
-    expect(entry?.ownsTap).toBeUndefined();
-  });
 });
 
 // ── Detail deep-link callbacks (A20, A21, www-51hf.53) ────────────────────────

@@ -62,7 +62,8 @@ export interface Settings {
   snapMode: SnapMode;
   /** Show the board minimap (bottom-right). */
   showMinimap: boolean;
-  /** Synced 6-digit PIN gating Settings + Wake photos (both gates always on).
+  /** Synced 6-digit PIN gating Settings + PIN-gated detail pages (e.g.
+   *  Activity); the gates are always on.
    *  NOT auth , purely a frontend soft-lock. Exactly 6 digits; default "000000". */
   pinCode: string;
   /** Push notifications requested for THIS device. Drives the OS permission

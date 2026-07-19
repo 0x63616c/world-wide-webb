@@ -1,9 +1,8 @@
 /**
  * Tile → detail-page registry. Maps a board tile id to its full-page detail
- * entry, rendered by TileDetailHost. Successor to ../modals/registry.ts: tiles
- * migrate here one at a time (the board checks THIS registry first and falls
- * back to the old modal path), so the list grows per migration commit until it
- * covers every tile and the modal registry dies.
+ * entry, rendered by TileDetailHost. This is the ONLY tap-resolution path (the
+ * old modal registry is gone): EVERY board tile must have an entry here, or its
+ * tap silently no-ops , registry-entries.test.ts enforces completeness.
  */
 
 import { climateDetailEntry } from "../modals/wiring/climate";

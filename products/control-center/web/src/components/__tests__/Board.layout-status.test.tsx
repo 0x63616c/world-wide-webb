@@ -43,9 +43,8 @@ vi.mock("../../lib/useBoardLayout", () => ({
   useBoardLayout: () => mockLayoutReturn,
 }));
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
-vi.mock("../tiles/modals/registry", () => ({ getTileModalEntry: () => undefined }));
 // The detail registry imports real tile wiring (and transitively maplibre-gl),
-// which jsdom cannot load , stub it so Board stays on the legacy modal path.
+// which jsdom cannot load , stub it so taps resolve to no detail entry.
 vi.mock("../tiles/detail/registry", () => ({ getTileDetailEntry: () => undefined }));
 
 import { Board } from "../Board";

@@ -3,8 +3,8 @@ import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Modal } from "../ui/Modal";
 
-// A self-tapping tile (ownsTap) that manages its OWN modal in its React subtree ,
-// exactly like ControlsTile + ExpandedControlsModalView. The modal portals to
+// A tile that manages its OWN modal in its React subtree, opened by an inner
+// button (a control tap via INTERACTIVE_SELECTOR). The modal portals to
 // <body>, but in the React tree it is a descendant of the board's tile wrapper,
 // so React replays its events up into the board. The modal holds a button so we
 // can click "inside the modal" and assert the board does not move behind it.
@@ -34,9 +34,6 @@ vi.mock("../../lib/tile-registry", () => {
     cols: 4,
     rows: 2,
     home: true,
-    // Owns its tap: a tap drives its own UI (and recenters), never the board's
-    // generic modal , same as the real Controls tile.
-    ownsTap: true,
   };
   return { TILE_REGISTRY: [self], HOME_TILE: self };
 });
@@ -57,9 +54,8 @@ vi.mock("../../lib/useBoardLayout", async () => {
   };
 });
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
-vi.mock("../tiles/modals/registry", () => ({ getTileModalEntry: () => undefined }));
 // The detail registry imports real tile wiring (and transitively maplibre-gl),
-// which jsdom cannot load , stub it so Board stays on the legacy modal path.
+// which jsdom cannot load , stub it so taps resolve to no detail entry.
 vi.mock("../tiles/detail/registry", () => ({ getTileDetailEntry: () => undefined }));
 
 import { Board } from "../Board";

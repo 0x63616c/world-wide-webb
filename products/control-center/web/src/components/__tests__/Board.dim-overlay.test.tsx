@@ -44,9 +44,8 @@ vi.mock("../../lib/useBoardLayout", async () => {
   };
 });
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
-vi.mock("../tiles/modals/registry", () => ({ getTileModalEntry: () => undefined }));
 // The detail registry imports real tile wiring (and transitively maplibre-gl),
-// which jsdom cannot load , stub it so Board stays on the legacy modal path.
+// which jsdom cannot load , stub it so taps resolve to no detail entry.
 vi.mock("../tiles/detail/registry", () => ({ getTileDetailEntry: () => undefined }));
 // Native display so useIdleDim is enabled; backlight calls are inert.
 vi.mock("../../lib/brightness", () => ({

@@ -61,11 +61,12 @@ describe("tile detail registry , Task 11 entries", () => {
     expect(consumePendingSettingsPage()).toBe("logs");
   });
 
-  it("tile_wakes and tile_felogs no longer set ownsTap (board owns the tap)", () => {
-    for (const id of ["tile_wakes", "tile_felogs"]) {
-      const entry = TILE_REGISTRY.find((t) => t.id === id);
-      expect(entry).toBeDefined();
-      expect(entry?.ownsTap).toBeUndefined();
+  it("EVERY board tile resolves to a detail entry (completeness guard)", () => {
+    // The board's tap/keyboard path resolves ONLY through this registry now
+    // (the modal fallback is gone), so a tile without an entry would silently
+    // no-op on tap. Fail CI instead.
+    for (const tile of TILE_REGISTRY) {
+      expect(getTileDetailEntry(tile.id), `no detail entry for ${tile.id}`).toBeDefined();
     }
   });
 });

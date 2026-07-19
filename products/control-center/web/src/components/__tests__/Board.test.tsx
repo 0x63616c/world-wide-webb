@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 // A fake one-tile registry so Board can be exercised without loading real tiles
 // (or their transitive deps like maplibre-gl) in jsdom. The fake tile renders an
-// inner button so we can prove control taps don't open the modal.
+// inner button so we can prove control taps don't open the detail page.
 vi.mock("../../lib/tile-registry", () => {
   const fake = {
     id: "tile_fake",
@@ -41,16 +41,15 @@ vi.mock("../../lib/useBoardLayout", async () => {
 });
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
 
-// The detail registry imports real tile wiring (and transitively maplibre-gl),
-// which jsdom cannot load , stub it so tile_fake stays on the legacy modal path.
-vi.mock("../tiles/detail/registry", () => ({ getTileDetailEntry: () => undefined }));
-
-// Fake modal registry: tile_fake opens a single-variant modal.
-vi.mock("../tiles/modals/registry", () => ({
-  getTileModalEntry: (id: string) =>
+// Fake detail registry: tile_fake opens a single-variant full page. Mocking it
+// also keeps jsdom clear of the real tile wiring (and transitively maplibre-gl).
+vi.mock("../tiles/detail/registry", () => ({
+  getTileDetailEntry: (id: string) =>
     id === "tile_fake"
       ? {
+          kind: "page" as const,
           tileId: "tile_fake",
+          title: "Fake Tile",
           defaultSlug: "v1",
           useVariants: () => ({
             loading: false,
@@ -58,8 +57,7 @@ vi.mock("../tiles/modals/registry", () => ({
               {
                 slug: "v1",
                 label: "V1",
-                render: (open: boolean) =>
-                  open ? <div data-testid="fake-modal">fake-modal-content</div> : null,
+                render: () => <div data-testid="fake-detail">fake-detail-content</div>,
               },
             ],
           }),
@@ -68,10 +66,14 @@ vi.mock("../tiles/modals/registry", () => ({
 }));
 
 import { BUILD_HASH } from "../../config/build";
+import { closeTileDetail } from "../../lib/tile-detail-store";
 import { Board } from "../Board";
 
 afterEach(() => {
   cleanup();
+  // The tile-detail store is module-global; drain it so an open page from one
+  // test can't leak into the next.
+  closeTileDetail();
   vi.restoreAllMocks();
 });
 
@@ -89,19 +91,19 @@ describe("Board", () => {
     expect(stage?.contains(world ?? null)).toBe(true);
   });
 
-  it("tapping a tile opens its detail modal", () => {
+  it("tapping a tile opens its detail page", () => {
     render(<Board />);
-    expect(screen.queryByTestId("fake-modal")).toBeNull();
+    expect(screen.queryByTestId("fake-detail")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Open Fake Tile" }));
 
-    expect(screen.getByTestId("fake-modal").textContent).toContain("fake-modal-content");
+    expect(screen.getByTestId("fake-detail").textContent).toContain("fake-detail-content");
   });
 
-  it("tapping an inner control does NOT open the modal", () => {
+  it("tapping an inner control does NOT open the detail page", () => {
     render(<Board />);
     fireEvent.click(screen.getByRole("button", { name: "inner-control" }));
-    expect(screen.queryByTestId("fake-modal")).toBeNull();
+    expect(screen.queryByTestId("fake-detail")).toBeNull();
   });
 
   it("renders the build-hash badge from the build config, prefixed with #", () => {

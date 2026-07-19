@@ -99,10 +99,6 @@ export type TileRegistryEntry = {
   // The tile the board opens centered on and resettles to when idle. Exactly one
   // entry sets this (the Clock); the board falls back to the first entry.
   home?: boolean;
-  // When true the tile owns its own tap surface (it opens its own detail modal),
-  // so the board does NOT open the generic showcase modal for it. Controls opens
-  // its expanded modal; other tiles flip this on as their detail modals land.
-  ownsTap?: boolean;
 };
 
 // One entry per real tile, free-placed in the world by world-cell coords. The

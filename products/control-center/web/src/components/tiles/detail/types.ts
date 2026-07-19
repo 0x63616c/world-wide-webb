@@ -1,7 +1,7 @@
 /**
  * Shared types for the tap-to-open tile detail PAGES (full-page overlays).
  *
- * Successor to the modal-era types in ../modals/types.ts: a tile's detail
+ * Successor to the deleted modal-era types (LiveVariant et al): a tile's detail
  * variants are bare page bodies now , no <Modal> chrome, no open/onClose ,
  * hosted by TileDetailHost, which supplies the page shell (portal, header,
  * BackButton) and the floating VariantSwitcher. All variants are fed LIVE tRPC
@@ -32,8 +32,7 @@ export interface TileDetailPageEntry {
   defaultSlug: string;
   /**
    * Live-data hook, called only while the page is open (active-only child, so
-   * hooks rules hold and closed tiles never run their queries) , same contract
-   * as the old TileModalEntry.useVariants.
+   * hooks rules hold and closed tiles never run their queries).
    */
   useVariants: () => { variants: DetailVariant[]; loading: boolean };
 }

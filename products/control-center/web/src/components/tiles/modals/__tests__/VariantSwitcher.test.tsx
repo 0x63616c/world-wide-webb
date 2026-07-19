@@ -10,12 +10,12 @@
 import "@testing-library/jest-dom";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { LiveVariant } from "../types";
+import type { DetailVariant } from "../../detail/types";
 import { VariantSwitcher } from "../VariantSwitcher";
 
 afterEach(cleanup);
 
-function variant(slug: string, label: string): LiveVariant {
+function variant(slug: string, label: string): DetailVariant {
   return { slug, label, render: () => null };
 }
 

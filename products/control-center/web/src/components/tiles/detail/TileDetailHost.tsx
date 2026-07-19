@@ -1,8 +1,8 @@
 /**
  * TileDetailHost , the full-page shell for a tile's detail screen. Successor to
- * TileModalHost: tapping a board tile opens a Settings-style body-portal page
- * (not a modal) showing the tile's active variant, with the floating
- * VariantSwitcher above it when the tile has more than one.
+ * the deleted TileModalHost: tapping a board tile opens a Settings-style
+ * body-portal page (not a modal) showing the tile's active variant, with the
+ * floating VariantSwitcher above it when the tile has more than one.
  *
  * Rendered once from Board.tsx and driven purely by the tile-detail-store , the
  * host holds no open/close state of its own, so every entry point (tap,
@@ -28,11 +28,10 @@ export function TileDetailHost() {
   if (!target) return null;
   const entry = getTileDetailEntry(target.tileId);
   // Actions (e.g. Frontend Logs → Settings deep link) run in the board's tap
-  // handler; unmigrated tiles still go through the old modal path. Neither
-  // renders a page here.
+  // handler, so they never render a page here.
   if (entry?.kind !== "page") return null;
   // Key by tileId so switching tiles fully remounts: fresh gate, fresh variant
-  // selection, fresh queries , same trick as TileModalHost.
+  // selection, fresh queries.
   return <GatedTileDetail key={entry.tileId} entry={entry} initialSlug={target.variantSlug} />;
 }
 

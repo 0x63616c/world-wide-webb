@@ -1,5 +1,6 @@
 /**
- * PinGateModal , the soft-lock gate shown before Settings or Wake photos open.
+ * PinGateModal , the generic soft-lock gate shown before a PIN-gated surface
+ * opens (Settings, PIN-gated tile detail pages , the caller supplies the title).
  * A body-portal overlay (same structure as ui/Modal) with the approved
  * PinUnlockModalConcept dialog inside: lock chip, title, the tap pad, Cancel.
  *

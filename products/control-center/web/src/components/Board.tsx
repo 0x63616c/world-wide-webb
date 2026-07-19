@@ -46,14 +46,11 @@ import { PlaceholderTile } from "./PlaceholderTile";
 import { SettingsButton } from "./SettingsButton";
 import { getTileDetailEntry } from "./tiles/detail/registry";
 import { TileDetailHost } from "./tiles/detail/TileDetailHost";
-import { getTileModalEntry } from "./tiles/modals/registry";
-import { TileModalHost } from "./tiles/modals/TileModalHost";
-import type { TileModalEntry } from "./tiles/modals/types";
 import { TileBoundary } from "./ui/TileBoundary";
 
 // Interactive descendants a tap may land on (toggles, sliders, the Controls
 // "More" button). Taps on these drive the tile's own controls and must NOT also
-// open the detail modal; taps anywhere else on the tile open it.
+// open the detail page; taps anywhere else on the tile open it.
 const INTERACTIVE_SELECTOR = 'button, input, a, select, textarea, [role="slider"]';
 
 // How close the viewport center must be to the home tile (Clock) center to count
@@ -502,7 +499,6 @@ export function Board() {
     stageRef.current = el;
     setStageEl(el);
   }, []);
-  const [activeModal, setActiveModal] = useState<TileModalEntry | null>(null);
 
   // Live settings (idle-dim behavior, FPS readout, snap-mode) from the shared
   // store. Edits made in the settings panel apply here with no prop-drilling;
@@ -561,19 +557,18 @@ export function Board() {
   const homeCy = homeRect.y + homeRect.h / 2;
 
   // Mirrors modal-open state into a ref so the memoized pointer handlers can bail
-  // without being re-created. While a modal is open the board must NOT pan: a
-  // press outside the modal hits the modal's own backdrop (which closes it), and
-  // native scroll is frozen via the stage style below.
+  // without being re-created. While an overlay is open the board must NOT pan: a
+  // press outside it hits the overlay's own backdrop/chrome, and native scroll is
+  // frozen via the stage style below.
   //
-  // `activeModal` covers modals the board opens itself; `useAnyModalOpen()` also
-  // catches modals a tile manages on its own (e.g. ControlsTile's expanded view),
-  // whose portaled backdrop would otherwise replay presses up the React tree into
-  // this stage's drag-pan. OR-ing both keeps the freeze instant for the board's
-  // own open-glide while still covering every other modal. The layout editor is
-  // a full-screen overlay too (no pan while editing, per the binding decision),
-  // so it joins the same freeze chain.
+  // `useAnyModalOpen()` covers every overlay that registers with
+  // modal-open-store: the full-page tile detail (TileDetailHost), Settings, and
+  // any modal a tile manages on its own, whose portaled backdrop would otherwise
+  // replay presses up the React tree into this stage's drag-pan. The layout
+  // editor is a full-screen overlay too (no pan while editing, per the binding
+  // decision), so it joins the same freeze chain.
   const anyModalOpen = useAnyModalOpen();
-  const modalOpen = activeModal !== null || anyModalOpen || layoutEditOpen;
+  const modalOpen = anyModalOpen || layoutEditOpen;
   const modalOpenRef = useRef(modalOpen);
   useEffect(() => {
     modalOpenRef.current = modalOpen;
@@ -741,7 +736,6 @@ export function Board() {
     // interaction session here rather than waiting for its own idle timeout ,
     // that way the transcript's closing entry carries the real reason.
     endInteractionSession("idle-reset");
-    setActiveModal(null);
     dismissAllModals();
     markProgrammatic();
     jumpTo(homeCx, homeCy, true);
@@ -815,31 +809,25 @@ export function Board() {
   }, [wakeDim, pokeReset, nativeDisplay]);
 
   // Recenter + open the tile's detail, kicked off together. Shared by the
-  // plain-tap and keyboard activation paths. New detail registry wins; tiles not
-  // yet migrated fall back to the old modal registry; an "action" entry
-  // (Frontend Logs) runs its deep link instead of opening a page.
+  // plain-tap and keyboard activation paths. Every tile resolves through the
+  // detail registry: a "page" entry opens its full-page detail, an "action"
+  // entry (Frontend Logs) runs its deep link instead of opening a page.
   const activateTile = useCallback(
     (entry: TileRegistryEntry) => {
       glideToTile(entry);
       const detail = getTileDetailEntry(entry.id);
-      if (detail) {
-        if (detail.kind === "action") detail.run();
-        else openTileDetail(entry.id);
-        return;
-      }
-      const modal = getTileModalEntry(entry.id);
-      if (modal) setActiveModal(modal);
+      if (!detail) return;
+      if (detail.kind === "action") detail.run();
+      else openTileDetail(entry.id);
     },
     [glideToTile],
   );
 
   // Any click within a tile recenters the camera on that tile , even taps that
-  // land on an inner control (toggle/slider/button) or on a self-tapping tile
-  // (Controls). Runs in the capture phase (wired via onClickCapture) so an inner
-  // stopPropagation , e.g. the Controls body tap , can't swallow the recenter.
-  // The modal still opens only for a "plain" tap: a self-tapping tile runs its
-  // own UI and a tap on a control drives that control, so neither also opens the
-  // board's detail modal.
+  // land on an inner control (toggle/slider/button). Runs in the capture phase
+  // (wired via onClickCapture) so an inner stopPropagation can't swallow the
+  // recenter. The detail page still opens only for a "plain" tap: a tap on a
+  // control drives that control, so it doesn't also open the tile's detail page.
   function onTileClickCapture(entry: TileRegistryEntry, e: React.MouseEvent<HTMLDivElement>) {
     // Freeze the board while ANY modal is open. The shared <Modal> portals to
     // <body>, but in the React tree it is still a descendant of this tile
@@ -857,21 +845,17 @@ export function Board() {
     // Interaction log: one capture-phase handler is the single place every tile
     // tap passes through, so all 17 tiles (and any tile added later) are covered
     // without touching a tile component. `kind` records what the tap actually
-    // did, which is the difference between "they poked the Controls tile's own
-    // UI" and "they opened the detail modal" , indistinguishable from the tile
-    // id alone.
-    // A tile with a detail-registry entry is migrated to the full-page path: its
-    // whole face opens the page, so a stale `ownsTap` flag no longer swallows
-    // the tap. Inner controls still own their taps via INTERACTIVE_SELECTOR.
-    const migrated = Boolean(getTileDetailEntry(entry.id));
-    const ownsTap =
-      (!migrated && entry.ownsTap) ||
-      Boolean((e.target as HTMLElement).closest(INTERACTIVE_SELECTOR));
+    // did, which is the difference between "they poked a tile's inner control"
+    // and "they opened the detail page" , indistinguishable from the tile id
+    // alone.
+    // A tile's whole face opens its detail page; inner controls own their taps
+    // via INTERACTIVE_SELECTOR.
+    const controlTap = Boolean((e.target as HTMLElement).closest(INTERACTIVE_SELECTOR));
     interaction("tile", "tap", entry.id, {
       label: entry.label,
-      kind: ownsTap ? "control" : "open-detail",
+      kind: controlTap ? "control" : "open-detail",
     });
-    if (ownsTap) {
+    if (controlTap) {
       glideToTile(entry);
       return;
     }
@@ -987,9 +971,8 @@ export function Board() {
                 aria-label={`Open ${entry.label}`}
                 onClickCapture={(e) => onTileClickCapture(entry, e)}
                 onKeyDown={(e) => {
-                  // Migrated tiles ignore the stale ownsTap flag , Enter/Space
-                  // open their detail page like a plain tap would.
-                  if (!getTileDetailEntry(entry.id) && entry.ownsTap) return;
+                  // Enter/Space open the tile's detail page like a plain tap
+                  // would; keys inside inner controls stay theirs.
                   if (e.target !== e.currentTarget) return;
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
@@ -1043,7 +1026,6 @@ export function Board() {
         {/* Idle dim tap-shield (native only). Sits above the board + its chrome but
           below modals (which portal to <body>) so it swallows the wake tap. */}
         <DimOverlay active={dimmed} onWake={wake} />
-        <TileModalHost entry={activeModal} onClose={() => setActiveModal(null)} />
         {/* Full-page detail path (store-driven). Registers with modal-open-store,
           so the existing modalOpen freeze/bail logic covers it automatically. */}
         <TileDetailHost />

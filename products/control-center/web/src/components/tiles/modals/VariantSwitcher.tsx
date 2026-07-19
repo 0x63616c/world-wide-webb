@@ -1,20 +1,21 @@
 /**
  * VariantSwitcher , floating segmented selector that sits ABOVE the open detail
- * modal and lets you swap between a tile's designed modal variants live.
+ * page and lets you swap between a tile's designed detail variants live.
  *
- * Portaled to <body> (like the Modal) as a fixed, top-centered pill bar layered
- * above the Modal overlay (zIndex 110 > the Modal's 100). The portal is load-
- * bearing: in-tree it lives under #stage's own stacking context and 110 would
- * never beat the body-level Modal. Only shown when a tile has >1 variant.
+ * Portaled to <body> (like the detail page) as a fixed, top-centered pill bar
+ * layered above the page overlay (zIndex 110 > the page's 100). The portal is
+ * load-bearing: in-tree it lives under #stage's own stacking context and 110
+ * would never beat the body-level overlay. Only shown when a tile has >1
+ * variant.
  */
 
 import { createPortal } from "react-dom";
-import type { LiveVariant } from "./types";
+import type { DetailVariant } from "../detail/types";
 
 export interface VariantSwitcherProps {
-  // Only slug + label are read, so both the old LiveVariant (modal) and the new
-  // DetailVariant (full-page) lists satisfy this during the migration.
-  variants: Pick<LiveVariant, "slug" | "label">[];
+  // Only slug + label are read, so any variant list (DetailVariant, or a
+  // caller's own {slug,label} shapes like PartySpeedControls') satisfies this.
+  variants: Pick<DetailVariant, "slug" | "label">[];
   activeSlug: string;
   onSelect: (slug: string) => void;
 }
