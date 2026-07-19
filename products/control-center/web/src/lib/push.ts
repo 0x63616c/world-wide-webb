@@ -43,6 +43,9 @@ export interface PushPermissionStatus {
   receive: "prompt" | "prompt-with-rationale" | "granted" | "denied";
 }
 
+/** OS permission state, plus "unsupported" for the non-native shells. */
+export type PushPermissionState = PushPermissionStatus["receive"] | "unsupported";
+
 export interface PushRegistrationToken {
   value: string;
 }
@@ -199,9 +202,7 @@ export async function enablePush(registerToken: RegisterTokenFn): Promise<PushEn
  * Current OS permission state, without prompting. Returns "unsupported" off
  * device so the settings page can explain why the toggle does nothing there.
  */
-export async function pushPermissionState(): Promise<
-  PushPermissionStatus["receive"] | "unsupported"
-> {
+export async function pushPermissionState(): Promise<PushPermissionState> {
   const plugin = await getPlugin();
   if (!plugin) return "unsupported";
   try {

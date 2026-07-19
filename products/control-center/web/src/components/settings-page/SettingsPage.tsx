@@ -122,6 +122,15 @@ export function SettingsPage({
         color: "var(--ink)",
         fontFamily: "var(--ui)",
         overflow: "hidden",
+        // Keep content clear of the notch / Dynamic Island and the home
+        // indicator. index.html sets viewport-fit=cover, so without this the
+        // overlay draws under both and the "Settings" heading is unreadable.
+        // Padding (not inset) so the background still fills those regions.
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        paddingLeft: "env(safe-area-inset-left, 0px)",
+        paddingRight: "env(safe-area-inset-right, 0px)",
+        boxSizing: "border-box",
       }}
     >
       {/* Sidebar , full-width and the only pane when narrow, hidden once a page

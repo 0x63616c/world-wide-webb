@@ -21,7 +21,12 @@ import {
   type NotificationCategory,
   parseMutedCategories,
 } from "@/lib/notifications";
-import { enablePush, isPushSupported } from "@/lib/push";
+import {
+  enablePush,
+  isPushSupported,
+  type PushPermissionState,
+  pushPermissionState,
+} from "@/lib/push";
 import { setCategoryMuted, setPushEnabled, useSettings } from "@/lib/settings";
 import { trpc } from "@/lib/trpc";
 import { useNotifications } from "@/lib/useNotifications";
@@ -35,16 +40,27 @@ export function NotificationsPage() {
   const registerToken = trpc.notifications.registerToken.useMutation();
   const [supported, setSupported] = useState<boolean | null>(null);
   const [pushError, setPushError] = useState<string | null>(null);
+  const [permission, setPermission] = useState<PushPermissionState | null>(null);
+
+  /**
+   * Re-read the OS permission state. Called on mount and after every toggle,
+   * because the value changes outside React (the iOS prompt, or the user
+   * flipping it in iOS Settings while the app is backgrounded).
+   */
+  const refreshPermission = useCallback(() => {
+    void pushPermissionState().then(setPermission);
+  }, []);
 
   useEffect(() => {
     let canceled = false;
     void isPushSupported().then((ok) => {
       if (!canceled) setSupported(ok);
     });
+    refreshPermission();
     return () => {
       canceled = true;
     };
-  }, []);
+  }, [refreshPermission]);
 
   const onTogglePush = useCallback(
     (next: boolean) => {
@@ -59,6 +75,7 @@ export function NotificationsPage() {
         // Only reflect "on" once the OS actually granted , otherwise the switch
         // would claim a state the device does not have.
         setPushEnabled(result.ok);
+        refreshPermission();
         if (!result.ok) {
           setPushError(
             result.reason === "denied"
@@ -70,8 +87,40 @@ export function NotificationsPage() {
         }
       });
     },
-    [registerToken],
+    [registerToken, refreshPermission],
   );
+
+  /**
+   * Human label for the OS permission state.
+   *
+   * This is deliberately separate from the toggle. Granting permission only
+   * means iOS accepted the prompt , the APNs token arrives later on a callback,
+   * and if it never arrives the toggle still reads "on" while no push can
+   * possibly be delivered. Showing both states makes that gap visible instead of
+   * silently pretending push works.
+   */
+  const PERMISSION_LABEL: Record<PushPermissionState, string> = {
+    granted: "Granted",
+    denied: "Denied , enable in iOS Settings > Notifications",
+    prompt: "Not yet requested",
+    "prompt-with-rationale": "Not yet requested",
+    unsupported: "Unavailable outside the installed app",
+  };
+
+  /**
+   * Whether THIS device's APNs token has reached the server. Derived from the
+   * mutation rather than a query: the token is delivered by an OS callback, so
+   * "the mutation succeeded this session" is the only client-side proof it was
+   * stored. Unknown on a fresh page load, which is honest , it does not claim
+   * registration it cannot see.
+   */
+  const tokenStatus = registerToken.isSuccess
+    ? "Registered with the server"
+    : registerToken.isError
+      ? `Failed: ${registerToken.error.message}`
+      : permission === "granted"
+        ? "Waiting for APNs token…"
+        : "Not registered";
 
   const pushSub =
     supported === false
@@ -117,6 +166,13 @@ export function NotificationsPage() {
               />
             }
           />,
+          <RowShell
+            key="permission"
+            label="OS permission"
+            sub={permission ? PERMISSION_LABEL[permission] : "Checking…"}
+            control={null}
+          />,
+          <RowShell key="token" label="Device token" sub={tokenStatus} control={null} />,
           ...NOTIFICATION_CATEGORIES.map((category: NotificationCategory) => (
             <RowShell
               key={`mute-${category}`}
