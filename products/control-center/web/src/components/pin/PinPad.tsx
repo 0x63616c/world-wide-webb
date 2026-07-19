@@ -5,7 +5,7 @@
  * Copied from the approved PinConcepts visual reference.
  */
 
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { PIN_LENGTH } from "../../lib/settings";
 import { Icon } from "../Icon";
 
@@ -42,7 +42,10 @@ export function PinPadView({
       </div>
 
       {/* Keypad */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 72px)", gap: 12 }}>
+      {/* No gap: each cell is 84px and the button fills it, so the 12px gutter
+          between the painted 72px circles is still tappable (Apple-style: the
+          hit target is the grid cell, the circle is only paint). */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 84px)", gap: 0 }}>
         {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
           <PadKey key={d} onClick={() => onDigit(d)} label={d} />
         ))}
@@ -68,28 +71,52 @@ function PadKey({
   onClick: () => void;
   children?: ReactNode;
 }) {
+  const [pressed, setPressed] = useState(false);
+
   return (
     <button
       type="button"
       aria-label={label}
       onClick={onClick}
+      onPointerDown={() => setPressed(true)}
+      onPointerUp={() => setPressed(false)}
+      onPointerLeave={() => setPressed(false)}
+      onPointerCancel={() => setPressed(false)}
       style={{
-        width: 72,
-        height: 72,
-        borderRadius: "50%",
-        background: "var(--nest)",
-        border: "1px solid var(--hair)",
-        color: "var(--ink)",
-        fontFamily: "var(--ui)",
-        fontSize: 26,
-        fontWeight: 500,
+        // 84x84 hit target = the full grid cell; 6px padding insets the painted
+        // circle back to 72px so the visual layout is unchanged.
+        width: 84,
+        height: 84,
+        padding: 6,
+        background: "transparent",
+        border: "none",
         cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        // Kills the 300ms double-tap-zoom delay and the grey flash in the iOS
+        // Capacitor shell; the panel is fixed-size so zoom is never wanted.
+        touchAction: "manipulation",
+        WebkitTapHighlightColor: "transparent",
+        userSelect: "none",
       }}
     >
-      {children ?? label}
+      <span
+        style={{
+          width: "100%",
+          height: "100%",
+          borderRadius: "50%",
+          background: pressed ? "var(--hair)" : "var(--nest)",
+          border: "1px solid var(--hair)",
+          color: "var(--ink)",
+          fontFamily: "var(--ui)",
+          fontSize: 26,
+          fontWeight: 500,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "background 80ms",
+        }}
+      >
+        {children ?? label}
+      </span>
     </button>
   );
 }
