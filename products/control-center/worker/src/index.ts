@@ -12,8 +12,10 @@
  * will dissolve the api dependency; until then this is the seam.
  */
 import {
+  claimAndRun,
   env,
   reconcilePartyMode,
+  registerNotifyHandler,
   runAscVersionPollCycle,
   runClimateEnforcerCycle,
   runDeviceSyncCycle,
@@ -39,6 +41,11 @@ try {
   log.error({ err }, "migrations failed");
   process.exit(1);
 }
+
+// Job handlers must be registered synchronously before the runtime starts
+// claiming. Only `notify` is registered here , see the notify-queue worker below
+// for why this process claims that type and nothing else.
+registerNotifyHandler();
 
 const workers: Worker[] = [
   {
@@ -118,6 +125,26 @@ const workers: Worker[] = [
     intervalMs: 60_000,
     runOnStart: true,
     run: runAscVersionPollCycle,
+  },
+  {
+    // Notification delivery (APNs fan-out).
+    //
+    // The durable queue belongs to media-worker, but media-worker is parked at
+    // 0 replicas in prod (wwwinfra:mediaWorkerReplicas), so nothing drains the
+    // queue: a `notify` job would be enqueued and sit there forever, and a push
+    // would never be sent even with a valid device token.
+    //
+    // Rather than un-park media-worker (which would also restart YouTube ingest
+    // and media downloads), this always-on process claims ONLY the `notify`
+    // type. The filter matters: without it this worker would also claim media
+    // jobs it has no handler for, burn their retries, and starve the process
+    // that can actually run them if it ever comes back.
+    name: "notify-queue",
+    intervalMs: 2_000,
+    runOnStart: true,
+    run: async () => {
+      await claimAndRun({ types: ["notify"] });
+    },
   },
 ];
 

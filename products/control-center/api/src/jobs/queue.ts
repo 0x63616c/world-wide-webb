@@ -88,8 +88,23 @@ function backoffSec(attempts: number): number {
  *
  * Returns true if a job was claimed and processed, false if the queue was empty.
  * Callers (queueWorker) loop calling this until it returns false.
+ *
+ * `types` restricts the claim to specific job types. A process must only claim
+ * work it has handlers for: an unhandled type would be claimed, throw
+ * "no handler", and burn its retries until it fails permanently , while the
+ * process that COULD run it never gets to see it. media-worker omits the filter
+ * and drains everything; worker passes its own narrow list.
  */
-export async function claimAndRun(): Promise<boolean> {
+export async function claimAndRun(opts?: { types?: readonly string[] }): Promise<boolean> {
+  const types = opts?.types;
+  if (types && types.length === 0) return false;
+  // Inlined as a fragment so the no-filter path emits the exact original query.
+  const typeFilter = types
+    ? sql`AND type IN (${sql.join(
+        types.map((t) => sql`${t}`),
+        sql`, `,
+      )})`
+    : sql``;
   // Use a transaction so the claim + status update is atomic. If the handler
   // throws after we update status=running, the catch block updates it again in
   // its own statement , both are inside the transaction only for the claim step;
@@ -106,6 +121,7 @@ export async function claimAndRun(): Promise<boolean> {
         FROM job
         WHERE status = 'queued'
           AND run_after <= now()
+          ${typeFilter}
         ORDER BY priority DESC, created_at ASC
         LIMIT 1
         FOR UPDATE SKIP LOCKED

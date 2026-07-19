@@ -413,6 +413,9 @@ export function controlCenterServiceSecretUsages(): Record<
     // Deploys-tile poller. Only the worker reads it, but api/worker secret sets
     // are kept in lockstep (www-51hf.35), so it appears in both.
     GITHUB_ACTIONS_TOKEN: secretCatalog.github.ghcrPat,
+    APNS_KEY_ID: secretCatalog.apns.keyId,
+    APNS_TEAM_ID: secretCatalog.apns.teamId,
+    APNS_KEY_CONTENT: secretCatalog.apns.p8Content,
   } as const;
   const workerSecrets = {
     HA_TOKEN: secretCatalog.homeAssistant.token,
@@ -433,6 +436,11 @@ export function controlCenterServiceSecretUsages(): Record<
     // Deploys-tile poller. Only the worker reads it, but api/worker secret sets
     // are kept in lockstep (www-51hf.35), so it appears in both.
     GITHUB_ACTIONS_TOKEN: secretCatalog.github.ghcrPat,
+    // worker runs the notify-queue cycle (media-worker is parked at 0), so it is
+    // the process that actually signs the APNs JWT and sends the push.
+    APNS_KEY_ID: secretCatalog.apns.keyId,
+    APNS_TEAM_ID: secretCatalog.apns.teamId,
+    APNS_KEY_CONTENT: secretCatalog.apns.p8Content,
   } as const;
 
   return {

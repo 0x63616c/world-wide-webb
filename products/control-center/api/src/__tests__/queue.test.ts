@@ -173,6 +173,26 @@ describe("claimAndRun , empty queue", () => {
   });
 });
 
+describe("claimAndRun , type filter", () => {
+  it("adds a type filter to the claim query when types are given", async () => {
+    await claimAndRun({ types: ["notify"] });
+    expect(logContains("type IN")).toBe(true);
+  });
+
+  it("omits the type filter entirely when no types are given", async () => {
+    await claimAndRun();
+    expect(logContains("type IN")).toBe(false);
+  });
+
+  it("claims nothing (and issues no query) for an empty type list", async () => {
+    // A process with no registered types must not claim the whole queue by
+    // accident , the guard is what stops an empty list meaning "everything".
+    const result = await claimAndRun({ types: [] });
+    expect(result).toBe(false);
+    expect(logContains("SKIP LOCKED")).toBe(false);
+  });
+});
+
 describe("claimAndRun , dispatch by type", () => {
   it("calls the handler registered for the job type", async () => {
     const handler = vi.fn().mockResolvedValue(undefined);

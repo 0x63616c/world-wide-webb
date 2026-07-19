@@ -11,11 +11,16 @@
  */
 export { runMigrations } from "./db/migrate";
 export { env } from "./env";
+// Notification delivery. media-worker owns the queue in general, but it is
+// parked at 0 replicas in prod, so worker (always on) drains the `notify` type
+// specifically , see the notify-queue worker in products/control-center/worker.
+export { claimAndRun } from "./jobs/queue";
 export { runAscVersionPollCycle } from "./services/asc-version-service";
 export { runClimateEnforcerCycle } from "./services/climate-enforcer-service";
 export { runDeviceSyncCycle } from "./services/device-sync-service";
 export { runGithubPollCycle } from "./services/github-actions-service";
 export { runEnforcerCycle } from "./services/light-enforcer-service";
+export { registerNotifyHandler } from "./services/notification-service";
 export { reconcilePartyMode } from "./services/party-service";
 export { runScheduleRunnerCycle } from "./services/schedule-runner-service";
 export { runSonosVolumeEnforcerCycle } from "./services/sonos-volume-enforcer-service";
