@@ -2,6 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { NotificationBridge } from "./components/NotificationBridge";
+import { PushRegistrar } from "./components/PushRegistrar";
 import { queryClient, trpc, trpcClient } from "./lib/trpc";
 import { useSettingsSync } from "./lib/useSettingsSync";
 import { startVersionCheck } from "./lib/version-check";
@@ -36,6 +37,10 @@ export function App() {
             and renders nothing , and because keeping it out of Board keeps the
             banners (and Board's provider-free tests) untouched. */}
         <NotificationBridge />
+        {/* Re-registers with APNs on every launch when push is enabled. At
+            app level, not in Settings: a normal launch never opens Settings,
+            which is precisely why a stuck device never recovered. */}
+        <PushRegistrar />
         <RouterProvider router={router} />
       </QueryClientProvider>
     </trpc.Provider>
