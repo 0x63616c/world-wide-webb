@@ -2,6 +2,7 @@ import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BUILD_HASH, BUILD_TIME } from "../config/build";
+import { getInstalledBuildNumber } from "../lib/app-update";
 import { isNativeDisplay } from "../lib/brightness";
 import {
   BOARD_H,
@@ -27,6 +28,7 @@ import { captureWakeBurst } from "../lib/wake-capture";
 import { AppUpdateBanner } from "./AppUpdateBanner";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
 import { DeviceNameBanner } from "./DeviceNameBanner";
+import { FpsSparkline } from "./FpsSparkline";
 import {
   getVisibleTiles,
   useBoardDragPan,
@@ -38,6 +40,7 @@ import {
 } from "./hooks/useBoard";
 import { LayoutEditor } from "./layout-editor/LayoutEditor";
 import { MINIMAP_LEFT, MINIMAP_TOP, MINIMAP_WIDTH, Minimap } from "./Minimap";
+import { NotChargingBanner } from "./NotChargingBanner";
 import { PlaceholderTile } from "./PlaceholderTile";
 import { SettingsButton } from "./SettingsButton";
 import { getTileModalEntry } from "./tiles/modals/registry";
@@ -128,8 +131,11 @@ function BoundedTile({ children }: { children: React.ReactNode }) {
 }
 
 // Small live FPS readout pinned top-right, for tuning the canvas feel on-device.
+// A subtle sparkline of the last 60s (120 samples at 2/sec) sits beneath the
+// number so a momentary stutter is visible after it has passed.
 function FpsMeter() {
   const [fps, setFps] = useState(0);
+  const [samples, setSamples] = useState<number[]>([]);
   useEffect(() => {
     let raf = 0;
     let frames = 0;
@@ -137,7 +143,11 @@ function FpsMeter() {
     const loop = (now: number) => {
       frames++;
       if (now - last >= 500) {
-        setFps(Math.round((frames * 1000) / (now - last)));
+        const fpsValue = Math.round((frames * 1000) / (now - last));
+        setFps(fpsValue);
+        // 120 samples × 500ms = 60s of history; sampled twice a second, not per
+        // rAF frame, so the array stays small and the sparkline stays legible.
+        setSamples((s) => [...s, fpsValue].slice(-120));
         frames = 0;
         last = now;
       }
@@ -152,13 +162,18 @@ function FpsMeter() {
         position: "absolute",
         top: 0,
         right: 12,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-end",
+        gap: 2,
         fontFamily: "var(--mono)",
         fontSize: 11,
         letterSpacing: "-0.02em",
         color: "var(--ink-3)",
       }}
     >
-      {fps} fps
+      <span>{fps} fps</span>
+      <FpsSparkline samples={samples} />
     </div>
   );
 }
@@ -188,6 +203,39 @@ function BuildHashBadge() {
     >
       #{BUILD_HASH.slice(0, 7)}
       {age ? ` ${age}` : ""}
+    </div>
+  );
+}
+
+// Installed native app build number (CFBundleVersion), pinned bottom-left one
+// line ABOVE the git-sha BuildHashBadge so the two stack without overlapping.
+// Native-only: getInstalledBuildNumber resolves null in a plain browser
+// (dev/Storybook), where this renders nothing.
+function BuildNumberBadge() {
+  const [build, setBuild] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void getInstalledBuildNumber().then((b) => {
+      if (!cancelled) setBuild(b);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  if (build === null) return null;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: 16,
+        left: 12,
+        fontFamily: "var(--mono)",
+        fontSize: 11,
+        letterSpacing: "-0.02em",
+        color: "var(--ink-3)",
+      }}
+    >
+      build {build}
     </div>
   );
 }
@@ -946,8 +994,10 @@ export function Board() {
           <ConnectionLostBanner />
           <AppUpdateBanner />
           <UnplacedTilesBanner count={layout.unplaced.length} />
+          <NotChargingBanner />
           {settings.showFps ? <FpsMeter /> : null}
           {settings.showBuildBadge ? <BuildHashBadge /> : null}
+          {settings.showBuildNumber ? <BuildNumberBadge /> : null}
           {/* Hidden while the layout editor is open: it's a full-screen overlay
             with its own camera/chrome, and none of these read on a frozen board
             underneath it. */}

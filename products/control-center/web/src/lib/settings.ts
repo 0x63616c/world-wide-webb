@@ -14,12 +14,6 @@
 import { useSyncExternalStore } from "react";
 import { interaction } from "./log/interaction";
 import { log } from "./log/logger";
-import {
-  type NotificationCategory,
-  parseMutedCategories,
-  serializeMutedCategories,
-  toggleMutedCategory,
-} from "./notifications";
 
 // Every panel setting that changes is a candidate explanation for "why is the
 // board behaving like that" , cheap to record, and the alternative is guessing.
@@ -61,6 +55,9 @@ export interface Settings {
   showFps: boolean;
   /** Show the build-hash + age badge (bottom-left). */
   showBuildBadge: boolean;
+  /** Show the native app build number badge (bottom-left, above the git-sha
+   *  badge). Opt-in, native-only meaning (null off-device). */
+  showBuildNumber: boolean;
   /** Board settle feel (see SNAP_MODES). */
   snapMode: SnapMode;
   /** Show the board minimap (bottom-right). */
@@ -72,10 +69,6 @@ export interface Settings {
    *  prompt + APNs token registration (lib/push.ts). Device-local by nature:
    *  a token belongs to one panel, so this must not sync across panels. */
   pushEnabled: boolean;
-  /** Muted notification categories, comma-separated (e.g. "ci,media"). Encoded
-   *  as a string because the store holds only primitives , parse/serialize via
-   *  parseMutedCategories/serializeMutedCategories in lib/notifications.ts. */
-  mutedCategories: string;
 }
 
 export const MIN_IDLE_TIMEOUT_MS = 60_000; // 1 min
@@ -98,11 +91,11 @@ const DEFAULTS: Settings = {
   recenterTimeoutMs: 10 * 60_000,
   showFps: false,
   showBuildBadge: true,
+  showBuildNumber: false,
   snapMode: "mandatory-settle",
   showMinimap: true,
   pinCode: DEFAULT_PIN,
   pushEnabled: false,
-  mutedCategories: "",
 };
 
 // `cc-board-snap-mode` is reused verbatim so an existing SnapModeSwitcher choice
@@ -116,11 +109,11 @@ const KEYS = {
   recenterTimeoutMs: "cc-recenter-timeout-ms",
   showFps: "cc-show-fps",
   showBuildBadge: "cc-show-build-badge",
+  showBuildNumber: "cc-show-build-number",
   snapMode: "cc-board-snap-mode",
   showMinimap: "cc-show-minimap",
   pinCode: "cc-pin-code",
   pushEnabled: "cc-push-enabled",
-  mutedCategories: "cc-muted-categories",
 } as const;
 
 /**
@@ -135,7 +128,7 @@ const KEYS = {
  * `pushEnabled` is device-local BY DESIGN, not merely pending: an APNs token
  * belongs to one panel, so "push on" can never be a global truth.
  */
-const LOCAL_ONLY_KEYS = new Set<keyof Settings>(["pushEnabled", "mutedCategories"]);
+const LOCAL_ONLY_KEYS = new Set<keyof Settings>(["pushEnabled"]);
 
 // ─── clamps ───────────────────────────────────────────────────────────────────
 
@@ -182,10 +175,10 @@ function loadInitial(): Settings {
   const recenterEnabled = readRaw(KEYS.recenterEnabled);
   const recenterTimeout = readRaw(KEYS.recenterTimeoutMs);
   const buildBadge = readRaw(KEYS.showBuildBadge);
+  const buildNumber = readRaw(KEYS.showBuildNumber);
   const minimap = readRaw(KEYS.showMinimap);
   const pin = readRaw(KEYS.pinCode);
   const push = readRaw(KEYS.pushEnabled);
-  const muted = readRaw(KEYS.mutedCategories);
   return {
     activeBrightness:
       brightness === null ? DEFAULTS.activeBrightness : clampBrightness(Number(brightness)),
@@ -201,6 +194,7 @@ function loadInitial(): Settings {
         : clampIdleTimeoutMs(Number(recenterTimeout)),
     showFps: fps === null ? DEFAULTS.showFps : fps === "true",
     showBuildBadge: buildBadge === null ? DEFAULTS.showBuildBadge : buildBadge === "true",
+    showBuildNumber: buildNumber === null ? DEFAULTS.showBuildNumber : buildNumber === "true",
     snapMode:
       snap && (SNAP_MODES as readonly string[]).includes(snap)
         ? (snap as SnapMode)
@@ -208,12 +202,6 @@ function loadInitial(): Settings {
     showMinimap: minimap === null ? DEFAULTS.showMinimap : minimap === "true",
     pinCode: pin && /^\d{6}$/.test(pin) ? pin : DEFAULTS.pinCode,
     pushEnabled: push === null ? DEFAULTS.pushEnabled : push === "true",
-    // Re-serialized through the codec so a hand-edited / stale storage value
-    // (an unknown category, stray whitespace) can never enter the store.
-    mutedCategories:
-      muted === null
-        ? DEFAULTS.mutedCategories
-        : serializeMutedCategories(parseMutedCategories(muted)),
   };
 }
 
@@ -338,6 +326,10 @@ export function setShowBuildBadge(v: boolean): void {
   patch("showBuildBadge", v, String(v));
 }
 
+export function setShowBuildNumber(v: boolean): void {
+  patch("showBuildNumber", v, String(v));
+}
+
 export function setSnapMode(mode: SnapMode): void {
   patch("snapMode", mode, mode);
 }
@@ -355,17 +347,6 @@ export function setPinCode(pin: string): void {
 
 export function setPushEnabled(v: boolean): void {
   patch("pushEnabled", v, String(v));
-}
-
-/** Mute or unmute one notification category (see lib/notifications.ts codec). */
-export function setCategoryMuted(category: NotificationCategory, muted: boolean): void {
-  const next = toggleMutedCategory(state.mutedCategories, category, muted);
-  patch("mutedCategories", next, next);
-}
-
-/** The muted categories as a parsed list , the form every consumer wants. */
-export function mutedCategoriesOf(settings: Settings): NotificationCategory[] {
-  return parseMutedCategories(settings.mutedCategories);
 }
 
 /**

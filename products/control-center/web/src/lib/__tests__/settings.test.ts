@@ -28,6 +28,11 @@ describe("settings defaults", () => {
     expect(s.pinCode).toBe("000000");
   });
 
+  it("defaults showBuildNumber to false (opt-in, native-only)", () => {
+    act(() => resetSettings());
+    expect(read().current.showBuildNumber).toBe(false);
+  });
+
   it("exports PIN_LENGTH = 6 and DEFAULT_PIN = 000000", () => {
     expect(PIN_LENGTH).toBe(6);
     expect(DEFAULT_PIN).toBe("000000");

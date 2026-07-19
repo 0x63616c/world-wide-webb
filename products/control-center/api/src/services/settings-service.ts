@@ -37,6 +37,7 @@ export const settingsSchema = z.object({
   recenterTimeoutMs: z.number().min(TIMEOUT_MIN_MS).max(TIMEOUT_MAX_MS),
   showFps: z.boolean(),
   showBuildBadge: z.boolean(),
+  showBuildNumber: z.boolean(),
   snapMode: z.enum([
     SnapMode.Proximity,
     SnapMode.Mandatory,
@@ -67,6 +68,7 @@ export const DEFAULTS: Settings = {
   recenterTimeoutMs: 600_000,
   showFps: false,
   showBuildBadge: true,
+  showBuildNumber: false,
   snapMode: SnapMode.MandatorySettle,
   showMinimap: true,
   pinCode: "000000",

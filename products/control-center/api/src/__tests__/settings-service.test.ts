@@ -20,6 +20,7 @@ describe("settings-service DEFAULTS", () => {
   it("carries the minimap + PIN defaults", () => {
     expect(DEFAULTS.showMinimap).toBe(true);
     expect(DEFAULTS.pinCode).toBe("000000");
+    expect(DEFAULTS.showBuildNumber).toBe(false);
   });
 });
 
