@@ -16,6 +16,15 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import "@testing-library/jest-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// ─── mock tile-detail-store ───────────────────────────────────────────────────
+// The tile's "More" button (and the board's tile tap) open the full-page
+// Controls detail through this seam.
+
+const mockOpenTileDetail = vi.fn();
+vi.mock("../../../lib/tile-detail-store", () => ({
+  openTileDetail: (...args: unknown[]) => mockOpenTileDetail(...args),
+}));
+
 // ─── mock trpc ────────────────────────────────────────────────────────────────
 
 const mockMutate = vi.fn();
@@ -105,6 +114,15 @@ vi.mock("../../../lib/trpc", () => ({
 // ─── import after mock ────────────────────────────────────────────────────────
 
 import { ControlsTile, makeRefetchInterval as makeRefetchIntervalForTest } from "../ControlsTile";
+import { controlsDetailEntry } from "../detail/wiring/controls";
+
+// Renders the full-page detail variant the way TileDetailHost would , the
+// wiring's useVariants hook plus the active variant's render().
+function ControlsDetailPage() {
+  const { variants, loading } = controlsDetailEntry.useVariants();
+  if (loading || variants.length === 0) return null;
+  return <>{variants[0].render()}</>;
+}
 
 // ─── setup / teardown ────────────────────────────────────────────────────────
 
@@ -520,8 +538,8 @@ describe("ControlsTile", () => {
     });
   });
 
-  // ── www-06x.3: expanded controls modal wiring ─────────────────────────────────
-  describe("www-06x.3: expanded controls modal", () => {
+  // ── www-06x.3: full-page controls detail wiring ───────────────────────────────
+  describe("www-06x.3: full-page controls detail", () => {
     beforeEach(() => {
       mockQueryReturn = {
         data: {
@@ -534,15 +552,28 @@ describe("ControlsTile", () => {
       };
     });
 
-    it("modal is closed until the More button is clicked (no scene buttons yet)", () => {
+    it("the tile face itself renders no page content (no scene buttons)", () => {
       render(<ControlsTile />);
       expect(screen.queryByRole("button", { name: "White" })).not.toBeInTheDocument();
       expect(screen.queryByLabelText("Brightness")).not.toBeInTheDocument();
     });
 
-    it("clicking More opens the modal: scene buttons + brightness slider appear", () => {
+    it("clicking More opens the full-page detail via openTileDetail", () => {
       render(<ControlsTile />);
       fireEvent.click(screen.getByLabelText("More"));
+      expect(mockOpenTileDetail).toHaveBeenCalledWith("tile_ctrl");
+    });
+
+    it("tapping a toggle cell operates the control and does NOT open the detail", () => {
+      render(<ControlsTile />);
+      fireEvent.click(screen.getByLabelText("Lamps"));
+      // The toggle fired its mutation without deep-linking into the detail.
+      expect(mockMutate).toHaveBeenCalledWith({ key: "lamps", on: false });
+      expect(mockOpenTileDetail).not.toHaveBeenCalled();
+    });
+
+    it("the detail page renders scene buttons + brightness slider", () => {
+      render(<ControlsDetailPage />);
       expect(screen.getByRole("button", { name: "White" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Mood" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Red" })).toBeInTheDocument();
@@ -550,47 +581,33 @@ describe("ControlsTile", () => {
       expect(screen.getByLabelText("Brightness")).toBeInTheDocument();
     });
 
-    it("tapping the tile body (not a toggle) opens the modal , same as More", () => {
-      render(<ControlsTile />);
-      // The "Controls" header is part of the tile body, outside any toggle cell.
-      fireEvent.click(screen.getByText("Controls"));
-      expect(screen.getByRole("button", { name: "White" })).toBeInTheDocument();
-      expect(screen.getByLabelText("Brightness")).toBeInTheDocument();
-    });
-
-    it("tapping a toggle cell operates the control and does NOT open the modal", () => {
-      render(<ControlsTile />);
-      fireEvent.click(screen.getByLabelText("Lamps"));
-      // The toggle fired its mutation, and the modal stayed closed.
-      expect(mockMutate).toHaveBeenCalledWith({ key: "lamps", on: false });
-      expect(screen.queryByRole("button", { name: "White" })).not.toBeInTheDocument();
+    it("the detail page renders nothing while the query is loading", () => {
+      mockQueryReturn = { data: undefined, isLoading: true, isError: false };
+      const { container } = render(<ControlsDetailPage />);
+      expect(container.firstChild).toBeNull();
     });
 
     it("scene button fires setLampScene mutation with the scene id", () => {
-      render(<ControlsTile />);
-      fireEvent.click(screen.getByLabelText("More"));
+      render(<ControlsDetailPage />);
       fireEvent.click(screen.getByRole("button", { name: "Mood" }));
       expect(mockSceneMutate).toHaveBeenCalledWith({ scene: "mood" });
     });
 
     it("brightness slider seeds from data.lamps.brightness", () => {
-      render(<ControlsTile />);
-      fireEvent.click(screen.getByLabelText("More"));
+      render(<ControlsDetailPage />);
       expect((screen.getByLabelText("Brightness") as HTMLInputElement).value).toBe("72");
     });
 
     it("brightness slider fires setLampBrightness mutation with the pct", async () => {
-      render(<ControlsTile />);
-      fireEvent.click(screen.getByLabelText("More"));
+      render(<ControlsDetailPage />);
       fireEvent.change(screen.getByLabelText("Brightness"), { target: { value: "55" } });
-      // onBrightness is debounced 400ms in the modal, so the mutation fires on the
+      // onBrightness is debounced 400ms in the page, so the mutation fires on the
       // trailing edge , wait for it rather than asserting synchronously.
       await waitFor(() => expect(mockBrightnessMutate).toHaveBeenCalledWith({ pct: 55 }));
     });
 
     it("brightness drag optimistically writes the pct into the cache (no snap-back)", async () => {
-      render(<ControlsTile />);
-      fireEvent.click(screen.getByLabelText("More"));
+      render(<ControlsDetailPage />);
       fireEvent.change(screen.getByLabelText("Brightness"), { target: { value: "40" } });
 
       // The mutation is debounced 400ms; its onMutate then cancels + writes the
@@ -611,7 +628,7 @@ describe("ControlsTile", () => {
       expect(mockInvalidate).not.toHaveBeenCalled();
     });
 
-    it("brightness slider is disabled inside the modal when lamps are off", () => {
+    it("brightness slider is disabled inside the detail page when lamps are off", () => {
       mockQueryReturn = {
         data: {
           lamps: { on: false, count: 0, sub: "Off", pending: false },
@@ -621,15 +638,14 @@ describe("ControlsTile", () => {
         isLoading: false,
         isError: false,
       };
-      render(<ControlsTile />);
-      fireEvent.click(screen.getByLabelText("More"));
+      render(<ControlsDetailPage />);
       expect(screen.getByLabelText("Brightness")).toBeDisabled();
     });
   });
 
   // ── www-7d5b.3.7: setLampMode (party) wiring + speed ──────────────────────────
   describe("www-7d5b.3.7: party mode + speed wiring", () => {
-    it("threads activeScene into the modal so the active scene tile highlights", () => {
+    it("threads activeScene into the detail page so the active scene tile highlights", () => {
       mockQueryReturn = {
         data: {
           lamps: {
@@ -646,8 +662,7 @@ describe("ControlsTile", () => {
         isLoading: false,
         isError: false,
       };
-      render(<ControlsTile />);
-      fireEvent.click(screen.getByLabelText("More"));
+      render(<ControlsDetailPage />);
       expect(screen.getByRole("button", { name: "Blue" })).toHaveAttribute("aria-pressed", "true");
     });
 
@@ -668,8 +683,7 @@ describe("ControlsTile", () => {
         isLoading: false,
         isError: false,
       };
-      render(<ControlsTile />);
-      fireEvent.click(screen.getByLabelText("More"));
+      render(<ControlsDetailPage />);
       fireEvent.click(screen.getByRole("tab", { name: "Fast" }));
       expect(mockModeMutate).toHaveBeenCalledWith({ mode: "party", speed: "fast" });
     });
@@ -691,8 +705,7 @@ describe("ControlsTile", () => {
         isLoading: false,
         isError: false,
       };
-      render(<ControlsTile />);
-      fireEvent.click(screen.getByLabelText("More"));
+      render(<ControlsDetailPage />);
       fireEvent.click(screen.getByRole("tab", { name: "Off" }));
       expect(mockModeMutate).toHaveBeenCalledWith({ mode: "none" });
     });
@@ -714,8 +727,7 @@ describe("ControlsTile", () => {
         isLoading: false,
         isError: false,
       };
-      render(<ControlsTile />);
-      fireEvent.click(screen.getByLabelText("More"));
+      render(<ControlsDetailPage />);
       expect(screen.getByRole("tablist", { name: "Party" })).toBeInTheDocument();
       for (const name of ["Off", "Slow", "Med", "Fast"]) {
         expect(screen.getByRole("tab", { name })).toBeInTheDocument();
@@ -739,8 +751,7 @@ describe("ControlsTile", () => {
         isLoading: false,
         isError: false,
       };
-      render(<ControlsTile />);
-      fireEvent.click(screen.getByLabelText("More"));
+      render(<ControlsDetailPage />);
       fireEvent.click(screen.getByRole("tab", { name: "Slow" }));
       expect(mockModeMutate).toHaveBeenCalledWith({ mode: "party", speed: "slow" });
     });
@@ -755,8 +766,7 @@ describe("ControlsTile", () => {
         isLoading: false,
         isError: false,
       };
-      render(<ControlsTile />);
-      fireEvent.click(screen.getByLabelText("More"));
+      render(<ControlsDetailPage />);
       expect(screen.getByRole("tab", { name: "Fast" })).toBeDisabled();
     });
   });

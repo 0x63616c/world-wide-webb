@@ -3,7 +3,6 @@
  * All data and callbacks come in as props; no trpc or hooks inside.
  */
 
-import type { MouseEventHandler } from "react";
 import { Icon } from "@/components/Icon";
 import { ControlTap, Skeleton, Tile, TileHeader, TileStatus } from "@/components/ui";
 
@@ -19,9 +18,9 @@ export type ControlKey = (typeof ControlKey)[keyof typeof ControlKey];
 /**
  * The lamps' currently-active preset: one of the scene ids, "party" (party mode
  * running), or null (custom/no recognised scene). Drives the active highlight on
- * the scene + Party tiles in the expanded modal. The scene ids match
+ * the scene + Party tiles in the expanded detail page. The scene ids match
  * ExpandedControlsModalView's LampScene; declared here (the lower-level module)
- * so ControlEntry can carry it without importing the modal (avoids a cycle).
+ * so ControlEntry can carry it without importing that view (avoids a cycle).
  */
 export type ActiveScene = "white" | "mood" | "red" | "blue" | "party" | null;
 
@@ -30,10 +29,10 @@ export interface ControlEntry {
   sub?: string;
   pending?: boolean;
   /** Lamp brightness 0..100 (avg of on-lamps). Only the lamps entry carries this;
-   *  seeds the expanded modal's brightness slider. */
+   *  seeds the expanded detail page's brightness slider. */
   brightness?: number;
-  /** Active scene/mode , only the lamps entry carries this; drives the modal's
-   *  scene + Party tile highlight. Undefined treated as null (no active scene). */
+  /** Active scene/mode , only the lamps entry carries this; drives the detail
+   *  page's scene + Party tile highlight. Undefined treated as null (no active scene). */
   activeScene?: ActiveScene;
 }
 
@@ -50,7 +49,7 @@ export type ControlsTileViewProps =
       status: typeof TileStatus.Populated;
       data: ControlsViewData;
       onToggle: (key: ControlKey, currentOn: boolean) => void;
-      /** Opens the expanded controls modal , forwarded to the grid's "more" button. */
+      /** Opens the full-page Controls detail , forwarded to the grid's "more" button. */
       onMore?: () => void;
     };
 
@@ -59,10 +58,10 @@ export type ControlsTileViewProps =
 interface ControlsGridViewProps {
   data: ControlsViewData;
   onToggle: (key: ControlKey, currentOn: boolean) => void;
-  /** Opens the expanded controls modal. Wired to the "more" button's onClick. */
+  /** Opens the full-page Controls detail. Wired to the "more" button's onClick. */
   onMore?: () => void;
-  /** Suppress the "more" button , set when the grid is reused INSIDE the modal,
-   *  where a second "more" affordance would be redundant/recursive. */
+  /** Suppress the "more" button , set when the grid is reused INSIDE the detail
+   *  page, where a second "more" affordance would be redundant/recursive. */
   hideMore?: boolean;
 }
 
@@ -95,8 +94,8 @@ export function ControlsGridView({ data, onToggle, onMore, hideMore }: ControlsG
         onToggle={() => onToggle(ControlKey.Fan, data.fan.on)}
       />
 
-      {/* "More" affordance , opens the expanded controls modal. Suppressed via
-          hideMore when this grid is reused inside that modal. */}
+      {/* "More" affordance , opens the full-page Controls detail. Suppressed via
+          hideMore when this grid is reused inside that page. */}
       {!hideMore && (
         <button
           type="button"
@@ -140,21 +139,11 @@ function SkeletonGrid() {
 // ─── ControlsTileView , pure view ─────────────────────────────────────────────
 
 export function ControlsTileView(props: ControlsTileViewProps) {
-  const onMore = props.status === TileStatus.Populated ? props.onMore : undefined;
-
-  // Whole-tile tap opens the expanded modal , the same surface the "more" button
-  // opens , EXCEPT taps on a toggle cell (.tap), which operate that control.
-  // stopPropagation keeps any ancestor tap handler from also firing.
-  const onTileTap: MouseEventHandler<HTMLDivElement> | undefined = onMore
-    ? (e) => {
-        if ((e.target as HTMLElement).closest(".tap")) return;
-        e.stopPropagation();
-        onMore();
-      }
-    : undefined;
-
+  // Tapping the tile surface (outside the toggle cells / "more" button) bubbles
+  // to the board, which opens the full-page Controls detail via the tile-detail
+  // registry; toggle cells and the "more" button own their own taps.
   return (
-    <Tile padding={20} onClick={onTileTap} style={onMore ? { cursor: "pointer" } : undefined}>
+    <Tile padding={20}>
       <TileHeader icon="bulb" title="Controls" />
 
       <div

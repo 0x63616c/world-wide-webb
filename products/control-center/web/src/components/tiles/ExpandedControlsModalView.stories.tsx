@@ -1,18 +1,17 @@
 /**
- * Stories for ExpandedControlsModalView , the expanded controls modal.
+ * Stories for ExpandedControlsModalView , the expanded controls surface.
  * View-driven (all data + callbacks via props), mirroring ControlsTileView.stories.
  * Play functions double as component-test assertions via addon-vitest.
  *
- * Grouped under "Modals/" (not "Tiles/") since this is an overlay surface, so it
- * falls through the BoardDecorator's tile branch to the plain dark wrapper.
+ * The component is a bare page body now (hosted by TileDetailHost in the app),
+ * so stories mount it inside a plain page-sized container matching the host's
+ * content region.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { modalDocsParameters } from "./__stories__/factory";
 import type { ControlsViewData } from "./ControlsTileView";
-import type { ExpandedControlsModalViewProps } from "./ExpandedControlsModalView";
 import { ExpandedControlsModalView } from "./ExpandedControlsModalView";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -54,10 +53,23 @@ const meta = {
   title: "Modals/ExpandedControls",
   component: ExpandedControlsModalView,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     data: allOn,
     onToggle: fn(),
     onScene: fn(),
@@ -69,33 +81,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// ─── Open , all on (interactive) ──────────────────────────────────────────────
-
-// Stateful wrapper so backdrop/Escape/Close actually dismiss in Storybook (the
-// default-args story hardcodes open=true + a mock onClose, so dismissal isn't
-// visible). A "Reopen" button makes the story replayable after closing.
-function InteractiveOpen(args: ExpandedControlsModalViewProps) {
-  const [open, setOpen] = useState(true);
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)}>
-        Reopen
-      </button>
-      <ExpandedControlsModalView
-        {...args}
-        open={open}
-        onClose={() => {
-          setOpen(false);
-          args.onClose();
-        }}
-      />
-    </>
-  );
-}
+// ─── All on ───────────────────────────────────────────────────────────────────
 
 export const Open: Story = {
   name: "Open , all on",
-  render: (args) => <InteractiveOpen {...args} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement.ownerDocument.body);
     // Grid toggles are reused, no "More" button inside the modal
@@ -229,31 +218,5 @@ export const BrightnessInteraction: Story = {
     slider.dispatchEvent(new Event("change", { bubbles: true }));
     // onBrightness is debounced 400ms (trailing edge) , wait for it to fire.
     await waitFor(() => expect(args.onBrightness).toHaveBeenCalledWith(65));
-  },
-};
-
-// ─── Loading , closed (no content) ────────────────────────────────────────────
-
-export const Loading: Story = {
-  name: "Loading , modal closed",
-  args: { open: false },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement.ownerDocument.body);
-    // While the underlying query loads the tile keeps the modal closed ,
-    // nothing renders, no scene buttons leak onto the board.
-    expect(canvas.queryByRole("button", { name: "White" })).toBeNull();
-    expect(canvas.queryByLabelText("Brightness")).toBeNull();
-  },
-};
-
-// ─── Error , closed (no content) ──────────────────────────────────────────────
-
-export const ErrorClosed: Story = {
-  name: "Error , modal closed",
-  args: { open: false, data: lampsOff },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement.ownerDocument.body);
-    // On error the tile shows a skeleton and the modal stays closed.
-    expect(canvas.queryByRole("button", { name: "Lamps" })).toBeNull();
   },
 };

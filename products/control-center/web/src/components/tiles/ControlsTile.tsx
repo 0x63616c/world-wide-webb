@@ -1,6 +1,7 @@
 /**
- * Controls tile , lamps, ceiling lights, fan + "More" placeholder.
- * Ported from the ETap / ctrl cell in evee-tiles.jsx / Evee Dashboard.html.
+ * Controls tile , lamps, ceiling lights, fan + "More" (opens the full-page
+ * Controls detail). Ported from the ETap / ctrl cell in evee-tiles.jsx / Evee
+ * Dashboard.html.
  *
  * Data: trpc.controls.list. The backend is now DESIRED-AUTHORITATIVE
  *   (www-7d5b.2.4) , getControlsState returns the DB's desired state, which the
@@ -12,16 +13,21 @@
  * Mutations: backend owns correctness; we optimistically write the tapped value
  *   for instant feedback and invalidate on settle so the authoritative desired
  *   lands , it matches the optimistic value, so nothing snaps back.
+ *
+ * The query + mutation wiring lives in the exported useControls hook so the
+ * full-page detail (detail/wiring/controls.tsx) reuses the exact same logic ,
+ * both callers share one react-query key, so the fetch dedupes.
  */
 
 import { useState } from "react";
 import { TileStatus } from "@/components/ui";
+import { openTileDetail } from "@/lib/tile-detail-store";
 import type { RouterOutputs } from "@/lib/trpc";
 import { trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";
-import type { ControlKey } from "./ControlsTileView";
+import type { ControlKey, ControlsViewData } from "./ControlsTileView";
 import { ControlsTileView } from "./ControlsTileView";
-import { ExpandedControlsModalView } from "./ExpandedControlsModalView";
+import type { LampScene } from "./ExpandedControlsModalView";
 import type { PartySelection } from "./modals/PartySpeedControls";
 import { PartySpeed } from "./modals/PartySpeedControls";
 
@@ -48,11 +54,25 @@ export function makeRefetchInterval(): (query: {
   };
 }
 
-// ─── ControlsTile , thin container ────────────────────────────────────────────
+// ─── useControls , shared query + mutation wiring ─────────────────────────────
 
-export function ControlsTile() {
+/** What useControls hands back: nothing but status until the query resolves,
+ *  then the view data plus every control callback the tile face and the
+ *  full-page detail need. Discriminated on status so callers narrow cleanly. */
+export type UseControlsResult =
+  | { status: typeof TileStatus.Loading | typeof TileStatus.Error }
+  | {
+      status: typeof TileStatus.Populated;
+      viewData: ControlsViewData;
+      onToggle: (key: ControlKey, currentOn: boolean) => void;
+      onScene: (scene: LampScene) => void;
+      onBrightness: (pct: number) => void;
+      speed: PartySpeed;
+      onPartySelect: (value: PartySelection) => void;
+    };
+
+export function useControls(): UseControlsResult {
   const utils = trpc.useUtils();
-  const [modalOpen, setModalOpen] = useState(false);
   // Party speed is a UI choice (getControlsState doesn't carry it back). Seeds the
   // segmented control + the speed sent with setLampMode. Defaults to Medium.
   const [partySpeed, setPartySpeed] = useState<PartySpeed>(PartySpeed.Medium);
@@ -123,7 +143,7 @@ export function ControlsTile() {
     toggleMutation.mutate({ key, on: !currentOn });
   }
 
-  if (tile.status !== TileStatus.Populated) return <ControlsTileView status={tile.status} />;
+  if (tile.status !== TileStatus.Populated) return { status: tile.status };
 
   const data = tile.data;
 
@@ -140,7 +160,7 @@ export function ControlsTile() {
     modeMutation.mutate({ mode: "party", speed: value });
   }
 
-  const viewData = {
+  const viewData: ControlsViewData = {
     lamps: {
       on: data.lamps.on,
       sub: data.lamps.sub,
@@ -152,24 +172,32 @@ export function ControlsTile() {
     fan: { on: data.fan.on, sub: data.fan.sub, pending: data.fan.pending },
   };
 
+  return {
+    status: TileStatus.Populated,
+    viewData,
+    onToggle: handleToggle,
+    onScene: (scene) => sceneMutation.mutate({ scene }),
+    onBrightness: (pct) => brightnessMutation.mutate({ pct }),
+    speed: partySpeed,
+    onPartySelect: handlePartySelect,
+  };
+}
+
+// ─── ControlsTile , thin container ────────────────────────────────────────────
+
+export function ControlsTile() {
+  const controls = useControls();
+
+  if (controls.status !== TileStatus.Populated) {
+    return <ControlsTileView status={controls.status} />;
+  }
+
   return (
-    <>
-      <ControlsTileView
-        status={TileStatus.Populated}
-        data={viewData}
-        onToggle={handleToggle}
-        onMore={() => setModalOpen(true)}
-      />
-      <ExpandedControlsModalView
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        data={viewData}
-        onToggle={handleToggle}
-        onScene={(scene) => sceneMutation.mutate({ scene })}
-        onBrightness={(pct) => brightnessMutation.mutate({ pct })}
-        speed={partySpeed}
-        onPartySelect={handlePartySelect}
-      />
-    </>
+    <ControlsTileView
+      status={TileStatus.Populated}
+      data={controls.viewData}
+      onToggle={controls.onToggle}
+      onMore={() => openTileDetail("tile_ctrl")}
+    />
   );
 }

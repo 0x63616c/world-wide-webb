@@ -9,16 +9,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import * as stories from "../ExpandedControlsModalView.stories";
 
-const {
-  Open,
-  LampsOff,
-  SceneInteraction,
-  BlueActive,
-  PartyActive,
-  BrightnessInteraction,
-  Loading,
-  ErrorClosed,
-} = composeStories(stories);
+const { Open, LampsOff, SceneInteraction, BlueActive, PartyActive, BrightnessInteraction } =
+  composeStories(stories);
 
 afterEach(cleanup);
 
@@ -56,17 +48,5 @@ describe("ExpandedControlsModalView stories", () => {
   it("BrightnessInteraction: slider fires onBrightness", async () => {
     const { container } = render(<BrightnessInteraction />);
     if (BrightnessInteraction.play) await BrightnessInteraction.play({ canvasElement: container });
-  });
-
-  it("Loading: modal closed, no content leaks", async () => {
-    const { container } = render(<Loading />);
-    if (Loading.play) await Loading.play({ canvasElement: container });
-    expect(screen.queryByRole("button", { name: "White" })).toBeNull();
-  });
-
-  it("ErrorClosed: modal closed, no controls", async () => {
-    const { container } = render(<ErrorClosed />);
-    if (ErrorClosed.play) await ErrorClosed.play({ canvasElement: container });
-    expect(screen.queryByRole("button", { name: "Lamps" })).toBeNull();
   });
 });

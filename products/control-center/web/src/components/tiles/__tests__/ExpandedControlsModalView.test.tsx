@@ -28,8 +28,6 @@ function baseProps(
   over: Partial<ExpandedControlsModalViewProps> = {},
 ): ExpandedControlsModalViewProps {
   return {
-    open: true,
-    onClose: vi.fn(),
     data: allOn,
     onToggle: vi.fn(),
     onScene: vi.fn(),
@@ -44,15 +42,10 @@ const partyActive: ControlsViewData = {
   lamps: { ...allOn.lamps, activeScene: "party" },
 };
 
-// ─── open / closed ──────────────────────────────────────────────────────────
+// ─── content ────────────────────────────────────────────────────────────────
 
-describe("ExpandedControlsModalView , visibility", () => {
-  it("renders nothing when open is false", () => {
-    const { container } = render(<ExpandedControlsModalView {...baseProps({ open: false })} />);
-    expect(container.firstChild).toBeNull();
-  });
-
-  it("renders modal content when open", () => {
+describe("ExpandedControlsModalView , content", () => {
+  it("renders the toggle grid", () => {
     render(<ExpandedControlsModalView {...baseProps()} />);
     // Reuses the grid , Lamps/Lights/Fan toggles are present
     expect(screen.getByLabelText("Lamps")).toBeInTheDocument();
@@ -61,10 +54,10 @@ describe("ExpandedControlsModalView , visibility", () => {
   });
 });
 
-// ─── grid reuse, no More button inside the modal ──────────────────────────────
+// ─── grid reuse, no More button inside the page ───────────────────────────────
 
 describe("ExpandedControlsModalView , reuses ControlsGridView", () => {
-  it("does NOT render a 'More' button inside the modal (hideMore)", () => {
+  it("does NOT render a 'More' button inside the page (hideMore)", () => {
     render(<ExpandedControlsModalView {...baseProps()} />);
     expect(screen.queryByLabelText("More")).not.toBeInTheDocument();
   });
@@ -298,16 +291,5 @@ describe("ExpandedControlsModalView , brightness slider", () => {
     rerender(<ExpandedControlsModalView {...baseProps({ data: next })} />);
     expect((screen.getByLabelText("Brightness") as HTMLInputElement).value).toBe("30");
     expect(screen.getByText("30%")).toBeInTheDocument();
-  });
-});
-
-// ─── close ─────────────────────────────────────────────────────────────────────
-
-describe("ExpandedControlsModalView , dismissal", () => {
-  it("fires onClose when the modal close button is clicked", () => {
-    const onClose = vi.fn();
-    render(<ExpandedControlsModalView {...baseProps({ onClose })} />);
-    fireEvent.click(screen.getByLabelText("Close"));
-    expect(onClose).toHaveBeenCalled();
   });
 });

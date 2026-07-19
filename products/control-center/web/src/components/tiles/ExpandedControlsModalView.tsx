@@ -1,6 +1,6 @@
 /**
- * ExpandedControlsModalView , the larger control surface the tile's "more"
- * button opens. PURE view: all data + callbacks arrive via props (no trpc/hooks),
+ * ExpandedControlsModalView , the larger control surface the Controls tile
+ * opens. PURE view: all data + callbacks arrive via props (no trpc/hooks),
  * so it composes trivially in Storybook and component tests.
  *
  * Reuses ControlsGridView (hideMore) for the Lamps/Lights/Fan toggles rather than
@@ -8,10 +8,13 @@
  * brightness slider. The slider is disabled when lamps are off because HA rejects
  * brightness changes on an off light , surfacing that as a dead control is clearer
  * than firing a request that silently no-ops.
+ *
+ * Bare page body (no <Modal>) , hosted by TileDetailHost, which supplies the
+ * page shell and header; live data comes from detail/wiring/controls.tsx.
  */
 
 import { useEffect, useRef, useState } from "react";
-import { ControlTap, Modal, Slider } from "@/components/ui";
+import { ControlTap, Slider } from "@/components/ui";
 import type { ControlKey, ControlsViewData } from "./ControlsTileView";
 import { ControlsGridView } from "./ControlsTileView";
 import type { PartySelection } from "./modals/PartySpeedControls";
@@ -44,8 +47,6 @@ const SCENES: { scene: LampScene; label: string; swatch: string }[] = [
 ];
 
 export interface ExpandedControlsModalViewProps {
-  open: boolean;
-  onClose: () => void;
   data: ControlsViewData;
   onToggle: (key: ControlKey, currentOn: boolean) => void;
   onScene: (scene: LampScene) => void;
@@ -62,8 +63,6 @@ export interface ExpandedControlsModalViewProps {
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function ExpandedControlsModalView({
-  open,
-  onClose,
   data,
   onToggle,
   onScene,
@@ -93,7 +92,7 @@ export function ExpandedControlsModalView({
   }, []);
 
   return (
-    <Modal open={open} onClose={onClose} title="Controls">
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Lamp brightness , pulled to the top as the modal's primary control.
             Disabled when lamps are off (HA rejects brightness on an off light, so
@@ -183,6 +182,6 @@ export function ExpandedControlsModalView({
           </section>
         )}
       </div>
-    </Modal>
+    </div>
   );
 }
