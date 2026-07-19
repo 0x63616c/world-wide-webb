@@ -122,7 +122,15 @@ jobs:
             || { echo "::error::aps-environment key absent from App.entitlements"; exit 1; }
           grep -q "CODE_SIGN_ENTITLEMENTS = App/App.entitlements;" App.xcodeproj/project.pbxproj \
             || { echo "::error::CODE_SIGN_ENTITLEMENTS not wired in project.pbxproj"; exit 1; }
-          echo "aps-environment entitlement present and wired"
+          # The entitlement alone is not enough: iOS hands the APNs token to the
+          # AppDelegate, and the Capacitor plugin only sees it if the delegate
+          # forwards it as an NSNotification. Missing these is silent on EVERY
+          # path - no token, no error, no log - so assert them here.
+          grep -q "didRegisterForRemoteNotificationsWithDeviceToken" App/AppDelegate.swift \
+            || { echo "::error::AppDelegate is not forwarding the APNs token to Capacitor"; exit 1; }
+          grep -q "didFailToRegisterForRemoteNotificationsWithError" App/AppDelegate.swift \
+            || { echo "::error::AppDelegate is not forwarding APNs registration errors"; exit 1; }
+          echo "aps-environment entitlement present and wired; AppDelegate forwards APNs callbacks"
 
       - name: Build and upload to TestFlight
         run: bundle exec fastlane release

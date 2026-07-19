@@ -32,6 +32,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
 
+    // MARK: - APNs
+
+    // iOS delivers the device token to the AppDelegate, and the Capacitor
+    // PushNotifications plugin only learns about it through these NSNotification
+    // posts. Without them the token arrives here and goes nowhere: the JS
+    // `registration` listener never fires, `registrationError` never fires
+    // either, and registration appears to hang forever with no error anywhere.
+    // That is precisely what happened - permission granted, register() called,
+    // device_push_token empty, and no log line on any path.
+    // These two methods are stock Capacitor boilerplate that this project was
+    // missing because it never used push before.
+    func application(_: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+    }
+
+    func application(_: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+    }
+
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         // Called when the app was launched with a url. Feel free to add additional processing here,
         // but if you want the App API to support tracking app url opens, make sure to keep this call
