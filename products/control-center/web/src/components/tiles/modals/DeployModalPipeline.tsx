@@ -1,8 +1,8 @@
 /**
- * DeployModalPipeline , deploy/pipeline detail modal for the Deploys tile.
+ * DeployModalPipeline , deploy/pipeline detail page body for the Deploys tile.
  *
  * WHY this layout: the tile face answers "what is live and is anything
- * happening" with two stats and a 6-row feed; this modal answers the follow-up
+ * happening" with two stats and a 6-row feed; this page answers the follow-up
  * questions. A status strip mirrors the tile's deployed/pipeline pair so
  * context carries over. When a run failed, the log tail is promoted directly
  * under the strip , the error text is the single most useful thing on a
@@ -11,11 +11,11 @@
  * per-commit deploy state chip (deployed / building / failed / no deploy).
  *
  * PURE view: all data arrives via props , no trpc/hooks. Composes trivially in
- * Storybook and component tests. Modal width 880 (wide , commit messages and
- * log lines want the room), scrollbar visible since history genuinely scrolls.
+ * Storybook and component tests. Bare page body (no <Modal>) , hosted by
+ * TileDetailHost, which supplies the page shell, header, and scrolling.
  */
 
-import { Modal, Pill, PillTone, Stat } from "@/components/ui";
+import { Pill, PillTone, Stat } from "@/components/ui";
 import type { DeployCommit, DeployFailure, DeployRun } from "../DeployTileView";
 import { CommitState } from "../DeployTileView";
 
@@ -30,8 +30,6 @@ export interface DeployModalCommit extends DeployCommit {
 }
 
 export interface DeployModalPipelineProps {
-  open: boolean;
-  onClose: () => void;
   deployedSha: string;
   deployedWhen: string;
   run: DeployRun | null;
@@ -99,8 +97,6 @@ function CommitDetailRow({ commit }: { commit: DeployModalCommit }) {
 // ─── component ────────────────────────────────────────────────────────────────
 
 export function DeployModalPipeline({
-  open,
-  onClose,
   deployedSha,
   deployedWhen,
   run,
@@ -109,14 +105,7 @@ export function DeployModalPipeline({
   staleFor,
 }: DeployModalPipelineProps) {
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Deploys"
-      width={880}
-      maxHeight={880}
-      scrollbar="visible"
-    >
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       {/* status strip , mirrors the tile face so context carries over */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 40 }}>
         <Stat label="deployed" value={deployedSha} accent sub={`${deployedWhen} · homelab`} />
@@ -178,6 +167,6 @@ export function DeployModalPipeline({
           <CommitDetailRow key={c.sha} commit={c} />
         ))}
       </div>
-    </Modal>
+    </div>
   );
 }

@@ -116,7 +116,7 @@ vi.mock("pmtiles", () => ({ Protocol: vi.fn().mockImplementation(() => ({ tile: 
 vi.mock("@protomaps/basemaps", () => ({ layers: vi.fn(() => []), namedFlavor: vi.fn(() => ({})) }));
 
 describe("registry entry", () => {
-  it("registers tile_deploys at 34,24 4x3 with ownsTap (label matches the TileHeader title)", async () => {
+  it("registers tile_deploys at 34,24 4x3 (label matches the TileHeader title)", async () => {
     const { TILE_REGISTRY } = await import("@/lib/tile-registry");
     const entry = TILE_REGISTRY.find((t) => t.id === "tile_deploys");
     expect(entry).toMatchObject({
@@ -125,7 +125,8 @@ describe("registry entry", () => {
       worldRow: 24,
       cols: 4,
       rows: 3,
-      ownsTap: true,
     });
+    // The board's tile-detail registry owns the tap now , no ownsTap.
+    expect(entry?.ownsTap).toBeUndefined();
   });
 });

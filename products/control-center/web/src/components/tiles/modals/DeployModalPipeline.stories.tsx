@@ -1,13 +1,14 @@
 /**
- * Stories for DeployModalPipeline , the Deploys tile detail modal.
- * Grouped under "Modals/Deploy". Fixture data is the repo's REAL state at
- * 2026-07-18 15:52Z (gh run list + git log/show , shas, authors, and
- * diffstats are genuine), so the prototype shows exactly what the wall
- * would have.
+ * Stories for DeployModalPipeline , the Deploys tile detail page body.
+ * Grouped under "Modals/Deploy" , the component is a bare page body now
+ * (hosted by TileDetailHost in the app), so stories mount it inside a plain
+ * page-sized container matching the host's content region. Fixture data is
+ * the repo's REAL state at 2026-07-18 15:52Z (gh run list + git log/show ,
+ * shas, authors, and diffstats are genuine), so the prototype shows exactly
+ * what the wall would have.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
 import { type DeployModalCommit, DeployModalPipeline } from "./DeployModalPipeline";
 
@@ -97,7 +98,6 @@ const COMMITS: DeployModalCommit[] = [
 ];
 
 const BASE = {
-  open: true,
   deployedSha: "89e8ff3",
   deployedWhen: "30m ago",
   run: null,
@@ -124,11 +124,23 @@ const meta = {
   title: "Modals/Deploy/Pipeline",
   component: DeployModalPipeline,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
-  args: {
-    ...BASE,
-    onClose: fn(),
-  },
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
+  args: BASE,
 } satisfies Meta<typeof DeployModalPipeline>;
 
 export default meta;

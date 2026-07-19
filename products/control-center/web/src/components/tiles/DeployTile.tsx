@@ -2,14 +2,14 @@
  * DeployTile , container for the Deploys tile (spec
  * 2026-07-18-github-deploy-tile-design). Polls github.status every 10s (fast
  * enough that "deploying" appears within one worker hot tick) and maps the
- * wire status onto the locked DeployTileView. ownsTap: tapping the tile opens
- * DeployModalPipeline with the commit detail + failure log tail.
+ * wire status onto the locked DeployTileView. Tapping the tile opens the
+ * full-page deploy detail via the board's tile-detail registry (wired in
+ * detail/wiring/deploys.tsx, which reuses this file's pure helpers).
  *
  * All formatting of times is done here against a ticking `now` so elapsed /
  * "ago" strings move while a deploy runs, independent of poll timing.
  */
 
-import { useState } from "react";
 import { TileStatus } from "@/components/ui";
 import { POLL, useNow } from "@/lib/hooks";
 import type { RouterOutputs } from "@/lib/trpc";
@@ -18,7 +18,6 @@ import { useTileQuery } from "@/lib/useTileQuery";
 import type { DeployCommit } from "./DeployTileView";
 import { DeployTileView } from "./DeployTileView";
 import type { DeployModalCommit } from "./modals/DeployModalPipeline";
-import { DeployModalPipeline } from "./modals/DeployModalPipeline";
 
 type DeployStatus = RouterOutputs["github"]["status"];
 
@@ -56,7 +55,7 @@ export function staleForOf(status: DeployStatus, nowMs: number): string | null {
   return formatAgo(status.lastPolledAtUtc, nowMs);
 }
 
-/** The modal's enriched commit rows (author + diffstat on top of the tile row). */
+/** The detail page's enriched commit rows (author + diffstat on top of the tile row). */
 export function toModalCommits(status: DeployStatus, nowMs: number): DeployModalCommit[] {
   return status.commits.map((c) => ({
     sha: c.sha.slice(0, SHORT_SHA_LEN),
@@ -77,7 +76,6 @@ export function DeployTile() {
     }),
   );
   const now = useNow();
-  const [modalOpen, setModalOpen] = useState(false);
 
   // Loading also covers "errored with nothing cached" (the tile has no distinct
   // error face) and "configured but the worker has not completed a poll yet" (no
@@ -127,45 +125,15 @@ export function DeployTile() {
   const staleFor = staleForOf(data, nowMs);
 
   return (
-    <>
-      {/* ownsTap surface: the whole tile face opens the pipeline modal.
-          display:contents keeps the button out of layout so the Tile fills its
-          grid cell exactly as it does un-wrapped. */}
-      <button
-        type="button"
-        style={{ all: "unset", display: "contents", cursor: "pointer" }}
-        onClick={() => setModalOpen(true)}
-        aria-label="Open deploy pipeline detail"
-      >
-        <DeployTileView
-          status={TileStatus.Populated}
-          deployedSha={(data.deployedSha ?? "").slice(0, SHORT_SHA_LEN)}
-          deployedWhen={data.deployedAtUtc ? `${formatAgo(data.deployedAtUtc, nowMs)} ago` : ""}
-          commitsBehind={data.commitsBehind}
-          run={run}
-          failure={failure}
-          commits={commits}
-          staleFor={staleFor}
-        />
-      </button>
-      <DeployModalPipeline
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        deployedSha={(data.deployedSha ?? "").slice(0, SHORT_SHA_LEN)}
-        deployedWhen={data.deployedAtUtc ? `${formatAgo(data.deployedAtUtc, nowMs)} ago` : ""}
-        run={run}
-        failure={
-          data.failure
-            ? {
-                jobName: data.failure.jobName,
-                stepName: data.failure.stepName,
-                logTail: data.failure.logTail ?? "(log tail not captured yet)",
-              }
-            : null
-        }
-        commits={toModalCommits(data, nowMs)}
-        staleFor={staleFor}
-      />
-    </>
+    <DeployTileView
+      status={TileStatus.Populated}
+      deployedSha={(data.deployedSha ?? "").slice(0, SHORT_SHA_LEN)}
+      deployedWhen={data.deployedAtUtc ? `${formatAgo(data.deployedAtUtc, nowMs)} ago` : ""}
+      commitsBehind={data.commitsBehind}
+      run={run}
+      failure={failure}
+      commits={commits}
+      staleFor={staleFor}
+    />
   );
 }

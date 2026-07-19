@@ -291,7 +291,6 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     worldRow: 24,
     cols: 4,
     rows: 3,
-    ownsTap: true,
   },
   // Notification Center. Sits in the free 4x3 block at cols 38-41 / rows 24-26,
   // directly above Living Room Cam and right of Deploys , the top-right corner
