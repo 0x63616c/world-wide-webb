@@ -5,6 +5,8 @@
  * create/edit. All persistence flows out through the on* callbacks; the only
  * internal state is the editor draft (a form). Mirrors ExpandedControlsModalView's
  * presentational split. Colours are the curated LampScene palette (v1).
+ * Bare page body (no <Modal>) , hosted by TileDetailHost, which supplies the
+ * page shell, header, and scrolling.
  */
 
 import type { ReactNode } from "react";
@@ -12,7 +14,6 @@ import { useState } from "react";
 import {
   Chip,
   formatHHMM,
-  Modal,
   parseHHMM,
   Segmented,
   Slider,
@@ -66,8 +67,6 @@ export interface LightOption {
 }
 
 export interface ExpandedSchedulesModalViewProps {
-  open: boolean;
-  onClose: () => void;
   schedules: ScheduleItem[];
   /** id → next fire label (e.g. "21:30"), or null when no upcoming. */
   nextLabelById: Record<string, string | null>;
@@ -374,11 +373,9 @@ function btnStyle(kind: "primary" | "ghost" | "danger", disabled = false): React
   return { ...base, background: "none", color: "var(--ink-2)" };
 }
 
-// ─── modal ───────────────────────────────────────────────────────────────────
+// ─── page body ───────────────────────────────────────────────────────────────
 
 export function ExpandedSchedulesModalView({
-  open,
-  onClose,
   schedules,
   nextLabelById,
   nextUp,
@@ -416,14 +413,7 @@ export function ExpandedSchedulesModalView({
   };
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Schedules"
-      width={620}
-      maxHeight={840}
-      scrollbar="visible"
-    >
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       {inEditor ? (
         <ScheduleEditor
           draft={draft}
@@ -545,6 +535,6 @@ export function ExpandedSchedulesModalView({
           </SectionCard>
         </div>
       )}
-    </Modal>
+    </div>
   );
 }

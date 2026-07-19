@@ -1,6 +1,9 @@
 /**
- * Stories for ExpandedSchedulesModalView , the schedules manager overlay. View-
- * driven (all data + callbacks via props). Grouped under "Modals/".
+ * Stories for ExpandedSchedulesModalView , the schedules manager detail page
+ * body. View-driven (all data + callbacks via props). Grouped under "Modals/" ,
+ * the component is a bare page body now (hosted by TileDetailHost in the app),
+ * so stories mount it inside a plain page-sized container matching the host's
+ * content region.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
@@ -43,10 +46,23 @@ const meta = {
   title: "Modals/Schedules/Manage",
   component: ExpandedSchedulesModalView,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     schedules,
     nextLabelById: { sched_sunrise: "5:20", sched_red: "21:30" },
     nextUp: { name: "Sunrise on", time: "5:20", scene: "white" },

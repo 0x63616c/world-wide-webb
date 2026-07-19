@@ -3,10 +3,9 @@
  * All data + callbacks come in as props; no trpc or hooks inside (mirrors
  * ControlsTileView). A compact header with an "N on" count pill, the two soonest
  * active schedules as dense rows, and a next-run footer; tapping the tile opens
- * the expanded schedules modal.
+ * the full-page schedules manager via the board's tile-detail registry.
  */
 
-import type { MouseEventHandler } from "react";
 import { Pill, PillTone, Skeleton, StatusDot, Tile, TileHeader, TileStatus } from "@/components/ui";
 import { type DisplayScene, SceneChip } from "./schedule-scene";
 
@@ -33,21 +32,13 @@ export interface SchedulesViewData {
 export type SchedulesTileViewProps =
   | { status: typeof TileStatus.Loading }
   | { status: typeof TileStatus.Error; error?: string }
-  | { status: typeof TileStatus.Populated; data: SchedulesViewData; onOpen?: () => void };
+  | { status: typeof TileStatus.Populated; data: SchedulesViewData };
 
 export function SchedulesTileView(props: SchedulesTileViewProps) {
-  const onOpen = props.status === TileStatus.Populated ? props.onOpen : undefined;
-  const onTileTap: MouseEventHandler<HTMLDivElement> | undefined = onOpen
-    ? (e) => {
-        e.stopPropagation();
-        onOpen();
-      }
-    : undefined;
-
   const populated = props.status === TileStatus.Populated;
 
   return (
-    <Tile padding={16} onClick={onTileTap} style={onOpen ? { cursor: "pointer" } : undefined}>
+    <Tile padding={16}>
       <TileHeader
         icon="calendar"
         title="Schedules"

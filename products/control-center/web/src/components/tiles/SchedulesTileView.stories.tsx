@@ -4,7 +4,7 @@
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, within } from "storybook/test";
+import { expect, within } from "storybook/test";
 import { defineTileMeta } from "./__stories__/factory";
 import type { SchedulesTileViewProps } from "./SchedulesTileView";
 import { SchedulesTileView } from "./SchedulesTileView";
@@ -19,7 +19,6 @@ const meta = {
   args: {
     status: "populated",
     data: { enabledCount: 3, rows, next: { name: "Wake white", time: "6:45" } },
-    onOpen: fn(),
   } as SchedulesTileViewProps,
 } satisfies Meta<typeof SchedulesTileView>;
 
@@ -38,7 +37,6 @@ export const Populated: Story = {
   args: {
     status: "populated",
     data: { enabledCount: 3, rows, next: { name: "Wake white", time: "6:45" } },
-    onOpen: fn(),
   } as SchedulesTileViewProps,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -53,7 +51,6 @@ export const NoUpcoming: Story = {
   args: {
     status: "populated",
     data: { enabledCount: 0, rows: [], next: null },
-    onOpen: fn(),
   } as SchedulesTileViewProps,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
