@@ -19,6 +19,57 @@ const envMock = vi.hoisted(() => ({
 }));
 vi.mock("../env", () => ({ env: envMock }));
 
+/**
+ * node:http2 stand-in. APNs is HTTP/2-only and Bun's fetch cannot speak it, so
+ * the sender uses node:http2 directly and these tests drive that transport
+ * rather than a fetch stub. `h2` is the knob each test sets: a status+body to
+ * reply with, or an error to emit instead.
+ */
+const h2 = vi.hoisted(() => ({
+  status: 200,
+  body: "",
+  error: null as Error | null,
+  /** Records what the sender actually sent, so header/path assertions can run. */
+  lastRequest: null as { headers: Record<string, string>; body: string; origin: string } | null,
+}));
+
+vi.mock("node:http2", () => {
+  const connect = (origin: string) => {
+    const sessionHandlers: Record<string, (arg: unknown) => void> = {};
+    return {
+      on: (event: string, fn: (arg: unknown) => void) => {
+        sessionHandlers[event] = fn;
+      },
+      close: () => {},
+      request: (headers: Record<string, string>) => {
+        const handlers: Record<string, (arg: unknown) => void> = {};
+        return {
+          on: (event: string, fn: (arg: unknown) => void) => {
+            handlers[event] = fn;
+          },
+          setTimeout: () => {},
+          setEncoding: () => {},
+          destroy: () => {},
+          end: (body: string) => {
+            h2.lastRequest = { headers, body, origin };
+            // Async so the sender's promise wiring is exercised for real.
+            queueMicrotask(() => {
+              if (h2.error) {
+                handlers.error?.(h2.error);
+                return;
+              }
+              handlers.response?.({ ":status": h2.status });
+              if (h2.body) handlers.data?.(h2.body);
+              handlers.end?.(undefined);
+            });
+          },
+        };
+      },
+    };
+  };
+  return { default: { connect }, connect };
+});
+
 import {
   type ApnsAlert,
   buildApnsPayload,
@@ -80,11 +131,11 @@ describe("isApnsConfigured", () => {
 
   it("is false without key content, and sending is a no-op", async () => {
     expect(isApnsConfigured()).toBe(false);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    h2.lastRequest = null;
     const { db } = makeDb();
     expect(await sendApnsPush(db, "tok", alert)).toBe("skipped");
-    expect(fetchMock).not.toHaveBeenCalled();
+    // Nothing must hit the wire when APNs is unconfigured.
+    expect(h2.lastRequest).toBeNull();
   });
 
   it("is true once all four values are present", async () => {
@@ -166,61 +217,56 @@ describe("sendApnsPush", () => {
     envMock.APNS_KEY_CONTENT = (await generateP8Pem()).pem;
   });
 
-  it("POSTs to the production host with the APNs headers", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response("", { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
+  it("POSTs over HTTP/2 to the production host with the APNs headers", async () => {
+    h2.status = 200;
+    h2.body = "";
+    h2.error = null;
     const { db } = makeDb();
 
     expect(await sendApnsPush(db, "abc123token", alert)).toBe("sent");
 
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const sent = h2.lastRequest;
     // TestFlight builds are PRODUCTION push clients, so this must never be the
     // sandbox host.
-    expect(url).toBe("https://api.push.apple.com/3/device/abc123token");
-    const headers = init.headers as Record<string, string>;
-    expect(headers.authorization).toMatch(/^bearer eyJ/);
-    expect(headers["apns-topic"]).toBe("co.worldwidewebb.theworkflowengine");
-    expect(headers["apns-push-type"]).toBe("alert");
-    expect(init.method).toBe("POST");
+    expect(sent?.origin).toBe("https://api.push.apple.com");
+    expect(sent?.headers[":path"]).toBe("/3/device/abc123token");
+    expect(sent?.headers[":method"]).toBe("POST");
+    expect(sent?.headers.authorization).toMatch(/^bearer eyJ/);
+    expect(sent?.headers["apns-topic"]).toBe("co.worldwidewebb.theworkflowengine");
+    expect(sent?.headers["apns-push-type"]).toBe("alert");
   });
 
   it("deletes the token row on a 410 Unregistered", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify({ reason: "Unregistered" }), { status: 410 }),
-        ),
-    );
+    h2.status = 410;
+    h2.body = JSON.stringify({ reason: "Unregistered" });
+    h2.error = null;
     const { db, state } = makeDb();
     expect(await sendApnsPush(db, "deadtoken", alert)).toBe("stale");
     expect(state.deletes).toBe(1);
   });
 
   it("deletes the token row on a 400 BadDeviceToken", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify({ reason: "BadDeviceToken" }), { status: 400 }),
-        ),
-    );
+    h2.status = 400;
+    h2.body = JSON.stringify({ reason: "BadDeviceToken" });
+    h2.error = null;
     const { db, state } = makeDb();
     expect(await sendApnsPush(db, "badtoken", alert)).toBe("stale");
     expect(state.deletes).toBe(1);
   });
 
   it("keeps the token on a transient 500 so a retry can still deliver", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 500 })));
+    h2.status = 500;
+    h2.body = "";
+    h2.error = null;
     const { db, state } = makeDb();
     expect(await sendApnsPush(db, "goodtoken", alert)).toBe("failed");
     expect(state.deletes).toBe(0);
   });
 
-  it("absorbs a network throw instead of failing the whole fan-out", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNRESET")));
+  it("absorbs a connection error instead of failing the whole fan-out", async () => {
+    // The real regression: Bun's fetch could not do HTTP/2 and every push threw
+    // Malformed_HTTP_Response. A transport error must stay contained here.
+    h2.error = new Error("ECONNRESET");
     const { db } = makeDb();
     expect(await sendApnsPush(db, "tok", alert)).toBe("failed");
   });

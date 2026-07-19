@@ -17,6 +17,7 @@
  * transient error and retrying it never succeeds, so the sender deletes the
  * stale device_push_token row. The device re-registers on its next boot.
  */
+import http2 from "node:http2";
 import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -125,6 +126,68 @@ export type ApnsSendResult = "sent" | "skipped" | "stale" | "failed";
  *   - "stale"   , token rejected as unregistered; the row has been deleted
  *   - "failed"  , transient/unknown error, the job may retry
  */
+/**
+ * Minimal HTTP/2 POST.
+ *
+ * APNs is HTTP/2-ONLY and Bun's `fetch` speaks HTTP/1.1, so every request died
+ * with `Malformed_HTTP_Response` before anything reached Apple (oven-sh/bun#17242).
+ * node:http2 is the supported way to talk to it from Bun.
+ *
+ * A fresh session per push is deliberate: pushes here are occasional (a handful
+ * a day), and a pooled long-lived session would need GOAWAY handling, reconnect
+ * backoff, and idle-timeout logic to stay correct. Not worth it at this volume;
+ * revisit if fan-out ever gets hot.
+ */
+function postHttp2(
+  origin: string,
+  path: string,
+  headers: Record<string, string>,
+  body: string,
+): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const session = http2.connect(origin);
+    let settled = false;
+
+    // One finish path: whichever of error/response/timeout lands first wins, and
+    // the session is always closed. Without the latch a late error after a
+    // resolved response would reject an already-settled promise.
+    const finish = (err: Error | null, result?: { status: number; body: string }) => {
+      if (settled) return;
+      settled = true;
+      session.close();
+      if (err) reject(err);
+      else if (result) resolve(result);
+    };
+
+    session.on("error", (err) => finish(err));
+
+    const req = session.request({
+      ":method": "POST",
+      ":path": path,
+      ...headers,
+    });
+    req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+      req.destroy();
+      finish(new Error(`apns request timed out after ${REQUEST_TIMEOUT_MS}ms`));
+    });
+    req.on("error", (err) => finish(err));
+
+    let status = 0;
+    req.on("response", (res) => {
+      status = Number(res[":status"] ?? 0);
+    });
+
+    let data = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk: string) => {
+      data += chunk;
+    });
+    req.on("end", () => finish(null, { status, body: data }));
+
+    req.end(body);
+  });
+}
+
 export async function sendApnsPush(
   db: NodePgDatabase<typeof schema>,
   deviceToken: string,
@@ -138,22 +201,22 @@ export async function sendApnsPush(
 
   try {
     const jwt = await signApnsJwt(env.APNS_KEY_ID, env.APNS_TEAM_ID, env.APNS_KEY_CONTENT);
-    const res = await fetch(`${env.APNS_HOST}/3/device/${deviceToken}`, {
-      method: "POST",
-      headers: {
+    const res = await postHttp2(
+      env.APNS_HOST,
+      `/3/device/${deviceToken}`,
+      {
         authorization: `bearer ${jwt}`,
         "apns-topic": env.APNS_BUNDLE_ID,
         "apns-push-type": "alert",
       },
-      body: JSON.stringify(buildApnsPayload(alert)),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+      JSON.stringify(buildApnsPayload(alert)),
+    );
 
-    if (res.ok) return "sent";
+    if (res.status >= 200 && res.status < 300) return "sent";
 
     // APNs reports the reason in a JSON body ({"reason":"BadDeviceToken"}); a
     // 410 means Unregistered. Both are permanent for this token.
-    const text = await res.text().catch(() => "");
+    const text = res.body;
     const isStale =
       res.status === 410 || text.includes("BadDeviceToken") || text.includes("Unregistered");
     if (isStale) {
