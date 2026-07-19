@@ -169,6 +169,18 @@ export const FIXTURE_ENTITY_IDS: readonly string[] = LIGHTS.filter(
   (l) => l.kind === LightKind.Fixture,
 ).map((l) => l.entityId);
 
+/**
+ * The two fixtures the "Lights" quick-control drives, split into its two mode
+ * dimensions (lights mode-cycle). "kitchen" is the under-cabinet strip in the
+ * Kitchen; "overhead" is the living-room overhead switch. These are exactly the
+ * two FIXTURE_ENTITY_IDS entries, now addressable independently so the Lights
+ * control can cycle OFF → kitchen-only → overhead-only → both. (Note: kitchen is
+ * the under-cabinet *fixture*, NOT the Hue "light.kitchen_lamp", which is a lamp
+ * driven by the separate Lamps control.)
+ */
+export const KITCHEN_LIGHT_ID = "under-cabinet";
+export const OVERHEAD_LIGHT_ID = "overhead";
+
 export function findLight(entityId: string): LightEntry | undefined {
   return LIGHTS.find((l) => l.entityId === entityId);
 }

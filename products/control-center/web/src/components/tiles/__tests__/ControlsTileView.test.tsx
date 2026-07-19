@@ -15,10 +15,11 @@ const populatedProps: ControlsTileViewProps = {
   status: "populated",
   data: {
     lamps: { on: true, sub: "On", pending: false },
-    lights: { on: false, pending: false },
+    lights: { kitchen: false, overhead: false, pending: false },
     fan: { on: true, sub: "Medium", pending: false },
   },
   onToggle: vi.fn(),
+  onLightsCycle: vi.fn(),
 };
 
 // ─── loading state ────────────────────────────────────────────────────────────
@@ -64,9 +65,53 @@ describe("ControlsTileView , populated state", () => {
     expect(screen.getByLabelText("Lamps")).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("Lights reflects off state via aria-pressed", () => {
+  it("Lights reflects off mode via aria-pressed + OFF label (both fixtures off)", () => {
     render(<ControlsTileView {...populatedProps} />);
-    expect(screen.getByLabelText("Lights")).toHaveAttribute("aria-pressed", "false");
+    const lights = screen.getByLabelText("Lights");
+    expect(lights).toHaveAttribute("aria-pressed", "false");
+    expect(lights).toHaveTextContent("OFF");
+  });
+
+  it("Lights shows K ON (lit) when only the kitchen fixture is on", () => {
+    const props: ControlsTileViewProps = {
+      ...populatedProps,
+      data: {
+        ...populatedProps.data,
+        lights: { kitchen: true, overhead: false, pending: false },
+      },
+    } as ControlsTileViewProps;
+    render(<ControlsTileView {...props} />);
+    const lights = screen.getByLabelText("Lights");
+    expect(lights).toHaveAttribute("aria-pressed", "true");
+    expect(lights).toHaveTextContent("K ON");
+  });
+
+  it("Lights shows O ON (lit) when only the overhead fixture is on", () => {
+    const props: ControlsTileViewProps = {
+      ...populatedProps,
+      data: {
+        ...populatedProps.data,
+        lights: { kitchen: false, overhead: true, pending: false },
+      },
+    } as ControlsTileViewProps;
+    render(<ControlsTileView {...props} />);
+    const lights = screen.getByLabelText("Lights");
+    expect(lights).toHaveAttribute("aria-pressed", "true");
+    expect(lights).toHaveTextContent("O ON");
+  });
+
+  it("Lights shows ON when both fixtures are on", () => {
+    const props: ControlsTileViewProps = {
+      ...populatedProps,
+      data: {
+        ...populatedProps.data,
+        lights: { kitchen: true, overhead: true, pending: false },
+      },
+    } as ControlsTileViewProps;
+    render(<ControlsTileView {...props} />);
+    const lights = screen.getByLabelText("Lights");
+    expect(lights).toHaveAttribute("aria-pressed", "true");
+    expect(lights).toHaveTextContent("ON");
   });
 
   it("Fan reflects on state via aria-pressed", () => {
@@ -148,11 +193,15 @@ describe("ControlsTileView , onToggle callbacks", () => {
     expect(onToggle).toHaveBeenCalledWith("lamps", true);
   });
 
-  it("calls onToggle with lights key when Lights clicked", () => {
+  it("calls onLightsCycle (not onToggle) when Lights clicked , it's a mode cycle", () => {
     const onToggle = vi.fn();
-    render(<ControlsTileView {...populatedProps} onToggle={onToggle} />);
+    const onLightsCycle = vi.fn();
+    render(
+      <ControlsTileView {...populatedProps} onToggle={onToggle} onLightsCycle={onLightsCycle} />,
+    );
     fireEvent.click(screen.getByLabelText("Lights"));
-    expect(onToggle).toHaveBeenCalledWith("lights", false);
+    expect(onLightsCycle).toHaveBeenCalledTimes(1);
+    expect(onToggle).not.toHaveBeenCalled();
   });
 
   it("calls onToggle with fan key when Fan clicked", () => {

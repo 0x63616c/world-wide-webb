@@ -16,6 +16,7 @@
 
 import { useState } from "react";
 import { TileStatus } from "@/components/ui";
+import { deriveLightsMode, lightsModeToFixtures, nextLightsMode } from "@/lib/lights-mode";
 import type { RouterOutputs } from "@/lib/trpc";
 import { trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";
@@ -70,15 +71,35 @@ export function ControlsTile() {
       const prev = utils.controls.list.getData({});
       utils.controls.list.setData({}, (old) => {
         if (!old) return old;
-        // Lamps/lights are desired-authoritative and never pending (www-uq58):
-        // flip on instantly, no pending dim.
+        // Lamps are desired-authoritative and never pending (www-uq58): flip on
+        // instantly, no pending dim. (Lights are a mode cycle , setLightsMutation.)
         if (key === "lamps") return { ...old, lamps: { ...old.lamps, on } };
-        if (key === "lights") return { ...old, lights: { ...old.lights, on } };
         // Fan: also flip the sub label to the target so it never flashes the
         // stale "Auto" mid-toggle (www-qtdh) , the off position writes fanMode
         // Auto, so without this the old label paints until the settle refetch.
         return { ...old, fan: { ...old.fan, on, sub: on ? "On" : "Off", pending: true } };
       });
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev !== undefined) utils.controls.list.setData({}, ctx.prev);
+    },
+    onSettled: () => utils.controls.list.invalidate({}),
+  });
+
+  // Lights mode cycle. Writes the next mode's {kitchen, overhead} desired for the
+  // two fixtures. Optimistic like the lamp toggle: fixtures are desired-
+  // authoritative and never pending, so we flip the cache instantly and invalidate
+  // on settle (the authoritative desired matches, so nothing snaps back).
+  const setLightsMutation = trpc.controls.setLights.useMutation({
+    onMutate: async ({ kitchen, overhead }) => {
+      await utils.controls.list.cancel({});
+      const prev = utils.controls.list.getData({});
+      utils.controls.list.setData({}, (old) =>
+        old
+          ? { ...old, lights: { ...old.lights, kitchen, overhead, on: kitchen || overhead } }
+          : old,
+      );
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
@@ -120,7 +141,17 @@ export function ControlsTile() {
   function handleToggle(key: ControlKey, currentOn: boolean) {
     // Block mutation until the first query resolves , prevents corrupting an empty cache.
     if (tile.status !== TileStatus.Populated) return;
+    // Lights are a 4-state mode cycle (handleLightsCycle), not a binary toggle ,
+    // guard so the grid's shared onToggle can't drive the fixtures through toggle.
+    if (key === "lights") return;
     toggleMutation.mutate({ key, on: !currentOn });
+  }
+
+  // Advance the Lights mode cycle one step and write the next mode's fixtures.
+  function handleLightsCycle() {
+    if (tile.status !== TileStatus.Populated) return;
+    const next = nextLightsMode(deriveLightsMode(tile.data.lights));
+    setLightsMutation.mutate(lightsModeToFixtures(next));
   }
 
   if (tile.status !== TileStatus.Populated) return <ControlsTileView status={tile.status} />;
@@ -148,7 +179,11 @@ export function ControlsTile() {
       brightness: data.lamps.brightness,
       activeScene: data.lamps.activeScene,
     },
-    lights: { on: data.lights.on, pending: data.lights.pending },
+    lights: {
+      kitchen: data.lights.kitchen,
+      overhead: data.lights.overhead,
+      pending: data.lights.pending,
+    },
     fan: { on: data.fan.on, sub: data.fan.sub, pending: data.fan.pending },
   };
 
@@ -158,6 +193,7 @@ export function ControlsTile() {
         status={TileStatus.Populated}
         data={viewData}
         onToggle={handleToggle}
+        onLightsCycle={handleLightsCycle}
         onMore={() => setModalOpen(true)}
       />
       <ExpandedControlsModalView
@@ -165,6 +201,7 @@ export function ControlsTile() {
         onClose={() => setModalOpen(false)}
         data={viewData}
         onToggle={handleToggle}
+        onLightsCycle={handleLightsCycle}
         onScene={(scene) => sceneMutation.mutate({ scene })}
         onBrightness={(pct) => brightnessMutation.mutate({ pct })}
         speed={partySpeed}

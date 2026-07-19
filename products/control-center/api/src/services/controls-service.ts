@@ -11,11 +11,13 @@ import {
   WHITE_SCENE_KELVIN,
 } from "../config/lamp-scenes";
 import {
-  FIXTURE_ENTITY_IDS,
   findLight,
+  findLightById,
+  KITCHEN_LIGHT_ID,
   LAMP_ENTITY_IDS,
   type LightEntry,
   LightKind,
+  OVERHEAD_LIGHT_ID,
 } from "../config/lights";
 import { db } from "../db/index";
 import type { DeviceClimateState, DeviceLightState, LightColor } from "../db/schema";
@@ -54,7 +56,12 @@ interface LampState {
 type ActiveScene = LampScene | typeof LampMode.Party;
 
 interface LightState {
+  /** True when at least one of the two fixtures (kitchen | overhead) is on. */
   on: boolean;
+  /** The under-cabinet (Kitchen) fixture's effective on/off. */
+  kitchen: boolean;
+  /** The overhead (Living Room) fixture's effective on/off. */
+  overhead: boolean;
   pending: boolean;
 }
 
@@ -229,7 +236,17 @@ export async function getControlsState(): Promise<ControlsState> {
   const rowById = new Map(deviceRows.map((r) => [r.id, r]));
 
   const lampEffectives = LAMP_ENTITY_IDS.map((id) => effectiveLight(rowByEntityId.get(id)));
-  const fixtureEffectives = FIXTURE_ENTITY_IDS.map((id) => effectiveLight(rowByEntityId.get(id)));
+  // The Lights control drives two independent fixtures: kitchen (under-cabinet)
+  // and overhead. Read each one's effective (desired-authoritative, honest
+  // availability) on/off so the frontend can derive the 4-state mode.
+  const kitchenEntry = findLightById(KITCHEN_LIGHT_ID);
+  const overheadEntry = findLightById(OVERHEAD_LIGHT_ID);
+  const kitchenLightOn = effectiveLight(
+    kitchenEntry ? rowByEntityId.get(kitchenEntry.entityId) : undefined,
+  ).on;
+  const overheadLightOn = effectiveLight(
+    overheadEntry ? rowByEntityId.get(overheadEntry.entityId) : undefined,
+  ).on;
 
   const lampsOn = lampEffectives.filter((e) => e.on);
   const anyLampOn = lampsOn.length > 0;
@@ -248,8 +265,6 @@ export async function getControlsState(): Promise<ControlsState> {
             brightnessSource.length,
         )
       : 0;
-
-  const anyLightOn = fixtureEffectives.some((e) => e.on);
 
   const activeScene = await resolveActiveScene(lampsOn.map((e) => e.state));
 
@@ -272,7 +287,9 @@ export async function getControlsState(): Promise<ControlsState> {
       activeScene,
     },
     lights: {
-      on: anyLightOn,
+      on: kitchenLightOn || overheadLightOn,
+      kitchen: kitchenLightOn,
+      overhead: overheadLightOn,
       // Desired-authoritative, never pending , same rationale as lamps (www-uq58).
       pending: false,
     },
@@ -420,22 +437,17 @@ function lampEntries(): LightEntry[] {
   return LAMP_ENTITY_IDS.map((id) => findLight(id)).filter((e): e is LightEntry => !!e);
 }
 
-/** All fixture LightEntry rows in FIXTURE_ENTITY_IDS order. */
-function fixtureEntries(): LightEntry[] {
-  return FIXTURE_ENTITY_IDS.map((id) => findLight(id)).filter((e): e is LightEntry => !!e);
-}
-
 // ─── mutations (write desired; the enforcer actuates HA) ──────────────────────
 
 /**
- * Toggle lamps, lights, or fan on or off.
+ * Toggle lamps or fan on or off.
  *
- * For lamps/lights: writes the on/off intent to device_state DESIRED (+ a command
- * window) and returns , it does NOT actuate HA in the hot path. The light enforcer
- * pushes desired→HA within its ~1s cycle (it pushes regardless of policy while the
- * command window is open, so even an `adopt` wall-switch honors the tap). Turning
- * a lamp ON preserves its existing desired color/brightness (the scene survives a
- * toggle). Fan stays the climate fan_mode path (evee parity). Throws when HA is
+ * For lamps: writes the on/off intent to device_state DESIRED (+ a command window)
+ * and returns , it does NOT actuate HA in the hot path. The light enforcer pushes
+ * desired→HA within its ~1s cycle. Turning a lamp ON preserves its existing desired
+ * color/brightness (the scene survives a toggle). Fan stays the climate fan_mode
+ * path (evee parity). The Lights fixtures are no longer a simple on/off toggle ,
+ * they are a 4-state mode cycle driven through {@link setLights}. Throws when HA is
  * unconfigured. Returns the desired-authoritative state.
  */
 export async function toggleControl(key: ControlKey, on: boolean): Promise<ControlsState> {
@@ -460,8 +472,10 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
     }
 
     case ControlKey.Lights: {
-      const entries = fixtureEntries();
-      await writeDesired(entries, () => ({ on }));
+      // Lights are no longer a binary toggle , the frontend cycles the mode via
+      // setLights. Route a stray binary tap through the two-fixture writer so the
+      // control still behaves (both fixtures follow `on`).
+      await setLights(on, on);
       break;
     }
 
@@ -473,6 +487,38 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
       break;
     }
   }
+
+  return getControlsState();
+}
+
+/**
+ * Set the two Lights fixtures independently: writes each fixture's on/off intent
+ * to device_state DESIRED (+ command window); the light enforcer actuates HA. This
+ * backs the frontend's 4-state Lights mode cycle (OFF → kitchen-only → overhead-
+ * only → both): the frontend derives the current mode from the two fixtures, then
+ * writes the next mode's {kitchen, overhead} here. `kitchen` is the under-cabinet
+ * fixture, `overhead` is the living-room overhead switch. Throws when HA is
+ * unconfigured. Returns the desired-authoritative state.
+ */
+export async function setLights(kitchen: boolean, overhead: boolean): Promise<ControlsState> {
+  if (!ha.isConfigured()) {
+    throw new Error("Home Assistant is not configured");
+  }
+
+  const kitchenEntry = findLightById(KITCHEN_LIGHT_ID);
+  const overheadEntry = findLightById(OVERHEAD_LIGHT_ID);
+  const onByEntity = new Map<string, boolean>();
+  const entries: LightEntry[] = [];
+  if (kitchenEntry) {
+    entries.push(kitchenEntry);
+    onByEntity.set(kitchenEntry.entityId, kitchen);
+  }
+  if (overheadEntry) {
+    entries.push(overheadEntry);
+    onByEntity.set(overheadEntry.entityId, overhead);
+  }
+
+  await writeDesired(entries, (entry) => ({ on: onByEntity.get(entry.entityId) ?? false }));
 
   return getControlsState();
 }

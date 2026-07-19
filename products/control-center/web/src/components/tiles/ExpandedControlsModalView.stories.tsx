@@ -19,13 +19,13 @@ import { ExpandedControlsModalView } from "./ExpandedControlsModalView";
 
 const allOn: ControlsViewData = {
   lamps: { on: true, sub: "On", pending: false, brightness: 72, activeScene: null },
-  lights: { on: true, pending: false },
+  lights: { kitchen: true, overhead: true, pending: false },
   fan: { on: true, sub: "Medium", pending: false },
 };
 
 const lampsOff: ControlsViewData = {
   lamps: { on: false, pending: false },
-  lights: { on: true, pending: false },
+  lights: { kitchen: true, overhead: true, pending: false },
   fan: { on: false, pending: false },
 };
 
@@ -34,7 +34,7 @@ const lampsOff: ControlsViewData = {
 // not drop to 0% , so turning lamps back on resumes where they were.
 const lampsOffAtLevel: ControlsViewData = {
   lamps: { on: false, pending: false, brightness: 100, activeScene: null },
-  lights: { on: true, pending: false },
+  lights: { kitchen: true, overhead: true, pending: false },
   fan: { on: false, pending: false },
 };
 
@@ -60,6 +60,7 @@ const meta = {
     onClose: fn(),
     data: allOn,
     onToggle: fn(),
+    onLightsCycle: fn(),
     onScene: fn(),
     onBrightness: fn(),
     onPartySelect: fn(),
@@ -229,6 +230,29 @@ export const BrightnessInteraction: Story = {
     slider.dispatchEvent(new Event("change", { bubbles: true }));
     // onBrightness is debounced 400ms (trailing edge) , wait for it to fire.
     await waitFor(() => expect(args.onBrightness).toHaveBeenCalledWith(65));
+  },
+};
+
+// ─── Lights mode cycle (reused grid inside the modal) ─────────────────────────
+
+const lightsKitchenOnly: ControlsViewData = {
+  ...allOn,
+  lights: { kitchen: true, overhead: false, pending: false },
+};
+
+export const LightsModeCycle: Story = {
+  name: "Lights , mode cycle (K ON, tap advances)",
+  args: { data: lightsKitchenOnly },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement.ownerDocument.body);
+    const lights = canvas.getByRole("button", { name: "Lights" });
+    // Kitchen-only reads K ON and is lit.
+    await expect(lights).toHaveAttribute("aria-pressed", "true");
+    expect(lights).toHaveTextContent("K ON");
+    // Tapping advances the cycle via onLightsCycle (the container writes the next
+    // mode's fixtures); the pure modal view just forwards the tap.
+    await userEvent.click(lights);
+    expect(args.onLightsCycle).toHaveBeenCalledTimes(1);
   },
 };
 

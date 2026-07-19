@@ -6,6 +6,7 @@
 import type { MouseEventHandler } from "react";
 import { Icon } from "@/components/Icon";
 import { ControlTap, Skeleton, Tile, TileHeader, TileStatus } from "@/components/ui";
+import { deriveLightsMode, LightsMode, lightsModeLabel } from "@/lib/lights-mode";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -37,9 +38,20 @@ export interface ControlEntry {
   activeScene?: ActiveScene;
 }
 
+/**
+ * The Lights control is a 4-state mode cycle over two independent fixtures
+ * (kitchen = under-cabinet, overhead), not a simple on/off. The mode + label are
+ * derived from these two booleans; see `@/lib/lights-mode`.
+ */
+export interface LightsControlEntry {
+  kitchen: boolean;
+  overhead: boolean;
+  pending?: boolean;
+}
+
 export interface ControlsViewData {
   lamps: ControlEntry;
-  lights: ControlEntry;
+  lights: LightsControlEntry;
   fan: ControlEntry;
 }
 
@@ -50,6 +62,8 @@ export type ControlsTileViewProps =
       status: typeof TileStatus.Populated;
       data: ControlsViewData;
       onToggle: (key: ControlKey, currentOn: boolean) => void;
+      /** Advance the Lights mode cycle one step (OFF → K ON → O ON → ON → OFF). */
+      onLightsCycle: () => void;
       /** Opens the expanded controls modal , forwarded to the grid's "more" button. */
       onMore?: () => void;
     };
@@ -59,6 +73,8 @@ export type ControlsTileViewProps =
 interface ControlsGridViewProps {
   data: ControlsViewData;
   onToggle: (key: ControlKey, currentOn: boolean) => void;
+  /** Advance the Lights mode cycle one step (OFF → K ON → O ON → ON → OFF). */
+  onLightsCycle: () => void;
   /** Opens the expanded controls modal. Wired to the "more" button's onClick. */
   onMore?: () => void;
   /** Suppress the "more" button , set when the grid is reused INSIDE the modal,
@@ -66,7 +82,18 @@ interface ControlsGridViewProps {
   hideMore?: boolean;
 }
 
-export function ControlsGridView({ data, onToggle, onMore, hideMore }: ControlsGridViewProps) {
+export function ControlsGridView({
+  data,
+  onToggle,
+  onLightsCycle,
+  onMore,
+  hideMore,
+}: ControlsGridViewProps) {
+  // Lights is a 4-state mode cycle over the two fixtures, not a binary toggle.
+  // `on` (any fixture lit) drives the bulb glyph + accent; `status` shows the
+  // mode label (OFF / K ON / O ON / ON); a tap advances to the next mode.
+  const lightsMode = deriveLightsMode(data.lights);
+
   return (
     <>
       <ControlTap
@@ -81,9 +108,10 @@ export function ControlsGridView({ data, onToggle, onMore, hideMore }: ControlsG
       <ControlTap
         icon="bulb"
         label="Lights"
-        on={data.lights.on}
+        on={lightsMode !== LightsMode.Off}
+        status={lightsModeLabel(lightsMode)}
         pending={data.lights.pending}
-        onToggle={() => onToggle(ControlKey.Lights, data.lights.on)}
+        onToggle={onLightsCycle}
       />
 
       <ControlTap
@@ -171,7 +199,12 @@ export function ControlsTileView(props: ControlsTileViewProps) {
         }}
       >
         {props.status === TileStatus.Populated ? (
-          <ControlsGridView data={props.data} onToggle={props.onToggle} onMore={props.onMore} />
+          <ControlsGridView
+            data={props.data}
+            onToggle={props.onToggle}
+            onLightsCycle={props.onLightsCycle}
+            onMore={props.onMore}
+          />
         ) : (
           // Both loading and error show skeletons; error retries automatically via QueryClient
           <SkeletonGrid />

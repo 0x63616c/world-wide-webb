@@ -14,13 +14,13 @@ afterEach(cleanup);
 
 const allOn: ControlsViewData = {
   lamps: { on: true, sub: "On", pending: false, brightness: 72, activeScene: null },
-  lights: { on: true, pending: false },
+  lights: { kitchen: true, overhead: true, pending: false },
   fan: { on: true, sub: "Medium", pending: false },
 };
 
 const lampsOff: ControlsViewData = {
   lamps: { on: false, pending: false },
-  lights: { on: true, pending: false },
+  lights: { kitchen: true, overhead: true, pending: false },
   fan: { on: false, pending: false },
 };
 
@@ -32,6 +32,7 @@ function baseProps(
     onClose: vi.fn(),
     data: allOn,
     onToggle: vi.fn(),
+    onLightsCycle: vi.fn(),
     onScene: vi.fn(),
     onBrightness: vi.fn(),
     onPartySelect: vi.fn(),
@@ -74,6 +75,15 @@ describe("ExpandedControlsModalView , reuses ControlsGridView", () => {
     render(<ExpandedControlsModalView {...baseProps({ onToggle })} />);
     fireEvent.click(screen.getByLabelText("Lamps"));
     expect(onToggle).toHaveBeenCalledWith("lamps", true);
+  });
+
+  it("Lights inside the modal is a mode cycle: shows ON (both fixtures) and taps fire onLightsCycle", () => {
+    const onLightsCycle = vi.fn();
+    render(<ExpandedControlsModalView {...baseProps({ onLightsCycle })} />);
+    const lights = screen.getByLabelText("Lights");
+    expect(lights).toHaveTextContent("ON");
+    fireEvent.click(lights);
+    expect(onLightsCycle).toHaveBeenCalledTimes(1);
   });
 });
 

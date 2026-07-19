@@ -8,6 +8,7 @@ import {
   setLampBrightness,
   setLampMode,
   setLampScene,
+  setLights,
   toggleControl,
 } from "../../services/controls-service";
 import { publicProcedure, router } from "../init";
@@ -38,7 +39,9 @@ const lampStateSchema = z.object({
 });
 
 const lightStateSchema = z.object({
-  on: z.boolean().describe("True when at least one ceiling/overhead light is on"),
+  on: z.boolean().describe("True when at least one of the two fixtures (kitchen | overhead) is on"),
+  kitchen: z.boolean().describe("The under-cabinet (Kitchen) fixture's effective on/off"),
+  overhead: z.boolean().describe("The overhead (Living Room) fixture's effective on/off"),
   pending: z
     .boolean()
     .describe(
@@ -86,16 +89,16 @@ export const controlsRouter = router({
     }),
 
   /**
-   * Toggle lamps, lights, or fan on or off.
+   * Toggle lamps or fan on or off.
    * Returns merged state (with pending=true) immediately after dispatching
    * to HA so the client can update without waiting for the next poll.
+   * (Lights are no longer a binary toggle , they are a 4-state mode cycle driven
+   * through `setLights`.)
    */
   toggle: publicProcedure
     .input(
       z.object({
-        key: z
-          .enum([ControlKey.Lamps, ControlKey.Lights, ControlKey.Fan])
-          .describe("Which control group to toggle"),
+        key: z.enum([ControlKey.Lamps, ControlKey.Fan]).describe("Which control group to toggle"),
         on: z.boolean().describe("Desired state: true = on, false = off"),
       }),
     )
@@ -107,6 +110,32 @@ export const controlsRouter = router({
         throw new TRPCError({
           code: "SERVICE_UNAVAILABLE",
           message: err instanceof Error ? err.message : "Toggle failed",
+          cause: err,
+        });
+      }
+    }),
+
+  /**
+   * Set the two Lights fixtures (kitchen = under-cabinet, overhead) independently.
+   * Backs the frontend's 4-state Lights mode cycle: the frontend derives the mode
+   * from the two fixtures and writes the next mode's {kitchen, overhead} here. The
+   * light enforcer actuates HA. Returns the merged desired-authoritative state.
+   */
+  setLights: publicProcedure
+    .input(
+      z.object({
+        kitchen: z.boolean().describe("Desired state of the under-cabinet (Kitchen) fixture"),
+        overhead: z.boolean().describe("Desired state of the overhead (Living Room) fixture"),
+      }),
+    )
+    .output(controlsStateSchema)
+    .mutation(async ({ input }) => {
+      try {
+        return await setLights(input.kitchen, input.overhead);
+      } catch (err) {
+        throw new TRPCError({
+          code: "SERVICE_UNAVAILABLE",
+          message: err instanceof Error ? err.message : "Set lights failed",
           cause: err,
         });
       }

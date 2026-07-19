@@ -48,6 +48,8 @@ export interface ExpandedControlsModalViewProps {
   onClose: () => void;
   data: ControlsViewData;
   onToggle: (key: ControlKey, currentOn: boolean) => void;
+  /** Advance the Lights mode cycle one step (OFF → K ON → O ON → ON → OFF). */
+  onLightsCycle: () => void;
   onScene: (scene: LampScene) => void;
   onBrightness: (pct: number) => void;
   /** Current party animation speed , seeds the party control's active segment
@@ -66,6 +68,7 @@ export function ExpandedControlsModalView({
   onClose,
   data,
   onToggle,
+  onLightsCycle,
   onScene,
   onBrightness,
   speed,
@@ -137,7 +140,12 @@ export function ExpandedControlsModalView({
             gap: 13,
           }}
         >
-          <ControlsGridView data={data} onToggle={onToggle} hideMore />
+          <ControlsGridView
+            data={data}
+            onToggle={onToggle}
+            onLightsCycle={onLightsCycle}
+            hideMore
+          />
         </div>
 
         {/* Lamp scenes , ControlTap tiles (swatch variant) so scenes share the

@@ -22,7 +22,11 @@ const mockMutate = vi.fn();
 const mockSceneMutate = vi.fn();
 const mockBrightnessMutate = vi.fn();
 const mockModeMutate = vi.fn();
+const mockLightsMutate = vi.fn();
 let capturedBrightnessOpts: { onMutate?: (vars: { pct: number }) => unknown } | undefined;
+let capturedLightsOpts:
+  | { onMutate?: (vars: { kitchen: boolean; overhead: boolean }) => unknown }
+  | undefined;
 
 // Shared cache spies so optimistic onMutate side effects are observable.
 const mockCancel = vi.fn();
@@ -88,6 +92,19 @@ vi.mock("../../../lib/trpc", () => ({
       setLampMode: {
         useMutation: () => ({ mutate: mockModeMutate }),
       },
+      setLights: {
+        useMutation: (opts?: {
+          onMutate?: (vars: { kitchen: boolean; overhead: boolean }) => unknown;
+        }) => {
+          capturedLightsOpts = opts;
+          return {
+            mutate: (args: { kitchen: boolean; overhead: boolean }) => {
+              mockLightsMutate(args);
+              capturedLightsOpts?.onMutate?.(args);
+            },
+          };
+        },
+      },
     },
     useUtils: () => ({
       controls: {
@@ -122,7 +139,7 @@ describe("ControlsTile", () => {
       mockQueryReturn = {
         data: {
           lamps: { on: true, count: 2, sub: "On", pending: false },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: true, sub: "Medium", pending: false },
         },
         isLoading: false,
@@ -182,7 +199,7 @@ describe("ControlsTile", () => {
       mockQueryReturn = {
         data: {
           lamps: { on: false, count: 0, sub: "Off", pending: false },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,
@@ -269,7 +286,7 @@ describe("ControlsTile", () => {
       mockQueryReturn = {
         data: {
           lamps: { on: false, count: 0, sub: "Off", pending: false },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,
@@ -283,10 +300,13 @@ describe("ControlsTile", () => {
       expect(mockMutate).toHaveBeenCalledWith({ key: "lamps", on: true });
     });
 
-    it("calls toggle mutation with lights on=true when lights are off and clicked", () => {
+    it("cycles the Lights mode (OFF → K ON) via setLights, not the binary toggle", () => {
       render(<ControlsTile />);
       fireEvent.click(screen.getByLabelText("Lights"));
-      expect(mockMutate).toHaveBeenCalledWith({ key: "lights", on: true });
+      // Both fixtures off → mode OFF; the next mode is kitchen-only.
+      expect(mockLightsMutate).toHaveBeenCalledWith({ kitchen: true, overhead: false });
+      // It must NOT go through the binary toggle mutation.
+      expect(mockMutate).not.toHaveBeenCalledWith({ key: "lights", on: true });
     });
 
     it("calls toggle mutation with fan on=true when fan is off and clicked", () => {
@@ -299,7 +319,7 @@ describe("ControlsTile", () => {
       mockQueryReturn = {
         data: {
           lamps: { on: true, count: 2, sub: "On", pending: false },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,
@@ -311,6 +331,76 @@ describe("ControlsTile", () => {
     });
   });
 
+  // ── Lights 4-state mode cycle (OFF → K ON → O ON → ON → OFF) ───────────────────
+  describe("lights mode cycle", () => {
+    function renderWithLights(kitchen: boolean, overhead: boolean) {
+      mockQueryReturn = {
+        data: {
+          lamps: { on: false, count: 0, sub: "Off", pending: false },
+          lights: { kitchen, overhead, pending: false },
+          fan: { on: false, sub: "", pending: false },
+        },
+        isLoading: false,
+        isError: false,
+      };
+      render(<ControlsTile />);
+    }
+
+    it("OFF advances to kitchen-only (K ON)", () => {
+      renderWithLights(false, false);
+      fireEvent.click(screen.getByLabelText("Lights"));
+      expect(mockLightsMutate).toHaveBeenCalledWith({ kitchen: true, overhead: false });
+    });
+
+    it("kitchen-only advances to overhead-only (O ON)", () => {
+      renderWithLights(true, false);
+      fireEvent.click(screen.getByLabelText("Lights"));
+      expect(mockLightsMutate).toHaveBeenCalledWith({ kitchen: false, overhead: true });
+    });
+
+    it("overhead-only advances to both-on (ON)", () => {
+      renderWithLights(false, true);
+      fireEvent.click(screen.getByLabelText("Lights"));
+      expect(mockLightsMutate).toHaveBeenCalledWith({ kitchen: true, overhead: true });
+    });
+
+    it("both-on wraps back to off (OFF)", () => {
+      renderWithLights(true, true);
+      fireEvent.click(screen.getByLabelText("Lights"));
+      expect(mockLightsMutate).toHaveBeenCalledWith({ kitchen: false, overhead: false });
+    });
+
+    it("renders the mode label on the Lights cell (K ON when kitchen-only)", () => {
+      renderWithLights(true, false);
+      const lights = screen.getByLabelText("Lights");
+      expect(lights).toHaveTextContent("K ON");
+      expect(lights).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("optimistically writes the next mode's fixtures into the cache (no snap-back)", async () => {
+      renderWithLights(false, false);
+      fireEvent.click(screen.getByLabelText("Lights"));
+
+      // onMutate awaits cancel() before setData; flush microtasks.
+      expect(mockCancel).toHaveBeenCalled();
+      await waitFor(() => expect(mockSetData).toHaveBeenCalled());
+      const updater = mockSetData.mock.calls[0][1] as (old: unknown) => {
+        lights: { kitchen: boolean; overhead: boolean; on: boolean };
+      };
+      const next = updater({
+        lamps: { on: false, count: 0, sub: "Off", pending: false },
+        lights: { kitchen: false, overhead: false, on: false, pending: false },
+        fan: { on: false, sub: "", pending: false },
+      });
+      // OFF → kitchen-only: kitchen true, overhead false, aggregate on true.
+      expect(next.lights.kitchen).toBe(true);
+      expect(next.lights.overhead).toBe(false);
+      expect(next.lights.on).toBe(true);
+      // No invalidate on the optimistic onMutate (fires on settle only).
+      expect(mockInvalidate).not.toHaveBeenCalled();
+    });
+  });
+
   describe("pending state", () => {
     it("renders the pending indicator on the fan when fan.pending:true (www-uq58)", () => {
       // Only the fan can be pending now , lamps/lights are desired-authoritative
@@ -318,7 +408,7 @@ describe("ControlsTile", () => {
       mockQueryReturn = {
         data: {
           lamps: { on: true, count: 1, sub: "On", pending: false },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: true, sub: "On", pending: true },
         },
         isLoading: false,
@@ -336,7 +426,7 @@ describe("ControlsTile", () => {
     it("uses refetchInterval of 2000 when the fan is pending (www-uq58)", () => {
       const pendingData = {
         lamps: { on: true, count: 1, sub: "On", pending: false },
-        lights: { on: false, pending: false },
+        lights: { kitchen: false, overhead: false, pending: false },
         fan: { on: true, sub: "On", pending: true },
       };
       mockQueryReturn = { data: pendingData, isLoading: false, isError: false };
@@ -353,7 +443,7 @@ describe("ControlsTile", () => {
     it("uses refetchInterval of 5000 when no controls are pending", () => {
       const idleData = {
         lamps: { on: true, count: 2, sub: "On", pending: false },
-        lights: { on: false, pending: false },
+        lights: { kitchen: false, overhead: false, pending: false },
         fan: { on: false, sub: "", pending: false },
       };
       mockQueryReturn = { data: idleData, isLoading: false, isError: false };
@@ -385,7 +475,7 @@ describe("ControlsTile", () => {
       mockQueryReturn = {
         data: {
           lamps: { on: false, count: 0, sub: "Off", pending: false },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,
@@ -403,7 +493,7 @@ describe("ControlsTile", () => {
       mockQueryReturn = {
         data: {
           lamps: { on: false, count: 0, sub: "Off", pending: false },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,
@@ -435,7 +525,7 @@ describe("ControlsTile", () => {
       mockQueryReturn = {
         data: {
           lamps: { on: false, count: 0, sub: "Off", pending: false },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,
@@ -456,7 +546,7 @@ describe("ControlsTile", () => {
       };
       const next = updater({
         lamps: { on: false, count: 0, sub: "Off", pending: false },
-        lights: { on: false, pending: false },
+        lights: { kitchen: false, overhead: false, pending: false },
         fan: { on: false, sub: "", pending: false },
       });
       expect(next.lamps.on).toBe(true);
@@ -483,7 +573,7 @@ describe("ControlsTile", () => {
       mockQueryReturn = {
         data: {
           lamps: { on: false, count: 0, sub: "Off", pending: false },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,
@@ -505,7 +595,7 @@ describe("ControlsTile", () => {
       };
       const next = updater({
         lamps: { on: false, count: 0, sub: "Off", pending: false },
-        lights: { on: false, pending: false },
+        lights: { kitchen: false, overhead: false, pending: false },
         fan: { on: false, sub: "Auto", pending: false },
       });
       expect(next.fan.on).toBe(true);
@@ -526,7 +616,7 @@ describe("ControlsTile", () => {
       mockQueryReturn = {
         data: {
           lamps: { on: true, count: 2, sub: "On", pending: false, brightness: 72 },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,
@@ -602,7 +692,7 @@ describe("ControlsTile", () => {
       };
       const next = updater({
         lamps: { on: true, count: 2, sub: "On", pending: false, brightness: 72 },
-        lights: { on: false, pending: false },
+        lights: { kitchen: false, overhead: false, pending: false },
         fan: { on: false, sub: "", pending: false },
       });
       expect(next.lamps.brightness).toBe(40);
@@ -615,7 +705,7 @@ describe("ControlsTile", () => {
       mockQueryReturn = {
         data: {
           lamps: { on: false, count: 0, sub: "Off", pending: false },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,
@@ -640,7 +730,7 @@ describe("ControlsTile", () => {
             brightness: 72,
             activeScene: "blue",
           },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,
@@ -662,7 +752,7 @@ describe("ControlsTile", () => {
             brightness: 72,
             activeScene: null,
           },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,
@@ -685,7 +775,7 @@ describe("ControlsTile", () => {
             brightness: 72,
             activeScene: "party",
           },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,
@@ -708,7 +798,7 @@ describe("ControlsTile", () => {
             brightness: 72,
             activeScene: null,
           },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,
@@ -733,7 +823,7 @@ describe("ControlsTile", () => {
             brightness: 72,
             activeScene: "party",
           },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,
@@ -749,7 +839,7 @@ describe("ControlsTile", () => {
       mockQueryReturn = {
         data: {
           lamps: { on: false, count: 0, sub: "Off", pending: false, activeScene: null },
-          lights: { on: false, pending: false },
+          lights: { kitchen: false, overhead: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
         isLoading: false,

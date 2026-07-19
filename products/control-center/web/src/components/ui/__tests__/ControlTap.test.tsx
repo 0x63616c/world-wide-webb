@@ -76,6 +76,35 @@ describe("ControlTap , no ellipsis pending text", () => {
   });
 });
 
+// ─── status override (multi-state controls, e.g. Lights mode cycle) ───────────
+
+describe("ControlTap , explicit status override", () => {
+  it("renders the status text instead of the on/off default when status is set", () => {
+    render(<ControlTap icon="bulb" label="Lights" on={true} status="K ON" onToggle={vi.fn()} />);
+    expect(screen.getByText("K ON")).toBeInTheDocument();
+    // The default "On" text must not appear when status overrides it.
+    expect(screen.queryByText("On")).not.toBeInTheDocument();
+  });
+
+  it("shows the status even when off (e.g. OFF label), overriding the default 'Off'", () => {
+    render(<ControlTap icon="bulb" label="Lights" on={false} status="OFF" onToggle={vi.fn()} />);
+    expect(screen.getByText("OFF")).toBeInTheDocument();
+  });
+
+  it("still drives icon state from `on` while status overrides the text (off → bulb-off)", () => {
+    const { container } = render(
+      <ControlTap icon="bulb" label="Lights" on={false} status="OFF" onToggle={vi.fn()} />,
+    );
+    const svg = container.querySelector("svg");
+    expect(svg?.getAttribute("class") ?? "").toContain("lucide-lightbulb-off");
+  });
+
+  it("falls back to the on/off default when status is omitted (backward compatible)", () => {
+    render(<ControlTap icon="bulb" label="Lights" on={true} onToggle={vi.fn()} />);
+    expect(screen.getByText("On")).toBeInTheDocument();
+  });
+});
+
 // ─── fan spin ─────────────────────────────────────────────────────────────────
 
 describe("ControlTap , fan spin animation", () => {

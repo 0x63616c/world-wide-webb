@@ -10,6 +10,14 @@ export interface ControlTapProps {
   label: string;
   on: boolean;
   sub?: string;
+  /**
+   * Explicit status text shown on the bottom-right, overriding the default
+   * on/off ("On"/sub vs "Off") rendering. Used by multi-state controls like the
+   * Lights mode cycle, whose text is `OFF` / `K ON` / `O ON` / `ON` rather than a
+   * boolean. `on` still drives the icon lit/dim styling. Backward-compatible:
+   * when omitted the control renders exactly as before.
+   */
+  status?: string;
   pending?: boolean;
   /**
    * Optional color (any CSS color). When set, a filled circle of this color
@@ -27,12 +35,13 @@ export function ControlTap({
   label,
   on,
   sub,
+  status,
   pending,
   swatch,
   disabled,
   onToggle,
 }: ControlTapProps) {
-  const statusText = on ? (sub ?? "On") : "Off";
+  const statusText = status ?? (on ? (sub ?? "On") : "Off");
 
   // The bulb (Lights) glyph swaps by on-state for evee parity (www-cojw): a lit
   // Lightbulb when on, a struck-through LightbulbOff when off. lamp/fan keep a

@@ -16,6 +16,7 @@ const {
   BlueActive,
   PartyActive,
   BrightnessInteraction,
+  LightsModeCycle,
   Loading,
   ErrorClosed,
 } = composeStories(stories);
@@ -56,6 +57,12 @@ describe("ExpandedControlsModalView stories", () => {
   it("BrightnessInteraction: slider fires onBrightness", async () => {
     const { container } = render(<BrightnessInteraction />);
     if (BrightnessInteraction.play) await BrightnessInteraction.play({ canvasElement: container });
+  });
+
+  it("LightsModeCycle: Lights shows K ON and a tap fires onLightsCycle", async () => {
+    const { container } = render(<LightsModeCycle />);
+    if (LightsModeCycle.play) await LightsModeCycle.play({ canvasElement: container });
+    expect(screen.getByRole("button", { name: "Lights" })).toHaveTextContent("K ON");
   });
 
   it("Loading: modal closed, no content leaks", async () => {

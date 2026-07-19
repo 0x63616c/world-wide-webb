@@ -56,6 +56,7 @@ import {
   setLampBrightness,
   setLampMode,
   setLampScene,
+  setLights,
   toggleControl,
 } from "../services/controls-service";
 import { router } from "../trpc/init";
@@ -514,6 +515,82 @@ describe("getControlsState", () => {
     expect(state.lights.on).toBe(true);
   });
 
+  // ─── lights: per-fixture (kitchen | overhead) derivation for the mode cycle ───
+
+  it("lights derive both fixtures off → kitchen:false, overhead:false, on:false", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+
+    const state = await getControlsState();
+
+    expect(state.lights.kitchen).toBe(false);
+    expect(state.lights.overhead).toBe(false);
+    expect(state.lights.on).toBe(false);
+  });
+
+  it("lights derive kitchen-only when just the under-cabinet fixture is on", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockDbSelect.mockReturnValue(
+      makeSelectChain([
+        fixtureRow("fix-kitchen", "switch.under_cabinet", true),
+        fixtureRow("fix-overhead", "switch.overhead_lights", false),
+      ]),
+    );
+
+    const state = await getControlsState();
+
+    expect(state.lights.kitchen).toBe(true);
+    expect(state.lights.overhead).toBe(false);
+    expect(state.lights.on).toBe(true);
+  });
+
+  it("lights derive overhead-only when just the overhead fixture is on", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockDbSelect.mockReturnValue(
+      makeSelectChain([
+        fixtureRow("fix-kitchen", "switch.under_cabinet", false),
+        fixtureRow("fix-overhead", "switch.overhead_lights", true),
+      ]),
+    );
+
+    const state = await getControlsState();
+
+    expect(state.lights.kitchen).toBe(false);
+    expect(state.lights.overhead).toBe(true);
+    expect(state.lights.on).toBe(true);
+  });
+
+  it("lights derive both-on when both fixtures are on", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockDbSelect.mockReturnValue(
+      makeSelectChain([
+        fixtureRow("fix-kitchen", "switch.under_cabinet", true),
+        fixtureRow("fix-overhead", "switch.overhead_lights", true),
+      ]),
+    );
+
+    const state = await getControlsState();
+
+    expect(state.lights.kitchen).toBe(true);
+    expect(state.lights.overhead).toBe(true);
+    expect(state.lights.on).toBe(true);
+  });
+
+  it("never paints an unreachable fixture on (honest availability) , kitchen reads off", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockDbSelect.mockReturnValue(
+      makeSelectChain([
+        fixtureRow("fix-kitchen", "switch.under_cabinet", true, /* available */ false),
+      ]),
+    );
+
+    const state = await getControlsState();
+
+    // Desired on, but unreachable → not painted on (mode stays OFF for that side).
+    expect(state.lights.kitchen).toBe(false);
+    expect(state.lights.on).toBe(false);
+  });
+
   it("www-azw: Hue lamps classified as lamps, not fixtures", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockDbSelect.mockReturnValue(
@@ -650,13 +727,15 @@ describe("toggleControl", () => {
     }
   });
 
-  it("writes desired (off) for every fixture when toggling lights off, with NO HA call", async () => {
+  it("routes a binary Lights toggle through setLights (both fixtures follow `on`), NO HA call", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockDbSelect.mockReturnValue(makeSelectChain([]));
     const writes = captureDesiredWrites();
 
     await toggleControl(ControlKey.Lights, false);
 
+    // The Lights control is now a mode cycle; a stray binary toggle still drives
+    // both fixtures via setLights. Both fixtures written off, no HA call.
     expect(mockDbInsert).toHaveBeenCalledTimes(FIXTURE_ENTITY_IDS.length);
     expect(mockCallService).not.toHaveBeenCalled();
     for (const entityId of FIXTURE_ENTITY_IDS) {
@@ -754,6 +833,117 @@ describe("toggleControl", () => {
     mockDbSelect.mockReturnValue(makeSelectChain([]));
 
     await expect(toggleControl(ControlKey.Fan, true)).rejects.toThrow("no climate state");
+  });
+});
+
+// ─── setLights (the Lights 4-state mode cycle backing mutation) ────────────────
+
+describe("setLights", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockCallService.mockResolvedValue(undefined);
+    mockGetEntities.mockResolvedValue([]);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+    mockDbInsert.mockReturnValue(makeInsertChain());
+  });
+
+  it("throws when HA is not configured", async () => {
+    mockIsConfigured.mockReturnValue(false);
+
+    await expect(setLights(true, false)).rejects.toThrow("Home Assistant is not configured");
+  });
+
+  it("writes each fixture's desired independently (kitchen on, overhead off), NO HA call", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    const writes = captureDesiredWrites();
+
+    await setLights(true, false);
+
+    expect(mockDbInsert).toHaveBeenCalledTimes(2);
+    expect(mockCallService).not.toHaveBeenCalled();
+    // kitchen = under-cabinet fixture; overhead = overhead switch.
+    expect(writes.get("switch.under_cabinet")?.desiredState).toMatchObject({ on: true });
+    expect(writes.get("switch.overhead_lights")?.desiredState).toMatchObject({ on: false });
+    // Each write stamps a command window so the enforcer pushes regardless of policy.
+    expect(writes.get("switch.under_cabinet")?.desiredUntilUtc).toBeInstanceOf(Date);
+  });
+
+  it("writes overhead on, kitchen off for the overhead-only mode", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    const writes = captureDesiredWrites();
+
+    await setLights(false, true);
+
+    expect(writes.get("switch.under_cabinet")?.desiredState).toMatchObject({ on: false });
+    expect(writes.get("switch.overhead_lights")?.desiredState).toMatchObject({ on: true });
+  });
+
+  it("writes both fixtures on for the both-on mode", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    const writes = captureDesiredWrites();
+
+    await setLights(true, true);
+
+    expect(writes.get("switch.under_cabinet")?.desiredState).toMatchObject({ on: true });
+    expect(writes.get("switch.overhead_lights")?.desiredState).toMatchObject({ on: true });
+  });
+
+  it("writes both fixtures off for the off mode", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    const writes = captureDesiredWrites();
+
+    await setLights(false, false);
+
+    expect(writes.get("switch.under_cabinet")?.desiredState).toMatchObject({ on: false });
+    expect(writes.get("switch.overhead_lights")?.desiredState).toMatchObject({ on: false });
+  });
+
+  it("returns the merged controls state after dispatching", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    const state = await setLights(true, false);
+
+    expect(state).toHaveProperty("lights");
+    expect(state.lights).toHaveProperty("kitchen");
+    expect(state.lights).toHaveProperty("overhead");
+  });
+
+  it("propagates a desired-write failure instead of swallowing it", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    mockDbInsert.mockImplementation(() => {
+      throw new Error("DB unreachable");
+    });
+
+    await expect(setLights(true, true)).rejects.toThrow("DB unreachable");
+  });
+});
+
+describe("controlsRouter.setLights", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockCallService.mockResolvedValue(undefined);
+    mockGetEntities.mockResolvedValue([]);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+    mockDbInsert.mockReturnValue(makeInsertChain());
+  });
+
+  it("returns merged controls state via tRPC caller", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    const caller = buildCaller();
+    const result = await caller.controls.setLights({ kitchen: true, overhead: false });
+
+    expect(result).toHaveProperty("lights");
+    expect(result.lights).toHaveProperty("kitchen");
+  });
+
+  it("throws SERVICE_UNAVAILABLE when HA is not configured", async () => {
+    mockIsConfigured.mockReturnValue(false);
+
+    const caller = buildCaller();
+    await expect(
+      caller.controls.setLights({ kitchen: true, overhead: true }),
+    ).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
   });
 });
 

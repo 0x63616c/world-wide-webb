@@ -38,6 +38,18 @@ export const Off: Story = {
   args: { on: false },
 };
 
+// Status override: a multi-state control (e.g. the Lights mode cycle) shows an
+// explicit status string (K ON) instead of the on/off default. `on` still drives
+// the lit bulb + accent.
+export const StatusOverride: Story = {
+  args: { icon: "bulb", label: "Lights", on: true, status: "K ON" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("K ON")).toBeInTheDocument();
+    await expect(canvas.queryByText("On")).toBeNull();
+  },
+};
+
 // Swatch variant: a color circle replaces the icon (used for scene tiles).
 export const Swatch: Story = {
   args: { icon: "bulb", label: "Blue", on: true, swatch: "rgb(0, 0, 255)" },

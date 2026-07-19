@@ -9,8 +9,18 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import * as stories from "../ControlsTileView.stories";
 
-const { Loading, ErrorEmpty, AllOn, AllOff, Mixed, Pending, ToggleInteraction } =
-  composeStories(stories);
+const {
+  Loading,
+  ErrorEmpty,
+  AllOn,
+  AllOff,
+  LightsKitchenOnly,
+  LightsOverheadOnly,
+  Mixed,
+  Pending,
+  ToggleInteraction,
+  LightsCycleInteraction,
+} = composeStories(stories);
 
 afterEach(cleanup);
 
@@ -70,5 +80,27 @@ describe("ControlsTileView stories", () => {
   it("ToggleInteraction: clicking lamps and fan fires onToggle with correct args", async () => {
     const { container } = render(<ToggleInteraction />);
     if (ToggleInteraction.play) await ToggleInteraction.play({ canvasElement: container });
+  });
+
+  it("LightsKitchenOnly: Lights shows K ON, pressed", async () => {
+    const { container } = render(<LightsKitchenOnly />);
+    if (LightsKitchenOnly.play) await LightsKitchenOnly.play({ canvasElement: container });
+    const lights = screen.getByRole("button", { name: "Lights" });
+    expect(lights).toHaveAttribute("aria-pressed", "true");
+    expect(lights).toHaveTextContent("K ON");
+  });
+
+  it("LightsOverheadOnly: Lights shows O ON, pressed", async () => {
+    const { container } = render(<LightsOverheadOnly />);
+    if (LightsOverheadOnly.play) await LightsOverheadOnly.play({ canvasElement: container });
+    const lights = screen.getByRole("button", { name: "Lights" });
+    expect(lights).toHaveAttribute("aria-pressed", "true");
+    expect(lights).toHaveTextContent("O ON");
+  });
+
+  it("LightsCycleInteraction: tapping Lights fires onLightsCycle (advances the mode)", async () => {
+    const { container } = render(<LightsCycleInteraction />);
+    if (LightsCycleInteraction.play)
+      await LightsCycleInteraction.play({ canvasElement: container });
   });
 });
