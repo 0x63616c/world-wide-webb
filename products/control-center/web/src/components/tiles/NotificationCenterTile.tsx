@@ -16,14 +16,12 @@ import { useState } from "react";
 import { TileStatus } from "@/components/ui";
 import { POLL, useNow } from "@/lib/hooks";
 import {
-  applyMutes,
   type NotificationFilter,
   type NotificationItem,
   notificationAge,
   sortNewestFirst,
   tileRows,
 } from "@/lib/notifications";
-import { mutedCategoriesOf, useSettings } from "@/lib/settings";
 import { trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";
 import { ExpandedNotificationCenterModalView } from "./modals/ExpandedNotificationCenterModalView";
@@ -38,8 +36,6 @@ export function NotificationCenterTile() {
   const [modalOpen, setModalOpen] = useState(false);
   const [filter, setFilter] = useState<NotificationFilter>("unread");
 
-  const settings = useSettings();
-  const muted = mutedCategoriesOf(settings);
   // Ages are coarse ("3mins", "1hr"), so a 30s tick is enough to keep them
   // honest without re-rendering the tile every second.
   const now = useNow(30_000);
@@ -69,7 +65,7 @@ export function NotificationCenterTile() {
   const unreadItems = tile.data.items as NotificationItem[];
   const unreadCount = tile.data.unreadCount;
 
-  const rows: NotificationRow[] = tileRows(unreadItems, muted, TILE_ROW_LIMIT).map((n) => ({
+  const rows: NotificationRow[] = tileRows(unreadItems, TILE_ROW_LIMIT).map((n) => ({
     id: n.id,
     severity: n.severity,
     category: n.category,
@@ -77,11 +73,8 @@ export function NotificationCenterTile() {
     age: notificationAge(n.createdAt, now.getTime()),
   }));
 
-  // The modal shows whichever tab is active. Muting is a display preference, so
-  // it applies to every tab; ordering is newest-first everywhere.
-  const modalItems = sortNewestFirst(
-    applyMutes((tabQuery.data?.items ?? []) as NotificationItem[], muted),
-  );
+  // The modal shows whichever tab is active, newest-first everywhere.
+  const modalItems = sortNewestFirst((tabQuery.data?.items ?? []) as NotificationItem[]);
 
   return (
     <>

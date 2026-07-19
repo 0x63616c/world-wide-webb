@@ -5,11 +5,10 @@
  * Everything here is a pure function or a constant table: no React, no tRPC, no
  * DOM. The shapes mirror the `notifications` tRPC router's I/O verbatim, so a
  * container hands a server row straight to a view with no adapting layer, and
- * the ordering/grouping/mute rules can be unit-tested without rendering.
+ * the ordering/grouping rules can be unit-tested without rendering.
  *
  * The server is authoritative for WHICH rows exist (it owns the `filter`
- * argument); this module owns how they are ordered, labelled, coloured, and
- * which ones the user has muted locally.
+ * argument); this module owns how they are ordered, labelled, and coloured.
  */
 
 import { formatRelativeAge } from "./relative-age";
@@ -99,30 +98,11 @@ export function sortNewestFirst(items: readonly NotificationItem[]): Notificatio
 }
 
 /**
- * Drop rows whose category the user has muted. Applied CLIENT-side and only to
- * what is displayed: muting is a per-panel preference, so the row still exists
- * on the server (and still counts on an unmuted panel) , muting hides noise, it
- * does not delete history.
+ * The rows the tile shows: unread, newest-first, capped. The cap is a display
+ * concern (a 4x3 tile fits about three dense rows), not a fetch concern.
  */
-export function applyMutes(
-  items: readonly NotificationItem[],
-  muted: readonly NotificationCategory[],
-): NotificationItem[] {
-  if (muted.length === 0) return [...items];
-  const hidden = new Set(muted);
-  return items.filter((n) => !hidden.has(n.category));
-}
-
-/**
- * The rows the tile shows: unread, unmuted, newest-first, capped. The cap is a
- * display concern (a 4x3 tile fits about three dense rows), not a fetch concern.
- */
-export function tileRows(
-  items: readonly NotificationItem[],
-  muted: readonly NotificationCategory[],
-  limit = 3,
-): NotificationItem[] {
-  return sortNewestFirst(applyMutes(items.filter(isUnread), muted)).slice(0, limit);
+export function tileRows(items: readonly NotificationItem[], limit = 3): NotificationItem[] {
+  return sortNewestFirst(items.filter(isUnread)).slice(0, limit);
 }
 
 // ─── formatting ───────────────────────────────────────────────────────────────
@@ -142,37 +122,4 @@ export function notificationAge(createdAt: string, nowMs: number): string {
 export function unreadBadge(count: number): string {
   if (count <= 0) return "0";
   return count > 99 ? "99+" : String(count);
-}
-
-// ─── muted-category preference codec ──────────────────────────────────────────
-// The settings store holds only primitives (each field is compared with !== and
-// persisted via String()), so the muted set travels as a comma-separated string.
-// These two functions are the ONLY place that encoding is known.
-
-const CATEGORY_SET = new Set<string>(NOTIFICATION_CATEGORIES);
-
-/** Parse "ci,media" → ["ci", "media"]. Unknown/blank entries are dropped. */
-export function parseMutedCategories(raw: string): NotificationCategory[] {
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s): s is NotificationCategory => CATEGORY_SET.has(s));
-}
-
-/** Serialize a muted set back to storage form, deduped and in canonical order. */
-export function serializeMutedCategories(categories: readonly NotificationCategory[]): string {
-  const set = new Set(categories);
-  return NOTIFICATION_CATEGORIES.filter((c) => set.has(c)).join(",");
-}
-
-/** Toggle one category in a muted set, returning the new storage string. */
-export function toggleMutedCategory(
-  raw: string,
-  category: NotificationCategory,
-  muted: boolean,
-): string {
-  const current = new Set(parseMutedCategories(raw));
-  if (muted) current.add(category);
-  else current.delete(category);
-  return serializeMutedCategories([...current]);
 }

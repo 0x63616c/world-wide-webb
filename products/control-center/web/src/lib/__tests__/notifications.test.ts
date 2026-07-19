@@ -1,15 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyMutes,
   isDismissed,
   isUnread,
   type NotificationItem,
   notificationAge,
-  parseMutedCategories,
-  serializeMutedCategories,
   sortNewestFirst,
   tileRows,
-  toggleMutedCategory,
   unreadBadge,
 } from "../notifications";
 
@@ -74,37 +70,23 @@ describe("sortNewestFirst", () => {
   });
 });
 
-describe("applyMutes", () => {
-  it("returns everything when nothing is muted", () => {
-    const items = [item({ id: "a", category: "ci" }), item({ id: "b", category: "home" })];
-    expect(applyMutes(items, [])).toHaveLength(2);
-  });
-
-  it("drops only the muted categories", () => {
-    const items = [
-      item({ id: "a", category: "ci" }),
-      item({ id: "b", category: "home" }),
-      item({ id: "c", category: "media" }),
-    ];
-    expect(applyMutes(items, ["ci", "media"]).map((n) => n.id)).toEqual(["b"]);
-  });
-});
-
 describe("tileRows", () => {
-  it("takes the newest unread, mute-filtered, capped to the limit", () => {
+  it("takes the newest unread rows, capped to the limit", () => {
     const items = [
       item({ id: "read", createdAt: minutesAgo(1), readAt: minutesAgo(1) }),
-      item({ id: "muted", createdAt: minutesAgo(2), category: "ci" }),
+      item({ id: "ci", createdAt: minutesAgo(2), category: "ci" }),
       item({ id: "n1", createdAt: minutesAgo(3) }),
       item({ id: "n2", createdAt: minutesAgo(4) }),
       item({ id: "n3", createdAt: minutesAgo(5) }),
       item({ id: "n4", createdAt: minutesAgo(6) }),
     ];
-    expect(tileRows(items, ["ci"], 3).map((n) => n.id)).toEqual(["n1", "n2", "n3"]);
+    // No categories are muted anymore, so the newest unread row (the ci one at
+    // minutesAgo(2)) leads; the read row is still excluded.
+    expect(tileRows(items, 3).map((n) => n.id)).toEqual(["ci", "n1", "n2"]);
   });
 
   it("is empty when everything is read", () => {
-    expect(tileRows([item({ id: "a", readAt: minutesAgo(1) })], [])).toEqual([]);
+    expect(tileRows([item({ id: "a", readAt: minutesAgo(1) })])).toEqual([]);
   });
 });
 
@@ -138,40 +120,5 @@ describe("unreadBadge", () => {
 
   it("never renders a negative count", () => {
     expect(unreadBadge(-1)).toBe("0");
-  });
-});
-
-describe("muted-category codec", () => {
-  it("round-trips a set", () => {
-    expect(parseMutedCategories(serializeMutedCategories(["media", "ci"]))).toEqual([
-      "ci",
-      "media",
-    ]);
-  });
-
-  it("drops unknown and blank entries from storage", () => {
-    expect(parseMutedCategories("ci, ,bogus,media")).toEqual(["ci", "media"]);
-  });
-
-  it("parses an empty string as nothing muted", () => {
-    expect(parseMutedCategories("")).toEqual([]);
-  });
-
-  it("serializes in canonical order regardless of input order", () => {
-    expect(serializeMutedCategories(["media", "system", "ci"])).toBe("ci,system,media");
-  });
-
-  it("dedupes", () => {
-    expect(serializeMutedCategories(["ci", "ci"])).toBe("ci");
-  });
-
-  it("toggles a category on and back off", () => {
-    const on = toggleMutedCategory("", "home", true);
-    expect(parseMutedCategories(on)).toEqual(["home"]);
-    expect(toggleMutedCategory(on, "home", false)).toBe("");
-  });
-
-  it("unmuting something already unmuted is a no-op", () => {
-    expect(toggleMutedCategory("ci", "home", false)).toBe("ci");
   });
 });
