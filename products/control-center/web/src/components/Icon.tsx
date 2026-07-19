@@ -21,6 +21,7 @@ import {
   Moon,
   PawPrint,
   Plus,
+  QrCode,
   Settings,
   Sparkles,
   Sun,
@@ -53,6 +54,7 @@ export type IconName =
   | "paw"
   | "calendar"
   | "plus"
+  | "qr-code"
   | "bell"
   | "chevron"
   | "up"
@@ -100,6 +102,7 @@ export const GLYPHS: Record<IconName, LucideIcon> = {
   paw: PawPrint,
   calendar: Calendar,
   plus: Plus,
+  "qr-code": QrCode,
   bell: Bell,
   chevron: ChevronRight,
   up: ArrowUp,
