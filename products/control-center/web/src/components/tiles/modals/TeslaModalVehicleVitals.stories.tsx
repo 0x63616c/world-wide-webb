@@ -1,8 +1,10 @@
 /**
- * Stories for TeslaModalVehicleVitals , the "act on the car" detail modal.
+ * Stories for TeslaModalVehicleVitals , the "act on the car" detail page body.
  *
  * Grouped under "Modals/Tesla" (not "Tiles/") since this is an overlay surface.
- * View-driven: all data + callbacks via props. No play functions needed for the POC.
+ * The component is a bare page body now (hosted by TileDetailHost in the app),
+ * so stories mount it inside a plain page-sized container matching the host's
+ * content region. View-driven: all data + callbacks via props.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
@@ -16,10 +18,23 @@ const meta = {
   title: "Modals/Tesla/Vehicle Vitals",
   component: TeslaModalVehicleVitals,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     onToggleLock: fn(),
     onTogglePrecondition: fn(),
   },
@@ -49,7 +64,7 @@ export const VehicleVitals: Story = {
 // ─── Charging + Preconditioning active ────────────────────────────────────────
 
 // Shows the accent-green "charging" pill, battery ring at a lower level, and
-// preconditioning tap in the active state , the modal at its busiest.
+// preconditioning tap in the active state , the page at its busiest.
 export const ChargingPreconditioningActive: Story = {
   name: "Charging + Preconditioning active",
   args: {

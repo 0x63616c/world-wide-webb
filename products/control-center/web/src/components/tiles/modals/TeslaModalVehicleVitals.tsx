@@ -7,7 +7,7 @@
  * every entity at once (lock, climate, battery, range, odometer, charge state,
  * current location) and adds two ControlTap actions (Lock/Unlock, Precondition).
  *
- * Layout (width 640, maxHeight 680):
+ * Layout (bare page body, 920px content cap; hosted by TileDetailHost):
  *   - Top row: lock state pill + place name pill (where the car is right now)
  *   - 2×2 StatCell grid (Battery, Range, Cabin, Odometer); the Battery cell
  *     carries a BorderProgressRing so the charge level is visual at a glance.
@@ -21,7 +21,7 @@
  */
 
 import { Icon } from "@/components/Icon";
-import { BorderProgressRing, Modal, Pill, PillTone, Stat } from "@/components/ui";
+import { BorderProgressRing, Pill, PillTone, Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -35,8 +35,6 @@ export type ChargingState =
   | "no_power";
 
 export interface TeslaModalVehicleVitalsProps {
-  open: boolean;
-  onClose: () => void;
   /** Current lock state from lock.evee_lock. */
   locked: boolean;
   /** Whether a lock/unlock action is in flight. */
@@ -94,8 +92,6 @@ function chargingTone(state: ChargingState): PillTone {
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function TeslaModalVehicleVitals({
-  open,
-  onClose,
   locked,
   lockPending,
   cabinTempF,
@@ -110,7 +106,7 @@ export function TeslaModalVehicleVitals({
   onTogglePrecondition,
 }: TeslaModalVehicleVitalsProps) {
   return (
-    <Modal open={open} onClose={onClose} title="Tesla" width={640} maxHeight={680}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* ── Status pills ── lock state + current location at a glance.
             Two pills on one row; gap 10 matches label+control rhythm. */}
@@ -331,6 +327,6 @@ export function TeslaModalVehicleVitals({
           </div>
         </section>
       </div>
-    </Modal>
+    </div>
   );
 }

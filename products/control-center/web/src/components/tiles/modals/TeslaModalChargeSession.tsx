@@ -27,7 +27,7 @@
  */
 
 import { useRef } from "react";
-import { BorderProgressRing, Modal, Pill, PillTone, Stat } from "@/components/ui";
+import { BorderProgressRing, Pill, PillTone, Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -56,8 +56,6 @@ export type EveeChargingState =
   | "no_power";
 
 export interface TeslaModalChargeSessionProps {
-  open: boolean;
-  onClose: () => void;
   /** sensor.evee_battery_level , 0 to 100 (rounded). */
   pct: number;
   /** sensor.evee_battery_range , current range in miles (rounded). */
@@ -262,8 +260,6 @@ function Sparkline({ samples, height }: { samples: ChargeSample[]; height: numbe
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function TeslaModalChargeSession({
-  open,
-  onClose,
   pct,
   range,
   rate,
@@ -291,7 +287,7 @@ export function TeslaModalChargeSession({
   const ringTrack = "rgba(255,255,255,0.06)";
 
   return (
-    <Modal open={open} onClose={onClose} title="Tesla" width={640} maxHeight={720}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* ── Header pill , charging state ─────────────────────────────── */}
         <div style={{ display: "flex", justifyContent: "center" }}>
@@ -481,6 +477,6 @@ export function TeslaModalChargeSession({
           {isCharging ? "Stop Charge" : "Start Charge"}
         </button>
       </div>
-    </Modal>
+    </div>
   );
 }

@@ -25,7 +25,6 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
-import { Modal } from "@/components/ui";
 import { HOME_LAT, HOME_LON } from "@/config/home";
 import { buildDarkStyle, createCarPinElement, registerPmtilesProtocol } from "@/lib/maps/protomaps";
 
@@ -289,8 +288,6 @@ function LegendRow({ color, label, dashed }: { color: string; label: string; das
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface TeslaModalRangeReachProps {
-  open: boolean;
-  onClose: () => void;
   // Current battery percentage (sensor.evee_battery_level, 0–100).
   pct: number;
   // Estimated range in miles (sensor.evee_battery_range).
@@ -330,8 +327,6 @@ const VERDICT_PILL: Record<Verdict, string> = {
 // ── View ──────────────────────────────────────────────────────────────────────
 
 export function TeslaModalRangeReach({
-  open,
-  onClose,
   pct,
   rangeMiles,
   carLat,
@@ -346,7 +341,7 @@ export function TeslaModalRangeReach({
   const verdict: Verdict = carLat === null ? "unknown" : getVerdict(rangeMiles, distToHome);
 
   return (
-    <Modal open={open} onClose={onClose} title="Tesla" width={980} maxHeight={720}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Top strip: key numbers + verdict pill , uniform 24-gap rhythm */}
         <div
@@ -412,6 +407,6 @@ export function TeslaModalRangeReach({
           <RangeMap carLat={effectiveLat} carLon={effectiveLon} rangeMiles={rangeMiles} />
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }

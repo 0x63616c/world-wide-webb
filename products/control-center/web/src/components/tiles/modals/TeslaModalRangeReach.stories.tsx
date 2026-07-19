@@ -1,15 +1,16 @@
 /**
- * Stories for TeslaModalRangeReach , isochrone-style range-reach overlay.
+ * Stories for TeslaModalRangeReach , isochrone-style range-reach page body.
  * Grouped under "Modals/Tesla" (not "Tiles/") matching the established pattern.
- * Pure view: all data via props, fn() stubs for callbacks.
+ * The component is a bare page body now (hosted by TileDetailHost in the app),
+ * so stories mount it inside a plain page-sized container. Pure view: all data
+ * via props.
  *
- * Two primary states capture the most meaningful reads of the modal:
+ * Two primary states capture the most meaningful reads of the page:
  *   1. "Range Reach" , car parked away from home with comfortable range.
  *   2. "Tight Margin" , battery low, range barely covers the trip home.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
 import type { TeslaModalRangeReachProps } from "./TeslaModalRangeReach";
 import { TeslaModalRangeReach } from "./TeslaModalRangeReach";
@@ -18,7 +19,7 @@ import { TeslaModalRangeReach } from "./TeslaModalRangeReach";
 
 // Car parked near Silverlake (~6 mi northeast of home). 78% charge, 214 mi
 // range , the circle envelops home with headroom. Verdict: Reachable.
-const primaryData: Omit<TeslaModalRangeReachProps, "open" | "onClose"> = {
+const primaryData: TeslaModalRangeReachProps = {
   pct: 78,
   rangeMiles: 214,
   carLat: 34.0875,
@@ -28,7 +29,7 @@ const primaryData: Omit<TeslaModalRangeReachProps, "open" | "onClose"> = {
 // Car parked near Culver City (~7 mi southwest of home). 11% charge, 28 mi
 // range , just enough to get home but well within the 5 mi safety buffer.
 // Verdict: Tight , low margin.
-const tightData: Omit<TeslaModalRangeReachProps, "open" | "onClose"> = {
+const tightData: TeslaModalRangeReachProps = {
   pct: 11,
   rangeMiles: 28,
   carLat: 34.0055,
@@ -41,12 +42,23 @@ const meta = {
   title: "Modals/Tesla/Range Reach",
   component: TeslaModalRangeReach,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
-  args: {
-    open: true,
-    onClose: fn(),
-    ...primaryData,
-  },
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
+  args: primaryData,
 } satisfies Meta<typeof TeslaModalRangeReach>;
 
 export default meta;

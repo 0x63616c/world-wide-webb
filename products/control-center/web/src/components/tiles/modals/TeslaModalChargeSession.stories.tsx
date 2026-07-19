@@ -1,14 +1,14 @@
 /**
- * Stories for TeslaModalChargeSession , the charge session expanded modal.
- * View-driven (all data + callbacks via props). Grouped under "Modals/Tesla" so
- * it falls through the BoardDecorator to the plain dark wrapper, not a tile shell.
+ * Stories for TeslaModalChargeSession , the charge session detail page body.
+ * View-driven (all data + callbacks via props). Grouped under "Modals/Tesla" ,
+ * the component is a bare page body now (hosted by TileDetailHost in the app),
+ * so stories mount it inside a plain page-sized container matching the host's
+ * content region.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
 import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
-import type { TeslaModalChargeSessionProps } from "./TeslaModalChargeSession";
 import { TeslaModalChargeSession } from "./TeslaModalChargeSession";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -37,10 +37,23 @@ const meta = {
   title: "Modals/Tesla/Charge Session",
   component: TeslaModalChargeSession,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     pct: 64,
     range: 192,
     rate: 25,
@@ -56,32 +69,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// ─── Charge Session (interactive) ────────────────────────────────────────────
-
-// Stateful wrapper so backdrop/Escape/Close actually dismiss in Storybook.
-// A "Reopen" button makes the story replayable after closing.
-function InteractiveChargeSession(args: TeslaModalChargeSessionProps) {
-  const [open, setOpen] = useState(true);
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)}>
-        Reopen
-      </button>
-      <TeslaModalChargeSession
-        {...args}
-        open={open}
-        onClose={() => {
-          setOpen(false);
-          args.onClose();
-        }}
-      />
-    </>
-  );
-}
+// ─── Charge Session ───────────────────────────────────────────────────────────
 
 export const ChargeSession: Story = {
   name: "Charge Session , charging, 12 samples",
-  render: (args) => <InteractiveChargeSession {...args} />,
 };
 
 // ─── Disconnected , no curve, honest empty state ──────────────────────────────
@@ -131,12 +122,4 @@ export const Stopped: Story = {
     samples: chargingSamples.slice(0, 6),
     targetPct: 80,
   },
-};
-
-// ─── Closed ───────────────────────────────────────────────────────────────────
-
-// Verifies the modal renders nothing when open=false (modal closed on the board).
-export const Closed: Story = {
-  name: "Closed , modal not mounted",
-  args: { open: false },
 };

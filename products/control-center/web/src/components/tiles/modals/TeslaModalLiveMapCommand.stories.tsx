@@ -1,10 +1,10 @@
 /**
- * Stories for TeslaModalLiveMapCommand , the "Live Map & Command" Tesla modal.
+ * Stories for TeslaModalLiveMapCommand , the "Live Map & Command" Tesla page body.
  *
  * Grouped under "Modals/" (not "Tiles/") , this is an overlay surface, not a
- * tile, so it falls through the BoardDecorator's tile branch to the plain dark
- * wrapper. View-driven: all data + callbacks via props, mirroring the
- * ExpandedControlsModalView story shape.
+ * tile. The component is a bare page body now (hosted by TileDetailHost in the
+ * app), so stories mount it inside a plain page-sized container matching the
+ * host's content region. View-driven: all data + callbacks via props.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
@@ -18,8 +18,6 @@ import { TeslaModalLiveMapCommand } from "./TeslaModalLiveMapCommand";
 // device_tracker.evee_location: Koreatown, near Home.
 
 const nearHome: TeslaModalLiveMapCommandProps = {
-  open: true,
-  onClose: fn(),
   lat: 34.063,
   lon: -118.285,
   place: "Home",
@@ -33,8 +31,6 @@ const nearHome: TeslaModalLiveMapCommandProps = {
 // Car parked downtown, idle, unlocked , a different state to exercise the
 // lock/charge button labels and the distance-to-home readout.
 const downtown: TeslaModalLiveMapCommandProps = {
-  open: true,
-  onClose: fn(),
   lat: 34.043,
   lon: -118.267,
   place: "Downtown LA",
@@ -51,7 +47,22 @@ const meta = {
   title: "Modals/Tesla/Live Map Command",
   component: TeslaModalLiveMapCommand,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: nearHome,
 } satisfies Meta<typeof TeslaModalLiveMapCommand>;
 
@@ -85,12 +96,4 @@ export const NoGps: Story = {
     chargingState: "disconnected",
     batteryPct: 88,
   },
-};
-
-// ─── Closed ───────────────────────────────────────────────────────────────────
-// Validates the modal correctly unmounts when open=false.
-
-export const Closed: Story = {
-  name: "Closed",
-  args: { ...nearHome, open: false },
 };

@@ -41,6 +41,10 @@ vi.mock("../../lib/useBoardLayout", async () => {
 });
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
 
+// The detail registry imports real tile wiring (and transitively maplibre-gl),
+// which jsdom cannot load , stub it so tile_fake stays on the legacy modal path.
+vi.mock("../tiles/detail/registry", () => ({ getTileDetailEntry: () => undefined }));
+
 // Fake modal registry: tile_fake opens a single-variant modal.
 vi.mock("../tiles/modals/registry", () => ({
   getTileModalEntry: (id: string) =>

@@ -1,5 +1,5 @@
 /**
- * Tesla tile , live wiring for its detail-modal variants.
+ * Tesla tile , live wiring for its detail-page variants.
  *
  * Data source (all live, already exposed):
  *  - trpc.tesla.get → name/nick/locked/place/lat/lon/charging/chargingState/
@@ -12,17 +12,17 @@
  *  - trpc.tesla.setPreconditioning→ climate.turn_on / turn_off (cabin HVAC)
  *
  * Charge samples are accumulated CLIENT-SIDE here (useChargeSamples): a new
- * {ts,pct,rate} sample is pushed on every poll tick while the modal is open.
+ * {ts,pct,rate} sample is pushed on every poll tick while the page is open.
  * History starts EMPTY and grows , never fabricated.
  */
 
 import { useEffect, useRef, useState } from "react";
+import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
 import type { ChargeSample } from "@/components/tiles/modals/TeslaModalChargeSession";
 import { TeslaModalChargeSession } from "@/components/tiles/modals/TeslaModalChargeSession";
 import { TeslaModalLiveMapCommand } from "@/components/tiles/modals/TeslaModalLiveMapCommand";
 import { TeslaModalRangeReach } from "@/components/tiles/modals/TeslaModalRangeReach";
 import { TeslaModalVehicleVitals } from "@/components/tiles/modals/TeslaModalVehicleVitals";
-import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
 
@@ -48,7 +48,7 @@ function toChargingState(raw: string): ChargingState {
 }
 
 /**
- * Accumulate charge telemetry while the modal is open. Pushes one sample per
+ * Accumulate charge telemetry while the page is open. Pushes one sample per
  * distinct poll (keyed on the data's reference identity) so re-renders don't
  * duplicate points. Starts empty; resets when the session ends/disconnects.
  */
@@ -78,7 +78,7 @@ function useChargeSamples(
   return samples;
 }
 
-function useTeslaVariants(): { variants: LiveVariant[]; loading: boolean } {
+function useTeslaVariants(): { variants: DetailVariant[]; loading: boolean } {
   const query = trpc.tesla.get.useQuery(undefined, { refetchInterval: POLL.tesla });
   const utils = trpc.useUtils();
 
@@ -102,14 +102,12 @@ function useTeslaVariants(): { variants: LiveVariant[]; loading: boolean } {
   const isCharging = chargingState === "charging" || chargingState === "starting";
   const toggleCharge = () => chargeMutation.mutate({ on: !isCharging });
 
-  const variants: LiveVariant[] = [
+  const variants: DetailVariant[] = [
     {
       slug: "vehicle-vitals",
       label: "Vitals",
-      render: (open, onClose) => (
+      render: () => (
         <TeslaModalVehicleVitals
-          open={open}
-          onClose={onClose}
           locked={d.locked}
           lockPending={lockMutation.isPending}
           cabinTempF={d.climate}
@@ -128,10 +126,8 @@ function useTeslaVariants(): { variants: LiveVariant[]; loading: boolean } {
     {
       slug: "live-map-command",
       label: "Map",
-      render: (open, onClose) => (
+      render: () => (
         <TeslaModalLiveMapCommand
-          open={open}
-          onClose={onClose}
           lat={d.lat}
           lon={d.lon}
           place={d.place}
@@ -146,10 +142,8 @@ function useTeslaVariants(): { variants: LiveVariant[]; loading: boolean } {
     {
       slug: "charge-session",
       label: "Charge",
-      render: (open, onClose) => (
+      render: () => (
         <TeslaModalChargeSession
-          open={open}
-          onClose={onClose}
           pct={d.pct}
           range={d.range}
           rate={d.rate}
@@ -164,15 +158,8 @@ function useTeslaVariants(): { variants: LiveVariant[]; loading: boolean } {
     {
       slug: "range-reach",
       label: "Range",
-      render: (open, onClose) => (
-        <TeslaModalRangeReach
-          open={open}
-          onClose={onClose}
-          pct={d.pct}
-          rangeMiles={d.range}
-          carLat={d.lat}
-          carLon={d.lon}
-        />
+      render: () => (
+        <TeslaModalRangeReach pct={d.pct} rangeMiles={d.range} carLat={d.lat} carLon={d.lon} />
       ),
     },
   ];
@@ -180,8 +167,10 @@ function useTeslaVariants(): { variants: LiveVariant[]; loading: boolean } {
   return { variants, loading: false };
 }
 
-export const teslaModalEntry: TileModalEntry = {
+export const teslaDetailEntry: TileDetailPageEntry = {
+  kind: "page",
   tileId: "tile_tesla",
+  title: "Tesla",
   defaultSlug: "vehicle-vitals",
   useVariants: useTeslaVariants,
 };

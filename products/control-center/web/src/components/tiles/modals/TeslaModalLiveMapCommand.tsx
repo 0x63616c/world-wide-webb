@@ -17,7 +17,6 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
-import { Modal } from "@/components/ui";
 import { HOME_LAT, HOME_LON } from "@/config/home";
 import { buildDarkStyle, createCarPinElement, registerPmtilesProtocol } from "@/lib/maps/protomaps";
 
@@ -164,8 +163,6 @@ export type ChargingState =
   | "no_power";
 
 export interface TeslaModalLiveMapCommandProps {
-  open: boolean;
-  onClose: () => void;
   /** device_tracker.evee_location lat/lon. Null when car is asleep/unavailable. */
   lat: number | null;
   lon: number | null;
@@ -257,8 +254,6 @@ function CmdButton({ icon, label, sub, accent, amber, onClick, ariaLabel }: CmdB
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function TeslaModalLiveMapCommand({
-  open,
-  onClose,
   lat,
   lon,
   place,
@@ -276,7 +271,7 @@ export function TeslaModalLiveMapCommand({
   const distance = distanceToHome(lat, lon);
 
   return (
-    <Modal open={open} onClose={onClose} title="Tesla" width={980} maxHeight={800}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Map hero , 480 px gives SoCal enough vertical room at width 980.
             Interaction is ENABLED: this is the whole point vs the tile's
@@ -352,6 +347,6 @@ export function TeslaModalLiveMapCommand({
           />
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }
