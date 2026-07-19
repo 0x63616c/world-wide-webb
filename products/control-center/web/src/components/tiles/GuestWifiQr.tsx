@@ -10,11 +10,12 @@
  * - "accent":  INVERTED , light modules on the dark tile surface with accent
  *              finder corners. Modern phone cameras decode inverted codes.
  * - "apple":   inverted circular-dot grid with drawn finder rings (App-Clip-ish).
+ * - "inverted": plain inversion , light modules on dark, no accent, no glow.
  */
 
 import { encode } from "uqr";
 
-export type GuestWifiQrStyle = "crisp" | "rounded" | "accent" | "apple";
+export type GuestWifiQrStyle = "crisp" | "rounded" | "accent" | "apple" | "inverted";
 
 interface GuestWifiQrProps {
   /** Full payload, e.g. "WIFI:T:WPA;S:<ssid>;P:<password>;;". */
@@ -51,10 +52,12 @@ export function GuestWifiQr({ value, size, qrStyle = "rounded" }: GuestWifiQrPro
   const count = qr.size;
   const cell = size / count;
 
-  const inverted = qrStyle === "accent" || qrStyle === "apple";
+  const inverted = qrStyle === "accent" || qrStyle === "apple" || qrStyle === "inverted";
+  // Accent finders + glow only on the deliberately-decorated styles.
+  const decorated = qrStyle === "accent" || qrStyle === "apple";
   const drawnFinders = qrStyle === "apple";
   const moduleColor = inverted ? "#ededed" : "#0a0a0a";
-  const finderColor = inverted ? "var(--acc)" : moduleColor;
+  const finderColor = decorated ? "var(--acc)" : moduleColor;
 
   const data: { x: number; y: number; finder: boolean }[] = [];
   for (let y = 0; y < count; y++) {
@@ -74,15 +77,16 @@ export function GuestWifiQr({ value, size, qrStyle = "rounded" }: GuestWifiQrPro
       style={{
         width: size,
         height: size,
+        flex: "0 0 auto",
         borderRadius: 16,
         // Light card for the classic styles; the inverted styles sit on a
         // near-black card so the code melts into the board's theme.
         background: inverted ? "#050505" : "#ededed",
         padding: Math.round(size * 0.045),
-        boxShadow: inverted
+        boxShadow: decorated
           ? "var(--acc-glow)"
           : "inset 0 1px 0 0 rgba(255,255,255,0.4), 0 10px 30px -18px rgba(0,0,0,0.8)",
-        border: inverted ? "1px solid var(--acc-line)" : "1px solid var(--hair-2)",
+        border: decorated ? "1px solid var(--acc-line)" : "1px solid var(--hair-2)",
       }}
     >
       <svg viewBox={`0 0 ${size} ${size}`} width="100%" height="100%" aria-hidden="true">
