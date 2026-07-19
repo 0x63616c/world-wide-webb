@@ -1,5 +1,5 @@
 /**
- * Events tile , live wiring for its detail-modal variants.
+ * Events tile , live wiring for its detail-page variants.
  *
  * Data source (live, already exposed):
  *  - trpc.events.list → upcoming events { id, name, place, days, date }
@@ -15,15 +15,15 @@
  * delete mutations and invalidates the list on settle.
  */
 
+import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
 import { EventsModalCountdownSpotlight } from "@/components/tiles/modals/EventsModalCountdownSpotlight";
 import { EventsModalFullAgenda } from "@/components/tiles/modals/EventsModalFullAgenda";
 import { EventsModalManage } from "@/components/tiles/modals/EventsModalManage";
 import { EventsModalMonthGrid } from "@/components/tiles/modals/EventsModalMonthGrid";
 import { EventsModalTimelineGaps } from "@/components/tiles/modals/EventsModalTimelineGaps";
-import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
 import { trpc } from "@/lib/trpc";
 
-function useEventsVariants(): { variants: LiveVariant[]; loading: boolean } {
+function useEventsVariants(): { variants: DetailVariant[]; loading: boolean } {
   // Read variants show what's ahead; manage also needs the stale rows so they
   // can be edited or deleted.
   const events = trpc.events.list.useQuery(undefined);
@@ -62,42 +62,32 @@ function useEventsVariants(): { variants: LiveVariant[]; loading: boolean } {
 
   const busy = createEvent.isPending || updateEvent.isPending || deleteEvent.isPending;
 
-  const variants: LiveVariant[] = [
+  const variants: DetailVariant[] = [
     {
       slug: "full-agenda",
       label: "Agenda",
-      render: (open, onClose) => (
-        <EventsModalFullAgenda open={open} onClose={onClose} events={base} />
-      ),
+      render: () => <EventsModalFullAgenda events={base} />,
     },
     {
       slug: "countdown-spotlight",
       label: "Countdown",
-      render: (open, onClose) => (
-        <EventsModalCountdownSpotlight open={open} onClose={onClose} events={base} />
-      ),
+      render: () => <EventsModalCountdownSpotlight events={base} />,
     },
     {
       slug: "timeline-gaps",
       label: "Timeline",
-      render: (open, onClose) => (
-        <EventsModalTimelineGaps open={open} onClose={onClose} events={base} />
-      ),
+      render: () => <EventsModalTimelineGaps events={base} />,
     },
     {
       slug: "month-grid",
       label: "Month",
-      render: (open, onClose) => (
-        <EventsModalMonthGrid open={open} onClose={onClose} events={withDate} today={today} />
-      ),
+      render: () => <EventsModalMonthGrid events={withDate} today={today} />,
     },
     {
       slug: "manage",
       label: "Manage",
-      render: (open, onClose) => (
+      render: () => (
         <EventsModalManage
-          open={open}
-          onClose={onClose}
           events={manageRows}
           busy={busy}
           onCreate={(draft) => createEvent.mutate(draft)}
@@ -111,8 +101,10 @@ function useEventsVariants(): { variants: LiveVariant[]; loading: boolean } {
   return { variants, loading: false };
 }
 
-export const eventsModalEntry: TileModalEntry = {
+export const eventsDetailEntry: TileDetailPageEntry = {
+  kind: "page",
   tileId: "tile_event",
+  title: "Upcoming",
   defaultSlug: "full-agenda",
   useVariants: useEventsVariants,
 };

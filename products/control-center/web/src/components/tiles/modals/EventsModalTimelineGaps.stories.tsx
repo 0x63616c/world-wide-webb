@@ -9,10 +9,7 @@
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
-import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
-import type { EventsModalTimelineGapsProps } from "./EventsModalTimelineGaps";
 import { EventsModalTimelineGaps } from "./EventsModalTimelineGaps";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -43,10 +40,23 @@ const meta = {
   title: "Modals/Events/Timeline Gaps",
   component: EventsModalTimelineGaps,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     events: eventsSpread,
   },
 } satisfies Meta<typeof EventsModalTimelineGaps>;
@@ -54,41 +64,16 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// ─── Interactive wrapper ───────────────────────────────────────────────────────
-
-// Stateful so backdrop/Escape/Close actually dismiss in Storybook; a "Reopen"
-// button makes the story replayable after closing.
-function InteractiveWrapper(args: EventsModalTimelineGapsProps) {
-  const [open, setOpen] = useState(true);
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)}>
-        Reopen
-      </button>
-      <EventsModalTimelineGaps
-        {...args}
-        open={open}
-        onClose={() => {
-          setOpen(false);
-          args.onClose();
-        }}
-      />
-    </>
-  );
-}
-
 // ─── Runway Timeline , spread events ─────────────────────────────────────────
 
 export const RunwayTimeline: Story = {
   name: "Runway Timeline , spread events",
-  render: (args) => <InteractiveWrapper {...args} />,
 };
 
 // ─── Dense cluster , all events within a week ────────────────────────────────
 
 export const DenseCluster: Story = {
   name: "Dense cluster , events within a week",
-  render: (args) => <InteractiveWrapper {...args} />,
   args: {
     events: eventsClustered,
   },

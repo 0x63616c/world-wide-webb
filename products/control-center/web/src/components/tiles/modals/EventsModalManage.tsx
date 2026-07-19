@@ -15,7 +15,7 @@
  */
 
 import { useState } from "react";
-import { DatePicker, Modal } from "@/components/ui";
+import { DatePicker } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -37,8 +37,6 @@ export interface EventDraft {
 }
 
 export interface EventsModalManageProps {
-  open: boolean;
-  onClose: () => void;
   events: ManageEventRow[];
   onCreate: (draft: EventDraft) => void;
   onUpdate: (id: number, draft: EventDraft) => void;
@@ -179,8 +177,6 @@ function DraftFields({ name, place, date, onName, onPlace, onDate }: DraftFields
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function EventsModalManage({
-  open,
-  onClose,
   events,
   onCreate,
   onUpdate,
@@ -227,14 +223,7 @@ export function EventsModalManage({
   }
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Manage events"
-      width={620}
-      maxHeight={840}
-      scrollbar="visible"
-    >
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         {/* ── Add form ───────────────────────────────────────────────── */}
         <section
@@ -395,6 +384,6 @@ export function EventsModalManage({
           )}
         </section>
       </div>
-    </Modal>
+    </div>
   );
 }

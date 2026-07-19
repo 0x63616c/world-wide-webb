@@ -20,7 +20,6 @@
  */
 
 import { useState } from "react";
-import { Modal } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -38,8 +37,6 @@ export interface EventRowWithDate {
 }
 
 export interface EventsModalMonthGridProps {
-  open: boolean;
-  onClose: () => void;
   /** All upcoming events, sorted ascending by date. */
   events: EventRowWithDate[];
   /**
@@ -85,7 +82,7 @@ function heatColor(days: number): string {
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-export function EventsModalMonthGrid({ open, onClose, events, today }: EventsModalMonthGridProps) {
+export function EventsModalMonthGrid({ events, today }: EventsModalMonthGridProps) {
   // Which day cell is currently selected (ISO date "YYYY-MM-DD"), or null.
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
@@ -127,7 +124,7 @@ export function EventsModalMonthGrid({ open, onClose, events, today }: EventsMod
   const selectedEvents = selectedDay ? (eventsByDay.get(selectedDay) ?? []) : [];
 
   return (
-    <Modal open={open} onClose={onClose} title="Events" width={640} maxHeight={720}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Month heading */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -331,6 +328,6 @@ export function EventsModalMonthGrid({ open, onClose, events, today }: EventsMod
           </>
         )}
       </div>
-    </Modal>
+    </div>
   );
 }

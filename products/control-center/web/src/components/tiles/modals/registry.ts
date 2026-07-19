@@ -9,9 +9,10 @@
  */
 
 import type { TileModalEntry } from "./types";
-import { eventsModalEntry } from "./wiring/events";
 
-const ENTRIES: TileModalEntry[] = [eventsModalEntry];
+// Every board tile has migrated to the detail-page registry
+// (../detail/registry.ts); this file goes away in the migration cleanup task.
+const ENTRIES: TileModalEntry[] = [];
 
 const BY_TILE_ID = new Map<string, TileModalEntry>(ENTRIES.map((e) => [e.tileId, e]));
 

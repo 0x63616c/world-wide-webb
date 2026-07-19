@@ -6,10 +6,9 @@
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
 import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
-import type { EventsModalManageProps, ManageEventRow } from "./EventsModalManage";
+import type { ManageEventRow } from "./EventsModalManage";
 import { EventsModalManage } from "./EventsModalManage";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -53,10 +52,23 @@ const meta = {
   title: "Modals/Events/Manage",
   component: EventsModalManage,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     events: manageEvents,
     onCreate: fn(),
     onUpdate: fn(),
@@ -70,30 +82,8 @@ type Story = StoryObj<typeof meta>;
 
 // ─── Manage (interactive) ─────────────────────────────────────────────────────
 
-// Stateful wrapper so Escape/Close/backdrop dismiss in Storybook; a "Reopen"
-// button makes the story replayable after closing.
-function InteractiveManage(args: EventsModalManageProps) {
-  const [open, setOpen] = useState(true);
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)}>
-        Reopen
-      </button>
-      <EventsModalManage
-        {...args}
-        open={open}
-        onClose={() => {
-          setOpen(false);
-          args.onClose();
-        }}
-      />
-    </>
-  );
-}
-
 export const Manage: Story = {
   name: "Manage , 4 events",
-  render: (args) => <InteractiveManage {...args} />,
 };
 
 // ─── Empty ────────────────────────────────────────────────────────────────────
@@ -110,11 +100,4 @@ export const Empty: Story = {
 export const Busy: Story = {
   name: "Busy , mutation in flight",
   args: { busy: true },
-};
-
-// ─── Closed ───────────────────────────────────────────────────────────────────
-
-export const Closed: Story = {
-  name: "Closed , modal not mounted",
-  args: { open: false },
 };

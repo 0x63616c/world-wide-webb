@@ -19,13 +19,10 @@
  */
 
 import type { EventRow } from "@/components/tiles/EventsTileView";
-import { Modal } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
 export interface EventsModalTimelineGapsProps {
-  open: boolean;
-  onClose: () => void;
   events: EventRow[];
 }
 
@@ -224,13 +221,13 @@ function TimelineNode({ event, nearest }: TimelineNodeProps) {
 
 // ─── view ─────────────────────────────────────────────────────────────────────
 
-export function EventsModalTimelineGaps({ open, onClose, events }: EventsModalTimelineGapsProps) {
+export function EventsModalTimelineGaps({ events }: EventsModalTimelineGapsProps) {
   const sorted = [...events].sort((a, b) => a.days - b.days);
   const positions = computePositions(sorted);
   const totalHeight = positions.length > 0 ? positions[positions.length - 1] : 0;
 
   return (
-    <Modal open={open} onClose={onClose} title="Events" width={560} maxHeight={760}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Section label */}
         <div
@@ -317,6 +314,6 @@ export function EventsModalTimelineGaps({ open, onClose, events }: EventsModalTi
           </div>
         )}
       </div>
-    </Modal>
+    </div>
   );
 }

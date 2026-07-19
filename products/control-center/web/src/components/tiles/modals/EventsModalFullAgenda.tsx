@@ -16,7 +16,7 @@
  * Storybook and unit tests. Width 560 (narrow agenda as briefed), maxHeight 760.
  */
 
-import { Modal, StatusDot } from "@/components/ui";
+import { StatusDot } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -27,8 +27,6 @@ interface EventRow {
 }
 
 export interface EventsModalFullAgendaProps {
-  open: boolean;
-  onClose: () => void;
   events: EventRow[];
 }
 
@@ -39,9 +37,9 @@ const URGENT_THRESHOLD = 3;
 
 // ─── view ─────────────────────────────────────────────────────────────────────
 
-export function EventsModalFullAgenda({ open, onClose, events }: EventsModalFullAgendaProps) {
+export function EventsModalFullAgenda({ events }: EventsModalFullAgendaProps) {
   return (
-    <Modal open={open} onClose={onClose} title="Events" width={560} maxHeight={760}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       {events.length === 0 ? (
         // Empty state , no upcoming events in the DB.
         <div
@@ -148,6 +146,6 @@ export function EventsModalFullAgenda({ open, onClose, events }: EventsModalFull
           })}
         </div>
       )}
-    </Modal>
+    </div>
   );
 }

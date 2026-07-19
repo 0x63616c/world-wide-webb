@@ -6,10 +6,7 @@
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
-import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
-import type { EventsModalFullAgendaProps } from "./EventsModalFullAgenda";
 import { EventsModalFullAgenda } from "./EventsModalFullAgenda";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -44,10 +41,23 @@ const meta = {
   title: "Modals/Events/Full Agenda",
   component: EventsModalFullAgenda,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     events: fullAgendaEvents,
   },
 } satisfies Meta<typeof EventsModalFullAgenda>;
@@ -57,30 +67,8 @@ type Story = StoryObj<typeof meta>;
 
 // ─── Full Agenda (interactive) ────────────────────────────────────────────────
 
-// Stateful wrapper so backdrop/Escape/Close actually dismiss in Storybook.
-// A "Reopen" button makes the story replayable after closing.
-function InteractiveFullAgenda(args: EventsModalFullAgendaProps) {
-  const [open, setOpen] = useState(true);
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)}>
-        Reopen
-      </button>
-      <EventsModalFullAgenda
-        {...args}
-        open={open}
-        onClose={() => {
-          setOpen(false);
-          args.onClose();
-        }}
-      />
-    </>
-  );
-}
-
 export const FullAgenda: Story = {
   name: "Full Agenda , 10 events",
-  render: (args) => <InteractiveFullAgenda {...args} />,
 };
 
 // ─── Short list ───────────────────────────────────────────────────────────────
@@ -99,13 +87,4 @@ export const ShortList: Story = {
 export const Empty: Story = {
   name: "Empty , no upcoming events",
   args: { events: [] },
-};
-
-// ─── Closed ───────────────────────────────────────────────────────────────────
-
-// Verifies the modal renders nothing when open=false , matches the pattern from
-// the Controls modal stories (nothing leaks onto the board while the tile loads).
-export const Closed: Story = {
-  name: "Closed , modal not mounted",
-  args: { open: false },
 };

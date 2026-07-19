@@ -20,7 +20,7 @@
  */
 
 import type { EventRow } from "@/components/tiles/EventsTileView";
-import { BorderProgressRing, Modal, Pill, PillTone } from "@/components/ui";
+import { BorderProgressRing, Pill, PillTone } from "@/components/ui";
 
 // Days above this are treated as "maximum distance" for the ring fill.
 const RING_HORIZON = 90;
@@ -48,24 +48,18 @@ function dayLabelColor(days: number): string {
 // ─── types ────────────────────────────────────────────────────────────────────
 
 export interface EventsModalCountdownSpotlightProps {
-  open: boolean;
-  onClose: () => void;
   /** All events, pre-sorted ascending by date. events[0] = hero; events[1..] = peek list. */
   events: EventRow[];
 }
 
 // ─── view ─────────────────────────────────────────────────────────────────────
 
-export function EventsModalCountdownSpotlight({
-  open,
-  onClose,
-  events,
-}: EventsModalCountdownSpotlightProps) {
+export function EventsModalCountdownSpotlight({ events }: EventsModalCountdownSpotlightProps) {
   const hero = events[0] ?? null;
   const after = events.slice(1, 5);
 
   return (
-    <Modal open={open} onClose={onClose} title="Events" width={560} maxHeight={620}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Hero spotlight , ring + day count + name/place */}
         {hero === null ? (
@@ -230,6 +224,6 @@ export function EventsModalCountdownSpotlight({
           </section>
         )}
       </div>
-    </Modal>
+    </div>
   );
 }
