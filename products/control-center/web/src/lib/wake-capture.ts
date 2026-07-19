@@ -17,12 +17,43 @@ export const BURST_DELAYS_MS = [700, 1300, 2000] as const;
 
 const JPEG_QUALITY = 0.8;
 
+// A cold camera reports a 0×0 frame until the first real frame decodes. Wait,
+// bounded, for a non-zero frame before starting the burst so the first grab is
+// a real image and not a black 0×0 skip. Capped so a camera that never produces
+// a frame still gives up quickly and the burst proceeds best-effort.
+const READY_TIMEOUT_MS = 1500;
+const READY_POLL_MS = 50;
+
 const wakeLog = log.child("wake");
 
 let burstInFlight = false;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/** A video has a decodable frame once both dimensions are non-zero. */
+export function videoHasFrame(video: { videoWidth: number; videoHeight: number }): boolean {
+  return video.videoWidth > 0 && video.videoHeight > 0;
+}
+
+/**
+ * Resolve once the video has a real (non-zero) frame, or after `timeoutMs`.
+ * Polls `videoWidth`/`videoHeight` rather than relying on a single `loadeddata`
+ * event, so it is robust to the event firing before the listener attaches and
+ * is trivially testable with a plain object. Returns whether a frame was ready.
+ * Exported for direct tests.
+ */
+export async function awaitVideoReady(
+  video: { videoWidth: number; videoHeight: number },
+  timeoutMs = READY_TIMEOUT_MS,
+  pollMs = READY_POLL_MS,
+): Promise<boolean> {
+  const deadline = performance.now() + timeoutMs;
+  while (!videoHasFrame(video) && performance.now() < deadline) {
+    await sleep(pollMs);
+  }
+  return videoHasFrame(video);
 }
 
 async function grabFrame(video: HTMLVideoElement): Promise<Blob | null> {
@@ -89,6 +120,21 @@ async function runBurst(sessionId: string | null): Promise<void> {
     video.playsInline = true;
     video.srcObject = stream;
     await video.play();
+
+    // Wait for a real frame before the burst timings , a cold camera reports a
+    // 0×0 sensor for the first fraction of a second, and grabbing then yields a
+    // black skip that the burst silently drops. Bounded + best-effort: if no
+    // frame ever arrives we log it and let the burst try anyway.
+    const ready = await awaitVideoReady(video);
+    if (!ready) {
+      wakeLog.warn("camera not ready before burst", {
+        w: video.videoWidth,
+        h: video.videoHeight,
+        waitedMs: READY_TIMEOUT_MS,
+      });
+    } else {
+      wakeLog.info("camera ready", { w: video.videoWidth, h: video.videoHeight });
+    }
 
     let uploaded = 0;
     let elapsed = 0;

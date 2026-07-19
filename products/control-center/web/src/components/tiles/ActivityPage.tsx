@@ -24,6 +24,7 @@ import { registerOpenModal } from "../../lib/modal-open-store";
 import { BackButton } from "../settings-page/blocks";
 import { type SessionDetail, SessionDetailView } from "./SessionDetailView";
 import { SessionListView, type SessionSummary } from "./SessionListView";
+import { WakeCaptureDiagnostic } from "./WakeCaptureDiagnostic";
 
 export interface WakePhotoDay {
   /** YYYY-MM-DD (UTC buckets, straight from wakePhotos.list). */
@@ -225,8 +226,20 @@ export function ActivityPage({
               <SessionListView sessions={sessions} photoUrl={photoUrl} onSelect={onSelectSession} />
             )
           ) : days.length === 0 ? (
-            <div className="cap" style={{ padding: "48px 0", textAlign: "center" }}>
+            <div
+              className="cap"
+              style={{
+                padding: "48px 0",
+                textAlign: "center",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+              }}
+            >
               No activity photos yet , they appear after the panel is next woken.
+              {/* If the panel HAS tried to capture, say why it came up empty
+                  (camera denied, zero frames uploaded, …) from the wake log. */}
+              <WakeCaptureDiagnostic />
             </div>
           ) : mode === "grid" ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>

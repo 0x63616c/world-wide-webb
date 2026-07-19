@@ -6,6 +6,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { log } from "../../lib/log/logger";
 import { modalDocsParameters } from "./__stories__/factory";
 import type { WakePhotoDay } from "./ActivityPage";
 import { ActivityPage } from "./ActivityPage";
@@ -116,6 +117,32 @@ export const Empty: Story = {
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
     await expect(body.getByText(/No activity photos yet/)).toBeInTheDocument();
+  },
+};
+
+/**
+ * The empty state becomes self-diagnosing: when the panel has logged a failed
+ * wake capture, the reason is surfaced under the "no photos" copy so the wall
+ * explains itself. Emits a REAL `wake`-source log line (not fake product data),
+ * exactly what the capture chain logs when the camera is denied.
+ */
+export const EmptyWithDiagnostic: Story = {
+  args: {
+    open: true,
+    onClose: fn(),
+    days: [],
+    totalCount: 0,
+    totalBytes: 0,
+    photoUrl,
+  },
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    log.child("wake").warn("camera open failed", { name: "NotAllowedError", message: "denied" });
+    await waitFor(() =>
+      expect(body.getByTestId("wake-diagnostic")).toHaveTextContent(
+        "camera open failed (NotAllowedError)",
+      ),
+    );
   },
 };
 

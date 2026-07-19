@@ -47,8 +47,10 @@ describe("SessionDetailView stories", () => {
     const { container } = render(<DetailDefault />);
     if (DetailDefault.play) await DetailDefault.play({ canvasElement: container });
     const rows = screen.getAllByTestId("session-event");
-    expect(rows).toHaveLength(6);
-    expect(rows[0]).toHaveTextContent("session/start");
-    expect(rows[5]).toHaveTextContent("session/end");
+    // The enriched fixture carries 7 events (a control/change was added), now
+    // rendered as human sentences rather than raw surface/action strings.
+    expect(rows).toHaveLength(7);
+    expect(rows[0]).toHaveTextContent("Session started");
+    expect(rows[6]).toHaveTextContent("Session ended (idle-dim)");
   });
 });

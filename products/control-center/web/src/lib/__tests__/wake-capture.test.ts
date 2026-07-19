@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { BURST_DELAYS_MS, captureWakeBurst, uploadBurstFramesForTests } from "../wake-capture";
+import {
+  awaitVideoReady,
+  BURST_DELAYS_MS,
+  captureWakeBurst,
+  uploadBurstFramesForTests,
+  videoHasFrame,
+} from "../wake-capture";
 
 describe("wake-capture", () => {
   afterEach(() => {
@@ -79,6 +85,33 @@ describe("wake-capture", () => {
       { sessionId: "isn_abc123abc123", frameIdx: "0" },
       { sessionId: "isn_abc123abc123", frameIdx: "1" },
     ]);
+  });
+
+  it("videoHasFrame is true only once both dimensions are non-zero", () => {
+    expect(videoHasFrame({ videoWidth: 0, videoHeight: 0 })).toBe(false);
+    expect(videoHasFrame({ videoWidth: 640, videoHeight: 0 })).toBe(false);
+    expect(videoHasFrame({ videoWidth: 640, videoHeight: 480 })).toBe(true);
+  });
+
+  it("awaitVideoReady resolves true as soon as a real frame appears", async () => {
+    // A cold camera: 0×0 for a couple of polls, then a real frame decodes.
+    const video = { videoWidth: 0, videoHeight: 0 };
+    setTimeout(() => {
+      video.videoWidth = 640;
+      video.videoHeight = 480;
+    }, 60);
+    const ready = await awaitVideoReady(video, 1000, 20);
+    expect(ready).toBe(true);
+  });
+
+  it("awaitVideoReady gives up (false) when no frame ever arrives", async () => {
+    const ready = await awaitVideoReady({ videoWidth: 0, videoHeight: 0 }, 80, 20);
+    expect(ready).toBe(false);
+  });
+
+  it("awaitVideoReady returns immediately when the frame is already ready", async () => {
+    const ready = await awaitVideoReady({ videoWidth: 1280, videoHeight: 720 }, 1000, 20);
+    expect(ready).toBe(true);
   });
 
   it("omits the session header entirely when no session is live", async () => {
