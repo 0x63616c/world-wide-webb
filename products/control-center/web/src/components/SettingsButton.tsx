@@ -5,7 +5,8 @@
  *
  * The full-screen overlays launched from inside Settings (level, clean screen)
  * are hosted here rather than in SettingsPage: both close the page behind them
- * (Tesla-style, you land back on the board), which unmounts the page.
+ * while open, so exiting one re-opens Settings rather than dumping you on the
+ * board (no second PIN gate , you already passed it to get here).
  */
 
 import { useEffect, useState } from "react";
@@ -27,8 +28,7 @@ export function SettingsButton() {
   // it after the PIN. Null for a plain gear tap (opens on Device).
   const [requestedPage, setRequestedPage] = useState<PageKey | null>(null);
   // Full-screen overlays launched from the page. Hosted here, not inside
-  // SettingsPage: both close the page behind them (Tesla-style, you land back
-  // on the board), which unmounts the page.
+  // SettingsPage: they close the page behind them, and re-open it on exit.
   const [levelOpen, setLevelOpen] = useState(false);
   const [cleanOpen, setCleanOpen] = useState(false);
 
@@ -103,8 +103,20 @@ export function SettingsButton() {
           setCleanOpen(true);
         }}
       />
-      <LevelOverlay open={levelOpen} onClose={() => setLevelOpen(false)} />
-      <CleanScreenOverlay open={cleanOpen} onClose={() => setCleanOpen(false)} />
+      <LevelOverlay
+        open={levelOpen}
+        onClose={() => {
+          setLevelOpen(false);
+          setPageOpen(true);
+        }}
+      />
+      <CleanScreenOverlay
+        open={cleanOpen}
+        onClose={() => {
+          setCleanOpen(false);
+          setPageOpen(true);
+        }}
+      />
     </>
   );
 }
