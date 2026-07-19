@@ -15,8 +15,9 @@ import { SERVICE_SECRET_TARGETS, SERVICE_SECRETS } from "../src/secrets-map.ts";
 const SHARED_API_WORKER_SECRETS = {
   HA_TOKEN: "HOME_ASSISTANT_TOKEN__CREDENTIAL",
   UNIFI_API_KEY: "UNIFI__LOCAL_API_KEY",
-  WIFI_SSID: "WIFI_GUEST_CREDENTIALS__SSID",
-  WIFI_PASSWORD: "WIFI_GUEST_CREDENTIALS__PASSWORD",
+  WIFI_SSID: "WIFI_MAIN_CREDENTIALS__SSID",
+  WIFI_PASSWORD: "WIFI_GUEST_WIFI_PASSWORD",
+  WIFI_GUEST_SSID: "WIFI_GUEST_WIFI_SSID",
   POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
   HOME_LAT: "HOME_LOCATION__LAT",
   HOME_LON: "HOME_LOCATION__LON",
@@ -58,8 +59,8 @@ const GOLDEN_SERVICE_SECRETS: Record<string, Record<string, string>> = {
   "captive-portal-api": {
     POSTGRES_PASSWORD: "CAPTIVE_PORTAL_POSTGRES__PASSWORD",
     UNIFI_API_KEY: "UNIFI__LOCAL_API_KEY",
-    WIFI_PASSWORD: "WIFI_GUEST_CREDENTIALS__PASSWORD",
-    WIFI_SSID: "WIFI_GUEST_CREDENTIALS__SSID",
+    WIFI_PASSWORD: "WIFI_GUEST_WIFI_PASSWORD",
+    WIFI_SSID: "WIFI_GUEST_WIFI_SSID",
   },
 };
 
@@ -104,9 +105,10 @@ describe("secrets derivation (golden equivalence, single-declaration refactor)",
   test("every mounted env name resolves to a VAULT_KEY (ITEM__FIELD, no op:// slash form)", () => {
     for (const secrets of Object.values(SERVICE_SECRETS)) {
       for (const vaultKey of Object.values(secrets)) {
+        // Flat SCREAMING_SNAKE vault key: no slash (vault.ts does a flat
+        // lookup; ITEM__FIELD double-underscore is convention, not contract).
         expect(vaultKey).not.toMatch(/\//);
-        expect(vaultKey).toMatch(/__/);
-        expect(vaultKey).toBe(vaultKey.toUpperCase());
+        expect(vaultKey).toMatch(/^[A-Z0-9_]+$/);
       }
     }
   });

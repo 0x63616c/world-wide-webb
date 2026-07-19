@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { UnifiClient } from "../integrations/unifi";
 import { DEMO_NETWORK, getNetworkStatus, NetworkConnectivity } from "../services/network-service";
+import { buildWifiQrPayload } from "../trpc/routers/network";
 
 // ---------------------------------------------------------------------------
 // DEMO_NETWORK shape , always-on demo payload for the wall panel
@@ -280,5 +281,29 @@ describe("getNetworkStatus , configured client", () => {
     vi.spyOn(client, "getWanHealth").mockRejectedValue(new Error("health endpoint unreachable"));
 
     await expect(getNetworkStatus(client)).rejects.toThrow("health endpoint unreachable");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildWifiQrPayload , guest Wi-Fi join QR payload
+// ---------------------------------------------------------------------------
+
+describe("buildWifiQrPayload", () => {
+  test("empty ssid yields empty payload (unconfigured -> tile modal hidden)", () => {
+    expect(buildWifiQrPayload("", "irrelevant")).toBe("");
+  });
+
+  test("ssid without password yields a nopass payload", () => {
+    expect(buildWifiQrPayload("net", "")).toBe("WIFI:T:nopass;S:net;;");
+  });
+
+  test("ssid + password yield a WPA payload", () => {
+    expect(buildWifiQrPayload("net", "pw")).toBe("WIFI:T:WPA;S:net;P:pw;;");
+  });
+
+  test("structural characters are backslash-escaped", () => {
+    expect(buildWifiQrPayload('a;b,c:d"e\\f', "p;w")).toBe(
+      'WIFI:T:WPA;S:a\\;b\\,c\\:d\\"e\\\\f;P:p\\;w;;',
+    );
   });
 });

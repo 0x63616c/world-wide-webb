@@ -14,8 +14,9 @@ export interface GuestWifiQrModalProps {
 }
 
 /**
- * Small themed modal behind the Guest Wi-Fi tile tap: one scannable QR that
- * joins the guest network, a caption, nothing else.
+ * Small themed modal behind the Guest Wi-Fi tile tap (design pick 2026-07-19,
+ * "quiet label"): title, one white-on-black QR that joins the guest network,
+ * a single cap line. Nothing else.
  */
 export function GuestWifiQrModal({ open, onClose, qrValue, qrStyle }: GuestWifiQrModalProps) {
   return (
@@ -25,10 +26,12 @@ export function GuestWifiQrModal({ open, onClose, qrValue, qrStyle }: GuestWifiQ
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          padding: "10px 0 22px",
+          gap: 14,
+          padding: "4px 0 22px",
         }}
       >
         <GuestWifiQr value={qrValue} size={280} qrStyle={qrStyle} />
+        <div className="cap">scan to join</div>
       </div>
     </Modal>
   );

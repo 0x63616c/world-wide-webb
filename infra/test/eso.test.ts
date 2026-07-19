@@ -49,13 +49,14 @@ describe("SERVICE_SECRETS", () => {
     expect("captive-portal" in map.SERVICE_SECRETS).toBe(false);
   });
 
-  test("every ref is a VAULT_KEY (SCREAMING_SNAKE_CASE with __ separator, no Item/field slash form)", () => {
+  test("every ref is a VAULT_KEY (SCREAMING_SNAKE_CASE, no Item/field slash form)", () => {
     for (const secrets of Object.values(map.SERVICE_SECRETS)) {
       for (const ref of Object.values(secrets)) {
-        // Must be ITEM__FIELD format: no slash, contains double underscore
+        // Flat SCREAMING_SNAKE vault key: no slash (vault.ts does a flat
+        // lookup; ITEM__FIELD double-underscore is convention, not contract ,
+        // the WIFI_GUEST_WIFI_* keys are single-underscore by choice).
         expect(ref).not.toMatch(/\//);
-        expect(ref).toMatch(/__/);
-        expect(ref).toBe(ref.toUpperCase());
+        expect(ref).toMatch(/^[A-Z0-9_]+$/);
       }
     }
   });
@@ -66,8 +67,8 @@ describe("SERVICE_SECRETS: captive-portal-api", () => {
     expect(map.SERVICE_SECRETS["captive-portal-api"]).toEqual({
       POSTGRES_PASSWORD: "CAPTIVE_PORTAL_POSTGRES__PASSWORD",
       UNIFI_API_KEY: "UNIFI__LOCAL_API_KEY",
-      WIFI_PASSWORD: "WIFI_GUEST_CREDENTIALS__PASSWORD",
-      WIFI_SSID: "WIFI_GUEST_CREDENTIALS__SSID",
+      WIFI_PASSWORD: "WIFI_GUEST_WIFI_PASSWORD",
+      WIFI_SSID: "WIFI_GUEST_WIFI_SSID",
     });
   });
 });

@@ -353,8 +353,11 @@ export const secretCatalog = {
     localApiKey: secret("UniFi", "local_api_key", "UNIFI__LOCAL_API_KEY"),
   },
   wifiGuest: {
-    password: secret("WiFi Guest Credentials", "password", "WIFI_GUEST_CREDENTIALS__PASSWORD"),
-    ssid: secret("WiFi Guest Credentials", "ssid", "WIFI_GUEST_CREDENTIALS__SSID"),
+    password: secret("WiFi Guest Wifi", "password", "WIFI_GUEST_WIFI_PASSWORD"),
+    ssid: secret("WiFi Guest Wifi", "ssid", "WIFI_GUEST_WIFI_SSID"),
+  },
+  wifiMain: {
+    ssid: secret("WiFi Main Credentials", "ssid", "WIFI_MAIN_CREDENTIALS__SSID"),
   },
 } as const;
 
@@ -397,8 +400,11 @@ export function controlCenterServiceSecretUsages(): Record<
   const apiSecrets = {
     HA_TOKEN: secretCatalog.homeAssistant.token,
     UNIFI_API_KEY: secretCatalog.unifi.localApiKey,
-    WIFI_SSID: secretCatalog.wifiGuest.ssid,
+    // Board display SSID is the MAIN network; the guest SSID/password feed the
+    // guest Wi-Fi QR only and are never rendered as text (design call 2026-07-19).
+    WIFI_SSID: secretCatalog.wifiMain.ssid,
     WIFI_PASSWORD: secretCatalog.wifiGuest.password,
+    WIFI_GUEST_SSID: secretCatalog.wifiGuest.ssid,
     POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
     HOME_LAT: secretCatalog.homeLocation.lat,
     HOME_LON: secretCatalog.homeLocation.lon,
@@ -420,8 +426,11 @@ export function controlCenterServiceSecretUsages(): Record<
   const workerSecrets = {
     HA_TOKEN: secretCatalog.homeAssistant.token,
     UNIFI_API_KEY: secretCatalog.unifi.localApiKey,
-    WIFI_SSID: secretCatalog.wifiGuest.ssid,
+    // Board display SSID is the MAIN network; the guest SSID/password feed the
+    // guest Wi-Fi QR only and are never rendered as text (design call 2026-07-19).
+    WIFI_SSID: secretCatalog.wifiMain.ssid,
     WIFI_PASSWORD: secretCatalog.wifiGuest.password,
+    WIFI_GUEST_SSID: secretCatalog.wifiGuest.ssid,
     POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
     HOME_LAT: secretCatalog.homeLocation.lat,
     HOME_LON: secretCatalog.homeLocation.lon,

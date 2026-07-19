@@ -21,6 +21,8 @@ import { EventsTile } from "../components/tiles/EventsTile";
 import { EventsTileView } from "../components/tiles/EventsTileView";
 import { FrontendLogsTile } from "../components/tiles/FrontendLogsTile";
 import { FrontendLogsTileView } from "../components/tiles/FrontendLogsTileView";
+import { GuestWifiTile } from "../components/tiles/GuestWifiTile";
+import { GuestWifiTileView } from "../components/tiles/GuestWifiTileView";
 import { NetworkTile } from "../components/tiles/NetworkTile";
 import { NetworkTileView } from "../components/tiles/NetworkTileView";
 import { Next12Hours } from "../components/tiles/Next12Hours";
@@ -39,6 +41,7 @@ import { WeatherNowView } from "../components/tiles/WeatherNowView";
 type TileComponent =
   | typeof ClockGreeting
   | typeof FrontendLogsTile
+  | typeof GuestWifiTile
   | typeof WeatherNow
   | typeof NetworkTile
   | typeof TeslaTile
@@ -60,6 +63,7 @@ type TileComponent =
 type TileViewComponent =
   | typeof ClockGreetingView
   | typeof FrontendLogsTileView
+  | typeof GuestWifiTileView
   | typeof WeatherNowView
   | typeof NetworkTileView
   | typeof TeslaTileView
@@ -117,6 +121,19 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     cols: 5,
     rows: 3,
     home: true,
+  },
+  // Guest Wi-Fi QR. Small 2x2 sitting directly above the Clock/Weather column
+  // (rows 22-23 are otherwise bento fill), so it reads as part of the home
+  // cluster without displacing any existing tile.
+  {
+    id: "tile_guestwifi",
+    label: "Guest",
+    component: GuestWifiTile,
+    viewComponent: GuestWifiTileView,
+    worldCol: 28,
+    worldRow: 22,
+    cols: 2,
+    rows: 2,
   },
   {
     id: "tile_weath",

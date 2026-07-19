@@ -19,6 +19,7 @@ import { deploysDetailEntry } from "./wiring/deploys";
 import { dogCamDetailEntry } from "./wiring/dogcam";
 import { dogModeDetailEntry } from "./wiring/dogmode";
 import { frontendLogsDetailEntry } from "./wiring/frontend-logs";
+import { guestWifiDetailEntry } from "./wiring/guest-wifi";
 import { notificationsDetailEntry } from "./wiring/notifications";
 import { quickPlayDetailEntry } from "./wiring/quickplay";
 import { schedulesDetailEntry } from "./wiring/schedules";
@@ -48,6 +49,7 @@ const ENTRIES: TileDetailEntry[] = [
   dogCamDetailEntry,
   dogModeDetailEntry,
   frontendLogsDetailEntry,
+  guestWifiDetailEntry,
 ];
 
 const BY_TILE_ID = new Map<string, TileDetailEntry>(ENTRIES.map((e) => [e.tileId, e]));

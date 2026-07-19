@@ -40,6 +40,7 @@ const SECRET_FILE_ENV = [
   "UNIFI_API_KEY",
   "WIFI_SSID",
   "WIFI_PASSWORD",
+  "WIFI_GUEST_SSID",
   "HOME_LAT",
   "HOME_LON",
   "HOME_PLACE_NAME",
@@ -99,9 +100,12 @@ export const envSchema = z.object({
   UNIFI_CONTROLLER_URL: z.string().url().default("https://192.168.0.1"),
   UNIFI_SITE_ID: z.string().default("default"),
 
-  // Guest Wi-Fi credentials shown on the network tile QR. Optional.
+  // Wi-Fi: WIFI_SSID is the MAIN network name shown on the Network tile;
+  // WIFI_GUEST_SSID + WIFI_PASSWORD are the guest network credentials that feed
+  // the Guest tile's join QR (never rendered as text). All optional.
   WIFI_SSID: z.string().default(""),
   WIFI_PASSWORD: z.string().default(""),
+  WIFI_GUEST_SSID: z.string().default(""),
 
   // Home location. Real values are delivered from 1Password (Homelab vault item
   // "Home Location") via the op-backed secret rail above; these defaults are a
