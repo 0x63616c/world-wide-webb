@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { interaction } from "../../lib/log/interaction";
 import { registerOpenModal } from "../../lib/modal-open-store";
+import { useIsNarrow } from "../../lib/useIsNarrow";
 import { Icon } from "../Icon";
 import { BackButton, PageHeader } from "./blocks";
 import { PAGE_BY_KEY, PAGES, type PageKey } from "./pages";
@@ -61,10 +62,21 @@ export function SettingsPage({
 }) {
   const [page, setPage] = useState<PageKey>("device");
 
+  // On a phone the sidebar and content cannot sit side by side (a 340px sidebar
+  // leaves ~100px of content on a 440px viewport, which is what shipped and was
+  // unusable). Narrow viewports instead drill down: the list IS the screen, and
+  // picking a page replaces it. Wide viewports are untouched , `showList` is
+  // simply ignored there, so the wall panel and iPad keep the two-column layout.
+  const narrow = useIsNarrow();
+  const [showList, setShowList] = useState(true);
+
   // Reset to the first page whenever the overlay closes, so reopening always
   // lands on Device rather than wherever the last visit left off.
   useEffect(() => {
-    if (!open) setPage("device");
+    if (!open) {
+      setPage("device");
+      setShowList(true);
+    }
   }, [open]);
 
   // Freeze the board's pan for the overlay's lifetime and let the board's idle
@@ -112,17 +124,19 @@ export function SettingsPage({
         overflow: "hidden",
       }}
     >
-      {/* Sidebar */}
+      {/* Sidebar , full-width and the only pane when narrow, hidden once a page
+          is open there. Fixed 340px column on the panel/iPad, always visible. */}
       <div
         style={{
-          width: 340,
+          width: narrow ? "100%" : 340,
           flexShrink: 0,
-          borderRight: "1px solid var(--hair)",
+          display: narrow && !showList ? "none" : "flex",
+          borderRight: narrow ? "none" : "1px solid var(--hair)",
           background: "var(--tile)",
-          display: "flex",
           flexDirection: "column",
           padding: 24,
           gap: 20,
+          overflowY: "auto",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -139,7 +153,10 @@ export function SettingsPage({
               <button
                 key={p.key}
                 type="button"
-                onClick={() => setPage(p.key)}
+                onClick={() => {
+                  setPage(p.key);
+                  setShowList(false);
+                }}
                 aria-current={selected ? "page" : undefined}
                 style={{
                   display: "flex",
@@ -182,8 +199,17 @@ export function SettingsPage({
         </nav>
       </div>
 
-      {/* Content */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "40px 64px" }}>
+      {/* Content , the only pane once a page is picked on a phone. The generous
+          64px side padding is panel framing; on a 440px viewport it would eat
+          almost a third of the width, so it tightens to 20px. */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: narrow ? "20px 20px 40px" : "40px 64px",
+          display: narrow && showList ? "none" : "block",
+        }}
+      >
         <div
           style={{
             maxWidth: 720,
@@ -193,6 +219,14 @@ export function SettingsPage({
             gap: 28,
           }}
         >
+          {/* Back to the page list , the only way out of a page on a phone,
+              where the sidebar it would otherwise return to is hidden. */}
+          {narrow ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <BackButton onClick={() => setShowList(true)} />
+              <span style={{ fontSize: 17, fontWeight: 600 }}>Settings</span>
+            </div>
+          ) : null}
           <PageHeader title={active.label} blurb={active.blurb} />
           {ActivePage ? (
             <ActivePage onClose={onClose} onOpenLevel={onOpenLevel} onOpenClean={onOpenClean} />
