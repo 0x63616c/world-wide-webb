@@ -181,7 +181,11 @@ export function PinGateModal({
           </div>
           <div style={{ fontSize: 18, fontWeight: 600 }}>{unlocked ? "Unlocked" : "Enter PIN"}</div>
           <div style={{ fontSize: 13, color: error ? "#c95c5c" : "var(--ink-3)" }}>
-            {unlocked ? `Opening ${title}…` : error ? "Wrong PIN, try again" : `${title} is locked`}
+            {unlocked
+              ? `Opening ${title}…`
+              : error
+                ? "Wrong PIN, try again"
+                : "Enter your PIN to continue"}
           </div>
         </div>
         <PinPadView

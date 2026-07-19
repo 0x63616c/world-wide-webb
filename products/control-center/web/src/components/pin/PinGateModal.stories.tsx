@@ -45,7 +45,7 @@ export const Open: Story = {
     // The gate portals into document.body, so it lives OUTSIDE canvasElement.
     const doc = within(document.body);
     await expect(doc.getByText("Enter PIN")).toBeInTheDocument();
-    await expect(doc.getByText("Settings is locked")).toBeInTheDocument();
+    await expect(doc.getByText("Enter your PIN to continue")).toBeInTheDocument();
 
     // Tap the default PIN (000000).
     const zero = doc.getByRole("button", { name: "0" });

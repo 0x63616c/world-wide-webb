@@ -73,6 +73,34 @@ describe("Modal , open", () => {
     );
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
   });
+
+  it("applies a minHeight floor to the panel when given", () => {
+    render(
+      <Modal open={true} onClose={vi.fn()} title="Lamps" minHeight={480}>
+        body
+      </Modal>,
+    );
+    expect(screen.getByRole("dialog")).toHaveStyle({ minHeight: "480px" });
+  });
+
+  it("clamps minHeight to the panel's maxHeight so it never exceeds the board", () => {
+    render(
+      <Modal open={true} onClose={vi.fn()} title="Lamps" maxHeight={400} minHeight={800}>
+        body
+      </Modal>,
+    );
+    // minHeight (800) is clamped down to the clamped maxHeight (400).
+    expect(screen.getByRole("dialog")).toHaveStyle({ minHeight: "400px" });
+  });
+
+  it("omits minHeight when not provided", () => {
+    render(
+      <Modal open={true} onClose={vi.fn()} title="Lamps">
+        body
+      </Modal>,
+    );
+    expect(screen.getByRole("dialog").style.minHeight).toBe("");
+  });
 });
 
 // ─── dismissal ───────────────────────────────────────────────────────────────

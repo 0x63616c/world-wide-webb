@@ -47,6 +47,22 @@ export const Open: Story = {
   },
 };
 
+// MinHeight: a sparse body still opens at the intended floor height, so the
+// panel doesn't collapse to its (tiny) content. Verifies the floor is applied.
+export const MinHeight: Story = {
+  args: {
+    open: true,
+    minHeight: 480,
+    children: <div style={{ color: "var(--ink-2)", fontSize: 16 }}>One short line of content.</div>,
+  },
+  play: async () => {
+    const doc = within(document.body);
+    const dialog = doc.getByRole("dialog", { name: "Lamps" });
+    await expect(dialog).toBeInTheDocument();
+    await expect(dialog).toHaveStyle({ minHeight: "480px" });
+  },
+};
+
 // Closed: renders nothing , no dialog in the DOM.
 export const Closed: Story = {
   args: { open: false },

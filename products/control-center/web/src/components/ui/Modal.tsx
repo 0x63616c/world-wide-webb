@@ -25,6 +25,13 @@ export interface ModalProps {
   width?: number;
   maxHeight?: number;
   /**
+   * Open at an intended height even when content is sparse. Clamped to the board
+   * like `maxHeight`. Complementary to `fill`: `fill` pins the panel to a
+   * definite height (`maxHeight`), while `minHeight` only sets a floor so a
+   * short body still opens at a deliberate size without forcing full height.
+   */
+  minHeight?: number;
+  /**
    * Whether the body's scrollbar is shown when content overflows. Defaults to
    * "hidden" (the original behavior); "visible" shows a dark-themed scrollbar
    * , used where the body genuinely scrolls (e.g. the Settings panel).
@@ -49,12 +56,16 @@ export function Modal({
   children,
   width = 640,
   maxHeight = 720,
+  minHeight,
   scrollbar = "hidden",
   fill = false,
 }: ModalProps) {
   // Clamp to the board so a modal never overflows the 1366x1024 wall panel.
   const panelWidth = Math.min(width, 1280);
   const panelMaxHeight = Math.min(maxHeight, 960);
+  // A floor height, never taller than the panel's own max so the two clamps
+  // can't disagree (a minHeight above maxHeight would overflow the board).
+  const panelMinHeight = minHeight ? Math.min(minHeight, panelMaxHeight) : undefined;
   // Register in the global modal-open count while open so the board freezes its
   // pan for the lifetime of THIS modal , including modals a tile manages itself
   // (ControlsTile's expanded view) that never touch the board's activeModal.
@@ -151,6 +162,7 @@ export function Modal({
           width: panelWidth,
           maxHeight: panelMaxHeight,
           ...(fill ? { height: panelMaxHeight } : {}),
+          ...(panelMinHeight ? { minHeight: panelMinHeight } : {}),
           display: "flex",
           flexDirection: "column",
           background: "var(--tile)",
