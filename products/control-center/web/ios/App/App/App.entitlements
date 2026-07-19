@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Required for APNs. The provisioning profile only PERMITS push; the binary
+	  has to claim the entitlement or registerForRemoteNotifications() never
+	  returns a token. Without this file the app registered silently and no APNs
+	  token ever arrived, which is exactly what happened on build 77.
+
+	  "production" is correct for TestFlight and App Store builds. Xcode rewrites
+	  this to "development" automatically for locally-installed debug builds, so
+	  a single value covers both.
+	-->
+	<key>aps-environment</key>
+	<string>production</string>
+</dict>
+</plist>
