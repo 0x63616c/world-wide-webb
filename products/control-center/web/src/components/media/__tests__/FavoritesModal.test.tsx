@@ -3,7 +3,7 @@
  *
  * A29: Real favorites cover grid + target/zone chip row; playing item is badged;
  *      tapping plays to the chosen zone.
- * A17: uses shared ui primitives (Modal, Chip).
+ *      Bare detail page body now , no <Modal> chrome.
  * A32: co-located test + stories.
  */
 import "@testing-library/jest-dom";
@@ -14,15 +14,6 @@ import { FavoritesModal } from "../FavoritesModal";
 
 afterEach(cleanup);
 
-vi.mock("react-dom", async (importOriginal) => {
-  const original = await importOriginal<typeof import("react-dom")>();
-  return { ...original, createPortal: (node: React.ReactNode) => node };
-});
-
-vi.mock("@/lib/modal-open-store", () => ({
-  registerOpenModal: vi.fn(() => () => {}),
-}));
-
 const baseFavorites = [
   { title: "Chill Mix", uri: "x-sonosapi:chill", albumArtUri: null },
   { title: "Morning Vibes", uri: "x-sonosapi:morning", albumArtUri: null },
@@ -31,26 +22,12 @@ const baseFavorites = [
 const baseZones = ["Living Room", "Desk", "Bedroom"];
 
 const baseProps: FavoritesModalProps = {
-  open: true,
-  onClose: vi.fn(),
   favorites: baseFavorites,
   zones: baseZones,
   onPlay: vi.fn(),
 };
 
-describe("FavoritesModal , closed", () => {
-  it("renders nothing when open=false", () => {
-    const { container } = render(<FavoritesModal {...baseProps} open={false} />);
-    expect(container.querySelector("[role='dialog']")).not.toBeInTheDocument();
-  });
-});
-
-describe("FavoritesModal , open (A29)", () => {
-  it("renders a dialog", () => {
-    render(<FavoritesModal {...baseProps} />);
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-  });
-
+describe("FavoritesModal (A29)", () => {
   it("renders all favorites", () => {
     render(<FavoritesModal {...baseProps} />);
     expect(screen.getByText("Chill Mix")).toBeInTheDocument();
@@ -80,12 +57,5 @@ describe("FavoritesModal , open (A29)", () => {
     // Now click a favorite , should play to Desk
     fireEvent.click(screen.getByText("Chill Mix"));
     expect(onPlay).toHaveBeenCalledWith(baseFavorites[0], "Desk");
-  });
-
-  it("calls onClose when close button is clicked", () => {
-    const onClose = vi.fn();
-    render(<FavoritesModal {...baseProps} onClose={onClose} />);
-    fireEvent.click(screen.getByLabelText(/close/i));
-    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

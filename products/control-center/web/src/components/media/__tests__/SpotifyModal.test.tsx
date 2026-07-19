@@ -3,7 +3,7 @@
  *
  * A30: Real Spotify content , search + target chip + horizontal rows
  *      (Recently played / Made for you) from the browse query; no stub content.
- * A17: uses shared ui primitives (Modal).
+ *      Bare detail page body now , no <Modal> chrome.
  * A32: co-located test + stories.
  */
 import "@testing-library/jest-dom";
@@ -13,15 +13,6 @@ import type { SpotifyModalProps } from "../SpotifyModal";
 import { SpotifyModal } from "../SpotifyModal";
 
 afterEach(cleanup);
-
-vi.mock("react-dom", async (importOriginal) => {
-  const original = await importOriginal<typeof import("react-dom")>();
-  return { ...original, createPortal: (node: React.ReactNode) => node };
-});
-
-vi.mock("@/lib/modal-open-store", () => ({
-  registerOpenModal: vi.fn(() => () => {}),
-}));
 
 const recentlyPlayed = [
   { id: "t-a", title: "Song A", artist: "Artist A", albumArtUrl: null, uri: "spotify:track:a" },
@@ -40,27 +31,13 @@ const playlists = [
 ];
 
 const baseProps: SpotifyModalProps = {
-  open: true,
-  onClose: vi.fn(),
   recentlyPlayed,
   playlists,
   zones: ["Living Room", "Desk"],
   onPlay: vi.fn(),
 };
 
-describe("SpotifyModal , closed", () => {
-  it("renders nothing when open=false", () => {
-    const { container } = render(<SpotifyModal {...baseProps} open={false} />);
-    expect(container.querySelector("[role='dialog']")).not.toBeInTheDocument();
-  });
-});
-
-describe("SpotifyModal , open (A30)", () => {
-  it("renders a dialog", () => {
-    render(<SpotifyModal {...baseProps} />);
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-  });
-
+describe("SpotifyModal (A30)", () => {
   it("renders Recently played section header", () => {
     render(<SpotifyModal {...baseProps} />);
     expect(screen.getByText(/recently played/i)).toBeInTheDocument();
@@ -94,12 +71,5 @@ describe("SpotifyModal , open (A30)", () => {
     render(<SpotifyModal {...baseProps} onPlay={onPlay} />);
     fireEvent.click(screen.getByText("Song A"));
     expect(onPlay).toHaveBeenCalled();
-  });
-
-  it("calls onClose when close button is clicked", () => {
-    const onClose = vi.fn();
-    render(<SpotifyModal {...baseProps} onClose={onClose} />);
-    fireEvent.click(screen.getByLabelText(/close/i));
-    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

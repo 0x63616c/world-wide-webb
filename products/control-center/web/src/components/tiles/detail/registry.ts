@@ -16,6 +16,7 @@ import { weatherDetailEntry } from "../modals/wiring/weather";
 import type { TileDetailEntry } from "./types";
 import { deploysDetailEntry } from "./wiring/deploys";
 import { notificationsDetailEntry } from "./wiring/notifications";
+import { quickPlayDetailEntry } from "./wiring/quickplay";
 import { schedulesDetailEntry } from "./wiring/schedules";
 import { soundDetailEntry } from "./wiring/sound";
 import { tvDetailEntry } from "./wiring/tv";
@@ -37,6 +38,7 @@ const ENTRIES: TileDetailEntry[] = [
   notificationsDetailEntry,
   tvAppsDetailEntry,
   tvDetailEntry,
+  quickPlayDetailEntry,
 ];
 
 const BY_TILE_ID = new Map<string, TileDetailEntry>(ENTRIES.map((e) => [e.tileId, e]));

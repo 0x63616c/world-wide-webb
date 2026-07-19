@@ -1,9 +1,12 @@
 /**
  * Stories for FavoritesModal (www-51hf.24).
- * A29: Real cover grid + zone target picker.
+ * A29: Real cover grid + zone target picker. The component is a bare page body
+ * now (hosted by TileDetailHost in the app), so stories mount it inside a
+ * plain page-sized container matching the host's content region.
  */
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
+import { modalDocsParameters } from "../tiles/__stories__/factory";
 import { FavoritesModal } from "./FavoritesModal";
 
 const favorites = [
@@ -19,18 +22,25 @@ const meta = {
   title: "Media/FavoritesModal",
   component: FavoritesModal,
   tags: ["autodocs"],
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
   decorators: [
     (Story) => (
-      <div style={{ width: 600, height: 700, background: "#111", position: "relative" }}>
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
         <Story />
       </div>
     ),
   ],
   args: {
-    open: true,
     favorites,
     zones,
-    onClose: fn(),
     onPlay: fn(),
   },
 } satisfies Meta<typeof FavoritesModal>;
@@ -38,9 +48,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Open: Story = {
-  play: async () => {
-    const dialog = document.body.querySelector("[role='dialog']");
-    await expect(dialog).toBeTruthy();
+export const Grid: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Chill Mix")).toBeInTheDocument();
+    await expect(canvas.getByText("Living Room")).toBeInTheDocument();
   },
 };

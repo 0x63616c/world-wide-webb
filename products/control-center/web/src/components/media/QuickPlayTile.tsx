@@ -2,19 +2,19 @@
  * QuickPlayTile , container for the Quick-Play 4×2 tile (www-51hf.23 / A28).
  *
  * Fetches Sonos Favorites + Spotify browse content. Merges them into a unified
- * rail of QuickPlayItems. Opens FavoritesModal and SpotifyModal on button taps.
- * Renders Skeleton while pending/error (A18).
+ * rail of QuickPlayItems. The face's Favorites/Spotify buttons deep-link into
+ * the full-page Quick Play detail (Favorites / Spotify variants) via the
+ * tile-detail store , the page's live wiring lives in
+ * tiles/detail/wiring/quickplay.tsx. Renders Skeleton while pending/error (A18).
  */
 
-import { useState } from "react";
 import { TileStatus } from "@/components/ui";
 import { POLL } from "@/lib/hooks";
+import { openTileDetail } from "@/lib/tile-detail-store";
 import { trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";
-import { FavoritesModal } from "./FavoritesModal";
 import type { QuickPlayItem } from "./QuickPlayTileView";
 import { QuickPlayTileView } from "./QuickPlayTileView";
-import { SpotifyModal } from "./SpotifyModal";
 
 export function QuickPlayTile() {
   const { data: favData, isError: favError } = trpc.media.sonosFavorites.useQuery(undefined, {
@@ -24,14 +24,6 @@ export function QuickPlayTile() {
     undefined,
     { refetchInterval: POLL.quickPlay },
   );
-  const { data: soundData } = trpc.media.soundSystem.useQuery(undefined, {
-    refetchInterval: POLL.quickPlay,
-  });
-
-  const [favOpen, setFavOpen] = useState(false);
-  const [spotifyOpen, setSpotifyOpen] = useState(false);
-
-  const sonosTransportMutation = trpc.media.sonosTransport.useMutation();
 
   // The rail merges two independent sources: it has something to show as soon as
   // either resolves, and is only in error when BOTH failed with nothing cached
@@ -59,8 +51,6 @@ export function QuickPlayTile() {
     })),
   ];
 
-  const zones = (soundData?.rooms ?? []).map((r) => r.name);
-
   if (q.status !== TileStatus.Populated) {
     return (
       <QuickPlayTileView
@@ -75,60 +65,13 @@ export function QuickPlayTile() {
   }
 
   return (
-    <>
-      <QuickPlayTileView
-        status={q.status}
-        items={items}
-        playingItemId={null}
-        onPlayItem={() => {}}
-        onOpenFavorites={() => setFavOpen(true)}
-        onOpenSpotify={() => setSpotifyOpen(true)}
-      />
-
-      <FavoritesModal
-        open={favOpen}
-        onClose={() => setFavOpen(false)}
-        favorites={favData ?? []}
-        zones={zones}
-        onPlay={(_fav, _zone) => {
-          // Playing a favorite requires a SetAVTransportURI call which maps to
-          // sonosTransport play after setting the URI. For now trigger play on
-          // the first room coordinator , a full implementation requires a
-          // dedicated sonosPlayUri mutation (follow-up work).
-          const firstRoom = soundData?.rooms[0];
-          if (firstRoom) {
-            sonosTransportMutation.mutate({
-              coordinatorIp: firstRoom.coordinatorUuid,
-              command: "play",
-            });
-          }
-        }}
-      />
-
-      <SpotifyModal
-        open={spotifyOpen}
-        onClose={() => setSpotifyOpen(false)}
-        recentlyPlayed={(spotifyData?.recentlyPlayed ?? []).map((t) => ({
-          ...t,
-          albumArtUrl: t.albumArtUrl ?? null,
-        }))}
-        playlists={(spotifyData?.playlists ?? []).map((p) => ({
-          ...p,
-          albumArtUrl: p.imageUrl ?? null,
-        }))}
-        zones={zones}
-        onPlay={(_uri, _zone) => {
-          // Spotify playback to Sonos requires a SetAVTransportURI with the Spotify URI.
-          // Queuing as follow-up , trigger play for now on the coordinator.
-          const firstRoom = soundData?.rooms[0];
-          if (firstRoom) {
-            sonosTransportMutation.mutate({
-              coordinatorIp: firstRoom.coordinatorUuid,
-              command: "play",
-            });
-          }
-        }}
-      />
-    </>
+    <QuickPlayTileView
+      status={q.status}
+      items={items}
+      playingItemId={null}
+      onPlayItem={() => {}}
+      onOpenFavorites={() => openTileDetail("tile_quickplay", "favorites")}
+      onOpenSpotify={() => openTileDetail("tile_quickplay", "spotify")}
+    />
   );
 }

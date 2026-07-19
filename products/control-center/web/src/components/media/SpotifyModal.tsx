@@ -1,5 +1,6 @@
 /**
- * SpotifyModal , Spotify browse content modal (www-51hf.25 / A30).
+ * SpotifyModal , the Quick Play detail page's "Spotify" variant
+ * (www-51hf.25 / A30).
  *
  * Renders real Spotify content from the spotify.browse query:
  * - Recently played tracks in a horizontal row
@@ -7,12 +8,11 @@
  * - Target zone chip row (which Sonos room to play to)
  *
  * No stub/sample content , all data comes from real API calls via props.
- *
- * Built from shared ui primitives (A17): Modal.
+ * Bare page body (no <Modal>) , hosted by TileDetailHost, which supplies the
+ * page shell and header; live data comes from detail/wiring/quickplay.tsx.
  */
 
 import { useState } from "react";
-import { Modal } from "@/components/ui";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -49,8 +49,6 @@ export interface SpotifyBrowsePlaylist {
 }
 
 export interface SpotifyModalProps {
-  open: boolean;
-  onClose: () => void;
   /** Recently-played tracks from spotify.browse. */
   recentlyPlayed: SpotifyBrowseTrack[];
   /** Made-for-you playlists from spotify.browse. */
@@ -167,20 +165,13 @@ function HorizontalRow({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ── Main modal ────────────────────────────────────────────────────────────────
+// ── Main view ─────────────────────────────────────────────────────────────────
 
-export function SpotifyModal({
-  open,
-  onClose,
-  recentlyPlayed,
-  playlists,
-  zones,
-  onPlay,
-}: SpotifyModalProps) {
+export function SpotifyModal({ recentlyPlayed, playlists, zones, onPlay }: SpotifyModalProps) {
   const [selectedZone, setSelectedZone] = useState<string>(zones[0] ?? "");
 
   return (
-    <Modal open={open} onClose={onClose} title="Spotify" width={560} maxHeight={760}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         {/* Zone picker chips */}
         <div>
@@ -274,6 +265,6 @@ export function SpotifyModal({
           </div>
         )}
       </div>
-    </Modal>
+    </div>
   );
 }

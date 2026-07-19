@@ -1,9 +1,13 @@
 /**
  * Stories for SpotifyModal (www-51hf.25).
- * A30: Real Spotify content , recently played + made for you rows.
+ * A30: Real Spotify content , recently played + made for you rows. The
+ * component is a bare page body now (hosted by TileDetailHost in the app), so
+ * stories mount it inside a plain page-sized container matching the host's
+ * content region.
  */
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
+import { modalDocsParameters } from "../tiles/__stories__/factory";
 import { SpotifyModal } from "./SpotifyModal";
 
 const recentlyPlayed = [
@@ -42,19 +46,26 @@ const meta = {
   title: "Media/SpotifyModal",
   component: SpotifyModal,
   tags: ["autodocs"],
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
   decorators: [
     (Story) => (
-      <div style={{ width: 600, height: 700, background: "#111", position: "relative" }}>
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
         <Story />
       </div>
     ),
   ],
   args: {
-    open: true,
     recentlyPlayed,
     playlists,
     zones,
-    onClose: fn(),
     onPlay: fn(),
   },
 } satisfies Meta<typeof SpotifyModal>;
@@ -62,9 +73,11 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Open: Story = {
-  play: async () => {
-    const dialog = document.body.querySelector("[role='dialog']");
-    await expect(dialog).toBeTruthy();
+export const Rows: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Blinding Lights")).toBeInTheDocument();
+    await expect(canvas.getByText("Daily Mix 1")).toBeInTheDocument();
+    await expect(canvas.getByText("Living Room")).toBeInTheDocument();
   },
 };

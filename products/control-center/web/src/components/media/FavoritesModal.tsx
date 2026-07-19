@@ -1,15 +1,16 @@
 /**
- * FavoritesModal , Sonos favorites cover grid + zone picker (www-51hf.24 / A29).
+ * FavoritesModal , the Quick Play detail page's "Favorites" variant
+ * (www-51hf.24 / A29).
  *
  * Renders real Sonos Favorites from the sonosFavorites query. A target/zone chip
  * row lets the user choose which room to play to. Tapping a cover plays it to
  * the selected zone via a Sonos transport mutation. The playing item is badged.
  *
- * Built from shared ui primitives (A17): Modal, Chip.
+ * Bare page body (no <Modal>) , hosted by TileDetailHost, which supplies the
+ * page shell and header; live data comes from detail/wiring/quickplay.tsx.
  */
 
 import { useState } from "react";
-import { Modal } from "@/components/ui";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -20,8 +21,6 @@ export interface SonosFavorite {
 }
 
 export interface FavoritesModalProps {
-  open: boolean;
-  onClose: () => void;
   favorites: SonosFavorite[];
   zones: string[];
   /** Called with the chosen favorite and the target zone name. */
@@ -30,20 +29,13 @@ export interface FavoritesModalProps {
   playingUri?: string | null;
 }
 
-// ── Main modal ────────────────────────────────────────────────────────────────
+// ── Main view ─────────────────────────────────────────────────────────────────
 
-export function FavoritesModal({
-  open,
-  onClose,
-  favorites,
-  zones,
-  onPlay,
-  playingUri,
-}: FavoritesModalProps) {
+export function FavoritesModal({ favorites, zones, onPlay, playingUri }: FavoritesModalProps) {
   const [selectedZone, setSelectedZone] = useState<string>(zones[0] ?? "");
 
   return (
-    <Modal open={open} onClose={onClose} title="Favorites" width={540} maxHeight={760}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {/* Zone picker chips */}
         <div>
@@ -190,6 +182,6 @@ export function FavoritesModal({
           </div>
         )}
       </div>
-    </Modal>
+    </div>
   );
 }
