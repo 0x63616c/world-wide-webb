@@ -3,11 +3,10 @@
  * detail modal for the Weather tile.
  *
  * Grouped under "Modals/Weather" (not "Tiles/") , overlays live here.
- * PURE view: all data via props, fn() for callbacks.
+ * PURE view: all data via props.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
 import type { ComfortBreakdownData } from "./WeatherModalComfortBreakdown";
 import { WeatherModalComfortBreakdown } from "./WeatherModalComfortBreakdown";
