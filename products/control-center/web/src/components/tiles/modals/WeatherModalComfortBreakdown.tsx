@@ -25,7 +25,7 @@
  */
 
 import type { CSSProperties } from "react";
-import { Modal, Pill, PillTone } from "@/components/ui";
+import { Pill, PillTone } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -54,8 +54,6 @@ export interface ComfortBreakdownData {
 }
 
 export interface WeatherModalComfortBreakdownProps {
-  open: boolean;
-  onClose: () => void;
   data: ComfortBreakdownData;
 }
 
@@ -238,11 +236,7 @@ function GaugeRow({ label, value, gauge }: GaugeRowProps) {
 
 // ─── view ─────────────────────────────────────────────────────────────────────
 
-export function WeatherModalComfortBreakdown({
-  open,
-  onClose,
-  data,
-}: WeatherModalComfortBreakdownProps) {
+export function WeatherModalComfortBreakdown({ data }: WeatherModalComfortBreakdownProps) {
   const verdict = buildVerdict(data);
   const humG = humidityGauge(data.hum);
   const windG = windGauge(data.wind);
@@ -254,7 +248,7 @@ export function WeatherModalComfortBreakdown({
   const deltaDeg = `${deltaSign}${data.feels - data.temp}°`;
 
   return (
-    <Modal open={open} onClose={onClose} title="Weather" width={560} maxHeight={720}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Verdict summary line , one plain-language read on all five metrics.
             Condition icon kept simple: a Unicode glyph derived from cond string
@@ -325,7 +319,7 @@ export function WeatherModalComfortBreakdown({
           Open-Meteo &current= query , same endpoint, no new integration.
         </p>
       </div>
-    </Modal>
+    </div>
   );
 }
 

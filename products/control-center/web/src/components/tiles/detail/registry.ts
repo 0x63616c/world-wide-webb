@@ -8,11 +8,12 @@
 
 import { clockDetailEntry } from "../modals/wiring/clock";
 import { teslaDetailEntry } from "../modals/wiring/tesla";
+import { weatherDetailEntry } from "../modals/wiring/weather";
 import type { TileDetailEntry } from "./types";
 
 // Grows one entry per migrated tile; final state covers all board tiles
 // (completeness enforced by a registry test once the migration lands).
-const ENTRIES: TileDetailEntry[] = [clockDetailEntry, teslaDetailEntry];
+const ENTRIES: TileDetailEntry[] = [clockDetailEntry, weatherDetailEntry, teslaDetailEntry];
 
 const BY_TILE_ID = new Map<string, TileDetailEntry>(ENTRIES.map((e) => [e.tileId, e]));
 

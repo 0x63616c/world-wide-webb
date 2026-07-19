@@ -30,7 +30,7 @@
 import { useState } from "react";
 import type { IconName } from "@/components/Icon";
 import { Icon } from "@/components/Icon";
-import { Modal, Stat } from "@/components/ui";
+import { Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -47,8 +47,6 @@ export interface HourlySlot {
 }
 
 export interface WeatherModalHourlyTempCurveProps {
-  open: boolean;
-  onClose: () => void;
   /** 24-slot hourly array, first slot = "Now". */
   slots: HourlySlot[];
   /** Current temperature (°F) from weather.now.temp */
@@ -285,8 +283,6 @@ function XAxis({ slots, activeIdx }: XAxisProps) {
 // ─── main view ────────────────────────────────────────────────────────────────
 
 export function WeatherModalHourlyTempCurve({
-  open,
-  onClose,
   slots,
   currentTemp,
   currentFeels,
@@ -302,7 +298,7 @@ export function WeatherModalHourlyTempCurve({
   const activeSlot = slots[safeIdx];
 
   return (
-    <Modal open={open} onClose={onClose} title="Weather" width={640} maxHeight={720}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* ── Readout row ──────────────────────────────────────────────────── */}
         {/* Shows the condition icon + hour label + exact temp/feels for the
@@ -441,6 +437,6 @@ export function WeatherModalHourlyTempCurve({
           <Stat label="Low" value={`${dailyLo}°`} muted />
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }

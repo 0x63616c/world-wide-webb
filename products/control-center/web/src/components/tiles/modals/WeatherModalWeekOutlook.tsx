@@ -22,7 +22,7 @@
 import type { CSSProperties } from "react";
 import type { IconName } from "@/components/Icon";
 import { Icon } from "@/components/Icon";
-import { Modal, Pill, PillTone } from "@/components/ui";
+import { Pill, PillTone } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -44,8 +44,6 @@ export interface DayForecast {
 }
 
 export interface WeatherModalWeekOutlookProps {
-  open: boolean;
-  onClose: () => void;
   /** Today's hi from weather.now , used as the today row's live anchor. */
   todayHi: number;
   /** Today's lo from weather.now , used as the today row's live anchor. */
@@ -201,13 +199,7 @@ function DayRow({ entry, index, weekMin, weekMax, isToday, todayHi, todayLo }: D
 
 // ─── modal ────────────────────────────────────────────────────────────────────
 
-export function WeatherModalWeekOutlook({
-  open,
-  onClose,
-  todayHi,
-  todayLo,
-  days,
-}: WeatherModalWeekOutlookProps) {
+export function WeatherModalWeekOutlook({ todayHi, todayLo, days }: WeatherModalWeekOutlookProps) {
   // Compute the week's min/max across all days so every bar is on a shared scale.
   // Today's live hi/lo from weather.now overrides the forecast index 0 values
   // in the bar geometry so the range is always self-consistent.
@@ -217,7 +209,7 @@ export function WeatherModalWeekOutlook({
   const weekMin = Math.min(...allLo);
 
   return (
-    <Modal open={open} onClose={onClose} title="Weather" width={640} maxHeight={760}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Section header */}
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
@@ -265,6 +257,6 @@ export function WeatherModalWeekOutlook({
           </span>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }

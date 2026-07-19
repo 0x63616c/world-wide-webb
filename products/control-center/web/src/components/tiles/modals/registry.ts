@@ -13,10 +13,8 @@ import { climateModalEntry } from "./wiring/climate";
 import { eventsModalEntry } from "./wiring/events";
 import { networkModalEntry } from "./wiring/network";
 import { next12HoursModalEntry } from "./wiring/next12hours";
-import { weatherModalEntry } from "./wiring/weather";
 
 const ENTRIES: TileModalEntry[] = [
-  weatherModalEntry,
   networkModalEntry,
   next12HoursModalEntry,
   climateModalEntry,

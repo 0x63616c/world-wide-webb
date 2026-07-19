@@ -1,5 +1,5 @@
 /**
- * Weather tile (tile_weath) , live wiring for its detail-modal variants.
+ * Weather tile (tile_weath) , live wiring for its detail-page variants.
  *
  * Data sources (all live, from the tRPC weather router):
  *  - trpc.weather.now    → temp/feels/hum/wind/cond/ic/uvIndex/precipProbability,
@@ -8,10 +8,10 @@
  *  - trpc.weather.daily  → 7-day outlook (hi/lo/weatherCode/precipProbability)
  *  - client wall clock (useNow) → nowMs for the sun-arc animation
  *
- * Pure modal views receive adapted live props; this module owns the mapping.
+ * Pure page-body views receive adapted live props; this module owns the mapping.
  */
 
-import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
+import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
 import type { ComfortBreakdownData } from "@/components/tiles/modals/WeatherModalComfortBreakdown";
 import { WeatherModalComfortBreakdown } from "@/components/tiles/modals/WeatherModalComfortBreakdown";
 import type { HourlySlot } from "@/components/tiles/modals/WeatherModalHourlyTempCurve";
@@ -24,7 +24,7 @@ import { trpc } from "@/lib/trpc";
 
 const REFETCH = { refetchInterval: POLL.weather } as const;
 
-function useWeatherVariants(): { variants: LiveVariant[]; loading: boolean } {
+function useWeatherVariants(): { variants: DetailVariant[]; loading: boolean } {
   const now = useNow();
   const weather = trpc.weather.now.useQuery(undefined, REFETCH);
   const hourly = trpc.weather.hourly.useQuery(undefined, REFETCH);
@@ -63,14 +63,12 @@ function useWeatherVariants(): { variants: LiveVariant[]; loading: boolean } {
     precipProbability: day.precipProbability,
   }));
 
-  const variants: LiveVariant[] = [
+  const variants: DetailVariant[] = [
     {
       slug: "hourly-temp-curve",
       label: "Hourly Curve",
-      render: (open, onClose) => (
+      render: () => (
         <WeatherModalHourlyTempCurve
-          open={open}
-          onClose={onClose}
           slots={slots}
           currentTemp={w.temp}
           currentFeels={w.feels}
@@ -82,17 +80,13 @@ function useWeatherVariants(): { variants: LiveVariant[]; loading: boolean } {
     {
       slug: "comfort-breakdown",
       label: "Comfort",
-      render: (open, onClose) => (
-        <WeatherModalComfortBreakdown open={open} onClose={onClose} data={comfort} />
-      ),
+      render: () => <WeatherModalComfortBreakdown data={comfort} />,
     },
     {
       slug: "sun-day-arc",
       label: "Sun Arc",
-      render: (open, onClose) => (
+      render: () => (
         <WeatherModalSunDayArc
-          open={open}
-          onClose={onClose}
           sunriseIso={w.sunriseIso}
           sunsetIso={w.sunsetIso}
           tomorrowSunriseIso={w.tomorrowSunriseIso}
@@ -103,23 +97,17 @@ function useWeatherVariants(): { variants: LiveVariant[]; loading: boolean } {
     {
       slug: "week-outlook",
       label: "Week",
-      render: (open, onClose) => (
-        <WeatherModalWeekOutlook
-          open={open}
-          onClose={onClose}
-          todayHi={w.hi}
-          todayLo={w.lo}
-          days={days}
-        />
-      ),
+      render: () => <WeatherModalWeekOutlook todayHi={w.hi} todayLo={w.lo} days={days} />,
     },
   ];
 
   return { variants, loading: false };
 }
 
-export const weatherModalEntry: TileModalEntry = {
+export const weatherDetailEntry: TileDetailPageEntry = {
+  kind: "page",
   tileId: "tile_weath",
+  title: "Weather Now",
   defaultSlug: "hourly-temp-curve",
   useVariants: useWeatherVariants,
 };

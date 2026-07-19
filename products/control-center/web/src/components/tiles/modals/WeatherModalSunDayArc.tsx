@@ -21,17 +21,15 @@
  * on the wire, with solar noon as the sunrise/sunset midpoint.
  *
  * PURE view: all data + callbacks arrive via props (no trpc/hooks). Renders
- * inside the shared <Modal> so backdrop/Escape/close are handled centrally.
+ * as a bare page body hosted by TileDetailHost.
  */
 
 import { SolarDayArcGraphic } from "@/components/SolarDayArcGraphic";
-import { Modal, Stat } from "@/components/ui";
+import { Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
 export interface WeatherModalSunDayArcProps {
-  open: boolean;
-  onClose: () => void;
   /** Today's sunrise as ISO local datetime, e.g. "2026-05-31T05:58:00" */
   sunriseIso: string;
   /** Today's sunset as ISO local datetime, e.g. "2026-05-31T20:02:00" */
@@ -71,7 +69,7 @@ function fmtIsoTime(iso: string): string {
 
 // ─── arc constants ─────────────────────────────────────────────────────────────
 
-// Modal body width: 640 panel - 40 padding = 600. The arc inset (PAD_X) keeps
+// Body width: 600 (from the old 640 modal). The arc inset (PAD_X) keeps
 // endpoint markers from clipping at the SVG edge.
 const WEATHER_ARC_DIMS = {
   svgW: 600,
@@ -84,15 +82,11 @@ const WEATHER_ARC_DIMS = {
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function WeatherModalSunDayArc({
-  open,
-  onClose,
   sunriseIso,
   sunsetIso,
   tomorrowSunriseIso,
   nowMs,
 }: WeatherModalSunDayArcProps) {
-  if (!open) return null;
-
   const sunriseMs = new Date(sunriseIso).getTime();
   const sunsetMs = new Date(sunsetIso).getTime();
   const tomorrowSunriseMs = new Date(tomorrowSunriseIso).getTime();
@@ -118,7 +112,7 @@ export function WeatherModalSunDayArc({
   const sunsetLabel = fmtIsoTime(sunsetIso);
 
   return (
-    <Modal open={open} onClose={onClose} title="Weather" width={640} maxHeight={640}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* ── Solar arc ──────────────────────────────────────────────────────── */}
         {/* The semicircle is the primary reading surface , the sun disc position
@@ -256,6 +250,6 @@ export function WeatherModalSunDayArc({
           </div>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }

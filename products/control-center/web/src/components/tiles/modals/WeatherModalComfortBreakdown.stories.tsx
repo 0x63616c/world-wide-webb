@@ -42,10 +42,23 @@ const meta = {
   title: "Modals/Weather/Comfort Breakdown",
   component: WeatherModalComfortBreakdown,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     data: mildAfternoon,
   },
 } satisfies Meta<typeof WeatherModalComfortBreakdown>;
@@ -68,15 +81,5 @@ export const OvercastBreezy: Story = {
   name: "Overcast & breezy , caution state",
   args: {
     data: overcastBreezy,
-  },
-};
-
-// ─── Closed ──────────────────────────────────────────────────────────────────
-
-export const Closed: Story = {
-  name: "Closed , renders nothing",
-  args: {
-    open: false,
-    data: mildAfternoon,
   },
 };
