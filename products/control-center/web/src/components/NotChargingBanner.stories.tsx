@@ -41,9 +41,10 @@ type Story = StoryObj<typeof meta>;
 
 // The panel reports it is not charging , a red, prominent fault banner.
 export const NotCharging: Story = {
+  args: { deviceName: "Kitchen Panel" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("status")).toBeInTheDocument();
-    await expect(canvas.getByText(/not connected to power/i)).toBeInTheDocument();
+    await expect(canvas.getByText(/Kitchen Panel is not connected to power/i)).toBeInTheDocument();
   },
 };

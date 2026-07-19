@@ -1,10 +1,14 @@
 import { useEffect } from "react";
+import { useDeviceName } from "../lib/device-name";
 import { useBatteryInfo } from "../lib/useBatteryInfo";
 import { useNotifications } from "../lib/useNotifications";
 
 const NOTIF_ID = "battery-not-charging";
-// Single source of truth so the DOM and the shared notifications store stay in sync.
-const MESSAGE = "iPad is not connected to power or charging properly";
+// Single source of truth so the DOM and the shared notifications store stay in
+// sync. Named after the device rather than a hardcoded "iPad" so a push landing
+// on a phone says which panel is unplugged.
+const message = (deviceName: string) =>
+  `${deviceName} is not connected to power or charging properly`;
 
 /**
  * Prominent red banner (top-right inside .board) shown when the panel's own
@@ -22,25 +26,27 @@ export function NotChargingBanner() {
   // row), so this polls every 60s continuously.
   const battery = useBatteryInfo(true);
   const { raiseNotification, clearNotification } = useNotifications();
+  // Effective name, never empty (falls back to the platform default).
+  const { name: deviceName } = useDeviceName();
 
   // null = unknown (off-device / unreadable battery) → treat as NOT a warning.
   const notCharging = battery !== null && battery.isCharging === false;
 
   useEffect(() => {
     if (notCharging) {
-      raiseNotification({ id: NOTIF_ID, message: MESSAGE });
+      raiseNotification({ id: NOTIF_ID, message: message(deviceName) });
     } else {
       clearNotification(NOTIF_ID);
     }
-  }, [notCharging, raiseNotification, clearNotification]);
+  }, [notCharging, deviceName, raiseNotification, clearNotification]);
 
   if (!notCharging) return null;
 
-  return <NotChargingBannerView />;
+  return <NotChargingBannerView deviceName={deviceName} />;
 }
 
 /** Presentational banner, exported for Storybook. */
-export function NotChargingBannerView() {
+export function NotChargingBannerView({ deviceName }: { deviceName: string }) {
   return (
     <div
       role="status"
@@ -77,7 +83,7 @@ export function NotChargingBannerView() {
           flexShrink: 0,
         }}
       />
-      <span>{MESSAGE}</span>
+      <span>{message(deviceName)}</span>
     </div>
   );
 }
