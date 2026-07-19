@@ -38,3 +38,7 @@ export const Crisp: Story = {
 export const Accent: Story = {
   args: { qrStyle: "accent" },
 };
+
+export const Apple: Story = {
+  args: { qrStyle: "apple" },
+};

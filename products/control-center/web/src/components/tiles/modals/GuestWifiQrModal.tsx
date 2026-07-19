@@ -25,12 +25,10 @@ export function GuestWifiQrModal({ open, onClose, qrValue, qrStyle }: GuestWifiQ
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: 18,
-          padding: "10px 0 18px",
+          padding: "10px 0 22px",
         }}
       >
         <GuestWifiQr value={qrValue} size={280} qrStyle={qrStyle} />
-        <div className="cap">point your camera · joins automatically</div>
       </div>
     </Modal>
   );
