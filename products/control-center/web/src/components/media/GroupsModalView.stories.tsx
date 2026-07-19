@@ -1,6 +1,9 @@
 /**
  * Stories for GroupsModalView (www-51hf).
- * Patch-bay: sources on the left, real speaker/room list on the right.
+ * Patch-bay: sources on the left, real speaker/room list on the right. The
+ * component is a bare page body now (hosted by TileDetailHost in the app), so
+ * stories mount it inside a plain page-sized container matching the host's
+ * content region.
  *
  * Fixture uuids/track lines are real, live-verified 2026-07-11 values (see
  * DESK_LINE_IN_UUID / BEAM_UUID in lib/sonos-constants.ts for the two hardware
@@ -8,6 +11,7 @@
  */
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
+import { modalDocsParameters } from "../tiles/__stories__/factory";
 import { GroupsModalView } from "./GroupsModalView";
 import { BEAM_UUID, DESK_LINE_IN_UUID } from "./lib/sonos-constants";
 
@@ -60,16 +64,23 @@ const meta = {
   title: "Media/GroupsModalView",
   component: GroupsModalView,
   tags: ["autodocs"],
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
   decorators: [
     (Story) => (
-      <div style={{ width: 700, height: 800, background: "#111", position: "relative" }}>
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
         <Story />
       </div>
     ),
   ],
   args: {
-    open: true,
-    onClose: fn(),
     speakers,
     onSelectSource: fn(),
     onTapSpeaker: fn(),
@@ -96,16 +107,14 @@ export const FloorSilent: Story = {
     },
     selectedSourceId: "src_desk_linein",
   },
-  play: async () => {
-    const dialog = document.body.querySelector("[role='dialog']");
-    await expect(dialog).toBeTruthy();
+  play: async ({ canvasElement }) => {
     // The TV source (Apple TV off) is rendered disabled and reads "Off".
-    const tvBtn = dialog?.querySelector<HTMLButtonElement>(
+    const tvBtn = canvasElement.querySelector<HTMLButtonElement>(
       "[aria-label='Select Living Room · TV']",
     );
     await expect(tvBtn).toBeTruthy();
     await expect(tvBtn?.disabled).toBe(true);
-    await expect(dialog?.textContent).toContain("Off");
+    await expect(canvasElement.textContent).toContain("Off");
   },
 };
 

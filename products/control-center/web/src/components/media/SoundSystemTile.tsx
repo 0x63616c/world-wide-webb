@@ -5,16 +5,16 @@
  * are infrequent). Renders Skeleton while pending/error (A18). On success passes
  * all rooms to useMixer for local gang-lock state, then renders SoundSystemTileView.
  *
- * Tapping the tile opens the GroupsModal (patch-bay source/speaker routing). The
- * old MixerModal and per-room SourceModal were removed , the Groups modal is the
- * one control surface that matters (www-tvoff).
+ * Tapping the tile opens the full-page Groups detail (patch-bay source/speaker
+ * routing) via the board's tile-detail registry (wired in
+ * detail/wiring/sound.tsx). The old MixerModal and per-room SourceModal were
+ * removed , the Groups page is the one control surface that matters (www-tvoff).
  */
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";
-import { GroupsModal } from "./GroupsModal";
 import { useMixer } from "./hooks/useMixer";
 import { useThrottledVolume } from "./hooks/useThrottledVolume";
 import { SoundSystemTileView } from "./SoundSystemTileView";
@@ -27,8 +27,6 @@ export function SoundSystemTile() {
   });
   const q = useTileQuery(query);
   const { dataUpdatedAt } = query;
-
-  const [groupsOpen, setGroupsOpen] = useState(false);
 
   const setVolMutation = trpc.media.sonosSetVolume.useMutation();
 
@@ -68,7 +66,6 @@ export function SoundSystemTile() {
         onFaderChange={() => {}}
         onToggleGlobalLock={() => {}}
         onToggleGroupLock={() => {}}
-        onOpenGroups={() => {}}
       />
     );
   }
@@ -85,26 +82,16 @@ export function SoundSystemTile() {
   }
 
   return (
-    <>
-      <SoundSystemTileView
-        status={q.status}
-        rooms={rooms}
-        vols={mixer.vols}
-        mutes={mixer.mutes}
-        globalLock={mixer.globalLock}
-        groupLock={mixer.groupLock}
-        onFaderChange={handleFaderChange}
-        onToggleGlobalLock={() => mixer.setGlobalLock(!mixer.globalLock)}
-        onToggleGroupLock={mixer.toggleGroupLock}
-        onOpenGroups={() => setGroupsOpen(true)}
-      />
-
-      <GroupsModal
-        open={groupsOpen}
-        onClose={() => setGroupsOpen(false)}
-        rooms={rooms}
-        dataUpdatedAt={dataUpdatedAt}
-      />
-    </>
+    <SoundSystemTileView
+      status={q.status}
+      rooms={rooms}
+      vols={mixer.vols}
+      mutes={mixer.mutes}
+      globalLock={mixer.globalLock}
+      groupLock={mixer.groupLock}
+      onFaderChange={handleFaderChange}
+      onToggleGlobalLock={() => mixer.setGlobalLock(!mixer.globalLock)}
+      onToggleGroupLock={mixer.toggleGroupLock}
+    />
   );
 }

@@ -1,5 +1,6 @@
 /**
- * GroupsModal , container for the Sonos Groups modal (www-51hf, Task 7).
+ * GroupsModal , container for the Sonos Groups detail page body (www-51hf,
+ * Task 7).
  *
  * Wires the pure derivation (deriveSources/membershipByUuid, Tasks 5/6) and the
  * optimistic membership hook (useGroupMembership, www-tavs-style stale-poll
@@ -7,11 +8,13 @@
  * sonosGroupJoin/sonosGroupLeave for join/leave, sonosGrabTvToBeam for the
  * TV-hijack step that must land BEFORE a join targets the TV source.
  *
- * rooms/dataUpdatedAt are passed down from SoundSystemTile's existing
- * media.soundSystem query , this container does NOT run a second poll.
+ * rooms/dataUpdatedAt come from the detail wiring's media.soundSystem query
+ * (detail/wiring/sound.tsx). Mounted only while the page is open, so mount is
+ * the old open-rising-edge: the default source selection is computed in the
+ * useState initializer.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { GroupsModalView } from "./GroupsModalView";
 import { useGroupMembership } from "./hooks/useGroupMembership";
@@ -20,8 +23,6 @@ import { deriveSources, membershipByUuid } from "./lib/derive-sources";
 import { BEAM_UUID, DESK_LINE_IN_UUID } from "./lib/sonos-constants";
 
 export interface GroupsModalProps {
-  open: boolean;
-  onClose: () => void;
   rooms: SoundSystemRoom[];
   dataUpdatedAt: number;
 }
@@ -34,7 +35,7 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : "Something went wrong";
 }
 
-export function GroupsModal({ open, onClose, rooms, dataUpdatedAt }: GroupsModalProps) {
+export function GroupsModal({ rooms, dataUpdatedAt }: GroupsModalProps) {
   const utils = trpc.useUtils();
 
   const sources = deriveSources(rooms);
@@ -42,18 +43,11 @@ export function GroupsModal({ open, onClose, rooms, dataUpdatedAt }: GroupsModal
   const { member, setMember } = useGroupMembership(polled, dataUpdatedAt);
 
   // Default selection (first playing source, else the Desk hardware card) is
-  // recomputed every time the modal transitions to open, not just at mount ,
-  // otherwise a stale selection from a previous open lingers.
+  // computed at mount. The page fully unmounts on close, so mount IS the old
+  // open-rising-edge , and a live poll update never yanks the user's manual
+  // selection while the page is open.
   const [selectedSourceId, setSelectedSourceId] = useState<string>(() => defaultSourceId(sources));
   const [errorText, setErrorText] = useState<string | null>(null);
-
-  // Only the open-rising-edge should reset selection; `sources` is
-  // intentionally excluded so a live poll update never yanks the user's
-  // manual selection while the modal is open.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
-  useEffect(() => {
-    if (open) setSelectedSourceId(defaultSourceId(sources));
-  }, [open]);
 
   const invalidate = () => {
     utils.media.soundSystem.invalidate();
@@ -163,8 +157,6 @@ export function GroupsModal({ open, onClose, rooms, dataUpdatedAt }: GroupsModal
 
   return (
     <GroupsModalView
-      open={open}
-      onClose={onClose}
       sources={sources}
       member={member}
       speakers={rooms.map((r) => ({ uuid: r.uuid, name: r.name }))}

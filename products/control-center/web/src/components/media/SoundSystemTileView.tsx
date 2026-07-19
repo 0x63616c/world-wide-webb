@@ -10,8 +10,9 @@
  * Faders are custom-drawn and pointer/keyboard draggable , a native range can't be
  * styled to the design and (www-tdad) overflows the card in vertical writing mode.
  *
- * Tapping the tile surface opens the Groups modal (the per-room Source picker and
- * the old Mixer modal were both removed , www-tvoff).
+ * Tapping the tile surface opens the full-page Groups detail via the board's
+ * tile-detail registry (the per-room Source picker and the old Mixer modal were
+ * both removed , www-tvoff).
  *
  * Pure presentational , no tRPC. The container (SoundSystemTile) wires the data.
  */
@@ -49,8 +50,6 @@ export interface SoundSystemTileViewProps {
   onFaderChange: (uuid: string, value: number) => void;
   onToggleGlobalLock: () => void;
   onToggleGroupLock: () => void;
-  /** Open the Groups modal (patch-bay source/speaker routing) , the tile's tap surface. */
-  onOpenGroups: () => void;
 }
 
 /** A room is "active" (boxed in the accent panel) when its group is playing. */
@@ -338,13 +337,12 @@ export function SoundSystemTileView({
   onFaderChange,
   onToggleGlobalLock,
   onToggleGroupLock,
-  onOpenGroups,
 }: SoundSystemTileViewProps) {
-  // The tile owns its tap surface: tapping it (outside the faders/lock button)
-  // opens the Groups modal , the canonical `ownsTap` detail-modal pattern.
+  // Tapping the tile (outside the faders/lock buttons) bubbles to the board,
+  // which opens the full-page Groups detail via the tile-detail registry.
   if (status !== "populated") {
     return (
-      <Tile padding={18} style={{ gap: 0 }} onClick={onOpenGroups}>
+      <Tile padding={18} style={{ gap: 0 }}>
         <TileHeader
           icon="speaker"
           title="Sound System"
@@ -365,7 +363,7 @@ export function SoundSystemTileView({
   const showGroupLock = active.length > 1;
 
   return (
-    <Tile padding={18} style={{ gap: 0 }} onClick={onOpenGroups}>
+    <Tile padding={18} style={{ gap: 0 }}>
       <TileHeader
         icon="speaker"
         title="Sound System"

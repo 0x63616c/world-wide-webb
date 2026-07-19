@@ -1,5 +1,6 @@
 /**
- * Tests for GroupsModal , container for the Sonos Groups modal (www-51hf, Task 7).
+ * Tests for GroupsModal , container for the Sonos Groups detail page body
+ * (www-51hf, Task 7).
  *
  * Wires deriveSources/membershipByUuid/useGroupMembership to GroupsModalView and
  * fires the sonosGroupJoin/sonosGroupLeave/sonosGrabTvToBeam mutations. Mocks
@@ -13,19 +14,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { GroupsModal } from "../GroupsModal";
 import type { SoundSystemRoom } from "../lib/derive-sources";
 import { BEAM_UUID, DESK_LINE_IN_UUID } from "../lib/sonos-constants";
-
-// ── Mock portals and modal-open-store for modal rendering ────────────────────
-vi.mock("react-dom", async (importOriginal) => {
-  const original = await importOriginal<typeof import("react-dom")>();
-  return {
-    ...original,
-    createPortal: (node: React.ReactNode) => node,
-  };
-});
-
-vi.mock("@/lib/modal-open-store", () => ({
-  registerOpenModal: vi.fn(() => () => {}),
-}));
 
 // ── Mock tRPC ─────────────────────────────────────────────────────────────────
 
@@ -166,14 +154,7 @@ const kitchen = room({
 
 describe("GroupsModal , join (idle speaker tap)", () => {
   it("fires sonosGroupJoin with the selected source's anchorUuid and shows optimistic LED", async () => {
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[desk, tv, bedroom, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
+    render(<GroupsModal rooms={[desk, tv, bedroom, kitchen]} dataUpdatedAt={1000} />);
 
     // Default selection: no source is playing -> falls back to src_desk_linein.
     // Desk's sourceKind is "idle" in this fixture, so a line-in grab lands
@@ -194,14 +175,7 @@ describe("GroupsModal , leave (member speaker tap)", () => {
   it("fires sonosGroupLeave for a room already following the selected source", async () => {
     const deskPlaying = room({ ...desk, transportState: "PLAYING", sourceKind: "line-in" });
     const bedroomJoined = { ...bedroom, coordinatorUuid: DESK_LINE_IN_UUID };
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[deskPlaying, tv, bedroomJoined, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
+    render(<GroupsModal rooms={[deskPlaying, tv, bedroomJoined, kitchen]} dataUpdatedAt={1000} />);
 
     // Desk is playing -> it's the default selection, and bedroom already follows it.
     expect(screen.getByLabelText("Bedroom, following Desk")).toBeInTheDocument();
@@ -223,14 +197,7 @@ describe("GroupsModal , leave (member speaker tap)", () => {
 // still applies (the Desk card stays selectable while idle).
 describe("GroupsModal , Desk line-in grab symmetry", () => {
   it("awaits sonosSetLineIn before firing sonosGroupJoin when the desk isn't already on line-in", async () => {
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[desk, tv, bedroom, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
+    render(<GroupsModal rooms={[desk, tv, bedroom, kitchen]} dataUpdatedAt={1000} />);
 
     // Default selection is Desk (nothing playing), desk sourceKind is "idle".
     fireEvent.click(screen.getByLabelText("Bedroom, off"));
@@ -251,14 +218,7 @@ describe("GroupsModal , Desk line-in grab symmetry", () => {
 
   it("does not grab the desk line-in when it's already on line-in", async () => {
     const deskOnLineIn = room({ ...desk, sourceKind: "line-in" });
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[deskOnLineIn, tv, bedroom, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
+    render(<GroupsModal rooms={[deskOnLineIn, tv, bedroom, kitchen]} dataUpdatedAt={1000} />);
 
     fireEvent.click(screen.getByLabelText("Bedroom, off"));
 
@@ -268,14 +228,7 @@ describe("GroupsModal , Desk line-in grab symmetry", () => {
 
   it("aborts the join and reverts the optimistic LED when the desk grab rejects", async () => {
     mockSetLineInMutateAsync.mockRejectedValueOnce(new Error("desk grab failed"));
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[desk, tv, bedroom, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
+    render(<GroupsModal rooms={[desk, tv, bedroom, kitchen]} dataUpdatedAt={1000} />);
 
     fireEvent.click(screen.getByLabelText("Bedroom, off"));
 
@@ -292,14 +245,7 @@ describe("GroupsModal , join/leave mutation error reverts optimistic state", () 
       throw new Error("join failed");
     });
     const deskOnLineIn = room({ ...desk, sourceKind: "line-in" });
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[deskOnLineIn, tv, bedroom, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
+    render(<GroupsModal rooms={[deskOnLineIn, tv, bedroom, kitchen]} dataUpdatedAt={1000} />);
 
     fireEvent.click(screen.getByLabelText("Bedroom, off"));
 
@@ -313,14 +259,7 @@ describe("GroupsModal , join/leave mutation error reverts optimistic state", () 
     });
     const deskPlaying = room({ ...desk, transportState: "PLAYING", sourceKind: "line-in" });
     const bedroomJoined = { ...bedroom, coordinatorUuid: DESK_LINE_IN_UUID };
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[deskPlaying, tv, bedroomJoined, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
+    render(<GroupsModal rooms={[deskPlaying, tv, bedroomJoined, kitchen]} dataUpdatedAt={1000} />);
 
     fireEvent.click(screen.getByLabelText("Bedroom, following Desk"));
 
@@ -339,12 +278,7 @@ describe("GroupsModal , anchor captured by another group", () => {
 
   it("tapping the captured anchor with its own source selected fires sonosGroupLeave", async () => {
     render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[deskCaptured, tvPlaying, bedroom, kitchen]}
-        dataUpdatedAt={1000}
-      />,
+      <GroupsModal rooms={[deskCaptured, tvPlaying, bedroom, kitchen]} dataUpdatedAt={1000} />,
     );
 
     // Select the Desk source, then tap the Desk speaker row (currently
@@ -362,14 +296,7 @@ describe("GroupsModal , anchor captured by another group", () => {
   });
 
   it("tapping a standalone anchor with its own source selected stays a no-op", () => {
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[desk, tv, bedroom, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
+    render(<GroupsModal rooms={[desk, tv, bedroom, kitchen]} dataUpdatedAt={1000} />);
 
     // Default selection is Desk; the Desk row anchors it and stands alone.
     fireEvent.click(screen.getByLabelText("Desk, following Desk"));
@@ -381,14 +308,7 @@ describe("GroupsModal , anchor captured by another group", () => {
 
 describe("GroupsModal , invalidate", () => {
   it("invalidates soundSystem after a join mutation settles", async () => {
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[desk, tv, bedroom, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
+    render(<GroupsModal rooms={[desk, tv, bedroom, kitchen]} dataUpdatedAt={1000} />);
     fireEvent.click(screen.getByLabelText("Bedroom, off"));
     await waitFor(() => expect(mockInvalidate).toHaveBeenCalled());
   });
@@ -396,14 +316,7 @@ describe("GroupsModal , invalidate", () => {
   it("invalidates soundSystem after a leave mutation settles", async () => {
     const deskPlaying = room({ ...desk, transportState: "PLAYING", sourceKind: "line-in" });
     const bedroomJoined = { ...bedroom, coordinatorUuid: DESK_LINE_IN_UUID };
-    render(
-      <GroupsModal
-        open
-        onClose={vi.fn()}
-        rooms={[deskPlaying, tv, bedroomJoined, kitchen]}
-        dataUpdatedAt={1000}
-      />,
-    );
+    render(<GroupsModal rooms={[deskPlaying, tv, bedroomJoined, kitchen]} dataUpdatedAt={1000} />);
     fireEvent.click(screen.getByLabelText("Bedroom, following Desk"));
     expect(mockInvalidate).toHaveBeenCalled();
   });

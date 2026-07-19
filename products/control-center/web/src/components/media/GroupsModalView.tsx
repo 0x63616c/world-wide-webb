@@ -1,5 +1,5 @@
 /**
- * GroupsModalView , patch-bay presentational modal for Sonos groups (www-51hf).
+ * GroupsModalView , patch-bay presentational view for Sonos groups (www-51hf).
  *
  * Two-column layout: Sources (the small set of things that can drive a group ,
  * hardware floor cards + live sessions, see deriveSources) on the left, the
@@ -8,17 +8,16 @@
  *
  * Pure presentational , no tRPC, no data hooks. All state (selection, group
  * membership) is driven by props; the container (Task 7) owns the mutations.
+ * Bare page body (no <Modal>) , hosted by TileDetailHost, which supplies the
+ * page shell, header, and scrolling.
  */
 
 import type { CSSProperties } from "react";
-import { Modal } from "@/components/ui";
 import type { GroupSource, SourceKind } from "./lib/derive-sources";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface GroupsModalViewProps {
-  open: boolean;
-  onClose: () => void;
   sources: GroupSource[];
   /** room uuid -> source id | null (optimistic state from useGroupMembership). */
   member: Record<string, string | null>;
@@ -292,8 +291,6 @@ function ColumnLabel({ children }: { children: string }) {
 // ── Main view ─────────────────────────────────────────────────────────────────
 
 export function GroupsModalView({
-  open,
-  onClose,
   sources,
   member,
   speakers,
@@ -305,7 +302,7 @@ export function GroupsModalView({
   const selectedSource = sources.find((s) => s.id === selectedSourceId);
 
   return (
-    <Modal open={open} onClose={onClose} title="Groups" width={640} maxHeight={760}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <style>{`
         @keyframes gmEq {
           0%, 100% { height: 5px; }
@@ -378,6 +375,6 @@ export function GroupsModalView({
       {errorText && (
         <div style={{ marginTop: 12, fontSize: 11, color: "var(--amber)" }}>{errorText}</div>
       )}
-    </Modal>
+    </div>
   );
 }

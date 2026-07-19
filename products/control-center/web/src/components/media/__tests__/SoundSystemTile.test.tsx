@@ -51,7 +51,6 @@ const baseProps: SoundSystemTileViewProps = {
   onFaderChange: vi.fn(),
   onToggleGlobalLock: vi.fn(),
   onToggleGroupLock: vi.fn(),
-  onOpenGroups: vi.fn(),
 };
 
 describe("SoundSystemTileView , loading/error", () => {
@@ -67,7 +66,6 @@ describe("SoundSystemTileView , loading/error", () => {
         onFaderChange={vi.fn()}
         onToggleGlobalLock={vi.fn()}
         onToggleGroupLock={vi.fn()}
-        onOpenGroups={vi.fn()}
       />,
     );
     expect(
@@ -104,18 +102,6 @@ describe("SoundSystemTileView , populated (A22)", () => {
     render(<SoundSystemTileView {...baseProps} onToggleGlobalLock={onToggleGlobalLock} />);
     fireEvent.click(screen.getByLabelText(/link all|global link/i));
     expect(onToggleGlobalLock).toHaveBeenCalledTimes(1);
-  });
-
-  it("calls onOpenGroups when the tile surface is tapped", () => {
-    const onOpenGroups = vi.fn();
-    const { container } = render(
-      <SoundSystemTileView {...baseProps} onOpenGroups={onOpenGroups} />,
-    );
-    // The tile owns its tap surface (ownsTap) , tapping it opens the Groups modal.
-    const tile = container.querySelector(".tile");
-    expect(tile).not.toBeNull();
-    fireEvent.click(tile as Element);
-    expect(onOpenGroups).toHaveBeenCalledTimes(1);
   });
 
   it("does not render a per-room source trigger (Source picker removed)", () => {
