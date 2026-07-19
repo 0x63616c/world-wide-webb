@@ -16,7 +16,6 @@ import { interaction } from "./log/interaction";
 import { log } from "./log/logger";
 import {
   type NotificationCategory,
-  parseClock,
   parseMutedCategories,
   serializeMutedCategories,
   toggleMutedCategory,
@@ -77,12 +76,6 @@ export interface Settings {
    *  as a string because the store holds only primitives , parse/serialize via
    *  parseMutedCategories/serializeMutedCategories in lib/notifications.ts. */
   mutedCategories: string;
-  /** When true, notifications raised inside the quiet window stay silent. */
-  quietHoursEnabled: boolean;
-  /** Quiet window start, "HH:MM" local. Wraps midnight when after the end. */
-  quietHoursStart: string;
-  /** Quiet window end, "HH:MM" local. */
-  quietHoursEnd: string;
 }
 
 export const MIN_IDLE_TIMEOUT_MS = 60_000; // 1 min
@@ -110,9 +103,6 @@ const DEFAULTS: Settings = {
   pinCode: DEFAULT_PIN,
   pushEnabled: false,
   mutedCategories: "",
-  quietHoursEnabled: false,
-  quietHoursStart: "22:00",
-  quietHoursEnd: "07:00",
 };
 
 // `cc-board-snap-mode` is reused verbatim so an existing SnapModeSwitcher choice
@@ -131,9 +121,6 @@ const KEYS = {
   pinCode: "cc-pin-code",
   pushEnabled: "cc-push-enabled",
   mutedCategories: "cc-muted-categories",
-  quietHoursEnabled: "cc-quiet-hours-enabled",
-  quietHoursStart: "cc-quiet-hours-start",
-  quietHoursEnd: "cc-quiet-hours-end",
 } as const;
 
 /**
@@ -148,13 +135,7 @@ const KEYS = {
  * `pushEnabled` is device-local BY DESIGN, not merely pending: an APNs token
  * belongs to one panel, so "push on" can never be a global truth.
  */
-const LOCAL_ONLY_KEYS = new Set<keyof Settings>([
-  "pushEnabled",
-  "mutedCategories",
-  "quietHoursEnabled",
-  "quietHoursStart",
-  "quietHoursEnd",
-]);
+const LOCAL_ONLY_KEYS = new Set<keyof Settings>(["pushEnabled", "mutedCategories"]);
 
 // ─── clamps ───────────────────────────────────────────────────────────────────
 
@@ -205,9 +186,6 @@ function loadInitial(): Settings {
   const pin = readRaw(KEYS.pinCode);
   const push = readRaw(KEYS.pushEnabled);
   const muted = readRaw(KEYS.mutedCategories);
-  const quietEnabled = readRaw(KEYS.quietHoursEnabled);
-  const quietStart = readRaw(KEYS.quietHoursStart);
-  const quietEnd = readRaw(KEYS.quietHoursEnd);
   return {
     activeBrightness:
       brightness === null ? DEFAULTS.activeBrightness : clampBrightness(Number(brightness)),
@@ -236,10 +214,6 @@ function loadInitial(): Settings {
       muted === null
         ? DEFAULTS.mutedCategories
         : serializeMutedCategories(parseMutedCategories(muted)),
-    quietHoursEnabled: quietEnabled === null ? DEFAULTS.quietHoursEnabled : quietEnabled === "true",
-    quietHoursStart:
-      quietStart && parseClock(quietStart) !== null ? quietStart : DEFAULTS.quietHoursStart,
-    quietHoursEnd: quietEnd && parseClock(quietEnd) !== null ? quietEnd : DEFAULTS.quietHoursEnd,
   };
 }
 
@@ -387,22 +361,6 @@ export function setPushEnabled(v: boolean): void {
 export function setCategoryMuted(category: NotificationCategory, muted: boolean): void {
   const next = toggleMutedCategory(state.mutedCategories, category, muted);
   patch("mutedCategories", next, next);
-}
-
-export function setQuietHoursEnabled(v: boolean): void {
-  patch("quietHoursEnabled", v, String(v));
-}
-
-/** Set the quiet-window start. No-op on a malformed "HH:MM" (schema guard). */
-export function setQuietHoursStart(hhmm: string): void {
-  if (parseClock(hhmm) === null) return;
-  patch("quietHoursStart", hhmm, hhmm);
-}
-
-/** Set the quiet-window end. No-op on a malformed "HH:MM" (schema guard). */
-export function setQuietHoursEnd(hhmm: string): void {
-  if (parseClock(hhmm) === null) return;
-  patch("quietHoursEnd", hhmm, hhmm);
 }
 
 /** The muted categories as a parsed list , the form every consumer wants. */

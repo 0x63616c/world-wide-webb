@@ -1,5 +1,5 @@
 /**
- * Notifications settings page , three sections:
+ * Notifications settings page , two sections:
  *
  *  1. Active , the live board-wide alerts from the shared `useNotifications`
  *     store, each dismissible in place (unchanged behaviour). These are the
@@ -7,7 +7,6 @@
  *     single "nothing active" row rather than an invented sample.
  *  2. Push notifications , an enable switch that drives the OS permission
  *     prompt + APNs token registration, plus per-category mutes.
- *  3. Quiet hours , the window during which raised notifications stay silent.
  *
  * Push support is probed once on mount: off the native shell (browser, dev,
  * Storybook) there is nothing to enable, so the switch is disabled and says so
@@ -15,59 +14,18 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Switch, TextInput } from "@/components/ui";
+import { Switch } from "@/components/ui";
 import {
   CATEGORY_LABEL,
   NOTIFICATION_CATEGORIES,
   type NotificationCategory,
-  parseClock,
   parseMutedCategories,
 } from "@/lib/notifications";
 import { enablePush, isPushSupported } from "@/lib/push";
-import {
-  setCategoryMuted,
-  setPushEnabled,
-  setQuietHoursEnabled,
-  setQuietHoursEnd,
-  setQuietHoursStart,
-  useSettings,
-} from "@/lib/settings";
+import { setCategoryMuted, setPushEnabled, useSettings } from "@/lib/settings";
 import { trpc } from "@/lib/trpc";
 import { useNotifications } from "@/lib/useNotifications";
 import { ActionButton, RowShell, SectionCard } from "../blocks";
-
-/**
- * An "HH:MM" field that keeps a local draft while typing.
- *
- * The store's setter rejects a malformed time (schema guard), so binding the
- * input straight to it would freeze the field the instant a keystroke made the
- * value transiently invalid , you could never edit "22:00" at all. The draft
- * absorbs those intermediate states and only commits once the value parses.
- */
-function TimeField({
-  value,
-  onCommit,
-  label,
-}: {
-  value: string;
-  onCommit: (next: string) => void;
-  label: string;
-}) {
-  const [draft, setDraft] = useState<string | null>(null);
-  return (
-    <div style={{ width: 96 }}>
-      <TextInput
-        value={draft ?? value}
-        label={label}
-        placeholder="22:00"
-        onChange={(next) => {
-          setDraft(next);
-          if (parseClock(next) !== null) onCommit(next);
-        }}
-      />
-    </div>
-  );
-}
 
 export function NotificationsPage() {
   const { notifications, clearNotification } = useNotifications();
@@ -173,47 +131,6 @@ export function NotificationsPage() {
               }
             />
           )),
-        ]}
-      </SectionCard>
-
-      <SectionCard title="Quiet hours">
-        {[
-          <RowShell
-            key="quiet-enabled"
-            label="Quiet hours"
-            sub="Notifications raised inside the window stay silent"
-            control={
-              <Switch
-                checked={settings.quietHoursEnabled}
-                onChange={setQuietHoursEnabled}
-                label="Quiet hours"
-              />
-            }
-          />,
-          <RowShell
-            key="quiet-start"
-            label="Starts"
-            sub="24-hour time, e.g. 22:00"
-            control={
-              <TimeField
-                value={settings.quietHoursStart}
-                onCommit={setQuietHoursStart}
-                label="Quiet hours start"
-              />
-            }
-          />,
-          <RowShell
-            key="quiet-end"
-            label="Ends"
-            sub="Wraps past midnight when it's earlier than the start"
-            control={
-              <TimeField
-                value={settings.quietHoursEnd}
-                onCommit={setQuietHoursEnd}
-                label="Quiet hours end"
-              />
-            }
-          />,
         ]}
       </SectionCard>
     </div>

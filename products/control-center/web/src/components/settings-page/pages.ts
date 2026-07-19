@@ -54,7 +54,7 @@ export const PAGES: PageDef[] = [
     label: "Notifications",
     icon: "bell",
     tint: "#c95c5c",
-    blurb: "Push, mutes, and quiet hours",
+    blurb: "Push and category mutes",
   },
   {
     key: "security",

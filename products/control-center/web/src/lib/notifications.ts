@@ -176,39 +176,3 @@ export function toggleMutedCategory(
   else current.delete(category);
   return serializeMutedCategories([...current]);
 }
-
-// ─── quiet hours ──────────────────────────────────────────────────────────────
-
-/** Minutes-since-midnight for "HH:MM"; null when the input isn't a valid time. */
-export function parseClock(hhmm: string): number | null {
-  const m = /^(\d{2}):(\d{2})$/.exec(hhmm);
-  if (!m) return null;
-  const h = Number(m[1]);
-  const min = Number(m[2]);
-  if (h > 23 || min > 59) return null;
-  return h * 60 + min;
-}
-
-/**
- * Is `now` inside the quiet window? The window WRAPS midnight (22:00→07:00 is
- * the common case), so a start later than the end means "either side of
- * midnight" rather than an empty range. A start equal to the end is treated as
- * an empty window (quiet hours effectively off) rather than all-day silence ,
- * silencing the panel for 24h is never what an accidental equal pair means.
- */
-export function isWithinQuietHours(nowHHMM: string, start: string, end: string): boolean {
-  const now = parseClock(nowHHMM);
-  const from = parseClock(start);
-  const to = parseClock(end);
-  if (now === null || from === null || to === null) return false;
-  if (from === to) return false;
-  if (from < to) return now >= from && now < to;
-  return now >= from || now < to;
-}
-
-/** "HH:MM" for a Date, in local time , the form quiet-hours settings store. */
-export function clockOf(date: Date): string {
-  const h = String(date.getHours()).padStart(2, "0");
-  const m = String(date.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
-}

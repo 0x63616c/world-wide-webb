@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   applyMutes,
-  clockOf,
   isDismissed,
   isUnread,
-  isWithinQuietHours,
   type NotificationItem,
   notificationAge,
-  parseClock,
   parseMutedCategories,
   serializeMutedCategories,
   sortNewestFirst,
@@ -176,53 +173,5 @@ describe("muted-category codec", () => {
 
   it("unmuting something already unmuted is a no-op", () => {
     expect(toggleMutedCategory("ci", "home", false)).toBe("ci");
-  });
-});
-
-describe("parseClock", () => {
-  it("parses a valid time to minutes since midnight", () => {
-    expect(parseClock("22:30")).toBe(22 * 60 + 30);
-    expect(parseClock("00:00")).toBe(0);
-  });
-
-  it("rejects out-of-range and malformed values", () => {
-    expect(parseClock("24:00")).toBeNull();
-    expect(parseClock("12:60")).toBeNull();
-    expect(parseClock("9:30")).toBeNull();
-    expect(parseClock("")).toBeNull();
-  });
-});
-
-describe("isWithinQuietHours", () => {
-  it("handles a same-day window", () => {
-    expect(isWithinQuietHours("13:00", "09:00", "17:00")).toBe(true);
-    expect(isWithinQuietHours("08:59", "09:00", "17:00")).toBe(false);
-  });
-
-  it("handles a window that wraps midnight", () => {
-    expect(isWithinQuietHours("23:30", "22:00", "07:00")).toBe(true);
-    expect(isWithinQuietHours("03:00", "22:00", "07:00")).toBe(true);
-    expect(isWithinQuietHours("12:00", "22:00", "07:00")).toBe(false);
-  });
-
-  it("includes the start and excludes the end", () => {
-    expect(isWithinQuietHours("22:00", "22:00", "07:00")).toBe(true);
-    expect(isWithinQuietHours("07:00", "22:00", "07:00")).toBe(false);
-  });
-
-  it("treats an equal start and end as OFF, never as 24h of silence", () => {
-    expect(isWithinQuietHours("12:00", "22:00", "22:00")).toBe(false);
-  });
-
-  it("is false when any input is malformed", () => {
-    expect(isWithinQuietHours("nope", "22:00", "07:00")).toBe(false);
-    expect(isWithinQuietHours("12:00", "bad", "07:00")).toBe(false);
-  });
-});
-
-describe("clockOf", () => {
-  it("zero-pads to HH:MM", () => {
-    expect(clockOf(new Date(2026, 6, 18, 9, 5))).toBe("09:05");
-    expect(clockOf(new Date(2026, 6, 18, 22, 30))).toBe("22:30");
   });
 });
