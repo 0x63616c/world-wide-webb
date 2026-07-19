@@ -1,25 +1,48 @@
 /**
- * Stories drive the REAL logger rather than handing the modal a fixture array:
+ * Stories drive the REAL logger rather than handing the view a fixture array:
  * the component reads from the live ring buffer via useSyncExternalStore, so the
  * only honest way to render it is to log things and let it observe them. That
  * also keeps the story exercising the same code path production uses (truncation,
  * level ranking, source binding) instead of a shape that only exists in a story.
+ *
+ * LogsView owns its own scroll region and sizes to `height:100%`, so each story
+ * wraps it in a definite-height frame , the same guarantee the Logs settings
+ * page (`fill`) gives it in the app.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect } from "react";
-import { log } from "../lib/log/logger";
-import { LogsModal } from "./LogsModal";
+import { log } from "../../lib/log/logger";
+import { LogsView } from "./LogsView";
 
-const meta: Meta<typeof LogsModal> = {
-  title: "Components/LogsModal",
-  component: LogsModal,
+const meta: Meta<typeof LogsView> = {
+  title: "Components/LogsView",
+  component: LogsView,
   tags: ["autodocs"],
   parameters: { layout: "fullscreen" },
 };
 export default meta;
 
-type Story = StoryObj<typeof LogsModal>;
+type Story = StoryObj<typeof LogsView>;
+
+/** A definite-height stage, mimicking the `fill` settings content column. */
+function Frame({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        height: 900,
+        padding: 24,
+        boxSizing: "border-box",
+        background: "var(--bg)",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 /** The failure this whole feature was built to explain: a connection outage. */
 function emitOutage(): void {
@@ -50,7 +73,11 @@ function emitOutage(): void {
 
 function Harness() {
   useEffect(emitOutage, []);
-  return <LogsModal open onClose={() => {}} />;
+  return (
+    <Frame>
+      <LogsView />
+    </Frame>
+  );
 }
 
 /**
@@ -72,7 +99,11 @@ function ChattyHarness() {
       message: "Cannot read properties of undefined (reading 'temp')",
     });
   }, []);
-  return <LogsModal open onClose={() => {}} />;
+  return (
+    <Frame>
+      <LogsView />
+    </Frame>
+  );
 }
 
 /**
@@ -93,7 +124,11 @@ export const Busy: Story = {
  */
 function ExportEnabledHarness() {
   useEffect(emitOutage, []);
-  return <LogsModal open nativeExport onClose={() => {}} />;
+  return (
+    <Frame>
+      <LogsView nativeExport />
+    </Frame>
+  );
 }
 
 export const ExportEnabled: Story = {

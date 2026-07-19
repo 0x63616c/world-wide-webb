@@ -57,7 +57,7 @@ type Story = StoryObj<typeof meta>;
 
 /**
  * The full-page settings shell open over the fullscreen frame. Page bodies land
- * in later tasks; here we assert the sidebar surfaces all eight pages.
+ * in later tasks; here we assert the sidebar surfaces all nine pages.
  */
 export const Open: Story = {
   play: async ({ canvasElement }) => {
@@ -70,6 +70,7 @@ export const Open: Story = {
       "Network",
       "Notifications",
       "Security",
+      "Logs",
       "Debug",
       "About",
     ]) {

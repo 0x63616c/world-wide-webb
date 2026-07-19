@@ -1,5 +1,7 @@
 export { BorderProgressRing } from "./BorderProgressRing";
 export { Chip } from "./Chip";
+export type { ConfirmDialogProps } from "./ConfirmDialog";
+export { ConfirmDialog } from "./ConfirmDialog";
 /** @public , shared tile-author primitive surface; kept though no internal consumer yet (www-k6p1). */
 export type { ControlTapProps } from "./ControlTap";
 export { ControlTap } from "./ControlTap";

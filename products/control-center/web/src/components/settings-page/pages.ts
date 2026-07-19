@@ -14,6 +14,7 @@ export type PageKey =
   | "network"
   | "notifications"
   | "security"
+  | "logs"
   | "debug"
   | "about";
 
@@ -24,6 +25,13 @@ export interface PageDef {
   /** Tinted chip color for the iOS-style sidebar. */
   tint: string;
   blurb: string;
+  /**
+   * Render the page body at the shell's full height with no 720px column cap,
+   * so a component that owns its own internal scroll region (the log viewer)
+   * gets the definite height its `height:100%` child needs. Non-fill pages keep
+   * the scrolling 720px column.
+   */
+  fill?: boolean;
 }
 
 export const PAGES: PageDef[] = [
@@ -63,7 +71,15 @@ export const PAGES: PageDef[] = [
     tint: "#c95c5c",
     blurb: "PIN for locked tiles and settings",
   },
-  { key: "debug", label: "Debug", icon: "bolt", tint: "#9a6ad4", blurb: "FPS, build badge, logs" },
+  {
+    key: "logs",
+    label: "Logs",
+    icon: "apps",
+    tint: "#5aa2c7",
+    blurb: "On-device log viewer",
+    fill: true,
+  },
+  { key: "debug", label: "Debug", icon: "bolt", tint: "#9a6ad4", blurb: "FPS and build overlays" },
   {
     key: "about",
     label: "About",

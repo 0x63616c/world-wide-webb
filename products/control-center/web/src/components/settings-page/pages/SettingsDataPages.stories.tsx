@@ -194,8 +194,12 @@ export const Debug: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("switch", { name: "FPS meter" })).toBeInTheDocument();
     await expect(canvas.getByRole("switch", { name: "Build badge" })).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "View logs" })).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Reset" })).toBeInTheDocument();
+    await expect(canvas.getByRole("switch", { name: "Build number" })).toBeInTheDocument();
+    // Reset is now guarded: tapping it opens a confirmation dialog (which the
+    // Modal portals to document.body) rather than resetting immediately.
+    const doc = within(canvasElement.ownerDocument.body);
+    canvas.getByRole("button", { name: "Reset" }).click();
+    await expect(doc.getByText("Reset settings?")).toBeInTheDocument();
   },
 };
 

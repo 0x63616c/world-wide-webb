@@ -24,6 +24,7 @@ import { BoardPage } from "./pages/BoardPage";
 import { DebugPage } from "./pages/DebugPage";
 import { DevicePage } from "./pages/DevicePage";
 import { DisplayPage } from "./pages/DisplayPage";
+import { LogsPage } from "./pages/LogsPage";
 import { NetworkPage } from "./pages/NetworkPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { SecurityPage } from "./pages/SecurityPage";
@@ -45,6 +46,7 @@ const PAGE_COMPONENTS: Partial<Record<PageKey, ComponentType<PageProps>>> = {
   network: NetworkPage,
   notifications: NotificationsPage,
   security: SecurityPage,
+  logs: LogsPage,
   debug: DebugPage,
   about: AboutPage,
 };
@@ -54,11 +56,20 @@ export function SettingsPage({
   onClose,
   onOpenLevel,
   onOpenClean,
+  initialPage,
 }: {
   open: boolean;
   onClose: () => void;
   onOpenLevel: () => void;
   onOpenClean: () => void;
+  /**
+   * The page to land on when the overlay opens (a deep link, e.g. the Logs tile
+   * routing to the Logs page). When set, the shell also skips straight into the
+   * page on a narrow viewport rather than showing the sidebar list. Defaults to
+   * the Device page. Applied by the open-transition effect below , this shell is
+   * NOT remounted per open, so a useState seed alone would not re-apply it.
+   */
+  initialPage?: PageKey;
 }) {
   const [page, setPage] = useState<PageKey>("device");
 
@@ -70,14 +81,21 @@ export function SettingsPage({
   const narrow = useIsNarrow();
   const [showList, setShowList] = useState(true);
 
-  // Reset to the first page whenever the overlay closes, so reopening always
-  // lands on Device rather than wherever the last visit left off.
+  // Apply the landing page on every open transition, then reset to Device on
+  // close. This shell is NOT remounted per open (SettingsButton keeps it
+  // mounted and flips `open`), so a `useState(initialPage)` seed would only
+  // ever apply once , the effect is what re-applies a deep link each time.
+  // A deep link (initialPage set) also drills straight into the page on a
+  // narrow viewport instead of showing the sidebar list.
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setPage(initialPage ?? "device");
+      setShowList(!initialPage);
+    } else {
       setPage("device");
       setShowList(true);
     }
-  }, [open]);
+  }, [open, initialPage]);
 
   // Freeze the board's pan for the overlay's lifetime and let the board's idle
   // reset dismiss it. Ref-routed so a fresh onClose closure never re-registers.
@@ -110,6 +128,10 @@ export function SettingsPage({
 
   const active = PAGE_BY_KEY[page];
   const ActivePage = PAGE_COMPONENTS[page];
+  // A `fill` page (the log viewer) owns its own internal scroll region and needs
+  // a definite full height with no 720px column cap; every other page keeps the
+  // scrolling, centered 720px column.
+  const fill = active.fill ?? false;
 
   return createPortal(
     <div
@@ -214,18 +236,26 @@ export function SettingsPage({
       <div
         style={{
           flex: 1,
-          overflowY: "auto",
+          minHeight: 0,
+          // A fill page's own list is the scroller; the pane must not also
+          // scroll (that double-scrollbar is exactly what `fill` fixes).
+          overflowY: fill ? "hidden" : "auto",
           padding: narrow ? "20px 20px 40px" : "40px 64px",
-          display: narrow && showList ? "none" : "block",
+          display: narrow && showList ? "none" : fill ? "flex" : "block",
+          flexDirection: fill ? "column" : undefined,
         }}
       >
         <div
           style={{
-            maxWidth: 720,
-            margin: "0 auto",
+            // Fill pages span the full width and height they are given; other
+            // pages sit in the centered, capped reading column.
+            maxWidth: fill ? "none" : 720,
+            width: "100%",
+            margin: fill ? undefined : "0 auto",
             display: "flex",
             flexDirection: "column",
             gap: 28,
+            ...(fill ? { flex: 1, minHeight: 0 } : {}),
           }}
         >
           {/* Back to the page list , the only way out of a page on a phone,
@@ -238,7 +268,15 @@ export function SettingsPage({
           ) : null}
           <PageHeader title={active.label} blurb={active.blurb} />
           {ActivePage ? (
-            <ActivePage onClose={onClose} onOpenLevel={onOpenLevel} onOpenClean={onOpenClean} />
+            fill ? (
+              // Give the fill page a definite height so its `height:100%` list
+              // resolves against real pixels instead of collapsing to auto.
+              <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+                <ActivePage onClose={onClose} onOpenLevel={onOpenLevel} onOpenClean={onOpenClean} />
+              </div>
+            ) : (
+              <ActivePage onClose={onClose} onOpenLevel={onOpenLevel} onOpenClean={onOpenClean} />
+            )
           ) : null}
         </div>
       </div>

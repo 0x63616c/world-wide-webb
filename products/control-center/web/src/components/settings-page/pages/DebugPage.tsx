@@ -1,19 +1,25 @@
 /**
- * Debug settings page , the developer overlays (FPS meter, build badge) plus the
- * diagnostics affordances that were the old SettingsPanel footer: the log viewer
- * and a reset-to-defaults. Overlay switches write the shared settings store; the
- * page owns the LogsModal open state exactly as SettingsPanel did.
+ * Debug settings page , the developer overlays (FPS meter, build badges) plus a
+ * reset-to-defaults. The log viewer used to open from here as a modal; it now
+ * has its own Logs page (a `fill` page in the shell), so this page keeps only
+ * the overlay switches and the guarded reset.
  */
 
 import { useState } from "react";
-import { resetSettings, setShowBuildBadge, setShowFps, useSettings } from "../../../lib/settings";
-import { LogsModal } from "../../LogsModal";
+import {
+  resetSettings,
+  setShowBuildBadge,
+  setShowBuildNumber,
+  setShowFps,
+  useSettings,
+} from "../../../lib/settings";
+import { ConfirmDialog } from "../../ui/ConfirmDialog";
 import { Switch } from "../../ui/Switch";
 import { ActionButton, RowShell, SectionCard } from "../blocks";
 
 export function DebugPage() {
   const settings = useSettings();
-  const [logsOpen, setLogsOpen] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   return (
     <>
@@ -37,27 +43,44 @@ export function DebugPage() {
               />
             }
           />,
+          <RowShell
+            key="buildnum"
+            label="Build number"
+            sub="Show the App Store build number in the corner."
+            control={
+              <Switch
+                label="Build number"
+                checked={settings.showBuildNumber}
+                onChange={setShowBuildNumber}
+              />
+            }
+          />,
         ]}
       </SectionCard>
 
       <SectionCard title="Diagnostics">
         {[
           <RowShell
-            key="logs"
-            label="View logs"
-            sub="Open the on-device log viewer , the only window into the running app."
-            control={<ActionButton onClick={() => setLogsOpen(true)}>View logs</ActionButton>}
-          />,
-          <RowShell
             key="reset"
             label="Reset settings"
             sub="Restore every setting on this panel to its default."
-            control={<ActionButton onClick={resetSettings}>Reset</ActionButton>}
+            control={<ActionButton onClick={() => setConfirmReset(true)}>Reset</ActionButton>}
           />,
         ]}
       </SectionCard>
 
-      <LogsModal open={logsOpen} onClose={() => setLogsOpen(false)} />
+      <ConfirmDialog
+        open={confirmReset}
+        title="Reset settings?"
+        message="Restore every setting on this panel to its default. This cannot be undone."
+        confirmLabel="Reset"
+        tone="danger"
+        onConfirm={() => {
+          resetSettings();
+          setConfirmReset(false);
+        }}
+        onClose={() => setConfirmReset(false)}
+      />
     </>
   );
 }

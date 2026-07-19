@@ -2,11 +2,11 @@
  * FrontendLogsTileView , the board's window onto the panel's own log store.
  *
  * The wall panel is a TestFlight Capacitor build with no attachable inspector
- * (see LogsModal.tsx); the modal is the only log viewer, and until now the only
- * way to know it was worth opening was to open it. This tile is the tell: the
- * last 24h of the panel's OWN frontend logs , an hourly histogram of every
- * level (when it got loud) over a full level tally (how loud, how bad). Tapping
- * the tile opens the LogsModal, which the container owns.
+ * (see logs/LogsView.tsx); the Logs settings page is the only log viewer, and
+ * until now the only way to know it was worth opening was to open it. This tile
+ * is the tell: the last 24h of the panel's OWN frontend logs , an hourly
+ * histogram of every level (when it got loud) over a full level tally (how loud,
+ * how bad). Tapping the tile deep-links into Settings → Logs (behind the PIN).
  *
  * All four levels are charted, stacked error-on-top so the severe end of the
  * scale reads first even when debug volume dominates the bar height.
@@ -15,7 +15,7 @@
 import { Skeleton, Tile, TileHeader, TileStatus } from "@/components/ui";
 import { LOG_LEVELS, type LogLevel } from "../../lib/log/types";
 
-/** Same status colors as LogsModal , level identity is always color + label. */
+/** Same status colors as LogsView , level identity is always color + label. */
 const LEVEL_COLOR: Record<LogLevel, string> = {
   debug: "var(--ink-3, #6b7280)",
   info: "var(--ink-2, #9ca3af)",

@@ -1,10 +1,14 @@
 /**
- * LogsModal , the debug log viewer.
+ * LogsView , the debug log viewer body (presentational, no Modal chrome).
  *
  * This is the ONLY window into the running app. The wall panel is a TestFlight
  * Capacitor build, so `isInspectable` is false and Safari Web Inspector cannot
  * attach even with a Mac and a cable; there is no Chromium, so there is no
- * chrome://inspect either. Standing at the panel, this modal or nothing.
+ * chrome://inspect either. Standing at the panel, this view or nothing.
+ *
+ * It renders inside the Logs settings page (a `fill` page that hands it a
+ * definite height), so unlike the old modal it has no `open` prop , it only ever
+ * mounts while visible, and every effect runs unconditionally from mount.
  *
  * Two data sources, deliberately:
  *   - the in-memory ring (lib/log/logger.getTail) is the live tail. It renders
@@ -26,26 +30,25 @@
 
 import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { BUILD_HASH } from "../config/build";
-import { getDeviceName } from "../lib/device-name";
-import { fuzzyMatch } from "../lib/log/fuzzy";
-import { flushNow, getTail, log, subscribe } from "../lib/log/logger";
+import { BUILD_HASH } from "../../config/build";
+import { getDeviceName } from "../../lib/device-name";
+import { fuzzyMatch } from "../../lib/log/fuzzy";
+import { flushNow, getTail, log, subscribe } from "../../lib/log/logger";
 import {
   deleteExportFile,
   getExportFileUri,
   getMirrorFileUris,
   writeExportChunk,
-} from "../lib/log/native";
-import * as store from "../lib/log/store";
-import { MAX_BYTES, MAX_ENTRIES } from "../lib/log/store";
-import { LOG_LEVELS, type LogEntry, type LogLevel } from "../lib/log/types";
-import { Modal } from "./ui/Modal";
+} from "../../lib/log/native";
+import * as store from "../../lib/log/store";
+import { MAX_BYTES, MAX_ENTRIES } from "../../lib/log/store";
+import { LOG_LEVELS, type LogEntry, type LogLevel } from "../../lib/log/types";
 
 const ROW_HEIGHT = 26;
 /**
  * Fallback list height, used only until the list has been measured (first paint,
  * and in environments without ResizeObserver). The real height comes from the
- * flex layout: the list is the ONLY thing in this modal that scrolls, so it takes
+ * flex layout: the list is the ONLY thing in this view that scrolls, so it takes
  * whatever vertical space the toolbar, detail pane and footer leave behind.
  */
 const LIST_HEIGHT = 520;
@@ -157,9 +160,7 @@ function oneLine(data: unknown): string {
   }
 }
 
-export interface LogsModalProps {
-  open: boolean;
-  onClose: () => void;
+export interface LogsViewProps {
   /**
    * Whether the native Export affordance is enabled. Defaults to the real
    * platform gate; only Storybook/tests pass it to render the enabled visual
@@ -168,11 +169,7 @@ export interface LogsModalProps {
   nativeExport?: boolean;
 }
 
-export function LogsModal({
-  open,
-  onClose,
-  nativeExport = Capacitor.isNativePlatform(),
-}: LogsModalProps) {
+export function LogsView({ nativeExport = Capacitor.isNativePlatform() }: LogsViewProps = {}) {
   // Live tail. useSyncExternalStore keeps this correct under concurrent React,
   // and getTail() is memoized behind a dirty flag so this is not a re-render
   // storm even while the app is logging steadily.
@@ -200,27 +197,26 @@ export function LogsModal({
   /** Re-entrancy guard for scroll-driven paging; state alone lags the events. */
   const loadingRef = useRef(false);
 
-  // Clock for the Age column. Ticks only while the modal is open; the windowed
+  // Clock for the Age column. Ticks for the view's whole lifetime; the windowed
   // list keeps the per-second re-render to a few dozen rows.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!open) return;
     setNow(Date.now());
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, [open]);
+  }, []);
 
   // The list sizes itself from the flex layout, so windowing has to follow the
   // measured height rather than a constant , otherwise opening the detail pane
   // shrinks the viewport and we keep rendering rows for the taller one.
   useEffect(() => {
     const el = listRef.current;
-    if (!open || !el || typeof ResizeObserver === "undefined") return;
+    if (!el || typeof ResizeObserver === "undefined") return;
     setListHeight(el.clientHeight);
     const ro = new ResizeObserver(() => setListHeight(el.clientHeight));
     ro.observe(el);
     return () => ro.disconnect();
-  }, [open]);
+  }, []);
 
   const toggleLevel = useCallback((level: LogLevel) => {
     setLevels((prev) =>
@@ -238,10 +234,9 @@ export function LogsModal({
     setLevels((prev) => (prev.length === 1 && prev[0] === level ? [...LOG_LEVELS] : [level]));
   }, []);
 
-  // Reset paging whenever the modal is reopened: the tail has moved on, and
+  // Reset paging on mount: the tail has moved on since a previous session, and
   // stale `older` pages would leave a hole between them and the live entries.
   useEffect(() => {
-    if (!open) return;
     setOlder([]);
     setSelected(null);
     setScrollTop(0);
@@ -252,7 +247,7 @@ export function LogsModal({
       setHistoryCount(await store.count());
       setBytes(await store.bytesUsed());
     });
-  }, [open]);
+  }, []);
 
   /**
    * Search runs against the STORE, not just what happens to be loaded.
@@ -264,7 +259,6 @@ export function LogsModal({
    * quiet lie of exactly the kind this viewer exists to prevent.
    */
   useEffect(() => {
-    if (!open) return;
     const needle = search.trim();
     const subset = levels.length < LOG_LEVELS.length;
     if (!needle && !subset) {
@@ -305,7 +299,7 @@ export function LogsModal({
       clearTimeout(timer);
       setSearching(false);
     };
-  }, [open, search, levels]);
+  }, [search, levels]);
 
   // Newest first: this is opened to answer "what just happened", so the answer
   // should be the first row, not 5000 rows down.
@@ -469,239 +463,236 @@ export function LogsModal({
   const visible = rows.slice(first, first + visibleCount);
 
   return (
-    <Modal open={open} onClose={onClose} title="Logs" width={1240} maxHeight={900} fill>
-      {/* Full height of the modal body, and nothing here scrolls except the log
-          list itself , the toolbar, detail pane and footer stay pinned. A page
-          that scrolls as a whole is wrong for a viewer you open mid-incident:
-          the level tally and the search box slide off exactly when you reach
-          for them. */}
+    // Full height of the host, and nothing here scrolls except the log list
+    // itself , the toolbar, detail pane and footer stay pinned. A page that
+    // scrolls as a whole is wrong for a viewer you open mid-incident: the level
+    // tally and the search box slide off exactly when you reach for them.
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        height: "100%",
+        minHeight: 0,
+      }}
+    >
+      {/* Controls. Every control in this row is exactly CONTROL_H tall and is
+          stretched to it, rather than each one sizing itself from its own font
+          and padding , which is what made the chips, the search field and the
+          buttons all land on slightly different heights. */}
       <div
         style={{
           display: "flex",
-          flexDirection: "column",
-          gap: 10,
-          height: "100%",
-          minHeight: 0,
+          alignItems: "stretch",
+          gap: 8,
+          height: CONTROL_H,
+          flexShrink: 0,
         }}
       >
-        {/* Controls. Every control in this row is exactly CONTROL_H tall and is
-            stretched to it, rather than each one sizing itself from its own font
-            and padding , which is what made the chips, the search field and the
-            buttons all land on slightly different heights. */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "stretch",
-            gap: 8,
-            height: CONTROL_H,
-            flexShrink: 0,
-          }}
-        >
-          {LOG_LEVELS.map((level) => (
-            <LevelChip
-              key={level}
-              level={level}
-              active={levels.includes(level)}
-              onToggle={() => toggleLevel(level)}
-              onSolo={() => soloLevel(level)}
-            />
-          ))}
-          <input
-            type="search"
-            value={search}
-            placeholder="Search message, source, payload…"
-            onChange={(e) => setSearch(e.target.value)}
-            style={{
-              flex: 1,
-              minWidth: 200,
-              height: "100%",
-              padding: "0 12px",
-              margin: 0,
-              background: "var(--nest)",
-              border: "1px solid var(--hair)",
-              borderRadius: RADIUS,
-              color: "var(--ink-1)",
-              fontFamily: "var(--mono, ui-monospace, monospace)",
-              fontSize: 13,
-            }}
+        {LOG_LEVELS.map((level) => (
+          <LevelChip
+            key={level}
+            level={level}
+            active={levels.includes(level)}
+            onToggle={() => toggleLevel(level)}
+            onSolo={() => soloLevel(level)}
           />
-          <ToolbarButton
-            onClick={() => void handleExport()}
-            disabled={!nativeExport || exporting}
-            title={
-              nativeExport
-                ? levels.length < LOG_LEVELS.length
-                  ? `Export only ${levels.join(" + ")} entries`
-                  : "Share the on-disk log mirror files (all levels)"
-                : "Export available on the device only"
-            }
-            // The button IS the progress bar during a filtered export: the fill
-            // sweeps left to right behind the percentage label.
-            progress={exportProgress ?? undefined}
-          >
-            {exportProgress !== null
-              ? `Exporting ${Math.round(exportProgress * 100)}%`
-              : exporting
-                ? "Exporting…"
-                : "Export"}
-          </ToolbarButton>
-        </div>
-
-        {/* Header + list share one bordered box. The header sits OUTSIDE the
-            scroll container rather than sticky inside it: a sticky header still
-            lets the first row slide under it mid-scroll, which is exactly the
-            clipping this replaces. */}
-        <div
+        ))}
+        <input
+          type="search"
+          value={search}
+          placeholder="Search message, source, payload…"
+          onChange={(e) => setSearch(e.target.value)}
           style={{
+            flex: 1,
+            minWidth: 200,
+            height: "100%",
+            padding: "0 12px",
+            margin: 0,
             background: "var(--nest)",
             border: "1px solid var(--hair)",
             borderRadius: RADIUS,
-            overflow: "hidden",
-            // The box owns the leftover space; the list inside it is the scroller.
-            display: "flex",
-            flexDirection: "column",
-            flex: 1,
-            minHeight: 160,
+            color: "var(--ink-1)",
+            fontFamily: "var(--mono, ui-monospace, monospace)",
+            fontSize: 13,
           }}
+        />
+        <ToolbarButton
+          onClick={() => void handleExport()}
+          disabled={!nativeExport || exporting}
+          title={
+            nativeExport
+              ? levels.length < LOG_LEVELS.length
+                ? `Export only ${levels.join(" + ")} entries`
+                : "Share the on-disk log mirror files (all levels)"
+              : "Export available on the device only"
+          }
+          // The button IS the progress bar during a filtered export: the fill
+          // sweeps left to right behind the percentage label.
+          progress={exportProgress ?? undefined}
         >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: GRID,
-              gap: 10,
-              alignItems: "center",
-              height: 28,
-              flexShrink: 0,
-              padding: "0 10px",
-              borderBottom: "1px solid var(--hair)",
-              fontFamily: "var(--ui)",
-              fontSize: 10,
-              letterSpacing: 0.8,
-              textTransform: "uppercase",
-              color: "var(--ink-3)",
-            }}
-          >
-            <span style={{ paddingRight: 6 }}>Date / time</span>
-            <span>Age</span>
-            <span>Level</span>
-            <span>Source</span>
-            <span>Git SHA</span>
-            <span>Device</span>
-            <span>Message</span>
-            <span>Payload</span>
-          </div>
-          <div
-            ref={listRef}
-            // Infinite scroll: within two screens of the bottom, page in the next
-            // chunk of history unmanned. No "Load older" button , reaching for it
-            // mid-incident was friction exactly when it mattered.
-            onScroll={(e) => {
-              const el = e.currentTarget;
-              setScrollTop(el.scrollTop);
-              if (
-                !exhausted &&
-                !loadingRef.current &&
-                el.scrollTop + el.clientHeight >= el.scrollHeight - listHeight * 2
-              ) {
-                void loadOlder();
-              }
-            }}
-            style={{
-              flex: 1,
-              minHeight: 0,
-              overflowY: "auto",
-              fontFamily: "var(--mono, ui-monospace, monospace)",
-              fontSize: 12,
-            }}
-          >
-            {rows.length === 0 ? (
-              <div style={{ padding: 16, color: "var(--ink-3)", fontFamily: "var(--ui)" }}>
-                No entries match.
-              </div>
-            ) : (
-              <div style={{ height: rows.length * ROW_HEIGHT, position: "relative" }}>
-                <div style={{ transform: `translateY(${first * ROW_HEIGHT}px)` }}>
-                  {visible.map((entry) => (
-                    <LogRow
-                      key={entry.id}
-                      entry={entry}
-                      now={now}
-                      selected={selected?.id === entry.id}
-                      onSelect={() => setSelected(entry)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+          {exportProgress !== null
+            ? `Exporting ${Math.round(exportProgress * 100)}%`
+            : exporting
+              ? "Exporting…"
+              : "Export"}
+        </ToolbarButton>
+      </div>
 
-        {/* detail */}
-        {selected ? (
-          <pre
-            style={{
-              margin: 0,
-              maxHeight: 160,
-              flexShrink: 0,
-              overflow: "auto",
-              padding: 10,
-              background: "var(--nest)",
-              border: "1px solid var(--hair)",
-              borderRadius: 10,
-              fontFamily: "var(--mono, ui-monospace, monospace)",
-              fontSize: 12,
-              color: "var(--ink-2)",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-            }}
-          >
-            {JSON.stringify(selected, null, 2)}
-            {selected.truncated ? "\n\n[data truncated at capture time]" : ""}
-          </pre>
-        ) : null}
-
-        {/* Left: what is loaded and how close rotation is to dropping the oldest
-            history , size is shown against the cap because "12 MB" alone means
-            nothing on a wall panel. Right: the level tally, which is counted
-            BEFORE the level filter is applied, so switching ERROR off still tells
-            you how many errors are sitting there. That is the number you want on
-            a panel you glance at. */}
+      {/* Header + list share one bordered box. The header sits OUTSIDE the
+          scroll container rather than sticky inside it: a sticky header still
+          lets the first row slide under it mid-scroll, which is exactly the
+          clipping this replaces. */}
+      <div
+        style={{
+          background: "var(--nest)",
+          border: "1px solid var(--hair)",
+          borderRadius: RADIUS,
+          overflow: "hidden",
+          // The box owns the leftover space; the list inside it is the scroller.
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          minHeight: 160,
+        }}
+      >
         <div
           style={{
-            display: "flex",
+            display: "grid",
+            gridTemplateColumns: GRID,
+            gap: 10,
             alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
+            height: 28,
             flexShrink: 0,
+            padding: "0 10px",
+            borderBottom: "1px solid var(--hair)",
             fontFamily: "var(--ui)",
-            fontSize: 12,
+            fontSize: 10,
+            letterSpacing: 0.8,
+            textTransform: "uppercase",
             color: "var(--ink-3)",
           }}
         >
-          <span>
-            {rows.length.toLocaleString()} shown ·{" "}
-            {search.trim() || levels.length < LOG_LEVELS.length
-              ? searching
-                ? `searching all ${historyCount.toLocaleString()} on disk…`
-                : `matched from all ${historyCount.toLocaleString()} on disk${
-                    searchTruncated ? ` (first ${SEARCH_LIMIT.toLocaleString()} matches)` : ""
-                  }${loadingOlder ? " · loading older…" : ""}`
-              : `${tail.length.toLocaleString()} in memory · ${historyCount.toLocaleString()} / ${MAX_ENTRIES.toLocaleString()} on disk${
-                  loadingOlder ? " · loading older…" : ""
-                }`}{" "}
-            · {formatBytes(bytes)} / {formatBytes(MAX_BYTES)} · git sha{" "}
-            <span style={{ fontFamily: "var(--mono, ui-monospace, monospace)" }}>{SHA}</span>
-          </span>
-          <span style={{ display: "flex", gap: 12, whiteSpace: "nowrap" }}>
-            {LOG_LEVELS.map((level) => (
-              <span key={level} style={{ color: LEVEL_COLOR[level] }}>
-                {counts[level].toLocaleString()} {level}
-              </span>
-            ))}
-          </span>
+          <span style={{ paddingRight: 6 }}>Date / time</span>
+          <span>Age</span>
+          <span>Level</span>
+          <span>Source</span>
+          <span>Git SHA</span>
+          <span>Device</span>
+          <span>Message</span>
+          <span>Payload</span>
+        </div>
+        <div
+          ref={listRef}
+          // Infinite scroll: within two screens of the bottom, page in the next
+          // chunk of history unmanned. No "Load older" button , reaching for it
+          // mid-incident was friction exactly when it mattered.
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            setScrollTop(el.scrollTop);
+            if (
+              !exhausted &&
+              !loadingRef.current &&
+              el.scrollTop + el.clientHeight >= el.scrollHeight - listHeight * 2
+            ) {
+              void loadOlder();
+            }
+          }}
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            fontFamily: "var(--mono, ui-monospace, monospace)",
+            fontSize: 12,
+          }}
+        >
+          {rows.length === 0 ? (
+            <div style={{ padding: 16, color: "var(--ink-3)", fontFamily: "var(--ui)" }}>
+              No entries match.
+            </div>
+          ) : (
+            <div style={{ height: rows.length * ROW_HEIGHT, position: "relative" }}>
+              <div style={{ transform: `translateY(${first * ROW_HEIGHT}px)` }}>
+                {visible.map((entry) => (
+                  <LogRow
+                    key={entry.id}
+                    entry={entry}
+                    now={now}
+                    selected={selected?.id === entry.id}
+                    onSelect={() => setSelected(entry)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
-    </Modal>
+
+      {/* detail */}
+      {selected ? (
+        <pre
+          style={{
+            margin: 0,
+            maxHeight: 160,
+            flexShrink: 0,
+            overflow: "auto",
+            padding: 10,
+            background: "var(--nest)",
+            border: "1px solid var(--hair)",
+            borderRadius: 10,
+            fontFamily: "var(--mono, ui-monospace, monospace)",
+            fontSize: 12,
+            color: "var(--ink-2)",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          {JSON.stringify(selected, null, 2)}
+          {selected.truncated ? "\n\n[data truncated at capture time]" : ""}
+        </pre>
+      ) : null}
+
+      {/* Left: what is loaded and how close rotation is to dropping the oldest
+          history , size is shown against the cap because "12 MB" alone means
+          nothing on a wall panel. Right: the level tally, which is counted
+          BEFORE the level filter is applied, so switching ERROR off still tells
+          you how many errors are sitting there. That is the number you want on
+          a panel you glance at. */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          flexShrink: 0,
+          fontFamily: "var(--ui)",
+          fontSize: 12,
+          color: "var(--ink-3)",
+        }}
+      >
+        <span>
+          {rows.length.toLocaleString()} shown ·{" "}
+          {search.trim() || levels.length < LOG_LEVELS.length
+            ? searching
+              ? `searching all ${historyCount.toLocaleString()} on disk…`
+              : `matched from all ${historyCount.toLocaleString()} on disk${
+                  searchTruncated ? ` (first ${SEARCH_LIMIT.toLocaleString()} matches)` : ""
+                }${loadingOlder ? " · loading older…" : ""}`
+            : `${tail.length.toLocaleString()} in memory · ${historyCount.toLocaleString()} / ${MAX_ENTRIES.toLocaleString()} on disk${
+                loadingOlder ? " · loading older…" : ""
+              }`}{" "}
+          · {formatBytes(bytes)} / {formatBytes(MAX_BYTES)} · git sha{" "}
+          <span style={{ fontFamily: "var(--mono, ui-monospace, monospace)" }}>{SHA}</span>
+        </span>
+        <span style={{ display: "flex", gap: 12, whiteSpace: "nowrap" }}>
+          {LOG_LEVELS.map((level) => (
+            <span key={level} style={{ color: LEVEL_COLOR[level] }}>
+              {counts[level].toLocaleString()} {level}
+            </span>
+          ))}
+        </span>
+      </div>
+    </div>
   );
 }
 
