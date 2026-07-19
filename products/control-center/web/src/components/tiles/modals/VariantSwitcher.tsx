@@ -12,7 +12,9 @@ import { createPortal } from "react-dom";
 import type { LiveVariant } from "./types";
 
 export interface VariantSwitcherProps {
-  variants: LiveVariant[];
+  // Only slug + label are read, so both the old LiveVariant (modal) and the new
+  // DetailVariant (full-page) lists satisfy this during the migration.
+  variants: Pick<LiveVariant, "slug" | "label">[];
   activeSlug: string;
   onSelect: (slug: string) => void;
 }
