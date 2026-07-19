@@ -28,7 +28,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ClimateHouseSummaryHeader } from "@/components/ClimateHouseSummaryHeader";
-import { Chip, Modal, RangeSlider, Slider, Stat } from "@/components/ui";
+import { Chip, RangeSlider, Slider, Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -63,8 +63,6 @@ export type ZoneData = ZoneSetpoint & {
 };
 
 export interface ClimateModalMultiZoneGridProps {
-  open: boolean;
-  onClose: () => void;
   /** All house climate zones from ha.getEntities('climate') (excl. Tesla). */
   zones: ZoneData[];
   /**
@@ -294,8 +292,6 @@ function ZoneCard({
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function ClimateModalMultiZoneGrid({
-  open,
-  onClose,
   zones,
   onSetMode,
   onSetTarget,
@@ -328,7 +324,7 @@ export function ClimateModalMultiZoneGrid({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Climate" width={720} maxHeight={820}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* House-average header , ambient avg + whole-house action summary.
             This gives a single-glance answer to "what's the house doing?" before
@@ -372,6 +368,6 @@ export function ClimateModalMultiZoneGrid({
           </div>
         )}
       </div>
-    </Modal>
+    </div>
   );
 }

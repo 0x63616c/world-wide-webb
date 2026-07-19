@@ -27,7 +27,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ClimateHouseSummaryHeader } from "@/components/ClimateHouseSummaryHeader";
-import { Modal, Stat } from "@/components/ui";
+import { Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -61,8 +61,6 @@ export interface ScheduleZone {
 }
 
 export interface ClimateModalScheduleTimelineProps {
-  open: boolean;
-  onClose: () => void;
   /** All house climate zones from ha.getEntities('climate') (excl. Tesla). */
   zones: ScheduleZone[];
   /**
@@ -583,8 +581,6 @@ function HourLabels({ labelW }: { labelW: number }) {
 // ─── ClimateModalScheduleTimeline ─────────────────────────────────────────────
 
 export function ClimateModalScheduleTimeline({
-  open,
-  onClose,
   zones,
   nowHour,
   onApplyNow,
@@ -596,7 +592,7 @@ export function ClimateModalScheduleTimeline({
   const activeCount = zones.filter((z) => z.action === "cooling" || z.action === "heating").length;
 
   return (
-    <Modal open={open} onClose={onClose} title="Climate" width={900} maxHeight={720}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* House summary row , average ambient + how many zones are active right now.
             Mirrors ClimateModalMultiZoneGrid's header banner for visual consistency
@@ -707,6 +703,6 @@ export function ClimateModalScheduleTimeline({
           </div>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }

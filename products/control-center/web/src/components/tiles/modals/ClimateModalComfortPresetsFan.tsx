@@ -25,7 +25,7 @@
  */
 
 import { useState } from "react";
-import { Chip, Modal, StatusDot } from "@/components/ui";
+import { Chip, StatusDot } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -48,8 +48,6 @@ export interface ClimateZone {
 }
 
 export interface ClimateModalComfortPresetsFanProps {
-  open: boolean;
-  onClose: () => void;
   /** All climate zones in the home */
   zones: ClimateZone[];
   /** Called when the user picks a preset for a zone */
@@ -87,8 +85,6 @@ function isActive(action: ClimateZone["hvacAction"]): boolean {
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function ClimateModalComfortPresetsFan({
-  open,
-  onClose,
   zones,
   onSetPreset,
   onSetFan,
@@ -99,7 +95,7 @@ export function ClimateModalComfortPresetsFan({
   const zone = zones[activeIdx] ?? zones[0];
 
   return (
-    <Modal open={open} onClose={onClose} title="Climate" width={560} maxHeight={640}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Zone selector tabs , only shown when there are multiple zones so
             single-zone households get a cleaner surface. Gap 13 keeps the tab
@@ -215,6 +211,6 @@ export function ClimateModalComfortPresetsFan({
           </div>
         </section>
       </div>
-    </Modal>
+    </div>
   );
 }

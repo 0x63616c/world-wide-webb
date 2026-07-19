@@ -101,10 +101,23 @@ const meta = {
   title: "Modals/Climate/Comfort Presets Fan",
   component: ClimateModalComfortPresetsFan,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     zones,
     onSetPreset: fn(),
     onSetFan: fn(),
@@ -125,11 +138,4 @@ export const PresetsAndAirflow: Story = {
 export const NightMode: Story = {
   name: "Night mode , eco / mostly idle",
   args: { zones: nightZones },
-};
-
-// ─── Closed , nothing rendered ────────────────────────────────────────────────
-
-export const Closed: Story = {
-  name: "Closed , modal not open",
-  args: { open: false },
 };

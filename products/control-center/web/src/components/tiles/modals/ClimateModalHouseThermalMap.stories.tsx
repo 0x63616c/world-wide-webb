@@ -134,10 +134,23 @@ const meta = {
   title: "Modals/Climate/House Thermal Map",
   component: ClimateModalHouseThermalMap,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     zones: ZONES_ACTIVE,
     onSetMode: fn(),
     onSetTarget: fn(),

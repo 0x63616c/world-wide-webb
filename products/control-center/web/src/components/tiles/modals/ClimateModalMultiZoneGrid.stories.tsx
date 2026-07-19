@@ -9,10 +9,9 @@
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
 import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
-import type { ClimateModalMultiZoneGridProps, ZoneData } from "./ClimateModalMultiZoneGrid";
+import type { ZoneData } from "./ClimateModalMultiZoneGrid";
 import { ClimateModalMultiZoneGrid } from "./ClimateModalMultiZoneGrid";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -81,10 +80,23 @@ const meta = {
   title: "Modals/Climate/Multi Zone Grid",
   component: ClimateModalMultiZoneGrid,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     zones: allZones,
     onSetMode: fn(),
     onSetTarget: fn(),
@@ -95,32 +107,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// ─── Multi-Zone Control (interactive) ─────────────────────────────────────────
-
-// Stateful wrapper so backdrop/Escape/Close actually dismiss in Storybook.
-// A "Reopen" button makes the story replayable after closing.
-function InteractiveMultiZone(args: ClimateModalMultiZoneGridProps) {
-  const [open, setOpen] = useState(true);
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)}>
-        Reopen
-      </button>
-      <ClimateModalMultiZoneGrid
-        {...args}
-        open={open}
-        onClose={() => {
-          setOpen(false);
-          args.onClose();
-        }}
-      />
-    </>
-  );
-}
+// ─── Multi-Zone Control ───────────────────────────────────────────────────────
 
 export const MultiZoneControl: Story = {
   name: "Multi-Zone Control , 4 zones",
-  render: (args) => <InteractiveMultiZone {...args} />,
 };
 
 // ─── All zones off ────────────────────────────────────────────────────────────
@@ -130,13 +120,4 @@ export const MultiZoneControl: Story = {
 export const AllOff: Story = {
   name: "All zones off , away mode",
   args: { zones: allOffZones },
-};
-
-// ─── Closed ───────────────────────────────────────────────────────────────────
-
-// Verifies the modal renders nothing when open=false , nothing leaks onto the
-// board while the tile loads.
-export const Closed: Story = {
-  name: "Closed , modal not mounted",
-  args: { open: false },
 };

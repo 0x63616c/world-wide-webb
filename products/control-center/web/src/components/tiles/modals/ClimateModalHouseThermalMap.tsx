@@ -19,7 +19,7 @@
  */
 
 import { useState } from "react";
-import { Chip, Modal, RangeSlider, Slider, StatusDot } from "@/components/ui";
+import { Chip, RangeSlider, Slider, StatusDot } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -56,8 +56,6 @@ export interface ClimateZone {
 }
 
 export interface ClimateModalHouseThermalMapProps {
-  open: boolean;
-  onClose: () => void;
   /** All climate zones to display in the map. */
   zones: ClimateZone[];
   /** Called when the user picks a mode chip for a zone. */
@@ -395,8 +393,6 @@ function ZoneControlStrip({
 // ─── main view ────────────────────────────────────────────────────────────────
 
 export function ClimateModalHouseThermalMap({
-  open,
-  onClose,
   zones,
   onSetMode,
   onSetTarget,
@@ -415,7 +411,7 @@ export function ClimateModalHouseThermalMap({
   const selectedZone = zones.find((z) => z.entityId === selectedId) ?? null;
 
   return (
-    <Modal open={open} onClose={onClose} title="Climate" width={640} maxHeight={720}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Legend: gradient bar with real min/max ticks derived from zone bounds */}
         <LegendBar minLabel={`${legendMin}° cool`} maxLabel={`${legendMax}° warm`} />
@@ -462,6 +458,6 @@ export function ClimateModalHouseThermalMap({
           />
         )}
       </div>
-    </Modal>
+    </div>
   );
 }

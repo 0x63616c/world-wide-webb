@@ -10,13 +10,9 @@
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
 import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
-import type {
-  ClimateModalScheduleTimelineProps,
-  ScheduleZone,
-} from "./ClimateModalScheduleTimeline";
+import type { ScheduleZone } from "./ClimateModalScheduleTimeline";
 import { ClimateModalScheduleTimeline } from "./ClimateModalScheduleTimeline";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -108,10 +104,23 @@ const meta = {
   title: "Modals/Climate/Schedule Timeline",
   component: ClimateModalScheduleTimeline,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     zones: allZones,
     nowHour: STORY_NOW_HOUR,
     onApplyNow: fn(),
@@ -122,33 +131,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// ─── Interactive wrapper ───────────────────────────────────────────────────────
-
-// Stateful wrapper so the backdrop/Escape/Close actually dismiss in Storybook.
-function InteractiveOpen(args: ClimateModalScheduleTimelineProps) {
-  const [open, setOpen] = useState(true);
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)}>
-        Reopen
-      </button>
-      <ClimateModalScheduleTimeline
-        {...args}
-        open={open}
-        onClose={() => {
-          setOpen(false);
-          args.onClose();
-        }}
-      />
-    </>
-  );
-}
-
 // ─── Comfort Schedule (primary , all four zones, 2pm) ─────────────────────────
 
 export const ComfortSchedule: Story = {
   name: "Comfort Schedule , all zones, 2pm",
-  render: (args) => <InteractiveOpen {...args} />,
 };
 
 // ─── Single zone , minimal layout ─────────────────────────────────────────────

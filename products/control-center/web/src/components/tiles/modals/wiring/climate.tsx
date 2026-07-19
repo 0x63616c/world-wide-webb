@@ -1,5 +1,5 @@
 /**
- * Climate tile (tile_ac) , live wiring for its detail-modal variants.
+ * Climate tile (tile_ac) , live wiring for its detail-page variants.
  *
  * Data source (all live): trpc.climate.zones → every house climate entity from
  * HA's `ha.getEntities('climate')` (Tesla excluded), each with full capability:
@@ -20,6 +20,7 @@
  * day-plan of invented setpoints.
  */
 
+import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
 import { ClimateModalComfortPresetsFan } from "@/components/tiles/modals/ClimateModalComfortPresetsFan";
 import {
   ClimateModalHouseThermalMap,
@@ -34,7 +35,6 @@ import {
   ClimateModalScheduleTimeline,
   type ScheduleZone,
 } from "@/components/tiles/modals/ClimateModalScheduleTimeline";
-import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
 import { POLL, useNow } from "@/lib/hooks";
 import { type RouterOutputs, trpc } from "@/lib/trpc";
 
@@ -53,7 +53,7 @@ function toModalAction(action: ServerZone["action"], mode: string): ModalAction 
   return "idle";
 }
 
-function useClimateVariants(): { variants: LiveVariant[]; loading: boolean } {
+function useClimateVariants(): { variants: DetailVariant[]; loading: boolean } {
   const now = useNow(60 * 1000);
   const utils = trpc.useUtils();
   const zonesQuery = trpc.climate.zones.useQuery(undefined, {
@@ -155,14 +155,12 @@ function useClimateVariants(): { variants: LiveVariant[]; loading: boolean } {
     };
   });
 
-  const variants: LiveVariant[] = [
+  const variants: DetailVariant[] = [
     {
       slug: "multi-zone-grid",
       label: "Zones",
-      render: (open, onClose) => (
+      render: () => (
         <ClimateModalMultiZoneGrid
-          open={open}
-          onClose={onClose}
           zones={gridZones}
           onSetMode={onSetMode}
           onSetTarget={onSetTarget}
@@ -173,10 +171,8 @@ function useClimateVariants(): { variants: LiveVariant[]; loading: boolean } {
     {
       slug: "house-thermal-map",
       label: "Thermal Map",
-      render: (open, onClose) => (
+      render: () => (
         <ClimateModalHouseThermalMap
-          open={open}
-          onClose={onClose}
           zones={thermalZones}
           onSetMode={onSetMode}
           onSetTarget={onSetTarget}
@@ -187,10 +183,8 @@ function useClimateVariants(): { variants: LiveVariant[]; loading: boolean } {
     {
       slug: "comfort-presets-fan",
       label: "Presets & Air",
-      render: (open, onClose) => (
+      render: () => (
         <ClimateModalComfortPresetsFan
-          open={open}
-          onClose={onClose}
           zones={presetFanZones}
           onSetPreset={onSetPreset}
           onSetFan={onSetFan}
@@ -200,10 +194,8 @@ function useClimateVariants(): { variants: LiveVariant[]; loading: boolean } {
     {
       slug: "schedule-timeline",
       label: "Schedule",
-      render: (open, onClose) => (
+      render: () => (
         <ClimateModalScheduleTimeline
-          open={open}
-          onClose={onClose}
           zones={scheduleZones}
           nowHour={now.getHours()}
           onApplyNow={(entityId, setpoint) => onSetTarget(entityId, setpoint)}
@@ -218,8 +210,10 @@ function useClimateVariants(): { variants: LiveVariant[]; loading: boolean } {
   return { variants, loading: false };
 }
 
-export const climateModalEntry: TileModalEntry = {
+export const climateDetailEntry: TileDetailPageEntry = {
+  kind: "page",
   tileId: "tile_ac",
+  title: "Climate · A/C",
   defaultSlug: "multi-zone-grid",
   useVariants: useClimateVariants,
 };
