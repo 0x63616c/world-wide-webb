@@ -1,5 +1,5 @@
 /**
- * Next 12 Hours tile (tile_hourly) , live wiring for its detail-modal variants.
+ * Next 12 Hours tile (tile_hourly) , live wiring for its detail-page variants.
  *
  * Shares the weather router with the Weather tile. Data sources (all live):
  *  - trpc.weather.hourly → 24-slot hourly forecast (t/temp/feels/ic/isDay/
@@ -11,13 +11,13 @@
  * Condition Timeline can show full human text. This is decode logic, not data.
  */
 
+import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
 import { Next12HoursModalComfortBand } from "@/components/tiles/modals/Next12HoursModalComfortBand";
 import type { ConditionHourEntry } from "@/components/tiles/modals/Next12HoursModalConditionTimeline";
 import { Next12HoursModalConditionTimeline } from "@/components/tiles/modals/Next12HoursModalConditionTimeline";
 import { Next12HoursModalSkyClock } from "@/components/tiles/modals/Next12HoursModalSkyClock";
 import type { ThermalHourEntry } from "@/components/tiles/modals/Next12HoursModalThermalDayArc";
 import { Next12HoursModalThermalDayArc } from "@/components/tiles/modals/Next12HoursModalThermalDayArc";
-import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
 import type { HourlyEntry } from "@/components/tiles/Next12HoursView";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
@@ -67,7 +67,7 @@ const WEATHER_CODES: Record<number, string> = {
 
 type IconLiteral = "sun" | "moon" | "cloud" | "cloud-sun";
 
-function useNext12HoursVariants(): { variants: LiveVariant[]; loading: boolean } {
+function useNext12HoursVariants(): { variants: DetailVariant[]; loading: boolean } {
   const hourly = trpc.weather.hourly.useQuery(undefined, REFETCH);
   const weather = trpc.weather.now.useQuery(undefined, REFETCH);
 
@@ -104,14 +104,12 @@ function useNext12HoursVariants(): { variants: LiveVariant[]; loading: boolean }
     weatherCode: s.weatherCode,
   }));
 
-  const variants: LiveVariant[] = [
+  const variants: DetailVariant[] = [
     {
       slug: "condition-timeline",
       label: "Timeline",
-      render: (open, onClose) => (
+      render: () => (
         <Next12HoursModalConditionTimeline
-          open={open}
-          onClose={onClose}
           hours={conditionHours}
           sunsetIso={w.sunsetIso}
           sunriseIso={w.sunriseIso}
@@ -124,10 +122,8 @@ function useNext12HoursVariants(): { variants: LiveVariant[]; loading: boolean }
     {
       slug: "comfort-band",
       label: "Comfort",
-      render: (open, onClose) => (
+      render: () => (
         <Next12HoursModalComfortBand
-          open={open}
-          onClose={onClose}
           hours={bandHours}
           now={{ hi: w.hi, lo: w.lo, feels: w.feels }}
         />
@@ -136,10 +132,8 @@ function useNext12HoursVariants(): { variants: LiveVariant[]; loading: boolean }
     {
       slug: "sky-clock",
       label: "Sky Clock",
-      render: (open, onClose) => (
+      render: () => (
         <Next12HoursModalSkyClock
-          open={open}
-          onClose={onClose}
           hours={bandHours}
           now={{
             temp: w.temp,
@@ -157,10 +151,8 @@ function useNext12HoursVariants(): { variants: LiveVariant[]; loading: boolean }
     {
       slug: "thermal-day-arc",
       label: "Thermal Arc",
-      render: (open, onClose) => (
+      render: () => (
         <Next12HoursModalThermalDayArc
-          open={open}
-          onClose={onClose}
           hours={thermalHours}
           sunsetIso={w.sunsetIso}
           sunriseIso={w.sunriseIso}
@@ -173,8 +165,10 @@ function useNext12HoursVariants(): { variants: LiveVariant[]; loading: boolean }
   return { variants, loading: false };
 }
 
-export const next12HoursModalEntry: TileModalEntry = {
+export const next12HoursDetailEntry: TileDetailPageEntry = {
+  kind: "page",
   tileId: "tile_hourly",
+  title: "Next 12 Hours",
   defaultSlug: "condition-timeline",
   useVariants: useNext12HoursVariants,
 };

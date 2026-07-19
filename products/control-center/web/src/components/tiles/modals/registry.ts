@@ -11,9 +11,8 @@
 import type { TileModalEntry } from "./types";
 import { climateModalEntry } from "./wiring/climate";
 import { eventsModalEntry } from "./wiring/events";
-import { next12HoursModalEntry } from "./wiring/next12hours";
 
-const ENTRIES: TileModalEntry[] = [next12HoursModalEntry, climateModalEntry, eventsModalEntry];
+const ENTRIES: TileModalEntry[] = [climateModalEntry, eventsModalEntry];
 
 const BY_TILE_ID = new Map<string, TileModalEntry>(ENTRIES.map((e) => [e.tileId, e]));
 

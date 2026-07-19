@@ -19,7 +19,7 @@
  */
 
 import { useState } from "react";
-import { Modal, Stat } from "@/components/ui";
+import { Stat } from "@/components/ui";
 
 // ─── WMO condition text ───────────────────────────────────────────────────────
 // Same map as weather-service.ts , duplicated here so the view is
@@ -68,8 +68,6 @@ export interface ThermalHourEntry {
 }
 
 export interface ThermalDayArcProps {
-  open: boolean;
-  onClose: () => void;
   /** 24–48 hourly entries. First entry is the current hour ("Now"). */
   hours: ThermalHourEntry[];
   /** ISO local datetime of today's sunset e.g. "2025-06-01T19:52". */
@@ -165,24 +163,12 @@ function SolarRule({
 // ─── main component ───────────────────────────────────────────────────────────
 
 export function Next12HoursModalThermalDayArc({
-  open,
-  onClose,
   hours,
   sunsetIso,
   sunriseIso,
   tomorrowSunriseIso,
 }: ThermalDayArcProps) {
   const [pinnedIdx, setPinnedIdx] = useState<number | null>(null);
-
-  // Nothing to render while closed , Modal returns null itself, but keeping
-  // the guard here avoids computing layout geometry unnecessarily.
-  if (!open) {
-    return (
-      <Modal open={open} onClose={onClose} title="Next 12 Hours" width={920} maxHeight={680}>
-        <div />
-      </Modal>
-    );
-  }
 
   const n = hours.length;
   // Column width clamped between min/max so the chart is readable at any count.
@@ -251,7 +237,7 @@ export function Next12HoursModalThermalDayArc({
   const pinned = pinnedIdx !== null ? hours[pinnedIdx] : null;
 
   return (
-    <Modal open={open} onClose={onClose} title="Next 12 Hours" width={920} maxHeight={680}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* ── Legend ─────────────────────────────────────────────────────────── */}
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
@@ -521,6 +507,6 @@ export function Next12HoursModalThermalDayArc({
           )}
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }

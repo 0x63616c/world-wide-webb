@@ -19,7 +19,7 @@
  */
 
 import type { HourlyEntry } from "@/components/tiles/Next12HoursView";
-import { Modal, Stat } from "@/components/ui";
+import { Stat } from "@/components/ui";
 
 // Subset of weather.now fields used by this modal , sourced from the tRPC
 // weather router's WeatherNow interface. Defined locally to avoid coupling the
@@ -93,8 +93,6 @@ function detectSharpestSwing(hours: HourlyEntry[]): Swing | null {
 // ─── types ────────────────────────────────────────────────────────────────────
 
 export interface Next12HoursModalComfortBandProps {
-  open: boolean;
-  onClose: () => void;
   /** 12 hourly entries from the weather router , same shape as Next12HoursView */
   hours: HourlyEntry[];
   /** Current conditions , supplies hi, lo, feels for the day envelope */
@@ -103,12 +101,7 @@ export interface Next12HoursModalComfortBandProps {
 
 // ─── view ─────────────────────────────────────────────────────────────────────
 
-export function Next12HoursModalComfortBand({
-  open,
-  onClose,
-  hours,
-  now,
-}: Next12HoursModalComfortBandProps) {
+export function Next12HoursModalComfortBand({ hours, now }: Next12HoursModalComfortBandProps) {
   const swing = detectSharpestSwing(hours);
   const isAllRising = swing !== null && swing.delta > 0;
 
@@ -117,7 +110,7 @@ export function Next12HoursModalComfortBand({
   const maxGap = Math.max(...gaps, 1);
 
   return (
-    <Modal open={open} onClose={onClose} title="Next 12 Hours" width={640} maxHeight={620}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* ── Comfort ribbon ─────────────────────────────────────────────────── */}
         <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -328,6 +321,6 @@ export function Next12HoursModalComfortBand({
           </div>
         </section>
       </div>
-    </Modal>
+    </div>
   );
 }

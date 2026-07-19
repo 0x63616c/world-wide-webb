@@ -8,6 +8,7 @@
 
 import { clockDetailEntry } from "../modals/wiring/clock";
 import { networkDetailEntry } from "../modals/wiring/network";
+import { next12HoursDetailEntry } from "../modals/wiring/next12hours";
 import { teslaDetailEntry } from "../modals/wiring/tesla";
 import { weatherDetailEntry } from "../modals/wiring/weather";
 import type { TileDetailEntry } from "./types";
@@ -18,6 +19,7 @@ const ENTRIES: TileDetailEntry[] = [
   clockDetailEntry,
   weatherDetailEntry,
   networkDetailEntry,
+  next12HoursDetailEntry,
   teslaDetailEntry,
 ];
 

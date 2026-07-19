@@ -19,7 +19,6 @@ import { useState } from "react";
 import type { IconName } from "@/components/Icon";
 import { Icon } from "@/components/Icon";
 import type { HourlyEntry } from "@/components/tiles/Next12HoursView";
-import { Modal } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -35,8 +34,6 @@ interface SkyClockNow {
 }
 
 export interface Next12HoursModalSkyClockProps {
-  open: boolean;
-  onClose: () => void;
   /** Up to 12 hourly entries from the weather router */
   hours: HourlyEntry[];
   /** Current conditions for the center display and solar arc painting */
@@ -119,15 +116,8 @@ const R_TICK_END = 160;
 
 // ─── view ─────────────────────────────────────────────────────────────────────
 
-export function Next12HoursModalSkyClock({
-  open,
-  onClose,
-  hours,
-  now,
-}: Next12HoursModalSkyClockProps) {
+export function Next12HoursModalSkyClock({ hours, now }: Next12HoursModalSkyClockProps) {
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
-
-  if (!open) return null;
 
   const sunriseH = isoToHours(now.sunriseIso);
   const sunsetH = isoToHours(now.sunsetIso);
@@ -153,7 +143,7 @@ export function Next12HoursModalSkyClock({
   const selectedHour = selectedIdx !== null ? hours[selectedIdx] : null;
 
   return (
-    <Modal open={open} onClose={onClose} title="Next 12 Hours" width={720} maxHeight={800}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24, alignItems: "center" }}>
         {/* ── legend ───────────────────────────────────────────────────────── */}
         <div
@@ -484,6 +474,6 @@ export function Next12HoursModalSkyClock({
           </p>
         )}
       </div>
-    </Modal>
+    </div>
   );
 }

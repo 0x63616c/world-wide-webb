@@ -5,7 +5,6 @@
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
 import type { ThermalHourEntry } from "./Next12HoursModalThermalDayArc";
 import { Next12HoursModalThermalDayArc } from "./Next12HoursModalThermalDayArc";
@@ -66,10 +65,23 @@ const meta = {
   title: "Modals/Next 12 Hours/Thermal Day Arc",
   component: Next12HoursModalThermalDayArc,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     hours: HOURS_24,
     // LA June sunset ~8 PM, sunrise ~5:42 AM, tomorrow sunrise ~5:41 AM.
     sunsetIso: "2025-06-01T20:02",
@@ -98,14 +110,5 @@ export const RainyDay: Story = {
     sunriseIso: "2025-06-01T05:42",
     sunsetIso: "2025-06-01T20:02",
     tomorrowSunriseIso: "2025-06-02T05:41",
-  },
-};
-
-// ─── Closed ───────────────────────────────────────────────────────────────────
-
-export const Closed: Story = {
-  name: "Closed , modal hidden",
-  args: {
-    open: false,
   },
 };

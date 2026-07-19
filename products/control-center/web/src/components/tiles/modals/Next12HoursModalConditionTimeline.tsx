@@ -16,7 +16,7 @@
 
 import type { IconName } from "@/components/Icon";
 import { Icon } from "@/components/Icon";
-import { Modal, Pill } from "@/components/ui";
+import { Pill } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -37,8 +37,6 @@ export interface ConditionHourEntry {
 }
 
 export interface Next12HoursModalConditionTimelineProps {
-  open: boolean;
-  onClose: () => void;
   hours: ConditionHourEntry[];
   /** "2024-06-01T19:52" , today's sunset ISO (local time from Open-Meteo) */
   sunsetIso: string;
@@ -192,8 +190,6 @@ function PhaseHeader({ phase, sunset }: { phase: SolarPhase; sunset: string }) {
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function Next12HoursModalConditionTimeline({
-  open,
-  onClose,
   hours,
   sunsetIso,
   sunriseIso,
@@ -217,7 +213,7 @@ export function Next12HoursModalConditionTimeline({
   return (
     // Narrow + tall: the list reads like a schedule, not a chart.
     // 560 wide keeps it compact; 780 tall gives ~12 rows comfortable room.
-    <Modal open={open} onClose={onClose} title="Next 12 Hours" width={560} maxHeight={780}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {segments.map((seg) => (
           <section key={seg.phase} style={{ display: "flex", flexDirection: "column" }}>
@@ -228,6 +224,6 @@ export function Next12HoursModalConditionTimeline({
           </section>
         ))}
       </div>
-    </Modal>
+    </div>
   );
 }
