@@ -17,7 +17,7 @@ describe("WakesTileView stories", () => {
   it("Populated: count + last-wake label, tap opens", async () => {
     const { container } = render(<Populated />);
     if (Populated.play) await Populated.play({ canvasElement: container });
-    expect(screen.getByText("Wakes")).toBeDefined();
+    expect(screen.getByText("Activity")).toBeDefined();
   });
 
   it("NoneYet: zero count with none-yet caption", async () => {

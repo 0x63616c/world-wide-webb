@@ -24,7 +24,7 @@ export const Populated: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("12")).toBeInTheDocument();
     await expect(canvas.getByText(/last 14:32/)).toBeInTheDocument();
-    await userEvent.click(canvas.getByText("Wakes"));
+    await userEvent.click(canvas.getByText("Activity"));
     await expect(args.onOpen).toHaveBeenCalled();
   },
 };

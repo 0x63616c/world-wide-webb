@@ -20,7 +20,7 @@ export function WakesTileView({ status, todayCount, lastWakeLabel, onOpen }: Wak
   return (
     <Tile padding={22} onClick={onOpen}>
       {/* Title MUST stay in sync with the registry label in lib/tile-registry.ts. */}
-      <TileHeader icon="moon" title="Wakes" />
+      <TileHeader icon="moon" title="Activity" />
       <div style={{ marginTop: "auto" }}>
         {isLoading ? (
           <Skeleton w={72} h={44} />

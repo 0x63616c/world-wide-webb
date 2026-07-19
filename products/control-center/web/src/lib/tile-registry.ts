@@ -273,7 +273,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
   },
   {
     id: "tile_wakes",
-    label: "Wakes",
+    label: "Activity",
     component: WakesTile,
     viewComponent: WakesTileView,
     worldCol: 38,
