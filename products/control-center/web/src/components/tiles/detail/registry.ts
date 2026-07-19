@@ -15,6 +15,7 @@ import { teslaDetailEntry } from "../modals/wiring/tesla";
 import { weatherDetailEntry } from "../modals/wiring/weather";
 import type { TileDetailEntry } from "./types";
 import { deploysDetailEntry } from "./wiring/deploys";
+import { notificationsDetailEntry } from "./wiring/notifications";
 import { schedulesDetailEntry } from "./wiring/schedules";
 import { soundDetailEntry } from "./wiring/sound";
 
@@ -31,6 +32,7 @@ const ENTRIES: TileDetailEntry[] = [
   deploysDetailEntry,
   schedulesDetailEntry,
   soundDetailEntry,
+  notificationsDetailEntry,
 ];
 
 const BY_TILE_ID = new Map<string, TileDetailEntry>(ENTRIES.map((e) => [e.tileId, e]));

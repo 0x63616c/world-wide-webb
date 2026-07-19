@@ -5,10 +5,10 @@
  *
  * A header with an unread-count pill, the newest unread notifications as dense
  * severity-coded rows, and a footer summarising the oldest-unread age. Tapping
- * the tile opens the expanded Notification Center modal.
+ * the tile opens the full-page Notification Center via the board's tile-detail
+ * registry.
  */
 
-import type { MouseEventHandler } from "react";
 import { Pill, PillTone, Skeleton, StatusDot, Tile, TileHeader, TileStatus } from "@/components/ui";
 import {
   CATEGORY_LABEL,
@@ -41,23 +41,14 @@ export type NotificationCenterTileViewProps =
   | {
       status: typeof TileStatus.Populated;
       data: NotificationCenterViewData;
-      onOpen?: () => void;
     };
 
 export function NotificationCenterTileView(props: NotificationCenterTileViewProps) {
-  const onOpen = props.status === TileStatus.Populated ? props.onOpen : undefined;
-  const onTileTap: MouseEventHandler<HTMLDivElement> | undefined = onOpen
-    ? (e) => {
-        e.stopPropagation();
-        onOpen();
-      }
-    : undefined;
-
   const populated = props.status === TileStatus.Populated;
   const unread = populated ? props.data.unreadCount : 0;
 
   return (
-    <Tile padding={16} onClick={onTileTap} style={onOpen ? { cursor: "pointer" } : undefined}>
+    <Tile padding={16}>
       <TileHeader
         icon="bell"
         title="Notifications"

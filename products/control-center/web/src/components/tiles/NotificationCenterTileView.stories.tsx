@@ -5,7 +5,7 @@
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, within } from "storybook/test";
+import { expect, within } from "storybook/test";
 import { defineTileMeta } from "./__stories__/factory";
 import type {
   NotificationCenterTileViewProps,
@@ -42,7 +42,6 @@ const meta = {
   args: {
     status: "populated",
     data: { unreadCount: 3, rows },
-    onOpen: fn(),
   } as NotificationCenterTileViewProps,
 } satisfies Meta<typeof NotificationCenterTileView>;
 
@@ -71,7 +70,6 @@ export const Populated: Story = {
   args: {
     status: "populated",
     data: { unreadCount: 3, rows },
-    onOpen: fn(),
   } as NotificationCenterTileViewProps,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -86,7 +84,6 @@ export const AllCaughtUp: Story = {
   args: {
     status: "populated",
     data: { unreadCount: 0, rows: [] },
-    onOpen: fn(),
   } as NotificationCenterTileViewProps,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -101,7 +98,6 @@ export const HighVolume: Story = {
   args: {
     status: "populated",
     data: { unreadCount: 128, rows },
-    onOpen: fn(),
   } as NotificationCenterTileViewProps,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

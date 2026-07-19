@@ -1,7 +1,10 @@
 /**
  * Stories for ExpandedNotificationCenterModalView , the Notification Center
- * overlay. View-driven (all data + callbacks via props, including "now", so the
- * relative ages are deterministic). Grouped under "Modals/".
+ * detail page body. View-driven (all data + callbacks via props, including
+ * "now", so the relative ages are deterministic). Grouped under "Modals/" , the
+ * component is a bare page body now (hosted by TileDetailHost in the app), so
+ * stories mount it inside a plain page-sized container matching the host's
+ * content region.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
@@ -45,10 +48,23 @@ const meta = {
   title: "Modals/Notifications/Center",
   component: ExpandedNotificationCenterModalView,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     filter: "unread" as const,
     onFilterChange: fn(),
     items,

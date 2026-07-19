@@ -1,7 +1,7 @@
 /**
  * ExpandedNotificationCenterModalView , pure presentational Notification Center.
  *
- * Renders its own <Modal> (like ExpandedSchedulesModalView) with three tabs
+ * Bare page body (no <Modal>) , hosted by TileDetailHost , with three tabs
  * (Unread / All / Dismissed) over a list of severity-coded rows. Every piece of
  * state , the active tab, the rows, the loading flag, "now" , arrives as a prop
  * and every action leaves through an on* callback, so the whole surface is
@@ -11,7 +11,7 @@
  * deterministic in stories and tests; the container passes a ticking now.
  */
 
-import { Modal, Pill, PillTone, Segmented, Skeleton, StatusDot } from "@/components/ui";
+import { Pill, PillTone, Segmented, Skeleton, StatusDot } from "@/components/ui";
 import {
   CATEGORY_LABEL,
   EMPTY_COPY,
@@ -30,8 +30,6 @@ const TABS: readonly { value: NotificationFilter; label: string }[] = [
 ];
 
 export interface ExpandedNotificationCenterModalViewProps {
-  open: boolean;
-  onClose: () => void;
   /** Active tab , the same value the container passes to `notifications.list`. */
   filter: NotificationFilter;
   onFilterChange: (next: NotificationFilter) => void;
@@ -51,8 +49,6 @@ export interface ExpandedNotificationCenterModalViewProps {
 }
 
 export function ExpandedNotificationCenterModalView({
-  open,
-  onClose,
   filter,
   onFilterChange,
   items,
@@ -65,14 +61,7 @@ export function ExpandedNotificationCenterModalView({
   onMarkAllRead,
 }: ExpandedNotificationCenterModalViewProps) {
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Notifications"
-      width={720}
-      maxHeight={820}
-      scrollbar="visible"
-    >
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {/* Header bar: unread count + the bulk action. "Mark all read" is
             disabled rather than hidden when nothing is unread, so the control
@@ -131,7 +120,7 @@ export function ExpandedNotificationCenterModalView({
           </div>
         )}
       </div>
-    </Modal>
+    </div>
   );
 }
 
