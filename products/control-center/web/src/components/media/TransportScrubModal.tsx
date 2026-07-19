@@ -1,5 +1,5 @@
 /**
- * TransportScrubModal , detail modal for TV Now Playing transport & seek
+ * TransportScrubModal , the TV detail page's "Now Playing" variant
  * (www-51hf.16 / www-51hf.54).
  *
  * Shows large artwork, title/artist, a draggable scrubber (seek fires on
@@ -10,21 +10,18 @@
  * Shuffle and volume are intentionally omitted , no backend mutations exist for
  * tvShuffle or tvSetVolume (www-51hf.54). Adding them requires backend work first.
  *
- * All visible state is driven by props; zero tRPC dependencies , the container
- * (TvNowPlayingTile) wires the mutations.
- *
- * Built exclusively from shared ui primitives (A17): Modal, Skeleton.
+ * All visible state is driven by props; zero tRPC dependencies , the wiring
+ * (detail/wiring/tv.tsx) supplies the mutations. Bare page body (no <Modal>) ,
+ * hosted by TileDetailHost, which supplies the page shell and header.
  */
 
 import { useState } from "react";
-import { Modal, Slider } from "@/components/ui";
+import { Slider } from "@/components/ui";
 import type { TvSource } from "./TvNowPlayingTileView";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface TransportScrubModalProps {
-  open: boolean;
-  onClose: () => void;
   state: string;
   appName: string | null;
   mediaTitle: string | null;
@@ -136,11 +133,9 @@ function NoSeekNote({ source }: { source: TvSource }) {
   );
 }
 
-// ── Main modal ────────────────────────────────────────────────────────────────
+// ── Main view ─────────────────────────────────────────────────────────────────
 
 export function TransportScrubModal({
-  open,
-  onClose,
   state,
   appName,
   mediaTitle,
@@ -160,10 +155,8 @@ export function TransportScrubModal({
   const canSeek = source === "streaming" && hasProgress;
   const showNoSeek = source === "line-in" || source === "TV";
 
-  const titleLabel = mediaTitle ?? appName ?? "";
-
   return (
-    <Modal open={open} onClose={onClose} title={titleLabel} width={560} maxHeight={820}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         {/* Artwork */}
         {artworkUrl ? (
@@ -282,6 +275,6 @@ export function TransportScrubModal({
           </button>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }

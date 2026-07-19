@@ -2,27 +2,37 @@
  * Stories for TransportScrubModal (www-51hf.16).
  *
  * Covers A20 acceptance: streaming playing/paused, line-in, TV (no-seek note),
- * and artwork url. All state is prop-driven; no tRPC dependencies.
+ * and artwork url. All state is prop-driven; no tRPC dependencies. The
+ * component is a bare page body now (hosted by TileDetailHost in the app), so
+ * stories mount it inside a plain page-sized container matching the host's
+ * content region.
  */
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
+import { modalDocsParameters } from "../tiles/__stories__/factory";
 import { TransportScrubModal } from "./TransportScrubModal";
 
 const meta = {
   title: "Media/TransportScrubModal",
   component: TransportScrubModal,
   tags: ["autodocs"],
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
   decorators: [
     (Story) => (
-      // Board is fixed 1366x1024 , render stories inside a dark 600-wide frame.
-      <div style={{ width: 600, height: 700, background: "#111", position: "relative" }}>
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
         <Story />
       </div>
     ),
   ],
   args: {
-    open: true,
-    onClose: fn(),
     onPrev: fn(),
     onPlayPause: fn(),
     onNext: fn(),
@@ -46,13 +56,10 @@ export const StreamingPlaying: Story = {
     source: "streaming",
     artworkUrl: null,
   },
-  play: async () => {
-    const dialog = document.body.querySelector("[role='dialog']");
-    await expect(dialog).toBeTruthy();
-    const scrub = document.body.querySelector("input[type='range'][aria-label='Seek']");
-    await expect(scrub).toBeTruthy();
-    const pauseBtn = document.body.querySelector("[aria-label='Pause']");
-    await expect(pauseBtn).toBeTruthy();
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByLabelText("Seek")).toBeInTheDocument();
+    await expect(canvas.getByLabelText("Pause")).toBeInTheDocument();
   },
 };
 
@@ -69,9 +76,9 @@ export const StreamingPaused: Story = {
     source: "streaming",
     artworkUrl: null,
   },
-  play: async () => {
-    const playBtn = document.body.querySelector("[aria-label='Play']");
-    await expect(playBtn).toBeTruthy();
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByLabelText("Play")).toBeInTheDocument();
   },
 };
 
@@ -88,10 +95,10 @@ export const LineIn: Story = {
     source: "line-in",
     artworkUrl: null,
   },
-  play: async () => {
-    const noSeek = document.body.querySelector("[data-no-seek]");
+  play: async ({ canvasElement }) => {
+    const noSeek = canvasElement.querySelector("[data-no-seek]");
     await expect(noSeek).toBeTruthy();
-    const scrub = document.body.querySelector("input[type='range'][aria-label='Seek']");
+    const scrub = canvasElement.querySelector("input[type='range'][aria-label='Seek']");
     await expect(scrub).toBeFalsy();
   },
 };
@@ -109,8 +116,8 @@ export const LiveTV: Story = {
     source: "TV",
     artworkUrl: null,
   },
-  play: async () => {
-    const noSeek = document.body.querySelector("[data-no-seek]");
+  play: async ({ canvasElement }) => {
+    const noSeek = canvasElement.querySelector("[data-no-seek]");
     await expect(noSeek).toBeTruthy();
   },
 };
@@ -128,28 +135,8 @@ export const WithArtwork: Story = {
     source: "streaming",
     artworkUrl: "https://upload.wikimedia.org/wikipedia/en/4/4d/Queen_Greatest_Hits.png",
   },
-  play: async () => {
-    const img = document.body.querySelector("img[alt*='artwork' i]");
+  play: async ({ canvasElement }) => {
+    const img = canvasElement.querySelector("img[alt*='artwork' i]");
     await expect(img).toBeTruthy();
-  },
-};
-
-// ── Closed (renders nothing) ──────────────────────────────────────────────────
-
-export const Closed: Story = {
-  args: {
-    open: false,
-    state: "playing",
-    appName: "Netflix",
-    mediaTitle: "Stranger Things",
-    mediaArtist: "Netflix Originals",
-    mediaPosition: 60,
-    mediaDuration: 3600,
-    source: "streaming",
-    artworkUrl: null,
-  },
-  play: async () => {
-    const dialog = document.body.querySelector("[role='dialog']");
-    await expect(dialog).toBeFalsy();
   },
 };

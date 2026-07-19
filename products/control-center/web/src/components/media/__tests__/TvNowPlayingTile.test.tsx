@@ -15,19 +15,6 @@ import { TvNowPlayingTileView } from "../TvNowPlayingTileView";
 
 afterEach(cleanup);
 
-// ── Mock portals and modal-open-store for modal rendering ────────────────────
-vi.mock("react-dom", async (importOriginal) => {
-  const original = await importOriginal<typeof import("react-dom")>();
-  return {
-    ...original,
-    createPortal: (node: React.ReactNode) => node,
-  };
-});
-
-vi.mock("@/lib/modal-open-store", () => ({
-  registerOpenModal: vi.fn(() => () => {}),
-}));
-
 // ── Mock tRPC hook ────────────────────────────────────────────────────────────
 vi.mock("@/lib/trpc", () => {
   const useQuery = vi.fn();
@@ -545,20 +532,19 @@ describe("TILE_REGISTRY , TvNowPlayingTile registration (A31)", () => {
     expect(entry?.rows).toBe(3);
   });
 
-  it("registry entry sets ownsTap=true (has detail modal)", async () => {
+  it("registry entry no longer sets ownsTap (detail page is board-opened)", async () => {
     const { TILE_REGISTRY } = await import("@/lib/tile-registry");
     const entry = TILE_REGISTRY.find((t) => t.component === TvNowPlayingTile);
-    expect(entry?.ownsTap).toBe(true);
+    expect(entry?.ownsTap).toBeUndefined();
   });
 });
 
-// ── Modal integration tests (A20, A21, www-51hf.53) ───────────────────────────
-// TransportScrubModal and TvRemoteModal must be wired into TvNowPlayingTile.
-// The tile owns its tap surface (ownsTap:true) , opening modals is its
-// responsibility. TvNowPlayingTileView exposes onOpenTransport/onOpenRemote
-// props that the tile binds to modal open handlers.
+// ── Detail deep-link callbacks (A20, A21, www-51hf.53) ────────────────────────
+// The full-page TV detail (Now Playing / Remote variants) is opened via the
+// tile-detail store; TvNowPlayingTileView exposes onOpenTransport/onOpenRemote
+// props that the tile binds to openTileDetail("tile_tv", ...).
 
-describe("TvNowPlayingTileView , modal open callbacks (A20/A21)", () => {
+describe("TvNowPlayingTileView , detail open callbacks (A20/A21)", () => {
   const streamingProps = {
     status: "populated" as const,
     state: "playing",

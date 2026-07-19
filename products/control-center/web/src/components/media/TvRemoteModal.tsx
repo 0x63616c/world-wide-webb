@@ -1,24 +1,20 @@
 /**
- * TvRemoteModal , D-pad remote control modal for the TV (www-51hf.17).
+ * TvRemoteModal , the TV detail page's "Remote" variant (www-51hf.17).
  *
  * Renders a now-playing strip, playback keys (prev/play-pause/next), and a
  * D-pad (up/down/left/right + center OK, menu/back, home, power) all wired to
- * callbacks that the container maps to tvRemote mutations.
+ * callbacks that the wiring (detail/wiring/tv.tsx) maps to tvRemote mutations.
  *
  * Mute is intentionally absent , the tvRemote mutation has no mute command, so
  * an explicit note makes that clear to users rather than hiding the absence.
  *
- * All visible state is driven by props; zero tRPC dependencies.
- * Built exclusively from shared ui primitives (A17): Modal, Skeleton.
+ * All visible state is driven by props; zero tRPC dependencies. Bare page body
+ * (no <Modal>) , hosted by TileDetailHost, which supplies the page shell.
  */
-
-import { Modal } from "@/components/ui";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface TvRemoteModalProps {
-  open: boolean;
-  onClose: () => void;
   // now-playing strip
   state: string;
   appName: string | null;
@@ -139,11 +135,9 @@ function DPad({ onUp, onDown, onLeft, onRight, onOk }: DPadProps) {
   );
 }
 
-// ── Main modal ────────────────────────────────────────────────────────────────
+// ── Main view ─────────────────────────────────────────────────────────────────
 
 export function TvRemoteModal({
-  open,
-  onClose,
   state,
   appName,
   mediaTitle,
@@ -165,7 +159,7 @@ export function TvRemoteModal({
   const titleLabel = mediaTitle ?? appName ?? "TV Remote";
 
   return (
-    <Modal open={open} onClose={onClose} title="TV Remote" width={440} maxHeight={820}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         {/* Now-playing strip */}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -316,6 +310,6 @@ export function TvRemoteModal({
           Volume control unavailable , use TV or receiver hardware buttons to adjust volume.
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }

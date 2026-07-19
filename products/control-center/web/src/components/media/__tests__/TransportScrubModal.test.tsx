@@ -5,7 +5,7 @@
  *      transport row (prev/play-pause/next); line-in/TV shows no-seek note
  *      instead of scrubber.
  * Shuffle and volume removed , no backend mutations exist (www-51hf.54).
- * A17: uses Modal and other shared ui primitives.
+ *      Bare detail page body now , no <Modal> chrome.
  * A32: co-located test + stories file.
  */
 import "@testing-library/jest-dom";
@@ -15,25 +15,9 @@ import { TransportScrubModal, type TransportScrubModalProps } from "../Transport
 
 afterEach(cleanup);
 
-// ── Mock portals (createPortal) so Modal renders inline in tests ──────────────
-vi.mock("react-dom", async (importOriginal) => {
-  const original = await importOriginal<typeof import("react-dom")>();
-  return {
-    ...original,
-    createPortal: (node: React.ReactNode) => node,
-  };
-});
-
-// ── Modal-open store (registerOpenModal) ─────────────────────────────────────
-vi.mock("@/lib/modal-open-store", () => ({
-  registerOpenModal: vi.fn(() => () => {}),
-}));
-
 // ── Base props (streaming playing) ───────────────────────────────────────────
 
 const baseProps: TransportScrubModalProps = {
-  open: true,
-  onClose: vi.fn(),
   state: "playing",
   appName: "Netflix",
   mediaTitle: "Stranger Things",
@@ -48,26 +32,11 @@ const baseProps: TransportScrubModalProps = {
   onSeek: vi.fn(),
 };
 
-// ── Closed state ──────────────────────────────────────────────────────────────
+// ── Core structure (A20) ─────────────────────────────────────────────────────
 
-describe("TransportScrubModal , closed", () => {
-  it("renders nothing when open=false", () => {
-    const { container } = render(<TransportScrubModal {...baseProps} open={false} />);
-    expect(container.querySelector("[role='dialog']")).not.toBeInTheDocument();
-  });
-});
-
-// ── Open state: core structure (A20) ─────────────────────────────────────────
-
-describe("TransportScrubModal , open, streaming playing (A20)", () => {
-  it("renders a dialog role element", () => {
-    render(<TransportScrubModal {...baseProps} />);
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-  });
-
+describe("TransportScrubModal , streaming playing (A20)", () => {
   it("renders the media title (A20)", () => {
     render(<TransportScrubModal {...baseProps} />);
-    // Title appears in Modal header AND content body , both are correct.
     expect(screen.getAllByText("Stranger Things").length).toBeGreaterThan(0);
   });
 
@@ -143,13 +112,6 @@ describe("TransportScrubModal , transport callbacks", () => {
     render(<TransportScrubModal {...baseProps} onNext={onNext} />);
     fireEvent.click(screen.getByLabelText(/next/i));
     expect(onNext).toHaveBeenCalledTimes(1);
-  });
-
-  it("calls onClose when close button is clicked", () => {
-    const onClose = vi.fn();
-    render(<TransportScrubModal {...baseProps} onClose={onClose} />);
-    fireEvent.click(screen.getByLabelText(/close/i));
-    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 

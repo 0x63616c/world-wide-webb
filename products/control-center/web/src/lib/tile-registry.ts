@@ -235,7 +235,6 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     worldRow: 24,
     cols: 4,
     rows: 3,
-    ownsTap: true,
   },
   {
     id: "tile_sound",

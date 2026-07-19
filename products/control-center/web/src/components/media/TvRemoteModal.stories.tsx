@@ -2,27 +2,36 @@
  * Stories for TvRemoteModal (www-51hf.17).
  *
  * Covers A21 acceptance: now-playing strip, D-pad, playback keys, no-mute note.
- * All state is prop-driven; no tRPC dependencies.
+ * All state is prop-driven; no tRPC dependencies. The component is a bare page
+ * body now (hosted by TileDetailHost in the app), so stories mount it inside a
+ * plain page-sized container matching the host's content region.
  */
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
+import { modalDocsParameters } from "../tiles/__stories__/factory";
 import { TvRemoteModal } from "./TvRemoteModal";
 
 const meta = {
   title: "Media/TvRemoteModal",
   component: TvRemoteModal,
   tags: ["autodocs"],
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
   decorators: [
     (Story) => (
-      // Board is fixed 1366x1024 , render stories inside a dark 500-wide frame.
-      <div style={{ width: 500, height: 700, background: "#111", position: "relative" }}>
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
         <Story />
       </div>
     ),
   ],
   args: {
-    open: true,
-    onClose: fn(),
     state: "playing",
     appName: "Netflix",
     mediaTitle: "Stranger Things",
@@ -47,9 +56,8 @@ type Story = StoryObj<typeof meta>;
 
 export const Playing: Story = {
   args: { state: "playing" },
-  play: async () => {
-    const canvas = within(document.body);
-    await expect(canvas.getByRole("dialog")).toBeTruthy();
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
     await expect(canvas.getByLabelText("Up")).toBeTruthy();
     await expect(canvas.getByLabelText("Down")).toBeTruthy();
     await expect(canvas.getByLabelText("Left")).toBeTruthy();
@@ -64,8 +72,8 @@ export const Playing: Story = {
 
 export const Paused: Story = {
   args: { state: "paused" },
-  play: async () => {
-    const canvas = within(document.body);
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
     await expect(canvas.getByLabelText("Play")).toBeTruthy();
   },
 };
@@ -97,8 +105,8 @@ export const IdleStandby: Story = {
 
 export const NoMuteNote: Story = {
   name: "No-mute note present (A21)",
-  play: async () => {
-    const note = document.body.querySelector("[data-no-mute]");
+  play: async ({ canvasElement }) => {
+    const note = canvasElement.querySelector("[data-no-mute]");
     await expect(note).toBeTruthy();
   },
 };

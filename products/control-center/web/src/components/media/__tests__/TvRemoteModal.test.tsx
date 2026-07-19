@@ -3,7 +3,7 @@
  *
  * A21: now-playing strip, playback keys, D-pad (up/down/left/right + center OK,
  *      menu/back, home, power) wired to tvRemote mutation, with no-mute note.
- * A17: built from shared ui primitives (Modal, Skeleton, etc.).
+ *      Bare detail page body now , no <Modal> chrome.
  * A32: co-located test + stories.
  */
 import "@testing-library/jest-dom";
@@ -13,27 +13,11 @@ import { TvRemoteModal, type TvRemoteModalProps } from "../TvRemoteModal";
 
 afterEach(cleanup);
 
-// Mock portals so Modal renders inline in tests
-vi.mock("react-dom", async (importOriginal) => {
-  const original = await importOriginal<typeof import("react-dom")>();
-  return {
-    ...original,
-    createPortal: (node: React.ReactNode) => node,
-  };
-});
-
-// Mock modal-open-store
-vi.mock("@/lib/modal-open-store", () => ({
-  registerOpenModal: vi.fn(() => () => {}),
-}));
-
 // ── Base props ────────────────────────────────────────────────────────────────
 
 const noop = vi.fn();
 
 const baseProps: TvRemoteModalProps = {
-  open: true,
-  onClose: vi.fn(),
   // now-playing strip
   state: "playing",
   appName: "Netflix",
@@ -54,23 +38,9 @@ const baseProps: TvRemoteModalProps = {
   onNext: noop,
 };
 
-// ── Closed state ──────────────────────────────────────────────────────────────
-
-describe("TvRemoteModal , closed", () => {
-  it("renders nothing when open=false", () => {
-    const { container } = render(<TvRemoteModal {...baseProps} open={false} />);
-    expect(container.querySelector("[role='dialog']")).not.toBeInTheDocument();
-  });
-});
-
-// ── Open state: now-playing strip (A21) ──────────────────────────────────────
+// ── Now-playing strip (A21) ──────────────────────────────────────────────────
 
 describe("TvRemoteModal , now-playing strip (A21)", () => {
-  it("renders a dialog", () => {
-    render(<TvRemoteModal {...baseProps} />);
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-  });
-
   it("renders the media title in the now-playing strip", () => {
     render(<TvRemoteModal {...baseProps} />);
     expect(screen.getAllByText("Stranger Things").length).toBeGreaterThan(0);
@@ -259,16 +229,5 @@ describe("TvRemoteModal , no-mute note (A21)", () => {
     const { container } = render(<TvRemoteModal {...baseProps} />);
     const note = container.querySelector("[data-no-mute]");
     expect(note).toBeInTheDocument();
-  });
-});
-
-// ── Close (A17/A32) ───────────────────────────────────────────────────────────
-
-describe("TvRemoteModal , close", () => {
-  it("calls onClose when close button is clicked", () => {
-    const onClose = vi.fn();
-    render(<TvRemoteModal {...baseProps} onClose={onClose} />);
-    fireEvent.click(screen.getByLabelText(/close/i));
-    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
