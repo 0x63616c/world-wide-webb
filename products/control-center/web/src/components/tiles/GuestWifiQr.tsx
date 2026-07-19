@@ -4,13 +4,12 @@
  * Pure presentational SVG: `uqr` encodes the WIFI: payload into a module
  * matrix and this component draws it in the board's grayscale/accent language.
  *
- * Styles:
- * - "crisp":   square dark modules on a light card , the conservative classic.
- * - "rounded": dot-softened dark modules on a light card.
- * - "accent":  INVERTED , light modules on the dark tile surface with accent
- *              finder corners. Modern phone cameras decode inverted codes.
- * - "apple":   inverted circular-dot grid with drawn finder rings (App-Clip-ish).
- * - "inverted": plain inversion , light modules on dark, no accent, no glow.
+ * All styles are inverted (white modules on a black card); they vary only in
+ * module shape / finder treatment:
+ * - "crisp":    square modules.
+ * - "rounded":  dot-softened modules ("inverted" is a legacy alias of this).
+ * - "accent":   accent finder corners + glow.
+ * - "apple":    circular-dot grid with drawn finder rings (App-Clip-ish).
  */
 
 import { encode } from "uqr";
@@ -52,11 +51,13 @@ export function GuestWifiQr({ value, size, qrStyle = "rounded" }: GuestWifiQrPro
   const count = qr.size;
   const cell = size / count;
 
-  const inverted = qrStyle === "accent" || qrStyle === "apple" || qrStyle === "inverted";
-  // Accent finders + glow only on the deliberately-decorated styles.
+  // EVERY style is inverted (design call 2026-07-19): white modules on a black
+  // card, so the code sits inside the board's dark theme instead of punching a
+  // white hole in it. Styles now only vary module shape / finder treatment.
+  // Modern phone cameras decode inverted codes.
   const decorated = qrStyle === "accent" || qrStyle === "apple";
   const drawnFinders = qrStyle === "apple";
-  const moduleColor = inverted ? "#ededed" : "#0a0a0a";
+  const moduleColor = "#ededed";
   const finderColor = decorated ? "var(--acc)" : moduleColor;
 
   const data: { x: number; y: number; finder: boolean }[] = [];
@@ -79,13 +80,11 @@ export function GuestWifiQr({ value, size, qrStyle = "rounded" }: GuestWifiQrPro
         height: size,
         flex: "0 0 auto",
         borderRadius: 16,
-        // Light card for the classic styles; the inverted styles sit on a
-        // near-black card so the code melts into the board's theme.
-        background: inverted ? "#050505" : "#ededed",
+        background: "#050505",
         padding: Math.round(size * 0.045),
         boxShadow: decorated
           ? "var(--acc-glow)"
-          : "inset 0 1px 0 0 rgba(255,255,255,0.4), 0 10px 30px -18px rgba(0,0,0,0.8)",
+          : "inset 0 1px 0 0 rgba(255,255,255,0.04), 0 10px 30px -18px rgba(0,0,0,0.8)",
         border: decorated ? "1px solid var(--acc-line)" : "1px solid var(--hair-2)",
       }}
     >
