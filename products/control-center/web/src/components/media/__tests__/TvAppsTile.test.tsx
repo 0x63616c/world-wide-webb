@@ -3,8 +3,9 @@
  *
  * Hero card shows the open app's brand logo + name + "OPEN · RESUME"; the 2×2
  * grid shows logo-only cells (no text labels) addressable by aria-label; a
- * colored status pill replaces the old grid-icon button, and the whole tile
- * owns the tap that opens AllAppsModal (app buttons stopPropagation to launch).
+ * colored status pill replaces the old grid-icon button; tapping the tile
+ * surface bubbles to the board, which opens the full-page All Apps detail (app
+ * buttons stopPropagation to launch).
  * A17: uses shared ui primitives. A32: co-located test + stories.
  */
 import "@testing-library/jest-dom";
@@ -20,19 +21,12 @@ const baseProps: TvAppsTileViewProps = {
   apps: ["Netflix", "Disney+", "Hulu", "Apple TV+", "YouTube"],
   currentApp: "Netflix",
   onLaunchApp: vi.fn(),
-  onOpenAllApps: vi.fn(),
 };
 
 describe("TvAppsTileView, loading/error", () => {
   it("renders Skeleton when status=loading", () => {
     const { container } = render(
-      <TvAppsTileView
-        status="loading"
-        apps={[]}
-        currentApp={null}
-        onLaunchApp={vi.fn()}
-        onOpenAllApps={vi.fn()}
-      />,
+      <TvAppsTileView status="loading" apps={[]} currentApp={null} onLaunchApp={vi.fn()} />,
     );
     expect(
       container.querySelector("[data-skeleton]") ?? container.querySelector("[aria-busy]"),
@@ -73,21 +67,9 @@ describe("TvAppsTileView, populated", () => {
 
   it("launches a grid app when its cell is clicked", () => {
     const onLaunchApp = vi.fn();
-    const onOpenAllApps = vi.fn();
-    render(
-      <TvAppsTileView {...baseProps} onLaunchApp={onLaunchApp} onOpenAllApps={onOpenAllApps} />,
-    );
+    render(<TvAppsTileView {...baseProps} onLaunchApp={onLaunchApp} />);
     fireEvent.click(screen.getByRole("button", { name: "Disney+" }));
     expect(onLaunchApp).toHaveBeenCalledWith("Disney+");
-    // App taps must NOT bubble up to open the all-apps modal.
-    expect(onOpenAllApps).not.toHaveBeenCalled();
-  });
-
-  it("opens all-apps when the tile surface (header) is tapped", () => {
-    const onOpenAllApps = vi.fn();
-    render(<TvAppsTileView {...baseProps} onOpenAllApps={onOpenAllApps} />);
-    fireEvent.click(screen.getByText(/tv apps/i));
-    expect(onOpenAllApps).toHaveBeenCalledTimes(1);
   });
 
   it("renders idle state when no currentApp", () => {

@@ -1,9 +1,12 @@
 /**
  * Stories for AllAppsModal (www-51hf.22).
- * A27: Searchable full-color grid of Apple TV apps.
+ * A27: Searchable full-color grid of Apple TV apps. The component is a bare
+ * page body now (hosted by TileDetailHost in the app), so stories mount it
+ * inside a plain page-sized container matching the host's content region.
  */
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
+import { modalDocsParameters } from "../tiles/__stories__/factory";
 import { AllAppsModal } from "./AllAppsModal";
 
 const apps = [
@@ -23,18 +26,25 @@ const meta = {
   title: "Media/AllAppsModal",
   component: AllAppsModal,
   tags: ["autodocs"],
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
   decorators: [
     (Story) => (
-      <div style={{ width: 600, height: 700, background: "#111", position: "relative" }}>
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
         <Story />
       </div>
     ),
   ],
   args: {
-    open: true,
     apps,
     currentApp: "Netflix",
-    onClose: fn(),
     onLaunchApp: fn(),
   },
 } satisfies Meta<typeof AllAppsModal>;
@@ -42,18 +52,11 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Open: Story = {
-  play: async () => {
-    const dialog = document.body.querySelector("[role='dialog']");
-    await expect(dialog).toBeTruthy();
-  },
-};
-
-export const Closed: Story = {
-  args: { open: false },
-  play: async () => {
-    const dialog = document.body.querySelector("[role='dialog']");
-    await expect(dialog).toBeFalsy();
+export const Grid: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByLabelText("Search apps")).toBeInTheDocument();
+    await expect(canvas.getByLabelText("Launch Netflix")).toBeInTheDocument();
   },
 };
 
@@ -91,8 +94,8 @@ export const FullProdList: Story = {
     ],
     currentApp: "YouTube",
   },
-  play: async () => {
-    const dialog = document.body.querySelector("[role='dialog']");
-    await expect(dialog).toBeTruthy();
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByLabelText("Launch YouTube")).toBeInTheDocument();
   },
 };

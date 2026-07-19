@@ -36,7 +36,6 @@ const meta = {
   args: {
     apps,
     onLaunchApp: fn(),
-    onOpenAllApps: fn(),
   },
 } satisfies Meta<typeof TvAppsTileView>;
 

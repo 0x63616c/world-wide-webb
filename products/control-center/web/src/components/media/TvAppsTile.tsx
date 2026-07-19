@@ -2,15 +2,15 @@
  * TvAppsTile , container for the TV Apps 4×2 tile (www-51hf.21 / A26).
  *
  * Resolves media.tvApps via tRPC with a 10s poll. Renders Skeleton while
- * pending/error (A18). On success passes apps list to TvAppsTileView.
- * Opens AllAppsModal on expand (A27).
+ * pending/error (A18). On success passes apps list to TvAppsTileView; the
+ * hero/grid buttons launch apps directly. Tapping the tile surface opens the
+ * full-page All Apps detail via the board's tile-detail registry (wired in
+ * detail/wiring/tv-apps.tsx).
  */
 
-import { useState } from "react";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";
-import { AllAppsModal } from "./AllAppsModal";
 import { TvAppsTileView } from "./TvAppsTileView";
 
 export function TvAppsTile() {
@@ -21,38 +21,18 @@ export function TvAppsTile() {
   );
 
   const launchMutation = trpc.media.tvLaunchApp.useMutation();
-  const [allAppsOpen, setAllAppsOpen] = useState(false);
 
   if (!q.data) {
-    return (
-      <TvAppsTileView
-        status={q.status}
-        apps={[]}
-        currentApp={null}
-        onLaunchApp={() => {}}
-        onOpenAllApps={() => {}}
-      />
-    );
+    return <TvAppsTileView status={q.status} apps={[]} currentApp={null} onLaunchApp={() => {}} />;
   }
 
   const data = q.data;
   return (
-    <>
-      <TvAppsTileView
-        status={q.status}
-        apps={data.apps}
-        currentApp={data.currentApp}
-        onLaunchApp={(app) => launchMutation.mutate({ app })}
-        onOpenAllApps={() => setAllAppsOpen(true)}
-      />
-
-      <AllAppsModal
-        open={allAppsOpen}
-        onClose={() => setAllAppsOpen(false)}
-        apps={data.apps}
-        currentApp={data.currentApp}
-        onLaunchApp={(app) => launchMutation.mutate({ app })}
-      />
-    </>
+    <TvAppsTileView
+      status={q.status}
+      apps={data.apps}
+      currentApp={data.currentApp}
+      onLaunchApp={(app) => launchMutation.mutate({ app })}
+    />
   );
 }

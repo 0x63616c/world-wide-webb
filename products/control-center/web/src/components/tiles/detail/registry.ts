@@ -18,6 +18,7 @@ import { deploysDetailEntry } from "./wiring/deploys";
 import { notificationsDetailEntry } from "./wiring/notifications";
 import { schedulesDetailEntry } from "./wiring/schedules";
 import { soundDetailEntry } from "./wiring/sound";
+import { tvAppsDetailEntry } from "./wiring/tv-apps";
 
 // Grows one entry per migrated tile; final state covers all board tiles
 // (completeness enforced by a registry test once the migration lands).
@@ -33,6 +34,7 @@ const ENTRIES: TileDetailEntry[] = [
   schedulesDetailEntry,
   soundDetailEntry,
   notificationsDetailEntry,
+  tvAppsDetailEntry,
 ];
 
 const BY_TILE_ID = new Map<string, TileDetailEntry>(ENTRIES.map((e) => [e.tileId, e]));

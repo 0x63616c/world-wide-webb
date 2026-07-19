@@ -7,7 +7,8 @@
  * logos for the next apps (no text labels). Idle hero shows a TV glyph +
  * "Apple TV" + "NOTHING OPEN". Skeleton shimmer while pending/error (A18).
  *
- * The whole tile owns its tap (opens AllAppsModal); the hero/grid buttons
+ * Tapping the tile surface bubbles to the board, which opens the full-page
+ * All Apps detail via the tile-detail registry; the hero/grid buttons
  * stopPropagation so they launch their app instead. Pure presentational - no
  * tRPC; the container (TvAppsTile) wires mutations.
  */
@@ -22,7 +23,6 @@ export interface TvAppsTileViewProps {
   apps: string[];
   currentApp: string | null;
   onLaunchApp: (app: string) => void;
-  onOpenAllApps: () => void;
 }
 
 // ── Status pill ─────────────────────────────────────────────────────────────
@@ -136,13 +136,7 @@ function MonitorGlyph() {
 
 // ── Main view ─────────────────────────────────────────────────────────────────
 
-export function TvAppsTileView({
-  status,
-  apps,
-  currentApp,
-  onLaunchApp,
-  onOpenAllApps,
-}: TvAppsTileViewProps) {
+export function TvAppsTileView({ status, apps, currentApp, onLaunchApp }: TvAppsTileViewProps) {
   if (status !== "populated") {
     return (
       <Tile padding={18} style={{ gap: 10 }}>
@@ -160,7 +154,7 @@ export function TvAppsTileView({
     .slice(0, 4);
 
   return (
-    <Tile padding={18} style={{ gap: 0 }} onClick={onOpenAllApps}>
+    <Tile padding={18} style={{ gap: 0 }}>
       <TileHeader icon="apps" title="TV Apps" right={<StatusPill currentApp={currentApp} />} />
 
       {/* Hero + 2×2 grid */}

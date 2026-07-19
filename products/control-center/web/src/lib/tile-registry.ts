@@ -256,7 +256,6 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     worldRow: 32,
     cols: 4,
     rows: 2,
-    ownsTap: true,
   },
   {
     id: "tile_quickplay",

@@ -3,7 +3,7 @@
  *
  * A27: Searchable full-color grid of real source_list apps;
  *      currently-open app is marked; tapping launches it.
- * A17: uses shared ui primitives (Modal).
+ *      Bare detail page body now , no <Modal> chrome.
  * A32: co-located test + stories.
  */
 import "@testing-library/jest-dom";
@@ -14,36 +14,13 @@ import { AllAppsModal } from "../AllAppsModal";
 
 afterEach(cleanup);
 
-vi.mock("react-dom", async (importOriginal) => {
-  const original = await importOriginal<typeof import("react-dom")>();
-  return { ...original, createPortal: (node: React.ReactNode) => node };
-});
-
-vi.mock("@/lib/modal-open-store", () => ({
-  registerOpenModal: vi.fn(() => () => {}),
-}));
-
 const baseProps: AllAppsModalProps = {
-  open: true,
-  onClose: vi.fn(),
   apps: ["Netflix", "Disney+", "Hulu", "Apple TV+", "YouTube", "Spotify"],
   currentApp: "Netflix",
   onLaunchApp: vi.fn(),
 };
 
-describe("AllAppsModal , closed", () => {
-  it("renders nothing when open=false", () => {
-    const { container } = render(<AllAppsModal {...baseProps} open={false} />);
-    expect(container.querySelector("[role='dialog']")).not.toBeInTheDocument();
-  });
-});
-
-describe("AllAppsModal , open (A27)", () => {
-  it("renders a dialog", () => {
-    render(<AllAppsModal {...baseProps} />);
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-  });
-
+describe("AllAppsModal (A27)", () => {
   it("renders all apps", () => {
     render(<AllAppsModal {...baseProps} />);
     for (const app of baseProps.apps) {
@@ -91,13 +68,6 @@ describe("AllAppsModal , open (A27)", () => {
     render(<AllAppsModal {...baseProps} apps={[...baseProps.apps, "Zelda FM"]} />);
     const glyph = screen.getByLabelText("Launch Zelda FM").querySelector("div span");
     expect(glyph).toHaveStyle({ fontSize: `${34 * 0.6}px` });
-  });
-
-  it("calls onClose when close button is clicked", () => {
-    const onClose = vi.fn();
-    render(<AllAppsModal {...baseProps} onClose={onClose} />);
-    fireEvent.click(screen.getByLabelText(/close/i));
-    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 

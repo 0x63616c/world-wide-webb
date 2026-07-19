@@ -3,18 +3,17 @@
  *
  * Renders the real source_list apps from the tvApps query. The currently-open
  * app is marked with an accent ring. Search filters the grid in real time.
- * Tapping an app launches it via the tvLaunchApp mutation.
- *
- * Built from shared ui primitives (A17): Modal.
+ * Tapping an app launches it via the tvLaunchApp mutation (the wiring's
+ * onLaunchApp also closes the detail page, preserving the old launch-and-close
+ * behavior). Bare page body (no <Modal>) , hosted by TileDetailHost.
  */
 
 import { useState } from "react";
-import { Modal } from "@/components/ui";
 import { TvAppMark, tvAppsInOrder } from "./tv-app-logos";
 
 // ── Grid geometry (www-cb57) ──────────────────────────────────────────────────
 // The grid lives in a pinned-height viewport (4 columns × 5.5 rows , the half
-// row signals scrollability) so filtering never resizes the modal. Underfull
+// row signals scrollability) so filtering never resizes the grid. Underfull
 // results are padded with placeholder cells up to a full 6 rows, so the grid
 // stays visually full even with zero matches.
 
@@ -29,8 +28,6 @@ const MIN_CELLS = GRID_COLS * Math.ceil(VISIBLE_ROWS);
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface AllAppsModalProps {
-  open: boolean;
-  onClose: () => void;
   apps: string[];
   currentApp: string | null;
   onLaunchApp: (app: string) => void;
@@ -38,7 +35,7 @@ export interface AllAppsModalProps {
 
 // ── Main modal ────────────────────────────────────────────────────────────────
 
-export function AllAppsModal({ open, onClose, apps, currentApp, onLaunchApp }: AllAppsModalProps) {
+export function AllAppsModal({ apps, currentApp, onLaunchApp }: AllAppsModalProps) {
   const [query, setQuery] = useState("");
 
   // Favorites first, then logo apps, then glyph-only , same order as the tile.
@@ -48,7 +45,7 @@ export function AllAppsModal({ open, onClose, apps, currentApp, onLaunchApp }: A
     : ordered;
 
   return (
-    <Modal open={open} onClose={onClose} title="All Apps" width={560} maxHeight={760}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {/* Search */}
         <input
@@ -71,7 +68,7 @@ export function AllAppsModal({ open, onClose, apps, currentApp, onLaunchApp }: A
         />
 
         {/* Grid , pinned-height scroll viewport so filtering never resizes
-            the modal; modal-scroll hides the scrollbar (kiosk style). */}
+            the grid; modal-scroll hides the scrollbar (kiosk style). */}
         <div
           data-testid="apps-grid-viewport"
           className="modal-scroll"
@@ -93,10 +90,7 @@ export function AllAppsModal({ open, onClose, apps, currentApp, onLaunchApp }: A
                   type="button"
                   data-active-app={isActive ? "true" : undefined}
                   aria-label={`Launch ${app}`}
-                  onClick={() => {
-                    onLaunchApp(app);
-                    onClose();
-                  }}
+                  onClick={() => onLaunchApp(app)}
                   style={{
                     padding: "12px 8px",
                     borderRadius: 12,
@@ -160,6 +154,6 @@ export function AllAppsModal({ open, onClose, apps, currentApp, onLaunchApp }: A
           </div>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }
