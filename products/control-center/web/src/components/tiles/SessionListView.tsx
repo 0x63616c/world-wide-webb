@@ -51,10 +51,9 @@ export function SessionListView({ sessions, photoUrl, onSelect }: SessionListVie
   }
 
   return (
-    <div
-      className="modal-scroll"
-      style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}
-    >
+    // No own scroll region , the Activity page owns the single scroller so the
+    // mode header can stay pinned above it (one scroller, not nested ones).
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {sessions.map((s) => (
         <button
           key={s.id}

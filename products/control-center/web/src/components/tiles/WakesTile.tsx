@@ -3,7 +3,7 @@ import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";
 import { PinGateModal } from "../pin/PinGateModal";
-import { WakePhotoViewer } from "./WakePhotoViewer";
+import { ActivityPage } from "./ActivityPage";
 import { WakesTileView } from "./WakesTileView";
 
 /** Matches the api's UTC day buckets (wake-photo-service dayDirFor). */
@@ -58,7 +58,7 @@ export function WakesTile() {
           setViewerOpen(true);
         }}
       />
-      <WakePhotoViewer
+      <ActivityPage
         open={viewerOpen}
         onClose={() => {
           setViewerOpen(false);

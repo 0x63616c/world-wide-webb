@@ -1,14 +1,14 @@
 /**
- * Stories for WakePhotoViewer , the fullscreen browser behind the Wakes tile.
- * Grouped under "Modals/" so it falls through the BoardDecorator's tile branch.
- * Photos are inline-SVG data URIs , no network, deterministic frames.
+ * Stories for ActivityPage , the full-page overlay behind the Activity tile.
+ * It portals to document.body, so plays query `within(...body)`. Photos are
+ * inline-SVG data URIs , no network, deterministic frames.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { modalDocsParameters } from "./__stories__/factory";
-import type { WakePhotoDay } from "./WakePhotoViewer";
-import { WakePhotoViewer } from "./WakePhotoViewer";
+import type { WakePhotoDay } from "./ActivityPage";
+import { ActivityPage } from "./ActivityPage";
 
 function svgPhoto(hue: number): string {
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 75'><rect width='100' height='75' fill='hsl(${hue} 12% 18%)'/><circle cx='50' cy='30' r='10' fill='hsl(${hue} 12% 8%)'/><path d='M30 75 Q35 45 50 44 Q65 45 70 75 Z' fill='hsl(${hue} 12% 8%)'/></svg>`;
@@ -54,8 +54,8 @@ const SESSIONS = [
 ];
 
 const meta = {
-  title: "Modals/WakePhotoViewer",
-  component: WakePhotoViewer,
+  title: "Pages/ActivityPage",
+  component: ActivityPage,
   tags: ["autodocs"],
   parameters: modalDocsParameters(),
   args: {
@@ -63,7 +63,7 @@ const meta = {
     selectedSession: null,
     onSelectSession: fn(),
   },
-} satisfies Meta<typeof WakePhotoViewer>;
+} satisfies Meta<typeof ActivityPage>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -78,9 +78,17 @@ export const Grid: Story = {
     photoUrl,
   },
   play: async ({ canvasElement }) => {
-    const body = within(canvasElement.ownerDocument.body);
+    const doc = canvasElement.ownerDocument;
+    const body = within(doc.body);
     await expect(body.getByText(/39 photos/)).toBeInTheDocument();
     await expect(body.getByText(/2026-07-17 · 12 wakes/)).toBeInTheDocument();
+
+    // Task 3: the mode header is pinned OUTSIDE the single scroller (a sibling,
+    // not a child), so scrolling the grid to the bottom must not scroll the
+    // Segmented control away , it stays in the DOM and visible.
+    const scroller = body.getByTestId("activity-scroll");
+    scroller.scrollTop = scroller.scrollHeight;
+    await expect(body.getByRole("radio", { name: "Grid" })).toBeInTheDocument();
   },
 };
 
@@ -107,7 +115,7 @@ export const Empty: Story = {
   },
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
-    await expect(body.getByText(/No wake photos yet/)).toBeInTheDocument();
+    await expect(body.getByText(/No activity photos yet/)).toBeInTheDocument();
   },
 };
 

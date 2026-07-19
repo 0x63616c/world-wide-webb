@@ -38,7 +38,22 @@ export function SessionDetailView({ session, photoUrl, onBack }: SessionDetailVi
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      {/* The back + summary row stays pinned as the transcript scrolls beneath
+          it. Sticky (not a separate scroller) so the Activity page keeps exactly
+          one scroll region; an opaque background and top:0 are what make sticky
+          actually hold here. */}
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          background: "var(--bg)",
+          paddingBottom: 6,
+        }}
+      >
         <button
           type="button"
           onClick={onBack}
@@ -85,10 +100,7 @@ export function SessionDetailView({ session, photoUrl, onBack }: SessionDetailVi
         </div>
       ) : null}
 
-      <div
-        className="modal-scroll"
-        style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}
-      >
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {events.map((e) => {
           const { line, detail } = formatEventLine(e.msg, e.data);
           return (
