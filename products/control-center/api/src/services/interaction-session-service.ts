@@ -29,6 +29,12 @@ export interface InteractionSessionSummary {
   deviceName: string;
   /** Burst frame paths, chronological. Empty when the burst failed or dimming is off. */
   photoPaths: string[];
+  /**
+   * A short summary of the notable things touched this visit ("Climate · Desk
+   * lamp · Settings", capped with "+N more"), so a list row says what happened
+   * without opening the transcript. Null when nothing notable was done.
+   */
+  digest: string | null;
 }
 
 export interface InteractionSessionEvent {
@@ -43,6 +49,73 @@ export interface InteractionSessionDetail extends InteractionSessionSummary {
 }
 
 const DEFAULT_LIMIT = 50;
+
+/** Max distinct subjects named before the digest collapses to "+N more". */
+const DIGEST_CAP = 3;
+
+function digestRecord(data: unknown): Record<string, unknown> {
+  return data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+}
+
+/** Sentence-case a machine token (`sound_system` → "Sound system"). */
+function prettyToken(raw: string): string {
+  const spaced = raw
+    .replace(/^tile_/, "")
+    .replace(/[._-]+/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .trim();
+  if (!spaced) return "";
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
+}
+
+/** A control id reads reversed: `control.lamp.desk` → "Desk lamp". */
+function controlSubject(target: string): string {
+  const segments = target
+    .replace(/^control\./, "")
+    .split(".")
+    .filter(Boolean);
+  if (segments.length === 0) return "Control";
+  const phrase = segments.reverse().join(" ");
+  return phrase.charAt(0).toUpperCase() + phrase.slice(1);
+}
+
+/**
+ * The digest subject for one event, or null when the event is not notable.
+ * Notable = a tile the person opened, a control they moved, or a setting they
+ * changed; brackets (start/end/wake), pans, and modal opens are noise here.
+ */
+function digestSubject(msg: string, data: unknown): string | null {
+  const rec = digestRecord(data);
+  const target = typeof rec.target === "string" ? rec.target : "";
+  const [surface, action] = msg.split("/");
+  if (surface === "tile" && action === "tap") {
+    return (typeof rec.label === "string" && rec.label) || prettyToken(target) || null;
+  }
+  if (surface === "control" && (action === "change" || action === "commit")) {
+    return controlSubject(target);
+  }
+  if (surface === "settings" && (action === "change" || action === "commit")) {
+    return "Settings";
+  }
+  return null;
+}
+
+/**
+ * Fold a session's events into a compact digest of what was touched, in first-
+ * seen order, deduped, capped with a "+N more" tail. Null when nothing notable
+ * happened (a glance that opened no tile and changed nothing).
+ */
+export function computeDigest(events: InteractionSessionEvent[]): string | null {
+  const subjects: string[] = [];
+  for (const e of events) {
+    const subject = digestSubject(e.msg, e.data);
+    if (subject && !subjects.includes(subject)) subjects.push(subject);
+  }
+  if (subjects.length === 0) return null;
+  const head = subjects.slice(0, DIGEST_CAP).join(" · ");
+  const rest = subjects.length - DIGEST_CAP;
+  return rest > 0 ? `${head} · +${rest} more` : head;
+}
 
 /** The ui-channel rows for one session, in transcript order. */
 async function eventsFor(
@@ -103,6 +176,7 @@ export function summarise(
     endReason: endData?.reason ?? null,
     deviceName,
     photoPaths,
+    digest: computeDigest(events),
   };
 }
 

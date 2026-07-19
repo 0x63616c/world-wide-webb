@@ -20,9 +20,10 @@ const SESSION: SessionDetail = {
   startedAt: T0,
   endedAt: T0 + 134_000,
   durationMs: 134_000,
-  eventCount: 4,
+  eventCount: 5,
   endReason: "idle-dim",
   deviceName: "wall-panel",
+  digest: "Climate · Desk lamp · Settings",
   photoPaths: [
     "2026/07/18/1784487842000-0.jpg",
     "2026/07/18/1784487843300-0.jpg",
@@ -31,19 +32,30 @@ const SESSION: SessionDetail = {
   events: [
     { ts: T0, idx: 0, msg: "session/start", data: { interactionSessionId: SID } },
     { ts: T0 + 400, idx: 1, msg: "session/wake", data: { target: "panel" } },
-    { ts: T0 + 4_100, idx: 2, msg: "tile/tap", data: { target: "tile_climate" } },
+    {
+      ts: T0 + 4_100,
+      idx: 2,
+      msg: "tile/tap",
+      data: { target: "tile_climate", label: "Climate", kind: "open-modal" },
+    },
     { ts: T0 + 4_600, idx: 3, msg: "modal/open", data: { target: "modal.Climate" } },
     {
-      ts: T0 + 21_000,
+      ts: T0 + 9_200,
       idx: 4,
+      msg: "control/change",
+      data: { target: "control.lamp.desk", brightness: 60 },
+    },
+    {
+      ts: T0 + 21_000,
+      idx: 5,
       msg: "settings/change",
       data: { target: "settings.idleDimLevel", from: 0.2, to: 0.3 },
     },
     {
       ts: T0 + 134_000,
-      idx: 5,
+      idx: 6,
       msg: "session/end",
-      data: { reason: "idle-dim", events: 4, durationMs: 134_000 },
+      data: { reason: "idle-dim", events: 5, durationMs: 134_000 },
     },
   ],
 };
@@ -56,9 +68,11 @@ export const Default: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByTestId("session-event")).toHaveLength(6);
-    await expect(canvas.getByText("tile/tap")).toBeInTheDocument();
-    await expect(canvas.getByText("tile_climate")).toBeInTheDocument();
+    await expect(canvas.getAllByTestId("session-event")).toHaveLength(7);
+    // The transcript now reads as sentences, not raw surface/action + target.
+    await expect(canvas.getByText(/Tapped .*Climate/)).toBeInTheDocument();
+    await expect(canvas.getByText("Set Desk lamp → 60%")).toBeInTheDocument();
+    await expect(canvas.getByText("Set Idle dim level 0.2 → 0.3")).toBeInTheDocument();
   },
 };
 
@@ -70,7 +84,7 @@ export const NoPhotos: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByTestId("session-event")).toHaveLength(6);
+    await expect(canvas.getAllByTestId("session-event")).toHaveLength(7);
     await expect(canvas.queryByAltText("Wake burst frame")).toBeNull();
   },
 };

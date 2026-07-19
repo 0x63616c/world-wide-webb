@@ -3,6 +3,7 @@
  * top, then the interaction transcript in order. Purely presentational.
  */
 
+import { formatEventLine } from "../../lib/session-format";
 import { formatSessionDuration, type SessionSummary } from "./SessionListView";
 
 export interface SessionEvent {
@@ -28,12 +29,6 @@ function formatClock(ts: number): string {
     minute: "2-digit",
     second: "2-digit",
   });
-}
-
-/** The transcript line's subject: the logged target when the event has one. */
-function targetOf(data: unknown): string {
-  const target = (data as { target?: unknown } | null)?.target;
-  return typeof target === "string" ? target : "";
 }
 
 export function SessionDetailView({ session, photoUrl, onBack }: SessionDetailViewProps) {
@@ -94,30 +89,37 @@ export function SessionDetailView({ session, photoUrl, onBack }: SessionDetailVi
         className="modal-scroll"
         style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}
       >
-        {events.map((e) => (
-          <div
-            key={`${e.idx}-${e.ts}`}
-            data-testid="session-event"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "90px 180px 1fr",
-              gap: 12,
-              padding: "6px 10px",
-              borderRadius: 8,
-              alignItems: "baseline",
-            }}
-          >
-            <span className="mono" style={{ fontSize: 12, color: "var(--ink-3)" }}>
-              {formatClock(e.ts)}
-            </span>
-            <span className="mono" style={{ fontSize: 12.5 }}>
-              {e.msg}
-            </span>
-            <span className="cap" style={{ color: "var(--ink-2)" }}>
-              {targetOf(e.data)}
-            </span>
-          </div>
-        ))}
+        {events.map((e) => {
+          const { line, detail } = formatEventLine(e.msg, e.data);
+          return (
+            <div
+              key={`${e.idx}-${e.ts}`}
+              data-testid="session-event"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "90px 1fr",
+                gap: 12,
+                padding: "6px 10px",
+                borderRadius: 8,
+                alignItems: "baseline",
+              }}
+            >
+              <span className="mono" style={{ fontSize: 12, color: "var(--ink-3)" }}>
+                {formatClock(e.ts)}
+              </span>
+              <span style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+                {/* The readable line is the prominent thing; leftover detail is
+                    muted so nothing is lost but the sentence stays legible. */}
+                <span style={{ fontSize: 13.5, color: "var(--ink-1)" }}>{line}</span>
+                {detail ? (
+                  <span className="cap mono" style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
+                    {detail}
+                  </span>
+                ) : null}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

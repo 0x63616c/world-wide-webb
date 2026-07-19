@@ -15,6 +15,7 @@ const SummarySchema = z.object({
   endReason: z.string().nullable(),
   deviceName: z.string(),
   photoPaths: z.array(z.string()),
+  digest: z.string().nullable(),
 });
 
 const DetailSchema = SummarySchema.extend({

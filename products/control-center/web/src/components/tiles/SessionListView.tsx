@@ -16,6 +16,8 @@ export interface SessionSummary {
   deviceName: string;
   /** Burst frame paths, chronological. Empty for backfilled/browser sessions. */
   photoPaths: string[];
+  /** Server-computed summary of notable subjects touched; null when none. */
+  digest: string | null;
 }
 
 export interface SessionListViewProps {
@@ -118,6 +120,19 @@ export function SessionListView({ sessions, photoUrl, onSelect }: SessionListVie
               {s.eventCount === 1 ? "event" : "events"}
               {s.endReason ? ` · ${s.endReason}` : ""}
             </span>
+            {s.digest ? (
+              <span
+                className="cap"
+                style={{
+                  color: "var(--ink-3)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {s.digest}
+              </span>
+            ) : null}
           </div>
         </button>
       ))}

@@ -27,6 +27,7 @@ const SESSIONS: SessionSummary[] = [
     endReason: "idle-dim",
     deviceName: "wall-panel",
     photoPaths: ["2026/07/18/1784487842000-0.jpg", "2026/07/18/1784487843300-0.jpg"],
+    digest: "Climate · Desk lamp · Settings",
   },
   {
     id: "isn_71b0de8c22aa",
@@ -37,6 +38,7 @@ const SESSIONS: SessionSummary[] = [
     endReason: "idle-reset",
     deviceName: "wall-panel",
     photoPaths: ["2026/07/18/1784483522000-0.jpg"],
+    digest: "Clock",
   },
   {
     id: "isn_c0ffee54d00d",
@@ -47,6 +49,7 @@ const SESSIONS: SessionSummary[] = [
     endReason: "timeout",
     deviceName: "wall-panel",
     photoPaths: [],
+    digest: null,
   },
 ];
 
@@ -60,6 +63,8 @@ export const Default: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getAllByTestId("session-row")).toHaveLength(3);
     await expect(canvas.getByText(/2m 14s/)).toBeInTheDocument();
+    // The digest caption summarises what the visit touched.
+    await expect(canvas.getByText("Climate · Desk lamp · Settings")).toBeInTheDocument();
   },
 };
 

@@ -49,6 +49,7 @@ const SESSIONS = [
     endReason: "idle-dim",
     deviceName: "wall-panel",
     photoPaths: [...(DAYS[0]?.photos.slice(0, 2).map((p) => p.path) ?? [])],
+    digest: "Climate · Desk lamp · Settings",
   },
 ];
 

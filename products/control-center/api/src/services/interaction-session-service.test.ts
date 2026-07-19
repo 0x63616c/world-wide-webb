@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  computeDigest,
   getInteractionSession,
   type InteractionSessionEvent,
   summarise,
@@ -28,6 +29,7 @@ describe("interaction-session summarise", () => {
       endReason: "idle-dim",
       deviceName: "wall-panel",
       photoPaths: ["2026/07/18/1000-0.jpg"],
+      digest: "Clock",
     });
   });
 
@@ -61,6 +63,51 @@ describe("interaction-session summarise", () => {
     expect(s.startedAt).toBe(0);
     expect(s.endedAt).toBeNull();
     expect(s.eventCount).toBe(0);
+  });
+});
+
+describe("computeDigest", () => {
+  it("names the notable subjects touched, in first-seen order", () => {
+    const events = [
+      ev(1000, "session/start", { idx: 0 }),
+      ev(1500, "session/wake", { idx: 1, target: "panel" }),
+      ev(2000, "tile/tap", { idx: 2, target: "tile_climate", label: "Climate" }),
+      ev(2500, "modal/open", { idx: 3, target: "modal.Climate" }),
+      ev(3000, "control/change", { idx: 4, target: "control.lamp.desk", brightness: 60 }),
+      ev(4000, "settings/change", { idx: 5, target: "settings.idleDimLevel", from: 0.2, to: 0.3 }),
+      ev(5000, "session/end", { idx: 6, reason: "idle-dim", events: 4, durationMs: 4000 }),
+    ];
+    // Brackets, wake, and the modal open are noise; the tile/control/setting are
+    // the notable subjects, deduped and in order.
+    expect(computeDigest(events)).toBe("Climate · Desk lamp · Settings");
+  });
+
+  it("collapses past the cap into a +N more tail", () => {
+    const events = [
+      ev(1000, "tile/tap", { idx: 1, target: "tile_climate", label: "Climate" }),
+      ev(1100, "tile/tap", { idx: 2, target: "tile_media", label: "Media" }),
+      ev(1200, "control/change", { idx: 3, target: "control.lamp.desk", brightness: 60 }),
+      ev(1300, "settings/change", { idx: 4, target: "settings.theme", from: "a", to: "b" }),
+    ];
+    expect(computeDigest(events)).toBe("Climate · Media · Desk lamp · +1 more");
+  });
+
+  it("dedupes repeated subjects", () => {
+    const events = [
+      ev(1000, "tile/tap", { idx: 1, target: "tile_climate", label: "Climate" }),
+      ev(1100, "tile/tap", { idx: 2, target: "tile_climate", label: "Climate" }),
+    ];
+    expect(computeDigest(events)).toBe("Climate");
+  });
+
+  it("is null when nothing notable happened", () => {
+    const events = [
+      ev(1000, "session/start", { idx: 0 }),
+      ev(1500, "session/wake", { idx: 1, target: "panel" }),
+      ev(2000, "nav/jump", { idx: 2, target: "minimap" }),
+      ev(3000, "session/end", { idx: 3, reason: "timeout", events: 1, durationMs: 2000 }),
+    ];
+    expect(computeDigest(events)).toBeNull();
   });
 });
 
