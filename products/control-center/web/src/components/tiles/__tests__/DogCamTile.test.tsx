@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Mock the trpc module so no real HTTP is made in tests.
@@ -15,13 +15,18 @@ vi.mock("../../../lib/trpc", () => ({
   },
 }));
 
-// Import AFTER the mock is registered.
+// The face opens the full-page detail via the tile-detail store , spy on it.
+const mockOpenTileDetail = vi.fn();
+vi.mock("../../../lib/tile-detail-store", () => ({
+  openTileDetail: (...args: unknown[]) => mockOpenTileDetail(...args),
+}));
+
+// Import AFTER the mocks are registered.
 import { DogCamTile } from "../DogCamTile";
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  vi.useRealTimers();
 });
 
 // Helpers
@@ -65,12 +70,9 @@ describe("DogCamTile", () => {
     });
   });
 
-  describe("covered state (default)", () => {
+  describe("covered state (always, on the face)", () => {
     it("renders the frosted cover with cam icon, label, and tap prompt", () => {
       renderWithData();
-
-      // Cam icon is present (aria-hidden but DOM node is there)
-      // The cover text should be visible
       expect(screen.getByText("Living Room")).toBeDefined();
       expect(screen.getByText(/tap to view feed/i)).toBeDefined();
     });
@@ -91,13 +93,18 @@ describe("DogCamTile", () => {
       renderWithData({ data: { online: false } });
       expect(screen.getByText(/camera offline/i)).toBeDefined();
     });
+
+    it("never renders LIVE/REC on the face , the live feed lives on the detail page", () => {
+      renderWithData({ data: { streamUrl: "/media/camera-stream" } });
+      expect(screen.queryByText("LIVE")).toBeNull();
+      expect(screen.queryByText(/^REC /)).toBeNull();
+    });
   });
 
   describe("loading state", () => {
     it("renders loading cover without label text when isLoading", () => {
       mockUseQuery.mockReturnValue({ data: undefined, isLoading: true, isError: false });
       render(<DogCamTile />);
-      // Should not throw, component renders in a loading covered state
       const feedEl = screen.getByRole("button");
       expect(feedEl).toBeDefined();
     });
@@ -116,90 +123,14 @@ describe("DogCamTile", () => {
     });
   });
 
-  describe("live MJPEG stream", () => {
-    it("passes streamUrl through and mounts the stream img only after tap", () => {
-      vi.useFakeTimers();
+  describe("tap surface", () => {
+    it("tapping the feed opens the full-page detail instead of toggling inline", () => {
       renderWithData({ data: { streamUrl: "/media/camera-stream" } });
 
-      // Covered: nothing is streaming yet
-      expect(screen.queryByRole("img")).toBeNull();
+      fireEvent.click(screen.getByRole("button"));
 
-      act(() => {
-        fireEvent.click(screen.getByRole("button"));
-      });
-
-      const img = screen.getByRole("img");
-      expect(img.getAttribute("src")).toBe("/media/camera-stream");
-    });
-  });
-
-  describe("live state (tap to reveal)", () => {
-    it("shows LIVE label and REC timer after tap, hides cover", () => {
-      vi.useFakeTimers();
-      renderWithData();
-
-      const feedEl = screen.getByRole("button");
-
-      act(() => {
-        fireEvent.click(feedEl);
-      });
-
-      // Cover should be gone , "Tap to view feed" disappears
-      expect(screen.queryByText(/tap to view feed/i)).toBeNull();
-
-      // LIVE and REC should appear
-      expect(screen.getByText("LIVE")).toBeDefined();
-      expect(screen.getByText(/^REC 00:00:00$/)).toBeDefined();
-    });
-
-    it("increments the REC timer each second", () => {
-      vi.useFakeTimers();
-      renderWithData();
-
-      const feedEl = screen.getByRole("button");
-      act(() => {
-        fireEvent.click(feedEl);
-      });
-
-      expect(screen.getByText(/^REC 00:00:00$/)).toBeDefined();
-
-      act(() => {
-        vi.advanceTimersByTime(3000);
-      });
-
-      expect(screen.getByText(/^REC 00:00:03$/)).toBeDefined();
-    });
-
-    it("shows the label in the caption when live", () => {
-      vi.useFakeTimers();
-      renderWithData({ data: { label: "Dog Room" } });
-      const feedEl = screen.getByRole("button");
-      act(() => {
-        fireEvent.click(feedEl);
-      });
-
-      // The caption at the bottom of the feed
-      // "Dog Room" appears both as caption in live and was label in cover
-      const labels = screen.getAllByText("Dog Room");
-      expect(labels.length).toBeGreaterThan(0);
-    });
-
-    it("tapping again returns to covered state and resets REC", () => {
-      vi.useFakeTimers();
-      renderWithData();
-
-      const feedEl = screen.getByRole("button");
-      act(() => {
-        fireEvent.click(feedEl);
-      });
-      act(() => {
-        vi.advanceTimersByTime(5000);
-      });
-      // Now live, tap again
-      act(() => {
-        fireEvent.click(feedEl);
-      });
-
+      expect(mockOpenTileDetail).toHaveBeenCalledWith("tile_dogcam");
+      // The face stays covered , no inline stream, no LIVE chrome.
       expect(screen.queryByText("LIVE")).toBeNull();
       expect(screen.getByText(/tap to view feed/i)).toBeDefined();
     });

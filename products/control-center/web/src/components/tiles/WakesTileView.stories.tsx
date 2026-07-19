@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, within } from "storybook/test";
 import { defineTileMeta } from "./__stories__/factory";
 import { WakesTileView } from "./WakesTileView";
 
@@ -13,19 +13,19 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+// The tap surface belongs to the board now , tapping the face opens the
+// PIN-gated full-page viewer via the tile-detail registry, so the view itself
+// carries no handler to exercise here.
 export const Populated: Story = {
   args: {
     status: "populated",
     todayCount: 12,
     lastWakeLabel: "14:32",
-    onOpen: fn(),
   },
-  play: async ({ args, canvasElement }) => {
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("12")).toBeInTheDocument();
     await expect(canvas.getByText(/last 14:32/)).toBeInTheDocument();
-    await userEvent.click(canvas.getByText("Activity"));
-    await expect(args.onOpen).toHaveBeenCalled();
   },
 };
 
@@ -34,7 +34,6 @@ export const NoneYet: Story = {
     status: "populated",
     todayCount: 0,
     lastWakeLabel: null,
-    onOpen: fn(),
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -46,6 +45,5 @@ export const NoneYet: Story = {
 export const Loading: Story = {
   args: {
     status: "loading",
-    onOpen: fn(),
   },
 };

@@ -1,6 +1,6 @@
-import { useState } from "react";
 import { Icon } from "@/components/Icon";
 import { Tile, TileHeader } from "@/components/ui";
+import { toggleDogModePreview, useDogModePreview } from "../../lib/dogmode-preview-store";
 
 /**
  * Dog Mode , a one-tap "home alone with the dog" comfort routine (climate hold,
@@ -106,6 +106,8 @@ export function DogModeTileView({ armed, onToggle }: DogModeTileViewProps) {
 }
 
 export function DogModeTile() {
-  const [armed, setArmed] = useState(false);
-  return <DogModeTileView armed={armed} onToggle={() => setArmed((v) => !v)} />;
+  // Shared preview flag (dogmode-preview-store): the full-page detail shows the
+  // same card, so arming there arms the face too , one preview, not two.
+  const armed = useDogModePreview();
+  return <DogModeTileView armed={armed} onToggle={toggleDogModePreview} />;
 }

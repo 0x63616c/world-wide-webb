@@ -6,8 +6,9 @@
  *    flushed first so the tally includes lines still queued in memory
  *
  * Tapping the tile deep-links into Settings → Logs (behind the PIN gate, since
- * Settings is gated however it is reached); the log viewer lives there now
- * rather than in a tile-owned modal.
+ * Settings is gated however it is reached) via the board's tile-detail registry
+ * action entry (detail/wiring/frontend-logs.tsx); the tile face itself wires no
+ * tap handler.
  *
  * No tRPC here: the data source is the panel's OWN IndexedDB log store, so
  * this polls a local summary instead of a query hook. One-minute cadence , the
@@ -19,7 +20,6 @@ import { useCallback, useEffect, useState } from "react";
 import { TileStatus } from "@/components/ui";
 import { flushNow } from "../../lib/log/logger";
 import * as store from "../../lib/log/store";
-import { openSettingsOnPage } from "../../lib/open-settings-store";
 import { FrontendLogsTileView } from "./FrontendLogsTileView";
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -50,7 +50,6 @@ export function FrontendLogsTile() {
       status={TileStatus.Populated}
       counts={summary.counts}
       buckets={summary.buckets}
-      onTileTap={() => openSettingsOnPage("logs")}
     />
   );
 }

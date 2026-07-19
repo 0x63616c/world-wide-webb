@@ -274,7 +274,6 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     worldRow: 30,
     cols: 2,
     rows: 2,
-    ownsTap: true,
   },
   {
     id: "tile_deploys",
@@ -308,7 +307,6 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     worldRow: 30,
     cols: 4,
     rows: 2,
-    ownsTap: true,
   },
 ];
 

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, within } from "storybook/test";
+import { expect, within } from "storybook/test";
 import { defineTileMeta } from "./__stories__/factory";
 import { FrontendLogsTileView } from "./FrontendLogsTileView";
 
@@ -37,18 +37,15 @@ export const Incident: Story = {
     status: "populated",
     counts: { debug: 1, info: 3, warn: 15, error: 106 },
     buckets: INCIDENT_BUCKETS,
-    onTileTap: fn(),
   },
-  play: async ({ args, canvasElement, userEvent }) => {
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Frontend Logs")).toBeInTheDocument();
     await expect(canvas.getByText("106 error")).toBeInTheDocument();
     await expect(canvas.getByText("15 warn")).toBeInTheDocument();
     await expect(canvas.getByText("1 debug")).toBeInTheDocument();
-    // Tap anywhere on the tile opens the logs modal (wired by the container)
-    await userEvent.click(canvas.getByText("Frontend Logs"));
-    if (args.status !== "populated") throw new Error("story args must be populated");
-    await expect(args.onTileTap).toHaveBeenCalled();
+    // Tapping the tile is the board's job now: the tile-detail registry action
+    // entry deep-links Settings → Logs, so the view wires no handler.
   },
 };
 
@@ -58,7 +55,6 @@ export const Steady: Story = {
     status: "populated",
     counts: { debug: 1_240_000, info: 18400, warn: 312_400, error: 12 },
     buckets: STEADY_BUCKETS,
-    onTileTap: fn(),
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -75,7 +71,6 @@ export const Silent: Story = {
     status: "populated",
     counts: { debug: 0, info: 0, warn: 0, error: 0 },
     buckets: Array.from({ length: 24 }, () => ({ debug: 0, info: 0, warn: 0, error: 0 })),
-    onTileTap: fn(),
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

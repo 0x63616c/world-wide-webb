@@ -6,19 +6,19 @@ export interface WakesTileViewProps {
   todayCount?: number;
   /** "14:32"-style label of the most recent wake, null when none yet. */
   lastWakeLabel?: string | null;
-  onOpen: () => void;
 }
 
 /**
  * Deliberately subtle wake-photos tile: a bare count, no thumbnails , the
- * photos themselves only appear in the fullscreen viewer behind the tap.
+ * photos themselves only appear in the full-page viewer behind the tap (opened
+ * by the board via the tile-detail registry, behind the PIN gate).
  * (Design call 2026-07-17: nothing on the board should look like a camera.)
  */
-export function WakesTileView({ status, todayCount, lastWakeLabel, onOpen }: WakesTileViewProps) {
+export function WakesTileView({ status, todayCount, lastWakeLabel }: WakesTileViewProps) {
   const isLoading = status === TileStatus.Loading || status === TileStatus.Error;
 
   return (
-    <Tile padding={22} onClick={onOpen}>
+    <Tile padding={22}>
       {/* Title MUST stay in sync with the registry label in lib/tile-registry.ts. */}
       <TileHeader icon="moon" title="Activity" />
       <div style={{ marginTop: "auto" }}>

@@ -14,7 +14,7 @@ const { Populated, NoneYet, Loading } = composeStories(stories);
 afterEach(cleanup);
 
 describe("WakesTileView stories", () => {
-  it("Populated: count + last-wake label, tap opens", async () => {
+  it("Populated: count + last-wake label", async () => {
     const { container } = render(<Populated />);
     if (Populated.play) await Populated.play({ canvasElement: container });
     expect(screen.getByText("Activity")).toBeDefined();

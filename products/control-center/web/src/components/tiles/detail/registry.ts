@@ -14,8 +14,12 @@ import { next12HoursDetailEntry } from "../modals/wiring/next12hours";
 import { teslaDetailEntry } from "../modals/wiring/tesla";
 import { weatherDetailEntry } from "../modals/wiring/weather";
 import type { TileDetailEntry } from "./types";
+import { activityDetailEntry } from "./wiring/activity";
 import { controlsDetailEntry } from "./wiring/controls";
 import { deploysDetailEntry } from "./wiring/deploys";
+import { dogCamDetailEntry } from "./wiring/dogcam";
+import { dogModeDetailEntry } from "./wiring/dogmode";
+import { frontendLogsDetailEntry } from "./wiring/frontend-logs";
 import { notificationsDetailEntry } from "./wiring/notifications";
 import { quickPlayDetailEntry } from "./wiring/quickplay";
 import { schedulesDetailEntry } from "./wiring/schedules";
@@ -41,6 +45,10 @@ const ENTRIES: TileDetailEntry[] = [
   tvDetailEntry,
   quickPlayDetailEntry,
   controlsDetailEntry,
+  activityDetailEntry,
+  dogCamDetailEntry,
+  dogModeDetailEntry,
+  frontendLogsDetailEntry,
 ];
 
 const BY_TILE_ID = new Map<string, TileDetailEntry>(ENTRIES.map((e) => [e.tileId, e]));

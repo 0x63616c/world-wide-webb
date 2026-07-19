@@ -1,9 +1,6 @@
-import { useState } from "react";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";
-import { PinGateModal } from "../pin/PinGateModal";
-import { ActivityPage } from "./ActivityPage";
 import { WakesTileView } from "./WakesTileView";
 
 /** Matches the api's UTC day buckets (wake-photo-service dayDirFor). */
@@ -11,23 +8,16 @@ function utcToday(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/**
+ * Thin container for the Activity tile face , today's wake count + last wake
+ * time. Tapping the tile opens the full-page viewer via the board's tile-detail
+ * registry (detail/wiring/activity.tsx), whose host runs the PIN gate before
+ * the photos mount , the gate this container used to hand-wire itself.
+ */
 export function WakesTile() {
-  const [viewerOpen, setViewerOpen] = useState(false);
-  // Wake photos sit behind the always-on PIN gate: the tile tap opens the gate,
-  // and only a correct entry hands off to the viewer. Cancel leaves it closed.
-  const [gateOpen, setGateOpen] = useState(false);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const listing = trpc.wakePhotos.list.useQuery(undefined, {
     refetchInterval: POLL.wakePhotos,
   });
-  const sessions = trpc.sessions.list.useQuery(undefined, {
-    refetchInterval: POLL.wakePhotos,
-    enabled: viewerOpen,
-  });
-  const sessionDetail = trpc.sessions.get.useQuery(
-    { id: selectedSessionId ?? "" },
-    { enabled: selectedSessionId !== null },
-  );
 
   const { status } = useTileQuery(listing);
 
@@ -35,52 +25,17 @@ export function WakesTile() {
   const latest = listing.data?.days[0]?.photos[0];
 
   return (
-    <>
-      <WakesTileView
-        status={status}
-        todayCount={today?.photos.length ?? 0}
-        lastWakeLabel={
-          latest
-            ? new Date(latest.capturedAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : null
-        }
-        onOpen={() => setGateOpen(true)}
-      />
-      <PinGateModal
-        open={gateOpen}
-        title="Wake photos"
-        onClose={() => setGateOpen(false)}
-        onSuccess={() => {
-          setGateOpen(false);
-          setViewerOpen(true);
-        }}
-      />
-      <ActivityPage
-        open={viewerOpen}
-        onClose={() => {
-          setViewerOpen(false);
-          // Reopening starts at the list, not a stale detail.
-          setSelectedSessionId(null);
-        }}
-        days={listing.data?.days ?? []}
-        totalCount={listing.data?.totalCount ?? 0}
-        totalBytes={listing.data?.totalBytes ?? 0}
-        photoUrl={(path) => `/media/wake-photos/${path}`}
-        sessions={sessions.data ?? []}
-        // Only hand over a detail that matches the CURRENT selection , while a
-        // newly-selected session's query is in flight, react-query still holds
-        // the previous session's data, which would render the wrong transcript
-        // under the new row's identity.
-        selectedSession={
-          sessionDetail.data && sessionDetail.data.id === selectedSessionId
-            ? sessionDetail.data
-            : null
-        }
-        onSelectSession={setSelectedSessionId}
-      />
-    </>
+    <WakesTileView
+      status={status}
+      todayCount={today?.photos.length ?? 0}
+      lastWakeLabel={
+        latest
+          ? new Date(latest.capturedAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : null
+      }
+    />
   );
 }

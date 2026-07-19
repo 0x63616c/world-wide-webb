@@ -1,7 +1,9 @@
 /**
- * Stories for ActivityPage , the full-page overlay behind the Activity tile.
- * It portals to document.body, so plays query `within(...body)`. Photos are
- * inline-SVG data URIs , no network, deterministic frames.
+ * Stories for ActivityPage , the bare page body behind the Activity tile
+ * (hosted by TileDetailHost in the app). Stories mount it inside a page-sized
+ * container matching the host's content region , the body fills that region
+ * (height:100%) so its pinned mode header + single scroller behave as on the
+ * panel. Photos are inline-SVG data URIs , no network, deterministic frames.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
@@ -58,7 +60,23 @@ const meta = {
   title: "Pages/ActivityPage",
   component: ActivityPage,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region ,
+  // fixed height because the body fills it (height:100%) to pin its header.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          height: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
     sessions: SESSIONS,
     selectedSession: null,
@@ -71,25 +89,22 @@ type Story = StoryObj<typeof meta>;
 
 export const Grid: Story = {
   args: {
-    open: true,
-    onClose: fn(),
     days: DAYS,
     totalCount: 39,
     totalBytes: 6_400_000,
     photoUrl,
   },
   play: async ({ canvasElement }) => {
-    const doc = canvasElement.ownerDocument;
-    const body = within(doc.body);
-    await expect(body.getByText(/39 photos/)).toBeInTheDocument();
-    await expect(body.getByText(/2026-07-17 · 12 wakes/)).toBeInTheDocument();
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(/39 photos/)).toBeInTheDocument();
+    await expect(canvas.getByText(/2026-07-17 · 12 wakes/)).toBeInTheDocument();
 
-    // Task 3: the mode header is pinned OUTSIDE the single scroller (a sibling,
-    // not a child), so scrolling the grid to the bottom must not scroll the
+    // The mode header is pinned OUTSIDE the single scroller (a sibling, not a
+    // child), so scrolling the grid to the bottom must not scroll the
     // Segmented control away , it stays in the DOM and visible.
-    const scroller = body.getByTestId("activity-scroll");
+    const scroller = canvas.getByTestId("activity-scroll");
     scroller.scrollTop = scroller.scrollHeight;
-    await expect(body.getByRole("radio", { name: "Grid" })).toBeInTheDocument();
+    await expect(canvas.getByRole("radio", { name: "Grid" })).toBeInTheDocument();
   },
 };
 
@@ -98,25 +113,23 @@ export const Timelapse: Story = {
     ...Grid.args,
   },
   play: async ({ canvasElement }) => {
-    const body = within(canvasElement.ownerDocument.body);
-    await userEvent.click(body.getByRole("radio", { name: "Timelapse" }));
-    await waitFor(() => expect(body.getByLabelText("Scrub timelapse")).toBeInTheDocument());
-    await expect(body.getByLabelText("Pause timelapse")).toBeInTheDocument();
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("radio", { name: "Timelapse" }));
+    await waitFor(() => expect(canvas.getByLabelText("Scrub timelapse")).toBeInTheDocument());
+    await expect(canvas.getByLabelText("Pause timelapse")).toBeInTheDocument();
   },
 };
 
 export const Empty: Story = {
   args: {
-    open: true,
-    onClose: fn(),
     days: [],
     totalCount: 0,
     totalBytes: 0,
     photoUrl,
   },
   play: async ({ canvasElement }) => {
-    const body = within(canvasElement.ownerDocument.body);
-    await expect(body.getByText(/No activity photos yet/)).toBeInTheDocument();
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(/No activity photos yet/)).toBeInTheDocument();
   },
 };
 
@@ -128,18 +141,16 @@ export const Empty: Story = {
  */
 export const EmptyWithDiagnostic: Story = {
   args: {
-    open: true,
-    onClose: fn(),
     days: [],
     totalCount: 0,
     totalBytes: 0,
     photoUrl,
   },
   play: async ({ canvasElement }) => {
-    const body = within(canvasElement.ownerDocument.body);
+    const canvas = within(canvasElement);
     log.child("wake").warn("camera open failed", { name: "NotAllowedError", message: "denied" });
     await waitFor(() =>
-      expect(body.getByTestId("wake-diagnostic")).toHaveTextContent(
+      expect(canvas.getByTestId("wake-diagnostic")).toHaveTextContent(
         "camera open failed (NotAllowedError)",
       ),
     );
@@ -148,18 +159,16 @@ export const EmptyWithDiagnostic: Story = {
 
 export const Sessions: Story = {
   args: {
-    open: true,
-    onClose: fn(),
     days: DAYS,
     totalCount: 39,
     totalBytes: 6_400_000,
     photoUrl,
   },
   play: async ({ args, canvasElement }) => {
-    const body = within(canvasElement.ownerDocument.body);
-    await userEvent.click(body.getByRole("radio", { name: "Sessions" }));
-    await waitFor(() => expect(body.getAllByTestId("session-row")).toHaveLength(1));
-    await userEvent.click(body.getAllByTestId("session-row")[0]);
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("radio", { name: "Sessions" }));
+    await waitFor(() => expect(canvas.getAllByTestId("session-row")).toHaveLength(1));
+    await userEvent.click(canvas.getAllByTestId("session-row")[0]);
     await expect(args.onSelectSession).toHaveBeenCalledWith("isn_9f3ac1d2e4b5");
   },
 };

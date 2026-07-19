@@ -45,7 +45,6 @@ interface FrontendLogsTileViewPopulatedProps extends FrontendLogsTileViewBasePro
   counts: Record<LogLevel, number>;
   /** 24 hourly per-level buckets, oldest first. */
   buckets: LogHourBucket[];
-  onTileTap: () => void;
 }
 
 export type FrontendLogsTileViewProps =
@@ -87,11 +86,11 @@ function FrontendLogsSkeleton() {
 export function FrontendLogsTileView(props: FrontendLogsTileViewProps) {
   if (props.status === TileStatus.Loading) return <FrontendLogsSkeleton />;
 
-  const { counts, buckets, onTileTap } = props;
+  const { counts, buckets } = props;
   const max = Math.max(...buckets.map(bucketTotal), 1);
 
   return (
-    <Tile padding={22} onClick={onTileTap} style={{ cursor: "pointer" }}>
+    <Tile padding={22}>
       <TileHeader icon="apps" title="Frontend Logs" />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
         {/* Stacked per-level bars per hour; 2px surface gaps; rounded data-ends.
