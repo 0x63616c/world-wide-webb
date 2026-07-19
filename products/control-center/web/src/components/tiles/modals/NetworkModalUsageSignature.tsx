@@ -23,7 +23,7 @@
  * PURE view: all data + callbacks arrive via props. No trpc/hooks.
  */
 
-import { Modal, Pill, PillTone, Stat } from "@/components/ui";
+import { Pill, PillTone, Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -40,8 +40,6 @@ export interface TrafficBucket {
 export type ActivityClass = "stream" | "call" | "backup" | "idle";
 
 export interface NetworkModalUsageSignatureProps {
-  open: boolean;
-  onClose: () => void;
   /** Current Wi-Fi SSID. */
   ssid: string;
   /** Formatted total download over the 24-bucket window (e.g. "18.4 GB"). */
@@ -126,8 +124,6 @@ function formatBytes(bytes: number): string {
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function NetworkModalUsageSignature({
-  open,
-  onClose,
   ssid,
   down,
   up,
@@ -174,7 +170,7 @@ export function NetworkModalUsageSignature({
       : null;
 
   return (
-    <Modal open={open} onClose={onClose} title="Network" width={640} maxHeight={720}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* SSID context line */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -366,6 +362,6 @@ export function NetworkModalUsageSignature({
           </div>
         </section>
       </div>
-    </Modal>
+    </div>
   );
 }

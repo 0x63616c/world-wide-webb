@@ -1,5 +1,5 @@
 /**
- * Network tile , live wiring for its detail-modal variants.
+ * Network tile , live wiring for its detail-page variants.
  *
  * Data sources (all live, already exposed):
  *  - trpc.network.status → { status, ssid, down, up, ping, traffic[24] }
@@ -12,16 +12,16 @@
  * TrafficTimeline wants `status:string` , each is fed the exact shape it asks for.
  */
 
+import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
 import { NetworkModalConnectionHealth } from "@/components/tiles/modals/NetworkModalConnectionHealth";
 import { NetworkModalDataBudget } from "@/components/tiles/modals/NetworkModalDataBudget";
 import { NetworkModalTrafficTimeline } from "@/components/tiles/modals/NetworkModalTrafficTimeline";
 import { NetworkModalUsageSignature } from "@/components/tiles/modals/NetworkModalUsageSignature";
-import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
 import { MONTHLY_CAP_GB } from "@/config/network";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
 
-function useNetworkVariants(): { variants: LiveVariant[]; loading: boolean } {
+function useNetworkVariants(): { variants: DetailVariant[]; loading: boolean } {
   const network = trpc.network.status.useQuery(undefined, { refetchInterval: POLL.network });
 
   const n = network.data;
@@ -31,14 +31,12 @@ function useNetworkVariants(): { variants: LiveVariant[]; loading: boolean } {
 
   const isOnline = n.status === "Online";
 
-  const variants: LiveVariant[] = [
+  const variants: DetailVariant[] = [
     {
       slug: "connection-health",
       label: "Health",
-      render: (open, onClose) => (
+      render: () => (
         <NetworkModalConnectionHealth
-          open={open}
-          onClose={onClose}
           isOnline={isOnline}
           ping={n.ping}
           ssid={n.ssid}
@@ -51,10 +49,8 @@ function useNetworkVariants(): { variants: LiveVariant[]; loading: boolean } {
     {
       slug: "data-budget",
       label: "Budget",
-      render: (open, onClose) => (
+      render: () => (
         <NetworkModalDataBudget
-          open={open}
-          onClose={onClose}
           connectionStatus={n.status}
           ssid={n.ssid}
           down={n.down}
@@ -67,10 +63,8 @@ function useNetworkVariants(): { variants: LiveVariant[]; loading: boolean } {
     {
       slug: "traffic-timeline",
       label: "Timeline",
-      render: (open, onClose) => (
+      render: () => (
         <NetworkModalTrafficTimeline
-          open={open}
-          onClose={onClose}
           traffic={n.traffic}
           down={n.down}
           up={n.up}
@@ -84,15 +78,8 @@ function useNetworkVariants(): { variants: LiveVariant[]; loading: boolean } {
     {
       slug: "usage-signature",
       label: "Signature",
-      render: (open, onClose) => (
-        <NetworkModalUsageSignature
-          open={open}
-          onClose={onClose}
-          ssid={n.ssid}
-          down={n.down}
-          up={n.up}
-          traffic={n.traffic}
-        />
+      render: () => (
+        <NetworkModalUsageSignature ssid={n.ssid} down={n.down} up={n.up} traffic={n.traffic} />
       ),
     },
   ];
@@ -100,8 +87,10 @@ function useNetworkVariants(): { variants: LiveVariant[]; loading: boolean } {
   return { variants, loading: false };
 }
 
-export const networkModalEntry: TileModalEntry = {
+export const networkDetailEntry: TileDetailPageEntry = {
+  kind: "page",
   tileId: "tile_wifi",
+  title: "Network",
   defaultSlug: "connection-health",
   useVariants: useNetworkVariants,
 };

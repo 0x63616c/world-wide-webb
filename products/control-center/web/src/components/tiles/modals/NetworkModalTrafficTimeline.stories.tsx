@@ -1,17 +1,13 @@
 /**
- * Stories for NetworkModalTrafficTimeline , the traffic drill-down modal.
- * View-driven (all data + callbacks via props), matches the ExpandedControls
- * story shape: grouped under "Modals/", autodocs, fn() callbacks.
+ * Stories for NetworkModalTrafficTimeline , the traffic drill-down page body.
+ * View-driven (all data + callbacks via props). The component is a bare page
+ * body now (hosted by TileDetailHost in the app), so stories mount it inside a
+ * plain page-sized container matching the host's content region.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
-import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
-import type {
-  NetworkModalTrafficTimelineProps,
-  TrafficBucket,
-} from "./NetworkModalTrafficTimeline";
+import type { TrafficBucket } from "./NetworkModalTrafficTimeline";
 import { NetworkModalTrafficTimeline } from "./NetworkModalTrafficTimeline";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -63,10 +59,23 @@ const meta = {
   title: "Modals/Network/Traffic Timeline",
   component: NetworkModalTrafficTimeline,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     traffic: typicalTraffic,
     down: "18.4",
     up: "4.2",
@@ -80,33 +89,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// ─── Interactive wrapper ───────────────────────────────────────────────────────
-
-// Stateful wrapper so the backdrop/Escape/Close actually dismiss in Storybook.
-function InteractiveOpen(args: NetworkModalTrafficTimelineProps) {
-  const [open, setOpen] = useState(true);
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)}>
-        Reopen
-      </button>
-      <NetworkModalTrafficTimeline
-        {...args}
-        open={open}
-        onClose={() => {
-          setOpen(false);
-          args.onClose();
-        }}
-      />
-    </>
-  );
-}
-
 // ─── Traffic Timeline (primary) ───────────────────────────────────────────────
 
 export const TrafficTimeline: Story = {
   name: "Traffic Timeline",
-  render: (args) => <InteractiveOpen {...args} />,
 };
 
 // ─── Offline / zero traffic ───────────────────────────────────────────────────

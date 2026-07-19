@@ -17,10 +17,10 @@
  *
  * PURE view: all data + callbacks arrive via props , no trpc/hooks. Composes
  * trivially in Storybook and component tests.
- * Modal width 560 (narrow, gauge-focused as briefed).
+ * Bare page body hosted by TileDetailHost (narrow, gauge-focused as briefed).
  */
 
-import { BorderProgressRing, Modal, Pill, PillTone, Stat } from "@/components/ui";
+import { BorderProgressRing, Pill, PillTone, Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -31,8 +31,6 @@ interface TrafficBucket {
 }
 
 export interface NetworkModalConnectionHealthProps {
-  open: boolean;
-  onClose: () => void;
   /** true = WAN reachable, false = WAN down */
   isOnline: boolean;
   /** WAN latency from UniFi gateway uptime monitor (ms) */
@@ -96,8 +94,6 @@ function statusTone(isOnline: boolean): PillTone {
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function NetworkModalConnectionHealth({
-  open,
-  onClose,
   isOnline,
   ping,
   ssid,
@@ -124,7 +120,7 @@ export function NetworkModalConnectionHealth({
   const ringColor = pingColor(ping);
 
   return (
-    <Modal open={open} onClose={onClose} title="Network" width={560} maxHeight={680}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* ── Hero: ping gauge + status banner ─────────────────────────────── */}
         <section
@@ -267,6 +263,6 @@ export function NetworkModalConnectionHealth({
           <Stat label="Uploaded" value={`${up} GB`} />
         </section>
       </div>
-    </Modal>
+    </div>
   );
 }

@@ -27,7 +27,7 @@
  * Width 600, maxHeight 680 (matched to the concept brief).
  */
 
-import { Modal, Pill, PillTone, Stat, StatusDot } from "@/components/ui";
+import { Pill, PillTone, Stat, StatusDot } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -38,8 +38,6 @@ export interface TrafficBucket {
 }
 
 export interface NetworkModalDataBudgetProps {
-  open: boolean;
-  onClose: () => void;
   /** "Online" | "Offline" from UniFi getWanHealth().status */
   connectionStatus: "Online" | "Offline";
   /** Primary Wi-Fi SSID from env WIFI_SSID */
@@ -194,8 +192,6 @@ function BudgetBar({ usedGb, capGb }: BudgetBarProps) {
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function NetworkModalDataBudget({
-  open,
-  onClose,
   connectionStatus,
   ssid,
   down,
@@ -209,7 +205,7 @@ export function NetworkModalDataBudget({
   const budgetPct = Math.min((proj.projected30dGb / monthlyCapGb) * 100, 100);
 
   return (
-    <Modal open={open} onClose={onClose} title="Network" width={600} maxHeight={680}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* ── Hero: projected 30-day number + budget bar ─────────────────── */}
         <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -351,6 +347,6 @@ export function NetworkModalDataBudget({
           </span>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }

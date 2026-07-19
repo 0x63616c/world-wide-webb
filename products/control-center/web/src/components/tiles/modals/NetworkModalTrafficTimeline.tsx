@@ -24,7 +24,7 @@
  */
 
 import { useState } from "react";
-import { Modal, Pill, PillTone, Stat, StatusDot, TileHeader } from "@/components/ui";
+import { Pill, PillTone, Stat, StatusDot, TileHeader } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -36,8 +36,6 @@ export interface TrafficBucket {
 }
 
 export interface NetworkModalTrafficTimelineProps {
-  open: boolean;
-  onClose: () => void;
   /** 24 buckets of 5-min traffic windows; index 0 = oldest, 23 = newest. */
   traffic: TrafficBucket[];
   /** Total download over the 2-hour window, pre-formatted (e.g. "18.4"). */
@@ -265,8 +263,6 @@ function TrafficChart({
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function NetworkModalTrafficTimeline({
-  open,
-  onClose,
   traffic,
   down,
   up,
@@ -303,7 +299,7 @@ export function NetworkModalTrafficTimeline({
   const isOnline = status === "Online";
 
   return (
-    <Modal open={open} onClose={onClose} title="Network" width={640} maxHeight={760}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* Header row , wifi icon + status dot */}
         <TileHeader
@@ -426,6 +422,6 @@ export function NetworkModalTrafficTimeline({
           </div>
         </section>
       </div>
-    </Modal>
+    </div>
   );
 }
