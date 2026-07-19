@@ -146,12 +146,26 @@ jobs:
       - name: Verify aps-environment in the built binary
         working-directory: products/control-center/web/ios
         run: |
-          set -euo pipefail
-          ipa=$(ls -1 *.ipa 2>/dev/null | head -1)
-          test -n "$ipa" || { echo "::error::no .ipa produced"; exit 1; }
+          set -uo pipefail
+          # NOT `set -e`: a failing `find`/`ls` must reach the explicit checks
+          # below rather than killing the step with no diagnostic. The first
+          # version of this guard died silently on exactly that.
+          # gym writes to build/ (output_directory in the Fastfile), but search
+          # the whole tree so relocating it can't silently skip verification.
+          ipa=$(find . -name "*.ipa" -not -path "*/DerivedData/*" 2>/dev/null | head -1)
+          if [ -z "$ipa" ]; then
+            echo "::error::no .ipa found under $(pwd) - cannot verify entitlements"
+            find . -maxdepth 3 -type d -name build 2>/dev/null
+            exit 1
+          fi
+          echo "verifying $ipa"
           rm -rf _verify && mkdir _verify
-          unzip -q "$ipa" -d _verify
-          app=$(ls -d _verify/Payload/*.app | head -1)
+          unzip -q "$ipa" -d _verify || { echo "::error::could not unzip $ipa"; exit 1; }
+          app=$(find _verify/Payload -maxdepth 1 -name "*.app" 2>/dev/null | head -1)
+          if [ -z "$app" ]; then
+            echo "::error::no .app inside $ipa"
+            exit 1
+          fi
           ents=$(codesign -d --entitlements :- "$app" 2>/dev/null || true)
           echo "$ents" | grep -q "aps-environment" || {
             echo "::error::signed binary has NO aps-environment - push will silently fail"
