@@ -18,11 +18,11 @@
  * which is more intuitive than an angular arc for a linear quantity like
  * "hours until next phase".
  *
- * PURE view: all data + callbacks arrive via props (no trpc/hooks). Renders
- * inside the shared <Modal> so backdrop/Escape/close are handled centrally.
+ * PURE view: all data + callbacks arrive via props (no trpc/hooks). Bare page
+ * body hosted by TileDetailHost (header/back/switcher handled centrally).
  */
 
-import { Modal, Stat } from "@/components/ui";
+import { Stat } from "@/components/ui";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -46,8 +46,6 @@ const RIBBON_WIDTH = 56; // px
 // ─── types ────────────────────────────────────────────────────────────────────
 
 export interface ClockModalTimeOfDayRhythmProps {
-  open: boolean;
-  onClose: () => void;
   /** ISO datetime for today's sunrise, e.g. "2026-05-31T06:02:00" */
   sunriseIso: string;
   /** ISO datetime for today's sunset, e.g. "2026-05-31T19:48:00" */
@@ -169,8 +167,6 @@ function SolarMarker({ top, icon, label }: { top: number; icon: string; label: s
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function ClockModalTimeOfDayRhythm({
-  open,
-  onClose,
   sunriseIso,
   sunsetIso,
   sunriseFormatted,
@@ -198,7 +194,7 @@ export function ClockModalTimeOfDayRhythm({
   const hourTicks = [0, 3, 6, 9, 12, 15, 18, 21];
 
   return (
-    <Modal open={open} onClose={onClose} title="Clock" width={600} maxHeight={740}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       {/* Two-column layout: left = ribbon, right = phase info + solar stats.
           gap 24 keeps the same rhythm as Controls modal sections. */}
       <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
@@ -409,6 +405,6 @@ export function ClockModalTimeOfDayRhythm({
           </section>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }

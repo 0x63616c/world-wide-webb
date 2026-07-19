@@ -1,11 +1,11 @@
 /**
- * Stories for ClockModalCountdownHorizon , the "Countdown Horizon" clock detail modal.
- * Grouped under "Modals/Clock" (overlay surface → plain dark wrapper in Storybook).
- * Pure render stories , no play functions needed for the POC.
+ * Stories for ClockModalCountdownHorizon , the "Countdown Horizon" clock detail
+ * page body. Grouped under "Modals/Clock" , the component is a bare page body
+ * now (hosted by TileDetailHost in the app), so stories mount it inside a plain
+ * page-sized container matching the host's content region.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
 import { ClockModalCountdownHorizon } from "./ClockModalCountdownHorizon";
 
@@ -35,10 +35,23 @@ const meta = {
   title: "Modals/Clock/Countdown Horizon",
   component: ClockModalCountdownHorizon,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     todayLabel: "Saturday, May 31, 2026",
     events: upcomingEvents,
   },

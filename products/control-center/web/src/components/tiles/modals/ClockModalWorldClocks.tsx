@@ -19,7 +19,7 @@
  * testable/storied without real timers. The board wires in a live ticking Date.
  */
 
-import { Modal, StatusDot } from "@/components/ui";
+import { StatusDot } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -33,8 +33,6 @@ interface ClockZone {
 }
 
 export interface ClockModalWorldClocksProps {
-  open: boolean;
-  onClose: () => void;
   /**
    * Current wall-clock moment. Passed via props (not Date.now() inside the
    * component) so Storybook/tests can supply a fixed instant for deterministic
@@ -158,7 +156,7 @@ function DayProgressBar({ progress, isDaytime }: { progress: number; isDaytime: 
 
 // ─── view ─────────────────────────────────────────────────────────────────────
 
-export function ClockModalWorldClocks({ open, onClose, now, zones }: ClockModalWorldClocksProps) {
+export function ClockModalWorldClocks({ now, zones }: ClockModalWorldClocksProps) {
   // Pin home row first, then remaining zones in their given order.
   const sorted = [...zones].sort((a, b) => {
     if (a.home && !b.home) return -1;
@@ -167,7 +165,7 @@ export function ClockModalWorldClocks({ open, onClose, now, zones }: ClockModalW
   });
 
   return (
-    <Modal open={open} onClose={onClose} title="Clock" width={560} maxHeight={720}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
         {sorted.map((zone, idx) => {
           const { hour, weekday, utcOffset, dayProgress, isDaytime } = getTimeParts(zone.tz, now);
@@ -268,6 +266,6 @@ export function ClockModalWorldClocks({ open, onClose, now, zones }: ClockModalW
           );
         })}
       </div>
-    </Modal>
+    </div>
   );
 }

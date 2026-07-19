@@ -1,14 +1,15 @@
 /**
- * Stories for ClockModalSolarDayArc , the solar horizon arc detail modal.
+ * Stories for ClockModalSolarDayArc , the solar horizon arc detail page body.
  * Grouped under "Modals/" (not "Tiles/") matching the ExpandedControls precedent.
- * Pure view: all data + callbacks via props, no trpc.
+ * The component is a bare page body now (hosted by TileDetailHost in the app),
+ * so stories mount it inside a plain page-sized container matching the host's
+ * content region. Pure view: all data + callbacks via props, no trpc.
  *
  * nowMs is a fixed snapshot in each story so the sun dot and countdowns render
  * deterministically regardless of when Storybook runs.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
 import { ClockModalSolarDayArc } from "./ClockModalSolarDayArc";
 
@@ -49,12 +50,23 @@ const meta = {
   title: "Modals/Clock/Solar Day Arc",
   component: ClockModalSolarDayArc,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
-  args: {
-    open: true,
-    onClose: fn(),
-    ...midAfternoon,
-  },
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
+  args: midAfternoon,
 } satisfies Meta<typeof ClockModalSolarDayArc>;
 
 export default meta;
@@ -79,11 +91,4 @@ export const PreDawn: Story = {
 export const AfterSunset: Story = {
   name: "After Sunset , overnight to tomorrow's sunrise",
   args: afterSunset,
-};
-
-// ─── Closed , modal not open ──────────────────────────────────────────────────
-
-export const Closed: Story = {
-  name: "Closed , modal not open",
-  args: { open: false, ...midAfternoon },
 };

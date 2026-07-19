@@ -17,18 +17,16 @@
  * Mid: 3 Stat cells , Day length, Daylight remaining, Sun position %.
  * Bottom: a Pill row with the next solar event (countdown to sunset or sunrise).
  *
- * PURE view: all data + callbacks arrive via props (no trpc/hooks). Renders
- * inside the shared <Modal> so backdrop/Escape/close are handled centrally.
+ * PURE view: all data + callbacks arrive via props (no trpc/hooks). Bare page
+ * body hosted by TileDetailHost (header/back/switcher handled centrally).
  */
 
 import { SolarDayArcGraphic } from "@/components/SolarDayArcGraphic";
-import { Modal, Stat } from "@/components/ui";
+import { Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
 export interface ClockModalSolarDayArcProps {
-  open: boolean;
-  onClose: () => void;
   /** ISO datetime for today's sunrise, e.g. "2026-05-31T06:02:00" */
   sunriseIso: string;
   /** ISO datetime for today's sunset, e.g. "2026-05-31T19:48:00" */
@@ -74,15 +72,11 @@ const CLOCK_ARC_DIMS = {
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function ClockModalSolarDayArc({
-  open,
-  onClose,
   sunriseIso,
   sunsetIso,
   tomorrowSunriseIso,
   nowMs,
 }: ClockModalSolarDayArcProps) {
-  if (!open) return null;
-
   const sunriseMs = new Date(sunriseIso).getTime();
   const sunsetMs = new Date(sunsetIso).getTime();
   const tomorrowSunriseMs = new Date(tomorrowSunriseIso).getTime();
@@ -115,7 +109,7 @@ export function ClockModalSolarDayArc({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Clock" width={720} maxHeight={680}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* ── Solar arc SVG ─────────────────────────────────────────────────── */}
         {/* The arc is the primary reading surface: position of the sun dot
@@ -198,6 +192,6 @@ export function ClockModalSolarDayArc({
           </span>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }

@@ -14,10 +14,9 @@
  *   Event rows     , days gutter (left) · name/place (mid) · position dot on ruler
  *   gap 24 between header and list sections, gap 13 between rows.
  *
- * PURE view: all data + callbacks arrive via props. No trpc/hooks. Width 640, maxHeight 700.
+ * PURE view: all data + callbacks arrive via props. No trpc/hooks. Bare page
+ * body hosted by TileDetailHost.
  */
-
-import { Modal } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -29,8 +28,6 @@ interface CountdownEvent {
 }
 
 export interface ClockModalCountdownHorizonProps {
-  open: boolean;
-  onClose: () => void;
   /** Today's full date string , e.g. "Saturday, May 31, 2026". */
   todayLabel: string;
   /** Upcoming events ordered by date (days ascending). */
@@ -280,8 +277,6 @@ function EventRow({
 // ─── view ─────────────────────────────────────────────────────────────────────
 
 export function ClockModalCountdownHorizon({
-  open,
-  onClose,
   todayLabel,
   events,
 }: ClockModalCountdownHorizonProps) {
@@ -293,7 +288,7 @@ export function ClockModalCountdownHorizon({
   const nextInDays = nextEvent?.days ?? null;
 
   return (
-    <Modal open={open} onClose={onClose} title="Clock" width={640} maxHeight={700}>
+    <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {/* ── Header strip ── */}
         <div
@@ -402,6 +397,6 @@ export function ClockModalCountdownHorizon({
           </div>
         )}
       </div>
-    </Modal>
+    </div>
   );
 }

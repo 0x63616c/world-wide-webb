@@ -1,17 +1,16 @@
 /**
  * Stories for ClockModalWorldClocks , world-clocks expanded view for the Clock tile.
- * View-driven: all data + callbacks via props. Grouped under "Modals/Clock" since
- * this is an overlay surface, not a tile board entry.
+ * View-driven: all data + callbacks via props. Grouped under "Modals/Clock" ,
+ * the component is a bare page body now (hosted by TileDetailHost in the app),
+ * so stories mount it inside a plain page-sized container matching the host's
+ * content region.
  *
  * `now` is pinned to a fixed Date so snapshots are deterministic , the actual
  * board passes a live ticking Date.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
-import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
-import type { ClockModalWorldClocksProps } from "./ClockModalWorldClocks";
 import { ClockModalWorldClocks } from "./ClockModalWorldClocks";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
@@ -38,10 +37,23 @@ const meta = {
   title: "Modals/Clock/World Clocks",
   component: ClockModalWorldClocks,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   args: {
-    open: true,
-    onClose: fn(),
     now: fixedNow,
     zones: globalZones,
   },
@@ -50,32 +62,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// ─── World Clocks (interactive) ───────────────────────────────────────────────
-
-// Stateful wrapper so backdrop/Escape/Close actually dismiss in Storybook.
-// A "Reopen" button makes the story replayable after closing.
-function InteractiveWorldClocks(args: ClockModalWorldClocksProps) {
-  const [open, setOpen] = useState(true);
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)}>
-        Reopen
-      </button>
-      <ClockModalWorldClocks
-        {...args}
-        open={open}
-        onClose={() => {
-          setOpen(false);
-          args.onClose();
-        }}
-      />
-    </>
-  );
-}
+// ─── World Clocks ─────────────────────────────────────────────────────────────
 
 export const WorldClocks: Story = {
   name: "World Clocks , 5 zones",
-  render: (args) => <InteractiveWorldClocks {...args} />,
 };
 
 // ─── Home only ────────────────────────────────────────────────────────────────
@@ -85,13 +75,4 @@ export const WorldClocks: Story = {
 export const HomeOnly: Story = {
   name: "Home only , Los Angeles",
   args: { zones: homeOnlyZones },
-};
-
-// ─── Closed ───────────────────────────────────────────────────────────────────
-
-// Verifies the modal renders nothing when open=false , nothing leaks onto the
-// board while closed.
-export const Closed: Story = {
-  name: "Closed , modal not mounted",
-  args: { open: false },
 };

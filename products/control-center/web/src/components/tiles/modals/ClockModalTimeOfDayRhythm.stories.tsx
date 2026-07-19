@@ -1,12 +1,13 @@
 /**
  * Stories for ClockModalTimeOfDayRhythm , "Time-of-Day Rhythm" vertical ribbon.
  *
- * View-driven (all data + callbacks via props). Grouped under "Modals/Clock".
- * Render-only stories (no play functions) , sufficient for a layout POC.
+ * View-driven (all data + callbacks via props). Grouped under "Modals/Clock" ,
+ * the component is a bare page body now (hosted by TileDetailHost in the app),
+ * so stories mount it inside a plain page-sized container matching the host's
+ * content region. Render-only stories (no play functions).
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
 import { modalDocsParameters } from "../__stories__/factory";
 import { ClockModalTimeOfDayRhythm } from "./ClockModalTimeOfDayRhythm";
 
@@ -16,11 +17,22 @@ const meta = {
   title: "Modals/Clock/Time Of Day Rhythm",
   component: ClockModalTimeOfDayRhythm,
   tags: ["autodocs"],
-  parameters: modalDocsParameters(),
-  args: {
-    open: true,
-    onClose: fn(),
-  },
+  parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
+  // Page-sized container standing in for the TileDetailHost content region.
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg)",
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
 } satisfies Meta<typeof ClockModalTimeOfDayRhythm>;
 
 export default meta;

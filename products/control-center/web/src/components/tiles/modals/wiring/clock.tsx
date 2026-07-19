@@ -1,5 +1,5 @@
 /**
- * Clock tile , live wiring for its detail-modal variants.
+ * Clock tile , live wiring for its detail-page variants.
  *
  * Data sources (all live, already exposed):
  *  - trpc.weather.now → sunrise/sunset ISO + formatted (solar variants)
@@ -8,11 +8,11 @@
  *  - config/world-clocks → which zones to display (configuration, not data)
  */
 
+import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
 import { ClockModalCountdownHorizon } from "@/components/tiles/modals/ClockModalCountdownHorizon";
 import { ClockModalSolarDayArc } from "@/components/tiles/modals/ClockModalSolarDayArc";
 import { ClockModalTimeOfDayRhythm } from "@/components/tiles/modals/ClockModalTimeOfDayRhythm";
 import { ClockModalWorldClocks } from "@/components/tiles/modals/ClockModalWorldClocks";
-import type { LiveVariant, TileModalEntry } from "@/components/tiles/modals/types";
 import { WORLD_CLOCK_ZONES } from "@/config/world-clocks";
 import { POLL, useNow } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
@@ -23,7 +23,7 @@ function formatTime(iso: string): string {
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
-function useClockVariants(): { variants: LiveVariant[]; loading: boolean } {
+function useClockVariants(): { variants: DetailVariant[]; loading: boolean } {
   const now = useNow();
   const weather = trpc.weather.now.useQuery(undefined, { refetchInterval: POLL.weather });
   const events = trpc.events.list.useQuery(undefined);
@@ -41,14 +41,12 @@ function useClockVariants(): { variants: LiveVariant[]; loading: boolean } {
     year: "numeric",
   });
 
-  const variants: LiveVariant[] = [
+  const variants: DetailVariant[] = [
     {
       slug: "solar-day-arc",
       label: "Solar Arc",
-      render: (open, onClose) => (
+      render: () => (
         <ClockModalSolarDayArc
-          open={open}
-          onClose={onClose}
           sunriseIso={w.sunriseIso}
           sunsetIso={w.sunsetIso}
           tomorrowSunriseIso={w.tomorrowSunriseIso}
@@ -59,10 +57,8 @@ function useClockVariants(): { variants: LiveVariant[]; loading: boolean } {
     {
       slug: "time-of-day-rhythm",
       label: "Day Rhythm",
-      render: (open, onClose) => (
+      render: () => (
         <ClockModalTimeOfDayRhythm
-          open={open}
-          onClose={onClose}
           sunriseIso={w.sunriseIso}
           sunsetIso={w.sunsetIso}
           sunriseFormatted={formatTime(w.sunriseIso)}
@@ -74,10 +70,8 @@ function useClockVariants(): { variants: LiveVariant[]; loading: boolean } {
     {
       slug: "countdown-horizon",
       label: "Countdown",
-      render: (open, onClose) => (
+      render: () => (
         <ClockModalCountdownHorizon
-          open={open}
-          onClose={onClose}
           todayLabel={todayLabel}
           events={ev.map((e) => ({ name: e.name, place: e.place, days: e.days }))}
         />
@@ -86,17 +80,17 @@ function useClockVariants(): { variants: LiveVariant[]; loading: boolean } {
     {
       slug: "world-clocks",
       label: "World",
-      render: (open, onClose) => (
-        <ClockModalWorldClocks open={open} onClose={onClose} now={now} zones={WORLD_CLOCK_ZONES} />
-      ),
+      render: () => <ClockModalWorldClocks now={now} zones={WORLD_CLOCK_ZONES} />,
     },
   ];
 
   return { variants, loading: false };
 }
 
-export const clockModalEntry: TileModalEntry = {
+export const clockDetailEntry: TileDetailPageEntry = {
+  kind: "page",
   tileId: "tile_clock",
+  title: "Clock",
   defaultSlug: "solar-day-arc",
   useVariants: useClockVariants,
 };
