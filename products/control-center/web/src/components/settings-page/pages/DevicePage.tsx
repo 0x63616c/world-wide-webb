@@ -47,7 +47,18 @@ export function DevicePage({ onOpenLevel }: PageProps) {
             label="Battery"
             sub="Charge state of this panel."
             control={
-              <span style={VALUE_TEXT}>{battery ? formatBattery(battery) : "unavailable"}</span>
+              battery ? (
+                <span
+                  style={{
+                    ...VALUE_TEXT,
+                    color: battery.isCharging ? "var(--green, #7ac48f)" : "var(--ink)",
+                  }}
+                >
+                  {formatBattery(battery)}
+                </span>
+              ) : (
+                <span style={VALUE_TEXT}>unavailable</span>
+              )
             }
           />,
           <RowShell

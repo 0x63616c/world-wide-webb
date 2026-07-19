@@ -51,8 +51,8 @@ export function useBatteryInfo(enabled: boolean): BatteryInfo | null {
   return info;
 }
 
-/** "100% · charging" / "87%" , shared by the row and its tests. */
+/** Charge percent only, e.g. "87%" , shared by the row and its tests. The
+ *  charging state is conveyed by colour in the Device row, not this string. */
 export function formatBattery(info: BatteryInfo): string {
-  const percent = Math.round(info.level * 100);
-  return info.isCharging ? `${percent}% · charging` : `${percent}%`;
+  return `${Math.round(info.level * 100)}%`;
 }
