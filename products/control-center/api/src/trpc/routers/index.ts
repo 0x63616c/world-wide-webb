@@ -1,4 +1,5 @@
 import { router } from "../init";
+import { boothPhotosRouter } from "./booth-photos";
 import { cameraRouter } from "./camera";
 import { climateRouter } from "./climate";
 import { controlsRouter } from "./controls";
@@ -28,6 +29,7 @@ export const appRouter = router({
   climate: climateRouter,
   controls: controlsRouter,
   camera: cameraRouter,
+  boothPhotos: boothPhotosRouter,
   events: eventsRouter,
   github: githubRouter,
   layout: layoutRouter,

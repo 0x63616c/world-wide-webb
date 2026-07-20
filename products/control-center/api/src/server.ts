@@ -4,6 +4,13 @@ import { db } from "./db/index";
 import { runMigrations } from "./db/migrate";
 import { env } from "./env";
 import { getTvArtwork } from "./services/apple-tv-service";
+import {
+  BOOTH_PHOTO_MODES,
+  type BoothPhotoMode,
+  newBoothGroupId,
+  readBoothPhoto,
+  saveBoothPhoto,
+} from "./services/booth-photo-service";
 import { openCameraStream } from "./services/camera-service";
 import { getClimate } from "./services/climate-service";
 import {
@@ -163,6 +170,70 @@ async function handle(req: Request, url: URL): Promise<Response> {
       headers: {
         ...CORS_HEADERS,
         "Content-Type": "image/jpeg",
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    });
+  }
+
+  // Photo-booth ingest: the panel POSTs each captured frame as a raw image body
+  // (JPEG for photo/burst/four_frame, GIF for gif). Validation (format magic vs.
+  // mode, size cap) lives in the service; any rejection is a 400 so a
+  // misbehaving client can't 500-spam the log.
+  //
+  // Like the wake-photo route this is UNAUTHENTICATED same-origin ingest. The
+  // attribution headers are shape-validated so arbitrary bytes can never land in
+  // booth_photo: a bad mode 400s, a missing/malformed group id starts a fresh
+  // group (a single-frame capture), a malformed device id stores as NULL.
+  if (url.pathname === "/media/booth-photo" && req.method === "POST") {
+    const rawMode = req.headers.get("x-mode");
+    if (!rawMode || !BOOTH_PHOTO_MODES.includes(rawMode as BoothPhotoMode)) {
+      return new Response(`invalid mode: ${rawMode ?? "<missing>"}`, {
+        status: 400,
+        headers: CORS_HEADERS,
+      });
+    }
+    const mode = rawMode as BoothPhotoMode;
+    const headerTs = Number(req.headers.get("x-captured-at"));
+    const capturedAt = Number.isFinite(headerTs) && headerTs > 0 ? headerTs : Date.now();
+    const frameHeader = Number(req.headers.get("x-frame-idx"));
+    const frameIdx = Number.isFinite(frameHeader) && frameHeader >= 0 ? frameHeader : 0;
+    const rawGroup = req.headers.get("x-group-id");
+    const groupId =
+      rawGroup && /^bpg_[0-9a-z]{1,32}$/.test(rawGroup) ? rawGroup : newBoothGroupId();
+    const rawDevice = req.headers.get("x-device-id");
+    const deviceId = rawDevice && /^[0-9A-Za-z_-]{1,64}$/.test(rawDevice) ? rawDevice : null;
+    const bytes = new Uint8Array(await req.arrayBuffer());
+    try {
+      const saved = await saveBoothPhoto(db, bytes, {
+        capturedAt,
+        mode,
+        groupId,
+        frameIdx,
+        deviceId,
+      });
+      return Response.json(saved, { status: 201, headers: CORS_HEADERS });
+    } catch (err) {
+      return new Response(err instanceof Error ? err.message : "invalid booth photo", {
+        status: 400,
+        headers: CORS_HEADERS,
+      });
+    }
+  }
+
+  // Photo-booth bytes for the gallery. Stored files never change, so the content
+  // is immutable-cacheable; traversal/missing both 404 via the service's null.
+  // Content-Type follows the extension (GIF animations vs. JPEG stills).
+  if (url.pathname.startsWith("/media/booth-photos/")) {
+    const rel = decodeURIComponent(url.pathname.slice("/media/booth-photos/".length));
+    const photo = await readBoothPhoto(rel);
+    if (!photo) {
+      return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
+    }
+    return new Response(photo.bytes, {
+      status: 200,
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": rel.endsWith(".gif") ? "image/gif" : "image/jpeg",
         "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
