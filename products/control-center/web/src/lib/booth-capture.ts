@@ -59,10 +59,17 @@ export interface BoothUploadMeta {
   /**
    * Non-destructive filter id to store on the row (`^[a-z0-9_]{1,32}$`). The
    * saved bytes are the RAW frame; the gallery applies this id as a CSS filter
-   * at display time. Omit for an unfiltered capture and for a gif (whose filter
-   * is baked into its assembled frames, so it stores none).
+   * at display time. Omit for an unfiltered capture and for the assembled .gif
+   * (whose filter is baked into its frames, so it stores none). A gif's retained
+   * raw SOURCE frames are unfiltered bytes, so they DO carry the filter id.
    */
   filter?: string;
+  /**
+   * Mark this as a gif's retained raw source frame: stored under the group but
+   * hidden from the gallery listing. Sends `x-source-only: 1`; the body is a
+   * JPEG even though the group's mode is "gif".
+   */
+  sourceOnly?: boolean;
 }
 
 /**
@@ -245,7 +252,8 @@ export async function bakeFilterIntoImage(imageUrl: string, filterCss: string): 
  */
 export async function uploadBoothPhoto(blob: Blob, meta: BoothUploadMeta): Promise<{ id: string }> {
   const headers: Record<string, string> = {
-    "Content-Type": meta.mode === "gif" ? "image/gif" : "image/jpeg",
+    // Only the assembled animation is a GIF; a gif's raw source frames are JPEGs.
+    "Content-Type": meta.mode === "gif" && !meta.sourceOnly ? "image/gif" : "image/jpeg",
     "x-captured-at": String(meta.capturedAt),
     "x-mode": meta.mode,
     "x-frame-idx": String(meta.frameIdx ?? 0),
@@ -255,10 +263,11 @@ export async function uploadBoothPhoto(blob: Blob, meta: BoothUploadMeta): Promi
   // header is unambiguously "let the backend group it", where "" would be a
   // group id that sorts like a real one.
   if (meta.groupId) headers["x-group-id"] = meta.groupId;
-  // Non-destructive filter: sent only for a filtered still capture. An absent
-  // header stores null (unfiltered), which is also what a gif sends , its filter
-  // is already baked into the assembled frames.
+  // Non-destructive filter: sent for a filtered still and for a gif's raw source
+  // frames (unfiltered bytes). An absent header stores null (unfiltered), which
+  // is what the assembled .gif sends , its filter is baked into its frames.
   if (meta.filter) headers["x-filter"] = meta.filter;
+  if (meta.sourceOnly) headers["x-source-only"] = "1";
 
   const res = await fetch(UPLOAD_URL, { method: "POST", headers, body: blob });
   if (!res.ok) throw new Error(`booth upload failed: ${res.status}`);

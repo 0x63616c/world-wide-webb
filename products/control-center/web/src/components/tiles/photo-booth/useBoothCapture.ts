@@ -208,16 +208,38 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
 
   async function captureGif(): Promise<void> {
     fireShutterCue();
-    const frames: Blob[] = [];
+    // The gif and its retained raw source frames share a client-minted group id
+    // (the .gif upload response returns no group id, and the frames must join it).
+    const groupId = newBoothGroupId();
+    const filter = storedFilter();
+    // Two versions of each grabbed frame: the filter-baked one that assembles the
+    // animation (no display-time filter for a gif), and the raw one (mirror +
+    // stamp only) retained as an editable source. With no filter they are equal,
+    // so grab once and reuse to avoid a needless second bake.
+    const animated: Blob[] = [];
+    const sources: Blob[] = [];
     for (let i = 0; i < GIF_FRAME_COUNT; i++) {
       if (!aliveRef.current) return;
-      // Gif frames bake the filter in , there is no display-time filter for an
-      // assembled animation, so its stored `filter` stays null.
-      frames.push(await bakeCurrent(true));
+      const raw = await bakeCurrent(false);
+      sources.push(raw);
+      animated.push(filter ? await bakeCurrent(true) : raw);
       if (i < GIF_FRAME_COUNT - 1) await sleep(GIF_GRAB_INTERVAL_MS);
     }
-    const gif = await assembleGif(frames, { delayMs: GIF_DELAY_MS, boomerang: true });
-    await uploadBoothPhoto(gif, { mode: "gif", capturedAt: Date.now() });
+    const gif = await assembleGif(animated, { delayMs: GIF_DELAY_MS, boomerang: true });
+    await uploadBoothPhoto(gif, { mode: "gif", groupId, capturedAt: Date.now() });
+    // Retain the raw frames under the same group, hidden from the gallery listing
+    // (source-only). They carry the filter id since their bytes are unfiltered.
+    for (let i = 0; i < sources.length; i++) {
+      if (!aliveRef.current) return;
+      await uploadBoothPhoto(sources[i], {
+        mode: "gif",
+        groupId,
+        capturedAt: Date.now(),
+        frameIdx: i,
+        filter,
+        sourceOnly: true,
+      });
+    }
   }
 
   function runMode(mode: BoothMode): Promise<void> {

@@ -167,6 +167,26 @@ describe("booth-capture uploadBoothPhoto", () => {
     expect(headers["x-filter"]).toBe("noir");
   });
 
+  it("marks a gif's raw source frame source-only with a JPEG body", async () => {
+    const calls = stubFetch();
+    // A gif's retained source frame: mode is gif (its group) but the bytes are a
+    // raw JPEG, so it uploads as image/jpeg with x-source-only and the filter id.
+    await uploadBoothPhoto(new Blob(["f"], { type: "image/jpeg" }), {
+      mode: "gif",
+      groupId: "bpg_src1",
+      capturedAt: 5,
+      frameIdx: 3,
+      filter: "warm",
+      sourceOnly: true,
+    });
+    const headers = calls[0].init.headers as Record<string, string>;
+    expect(headers["x-source-only"]).toBe("1");
+    expect(headers["Content-Type"]).toBe("image/jpeg");
+    expect(headers["x-mode"]).toBe("gif");
+    expect(headers["x-frame-idx"]).toBe("3");
+    expect(headers["x-filter"]).toBe("warm");
+  });
+
   it("sends image/gif content type for gif captures", async () => {
     const calls = stubFetch();
     await uploadBoothPhoto(new Blob(["g"], { type: "image/gif" }), {
