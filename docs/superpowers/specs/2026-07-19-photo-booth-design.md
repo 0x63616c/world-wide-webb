@@ -58,6 +58,12 @@ The gallery's "‹ Photos" header must stay pinned while the grid scrolls. This 
   `boothPhotos.clearFilter({groupId})`, restoring the original. Exception: GIF frames
   are assembled at capture, so a GIF's filter stays baked (its `filter` column stays
   null). Filter id→CSS mapping is a shared web module used by camera and gallery.
+- **GIF source frames** (user decision 2026-07-19): GIF capture stores the assembled
+  .gif AND its individual raw JPEG frames in the same group, but the frames are
+  source-only — never shown in the gallery (list returns just the .gif for gif
+  groups). Frames carry the filter id (raw pixels), enabling future re-assembly;
+  deleting the group soft-deletes frames too. `booth_photo.source_only` boolean
+  column, `x-source-only` upload header.
 - **Date-stamp framing** on captures.
 - **Share**: to phone via `@capacitor/share` native sheet (new dependency).
 - **Delete**: soft delete, no retention window. Never surface "soft delete"/"trash"
