@@ -54,5 +54,3 @@ export function TileDesign03() {
     </Tile>
   );
 }
-
-export const PhotoBoothPolaroidStack = TileDesign03;

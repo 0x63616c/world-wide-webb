@@ -48,5 +48,3 @@ export function TileDesign01() {
     </Tile>
   );
 }
-
-export const PhotoBoothMinimalMark = TileDesign01;

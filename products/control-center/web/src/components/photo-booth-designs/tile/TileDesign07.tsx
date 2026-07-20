@@ -50,5 +50,3 @@ export function TileDesign07() {
     </Tile>
   );
 }
-
-export const PhotoBoothTally = TileDesign07;

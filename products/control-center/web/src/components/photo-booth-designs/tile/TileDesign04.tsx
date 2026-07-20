@@ -139,5 +139,3 @@ export function TileDesign04() {
     </Tile>
   );
 }
-
-export const PhotoBoothViewfinder = TileDesign04;

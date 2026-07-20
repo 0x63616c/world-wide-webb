@@ -66,5 +66,3 @@ export function TileDesign08() {
     </Tile>
   );
 }
-
-export const PhotoBoothAuroraGlass = TileDesign08;

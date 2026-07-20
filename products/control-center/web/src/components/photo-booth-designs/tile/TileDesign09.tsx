@@ -63,5 +63,3 @@ export function TileDesign09() {
     </Tile>
   );
 }
-
-export const PhotoBoothStickerParty = TileDesign09;

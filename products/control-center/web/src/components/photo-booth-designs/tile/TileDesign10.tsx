@@ -101,5 +101,3 @@ export function TileDesign10() {
     </Tile>
   );
 }
-
-export const PhotoBoothTheBooth = TileDesign10;

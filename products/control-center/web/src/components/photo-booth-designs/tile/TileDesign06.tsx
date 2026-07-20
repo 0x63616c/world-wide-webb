@@ -103,5 +103,3 @@ export function TileDesign06() {
     </Tile>
   );
 }
-
-export const PhotoBoothMarquee = TileDesign06;

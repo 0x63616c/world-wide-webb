@@ -86,5 +86,3 @@ export function TileDesign05() {
     </Tile>
   );
 }
-
-export const PhotoBoothFilmstrip = TileDesign05;

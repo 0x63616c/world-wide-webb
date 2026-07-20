@@ -54,5 +54,3 @@ export function TileDesign02() {
     </Tile>
   );
 }
-
-export const PhotoBoothShutter = TileDesign02;
