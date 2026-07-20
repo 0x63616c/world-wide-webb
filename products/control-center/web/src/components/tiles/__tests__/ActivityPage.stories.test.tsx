@@ -9,7 +9,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import * as stories from "../ActivityPage.stories";
 
-const { Grid, PhotoOpensSession, BackfilledUnopenable, Empty } = composeStories(stories);
+const { Grid, PhotoOpensSession, BackfilledUnopenable, IgnoresServerUtcBucket, Empty } =
+  composeStories(stories);
 
 afterEach(cleanup);
 
@@ -28,6 +29,12 @@ describe("ActivityPage stories", () => {
   it("BackfilledUnopenable: sessionless photos are inert", async () => {
     const { container } = render(<BackfilledUnopenable />);
     if (BackfilledUnopenable.play) await BackfilledUnopenable.play({ canvasElement: container });
+  });
+
+  it("IgnoresServerUtcBucket: heading follows the capture instant, not the listing day", async () => {
+    const { container } = render(<IgnoresServerUtcBucket />);
+    if (IgnoresServerUtcBucket.play)
+      await IgnoresServerUtcBucket.play({ canvasElement: container });
   });
 
   it("Empty: explains where photos come from", async () => {

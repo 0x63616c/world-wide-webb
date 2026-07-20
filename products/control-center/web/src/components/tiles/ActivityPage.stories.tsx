@@ -106,9 +106,13 @@ export const Grid: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText(/39 photos/)).toBeInTheDocument();
-    // Shared PhotoGrid date header , label and count are separate elements.
-    await expect(canvas.getByRole("heading", { name: /2026-07-17/ })).toBeInTheDocument();
-    await expect(canvas.getByText("12 wakes")).toBeInTheDocument();
+    // Days are bucketed by LOCAL day and labelled like the booth's, so the
+    // heading is a short date (these fixtures are older than yesterday) with a
+    // bare count beside it , never the raw UTC "2026-07-17" the listing carries.
+    // Matched loosely: the exact order of day/month is the runner's locale.
+    await expect(canvas.getByRole("heading", { name: /Jul.*17|17.*Jul/ })).toBeInTheDocument();
+    await expect(canvas.queryByText(/2026-07-17/)).not.toBeInTheDocument();
+    await expect(canvas.queryByText(/wakes/)).not.toBeInTheDocument();
 
     // The mode header is pinned OUTSIDE the single scroller (a sibling, not a
     // child), so scrolling the grid to the bottom must not scroll the
@@ -116,6 +120,36 @@ export const Grid: Story = {
     const scroller = canvas.getByTestId("activity-scroll");
     scroller.scrollTop = scroller.scrollHeight;
     await expect(canvas.getByRole("radio", { name: "Grid" })).toBeInTheDocument();
+  },
+};
+
+/**
+ * Regression: headings come from each frame's own capture instant, never the
+ * listing's `day` string. The API buckets on the UTC calendar date, so an
+ * evening capture west of Greenwich arrived filed under the NEXT day while its
+ * timestamp still read like the previous evening. Here the server bucket is
+ * deliberately absurd ("1999-01-01") over photos captured today , the grid must
+ * ignore it and say "Today".
+ */
+export const IgnoresServerUtcBucket: Story = {
+  args: {
+    days: [
+      {
+        day: "1999-01-01",
+        photos: [
+          { path: "a.jpg", capturedAt: Date.now() - 3_600_000, interactionSessionId: SESSION_ID },
+          { path: "b.jpg", capturedAt: Date.now() - 7_200_000, interactionSessionId: SESSION_ID },
+        ],
+      },
+    ],
+    totalCount: 2,
+    totalBytes: 400_000,
+    photoUrl,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("heading", { name: /Today/ })).toBeInTheDocument();
+    await expect(canvas.queryByText(/1999/)).not.toBeInTheDocument();
   },
 };
 

@@ -21,6 +21,7 @@ import { Capacitor } from "@capacitor/core";
 import { Share } from "@capacitor/share";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { groupByDay } from "@/components/gallery/group-by-day";
 import { PhotoGrid } from "@/components/gallery/PhotoGrid";
 import { ConfirmDialog, PageHeader } from "@/components/ui";
 import { bakeFilterIntoImage } from "@/lib/booth-capture";
@@ -63,7 +64,7 @@ export function BoothGallery({ groups, photoUrl, onRemove, onBack }: BoothGaller
   const [removed, setRemoved] = useState<Set<string>>(new Set());
 
   const live = useMemo(() => groups.filter((g) => !removed.has(g.groupId)), [groups, removed]);
-  const days = useMemo(() => groupByDay(live), [live]);
+  const days = useMemo(() => groupByDay(live, (g) => g.capturedAt), [live]);
   const photoCount = useMemo(() => live.reduce((n, g) => n + g.frames.length, 0), [live]);
 
   // The lightbox walks the whole roll as one flat, time-ordered list. A 4-frame
@@ -111,8 +112,8 @@ export function BoothGallery({ groups, photoUrl, onRemove, onBack }: BoothGaller
           days={days.map((day) => ({
             key: day.key,
             label: day.label,
-            count: day.groups.length,
-            items: day.groups,
+            count: day.items.length,
+            items: day.items,
           }))}
           itemKey={(g) => g.groupId}
           cellLabel={(g) => `Open ${MODE_LABEL[g.mode]} from ${formatTime(g.capturedAt)}`}
@@ -431,46 +432,7 @@ function buildViews(groups: BoothGroup[]): {
   return { views, coverIndex };
 }
 
-// ---- day grouping + formatting ---------------------------------------------
-
-interface GalleryDay {
-  key: number;
-  label: string;
-  groups: BoothGroup[];
-}
-
-function startOfDay(ms: number): number {
-  const d = new Date(ms);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
-/** Group newest-first into day buckets with Today / Yesterday / date labels. */
-function groupByDay(groups: BoothGroup[]): GalleryDay[] {
-  const today = startOfDay(Date.now());
-  const dayMs = 86_400_000;
-  const buckets = new Map<number, BoothGroup[]>();
-  for (const g of groups) {
-    const key = startOfDay(g.capturedAt);
-    const list = buckets.get(key);
-    if (list) list.push(g);
-    else buckets.set(key, [g]);
-  }
-  return [...buckets.entries()]
-    .sort((a, b) => b[0] - a[0])
-    .map(([key, list]) => {
-      let label: string;
-      if (key === today) label = "Today";
-      else if (key === today - dayMs) label = "Yesterday";
-      else
-        label = new Date(key).toLocaleDateString([], {
-          weekday: "short",
-          day: "numeric",
-          month: "short",
-        });
-      return { key, label, groups: list.sort((a, b) => b.capturedAt - a.capturedAt) };
-    });
-}
+// ---- formatting -------------------------------------------------------------
 
 function formatTime(ms: number): string {
   return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });

@@ -93,21 +93,28 @@ export function PhotoGrid<T>({
 }
 
 // ---- styles ----------------------------------------------------------------
-// Verbatim from BoothGallery so adopting this is a visual no-op there.
+// Originally lifted from BoothGallery; both galleries now render through here,
+// so a change lands on the booth and Activity together.
 
 const dateHeader: CSSProperties = {
   margin: 0,
-  padding: "26px 24px 14px",
+  // Tighter above the text than below , the 34px/800 line already carries a
+  // lot of visual weight, so the old 26px read as a gap.
+  padding: "14px 24px 14px",
   fontSize: 34,
   fontWeight: 800,
   letterSpacing: "-0.03em",
+  // Count sits at the far right, optically centred against the big label.
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
 };
 
 const dateHeaderCount: CSSProperties = {
   fontSize: 16,
   fontWeight: 500,
   color: "var(--ink-3)",
-  marginLeft: 12,
 };
 
 const grid: CSSProperties = {

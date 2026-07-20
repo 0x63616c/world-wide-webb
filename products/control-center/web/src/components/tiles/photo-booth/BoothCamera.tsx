@@ -41,9 +41,11 @@ export interface BoothCameraProps {
    * full-bleed (no back chrome of its own); omit to let the host own back nav.
    */
   onClose?: () => void;
+  /** Fired once a shot's uploads land, so the host can refresh the listing. */
+  onCaptured?: () => void;
 }
 
-export function BoothCamera({ onOpenGallery, onClose }: BoothCameraProps) {
+export function BoothCamera({ onOpenGallery, onClose, onCaptured }: BoothCameraProps) {
   const preview = useCameraPreview();
   const [filterId, setFilterId] = useState("none");
   const [mode, setMode] = useState<ModeValue>("photo");
@@ -60,6 +62,7 @@ export function BoothCamera({ onOpenGallery, onClose }: BoothCameraProps) {
     filterId,
     countdown,
     flashOn,
+    onCaptured,
   });
 
   return (

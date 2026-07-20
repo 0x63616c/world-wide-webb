@@ -22,6 +22,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { groupByDay } from "@/components/gallery/group-by-day";
 import { PhotoGrid } from "@/components/gallery/PhotoGrid";
 import { PageHeader, Segmented, type SegmentedOption } from "@/components/ui";
 import { type SessionDetail, SessionDetailView } from "./SessionDetailView";
@@ -86,14 +87,18 @@ export function ActivityPage({
 }: ActivityPageProps) {
   const [mode, setMode] = useState<ViewerMode>("grid");
 
+  // Regroup by LOCAL day rather than trusting the listing's UTC `day` buckets.
+  // The API buckets on the UTC calendar date, so an evening capture west of
+  // Greenwich (21:41 on the 19th at UTC-7 is 04:41 UTC on the 20th) landed
+  // under the next day's heading while its own timestamp still read 09:41 PM.
+  // Grouping off capturedAt, the same value the timestamps format from, keeps
+  // the heading honest , and gives Activity the booth's Today/Yesterday labels.
   const gridDays = useMemo(
     () =>
-      days.map((d) => ({
-        key: d.day,
-        label: d.day,
-        count: `${d.photos.length} wakes`,
-        items: d.photos,
-      })),
+      groupByDay(
+        days.flatMap((d) => d.photos),
+        (p) => p.capturedAt,
+      ).map((d) => ({ key: d.key, label: d.label, count: d.items.length, items: d.items })),
     [days],
   );
 

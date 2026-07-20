@@ -71,6 +71,13 @@ export interface BoothCaptureArgs {
   countdown: CountdownOption;
   /** Flash the screen white at each capture moment. */
   flashOn: boolean;
+  /**
+   * Fired once a shot's uploads have all landed. Uploads go over a raw POST
+   * (see lib/booth-capture), not tRPC, so react-query has no idea the listing
+   * changed , without this the gallery only picks a new capture up on its next
+   * 60s poll, and opening it straight after a shot can show a stale roll.
+   */
+  onCaptured?: () => void;
 }
 
 export interface BoothCaptureController {
@@ -320,6 +327,8 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
         if (countdown > 0) await runCountdown(countdown);
         if (!aliveRef.current) return;
         await runMode(mode);
+        // Uploads are done , tell the host so it can refresh the listing.
+        argsRef.current.onCaptured?.();
       } catch (err) {
         if (aliveRef.current) {
           setError(err instanceof Error ? err.message : "Capture failed");

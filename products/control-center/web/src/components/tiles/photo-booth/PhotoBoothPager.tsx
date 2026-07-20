@@ -24,11 +24,19 @@ export interface PhotoBoothPagerProps {
   onRemove: (groupId: string) => void;
   /** Leave the feature , closes the detail page back to the board. */
   onClose: () => void;
+  /** Fired once a shot's uploads land, so the host can refresh the listing. */
+  onCaptured?: () => void;
 }
 
 type View = "camera" | "gallery";
 
-export function PhotoBoothPager({ groups, photoUrl, onRemove, onClose }: PhotoBoothPagerProps) {
+export function PhotoBoothPager({
+  groups,
+  photoUrl,
+  onRemove,
+  onClose,
+  onCaptured,
+}: PhotoBoothPagerProps) {
   const [view, setView] = useState<View>("camera");
 
   if (view === "gallery") {
@@ -42,5 +50,11 @@ export function PhotoBoothPager({ groups, photoUrl, onRemove, onClose }: PhotoBo
     );
   }
 
-  return <BoothCamera onOpenGallery={() => setView("gallery")} onClose={onClose} />;
+  return (
+    <BoothCamera
+      onOpenGallery={() => setView("gallery")}
+      onClose={onClose}
+      onCaptured={onCaptured}
+    />
+  );
 }

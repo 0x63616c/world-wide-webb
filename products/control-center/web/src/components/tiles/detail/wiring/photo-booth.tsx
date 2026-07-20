@@ -49,6 +49,9 @@ function usePhotoBoothVariants(): { variants: DetailVariant[]; loading: boolean 
           photoUrl={boothPhotoUrl}
           onRemove={(groupId) => removeMutation.mutate({ groupId })}
           onClose={closeTileDetail}
+          // Uploads bypass tRPC (raw POST), so nothing invalidates the listing
+          // on its own , without this a shot only appears on the next 60s poll.
+          onCaptured={invalidate}
         />
       ),
     },
