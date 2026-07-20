@@ -15,6 +15,8 @@
   "scripts": {
     "dev": "bun run --filter @product/control-center dev",
     "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:storybook": "cd products/control-center/web && bunx vitest run --project storybook",
     "test:dockerfile-manifests": "bun scripts/check-dockerfile-manifests.ts",
     "test:product-workspaces": "bun scripts/check-product-workspaces.ts",
     "test:control-center-ci-split": "bun scripts/check-control-center-ci-split.ts",

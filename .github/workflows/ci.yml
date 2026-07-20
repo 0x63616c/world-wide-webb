@@ -145,7 +145,14 @@ jobs:
   # Test gate: typecheck + full vitest suite. Runs on every push (the repo
   # previously built and DEPLOYED without ever running tests). Deploy depends
   # on this passing.
-  test:
+  #
+  # Unit suite (jsdom) + all the fast hermetic bash guards. Split from the
+  # Storybook browser suite so the two run concurrently: they share nothing, and
+  # sequentially they cost sum(218s, 174s) instead of max(). The guards live
+  # here because this job needs no Playwright install, which keeps the two
+  # halves roughly balanced.
+  test-unit:
+    needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -211,6 +218,23 @@ jobs:
           bash scripts/test-cc-post-cutover-smoke.sh
           bash scripts/test-cnpg-local-name-preflight.sh
           node scripts/test-panel-health.mjs
+      - name: Test (unit, jsdom)
+        run: bun run test:unit
+
+  # Storybook browser suite (Playwright/Chromium play functions). Runs
+  # concurrently with test-unit. Kept as its own job because it needs a Chromium
+  # install that the jsdom suite does not.
+  test-storybook:
+    needs: [changes]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.19
+      - name: Install deps
+        run: bun install --frozen-lockfile
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         id: playwright-cache
@@ -219,14 +243,14 @@ jobs:
           key: playwright-chromium-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
             playwright-chromium-${{ runner.os }}-
-      - name: Install Playwright Chromium (for Storybook browser tests)
+      - name: Install Playwright Chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: bunx playwright install --with-deps chromium
       - name: Install Playwright system deps (cached binary)
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: bunx playwright install-deps chromium
-      - name: Test (unit jsdom + Storybook chromium)
-        run: bun run test:coverage
+      - name: Test (Storybook, chromium)
+        run: bun run test:storybook
 
   # Typecheck + dead-code run in parallel with the coverage suite so type
   # errors and knip regressions surface without waiting for Playwright to
@@ -427,7 +451,7 @@ jobs:
   # declarative-convergent, so the latest green run always reconciles prod to the
   # committed digests, no deploy marker needed (www-bom8 retired).
   deploy:
-    needs: [changes, test, typecheck, build-web, build-api, build-worker, build-storybook, build-drizzle, build-captive-portal, build-captive-portal-api, build-map-provision]
+    needs: [changes, test-unit, test-storybook, typecheck, build-web, build-api, build-worker, build-storybook, build-drizzle, build-captive-portal, build-captive-portal-api, build-map-provision]
     # always() lets us run even when some build jobs were skipped (no changes).
     # We proceed when: on main, an app OR infra changed, and no build failed.
     if: |
@@ -624,7 +648,7 @@ jobs:
   # AGE_PRIVATE_KEY, same as deploy. Docs-only pushes (deploy skipped, nothing
   # failed) send nothing.
   notify:
-    needs: [changes, test, typecheck, build-web, build-api, build-worker, build-storybook, build-drizzle, build-captive-portal, build-captive-portal-api, build-map-provision, deploy]
+    needs: [changes, test-unit, test-storybook, typecheck, build-web, build-api, build-worker, build-storybook, build-drizzle, build-captive-portal, build-captive-portal-api, build-map-provision, deploy]
     if: always() && github.ref_name == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
