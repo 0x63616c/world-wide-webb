@@ -142,10 +142,6 @@ jobs:
               - 'products/captive-portal/**'
               - 'bun.lock'
 
-  # Test gate: typecheck + full vitest suite. Runs on every push (the repo
-  # previously built and DEPLOYED without ever running tests). Deploy depends
-  # on this passing.
-  #
   # Unit suite (jsdom) + all the fast hermetic bash guards. Split from the
   # Storybook browser suite so the two run concurrently: they share nothing, and
   # sequentially they cost sum(218s, 174s) instead of max(). The guards live
@@ -170,7 +166,7 @@ jobs:
       - name: Storybook docs guard
         # Authoritative backstop for the lefthook pre-commit `storybook-docs`
         # hook (bypassable with --no-verify): fails the test job if any tracked
-        # *.stories.tsx lacks an autodocs Docs page. `deploy` needs `test`, so a
+        # *.stories.tsx lacks an autodocs Docs page. `deploy` needs `test-unit`, so a
         # missing doc blocks the deploy. Fast (grep), runs before the slow
         # Playwright install so it fails early (www-o0ko).
         run: bash scripts/check-storybook-docs.sh
@@ -252,10 +248,10 @@ jobs:
       - name: Test (Storybook, chromium)
         run: bun run test:storybook
 
-  # Typecheck + dead-code run in parallel with the coverage suite so type
+  # Typecheck + dead-code run in parallel with the test suite so type
   # errors and knip regressions surface without waiting for Playwright to
   # install and all tests to run. Build jobs and deploy depend on both
-  # `test` and `typecheck` passing (www-q2p5).
+  # `test-unit`, `test-storybook`, and `typecheck` passing (www-q2p5).
   typecheck:
     needs: [changes]
     runs-on: ubuntu-latest
@@ -281,7 +277,7 @@ jobs:
   # concurrently with the test suite instead of queueing behind it (measured
   # 180s off the critical path, because the build fan-in is shorter than the
   # test job and now hides entirely under it).
-  # This does NOT weaken the deploy gate: `deploy` still lists test + typecheck
+  # This does NOT weaken the deploy gate: `deploy` still lists test-unit + test-storybook + typecheck
   # in its own `needs:`, so an image built for a commit that fails tests is
   # simply never deployed. The only cost is building images for the ~9% of
   # pushes that fail — they are content-addressed and otherwise inert.
