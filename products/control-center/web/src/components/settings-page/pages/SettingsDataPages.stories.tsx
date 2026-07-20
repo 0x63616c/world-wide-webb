@@ -83,7 +83,7 @@ function TrpcHarness({
 }
 
 const meta = {
-  title: "Board/SettingsDataPages",
+  title: "Pages/Settings/Data Pages",
   tags: ["autodocs"],
   parameters: { boardWrapper: false, layout: "fullscreen" },
 } satisfies Meta;

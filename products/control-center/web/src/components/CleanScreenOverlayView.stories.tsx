@@ -3,7 +3,7 @@ import { expect, within } from "storybook/test";
 import { CleanScreenOverlayView, formatCountdown } from "./CleanScreenOverlayView";
 
 const meta = {
-  title: "Components/CleanScreenOverlayView",
+  title: "Components/Overlays/Clean Screen",
   component: CleanScreenOverlayView,
   tags: ["autodocs"],
   parameters: { layout: "fullscreen" },

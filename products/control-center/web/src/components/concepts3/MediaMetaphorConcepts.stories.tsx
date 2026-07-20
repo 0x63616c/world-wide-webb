@@ -8,7 +8,7 @@ import { MetaphorFrontPage, MetaphorSpringboard } from "./MediaMetaphorConcepts"
  * newspaper front page. Local state only.
  */
 const meta = {
-  title: "Concepts/Round3/Metaphor",
+  title: "Experiments/Round 3/Metaphor",
   tags: ["autodocs"],
   parameters: { boardWrapper: false, layout: "fullscreen" },
 } satisfies Meta;

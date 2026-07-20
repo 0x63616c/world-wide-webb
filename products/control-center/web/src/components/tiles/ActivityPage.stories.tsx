@@ -57,7 +57,7 @@ const SESSIONS = [
 ];
 
 const meta = {
-  title: "Pages/ActivityPage",
+  title: "Pages/Activity",
   component: ActivityPage,
   tags: ["autodocs"],
   parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },

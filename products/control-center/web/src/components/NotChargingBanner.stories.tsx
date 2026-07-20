@@ -24,7 +24,7 @@ function BoardStage({ children }: { children: React.ReactNode }) {
 }
 
 const meta = {
-  title: "Components/NotChargingBanner",
+  title: "Components/Banners/Not Charging",
   component: NotChargingBannerView,
   tags: ["autodocs"],
   decorators: [

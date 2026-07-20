@@ -22,7 +22,7 @@ function BoardStage({ children }: { children: React.ReactNode }) {
 }
 
 const meta = {
-  title: "Components/AppUpdateBanner",
+  title: "Components/Banners/App Update",
   component: AppUpdateBannerView,
   tags: ["autodocs"],
   decorators: [

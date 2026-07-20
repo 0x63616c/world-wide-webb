@@ -5,7 +5,7 @@ import { LevelOverlayView } from "./LevelOverlayView";
 // The view is position:fixed, so stories frame it inside the wall-panel
 // viewport via Storybook's fullscreen layout rather than a stage div.
 const meta = {
-  title: "Components/LevelOverlayView",
+  title: "Components/Overlays/Level",
   component: LevelOverlayView,
   tags: ["autodocs"],
   parameters: { layout: "fullscreen" },

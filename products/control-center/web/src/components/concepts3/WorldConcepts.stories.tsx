@@ -3,7 +3,7 @@ import { expect, within } from "storybook/test";
 import { WorldHouseBuddy, WorldIsoHouse } from "./WorldConcepts";
 
 const meta = {
-  title: "Concepts/Round3/World",
+  title: "Experiments/Round 3/World",
   tags: ["autodocs"],
   parameters: { boardWrapper: false, layout: "fullscreen" },
 } satisfies Meta;

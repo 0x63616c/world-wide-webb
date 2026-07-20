@@ -10,7 +10,7 @@ function ModalStory(props: React.ComponentProps<typeof Modal>) {
 }
 
 const meta = {
-  title: "Modals/Modal",
+  title: "UI/Modal",
   component: ModalStory,
   tags: ["autodocs"],
   parameters: modalDocsParameters(),

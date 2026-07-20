@@ -64,7 +64,7 @@ function BoardStage({ children }: { children: React.ReactNode }) {
 }
 
 const meta = {
-  title: "Components/ConnectionLostBanner",
+  title: "Components/Banners/Connection Lost",
   component: BannerPreview,
   tags: ["autodocs"],
   decorators: [

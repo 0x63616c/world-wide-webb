@@ -3,7 +3,7 @@ import { expect, within } from "storybook/test";
 import { MachineOrbit, MachineSplitFlap, MachineTerminal } from "./MachineConcepts";
 
 const meta = {
-  title: "Concepts/Round3/Machine",
+  title: "Experiments/Round 3/Machine",
   tags: ["autodocs"],
   parameters: { boardWrapper: false, layout: "fullscreen" },
 } satisfies Meta;

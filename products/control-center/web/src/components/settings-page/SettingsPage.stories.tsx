@@ -40,7 +40,7 @@ function SettingsPageStory(props: React.ComponentProps<typeof SettingsPage>) {
 }
 
 const meta = {
-  title: "SettingsPage/SettingsPage",
+  title: "Pages/Settings/Settings Page",
   component: SettingsPageStory,
   tags: ["autodocs"],
   parameters: { boardWrapper: false, layout: "fullscreen" },

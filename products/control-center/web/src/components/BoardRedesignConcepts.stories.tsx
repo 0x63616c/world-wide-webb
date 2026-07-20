@@ -12,7 +12,7 @@ import {
  * Pick one (or mix); the losers get deleted.
  */
 const meta = {
-  title: "Concepts/BoardRedesign",
+  title: "Experiments/Board Redesign",
   tags: ["autodocs"],
   parameters: { boardWrapper: false, layout: "fullscreen" },
 } satisfies Meta;

@@ -3,7 +3,7 @@ import { expect, within } from "storybook/test";
 import { PosterAmbientScene, PosterSwissType, PosterTimelineRiver } from "./PosterConcepts";
 
 const meta = {
-  title: "Concepts/Round3/Poster",
+  title: "Experiments/Round 3/Poster",
   tags: ["autodocs"],
   parameters: { boardWrapper: false, layout: "fullscreen" },
 } satisfies Meta;

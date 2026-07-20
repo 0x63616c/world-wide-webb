@@ -8,7 +8,7 @@ import { BoardVibeAuroraGlass, BoardVibeCreamPop, BoardVibePopBento } from "./Bo
  * light cream sticker look. Mock tiles + local state only.
  */
 const meta = {
-  title: "Concepts/BoardVibes",
+  title: "Experiments/Board Vibes",
   tags: ["autodocs"],
   parameters: { boardWrapper: false, layout: "fullscreen" },
 } satisfies Meta;

@@ -32,7 +32,7 @@ function ColumnFrame({ children }: { children: React.ReactNode }) {
 const pageProps: PageProps = { onClose: fn(), onOpenLevel: fn(), onOpenClean: fn() };
 
 const meta = {
-  title: "Board/SettingsPages",
+  title: "Pages/Settings/Pages",
   tags: ["autodocs"],
   parameters: { boardWrapper: false, layout: "fullscreen" },
   decorators: [

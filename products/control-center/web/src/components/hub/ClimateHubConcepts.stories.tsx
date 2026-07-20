@@ -12,7 +12,7 @@ import {
  * setpoints to feel each layout. Pick one; the losers get deleted.
  */
 const meta = {
-  title: "Concepts/ClimateHub",
+  title: "Experiments/Climate Hub",
   tags: ["autodocs"],
   parameters: { boardWrapper: false, layout: "fullscreen" },
 } satisfies Meta;

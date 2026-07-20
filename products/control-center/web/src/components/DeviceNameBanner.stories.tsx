@@ -22,7 +22,7 @@ function BoardStage({ children }: { children: React.ReactNode }) {
 }
 
 const meta = {
-  title: "Components/DeviceNameBanner",
+  title: "Components/Banners/Device Name",
   component: DeviceNameBannerView,
   tags: ["autodocs"],
   decorators: [

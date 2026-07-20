@@ -29,7 +29,7 @@ function ColumnFrame({ children }: { children: React.ReactNode }) {
 }
 
 const meta = {
-  title: "Board/SecurityPage",
+  title: "Pages/Settings/Security",
   component: SecurityPage,
   tags: ["autodocs"],
   parameters: { boardWrapper: false, layout: "fullscreen" },
