@@ -91,11 +91,6 @@
       // test/.
       "entry": ["test/**/*.test.ts"]
     },
-    "products/control-center/media-worker": {
-      // The worker framework now lives in @www/worker-runtime (consumed via the
-      // dependency); knip auto-detects src/index.ts as the entry; no explicit
-      // entry needed. The empty workspace block keeps this a tracked workspace.
-    },
     "products/control-center/drizzle": {
       // load-secret.js is the drizzle image's `bun --preload` ENTRYPOINT.
       "entry": ["load-secret.js"]

@@ -135,6 +135,12 @@ const workers: Worker[] = [
       // Check disk before claiming , a full NAS must not start a new download.
       // Guarding at the worker level applies it to every claim regardless of
       // handler. hasSufficientDisk emits the structured warn when space is low.
+      //
+      // Known tradeoff: this early-return stalls the whole cycle, so a full NAS
+      // also blocks `notify` (APNs) claims even though they touch no disk. That
+      // coupling didn't exist pre-merge, when this process only claimed `notify`.
+      // Follow-up: split into one Worker per job type and move this guard inside
+      // the `youtube_ingest` handler so `notify` is unaffected.
       if (!hasSufficientDisk(env.MEDIA_STORAGE_DIR)) {
         return;
       }

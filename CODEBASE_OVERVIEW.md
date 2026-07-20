@@ -135,7 +135,7 @@ The shared runtime in `packages/worker-runtime` (used by both worker apps) preve
 The media pipeline (playlist poller, ingest queue, NAS media mount) runs inside `products/control-center/worker`: media-worker was merged into it, so there is one worker deployable and one api barrel (`@control-center/api/worker` at `products/control-center/api/src/worker-deps.ts`).
 
 - `queue-worker` every 2s.
-- `playlist-poller` every 10m.
+- `playlist-poller` every 2m.
 
 It checks media storage free space before claiming download work.
 

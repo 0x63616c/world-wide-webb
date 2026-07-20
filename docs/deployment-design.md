@@ -94,7 +94,7 @@ solution, captive-portal LAN exposure, and the UniFi import plan are all in
 push to main
   → changes  (dorny/paths-filter; per-app filters + an `infra/**` filter)
   → test     (typecheck · biome · knip · guards · vitest coverage · badges), gates deploy
-  → build-{web,api,worker,media-worker,storybook,drizzle,captive-portal,captive-portal-api,map-provision}  (arm64 → GHCR :sha + :main)
+  → build-{web,api,worker,storybook,drizzle,captive-portal,captive-portal-api,map-provision}  (arm64 → GHCR :sha + :main)
   → deploy:
        - collect per-image :main digests (buildx imagetools inspect)
        - join the tailnet with an EPHEMERAL Tailscale auth key (tag:ci), reach homelab's apiserver
