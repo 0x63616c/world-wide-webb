@@ -220,7 +220,28 @@ nobody reads is failing the record.
 
 Drop `media_source.video_policy`, `media_item.audio_path`, `media_item.audio_bytes`,
 and the enrichment columns `media_item.clean_title`, `artist`, `event`, `category`.
-Zero rows in prod, so a clean drop with no backfill.
+Also drop columns the audit found unread, which the merge is the natural moment to clear:
+
+| column | why |
+|---|---|
+| `media_item.retries` | retry counting lives in `job.attempts`; only a schema test referenced it |
+| `media_item.error` | only ever written as `null`, never read; failures land in `job.last_error` |
+| `job.result` | zero reads and zero writes — declared "useful for debugging", never wired |
+| `job.locked_by` | never written; the reaper keys off `locked_at`, and `replicas: 1` means no instance to identify |
+| `media_source.kind` (+ `media_source_kind_idx`) | never read; what actually distinguishes a source is whether `external_id` or `url` is set |
+
+`media_source.title` stays — nothing reads it, but it is the human label an operator sees
+in `psql`, which is the only management interface these rows have.
+
+**Row counts are not zero.** `media_source` has 1 row, `media_item` 93, `job` 137 (44
+`notify` done, 93 `youtube_ingest` queued since 2026-06-08). Every column being dropped
+is NULL across all 93 `media_item` rows, so the drop is still data-safe — but it is not
+the empty-table drop an earlier version of this spec claimed.
+
+Additionally, retune `job_claim_idx` from `(status, run_after, priority)` to
+`(status, type, run_after, priority)`. Every claim now filters on a single `type`, and
+the reaper filters `type` + `locked_at`; the existing index no longer matches the access
+pattern. Irrelevant at 137 rows, but free while a migration is already being written.
 
 `media_item.raw_title` stays — it is the identity/label written at insert time by the
 poller, independent of enrichment.
@@ -234,6 +255,24 @@ Run `bunx biome format --write` on the generated migration meta before committin
 - `worker`: memory `384M` → **`512M`**, add the NFS volume (`/app/media` ←
   `/volume1/Homelab`, subPath `media`) and `MEDIA_STORAGE_DIR=/app/media`.
 - Drop the media-worker image from the CI build matrix.
+
+### 6b. The existing backlog
+
+93 `youtube_ingest` jobs have sat at `queued` since 2026-06-08, never claimed because
+media-worker is parked. That is this design's parking behaviour already demonstrated in
+prod for six weeks, not a theory.
+
+They stay. Deleting them changes nothing: dedup is global (`media_item_yt_video_id_idx`
+is unique on `yt_video_id` alone, not per source), and all 93 IDs are in the playlist —
+verified, `overlap=93, db_only=0, playlist_only=4`. So deleting merely re-parents them to
+`src_djsets` on the next poll and loses the June provenance.
+
+Expect the first deploy to archive **97 sets** (the 93 plus 4 the playlist has gained).
+Sampled from the real playlist: 58 min – 2h12m each, 709 MB – 1.68 GB, averaging ~1.3 GB
+— roughly **126 GB total** against 5.9 TB free on the NAS. The 50 GB floor is never
+approached.
+
+Their payloads still carry `videoPolicy: "on"`, which the handler ignores after §4. Harmless.
 
 ### 7. Seed and verify
 

@@ -773,14 +773,20 @@ per-uploader subdirectory."
 
 - [ ] **Step 1: Update the schema test**
 
-In `products/control-center/api/src/__tests__/media-schema.test.ts`, change the `cleanTitle` assertion (~:70) and any sibling assertions to their negations:
+In `products/control-center/api/src/__tests__/media-schema.test.ts`, change the `cleanTitle` assertion (~:70) to its negation, and delete the `retries` assertions at :82, :141-143 and the `"retries"` entry in the required-columns list at :150:
 
 ```ts
-for (const dropped of ["cleanTitle", "artist", "event", "category", "audioPath", "audioBytes"]) {
+for (const dropped of [
+  "cleanTitle", "artist", "event", "category",
+  "audioPath", "audioBytes", "error", "retries",
+]) {
   expect(cols).not.toContain(dropped);
 }
 expect(cols).toContain("rawTitle"); // identity label written by the poller, kept
 ```
+
+Add equivalent negative assertions for `media_source.kind` and for `job.result` /
+`job.lockedBy` wherever those tables are covered.
 
 - [ ] **Step 2: Run to verify it fails**
 
@@ -792,10 +798,17 @@ Expected: FAIL — columns still present.
 In `products/control-center/api/src/db/schema.ts`, delete from `mediaSource`:
 
 ```ts
+kind: text("kind").notNull(), // 'playlist' | 'adhoc'
 videoPolicy: text("video_policy").notNull().default("none"), // 'none' | 'on'
 ```
 
-and from `mediaItem`:
+and its now-orphaned index from the same table's index array:
+
+```ts
+index("media_source_kind_idx").on(t.kind),
+```
+
+from `mediaItem`:
 
 ```ts
 cleanTitle: text("clean_title"),
@@ -804,9 +817,31 @@ event: text("event"),
 category: text("category"),
 audioPath: text("audio_path"),
 audioBytes: integer("audio_bytes"),
+error: text("error"),
+retries: integer("retries").notNull().default(0),
 ```
 
-Keep `rawTitle`, `videoPath`, `thumbPath`, `videoBytes`, `durationSec`.
+and from `job`:
+
+```ts
+lockedBy: text("locked_by"),
+result: jsonb("result"),
+```
+
+Keep `rawTitle`, `videoPath`, `thumbPath`, `videoBytes`, `durationSec`, `mediaSource.title`
+(the human label an operator reads in `psql`), and `job.lockedAt` (the reaper keys off it).
+
+Retune the job claim index in the same file — every claim now filters a single `type`,
+and the reaper filters `type` + `locked_at`:
+
+```ts
+index("job_claim_idx").on(t.status, t.type, t.runAfter, t.priority),
+```
+
+- [ ] **Step 3b: Remove the `kind` write**
+
+`products/control-center/api/src/trpc/routers/media.ts:222` sets `kind: "adhoc"` on the
+`src_adhoc` insert. Delete that line — nothing reads the column, and it no longer exists.
 
 - [ ] **Step 4: Generate and format the migration**
 
@@ -818,7 +853,22 @@ cd - && bunx biome format --write products/control-center/api/drizzle/meta
 The `biome format` step is not optional: generated migration meta JSON fails
 `bun run lint` without it.
 
-Open the generated `.sql` and confirm it contains seven `DROP COLUMN` statements and nothing else. The tables have zero rows in prod, so no backfill is needed.
+Open the generated `.sql` and confirm it contains **twelve** `DROP COLUMN` statements, the
+`media_source_kind_idx` drop, and the `job_claim_idx` recreate — and nothing else.
+
+The tables are **not** empty: `media_source` has 1 row, `media_item` 93, `job` 137. The
+drop is still data-safe because every dropped `media_item` column is NULL across all 93
+rows (verified: `clean_title`, `artist`, `event`, `category`, `audio_path`, `audio_bytes`
+all count 0 non-null), and `job.result` / `job.locked_by` were never written. No backfill
+is needed, but do not treat this as an empty-table migration — check the counts yourself
+before applying:
+
+```bash
+kubectl exec -n control-center control-center-1 -- psql -U postgres -d control_center -c \
+  "select count(*) total, count(clean_title) ct, count(audio_path) ap FROM media_item;"
+```
+
+Expected: `93 | 0 | 0`.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
@@ -967,8 +1017,11 @@ const JOBS: JobSpec[] = [
   {
     // Playlist poller: enumerate each enabled media_source via
     // yt-dlp --flat-playlist and enqueue ingest jobs for unseen video IDs.
+    // Metadata only -- no video data -- so 2 minutes is ~720 requests/day from
+    // one IP, well inside anything YouTube pushes back on. Going lower buys
+    // little: the download itself dominates end-to-end latency.
     name: "playlist-poller",
-    intervalMs: 10 * 60_000,
+    intervalMs: 2 * 60_000,
     runOnStart: true,
     run: runPlaylistPollerCycle,
   },
@@ -1184,9 +1237,17 @@ There is no tRPC procedure or UI for creating a `media_source` — adding a play
 pausing one (`enabled = false`), or switching which playlist is watched are all `psql`
 operations against prod. That is the accepted state for now; see Out of Scope in the spec.
 
+**Before seeding, know what is already queued:** 93 `youtube_ingest` jobs have sat at
+`queued` since 2026-06-08, never claimed because media-worker is parked. They stay — all
+93 IDs are in this playlist (verified `overlap=93, db_only=0, playlist_only=4`), and
+dedup is global on `yt_video_id`, so deleting them only re-parents them on the next poll.
+
+The first deploy therefore archives ~97 sets: roughly 126 GB against 5.9 TB free. Their
+payloads still carry `videoPolicy: "on"`, which the handler now ignores.
+
 - [ ] **Step 2: Watch the poller enumerate**
 
-The poller runs on start and every 10 minutes.
+The poller runs on start and every 2 minutes.
 
 ```bash
 kubectl -n control-center logs deploy/worker --tail=50 | grep -i playlist
