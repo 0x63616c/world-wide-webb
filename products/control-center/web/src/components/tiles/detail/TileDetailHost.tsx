@@ -13,12 +13,11 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Skeleton } from "@/components/ui";
+import { PageHeader, Skeleton } from "@/components/ui";
 import { interaction } from "../../../lib/log/interaction";
 import { registerOpenModal } from "../../../lib/modal-open-store";
 import { closeTileDetail, useTileDetail } from "../../../lib/tile-detail-store";
 import { PinGateModal } from "../../pin/PinGateModal";
-import { BackButton } from "../../settings-page/blocks";
 import { VariantSwitcher } from "../modals/VariantSwitcher";
 import { getTileDetailEntry } from "./registry";
 import type { TileDetailPageEntry } from "./types";
@@ -137,13 +136,10 @@ function TileDetailPage({
         boxSizing: "border-box",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 24 }}>
-        <BackButton onClick={closeTileDetail} />
-        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700 }}>{entry.title}</h1>
-      </div>
+      <PageHeader title={entry.title} onBack={closeTileDetail} />
       {/* Full-width content region , no 720px Settings cap. Variants carry their
           own max-width (920px) until per-screen redesigns land. */}
-      <div style={{ flex: 1, overflow: "auto", padding: 24 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 24 }}>
         {active ? (
           active.render()
         ) : (

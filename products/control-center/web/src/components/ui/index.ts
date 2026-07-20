@@ -10,6 +10,7 @@ export { DatePicker } from "./DatePicker";
 /** @public , shared tile-author primitive surface; kept though no internal consumer yet (www-k6p1). */
 export type { ModalProps } from "./Modal";
 export { Modal } from "./Modal";
+export { PageHeader } from "./PageHeader";
 export { Pill, PillTone } from "./Pill";
 /** @public , shared tile-author primitive surface; the settings panel imports it directly (www-k6p1). */
 export type { SegmentedOption, SegmentedProps } from "./Segmented";
