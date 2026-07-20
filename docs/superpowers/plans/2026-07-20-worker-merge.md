@@ -726,6 +726,15 @@ Change `handleYoutubeIngest`'s signature to `(rawPayload: unknown, signal: Abort
 
 In `products/control-center/api/src/trpc/routers/media.ts`, delete `videoPolicy: "on",` from the `mediaSource` insert (~:225) and from the `enqueueJob` payload (~:248).
 
+In `products/control-center/api/src/services/playlist-poller-service.ts`, delete
+`videoPolicy: source.videoPolicy,` from the `enqueueJob` payload (~:126). This is the
+third `videoPolicy` call site and the easiest to miss — Task 4 drops the column, so
+leaving it here breaks the build.
+
+While in that file, fix the docstring at `:4`: it claims the cycle runs "for each
+playlist-kind source", but the code never filters on `kind` — it polls any enabled
+source that resolves to a URL. Say what it does.
+
 In `products/control-center/api/src/env.ts`, delete `"OPENROUTER_API_KEY",` (:48) and `OPENROUTER_API_KEY: z.string().default(""),` (:127). Leave the `packages/logger` redaction entries — they cost nothing and guard against the key reappearing.
 
 - [ ] **Step 7: Run tests to verify they pass**
@@ -1166,6 +1175,14 @@ kubectl exec -n control-center control-center-1 -- psql -U postgres -d control_c
 ```
 
 Note the database is `control_center` with an underscore; the namespace and pod use hyphens.
+
+`external_id` is the right column to set: the poller resolves a source's URL as
+`source.url ?? buildPlaylistUrl(source.externalId)` (`playlist-poller-service.ts:70`),
+expanding the id to `https://www.youtube.com/playlist?list=<id>`. Leave `url` NULL.
+
+There is no tRPC procedure or UI for creating a `media_source` — adding a playlist,
+pausing one (`enabled = false`), or switching which playlist is watched are all `psql`
+operations against prod. That is the accepted state for now; see Out of Scope in the spec.
 
 - [ ] **Step 2: Watch the poller enumerate**
 

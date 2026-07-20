@@ -273,5 +273,9 @@ under a readable `uploader/date - title [id].ext` path, job row reaches `done`.
   than YouTube's uploader/title). Needs a post-download rename step, which has to be
   crash-safe; speculative polish on an archive that doesn't exist yet.
 - Any ingest UI. The filesystem is the interface.
+- Managing `media_source` rows through anything but `psql`. There is no tRPC procedure or
+  UI for creating a playlist source, so the watched-playlist list lives only in prod's
+  database rather than in the repo. Making sources declarative (seeded from config) is a
+  reasonable follow-up once more than one playlist exists.
 - Chunked/segmented downloads (`--download-sections`) — solves a memory problem that
   doesn't exist, and stitching requires `--force-keyframes-at-cuts`, which re-encodes.
