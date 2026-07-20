@@ -142,55 +142,6 @@ describe("failure isolation", () => {
   });
 });
 
-describe("stats", () => {
-  it("tracks runs, duration, failure streak, lastError, and memory", async () => {
-    const run = vi
-      .fn()
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error("kaboom"))
-      .mockResolvedValue(undefined);
-    const rt = createWorkerRuntime([{ name: "w", intervalMs: 100, runOnStart: true, run }], {
-      logger: makeLogger(),
-    });
-
-    const before = rt.stats();
-    expect(before).toHaveLength(1);
-    expect(before[0]).toMatchObject({
-      name: "w",
-      lastRunAt: null,
-      lastDurationMs: null,
-      totalRuns: 0,
-      consecutiveFailures: 0,
-      lastError: null,
-      memory: null,
-    });
-
-    rt.start();
-    await tick(0);
-    let s = rt.stats()[0];
-    expect(s.totalRuns).toBe(1);
-    expect(s.consecutiveFailures).toBe(0);
-    expect(s.lastError).toBeNull();
-    expect(s.lastRunAt).toBeInstanceOf(Date);
-    expect(typeof s.lastDurationMs).toBe("number");
-    expect(s.memory).not.toBeNull();
-
-    await tick(100);
-    s = rt.stats()[0];
-    expect(s.totalRuns).toBe(2);
-    expect(s.consecutiveFailures).toBe(1);
-    expect(s.lastError).toBe("kaboom");
-
-    await tick(100);
-    s = rt.stats()[0];
-    expect(s.totalRuns).toBe(3);
-    expect(s.consecutiveFailures).toBe(0);
-    expect(s.lastError).toBeNull();
-
-    rt.stop();
-  });
-});
-
 describe("stop", () => {
   it("halts all workers; no further cycles run", async () => {
     const a = vi.fn().mockResolvedValue(undefined);
@@ -379,21 +330,22 @@ describe("lifecycle logging", () => {
 });
 
 describe("stats snapshot cadence", () => {
-  it("emits a debug stats snapshot every statsEveryNRuns cycles", async () => {
+  it("emits a debug stats snapshot every STATS_EVERY_N_RUNS cycles (default cadence)", async () => {
     const log = makeLogger();
     const run = vi.fn().mockResolvedValue(undefined);
     const rt = createWorkerRuntime([{ name: "w", intervalMs: 100, runOnStart: true, run }], {
       logger: log,
-      statsEveryNRuns: 3,
     });
 
     rt.start();
     await tick(0); // run 1
-    await tick(100); // run 2
+    for (let i = 2; i < 60; i++) {
+      await tick(100); // run i , below the cadence boundary
+    }
     let snapshotMessages = (log.debug as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[1]);
     expect(snapshotMessages).not.toContain("worker stats snapshot");
 
-    await tick(100); // run 3 , cadence boundary
+    await tick(100); // run 60 , cadence boundary
     snapshotMessages = (log.debug as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[1]);
     expect(snapshotMessages).toContain("worker stats snapshot");
 

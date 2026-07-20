@@ -16,7 +16,7 @@ export interface Worker {
   run(): Promise<void>;
 }
 
-/** Per-worker health/telemetry, surfaced by the runtime's stats(). */
+/** Per-worker health/telemetry, tracked internally for failure streaks and the debug snapshot. */
 export interface WorkerStats {
   name: string;
   /** Wall-clock time the last cycle finished (success OR failure), null until first run. */
@@ -29,13 +29,10 @@ export interface WorkerStats {
   consecutiveFailures: number;
   /** Message from the last failing cycle; null after a success. */
   lastError: string | null;
-  /** Sampled process.memoryUsage() at the end of the last cycle, null until first run. */
-  memory: NodeJS.MemoryUsage | null;
 }
 
-/** Handle returned by createWorkerRuntime: lifecycle + telemetry. */
+/** Handle returned by createWorkerRuntime: lifecycle only. */
 export interface WorkerRuntime {
   start(): void;
   stop(): void;
-  stats(): WorkerStats[];
 }

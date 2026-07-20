@@ -4,14 +4,12 @@
  * device-sync-service loop shape , an await-before-reschedule setTimeout per
  * worker so cycles never overlap, each run() wrapped in try/catch so one failing
  * cycle never kills its own loop or a sibling's , but generalizes it: stats are
- * accumulated per worker and exposed via stats().
+ * accumulated per worker for failure streaks and the periodic debug snapshot.
  *
- * Extracted from the byte-drifted per-app copies (products/control-center/worker
- * + the former products/control-center/media-worker) into one shared package (www-rw07): the
- * onset-or-ongoing failure logging and stop() final-stats snapshot are the media-
- * worker's shape; the periodic stats cadence is now a per-app option instead of a
- * hard-coded constant (was 60 in worker, 30 in media-worker , both already the
- * every-N-runs model, so it unifies to a single knob).
+ * Shared package (www-rw07) used by the single worker app in
+ * products/control-center/worker: the onset-or-ongoing failure logging and
+ * stop() final-stats snapshot are the runtime's shape; the periodic stats
+ * cadence is a fixed constant (every-N-runs model).
  */
 import type { Logger } from "@www/logger";
 import type { Worker, WorkerRuntime, WorkerStats } from "./types";
@@ -24,24 +22,17 @@ interface WorkerState {
   timer: ReturnType<typeof setTimeout> | null;
 }
 
-// Default cycles between periodic debug stats snapshots when the caller does not
-// override it. At debug level only , not every cycle (a 1s worker would spam).
-const DEFAULT_STATS_EVERY_N_RUNS = 60;
+// Cycles between periodic debug stats snapshots. At debug level only , not
+// every cycle (a 1s worker would spam).
+const STATS_EVERY_N_RUNS = 60;
 
 export type WorkerRuntimeOptions = {
   /** Structured logger bound to this process root (service: "worker" | "api"). */
   logger: Logger;
-  /**
-   * How many cycles between periodic debug stats snapshots. Defaults to 60.
-   * The worker app runs 1s loops (~60s between snapshots at the default); the
-   * media-worker runs a 2s queue loop and passes 30 (~60s between snapshots).
-   */
-  statsEveryNRuns?: number;
 };
 
 export function createWorkerRuntime(workers: Worker[], opts: WorkerRuntimeOptions): WorkerRuntime {
   const { logger } = opts;
-  const statsEveryNRuns = opts.statsEveryNRuns ?? DEFAULT_STATS_EVERY_N_RUNS;
 
   const seen = new Set<string>();
   for (const w of workers) {
@@ -59,7 +50,6 @@ export function createWorkerRuntime(workers: Worker[], opts: WorkerRuntimeOption
       totalRuns: 0,
       consecutiveFailures: 0,
       lastError: null,
-      memory: null,
     },
   }));
 
@@ -102,7 +92,6 @@ export function createWorkerRuntime(workers: Worker[], opts: WorkerRuntimeOption
       state.stats.totalRuns += 1;
       state.stats.lastRunAt = new Date();
       state.stats.lastDurationMs = Date.now() - startedAt;
-      state.stats.memory = process.memoryUsage();
     }
 
     // Slow-cycle warning: this cycle took longer than its own configured interval.
@@ -119,14 +108,12 @@ export function createWorkerRuntime(workers: Worker[], opts: WorkerRuntimeOption
     }
 
     // Periodic debug stats snapshot , not every cycle.
-    if (state.stats.totalRuns % statsEveryNRuns === 0) {
+    if (state.stats.totalRuns % STATS_EVERY_N_RUNS === 0) {
       workerLog.debug(
         {
           totalRuns: state.stats.totalRuns,
           consecutiveFailures: state.stats.consecutiveFailures,
           lastDurationMs: state.stats.lastDurationMs,
-          rss: state.stats.memory?.rss,
-          heapUsed: state.stats.memory?.heapUsed,
         },
         "worker stats snapshot",
       );
@@ -185,11 +172,6 @@ export function createWorkerRuntime(workers: Worker[], opts: WorkerRuntimeOption
           "worker final stats",
         );
       }
-    },
-
-    stats() {
-      // Return shallow copies so callers can't mutate internal bookkeeping.
-      return states.map((s) => ({ ...s.stats }));
     },
   };
 }
