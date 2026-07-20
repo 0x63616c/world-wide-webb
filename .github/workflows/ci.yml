@@ -25,9 +25,18 @@ permissions:
 # same ref cancels the in-progress run instantly instead of letting both burn
 # runner minutes. Combined with per-job timeout-minutes below, this caps the
 # Actions-minute blast radius of rapid pushes and hung builds (www-c0m).
+# On main: NEVER cancel a run that may already be deploying. At the observed
+# push rate the pipeline is saturated (rho ~1.14), so cancel-in-progress meant
+# runs were killed before reaching deploy and commits waited for someone else's
+# later run — lead time p50 was 2227s (37.1m) against a 777s (12.9m) pipeline.
+# With cancellation off, GitHub keeps only the newest PENDING run per group and
+# cancels older pending ones, so intermediate pushes coalesce for free (zero
+# compute) and the run that does start carries all of their commits.
+# On feature branches: keep cancelling; superseding is the right behaviour there
+# and nothing deploys from them.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref_name != 'main' }}
 
 jobs:
   # Determine which apps actually changed so we only rebuild what's needed.
