@@ -10,14 +10,22 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-20-worker-merge-design.md`
 
+## Ordering
+
+Every task in this plan leaves the workspace fully green: `bun run typecheck`, `bun run test`, `bun run lint`, and `bun run knip` all pass at every commit, and every commit is pushed immediately. This is a deliberate reordering of an earlier draft that left Tasks 1–4 typecheck-broken mid-sequence.
+
+The reordering follows one rule: **merge first against the existing queue, then swap the queue underneath.** Task 1 moves the two apps into one while `claimAndRun` / `registerHandler` are still in place; Task 2 replaces the queue mechanism and rewires the entrypoint in a single atomic commit.
+
+**Go-live gate.** 93 `youtube_ingest` jobs have sat at `queued` since 2026-06-08, never claimed because `media-worker` is parked. Once the merge lands, `worker` has the NFS mount and a live handler, so those jobs would start downloading ~126 GB with the pre-rewrite ingest path (separate audio file, OpenRouter enrichment, bare-videoId filenames). Task 1 therefore parks the backlog on `job.run_after` — the column that already exists for exactly this — and Task 6 unparks it after the ingest rewrite and the schema migration have shipped. This keeps the code honest (no dead flag, no unused export) and the switch reversible.
+
 ## Global Constraints
 
 - Backend code uses structured logging (`getLogger()` / `createLogger`), never `console.*`.
 - No fake or placeholder data.
 - IDs default to `prefix_<id>`.
 - Never re-encode video. The AV1 format selector and `-N` are the only yt-dlp perf levers.
+- **Every task must leave the full workspace green.** Before committing: `bun run typecheck && bun run test && bun run lint && bun run knip`.
 - Commit and push after every task. Push to `main` deploys to prod; do not batch.
-- Verify before pushing: `bun run typecheck` plus the tests touched by that task.
 - Do not use PRs. Work directly on `main`.
 - Run `bunx biome format --write` on generated drizzle migration meta before committing.
 - `products/control-center/api` gains a dependency on `@www/worker-runtime` in Task 2. It is a leaf package; this edge is intentional.
@@ -30,7 +38,7 @@
 | `products/control-center/api/src/jobs/job-worker.ts` | Create: `JobSpec`, `jobWorker`, `staleJobReaper` — the bridge between the queue and the `Worker` contract |
 | `products/control-center/api/src/services/youtube-ingest-service.ts` | Modify: video-only download, `-N 4`, archival filename, enrichment deleted |
 | `products/control-center/api/src/services/notification-service.ts` | Modify: export the handler function instead of registering it |
-| `products/control-center/api/src/db/schema.ts` | Modify: drop 6 columns |
+| `products/control-center/api/src/db/schema.ts` | Modify: drop 12 columns |
 | `products/control-center/api/src/worker-deps.ts` | Modify: single barrel for the merged worker; `media.ts` deleted |
 | `products/control-center/worker/src/index.ts` | Modify: absorbs poller, disk guard, both job workers, reaper |
 | `products/control-center/worker/src/disk-guard.ts` | Create: moved out of the media-worker entrypoint so it is testable without booting the app |
@@ -40,26 +48,271 @@
 
 ---
 
-### Task 1: `claimOne` with per-job timeout
+### Task 1: Merge the apps into one deployable
 
-Replaces `claimAndRun` (which drains every type serially) with a single-type, single-job claim under a timeout. The timeout does two things: it passes an `AbortSignal` so the handler can kill its subprocess, **and** it races the handler promise so the job row is marked failed even if a handler ignores the signal.
+The structural merge, done while the existing queue mechanism is untouched so the workspace stays green. `worker` absorbs the playlist poller, the disk guard, the media NFS mount, and the `youtube_ingest` handler registration; `media-worker` is deleted along with its workload, its secrets entries, and its CI image. Handlers are still registered through `registerHandler`, and the queue is still drained by `claimAndRun` — Task 2 replaces both.
+
+The disk guard moves into its own module so it stays testable without booting the app.
+
+**Files:**
+- Create: `products/control-center/worker/src/disk-guard.ts`
+- Create: `products/control-center/worker/src/disk-guard.test.ts` (port from `media-worker/src/disk-guard.test.ts`)
+- Modify: `products/control-center/worker/src/index.ts`
+- Modify: `products/control-center/worker/Dockerfile`
+- Modify: `products/control-center/api/src/worker-deps.ts`
+- Modify: `infra/src/services.ts` (media-worker workload ~:261-289, worker ~:247-259, `mediaWorkerReplicas` at :200, :212, :491, :593, :667)
+- Modify: `infra/src/secrets-map.ts:34,68`
+- Modify: `packages/platform/src/index.ts:279,448-465,640,734-740`
+- Delete: `products/control-center/media-worker/`, `products/control-center/api/src/media.ts`
+- Test: `infra/src/__tests__/services.test.ts`
+
+**Interfaces:**
+- Consumes: nothing.
+- Produces: `export function hasSufficientDisk(dir: string, thresholdBytes?: number): boolean`; a single `worker` workload with `resources: { memory: "512M" }`, the media NFS volume, and `MEDIA_STORAGE_DIR`.
+
+- [ ] **Step 1: Park the existing backlog BEFORE anything deploys**
+
+Run this first, against prod, and confirm the row count it reports:
+
+```bash
+kubectl exec -n control-center control-center-1 -- psql -U postgres -d control_center -c \
+  "UPDATE job SET run_after = '2099-01-01', updated_at = now()
+   WHERE type = 'youtube_ingest' AND status = 'queued';"
+```
+
+Expected: `UPDATE 93`.
+
+This is the go-live gate. The claim query filters `run_after <= now()`, so the backlog becomes unclaimable without losing its June provenance, its payloads, or its `attempts` history. Task 6 reverses it with a single `run_after = now()` update once the ingest rewrite and the schema migration have shipped.
+
+Without this step the merge deploys a live `youtube_ingest` handler against 93 queued jobs, and prod immediately downloads ~126 GB using the pre-rewrite ingest path.
+
+Verify it took:
+
+```bash
+kubectl exec -n control-center control-center-1 -- psql -U postgres -d control_center -c \
+  "SELECT status, count(*), min(run_after), max(run_after) FROM job WHERE type='youtube_ingest' GROUP BY status;"
+```
+
+- [ ] **Step 2: Port the disk guard with the new threshold**
+
+Create `products/control-center/worker/src/disk-guard.ts`:
+
+```ts
+/**
+ * Free-space guard for the NAS media volume. Checked before claiming an ingest
+ * so a full volume cannot be filled further by a new download.
+ *
+ * The floor is well above one file's size because the check runs BEFORE the
+ * download and yt-dlp cannot say in advance how large the result will be: a
+ * single 90-minute AV1 set is plausibly 3-8 GB, so a 10 GB floor could be
+ * consumed by one job.
+ */
+import { statfsSync } from "node:fs";
+import { getLogger } from "@www/logger";
+
+const DISK_FREE_THRESHOLD_BYTES = 50 * 1024 * 1024 * 1024; // 50 GB
+
+export function hasSufficientDisk(
+  dir: string,
+  thresholdBytes: number = DISK_FREE_THRESHOLD_BYTES,
+): boolean {
+  try {
+    const stats = statfsSync(dir);
+    // bavail = blocks available to non-root; bsize = block size in bytes.
+    const freeBytes = stats.bavail * stats.bsize;
+    if (freeBytes < thresholdBytes) {
+      getLogger().warn({ freeBytes, thresholdBytes, dir }, "disk below threshold, skipping claim");
+      return false;
+    }
+    return true;
+  } catch (err) {
+    // statfs failed (dir missing, NFS not mounted yet). Allow, and let the
+    // download fail with a clearer error than a startup crash.
+    getLogger().warn({ err, dir }, "statfs failed, assuming sufficient");
+    return true;
+  }
+}
+```
+
+Port `media-worker/src/disk-guard.test.ts` to `worker/src/disk-guard.test.ts`, updating the threshold expectation from 10 GB to 50 GB and passing `dir` explicitly (it is no longer defaulted from `env`).
+
+Run: `cd products/control-center/worker && bunx vitest run src/disk-guard.test.ts`
+Expected: PASS.
+
+- [ ] **Step 3: Collapse the barrels**
+
+`products/control-center/api/src/worker-deps.ts` must now export everything the merged worker needs. Read `products/control-center/api/src/media.ts` first and fold its exports in — the merged app has one barrel, not two.
+
+Update the file's header comment: it currently explains that media-worker owns the queue and worker drains only `notify`. That is no longer true — say the worker app owns every loop and job type.
+
+Delete `products/control-center/api/src/media.ts` and its `"./media"` entry from `package.json` `exports`.
+
+- [ ] **Step 4: Absorb media-worker's loops into the worker entrypoint**
+
+In `products/control-center/worker/src/index.ts`:
+
+- Import `registerYoutubeIngestHandler` (still the registration API at this task) and call it alongside `registerNotifyHandler()`.
+- Delete the type filter on the `notify-queue` worker that stopped it stealing media jobs — one process now drains every type. Update the comment that explains media-worker being parked; it is no longer true.
+- Add `import { hasSufficientDisk } from "./disk-guard";` and apply the guard at the same point media-worker applied it, passing `env.MEDIA_STORAGE_DIR` explicitly.
+- Append the playlist poller to the `workers` array, after `asc-version-poll`:
+
+```ts
+  {
+    // Playlist poller: enumerate each enabled media_source via
+    // yt-dlp --flat-playlist and enqueue ingest jobs for unseen video IDs.
+    // Metadata only -- no video data -- so 2 minutes is ~720 requests/day from
+    // one IP, well inside anything YouTube pushes back on. Going lower buys
+    // little: the download itself dominates end-to-end latency.
+    name: "playlist-poller",
+    intervalMs: 2 * 60_000,
+    runOnStart: true,
+    run: runPlaylistPollerCycle,
+  },
+```
+
+- [ ] **Step 5: Add ffmpeg and yt-dlp to the worker image**
+
+In `products/control-center/worker/Dockerfile`, in the **runtime** stage before the `COPY --from=build` line:
+
+```dockerfile
+# yt-dlp needs ffmpeg to mux the separate DASH video+audio streams YouTube
+# serves above 360p. python3 + pip because yt-dlp is a Python CLI;
+# --break-system-packages is required on Alpine's managed Python (PEP 668).
+RUN apk add --no-cache ffmpeg python3 py3-pip \
+ && pip3 install --break-system-packages yt-dlp \
+ && yt-dlp --version \
+ && ffmpeg -version | head -1
+```
+
+- [ ] **Step 6: Update the infra tests first**
+
+Find the test asserting the declared workload set and remove `media-worker` from it; add assertions that `worker` has the NFS volume and `512M`.
+
+Run: `bunx vitest run --dir infra`
+Expected: FAIL on the new assertions.
+
+- [ ] **Step 7: Move the volume onto worker and delete the media-worker workload**
+
+In `infra/src/services.ts`, change the `worker` workload's `resources` to `{ memory: "512M" }`, and add to it (copying verbatim from the media-worker block being deleted):
+
+```ts
+      env: {
+        ...haEnv,
+        // Point at the NFS mount below -- the env default (/mnt/media) is the
+        // container overlay fs, not the NAS share.
+        MEDIA_STORAGE_DIR: "/app/media",
+      },
+      // NFS PV for the Synology media share. The DS420+ exports ONLY
+      // /volume1/Homelab (not its subdirs), so mount that export and subPath
+      // into media/. nfsvers=3 is enforced by the render layer (DS420+ is v3-only).
+      volumes: [
+        {
+          mountPath: "/app/media",
+          nfs: { server: nasNfsServer, path: "/volume1/Homelab" },
+          subPath: "media",
+        },
+      ],
+```
+
+Delete the entire `media-worker` workload object, the `mediaWorkerReplicas` field from both interfaces (:200, :491), and every reference at :212, :593, :667. Update the Boundary-6 comment at :7-9, which describes media-worker being parked.
+
+- [ ] **Step 8: Remove media-worker from the platform manifest**
+
+In `packages/platform/src/index.ts`: remove `"media-worker"` from both union types (:279, :640), the `defineServiceSecretUsage` block (:458-465), and the workload entry (:734-740). Fix the comment at :448 that explains worker running notify because media-worker is parked.
+
+Leave `OPENROUTER_API_KEY` on the `worker` secret usage — the enrichment code still exists until Task 3, and removing the secret first would break the running app.
+
+In `infra/src/secrets-map.ts`: remove the `"media-worker"` entries at :34 and :68.
+
+- [ ] **Step 9: Delete media-worker and its CI image**
+
+```bash
+git rm -r products/control-center/media-worker
+bun install
+grep -rn "media-worker" .github/ infra/ packages/ products/ --include="*.yml" --include="*.yaml" --include="*.ts" --include="*.json" | grep -v node_modules
+```
+
+Remove every remaining hit. Expected locations: the CI build matrix and any per-product path filter. The grep must return nothing before you commit — a CI matrix entry for a deleted directory fails the build.
+
+- [ ] **Step 10: Verify the whole workspace**
+
+Run: `bun run typecheck && bun run test && bun run lint && bun run knip`
+Expected: all pass. `knip` is the check that catches anything the deleted app left orphaned — fix whatever it reports rather than suppressing it.
+
+- [ ] **Step 11: Commit, push, and watch the deploy**
+
+```bash
+git add -A
+git commit -m "feat(control-center): merge media-worker into worker
+
+One deployable instead of two. worker takes over the playlist poller,
+the disk guard, the media NFS volume and MEDIA_STORAGE_DIR at 512M --
+downloads stream to disk, so the limit covers the Bun process and a
+yt-dlp subprocess, not the file.
+
+media-worker had never run a job in prod: it was parked at 0 replicas as
+a migration checkpoint, then left parked on the belief that yt-dlp needs
+significant memory. It streams to disk through a 1KB buffer, so memory
+is flat with respect to file size."
+git push origin main
+```
+
+After CI completes, confirm the pod picked up the new image and that yt-dlp is present:
+
+```bash
+kubectl -n control-center get pods -l app=worker
+kubectl -n control-center exec deploy/worker -- yt-dlp --version
+kubectl -n control-center exec deploy/worker -- df -h /app/media
+```
+
+Expected: a running pod, a yt-dlp version string, and the NAS share mounted. If the pod is `CrashLoopBackOff`, check `kubectl -n control-center logs deploy/worker` — the most likely cause is the NFS mount failing, not the app.
+
+Confirm nothing is downloading: `kubectl -n control-center logs deploy/worker | grep -i yt-dlp` should be empty, because Step 1 parked the backlog.
+
+---
+
+### Task 2: Swap the queue — `claimOne`, `jobWorker`, the reaper, and explicit handlers
+
+The mechanism swap, done atomically so the workspace never breaks. `claimAndRun` and the module-global handler registry are replaced by a single-type claim under a timeout, a `Worker` per job type, and a stale-job reaper; handlers become plain exported functions passed at the entrypoint.
+
+`registerHandler()` mutates a module-global `Map` and must be called before `runtime.start()` or jobs silently never run. That ordering constraint is invisible and load-bearing. After this task the entire behaviour of the process is one literal in `worker/src/index.ts`.
 
 **Files:**
 - Modify: `products/control-center/api/src/jobs/queue.ts`
-- Test: `products/control-center/api/src/__tests__/queue.test.ts`
+- Create: `products/control-center/api/src/jobs/job-worker.ts`
+- Create: `products/control-center/api/src/__tests__/job-worker.test.ts`
+- Modify: `products/control-center/api/src/__tests__/queue.test.ts`
+- Modify: `products/control-center/api/src/services/notification-service.ts:370-372`
+- Modify: `products/control-center/api/src/services/youtube-ingest-service.ts`
+- Modify: `products/control-center/api/src/worker-deps.ts`
+- Modify: `products/control-center/api/package.json`
+- Modify: `products/control-center/worker/src/index.ts`
 
 **Interfaces:**
-- Consumes: nothing from earlier tasks.
+- Consumes: `hasSufficientDisk` (Task 1).
 - Produces:
   - `export type JobHandler<T = unknown> = (payload: T, signal: AbortSignal) => Promise<void>`
   - `export async function claimOne(type: string, handler: JobHandler, maxMs: number): Promise<boolean>` — returns `true` if a job was claimed and processed, `false` if none was available.
-  - `export async function enqueueJob(type: string, payload: unknown, opts?: EnqueueOptions): Promise<number>` — unchanged.
+  - `export interface JobSpec { type: string; handler: JobHandler; maxMs: number }`
+  - `export function jobWorker(spec: JobSpec): Worker`
+  - `export function staleJobReaper(specs: readonly JobSpec[]): Worker`
+  - `export async function reapStaleJobs(specs: readonly JobSpec[]): Promise<number>` — returns rows requeued.
+  - `export const runNotifyJob: JobHandler`, `export const runYoutubeIngest: JobHandler`
+  - `enqueueJob` unchanged.
 
-- [ ] **Step 1: Read the existing test file to match its harness**
+- [ ] **Step 1: Read the existing test file and add the worker-runtime dependency**
 
 Run: `sed -n '1,60p' products/control-center/api/src/__tests__/queue.test.ts`
 
 Note how it seeds rows and whether it uses a real DB or mocks `db`. Match that style exactly in the new tests — do not introduce a second harness.
+
+In `products/control-center/api/package.json`, add to `dependencies`:
+
+```json
+"@www/worker-runtime": "workspace:*",
+```
+
+Run: `bun install`
 
 - [ ] **Step 2: Write the failing tests**
 
@@ -122,15 +375,108 @@ describe("claimOne", () => {
     );
     expect(aborted).toBe(true);
   });
+
+  it("does not claim a job whose run_after is in the future", async () => {
+    const id = await enqueueJob("notify", { a: 1 });
+    await db.execute(sql`UPDATE job SET run_after = now() + interval '1 day' WHERE id = ${id}`);
+    const ran = await claimOne("notify", async () => {}, 1000);
+    expect(ran).toBe(false);
+  });
 });
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+The last test is not incidental: Task 1 parks the `youtube_ingest` backlog on `run_after`, and Task 6 unparks it. That gate must be covered.
 
-Run: `cd products/control-center/api && bunx vitest run src/__tests__/queue.test.ts -t claimOne`
-Expected: FAIL — `claimOne is not a function` / not exported.
+Create `products/control-center/api/src/__tests__/job-worker.test.ts`:
 
-- [ ] **Step 4: Implement `claimOne`**
+```ts
+import { describe, expect, it } from "vitest";
+import { jobWorker, reapStaleJobs, staleJobReaper } from "../jobs/job-worker";
+import { enqueueJob } from "../jobs/queue";
+import { db } from "../db/index";
+import { job } from "../db/schema";
+import { eq, sql } from "drizzle-orm";
+
+const noop = async () => {};
+
+describe("jobWorker", () => {
+  it("names the worker after its job type", () => {
+    const w = jobWorker({ type: "notify", handler: noop, maxMs: 1000 });
+    expect(w.name).toBe("job:notify");
+  });
+
+  it("polls every 2s and runs on start", () => {
+    const w = jobWorker({ type: "notify", handler: noop, maxMs: 1000 });
+    expect(w.intervalMs).toBe(2000);
+    expect(w.runOnStart).toBe(true);
+  });
+
+  it("drains a job of its own type when its cycle runs", async () => {
+    const id = await enqueueJob("notify", { a: 1 });
+    const w = jobWorker({ type: "notify", handler: noop, maxMs: 1000 });
+    await w.run();
+    const [row] = await db.select().from(job).where(eq(job.id, id));
+    expect(row?.status).toBe("done");
+  });
+
+  it("leaves other types untouched", async () => {
+    const id = await enqueueJob("youtube_ingest", { a: 1 });
+    const w = jobWorker({ type: "notify", handler: noop, maxMs: 1000 });
+    await w.run();
+    const [row] = await db.select().from(job).where(eq(job.id, id));
+    expect(row?.status).toBe("queued");
+  });
+});
+
+describe("reapStaleJobs", () => {
+  const specs = [{ type: "youtube_ingest", handler: noop, maxMs: 60_000 }];
+
+  it("requeues a running job whose lease has expired", async () => {
+    const id = await enqueueJob("youtube_ingest", { a: 1 });
+    await db.execute(
+      sql`UPDATE job SET status='running', locked_at = now() - interval '2 hours' WHERE id = ${id}`,
+    );
+    const reaped = await reapStaleJobs(specs);
+    expect(reaped).toBe(1);
+    const [row] = await db.select().from(job).where(eq(job.id, id));
+    expect(row?.status).toBe("queued");
+  });
+
+  it("leaves a running job inside its lease alone", async () => {
+    const id = await enqueueJob("youtube_ingest", { a: 1 });
+    await db.execute(
+      sql`UPDATE job SET status='running', locked_at = now() WHERE id = ${id}`,
+    );
+    const reaped = await reapStaleJobs(specs);
+    expect(reaped).toBe(0);
+    const [row] = await db.select().from(job).where(eq(job.id, id));
+    expect(row?.status).toBe("running");
+  });
+
+  it("ignores types it has no spec for", async () => {
+    const id = await enqueueJob("unknown_type", { a: 1 });
+    await db.execute(
+      sql`UPDATE job SET status='running', locked_at = now() - interval '99 hours' WHERE id = ${id}`,
+    );
+    const reaped = await reapStaleJobs(specs);
+    expect(reaped).toBe(0);
+  });
+});
+
+describe("staleJobReaper", () => {
+  it("is a 5 minute worker", () => {
+    const w = staleJobReaper([{ type: "notify", handler: noop, maxMs: 1000 }]);
+    expect(w.name).toBe("stale-job-reaper");
+    expect(w.intervalMs).toBe(5 * 60_000);
+  });
+});
+```
+
+Run both suites and confirm they fail:
+`cd products/control-center/api && bunx vitest run src/__tests__/queue.test.ts src/__tests__/job-worker.test.ts`
+Expected: FAIL — `claimOne` not exported, `../jobs/job-worker` unresolvable.
+
+- [ ] **Step 3: Implement `claimOne`**
 
 In `products/control-center/api/src/jobs/queue.ts`:
 
@@ -271,140 +617,7 @@ export async function claimOne(
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
-
-Run: `cd products/control-center/api && bunx vitest run src/__tests__/queue.test.ts`
-Expected: PASS. Other suites referencing `claimAndRun` / `registerHandler` will still fail to typecheck — Tasks 2–5 fix those callers. Do not repair them here.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add products/control-center/api/src/jobs/queue.ts products/control-center/api/src/__tests__/queue.test.ts
-git commit -m "feat(control-center/api): claimOne with per-job timeout and abort signal"
-```
-
----
-
-### Task 2: `jobWorker` and `staleJobReaper`
-
-Turns a job type into a plain `Worker`, and adds the reaper that recovers rows stranded at `running` by process death — the failure an in-process timeout structurally cannot catch. Both are built from one `JobSpec[]`, so lease durations can never drift from timeouts.
-
-**Files:**
-- Create: `products/control-center/api/src/jobs/job-worker.ts`
-- Create: `products/control-center/api/src/__tests__/job-worker.test.ts`
-- Modify: `products/control-center/api/package.json`
-
-**Interfaces:**
-- Consumes: `claimOne`, `JobHandler` from Task 1.
-- Produces:
-  - `export interface JobSpec { type: string; handler: JobHandler; maxMs: number }`
-  - `export function jobWorker(spec: JobSpec): Worker`
-  - `export function staleJobReaper(specs: readonly JobSpec[]): Worker`
-  - `export async function reapStaleJobs(specs: readonly JobSpec[]): Promise<number>` — returns rows requeued.
-
-- [ ] **Step 1: Add the worker-runtime dependency**
-
-In `products/control-center/api/package.json`, add to `dependencies`:
-
-```json
-"@www/worker-runtime": "workspace:*",
-```
-
-Run: `bun install`
-
-- [ ] **Step 2: Write the failing tests**
-
-Create `products/control-center/api/src/__tests__/job-worker.test.ts`:
-
-```ts
-import { describe, expect, it } from "vitest";
-import { jobWorker, reapStaleJobs, staleJobReaper } from "../jobs/job-worker";
-import { enqueueJob } from "../jobs/queue";
-import { db } from "../db/index";
-import { job } from "../db/schema";
-import { eq, sql } from "drizzle-orm";
-
-const noop = async () => {};
-
-describe("jobWorker", () => {
-  it("names the worker after its job type", () => {
-    const w = jobWorker({ type: "notify", handler: noop, maxMs: 1000 });
-    expect(w.name).toBe("job:notify");
-  });
-
-  it("polls every 2s and runs on start", () => {
-    const w = jobWorker({ type: "notify", handler: noop, maxMs: 1000 });
-    expect(w.intervalMs).toBe(2000);
-    expect(w.runOnStart).toBe(true);
-  });
-
-  it("drains a job of its own type when its cycle runs", async () => {
-    const id = await enqueueJob("notify", { a: 1 });
-    const w = jobWorker({ type: "notify", handler: noop, maxMs: 1000 });
-    await w.run();
-    const [row] = await db.select().from(job).where(eq(job.id, id));
-    expect(row?.status).toBe("done");
-  });
-
-  it("leaves other types untouched", async () => {
-    const id = await enqueueJob("youtube_ingest", { a: 1 });
-    const w = jobWorker({ type: "notify", handler: noop, maxMs: 1000 });
-    await w.run();
-    const [row] = await db.select().from(job).where(eq(job.id, id));
-    expect(row?.status).toBe("queued");
-  });
-});
-
-describe("reapStaleJobs", () => {
-  const specs = [{ type: "youtube_ingest", handler: noop, maxMs: 60_000 }];
-
-  it("requeues a running job whose lease has expired", async () => {
-    const id = await enqueueJob("youtube_ingest", { a: 1 });
-    await db.execute(
-      sql`UPDATE job SET status='running', locked_at = now() - interval '2 hours' WHERE id = ${id}`,
-    );
-    const reaped = await reapStaleJobs(specs);
-    expect(reaped).toBe(1);
-    const [row] = await db.select().from(job).where(eq(job.id, id));
-    expect(row?.status).toBe("queued");
-  });
-
-  it("leaves a running job inside its lease alone", async () => {
-    const id = await enqueueJob("youtube_ingest", { a: 1 });
-    await db.execute(
-      sql`UPDATE job SET status='running', locked_at = now() WHERE id = ${id}`,
-    );
-    const reaped = await reapStaleJobs(specs);
-    expect(reaped).toBe(0);
-    const [row] = await db.select().from(job).where(eq(job.id, id));
-    expect(row?.status).toBe("running");
-  });
-
-  it("ignores types it has no spec for", async () => {
-    const id = await enqueueJob("unknown_type", { a: 1 });
-    await db.execute(
-      sql`UPDATE job SET status='running', locked_at = now() - interval '99 hours' WHERE id = ${id}`,
-    );
-    const reaped = await reapStaleJobs(specs);
-    expect(reaped).toBe(0);
-  });
-});
-
-describe("staleJobReaper", () => {
-  it("is a 5 minute worker", () => {
-    const w = staleJobReaper([{ type: "notify", handler: noop, maxMs: 1000 }]);
-    expect(w.name).toBe("stale-job-reaper");
-    expect(w.intervalMs).toBe(5 * 60_000);
-  });
-});
-```
-
-- [ ] **Step 3: Run tests to verify they fail**
-
-Run: `cd products/control-center/api && bunx vitest run src/__tests__/job-worker.test.ts`
-Expected: FAIL — cannot resolve `../jobs/job-worker`.
-
-- [ ] **Step 4: Implement**
+- [ ] **Step 4: Implement `jobWorker` and the reaper**
 
 Create `products/control-center/api/src/jobs/job-worker.ts`:
 
@@ -505,16 +718,96 @@ export function staleJobReaper(specs: readonly JobSpec[]): Worker {
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [ ] **Step 5: Convert both handlers to plain exported functions**
 
-Run: `cd products/control-center/api && bunx vitest run src/__tests__/job-worker.test.ts`
-Expected: PASS (11 tests).
+In `products/control-center/api/src/services/notification-service.ts`, replace `registerNotifyHandler`:
 
-- [ ] **Step 6: Commit**
+```ts
+/** The `notify` job handler. Wired at the worker entrypoint. */
+export const runNotifyJob: JobHandler = async (payload) => {
+  await handleNotifyJob(payload);
+};
+```
+
+Add `import type { JobHandler } from "../jobs/queue";` and delete the `registerHandler` import.
+
+In `products/control-center/api/src/services/youtube-ingest-service.ts`, replace `registerYoutubeIngestHandler` with:
+
+```ts
+/** The youtube_ingest job handler. Wired at the worker entrypoint. */
+export const runYoutubeIngest: JobHandler = async (rawPayload, signal) => {
+  await handleYoutubeIngest(rawPayload, signal);
+};
+```
+
+Change `handleYoutubeIngest`'s signature to `(rawPayload: unknown, signal: AbortSignal)` and thread `signal` into the `execFileAsync` calls it makes (`{ signal }` as the options argument). Delete the `import { registerHandler }` line.
+
+- [ ] **Step 6: Update the barrel and rewire the entrypoint**
+
+In `products/control-center/api/src/worker-deps.ts`, delete the `claimAndRun` and `registerHandler`-era exports and export:
+
+```ts
+export { job, mediaItem, mediaSource } from "./db/schema";
+export { jobWorker, staleJobReaper, type JobSpec } from "./jobs/job-worker";
+export { enqueueJob } from "./jobs/queue";
+export { runNotifyJob } from "./services/notification-service";
+export { runPlaylistPollerCycle } from "./services/playlist-poller-service";
+export { runYoutubeIngest } from "./services/youtube-ingest-service";
+```
+
+In `products/control-center/worker/src/index.ts`:
+
+- Delete the `registerNotifyHandler()` / `registerYoutubeIngestHandler()` calls and the `notify-queue` worker object.
+- Before the `workers` array:
+
+```ts
+// One declared maxMs per job type, driving BOTH the in-process timeout and the
+// reaper's lease. A timeout only fires while this process is alive, so an OOM
+// kill or eviction still strands a row at `running`; the reaper is what
+// recovers those. Sharing one number keeps the two from drifting apart.
+const JOBS: JobSpec[] = [
+  // APNs delivery is sub-second; a minute means something is badly wrong.
+  { type: "notify", handler: runNotifyJob, maxMs: 60_000 },
+  // A ceiling for pathological downloads, not a target -- sets take minutes.
+  {
+    type: "youtube_ingest",
+    maxMs: 60 * 60_000,
+    // Guard the NAS before each claim: a full volume must not start a download.
+    handler: async (payload, signal) => {
+      if (!hasSufficientDisk(env.MEDIA_STORAGE_DIR)) {
+        throw new Error("insufficient disk space for ingest");
+      }
+      await runYoutubeIngest(payload, signal);
+    },
+  },
+];
+```
+
+- Append to the `workers` array, after `playlist-poller`:
+
+```ts
+  ...JOBS.map(jobWorker),
+  staleJobReaper(JOBS),
+```
+
+- [ ] **Step 7: Verify and commit**
+
+Run: `bun run typecheck && bun run test && bun run lint && bun run knip`
+Expected: all pass.
 
 ```bash
-git add products/control-center/api/src/jobs/job-worker.ts products/control-center/api/src/__tests__/job-worker.test.ts products/control-center/api/package.json bun.lock
-git commit -m "feat(control-center/api): job types as workers, plus stale-job reaper"
+git add -A
+git commit -m "feat(control-center): job types are workers, not registry entries
+
+claimOne claims one row of one type under a per-type timeout that both
+aborts the handler's subprocess and races its promise, so a hung handler
+still marks the row failed. A stale-job reaper covers the failure a
+timeout structurally cannot: the process itself dying.
+
+Handlers become plain exported functions passed at the entrypoint,
+replacing a module-global Map whose population had to precede
+runtime.start() or jobs silently never ran."
+git push origin main
 ```
 
 ---
@@ -528,14 +821,14 @@ The old code located files by globbing `storageDir` for `videoId.*`. That breaks
 **Files:**
 - Modify: `products/control-center/api/src/services/youtube-ingest-service.ts`
 - Modify: `products/control-center/api/src/trpc/routers/media.ts:210-252`
+- Modify: `products/control-center/api/src/services/playlist-poller-service.ts:126`
 - Modify: `products/control-center/api/src/env.ts:48,127`
+- Modify: `packages/platform/src/index.ts:460`
 - Test: `products/control-center/api/src/__tests__/youtube-ingest-service.test.ts` (existing; check the exact filename first with `ls products/control-center/api/src/__tests__ | grep youtube`)
 
 **Interfaces:**
-- Consumes: `JobHandler` (Task 1).
-- Produces:
-  - `export async function ytdlpDownload(videoId: string, storageDir: string, signal: AbortSignal): Promise<{ videoPath: string; thumbPath: string | null }>`
-  - `export const runYoutubeIngest: JobHandler` — replaces `registerYoutubeIngestHandler()`.
+- Consumes: `JobHandler`, `runYoutubeIngest` (Task 2).
+- Produces: `export async function ytdlpDownload(videoId: string, storageDir: string, signal: AbortSignal): Promise<{ videoPath: string; thumbPath: string | null }>`
 
 - [ ] **Step 1: Read the existing ingest tests**
 
@@ -602,12 +895,10 @@ Write `captureExecFile(stdoutLines)` and `mockExecFileOptions(sink, stdoutLines)
 
 Delete any test asserting `enrichTitle`, `videoPolicy`, `audioPath`, or `audioBytes`.
 
-- [ ] **Step 3: Run tests to verify they fail**
-
 Run: `cd products/control-center/api && bunx vitest run src/__tests__/youtube-ingest-service.test.ts`
 Expected: FAIL — `ytdlpDownload` still takes `(videoId, videoPolicy, storageDir)`.
 
-- [ ] **Step 4: Rewrite `ytdlpDownload`**
+- [ ] **Step 3: Rewrite `ytdlpDownload`**
 
 Replace the existing function in `youtube-ingest-service.ts`:
 
@@ -678,7 +969,7 @@ function findThumbnailFor(videoPath: string): string | null {
 
 Add `existsSync` to the `node:fs` import. Delete `findDownloadedFile` if nothing else uses it (`grep -n findDownloadedFile` first).
 
-- [ ] **Step 5: Delete enrichment and rewrite the handler**
+- [ ] **Step 4: Delete enrichment and simplify the handler**
 
 In the same file:
 
@@ -711,41 +1002,25 @@ await db
   .where(eq(mediaItem.id, mediaItemId));
 ```
 
-- Replace `registerYoutubeIngestHandler` with an exported handler:
-
-```ts
-/** The youtube_ingest job handler. Wired at the worker entrypoint. */
-export const runYoutubeIngest: JobHandler = async (rawPayload, signal) => {
-  await handleYoutubeIngest(rawPayload, signal);
-};
-```
-
-Change `handleYoutubeIngest`'s signature to `(rawPayload: unknown, signal: AbortSignal)` and thread `signal` into `ytdlpDownload` and the `--dump-json` duration call. Delete the `import { registerHandler }` line.
-
-- [ ] **Step 6: Remove the videoPolicy call sites and the OpenRouter env**
+- [ ] **Step 5: Remove the videoPolicy call sites and the OpenRouter env**
 
 In `products/control-center/api/src/trpc/routers/media.ts`, delete `videoPolicy: "on",` from the `mediaSource` insert (~:225) and from the `enqueueJob` payload (~:248).
 
-In `products/control-center/api/src/services/playlist-poller-service.ts`, delete
-`videoPolicy: source.videoPolicy,` from the `enqueueJob` payload (~:126). This is the
-third `videoPolicy` call site and the easiest to miss — Task 4 drops the column, so
-leaving it here breaks the build.
+In `products/control-center/api/src/services/playlist-poller-service.ts`, delete `videoPolicy: source.videoPolicy,` from the `enqueueJob` payload (~:126). This is the third `videoPolicy` call site and the easiest to miss — Task 4 drops the column, so leaving it here breaks the build.
 
-While in that file, fix the docstring at `:4`: it claims the cycle runs "for each
-playlist-kind source", but the code never filters on `kind` — it polls any enabled
-source that resolves to a URL. Say what it does.
+While in that file, fix the docstring at `:4`: it claims the cycle runs "for each playlist-kind source", but the code never filters on `kind` — it polls any enabled source that resolves to a URL. Say what it does.
 
 In `products/control-center/api/src/env.ts`, delete `"OPENROUTER_API_KEY",` (:48) and `OPENROUTER_API_KEY: z.string().default(""),` (:127). Leave the `packages/logger` redaction entries — they cost nothing and guard against the key reappearing.
 
-- [ ] **Step 7: Run tests to verify they pass**
+In `packages/platform/src/index.ts:460`, delete `OPENROUTER_API_KEY: secretCatalog.openRouter.apiKey` from the `worker` secret usage — nothing reads the env var now.
 
-Run: `cd products/control-center/api && bunx vitest run src/__tests__/youtube-ingest-service.test.ts`
-Expected: PASS.
+- [ ] **Step 6: Verify and commit**
 
-- [ ] **Step 8: Commit**
+Run: `bun run typecheck && bun run test && bun run lint && bun run knip`
+Expected: all pass.
 
 ```bash
-git add products/control-center/api/src
+git add -A
 git commit -m "feat(control-center/api): video-only ingest with archival filenames
 
 Drops the separate audio download (the muxed file already contains its
@@ -756,6 +1031,7 @@ multi-GB download had already succeeded.
 Adds -N 4 for concurrent DASH fragments, and asks yt-dlp for the path it
 wrote rather than globbing, since the archival template now includes a
 per-uploader subdirectory."
+git push origin main
 ```
 
 ---
@@ -764,12 +1040,13 @@ per-uploader subdirectory."
 
 **Files:**
 - Modify: `products/control-center/api/src/db/schema.ts:271-312`
+- Modify: `products/control-center/api/src/trpc/routers/media.ts:222`
 - Create: `products/control-center/api/drizzle/` migration (generated)
 - Test: `products/control-center/api/src/__tests__/media-schema.test.ts`
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `media_item` without `clean_title`, `artist`, `event`, `category`, `audio_path`, `audio_bytes`; `media_source` without `video_policy`.
+- Produces: `media_item` without `clean_title`, `artist`, `event`, `category`, `audio_path`, `audio_bytes`, `error`, `retries`; `media_source` without `video_policy`, `kind`; `job` without `result`, `locked_by`.
 
 - [ ] **Step 1: Update the schema test**
 
@@ -785,15 +1062,12 @@ for (const dropped of [
 expect(cols).toContain("rawTitle"); // identity label written by the poller, kept
 ```
 
-Add equivalent negative assertions for `media_source.kind` and for `job.result` /
-`job.lockedBy` wherever those tables are covered.
-
-- [ ] **Step 2: Run to verify it fails**
+Add equivalent negative assertions for `media_source.kind` and for `job.result` / `job.lockedBy` wherever those tables are covered.
 
 Run: `cd products/control-center/api && bunx vitest run src/__tests__/media-schema.test.ts`
 Expected: FAIL — columns still present.
 
-- [ ] **Step 3: Drop the columns**
+- [ ] **Step 2: Drop the columns**
 
 In `products/control-center/api/src/db/schema.ts`, delete from `mediaSource`:
 
@@ -828,20 +1102,19 @@ lockedBy: text("locked_by"),
 result: jsonb("result"),
 ```
 
-Keep `rawTitle`, `videoPath`, `thumbPath`, `videoBytes`, `durationSec`, `mediaSource.title`
-(the human label an operator reads in `psql`), and `job.lockedAt` (the reaper keys off it).
+Keep `rawTitle`, `videoPath`, `thumbPath`, `videoBytes`, `durationSec`, `mediaSource.title` (the human label an operator reads in `psql`), and `job.lockedAt` (the reaper keys off it).
 
-Retune the job claim index in the same file — every claim now filters a single `type`,
-and the reaper filters `type` + `locked_at`:
+Retune the job claim index in the same file — every claim now filters a single `type`, and the reaper filters `type` + `locked_at`:
 
 ```ts
 index("job_claim_idx").on(t.status, t.type, t.runAfter, t.priority),
 ```
 
-- [ ] **Step 3b: Remove the `kind` write**
+- [ ] **Step 3: Remove the `kind` write**
 
-`products/control-center/api/src/trpc/routers/media.ts:222` sets `kind: "adhoc"` on the
-`src_adhoc` insert. Delete that line — nothing reads the column, and it no longer exists.
+`products/control-center/api/src/trpc/routers/media.ts:222` sets `kind: "adhoc"` on the `src_adhoc` insert. Delete that line — nothing reads the column, and it no longer exists.
+
+Note: `media_source.kind` is `NOT NULL` with no default and the seed in Task 6 no longer supplies it. That is consistent — the column is gone by then.
 
 - [ ] **Step 4: Generate and format the migration**
 
@@ -850,18 +1123,11 @@ cd products/control-center/api && bun run db:generate
 cd - && bunx biome format --write products/control-center/api/drizzle/meta
 ```
 
-The `biome format` step is not optional: generated migration meta JSON fails
-`bun run lint` without it.
+The `biome format` step is not optional: generated migration meta JSON fails `bun run lint` without it.
 
-Open the generated `.sql` and confirm it contains **twelve** `DROP COLUMN` statements, the
-`media_source_kind_idx` drop, and the `job_claim_idx` recreate — and nothing else.
+Open the generated `.sql` and confirm it contains **twelve** `DROP COLUMN` statements, the `media_source_kind_idx` drop, and the `job_claim_idx` recreate — and nothing else.
 
-The tables are **not** empty: `media_source` has 1 row, `media_item` 93, `job` 137. The
-drop is still data-safe because every dropped `media_item` column is NULL across all 93
-rows (verified: `clean_title`, `artist`, `event`, `category`, `audio_path`, `audio_bytes`
-all count 0 non-null), and `job.result` / `job.locked_by` were never written. No backfill
-is needed, but do not treat this as an empty-table migration — check the counts yourself
-before applying:
+The tables are **not** empty: `media_source` has 1 row, `media_item` 93, `job` 137. The drop is still data-safe because every dropped `media_item` column is NULL across all 93 rows, and `job.result` / `job.locked_by` were never written. No backfill is needed, but do not treat this as an empty-table migration — check the counts yourself before applying:
 
 ```bash
 kubectl exec -n control-center control-center-1 -- psql -U postgres -d control_center -c \
@@ -870,210 +1136,20 @@ kubectl exec -n control-center control-center-1 -- psql -U postgres -d control_c
 
 Expected: `93 | 0 | 0`.
 
-- [ ] **Step 5: Run tests to verify they pass**
-
-Run: `cd products/control-center/api && bunx vitest run && bun run typecheck`
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add products/control-center/api
-git commit -m "feat(control-center/api): drop enrichment and audio columns"
-```
-
----
-
-### Task 5: Merge the entrypoints
-
-The substance of the merge: `worker` absorbs the poller, the disk guard, both job workers, and the reaper; `media-worker` is deleted. The disk guard moves into its own module so it stays testable without booting the app.
-
-**Files:**
-- Create: `products/control-center/worker/src/disk-guard.ts`
-- Create: `products/control-center/worker/src/disk-guard.test.ts` (port from `media-worker/src/disk-guard.test.ts`)
-- Modify: `products/control-center/worker/src/index.ts`
-- Modify: `products/control-center/worker/Dockerfile`
-- Modify: `products/control-center/api/src/worker-deps.ts`
-- Modify: `products/control-center/api/src/services/notification-service.ts:370-372`
-- Delete: `products/control-center/media-worker/`, `products/control-center/api/src/media.ts`
-
-**Interfaces:**
-- Consumes: `jobWorker`, `staleJobReaper`, `JobSpec` (Task 2); `runYoutubeIngest` (Task 3).
-- Produces: `export const runNotifyJob: JobHandler`; `export function hasSufficientDisk(dir?: string, thresholdBytes?: number): boolean`.
-
-- [ ] **Step 1: Port the disk guard with the new threshold**
-
-Create `products/control-center/worker/src/disk-guard.ts`:
-
-```ts
-/**
- * Free-space guard for the NAS media volume. Checked before claiming an ingest
- * so a full volume cannot be filled further by a new download.
- *
- * The floor is well above one file's size because the check runs BEFORE the
- * download and yt-dlp cannot say in advance how large the result will be: a
- * single 90-minute AV1 set is plausibly 3-8 GB, so a 10 GB floor could be
- * consumed by one job.
- */
-import { statfsSync } from "node:fs";
-import { getLogger } from "@www/logger";
-
-const DISK_FREE_THRESHOLD_BYTES = 50 * 1024 * 1024 * 1024; // 50 GB
-
-export function hasSufficientDisk(
-  dir: string,
-  thresholdBytes: number = DISK_FREE_THRESHOLD_BYTES,
-): boolean {
-  try {
-    const stats = statfsSync(dir);
-    // bavail = blocks available to non-root; bsize = block size in bytes.
-    const freeBytes = stats.bavail * stats.bsize;
-    if (freeBytes < thresholdBytes) {
-      getLogger().warn({ freeBytes, thresholdBytes, dir }, "disk below threshold, skipping claim");
-      return false;
-    }
-    return true;
-  } catch (err) {
-    // statfs failed (dir missing, NFS not mounted yet). Allow, and let the
-    // download fail with a clearer error than a startup crash.
-    getLogger().warn({ err, dir }, "statfs failed, assuming sufficient");
-    return true;
-  }
-}
-```
-
-Port `media-worker/src/disk-guard.test.ts` to `worker/src/disk-guard.test.ts`, updating the threshold expectation from 10 GB to 50 GB and passing `dir` explicitly (it is no longer defaulted from `env`).
-
-- [ ] **Step 2: Run the ported test**
-
-Run: `cd products/control-center/worker && bunx vitest run src/disk-guard.test.ts`
-Expected: PASS.
-
-- [ ] **Step 3: Export the notify handler as a plain function**
-
-In `products/control-center/api/src/services/notification-service.ts`, replace `registerNotifyHandler`:
-
-```ts
-/** The `notify` job handler. Wired at the worker entrypoint. */
-export const runNotifyJob: JobHandler = async (payload) => {
-  await handleNotifyJob(payload);
-};
-```
-
-Add `import type { JobHandler } from "../jobs/queue";` and delete the `registerHandler` import.
-
-- [ ] **Step 4: Collapse the barrels**
-
-Replace the media-worker-specific exports in `products/control-center/api/src/worker-deps.ts` — delete the `claimAndRun` export and add:
-
-```ts
-export { job, mediaItem, mediaSource } from "./db/schema";
-export { jobWorker, staleJobReaper, type JobSpec } from "./jobs/job-worker";
-export { enqueueJob } from "./jobs/queue";
-export { runNotifyJob } from "./services/notification-service";
-export { runPlaylistPollerCycle } from "./services/playlist-poller-service";
-export { runYoutubeIngest } from "./services/youtube-ingest-service";
-```
-
-Update the file's header comment: it currently explains that media-worker owns the queue and worker drains only `notify`. That is no longer true — say the worker app owns every loop and job type.
-
-Delete `products/control-center/api/src/media.ts` and its `"./media"` entry from `package.json` `exports`.
-
-- [ ] **Step 5: Rewrite the worker entrypoint**
-
-In `products/control-center/worker/src/index.ts`:
-
-- Delete `registerNotifyHandler()` and the `notify-queue` worker object (including its long comment about media-worker being parked — no longer true).
-- Add to the imports from `@control-center/api/worker`: `env`, `jobWorker`, `staleJobReaper`, `type JobSpec`, `runNotifyJob`, `runPlaylistPollerCycle`, `runYoutubeIngest`.
-- Add `import { hasSufficientDisk } from "./disk-guard";`
-- Before the `workers` array:
-
-```ts
-// One declared maxMs per job type, driving BOTH the in-process timeout and the
-// reaper's lease. A timeout only fires while this process is alive, so an OOM
-// kill or eviction still strands a row at `running`; the reaper is what
-// recovers those. Sharing one number keeps the two from drifting apart.
-const JOBS: JobSpec[] = [
-  // APNs delivery is sub-second; a minute means something is badly wrong.
-  { type: "notify", handler: runNotifyJob, maxMs: 60_000 },
-  // A ceiling for pathological downloads, not a target -- sets take minutes.
-  {
-    type: "youtube_ingest",
-    maxMs: 60 * 60_000,
-    // Guard the NAS before each claim: a full volume must not start a download.
-    handler: async (payload, signal) => {
-      if (!hasSufficientDisk(env.MEDIA_STORAGE_DIR)) {
-        throw new Error("insufficient disk space for ingest");
-      }
-      await runYoutubeIngest(payload, signal);
-    },
-  },
-];
-```
-
-- Append to the `workers` array, after `asc-version-poll`:
-
-```ts
-  {
-    // Playlist poller: enumerate each enabled media_source via
-    // yt-dlp --flat-playlist and enqueue ingest jobs for unseen video IDs.
-    // Metadata only -- no video data -- so 2 minutes is ~720 requests/day from
-    // one IP, well inside anything YouTube pushes back on. Going lower buys
-    // little: the download itself dominates end-to-end latency.
-    name: "playlist-poller",
-    intervalMs: 2 * 60_000,
-    runOnStart: true,
-    run: runPlaylistPollerCycle,
-  },
-  ...JOBS.map(jobWorker),
-  staleJobReaper(JOBS),
-```
-
-- [ ] **Step 6: Add ffmpeg and yt-dlp to the worker image**
-
-In `products/control-center/worker/Dockerfile`, in the **runtime** stage before the `COPY --from=build` line:
-
-```dockerfile
-# yt-dlp needs ffmpeg to mux the separate DASH video+audio streams YouTube
-# serves above 360p. python3 + pip because yt-dlp is a Python CLI;
-# --break-system-packages is required on Alpine's managed Python (PEP 668).
-RUN apk add --no-cache ffmpeg python3 py3-pip \
- && pip3 install --break-system-packages yt-dlp \
- && yt-dlp --version \
- && ffmpeg -version | head -1
-```
-
-- [ ] **Step 7: Delete media-worker**
-
-```bash
-git rm -r products/control-center/media-worker
-bun install
-```
-
-- [ ] **Step 8: Verify the whole workspace**
+- [ ] **Step 5: Verify and commit**
 
 Run: `bun run typecheck && bun run test && bun run lint && bun run knip`
-Expected: all pass. `knip` is the check that catches anything the deleted app left orphaned — fix whatever it reports rather than suppressing it.
-
-- [ ] **Step 9: Commit**
+Expected: all pass.
 
 ```bash
 git add -A
-git commit -m "feat(control-center): merge media-worker into worker
-
-One deployable instead of two. Job types become plain Workers, so
-per-type concurrency 1 and type isolation come from the existing
-await-before-reschedule runtime contract rather than a new dispatcher.
-
-media-worker had never run a job in prod: it was parked at 0 replicas as
-a migration checkpoint, then left parked on the belief that yt-dlp needs
-significant memory. It streams to disk through a 1KB buffer, so memory
-is flat with respect to file size."
+git commit -m "feat(control-center/api): drop enrichment, audio and unread columns"
+git push origin main
 ```
 
 ---
 
-### Task 6: Runtime cleanups the merge retires
+### Task 5: Runtime cleanups the merge retires
 
 Three pieces of the shared runtime exist only because there were two apps. Doing this after the merge means the deletions are provably safe.
 
@@ -1104,12 +1180,10 @@ In `runtime.ts`:
 
 In `packages/worker-runtime/test/runtime.test.ts`, delete the `statsEveryNRuns: 3` option from the snapshot test and assert against the default cadence instead. Delete any test calling `runtime.stats()` or asserting on `memory`.
 
-- [ ] **Step 4: Verify**
+- [ ] **Step 4: Verify and commit**
 
-Run: `bun run typecheck && bunx vitest run --dir packages/worker-runtime`
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
+Run: `bun run typecheck && bun run test && bun run lint && bun run knip`
+Expected: all pass.
 
 ```bash
 git add packages/worker-runtime
@@ -1119,135 +1193,48 @@ statsEveryNRuns existed only because worker used 60 and media-worker 30;
 one app means one constant. stats() had no consumers outside the package.
 WorkerStats.memory sampled process-wide memory and stored it per worker,
 so post-merge it was the same number duplicated twelve times."
-```
-
----
-
-### Task 7: Infra — one workload, NFS mount, 512M
-
-**Files:**
-- Modify: `infra/src/services.ts` (media-worker workload ~:261-289, worker ~:247-259, `mediaWorkerReplicas` at :200, :212, :491, :593, :667)
-- Modify: `infra/src/secrets-map.ts:34,68`
-- Modify: `packages/platform/src/index.ts:279,448-465,640,734-740`
-- Test: `infra/src/__tests__/services.test.ts`
-
-**Interfaces:**
-- Consumes: nothing.
-- Produces: a `worker` workload with `resources: { memory: "512M" }`, the media NFS volume, and `MEDIA_STORAGE_DIR`.
-
-- [ ] **Step 1: Update the infra tests first**
-
-Find the test asserting the declared workload set and remove `media-worker` from it; add assertions that `worker` has the NFS volume and `512M`. Run them to watch the new assertions fail.
-
-Run: `bunx vitest run --dir infra`
-Expected: FAIL on the new assertions.
-
-- [ ] **Step 2: Move the volume onto worker and delete the media-worker workload**
-
-In `infra/src/services.ts`, change the `worker` workload's `resources` to `{ memory: "512M" }`, and add to it (copying verbatim from the media-worker block being deleted):
-
-```ts
-      env: {
-        ...haEnv,
-        // Point at the NFS mount below -- the env default (/mnt/media) is the
-        // container overlay fs, not the NAS share.
-        MEDIA_STORAGE_DIR: "/app/media",
-      },
-      // NFS PV for the Synology media share. The DS420+ exports ONLY
-      // /volume1/Homelab (not its subdirs), so mount that export and subPath
-      // into media/. nfsvers=3 is enforced by the render layer (DS420+ is v3-only).
-      volumes: [
-        {
-          mountPath: "/app/media",
-          nfs: { server: nasNfsServer, path: "/volume1/Homelab" },
-          subPath: "media",
-        },
-      ],
-```
-
-Delete the entire `media-worker` workload object, the `mediaWorkerReplicas` field from both interfaces (:200, :491), and every reference at :212, :593, :667. Update the Boundary-6 comment at :7-9, which describes media-worker being parked.
-
-- [ ] **Step 3: Remove media-worker from the platform manifest**
-
-In `packages/platform/src/index.ts`: remove `"media-worker"` from both union types (:279, :640), the `defineServiceSecretUsage` block (:458-465), and the workload entry (:734-740). Delete `OPENROUTER_API_KEY: secretCatalog.openRouter.apiKey` (:460) — Task 3 removed the env var. Fix the comment at :448 that explains worker running notify because media-worker is parked.
-
-In `infra/src/secrets-map.ts`: remove the `"media-worker"` entries at :34 and :68.
-
-- [ ] **Step 4: Remove the image from CI**
-
-Run: `grep -rn "media-worker" .github/ infra/ packages/ products/ --include="*.yml" --include="*.yaml" --include="*.ts" --include="*.json" | grep -v node_modules`
-
-Remove every remaining hit. Expected locations: the CI build matrix and any per-product path filter.
-
-- [ ] **Step 5: Verify**
-
-Run: `bun run typecheck && bunx vitest run --dir infra && bun run lint`
-Expected: PASS, and the grep from Step 4 returns nothing.
-
-- [ ] **Step 6: Commit and watch the deploy**
-
-```bash
-git add -A
-git commit -m "feat(infra): single worker workload with the media NFS mount
-
-worker takes over media-worker's NFS volume and MEDIA_STORAGE_DIR at
-512M -- downloads stream to disk, so the limit covers the Bun process
-and a yt-dlp subprocess, not the file."
 git push origin main
 ```
 
-After CI completes, confirm the pod picked up the new image and that yt-dlp is present:
-
-```bash
-kubectl -n control-center get pods -l app=worker
-kubectl -n control-center exec deploy/worker -- yt-dlp --version
-kubectl -n control-center exec deploy/worker -- df -h /app/media
-```
-
-Expected: a running pod, a yt-dlp version string, and the NAS share mounted. If the pod is `CrashLoopBackOff`, check `kubectl -n control-center logs deploy/worker` — the most likely cause is the NFS mount failing, not the app.
-
 ---
 
-### Task 8: Seed the playlist and verify a real ingest
+### Task 6: Seed the playlist, unpark the backlog, verify a real ingest
 
-The first end-to-end exercise of a path that has never run in prod.
+The first end-to-end exercise of a path that has never run in prod, and the go-live switch for the backlog Task 1 parked.
 
 **Files:**
-- None. This task is operational.
+- None unless Step 5 finds something. This task is operational.
 
 **Interfaces:**
 - Consumes: everything above.
 
-- [ ] **Step 1: Seed the source**
+- [ ] **Step 1: Confirm the deployed image is current**
+
+```bash
+kubectl -n control-center get pods -l app=worker -o jsonpath='{.items[*].spec.containers[*].image}'
+kubectl -n control-center logs deploy/worker --tail=20
+```
+
+The pod must be running the image built from Task 5's commit. Rapid pushes can cancel CI builds and leave a green run deploying stale digests — verify the pod's age against the commit before continuing.
+
+- [ ] **Step 2: Seed the source**
 
 ```bash
 kubectl exec -n control-center control-center-1 -- psql -U postgres -d control_center -c \
-  "INSERT INTO media_source (id, kind, external_id, title, enabled)
-   VALUES ('src_djsets', 'playlist', 'PL59a6ZZ2kJGrjLI7cb6hxXr4EfmBnzseW', 'DJ Sets', true)
+  "INSERT INTO media_source (id, external_id, title, enabled)
+   VALUES ('src_djsets', 'PL59a6ZZ2kJGrjLI7cb6hxXr4EfmBnzseW', 'DJ Sets', true)
    ON CONFLICT (id) DO NOTHING;"
 ```
 
-Note the database is `control_center` with an underscore; the namespace and pod use hyphens.
+Note the database is `control_center` with an underscore; the namespace and pod use hyphens. `kind` is deliberately absent — Task 4 dropped the column.
 
-`external_id` is the right column to set: the poller resolves a source's URL as
-`source.url ?? buildPlaylistUrl(source.externalId)` (`playlist-poller-service.ts:70`),
-expanding the id to `https://www.youtube.com/playlist?list=<id>`. Leave `url` NULL.
+`external_id` is the right column to set: the poller resolves a source's URL as `source.url ?? buildPlaylistUrl(source.externalId)` (`playlist-poller-service.ts:70`), expanding the id to `https://www.youtube.com/playlist?list=<id>`. Leave `url` NULL.
 
-There is no tRPC procedure or UI for creating a `media_source` — adding a playlist,
-pausing one (`enabled = false`), or switching which playlist is watched are all `psql`
-operations against prod. That is the accepted state for now; see Out of Scope in the spec.
+There is no tRPC procedure or UI for creating a `media_source` — adding a playlist, pausing one (`enabled = false`), or switching which playlist is watched are all `psql` operations against prod. That is the accepted state for now; see Out of Scope in the spec.
 
-**Before seeding, know what is already queued:** 93 `youtube_ingest` jobs have sat at
-`queued` since 2026-06-08, never claimed because media-worker is parked. They stay — all
-93 IDs are in this playlist (verified `overlap=93, db_only=0, playlist_only=4`), and
-dedup is global on `yt_video_id`, so deleting them only re-parents them on the next poll.
+- [ ] **Step 3: Watch the poller enumerate — still with the backlog parked**
 
-The first deploy therefore archives ~97 sets: roughly 126 GB against 5.9 TB free. Their
-payloads still carry `videoPolicy: "on"`, which the handler now ignores.
-
-- [ ] **Step 2: Watch the poller enumerate**
-
-The poller runs on start and every 2 minutes.
+The poller runs on start and every 2 minutes. Let one cycle pass before unparking, so the poller's behaviour is observed on its own.
 
 ```bash
 kubectl -n control-center logs deploy/worker --tail=50 | grep -i playlist
@@ -1255,19 +1242,19 @@ kubectl exec -n control-center control-center-1 -- psql -U postgres -d control_c
   "SELECT status, count(*) FROM media_item GROUP BY status;"
 ```
 
-Expected: `media_item` rows appear with status `pending`, and `job` rows of type `youtube_ingest` are queued.
+Expected: 4 new `media_item` rows (the playlist has 97 videos; 93 are already known and dedup is global on `yt_video_id`), and 4 new `youtube_ingest` jobs at `run_after = now()`. Those 4 will be claimed immediately — they are the first real ingests, and a deliberately small first batch.
 
-- [ ] **Step 3: Watch the first ingest complete**
+- [ ] **Step 4: Watch the first ingest complete**
 
 ```bash
 kubectl -n control-center logs deploy/worker --tail=100 | grep -E "yt-dlp|job (claimed|completed)"
 kubectl exec -n control-center control-center-1 -- psql -U postgres -d control_center -c \
-  "SELECT type, status, attempts, last_error FROM job ORDER BY id DESC LIMIT 10;"
+  "SELECT type, status, attempts, last_error FROM job WHERE type='youtube_ingest' ORDER BY id DESC LIMIT 10;"
 ```
 
 Expected: a `job claimed` line, a `yt-dlp download complete` line, then `job completed`, and the row at `done`.
 
-- [ ] **Step 4: Confirm the archive is browsable**
+- [ ] **Step 5: Confirm the archive is browsable**
 
 ```bash
 kubectl -n control-center exec deploy/worker -- find /app/media -maxdepth 2 -type f | head -20
@@ -1275,15 +1262,35 @@ kubectl -n control-center exec deploy/worker -- find /app/media -maxdepth 2 -typ
 
 Expected: paths shaped `/app/media/<Uploader>/<YYYYMMDD> - <Title> [<id>].<ext>` — readable in VLC, not bare video IDs.
 
-If filenames are mangled or the write fails, the likely cause is characters the Synology's filesystem rejects. Add `--restrict-filenames` to the yt-dlp argv in `ytdlpDownload`, and note it in the spec.
+If filenames are mangled or the write fails, the likely cause is characters the Synology's filesystem rejects. Add `--restrict-filenames` to the yt-dlp argv in `ytdlpDownload`, commit, push, and re-verify before continuing to Step 6.
 
-- [ ] **Step 5: Record the outcome**
+- [ ] **Step 6: Unpark the backlog**
+
+Only once Steps 4 and 5 have passed on a real download:
+
+```bash
+kubectl exec -n control-center control-center-1 -- psql -U postgres -d control_center -c \
+  "UPDATE job SET run_after = now(), updated_at = now()
+   WHERE type = 'youtube_ingest' AND status = 'queued' AND run_after > now();"
+```
+
+Expected: `UPDATE 93`.
+
+This releases ~93 sets, roughly 126 GB against 5.9 TB free. Their payloads still carry `videoPolicy: "on"`, which the handler now ignores. Downloads are serial — one `youtube_ingest` worker, per-type concurrency 1 — so expect this to run for hours, not minutes. Check back:
+
+```bash
+kubectl exec -n control-center control-center-1 -- psql -U postgres -d control_center -c \
+  "SELECT status, count(*) FROM job WHERE type='youtube_ingest' GROUP BY status;"
+kubectl -n control-center exec deploy/worker -- df -h /app/media
+```
+
+- [ ] **Step 7: Record the outcome**
 
 If anything needed adjusting (disk threshold, `--restrict-filenames`, memory), update `docs/superpowers/specs/2026-07-20-worker-merge-design.md` to match what actually shipped, and commit.
 
 ---
 
-### Task 9: Documentation
+### Task 7: Documentation
 
 **Files:**
 - Modify: `CLAUDE.md:25-26`
@@ -1319,20 +1326,21 @@ git push origin main
 
 | Spec section | Task |
 |---|---|
-| Job-as-worker plumbing, `claimOne` | 1 |
-| `jobWorker`, per-type `maxMs`, AbortSignal | 1, 2 |
+| Merge the apps, Dockerfile, disk guard 50 GB | 1 |
+| Infra: workload, 512M, NFS, secrets | 1 |
+| Job-as-worker plumbing, `claimOne`, `jobWorker`, per-type `maxMs`, AbortSignal | 2 |
 | Crash recovery / stale-lease reaper | 2 |
-| Runtime cleanups (`stats()`, `statsEveryNRuns`, `memory`) | 6 |
-| Merge the apps, Dockerfile, disk guard 50 GB | 5 |
 | Video-only ingest, `-N 4`, filename template | 3 |
 | Remove LLM enrichment + `OPENROUTER_API_KEY` | 3 |
-| Schema migration (7 columns) | 4 |
-| Infra: workload, 512M, NFS, secrets | 7 |
-| Seed and verify | 8 |
-| Docs | 9 |
+| Schema migration (12 columns) | 4 |
+| Runtime cleanups (`stats()`, `statsEveryNRuns`, `memory`) | 5 |
+| Seed and verify | 6 |
+| Docs | 7 |
 
 No gaps.
 
-**Type consistency:** `JobHandler` gains `(payload, signal)` in Task 1 and is used with that shape in Tasks 2, 3, 5. `JobSpec { type, handler, maxMs }` is defined in Task 2 and consumed in Task 5. `ytdlpDownload(videoId, storageDir, signal)` is defined and tested in Task 3 with no other callers. `hasSufficientDisk(dir, thresholdBytes?)` loses its `env` default in Task 5 and every call site passes `dir` explicitly.
+**Type consistency:** `JobHandler` gains `(payload, signal)` in Task 2 and every caller is updated in that same commit. `JobSpec { type, handler, maxMs }` is defined and consumed in Task 2. `ytdlpDownload(videoId, storageDir, signal)` is defined and tested in Task 3 with no other callers. `hasSufficientDisk(dir, thresholdBytes?)` is introduced in Task 1 with no `env` default and every call site passes `dir` explicitly.
 
-**Ordering note:** Tasks 1–4 leave the workspace typecheck-broken in the middle (callers of `claimAndRun` and `registerHandler` still exist until Task 5). That is deliberate — each task's own tests pass, and Task 5 Step 8 is the first full-workspace gate. Do not push between Tasks 1 and 5 expecting green CI; push after Task 5.
+**Green-at-every-commit:** Task 1 keeps `claimAndRun` and `registerHandler` intact while moving code between apps. Task 2 replaces the mechanism and all its callers in one commit. Tasks 3–5 touch code whose callers are already consistent. Every task runs the full `typecheck && test && lint && knip` gate before its commit, and pushes immediately.
+
+**Go-live gate:** Task 1 Step 1 parks the 93-job backlog on `run_after`; Task 6 Step 6 releases it, after a real download has been verified end-to-end. The gate lives in data, not in a code flag, so no dead configuration or unused export exists at any commit. `claimOne`'s `run_after <= now()` filter — the mechanism the gate depends on — is covered by a test in Task 2.
