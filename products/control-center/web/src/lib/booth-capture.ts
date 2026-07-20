@@ -56,6 +56,13 @@ export interface BoothUploadMeta {
   capturedAt: number;
   /** 0-based position within the group; defaults to 0. */
   frameIdx?: number;
+  /**
+   * Non-destructive filter id to store on the row (`^[a-z0-9_]{1,32}$`). The
+   * saved bytes are the RAW frame; the gallery applies this id as a CSS filter
+   * at display time. Omit for an unfiltered capture and for a gif (whose filter
+   * is baked into its assembled frames, so it stores none).
+   */
+  filter?: string;
 }
 
 /**
@@ -202,6 +209,36 @@ export async function assembleGif(frames: Blob[], opts: GifOptions): Promise<Blo
 }
 
 /**
+ * Flatten a display-time CSS filter into an already-final frame's pixels for
+ * share/export. The gallery stores RAW frames and applies filters at display
+ * time, so a filtered capture that leaves the app (a native share) must carry
+ * the effect in its bytes. Unlike bakeFrame this neither mirrors nor stamps ,
+ * the stored frame already carries both , it only draws the source under the
+ * given filter. Browser-only (createImageBitmap + a canvas), like assembleGif.
+ */
+export async function bakeFilterIntoImage(imageUrl: string, filterCss: string): Promise<Blob> {
+  const res = await fetch(imageUrl);
+  if (!res.ok) throw new Error(`booth share bake: fetch ${res.status}`);
+  const bitmap = await createImageBitmap(await res.blob());
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("booth share bake: no 2d context");
+    ctx.filter = filterCss || "none";
+    ctx.drawImage(bitmap, 0, 0);
+    const out = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY),
+    );
+    if (!out) throw new Error("booth share bake: canvas produced no blob");
+    return out;
+  } finally {
+    bitmap.close();
+  }
+}
+
+/**
  * Upload one baked frame to the api, mirroring wake-capture's raw-body +
  * attribution-header mechanics. Returns the new photo id. Unlike the wake
  * burst this throws on failure , the camera UI owns the user-facing reaction.
@@ -218,6 +255,10 @@ export async function uploadBoothPhoto(blob: Blob, meta: BoothUploadMeta): Promi
   // header is unambiguously "let the backend group it", where "" would be a
   // group id that sorts like a real one.
   if (meta.groupId) headers["x-group-id"] = meta.groupId;
+  // Non-destructive filter: sent only for a filtered still capture. An absent
+  // header stores null (unfiltered), which is also what a gif sends , its filter
+  // is already baked into the assembled frames.
+  if (meta.filter) headers["x-filter"] = meta.filter;
 
   const res = await fetch(UPLOAD_URL, { method: "POST", headers, body: blob });
   if (!res.ok) throw new Error(`booth upload failed: ${res.status}`);

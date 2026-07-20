@@ -1,9 +1,13 @@
 /**
- * camera-model , the production data behind the photo booth camera: the filter
- * list, the capture-mode segments, and the self-timer options. Adapted from the
- * throwaway `photo-booth-designs/camera/camera-shared.ts` prototype, trimmed to
- * exactly what the shipped `BoothCamera` drives (the prototype's design-only
+ * camera-model , the production data behind the photo booth camera: the capture-
+ * mode segments and the self-timer options. Adapted from the throwaway
+ * `photo-booth-designs/camera/camera-shared.ts` prototype, trimmed to exactly
+ * what the shipped `BoothCamera` drives (the prototype's design-only
  * `useCapture`/`useReveal` hooks are replaced by the real `useBoothCapture`).
+ *
+ * The filter list moved to the shared `lib/booth-filters` module (the gallery
+ * needs it too, to render a stored filter id); it is re-exported here so the
+ * camera components keep importing filters from one place.
  *
  * Mode ids match the api's `booth_photo.mode` column so the selected segment is
  * the `BoothMode` sent on upload with no mapping layer, except "video", a
@@ -16,53 +20,8 @@ export type { BoothMode };
 
 /* ------------------------------------------------------------------ filters */
 
-export interface CameraFilter {
-  id: string;
-  label: string;
-  /** Value fed straight into CSS `filter` on the preview and the baked frame. */
-  css: string;
-  /** Representative colour for the swatch/dot chrome. */
-  swatch: string;
-}
-
-/** Live preview filters , pure CSS `filter` chains that read identically once baked. */
-export const CAMERA_FILTERS: readonly CameraFilter[] = [
-  { id: "none", label: "Original", css: "none", swatch: "#8a8f98" },
-  { id: "mono", label: "Mono", css: "grayscale(1) contrast(1.08)", swatch: "#d7d7d7" },
-  {
-    id: "sepia",
-    label: "Sepia",
-    css: "sepia(0.7) contrast(1.05) brightness(1.02)",
-    swatch: "#b78a5a",
-  },
-  { id: "vivid", label: "Vivid", css: "saturate(1.75) contrast(1.12)", swatch: "#ff4d7d" },
-  {
-    id: "cool",
-    label: "Cool",
-    css: "hue-rotate(-16deg) saturate(1.2) brightness(1.04)",
-    swatch: "#4db8ff",
-  },
-  {
-    id: "warm",
-    label: "Warm",
-    css: "sepia(0.28) saturate(1.4) brightness(1.05) hue-rotate(-8deg)",
-    swatch: "#ffab5e",
-  },
-  {
-    id: "noir",
-    label: "Noir",
-    css: "grayscale(1) contrast(1.45) brightness(0.92)",
-    swatch: "#4a4a4a",
-  },
-] as const;
-
-export function filterById(id: string): CameraFilter {
-  return CAMERA_FILTERS.find((f) => f.id === id) ?? CAMERA_FILTERS[0];
-}
-
-export function filterCss(id: string): string {
-  return filterById(id).css;
-}
+export type { CameraFilter } from "../../../lib/booth-filters";
+export { CAMERA_FILTERS, filterById, filterCss } from "../../../lib/booth-filters";
 
 /* -------------------------------------------------------------------- modes */
 

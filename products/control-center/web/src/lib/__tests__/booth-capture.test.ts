@@ -152,6 +152,19 @@ describe("booth-capture uploadBoothPhoto", () => {
     expect(headers["x-frame-idx"]).toBe("2");
     expect(headers["x-captured-at"]).toBe("1752849600000");
     expect(headers["x-device-id"]).toMatch(/.+/);
+    // Unfiltered by default: no filter in meta means no x-filter header.
+    expect(headers).not.toHaveProperty("x-filter");
+  });
+
+  it("sends the x-filter header for a filtered still", async () => {
+    const calls = stubFetch();
+    await uploadBoothPhoto(new Blob(["x"], { type: "image/jpeg" }), {
+      mode: "photo",
+      capturedAt: 1,
+      filter: "noir",
+    });
+    const headers = calls[0].init.headers as Record<string, string>;
+    expect(headers["x-filter"]).toBe("noir");
   });
 
   it("sends image/gif content type for gif captures", async () => {
@@ -175,6 +188,7 @@ describe("booth-capture uploadBoothPhoto", () => {
     const headers = calls[0].init.headers as Record<string, string>;
     expect(headers["x-frame-idx"]).toBe("0");
     expect(headers).not.toHaveProperty("x-group-id");
+    expect(headers).not.toHaveProperty("x-filter");
   });
 
   it("throws when the server rejects the upload", async () => {

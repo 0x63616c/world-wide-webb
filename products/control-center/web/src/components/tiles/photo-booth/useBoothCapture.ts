@@ -58,7 +58,11 @@ export interface BoothCaptureArgs {
   /** The live preview element frames are baked from. */
   videoRef: React.RefObject<HTMLVideoElement | null>;
   mode: BoothMode;
-  /** Active filter id , baked into every saved frame. */
+  /**
+   * Active filter id. Non-destructive for stills: stored on the row and applied
+   * at display time, not baked into the saved pixels. A gif bakes it in (no
+   * display-time filter hook for an assembled animation).
+   */
   filterId: string;
   /** Self-timer seconds (0 = immediate). */
   countdown: CountdownOption;
@@ -121,14 +125,27 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
     }, SHUTTER_FREEZE_MS);
   }
 
-  async function bakeCurrent(): Promise<Blob> {
+  /**
+   * Bake the current frame. Filters are non-destructive for stills (the saved
+   * bytes are RAW; the gallery applies the filter id at display time), so
+   * `bakeFilter` is false there and only the mirror + date stamp are baked. A
+   * gif has no display-time filter hook (its frames are assembled at capture),
+   * so it bakes the filter into pixels , `bakeFilter` true.
+   */
+  async function bakeCurrent(bakeFilter: boolean): Promise<Blob> {
     const video = argsRef.current.videoRef.current;
     if (!video) throw new Error("Camera not ready");
     return bakeFrame(video, {
-      filterCss: filterCss(argsRef.current.filterId),
+      filterCss: bakeFilter ? filterCss(argsRef.current.filterId) : "none",
       mirror: true,
       stampDate: new Date(),
     });
+  }
+
+  /** The filter id to store on a still, or undefined to store none ("none" = unfiltered). */
+  function storedFilter(): string | undefined {
+    const id = argsRef.current.filterId;
+    return id && id !== "none" ? id : undefined;
   }
 
   /** Count down `seconds` → 0 with a tick per second, driving the big overlay. */
@@ -144,8 +161,12 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
 
   async function capturePhoto(): Promise<void> {
     fireShutterCue();
-    const blob = await bakeCurrent();
-    await uploadBoothPhoto(blob, { mode: "photo", capturedAt: Date.now() });
+    const blob = await bakeCurrent(false);
+    await uploadBoothPhoto(blob, {
+      mode: "photo",
+      capturedAt: Date.now(),
+      filter: storedFilter(),
+    });
   }
 
   async function captureBurst(): Promise<void> {
@@ -153,12 +174,13 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
     for (let i = 0; i < BURST_COUNT; i++) {
       if (!aliveRef.current) return;
       fireShutterCue();
-      const blob = await bakeCurrent();
+      const blob = await bakeCurrent(false);
       await uploadBoothPhoto(blob, {
         mode: "burst",
         groupId,
         capturedAt: Date.now(),
         frameIdx: i,
+        filter: storedFilter(),
       });
       if (i < BURST_COUNT - 1) await sleep(BURST_INTERVAL_MS);
     }
@@ -173,12 +195,13 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
       if (i > 0) await runCountdown(FOUR_FRAME_GAP_S);
       if (!aliveRef.current) return;
       fireShutterCue();
-      const blob = await bakeCurrent();
+      const blob = await bakeCurrent(false);
       await uploadBoothPhoto(blob, {
         mode: "four_frame",
         groupId,
         capturedAt: Date.now(),
         frameIdx: i,
+        filter: storedFilter(),
       });
     }
   }
@@ -188,7 +211,9 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
     const frames: Blob[] = [];
     for (let i = 0; i < GIF_FRAME_COUNT; i++) {
       if (!aliveRef.current) return;
-      frames.push(await bakeCurrent());
+      // Gif frames bake the filter in , there is no display-time filter for an
+      // assembled animation, so its stored `filter` stays null.
+      frames.push(await bakeCurrent(true));
       if (i < GIF_FRAME_COUNT - 1) await sleep(GIF_GRAB_INTERVAL_MS);
     }
     const gif = await assembleGif(frames, { delayMs: GIF_DELAY_MS, boomerang: true });

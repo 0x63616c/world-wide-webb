@@ -22,6 +22,8 @@ import { Share } from "@capacitor/share";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { ConfirmDialog, PageHeader } from "@/components/ui";
+import { bakeFilterIntoImage } from "@/lib/booth-capture";
+import { filterCssFor } from "@/lib/booth-filters";
 import type { RouterOutputs } from "@/lib/trpc";
 
 /** One capture group as the gallery reads it (the backend listing contract). */
@@ -35,6 +37,12 @@ export interface BoothGalleryProps {
   photoUrl: (path: string) => string;
   /** Reversibly remove a whole capture (fires boothPhotos.remove). */
   onRemove: (groupId: string) => void;
+  /**
+   * Drop the non-destructive filter from a whole capture (fires
+   * boothPhotos.clearFilter). The stored bytes were always raw, so this just
+   * returns the capture to its bare look.
+   */
+  onClearFilter: (groupId: string) => void;
   /** Return to the camera. */
   onBack: () => void;
 }
@@ -54,14 +62,27 @@ const MODE_LABEL: Record<BoothMode, string> = {
   gif: "GIF",
 };
 
-export function BoothGallery({ groups, photoUrl, onRemove, onBack }: BoothGalleryProps) {
+export function BoothGallery({
+  groups,
+  photoUrl,
+  onRemove,
+  onClearFilter,
+  onBack,
+}: BoothGalleryProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [confirmGroupId, setConfirmGroupId] = useState<string | null>(null);
   const [removed, setRemoved] = useState<Set<string>>(new Set());
+  // Optimistically-cleared filters: a group id in here renders bare immediately,
+  // before the boothPhotos.clearFilter mutation round-trips.
+  const [cleared, setCleared] = useState<Set<string>>(new Set());
 
   const live = useMemo(() => groups.filter((g) => !removed.has(g.groupId)), [groups, removed]);
   const days = useMemo(() => groupByDay(live), [live]);
   const photoCount = useMemo(() => live.reduce((n, g) => n + g.frames.length, 0), [live]);
+
+  /** A group's effective filter id, honouring an optimistic local clear. */
+  const filterFor = (g: { groupId: string; filter: string | null }): string | null =>
+    cleared.has(g.groupId) ? null : g.filter;
 
   // The lightbox walks the whole roll as one flat, time-ordered list. A 4-frame
   // capture contributes a single composite view; a burst contributes one view
@@ -89,6 +110,11 @@ export function BoothGallery({ groups, photoUrl, onRemove, onBack }: BoothGaller
     setOpenIndex(null);
     setConfirmGroupId(null);
     onRemove(groupId);
+  }
+
+  function handleClearFilter(groupId: string) {
+    setCleared((prev) => new Set(prev).add(groupId));
+    onClearFilter(groupId);
   }
 
   return (
@@ -122,7 +148,7 @@ export function BoothGallery({ groups, photoUrl, onRemove, onBack }: BoothGaller
                     style={cell}
                     aria-label={`Open ${MODE_LABEL[g.mode]} from ${formatTime(g.capturedAt)}`}
                   >
-                    <Cover group={g} photoUrl={photoUrl} />
+                    <Cover group={g} photoUrl={photoUrl} filterCss={filterCssFor(filterFor(g))} />
                     {MODE_DOT[g.mode] != null && (
                       <span style={{ ...dot, background: MODE_DOT[g.mode] as string }} />
                     )}
@@ -138,12 +164,14 @@ export function BoothGallery({ groups, photoUrl, onRemove, onBack }: BoothGaller
         <Lightbox
           view={open}
           photoUrl={photoUrl}
+          filter={filterFor(open)}
           hasPrev={openIndex > 0}
           hasNext={openIndex < views.length - 1}
           onPrev={() => setOpenIndex((i) => (i != null && i > 0 ? i - 1 : i))}
           onNext={() => setOpenIndex((i) => (i != null && i < views.length - 1 ? i + 1 : i))}
           onClose={() => setOpenIndex(null)}
           onDelete={() => setConfirmGroupId(open.groupId)}
+          onClearFilter={() => handleClearFilter(open.groupId)}
         />
       )}
 
@@ -164,14 +192,28 @@ export function BoothGallery({ groups, photoUrl, onRemove, onBack }: BoothGaller
 
 /**
  * A grid cell's pixels: a 4-frame capture as a 2x2 strip inside one square,
- * everything else as its first frame.
+ * everything else as its first frame. `filterCss` is the display-time
+ * (non-destructive) filter applied to the raw stored pixels.
  */
-function Cover({ group, photoUrl }: { group: BoothGroup; photoUrl: (path: string) => string }) {
+function Cover({
+  group,
+  photoUrl,
+  filterCss,
+}: {
+  group: BoothGroup;
+  photoUrl: (path: string) => string;
+  filterCss: string;
+}) {
   if (group.mode === "four_frame") {
     return (
       <div style={compositeGrid}>
         {group.frames.slice(0, 4).map((f) => (
-          <img key={f.id} src={photoUrl(f.path)} alt="" style={compositeCell} />
+          <img
+            key={f.id}
+            src={photoUrl(f.path)}
+            alt=""
+            style={{ ...compositeCell, filter: filterCss }}
+          />
         ))}
       </div>
     );
@@ -180,7 +222,13 @@ function Cover({ group, photoUrl }: { group: BoothGroup; photoUrl: (path: string
     <img
       src={photoUrl(group.frames[0].path)}
       alt=""
-      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+      style={{
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        display: "block",
+        filter: filterCss,
+      }}
     />
   );
 }
@@ -192,6 +240,8 @@ interface LightboxView {
   groupId: string;
   mode: BoothMode;
   capturedAt: number;
+  /** The group's stored (raw) filter id, or null; the gallery may clear it locally. */
+  filter: string | null;
   /** Render as a 2x2 composite (`paths.length === 4`) or a single frame. */
   composite: boolean;
   paths: string[];
@@ -200,22 +250,28 @@ interface LightboxView {
 function Lightbox({
   view,
   photoUrl,
+  filter,
   hasPrev,
   hasNext,
   onPrev,
   onNext,
   onClose,
   onDelete,
+  onClearFilter,
 }: {
   view: LightboxView;
   photoUrl: (path: string) => string;
+  /** Effective filter id (honours an optimistic clear), or null when bare. */
+  filter: string | null;
   hasPrev: boolean;
   hasNext: boolean;
   onPrev: () => void;
   onNext: () => void;
   onClose: () => void;
   onDelete: () => void;
+  onClearFilter: () => void;
 }) {
+  const filterCss = filterCssFor(filter);
   return (
     <div style={overlay}>
       {/* Backdrop , tapping anywhere outside the image (or Escape) closes. */}
@@ -226,7 +282,7 @@ function Lightbox({
       </button>
       <button
         type="button"
-        onClick={() => void shareView(view, photoUrl)}
+        onClick={() => void shareView(view, photoUrl, filter)}
         aria-label="Share"
         style={cornerBtn("bottom-right")}
       >
@@ -247,6 +303,11 @@ function Lightbox({
           <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", marginTop: 2 }}>
             {MODE_LABEL[view.mode]}
           </div>
+          {filter != null && (
+            <button type="button" onClick={onClearFilter} style={removeEffectBtn}>
+              Remove effect
+            </button>
+          )}
         </div>
 
         <button
@@ -263,14 +324,25 @@ function Lightbox({
           {view.composite ? (
             <div style={{ ...compositeGrid, borderRadius: 10 }}>
               {view.paths.slice(0, 4).map((p) => (
-                <img key={p} src={photoUrl(p)} alt="" style={compositeCell} />
+                <img
+                  key={p}
+                  src={photoUrl(p)}
+                  alt=""
+                  style={{ ...compositeCell, filter: filterCss }}
+                />
               ))}
             </div>
           ) : (
             <img
               src={photoUrl(view.paths[0])}
               alt=""
-              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                display: "block",
+                filter: filterCss,
+              }}
             />
           )}
         </div>
@@ -296,18 +368,62 @@ function Lightbox({
  * the real iOS sheet; in a plain browser it falls back to the Web Share API and
  * is otherwise a silent no-op (Storybook / desktop), so a share button that is
  * part of the fixed lightbox layout never throws where sharing is unavailable.
+ *
+ * Filters are non-destructive, so a filtered share must flatten the effect into
+ * pixels at this moment (the stored bytes are raw). A baked frame becomes a
+ * File shared through the Web Share files API where supported, else a data URL;
+ * an unfiltered share keeps the lighter link-to-the-stored-file path.
  */
-async function shareView(view: LightboxView, photoUrl: (path: string) => string): Promise<void> {
-  const url = new URL(photoUrl(view.paths[0]), window.location.origin).href;
+async function shareView(
+  view: LightboxView,
+  photoUrl: (path: string) => string,
+  filter: string | null,
+): Promise<void> {
+  const rawUrl = new URL(photoUrl(view.paths[0]), window.location.origin).href;
+  const css = filterCssFor(filter);
   try {
-    if (Capacitor.isNativePlatform()) {
-      await Share.share({ title: "Photo booth", url });
-    } else if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-      await navigator.share({ title: "Photo booth", url });
+    if (filter != null && css !== "none") {
+      await shareBakedFilter(rawUrl, css);
+    } else {
+      await shareUrl(rawUrl);
     }
   } catch {
     // A cancelled or unsupported share must never crash the gallery.
   }
+}
+
+/** Share a stored file by link (unfiltered path): native sheet, then Web Share. */
+async function shareUrl(url: string): Promise<void> {
+  if (Capacitor.isNativePlatform()) {
+    await Share.share({ title: "Photo booth", url });
+  } else if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+    await navigator.share({ title: "Photo booth", url });
+  }
+}
+
+/** Bake the filter into pixels, then share the resulting image bytes. */
+async function shareBakedFilter(rawUrl: string, css: string): Promise<void> {
+  const blob = await bakeFilterIntoImage(rawUrl, css);
+  const file = new File([blob], "photo-booth.jpg", { type: "image/jpeg" });
+  if (typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ title: "Photo booth", files: [file] });
+    return;
+  }
+  // Where the files API is unavailable (the Capacitor shell), hand the baked
+  // bytes to the native sheet as a data URL.
+  const dataUrl = await blobToDataUrl(blob);
+  if (Capacitor.isNativePlatform()) {
+    await Share.share({ title: "Photo booth", url: dataUrl });
+  }
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
 }
 
 // ---- view assembly ---------------------------------------------------------
@@ -325,6 +441,7 @@ function buildViews(groups: BoothGroup[]): {
         groupId: g.groupId,
         mode: g.mode,
         capturedAt: g.capturedAt,
+        filter: g.filter,
         composite: true,
         paths: g.frames.map((f) => f.path),
       });
@@ -334,6 +451,7 @@ function buildViews(groups: BoothGroup[]): {
           groupId: g.groupId,
           mode: g.mode,
           capturedAt: f.capturedAt,
+          filter: g.filter,
           composite: false,
           paths: [f.path],
         });
@@ -343,6 +461,7 @@ function buildViews(groups: BoothGroup[]): {
         groupId: g.groupId,
         mode: g.mode,
         capturedAt: g.capturedAt,
+        filter: g.filter,
         composite: false,
         paths: [g.frames[0].path],
       });
@@ -607,6 +726,21 @@ const dateBlock: CSSProperties = {
   textAlign: "right",
   width: 150,
   flexShrink: 0,
+};
+
+// A quiet typographic action under the date; clearing a filter is a light touch,
+// deliberately not styled like the destructive delete corner button.
+const removeEffectBtn: CSSProperties = {
+  marginTop: 14,
+  padding: 0,
+  border: "none",
+  background: "transparent",
+  color: "rgba(255,255,255,0.7)",
+  fontSize: 13,
+  fontWeight: 500,
+  cursor: "pointer",
+  textDecoration: "underline",
+  textUnderlineOffset: 3,
 };
 
 const imgWrap: CSSProperties = {

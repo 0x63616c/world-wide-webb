@@ -10,7 +10,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { createElement } from "react";
-import { fn } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { BoothGallery, type BoothGroup } from "./BoothGallery";
 
 const meta = {
@@ -44,6 +44,7 @@ const meta = {
   args: {
     photoUrl: svgFor,
     onRemove: fn(),
+    onClearFilter: fn(),
     onBack: fn(),
   },
 } satisfies Meta<typeof BoothGallery>;
@@ -57,6 +58,23 @@ export const Populated: Story = {
 
 export const Empty: Story = {
   args: { groups: [] },
+};
+
+/**
+ * Opens the lightbox on a filtered capture so the display-time CSS filter and
+ * the quiet "Remove effect" action (only shown when a filter is set) are both
+ * visible without a manual click.
+ */
+export const FilteredLightbox: Story = {
+  args: { groups: SAMPLE_GROUPS() },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // The first cell is today's noir Photo (see SAMPLE_GROUPS); opening it shows
+    // the filtered frame and the Remove effect button.
+    const [firstCell] = await canvas.findAllByRole("button", { name: /^Open Photo/ });
+    await userEvent.click(firstCell);
+    await expect(await canvas.findByRole("button", { name: "Remove effect" })).toBeInTheDocument();
+  },
 };
 
 // ---- fixtures --------------------------------------------------------------
@@ -88,13 +106,20 @@ function svgFor(path: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-function frame(groupId: string, capturedAt: number, frameIdx: number, mimeType = "image/jpeg") {
+function frame(
+  groupId: string,
+  capturedAt: number,
+  frameIdx: number,
+  filter: string | null,
+  mimeType = "image/jpeg",
+) {
   return {
     id: `bph_${groupId.slice(4)}_${frameIdx}`,
     path: `${groupId}/${frameIdx}.jpg`,
     capturedAt,
     frameIdx,
     mimeType,
+    filter,
   };
 }
 
@@ -103,36 +128,38 @@ function group(
   mode: BoothGroup["mode"],
   capturedAt: number,
   frameCount: number,
+  // Non-destructive filter id the gallery renders as a CSS filter; null = raw.
+  filter: string | null = null,
 ): BoothGroup {
   const groupId = `bpg_${(1000 + n).toString(36)}`;
   const mimeType = mode === "gif" ? "image/gif" : "image/jpeg";
   const frames = Array.from({ length: frameCount }, (_, i) =>
-    frame(groupId, capturedAt - i * 900, i, mimeType),
+    frame(groupId, capturedAt - i * 900, i, filter, mimeType),
   );
-  return { groupId, mode, capturedAt, frames };
+  return { groupId, mode, capturedAt, filter, frames };
 }
 
 /** A believable wall: mixed modes spread across the last several days. */
 function SAMPLE_GROUPS(): BoothGroup[] {
   const now = Date.now();
-  const specs: [BoothGroup["mode"], number, number, number][] = [
-    // mode, dayOffset, minutesAgoIntoDay, frameCount
-    ["photo", 0, 30, 1],
-    ["four_frame", 0, 95, 4],
-    ["burst", 0, 140, 3],
-    ["gif", 0, 210, 1],
-    ["photo", 0, 305, 1],
-    ["photo", 1, 60, 1],
-    ["four_frame", 1, 180, 4],
-    ["burst", 1, 260, 3],
-    ["photo", 1, 400, 1],
-    ["gif", 2, 120, 1],
-    ["photo", 2, 240, 1],
-    ["photo", 4, 90, 1],
-    ["four_frame", 4, 300, 4],
-    ["burst", 6, 150, 3],
+  // mode, dayOffset, minutesAgoIntoDay, frameCount, filter id (null = raw).
+  const specs: [BoothGroup["mode"], number, number, number, string | null][] = [
+    ["photo", 0, 30, 1, "noir"],
+    ["four_frame", 0, 95, 4, null],
+    ["burst", 0, 140, 3, "sepia"],
+    ["gif", 0, 210, 1, null],
+    ["photo", 0, 305, 1, null],
+    ["photo", 1, 60, 1, "vivid"],
+    ["four_frame", 1, 180, 4, null],
+    ["burst", 1, 260, 3, null],
+    ["photo", 1, 400, 1, null],
+    ["gif", 2, 120, 1, null],
+    ["photo", 2, 240, 1, null],
+    ["photo", 4, 90, 1, null],
+    ["four_frame", 4, 300, 4, null],
+    ["burst", 6, 150, 3, null],
   ];
-  return specs.map(([mode, dayOffset, minsAgo, frameCount], i) =>
-    group(i, mode, now - dayOffset * DAY_MS - minsAgo * 60_000, frameCount),
+  return specs.map(([mode, dayOffset, minsAgo, frameCount, filter], i) =>
+    group(i, mode, now - dayOffset * DAY_MS - minsAgo * 60_000, frameCount, filter),
   );
 }
