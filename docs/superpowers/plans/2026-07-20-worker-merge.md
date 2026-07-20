@@ -28,6 +28,8 @@ The reordering follows one rule: **merge first against the existing queue, then 
 - Commit and push after every task. Push to `main` deploys to prod; do not batch.
 - Do not use PRs. Work directly on `main`.
 - Run `bunx biome format --write` on generated drizzle migration meta before committing.
+- **The per-task "Files:" lists are indicative, not exhaustive.** Task 1 named 8 files and touched 46; the unnamed ones (CI matrix and path filters, the `scripts/check-*.ts` service-list guards, `product.json`, `vitest.config.ts`, `knip.jsonc`, Pulumi config, Dockerfile COPY lines) were load-bearing. Grep for what you are changing rather than trusting the list, and note that a `*.json` grep misses `knip.jsonc`.
+- **This checkout is shared with 8-10 concurrent sessions** that have uncommitted work in the same tree. Stage explicit paths — never `git add -A`, `git add .`, or `git commit -a`.
 - `products/control-center/api` gains a dependency on `@www/worker-runtime` in Task 2. It is a leaf package; this edge is intentional.
 
 ## File Structure
@@ -757,7 +759,9 @@ export { runYoutubeIngest } from "./services/youtube-ingest-service";
 
 In `products/control-center/worker/src/index.ts`:
 
-- Delete the `registerNotifyHandler()` / `registerYoutubeIngestHandler()` calls and the `notify-queue` worker object.
+- Delete the `registerNotifyHandler()` / `registerYoutubeIngestHandler()` calls and the `queue-worker` worker object (named `notify-queue` before Task 1 renamed it).
+- **Move the disk guard off the shared cycle.** Task 1 left `hasSufficientDisk` gating the whole `queue-worker` cycle, which — now that one loop drains every type — means a NAS below the 50 GB floor silently stops APNs `notify` delivery too. Putting the guard inside the `youtube_ingest` handler below is what fixes that; do not leave a copy at the cycle level. Remove the comment Task 1 added there naming the tradeoff.
+- Delete the stale comment at `products/control-center/api/src/jobs/queue.ts:95` claiming media-worker omits the type filter. Task 1 deliberately left it because this task rewrites the file.
 - Before the `workers` array:
 
 ```ts
@@ -1012,7 +1016,13 @@ While in that file, fix the docstring at `:4`: it claims the cycle runs "for eac
 
 In `products/control-center/api/src/env.ts`, delete `"OPENROUTER_API_KEY",` (:48) and `OPENROUTER_API_KEY: z.string().default(""),` (:127). Leave the `packages/logger` redaction entries — they cost nothing and guard against the key reappearing.
 
-In `packages/platform/src/index.ts:460`, delete `OPENROUTER_API_KEY: secretCatalog.openRouter.apiKey` from the `worker` secret usage — nothing reads the env var now.
+Remove `OPENROUTER_API_KEY` from **three** places, not one — Task 1 found the key had only ever been on the deleted `media-worker` usage, and had to re-add it to keep it reachable. An existing test enforces that the `api` and `worker` secret sets stay in lockstep, so it now sits on both:
+
+- `packages/platform/src/index.ts` — the `apiSecrets` set
+- `packages/platform/src/index.ts` — the `workerSecrets` set
+- `infra/test/secrets-derivation.test.ts` — the golden fixture, which carries an explanatory comment pointing here
+
+Removing it from only one set fails the lockstep test; removing it from both without the golden fails the derivation test.
 
 - [ ] **Step 6: Verify and commit**
 
@@ -1174,7 +1184,7 @@ In `runtime.ts`:
 - Remove the `statsEveryNRuns` option from `WorkerRuntimeOptions` and the `opts.statsEveryNRuns ??` line; use `DEFAULT_STATS_EVERY_N_RUNS` directly and rename it `STATS_EVERY_N_RUNS`.
 - Remove `state.stats.memory = process.memoryUsage();` from the `finally` block, and `rss` / `heapUsed` from the debug snapshot.
 - Remove the `stats()` method from the returned object.
-- Update the header comment: the per-app stats cadence knob no longer exists, and there is one worker app now, not two.
+- Update the header comment: the per-app stats cadence knob no longer exists, and there is one worker app now, not two. Task 1 left this file's comments half-updated (e.g. prose referring to "the former products/control-center/media-worker", and a `statsEveryNRuns` doc block explaining media-worker's 30 when no caller passes 30 any more). Sweep the whole file's comments, not just the header.
 
 - [ ] **Step 3: Update the runtime tests**
 
@@ -1283,6 +1293,17 @@ kubectl exec -n control-center control-center-1 -- psql -U postgres -d control_c
   "SELECT status, count(*) FROM job WHERE type='youtube_ingest' GROUP BY status;"
 kubectl -n control-center exec deploy/worker -- df -h /app/media
 ```
+
+**Watch worker RSS during this, and do not skip it.** The `512M` limit is a judgement call, not a measurement: it is down from media-worker's 1G and up from worker's old 384M, and nothing has exercised it under a real download. The merge also means a worker OOM now takes the light and climate enforcers down with it — the blast-radius coupling the original split existed to prevent, accepted deliberately for one deployable. If RSS approaches the limit, raise it in `infra/src/services.ts`; that is one number.
+
+```bash
+kubectl -n control-center top pod -l app=worker
+kubectl -n control-center get pods -l app=worker -o jsonpath='{.items[*].status.containerStatuses[*].restartCount}'
+```
+
+A nonzero restart count during the drain means the limit is too low, not that the download failed.
+
+Also re-enable the adhoc source if it should be live: Task 1 set `media_source.src_adhoc` to `enabled = false` as belt-and-braces while the pre-rewrite ingest path was deployed. It has NULL `external_id` and NULL `url`, so the poller skips it either way, and `media.addUrls` (the only thing that would populate it) has zero callers. Leaving it disabled is fine; just know why it is off.
 
 - [ ] **Step 7: Record the outcome**
 
