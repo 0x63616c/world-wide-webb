@@ -250,8 +250,9 @@ jobs:
 
   # Typecheck + dead-code run in parallel with the test suite so type
   # errors and knip regressions surface without waiting for Playwright to
-  # install and all tests to run. Build jobs and deploy depend on both
-  # `test-unit`, `test-storybook`, and `typecheck` passing (www-q2p5).
+  # install and all tests to run. `deploy` depends on `test-unit`,
+  # `test-storybook`, and `typecheck` all passing (www-q2p5). Build jobs do
+  # NOT — they gate on `changes` alone, so they run concurrently with these.
   typecheck:
     needs: [changes]
     runs-on: ubuntu-latest
