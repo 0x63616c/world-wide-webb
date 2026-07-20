@@ -1,22 +1,21 @@
 /**
  * youtube_ingest job handler (www-kp4k.4 + www-kp4k.5). Given a mediaItemId:
  *   1. Validates the item exists and is not already done.
- *   2. Downloads audio (always: best m4a/opus) + thumbnail via yt-dlp.
- *   3. Downloads 1080p AV1 video if the source's video_policy = 'on'.
- *      NEVER re-transcodes , we pick the AV1 stream YouTube already serves.
- *   4. Records file paths, byte sizes, and duration in media_item.
- *   5. Calls OpenRouter to enrich the raw title → clean_title/artist/event/category.
- *   6. Sets status = 'ready' (or updates error on throw).
+ *   2. Downloads one video-only file (audio is muxed inside the container) plus
+ *      its thumbnail via a single yt-dlp call. NEVER re-transcodes , we pick the
+ *      AV1 stream YouTube already serves.
+ *   3. Records the file path, byte size, and duration in media_item.
+ *   4. Sets status = 'ready' (or updates error on throw).
  *
- * Idempotent: if status is already 'ready' OR all expected files exist on disk,
- * the handler is a no-op. The queue handles retries via claimOne.
+ * Idempotent: if status is already 'ready', the handler is a no-op. The queue
+ * handles retries via claimOne.
  *
  * Exported as runYoutubeIngest and wired into the worker's JOBS array; the
  * job:youtube_ingest worker is what drains it.
  */
 
 import { execFile } from "node:child_process";
-import { statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { promisify } from "node:util";
 import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
@@ -31,35 +30,43 @@ const execFileAsync = promisify(execFile);
 interface YoutubeIngestPayload {
   mediaItemId: string;
   videoId: string;
-  videoPolicy: string; // 'none' | 'on'
 }
 
 /**
- * Run yt-dlp to download audio (and optionally AV1 video + thumbnail).
- * Returns the paths that were actually written to MEDIA_STORAGE_DIR.
+ * Download one video (audio is inside the muxed container) plus its thumbnail.
  *
- * @public , exported for unit testing so tests can mock the subprocess
+ * YouTube serves video and audio as separate DASH streams above 360p; the `+`
+ * in the selector makes ffmpeg mux them into one file. AV1 is preferred as the
+ * most efficient codec YouTube serves; the fallback after `/` is a pre-combined
+ * stream. We never re-encode -- both paths are stream copies.
+ *
+ * The output template is archival rather than machine-keyed: the DB keeps the
+ * video id as identity, while the filename serves whoever browses the NAS in
+ * VLC a year from now. Because that template includes a subdirectory, we ask
+ * yt-dlp for the exact path it wrote instead of globbing for it.
+ *
+ * @public - exported for unit testing so tests can mock the subprocess
  */
 export async function ytdlpDownload(
   videoId: string,
-  videoPolicy: string,
   storageDir: string,
-  signal?: AbortSignal,
-): Promise<{ audioPath: string; videoPath: string | null; thumbPath: string | null }> {
-  const baseOutput = `${storageDir}/${videoId}.%(ext)s`;
+  signal: AbortSignal,
+): Promise<{ videoPath: string; thumbPath: string | null }> {
+  const output = `${storageDir}/%(uploader)s/%(upload_date)s - %(title)s [%(id)s].%(ext)s`;
 
-  // Audio: always download best quality (m4a/opus). -x extracts audio only.
-  // We keep the container as-is (no forced conversion) , m4a and opus are both
-  // lossless in terms of re-encode, and the file is small (~85 MB/set).
-  await execFileAsync(
+  const { stdout } = await execFileAsync(
     "yt-dlp",
     [
       "-f",
-      "bestaudio",
-      "-x",
+      "bv*[vcodec^=av01][height<=1080]+ba/b[height<=1080]",
+      "-N",
+      "4", // concurrent DASH fragments -- the real throughput lever
       "--write-thumbnail",
       "--output",
-      baseOutput,
+      output,
+      "--print",
+      "after_move:filepath",
+      "--no-simulate",
       "--quiet",
       "--no-warnings",
       `https://www.youtube.com/watch?v=${videoId}`,
@@ -67,57 +74,23 @@ export async function ytdlpDownload(
     { signal },
   );
 
-  // Locate the actual audio file yt-dlp produced (extension varies: m4a/opus/webm).
-  const audioPath = findDownloadedFile(storageDir, videoId, [
-    ".m4a",
-    ".opus",
-    ".webm",
-    ".mp3",
-    ".ogg",
-  ]);
-  const thumbPath = findDownloadedFile(storageDir, videoId, [".jpg", ".jpeg", ".png", ".webp"]);
-
-  let videoPath: string | null = null;
-  if (videoPolicy === "on") {
-    // Video: prefer AV1 (av01) ≤1080p , the most efficient codec YouTube serves.
-    // NEVER re-encode: if AV1 isn't available, fall back to best video+audio in
-    // a single container at ≤1080p. The `-f` selector tries av01 first.
-    const videoOutput = `${storageDir}/${videoId}.video.%(ext)s`;
-    await execFileAsync(
-      "yt-dlp",
-      [
-        "-f",
-        "bv*[vcodec^=av01][height<=1080]+ba/b[height<=1080]",
-        "--output",
-        videoOutput,
-        "--quiet",
-        "--no-warnings",
-        "--no-write-thumbnail", // already wrote it above
-        `https://www.youtube.com/watch?v=${videoId}`,
-      ],
-      { signal },
-    );
-    videoPath = findDownloadedFile(storageDir, videoId, [
-      ".video.mp4",
-      ".video.webm",
-      ".video.mkv",
-      ".video.mov",
-    ]);
+  const videoPath = stdout.trim().split("\n").filter(Boolean).pop();
+  if (!videoPath) {
+    throw new Error(`yt-dlp reported no output path for ${videoId}`);
   }
 
-  return { audioPath: audioPath ?? `${storageDir}/${videoId}`, videoPath, thumbPath };
+  return { videoPath, thumbPath: findThumbnailFor(videoPath) };
 }
 
-/** Try a list of suffixes in order; return first existing path or null. */
-function findDownloadedFile(dir: string, videoId: string, suffixes: string[]): string | null {
-  for (const suffix of suffixes) {
-    const candidate = `${dir}/${videoId}${suffix}`;
-    try {
-      statSync(candidate);
-      return candidate;
-    } catch {
-      // not found, try next
-    }
+/**
+ * Locate the thumbnail yt-dlp wrote alongside the video. --write-thumbnail uses
+ * the same stem as the video file, so we look for that stem with an image
+ * extension rather than globbing the whole directory.
+ */
+function findThumbnailFor(videoPath: string): string | null {
+  const stem = videoPath.replace(/\.[^./]+$/, "");
+  for (const ext of [".jpg", ".jpeg", ".png", ".webp"]) {
+    if (existsSync(`${stem}${ext}`)) return `${stem}${ext}`;
   }
   return null;
 }
@@ -133,84 +106,15 @@ function fileSizeBytes(path: string | null): number | null {
 }
 
 /**
- * Call OpenRouter to enrich a raw YouTube title into structured metadata.
- * THROWS if OPENROUTER_API_KEY is not configured , no fake data (CC rule).
- *
- * @public , exported for unit testing (mock fetch)
- */
-export async function enrichTitle(rawTitle: string): Promise<{
-  clean_title: string;
-  artist: string;
-  event: string;
-  category: string;
-}> {
-  if (!env.OPENROUTER_API_KEY) {
-    throw new Error(
-      "OPENROUTER_API_KEY is not configured , enrichment requires the OpenRouter secret",
-    );
-  }
-
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
-    },
-    body: JSON.stringify({
-      // Small, fast model , this is a simple structured-extraction call.
-      model: "openai/gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You extract structured metadata from YouTube video titles. " +
-            'Respond ONLY with strict JSON: {"clean_title": "...", "artist": "...", "event": "...", "category": "..."}. ' +
-            "clean_title: human-readable title without platform noise. " +
-            "artist: performer name (empty string if unclear). " +
-            "event: event/venue name (empty string if unclear). " +
-            'category: one of "dj-set", "live", "album", "mix", "interview", "other".',
-        },
-        {
-          role: "user",
-          content: `Extract metadata from this YouTube title: "${rawTitle}"`,
-        },
-      ],
-    }),
-    signal: AbortSignal.timeout(15_000),
-  });
-
-  if (!res.ok) {
-    throw new Error(`OpenRouter HTTP ${res.status}: ${await res.text()}`);
-  }
-
-  const body = (await res.json()) as {
-    choices: Array<{ message: { content: string } }>;
-  };
-
-  const content = body.choices[0]?.message?.content;
-  if (!content) throw new Error("OpenRouter returned no content");
-
-  const parsed = JSON.parse(content) as {
-    clean_title: string;
-    artist: string;
-    event: string;
-    category: string;
-  };
-
-  return parsed;
-}
-
-/**
  * The actual youtube_ingest job handler, exported as runYoutubeIngest below.
- * Idempotent: exits early if the item is already 'ready' or files already exist.
+ * Idempotent: exits early if the item is already 'ready'.
  *
  * The signal is threaded into every yt-dlp subprocess so a job that exceeds its
  * maxMs kills the download rather than leaving it running past the row's death.
  */
 async function handleYoutubeIngest(rawPayload: unknown, signal: AbortSignal): Promise<void> {
   const payload = rawPayload as YoutubeIngestPayload;
-  const { mediaItemId, videoId, videoPolicy } = payload;
+  const { mediaItemId, videoId } = payload;
 
   // Load the item to check current state.
   const rows = await db.select().from(mediaItem).where(eq(mediaItem.id, mediaItemId)).limit(1);
@@ -232,27 +136,19 @@ async function handleYoutubeIngest(rawPayload: unknown, signal: AbortSignal): Pr
 
   const storageDir = env.MEDIA_STORAGE_DIR;
 
-  // Download audio + thumbnail (+ video if policy = on).
   const downloadStart = performance.now();
-  getLogger().info({ videoId, videoPolicy }, "yt-dlp download start");
-  const { audioPath, videoPath, thumbPath } = await ytdlpDownload(
-    videoId,
-    videoPolicy,
-    storageDir,
-    signal,
-  );
+  getLogger().info({ videoId }, "yt-dlp download start");
+  const { videoPath, thumbPath } = await ytdlpDownload(videoId, storageDir, signal);
   const downloadMs = +(performance.now() - downloadStart).toFixed(1);
 
-  // Record file sizes (bytes) from disk.
-  const audioBytes = fileSizeBytes(audioPath);
   const videoBytes = fileSizeBytes(videoPath);
   getLogger().info(
-    { videoId, audioPath, videoPath, audioBytes, videoBytes, durationMs: downloadMs },
+    { videoId, videoPath, videoBytes, durationMs: downloadMs },
     "yt-dlp download complete",
   );
 
-  // Get duration from the audio file via yt-dlp --dump-json (already downloaded,
-  // so this is metadata-only , no network). We tolerate failure here since the
+  // Get duration from the file via yt-dlp --dump-json (already downloaded, so
+  // this is metadata-only , no network). We tolerate failure here since the
   // file is already on disk.
   let durationSec: number | null = null;
   try {
@@ -268,41 +164,15 @@ async function handleYoutubeIngest(rawPayload: unknown, signal: AbortSignal): Pr
     getLogger().warn({ videoId }, "yt-dlp --dump-json failed, duration will be null");
   }
 
-  // Enrichment: call OpenRouter for structured metadata. If the key is missing
-  // or the call fails, we continue , enrichment is best-effort vs download.
-  // However we THROW if key is present but the call fails (transient) so the
-  // queue can retry. If key is absent, skip silently (worker running without
-  // enrichment configured).
-  let enriched: Awaited<ReturnType<typeof enrichTitle>> | null = null;
-  if (env.OPENROUTER_API_KEY) {
-    const enrichStart = performance.now();
-    getLogger().info({ videoId, model: "openai/gpt-4o-mini" }, "OpenRouter enrich start");
-    enriched = await enrichTitle(item.rawTitle !== videoId ? item.rawTitle : videoId);
-    const enrichMs = +(performance.now() - enrichStart).toFixed(1);
-    getLogger().info(
-      { videoId, model: "openai/gpt-4o-mini", durationMs: enrichMs },
-      "OpenRouter enrich complete",
-    );
-  } else {
-    // Key absent , enrichment skipped; never log the key value itself.
-    getLogger().warn({ videoId }, "OpenRouter enrich skipped , OPENROUTER_API_KEY not configured");
-  }
-
-  // Mark as ready and persist all metadata.
+  // Mark as ready and persist file metadata.
   await db
     .update(mediaItem)
     .set({
       status: "ready",
-      audioPath,
-      videoPath: videoPath ?? null,
+      videoPath,
       thumbPath: thumbPath ?? null,
-      audioBytes: audioBytes ?? null,
       videoBytes: videoBytes ?? null,
       durationSec,
-      cleanTitle: enriched?.clean_title ?? null,
-      artist: enriched?.artist ?? null,
-      event: enriched?.event ?? null,
-      category: enriched?.category ?? null,
       error: null,
       updatedAt: new Date(),
     })

@@ -45,7 +45,6 @@ const SECRET_FILE_ENV = [
   "HOME_LON",
   "HOME_PLACE_NAME",
   "HOME_RADIUS_MILES",
-  "OPENROUTER_API_KEY",
   "MEDIA_STORAGE_DIR",
   "SPOTIFY_CLIENT_ID",
   "SPOTIFY_CLIENT_SECRET",
@@ -121,10 +120,6 @@ export const envSchema = z.object({
   // names every entity `<prefix>_*`, e.g. sensor.evee_battery_level). The car's
   // nickname is "Evee".
   TESLA_ENTITY_PREFIX: z.string().default("evee"),
-
-  // OpenRouter API key for LLM-based metadata enrichment in the media pipeline.
-  // Optional , empty string disables enrichment so the worker boots without it.
-  OPENROUTER_API_KEY: z.string().default(""),
 
   // Where the worker stores downloaded audio/video/thumb files on the host.
   // Delivered from 1Password via the docker-secret rail (same pattern as HOME_*).

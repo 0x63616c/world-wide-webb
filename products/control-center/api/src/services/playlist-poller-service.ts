@@ -1,8 +1,9 @@
 /**
  * Playlist-poller service (www-kp4k.3). Each cycle:
  *   1. Fetches all enabled media_source rows.
- *   2. For each playlist-kind source, runs `yt-dlp --flat-playlist --print id <url>`
- *      to enumerate video IDs without downloading any content.
+ *   2. For every enabled source that resolves to a URL (regardless of kind), runs
+ *      `yt-dlp --flat-playlist --print id <url>` to enumerate video IDs without
+ *      downloading any content.
  *   3. For each video ID not already in media_item, inserts a new media_item
  *      (status=queued) and enqueues a `youtube_ingest` job.
  *
@@ -123,7 +124,6 @@ export async function runPlaylistPollerCycle(
         await enqueueJob("youtube_ingest", {
           mediaItemId: rows[0].id,
           videoId,
-          videoPolicy: source.videoPolicy,
         });
       }
     }

@@ -154,16 +154,6 @@ describe("media_item table schema", () => {
 });
 
 describe("env schema media keys (www-kp4k.1)", () => {
-  it("accepts OPENROUTER_API_KEY", () => {
-    const result = envSchema.parse({ OPENROUTER_API_KEY: "sk-or-test-key" });
-    expect(result.OPENROUTER_API_KEY).toBe("sk-or-test-key");
-  });
-
-  it("defaults OPENROUTER_API_KEY to empty string", () => {
-    const result = envSchema.parse({});
-    expect(result.OPENROUTER_API_KEY).toBe("");
-  });
-
   it("accepts MEDIA_STORAGE_DIR", () => {
     const result = envSchema.parse({ MEDIA_STORAGE_DIR: "/mnt/media" });
     expect(result.MEDIA_STORAGE_DIR).toBe("/mnt/media");

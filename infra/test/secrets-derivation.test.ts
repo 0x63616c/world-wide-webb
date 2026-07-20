@@ -33,8 +33,6 @@ const SHARED_API_WORKER_SECRETS = {
   APNS_KEY_ID: "APNS_AUTH_KEY__KEY_ID",
   APNS_TEAM_ID: "APNS_AUTH_KEY__TEAM_ID",
   APNS_KEY_CONTENT: "APNS_AUTH_KEY__P8_CONTENT",
-  // Worker-side media enrichment; mirrored onto api by the lockstep rule.
-  OPENROUTER_API_KEY: "OPENROUTER__CREDENTIAL",
 } as const;
 
 // The exact SERVICE_SECRETS map as it was hand-maintained before the derivation.

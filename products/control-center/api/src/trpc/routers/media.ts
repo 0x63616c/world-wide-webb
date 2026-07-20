@@ -222,7 +222,6 @@ export const mediaRouter = router({
           kind: "adhoc",
           title: "Ad-hoc URLs",
           enabled: true,
-          videoPolicy: "on",
         })
         .onConflictDoNothing();
 
@@ -245,7 +244,6 @@ export const mediaRouter = router({
           await enqueueJob("youtube_ingest", {
             mediaItemId: rows[0].id,
             videoId,
-            videoPolicy: "on",
           });
           enqueued++;
         }

@@ -1,12 +1,59 @@
 /**
- * Unit tests for enrichTitle and the youtube_ingest handler (www-kp4k.4 + www-kp4k.5).
- * - enrichTitle: fetch mocked, tests THROW on non-OK responses.
+ * Unit tests for ytdlpDownload and the youtube_ingest handler (www-kp4k.4 + www-kp4k.5).
+ * - ytdlpDownload: execFile mocked, one video-only download call asserted.
  * - Handler exports verified.
  *
  * DB fully mocked , no real Postgres or yt-dlp subprocess.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { enrichTitle } from "../services/youtube-ingest-service";
+import { ytdlpDownload } from "../services/youtube-ingest-service";
+
+// ── execFile mock ─────────────────────────────────────────────────────────────
+// The service builds its promisified downloader from node:child_process's
+// execFile at module load, so we mock the module and route every call through a
+// swappable impl. promisify appends a Node-style callback as the final argument;
+// resolving it with { stdout, stderr } is what execFileAsync destructures.
+
+const execFileState = vi.hoisted(() => ({
+  impl: null as
+    | null
+    | ((
+        file: string,
+        args: string[],
+        options: Record<string, unknown>,
+        cb: (err: unknown, res: { stdout: string; stderr: string }) => void,
+      ) => void),
+}));
+
+vi.mock("node:child_process", () => ({
+  execFile: (
+    file: string,
+    args: string[],
+    options: Record<string, unknown>,
+    cb: (err: unknown, res: { stdout: string; stderr: string }) => void,
+  ) => {
+    if (!execFileState.impl) throw new Error("execFile impl not set for this test");
+    execFileState.impl(file, args, options, cb);
+  },
+}));
+
+/** Install an execFile mock that records the argv array of every call. */
+function captureExecFile(stdoutLines: string[]): string[][] {
+  const calls: string[][] = [];
+  execFileState.impl = (_file, args, _options, cb) => {
+    calls.push(args);
+    cb(null, { stdout: `${stdoutLines.join("\n")}\n`, stderr: "" });
+  };
+  return calls;
+}
+
+/** Install an execFile mock that records the options object of every call. */
+function mockExecFileOptions(sink: Array<Record<string, unknown>>, stdoutLines: string[]): void {
+  execFileState.impl = (_file, _args, options, cb) => {
+    sink.push(options);
+    cb(null, { stdout: `${stdoutLines.join("\n")}\n`, stderr: "" });
+  };
+}
 
 // ── DB mock ───────────────────────────────────────────────────────────────────
 
@@ -40,7 +87,6 @@ vi.mock("../db/index", () => {
 
 vi.mock("../env", () => ({
   env: {
-    OPENROUTER_API_KEY: "test-openrouter-key",
     MEDIA_STORAGE_DIR: "/tmp/test-media",
     NODE_ENV: "test",
   },
@@ -51,63 +97,67 @@ vi.mock("../env", () => ({
 beforeEach(() => {
   dbState.items = [];
   dbState.updates = [];
+  execFileState.impl = null;
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ── enrichTitle tests ─────────────────────────────────────────────────────────
+// ── ytdlpDownload tests ─────────────────────────────────────────────────────────
 
-describe("enrichTitle", () => {
-  it("returns structured metadata from a mocked OpenRouter response", async () => {
-    const mockResponse = {
-      choices: [
-        {
-          message: {
-            content: JSON.stringify({
-              clean_title: "Solomun Live at EDC Las Vegas 2026",
-              artist: "Solomun",
-              event: "EDC Las Vegas 2026",
-              category: "dj-set",
-            }),
-          },
-        },
-      ],
-    };
-
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify(mockResponse), { status: 200 }),
-    );
-
-    const result = await enrichTitle("Solomun Live at EDC Las Vegas 2026 | Insomniac");
-    expect(result.clean_title).toBe("Solomun Live at EDC Las Vegas 2026");
-    expect(result.artist).toBe("Solomun");
-    expect(result.event).toBe("EDC Las Vegas 2026");
-    expect(result.category).toBe("dj-set");
+describe("ytdlpDownload", () => {
+  it("makes exactly one yt-dlp call", async () => {
+    const calls = captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
+    await ytdlpDownload("abc123", "/media", new AbortController().signal);
+    expect(calls).toHaveLength(1);
   });
 
-  it("throws on non-OK OpenRouter response", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("Unauthorized", { status: 401 }));
-    await expect(enrichTitle("some title")).rejects.toThrow("OpenRouter HTTP 401");
+  it("requests AV1 <=1080p and never re-encodes", async () => {
+    const calls = captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
+    await ytdlpDownload("abc123", "/media", new AbortController().signal);
+    expect(calls[0]).toContain("bv*[vcodec^=av01][height<=1080]+ba/b[height<=1080]");
   });
 
-  it("throws when OpenRouter returns no content", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ choices: [] }), { status: 200 }),
-    );
-    await expect(enrichTitle("some title")).rejects.toThrow("OpenRouter returned no content");
+  it("downloads fragments concurrently", async () => {
+    const calls = captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
+    await ytdlpDownload("abc123", "/media", new AbortController().signal);
+    expect(calls[0]).toContain("-N");
+    expect(calls[0]).toContain("4");
+  });
+
+  it("uses an archival output template, not the bare video id", async () => {
+    const calls = captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
+    await ytdlpDownload("abc123", "/media", new AbortController().signal);
+    const output = calls[0][calls[0].indexOf("--output") + 1];
+    expect(output).toBe("/media/%(uploader)s/%(upload_date)s - %(title)s [%(id)s].%(ext)s");
+  });
+
+  it("returns the path yt-dlp reports rather than guessing it", async () => {
+    captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
+    const out = await ytdlpDownload("abc123", "/media", new AbortController().signal);
+    expect(out.videoPath).toBe("/media/Chan/20190101 - Set [abc123].mkv");
+  });
+
+  it("forwards the abort signal so a timeout kills the subprocess", async () => {
+    const calls: Array<Record<string, unknown>> = [];
+    mockExecFileOptions(calls, ["/media/Chan/x.mkv"]);
+    const ac = new AbortController();
+    await ytdlpDownload("abc123", "/media", ac.signal);
+    expect(calls[0]?.signal).toBe(ac.signal);
+  });
+
+  it("never downloads audio separately", async () => {
+    const calls = captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
+    await ytdlpDownload("abc123", "/media", new AbortController().signal);
+    expect(calls[0]).not.toContain("-x");
+    expect(calls[0]).not.toContain("bestaudio");
   });
 });
 
 // ── Export surface ────────────────────────────────────────────────────────────
 
 describe("youtube-ingest-service exports", () => {
-  it("enrichTitle is exported", async () => {
-    const mod = await import("../services/youtube-ingest-service");
-    expect(typeof mod.enrichTitle).toBe("function");
-  });
-
   it("ytdlpDownload is exported", async () => {
     const mod = await import("../services/youtube-ingest-service");
     expect(typeof mod.ytdlpDownload).toBe("function");
