@@ -165,6 +165,51 @@ async function runBurst(sessionId: string | null): Promise<void> {
  * already in flight is a no-op (double-taps on the dim overlay must not open
  * two camera streams). `runner` is injectable for tests only.
  */
+export type CameraPermissionState = "granted" | "denied" | "prompt" | "unknown";
+
+/**
+ * Read the OS camera permission without touching the camera. Mirrors
+ * pushPermissionState for the settings page: the value changes outside React
+ * (iOS Settings, the TCC prompt), so callers re-read it after any probe.
+ * WebKit only gained the "camera" permission descriptor recently, so a throwing
+ * query reports "unknown" rather than guessing.
+ */
+export async function cameraPermissionState(): Promise<CameraPermissionState> {
+  try {
+    const status = await navigator.permissions.query({ name: "camera" as PermissionName });
+    return status.state;
+  } catch {
+    return "unknown";
+  }
+}
+
+export type CameraProbeResult = { ok: true } | { ok: false; name: string; message: string };
+
+/**
+ * Deliberately open (then immediately release) the front camera. This is the
+ * settings page's "Test camera" action: it exercises the exact getUserMedia
+ * call the wake burst makes, and , when the OS permission is still
+ * undetermined , it is an on-demand way to raise the TCC prompt instead of
+ * waiting for the next idle-dim wake. Logs to the same wake channel so the
+ * probe shows up next to real bursts in frontend_log.
+ */
+export async function probeCamera(): Promise<CameraProbeResult> {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user" },
+      audio: false,
+    });
+    for (const track of stream.getTracks()) track.stop();
+    wakeLog.info("camera probe ok");
+    return { ok: true };
+  } catch (err) {
+    const name = err instanceof Error ? err.name : "unknown";
+    const message = err instanceof Error ? err.message : String(err);
+    wakeLog.warn("camera probe failed", { name, message });
+    return { ok: false, name, message };
+  }
+}
+
 export function captureWakeBurst(
   sessionId: string | null,
   runner: (sessionId: string | null) => Promise<void> = runBurst,
