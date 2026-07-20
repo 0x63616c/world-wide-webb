@@ -9,25 +9,6 @@
   `beads-export.jsonl` is the full raw dump. Pull ideas from there as needed.
 - Before writing or reviewing TypeScript or TSX, use the `writing-scalable-typescript` skill when available.
 
-## Commands
-
-- Install deps: `bun install --frozen-lockfile`.
-- Dev stack: `bun run dev`.
-- Tests: `bun run test`.
-- Typecheck: `bun run typecheck`.
-- Lint: `bun run lint`.
-- Dead code: `bun run knip`.
-
-## Current Shape
-
-- `products/control-center/web`, React board, Storybook, Capacitor iOS shell.
-- `products/control-center/api`, Bun + tRPC API and domain logic.
-- `products/control-center/worker`, interval loops plus the durable job queue and media pipeline.
-- `products/control-center/storybook`, wrapper around web Storybook.
-- `products/captive-portal`, split into `apps/frontend` and `apps/api`.
-- `packages/api`, `packages/logger`, `packages/platform`, shared support packages.
-- `infra`, current Pulumi + Kubernetes deploy program.
-
 ## Invariants
 
 - Fixed wall panel, `1366x1024`, not responsive.
