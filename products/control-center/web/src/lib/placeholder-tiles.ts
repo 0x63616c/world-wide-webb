@@ -20,11 +20,11 @@
 //      the edge length with no special corner tile.
 // Together they cover every world cell exactly once (minus the real tiles),
 // asserted gap-free / overlap-free / sliver-free by placeholder-tiles.test.ts.
-// BENTO_TILES/BENTO_RECTS below are `bentoFor(clusterWorldCells())` , the static
+// BENTO_TILES below is `bentoFor(clusterWorldCells())` , the static
 // registry defaults , kept as module-load consts for the test and as the
 // initial/fallback fill before the server layout resolves.
 import { fillAround, type Rect } from "./bento-fill";
-import { WORLD_COLS, WORLD_ROWS, worldCellRect } from "./grid-constants";
+import { WORLD_COLS, WORLD_ROWS } from "./grid-constants";
 import { TILE_REGISTRY } from "./tile-registry";
 
 export type PlaceholderTile = {
@@ -158,14 +158,8 @@ function buildWall(): PlaceholderTile[] {
 const WALL_RING: PlaceholderTile[] = buildWall();
 
 // Full decorative fill for the static registry defaults, kept as the module-load
-// consts for the validation test and as the initial/fallback layout fill.
+// const for the validation test and as the initial/fallback layout fill.
 export const BENTO_TILES: PlaceholderTile[] = bentoFor(clusterWorldCells());
-
-// World-pixel rects for every placeholder, for rendering + windowing in Board.
-// Flush cells still get the standard gutter, because worldCellRect spaces tiles
-// by CELL_PITCH (cell + gap) , identical spacing to the real tiles.
-export const BENTO_RECTS: { id: string; rect: ReturnType<typeof worldCellRect> }[] =
-  BENTO_TILES.map((p) => ({ id: p.id, rect: worldCellRect(p.col, p.row, p.cols, p.rows) }));
 
 // ── validation (used by the test, kept beside the data it validates) ──
 

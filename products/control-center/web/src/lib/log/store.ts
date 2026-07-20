@@ -194,7 +194,7 @@ function txDone(tx: IDBTransaction): Promise<void> {
 }
 
 /** Approximate on-disk cost of an entry. Cheap and good enough to drive eviction. */
-export function entryBytes(entry: LogEntry): number {
+function entryBytes(entry: LogEntry): number {
   let n = 64; // seq/ts/level/flags overhead
   n += entry.source.length * 2;
   n += entry.msg.length * 2;

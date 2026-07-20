@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { getLogger } from "@www/logger";
 import { and, desc, eq, isNull } from "drizzle-orm";
@@ -31,7 +31,7 @@ export type BoothPhotoMode = (typeof BOOTH_PHOTO_MODES)[number];
 export const BOOTH_FILTER_PATTERN = /^[a-z0-9_]{1,32}$/;
 
 /** True for null (unfiltered) or a well-formed filter id; false for a bad slug. */
-export function isValidBoothFilter(filter: string | null): boolean {
+function isValidBoothFilter(filter: string | null): boolean {
   return filter === null || BOOTH_FILTER_PATTERN.test(filter);
 }
 
@@ -62,7 +62,7 @@ export interface BoothPhotoSaved {
   path: string;
 }
 
-export interface BoothPhotoFrame {
+interface BoothPhotoFrame {
   id: string;
   path: string;
   capturedAt: number;
@@ -72,7 +72,7 @@ export interface BoothPhotoFrame {
   filter: string | null;
 }
 
-export interface BoothPhotoGroup {
+interface BoothPhotoGroup {
   groupId: string;
   mode: BoothPhotoMode;
   /** Newest frame's capture time; the gallery orders groups by it. */
@@ -97,12 +97,12 @@ const GIF_MAGIC = [0x47, 0x49, 0x46, 0x38]; // "GIF8" , covers 87a and 89a.
 const MAX_JPEG_BYTES = 4 * 1024 * 1024;
 const MAX_GIF_BYTES = 16 * 1024 * 1024;
 
-export function defaultBoothPhotoRoot(): string {
+function defaultBoothPhotoRoot(): string {
   return join(env.MEDIA_STORAGE_DIR, "booth-photos");
 }
 
 /** New booth-photo id (repo IDs default to prefix_<id>). */
-export function newBoothPhotoId(): string {
+function newBoothPhotoId(): string {
   return `bph_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
 }
 
@@ -327,9 +327,4 @@ export async function readBoothPhoto(
   } catch {
     return null;
   }
-}
-
-/** Delete one stored frame's bytes. Missing files are fine (used by a purge). */
-export async function deleteBoothPhotoFile(relPath: string, root = defaultBoothPhotoRoot()) {
-  await unlink(join(root, relPath)).catch(() => {});
 }

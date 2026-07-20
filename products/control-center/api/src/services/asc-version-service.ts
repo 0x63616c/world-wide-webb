@@ -52,7 +52,7 @@ export interface AscBuild {
   uploadedDate: string;
 }
 
-export function isAscConfigured(): boolean {
+function isAscConfigured(): boolean {
   return Boolean(env.ASC_KEY_ID && env.ASC_ISSUER_ID && env.ASC_KEY_CONTENT && env.ASC_APP_ID);
 }
 

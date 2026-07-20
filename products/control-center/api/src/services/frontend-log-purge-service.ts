@@ -24,7 +24,7 @@ import type * as schema from "../db/schema";
 export const FRONTEND_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Rows removed per statement. Small enough to keep each transaction short. */
-export const PURGE_BATCH_SIZE = 20_000;
+const PURGE_BATCH_SIZE = 20_000;
 
 /**
  * Upper bound on batches per run, so one job can never run unbounded against a

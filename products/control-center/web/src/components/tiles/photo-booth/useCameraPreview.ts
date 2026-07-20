@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type CameraStatus =
+type CameraStatus =
   /** getUserMedia in flight , stream not attached yet. */
   | "starting"
   /** Live stream attached and playing. */

@@ -7,8 +7,6 @@ export const GHCR_PULL_SECRET_NAMESPACES = [
   "captive-portal",
 ] as const satisfies readonly InfraNamespaceName[];
 
-export type GhcrPullSecretNamespace = (typeof GHCR_PULL_SECRET_NAMESPACES)[number];
-
 type GhcrPullSecretConsumer = {
   namespaceName: InfraNamespaceName;
   imagePullSecrets?: readonly string[];

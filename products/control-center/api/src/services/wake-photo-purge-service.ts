@@ -29,10 +29,10 @@ import { defaultWakePhotoRoot, deleteWakePhotoFile } from "./wake-photo-service"
 export const WAKE_PHOTO_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 
 /** Rows removed per batch. Each row is also a file unlink, so keep it modest. */
-export const PURGE_BATCH_SIZE = 500;
+const PURGE_BATCH_SIZE = 500;
 
 /** Upper bound on batches per run, so one job can never run unbounded. */
-export const MAX_BATCHES = 200;
+const MAX_BATCHES = 200;
 
 /** The wake-photo retention cutoff for `now`. */
 export function wakePhotoCutoff(now: Date): Date {

@@ -54,7 +54,7 @@ const shipLog = log.child(SHIP_SOURCE);
 // ─── transport ─────────────────────────────────────────────────────────────────
 
 /** Ship one batch for a device. The real impl posts to `logs.ingest`. */
-export type ShipTransport = (deviceId: string, entries: LogEntry[]) => Promise<void>;
+type ShipTransport = (deviceId: string, entries: LogEntry[]) => Promise<void>;
 
 /**
  * Standalone tRPC client for the shipper , NOT the React hooks client, and NOT

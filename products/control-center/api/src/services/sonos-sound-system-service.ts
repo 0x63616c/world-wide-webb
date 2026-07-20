@@ -46,11 +46,6 @@ function roomRank(name: string): number {
   return i === -1 ? ROOM_ORDER.length : i;
 }
 
-// Hardware source anchors (verified live 2026-07-11). Desk line-in jack and the
-// Living Room Beam's TV/ARC input — the two always-rendered Groups sources.
-export const DESK_LINE_IN_UUID = "RINCON_804AF28AAB2001400";
-export const BEAM_UUID = "RINCON_74CA6093255801400";
-
 export type SourceKind = "line-in" | "tv" | "spotify" | "airplay" | "other" | "idle";
 
 /** Classifies a coordinator CurrentURI into a source kind. Pure. */

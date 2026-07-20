@@ -27,9 +27,9 @@ export const IDLE_POLL_MS = 60_000;
 /** Stored failure-log tail size. */
 export const LOG_TAIL_BYTES = 4096;
 /** Job logs 404 briefly after a failure; wait this long before the first try. */
-export const LOG_TAIL_MIN_AGE_MS = 5_000;
+const LOG_TAIL_MIN_AGE_MS = 5_000;
 /** Give up on a run's log tail after this many failed fetches. */
-export const LOG_TAIL_MAX_ATTEMPTS = 5;
+const LOG_TAIL_MAX_ATTEMPTS = 5;
 
 // ─── zod edge schemas (same rationale as asc-version-service: a changed or
 // malformed payload fails loudly at the boundary, never writes garbage) ───────
@@ -112,7 +112,7 @@ export interface GithubCommitDetail {
   changedFileCount: number;
 }
 
-export function isGithubConfigured(): boolean {
+function isGithubConfigured(): boolean {
   return Boolean(env.GITHUB_ACTIONS_TOKEN);
 }
 
@@ -211,11 +211,6 @@ async function ghFetch(path: string, accept = "application/vnd.github+json"): Pr
 // Module-level cadence state. The worker is a single sequential poller, so a
 // plain variable is race-free; a restart just means one immediate poll.
 let lastAttemptAtMs = 0;
-
-/** Test-only: reset the cadence gate between cases. */
-export function resetPollGateForTest(): void {
-  lastAttemptAtMs = 0;
-}
 
 async function hasRunInFlight(): Promise<boolean> {
   const rows = await db

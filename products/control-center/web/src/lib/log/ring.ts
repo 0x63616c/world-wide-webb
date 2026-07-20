@@ -15,7 +15,7 @@
 import type { LogEntry } from "./types";
 
 /** Entries kept in memory. The viewer opens on these; older pages come from IDB. */
-export const RING_CAPACITY = 5_000;
+const RING_CAPACITY = 5_000;
 
 export class LogRing {
   private readonly slots: (LogEntry | undefined)[];

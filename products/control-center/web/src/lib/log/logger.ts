@@ -33,7 +33,7 @@ import type { LogEntry, LogLevel } from "./types";
 /** Flush cadence. Batched so the write path never touches IndexedDB. */
 const FLUSH_INTERVAL_MS = 3_000;
 /** Ceiling on a single entry's `data`, so one fat payload can't dominate the store. */
-export const MAX_DATA_CHARS = 2_000;
+const MAX_DATA_CHARS = 2_000;
 
 const ring = new LogRing();
 let queue: LogEntry[] = [];
@@ -233,12 +233,6 @@ export function startFlushing(): void {
   };
   document.addEventListener("visibilitychange", onHide);
   window.addEventListener("pagehide", () => void flush());
-}
-
-/** Test seam. */
-export function stopFlushing(): void {
-  if (flushTimer) clearInterval(flushTimer);
-  flushTimer = null;
 }
 
 /** Force a flush now. The viewer calls this before reading history from IDB. */

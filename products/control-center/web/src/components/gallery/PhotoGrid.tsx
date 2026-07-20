@@ -18,7 +18,7 @@
 import type { CSSProperties, ReactNode } from "react";
 
 /** One dated section of the grid. */
-export interface PhotoGridDay<T> {
+interface PhotoGridDay<T> {
   /** Stable react key for the section. */
   key: string | number;
   /** Heading text ("Today", "Yesterday", "Fri 18 Jul", "2026-07-18"). */

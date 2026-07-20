@@ -51,7 +51,7 @@ export function isCaptureMode(value: ModeValue): value is BoothMode {
 /* --------------------------------------------------------------- countdowns */
 
 /** Seconds; 0 means the self-timer is off. */
-export const COUNTDOWN_OPTIONS = [0, 1, 3, 5, 10] as const;
+const COUNTDOWN_OPTIONS = [0, 1, 3, 5, 10] as const;
 export type CountdownOption = (typeof COUNTDOWN_OPTIONS)[number];
 
 export function countdownLabel(seconds: CountdownOption): string {

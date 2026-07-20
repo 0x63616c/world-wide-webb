@@ -41,7 +41,7 @@ const commandsByGate = {
     {
       label: "knip",
       command: "bunx",
-      args: ["knip", "--exclude", "exports,nsExports,types,nsTypes"],
+      args: ["knip"],
     },
   ],
   gate: [
@@ -58,7 +58,7 @@ const commandsByGate = {
     {
       label: "knip",
       command: "bunx",
-      args: ["knip", "--exclude", "exports,nsExports,types,nsTypes"],
+      args: ["knip"],
     },
   ],
 } as const satisfies Record<GateName, readonly GateCommand[]>;

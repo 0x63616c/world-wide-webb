@@ -33,17 +33,17 @@ import { enqueueJob, registerHandler } from "../jobs/queue";
 import { type ApnsAlert, sendApnsPush } from "./apns-service";
 
 /** Job type string for the APNs fan-out job. */
-export const NOTIFY_JOB_TYPE = "notify";
+const NOTIFY_JOB_TYPE = "notify";
 
 /** Default page size for the feed; the panel renders a bounded list. */
-export const DEFAULT_LIST_LIMIT = 50;
-export const MAX_LIST_LIMIT = 200;
+const DEFAULT_LIST_LIMIT = 50;
+const MAX_LIST_LIMIT = 200;
 
-export const notificationCategorySchema = z.enum(["ci", "system", "home", "media"]);
-export const notificationSeveritySchema = z.enum(["info", "warning", "critical"]);
+const notificationCategorySchema = z.enum(["ci", "system", "home", "media"]);
+const notificationSeveritySchema = z.enum(["info", "warning", "critical"]);
 
-export type NotificationCategory = z.infer<typeof notificationCategorySchema>;
-export type NotificationSeverity = z.infer<typeof notificationSeveritySchema>;
+type NotificationCategory = z.infer<typeof notificationCategorySchema>;
+type NotificationSeverity = z.infer<typeof notificationSeveritySchema>;
 
 export const raiseNotificationSchema = z.object({
   category: notificationCategorySchema,
@@ -65,9 +65,7 @@ export type RaiseNotificationInput = z.infer<typeof raiseNotificationSchema>;
  * "dismissed" is the inverse, an archive view of what the user has cleared.
  * Nothing is ever hard-deleted, so the archive is always recoverable.
  */
-export const notificationFilterSchema = z.enum(["all", "unread", "dismissed"]);
-export type NotificationFilter = z.infer<typeof notificationFilterSchema>;
-
+const notificationFilterSchema = z.enum(["all", "unread", "dismissed"]);
 export const listNotificationsSchema = z.object({
   filter: notificationFilterSchema.default("all"),
   limit: z.number().int().min(1).max(MAX_LIST_LIMIT).default(DEFAULT_LIST_LIMIT),

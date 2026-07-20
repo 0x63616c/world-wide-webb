@@ -13,14 +13,13 @@ import { SETTINGS_SINGLETON_ID, settings } from "../db/schema";
 // jsonb `value` on the settings singleton row (services own the shape, not the DB).
 
 /** Valid snap-drag behaviors for the tile board. */
-export const SnapMode = {
+const SnapMode = {
   Proximity: "proximity",
   Mandatory: "mandatory",
   MandatorySettle: "mandatory-settle",
   None: "none",
   Spring: "spring",
 } as const;
-export type SnapMode = (typeof SnapMode)[keyof typeof SnapMode];
 
 // Idle-dim and recenter timeouts share the same valid window: 1 minute .. 1 hour.
 const TIMEOUT_MIN_MS = 60_000;

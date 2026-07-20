@@ -49,8 +49,6 @@ export const frontendLogEntrySchema = z.object({
   deviceName: z.string(),
 });
 
-export type FrontendLogEntry = z.infer<typeof frontendLogEntrySchema>;
-
 export const frontendLogIngestSchema = z.object({
   deviceId: z.string().min(1),
   entries: z.array(frontendLogEntrySchema).max(MAX_BATCH_SIZE),

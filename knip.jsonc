@@ -1,13 +1,21 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   // Dead-code detector (www-k6p1). `bun run knip` runs in lefthook pre-push and
-  // CI for unused files/dependencies. Export-level detection is intentionally
-  // disabled in scripts/quality-gate.ts because Temporal activities/workflows
-  // are exported by runtime name and registered dynamically.
+  // CI for unused files, dependencies, exports and types. Export-level detection
+  // used to be disabled because Temporal exported activities/workflows by runtime
+  // name; Temporal left with products/project-management, so it is on now.
+  //
+  // An export that is deliberately part of a public surface with no internal
+  // consumer yet (the shared tile-author UI primitives, infra component props)
+  // is annotated `@public` and excluded via "tags" below, so the annotation is
+  // load-bearing rather than decorative.
   //
   // Most entry points are auto-detected from each workspace's package `exports`,
   // `bin`, and the vite/storybook/vitest plugins. We only declare the edges knip
   // can't see: Docker CMD/ENTRYPOINT targets and db scripts.
+
+  // Exports tagged `@public` are a deliberate surface, not dead code.
+  "tags": ["-public"],
 
   "ignore": [
     ".claude/**", // Workflow-tool scripts (run by the Workflow tool, never imported)

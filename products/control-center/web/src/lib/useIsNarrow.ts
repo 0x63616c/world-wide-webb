@@ -14,7 +14,7 @@
 import { useSyncExternalStore } from "react";
 
 /** Phones only. iPad portrait is 768+, the wall panel is 1366. */
-export const NARROW_MAX_WIDTH = 700;
+const NARROW_MAX_WIDTH = 700;
 
 const QUERY = `(max-width: ${NARROW_MAX_WIDTH}px)`;
 

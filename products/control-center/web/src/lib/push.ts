@@ -73,7 +73,7 @@ export interface PushPlugin {
 }
 
 /** The shape `enablePush` needs from the `notifications.registerToken` mutation. */
-export interface RegisterTokenInput {
+interface RegisterTokenInput {
   deviceId: string;
   token: string;
   platform: typeof PLATFORM;

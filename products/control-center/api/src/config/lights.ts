@@ -172,7 +172,3 @@ export const FIXTURE_ENTITY_IDS: readonly string[] = LIGHTS.filter(
 export function findLight(entityId: string): LightEntry | undefined {
   return LIGHTS.find((l) => l.entityId === entityId);
 }
-
-export function findLightById(id: string): LightEntry | undefined {
-  return LIGHTS.find((l) => l.id === id);
-}

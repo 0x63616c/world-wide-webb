@@ -15,14 +15,14 @@ import { formatRelativeAge } from "./relative-age";
 
 // ─── vocabulary (mirrors the router's zod enums) ──────────────────────────────
 
-export const NOTIFICATION_CATEGORIES = ["ci", "system", "home", "media"] as const;
+const NOTIFICATION_CATEGORIES = ["ci", "system", "home", "media"] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
-export const NOTIFICATION_SEVERITIES = ["info", "warning", "critical"] as const;
+const NOTIFICATION_SEVERITIES = ["info", "warning", "critical"] as const;
 export type NotificationSeverity = (typeof NOTIFICATION_SEVERITIES)[number];
 
 /** The three tabs the expanded panel offers, matching `notifications.list` input. */
-export const NOTIFICATION_FILTERS = ["unread", "all", "dismissed"] as const;
+const NOTIFICATION_FILTERS = ["unread", "all", "dismissed"] as const;
 export type NotificationFilter = (typeof NOTIFICATION_FILTERS)[number];
 
 /**

@@ -23,7 +23,7 @@ import { env } from "../env";
  * carried).
  */
 
-export interface WakePhotoDay {
+interface WakePhotoDay {
   /** YYYY-MM-DD */
   day: string;
   photos: {
