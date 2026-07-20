@@ -324,22 +324,20 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     cols: 4,
     rows: 2,
   },
-  // Photo booth. A small 1x1 mark tile perched just above the cluster's top edge
-  // (one row over the Climate/Controls column), a second small utility mark near
-  // the Guest Wi-Fi QR. A lone 1x1 needs a clear neighbourhood: the bento fill
-  // tiles the world with >=2x2 rectangles, so a 1x1 hole wedged between other
-  // tiles would strand an untileable 1-cell pocket (placeholder-tiles guard).
-  // The face is mark-only (no TileHeader title), so tile_booth is exempt from the
-  // label↔title guard (tile-title-sync.test.tsx), like the Clock.
+  // Photo booth. A titled 2x2 tile sitting flush along the cluster's top edge:
+  // beside the Guest Wi-Fi QR (cols 28-29) and directly above Climate (col 30),
+  // so it reads as part of the home row without displacing any existing tile. Its
+  // face carries a standard TileHeader ("Photo Booth"), so it is held to the
+  // label↔title guard (tile-title-sync.test.tsx) like every other titled tile.
   {
     id: "tile_booth",
     label: "Photo Booth",
     component: PhotoBoothTile,
     viewComponent: PhotoBoothTile,
-    worldCol: 32,
-    worldRow: 21,
-    cols: 1,
-    rows: 1,
+    worldCol: 30,
+    worldRow: 22,
+    cols: 2,
+    rows: 2,
   },
 ];
 

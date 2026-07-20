@@ -27,13 +27,18 @@ import { TILE_REGISTRY } from "../../../lib/tile-registry";
 // Tiles whose face carries no static TileHeader title, so their registry label
 // is purely a name with no `title="…"` literal to match:
 //  - tile_clock renders a live greeting.
-//  - tile_booth is a mark-only camera glyph (the approved Photo Booth design).
-const NO_STATIC_TITLE = new Set(["tile_clock", "tile_booth"]);
+const NO_STATIC_TITLE = new Set(["tile_clock"]);
 
-// View source from tiles/ and media/ subdirectories, keyed by bare filename.
-// Eager + raw so the assertions are pure string checks with no rendering.
-// Tiles may live in either components/tiles/ or components/media/.
+// View source from tiles/ and its subdirectories, plus media/, keyed by bare
+// filename. Eager + raw so the assertions are pure string checks with no
+// rendering. Tiles may live in components/tiles/, components/tiles/<feature>/,
+// or components/media/ (e.g. the photo-booth face lives in tiles/photo-booth/).
 const tilesSource = import.meta.glob("../*.tsx", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+const nestedTilesSource = import.meta.glob("../*/*.tsx", {
   query: "?raw",
   import: "default",
   eager: true,
@@ -44,10 +49,11 @@ const mediaSource = import.meta.glob("../../media/*.tsx", {
   eager: true,
 }) as Record<string, string>;
 
-// Merge, normalising the key to bare "../<Name>.tsx" for lookup.
+// Merge, normalising each key to bare "../<Name>.tsx" for lookup by component name.
 const viewSource: Record<string, string> = { ...tilesSource };
-for (const [path, src] of Object.entries(mediaSource)) {
-  // path is like "../../media/TvNowPlayingTileView.tsx" → key to "../TvNowPlayingTileView.tsx"
+for (const [path, src] of [...Object.entries(nestedTilesSource), ...Object.entries(mediaSource)]) {
+  // e.g. "../../media/TvNowPlayingTileView.tsx" or "../photo-booth/PhotoBoothTile.tsx"
+  // → key to "../<base>.tsx".
   const base = path.split("/").pop();
   if (base) viewSource[`../${base}`] = src as string;
 }

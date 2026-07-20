@@ -1,11 +1,12 @@
 /**
- * PhotoBoothTile stories , the 1x1 board face. The global BoardDecorator reads
- * the tile registry (via registryEntryForComponent) to frame it at its true
- * 1x1 wall size, so the mark + accent dot render exactly as they do on the board.
+ * PhotoBoothTile stories , the 2x2 titled board face. The global BoardDecorator
+ * reads the tile registry (via registryEntryForComponent) to frame it at its true
+ * 2x2 wall size, so the header, camera mark, and accent dot render exactly as they
+ * do on the board.
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect } from "storybook/test";
+import { expect, within } from "storybook/test";
 import { PhotoBoothTile } from "./PhotoBoothTile";
 
 const meta = {
@@ -17,9 +18,12 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Resting board face , camera glyph in the nest chip with the accent dot. */
+/** Resting board face , "Photo Booth" header over the camera mark and accent dot. */
 export const Default: Story = {
   play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // The registry label must match this title (tile-title-sync guard).
+    await expect(canvas.getByText("Photo Booth")).toBeInTheDocument();
     // The camera glyph (lucide svg) and the accent status dot both render.
     await expect(canvasElement.querySelector(".lucide-camera")).toBeInTheDocument();
     await expect(canvasElement.querySelector(".dot")).toBeInTheDocument();
