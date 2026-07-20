@@ -18,11 +18,14 @@ export default defineConfig({
       // needed; a second entry would double-run those tests.
       "infra",
     ],
-    // 2 workers: measured peak RSS is ~1.5GB per worker (jsdom + React +
-    // v8 coverage), so 2 workers use ~3GB total, well within CI's 16GB runner.
-    // Serial (maxWorkers: 1) was previously set based on a stale ~12GB/worker
-    // estimate that didn't match actual measurements.
-    maxWorkers: 2,
+    // 4 workers: public-repo runners are 4 vCPU / 16GB. Peak RSS was measured at
+    // ~1.5GB per worker back when v8 coverage was still instrumented; without it
+    // 4 workers sit well under half the available RAM, so cores are the binding
+    // constraint, not memory. Measured parallel efficiency at 2 workers was 89%
+    // (386.9s of phase work in 218.5s wall), so this scales close to linearly.
+    // If the suite starts flaking on timing-sensitive Board tests, or a worker
+    // OOMs, drop back to 2 — this is a tuning knob, not a correctness boundary.
+    maxWorkers: 4,
     pool: "forks",
     // Coverage config lives here (not as CLI flags) so it can carry include/
     // exclude + thresholds; per-project config is ignored once `projects` is set,

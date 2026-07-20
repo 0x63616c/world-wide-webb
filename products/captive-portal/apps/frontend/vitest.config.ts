@@ -17,12 +17,5 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
-    pool: "forks",
-    poolOptions: {
-      forks: {
-        maxForks: 2,
-        minForks: 1,
-      },
-    },
   },
 });

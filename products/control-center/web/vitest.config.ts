@@ -15,12 +15,5 @@ export default defineConfig({
     // Board integration suites exceed the 5s default under v8 coverage
     // instrumentation on CI runners (they pass in well under 5s uninstrumented).
     testTimeout: 20_000,
-    pool: "forks",
-    poolOptions: {
-      forks: {
-        maxForks: 2,
-        minForks: 1,
-      },
-    },
   },
 });
