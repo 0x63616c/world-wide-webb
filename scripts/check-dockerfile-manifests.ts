@@ -47,7 +47,6 @@ if (workspaceManifests.length === 0) {
 const FULL_INSTALL_DOCKERFILES = [
   "products/control-center/api/Dockerfile",
   "products/control-center/worker/Dockerfile",
-  "products/control-center/media-worker/Dockerfile",
   "products/control-center/web/Dockerfile",
   "products/control-center/web/Dockerfile.storybook",
   "products/captive-portal/Dockerfile.api",

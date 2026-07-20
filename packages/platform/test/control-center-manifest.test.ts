@@ -23,7 +23,6 @@ describe("Control Center platform representation", () => {
       "captive-portal",
       "cloudflared",
       "drizzle",
-      "media-worker",
       "storybook",
       "web",
       "worker",

@@ -18,7 +18,6 @@ const imageOf = (specs: ReturnType<typeof serviceSpecs>, logicalName: string): s
 // under test here, so the replica/NFS knobs are held at their defaults.
 const specsWith = (imageDigests?: ImageDigests): ReturnType<typeof serviceSpecs> =>
   serviceSpecs({
-    mediaWorkerReplicas: 0,
     cloudflaredReplicas: 2,
     storybookReplicas: 0,
     drizzleReplicas: 0,
@@ -30,7 +29,6 @@ const VALID = `sha256:${"a".repeat(64)}`;
 const ALL_IMAGE_DIGESTS = {
   "control-center-api": VALID,
   "control-center-worker": VALID,
-  "control-center-media-worker": VALID,
   "control-center-web": VALID,
   "control-center-storybook": VALID,
   "control-center-drizzle": VALID,
@@ -87,7 +85,6 @@ describe("serviceSpecs image digest pinning", () => {
   test("refuses prod app Deployment rendering when digest pins are missing", () => {
     expect(() =>
       serviceSpecs({
-        mediaWorkerReplicas: 0,
         cloudflaredReplicas: 2,
         storybookReplicas: 0,
         drizzleReplicas: 0,
@@ -100,7 +97,6 @@ describe("serviceSpecs image digest pinning", () => {
 
   test("allows prod app Deployment rendering when every digest pin is present", () => {
     const specs = serviceSpecs({
-      mediaWorkerReplicas: 0,
       cloudflaredReplicas: 2,
       storybookReplicas: 0,
       drizzleReplicas: 0,

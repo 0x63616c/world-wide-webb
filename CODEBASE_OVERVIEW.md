@@ -18,8 +18,6 @@ background loops
   -> desired-state reconciliation, weather ingest, party mode
 
 heavy media jobs
-  -> products/control-center/media-worker
-  -> @control-center/api/media queue/media services
   -> YouTube/media ingest and enrichment
 
 deploy
@@ -34,7 +32,6 @@ deploy
 - `products/control-center/web` - React dashboard, Storybook, and Capacitor iOS shell.
 - `products/control-center/api` - Bun tRPC backend, DB schema, migrations, routers, services, and shared domain logic.
 - `products/control-center/worker` - Continuous interval workers for home-state reconciliation and ingest.
-- `products/control-center/media-worker` - Heavier queue/media workers, isolated from 1s home-control loops.
 - `products/control-center` - Product-owned Control Center boundary. Runtime app source now lives under this product folder while production image names, workload names, routes, and namespace stay unchanged.
 - `products/captive-portal/apps/api` - Captive Portal product API boundary, exposing only the portal tRPC surface.
 - `products/captive-portal/apps/frontend` - Guest WiFi captive portal frontend product app.
@@ -135,7 +132,7 @@ Registered workers currently include:
 
 The shared runtime in `packages/worker-runtime` (used by both worker apps) prevents overlapping cycles per worker, isolates failures, logs failure and recovery transitions, warns on slow cycles, and exposes stats.
 
-`products/control-center/media-worker` is separate because downloads and enrichment are heavier than home-control loops. It imports through `@control-center/api/media` at `products/control-center/api/src/media.ts` and runs through the product-owned wrapper at `products/control-center/media-worker`.
+The media pipeline (playlist poller, ingest queue, NAS media mount) runs inside `products/control-center/worker`: media-worker was merged into it, so there is one worker deployable and one api barrel (`@control-center/api/worker` at `products/control-center/api/src/worker-deps.ts`).
 
 - `queue-worker` every 2s.
 - `playlist-poller` every 10m.
@@ -144,7 +141,7 @@ It checks media storage free space before claiming download work.
 
 ## Logging And Config
 
-`packages/logger` provides `createLogger({ service })` and `getLogger()`. Backend processes create one root logger at startup. Shared domain services can call `getLogger()`, so the same code logs under `service: "api"`, `service: "worker"`, or `service: "media-worker"` depending on the running process.
+`packages/logger` provides `createLogger({ service })` and `getLogger()`. Backend processes create one root logger at startup. Shared domain services can call `getLogger()`, so the same code logs under `service: "api"` or `service: "worker"` depending on the running process.
 
 Logger behavior is keyed off runtime env like `APP_ENV`, `LOG_LEVEL`, and `LOG_PRETTY`, not `NODE_ENV`, because Bun can inline `NODE_ENV` in single-file bundles.
 
@@ -195,9 +192,9 @@ Do not add a third-party scheduler for new cron-style tasks.
 
 The repo is moving toward a multi-product platform shape documented in `docs/platform/README.html` and `docs/platform/NORTH_STAR.html`. Read those before touching product/platform split work. The target model is products under `products/<name>` with platform-owned primitives for namespaces, routing/TLS, secrets, CNPG Postgres databases, NAS backups, local dev, CI/deploy, and iOS workflows.
 
-Control Center now has a product boundary at `products/control-center`. For M7 compatibility, the product packages delegate to the legacy `products/control-center/web`, `products/control-center/api`, `products/control-center/worker`, and `products/control-center/media-worker` source paths so production behavior does not change until the CI, infra, database, and route cutovers land.
+Control Center now has a product boundary at `products/control-center`. For M7 compatibility, the product packages delegate to the legacy `products/control-center/web`, `products/control-center/api`, and `products/control-center/worker` source paths so production behavior does not change until the CI, infra, database, and route cutovers land.
 
-CI path filters treat `products/control-center/**` as a Control Center app change, while unrelated `products/*` folders do not rebuild or deploy Control Center unless shared `packages/**` or `bun.lock` changes. The Control Center Tiltfile lives at `products/control-center/Tiltfile`; root `bun run dev` delegates to the product package. Product-scoped local commands live on `@product/control-center`, including `dev`, `dev:web`, `dev:api`, `dev:worker`, `dev:media-worker`, `dev:storybook`, `dev:db`, and `ios:*` aliases.
+CI path filters treat `products/control-center/**` as a Control Center app change, while unrelated `products/*` folders do not rebuild or deploy Control Center unless shared `packages/**` or `bun.lock` changes. The Control Center Tiltfile lives at `products/control-center/Tiltfile`; root `bun run dev` delegates to the product package. Product-scoped local commands live on `@product/control-center`, including `dev`, `dev:web`, `dev:api`, `dev:worker`, `dev:storybook`, `dev:db`, and `ios:*` aliases.
 
 M1 foundation lives in `packages/platform`. It is representation-only today: `controlCenterProductManifest()` proves Control Center can be expressed through the new model without changing the current Pulumi production path.
 
@@ -233,7 +230,7 @@ Persistent state
   -> products/control-center/api/src/db/schema.ts, if needed
 
 Background work
-  -> products/control-center/worker or products/control-center/media-worker, if needed
+  -> products/control-center/worker, if needed
 
 Deploy shape
   -> infra/src/services.ts or infra/src/crons.ts, if needed

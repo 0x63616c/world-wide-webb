@@ -13,7 +13,6 @@ COPY products/control-center/package.json ./products/control-center/package.json
 COPY products/control-center/web/package.json ./products/control-center/web/package.json
 COPY products/control-center/api/package.json ./products/control-center/api/package.json
 COPY products/control-center/worker/package.json ./products/control-center/worker/package.json
-COPY products/control-center/media-worker/package.json ./products/control-center/media-worker/package.json
 COPY products/control-center/drizzle/package.json ./products/control-center/drizzle/package.json
 COPY products/control-center/map-provision/package.json ./products/control-center/map-provision/package.json
 COPY products/control-center/ios/package.json ./products/control-center/ios/package.json

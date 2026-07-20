@@ -10,7 +10,7 @@
  * same playlist is a no-op , the INSERT … ON CONFLICT DO NOTHING ensures we never
  * create duplicate items, and we never re-enqueue a job for an existing item.
  *
- * yt-dlp is the subprocess binary installed in the media-worker Dockerfile.
+ * yt-dlp is the subprocess binary installed in the worker Dockerfile.
  * In unit tests the spawn is mocked at the module boundary.
  */
 

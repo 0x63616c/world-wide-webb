@@ -33,19 +33,14 @@ const SHARED_API_WORKER_SECRETS = {
   APNS_KEY_ID: "APNS_AUTH_KEY__KEY_ID",
   APNS_TEAM_ID: "APNS_AUTH_KEY__TEAM_ID",
   APNS_KEY_CONTENT: "APNS_AUTH_KEY__P8_CONTENT",
+  // Worker-side media enrichment; mirrored onto api by the lockstep rule.
+  OPENROUTER_API_KEY: "OPENROUTER__CREDENTIAL",
 } as const;
 
 // The exact SERVICE_SECRETS map as it was hand-maintained before the derivation.
 const GOLDEN_SERVICE_SECRETS: Record<string, Record<string, string>> = {
   api: SHARED_API_WORKER_SECRETS,
   worker: SHARED_API_WORKER_SECRETS,
-  "media-worker": {
-    POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
-    OPENROUTER_API_KEY: "OPENROUTER__CREDENTIAL",
-    APNS_KEY_ID: "APNS_AUTH_KEY__KEY_ID",
-    APNS_TEAM_ID: "APNS_AUTH_KEY__TEAM_ID",
-    APNS_KEY_CONTENT: "APNS_AUTH_KEY__P8_CONTENT",
-  },
   drizzle: {
     MASTERPASS: "DRIZZLE_GATEWAY__MASTERPASS",
     POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
@@ -69,10 +64,6 @@ const GOLDEN_SERVICE_SECRET_TARGETS: Record<string, { namespaceName: string; sec
   {
     api: { namespaceName: "control-center", secretName: "control-center-secrets-api" },
     worker: { namespaceName: "control-center", secretName: "control-center-secrets-worker" },
-    "media-worker": {
-      namespaceName: "control-center",
-      secretName: "control-center-secrets-media-worker",
-    },
     drizzle: { namespaceName: "control-center", secretName: "control-center-secrets-drizzle" },
     cloudflared: { namespaceName: "platform", secretName: "platform-secrets-cloudflared" },
     "portal-data-purge": {

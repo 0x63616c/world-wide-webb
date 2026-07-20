@@ -7,7 +7,7 @@
  * accumulated per worker and exposed via stats().
  *
  * Extracted from the byte-drifted per-app copies (products/control-center/worker
- * + products/control-center/media-worker) into one shared package (www-rw07): the
+ * + the former products/control-center/media-worker) into one shared package (www-rw07): the
  * onset-or-ongoing failure logging and stop() final-stats snapshot are the media-
  * worker's shape; the periodic stats cadence is now a per-app option instead of a
  * hard-coded constant (was 60 in worker, 30 in media-worker , both already the
@@ -29,7 +29,7 @@ interface WorkerState {
 const DEFAULT_STATS_EVERY_N_RUNS = 60;
 
 export type WorkerRuntimeOptions = {
-  /** Structured logger bound to this process root (service: "worker" | "media-worker"). */
+  /** Structured logger bound to this process root (service: "worker" | "api"). */
   logger: Logger;
   /**
    * How many cycles between periodic debug stats snapshots. Defaults to 60.

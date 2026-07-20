@@ -40,14 +40,6 @@ const expectedServices: readonly ServiceBoundary[] = [
     oldRuntimePath: "apps/worker",
   },
   {
-    name: "media-worker",
-    packageName: "@control-center/media-worker",
-    productPath: `${productRoot}/media-worker`,
-    dockerfile: `${productRoot}/media-worker/Dockerfile`,
-    requiredFiles: ["src", "Dockerfile"],
-    oldRuntimePath: "apps/media-worker",
-  },
-  {
     name: "storybook",
     packageName: "@control-center/storybook",
     productPath: `${productRoot}/storybook`,
@@ -82,7 +74,6 @@ const dockerfilesWithWorkspaceManifests = [
   `${productRoot}/api/Dockerfile`,
   `${productRoot}/drizzle/Dockerfile`,
   `${productRoot}/map-provision/Dockerfile`,
-  `${productRoot}/media-worker/Dockerfile`,
   `${productRoot}/web/Dockerfile`,
   `${productRoot}/web/Dockerfile.storybook`,
   `${productRoot}/worker/Dockerfile`,

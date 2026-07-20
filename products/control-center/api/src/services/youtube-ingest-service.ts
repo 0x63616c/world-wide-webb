@@ -12,7 +12,7 @@
  * the handler is a no-op. The queue handles retries via claimAndRun.
  *
  * The handler is registered via registerYoutubeIngestHandler() which is called
- * by the media-worker at boot (before the queueWorker starts claiming).
+ * by the worker at boot (before the queue-worker starts claiming).
  */
 
 import { execFile } from "node:child_process";
@@ -214,8 +214,8 @@ async function handleYoutubeIngest(rawPayload: unknown): Promise<void> {
     return;
   }
 
-  // Disk-space check is performed by the media-worker's disk guard before
-  // claiming , see the queueWorker wrapper in media-worker. The handler itself
+  // Disk-space check is performed by the worker's disk guard before
+  // claiming , see the queue-worker wrapper in the worker app. The handler itself
   // trusts the guard has already run.
 
   const storageDir = env.MEDIA_STORAGE_DIR;
@@ -294,7 +294,7 @@ async function handleYoutubeIngest(rawPayload: unknown): Promise<void> {
 
 /**
  * Register the youtube_ingest handler with the job queue. Call this at
- * media-worker startup, before the queueWorker starts claiming.
+ * worker startup, before the queue-worker starts claiming.
  */
 export function registerYoutubeIngestHandler(): void {
   registerHandler("youtube_ingest", handleYoutubeIngest);

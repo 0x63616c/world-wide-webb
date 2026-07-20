@@ -93,8 +93,8 @@ describe("renderWorkload", () => {
 
   test("an NFS volume emits mountOptions [nfsvers=3, nolock, tcp] (DS420+ is NFSv3-only, §5b)", () => {
     const media: WorkloadSpec = {
-      name: "media-worker",
-      image: "ghcr.io/0x63616c/www-control-center-media-worker:main",
+      name: "worker",
+      image: "ghcr.io/0x63616c/www-control-center-worker:main",
       replicas: 1,
       volumes: [
         {
@@ -194,10 +194,10 @@ describe("renderWorkload: www-j934.6 extensions", () => {
 describe("renderWorkload: NFS PV + PVC pair (www-j934.6)", () => {
   test("an NFS volume emits a statically-bound PVC alongside the PV", () => {
     const mw: WorkloadSpec = {
-      name: "media-worker",
-      image: "ghcr.io/0x63616c/www-control-center-media-worker:main",
+      name: "worker",
+      image: "ghcr.io/0x63616c/www-control-center-worker:main",
       replicas: 1,
-      resources: { memory: "1G" },
+      resources: { memory: "512M" },
       volumes: [
         {
           mountPath: "/app/media",
@@ -230,7 +230,6 @@ describe("renderExternalService (ExternalName CNAME to an off-cluster host)", ()
 
 describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => {
   const baseOpts = {
-    mediaWorkerReplicas: 1,
     cloudflaredReplicas: 2,
     storybookReplicas: 0,
     drizzleReplicas: 0,
@@ -249,21 +248,23 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
     expect(specOf(serviceSpecs({ ...baseOpts, drizzleReplicas: 1 }), "drizzle")?.replicas).toBe(1);
   });
 
-  test("threads nasNfsServer into the media-worker NFS volume", () => {
+  test("threads nasNfsServer into the worker NFS volume", () => {
     const specs = serviceSpecs({ ...baseOpts, nasNfsServer: "100.78.116.99" });
-    const vol = specOf(specs, "media-worker")?.volumes?.[0];
+    const vol = specOf(specs, "worker")?.volumes?.[0];
     expect(vol?.nfs?.server).toBe("100.78.116.99");
     expect(vol?.nfs?.path).toBe("/volume1/Homelab");
     expect(vol?.subPath).toBe("media");
   });
 
-  test("media-worker replicas come from the mediaWorkerReplicas knob (parked at 0)", () => {
-    expect(
-      specOf(serviceSpecs({ ...baseOpts, mediaWorkerReplicas: 0 }), "media-worker")?.replicas,
-    ).toBe(0);
-    expect(
-      specOf(serviceSpecs({ ...baseOpts, mediaWorkerReplicas: 1 }), "media-worker")?.replicas,
-    ).toBe(1);
+  test("worker absorbed the media workload: NFS media mount, MEDIA_STORAGE_DIR, 512M", () => {
+    const worker = specOf(serviceSpecs(baseOpts), "worker");
+    expect(worker?.resources?.memory).toBe("512M");
+    expect(worker?.env?.MEDIA_STORAGE_DIR).toBe("/app/media");
+    expect(worker?.volumes?.[0]?.mountPath).toBe("/app/media");
+  });
+
+  test("media-worker is no longer a declared workload", () => {
+    expect(specOf(serviceSpecs(baseOpts), "media-worker")).toBeUndefined();
   });
 
   test("cloudflared replicas come from the cloudflaredReplicas knob (0 pre-cutover, 2 HA)", () => {
@@ -299,11 +300,6 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
         expect.objectContaining({
           logicalName: "control-center-worker",
           name: "worker",
-          namespaceName: "control-center",
-        }),
-        expect.objectContaining({
-          logicalName: "control-center-media-worker",
-          name: "media-worker",
           namespaceName: "control-center",
         }),
         expect.objectContaining({
@@ -406,7 +402,6 @@ describe("renderWorkload: initContainers (www-hn1i)", () => {
 // fresh stack serves the Tesla basemap with ZERO manual steps.
 describe("serviceSpecs: web map-provision initContainer (www-hn1i)", () => {
   const baseOpts = {
-    mediaWorkerReplicas: 0,
     cloudflaredReplicas: 2,
     storybookReplicas: 0,
     drizzleReplicas: 0,

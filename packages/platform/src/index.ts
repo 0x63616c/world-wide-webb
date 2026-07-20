@@ -276,7 +276,6 @@ export type ServiceSecretUsage = Readonly<{
 export type ControlCenterSecretUsageName =
   | "api"
   | "worker"
-  | "media-worker"
   | "drizzle"
   | "cloudflared"
   | "portal-data-purge";
@@ -419,6 +418,9 @@ export function controlCenterServiceSecretUsages(): Record<
     // Deploys-tile poller. Only the worker reads it, but api/worker secret sets
     // are kept in lockstep (www-51hf.35), so it appears in both.
     GITHUB_ACTIONS_TOKEN: secretCatalog.github.ghcrPat,
+    // Media-item enrichment on the worker's ingest path; present here because
+    // api/worker secret sets are kept in lockstep (www-51hf.35).
+    OPENROUTER_API_KEY: secretCatalog.openRouter.apiKey,
     APNS_KEY_ID: secretCatalog.apns.keyId,
     APNS_TEAM_ID: secretCatalog.apns.teamId,
     APNS_KEY_CONTENT: secretCatalog.apns.p8Content,
@@ -445,8 +447,11 @@ export function controlCenterServiceSecretUsages(): Record<
     // Deploys-tile poller. Only the worker reads it, but api/worker secret sets
     // are kept in lockstep (www-51hf.35), so it appears in both.
     GITHUB_ACTIONS_TOKEN: secretCatalog.github.ghcrPat,
-    // worker runs the notify-queue cycle (media-worker is parked at 0), so it is
-    // the process that actually signs the APNs JWT and sends the push.
+    // Media-item enrichment on the ingest path, inherited from media-worker when
+    // it merged into the worker. Mirrored onto api by the lockstep rule above.
+    OPENROUTER_API_KEY: secretCatalog.openRouter.apiKey,
+    // The worker is the only queue consumer, so it is the process that actually
+    // signs the APNs JWT and sends the push. api just enqueues.
     APNS_KEY_ID: secretCatalog.apns.keyId,
     APNS_TEAM_ID: secretCatalog.apns.teamId,
     APNS_KEY_CONTENT: secretCatalog.apns.p8Content,
@@ -455,15 +460,6 @@ export function controlCenterServiceSecretUsages(): Record<
   return {
     api: defineServiceSecretUsage(controlCenter, "api", apiSecrets),
     worker: defineServiceSecretUsage(controlCenter, "worker", workerSecrets),
-    "media-worker": defineServiceSecretUsage(controlCenter, "media-worker", {
-      POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
-      OPENROUTER_API_KEY: secretCatalog.openRouter.apiKey,
-      // media-worker runs the "notify" job handler (registerNotifyHandler), so it
-      // is the only process that actually talks to APNs. api/worker just enqueue.
-      APNS_KEY_ID: secretCatalog.apns.keyId,
-      APNS_TEAM_ID: secretCatalog.apns.teamId,
-      APNS_KEY_CONTENT: secretCatalog.apns.p8Content,
-    }),
     drizzle: defineServiceSecretUsage(controlCenter, "drizzle", {
       MASTERPASS: secretCatalog.drizzle.masterpass,
       POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
@@ -637,7 +633,6 @@ export function defineDatabaseBackup(
 export type ControlCenterServiceName =
   | "api"
   | "worker"
-  | "media-worker"
   | "web"
   | "storybook"
   | "captive-portal"
@@ -730,13 +725,6 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
         image: mainImage(product, "worker"),
         exposure: null,
         secretUsage: secretUsages.worker,
-      },
-      "media-worker": {
-        service: "media-worker",
-        workloadName: "media-worker",
-        image: mainImage(product, "media-worker"),
-        exposure: null,
-        secretUsage: secretUsages["media-worker"],
       },
       web: {
         service: "web",

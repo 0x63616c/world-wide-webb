@@ -25,12 +25,6 @@
       "dockerfile": "products/control-center/worker/Dockerfile"
     },
     {
-      "name": "media-worker",
-      "packageName": "@control-center/media-worker",
-      "productPath": "products/control-center/media-worker",
-      "dockerfile": "products/control-center/media-worker/Dockerfile"
-    },
-    {
       "name": "storybook",
       "packageName": "@control-center/storybook",
       "productPath": "products/control-center/storybook",

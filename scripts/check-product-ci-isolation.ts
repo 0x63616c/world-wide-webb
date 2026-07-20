@@ -78,7 +78,6 @@ const filters = {
   web: filterBlock("web"),
   api: filterBlock("api"),
   worker: filterBlock("worker"),
-  mediaworker: filterBlock("mediaworker"),
   captiveportal: filterBlock("captiveportal"),
   any_app: filterBlock("any_app"),
 } as const;
@@ -90,13 +89,13 @@ assert(
 );
 
 // 4. ISOLATION: a Captive Portal-only change must not rebuild Control Center
-//    (web/api/worker/mediaworker), and must register as a captiveportal change.
+//    (web/api/worker), and must register as a captiveportal change.
 const captivePortalIsolated = ["products/captive-portal/apps/frontend/src/main.ts"] as const;
 assert(
   blockMatchesAny(filters.captiveportal, captivePortalIsolated),
   "captive-portal-only change must set captiveportal",
 );
-for (const lane of ["web", "api", "worker", "mediaworker"] as const) {
+for (const lane of ["web", "api", "worker"] as const) {
   assert(
     !blockMatchesAny(filters[lane], captivePortalIsolated),
     `captive-portal-only change must NOT trigger ${lane} rebuild (product isolation)`,

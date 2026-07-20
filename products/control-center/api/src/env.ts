@@ -126,7 +126,7 @@ export const envSchema = z.object({
   // Optional , empty string disables enrichment so the worker boots without it.
   OPENROUTER_API_KEY: z.string().default(""),
 
-  // Where the media-worker stores downloaded audio/video/thumb files on the host.
+  // Where the worker stores downloaded audio/video/thumb files on the host.
   // Delivered from 1Password via the docker-secret rail (same pattern as HOME_*).
   MEDIA_STORAGE_DIR: z.string().default("/mnt/media"),
 

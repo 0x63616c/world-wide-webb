@@ -38,7 +38,6 @@ jobs:
       web: ${{ steps.filter.outputs.web }}
       api: ${{ steps.filter.outputs.api }}
       worker: ${{ steps.filter.outputs.worker }}
-      mediaworker: ${{ steps.filter.outputs.mediaworker }}
       storybook: ${{ steps.filter.outputs.storybook }}
       drizzle: ${{ steps.filter.outputs.drizzle }}
       captiveportal: ${{ steps.filter.outputs.captiveportal }}
@@ -83,14 +82,6 @@ jobs:
             # change must rebuild the worker image too (www-xjba).
             worker:
               - 'products/control-center/worker/**'
-              - 'products/control-center/api/**'
-              - 'products/control-center/**'
-              - 'packages/**'
-              - 'bun.lock'
-            # media-worker bundles its domain code from @control-center/api, so an products/control-center/api
-            # change must rebuild it too (same rule as worker, www-kp4k).
-            mediaworker:
-              - 'products/control-center/media-worker/**'
               - 'products/control-center/api/**'
               - 'products/control-center/**'
               - 'packages/**'
@@ -346,24 +337,6 @@ jobs:
           dockerfile: products/control-center/worker/Dockerfile
           cache-scope: worker
 
-  build-media-worker:
-    needs: [changes, test, typecheck]
-    if: needs.changes.outputs.mediaworker == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 25
-    environment: prod
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build and push media-worker image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-control-center-media-worker
-          dockerfile: products/control-center/media-worker/Dockerfile
-          cache-scope: media-worker
-
   build-storybook:
     needs: [changes, test, typecheck]
     if: needs.changes.outputs.storybook == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
@@ -464,7 +437,7 @@ jobs:
   # declarative-convergent, so the latest green run always reconciles prod to the
   # committed digests, no deploy marker needed (www-bom8 retired).
   deploy:
-    needs: [changes, test, typecheck, build-web, build-api, build-worker, build-media-worker, build-storybook, build-drizzle, build-captive-portal, build-captive-portal-api, build-map-provision]
+    needs: [changes, test, typecheck, build-web, build-api, build-worker, build-storybook, build-drizzle, build-captive-portal, build-captive-portal-api, build-map-provision]
     # always() lets us run even when some build jobs were skipped (no changes).
     # We proceed when: on main, an app OR infra changed, and no build failed.
     if: |
@@ -555,7 +528,7 @@ jobs:
           # KEY is product-component scoped and matches the Pulumi imageDigests
           # config key, while repo names use full product slugs.
           declare -A out=()
-          for entry in www-control-center-web:control-center-web www-control-center-api:control-center-api www-control-center-worker:control-center-worker www-control-center-media-worker:control-center-media-worker www-control-center-storybook:control-center-storybook www-control-center-drizzle:control-center-drizzle www-captive-portal-portal:captive-portal-portal www-captive-portal-api:captive-portal-api www-control-center-map-provision:control-center-map-provision; do
+          for entry in www-control-center-web:control-center-web www-control-center-api:control-center-api www-control-center-worker:control-center-worker www-control-center-storybook:control-center-storybook www-control-center-drizzle:control-center-drizzle www-captive-portal-portal:captive-portal-portal www-captive-portal-api:captive-portal-api www-control-center-map-provision:control-center-map-provision; do
             repo="${entry%%:*}"
             name="${entry#*:}"
             d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$repo:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
@@ -661,7 +634,7 @@ jobs:
   # AGE_PRIVATE_KEY, same as deploy. Docs-only pushes (deploy skipped, nothing
   # failed) send nothing.
   notify:
-    needs: [changes, test, typecheck, build-web, build-api, build-worker, build-media-worker, build-storybook, build-drizzle, build-captive-portal, build-captive-portal-api, build-map-provision, deploy]
+    needs: [changes, test, typecheck, build-web, build-api, build-worker, build-storybook, build-drizzle, build-captive-portal, build-captive-portal-api, build-map-provision, deploy]
     if: always() && github.ref_name == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 5

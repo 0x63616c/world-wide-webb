@@ -2,7 +2,7 @@
 // HERE and nowhere else, call sites never read env directly. See docs/logging.md §3.
 //
 // NOTE: we deliberately do NOT key behavior on process.env.NODE_ENV. The api,
-// worker and media-worker ship as bun single-file bundles, and bun INLINES
+// the worker ships as a bun single-file bundle, and bun INLINES
 // process.env.NODE_ENV to a build-time literal, so a NODE_ENV check is frozen
 // at build and ignores the container's runtime env (it crash-looped prod once,
 // www-rw07). LOG_PRETTY / APP_ENV / LOG_LEVEL are read live at runtime instead.
@@ -17,7 +17,7 @@ import prettyStream from "pino-pretty";
 export type Logger = PinoLogger;
 
 export type CreateLoggerOptions = {
-  /** Service name bound on every line, e.g. "api" | "worker" | "media-worker". */
+  /** Service name bound on every line, e.g. "api" | "worker". */
   service: string;
   /** Environment string, bound on every line. Defaults to APP_ENV ?? "development". */
   env?: string;
@@ -153,7 +153,7 @@ export function createLogger(opts: CreateLoggerOptions): Logger {
  * returns it. Throws if called before createLogger, a hard signal that a
  * module logged before the process initialized its logger (no silent
  * default root). Used by shared @control-center/api domain services that run under
- * multiple process roots (api + media-worker). See docs/logging.md §2.
+ * multiple process roots (api + worker). See docs/logging.md §2.
  */
 export function getLogger(): Logger {
   if (_root === null) {

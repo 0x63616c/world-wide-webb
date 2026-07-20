@@ -56,10 +56,9 @@ const certManager = installCertManager({
   vault,
 });
 
-// App workloads (www-j934.6). media-worker replicas: 1 to PROVE it Running +
-// NFS-mounted (www-6mz7 un-park), then re-apply at 0 to park it until the
-// Phase-4 cutover (Boundary 6, 8GB co-residency with Swarm). Drive via
-// `pulumi config set wwwinfra:mediaWorkerReplicas 1|0`; default 0 (parked).
+// App workloads (www-j934.6). The media pipeline runs inside the always-on
+// worker workload (media-worker was merged into it), so there is no separate
+// media replica knob.
 // cloudflaredReplicas: 0 for a pre-cutover bring-up so the k3s cloudflared does
 // NOT register the live tunnel token alongside Swarm (a prod split-brain); the
 // cutover (www-j934.9 / DESIGN §7 step 3) flips it to 2 (HA) as Swarm comes down.
@@ -76,7 +75,7 @@ const certManager = installCertManager({
 // the program refuses to render app Deployments unless this map is complete.
 // Non-prod local applies may omit it and fall back to :main.
 
-// The NAS NFS server, shared by the media-worker share and the pg-backup target.
+// The NAS NFS server, shared by the worker media share and the pg-backup target.
 const nasNfsServer = cfg.get("nasNfsServer") ?? "192.168.0.218";
 const imageDigests = cfg.getObject<Record<string, string>>("imageDigests") ?? {};
 
@@ -87,7 +86,6 @@ if (Object.keys(imageDigests).length > 0) {
 const services = deployServices({
   provider: cluster.provider,
   namespaces,
-  mediaWorkerReplicas: cfg.getNumber("mediaWorkerReplicas") ?? 0,
   cloudflaredReplicas: cfg.getNumber("cloudflaredReplicas") ?? 2,
   // storybook/drizzle default to 0: trimmed 8GB steady-state so the control plane
   // survives a cold reboot (www-j934.9). Both are Access-gated dev tools; bring up

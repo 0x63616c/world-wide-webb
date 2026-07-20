@@ -4,9 +4,9 @@
 // (www-j934.4), images from GHCR via an imagePullSecret, caps are the www-ke9a
 // values verbatim. postgres is CNPG (www-j934.5), not here.
 //
-// Boundary 6 (8GB, Swarm still runs prod until Phase-4 cutover): media-worker is
-// declared replicas 1 so .6 can PROVE it Running + NFS-mounted (www-6mz7 un-park),
-// then it's scaled to 0 and parked until cutover. The other 8 stay up.
+// The media pipeline (playlist poller, ingest queue, NAS media mount) lives in
+// the worker workload: media-worker was merged into it, so there is one worker
+// deployable rather than a second, permanently-parked one.
 
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
@@ -40,10 +40,6 @@ const IMAGE_REPOSITORIES = {
   worker: {
     digestKey: controlCenterProduct.imageDigestKey("worker"),
     repository: controlCenterProduct.imageRepository("worker"),
-  },
-  "media-worker": {
-    digestKey: controlCenterProduct.imageDigestKey("media-worker"),
-    repository: controlCenterProduct.imageRepository("media-worker"),
   },
   web: {
     digestKey: controlCenterProduct.imageDigestKey("web"),
@@ -177,8 +173,6 @@ const mountSecrets = (service: ServiceSecretName) =>
 
 /**
  * Replica/topology knobs the program threads in at apply time.
- * - mediaWorkerReplicas: bring media-worker up briefly (1) to prove it, then
- *   re-apply at 0 (Boundary 6).
  * - cloudflaredReplicas: 0 for a pre-cutover bring-up (so the k3s cloudflared does
  *   NOT grab the live tunnel token and split-brain prod with Swarm), flipped to 2
  *   (HA) at the cutover (www-j934.9 / DESIGN §7 step 3).
@@ -197,7 +191,6 @@ const mountSecrets = (service: ServiceSecretName) =>
  *   wwwinfra:<svc>Replicas 1`.
  */
 export interface ServiceSpecOptions {
-  mediaWorkerReplicas: number;
   cloudflaredReplicas: number;
   storybookReplicas: number;
   drizzleReplicas: number;
@@ -209,7 +202,6 @@ export interface ServiceSpecOptions {
 /** @public - all app WorkloadSpecs, parameterised by {@link ServiceSpecOptions}. */
 export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
   const {
-    mediaWorkerReplicas,
     cloudflaredReplicas,
     storybookReplicas,
     drizzleReplicas,
@@ -231,7 +223,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       secrets: mountSecrets("api"),
       secretName: SERVICE_SECRET_TARGETS.api.secretName,
       // Wake photos persist on the NAS media share (same NFS export + subPath
-      // as media-worker); without this mount the api's MEDIA_STORAGE_DIR
+      // as the worker); without this mount the api's MEDIA_STORAGE_DIR
       // writes land in the container overlay fs and vanish on every roll.
       env: { ...haEnv, MEDIA_STORAGE_DIR: "/app/media" },
       volumes: [
@@ -251,28 +243,14 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       namespaceName: "control-center",
       image: ghcr("worker", digests),
       replicas: 1,
-      resources: { memory: "384M" },
+      // 512M covers the Bun process and a yt-dlp subprocess: downloads stream to
+      // disk through a small buffer, so memory is flat in the file's size.
+      resources: { memory: "512M" },
       secrets: mountSecrets("worker"),
       secretName: SERVICE_SECRET_TARGETS.worker.secretName,
-      env: haEnv,
-      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
-    },
-    {
-      logicalName: "control-center-media-worker",
-      legacyLogicalName: "media-worker",
-      name: "media-worker",
-      namespaceName: "control-center",
-      image: ghcr("media-worker", digests),
-      replicas: mediaWorkerReplicas,
-      resources: { memory: "1G" },
-      secrets: mountSecrets("media-worker"),
-      secretName: SERVICE_SECRET_TARGETS["media-worker"].secretName,
       env: {
-        NODE_ENV: "production",
-        APP_ENV: "production",
-        TZ,
-        POSTGRES_HOST: controlCenterDatabase.rwServiceName,
-        // Point at the NFS mount below , the env default (/mnt/media) is the
+        ...haEnv,
+        // Point at the NFS mount below -- the env default (/mnt/media) is the
         // container overlay fs, not the NAS share.
         MEDIA_STORAGE_DIR: "/app/media",
       },
@@ -421,7 +399,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       },
       // Plex config/metadata (SQLite) MUST live on fast local disk, never NFS
       // (SQLite over NFS corrupts). local-path PVC on the OrbStack SSD.
-      // The media share is the same NFS export + subPath as media-worker, mounted
+      // The media share is the same NFS export + subPath as the worker, mounted
       // read-only; point a Plex library at /data (docs/plex.md).
       volumes: [
         { mountPath: "/config", claim: "plex-config" },
@@ -487,8 +465,6 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
 export interface ServicesArgs {
   provider: k8s.Provider;
   namespaces: Readonly<Record<InfraNamespaceName, pulumi.Input<string>>>;
-  // media-worker replicas: 1 to prove, 0 to park (Boundary 6).
-  mediaWorkerReplicas: number;
   // cloudflared replicas: 0 for a pre-cutover bring-up (no live-token split with
   // Swarm), 2 (HA) at the cutover (www-j934.9 / DESIGN §7).
   cloudflaredReplicas: number;
@@ -590,7 +566,6 @@ export function deployServices(args: ServicesArgs): ServicesResources {
   const {
     provider,
     namespaces,
-    mediaWorkerReplicas,
     cloudflaredReplicas,
     storybookReplicas,
     drizzleReplicas,
@@ -664,7 +639,6 @@ export function deployServices(args: ServicesArgs): ServicesResources {
   );
 
   const workloads = serviceSpecs({
-    mediaWorkerReplicas,
     cloudflaredReplicas,
     storybookReplicas,
     drizzleReplicas,

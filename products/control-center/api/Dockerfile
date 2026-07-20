@@ -14,7 +14,6 @@ COPY products/control-center/package.json products/control-center/
 COPY products/control-center/api/package.json products/control-center/api/
 COPY products/control-center/web/package.json products/control-center/web/
 COPY products/control-center/worker/package.json products/control-center/worker/
-COPY products/control-center/media-worker/package.json products/control-center/media-worker/
 COPY products/control-center/drizzle/package.json products/control-center/drizzle/
 COPY products/control-center/map-provision/package.json products/control-center/map-provision/
 COPY products/control-center/ios/package.json products/control-center/ios/

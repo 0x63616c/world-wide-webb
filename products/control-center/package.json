@@ -7,7 +7,6 @@
     "dev:web": "bun run --filter @control-center/web dev",
     "dev:api": "bun run --filter @control-center/api dev",
     "dev:worker": "bun run --filter @control-center/worker dev",
-    "dev:media-worker": "bun run --filter @control-center/media-worker dev",
     "dev:storybook": "bun run --filter @control-center/storybook dev",
     "dev:db": "docker compose -f docker-compose.yml up postgres",
     "ios:sync": "bun run --filter @control-center/ios ios:sync",

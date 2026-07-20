@@ -90,7 +90,7 @@ const captivePortalBackup = captivePortalProductManifest().backup;
 
 /**
  * @public - the declared CronJob set (pure data). nasNfsServer is threaded into
- * the pg-backup NFS PV the same way services.ts threads it into media-worker
+ * the pg-backup NFS PV the same way services.ts threads it into the worker
  * (www-j934.17); the NAS LAN IP by default. Consumed by deployCrons + the unit
  * tests; no other internal consumer.
  */

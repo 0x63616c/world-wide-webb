@@ -5,15 +5,17 @@
  * and are re-exported through the `@control-center/api/worker` subpath so products/control-center/worker has a
  * single, explicit import surface rather than reaching into internal paths.
  *
+ * There is one barrel because there is one worker app: since media-worker was
+ * folded into worker, that single process owns every loop and every job type ,
+ * the home-control enforcers, the pollers, and the whole durable queue.
+ *
  * Interim: this barrel is the documented seam between worker and api. The planned
  * packages/core extraction (shared domain) will move these out of products/control-center/api and
  * delete this file; until then, keep the export surface minimal.
  */
 export { runMigrations } from "./db/migrate";
 export { env } from "./env";
-// Notification delivery. media-worker owns the queue in general, but it is
-// parked at 0 replicas in prod, so worker (always on) drains the `notify` type
-// specifically , see the notify-queue worker in products/control-center/worker.
+// Durable job queue. The worker process drains every registered type.
 export { claimAndRun } from "./jobs/queue";
 export { runAscVersionPollCycle } from "./services/asc-version-service";
 export { runClimateEnforcerCycle } from "./services/climate-enforcer-service";
@@ -22,5 +24,7 @@ export { runGithubPollCycle } from "./services/github-actions-service";
 export { runEnforcerCycle } from "./services/light-enforcer-service";
 export { registerNotifyHandler } from "./services/notification-service";
 export { reconcilePartyMode } from "./services/party-service";
+export { runPlaylistPollerCycle } from "./services/playlist-poller-service";
 export { runSonosVolumeEnforcerCycle } from "./services/sonos-volume-enforcer-service";
 export { runWeatherIngestCycle } from "./services/weather-ingest-service";
+export { registerYoutubeIngestHandler } from "./services/youtube-ingest-service";

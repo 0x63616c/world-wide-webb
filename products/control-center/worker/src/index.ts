@@ -16,17 +16,20 @@ import {
   env,
   reconcilePartyMode,
   registerNotifyHandler,
+  registerYoutubeIngestHandler,
   runAscVersionPollCycle,
   runClimateEnforcerCycle,
   runDeviceSyncCycle,
   runEnforcerCycle,
   runGithubPollCycle,
   runMigrations,
+  runPlaylistPollerCycle,
   runSonosVolumeEnforcerCycle,
   runWeatherIngestCycle,
 } from "@control-center/api/worker";
 import { createLogger } from "@www/logger";
 import { createWorkerRuntime, type Worker } from "@www/worker-runtime";
+import { hasSufficientDisk } from "./disk-guard";
 
 const log = createLogger({ service: "worker" });
 
@@ -42,9 +45,10 @@ try {
 }
 
 // Job handlers must be registered synchronously before the runtime starts
-// claiming. Only `notify` is registered here , see the notify-queue worker below
-// for why this process claims that type and nothing else.
+// claiming. This process is the only queue consumer, so every handler is
+// registered here.
 registerNotifyHandler();
+registerYoutubeIngestHandler();
 
 const workers: Worker[] = [
   {
@@ -117,24 +121,36 @@ const workers: Worker[] = [
     run: runAscVersionPollCycle,
   },
   {
-    // Notification delivery (APNs fan-out).
+    // Durable job queue consumer: APNs fan-out (`notify`) and media ingest
+    // (`youtube_ingest`).
     //
-    // The durable queue belongs to media-worker, but media-worker is parked at
-    // 0 replicas in prod (wwwinfra:mediaWorkerReplicas), so nothing drains the
-    // queue: a `notify` job would be enqueued and sit there forever, and a push
-    // would never be sent even with a valid device token.
-    //
-    // Rather than un-park media-worker (which would also restart YouTube ingest
-    // and media downloads), this always-on process claims ONLY the `notify`
-    // type. The filter matters: without it this worker would also claim media
-    // jobs it has no handler for, burn their retries, and starve the process
-    // that can actually run them if it ever comes back.
-    name: "notify-queue",
+    // There is no type filter. media-worker used to own the queue while this
+    // process claimed only `notify` to avoid stealing media jobs it had no
+    // handler for; media-worker is now merged into this app, so one process
+    // registers every handler and drains every type.
+    name: "queue-worker",
     intervalMs: 2_000,
     runOnStart: true,
     run: async () => {
-      await claimAndRun({ types: ["notify"] });
+      // Check disk before claiming , a full NAS must not start a new download.
+      // Guarding at the worker level applies it to every claim regardless of
+      // handler. hasSufficientDisk emits the structured warn when space is low.
+      if (!hasSufficientDisk(env.MEDIA_STORAGE_DIR)) {
+        return;
+      }
+      await claimAndRun();
     },
+  },
+  {
+    // Playlist poller: enumerate each enabled media_source via
+    // yt-dlp --flat-playlist and enqueue ingest jobs for unseen video IDs.
+    // Metadata only -- no video data -- so 2 minutes is ~720 requests/day from
+    // one IP, well inside anything YouTube pushes back on. Going lower buys
+    // little: the download itself dominates end-to-end latency.
+    name: "playlist-poller",
+    intervalMs: 2 * 60_000,
+    runOnStart: true,
+    run: runPlaylistPollerCycle,
   },
 ];
 

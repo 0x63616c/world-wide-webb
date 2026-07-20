@@ -10,7 +10,6 @@ import { type ImageDigests, serviceSpecs } from "../src/services.ts";
 
 const specsWith = (imageDigests?: ImageDigests): ReturnType<typeof serviceSpecs> =>
   serviceSpecs({
-    mediaWorkerReplicas: 0,
     cloudflaredReplicas: 2,
     storybookReplicas: 0,
     drizzleReplicas: 0,

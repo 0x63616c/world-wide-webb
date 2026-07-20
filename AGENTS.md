@@ -22,8 +22,7 @@
 
 - `products/control-center/web`, React board, Storybook, Capacitor iOS shell.
 - `products/control-center/api`, Bun + tRPC API and domain logic.
-- `products/control-center/worker`, fast interval loops.
-- `products/control-center/media-worker`, heavier queue and media jobs.
+- `products/control-center/worker`, interval loops plus the durable job queue and media pipeline.
 - `products/control-center/storybook`, wrapper around web Storybook.
 - `products/captive-portal`, split into `apps/frontend` and `apps/api`.
 - `packages/api`, `packages/logger`, `packages/platform`, shared support packages.

@@ -1,36 +1,24 @@
 /**
- * Unit tests for the disk-space guard (www-kp4k.2 AC: disk guard util).
+ * Unit tests for the disk-space guard.
  * Tests: returns false below threshold, true above, true when dir missing.
  * Also verifies that the structured logger is called with the expected fields
  * so the observability contract is machine-checked.
  */
 import { describe, expect, it, vi } from "vitest";
-import { hasSufficientDisk } from "./index";
+import { hasSufficientDisk } from "./disk-guard";
 
 vi.mock("node:fs", () => ({
   statfsSync: (path: string) => {
     if (path === "/full") {
-      // Simulate 5 GB free (below 10 GB threshold).
+      // Simulate 5 GB free (below the 50 GB threshold).
       return { bavail: 5 * 1024 * 1024, bsize: 1024 };
     }
     if (path === "/empty") {
       throw new Error("ENOENT");
     }
-    // Default: 20 GB free.
-    return { bavail: 20 * 1024 * 1024, bsize: 1024 };
+    // Default: 100 GB free (above the 50 GB threshold).
+    return { bavail: 100 * 1024 * 1024, bsize: 1024 };
   },
-  // statSync is used by youtube-ingest-service but not disk guard
-  statSync: () => ({ size: 1024 }),
-}));
-
-// Mock @control-center/api/media so the index.ts import doesn't try to connect to Postgres.
-vi.mock("@control-center/api/media", () => ({
-  env: { NODE_ENV: "test", MEDIA_STORAGE_DIR: "/tmp/test-media" },
-  runMigrations: async () => undefined,
-  registerYoutubeIngestHandler: () => undefined,
-  registerNotifyHandler: () => undefined,
-  claimAndRun: async () => false,
-  runPlaylistPollerCycle: async () => undefined,
 }));
 
 // vi.mock factories are hoisted to the top of the file by vitest, so the
@@ -50,20 +38,26 @@ const { mockLog } = vi.hoisted(() => {
 });
 
 vi.mock("@www/logger", () => ({
-  createLogger: () => mockLog,
+  getLogger: () => mockLog,
 }));
 
 describe("hasSufficientDisk", () => {
-  const THRESHOLD = 10 * 1024 * 1024 * 1024; // 10 GB
+  const THRESHOLD = 50 * 1024 * 1024 * 1024; // 50 GB
 
   it("returns true when free bytes exceed threshold", () => {
-    // statfsSync("/ok") returns bavail=20*1024*1024, bsize=1024 → 20 GB free.
+    // statfsSync("/ok") returns bavail=100*1024*1024, bsize=1024 → 100 GB free.
     expect(hasSufficientDisk("/ok", THRESHOLD)).toBe(true);
   });
 
   it("returns false when free bytes are below threshold", () => {
     // statfsSync("/full") returns bavail=5*1024*1024, bsize=1024 → 5 GB free.
     expect(hasSufficientDisk("/full", THRESHOLD)).toBe(false);
+  });
+
+  it("defaults to a 50 GB floor when no threshold is passed", () => {
+    // 100 GB free clears the default floor; 5 GB free does not.
+    expect(hasSufficientDisk("/ok")).toBe(true);
+    expect(hasSufficientDisk("/full")).toBe(false);
   });
 
   it("emits a structured warn with freeBytes/thresholdBytes/dir when below threshold", () => {

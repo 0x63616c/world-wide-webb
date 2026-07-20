@@ -31,7 +31,6 @@ const captivePortalUsages = captivePortalProductManifest().secretUsages;
 const serviceSecretUsages = {
   api: controlCenterUsages.api,
   worker: controlCenterUsages.worker,
-  "media-worker": controlCenterUsages["media-worker"],
   drizzle: controlCenterUsages.drizzle,
   cloudflared: controlCenterUsages.cloudflared,
   "portal-data-purge": controlCenterUsages["portal-data-purge"],
@@ -65,7 +64,6 @@ function targetOf(usage: ServiceSecretUsage): ServiceSecretTarget {
 export const SERVICE_SECRET_TARGETS = {
   api: targetOf(serviceSecretUsages.api),
   worker: targetOf(serviceSecretUsages.worker),
-  "media-worker": targetOf(serviceSecretUsages["media-worker"]),
   drizzle: targetOf(serviceSecretUsages.drizzle),
   cloudflared: targetOf(serviceSecretUsages.cloudflared),
   "portal-data-purge": targetOf(serviceSecretUsages["portal-data-purge"]),

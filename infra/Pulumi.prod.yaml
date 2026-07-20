@@ -1,5 +1,4 @@
 config:
-  wwwinfra:mediaWorkerReplicas: "0"
   wwwinfra:kubeContext: cc-homelab
   wwwinfra:cloudflaredReplicas: "2"
   wwwinfra:storybookReplicas: "0"

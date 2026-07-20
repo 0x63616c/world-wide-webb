@@ -290,7 +290,7 @@ export const ascBuildStatus = pgTable("asc_build_status", {
 // Media ingest pipeline tables (www-kp4k). media_source tracks YouTube playlists
 // and ad-hoc video collections; media_item is each individual video moving through
 // the download/metadata pipeline. The worker barrel re-exports these for the
-// media-worker image.
+// worker image.
 
 export const mediaSource = pgTable(
   "media_source",

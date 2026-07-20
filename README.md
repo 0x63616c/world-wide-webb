@@ -9,7 +9,6 @@ Smart-home wall-panel monorepo for the fixed `1366x1024` Control Center panel.
 | `products/control-center/web` | React board, Storybook, Capacitor iOS shell. Main route: `src/routes/index.tsx`. |
 | `products/control-center/api` | Bun + tRPC API, domain services, schema, migrations. |
 | `products/control-center/worker` | Interval workers for reconciliation and ingest. |
-| `products/control-center/media-worker` | Heavier queue and media jobs. |
 | `products/control-center/storybook` | Thin wrapper around the web Storybook. |
 | `products/captive-portal` | Split product with `apps/frontend` and `apps/api`. |
 | `packages/api` | Browser-safe tRPC type bridge. |

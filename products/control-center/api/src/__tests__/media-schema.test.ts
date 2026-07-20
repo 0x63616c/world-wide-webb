@@ -175,14 +175,16 @@ describe("env schema media keys (www-kp4k.1)", () => {
   });
 });
 
-describe("media barrel exports (www-kp4k.1)", () => {
-  it("exposes mediaSource from the media barrel", async () => {
-    const barrel = await import("../media");
-    expect(barrel.mediaSource).toBeDefined();
+// The separate `./media` barrel is gone: media-worker merged into worker, so
+// the worker barrel is the single seam and carries the media entry points.
+describe("worker barrel exports the media entry points", () => {
+  it("exposes runPlaylistPollerCycle from the worker barrel", async () => {
+    const barrel = await import("../worker-deps");
+    expect(barrel.runPlaylistPollerCycle).toBeDefined();
   });
 
-  it("exposes mediaItem from the media barrel", async () => {
-    const barrel = await import("../media");
-    expect(barrel.mediaItem).toBeDefined();
+  it("exposes registerYoutubeIngestHandler from the worker barrel", async () => {
+    const barrel = await import("../worker-deps");
+    expect(barrel.registerYoutubeIngestHandler).toBeDefined();
   });
 });

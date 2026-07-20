@@ -11,8 +11,7 @@
     "./portal-router": "./src/trpc/routers/portal.ts",
     "./trpc-context": "./src/trpc/context.ts",
     "./trpc-init": "./src/trpc/init.ts",
-    "./worker": "./src/worker-deps.ts",
-    "./media": "./src/media.ts"
+    "./worker": "./src/worker-deps.ts"
   },
   "scripts": {
     "dev": "bun --watch src/server.ts",

@@ -191,20 +191,6 @@
       "name": "@control-center/map-provision",
       "version": "0.0.0",
     },
-    "products/control-center/media-worker": {
-      "name": "@control-center/media-worker",
-      "version": "0.0.0",
-      "dependencies": {
-        "@control-center/api": "workspace:*",
-        "@www/logger": "workspace:*",
-        "@www/worker-runtime": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/bun": "^1.3.13",
-        "typescript": "^5.9.3",
-        "vitest": "^3.2.4",
-      },
-    },
     "products/control-center/storybook": {
       "name": "@control-center/storybook",
       "version": "0.0.0",
@@ -545,8 +531,6 @@
     "@control-center/ios": ["@control-center/ios@workspace:products/control-center/ios"],
 
     "@control-center/map-provision": ["@control-center/map-provision@workspace:products/control-center/map-provision"],
-
-    "@control-center/media-worker": ["@control-center/media-worker@workspace:products/control-center/media-worker"],
 
     "@control-center/storybook": ["@control-center/storybook@workspace:products/control-center/storybook"],
 
