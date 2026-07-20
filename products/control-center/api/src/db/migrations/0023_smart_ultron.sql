@@ -1,0 +1,1 @@
+DROP TABLE "light_schedules" CASCADE;

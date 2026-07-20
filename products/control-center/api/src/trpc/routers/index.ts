@@ -12,7 +12,6 @@ import { mediaRouter } from "./media";
 import { networkRouter } from "./network";
 import { notificationsRouter } from "./notifications";
 import { portalRouter } from "./portal";
-import { schedulesRouter } from "./schedules";
 import { sessionsRouter } from "./sessions";
 import { settingsRouter } from "./settings";
 import { systemRouter } from "./system";
@@ -36,7 +35,6 @@ export const appRouter = router({
   logs: logsRouter,
   media: mediaRouter,
   portal: portalRouter,
-  schedules: schedulesRouter,
   settings: settingsRouter,
   system: systemRouter,
   sessions: sessionsRouter,

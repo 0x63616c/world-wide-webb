@@ -50,9 +50,9 @@ export type DeviceOwner = (typeof DeviceOwner)[keyof typeof DeviceOwner];
  *   - device-sync           : everything else (fans + plain HA devices)
  *
  * "Owner" means WHO RECONCILES/SWEEPS the row , NOT who may write desired onto
- * it. The schedule-runner writes desired onto light rows the light-enforcer owns:
- * that is a writer/owner distinction, by design, and not a violation of single
- * ownership (the light-enforcer still reconciles the row).
+ * it. Any caller (a tRPC mutation, party mode) may write desired onto a row the
+ * light-enforcer owns: that is a writer/owner distinction, by design, and not a
+ * violation of single ownership (the light-enforcer still reconciles the row).
  */
 export function ownerOf(row: { kind: string; entityId: string }): DeviceOwner {
   if (findLight(row.entityId)) return DeviceOwner.LightEnforcer;

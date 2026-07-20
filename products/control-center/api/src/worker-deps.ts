@@ -22,6 +22,5 @@ export { runGithubPollCycle } from "./services/github-actions-service";
 export { runEnforcerCycle } from "./services/light-enforcer-service";
 export { registerNotifyHandler } from "./services/notification-service";
 export { reconcilePartyMode } from "./services/party-service";
-export { runScheduleRunnerCycle } from "./services/schedule-runner-service";
 export { runSonosVolumeEnforcerCycle } from "./services/sonos-volume-enforcer-service";
 export { runWeatherIngestCycle } from "./services/weather-ingest-service";

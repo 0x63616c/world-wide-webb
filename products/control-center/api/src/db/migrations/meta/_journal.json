@@ -155,6 +155,13 @@
       "when": 1784514536629,
       "tag": "0022_typical_stick",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1784555310018,
+      "tag": "0023_smart_ultron",
+      "breakpoints": true
     }
   ]
 }
