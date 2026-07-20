@@ -738,3 +738,10 @@ Each of these is a real lever, deferred because it carries risk or ops burden th
 - **Tighten path filters.** Every filter includes `products/control-center/**`, so a web-only change rebuilds api, worker, media-worker and storybook. Narrowing them would skip builds entirely on most pushes, but too-tight filters ship stale images, and the current breadth is a deliberate response to www-355t.
 - **Cache the deploy tooling.** `deploy` curls sops, age and the Pulumi CLI on every run (~25s). Trivial to fix, small payoff, worth doing when the deploy job next needs editing.
 - **Self-hosted runners on the homelab.** Warm Docker layer caches (likely the cause of the p50→p90 doubling on build jobs), a local registry instead of a GHCR round-trip, and no 20-job cap. Largest remaining win and the largest ops commitment.
+
+## As Shipped (2026-07-20)
+
+- 8 build jobs, not the 9 this plan assumed — `build-media-worker` was merged into `build-worker` by a separate, concurrent effort, not by this plan. 14 jobs total in `ci.yml`.
+- Measured baseline was worse than estimated above: pipeline p50 777s, lead time p50 2227s, ρ 1.14 (n=43) — vs. this plan's 755s/2148s/~1.0.
+- Task 6 (`maxWorkers: 4`) measured 1.93x on the unit suite locally: 71.9s → 37.2s, three green runs, no flake.
+- End-to-end pipeline effect of the full stack (Tasks 3-6 combined) has not been re-measured yet — needs `bun run measure:ci 7` after a full day of pushes on `main`.

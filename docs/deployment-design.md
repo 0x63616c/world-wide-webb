@@ -93,8 +93,11 @@ solution, captive-portal LAN exposure, and the UniFi import plan are all in
 ```
 push to main
   → changes  (dorny/paths-filter; per-app filters + an `infra/**` filter)
-  → test     (typecheck · biome · knip · guards · vitest coverage · badges), gates deploy
+  → test-unit      (biome · guards · vitest jsdom)         ─┐
+  → test-storybook (vitest chromium via Playwright)         ├─ gate deploy, run concurrently
+  → typecheck      (tsc · knip)                            ─┘   with the build jobs below
   → build-{web,api,worker,storybook,drizzle,captive-portal,captive-portal-api,map-provision}  (arm64 → GHCR :sha + :main)
+    (start right after `changes`, do NOT queue behind the test gates)
   → deploy:
        - collect per-image :main digests (buildx imagetools inspect)
        - join the tailnet with an EPHEMERAL Tailscale auth key (tag:ci), reach homelab's apiserver

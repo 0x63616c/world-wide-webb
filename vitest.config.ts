@@ -49,11 +49,11 @@ export default defineConfig({
         "**/*.d.ts",
         "**/*.gen.ts",
       ],
-      // Coverage is REPORTED (the % feeds the README badge) but deliberately NOT
-      // gated - no `thresholds` here. A coverage drop must never fail a CI job or
-      // block a deploy (per Calum); the merged browser+unit number is also
-      // slightly nondeterministic run-to-run, so a ratchet would flake. The test
-      // job still fails on real test failures, just never on the coverage %.
+      // Coverage is REPORTED but deliberately NOT gated - no `thresholds` here.
+      // A coverage drop must never fail a CI job or block a deploy (per Calum);
+      // the merged browser+unit number is also slightly nondeterministic
+      // run-to-run, so a ratchet would flake. The test-unit/test-storybook jobs
+      // still fail on real test failures, just never on the coverage %.
     },
   },
 });

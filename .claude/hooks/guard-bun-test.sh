@@ -8,7 +8,7 @@
 #
 # Mention-safe: matches `bun test` only in command position (start or after a
 # shell separator), and only when the next token is NOT `run`. So `bun run
-# test`, `bun run test:coverage`, and a string that merely contains "bun test"
+# test`, `bun run test:unit`, and a string that merely contains "bun test"
 # all pass.
 
 input=$(cat)
@@ -20,7 +20,7 @@ pre='(^|[;&|`(]|&&|\|\|)[[:space:]]*'
 
 if printf '%s' "$norm" | grep -Eq "${pre}bun[[:space:]]+test([[:space:]]|$)"; then
   cat <<'JSON'
-{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Blocked: bare `bun test` uses Bun's native runner, which is incompatible with vi.mock and reports false failures. Use `bun run test` (vitest) instead, or `bun run test:coverage` for the merged run."}}
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Blocked: bare `bun test` uses Bun's native runner, which is incompatible with vi.mock and reports false failures. Use `bun run test` (vitest) instead, or `bun run test:unit` / `bun run test:storybook` for a single suite."}}
 JSON
   exit 0
 fi

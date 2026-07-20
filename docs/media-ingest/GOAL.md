@@ -47,7 +47,7 @@ These are NOT done by the workflow and **must be true before the final push**:
 ### Ship to prod (after prerequisites)
 
 - [ ] Final `git push` to `main`; `git status` shows clean, up to date with origin.
-- [ ] CI green (typecheck + test:coverage + knip + storybook-docs); `build-media-worker` produces `ghcr.io/0x63616c/control-center-media-worker`.
+- [ ] CI green (typecheck · knip · test-unit · test-storybook). STALE: `test:coverage` was removed and `build-media-worker` no longer exists as a CI job — `products/control-center/media-worker` was merged into `worker` by a separate effort (2026-07-20 CI latency work). Re-confirm this epic's build/deploy target against current CI job names before shipping.
 - [ ] bosun deploy rolls **only** the new `media-worker` (digest-pinned); the rest of the stack is undisturbed (no whole-stack regression).
 - [ ] `media-worker` boots healthy in prod; logs show the runtime started and both workers registered.
 

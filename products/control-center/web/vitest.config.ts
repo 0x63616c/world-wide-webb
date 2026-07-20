@@ -12,8 +12,9 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    // Board integration suites exceed the 5s default under v8 coverage
-    // instrumentation on CI runners (they pass in well under 5s uninstrumented).
+    // Board integration suites exceed the 5s default under CI's higher worker
+    // parallelism (maxWorkers: 4 contends for CPU across runs; they pass in
+    // well under 5s on an idle machine).
     testTimeout: 20_000,
   },
 });
