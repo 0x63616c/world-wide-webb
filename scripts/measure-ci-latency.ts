@@ -66,13 +66,23 @@ function report(label: string, values: number[]): void {
 
 const since = new Date(Date.now() - DAYS * 86_400_000).toISOString().slice(0, 10);
 
-// Two pages of 100 covers a week comfortably at this repo's push rate.
+// Two pages of 100 covers a week comfortably at this repo's push rate. If the
+// API's total_count says otherwise, warn rather than silently truncating the
+// window - a truncated baseline would corrupt every before/after comparison
+// that leans on this script.
 const runs: Run[] = [];
+let totalCount = 0;
 for (const page of [1, 2]) {
-  const res = await gh<{ workflow_runs: Run[] }>(
+  const res = await gh<{ total_count: number; workflow_runs: Run[] }>(
     `repos/${REPO}/actions/workflows/${WORKFLOW}/runs?created=%3E%3D${since}&branch=main&per_page=100&page=${page}`,
   );
+  totalCount = res.total_count;
   runs.push(...res.workflow_runs);
+}
+if (totalCount > runs.length) {
+  console.info(
+    `WARNING: window truncated - ${totalCount} runs exist in this window but only ${runs.length} were analysed`,
+  );
 }
 
 const byConclusion = new Map<string, number>();
@@ -126,4 +136,7 @@ if (hours.size > 0 && Number.isFinite(medianPipeline)) {
     `\nUTILISATION  arrivals ${arrivalsPerHour.toFixed(2)}/active-hour  capacity ${capacityPerHour.toFixed(2)}/hour  rho ${rho.toFixed(2)}`,
   );
   console.info(rho >= 1 ? "  SATURATED - backlog grows without bound" : "  stable");
+  console.info(
+    "  (rho excludes time cancelled runs held their concurrency slot; true utilisation is >= this figure)",
+  );
 }
