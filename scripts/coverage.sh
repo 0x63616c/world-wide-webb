@@ -1,30 +1,21 @@
 #!/usr/bin/env bash
 #
-# Merged coverage across BOTH vitest projects: the jsdom unit suite (api + web)
-# and the Storybook browser suite (Playwright/Chromium). They run as two
-# separate invocations because the Storybook project must run from products/control-center/web (its
-# storybookScript + setup are relative to that dir), so we record each as a vitest
-# "blob" report and merge them into one coverage summary.
+# Runs BOTH vitest projects: the jsdom unit suite (api + web + workers +
+# packages + infra) and the Storybook browser suite (Playwright/Chromium).
 #
-# Why merged: a unit-only run counts the ~95 story-tested presentational
-# components as 0%, badly undercounting (www-hjvu / follow-on from www-afz). The
-# merged number reflects unit + Storybook interaction coverage.
+# They are two invocations because the Storybook project must run from
+# products/control-center/web (its storybookScript and setup paths are relative
+# to that dir).
 #
-# Output: coverage/coverage-summary.json (consumed by scripts/gen-badges.ts).
+# No coverage: it was only ever collected to feed README badges, which were
+# removed in c2fcd87b8 (2026-06-20). Coverage was never a gate — see the note in
+# vitest.config.ts — so dropping the instrumentation changes no pass/fail
+# outcome, it just removes the v8 overhead from every push.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-rm -rf .vitest-reports coverage
+# 1) Unit projects (jsdom).
+bunx vitest run
 
-# 1) Unit projects (jsdom) -> blob. The extra default reporter keeps failure
-# output visible in CI logs (blob alone is silent).
-bunx vitest run --coverage --reporter=blob --reporter=default --outputFile=.vitest-reports/unit.json
-
-# 2) Storybook project (chromium) -> blob. Runs from products/control-center/web; serialized via the
-#    project's fileParallelism:false so it's deterministic.
-( cd products/control-center/web && bunx vitest run --project storybook --coverage --reporter=blob \
-    --reporter=default --outputFile=../../.vitest-reports/storybook.json )
-
-# 3) Merge both blobs and emit the combined coverage summary.
-bunx vitest run --mergeReports=.vitest-reports --coverage --coverage.provider=v8 \
-  --coverage.reporter=json-summary --coverage.reporter=text-summary
+# 2) Storybook project (chromium). Runs from products/control-center/web.
+( cd products/control-center/web && bunx vitest run --project storybook )

@@ -23,7 +23,6 @@
     "test:product-doc-paths": "bun scripts/check-product-doc-paths.ts",
     "test:coverage": "bash scripts/coverage.sh",
     "identity:audit": "scripts/check-rename-identity.py",
-    "badges": "bun scripts/gen-badges.ts",
     "measure:ci": "bun scripts/measure-ci-latency.ts",
     "check:control-center-product-boundary": "bun scripts/check-control-center-product-boundary.ts",
     "format": "bun scripts/quality-gate.ts format",

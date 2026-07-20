@@ -55,11 +55,6 @@ pre-commit:
       # keys, high-entropy strings). Config + allowlist live in .gitleaks.toml.
       # Keeps credentials in 1Password only, especially ahead of going public (www-4ma).
       run: gitleaks git --staged --no-banner -c .gitleaks.toml
-    # NOTE: badge JSON (.github/badges/*) is refreshed ONLY by the CI test job
-    # (`bun run badges` → commit "[skip ci]" on main), never per-commit. A
-    # pre-commit `git add` of generated badges baked churn into every feature
-    # commit and conflicted on every worktree→main merge (www-w6j2.8). CI keeps
-    # all four badges (files/loc/commit/coverage) current on main.
 
 pre-push:
   # piped: run commands sequentially in priority order and ABORT the chain on the

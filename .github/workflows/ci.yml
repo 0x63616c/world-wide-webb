@@ -142,21 +142,14 @@ jobs:
               - 'products/captive-portal/**'
               - 'bun.lock'
 
-  # Test gate: typecheck + full vitest suite with coverage. Runs on every push
-  # (the repo previously built and DEPLOYED without ever running tests). Deploy
-  # depends on this passing. Also refreshes the self-hosted coverage/LOC badge
-  # JSON and commits it back on main so the README badges stay real (www-afz).
+  # Test gate: typecheck + full vitest suite. Runs on every push (the repo
+  # previously built and DEPLOYED without ever running tests). Deploy depends
+  # on this passing.
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Full history so the badge commit can rebase cleanly onto main.
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.2.19
@@ -232,25 +225,8 @@ jobs:
       - name: Install Playwright system deps (cached binary)
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: bunx playwright install-deps chromium
-      - name: Test with coverage (unit jsdom + Storybook chromium, merged)
+      - name: Test (unit jsdom + Storybook chromium)
         run: bun run test:coverage
-      - name: Regenerate badge JSON
-        run: bun run badges
-      - name: Commit refreshed badges (main only)
-        if: github.ref == 'refs/heads/main'
-        run: |
-          # Only commit when a badge actually changed. --no-verify skips the
-          # local lefthook hooks (gitleaks etc. aren't installed on the runner);
-          # [skip ci] stops this cosmetic commit from re-triggering the workflow.
-          # All steps are best-effort so a push race never fails the test gate.
-          if ! git diff --quiet -- .github/badges; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add .github/badges
-            git commit --no-verify -m "chore(ci/www-afz): refresh coverage + loc badges [skip ci]" || true
-            git pull --rebase --autostash origin main || true
-            git push || true
-          fi
 
   # Typecheck + dead-code run in parallel with the coverage suite so type
   # errors and knip regressions surface without waiting for Playwright to
