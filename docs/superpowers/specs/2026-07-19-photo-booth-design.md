@@ -49,8 +49,15 @@ The gallery's "‹ Photos" header must stay pinned while the grid scrolls. This 
   2x2 grid); GIF/boomerang; Video is a disabled placeholder only.
 - **Countdown**: 1/3/5/10s options; shutter/countdown sounds.
 - **Screen flash**: white overlay at capture, default off.
-- **Filters**: live CSS-filter preview; baked into the saved image at capture
-  (canvas bake, including mirror correction).
+- **Filters — non-destructive** (user decision 2026-07-19): the saved image is the
+  RAW frame (mirror correction + date stamp still baked). The chosen filter is stored
+  as a string on the photo row (`booth_photo.filter`, nullable; `x-filter` upload
+  header) and applied as a CSS filter at display time in grid + lightbox. Share/export
+  bakes the filter into pixels at that moment (canvas). Lightbox shows a
+  "Remove effect" action when a filter is set — clears it via
+  `boothPhotos.clearFilter({groupId})`, restoring the original. Exception: GIF frames
+  are assembled at capture, so a GIF's filter stays baked (its `filter` column stays
+  null). Filter id→CSS mapping is a shared web module used by camera and gallery.
 - **Date-stamp framing** on captures.
 - **Share**: to phone via `@capacitor/share` native sheet (new dependency).
 - **Delete**: soft delete, no retention window. Never surface "soft delete"/"trash"
