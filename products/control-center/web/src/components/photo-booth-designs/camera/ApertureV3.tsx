@@ -91,14 +91,17 @@ export function ApertureV3() {
                 ...glassBtn(countdown !== 0, true),
                 width: "auto",
                 minWidth: 48,
-                padding: "0 16px 0 14px",
+                borderRadius: 999,
+                padding: countdown === 0 ? 0 : "0 16px 0 14px",
                 gap: 7,
               }}
             >
-              <Icon name="timer" s={20} />
-              <span style={{ fontFamily: "var(--mono)", fontSize: 15 }}>
-                {countdownLabel(countdown)}
-              </span>
+              <Icon name="timer" s={20} c={countdown === 0 ? "var(--ink-3)" : "currentColor"} />
+              {countdown !== 0 && (
+                <span style={{ fontFamily: "var(--mono)", fontSize: 15 }}>
+                  {countdownLabel(countdown)}
+                </span>
+              )}
             </button>
             <FlashButton on={flashOn} onToggle={() => setFlashOn((v) => !v)} />
           </div>
