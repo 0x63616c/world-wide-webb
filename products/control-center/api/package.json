@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/contract/settings.ts",
+    "./contract-device-settings": "./src/contract/device-settings.ts",
     "./trpc": "./src/trpc/routers/index.ts",
     "./portal-router": "./src/trpc/routers/portal.ts",
     "./trpc-context": "./src/trpc/context.ts",

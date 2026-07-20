@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./settings": "./src/settings.ts",
+    "./device-settings": "./src/device-settings.ts",
     "./trpc": "./src/trpc.ts"
   },
   "scripts": {

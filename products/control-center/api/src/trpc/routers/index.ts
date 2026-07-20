@@ -3,6 +3,7 @@ import { boothPhotosRouter } from "./booth-photos";
 import { cameraRouter } from "./camera";
 import { climateRouter } from "./climate";
 import { controlsRouter } from "./controls";
+import { deviceSettingsRouter } from "./device-settings";
 import { eventsRouter } from "./events";
 import { githubRouter } from "./github";
 import { healthRouter } from "./health";
@@ -36,6 +37,7 @@ export const appRouter = router({
   media: mediaRouter,
   portal: portalRouter,
   settings: settingsRouter,
+  deviceSettings: deviceSettingsRouter,
   system: systemRouter,
   sessions: sessionsRouter,
   wakePhotos: wakePhotosRouter,

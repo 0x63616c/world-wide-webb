@@ -246,6 +246,30 @@ export const settings = pgTable("settings", {
   updatedAtUtc: timestamp("updated_at_utc", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Per-device control-center settings, one row PER PANEL keyed on the web
+// client's stable device_id (lib/device-id.ts , e.g. "ipad13-1-3f9a2c1b"). Same
+// jsonb-blob approach as `settings` above so new fields need no column
+// migration, but deliberately NOT that table: `settings` is a singleton every
+// panel shares, and these are preferences that belong to one piece of hardware
+// in one room. Volume is the first , two panels at the same level would be a
+// coincidence, not a shared truth. Shape, defaults, and validation live in
+// services/device-settings-service.ts; bounds in contract/device-settings.ts.
+//
+// device_id is the primary key and is minted client-side, so rows appear on
+// first write from a panel and no registration step is needed.
+
+// Kept as a structural type here so the jsonb column is typed; the authoritative
+// shape + Zod schema + defaults live in services/device-settings-service.ts.
+export interface DeviceSettingsValue {
+  volume: number;
+}
+
+export const deviceSettings = pgTable("device_settings", {
+  deviceId: text("device_id").primaryKey(),
+  value: jsonb("value").$type<DeviceSettingsValue>().notNull(),
+  updatedAtUtc: timestamp("updated_at_utc", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Latest known TestFlight build of the wall-panel iOS shell, a SINGLETON row
 // (id = ASC_BUILD_STATUS_SINGLETON_ID). Written by the asc-version-poll worker
 // (App Store Connect /v1/builds), read by the system.appUpdateStatus tRPC query

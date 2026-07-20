@@ -162,6 +162,13 @@
       "when": 1784555310018,
       "tag": "0023_smart_ultron",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1784570869778,
+      "tag": "0024_volatile_captain_universe",
+      "breakpoints": true
     }
   ]
 }
