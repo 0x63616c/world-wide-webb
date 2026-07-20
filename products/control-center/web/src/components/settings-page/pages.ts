@@ -10,6 +10,7 @@ import type { IconName } from "../Icon";
 export type PageKey =
   | "device"
   | "display"
+  | "sound"
   | "board"
   | "network"
   | "notifications"
@@ -48,6 +49,13 @@ export const PAGES: PageDef[] = [
     icon: "sun",
     tint: "#e0a83c",
     blurb: "Brightness and idle dimming",
+  },
+  {
+    key: "sound",
+    label: "Sound",
+    icon: "speaker",
+    tint: "#c77dbb",
+    blurb: "Panel output volume",
   },
   { key: "board", label: "Board", icon: "apps", tint: "#4a90d9", blurb: "Snap, recenter, layout" },
   {
