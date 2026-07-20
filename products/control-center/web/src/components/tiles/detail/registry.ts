@@ -17,13 +17,11 @@ import { activityDetailEntry } from "./wiring/activity";
 import { controlsDetailEntry } from "./wiring/controls";
 import { deploysDetailEntry } from "./wiring/deploys";
 import { dogCamDetailEntry } from "./wiring/dogcam";
-import { dogModeDetailEntry } from "./wiring/dogmode";
 import { frontendLogsDetailEntry } from "./wiring/frontend-logs";
 import { guestWifiDetailEntry } from "./wiring/guest-wifi";
 import { notificationsDetailEntry } from "./wiring/notifications";
 import { photoBoothDetailEntry } from "./wiring/photo-booth";
 import { quickPlayDetailEntry } from "./wiring/quickplay";
-import { schedulesDetailEntry } from "./wiring/schedules";
 import { soundDetailEntry } from "./wiring/sound";
 import { tvDetailEntry } from "./wiring/tv";
 import { tvAppsDetailEntry } from "./wiring/tv-apps";
@@ -39,7 +37,6 @@ const ENTRIES: TileDetailEntry[] = [
   eventsDetailEntry,
   teslaDetailEntry,
   deploysDetailEntry,
-  schedulesDetailEntry,
   soundDetailEntry,
   notificationsDetailEntry,
   tvAppsDetailEntry,
@@ -48,7 +45,6 @@ const ENTRIES: TileDetailEntry[] = [
   controlsDetailEntry,
   activityDetailEntry,
   dogCamDetailEntry,
-  dogModeDetailEntry,
   frontendLogsDetailEntry,
   guestWifiDetailEntry,
   photoBoothDetailEntry,

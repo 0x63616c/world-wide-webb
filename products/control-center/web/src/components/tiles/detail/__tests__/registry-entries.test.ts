@@ -1,5 +1,5 @@
 /**
- * Registry-shape tests for the Task-11 entries (Activity, DogCam, DogMode,
+ * Registry-shape tests for the Task-11 entries (Activity, DogCam,
  * Frontend Logs). The behavior these assert used to live in hand-wired tile
  * plumbing (WakesTile's own PinGateModal, FrontendLogsTile's own tap handler);
  * now it is declarative registry data, so the tests pin the declarations:
@@ -37,11 +37,8 @@ describe("tile detail registry , Task 11 entries", () => {
     expect(entry.defaultSlug).toBe("activity");
   });
 
-  it("DogCam and DogMode are single-variant pages", () => {
-    for (const [tileId, title] of [
-      ["tile_dogcam", "Living Room Cam"],
-      ["tile_dogmode", "Dog Mode"],
-    ] as const) {
+  it("DogCam is a single-variant page", () => {
+    for (const [tileId, title] of [["tile_dogcam", "Living Room Cam"]] as const) {
       const entry = getTileDetailEntry(tileId);
       expect(entry?.kind).toBe("page");
       if (entry?.kind !== "page") throw new Error("expected a page entry");

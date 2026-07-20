@@ -21,12 +21,10 @@ import * as ClimateS from "../tiles/ClimateTileView.stories";
 import * as ClockS from "../tiles/ClockGreetingView.stories";
 import * as ControlsS from "../tiles/ControlsTileView.stories";
 import * as DogCamS from "../tiles/DogCamTileView.stories";
-import * as DogModeS from "../tiles/DogModeTileView.stories";
 import * as EventsS from "../tiles/EventsTileView.stories";
 import * as FeLogsS from "../tiles/FrontendLogsTileView.stories";
 import * as NetworkS from "../tiles/NetworkTileView.stories";
 import * as HourlyS from "../tiles/Next12HoursView.stories";
-import * as SchedS from "../tiles/SchedulesTileView.stories";
 import * as TeslaS from "../tiles/TeslaTileView.stories";
 import * as WeatherS from "../tiles/WeatherNowView.stories";
 import { type LayoutEditorTile, LayoutEditorView } from "./LayoutEditorView";
@@ -50,10 +48,8 @@ const VIEWS: Record<string, StoryEntry> = {
   tile_tesla: fromStory(TeslaS, "Populated"),
   tile_hourly: fromStory(HourlyS, "Populated"),
   tile_ctrl: fromStory(ControlsS, "Mixed"),
-  tile_sched: fromStory(SchedS, "Populated"),
   tile_dogcam: fromStory(DogCamS, "Covered"),
   tile_ac: fromStory(ClimateS, "CoolingMode"),
-  tile_dogmode: fromStory(DogModeS, "Disarmed"),
   tile_event: fromStory(EventsS, "Default"),
   tile_tv: fromStory(TvS, "StreamingPlaying"),
   tile_sound: fromStory(SoundS, "Populated"),

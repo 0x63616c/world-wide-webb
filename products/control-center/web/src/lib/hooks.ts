@@ -37,9 +37,6 @@ export const POLL = {
   // editor is expected to be used while looking at the panel, so a 5s poll picks
   // up a save from another device (or the editor itself) with no visible lag.
   layout: 5 * 1000,
-  // Schedule rows + their nextRuns change only on an edit; 30s picks up an edit
-  // made on another panel within a tick without hammering the API.
-  schedules: 30 * 1000,
   // Apple TV playback state moves quickly during a session; 5s keeps the
   // now-playing strip's title/transport close to real.
   tvNowPlaying: 5 * 1000,

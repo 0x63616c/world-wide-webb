@@ -30,6 +30,4 @@ export { Tile } from "./Tile";
 /** @public , shared tile-author primitive surface; kept though no internal consumer yet (www-k6p1). */
 export { TileBoundary } from "./TileBoundary";
 export { TileHeader } from "./TileHeader";
-export type { TimeValue, TimeWheelProps } from "./TimeWheel";
-export { formatHHMM, parseHHMM, TimeWheel } from "./TimeWheel";
 export { TileStatus } from "./tile-status";

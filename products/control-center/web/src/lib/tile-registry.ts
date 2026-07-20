@@ -16,7 +16,6 @@ import { DeployTile } from "../components/tiles/DeployTile";
 import { DeployTileView } from "../components/tiles/DeployTileView";
 import { DogCamTile } from "../components/tiles/DogCamTile";
 import { DogCamTileView } from "../components/tiles/DogCamTileView";
-import { DogModeTile, DogModeTileView } from "../components/tiles/DogModeTileView";
 import { EventsTile } from "../components/tiles/EventsTile";
 import { EventsTileView } from "../components/tiles/EventsTileView";
 import { FrontendLogsTile } from "../components/tiles/FrontendLogsTile";
@@ -30,8 +29,6 @@ import { Next12HoursView } from "../components/tiles/Next12HoursView";
 import { NotificationCenterTile } from "../components/tiles/NotificationCenterTile";
 import { NotificationCenterTileView } from "../components/tiles/NotificationCenterTileView";
 import { PhotoBoothTile } from "../components/tiles/photo-booth/PhotoBoothTile";
-import { SchedulesTile } from "../components/tiles/SchedulesTile";
-import { SchedulesTileView } from "../components/tiles/SchedulesTileView";
 import { TeslaTile } from "../components/tiles/TeslaTile";
 import { TeslaTileView } from "../components/tiles/TeslaTileView";
 import { WakesTile } from "../components/tiles/WakesTile";
@@ -48,9 +45,7 @@ type TileComponent =
   | typeof TeslaTile
   | typeof Next12Hours
   | typeof ControlsTile
-  | typeof SchedulesTile
   | typeof DogCamTile
-  | typeof DogModeTile
   | typeof DeployTile
   | typeof ClimateTile
   | typeof EventsTile
@@ -71,9 +66,7 @@ type TileViewComponent =
   | typeof TeslaTileView
   | typeof Next12HoursView
   | typeof ControlsTileView
-  | typeof SchedulesTileView
   | typeof DogCamTileView
-  | typeof DogModeTileView
   | typeof DeployTileView
   | typeof ClimateTileView
   | typeof EventsTileView
@@ -189,16 +182,6 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     rows: 3,
   },
   {
-    id: "tile_sched",
-    label: "Schedules",
-    component: SchedulesTile,
-    viewComponent: SchedulesTileView,
-    worldCol: 34,
-    worldRow: 30,
-    cols: 4,
-    rows: 3,
-  },
-  {
     id: "tile_dogcam",
     label: "Living Room Cam",
     component: DogCamTile,
@@ -215,16 +198,6 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     viewComponent: ClimateTileView,
     worldCol: 30,
     worldRow: 24,
-    cols: 4,
-    rows: 3,
-  },
-  {
-    id: "tile_dogmode",
-    label: "Dog Mode",
-    component: DogModeTile,
-    viewComponent: DogModeTileView,
-    worldCol: 18,
-    worldRow: 27,
     cols: 4,
     rows: 3,
   },
@@ -286,7 +259,7 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     label: "Activity",
     component: WakesTile,
     viewComponent: WakesTileView,
-    worldCol: 38,
+    worldCol: 34,
     worldRow: 30,
     cols: 2,
     rows: 2,

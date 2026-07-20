@@ -1,7 +1,7 @@
 /**
  * NotificationCenterTileView , pure presentational layer for the Notification
  * Center tile. All data + callbacks arrive as props; no trpc or data hooks
- * inside (mirrors SchedulesTileView).
+ * inside.
  *
  * A header with an unread-count pill, the newest unread notifications as dense
  * severity-coded rows, and a footer summarising the oldest-unread age. Tapping
