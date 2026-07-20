@@ -42,6 +42,9 @@ const GIF_DELAY_MS = 80;
 // How long the white flash overlay and the shutter "freeze" cue stay lit.
 const FLASH_MS = 220;
 const SHUTTER_FREEZE_MS = 300;
+// How long the just-captured thumbnail pops near the gallery button before it
+// fades out (the ShotThumb animation runs for the same span).
+const THUMB_LINGER_MS = 2200;
 // How long a capture error lingers on screen before clearing itself.
 const ERROR_LINGER_MS = 4000;
 
@@ -81,6 +84,13 @@ export interface BoothCaptureController {
   busy: boolean;
   /** A transient capture error to surface, cleared automatically. */
   error: string | null;
+  /**
+   * The just-captured frame as an object URL, popped near the gallery button then
+   * auto-dismissed , the always-on "your shot landed" cue. `key` is the shot id:
+   * it changes once per shutter press, so a fresh shot replays the pop while rapid
+   * same-shot frames (burst / gif) only swap the image. Null when nothing recent.
+   */
+  lastShot: { url: string; key: number } | null;
   /** Press the shutter: runs the timer (if any) then the mode's capture sequence. */
   shoot: () => void;
 }
@@ -93,6 +103,7 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
   const [flashing, setFlashing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastShot, setLastShot] = useState<{ url: string; key: number } | null>(null);
 
   // Synchronous re-entry guard: a second press before React re-renders must not
   // start a second sequence, so a ref (not the async `busy` state) gates shoot.
@@ -110,6 +121,38 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
   // user chose when they pressed, even if they change controls mid-sequence.
   const argsRef = useRef(args);
   argsRef.current = args;
+
+  // Capture-thumbnail plumbing. `shotKeyRef` ids the current shutter press so the
+  // pop replays per shot; `thumbUrlRef` holds the one live object URL (revoked on
+  // replace / dismiss / unmount so a long kiosk session never leaks blobs).
+  const shotKeyRef = useRef(0);
+  const thumbUrlRef = useRef<string | null>(null);
+  const thumbTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (thumbTimerRef.current) clearTimeout(thumbTimerRef.current);
+      if (thumbUrlRef.current) URL.revokeObjectURL(thumbUrlRef.current);
+    };
+  }, []);
+
+  /** Pop the just-baked frame as the capture thumbnail; auto-dismiss after it settles. */
+  function publishThumb(blob: Blob): void {
+    if (!aliveRef.current) return;
+    const url = URL.createObjectURL(blob);
+    // Only the newest thumbnail URL is kept alive.
+    if (thumbUrlRef.current) URL.revokeObjectURL(thumbUrlRef.current);
+    thumbUrlRef.current = url;
+    setLastShot({ url, key: shotKeyRef.current });
+    if (thumbTimerRef.current) clearTimeout(thumbTimerRef.current);
+    thumbTimerRef.current = setTimeout(() => {
+      if (!aliveRef.current) return;
+      setLastShot(null);
+      if (thumbUrlRef.current) {
+        URL.revokeObjectURL(thumbUrlRef.current);
+        thumbUrlRef.current = null;
+      }
+    }, THUMB_LINGER_MS);
+  }
 
   function fireShutterCue(): void {
     playShutter();
@@ -135,11 +178,16 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
   async function bakeCurrent(bakeFilter: boolean): Promise<Blob> {
     const video = argsRef.current.videoRef.current;
     if (!video) throw new Error("Camera not ready");
-    return bakeFrame(video, {
+    const blob = await bakeFrame(video, {
       filterCss: bakeFilter ? filterCss(argsRef.current.filterId) : "none",
       mirror: true,
       stampDate: new Date(),
     });
+    // Surface the RAW frame as the capture thumbnail (the gallery applies the
+    // filter at display time, so the thumb matches). Skip the filter-baked
+    // duplicate a gif produces , its raw grab already published this frame.
+    if (!bakeFilter) publishThumb(blob);
+    return blob;
   }
 
   /** The filter id to store on a still, or undefined to store none ("none" = unfiltered). */
@@ -225,6 +273,9 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
       animated.push(filter ? await bakeCurrent(true) : raw);
       if (i < GIF_FRAME_COUNT - 1) await sleep(GIF_GRAB_INTERVAL_MS);
     }
+    // Bookend the grab with a closing snap so the end of the gif capture is as
+    // unmistakable as its start (the gif is one "shot" spanning the grab window).
+    if (aliveRef.current) fireShutterCue();
     const gif = await assembleGif(animated, { delayMs: GIF_DELAY_MS, boomerang: true });
     await uploadBoothPhoto(gif, { mode: "gif", groupId, capturedAt: Date.now() });
     // Retain the raw frames under the same group, hidden from the gallery listing
@@ -258,6 +309,8 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
   function shoot(): void {
     if (runningRef.current) return;
     runningRef.current = true;
+    // New shutter press , new shot id, so the thumbnail pop replays for this shot.
+    shotKeyRef.current += 1;
     setBusy(true);
     setError(null);
 
@@ -284,5 +337,5 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
     })();
   }
 
-  return { count, capturing, flashing, busy, error, shoot };
+  return { count, capturing, flashing, busy, error, lastShot, shoot };
 }

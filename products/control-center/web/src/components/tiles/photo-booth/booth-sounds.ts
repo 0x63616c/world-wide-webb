@@ -33,17 +33,23 @@ function audioContext(): AudioContext | null {
   return ctx;
 }
 
-/**
- * A camera shutter: a fast, bright mechanical snap. A short burst of decaying
- * white noise pushed through a band-pass reads as a "click" far better than any
- * tone, and the quadratic decay envelope keeps it tight rather than a hiss.
- */
-export function playShutter(): void {
-  const audio = audioContext();
-  if (!audio) return;
-  const now = audio.currentTime;
-  const duration = 0.09;
+interface NoiseBurst {
+  /** Band-pass centre frequency in Hz. */
+  freq: number;
+  /** Band-pass Q (resonance); lower is broader/fuller. */
+  q: number;
+  /** Peak linear gain (0..1). */
+  gain: number;
+  /** Burst length in seconds. */
+  duration: number;
+}
 
+/** One decaying band-passed white-noise burst , the building block of the snap. */
+function noiseBurst(
+  audio: AudioContext,
+  start: number,
+  { freq, q, gain, duration }: NoiseBurst,
+): void {
   const frameCount = Math.max(1, Math.ceil(audio.sampleRate * duration));
   const buffer = audio.createBuffer(1, frameCount, audio.sampleRate);
   const channel = buffer.getChannelData(0);
@@ -56,14 +62,32 @@ export function playShutter(): void {
   source.buffer = buffer;
   const bandpass = audio.createBiquadFilter();
   bandpass.type = "bandpass";
-  bandpass.frequency.value = 2600;
-  bandpass.Q.value = 0.9;
-  const gain = audio.createGain();
-  gain.gain.value = 0.3;
+  bandpass.frequency.value = freq;
+  bandpass.Q.value = q;
+  const g = audio.createGain();
+  g.gain.value = gain;
 
-  source.connect(bandpass).connect(gain).connect(audio.destination);
-  source.start(now);
-  source.stop(now + duration);
+  source.connect(bandpass).connect(g).connect(audio.destination);
+  source.start(start);
+  source.stop(start + duration);
+}
+
+/**
+ * A camera shutter: a loud, punchy mechanical "ka-chack". Two layered noise
+ * bursts , a bright high click (the shutter itself) over a shorter, fuller low
+ * thump (the mirror slap) , read as a real DSLR snap and, crucially, carry across
+ * the room from the wall panel where a single thin click was easy to miss. A
+ * short burst of decaying white noise through a band-pass reads as a "click" far
+ * better than any tone; the quadratic decay envelope keeps each layer tight.
+ */
+export function playShutter(): void {
+  const audio = audioContext();
+  if (!audio) return;
+  const now = audio.currentTime;
+  // Bright top click , loud and present.
+  noiseBurst(audio, now, { freq: 3000, q: 1.0, gain: 0.62, duration: 0.06 });
+  // Low body thump , gives the snap weight so it punches, not just ticks.
+  noiseBurst(audio, now, { freq: 850, q: 0.7, gain: 0.42, duration: 0.11 });
 }
 
 /** A single countdown tick: a short, soft sine blip. */

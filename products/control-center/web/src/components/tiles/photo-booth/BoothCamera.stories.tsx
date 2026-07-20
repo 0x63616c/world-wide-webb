@@ -57,6 +57,21 @@ export const Countdown: Story = {
   },
 };
 
+/**
+ * Capture feedback , pressing the shutter fires the always-on capture cue (a
+ * brief border pulse) regardless of the flash toggle, so a capture is
+ * unmistakable on the wall panel. There is no camera in CI, so the frame bake
+ * fails after the cue and the shot thumbnail can't render here; the pulse (which
+ * fires before the bake) is the piece this exercises.
+ */
+export const CaptureFeedback: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Shutter" }));
+    await expect(await canvas.findByTestId("capture-pulse")).toBeInTheDocument();
+  },
+};
+
 /** Filter picker open , the house Modal swatch grid of the 7 CSS filters. */
 export const FilterModal: Story = {
   play: async ({ canvasElement }) => {

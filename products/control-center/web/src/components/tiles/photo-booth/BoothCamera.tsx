@@ -15,9 +15,21 @@
 
 import { useState } from "react";
 import { BottomControls, FilterModal, Scrim, TopControls } from "./BoothCameraControls";
-import { BoothCaptureKeyframes, CountdownOverlay, FlashOverlay } from "./BoothCountdown";
+import {
+  BoothCaptureKeyframes,
+  CapturePulse,
+  CountdownOverlay,
+  FlashOverlay,
+  ShotThumb,
+} from "./BoothCountdown";
 import { CameraStage } from "./CameraStage";
-import { type CountdownOption, isCaptureMode, type ModeValue, nextCountdown } from "./camera-model";
+import {
+  type CountdownOption,
+  filterCss,
+  isCaptureMode,
+  type ModeValue,
+  nextCountdown,
+} from "./camera-model";
 import { useBoothCapture } from "./useBoothCapture";
 import { useCameraPreview } from "./useCameraPreview";
 
@@ -98,6 +110,18 @@ export function BoothCamera({ onOpenGallery, onClose }: BoothCameraProps) {
           filterId={filterId}
           onSelect={setFilterId}
         />
+
+        {/* Always-on capture feedback (independent of the flash toggle): a brief
+            border pulse on every frame, and the shot thumbnail popping near the
+            gallery button. Keyed by shot id so a new shot replays the pop. */}
+        <CapturePulse active={capture.capturing} />
+        {capture.lastShot && (
+          <ShotThumb
+            key={capture.lastShot.key}
+            url={capture.lastShot.url}
+            filterCss={filterCss(filterId)}
+          />
+        )}
 
         <FlashOverlay active={capture.flashing} />
       </CameraStage>
