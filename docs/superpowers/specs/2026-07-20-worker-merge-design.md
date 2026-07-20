@@ -38,6 +38,7 @@ NAS. Not a streaming feature — the filesystem is the interface.
 | Job types are plain `Worker`s | Per-type concurrency 1 falls out of await-before-reschedule; no dispatcher needed |
 | Video only, no separate audio file | Muxed file already contains audio; one yt-dlp call instead of two |
 | `videoPolicy` deleted | Always want video; a half-download mode nobody set is dead config |
+| LLM title enrichment deleted | Four columns nothing reads, a paid call per ingest, and a throw path that fails jobs whose download already succeeded |
 | No global concurrency budget | A shared budget lets types starve each other; per-type isolation is structural |
 | Unhandled job types park | A type with no `jobWorker` is never polled, so it waits instead of burning retries |
 | One `maxMs` per type, driving both the timeout and the reaper lease | A timeout catches a hung handler; only a reaper catches a dead process. Sharing one declared number avoids two constants drifting apart |
@@ -197,10 +198,32 @@ In `products/control-center/api/src/services/youtube-ingest-service.ts`:
 - Keep `--write-thumbnail`. Keep the AV1 selector and the never-re-encode rule. Duration
   now read from the video file.
 
+### 4b. Remove LLM title enrichment
+
+Every ingest currently calls OpenRouter (`gpt-4o-mini`) to parse the raw YouTube title
+into `clean_title` / `artist` / `event` / `category` (`youtube-ingest-service.ts:259-290`).
+Nothing reads those columns — no UI, no query, and the archive filename comes from
+yt-dlp's own `%(uploader)s` / `%(title)s`, not from these fields.
+
+Worse, `enrichTitle` throws when the key is present but the call fails, so a flaky
+OpenRouter fails an ingest whose multi-GB download already succeeded, and burns its
+retries. For an archival job that is backwards: the artifact is on disk, and metadata
+nobody reads is failing the record.
+
+- Delete `enrichTitle` and its call site.
+- Drop `OPENROUTER_API_KEY` from `api/src/env.ts` (:48, :127) and from the worker's
+  secret usage in `packages/platform/src/index.ts:460`.
+- Leave the `packages/logger` redaction entries — they cost nothing and protect against
+  the key reappearing.
+
 ### 5. Schema migration
 
-Drop `media_source.video_policy`, `media_item.audio_path`, `media_item.audio_bytes`.
+Drop `media_source.video_policy`, `media_item.audio_path`, `media_item.audio_bytes`,
+and the enrichment columns `media_item.clean_title`, `artist`, `event`, `category`.
 Zero rows in prod, so a clean drop with no backfill.
+
+`media_item.raw_title` stays — it is the identity/label written at insert time by the
+poller, independent of enrichment.
 
 Run `bunx biome format --write` on the generated migration meta before committing.
 
@@ -246,6 +269,9 @@ under a readable `uploader/date - title [id].ext` path, job row reaches `done`.
 
 - `LISTEN/NOTIFY` to replace polling.
 - Per-type concurrency overrides — add when a type has evidence it needs to burst.
+- Enriched metadata driving archive paths (`Boiler Room/2019 - Nina Kraviz.mkv` rather
+  than YouTube's uploader/title). Needs a post-download rename step, which has to be
+  crash-safe; speculative polish on an archive that doesn't exist yet.
 - Any ingest UI. The filesystem is the interface.
 - Chunked/segmented downloads (`--download-sections`) — solves a memory problem that
   doesn't exist, and stitching requires `--force-keyframes-at-cuts`, which re-encodes.
