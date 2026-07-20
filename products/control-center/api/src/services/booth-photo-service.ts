@@ -48,6 +48,12 @@ export interface BoothPhotoMeta {
    * a gif (baked in client-side). A non-null value must match BOOTH_FILTER_PATTERN.
    */
   filter: string | null;
+  /**
+   * A source-only frame is stored for future re-assembly but never shown in the
+   * gallery. It relaxes the format-vs-mode check: a gif capture's raw JPEG frames
+   * upload under mode 'gif' with sourceOnly=true. Defaults to false.
+   */
+  sourceOnly: boolean;
 }
 
 export interface BoothPhotoSaved {
@@ -142,14 +148,27 @@ export async function saveBoothPhoto(
     throw new Error(`invalid booth photo filter: ${meta.filter}`);
   }
 
-  const isGif = meta.mode === "gif";
+  // Sniff the real format from the bytes. The stored mime/extension follow what
+  // the body ACTUALLY is, not what the mode claims , which is what lets a gif
+  // group carry raw JPEG source frames.
+  const detected = hasMagic(bytes, GIF_MAGIC) ? "gif" : hasMagic(bytes, JPEG_MAGIC) ? "jpeg" : null;
+  if (detected === null) {
+    throw new Error(meta.mode === "gif" ? "booth gif is not a GIF" : "booth photo is not a JPEG");
+  }
+  // Strict path: a normal (non-source) upload's format must match its mode. A
+  // source-only frame skips this , its format is validated by the magic sniff
+  // above, and it is deliberately allowed to differ from the group's mode.
+  if (!meta.sourceOnly) {
+    if (meta.mode === "gif" && detected !== "gif") throw new Error("booth gif is not a GIF");
+    if (meta.mode !== "gif" && detected !== "jpeg") throw new Error("booth photo is not a JPEG");
+  }
+
+  const isGif = detected === "gif";
   if (isGif) {
-    if (!hasMagic(bytes, GIF_MAGIC)) throw new Error("booth gif is not a GIF");
     if (bytes.length > MAX_GIF_BYTES) {
       throw new Error(`booth gif too large: ${bytes.length} bytes (max ${MAX_GIF_BYTES})`);
     }
   } else {
-    if (!hasMagic(bytes, JPEG_MAGIC)) throw new Error("booth photo is not a JPEG");
     if (bytes.length > MAX_JPEG_BYTES) {
       throw new Error(`booth photo too large: ${bytes.length} bytes (max ${MAX_JPEG_BYTES})`);
     }
@@ -180,6 +199,7 @@ export async function saveBoothPhoto(
     bytes: bytes.length,
     deviceId: meta.deviceId,
     filter: meta.filter,
+    sourceOnly: meta.sourceOnly,
     softDeletedAt: null,
   });
 
@@ -190,6 +210,7 @@ export async function saveBoothPhoto(
       mode: meta.mode,
       groupId: meta.groupId,
       filter: meta.filter,
+      sourceOnly: meta.sourceOnly,
       bytes: bytes.length,
     },
     "booth photo stored",
@@ -215,6 +236,9 @@ export async function listBoothPhotos(
   let totalBytes = 0;
   for (const row of rows) {
     if (row.softDeletedAt != null) continue;
+    // Source-only frames (a gif's raw stills) exist for re-assembly, never for
+    // display , so a gif group surfaces as just its assembled .gif.
+    if (row.sourceOnly) continue;
     totalCount++;
     totalBytes += row.bytes;
     const capturedAt = row.capturedAt.getTime();

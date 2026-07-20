@@ -533,6 +533,12 @@ export const boothPhoto = pgTable(
     // Which panel took the shot. Matches frontend_log.device_id; nullable when
     // the uploader sends no (or a malformed) attribution header.
     deviceId: text("device_id"),
+    // Source-only frame: kept for future re-assembly but never shown in the
+    // gallery. A GIF capture stores the assembled .gif (source_only=false) AND
+    // its individual raw JPEG frames (source_only=true) in the same group; the
+    // listing drops the frames so a gif group renders as just its .gif. A
+    // source-only JPEG is allowed under gif mode (see saveBoothPhoto).
+    sourceOnly: boolean("source_only").notNull().default(false),
     // Reversible remove for the gallery: non-null hides the frame from every
     // read, the bytes stay on disk. (User-facing copy never says "soft delete".)
     softDeletedAt: timestamp("soft_deleted_at", { withTimezone: true }),

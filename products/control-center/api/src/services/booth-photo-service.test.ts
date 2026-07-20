@@ -37,6 +37,7 @@ type BoothRow = {
   bytes: number;
   deviceId: string | null;
   filter: string | null;
+  sourceOnly: boolean;
   softDeletedAt: Date | null;
 };
 
@@ -88,6 +89,7 @@ function meta(overrides: Partial<BoothPhotoMeta> = {}): BoothPhotoMeta {
     frameIdx: 0,
     deviceId: "ipad13-1-3f9a2c1b",
     filter: null,
+    sourceOnly: false,
     ...overrides,
   };
 }
@@ -229,6 +231,7 @@ describe("booth-photo-service", () => {
       bytes: 10,
       deviceId: null,
       filter: null,
+      sourceOnly: false,
       softDeletedAt: new Date(),
     });
 
@@ -319,6 +322,75 @@ describe("booth-photo-service", () => {
     const listing = await listBoothPhotos(db);
     expect(listing.groups[0].filter).toBeNull();
     expect(listing.groups[0].frames.every((f) => f.filter === null)).toBe(true);
+  });
+
+  it("accepts a raw JPEG under gif mode only when it is a source-only frame", async () => {
+    // The assembled .gif, plus its raw JPEG source frames, in one group.
+    await saveBoothPhoto(db, gif("anim"), meta({ mode: "gif", groupId: "bpg_g" }), root);
+    await saveBoothPhoto(
+      db,
+      jpeg("srcframe"),
+      meta({ mode: "gif", groupId: "bpg_g", frameIdx: 1, sourceOnly: true, filter: "noir" }),
+      root,
+    );
+    const src = db.rows.find((r: BoothRow) => r.sourceOnly);
+    expect(src?.mimeType).toBe("image/jpeg");
+    expect(src?.path.endsWith(".jpg")).toBe(true);
+
+    // The same JPEG under gif mode WITHOUT source-only is a format mismatch.
+    await expect(
+      saveBoothPhoto(db, jpeg("x"), meta({ mode: "gif", groupId: "bpg_g" }), root),
+    ).rejects.toThrow(/GIF/);
+  });
+
+  it("hides source-only frames from the listing, leaving the gif as the sole item", async () => {
+    await saveBoothPhoto(db, gif("anim"), meta({ mode: "gif", groupId: "bpg_g" }), root);
+    await saveBoothPhoto(
+      db,
+      jpeg("f0"),
+      meta({ mode: "gif", groupId: "bpg_g", frameIdx: 1, sourceOnly: true }),
+      root,
+    );
+    await saveBoothPhoto(
+      db,
+      jpeg("f1"),
+      meta({ mode: "gif", groupId: "bpg_g", frameIdx: 2, sourceOnly: true }),
+      root,
+    );
+
+    const listing = await listBoothPhotos(db);
+    expect(listing.totalCount).toBe(1);
+    expect(listing.groups).toHaveLength(1);
+    expect(listing.groups[0].frames).toHaveLength(1);
+    expect(listing.groups[0].frames[0].mimeType).toBe("image/gif");
+  });
+
+  it("soft-deleting a gif group stamps its source-only frames too", async () => {
+    await saveBoothPhoto(db, gif("anim"), meta({ mode: "gif", groupId: "bpg_g" }), root);
+    await saveBoothPhoto(
+      db,
+      jpeg("f0"),
+      meta({ mode: "gif", groupId: "bpg_g", frameIdx: 1, sourceOnly: true }),
+      root,
+    );
+
+    const { removed } = await softDeleteBoothGroup(db, "bpg_g");
+    expect(removed).toBe(2);
+    expect(db.rows.every((r: BoothRow) => r.softDeletedAt != null)).toBe(true);
+  });
+
+  it("clearFilter nulls the filter on source-only frames of the group", async () => {
+    await saveBoothPhoto(db, gif("anim"), meta({ mode: "gif", groupId: "bpg_g" }), root);
+    await saveBoothPhoto(
+      db,
+      jpeg("f0"),
+      meta({ mode: "gif", groupId: "bpg_g", frameIdx: 1, sourceOnly: true, filter: "noir" }),
+      root,
+    );
+
+    const { cleared } = await clearBoothGroupFilter(db, "bpg_g");
+    expect(cleared).toBe(2);
+    expect(db.rows.every((r: BoothRow) => r.filter === null)).toBe(true);
   });
 
   it("read rejects path traversal", async () => {

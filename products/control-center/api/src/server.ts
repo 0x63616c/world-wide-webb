@@ -211,6 +211,10 @@ async function handle(req: Request, url: URL): Promise<Response> {
       rawGroup && /^bpg_[0-9a-z]{1,32}$/.test(rawGroup) ? rawGroup : newBoothGroupId();
     const rawDevice = req.headers.get("x-device-id");
     const deviceId = rawDevice && /^[0-9A-Za-z_-]{1,64}$/.test(rawDevice) ? rawDevice : null;
+    // A gif's raw source frames upload with x-source-only: 1 so they are stored
+    // but kept out of the gallery. Any other value (or absent) means a normal,
+    // shown frame.
+    const sourceOnly = req.headers.get("x-source-only") === "1";
     const bytes = new Uint8Array(await req.arrayBuffer());
     try {
       const saved = await saveBoothPhoto(db, bytes, {
@@ -220,6 +224,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
         frameIdx,
         deviceId,
         filter,
+        sourceOnly,
       });
       return Response.json(saved, { status: 201, headers: CORS_HEADERS });
     } catch (err) {
