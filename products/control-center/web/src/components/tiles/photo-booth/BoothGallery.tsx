@@ -37,12 +37,6 @@ export interface BoothGalleryProps {
   photoUrl: (path: string) => string;
   /** Reversibly remove a whole capture (fires boothPhotos.remove). */
   onRemove: (groupId: string) => void;
-  /**
-   * Drop the non-destructive filter from a whole capture (fires
-   * boothPhotos.clearFilter). The stored bytes were always raw, so this just
-   * returns the capture to its bare look.
-   */
-  onClearFilter: (groupId: string) => void;
   /** Return to the camera. */
   onBack: () => void;
 }
@@ -62,27 +56,14 @@ const MODE_LABEL: Record<BoothMode, string> = {
   gif: "GIF",
 };
 
-export function BoothGallery({
-  groups,
-  photoUrl,
-  onRemove,
-  onClearFilter,
-  onBack,
-}: BoothGalleryProps) {
+export function BoothGallery({ groups, photoUrl, onRemove, onBack }: BoothGalleryProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [confirmGroupId, setConfirmGroupId] = useState<string | null>(null);
   const [removed, setRemoved] = useState<Set<string>>(new Set());
-  // Optimistically-cleared filters: a group id in here renders bare immediately,
-  // before the boothPhotos.clearFilter mutation round-trips.
-  const [cleared, setCleared] = useState<Set<string>>(new Set());
 
   const live = useMemo(() => groups.filter((g) => !removed.has(g.groupId)), [groups, removed]);
   const days = useMemo(() => groupByDay(live), [live]);
   const photoCount = useMemo(() => live.reduce((n, g) => n + g.frames.length, 0), [live]);
-
-  /** A group's effective filter id, honouring an optimistic local clear. */
-  const filterFor = (g: { groupId: string; filter: string | null }): string | null =>
-    cleared.has(g.groupId) ? null : g.filter;
 
   // The lightbox walks the whole roll as one flat, time-ordered list. A 4-frame
   // capture contributes a single composite view; a burst contributes one view
@@ -110,11 +91,6 @@ export function BoothGallery({
     setOpenIndex(null);
     setConfirmGroupId(null);
     onRemove(groupId);
-  }
-
-  function handleClearFilter(groupId: string) {
-    setCleared((prev) => new Set(prev).add(groupId));
-    onClearFilter(groupId);
   }
 
   return (
@@ -148,7 +124,7 @@ export function BoothGallery({
                     style={cell}
                     aria-label={`Open ${MODE_LABEL[g.mode]} from ${formatTime(g.capturedAt)}`}
                   >
-                    <Cover group={g} photoUrl={photoUrl} filterCss={filterCssFor(filterFor(g))} />
+                    <Cover group={g} photoUrl={photoUrl} filterCss={filterCssFor(g.filter)} />
                     {MODE_DOT[g.mode] != null && (
                       <span style={{ ...dot, background: MODE_DOT[g.mode] as string }} />
                     )}
@@ -164,14 +140,13 @@ export function BoothGallery({
         <Lightbox
           view={open}
           photoUrl={photoUrl}
-          filter={filterFor(open)}
+          filter={open.filter}
           hasPrev={openIndex > 0}
           hasNext={openIndex < views.length - 1}
           onPrev={() => setOpenIndex((i) => (i != null && i > 0 ? i - 1 : i))}
           onNext={() => setOpenIndex((i) => (i != null && i < views.length - 1 ? i + 1 : i))}
           onClose={() => setOpenIndex(null)}
           onDelete={() => setConfirmGroupId(open.groupId)}
-          onClearFilter={() => handleClearFilter(open.groupId)}
         />
       )}
 
@@ -257,11 +232,10 @@ function Lightbox({
   onNext,
   onClose,
   onDelete,
-  onClearFilter,
 }: {
   view: LightboxView;
   photoUrl: (path: string) => string;
-  /** Effective filter id (honours an optimistic clear), or null when bare. */
+  /** The capture's stored filter id, or null when bare. */
   filter: string | null;
   hasPrev: boolean;
   hasNext: boolean;
@@ -269,7 +243,6 @@ function Lightbox({
   onNext: () => void;
   onClose: () => void;
   onDelete: () => void;
-  onClearFilter: () => void;
 }) {
   const filterCss = filterCssFor(filter);
   return (
@@ -303,11 +276,6 @@ function Lightbox({
           <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", marginTop: 2 }}>
             {MODE_LABEL[view.mode]}
           </div>
-          {filter != null && (
-            <button type="button" onClick={onClearFilter} style={removeEffectBtn}>
-              Remove effect
-            </button>
-          )}
         </div>
 
         <button
@@ -726,21 +694,6 @@ const dateBlock: CSSProperties = {
   textAlign: "right",
   width: 150,
   flexShrink: 0,
-};
-
-// A quiet typographic action under the date; clearing a filter is a light touch,
-// deliberately not styled like the destructive delete corner button.
-const removeEffectBtn: CSSProperties = {
-  marginTop: 14,
-  padding: 0,
-  border: "none",
-  background: "transparent",
-  color: "rgba(255,255,255,0.7)",
-  fontSize: 13,
-  fontWeight: 500,
-  cursor: "pointer",
-  textDecoration: "underline",
-  textUnderlineOffset: 3,
 };
 
 const imgWrap: CSSProperties = {

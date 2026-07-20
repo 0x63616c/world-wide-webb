@@ -47,7 +47,6 @@ const meta = {
     groups: SAMPLE_GROUPS(),
     photoUrl: svgFor,
     onRemove: fn(),
-    onClearFilter: fn(),
     onClose: fn(),
   },
 } satisfies Meta<typeof PhotoBoothPager>;

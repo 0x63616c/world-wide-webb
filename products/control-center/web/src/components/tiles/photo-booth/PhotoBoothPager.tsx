@@ -22,21 +22,13 @@ export interface PhotoBoothPagerProps {
   photoUrl: (path: string) => string;
   /** Reversibly remove a whole capture (fires boothPhotos.remove). */
   onRemove: (groupId: string) => void;
-  /** Drop a capture's non-destructive filter (fires boothPhotos.clearFilter). */
-  onClearFilter: (groupId: string) => void;
   /** Leave the feature , closes the detail page back to the board. */
   onClose: () => void;
 }
 
 type View = "camera" | "gallery";
 
-export function PhotoBoothPager({
-  groups,
-  photoUrl,
-  onRemove,
-  onClearFilter,
-  onClose,
-}: PhotoBoothPagerProps) {
+export function PhotoBoothPager({ groups, photoUrl, onRemove, onClose }: PhotoBoothPagerProps) {
   const [view, setView] = useState<View>("camera");
 
   if (view === "gallery") {
@@ -45,7 +37,6 @@ export function PhotoBoothPager({
         groups={groups}
         photoUrl={photoUrl}
         onRemove={onRemove}
-        onClearFilter={onClearFilter}
         onBack={() => setView("camera")}
       />
     );

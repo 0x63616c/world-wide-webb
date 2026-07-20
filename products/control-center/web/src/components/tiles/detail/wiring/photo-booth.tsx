@@ -36,7 +36,6 @@ function usePhotoBoothVariants(): { variants: DetailVariant[]; loading: boolean 
     void utils.boothPhotos.list.invalidate();
   };
   const removeMutation = trpc.boothPhotos.remove.useMutation({ onSettled: invalidate });
-  const clearFilterMutation = trpc.boothPhotos.clearFilter.useMutation({ onSettled: invalidate });
 
   const groups = listing.data?.groups ?? [];
 
@@ -49,7 +48,6 @@ function usePhotoBoothVariants(): { variants: DetailVariant[]; loading: boolean 
           groups={groups}
           photoUrl={boothPhotoUrl}
           onRemove={(groupId) => removeMutation.mutate({ groupId })}
-          onClearFilter={(groupId) => clearFilterMutation.mutate({ groupId })}
           onClose={closeTileDetail}
         />
       ),

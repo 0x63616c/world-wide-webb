@@ -46,7 +46,6 @@ const meta = {
   args: {
     photoUrl: svgFor,
     onRemove: fn(),
-    onClearFilter: fn(),
     onBack: fn(),
   },
 } satisfies Meta<typeof BoothGallery>;
@@ -63,19 +62,23 @@ export const Empty: Story = {
 };
 
 /**
- * Opens the lightbox on a filtered capture so the display-time CSS filter and
- * the quiet "Remove effect" action (only shown when a filter is set) are both
- * visible without a manual click.
+ * Opens the lightbox on a filtered capture so the display-time CSS filter is
+ * visible without a manual click. The "Remove effect" action is deliberately
+ * gone from the gallery UI (kept backend-only, boothPhotos.clearFilter), so the
+ * lightbox shows the filtered frame with no clear-filter control.
  */
 export const FilteredLightbox: Story = {
   args: { groups: SAMPLE_GROUPS() },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     // The first cell is today's noir Photo (see SAMPLE_GROUPS); opening it shows
-    // the filtered frame and the Remove effect button.
+    // the filtered frame in the lightbox.
     const [firstCell] = await canvas.findAllByRole("button", { name: /^Open Photo/ });
     await userEvent.click(firstCell);
-    await expect(await canvas.findByRole("button", { name: "Remove effect" })).toBeInTheDocument();
+    // The lightbox is open (its Delete action is present) …
+    await expect(await canvas.findByRole("button", { name: "Delete" })).toBeInTheDocument();
+    // … and there is no longer any "Remove effect" control.
+    await expect(canvas.queryByRole("button", { name: "Remove effect" })).not.toBeInTheDocument();
   },
 };
 
