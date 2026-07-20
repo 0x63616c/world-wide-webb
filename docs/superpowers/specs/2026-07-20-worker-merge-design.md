@@ -40,6 +40,7 @@ NAS. Not a streaming feature — the filesystem is the interface.
 | `videoPolicy` deleted | Always want video; a half-download mode nobody set is dead config |
 | No global concurrency budget | A shared budget lets types starve each other; per-type isolation is structural |
 | Unhandled job types park | A type with no `jobWorker` is never polled, so it waits instead of burning retries |
+| One `maxMs` per type, driving both the timeout and the reaper lease | A timeout catches a hung handler; only a reaper catches a dead process. Sharing one declared number avoids two constants drifting apart |
 | memory `512M` | Homelab is constrained; downloads don't consume RAM |
 | Disk floor `50 GB` | Guard runs before the download and can't know its size, so the floor must exceed one file with margin |
 | No `LISTEN/NOTIFY` | Polling is adequate at this scale; explicitly out of scope |
@@ -59,8 +60,8 @@ Those are exactly the semantics a per-job-type queue consumer needs. So a job ty
 **a worker whose cycle drains that type** — no dispatcher, no lane, no concurrency knob:
 
 ```ts
-jobWorker("youtube_ingest", runYoutubeIngest)
-// sugar for { name, intervalMs: 2000, run: () => claimOne(type, handler) }
+jobWorker("youtube_ingest", runYoutubeIngest, { maxMs: 60 * 60_000 })
+// sugar for { name, intervalMs: 2000, run: () => claimOne(type, handler, maxMs) }
 ```
 
 What this buys, all from machinery that already exists:
@@ -85,15 +86,34 @@ alongside workers, so the entire behaviour of the process is one literal:
 const runtime = createWorkerRuntime([
   lightEnforcer, climateEnforcer, sonosVolumeEnforcer, deviceSync,
   partyMode, scheduleRunner, weatherIngest, githubActionsPoll, ascVersionPoll,
-  jobWorker("notify", runNotifyJob),
-  jobWorker("youtube_ingest", runYoutubeIngest),
+  jobWorker("notify", runNotifyJob, { maxMs: 60_000 }),
+  jobWorker("youtube_ingest", runYoutubeIngest, { maxMs: 60 * 60_000 }),
   staleJobReaper,
 ], { logger: log })
 ```
 
+### Per-type time limits
+
+Each job type declares one `maxMs`, which drives **both** enforcement points below.
+A single declared number, not a timeout knob plus a separate reaper lease.
+
+| type | `maxMs` | reasoning |
+|---|---|---|
+| `notify` | 1 min | an APNs call is sub-second; a minute means something is badly wrong, without false-positiving on a slow network |
+| `youtube_ingest` | 1 hour | sets should download in minutes; this is a ceiling for pathological cases, not a target |
+
 ### Crash recovery
 
-Today a crash mid-download leaves two orphans:
+A timeout and a reaper catch **different** failures, so both are needed:
+
+- **In-process timeout** — the handler hangs while the process is alive (yt-dlp stuck on
+  a dead connection, socket never closed). The timeout aborts at `maxMs`, marks the job
+  failed, and normal backoff retries it.
+- **Reaper** — the *process itself* dies (OOM kill, pod eviction, SIGKILL mid-deploy).
+  No timeout can fire, because nothing is alive to fire it. This is the more likely
+  failure on a constrained box.
+
+Without the reaper, a crash mid-download leaves two orphans:
 
 1. **Job stuck at `status='running'`** — the claim query only selects `status='queued'`,
    so the row is invisible to every future claim. `attempts` was already incremented.
@@ -102,34 +122,46 @@ Today a crash mid-download leaves two orphans:
 2. **`.part` files on the NAS** — a crash 6 GB into an 8 GB file leaves 6 GB behind,
    never resumed because the job never re-runs.
 
-Fix is a stale-lease reaper worker:
+The reaper sweeps rows whose lease has expired, deriving the lease from the same
+per-type `maxMs` rather than a separately-tuned constant. A grace margin on top absorbs
+clock skew and the gap between the handler's own timeout firing and the row being
+updated, so the reaper never races a job that is about to fail itself:
 
 ```sql
 UPDATE job SET status = 'queued', updated_at = now()
-WHERE status = 'running' AND locked_at < now() - interval '2 hours'
+WHERE status = 'running'
+  AND locked_at < now() - (max_ms_for(type) + grace)
 ```
 
-This resolves both: yt-dlp resumes from `.part` by default when re-run against the same
-output path, so the partial becomes a resume point rather than waste.
+Since `maxMs` lives in the worker declarations rather than the database, the reaper
+worker is constructed with the same `{ type: maxMs }` map used to build the job workers
+— one source of truth, no constant to keep in sync.
 
-The 2h lease must comfortably exceed the longest legitimate download, or the reaper could
+This resolves both orphans: yt-dlp resumes from `.part` by default when re-run against
+the same output path, so the partial becomes a resume point rather than waste.
+
+The lease must exceed the longest legitimate run of that type, or the reaper could
 requeue a job that is still running and produce two yt-dlp processes on one file.
 
 ## Changes
 
 ### 1. Job-as-worker plumbing
 
-- Add `claimOne(type, handler)` in `products/control-center/api/src/jobs/queue.ts` —
-  claim one row of one type (`FOR UPDATE SKIP LOCKED`), run, ack/nack with existing
-  backoff. Derived from `claimAndRun`.
-- Add `jobWorker(type, handler)` returning a plain `Worker`, 2s interval.
+- Add `claimOne(type, handler, maxMs)` in `products/control-center/api/src/jobs/queue.ts`
+  — claim one row of one type (`FOR UPDATE SKIP LOCKED`), run under a `maxMs` timeout,
+  ack/nack with existing backoff. Derived from `claimAndRun`.
+- Add `jobWorker(type, handler, { maxMs })` returning a plain `Worker`, 2s interval.
+- The timeout must abort the **subprocess**, not just abandon the promise.
+  `execFileAsync` accepts an `AbortSignal`; without wiring it, a timed-out ingest leaves
+  an orphaned yt-dlp still writing to the NAS while the retry starts a second one on the
+  same file — worse than the hang it was meant to fix.
+- Add the stale-job reaper, constructed from the same `{ type: maxMs }` map.
 - Delete the module-global handler registry, `registerHandler`, and
   `_clearHandlersForTest`. `registerNotifyHandler` / `registerYoutubeIngestHandler`
   become plain exported handler functions.
 - Delete `claimAndRun`'s "no handler registered → permanently fail" branch — unreachable
   once each worker polls only its own type, and it is the burn-the-retries behaviour we
   explicitly do not want.
-- Add the stale-job reaper worker (5m interval, 2h lease).
 
 ### 2. Runtime cleanups (retired by the merge)
 
