@@ -219,7 +219,6 @@ export const mediaRouter = router({
         .insert(mediaSource)
         .values({
           id: adhocSourceId,
-          kind: "adhoc",
           title: "Ad-hoc URLs",
           enabled: true,
         })

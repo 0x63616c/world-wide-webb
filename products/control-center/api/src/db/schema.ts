@@ -39,22 +39,18 @@ export const job = pgTable(
     // Not eligible for claiming until this wall-clock time. Default: now = immediately
     // claimable. Set forward by the retry logic for exponential backoff.
     runAfter: timestamp("run_after", { withTimezone: true }).notNull().defaultNow(),
-    // The instance that claimed this job (e.g. hostname or UUID), used to
-    // detect stuck running jobs if we add a watchdog later.
-    lockedBy: text("locked_by"),
     lockedAt: timestamp("locked_at", { withTimezone: true }),
-    // JSON result blob written on success (optional; useful for debugging).
-    result: jsonb("result"),
     // Error message from the last failed attempt.
     lastError: text("last_error"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    // Primary claim query: status=queued + run_after<=now, ordered by priority
-    // then arrival order. The partial index on (status, run_after, priority) lets
-    // the DB satisfy this in one index scan rather than a heap filter sweep.
-    index("job_claim_idx").on(t.status, t.runAfter, t.priority),
+    // Primary claim query: status=queued + type=<handler> + run_after<=now,
+    // ordered by priority then arrival order. Every claim filters a single type,
+    // and the reaper filters type + locked_at, so type leads run_after here. The
+    // index lets the DB satisfy this in one scan rather than a heap filter sweep.
+    index("job_claim_idx").on(t.status, t.type, t.runAfter, t.priority),
   ],
 );
 
@@ -296,18 +292,13 @@ export const mediaSource = pgTable(
   "media_source",
   {
     id: text("id").primaryKey(), // Stripe-style src_<id>
-    kind: text("kind").notNull(), // 'playlist' | 'adhoc'
-    externalId: text("external_id"), // YouTube playlist id for kind=playlist
-    url: text("url"), // URL for kind=adhoc
+    externalId: text("external_id"), // YouTube playlist id for playlist sources
+    url: text("url"), // URL for ad-hoc sources
     title: text("title").notNull(),
     enabled: boolean("enabled").notNull().default(true),
-    videoPolicy: text("video_policy").notNull().default("none"), // 'none' | 'on'
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [
-    index("media_source_kind_idx").on(t.kind),
-    index("media_source_enabled_idx").on(t.enabled),
-  ],
+  (t) => [index("media_source_enabled_idx").on(t.enabled)],
 );
 
 export const mediaItem = pgTable(
@@ -319,19 +310,11 @@ export const mediaItem = pgTable(
       .references(() => mediaSource.id, { onDelete: "cascade" }),
     ytVideoId: text("yt_video_id").notNull(),
     rawTitle: text("raw_title").notNull(),
-    cleanTitle: text("clean_title"),
-    artist: text("artist"),
-    event: text("event"),
-    category: text("category"),
     status: text("status").notNull().default("pending"), // 'pending'|'downloading'|'done'|'failed'
-    audioPath: text("audio_path"),
     videoPath: text("video_path"),
     thumbPath: text("thumb_path"),
-    audioBytes: integer("audio_bytes"),
     videoBytes: integer("video_bytes"),
     durationSec: integer("duration_sec"),
-    error: text("error"),
-    retries: integer("retries").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

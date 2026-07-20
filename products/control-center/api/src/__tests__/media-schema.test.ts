@@ -6,7 +6,7 @@
  */
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
-import { mediaItem, mediaSource } from "../db/schema";
+import { job, mediaItem, mediaSource } from "../db/schema";
 import { envSchema } from "../env";
 
 // Helper: find a column config by its SQL column name.
@@ -23,13 +23,18 @@ describe("media_source table schema", () => {
   it("has expected column names", () => {
     const cols = Object.keys(mediaSource);
     expect(cols).toContain("id");
-    expect(cols).toContain("kind");
     expect(cols).toContain("externalId");
     expect(cols).toContain("url");
-    expect(cols).toContain("title");
+    expect(cols).toContain("title"); // human label an operator reads in psql, kept
     expect(cols).toContain("enabled");
-    expect(cols).toContain("videoPolicy");
     expect(cols).toContain("createdAt");
+  });
+
+  it("dropped enrichment/policy columns are absent", () => {
+    const cols = Object.keys(mediaSource);
+    for (const dropped of ["kind", "videoPolicy"]) {
+      expect(cols).not.toContain(dropped);
+    }
   });
 
   it("id is the primary key", () => {
@@ -40,16 +45,9 @@ describe("media_source table schema", () => {
 
   it("required fields are notNull", () => {
     const cfg = getTableConfig(mediaSource);
-    for (const name of ["id", "kind", "title", "enabled", "video_policy", "created_at"]) {
+    for (const name of ["id", "title", "enabled", "created_at"]) {
       expect(col(cfg, name).notNull).toBe(true);
     }
-  });
-
-  it("video_policy defaults to 'none'", () => {
-    const cfg = getTableConfig(mediaSource);
-    const c = col(cfg, "video_policy");
-    expect(c.hasDefault).toBe(true);
-    expect(c.default).toBe("none");
   });
 
   it("enabled defaults to true", () => {
@@ -66,22 +64,30 @@ describe("media_item table schema", () => {
     expect(cols).toContain("id");
     expect(cols).toContain("sourceId");
     expect(cols).toContain("ytVideoId");
-    expect(cols).toContain("rawTitle");
-    expect(cols).toContain("cleanTitle");
-    expect(cols).toContain("artist");
-    expect(cols).toContain("event");
-    expect(cols).toContain("category");
+    expect(cols).toContain("rawTitle"); // identity label written by the poller, kept
     expect(cols).toContain("status");
-    expect(cols).toContain("audioPath");
     expect(cols).toContain("videoPath");
     expect(cols).toContain("thumbPath");
-    expect(cols).toContain("audioBytes");
     expect(cols).toContain("videoBytes");
     expect(cols).toContain("durationSec");
-    expect(cols).toContain("error");
-    expect(cols).toContain("retries");
     expect(cols).toContain("createdAt");
     expect(cols).toContain("updatedAt");
+  });
+
+  it("dropped enrichment/audio columns are absent", () => {
+    const cols = Object.keys(mediaItem);
+    for (const dropped of [
+      "cleanTitle",
+      "artist",
+      "event",
+      "category",
+      "audioPath",
+      "audioBytes",
+      "error",
+      "retries",
+    ]) {
+      expect(cols).not.toContain(dropped);
+    }
   });
 
   it("id is the primary key", () => {
@@ -138,18 +144,25 @@ describe("media_item table schema", () => {
     expect(c.default).toBe("pending");
   });
 
-  it("retries defaults to 0", () => {
-    const cfg = getTableConfig(mediaItem);
-    const c = col(cfg, "retries");
-    expect(c.hasDefault).toBe(true);
-    expect(c.default).toBe(0);
-  });
-
   it("required fields are notNull", () => {
     const cfg = getTableConfig(mediaItem);
-    for (const name of ["id", "source_id", "yt_video_id", "raw_title", "status", "retries"]) {
+    for (const name of ["id", "source_id", "yt_video_id", "raw_title", "status"]) {
       expect(col(cfg, name).notNull).toBe(true);
     }
+  });
+});
+
+describe("job table schema", () => {
+  it("dropped result/lockedBy columns are absent", () => {
+    const cols = Object.keys(job);
+    for (const dropped of ["result", "lockedBy"]) {
+      expect(cols).not.toContain(dropped);
+    }
+  });
+
+  it("lockedAt is kept (the stale-job reaper keys off it)", () => {
+    const cols = Object.keys(job);
+    expect(cols).toContain("lockedAt");
   });
 });
 

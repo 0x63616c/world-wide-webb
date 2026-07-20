@@ -176,7 +176,6 @@ async function handleYoutubeIngest(rawPayload: unknown, signal: AbortSignal): Pr
       thumbPath: thumbPath ?? null,
       videoBytes: videoBytes ?? null,
       durationSec,
-      error: null,
       updatedAt: new Date(),
     })
     .where(eq(mediaItem.id, mediaItemId));
