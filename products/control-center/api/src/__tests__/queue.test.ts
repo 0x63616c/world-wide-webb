@@ -1,7 +1,8 @@
 /**
  * Unit tests for the generic job queue (www-kp4k.12).
- * Tests: single-flight claim (SKIP LOCKED semantics mocked), retry+backoff,
- * dispatch-by-type, max_attempts→failed.
+ * Tests: single-flight claim (SKIP LOCKED semantics mocked), single-type claim,
+ * the run_after gate, retry+backoff, max_attempts→failed, and the per-job
+ * timeout (both the AbortSignal and the promise race that backs it).
  *
  * The DB is fully mocked , no real Postgres needed. We instrument execute()
  * to capture which branch (done/queued/failed) was taken by looking for the
@@ -12,7 +13,7 @@
  * in the SQLRaw chunks. We walk them to find the terminal status branch.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { _clearHandlersForTest, claimAndRun, enqueueJob, registerHandler } from "../jobs/queue";
+import { claimOne, enqueueJob } from "../jobs/queue";
 
 // ── DB mock ───────────────────────────────────────────────────────────────────
 
@@ -130,7 +131,6 @@ function logContains(keyword: string): boolean {
 // ── Setup / teardown ─────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  _clearHandlersForTest();
   mockState.claimedRow = null;
   mockState.executeLog = [];
   mockState.inserts = [];
@@ -161,115 +161,128 @@ describe("enqueueJob", () => {
   });
 });
 
-describe("claimAndRun , empty queue", () => {
-  it("returns false when no jobs are claimable", async () => {
-    const result = await claimAndRun();
+describe("claimOne , empty queue", () => {
+  it("returns false when no job of that type is queued", async () => {
+    const result = await claimOne("notify", async () => {}, 1000);
     expect(result).toBe(false);
   });
 
   it("issues the FOR UPDATE SKIP LOCKED claim query", async () => {
-    await claimAndRun();
+    await claimOne("notify", async () => {}, 1000);
     expect(logContains("SKIP LOCKED")).toBe(true);
   });
 });
 
-describe("claimAndRun , type filter", () => {
-  it("adds a type filter to the claim query when types are given", async () => {
-    await claimAndRun({ types: ["notify"] });
-    expect(logContains("type IN")).toBe(true);
+describe("claimOne , single-type claim", () => {
+  it("restricts the claim to the requested type", async () => {
+    await claimOne("notify", async () => {}, 1000);
+    expect(logContains("type =")).toBe(true);
+    expect(logContains("notify")).toBe(true);
   });
 
-  it("omits the type filter entirely when no types are given", async () => {
-    await claimAndRun();
-    expect(logContains("type IN")).toBe(false);
-  });
-
-  it("claims nothing (and issues no query) for an empty type list", async () => {
-    // A process with no registered types must not claim the whole queue by
-    // accident , the guard is what stops an empty list meaning "everything".
-    const result = await claimAndRun({ types: [] });
-    expect(result).toBe(false);
-    expect(logContains("SKIP LOCKED")).toBe(false);
+  it("never claims a job whose run_after is in the future", async () => {
+    // Prod-safety: the youtube_ingest backlog is parked on run_after. Dropping
+    // this predicate would immediately start 93 downloads.
+    await claimOne("youtube_ingest", async () => {}, 1000);
+    expect(logContains("run_after <= now()")).toBe(true);
   });
 });
 
-describe("claimAndRun , dispatch by type", () => {
-  it("calls the handler registered for the job type", async () => {
+describe("claimOne , dispatch", () => {
+  it("calls the handler with the payload and an AbortSignal", async () => {
     const handler = vi.fn().mockResolvedValue(undefined);
-    registerHandler("test_job", handler);
-    mockState.claimedRow = makeRow({ type: "test_job", payload: { hello: "world" } });
+    mockState.claimedRow = makeRow({ type: "notify", payload: { hello: "world" } });
 
-    await claimAndRun();
+    const result = await claimOne("notify", handler, 1000);
 
-    expect(handler).toHaveBeenCalledOnce();
-    expect(handler).toHaveBeenCalledWith({ hello: "world" });
-  });
-
-  it("returns true when a job was claimed and processed", async () => {
-    registerHandler("test_job", vi.fn().mockResolvedValue(undefined));
-    mockState.claimedRow = makeRow();
-    const result = await claimAndRun();
     expect(result).toBe(true);
+    expect(handler).toHaveBeenCalledOnce();
+    expect(handler.mock.calls[0]?.[0]).toEqual({ hello: "world" });
+    expect(handler.mock.calls[0]?.[1]).toBeInstanceOf(AbortSignal);
   });
 
-  it("marks the job done (issues UPDATE with 'done') on handler success", async () => {
-    registerHandler("test_job", vi.fn().mockResolvedValue(undefined));
-    mockState.claimedRow = makeRow();
-    await claimAndRun();
+  it("marks the job done on handler success", async () => {
+    mockState.claimedRow = makeRow({ type: "notify" });
+    await claimOne("notify", async () => {}, 1000);
 
-    // The log should contain a SQL fragment with 'done'.
     expect(logContains("done")).toBe(true);
-    // Must not have issued a permanent 'failed' update.
     expect(logContains("failed")).toBe(false);
-  });
-
-  it("permanently fails (issues UPDATE with 'failed') when no handler is registered", async () => {
-    mockState.claimedRow = makeRow({ type: "unknown_type" });
-    await claimAndRun();
-
-    expect(logContains("failed")).toBe(true);
-    expect(logContains("done")).toBe(false);
   });
 });
 
-describe("claimAndRun , retry + backoff", () => {
-  it("requeues (issues UPDATE with 'queued' + run_after) when handler throws and has retries", async () => {
-    registerHandler("test_job", vi.fn().mockRejectedValue(new Error("transient")));
-    // attempts=0, max_attempts=5 → after this attempt (1), still 4 left.
-    mockState.claimedRow = makeRow({ attempts: 0, max_attempts: 5 });
-    await claimAndRun();
-
-    // Should re-queue, not permanently fail.
-    expect(logContains("run_after")).toBe(true);
-    expect(logContains("failed")).toBe(false);
-    expect(logContains("done")).toBe(false);
-  });
-
-  it("permanently fails when handler throws and attempts are exhausted", async () => {
-    registerHandler("test_job", vi.fn().mockRejectedValue(new Error("permanent")));
-    // attempts=4 → after this attempt (5) = max_attempts → permanently fail.
-    mockState.claimedRow = makeRow({ attempts: 4, max_attempts: 5 });
-    await claimAndRun();
-
-    expect(logContains("failed")).toBe(true);
-    expect(logContains("done")).toBe(false);
-  });
-
-  it("does not mark done when handler throws", async () => {
-    registerHandler("test_job", vi.fn().mockRejectedValue(new Error("boom")));
-    mockState.claimedRow = makeRow({ attempts: 0, max_attempts: 5 });
-    await claimAndRun();
-
-    expect(logContains("done")).toBe(false);
-  });
-});
-
-describe("registerHandler", () => {
-  it("throws if the same type is registered twice", () => {
-    const handler = vi.fn();
-    registerHandler("dupe_type", handler);
-    expect(() => registerHandler("dupe_type", handler)).toThrow(
-      "Handler already registered for type: dupe_type",
+describe("claimOne , retry + backoff", () => {
+  it("requeues with backoff when the handler throws and retries remain", async () => {
+    mockState.claimedRow = makeRow({ type: "notify", attempts: 0, max_attempts: 5 });
+    await claimOne(
+      "notify",
+      async () => {
+        throw new Error("transient");
+      },
+      1000,
     );
+
+    expect(logContains("run_after")).toBe(true);
+    expect(logContains("transient")).toBe(true);
+    expect(logContains("failed")).toBe(false);
+    expect(logContains("done")).toBe(false);
+  });
+
+  it("permanently fails once attempts reach max_attempts", async () => {
+    mockState.claimedRow = makeRow({ type: "notify", attempts: 0, max_attempts: 1 });
+    await claimOne(
+      "notify",
+      async () => {
+        throw new Error("permanent");
+      },
+      1000,
+    );
+
+    expect(logContains("failed")).toBe(true);
+    expect(logContains("done")).toBe(false);
+  });
+});
+
+describe("claimOne , timeout", () => {
+  it("fails the job when the handler exceeds maxMs", async () => {
+    mockState.claimedRow = makeRow({ type: "notify", attempts: 0, max_attempts: 1 });
+    await claimOne("notify", () => new Promise((resolve) => setTimeout(resolve, 5_000)), 50);
+
+    expect(logContains("failed")).toBe(true);
+    expect(logContains("timed out")).toBe(true);
+    expect(logContains("done")).toBe(false);
+  });
+
+  it("aborts the signal it passes to the handler on timeout", async () => {
+    mockState.claimedRow = makeRow({ type: "notify", attempts: 0, max_attempts: 1 });
+    let aborted = false;
+    await claimOne(
+      "notify",
+      (_payload, signal) =>
+        new Promise<void>((resolve) => {
+          signal.addEventListener("abort", () => {
+            aborted = true;
+            resolve();
+          });
+          setTimeout(resolve, 5_000);
+        }),
+      50,
+    );
+
+    expect(aborted).toBe(true);
+  });
+
+  it("does not leave a timer running after a fast handler", async () => {
+    mockState.claimedRow = makeRow({ type: "notify" });
+    const signals: AbortSignal[] = [];
+    await claimOne(
+      "notify",
+      async (_payload, signal) => {
+        signals.push(signal);
+      },
+      50,
+    );
+    // The race timer is cleared in `finally`; the signal stays unaborted.
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(signals[0]?.aborted).toBe(false);
   });
 });

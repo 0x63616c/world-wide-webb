@@ -29,7 +29,7 @@ import { z } from "zod";
 
 import { db as singletonDb } from "../db/index";
 import * as schema from "../db/schema";
-import { enqueueJob, registerHandler } from "../jobs/queue";
+import { enqueueJob, type JobHandler } from "../jobs/queue";
 import { type ApnsAlert, sendApnsPush } from "./apns-service";
 
 /** Job type string for the APNs fan-out job. */
@@ -366,7 +366,7 @@ export async function handleNotifyJob(rawPayload: unknown, db: Db = singletonDb)
   );
 }
 
-/** Register the `notify` job handler. Called at worker boot, before claiming. */
-export function registerNotifyHandler(): void {
-  registerHandler(NOTIFY_JOB_TYPE, (payload) => handleNotifyJob(payload));
-}
+/** The `notify` job handler. Wired at the worker entrypoint. */
+export const runNotifyJob: JobHandler = async (payload) => {
+  await handleNotifyJob(payload);
+};

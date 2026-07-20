@@ -46,12 +46,6 @@ vi.mock("../env", () => ({
   },
 }));
 
-// ── queue mock ───────────────────────────────────────────────────────────────
-
-vi.mock("../jobs/queue", () => ({
-  registerHandler: vi.fn(),
-}));
-
 // ── Setup / teardown ─────────────────────────────────────────────────────────
 
 beforeEach(() => {
@@ -119,8 +113,8 @@ describe("youtube-ingest-service exports", () => {
     expect(typeof mod.ytdlpDownload).toBe("function");
   });
 
-  it("registerYoutubeIngestHandler is exported", async () => {
+  it("runYoutubeIngest is exported", async () => {
     const mod = await import("../services/youtube-ingest-service");
-    expect(typeof mod.registerYoutubeIngestHandler).toBe("function");
+    expect(typeof mod.runYoutubeIngest).toBe("function");
   });
 });

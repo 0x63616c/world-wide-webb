@@ -22,7 +22,6 @@ vi.mock("../jobs/queue", () => ({
     queueMock.enqueued.push({ type, payload });
     return 1;
   }),
-  registerHandler: vi.fn(),
 }));
 
 // The service imports the singleton db (only the job handler uses it); stub it

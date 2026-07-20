@@ -183,8 +183,8 @@ describe("worker barrel exports the media entry points", () => {
     expect(barrel.runPlaylistPollerCycle).toBeDefined();
   });
 
-  it("exposes registerYoutubeIngestHandler from the worker barrel", async () => {
+  it("exposes runYoutubeIngest from the worker barrel", async () => {
     const barrel = await import("../worker-deps");
-    expect(barrel.registerYoutubeIngestHandler).toBeDefined();
+    expect(barrel.runYoutubeIngest).toBeDefined();
   });
 });

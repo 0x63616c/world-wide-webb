@@ -9,10 +9,10 @@
  *   6. Sets status = 'ready' (or updates error on throw).
  *
  * Idempotent: if status is already 'ready' OR all expected files exist on disk,
- * the handler is a no-op. The queue handles retries via claimAndRun.
+ * the handler is a no-op. The queue handles retries via claimOne.
  *
- * The handler is registered via registerYoutubeIngestHandler() which is called
- * by the worker at boot (before the queue-worker starts claiming).
+ * Exported as runYoutubeIngest and wired into the worker's JOBS array; the
+ * job:youtube_ingest worker is what drains it.
  */
 
 import { execFile } from "node:child_process";
@@ -23,7 +23,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db/index";
 import { mediaItem } from "../db/schema";
 import { env } from "../env";
-import { registerHandler } from "../jobs/queue";
+import type { JobHandler } from "../jobs/queue";
 
 const execFileAsync = promisify(execFile);
 
@@ -44,23 +44,28 @@ export async function ytdlpDownload(
   videoId: string,
   videoPolicy: string,
   storageDir: string,
+  signal?: AbortSignal,
 ): Promise<{ audioPath: string; videoPath: string | null; thumbPath: string | null }> {
   const baseOutput = `${storageDir}/${videoId}.%(ext)s`;
 
   // Audio: always download best quality (m4a/opus). -x extracts audio only.
   // We keep the container as-is (no forced conversion) , m4a and opus are both
   // lossless in terms of re-encode, and the file is small (~85 MB/set).
-  await execFileAsync("yt-dlp", [
-    "-f",
-    "bestaudio",
-    "-x",
-    "--write-thumbnail",
-    "--output",
-    baseOutput,
-    "--quiet",
-    "--no-warnings",
-    `https://www.youtube.com/watch?v=${videoId}`,
-  ]);
+  await execFileAsync(
+    "yt-dlp",
+    [
+      "-f",
+      "bestaudio",
+      "-x",
+      "--write-thumbnail",
+      "--output",
+      baseOutput,
+      "--quiet",
+      "--no-warnings",
+      `https://www.youtube.com/watch?v=${videoId}`,
+    ],
+    { signal },
+  );
 
   // Locate the actual audio file yt-dlp produced (extension varies: m4a/opus/webm).
   const audioPath = findDownloadedFile(storageDir, videoId, [
@@ -78,16 +83,20 @@ export async function ytdlpDownload(
     // NEVER re-encode: if AV1 isn't available, fall back to best video+audio in
     // a single container at ≤1080p. The `-f` selector tries av01 first.
     const videoOutput = `${storageDir}/${videoId}.video.%(ext)s`;
-    await execFileAsync("yt-dlp", [
-      "-f",
-      "bv*[vcodec^=av01][height<=1080]+ba/b[height<=1080]",
-      "--output",
-      videoOutput,
-      "--quiet",
-      "--no-warnings",
-      "--no-write-thumbnail", // already wrote it above
-      `https://www.youtube.com/watch?v=${videoId}`,
-    ]);
+    await execFileAsync(
+      "yt-dlp",
+      [
+        "-f",
+        "bv*[vcodec^=av01][height<=1080]+ba/b[height<=1080]",
+        "--output",
+        videoOutput,
+        "--quiet",
+        "--no-warnings",
+        "--no-write-thumbnail", // already wrote it above
+        `https://www.youtube.com/watch?v=${videoId}`,
+      ],
+      { signal },
+    );
     videoPath = findDownloadedFile(storageDir, videoId, [
       ".video.mp4",
       ".video.webm",
@@ -193,10 +202,13 @@ export async function enrichTitle(rawTitle: string): Promise<{
 }
 
 /**
- * The actual youtube_ingest job handler. Registered via registerYoutubeIngestHandler().
+ * The actual youtube_ingest job handler, exported as runYoutubeIngest below.
  * Idempotent: exits early if the item is already 'ready' or files already exist.
+ *
+ * The signal is threaded into every yt-dlp subprocess so a job that exceeds its
+ * maxMs kills the download rather than leaving it running past the row's death.
  */
-async function handleYoutubeIngest(rawPayload: unknown): Promise<void> {
+async function handleYoutubeIngest(rawPayload: unknown, signal: AbortSignal): Promise<void> {
   const payload = rawPayload as YoutubeIngestPayload;
   const { mediaItemId, videoId, videoPolicy } = payload;
 
@@ -214,16 +226,21 @@ async function handleYoutubeIngest(rawPayload: unknown): Promise<void> {
     return;
   }
 
-  // Disk-space check is performed by the worker's disk guard before
-  // claiming , see the queue-worker wrapper in the worker app. The handler itself
-  // trusts the guard has already run.
+  // Disk-space check is performed by the youtube_ingest JobSpec wrapper in the
+  // worker app, before this handler is entered. Keeping it there rather than on
+  // the shared cycle means a full NAS stops downloads without stopping `notify`.
 
   const storageDir = env.MEDIA_STORAGE_DIR;
 
   // Download audio + thumbnail (+ video if policy = on).
   const downloadStart = performance.now();
   getLogger().info({ videoId, videoPolicy }, "yt-dlp download start");
-  const { audioPath, videoPath, thumbPath } = await ytdlpDownload(videoId, videoPolicy, storageDir);
+  const { audioPath, videoPath, thumbPath } = await ytdlpDownload(
+    videoId,
+    videoPolicy,
+    storageDir,
+    signal,
+  );
   const downloadMs = +(performance.now() - downloadStart).toFixed(1);
 
   // Record file sizes (bytes) from disk.
@@ -239,11 +256,11 @@ async function handleYoutubeIngest(rawPayload: unknown): Promise<void> {
   // file is already on disk.
   let durationSec: number | null = null;
   try {
-    const { stdout } = await execFileAsync("yt-dlp", [
-      "--dump-json",
-      "--no-playlist",
-      `https://www.youtube.com/watch?v=${videoId}`,
-    ]);
+    const { stdout } = await execFileAsync(
+      "yt-dlp",
+      ["--dump-json", "--no-playlist", `https://www.youtube.com/watch?v=${videoId}`],
+      { signal },
+    );
     const meta = JSON.parse(stdout) as { duration?: number };
     durationSec = typeof meta.duration === "number" ? Math.round(meta.duration) : null;
   } catch {
@@ -292,10 +309,7 @@ async function handleYoutubeIngest(rawPayload: unknown): Promise<void> {
     .where(eq(mediaItem.id, mediaItemId));
 }
 
-/**
- * Register the youtube_ingest handler with the job queue. Call this at
- * worker startup, before the queue-worker starts claiming.
- */
-export function registerYoutubeIngestHandler(): void {
-  registerHandler("youtube_ingest", handleYoutubeIngest);
-}
+/** The youtube_ingest job handler. Wired at the worker entrypoint. */
+export const runYoutubeIngest: JobHandler = async (rawPayload, signal) => {
+  await handleYoutubeIngest(rawPayload, signal);
+};

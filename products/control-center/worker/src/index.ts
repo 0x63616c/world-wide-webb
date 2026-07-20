@@ -7,25 +7,27 @@
  *
  * The domain cycles (enforce lights/climate, sync fans, party, ingest weather)
  * still live in @control-center/api and are imported via its ./worker barrel; this package
- * owns only the worker framework (runtime/types) and the job registry below ,
+ * owns only the worker framework (runtime/types) and the worker list below ,
  * which capability runs on what cadence. The eventual packages/core extraction
  * will dissolve the api dependency; until then this is the seam.
  */
 import {
-  claimAndRun,
   env,
+  type JobSpec,
+  jobWorker,
   reconcilePartyMode,
-  registerNotifyHandler,
-  registerYoutubeIngestHandler,
   runAscVersionPollCycle,
   runClimateEnforcerCycle,
   runDeviceSyncCycle,
   runEnforcerCycle,
   runGithubPollCycle,
   runMigrations,
+  runNotifyJob,
   runPlaylistPollerCycle,
   runSonosVolumeEnforcerCycle,
   runWeatherIngestCycle,
+  runYoutubeIngest,
+  staleJobReaper,
 } from "@control-center/api/worker";
 import { createLogger } from "@www/logger";
 import { createWorkerRuntime, type Worker } from "@www/worker-runtime";
@@ -44,11 +46,28 @@ try {
   process.exit(1);
 }
 
-// Job handlers must be registered synchronously before the runtime starts
-// claiming. This process is the only queue consumer, so every handler is
-// registered here.
-registerNotifyHandler();
-registerYoutubeIngestHandler();
+// One declared maxMs per job type, driving BOTH the in-process timeout and the
+// reaper's lease. A timeout only fires while this process is alive, so an OOM
+// kill or eviction still strands a row at `running`; the reaper is what
+// recovers those. Sharing one number keeps the two from drifting apart.
+const JOBS: JobSpec[] = [
+  // APNs delivery is sub-second; a minute means something is badly wrong.
+  { type: "notify", handler: runNotifyJob, maxMs: 60_000 },
+  // A ceiling for pathological downloads, not a target , sets take minutes.
+  {
+    type: "youtube_ingest",
+    maxMs: 60 * 60_000,
+    // Guard the NAS before each claim: a full volume must not start a download.
+    // This lives inside the ingest handler, not on a shared cycle, so a full
+    // NAS never blocks `notify` (APNs) delivery, which touches no disk.
+    handler: async (payload, signal) => {
+      if (!hasSufficientDisk(env.MEDIA_STORAGE_DIR)) {
+        throw new Error("insufficient disk space for ingest");
+      }
+      await runYoutubeIngest(payload, signal);
+    },
+  },
+];
 
 const workers: Worker[] = [
   {
@@ -121,33 +140,6 @@ const workers: Worker[] = [
     run: runAscVersionPollCycle,
   },
   {
-    // Durable job queue consumer: APNs fan-out (`notify`) and media ingest
-    // (`youtube_ingest`).
-    //
-    // There is no type filter. media-worker used to own the queue while this
-    // process claimed only `notify` to avoid stealing media jobs it had no
-    // handler for; media-worker is now merged into this app, so one process
-    // registers every handler and drains every type.
-    name: "queue-worker",
-    intervalMs: 2_000,
-    runOnStart: true,
-    run: async () => {
-      // Check disk before claiming , a full NAS must not start a new download.
-      // Guarding at the worker level applies it to every claim regardless of
-      // handler. hasSufficientDisk emits the structured warn when space is low.
-      //
-      // Known tradeoff: this early-return stalls the whole cycle, so a full NAS
-      // also blocks `notify` (APNs) claims even though they touch no disk. That
-      // coupling didn't exist pre-merge, when this process only claimed `notify`.
-      // Follow-up: split into one Worker per job type and move this guard inside
-      // the `youtube_ingest` handler so `notify` is unaffected.
-      if (!hasSufficientDisk(env.MEDIA_STORAGE_DIR)) {
-        return;
-      }
-      await claimAndRun();
-    },
-  },
-  {
     // Playlist poller: enumerate each enabled media_source via
     // yt-dlp --flat-playlist and enqueue ingest jobs for unseen video IDs.
     // Metadata only -- no video data -- so 2 minutes is ~720 requests/day from
@@ -158,6 +150,11 @@ const workers: Worker[] = [
     runOnStart: true,
     run: runPlaylistPollerCycle,
   },
+  // One Worker per job type: independent timer chains, so a 1h download cannot
+  // delay an APNs push, plus the reaper that recovers rows stranded at
+  // `running` by a process death no in-process timeout can observe.
+  ...JOBS.map(jobWorker),
+  staleJobReaper(JOBS),
 ];
 
 // Startup line: single unmistakable signal in docker service logs that the

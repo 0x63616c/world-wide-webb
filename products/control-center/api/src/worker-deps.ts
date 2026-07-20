@@ -7,7 +7,9 @@
  *
  * There is one barrel because there is one worker app: since media-worker was
  * folded into worker, that single process owns every loop and every job type ,
- * the home-control enforcers, the pollers, and the whole durable queue.
+ * the home-control enforcers, the pollers, and the whole durable queue. Job
+ * handlers are plain exported functions the entrypoint passes into jobWorker,
+ * so what runs is readable at the call site rather than hidden in a registry.
  *
  * Interim: this barrel is the documented seam between worker and api. The planned
  * packages/core extraction (shared domain) will move these out of products/control-center/api and
@@ -15,16 +17,16 @@
  */
 export { runMigrations } from "./db/migrate";
 export { env } from "./env";
-// Durable job queue. The worker process drains every registered type.
-export { claimAndRun } from "./jobs/queue";
+// Durable job queue. Each type is wrapped as its own Worker at the entrypoint.
+export { type JobSpec, jobWorker, staleJobReaper } from "./jobs/job-worker";
 export { runAscVersionPollCycle } from "./services/asc-version-service";
 export { runClimateEnforcerCycle } from "./services/climate-enforcer-service";
 export { runDeviceSyncCycle } from "./services/device-sync-service";
 export { runGithubPollCycle } from "./services/github-actions-service";
 export { runEnforcerCycle } from "./services/light-enforcer-service";
-export { registerNotifyHandler } from "./services/notification-service";
+export { runNotifyJob } from "./services/notification-service";
 export { reconcilePartyMode } from "./services/party-service";
 export { runPlaylistPollerCycle } from "./services/playlist-poller-service";
 export { runSonosVolumeEnforcerCycle } from "./services/sonos-volume-enforcer-service";
 export { runWeatherIngestCycle } from "./services/weather-ingest-service";
-export { registerYoutubeIngestHandler } from "./services/youtube-ingest-service";
+export { runYoutubeIngest } from "./services/youtube-ingest-service";
