@@ -166,6 +166,7 @@
       "dependencies": {
         "@trpc/server": "^11.17.0",
         "@www/logger": "*",
+        "@www/worker-runtime": "workspace:*",
         "drizzle-orm": "^0.45.2",
         "drizzle-zod": "^0.8.3",
         "pg": "^8.20.0",
