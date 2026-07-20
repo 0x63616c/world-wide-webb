@@ -26,6 +26,7 @@ class KioskViewController: CAPBridgeViewController {
     // silent no-op this override exists to avoid.
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(SystemSoundPlugin())
+        bridge?.registerPluginInstance(PanelVolumePlugin())
     }
 
     override func viewDidAppear(_ animated: Bool) {
