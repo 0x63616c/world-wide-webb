@@ -12,13 +12,10 @@ iPad / browser
   -> products/control-center/api/src/services domain services
   -> Home Assistant / UniFi / Spotify / Postgres / media integrations
 
-background loops
+background loops and jobs
   -> products/control-center/worker
   -> @control-center/api/worker domain cycles
-  -> desired-state reconciliation, weather ingest, party mode
-
-heavy media jobs
-  -> YouTube/media ingest and enrichment
+  -> desired-state reconciliation, weather ingest, party mode, YouTube/media ingest
 
 deploy
   -> GitHub Actions
@@ -130,7 +127,7 @@ Registered workers currently include:
 - `weather-ingest` every 5m.
 - `asc-version-poll` every 1m (latest TestFlight build of the iOS shell, powering the board's update-available banner).
 
-The shared runtime in `packages/worker-runtime` (used by both worker apps) prevents overlapping cycles per worker, isolates failures, logs failure and recovery transitions, warns on slow cycles, and exposes stats.
+The shared runtime in `packages/worker-runtime` prevents overlapping cycles per worker, isolates failures, logs failure and recovery transitions, warns on slow cycles, and exposes stats.
 
 The media pipeline (playlist poller, ingest queue, NAS media mount) runs inside `products/control-center/worker`: media-worker was merged into it, so there is one worker deployable and one api barrel (`@control-center/api/worker` at `products/control-center/api/src/worker-deps.ts`).
 

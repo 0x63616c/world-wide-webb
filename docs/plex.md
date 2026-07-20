@@ -15,7 +15,7 @@ the `plex-config` local-path claim); it deploys via the normal push-to-`main`
   Plex's SQLite databases live here and **must not** go on NFS (SQLite over NFS
   corrupts).
 - **Media volume**: the Synology NFS export `/volume1/Homelab`, subPath `media`,
-  mounted **read-only** at `/data` — the same share the media-worker uses.
+  mounted **read-only** at `/data` — the same share the worker's media ingest uses.
 - **Exposure**: a `LoadBalancer` Service on `32400`. OrbStack's
   `expose_services` republishes the port on the Mac host, so the Apple TV on
   `192.168.0.0/24` reaches Plex at **`http://192.168.0.147:32400`** (the Mac's
