@@ -29,6 +29,7 @@ import { Next12Hours } from "../components/tiles/Next12Hours";
 import { Next12HoursView } from "../components/tiles/Next12HoursView";
 import { NotificationCenterTile } from "../components/tiles/NotificationCenterTile";
 import { NotificationCenterTileView } from "../components/tiles/NotificationCenterTileView";
+import { PhotoBoothTile } from "../components/tiles/photo-booth/PhotoBoothTile";
 import { SchedulesTile } from "../components/tiles/SchedulesTile";
 import { SchedulesTileView } from "../components/tiles/SchedulesTileView";
 import { TeslaTile } from "../components/tiles/TeslaTile";
@@ -58,6 +59,7 @@ type TileComponent =
   | typeof TvAppsTile
   | typeof QuickPlayTile
   | typeof NotificationCenterTile
+  | typeof PhotoBoothTile
   | typeof WakesTile;
 
 type TileViewComponent =
@@ -80,6 +82,7 @@ type TileViewComponent =
   | typeof TvAppsTileView
   | typeof QuickPlayTileView
   | typeof NotificationCenterTileView
+  | typeof PhotoBoothTile
   | typeof WakesTileView;
 
 export type TileRegistryEntry = {
@@ -320,6 +323,23 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     worldRow: 30,
     cols: 4,
     rows: 2,
+  },
+  // Photo booth. A small 1x1 mark tile perched just above the cluster's top edge
+  // (one row over the Climate/Controls column), a second small utility mark near
+  // the Guest Wi-Fi QR. A lone 1x1 needs a clear neighbourhood: the bento fill
+  // tiles the world with >=2x2 rectangles, so a 1x1 hole wedged between other
+  // tiles would strand an untileable 1-cell pocket (placeholder-tiles guard).
+  // The face is mark-only (no TileHeader title), so tile_booth is exempt from the
+  // label↔title guard (tile-title-sync.test.tsx), like the Clock.
+  {
+    id: "tile_booth",
+    label: "Photo Booth",
+    component: PhotoBoothTile,
+    viewComponent: PhotoBoothTile,
+    worldCol: 32,
+    worldRow: 21,
+    cols: 1,
+    rows: 1,
   },
 ];
 

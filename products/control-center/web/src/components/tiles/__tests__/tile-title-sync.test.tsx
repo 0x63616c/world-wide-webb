@@ -24,9 +24,11 @@ vi.mock("@protomaps/basemaps", () => ({
 
 import { TILE_REGISTRY } from "../../../lib/tile-registry";
 
-// Clock renders a live greeting, not a static TileHeader title; its registry
-// label ("Clock") is purely a name, so it has no `title="…"` literal to match.
-const NO_STATIC_TITLE = new Set(["tile_clock"]);
+// Tiles whose face carries no static TileHeader title, so their registry label
+// is purely a name with no `title="…"` literal to match:
+//  - tile_clock renders a live greeting.
+//  - tile_booth is a mark-only camera glyph (the approved Photo Booth design).
+const NO_STATIC_TITLE = new Set(["tile_clock", "tile_booth"]);
 
 // View source from tiles/ and media/ subdirectories, keyed by bare filename.
 // Eager + raw so the assertions are pure string checks with no rendering.

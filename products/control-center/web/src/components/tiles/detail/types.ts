@@ -28,6 +28,14 @@ export interface TileDetailPageEntry {
   title: string;
   /** PIN-gated (Activity): the host runs PinGateModal before the page mounts. */
   requiresPin?: true;
+  /**
+   * Page shell chrome. Default (`"header"`, or unset) gives the standard sticky
+   * PageHeader + padded scroll region every tile detail uses. `"none"` drops
+   * both , the host renders the variant edge-to-edge (full-bleed) and the page
+   * owns its own chrome (e.g. the photo-booth camera is full-bleed; its gallery
+   * renders its own PageHeader). Safe-area padding is kept either way.
+   */
+  chrome?: "header" | "none";
   /** Default variant slug shown first when the tile is tapped. */
   defaultSlug: string;
   /**

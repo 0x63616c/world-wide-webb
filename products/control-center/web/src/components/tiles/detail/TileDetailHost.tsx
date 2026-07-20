@@ -112,6 +112,38 @@ function TileDetailPage({
 
   const ready = !loading && variants.length > 0;
   const active = ready ? (variants.find((v) => v.slug === slug) ?? variants[0]) : null;
+  // Full-bleed pages (e.g. the photo-booth camera) drop the host's PageHeader +
+  // padded scroll region and render edge-to-edge, owning their own chrome.
+  const fullBleed = entry.chrome === "none";
+
+  if (fullBleed) {
+    return createPortal(
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 100,
+          display: "flex",
+          flexDirection: "column",
+          background: "var(--bg)",
+          color: "var(--ink)",
+          fontFamily: "var(--ui)",
+          overflow: "hidden",
+          // Keep content clear of the notch / home indicator (see below).
+          paddingTop: "env(safe-area-inset-top, 0px)",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          paddingLeft: "env(safe-area-inset-left, 0px)",
+          paddingRight: "env(safe-area-inset-right, 0px)",
+          boxSizing: "border-box",
+        }}
+      >
+        <div style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden" }}>
+          {active?.render()}
+        </div>
+      </div>,
+      document.body,
+    );
+  }
 
   return createPortal(
     <div
