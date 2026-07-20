@@ -10,7 +10,6 @@ COPY package.json bun.lock ./
 COPY products/captive-portal/package.json ./products/captive-portal/package.json
 COPY products/captive-portal/apps/api/package.json ./products/captive-portal/apps/api/package.json
 COPY products/captive-portal/apps/frontend/package.json ./products/captive-portal/apps/frontend/package.json
-COPY products/project-management/package.json ./products/project-management/package.json
 COPY products/control-center/package.json ./products/control-center/package.json
 COPY products/control-center/api/package.json ./products/control-center/api/package.json
 COPY products/control-center/drizzle/package.json ./products/control-center/drizzle/package.json

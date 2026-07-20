@@ -14,8 +14,6 @@
     ".opencode/**", // OpenCode plugins (loaded at runtime by the opencode host, never imported)
     "docs/media-tiles/**", // Design handoff bundle (prototypes/reference, not app code)
     "docs/captive-portal/design/**", // Captive portal design handoff (reference, not app code)
-    "products/project-management/public/_ds/**", // Design-system bundle served statically by Beads.dc.html.
-    "products/project-management/public/support.js", // Static support script referenced from the Project Management HTML bundle.
     "**/ios/**/public/**" // Capacitor web-bundle copies synced into iOS project (not source)
   ],
 
@@ -94,20 +92,6 @@
     "products/control-center/drizzle": {
       // load-secret.js is the drizzle image's `bun --preload` ENTRYPOINT.
       "entry": ["load-secret.js"]
-    },
-    "products/project-management": {
-      // server.ts + temporal worker/queue scripts are auto-detected from package
-      // scripts; the rest are launched by Tilt or register workflows/activities
-      // by runtime name.
-      "entry": [
-        "workflow.ts",
-        "map.ts",
-        "workflow-metrics.ts",
-        "db/**/*.test.ts",
-        "temporal/**/*.test.ts",
-        "*.test.ts",
-        "scripts/*.ts"
-      ]
     },
     "packages/logger": {
       // src/index.ts is auto-detected from the `exports` map.

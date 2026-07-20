@@ -32,7 +32,7 @@ control-center-product-identity	^\.github/workflows/ios-build\.yml$	.*\bcontrol-
 control-center-product-identity	^scripts/(check-control-center-product-boundary|check-control-center-ci-split|check-tilt-product-lanes|check-product-ci-isolation|check-product-doc-paths|check-storybook-docs|check-fake-data|coverage|test-map-provision|verify-wall-panel|cc-post-cutover-smoke|check-dockerfile-manifests)(\.(ts|sh|mjs))?$	.*\bcontrol-center\b.*	Script operates on or validates the Control Center product by its product path or slug.
 # packages/api (@cc/api bridge) and packages/logger reference the @control-center/api product scope.
 control-center-product-identity	^packages/(api|logger)/.*$	.*\bcontrol-center\b.*	Bridge package and logger reference @control-center/api product scope; pending rename in www-jtp0.9.4.
-# Products outside control-center (captive-portal, project-management) referencing control-center product paths or product scope.
-control-center-product-identity	^products/(captive-portal|project-management)/.*$	.*\bcontrol-center\b.*	Sibling product referencing the Control Center product by path or @control-center/* scope.
+# Products outside control-center (captive-portal) referencing control-center product paths or product scope.
+control-center-product-identity	^products/captive-portal/.*$	.*\bcontrol-center\b.*	Sibling product referencing the Control Center product by path or @control-center/* scope.
 # M9 migration/cutover/cleanup runbooks reference old names explicitly as the subject of the rename.
 historical-only-docs	^docs/m9-(pulumi-migration|cutover-checklist|cleanup-checklist)\.md$	.*\bcontrol-center\b.*	M9 migration runbook referencing old identity names as the subject of the rename operation.

@@ -11,7 +11,6 @@ export default defineConfig({
       "products/control-center/media-worker",
       "products/captive-portal/apps/api",
       "products/captive-portal/apps/frontend",
-      "products/project-management",
       "packages/logger",
       "packages/platform",
       "packages/worker-runtime",

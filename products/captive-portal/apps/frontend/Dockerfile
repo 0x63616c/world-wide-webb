@@ -25,7 +25,6 @@ COPY products/control-center/media-worker/package.json ./products/control-center
 COPY products/control-center/storybook/package.json ./products/control-center/storybook/package.json
 COPY products/control-center/web/package.json ./products/control-center/web/package.json
 COPY products/control-center/worker/package.json ./products/control-center/worker/package.json
-COPY products/project-management/package.json ./products/project-management/package.json
 COPY packages/api/package.json ./packages/api/package.json
 COPY packages/logger/package.json ./packages/logger/package.json
 COPY packages/platform/package.json ./packages/platform/package.json

@@ -22,7 +22,6 @@ COPY products/control-center/storybook/package.json products/control-center/stor
 COPY products/captive-portal/package.json products/captive-portal/
 COPY products/captive-portal/apps/api/package.json products/captive-portal/apps/api/
 COPY products/captive-portal/apps/frontend/package.json products/captive-portal/apps/frontend/
-COPY products/project-management/package.json products/project-management/
 COPY packages/api/package.json packages/api/
 COPY packages/logger/package.json packages/logger/
 COPY packages/platform/package.json packages/platform/
