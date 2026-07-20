@@ -4,13 +4,15 @@ Status: proposal for decision
 Date: 2026-07-20
 Scope: `products/control-center/api` DB-touching tests (the queue/reaper suite is the motivating case)
 
+> **Revision note (v2).** v1 specified isolation as a "fake pool that returns one physical connection, so the code's `db.transaction()` becomes an automatic SAVEPOINT the outer ROLLBACK undoes." That mechanism was found **broken under drizzle-orm 0.45.2** and verified against its source: `NodePgSession.transaction()` (`node_modules/drizzle-orm/node-postgres/session.cjs:215`) always emits a **literal `begin`…`commit`**, and when its client is a `Pool` it checks out a *fresh* connection (`this.client.connect()`). SAVEPOINT/RELEASE is emitted **only** by `NodePgTransaction.transaction()` (line 240) — i.e. `.transaction()` called on an already-open tx handle. So the fake-pool design either deadlocks (pool max 1) or runs the queue's transaction on a different connection that really commits, leaving a poison `status='running'` row the harness ROLLBACK can't reach. §3.3A, §4, and §6.2 are respecified around an **inject-the-tx-handle** harness (drizzle owns the outer transaction; the mocked `db` *is* a `NodePgTransaction`). All fake-pool / auto-savepoint framing is removed.
+
 ---
 
 ## 1. Current state (audit)
 
 ### 1.1 How the app connects
 
-`products/control-center/api/src/db/index.ts` is nine lines:
+`products/control-center/api/src/db/index.ts` is eight lines:
 
 ```ts
 export const pool = new Pool({ connectionString: env.DATABASE_URL });
@@ -28,9 +30,9 @@ Key facts that shape everything below:
 
 - `products/control-center/api/drizzle.config.ts`: schema `./src/db/schema.ts`, migrations out `./src/db/migrations`, dialect `postgresql`.
 - `products/control-center/api/src/db/migrate.ts`: `runMigrations()` calls drizzle-orm's `migrate(db, { migrationsFolder })`.
-- **24 migration SQL files** in `src/db/migrations`.
+- **26 migration SQL files** in `src/db/migrations` (authoritative count from `meta/_journal.json`).
 - Scripts (`api/package.json`): `db:generate` (drizzle-kit generate), `db:migrate` (drizzle-kit migrate), `db:push`, `db:studio`.
-- In **prod**, schema is applied by `runMigrations()` at server boot (`server.ts:38`); both API and workers run it so whichever starts first prepares the schema. Same migrator, same 24 files — so migrating a test DB with `migrate()` is exactly what prod does.
+- In **prod**, schema is applied by `runMigrations()` at server boot (`server.ts:38`); both API and workers run it so whichever starts first prepares the schema. Same migrator, same 26 files — so migrating a test DB with `migrate()` is exactly what prod does.
 - Local dev applies schema via Tilt: `db-migrate` resource runs `bun run --cwd products/control-center/api db:migrate` against the docker-compose Postgres (`products/control-center/Tiltfile:48`).
 
 ### 1.3 Provisioning that already exists
@@ -99,7 +101,7 @@ The four the user named, plus two derived:
 
 | Option | Verdict |
 |---|---|
-| **drizzle `migrate()` once per run, then TEMPLATE-clone per worker** (recommended) | Runs the *same* 24 migrations prod runs (max fidelity), but only **once** — then `CREATE DATABASE … TEMPLATE` is a cheap file copy, so per-worker DBs are near-free. Avoids re-running 24 migrations × 4 workers |
+| **drizzle `migrate()` once per run, then TEMPLATE-clone per worker** (recommended) | Runs the *same* 26 migrations prod runs (max fidelity), but only **once** — then `CREATE DATABASE … TEMPLATE` is a cheap file copy, so per-worker DBs are near-free. Avoids re-running 26 migrations × 4 workers |
 | `drizzle-kit push` per DB | Faster than replaying migrations but tests a *different* schema path than prod boot; risks masking a bad migration. Reject for parity |
 | Raw SQL snapshot (`pg_dump` of the migrated schema) | Fastest to load, but a checked-in snapshot rots against `schema.ts`/migrations and needs its own guard. Reject unless template-clone proves too slow (it won't) |
 
@@ -108,16 +110,34 @@ The four the user named, plus two derived:
 The requirement "isolation without per-test DB" means transaction-per-test rollback. But this codebase has two properties that make the textbook version non-trivial:
 
 - **The code uses the `db` singleton**, not an injected client. A test's `BEGIN…ROLLBACK` on its *own* connection would not wrap writes the code issues on the *pool's* connection. Rollback would undo nothing.
-- **The queue opens its own transaction** (`db.transaction(async tx => … SKIP LOCKED …)`, `queue.ts:95`) and then issues the post-handler `UPDATE`s on the bare `db` (not `tx`) — `queue.ts:152`. So the harness must cover both the code's own transaction *and* subsequent pooled statements.
+- **The queue opens its own transaction** (`db.transaction(async tx => … SKIP LOCKED …)`, `queue.ts:95`) and then issues the post-handler `UPDATE`s on the bare `db` (not `tx`) — `queue.ts:152`, `:171`, `:187`. So the harness must cover both the code's own transaction *and* subsequent pooled statements.
+
+**A dead end to name explicitly (this was v1's bug).** The obvious "single-shared-connection pool" idea — a fake pool that hands every checkout the same physical connection held in a `BEGIN`, hoping the code's `db.transaction()` degrades to a savepoint — **does not work under drizzle-orm 0.45.2** (verified in source). `NodePgSession.transaction()` (`node_modules/drizzle-orm/node-postgres/session.cjs:215`) unconditionally emits a literal `begin`…`commit`, and if its client is a `Pool` it *checks out a new connection first* (`await this.client.connect()`). Savepoints are emitted **only** by `NodePgTransaction.transaction()` (line 240–254), reached only when `.transaction()` is called on an *already-open transaction handle*. Consequences of the fake-pool design:
+- Fake pool, max connections 1: `db.transaction()` calls `connect()` and **deadlocks** waiting for the one connection the harness is holding.
+- Fake pool, max > 1: the queue's transaction runs on a *different* connection, its `commit` **really commits**, and the harness `ROLLBACK` on its own connection undoes nothing → the `status='running'` row persists and **poisons the next test**.
+- Single client shared directly (no pool): the code's literal nested `begin` is a Postgres **no-op warning** (not a savepoint), and the queue's `commit` **commits the outer harness transaction** → same poison.
+
+The fix is to make **drizzle own the outer transaction** and inject the transaction *handle* as the mocked `db`.
 
 Options:
 
-**A. Single-shared-connection rollback (recommended default).**
-Back the test `db` with a pool that hands **every** checkout the *same* physical connection, held open in a `BEGIN`. Then:
-- Code's `db.execute(...)` runs on that connection, inside the outer transaction.
-- Code's `db.transaction(...)` becomes a **nested** transaction → drizzle-orm (node-postgres) emits `SAVEPOINT`/`RELEASE`, not a real COMMIT. So the queue's self-managed transaction works unchanged, and its "commit" is a savepoint release that the outer `ROLLBACK` still undoes.
-- `afterEach` → `ROLLBACK`. No writes ever persist; **no truncation, no DDL per test → fast**, and a failed test cannot poison the next.
-- *Limitation (important):* one physical connection cannot exercise real cross-connection concurrency. `FOR UPDATE SKIP LOCKED` single-flight *between two competing claimers* cannot be proven here — a second claimer would need a second connection. This is the one thing transaction-rollback structurally cannot test, and it happens to be one of the things mocks also can't test (§1.6). See option C.
+**A. Inject-the-tx-handle rollback (recommended default).**
+`beforeEach` opens a real transaction on the real drizzle client and stashes the tx handle where the `vi.mock("../db/index")` proxy forwards to; the test body runs; then the transaction is force-rolled-back:
+
+```ts
+// test-db helper, per test
+await realDb.transaction(async (tx) => {
+  dbHolder.current = tx;         // vi.mock("../db/index") returns a proxy: db.* -> dbHolder.current.*
+  await runTestBody();
+  throw new RollbackSignal();    // force drizzle's own `rollback`; catch + swallow outside
+});
+```
+
+Because the injected `db` **is a `NodePgTransaction`**, everything composes correctly:
+- `db.execute(...)` — the bare pooled ack/nack `UPDATE`s (`queue.ts:152/171/187`) and the reaper `UPDATE` (`job-worker.ts:79`) — runs on **tx's single pinned connection, inside the outer transaction**. Connection-pinning is solved for free; no fake pool needed.
+- `db.transaction(...)` — the queue's self-managed claim tx (`queue.ts:95`) — now dispatches to `NodePgTransaction.transaction()`, which emits a **genuine `savepoint`/`release savepoint`** (session.cjs:248/251). Its "commit" is a savepoint release the outer `RollbackSignal` still unwinds.
+- `RollbackSignal` forces drizzle's own `rollback` of the outer transaction. No writes persist; **no truncation, no DDL per test → fast**, and a failed test cannot poison the next.
+- *Limitation (unchanged and honest):* one transaction rides one connection, so real cross-connection concurrency isn't exercisable here. `FOR UPDATE SKIP LOCKED` single-flight *between two competing claimers* needs a second live connection and cannot be proven on this path — the one thing transaction-rollback structurally cannot test, which is also one of the things mocks can't test (§1.6). See option C.
 
 **B. One DB per worker + `TRUNCATE` between tests.**
 Each worker (`VITEST_WORKER_ID` / `VITEST_POOL_ID`) gets its own template-cloned DB; `afterEach` truncates the touched tables. Uses the real pool with real concurrency. Slower than rollback (truncate is a write + WAL per test) and requires every test to know which tables to clear (poison risk if one forgets). Good fallback where rollback can't apply.
@@ -129,11 +149,10 @@ A small, explicitly separate category for the handful of tests that must prove `
 
 ### 3.4 Injecting the test connection through the existing seam
 
-The 18 files already `vi.mock("../db/index")`. The elegant migration is to **keep that seam but back it with a real, transaction-scoped drizzle** instead of a fake. Concretely, a `test-db` helper module:
-- `globalSetup`: ensure the base DB is migrated once; create this worker's DB via TEMPLATE.
-- `beforeEach`: check out the single shared connection, `BEGIN`, build `drizzle(clientBoundToThatConn, { schema })`, store it in a module-level holder.
-- The `vi.mock("../db/index")` factory returns a `db` proxy that forwards to the current holder.
-- `afterEach`: `ROLLBACK`, release.
+The 18 files already `vi.mock("../db/index")`, and the review confirmed the seam is **per-file in all 18** (not a global mock), so mocked and real files coexist cleanly during the port. Keep that seam but back it with the **injected tx handle** from option A instead of a fake:
+- The `vi.mock("../db/index")` factory returns a `db` **proxy** that forwards `db.execute` / `db.transaction` / `db.insert` / … to `dbHolder.current`.
+- A `test-db` helper's `beforeEach` runs the test body *inside* `realDb.transaction(tx => { dbHolder.current = tx; … })` (see §3.3A), so `dbHolder.current` is a `NodePgTransaction` for the duration of the test and is force-rolled-back after.
+- Provisioning of the real DB behind `realDb` (base migrate, per-worker clone) is a separate lifecycle handled in §4 — *not* in `globalSetup` per-worker, which cannot see workers (see §4 / I2).
 
 This means porting a file from "fake db" to "real db" is swapping the mock factory for the shared helper — the call sites don't change.
 
@@ -145,17 +164,27 @@ A single coherent strategy:
 
 **Provisioning.** Local: the existing `products/control-center/docker-compose.yml` `postgres:16-alpine` (already wired into Tilt). CI: add a `services: postgres` block to the `test-unit` job using the **same** `postgres:16-alpine` tag, health-gated, exporting `DATABASE_URL` for the job. Same image both places = parity. No new dependency; testcontainers rejected for the Docker-down friction this repo actually hits.
 
-**Schema.** A vitest `globalSetup` (new, for the api project) migrates a base template DB **once per run** with the real `migrate()` + the 24 migration files, then each worker `CREATE DATABASE test_w${VITEST_WORKER_ID} TEMPLATE base` — cheap clone, no migration replay per worker.
+**Schema + DB lifecycle (two distinct stages — the split matters).**
 
-**Isolation.** Transaction-per-test rollback via the **single-shared-connection** pattern (§3.3A), injected through the existing `vi.mock("../db/index")` seam backed by a `test-db` helper (§3.4). The queue's self-managed `db.transaction()` composes correctly because nested transactions become **savepoints** under node-postgres/drizzle, and the post-handler pooled `db.execute` statements land on the same held connection inside the same outer transaction. No per-test DDL, no truncation → fast; `ROLLBACK` guarantees isolation and failed-test containment.
+- **Stage 1 — base migrate, once per run, in `globalSetup`.** A new api-pg `globalSetup` (runs exactly once in the root process) migrates a base DB with the real `migrate()` + the 26 migration files. **I1:** `CREATE DATABASE … TEMPLATE base` fails while any session is connected to `base`, so `globalSetup` **must `await migratorPool.end()` after migrating and before returning** — it creates no clones itself (it can't; see I2).
+- **Stage 2 — per-worker clone, in `setupFiles`, once per worker fork.** `globalSetup` runs once in the *root* process and therefore **cannot** create per-worker DBs (**I2**). The per-worker `CREATE DATABASE test_w${VITEST_WORKER_ID} TEMPLATE base` runs in a `setupFiles` hook (executed once per worker fork), connecting to the **`postgres` maintenance DB** (not `base`, which must stay connection-free for cloning). **I3:** the compose `postgres-data` volume persists, so a crashed run leaves `test_w1..4` behind and the next `CREATE DATABASE` fails "already exists" — so the hook first `DROP DATABASE IF EXISTS test_w${id}` (terminating any lingering backends via `pg_terminate_backend`) before creating. Cheap TEMPLATE clone, no migration replay per worker.
+- **Explicit URL, never the fallback.** The harness must set an explicit `DATABASE_URL` pointing at `test_w${id}` on the compose host. It must **not** fall through to `env.ts`'s assembled default (host `postgres`, db `control_center` with an underscore) — that name/host diverges local vs CI and would silently point tests at the wrong database.
 
-**Parallelism.** One DB per vitest worker (bounded by `maxWorkers: 4`), transaction rollback per test within it. Because each worker's DB name is derived from `VITEST_WORKER_ID`, concurrent Claude sessions each running vitest still collide only if they share a Postgres *and* a worker id — so name the DB with a per-run salt (run id / pid) in addition to the worker id, or point each session's docker-compose at its own Postgres. (Open question 6.3.)
+**Isolation.** Transaction-per-test rollback via the **inject-the-tx-handle** pattern (§3.3A), threaded through the existing `vi.mock("../db/index")` seam backed by a `test-db` helper (§3.4). Drizzle owns the outer transaction; the injected `db` *is* a `NodePgTransaction`, so the queue's self-managed `db.transaction()` becomes a real **savepoint** (session.cjs:248) and every bare `db.execute` rides the tx's pinned connection inside that transaction. `RollbackSignal` forces the outer `rollback`. No per-test DDL, no truncation → fast; rollback guarantees isolation and failed-test containment.
 
-**Concurrency-semantics tests** (real `SKIP LOCKED` single-flight) are the one carve-out: a small named category (`*.concurrency.pg.test.ts` or similar) that opts out of shared-connection rollback, opens multiple real connections against the per-worker DB, and cleans up by truncating its own table. This is deliberately the *only* place the two-connection cost is paid.
+**Parallelism.** One DB per vitest worker (bounded by `maxWorkers: 4`), transaction rollback per test within it. Because each worker's DB name is derived from `VITEST_WORKER_ID`, concurrent Claude sessions each running vitest collide only if they share a Postgres *and* a worker id — so either salt the DB name with a per-run id (pid / run id) on top of the worker id, or point each session's docker-compose at its own Postgres. (Open question 6.3.)
+
+**Project split (I4).** The real-PG tests live in a new `api-pg` vitest project whose `include` matches `**/*.pg.test.ts`. That same glob **must be added to the existing `api` project's `exclude`**, or every `*.pg.test.ts` double-runs — once under `api-pg` (DB-wired) and once under `api` (no DB wiring → guaranteed failure). State the include/exclude split explicitly in both project configs.
+
+**Concurrency-semantics tests** (real `SKIP LOCKED` single-flight) are the one carve-out: a small named category (`*.concurrency.pg.test.ts`) that opts out of tx-handle rollback, opens multiple real connections against the per-worker DB, and cleans up by truncating its own table. This is deliberately the *only* place the two-connection cost is paid. The review confirmed the line is drawn correctly — the reaper, ON CONFLICT upserts, and advisory locks are all **single-connection** and stay on the fast rollback path.
+
+Two clarifications for the test authors:
+- **Only the two-racer single-flight assertion goes in the carve-out.** On the fast rollback path `FOR UPDATE SKIP LOCKED` still executes — there is simply nothing for it to skip — so the *non-concurrent* claim assertions belong on the fast path: a future-`run_after` row is skipped, ordering is `priority DESC, created_at ASC`, and `run_after <= now()` gates. Only "two competing claimers → exactly one wins" needs the second connection.
+- **`now()` is frozen at transaction start.** Inside the rollback transaction, `now()` returns the tx's start instant and does not advance with wall-clock. Reaper/backoff tests must seed `locked_at` (and any time comparison) as an **absolute past timestamp**, not by sleeping and expecting the clock to move.
 
 **Graceful absence.** The api `globalSetup` probes the DB; if unreachable it fails the **pg project** with a one-line "start docker-compose Postgres" message, while the mocked unit tests (a separate concern) still run. In CI the `services:` block guarantees presence, so a missing DB in CI is a hard error, not a skip.
 
-Why this over the alternatives, in one line each: rollback beats truncate on speed (req 1) and poison-safety (req 2); single-shared-connection is the only rollback variant that works with a `db` **singleton** the code won't let us inject per call; template-clone beats re-migrating per worker on speed; `services:`+compose beats testcontainers on this repo's Docker-down reality and adds no dependency; the concurrency carve-out honestly quarantines the one thing rollback can't do rather than pretending it can.
+Why this over the alternatives, in one line each: rollback beats truncate on speed (req 1) and poison-safety (req 2); injecting the tx handle is the only rollback variant that actually works given drizzle 0.45.2 emits a literal `begin`/`commit` from a session `db.transaction()` (the naive shared-pool variant poisons the next test — see §3.3); template-clone beats re-migrating per worker on speed; `services:`+compose beats testcontainers on this repo's Docker-down reality and adds no dependency; the concurrency carve-out honestly quarantines the one thing rollback can't do rather than pretending it can.
 
 ---
 
@@ -172,7 +201,7 @@ Why this over the alternatives, in one line each: rollback beats truncate on spe
 
 **6.1 (Biggest) The single thing neither mocks nor rollback can test.** `FOR UPDATE SKIP LOCKED` single-flight is the queue's core correctness property, and transaction-rollback (one connection) structurally cannot exercise it. The recommendation puts it in a separate two-connection carve-out (§3.3C) — but that category doesn't get transaction-rollback isolation, so it needs its own cleanup and is the most likely source of any future flake. **Decision for the user:** accept the small non-rollback concurrency category as the home for these few tests, or invest instead in a fully connection-per-test real-transaction harness (option B everywhere: real concurrency, but truncate-based, slower, poison-risk if a test forgets a table)? The recommendation is the carve-out; it keeps 95% of tests on the fast rollback path.
 
-**6.2 Nested-transaction savepoint assumption.** The whole rollback approach relies on drizzle-orm `0.45.2` (node-postgres) emitting `SAVEPOINT` for a `db.transaction()` nested inside the harness's `BEGIN`, and on the single-shared-connection pool actually returning one connection to all checkouts. Both are standard, but **must be proven with a spike** (one test: harness `BEGIN` → call `claimOne` which opens its own tx → assert the claim is visible mid-test and gone after `ROLLBACK`) before porting 18 files. If it doesn't hold, fall back to per-worker-DB + truncate (option B).
+**6.2 Prove the inject-tx-handle harness with a spike (not the fake-pool one).** The rollback approach relies on the injected `db` being a `NodePgTransaction` so the queue's `db.transaction()` dispatches to `NodePgTransaction.transaction()` and emits a real `savepoint`/`release savepoint` (verified in session.cjs:240–254 for drizzle 0.45.2). This is now source-verified, but **still spike it against the real harness shape** before porting 18 files: one `*.pg.test.ts` that runs inside `realDb.transaction(tx => { dbHolder.current = tx; … })`, calls `claimOne` (which opens its own tx → savepoint), asserts the claimed row is visible as `running` mid-test, then throws `RollbackSignal` and asserts a fresh connection sees **no** such row. Point the spike at *this* shape — spiking the discarded fake-pool/auto-savepoint design would "prove" a mechanism that fails the moment real code opens a transaction. If the tx-handle path somehow doesn't hold, fall back to per-worker-DB + truncate (option B).
 
 **6.3 Shared Postgres across 8–10 Claude sessions.** Per-worker DB names keyed only on `VITEST_WORKER_ID` collide if two sessions share one Postgres. Options: (a) each session's docker-compose binds its own Postgres port/volume (the Tiltfile already parameterises `POSTGRES_PORT`), or (b) salt the test DB name with run id/pid. Needs a decision on whether sessions share one local Postgres or get one each.
 
@@ -180,4 +209,4 @@ Why this over the alternatives, in one line each: rollback beats truncate on spe
 
 **6.5 CI cost.** A `services:` Postgres adds image-pull + boot to `test-unit` every run (including for changes that touch no DB code). Acceptable given the job already installs Playwright, but note it. Template-clone keeps the per-test cost near zero; the fixed cost is the container.
 
-**6.6 Migration drift guard.** `globalSetup` migrating a fresh DB every run *is itself* a test that the 24 migrations apply cleanly from zero — a bonus. But if a migration is destructive/irreversible, the template approach still only ever runs it forward on a throwaway DB, so no prod risk.
+**6.6 Migration drift guard.** `globalSetup` migrating a fresh DB every run *is itself* a test that the 26 migrations apply cleanly from zero — a bonus. But if a migration is destructive/irreversible, the template approach still only ever runs it forward on a throwaway DB, so no prod risk.
