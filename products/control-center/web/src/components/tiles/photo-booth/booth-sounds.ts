@@ -1,14 +1,19 @@
 /**
- * booth-sounds , the photo booth's capture audio, synthesized live with the Web
- * Audio API. No binary assets: a shutter is a short band-passed noise snap and a
- * countdown tick is a brief sine blip, so there is nothing to license, bundle,
- * or fetch, and the whole thing is a few hundred bytes of code.
+ * booth-sounds , the photo booth's capture audio.
+ *
+ * Still no binary assets. The shutter prefers iOS's OWN recording, played
+ * through the SystemSound plugin (lib/system-sound), so the kiosk gets a real
+ * camera snap with nothing bundled and no licence to honour; everywhere else
+ * falls back to synthesis. The countdown tick stays a synthesized sine blip.
+ * So there remains nothing to license, bundle, or fetch.
  *
  * Everything is defensive about the runtime. The kiosk webview has audio, but
  * Storybook/CI/jsdom may lack `AudioContext` or block autoplay until a gesture,
  * so `audioContext()` returns null when unavailable and every play function is a
  * silent no-op in that case rather than throwing into a capture sequence.
  */
+
+import { playSystemSound, SYSTEM_SOUND } from "@/lib/system-sound";
 
 type AudioContextCtor = typeof AudioContext;
 
@@ -73,21 +78,29 @@ function noiseBurst(
 }
 
 /**
- * A camera shutter: a loud, punchy mechanical "ka-chack". Two layered noise
- * bursts , a bright high click (the shutter itself) over a shorter, fuller low
- * thump (the mirror slap) , read as a real DSLR snap and, crucially, carry across
- * the room from the wall panel where a single thin click was easy to miss. A
- * short burst of decaying white noise through a band-pass reads as a "click" far
- * better than any tone; the quadratic decay envelope keeps each layer tight.
+ * A camera shutter.
+ *
+ * On the kiosk this is iOS's own shutter (photoShutter.caf, via the SystemSound
+ * plugin) , a real recording, instantly recognisable, with nothing bundled and
+ * no licence to honour. The synthesized version below is the fallback for
+ * everywhere the plugin does not exist: a browser, Storybook, CI.
+ *
+ * That fallback is deliberately gentler than the original two-burst snap, which
+ * ran at 0.62/0.42 gain to carry across a room and read as harsh up close ,
+ * high-gain band-passed noise is closer to a hiss than a click. Darker centre
+ * frequencies and roughly a third of the gain keep the mechanical character
+ * without the brightness.
  */
 export function playShutter(): void {
+  if (playSystemSound(SYSTEM_SOUND.photoShutter)) return;
+
   const audio = audioContext();
   if (!audio) return;
   const now = audio.currentTime;
-  // Bright top click , loud and present.
-  noiseBurst(audio, now, { freq: 3000, q: 1.0, gain: 0.62, duration: 0.06 });
-  // Low body thump , gives the snap weight so it punches, not just ticks.
-  noiseBurst(audio, now, { freq: 850, q: 0.7, gain: 0.42, duration: 0.11 });
+  // Top click , the shutter itself.
+  noiseBurst(audio, now, { freq: 1400, q: 1.6, gain: 0.22, duration: 0.03 });
+  // Body , gives the snap weight without the hiss.
+  noiseBurst(audio, now, { freq: 480, q: 0.9, gain: 0.17, duration: 0.07 });
 }
 
 /** A single countdown tick: a short, soft sine blip. */
