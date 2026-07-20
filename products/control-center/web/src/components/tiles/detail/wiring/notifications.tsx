@@ -2,10 +2,10 @@
  * Notifications tile , live wiring for its single detail-page variant.
  *
  * Data: trpc.notifications.list twice , the `unread` slice for the header pill
- * + Mark-all-read, and whichever tab is active (Unread / All / Dismissed) for
- * the list. The tab state lives HERE (internal to the page, not a variant
- * switcher). Mutations (markRead / markAllRead / dismiss) invalidate the whole
- * `list` key on settle, so the tile face and this page re-settle together.
+ * + Mark-all-read, and whichever tab is active (Unread / All) for the list. The
+ * tab state lives HERE (internal to the page, not a variant switcher). Mutations
+ * (markRead / markAllRead) invalidate the whole `list` key on settle, so the
+ * tile face and this page re-settle together.
  */
 
 import { useState } from "react";
@@ -40,7 +40,6 @@ function useNotificationsVariants(): { variants: DetailVariant[]; loading: boole
   };
   const markReadMutation = trpc.notifications.markRead.useMutation({ onSettled: invalidate });
   const markAllReadMutation = trpc.notifications.markAllRead.useMutation({ onSettled: invalidate });
-  const dismissMutation = trpc.notifications.dismiss.useMutation({ onSettled: invalidate });
 
   const unreadData = unreadQuery.data;
   if (!unreadData) return { variants: [], loading: true };
@@ -68,7 +67,6 @@ function useNotificationsVariants(): { variants: DetailVariant[]; loading: boole
           }
           nowMs={now.getTime()}
           onMarkRead={(id) => markReadMutation.mutate({ id })}
-          onDismiss={(id) => dismissMutation.mutate({ id })}
           onMarkAllRead={() => markAllReadMutation.mutate()}
         />
       ),

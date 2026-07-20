@@ -21,14 +21,14 @@ export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 const NOTIFICATION_SEVERITIES = ["info", "warning", "critical"] as const;
 export type NotificationSeverity = (typeof NOTIFICATION_SEVERITIES)[number];
 
-/** The three tabs the expanded panel offers, matching `notifications.list` input. */
-const NOTIFICATION_FILTERS = ["unread", "all", "dismissed"] as const;
+/** The two tabs the expanded panel offers, matching `notifications.list` input. */
+const NOTIFICATION_FILTERS = ["unread", "all"] as const;
 export type NotificationFilter = (typeof NOTIFICATION_FILTERS)[number];
 
 /**
- * One persisted notification row. `readAt`/`dismissedAt` are nullable rather
- * than optional-only because the server sends explicit nulls for "not yet"; both
- * spellings are accepted so a view never has to distinguish them.
+ * One persisted notification row. `readAt` is nullable rather than optional-only
+ * because the server sends an explicit null for "not yet"; both spellings are
+ * accepted so a view never has to distinguish them.
  */
 export interface NotificationItem {
   id: string;
@@ -41,7 +41,6 @@ export interface NotificationItem {
   deepLink?: string | null;
   data?: unknown;
   readAt?: string | null;
-  dismissedAt?: string | null;
 }
 
 // ─── display tables ───────────────────────────────────────────────────────────
@@ -69,18 +68,13 @@ export const CATEGORY_LABEL: Record<NotificationCategory, string> = {
 export const EMPTY_COPY: Record<NotificationFilter, { title: string; sub: string }> = {
   unread: { title: "All caught up", sub: "New alerts land here as they're raised." },
   all: { title: "No notifications yet", sub: "Nothing has been raised on this panel." },
-  dismissed: { title: "Nothing dismissed", sub: "Notifications you dismiss are kept here." },
 };
 
 // ─── predicates + ordering ────────────────────────────────────────────────────
 
-/** A row is unread while it has no `readAt` AND has not been dismissed. */
+/** A row is unread while it has no `readAt`. */
 export function isUnread(n: NotificationItem): boolean {
-  return !n.readAt && !n.dismissedAt;
-}
-
-export function isDismissed(n: NotificationItem): boolean {
-  return Boolean(n.dismissedAt);
+  return !n.readAt;
 }
 
 /** Epoch ms for a row's `createdAt`; NaN-safe (unparseable sorts oldest). */

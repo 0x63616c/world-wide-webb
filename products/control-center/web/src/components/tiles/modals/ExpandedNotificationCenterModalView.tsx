@@ -1,8 +1,8 @@
 /**
  * ExpandedNotificationCenterModalView , pure presentational Notification Center.
  *
- * Bare page body (no <Modal>) , hosted by TileDetailHost , with three tabs
- * (Unread / All / Dismissed) over a list of severity-coded rows. Every piece of
+ * Bare page body (no <Modal>) , hosted by TileDetailHost , with two tabs
+ * (Unread / All) over a list of severity-coded rows. Every piece of
  * state , the active tab, the rows, the loading flag, "now" , arrives as a prop
  * and every action leaves through an on* callback, so the whole surface is
  * exercisable in Storybook with no tRPC provider and no clock.
@@ -26,7 +26,6 @@ import {
 const TABS: readonly { value: NotificationFilter; label: string }[] = [
   { value: "unread", label: "Unread" },
   { value: "all", label: "All" },
-  { value: "dismissed", label: "Dismissed" },
 ];
 
 export interface ExpandedNotificationCenterModalViewProps {
@@ -44,7 +43,6 @@ export interface ExpandedNotificationCenterModalViewProps {
   /** Reference "now" for relative ages, in epoch ms. */
   nowMs: number;
   onMarkRead: (id: string) => void;
-  onDismiss: (id: string) => void;
   onMarkAllRead: () => void;
 }
 
@@ -57,7 +55,6 @@ export function ExpandedNotificationCenterModalView({
   error,
   nowMs,
   onMarkRead,
-  onDismiss,
   onMarkAllRead,
 }: ExpandedNotificationCenterModalViewProps) {
   return (
@@ -109,13 +106,7 @@ export function ExpandedNotificationCenterModalView({
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {items.map((n) => (
-              <NotificationRow
-                key={n.id}
-                item={n}
-                nowMs={nowMs}
-                onMarkRead={onMarkRead}
-                onDismiss={onDismiss}
-              />
+              <NotificationRow key={n.id} item={n} nowMs={nowMs} onMarkRead={onMarkRead} />
             ))}
           </div>
         )}
@@ -129,15 +120,12 @@ function NotificationRow({
   item,
   nowMs,
   onMarkRead,
-  onDismiss,
 }: {
   item: NotificationItem;
   nowMs: number;
   onMarkRead: (id: string) => void;
-  onDismiss: (id: string) => void;
 }) {
   const unread = isUnread(item);
-  const dismissed = Boolean(item.dismissedAt);
 
   return (
     <div
@@ -148,9 +136,8 @@ function NotificationRow({
         borderRadius: 12,
         background: "var(--nest)",
         border: "1px solid var(--hair)",
-        // A read row recedes; a dismissed row recedes further. The rail keeps
-        // severity legible at every state.
-        opacity: dismissed ? 0.55 : unread ? 1 : 0.8,
+        // A read row recedes; the rail keeps severity legible at every state.
+        opacity: unread ? 1 : 0.8,
       }}
     >
       <span
@@ -204,7 +191,6 @@ function NotificationRow({
 
       <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
         {unread ? <RowAction onClick={() => onMarkRead(item.id)}>Mark read</RowAction> : null}
-        {dismissed ? null : <RowAction onClick={() => onDismiss(item.id)}>Dismiss</RowAction>}
       </div>
     </div>
   );

@@ -9,9 +9,9 @@
  * integration, a deploy that fails on every push) passes a stable `dedupeKey`.
  * The unique index on dedupe_key turns the repeat into an UPDATE of the existing
  * row, so the feed shows one entry that moves to the top rather than fifty
- * identical ones. A re-raise deliberately CLEARS readAt/dismissedAt: the
- * condition has recurred, so it is unread news again, not a row the user has
- * already dealt with. Omitting the key means "this is a distinct event" , and
+ * identical ones. A re-raise deliberately CLEARS readAt: the condition has
+ * recurred, so it is unread news again, not a row the user has already dealt
+ * with. Omitting the key means "this is a distinct event" , and
  * because Postgres treats NULLs as distinct in a unique index, unkeyed rows
  * never collide.
  *
@@ -23,7 +23,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { getLogger } from "@www/logger";
-import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { z } from "zod";
 
@@ -61,11 +61,10 @@ export const raiseNotificationSchema = z.object({
 export type RaiseNotificationInput = z.infer<typeof raiseNotificationSchema>;
 
 /**
- * Feed filter. "all" and "unread" are the live feed (dismissed rows excluded);
- * "dismissed" is the inverse, an archive view of what the user has cleared.
- * Nothing is ever hard-deleted, so the archive is always recoverable.
+ * Feed filter. "all" is every notification; "unread" narrows to rows the user
+ * has not yet read.
  */
-const notificationFilterSchema = z.enum(["all", "unread", "dismissed"]);
+const notificationFilterSchema = z.enum(["all", "unread"]);
 export const listNotificationsSchema = z.object({
   filter: notificationFilterSchema.default("all"),
   limit: z.number().int().min(1).max(MAX_LIST_LIMIT).default(DEFAULT_LIST_LIMIT),
@@ -84,7 +83,6 @@ export const notificationItemSchema = z.object({
   deepLink: z.string().nullable(),
   data: z.unknown().nullable(),
   readAt: z.string().nullable(),
-  dismissedAt: z.string().nullable(),
   dedupeKey: z.string().nullable(),
 });
 
@@ -130,7 +128,6 @@ function toItem(row: NotificationRow): NotificationItem {
     deepLink: row.deepLink,
     data: row.data ?? null,
     readAt: row.readAt?.toISOString() ?? null,
-    dismissedAt: row.dismissedAt?.toISOString() ?? null,
     dedupeKey: row.dedupeKey,
   };
 }
@@ -175,7 +172,6 @@ export async function raiseNotification(
             deepLink: values.deepLink,
             data: values.data,
             readAt: null,
-            dismissedAt: null,
           },
         })
         .returning()
@@ -195,12 +191,12 @@ export async function raiseNotification(
   return toItem(row);
 }
 
-/** Count notifications that are neither read nor dismissed. */
+/** Count unread notifications. */
 export async function countUnread(db: Db): Promise<number> {
   const rows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(schema.notification)
-    .where(and(isNull(schema.notification.readAt), isNull(schema.notification.dismissedAt)));
+    .where(isNull(schema.notification.readAt));
   return rows[0]?.count ?? 0;
 }
 
@@ -214,20 +210,10 @@ export async function listNotifications(
   input: ListNotificationsInput,
 ): Promise<ListNotificationsResult> {
   const { filter, limit } = input;
-  // Dismissing is the user saying "remove this from the feed", so it is the one
-  // thing that takes a row out of the live views  --  and "dismissed" is exactly
-  // the archive of those rows.
-  const where =
-    filter === "dismissed"
-      ? isNotNull(schema.notification.dismissedAt)
-      : filter === "unread"
-        ? and(isNull(schema.notification.readAt), isNull(schema.notification.dismissedAt))
-        : isNull(schema.notification.dismissedAt);
-
   const rows = await db
     .select()
     .from(schema.notification)
-    .where(where)
+    .where(filter === "unread" ? isNull(schema.notification.readAt) : undefined)
     .orderBy(desc(schema.notification.createdAt))
     .limit(limit);
 
@@ -254,20 +240,6 @@ export async function markAllRead(db: Db): Promise<{ unreadCount: number }> {
     .update(schema.notification)
     .set({ readAt: new Date() })
     .where(isNull(schema.notification.readAt));
-  return { unreadCount: await countUnread(db) };
-}
-
-/**
- * Dismiss one notification, removing it from the feed. Also marks it read if it
- * was not already: a dismissed row is gone from the list, so leaving it counted
- * in the unread badge would strand a badge the user cannot clear.
- */
-export async function dismiss(db: Db, id: string): Promise<{ unreadCount: number }> {
-  const now = new Date();
-  await db
-    .update(schema.notification)
-    .set({ dismissedAt: now, readAt: sql`coalesce(${schema.notification.readAt}, ${now})` })
-    .where(and(eq(schema.notification.id, id), isNull(schema.notification.dismissedAt)));
   return { unreadCount: await countUnread(db) };
 }
 
@@ -326,10 +298,10 @@ export async function handleNotifyJob(rawPayload: unknown, db: Db = singletonDb)
   const row = rows[0];
   if (!row) throw new Error(`notification not found: ${notificationId}`);
 
-  // A notification the user already read/dismissed between the raise and the
-  // job running (they were watching the panel) needs no push.
-  if (row.readAt || row.dismissedAt) {
-    log.debug({ notificationId }, "notify skipped , already read or dismissed");
+  // A notification the user already read between the raise and the job running
+  // (they were watching the panel) needs no push.
+  if (row.readAt) {
+    log.debug({ notificationId }, "notify skipped , already read");
     return;
   }
 

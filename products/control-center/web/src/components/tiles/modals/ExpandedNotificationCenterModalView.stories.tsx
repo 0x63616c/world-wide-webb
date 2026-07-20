@@ -71,7 +71,6 @@ const meta = {
     unreadCount: 2,
     nowMs: NOW,
     onMarkRead: fn(),
-    onDismiss: fn(),
     onMarkAllRead: fn(),
   },
 } satisfies Meta<typeof ExpandedNotificationCenterModalView>;
@@ -85,7 +84,7 @@ export const Unread: Story = {
     await expect(canvas.getByText("2 unread")).toBeInTheDocument();
     await expect(canvas.getByText("Deploy failed on main")).toBeInTheDocument();
     await expect(canvas.getByText("CI")).toBeInTheDocument();
-    // The read row keeps its Dismiss action but loses "Mark read".
+    // The read row loses "Mark read"; only the two unread rows keep it.
     await expect(canvas.getAllByRole("button", { name: "Mark read" })).toHaveLength(2);
   },
 };
@@ -96,8 +95,6 @@ export const RowActions: Story = {
     const canvas = within(canvasElement.ownerDocument.body);
     await userEvent.click(canvas.getAllByRole("button", { name: "Mark read" })[0]);
     await expect(args.onMarkRead).toHaveBeenCalledWith("notif_ci");
-    await userEvent.click(canvas.getAllByRole("button", { name: "Dismiss" })[0]);
-    await expect(args.onDismiss).toHaveBeenCalledWith("notif_ci");
     await userEvent.click(canvas.getByRole("button", { name: "Mark all read" }));
     await expect(args.onMarkAllRead).toHaveBeenCalled();
   },
@@ -106,8 +103,8 @@ export const RowActions: Story = {
 export const TabSwitch: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement.ownerDocument.body);
-    await userEvent.click(canvas.getByRole("radio", { name: "Dismissed" }));
-    await expect(args.onFilterChange).toHaveBeenCalledWith("dismissed");
+    await userEvent.click(canvas.getByRole("radio", { name: "All" }));
+    await expect(args.onFilterChange).toHaveBeenCalledWith("all");
   },
 };
 
@@ -146,18 +143,10 @@ export const EmptyAll: Story = {
   },
 };
 
-export const EmptyDismissed: Story = {
-  args: { filter: "dismissed" as const, items: [], unreadCount: 0 },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement.ownerDocument.body);
-    await expect(canvas.getByText("Nothing dismissed")).toBeInTheDocument();
-  },
-};
-
-/** The dismissed tab: rows recede and offer no further actions. */
-export const DismissedTab: Story = {
+/** The All tab: read rows recede and offer no further actions. */
+export const AllTab: Story = {
   args: {
-    filter: "dismissed" as const,
+    filter: "all" as const,
     unreadCount: 0,
     items: [
       {
@@ -166,13 +155,13 @@ export const DismissedTab: Story = {
         category: "system",
         severity: "info",
         title: "Panel restarted after an update",
-        dismissedAt: minutesAgo(60 * 20),
+        readAt: minutesAgo(60 * 20),
       },
     ],
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement.ownerDocument.body);
     await expect(canvas.getByText("Panel restarted after an update")).toBeInTheDocument();
-    await expect(canvas.queryByRole("button", { name: "Dismiss" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Mark read" })).not.toBeInTheDocument();
   },
 };

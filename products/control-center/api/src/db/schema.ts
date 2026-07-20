@@ -634,9 +634,8 @@ export const githubPollStatus = pgTable("github_poll_status", {
 // with no key is always a distinct event. Postgres treats NULLs as distinct in a
 // unique index, so unkeyed rows never collide with each other.
 //
-// read/dismissed are separate lifecycle stamps, not one status column: reading a
-// notification (opening the feed) and dismissing it (swiping it away) are
-// independent actions, and the unread badge must not be cleared by a dismissal.
+// `read_at` is the sole lifecycle stamp: a notification is unread until the user
+// opens the feed, then read. The unread badge counts rows where read_at is null.
 export const notification = pgTable(
   "notification",
   {
@@ -649,7 +648,6 @@ export const notification = pgTable(
     deepLink: text("deep_link"), // panel route to open on tap, e.g. "/settings/network"
     data: jsonb("data"), // producer-specific structured payload
     readAt: timestamp("read_at", { withTimezone: true }),
-    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
     dedupeKey: text("dedupe_key"),
   },
   (t) => [
@@ -658,9 +656,7 @@ export const notification = pgTable(
     index("notification_created_at_idx").on(t.createdAt.desc()),
     // The unread badge polls constantly and unread rows are a small minority of
     // a growing table; a partial index keeps that count off a full scan.
-    index("notification_unread_idx")
-      .on(t.createdAt.desc())
-      .where(sql`${t.readAt} is null and ${t.dismissedAt} is null`),
+    index("notification_unread_idx").on(t.createdAt.desc()).where(sql`${t.readAt} is null`),
   ],
 );
 

@@ -7,7 +7,6 @@
 import { z } from "zod";
 
 import {
-  dismiss,
   listNotifications,
   listNotificationsResultSchema,
   listNotificationsSchema,
@@ -42,11 +41,6 @@ export const notificationsRouter = router({
   markAllRead: publicProcedure
     .output(unreadCountResultSchema)
     .mutation(({ ctx }) => markAllRead(ctx.db)),
-
-  dismiss: publicProcedure
-    .input(notificationIdSchema)
-    .output(unreadCountResultSchema)
-    .mutation(({ ctx, input }) => dismiss(ctx.db, input.id)),
 
   // The iOS shell calls this on every boot; the token rotates, the device id
   // does not, so the service upserts on device id.

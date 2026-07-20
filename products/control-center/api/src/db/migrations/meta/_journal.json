@@ -169,6 +169,13 @@
       "when": 1784570869778,
       "tag": "0024_volatile_captain_universe",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1784585471770,
+      "tag": "0025_striped_johnny_storm",
+      "breakpoints": true
     }
   ]
 }

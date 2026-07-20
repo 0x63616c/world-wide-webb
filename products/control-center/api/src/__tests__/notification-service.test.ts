@@ -30,7 +30,6 @@ vi.mock("../db/index", () => ({ db: {} }));
 
 import {
   countUnread,
-  dismiss,
   listNotifications,
   markAllRead,
   markRead,
@@ -54,7 +53,6 @@ function row(over: Partial<Record<string, unknown>> = {}) {
     deepLink: null,
     data: null,
     readAt: null,
-    dismissedAt: null,
     dedupeKey: null,
     ...over,
   };
@@ -157,10 +155,9 @@ describe("raiseNotification dedupe", () => {
 
     expect(calls.onConflictDoUpdate).toHaveLength(1);
     const cfg = calls.onConflictDoUpdate[0] as { set: Record<string, unknown> };
-    // The repeat is news again: the collapse must clear both lifecycle stamps,
-    // otherwise a recurring failure the user dismissed once stays invisible.
+    // The repeat is news again: the collapse must clear readAt, otherwise a
+    // recurring failure the user read once stays invisible.
     expect(cfg.set.readAt).toBeNull();
-    expect(cfg.set.dismissedAt).toBeNull();
     expect(cfg.set.createdAt).toBeInstanceOf(Date);
   });
 
@@ -207,10 +204,10 @@ describe("listNotifications", () => {
     expect(res.unreadCount).toBe(7);
   });
 
-  it("serves the dismissed archive without disturbing the unread badge", async () => {
-    const { db } = makeDb([row({ dismissedAt: new Date("2026-07-18T11:00:00Z") })], [{ count: 4 }]);
-    const res = await listNotifications(db, { filter: "dismissed", limit: 50 });
-    expect(res.items[0]?.dismissedAt).toBe("2026-07-18T11:00:00.000Z");
+  it("serves read rows on the All tab without disturbing the unread badge", async () => {
+    const { db } = makeDb([row({ readAt: new Date("2026-07-18T11:00:00Z") })], [{ count: 4 }]);
+    const res = await listNotifications(db, { filter: "all", limit: 50 });
+    expect(res.items[0]?.readAt).toBe("2026-07-18T11:00:00.000Z");
     // The badge is the global unread total, not a property of the view.
     expect(res.unreadCount).toBe(4);
   });
@@ -230,9 +227,9 @@ describe("countUnread", () => {
   });
 });
 
-// ─── read / dismiss lifecycle ────────────────────────────────────────────────
+// ─── read lifecycle ──────────────────────────────────────────────────────────
 
-describe("markRead / markAllRead / dismiss", () => {
+describe("markRead / markAllRead", () => {
   it("markRead stamps readAt and returns the fresh count", async () => {
     const { db, calls } = makeDb([], [{ count: 2 }]);
     const res = await markRead(db, "notif_deadbeef");
@@ -246,16 +243,6 @@ describe("markRead / markAllRead / dismiss", () => {
     expect(calls.updateSets).toHaveLength(1);
     expect((calls.updateSets[0] as { readAt: unknown }).readAt).toBeInstanceOf(Date);
     expect(res.unreadCount).toBe(0);
-  });
-
-  it("dismiss also marks read, so the badge can never strand", async () => {
-    const { db, calls } = makeDb([], [{ count: 0 }]);
-    await dismiss(db, "notif_deadbeef");
-    const set = calls.updateSets[0] as Record<string, unknown>;
-    expect(set.dismissedAt).toBeInstanceOf(Date);
-    // readAt is a coalesce() SQL fragment, not a bare Date  --  it must not
-    // overwrite an existing read stamp.
-    expect(set.readAt).toBeDefined();
   });
 });
 
@@ -286,7 +273,6 @@ describe("notifications router", () => {
     );
     expect(procs.sort()).toEqual(
       [
-        "notifications.dismiss",
         "notifications.list",
         "notifications.markAllRead",
         "notifications.markRead",

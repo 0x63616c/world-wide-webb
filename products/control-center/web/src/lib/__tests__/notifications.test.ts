@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  isDismissed,
   isUnread,
   type NotificationItem,
   notificationAge,
@@ -22,8 +21,8 @@ function item(over: Partial<NotificationItem> & { id: string }): NotificationIte
   };
 }
 
-describe("read/dismissed predicates", () => {
-  it("treats a row with neither timestamp as unread", () => {
+describe("read predicate", () => {
+  it("treats a row with no readAt as unread", () => {
     expect(isUnread(item({ id: "a" }))).toBe(true);
   });
 
@@ -31,16 +30,8 @@ describe("read/dismissed predicates", () => {
     expect(isUnread(item({ id: "a", readAt: minutesAgo(1) }))).toBe(false);
   });
 
-  it("treats a dismissed-but-never-read row as read, not unread", () => {
-    // Dismissing IS an acknowledgement , a dismissed row must never keep
-    // inflating the unread count.
-    const dismissed = item({ id: "a", dismissedAt: minutesAgo(1) });
-    expect(isUnread(dismissed)).toBe(false);
-    expect(isDismissed(dismissed)).toBe(true);
-  });
-
-  it("accepts explicit nulls from the server as 'not yet'", () => {
-    expect(isUnread(item({ id: "a", readAt: null, dismissedAt: null }))).toBe(true);
+  it("accepts an explicit null from the server as 'not yet'", () => {
+    expect(isUnread(item({ id: "a", readAt: null }))).toBe(true);
   });
 });
 
