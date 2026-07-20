@@ -525,6 +525,11 @@ export const boothPhoto = pgTable(
     // 'image/jpeg' | 'image/gif'. Drives the serve route's Content-Type.
     mimeType: text("mime_type").notNull(),
     bytes: integer("bytes").notNull(),
+    // Non-destructive filter id (e.g. 'noir', 'warm_70s'). The web owns the
+    // id->CSS mapping; the backend only stores the string. Nullable: an unfiltered
+    // capture, and gif uploads (which bake their filter in client-side) send none.
+    // Validated `^[a-z0-9_]{1,32}$` at the edge so no arbitrary text can land here.
+    filter: text("filter"),
     // Which panel took the shot. Matches frontend_log.device_id; nullable when
     // the uploader sends no (or a malformed) attribution header.
     deviceId: text("device_id"),

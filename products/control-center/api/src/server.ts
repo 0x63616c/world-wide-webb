@@ -5,6 +5,7 @@ import { runMigrations } from "./db/migrate";
 import { env } from "./env";
 import { getTvArtwork } from "./services/apple-tv-service";
 import {
+  BOOTH_FILTER_PATTERN,
   BOOTH_PHOTO_MODES,
   type BoothPhotoMode,
   newBoothGroupId,
@@ -183,7 +184,10 @@ async function handle(req: Request, url: URL): Promise<Response> {
   // Like the wake-photo route this is UNAUTHENTICATED same-origin ingest. The
   // attribution headers are shape-validated so arbitrary bytes can never land in
   // booth_photo: a bad mode 400s, a missing/malformed group id starts a fresh
-  // group (a single-frame capture), a malformed device id stores as NULL.
+  // group (a single-frame capture), a malformed device id stores as NULL. The
+  // optional x-filter (a non-destructive display id) is absent for an unfiltered
+  // shot or a gif (baked in client-side), but a PRESENT malformed value 400s
+  // rather than storing junk.
   if (url.pathname === "/media/booth-photo" && req.method === "POST") {
     const rawMode = req.headers.get("x-mode");
     if (!rawMode || !BOOTH_PHOTO_MODES.includes(rawMode as BoothPhotoMode)) {
@@ -193,6 +197,11 @@ async function handle(req: Request, url: URL): Promise<Response> {
       });
     }
     const mode = rawMode as BoothPhotoMode;
+    const rawFilter = req.headers.get("x-filter");
+    if (rawFilter !== null && !BOOTH_FILTER_PATTERN.test(rawFilter)) {
+      return new Response(`invalid filter: ${rawFilter}`, { status: 400, headers: CORS_HEADERS });
+    }
+    const filter = rawFilter;
     const headerTs = Number(req.headers.get("x-captured-at"));
     const capturedAt = Number.isFinite(headerTs) && headerTs > 0 ? headerTs : Date.now();
     const frameHeader = Number(req.headers.get("x-frame-idx"));
@@ -210,6 +219,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
         groupId,
         frameIdx,
         deviceId,
+        filter,
       });
       return Response.json(saved, { status: 201, headers: CORS_HEADERS });
     } catch (err) {

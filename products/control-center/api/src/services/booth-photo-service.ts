@@ -25,6 +25,16 @@ import { env } from "../env";
 export const BOOTH_PHOTO_MODES = ["photo", "burst", "four_frame", "gif"] as const;
 export type BoothPhotoMode = (typeof BOOTH_PHOTO_MODES)[number];
 
+// Filter ids are short slugs the web maps to CSS (e.g. 'noir', 'warm_70s'). The
+// backend stores the string verbatim but pins its shape so no arbitrary text
+// (or a filter-name injection) can reach the row. Shared with the upload route.
+export const BOOTH_FILTER_PATTERN = /^[a-z0-9_]{1,32}$/;
+
+/** True for null (unfiltered) or a well-formed filter id; false for a bad slug. */
+export function isValidBoothFilter(filter: string | null): boolean {
+  return filter === null || BOOTH_FILTER_PATTERN.test(filter);
+}
+
 export interface BoothPhotoMeta {
   capturedAt: number;
   mode: BoothPhotoMode;
@@ -33,6 +43,11 @@ export interface BoothPhotoMeta {
   /** 0-based position within the group. */
   frameIdx: number;
   deviceId: string | null;
+  /**
+   * Non-destructive filter id (web owns id->CSS). Null for an unfiltered shot or
+   * a gif (baked in client-side). A non-null value must match BOOTH_FILTER_PATTERN.
+   */
+  filter: string | null;
 }
 
 export interface BoothPhotoSaved {
@@ -47,6 +62,8 @@ export interface BoothPhotoFrame {
   capturedAt: number;
   frameIdx: number;
   mimeType: string;
+  /** Non-destructive filter id, or null. */
+  filter: string | null;
 }
 
 export interface BoothPhotoGroup {
@@ -54,6 +71,8 @@ export interface BoothPhotoGroup {
   mode: BoothPhotoMode;
   /** Newest frame's capture time; the gallery orders groups by it. */
   capturedAt: number;
+  /** The group's filter (the newest frame's), or null. Frames of one capture share it. */
+  filter: string | null;
   frames: BoothPhotoFrame[];
 }
 
@@ -119,6 +138,9 @@ export async function saveBoothPhoto(
   if (!BOOTH_PHOTO_MODES.includes(meta.mode)) {
     throw new Error(`unknown booth photo mode: ${meta.mode}`);
   }
+  if (!isValidBoothFilter(meta.filter)) {
+    throw new Error(`invalid booth photo filter: ${meta.filter}`);
+  }
 
   const isGif = meta.mode === "gif";
   if (isGif) {
@@ -157,11 +179,19 @@ export async function saveBoothPhoto(
     mimeType,
     bytes: bytes.length,
     deviceId: meta.deviceId,
+    filter: meta.filter,
     softDeletedAt: null,
   });
 
   getLogger().info(
-    { id, relPath, mode: meta.mode, groupId: meta.groupId, bytes: bytes.length },
+    {
+      id,
+      relPath,
+      mode: meta.mode,
+      groupId: meta.groupId,
+      filter: meta.filter,
+      bytes: bytes.length,
+    },
     "booth photo stored",
   );
   return { id, path: relPath };
@@ -194,6 +224,9 @@ export async function listBoothPhotos(
         groupId: row.groupId,
         mode: row.mode as BoothPhotoMode,
         capturedAt,
+        // Rows arrive newest-first, so the first-seen frame is the newest: its
+        // filter represents the group (frames of one capture share a filter).
+        filter: row.filter,
         frames: [],
       };
       byGroup.set(row.groupId, group);
@@ -206,6 +239,7 @@ export async function listBoothPhotos(
       capturedAt,
       frameIdx: row.frameIdx,
       mimeType: row.mimeType,
+      filter: row.filter,
     });
   }
 
@@ -231,6 +265,26 @@ export async function softDeleteBoothGroup(
   const removed = res.rowCount ?? 0;
   getLogger().info({ groupId, removed }, "booth photo group removed");
   return { removed };
+}
+
+/**
+ * Non-destructively drop the filter from a whole capture: null `filter` on every
+ * live frame of the group. The original (unfiltered) bytes were always what was
+ * stored , the filter is a display id the web applies , so this just returns the
+ * capture to its bare look. Returns how many frames it cleared. Idempotent: a
+ * group with no filter clears zero.
+ */
+export async function clearBoothGroupFilter(
+  db: NodePgDatabase<typeof schema>,
+  groupId: string,
+): Promise<{ cleared: number }> {
+  const res = await db
+    .update(boothPhoto)
+    .set({ filter: null })
+    .where(and(eq(boothPhoto.groupId, groupId), isNull(boothPhoto.softDeletedAt)));
+  const cleared = res.rowCount ?? 0;
+  getLogger().info({ groupId, cleared }, "booth photo group filter cleared");
+  return { cleared };
 }
 
 /**

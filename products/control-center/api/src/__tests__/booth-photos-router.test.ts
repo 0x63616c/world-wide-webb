@@ -8,10 +8,12 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "../trpc/routers/index";
 
 describe("booth photos router wiring", () => {
-  it("registers list + remove on the appRouter", () => {
+  it("registers list + remove + clearFilter on the appRouter", () => {
     const names = Object.keys(appRouter._def.procedures).filter((k) =>
       k.startsWith("boothPhotos."),
     );
-    expect(names).toEqual(expect.arrayContaining(["boothPhotos.list", "boothPhotos.remove"]));
+    expect(names).toEqual(
+      expect.arrayContaining(["boothPhotos.list", "boothPhotos.remove", "boothPhotos.clearFilter"]),
+    );
   });
 });

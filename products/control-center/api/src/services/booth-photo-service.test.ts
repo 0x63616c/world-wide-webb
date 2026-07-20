@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   type BoothPhotoMeta,
+  clearBoothGroupFilter,
   listBoothPhotos,
   readBoothPhoto,
   saveBoothPhoto,
@@ -35,6 +36,7 @@ type BoothRow = {
   mimeType: string;
   bytes: number;
   deviceId: string | null;
+  filter: string | null;
   softDeletedAt: Date | null;
 };
 
@@ -57,12 +59,15 @@ function createMockDb() {
       }),
     }),
     update: (_table: unknown) => ({
-      set: (patch: { softDeletedAt: Date }) => ({
+      // Applies the patch (softDelete stamp OR filter clear) to every live row,
+      // ignoring the opaque drizzle predicate; the group-scoped tests populate a
+      // single group so the row count is exact.
+      set: (patch: Partial<BoothRow>) => ({
         where: (_cond: unknown) => {
           let n = 0;
           for (const r of rows) {
             if (r.softDeletedAt == null) {
-              r.softDeletedAt = patch.softDeletedAt;
+              Object.assign(r, patch);
               n++;
             }
           }
@@ -82,6 +87,7 @@ function meta(overrides: Partial<BoothPhotoMeta> = {}): BoothPhotoMeta {
     groupId: "bpg_group001",
     frameIdx: 0,
     deviceId: "ipad13-1-3f9a2c1b",
+    filter: null,
     ...overrides,
   };
 }
@@ -222,6 +228,7 @@ describe("booth-photo-service", () => {
       mimeType: "image/jpeg",
       bytes: 10,
       deviceId: null,
+      filter: null,
       softDeletedAt: new Date(),
     });
 
@@ -252,6 +259,66 @@ describe("booth-photo-service", () => {
     expect(removed).toBe(2);
     expect(db.rows.every((r: BoothRow) => r.softDeletedAt != null)).toBe(true);
     expect(await listBoothPhotos(db)).toEqual({ groups: [], totalCount: 0, totalBytes: 0 });
+  });
+
+  it("stores a valid filter id on the row", async () => {
+    await saveBoothPhoto(db, jpeg("f"), meta({ filter: "warm_70s" }), root);
+    expect(db.rows[0].filter).toBe("warm_70s");
+  });
+
+  it("stores null when no filter is chosen", async () => {
+    await saveBoothPhoto(db, jpeg("f"), meta({ filter: null }), root);
+    expect(db.rows[0].filter).toBeNull();
+  });
+
+  it("rejects a filter id that violates the pattern, writing no row", async () => {
+    await expect(
+      saveBoothPhoto(db, jpeg("f"), meta({ filter: "Bad Filter!" }), root),
+    ).rejects.toThrow(/filter/);
+    await expect(
+      saveBoothPhoto(db, jpeg("f"), meta({ filter: "x".repeat(33) }), root),
+    ).rejects.toThrow(/filter/);
+    expect(db.rows).toHaveLength(0);
+  });
+
+  it("surfaces the filter on frames and the group in the listing", async () => {
+    await saveBoothPhoto(
+      db,
+      jpeg("f0"),
+      meta({ mode: "burst", groupId: "bpg_f", frameIdx: 0, filter: "noir" }),
+      root,
+    );
+    await saveBoothPhoto(
+      db,
+      jpeg("f1"),
+      meta({ mode: "burst", groupId: "bpg_f", frameIdx: 1, filter: "noir" }),
+      root,
+    );
+    const listing = await listBoothPhotos(db);
+    expect(listing.groups[0].filter).toBe("noir");
+    expect(listing.groups[0].frames.map((f) => f.filter)).toEqual(["noir", "noir"]);
+  });
+
+  it("clears the filter across a whole group and reports the count", async () => {
+    await saveBoothPhoto(
+      db,
+      jpeg("f0"),
+      meta({ mode: "burst", groupId: "bpg_c", frameIdx: 0, filter: "noir" }),
+      root,
+    );
+    await saveBoothPhoto(
+      db,
+      jpeg("f1"),
+      meta({ mode: "burst", groupId: "bpg_c", frameIdx: 1, filter: "noir" }),
+      root,
+    );
+
+    const { cleared } = await clearBoothGroupFilter(db, "bpg_c");
+    expect(cleared).toBe(2);
+    expect(db.rows.every((r: BoothRow) => r.filter === null)).toBe(true);
+    const listing = await listBoothPhotos(db);
+    expect(listing.groups[0].filter).toBeNull();
+    expect(listing.groups[0].frames.every((f) => f.filter === null)).toBe(true);
   });
 
   it("read rejects path traversal", async () => {

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "../../db/index";
 import {
   BOOTH_PHOTO_MODES,
+  clearBoothGroupFilter,
   listBoothPhotos,
   softDeleteBoothGroup,
 } from "../../services/booth-photo-service";
@@ -13,6 +14,7 @@ const BoothPhotoFrameSchema = z.object({
   capturedAt: z.number(),
   frameIdx: z.number(),
   mimeType: z.string(),
+  filter: z.string().nullable(),
 });
 
 const BoothPhotoListingSchema = z.object({
@@ -21,6 +23,7 @@ const BoothPhotoListingSchema = z.object({
       groupId: z.string(),
       mode: z.enum(BOOTH_PHOTO_MODES),
       capturedAt: z.number(),
+      filter: z.string().nullable(),
       frames: z.array(BoothPhotoFrameSchema),
     }),
   ),
@@ -41,4 +44,11 @@ export const boothPhotosRouter = router({
     .input(z.object({ groupId: z.string() }))
     .output(z.object({ removed: z.number() }))
     .mutation(({ input }) => softDeleteBoothGroup(db, input.groupId)),
+
+  // Non-destructively drop a capture's filter, returning it to its bare look.
+  // The stored bytes were always unfiltered, so there is nothing to re-render.
+  clearFilter: publicProcedure
+    .input(z.object({ groupId: z.string() }))
+    .output(z.object({ cleared: z.number() }))
+    .mutation(({ input }) => clearBoothGroupFilter(db, input.groupId)),
 });

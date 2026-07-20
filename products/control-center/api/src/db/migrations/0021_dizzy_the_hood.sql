@@ -1,0 +1,1 @@
+ALTER TABLE "booth_photo" ADD COLUMN "filter" text;
