@@ -6,6 +6,7 @@ import {
 } from "../lib/app-update";
 import { trpc } from "../lib/trpc";
 import { useNotifications } from "../lib/useNotifications";
+import { NotificationBanner } from "./ui/NotificationBanner";
 
 const NOTIF_ID = "app-update";
 // The asc-version-poll worker refreshes the server cache every minute; the
@@ -74,44 +75,9 @@ function AppUpdateBannerQuery({ installedBuild }: { installedBuild: number }) {
 /** Presentational banner, exported for Storybook. */
 export function AppUpdateBannerView({ model }: { model: AppUpdateBannerModel }) {
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      style={{
-        position: "absolute",
-        // Third slot: stacks below the DeviceNameBanner (18) and ConnectionLostBanner
-        // (62) so all three banners can be visible at once without overlapping.
-        top: 106,
-        right: 18,
-        zIndex: 100,
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "10px 16px",
-        borderRadius: 12,
-        background: "rgba(122, 196, 143, 0.1)",
-        border: "1px solid rgba(122, 196, 143, 0.35)",
-        color: "var(--green, #7ac48f)",
-        fontSize: 13,
-        fontFamily: "var(--ui, system-ui)",
-        letterSpacing: "-0.01em",
-        backdropFilter: "blur(6px)",
-      }}
-    >
-      <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: "50%",
-          background: "var(--green, #7ac48f)",
-          opacity: 0.8,
-          flexShrink: 0,
-        }}
-      />
-      <span>
-        {model.message}
-        <span style={{ opacity: 0.7 }}> · {model.detail}</span>
-      </span>
-    </div>
+    <NotificationBanner tone="green">
+      {model.message}
+      <span style={{ opacity: 0.7 }}> · {model.detail}</span>
+    </NotificationBanner>
   );
 }

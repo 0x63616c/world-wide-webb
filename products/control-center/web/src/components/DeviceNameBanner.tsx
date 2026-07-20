@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useDeviceName } from "../lib/device-name";
 import { useNotifications } from "../lib/useNotifications";
+import { NotificationBanner } from "./ui/NotificationBanner";
 
 const NOTIF_ID = "device-name";
 // Single source of truth so the DOM and the shared notifications store stay in sync.
@@ -35,43 +36,10 @@ export function DeviceNameBanner() {
 
 /** Presentational banner, exported for Storybook. */
 export function DeviceNameBannerView() {
+  // Critical one-time setup nag → assertive so it interrupts.
   return (
-    <div
-      role="alert"
-      aria-live="assertive"
-      style={{
-        position: "absolute",
-        // Top slot: this is the persistent baseline banner, so it takes the prime
-        // corner. ConnectionLost (62) and AppUpdate (106) stack below it.
-        top: 18,
-        right: 18,
-        zIndex: 100,
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "10px 16px",
-        borderRadius: 12,
-        background: "rgba(229, 72, 77, 0.12)",
-        border: "1px solid rgba(229, 72, 77, 0.4)",
-        color: "var(--red, #e5484d)",
-        fontSize: 13,
-        fontFamily: "var(--ui)",
-        letterSpacing: "-0.01em",
-        pointerEvents: "none",
-        backdropFilter: "blur(6px)",
-      }}
-    >
-      <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: "50%",
-          background: "var(--red, #e5484d)",
-          opacity: 0.85,
-          flexShrink: 0,
-        }}
-      />
-      <span>{MESSAGE}</span>
-    </div>
+    <NotificationBanner tone="red" role="alert" ariaLive="assertive">
+      {MESSAGE}
+    </NotificationBanner>
   );
 }

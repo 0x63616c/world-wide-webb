@@ -46,6 +46,7 @@ import { PlaceholderTile } from "./PlaceholderTile";
 import { SettingsButton } from "./SettingsButton";
 import { getTileDetailEntry } from "./tiles/detail/registry";
 import { TileDetailHost } from "./tiles/detail/TileDetailHost";
+import { NotificationBanner, NotificationBannerStack } from "./ui/NotificationBanner";
 import { TileBoundary } from "./ui/TileBoundary";
 
 // Interactive descendants a tap may land on (toggles, sliders, the Controls
@@ -275,43 +276,9 @@ function BoardLoadingStage() {
 function UnplacedTilesBanner({ count }: { count: number }) {
   if (count === 0) return null;
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      style={{
-        position: "absolute",
-        // Fourth slot: below DeviceNameBanner (18), ConnectionLostBanner (62), and
-        // AppUpdateBanner (106).
-        top: 150,
-        right: 18,
-        zIndex: 100,
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "10px 16px",
-        borderRadius: 12,
-        background: "rgba(244, 192, 99, 0.1)",
-        border: "1px solid rgba(244, 192, 99, 0.35)",
-        color: "var(--amber)",
-        fontSize: 13,
-        fontFamily: "var(--ui)",
-        letterSpacing: "-0.01em",
-        pointerEvents: "none",
-        backdropFilter: "blur(6px)",
-      }}
-    >
-      <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: "50%",
-          background: "var(--amber)",
-          opacity: 0.8,
-          flexShrink: 0,
-        }}
-      />
-      <span>New tile has no space — edit layout to place it</span>
-    </div>
+    <NotificationBanner tone="amber">
+      New tile has no space — edit layout to place it
+    </NotificationBanner>
   );
 }
 
@@ -991,11 +958,17 @@ export function Board() {
         {/* Viewport-level overlays: a fixed ancestor-free layer keeps the banner,
           FPS readout, and modal anchored to the screen regardless of pan. */}
         <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 200 }}>
-          <DeviceNameBanner />
-          <ConnectionLostBanner />
-          <AppUpdateBanner />
-          <UnplacedTilesBanner count={layout.unplaced.length} />
-          <NotChargingBanner />
+          {/* One top-right column: banners flow top-down in priority order and
+            pack tight against the corner, so a lower-priority banner showing
+            alone never leaves an empty slot above it. Tapping any banner opens
+            the Notification Center and nothing else (see NotificationBanner). */}
+          <NotificationBannerStack>
+            <DeviceNameBanner />
+            <ConnectionLostBanner />
+            <AppUpdateBanner />
+            <UnplacedTilesBanner count={layout.unplaced.length} />
+            <NotChargingBanner />
+          </NotificationBannerStack>
           {settings.showFps ? <FpsMeter /> : null}
           {settings.showBuildBadge ? <BuildHashBadge /> : null}
           {settings.showBuildNumber ? <BuildNumberBadge /> : null}

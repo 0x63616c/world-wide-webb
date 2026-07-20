@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useDeviceName } from "../lib/device-name";
 import { useBatteryInfo } from "../lib/useBatteryInfo";
 import { useNotifications } from "../lib/useNotifications";
+import { NotificationBanner } from "./ui/NotificationBanner";
 
 const NOTIF_ID = "battery-not-charging";
 // Single source of truth so the DOM and the shared notifications store stay in
@@ -47,43 +48,5 @@ export function NotChargingBanner() {
 
 /** Presentational banner, exported for Storybook. */
 export function NotChargingBannerView({ deviceName }: { deviceName: string }) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      style={{
-        position: "absolute",
-        // Fifth slot: below DeviceNameBanner (18), ConnectionLostBanner (62),
-        // AppUpdateBanner (106), and UnplacedTilesBanner (150).
-        top: 194,
-        right: 18,
-        zIndex: 100,
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "10px 16px",
-        borderRadius: 12,
-        background: "rgba(229, 72, 77, 0.1)",
-        border: "1px solid rgba(229, 72, 77, 0.35)",
-        color: "var(--red, #e5484d)",
-        fontSize: 13,
-        fontFamily: "var(--ui)",
-        letterSpacing: "-0.01em",
-        pointerEvents: "none",
-        backdropFilter: "blur(6px)",
-      }}
-    >
-      <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: "50%",
-          background: "var(--red, #e5484d)",
-          opacity: 0.8,
-          flexShrink: 0,
-        }}
-      />
-      <span>{message(deviceName)}</span>
-    </div>
-  );
+  return <NotificationBanner tone="red">{message(deviceName)}</NotificationBanner>;
 }
