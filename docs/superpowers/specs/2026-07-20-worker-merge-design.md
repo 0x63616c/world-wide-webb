@@ -1,0 +1,219 @@
+# Worker merge + YouTube archival — design
+
+**Date:** 2026-07-20
+**Status:** approved, ready for implementation plan
+
+## Problem
+
+`products/control-center/media-worker` is a separate deployable that has **never run a
+job in prod**. It is pinned at 0 replicas (`wwwinfra:mediaWorkerReplicas`), originally as
+a Boundary-6 migration checkpoint ("prove it Running + NFS-mounted, then park"), and left
+parked afterwards on the belief that YouTube downloads carry a high memory cost.
+
+That belief is wrong. yt-dlp streams to disk through a **1 KB buffer** (`--buffer-size`
+default is 1024 bytes); memory is flat with respect to file size. ffmpeg muxing is a
+sequential stream copy, also constant memory. There was never a memory problem to solve
+at 85 MB or at 8 GB.
+
+Meanwhile the split imposes real cost: two images, two deployables, two Dockerfiles, a
+duplicated runtime seam, and a `notify` handler registered in both processes with a
+type-filter workaround in `worker` to stop it stealing media jobs.
+
+Separately, the ingest feature is unfinished: there is no UI, `media.addUrls` has zero
+callers, and no `media_source` rows exist.
+
+## Goal
+
+One `worker` deployable that runs both the interval reconcilers and the durable job
+queue, with YouTube archival actually running against a real playlist.
+
+**Purpose of the archive:** long-term storage of DJ sets, playable later in VLC off the
+NAS. Not a streaming feature — the filesystem is the interface.
+
+## Decisions
+
+| Decision | Rationale |
+|---|---|
+| One deployable, `media-worker` deleted | No memory reason for the split; process-level coupling is the only cost |
+| Job types are plain `Worker`s | Per-type concurrency 1 falls out of await-before-reschedule; no dispatcher needed |
+| Video only, no separate audio file | Muxed file already contains audio; one yt-dlp call instead of two |
+| `videoPolicy` deleted | Always want video; a half-download mode nobody set is dead config |
+| No global concurrency budget | A shared budget lets types starve each other; per-type isolation is structural |
+| Unhandled job types park | A type with no `jobWorker` is never polled, so it waits instead of burning retries |
+| memory `512M` | Homelab is constrained; downloads don't consume RAM |
+| Disk floor `50 GB` | Guard runs before the download and can't know its size, so the floor must exceed one file with margin |
+| No `LISTEN/NOTIFY` | Polling is adequate at this scale; explicitly out of scope |
+
+## Architecture
+
+### One construct, not two
+
+The existing `Worker` contract (`packages/worker-runtime/src/types.ts`) is a named
+interval loop with one async cycle. The runtime already guarantees:
+
+- a cycle never overlaps itself (await-before-reschedule)
+- a failing cycle never kills its own loop or a sibling's (per-cycle try/catch)
+- independent `setTimeout` chains per worker
+
+Those are exactly the semantics a per-job-type queue consumer needs. So a job type is
+**a worker whose cycle drains that type** — no dispatcher, no lane, no concurrency knob:
+
+```ts
+jobWorker("youtube_ingest", runYoutubeIngest)
+// sugar for { name, intervalMs: 2000, run: () => claimOne(type, handler) }
+```
+
+What this buys, all from machinery that already exists:
+
+- **Per-type concurrency 1** — the runtime won't reschedule until the cycle finishes
+- **Type isolation** — separate timer chains; a 20-minute download cannot delay `notify`
+- **Unhandled types park** — nothing polls them, so nothing claims them
+- **Per-type telemetry** — existing stats and `worker cycle exceeded interval` warnings
+
+Queue-specific concerns (payload, `attempts`, backoff, terminal states) live inside
+`claimOne` — a data-access concern, not a scheduling one. That separation is what
+removes the need for a second construct.
+
+### Explicit registration
+
+`registerHandler()` mutates a module-global `Map` and must be called before
+`runtime.start()` or jobs silently never run. That ordering constraint is invisible and
+load-bearing. Handlers become plain exported functions, passed at the entrypoint
+alongside workers, so the entire behaviour of the process is one literal:
+
+```ts
+const runtime = createWorkerRuntime([
+  lightEnforcer, climateEnforcer, sonosVolumeEnforcer, deviceSync,
+  partyMode, scheduleRunner, weatherIngest, githubActionsPoll, ascVersionPoll,
+  jobWorker("notify", runNotifyJob),
+  jobWorker("youtube_ingest", runYoutubeIngest),
+  staleJobReaper,
+], { logger: log })
+```
+
+### Crash recovery
+
+Today a crash mid-download leaves two orphans:
+
+1. **Job stuck at `status='running'`** — the claim query only selects `status='queued'`,
+   so the row is invisible to every future claim. `attempts` was already incremented.
+   It stalls silently, forever. `schema.ts:43` anticipated this ("if we add a watchdog
+   later"); the watchdog was never added and `locked_by` is never even populated.
+2. **`.part` files on the NAS** — a crash 6 GB into an 8 GB file leaves 6 GB behind,
+   never resumed because the job never re-runs.
+
+Fix is a stale-lease reaper worker:
+
+```sql
+UPDATE job SET status = 'queued', updated_at = now()
+WHERE status = 'running' AND locked_at < now() - interval '2 hours'
+```
+
+This resolves both: yt-dlp resumes from `.part` by default when re-run against the same
+output path, so the partial becomes a resume point rather than waste.
+
+The 2h lease must comfortably exceed the longest legitimate download, or the reaper could
+requeue a job that is still running and produce two yt-dlp processes on one file.
+
+## Changes
+
+### 1. Job-as-worker plumbing
+
+- Add `claimOne(type, handler)` in `products/control-center/api/src/jobs/queue.ts` —
+  claim one row of one type (`FOR UPDATE SKIP LOCKED`), run, ack/nack with existing
+  backoff. Derived from `claimAndRun`.
+- Add `jobWorker(type, handler)` returning a plain `Worker`, 2s interval.
+- Delete the module-global handler registry, `registerHandler`, and
+  `_clearHandlersForTest`. `registerNotifyHandler` / `registerYoutubeIngestHandler`
+  become plain exported handler functions.
+- Delete `claimAndRun`'s "no handler registered → permanently fail" branch — unreachable
+  once each worker polls only its own type, and it is the burn-the-retries behaviour we
+  explicitly do not want.
+- Add the stale-job reaper worker (5m interval, 2h lease).
+
+### 2. Runtime cleanups (retired by the merge)
+
+- Delete `WorkerRuntime.stats()` — zero consumers outside the package and its own tests.
+  Internal `WorkerStats` bookkeeping stays (failure streaks, debug snapshot).
+- Delete the `statsEveryNRuns` option — it exists only because worker used 60 and
+  media-worker 30. One process, one constant.
+- Drop `WorkerStats.memory` — it samples process-wide `process.memoryUsage()` and stores
+  it per worker, so post-merge it is the same number duplicated 12×, sampled every cycle
+  to be logged every 60th.
+
+### 3. Merge the apps
+
+- `worker/src/index.ts` absorbs the playlist-poller loop, the disk guard, and both job
+  workers. `notify-queue` becomes `jobWorker("notify", …)`.
+- Delete `products/control-center/media-worker` entirely.
+- `worker/Dockerfile` gains the runtime-stage block:
+  `apk add --no-cache ffmpeg python3 py3-pip && pip3 install --break-system-packages yt-dlp`.
+- Disk guard threshold 10 GB → **50 GB**.
+
+### 4. Video-only ingest
+
+In `products/control-center/api/src/services/youtube-ingest-service.ts`:
+
+- Delete the `-f bestaudio -x` call entirely. One yt-dlp invocation.
+- Delete `videoPolicy`: the column, the payload field, the branch, and both hardcoded
+  `"on"` sites in `trpc/routers/media.ts` (:225, :248).
+- Add `-N 4` (`--concurrent-fragments`) — YouTube serves DASH and we currently fetch one
+  fragment at a time; this is the real throughput win.
+- Output template `${videoId}.%(ext)s` →
+  `%(uploader)s/%(upload_date)s - %(title)s [%(id)s].%(ext)s`. The DB keeps the video ID
+  as identity; the filename serves the human browsing the NAS in VLC.
+- Keep `--write-thumbnail`. Keep the AV1 selector and the never-re-encode rule. Duration
+  now read from the video file.
+
+### 5. Schema migration
+
+Drop `media_source.video_policy`, `media_item.audio_path`, `media_item.audio_bytes`.
+Zero rows in prod, so a clean drop with no backfill.
+
+Run `bunx biome format --write` on the generated migration meta before committing.
+
+### 6. Infra
+
+- Delete the `media-worker` workload and `mediaWorkerReplicas` from `infra/src/services.ts`.
+- Remove `media-worker` from `infra/src/secrets-map.ts` and `packages/platform/src/index.ts`.
+- `worker`: memory `384M` → **`512M`**, add the NFS volume (`/app/media` ←
+  `/volume1/Homelab`, subPath `media`) and `MEDIA_STORAGE_DIR=/app/media`.
+- Drop the media-worker image from the CI build matrix.
+
+### 7. Seed and verify
+
+Seed the playlist source:
+
+```sql
+INSERT INTO media_source (id, kind, external_id, title, enabled)
+VALUES ('src_djsets', 'playlist', 'PL59a6ZZ2kJGrjLI7cb6hxXr4EfmBnzseW', 'DJ Sets', true);
+```
+
+Verify: poller enumerates IDs, `media_item` rows appear, first ingest lands on the NAS
+under a readable `uploader/date - title [id].ext` path, job row reaches `done`.
+
+### 8. Docs
+
+- `CLAUDE.md` Current Shape — remove the media-worker line; worker is loops + jobs.
+- Stale parked-media-worker comments at `packages/platform/src/index.ts:448-461`.
+- `infra/src/services.ts:7-9` Boundary-6 comment.
+
+## Risks
+
+- **Process-level coupling.** A container OOM now takes down the reconcilers with the
+  downloader. Cycle-level failures were already isolated by the runtime, so this is the
+  only new blast radius, and it is accepted for one deployable instead of two.
+- **512M is a judgement call.** Downloads don't consume RAM, but if the Bun process plus
+  a yt-dlp subprocess proves tight under a real ingest, raise it — this is one number in
+  `services.ts`.
+- **First real run.** Nothing has exercised this path in prod. Expect the first ingest to
+  surface issues the tests can't (yt-dlp on Alpine, NFS write permissions, filename
+  characters the NAS rejects).
+
+## Out of scope
+
+- `LISTEN/NOTIFY` to replace polling.
+- Per-type concurrency overrides — add when a type has evidence it needs to burst.
+- Any ingest UI. The filesystem is the interface.
+- Chunked/segmented downloads (`--download-sections`) — solves a memory problem that
+  doesn't exist, and stitching requires `--force-keyframes-at-cuts`, which re-encodes.
