@@ -4,6 +4,7 @@ import {
   ArrowUp,
   Bell,
   Calendar,
+  Camera,
   Car,
   ChevronRight,
   Cloud,
@@ -26,6 +27,7 @@ import {
   Sparkles,
   Sun,
   Thermometer,
+  Timer,
   Users,
   Video,
   Volume2,
@@ -50,6 +52,8 @@ export type IconName =
   | "wifi"
   | "pin"
   | "cam"
+  | "camera"
+  | "timer"
   | "dog"
   | "paw"
   | "calendar"
@@ -98,6 +102,8 @@ export const GLYPHS: Record<IconName, LucideIcon> = {
   wifi: Wifi,
   pin: MapPin,
   cam: Video,
+  camera: Camera,
+  timer: Timer,
   dog: Dog,
   paw: PawPrint,
   calendar: Calendar,
