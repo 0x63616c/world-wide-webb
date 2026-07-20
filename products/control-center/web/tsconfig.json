@@ -4,7 +4,11 @@
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      // gifenc ships no types; under bundler resolution the package physically
+      // exists so an ambient `declare module` is shadowed. Point the import at
+      // the hand-written shim in src/types instead.
+      "gifenc": ["./src/types/gifenc.d.ts"]
     },
     "types": ["vite/client"]
   },

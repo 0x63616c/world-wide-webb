@@ -34,6 +34,7 @@
     "@trpc/client": "^11.17.0",
     "@trpc/react-query": "^11.17.0",
     "@trpc/server": "^11.17.0",
+    "gifenc": "^1.0.3",
     "lucide-react": "^1.17.0",
     "maplibre-gl": "^5.24.0",
     "pmtiles": "^4.4.1",
