@@ -11,6 +11,17 @@
  * localStorage is absent in SSR/test envs and throws in private-mode Safari.
  */
 
+import {
+  BRIGHTNESS_MAX,
+  BRIGHTNESS_MIN,
+  DIM_MAX,
+  DIM_MIN,
+  SETTINGS_DEFAULTS,
+  SNAP_MODES,
+  type SnapMode,
+  TIMEOUT_MAX_MS,
+  TIMEOUT_MIN_MS,
+} from "@cc/api/settings";
 import { useSyncExternalStore } from "react";
 import { interaction } from "./log/interaction";
 import { log } from "./log/logger";
@@ -20,12 +31,13 @@ import { log } from "./log/logger";
 const settingsLog = log.child("settings");
 
 // ─── snap-mode vocabulary (shared with Board) ─────────────────────────────────
-// The board A/B-tests how it settles; the mode list + labels live here so both
-// the board (which maps them to CSS scroll-snap) and the settings panel (which
-// renders a picker) consume one source of truth. The CSS mapping itself stays
-// in Board.tsx , it's a board-rendering concern.
-export const SNAP_MODES = ["proximity", "mandatory", "mandatory-settle", "none", "spring"] as const;
-export type SnapMode = (typeof SNAP_MODES)[number];
+// The board A/B-tests how it settles. The mode LIST is the wire contract and
+// lives in @cc/api/settings so the server's zod enum and this store cannot
+// drift; it is re-exported here so board + settings panel keep importing their
+// vocabulary from one place. The CSS mapping stays in Board.tsx (a rendering
+// concern) and the human-facing LABELS stay here (UI vocabulary the API has no
+// opinion on).
+export { SNAP_MODES, type SnapMode };
 export const SNAP_MODE_LABEL: Record<SnapMode, string> = {
   proximity: "gentle",
   mandatory: "paged",
@@ -72,30 +84,24 @@ export interface Settings {
   pushEnabled: boolean;
 }
 
-export const MIN_IDLE_TIMEOUT_MS = 60_000; // 1 min
-export const MAX_IDLE_TIMEOUT_MS = 10 * 60_000; // 10 min
+// The bounds are wire contract , the server validates against these same numbers
+// , so they are re-exported from @cc/api/settings rather than restated. The
+// local aliases keep the names this module's consumers (the settings sliders)
+// already import.
+export const MIN_IDLE_TIMEOUT_MS = TIMEOUT_MIN_MS; // 1 min
+export const MAX_IDLE_TIMEOUT_MS = TIMEOUT_MAX_MS; // 10 min
+export const MIN_DIM_LEVEL = DIM_MIN; // 1 %
+export const MAX_DIM_LEVEL = DIM_MAX; // 99 %
+export const MIN_BRIGHTNESS = BRIGHTNESS_MIN; // 1 %
+export const MAX_BRIGHTNESS = BRIGHTNESS_MAX; // 100 %
 export const PIN_LENGTH = 6;
-export const DEFAULT_PIN = "000000";
-export const MIN_DIM_LEVEL = 0.01; // 1 %
-export const MAX_DIM_LEVEL = 0.99; // 99 %
-// Active brightness goes to a full 100% (unlike the dim level, which stays below
-// full so "dimmed" always reads darker than "awake").
-export const MIN_BRIGHTNESS = 0.01; // 1 %
-export const MAX_BRIGHTNESS = 1; // 100 %
+export const DEFAULT_PIN = SETTINGS_DEFAULTS.pinCode;
 
+// The synced defaults come from the contract; this spread states the DELTA , the
+// device-local fields the server has no opinion on (see LOCAL_ONLY_KEYS). Adding
+// a local-only setting means adding it here and nowhere else.
 const DEFAULTS: Settings = {
-  activeBrightness: 1,
-  idleDimEnabled: true,
-  idleDimTimeoutMs: 10 * 60_000,
-  idleDimLevel: 0.25,
-  recenterEnabled: true,
-  recenterTimeoutMs: 10 * 60_000,
-  showFps: false,
-  showBuildBadge: true,
-  showBuildNumber: false,
-  snapMode: "mandatory-settle",
-  showMinimap: true,
-  pinCode: DEFAULT_PIN,
+  ...SETTINGS_DEFAULTS,
   pushEnabled: false,
 };
 

@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./settings": "./src/settings.ts",
     "./trpc": "./src/trpc.ts"
   },
   "scripts": {
