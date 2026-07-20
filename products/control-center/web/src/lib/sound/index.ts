@@ -32,11 +32,17 @@ import { CUES, type Cue, type CueName } from "./cues";
 
 export type { CueName } from "./cues";
 
+// This module is the exception the noRestrictedGlobals rule points everyone
+// else at, so it is the one place allowed to name AudioContext. The rule fires
+// on type positions too, hence the run of suppressions rather than one.
+// biome-ignore lint/style/noRestrictedGlobals: the sound bus owns the context
 type AudioContextCtor = typeof AudioContext;
 
+// biome-ignore lint/style/noRestrictedGlobals: the sound bus owns the context
 let ctx: AudioContext | null = null;
 
 /** The shared context, created on first use. Null where audio is unavailable. */
+// biome-ignore lint/style/noRestrictedGlobals: the sound bus owns the context
 function audioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
   const Ctor: AudioContextCtor | undefined =

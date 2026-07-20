@@ -34,7 +34,17 @@
         "noNonNullAssertion": "error",
         "useThrowOnlyError": "error",
         "noEnum": "error",
-        "noProcessEnv": "error"
+        "noProcessEnv": "error",
+        "noRestrictedGlobals": {
+          "level": "error",
+          "options": {
+            "deniedGlobals": {
+              "AudioContext": "Play sound through the panel's sound bus: playCue() from lib/sound. It owns the one AudioContext, the cue library, and the choice between iOS's own recordings and synthesis.",
+              "webkitAudioContext": "Play sound through the panel's sound bus: playCue() from lib/sound.",
+              "Audio": "Play sound through the panel's sound bus: playCue() from lib/sound. Bundling an audio element also means an asset and a licence to honour."
+            }
+          }
+        }
       },
       "complexity": {
         "noBannedTypes": "error"

@@ -34,6 +34,11 @@
 - Fixed wall panel, `1366x1024`, not responsive.
 - Tile placement belongs in `products/control-center/web/src/lib/tile-registry.ts`.
 - Use shared UI primitives from `products/control-center/web/src/components/ui/`.
+- All panel audio goes through the sound bus: `playCue()` from
+  `products/control-center/web/src/lib/sound/`. Add a named cue there rather than
+  constructing an `AudioContext` or `Audio` anywhere else (a Biome rule enforces
+  this). Loudness is the DEVICE's volume, set through the `PanelVolume` plugin
+  and the Sound settings page , never an in-app gain.
 - No fake or placeholder data.
 - Storybook-first for new UI.
 - IDs default to `prefix_<id>`.

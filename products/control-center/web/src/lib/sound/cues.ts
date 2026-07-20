@@ -17,6 +17,7 @@ export interface Cue {
   systemSoundId?: number;
   /** Web Audio construction , the fallback off-panel, and the only path for a
    *  cue with no system sound. */
+  // biome-ignore lint/style/noRestrictedGlobals: the sound bus owns the context
   synth: (audio: AudioContext, out: AudioNode, now: number) => void;
 }
 
@@ -35,6 +36,7 @@ interface NoiseBurst {
 
 /** One decaying band-passed white-noise burst , the building block of a snap. */
 function noiseBurst(
+  // biome-ignore lint/style/noRestrictedGlobals: the sound bus owns the context
   audio: AudioContext,
   out: AudioNode,
   start: number,
