@@ -98,6 +98,14 @@ export function PhotoGrid<T>({
 
 const dateHeader: CSSProperties = {
   margin: 0,
+  // Pins to the top of the scroll region while its section is in view, then the
+  // next section's header displaces it (iOS Photos behaviour). The opaque --bg
+  // matches both callers' scroll-region background so cells scroll cleanly
+  // under it; the 2px grid gaps already render this same colour.
+  position: "sticky",
+  top: 0,
+  zIndex: 1,
+  background: "var(--bg)",
   // Tighter above the text than below , the 34px/800 line already carries a
   // lot of visual weight, so the old 26px read as a gap.
   padding: "14px 24px 14px",
