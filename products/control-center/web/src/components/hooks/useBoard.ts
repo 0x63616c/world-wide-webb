@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { dimTo, wakeTo } from "../../lib/brightness";
+import type { SnapMode } from "../../lib/settings";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -153,8 +154,6 @@ export function useUserPanSignal(): {
 }
 
 // ─── useBoardSnap ─────────────────────────────────────────────────────────────
-
-type SnapMode = "proximity" | "mandatory" | "mandatory-settle" | "none" | "spring";
 
 // Modes whose settle (scrollend / idle) magnetically re-centers via the JS spring.
 const SETTLE_MODES = new Set<SnapMode>(["spring", "mandatory-settle"]);

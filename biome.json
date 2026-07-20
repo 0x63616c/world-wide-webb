@@ -58,7 +58,8 @@
       "!**/docs/media-tiles",
       "!**/docs/captive-portal/design",
       "!**/DerivedData",
-      "!**/ios/App/App/public/assets"
+      "!**/ios/App/App/public",
+      "!**/ios/App/App/capacitor.config.json"
     ]
   },
   "overrides": [

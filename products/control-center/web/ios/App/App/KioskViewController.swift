@@ -12,6 +12,22 @@ class KioskViewController: CAPBridgeViewController {
         return UIDevice.current.userInterfaceIdiom == .pad ? .landscape : .portrait
     }
 
+    // Capacitor does NOT discover plugins by scanning the ObjC runtime. Its
+    // registerPlugins() only walks the `packageClassList` in the generated
+    // capacitor.config.json, and `cap sync` builds that list from installed npm
+    // packages , so a plugin living in this app target can never appear there
+    // and would silently never register (isPluginAvailable false, every call
+    // falling back). Registering the instance here is the supported route:
+    // capacitorDidLoad runs right after the bridge is built and before the
+    // webview loads, so the JS shim exists by the time the page runs.
+    //
+    // registerPluginInstance, NOT registerPluginType , the latter early-returns
+    // whenever autoRegisterPlugins is true (the default), which is exactly the
+    // silent no-op this override exists to avoid.
+    override func capacitorDidLoad() {
+        bridge?.registerPluginInstance(SystemSoundPlugin())
+    }
+
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         injectAccessHeadersIfNeeded()

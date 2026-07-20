@@ -3,6 +3,16 @@ import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { z } from "zod";
 
+import {
+  BRIGHTNESS_MAX,
+  BRIGHTNESS_MIN,
+  DIM_MAX,
+  DIM_MIN,
+  SETTINGS_DEFAULTS,
+  SNAP_MODES,
+  TIMEOUT_MAX_MS,
+  TIMEOUT_MIN_MS,
+} from "../contract/settings";
 import type * as schema from "../db/schema";
 import { SETTINGS_SINGLETON_ID, settings } from "../db/schema";
 
@@ -11,39 +21,25 @@ import { SETTINGS_SINGLETON_ID, settings } from "../db/schema";
 // The global wall-panel settings blob. This is the byte-for-byte contract the web
 // client reads/writes; field names and types MUST NOT drift. Stored as a single
 // jsonb `value` on the settings singleton row (services own the shape, not the DB).
-
-/** Valid snap-drag behaviors for the tile board. */
-const SnapMode = {
-  Proximity: "proximity",
-  Mandatory: "mandatory",
-  MandatorySettle: "mandatory-settle",
-  None: "none",
-  Spring: "spring",
-} as const;
-
-// Idle-dim and recenter timeouts share the same valid window: 1 minute .. 1 hour.
-const TIMEOUT_MIN_MS = 60_000;
-const TIMEOUT_MAX_MS = 3_600_000;
+//
+// The vocabulary and bounds below come from ../contract/settings, which the web
+// client imports too (via @cc/api/settings) , that shared module is what makes
+// the "MUST NOT drift" rule above enforceable rather than aspirational. Only the
+// FIELD LIST is still stated twice (this zod object vs web's Settings interface).
 
 export const settingsSchema = z.object({
   /** Active (awake) backlight the panel drives itself, overriding the OS
    *  brightness. 0.01..1 (1% .. 100%). Idle drops from here to idleDimLevel. */
-  activeBrightness: z.number().min(0.01).max(1),
+  activeBrightness: z.number().min(BRIGHTNESS_MIN).max(BRIGHTNESS_MAX),
   idleDimEnabled: z.boolean(),
   idleDimTimeoutMs: z.number().min(TIMEOUT_MIN_MS).max(TIMEOUT_MAX_MS),
-  idleDimLevel: z.number().min(0.01).max(0.99),
+  idleDimLevel: z.number().min(DIM_MIN).max(DIM_MAX),
   recenterEnabled: z.boolean(),
   recenterTimeoutMs: z.number().min(TIMEOUT_MIN_MS).max(TIMEOUT_MAX_MS),
   showFps: z.boolean(),
   showBuildBadge: z.boolean(),
   showBuildNumber: z.boolean(),
-  snapMode: z.enum([
-    SnapMode.Proximity,
-    SnapMode.Mandatory,
-    SnapMode.MandatorySettle,
-    SnapMode.None,
-    SnapMode.Spring,
-  ]),
+  snapMode: z.enum(SNAP_MODES),
   showMinimap: z.boolean(),
   // The synced soft-lock PIN. NOT auth , the API only enforces the 6-digit shape
   // and never validates or logs the value.
@@ -57,21 +53,9 @@ export type Settings = z.infer<typeof settingsSchema>;
 export type SettingsPatch = z.infer<typeof settingsPatchSchema>;
 
 /** Baseline settings returned when no row exists yet, and the merge floor for
- *  every read/write so a newly-added field falls back to its default. */
-export const DEFAULTS: Settings = {
-  activeBrightness: 1,
-  idleDimEnabled: true,
-  idleDimTimeoutMs: 600_000,
-  idleDimLevel: 0.25,
-  recenterEnabled: true,
-  recenterTimeoutMs: 600_000,
-  showFps: false,
-  showBuildBadge: true,
-  showBuildNumber: false,
-  snapMode: SnapMode.MandatorySettle,
-  showMinimap: true,
-  pinCode: "000000",
-};
+ *  every read/write so a newly-added field falls back to its default. Shared with
+ *  the web store, which layers its device-local fields on top. */
+export const DEFAULTS: Settings = SETTINGS_DEFAULTS;
 
 type Database = NodePgDatabase<typeof schema>;
 

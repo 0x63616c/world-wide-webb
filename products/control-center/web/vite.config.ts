@@ -88,7 +88,6 @@ export default defineConfig({
       "@tanstack/react-router",
       "@capacitor/app",
       "@capacitor/core",
-      "@capacitor/haptics",
       "@capacitor/status-bar",
       "@capacitor-community/screen-brightness",
     ],

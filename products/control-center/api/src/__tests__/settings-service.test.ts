@@ -48,8 +48,13 @@ describe("getSettings", () => {
     expect(s.pinCode).toBe("000000");
   });
 
-  it("keeps a stored 1 h idle timeout valid (server cap unchanged)", async () => {
+  it("falls back to DEFAULTS for a stored timeout above the 10 min cap", async () => {
+    // The server used to accept up to an hour while the panel clamped every edit
+    // to 10 min, so the looser ceiling could only ever be reached by editing the
+    // row by hand. Both sides now share one bound (contract/settings.ts), and an
+    // out-of-range blob fails validation , which getSettings catches, logs, and
+    // answers with DEFAULTS rather than propagating.
     const s = await getSettings(fakeDb({ ...DEFAULTS, idleDimTimeoutMs: 3_600_000 }));
-    expect(s.idleDimTimeoutMs).toBe(3_600_000);
+    expect(s).toEqual(DEFAULTS);
   });
 });
