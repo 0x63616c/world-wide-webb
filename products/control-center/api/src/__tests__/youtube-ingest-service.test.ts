@@ -149,7 +149,9 @@ describe("ytdlpDownload", () => {
     const calls = captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
     await ytdlpDownload("abc123", "/media", new AbortController().signal);
     const output = calls[0][calls[0].indexOf("--output") + 1];
-    expect(output).toBe("/media/%(uploader)s/%(upload_date)s - %(title)s [%(id)s].%(ext)s");
+    expect(output).toBe(
+      "/media/youtube/%(upload_date)s - %(uploader)s - %(title)s [%(id)s].%(ext)s",
+    );
   });
 
   it("returns the path yt-dlp reports rather than guessing it", async () => {

@@ -42,8 +42,11 @@ interface YoutubeIngestPayload {
  *
  * The output template is archival rather than machine-keyed: the DB keeps the
  * video id as identity, while the filename serves whoever browses the NAS in
- * VLC a year from now. Because that template includes a subdirectory, we ask
- * yt-dlp for the exact path it wrote instead of globbing for it.
+ * VLC a year from now. Everything lands FLAT under a single `youtube/` folder
+ * (uploader is folded into the filename, not a subdirectory) so ingest output
+ * stays out of the media root next to wake-photos/booth-photos. Because that
+ * template includes a subdirectory, we ask yt-dlp for the exact path it wrote
+ * instead of globbing for it.
  *
  * @public - exported for unit testing so tests can mock the subprocess
  */
@@ -52,7 +55,7 @@ export async function ytdlpDownload(
   storageDir: string,
   signal: AbortSignal,
 ): Promise<{ videoPath: string; thumbPath: string | null }> {
-  const output = `${storageDir}/%(uploader)s/%(upload_date)s - %(title)s [%(id)s].%(ext)s`;
+  const output = `${storageDir}/youtube/%(upload_date)s - %(uploader)s - %(title)s [%(id)s].%(ext)s`;
 
   const { stdout } = await execFileAsync(
     "yt-dlp",
