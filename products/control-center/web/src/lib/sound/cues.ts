@@ -9,14 +9,14 @@
  * `audio.destination` themselves; see the bus's header for why.
  */
 
-import { SYSTEM_SOUND } from "../system-sound";
+import { UI_SOUND } from "../ui-sound";
 
 export interface Cue {
-  /** iOS system sound id, preferred when the plugin is present. Omit for a cue
-   *  iOS has no equivalent for. */
-  systemSoundId?: number;
+  /** iOS UISounds file path, preferred when the plugin is present. Omit for a
+   *  cue iOS has no equivalent for. */
+  uiSoundPath?: string;
   /** Web Audio construction , the fallback off-panel, and the only path for a
-   *  cue with no system sound. */
+   *  cue with no iOS sound. */
   // biome-ignore lint/style/noRestrictedGlobals: the sound bus owns the context
   synth: (audio: AudioContext, out: AudioNode, now: number) => void;
 }
@@ -80,7 +80,7 @@ export const CUES = {
    * mechanical character without the brightness.
    */
   shutter: {
-    systemSoundId: SYSTEM_SOUND.photoShutter,
+    uiSoundPath: UI_SOUND.photoShutter,
     synth: (audio, out, now) => {
       // Top click , the shutter itself.
       noiseBurst(audio, out, now, { freq: 1400, q: 1.6, gain: 0.22, duration: 0.03 });

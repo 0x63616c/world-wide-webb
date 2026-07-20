@@ -7,11 +7,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { playCue, resetSoundForTests } from "../sound";
 
-const playSystemSound = vi.fn((_id: number) => true);
+const SHUTTER_PATH = "/System/Library/Audio/UISounds/photoShutter.caf";
+const playUISound = vi.fn((_path: string) => true);
 
-vi.mock("../system-sound", () => ({
-  SYSTEM_SOUND: { photoShutter: 1108 },
-  playSystemSound: (id: number) => playSystemSound(id),
+vi.mock("../ui-sound", () => ({
+  // Inlined, not a reference to SHUTTER_PATH: vi.mock is hoisted above the const,
+  // which would still be in its temporal dead zone when this factory runs.
+  UI_SOUND: { photoShutter: "/System/Library/Audio/UISounds/photoShutter.caf" },
+  playUISound: (path: string) => playUISound(path),
 }));
 
 /** A stand-in for the Web Audio nodes a synth builds, recording connections. */
@@ -50,7 +53,7 @@ let ctx: ReturnType<typeof fakeAudioContext>;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  playSystemSound.mockReturnValue(true);
+  playUISound.mockReturnValue(true);
   resetSoundForTests();
   ctx = fakeAudioContext();
   vi.stubGlobal(
@@ -64,39 +67,39 @@ afterEach(() => {
   resetSoundForTests();
 });
 
-describe("playCue , cues with a system sound", () => {
+describe("playCue , cues with an iOS sound", () => {
   it("uses iOS's own recording when the plugin took it", () => {
     playCue("shutter");
-    expect(playSystemSound).toHaveBeenCalledWith(1108);
+    expect(playUISound).toHaveBeenCalledWith(SHUTTER_PATH);
     // Nothing synthesized: the real recording already played.
     expect(ctx.createBufferSource).not.toHaveBeenCalled();
   });
 
   it("synthesizes when the plugin is absent", () => {
-    playSystemSound.mockReturnValue(false);
+    playUISound.mockReturnValue(false);
     playCue("shutter");
     // Two layered noise bursts make the snap.
     expect(ctx.createBufferSource).toHaveBeenCalledTimes(2);
   });
 });
 
-describe("playCue , cues without a system sound", () => {
+describe("playCue , cues without an iOS sound", () => {
   it("never asks the plugin, and synthesizes directly", () => {
     playCue("countdownTick");
-    expect(playSystemSound).not.toHaveBeenCalled();
+    expect(playUISound).not.toHaveBeenCalled();
     expect(ctx.createOscillator).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("playCue , hostile runtimes", () => {
   it("is a silent no-op where AudioContext does not exist", () => {
-    playSystemSound.mockReturnValue(false);
+    playUISound.mockReturnValue(false);
     vi.stubGlobal("AudioContext", undefined);
     expect(() => playCue("countdownTick")).not.toThrow();
   });
 
   it("is a silent no-op when the context cannot be constructed", () => {
-    playSystemSound.mockReturnValue(false);
+    playUISound.mockReturnValue(false);
     vi.stubGlobal(
       "AudioContext",
       vi.fn(() => {
@@ -107,14 +110,14 @@ describe("playCue , hostile runtimes", () => {
   });
 
   it("resumes a context suspended before the first gesture", () => {
-    playSystemSound.mockReturnValue(false);
+    playUISound.mockReturnValue(false);
     ctx.state = "suspended";
     playCue("countdownTick");
     expect(ctx.resume).toHaveBeenCalled();
   });
 
   it("reuses one context across cues rather than making a second", () => {
-    playSystemSound.mockReturnValue(false);
+    playUISound.mockReturnValue(false);
     playCue("countdownTick");
     playCue("countdownTick");
     expect(vi.mocked(globalThis.AudioContext)).toHaveBeenCalledTimes(1);

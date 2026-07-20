@@ -2,16 +2,16 @@
  * The panel's sound bus , the single owner of audio output in the app.
  *
  * Anything that wants to make a noise calls `playCue(name)`. Nothing else
- * constructs an AudioContext or reaches for the SystemSound plugin directly;
+ * constructs an AudioContext or reaches for the UISound plugin directly;
  * a Biome rule enforces that, because the alternative is what this replaced ,
  * audio owned by whichever feature happened to need it first, with its own
  * context, its own gain literals, and no shared place to change anything.
  *
  * A cue can have two backends and usually wants both:
  *
- *  - `systemSoundId` plays one of iOS's own recordings (AudioToolbox, via
- *    lib/system-sound). Real audio, nothing bundled, no licence to honour ,
- *    but only on the kiosk.
+ *  - `uiSoundPath` plays one of iOS's own recordings through the panel's audio
+ *    session (AVAudioPlayer, via lib/ui-sound). Real audio, nothing bundled, no
+ *    licence to honour , but only on the kiosk.
  *  - `synth` builds the sound with the Web Audio API. It is the fallback for a
  *    browser, Storybook and CI, and the only path for cues iOS has no sound for.
  *
@@ -27,7 +27,7 @@
  * played is a silent no-op and never throws into whatever it was accompanying.
  */
 
-import { playSystemSound } from "../system-sound";
+import { playUISound } from "../ui-sound";
 import { CUES, type Cue, type CueName } from "./cues";
 
 export type { CueName } from "./cues";
@@ -63,8 +63,9 @@ function audioContext(): AudioContext | null {
 }
 
 /**
- * Play a named cue. Prefers iOS's own recording where the cue has one and the
- * plugin is present, otherwise synthesizes.
+ * Play a named cue. Prefers iOS's own recording (through the panel's audio
+ * session) where the cue has one and the plugin is present, otherwise
+ * synthesizes.
  *
  * Returns nothing on purpose: a caller cannot do anything useful about a cue
  * that did not play, and every call site is decorating an action that must
@@ -74,7 +75,7 @@ export function playCue(name: CueName): void {
   // Widened to Cue: the literal registry narrows each entry to its own shape, so
   // a cue without a system sound would not admit the optional field at all.
   const cue: Cue = CUES[name];
-  if (cue.systemSoundId !== undefined && playSystemSound(cue.systemSoundId)) return;
+  if (cue.uiSoundPath !== undefined && playUISound(cue.uiSoundPath)) return;
 
   const audio = audioContext();
   if (!audio) return;

@@ -25,7 +25,7 @@ class KioskViewController: CAPBridgeViewController {
     // whenever autoRegisterPlugins is true (the default), which is exactly the
     // silent no-op this override exists to avoid.
     override func capacitorDidLoad() {
-        bridge?.registerPluginInstance(SystemSoundPlugin())
+        bridge?.registerPluginInstance(UISoundPlugin())
         bridge?.registerPluginInstance(PanelVolumePlugin())
     }
 
