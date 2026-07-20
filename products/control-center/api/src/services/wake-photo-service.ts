@@ -26,7 +26,16 @@ import { env } from "../env";
 export interface WakePhotoDay {
   /** YYYY-MM-DD */
   day: string;
-  photos: { path: string; capturedAt: number }[];
+  photos: {
+    path: string;
+    capturedAt: number;
+    /**
+     * The visit this frame belongs to, so the viewer can open the session it
+     * came from. Null for frames that predate the session table (backfilled)
+     * or whose burst was never correlated , honestly unopenable.
+     */
+    interactionSessionId: string | null;
+  }[];
 }
 
 export interface WakePhotoListing {
@@ -207,7 +216,11 @@ export async function listWakePhotos(db: NodePgDatabase<typeof schema>): Promise
       bucket = { day, photos: [] };
       byDay.set(day, bucket);
     }
-    bucket.photos.push({ path: row.path, capturedAt: row.capturedAt.getTime() });
+    bucket.photos.push({
+      path: row.path,
+      capturedAt: row.capturedAt.getTime(),
+      interactionSessionId: row.interactionSessionId,
+    });
     totalBytes += row.bytes;
   }
 

@@ -21,6 +21,7 @@ import { Capacitor } from "@capacitor/core";
 import { Share } from "@capacitor/share";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { PhotoGrid } from "@/components/gallery/PhotoGrid";
 import { ConfirmDialog, PageHeader } from "@/components/ui";
 import { bakeFilterIntoImage } from "@/lib/booth-capture";
 import { filterCssFor } from "@/lib/booth-filters";
@@ -106,34 +107,26 @@ export function BoothGallery({ groups, photoUrl, onRemove, onBack }: BoothGaller
       />
 
       <div style={scrollRegion} className="modal-scroll">
-        {days.length === 0 ? (
-          <EmptyState />
-        ) : (
-          days.map((day) => (
-            <section key={day.key}>
-              <h2 style={dateHeader}>
-                {day.label}
-                <span style={dateHeaderCount}>{day.groups.length}</span>
-              </h2>
-              <div style={grid}>
-                {day.groups.map((g) => (
-                  <button
-                    key={g.groupId}
-                    type="button"
-                    onClick={() => setOpenIndex(coverIndex.get(g.groupId) ?? 0)}
-                    style={cell}
-                    aria-label={`Open ${MODE_LABEL[g.mode]} from ${formatTime(g.capturedAt)}`}
-                  >
-                    <Cover group={g} photoUrl={photoUrl} filterCss={filterCssFor(g.filter)} />
-                    {MODE_DOT[g.mode] != null && (
-                      <span style={{ ...dot, background: MODE_DOT[g.mode] as string }} />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </section>
-          ))
-        )}
+        <PhotoGrid
+          days={days.map((day) => ({
+            key: day.key,
+            label: day.label,
+            count: day.groups.length,
+            items: day.groups,
+          }))}
+          itemKey={(g) => g.groupId}
+          cellLabel={(g) => `Open ${MODE_LABEL[g.mode]} from ${formatTime(g.capturedAt)}`}
+          onSelect={(g) => setOpenIndex(coverIndex.get(g.groupId) ?? 0)}
+          renderCell={(g) => (
+            <Cover group={g} photoUrl={photoUrl} filterCss={filterCssFor(g.filter)} />
+          )}
+          renderOverlay={(g) =>
+            MODE_DOT[g.mode] != null ? (
+              <span style={{ ...dot, background: MODE_DOT[g.mode] as string }} />
+            ) : null
+          }
+          empty={<EmptyState />}
+        />
       </div>
 
       {open != null && openIndex != null && (
@@ -604,37 +597,6 @@ const scrollRegion: CSSProperties = {
   minHeight: 0,
   overflowY: "auto",
   padding: "0 0 40px",
-};
-
-const dateHeader: CSSProperties = {
-  margin: 0,
-  padding: "26px 24px 14px",
-  fontSize: 34,
-  fontWeight: 800,
-  letterSpacing: "-0.03em",
-};
-
-const dateHeaderCount: CSSProperties = {
-  fontSize: 16,
-  fontWeight: 500,
-  color: "var(--ink-3)",
-  marginLeft: 12,
-};
-
-const grid: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(8, 1fr)",
-  gap: 2,
-};
-
-const cell: CSSProperties = {
-  position: "relative",
-  aspectRatio: "1 / 1",
-  padding: 0,
-  border: "none",
-  background: "var(--nest)",
-  cursor: "pointer",
-  overflow: "hidden",
 };
 
 const dot: CSSProperties = {

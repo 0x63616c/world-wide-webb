@@ -20,21 +20,34 @@ function svgPhoto(hue: number): string {
 
 const PHOTO_URLS = new Map<string, string>();
 
-function day(dayStr: string, base: number, count: number): WakePhotoDay {
+const SESSION_ID = "isn_9f3ac1d2e4b5";
+
+/**
+ * `interactionSessionId` null models backfilled history , frames that predate
+ * the session table and so have no visit to open. The grid renders those
+ * dimmed and inert, which the BackfilledUnopenable story asserts.
+ */
+function day(
+  dayStr: string,
+  base: number,
+  count: number,
+  interactionSessionId: string | null,
+): WakePhotoDay {
   const photos = Array.from({ length: count }, (_, i) => {
     const capturedAt = base + i * 47 * 60_000;
     const path = `${dayStr.replaceAll("-", "/")}/${capturedAt}-0.jpg`;
     PHOTO_URLS.set(path, svgPhoto((i * 47) % 360));
-    return { path, capturedAt };
+    return { path, capturedAt, interactionSessionId };
   });
   photos.sort((a, b) => b.capturedAt - a.capturedAt);
   return { day: dayStr, photos };
 }
 
 const DAYS: WakePhotoDay[] = [
-  day("2026-07-17", Date.UTC(2026, 6, 17, 6, 58), 12),
-  day("2026-07-16", Date.UTC(2026, 6, 16, 7, 12), 18),
-  day("2026-07-15", Date.UTC(2026, 6, 15, 8, 3), 9),
+  day("2026-07-17", Date.UTC(2026, 6, 17, 6, 58), 12, SESSION_ID),
+  day("2026-07-16", Date.UTC(2026, 6, 16, 7, 12), 18, SESSION_ID),
+  // Oldest day predates the session table , unopenable.
+  day("2026-07-15", Date.UTC(2026, 6, 15, 8, 3), 9, null),
 ];
 
 const photoUrl = (path: string) => PHOTO_URLS.get(path) ?? svgPhoto(0);
@@ -44,7 +57,7 @@ const photoUrl = (path: string) => PHOTO_URLS.get(path) ?? svgPhoto(0);
 const SESSION_START = Date.UTC(2026, 6, 17, 19, 4, 2);
 const SESSIONS = [
   {
-    id: "isn_9f3ac1d2e4b5",
+    id: SESSION_ID,
     startedAt: SESSION_START,
     endedAt: SESSION_START + 134_000,
     durationMs: 134_000,
@@ -61,18 +74,13 @@ const meta = {
   component: ActivityPage,
   tags: ["autodocs"],
   parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
-  // Page-sized container standing in for the TileDetailHost content region ,
-  // fixed height because the body fills it (height:100%) to pin its header.
+  // Page-sized container standing in for the TileDetailHost full-bleed region ,
+  // fixed height because the body fills it (height:100%) to pin its header. No
+  // padding: the page is full-bleed and owns its own chrome, so the grid must
+  // reach the container's edges here exactly as it does on the panel.
   decorators: [
     (Story) => (
-      <div
-        style={{
-          height: "100vh",
-          background: "var(--bg)",
-          padding: 24,
-          boxSizing: "border-box",
-        }}
-      >
+      <div style={{ height: "100vh", background: "var(--bg)", boxSizing: "border-box" }}>
         <Story />
       </div>
     ),
@@ -81,6 +89,7 @@ const meta = {
     sessions: SESSIONS,
     selectedSession: null,
     onSelectSession: fn(),
+    onBack: fn(),
   },
 } satisfies Meta<typeof ActivityPage>;
 
@@ -97,7 +106,9 @@ export const Grid: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText(/39 photos/)).toBeInTheDocument();
-    await expect(canvas.getByText(/2026-07-17 · 12 wakes/)).toBeInTheDocument();
+    // Shared PhotoGrid date header , label and count are separate elements.
+    await expect(canvas.getByRole("heading", { name: /2026-07-17/ })).toBeInTheDocument();
+    await expect(canvas.getByText("12 wakes")).toBeInTheDocument();
 
     // The mode header is pinned OUTSIDE the single scroller (a sibling, not a
     // child), so scrolling the grid to the bottom must not scroll the
@@ -108,15 +119,37 @@ export const Grid: Story = {
   },
 };
 
-export const Timelapse: Story = {
-  args: {
-    ...Grid.args,
-  },
-  play: async ({ canvasElement }) => {
+/**
+ * The point of the gallery: a wake photo is a way into the visit it came from,
+ * so tapping one selects its session and switches to the Sessions mode rather
+ * than opening a lightbox.
+ */
+export const PhotoOpensSession: Story = {
+  args: { ...Grid.args },
+  play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("radio", { name: "Timelapse" }));
-    await waitFor(() => expect(canvas.getByLabelText("Scrub timelapse")).toBeInTheDocument());
-    await expect(canvas.getByLabelText("Pause timelapse")).toBeInTheDocument();
+    const [cell] = canvas.getAllByRole("button", { name: /Open session from/ });
+    await userEvent.click(cell);
+    await expect(args.onSelectSession).toHaveBeenCalledWith(SESSION_ID);
+    await waitFor(() => expect(canvas.getByRole("radio", { name: "Sessions" })).toBeChecked());
+  },
+};
+
+/**
+ * Backfilled frames have no session to open. They render dimmed and disabled
+ * rather than absorbing a tap that silently does nothing.
+ */
+export const BackfilledUnopenable: Story = {
+  // Its own spy , the meta-level fn() instance is shared across composed
+  // stories, so a sibling's click would otherwise count against this one.
+  args: { ...Grid.args, onSelectSession: fn() },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    const inert = canvas.getAllByRole("button", { name: /^Wake at/ });
+    await expect(inert.length).toBeGreaterThan(0);
+    await expect(inert[0]).toBeDisabled();
+    await userEvent.click(inert[0]);
+    await expect(args.onSelectSession).not.toHaveBeenCalled();
   },
 };
 

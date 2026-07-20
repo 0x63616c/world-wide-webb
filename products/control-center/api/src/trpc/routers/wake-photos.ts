@@ -7,7 +7,13 @@ const WakePhotoListingSchema = z.object({
   days: z.array(
     z.object({
       day: z.string(),
-      photos: z.array(z.object({ path: z.string(), capturedAt: z.number() })),
+      photos: z.array(
+        z.object({
+          path: z.string(),
+          capturedAt: z.number(),
+          interactionSessionId: z.string().nullable(),
+        }),
+      ),
     }),
   ),
   totalCount: z.number(),

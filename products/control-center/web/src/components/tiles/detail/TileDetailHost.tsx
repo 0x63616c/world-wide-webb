@@ -129,9 +129,11 @@ function TileDetailPage({
           color: "var(--ink)",
           fontFamily: "var(--ui)",
           overflow: "hidden",
-          // Keep content clear of the notch / home indicator (see below).
+          // Keep content clear of the notch / home indicator (see below). The
+          // BOTTOM inset is deliberately absent , full-bleed pages own their
+          // own bottom padding so content scrolls THROUGH the home indicator
+          // instead of stopping short of a dead band.
           paddingTop: "env(safe-area-inset-top, 0px)",
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
           paddingLeft: "env(safe-area-inset-left, 0px)",
           paddingRight: "env(safe-area-inset-right, 0px)",
           boxSizing: "border-box",
@@ -157,12 +159,17 @@ function TileDetailPage({
         color: "var(--ink)",
         fontFamily: "var(--ui)",
         overflow: "hidden",
-        // Keep content clear of the notch / Dynamic Island and the home
-        // indicator. index.html sets viewport-fit=cover, so without this the
-        // page draws under both. Padding (not inset) so the background still
-        // fills those regions.
+        // Keep content clear of the notch / Dynamic Island. index.html sets
+        // viewport-fit=cover, so without this the page draws under it. Padding
+        // (not inset) so the background still fills that region.
+        //
+        // The BOTTOM inset is NOT reserved here. Doing so parked a fixed band
+        // outside the scroll region that content could never reach , the last
+        // grid row clipped against it, and the band stacked on the scroller's
+        // own 24px to read as a ~1.5cm gap against 24px at the top. The inset
+        // now lives in the scroll region's padding below, so content scrolls
+        // through the home indicator and rests at the same 24px as the header.
         paddingTop: "env(safe-area-inset-top, 0px)",
-        paddingBottom: "env(safe-area-inset-bottom, 0px)",
         paddingLeft: "env(safe-area-inset-left, 0px)",
         paddingRight: "env(safe-area-inset-right, 0px)",
         boxSizing: "border-box",
@@ -171,7 +178,14 @@ function TileDetailPage({
       <PageHeader title={entry.title} onBack={closeTileDetail} />
       {/* Full-width content region , no 720px Settings cap. Variants carry their
           own max-width (920px) until per-screen redesigns land. */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 24 }}>
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          padding: "24px 24px calc(24px + env(safe-area-inset-bottom, 0px))",
+        }}
+      >
         {active ? (
           active.render()
         ) : (

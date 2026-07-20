@@ -14,6 +14,7 @@
 import { useState } from "react";
 import { ActivityPage } from "@/components/tiles/ActivityPage";
 import { POLL } from "@/lib/hooks";
+import { closeTileDetail } from "@/lib/tile-detail-store";
 import { trpc } from "@/lib/trpc";
 import type { DetailVariant, TileDetailPageEntry } from "../types";
 
@@ -54,6 +55,7 @@ function useActivityVariants(): { variants: DetailVariant[]; loading: boolean } 
           sessions={sessionRows}
           selectedSession={selectedSession}
           onSelectSession={setSelectedSessionId}
+          onBack={closeTileDetail}
         />
       ),
     },
@@ -66,6 +68,10 @@ export const activityDetailEntry: TileDetailPageEntry = {
   kind: "page",
   tileId: "tile_wakes",
   title: "Activity",
+  // Full-bleed so the gallery grid runs edge-to-edge like the photo booth's;
+  // ActivityPage owns its own PageHeader. The PIN gate is unaffected , it runs
+  // in GatedTileDetail, before chrome matters.
+  chrome: "none",
   requiresPin: true,
   defaultSlug: "activity",
   useVariants: useActivityVariants,

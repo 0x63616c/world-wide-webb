@@ -9,7 +9,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import * as stories from "../ActivityPage.stories";
 
-const { Grid, Timelapse, Empty } = composeStories(stories);
+const { Grid, PhotoOpensSession, BackfilledUnopenable, Empty } = composeStories(stories);
 
 afterEach(cleanup);
 
@@ -20,10 +20,14 @@ describe("ActivityPage stories", () => {
     expect(screen.getByText(/39 photos/)).toBeDefined();
   });
 
-  it("Timelapse: mode toggle reveals player controls", async () => {
-    const { container } = render(<Timelapse />);
-    if (Timelapse.play) await Timelapse.play({ canvasElement: container });
-    expect(screen.getByLabelText("Scrub timelapse")).toBeDefined();
+  it("PhotoOpensSession: tapping a photo selects its session", async () => {
+    const { container } = render(<PhotoOpensSession />);
+    if (PhotoOpensSession.play) await PhotoOpensSession.play({ canvasElement: container });
+  });
+
+  it("BackfilledUnopenable: sessionless photos are inert", async () => {
+    const { container } = render(<BackfilledUnopenable />);
+    if (BackfilledUnopenable.play) await BackfilledUnopenable.play({ canvasElement: container });
   });
 
   it("Empty: explains where photos come from", async () => {
