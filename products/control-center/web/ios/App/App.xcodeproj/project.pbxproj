@@ -18,6 +18,8 @@
 		6B6DFC2E56D9334EB237C6BA /* KioskHealth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61CC60A5845E8DFAA563722E /* KioskHealth.swift */; };
 		958DCC742DB08A0000EA8C5F /* KioskViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958DCC732DB08A0000EA8C5F /* KioskViewController.swift */; };
 		A781185F97AFAFF10D4FC405 /* KioskWatchdog.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDF3085D97C8694414B645FB /* KioskWatchdog.swift */; };
+		7A1E7FAC0002BDE64C0FA106 /* SystemSoundPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1E7FAC0001BDE64C0FA106 /* SystemSoundPlugin.swift */; };
+		7A1E7FAC0004BDE64C0FA106 /* PanelVolumePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1E7FAC0003BDE64C0FA106 /* PanelVolumePlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +36,8 @@
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		958DCC732DB08A0000EA8C5F /* KioskViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KioskViewController.swift; sourceTree = "<group>"; };
 		EDF3085D97C8694414B645FB /* KioskWatchdog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KioskWatchdog.swift; sourceTree = "<group>"; };
+		7A1E7FAC0001BDE64C0FA106 /* SystemSoundPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SystemSoundPlugin.swift; sourceTree = "<group>"; };
+		7A1E7FAC0003BDE64C0FA106 /* PanelVolumePlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PanelVolumePlugin.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,6 +83,8 @@
 				50B271D01FEDC1A000F3C39B /* public */,
 				61CC60A5845E8DFAA563722E /* KioskHealth.swift */,
 				EDF3085D97C8694414B645FB /* KioskWatchdog.swift */,
+				7A1E7FAC0001BDE64C0FA106 /* SystemSoundPlugin.swift */,
+				7A1E7FAC0003BDE64C0FA106 /* PanelVolumePlugin.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -168,6 +174,8 @@
 				958DCC742DB08A0000EA8C5F /* KioskViewController.swift in Sources */,
 				6B6DFC2E56D9334EB237C6BA /* KioskHealth.swift in Sources */,
 				A781185F97AFAFF10D4FC405 /* KioskWatchdog.swift in Sources */,
+				7A1E7FAC0002BDE64C0FA106 /* SystemSoundPlugin.swift in Sources */,
+				7A1E7FAC0004BDE64C0FA106 /* PanelVolumePlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

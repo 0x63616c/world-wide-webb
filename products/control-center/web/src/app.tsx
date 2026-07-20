@@ -6,6 +6,7 @@ import { PushRegistrar } from "./components/PushRegistrar";
 import { queryClient, trpc, trpcClient } from "./lib/trpc";
 import { useDeviceSettingsSync } from "./lib/useDeviceSettingsSync";
 import { useSettingsSync } from "./lib/useSettingsSync";
+import { useVolumeSync } from "./lib/useVolumeSync";
 import { startVersionCheck } from "./lib/version-check";
 import { routeTree } from "./routeTree.gen";
 
@@ -32,6 +33,14 @@ function DeviceSettingsSync() {
   return null;
 }
 
+// Applies the stored volume to the device and adopts hardware button presses
+// back. Separate from DeviceSettingsSync because it touches no tRPC at all ,
+// it is purely store ↔ hardware, and is a no-op off the panel.
+function VolumeSync() {
+  useVolumeSync();
+  return null;
+}
+
 export function App() {
   // Kiosk auto-refresh (www-ss8s): poll the deployed build stamp and hard-reload
   // once when an OTA deploy ships a new SHA. No-op in local dev (hash "dev").
@@ -42,6 +51,7 @@ export function App() {
       <QueryClientProvider client={queryClient}>
         <SettingsSync />
         <DeviceSettingsSync />
+        <VolumeSync />
         {/* Persists the board's ephemeral banner alerts into the Notification
             Center. Lives here, not in Board, because it needs the tRPC provider
             and renders nothing , and because keeping it out of Board keeps the

@@ -10,7 +10,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         application.isIdleTimerDisabled = true
         requestCameraAccessUpFront()
+        configureAudioSession()
         return true
+    }
+
+    // The panel makes sound (the photo booth's shutter and countdown, and
+    // whatever comes later), and under the default audio session category all of
+    // it is silenced by the iPad's physical mute switch. That switch cannot be
+    // read or set from code - there is no API for it at all - so a panel muted
+    // by a flick of a switch nobody remembers touching would be undiagnosable
+    // from the app's side.
+    //
+    // `.playback` is the category for audio that IS the point rather than
+    // accompanying something else, and iOS exempts it from the mute switch. For
+    // a wall fixture that is the honest description: its sounds are deliberate,
+    // and the volume slider in Settings is the way to silence it.
+    private func configureAudioSession() {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            // Non-fatal: sound still plays, it just obeys the mute switch again.
+            os_log("kiosk audio session setup failed: %@", error.localizedDescription)
+        }
     }
 
     // Wake-photo bursts call getUserMedia from the webview mid-wake, and WebKit
