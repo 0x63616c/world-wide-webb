@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { NotificationBridge } from "./components/NotificationBridge";
 import { PushRegistrar } from "./components/PushRegistrar";
 import { queryClient, trpc, trpcClient } from "./lib/trpc";
+import { useDeviceSettingsSync } from "./lib/useDeviceSettingsSync";
 import { useSettingsSync } from "./lib/useSettingsSync";
 import { startVersionCheck } from "./lib/version-check";
 import { routeTree } from "./routeTree.gen";
@@ -23,6 +24,14 @@ function SettingsSync() {
   return null;
 }
 
+// Same job for the per-device settings row (volume). A SEPARATE component, not
+// another hook call inside SettingsSync: each owns a tRPC query, and keeping
+// them apart means one poll settling cannot re-render the other's subscribers.
+function DeviceSettingsSync() {
+  useDeviceSettingsSync();
+  return null;
+}
+
 export function App() {
   // Kiosk auto-refresh (www-ss8s): poll the deployed build stamp and hard-reload
   // once when an OTA deploy ships a new SHA. No-op in local dev (hash "dev").
@@ -32,6 +41,7 @@ export function App() {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <SettingsSync />
+        <DeviceSettingsSync />
         {/* Persists the board's ephemeral banner alerts into the Notification
             Center. Lives here, not in Board, because it needs the tRPC provider
             and renders nothing , and because keeping it out of Board keeps the
