@@ -5,9 +5,8 @@ import { Tile, TileHeader } from "@/components/ui";
  * PhotoBoothTile , the board face for the photo-booth feature (2x2, titled). A
  * standard TileHeader ("Photo Booth" + camera glyph) over a quiet body: the
  * camera mark sits inside the house nest chip (the same rounded-square recipe the
- * section-label `.ic` and TileDesign01 use), with the shared `.dot` accent in the
- * corner reading as "booth is here" the way the media/network tiles signal live.
- * The booth carries no live board state, so the dot is a static accent.
+ * section-label `.ic` and TileDesign01 use). No status dot: the booth carries no
+ * live board state, so nothing should read as one.
  *
  * Tapping the tile opens the fullscreen camera via the board's tile-detail registry
  * (detail/wiring/photo-booth.tsx), which hosts the camera ⇄ gallery navigation.
@@ -30,7 +29,6 @@ export function PhotoBoothTile() {
           placeItems: "center",
         }}
       >
-        <span className="dot" style={{ position: "absolute", top: 0, right: 0 }} />
         <div
           style={{
             width: 58,
