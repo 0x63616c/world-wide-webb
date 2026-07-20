@@ -78,6 +78,9 @@ export async function ytdlpDownload(
   if (!videoPath) {
     throw new Error(`yt-dlp reported no output path for ${videoId}`);
   }
+  if (!existsSync(videoPath)) {
+    throw new Error(`yt-dlp reported a path that does not exist: ${videoPath}`);
+  }
 
   return { videoPath, thumbPath: findThumbnailFor(videoPath) };
 }

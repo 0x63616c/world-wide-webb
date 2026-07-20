@@ -340,9 +340,6 @@ export const secretCatalog = {
     placeName: secret("Home Location", "place_name", "HOME_LOCATION__PLACE_NAME"),
     radiusMiles: secret("Home Location", "radius_miles", "HOME_LOCATION__RADIUS_MILES"),
   },
-  openRouter: {
-    apiKey: secret("OpenRouter", "credential", "OPENROUTER__CREDENTIAL"),
-  },
   spotify: {
     clientId: secret("Spotify", "client_id", "SPOTIFY__CLIENT_ID"),
     clientSecret: secret("Spotify", "client_secret", "SPOTIFY__CLIENT_SECRET"),

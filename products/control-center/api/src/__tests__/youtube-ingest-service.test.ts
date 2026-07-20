@@ -55,6 +55,24 @@ function mockExecFileOptions(sink: Array<Record<string, unknown>>, stdoutLines: 
   };
 }
 
+// ── fs mock ──────────────────────────────────────────────────────────────────
+// ytdlpDownload now verifies the path yt-dlp reports actually exists on disk
+// before trusting it. None of the fake paths in this file are real, so we mock
+// existsSync: true for the reported video path (the happy-path default), false
+// for thumbnail extensions (no thumbnail was written in these fixtures).
+
+const fsState = vi.hoisted(() => ({
+  existsImpl: (path: string) => !/\.(jpg|jpeg|png|webp)$/.test(path),
+}));
+
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    existsSync: (path: string) => fsState.existsImpl(path),
+  };
+});
+
 // ── DB mock ───────────────────────────────────────────────────────────────────
 
 const dbState = vi.hoisted(() => ({
@@ -98,6 +116,7 @@ beforeEach(() => {
   dbState.items = [];
   dbState.updates = [];
   execFileState.impl = null;
+  fsState.existsImpl = (path: string) => !/\.(jpg|jpeg|png|webp)$/.test(path);
 });
 
 afterEach(() => {
@@ -152,6 +171,14 @@ describe("ytdlpDownload", () => {
     await ytdlpDownload("abc123", "/media", new AbortController().signal);
     expect(calls[0]).not.toContain("-x");
     expect(calls[0]).not.toContain("bestaudio");
+  });
+
+  it("rejects when yt-dlp reports a path that does not exist on disk", async () => {
+    fsState.existsImpl = () => false;
+    captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
+    await expect(ytdlpDownload("abc123", "/media", new AbortController().signal)).rejects.toThrow(
+      /does not exist/,
+    );
   });
 });
 
