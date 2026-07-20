@@ -62,7 +62,7 @@ The `layout` tRPC router exposes `get` (merged, revision-tagged layout) and `sav
 
 Layout editing is entered from the Board page of Settings ("Edit layout" row) and opens a full-screen, zoomed-out editor (`components/layout-editor/`) that freezes the board underneath (idle glide-home and idle-dim both disabled while it's open). Tiles drag-and-snap to the grid with overlap spring-back; Save is gated behind the active bento pattern (an invalid arrangement can't be saved), and Reset/Cancel discard the working copy. Any tile without a saved position (including newly-registered tiles) surfaces via an unplaced-tile banner.
 
-Settings is a full-page (`1366x1024`) body-portal overlay, not a modal: `components/settings-page/` holds the shell (`SettingsPage.tsx`, sidebar + page routing), shared framing (`blocks.tsx`), the page registry (`pages.ts`), and eight presentational pages under `pages/` (Device, Display, Board, Network, Notifications, Debug, About, Security). Live state comes from the module-level settings store (`lib/settings.ts`), which syncs every field across panels through the server's settings singleton. The gear button opens Settings behind a 6-digit PIN gate (`components/pin/`, `PinGateModal` + `PinPadView`); the same gate guards the Wake photos viewer. The PIN is a synced settings field (`pinCode`, default `"000000"`), enforced frontend-only — the API never validates it beyond schema shape. A `showMinimap` setting (Board page) gates the board minimap. `TimeWheel` (`components/ui/`) is the shared wheel-style time-picker primitive (used by the Schedules editor).
+Settings is a full-page (`1366x1024`) body-portal overlay, not a modal: `components/settings-page/` holds the shell (`SettingsPage.tsx`, sidebar + page routing), shared framing (`blocks.tsx`), the page registry (`pages.ts`), and eight presentational pages under `pages/` (Device, Display, Board, Network, Notifications, Debug, About, Security). Live state comes from the module-level settings store (`lib/settings.ts`), which syncs every field across panels through the server's settings singleton. The gear button opens Settings behind a 6-digit PIN gate (`components/pin/`, `PinGateModal` + `PinPadView`); the same gate guards the Wake photos viewer. The PIN is a synced settings field (`pinCode`, default `"000000"`), enforced frontend-only — the API never validates it beyond schema shape. A `showMinimap` setting (Board page) gates the board minimap.
 
 Data access is through tRPC React Query in `products/control-center/web/src/lib/trpc.ts`. Queries retry with bounded exponential backoff; mutations do not retry. Unavailable data should render skeleton/error states, not invented values.
 
@@ -130,15 +130,10 @@ Registered workers currently include:
 - `sonos-volume-enforcer` every 1s.
 - `device-sync` every 1s, currently fan-only.
 - `party-mode` every 2s.
-- `schedule-runner` every 15s (light schedules, see below).
 - `weather-ingest` every 5m.
 - `asc-version-poll` every 1m (latest TestFlight build of the iOS shell, powering the board's update-available banner).
 
 The shared runtime in `packages/worker-runtime` (used by both worker apps) prevents overlapping cycles per worker, isolates failures, logs failure and recovery transitions, warns on slow cycles, and exposes stats.
-
-### Light schedules
-
-User-editable schedules drive the lights at times of day. The `light_schedules` table holds each schedule: days-of-week, a trigger (`fixed` HH:MM or `sun` sunrise/sunset ± offset, resolved from `weather_daily_reading` sun times), a target light set (`LIGHTS[].id`), and an action (on/off, curated `LampScene` colour, brightness, fade minutes). The `schedule-runner` worker (~15s) is DB-authoritative and **never calls Home Assistant**: on an edge-triggered once-per-day fire it writes desired state onto the target `device_state` rows (snap, or an in-process fade ramp for long transitions), and the `light-enforcer` actuates. A manual override during a fade wins — the runner drops any target whose desired no longer matches what it last wrote. CRUD + `nextRuns` live in the `schedules` tRPC router (`services/schedule-service.ts`, `schedule-fade.ts`, `schedule-runner-service.ts`); the wall-panel UI is the Schedules tile + expanded editor modal.
 
 `products/control-center/media-worker` is separate because downloads and enrichment are heavier than home-control loops. It imports through `@control-center/api/media` at `products/control-center/api/src/media.ts` and runs through the product-owned wrapper at `products/control-center/media-worker`.
 

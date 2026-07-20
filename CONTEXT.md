@@ -116,7 +116,7 @@ _Avoid_: login, auth, unlocked flag.
 **Worker Cycle**:
 One iteration of a named interval loop that runs on a fixed cadence and reconciles some slice of
 desired state against the physical home or an external service (lights, climate, Sonos volume,
-weather ingest, schedules, poll loops). Cycles never overlap with themselves.
+weather ingest, poll loops). Cycles never overlap with themselves.
 _Avoid_: tick, job (a Queue Job is different), task, cron.
 
 **Enforcer**:
