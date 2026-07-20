@@ -25,6 +25,10 @@ photos (own table, own storage dir, own router).
 - **Gallery**: `photo-booth-designs/gallery/GalleryDesign10.tsx` — "Minimal Squares".
   Edge-to-edge uniform square grid, oversized bold date headers, mode as tinted dot,
   quiet typographic lightbox with share + delete.
+- **Lightbox layout** (user-specified 2026-07-19): Delete button top-left; photo date
+  on the left; `‹` / `›` prev/next buttons flanking the image (navigate the whole roll
+  in time order); Share bottom-right; close by tapping anywhere outside the image
+  (backdrop) or Escape — no dedicated close button.
 
 ## New requirement: shared sticky page header
 

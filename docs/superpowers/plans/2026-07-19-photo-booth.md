@@ -90,7 +90,11 @@ Behavior (all locked in spec): timer cycle button Off→1→3→5→10s; screen-
 - Consumes: tRPC `boothPhotos.list` / `boothPhotos.delete` via the app's trpc client hooks (see existing `wake-photos` usage for the pattern); serve URL builder from Task 2; `PageHeader` from Task 1; `@capacitor/share` `Share.share({ url | files })` on native, hidden/no-op fallback on web.
 - Produces: `BoothGallery({ onBack }: { onBack: () => void })`.
 
-Minimal Squares design: edge-to-edge 8-col square grid, bold date headers, mode tinted dot, quiet lightbox with Share + Delete. `PageHeader` title "Photos", `right` = photo count, sticky above single scroll region. Delete = `boothPhotos.delete` + optimistic removal; copy is "Delete" (never trash/soft-delete wording). Empty state from GalleryDesign01's empty treatment, restyled minimal. 4-frame groups render as one composite 2x2 cell in the grid (group by groupId).
+Minimal Squares design: edge-to-edge 8-col square grid, bold date headers, mode tinted dot, quiet lightbox with Share + Delete. `PageHeader` title "Photos", `right` = photo count, sticky above single scroll region. Delete = `boothPhotos.remove({groupId})` + optimistic removal; copy is "Delete" (never trash/soft-delete wording). Empty state from GalleryDesign01's empty treatment, restyled minimal. 4-frame groups render as one composite 2x2 cell in the grid (group by groupId).
+
+Lightbox layout (user-specified, overrides prototype): Delete top-left; photo date on the left; `‹`/`›` buttons flanking the image, stepping through the whole roll in time order (wrap or disable at ends — disable); Share bottom-right; close via backdrop tap (anywhere outside image) or Escape — no close button.
+
+Backend contract (landed, 36eeb0f07): tRPC `boothPhotos.list` (groups newest-first, frames by frame_idx) and `boothPhotos.remove({groupId}) → {removed}`; serve `GET /media/booth-photos/<path>`; upload `POST /media/booth-photo` raw body + x-mode/x-captured-at/x-frame-idx/x-group-id/x-device-id headers.
 
 - [ ] Productionize; stories (populated + empty); `bun run typecheck`.
 - [ ] Commit `feat(control-center/web): photo booth gallery`, push.
