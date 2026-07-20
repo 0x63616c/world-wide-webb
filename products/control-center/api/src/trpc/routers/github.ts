@@ -8,7 +8,6 @@ import { publicProcedure, router } from "../init";
 const commitSchema = z.object({
   sha: z.string().describe("Full head SHA of the run's commit"),
   message: z.string(),
-  author: z.string(),
   committedAtUtc: z.string().describe("Run start time, the push's wall-clock moment"),
   state: z
     .enum(["deployed", "building", "failed", "skipped"])
@@ -16,6 +15,7 @@ const commitSchema = z.object({
   changedFileCount: z.number().int().nullable(),
   additions: z.number().int().nullable(),
   deletions: z.number().int().nullable(),
+  htmlUrl: z.string().describe("GitHub Actions run page, opened from the detail view"),
 });
 
 const deployStatusSchema = z.object({
@@ -27,11 +27,21 @@ const deployStatusSchema = z.object({
   mainHeadSha: z.string().nullable(),
   commitsBehind: z.number().int(),
   run: z
-    .object({ jobName: z.string(), stepName: z.string(), startedAtUtc: z.string() })
+    .object({
+      jobName: z.string(),
+      stepName: z.string(),
+      startedAtUtc: z.string(),
+      htmlUrl: z.string(),
+    })
     .nullable()
     .describe("The newest run while it is in flight"),
   failure: z
-    .object({ jobName: z.string(), stepName: z.string(), logTail: z.string().nullable() })
+    .object({
+      jobName: z.string(),
+      stepName: z.string(),
+      logTail: z.string().nullable(),
+      htmlUrl: z.string(),
+    })
     .nullable()
     .describe("Set when the newest completed run concluded failure"),
   commits: z.array(commitSchema),

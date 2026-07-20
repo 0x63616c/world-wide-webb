@@ -62,7 +62,7 @@ export function toModalCommits(status: DeployStatus, nowMs: number): DeployModal
     message: c.message,
     when: formatAgo(c.committedAtUtc, nowMs),
     state: c.state,
-    author: c.author,
+    htmlUrl: c.htmlUrl,
     filesChanged: c.changedFileCount ?? 0,
     additions: c.additions ?? 0,
     deletions: c.deletions ?? 0,

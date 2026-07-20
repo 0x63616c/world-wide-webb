@@ -488,13 +488,13 @@ export interface GithubDeployStatus {
   deployedAtUtc: string | null;
   mainHeadSha: string | null;
   commitsBehind: number;
-  run: { jobName: string; stepName: string; startedAtUtc: string } | null;
-  failure: { jobName: string; stepName: string; logTail: string | null } | null;
+  run: { jobName: string; stepName: string; startedAtUtc: string; htmlUrl: string } | null;
+  failure: { jobName: string; stepName: string; logTail: string | null; htmlUrl: string } | null;
   commits: {
     sha: string;
     message: string;
-    author: string;
     committedAtUtc: string;
+    htmlUrl: string;
     state: CommitDeployState;
     changedFileCount: number | null;
     additions: number | null;
@@ -525,6 +525,7 @@ export async function getGithubDeployStatus(): Promise<GithubDeployStatus> {
       jobName: latest.currentJobName ?? latest.workflowName,
       stepName: latest.currentStepName ?? "",
       startedAtUtc: latest.startedAtUtc.toISOString(),
+      htmlUrl: latest.htmlUrl,
     };
   } else if (latest && latest.conclusion === "failure") {
     const tailRows = await db
@@ -536,6 +537,7 @@ export async function getGithubDeployStatus(): Promise<GithubDeployStatus> {
       jobName: latest.failedJobName ?? "unknown job",
       stepName: latest.failedStepName ?? "unknown step",
       logTail: tailRows[0]?.logTail ?? null,
+      htmlUrl: latest.htmlUrl,
     };
   }
 
@@ -552,8 +554,8 @@ export async function getGithubDeployStatus(): Promise<GithubDeployStatus> {
     commits: runs.map((r) => ({
       sha: r.headSha,
       message: r.commitMessage ?? "(no commit message)",
-      author: r.commitAuthor ?? "unknown",
       committedAtUtc: r.startedAtUtc.toISOString(),
+      htmlUrl: r.htmlUrl,
       state: commitStateForRun(r),
       changedFileCount: r.changedFileCount,
       additions: r.additions,

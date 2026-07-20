@@ -36,6 +36,7 @@ function useDeploysVariants(): { variants: DetailVariant[]; loading: boolean } {
         jobName: d.run.jobName,
         stepName: d.run.stepName,
         elapsed: formatElapsed(d.run.startedAtUtc, nowMs),
+        htmlUrl: d.run.htmlUrl,
       }
     : null;
 
@@ -54,6 +55,7 @@ function useDeploysVariants(): { variants: DetailVariant[]; loading: boolean } {
                   jobName: d.failure.jobName,
                   stepName: d.failure.stepName,
                   logTail: d.failure.logTail ?? "(log tail not captured yet)",
+                  htmlUrl: d.failure.htmlUrl,
                 }
               : null
           }

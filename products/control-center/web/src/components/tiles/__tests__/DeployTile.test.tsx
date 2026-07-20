@@ -49,7 +49,7 @@ function statusFixture(overrides: Record<string, unknown> = {}) {
       {
         sha: "45d404effaaaabbbbcccc",
         message: "feat: thing",
-        author: "Calum",
+        htmlUrl: "https://github.com/0x63616c/world-wide-webb/actions/runs/1",
         committedAtUtc: iso(14 * 60_000),
         state: "deployed" as const,
         changedFileCount: 3,
@@ -85,7 +85,7 @@ describe("toModalCommits", () => {
         {
           sha: "abcdef0123456789",
           message: "fix: x",
-          author: "Calum",
+          htmlUrl: "https://github.com/0x63616c/world-wide-webb/actions/runs/1",
           committedAtUtc: iso(60_000),
           state: "failed" as const,
           changedFileCount: null,
@@ -100,7 +100,7 @@ describe("toModalCommits", () => {
         message: "fix: x",
         when: "1m",
         state: "failed",
-        author: "Calum",
+        htmlUrl: "https://github.com/0x63616c/world-wide-webb/actions/runs/1",
         filesChanged: 0,
         additions: 0,
         deletions: 0,

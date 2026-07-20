@@ -4,7 +4,7 @@
  * (hosted by TileDetailHost in the app), so stories mount it inside a plain
  * page-sized container matching the host's content region. Fixture data is
  * the repo's REAL state at 2026-07-18 15:52Z (gh run list + git log/show ,
- * shas, authors, and diffstats are genuine), so the prototype shows exactly
+ * shas and diffstats are genuine), so the prototype shows exactly
  * what the wall would have.
  */
 
@@ -20,7 +20,7 @@ const COMMITS: DeployModalCommit[] = [
     message: 'Revert "ci: add a dispatchable apply for the cloudflare edge stack"',
     when: "9m",
     state: "building",
-    author: "Calum",
+    htmlUrl: "https://github.com/0x63616c/world-wide-webb/actions/runs/5520252180",
     filesChanged: 1,
     additions: 0,
     deletions: 75,
@@ -30,7 +30,7 @@ const COMMITS: DeployModalCommit[] = [
     message: "ci: add a dispatchable apply for the cloudflare edge stack",
     when: "14m",
     state: "skipped",
-    author: "Calum",
+    htmlUrl: "https://github.com/0x63616c/world-wide-webb/actions/runs/6878438754",
     filesChanged: 1,
     additions: 75,
     deletions: 0,
@@ -40,7 +40,7 @@ const COMMITS: DeployModalCommit[] = [
     message: "fix(control-center/web): dim wake tap really is swallowed now",
     when: "15m",
     state: "skipped",
-    author: "Calum",
+    htmlUrl: "https://github.com/0x63616c/world-wide-webb/actions/runs/9989500815",
     filesChanged: 4,
     additions: 78,
     deletions: 16,
@@ -50,7 +50,7 @@ const COMMITS: DeployModalCommit[] = [
     message: "chore(ci/www-afz): refresh coverage + loc badges [skip ci]",
     when: "22m",
     state: "skipped",
-    author: "github-actions[bot]",
+    htmlUrl: "https://github.com/0x63616c/world-wide-webb/actions/runs/5693366908",
     filesChanged: 4,
     additions: 4,
     deletions: 4,
@@ -60,7 +60,7 @@ const COMMITS: DeployModalCommit[] = [
     message: "feat(control-center/web): logs viewer age column + auto-loading history",
     when: "30m",
     state: "deployed",
-    author: "Calum",
+    htmlUrl: "https://github.com/0x63616c/world-wide-webb/actions/runs/5024714280",
     filesChanged: 1,
     additions: 86,
     deletions: 28,
@@ -70,7 +70,7 @@ const COMMITS: DeployModalCommit[] = [
     message: "fix(control-center): apply review findings on session correlation",
     when: "35m",
     state: "skipped",
-    author: "Calum",
+    htmlUrl: "https://github.com/0x63616c/world-wide-webb/actions/runs/6101098034",
     filesChanged: 8,
     additions: 1618,
     deletions: 7,
@@ -80,7 +80,7 @@ const COMMITS: DeployModalCommit[] = [
     message: "feat(control-center/web): sessions view in the wake photo viewer",
     when: "41m",
     state: "skipped",
-    author: "Calum",
+    htmlUrl: "https://github.com/0x63616c/world-wide-webb/actions/runs/9952737185",
     filesChanged: 9,
     additions: 623,
     deletions: 7,
@@ -90,7 +90,7 @@ const COMMITS: DeployModalCommit[] = [
     message: "feat(control-center): correlate wake photos with interaction sessions",
     when: "45m",
     state: "deployed",
-    author: "Calum",
+    htmlUrl: "https://github.com/0x63616c/world-wide-webb/actions/runs/2179109673",
     filesChanged: 22,
     additions: 3071,
     deletions: 75,
@@ -151,7 +151,12 @@ type Story = StoryObj<typeof meta>;
 /** The repo's actual state at capture time: revert building, 89e8ff3 live. */
 export const Deploying: Story = {
   args: {
-    run: { jobName: "build-web", stepName: "docker buildx", elapsed: "9m12s" },
+    run: {
+      jobName: "build-web",
+      stepName: "docker buildx",
+      elapsed: "9m12s",
+      htmlUrl: "https://github.com/0x63616c/world-wide-webb/actions/runs/5520252180",
+    },
   },
 };
 
@@ -167,7 +172,12 @@ export const Idle: Story = {
 /** Deploy failed , log tail promoted above history. */
 export const Failed: Story = {
   args: {
-    failure: { jobName: "deploy", stepName: "pulumi up", logTail: LOG_TAIL },
+    failure: {
+      jobName: "deploy",
+      stepName: "pulumi up",
+      logTail: LOG_TAIL,
+      htmlUrl: "https://github.com/0x63616c/world-wide-webb/actions/runs/5520252180",
+    },
     commits: COMMITS.map((c) => (c.state === "building" ? { ...c, state: "failed" } : c)),
   },
 };
