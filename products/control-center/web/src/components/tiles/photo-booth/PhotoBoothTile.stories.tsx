@@ -18,14 +18,14 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Resting board face , "Photo Booth" header over the camera mark and accent dot. */
+/** Resting board face , "Photo Booth" header over the camera mark. */
 export const Default: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     // The registry label must match this title (tile-title-sync guard).
     await expect(canvas.getByText("Photo Booth")).toBeInTheDocument();
-    // The camera glyph (lucide svg) and the accent status dot both render.
+    // The camera glyph (lucide svg) renders. No status dot is asserted , the
+    // booth carries no live state, so the dot was deliberately dropped.
     await expect(canvasElement.querySelector(".lucide-camera")).toBeInTheDocument();
-    await expect(canvasElement.querySelector(".dot")).toBeInTheDocument();
   },
 };
