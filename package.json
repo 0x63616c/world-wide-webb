@@ -23,7 +23,6 @@
     "test:product-ci-isolation": "bun scripts/check-product-ci-isolation.ts",
     "test:tilt-product-lanes": "bun scripts/check-tilt-product-lanes.ts",
     "test:product-doc-paths": "bun scripts/check-product-doc-paths.ts",
-    "test:coverage": "bash scripts/coverage.sh",
     "identity:audit": "scripts/check-rename-identity.py",
     "measure:ci": "bun scripts/measure-ci-latency.ts",
     "check:control-center-product-boundary": "bun scripts/check-control-center-product-boundary.ts",
