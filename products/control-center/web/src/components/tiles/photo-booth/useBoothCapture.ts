@@ -27,7 +27,7 @@ import {
   bakeFrame,
   uploadBoothPhoto,
 } from "../../../lib/booth-capture";
-import { playCountdownTick, playShutter } from "./booth-sounds";
+import { playCue } from "../../../lib/sound";
 import { type CountdownOption, filterCss } from "./camera-model";
 
 // Sequence timing. Burst is a rapid stutter; four_frame is a paced posing
@@ -162,7 +162,7 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
   }
 
   function fireShutterCue(): void {
-    playShutter();
+    playCue("shutter");
     if (argsRef.current.flashOn) {
       setFlashing(true);
       setTimeout(() => {
@@ -208,7 +208,7 @@ export function useBoothCapture(args: BoothCaptureArgs): BoothCaptureController 
     for (let n = seconds; n > 0; n--) {
       if (!aliveRef.current) return;
       setCount(n);
-      playCountdownTick();
+      playCue("countdownTick");
       await sleep(1000);
     }
     if (aliveRef.current) setCount(null);

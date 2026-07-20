@@ -7,8 +7,9 @@
  * /System/Library/Audio/UISounds and we only ask the system to play it.
  *
  * Native-only by nature. Off the kiosk (a browser, Storybook, CI) the plugin is
- * absent, `playSystemSound` reports false, and callers fall back to their own
- * cue , see booth-sounds' playShutter.
+ * absent, `playSystemSound` reports false, and the caller falls back to
+ * synthesis. The only caller is the sound bus (lib/sound), which owns that
+ * choice for every cue.
  */
 
 import { Capacitor, registerPlugin } from "@capacitor/core";
