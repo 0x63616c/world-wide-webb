@@ -8,7 +8,7 @@
  * standing up a Postgres.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { jobWorker, reapStaleJobs, staleJobReaper } from "../jobs/job-worker";
+import { type JobSpec, jobWorker, reapStaleJobs, staleJobReaper } from "../jobs/job-worker";
 
 const noop = async () => {};
 
@@ -28,8 +28,12 @@ vi.mock("../jobs/queue", () => ({
 const dbMock = vi.hoisted(() => ({
   /** SQL text of every execute(), in order. */
   executeLog: [] as string[],
-  /** rowCount returned by the next execute() calls, shifted one per call. */
-  rowCounts: [] as number[],
+  /**
+   * RETURNING rows for the next execute() calls, shifted one per call. Each
+   * row is `{ exhausted }` , whether that stranded row's attempts had already
+   * reached max_attempts, mirroring the reaper's own RETURNING clause.
+   */
+  returningRows: [] as Array<Array<{ exhausted: boolean }>>,
 }));
 
 /** Recursively collect string content from a drizzle SQL object (see queue.test.ts). */
@@ -52,7 +56,7 @@ vi.mock("../db/index", () => ({
   db: {
     execute: async (frag: unknown) => {
       dbMock.executeLog.push(sqlText(frag));
-      return { rows: [], rowCount: dbMock.rowCounts.shift() ?? 0 };
+      return { rows: dbMock.returningRows.shift() ?? [] };
     },
   },
 }));
@@ -60,7 +64,7 @@ vi.mock("../db/index", () => ({
 beforeEach(() => {
   queueMock.claims = [];
   dbMock.executeLog = [];
-  dbMock.rowCounts = [];
+  dbMock.returningRows = [];
 });
 
 // ── tests ────────────────────────────────────────────────────────────────────
@@ -91,40 +95,41 @@ describe("jobWorker", () => {
 });
 
 describe("reapStaleJobs", () => {
-  const specs = [{ type: "youtube_ingest", handler: noop, maxMs: 60_000 }];
+  const specs: JobSpec[] = [{ type: "youtube_ingest", handler: noop, maxMs: 60_000 }];
 
   it("only ever requeues rows already at status='running'", async () => {
     // Prod-safety: the parked youtube_ingest backlog sits at `queued`. A reaper
     // that touched `queued` rows would unpark 93 downloads.
-    dbMock.rowCounts = [0];
+    dbMock.returningRows = [[]];
     await reapStaleJobs(specs);
     const [sqlIssued] = dbMock.executeLog;
     expect(sqlIssued).toContain("status = 'running'");
-    expect(sqlIssued).toContain("SET status = 'queued'");
+    expect(sqlIssued).toContain("'queued'");
   });
 
   it("scopes the sweep to the spec's own type and its lease", async () => {
-    dbMock.rowCounts = [0];
+    dbMock.returningRows = [[]];
     await reapStaleJobs(specs);
     const [sqlIssued] = dbMock.executeLog;
     expect(sqlIssued).toContain("youtube_ingest");
     expect(sqlIssued).toContain("locked_at <");
-    // maxMs (60s) + the 5 minute grace, in seconds.
-    expect(sqlIssued).toContain("360");
+    // maxMs (60s) + the 5 minute grace, in seconds. Anchored with the closing
+    // paren so this can't also match 3600 or 360000.
+    expect(sqlIssued).toContain("360)");
   });
 
   it("returns the number of rows requeued", async () => {
-    dbMock.rowCounts = [3];
+    dbMock.returningRows = [[{ exhausted: false }, { exhausted: false }, { exhausted: false }]];
     expect(await reapStaleJobs(specs)).toBe(3);
   });
 
   it("returns 0 when nothing is stranded", async () => {
-    dbMock.rowCounts = [0];
+    dbMock.returningRows = [[]];
     expect(await reapStaleJobs(specs)).toBe(0);
   });
 
   it("issues one sweep per spec and sums them", async () => {
-    dbMock.rowCounts = [1, 2];
+    dbMock.returningRows = [[{ exhausted: false }], [{ exhausted: false }, { exhausted: false }]];
     const reaped = await reapStaleJobs([
       { type: "notify", handler: noop, maxMs: 60_000 },
       { type: "youtube_ingest", handler: noop, maxMs: 3_600_000 },
@@ -137,6 +142,30 @@ describe("reapStaleJobs", () => {
     expect(await reapStaleJobs([])).toBe(0);
     expect(dbMock.executeLog).toHaveLength(0);
   });
+
+  it("fails a stranded row whose attempts have reached max_attempts, rather than requeueing it forever", async () => {
+    // A row an OOM kill strands at `running` with attempts already at the
+    // ceiling would otherwise be reclaimed and re-crash the process on every
+    // cycle , this is what stops that loop. Not counted in the requeued total.
+    dbMock.returningRows = [[{ exhausted: true }]];
+    const reaped = await reapStaleJobs(specs);
+    expect(reaped).toBe(0);
+    const [sqlIssued] = dbMock.executeLog;
+    expect(sqlIssued).toContain("'failed'");
+    expect(sqlIssued).toContain("attempts >= max_attempts");
+  });
+
+  it("still requeues a stranded row below the attempts ceiling", async () => {
+    dbMock.returningRows = [[{ exhausted: false }]];
+    const reaped = await reapStaleJobs(specs);
+    expect(reaped).toBe(1);
+  });
+
+  it("sums failed and requeued rows independently within one sweep", async () => {
+    dbMock.returningRows = [[{ exhausted: false }, { exhausted: true }, { exhausted: false }]];
+    // Only the two non-exhausted rows count as "requeued".
+    expect(await reapStaleJobs(specs)).toBe(2);
+  });
 });
 
 describe("staleJobReaper", () => {
@@ -147,7 +176,7 @@ describe("staleJobReaper", () => {
   });
 
   it("sweeps every spec it was built from on each cycle", async () => {
-    dbMock.rowCounts = [0, 0];
+    dbMock.returningRows = [[], []];
     const w = staleJobReaper([
       { type: "notify", handler: noop, maxMs: 1000 },
       { type: "youtube_ingest", handler: noop, maxMs: 1000 },

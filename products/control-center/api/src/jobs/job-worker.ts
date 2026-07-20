@@ -14,11 +14,11 @@ import { getLogger } from "@www/logger";
 import type { Worker } from "@www/worker-runtime";
 import { sql } from "drizzle-orm";
 import { db } from "../db/index";
-import { claimOne, type JobHandler } from "./queue";
+import { claimOne, type JobHandler, type JobType } from "./queue";
 
 /** One job type: what runs it, and how long it may take. */
 export interface JobSpec {
-  type: string;
+  type: JobType;
   handler: JobHandler;
   maxMs: number;
 }
@@ -60,7 +60,17 @@ export function jobWorker(spec: JobSpec): Worker {
  * yt-dlp resumes from its .part file when re-run against the same output path,
  * so a requeued download continues rather than starting over.
  *
- * Returns the number of rows requeued.
+ * The ceiling on attempts lives here rather than on the claim SELECT: a process
+ * death never reaches claimOne's own catch block, so a job that keeps killing
+ * its worker (OOM, a poison payload) would otherwise be requeued and reclaimed
+ * forever , and because claims order by priority DESC, created_at ASC, that
+ * same row would be reselected first on every cycle, permanently crash-looping
+ * the shared worker process out from under every other job type and enforcer
+ * cycle it hosts. Rows at or past max_attempts are failed here instead, loudly,
+ * rather than being silently parked (which `AND attempts < max_attempts` on the
+ * claim SELECT would do , that hides the failure instead of recording it).
+ *
+ * Returns the number of rows requeued (does not count rows failed outright).
  */
 export async function reapStaleJobs(specs: readonly JobSpec[]): Promise<number> {
   let reaped = 0;
@@ -69,16 +79,32 @@ export async function reapStaleJobs(specs: readonly JobSpec[]): Promise<number> 
     const result = await db.execute(
       sql`
         UPDATE job
-        SET status = 'queued', updated_at = now()
+        SET status = CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'queued' END,
+            last_error = CASE WHEN attempts >= max_attempts
+                         THEN 'stranded at running; attempts exhausted' ELSE last_error END,
+            locked_at = null,
+            updated_at = now()
         WHERE status = 'running'
           AND type = ${spec.type}
           AND locked_at < now() - make_interval(secs => ${Math.ceil(leaseMs / 1000)})
+        RETURNING attempts >= max_attempts AS exhausted
       `,
     );
-    const count = result.rowCount ?? 0;
-    if (count > 0) {
-      getLogger().warn({ type: spec.type, count, leaseMs }, "requeued stranded jobs");
-      reaped += count;
+    const rows = result.rows as Array<{ exhausted: boolean }>;
+    const failedCount = rows.filter((r) => r.exhausted).length;
+    const requeuedCount = rows.length - failedCount;
+    if (requeuedCount > 0) {
+      getLogger().warn(
+        { type: spec.type, count: requeuedCount, leaseMs },
+        "requeued stranded jobs",
+      );
+      reaped += requeuedCount;
+    }
+    if (failedCount > 0) {
+      getLogger().error(
+        { type: spec.type, count: failedCount, leaseMs },
+        "stranded jobs permanently failed; attempts exhausted",
+      );
     }
   }
   return reaped;

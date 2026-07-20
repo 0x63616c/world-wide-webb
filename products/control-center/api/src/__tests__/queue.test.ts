@@ -13,7 +13,7 @@
  * in the SQLRaw chunks. We walk them to find the terminal status branch.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { claimOne, enqueueJob } from "../jobs/queue";
+import { claimOne, enqueueJob, type JobType } from "../jobs/queue";
 
 // ── DB mock ───────────────────────────────────────────────────────────────────
 
@@ -144,7 +144,9 @@ afterEach(() => {
 
 describe("enqueueJob", () => {
   it("inserts a job row and returns its id", async () => {
-    const id = await enqueueJob("my_job", { foo: "bar" });
+    // Cast: proving the row is stored verbatim doesn't require a real type,
+    // just something enqueueJob's real signature wouldn't otherwise accept.
+    const id = await enqueueJob("my_job" as JobType, { foo: "bar" });
     expect(id).toBeGreaterThan(0);
     expect(mockState.inserts).toHaveLength(1);
     expect(mockState.inserts[0]).toMatchObject({ type: "my_job" });
@@ -152,7 +154,7 @@ describe("enqueueJob", () => {
 
   it("accepts priority and runAfter options", async () => {
     const future = new Date(Date.now() + 60_000);
-    await enqueueJob("my_job", {}, { priority: 5, runAfter: future, maxAttempts: 3 });
+    await enqueueJob("my_job" as JobType, {}, { priority: 5, runAfter: future, maxAttempts: 3 });
     expect(mockState.inserts[0]).toMatchObject({
       priority: 5,
       runAfter: future,
@@ -229,6 +231,22 @@ describe("claimOne , retry + backoff", () => {
 
   it("permanently fails once attempts reach max_attempts", async () => {
     mockState.claimedRow = makeRow({ type: "notify", attempts: 0, max_attempts: 1 });
+    await claimOne(
+      "notify",
+      async () => {
+        throw new Error("permanent");
+      },
+      1000,
+    );
+
+    expect(logContains("failed")).toBe(true);
+    expect(logContains("done")).toBe(false);
+  });
+
+  it("permanently fails on the last retry (attempts 4 of max_attempts 5)", async () => {
+    // Exercises the actual boundary arithmetic , attempts is pre-increment
+    // (claimOne adds one more below), so 4/5 is the final allowed retry.
+    mockState.claimedRow = makeRow({ type: "notify", attempts: 4, max_attempts: 5 });
     await claimOne(
       "notify",
       async () => {

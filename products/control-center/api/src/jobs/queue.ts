@@ -28,6 +28,10 @@ import { job } from "../db/schema";
  */
 export type JobHandler<T = unknown> = (payload: T, signal: AbortSignal) => Promise<void>;
 
+/** Every job type the queue knows how to run. Typo'd types compile-fail here
+ *  instead of silently registering a worker that claims nothing forever. */
+export type JobType = "notify" | "youtube_ingest";
+
 export interface EnqueueOptions {
   priority?: number;
   runAfter?: Date;
@@ -39,7 +43,7 @@ export interface EnqueueOptions {
  * The job is immediately claimable unless runAfter is in the future.
  */
 export async function enqueueJob(
-  type: string,
+  type: JobType,
   payload: unknown,
   opts: EnqueueOptions = {},
 ): Promise<number> {
@@ -80,7 +84,11 @@ function backoffSec(attempts: number): number {
  *
  * Returns true if a job was claimed and processed, false if none was available.
  */
-export async function claimOne(type: string, handler: JobHandler, maxMs: number): Promise<boolean> {
+export async function claimOne(
+  type: JobType,
+  handler: JobHandler,
+  maxMs: number,
+): Promise<boolean> {
   // Use a transaction so the claim + status update is atomic. The handler runs
   // OUTSIDE the transaction so a long download does not hold a lock on the job
   // row for its duration.
@@ -121,7 +129,7 @@ export async function claimOne(type: string, handler: JobHandler, maxMs: number)
   if (!claimed) return false;
 
   getLogger().info(
-    { jobId: claimed.id, type: claimed.type, attempts: claimed.attempts },
+    { jobId: claimed.id, type: claimed.type, attempts: claimed.attempts + 1 },
     "job claimed",
   );
 
@@ -144,7 +152,7 @@ export async function claimOne(type: string, handler: JobHandler, maxMs: number)
     await db.execute(
       sql`
         UPDATE job
-        SET status = 'done', last_error = null, updated_at = now()
+        SET status = 'done', last_error = null, locked_at = null, updated_at = now()
         WHERE id = ${claimed.id}
       `,
     );
@@ -166,6 +174,7 @@ export async function claimOne(type: string, handler: JobHandler, maxMs: number)
           SET status = 'queued',
               last_error = ${msg},
               run_after = now() + make_interval(secs => ${delaySec}),
+              locked_at = null,
               updated_at = now()
           WHERE id = ${claimed.id}
         `,
@@ -178,7 +187,7 @@ export async function claimOne(type: string, handler: JobHandler, maxMs: number)
       await db.execute(
         sql`
           UPDATE job
-          SET status = 'failed', last_error = ${msg}, updated_at = now()
+          SET status = 'failed', last_error = ${msg}, locked_at = null, updated_at = now()
           WHERE id = ${claimed.id}
         `,
       );
