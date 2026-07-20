@@ -277,8 +277,16 @@ jobs:
         # `deploy` needs `typecheck`, so a regression blocks the prod deploy (www-k6p1).
         run: bun run knip
 
+  # Build jobs depend on `changes` ONLY, not on test/typecheck. They run
+  # concurrently with the test suite instead of queueing behind it (measured
+  # 180s off the critical path, because the build fan-in is shorter than the
+  # test job and now hides entirely under it).
+  # This does NOT weaken the deploy gate: `deploy` still lists test + typecheck
+  # in its own `needs:`, so an image built for a commit that fails tests is
+  # simply never deployed. The only cost is building images for the ~9% of
+  # pushes that fail — they are content-addressed and otherwise inert.
   build-web:
-    needs: [changes, test, typecheck]
+    needs: [changes]
     if: needs.changes.outputs.web == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -306,7 +314,7 @@ jobs:
             BUILD_TIME=${{ env.BUILD_TIME }}
 
   build-api:
-    needs: [changes, test, typecheck]
+    needs: [changes]
     if: needs.changes.outputs.api == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -326,7 +334,7 @@ jobs:
             BUILD_HASH=${{ github.sha }}
 
   build-worker:
-    needs: [changes, test, typecheck]
+    needs: [changes]
     if: needs.changes.outputs.worker == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -344,7 +352,7 @@ jobs:
           cache-scope: worker
 
   build-storybook:
-    needs: [changes, test, typecheck]
+    needs: [changes]
     if: needs.changes.outputs.storybook == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -362,7 +370,7 @@ jobs:
           cache-scope: storybook
 
   build-drizzle:
-    needs: [changes, test, typecheck]
+    needs: [changes]
     if: needs.changes.outputs.drizzle == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -380,7 +388,7 @@ jobs:
           cache-scope: drizzle
 
   build-captive-portal:
-    needs: [changes, test, typecheck]
+    needs: [changes]
     if: needs.changes.outputs.captiveportal == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -398,7 +406,7 @@ jobs:
           cache-scope: captive-portal
 
   build-captive-portal-api:
-    needs: [changes, test, typecheck]
+    needs: [changes]
     if: needs.changes.outputs.captiveportal == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -416,7 +424,7 @@ jobs:
           cache-scope: captive-portal-api
 
   build-map-provision:
-    needs: [changes, test, typecheck]
+    needs: [changes]
     if: needs.changes.outputs.mapprovision == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
