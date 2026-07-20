@@ -13,6 +13,8 @@ import { createElement } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { BoothGallery, type BoothGroup } from "./BoothGallery";
 
+const DAY_MS = 86_400_000;
+
 const meta = {
   title: "Tiles/PhotoBooth/BoothGallery",
   component: BoothGallery,
@@ -78,8 +80,6 @@ export const FilteredLightbox: Story = {
 };
 
 // ---- fixtures --------------------------------------------------------------
-
-const DAY_MS = 86_400_000;
 
 /** A tiny gradient + emoji SVG, keyed by path so a frame always looks the same. */
 function svgFor(path: string): string {
