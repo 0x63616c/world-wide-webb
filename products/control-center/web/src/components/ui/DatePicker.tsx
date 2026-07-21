@@ -250,7 +250,7 @@ export function DatePicker({ value, onChange, label, referenceDate }: DatePicker
                   placeItems: "center",
                   fontFamily: "var(--mono)",
                   fontSize: 12.5,
-                  color: selected ? "#fff" : outside ? "var(--ink-3)" : "var(--ink-2)",
+                  color: selected ? "var(--bg)" : outside ? "var(--ink-3)" : "var(--ink-2)",
                   opacity: outside && !selected ? 0.4 : 1,
                   background: selected ? "var(--acc)" : "transparent",
                   border: `1px solid ${

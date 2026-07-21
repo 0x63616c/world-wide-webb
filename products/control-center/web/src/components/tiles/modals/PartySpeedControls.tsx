@@ -81,7 +81,7 @@ export function PartySpeedSegmented({ value, onChange, disabled }: SpeedWidgetPr
               fontSize: 14,
               fontWeight: 500,
               letterSpacing: ".02em",
-              color: active ? "#ffffff" : "var(--ink-2)",
+              color: active ? "var(--bg)" : "var(--ink-2)",
               background: active ? "var(--acc)" : "transparent",
               transition: "background .12s ease, color .12s ease",
             }}

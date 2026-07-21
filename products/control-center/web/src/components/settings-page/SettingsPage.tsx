@@ -209,7 +209,7 @@ export function SettingsPage({
                     height: 34,
                     borderRadius: 9,
                     background: p.tint,
-                    color: "#fff",
+                    color: "var(--bg)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
