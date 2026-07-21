@@ -1,7 +1,0 @@
-{
-  "schemaVersion": 1,
-  "slug": "captive-portal",
-  "displayName": "Captive Portal",
-  "productFolder": "products/captive-portal",
-  "runtimeStatus": "api-boundary"
-}
