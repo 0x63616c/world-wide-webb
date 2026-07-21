@@ -99,7 +99,7 @@ const GIF_MAGIC = [0x47, 0x49, 0x46, 0x38]; // "GIF8" , covers 87a and 89a.
 const MAX_JPEG_BYTES = 4 * 1024 * 1024;
 const MAX_GIF_BYTES = 16 * 1024 * 1024;
 
-function defaultBoothPhotoRoot(): string {
+export function defaultBoothPhotoRoot(): string {
   return join(env.MEDIA_STORAGE_DIR, "booth-photos");
 }
 

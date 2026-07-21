@@ -135,7 +135,7 @@ async function walkPhotoFiles(
 
   for (const name of names) {
     const parsed = parsePhotoFileName(name);
-    if (!parsed || parsed.ext !== "jpg") continue;
+    if (parsed?.ext !== "jpg") continue;
     const s = await stat(join(root, name)).catch(() => null);
     if (!s?.isFile()) continue;
     out.push({ path: name, capturedAt: parsed.capturedAt, bytes: s.size });

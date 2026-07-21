@@ -14,6 +14,7 @@ import {
 } from "./services/booth-photo-service";
 import { openCameraStream } from "./services/camera-service";
 import { getClimate } from "./services/climate-service";
+import { migratePhotoPaths } from "./services/photo-path-migration";
 import {
   backfillWakePhotoIndex,
   readWakePhoto,
@@ -39,6 +40,21 @@ try {
 } catch (err) {
   log.error({ err }, "migrations failed");
   throw err;
+}
+
+// Move any photos still under the legacy YYYY/MM/DD tree onto flat ISO-instant
+// names. Idempotent and a no-op once done, so it rides the same boot hook as
+// the backfill below , which must run AFTER it, since the backfill only
+// recognises the flat scheme.
+try {
+  const migrated = await migratePhotoPaths(db);
+  if (migrated.wake + migrated.booth + migrated.orphans > 0) {
+    log.info(migrated, "migrated photo paths to flat ISO names");
+  }
+} catch (err) {
+  // Non-fatal: legacy paths keep serving (the serve route is shape-agnostic),
+  // and the next boot retries.
+  log.error({ err }, "photo path migration failed");
 }
 
 // Index any wake photos that predate the wake_photo table (or that a failed
