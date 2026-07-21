@@ -110,6 +110,7 @@ Major tables include:
 - `lamp_mode` - singleton persistent party-mode state.
 - `media_source` and `media_item` - media pipeline state.
 - `board_tile_placement` - per-tile world position overrides for the board layout editor; absent rows fall back to `tile-registry.ts` defaults.
+- `weight_measurement` - append-only Renpho scale weigh-ins (kg canonical, lb display-only), ingested from an HA BLE sensor by the `weight-ingest` worker; sanity-band/manual exclusions live in `excluded_reason`, surfaced by the Weight tile and its Trend/Readings detail pages via the `weight` tRPC router.
 
 Both the API and workers run migrations at boot so whichever starts first can safely prepare the schema.
 
@@ -125,6 +126,7 @@ Registered workers currently include:
 - `device-sync` every 1s, currently fan-only.
 - `party-mode` every 2s.
 - `weather-ingest` every 5m.
+- `weight-ingest` every 1m (HA Renpho BLE weight sensor → `weight_measurement`).
 - `asc-version-poll` every 1m (latest TestFlight build of the iOS shell, powering the board's update-available banner).
 
 The shared runtime in `packages/worker-runtime` prevents overlapping cycles per worker, isolates failures, logs failure and recovery transitions, warns on slow cycles, and exposes stats.
