@@ -11,16 +11,11 @@
 
 ## Invariants
 
-- **Design for 10x-100x the current repo size.** Many more products, and many more
-  apps once the app construct lands. Do not reject a shared primitive because
-  today's call-site count is small or because the existing code is "already
-  testable" - that is a snapshot, not the design target. Weigh the cost at the
-  projected scale. Still split decisions by reversibility: data layout (storage
-  key/path layouts, DB schema, IDs, on-disk formats) is expensive to change later,
-  so get it right up front; code-level interfaces are cheap to refactor and can
-  wait for real consumers. Prefer centralize-plus-enforce over convention - put the
-  primitive in `packages/platform` and add a Biome rule banning the raw escape
-  hatch, the way the sound bus does.
+- **Design for 10x-100x this repo's size** - never reject a shared primitive on
+  "few call sites today". Get data layout (paths, schema, IDs, on-disk formats)
+  right up front; code interfaces are cheap to refactor later.
+- Shared primitives live in `packages/platform`, enforced by a Biome rule banning
+  the raw escape hatch (see the sound bus).
 - Fixed wall panel, `1366x1024`, not responsive.
 - Tile placement belongs in `products/control-center/web/src/lib/tile-registry.ts`.
 - Use shared UI primitives from `products/control-center/web/src/components/ui/`.
