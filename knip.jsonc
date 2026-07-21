@@ -111,6 +111,12 @@
       // Tests are in test/ - declare explicitly so knip registers them as entries.
       "entry": ["test/**/*.test.ts"]
     },
+    "products/control-center/web": {
+      // Guest portal entry (vite.portal.config.ts -> portal.html -> this file)
+      // is a second build knip's vite-plugin auto-detection doesn't see (it
+      // only picks up the default vite.config.ts / index.html pair).
+      "entry": ["src/portal/main.tsx"]
+    },
     "products/captive-portal/apps/frontend": {
       // `geist` ships the self-hosted Geist + Geist Mono woff2, vendored into
       // public/fonts and consumed via a CSS @font-face url() in theme.css
