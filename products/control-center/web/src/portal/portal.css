@@ -19,3 +19,13 @@ body {
   color: var(--ink);
   font-family: var(--ui);
 }
+
+/* Shared `ui/Button` (loading spinner) and the guest Connecting screen both
+   animate a spinner via `animation: spin ...`; theme.css defines this
+   keyframe for the panel bundle, but the guest bundle never imports
+   theme.css, so it's restated here (cheap, no other theme.css coupling). */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
