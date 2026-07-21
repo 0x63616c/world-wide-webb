@@ -1,14 +1,53 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { portalClient } from "./trpc";
 
-// The App (task 2.5) will drive runEffect(portalClient, effect); this just
-// proves the vanilla tRPC client is wired to the PortalClient shape
-// effects.ts expects, without hitting the network (constructing the client
-// doesn't issue a request).
+// Stubs global fetch with a minimal @trpc/client v11 httpBatchLink-compatible
+// response: a JSON array (batch envelope) of `{ result: { data } }` per op.
+// Captures the fetch call args so we can assert the batch link wired
+// portal.* onto /trpc (not /api/trpc) with the right HTTP method/body.
+function stubFetchReturning(data: unknown) {
+  const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
+    Promise.resolve({
+      ok: true,
+      status: 200,
+      json: async () => [{ result: { data } }],
+      text: async () => JSON.stringify([{ result: { data } }]),
+    }),
+  );
+  vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+  return fetchMock;
+}
+
 describe("portalClient", () => {
-  it("implements the PortalClient surface effects.ts consumes", () => {
-    expect(typeof portalClient.checkPassword).toBe("function");
-    expect(typeof portalClient.authorize).toBe("function");
-    expect(typeof portalClient.status).toBe("function");
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("issues a GET to /trpc/portal.status and resolves with the server data", async () => {
+    const fetchMock = stubFetchReturning({ state: "active" });
+
+    const result = await portalClient.status({ mac: "aa:bb:cc:dd:ee:ff" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url.startsWith("/trpc/portal.status")).toBe(true);
+    expect(init?.method ?? "GET").toBe("GET");
+    expect(result).toEqual({ state: "active" });
+  });
+
+  it("issues a POST to /trpc/portal.checkPassword carrying the password in the body", async () => {
+    const fetchMock = stubFetchReturning({ ok: true });
+
+    const result = await portalClient.checkPassword({
+      mac: "aa:bb:cc:dd:ee:ff",
+      password: "hunter2",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url.startsWith("/trpc/portal.checkPassword")).toBe(true);
+    expect(init?.method).toBe("POST");
+    expect(String(init?.body)).toContain("hunter2");
+    expect(result).toEqual({ ok: true });
   });
 });

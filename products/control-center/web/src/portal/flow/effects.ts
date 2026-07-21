@@ -6,7 +6,7 @@
 import type { FlowEvent, PortalEffect } from "./flow";
 
 // The slice of the portal router this runner calls. The real client (typed via
-// AppRouter, src/lib/trpc.ts) structurally satisfies this; tests inject a mock.
+// GuestRouter, src/portal/lib/trpc.ts) structurally satisfies this; tests inject a mock.
 export interface PortalClient {
   checkPassword(input: { mac: string; password: string }): Promise<{ ok: true }>;
   authorize(input: { mac: string }): Promise<{ authorized: true }>;
