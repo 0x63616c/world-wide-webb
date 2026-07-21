@@ -1,12 +1,15 @@
 /** @public , guest bundle groundwork; ported from captive-portal (www-2nrj). */
 export type { AlertProps } from "./Alert";
+/** @public , guest bundle groundwork; ported from captive-portal (www-2nrj). */
 export { Alert } from "./Alert";
 export { BorderProgressRing } from "./BorderProgressRing";
 /** @public , guest bundle groundwork; ported from captive-portal (www-2nrj). */
 export type { ButtonProps } from "./Button";
+/** @public , guest bundle groundwork; ported from captive-portal (www-2nrj). */
 export { Button } from "./Button";
 /** @public , guest bundle groundwork; ported from captive-portal (www-2nrj). */
 export type { CheckboxRowProps } from "./CheckboxRow";
+/** @public , guest bundle groundwork; ported from captive-portal (www-2nrj). */
 export { CheckboxRow } from "./CheckboxRow";
 export { Chip } from "./Chip";
 /** @public , shared tile-author primitive surface; kept though no internal consumer yet (www-k6p1). */
@@ -20,6 +23,7 @@ export type { DatePickerProps } from "./DatePicker";
 export { DatePicker } from "./DatePicker";
 /** @public , guest bundle groundwork; ported from captive-portal (www-2nrj). */
 export type { FieldProps } from "./Field";
+/** @public , guest bundle groundwork; ported from captive-portal (www-2nrj). */
 export { Field, fieldErrorId } from "./Field";
 /** @public , shared tile-author primitive surface; kept though no internal consumer yet (www-k6p1). */
 export type { ModalProps } from "./Modal";
