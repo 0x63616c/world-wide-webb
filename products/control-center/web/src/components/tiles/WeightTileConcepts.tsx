@@ -336,3 +336,132 @@ export function WeightConceptDetail({ onBack = () => {} }: { onBack?: () => void
     </div>
   );
 }
+
+// Raw readings fixture for the list view , newest first. Includes a same-day
+// double weigh-in and one auto-flagged guest reading.
+const READINGS: {
+  when: string;
+  lb: number;
+  delta: number | null;
+  excluded: boolean;
+  auto?: boolean;
+}[] = [
+  { when: "Today · 7:12 AM", lb: 180.1, delta: 0.4, excluded: false },
+  { when: "Yesterday · 7:31 AM", lb: 179.7, delta: -0.9, excluded: false },
+  { when: "Jul 19 · 9:02 PM", lb: 213.9, delta: null, excluded: true, auto: true },
+  { when: "Jul 19 · 7:05 AM", lb: 180.6, delta: 0.7, excluded: false },
+  { when: "Jul 18 · 7:22 AM", lb: 179.9, delta: -0.4, excluded: false },
+  { when: "Jul 17 · 8:14 AM", lb: 180.3, delta: -0.7, excluded: false },
+  { when: "Jul 16 · 7:44 AM", lb: 181.0, delta: 0.4, excluded: false },
+  { when: "Jul 16 · 7:41 AM", lb: 181.1, delta: null, excluded: false },
+  { when: "Jul 15 · 7:19 AM", lb: 180.6, delta: -0.6, excluded: false },
+  { when: "Jul 14 · 7:52 AM", lb: 181.2, delta: 0.4, excluded: false },
+];
+
+/**
+ * Readings list concept , full-screen page listing every raw measurement.
+ * Excluded rows are dimmed with a reason chip; each row has an include/exclude
+ * toggle, so flagging mistakes (guest weigh-in kept, real reading auto-flagged)
+ * is fixable from the panel , no SQL.
+ */
+export function WeightConceptReadings({ onBack = () => {} }: { onBack?: () => void }) {
+  return (
+    <div
+      style={{
+        width: 1366,
+        height: 1024,
+        background: "var(--bg, #16171b)",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <PageHeader title="Readings" onBack={onBack} />
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          padding: "0 220px 48px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
+        {READINGS.map((r) => (
+          <div
+            key={r.when}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 18,
+              padding: "18px 24px",
+              background: "var(--nest)",
+              border: "1px solid var(--hair)",
+              borderRadius: 14,
+              opacity: r.excluded ? 0.55 : 1,
+            }}
+          >
+            <span className="mono" style={{ fontSize: 14, color: "var(--ink-2)", width: 220 }}>
+              {r.when}
+            </span>
+            <span
+              className="mono"
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                textDecoration: r.excluded ? "line-through" : "none",
+              }}
+            >
+              {r.lb.toFixed(1)}{" "}
+              <span style={{ fontSize: 13, fontWeight: 400, color: "var(--ink-2)" }}>lb</span>
+            </span>
+            {r.delta != null && (
+              <span
+                className="mono"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: r.delta < 0 ? "var(--acc)" : "var(--ink-2)",
+                }}
+              >
+                {r.delta > 0 ? "+" : ""}
+                {r.delta.toFixed(1)}
+              </span>
+            )}
+            {r.auto && (
+              <span
+                className="mono"
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--ink-2)",
+                  border: "1px solid var(--hair)",
+                  borderRadius: 999,
+                  padding: "3px 10px",
+                }}
+              >
+                AUTO-FLAGGED · +33 lb
+              </span>
+            )}
+            <button
+              type="button"
+              style={{
+                marginLeft: "auto",
+                background: "transparent",
+                border: "1px solid var(--hair)",
+                borderRadius: 10,
+                color: r.excluded ? "var(--acc)" : "var(--ink-2)",
+                fontSize: 13,
+                fontWeight: 600,
+                padding: "8px 16px",
+                cursor: "pointer",
+              }}
+            >
+              {r.excluded ? "Include" : "Exclude"}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

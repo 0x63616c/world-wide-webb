@@ -59,6 +59,11 @@ Unique on `measured_at` (sensor timestamp) for ingest idempotency.
 - `weight.summary` tRPC query: `{ range: "7d" | "30d" | "all" }` → daily series
   + latest + low/high/average/change for the window. Change = latest vs
   earliest daily value inside the window.
+- `weight.readings` tRPC query: all raw measurements newest-first (included and
+  excluded, with delta vs previous included reading).
+- `weight.setExcluded` tRPC mutation: `{ id, excluded: boolean }` → sets/clears
+  `excluded_reason` (`manual` when set by hand). Auto-flag is only the default;
+  the readings page is the source of truth for inclusion.
 
 ## UI (concepts approved in Storybook: `Experiments/Weight Tile`)
 
@@ -70,12 +75,17 @@ Unique on `measured_at` (sensor timestamp) for ingest idempotency.
   PageHeader (back + "Weight" + current weight top right), centered 7d/30d/All
   Segmented range picker, chart filling the remaining height with min/max
   gridlines + selective labels, Low/High/Average/Change stat row pinned at the
-  bottom.
+  bottom, plus an "All readings ›" affordance opening the readings page.
+- **Readings page** (full-screen): every raw measurement newest-first — time,
+  weight, delta vs previous included reading, AUTO-FLAGGED chip on sanity-band
+  rows (struck-through + dimmed). Every row has an Include/Exclude toggle
+  (accent Include on excluded rows). Date renders only on the first row of each
+  day; same-day repeats show time only.
 - Skeleton/error states per house tile pattern; no invented values. Empty
   history (day one) renders the skeleton until the first weigh-in lands.
 
 ## Out of scope (deliberately)
 
 - Body-comp display (fat/muscle/water/BMR) — stored, not shown.
-- Excluded-readings review UI. Unflag via SQL if ever needed.
+
 - Unit setting (lb hardcoded at display), goals, annotations, Apple Health.

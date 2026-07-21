@@ -1,7 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 import { tilePixelSize } from "@/lib/grid-constants";
-import { ICON_CANDIDATES, WeightConceptDetail, WeightConceptSparkline } from "./WeightTileConcepts";
+import {
+  ICON_CANDIDATES,
+  WeightConceptDetail,
+  WeightConceptReadings,
+  WeightConceptSparkline,
+} from "./WeightTileConcepts";
 
 /**
  * Chosen Weight tile concept (hero + sparkline, 3x2, 30-day window) rendered at
@@ -69,5 +74,16 @@ export const Detail: Story = {
     // Modal portals to <body>, look there instead of the canvas root.
     const body = within(canvasElement.ownerDocument.body);
     await expect(await body.findByText("Average")).toBeInTheDocument();
+  },
+};
+
+/** Full-screen raw readings list with include/exclude per row. */
+export const Readings: Story = {
+  name: "Readings list",
+  render: () => <WeightConceptReadings />,
+  parameters: { docs: { story: { inline: false, height: "760px" } } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(/AUTO-FLAGGED/)).toBeInTheDocument();
   },
 };
