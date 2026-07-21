@@ -2,9 +2,14 @@ import type { InfraNamespaceName } from "./cluster.ts";
 
 export const GHCR_PULL_SECRET_NAME = "ghcr-pull";
 
+// "captive-portal" REMOVED (Task 4 step C, SDD track 0): its only GHCR-image
+// consumers (the captive-portal-portal/captive-portal-api workloads) were
+// deleted once the guest listener cutover moved all guest traffic onto
+// control-center-api; the namespace's remaining resident (the pg-backup
+// CronJob) uses the public ghcr.io/cloudnative-pg/postgresql image, no pull
+// secret needed.
 export const GHCR_PULL_SECRET_NAMESPACES = [
   "control-center",
-  "captive-portal",
 ] as const satisfies readonly InfraNamespaceName[];
 
 type GhcrPullSecretConsumer = {

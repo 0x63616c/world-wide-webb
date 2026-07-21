@@ -35,9 +35,20 @@ describe("secret catalog and service usage", () => {
   test("env-key coverage: platform secret usages and infra SERVICE_SECRETS agree on env names per service (CC-k8t7: values now vault keys not remoteRef)", () => {
     // SERVICE_SECRETS values are now vault keys (ITEM__FIELD), not 1P remoteRef.
     // Assert env-name set coverage only; value format changed in CC-k8t7.
+    //
+    // captive-portal-api is EXCLUDED here (Task 4 step C, SDD track 0): its
+    // workload was deleted from infra/src/services.ts once the guest listener
+    // cutover moved all guest traffic onto control-center-api, so infra's
+    // SERVICE_SECRETS deliberately dropped that key , but
+    // captivePortalProductManifest() still declares the usage (cnpg.ts/
+    // crons.ts still call it independently for the still-live captive-portal
+    // Postgres database + backup CronJob), so it stays a real platform usage
+    // with no infra consumer, not a genuine coverage gap.
     const captivePortal = captivePortalProductManifest().secretUsages;
     const captivePortalPrefixed = Object.fromEntries(
-      Object.entries(captivePortal).map(([svc, usage]) => [`captive-portal-${svc}`, usage]),
+      Object.entries(captivePortal)
+        .filter(([svc]) => svc !== "api")
+        .map(([svc, usage]) => [`captive-portal-${svc}`, usage]),
     );
     const allUsages = { ...controlCenterServiceSecretUsages(), ...captivePortalPrefixed };
     const platformMap = serviceSecretMap(allUsages);

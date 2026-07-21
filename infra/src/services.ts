@@ -10,11 +10,7 @@
 
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
-import {
-  captivePortalProductManifest,
-  controlCenterProductManifest,
-  defineProduct,
-} from "@www/platform";
+import { controlCenterProductManifest, defineProduct } from "@www/platform";
 import type { InfraNamespaceName } from "./cluster.ts";
 import type { WorkloadSpec } from "./component.ts";
 import { ExternalService, Workload } from "./component.ts";
@@ -129,8 +125,10 @@ const TZ = "America/Los_Angeles";
 // the default host "postgres" was the Swarm service name and does NOT resolve in
 // k3s, so set it to the CNPG Service explicitly (a live-deploy finding).
 const controlCenterDatabase = controlCenterProductManifest().database;
-const captivePortalManifest = captivePortalProductManifest();
-const captivePortalDatabase = captivePortalManifest.database;
+// captivePortalProductManifest() (database/secretUsages) is no longer needed
+// here (Task 4 step C removed the captive-portal-api workload that used it);
+// cnpg.ts/crons.ts/secrets-map.ts still call it independently for the DB +
+// backup CronJob, deliberately kept (see the Task 4 report).
 
 // go2rtc: the in-cluster RTSP->MJPEG restreamer for the bedroom camera. It runs
 // in the control-center namespace as a ClusterIP Service on :1984, and the api
@@ -357,61 +355,24 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       ports: [{ containerPort: 6006, expose: "cluster" }],
       imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
-    {
-      logicalName: "captive-portal-portal",
-      legacyLogicalName: "captive-portal",
-      name: "portal",
-      namespaceName: "captive-portal",
-      image: ghcr("captive-portal", digests),
-      replicas: 1,
-      resources: { memory: "64M" },
-      env: { TZ },
-      // LAN ports REMOVED (Task 4, SDD track 0): the guest listener cutover
-      // moved the LAN 443/80 LoadBalancer exposure onto control-center-api in
-      // this SAME commit (both workloads can't hold the LAN host ports at
-      // once, since OrbStack expose_services republishes exactly one
-      // LoadBalancer service's ports per host port). This workload is now
-      // fully dark (no ports exposed at all) and slated for deletion in step C.
-      ports: [],
-      // Mount the cert-manager-issued TLS secret (www-j934.5) for nginx. The
-      // secret is kubernetes.io/tls (keys tls.crt/tls.key), but the portal
-      // entrypoint + nginx expect the acme.sh filenames fullchain.pem/key.pem on
-      // /certs, so project the keys onto those paths (www-j934.20). Without this
-      // rename the entrypoint never finds the real cert and stays on its
-      // self-signed placeholder.
-      extraSecretMounts: [
-        {
-          secretName: "captive-portal-tls",
-          mountPath: "/certs",
-          items: [
-            { key: "tls.crt", path: "fullchain.pem" },
-            { key: "tls.key", path: "key.pem" },
-          ],
-        },
-      ],
-      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
-    },
-    {
-      logicalName: "captive-portal-api",
-      name: "api",
-      namespaceName: "captive-portal",
-      image: ghcr("captive-portal-api", digests),
-      replicas: 1,
-      resources: { memory: "256M" },
-      secrets: mountSecrets("captive-portal-api"),
-      secretName: captivePortalManifest.secretUsages.api.targetSecretName,
-      env: {
-        TZ,
-        APP_ENV: "production",
-        NODE_ENV: "production",
-        PORT: "4211",
-        POSTGRES_HOST: captivePortalDatabase.rwServiceName,
-        POSTGRES_DB: captivePortalDatabase.databaseName,
-        POSTGRES_USER: captivePortalDatabase.owner,
-      },
-      ports: [{ containerPort: 4211, expose: "cluster" }],
-      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
-    },
+    // captive-portal-portal and captive-portal-api workloads DELETED (Task 4
+    // step C, SDD track 0): both were fully dark (zero ports exposed) after
+    // step B's LAN cutover moved all guest traffic onto control-center-api.
+    // Deliberately NOT removed in this pass (needs a separate, explicit
+    // decision , see the Task 4 report for detail):
+    //  - the "captive-portal" namespace, its CNPG Postgres Clusters (cnpg.ts:
+    //    captivePortalProductManifest().database + retainedLegacyDatabases)
+    //    and pg-backup CronJob (crons.ts) , these hold real historical guest
+    //    authorization data with no migration/backup-verification step in
+    //    this task, and captivePortalProductManifest() is called
+    //    independently by cnpg.ts/crons.ts, so it's a live, separate concern
+    //    from these two app workloads, not a mechanical follow-on deletion.
+    //  - the "captive-portal"/"captive-portal-api" digestKey entries in
+    //    IMAGE_REPOSITORIES above: ci.yml's deploy job still unconditionally
+    //    collects and passes both digests every run (Task 5 removes those
+    //    build/collect steps) , removing the keys here NOW would make
+    //    validateImageDigests() reject every future deploy as soon as ci.yml
+    //    supplies an "unknown" key, breaking ALL workloads, not just these two.
     {
       logicalName: "control-center-drizzle",
       legacyLogicalName: "drizzle",

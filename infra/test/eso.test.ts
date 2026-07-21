@@ -47,6 +47,9 @@ describe("SERVICE_SECRETS", () => {
     expect("web" in map.SERVICE_SECRETS).toBe(false);
     expect("storybook" in map.SERVICE_SECRETS).toBe(false);
     expect("captive-portal" in map.SERVICE_SECRETS).toBe(false);
+    // captive-portal-api's workload was deleted (Task 4 step C, SDD track 0);
+    // its Secret is gone too.
+    expect("captive-portal-api" in map.SERVICE_SECRETS).toBe(false);
   });
 
   test("every ref is a VAULT_KEY (SCREAMING_SNAKE_CASE, no Item/field slash form)", () => {
@@ -59,17 +62,6 @@ describe("SERVICE_SECRETS", () => {
         expect(ref).toMatch(/^[A-Z0-9_]+$/);
       }
     }
-  });
-});
-
-describe("SERVICE_SECRETS: captive-portal-api", () => {
-  test("captive-portal-api entry matches the product API runtime contract", () => {
-    expect(map.SERVICE_SECRETS["captive-portal-api"]).toEqual({
-      POSTGRES_PASSWORD: "CAPTIVE_PORTAL_POSTGRES__PASSWORD",
-      UNIFI_API_KEY: "UNIFI__LOCAL_API_KEY",
-      WIFI_PASSWORD: "WIFI_GUEST_WIFI_PASSWORD",
-      WIFI_SSID: "WIFI_GUEST_WIFI_SSID",
-    });
   });
 });
 
@@ -112,26 +104,6 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
     expect(Object.keys(stringData)).toContain("WIFI_PASSWORD");
   });
 
-  test("captive-portal-api Secret is present", async () => {
-    const provider = new (await import("@pulumi/kubernetes")).Provider("test3", { context: "x" });
-    const mockVault: Record<string, string> = {};
-    for (const secrets of Object.values(map.SERVICE_SECRETS)) {
-      for (const vaultKey of Object.values(secrets)) {
-        mockVault[vaultKey] = `mock-${vaultKey}`;
-      }
-    }
-
-    const res = esoModule.installEso({
-      provider,
-      namespaces: testNamespaces,
-      vault: mockVault,
-    });
-    const names = await Promise.all(
-      res.externalSecrets.map((s) => get<{ name: string }>(s, "metadata").then((m) => m.name)),
-    );
-    expect(names).toContain("captive-portal-secrets-api");
-  });
-
   test("routes service Secrets to their owner namespaces", async () => {
     const provider = new (await import("@pulumi/kubernetes")).Provider("test4", { context: "x" });
     const mockVault: Record<string, string> = {};
@@ -151,9 +123,6 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
     );
     expect(metadata.find((m) => m.name === "platform-secrets-cloudflared")?.namespace).toBe(
       "platform",
-    );
-    expect(metadata.find((m) => m.name === "captive-portal-secrets-api")?.namespace).toBe(
-      "captive-portal",
     );
   });
 });

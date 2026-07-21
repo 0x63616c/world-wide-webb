@@ -49,12 +49,9 @@ const GOLDEN_SERVICE_SECRETS: Record<string, Record<string, string>> = {
   "portal-data-purge": {
     POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
   },
-  "captive-portal-api": {
-    POSTGRES_PASSWORD: "CAPTIVE_PORTAL_POSTGRES__PASSWORD",
-    UNIFI_API_KEY: "UNIFI__LOCAL_API_KEY",
-    WIFI_PASSWORD: "WIFI_GUEST_WIFI_PASSWORD",
-    WIFI_SSID: "WIFI_GUEST_WIFI_SSID",
-  },
+  // captive-portal-api REMOVED (Task 4 step C, SDD track 0): its workload was
+  // deleted once the guest listener cutover moved all guest traffic onto
+  // control-center-api.
 };
 
 // The exact SERVICE_SECRET_TARGETS map as it was hand-maintained before.
@@ -67,10 +64,6 @@ const GOLDEN_SERVICE_SECRET_TARGETS: Record<string, { namespaceName: string; sec
     "portal-data-purge": {
       namespaceName: "control-center",
       secretName: "control-center-secrets-portal-data-purge",
-    },
-    "captive-portal-api": {
-      namespaceName: "captive-portal",
-      secretName: "captive-portal-secrets-api",
     },
   };
 
@@ -106,5 +99,6 @@ describe("secrets derivation (golden equivalence, single-declaration refactor)",
     expect("web" in SERVICE_SECRETS).toBe(false);
     expect("storybook" in SERVICE_SECRETS).toBe(false);
     expect("captive-portal" in SERVICE_SECRETS).toBe(false);
+    expect("captive-portal-api" in SERVICE_SECRETS).toBe(false);
   });
 });

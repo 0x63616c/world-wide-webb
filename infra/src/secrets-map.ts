@@ -11,7 +11,6 @@
 // as a golden snapshot so any drift fails loudly.
 
 import {
-  captivePortalProductManifest,
   controlCenterServiceSecretUsages,
   type ServiceSecretUsage,
   serviceSecretMap,
@@ -22,11 +21,16 @@ import type { InfraNamespaceName } from "./cluster.ts";
 export type ServiceSecrets = Record<string, string>;
 
 // The infra/eso service keys mapped to their platform manifest usage. The
-// control-center usage names are 1:1 with the infra keys; the captive-portal
-// product API usage is exposed under the `captive-portal-api` eso service key.
-// web / storybook / captive-portal(app) have NO secrets and are absent on purpose.
+// control-center usage names are 1:1 with the infra keys.
+// web / storybook / captive-portal(app) have NO secrets and are absent on
+// purpose. The captive-portal-api eso service key was REMOVED (Task 4 step C,
+// SDD track 0): its workload (services.ts) was deleted once the guest
+// listener cutover moved all guest traffic onto control-center-api, so its
+// vault-derived Secret ("captive-portal-secrets-api") is now unused , this
+// next apply deletes it (a Secret holding credentials, not user data; the
+// captive-portal CNPG database itself is a SEPARATE, deliberately untouched
+// concern, see the Task 4 report).
 const controlCenterUsages = controlCenterServiceSecretUsages();
-const captivePortalUsages = captivePortalProductManifest().secretUsages;
 
 const serviceSecretUsages = {
   api: controlCenterUsages.api,
@@ -34,7 +38,6 @@ const serviceSecretUsages = {
   drizzle: controlCenterUsages.drizzle,
   cloudflared: controlCenterUsages.cloudflared,
   "portal-data-purge": controlCenterUsages["portal-data-purge"],
-  "captive-portal-api": captivePortalUsages.api,
 } as const satisfies Record<string, ServiceSecretUsage>;
 
 /**
@@ -67,5 +70,4 @@ export const SERVICE_SECRET_TARGETS = {
   drizzle: targetOf(serviceSecretUsages.drizzle),
   cloudflared: targetOf(serviceSecretUsages.cloudflared),
   "portal-data-purge": targetOf(serviceSecretUsages["portal-data-purge"]),
-  "captive-portal-api": targetOf(serviceSecretUsages["captive-portal-api"]),
 } as const satisfies Record<ServiceSecretName, ServiceSecretTarget>;

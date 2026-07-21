@@ -20,10 +20,7 @@ const specsWith = (imageDigests?: ImageDigests): ReturnType<typeof serviceSpecs>
 describe("GHCR pull secret coverage", () => {
   test("declares the pull secret in every namespace with GHCR services or cron jobs", () => {
     const consumers = [...specsWith(), ...cronSpecs("192.168.0.218")];
-    expect(collectGhcrPullSecretNamespaces(consumers)).toEqual([
-      "captive-portal",
-      "control-center",
-    ]);
+    expect(collectGhcrPullSecretNamespaces(consumers)).toEqual(["control-center"]);
     expect(() => assertGhcrPullSecretNamespaceCoverage(consumers)).not.toThrow();
   });
 

@@ -267,6 +267,12 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
     expect(specOf(serviceSpecs(baseOpts), "media-worker")).toBeUndefined();
   });
 
+  test("captive-portal-portal/captive-portal-api are no longer declared workloads (Task 4 step C, SDD track 0)", () => {
+    const logicalNames = serviceSpecs(baseOpts).map((spec) => spec.logicalName);
+    expect(logicalNames).not.toContain("captive-portal-portal");
+    expect(logicalNames).not.toContain("captive-portal-api");
+  });
+
   test("cloudflared replicas come from the cloudflaredReplicas knob (0 pre-cutover, 2 HA)", () => {
     expect(
       specOf(serviceSpecs({ ...baseOpts, cloudflaredReplicas: 0 }), "cloudflared")?.replicas,
@@ -313,11 +319,6 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
           namespaceName: "control-center",
         }),
         expect.objectContaining({
-          logicalName: "captive-portal-portal",
-          name: "portal",
-          namespaceName: "captive-portal",
-        }),
-        expect.objectContaining({
           logicalName: "platform-cloudflared",
           name: "cloudflared",
           namespaceName: "platform",
@@ -330,11 +331,8 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
   test("derives POSTGRES_HOST from product database manifests", () => {
     const specs = serviceSpecs(baseOpts);
     const controlCenterApi = specs.find((spec) => spec.logicalName === "control-center-api");
-    const captivePortalApi = specs.find((spec) => spec.logicalName === "captive-portal-api");
 
     expect(controlCenterApi?.env?.POSTGRES_HOST).toBe("control-center-rw");
-    expect(captivePortalApi?.env?.POSTGRES_HOST).toBe("postgres-rw");
-    expect(captivePortalApi?.env?.POSTGRES_DB).toBe("captive_portal");
   });
 });
 
