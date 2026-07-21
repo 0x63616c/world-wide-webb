@@ -47,7 +47,7 @@ Unique on `measured_at` (sensor timestamp) for ingest idempotency.
 
 - Worker cycle polls the HA weight sensor; inserts a row when the sensor's
   timestamp is new. Missed days are simply absent — no fake rows.
-- Sanity band: a measurement deviating more than ~8 lb (3.6 kg) from the 14-day
+- Sanity band: a measurement deviating more than ~12 lb (5.4 kg) from the 14-day
   rolling median is stored with `excluded_reason` set (e.g. `sanity_band`) —
   flagged, never deleted. With no prior history (first 1–2 readings), the band
   is inactive.
