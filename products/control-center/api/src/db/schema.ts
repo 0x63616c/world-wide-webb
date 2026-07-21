@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -523,6 +524,29 @@ export const boothPhoto = pgTable(
     // Newest-first gallery listing.
     index("booth_photo_captured_at_idx").on(t.capturedAt),
   ],
+);
+
+// Renpho scale weigh-ins (spec: docs/superpowers/specs/2026-07-21-weight-tile-design.md).
+// Raw and append-only: every HA sensor update becomes a row; nothing is ever
+// deleted or collapsed. Display-layer reduces to a daily median and hides rows
+// with excluded_reason set (auto sanity-band or manual toggle from the panel).
+export const weightMeasurement = pgTable(
+  "weight_measurement",
+  {
+    id: text("id").primaryKey(), // wm_<16-hex>
+    // The HA sensor's last_updated for this reading. Unique = ingest idempotency
+    // (the 60s poll re-sees the same state until the next weigh-in).
+    measuredAt: timestamp("measured_at", { withTimezone: true }).notNull().unique(),
+    // Canonical metric. lb is presentation-only.
+    weightKg: doublePrecision("weight_kg").notNull(),
+    // Body composition as reported (fat/muscle/water/BMR...); stored, not shown.
+    bodyMetrics: jsonb("body_metrics"),
+    source: text("source").notNull(), // 'ha_ble'
+    // Non-null = hidden from all reads. 'sanity_band' (auto) | 'manual'.
+    excludedReason: text("excluded_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("weight_measurement_measured_at_idx").on(t.measuredAt)],
 );
 
 // GitHub Actions deploy pipeline (spec 2026-07-18-github-deploy-tile-design).
