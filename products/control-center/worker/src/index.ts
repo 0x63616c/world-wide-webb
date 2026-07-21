@@ -16,6 +16,7 @@ import {
   type JobSpec,
   jobWorker,
   reconcilePartyMode,
+  releaseInFlightJobsWithTimeout,
   runAscVersionPollCycle,
   runClimateEnforcerCycle,
   runDeviceSyncCycle,
@@ -164,14 +165,36 @@ log.info({ workers: workers.map((w) => w.name), env: env.NODE_ENV }, "worker sta
 const runtime = createWorkerRuntime(workers, { logger: log });
 runtime.start();
 
-// Graceful shutdown: stop scheduling new cycles so Swarm can replace the task
-// without an in-flight reschedule racing the kill.
+// Graceful shutdown: stop scheduling new cycles so the orchestrator can replace
+// the pod without an in-flight reschedule racing the kill, then hand any job
+// this process still holds back to `queued`.
+//
+// The release is what makes routine deploys cheap. A pod replaced mid-download
+// used to strand its row at `running` until the reaper's lease expired (maxMs +
+// grace = 65 min for youtube_ingest); now the next pod reclaims it in seconds.
+// exit() must therefore run AFTER the release resolves, not synchronously
+// alongside it , the old code raced the process death against the UPDATE.
+let shuttingDown = false;
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
+    // A second signal during the release window must not restart the sequence.
+    if (shuttingDown) return;
+    shuttingDown = true;
     log.info({ signal }, "worker stopping");
     // stop() emits the final per-worker stats snapshot ("worker final stats")
     // so the last known health state is captured before the process exits.
     runtime.stop();
-    process.exit(0);
+    void releaseInFlightJobsWithTimeout()
+      .then((released) => {
+        log.info({ signal, released }, "worker stopped");
+      })
+      .catch((err) => {
+        // Never block the exit on a release failure: the reaper still recovers
+        // the row, just slowly.
+        log.error({ err }, "job release on shutdown failed");
+      })
+      .finally(() => {
+        process.exit(0);
+      });
   });
 }

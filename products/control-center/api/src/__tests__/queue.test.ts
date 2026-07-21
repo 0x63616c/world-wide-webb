@@ -13,7 +13,7 @@
  * in the SQLRaw chunks. We walk them to find the terminal status branch.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { claimOne, enqueueJob, type JobType } from "../jobs/queue";
+import { claimOne, enqueueJob, type JobType, releaseInFlightJobs } from "../jobs/queue";
 
 // ── DB mock ───────────────────────────────────────────────────────────────────
 
@@ -302,5 +302,74 @@ describe("claimOne , timeout", () => {
     // The race timer is cleared in `finally`; the signal stays unaborted.
     await new Promise((resolve) => setTimeout(resolve, 120));
     expect(signals[0]?.aborted).toBe(false);
+  });
+});
+
+describe("releaseInFlightJobs", () => {
+  it("returns 0 and issues no UPDATE when nothing is in flight", async () => {
+    expect(await releaseInFlightJobs()).toBe(0);
+    expect(mockState.executeLog).toHaveLength(0);
+  });
+
+  it("aborts the in-flight handler and requeues the row for immediate reclaim", async () => {
+    // The deploy case: SIGTERM lands mid-download. Without this the row sits at
+    // `running` until the reaper's lease (maxMs + grace) expires , 65 minutes
+    // of dead time for youtube_ingest, on every push to main.
+    mockState.claimedRow = makeRow({ id: 42, type: "youtube_ingest" });
+    let aborted = false;
+
+    const claim = claimOne(
+      "youtube_ingest",
+      (_payload, signal) =>
+        new Promise<void>((_resolve, reject) => {
+          signal.addEventListener("abort", () => {
+            aborted = true;
+            reject(new Error("aborted"));
+          });
+        }),
+      60_000,
+    );
+
+    // Let claimOne register the in-flight entry and enter the handler.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(await releaseInFlightJobs()).toBe(1);
+    await claim;
+
+    expect(aborted).toBe(true);
+    expect(logContains("run_after = now()")).toBe(true);
+    expect(logContains("GREATEST(attempts - 1, 0)")).toBe(true);
+    expect(logContains("'queued'")).toBe(true);
+  });
+
+  it("does not let the aborted handler burn a retry or fail the job", async () => {
+    // claimOne's catch would otherwise requeue with backoff (delaying reclaim)
+    // or, at max_attempts, permanently fail a job that never actually failed.
+    mockState.claimedRow = makeRow({ id: 43, type: "notify", attempts: 0, max_attempts: 1 });
+
+    const claim = claimOne(
+      "notify",
+      (_payload, signal) =>
+        new Promise<void>((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(new Error("aborted")));
+        }),
+      60_000,
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    await releaseInFlightJobs();
+    await claim;
+
+    expect(logContains("'failed'")).toBe(false);
+    expect(logContains("make_interval")).toBe(false);
+    expect(logContains("'done'")).toBe(false);
+  });
+
+  it("forgets the job once claimOne returns, so a later release is a no-op", async () => {
+    mockState.claimedRow = makeRow({ id: 44, type: "notify" });
+    await claimOne("notify", async () => {}, 1_000);
+    mockState.executeLog = [];
+
+    expect(await releaseInFlightJobs()).toBe(0);
+    expect(mockState.executeLog).toHaveLength(0);
   });
 });
