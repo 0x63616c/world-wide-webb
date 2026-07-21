@@ -94,7 +94,7 @@ function makeSource(id: string, url: string, videoPolicy = "none"): (typeof mock
 
 // Fake yt-dlp list function , returns the given IDs synchronously.
 function fakeLister(ids: string[]) {
-  return async (_url: string) => ids;
+  return async (_url: string) => ids.map((id) => ({ id, title: `Title of ${id}` }));
 }
 
 // ── Setup / teardown ─────────────────────────────────────────────────────────
@@ -155,6 +155,19 @@ describe("runPlaylistPollerCycle , new IDs", () => {
     expect(["vid1", "vid2"]).toContain(payload.videoId);
   });
 
+  it("seeds rawTitle from the listing rather than the video id", async () => {
+    mockState.sources = [makeSource("src_1", "https://youtube.com/playlist?list=PL1")];
+    mockState.existingVideoIds = [];
+
+    await runPlaylistPollerCycle(fakeLister(["vid1"]));
+
+    // Regression: rawTitle used to be set to the video id on the assumption the
+    // ingest handler would replace it, which it never did.
+    const row = mockState.inserted[0] as { ytVideoId: string; rawTitle: string };
+    expect(row.rawTitle).toBe("Title of vid1");
+    expect(row.rawTitle).not.toBe(row.ytVideoId);
+  });
+
   it("only enqueues for truly new IDs when some already exist", async () => {
     mockState.sources = [makeSource("src_1", "https://youtube.com/playlist?list=PL1")];
     mockState.existingVideoIds = ["vid1"]; // vid1 already known
@@ -178,7 +191,7 @@ describe("runPlaylistPollerCycle , error handling", () => {
     // Lister that throws for the first URL, succeeds for the second.
     const lister = async (url: string) => {
       if (url.includes("broken")) throw new Error("yt-dlp subprocess failed");
-      return ["vidok1"];
+      return [{ id: "vidok1", title: "Title of vidok1" }];
     };
 
     await runPlaylistPollerCycle(lister);

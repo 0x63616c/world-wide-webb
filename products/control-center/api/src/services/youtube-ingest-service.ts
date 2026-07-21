@@ -40,13 +40,22 @@ interface YoutubeIngestPayload {
  * most efficient codec YouTube serves; the fallback after `/` is a pre-combined
  * stream. We never re-encode -- both paths are stream copies.
  *
- * The output template is archival rather than machine-keyed: the DB keeps the
- * video id as identity, while the filename serves whoever browses the NAS in
- * VLC a year from now. Everything lands FLAT under a single `youtube/` folder
- * (uploader is folded into the filename, not a subdirectory) so ingest output
- * stays out of the media root next to wake-photos/booth-photos. Because that
- * template includes a subdirectory, we ask yt-dlp for the exact path it wrote
- * instead of globbing for it.
+ * The output template is machine-keyed, not human-readable: the filename is the
+ * video id and nothing else. YouTube ids are [A-Za-z0-9_-]{11}, so there is
+ * nothing to sanitize -- no title length limits, no NAS-hostile characters, no
+ * brackets in a title colliding with our own delimiters. The DB carries the
+ * title and uploader, so it is the human index; the filesystem is just storage.
+ *
+ * The `yt-` prefix exists because a YouTube id may legitimately START with a
+ * hyphen (two in the current playlist do), and a leading-dash filename is read
+ * as a flag by most CLI tools.
+ *
+ * Because the path is derivable from the id alone, a file already on disk but
+ * missing from the DB is self-healing: yt-dlp finds it, skips the download, and
+ * the row is created pointing at the existing file.
+ *
+ * Everything lands FLAT under a single `youtube/` folder so ingest output stays
+ * out of the media root next to wake-photos/booth-photos.
  *
  * @public - exported for unit testing so tests can mock the subprocess
  */
@@ -54,21 +63,37 @@ export async function ytdlpDownload(
   videoId: string,
   storageDir: string,
   signal: AbortSignal,
-): Promise<{ videoPath: string; thumbPath: string | null }> {
-  const output = `${storageDir}/youtube/%(upload_date)s - %(uploader)s - %(title)s [%(id)s].%(ext)s`;
+): Promise<{
+  videoPath: string;
+  thumbPath: string | null;
+  title: string | null;
+  uploader: string | null;
+  durationSec: number | null;
+}> {
+  const output = `${storageDir}/youtube/yt-%(id)s.%(ext)s`;
 
   const { stdout } = await execFileAsync(
     "yt-dlp",
     [
+      // Best stream up to 4K, merged with the best audio. YouTube serves DASH
+      // above 360p, so video and audio arrive separately and the `+` makes
+      // ffmpeg mux them -- a stream copy, never a re-encode.
       "-f",
-      "bv*[vcodec^=av01][height<=1080]+ba/b[height<=1080]",
+      "bv*[height<=2160]+ba/b[height<=2160]",
+      // Sort by resolution first, then prefer AV1 at equal resolution: we take
+      // AV1's better compression only when it does not cost picture quality.
+      "-S",
+      "res,vcodec:av01",
       "-N",
       "4", // concurrent DASH fragments -- the real throughput lever
       "--write-thumbnail",
       "--output",
       output,
+      // One tab-delimited line: the path yt-dlp actually wrote, plus the
+      // metadata we persist. Reading it here avoids a second network round-trip
+      // just to fetch the duration back. Tabs do not occur in YouTube titles.
       "--print",
-      "after_move:filepath",
+      "after_move:%(filepath)s\t%(title)s\t%(uploader)s\t%(duration)s",
       "--no-simulate",
       "--quiet",
       "--no-warnings",
@@ -77,7 +102,8 @@ export async function ytdlpDownload(
     { signal },
   );
 
-  const videoPath = stdout.trim().split("\n").filter(Boolean).pop();
+  const line = stdout.trim().split("\n").filter(Boolean).pop();
+  const [videoPath, title, uploader, duration] = (line ?? "").split("\t");
   if (!videoPath) {
     throw new Error(`yt-dlp reported no output path for ${videoId}`);
   }
@@ -85,7 +111,30 @@ export async function ytdlpDownload(
     throw new Error(`yt-dlp reported a path that does not exist: ${videoPath}`);
   }
 
-  return { videoPath, thumbPath: findThumbnailFor(videoPath) };
+  return {
+    videoPath,
+    thumbPath: findThumbnailFor(videoPath),
+    title: printedField(title),
+    uploader: printedField(uploader),
+    durationSec: printedDuration(duration),
+  };
+}
+
+/**
+ * yt-dlp prints the literal string "NA" for a field it cannot resolve, so an
+ * absent value arrives as text rather than an empty column.
+ */
+function printedField(value: string | undefined): string | null {
+  if (!value || value === "NA") return null;
+  return value;
+}
+
+/** Parse the printed duration (seconds, possibly "NA") into whole seconds. */
+function printedDuration(value: string | undefined): number | null {
+  const raw = printedField(value);
+  if (raw === null) return null;
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) ? Math.round(seconds) : null;
 }
 
 /**
@@ -144,7 +193,11 @@ async function handleYoutubeIngest(rawPayload: unknown, signal: AbortSignal): Pr
 
   const downloadStart = performance.now();
   getLogger().info({ videoId }, "yt-dlp download start");
-  const { videoPath, thumbPath } = await ytdlpDownload(videoId, storageDir, signal);
+  const { videoPath, thumbPath, title, uploader, durationSec } = await ytdlpDownload(
+    videoId,
+    storageDir,
+    signal,
+  );
   const downloadMs = +(performance.now() - downloadStart).toFixed(1);
 
   const videoBytes = fileSizeBytes(videoPath);
@@ -153,24 +206,9 @@ async function handleYoutubeIngest(rawPayload: unknown, signal: AbortSignal): Pr
     "yt-dlp download complete",
   );
 
-  // Get duration from the file via yt-dlp --dump-json (already downloaded, so
-  // this is metadata-only , no network). We tolerate failure here since the
-  // file is already on disk.
-  let durationSec: number | null = null;
-  try {
-    const { stdout } = await execFileAsync(
-      "yt-dlp",
-      ["--dump-json", "--no-playlist", `https://www.youtube.com/watch?v=${videoId}`],
-      { signal },
-    );
-    const meta = JSON.parse(stdout) as { duration?: number };
-    durationSec = typeof meta.duration === "number" ? Math.round(meta.duration) : null;
-  } catch {
-    // Non-fatal: duration will be null, which is acceptable.
-    getLogger().warn({ videoId }, "yt-dlp --dump-json failed, duration will be null");
-  }
-
-  // Mark as ready and persist file metadata.
+  // Mark as ready and persist file + human metadata. rawTitle is NOT NULL and
+  // the poller already seeded it from the playlist listing, so only overwrite
+  // it when the download reported an authoritative title.
   await db
     .update(mediaItem)
     .set({
@@ -179,6 +217,8 @@ async function handleYoutubeIngest(rawPayload: unknown, signal: AbortSignal): Pr
       thumbPath: thumbPath ?? null,
       videoBytes: videoBytes ?? null,
       durationSec,
+      uploader,
+      ...(title === null ? {} : { rawTitle: title }),
       updatedAt: new Date(),
     })
     .where(eq(mediaItem.id, mediaItemId));

@@ -64,7 +64,8 @@ describe("media_item table schema", () => {
     expect(cols).toContain("id");
     expect(cols).toContain("sourceId");
     expect(cols).toContain("ytVideoId");
-    expect(cols).toContain("rawTitle"); // identity label written by the poller, kept
+    expect(cols).toContain("rawTitle"); // real title, seeded by the poller
+    expect(cols).toContain("uploader"); // YouTube channel, filled in by the ingest handler
     expect(cols).toContain("status");
     expect(cols).toContain("videoPath");
     expect(cols).toContain("thumbPath");

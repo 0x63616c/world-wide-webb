@@ -2,10 +2,10 @@
  * Playlist-poller service (www-kp4k.3). Each cycle:
  *   1. Fetches all enabled media_source rows.
  *   2. For every enabled source that resolves to a URL (regardless of kind), runs
- *      `yt-dlp --flat-playlist --print id <url>` to enumerate video IDs without
+ *      `yt-dlp --flat-playlist` to enumerate video IDs and titles without
  *      downloading any content.
  *   3. For each video ID not already in media_item, inserts a new media_item
- *      (status=queued) and enqueues a `youtube_ingest` job.
+ *      (status=queued, titled from the listing) and enqueues a `youtube_ingest` job.
  *
  * Idempotency: the uniqueIndex on media_item.yt_video_id means a re-poll of the
  * same playlist is a no-op , the INSERT … ON CONFLICT DO NOTHING ensures we never
@@ -25,27 +25,39 @@ import { enqueueJob } from "../jobs/queue";
 
 const execFileAsync = promisify(execFile);
 
+/** One entry from a playlist listing: enough to create a useful row. */
+export interface PlaylistEntry {
+  id: string;
+  title: string;
+}
+
 /**
- * Spawn yt-dlp for a single playlist URL and collect the video IDs it prints.
- * Each printed line is one video ID. Returns an empty array on subprocess error
- * so a single broken source doesn't abort the whole poll cycle.
+ * Spawn yt-dlp for a single playlist URL and collect the entries it prints, one
+ * tab-delimited `id<TAB>title` per line. The title costs nothing extra in
+ * --flat-playlist mode and means a media_item row carries a real label from the
+ * moment it is discovered, rather than waiting for the download to name it.
  *
  * @public , exported for unit testing (allows the test to swap ytdlpListPlaylist)
  */
-export async function ytdlpListPlaylist(url: string): Promise<string[]> {
+export async function ytdlpListPlaylist(url: string): Promise<PlaylistEntry[]> {
   const { stdout } = await execFileAsync("yt-dlp", [
     "--flat-playlist",
     "--print",
-    "id",
-    // Quiet: suppress progress bars and info lines; we only want one ID per line.
+    "%(id)s\t%(title)s",
+    // Quiet: suppress progress bars and info lines; we only want our own lines.
     "--quiet",
     "--no-warnings",
     url,
   ]);
   return stdout
     .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [id, title] = line.split("\t");
+      return { id: id ?? "", title: title || (id ?? "") };
+    })
+    .filter((entry) => entry.id !== "");
 }
 
 /** Stripe-style id generator for new media_item rows. */
@@ -71,16 +83,16 @@ export async function runPlaylistPollerCycle(
     const url = source.url ?? (source.externalId ? buildPlaylistUrl(source.externalId) : null);
     if (!url) continue;
 
-    let videoIds: string[];
+    let entries: PlaylistEntry[];
     try {
-      videoIds = await listFn(url);
+      entries = await listFn(url);
     } catch (err) {
       // Log and continue , a single broken source must not stall the rest.
       getLogger().warn({ err, sourceId: source.id }, "yt-dlp failed for source");
       continue;
     }
 
-    if (videoIds.length === 0) {
+    if (entries.length === 0) {
       getLogger().debug({ sourceId: source.id }, "playlist empty");
       continue;
     }
@@ -89,22 +101,27 @@ export async function runPlaylistPollerCycle(
     const existing = await db
       .select({ ytVideoId: mediaItem.ytVideoId })
       .from(mediaItem)
-      .where(inArray(mediaItem.ytVideoId, videoIds));
+      .where(
+        inArray(
+          mediaItem.ytVideoId,
+          entries.map((e) => e.id),
+        ),
+      );
     const existingSet = new Set(existing.map((r) => r.ytVideoId));
 
-    const newIds = videoIds.filter((id) => !existingSet.has(id));
+    const newEntries = entries.filter((e) => !existingSet.has(e.id));
     // Cycle summary: log once per source so operators can see poll progress.
     getLogger().info(
-      { sourceId: source.id, found: videoIds.length, newCount: newIds.length },
+      { sourceId: source.id, found: entries.length, newCount: newEntries.length },
       "playlist polled",
     );
-    if (newIds.length > 0) {
+    if (newEntries.length > 0) {
       getLogger().info(
-        { sourceId: source.id, newCount: newIds.length, videoIds: newIds },
+        { sourceId: source.id, newCount: newEntries.length, videoIds: newEntries.map((e) => e.id) },
         "new playlist items discovered",
       );
     }
-    for (const videoId of newIds) {
+    for (const { id: videoId, title } of newEntries) {
       // Insert the media_item row. ON CONFLICT DO NOTHING makes this safe even
       // if two poller instances race (the unique index on yt_video_id wins).
       const rows = await db
@@ -113,7 +130,9 @@ export async function runPlaylistPollerCycle(
           id: newMediaItemId(),
           sourceId: source.id,
           ytVideoId: videoId,
-          rawTitle: videoId, // raw title is set properly by the ingest handler
+          // Real title from the playlist listing; the ingest handler replaces it
+          // with the authoritative one once the download reports it.
+          rawTitle: title,
           status: "queued",
         })
         .onConflictDoNothing()

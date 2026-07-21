@@ -125,59 +125,92 @@ afterEach(() => {
 
 // ── ytdlpDownload tests ─────────────────────────────────────────────────────────
 
+/** One printed line as yt-dlp emits it: path, title, uploader, duration. */
+const PRINTED = "/media/youtube/yt-abc123.webm\tAxwell - Live at Ultra\tAxwell\t7245";
+
 describe("ytdlpDownload", () => {
   it("makes exactly one yt-dlp call", async () => {
-    const calls = captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
+    const calls = captureExecFile([PRINTED]);
     await ytdlpDownload("abc123", "/media", new AbortController().signal);
+    // One call only: metadata rides the download's --print rather than a second
+    // --dump-json round-trip.
     expect(calls).toHaveLength(1);
   });
 
-  it("requests AV1 <=1080p and never re-encodes", async () => {
-    const calls = captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
+  it("requests the best stream up to 4K and never re-encodes", async () => {
+    const calls = captureExecFile([PRINTED]);
     await ytdlpDownload("abc123", "/media", new AbortController().signal);
-    expect(calls[0]).toContain("bv*[vcodec^=av01][height<=1080]+ba/b[height<=1080]");
+    expect(calls[0]).toContain("bv*[height<=2160]+ba/b[height<=2160]");
+  });
+
+  it("prefers AV1 only at equal resolution", async () => {
+    const calls = captureExecFile([PRINTED]);
+    await ytdlpDownload("abc123", "/media", new AbortController().signal);
+    const sort = calls[0][calls[0].indexOf("-S") + 1];
+    expect(sort).toBe("res,vcodec:av01");
   });
 
   it("downloads fragments concurrently", async () => {
-    const calls = captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
+    const calls = captureExecFile([PRINTED]);
     await ytdlpDownload("abc123", "/media", new AbortController().signal);
     expect(calls[0]).toContain("-N");
     expect(calls[0]).toContain("4");
   });
 
-  it("uses an archival output template, not the bare video id", async () => {
-    const calls = captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
+  it("names files by video id alone, under a yt- prefix", async () => {
+    const calls = captureExecFile([PRINTED]);
     await ytdlpDownload("abc123", "/media", new AbortController().signal);
     const output = calls[0][calls[0].indexOf("--output") + 1];
-    expect(output).toBe(
-      "/media/youtube/%(upload_date)s - %(uploader)s - %(title)s [%(id)s].%(ext)s",
-    );
+    expect(output).toBe("/media/youtube/yt-%(id)s.%(ext)s");
   });
 
   it("returns the path yt-dlp reports rather than guessing it", async () => {
-    captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
+    captureExecFile([PRINTED]);
     const out = await ytdlpDownload("abc123", "/media", new AbortController().signal);
-    expect(out.videoPath).toBe("/media/Chan/20190101 - Set [abc123].mkv");
+    expect(out.videoPath).toBe("/media/youtube/yt-abc123.webm");
+  });
+
+  it("parses title, uploader and duration from the printed line", async () => {
+    captureExecFile([PRINTED]);
+    const out = await ytdlpDownload("abc123", "/media", new AbortController().signal);
+    expect(out.title).toBe("Axwell - Live at Ultra");
+    expect(out.uploader).toBe("Axwell");
+    expect(out.durationSec).toBe(7245);
+  });
+
+  it("treats yt-dlp's NA placeholder as missing metadata", async () => {
+    captureExecFile(["/media/youtube/yt-abc123.webm\tNA\tNA\tNA"]);
+    const out = await ytdlpDownload("abc123", "/media", new AbortController().signal);
+    expect(out.title).toBeNull();
+    expect(out.uploader).toBeNull();
+    expect(out.durationSec).toBeNull();
   });
 
   it("forwards the abort signal so a timeout kills the subprocess", async () => {
     const calls: Array<Record<string, unknown>> = [];
-    mockExecFileOptions(calls, ["/media/Chan/x.mkv"]);
+    mockExecFileOptions(calls, [PRINTED]);
     const ac = new AbortController();
     await ytdlpDownload("abc123", "/media", ac.signal);
     expect(calls[0]?.signal).toBe(ac.signal);
   });
 
   it("never downloads audio separately", async () => {
-    const calls = captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
+    const calls = captureExecFile([PRINTED]);
     await ytdlpDownload("abc123", "/media", new AbortController().signal);
     expect(calls[0]).not.toContain("-x");
     expect(calls[0]).not.toContain("bestaudio");
   });
 
+  it("rejects when yt-dlp prints nothing", async () => {
+    captureExecFile([]);
+    await expect(ytdlpDownload("abc123", "/media", new AbortController().signal)).rejects.toThrow(
+      /no output path/,
+    );
+  });
+
   it("rejects when yt-dlp reports a path that does not exist on disk", async () => {
     fsState.existsImpl = () => false;
-    captureExecFile(["/media/Chan/20190101 - Set [abc123].mkv"]);
+    captureExecFile([PRINTED]);
     await expect(ytdlpDownload("abc123", "/media", new AbortController().signal)).rejects.toThrow(
       /does not exist/,
     );
