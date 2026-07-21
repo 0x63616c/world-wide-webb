@@ -125,6 +125,22 @@ export const envSchema = z.object({
   // Delivered from 1Password via the docker-secret rail (same pattern as HOME_*).
   MEDIA_STORAGE_DIR: z.string().default("/mnt/media"),
 
+  // YouTube ingest master switch, OFF while YouTube gates this egress IP.
+  //
+  // Every player client returns LOGIN_REQUIRED for essentially any video from
+  // our IP, so each claimed job fails in ~1s, burns all 5 attempts through
+  // backoff, and lands at `failed`. Off, the poller enqueues nothing and no
+  // worker claims the type, so queued rows simply park until this flips back.
+  //
+  // A flag rather than deleted code: the block is IP reputation, which decays,
+  // and the fix (cookies from a throwaway account, a different egress, or
+  // waiting it out) is unresolved. Re-enabling should be one env change, not a
+  // revert of the whole ingest path.
+  YOUTUBE_INGEST_ENABLED: z
+    .string()
+    .default("false")
+    .transform((v) => v === "true"),
+
   // Spotify Web API credentials. Optional , empty string disables Spotify so
   // the api boots without them. The media router throws SpotifyError when
   // these are absent and a Spotify query is attempted (same pattern as HA_TOKEN).

@@ -55,19 +55,28 @@ const JOBS: JobSpec[] = [
   // APNs delivery is sub-second; a minute means something is badly wrong.
   { type: "notify", handler: runNotifyJob, maxMs: 60_000 },
   // A ceiling for pathological downloads, not a target , sets take minutes.
-  {
-    type: "youtube_ingest",
-    maxMs: 60 * 60_000,
-    // Guard the NAS before each claim: a full volume must not start a download.
-    // This lives inside the ingest handler, not on a shared cycle, so a full
-    // NAS never blocks `notify` (APNs) delivery, which touches no disk.
-    handler: async (payload, signal) => {
-      if (!hasSufficientDisk(env.MEDIA_STORAGE_DIR)) {
-        throw new Error("insufficient disk space for ingest");
-      }
-      await runYoutubeIngest(payload, signal);
-    },
-  },
+  // Registered only when YOUTUBE_INGEST_ENABLED: an unregistered type is never
+  // claimed, so the queued backlog parks in place instead of burning attempts
+  // against a YouTube block no retry can clear. Same reason it drops out of the
+  // reaper's spec list , there is nothing running left to reap.
+  ...(env.YOUTUBE_INGEST_ENABLED
+    ? [
+        {
+          type: "youtube_ingest" as const,
+          maxMs: 60 * 60_000,
+          // Guard the NAS before each claim: a full volume must not start a
+          // download. This lives inside the ingest handler, not on a shared
+          // cycle, so a full NAS never blocks `notify` (APNs) delivery, which
+          // touches no disk.
+          handler: async (payload: unknown, signal: AbortSignal) => {
+            if (!hasSufficientDisk(env.MEDIA_STORAGE_DIR)) {
+              throw new Error("insufficient disk space for ingest");
+            }
+            await runYoutubeIngest(payload, signal);
+          },
+        },
+      ]
+    : []),
 ];
 
 const workers: Worker[] = [
@@ -140,17 +149,23 @@ const workers: Worker[] = [
     runOnStart: true,
     run: runAscVersionPollCycle,
   },
-  {
-    // Playlist poller: enumerate each enabled media_source via
-    // yt-dlp --flat-playlist and enqueue ingest jobs for unseen video IDs.
-    // Metadata only -- no video data -- so 2 minutes is ~720 requests/day from
-    // one IP, well inside anything YouTube pushes back on. Going lower buys
-    // little: the download itself dominates end-to-end latency.
-    name: "playlist-poller",
-    intervalMs: 2 * 60_000,
-    runOnStart: true,
-    run: runPlaylistPollerCycle,
-  },
+  // Paired with the job type above: with ingest off there is nothing to feed,
+  // and polling would only grow a backlog of jobs that cannot run.
+  ...(env.YOUTUBE_INGEST_ENABLED
+    ? [
+        {
+          // Playlist poller: enumerate each enabled media_source via
+          // yt-dlp --flat-playlist and enqueue ingest jobs for unseen video IDs.
+          // Metadata only -- no video data -- so 2 minutes is ~720 requests/day
+          // from one IP, well inside anything YouTube pushes back on. Going
+          // lower buys little: the download itself dominates end-to-end latency.
+          name: "playlist-poller",
+          intervalMs: 2 * 60_000,
+          runOnStart: true,
+          run: runPlaylistPollerCycle,
+        },
+      ]
+    : []),
   // One Worker per job type: independent timer chains, so a 1h download cannot
   // delay an APNs push, plus the reaper that recovers rows stranded at
   // `running` by a process death no in-process timeout can observe.
