@@ -207,6 +207,13 @@ export const envSchema = z.object({
   GUEST_PORT: z.coerce.number().int().positive().optional(),
   GUEST_TLS_DIR: z.string().optional(),
   GUEST_STATIC_DIR: z.string().optional(),
+  // The real LAN cutover (Task 4) needs the OS-detection companion on the
+  // conventional plain-HTTP port 80 while the main (TLS) listener is on 443 ,
+  // NOT "port + 1" (444), since the k8s Service's exposed port always equals
+  // the container port (no remap in the infra WorkloadSpec). Optional: unset
+  // keeps the old port+1 default (dev/test and the dark cluster-only
+  // deployment, where the exact port number is arbitrary).
+  GUEST_HTTP_PORT: z.coerce.number().int().positive().optional(),
 });
 
 export const env = envSchema.parse(process.env);

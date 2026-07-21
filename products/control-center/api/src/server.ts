@@ -56,6 +56,7 @@ if (env.GUEST_PORT) {
     // product's cwd). The production image sets GUEST_STATIC_DIR explicitly
     // to the path Task 4's Dockerfile COPYs it to.
     staticDir: env.GUEST_STATIC_DIR ?? "../web/dist-portal",
+    httpPort: env.GUEST_HTTP_PORT,
   });
 }
 

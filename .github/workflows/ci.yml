@@ -216,6 +216,14 @@ jobs:
           node scripts/test-panel-health.mjs
       - name: Test (unit, jsdom)
         run: bun run test:unit
+      - name: Guest listener smoke (real Bun.serve + TLS sockets)
+        # The vitest `startGuestServer` integration block is Bun-runtime-gated
+        # (skipIf no `Bun` global, since this repo's `bunx vitest run` forks a
+        # plain node process); this script is the actual executing coverage
+        # for that wiring (real HTTPS/plain-HTTP sockets, self-signed cert via
+        # the system openssl). Task 4 (SDD track 0) cutover note: gates the
+        # guest listener that's about to carry live LAN guest traffic.
+        run: bun run --cwd products/control-center/api test:guest-smoke
 
   # Storybook browser suite (Playwright/Chromium play functions). Runs
   # concurrently with test-unit. Kept as its own job because it needs a Chromium

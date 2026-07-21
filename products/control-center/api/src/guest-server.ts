@@ -42,12 +42,20 @@ function contentTypeFor(path: string): string {
 }
 
 export interface StartGuestServerOptions {
-  /** TLS port. A plain-HTTP companion is also started on port + 1. */
+  /** TLS port. A plain-HTTP companion is also started on `httpPort` (default: port + 1). */
   port: number;
   /** Directory holding fullchain.pem + key.pem (cert-manager projection). Omit for plain HTTP only. */
   tlsDir?: string;
   /** Built guest web bundle (SPA) to serve static files from. */
   staticDir: string;
+  /**
+   * The always-plain-HTTP companion port. Defaults to `port + 1` (dev/test,
+   * and the dark cluster-only deploy where the exact number doesn't matter).
+   * The real LAN cutover needs this set explicitly to 80 alongside `port: 443`
+   * , the k8s Service's exposed port always equals the container port (no
+   * remap), so "port + 1" can't land on the conventional plain-HTTP port.
+   */
+  httpPort?: number;
   logger?: Logger;
 }
 
@@ -312,9 +320,10 @@ export function startGuestServer(opts: StartGuestServerOptions): GuestServer {
   // one: with a fixed port (real deployments) these are the same, but with
   // `port: 0` (ephemeral, e.g. tests) `opts.port` stays 0 while
   // `mainServer.port` is the OS-assigned port , binding off `opts.port + 1`
-  // there would land on port 1, not "next to the main listener".
+  // there would land on port 1, not "next to the main listener". An explicit
+  // `httpPort` (the real 443/80 LAN cutover) always wins over this offset.
   const httpServer = Bun.serve({
-    port: (mainServer.port ?? opts.port) + 1,
+    port: opts.httpPort ?? (mainServer.port ?? opts.port) + 1,
     fetch: httpFetch,
   });
 

@@ -228,7 +228,19 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       // Wake photos persist on the NAS media share (same NFS export + subPath
       // as the worker); without this mount the api's MEDIA_STORAGE_DIR
       // writes land in the container overlay fs and vanish on every roll.
-      env: { ...haEnv, MEDIA_STORAGE_DIR: "/app/media" },
+      env: {
+        ...haEnv,
+        MEDIA_STORAGE_DIR: "/app/media",
+        // Guest (captive-portal) listener cutover, step A (SDD track 0, Task
+        // 4): dark, cluster-only for now, so this can deploy and be verified
+        // (curl from inside the cluster) before anything touches live guest
+        // traffic. No GUEST_TLS_DIR yet (plain HTTP only) , TLS + the LAN
+        // LoadBalancer ports move here in step B, atomically with removing
+        // them from the old captive-portal-portal workload (both workloads
+        // can't hold the LAN 443/80 host ports at once).
+        GUEST_PORT: "4300",
+        GUEST_STATIC_DIR: "/app/portal-dist",
+      },
       volumes: [
         {
           mountPath: "/app/media",
@@ -236,7 +248,13 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
           subPath: "media",
         },
       ],
-      ports: [{ containerPort: 4201, expose: "cluster" }],
+      ports: [
+        { containerPort: 4201, expose: "cluster" },
+        // Guest TLS listener + its always-plain-HTTP OS-detection companion
+        // (port + 1, see guest-server.ts). Cluster-only until step B.
+        { containerPort: 4300, expose: "cluster" },
+        { containerPort: 4301, expose: "cluster" },
+      ],
       imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
     {

@@ -389,4 +389,28 @@ describe.skipIf(typeof Bun === "undefined")("startGuestServer (Bun.serve integra
       servers = [];
     },
   );
+
+  test("an explicit httpPort overrides the port + 1 default , the real LAN cutover (443/80) needs this, since the k8s Service's exposed port always equals the container port", async () => {
+    // Two ephemeral ports (0), then bind the companion to the second one
+    // explicitly instead of relying on the +1 offset from the first.
+    const probe = Bun.serve({ port: 0, fetch: () => new Response("x") });
+    const explicitHttpPort = probe.port;
+    probe.stop(true);
+
+    const server = startGuestServer({
+      port: 0,
+      staticDir,
+      logger: testLogger,
+      httpPort: explicitHttpPort,
+    });
+    servers.push(server);
+
+    expect(server.httpPort).toBe(explicitHttpPort);
+    expect(server.httpPort).not.toBe(server.port + 1);
+    const res = await fetch(`http://localhost:${server.httpPort}/up`);
+    expect(res.status).toBe(200);
+
+    for (const s of servers) s.stop();
+    servers = [];
+  });
 });

@@ -35,11 +35,22 @@ COPY infra/unifi/package.json infra/unifi/
 RUN bun install --frozen-lockfile --ignore-scripts
 
 COPY products/control-center/api products/control-center/api
+# The guest (captive-portal) SPA bundle (Task 4, SDD track 0): the api image
+# serves it from GUEST_STATIC_DIR via the guest listener (ADR-0006), so the
+# built dist-portal/ output has to be baked in here, not just the web image.
+# Needs the web product's full source + tsconfig (vite.portal.config.ts,
+# portal.html, src/portal/) to build.
+COPY products/control-center/web products/control-center/web
+COPY tsconfig.json tsconfig.json
 COPY packages packages
 
 # Bundle to a single file. server.ts runs migrations on boot via drizzle-orm's
 # runtime migrator, so drizzle-kit never ships.
 RUN bun build products/control-center/api/src/server.ts --target=bun --outfile dist/server.js
+
+# Guest SPA bundle -> products/control-center/web/dist-portal/, COPYd into the
+# runtime image below at /app/portal-dist (GUEST_STATIC_DIR).
+RUN bun run --cwd products/control-center/web build:portal
 
 # Second entrypoint: the portal data-hygiene purge (www-q002.18). Bundled into
 # the same image so the bosun cronJob runs it via a command override
@@ -67,6 +78,8 @@ COPY --from=build /app/dist/purge.js purge.js
 # Migrations resolve relative to the bundle's own location (import.meta.url),
 # i.e. /app/migrations at runtime, keep this path in sync with WORKDIR.
 COPY --from=build /app/products/control-center/api/src/db/migrations migrations
+# Guest SPA bundle; GUEST_STATIC_DIR is set to this path in the k8s WorkloadSpec.
+COPY --from=build /app/products/control-center/web/dist-portal portal-dist
 
 EXPOSE 4201
 
