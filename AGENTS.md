@@ -18,6 +18,7 @@
 - Fixed wall panel, `1366x1024`, not responsive.
 - Tile placement belongs in `products/control-center/web/src/lib/tile-registry.ts`.
 - Use shared UI primitives from `products/control-center/web/src/components/ui/`.
+- Full-screen pages over modals for new tiles' detail views.
 - Panel audio goes through the sound bus: `playCue()` from
   `products/control-center/web/src/lib/sound/`. Add a named cue; never construct
   `AudioContext` or `Audio` elsewhere (Biome-enforced). Loudness is DEVICE volume
