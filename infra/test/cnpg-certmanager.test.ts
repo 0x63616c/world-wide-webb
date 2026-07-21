@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { beforeAll, describe, expect, test } from "vitest";
@@ -201,33 +200,5 @@ describe("installCertManager", () => {
     expect(meta.namespace).toBe("captive-portal");
     expect(spec.dnsNames).toEqual(["captive-portal.worldwidewebb.co", "app--cp.worldwidewebb.co"]);
     expect(spec.secretName).toBe("captive-portal-tls");
-  });
-
-  test("the portal nginx TLS vhost accepts both legacy and app.cp names", () => {
-    const conf = readFileSync("products/captive-portal/apps/frontend/nginx.conf", "utf8");
-
-    expect(conf).toContain("server_name captive-portal.worldwidewebb.co app--cp.worldwidewebb.co;");
-  });
-
-  test("the portal nginx proxy targets the product API service", () => {
-    const conf = readFileSync(
-      "products/captive-portal/apps/frontend/_portal_locations.conf",
-      "utf8",
-    );
-
-    expect(conf).toContain("proxy_pass http://api.captive-portal.svc.cluster.local:4211;");
-    expect(conf).not.toContain("api.control-center.svc.cluster.local");
-  });
-
-  test("the placeholder certificate subject prefers app.cp and keeps legacy SAN", () => {
-    const entrypoint = readFileSync(
-      "products/captive-portal/apps/frontend/docker-entrypoint-portal.sh",
-      "utf8",
-    );
-
-    expect(entrypoint).toContain('-subj "/CN=app--cp.worldwidewebb.co"');
-    expect(entrypoint).toContain(
-      "subjectAltName=DNS:app--cp.worldwidewebb.co,DNS:captive-portal.worldwidewebb.co",
-    );
   });
 });

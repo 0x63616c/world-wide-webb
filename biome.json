@@ -78,8 +78,6 @@
         "**/products/control-center/api/src/env.ts",
         "**/products/control-center/api/drizzle.config.ts",
         "**/products/control-center/web/vite.config.ts",
-        "**/products/captive-portal/apps/frontend/playwright.config.ts",
-        "**/products/captive-portal/apps/frontend/e2e/**",
         "**/products/control-center/web/e2e-portal/**",
         "**/scripts/**"
       ],

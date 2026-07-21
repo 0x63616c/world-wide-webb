@@ -33,8 +33,6 @@ const ALL_IMAGE_DIGESTS = {
   "control-center-storybook": VALID,
   "control-center-drizzle": VALID,
   "control-center-map-provision": VALID,
-  "captive-portal-portal": VALID,
-  "captive-portal-api": VALID,
 } satisfies ImageDigests;
 
 describe("serviceSpecs image digest pinning", () => {

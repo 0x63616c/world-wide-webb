@@ -120,21 +120,8 @@
       // only picks up the default vite.config.ts / index.html pair).
       // e2e-portal/playwright.config.ts: knip's Playwright plugin only
       // auto-detects a config at the package root; ours lives in a
-      // subdirectory (mirrors products/captive-portal/apps/frontend's
-      // layout otherwise), so it isn't found without an explicit entry.
+      // subdirectory, so it isn't found without an explicit entry.
       "entry": ["src/portal/main.tsx", "e2e-portal/playwright.config.ts"]
-    },
-    "products/captive-portal/apps/frontend": {
-      // `geist` ships the self-hosted Geist + Geist Mono woff2, vendored into
-      // public/fonts and consumed via a CSS @font-face url() in theme.css
-      // (captive webviews block CDNs, www-q002.3). That's an asset edge knip
-      // can't see, so it isn't flagged as an unused devDependency.
-      "ignoreDependencies": ["geist"]
-    },
-    "products/captive-portal/apps/api": {
-      // src/index.ts and server.ts are auto-detected from exports/scripts; tests
-      // are colocated in src/.
-      "entry": ["src/**/*.test.ts"]
     }
   }
 }

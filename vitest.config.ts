@@ -8,8 +8,6 @@ export default defineConfig({
       "products/control-center/api",
       "products/control-center/web",
       "products/control-center/worker",
-      "products/captive-portal/apps/api",
-      "products/captive-portal/apps/frontend",
       "packages/logger",
       "packages/platform",
       "packages/worker-runtime",

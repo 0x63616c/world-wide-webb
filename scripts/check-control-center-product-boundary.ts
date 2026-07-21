@@ -77,7 +77,6 @@ const dockerfilesWithWorkspaceManifests = [
   `${productRoot}/web/Dockerfile`,
   `${productRoot}/web/Dockerfile.storybook`,
   `${productRoot}/worker/Dockerfile`,
-  "products/captive-portal/apps/frontend/Dockerfile",
 ] as const;
 
 function readJson(relativePath: string): JsonRecord {

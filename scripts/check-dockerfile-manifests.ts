@@ -49,8 +49,6 @@ const FULL_INSTALL_DOCKERFILES = [
   "products/control-center/worker/Dockerfile",
   "products/control-center/web/Dockerfile",
   "products/control-center/web/Dockerfile.storybook",
-  "products/captive-portal/Dockerfile.api",
-  "products/captive-portal/apps/frontend/Dockerfile",
 ];
 
 // --- 3. Parse each Dockerfile for `COPY <src>/package.json` lines ---

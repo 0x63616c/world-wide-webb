@@ -55,7 +55,17 @@ for (const glob of requiredWorkspaceGlobs) {
   assert(workspaceGlobs.has(glob), `Root package.json missing workspace glob ${glob}`);
 }
 
+// captive-portal's on-disk product folder was deleted (SDD track 0, Task 5:
+// repo + CI teardown); its @www/platform identity entry (productSlugs,
+// captivePortalProductManifest) deliberately stays alive a while longer
+// because cnpg.ts/crons.ts still call it for the still-live CNPG cluster +
+// backup CronJob, and gets pruned in the later platform-cleanup task (7+8).
+// Until then this workspace-shape guard only checks products with a real
+// folder on disk.
+const PRODUCTS_WITHOUT_FOLDER = new Set<ProductSlug>(["captive-portal"]);
+
 for (const slug of productSlugs) {
+  if (PRODUCTS_WITHOUT_FOLDER.has(slug)) continue;
   const folder = `products/${slug}`;
   assert(existsSync(join(root, folder)), `Missing product folder ${folder}`);
 

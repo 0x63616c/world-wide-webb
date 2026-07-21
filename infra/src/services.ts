@@ -26,7 +26,6 @@ export type ImageDigests = Record<string, string>;
 export type OwnedWorkloadSpec = WorkloadSpec & { namespaceName: InfraNamespaceName };
 
 const controlCenterProduct = defineProduct("control-center");
-const captivePortalProduct = defineProduct("captive-portal");
 
 const IMAGE_REPOSITORIES = {
   api: {
@@ -52,14 +51,6 @@ const IMAGE_REPOSITORIES = {
   "map-provision": {
     digestKey: controlCenterProduct.imageDigestKey("map-provision"),
     repository: controlCenterProduct.imageRepository("map-provision"),
-  },
-  "captive-portal": {
-    digestKey: captivePortalProduct.imageDigestKey("portal"),
-    repository: captivePortalProduct.imageRepository("portal"),
-  },
-  "captive-portal-api": {
-    digestKey: captivePortalProduct.imageDigestKey("api"),
-    repository: captivePortalProduct.imageRepository("api"),
   },
 } as const satisfies Record<string, { digestKey: string; repository: string }>;
 
