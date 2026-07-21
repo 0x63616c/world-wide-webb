@@ -78,10 +78,10 @@ describe("wake-photo-service", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it("saves under the dated path and round-trips through read", async () => {
+  it("saves under a flat ISO-instant path and round-trips through read", async () => {
     const ts = Date.UTC(2026, 6, 17, 12, 0, 0);
     const rel = await saveWakePhoto(db, jpeg("frame"), meta({ capturedAt: ts }), root);
-    expect(rel).toMatch(/^2026[/\\]07[/\\]17[/\\]\d+-0\.jpg$/);
+    expect(rel).toBe("2026-07-17T12-00-00.000Z-0.jpg");
     const read = await readWakePhoto(rel, root);
     expect(read).not.toBeNull();
     expect([...(read?.bytes ?? [])].slice(0, 3)).toEqual([0xff, 0xd8, 0xff]);
@@ -140,9 +140,8 @@ describe("wake-photo-service", () => {
   });
 
   it("backfills index rows for photos already on disk, and is idempotent", async () => {
-    const dir = join(root, "2026", "07", "18");
-    await mkdir(dir, { recursive: true });
-    await writeFile(join(dir, "1752840000000-0.jpg"), jpeg("old"));
+    await mkdir(root, { recursive: true });
+    await writeFile(join(root, "2026-07-18T12-40-00.000Z-0.jpg"), jpeg("old"));
 
     const first = await backfillWakePhotoIndex(db, root);
     expect(first).toEqual({ scanned: 1, inserted: 1 });
@@ -150,7 +149,7 @@ describe("wake-photo-service", () => {
     // Unattributed by construction: the filename never carried a session.
     expect(db.rows[0].interactionSessionId).toBeNull();
     expect(db.rows[0].frameIdx).toBeNull();
-    expect(db.rows[0].capturedAt.getTime()).toBe(1752840000000);
+    expect(db.rows[0].capturedAt.getTime()).toBe(Date.UTC(2026, 6, 18, 12, 40, 0));
 
     const second = await backfillWakePhotoIndex(db, root);
     expect(second).toEqual({ scanned: 1, inserted: 0 });
@@ -182,6 +181,6 @@ describe("wake-photo-service", () => {
   });
 
   it("read returns null for missing files", async () => {
-    expect(await readWakePhoto("2026/01/01/1-0.jpg", root)).toBeNull();
+    expect(await readWakePhoto("2026-01-01T00-00-00.000Z-0.jpg", root)).toBeNull();
   });
 });

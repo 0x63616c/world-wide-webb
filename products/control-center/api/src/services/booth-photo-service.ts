@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { getLogger } from "@www/logger";
 import { and, desc, eq, isNull } from "drizzle-orm";
@@ -6,13 +6,15 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../db/schema";
 import { boothPhoto } from "../db/schema";
 import { env } from "../env";
+import { nextFreeName } from "./media-path";
 
 /**
  * Photo booth: the wall panel's on-demand camera. A person triggers a capture in
  * one of four modes , a single `photo`, a `burst` of stills, a `four_frame`
  * strip, or an animated `gif` , and the frames land here. Like wake photos the
  * BYTES live on the filesystem at
- * <MEDIA_STORAGE_DIR>/booth-photos/YYYY/MM/DD/<capturedAt>-<n>.<ext>; the INDEX
+ * <MEDIA_STORAGE_DIR>/booth-photos/<capturedAt ISO>-<n>.<ext> (see media-path.ts);
+ * the INDEX
  * lives in Postgres (`booth_photo`), one row per frame.
  *
  * Two things separate it from the wake-photo stack it is modelled on:
@@ -115,15 +117,6 @@ function hasMagic(bytes: Uint8Array, magic: number[]): boolean {
   return bytes.length >= magic.length && magic.every((b, i) => bytes[i] === b);
 }
 
-function dayDirFor(capturedAt: number): { rel: string } {
-  // UTC day buckets , timezone-stable regardless of where api/tests run.
-  const d = new Date(capturedAt);
-  const y = String(d.getUTCFullYear());
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(d.getUTCDate()).padStart(2, "0");
-  return { rel: join(y, m, dd) };
-}
-
 /**
  * Validate and persist one captured frame: bytes to disk, index row to Postgres.
  * Returns the new id and the stored path (relative to the booth-photos root,
@@ -177,14 +170,11 @@ export async function saveBoothPhoto(
   const mimeType = isGif ? "image/gif" : "image/jpeg";
   const ext = isGif ? "gif" : "jpg";
 
-  const { rel } = dayDirFor(meta.capturedAt);
-  const dir = join(root, rel);
-  await mkdir(dir, { recursive: true });
+  await mkdir(root, { recursive: true });
   // Frames of one capture stamp their own times but can collide on a same-ms
-  // capture or retry; suffix with the count of existing same-ts files so every
-  // frame keeps a distinct path.
-  const existing = (await readdir(dir)).filter((f) => f.startsWith(`${meta.capturedAt}-`));
-  const relPath = join(rel, `${meta.capturedAt}-${existing.length}.${ext}`);
+  // capture or retry; suffix with the first free counter so every frame keeps a
+  // distinct path.
+  const relPath = await nextFreeName(root, meta.capturedAt, ext);
   await writeFile(join(root, relPath), bytes);
 
   const id = newBoothPhotoId();

@@ -20,7 +20,7 @@ describe("interaction-session summarise", () => {
       ev(2000, "tile/tap", { idx: 1, target: "tile_clock" }),
       ev(5000, "session/end", { idx: 2, reason: "idle-dim", events: 1, durationMs: 4000 }),
     ];
-    expect(summarise(SID, events, "wall-panel", ["2026/07/18/1000-0.jpg"])).toEqual({
+    expect(summarise(SID, events, "wall-panel", ["2026-07-18T12-40-00.000Z-0.jpg"])).toEqual({
       id: SID,
       startedAt: 1000,
       endedAt: 5000,
@@ -28,7 +28,7 @@ describe("interaction-session summarise", () => {
       eventCount: 1,
       endReason: "idle-dim",
       deviceName: "wall-panel",
-      photoPaths: ["2026/07/18/1000-0.jpg"],
+      photoPaths: ["2026-07-18T12-40-00.000Z-0.jpg"],
       digest: "Clock",
     });
   });

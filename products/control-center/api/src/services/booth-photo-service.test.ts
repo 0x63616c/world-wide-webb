@@ -106,11 +106,11 @@ describe("booth-photo-service", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it("saves a jpeg under the dated path and round-trips through read", async () => {
+  it("saves a jpeg under a flat ISO-instant path and round-trips through read", async () => {
     const ts = Date.UTC(2026, 6, 19, 12, 0, 0);
     const { id, path } = await saveBoothPhoto(db, jpeg("frame"), meta({ capturedAt: ts }), root);
     expect(id).toMatch(/^bph_[0-9a-f]+$/);
-    expect(path).toMatch(/^2026[/\\]07[/\\]19[/\\]\d+-0\.jpg$/);
+    expect(path).toBe("2026-07-19T12-00-00.000Z-0.jpg");
     const read = await readBoothPhoto(path, root);
     expect(read).not.toBeNull();
     expect([...(read?.bytes ?? [])].slice(0, 3)).toEqual([0xff, 0xd8, 0xff]);
@@ -222,7 +222,7 @@ describe("booth-photo-service", () => {
     // A frame removed earlier: bytes still on disk, hidden from every read.
     db.rows.push({
       id: "bph_gone",
-      path: "2026/07/19/1-0.jpg",
+      path: "2026-07-19T12-00-00.000Z-0.jpg",
       capturedAt: new Date(Date.UTC(2026, 6, 19, 13, 0, 0)),
       mode: "photo",
       groupId: "bpg_gone",
@@ -399,6 +399,6 @@ describe("booth-photo-service", () => {
   });
 
   it("read returns null for missing files", async () => {
-    expect(await readBoothPhoto("2026/01/01/1-0.jpg", root)).toBeNull();
+    expect(await readBoothPhoto("2026-01-01T00-00-00.000Z-0.jpg", root)).toBeNull();
   });
 });

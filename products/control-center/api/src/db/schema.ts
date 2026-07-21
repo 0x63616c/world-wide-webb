@@ -310,7 +310,8 @@ export const mediaItem = pgTable(
       .references(() => mediaSource.id, { onDelete: "cascade" }),
     ytVideoId: text("yt_video_id").notNull(),
     rawTitle: text("raw_title").notNull(),
-    status: text("status").notNull().default("pending"), // 'pending'|'downloading'|'done'|'failed'
+    uploader: text("uploader"), // YouTube channel that published it; null until downloaded
+    status: text("status").notNull().default("pending"), // 'queued' (poller) | 'ready' (ingest handler)
     videoPath: text("video_path"),
     thumbPath: text("thumb_path"),
     videoBytes: integer("video_bytes"),
@@ -438,7 +439,7 @@ export const boardTilePlacement = pgTable("board_tile_placement", {
 export const wakePhoto = pgTable(
   "wake_photo",
   {
-    // Path relative to the wake-photos root, e.g. "2026/07/18/1752849600000-0.jpg".
+    // Path relative to the wake-photos root, e.g. "2026-07-18T12-40-00.000Z-0.jpg".
     // Also the id: it is what GET /media/wake-photos/<path> serves, and the
     // filesystem already guarantees it is unique.
     path: text("path").primaryKey(),
@@ -483,7 +484,7 @@ export const boothPhoto = pgTable(
   {
     // Stripe-style id (repo IDs default to prefix_<id>): bph_<random>.
     id: text("id").primaryKey(),
-    // Path relative to the booth-photos root, e.g. "2026/07/19/1752849600000-0.jpg".
+    // Path relative to the booth-photos root, e.g. "2026-07-19T12-40-00.000Z-0.jpg".
     // What GET /media/booth-photos/<path> serves; unique on disk by construction.
     path: text("path").notNull().unique(),
     capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),

@@ -6,21 +6,22 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../db/schema";
 import { wakePhoto } from "../db/schema";
 import { env } from "../env";
+import { nextFreeName, parsePhotoFileName } from "./media-path";
 
 /**
  * Wake photos: front-camera burst frames the wall panel uploads every time it
  * is woken from its idle dim. The BYTES live on the filesystem at
- * <MEDIA_STORAGE_DIR>/wake-photos/YYYY/MM/DD/<capturedAt>-<n>.jpg; the INDEX
- * lives in Postgres (`wake_photo`), one row per frame, carrying the interaction
- * session the frame belongs to (spec
+ * <MEDIA_STORAGE_DIR>/wake-photos/<capturedAt ISO>-<n>.jpg (see media-path.ts);
+ * the INDEX lives in Postgres (`wake_photo`), one row per frame, carrying the
+ * interaction session the frame belongs to (spec
  * docs/specs/2026-07-18-interaction-logging-design.md).
  *
- * The dated tree used to BE the store , listing walked it, and a timestamp in a
- * filename was the only metadata a photo had. The table is what lets a frame be
- * correlated with a session, attributed to a device, and purged by a cheap
- * cutoff query. `backfillWakePhotoIndex` heals the gap for photos that predate
- * the table (their rows are honestly NULL on everything the filename never
- * carried).
+ * A dated YYYY/MM/DD tree used to BE the store , listing walked it, and an epoch
+ * stamp in a filename was the only metadata a photo had. The table is what lets
+ * a frame be correlated with a session, attributed to a device, and purged by a
+ * cheap cutoff query. `backfillWakePhotoIndex` heals the gap for photos that
+ * predate the table (their rows are honestly NULL on everything the filename
+ * never carried).
  */
 
 interface WakePhotoDay {
@@ -60,15 +61,6 @@ export function defaultWakePhotoRoot(): string {
   return join(env.MEDIA_STORAGE_DIR, "wake-photos");
 }
 
-function dayDirFor(capturedAt: number): { rel: string; day: string } {
-  // UTC day buckets , timezone-stable regardless of where api/tests run.
-  const d = new Date(capturedAt);
-  const y = String(d.getUTCFullYear());
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(d.getUTCDate()).padStart(2, "0");
-  return { rel: join(y, m, dd), day: `${y}-${m}-${dd}` };
-}
-
 /**
  * Validate and persist one burst frame: bytes to disk, index row to Postgres.
  * Returns the stored path relative to the wake-photos root (the same path
@@ -92,14 +84,11 @@ export async function saveWakePhoto(
   if (bytes.length < JPEG_MAGIC.length || !JPEG_MAGIC.every((b, i) => bytes[i] === b)) {
     throw new Error("wake photo is not a JPEG");
   }
-  const { rel } = dayDirFor(meta.capturedAt);
-  const dir = join(root, rel);
-  await mkdir(dir, { recursive: true });
+  await mkdir(root, { recursive: true });
   // Burst frames share a wake but not a timestamp (each frame stamps its own
   // capture time), so collisions only happen on a same-ms retry , suffix with
-  // the count of existing same-ts files to keep every frame.
-  const existing = (await readdir(dir)).filter((f) => f.startsWith(`${meta.capturedAt}-`));
-  const relPath = join(rel, `${meta.capturedAt}-${existing.length}.jpg`);
+  // the first free counter so every frame keeps a distinct path.
+  const relPath = await nextFreeName(root, meta.capturedAt, "jpg");
   await writeFile(join(root, relPath), bytes);
 
   await db
@@ -123,38 +112,33 @@ export async function saveWakePhoto(
 }
 
 /**
- * Walk the dated tree into a flat, unsorted list of what is physically on disk.
- * Retained (from the tree-walk listing era) as the backfill's source of truth ,
- * the filesystem is authoritative for BYTES, the table for metadata.
+ * List what is physically on disk. Retained (from the tree-walk listing era) as
+ * the backfill's source of truth , the filesystem is authoritative for BYTES,
+ * the table for metadata.
+ *
+ * Reads only the flat root. Legacy YYYY/MM/DD names are NOT read here: the
+ * migration renames every one of them into the flat scheme, so a leftover
+ * nested file is a migration failure to investigate, not something to silently
+ * index at a timestamp this parser would have to guess at.
  */
 async function walkPhotoFiles(
   root: string,
 ): Promise<{ path: string; capturedAt: number; bytes: number }[]> {
   const out: { path: string; capturedAt: number; bytes: number }[] = [];
 
-  let years: string[];
+  let names: string[];
   try {
-    years = await readdir(root);
+    names = await readdir(root);
   } catch {
     return out;
   }
 
-  for (const y of years) {
-    const months = await readdir(join(root, y)).catch(() => [] as string[]);
-    for (const m of months) {
-      const dayDirs = await readdir(join(root, y, m)).catch(() => [] as string[]);
-      for (const dd of dayDirs) {
-        const files = await readdir(join(root, y, m, dd)).catch(() => [] as string[]);
-        for (const f of files) {
-          if (!f.endsWith(".jpg")) continue;
-          const capturedAt = Number(f.split("-")[0]);
-          if (!Number.isFinite(capturedAt)) continue;
-          const s = await stat(join(root, y, m, dd, f)).catch(() => null);
-          if (!s) continue;
-          out.push({ path: join(y, m, dd, f), capturedAt, bytes: s.size });
-        }
-      }
-    }
+  for (const name of names) {
+    const parsed = parsePhotoFileName(name);
+    if (!parsed || parsed.ext !== "jpg") continue;
+    const s = await stat(join(root, name)).catch(() => null);
+    if (!s?.isFile()) continue;
+    out.push({ path: name, capturedAt: parsed.capturedAt, bytes: s.size });
   }
 
   return out;
