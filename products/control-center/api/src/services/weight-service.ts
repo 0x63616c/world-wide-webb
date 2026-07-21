@@ -10,6 +10,7 @@ import { db } from "../db/index";
 import { weightMeasurement } from "../db/schema";
 import { env } from "../env";
 import { ha } from "../integrations/homeassistant/index";
+import { HaError } from "../integrations/homeassistant/types";
 import { isOutsideSanityBand, LB_PER_KG } from "./weight-domain";
 
 function newWeightId(): string {
@@ -17,7 +18,15 @@ function newWeightId(): string {
 }
 
 export async function runWeightIngestCycle(): Promise<void> {
-  const entity = await ha.getEntity(env.HA_WEIGHT_ENTITY_ID);
+  let entity: Awaited<ReturnType<typeof ha.getEntity>>;
+  try {
+    entity = await ha.getEntity(env.HA_WEIGHT_ENTITY_ID);
+  } catch (err) {
+    // 404 = the scale isn't paired in HA yet (needs a connectable BT proxy).
+    // A quiet no-op, not a failing worker: the entity may not exist for days.
+    if (err instanceof HaError && err.status === 404) return;
+    throw err;
+  }
   const raw = Number.parseFloat(entity.state);
   if (!Number.isFinite(raw)) return; // 'unknown'/'unavailable' between weigh-ins
 
