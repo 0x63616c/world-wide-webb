@@ -8,8 +8,10 @@ one App; if yes and they are independent features, the write path is shared subs
 
 The load-bearing instance: `device_state` is written by Controls, Climate, **and** the device-sync
 cycle — three independent writers. It becomes `packages/core/device-state/` exposing
-`readDesired` / `writeDesired` / `readEffective`; the `deviceState` / `deviceCommands` tables are
-owned by core. Controls, Climate, and Schedules each import the store, and each still owns its own
+`readDesired` / `writeDesired` / `readEffective`; the `deviceState` table is owned by core. (An
+earlier `device_commands` in-flight-gate table this ADR originally cited no longer exists in the
+schema — it was replaced by an in-memory adopt/absorb window; see the historical comment at
+`light-enforcer-service.ts:121`.) Controls, Climate, and Schedules each import the store, and each still owns its own
 Enforcer Cycle and its own router slice — but **none owns the device_state table.** The `job` queue
 table, HA client, env, migrator, and logger move into core the same way, only as far as later Apps
 need them. This is what dissolves the interim `worker-deps.ts` / `media.ts` barrels.

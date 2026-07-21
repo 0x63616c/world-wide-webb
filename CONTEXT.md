@@ -75,16 +75,19 @@ _Avoid_: full-page modal, screen, route.
 ## Grouping (target vocabulary)
 
 **Product**:
-A deployable top-level unit of the repo (control-center, captive-portal): its own services,
-image builds, database, and namespace. Described by a **Product Manifest**. This term already
-exists and must not be confused with App / App Manifest below.
+A deployable top-level unit of the repo: its own services, image builds, database, and namespace.
+There is one Product, control-center (see ADR-0006 — captive-portal dissolved into it); the term
+is retained for the deploy unit itself, not as a claim that more than one exists today. Described
+by a **Product Manifest**. Must not be confused with App / App Manifest below.
 _Avoid_: app (an App is smaller — see below), service, package.
 
 **App** _(target)_:
 A single self-contained feature grouped as one unit — its Tile(s), the API slice that backs them,
 the Worker Cycles and Queue Jobs it needs, and the tables it owns — living together in one folder
 inside a Product. The consolidation the re-architecture aims at; today these pieces are scattered
-and tied together only by convention.
+and tied together only by convention. `guest-wifi` (the former captive-portal product, folded per
+ADR-0006) is the canonical example: one folder holding the portal-only listener, the guest static
+bundle, and its owned tables.
 _Avoid_: feature, module (reserved for design vocabulary), plugin, product.
 
 **App Manifest** _(target)_:
@@ -110,6 +113,9 @@ The state of having entered the correct PIN so a Sensitive Tile View will open. 
 single shared session — each guarded feature runs its own independent gate; a shared PIN Session
 is the intended consolidation.
 _Avoid_: login, auth, unlocked flag.
+
+PIN Session (decided 2026-07-21): one shared session covers all Sensitive surfaces; expires on
+idle-reset; explicit close supported; client-only until Slice S.
 
 ## Backend work
 
