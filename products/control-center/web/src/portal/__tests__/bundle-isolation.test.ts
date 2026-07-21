@@ -28,6 +28,10 @@ const INDEX_SUFFIXES = ["/index.tsx", "/index.ts", "/index.jsx", "/index.js"];
 
 // Matches: `import ... from "spec"`, `export ... from "spec"`, bare
 // `import "spec"`, and dynamic `import("spec")`.
+// NOTE: This regex only matches STRING-LITERAL import specifiers. It cannot detect
+// non-literal dynamic imports like `import(variable)` or `import(\`path/\${expr}\`)`.
+// See the "portal sources use only string-literal import specifiers (walker soundness)"
+// test for a companion soundness check that guards against this regex limitation.
 const IMPORT_SPECIFIER_RE =
   /(?:import|export)(?:[^'";]*?from\s*)?\s*['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g;
 
@@ -116,5 +120,71 @@ describe("guest bundle isolation (src/portal/main.tsx import graph)", () => {
   it("never imports the panel settings store", () => {
     const hit = [...graph.internalFiles].find((f) => f.includes("/lib/settings"));
     expect(hit).toBeUndefined();
+  });
+
+  it("portal sources use only string-literal import specifiers (walker soundness)", () => {
+    // Sanity check: verify our detection regexes work on inline fixtures.
+    // These patterns should be caught as non-literal dynamic imports:
+    const nonLiteralPatterns = [
+      "import(myVar)",
+      "import( variable )",
+      "import({ a })",
+      "import(( expr ))",
+      "import(`path/${name}`)",
+      "import(`template/${x}`)",
+    ];
+    for (const pattern of nonLiteralPatterns) {
+      const hasNonLiteral =
+        /import\s*\(\s*[^'"` \n]/.test(pattern) ||
+        /import\s*\(\s*\{/.test(pattern) ||
+        /import\s*\(\s*\(/.test(pattern) ||
+        /import\s*\(\s*`[^`]*\$\{/.test(pattern);
+      expect(hasNonLiteral).toBe(true);
+    }
+
+    // These patterns should pass (literal imports are OK):
+    const literalPatterns = [
+      'import("literal")',
+      "import('literal')",
+      "import(`template-literal`)",
+    ];
+    for (const pattern of literalPatterns) {
+      const hasNonLiteral =
+        /import\s*\(\s*[^'"` \n]/.test(pattern) ||
+        /import\s*\(\s*\{/.test(pattern) ||
+        /import\s*\(\s*\(/.test(pattern) ||
+        /import\s*\(\s*`[^`]*\$\{/.test(pattern);
+      expect(hasNonLiteral).toBe(false);
+    }
+
+    // Now check all walked portal source files for non-literal dynamic imports.
+    const violations: Array<{ file: string; line: number; context: string }> = [];
+
+    for (const file of graph.internalFiles) {
+      if (!file.includes("/portal/")) continue;
+
+      const source = readFileSync(file, "utf-8");
+      const lines = source.split("\n");
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        // Check for non-literal dynamic imports
+        const hasNonLiteral =
+          /import\s*\(\s*[^'"` \n]/.test(line) ||
+          /import\s*\(\s*\{/.test(line) ||
+          /import\s*\(\s*\(/.test(line) ||
+          /import\s*\(\s*`[^`]*\$\{/.test(line);
+
+        if (hasNonLiteral) {
+          violations.push({
+            file: file.replace(SRC_DIR, ""),
+            line: i + 1,
+            context: line.trim().substring(0, 100),
+          });
+        }
+      }
+    }
+
+    expect(violations).toEqual([]);
   });
 });
