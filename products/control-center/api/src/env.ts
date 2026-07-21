@@ -196,6 +196,17 @@ export const envSchema = z.object({
   GO2RTC_URL: z.string().url().default("http://go2rtc:1984"),
   CAMERA_STREAM_NAME: z.string().default("bedroom_mjpeg"),
   CAMERA_LABEL: z.string().default("Living Room Cam"),
+
+  // Guest listener (ADR-0006): a second, portal-only Bun.serve bound to the LAN
+  // captive-portal path. All optional , GUEST_PORT unset means the listener
+  // never starts (the default: dev/test and any deploy that hasn't wired the
+  // guest network yet). GUEST_TLS_DIR points at a cert-manager secret
+  // projection (fullchain.pem + key.pem, same names the old nginx portal used);
+  // when unset the guest listener runs plain HTTP. GUEST_STATIC_DIR is the
+  // built guest web bundle (products/control-center/web/dist-portal/ in prod).
+  GUEST_PORT: z.coerce.number().int().positive().optional(),
+  GUEST_TLS_DIR: z.string().optional(),
+  GUEST_STATIC_DIR: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

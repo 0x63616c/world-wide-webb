@@ -3,6 +3,7 @@ import { createLogger } from "@www/logger";
 import { db } from "./db/index";
 import { runMigrations } from "./db/migrate";
 import { env } from "./env";
+import { startGuestServer } from "./guest-server";
 import { getTvArtwork } from "./services/apple-tv-service";
 import {
   BOOTH_FILTER_PATTERN,
@@ -40,6 +41,22 @@ try {
 } catch (err) {
   log.error({ err }, "migrations failed");
   throw err;
+}
+
+// Guest (captive-portal) listener, ADR-0006: a second, portal-only Bun.serve
+// bound to the LAN guest network. Fully optional , GUEST_PORT unset (the
+// default) means this never starts, so dev/test and any deploy that hasn't
+// wired the guest network yet boot exactly as before.
+if (env.GUEST_PORT) {
+  startGuestServer({
+    port: env.GUEST_PORT,
+    tlsDir: env.GUEST_TLS_DIR,
+    // Dev default: the built guest bundle sits alongside the web product
+    // (products/control-center/web/dist-portal/, relative to this api
+    // product's cwd). The production image sets GUEST_STATIC_DIR explicitly
+    // to the path Task 4's Dockerfile COPYs it to.
+    staticDir: env.GUEST_STATIC_DIR ?? "../web/dist-portal",
+  });
 }
 
 // Move any photos still under the legacy YYYY/MM/DD tree onto flat ISO-instant
