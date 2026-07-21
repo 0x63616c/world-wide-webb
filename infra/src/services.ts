@@ -231,16 +231,18 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       env: {
         ...haEnv,
         MEDIA_STORAGE_DIR: "/app/media",
-        // Guest (captive-portal) listener cutover (SDD track 0, Task 4).
-        // Step B (this deploy): TLS now wired (GUEST_TLS_DIR, the
-        // control-center copy of the portal cert , see certmanager.ts's
-        // issuePortalCertificate), but STILL cluster-only ports, so this
-        // deploys and gets verified with a real HTTPS curl from inside the
-        // cluster before the LAN LoadBalancer ports move here (a separate,
-        // atomic commit that also strips them from the old
-        // captive-portal-portal workload , both workloads can't hold the LAN
-        // 443/80 host ports at once).
-        GUEST_PORT: "4300",
+        // Guest (captive-portal) listener cutover (SDD track 0, Task 4). LIVE
+        // LAN cutover (this deploy): 443/80, verified dark on 4300/4301 first
+        // (TLS wiring + static bundle + portal.* tRPC all checked from inside
+        // the cluster). GUEST_HTTP_PORT=80 is required , guest-server.ts's
+        // default plain-HTTP companion is port+1, which off 443 would be 444,
+        // not the conventional 80 (the k8s Service's exposed port always
+        // equals the container port, no remap in the infra WorkloadSpec).
+        // The old captive-portal-portal workload's LAN ports are removed in
+        // this SAME commit (see below) , both workloads can't hold the LAN
+        // 443/80 host ports at once.
+        GUEST_PORT: "443",
+        GUEST_HTTP_PORT: "80",
         GUEST_STATIC_DIR: "/app/portal-dist",
         GUEST_TLS_DIR: "/certs",
       },
@@ -253,10 +255,12 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       ],
       ports: [
         { containerPort: 4201, expose: "cluster" },
-        // Guest TLS listener + its always-plain-HTTP OS-detection companion
-        // (port + 1, see guest-server.ts). Cluster-only until the LAN cutover.
-        { containerPort: 4300, expose: "cluster" },
-        { containerPort: 4301, expose: "cluster" },
+        // Guest TLS listener (443) + its always-plain-HTTP OS-detection
+        // companion (80, via GUEST_HTTP_PORT above). LAN LoadBalancer,
+        // republished on the Mac host by OrbStack expose_services , same
+        // mechanism the old captive-portal-portal workload used.
+        { containerPort: 443, expose: "lan" },
+        { containerPort: 80, expose: "lan" },
       ],
       // The control-center copy of the portal TLS cert (issuePortalCertificate
       // in certmanager.ts), same rename convention as the old captive-portal
@@ -358,11 +362,13 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       replicas: 1,
       resources: { memory: "64M" },
       env: { TZ },
-      // LAN LoadBalancer on :443/:80 (republished on en1 by OrbStack expose_services).
-      ports: [
-        { containerPort: 443, expose: "lan" },
-        { containerPort: 80, expose: "lan" },
-      ],
+      // LAN ports REMOVED (Task 4, SDD track 0): the guest listener cutover
+      // moved the LAN 443/80 LoadBalancer exposure onto control-center-api in
+      // this SAME commit (both workloads can't hold the LAN host ports at
+      // once, since OrbStack expose_services republishes exactly one
+      // LoadBalancer service's ports per host port). This workload is now
+      // fully dark (no ports exposed at all) and slated for deletion in step C.
+      ports: [],
       // Mount the cert-manager-issued TLS secret (www-j934.5) for nginx. The
       // secret is kubernetes.io/tls (keys tls.crt/tls.key), but the portal
       // entrypoint + nginx expect the acme.sh filenames fullchain.pem/key.pem on
