@@ -31,6 +31,7 @@ import {
   Users,
   Video,
   Volume2,
+  Weight,
   Wifi,
   Zap,
 } from "lucide-react";
@@ -68,7 +69,8 @@ export type IconName =
   | "speaker"
   | "apps"
   | "settings"
-  | "groups";
+  | "groups"
+  | "weight";
 
 export interface IconProps {
   name: IconName;
@@ -119,6 +121,7 @@ export const GLYPHS: Record<IconName, LucideIcon> = {
   apps: LayoutGrid,
   settings: Settings,
   groups: Users,
+  weight: Weight,
 };
 
 export function Icon({ name, s = 22, c = "currentColor", sw = 1.7 }: IconProps) {

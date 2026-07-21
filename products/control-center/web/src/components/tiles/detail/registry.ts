@@ -25,6 +25,7 @@ import { quickPlayDetailEntry } from "./wiring/quickplay";
 import { soundDetailEntry } from "./wiring/sound";
 import { tvDetailEntry } from "./wiring/tv";
 import { tvAppsDetailEntry } from "./wiring/tv-apps";
+import { weightDetailEntry } from "./wiring/weight";
 
 // Grows one entry per migrated tile; final state covers all board tiles
 // (completeness enforced by a registry test once the migration lands).
@@ -48,6 +49,7 @@ const ENTRIES: TileDetailEntry[] = [
   frontendLogsDetailEntry,
   guestWifiDetailEntry,
   photoBoothDetailEntry,
+  weightDetailEntry,
 ];
 
 const BY_TILE_ID = new Map<string, TileDetailEntry>(ENTRIES.map((e) => [e.tileId, e]));

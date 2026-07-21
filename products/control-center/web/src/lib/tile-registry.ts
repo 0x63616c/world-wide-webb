@@ -35,6 +35,8 @@ import { WakesTile } from "../components/tiles/WakesTile";
 import { WakesTileView } from "../components/tiles/WakesTileView";
 import { WeatherNow } from "../components/tiles/WeatherNow";
 import { WeatherNowView } from "../components/tiles/WeatherNowView";
+import { WeightTile } from "../components/tiles/WeightTile";
+import { WeightTileView } from "../components/tiles/WeightTileView";
 
 type TileComponent =
   | typeof ClockGreeting
@@ -55,7 +57,8 @@ type TileComponent =
   | typeof QuickPlayTile
   | typeof NotificationCenterTile
   | typeof PhotoBoothTile
-  | typeof WakesTile;
+  | typeof WakesTile
+  | typeof WeightTile;
 
 type TileViewComponent =
   | typeof ClockGreetingView
@@ -76,7 +79,8 @@ type TileViewComponent =
   | typeof QuickPlayTileView
   | typeof NotificationCenterTileView
   | typeof PhotoBoothTile
-  | typeof WakesTileView;
+  | typeof WakesTileView
+  | typeof WeightTileView;
 
 export type TileRegistryEntry = {
   id: string;
@@ -129,6 +133,19 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     worldCol: 28,
     worldRow: 22,
     cols: 2,
+    rows: 2,
+  },
+  // Weight tile (spec 2026-07-21): 3x2 in the rows-22/23 band above the home
+  // cluster, right of Guest Wi-Fi. Col 34 (not 33) — the bento fill needs the
+  // 30-33 gap to tile the band gap-free (placeholder-tiles test enforces it).
+  {
+    id: "tile_weight",
+    label: "Weight",
+    component: WeightTile,
+    viewComponent: WeightTileView,
+    worldCol: 34,
+    worldRow: 22,
+    cols: 3,
     rows: 2,
   },
   {

@@ -19,6 +19,9 @@ export function useNow(intervalMs = 1000): Date {
  */
 export const POLL = {
   weather: 10 * 60 * 1000,
+  // Weight: the worker ingests at 60s; matching it means a weigh-in shows on
+  // the panel within ~2 minutes worst-case without extra churn.
+  weight: 60 * 1000,
   network: 60 * 1000,
   tesla: 60 * 1000,
   controls: 30 * 1000,
