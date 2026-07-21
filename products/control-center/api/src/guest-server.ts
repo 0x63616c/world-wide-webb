@@ -151,11 +151,96 @@ export function createGuestFetchHandler(opts: {
         },
       });
       for (const [k, v] of Object.entries(CORS_HEADERS)) res.headers.set(k, v);
-      return res;
+      return redactGuestTrpcResponse(res);
     }
 
     return serveStatic(staticDir, url.pathname);
   };
+}
+
+// tRPC's default errorFormatter passes `error.message` (and, for unhandled
+// exceptions, `error.data.stack`) through verbatim onto the wire. That's fine
+// for the authenticated `appRouter` surface, but the guest listener is reached
+// by unauthenticated LAN devices (ADR-0006), so a raw DB/internal error (e.g.
+// a Postgres query failure) must never leak column names, file paths, or
+// stack frames to a guest. Typed `PortalError` flows (wrong password, rate
+// limited, not configured) map onto non-5xx tRPC codes (see
+// trpc/routers/portal.ts's `ERROR_CODE_MAP`) and carry guest-safe copy that
+// must reach the client unchanged; only the >=500 "something broke"
+// path gets redacted here.
+function redactErrorItem(item: unknown): unknown {
+  if (typeof item !== "object" || item === null) {
+    return item;
+  }
+  const obj = item as Record<string, unknown>;
+  const error = obj.error;
+  if (typeof error !== "object" || error === null) {
+    return item;
+  }
+  const errObj = error as Record<string, unknown>;
+  const data = errObj.data;
+  const httpStatus =
+    typeof data === "object" && data !== null
+      ? (data as Record<string, unknown>).httpStatus
+      : undefined;
+  if (typeof httpStatus !== "number" || httpStatus < 500) {
+    return item;
+  }
+  const { stack: _stack, ...restData } =
+    typeof data === "object" && data !== null ? (data as Record<string, unknown>) : {};
+  return {
+    ...obj,
+    error: {
+      ...errObj,
+      message: "Internal error",
+      data: restData,
+    },
+  };
+}
+
+/**
+ * Redacts internal error detail (message + stack) from a parsed tRPC
+ * response body, for any item whose `error.data.httpStatus >= 500`. Handles
+ * both a single-call body (`{ error: {...} }`) and a batched body (an array
+ * of such objects), and leaves non-5xx items (BAD_REQUEST, NOT_FOUND,
+ * TOO_MANY_REQUESTS, ...) completely untouched. Pure so it's directly
+ * unit-testable against a realistic tRPC error envelope without needing a
+ * real procedure to throw.
+ */
+export function redactGuestErrorBody(json: unknown): unknown {
+  if (Array.isArray(json)) {
+    return json.map(redactErrorItem);
+  }
+  return redactErrorItem(json);
+}
+
+async function redactGuestTrpcResponse(res: Response): Promise<Response> {
+  // Gate on the response body's own error shape, not the aggregate HTTP
+  // status: a batched call mixing a 500-level procedure with others comes
+  // back as 207 Multi-Status (see guest-server.test.ts), so a plain
+  // `res.status >= 500` gate would let a batched internal error straight
+  // through un-redacted. `res.status < 200` never carries a body worth
+  // parsing (e.g. a future 204/304 falling through this branch); anything
+  // else gets inspected per-item by `redactGuestErrorBody`, which is a
+  // no-op for items that aren't a >=500 tRPC error.
+  if (res.status < 200) {
+    return res;
+  }
+  let json: unknown;
+  try {
+    json = await res.clone().json();
+  } catch {
+    // Not a JSON body (shouldn't happen for the tRPC fetch adapter) , pass
+    // through rather than risk masking a real response.
+    return res;
+  }
+  const headers = new Headers(res.headers);
+  headers.delete("content-length");
+  return new Response(JSON.stringify(redactGuestErrorBody(json)), {
+    status: res.status,
+    statusText: res.statusText,
+    headers,
+  });
 }
 
 function withRequestLogging(
@@ -220,8 +305,13 @@ export function startGuestServer(opts: StartGuestServerOptions): GuestServer {
     fetch,
   });
 
+  // Bind relative to the *actual* bound main-server port, not the requested
+  // one: with a fixed port (real deployments) these are the same, but with
+  // `port: 0` (ephemeral, e.g. tests) `opts.port` stays 0 while
+  // `mainServer.port` is the OS-assigned port , binding off `opts.port + 1`
+  // there would land on port 1, not "next to the main listener".
   const httpServer = Bun.serve({
-    port: opts.port + 1,
+    port: (mainServer.port ?? opts.port) + 1,
     fetch: httpFetch,
   });
 

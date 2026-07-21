@@ -1,10 +1,53 @@
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createLogger } from "@www/logger";
 import { beforeAll, describe, expect, test } from "vitest";
 import { envSchema } from "../env";
-import { createGuestFetchHandler, type GuestServer, startGuestServer } from "../guest-server";
+import {
+  createGuestFetchHandler,
+  type GuestServer,
+  redactGuestErrorBody,
+  startGuestServer,
+} from "../guest-server";
+
+// No cert/key material is committed here (gitleaks flags any embedded
+// private key as a leak, rightly, since it's indistinguishable from a real
+// one at a glance): the TLS test generates a fresh throwaway self-signed
+// localhost cert into a temp dir at run time via the system `openssl`
+// (present on macOS and CI Linux images), and skips itself if `openssl`
+// isn't on PATH.
+function opensslAvailable(): boolean {
+  try {
+    execFileSync("openssl", ["version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function generateSelfSignedCert(dir: string): void {
+  const keyPath = join(dir, "key.pem");
+  const certPath = join(dir, "fullchain.pem");
+  execFileSync("openssl", [
+    "req",
+    "-x509",
+    "-newkey",
+    "rsa:2048",
+    "-keyout",
+    keyPath,
+    "-out",
+    certPath,
+    "-days",
+    "1",
+    "-nodes",
+    "-subj",
+    "/CN=localhost",
+    "-addext",
+    "subjectAltName=DNS:localhost,IP:127.0.0.1",
+  ]);
+}
 
 // Silent logger, so the test run isn't drowned in per-request log lines.
 const testLogger = createLogger({ service: "guest-api-test", pretty: false, level: "silent" });
@@ -130,6 +173,117 @@ describe("createGuestFetchHandler", () => {
     expect(res.status).toBe(204);
     expect(res.headers.get("access-control-allow-origin")).toBe("*");
   });
+
+  test("a raw internal error (no DB in this process) reaches the guest as 'Internal error', never the real message/stack", async () => {
+    // portal.status hits the real drizzle repo, which has no Postgres to
+    // talk to here, so it throws a raw pg/drizzle error , an INTERNAL_SERVER_ERROR
+    // this test does not control the shape of, exactly the "raw DB/internal
+    // error thrown in a portal procedure" scenario the redaction guards
+    // against. Wired through createGuestFetchHandler end-to-end (not just
+    // the pure redactGuestErrorBody unit above) to prove it's actually
+    // applied in the handler, not just implemented.
+    const input = encodeURIComponent(JSON.stringify({ mac: "aa:bb:cc:dd:ee:ff" }));
+    const res = await handler()(
+      new Request(`http://guest.local/trpc/portal.status?input=${input}`),
+    );
+    expect(res.status).toBe(500);
+    const text = await res.text();
+    const body = JSON.parse(text) as { error: { message: string; data: Record<string, unknown> } };
+    expect(body.error.message).toBe("Internal error");
+    expect(body.error.data).not.toHaveProperty("stack");
+    expect(body.error.data.code).toBe("INTERNAL_SERVER_ERROR");
+    // The raw driver error text/stack must not appear anywhere in the body.
+    expect(text).not.toMatch(/portal_authorization|portal-repo\.ts|node_modules/);
+  });
+});
+
+// -----------------------------------------------------------------------
+// redactGuestErrorBody: pure-function unit tests against realistic tRPC
+// error envelopes (as observed from an actual portal.status call against a
+// DB-less process, and from a mixed batch , see guest-server.ts's comment
+// on why this can't gate on the aggregate HTTP status).
+// -----------------------------------------------------------------------
+describe("redactGuestErrorBody", () => {
+  test("redacts message + stack for a >=500 single-call error", () => {
+    const body = {
+      error: {
+        message:
+          'Failed query: select "id" from "portal_authorization" where "mac" = $1\nparams: aa:bb:cc:dd:ee:ff',
+        code: -32603,
+        data: {
+          code: "INTERNAL_SERVER_ERROR",
+          httpStatus: 500,
+          stack:
+            "Error: Failed query: ...\n    at Object.findAuthorizationByMac (portal-repo.ts:49:21)",
+          path: "portal.status",
+        },
+      },
+    };
+    const redacted = redactGuestErrorBody(body) as typeof body;
+    expect(redacted.error.message).toBe("Internal error");
+    expect(redacted.error.data).not.toHaveProperty("stack");
+    // Non-sensitive fields survive untouched.
+    expect(redacted.error.data.code).toBe("INTERNAL_SERVER_ERROR");
+    expect(redacted.error.data.httpStatus).toBe(500);
+    expect(redacted.error.data.path).toBe("portal.status");
+  });
+
+  test("leaves a BAD_REQUEST (wrong-password copy) untouched , guests need this", () => {
+    const body = {
+      error: {
+        message: "WRONG_PASSWORD: incorrect WiFi password",
+        code: -32600,
+        data: { code: "BAD_REQUEST", httpStatus: 400, path: "portal.checkPassword" },
+      },
+    };
+    const redacted = redactGuestErrorBody(body) as typeof body;
+    expect(redacted).toEqual(body);
+  });
+
+  test("leaves a NOT_FOUND (routing 404) untouched", () => {
+    const body = {
+      error: {
+        message: 'No procedure found on path "health.ping"',
+        code: -32004,
+        data: { code: "NOT_FOUND", httpStatus: 404, path: "health.ping" },
+      },
+    };
+    const redacted = redactGuestErrorBody(body) as typeof body;
+    expect(redacted).toEqual(body);
+  });
+
+  test("redacts only the >=500 item in a mixed batch, leaving the 404 item intact", () => {
+    const body = [
+      {
+        error: {
+          message: "Failed query: select ... from portal_authorization",
+          code: -32603,
+          data: {
+            code: "INTERNAL_SERVER_ERROR",
+            httpStatus: 500,
+            stack: "Error: Failed query ...",
+            path: "portal.status",
+          },
+        },
+      },
+      {
+        error: {
+          message: 'No procedure found on path "health.ping"',
+          code: -32004,
+          data: { code: "NOT_FOUND", httpStatus: 404, path: "health.ping" },
+        },
+      },
+    ];
+    const redacted = redactGuestErrorBody(body) as typeof body;
+    expect(redacted[0]?.error.message).toBe("Internal error");
+    expect(redacted[0]?.error.data).not.toHaveProperty("stack");
+    expect(redacted[1]?.error).toEqual(body[1]?.error);
+  });
+
+  test("passes a successful (non-error) response through untouched", () => {
+    const body = { result: { data: { state: "fresh" } } };
+    expect(redactGuestErrorBody(body)).toEqual(body);
+  });
 });
 
 describe("GUEST_PORT env", () => {
@@ -171,4 +325,37 @@ describe.skipIf(typeof Bun === "undefined")("startGuestServer (Bun.serve integra
     for (const s of servers) s.stop();
     servers = [];
   });
+
+  test.skipIf(!opensslAvailable())(
+    "with tlsDir set, serves /up over real TLS on the main port, and the plain-HTTP companion still answers",
+    async () => {
+      // Exercises the Bun.serve `tls:` wiring (fullchain.pem/key.pem reads)
+      // that the test above never touches, since it starts the server
+      // without tlsDir , this is the fix for that gap.
+      const tlsDir = mkdtempSync(join(tmpdir(), "cc-guest-tls-"));
+      generateSelfSignedCert(tlsDir);
+
+      const server = startGuestServer({ port: 0, staticDir, tlsDir, logger: testLogger });
+      servers.push(server);
+
+      // Throwaway self-signed cert isn't in any trust store, so verification
+      // must be disabled for this test client , that's the point of using a
+      // self-signed cert here at all, not a claim about production TLS trust.
+      const res = await fetch(`https://localhost:${server.port}/up`, {
+        tls: { rejectUnauthorized: false },
+      });
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("OK");
+
+      // The plain-HTTP OS-detection companion must stay plain HTTP even when
+      // the main listener is TLS , a captive-portal client must never hit a
+      // cert prompt while deciding whether the network is captive.
+      expect(server.httpPort).toBe(server.port + 1);
+      const httpRes = await fetch(`http://localhost:${server.httpPort}/up`);
+      expect(httpRes.status).toBe(200);
+
+      for (const s of servers) s.stop();
+      servers = [];
+    },
+  );
 });
