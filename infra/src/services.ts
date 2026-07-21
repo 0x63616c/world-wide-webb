@@ -256,11 +256,23 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       ports: [
         { containerPort: 4201, expose: "cluster" },
         // Guest TLS listener (443) + its always-plain-HTTP OS-detection
-        // companion (80, via GUEST_HTTP_PORT above). LAN LoadBalancer,
-        // republished on the Mac host by OrbStack expose_services , same
-        // mechanism the old captive-portal-portal workload used.
-        { containerPort: 443, expose: "lan" },
-        { containerPort: 80, expose: "lan" },
+        // companion (80, via GUEST_HTTP_PORT above). TEMPORARILY
+        // expose:"cluster" (Task 4 step B2, retry): the real "lan" flip and
+        // the old captive-portal-portal workload's port removal can't land
+        // in the SAME apply after all , they're two independent k8s Service
+        // objects, and Pulumi doesn't (and can't, at the k8s admission level)
+        // apply them as one atomic transaction. The first attempt tried
+        // exactly that: the api Service asked the LAN LoadBalancer address
+        // for 443/80 while the old portal Service's delete for those same
+        // ports on that address hadn't landed yet, so the address allocator
+        // refused it and the apply timed out after 10 minutes (confirmed live:
+        // the old portal Service was untouched, still serving guests
+        // uninterrupted , this failure mode is SAFE, just stuck). Sequencing
+        // fix: this deploy only frees the address (old workload already has
+        // ports: [] below); the very next commit flips these two lines to
+        // expose: "lan" now that nothing else is claiming it.
+        { containerPort: 443, expose: "cluster" },
+        { containerPort: 80, expose: "cluster" },
       ],
       // The control-center copy of the portal TLS cert (issuePortalCertificate
       // in certmanager.ts), same rename convention as the old captive-portal
