@@ -53,4 +53,9 @@ describe("computeAppUpdateBanner", () => {
     const model = computeAppUpdateBanner(65, status({ uploadedDate: "garbage" }), NOW);
     expect(model?.detail).toBe("1.0 (68) · 3 builds behind");
   });
+
+  it("names the device in the message when given a device name", () => {
+    const model = computeAppUpdateBanner(65, status(), NOW, "iPad");
+    expect(model?.message).toBe("Update available on iPad");
+  });
 });

@@ -154,6 +154,33 @@ export async function raiseNotification(
     dedupeKey: input.dedupeKey ?? null,
   };
 
+  // A poller re-raising an UNCHANGED condition on an UNREAD row (e.g. the panel
+  // web app reloading on every deploy and re-running its "still behind" check)
+  // is not news , it's the same fact restated. Only content that actually
+  // changed, or a row the user already read, deserves a fresh unread bump and
+  // another APNs push; otherwise this would re-notify on every reload/poll even
+  // though nothing changed. See DEDUPE note above for the resurrect-on-repeat
+  // behavior this guard narrows.
+  if (values.dedupeKey) {
+    const [existing] = await db
+      .select()
+      .from(schema.notification)
+      .where(eq(schema.notification.dedupeKey, values.dedupeKey))
+      .limit(1);
+    if (
+      existing &&
+      existing.readAt === null &&
+      existing.title === values.title &&
+      existing.body === values.body &&
+      existing.category === values.category &&
+      existing.severity === values.severity &&
+      existing.deepLink === values.deepLink &&
+      JSON.stringify(existing.data) === JSON.stringify(values.data)
+    ) {
+      return toItem(existing);
+    }
+  }
+
   const insert = db.insert(schema.notification).values(values);
 
   // With a dedupe key, a repeat raise refreshes the existing row in place and

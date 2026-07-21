@@ -4,6 +4,7 @@ import {
   computeAppUpdateBanner,
   getInstalledBuildNumber,
 } from "../lib/app-update";
+import { getDeviceName } from "../lib/device-name";
 import { trpc } from "../lib/trpc";
 import { useNotifications } from "../lib/useNotifications";
 import { NotificationBanner } from "./ui/NotificationBanner";
@@ -52,6 +53,7 @@ function AppUpdateBannerQuery({ installedBuild }: { installedBuild: number }) {
     installedBuild,
     status ?? null,
     Date.now(),
+    getDeviceName(),
   );
   const visible = banner !== null;
 

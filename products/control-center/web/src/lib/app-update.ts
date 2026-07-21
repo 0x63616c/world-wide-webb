@@ -48,6 +48,7 @@ export function computeAppUpdateBanner(
   installedBuild: number | null,
   status: AppUpdateStatus | null,
   nowMs: number,
+  deviceName?: string | null,
 ): AppUpdateBannerModel | null {
   if (installedBuild === null || status === null) return null;
   const behind = status.buildNumber - installedBuild;
@@ -62,7 +63,7 @@ export function computeAppUpdateBanner(
 
   return {
     buildNumber: status.buildNumber,
-    message: "Update available",
+    message: deviceName ? `Update available on ${deviceName}` : "Update available",
     detail: parts.join(" · "),
   };
 }

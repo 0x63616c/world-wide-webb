@@ -179,6 +179,51 @@ describe("raiseNotification dedupe", () => {
     ]);
   });
 
+  it("skips the upsert + notify job when a re-raise repeats an unread row's content unchanged", async () => {
+    const existing = row({
+      category: "system",
+      severity: "info",
+      dedupeKey: "app-update:2 builds behind",
+      title: "Update available",
+      body: "1.0 (68) · 2 builds behind",
+    });
+    const { db, calls } = makeDb([existing]);
+
+    const item = await raiseNotification(db, {
+      category: "system",
+      severity: "info",
+      title: "Update available",
+      body: "1.0 (68) · 2 builds behind",
+      dedupeKey: "app-update:2 builds behind",
+    });
+
+    expect(calls.insertValues).toHaveLength(0);
+    expect(calls.onConflictDoUpdate).toHaveLength(0);
+    expect(queueMock.enqueued).toHaveLength(0);
+    expect(item.id).toBe(existing.id);
+  });
+
+  it("still re-raises when the repeated dedupeKey's content actually changed", async () => {
+    const existing = row({
+      dedupeKey: "app-update",
+      title: "Update available",
+      body: "1.0 (68) · 2 builds behind",
+    });
+    const { db, calls, setReturning } = makeDb([existing]);
+    setReturning([row({ dedupeKey: "app-update", body: "1.0 (69) · 3 builds behind" })]);
+
+    await raiseNotification(db, {
+      category: "system",
+      severity: "info",
+      title: "Update available",
+      body: "1.0 (69) · 3 builds behind",
+      dedupeKey: "app-update",
+    });
+
+    expect(calls.onConflictDoUpdate).toHaveLength(1);
+    expect(queueMock.enqueued).toHaveLength(1);
+  });
+
   it("returns the persisted row as an ISO-stamped wire item", async () => {
     const { db } = makeDb();
     const item = await raiseNotification(db, {

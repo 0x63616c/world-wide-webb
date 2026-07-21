@@ -234,7 +234,9 @@ export function SettingsPage({
 
       {/* Content , the only pane once a page is picked on a phone. The generous
           64px side padding is panel framing; on a 440px viewport it would eat
-          almost a third of the width, so it tightens to 20px. */}
+          almost a third of the width, so it tightens to 20px. Fill pages (e.g.
+          Logs) own a dense full-width list, so 64px would eat directly into
+          usable columns , they get a tighter 24px instead. */}
       <div
         style={{
           flex: 1,
@@ -242,7 +244,7 @@ export function SettingsPage({
           // A fill page's own list is the scroller; the pane must not also
           // scroll (that double-scrollbar is exactly what `fill` fixes).
           overflowY: fill ? "hidden" : "auto",
-          padding: narrow ? "20px 20px 40px" : "40px 64px",
+          padding: narrow ? "20px 20px 40px" : fill ? "40px 24px 0" : "40px 64px",
           display: narrow && showList ? "none" : fill ? "flex" : "block",
           flexDirection: fill ? "column" : undefined,
         }}

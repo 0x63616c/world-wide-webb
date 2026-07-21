@@ -138,8 +138,11 @@ export function DevicePage({ onOpenLevel }: PageProps) {
           <RowShell
             key="permission"
             label="OS permission"
-            sub={cameraPermission ? CAMERA_PERMISSION_LABEL[cameraPermission] : "Checking…"}
-            control={null}
+            control={
+              <span style={VALUE_TEXT}>
+                {cameraPermission ? CAMERA_PERMISSION_LABEL[cameraPermission] : "Checking…"}
+              </span>
+            }
           />,
           <RowShell
             key="test"
