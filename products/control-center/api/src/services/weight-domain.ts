@@ -1,6 +1,6 @@
 /** Pure weight math — no DB, no HA. Spec: docs/superpowers/specs/2026-07-21-weight-tile-design.md. */
 
-export const SANITY_BAND_KG = 5.4; // 12 lb
+const SANITY_BAND_KG = 5.4; // 12 lb
 export const LB_PER_KG = 2.2046226218;
 
 export function median(xs: number[]): number {

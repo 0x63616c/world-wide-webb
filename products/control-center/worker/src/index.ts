@@ -27,6 +27,7 @@ import {
   runPlaylistPollerCycle,
   runSonosVolumeEnforcerCycle,
   runWeatherIngestCycle,
+  runWeightIngestCycle,
   runYoutubeIngest,
   staleJobReaper,
 } from "@control-center/api/worker";
@@ -129,6 +130,13 @@ const workers: Worker[] = [
     intervalMs: 5 * 60_000,
     runOnStart: true,
     run: runWeatherIngestCycle,
+  },
+  {
+    // Renpho weight ingest (spec 2026-07-21): HA sensor → weight_measurement.
+    name: "weight-ingest",
+    intervalMs: 60_000,
+    runOnStart: true,
+    run: runWeightIngestCycle,
   },
   {
     // GitHub Actions deploy poller (Deploys tile): 10s tick, but the cycle

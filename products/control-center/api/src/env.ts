@@ -94,6 +94,10 @@ export const envSchema = z.object({
   // ha-evee-is-tesla-not-home-climate.
   CLIMATE_ENTITY_ID: z.string().default("climate.home"),
 
+  // Renpho scale weight sensor (renpho_fitness_scale_ble via BT proxy). Override
+  // if the integration names the entity differently after first pairing.
+  HA_WEIGHT_ENTITY_ID: z.string().default("sensor.renpho_scale_weight"),
+
   // UniFi network controller. All optional with safe defaults.
   UNIFI_API_KEY: z.string().default(""),
   UNIFI_CONTROLLER_URL: z.string().url().default("https://192.168.0.1"),
