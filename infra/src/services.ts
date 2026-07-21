@@ -231,15 +231,18 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       env: {
         ...haEnv,
         MEDIA_STORAGE_DIR: "/app/media",
-        // Guest (captive-portal) listener cutover, step A (SDD track 0, Task
-        // 4): dark, cluster-only for now, so this can deploy and be verified
-        // (curl from inside the cluster) before anything touches live guest
-        // traffic. No GUEST_TLS_DIR yet (plain HTTP only) , TLS + the LAN
-        // LoadBalancer ports move here in step B, atomically with removing
-        // them from the old captive-portal-portal workload (both workloads
-        // can't hold the LAN 443/80 host ports at once).
+        // Guest (captive-portal) listener cutover (SDD track 0, Task 4).
+        // Step B (this deploy): TLS now wired (GUEST_TLS_DIR, the
+        // control-center copy of the portal cert , see certmanager.ts's
+        // issuePortalCertificate), but STILL cluster-only ports, so this
+        // deploys and gets verified with a real HTTPS curl from inside the
+        // cluster before the LAN LoadBalancer ports move here (a separate,
+        // atomic commit that also strips them from the old
+        // captive-portal-portal workload , both workloads can't hold the LAN
+        // 443/80 host ports at once).
         GUEST_PORT: "4300",
         GUEST_STATIC_DIR: "/app/portal-dist",
+        GUEST_TLS_DIR: "/certs",
       },
       volumes: [
         {
@@ -251,9 +254,23 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       ports: [
         { containerPort: 4201, expose: "cluster" },
         // Guest TLS listener + its always-plain-HTTP OS-detection companion
-        // (port + 1, see guest-server.ts). Cluster-only until step B.
+        // (port + 1, see guest-server.ts). Cluster-only until the LAN cutover.
         { containerPort: 4300, expose: "cluster" },
         { containerPort: 4301, expose: "cluster" },
+      ],
+      // The control-center copy of the portal TLS cert (issuePortalCertificate
+      // in certmanager.ts), same rename convention as the old captive-portal
+      // workload below (tls.crt/tls.key -> fullchain.pem/key.pem, the acme.sh
+      // filenames guest-server.ts expects).
+      extraSecretMounts: [
+        {
+          secretName: "captive-portal-tls",
+          mountPath: "/certs",
+          items: [
+            { key: "tls.crt", path: "fullchain.pem" },
+            { key: "tls.key", path: "key.pem" },
+          ],
+        },
       ],
       imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },

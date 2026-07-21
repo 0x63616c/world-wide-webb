@@ -147,3 +147,45 @@ export function installCertManager(args: CertManagerArgs): CertManagerResources 
 
   return { install, cfTokenSecret, issuer, certificate };
 }
+
+export interface PortalCertificateArgs {
+  provider: k8s.Provider;
+  // Namespace for this copy of the Certificate (and the Secret it writes).
+  namespace: pulumi.Input<string>;
+  // The already-installed ClusterIssuer (installCertManager's `issuer`), so
+  // this never re-installs cert-manager/the issuer/the CF token Secret , all
+  // cluster-scoped singletons that can't be created twice.
+  issuer: k8s.apiextensions.CustomResource;
+  // Pulumi logical resource name, must be unique in the stack (a second
+  // Certificate in a different namespace can't reuse "captive-portal-tls").
+  resourceName: string;
+}
+
+/**
+ * @public - a SECOND Certificate for the same portal hostnames, in a
+ * different namespace (Task 4, SDD track 0: the guest listener moved into
+ * control-center-api, and a k8s Secret mount is always namespace-local).
+ * Deliberately additive: reuses the existing ClusterIssuer, issues its own
+ * DNS-01 order, and writes its own PORTAL_TLS_SECRET-named Secret in the
+ * given namespace, leaving the original Certificate (and its Secret) in its
+ * original namespace completely untouched.
+ */
+export function issuePortalCertificate(
+  args: PortalCertificateArgs,
+): k8s.apiextensions.CustomResource {
+  const { provider, namespace, issuer, resourceName } = args;
+  return new k8s.apiextensions.CustomResource(
+    resourceName,
+    {
+      apiVersion: "cert-manager.io/v1",
+      kind: "Certificate",
+      metadata: { name: PORTAL_TLS_SECRET, namespace },
+      spec: {
+        secretName: PORTAL_TLS_SECRET,
+        dnsNames: [...PORTAL_HOSTS],
+        issuerRef: { name: "letsencrypt-dns", kind: "ClusterIssuer" },
+      },
+    },
+    { provider, dependsOn: [issuer] },
+  );
+}

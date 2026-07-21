@@ -7,7 +7,7 @@
 // CI deploy: SOPS_AGE_KEY injected from AGE_PRIVATE_KEY GitHub secret.
 
 import * as pulumi from "@pulumi/pulumi";
-import { installCertManager } from "./src/certmanager.ts";
+import { installCertManager, issuePortalCertificate } from "./src/certmanager.ts";
 import { makeCluster } from "./src/cluster.ts";
 import { installCnpg } from "./src/cnpg.ts";
 import { deployCrons } from "./src/crons.ts";
@@ -54,6 +54,26 @@ const certManager = installCertManager({
   acmeEmail: cfg.get("acmeEmail"),
   version: "v1.20.2",
   vault,
+});
+
+// A SECOND copy of the portal Certificate, in control-center (Task 4 step B,
+// SDD track 0): the guest listener that's about to carry live LAN guest
+// traffic lives in the control-center-api workload, and a k8s Secret mount is
+// always namespace-local to the pod, so the old captive-portal-namespace
+// Secret can't be mounted there. Deliberately ADDITIVE (a new Certificate +
+// Secret, same hostnames, new namespace) rather than moving the existing one:
+// moving would delete the old namespace's live captive-portal-tls Secret
+// (cert-manager owns it via an ownerReference on the Certificate) the moment
+// this applies, breaking the still-live old nginx portal before the new
+// listener is even verified. This one deploys and gets checked internally
+// (still cluster-only ports) BEFORE the LAN port cutover, so cert-issuance
+// latency (DNS-01 propagation) never lands inside the atomic port swap.
+// Step C deletes the OLD Certificate + its captive-portal namespace together.
+const controlCenterGuestCert = issuePortalCertificate({
+  provider: cluster.provider,
+  namespace: namespaces["control-center"],
+  issuer: certManager.issuer,
+  resourceName: "control-center-guest-tls",
 });
 
 // App workloads (www-j934.6). The media pipeline runs inside the always-on
@@ -118,6 +138,7 @@ export const namespaceNames = Object.fromEntries(
 export const appNamespaceName = cluster.namespaces["control-center"].metadata.name;
 export const cnpgClusterName = cnpg.cluster.metadata.name;
 export const cnpgClusterNames = cnpg.clusters.map((c) => c.metadata.name);
+export const controlCenterGuestCertName = controlCenterGuestCert.metadata.name;
 export const cnpgAuthSecretNames = cnpg.authSecrets.map((s) => s.metadata.name);
 export const portalCertificateName = certManager.certificate.metadata.name;
 export const workloadNames = services.workloads.map((w) => w.deployment.metadata.name);
