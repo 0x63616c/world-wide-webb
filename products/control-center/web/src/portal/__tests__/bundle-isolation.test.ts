@@ -123,8 +123,40 @@ describe("guest bundle isolation (src/portal/main.tsx import graph)", () => {
   });
 
   it("portal sources use only string-literal import specifiers (walker soundness)", () => {
-    // Sanity check: verify our detection regexes work on inline fixtures.
-    // These patterns should be caught as non-literal dynamic imports:
+    // Detection runs against the WHOLE source string (not a per-line split):
+    // `\s` already matches newlines, so these patterns span multi-line dynamic
+    // imports like `import(\n  someVar\n)`. A per-line split would sever
+    // `import(` from its argument on the next line and silently miss it.
+    const NON_LITERAL_DYNAMIC_IMPORT_RES = [
+      /import\s*\(\s*[^'"` \n]/g,
+      /import\s*\(\s*\{/g,
+      /import\s*\(\s*\(/g,
+      /import\s*\(\s*`[^`]*\$\{/g,
+    ];
+
+    function findNonLiteralDynamicImports(
+      source: string,
+    ): Array<{ index: number; context: string }> {
+      const hits: Array<{ index: number; context: string }> = [];
+      for (const re of NON_LITERAL_DYNAMIC_IMPORT_RES) {
+        for (const match of source.matchAll(re)) {
+          const index = match.index ?? 0;
+          hits.push({ index, context: source.slice(index, index + 40).replace(/\n/g, "\\n") });
+        }
+      }
+      return hits;
+    }
+
+    function lineNumberAt(source: string, index: number): number {
+      let line = 1;
+      for (let i = 0; i < index && i < source.length; i++) {
+        if (source[i] === "\n") line++;
+      }
+      return line;
+    }
+
+    // Sanity check: verify detection works on inline fixtures, including
+    // multi-line dynamic imports (the bug this test guards against).
     const nonLiteralPatterns = [
       "import(myVar)",
       "import( variable )",
@@ -132,30 +164,28 @@ describe("guest bundle isolation (src/portal/main.tsx import graph)", () => {
       "import(( expr ))",
       "import(`path/${name}`)",
       "import(`template/${x}`)",
+      "import(\n  someVar\n)",
     ];
     for (const pattern of nonLiteralPatterns) {
-      const hasNonLiteral =
-        /import\s*\(\s*[^'"` \n]/.test(pattern) ||
-        /import\s*\(\s*\{/.test(pattern) ||
-        /import\s*\(\s*\(/.test(pattern) ||
-        /import\s*\(\s*`[^`]*\$\{/.test(pattern);
-      expect(hasNonLiteral).toBe(true);
+      expect(findNonLiteralDynamicImports(pattern).length).toBeGreaterThan(0);
     }
 
-    // These patterns should pass (literal imports are OK):
+    // These patterns should pass (literal imports are OK), including a
+    // multi-line literal (must NOT be flagged just because it spans lines):
     const literalPatterns = [
       'import("literal")',
       "import('literal')",
       "import(`template-literal`)",
+      "import(\n  './ok'\n)",
     ];
     for (const pattern of literalPatterns) {
-      const hasNonLiteral =
-        /import\s*\(\s*[^'"` \n]/.test(pattern) ||
-        /import\s*\(\s*\{/.test(pattern) ||
-        /import\s*\(\s*\(/.test(pattern) ||
-        /import\s*\(\s*`[^`]*\$\{/.test(pattern);
-      expect(hasNonLiteral).toBe(false);
+      expect(findNonLiteralDynamicImports(pattern)).toEqual([]);
     }
+    // NOTE: comments containing `import(...)` (e.g. `// import(x)`) are not
+    // stripped before scanning, so a non-literal dynamic import mentioned only
+    // in a comment would be (falsely) flagged. This is intentionally
+    // conservative rather than risking a false negative from a broken
+    // comment-stripper; no such comment exists in portal sources today.
 
     // Now check all walked portal source files for non-literal dynamic imports.
     const violations: Array<{ file: string; line: number; context: string }> = [];
@@ -164,24 +194,12 @@ describe("guest bundle isolation (src/portal/main.tsx import graph)", () => {
       if (!file.includes("/portal/")) continue;
 
       const source = readFileSync(file, "utf-8");
-      const lines = source.split("\n");
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        // Check for non-literal dynamic imports
-        const hasNonLiteral =
-          /import\s*\(\s*[^'"` \n]/.test(line) ||
-          /import\s*\(\s*\{/.test(line) ||
-          /import\s*\(\s*\(/.test(line) ||
-          /import\s*\(\s*`[^`]*\$\{/.test(line);
-
-        if (hasNonLiteral) {
-          violations.push({
-            file: file.replace(SRC_DIR, ""),
-            line: i + 1,
-            context: line.trim().substring(0, 100),
-          });
-        }
+      for (const hit of findNonLiteralDynamicImports(source)) {
+        violations.push({
+          file: file.replace(SRC_DIR, ""),
+          line: lineNumberAt(source, hit.index),
+          context: hit.context,
+        });
       }
     }
 
