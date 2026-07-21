@@ -19,6 +19,7 @@ import { systemRouter } from "./system";
 import { teslaRouter } from "./tesla";
 import { wakePhotosRouter } from "./wake-photos";
 import { weatherRouter } from "./weather";
+import { weightRouter } from "./weight";
 
 export const appRouter = router({
   health: healthRouter,
@@ -41,6 +42,7 @@ export const appRouter = router({
   system: systemRouter,
   sessions: sessionsRouter,
   wakePhotos: wakePhotosRouter,
+  weight: weightRouter,
 });
 
 export type AppRouter = typeof appRouter;
