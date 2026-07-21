@@ -6,6 +6,9 @@
 // decorative (aria-hidden); color comes from the parent's CSS `color`.
 type IconProps = { size?: number };
 
+/** @public , none of the 8 shipped screens use GlobeMark/Logo directly (Logo
+ *  wraps it), but it's the mark for the unshipped LandingSplit variant; ported
+ *  1:1 alongside the rest of the icon set. */
 export function GlobeMark({ size = 20 }: IconProps) {
   return (
     <svg
@@ -27,6 +30,8 @@ export function GlobeMark({ size = 20 }: IconProps) {
   );
 }
 
+/** @public , unused by the 8 shipped screens (email/OTP was dropped, www-p9hx);
+ *  ported 1:1 alongside the rest of the icon set for future screens. */
 export function MailIcon({ size = 20 }: IconProps) {
   return (
     <svg
@@ -47,6 +52,8 @@ export function MailIcon({ size = 20 }: IconProps) {
   );
 }
 
+/** @public , unused by the 8 shipped screens; ported 1:1 alongside the rest of
+ *  the icon set for future screens. */
 export function UserIcon({ size = 20 }: IconProps) {
   return (
     <svg
@@ -126,6 +133,8 @@ export function ArrowLeft({ size = 16 }: IconProps) {
   );
 }
 
+/** @public , unused by the 8 shipped screens (only ArrowLeft, on Terms, ships
+ *  today); ported 1:1 alongside the rest of the icon set for future screens. */
 export function ArrowRight({ size = 20 }: IconProps) {
   return (
     <svg
@@ -188,7 +197,9 @@ export function LockIcon({ size = 20 }: IconProps) {
   );
 }
 
-/** Logo mark, the GlobeMark inside a rounded gradient tile. */
+/** @public , the LandingSplit variant's wordmark lockup; unused by the 8
+ *  shipped screens, ported 1:1 alongside the rest of the icon set.
+ *  Logo mark, the GlobeMark inside a rounded gradient tile. */
 export function Logo({ size = 44 }: { size?: number }) {
   return (
     <span

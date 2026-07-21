@@ -1,3 +1,5 @@
+/** @public , unused by the 8 shipped screens (it belongs to the unshipped
+ *  LandingSplit variant); ported 1:1 per the source, no "guest" copy. */
 interface NetworkPillProps {
   /** Network label. Defaults to "Wi-Fi". The design's verbatim "Guest Wi-Fi"
    *  is intentionally NOT used: the PRD forbids the word "guest" in any
