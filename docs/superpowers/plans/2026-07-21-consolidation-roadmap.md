@@ -98,3 +98,10 @@ db/HA singletons); one Unlock gating all Sensitive surfaces, server-enforced aft
   verify pod image age; recover with `force_all` dispatch.
 - Portal DB teardown is the one destructive step: gated on live row-count verification +
   NAS dump (decision 7).
+
+## Backlog (user-queued, not yet planned)
+
+- **scripts/ cleanup** (Calum, 2026-07-21): the scripts folder is a mess. Track 0 already
+  deletes the 6 product-plurality check scripts (Task 9) + portal export/import (Task 6);
+  after Track 0 lands, audit the survivors — inventory, delete dead ones, group the rest
+  (quality-gate vs ops vs codegen), decide what graduates into `apps:gen`/package scripts.
