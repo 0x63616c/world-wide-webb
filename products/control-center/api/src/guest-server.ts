@@ -219,10 +219,13 @@ async function redactGuestTrpcResponse(res: Response): Promise<Response> {
   // status: a batched call mixing a 500-level procedure with others comes
   // back as 207 Multi-Status (see guest-server.test.ts), so a plain
   // `res.status >= 500` gate would let a batched internal error straight
-  // through un-redacted. `res.status < 200` never carries a body worth
-  // parsing (e.g. a future 204/304 falling through this branch); anything
-  // else gets inspected per-item by `redactGuestErrorBody`, which is a
-  // no-op for items that aren't a >=500 tRPC error.
+  // through un-redacted. `res.status < 200` is an informational response
+  // class that never carries a JSON body (this handler never actually emits
+  // one below 200, but the guard is defensive); anything >= 200 gets
+  // inspected per-item by `redactGuestErrorBody`, which is a no-op for items
+  // that aren't a >=500 tRPC error (including a bodiless 204 OPTIONS
+  // response, since `res.clone().json()` on an empty body throws and falls
+  // into the catch-and-pass-through branch just below).
   if (res.status < 200) {
     return res;
   }

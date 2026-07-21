@@ -284,6 +284,29 @@ describe("redactGuestErrorBody", () => {
     const body = { result: { data: { state: "fresh" } } };
     expect(redactGuestErrorBody(body)).toEqual(body);
   });
+
+  test("redacts message but preserves data.portalCode for a >=500 PortalError (e.g. not_configured)", () => {
+    // A typed PortalError can still map onto a 5xx httpStatus (e.g. the
+    // portal being unconfigured is a server-side condition, not a guest
+    // input error) while carrying a `portalCode` the guest client UI
+    // switches on. Redaction must blank the raw message but MUST NOT drop
+    // portalCode along with it , only `stack` is stripped.
+    const body = {
+      error: {
+        message: "Portal is not configured",
+        code: -32603,
+        data: {
+          code: "SERVICE_UNAVAILABLE",
+          httpStatus: 503,
+          portalCode: "not_configured",
+          path: "portal.status",
+        },
+      },
+    };
+    const redacted = redactGuestErrorBody(body) as typeof body;
+    expect(redacted.error.message).toBe("Internal error");
+    expect(redacted.error.data.portalCode).toBe("not_configured");
+  });
 });
 
 describe("GUEST_PORT env", () => {
@@ -303,6 +326,14 @@ describe("GUEST_PORT env", () => {
 // `Bun` is not defined there and this suite is skipped in that path. It DOES
 // run under `bun test` / a real Bun-runtime vitest invocation, giving an
 // integration check of startGuestServer beyond the pure-handler tests above.
+//
+// `bun test` is banned repo-wide though, so in practice this block never
+// executes in CI or local dev today , it's kept because it documents intent
+// and would start running again the moment vitest is ever invoked under a
+// real Bun runtime. The coverage that DOES actually execute today for this
+// TLS wiring is ../../scripts/guest-server-smoke.ts (`bun run
+// test:guest-smoke`), a plain Bun script asserting over real sockets against
+// a throwaway self-signed cert.
 // -----------------------------------------------------------------------
 describe.skipIf(typeof Bun === "undefined")("startGuestServer (Bun.serve integration)", () => {
   let servers: GuestServer[] = [];
