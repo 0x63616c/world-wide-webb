@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  AlertCircle,
   ArrowDown,
   ArrowUp,
   Bell,
@@ -70,7 +71,8 @@ export type IconName =
   | "apps"
   | "settings"
   | "groups"
-  | "weight";
+  | "weight"
+  | "alert";
 
 export interface IconProps {
   name: IconName;
@@ -122,6 +124,7 @@ export const GLYPHS: Record<IconName, LucideIcon> = {
   settings: Settings,
   groups: Users,
   weight: Weight,
+  alert: AlertCircle,
 };
 
 export function Icon({ name, s = 22, c = "currentColor", sw = 1.7 }: IconProps) {
