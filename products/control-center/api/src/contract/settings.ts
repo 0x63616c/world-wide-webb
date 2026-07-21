@@ -23,6 +23,13 @@
 export const SNAP_MODES = ["proximity", "mandatory", "mandatory-settle", "none", "spring"] as const;
 export type SnapMode = (typeof SNAP_MODES)[number];
 
+// ─── accent vocabulary ────────────────────────────────────────────────────────
+// The single highlight colour the panel is built around (every `--acc*` token
+// derives from it). Only the KEY is wire contract; the hex ramp each key maps to
+// is a rendering concern and lives in web's lib/accent.ts.
+export const ACCENTS = ["blue", "white", "green", "orange"] as const;
+export type Accent = (typeof ACCENTS)[number];
+
 // ─── bounds ───────────────────────────────────────────────────────────────────
 
 /** Idle-dim and recenter timeouts share one valid window: 1 min .. 10 min.
@@ -61,4 +68,5 @@ export const SETTINGS_DEFAULTS = {
   snapMode: "mandatory-settle",
   showMinimap: true,
   pinCode: "000000",
+  accent: "blue",
 } as const satisfies Record<string, unknown>;

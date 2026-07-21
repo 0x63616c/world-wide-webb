@@ -27,6 +27,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
 import { HOME_LAT, HOME_LON } from "@/config/home";
 import { buildDarkStyle, createCarPinElement, registerPmtilesProtocol } from "@/lib/maps/protomaps";
+import { useAccent } from "../../../lib/accent";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -101,6 +102,14 @@ function RangeMap({ carLat, carLon, rangeMiles }: RangeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
+  // maplibre paint properties take a literal colour, not a CSS var, so the map
+  // is the one place the accent has to be read as a hex. Mount uses accentRef
+  // (keeping the mount effect dependency-free, as its comment requires); the
+  // separate effect below repaints when the accent changes afterwards.
+  const accent = useAccent();
+  const accentRef = useRef(accent);
+  accentRef.current = accent;
+
   // Capture initial values in refs so the mount effect is stable (same pattern
   // as TeslaMap , map created once, update effects handle subsequent changes).
   const initCarLatRef = useRef(carLat);
@@ -152,7 +161,7 @@ function RangeMap({ carLat, carLon, rangeMiles }: RangeMapProps) {
         CIRCLE_STEPS,
       );
 
-      // Range fill , translucent green wash so the map underneath stays readable.
+      // Range fill , translucent accent wash so the map underneath stays readable.
       map.addSource("range-circle", {
         type: "geojson",
         data: { type: "Feature", geometry: circlePoly, properties: {} },
@@ -162,17 +171,17 @@ function RangeMap({ carLat, carLon, rangeMiles }: RangeMapProps) {
         type: "fill",
         source: "range-circle",
         paint: {
-          "fill-color": "#0070f3",
+          "fill-color": accentRef.current.acc,
           "fill-opacity": 0.08,
         },
       });
-      // Range border , crisp green hairline so the edge of reach is unambiguous.
+      // Range border , crisp accent hairline so the edge of reach is unambiguous.
       map.addLayer({
         id: "range-border",
         type: "line",
         source: "range-circle",
         paint: {
-          "line-color": "#0070f3",
+          "line-color": accentRef.current.acc,
           "line-width": 1.5,
           "line-opacity": 0.55,
         },
@@ -228,6 +237,16 @@ function RangeMap({ carLat, carLon, rangeMiles }: RangeMapProps) {
     };
   }, []);
 
+  // Repaint the range circle when the accent changes. Guarded on the layer
+  // existing: the accent can change before the style has finished loading, and
+  // setPaintProperty on a missing layer throws.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.getLayer("range-fill")) return;
+    map.setPaintProperty("range-fill", "fill-color", accent.acc);
+    map.setPaintProperty("range-border", "line-color", accent.acc);
+  }, [accent]);
+
   return (
     <div
       style={{
@@ -257,7 +276,7 @@ function RangeMap({ carLat, carLon, rangeMiles }: RangeMapProps) {
           border: "1px solid var(--hair)",
         }}
       >
-        <LegendRow color="#0070f3" label="Range circle" />
+        <LegendRow color="var(--acc)" label="Range circle" />
         <LegendRow color="#f4c063" label="Home" dashed />
       </div>
     </div>

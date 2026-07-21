@@ -3,6 +3,8 @@
 // safe only because `@control-center/api/contract` imports nothing at all; keep
 // it that way, or the panel starts pulling drizzle and pg over the wire.
 export {
+  ACCENTS,
+  type Accent,
   BRIGHTNESS_MAX,
   BRIGHTNESS_MIN,
   DIM_MAX,

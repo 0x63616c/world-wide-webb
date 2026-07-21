@@ -2,9 +2,11 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   DEFAULT_PIN,
+  hydrateSettings,
   MAX_IDLE_TIMEOUT_MS,
   PIN_LENGTH,
   resetSettings,
+  setAccent,
   setPinCode,
   setShowMinimap,
   useSettings,
@@ -80,5 +82,36 @@ describe("minimap setter", () => {
   it("toggles showMinimap", () => {
     act(() => setShowMinimap(false));
     expect(read().current.showMinimap).toBe(false);
+  });
+});
+
+describe("accent setter", () => {
+  it("stores a chosen accent", () => {
+    act(() => setAccent("green"));
+    expect(read().current.accent).toBe("green");
+  });
+
+  it("resets to blue", () => {
+    act(() => setAccent("orange"));
+    act(() => resetSettings());
+    expect(read().current.accent).toBe("blue");
+  });
+});
+
+describe("hydrateSettings", () => {
+  // The deploy-skew case: web knows a setting the api does not, so `settings.get`
+  // returns it missing. Adopting the DEFAULT there would undo the user's choice
+  // on the very next poll.
+  it("keeps the current value for a field the server omits", () => {
+    act(() => setAccent("orange"));
+    act(() => hydrateSettings({ showMinimap: false }));
+    expect(read().current.accent).toBe("orange");
+    expect(read().current.showMinimap).toBe(false);
+  });
+
+  it("still adopts a value the server does send", () => {
+    act(() => setAccent("orange"));
+    act(() => hydrateSettings({ accent: "white" }));
+    expect(read().current.accent).toBe("white");
   });
 });

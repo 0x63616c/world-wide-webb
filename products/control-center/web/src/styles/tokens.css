@@ -13,12 +13,19 @@
   --ink: #ededed;
   --ink-2: #a1a1a1;
   --ink-3: #6e6e6e;
+  /* Accent , the ONE highlight colour, switchable in Settings > Display.
+     lib/accent.ts restates only the three primitives (--acc, --acc-2,
+     --acc-rgb) on :root; every tint below derives from --acc-rgb, so a new
+     accent needs no CSS change at all. The literals here are the blue default,
+     used before the store has applied anything (and in Storybook). */
   --acc: #0070f3;
   --acc-2: #0061d5;
+  --acc-rgb: 0 112 243;
   --acc-muted: #3a4049;
-  --acc-dim: rgba(0, 112, 243, 0.14);
-  --acc-line: rgba(0, 112, 243, 0.45);
-  --acc-glow: 0 0 0 1px rgba(0, 112, 243, 0.4), 0 0 26px -6px rgba(0, 112, 243, 0.5);
+  --acc-dim: rgb(var(--acc-rgb) / 0.14);
+  --acc-line: rgb(var(--acc-rgb) / 0.45);
+  --acc-soft: rgb(var(--acc-rgb) / 0.25);
+  --acc-glow: 0 0 0 1px rgb(var(--acc-rgb) / 0.4), 0 0 26px -6px rgb(var(--acc-rgb) / 0.5);
   --amber: #f4c063;
   --teal: #6fdbcb;
   --r: 20px;
@@ -169,18 +176,18 @@
   border-radius: 50%;
   background: var(--acc);
   display: inline-block;
-  box-shadow: 0 0 0 0 rgba(0, 112, 243, 0.5);
+  box-shadow: 0 0 0 0 rgb(var(--acc-rgb) / 0.5);
   animation: pulse 2.4s infinite;
 }
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(0, 112, 243, 0.5);
+    box-shadow: 0 0 0 0 rgb(var(--acc-rgb) / 0.5);
   }
   70% {
-    box-shadow: 0 0 0 7px rgba(0, 112, 243, 0);
+    box-shadow: 0 0 0 7px rgb(var(--acc-rgb) / 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(0, 112, 243, 0);
+    box-shadow: 0 0 0 0 rgb(var(--acc-rgb) / 0);
   }
 }
 
@@ -239,7 +246,7 @@
 .tap.on {
   border-color: var(--acc-line);
   background: var(--acc-dim);
-  box-shadow: inset 0 0 0 1px rgba(0, 112, 243, 0.1);
+  box-shadow: inset 0 0 0 1px rgb(var(--acc-rgb) / 0.1);
 }
 .tap .sd {
   width: 9px;

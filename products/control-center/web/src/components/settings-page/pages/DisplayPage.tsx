@@ -14,6 +14,7 @@ import {
   MIN_BRIGHTNESS,
   MIN_DIM_LEVEL,
   MIN_IDLE_TIMEOUT_MS,
+  setAccent,
   setActiveBrightness,
   setIdleDimEnabled,
   setIdleDimLevel,
@@ -22,6 +23,7 @@ import {
 } from "../../../lib/settings";
 import { Slider } from "../../ui/Slider";
 import { Switch } from "../../ui/Switch";
+import { AccentPicker } from "../AccentPicker";
 import { ActionButton, RowShell, SectionCard, SliderRow } from "../blocks";
 import type { PageProps } from "../SettingsPage";
 
@@ -37,6 +39,17 @@ export function DisplayPage({ onOpenClean }: PageProps) {
 
   return (
     <>
+      <SectionCard title="Accent">
+        {[
+          <RowShell
+            key="accent"
+            label="Accent colour"
+            sub="The highlight colour used across the board, including the maps."
+            control={<AccentPicker value={settings.accent} onChange={setAccent} />}
+          />,
+        ]}
+      </SectionCard>
+
       <SectionCard title="Brightness">
         {[
           <SliderRow key="brightness">

@@ -76,7 +76,10 @@ export const PAGES: PageDef[] = [
     key: "security",
     label: "Security",
     icon: "lock",
-    tint: "#c95c5c",
+    // Indigo, not the red it used to share with Notifications , adjacent rows
+    // in the sidebar read as one group when their chips are the same hue. Kept
+    // clear of Board's sky blue (#4a90d9) and Debug's violet (#9a6ad4).
+    tint: "#5c6bc0",
     blurb: "PIN for locked tiles and settings",
   },
   {

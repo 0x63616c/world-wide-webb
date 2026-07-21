@@ -12,6 +12,8 @@
  */
 
 import {
+  ACCENTS,
+  type Accent,
   BRIGHTNESS_MAX,
   BRIGHTNESS_MIN,
   DIM_MAX,
@@ -78,6 +80,10 @@ export interface Settings {
    *  Activity); the gates are always on.
    *  NOT auth , purely a frontend soft-lock. Exactly 6 digits; default "000000". */
   pinCode: string;
+  /** The single highlight colour the board is built around (see lib/accent.ts).
+   *  Synced, not device-local: the accent is how the installation looks, not a
+   *  property of one panel. */
+  accent: Accent;
   /** Push notifications requested for THIS device. Drives the OS permission
    *  prompt + APNs token registration (lib/push.ts). Device-local by nature:
    *  a token belongs to one panel, so this must not sync across panels. */
@@ -120,6 +126,7 @@ const KEYS = {
   snapMode: "cc-board-snap-mode",
   showMinimap: "cc-show-minimap",
   pinCode: "cc-pin-code",
+  accent: "cc-accent",
   pushEnabled: "cc-push-enabled",
 } as const;
 
@@ -185,6 +192,7 @@ function loadInitial(): Settings {
   const buildNumber = readRaw(KEYS.showBuildNumber);
   const minimap = readRaw(KEYS.showMinimap);
   const pin = readRaw(KEYS.pinCode);
+  const accent = readRaw(KEYS.accent);
   const push = readRaw(KEYS.pushEnabled);
   return {
     activeBrightness:
@@ -208,6 +216,10 @@ function loadInitial(): Settings {
         : DEFAULTS.snapMode,
     showMinimap: minimap === null ? DEFAULTS.showMinimap : minimap === "true",
     pinCode: pin && /^\d{6}$/.test(pin) ? pin : DEFAULTS.pinCode,
+    accent:
+      accent && (ACCENTS as readonly string[]).includes(accent)
+        ? (accent as Accent)
+        : DEFAULTS.accent,
     pushEnabled: push === null ? DEFAULTS.pushEnabled : push === "true",
   };
 }
@@ -268,14 +280,31 @@ function patch<K extends keyof Settings>(key: K, value: Settings[K], serialized:
   serverSink?.(state);
 }
 
+/** Drop explicitly-undefined keys so a spread cannot punch a hole in `state`
+ *  , `{...state, ...{ snapMode: undefined }}` would otherwise yield undefined. */
+function stripUndefined(next: Partial<Settings>): Partial<Settings> {
+  const out: Partial<Settings> = {};
+  for (const [key, value] of Object.entries(next)) {
+    if (value !== undefined) (out as Record<string, unknown>)[key] = value;
+  }
+  return out;
+}
+
 /**
  * Adopt authoritative settings from the server WITHOUT echoing back to it (no
  * sink call), used on load + each poll. Writes through to the localStorage cache
- * so an offline reload keeps the last-known global values. Missing fields fall
- * back to their default, so a server row written before a field existed is safe.
+ * so an offline reload keeps the last-known global values.
+ *
+ * A field the response OMITS keeps this panel's current value rather than
+ * falling back to its default. The two differ exactly during a deploy skew ,
+ * web ships a new setting before the api knows the key, so `settings.get`
+ * (a zod object, which strips what it has no key for) returns it missing, and
+ * defaulting here would undo the user's choice on the next 15s poll. Keeping
+ * the current value degrades to "device-local until the api catches up", which
+ * is the same shape as LOCAL_ONLY_KEYS below and needs no per-field bookkeeping.
  */
 export function hydrateSettings(next: Partial<Settings>): void {
-  const merged: Settings = { ...DEFAULTS, ...next };
+  const merged: Settings = { ...DEFAULTS, ...state, ...stripUndefined(next) };
   // Local-only fields keep whatever this panel has; the server has no opinion on
   // them, and folding in the DEFAULT here would silently undo a user's choice on
   // the next poll (see LOCAL_ONLY_KEYS).
@@ -350,6 +379,12 @@ export function setShowMinimap(v: boolean): void {
 export function setPinCode(pin: string): void {
   if (!/^\d{6}$/.test(pin)) return;
   patch("pinCode", pin, pin);
+}
+
+/** Set the board's highlight colour. The vars it drives are applied by
+ *  lib/useAccentTheme, not here , this stays a plain store write. */
+export function setAccent(accent: Accent): void {
+  patch("accent", accent, accent);
 }
 
 export function setPushEnabled(v: boolean): void {

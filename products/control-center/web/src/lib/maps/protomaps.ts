@@ -142,10 +142,16 @@ export function buildDarkStyle(opts: BuildDarkStyleOpts = {}): maplibregl.StyleS
 // ─── Car pin element ──────────────────────────────────────────────────────────
 
 /**
- * Create the blue-teardrop HTMLElement used as the MapLibre Marker for the car
+ * Create the accent-teardrop HTMLElement used as the MapLibre Marker for the car
  * position. The element is intentionally not cached , MapLibre owns the DOM node
  * once it is passed to new Marker({ element }), and each marker instance needs
  * its own element.
+ *
+ * Colours come from the `--acc*` vars rather than literals: this is a real DOM
+ * node inside the document, so it inherits the accent the same way the rest of
+ * the board does and needs no re-render when the accent changes. (The map's
+ * PAINT layers cannot do this , see TeslaModalRangeReach, which reads the hex
+ * from lib/accent.)
  */
 export function createCarPinElement(): HTMLElement {
   const el = document.createElement("div");
@@ -165,12 +171,12 @@ export function createCarPinElement(): HTMLElement {
       position:absolute;
       inset:0;
       border-radius:50%;
-      background:radial-gradient(circle, rgba(0, 112, 243,.30) 0%, rgba(0, 112, 243,.10) 45%, rgba(0, 112, 243,0) 70%);
+      background:radial-gradient(circle, rgb(var(--acc-rgb) / .30) 0%, rgb(var(--acc-rgb) / .10) 45%, rgb(var(--acc-rgb) / 0) 70%);
     "></div>
     <svg width="24" height="30" viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg"
-         style="position:relative;z-index:1;overflow:visible;filter:drop-shadow(0 0 6px rgba(0, 112, 243,.45))">
-      <path d="M12 28 C4 18 0 13 0 8 A12 12 0 1 1 24 8 C24 13 20 18 12 28Z" fill="#0070f3"/>
-      <circle cx="12" cy="8" r="4.5" fill="#04193a"/>
+         style="position:relative;z-index:1;overflow:visible;filter:drop-shadow(0 0 6px rgb(var(--acc-rgb) / .45))">
+      <path d="M12 28 C4 18 0 13 0 8 A12 12 0 1 1 24 8 C24 13 20 18 12 28Z" fill="var(--acc)"/>
+      <circle cx="12" cy="8" r="4.5" fill="color-mix(in srgb, var(--acc) 18%, #000)"/>
     </svg>
   `;
   return el;

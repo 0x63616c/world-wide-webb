@@ -4,6 +4,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { z } from "zod";
 
 import {
+  ACCENTS,
   BRIGHTNESS_MAX,
   BRIGHTNESS_MIN,
   DIM_MAX,
@@ -44,6 +45,9 @@ export const settingsSchema = z.object({
   // The synced soft-lock PIN. NOT auth , the API only enforces the 6-digit shape
   // and never validates or logs the value.
   pinCode: z.string().regex(/^\d{6}$/),
+  // The board's highlight colour. Only the KEY is contract , the hex ramp each
+  // key maps to is web's business (lib/accent.ts).
+  accent: z.enum(ACCENTS),
 });
 
 /** A partial patch: any subset of the full settings object. */

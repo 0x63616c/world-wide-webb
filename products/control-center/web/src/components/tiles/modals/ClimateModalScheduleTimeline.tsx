@@ -236,7 +236,7 @@ function SteppedLine({
     .join(" ")} Z`;
 
   const stroke = active ? "var(--acc)" : "var(--ink-3)";
-  const fill = active ? "rgba(0,112,243,0.08)" : "rgba(255,255,255,0.03)";
+  const fill = active ? "rgb(var(--acc-rgb) / 0.08)" : "rgba(255,255,255,0.03)";
 
   return (
     <svg

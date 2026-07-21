@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { NotificationBridge } from "./components/NotificationBridge";
 import { PushRegistrar } from "./components/PushRegistrar";
 import { queryClient, trpc, trpcClient } from "./lib/trpc";
+import { useAccentTheme } from "./lib/useAccentTheme";
 import { useDeviceSettingsSync } from "./lib/useDeviceSettingsSync";
 import { useSettingsSync } from "./lib/useSettingsSync";
 import { useVolumeSync } from "./lib/useVolumeSync";
@@ -41,6 +42,14 @@ function VolumeSync() {
   return null;
 }
 
+// Paints the chosen accent onto :root. Its own component for the same reason as
+// VolumeSync , it subscribes to the settings store and renders nothing, so
+// keeping it out of App means an accent change re-renders only this null node.
+function AccentTheme() {
+  useAccentTheme();
+  return null;
+}
+
 export function App() {
   // Kiosk auto-refresh (www-ss8s): poll the deployed build stamp and hard-reload
   // once when an OTA deploy ships a new SHA. No-op in local dev (hash "dev").
@@ -50,6 +59,7 @@ export function App() {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <SettingsSync />
+        <AccentTheme />
         <DeviceSettingsSync />
         <VolumeSync />
         {/* Persists the board's ephemeral banner alerts into the Notification
