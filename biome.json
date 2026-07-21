@@ -80,6 +80,7 @@
         "**/products/control-center/web/vite.config.ts",
         "**/products/captive-portal/apps/frontend/playwright.config.ts",
         "**/products/captive-portal/apps/frontend/e2e/**",
+        "**/products/control-center/web/e2e-portal/**",
         "**/scripts/**"
       ],
       "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
