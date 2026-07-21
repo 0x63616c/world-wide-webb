@@ -1,0 +1,21 @@
+/* Guest portal entry styles. Tokens (colors, radii, fonts) only — NEVER
+   theme.css or app-shell.css, which carry panel-only globals (board sizing,
+   modal chrome, etc). The guest page is dark-only, pure-black background,
+   self-hosted fonts, no CDN requests — same guarantees the legacy captive
+   portal's smoke spec asserted. */
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100%;
+}
+
+#portal-root {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--ui);
+}

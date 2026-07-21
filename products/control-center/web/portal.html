@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#000000" />
+    <title>Connect to Wi-Fi</title>
+  </head>
+  <body>
+    <div id="portal-root"></div>
+    <script>
+      window.__ccPortalBooted = false;
+    </script>
+    <script type="module" src="/src/portal/main.tsx"></script>
+    <script id="script_cna_legacy_loader">
+      // biome-ignore lint/complexity/useArrowFunction: Keep this ES5 for captive WebViews that skip module scripts.
+      (function () {
+        function loadLegacyBundle() {
+          if (window.__ccPortalBooted) return;
+
+          var entry = document.getElementById("vite-legacy-entry");
+          var polyfill = document.getElementById("vite-legacy-polyfill");
+          if (!entry || !polyfill) return;
+
+          var script = document.createElement("script");
+          script.src = polyfill.src;
+          // biome-ignore lint/complexity/useArrowFunction: Keep this ES5 for captive WebViews that skip module scripts.
+          script.onload = function () {
+            if (window.__ccPortalBooted) return;
+            if (!window.System || typeof window.System.import !== "function") return;
+
+            var entrySrc = entry.getAttribute("data-src");
+            if (entrySrc) window.System.import(entrySrc);
+          };
+          document.body.appendChild(script);
+        }
+
+        window.setTimeout(loadLegacyBundle, 1200);
+      })();
+    </script>
+  </body>
+</html>

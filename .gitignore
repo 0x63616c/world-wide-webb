@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+dist-portal/
 build/
 
 # Postgres migration artifacts (Swarm->CNPG dump + count tsvs, www-j934.8).

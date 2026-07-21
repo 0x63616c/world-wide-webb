@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "dev:portal": "vite --config vite.portal.config.ts",
+    "build:portal": "tsc -b && vite build --config vite.portal.config.ts",
     "preview": "vite preview",
     "cap:sync": "bun run build && bunx cap sync ios",
     "cap:open": "bunx cap open ios",
@@ -57,6 +59,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-legacy": "6.1.1",
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/browser": "^3.2.4",
     "@vitest/coverage-v8": "^3.2.4",
