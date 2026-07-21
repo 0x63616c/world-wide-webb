@@ -115,7 +115,11 @@
       // Guest portal entry (vite.portal.config.ts -> portal.html -> this file)
       // is a second build knip's vite-plugin auto-detection doesn't see (it
       // only picks up the default vite.config.ts / index.html pair).
-      "entry": ["src/portal/main.tsx"]
+      // e2e-portal/playwright.config.ts: knip's Playwright plugin only
+      // auto-detects a config at the package root; ours lives in a
+      // subdirectory (mirrors products/captive-portal/apps/frontend's
+      // layout otherwise), so it isn't found without an explicit entry.
+      "entry": ["src/portal/main.tsx", "e2e-portal/playwright.config.ts"]
     },
     "products/captive-portal/apps/frontend": {
       // `geist` ships the self-hosted Geist + Geist Mono woff2, vendored into
