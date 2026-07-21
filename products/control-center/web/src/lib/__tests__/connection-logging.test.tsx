@@ -17,6 +17,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import { getTail, log } from "../log/logger";
 import { failingQueryKeys, installQueryLogging } from "../log/query-log";
+import { isConnectivityError } from "../useConnectionStatus";
 
 function makeClient(): QueryClient {
   return new QueryClient({
@@ -86,6 +87,23 @@ describe("connection logging", () => {
     const before = getTail().length;
     query.setState({ status: "error", error: new Error("502") } as never);
     expect(since(before, "query")).toHaveLength(0);
+  });
+
+  it("treats a structured server error as reachable, not a lost connection", () => {
+    // A tRPC procedure that throws (SERVICE_UNAVAILABLE because one HA entity is
+    // down) proves the server answered; only a response-less failure is outage
+    // evidence. Regression: tesla.get 503s spammed "Panel lost contact with the
+    // API" every 92s while every other tile was fine.
+    const serverError = Object.assign(new Error("SERVICE_UNAVAILABLE"), {
+      data: { httpStatus: 503 },
+    });
+    expect(isConnectivityError(serverError)).toBe(false);
+
+    // fetch TypeError / ingress error page: no parsed tRPC data on the error.
+    expect(isConnectivityError(new TypeError("Failed to fetch"))).toBe(true);
+    const unparseable = Object.assign(new Error("502"), { data: undefined });
+    expect(isConnectivityError(unparseable)).toBe(true);
+    expect(isConnectivityError(null)).toBe(true);
   });
 
   it("keeps a log call off the hot path", () => {

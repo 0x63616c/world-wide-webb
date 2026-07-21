@@ -13,6 +13,21 @@ export interface ConnectionStatus {
 }
 
 /**
+ * True when a query error means "the server could not be reached", as opposed to
+ * "the server answered with an error". A tRPC procedure that throws (e.g.
+ * SERVICE_UNAVAILABLE because one HA entity is down) produces a TRPCClientError
+ * carrying `data.httpStatus` from the parsed response body; a network-level
+ * failure (fetch TypeError, ingress 502 with an unparseable body) has no
+ * structured data. Only the latter is evidence the CONNECTION is lost , a
+ * dashboard where one integration is down must not spam outage notifications
+ * while every other tile is happily refetching.
+ */
+export function isConnectivityError(error: unknown): boolean {
+  const httpStatus = (error as { data?: { httpStatus?: number } } | null)?.data?.httpStatus;
+  return typeof httpStatus !== "number";
+}
+
+/**
  * Watches the React Query cache for a sustained outage. We subscribe to the
  * QueryClient's cache event stream and track how long at least one query has
  * been in an error+fetching state. Only flips isLost=true after the threshold
@@ -31,7 +46,9 @@ export function useConnectionStatus(): ConnectionStatus {
   useEffect(() => {
     function checkQueries() {
       const queries = queryClient.getQueryCache().getAll();
-      const anyFailing = queries.some((q) => q.state.status === "error");
+      const anyFailing = queries.some(
+        (q) => q.state.status === "error" && isConnectivityError(q.state.error),
+      );
 
       if (anyFailing) {
         if (errorSinceRef.current === null) {
