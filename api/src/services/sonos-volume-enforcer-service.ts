@@ -19,12 +19,12 @@
 
 import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
+import { deviceStateStore } from "../db/device-state-store";
 import { db } from "../db/index";
 import type { DeviceSpeakerState } from "../db/schema";
 import { deviceState } from "../db/schema";
 import { SonosClient } from "../integrations/sonos";
 import { windowOpen } from "./command-window";
-import { upsertDesired } from "./desired-state-store";
 import { DeviceKind, isSpeakerState } from "./device-state-mapping";
 import { heartbeat, runCycle } from "./integration-heartbeat";
 import { DESK_RF_BONDED_UUID, TOPOLOGY_ANCHOR_IP } from "./sonos-sound-system-service";
@@ -122,7 +122,7 @@ export async function setSpeakerDesiredVolume({
   const desired: DeviceSpeakerState = { volume };
   // The store owns the upsert + command-window stamp and throws on DB failure
   // (the write is this mutation's only effect, so a swallow is fabricated success).
-  await upsertDesired({
+  await deviceStateStore.upsertDesired({
     id: speakerDeviceId(deviceIp),
     kind: DeviceKind.Speaker,
     entityId: deviceIp,

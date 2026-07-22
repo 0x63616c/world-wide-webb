@@ -298,6 +298,20 @@ describe("upsertDesired", () => {
     const until = (row.desiredUntilUtc as Date).getTime();
     expect(until).toBe(at + 60_000);
   });
+
+  it("propagates a DB failure (a swallowed write would be fabricated success)", async () => {
+    const db = {
+      insert: vi.fn().mockReturnValue({
+        values: vi.fn().mockReturnValue({
+          onConflictDoUpdate: vi.fn().mockRejectedValue(new Error("DB unreachable")),
+        }),
+      }),
+    } as unknown as FakeDb;
+
+    await expect(createPgDeviceStateStore(db).upsertDesired({ ...lampInput })).rejects.toThrow(
+      "DB unreachable",
+    );
+  });
 });
 
 // ─── updateDesired ─────────────────────────────────────────────────────────
@@ -327,6 +341,23 @@ describe("updateDesired", () => {
     expect(until).toBe(at + COMMAND_WINDOW_MS);
     expect(eq).toHaveBeenCalledWith(deviceState.id, "climate-thermostat");
     expect(where).toHaveBeenCalledTimes(1);
+  });
+
+  it("propagates a DB failure", async () => {
+    const db = {
+      update: vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockRejectedValue(new Error("DB unreachable")),
+        }),
+      }),
+    } as unknown as FakeDb;
+
+    await expect(
+      createPgDeviceStateStore(db).updateDesired({
+        id: "climate-thermostat",
+        desired: { mode: "cool" },
+      }),
+    ).rejects.toThrow("DB unreachable");
   });
 });
 

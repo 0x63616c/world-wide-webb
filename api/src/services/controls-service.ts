@@ -17,12 +17,12 @@ import {
   type LightEntry,
   LightKind,
 } from "../config/lights";
+import { deviceStateStore } from "../db/device-state-store";
 import { db } from "../db/index";
 import type { DeviceClimateState, DeviceLightState, LightColor } from "../db/schema";
 import { deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import { CLIMATE_DEVICE_ID } from "./climate-enforcer-service";
-import { updateDesired, upsertDesired } from "./desired-state-store";
 import { DeviceKind, isClimateState, mergeDeviceState } from "./device-state-mapping";
 
 // ─── types ───────────────────────────────────────────────────────────────────
@@ -379,7 +379,7 @@ async function writeDesired(
       // The store owns the command-window stamp and throws on DB failure , a
       // swallowed write would be fabricated success (www-unxz.1). The error
       // propagates to the tRPC layer, which maps it.
-      await upsertDesired({
+      await deviceStateStore.upsertDesired({
         id: entry.id,
         kind: entry.kind === LightKind.Lamp ? DeviceKind.Light : DeviceKind.Switch,
         entityId: entry.entityId,
@@ -412,7 +412,7 @@ async function writeFanDesired(fanMode: FanMode): Promise<void> {
   const reported = isClimateState(row.reportedState) ? row.reportedState : null;
   const base: DeviceClimateState = prev ?? reported ?? { mode: "off" };
   const desired: DeviceClimateState = { ...base, fanMode };
-  await updateDesired({ id: row.id, desired });
+  await deviceStateStore.updateDesired({ id: row.id, desired });
 }
 
 /** All lamp LightEntry rows in LAMP_ENTITY_IDS order. */

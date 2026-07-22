@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 
+import { deviceStateStore } from "../db/device-state-store";
 import { db } from "../db/index";
 import type { DeviceClimateState } from "../db/schema";
 import { deviceState } from "../db/schema";
@@ -7,7 +8,6 @@ import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 import { CLIMATE_DEVICE_ID } from "./climate-enforcer-service";
-import { updateDesired } from "./desired-state-store";
 import { isClimateState, mergeDeviceState, sanitizeClimateDesired } from "./device-state-mapping";
 
 export const HvacMode = {
@@ -258,7 +258,7 @@ async function writeClimateDesired(patch: Partial<DeviceClimateState>): Promise<
   const desired: DeviceClimateState = sanitizeClimateDesired(forMode({ ...base, ...patch }));
   // The store owns the command-window stamp and throws on DB failure (the write is
   // this mutation's only effect); the error propagates to the tRPC layer.
-  await updateDesired({ id: row.id, desired });
+  await deviceStateStore.updateDesired({ id: row.id, desired });
   return toClimateState(
     mergeDeviceState({ ...row, desiredState: desired }).state as DeviceClimateState,
   );
