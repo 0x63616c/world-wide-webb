@@ -94,6 +94,11 @@ export function isSpeakerState(v: DeviceStateValue | null | undefined): v is Dev
   );
 }
 
+// The one hvac mode this module reasons about. Declared locally (not imported
+// from climate-service, which imports this module) to keep the dependency
+// one-way; `DeviceClimateState.mode` is a raw HA string.
+const HvacModeValue = { Off: "off" } as const;
+
 const HaState = {
   On: "on",
   Unavailable: "unavailable",
@@ -208,9 +213,14 @@ export function climateStateConverged(
   opts: { ignoreFan?: boolean } = {},
 ): boolean {
   if (desired.mode !== reported.mode) return false;
-  if (desired.target != null && desired.target !== reported.target) return false;
-  if (desired.targetLow != null && desired.targetLow !== reported.targetLow) return false;
-  if (desired.targetHigh != null && desired.targetHigh !== reported.targetHigh) return false;
+  // A thermostat that is OFF reports no setpoint attributes at all, so the
+  // setpoint dimension is neither observable nor commandable there. A remembered
+  // setpoint (see rememberedClimateDesired) must not read as eternal drift.
+  if (climateSetpointsObservable(reported)) {
+    if (desired.target != null && desired.target !== reported.target) return false;
+    if (desired.targetLow != null && desired.targetLow !== reported.targetLow) return false;
+    if (desired.targetHigh != null && desired.targetHigh !== reported.targetHigh) return false;
+  }
   // While the AC is actively conditioning it owns the blower (ignoreFan); a fan
   // mismatch then is the AC asserting the fan, not drift to fight (www-pu4m).
   if (!opts.ignoreFan && desired.fanMode != null && desired.fanMode !== reported.fanMode) {
@@ -234,6 +244,47 @@ export function sanitizeClimateDesired(state: DeviceClimateState): DeviceClimate
   if (state.targetHigh != null) clean.targetHigh = state.targetHigh;
   if (state.fanMode != null) clean.fanMode = state.fanMode;
   return clean;
+}
+
+/**
+ * True when HA's reported state can carry setpoints at all. An OFF thermostat
+ * reports none (ecobee drops `temperature` / `target_temp_low|high` entirely),
+ * so while off the setpoint dimension is unobservable: there is nothing to
+ * converge against and nothing to actuate.
+ */
+export function climateSetpointsObservable(state: DeviceClimateState): boolean {
+  return state.mode !== HvacModeValue.Off;
+}
+
+/**
+ * The desired to persist when adopting external reality (www-qktc), keeping the
+ * last real setpoint alive across an OFF period.
+ *
+ * Adopting reported verbatim while the thermostat is off FORGETS the setpoint
+ * (HA reports none when off). The next off→cool switch then had no number to
+ * command or show, and the tile rendered 0°F until HA re-reported a setpoint
+ * seconds later. The remembered value is the last one HA actually reported ,
+ * carried forward, never invented.
+ */
+export function rememberedClimateDesired(
+  reported: DeviceClimateState,
+  ...memory: (DeviceClimateState | null | undefined)[]
+): DeviceClimateState {
+  const adopted = sanitizeClimateDesired(reported);
+  if (climateSetpointsObservable(reported)) return adopted;
+  // First memory that actually holds a setpoint wins: the standing desired, then
+  // whatever HA last reported before it went off.
+  const prior = memory.find((m) => m != null && hasClimateSetpoint(m));
+  if (prior == null) return adopted;
+  if (prior.target != null) adopted.target = prior.target;
+  if (prior.targetLow != null) adopted.targetLow = prior.targetLow;
+  if (prior.targetHigh != null) adopted.targetHigh = prior.targetHigh;
+  return adopted;
+}
+
+/** True when a climate state carries any setpoint (single or heat_cool range). */
+export function hasClimateSetpoint(state: DeviceClimateState): boolean {
+  return state.target != null || state.targetLow != null || state.targetHigh != null;
 }
 
 // HA hvac_action values meaning the AC is actively driving its own blower, so

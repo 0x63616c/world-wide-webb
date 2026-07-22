@@ -26,7 +26,9 @@ import { type RouterOutputs, trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";
 import { type ClimateMode, ClimateTileView, GAP, HvacMode, MAX, MIN } from "./ClimateTileView";
 
-// Default single setpoint when turning on from `off` (band midpoint).
+// Last-resort setpoint when turning on from `off` and NOTHING was ever reported
+// (a thermostat the panel has only ever seen off). Band midpoint. Normally the
+// off state carries the remembered setpoints and this is never reached.
 const DEFAULT_TARGET = 72;
 
 // Seed a low/high range around a single target (used when switching to heat_cool).
@@ -69,8 +71,14 @@ function setpointsOf(data: ServerState): { target: number; low: number; high: nu
       high: data.targetHigh,
     };
   }
-  const { low, high } = rangeFromTarget(DEFAULT_TARGET);
-  return { target: DEFAULT_TARGET, low, high };
+  // Off: the setpoints the server REMEMBERS from before it was turned off, so
+  // turning back on seeds the real previous number rather than a default.
+  // Both-or-neither on the range , a half-remembered one could violate GAP.
+  const lo = data.targetLow;
+  const hi = data.targetHigh;
+  const hasRange = lo != null && hi != null;
+  const target = data.target ?? (hasRange ? targetFromRange(lo, hi) : DEFAULT_TARGET);
+  return hasRange ? { target, low: lo, high: hi } : { target, ...rangeFromTarget(target) };
 }
 
 export function ClimateTile() {

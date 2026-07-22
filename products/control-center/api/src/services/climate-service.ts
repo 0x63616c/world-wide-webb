@@ -50,7 +50,20 @@ export const CLIMATE_GAP = 2;
  *  - heat_cool → `targetLow` + `targetHigh` (HA attrs target_temp_low/high)
  */
 export type ClimateState =
-  | { mode: "off"; ambient: number; action: ClimateAction }
+  | {
+      mode: "off";
+      ambient: number;
+      action: ClimateAction;
+      /**
+       * Remembered setpoints , the last ones HA actually reported before the
+       * thermostat went off (HA reports none while off). Null when nothing was
+       * ever seen. Not a live setpoint: they exist so turning back on commands and
+       * shows the real previous number instead of a fabricated default or a 0.
+       */
+      target: number | null;
+      targetLow: number | null;
+      targetHigh: number | null;
+    }
   | { mode: "cool" | "heat"; target: number; ambient: number; action: ClimateAction }
   | {
       mode: "heat_cool";
@@ -152,7 +165,63 @@ function toClimateState(climate: DeviceClimateState): ClimateState {
   if (mode === HvacMode.Cool || mode === HvacMode.Heat) {
     return { mode, target: num(climate.target), ambient, action };
   }
-  return { mode: HvacMode.Off, ambient, action };
+  return {
+    mode: HvacMode.Off,
+    ambient,
+    action,
+    target: numOrNull(climate.target),
+    targetLow: numOrNull(climate.targetLow),
+    targetHigh: numOrNull(climate.targetHigh),
+  };
+}
+
+/** Seed a heat_cool band around a single setpoint, respecting the band + gap. */
+export function rangeFromTarget(target: number): { low: number; high: number } {
+  let low = Math.max(CLIMATE_MIN, target - 3);
+  let high = Math.min(CLIMATE_MAX, target + 3);
+  if (high - low < CLIMATE_GAP) {
+    high = Math.min(CLIMATE_MAX, low + CLIMATE_GAP);
+    low = Math.max(CLIMATE_MIN, high - CLIMATE_GAP);
+  }
+  return { low, high };
+}
+
+/** Collapse a heat_cool band to the single setpoint cool/heat needs. */
+export function targetFromRange(low: number, high: number): number {
+  return Math.round((low + high) / 2);
+}
+
+/**
+ * Coerce the carried-over setpoints into the shape the new mode actually uses,
+ * so a desired never holds the wrong one. Two failure modes this closes:
+ *  - a leftover heat_cool range at a `cool` thermostat → the enforcer would send
+ *    target_temp_low/high, which HA rejects for a single-setpoint mode;
+ *  - a mode switch with only the OTHER shape known → the missing setpoint read as
+ *    0 (num()'s honest gap) and the tile flashed 0°F until HA reported one.
+ * Converting between the shapes keeps the user's real number in play instead.
+ * `off` keeps everything: nothing is actuated there, the setpoints are memory.
+ */
+function forMode(state: DeviceClimateState): DeviceClimateState {
+  if (state.mode === HvacMode.HeatCool) {
+    const range =
+      state.targetLow != null && state.targetHigh != null
+        ? { low: state.targetLow, high: state.targetHigh }
+        : state.target != null
+          ? rangeFromTarget(state.target)
+          : null;
+    if (!range) return state;
+    return { ...state, target: undefined, targetLow: range.low, targetHigh: range.high };
+  }
+  if (state.mode === HvacMode.Cool || state.mode === HvacMode.Heat) {
+    const target =
+      state.target ??
+      (state.targetLow != null && state.targetHigh != null
+        ? targetFromRange(state.targetLow, state.targetHigh)
+        : null);
+    if (target == null) return { ...state, targetLow: undefined, targetHigh: undefined };
+    return { ...state, target, targetLow: undefined, targetHigh: undefined };
+  }
+  return state;
 }
 
 /**
@@ -177,8 +246,16 @@ async function writeClimateDesired(patch: Partial<DeviceClimateState>): Promise<
   // mode change keeps the setpoints and a setpoint change keeps the mode.
   // Sanitized: the base may carry reported-only ambient/action (reported fallback,
   // or a pre-fix desired) which must never persist into desired (www-dnpj).
-  const base: DeviceClimateState = prev ?? reported ?? { mode: HvacMode.Off };
-  const desired: DeviceClimateState = sanitizeClimateDesired({ ...base, ...patch });
+  // Reported fills the gaps desired leaves: desired is a PARTIAL overlay, so the
+  // setpoint the tile is showing may live only on reported (e.g. a bare mode
+  // toggle never wrote one). Turning off must carry that number into desired or
+  // it is lost the moment HA stops reporting setpoints (www-clim-off-0).
+  const merged = { ...(reported ?? {}), ...(prev ?? {}) };
+  const base: DeviceClimateState = {
+    ...merged,
+    mode: prev?.mode ?? reported?.mode ?? HvacMode.Off,
+  };
+  const desired: DeviceClimateState = sanitizeClimateDesired(forMode({ ...base, ...patch }));
   // The store owns the command-window stamp and throws on DB failure (the write is
   // this mutation's only effect); the error propagates to the tRPC layer.
   await updateDesired({ id: row.id, desired });

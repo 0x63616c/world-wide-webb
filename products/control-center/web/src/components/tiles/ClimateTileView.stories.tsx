@@ -109,7 +109,7 @@ export const HeatCoolMode: Story = {
   },
 };
 
-// ─── Off (no setpoint) ────────────────────────────────────────────────────────
+// ─── Off (no setpoint, but the room temperature still reads) ──────────────────
 
 export const OffMode: Story = {
   args: {
@@ -123,6 +123,9 @@ export const OffMode: Story = {
     const canvas = within(canvasElement);
     expect(canvas.getByTestId("chip-off")).toHaveClass("on");
     expect(canvas.getByTestId("setpoint")).toHaveTextContent("Off");
+    // The indoor temperature is the useful number when there is no setpoint: the
+    // ambient caret lives on the slider, which off does not render.
+    expect(canvas.getByTestId("ambient-label")).toHaveTextContent("71°F indoor");
     // No sliders in off mode.
     expect(canvas.queryByTestId("slider")).not.toBeInTheDocument();
     expect(canvas.queryByTestId("slider-low")).not.toBeInTheDocument();

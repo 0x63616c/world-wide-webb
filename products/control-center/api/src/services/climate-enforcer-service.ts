@@ -33,12 +33,14 @@ import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 import { windowOpen } from "./command-window";
 import {
+  climateSetpointsObservable,
   climateStateConverged,
   DeviceKind,
   isActivelyConditioning,
   isClimateState,
   type MappedHaState,
   mapHaToReported,
+  rememberedClimateDesired,
   sanitizeClimateDesired,
 } from "./device-state-mapping";
 import { heartbeat, runCycle } from "./integration-heartbeat";
@@ -53,6 +55,10 @@ interface ManagedClimate {
   id: string;
   entityId: string;
   desiredState: DeviceClimateState | null;
+  // The PREVIOUS cycle's reported state. Only used as a setpoint memory when the
+  // thermostat goes off (HA then reports no setpoint at all) and desired holds
+  // none either , so the next on has the last real number, not 0.
+  lastReported?: DeviceClimateState | null;
   // App-command window: while now < desiredUntilUtc the freshly-set desired is
   // the dashboard's explicit intent and is pushed on drift. Outside the window
   // drift is external (wall unit / ecobee app / schedule) and is adopted.
@@ -104,7 +110,9 @@ export function decideClimateEnforcement(
   // slice of reported; while conditioning the reported fan_mode is the AC
   // asserting its blower (www-pu4m), not intent , keep the prior desired fan.
   if (!windowOpen(device, now)) {
-    const adopted = sanitizeClimateDesired(reported);
+    // Remembered: while the thermostat is off HA reports no setpoints, so the
+    // adopted desired keeps the last real ones rather than forgetting them.
+    const adopted = rememberedClimateDesired(reported, device.desiredState, device.lastReported);
     if (conditioning) {
       delete adopted.fanMode;
       if (device.desiredState.fanMode != null) adopted.fanMode = device.desiredState.fanMode;
@@ -171,6 +179,7 @@ async function reconcileClimate(entity: HaEntity | undefined): Promise<void> {
     id: row.id,
     entityId: row.entityId,
     desiredState: desired,
+    lastReported: isClimateState(row.reportedState) ? row.reportedState : null,
     desiredUntilUtc: row.desiredUntilUtc ?? null,
   };
   const decision = decideClimateEnforcement(device, mapped, now);
@@ -250,17 +259,21 @@ async function pushToHa(entityId: string, desired: DeviceClimateState): Promise<
     entity_id: entityId,
     hvac_mode: desired.mode,
   });
-  if (desired.targetLow != null && desired.targetHigh != null) {
-    await ha.callService("climate", "set_temperature", {
-      entity_id: entityId,
-      target_temp_low: desired.targetLow,
-      target_temp_high: desired.targetHigh,
-    });
-  } else if (desired.target != null) {
-    await ha.callService("climate", "set_temperature", {
-      entity_id: entityId,
-      temperature: desired.target,
-    });
+  // An off thermostat takes no setpoint , the remembered one is kept for the next
+  // on, not actuated now (HA rejects set_temperature while off). Fan mode still is.
+  if (climateSetpointsObservable(desired)) {
+    if (desired.targetLow != null && desired.targetHigh != null) {
+      await ha.callService("climate", "set_temperature", {
+        entity_id: entityId,
+        target_temp_low: desired.targetLow,
+        target_temp_high: desired.targetHigh,
+      });
+    } else if (desired.target != null) {
+      await ha.callService("climate", "set_temperature", {
+        entity_id: entityId,
+        temperature: desired.target,
+      });
+    }
   }
   if (desired.fanMode != null) {
     await ha.callService("climate", "set_fan_mode", {

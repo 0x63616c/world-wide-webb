@@ -211,17 +211,29 @@ export function ClimateTileView(props: ClimateTileViewProps) {
           justifyContent: "center",
         }}
       >
+        {/* Off: there is no setpoint to show, but the room temperature is still
+            the most useful number on the tile , the ambient caret lives on the
+            slider, which off does not render, so it is stated outright here. */}
         {mode === HvacMode.Off && (
-          <div
-            style={{
-              fontSize: 52,
-              fontWeight: 700,
-              color: "var(--ink-3)",
-              letterSpacing: "-0.02em",
-            }}
-            data-testid="setpoint"
-          >
-            Off
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <div
+              style={{
+                fontSize: 52,
+                fontWeight: 700,
+                color: "var(--ink-3)",
+                letterSpacing: "-0.02em",
+              }}
+              data-testid="setpoint"
+            >
+              Off
+            </div>
+            <div
+              className="mono"
+              style={{ fontSize: 15, color: "var(--ink-2)" }}
+              data-testid="ambient-label"
+            >
+              {Math.round(ambient)}°F indoor
+            </div>
           </div>
         )}
 

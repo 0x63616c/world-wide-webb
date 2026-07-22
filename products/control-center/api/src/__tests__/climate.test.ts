@@ -219,7 +219,20 @@ describe("getClimate() (desired-authoritative, reads device_state , www-unxz.2)"
       mode: HvacMode.Off,
       ambient: 71,
       action: HvacAction.Idle,
+      // Nothing was ever reported to remember.
+      target: null,
+      targetLow: null,
+      targetHigh: null,
     });
+  });
+
+  it("an off state carries the REMEMBERED setpoint so the next on has a real number", async () => {
+    mockDbSelect.mockReturnValue(
+      new SelectChain([
+        climateRow({ mode: HvacMode.Off, target: 72 }, { mode: HvacMode.Off, ambient: 81 }),
+      ]),
+    );
+    expect(await getClimate()).toMatchObject({ mode: HvacMode.Off, target: 72, ambient: 81 });
   });
 
   it("desired mode overlays reported (the dashboard's intent wins for mode)", async () => {
@@ -390,9 +403,49 @@ describe("setClimateMode() (writes desired, NO HA call)", () => {
     await setClimateMode("climate.home", HvacMode.HeatCool);
 
     expect(mockCallService).not.toHaveBeenCalled();
-    expect(written.desiredState).toMatchObject({ mode: HvacMode.HeatCool, target: 70 });
+    // The single setpoint is converted to the band heat_cool needs (never left as
+    // a `target` heat_cool cannot use, and never dropped to a 0 range).
+    expect(written.desiredState).toMatchObject({
+      mode: HvacMode.HeatCool,
+      targetLow: 67,
+      targetHigh: 73,
+    });
     // A command window is stamped so the enforcer pushes regardless of policy.
     expect(written.desiredUntilUtc).toBeInstanceOf(Date);
+  });
+
+  it("off→cool commands the REMEMBERED setpoint immediately, never 0 (prod repro)", async () => {
+    // Prod 2026-07-21: HA reports no setpoint while off, so desired held none and
+    // the mutation returned target 0. The tile showed 0°F for ~10s until HA
+    // re-reported a setpoint after the mode change landed.
+    let written: { desiredState?: Record<string, unknown> } = {};
+    mockDbSelect.mockReturnValue(
+      new SelectChain([
+        climateRow({ mode: HvacMode.Off, target: 72 }, { mode: HvacMode.Off, ambient: 81 }),
+      ]),
+    );
+    mockDbUpdate.mockReturnValue(makeUpdateChain((p) => (written = p as typeof written)));
+
+    const result = await setClimateMode("climate.home", HvacMode.Cool);
+
+    expect(written.desiredState).toMatchObject({ mode: HvacMode.Cool, target: 72 });
+    expect(result).toMatchObject({ mode: HvacMode.Cool, target: 72 });
+  });
+
+  it("turning off REMEMBERS the setpoint the tile was showing, even when only reported held it", async () => {
+    let written: { desiredState?: Record<string, unknown> } = {};
+    // Desired is a bare mode (a previous mode toggle wrote no setpoint); the 74
+    // the panel shows comes from reported. It must survive the trip through off.
+    mockDbSelect.mockReturnValue(
+      new SelectChain([
+        climateRow({ mode: HvacMode.Cool }, { mode: HvacMode.Cool, target: 74, ambient: 79 }),
+      ]),
+    );
+    mockDbUpdate.mockReturnValue(makeUpdateChain((p) => (written = p as typeof written)));
+
+    await setClimateMode("climate.home", HvacMode.Off);
+
+    expect(written.desiredState).toEqual({ mode: HvacMode.Off, target: 74 });
   });
 
   it("can turn the system off and returns the DB-derived state", async () => {

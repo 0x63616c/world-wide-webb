@@ -207,6 +207,51 @@ describe("decideClimateEnforcement (pure)", () => {
     expect(d).toEqual({ kind: "push", desired: { mode: "cool", target: 68 } });
   });
 
+  // ── OFF remembers the last real setpoint ───────────────────────────────────
+  // HA reports NO setpoint attributes while the thermostat is off. Adopting that
+  // verbatim forgot the setpoint, so the next off→cool had no number: the tile
+  // showed 0°F until HA re-reported one seconds later.
+
+  it("adopting an external OFF keeps the standing desired setpoint as memory", () => {
+    const d = decideClimateEnforcement(
+      {
+        id: "c",
+        entityId: "climate.home",
+        desiredState: { mode: "cool", target: 72 },
+        desiredUntilUtc: null,
+      },
+      mapped({ mode: "off", ambient: 81, action: "off" }),
+    );
+    expect(d).toEqual({ kind: "adopt", desired: { mode: "off", target: 72 } });
+  });
+
+  it("falls back to the last REPORTED setpoint when desired carries none", () => {
+    const d = decideClimateEnforcement(
+      {
+        id: "c",
+        entityId: "climate.home",
+        desiredState: { mode: "cool" },
+        lastReported: { mode: "cool", target: 74, ambient: 80 },
+        desiredUntilUtc: null,
+      },
+      mapped({ mode: "off", ambient: 81 }),
+    );
+    expect(d).toEqual({ kind: "adopt", desired: { mode: "off", target: 74 } });
+  });
+
+  it("noop while off , a remembered setpoint HA cannot report is not drift", () => {
+    const d = decideClimateEnforcement(
+      {
+        id: "c",
+        entityId: "climate.home",
+        desiredState: { mode: "off", target: 72 },
+        desiredUntilUtc: null,
+      },
+      mapped({ mode: "off", ambient: 81 }),
+    );
+    expect(d).toEqual({ kind: "noop" });
+  });
+
   it("unreachable when HA is unavailable or reports no climate state", () => {
     expect(
       decideClimateEnforcement(
@@ -372,6 +417,37 @@ describe("runClimateEnforcerCycle", () => {
       entity_id: "climate.home",
       fan_mode: "on",
     });
+  });
+
+  it("turning OFF pushes the mode only , a remembered setpoint is never actuated", async () => {
+    const row = {
+      id: "climate-thermostat",
+      kind: "climate",
+      entityId: "climate.home",
+      domain: "climate",
+      // Desired carries the remembered setpoint for the next on; HA takes no
+      // set_temperature while off.
+      desiredState: { mode: "off", target: 72 },
+      reportedState: { mode: "cool", target: 72, ambient: 81 },
+      desiredUntilUtc: new Date(Date.now() + 9_000),
+      available: true,
+    };
+    mockDbSelect.mockReturnValue(new Chain([row]));
+    insertCapture();
+    setBuilder();
+    mockGetEntities.mockResolvedValue([haClimate({ current_temperature: 81, temperature: 72 })]);
+
+    await runClimateEnforcerCycle();
+
+    expect(mockCallService).toHaveBeenCalledWith("climate", "set_hvac_mode", {
+      entity_id: "climate.home",
+      hvac_mode: "off",
+    });
+    expect(mockCallService).not.toHaveBeenCalledWith(
+      "climate",
+      "set_temperature",
+      expect.anything(),
+    );
   });
 
   it("ADOPTS an external setpoint change outside the window: no HA call, desired := reported (www-qktc)", async () => {

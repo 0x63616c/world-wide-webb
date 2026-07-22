@@ -26,7 +26,15 @@ const setpoint = z.number().int().min(CLIMATE_MIN).max(CLIMATE_MAX);
 // Discriminated union on mode , mirrors ClimateState. A single `target` and a
 // `targetLow`/`targetHigh` range can never appear together.
 const ClimateStateOutput = z.discriminatedUnion("mode", [
-  z.object({ mode: z.literal(HvacMode.Off), ambient: z.number(), action: ClimateActionSchema }),
+  z.object({
+    mode: z.literal(HvacMode.Off),
+    ambient: z.number(),
+    action: ClimateActionSchema,
+    // Remembered (last reported) setpoints, null when never seen , see ClimateState.
+    target: z.number().nullable(),
+    targetLow: z.number().nullable(),
+    targetHigh: z.number().nullable(),
+  }),
   z.object({
     mode: z.literal(HvacMode.Cool),
     target: z.number().int(),

@@ -131,7 +131,16 @@ describe("ClimateTile , heat_cool (dual setpoint)", () => {
 
 describe("ClimateTile , off", () => {
   beforeEach(() => {
-    mockUseQuery.mockReturnValue({ data: { mode: "off", ambient: 71, action: "Idle" } });
+    mockUseQuery.mockReturnValue({
+      data: {
+        mode: "off",
+        ambient: 71,
+        action: "Idle",
+        target: null,
+        targetLow: null,
+        targetHigh: null,
+      },
+    });
   });
 
   it("shows Off and no sliders", () => {
@@ -139,6 +148,43 @@ describe("ClimateTile , off", () => {
     expect(screen.getByTestId("setpoint")).toHaveTextContent("Off");
     expect(screen.queryByTestId("slider")).not.toBeInTheDocument();
     expect(screen.getByTestId("chip-off")).toHaveClass("on");
+  });
+
+  it("still shows the indoor temperature (the useful number when off)", () => {
+    renderTile();
+    expect(screen.getByTestId("ambient-label")).toHaveTextContent("71°F indoor");
+  });
+
+  it("turning on seeds the REMEMBERED setpoint, never 0 (prod repro)", () => {
+    mockUseQuery.mockReturnValue({
+      data: {
+        mode: "off",
+        ambient: 81,
+        action: "Idle",
+        target: 74,
+        targetLow: null,
+        targetHigh: null,
+      },
+    });
+    renderTile();
+    fireEvent.click(screen.getByTestId("chip-cool"));
+    expect(screen.getByTestId("setpoint")).toHaveTextContent("74");
+  });
+
+  it("turning on with only a remembered RANGE seeds its midpoint", () => {
+    mockUseQuery.mockReturnValue({
+      data: {
+        mode: "off",
+        ambient: 81,
+        action: "Idle",
+        target: null,
+        targetLow: 69,
+        targetHigh: 75,
+      },
+    });
+    renderTile();
+    fireEvent.click(screen.getByTestId("chip-heat"));
+    expect(screen.getByTestId("setpoint")).toHaveTextContent("72");
   });
 });
 
