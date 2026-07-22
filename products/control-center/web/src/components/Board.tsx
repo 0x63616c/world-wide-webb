@@ -12,6 +12,7 @@ import {
   WORLD_W,
   worldCellRect,
 } from "../lib/grid-constants";
+import { useIdleHeld } from "../lib/idle-hold-store";
 import { useLayoutEditorOpen } from "../lib/layout-edit-store";
 import {
   endInteractionSession,
@@ -44,6 +45,7 @@ import { MINIMAP_LEFT, MINIMAP_TOP, MINIMAP_WIDTH, Minimap } from "./Minimap";
 import { NotChargingBanner } from "./NotChargingBanner";
 import { PlaceholderTile } from "./PlaceholderTile";
 import { SettingsButton } from "./SettingsButton";
+import { TimeSuiteBanner } from "./TimeSuiteBanner";
 import { getTileDetailEntry } from "./tiles/detail/registry";
 import { TileDetailHost } from "./tiles/detail/TileDetailHost";
 import { NotificationBanner, NotificationBannerStack } from "./ui/NotificationBanner";
@@ -483,6 +485,12 @@ export function Board() {
   // working copy, so a background refetch here is redundant work).
   const layoutEditOpen = useLayoutEditorOpen();
 
+  // Whether anything live (a running timer on the open clock page, per the
+  // conditional-hold rule in lib/idle-hold-store) is suppressing the idle
+  // behaviors. Joins the layoutEditOpen precedent in both `enabled` chains
+  // below , the idle hooks themselves need no changes.
+  const idleHeld = useIdleHeld();
+
   // Server-resolved tile placement (blocking first paint + 5s poll, see
   // useBoardLayout). `layoutStatus` gates the loading-stage render below; every
   // hook past this point still runs unconditionally (rules of hooks) and simply
@@ -728,8 +736,9 @@ export function Board() {
     idleMs: settings.recenterTimeoutMs,
     // Disabled while the layout editor is open — an idle glide-home mid-edit
     // would fight the editor's own camera and yank the view out from under a
-    // drag in progress.
-    enabled: settings.recenterEnabled && !layoutEditOpen,
+    // drag in progress. Also held off while an idle hold is live (a running
+    // timer on the open clock page must not be glided away from).
+    enabled: settings.recenterEnabled && !layoutEditOpen && !idleHeld,
   });
 
   // Dim the panel after its own (configurable) idle window , native only: it
@@ -741,8 +750,9 @@ export function Board() {
     isProgrammatic,
     pointerDown,
     // Disabled while the layout editor is open — dimming the backlight mid-edit
-    // would obscure the very thing being arranged.
-    enabled: settings.idleDimEnabled && nativeDisplay && !layoutEditOpen,
+    // would obscure the very thing being arranged. Also held off while an idle
+    // hold is live (a running timer/stopwatch stays readable across the room).
+    enabled: settings.idleDimEnabled && nativeDisplay && !layoutEditOpen && !idleHeld,
     timeoutMs: settings.idleDimTimeoutMs,
     level: settings.idleDimLevel,
     activeBrightness: settings.activeBrightness,
@@ -968,6 +978,10 @@ export function Board() {
             <AppUpdateBanner />
             <UnplacedTilesBanner count={layout.unplaced.length} />
             <NotChargingBanner />
+            {/* Also what BOOTS the time suite: importing it evaluates the
+              timer/alarm stores, so deploy-reload boot-resume runs at app
+              start with the clock page closed. */}
+            <TimeSuiteBanner />
           </NotificationBannerStack>
           {settings.showFps ? <FpsMeter /> : null}
           {settings.showBuildBadge ? <BuildHashBadge /> : null}

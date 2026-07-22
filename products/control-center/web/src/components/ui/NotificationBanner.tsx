@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { openTileDetail } from "../../lib/tile-detail-store";
 
 /** The tile whose detail page IS the Notification Center. */
@@ -112,15 +113,22 @@ export function NotificationBanner({
  * The top-right column the banners flow into. Fixed to the corner, packs its
  * children top-down with a small gap, and is itself pointer-transparent so only
  * the banner rectangles (which opt back in) catch taps.
+ *
+ * Portaled to <body> (the VariantSwitcher precedent): rendered in-tree the
+ * stack lives under #stage's own stacking context, where NO zIndex can beat
+ * the body-level detail-page/modal overlays (zIndex 100) , a ringing
+ * alarm/timer banner (TimeSuiteBanner) and its Stop button would be invisible
+ * whenever any detail page is open. Same body context ⇒ 120 > 100 keeps every
+ * banner on top of open pages; the LayoutEditor overlay (1000) still covers it.
  */
 export function NotificationBannerStack({ children }: { children: ReactNode }) {
-  return (
+  return createPortal(
     <div
       style={{
-        position: "absolute",
+        position: "fixed",
         top: 18,
         right: 18,
-        zIndex: 100,
+        zIndex: 120,
         display: "flex",
         flexDirection: "column",
         alignItems: "flex-end",
@@ -129,6 +137,7 @@ export function NotificationBannerStack({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </div>
+    </div>,
+    document.body,
   );
 }

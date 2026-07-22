@@ -121,4 +121,30 @@ describe("DimOverlay wake tap swallowing", () => {
     });
     expect(screen.queryByTestId("dim-overlay")).toBeNull();
   });
+
+  // The idle-hold seam: while something live holds the board awake (a running
+  // timer on the open clock page), the panel must NOT dim; releasing the hold
+  // re-arms a fresh dim window.
+  it("does not dim while an idle hold is live, then dims after release", async () => {
+    const { acquireIdleHold, resetIdleHoldsForTests } = await import("../../lib/idle-hold-store");
+    try {
+      render(<Board />);
+      let release: () => void = () => {};
+      act(() => {
+        release = acquireIdleHold("test-live");
+      });
+      act(() => {
+        vi.advanceTimersByTime(3 * (10 * 60_000 + 1_000));
+      });
+      expect(screen.queryByTestId("dim-overlay")).toBeNull();
+
+      act(() => release());
+      act(() => {
+        vi.advanceTimersByTime(10 * 60_000 + 1_000);
+      });
+      expect(screen.getByTestId("dim-overlay")).toBeTruthy();
+    } finally {
+      resetIdleHoldsForTests();
+    }
+  });
 });

@@ -16,6 +16,12 @@ export interface DetailVariant {
   slug: string;
   /** Short human label shown in the floating switcher. */
   label: string;
+  /**
+   * Accent dot on this variant's switcher pill , attention-worthy live state
+   * (a done timer, a firing alarm) that must stay visible while the user is on
+   * ANOTHER variant of the open page. Unset/false renders no dot.
+   */
+  badge?: boolean;
   /** Renders the variant's bare page content , NO <Modal>. */
   render: () => ReactNode;
 }

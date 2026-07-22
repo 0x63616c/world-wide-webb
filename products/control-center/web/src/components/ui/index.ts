@@ -51,3 +51,7 @@ export { Tile } from "./Tile";
 export { TileBoundary } from "./TileBoundary";
 export { TileHeader } from "./TileHeader";
 export { TileStatus } from "./tile-status";
+/** @public , shared time-entry primitive; consumed by the clock detail views (clock-suite plan §6). */
+export type { WheelPickerProps, WheelPickerValue } from "./WheelPicker";
+/** @public , shared time-entry primitive; consumed by the clock detail views (clock-suite plan §6). */
+export { WheelPicker } from "./WheelPicker";
