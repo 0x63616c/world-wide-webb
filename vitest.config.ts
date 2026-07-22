@@ -8,6 +8,7 @@ export default defineConfig({
       "api",
       "web",
       "worker",
+      "packages/core",
       "packages/logger",
       "packages/platform",
       "packages/worker-runtime",
