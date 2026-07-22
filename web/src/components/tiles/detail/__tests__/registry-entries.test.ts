@@ -3,10 +3,11 @@
  * Frontend Logs). The behavior these assert used to live in hand-wired tile
  * plumbing (WakesTile's own PinGateModal, FrontendLogsTile's own tap handler);
  * now it is declarative registry data, so the tests pin the declarations:
- * Activity stays PIN-gated, and the Frontend Logs action deep-links the
- * Settings Logs page through open-settings-store.
+ * Activity stays PIN-gated (sensitive), and the Frontend Logs action deep-links
+ * the Settings Logs page through settings-overlay-store.
  */
 
+import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 // MapLibre (via the tesla wiring, imported transitively by the detail
@@ -23,17 +24,17 @@ vi.mock("maplibre-gl", () => ({
   },
 }));
 
-import { consumePendingSettingsPage } from "../../../../lib/open-settings-store";
+import { closeSettings, useSettingsOverlay } from "../../../../lib/settings-overlay-store";
 import { TILE_REGISTRY } from "../../../../lib/tile-registry";
 import { getTileDetailEntry } from "../registry";
 
 describe("tile detail registry , Task 11 entries", () => {
-  it("Activity is a PIN-gated page titled 'Activity'", () => {
+  it("Activity is a PIN-gated (sensitive) page titled 'Activity'", () => {
     const entry = getTileDetailEntry("tile_wakes");
     expect(entry?.kind).toBe("page");
     if (entry?.kind !== "page") throw new Error("expected a page entry");
     expect(entry.title).toBe("Activity");
-    expect(entry.requiresPin).toBe(true);
+    expect(entry.sensitive).toBe(true);
     expect(entry.defaultSlug).toBe("activity");
   });
 
@@ -44,7 +45,7 @@ describe("tile detail registry , Task 11 entries", () => {
       if (entry?.kind !== "page") throw new Error("expected a page entry");
       expect(entry.title).toBe(title);
       // No hand-wired gate: neither camera preview is PIN-gated.
-      expect(entry.requiresPin).toBeUndefined();
+      expect(entry.sensitive).toBeUndefined();
     }
   });
 
@@ -52,10 +53,13 @@ describe("tile detail registry , Task 11 entries", () => {
     const entry = getTileDetailEntry("tile_felogs");
     expect(entry?.kind).toBe("action");
     if (entry?.kind !== "action") throw new Error("expected an action entry");
-    // Drain any stale pending page first so the assertion is about THIS run.
-    consumePendingSettingsPage();
+    closeSettings(); // start from a closed overlay so the assertion is about THIS run
     entry.run();
-    expect(consumePendingSettingsPage()).toBe("logs");
+    // The action opens the Settings overlay landed on the Logs page.
+    const { result } = renderHook(() => useSettingsOverlay());
+    expect(result.current.open).toBe(true);
+    expect(result.current.page).toBe("logs");
+    closeSettings();
   });
 
   it("EVERY board tile resolves to a detail entry (completeness guard)", () => {

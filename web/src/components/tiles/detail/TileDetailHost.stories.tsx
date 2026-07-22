@@ -12,6 +12,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect } from "react";
+import { __resetSessionForTests } from "../../../lib/panel-session";
 import { setPinCode } from "../../../lib/settings";
 import { closeTileDetail, openTileDetail, useTileDetail } from "../../../lib/tile-detail-store";
 import { modalDocsParameters } from "../__stories__/factory";
@@ -65,7 +66,7 @@ const pinEntry: TileDetailPageEntry = {
   kind: "page",
   tileId: "tile_story_pin",
   title: "Gated Page",
-  requiresPin: true,
+  sensitive: true,
   defaultSlug: "detail",
   useVariants: () => ({ variants: [variant("detail", "Behind the gate")], loading: false }),
 };
@@ -120,9 +121,10 @@ export const MultiVariant: Story = {
 };
 
 /**
- * requiresPin entry: the PIN gate shows first (decorator pins the code to
- * 000000 , tap 0 six times); the page mounts only after a correct entry, and
- * cancelling the gate closes the detail entirely.
+ * sensitive entry: the PIN gate shows first (decorator pins the code to 000000 ,
+ * tap 0 six times, and relocks the session so the gate always shows); the page
+ * mounts only after a correct entry, and cancelling the gate closes the detail
+ * entirely.
  */
 export const PinGated: Story = {
   name: "PIN gated , gate before page",
@@ -130,6 +132,9 @@ export const PinGated: Story = {
   decorators: [
     (Story) => {
       setPinCode("000000");
+      // panel-session is a singleton; relock it so a previous story's unlock
+      // doesn't skip the gate.
+      __resetSessionForTests();
       return <Story />;
     },
   ],

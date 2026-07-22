@@ -37,7 +37,7 @@ describe("clock detail entry", () => {
     expect(entry.title).toBe("Clock");
     expect(entry.defaultSlug).toBe("timer");
     // No hand-wired gate , the clock page is not PIN-protected.
-    expect(entry.requiresPin).toBeUndefined();
+    expect(entry.sensitive).toBeUndefined();
   });
 
   it("exposes exactly the five variants, interactive trio first, never loading", () => {

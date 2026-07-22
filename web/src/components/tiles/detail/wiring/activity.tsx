@@ -72,7 +72,7 @@ export const activityDetailEntry: TileDetailPageEntry = {
   // ActivityPage owns its own PageHeader. The PIN gate is unaffected , it runs
   // in GatedTileDetail, before chrome matters.
   chrome: "none",
-  requiresPin: true,
+  sensitive: true,
   defaultSlug: "activity",
   useVariants: useActivityVariants,
 };

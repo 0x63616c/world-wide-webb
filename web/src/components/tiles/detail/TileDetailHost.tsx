@@ -16,6 +16,7 @@ import { createPortal } from "react-dom";
 import { PageHeader, Skeleton } from "@/components/ui";
 import { interaction } from "../../../lib/log/interaction";
 import { registerOpenModal } from "../../../lib/modal-open-store";
+import { panelSession } from "../../../lib/panel-session";
 import { closeTileDetail, openTileDetail, useTileDetail } from "../../../lib/tile-detail-store";
 import { PinGateModal } from "../../pin/PinGateModal";
 import { VariantSwitcher } from "../views/VariantSwitcher";
@@ -35,10 +36,15 @@ export function TileDetailHost() {
 }
 
 /**
- * Runs the PIN gate (when the entry asks for one) before mounting the page.
- * Two flags so the gate can close before the page mounts (no double overlay
- * flash) , the SettingsButton pattern. Remounting per tile (key above) plus the
- * store nulling on close means both flags reset for every open.
+ * Runs the PIN gate before mounting a `sensitive` page , UNLESS the panel
+ * session is already unlocked. A correct PIN unlocks the whole session
+ * (panel-session, decision 13: one shared Unlock), so opening a second
+ * sensitive page (or the same one again) within the session skips the gate; the
+ * session relocks on session end. A non-sensitive page mounts straight away.
+ *
+ * The gate and the page are mutually exclusive renders (no double-overlay
+ * flash): while `needsGate` the gate is up and the page is not; unlocking flips
+ * `useIsUnlocked`, which unmounts the gate and mounts the page in one commit.
  *
  * Exported for the host's stories, which drive it with fixture entries , the
  * real registry only carries live-wired entries.
@@ -50,28 +56,22 @@ export function GatedTileDetail({
   entry: TileDetailPageEntry;
   initialSlug: string | undefined;
 }) {
-  const requiresPin = entry.requiresPin ?? false;
-  const [gateOpen, setGateOpen] = useState(requiresPin);
-  const [unlocked, setUnlocked] = useState(!requiresPin);
+  const sensitive = entry.sensitive ?? false;
+  const unlocked = panelSession.useIsUnlocked();
+  const needsGate = sensitive && !unlocked;
 
   return (
     <>
-      {requiresPin && (
+      {needsGate && (
         <PinGateModal
-          open={gateOpen}
+          open
           title={entry.title}
-          onClose={() => {
-            // A cancelled gate abandons the open , back to the board.
-            setGateOpen(false);
-            closeTileDetail();
-          }}
-          onSuccess={() => {
-            setGateOpen(false);
-            setUnlocked(true);
-          }}
+          // A cancelled gate abandons the open , back to the board.
+          onClose={closeTileDetail}
+          onSuccess={() => panelSession.unlock()}
         />
       )}
-      {unlocked && <TileDetailPage entry={entry} initialSlug={initialSlug} />}
+      {!needsGate && <TileDetailPage entry={entry} initialSlug={initialSlug} />}
     </>
   );
 }

@@ -32,8 +32,13 @@ export interface TileDetailPageEntry {
   tileId: string;
   /** Header title, matches the tile label. */
   title: string;
-  /** PIN-gated (Activity): the host runs PinGateModal before the page mounts. */
-  requiresPin?: true;
+  /**
+   * Sensitive (Activity): the host runs PinGateModal before the page mounts,
+   * unless the panel session is already unlocked. A correct PIN unlocks the
+   * whole session (panel-session), so re-opening a sensitive page within the
+   * same session skips the gate , see TileDetailHost.
+   */
+  sensitive?: true;
   /**
    * Page shell chrome. Default (`"header"`, or unset) gives the standard sticky
    * PageHeader + padded scroll region every tile detail uses. `"none"` drops
@@ -55,7 +60,7 @@ export interface TileDetailActionEntry {
   kind: "action";
   /** Matches the board tile id, e.g. "tile_felogs". */
   tileId: string;
-  /** Runs instead of opening a page, e.g. Frontend Logs → openSettingsOnPage("logs"). */
+  /** Runs instead of opening a page, e.g. Frontend Logs → openSettings("logs"). */
   run: () => void;
 }
 
