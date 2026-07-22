@@ -1,4 +1,12 @@
-import { DeviceKind } from "@www/core";
+import {
+  climateSetpointsObservable,
+  climateStateConverged,
+  DeviceKind,
+  isClimateState,
+  isLightState,
+  mergeDeviceState,
+  sanitizeClimateDesired,
+} from "@www/core";
 import { findLight } from "../config/lights";
 import type {
   DeviceClimateState,
@@ -10,6 +18,18 @@ import type {
 import type { HaEntity } from "../integrations/homeassistant/types";
 
 export { DeviceKind } from "@www/core";
+
+// ─── Moved to @www/core (Task 4): mergeDeviceState + its pure dependency
+// closure now live in packages/core/src/device-state/merge.ts. Re-exported
+// here so no call site in api/ has to change import paths.
+export {
+  climateSetpointsObservable,
+  climateStateConverged,
+  isClimateState,
+  isLightState,
+  mergeDeviceState,
+  sanitizeClimateDesired,
+};
 
 /**
  * The four reconcile loops that write the `device_state` table. Exactly one of
@@ -60,24 +80,6 @@ export const HaLightService = {
   TurnOff: "turn_off",
 } as const;
 
-/**
- * Narrow a DeviceStateValue to a light state. The union now also holds
- * DeviceClimateState (www-unxz.2); a light state has the boolean `on` field, which
- * a climate state never does , so this is the discriminant.
- */
-export function isLightState(v: DeviceStateValue | null | undefined): v is DeviceLightState {
-  return v != null && typeof (v as DeviceLightState).on === "boolean";
-}
-
-/** Narrow a DeviceStateValue to a climate state (has `mode`, never `on`). */
-export function isClimateState(v: DeviceStateValue | null | undefined): v is DeviceClimateState {
-  return (
-    v != null &&
-    typeof (v as DeviceClimateState).mode === "string" &&
-    typeof (v as DeviceLightState).on !== "boolean"
-  );
-}
-
 /** Narrow a DeviceStateValue to a speaker state (has numeric `volume`, never `on`/`mode`). */
 export function isSpeakerState(v: DeviceStateValue | null | undefined): v is DeviceSpeakerState {
   return (
@@ -87,11 +89,6 @@ export function isSpeakerState(v: DeviceStateValue | null | undefined): v is Dev
     typeof (v as DeviceClimateState).mode !== "string"
   );
 }
-
-// The one hvac mode this module reasons about. Declared locally (not imported
-// from climate-service, which imports this module) to keep the dependency
-// one-way; `DeviceClimateState.mode` is a raw HA string.
-const HvacModeValue = { Off: "off" } as const;
 
 const HaState = {
   On: "on",
@@ -194,63 +191,6 @@ function climateEquals(a: DeviceClimateState, b: DeviceClimateState): boolean {
 }
 
 /**
- * Drift convergence for climate desired-vs-reported (www-unxz.2). Only the
- * COMMANDABLE fields count: mode must match exactly; a SPECIFIED desired setpoint
- * (target / targetLow / targetHigh) must match exactly; fanMode must match when
- * desired specifies it. Reported-only ambient/action are ignored (they can never
- * "drift" from a desired we don't carry). A desired field left unset means "no
- * intent for it", so it can't diverge , same partial-overlay rule as lights.
- */
-export function climateStateConverged(
-  desired: DeviceClimateState,
-  reported: DeviceClimateState,
-  opts: { ignoreFan?: boolean } = {},
-): boolean {
-  if (desired.mode !== reported.mode) return false;
-  // A thermostat that is OFF reports no setpoint attributes at all, so the
-  // setpoint dimension is neither observable nor commandable there. A remembered
-  // setpoint (see rememberedClimateDesired) must not read as eternal drift.
-  if (climateSetpointsObservable(reported)) {
-    if (desired.target != null && desired.target !== reported.target) return false;
-    if (desired.targetLow != null && desired.targetLow !== reported.targetLow) return false;
-    if (desired.targetHigh != null && desired.targetHigh !== reported.targetHigh) return false;
-  }
-  // While the AC is actively conditioning it owns the blower (ignoreFan); a fan
-  // mismatch then is the AC asserting the fan, not drift to fight (www-pu4m).
-  if (!opts.ignoreFan && desired.fanMode != null && desired.fanMode !== reported.fanMode) {
-    return false;
-  }
-  return true;
-}
-
-/**
- * Strip a climate desired down to the COMMANDABLE fields (mode/setpoints/fan).
- * Desired must never carry the reported-only ambient/action: the merge overlay
- * is desired-over-reported, so a desired holding a seed-time ambient shadows the
- * live reported room temp forever (www-dnpj , the panel froze at the seed-time
- * temperature). Used at enforcer seed, on every desired write, and as the merge
- * overlay so pre-fix rows render correctly even before they self-heal.
- */
-export function sanitizeClimateDesired(state: DeviceClimateState): DeviceClimateState {
-  const clean: DeviceClimateState = { mode: state.mode };
-  if (state.target != null) clean.target = state.target;
-  if (state.targetLow != null) clean.targetLow = state.targetLow;
-  if (state.targetHigh != null) clean.targetHigh = state.targetHigh;
-  if (state.fanMode != null) clean.fanMode = state.fanMode;
-  return clean;
-}
-
-/**
- * True when HA's reported state can carry setpoints at all. An OFF thermostat
- * reports none (ecobee drops `temperature` / `target_temp_low|high` entirely),
- * so while off the setpoint dimension is unobservable: there is nothing to
- * converge against and nothing to actuate.
- */
-export function climateSetpointsObservable(state: DeviceClimateState): boolean {
-  return state.mode !== HvacModeValue.Off;
-}
-
-/**
  * The desired to persist when adopting external reality (www-qktc), keeping the
  * last real setpoint alive across an OFF period.
  *
@@ -309,96 +249,4 @@ function colorEquals(a: LightColor | undefined, b: LightColor | undefined): bool
   if (!ar && !br) return true;
   if (!ar || !br) return false;
   return ar[0] === br[0] && ar[1] === br[1] && ar[2] === br[2];
-}
-
-export interface MergedDeviceState {
-  state: DeviceStateValue | null;
-  pending: boolean;
-  available: boolean;
-}
-
-// Tolerances for desired-vs-reported convergence (pending detection). HA does not
-// round-trip color/brightness exactly, so a per-channel/absolute slack stops a
-// freshly-actuated light from reading as perpetually "pending". Mirrors the
-// enforcer's drift tolerances (kept local to avoid a circular import , the
-// enforcer imports from this module).
-const RGB_CHANNEL_TOLERANCE = 12;
-const KELVIN_TOLERANCE = 250;
-const BRIGHTNESS_TOLERANCE = 3;
-
-/** True when two colors are within HA round-trip tolerance (or both absent). */
-function colorConverged(a: LightColor | undefined, b: LightColor | undefined): boolean {
-  if (!a && !b) return true;
-  if (!a || !b) return false;
-  const aKelvin = a.kelvin != null;
-  const bKelvin = b.kelvin != null;
-  if (aKelvin !== bKelvin) return false;
-  if (aKelvin && bKelvin) return Math.abs((a.kelvin ?? 0) - (b.kelvin ?? 0)) <= KELVIN_TOLERANCE;
-  const ar = a.rgb;
-  const br = b.rgb;
-  if (!ar || !br) return !ar && !br;
-  return ar.every((c, i) => Math.abs(c - br[i]) <= RGB_CHANNEL_TOLERANCE);
-}
-
-/**
- * Tolerant convergence of the desired fields that are SPECIFIED vs reported.
- * Desired is a PARTIAL overlay: only the fields it actually carries are intent,
- * so a desired that omits brightness/color (e.g. a bare on/off toggle) must NOT
- * count as diverged just because reported has a color. `on` is always specified;
- * brightness/color are compared only when desired specifies them.
- */
-function converged(desired: DeviceStateValue, reported: DeviceStateValue): boolean {
-  // Climate uses its own commandable-field convergence (www-unxz.2).
-  if (isClimateState(desired) || isClimateState(reported)) {
-    if (!isClimateState(desired) || !isClimateState(reported)) return false;
-    return climateStateConverged(desired, reported);
-  }
-  if (!isLightState(desired) || !isLightState(reported)) return false;
-  if (desired.on !== reported.on) return false;
-  if (!desired.on) return true;
-  if (
-    desired.brightness != null &&
-    reported.brightness != null &&
-    Math.abs(desired.brightness - reported.brightness) > BRIGHTNESS_TOLERANCE
-  ) {
-    return false;
-  }
-  // Only a SPECIFIED desired color can diverge; an absent desired color means
-  // "no color intent" → reflect reported, never perpetually pending.
-  if (desired.color != null && !colorConverged(desired.color, reported.color)) {
-    return false;
-  }
-  return true;
-}
-
-/**
- * Merge reported and desired into the effective state. Desired is the source of
- * truth, but it is a PARTIAL OVERLAY: each field desired specifies wins (the
- * enforcer drives HA to it); fields desired omits fall back to reported. So a
- * bare on/off toggle (`{on}`) still shows the real brightness/color from HA
- * instead of zeros, and `activeScene` derives from the effective color. This
- * matches the enforcer, which only actuates the fields desired specifies
- * (www-7d5b.2.4). `pending` is true only while a SPECIFIED desired field has not
- * yet converged with reported. The old 5s desiredUntilUtc window is retired.
- */
-export function mergeDeviceState(
-  device: {
-    reportedState?: DeviceStateValue | null;
-    desiredState?: DeviceStateValue | null;
-    available: boolean;
-  },
-  _now?: Date,
-): MergedDeviceState {
-  const desired = device.desiredState ?? null;
-  const reported = device.reportedState ?? null;
-  if (desired != null) {
-    // Per-field overlay: reported as base, desired's specified fields override.
-    // Climate desired is sanitized first so a stale pre-fix desired carrying the
-    // reported-only ambient/action can never shadow the live values (www-dnpj).
-    const overlay = isClimateState(desired) ? sanitizeClimateDesired(desired) : desired;
-    const state = reported != null ? { ...reported, ...overlay } : desired;
-    const pending = reported == null ? true : !converged(desired, reported);
-    return { state, pending, available: device.available };
-  }
-  return { state: reported, pending: false, available: device.available };
 }
