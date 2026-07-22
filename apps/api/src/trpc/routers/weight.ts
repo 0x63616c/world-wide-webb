@@ -1,5 +1,5 @@
 import { getLogger } from "@www/logger";
-import { and, desc, eq, gte, inArray, isNull, lt } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/index";
 import { weightMeasurement } from "../../db/schema";
@@ -137,7 +137,12 @@ export const weightRouter = router({
         .selectDistinct({ day })
         .from(weightMeasurement)
         .where(and(notDeleted(), ...(input.cursor ? [lt(day, input.cursor)] : [])))
-        .orderBy(desc(day))
+        // Order by ORDINAL, not by repeating the expression. dayExpr() binds tz
+        // as a parameter and is rendered independently per clause, so the SELECT
+        // list gets $1 and an ORDER BY copy would get $4 — and Postgres matches
+        // SELECT DISTINCT against ORDER BY by expression equality, where
+        // Param(1) != Param(4). Repeating it raises 42P10 on every call.
+        .orderBy(sql`1 desc`)
         .limit(input.limit + 1);
 
       // The extra row tells us whether another page exists without a count(*).
