@@ -57,7 +57,7 @@ export const PAGES: PageDef[] = [
     tint: "#c77dbb",
     blurb: "Panel output volume",
   },
-  { key: "board", label: "Board", icon: "apps", tint: "#4a90d9", blurb: "Snap, recenter, layout" },
+  { key: "board", label: "Board", icon: "apps", tint: "#4a90d9", blurb: "Snap, minimap, layout" },
   {
     key: "network",
     label: "Network",

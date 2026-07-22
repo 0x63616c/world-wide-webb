@@ -174,6 +174,14 @@ function writeRaw(key: string, value: string): void {
 }
 
 function loadInitial(): Settings {
+  // One-time sweep of keys retired with the idle-recenter settings (Track B):
+  // deployed panels otherwise carry them forever. Remove after a few releases.
+  try {
+    window.localStorage?.removeItem("cc-recenter-enabled");
+    window.localStorage?.removeItem("cc-recenter-timeout-ms");
+  } catch {
+    // ignore , best-effort, same as every other storage touch here
+  }
   const brightness = readRaw(KEYS.activeBrightness);
   const enabled = readRaw(KEYS.idleDimEnabled);
   const timeout = readRaw(KEYS.idleDimTimeoutMs);

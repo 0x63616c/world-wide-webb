@@ -11,6 +11,12 @@ import {
 } from "../../services/controls-service";
 import { publicProcedure, router } from "../init";
 
+// Error mapping is deliberately thinner than the deleted per-procedure catches
+// (Track B hygiene strip): haErrorMiddleware (init.ts) maps HaError to
+// SERVICE_UNAVAILABLE, but a non-HA failure (e.g. a device_state DB error) now
+// surfaces as INTERNAL_SERVER_ERROR instead of the old blanket 503. Intended:
+// only HA being unreachable is a "service unavailable" condition.
+
 // ─── output schemas ──────────────────────────────────────────────────────────
 
 const lampStateSchema = z.object({
