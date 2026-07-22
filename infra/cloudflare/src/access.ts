@@ -146,6 +146,14 @@ export function desiredAccessApps(zone: string, includeGate = false): DesiredAcc
     ...accessAppsForPrivateWeb([
       { exposure: ccManifest.app.exposure, policies: ["kiosk-service-token", "email-otp"] },
     ]),
+    // Task 7 hostname cutover: `app.worldwidewebb.co` gated identically to the
+    // flattened `app--cc.worldwidewebb.co` product route above (same kiosk
+    // service-token + email-OTP policies), added ALONGSIDE it while the panel +
+    // iOS shell are repointed. Retired once app--cc is retired.
+    accessApp(`app.${zone}`, [
+      { ...serviceTokenPolicy("kiosk-service-token", "kioskTokenId"), precedence: 1 },
+      { ...emailOtpPolicy(), precedence: 2 },
+    ]),
     // Already-live tooling protections (kept regardless of the gate flag).
     accessApp(`storybook.${zone}`, [emailOtpPolicy()]),
     accessApp(`drizzle.${zone}`, [emailOtpPolicy()]),

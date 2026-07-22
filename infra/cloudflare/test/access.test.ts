@@ -19,6 +19,7 @@ describe("desiredAccessApps", () => {
       .sort();
     expect(domains).toEqual([
       "app--cc.worldwidewebb.co",
+      "app.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "storybook.worldwidewebb.co",
     ]);
@@ -33,9 +34,31 @@ describe("desiredAccessApps", () => {
     expect(domains).toEqual([
       "*.worldwidewebb.co",
       "app--cc.worldwidewebb.co",
+      "app.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "hooks.worldwidewebb.co",
       "storybook.worldwidewebb.co",
+    ]);
+  });
+
+  test("supports kiosk service-token access for app.worldwidewebb.co (Task 7 cutover, mirrors app--cc)", () => {
+    const app = desiredAccessApps(ZONE, true).find(
+      (entry) => entry.domain === "app.worldwidewebb.co",
+    );
+
+    expect(app?.policies).toEqual([
+      {
+        decision: "non_identity",
+        include: { configKey: "kioskTokenId", kind: "service-token-config" },
+        name: "kiosk-service-token",
+        precedence: 1,
+      },
+      {
+        decision: "allow",
+        include: { configKey: "allowedEmail", kind: "email-config" },
+        name: "email-otp",
+        precedence: 2,
+      },
     ]);
   });
 

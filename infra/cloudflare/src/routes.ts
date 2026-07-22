@@ -69,6 +69,22 @@ const LEGACY_CNAME_COMMENTS: Record<string, string | undefined> = {
   "hooks-test": "EVEE-218 webhook test (apex naming, covered by Universal SSL)",
 };
 
+// Task 7 hostname cutover: `app.worldwidewebb.co` is a NEW single-label host
+// pointed at the same origin as the flattened `app--cc.worldwidewebb.co`
+// product route, added ALONGSIDE it (not replacing it). Once the physical
+// panel + iOS shell are repointed, a follow-up step retires app--cc + the
+// `${host}--${dnsCode}` flattening helper and this map collapses back into
+// productRoutes(). Not "legacy" (nothing live to import) — kept as its own
+// small map rather than mixed into LEGACY_INGRESS/LEGACY_CNAME_COMMENTS above,
+// which document frozen adopt-only import values.
+const NEW_HOSTNAME_INGRESS: Record<string, string> = {
+  app: "http://web.control-center.svc.cluster.local:80",
+};
+
+const NEW_HOSTNAME_CNAME_COMMENTS: Record<string, string | undefined> = {
+  app: "platform:control-center private app route (app.worldwidewebb.co cutover)",
+};
+
 export function cloudflareRoutesForExposures(
   sources: readonly CloudflareExposureSource[],
 ): CloudflareRoutes {
@@ -116,6 +132,10 @@ export function desiredIngressRules(zone: string): DesiredIngressRule[] {
       hostname: `${sub}.${zone}`,
       service,
     })),
+    ...Object.entries(NEW_HOSTNAME_INGRESS).map(([sub, service]) => ({
+      hostname: `${sub}.${zone}`,
+      service,
+    })),
   ];
 }
 
@@ -124,6 +144,12 @@ export function desiredCnames(zone: string): DesiredCname[] {
   return [
     ...productRoutes().cnames,
     ...Object.entries(LEGACY_CNAME_COMMENTS).map(([sub, comment]) => ({
+      hostname: `${sub}.${zone}`,
+      proxied: true as const,
+      target: tunnelCnameTarget,
+      comment,
+    })),
+    ...Object.entries(NEW_HOSTNAME_CNAME_COMMENTS).map(([sub, comment]) => ({
       hostname: `${sub}.${zone}`,
       proxied: true as const,
       target: tunnelCnameTarget,

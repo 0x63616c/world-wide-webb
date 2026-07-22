@@ -22,6 +22,7 @@ describe("desiredIngressRules", () => {
     );
     expect(Object.keys(byHost).sort()).toEqual([
       "app--cc.worldwidewebb.co",
+      "app.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "storybook.worldwidewebb.co",
     ]);
@@ -29,6 +30,8 @@ describe("desiredIngressRules", () => {
     expect(byHost["app--cc.worldwidewebb.co"]).toBe(
       "http://web.control-center.svc.cluster.local:80",
     );
+    // Task 7 cutover: app.worldwidewebb.co added alongside app--cc, same origin.
+    expect(byHost["app.worldwidewebb.co"]).toBe("http://web.control-center.svc.cluster.local:80");
     expect(byHost["portainer.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["hooks.worldwidewebb.co"]).toBeUndefined();
   });
@@ -85,6 +88,7 @@ describe("desiredCnames", () => {
       .sort();
     expect(hosts).toEqual([
       "app--cc.worldwidewebb.co",
+      "app.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "hooks-test.worldwidewebb.co",
       "storybook.worldwidewebb.co",
@@ -114,6 +118,10 @@ describe("desiredCnames", () => {
     );
     // product-derived platform route comment (not a frozen legacy value)
     expect(byHost["app--cc.worldwidewebb.co"]).toBe("platform:control-center private app route");
+    // Task 7 cutover: app.worldwidewebb.co added alongside app--cc.
+    expect(byHost["app.worldwidewebb.co"]).toBe(
+      "platform:control-center private app route (app.worldwidewebb.co cutover)",
+    );
     // pruned dead routes are absent (www-oa74)
     expect(byHost).not.toHaveProperty("hooks.worldwidewebb.co");
     expect(byHost).not.toHaveProperty("portainer.worldwidewebb.co");
