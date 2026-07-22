@@ -32,8 +32,10 @@ import { panelSession, registerSessionEffects, setSessionEnabled } from "../lib/
 import { bentoFor } from "../lib/placeholder-tiles";
 import { formatRelativeAge } from "../lib/relative-age";
 import { useSettings } from "../lib/settings";
+import { formatSha } from "../lib/short-sha";
 import { closeTileDetail, openTileDetail } from "../lib/tile-detail-store";
 import { HOME_TILE, type TileRegistryEntry } from "../lib/tile-registry";
+import { useAlarmFiring } from "../lib/time-suite/alarm-store";
 import { useBoardLayout } from "../lib/useBoardLayout";
 import { captureWakeBurst } from "../lib/wake-capture";
 import { AppUpdateBanner } from "./AppUpdateBanner";
@@ -188,7 +190,7 @@ function BuildHashBadge() {
         color: "var(--ink-3)",
       }}
     >
-      #{BUILD_HASH.slice(0, 7)}
+      {formatSha(BUILD_HASH)}
       {age ? ` ${age}` : ""}
     </div>
   );
@@ -267,6 +269,12 @@ function UnplacedTilesBanner({ count }: { count: number }) {
     </NotificationBanner>
   );
 }
+
+// While an alarm rings, re-touch the session at this cadence so the activity
+// clock never expires mid-ring. Must sit safely under the minimum session
+// timeout (TIMEOUT_MIN_MS, 60s); the ring itself is bounded by the alarm
+// store's 10-min auto-stop, so this can never hold a session open unboundedly.
+const ALARM_RING_TOUCH_MS = 15_000;
 
 // How long the shield lingers after the wake tap if no click ever arrives to
 // release it (pointer cancelled mid-tap, stylus hover, etc.). Long enough for
@@ -730,6 +738,21 @@ export function Board() {
     window.addEventListener("pointerdown", onActivity, { passive: true, capture: true });
     return () => window.removeEventListener("pointerdown", onActivity, { capture: true });
   }, []);
+
+  // Alarm-ring session coupling (plan addendum): a RINGING alarm is bounded
+  // activity. The immediate touch wakes a dimmed panel (phase flips active, the
+  // brightness effect below restores the backlight, the ring banner becomes
+  // visible — still LOCKED); the interval keeps the clock armed until dismiss
+  // or the alarm's own 10-min auto-stop clears `firing`. Deliberately no
+  // startInteractionSession/captureWakeBurst: nobody approached the panel.
+  const alarmFiring = useAlarmFiring();
+  useEffect(() => {
+    if (alarmFiring === null) return;
+    if (panelSession.phase() === "ended") interaction("session", "wake", "alarm");
+    panelSession.touch();
+    const id = window.setInterval(() => panelSession.touch(), ALARM_RING_TOUCH_MS);
+    return () => window.clearInterval(id);
+  }, [alarmFiring]);
 
   // The app always owns the backlight (overriding the OS). While the session is
   // active (incl. mount) hold the configured active brightness; the session-end

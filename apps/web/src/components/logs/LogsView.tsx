@@ -43,6 +43,7 @@ import {
 import * as store from "../../lib/log/store";
 import { MAX_BYTES, MAX_ENTRIES } from "../../lib/log/store";
 import { LOG_LEVELS, type LogEntry, type LogLevel } from "../../lib/log/types";
+import { formatSha } from "../../lib/short-sha";
 
 const ROW_HEIGHT = 26;
 /**
@@ -77,7 +78,7 @@ const CONTROL_H = 36;
 const RADIUS = 10;
 
 /** The git SHA currently running. Entries carry their own , see the SHA column. */
-const SHA = BUILD_HASH.slice(0, 7);
+const SHA = formatSha(BUILD_HASH);
 
 /**
  * One column template shared by the header and every row, so they cannot drift

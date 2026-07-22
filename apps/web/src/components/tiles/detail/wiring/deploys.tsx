@@ -15,10 +15,9 @@ import {
 } from "@/components/tiles/DeployTile";
 import { DeployModalPipeline } from "@/components/tiles/views/DeployModalPipeline";
 import { POLL, useNow } from "@/lib/hooks";
+import { formatSha } from "@/lib/short-sha";
 import { trpc } from "@/lib/trpc";
 import type { DetailVariant, TileDetailPageEntry } from "../types";
-
-const SHORT_SHA_LEN = 9;
 
 function useDeploysVariants(): { variants: DetailVariant[]; loading: boolean } {
   const query = trpc.github.status.useQuery(undefined, { refetchInterval: POLL.deploy });
@@ -46,7 +45,7 @@ function useDeploysVariants(): { variants: DetailVariant[]; loading: boolean } {
       label: "Deploys",
       render: () => (
         <DeployModalPipeline
-          deployedSha={(d.deployedSha ?? "").slice(0, SHORT_SHA_LEN)}
+          deployedSha={formatSha(d.deployedSha ?? "")}
           deployedWhen={d.deployedAtUtc ? `${formatAgo(d.deployedAtUtc, nowMs)} ago` : ""}
           run={run}
           failure={

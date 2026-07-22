@@ -41,19 +41,19 @@ type Story = StoryObj<typeof meta>;
 // Real commits from this repo , no invented history.
 const COMMITS: DeployCommit[] = [
   {
-    sha: "ea8aadd",
+    sha: "#ea8aadd",
     message: "docs: design for GitHub/deploy status tile",
     when: "14m",
     state: "deployed",
   },
   {
-    sha: "6d5d276",
+    sha: "#6d5d276",
     message: "chore(ci): refresh coverage + loc badges",
     when: "1h",
     state: "skipped",
   },
   {
-    sha: "676314c",
+    sha: "#676314c",
     message: "fix(infra): recreate NFS PVs on capacity change",
     when: "3h",
     state: "deployed",
@@ -62,7 +62,7 @@ const COMMITS: DeployCommit[] = [
 
 const BASE = {
   status: "populated",
-  deployedSha: "ea8aadd",
+  deployedSha: "#ea8aadd",
   deployedWhen: "14m ago",
   commitsBehind: 0,
   run: null,
@@ -78,7 +78,7 @@ export const UpToDate: Story = {
 export const Behind: Story = {
   args: {
     ...BASE,
-    deployedSha: "676314c",
+    deployedSha: "#676314c",
     deployedWhen: "3h ago",
     commitsBehind: 2,
     commits: [
@@ -92,7 +92,7 @@ export const Behind: Story = {
 export const Deploying: Story = {
   args: {
     ...BASE,
-    deployedSha: "676314c",
+    deployedSha: "#676314c",
     deployedWhen: "3h ago",
     run: { jobName: "build-web", stepName: "docker buildx", elapsed: "2m14s" },
     commits: [{ ...COMMITS[0], state: "building" } as DeployCommit, ...COMMITS.slice(1)],
@@ -102,7 +102,7 @@ export const Deploying: Story = {
 export const Failed: Story = {
   args: {
     ...BASE,
-    deployedSha: "676314c",
+    deployedSha: "#676314c",
     deployedWhen: "3h ago",
     failure: { jobName: "deploy", stepName: "pulumi up" },
     commits: [{ ...COMMITS[0], state: "failed" } as DeployCommit, ...COMMITS.slice(1)],
@@ -129,7 +129,7 @@ export const Loading: Story = {
 export const LiveSnapshot: Story = {
   args: {
     status: "populated",
-    deployedSha: "89e8ff3",
+    deployedSha: "#89e8ff3",
     deployedWhen: "30m ago",
     commitsBehind: 3,
     run: { jobName: "build-web", stepName: "docker buildx", elapsed: "9m12s" },
@@ -137,37 +137,37 @@ export const LiveSnapshot: Story = {
     staleFor: null,
     commits: [
       {
-        sha: "ff26b8b",
+        sha: "#ff26b8b",
         message: 'Revert "ci: add a dispatchable apply for the cloudflare edge stack"',
         when: "9m",
         state: "building",
       },
       {
-        sha: "1147ca3",
+        sha: "#1147ca3",
         message: "ci: add a dispatchable apply for the cloudflare edge stack",
         when: "14m",
         state: "skipped",
       },
       {
-        sha: "9b2b8c7",
+        sha: "#9b2b8c7",
         message: "fix(control-center/web): dim wake tap really is swallowed now",
         when: "15m",
         state: "skipped",
       },
       {
-        sha: "ddbbaa9",
+        sha: "#ddbbaa9",
         message: "chore(ci/www-afz): refresh coverage + loc badges [skip ci]",
         when: "22m",
         state: "skipped",
       },
       {
-        sha: "89e8ff3",
+        sha: "#89e8ff3",
         message: "feat(control-center/web): logs viewer age column + auto-loading history",
         when: "30m",
         state: "deployed",
       },
       {
-        sha: "ee83592",
+        sha: "#ee83592",
         message: "fix(control-center): apply review findings on session correlation",
         when: "35m",
         state: "skipped",

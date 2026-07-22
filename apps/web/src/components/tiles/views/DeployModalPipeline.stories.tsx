@@ -16,7 +16,7 @@ import { type DeployModalCommit, DeployModalPipeline } from "./DeployModalPipeli
 
 const COMMITS: DeployModalCommit[] = [
   {
-    sha: "ff26b8b",
+    sha: "#ff26b8b",
     message: 'Revert "ci: add a dispatchable apply for the cloudflare edge stack"',
     when: "9m",
     state: "building",
@@ -26,7 +26,7 @@ const COMMITS: DeployModalCommit[] = [
     deletions: 75,
   },
   {
-    sha: "1147ca3",
+    sha: "#1147ca3",
     message: "ci: add a dispatchable apply for the cloudflare edge stack",
     when: "14m",
     state: "skipped",
@@ -36,7 +36,7 @@ const COMMITS: DeployModalCommit[] = [
     deletions: 0,
   },
   {
-    sha: "9b2b8c7",
+    sha: "#9b2b8c7",
     message: "fix(control-center/web): dim wake tap really is swallowed now",
     when: "15m",
     state: "skipped",
@@ -46,7 +46,7 @@ const COMMITS: DeployModalCommit[] = [
     deletions: 16,
   },
   {
-    sha: "ddbbaa9",
+    sha: "#ddbbaa9",
     message: "chore(ci/www-afz): refresh coverage + loc badges [skip ci]",
     when: "22m",
     state: "skipped",
@@ -56,7 +56,7 @@ const COMMITS: DeployModalCommit[] = [
     deletions: 4,
   },
   {
-    sha: "89e8ff3",
+    sha: "#89e8ff3",
     message: "feat(control-center/web): logs viewer age column + auto-loading history",
     when: "30m",
     state: "deployed",
@@ -66,7 +66,7 @@ const COMMITS: DeployModalCommit[] = [
     deletions: 28,
   },
   {
-    sha: "ee83592",
+    sha: "#ee83592",
     message: "fix(control-center): apply review findings on session correlation",
     when: "35m",
     state: "skipped",
@@ -76,7 +76,7 @@ const COMMITS: DeployModalCommit[] = [
     deletions: 7,
   },
   {
-    sha: "a3ffbc3",
+    sha: "#a3ffbc3",
     message: "feat(control-center/web): sessions view in the wake photo viewer",
     when: "41m",
     state: "skipped",
@@ -86,7 +86,7 @@ const COMMITS: DeployModalCommit[] = [
     deletions: 7,
   },
   {
-    sha: "08ee564",
+    sha: "#08ee564",
     message: "feat(control-center): correlate wake photos with interaction sessions",
     when: "45m",
     state: "deployed",
@@ -98,7 +98,7 @@ const COMMITS: DeployModalCommit[] = [
 ];
 
 const BASE = {
-  deployedSha: "89e8ff3",
+  deployedSha: "#89e8ff3",
   deployedWhen: "30m ago",
   run: null,
   failure: null,
@@ -164,7 +164,7 @@ export const Deploying: Story = {
 export const Idle: Story = {
   args: {
     commits: COMMITS.map((c) => (c.state === "building" ? { ...c, state: "deployed" } : c)),
-    deployedSha: "ff26b8b",
+    deployedSha: "#ff26b8b",
     deployedWhen: "2m ago",
   },
 };
@@ -187,7 +187,7 @@ export const Stale: Story = {
   args: {
     staleFor: "42m",
     commits: COMMITS.map((c) => (c.state === "building" ? { ...c, state: "deployed" } : c)),
-    deployedSha: "ff26b8b",
+    deployedSha: "#ff26b8b",
     deployedWhen: "44m ago",
   },
 };

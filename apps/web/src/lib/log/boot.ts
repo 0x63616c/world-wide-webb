@@ -9,6 +9,7 @@
 
 import { BUILD_HASH, BUILD_TIME } from "../../config/build";
 import { resolveDeviceId } from "../device-id";
+import { shortSha } from "../short-sha";
 import { queryClient } from "../trpc";
 import { installCapture } from "./capture";
 import { log, resolveBuild, startFlushing } from "./logger";
@@ -36,7 +37,7 @@ export function initLogging(): void {
 
   const boot = log.child("boot");
   boot.info("app start", {
-    build: BUILD_HASH.slice(0, 7),
+    build: shortSha(BUILD_HASH),
     builtAt: Number.isNaN(BUILD_TIME) ? null : new Date(BUILD_TIME).toISOString(),
     // A reload with no navigation entry of type "reload" is a fresh load; the
     // kiosk watchdog's forced reloads show up here as "reload", which is how you

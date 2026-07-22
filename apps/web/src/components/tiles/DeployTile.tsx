@@ -12,6 +12,7 @@
 
 import { TileStatus } from "@/components/ui";
 import { POLL, useNow } from "@/lib/hooks";
+import { formatSha } from "@/lib/short-sha";
 import type { RouterOutputs } from "@/lib/trpc";
 import { trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";
@@ -25,8 +26,6 @@ type DeployStatus = RouterOutputs["github"]["status"];
 export const STALE_AFTER_MS = 5 * 60 * 1000;
 /** Failure streak after which the data is declared stale even if recent. */
 export const STALE_AFTER_FAILURES = 3;
-
-const SHORT_SHA_LEN = 9;
 
 /** Compact age: 42s, 14m, 3h, 2d. */
 export function formatAgo(iso: string, nowMs: number): string {
@@ -58,7 +57,7 @@ export function staleForOf(status: DeployStatus, nowMs: number): string | null {
 /** The detail page's enriched commit rows (author + diffstat on top of the tile row). */
 export function toModalCommits(status: DeployStatus, nowMs: number): DeployModalCommit[] {
   return status.commits.map((c) => ({
-    sha: c.sha.slice(0, SHORT_SHA_LEN),
+    sha: formatSha(c.sha),
     message: c.message,
     when: formatAgo(c.committedAtUtc, nowMs),
     state: c.state,
@@ -104,7 +103,7 @@ export function DeployTile() {
   }
 
   const commits: DeployCommit[] = data.commits.map((c) => ({
-    sha: c.sha.slice(0, SHORT_SHA_LEN),
+    sha: formatSha(c.sha),
     message: c.message,
     when: formatAgo(c.committedAtUtc, nowMs),
     state: c.state,
@@ -127,7 +126,7 @@ export function DeployTile() {
   return (
     <DeployTileView
       status={TileStatus.Populated}
-      deployedSha={(data.deployedSha ?? "").slice(0, SHORT_SHA_LEN)}
+      deployedSha={formatSha(data.deployedSha ?? "")}
       deployedWhen={data.deployedAtUtc ? `${formatAgo(data.deployedAtUtc, nowMs)} ago` : ""}
       commitsBehind={data.commitsBehind}
       run={run}

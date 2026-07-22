@@ -96,7 +96,7 @@ describe("toModalCommits", () => {
     });
     expect(toModalCommits(status, NOW)).toEqual([
       {
-        sha: "abcdef012",
+        sha: "#abcdef0",
         message: "fix: x",
         when: "1m",
         state: "failed",

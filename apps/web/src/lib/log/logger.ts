@@ -25,6 +25,7 @@
 
 import { BUILD_HASH } from "../../config/build";
 import { getDeviceName } from "../device-name";
+import { shortSha } from "../short-sha";
 import { nativeAppend } from "./native";
 import { LogRing } from "./ring";
 import * as store from "./store";
@@ -55,7 +56,7 @@ const BOOT_STAMP = String(Date.now()).padStart(14, "0");
  * shows and what you paste into `git show`, and a full 40 would cost 66 bytes on
  * every entry for no extra meaning.
  */
-const SHA = BUILD_HASH.slice(0, 7);
+const SHA = shortSha(BUILD_HASH);
 
 function makeId(n: number): string {
   return `${BOOT_STAMP}-${String(n).padStart(8, "0")}`;

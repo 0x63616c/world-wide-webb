@@ -10,20 +10,17 @@ import { BUILD_HASH, BUILD_TIME } from "../../../config/build";
 import { getInstalledBuildNumber } from "../../../lib/app-update";
 import { getDeviceId } from "../../../lib/device-id";
 import { formatRelativeAge } from "../../../lib/relative-age";
+import { formatSha } from "../../../lib/short-sha";
 import { trpc } from "../../../lib/trpc";
 import { Skeleton } from "../../ui/Skeleton";
 import { RowShell, SectionCard } from "../blocks";
 
 const VALUE_TEXT = { fontFamily: "var(--mono)", fontSize: 14, color: "var(--ink)" } as const;
 
-function shortSha(hash: string): string {
-  return hash.slice(0, 7);
-}
-
 /** "<sha> · <age>" when an age is available, else just the SHA. */
 function shaWithAge(hash: string, builtAtMs: number, nowMs: number): string {
   const age = formatRelativeAge(builtAtMs, nowMs);
-  return age ? `${shortSha(hash)} · ${age}` : shortSha(hash);
+  return age ? `${formatSha(hash)} · ${age}` : formatSha(hash);
 }
 
 export function AboutPage() {
