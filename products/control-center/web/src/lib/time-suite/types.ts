@@ -28,7 +28,8 @@ export interface TimerRecord {
 }
 
 export interface StopwatchLap {
-  /** "lap_<n>", 1-based in start order (list is kept newest first). */
+  /** "lap_" + crypto.randomUUID(). "Lap N" labels derive from list position
+   *  (list is kept newest first), never from the id. */
   id: string;
   /** Completed lap length. */
   ms: number;

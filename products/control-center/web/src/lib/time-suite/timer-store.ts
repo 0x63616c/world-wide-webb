@@ -26,6 +26,7 @@
 
 import { useSyncExternalStore } from "react";
 import { playCue, warmAudio } from "../sound";
+import { onExternalWrite, readJson, writeJson } from "./storage";
 import { startTicks } from "./ticker";
 import { BOOT_GRACE_MS, type TimerRecord } from "./types";
 
@@ -57,23 +58,7 @@ function emit(): void {
   for (const cb of listeners) cb();
 }
 
-// ─── best-effort localStorage IO ──────────────────────────────────────────────
-
-function readRaw(key: string): string | null {
-  try {
-    return window.localStorage?.getItem(key) ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function writeRaw(key: string, value: string): void {
-  try {
-    window.localStorage?.setItem(key, value);
-  } catch {
-    // ignore , persistence is best-effort (blocked/full store)
-  }
-}
+// ─── best-effort localStorage IO (shared seam: ./storage) ─────────────────────
 
 function isTimerRecord(value: unknown): value is TimerRecord {
   if (typeof value !== "object" || value === null) return false;
@@ -94,21 +79,15 @@ function isTimerRecord(value: unknown): value is TimerRecord {
 /** All persistence IO stays behind loadTimers/persistTimers so the layer can
  *  swap (localStorage → tRPC-backed table) without touching the store API. */
 function loadTimers(): TimerRecord[] {
-  const raw = readRaw(STORAGE_KEY);
-  if (raw === null) return [];
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) return [];
-    const list = (parsed as { v?: unknown; timers?: unknown }).timers;
-    if (!Array.isArray(list)) return [];
-    return list.filter(isTimerRecord);
-  } catch {
-    return [];
-  }
+  const parsed = readJson(STORAGE_KEY);
+  if (typeof parsed !== "object" || parsed === null) return [];
+  const list = (parsed as { v?: unknown; timers?: unknown }).timers;
+  if (!Array.isArray(list)) return [];
+  return list.filter(isTimerRecord);
 }
 
 function persistTimers(): void {
-  writeRaw(STORAGE_KEY, JSON.stringify({ v: 1, timers }));
+  writeJson(STORAGE_KEY, { v: 1, timers });
 }
 
 // ─── shared tick ──────────────────────────────────────────────────────────────
@@ -205,14 +184,11 @@ bootResume(Date.now());
 
 // Cross-tab follow (single-tab kiosk assumption above): reload state on an
 // external write, with NO cue evaluation , the writing tab already cued.
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (e) => {
-    if (e.key !== STORAGE_KEY) return;
-    timers = loadTimers();
-    emit();
-    syncTicker();
-  });
-}
+onExternalWrite(STORAGE_KEY, () => {
+  timers = loadTimers();
+  emit();
+  syncTicker();
+});
 
 // ─── setters (module-level, stable) ───────────────────────────────────────────
 

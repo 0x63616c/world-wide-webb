@@ -23,16 +23,13 @@
 
 import { type CSSProperties, useState } from "react";
 import { BorderProgressRing, Button, WheelPicker, type WheelPickerValue } from "@/components/ui";
+import { formatDurationLabel, pad2 } from "@/lib/time-suite/pure";
 import type { TimerRecord } from "@/lib/time-suite/types";
 
 // ─── props ────────────────────────────────────────────────────────────────────
 
-export interface ClockTimerViewProps {
-  timers: TimerRecord[];
-  /** Current instant; the caller drives the tick cadence. */
-  nowMs: number;
-  /** Start a new running timer of this length. */
-  onAdd: (durationMs: number) => void;
+/** Per-timer gestures a card can raise , shared by the view and TimerCard. */
+interface TimerActions {
   onPause: (id: string) => void;
   onResume: (id: string) => void;
   /** Remove a running/paused timer. */
@@ -45,11 +42,15 @@ export interface ClockTimerViewProps {
   onStopRinging: (id: string) => void;
 }
 
-// ─── time formatting ──────────────────────────────────────────────────────────
-
-function pad2(n: number): string {
-  return String(n).padStart(2, "0");
+export interface ClockTimerViewProps extends TimerActions {
+  timers: TimerRecord[];
+  /** Current instant; the caller drives the tick cadence. */
+  nowMs: number;
+  /** Start a new running timer of this length. */
+  onAdd: (durationMs: number) => void;
 }
+
+// ─── time formatting ──────────────────────────────────────────────────────────
 
 /** Big-digit remaining readout: "M:SS", or "H:MM:SS" from one hour up.
  *  Ceiled to the second (Apple: a fresh 10:00 timer reads 10:00, not 9:59). */
@@ -59,19 +60,6 @@ function formatRemaining(ms: number): string {
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
   return h > 0 ? `${h}:${pad2(m)}:${pad2(s)}` : `${m}:${pad2(s)}`;
-}
-
-/** Human duration label: "10 min", "1 hr 30 min", "45 sec". */
-function formatDurationLabel(ms: number): string {
-  const total = Math.round(ms / 1000);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  const parts: string[] = [];
-  if (h > 0) parts.push(`${h} hr`);
-  if (m > 0) parts.push(`${m} min`);
-  if (s > 0) parts.push(`${s} sec`);
-  return parts.length > 0 ? parts.join(" ") : "0 sec";
 }
 
 /** Remaining ms for a record at `nowMs` , absolute deadline while running,
@@ -121,17 +109,11 @@ function CornerX({ label, onPress }: { label: string; onPress: () => void }) {
 
 // ─── timer card ───────────────────────────────────────────────────────────────
 
-interface TimerCardProps {
+interface TimerCardProps extends TimerActions {
   timer: TimerRecord;
   nowMs: number;
   /** hero = single centered flagship card; grid = 2-column scaled-down card. */
   size: "hero" | "grid";
-  onPause: (id: string) => void;
-  onResume: (id: string) => void;
-  onDelete: (id: string) => void;
-  onDismiss: (id: string) => void;
-  onRestart: (id: string) => void;
-  onStopRinging: (id: string) => void;
 }
 
 function TimerCard({
@@ -479,18 +461,7 @@ function NewTimerPanel({ onAdd, centered }: { onAdd: (ms: number) => void; cente
 
 // ─── view ─────────────────────────────────────────────────────────────────────
 
-export function ClockTimerView({
-  timers,
-  nowMs,
-  onAdd,
-  onPause,
-  onResume,
-  onDelete,
-  onDismiss,
-  onRestart,
-  onStopRinging,
-}: ClockTimerViewProps) {
-  const cardCallbacks = { onPause, onResume, onDelete, onDismiss, onRestart, onStopRinging };
+export function ClockTimerView({ timers, nowMs, onAdd, ...cardCallbacks }: ClockTimerViewProps) {
   const count = timers.length;
 
   // Empty state: presets centered, quiet line.

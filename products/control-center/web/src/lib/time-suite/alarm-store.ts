@@ -36,6 +36,7 @@
 import { useSyncExternalStore } from "react";
 import { playCue, warmAudio } from "../sound";
 import { computeNextFireAtMs, validRepeatDays } from "./pure";
+import { onExternalWrite, readJson, writeJson } from "./storage";
 import { startTicks } from "./ticker";
 import { type AlarmRecord, type AlarmStoreState, BOOT_GRACE_MS } from "./types";
 
@@ -71,23 +72,7 @@ function emit(): void {
   for (const cb of listeners) cb();
 }
 
-// ─── best-effort localStorage IO ──────────────────────────────────────────────
-
-function readRaw(key: string): string | null {
-  try {
-    return window.localStorage?.getItem(key) ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function writeRaw(key: string, value: string): void {
-  try {
-    window.localStorage?.setItem(key, value);
-  } catch {
-    // ignore , persistence is best-effort
-  }
-}
+// ─── best-effort localStorage IO (shared seam: ./storage) ─────────────────────
 
 function isAlarmRecord(value: unknown): value is AlarmRecord {
   if (typeof value !== "object" || value === null) return false;
@@ -109,28 +94,22 @@ function isAlarmRecord(value: unknown): value is AlarmRecord {
 
 /** All persistence IO stays behind loadStored/persist (see header). */
 function loadStored(): AlarmStoreState {
-  const raw = readRaw(STORAGE_KEY);
-  if (raw === null) return { alarms: [], firing: null };
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) return { alarms: [], firing: null };
-    const s = parsed as { alarms?: unknown; firing?: unknown };
-    const alarms = Array.isArray(s.alarms) ? s.alarms.filter(isAlarmRecord) : [];
-    let firing: AlarmStoreState["firing"] = null;
-    if (typeof s.firing === "object" && s.firing !== null) {
-      const f = s.firing as Record<string, unknown>;
-      if (typeof f.alarmId === "string" && typeof f.sinceMs === "number") {
-        firing = { alarmId: f.alarmId, sinceMs: f.sinceMs };
-      }
+  const parsed = readJson(STORAGE_KEY);
+  if (typeof parsed !== "object" || parsed === null) return { alarms: [], firing: null };
+  const s = parsed as { alarms?: unknown; firing?: unknown };
+  const alarms = Array.isArray(s.alarms) ? s.alarms.filter(isAlarmRecord) : [];
+  let firing: AlarmStoreState["firing"] = null;
+  if (typeof s.firing === "object" && s.firing !== null) {
+    const f = s.firing as Record<string, unknown>;
+    if (typeof f.alarmId === "string" && typeof f.sinceMs === "number") {
+      firing = { alarmId: f.alarmId, sinceMs: f.sinceMs };
     }
-    return { alarms, firing };
-  } catch {
-    return { alarms: [], firing: null };
   }
+  return { alarms, firing };
 }
 
 function persist(): void {
-  writeRaw(STORAGE_KEY, JSON.stringify({ v: 1, alarms: state.alarms, firing: state.firing }));
+  writeJson(STORAGE_KEY, { v: 1, alarms: state.alarms, firing: state.firing });
 }
 
 // ─── shared tick ──────────────────────────────────────────────────────────────
@@ -230,14 +209,11 @@ function boot(nowMs: number): void {
 
 boot(Date.now());
 
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (e) => {
-    if (e.key !== STORAGE_KEY) return;
-    state = loadStored();
-    emit();
-    syncTicker();
-  });
-}
+onExternalWrite(STORAGE_KEY, () => {
+  state = loadStored();
+  emit();
+  syncTicker();
+});
 
 // ─── setters (module-level, stable) ───────────────────────────────────────────
 

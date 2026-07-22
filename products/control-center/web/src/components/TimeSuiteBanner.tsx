@@ -19,7 +19,7 @@
 import { useEffect } from "react";
 import { openTileDetail, useTileDetail } from "../lib/tile-detail-store";
 import { dismissAlarmFiring, useAlarmFiring, useAlarms } from "../lib/time-suite/alarm-store";
-import { formatAlarmTime } from "../lib/time-suite/pure";
+import { formatAlarmTime, formatDurationLabel } from "../lib/time-suite/pure";
 import { stopTimerRinging, useTimers } from "../lib/time-suite/timer-store";
 import { useNotifications } from "../lib/useNotifications";
 import { NotificationBanner } from "./ui/NotificationBanner";
@@ -27,19 +27,6 @@ import { NotificationBanner } from "./ui/NotificationBanner";
 const CLOCK_TILE = "tile_clock";
 const TIMER_NOTIF_ID = "time-suite-timer";
 const ALARM_NOTIF_ID = "time-suite-alarm";
-
-/** "10 min", "1 h 30 min", "45 s" , how a timer's original length reads. */
-function formatTimerDuration(ms: number): string {
-  const totalSeconds = Math.round(ms / 1000);
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  const parts: string[] = [];
-  if (h > 0) parts.push(`${h} h`);
-  if (m > 0) parts.push(`${m} min`);
-  if (s > 0 && h === 0) parts.push(`${s} s`);
-  return parts.length > 0 ? parts.join(" ") : "0 s";
-}
 
 export function TimeSuiteBanner() {
   const timers = useTimers();
@@ -62,15 +49,16 @@ export function TimeSuiteBanner() {
   const alarmVisible = firing !== null && clockVariantOpen !== "alarm";
 
   const timerMessage = doneTimer
-    ? `Timer done — ${doneTimer.label ?? formatTimerDuration(doneTimer.durationMs)}`
+    ? `Timer done — ${doneTimer.label ?? formatDurationLabel(doneTimer.durationMs)}`
     : null;
   const alarmMessage =
     firing !== null
       ? `Alarm — ${firingAlarm !== null ? formatAlarmTime(firingAlarm.hour, firingAlarm.minute) : "ringing"}`
       : null;
 
-  // Same www-awm seam as the sibling banners: the Notification Center lists
-  // whatever is ringing. Primitive deps keep the effects' lists exact. The
+  // Same notification-center seam as the sibling banners (the www-awm title-bar
+  // + notification-center ticket): the Notification Center lists whatever is
+  // ringing. Primitive deps keep the effects' lists exact. The
   // raise branch returns a cleanup , raiseNotification no-ops on an existing
   // id, so a CHANGED message (a different done timer/alarm surfacing) must
   // clear the stale row first (the cleanup runs before the re-raise), and the

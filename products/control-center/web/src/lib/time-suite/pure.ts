@@ -11,6 +11,27 @@
 
 import type { AlarmRecord, StopwatchLap, StopwatchState } from "./types";
 
+// ─── shared formatting ────────────────────────────────────────────────────────
+
+/** Two-digit zero-padded number , "07", "30". */
+export function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** Human duration label: "10 min", "1 hr 30 min", "45 sec" , how a timer's
+ *  original length reads on its card and in the banner. */
+export function formatDurationLabel(ms: number): string {
+  const total = Math.round(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const parts: string[] = [];
+  if (h > 0) parts.push(`${h} hr`);
+  if (m > 0) parts.push(`${m} min`);
+  if (s > 0) parts.push(`${s} sec`);
+  return parts.length > 0 ? parts.join(" ") : "0 sec";
+}
+
 // ─── alarm wall-clock math + formatting ───────────────────────────────────────
 
 /** ISO weekday list guard: integers 1-7 (Mon..Sun), no duplicates. */

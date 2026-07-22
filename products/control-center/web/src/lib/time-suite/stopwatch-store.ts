@@ -18,6 +18,7 @@
 
 import { useSyncExternalStore } from "react";
 import { stopwatchElapsedMs } from "./pure";
+import { onExternalWrite, readJson, writeJson } from "./storage";
 import type { StopwatchLap, StopwatchState } from "./types";
 
 const STORAGE_KEY = "cc-stopwatch-v1";
@@ -49,23 +50,7 @@ function emit(): void {
   for (const cb of listeners) cb();
 }
 
-// ─── best-effort localStorage IO ──────────────────────────────────────────────
-
-function readRaw(key: string): string | null {
-  try {
-    return window.localStorage?.getItem(key) ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function writeRaw(key: string, value: string): void {
-  try {
-    window.localStorage?.setItem(key, value);
-  } catch {
-    // ignore , persistence is best-effort
-  }
-}
+// ─── best-effort localStorage IO (shared seam: ./storage) ─────────────────────
 
 function isLap(value: unknown): value is StopwatchLap {
   if (typeof value !== "object" || value === null) return false;
@@ -76,46 +61,37 @@ function isLap(value: unknown): value is StopwatchLap {
 /** All persistence IO stays behind loadState/persistState so the layer can
  *  swap without touching the store API (see alarm-store's persistence note). */
 function loadState(): StopwatchState {
-  const raw = readRaw(STORAGE_KEY);
-  if (raw === null) return INITIAL;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) return INITIAL;
-    const s = parsed as Record<string, unknown>;
-    if (
-      typeof s.running !== "boolean" ||
-      (s.startedAtMs !== null && typeof s.startedAtMs !== "number") ||
-      typeof s.accumulatedMs !== "number" ||
-      typeof s.lapStartElapsedMs !== "number" ||
-      !Array.isArray(s.laps)
-    ) {
-      return INITIAL;
-    }
-    return {
-      running: s.running,
-      startedAtMs: s.startedAtMs as number | null,
-      accumulatedMs: s.accumulatedMs,
-      lapStartElapsedMs: s.lapStartElapsedMs,
-      laps: s.laps.filter(isLap),
-    };
-  } catch {
+  const parsed = readJson(STORAGE_KEY);
+  if (typeof parsed !== "object" || parsed === null) return INITIAL;
+  const s = parsed as Record<string, unknown>;
+  if (
+    typeof s.running !== "boolean" ||
+    (s.startedAtMs !== null && typeof s.startedAtMs !== "number") ||
+    typeof s.accumulatedMs !== "number" ||
+    typeof s.lapStartElapsedMs !== "number" ||
+    !Array.isArray(s.laps)
+  ) {
     return INITIAL;
   }
+  return {
+    running: s.running,
+    startedAtMs: s.startedAtMs as number | null,
+    accumulatedMs: s.accumulatedMs,
+    lapStartElapsedMs: s.lapStartElapsedMs,
+    laps: s.laps.filter(isLap),
+  };
 }
 
 function persistState(): void {
-  writeRaw(STORAGE_KEY, JSON.stringify({ v: 1, ...state }));
+  writeJson(STORAGE_KEY, { v: 1, ...state });
 }
 
 state = loadState();
 
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (e) => {
-    if (e.key !== STORAGE_KEY) return;
-    state = loadState();
-    emit();
-  });
-}
+onExternalWrite(STORAGE_KEY, () => {
+  state = loadState();
+  emit();
+});
 
 // ─── setters (module-level, stable) ───────────────────────────────────────────
 
@@ -146,7 +122,7 @@ export function lapStopwatch(): void {
   if (!state.running) return;
   const elapsed = stopwatchElapsedMs(state, Date.now());
   const lap: StopwatchLap = {
-    id: `lap_${state.laps.length + 1}`,
+    id: `lap_${crypto.randomUUID()}`,
     ms: elapsed - state.lapStartElapsedMs,
   };
   mutate({ ...state, laps: [lap, ...state.laps], lapStartElapsedMs: elapsed });

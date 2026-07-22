@@ -69,10 +69,10 @@ describe("laps", () => {
     store.lapStopwatch();
 
     const s = store._stateForTests();
-    expect(s.laps).toEqual([
-      { id: "lap_2", ms: 2_000 },
-      { id: "lap_1", ms: 3_000 },
-    ]);
+    expect(s.laps.map((l) => l.ms)).toEqual([2_000, 3_000]);
+    // Suite id convention: prefix_<uuid>, globally unique.
+    for (const lap of s.laps) expect(lap.id).toMatch(/^lap_[0-9a-f-]{36}$/);
+    expect(new Set(s.laps.map((l) => l.id)).size).toBe(2);
     expect(s.lapStartElapsedMs).toBe(5_000);
   });
 

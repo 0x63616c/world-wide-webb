@@ -17,7 +17,7 @@
  */
 
 import { Button } from "@/components/ui";
-import { lapExtremes, stopwatchElapsedMs } from "@/lib/time-suite/pure";
+import { lapExtremes, pad2, stopwatchElapsedMs } from "@/lib/time-suite/pure";
 import type { StopwatchState } from "@/lib/time-suite/types";
 
 // ─── props ────────────────────────────────────────────────────────────────────
@@ -33,10 +33,6 @@ export interface ClockStopwatchViewProps {
 }
 
 // ─── formatting ───────────────────────────────────────────────────────────────
-
-function pad2(n: number): string {
-  return String(n).padStart(2, "0");
-}
 
 /** mm:ss.cc, rolling to h:mm:ss.cc past an hour (Apple's format). */
 export function formatStopwatch(ms: number): string {
