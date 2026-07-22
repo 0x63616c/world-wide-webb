@@ -1,6 +1,5 @@
 config:
   wwwinfra:kubeContext: cc-homelab
   wwwinfra:cloudflaredReplicas: "2"
-  wwwinfra:storybookReplicas: "0"
   wwwinfra:drizzleReplicas: "0"
   wwwinfra:imageDigests: {}

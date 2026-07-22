@@ -44,12 +44,7 @@ if (workspaceManifests.length === 0) {
 // before the frozen install. Some Dockerfiles use a product-dir context and
 // relative paths (apps/*), so it is intentionally excluded.
 
-const FULL_INSTALL_DOCKERFILES = [
-  "api/Dockerfile",
-  "worker/Dockerfile",
-  "web/Dockerfile",
-  "web/Dockerfile.storybook",
-];
+const FULL_INSTALL_DOCKERFILES = ["api/Dockerfile", "worker/Dockerfile", "web/Dockerfile"];
 
 // --- 3. Parse each Dockerfile for `COPY <src>/package.json` lines ---
 

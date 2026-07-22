@@ -44,7 +44,6 @@ jobs:
       web: ${{ steps.filter.outputs.web }}
       api: ${{ steps.filter.outputs.api }}
       worker: ${{ steps.filter.outputs.worker }}
-      storybook: ${{ steps.filter.outputs.storybook }}
       drizzle: ${{ steps.filter.outputs.drizzle }}
       mapprovision: ${{ steps.filter.outputs.mapprovision }}
       # infra-only changes (Pulumi program / specs) deploy without any image
@@ -82,18 +81,6 @@ jobs:
               - 'api/**'
               - 'packages/**'
               - 'bun.lock'
-            storybook:
-              - 'web/.storybook/**'
-              - 'web/src/**'
-              - 'web/package.json'
-              - 'storybook/**'
-              # Serving config: a change to how nginx serves the bundle (cache
-              # headers, asset 404 vs index.html fallback) must rebuild the image
-              # too, or the fix never ships (www-w4aa).
-              - 'web/nginx-storybook.conf'
-              - 'web/Dockerfile.storybook'
-              - 'packages/**'
-              - 'bun.lock'
             # infra-only changes (the Pulumi program + workload specs) deploy
             # with NO image rebuild: the deploy job runs `pulumi up`, which must
             # converge an infra-only diff (e.g. a resource cap or env change).
@@ -116,7 +103,6 @@ jobs:
               - 'web/**'
               - 'api/**'
               - 'worker/**'
-              - 'storybook/**'
               - 'drizzle/**'
               - 'map-provision/**'
               - 'ios/**'
@@ -322,24 +308,6 @@ jobs:
           dockerfile: worker/Dockerfile
           cache-scope: worker
 
-  build-storybook:
-    needs: [changes]
-    if: needs.changes.outputs.storybook == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 25
-    environment: prod
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build and push storybook image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-control-center-storybook
-          dockerfile: web/Dockerfile.storybook
-          cache-scope: storybook
-
   build-drizzle:
     needs: [changes]
     if: needs.changes.outputs.drizzle == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
@@ -386,7 +354,7 @@ jobs:
   # declarative-convergent, so the latest green run always reconciles prod to the
   # committed digests, no deploy marker needed (www-bom8 retired).
   deploy:
-    needs: [changes, test-unit, test-storybook, typecheck, build-web, build-api, build-worker, build-storybook, build-drizzle, build-map-provision]
+    needs: [changes, test-unit, test-storybook, typecheck, build-web, build-api, build-worker, build-drizzle, build-map-provision]
     # always() lets us run even when some build jobs were skipped (no changes).
     # We proceed when: on main, an app OR infra changed, and no build failed.
     if: |
@@ -477,7 +445,7 @@ jobs:
           # KEY is product-component scoped and matches the Pulumi imageDigests
           # config key, while repo names use full product slugs.
           declare -A out=()
-          for entry in www-control-center-web:control-center-web www-control-center-api:control-center-api www-control-center-worker:control-center-worker www-control-center-storybook:control-center-storybook www-control-center-drizzle:control-center-drizzle www-control-center-map-provision:control-center-map-provision; do
+          for entry in www-control-center-web:control-center-web www-control-center-api:control-center-api www-control-center-worker:control-center-worker www-control-center-drizzle:control-center-drizzle www-control-center-map-provision:control-center-map-provision; do
             repo="${entry%%:*}"
             name="${entry#*:}"
             d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$repo:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
@@ -583,7 +551,7 @@ jobs:
   # AGE_PRIVATE_KEY, same as deploy. Docs-only pushes (deploy skipped, nothing
   # failed) send nothing.
   notify:
-    needs: [changes, test-unit, test-storybook, typecheck, build-web, build-api, build-worker, build-storybook, build-drizzle, build-map-provision, deploy]
+    needs: [changes, test-unit, test-storybook, typecheck, build-web, build-api, build-worker, build-drizzle, build-map-provision, deploy]
     if: always() && github.ref_name == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 5

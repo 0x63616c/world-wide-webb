@@ -104,10 +104,9 @@ const services = deployServices({
   provider: cluster.provider,
   namespaces,
   cloudflaredReplicas: cfg.getNumber("cloudflaredReplicas") ?? 2,
-  // storybook/drizzle default to 0: trimmed 8GB steady-state so the control plane
-  // survives a cold reboot (www-j934.9). Both are Access-gated dev tools; bring up
-  // on demand via `pulumi config set wwwinfra:storybookReplicas 1` (or drizzle).
-  storybookReplicas: cfg.getNumber("storybookReplicas") ?? 0,
+  // drizzle defaults to 0: trimmed 8GB steady-state so the control plane
+  // survives a cold reboot (www-j934.9). An Access-gated dev tool; bring up
+  // on demand via `pulumi config set wwwinfra:drizzleReplicas 1`.
   drizzleReplicas: cfg.getNumber("drizzleReplicas") ?? 0,
   nasNfsServer,
   requireImageDigestPins: shouldRequireImageDigestPins(stackName),

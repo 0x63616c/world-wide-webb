@@ -11,7 +11,6 @@ import { type ImageDigests, serviceSpecs } from "../src/services.ts";
 const specsWith = (imageDigests?: ImageDigests): ReturnType<typeof serviceSpecs> =>
   serviceSpecs({
     cloudflaredReplicas: 2,
-    storybookReplicas: 0,
     drizzleReplicas: 0,
     nasNfsServer: "192.168.0.218",
     imageDigests,

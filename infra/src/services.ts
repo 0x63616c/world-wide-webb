@@ -40,10 +40,6 @@ const IMAGE_REPOSITORIES = {
     digestKey: controlCenterProduct.imageDigestKey("web"),
     repository: controlCenterProduct.imageRepository("web"),
   },
-  storybook: {
-    digestKey: controlCenterProduct.imageDigestKey("storybook"),
-    repository: controlCenterProduct.imageRepository("storybook"),
-  },
   drizzle: {
     digestKey: controlCenterProduct.imageDigestKey("drizzle"),
     repository: controlCenterProduct.imageRepository("drizzle"),
@@ -177,15 +173,13 @@ const mountSecrets = (service: ServiceSecretName) =>
  *   non-prod local applies, where every image falls back to the :main tag. www-j934.14.
  * - requireImageDigestPins: prod safety guard. Refuse to render app Deployments
  *   with mutable/private :main images when wwwinfra:imageDigests is incomplete.
- * - storybookReplicas / drizzleReplicas: trim knobs for the 8GB steady-state
- *   (www-j934.9). Both are Access-gated internal/dev tools, not prod-critical, so
- *   they default to 0 to leave the control plane ~1-2GB headroom to survive a
- *   cold reboot. Bring either up on demand with `pulumi config set
- *   wwwinfra:<svc>Replicas 1`.
+ * - drizzleReplicas: trim knob for the 8GB steady-state (www-j934.9). An
+ *   Access-gated internal/dev tool, not prod-critical, so it defaults to 0 to
+ *   leave the control plane ~1-2GB headroom to survive a cold reboot. Bring it
+ *   up on demand with `pulumi config set wwwinfra:drizzleReplicas 1`.
  */
 export interface ServiceSpecOptions {
   cloudflaredReplicas: number;
-  storybookReplicas: number;
   drizzleReplicas: number;
   nasNfsServer: string;
   imageDigests?: ImageDigests;
@@ -196,7 +190,6 @@ export interface ServiceSpecOptions {
 export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
   const {
     cloudflaredReplicas,
-    storybookReplicas,
     drizzleReplicas,
     nasNfsServer,
     imageDigests: digests = {},
@@ -335,18 +328,8 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       ],
       imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
-    {
-      logicalName: "control-center-storybook",
-      legacyLogicalName: "storybook",
-      name: "storybook",
-      namespaceName: "control-center",
-      image: ghcr("storybook", digests),
-      replicas: storybookReplicas,
-      resources: { memory: "96M" },
-      env: { TZ },
-      ports: [{ containerPort: 6006, expose: "cluster" }],
-      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
-    },
+    // control-center-storybook workload DELETED (Track B, Task 10a): storybook
+    // is a local-dev-only tool now, no deploy pipeline, no in-cluster Deployment.
     // captive-portal-portal and captive-portal-api workloads DELETED (Task 4
     // step C, SDD track 0): both were fully dark (zero ports exposed) after
     // step B's LAN cutover moved all guest traffic onto control-center-api.
@@ -464,10 +447,9 @@ export interface ServicesArgs {
   // cloudflared replicas: 0 for a pre-cutover bring-up (no live-token split with
   // Swarm), 2 (HA) at the cutover (www-j934.9 / DESIGN §7).
   cloudflaredReplicas: number;
-  // storybook/drizzle replicas: 0 by default to trim the 8GB steady-state so the
-  // control plane survives a cold reboot (www-j934.9); both are Access-gated dev
-  // tools, brought up on demand.
-  storybookReplicas: number;
+  // drizzle replicas: 0 by default to trim the 8GB steady-state so the control
+  // plane survives a cold reboot (www-j934.9); an Access-gated dev tool,
+  // brought up on demand.
   drizzleReplicas: number;
   // NFS server for the media share: NAS LAN IP by default; kubelet mounts the PV
   // from the node netns, which reaches the LAN on homelab (DESIGN 5b/5c, www-j934.17).
@@ -563,7 +545,6 @@ export function deployServices(args: ServicesArgs): ServicesResources {
     provider,
     namespaces,
     cloudflaredReplicas,
-    storybookReplicas,
     drizzleReplicas,
     nasNfsServer,
     imageDigests,
@@ -636,7 +617,6 @@ export function deployServices(args: ServicesArgs): ServicesResources {
 
   const workloads = serviceSpecs({
     cloudflaredReplicas,
-    storybookReplicas,
     drizzleReplicas,
     nasNfsServer,
     imageDigests,

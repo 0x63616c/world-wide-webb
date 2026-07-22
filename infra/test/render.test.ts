@@ -231,19 +231,12 @@ describe("renderExternalService (ExternalName CNAME to an off-cluster host)", ()
 describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => {
   const baseOpts = {
     cloudflaredReplicas: 2,
-    storybookReplicas: 0,
     drizzleReplicas: 0,
     nasNfsServer: "192.168.0.218",
   };
   const specOf = (specs: WorkloadSpec[], name: string) => specs.find((s) => s.name === name);
 
-  test("storybook/drizzle replicas come from their knobs (trimmed 8GB steady-state, www-j934.9)", () => {
-    expect(specOf(serviceSpecs({ ...baseOpts, storybookReplicas: 0 }), "storybook")?.replicas).toBe(
-      0,
-    );
-    expect(specOf(serviceSpecs({ ...baseOpts, storybookReplicas: 1 }), "storybook")?.replicas).toBe(
-      1,
-    );
+  test("drizzle replicas come from its knob (trimmed 8GB steady-state, www-j934.9)", () => {
     expect(specOf(serviceSpecs({ ...baseOpts, drizzleReplicas: 0 }), "drizzle")?.replicas).toBe(0);
     expect(specOf(serviceSpecs({ ...baseOpts, drizzleReplicas: 1 }), "drizzle")?.replicas).toBe(1);
   });
@@ -306,11 +299,6 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
         expect.objectContaining({
           logicalName: "control-center-worker",
           name: "worker",
-          namespaceName: "control-center",
-        }),
-        expect.objectContaining({
-          logicalName: "control-center-storybook",
-          name: "storybook",
           namespaceName: "control-center",
         }),
         expect.objectContaining({
@@ -401,7 +389,6 @@ describe("renderWorkload: initContainers (www-hn1i)", () => {
 describe("serviceSpecs: web map-provision initContainer (www-hn1i)", () => {
   const baseOpts = {
     cloudflaredReplicas: 2,
-    storybookReplicas: 0,
     drizzleReplicas: 0,
     nasNfsServer: "192.168.0.218",
   };
