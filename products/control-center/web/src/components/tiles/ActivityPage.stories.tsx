@@ -123,6 +123,23 @@ export const Grid: Story = {
   },
 };
 
+// Local midnight for an instant , mirrors group-by-day.ts's own startOfDay so
+// this fixture and the component agree on where "today" starts.
+function startOfLocalDay(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+// Clamped to [local midnight + 1min, now]: a plain `Date.now() - Nms` offset
+// crosses into "yesterday" whenever the suite runs within N ms of local
+// midnight (CI runs in UTC, so this bit within the first ~2h of every UTC
+// day), flaking a story whose whole point is asserting "Today". Clamping
+// keeps it inside today's bucket at any run time without faking the clock.
+function todayInstant(msAgo: number): number {
+  return Math.max(Date.now() - msAgo, startOfLocalDay(Date.now()) + 60_000);
+}
+
 /**
  * Regression: headings come from each frame's own capture instant, never the
  * listing's `day` string. The API buckets on the UTC calendar date, so an
@@ -137,8 +154,8 @@ export const IgnoresServerUtcBucket: Story = {
       {
         day: "1999-01-01",
         photos: [
-          { path: "a.jpg", capturedAt: Date.now() - 3_600_000, interactionSessionId: SESSION_ID },
-          { path: "b.jpg", capturedAt: Date.now() - 7_200_000, interactionSessionId: SESSION_ID },
+          { path: "a.jpg", capturedAt: todayInstant(3_600_000), interactionSessionId: SESSION_ID },
+          { path: "b.jpg", capturedAt: todayInstant(7_200_000), interactionSessionId: SESSION_ID },
         ],
       },
     ],
