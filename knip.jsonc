@@ -68,9 +68,13 @@
     "api": {
       // server.ts = Docker CMD; purge.ts = the portal data-hygiene cronJob
       // entrypoint, bundled into the api image + run via command override
-      // (www-q002.18); seed.ts = db:seed script. drizzle.config.ts + the exports
-      // map (., ./trpc, ./worker) are auto-detected.
-      "entry": ["src/server.ts", "src/purge.ts", "src/db/seed.ts"]
+      // (www-q002.18); seed.ts = db:seed script. device-state-store.ts is the
+      // default prod DeviceStateStore instance (pg adapter over the singleton
+      // db) landed ahead of its callers - a later step swaps the legacy
+      // services' direct db calls to import it, so it has no consumer yet.
+      // drizzle.config.ts + the exports map (., ./trpc, ./worker) are
+      // auto-detected.
+      "entry": ["src/server.ts", "src/purge.ts", "src/db/seed.ts", "src/db/device-state-store.ts"]
     },
     "infra": {
       // program.ts = the Pulumi program (Pulumi.yaml `main`, run by the pulumi
