@@ -31,6 +31,11 @@ export interface PanelSession {
 }
 
 export {
+  registerSessionEffects,
+  runSessionEnd,
+  type SessionEndEffects,
+} from "./session-effects";
+export {
   __resetSessionForTests,
   DEFAULT_SESSION_TIMEOUT_MS,
   panelSession,
