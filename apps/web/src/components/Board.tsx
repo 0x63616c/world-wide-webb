@@ -689,6 +689,9 @@ export function Board() {
   // inert (no scrim, no auto-lock) , matching the old idle-dim gate. Disabled
   // while the layout editor is open (an idle glide-home / dim mid-edit would
   // fight the editor's own camera and obscure what's being arranged).
+  // NB the PIN relock rides this same gate: idle-dim off (or off-device) means an
+  // unlock never expires. Accepted (I-2/ADR-0004) — the client PIN is a courtesy
+  // gate; Slice S's server-side session.unlock(pin) is the real enforcement.
   const sessionEnabled = settings.idleDimEnabled && nativeDisplay && !layoutEditOpen;
 
   // Feed the clock: the (in-place-renamed) idle-dim timeout is THE session

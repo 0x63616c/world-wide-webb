@@ -290,6 +290,14 @@ C8 (settings field-descriptor table) is DEFERRED by roadmap decision 15 until C4
 - [ ] **Step 1:** Update `CODEBASE_OVERVIEW.md` (store primitive, panel-session, board-camera, apps/ layout) + roadmap file (Track B status, C5/C6 order swap note, 5-not-7 catch count, layout decision 6 supersession note, C8 addendum pointer).
 - [ ] **Step 2:** Commit `docs: track B landed; C8 addendum pending`, push.
 
+## Addendum: I-2 accepted (Calum, 2026-07-22)
+
+The PIN relock rides the session clock, which is gated on `idleDimEnabled &&
+isNativeDisplay()` — so with idle-dim off (or off-device) an unlock never expires.
+ACCEPTED as-is: the client-side PIN is a courtesy gate (ADR-0004), and Slice S's
+server-side `session.unlock(pin)` is the real fix; hardening the client coupling
+first would be wasted motion.
+
 ## Addendum: alarm-ring session coupling (Calum approved 2026-07-22 evening)
 
 A RINGING alarm is **bounded** activity (10-min auto-stop in alarm-store), so treating

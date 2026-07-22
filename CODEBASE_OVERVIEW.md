@@ -56,7 +56,15 @@ The dashboard is not a normal responsive layout. It is a fixed wall-panel world:
 - `BOARD_W = 1366`, `BOARD_H = 1000`.
 - The board is a large `64x64` square-cell world.
 - Panning uses native scroll, plus windowing so only visible cells mount.
-- Idle reset glides back to the home tile, currently the clock.
+- The wall panel runs one activity clock (`apps/web/src/lib/panel-session/`): any
+  touch rearms it, and on timeout a single SESSION END dims the backlight, closes
+  overlays, glides the camera home, and relocks the shared PIN unlock. Native
+  (iPad) only; a ringing alarm counts as bounded activity (holds the session open
+  and wakes a dimmed panel, still locked).
+- Camera physics (pointer pan, all 5 snap modes, glide-home) live behind the
+  `boardCamera` interface in `apps/web/src/lib/board-camera/`.
+- Module-level web stores share one primitive: `createStore`/`useStore` at
+  `apps/web/src/lib/store.ts` (settings, alarms, timers, tile-detail, modals, …).
 
 Tile placement is centralized in `apps/web/src/lib/tile-registry.ts`. Each tile entry defines its id, label, component, detail view component, world position, and size. The registry's coordinates are *defaults* only: the `board_tile_placement` table holds per-tile overrides (world col/row) that win when present, so a user's saved layout survives registry additions/removals without a migration. `resolveLayout` (`apps/web/src/lib`) merges registry defaults with placement overrides and scanline-places any tile the user has never touched.
 
@@ -64,7 +72,7 @@ The `layout` tRPC router exposes `get` (merged, revision-tagged layout) and `sav
 
 Layout editing is entered from the Board page of Settings ("Edit layout" row) and opens a full-screen, zoomed-out editor (`components/layout-editor/`) that freezes the board underneath (idle glide-home and idle-dim both disabled while it's open). Tiles drag-and-snap to the grid with overlap spring-back; Save is gated behind the active bento pattern (an invalid arrangement can't be saved), and Reset/Cancel discard the working copy. Any tile without a saved position (including newly-registered tiles) surfaces via an unplaced-tile banner.
 
-Settings is a full-page (`1366x1024`) body-portal overlay, not a modal: `components/settings-page/` holds the shell (`SettingsPage.tsx`, sidebar + page routing), shared framing (`blocks.tsx`), the page registry (`pages.ts`), and eight presentational pages under `pages/` (Device, Display, Board, Network, Notifications, Debug, About, Security). Live state comes from the module-level settings store (`lib/settings.ts`), which syncs every field across panels through the server's settings singleton. The gear button opens Settings behind a 6-digit PIN gate (`components/pin/`, `PinGateModal` + `PinPadView`); the same gate guards the Wake photos viewer. The PIN is a synced settings field (`pinCode`, default `"000000"`), enforced frontend-only — the API never validates it beyond schema shape. A `showMinimap` setting (Board page) gates the board minimap.
+Settings is a full-page (`1366x1024`) body-portal overlay, not a modal: `components/settings-page/` holds the shell (`SettingsPage.tsx`, sidebar + page routing), shared framing (`blocks.tsx`), the page registry (`pages.ts`), and eight presentational pages under `pages/` (Device, Display, Board, Network, Notifications, Debug, About, Security). Live state comes from the module-level settings store (`lib/settings.ts`), which syncs every field across panels through the server's settings singleton. Sensitive surfaces (Settings gear, Wake photos viewer, any tile detail flagged `sensitive`) share ONE PIN unlock per panel session (`components/pin/`, `PinGateModal` + `PinPadView`, on `panelSession.unlock()`): a successful PIN entry unlocks everything sensitive until the session ends (idle timeout relocks). The PIN is a synced settings field (`pinCode`, default `"000000"`), enforced frontend-only — the API never validates it beyond schema shape (ADR-0004: accepted until Slice S lands server-side `session.unlock(pin)`; the relock is only as strong as the client). A `showMinimap` setting (Board page) gates the board minimap.
 
 Data access is through tRPC React Query in `apps/web/src/lib/trpc.ts`. Queries retry with bounded exponential backoff; mutations do not retry. Unavailable data should render skeleton/error states, not invented values.
 

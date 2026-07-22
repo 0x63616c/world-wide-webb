@@ -53,6 +53,15 @@ workloads/namespace/images); delete `products/captive-portal/`; portal DB teardo
 - **C2**: per-App repos ride each app fold in Track C (decision 11).
 
 ### Track B — web
+
+**STATUS: LANDED 2026-07-22** (plan: `2026-07-22-track-b-web.md`; per-bundle record in
+its SDD ledger). Deviations from the sketch below, all deliberate: C6 (board-camera)
+landed BEFORE C5 (panel-session) since session-end calls `boardCamera.glideHome()`;
+live inventory found 5 double-catch occurrences (not 7) and 11 singletons (not 7);
+decision 6 in that plan supersedes this doc's decision 9 layout (apps/ adopted,
+Track C folds become `features/<id>/`); C8 remains DEFERRED (decision 15) — plan it
+as an addendum to the Track B doc once C4 has settled in prod. An alarm-ring session
+addendum (ring holds session open + wakes dimmed panel) also landed post-plan.
 - Hygiene strip: delete ~4.6k lines of dead concept files (`concepts3/WorldConcepts`,
   `BoardVibeConcepts`, `BoardRedesignConcepts`, `ClimateHubConcepts`); rename
   `tiles/modals/` out of the Modal lie; delete the controls router double-catch (7
