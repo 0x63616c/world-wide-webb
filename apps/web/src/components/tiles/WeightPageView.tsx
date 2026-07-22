@@ -38,13 +38,18 @@ const W = 1120;
 const H = 380;
 const PAD = 16;
 
-function linePoints(lbs: number[]): { x: number; y: number }[] {
+/** Position by real elapsed days, not array index — a skipped weigh-in has to
+ *  read as a gap, or the line misstates how fast the weight moved. */
+function linePoints(daily: { day: string; lb: number }[]): { x: number; y: number }[] {
+  const lbs = daily.map((d) => d.lb);
   const min = Math.min(...lbs);
   const max = Math.max(...lbs);
-  const span = lbs.length > 1 ? lbs.length - 1 : 1;
-  return lbs.map((lb, i) => ({
-    x: PAD + (i / span) * (W - 2 * PAD),
-    y: PAD + ((max - lb) / (max - min || 1)) * (H - 2 * PAD),
+  const t = daily.map((d) => new Date(`${d.day}T00:00:00`).getTime());
+  const t0 = t[0] ?? 0;
+  const span = (t[t.length - 1] ?? t0) - t0 || 1;
+  return daily.map((d, i) => ({
+    x: PAD + (((t[i] ?? t0) - t0) / span) * (W - 2 * PAD),
+    y: PAD + ((max - d.lb) / (max - min || 1)) * (H - 2 * PAD),
   }));
 }
 
@@ -89,9 +94,15 @@ export function WeightPageView(props: WeightPageViewProps) {
   }
 
   const lbs = daily.map((d) => d.lb);
-  const pts = linePoints(lbs);
-  const iMin = lbs.indexOf(Math.min(...lbs));
-  const iMax = lbs.indexOf(Math.max(...lbs));
+  // Below two daily points there is no line to draw: one dot on an axis whose
+  // min and max labels are identical reads as a broken chart, not as "no data
+  // yet". Matches what 3e68f7ff6 did for the tile sparkline.
+  const enoughForChart = daily.length >= 2;
+  const pts = enoughForChart ? linePoints(daily) : [];
+  const dailyMin = Math.min(...lbs);
+  const dailyMax = Math.max(...lbs);
+  const iMin = lbs.indexOf(dailyMin);
+  const iMax = lbs.indexOf(dailyMax);
   const gridMin = pts[iMin];
   const gridMax = pts[iMax];
   const last = pts[pts.length - 1];
@@ -136,82 +147,104 @@ export function WeightPageView(props: WeightPageViewProps) {
       </div>
       {/* Chart fills the space between picker and stats */}
       <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="none"
-          style={{ width: "100%", height: "100%", display: "block" }}
-          aria-hidden="true"
-        >
-          {gridMax && (
-            <line
-              x1={PAD}
-              x2={W - PAD}
-              y1={gridMax.y}
-              y2={gridMax.y}
-              stroke="rgba(255,255,255,0.08)"
-              strokeWidth={1}
-            />
-          )}
-          {gridMin && (
-            <line
-              x1={PAD}
-              x2={W - PAD}
-              y1={gridMin.y}
-              y2={gridMin.y}
-              stroke="rgba(255,255,255,0.08)"
-              strokeWidth={1}
-            />
-          )}
-          <path
-            d={pathFrom(pts)}
-            fill="none"
-            stroke="var(--acc)"
-            strokeWidth={2}
-            strokeLinejoin="round"
-          />
-        </svg>
-        {/* Round latest-point dot — outside the stretched svg so it stays round */}
-        {last && (
-          <span
+        {enoughForChart ? (
+          <>
+            <svg
+              viewBox={`0 0 ${W} ${H}`}
+              preserveAspectRatio="none"
+              style={{ width: "100%", height: "100%", display: "block" }}
+              aria-hidden="true"
+            >
+              {gridMax && (
+                <line
+                  x1={PAD}
+                  x2={W - PAD}
+                  y1={gridMax.y}
+                  y2={gridMax.y}
+                  stroke="rgba(255,255,255,0.08)"
+                  strokeWidth={1}
+                />
+              )}
+              {gridMin && (
+                <line
+                  x1={PAD}
+                  x2={W - PAD}
+                  y1={gridMin.y}
+                  y2={gridMin.y}
+                  stroke="rgba(255,255,255,0.08)"
+                  strokeWidth={1}
+                />
+              )}
+              <path
+                d={pathFrom(pts)}
+                fill="none"
+                stroke="var(--acc)"
+                strokeWidth={2}
+                strokeLinejoin="round"
+              />
+            </svg>
+            {/* Round latest-point dot — outside the stretched svg so it stays round */}
+            {last && (
+              <span
+                style={{
+                  position: "absolute",
+                  left: `${(last.x / W) * 100}%`,
+                  top: `${(last.y / H) * 100}%`,
+                  width: 9,
+                  height: 9,
+                  borderRadius: 5,
+                  background: "var(--acc)",
+                  transform: "translate(-50%, -50%)",
+                }}
+              />
+            )}
+            {/* Axis labels describe the DAILY series, which is what the line
+                plots. low/high are raw-reading figures and no longer sit on it. */}
+            {gridMax && (
+              <span
+                className="mono"
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: `calc(${(gridMax.y / H) * 100}% - 20px)`,
+                  fontSize: 12,
+                  color: "var(--ink-2)",
+                }}
+              >
+                {dailyMax.toFixed(1)}
+              </span>
+            )}
+            {gridMin && (
+              <span
+                className="mono"
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: `calc(${(gridMin.y / H) * 100}% + 8px)`,
+                  fontSize: 12,
+                  color: "var(--ink-2)",
+                }}
+              >
+                {dailyMin.toFixed(1)}
+              </span>
+            )}
+          </>
+        ) : (
+          <div
             style={{
-              position: "absolute",
-              left: `${(last.x / W) * 100}%`,
-              top: `${(last.y / H) * 100}%`,
-              width: 9,
-              height: 9,
-              borderRadius: 5,
-              background: "var(--acc)",
-              transform: "translate(-50%, -50%)",
-            }}
-          />
-        )}
-        {gridMax && (
-          <span
-            className="mono"
-            style={{
-              position: "absolute",
-              left: 0,
-              top: `calc(${(gridMax.y / H) * 100}% - 20px)`,
-              fontSize: 12,
-              color: "var(--ink-2)",
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
             }}
           >
-            {high.toFixed(1)}
-          </span>
-        )}
-        {gridMin && (
-          <span
-            className="mono"
-            style={{
-              position: "absolute",
-              left: 0,
-              top: `calc(${(gridMin.y / H) * 100}% + 8px)`,
-              fontSize: 12,
-              color: "var(--ink-2)",
-            }}
-          >
-            {low.toFixed(1)}
-          </span>
+            <span style={{ fontSize: 15, color: "var(--ink-2)" }}>Not enough data yet</span>
+            <span style={{ fontSize: 13, color: "var(--ink-3)" }}>
+              The trend starts once you have weighed in on a second day.
+            </span>
+          </div>
         )}
         {windowLabel && (
           <span

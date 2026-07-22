@@ -56,6 +56,61 @@ export const Populated: Story = {
   },
 };
 
+/** One daily point: no line is meaningful, so the chart area explains itself. */
+export const SingleDay: Story = {
+  args: {
+    status: "populated",
+    range: "all",
+    lb: 160.6,
+    daily: [{ day: "2026-07-22", lb: 160.6 }],
+    low: 160.2,
+    high: 160.9,
+    average: 160.6,
+    change: 0,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    expect(canvas.getByText(/Not enough data yet/)).toBeInTheDocument();
+    // Stats still show — they are real even with one day.
+    expect(canvas.getByText("160.2 lb")).toBeInTheDocument();
+    expect(canvas.getByText("160.9 lb")).toBeInTheDocument();
+  },
+};
+
+/** A skipped day must leave a real gap, not be drawn as an even interval. */
+export const WithGap: Story = {
+  args: {
+    status: "populated",
+    range: "30d",
+    lb: 160.6,
+    daily: [
+      { day: "2026-07-14", lb: 162.4 },
+      { day: "2026-07-15", lb: 162.2 },
+      { day: "2026-07-22", lb: 160.6 },
+    ],
+    low: 160.2,
+    high: 162.6,
+    average: 161.7,
+    change: -1.8,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const path = canvasElement.querySelector("svg path");
+    expect(path).toBeTruthy();
+    const [, second, third] = (path?.getAttribute("d") ?? "")
+      .split(/[ML]/)
+      .filter(Boolean)
+      .map((p) => Number(p.split(",")[0]));
+    // Jul 14→15 is one day; Jul 15→22 is seven. The second span must be far
+    // wider than the first, which index-based spacing would make equal.
+    expect((third ?? 0) - (second ?? 0)).toBeGreaterThan(((second ?? 0) - 16) * 3);
+    // Axis label reflects the daily-series max (162.4), not the raw `high`
+    // stat (162.6) — the two diverge on purpose once labels stop sitting on
+    // the raw low/high figures.
+    expect(canvas.getByText("162.4")).toBeInTheDocument();
+  },
+};
+
 export const Loading: Story = {
   args: { status: "loading", range: "30d" },
   play: async ({ canvasElement }) => {
