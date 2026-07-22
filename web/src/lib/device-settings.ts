@@ -19,9 +19,9 @@
  */
 
 import { DEVICE_SETTINGS_DEFAULTS, VOLUME_MAX, VOLUME_MIN } from "@cc/api/device-settings";
-import { useSyncExternalStore } from "react";
 import { interaction } from "./log/interaction";
 import { log } from "./log/logger";
+import { createStore, useStore } from "./store";
 
 const deviceSettingsLog = log.child("device-settings");
 
@@ -78,22 +78,7 @@ function loadInitial(): DeviceSettings {
 
 // ─── singleton store ──────────────────────────────────────────────────────────
 
-type Listener = () => void;
-const listeners = new Set<Listener>();
-let state: DeviceSettings = loadInitial();
-
-function subscribe(cb: Listener): () => void {
-  listeners.add(cb);
-  return () => listeners.delete(cb);
-}
-
-function getSnapshot(): DeviceSettings {
-  return state;
-}
-
-function emit(): void {
-  for (const cb of listeners) cb();
-}
+const store = createStore<DeviceSettings>(loadInitial());
 
 // Optional server sink, registered by useDeviceSettingsSync. Null when unmounted
 // / in tests / Storybook , the store is then local-only.
@@ -127,15 +112,16 @@ function patch<K extends keyof DeviceSettings>(
   serialized: string,
   origin: "ui" | "device",
 ): void {
+  const state = store.get();
   if (state[key] === value) return;
   deviceSettingsLog.info(`${key} changed`, { from: state[key], to: value, origin });
   if (origin === "ui") {
     interaction("settings", "change", `deviceSettings.${key}`, { from: state[key], to: value });
   }
-  state = { ...state, [key]: value };
+  const next = { ...state, [key]: value };
   writeRaw(KEYS[key], serialized);
-  emit();
-  serverSink?.(state);
+  store.set(next);
+  serverSink?.(next);
 }
 
 /**
@@ -145,12 +131,11 @@ function patch<K extends keyof DeviceSettings>(
  */
 export function hydrateDeviceSettings(next: Partial<DeviceSettings>): void {
   const merged: DeviceSettings = { ...DEFAULTS, ...next };
-  if (shallowEqual(state, merged)) return;
-  state = merged;
+  if (shallowEqual(store.get(), merged)) return;
   for (const key of Object.keys(KEYS) as (keyof DeviceSettings)[]) {
     writeRaw(KEYS[key], String(merged[key]));
   }
-  emit();
+  store.set(merged);
 }
 
 // ─── setters ──────────────────────────────────────────────────────────────────
@@ -182,19 +167,19 @@ export function setVolumeFromDevice(level: number): void {
 
 /** Restore every per-device setting to its default. */
 export function resetDeviceSettings(): void {
-  if (shallowEqual(state, DEFAULTS)) return;
+  if (shallowEqual(store.get(), DEFAULTS)) return;
   deviceSettingsLog.warn("reset to defaults");
   interaction("settings", "commit", "deviceSettings.reset");
-  state = { ...DEFAULTS };
+  const next = { ...DEFAULTS };
   for (const key of Object.keys(KEYS) as (keyof DeviceSettings)[]) {
     writeRaw(KEYS[key], String(DEFAULTS[key]));
   }
-  emit();
-  serverSink?.(state);
+  store.set(next);
+  serverSink?.(next);
 }
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 export function useDeviceSettings(): DeviceSettings {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return useStore(store);
 }
