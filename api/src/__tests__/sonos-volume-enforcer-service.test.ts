@@ -2,23 +2,26 @@
  * Tests for the DB-authoritative Sonos volume enforcer (www-5mek).
  *
  * Mirrors the light-enforcer pattern: the reconcile decision is a PURE function
- * (decideSpeakerEnforcement) tested directly, then cycle-level tests mock
- * db+SonosClient to prove decisions are executed (UPnP writes / DB writes) only
- * on the right branches, and the mutation path writes desired WITHOUT touching
- * the speaker.
+ * (decideSpeakerEnforcement) tested directly, then cycle-level tests inject an
+ * in-memory DeviceStateStore (+ mocked SonosClient) to prove decisions are
+ * executed (UPnP writes / store writes) only on the right branches, and the
+ * mutation path writes desired WITHOUT touching the speaker.
+ *
+ * `setSpeakerDesiredVolume` still goes through the singleton `deviceStateStore`
+ * (a pg-adapter over `../db/index`, unmigrated call site per Task 5/8 scope) ,
+ * that one test keeps the raw `db.insert` mock; everything else uses the
+ * injectable in-memory store.
  */
+import { createInMemoryDeviceStateStore, DeviceKind } from "@www/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// ─── mock DB ──────────────────────────────────────────────────────────────────
+// ─── mock DB (only backs the singleton deviceStateStore used by
+// setSpeakerDesiredVolume's still-unmigrated upsertDesired call) ──────────────
 
-const { mockDbSelect, mockDbUpdate, mockDbInsert } = vi.hoisted(() => ({
-  mockDbSelect: vi.fn(),
-  mockDbUpdate: vi.fn(),
-  mockDbInsert: vi.fn(),
-}));
+const { mockDbInsert } = vi.hoisted(() => ({ mockDbInsert: vi.fn() }));
 
 vi.mock("../db/index", () => ({
-  db: { select: mockDbSelect, update: mockDbUpdate, insert: mockDbInsert },
+  db: { select: vi.fn(), update: vi.fn(), insert: mockDbInsert },
 }));
 
 // ─── mock SonosClient (per-IP, like sonos-sound-system tests) ─────────────────
@@ -84,30 +87,6 @@ function speaker(
     desiredUntilUtc: null,
     ...overrides,
   };
-}
-
-class Chain {
-  constructor(private readonly rows: unknown[]) {}
-  from() {
-    return this;
-  }
-  where() {
-    return this;
-  }
-  limit(): Promise<unknown[]> {
-    return Promise.resolve(this.rows);
-  }
-  [Symbol.toStringTag] = "Chain";
-  // biome-ignore lint/suspicious/noThenProperty: intentional thenable for drizzle mock
-  then<R>(onFulfilled: (v: unknown[]) => R | PromiseLike<R>): Promise<R> {
-    return Promise.resolve(this.rows).then(onFulfilled);
-  }
-}
-
-function setBuilder() {
-  const set = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
-  mockDbUpdate.mockReturnValue({ set });
-  return set;
 }
 
 function insertBuilder() {
@@ -267,7 +246,7 @@ describe("setSpeakerDesiredVolume", () => {
   });
 });
 
-// ─── cycle integration (mocked db + SonosClient) ──────────────────────────────
+// ─── cycle integration (in-memory DeviceStateStore + mocked SonosClient) ──────
 
 // Get-or-create: LIVING_IP IS the topology anchor, so tests must never replace
 // an existing mock client (that would clobber getZoneGroupState).
@@ -285,41 +264,48 @@ function topology(members: { ip: string; uuid: string; zoneName: string }[]) {
   ]);
 }
 
-function speakerRow(
-  overrides: Partial<{
-    id: string;
-    entityId: string;
-    desiredState: DeviceSpeakerState | null;
-    desiredUntilUtc: Date | null;
-  }> = {},
-) {
-  return {
+async function seededStore(row: {
+  entityId?: string;
+  label?: string;
+  desiredState: DeviceSpeakerState | null;
+  reportedState: DeviceSpeakerState | null;
+  available: boolean;
+  desiredUntilUtc?: Date | null;
+}) {
+  const store = createInMemoryDeviceStateStore();
+  await store.seed({
     id: "spk_192-168-0-193",
-    kind: "speaker",
-    entityId: LIVING_IP,
+    kind: DeviceKind.Speaker,
+    entityId: row.entityId ?? LIVING_IP,
     domain: "sonos",
-    label: "Living Room",
-    desiredState: null,
-    desiredUntilUtc: null,
-    reportedState: null,
-    available: true,
-    ...overrides,
-  };
+    label: row.label ?? "Living Room",
+    reported: row.reportedState,
+    desired: row.desiredState,
+    available: row.available,
+  });
+  if (row.desiredUntilUtc != null && row.desiredState != null) {
+    // seed() never sets a command window (desiredUntilUtc stays null, i.e. no
+    // open window , exactly what the "outside the window" tests want). Open
+    // one explicitly only when a window is actually requested, via
+    // updateDesired's windowMs, matching the climate-enforcer test pattern.
+    const windowMs = row.desiredUntilUtc.getTime() - Date.now();
+    await store.updateDesired({ id: "spk_192-168-0-193", desired: row.desiredState, windowMs });
+  }
+  return store;
 }
 
 describe("runSonosVolumeEnforcerCycle", () => {
   it("pushes desired volume to the speaker on drift inside the window", async () => {
     topology([{ ip: LIVING_IP, uuid: "RINCON_LIVING", zoneName: "Living Room" }]);
     client(LIVING_IP).getVolume.mockResolvedValue(20);
-    const row = speakerRow({
+    const store = await seededStore({
       desiredState: { volume: 55 },
+      reportedState: { volume: 55 },
+      available: true,
       desiredUntilUtc: new Date(Date.now() + 9_000),
     });
-    mockDbSelect.mockImplementation(() => new Chain([row]));
-    setBuilder();
-    insertBuilder();
 
-    await runSonosVolumeEnforcerCycle();
+    await runSonosVolumeEnforcerCycle(store);
 
     expect(client(LIVING_IP).setVolume).toHaveBeenCalledWith(55);
   });
@@ -327,57 +313,52 @@ describe("runSonosVolumeEnforcerCycle", () => {
   it("adopts external drift outside the window: writes desired=reported, no UPnP write", async () => {
     topology([{ ip: LIVING_IP, uuid: "RINCON_LIVING", zoneName: "Living Room" }]);
     client(LIVING_IP).getVolume.mockResolvedValue(20);
-    const row = speakerRow({ desiredState: { volume: 55 }, desiredUntilUtc: null });
-    mockDbSelect.mockImplementation(() => new Chain([row]));
-    const set = setBuilder();
-    insertBuilder();
+    const store = await seededStore({
+      desiredState: { volume: 55 },
+      reportedState: { volume: 55 },
+      available: true,
+      desiredUntilUtc: null,
+    });
 
-    await runSonosVolumeEnforcerCycle();
+    await runSonosVolumeEnforcerCycle(store);
 
     expect(client(LIVING_IP).setVolume).not.toHaveBeenCalled();
-    const adopted = set.mock.calls.find(
-      (c) => (c[0] as { desiredState?: unknown })?.desiredState !== undefined,
-    );
-    expect(adopted).toBeDefined();
-    expect((adopted?.[0] as { desiredState: unknown }).desiredState).toEqual({ volume: 20 });
+    const row = await store.read("spk_192-168-0-193");
+    expect(row?.desiredState).toEqual({ volume: 20 });
   });
 
   it("caps external over-volume back to 90 over UPnP, leaving raw desired untouched", async () => {
     // Someone bumped the speaker to 100 from the Sonos app, window expired.
     topology([{ ip: LIVING_IP, uuid: "RINCON_LIVING", zoneName: "Living Room" }]);
     client(LIVING_IP).getVolume.mockResolvedValue(100);
-    const row = speakerRow({ desiredState: { volume: 50 }, desiredUntilUtc: null });
-    mockDbSelect.mockImplementation(() => new Chain([row]));
-    const set = setBuilder();
-    insertBuilder();
+    const store = await seededStore({
+      desiredState: { volume: 50 },
+      reportedState: { volume: 50 },
+      available: true,
+      desiredUntilUtc: null,
+    });
 
-    await runSonosVolumeEnforcerCycle();
+    await runSonosVolumeEnforcerCycle(store);
 
     // Pushed the cap down to the speaker...
     expect(client(LIVING_IP).setVolume).toHaveBeenCalledWith(90);
     // ...without overwriting the user's raw desired (cap is hidden from the row).
-    const wroteDesired = set.mock.calls.find(
-      (c) => (c[0] as { desiredState?: unknown })?.desiredState !== undefined,
-    );
-    expect(wroteDesired).toBeUndefined();
+    const row = await store.read("spk_192-168-0-193");
+    expect(row?.desiredState).toEqual({ volume: 50 });
   });
 
   it("seeds a row for a first-seen player (desired = reported, no push)", async () => {
     topology([{ ip: DESK_IP, uuid: "RINCON_DESK", zoneName: "Desk" }]);
     client(DESK_IP).getVolume.mockResolvedValue(33);
-    mockDbSelect.mockImplementation(() => new Chain([]));
-    setBuilder();
-    const { values } = insertBuilder();
+    const store = createInMemoryDeviceStateStore();
 
-    await runSonosVolumeEnforcerCycle();
+    await runSonosVolumeEnforcerCycle(store);
 
     expect(client(DESK_IP).setVolume).not.toHaveBeenCalled();
-    const seeded = values.mock.calls
-      .map((c) => c[0] as Record<string, unknown>)
-      .find((v) => v.kind === "speaker");
+    const rows = await store.list({ kind: DeviceKind.Speaker });
+    const seeded = rows.find((r) => r.entityId === DESK_IP);
     expect(seeded).toBeDefined();
     expect(seeded).toMatchObject({
-      entityId: DESK_IP,
       label: "Desk",
       desiredState: { volume: 33 },
       reportedState: { volume: 33 },
@@ -388,19 +369,38 @@ describe("runSonosVolumeEnforcerCycle", () => {
   it("marks a speaker unavailable when its volume read fails, leaving desired intact", async () => {
     topology([{ ip: LIVING_IP, uuid: "RINCON_LIVING", zoneName: "Living Room" }]);
     client(LIVING_IP).getVolume.mockRejectedValue(new Error("timeout"));
-    const row = speakerRow({ desiredState: { volume: 55 } });
-    mockDbSelect.mockImplementation(() => new Chain([row]));
-    const set = setBuilder();
-    insertBuilder();
+    const store = await seededStore({
+      desiredState: { volume: 55 },
+      reportedState: { volume: 55 },
+      available: true,
+    });
 
-    await runSonosVolumeEnforcerCycle();
+    await runSonosVolumeEnforcerCycle(store);
 
     expect(client(LIVING_IP).setVolume).not.toHaveBeenCalled();
-    const unavailable = set.mock.calls.find(
-      (c) => (c[0] as { available?: boolean })?.available === false,
-    );
-    expect(unavailable).toBeDefined();
+    const row = await store.read("spk_192-168-0-193");
+    expect(row?.available).toBe(false);
     // Desired must survive the outage , intent is never wiped by unreachability.
-    expect((unavailable?.[0] as Record<string, unknown>).desiredState).toBeUndefined();
+    expect(row?.desiredState).toEqual({ volume: 55 });
+  });
+
+  it("marks a vanished-from-topology speaker unavailable without touching reportedState", async () => {
+    // Topology has no players at all this cycle; the previously-seen Living
+    // Room row must be flipped unavailable, and its stored reportedState value
+    // preserved (only reportedAtUtc/updatedAtUtc/available change).
+    client(TOPOLOGY_ANCHOR_IP).getZoneGroupState.mockResolvedValue([]);
+    const store = await seededStore({
+      entityId: LIVING_IP,
+      desiredState: { volume: 55 },
+      reportedState: { volume: 20 },
+      available: true,
+    });
+
+    await runSonosVolumeEnforcerCycle(store);
+
+    const row = await store.read("spk_192-168-0-193");
+    expect(row?.available).toBe(false);
+    expect(row?.reportedState).toEqual({ volume: 20 });
+    expect(row?.desiredState).toEqual({ volume: 55 });
   });
 });

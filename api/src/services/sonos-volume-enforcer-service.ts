@@ -17,12 +17,10 @@
  * no tolerance band needed, unlike HA color/brightness.
  */
 
+import type { DeviceStateStore } from "@www/core";
 import { getLogger } from "@www/logger";
-import { eq } from "drizzle-orm";
 import { deviceStateStore } from "../db/device-state-store";
-import { db } from "../db/index";
 import type { DeviceSpeakerState } from "../db/schema";
-import { deviceState } from "../db/schema";
 import { SonosClient } from "../integrations/sonos";
 import { windowOpen } from "./command-window";
 import { DeviceKind, isSpeakerState } from "./device-state-mapping";
@@ -134,8 +132,12 @@ export async function setSpeakerDesiredVolume({
   });
 }
 
-export async function runSonosVolumeEnforcerCycle(): Promise<void> {
-  await runCycle(heartbeat(ENFORCER_INTEGRATION_ID), "sonos-volume-enforcer", reconcile);
+export async function runSonosVolumeEnforcerCycle(
+  store: DeviceStateStore = deviceStateStore,
+): Promise<void> {
+  await runCycle(heartbeat(ENFORCER_INTEGRATION_ID), "sonos-volume-enforcer", () =>
+    reconcile(store),
+  );
 }
 
 interface LivePlayer {
@@ -166,9 +168,9 @@ async function fetchPlayers(): Promise<LivePlayer[]> {
   );
 }
 
-async function reconcile(): Promise<void> {
+async function reconcile(store: DeviceStateStore): Promise<void> {
   const players = await fetchPlayers();
-  const rows = await db.select().from(deviceState).where(eq(deviceState.kind, DeviceKind.Speaker));
+  const rows = await store.list({ kind: DeviceKind.Speaker });
   const rowByIp = new Map(rows.map((r) => [r.entityId, r]));
   const now = new Date();
 
@@ -177,21 +179,20 @@ async function reconcile(): Promise<void> {
     rowByIp.delete(player.ip);
 
     if (!row) {
-      // First sight with a readable volume: insert the seed row (desired =
-      // reported, no push). Unreadable first sight: nothing to seed from.
+      // First sight with a readable volume: seed the row (desired = reported,
+      // no push). Unreadable first sight: nothing to seed from.
       if (player.reading.volume == null) continue;
       const reported: DeviceSpeakerState = { volume: player.reading.volume };
-      await db.insert(deviceState).values({
+      await store.seed({
         id: speakerDeviceId(player.ip),
         kind: DeviceKind.Speaker,
         entityId: player.ip,
         domain: SPEAKER_DOMAIN,
         label: player.zoneName,
-        reportedState: reported,
-        reportedAtUtc: now,
-        desiredState: reported,
-        desiredAtUtc: now,
+        reported,
+        desired: reported,
         available: true,
+        now,
       });
       continue;
     }
@@ -203,16 +204,19 @@ async function reconcile(): Promise<void> {
       desiredUntilUtc: row.desiredUntilUtc ?? null,
     };
     const decision = decideSpeakerEnforcement(speaker, player.reading, now);
-    await applyDecision(speaker, decision, player, now);
+    await applyDecision(speaker, decision, player, now, store);
   }
 
   // Rows for players that vanished from topology entirely: honest availability.
+  // DeviceStateStore migration note: `writeReported` always stamps
+  // reportedAtUtc to `now`, unlike the old raw update (available/updatedAtUtc
+  // only) , this row's reportedAtUtc now advances even though no fresh volume
+  // was read. Accepted: nothing reads device_state.reportedAtUtc downstream
+  // (grep-verified), so this is not observable. reportedState itself is passed
+  // through unchanged (row.reportedState) so the VALUE never drifts.
   for (const row of rowByIp.values()) {
     if (!row.available) continue;
-    await db
-      .update(deviceState)
-      .set({ available: false, updatedAtUtc: now })
-      .where(eq(deviceState.id, row.id));
+    await store.writeReported({ id: row.id, reported: row.reportedState, available: false, now });
   }
 }
 
@@ -221,24 +225,21 @@ async function applyDecision(
   decision: SpeakerEnforcementDecision,
   player: LivePlayer,
   now: Date,
+  store: DeviceStateStore,
 ): Promise<void> {
   const reported: DeviceSpeakerState | null =
     player.reading.volume == null ? null : { volume: player.reading.volume };
-  // Refreshed every cycle: the panel reads reported as the overlay base, and the
-  // label tracks the player's zone name (the mutation seeds it as a bare IP).
-  const baseFields = {
-    reportedState: reported,
-    reportedAtUtc: now,
-    label: player.zoneName,
-    updatedAtUtc: now,
-  };
+  // DeviceStateStore migration note: the old raw update also refreshed `label`
+  // to the player's live zoneName every cycle (rooms can be renamed in the
+  // Sonos app). WriteReported has no label field, and no downstream consumer
+  // reads device_state.label for speakers , sound-system.getSoundSystem()
+  // renders room names from the LIVE topology (member.zoneName), never from
+  // this DB row (grep-verified). So the label refresh is dropped here as a
+  // safe, unobservable deviation rather than extending the store interface.
 
   switch (decision.kind) {
     case "unreachable": {
-      await db
-        .update(deviceState)
-        .set({ ...baseFields, available: false })
-        .where(eq(deviceState.id, speaker.id));
+      await store.writeReported({ id: speaker.id, reported, available: false, now });
       return;
     }
     case "seed":
@@ -249,15 +250,13 @@ async function applyDecision(
           "sonos-volume-enforcer adopted external volume",
         );
       }
-      await db
-        .update(deviceState)
-        .set({
-          ...baseFields,
-          desiredState: decision.desired,
-          desiredAtUtc: now,
-          available: true,
-        })
-        .where(eq(deviceState.id, speaker.id));
+      await store.writeReported({
+        id: speaker.id,
+        reported,
+        available: true,
+        adoptDesired: decision.desired,
+        now,
+      });
       return;
     }
     case "push":
@@ -275,17 +274,11 @@ async function applyDecision(
       // Both actuate the speaker and refresh reported/availability; neither writes
       // desiredState (push keeps the raw desired, cap deliberately hides itself).
       await new SonosClient(speaker.deviceIp).setVolume(decision.desired.volume);
-      await db
-        .update(deviceState)
-        .set({ ...baseFields, available: true })
-        .where(eq(deviceState.id, speaker.id));
+      await store.writeReported({ id: speaker.id, reported, available: true, now });
       return;
     }
     case "noop": {
-      await db
-        .update(deviceState)
-        .set({ ...baseFields, available: true })
-        .where(eq(deviceState.id, speaker.id));
+      await store.writeReported({ id: speaker.id, reported, available: true, now });
       return;
     }
   }

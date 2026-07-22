@@ -20,9 +20,8 @@
  *    transport state belongs to the group and is read from the coordinator.
  */
 
-import { eq } from "drizzle-orm";
-import { db } from "../db/index";
-import { deviceState } from "../db/schema";
+import type { DeviceStateStore } from "@www/core";
+import { deviceStateStore } from "../db/device-state-store";
 import type { ZoneGroup } from "../integrations/sonos";
 import { SonosClient } from "../integrations/sonos";
 import { DeviceKind, isSpeakerState } from "./device-state-mapping";
@@ -110,7 +109,9 @@ export interface SoundSystemResult {
  * Reads topology fresh every call , never caches grouping.
  * THROWS on any SonosClient error (network, SOAP, HTTP >= 4xx).
  */
-export async function getSoundSystem(): Promise<SoundSystemResult> {
+export async function getSoundSystem(
+  store: DeviceStateStore = deviceStateStore,
+): Promise<SoundSystemResult> {
   const anchorClient = new SonosClient(TOPOLOGY_ANCHOR_IP);
 
   // GetZoneGroupState is read fresh every call , grouping is volatile (TV power reshapes it).
@@ -171,7 +172,7 @@ export async function getSoundSystem(): Promise<SoundSystemResult> {
   // Desired-authoritative volume (www-5mek): device_state.desiredState is the
   // source of truth, so the fader never snaps back to a pre-enforcer live read
   // on the 10s poll , same model as lights (mergeDeviceState).
-  const desiredVolumeByIp = await readDesiredVolumes();
+  const desiredVolumeByIp = await readDesiredVolumes(store);
   for (const room of rooms) {
     const desired = desiredVolumeByIp.get(room.deviceIp);
     if (desired != null) room.volume = desired;
@@ -185,13 +186,10 @@ export async function getSoundSystem(): Promise<SoundSystemResult> {
  * the live UPnP reads (real data, just eventually-consistent) rather than
  * failing the whole media tile.
  */
-async function readDesiredVolumes(): Promise<Map<string, number>> {
+async function readDesiredVolumes(store: DeviceStateStore): Promise<Map<string, number>> {
   const byIp = new Map<string, number>();
   try {
-    const rows = await db
-      .select()
-      .from(deviceState)
-      .where(eq(deviceState.kind, DeviceKind.Speaker));
+    const rows = await store.list({ kind: DeviceKind.Speaker });
     for (const row of rows) {
       if (isSpeakerState(row.desiredState)) byIp.set(row.entityId, row.desiredState.volume);
     }

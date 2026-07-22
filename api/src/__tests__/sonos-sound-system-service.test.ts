@@ -37,28 +37,10 @@ describe("classifySourceUri", () => {
   });
 });
 
-// ─── mock DB (desired-volume overlay, www-5mek) ───────────────────────────────
+// ─── in-memory device state store (desired-volume overlay, www-5mek) ─────────
 
-const { mockDbSelect } = vi.hoisted(() => ({ mockDbSelect: vi.fn() }));
-
-vi.mock("../db/index", () => ({
-  db: { select: mockDbSelect },
-}));
-
-class Chain {
-  constructor(private readonly rows: unknown[]) {}
-  from() {
-    return this;
-  }
-  where() {
-    return this;
-  }
-  [Symbol.toStringTag] = "Chain";
-  // biome-ignore lint/suspicious/noThenProperty: intentional thenable for drizzle mock
-  then<R>(onFulfilled: (v: unknown[]) => R | PromiseLike<R>): Promise<R> {
-    return Promise.resolve(this.rows).then(onFulfilled);
-  }
-}
+import type { DeviceStateStore } from "@www/core";
+import { createInMemoryDeviceStateStore, DeviceKind } from "@www/core";
 
 // ─── mock SonosClient constructor ─────────────────────────────────────────────
 // We need a per-IP mock so we can control each device's responses independently.
@@ -188,6 +170,10 @@ function setupHappyPath() {
 
 // ─── tests ────────────────────────────────────────────────────────────────────
 
+// Empty by default; overlay tests seed a speaker row, the DB-unreachable test
+// swaps this out for a store whose `list()` rejects.
+let store: DeviceStateStore = createInMemoryDeviceStateStore();
+
 beforeEach(() => {
   // Only clear the per-IP mock registry. vi.resetAllMocks()/clearAllMocks() would
   // also wipe mockResolvedValue/mockReturnValue implementations set in setupHappyPath(),
@@ -197,27 +183,24 @@ beforeEach(() => {
     delete mockClients[key];
   }
   // No speaker rows by default , overlay tests opt in.
-  mockDbSelect.mockImplementation(() => new Chain([]));
+  store = createInMemoryDeviceStateStore();
 });
 
 describe("getSoundSystem , desired-authoritative volume (www-5mek)", () => {
   it("desired volume from device_state overlays the live read (fader never snaps back)", async () => {
     setupHappyPath();
-    mockDbSelect.mockImplementation(
-      () =>
-        new Chain([
-          {
-            id: "spk_192-168-0-63",
-            kind: "speaker",
-            entityId: BEDROOM_IP,
-            desiredState: { volume: 77 },
-            reportedState: { volume: 30 },
-            available: true,
-          },
-        ]),
-    );
+    await store.seed({
+      id: "spk_192-168-0-63",
+      kind: DeviceKind.Speaker,
+      entityId: BEDROOM_IP,
+      domain: "sonos",
+      label: "Bedroom",
+      reported: { volume: 30 },
+      desired: { volume: 77 },
+      available: true,
+    });
 
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
 
     expect(result.rooms.find((r) => r.name === "Bedroom")?.volume).toBe(77);
     // Rooms without a speaker row keep the live read.
@@ -226,11 +209,14 @@ describe("getSoundSystem , desired-authoritative volume (www-5mek)", () => {
 
   it("falls back to the live read when the DB is unreachable (live data is still real)", async () => {
     setupHappyPath();
-    mockDbSelect.mockImplementation(() => {
-      throw new Error("db down");
-    });
+    const throwingStore: DeviceStateStore = {
+      ...store,
+      list: () => {
+        throw new Error("db down");
+      },
+    };
 
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(throwingStore);
 
     expect(result.rooms.find((r) => r.name === "Bedroom")?.volume).toBe(30);
   });
@@ -239,13 +225,13 @@ describe("getSoundSystem , desired-authoritative volume (www-5mek)", () => {
 describe("getSoundSystem , topology collapse (A11)", () => {
   it("returns exactly 5 rooms even though the topology has 6 members (bonded Desk RF collapsed)", async () => {
     setupHappyPath();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     expect(result.rooms).toHaveLength(5);
   });
 
   it("includes the expected room names: Living Room, Desk, Bedroom, Bathroom, Kitchen", async () => {
     setupHappyPath();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     const names = result.rooms.map((r) => r.name);
     expect(names).toContain("Living Room");
     expect(names).toContain("Desk");
@@ -256,14 +242,14 @@ describe("getSoundSystem , topology collapse (A11)", () => {
 
   it("does NOT include 'Desk + Bonded' as a separate room", async () => {
     setupHappyPath();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     const names = result.rooms.map((r) => r.name);
     expect(names).not.toContain("Desk + Bonded");
   });
 
   it("marks the Desk coordinator as the coordinator for the group", async () => {
     setupHappyPath();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     const desk = result.rooms.find((r) => r.name === "Desk");
     expect(desk).toBeDefined();
     expect(desk?.isCoordinator).toBe(true);
@@ -277,8 +263,8 @@ describe("getSoundSystem , topology collapse (A11)", () => {
     // call would still return a value (from cache), so this test verifies structural
     // correctness rather than mock-call-count (which is tested via the mock setup itself).
     setupHappyPath();
-    const result1 = await getSoundSystem();
-    const result2 = await getSoundSystem();
+    const result1 = await getSoundSystem(store);
+    const result2 = await getSoundSystem(store);
     // Fresh topology means no in-memory cache; both calls return 5 rooms.
     expect(result1.rooms).toHaveLength(5);
     expect(result2.rooms).toHaveLength(5);
@@ -288,7 +274,7 @@ describe("getSoundSystem , topology collapse (A11)", () => {
 describe("getSoundSystem , per-device data (A11)", () => {
   it("returns volume for each room", async () => {
     setupHappyPath();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     const lr = result.rooms.find((r) => r.name === "Living Room");
     expect(lr?.volume).toBe(45);
     const desk = result.rooms.find((r) => r.name === "Desk");
@@ -299,7 +285,7 @@ describe("getSoundSystem , per-device data (A11)", () => {
 
   it("returns mute for each room", async () => {
     setupHappyPath();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     const bath = result.rooms.find((r) => r.name === "Bathroom");
     expect(bath?.muted).toBe(true);
     const lr = result.rooms.find((r) => r.name === "Living Room");
@@ -308,7 +294,7 @@ describe("getSoundSystem , per-device data (A11)", () => {
 
   it("returns transport state for each room (from coordinator)", async () => {
     setupHappyPath();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     const lr = result.rooms.find((r) => r.name === "Living Room");
     expect(lr?.transportState).toBe("PLAYING");
     const desk = result.rooms.find((r) => r.name === "Desk");
@@ -317,7 +303,7 @@ describe("getSoundSystem , per-device data (A11)", () => {
 
   it("returns coordinator UUID and members list for grouped rooms", async () => {
     setupHappyPath();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     const desk = result.rooms.find((r) => r.name === "Desk");
     // coordinator is the Desk Era 300 pair (RINCON_804AF28AAB2001400)
     expect(desk?.coordinatorUuid).toBe("RINCON_804AF28AAB2001400");
@@ -330,7 +316,7 @@ describe("getSoundSystem , per-device data (A11)", () => {
 describe("getSoundSystem , source classification wiring", () => {
   it("classifies and labels the Desk group's line-in source from the coordinator's CurrentURI", async () => {
     setupHappyPath();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     const desk = result.rooms.find((r) => r.name === "Desk");
     expect(desk?.sourceKind).toBe("line-in");
     expect(desk?.sourceLabel).toBe("Line-In");
@@ -338,7 +324,7 @@ describe("getSoundSystem , source classification wiring", () => {
 
   it("classifies an idle group (empty CurrentURI) with a null sourceLabel", async () => {
     setupHappyPath();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     const lr = result.rooms.find((r) => r.name === "Living Room");
     expect(lr?.sourceKind).toBe("idle");
     expect(lr?.sourceLabel).toBeNull();
@@ -351,7 +337,7 @@ describe("getSoundSystem , source classification wiring", () => {
       trackArtist: null,
       albumArtUri: null,
     });
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     const desk = result.rooms.find((r) => r.name === "Desk");
     expect(desk?.trackTitle).toBe("Line 6");
     expect(desk?.trackArtist).toBeNull();
@@ -402,7 +388,7 @@ describe("getSoundSystem , multi-room group carries coordinator source (www-51hf
 
   it("Kitchen (member of the Desk group) carries the coordinator's sourceKind and track metadata", async () => {
     setupDeskGroupWithKitchen();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     const kitchen = result.rooms.find((r) => r.name === "Kitchen");
     expect(kitchen?.coordinatorUuid).toBe("RINCON_804AF28AAB2001400");
     expect(kitchen?.sourceKind).toBe("line-in");
@@ -412,7 +398,7 @@ describe("getSoundSystem , multi-room group carries coordinator source (www-51hf
 
   it("never queries GetMediaInfo/GetPositionInfo against Kitchen's own device , the group coordinator answers for the whole group", async () => {
     setupDeskGroupWithKitchen();
-    await getSoundSystem();
+    await getSoundSystem(store);
     expect(mockClients[KITCHEN_IP].getMediaInfo).not.toHaveBeenCalled();
     expect(mockClients[KITCHEN_IP].getPositionInfo).not.toHaveBeenCalled();
   });
@@ -421,7 +407,7 @@ describe("getSoundSystem , multi-room group carries coordinator source (www-51hf
 describe("getSoundSystem , per-room identity (www-7u9z)", () => {
   it("exposes each room's own uuid and deviceIp for per-room writes", async () => {
     setupHappyPath();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     const lr = result.rooms.find((r) => r.name === "Living Room");
     expect(lr?.uuid).toBe("RINCON_74CA6093255801400");
     expect(lr?.deviceIp).toBe(LIVING_ROOM_IP);
@@ -432,7 +418,7 @@ describe("getSoundSystem , per-room identity (www-7u9z)", () => {
 
   it("returns rooms in stable display order", async () => {
     setupHappyPath();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     expect(result.rooms.map((r) => r.name)).toEqual([
       "Living Room",
       "Desk",
@@ -487,7 +473,7 @@ describe("getSoundSystem , all speakers grouped into one group (www-7u9z)", () =
 
   it("still returns 5 rooms (not 1) when everything is grouped", async () => {
     setupGrouped();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     expect(result.rooms).toHaveLength(5);
     expect(result.rooms.map((r) => r.name).sort()).toEqual([
       "Bathroom",
@@ -500,7 +486,7 @@ describe("getSoundSystem , all speakers grouped into one group (www-7u9z)", () =
 
   it("every room shares the group coordinatorUuid, with exactly one coordinator", async () => {
     setupGrouped();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     expect(result.rooms.every((r) => r.coordinatorUuid === "RINCON_F85C2420570401400")).toBe(true);
     expect(result.rooms.filter((r) => r.isCoordinator)).toHaveLength(1);
     expect(result.rooms.find((r) => r.isCoordinator)?.name).toBe("Bathroom");
@@ -508,7 +494,7 @@ describe("getSoundSystem , all speakers grouped into one group (www-7u9z)", () =
 
   it("each grouped room keeps its OWN volume", async () => {
     setupGrouped();
-    const result = await getSoundSystem();
+    const result = await getSoundSystem(store);
     expect(result.rooms.find((r) => r.name === "Living Room")?.volume).toBe(10);
     expect(result.rooms.find((r) => r.name === "Bathroom")?.volume).toBe(87);
     expect(result.rooms.find((r) => r.name === "Kitchen")?.volume).toBe(40);
@@ -522,7 +508,7 @@ describe("getSoundSystem , error handling (A3)", () => {
       new SonosError("network error"),
     );
 
-    await expect(getSoundSystem()).rejects.toThrow();
+    await expect(getSoundSystem(store)).rejects.toThrow();
   });
 
   it("throws when a per-device fetch fails (propagates upward)", async () => {
@@ -530,6 +516,6 @@ describe("getSoundSystem , error handling (A3)", () => {
     // Override Living Room volume to fail
     mockClients[LIVING_ROOM_IP].getVolume.mockRejectedValue(new SonosError("ECONNREFUSED"));
 
-    await expect(getSoundSystem()).rejects.toThrow();
+    await expect(getSoundSystem(store)).rejects.toThrow();
   });
 });
