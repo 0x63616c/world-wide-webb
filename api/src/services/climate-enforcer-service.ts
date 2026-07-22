@@ -24,10 +24,9 @@
  * only manages the one configured house thermostat.
  */
 
-import { eq } from "drizzle-orm";
-import { db } from "../db/index";
+import type { DeviceStateStore } from "@www/core";
+import { deviceStateStore } from "../db/device-state-store";
 import type { DeviceClimateState } from "../db/schema";
-import { deviceState } from "../db/schema";
 import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
@@ -128,39 +127,44 @@ export function decideClimateEnforcement(
   return { kind: "push", desired };
 }
 
-export async function runClimateEnforcerCycle(): Promise<void> {
+export async function runClimateEnforcerCycle(
+  store: DeviceStateStore = deviceStateStore,
+): Promise<void> {
   await runCycle(heartbeat(CLIMATE_ENFORCER_INTEGRATION_ID), "climate-enforcer", async () => {
     const entities = await ha.getEntities("climate");
     const entity = entities.find((e) => e.entity_id === env.CLIMATE_ENTITY_ID);
-    await reconcileClimate(entity);
+    await reconcileClimate(entity, store);
   });
 }
 
-async function reconcileClimate(entity: HaEntity | undefined): Promise<void> {
+async function reconcileClimate(
+  entity: HaEntity | undefined,
+  store: DeviceStateStore,
+): Promise<void> {
   const now = new Date();
-  const row = await loadClimateRow();
+  const row = await store.read(CLIMATE_DEVICE_ID);
   const mapped = mapHaToReported(DeviceKind.Climate, entity);
 
   // No row yet AND the entity is unreachable: nothing to seed from, nothing to
   // write (we never fabricate a row from thin air). Wait for HA to report.
   if (!row && (!mapped.available || mapped.reported == null)) return;
 
-  // First sight with a reachable entity: insert the seed row (desired = the
+  // First sight with a reachable entity: seed the row (desired = the
   // commandable slice of reported, no push) so the panel can read immediately.
+  // store.seed() stamps reportedAtUtc/desiredAtUtc to `now` itself.
   if (!row) {
-    await db.insert(deviceState).values({
+    await store.seed({
       id: CLIMATE_DEVICE_ID,
       kind: DeviceKind.Climate,
       entityId: env.CLIMATE_ENTITY_ID,
       domain: "climate",
       label: "Thermostat",
-      reportedState: mapped.reported,
-      reportedAtUtc: now,
-      desiredState: isClimateState(mapped.reported)
+      reported: mapped.reported,
+      desired: isClimateState(mapped.reported)
         ? sanitizeClimateDesired(mapped.reported)
         : mapped.reported,
-      desiredAtUtc: now,
       available: true,
+      now,
     });
     return;
   }
@@ -169,11 +173,15 @@ async function reconcileClimate(entity: HaEntity | undefined): Promise<void> {
   const desired = storedDesired ? sanitizeClimateDesired(storedDesired) : null;
   // Self-heal a pre-fix row whose desired still carries the reported-only
   // ambient/action (www-dnpj): persist the sanitized desired with this cycle's
-  // write so the row converges without a manual migration.
+  // write so the row converges without a manual migration. Routed through
+  // writeReported's adoptDesired below (controller-approved deviation): this
+  // also bumps desiredAtUtc, which is fine , nothing enforcement-critical
+  // reads it (the command window uses desiredUntilUtc), and the heal only
+  // fires on pre-fix rows.
   const desiredFix =
     storedDesired != null && (storedDesired.ambient != null || storedDesired.action != null)
-      ? { desiredState: desired }
-      : {};
+      ? sanitizeClimateDesired(storedDesired)
+      : undefined;
 
   const device: ManagedClimate = {
     id: row.id,
@@ -183,16 +191,7 @@ async function reconcileClimate(entity: HaEntity | undefined): Promise<void> {
     desiredUntilUtc: row.desiredUntilUtc ?? null,
   };
   const decision = decideClimateEnforcement(device, mapped, now);
-  await applyDecision(device, decision, mapped, now, desiredFix);
-}
-
-async function loadClimateRow(): Promise<typeof deviceState.$inferSelect | undefined> {
-  const rows = await db
-    .select()
-    .from(deviceState)
-    .where(eq(deviceState.id, CLIMATE_DEVICE_ID))
-    .limit(1);
-  return rows[0];
+  await applyDecision(device, decision, mapped, now, store, desiredFix);
 }
 
 async function applyDecision(
@@ -200,50 +199,56 @@ async function applyDecision(
   decision: ClimateEnforcementDecision,
   mapped: MappedHaState,
   now: Date,
-  // www-dnpj self-heal: when the stored desired carried reported-only fields, the
-  // sanitized replacement rides along on this cycle's write (seed sets its own).
-  desiredFix: { desiredState?: DeviceClimateState | null } = {},
+  store: DeviceStateStore,
+  // www-dnpj self-heal: when the stored desired carried reported-only fields,
+  // the sanitized replacement rides along on this cycle's write via
+  // adoptDesired (seed/adopt below set their own desired regardless).
+  desiredFix: DeviceClimateState | undefined = undefined,
 ): Promise<void> {
-  const reportedFields = { reportedState: mapped.reported, reportedAtUtc: now, ...desiredFix };
-
   switch (decision.kind) {
     case "unreachable": {
       // Honest availability , never paint desired as a real reading when down.
-      await db
-        .update(deviceState)
-        .set({ ...reportedFields, available: false, updatedAtUtc: now })
-        .where(eq(deviceState.id, device.id));
+      await store.writeReported({
+        id: device.id,
+        reported: mapped.reported,
+        available: false,
+        now,
+        ...(desiredFix !== undefined ? { adoptDesired: desiredFix } : {}),
+      });
       return;
     }
     case "seed":
     // Adopt persists exactly like seed: desired := the commandable slice of
     // reported, no HA call , an external change became the new intent (www-qktc).
     case "adopt": {
-      await db
-        .update(deviceState)
-        .set({
-          ...reportedFields,
-          desiredState: decision.desired,
-          desiredAtUtc: now,
-          available: true,
-          updatedAtUtc: now,
-        })
-        .where(eq(deviceState.id, device.id));
+      await store.writeReported({
+        id: device.id,
+        reported: mapped.reported,
+        available: true,
+        adoptDesired: decision.desired,
+        now,
+      });
       return;
     }
     case "push": {
       await pushToHa(device.entityId, decision.desired);
-      await db
-        .update(deviceState)
-        .set({ ...reportedFields, available: true, updatedAtUtc: now })
-        .where(eq(deviceState.id, device.id));
+      await store.writeReported({
+        id: device.id,
+        reported: mapped.reported,
+        available: true,
+        now,
+        ...(desiredFix !== undefined ? { adoptDesired: desiredFix } : {}),
+      });
       return;
     }
     case "noop": {
-      await db
-        .update(deviceState)
-        .set({ ...reportedFields, available: true, updatedAtUtc: now })
-        .where(eq(deviceState.id, device.id));
+      await store.writeReported({
+        id: device.id,
+        reported: mapped.reported,
+        available: true,
+        now,
+        ...(desiredFix !== undefined ? { adoptDesired: desiredFix } : {}),
+      });
       return;
     }
   }

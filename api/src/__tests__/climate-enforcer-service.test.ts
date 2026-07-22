@@ -3,22 +3,24 @@
  *
  * The reconcile decision is a PURE function (decideClimateEnforcement) so the
  * seed/push/noop/unreachable matrix is tested directly. Cycle-level tests then
- * mock db+ha to prove the decisions are executed: seeds the row on first HA sight
- * (no push), pushes desired→HA on drift, and writes real ambient/hvac_action into
- * reportedState every cycle.
+ * use an in-memory DeviceStateStore (mocking only db+ha) to prove the decisions
+ * are executed: seeds the row on first HA sight (no push), pushes desired→HA on
+ * drift, and writes real ambient/hvac_action into reportedState every cycle.
  */
+import { createInMemoryDeviceStateStore, DeviceKind } from "@www/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// ─── mock DB ──────────────────────────────────────────────────────────────────
+// ─── mock DB (climate-enforcer no longer touches device_state directly , that
+// goes through the DeviceStateStore. `db` is still used by the shared
+// integration-heartbeat helper for integrationSyncStatus.) ────────────────────
 
-const { mockDbSelect, mockDbUpdate, mockDbInsert } = vi.hoisted(() => ({
+const { mockDbSelect, mockDbInsert } = vi.hoisted(() => ({
   mockDbSelect: vi.fn(),
-  mockDbUpdate: vi.fn(),
   mockDbInsert: vi.fn(),
 }));
 
 vi.mock("../db/index", () => ({
-  db: { select: mockDbSelect, update: mockDbUpdate, insert: mockDbInsert },
+  db: { select: mockDbSelect, insert: mockDbInsert },
 }));
 
 // ─── mock HA ─────────────────────────────────────────────────────────────────
@@ -34,6 +36,7 @@ vi.mock("../integrations/homeassistant", () => ({
 
 import type { DeviceClimateState } from "../db/schema";
 import {
+  CLIMATE_DEVICE_ID,
   decideClimateEnforcement,
   runClimateEnforcerCycle,
 } from "../services/climate-enforcer-service";
@@ -267,47 +270,28 @@ describe("decideClimateEnforcement (pure)", () => {
   });
 });
 
-// ─── cycle tests ──────────────────────────────────────────────────────────────
+// ─── cycle tests (in-memory DeviceStateStore + mocked HA/heartbeat) ───────────
 
-// A thenable select chain that resolves to `rows`.
-class Chain {
-  constructor(private readonly rows: unknown[]) {}
-  from() {
-    return this;
-  }
-  where() {
-    return this;
-  }
-  limit(): Promise<unknown[]> {
-    return Promise.resolve(this.rows);
-  }
-  // biome-ignore lint/suspicious/noThenProperty: intentional thenable for drizzle mock
-  then<R>(onFulfilled: (v: unknown[]) => R | PromiseLike<R>): Promise<R> {
-    return Promise.resolve(this.rows).then(onFulfilled);
-  }
-}
-
-function setBuilder() {
-  const set = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
-  mockDbUpdate.mockReturnValue({ set });
-  return set;
-}
-
-// Capture every db.insert().values() payload. The seed is a plain insert; the
-// heartbeat insert chains .onConflictDoUpdate(). Both must resolve.
-function insertCapture() {
-  const payloads: unknown[] = [];
-  mockDbInsert.mockReturnValue({
-    values: (payload: unknown) => {
-      payloads.push(payload);
-      const result = Promise.resolve(undefined) as Promise<undefined> & {
-        onConflictDoUpdate: () => Promise<undefined>;
-      };
-      result.onConflictDoUpdate = () => Promise.resolve(undefined);
-      return result;
+// A generic thenable/query-builder stand-in for the one table the enforcer
+// still reads straight off `db`: integrationSyncStatus (the heartbeat's
+// failure-streak read). device_state now goes through the store, not this mock.
+function tableChain(rows: unknown[]) {
+  const chain = {
+    from() {
+      return chain;
     },
-  });
-  return payloads;
+    where() {
+      return chain;
+    },
+    limit(): Promise<unknown[]> {
+      return Promise.resolve(rows);
+    },
+    // biome-ignore lint/suspicious/noThenProperty: intentional thenable for drizzle mock
+    then<R>(onFulfilled: (v: unknown[]) => R | PromiseLike<R>): Promise<R> {
+      return Promise.resolve(rows).then(onFulfilled);
+    },
+  };
+  return chain;
 }
 
 function haClimate(attributes: Record<string, unknown>, state = "cool") {
@@ -317,50 +301,64 @@ function haClimate(attributes: Record<string, unknown>, state = "cool") {
 beforeEach(() => {
   vi.clearAllMocks();
   mockCallService.mockResolvedValue(undefined);
+  // integrationSyncStatus -> no prior failure streak.
+  mockDbSelect.mockImplementation(() => tableChain([]));
+  // markHeartbeat: insert().values().onConflictDoUpdate()
+  mockDbInsert.mockReturnValue({
+    values: vi.fn().mockReturnValue({ onConflictDoUpdate: vi.fn().mockResolvedValue(undefined) }),
+  });
 });
 
 describe("runClimateEnforcerCycle", () => {
   it("seeds the row on first HA sight (insert, NO push)", async () => {
-    // No existing row.
-    mockDbSelect.mockReturnValue(new Chain([]));
-    const inserts = insertCapture();
-    setBuilder();
+    const store = createInMemoryDeviceStateStore();
     mockGetEntities.mockResolvedValue([
       haClimate({ current_temperature: 72, temperature: 70, hvac_action: "cooling" }),
     ]);
 
-    await runClimateEnforcerCycle();
+    await runClimateEnforcerCycle(store);
 
-    // The seed insert carries reported + desired (= reported) from real HA values.
-    const seed = inserts.find((p) => (p as { kind?: string }).kind === "climate") as
-      | { reportedState: DeviceClimateState; desiredState: DeviceClimateState }
-      | undefined;
-    expect(seed).toBeDefined();
-    expect(seed?.reportedState).toMatchObject({ mode: "cool", target: 70, ambient: 72 });
+    // The seed carries reported + desired (= reported) from real HA values.
+    const row = await store.read(CLIMATE_DEVICE_ID);
+    expect(row?.reportedState).toMatchObject({ mode: "cool", target: 70, ambient: 72 });
     // Desired carries ONLY commandable fields , never the reported-only
     // ambient/action (www-dnpj: they'd freeze the panel's room temp at seed time).
-    expect(seed?.desiredState).toEqual({ mode: "cool", target: 70 });
+    expect(row?.desiredState).toEqual({ mode: "cool", target: 70 });
+    expect(row?.reportedAtUtc).not.toBeNull();
+    expect(row?.desiredAtUtc).not.toBeNull();
     // Seeding never actuates HA.
     expect(mockCallService).not.toHaveBeenCalled();
   });
 
-  it("self-heals a stale desired that carries reported-only ambient/action (www-dnpj)", async () => {
+  it("does nothing when there is no row yet and HA is unreachable (never fabricates a row from thin air)", async () => {
+    const store = createInMemoryDeviceStateStore();
+    mockGetEntities.mockResolvedValue([]); // thermostat absent from HA's snapshot
+
+    await runClimateEnforcerCycle(store);
+
+    expect(await store.read(CLIMATE_DEVICE_ID)).toBeNull();
+    expect(mockCallService).not.toHaveBeenCalled();
+  });
+
+  it("self-heals a stale desired that carries reported-only ambient/action (www-dnpj), bumping desiredAtUtc", async () => {
     // Prod repro: desired was seeded pre-fix as a wholesale copy of reported, so
     // it still carries ambient/action. The cycle must persist a sanitized desired
     // (no manual migration) while leaving the commandable fields untouched.
-    const row = {
-      id: "climate-thermostat",
-      kind: "climate",
+    // Routed through writeReported's adoptDesired (controller-approved www-dnpj
+    // deviation): the self-heal now also bumps desiredAtUtc, which is fine ,
+    // nothing enforcement-critical reads it (the command window uses
+    // desiredUntilUtc), and the heal only fires on pre-fix rows.
+    const store = createInMemoryDeviceStateStore();
+    await store.seed({
+      id: CLIMATE_DEVICE_ID,
+      kind: DeviceKind.Climate,
       entityId: "climate.home",
       domain: "climate",
-      desiredState: { mode: "cool", target: 72, fanMode: "on", ambient: 71, action: "cooling" },
-      reportedState: { mode: "cool", target: 72, fanMode: "auto", ambient: 73, action: "cooling" },
-      desiredUntilUtc: null,
+      label: "Thermostat",
+      desired: { mode: "cool", target: 72, fanMode: "on", ambient: 71, action: "cooling" },
+      reported: { mode: "cool", target: 72, fanMode: "auto", ambient: 73, action: "cooling" },
       available: true,
-    };
-    mockDbSelect.mockReturnValue(new Chain([row]));
-    insertCapture();
-    const set = setBuilder();
+    });
     mockGetEntities.mockResolvedValue([
       haClimate({
         current_temperature: 73,
@@ -370,40 +368,37 @@ describe("runClimateEnforcerCycle", () => {
       }),
     ]);
 
-    await runClimateEnforcerCycle();
+    await runClimateEnforcerCycle(store);
 
     // Converged on commandable fields (fan yielded while cooling) → no actuation.
     expect(mockCallService).not.toHaveBeenCalled();
-    const persisted = set.mock.calls.find(
-      (c) => (c[0] as { desiredState?: unknown })?.desiredState !== undefined,
-    );
-    expect((persisted?.[0] as { desiredState: DeviceClimateState }).desiredState).toEqual({
-      mode: "cool",
-      target: 72,
-      fanMode: "on",
-    });
+    const row = await store.read(CLIMATE_DEVICE_ID);
+    expect(row?.desiredState).toEqual({ mode: "cool", target: 72, fanMode: "on" });
   });
 
   it("pushes desired→HA on drift inside the command window (set_hvac_mode + set_temperature + set_fan_mode)", async () => {
-    const row = {
-      id: "climate-thermostat",
-      kind: "climate",
+    const store = createInMemoryDeviceStateStore();
+    await store.seed({
+      id: CLIMATE_DEVICE_ID,
+      kind: DeviceKind.Climate,
       entityId: "climate.home",
       domain: "climate",
-      desiredState: { mode: "cool", target: 68, fanMode: "on" },
-      reportedState: { mode: "cool", target: 72, fanMode: "auto" },
-      // Fresh dashboard tap: the command window is open, so desired pushes.
-      desiredUntilUtc: new Date(Date.now() + 9_000),
+      label: "Thermostat",
+      desired: { mode: "cool", target: 68, fanMode: "on" },
+      reported: { mode: "cool", target: 72, fanMode: "auto" },
       available: true,
-    };
-    mockDbSelect.mockReturnValue(new Chain([row]));
-    insertCapture(); // heartbeat
-    setBuilder();
+    });
+    // Fresh dashboard tap: the command window is open, so desired pushes.
+    await store.updateDesired({
+      id: CLIMATE_DEVICE_ID,
+      desired: { mode: "cool", target: 68, fanMode: "on" },
+      windowMs: 9_000,
+    });
     mockGetEntities.mockResolvedValue([
       haClimate({ current_temperature: 72, temperature: 72, fan_mode: "auto" }),
     ]);
 
-    await runClimateEnforcerCycle();
+    await runClimateEnforcerCycle(store);
 
     expect(mockCallService).toHaveBeenCalledWith("climate", "set_hvac_mode", {
       entity_id: "climate.home",
@@ -420,24 +415,27 @@ describe("runClimateEnforcerCycle", () => {
   });
 
   it("turning OFF pushes the mode only , a remembered setpoint is never actuated", async () => {
-    const row = {
-      id: "climate-thermostat",
-      kind: "climate",
+    const store = createInMemoryDeviceStateStore();
+    await store.seed({
+      id: CLIMATE_DEVICE_ID,
+      kind: DeviceKind.Climate,
       entityId: "climate.home",
       domain: "climate",
+      label: "Thermostat",
       // Desired carries the remembered setpoint for the next on; HA takes no
       // set_temperature while off.
-      desiredState: { mode: "off", target: 72 },
-      reportedState: { mode: "cool", target: 72, ambient: 81 },
-      desiredUntilUtc: new Date(Date.now() + 9_000),
+      desired: { mode: "off", target: 72 },
+      reported: { mode: "cool", target: 72, ambient: 81 },
       available: true,
-    };
-    mockDbSelect.mockReturnValue(new Chain([row]));
-    insertCapture();
-    setBuilder();
+    });
+    await store.updateDesired({
+      id: CLIMATE_DEVICE_ID,
+      desired: { mode: "off", target: 72 },
+      windowMs: 9_000,
+    });
     mockGetEntities.mockResolvedValue([haClimate({ current_temperature: 81, temperature: 72 })]);
 
-    await runClimateEnforcerCycle();
+    await runClimateEnforcerCycle(store);
 
     expect(mockCallService).toHaveBeenCalledWith("climate", "set_hvac_mode", {
       entity_id: "climate.home",
@@ -453,63 +451,52 @@ describe("runClimateEnforcerCycle", () => {
   it("ADOPTS an external setpoint change outside the window: no HA call, desired := reported (www-qktc)", async () => {
     // Prod repro 2026-06-10: setpoint changed on the physical ecobee (75) was
     // reverted to the dashboard's 72 within 190ms. It must persist instead.
-    const row = {
-      id: "climate-thermostat",
-      kind: "climate",
+    const store = createInMemoryDeviceStateStore();
+    await store.seed({
+      id: CLIMATE_DEVICE_ID,
+      kind: DeviceKind.Climate,
       entityId: "climate.home",
       domain: "climate",
-      desiredState: { mode: "cool", target: 72 },
-      reportedState: { mode: "cool", target: 72, ambient: 77 },
-      desiredUntilUtc: null,
+      label: "Thermostat",
+      desired: { mode: "cool", target: 72 },
+      reported: { mode: "cool", target: 72, ambient: 77 },
       available: true,
-    };
-    mockDbSelect.mockReturnValue(new Chain([row]));
-    insertCapture();
-    const set = setBuilder();
+    });
     mockGetEntities.mockResolvedValue([
       haClimate({ current_temperature: 77, temperature: 75, hvac_action: "cooling" }),
     ]);
 
-    await runClimateEnforcerCycle();
+    await runClimateEnforcerCycle(store);
 
     // The wall change is absorbed, never fought.
     expect(mockCallService).not.toHaveBeenCalled();
-    const persisted = set.mock.calls.find(
-      (c) => (c[0] as { desiredState?: unknown })?.desiredState !== undefined,
-    );
-    expect((persisted?.[0] as { desiredState: DeviceClimateState }).desiredState).toEqual({
-      mode: "cool",
-      target: 75,
-    });
+    const row = await store.read(CLIMATE_DEVICE_ID);
+    expect(row?.desiredState).toEqual({ mode: "cool", target: 75 });
   });
 
   it("writes FRESH reportedState (incl. real ambient/action) every cycle, no push when converged", async () => {
-    const row = {
-      id: "climate-thermostat",
-      kind: "climate",
+    const store = createInMemoryDeviceStateStore();
+    await store.seed({
+      id: CLIMATE_DEVICE_ID,
+      kind: DeviceKind.Climate,
       entityId: "climate.home",
       domain: "climate",
-      desiredState: { mode: "cool", target: 70 },
-      reportedState: { mode: "cool", target: 70, ambient: 71 },
-      desiredUntilUtc: null,
+      label: "Thermostat",
+      desired: { mode: "cool", target: 70 },
+      reported: { mode: "cool", target: 70, ambient: 71 },
       available: true,
-    };
-    mockDbSelect.mockReturnValue(new Chain([row]));
-    insertCapture();
-    const set = setBuilder();
+    });
     mockGetEntities.mockResolvedValue([
       haClimate({ current_temperature: 73, temperature: 70, hvac_action: "cooling" }),
     ]);
 
-    await runClimateEnforcerCycle();
+    await runClimateEnforcerCycle(store);
 
     // Converged commandable fields → no actuation.
     expect(mockCallService).not.toHaveBeenCalled();
     // But reported is refreshed with the real ambient/action from HA.
-    const persisted = set.mock.calls.find(
-      (c) => (c[0] as { reportedState?: unknown })?.reportedState !== undefined,
-    );
-    expect((persisted?.[0] as { reportedState: DeviceClimateState }).reportedState).toMatchObject({
+    const row = await store.read(CLIMATE_DEVICE_ID);
+    expect(row?.reportedState).toMatchObject({
       mode: "cool",
       ambient: 73,
       action: "cooling",
@@ -520,19 +507,17 @@ describe("runClimateEnforcerCycle", () => {
     // User scenario: AC cool, ambient 75 > target 70 (actively cooling), fan
     // turned off via Controls (desired fanMode=auto). HA reports fan_mode=on
     // because the compressor is running. The enforcer must NOT re-push the fan.
-    const row = {
-      id: "climate-thermostat",
-      kind: "climate",
+    const store = createInMemoryDeviceStateStore();
+    await store.seed({
+      id: CLIMATE_DEVICE_ID,
+      kind: DeviceKind.Climate,
       entityId: "climate.home",
       domain: "climate",
-      desiredState: { mode: "cool", target: 70, fanMode: "auto" },
-      reportedState: { mode: "cool", target: 70, fanMode: "on", ambient: 75, action: "cooling" },
-      desiredUntilUtc: null,
+      label: "Thermostat",
+      desired: { mode: "cool", target: 70, fanMode: "auto" },
+      reported: { mode: "cool", target: 70, fanMode: "on", ambient: 75, action: "cooling" },
       available: true,
-    };
-    mockDbSelect.mockReturnValue(new Chain([row]));
-    insertCapture();
-    setBuilder();
+    });
     mockGetEntities.mockResolvedValue([
       haClimate({
         current_temperature: 75,
@@ -542,33 +527,29 @@ describe("runClimateEnforcerCycle", () => {
       }),
     ]);
 
-    await runClimateEnforcerCycle();
+    await runClimateEnforcerCycle(store);
 
     expect(mockCallService).not.toHaveBeenCalled();
   });
 
   it("marks unavailable when HA does not report the configured thermostat", async () => {
-    const row = {
-      id: "climate-thermostat",
-      kind: "climate",
+    const store = createInMemoryDeviceStateStore();
+    await store.seed({
+      id: CLIMATE_DEVICE_ID,
+      kind: DeviceKind.Climate,
       entityId: "climate.home",
       domain: "climate",
-      desiredState: { mode: "cool", target: 70 },
-      reportedState: { mode: "cool", target: 70 },
-      desiredUntilUtc: null,
+      label: "Thermostat",
+      desired: { mode: "cool", target: 70 },
+      reported: { mode: "cool", target: 70 },
       available: true,
-    };
-    mockDbSelect.mockReturnValue(new Chain([row]));
-    insertCapture();
-    const set = setBuilder();
+    });
     mockGetEntities.mockResolvedValue([]); // thermostat absent
 
-    await runClimateEnforcerCycle();
+    await runClimateEnforcerCycle(store);
 
     expect(mockCallService).not.toHaveBeenCalled();
-    const availFalse = set.mock.calls.find(
-      (c) => (c[0] as { available?: boolean })?.available === false,
-    );
-    expect(availFalse).toBeDefined();
+    const row = await store.read(CLIMATE_DEVICE_ID);
+    expect(row?.available).toBe(false);
   });
 });
