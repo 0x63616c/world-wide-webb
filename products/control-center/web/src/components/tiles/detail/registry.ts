@@ -6,7 +6,6 @@
  */
 
 import { climateDetailEntry } from "../modals/wiring/climate";
-import { clockDetailEntry } from "../modals/wiring/clock";
 import { eventsDetailEntry } from "../modals/wiring/events";
 import { networkDetailEntry } from "../modals/wiring/network";
 import { next12HoursDetailEntry } from "../modals/wiring/next12hours";
@@ -14,6 +13,7 @@ import { teslaDetailEntry } from "../modals/wiring/tesla";
 import { weatherDetailEntry } from "../modals/wiring/weather";
 import type { TileDetailEntry } from "./types";
 import { activityDetailEntry } from "./wiring/activity";
+import { clockDetailEntry } from "./wiring/clock";
 import { controlsDetailEntry } from "./wiring/controls";
 import { deploysDetailEntry } from "./wiring/deploys";
 import { dogCamDetailEntry } from "./wiring/dogcam";

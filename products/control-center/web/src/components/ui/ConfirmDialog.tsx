@@ -76,9 +76,9 @@ export function ConfirmDialog({
             onClick={onConfirm}
             style={{
               ...BUTTON_BASE,
-              background: danger ? "rgba(229, 72, 77, 0.14)" : "var(--acc-dim)",
-              border: `1px solid ${danger ? "rgba(229, 72, 77, 0.4)" : "var(--acc-line)"}`,
-              color: danger ? "#e5484d" : "var(--acc)",
+              background: danger ? "rgb(var(--red-rgb) / 0.14)" : "var(--acc-dim)",
+              border: `1px solid ${danger ? "rgb(var(--red-rgb) / 0.4)" : "var(--acc-line)"}`,
+              color: danger ? "var(--red)" : "var(--acc)",
               fontWeight: 600,
             }}
           >

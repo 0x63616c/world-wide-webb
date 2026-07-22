@@ -29,6 +29,10 @@ interface UISoundPlugin {
 export const UI_SOUND = {
   /** photoShutter.caf , the stock camera shutter. */
   photoShutter: "/System/Library/Audio/UISounds/photoShutter.caf",
+  /** alarm.caf , the classic iOS alarm bell. */
+  alarm: "/System/Library/Audio/UISounds/alarm.caf",
+  /** Modern/calendar_alert_chord.caf , soft rising chord, timer-done flavored. */
+  calendarAlertChord: "/System/Library/Audio/UISounds/Modern/calendar_alert_chord.caf",
 } as const;
 
 const plugin = registerPlugin<UISoundPlugin>("UISound");

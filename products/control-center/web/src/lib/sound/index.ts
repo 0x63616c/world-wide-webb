@@ -63,6 +63,19 @@ function audioContext(): AudioContext | null {
 }
 
 /**
+ * Warm the audio path from a user gesture, so a LATER unattended cue (a timer
+ * store's `timerDone` fired from its own ticker, an alarm at 7:30 AM) is not
+ * the first audio call the page ever makes. Browsers autoplay-suspend a
+ * context created outside a gesture, and a suspended context makes the synth
+ * fallback silently inaudible , so gesture-path store setters (add/resume a
+ * timer, save an alarm) call this to create + resume the shared context while
+ * a gesture is on the stack. No-op wherever audio is unavailable.
+ */
+export function warmAudio(): void {
+  void audioContext();
+}
+
+/**
  * Play a named cue. Prefers iOS's own recording (through the panel's audio
  * session) where the cue has one and the plugin is present, otherwise
  * synthesizes.
@@ -79,6 +92,16 @@ export function playCue(name: CueName): void {
 
   const audio = audioContext();
   if (!audio) return;
+  if (audio.state === "suspended") {
+    // A store-ticker-fired cue can reach a context that is still autoplay-
+    // suspended (no gesture warmed it). Nodes scheduled against a suspended
+    // clock would fire bunched-up (or never), so schedule AFTER resume settles
+    // , if the browser refuses (still no gesture), the cue stays a silent no-op.
+    Promise.resolve(audio.resume())
+      .then(() => cue.synth(audio, audio.destination, audio.currentTime))
+      .catch(() => {});
+    return;
+  }
   cue.synth(audio, audio.destination, audio.currentTime);
 }
 

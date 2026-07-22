@@ -13,9 +13,10 @@ import { createPortal } from "react-dom";
 import type { DetailVariant } from "../detail/types";
 
 export interface VariantSwitcherProps {
-  // Only slug + label are read, so any variant list (DetailVariant, or a
-  // caller's own {slug,label} shapes like PartySpeedControls') satisfies this.
-  variants: Pick<DetailVariant, "slug" | "label">[];
+  // Only slug + label (+ the optional badge dot) are read, so any variant list
+  // (DetailVariant, or a caller's own {slug,label} shapes like
+  // PartySpeedControls') satisfies this.
+  variants: Pick<DetailVariant, "slug" | "label" | "badge">[];
   activeSlug: string;
   onSelect: (slug: string) => void;
 }
@@ -47,7 +48,7 @@ export function VariantSwitcher({ variants, activeSlug, onSelect }: VariantSwitc
         style={{
           display: "flex",
           gap: 4,
-          padding: 5,
+          padding: 4,
           maxWidth: "92vw",
           overflowX: "auto",
           background: "var(--tile)",
@@ -67,8 +68,14 @@ export function VariantSwitcher({ variants, activeSlug, onSelect }: VariantSwitc
               aria-selected={active}
               onClick={() => onSelect(v.slug)}
               style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
                 whiteSpace: "nowrap",
-                padding: "7px 14px",
+                // Hit-area law: wall-panel pills carry a 44px touch target.
+                minHeight: 44,
+                padding: "7px 16px",
                 borderRadius: 999,
                 border: "none",
                 cursor: "pointer",
@@ -80,6 +87,21 @@ export function VariantSwitcher({ variants, activeSlug, onSelect }: VariantSwitc
               }}
             >
               {v.label}
+              {v.badge ? (
+                // Attention dot (e.g. a done timer while another variant is up).
+                // On the active pill the accent IS the background, so the dot
+                // inverts to stay visible.
+                <span
+                  data-testid={`variant-badge-${v.slug}`}
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                    background: active ? "var(--bg)" : "var(--acc)",
+                  }}
+                />
+              ) : null}
             </button>
           );
         })}

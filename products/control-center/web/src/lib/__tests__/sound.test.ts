@@ -5,15 +5,21 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { playCue, resetSoundForTests } from "../sound";
+import { playCue, resetSoundForTests, warmAudio } from "../sound";
 
 const SHUTTER_PATH = "/System/Library/Audio/UISounds/photoShutter.caf";
+const ALARM_PATH = "/System/Library/Audio/UISounds/alarm.caf";
+const CHORD_PATH = "/System/Library/Audio/UISounds/Modern/calendar_alert_chord.caf";
 const playUISound = vi.fn((_path: string) => true);
 
 vi.mock("../ui-sound", () => ({
-  // Inlined, not a reference to SHUTTER_PATH: vi.mock is hoisted above the const,
-  // which would still be in its temporal dead zone when this factory runs.
-  UI_SOUND: { photoShutter: "/System/Library/Audio/UISounds/photoShutter.caf" },
+  // Inlined, not references to the consts above: vi.mock is hoisted above them,
+  // which would still be in their temporal dead zone when this factory runs.
+  UI_SOUND: {
+    photoShutter: "/System/Library/Audio/UISounds/photoShutter.caf",
+    alarm: "/System/Library/Audio/UISounds/alarm.caf",
+    calendarAlertChord: "/System/Library/Audio/UISounds/Modern/calendar_alert_chord.caf",
+  },
   playUISound: (path: string) => playUISound(path),
 }));
 
@@ -81,6 +87,28 @@ describe("playCue , cues with an iOS sound", () => {
     // Two layered noise bursts make the snap.
     expect(ctx.createBufferSource).toHaveBeenCalledTimes(2);
   });
+
+  it("timerDone prefers the calendar-alert chord, falling back to two 3-note passes", () => {
+    playCue("timerDone");
+    expect(playUISound).toHaveBeenCalledWith(CHORD_PATH);
+    expect(ctx.createOscillator).not.toHaveBeenCalled();
+
+    playUISound.mockReturnValue(false);
+    playCue("timerDone");
+    // Three sine notes (E5/G5/C6), sequenced twice.
+    expect(ctx.createOscillator).toHaveBeenCalledTimes(6);
+  });
+
+  it("alarmFire prefers the classic alarm bell, falling back to 4 double-beeps", () => {
+    playCue("alarmFire");
+    expect(playUISound).toHaveBeenCalledWith(ALARM_PATH);
+    expect(ctx.createOscillator).not.toHaveBeenCalled();
+
+    playUISound.mockReturnValue(false);
+    playCue("alarmFire");
+    // Four pairs of two triangle beeps.
+    expect(ctx.createOscillator).toHaveBeenCalledTimes(8);
+  });
 });
 
 describe("playCue , cues without an iOS sound", () => {
@@ -116,10 +144,41 @@ describe("playCue , hostile runtimes", () => {
     expect(ctx.resume).toHaveBeenCalled();
   });
 
+  it("schedules the synth only after a suspended context's resume settles", async () => {
+    playUISound.mockReturnValue(false);
+    ctx.state = "suspended";
+    playCue("countdownTick");
+    // Synchronously nothing played , the cue waits on resume().
+    expect(ctx.createOscillator).not.toHaveBeenCalled();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ctx.createOscillator).toHaveBeenCalledTimes(1);
+  });
+
   it("reuses one context across cues rather than making a second", () => {
     playUISound.mockReturnValue(false);
     playCue("countdownTick");
     playCue("countdownTick");
     expect(vi.mocked(globalThis.AudioContext)).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("warmAudio", () => {
+  it("creates and resumes the shared context so a later cue is not the first audio call", () => {
+    ctx.state = "suspended";
+    warmAudio();
+    expect(vi.mocked(globalThis.AudioContext)).toHaveBeenCalledTimes(1);
+    expect(ctx.resume).toHaveBeenCalled();
+    // The later cue reuses the warmed context.
+    playUISound.mockReturnValue(false);
+    ctx.state = "running";
+    playCue("countdownTick");
+    expect(vi.mocked(globalThis.AudioContext)).toHaveBeenCalledTimes(1);
+    expect(ctx.createOscillator).toHaveBeenCalledTimes(1);
+  });
+
+  it("is a silent no-op where AudioContext does not exist", () => {
+    vi.stubGlobal("AudioContext", undefined);
+    expect(() => warmAudio()).not.toThrow();
   });
 });

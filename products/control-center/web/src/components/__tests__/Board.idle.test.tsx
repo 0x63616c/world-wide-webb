@@ -214,3 +214,31 @@ describe("Board idle reset with a modal open", () => {
     release();
   });
 });
+
+// The idle-hold seam (lib/idle-hold-store): something live on screen , a
+// running timer on the open clock page , suppresses the glide-home entirely,
+// and releasing the hold re-arms a fresh window.
+describe("Board idle reset with an idle hold", () => {
+  it("never glides home while a hold is live, and resumes after release", async () => {
+    const { acquireIdleHold, resetIdleHoldsForTests } = await import("../../lib/idle-hold-store");
+    try {
+      render(<Board />);
+      const stage = document.getElementById("stage") as HTMLElement;
+      const calls = panAway(stage);
+
+      let release: () => void = () => {};
+      act(() => {
+        release = acquireIdleHold("test-live");
+      });
+      act(() => vi.advanceTimersByTime(IDLE_RESET_MS * 3));
+      expect(calls).toHaveLength(0);
+
+      // Release re-enables the hook, which arms a FRESH window.
+      act(() => release());
+      act(() => vi.advanceTimersByTime(IDLE_RESET_MS));
+      expect(calls.length).toBeGreaterThan(0);
+    } finally {
+      resetIdleHoldsForTests();
+    }
+  });
+});

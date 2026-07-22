@@ -89,6 +89,65 @@ export const CUES = {
     },
   },
 
+  /**
+   * A timer reaching zero. On the kiosk: iOS's own calendar-alert chord (soft
+   * rising chord, timer-done flavored). Fallback: three quick sine notes
+   * (E5→G5→C6) with the same fast-attack/exp-decay envelope as countdownTick,
+   * played through twice , bright enough to carry, gentle enough to nag with
+   * (the timer store replays this on its 8 s nag schedule; the cue itself stays
+   * one pass).
+   */
+  timerDone: {
+    uiSoundPath: UI_SOUND.calendarAlertChord,
+    synth: (audio, out, now) => {
+      const notes = [659.25, 783.99, 1046.5]; // E5, G5, C6
+      for (const pass of [0, 1]) {
+        notes.forEach((freq, i) => {
+          const start = now + pass * 0.45 + i * 0.09;
+          const osc = audio.createOscillator();
+          osc.type = "sine";
+          osc.frequency.value = freq;
+          const gain = audio.createGain();
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(0.2, start + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
+          osc.connect(gain).connect(out);
+          osc.start(start);
+          osc.stop(start + 0.3);
+        });
+      }
+    },
+  },
+
+  /**
+   * An alarm going off. On the kiosk: iOS's classic alarm bell. Fallback: four
+   * double-beeps of 880 Hz triangle (two 120 ms beeps 60 ms apart, pairs 350 ms
+   * apart) , a single ~2 s utterance. The alarm store loops it on its 5 s nag
+   * schedule until dismissed; the cue itself is one pass.
+   */
+  alarmFire: {
+    uiSoundPath: UI_SOUND.alarm,
+    synth: (audio, out, now) => {
+      for (let pair = 0; pair < 4; pair++) {
+        for (const beep of [0, 1]) {
+          // Beep-to-beep inside a pair: 120 ms beep + 60 ms gap = 180 ms.
+          // Pair-to-pair: that 300 ms pair + a 350 ms rest = 650 ms period.
+          const start = now + pair * 0.65 + beep * 0.18;
+          const osc = audio.createOscillator();
+          osc.type = "triangle";
+          osc.frequency.value = 880;
+          const gain = audio.createGain();
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(0.22, start + 0.008);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.12);
+          osc.connect(gain).connect(out);
+          osc.start(start);
+          osc.stop(start + 0.14);
+        }
+      }
+    },
+  },
+
   /** A single countdown tick: a short, soft sine blip. Synthesized everywhere ,
    *  iOS's stock tick sounds belong to its own UI and read wrong here. */
   countdownTick: {
