@@ -1,3 +1,4 @@
+import { createInMemoryDeviceStateStore, DeviceKind, type DeviceStateStore } from "@www/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ─── mock the HA singleton ────────────────────────────────────────────────────
@@ -14,17 +15,6 @@ vi.mock("../integrations/homeassistant", () => ({
     getEntities: mockGetEntities,
     callService: mockCallService,
   },
-}));
-
-// ─── mock the DB (climate is now desired-authoritative , read/write device_state) ─
-
-const { mockDbSelect, mockDbUpdate } = vi.hoisted(() => ({
-  mockDbSelect: vi.fn(),
-  mockDbUpdate: vi.fn(),
-}));
-
-vi.mock("../db/index", () => ({
-  db: { select: mockDbSelect, update: mockDbUpdate },
 }));
 
 import type { HaEntity } from "../integrations/homeassistant/types";
@@ -51,66 +41,30 @@ function entity(partial: Partial<HaEntity> & { entity_id: string }): HaEntity {
   return { state: "off", attributes: {}, last_updated: "", ...partial };
 }
 
-// A thenable select chain that resolves to `rows` when awaited (drizzle mock).
-class SelectChain {
-  constructor(private readonly rows: unknown[]) {}
-  from(): this {
-    return this;
-  }
-  where(): this {
-    return this;
-  }
-  limit(): Promise<unknown[]> {
-    return Promise.resolve(this.rows);
-  }
-  // biome-ignore lint/suspicious/noThenProperty: intentional thenable for drizzle mock
-  then<R>(onFulfilled: (v: unknown[]) => R | PromiseLike<R>): Promise<R> {
-    return Promise.resolve(this.rows).then(onFulfilled);
-  }
-}
-
-// An update chain that records the `.set()` payload so a test can assert the
-// desired written (climate mutations no longer call HA , the write is the only
-// observable side-effect).
-function makeUpdateChain(setSpy: (payload: unknown) => void) {
-  const chain = {
-    set(payload: unknown) {
-      setSpy(payload);
-      return chain;
-    },
-    where() {
-      return Promise.resolve();
-    },
-  };
-  return chain;
-}
-
-// Build a device_state climate row (kind/domain "climate"); desired-authoritative.
-function climateRow(
+// Seed the in-memory store's climate-thermostat row with desired/reported.
+async function seedClimateRow(
+  store: DeviceStateStore,
   desired: Record<string, unknown> | null,
   reported: Record<string, unknown> | null,
-) {
-  return {
+): Promise<void> {
+  await store.seed({
     id: "climate-thermostat",
-    kind: "climate",
+    kind: DeviceKind.Climate,
     entityId: "climate.home",
     domain: "climate",
     label: "Thermostat",
-    reportedState: reported,
-    reportedAtUtc: new Date(),
-    reportedChangedAtUtc: null,
-    desiredState: desired,
-    desiredAtUtc: new Date(),
-    desiredUntilUtc: null,
+    reported: reported as never,
+    desired: desired as never,
     available: true,
-    createdAtUtc: new Date(),
-    updatedAtUtc: new Date(),
-  };
+  });
 }
+
+let store: DeviceStateStore;
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockIsConfigured.mockReturnValue(true);
+  store = createInMemoryDeviceStateStore();
 });
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -176,15 +130,12 @@ describe("resolveClimateEntityId()", () => {
 describe("getClimate() (desired-authoritative, reads device_state , www-unxz.2)", () => {
   it("builds a single-target state from the climate row, NO HA call", async () => {
     // desired carries mode+target; reported carries ambient/action (reported-only).
-    mockDbSelect.mockReturnValue(
-      new SelectChain([
-        climateRow(
-          { mode: HvacMode.Cool, target: 68 },
-          { mode: HvacMode.Cool, ambient: 72, action: HaHvacAction.Cooling },
-        ),
-      ]),
+    await seedClimateRow(
+      store,
+      { mode: HvacMode.Cool, target: 68 },
+      { mode: HvacMode.Cool, ambient: 72, action: HaHvacAction.Cooling },
     );
-    expect(await getClimate()).toEqual({
+    expect(await getClimate(store)).toEqual({
       mode: HvacMode.Cool,
       target: 68,
       ambient: 72,
@@ -194,15 +145,12 @@ describe("getClimate() (desired-authoritative, reads device_state , www-unxz.2)"
   });
 
   it("builds a heat_cool range state from the row", async () => {
-    mockDbSelect.mockReturnValue(
-      new SelectChain([
-        climateRow(
-          { mode: HvacMode.HeatCool, targetLow: 68, targetHigh: 76 },
-          { mode: HvacMode.HeatCool, ambient: 73, action: "idle" },
-        ),
-      ]),
+    await seedClimateRow(
+      store,
+      { mode: HvacMode.HeatCool, targetLow: 68, targetHigh: 76 },
+      { mode: HvacMode.HeatCool, ambient: 73, action: "idle" },
     );
-    expect(await getClimate()).toEqual({
+    expect(await getClimate(store)).toEqual({
       mode: HvacMode.HeatCool,
       targetLow: 68,
       targetHigh: 76,
@@ -212,10 +160,8 @@ describe("getClimate() (desired-authoritative, reads device_state , www-unxz.2)"
   });
 
   it("builds a no-setpoint off state from the row", async () => {
-    mockDbSelect.mockReturnValue(
-      new SelectChain([climateRow({ mode: HvacMode.Off }, { mode: HvacMode.Off, ambient: 71 })]),
-    );
-    expect(await getClimate()).toEqual({
+    await seedClimateRow(store, { mode: HvacMode.Off }, { mode: HvacMode.Off, ambient: 71 });
+    expect(await getClimate(store)).toEqual({
       mode: HvacMode.Off,
       ambient: 71,
       action: HvacAction.Idle,
@@ -227,59 +173,50 @@ describe("getClimate() (desired-authoritative, reads device_state , www-unxz.2)"
   });
 
   it("an off state carries the REMEMBERED setpoint so the next on has a real number", async () => {
-    mockDbSelect.mockReturnValue(
-      new SelectChain([
-        climateRow({ mode: HvacMode.Off, target: 72 }, { mode: HvacMode.Off, ambient: 81 }),
-      ]),
+    await seedClimateRow(
+      store,
+      { mode: HvacMode.Off, target: 72 },
+      { mode: HvacMode.Off, ambient: 81 },
     );
-    expect(await getClimate()).toMatchObject({ mode: HvacMode.Off, target: 72, ambient: 81 });
+    expect(await getClimate(store)).toMatchObject({ mode: HvacMode.Off, target: 72, ambient: 81 });
   });
 
   it("desired mode overlays reported (the dashboard's intent wins for mode)", async () => {
     // Reported says cool (HA at wall), desired says off , the row reads off.
-    mockDbSelect.mockReturnValue(
-      new SelectChain([
-        climateRow({ mode: HvacMode.Off }, { mode: HvacMode.Cool, ambient: 72, target: 70 }),
-      ]),
+    await seedClimateRow(
+      store,
+      { mode: HvacMode.Off },
+      { mode: HvacMode.Cool, ambient: 72, target: 70 },
     );
-    expect((await getClimate()).mode).toBe(HvacMode.Off);
+    expect((await getClimate(store)).mode).toBe(HvacMode.Off);
   });
 
   it("treats an unknown hvac mode as off", async () => {
-    mockDbSelect.mockReturnValue(
-      new SelectChain([climateRow({ mode: "dry" }, { mode: "dry", ambient: 70 })]),
-    );
-    expect((await getClimate()).mode).toBe(HvacMode.Off);
+    await seedClimateRow(store, { mode: "dry" }, { mode: "dry", ambient: 70 });
+    expect((await getClimate(store)).mode).toBe(HvacMode.Off);
   });
 
   it("throws when HA is not configured", async () => {
     mockIsConfigured.mockReturnValue(false);
-    await expect(getClimate()).rejects.toThrow("Home Assistant is not configured");
-    expect(mockDbSelect).not.toHaveBeenCalled();
+    await expect(getClimate(store)).rejects.toThrow("Home Assistant is not configured");
   });
 
   it("throws when the enforcer has not seeded the climate row yet", async () => {
-    mockDbSelect.mockReturnValue(new SelectChain([]));
-    await expect(getClimate()).rejects.toThrow("no climate state");
+    await expect(getClimate(store)).rejects.toThrow("no climate state");
   });
 
   it("uses 0 for a missing setpoint (honest sensor gap, not invented)", async () => {
-    mockDbSelect.mockReturnValue(
-      new SelectChain([climateRow({ mode: HvacMode.Cool }, { mode: HvacMode.Cool, ambient: 72 })]),
-    );
-    expect(await getClimate()).toMatchObject({ mode: HvacMode.Cool, target: 0 });
+    await seedClimateRow(store, { mode: HvacMode.Cool }, { mode: HvacMode.Cool, ambient: 72 });
+    expect(await getClimate(store)).toMatchObject({ mode: HvacMode.Cool, target: 0 });
   });
 
   it("ambient/action always come from real reported HA values (zero-fake-data)", async () => {
-    mockDbSelect.mockReturnValue(
-      new SelectChain([
-        climateRow(
-          { mode: HvacMode.Heat, target: 70 },
-          { mode: HvacMode.Heat, ambient: 65, action: HaHvacAction.Heating },
-        ),
-      ]),
+    await seedClimateRow(
+      store,
+      { mode: HvacMode.Heat, target: 70 },
+      { mode: HvacMode.Heat, ambient: 65, action: HaHvacAction.Heating },
     );
-    const result = await getClimate();
+    const result = await getClimate(store);
     expect(result.ambient).toBe(65);
     expect(result.action).toBe(HvacAction.Heating);
   });
@@ -287,27 +224,24 @@ describe("getClimate() (desired-authoritative, reads device_state , www-unxz.2)"
   it("returns the LIVE reported ambient when a stale desired carries ambient/action (www-dnpj prod repro)", async () => {
     // Prod row 2026-06-10: desired.ambient frozen at 71 since seed while
     // reported.ambient tracked the real room (73). The panel must show 73.
-    mockDbSelect.mockReturnValue(
-      new SelectChain([
-        climateRow(
-          {
-            mode: HvacMode.Cool,
-            target: 72,
-            fanMode: "on",
-            ambient: 71,
-            action: HaHvacAction.Cooling,
-          },
-          {
-            mode: HvacMode.Cool,
-            target: 72,
-            fanMode: "auto",
-            ambient: 73,
-            action: HaHvacAction.Cooling,
-          },
-        ),
-      ]),
+    await seedClimateRow(
+      store,
+      {
+        mode: HvacMode.Cool,
+        target: 72,
+        fanMode: "on",
+        ambient: 71,
+        action: HaHvacAction.Cooling,
+      },
+      {
+        mode: HvacMode.Cool,
+        target: 72,
+        fanMode: "auto",
+        ambient: 73,
+        action: HaHvacAction.Cooling,
+      },
     );
-    const result = await getClimate();
+    const result = await getClimate(store);
     expect(result.ambient).toBe(73);
     expect(result.action).toBe(HvacAction.Cooling);
   });
@@ -332,131 +266,119 @@ function homeEntity(over: Partial<HaEntity["attributes"]> = {}, state: HvacMode 
 
 // Climate mutations are desired-authoritative (www-unxz.2): they write the
 // device_state desired (+ command window) and make ZERO ha.callService , the
-// climate enforcer pushes desired→HA. `setSpy` captures the written desired.
+// climate enforcer pushes desired→HA.
 
 describe("setClimateTarget() (writes desired, NO HA call)", () => {
   it("writes a single target onto desired, clearing any stale range", async () => {
-    let written: { desiredState?: Record<string, unknown> } = {};
-    mockDbSelect.mockReturnValue(
-      new SelectChain([
-        climateRow({ mode: HvacMode.Cool, targetLow: 60, targetHigh: 80 }, { mode: HvacMode.Cool }),
-      ]),
+    await seedClimateRow(
+      store,
+      { mode: HvacMode.Cool, targetLow: 60, targetHigh: 80 },
+      { mode: HvacMode.Cool },
     );
-    mockDbUpdate.mockReturnValue(makeUpdateChain((p) => (written = p as typeof written)));
 
-    await setClimateTarget("climate.home", 72);
+    await setClimateTarget("climate.home", 72, store);
 
     expect(mockCallService).not.toHaveBeenCalled();
-    expect(written.desiredState).toMatchObject({ mode: HvacMode.Cool, target: 72 });
-    expect(written.desiredState?.targetLow).toBeUndefined();
-    expect(written.desiredState?.targetHigh).toBeUndefined();
+    const row = await store.read("climate-thermostat");
+    expect(row?.desiredState).toMatchObject({ mode: HvacMode.Cool, target: 72 });
+    expect((row?.desiredState as { targetLow?: number })?.targetLow).toBeUndefined();
+    expect((row?.desiredState as { targetHigh?: number })?.targetHigh).toBeUndefined();
   });
 
   it("never writes reported-only ambient/action into desired (www-dnpj)", async () => {
     // A pre-fix desired (or the reported fallback base) may carry ambient/action;
     // every desired write must strip them or they shadow the live room temp.
-    let written: { desiredState?: Record<string, unknown> } = {};
-    mockDbSelect.mockReturnValue(
-      new SelectChain([
-        climateRow(
-          { mode: HvacMode.Cool, target: 70, ambient: 71, action: HaHvacAction.Cooling },
-          { mode: HvacMode.Cool, target: 70, ambient: 73 },
-        ),
-      ]),
+    await seedClimateRow(
+      store,
+      { mode: HvacMode.Cool, target: 70, ambient: 71, action: HaHvacAction.Cooling },
+      { mode: HvacMode.Cool, target: 70, ambient: 73 },
     );
-    mockDbUpdate.mockReturnValue(makeUpdateChain((p) => (written = p as typeof written)));
 
-    await setClimateTarget("climate.home", 68);
+    await setClimateTarget("climate.home", 68, store);
 
-    expect(written.desiredState).toMatchObject({ mode: HvacMode.Cool, target: 68 });
-    expect(written.desiredState?.ambient).toBeUndefined();
-    expect(written.desiredState?.action).toBeUndefined();
+    const row = await store.read("climate-thermostat");
+    expect(row?.desiredState).toMatchObject({ mode: HvacMode.Cool, target: 68 });
+    expect((row?.desiredState as { ambient?: number })?.ambient).toBeUndefined();
+    expect((row?.desiredState as { action?: string })?.action).toBeUndefined();
   });
 });
 
 describe("setClimateRange() (writes desired, NO HA call)", () => {
   it("writes target_temp_low/high onto desired, clearing any stale single target", async () => {
-    let written: { desiredState?: Record<string, unknown> } = {};
-    mockDbSelect.mockReturnValue(
-      new SelectChain([
-        climateRow({ mode: HvacMode.HeatCool, target: 70 }, { mode: HvacMode.HeatCool }),
-      ]),
+    await seedClimateRow(
+      store,
+      { mode: HvacMode.HeatCool, target: 70 },
+      { mode: HvacMode.HeatCool },
     );
-    mockDbUpdate.mockReturnValue(makeUpdateChain((p) => (written = p as typeof written)));
 
-    await setClimateRange("climate.home", 68, 76);
+    await setClimateRange("climate.home", 68, 76, store);
 
     expect(mockCallService).not.toHaveBeenCalled();
-    expect(written.desiredState).toMatchObject({ targetLow: 68, targetHigh: 76 });
-    expect(written.desiredState?.target).toBeUndefined();
+    const row = await store.read("climate-thermostat");
+    expect(row?.desiredState).toMatchObject({ targetLow: 68, targetHigh: 76 });
+    expect((row?.desiredState as { target?: number })?.target).toBeUndefined();
   });
 });
 
 describe("setClimateMode() (writes desired, NO HA call)", () => {
   it("writes the hvac mode onto desired, preserving the setpoints", async () => {
-    let written: { desiredState?: Record<string, unknown>; desiredUntilUtc?: Date } = {};
-    mockDbSelect.mockReturnValue(
-      new SelectChain([climateRow({ mode: HvacMode.Cool, target: 70 }, { mode: HvacMode.Cool })]),
-    );
-    mockDbUpdate.mockReturnValue(makeUpdateChain((p) => (written = p as typeof written)));
+    await seedClimateRow(store, { mode: HvacMode.Cool, target: 70 }, { mode: HvacMode.Cool });
 
-    await setClimateMode("climate.home", HvacMode.HeatCool);
+    await setClimateMode("climate.home", HvacMode.HeatCool, store);
 
     expect(mockCallService).not.toHaveBeenCalled();
+    const row = await store.read("climate-thermostat");
     // The single setpoint is converted to the band heat_cool needs (never left as
     // a `target` heat_cool cannot use, and never dropped to a 0 range).
-    expect(written.desiredState).toMatchObject({
+    expect(row?.desiredState).toMatchObject({
       mode: HvacMode.HeatCool,
       targetLow: 67,
       targetHigh: 73,
     });
     // A command window is stamped so the enforcer pushes regardless of policy.
-    expect(written.desiredUntilUtc).toBeInstanceOf(Date);
+    expect(row?.desiredUntilUtc).toBeInstanceOf(Date);
   });
 
   it("off→cool commands the REMEMBERED setpoint immediately, never 0 (prod repro)", async () => {
     // Prod 2026-07-21: HA reports no setpoint while off, so desired held none and
     // the mutation returned target 0. The tile showed 0°F for ~10s until HA
     // re-reported a setpoint after the mode change landed.
-    let written: { desiredState?: Record<string, unknown> } = {};
-    mockDbSelect.mockReturnValue(
-      new SelectChain([
-        climateRow({ mode: HvacMode.Off, target: 72 }, { mode: HvacMode.Off, ambient: 81 }),
-      ]),
+    await seedClimateRow(
+      store,
+      { mode: HvacMode.Off, target: 72 },
+      { mode: HvacMode.Off, ambient: 81 },
     );
-    mockDbUpdate.mockReturnValue(makeUpdateChain((p) => (written = p as typeof written)));
 
-    const result = await setClimateMode("climate.home", HvacMode.Cool);
+    const result = await setClimateMode("climate.home", HvacMode.Cool, store);
 
-    expect(written.desiredState).toMatchObject({ mode: HvacMode.Cool, target: 72 });
+    const row = await store.read("climate-thermostat");
+    expect(row?.desiredState).toMatchObject({ mode: HvacMode.Cool, target: 72 });
     expect(result).toMatchObject({ mode: HvacMode.Cool, target: 72 });
   });
 
   it("turning off REMEMBERS the setpoint the tile was showing, even when only reported held it", async () => {
-    let written: { desiredState?: Record<string, unknown> } = {};
     // Desired is a bare mode (a previous mode toggle wrote no setpoint); the 74
     // the panel shows comes from reported. It must survive the trip through off.
-    mockDbSelect.mockReturnValue(
-      new SelectChain([
-        climateRow({ mode: HvacMode.Cool }, { mode: HvacMode.Cool, target: 74, ambient: 79 }),
-      ]),
+    await seedClimateRow(
+      store,
+      { mode: HvacMode.Cool },
+      { mode: HvacMode.Cool, target: 74, ambient: 79 },
     );
-    mockDbUpdate.mockReturnValue(makeUpdateChain((p) => (written = p as typeof written)));
 
-    await setClimateMode("climate.home", HvacMode.Off);
+    await setClimateMode("climate.home", HvacMode.Off, store);
 
-    expect(written.desiredState).toEqual({ mode: HvacMode.Off, target: 74 });
+    const row = await store.read("climate-thermostat");
+    expect(row?.desiredState).toEqual({ mode: HvacMode.Off, target: 74 });
   });
 
   it("can turn the system off and returns the DB-derived state", async () => {
-    mockDbSelect.mockReturnValue(
-      new SelectChain([
-        climateRow({ mode: HvacMode.Cool, target: 70 }, { mode: HvacMode.Cool, ambient: 72 }),
-      ]),
+    await seedClimateRow(
+      store,
+      { mode: HvacMode.Cool, target: 70 },
+      { mode: HvacMode.Cool, ambient: 72 },
     );
-    mockDbUpdate.mockReturnValue(makeUpdateChain(() => {}));
 
-    const result = await setClimateMode("climate.home", HvacMode.Off);
+    const result = await setClimateMode("climate.home", HvacMode.Off, store);
 
     expect(mockCallService).not.toHaveBeenCalled();
     expect(result.mode).toBe(HvacMode.Off);

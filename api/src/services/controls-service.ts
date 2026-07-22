@@ -1,5 +1,6 @@
+import type { DeviceStateStore } from "@www/core";
 import { getLogger } from "@www/logger";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   assignMoodColors,
   BLUE_RGB,
@@ -20,7 +21,7 @@ import {
 import { deviceStateStore } from "../db/device-state-store";
 import { db } from "../db/index";
 import type { DeviceClimateState, DeviceLightState, LightColor } from "../db/schema";
-import { deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
+import { type deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import { CLIMATE_DEVICE_ID } from "./climate-enforcer-service";
 import { DeviceKind, isClimateState, mergeDeviceState } from "./device-state-mapping";
@@ -212,7 +213,9 @@ function deriveSceneFromDesired(onLampStates: (DeviceLightState | null)[]): Lamp
  * Throws when HA is unconfigured so the tile shimmers via the tRPC error state
  * (www-355t.30; the repo-wide THROW-on-unavailable convention).
  */
-export async function getControlsState(): Promise<ControlsState> {
+export async function getControlsState(
+  store: DeviceStateStore = deviceStateStore,
+): Promise<ControlsState> {
   if (!ha.isConfigured()) {
     throw new Error("Home Assistant is not configured");
   }
@@ -220,7 +223,7 @@ export async function getControlsState(): Promise<ControlsState> {
   // Lamp/light/fan state is all read from device_state (desired-authoritative).
   let deviceRows: (typeof deviceState.$inferSelect)[] = [];
   try {
-    deviceRows = await db.select().from(deviceState);
+    deviceRows = await store.list();
   } catch (err) {
     // DB unreachable , no rows; every managed device reads unavailable (shimmer).
     getLogger().warn({ err }, "getControlsState: DB read failed, devices appear unavailable");
@@ -352,20 +355,13 @@ async function readLampMode(): Promise<LampMode> {
 async function writeDesired(
   entries: LightEntry[],
   mutate: (entry: LightEntry, prev: DeviceLightState | null) => DeviceLightState,
+  store: DeviceStateStore,
 ): Promise<void> {
   if (entries.length === 0) return;
 
   let rows: (typeof deviceState.$inferSelect)[] = [];
   try {
-    rows = await db
-      .select()
-      .from(deviceState)
-      .where(
-        inArray(
-          deviceState.entityId,
-          entries.map((e) => e.entityId),
-        ),
-      );
+    rows = await store.list({ entityIds: entries.map((e) => e.entityId) });
   } catch {
     rows = [];
   }
@@ -379,7 +375,7 @@ async function writeDesired(
       // The store owns the command-window stamp and throws on DB failure , a
       // swallowed write would be fabricated success (www-unxz.1). The error
       // propagates to the tRPC layer, which maps it.
-      await deviceStateStore.upsertDesired({
+      await store.upsertDesired({
         id: entry.id,
         kind: entry.kind === LightKind.Lamp ? DeviceKind.Light : DeviceKind.Switch,
         entityId: entry.entityId,
@@ -400,19 +396,14 @@ async function writeDesired(
  * throws "no climate state" (parity with the other climate mutations) , you cannot
  * command a thermostat the enforcer has not yet seen.
  */
-async function writeFanDesired(fanMode: FanMode): Promise<void> {
-  const rows = await db
-    .select()
-    .from(deviceState)
-    .where(eq(deviceState.id, CLIMATE_DEVICE_ID))
-    .limit(1);
-  const row = rows[0];
+async function writeFanDesired(fanMode: FanMode, store: DeviceStateStore): Promise<void> {
+  const row = await store.read(CLIMATE_DEVICE_ID);
   if (!row) throw new Error("no climate state");
   const prev = isClimateState(row.desiredState) ? row.desiredState : null;
   const reported = isClimateState(row.reportedState) ? row.reportedState : null;
   const base: DeviceClimateState = prev ?? reported ?? { mode: "off" };
   const desired: DeviceClimateState = { ...base, fanMode };
-  await deviceStateStore.updateDesired({ id: row.id, desired });
+  await store.updateDesired({ id: row.id, desired });
 }
 
 /** All lamp LightEntry rows in LAMP_ENTITY_IDS order. */
@@ -438,7 +429,11 @@ function fixtureEntries(): LightEntry[] {
  * toggle). Fan stays the climate fan_mode path (evee parity). Throws when HA is
  * unconfigured. Returns the desired-authoritative state.
  */
-export async function toggleControl(key: ControlKey, on: boolean): Promise<ControlsState> {
+export async function toggleControl(
+  key: ControlKey,
+  on: boolean,
+  store: DeviceStateStore = deviceStateStore,
+): Promise<ControlsState> {
   if (!ha.isConfigured()) {
     throw new Error("Home Assistant is not configured");
   }
@@ -453,15 +448,17 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
       // Toggle ON preserves the existing desired color/brightness (scene survives
       // a toggle); OFF just flips on. The desired write is the source of truth; the
       // enforcer pushes it to HA within the command window.
-      await writeDesired(entries, (_entry, prev) =>
-        on ? { ...prev, on: true } : { ...(prev ?? {}), on: false },
+      await writeDesired(
+        entries,
+        (_entry, prev) => (on ? { ...prev, on: true } : { ...(prev ?? {}), on: false }),
+        store,
       );
       break;
     }
 
     case ControlKey.Lights: {
       const entries = fixtureEntries();
-      await writeDesired(entries, () => ({ on }));
+      await writeDesired(entries, () => ({ on }), store);
       break;
     }
 
@@ -469,12 +466,12 @@ export async function toggleControl(key: ControlKey, on: boolean): Promise<Contr
       // Desired-authoritative (www-unxz.2): write the fan_mode intent onto the
       // climate row's desired (+ command window); the climate enforcer pushes it
       // to HA. No ha.callService in the hot path.
-      await writeFanDesired(on ? FanMode.On : FanMode.Auto);
+      await writeFanDesired(on ? FanMode.On : FanMode.Auto, store);
       break;
     }
   }
 
-  return getControlsState();
+  return getControlsState(store);
 }
 
 /**
@@ -502,7 +499,10 @@ function sceneColors(scene: LampScene): LightColor[] {
  * color and palette membership is the signature (www-vhht). Throws when HA is
  * unconfigured.
  */
-export async function setLampScene(scene: LampScene): Promise<ControlsState> {
+export async function setLampScene(
+  scene: LampScene,
+  store: DeviceStateStore = deviceStateStore,
+): Promise<ControlsState> {
   if (!ha.isConfigured()) {
     throw new Error("Home Assistant is not configured");
   }
@@ -516,12 +516,16 @@ export async function setLampScene(scene: LampScene): Promise<ControlsState> {
   // entries are in LAMP_ENTITY_IDS order, so colors[i] lines up with entries[i].
   const colorByEntity = new Map(entries.map((entry, i) => [entry.entityId, colors[i]]));
 
-  await writeDesired(entries, (entry) => ({
-    on: true,
-    color: colorByEntity.get(entry.entityId),
-  }));
+  await writeDesired(
+    entries,
+    (entry) => ({
+      on: true,
+      color: colorByEntity.get(entry.entityId),
+    }),
+    store,
+  );
 
-  return getControlsState();
+  return getControlsState(store);
 }
 
 /**
@@ -529,7 +533,10 @@ export async function setLampScene(scene: LampScene): Promise<ControlsState> {
  * DESIRED (on=true, preserving each lamp's existing color) AND actuates HA. The
  * pct is clamped. Throws when HA is unconfigured.
  */
-export async function setLampBrightness(pct: number): Promise<ControlsState> {
+export async function setLampBrightness(
+  pct: number,
+  store: DeviceStateStore = deviceStateStore,
+): Promise<ControlsState> {
   if (!ha.isConfigured()) {
     throw new Error("Home Assistant is not configured");
   }
@@ -537,13 +544,17 @@ export async function setLampBrightness(pct: number): Promise<ControlsState> {
   const raw = brightnessPctToRaw(pct);
   const entries = lampEntries();
 
-  await writeDesired(entries, (_entry, prev) => ({
-    on: true,
-    brightness: raw,
-    ...(prev?.color ? { color: prev.color } : {}),
-  }));
+  await writeDesired(
+    entries,
+    (_entry, prev) => ({
+      on: true,
+      brightness: raw,
+      ...(prev?.color ? { color: prev.color } : {}),
+    }),
+    store,
+  );
 
-  return getControlsState();
+  return getControlsState(store);
 }
 
 /**
@@ -554,14 +565,18 @@ export async function setLampBrightness(pct: number): Promise<ControlsState> {
  * "none"). Throws when HA is unconfigured (parity with the other mutations, so the
  * tile surfaces the same error). Returns the desired-authoritative state.
  */
-export async function setLampMode(mode: LampMode, speed?: LampModeSpeed): Promise<ControlsState> {
+export async function setLampMode(
+  mode: LampMode,
+  speed?: LampModeSpeed,
+  store: DeviceStateStore = deviceStateStore,
+): Promise<ControlsState> {
   if (!ha.isConfigured()) {
     throw new Error("Home Assistant is not configured");
   }
 
   // Starting party with no lamps on has nothing to animate , leave the row as-is.
-  if (mode === LampMode.Party && !(await anyLampCurrentlyOn())) {
-    return getControlsState();
+  if (mode === LampMode.Party && !(await anyLampCurrentlyOn(store))) {
+    return getControlsState(store);
   }
 
   const now = new Date();
@@ -577,17 +592,14 @@ export async function setLampMode(mode: LampMode, speed?: LampModeSpeed): Promis
     // DB unreachable , the mode cannot be recorded; surface current state anyway.
   }
 
-  return getControlsState();
+  return getControlsState(store);
 }
 
 /** True when at least one lamp's effective (desired-authoritative) state is on. */
-async function anyLampCurrentlyOn(): Promise<boolean> {
+async function anyLampCurrentlyOn(store: DeviceStateStore): Promise<boolean> {
   let rows: (typeof deviceState.$inferSelect)[] = [];
   try {
-    rows = await db
-      .select()
-      .from(deviceState)
-      .where(inArray(deviceState.entityId, [...LAMP_ENTITY_IDS]));
+    rows = await store.list({ entityIds: [...LAMP_ENTITY_IDS] });
   } catch {
     return false;
   }

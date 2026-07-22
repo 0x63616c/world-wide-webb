@@ -1,9 +1,7 @@
-import { eq } from "drizzle-orm";
+import type { DeviceStateStore } from "@www/core";
 
 import { deviceStateStore } from "../db/device-state-store";
-import { db } from "../db/index";
 import type { DeviceClimateState } from "../db/schema";
-import { deviceState } from "../db/schema";
 import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
@@ -128,23 +126,19 @@ export function isValidRange(low: number, high: number): boolean {
  * unconfigured (parity with the rest of the dashboard's THROW-on-unavailable) or
  * when the enforcer has not yet seeded the row (the tile shimmers).
  */
-export async function getClimate(): Promise<ClimateState> {
+export async function getClimate(
+  store: DeviceStateStore = deviceStateStore,
+): Promise<ClimateState> {
   if (!ha.isConfigured()) throw new Error("Home Assistant is not configured");
-  const climate = await readClimateEffective();
+  const climate = await readClimateEffective(store);
   if (!climate) throw new Error("no climate state");
   return toClimateState(climate);
 }
 
 /** The effective (desired-overlaid) climate state from the DB row, or null. */
-async function readClimateEffective(): Promise<DeviceClimateState | null> {
-  const rows = await db
-    .select()
-    .from(deviceState)
-    .where(eq(deviceState.id, CLIMATE_DEVICE_ID))
-    .limit(1);
-  const row = rows[0];
-  if (!row) return null;
-  const merged = mergeDeviceState(row);
+async function readClimateEffective(store: DeviceStateStore): Promise<DeviceClimateState | null> {
+  const merged = await store.readEffective(CLIMATE_DEVICE_ID);
+  if (!merged) return null;
   return isClimateState(merged.state) ? merged.state : null;
 }
 
@@ -230,13 +224,11 @@ function forMode(state: DeviceClimateState): DeviceClimateState {
  * desired to HA within its cycle. `_entityId` is accepted for router parity but
  * the thermostat is the single configured entity (one device_state row).
  */
-async function writeClimateDesired(patch: Partial<DeviceClimateState>): Promise<ClimateState> {
-  const rows = await db
-    .select()
-    .from(deviceState)
-    .where(eq(deviceState.id, CLIMATE_DEVICE_ID))
-    .limit(1);
-  const row = rows[0];
+async function writeClimateDesired(
+  patch: Partial<DeviceClimateState>,
+  store: DeviceStateStore,
+): Promise<ClimateState> {
+  const row = await store.read(CLIMATE_DEVICE_ID);
   // The enforcer seeds the row on first HA sight; until then there is no row to
   // command. Surface that as unavailable rather than fabricating a thermostat.
   if (!row) throw new Error("no climate state");
@@ -258,7 +250,7 @@ async function writeClimateDesired(patch: Partial<DeviceClimateState>): Promise<
   const desired: DeviceClimateState = sanitizeClimateDesired(forMode({ ...base, ...patch }));
   // The store owns the command-window stamp and throws on DB failure (the write is
   // this mutation's only effect); the error propagates to the tRPC layer.
-  await deviceStateStore.updateDesired({ id: row.id, desired });
+  await store.updateDesired({ id: row.id, desired });
   return toClimateState(
     mergeDeviceState({ ...row, desiredState: desired }).state as DeviceClimateState,
   );
@@ -268,17 +260,22 @@ async function writeClimateDesired(patch: Partial<DeviceClimateState>): Promise<
 export async function setClimateMode(
   _entityId: string,
   hvacMode: ClimateMode,
+  store: DeviceStateStore = deviceStateStore,
 ): Promise<ClimateState> {
-  return writeClimateDesired({ mode: hvacMode });
+  return writeClimateDesired({ mode: hvacMode }, store);
 }
 
 /** Single setpoint (cool/heat). Writes desired; returns DB state. */
 export async function setClimateTarget(
   _entityId: string,
   temperature: number,
+  store: DeviceStateStore = deviceStateStore,
 ): Promise<ClimateState> {
   // A single setpoint clears any stale heat_cool range so the two can't coexist.
-  return writeClimateDesired({ target: temperature, targetLow: undefined, targetHigh: undefined });
+  return writeClimateDesired(
+    { target: temperature, targetLow: undefined, targetHigh: undefined },
+    store,
+  );
 }
 
 /** Range setpoint (heat_cool). Writes desired; returns DB state. */
@@ -286,9 +283,10 @@ export async function setClimateRange(
   _entityId: string,
   targetLow: number,
   targetHigh: number,
+  store: DeviceStateStore = deviceStateStore,
 ): Promise<ClimateState> {
   // A range clears any stale single setpoint so the two can't coexist.
-  return writeClimateDesired({ targetLow, targetHigh, target: undefined });
+  return writeClimateDesired({ targetLow, targetHigh, target: undefined }, store);
 }
 
 /**

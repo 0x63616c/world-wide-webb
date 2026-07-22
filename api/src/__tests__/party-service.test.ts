@@ -5,8 +5,11 @@
  * The engine's tick (which drives HA) is tested via its pure color/param build;
  * a cycle-level test stubs the engine to prove reconcile drives start/stop.
  */
+import { createInMemoryDeviceStateStore, DeviceKind, type DeviceStateStore } from "@www/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// device-state reads now go through the injected DeviceStateStore; `db` still
+// backs the lamp_mode singleton table (unrelated to the device_state migration).
 const { mockDbSelect } = vi.hoisted(() => ({ mockDbSelect: vi.fn() }));
 vi.mock("../db/index", () => ({ db: { select: mockDbSelect } }));
 
@@ -123,22 +126,34 @@ function stubEngine(running = false, speed: LampModeSpeed | null = null): PartyE
   };
 }
 
+let store: DeviceStateStore;
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockCallService.mockResolvedValue(undefined);
+  store = createInMemoryDeviceStateStore();
 });
+
+async function seedLamp(desiredOn: boolean): Promise<void> {
+  await store.upsertDesired({
+    id: "lgt_desk",
+    kind: DeviceKind.Light,
+    entityId: "light.desk",
+    domain: "light",
+    label: "Desk",
+    desired: { on: desiredOn },
+  });
+}
 
 describe("reconcilePartyMode", () => {
   it("starts the engine when the DB row says party and a lamp is on", async () => {
     const eng = stubEngine(false, null);
-    // First select = lamp_mode row; second = lamp device rows (one on).
-    mockDbSelect
-      .mockReturnValueOnce(new Chain([{ id: "singleton", mode: "party", speed: "fast" }]))
-      .mockReturnValueOnce(
-        new Chain([{ entityId: "light.desk", desiredState: { on: true }, available: true }]),
-      );
+    mockDbSelect.mockReturnValueOnce(
+      new Chain([{ id: "singleton", mode: "party", speed: "fast" }]),
+    );
+    await seedLamp(true);
 
-    await reconcilePartyMode(eng);
+    await reconcilePartyMode(eng, store);
 
     expect(eng.start).toHaveBeenCalledWith(LampModeSpeed.Fast);
     expect(eng.stop).not.toHaveBeenCalled();
@@ -146,13 +161,10 @@ describe("reconcilePartyMode", () => {
 
   it("stops the engine when the DB row says none", async () => {
     const eng = stubEngine(true, LampModeSpeed.Fast);
-    mockDbSelect
-      .mockReturnValueOnce(new Chain([{ id: "singleton", mode: "none", speed: null }]))
-      .mockReturnValueOnce(
-        new Chain([{ entityId: "light.desk", desiredState: { on: true }, available: true }]),
-      );
+    mockDbSelect.mockReturnValueOnce(new Chain([{ id: "singleton", mode: "none", speed: null }]));
+    await seedLamp(true);
 
-    await reconcilePartyMode(eng);
+    await reconcilePartyMode(eng, store);
 
     expect(eng.stop).toHaveBeenCalled();
     expect(eng.start).not.toHaveBeenCalled();
@@ -160,13 +172,12 @@ describe("reconcilePartyMode", () => {
 
   it("stops the engine when all lamps are off", async () => {
     const eng = stubEngine(true, LampModeSpeed.Fast);
-    mockDbSelect
-      .mockReturnValueOnce(new Chain([{ id: "singleton", mode: "party", speed: "fast" }]))
-      .mockReturnValueOnce(
-        new Chain([{ entityId: "light.desk", desiredState: { on: false }, available: true }]),
-      );
+    mockDbSelect.mockReturnValueOnce(
+      new Chain([{ id: "singleton", mode: "party", speed: "fast" }]),
+    );
+    await seedLamp(false);
 
-    await reconcilePartyMode(eng);
+    await reconcilePartyMode(eng, store);
 
     expect(eng.stop).toHaveBeenCalled();
   });

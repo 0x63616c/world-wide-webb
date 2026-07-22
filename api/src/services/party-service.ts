@@ -18,6 +18,7 @@
  * still enforces on/off), so the two never fight over lamp color.
  */
 
+import type { DeviceStateStore } from "@www/core";
 import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
 import {
@@ -28,8 +29,9 @@ import {
   type RgbColor,
 } from "../config/lamp-scenes";
 import { LAMP_ENTITY_IDS } from "../config/lights";
+import { deviceStateStore } from "../db/device-state-store";
 import { db } from "../db/index";
-import { deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
+import { LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import { HaLightService, isLightState } from "./device-state-mapping";
 
@@ -180,9 +182,12 @@ function _partyEngineStatus(): EngineStatus {
  * lamp on-state (from desired, the source of truth) and drives the engine. The
  * engine is injected so tests can stub it; defaults to the live process engine.
  */
-export async function reconcilePartyMode(engine: PartyEngine = partyEngine): Promise<void> {
+export async function reconcilePartyMode(
+  engine: PartyEngine = partyEngine,
+  store: DeviceStateStore = deviceStateStore,
+): Promise<void> {
   const row = await readLampModeRow();
-  const anyLampOn = await anyLampDesiredOn();
+  const anyLampOn = await anyLampDesiredOn(store);
 
   const action = decidePartyAction(row, { anyLampOn }, engine.status());
   if (action.kind === "start" && action.speed) engine.start(action.speed);
@@ -201,9 +206,9 @@ async function readLampModeRow(): Promise<LampModeRow> {
 }
 
 /** True when at least one managed lamp's DESIRED state is on (desired = truth). */
-async function anyLampDesiredOn(): Promise<boolean> {
+async function anyLampDesiredOn(store: DeviceStateStore): Promise<boolean> {
   const lampIds = new Set<string>(LAMP_ENTITY_IDS);
-  const rows = await db.select().from(deviceState);
+  const rows = await store.list();
   return rows.some(
     (r) =>
       lampIds.has(r.entityId) && r.available && isLightState(r.desiredState) && r.desiredState.on,

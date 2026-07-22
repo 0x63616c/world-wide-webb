@@ -1,6 +1,5 @@
-import { and, eq, isNotNull, lt } from "drizzle-orm";
-import { db } from "../db/index";
-import { deviceState } from "../db/schema";
+import type { DeviceStateStore } from "@www/core";
+import { deviceStateStore } from "../db/device-state-store";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 import { DeviceOwner, mapHaToReported, ownerOf, stateEquals } from "./device-state-mapping";
@@ -16,10 +15,12 @@ const SYNC_DOMAINS = ["fan"] as const;
 // One device-sync cycle. The schedule lives in the worker runtime (src/worker.ts,
 // www-7d5b.1.2) , this module only exposes the single cycle plus the pure
 // reconcile/sweep helpers it composes.
-export async function runDeviceSyncCycle(): Promise<void> {
+export async function runDeviceSyncCycle(
+  store: DeviceStateStore = deviceStateStore,
+): Promise<void> {
   await runCycle(heartbeat(SYNC_INTEGRATION_ID), "device-sync", async () => {
     const snapshot = await fetchSnapshot();
-    await reconcile(snapshot);
+    await reconcile(snapshot, store);
   });
 }
 
@@ -30,8 +31,11 @@ async function fetchSnapshot(): Promise<Map<string, HaEntity>> {
   return byEntityId;
 }
 
-export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> {
-  const devices = await db.select().from(deviceState);
+export async function reconcile(
+  snapshot: Map<string, HaEntity>,
+  store: DeviceStateStore = deviceStateStore,
+): Promise<void> {
+  const devices = await store.list();
   const now = new Date();
 
   for (const device of devices) {
@@ -47,15 +51,17 @@ export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> 
     const availabilityChanged = device.available !== available;
 
     if (reportedChanged || availabilityChanged) {
-      await db
-        .update(deviceState)
-        .set({
-          reportedState: reported,
-          reportedAtUtc: now,
-          ...(reportedChanged ? { reportedChangedAtUtc: now } : {}),
-          available,
-        })
-        .where(eq(deviceState.id, device.id));
+      // Parity note: the legacy raw update here never touched updatedAtUtc;
+      // writeReported always stamps it. Ruled acceptable (controller,
+      // Task 9) , it makes updatedAtUtc honest ("row last written") and no
+      // reader depends on it (A8 review grep-verified zero readers).
+      await store.writeReported({
+        id: device.id,
+        reported,
+        available,
+        changed: reportedChanged,
+        now,
+      });
     }
 
     if (
@@ -64,21 +70,18 @@ export async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> 
       stateEquals(reported, device.desiredState) &&
       device.desiredUntilUtc > now
     ) {
-      await db
-        .update(deviceState)
-        .set({ desiredUntilUtc: null, desiredState: null, desiredAtUtc: null })
-        .where(eq(deviceState.id, device.id));
+      await store.clearDesired(device.id);
     }
   }
 
-  await sweepExpiredWindows(now);
+  await sweepExpiredWindows(now, store);
 }
 
-export async function sweepExpiredWindows(now: Date): Promise<void> {
-  const expired = await db
-    .select()
-    .from(deviceState)
-    .where(and(isNotNull(deviceState.desiredUntilUtc), lt(deviceState.desiredUntilUtc, now)));
+export async function sweepExpiredWindows(
+  now: Date,
+  store: DeviceStateStore = deviceStateStore,
+): Promise<void> {
+  const expired = await store.listExpiredWindows(now);
 
   for (const device of expired) {
     // Never sweep a row device-sync doesn't own: desired is sticky truth for the
@@ -86,9 +89,6 @@ export async function sweepExpiredWindows(now: Date): Promise<void> {
     // would wipe the enforcer's intent. Same ownership check as reconcile().
     if (ownerOf(device) !== DeviceOwner.DeviceSync) continue;
 
-    await db
-      .update(deviceState)
-      .set({ desiredUntilUtc: null, desiredState: null, desiredAtUtc: null })
-      .where(eq(deviceState.id, device.id));
+    await store.clearDesired(device.id);
   }
 }

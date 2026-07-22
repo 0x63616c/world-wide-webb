@@ -2,8 +2,13 @@
  * Unit tests for the controls service + router.
  *
  * All network/HA calls are mocked via vi.mock , no Postgres or real HA needed.
- * The DB is also mocked since controls-service now queries deviceState.
+ * Service-level describes inject an in-memory DeviceStateStore directly. The
+ * router-level describes exercise the module-default store (the singleton
+ * `deviceStateStore` wrapping the mocked `db`), so those still drive it via the
+ * `db` mock , that is the one remaining legitimate path to the default param.
+ * `db` also still backs the (unrelated) lamp_mode singleton table.
  */
+import { createInMemoryDeviceStateStore, type DeviceKind, type DeviceStateStore } from "@www/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ─── mock the HA singleton ────────────────────────────────────────────────────
@@ -188,28 +193,6 @@ function captureDesiredWrites(): Map<string, DesiredInsert> {
   return byEntity;
 }
 
-// The shape captured from db.update().set() (the fan writes desired via update).
-interface DesiredUpdate {
-  desiredState?: { mode: string; fanMode?: string };
-  desiredUntilUtc?: Date;
-}
-
-/**
- * Wire db.update() to capture the `.set()` payload of the last update (the fan
- * mutation writes desired on the climate row via update , www-unxz.2). Returns a
- * holder whose `.last` is the captured payload.
- */
-function captureUpdates(): { last: DesiredUpdate | null } {
-  const holder: { last: DesiredUpdate | null } = { last: null };
-  mockDbUpdate.mockImplementation(() => ({
-    set(payload: unknown) {
-      holder.last = payload as DesiredUpdate;
-      return { where: () => Promise.resolve() };
-    },
-  }));
-  return holder;
-}
-
 // Make a deviceState row with typical fields. Desired-authoritative (www-7d5b.2.4):
 // getControlsState reads lamp/light state from desiredState (falling back to
 // reportedState when desired is null), with availability honest.
@@ -305,21 +288,45 @@ function buildCaller() {
   return appRouter.createCaller({ db: null });
 }
 
+/** Seed rows (built via makeDeviceRow/lampRow/fixtureRow/climateFanRow) into an
+ * in-memory DeviceStateStore for service-level tests. */
+async function seedRows(
+  store: DeviceStateStore,
+  rows: ReturnType<typeof makeDeviceRow>[],
+): Promise<void> {
+  for (const row of rows) {
+    await store.seed({
+      id: row.id,
+      kind: row.kind as DeviceKind,
+      entityId: row.entityId,
+      domain: row.domain,
+      label: row.label,
+      reported: row.reportedState as never,
+      desired: row.desiredState as never,
+      available: row.available,
+    });
+  }
+}
+
 // ─── service tests ────────────────────────────────────────────────────────────
 
 describe("getControlsState", () => {
+  let store: DeviceStateStore;
+
   beforeEach(() => {
     vi.resetAllMocks();
     // Lamp/light state is desired-authoritative , HA is read only for the fan
     // (climate). Default: no climate entities.
     mockGetEntities.mockResolvedValue([]);
+    // db.select() now only backs the lamp_mode singleton read; empty rows → None.
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+    store = createInMemoryDeviceStateStore();
   });
 
   it("throws when HA is not configured (www-355t.30: THROW-on-unavailable)", async () => {
     mockIsConfigured.mockReturnValue(false);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    await expect(getControlsState()).rejects.toThrow("Home Assistant is not configured");
+    await expect(getControlsState(store)).rejects.toThrow("Home Assistant is not configured");
   });
 
   it("degrades to all-off when the DB is unreachable (desired-authoritative read swallows)", async () => {
@@ -327,11 +334,14 @@ describe("getControlsState", () => {
     // all desired-authoritative). A DB outage yields no rows → every control reads
     // off/unavailable, matching the established lamp contract (www-7d5b.2.4).
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockImplementation(() => {
-      throw new Error("DB unreachable");
-    });
+    const listThrowingStore: DeviceStateStore = {
+      ...store,
+      list: async () => {
+        throw new Error("DB unreachable");
+      },
+    };
 
-    const state = await getControlsState();
+    const state = await getControlsState(listThrowingStore);
 
     expect(state.lamps.on).toBe(false);
     expect(state.lights.on).toBe(false);
@@ -342,14 +352,13 @@ describe("getControlsState", () => {
   it("derives lamp state from DESIRED device rows (source of truth)", async () => {
     mockIsConfigured.mockReturnValue(true);
 
-    const rows = [
+    await seedRows(store, [
       lampRow("lamp-1", "light.living_room_globe", { on: true }),
       lampRow("lamp-2", "light.bed_lamp_left", { on: true }),
       fixtureRow("fix-1", "switch.overhead_lights", false),
-    ];
-    mockDbSelect.mockReturnValue(makeSelectChain(rows));
+    ]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.lamps.on).toBe(true);
     expect(state.lamps.count).toBe(2);
@@ -360,14 +369,13 @@ describe("getControlsState", () => {
   it("reports lamp brightness as the rounded avg pct of on-lamps from desired", async () => {
     mockIsConfigured.mockReturnValue(true);
     // desired brightness is HA raw 0..255: 255 → 100%, 128 → 50%; off lamp excluded.
-    const rows = [
+    await seedRows(store, [
       lampRow("lamp-1", "light.living_room_globe", { on: true, brightness: 255 }),
       lampRow("lamp-2", "light.bed_lamp_left", { on: true, brightness: 128 }),
       lampRow("lamp-3", "light.kitchen_lamp", { on: false, brightness: 64 }),
-    ];
-    mockDbSelect.mockReturnValue(makeSelectChain(rows));
+    ]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.lamps.on).toBe(true);
     expect(state.lamps.count).toBe(2);
@@ -378,13 +386,12 @@ describe("getControlsState", () => {
     mockIsConfigured.mockReturnValue(true);
     // Both lamps OFF but desired brightness persists (255→100%, 128→50%): the bar
     // must show the level it will resume to (avg 75%), NOT drop to 0%.
-    const rows = [
+    await seedRows(store, [
       lampRow("lamp-1", "light.living_room_globe", { on: false, brightness: 255 }),
       lampRow("lamp-2", "light.bed_lamp_left", { on: false, brightness: 128 }),
-    ];
-    mockDbSelect.mockReturnValue(makeSelectChain(rows));
+    ]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.lamps.on).toBe(false);
     expect(state.lamps.brightness).toBe(75);
@@ -393,13 +400,12 @@ describe("getControlsState", () => {
   it("www-91bl: brightness is 0 only when no lamp has any known level", async () => {
     mockIsConfigured.mockReturnValue(true);
     // Lamps off with NO brightness ever set → truly unknown → 0 (empty bar is correct).
-    const rows = [
+    await seedRows(store, [
       lampRow("lamp-1", "light.living_room_globe", { on: false }),
       lampRow("lamp-2", "light.bed_lamp_left", { on: false }),
-    ];
-    mockDbSelect.mockReturnValue(makeSelectChain(rows));
+    ]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.lamps.on).toBe(false);
     expect(state.lamps.brightness).toBe(0);
@@ -407,12 +413,11 @@ describe("getControlsState", () => {
 
   it("never paints an unreachable lamp 'on' even when desired says on (honest availability)", async () => {
     mockIsConfigured.mockReturnValue(true);
-    const rows = [
+    await seedRows(store, [
       lampRow("lamp-1", "light.living_room_globe", { on: true }, /* available */ false),
-    ];
-    mockDbSelect.mockReturnValue(makeSelectChain(rows));
+    ]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     // Desired is on, but the lamp is unreachable → not counted on (tile shimmers).
     expect(state.lamps.on).toBe(false);
@@ -421,18 +426,19 @@ describe("getControlsState", () => {
 
   it("lamps never report pending even when desired has not converged (www-uq58)", async () => {
     mockIsConfigured.mockReturnValue(true);
-    const row = makeDeviceRow({
-      id: "lamp-1",
-      entityId: "light.living_room_globe",
-      kind: "light",
-      domain: "light",
-      reportedState: { on: false },
-      desiredState: { on: true },
-      available: true,
-    });
-    mockDbSelect.mockReturnValue(makeSelectChain([row]));
+    await seedRows(store, [
+      makeDeviceRow({
+        id: "lamp-1",
+        entityId: "light.living_room_globe",
+        kind: "light",
+        domain: "light",
+        reportedState: { on: false },
+        desiredState: { on: true },
+        available: true,
+      }),
+    ]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     // Effective (desired) is on; reported still off , but lamps are
     // desired-authoritative and never surface a pending cue (www-uq58).
@@ -442,27 +448,28 @@ describe("getControlsState", () => {
 
   it("pending:false once reported converges with desired", async () => {
     mockIsConfigured.mockReturnValue(true);
-    const row = makeDeviceRow({
-      id: "lamp-1",
-      entityId: "light.living_room_globe",
-      kind: "light",
-      domain: "light",
-      reportedState: { on: true },
-      desiredState: { on: true },
-      available: true,
-    });
-    mockDbSelect.mockReturnValue(makeSelectChain([row]));
+    await seedRows(store, [
+      makeDeviceRow({
+        id: "lamp-1",
+        entityId: "light.living_room_globe",
+        kind: "light",
+        domain: "light",
+        reportedState: { on: true },
+        desiredState: { on: true },
+        available: true,
+      }),
+    ]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.lamps.pending).toBe(false);
   });
 
   it("reports fan on from the climate row's desired fan_mode (www-unxz.2), NO HA call", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("on", "on")]));
+    await seedRows(store, [climateFanRow("on", "on")]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.fan.on).toBe(true);
     expect(state.fan.sub).toBe("On");
@@ -473,9 +480,9 @@ describe("getControlsState", () => {
   it("labels fan 'Auto' when fan_mode is auto AND the AC is running (www-pu4m)", async () => {
     mockIsConfigured.mockReturnValue(true);
     // mode cool (running) + fanMode auto → "auto" is meaningful (fan follows demand).
-    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("auto", "auto", true, "cool")]));
+    await seedRows(store, [climateFanRow("auto", "auto", true, "cool")]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.fan.on).toBe(false);
     expect(state.fan.sub).toBe("Auto");
@@ -484,9 +491,9 @@ describe("getControlsState", () => {
   it("labels fan 'Off' when fan_mode is auto AND the AC mode is off (www-pu4m)", async () => {
     mockIsConfigured.mockReturnValue(true);
     // AC off → an "auto" fan is doing nothing, so surface it honestly as Off.
-    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("auto", "auto", true, "off")]));
+    await seedRows(store, [climateFanRow("auto", "auto", true, "off")]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.fan.on).toBe(false);
     expect(state.fan.sub).toBe("Off");
@@ -495,9 +502,9 @@ describe("getControlsState", () => {
   it("fan pending:true while desired fan_mode has not converged with reported", async () => {
     mockIsConfigured.mockReturnValue(true);
     // Desired on, reported still auto → the fan command is in-flight.
-    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("on", "auto")]));
+    await seedRows(store, [climateFanRow("on", "auto")]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.fan.on).toBe(true);
     expect(state.fan.pending).toBe(true);
@@ -505,22 +512,18 @@ describe("getControlsState", () => {
 
   it("www-azw: switch-domain fixtures are visible as 'lights' (from desired)", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(
-      makeSelectChain([fixtureRow("fix-1", "switch.overhead_lights", true)]),
-    );
+    await seedRows(store, [fixtureRow("fix-1", "switch.overhead_lights", true)]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.lights.on).toBe(true);
   });
 
   it("www-azw: Hue lamps classified as lamps, not fixtures", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(
-      makeSelectChain([lampRow("lamp-1", "light.living_room_globe", { on: true })]),
-    );
+    await seedRows(store, [lampRow("lamp-1", "light.living_room_globe", { on: true })]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.lamps.on).toBe(true);
     expect(state.lamps.count).toBe(1);
@@ -529,9 +532,8 @@ describe("getControlsState", () => {
 
   it("reports all off when no device rows exist", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.lamps.on).toBe(false);
     expect(state.lamps.count).toBe(0);
@@ -544,69 +546,63 @@ describe("getControlsState", () => {
 
   it("activeScene='blue' when every on-lamp's desired color is BLUE_RGB", async () => {
     mockIsConfigured.mockReturnValue(true);
-    const rows = [
+    await seedRows(store, [
       lampRow("lamp-1", "light.living_room_globe", { on: true, color: { rgb: [0, 0, 255] } }),
       lampRow("lamp-2", "light.bed_lamp_left", { on: true, color: { rgb: [0, 0, 255] } }),
-    ];
-    mockDbSelect.mockReturnValue(makeSelectChain(rows));
+    ]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.lamps.activeScene).toBe(LampScene.Blue);
   });
 
   it("activeScene='white' when on-lamps' desired color is WHITE_SCENE_KELVIN", async () => {
     mockIsConfigured.mockReturnValue(true);
-    const rows = [
+    await seedRows(store, [
       lampRow("lamp-1", "light.living_room_globe", {
         on: true,
         color: { kelvin: WHITE_SCENE_KELVIN },
       }),
-    ];
-    mockDbSelect.mockReturnValue(makeSelectChain(rows));
+    ]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.lamps.activeScene).toBe(LampScene.White);
   });
 
   it("activeScene=null when on-lamps disagree on non-palette colors", async () => {
     mockIsConfigured.mockReturnValue(true);
-    const rows = [
+    await seedRows(store, [
       lampRow("lamp-1", "light.living_room_globe", { on: true, color: { rgb: [255, 0, 0] } }),
       lampRow("lamp-2", "light.bed_lamp_left", { on: true, color: { rgb: [0, 0, 255] } }),
-    ];
-    mockDbSelect.mockReturnValue(makeSelectChain(rows));
+    ]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.lamps.activeScene).toBeNull();
   });
 
   it("activeScene='mood' when every on-lamp shows a MOOD_PALETTE color (varied wash, www-vhht)", async () => {
     mockIsConfigured.mockReturnValue(true);
-    const rows = [
+    await seedRows(store, [
       lampRow("lamp-1", "light.living_room_globe", {
         on: true,
         color: { rgb: [...MOOD_PALETTE[0]] },
       }),
       lampRow("lamp-2", "light.bed_lamp_left", { on: true, color: { rgb: [...MOOD_PALETTE[3]] } }),
       lampRow("lamp-3", "light.bed_lamp_right", { on: true, color: { rgb: [...MOOD_PALETTE[5]] } }),
-    ];
-    mockDbSelect.mockReturnValue(makeSelectChain(rows));
+    ]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.lamps.activeScene).toBe(LampScene.Mood);
   });
 
   it("activeScene=null when lamps are off", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(
-      makeSelectChain([lampRow("lamp-1", "light.living_room_globe", { on: false })]),
-    );
+    await seedRows(store, [lampRow("lamp-1", "light.living_room_globe", { on: false })]);
 
-    const state = await getControlsState();
+    const state = await getControlsState(store);
 
     expect(state.lamps.activeScene).toBeNull();
   });
@@ -615,70 +611,69 @@ describe("getControlsState", () => {
 // ─── toggleControl tests ──────────────────────────────────────────────────────
 
 describe("toggleControl", () => {
+  let store: DeviceStateStore;
+
   beforeEach(() => {
     vi.resetAllMocks();
     mockCallService.mockResolvedValue(undefined);
     mockGetEntities.mockResolvedValue([]);
     mockDbInsert.mockReturnValue(makeInsertChain());
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+    store = createInMemoryDeviceStateStore();
   });
 
   it("throws when HA is not configured", async () => {
     mockIsConfigured.mockReturnValue(false);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    await expect(toggleControl(ControlKey.Lamps, true)).rejects.toThrow(
+    await expect(toggleControl(ControlKey.Lamps, true, store)).rejects.toThrow(
       "Home Assistant is not configured",
     );
   });
 
   it("writes desired (on) + command window for every lamp, with NO HA call (www-unxz.1)", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
-    const writes = captureDesiredWrites();
 
-    await toggleControl(ControlKey.Lamps, true);
+    await toggleControl(ControlKey.Lamps, true, store);
 
     // Desired is written (sticky source of truth) for every lamp , the enforcer
     // actuates HA, so the hot path makes NO ha.callService.
-    expect(mockDbInsert).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
     expect(mockCallService).not.toHaveBeenCalled();
+    const rows = await store.list();
+    const byEntity = new Map(rows.map((r) => [r.entityId, r]));
     for (const entityId of LAMP_ENTITY_IDS) {
-      const w = writes.get(entityId);
-      expect(w?.desiredState).toMatchObject({ on: true });
+      const row = byEntity.get(entityId);
+      expect(row?.desiredState).toMatchObject({ on: true });
       // The command window is stamped so the enforcer pushes regardless of policy.
-      expect(w?.desiredUntilUtc).toBeInstanceOf(Date);
+      expect(row?.desiredUntilUtc).toBeInstanceOf(Date);
     }
   });
 
   it("writes desired (off) for every fixture when toggling lights off, with NO HA call", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
-    const writes = captureDesiredWrites();
 
-    await toggleControl(ControlKey.Lights, false);
+    await toggleControl(ControlKey.Lights, false, store);
 
-    expect(mockDbInsert).toHaveBeenCalledTimes(FIXTURE_ENTITY_IDS.length);
     expect(mockCallService).not.toHaveBeenCalled();
+    const rows = await store.list();
+    const byEntity = new Map(rows.map((r) => [r.entityId, r]));
     for (const entityId of FIXTURE_ENTITY_IDS) {
-      expect(writes.get(entityId)?.desiredState).toMatchObject({ on: false });
+      expect(byEntity.get(entityId)?.desiredState).toMatchObject({ on: false });
     }
   });
 
   it("toggling a lamp ON preserves its existing desired color (scene survives a toggle)", async () => {
     mockIsConfigured.mockReturnValue(true);
     // One lamp already has a blue desired color; turning lamps on must keep it.
-    mockDbSelect.mockReturnValue(
-      makeSelectChain([
-        lampRow("lamp-1", "light.living_room_globe", { on: false, color: { rgb: [0, 0, 255] } }),
-      ]),
-    );
-    const writes = captureDesiredWrites();
+    await seedRows(store, [
+      lampRow("lamp-1", "light.living_room_globe", { on: false, color: { rgb: [0, 0, 255] } }),
+    ]);
 
-    await toggleControl(ControlKey.Lamps, true);
+    await toggleControl(ControlKey.Lamps, true, store);
 
     // The desired written for the globe carries its preserved color , no HA call.
     expect(mockCallService).not.toHaveBeenCalled();
-    expect(writes.get("light.living_room_globe")?.desiredState).toMatchObject({
+    const row = await store.read("lamp-1");
+    expect(row?.desiredState).toMatchObject({
       on: true,
       color: { rgb: [0, 0, 255] },
     });
@@ -687,52 +682,49 @@ describe("toggleControl", () => {
   it("toggling the fan ON writes desired.fanMode='on' (+window) on the climate row, NO HA call (www-unxz.2)", async () => {
     mockIsConfigured.mockReturnValue(true);
     // The enforcer has seeded the climate row; the fan write updates its desired.
-    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("auto", "auto")]));
-    const updates = captureUpdates();
+    await seedRows(store, [climateFanRow("auto", "auto")]);
 
-    await toggleControl(ControlKey.Fan, true);
+    await toggleControl(ControlKey.Fan, true, store);
 
     expect(mockCallService).not.toHaveBeenCalled();
-    expect(updates.last?.desiredState).toMatchObject({ fanMode: FanMode.On });
+    const row = await store.read("climate-thermostat");
+    expect(row?.desiredState).toMatchObject({ fanMode: FanMode.On });
     // The mode is preserved (not clobbered) and a command window is stamped.
-    expect(updates.last?.desiredState?.mode).toBe("cool");
-    expect(updates.last?.desiredUntilUtc).toBeInstanceOf(Date);
+    expect((row?.desiredState as { mode?: string })?.mode).toBe("cool");
+    expect(row?.desiredUntilUtc).toBeInstanceOf(Date);
   });
 
   it("toggling the fan OFF writes desired.fanMode='auto', NO HA call", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("on", "on")]));
-    const updates = captureUpdates();
+    await seedRows(store, [climateFanRow("on", "on")]);
 
-    await toggleControl(ControlKey.Fan, false);
+    await toggleControl(ControlKey.Fan, false, store);
 
     expect(mockCallService).not.toHaveBeenCalled();
-    expect(updates.last?.desiredState).toMatchObject({ fanMode: FanMode.Auto });
+    const row = await store.read("climate-thermostat");
+    expect(row?.desiredState).toMatchObject({ fanMode: FanMode.Auto });
   });
 
   it("the fan is a climate fan_mode written to desired, never a device command or HA call", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([climateFanRow("auto", "auto")]));
-    captureUpdates();
+    await seedRows(store, [climateFanRow("auto", "auto")]);
 
-    await expect(toggleControl(ControlKey.Fan, true)).resolves.toBeDefined();
+    await expect(toggleControl(ControlKey.Fan, true, store)).resolves.toBeDefined();
     expect(mockCallService).not.toHaveBeenCalled();
   });
 
   it("www-hu8p: clears party mode when turning lamps OFF (party must not resurrect on next on)", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    await toggleControl(ControlKey.Lamps, false);
+    await toggleControl(ControlKey.Lamps, false, store);
 
     expect(mockDbInsert).toHaveBeenCalledWith(lampMode);
   });
 
   it("www-hu8p: does NOT clear party mode when turning lamps ON (party is durable)", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    await toggleControl(ControlKey.Lamps, true);
+    await toggleControl(ControlKey.Lamps, true, store);
 
     expect(mockDbInsert).not.toHaveBeenCalledWith(lampMode);
   });
@@ -741,19 +733,22 @@ describe("toggleControl", () => {
     // The desired write is the mutation's only effect , a swallowed DB error would
     // be fabricated success. The store throws; toggleControl lets it propagate.
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
-    mockDbInsert.mockImplementation(() => {
-      throw new Error("DB unreachable");
-    });
+    const throwingStore: DeviceStateStore = {
+      ...store,
+      upsertDesired: async () => {
+        throw new Error("DB unreachable");
+      },
+    };
 
-    await expect(toggleControl(ControlKey.Lamps, true)).rejects.toThrow("DB unreachable");
+    await expect(toggleControl(ControlKey.Lamps, true, throwingStore)).rejects.toThrow(
+      "DB unreachable",
+    );
   });
 
   it("toggling the fan throws when the climate row is not yet seeded (parity with climate mutations)", async () => {
     mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
 
-    await expect(toggleControl(ControlKey.Fan, true)).rejects.toThrow("no climate state");
+    await expect(toggleControl(ControlKey.Fan, true, store)).rejects.toThrow("no climate state");
   });
 });
 
