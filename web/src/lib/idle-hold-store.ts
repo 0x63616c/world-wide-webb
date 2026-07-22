@@ -11,8 +11,9 @@
  * sharing a reason must never collide (releasing one must not release both).
  */
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect } from "react";
 import { log } from "./log/logger";
+import { createStore, useStore } from "./store";
 
 const holdLog = log.child("idle-hold");
 
@@ -21,20 +22,10 @@ interface HoldToken {
 }
 
 const holds = new Set<HoldToken>();
-type Listener = () => void;
-const listeners = new Set<Listener>();
+const store = createStore(false);
 
-function emit(): void {
-  for (const cb of listeners) cb();
-}
-
-function subscribe(cb: Listener): () => void {
-  listeners.add(cb);
-  return () => listeners.delete(cb);
-}
-
-function heldSnapshot(): boolean {
-  return holds.size > 0;
+function sync(): void {
+  store.set(holds.size > 0);
 }
 
 /**
@@ -48,21 +39,21 @@ export function acquireIdleHold(reason: string): () => void {
   const token: HoldToken = { reason };
   holds.add(token);
   holdLog.info("acquired", { reason, holds: holds.size });
-  emit();
+  sync();
   let released = false;
   return () => {
     if (released) return;
     released = true;
     holds.delete(token);
     holdLog.info("released", { reason, holds: holds.size });
-    emit();
+    sync();
   };
 }
 
 /** True while any idle hold is live. Board.tsx folds this into the idle
  *  hooks' `enabled` expressions. */
 export function useIdleHeld(): boolean {
-  return useSyncExternalStore(subscribe, heldSnapshot, heldSnapshot);
+  return useStore(store);
 }
 
 /**
@@ -80,5 +71,5 @@ export function useIdleHoldWhile(active: boolean, reason: string): void {
 /** @public , test seam (vitest); intentionally unused in app code. */
 export function resetIdleHoldsForTests(): void {
   holds.clear();
-  emit();
+  sync();
 }
