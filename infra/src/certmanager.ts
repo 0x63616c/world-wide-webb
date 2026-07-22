@@ -12,8 +12,10 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 
-// The portal hostnames the Certificate is issued for (LAN-only, never tunneled).
-const PORTAL_HOSTS = ["captive-portal.worldwidewebb.co", "app--cp.worldwidewebb.co"] as const;
+// The portal hostname the Certificate is issued for (LAN-only, never tunneled).
+// The abandoned `app--cp.worldwidewebb.co` SAN was dropped in Task 7 Step C (the
+// captive-portal product was dissolved by ADR-0006; that host never went live).
+const PORTAL_HOSTS = ["captive-portal.worldwidewebb.co"] as const;
 // The k8s Secret cert-manager mounts the issued cert into; the portal Deployment
 // (www-j934.6) mounts the same Secret for its TLS.
 const PORTAL_TLS_SECRET = "captive-portal-tls";

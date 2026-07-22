@@ -109,13 +109,11 @@ describe("guestAccess explicit fields (www-jtp0.5.9)", () => {
     expect(await get<boolean>(adopted.guestAccess, "portalUseHostname")).toBe(false);
   });
 
-  test("portalHostname is the M5 product hostname (app--cp, post-cutover)", async () => {
-    // app--cp.worldwidewebb.co is now the live hostname after the M5 cutover
-    // (www-jtp0.5.8 cert Ready, www-jtp0.5.9 UniFi DNS live, www-jtp0.3.6 applied).
+  test("declares no portalHostname (raw-IP redirect only; app--cp retired in Task 7 Step C)", async () => {
+    // ADR-0006 dissolved the captive-portal product; the abandoned app--cp
+    // portalHostname was removed. The guest redirect targets customIp directly.
     const adopted = mod.adoptExisting(testProvider(), []);
-    expect(await get<string>(adopted.guestAccess, "portalHostname")).toBe(
-      "app--cp.worldwidewebb.co",
-    );
+    expect(await get<string | undefined>(adopted.guestAccess, "portalHostname")).toBeUndefined();
   });
 
   test("ecEnabled is false (params arrive plaintext; ec blob breaks the SPA)", async () => {
@@ -129,44 +127,14 @@ describe("guestAccess explicit fields (www-jtp0.5.9)", () => {
   });
 });
 
-describe("app--cp.worldwidewebb.co split-DNS record (www-jtp0.5.9, additive, gated)", () => {
-  // app--cp.worldwidewebb.co is the M5 TARGET hostname. It does NOT exist on the
-  // controller yet; it is a NEW (non-imported) additive DNS record gated behind
-  // the applyAppCp option flag. It points to the same Mini LAN IP as
-  // captive-portal.worldwidewebb.co. Applying it requires Calum to set the flag
-  // and run pulumi up (REQUIRES CALUM).
-  //
-  // WALLED GARDEN NOTE: the walled-garden allowance for app.cp (rest/portalconf)
-  // has NO @pulumiverse/unifi resource and stays UNMANAGED / direct-API.
-  // This must be applied via the UniFi console or API separately (REQUIRES CALUM).
+describe("captive-portal split-DNS record (adopted, LAN-only)", () => {
+  // captive-portal.worldwidewebb.co -> 192.168.0.147 is the live, adopted split-DNS
+  // record for the guest portal. The abandoned app--cp.worldwidewebb.co A record +
+  // its applyAppCp gate were removed in Task 7 Step C (ADR-0006 dissolved the
+  // captive-portal product; that host never went live on the controller).
 
-  test("appCpDns is absent when applyAppCp option is not set (default safe)", () => {
+  test("the captive-portal DNS record is adopted (A -> 192.168.0.147)", async () => {
     const adopted = mod.adoptExisting(testProvider(), []);
-    expect(adopted.appCpDns).toBeUndefined();
-  });
-
-  test("appCpDns is absent when applyAppCp is explicitly false", () => {
-    const adopted = mod.adoptExisting(testProvider(), [], { applyAppCp: false });
-    expect(adopted.appCpDns).toBeUndefined();
-  });
-
-  test("appCpDns is an A record pointing to 192.168.0.147 when applyAppCp is true", async () => {
-    const adopted = mod.adoptExisting(testProvider(), [], { applyAppCp: true });
-    expect(adopted.appCpDns).toBeDefined();
-    // The record resolves app--cp.worldwidewebb.co to the Mini LAN IP, the same
-    // host as captive-portal.worldwidewebb.co, on both the default and guest VLANs.
-    // biome: cast through unknown to avoid non-null assertion (toBeDefined() guards above)
-    const appCpDns = adopted.appCpDns as NonNullable<typeof adopted.appCpDns>;
-    expect(await get<string>(appCpDns, "name")).toBe("app--cp.worldwidewebb.co");
-    expect(await get<string>(appCpDns, "value")).toBe("192.168.0.147");
-    expect(await get<string>(appCpDns, "type")).toBe("A");
-    expect(await get<boolean>(appCpDns, "enabled")).toBe(true);
-  });
-
-  test("the legacy captive-portal DNS record is always present regardless of applyAppCp", async () => {
-    // The old hostname stays live (compatibility) until production validation
-    // confirms app.cp works end-to-end (www-jtp0.5.8 + www-jtp0.5.10).
-    const adopted = mod.adoptExisting(testProvider(), [], { applyAppCp: true });
     expect(await get<string>(adopted.captivePortalDns, "name")).toBe(
       "captive-portal.worldwidewebb.co",
     );
