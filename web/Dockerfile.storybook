@@ -9,7 +9,6 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY api/package.json ./api/package.json
 COPY drizzle/package.json ./drizzle/package.json
-COPY ios/package.json ./ios/package.json
 COPY map-provision/package.json ./map-provision/package.json
 COPY storybook/package.json ./storybook/package.json
 COPY web/package.json ./web/package.json

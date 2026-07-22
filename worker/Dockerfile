@@ -16,7 +16,6 @@ COPY web/package.json web/
 COPY worker/package.json worker/
 COPY drizzle/package.json drizzle/
 COPY map-provision/package.json map-provision/
-COPY ios/package.json ios/
 COPY storybook/package.json storybook/
 COPY packages/api/package.json packages/api/
 COPY packages/core/package.json packages/core/
