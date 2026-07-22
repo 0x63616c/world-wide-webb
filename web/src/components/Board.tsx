@@ -3,6 +3,15 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from "react-dom";
 import { BUILD_HASH, BUILD_TIME } from "../config/build";
 import { getInstalledBuildNumber } from "../lib/app-update";
+import {
+  attachCamera,
+  type BoardCameraHost,
+  boardCamera,
+  cameraCancel,
+  cameraJumpTo,
+  cameraSettle,
+  SNAP_CSS,
+} from "../lib/board-camera";
 import { isNativeDisplay } from "../lib/brightness";
 import {
   BOARD_H,
@@ -22,7 +31,7 @@ import {
 import { dismissAllModals, hasDismissableModal, useAnyModalOpen } from "../lib/modal-open-store";
 import { bentoFor } from "../lib/placeholder-tiles";
 import { formatRelativeAge } from "../lib/relative-age";
-import { type SnapMode, useSettings } from "../lib/settings";
+import { useSettings } from "../lib/settings";
 import { openTileDetail } from "../lib/tile-detail-store";
 import { HOME_TILE, type TileRegistryEntry } from "../lib/tile-registry";
 import { useBoardLayout } from "../lib/useBoardLayout";
@@ -61,26 +70,8 @@ const INTERACTIVE_SELECTOR = 'button, input, a, select, textarea, [role="slider"
 // view that's effectively already on the clock.
 const HOME_DEADZONE_PX = 8;
 
-// ─── snap-mode experiment (CC test) ──────────────────────────────────────────
-// We're A/B-testing how the board should settle. Three of these are NATIVE CSS
-// scroll-snap (browser does the momentum + snapping on the compositor thread ,
-// no JS spring to fight, so no Mac-trackpad jitter); "spring" is the legacy
-// hand-rolled SmoothDamp magnetic snap, kept only so it can be compared head to
-// head on-device. The mode vocabulary + persistence live in lib/settings (the
-// settings panel exposes the picker); this map is the board-rendering half.
-//
-// CSS scroll-snap-type per mode; "spring" disables native snap (JS drives it).
-// "mandatory-settle" keeps native mandatory paging but ALSO runs the JS settle
-// (see onSettle) as a safety net: iOS Safari only re-snaps after a momentum
-// animation, so a zero-velocity finger lift leaves the page off-center , the
-// settle springs it home. A flick still snaps natively (settle is a no-op then).
-const SNAP_CSS: Record<SnapMode, string> = {
-  proximity: "both proximity",
-  mandatory: "both mandatory",
-  "mandatory-settle": "both mandatory",
-  none: "none",
-  spring: "none",
-};
+// The snap-mode CSS map + JS spring physics moved to lib/board-camera; SNAP_CSS
+// is imported above (the board-rendering half of the snap-mode experiment).
 
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -601,14 +592,43 @@ export function Board() {
   }, [syncView, onScrollFrame]);
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
+  // ── board-camera binding ─────────────────────────────────────────────────────
+  // The camera singleton (lib/board-camera) owns the spring physics + glide/pan/
+  // home moves; it reads the live snap mode, home position, tile/cell layout, and
+  // pointer state through this host. Kept as render-updated refs so the camera
+  // always sees current values without the attach effect re-running each render.
+  const snapModeRef = useRef(snapMode);
+  snapModeRef.current = snapMode;
+  const homeRef = useRef({ cx: homeCx, cy: homeCy });
+  homeRef.current = { cx: homeCx, cy: homeCy };
+  const cellAtRef = useRef(cellAtPoint);
+  cellAtRef.current = cellAtPoint;
+  const layoutTilesRef = useRef(layout.tiles);
+  layoutTilesRef.current = layout.tiles;
+
+  useEffect(() => {
+    if (!stageEl) return;
+    return attachCamera({
+      stage: stageEl,
+      snapMode: () => snapModeRef.current,
+      home: () => homeRef.current,
+      tileCenter: (id) => {
+        const t = layoutTilesRef.current.find((x) => x.id === id);
+        if (!t) return undefined;
+        const r = tileWorldRect(t);
+        return { cx: r.x + r.w / 2, cy: r.y + r.h / 2 };
+      },
+      cellAt: (x, y) => cellAtRef.current(x, y),
+      interacting: () => pointerDown.current || drag.current.active,
+      markUser,
+      markProgrammatic,
+    } satisfies BoardCameraHost);
+  }, [stageEl, markUser, markProgrammatic]);
+
   // ── snap / spring ──────────────────────────────────────────────────────────
-  const { springTo, cancelSnap, onSettle } = useBoardSnap({
-    stageRef,
-    snapMode,
-    pointerDown,
-    drag,
-    cellAt: cellAtPoint,
-  });
+  // Wires the camera's magnetic settle to scrollend + cancels on unmount; the
+  // spring itself lives in the camera now (see the host binding above).
+  useBoardSnap({ stageRef });
 
   // ── drag pan ───────────────────────────────────────────────────────────────
   const { suppressClick, onPointerDown, onPointerMove, endDrag } = useBoardDragPan({
@@ -618,8 +638,8 @@ export function Board() {
     snapCss: SNAP_CSS,
     modalOpenRef,
     pointerDown,
-    cancelSnap,
-    onSettle,
+    cancelSnap: cameraCancel,
+    onSettle: cameraSettle,
   });
 
   // A press (touch/mouse) or wheel tick is the user grabbing the board , it
@@ -633,67 +653,33 @@ export function Board() {
     [markUser, onPointerDown],
   );
 
-  // Glide the camera so `entry` lands dead center, reusing the snap spring (same
-  // SmoothDamp feel as settle-snapping) instead of a separate animation. Opening
-  // a modal freezes native pan (overflow:hidden on the stage), but an
-  // overflow:hidden element is still a *programmatic* scroll container, so these
-  // scrollLeft/Top writes keep driving the glide to completion behind the modal.
-  const snapModeRef = useRef(snapMode);
-  useEffect(() => {
-    snapModeRef.current = snapMode;
-  }, [snapMode]);
-
-  const glideToTile = useCallback(
-    (entry: TileRegistryEntry) => {
-      const stage = stageRef.current;
-      if (!stage) return;
-      // A tap/keyboard recenter is the user moving the board.
-      markUser();
-      const rect = tileWorldRect(entry);
-      const toLeft = rect.x + rect.w / 2 - stage.clientWidth / 2;
-      const toTop = rect.y + rect.h / 2 - stage.clientHeight / 2;
-      // Spring mode drives the glide in JS; native modes use the browser's own
-      // smooth scroll, which then respects scroll-snap on arrival. scrollTo is
-      // absent in some test/SSR envs , fall back to a direct (instant) set.
-      if (snapModeRef.current === "spring") springTo(toLeft, toTop);
-      else if (typeof stage.scrollTo === "function")
-        stage.scrollTo({ left: toLeft, top: toTop, behavior: "smooth" });
-      else {
-        stage.scrollLeft = toLeft;
-        stage.scrollTop = toTop;
-      }
-    },
-    [springTo, markUser],
-  );
-
-  // Center the viewport on a world-space point (the minimap calls this on click
-  // and during drag-scrub). scrollTo clamps to the scroll range, and each frame
-  // of the smooth glide fires onScroll → keeps the minimap alive through it.
-  const jumpTo = useCallback((worldX: number, worldY: number, smooth: boolean) => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    stage.scrollTo({
-      left: worldX - stage.clientWidth / 2,
-      top: worldY - stage.clientHeight / 2,
-      behavior: smooth ? "smooth" : "auto",
-    });
+  // Glide the camera so `entry` lands dead center. Delegates to the camera's
+  // panTo (spring in spring-mode, native smooth otherwise), which also marks the
+  // move user-driven. Opening a modal freezes native pan (overflow:hidden on the
+  // stage), but an overflow:hidden element is still a *programmatic* scroll
+  // container, so a spring-mode glide keeps driving behind the modal.
+  const glideToTile = useCallback((entry: TileRegistryEntry) => {
+    const rect = tileWorldRect(entry);
+    boardCamera.panTo({ x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 });
   }, []);
 
   // The minimap's jumps are user gestures (click/scrub on the map): their
-  // scroll frames must show the pan chrome, unlike goHome's below.
+  // scroll frames must show the pan chrome, unlike goHome's below. cameraJumpTo
+  // is the native scroll-to-center (clamped to range); each smooth frame fires
+  // onScroll → keeps the minimap alive through it.
   const userJump = useCallback(
     (worldX: number, worldY: number, smooth: boolean) => {
       markUser();
-      // Only the USER-initiated jump is logged, never `jumpTo` itself , goHome
-      // drives the same function on an idle timer, and an app-initiated glide is
-      // not something a person did.
+      // Only the USER-initiated jump is logged, never the camera jump itself ,
+      // goHome drives the same move on an idle timer, and an app-initiated glide
+      // is not something a person did.
       interaction("nav", "jump", "minimap", {
         worldX: Math.round(worldX),
         worldY: Math.round(worldY),
       });
-      jumpTo(worldX, worldY, smooth);
+      cameraJumpTo(worldX, worldY, smooth);
     },
-    [jumpTo, markUser],
+    [markUser],
   );
 
   // After an idle window with no interaction, glide back to the home tile (Clock)
@@ -712,9 +698,10 @@ export function Board() {
     // that way the transcript's closing entry carries the real reason.
     endInteractionSession("idle-reset");
     dismissAllModals();
-    markProgrammatic();
-    jumpTo(homeCx, homeCy, true);
-  }, [jumpTo, markProgrammatic, homeCx, homeCy]);
+    // glideHome marks the move programmatic + native-glides to the live home
+    // position (read through the camera host).
+    boardCamera.glideHome();
+  }, []);
   // "Nothing to do" for the idle reset: already parked on the home tile AND
   // nothing layered on top of it. Without the modal clause a modal opened FROM
   // the clock would never be closed by idle , the reset defers on isHome and the
