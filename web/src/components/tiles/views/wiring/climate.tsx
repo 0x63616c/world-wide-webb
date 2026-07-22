@@ -21,20 +21,20 @@
  */
 
 import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
-import { ClimateModalComfortPresetsFan } from "@/components/tiles/modals/ClimateModalComfortPresetsFan";
+import { ClimateModalComfortPresetsFan } from "@/components/tiles/views/ClimateModalComfortPresetsFan";
 import {
   ClimateModalHouseThermalMap,
   type HvacMode as ThermalHvacMode,
-} from "@/components/tiles/modals/ClimateModalHouseThermalMap";
+} from "@/components/tiles/views/ClimateModalHouseThermalMap";
 import {
   ClimateModalMultiZoneGrid,
   type HvacMode as GridHvacMode,
   type ZoneData,
-} from "@/components/tiles/modals/ClimateModalMultiZoneGrid";
+} from "@/components/tiles/views/ClimateModalMultiZoneGrid";
 import {
   ClimateModalScheduleTimeline,
   type ScheduleZone,
-} from "@/components/tiles/modals/ClimateModalScheduleTimeline";
+} from "@/components/tiles/views/ClimateModalScheduleTimeline";
 import { POLL, useNow } from "@/lib/hooks";
 import { type RouterOutputs, trpc } from "@/lib/trpc";
 

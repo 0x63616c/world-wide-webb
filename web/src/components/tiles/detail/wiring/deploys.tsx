@@ -13,7 +13,7 @@ import {
   staleForOf,
   toModalCommits,
 } from "@/components/tiles/DeployTile";
-import { DeployModalPipeline } from "@/components/tiles/modals/DeployModalPipeline";
+import { DeployModalPipeline } from "@/components/tiles/views/DeployModalPipeline";
 import { POLL, useNow } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
 import type { DetailVariant, TileDetailPageEntry } from "../types";

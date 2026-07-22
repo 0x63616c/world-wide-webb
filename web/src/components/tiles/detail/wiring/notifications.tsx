@@ -9,7 +9,7 @@
  */
 
 import { useState } from "react";
-import { ExpandedNotificationCenterModalView } from "@/components/tiles/modals/ExpandedNotificationCenterModalView";
+import { ExpandedNotificationCenterView } from "@/components/tiles/views/ExpandedNotificationCenterView";
 import { POLL, useNow } from "@/lib/hooks";
 import {
   type NotificationFilter,
@@ -53,7 +53,7 @@ function useNotificationsVariants(): { variants: DetailVariant[]; loading: boole
       slug: "detail",
       label: "Notifications",
       render: () => (
-        <ExpandedNotificationCenterModalView
+        <ExpandedNotificationCenterView
           filter={filter}
           onFilterChange={setFilter}
           items={items}

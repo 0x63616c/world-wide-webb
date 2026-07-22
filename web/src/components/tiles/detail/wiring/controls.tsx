@@ -8,7 +8,7 @@
  */
 
 import { useControls } from "@/components/tiles/ControlsTile";
-import { ExpandedControlsModalView } from "@/components/tiles/ExpandedControlsModalView";
+import { ExpandedControlsView } from "@/components/tiles/ExpandedControlsView";
 import { TileStatus } from "@/components/ui";
 import type { DetailVariant, TileDetailPageEntry } from "../types";
 
@@ -22,7 +22,7 @@ function useControlsVariants(): { variants: DetailVariant[]; loading: boolean } 
       slug: "detail",
       label: "Controls",
       render: () => (
-        <ExpandedControlsModalView
+        <ExpandedControlsView
           data={controls.viewData}
           onToggle={controls.onToggle}
           onScene={controls.onScene}

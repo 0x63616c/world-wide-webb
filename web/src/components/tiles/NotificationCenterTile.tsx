@@ -7,7 +7,7 @@
  * detail/wiring/notifications.tsx, which owns the tab state + mutations).
  *
  * Presentation lives in NotificationCenterTileView +
- * ExpandedNotificationCenterModalView; this file holds no markup.
+ * ExpandedNotificationCenterView; this file holds no markup.
  */
 
 import { TileStatus } from "@/components/ui";

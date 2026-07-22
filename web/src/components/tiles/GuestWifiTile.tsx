@@ -1,7 +1,7 @@
 import { closeGuestWifiModal, useGuestWifiModalOpen } from "@/lib/guest-wifi-modal-store";
 import { trpc } from "@/lib/trpc";
 import { GuestWifiTileView } from "./GuestWifiTileView";
-import { GuestWifiQrModal } from "./modals/GuestWifiQrModal";
+import { GuestWifiQrModal } from "./views/GuestWifiQrModal";
 
 /**
  * Thin container for the Guest Wi-Fi tile. Tapping the tile runs the detail

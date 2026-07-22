@@ -18,7 +18,7 @@ import { interaction } from "../../../lib/log/interaction";
 import { registerOpenModal } from "../../../lib/modal-open-store";
 import { closeTileDetail, openTileDetail, useTileDetail } from "../../../lib/tile-detail-store";
 import { PinGateModal } from "../../pin/PinGateModal";
-import { VariantSwitcher } from "../modals/VariantSwitcher";
+import { VariantSwitcher } from "../views/VariantSwitcher";
 import { getTileDetailEntry } from "./registry";
 import type { TileDetailPageEntry } from "./types";
 

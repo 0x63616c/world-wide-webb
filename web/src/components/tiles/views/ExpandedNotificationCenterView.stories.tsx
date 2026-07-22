@@ -1,5 +1,5 @@
 /**
- * Stories for ExpandedNotificationCenterModalView , the Notification Center
+ * Stories for ExpandedNotificationCenterView , the Notification Center
  * detail page body. View-driven (all data + callbacks via props, including
  * "now", so the relative ages are deterministic). Grouped under "Modals/" , the
  * component is a bare page body now (hosted by TileDetailHost in the app), so
@@ -11,7 +11,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import type { NotificationItem } from "@/lib/notifications";
 import { modalDocsParameters } from "../__stories__/factory";
-import { ExpandedNotificationCenterModalView } from "./ExpandedNotificationCenterModalView";
+import { ExpandedNotificationCenterView } from "./ExpandedNotificationCenterView";
 
 // A fixed "now" so every age label in these stories is stable.
 const NOW = Date.parse("2026-07-18T12:00:00.000Z");
@@ -46,7 +46,7 @@ const items: NotificationItem[] = [
 
 const meta = {
   title: "Modals/Notifications/Center",
-  component: ExpandedNotificationCenterModalView,
+  component: ExpandedNotificationCenterView,
   tags: ["autodocs"],
   parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
   // Page-sized container standing in for the TileDetailHost content region.
@@ -73,7 +73,7 @@ const meta = {
     onMarkRead: fn(),
     onMarkAllRead: fn(),
   },
-} satisfies Meta<typeof ExpandedNotificationCenterModalView>;
+} satisfies Meta<typeof ExpandedNotificationCenterView>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

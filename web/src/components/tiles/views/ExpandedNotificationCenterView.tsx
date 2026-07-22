@@ -1,5 +1,5 @@
 /**
- * ExpandedNotificationCenterModalView , pure presentational Notification Center.
+ * ExpandedNotificationCenterView , pure presentational Notification Center.
  *
  * Bare page body (no <Modal>) , hosted by TileDetailHost , with two tabs
  * (Unread / All) over a list of severity-coded rows. Every piece of
@@ -28,7 +28,7 @@ const TABS: readonly { value: NotificationFilter; label: string }[] = [
   { value: "all", label: "All" },
 ];
 
-export interface ExpandedNotificationCenterModalViewProps {
+export interface ExpandedNotificationCenterViewProps {
   /** Active tab , the same value the container passes to `notifications.list`. */
   filter: NotificationFilter;
   onFilterChange: (next: NotificationFilter) => void;
@@ -46,7 +46,7 @@ export interface ExpandedNotificationCenterModalViewProps {
   onMarkAllRead: () => void;
 }
 
-export function ExpandedNotificationCenterModalView({
+export function ExpandedNotificationCenterView({
   filter,
   onFilterChange,
   items,
@@ -56,7 +56,7 @@ export function ExpandedNotificationCenterModalView({
   nowMs,
   onMarkRead,
   onMarkAllRead,
-}: ExpandedNotificationCenterModalViewProps) {
+}: ExpandedNotificationCenterViewProps) {
   return (
     <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

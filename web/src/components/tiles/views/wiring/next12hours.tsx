@@ -12,13 +12,13 @@
  */
 
 import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
-import { Next12HoursModalComfortBand } from "@/components/tiles/modals/Next12HoursModalComfortBand";
-import type { ConditionHourEntry } from "@/components/tiles/modals/Next12HoursModalConditionTimeline";
-import { Next12HoursModalConditionTimeline } from "@/components/tiles/modals/Next12HoursModalConditionTimeline";
-import { Next12HoursModalSkyClock } from "@/components/tiles/modals/Next12HoursModalSkyClock";
-import type { ThermalHourEntry } from "@/components/tiles/modals/Next12HoursModalThermalDayArc";
-import { Next12HoursModalThermalDayArc } from "@/components/tiles/modals/Next12HoursModalThermalDayArc";
 import type { HourlyEntry } from "@/components/tiles/Next12HoursView";
+import { Next12HoursModalComfortBand } from "@/components/tiles/views/Next12HoursModalComfortBand";
+import type { ConditionHourEntry } from "@/components/tiles/views/Next12HoursModalConditionTimeline";
+import { Next12HoursModalConditionTimeline } from "@/components/tiles/views/Next12HoursModalConditionTimeline";
+import { Next12HoursModalSkyClock } from "@/components/tiles/views/Next12HoursModalSkyClock";
+import type { ThermalHourEntry } from "@/components/tiles/views/Next12HoursModalThermalDayArc";
+import { Next12HoursModalThermalDayArc } from "@/components/tiles/views/Next12HoursModalThermalDayArc";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
 

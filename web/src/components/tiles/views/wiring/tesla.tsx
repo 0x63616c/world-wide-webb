@@ -18,11 +18,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
-import type { ChargeSample } from "@/components/tiles/modals/TeslaModalChargeSession";
-import { TeslaModalChargeSession } from "@/components/tiles/modals/TeslaModalChargeSession";
-import { TeslaModalLiveMapCommand } from "@/components/tiles/modals/TeslaModalLiveMapCommand";
-import { TeslaModalRangeReach } from "@/components/tiles/modals/TeslaModalRangeReach";
-import { TeslaModalVehicleVitals } from "@/components/tiles/modals/TeslaModalVehicleVitals";
+import type { ChargeSample } from "@/components/tiles/views/TeslaModalChargeSession";
+import { TeslaModalChargeSession } from "@/components/tiles/views/TeslaModalChargeSession";
+import { TeslaModalLiveMapCommand } from "@/components/tiles/views/TeslaModalLiveMapCommand";
+import { TeslaModalRangeReach } from "@/components/tiles/views/TeslaModalRangeReach";
+import { TeslaModalVehicleVitals } from "@/components/tiles/views/TeslaModalVehicleVitals";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
 

@@ -13,10 +13,10 @@
  */
 
 import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
-import { NetworkModalConnectionHealth } from "@/components/tiles/modals/NetworkModalConnectionHealth";
-import { NetworkModalDataBudget } from "@/components/tiles/modals/NetworkModalDataBudget";
-import { NetworkModalTrafficTimeline } from "@/components/tiles/modals/NetworkModalTrafficTimeline";
-import { NetworkModalUsageSignature } from "@/components/tiles/modals/NetworkModalUsageSignature";
+import { NetworkModalConnectionHealth } from "@/components/tiles/views/NetworkModalConnectionHealth";
+import { NetworkModalDataBudget } from "@/components/tiles/views/NetworkModalDataBudget";
+import { NetworkModalTrafficTimeline } from "@/components/tiles/views/NetworkModalTrafficTimeline";
+import { NetworkModalUsageSignature } from "@/components/tiles/views/NetworkModalUsageSignature";
 import { MONTHLY_CAP_GB } from "@/config/network";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";

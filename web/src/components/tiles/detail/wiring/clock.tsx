@@ -19,8 +19,8 @@
  * `useIdleHoldWhile` , a dormant World Clock left open still idles home.
  */
 
-import { ClockModalCountdownHorizon } from "@/components/tiles/modals/ClockModalCountdownHorizon";
-import { ClockModalWorldClocks } from "@/components/tiles/modals/ClockModalWorldClocks";
+import { ClockModalCountdownHorizon } from "@/components/tiles/views/ClockModalCountdownHorizon";
+import { ClockModalWorldClocks } from "@/components/tiles/views/ClockModalWorldClocks";
 import { Skeleton } from "@/components/ui";
 import { WORLD_CLOCK_ZONES } from "@/config/world-clocks";
 import { useNow } from "@/lib/hooks";

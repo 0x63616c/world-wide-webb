@@ -1,5 +1,5 @@
 /**
- * Vitest component tests for ExpandedControlsModalView stories.
+ * Vitest component tests for ExpandedControlsView stories.
  * composeStories executes each story (incl. play functions) in jsdom.
  */
 
@@ -7,14 +7,14 @@ import "@testing-library/jest-dom";
 import { composeStories } from "@storybook/react-vite";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import * as stories from "../ExpandedControlsModalView.stories";
+import * as stories from "../ExpandedControlsView.stories";
 
 const { Open, LampsOff, SceneInteraction, BlueActive, PartyActive, BrightnessInteraction } =
   composeStories(stories);
 
 afterEach(cleanup);
 
-describe("ExpandedControlsModalView stories", () => {
+describe("ExpandedControlsView stories", () => {
   it("Open: grid reused (no More), all scenes + enabled slider", async () => {
     const { container } = render(<Open />);
     if (Open.play) await Open.play({ canvasElement: container });

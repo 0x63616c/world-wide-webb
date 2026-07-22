@@ -27,9 +27,9 @@ import { trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";
 import type { ControlKey, ControlsViewData } from "./ControlsTileView";
 import { ControlsTileView } from "./ControlsTileView";
-import type { LampScene } from "./ExpandedControlsModalView";
-import type { PartySelection } from "./modals/PartySpeedControls";
-import { PartySpeed } from "./modals/PartySpeedControls";
+import type { LampScene } from "./ExpandedControlsView";
+import type { PartySelection } from "./views/PartySpeedControls";
+import { PartySpeed } from "./views/PartySpeedControls";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

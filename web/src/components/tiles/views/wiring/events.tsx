@@ -16,11 +16,11 @@
  */
 
 import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
-import { EventsModalCountdownSpotlight } from "@/components/tiles/modals/EventsModalCountdownSpotlight";
-import { EventsModalFullAgenda } from "@/components/tiles/modals/EventsModalFullAgenda";
-import { EventsModalManage } from "@/components/tiles/modals/EventsModalManage";
-import { EventsModalMonthGrid } from "@/components/tiles/modals/EventsModalMonthGrid";
-import { EventsModalTimelineGaps } from "@/components/tiles/modals/EventsModalTimelineGaps";
+import { EventsModalCountdownSpotlight } from "@/components/tiles/views/EventsModalCountdownSpotlight";
+import { EventsModalFullAgenda } from "@/components/tiles/views/EventsModalFullAgenda";
+import { EventsModalManage } from "@/components/tiles/views/EventsModalManage";
+import { EventsModalMonthGrid } from "@/components/tiles/views/EventsModalMonthGrid";
+import { EventsModalTimelineGaps } from "@/components/tiles/views/EventsModalTimelineGaps";
 import { trpc } from "@/lib/trpc";
 
 function useEventsVariants(): { variants: DetailVariant[]; loading: boolean } {

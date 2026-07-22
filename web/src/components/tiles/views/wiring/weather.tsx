@@ -12,13 +12,13 @@
  */
 
 import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
-import type { ComfortBreakdownData } from "@/components/tiles/modals/WeatherModalComfortBreakdown";
-import { WeatherModalComfortBreakdown } from "@/components/tiles/modals/WeatherModalComfortBreakdown";
-import type { HourlySlot } from "@/components/tiles/modals/WeatherModalHourlyTempCurve";
-import { WeatherModalHourlyTempCurve } from "@/components/tiles/modals/WeatherModalHourlyTempCurve";
-import { WeatherModalSunDayArc } from "@/components/tiles/modals/WeatherModalSunDayArc";
-import type { DayForecast } from "@/components/tiles/modals/WeatherModalWeekOutlook";
-import { WeatherModalWeekOutlook } from "@/components/tiles/modals/WeatherModalWeekOutlook";
+import type { ComfortBreakdownData } from "@/components/tiles/views/WeatherModalComfortBreakdown";
+import { WeatherModalComfortBreakdown } from "@/components/tiles/views/WeatherModalComfortBreakdown";
+import type { HourlySlot } from "@/components/tiles/views/WeatherModalHourlyTempCurve";
+import { WeatherModalHourlyTempCurve } from "@/components/tiles/views/WeatherModalHourlyTempCurve";
+import { WeatherModalSunDayArc } from "@/components/tiles/views/WeatherModalSunDayArc";
+import type { DayForecast } from "@/components/tiles/views/WeatherModalWeekOutlook";
+import { WeatherModalWeekOutlook } from "@/components/tiles/views/WeatherModalWeekOutlook";
 import { POLL, useNow } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
 

@@ -1,5 +1,5 @@
 /**
- * Stories for ExpandedControlsModalView , the expanded controls surface.
+ * Stories for ExpandedControlsView , the expanded controls surface.
  * View-driven (all data + callbacks via props), mirroring ControlsTileView.stories.
  * Play functions double as component-test assertions via addon-vitest.
  *
@@ -12,7 +12,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { modalDocsParameters } from "./__stories__/factory";
 import type { ControlsViewData } from "./ControlsTileView";
-import { ExpandedControlsModalView } from "./ExpandedControlsModalView";
+import { ExpandedControlsView } from "./ExpandedControlsView";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ const partyActive: ControlsViewData = {
 
 const meta = {
   title: "Modals/ExpandedControls",
-  component: ExpandedControlsModalView,
+  component: ExpandedControlsView,
   tags: ["autodocs"],
   parameters: { ...modalDocsParameters(), boardWrapper: false, layout: "fullscreen" },
   // Page-sized container standing in for the TileDetailHost content region.
@@ -76,7 +76,7 @@ const meta = {
     onBrightness: fn(),
     onPartySelect: fn(),
   },
-} satisfies Meta<typeof ExpandedControlsModalView>;
+} satisfies Meta<typeof ExpandedControlsView>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

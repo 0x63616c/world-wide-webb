@@ -1,5 +1,5 @@
 /**
- * ExpandedControlsModalView , pure presentational component tests.
+ * ExpandedControlsView , pure presentational component tests.
  * No trpc mocking needed: all inputs/callbacks are props.
  */
 
@@ -7,8 +7,8 @@ import "@testing-library/jest-dom";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ControlsViewData } from "../ControlsTileView";
-import type { ExpandedControlsModalViewProps } from "../ExpandedControlsModalView";
-import { ExpandedControlsModalView } from "../ExpandedControlsModalView";
+import type { ExpandedControlsViewProps } from "../ExpandedControlsView";
+import { ExpandedControlsView } from "../ExpandedControlsView";
 
 afterEach(cleanup);
 
@@ -24,9 +24,7 @@ const lampsOff: ControlsViewData = {
   fan: { on: false, pending: false },
 };
 
-function baseProps(
-  over: Partial<ExpandedControlsModalViewProps> = {},
-): ExpandedControlsModalViewProps {
+function baseProps(over: Partial<ExpandedControlsViewProps> = {}): ExpandedControlsViewProps {
   return {
     data: allOn,
     onToggle: vi.fn(),
@@ -44,9 +42,9 @@ const partyActive: ControlsViewData = {
 
 // ─── content ────────────────────────────────────────────────────────────────
 
-describe("ExpandedControlsModalView , content", () => {
+describe("ExpandedControlsView , content", () => {
   it("renders the toggle grid", () => {
-    render(<ExpandedControlsModalView {...baseProps()} />);
+    render(<ExpandedControlsView {...baseProps()} />);
     // Reuses the grid , Lamps/Lights/Fan toggles are present
     expect(screen.getByLabelText("Lamps")).toBeInTheDocument();
     expect(screen.getByLabelText("Lights")).toBeInTheDocument();
@@ -56,15 +54,15 @@ describe("ExpandedControlsModalView , content", () => {
 
 // ─── grid reuse, no More button inside the page ───────────────────────────────
 
-describe("ExpandedControlsModalView , reuses ControlsGridView", () => {
+describe("ExpandedControlsView , reuses ControlsGridView", () => {
   it("does NOT render a 'More' button inside the page (hideMore)", () => {
-    render(<ExpandedControlsModalView {...baseProps()} />);
+    render(<ExpandedControlsView {...baseProps()} />);
     expect(screen.queryByLabelText("More")).not.toBeInTheDocument();
   });
 
   it("forwards toggle clicks via onToggle with key + current on value", () => {
     const onToggle = vi.fn();
-    render(<ExpandedControlsModalView {...baseProps({ onToggle })} />);
+    render(<ExpandedControlsView {...baseProps({ onToggle })} />);
     fireEvent.click(screen.getByLabelText("Lamps"));
     expect(onToggle).toHaveBeenCalledWith("lamps", true);
   });
@@ -72,9 +70,9 @@ describe("ExpandedControlsModalView , reuses ControlsGridView", () => {
 
 // ─── scene buttons ────────────────────────────────────────────────────────────
 
-describe("ExpandedControlsModalView , scene tiles (ControlTap)", () => {
+describe("ExpandedControlsView , scene tiles (ControlTap)", () => {
   it("renders all four scene tiles with exact accessible names", () => {
-    render(<ExpandedControlsModalView {...baseProps()} />);
+    render(<ExpandedControlsView {...baseProps()} />);
     expect(screen.getByRole("button", { name: "White" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mood" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Red" })).toBeInTheDocument();
@@ -83,7 +81,7 @@ describe("ExpandedControlsModalView , scene tiles (ControlTap)", () => {
 
   it("each scene tile calls onScene with its scene id", () => {
     const onScene = vi.fn();
-    render(<ExpandedControlsModalView {...baseProps({ onScene })} />);
+    render(<ExpandedControlsView {...baseProps({ onScene })} />);
     fireEvent.click(screen.getByRole("button", { name: "White" }));
     fireEvent.click(screen.getByRole("button", { name: "Mood" }));
     fireEvent.click(screen.getByRole("button", { name: "Red" }));
@@ -95,7 +93,7 @@ describe("ExpandedControlsModalView , scene tiles (ControlTap)", () => {
   });
 
   it("each scene tile renders a ControlTap color swatch (no Icon svg)", () => {
-    render(<ExpandedControlsModalView {...baseProps()} />);
+    render(<ExpandedControlsView {...baseProps()} />);
     for (const name of ["White", "Mood", "Red", "Blue"]) {
       const tile = screen.getByRole("button", { name });
       const swatch = tile.querySelector("[data-swatch]") as HTMLElement | null;
@@ -109,7 +107,7 @@ describe("ExpandedControlsModalView , scene tiles (ControlTap)", () => {
 
   it("highlights only the active scene tile (on=activeScene===scene)", () => {
     const data: ControlsViewData = { ...allOn, lamps: { ...allOn.lamps, activeScene: "blue" } };
-    render(<ExpandedControlsModalView {...baseProps({ data })} />);
+    render(<ExpandedControlsView {...baseProps({ data })} />);
     expect(screen.getByRole("button", { name: "Blue" })).toHaveClass("on");
     expect(screen.getByRole("button", { name: "Blue" })).toHaveAttribute("aria-pressed", "true");
     for (const name of ["White", "Mood", "Red"]) {
@@ -118,14 +116,14 @@ describe("ExpandedControlsModalView , scene tiles (ControlTap)", () => {
   });
 
   it("highlights no scene tile when activeScene is null", () => {
-    render(<ExpandedControlsModalView {...baseProps()} />);
+    render(<ExpandedControlsView {...baseProps()} />);
     for (const name of ["White", "Mood", "Red", "Blue"]) {
       expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
     }
   });
 
   it("renders scene tiles in a 2-column grid", () => {
-    render(<ExpandedControlsModalView {...baseProps()} />);
+    render(<ExpandedControlsView {...baseProps()} />);
     // Each ControlTap button is a direct child of the scene grid.
     const grid = screen.getByRole("button", { name: "White" }).parentElement as HTMLElement;
     expect(grid.style.display).toBe("grid");
@@ -136,7 +134,7 @@ describe("ExpandedControlsModalView , scene tiles (ControlTap)", () => {
   });
 
   it("no longer renders Party as a scene tile (it moved to the full-width control)", () => {
-    render(<ExpandedControlsModalView {...baseProps()} />);
+    render(<ExpandedControlsView {...baseProps()} />);
     // Party is now a tab, not a scene ControlTap with a swatch.
     expect(screen.queryByRole("button", { name: "Party" })).not.toBeInTheDocument();
   });
@@ -144,9 +142,9 @@ describe("ExpandedControlsModalView , scene tiles (ControlTap)", () => {
 
 // ─── full-width party control ────────────────────────────────────────────────────
 
-describe("ExpandedControlsModalView , party control", () => {
+describe("ExpandedControlsView , party control", () => {
   it("renders the four-option party control (Off / Slow / Med / Fast)", () => {
-    render(<ExpandedControlsModalView {...baseProps()} />);
+    render(<ExpandedControlsView {...baseProps()} />);
     expect(screen.getByRole("tablist", { name: "Party" })).toBeInTheDocument();
     for (const name of ["Off", "Slow", "Med", "Fast"]) {
       expect(screen.getByRole("tab", { name })).toBeInTheDocument();
@@ -154,7 +152,7 @@ describe("ExpandedControlsModalView , party control", () => {
   });
 
   it("marks Off active when party is not running", () => {
-    render(<ExpandedControlsModalView {...baseProps()} />);
+    render(<ExpandedControlsView {...baseProps()} />);
     expect(screen.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "true");
     for (const name of ["Slow", "Med", "Fast"]) {
       expect(screen.getByRole("tab", { name })).toHaveAttribute("aria-selected", "false");
@@ -162,19 +160,19 @@ describe("ExpandedControlsModalView , party control", () => {
   });
 
   it("marks the active speed when party is running", () => {
-    render(<ExpandedControlsModalView {...baseProps({ data: partyActive, speed: "fast" })} />);
+    render(<ExpandedControlsView {...baseProps({ data: partyActive, speed: "fast" })} />);
     expect(screen.getByRole("tab", { name: "Fast" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "false");
   });
 
   it("defaults the active segment to Med when party is on but speed is unset", () => {
-    render(<ExpandedControlsModalView {...baseProps({ data: partyActive })} />);
+    render(<ExpandedControlsView {...baseProps({ data: partyActive })} />);
     expect(screen.getByRole("tab", { name: "Med" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("fires onPartySelect with the tapped speed", () => {
     const onPartySelect = vi.fn();
-    render(<ExpandedControlsModalView {...baseProps({ onPartySelect })} />);
+    render(<ExpandedControlsView {...baseProps({ onPartySelect })} />);
     fireEvent.click(screen.getByRole("tab", { name: "Fast" }));
     expect(onPartySelect).toHaveBeenCalledWith("fast");
   });
@@ -182,9 +180,7 @@ describe("ExpandedControlsModalView , party control", () => {
   it("fires onPartySelect with 'off' when Off is tapped", () => {
     const onPartySelect = vi.fn();
     render(
-      <ExpandedControlsModalView
-        {...baseProps({ data: partyActive, speed: "fast", onPartySelect })}
-      />,
+      <ExpandedControlsView {...baseProps({ data: partyActive, speed: "fast", onPartySelect })} />,
     );
     fireEvent.click(screen.getByRole("tab", { name: "Off" }));
     expect(onPartySelect).toHaveBeenCalledWith("off");
@@ -192,22 +188,22 @@ describe("ExpandedControlsModalView , party control", () => {
 
   it("disables the party control when lamps are off", () => {
     const onPartySelect = vi.fn();
-    render(<ExpandedControlsModalView {...baseProps({ data: lampsOff, onPartySelect })} />);
+    render(<ExpandedControlsView {...baseProps({ data: lampsOff, onPartySelect })} />);
     expect(screen.getByRole("tablist", { name: "Party" })).toHaveStyle({ pointerEvents: "none" });
     expect(screen.getByRole("tab", { name: "Fast" })).toBeDisabled();
   });
 
   it("omits the party control when onPartySelect is not provided", () => {
-    render(<ExpandedControlsModalView {...baseProps({ onPartySelect: undefined })} />);
+    render(<ExpandedControlsView {...baseProps({ onPartySelect: undefined })} />);
     expect(screen.queryByRole("tablist", { name: "Party" })).not.toBeInTheDocument();
   });
 });
 
 // ─── brightness slider ────────────────────────────────────────────────────────
 
-describe("ExpandedControlsModalView , brightness slider", () => {
+describe("ExpandedControlsView , brightness slider", () => {
   it("renders a 0..100 range slider labeled Brightness", () => {
-    render(<ExpandedControlsModalView {...baseProps()} />);
+    render(<ExpandedControlsView {...baseProps()} />);
     const slider = screen.getByLabelText("Brightness") as HTMLInputElement;
     expect(slider).toBeInTheDocument();
     expect(slider.type).toBe("range");
@@ -216,28 +212,28 @@ describe("ExpandedControlsModalView , brightness slider", () => {
   });
 
   it("is enabled when lamps are on", () => {
-    render(<ExpandedControlsModalView {...baseProps({ data: allOn })} />);
+    render(<ExpandedControlsView {...baseProps({ data: allOn })} />);
     expect(screen.getByLabelText("Brightness")).not.toBeDisabled();
   });
 
   it("is disabled when lamps are off", () => {
-    render(<ExpandedControlsModalView {...baseProps({ data: lampsOff })} />);
+    render(<ExpandedControlsView {...baseProps({ data: lampsOff })} />);
     expect(screen.getByLabelText("Brightness")).toBeDisabled();
   });
 
   it("seeds the slider value from data.lamps.brightness", () => {
-    render(<ExpandedControlsModalView {...baseProps()} />);
+    render(<ExpandedControlsView {...baseProps()} />);
     expect((screen.getByLabelText("Brightness") as HTMLInputElement).value).toBe("72");
   });
 
   it("shows a live percentage readout matching the value", () => {
-    render(<ExpandedControlsModalView {...baseProps()} />);
+    render(<ExpandedControlsView {...baseProps()} />);
     expect(screen.getByText("72%")).toBeInTheDocument();
   });
 
   it("defaults to 0 when brightness is absent", () => {
     const data: ControlsViewData = { ...allOn, lamps: { on: true, sub: "On", pending: false } };
-    render(<ExpandedControlsModalView {...baseProps({ data })} />);
+    render(<ExpandedControlsView {...baseProps({ data })} />);
     expect((screen.getByLabelText("Brightness") as HTMLInputElement).value).toBe("0");
     expect(screen.getByText("0%")).toBeInTheDocument();
   });
@@ -246,7 +242,7 @@ describe("ExpandedControlsModalView , brightness slider", () => {
     vi.useFakeTimers();
     try {
       const onBrightness = vi.fn();
-      render(<ExpandedControlsModalView {...baseProps({ onBrightness })} />);
+      render(<ExpandedControlsView {...baseProps({ onBrightness })} />);
       const slider = screen.getByLabelText("Brightness");
 
       // Controlled slider: the live readout reflects the dragged value immediately.
@@ -268,7 +264,7 @@ describe("ExpandedControlsModalView , brightness slider", () => {
     vi.useFakeTimers();
     try {
       const onBrightness = vi.fn();
-      render(<ExpandedControlsModalView {...baseProps({ onBrightness })} />);
+      render(<ExpandedControlsView {...baseProps({ onBrightness })} />);
       const slider = screen.getByLabelText("Brightness");
 
       // Dragging 50→0 quickly: each tick resets the timer, so only the last wins.
@@ -285,10 +281,10 @@ describe("ExpandedControlsModalView , brightness slider", () => {
   });
 
   it("resyncs the slider when data.lamps.brightness changes upstream", () => {
-    const { rerender } = render(<ExpandedControlsModalView {...baseProps()} />);
+    const { rerender } = render(<ExpandedControlsView {...baseProps()} />);
     expect((screen.getByLabelText("Brightness") as HTMLInputElement).value).toBe("72");
     const next: ControlsViewData = { ...allOn, lamps: { ...allOn.lamps, brightness: 30 } };
-    rerender(<ExpandedControlsModalView {...baseProps({ data: next })} />);
+    rerender(<ExpandedControlsView {...baseProps({ data: next })} />);
     expect((screen.getByLabelText("Brightness") as HTMLInputElement).value).toBe("30");
     expect(screen.getByText("30%")).toBeInTheDocument();
   });

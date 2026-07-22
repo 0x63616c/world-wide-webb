@@ -136,7 +136,7 @@ function ZoneCard({
   const [dragLow, setDragLow] = useState<number | null>(null);
   const [dragHigh, setDragHigh] = useState<number | null>(null);
 
-  // Debounce for the single-setpoint slider , mirrors ExpandedControlsModalView's
+  // Debounce for the single-setpoint slider , mirrors ExpandedControlsView's
   // 400ms brightness debounce so dragging fires ONE mutation for the settled value.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {

@@ -19,7 +19,7 @@ export type ControlKey = (typeof ControlKey)[keyof typeof ControlKey];
  * The lamps' currently-active preset: one of the scene ids, "party" (party mode
  * running), or null (custom/no recognised scene). Drives the active highlight on
  * the scene + Party tiles in the expanded detail page. The scene ids match
- * ExpandedControlsModalView's LampScene; declared here (the lower-level module)
+ * ExpandedControlsView's LampScene; declared here (the lower-level module)
  * so ControlEntry can carry it without importing that view (avoids a cycle).
  */
 export type ActiveScene = "white" | "mood" | "red" | "blue" | "party" | null;

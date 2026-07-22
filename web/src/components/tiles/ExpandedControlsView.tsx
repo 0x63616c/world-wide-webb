@@ -1,5 +1,5 @@
 /**
- * ExpandedControlsModalView , the larger control surface the Controls tile
+ * ExpandedControlsView , the larger control surface the Controls tile
  * opens. PURE view: all data + callbacks arrive via props (no trpc/hooks),
  * so it composes trivially in Storybook and component tests.
  *
@@ -17,8 +17,8 @@ import { useEffect, useRef, useState } from "react";
 import { ControlTap, Slider } from "@/components/ui";
 import type { ControlKey, ControlsViewData } from "./ControlsTileView";
 import { ControlsGridView } from "./ControlsTileView";
-import type { PartySelection } from "./modals/PartySpeedControls";
-import { PartyControl, PartySpeed } from "./modals/PartySpeedControls";
+import type { PartySelection } from "./views/PartySpeedControls";
+import { PartyControl, PartySpeed } from "./views/PartySpeedControls";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ const SCENES: { scene: LampScene; label: string; swatch: string }[] = [
   { scene: LampScene.Blue, label: "Blue", swatch: "#2b6bff" },
 ];
 
-export interface ExpandedControlsModalViewProps {
+export interface ExpandedControlsViewProps {
   data: ControlsViewData;
   onToggle: (key: ControlKey, currentOn: boolean) => void;
   onScene: (scene: LampScene) => void;
@@ -62,14 +62,14 @@ export interface ExpandedControlsModalViewProps {
 
 // ─── view ─────────────────────────────────────────────────────────────────────
 
-export function ExpandedControlsModalView({
+export function ExpandedControlsView({
   data,
   onToggle,
   onScene,
   onBrightness,
   speed,
   onPartySelect,
-}: ExpandedControlsModalViewProps) {
+}: ExpandedControlsViewProps) {
   const lampsOff = data.lamps.on === false;
   const activeScene = data.lamps.activeScene ?? null;
   const partyActive = activeScene === "party";

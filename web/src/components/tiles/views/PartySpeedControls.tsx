@@ -4,7 +4,7 @@
  * Three competing affordances for choosing the party animation speed, built so
  * Calum can FEEL all three on real lamps and keep the winner. Every widget is
  * props-only (`value` + `onChange`) , zero trpc/hooks , so they drop straight
- * into ExpandedControlsModalView once setLampMode (www-7d5b.3.4) lands. The
+ * into ExpandedControlsView once setLampMode (www-7d5b.3.4) lands. The
  * wiring layer maps this frontend `PartySpeed` onto the backend speed enum.
  *
  * Speeds mirror the plan's LampModeSpeed (Slow/Medium/Fast). The labels here are

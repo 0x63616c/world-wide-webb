@@ -17,7 +17,7 @@ import { trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";
 import type { DeployCommit } from "./DeployTileView";
 import { DeployTileView } from "./DeployTileView";
-import type { DeployModalCommit } from "./modals/DeployModalPipeline";
+import type { DeployModalCommit } from "./views/DeployModalPipeline";
 
 type DeployStatus = RouterOutputs["github"]["status"];
 
