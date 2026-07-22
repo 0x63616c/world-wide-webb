@@ -145,14 +145,11 @@ function converged(desired: DeviceStateValue, reported: DeviceStateValue): boole
  * (www-7d5b.2.4). `pending` is true only while a SPECIFIED desired field has not
  * yet converged with reported. The old 5s desiredUntilUtc window is retired.
  */
-export function mergeDeviceState(
-  device: {
-    reportedState?: DeviceStateValue | null;
-    desiredState?: DeviceStateValue | null;
-    available: boolean;
-  },
-  _now?: Date,
-): MergedDeviceState {
+export function mergeDeviceState(device: {
+  reportedState?: DeviceStateValue | null;
+  desiredState?: DeviceStateValue | null;
+  available: boolean;
+}): MergedDeviceState {
   const desired = device.desiredState ?? null;
   const reported = device.reportedState ?? null;
   if (desired != null) {

@@ -9,13 +9,13 @@
  * pool's `search_path` is pinned to it, so the same unqualified `device_state`
  * table name resolves inside that private namespace instead of the real one.
  */
+import { runDeviceStateStoreContract } from "@www/core/testing";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { afterAll, afterEach, beforeAll, describe } from "vitest";
 
 import { createPgDeviceStateStore } from "../src/device-state/pg";
 import * as schema from "../src/device-state/schema";
-import { runDeviceStateStoreContract } from "../src/device-state/store-contract";
 
 const url = process.env.CORE_PG_TEST_URL;
 
@@ -28,6 +28,10 @@ describe.skipIf(!url)("pg contract", () => {
 
   beforeAll(async () => {
     await pool.query(`CREATE SCHEMA "${namespace}"`);
+    // Hand-written DDL mirroring `../src/device-state/schema.ts`'s `deviceState`
+    // table — there is no migration-from-schema step in this test, so if a
+    // column is added/renamed/retyped there, update it here too or this
+    // contract silently stops covering it.
     await pool.query(`
       CREATE TABLE "${namespace}".device_state (
         id text PRIMARY KEY,

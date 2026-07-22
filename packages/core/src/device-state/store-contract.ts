@@ -50,6 +50,39 @@ export function runDeviceStateStoreContract(
       expect(until).toBe(at + COMMAND_WINDOW_MS);
     });
 
+    it("advances updatedAtUtc", async () => {
+      const store = await freshStore();
+      const before = Date.now();
+
+      await store.upsertDesired({ ...lampInput });
+
+      const row = await store.read(lampInput.id);
+      expect((row?.updatedAtUtc as Date).getTime()).toBeGreaterThanOrEqual(before);
+    });
+
+    it("rejects a seeded id colliding with a different entityId", async () => {
+      const store = await freshStore();
+      await store.seed({
+        id: "shared-id",
+        kind: DeviceKind.Light,
+        entityId: "light.first",
+        domain: "light",
+        label: "First",
+        available: true,
+      });
+
+      await expect(
+        store.upsertDesired({
+          id: "shared-id",
+          kind: DeviceKind.Light,
+          entityId: "light.second",
+          domain: "light",
+          label: "Second",
+          desired: { on: true },
+        }),
+      ).rejects.toThrow();
+    });
+
     it("honors a custom windowMs override", async () => {
       const store = await freshStore();
 
@@ -121,6 +154,28 @@ export function runDeviceStateStoreContract(
       const until = (row?.desiredUntilUtc as Date).getTime();
       expect(at).toBeGreaterThanOrEqual(before);
       expect(until).toBe(at + COMMAND_WINDOW_MS);
+    });
+
+    it("advances updatedAtUtc", async () => {
+      const store = await freshStore();
+      await store.seed({
+        id: "climate-thermostat",
+        kind: DeviceKind.Climate,
+        entityId: "climate.thermostat",
+        domain: "climate",
+        label: "Thermostat",
+        reported: { mode: "off" },
+        available: true,
+      });
+      const before = Date.now();
+
+      await store.updateDesired({
+        id: "climate-thermostat",
+        desired: { mode: "cool", target: 70 },
+      });
+
+      const row = await store.read("climate-thermostat");
+      expect((row?.updatedAtUtc as Date).getTime()).toBeGreaterThanOrEqual(before);
     });
   });
 
@@ -220,6 +275,29 @@ export function runDeviceStateStoreContract(
       const second = await store.read("lgt_seeded_2");
       expect(first?.label).toBe("First");
       expect(second).toBeNull();
+    });
+
+    it("rejects seeding two rows with the same id but different entityIds", async () => {
+      const store = await freshStore();
+      await store.seed({
+        id: "shared-id",
+        kind: DeviceKind.Light,
+        entityId: "light.first",
+        domain: "light",
+        label: "First",
+        available: true,
+      });
+
+      await expect(
+        store.seed({
+          id: "shared-id",
+          kind: DeviceKind.Light,
+          entityId: "light.second",
+          domain: "light",
+          label: "Second",
+          available: true,
+        }),
+      ).rejects.toThrow();
     });
   });
 
@@ -342,6 +420,17 @@ export function runDeviceStateStoreContract(
       const store = await freshStore();
       await expect(store.clearDesired("missing")).resolves.toBeUndefined();
     });
+
+    it("advances updatedAtUtc", async () => {
+      const store = await freshStore();
+      await store.upsertDesired({ ...lampInput });
+      const before = Date.now();
+
+      await store.clearDesired(lampInput.id);
+
+      const row = await store.read(lampInput.id);
+      expect((row?.updatedAtUtc as Date).getTime()).toBeGreaterThanOrEqual(before);
+    });
   });
 
   describe("list", () => {
@@ -394,6 +483,17 @@ export function runDeviceStateStoreContract(
 
       const rows = await store.list({ entityIds: ["light.a", "climate.c"] });
       expect(rows.map((r) => r.id).sort()).toEqual(["climate_c", "lgt_a"]);
+    });
+
+    it("list({kind, entityIds}) combines both filters (AND, not OR)", async () => {
+      const store = await freshStore();
+      await seedThree(store);
+
+      const rows = await store.list({
+        kind: DeviceKind.Light,
+        entityIds: ["light.a", "climate.c"],
+      });
+      expect(rows.map((r) => r.id).sort()).toEqual(["lgt_a"]);
     });
   });
 

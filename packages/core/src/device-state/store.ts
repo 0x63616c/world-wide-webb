@@ -71,6 +71,7 @@ export interface ListFilter {
  */
 export interface DeviceStateStore {
   read(id: string): Promise<DeviceStateRow | null>;
+  /** All rows matching `filter` (or all rows with no filter). No ordering guarantee. */
   list(filter?: ListFilter): Promise<DeviceStateRow[]>;
   /** Rows whose desiredUntilUtc is non-null and < now. */
   listExpiredWindows(now: Date): Promise<DeviceStateRow[]>;
@@ -86,12 +87,7 @@ export interface DeviceStateStore {
   writeReported(input: WriteReported): Promise<void>;
 }
 
-/**
- * The desired-overlaid view of a device_state row. Until Task 4 lands the shared
- * merge module, this shape mirrors `MergedDeviceState` from
- * `api/src/services/device-state-mapping.ts` exactly — Task 4 swaps the named
- * type in without changing callers.
- */
+/** The desired-overlaid view of a device_state row, as produced by `mergeDeviceState`. */
 export interface MergedDeviceState {
   state: DeviceStateValue | null;
   pending: boolean;

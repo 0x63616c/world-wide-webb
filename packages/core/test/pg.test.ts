@@ -335,6 +335,7 @@ describe("upsertDesired", () => {
       "desiredAtUtc",
       "desiredState",
       "desiredUntilUtc",
+      "updatedAtUtc",
     ]);
     expect(conflict.set.desiredState).toEqual({ on: true, brightness: 200 });
   });
@@ -385,6 +386,7 @@ describe("updateDesired", () => {
       "desiredAtUtc",
       "desiredState",
       "desiredUntilUtc",
+      "updatedAtUtc",
     ]);
     expect(payload.desiredState).toEqual({ mode: "cool", target: 70 });
     const at = (payload.desiredAtUtc as Date).getTime();
@@ -422,11 +424,14 @@ describe("clearDesired", () => {
 
     await createPgDeviceStateStore(db).clearDesired("lgt_globe");
 
-    expect(set).toHaveBeenCalledWith({
+    expect(set).toHaveBeenCalledTimes(1);
+    const payload = set.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload).toMatchObject({
       desiredState: null,
       desiredAtUtc: null,
       desiredUntilUtc: null,
     });
+    expect(payload.updatedAtUtc).toBeInstanceOf(Date);
     expect(eq).toHaveBeenCalledWith(deviceState.id, "lgt_globe");
     expect(where).toHaveBeenCalledTimes(1);
   });

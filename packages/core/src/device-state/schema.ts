@@ -54,6 +54,9 @@ export interface DeviceSpeakerState {
 
 export type DeviceStateValue = DeviceLightState | DeviceClimateState | DeviceSpeakerState;
 
+// Mirrored by hand-written DDL in `../../test/pg-contract.test.ts` (no
+// migration-from-schema step there) — keep the two in sync when this table
+// changes.
 export const deviceState = pgTable(
   "device_state",
   {

@@ -1,4 +1,4 @@
-import { stampCommandWindow } from "./command-window";
+import { windowEnd } from "./command-window";
 import { mergeDeviceState } from "./merge";
 import type {
   DeviceStateRow,
@@ -9,11 +9,6 @@ import type {
   UpsertDesired,
   WriteReported,
 } from "./store";
-
-/** The end of the command window: `now` + windowMs (default COMMAND_WINDOW_MS). */
-function windowEnd(now: Date, windowMs: number | undefined): Date {
-  return windowMs === undefined ? stampCommandWindow(now) : new Date(now.getTime() + windowMs);
-}
 
 /** Structural clone of a row so callers never share mutable references with the store. */
 function cloneRow(row: DeviceStateRow): DeviceStateRow {
@@ -29,6 +24,18 @@ export function createInMemoryDeviceStateStore(): DeviceStateStore {
       if (row.entityId === entityId) return row;
     }
     return undefined;
+  }
+
+  // pg's PK on `id` raises a unique violation if a second entityId arrives
+  // claiming an `id` already owned by a different row. The Map here is keyed
+  // on `id` too, so without this check a colliding id would silently steal
+  // the slot (and orphan the original entityId) instead of failing the same
+  // way pg does.
+  function assertNoIdCollision(id: string, entityId: string): void {
+    const existing = rows.get(id);
+    if (existing !== undefined && existing.entityId !== entityId) {
+      throw new Error(`device_state id collision: "${id}" already belongs to a different entityId`);
+    }
   }
 
   return {
@@ -66,6 +73,7 @@ export function createInMemoryDeviceStateStore(): DeviceStateStore {
     async seed(input: SeedDevice) {
       const existing = findByEntityId(input.entityId);
       if (existing) return;
+      assertNoIdCollision(input.id, input.entityId);
       const now = input.now ?? new Date();
       const row: DeviceStateRow = {
         id: input.id,
@@ -97,6 +105,7 @@ export function createInMemoryDeviceStateStore(): DeviceStateStore {
         existing.updatedAtUtc = now;
         return;
       }
+      assertNoIdCollision(input.id, input.entityId);
       const row: DeviceStateRow = {
         id: input.id,
         kind: input.kind,

@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNotNull, lt } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
-import { stampCommandWindow } from "./command-window";
+import { windowEnd } from "./command-window";
 import { mergeDeviceState } from "./merge";
 import { deviceState } from "./schema";
 import type {
@@ -13,11 +13,6 @@ import type {
   UpsertDesired,
   WriteReported,
 } from "./store";
-
-/** The end of the command window: `now` + windowMs (default COMMAND_WINDOW_MS). */
-function windowEnd(now: Date, windowMs: number | undefined): Date {
-  return windowMs === undefined ? stampCommandWindow(now) : new Date(now.getTime() + windowMs);
-}
 
 /** The minimal structural surface this adapter needs from a drizzle db instance. */
 export type PgDeviceStateDb = Pick<
@@ -74,6 +69,10 @@ export function createPgDeviceStateStore(db: PgDeviceStateDb): DeviceStateStore 
 
     async seed(input: SeedDevice) {
       const now = input.now ?? new Date();
+      // createdAtUtc/updatedAtUtc are NOT set here — they come from the
+      // column's `defaultNow()` (the DB server clock), which can differ from
+      // `input.now` (the memory adapter's clock). Known and accepted: nothing
+      // reads updatedAtUtc today (verified in the A8/A9 reviews).
       const { now: _now, reported, desired, ...rest } = input;
       await db
         .insert(deviceState)
@@ -105,7 +104,12 @@ export function createPgDeviceStateStore(db: PgDeviceStateDb): DeviceStateStore 
         })
         .onConflictDoUpdate({
           target: deviceState.entityId,
-          set: { desiredState: input.desired, desiredAtUtc: now, desiredUntilUtc },
+          set: {
+            desiredState: input.desired,
+            desiredAtUtc: now,
+            desiredUntilUtc,
+            updatedAtUtc: now,
+          },
         });
     },
 
@@ -114,14 +118,15 @@ export function createPgDeviceStateStore(db: PgDeviceStateDb): DeviceStateStore 
       const desiredUntilUtc = windowEnd(now, input.windowMs);
       await db
         .update(deviceState)
-        .set({ desiredState: input.desired, desiredAtUtc: now, desiredUntilUtc })
+        .set({ desiredState: input.desired, desiredAtUtc: now, desiredUntilUtc, updatedAtUtc: now })
         .where(eq(deviceState.id, input.id));
     },
 
     async clearDesired(id: string) {
+      const now = new Date();
       await db
         .update(deviceState)
-        .set({ desiredState: null, desiredAtUtc: null, desiredUntilUtc: null })
+        .set({ desiredState: null, desiredAtUtc: null, desiredUntilUtc: null, updatedAtUtc: now })
         .where(eq(deviceState.id, id));
     },
 

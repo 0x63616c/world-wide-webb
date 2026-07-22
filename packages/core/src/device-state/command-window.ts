@@ -15,3 +15,8 @@ export function stampCommandWindow(now: Date): Date {
 export function windowOpen(row: { desiredUntilUtc: Date | null }, now: Date): boolean {
   return row.desiredUntilUtc != null && now < row.desiredUntilUtc;
 }
+
+/** The end of the command window: `now` + windowMs (default COMMAND_WINDOW_MS). */
+export function windowEnd(now: Date, windowMs: number | undefined): Date {
+  return windowMs === undefined ? stampCommandWindow(now) : new Date(now.getTime() + windowMs);
+}
