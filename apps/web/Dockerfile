@@ -9,12 +9,12 @@ WORKDIR /app
 # Install all workspace deps. Copy root manifests first so bun can resolve
 # workspace packages before copying source, keeps the layer cache effective.
 COPY package.json bun.lock ./
-COPY web/package.json ./web/package.json
-COPY api/package.json ./api/package.json
-COPY worker/package.json ./worker/package.json
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/api/package.json ./apps/api/package.json
+COPY apps/worker/package.json ./apps/worker/package.json
 COPY drizzle/package.json ./drizzle/package.json
-COPY map-provision/package.json ./map-provision/package.json
-COPY storybook/package.json ./storybook/package.json
+COPY apps/map-provision/package.json ./apps/map-provision/package.json
+COPY apps/storybook/package.json ./apps/storybook/package.json
 COPY packages/api/package.json ./packages/api/package.json
 COPY packages/core/package.json ./packages/core/package.json
 COPY packages/logger/package.json ./packages/logger/package.json
@@ -33,9 +33,9 @@ RUN bun install --frozen-lockfile --ignore-scripts
 COPY tsconfig.json ./tsconfig.json
 
 # Copy workspace source. packages/api provides the @cc/api type export.
-COPY api/src ./api/src
-COPY api/tsconfig.json ./api/tsconfig.json
-COPY web ./web
+COPY apps/api/src ./apps/api/src
+COPY apps/api/tsconfig.json ./apps/api/tsconfig.json
+COPY apps/web ./apps/web
 COPY packages ./packages
 
 # Commit SHA baked into the bundle (vite `define`) so the running panel reports
@@ -51,8 +51,8 @@ ENV BUILD_HASH=$BUILD_HASH
 ARG BUILD_TIME
 ENV BUILD_TIME=$BUILD_TIME
 
-# Build the static bundle. Output lands at web/dist.
-RUN bun run --cwd web build
+# Build the static bundle. Output lands at apps/web/dist.
+RUN bun run --cwd apps/web build
 
 
 # Stage 2: nginx serves the static bundle and proxies /trpc to the api.
@@ -61,9 +61,9 @@ FROM nginx:1.27-alpine AS runtime
 # Remove the default nginx config and replace it with ours.
 RUN rm /etc/nginx/conf.d/default.conf
 
-COPY web/nginx.conf /etc/nginx/conf.d/app.conf
+COPY apps/web/nginx.conf /etc/nginx/conf.d/app.conf
 
-COPY --from=builder /app/web/dist /usr/share/nginx/html
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
 
 EXPOSE 80
 

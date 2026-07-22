@@ -11,12 +11,12 @@ WORKDIR /app
 
 # Copy every workspace manifest so bun resolves the full graph for the bundler.
 COPY package.json bun.lock ./
-COPY api/package.json api/
-COPY web/package.json web/
-COPY worker/package.json worker/
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
 COPY drizzle/package.json drizzle/
-COPY map-provision/package.json map-provision/
-COPY storybook/package.json storybook/
+COPY apps/map-provision/package.json apps/map-provision/
+COPY apps/storybook/package.json apps/storybook/
 COPY packages/api/package.json packages/api/
 COPY packages/core/package.json packages/core/
 COPY packages/logger/package.json packages/logger/
@@ -31,13 +31,13 @@ COPY infra/unifi/package.json infra/unifi/
 # --ignore-scripts skips the lefthook prepare hook (needs git, absent here).
 RUN bun install --frozen-lockfile --ignore-scripts
 
-COPY api api
-COPY worker worker
+COPY apps/api apps/api
+COPY apps/worker apps/worker
 COPY packages packages
 
 # Bundle to a single file. index.ts runs migrations on boot via drizzle-orm's
 # runtime migrator (re-exported from @control-center/api), so drizzle-kit never ships.
-RUN bun build worker/src/index.ts --target=bun --outfile dist/worker.js
+RUN bun build apps/worker/src/index.ts --target=bun --outfile dist/worker.js
 
 # ── Stage 2: runtime image ────────────────────────────────────────────────────
 # The bundle, the SQL migration files, and the media toolchain (yt-dlp +
@@ -59,7 +59,7 @@ COPY --from=build /app/dist/worker.js worker.js
 # Migrations resolve relative to the bundle's own location (import.meta.url),
 # i.e. /app/migrations at runtime, keep this path in sync with WORKDIR. They
 # live in api (the schema's home) and are re-exported via @control-center/api.
-COPY --from=build /app/api/src/db/migrations migrations
+COPY --from=build /app/apps/api/src/db/migrations migrations
 
 # No port: the worker serves no HTTP, it only reaches out to HA + Postgres.
 CMD ["bun", "worker.js"]

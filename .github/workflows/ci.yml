@@ -67,18 +67,18 @@ jobs:
             # Single-product repo now (SDD track 0, Task 9: flatten): each app
             # lane is scoped to its own root directory plus shared packages.
             web:
-              - 'web/**'
+              - 'apps/web/**'
               - 'packages/**'
               - 'bun.lock'
             api:
-              - 'api/**'
+              - 'apps/api/**'
               - 'packages/**'
               - 'bun.lock'
             # The worker bundles its domain cycles from @control-center/api, so an api/
             # change must rebuild the worker image too (www-xjba).
             worker:
-              - 'worker/**'
-              - 'api/**'
+              - 'apps/worker/**'
+              - 'apps/api/**'
               - 'packages/**'
               - 'bun.lock'
             # infra-only changes (the Pulumi program + workload specs) deploy
@@ -95,17 +95,16 @@ jobs:
             # CLI + sh image, no workspace deps, so it rebuilds solely on its
             # own tree (mirrors drizzle).
             mapprovision:
-              - 'map-provision/**'
+              - 'apps/map-provision/**'
             # any_app is true when at least one image needs to be built. An
             # infra-only change is handled by the separate `infra` filter above,
             # the deploy job fires on `any_app || infra`.
             any_app:
-              - 'web/**'
-              - 'api/**'
-              - 'worker/**'
+              - 'apps/web/**'
+              - 'apps/api/**'
+              - 'apps/worker/**'
               - 'drizzle/**'
-              - 'map-provision/**'
-              - 'ios/**'
+              - 'apps/map-provision/**'
               - 'packages/**'
               - 'bun.lock'
 
@@ -264,7 +263,7 @@ jobs:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         with:
           image: www-control-center-web
-          dockerfile: web/Dockerfile
+          dockerfile: apps/web/Dockerfile
           cache-scope: web
           build-args: |
             BUILD_HASH=${{ github.sha }}
@@ -285,7 +284,7 @@ jobs:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         with:
           image: www-control-center-api
-          dockerfile: api/Dockerfile
+          dockerfile: apps/api/Dockerfile
           cache-scope: api
           build-args: |
             BUILD_HASH=${{ github.sha }}
@@ -305,7 +304,7 @@ jobs:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         with:
           image: www-control-center-worker
-          dockerfile: worker/Dockerfile
+          dockerfile: apps/worker/Dockerfile
           cache-scope: worker
 
   build-drizzle:
@@ -341,7 +340,7 @@ jobs:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         with:
           image: www-control-center-map-provision
-          dockerfile: map-provision/Dockerfile
+          dockerfile: apps/map-provision/Dockerfile
           cache-scope: map-provision
 
   # After the images build on main, deploy to the homelab k3s cluster with

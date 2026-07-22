@@ -16,11 +16,11 @@
 - Shared primitives live in `packages/platform`, enforced by a Biome rule banning
   the raw escape hatch (see sound bus).
 - Fixed wall panel, `1366x1024`, not responsive.
-- Tile placement belongs in `web/src/lib/tile-registry.ts`.
-- Use shared UI primitives from `web/src/components/ui/`.
+- Tile placement belongs in `apps/web/src/lib/tile-registry.ts`.
+- Use shared UI primitives from `apps/web/src/components/ui/`.
 - Full-screen pages over modals for new tiles' detail views.
 - Panel audio goes through the sound bus: `playCue()` from
-  `web/src/lib/sound/`. Add a named cue; never construct
+  `apps/web/src/lib/sound/`. Add a named cue; never construct
   `AudioContext` or `Audio` elsewhere (Biome-enforced). Loudness is DEVICE volume
   via the `PanelVolume` plugin and Sound settings page, never in-app gain.
 - No fake or placeholder data.

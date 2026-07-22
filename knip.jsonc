@@ -65,7 +65,7 @@
       // imported by both, so its exports are reached from these entries (www-jtp0.7).
       "entry": ["scripts/*.ts", "scripts/*.mjs"]
     },
-    "api": {
+    "apps/api": {
       // server.ts = Docker CMD; purge.ts = the portal data-hygiene cronJob
       // entrypoint, bundled into the api image + run via command override
       // (www-q002.18); seed.ts = db:seed script.
@@ -115,7 +115,7 @@
       // Tests are in test/ - declare explicitly so knip registers them as entries.
       "entry": ["test/**/*.test.ts"]
     },
-    "web": {
+    "apps/web": {
       // Guest portal entry (vite.portal.config.ts -> portal.html -> this file)
       // is a second build knip's vite-plugin auto-detection doesn't see (it
       // only picks up the default vite.config.ts / index.html pair).

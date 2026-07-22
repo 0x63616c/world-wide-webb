@@ -1,6 +1,6 @@
 # Features are self-contained Apps; the central tile-registry is superseded
 
-Each user-facing feature becomes one **App** — a folder under `products/control-center/apps/<id>/`
+Each user-facing feature becomes one **App** — a folder under `features/<id>/`
 holding its Tile(s), tRPC router slice, Worker Cycles/Queue Jobs, owned tables, and Chrome, wired
 together by an `AppManifest`. The folder existing *is* the App's registration. This replaces
 today's arrangement where a feature is scattered across the central `TILE_REGISTRY`
@@ -17,7 +17,7 @@ runtime via `resolveLayout`. Update that invariant when the migration lands.
 The central registries give one obvious place to look but force every new feature to edit 4–5
 hand-maintained composition roots, and no single location owns a feature — the deletion test fails
 (you cannot delete a feature by deleting one thing). App folders trade the single-index convenience
-for **locality**: `grep apps/weather/` returns the whole feature, and deleting the folder deletes
+for **locality**: `grep features/weather/` returns the whole feature, and deleting the folder deletes
 the feature. Ownership is enforced by a consistency test (one owning App per router key / table;
 exactly one `home` Tile).
 

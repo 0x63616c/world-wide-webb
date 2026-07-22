@@ -12,14 +12,14 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", exact: "8.4.0"),
-        .package(name: "CapacitorCommunityScreenBrightness", path: "../../../../../../node_modules/@capacitor-community/screen-brightness"),
-        .package(name: "CapacitorApp", path: "../../../../../../node_modules/@capacitor/app"),
-        .package(name: "CapacitorBrowser", path: "../../../../../../node_modules/@capacitor/browser"),
-        .package(name: "CapacitorDevice", path: "../../../../../../node_modules/@capacitor/device"),
-        .package(name: "CapacitorFilesystem", path: "../../../../../../node_modules/@capacitor/filesystem"),
-        .package(name: "CapacitorPushNotifications", path: "../../../../../../node_modules/@capacitor/push-notifications"),
-        .package(name: "CapacitorShare", path: "../../../../../../node_modules/@capacitor/share"),
-        .package(name: "CapacitorStatusBar", path: "../../../../../../node_modules/@capacitor/status-bar")
+        .package(name: "CapacitorCommunityScreenBrightness", path: "../../../../../node_modules/@capacitor-community/screen-brightness"),
+        .package(name: "CapacitorApp", path: "../../../../../node_modules/@capacitor/app"),
+        .package(name: "CapacitorBrowser", path: "../../../../../node_modules/@capacitor/browser"),
+        .package(name: "CapacitorDevice", path: "../../../../../node_modules/@capacitor/device"),
+        .package(name: "CapacitorFilesystem", path: "../../../../../node_modules/@capacitor/filesystem"),
+        .package(name: "CapacitorPushNotifications", path: "../../../../../node_modules/@capacitor/push-notifications"),
+        .package(name: "CapacitorShare", path: "../../../../../node_modules/@capacitor/share"),
+        .package(name: "CapacitorStatusBar", path: "../../../../../node_modules/@capacitor/status-bar")
     ],
     targets: [
         .target(

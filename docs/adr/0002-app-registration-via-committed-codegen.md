@@ -1,8 +1,8 @@
 # App registration is committed codegen over a file convention; runtime self-registration is forbidden
 
 An App folder becomes runtime wiring through a committed **codegen** step (`bun run apps:gen`) that
-globs `apps/*/manifest.ts` + the convention facet files (`web.tsx`, `api.ts`, `jobs.ts`,
-`schema.ts`) and emits checked-in `apps/_generated/*.gen.ts` aggregates — byte-compatible with
+globs `features/*/manifest.ts` + the convention facet files (`web.tsx`, `api.ts`, `jobs.ts`,
+`schema.ts`) and emits checked-in `features/_generated/*.gen.ts` aggregates — byte-compatible with
 today's hand-written `TILE_REGISTRY`, `appRouter` literal, and `Worker[]` array. The runtime stays
 100% static. A CI guard (`apps:check`) re-runs codegen into a temp dir and fails if `git diff` on
 `_generated/` is non-empty (the same drift-guard pattern the repo already uses for drizzle-meta).
@@ -38,6 +38,6 @@ Real trade-off — codegen machinery bought in exchange for static end-to-end ty
 deploy-safety; the rejected runtime registry is the tempting-but-dangerous alternative someone will
 propose again, so its rejection is recorded explicitly.
 
-Note: `app-kit/` and `apps/` are plain source directories, **not** workspaces — they must never
-contain a `package.json`, or the `products/*` workspace glob would register them and disturb the
+Note: `app-kit/` and `features/` are plain source directories, **not** workspaces — they must never
+contain a `package.json`, or a workspace glob would register them and disturb the
 Dockerfiles and workspace guards.

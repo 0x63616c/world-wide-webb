@@ -32,7 +32,7 @@ for line in secrets_raw.strip().split("\n"):
 local_resource(
     "install",
     cmd="cd %s && bun install" % repo_root,
-    deps=[repo_root + "/package.json", repo_root + "/bun.lock", repo_root + "/api/package.json", repo_root + "/web/package.json", repo_root + "/packages/api/package.json"],
+    deps=[repo_root + "/package.json", repo_root + "/bun.lock", repo_root + "/apps/api/package.json", repo_root + "/apps/web/package.json", repo_root + "/packages/api/package.json"],
     allow_parallel=True,
     labels=["tooling", "shared"],
 )
@@ -44,8 +44,8 @@ local_resource(
 # when the DB is already up to date.
 local_resource(
     "db-migrate",
-    cmd="cd %s && DATABASE_URL='postgresql://cc:cc@localhost:%d/controlcenter' bun run --cwd api db:migrate" % (repo_root, port_postgres),
-    deps=[repo_root + "/api/src/db/migrations"],
+    cmd="cd %s && DATABASE_URL='postgresql://cc:cc@localhost:%d/controlcenter' bun run --cwd apps/api db:migrate" % (repo_root, port_postgres),
+    deps=[repo_root + "/apps/api/src/db/migrations"],
     resource_deps=["postgres", "install"],
     labels=["backend", "control-center"],
 )
@@ -55,7 +55,7 @@ local_resource(
 # exits non-zero and Tilt restarts it , no manual UI click on the wall panel.
 local_resource(
     "api",
-    serve_cmd="cd %s && scripts/serve-with-watchdog.sh http://localhost:%d/up 20 15 -- bun --watch api/src/server.ts" % (repo_root, port_api),
+    serve_cmd="cd %s && scripts/serve-with-watchdog.sh http://localhost:%d/up 20 15 -- bun --watch apps/api/src/server.ts" % (repo_root, port_api),
     serve_env={
         "PORT": str(port_api),
         "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
@@ -89,7 +89,7 @@ local_resource(
 # URL to poll , bun --watch restarts it on a crash, and Tilt surfaces its logs.
 local_resource(
     "worker",
-    serve_cmd="cd %s && bun --watch worker/src/index.ts" % repo_root,
+    serve_cmd="cd %s && bun --watch apps/worker/src/index.ts" % repo_root,
     serve_env={
         "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
         "HA_TOKEN": secrets["HA_TOKEN"],
@@ -110,7 +110,7 @@ local_resource(
 # usually fails to come up). Vite cold start is slower, so a longer grace.
 local_resource(
     "web",
-    serve_cmd="cd %s && scripts/serve-with-watchdog.sh http://localhost:%d/ 30 15 -- bun run --cwd web dev --port %d" % (repo_root, port_web, port_web),
+    serve_cmd="cd %s && scripts/serve-with-watchdog.sh http://localhost:%d/ 30 15 -- bun run --cwd apps/web dev --port %d" % (repo_root, port_web, port_web),
     serve_env={
         "API_PORT": str(port_api),
     },
@@ -128,7 +128,7 @@ local_resource(
 # Storybook , auto-started with the dev stack so it's always available for tile work.
 local_resource(
     "storybook",
-    serve_cmd="cd %s && bun run --cwd web storybook" % repo_root,
+    serve_cmd="cd %s && bun run --cwd apps/web storybook" % repo_root,
     resource_deps=["install"],
     labels=["frontend", "control-center"],
     links=[
@@ -139,7 +139,7 @@ local_resource(
 # Drizzle Studio , manual, opt-in.
 local_resource(
     "drizzle-studio",
-    serve_cmd="cd %s && bun run --cwd api db:studio" % repo_root,
+    serve_cmd="cd %s && bun run --cwd apps/api db:studio" % repo_root,
     resource_deps=["postgres"],
     auto_init=False,
     trigger_mode=TRIGGER_MODE_MANUAL,
@@ -153,7 +153,7 @@ local_resource(
 cmd_button(
     name="db-migrate",
     resource="postgres",
-    argv=["sh", "-c", "cd %s && bun run --cwd api db:migrate" % repo_root],
+    argv=["sh", "-c", "cd %s && bun run --cwd apps/api db:migrate" % repo_root],
     text="Migrate DB",
     icon_name="upgrade",
     location=location.RESOURCE,
@@ -164,7 +164,7 @@ cmd_button(
     resource="postgres",
     argv=[
         "sh", "-c",
-        "cd %s && docker compose -f docker-compose.yml exec -T postgres psql -U cc -d controlcenter -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' && bun run --cwd api db:migrate" % repo_root,
+        "cd %s && docker compose -f docker-compose.yml exec -T postgres psql -U cc -d controlcenter -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' && bun run --cwd apps/api db:migrate" % repo_root,
     ],
     text="Reset DB",
     icon_name="delete_forever",
@@ -181,7 +181,7 @@ cmd_button(
     resource="web",
     argv=[
         "sh", "-c",
-        'cd %s/web && bunx cap run ios --live-reload --host localhost --port %d --target-name "iPad Pro 13-inch (M5)"' % (repo_root, port_web),
+        'cd %s/apps/web && bunx cap run ios --live-reload --host localhost --port %d --target-name "iPad Pro 13-inch (M5)"' % (repo_root, port_web),
     ],
     text="iPad Simulator",
     icon_name="tablet_mac",

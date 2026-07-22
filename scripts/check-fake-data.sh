@@ -7,10 +7,10 @@
 #
 #   DEMO_ or demo_ in staged TS/TSX → blocked UNLESS the file is one of the
 #   sanctioned always-on demo backends or their direct unit tests:
-#     api/src/services/network-service.ts
-#     api/src/services/weather-service.ts
-#     api/src/__tests__/network.test.ts
-#     api/src/__tests__/weather.test.ts
+#     apps/api/src/services/network-service.ts
+#     apps/api/src/services/weather-service.ts
+#     apps/api/src/__tests__/network.test.ts
+#     apps/api/src/__tests__/weather.test.ts
 #
 # What counts as "in a comment" , lines we strip before checking:
 #   //…        single-line comments
@@ -20,10 +20,10 @@
 set -euo pipefail
 
 SANCTIONED=(
-  "api/src/services/network-service.ts"
-  "api/src/services/weather-service.ts"
-  "api/src/__tests__/network.test.ts"
-  "api/src/__tests__/weather.test.ts"
+  "apps/api/src/services/network-service.ts"
+  "apps/api/src/services/weather-service.ts"
+  "apps/api/src/__tests__/network.test.ts"
+  "apps/api/src/__tests__/weather.test.ts"
 )
 
 is_sanctioned() {

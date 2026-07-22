@@ -8,5 +8,5 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["vitest.config.ts", "web/vitest.workspace.ts"]
+  "include": ["vitest.config.ts", "apps/web/vitest.workspace.ts"]
 }

@@ -16,13 +16,13 @@ apps re-architecture (ADR-0001/0002/0005) plus the eight deepening candidates fr
 |---|----------|--------|
 | 1 | C3 platform duplication | Shrink manifest to the 4 consumed facets (exposure, database, backup, secretUsages); `infra/src/services.ts` stays the single workload declaration |
 | 2 | `packages/core` birth scope | device-state store only; queue/HA/env/migrator pulled down lazily as app folds need them |
-| 3 | Product merge | captive-portal product dissolves into control-center; portal becomes App `apps/guest-wifi/` |
+| 3 | Product merge | captive-portal product dissolves into control-center; portal becomes App `features/guest-wifi/` |
 | 4 | Guest API surface | Same image, **portal-only listener** (separate port/entrypoint mounting only the portal router + guest static page); guests structurally cannot reach the full router (ADR-0004: PIN is client-only) |
 | 5 | Guest web | Shared UI: portal screens rebuilt on cc ui primitives + theme as a second tiny vite entrypoint; guests never download the board bundle |
 | 6 | Hostnames | `app.worldwidewebb.co`; delete `${host}--${dnsCode}` flattening + dnsCode; retire `dashboard.worldwidewebb.co` after cutover; portal stays LAN-only (no CF hostname) |
 | 7 | Portal Postgres | Verify `control_center` holds authoritative rows → final pg_dump to NAS → delete cluster, auth secrets, migration tooling |
 | 8 | Merge sequencing | Track 0, fused with the platform prune — before all other tracks |
-| 9 | Repo layout | **Flatten to root** in Track 0: `apps/`, `web/`, `api/`, `worker/` at repo root; `products/` dies; future products = separate repos |
+| 9 | Repo layout | **Flatten to root** in Track 0: `products/` dies; future products = separate repos. **Amended by Track B plan decision 6 (2026-07-22):** deployables live under `apps/` (`apps/web`, `apps/api`, `apps/worker`, `apps/storybook`, `apps/map-provision`); Track C per-feature folds rename to `features/<id>/` |
 | 10 | Device-state store seam | Interface + pg adapter + in-memory adapter + default prod instance; services take the store as a parameter |
 | 11 | Repo (data-access) rollout | Per-App repo (PortalRepo pattern), each landing with its app fold; no big-bang |
 | 12 | `createStore` home | `web/src/lib/store.ts` (single web app post-merge; promote later if a second consumer appears) |
@@ -72,7 +72,7 @@ workloads/namespace/images); delete `products/captive-portal/`; portal DB teardo
   parallel sessions), web facet first with lazy component refs (kills the MapLibre mock
   boilerplate in 18 test files and the two hand-kept 20-member unions).
 - Fold features one slice each, starting with **guest-wifi**, then weather, weight, climate,
-  controls, sonos, tesla, … (~19). Each fold: `apps/<id>/` folder (manifest, web, api, jobs,
+  controls, sonos, tesla, … (~19). Each fold: `features/<id>/` folder (manifest, web, api, jobs,
   schema facets), per-App repo + in-memory fake, consistency test green.
 - Central registries (`tile-registry.ts`, `appRouter` literal, `Worker[]` array, schema
   barrel, `worker-deps.ts`) delete when their last entry migrates.
@@ -82,10 +82,10 @@ workloads/namespace/images); delete `products/captive-portal/`; portal DB teardo
 
 ## End state
 
-Single product at repo root (`apps/`, `web/`, `api/`, `worker/`, `packages/`, `infra/`);
+Single product at repo root (`apps/` deployables, `features/`, `packages/`, `infra/`);
 one Postgres (`control_center`); one worker deployable; panel at `app.worldwidewebb.co`;
 guests at a LAN-only portal page built from cc components against a portal-only listener;
-adding a feature = create `apps/<id>/` + `apps:gen`; deleting a feature = delete its folder;
+adding a feature = create `features/<id>/` + `apps:gen`; deleting a feature = delete its folder;
 tests reach modules through interfaces (in-memory store/repo adapters — no `vi.mock` of
 db/HA singletons); one Unlock gating all Sensitive surfaces, server-enforced after Slice S.
 

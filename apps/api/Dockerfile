@@ -10,12 +10,12 @@ WORKDIR /app
 
 # Copy every workspace manifest so bun resolves the full graph for the bundler.
 COPY package.json bun.lock ./
-COPY api/package.json api/
-COPY web/package.json web/
-COPY worker/package.json worker/
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
 COPY drizzle/package.json drizzle/
-COPY map-provision/package.json map-provision/
-COPY storybook/package.json storybook/
+COPY apps/map-provision/package.json apps/map-provision/
+COPY apps/storybook/package.json apps/storybook/
 COPY packages/api/package.json packages/api/
 COPY packages/core/package.json packages/core/
 COPY packages/logger/package.json packages/logger/
@@ -30,28 +30,28 @@ COPY infra/unifi/package.json infra/unifi/
 # --ignore-scripts skips the lefthook prepare hook (needs git, absent here).
 RUN bun install --frozen-lockfile --ignore-scripts
 
-COPY api api
+COPY apps/api apps/api
 # The guest (captive-portal) SPA bundle (Task 4, SDD track 0): the api image
 # serves it from GUEST_STATIC_DIR via the guest listener (ADR-0006), so the
 # built dist-portal/ output has to be baked in here, not just the web image.
 # Needs the web product's full source + tsconfig (vite.portal.config.ts,
 # portal.html, src/portal/) to build.
-COPY web web
+COPY apps/web apps/web
 COPY tsconfig.json tsconfig.json
 COPY packages packages
 
 # Bundle to a single file. server.ts runs migrations on boot via drizzle-orm's
 # runtime migrator, so drizzle-kit never ships.
-RUN bun build api/src/server.ts --target=bun --outfile dist/server.js
+RUN bun build apps/api/src/server.ts --target=bun --outfile dist/server.js
 
-# Guest SPA bundle -> web/dist-portal/, COPYd into the
+# Guest SPA bundle -> apps/web/dist-portal/, COPYd into the
 # runtime image below at /app/portal-dist (GUEST_STATIC_DIR).
-RUN bun run --cwd web build:portal
+RUN bun run --cwd apps/web build:portal
 
 # Second entrypoint: the portal data-hygiene purge (www-q002.18). Bundled into
 # the same image so the bosun cronJob runs it via a command override
 # (`bun purge.js`); it shares the api's drizzle schema + DATABASE_URL wiring.
-RUN bun build api/src/purge.ts --target=bun --outfile dist/purge.js
+RUN bun build apps/api/src/purge.ts --target=bun --outfile dist/purge.js
 
 # The worker is a SEPARATE app + image now (worker, control-center-worker),
 # no longer bundled here (www-xjba). The api ships server.js only.
@@ -73,9 +73,9 @@ COPY --from=build /app/dist/server.js server.js
 COPY --from=build /app/dist/purge.js purge.js
 # Migrations resolve relative to the bundle's own location (import.meta.url),
 # i.e. /app/migrations at runtime, keep this path in sync with WORKDIR.
-COPY --from=build /app/api/src/db/migrations migrations
+COPY --from=build /app/apps/api/src/db/migrations migrations
 # Guest SPA bundle; GUEST_STATIC_DIR is set to this path in the k8s WorkloadSpec.
-COPY --from=build /app/web/dist-portal portal-dist
+COPY --from=build /app/apps/web/dist-portal portal-dist
 
 EXPOSE 4201
 
