@@ -73,12 +73,16 @@ export function createPgDeviceStateStore(db: PgDeviceStateDb): DeviceStateStore 
     },
 
     async seed(input: SeedDevice) {
+      const now = input.now ?? new Date();
+      const { now: _now, reported, desired, ...rest } = input;
       await db
         .insert(deviceState)
         .values({
-          ...input,
-          desiredState: input.desired ?? null,
-          reportedState: input.reported ?? null,
+          ...rest,
+          desiredState: desired ?? null,
+          desiredAtUtc: desired != null ? now : null,
+          reportedState: reported ?? null,
+          reportedAtUtc: reported != null ? now : null,
         })
         .onConflictDoNothing({ target: deviceState.entityId });
     },

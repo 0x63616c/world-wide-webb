@@ -22,7 +22,13 @@ export interface UpdateDesired {
   windowMs?: number;
 }
 
-/** First-sight row creation by a reconcile loop. Conflict on entityId = no-op. */
+/**
+ * First-sight row creation by a reconcile loop. Conflict on entityId = no-op.
+ * The store owns the "when" stamps: `reportedAtUtc` is set when `reported` is
+ * provided, `desiredAtUtc` when `desired` is provided (a row seeded WITH data
+ * but a null timestamp for it is semantically incoherent) , callers never pass
+ * a timestamp for data they didn't give.
+ */
 export interface SeedDevice {
   id: string;
   kind: DeviceKind;
@@ -32,6 +38,8 @@ export interface SeedDevice {
   reported?: DeviceStateValue | null;
   desired?: DeviceStateValue | null;
   available: boolean;
+  /** Injectable clock for deterministic tests; defaults to new Date(). */
+  now?: Date;
 }
 
 /** One reconcile-cycle persistence of observed state, keyed on id. */

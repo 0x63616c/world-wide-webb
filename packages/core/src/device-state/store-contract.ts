@@ -125,7 +125,7 @@ export function runDeviceStateStoreContract(
   });
 
   describe("seed", () => {
-    it("inserts a new row", async () => {
+    it("inserts a new row with no data: reportedAtUtc/desiredAtUtc stay null", async () => {
       const store = await freshStore();
 
       await store.seed({
@@ -145,7 +145,32 @@ export function runDeviceStateStoreContract(
         available: false,
         desiredState: null,
         reportedState: null,
+        reportedAtUtc: null,
+        desiredAtUtc: null,
       });
+    });
+
+    it("stamps reportedAtUtc/desiredAtUtc to `now` only for the data actually provided", async () => {
+      const store = await freshStore();
+      const now = new Date("2026-01-01T00:00:00Z");
+
+      await store.seed({
+        id: "lgt_seeded",
+        kind: DeviceKind.Light,
+        entityId: "light.seeded",
+        domain: "light",
+        label: "Seeded",
+        reported: { on: true },
+        available: true,
+        now,
+      });
+
+      const row = await store.read("lgt_seeded");
+      expect(row?.reportedState).toEqual({ on: true });
+      expect(row?.reportedAtUtc).toEqual(now);
+      // No `desired` given → desiredState/desiredAtUtc stay null.
+      expect(row?.desiredState).toBeNull();
+      expect(row?.desiredAtUtc).toBeNull();
     });
 
     it("is a no-op when the entityId already exists (first write wins)", async () => {

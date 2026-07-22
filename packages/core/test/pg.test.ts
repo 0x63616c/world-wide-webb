@@ -215,13 +215,17 @@ describe("seed", () => {
       available: false,
       desiredState: null,
       reportedState: null,
+      desiredAtUtc: null,
+      reportedAtUtc: null,
     });
+    expect(row).not.toHaveProperty("now");
     expect(onConflictDoNothing).toHaveBeenCalledWith({ target: deviceState.entityId });
   });
 
-  it("carries desired/reported through when provided", async () => {
+  it("carries desired/reported through when provided, stamping reportedAtUtc/desiredAtUtc to `now`", async () => {
     const { values } = insertChain();
     const db = { insert: vi.fn().mockReturnValue({ values }) } as unknown as FakeDb;
+    const now = new Date("2026-01-01T00:00:00Z");
 
     await createPgDeviceStateStore(db).seed({
       id: "lgt_seeded",
@@ -232,11 +236,37 @@ describe("seed", () => {
       reported: { on: true },
       desired: { on: false },
       available: true,
+      now,
     });
 
     const row = values.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(row.desiredState).toEqual({ on: false });
+    expect(row.desiredAtUtc).toEqual(now);
     expect(row.reportedState).toEqual({ on: true });
+    expect(row.reportedAtUtc).toEqual(now);
+    expect(row).not.toHaveProperty("now");
+  });
+
+  it("stamps only the timestamp for the data actually provided (reported without desired)", async () => {
+    const { values } = insertChain();
+    const db = { insert: vi.fn().mockReturnValue({ values }) } as unknown as FakeDb;
+    const now = new Date("2026-01-01T00:00:00Z");
+
+    await createPgDeviceStateStore(db).seed({
+      id: "lgt_seeded",
+      kind: DeviceKind.Light,
+      entityId: "light.seeded",
+      domain: "light",
+      label: "Seeded",
+      reported: { on: true },
+      available: true,
+      now,
+    });
+
+    const row = values.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(row.reportedAtUtc).toEqual(now);
+    expect(row.desiredState).toBeNull();
+    expect(row.desiredAtUtc).toBeNull();
   });
 });
 

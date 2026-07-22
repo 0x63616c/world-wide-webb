@@ -66,7 +66,7 @@ export function createInMemoryDeviceStateStore(): DeviceStateStore {
     async seed(input: SeedDevice) {
       const existing = findByEntityId(input.entityId);
       if (existing) return;
-      const now = new Date();
+      const now = input.now ?? new Date();
       const row: DeviceStateRow = {
         id: input.id,
         kind: input.kind,
@@ -74,10 +74,10 @@ export function createInMemoryDeviceStateStore(): DeviceStateStore {
         domain: input.domain,
         label: input.label,
         reportedState: input.reported ?? null,
-        reportedAtUtc: null,
+        reportedAtUtc: input.reported != null ? now : null,
         reportedChangedAtUtc: null,
         desiredState: input.desired ?? null,
-        desiredAtUtc: null,
+        desiredAtUtc: input.desired != null ? now : null,
         desiredUntilUtc: null,
         available: input.available,
         createdAtUtc: now,
