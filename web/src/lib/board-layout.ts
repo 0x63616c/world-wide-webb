@@ -18,7 +18,7 @@
 //   - A tile that genuinely finds no slot (unreachable given real registry
 //     sizes; only reachable via the tiny synthetic fixtures in the test) is
 //     reported in `unplaced` and dropped from `tiles`.
-import { WORLD_COLS, WORLD_ROWS } from "./grid-constants";
+import { WALL_THICKNESS, WORLD_COLS, WORLD_ROWS } from "./grid-constants";
 import { TILE_REGISTRY, type TileRegistryEntry } from "./tile-registry";
 
 export type { TileRegistryEntry };
@@ -33,12 +33,6 @@ export type ResolvedLayout = {
   tiles: (TileRegistryEntry & { worldCol: number; worldRow: number })[];
   unplaced: string[];
 };
-
-// Thickness (in cells) of the decorative wall ring on every edge, mirroring
-// placeholder-tiles.ts's WALL_THICKNESS , the inner world tiles may occupy is
-// the world inset by this much on all sides. Not exported from grid-constants,
-// so re-declared here; kept in sync by the shared value (2) both files use.
-const WALL_THICKNESS = 2;
 
 export type WorldConfig = {
   worldCols: number;

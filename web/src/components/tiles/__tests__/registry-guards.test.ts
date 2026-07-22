@@ -1,6 +1,6 @@
 /**
  * CI guards for the tile registry.
- * (1) Registry covers every cell of the 12×6 grid with no overlaps or gaps.
+ * (1) Registry covers every cell of the GRID_COLS×GRID_ROWS grid with no overlaps or gaps.
  * (2) Every registry entry's view component has a matching *.stories.tsx file.
  * (3) tilePixelSize derives the true production footprint for each tile.
  */

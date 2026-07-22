@@ -23,7 +23,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { BOARD_H, BOARD_W, worldCellRect } from "../../lib/grid-constants";
+import { BOARD_H, BOARD_W, WALL_THICKNESS, worldCellRect } from "../../lib/grid-constants";
 import { bentoFor } from "../../lib/placeholder-tiles";
 import type { TileRegistryEntry } from "../../lib/tile-registry";
 import { PlaceholderTile } from "../PlaceholderTile";
@@ -57,10 +57,7 @@ const MAX_SCALE = 0.8;
 const FIT_PAD_X = 32;
 const FIT_PAD_Y = 120;
 
-// Thickness (cells) of the decorative wall ring , mirrors the local constant in
-// board-layout.ts / placeholder-tiles.ts (not exported from grid-constants).
 // Bounds where a tile may be dropped: the inner world, wall ring excluded.
-const WALL_THICKNESS = 2;
 const WORLD_SIZE = 64;
 
 // Lattice pitch in world px (cell + gap), derived from two 1x1 rects so the

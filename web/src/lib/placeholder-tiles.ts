@@ -24,7 +24,7 @@
 // registry defaults , kept as module-load consts for the test and as the
 // initial/fallback fill before the server layout resolves.
 import { fillAround, type Rect } from "./bento-fill";
-import { WORLD_COLS, WORLD_ROWS } from "./grid-constants";
+import { WALL_THICKNESS, WORLD_COLS, WORLD_ROWS } from "./grid-constants";
 import { TILE_REGISTRY } from "./tile-registry";
 
 export type PlaceholderTile = {
@@ -34,10 +34,6 @@ export type PlaceholderTile = {
   cols: number;
   rows: number;
 };
-
-// Thickness (in cells) of the decorative wall ring on every edge. The inner bento
-// region is the world inset by this much on all sides.
-const WALL_THICKNESS = 2;
 
 // Seeds for the deterministic best-of-N bento fill. Fixed so the layout is byte
 // identical every load (no flicker) yet looks organic. Bump BENTO_ATTEMPTS for a

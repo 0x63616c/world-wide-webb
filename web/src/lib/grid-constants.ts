@@ -1,12 +1,13 @@
 // Single source of truth for the board grid.
 // Imported by Board, tile-registry, the Minimap, and Storybook.
 //
-// The board is a SQUARE-cell grid: 12 columns × 9 rows. A 12×6 grid in the
-// 1366×1000 viewport made cells taller than wide (167 tall vs 114 wide), which
-// propagated into a taller-than-wide world and a backdrop grid that could never
-// be both square and tile-aligned. Making the cell square fixes all of it. The
-// cell keeps the old column width, so tile WIDTHS are unchanged and only heights
-// grow ~3% (e.g. the Clock goes from 5×2 to 5×3 cells).
+// The board is a SQUARE-cell grid: GRID_COLS columns × GRID_ROWS rows. A
+// non-square grid in the 1366×1000 viewport made cells taller than wide,
+// which propagated into a taller-than-wide world and a backdrop grid that
+// could never be both square and tile-aligned. Making the cell square fixes
+// all of it. The cell keeps the old column width, so tile WIDTHS are
+// unchanged and only heights grow ~3% (e.g. the Clock goes from 5×2 to 5×3
+// cells).
 // The wall-panel TARGET dimensions (the physical iPad Pro panel). Two real uses:
 // (1) CELL below is sized to fill BOARD_W, so this sets the absolute tile pixel
 // size; (2) Storybook frames stories at this size. The LIVE board does NOT crop
@@ -44,6 +45,11 @@ export function tilePixelSize(cols: number, rows: number): { width: number; heig
 // 64×64 gives generous room to move/add tiles without re-packing anything.
 export const WORLD_COLS = 64;
 export const WORLD_ROWS = 64;
+// Thickness (in world cells) of the decorative wall ring around the pannable
+// world, and the clamp margin real tiles are kept inside of. Shared by
+// placeholder-tiles (draws the ring), board-layout (reports it), and the
+// layout editor (clamps drag/resize to stay inside it).
+export const WALL_THICKNESS = 2;
 export const WORLD_W = 2 * BOARD_PADDING + WORLD_COLS * CELL + (WORLD_COLS - 1) * GRID_GAP;
 export const WORLD_H = 2 * BOARD_PADDING + WORLD_ROWS * CELL + (WORLD_ROWS - 1) * GRID_GAP;
 
