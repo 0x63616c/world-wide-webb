@@ -16,6 +16,7 @@ import { afterAll, afterEach, beforeAll, describe } from "vitest";
 
 import { createPgDeviceStateStore } from "../src/device-state/pg";
 import * as schema from "../src/device-state/schema";
+import { ddlForTable } from "./schema-ddl";
 
 const url = process.env.CORE_PG_TEST_URL;
 
@@ -28,30 +29,10 @@ describe.skipIf(!url)("pg contract", () => {
 
   beforeAll(async () => {
     await pool.query(`CREATE SCHEMA "${namespace}"`);
-    // Hand-written DDL mirroring `../src/device-state/schema.ts`'s `deviceState`
-    // table — there is no migration-from-schema step in this test, so if a
-    // column is added/renamed/retyped there, update it here too or this
-    // contract silently stops covering it.
-    await pool.query(`
-      CREATE TABLE "${namespace}".device_state (
-        id text PRIMARY KEY,
-        kind text NOT NULL,
-        entity_id text NOT NULL,
-        domain text NOT NULL,
-        label text NOT NULL,
-        reported_state jsonb,
-        reported_at_utc timestamptz,
-        reported_changed_at_utc timestamptz,
-        desired_state jsonb,
-        desired_at_utc timestamptz,
-        desired_until_utc timestamptz,
-        available boolean NOT NULL DEFAULT false,
-        created_at_utc timestamptz NOT NULL DEFAULT now(),
-        updated_at_utc timestamptz NOT NULL DEFAULT now()
-      );
-      CREATE UNIQUE INDEX device_state_entity_id_idx ON "${namespace}".device_state (entity_id);
-      CREATE INDEX device_state_kind_idx ON "${namespace}".device_state (kind);
-    `);
+    // DDL is derived from the same `deviceState` drizzle table the adapter
+    // queries (see `./schema-ddl`), so it can't drift from
+    // `../src/device-state/schema.ts` when a column or index changes.
+    await pool.query(ddlForTable(schema.deviceState, namespace));
   });
 
   afterEach(async () => {
