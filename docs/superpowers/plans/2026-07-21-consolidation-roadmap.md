@@ -105,3 +105,14 @@ db/HA singletons); one Unlock gating all Sensitive surfaces, server-enforced aft
   deletes the 6 product-plurality check scripts (Task 9) + portal export/import (Task 6);
   after Track 0 lands, audit the survivors — inventory, delete dead ones, group the rest
   (quality-gate vs ops vs codegen), decide what graduates into `apps:gen`/package scripts.
+
+## Ticket-later (from Track 0 final review, 2026-07-21)
+
+- Wire `web/e2e-portal` playwright suite into CI (promised since Task 2.6, still manual-only).
+- `scripts/check-dockerfile-manifests.ts`: validate COPY sources exist (gap that broke main ~2h in Task 5).
+- Task 7 Step C additions: `scripts/verify-wall-panel.mjs` default still app--cc; orphaned app--cp machinery (certmanager.ts:16, infra/unifi applyAppCp, platform "cp" dnsCode).
+- Platform prune residue: ~20 zero-consumer exports (DnsCode, defineTarget, secretCatalog.captivePortal, ProductIdentity.folder claims products/<slug>), InfraNamespaceName casts in cnpg/crons/secrets-map.
+- `CAPTIVE_PORTAL_POSTGRES__PASSWORD` in secrets/vault.yaml — prune + rotate.
+- Guest listener nits: URIError on malformed URI → Bun 500 (no leak); explicit httpPort 443/80 has no executing coverage; smoke redaction assertion conditional.
+- Housekeeping: save-resend.sh orphaned, rename-identity-allowlist dead patterns, unused portal icons @public tags, render.test.ts fixture names, .DS_Store cruft.
+- A11y: WifiPassword double accessible-name. UX: password lost across Terms round-trip (pre-existing).
