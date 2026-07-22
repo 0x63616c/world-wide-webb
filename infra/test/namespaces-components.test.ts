@@ -33,11 +33,7 @@ describe("cluster namespaces", () => {
   test("creates product-owned namespaces plus the platform namespace", async () => {
     const res = cluster.makeCluster("test-context");
 
-    expect(Object.keys(res.namespaces).sort()).toEqual([
-      "captive-portal",
-      "control-center",
-      "platform",
-    ]);
+    expect(Object.keys(res.namespaces).sort()).toEqual(["control-center", "platform"]);
 
     const controlCenterMeta = await get<{ name: string }>(
       res.namespaces["control-center"],

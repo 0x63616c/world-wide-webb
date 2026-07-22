@@ -6,11 +6,17 @@
 // section 1).
 
 import * as k8s from "@pulumi/kubernetes";
-import { type ProductSlug, productSlugs } from "@www/platform";
+import type { ProductSlug } from "@www/platform";
 
 export const PLATFORM_NAMESPACE = "platform";
 
-export type InfraNamespaceName = ProductSlug | typeof PLATFORM_NAMESPACE;
+// "captive-portal" EXCLUDED (SDD track 0, Task 6): its namespace + CNPG
+// clusters + pg-backup CronJob are torn down here. Its @www/platform identity
+// (productSlugs, captivePortalProductManifest) deliberately survives a while
+// longer (pruned in the later platform-cleanup task, 7+8), so ProductSlug
+// itself still includes it , this Exclude is what actually stops a
+// "captive-portal" k8s Namespace from being created again.
+export type InfraNamespaceName = Exclude<ProductSlug, "captive-portal"> | typeof PLATFORM_NAMESPACE;
 export type InfraNamespaces = Readonly<Record<InfraNamespaceName, k8s.core.v1.Namespace>>;
 
 // Default kubeconfig context. The prod target is homelab's OrbStack cluster,
@@ -38,7 +44,15 @@ const K8S_PLUGIN_VERSION = "4.21.0";
 
 export function makeCluster(context: string = DEFAULT_CONTEXT): ClusterResources {
   const provider = new k8s.Provider("orbstack", { context }, { version: K8S_PLUGIN_VERSION });
-  const namespaceNames = [...productSlugs, PLATFORM_NAMESPACE] as const;
+  // Namespaces actually created (SDD track 0, Task 6 removed captive-portal's
+  // namespace). Hardcoded rather than derived from productSlugs because
+  // productSlugs still lists captive-portal (see the InfraNamespaceName
+  // comment above); once Task 7+8 prunes it from @www/platform, this goes
+  // back to `[...productSlugs, PLATFORM_NAMESPACE]`.
+  const namespaceNames = [
+    "control-center",
+    PLATFORM_NAMESPACE,
+  ] as const satisfies readonly InfraNamespaceName[];
   const namespaces = Object.fromEntries(
     namespaceNames.map((name) => [
       name,

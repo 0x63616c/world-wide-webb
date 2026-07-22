@@ -12,11 +12,7 @@
 
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
-import {
-  captivePortalProductManifest,
-  controlCenterProductManifest,
-  type ProductDatabase,
-} from "@www/platform";
+import { controlCenterProductManifest, type ProductDatabase } from "@www/platform";
 import type { InfraNamespaceName } from "./cluster.ts";
 
 export interface CnpgArgs {
@@ -36,13 +32,13 @@ export interface CnpgResources {
   cluster: k8s.apiextensions.CustomResource;
 }
 
+// captive-portal's database + retainedLegacyDatabases REMOVED (SDD track 0,
+// Task 6): its CNPG clusters + namespace were torn down after a copy of its
+// one live row was folded into control_center and a final pg_dump was taken.
+// captivePortalProductManifest() itself still exists in @www/platform (pruned
+// in Task 7+8), just no longer called from here.
 function productDatabases(): ProductDatabase[] {
-  const captivePortal = captivePortalProductManifest();
-  return [
-    controlCenterProductManifest().database,
-    captivePortal.database,
-    ...captivePortal.retainedLegacyDatabases,
-  ];
+  return [controlCenterProductManifest().database];
 }
 
 function createAuthSecret(
@@ -58,10 +54,7 @@ function createAuthSecret(
   if (password === undefined) {
     throw new Error(`cnpg: vault key "${vaultKey}" not found`);
   }
-  const resourceName =
-    database.product === "captive-portal" && database.authSecretName === "postgres-auth"
-      ? "captive-portal-postgres-auth-current"
-      : database.authSecretName;
+  const resourceName = database.authSecretName;
   return new k8s.core.v1.Secret(
     resourceName,
     {
@@ -83,10 +76,7 @@ function createCluster(
   authSecret: k8s.core.v1.Secret,
   opts: pulumi.CustomResourceOptions,
 ): k8s.apiextensions.CustomResource {
-  const resourceName =
-    database.product === "captive-portal" && database.clusterName === "postgres"
-      ? "captive-portal-postgres-current"
-      : database.clusterName;
+  const resourceName = database.clusterName;
   return new k8s.apiextensions.CustomResource(
     resourceName,
     {
@@ -130,11 +120,22 @@ export function installCnpg(args: CnpgArgs): CnpgResources {
   );
 
   const databases = productDatabases();
+  // ProductDatabase.product is typed as the full platform ProductSlug (still
+  // includes "captive-portal" , its @www/platform identity survives until
+  // Task 7+8), but productDatabases() above only ever returns control-center
+  // now, and InfraNamespaceName deliberately excludes "captive-portal" (Task
+  // 6 removed its namespace). Cast rather than widen InfraNamespaceName back.
   const authSecrets = databases.map((database) =>
-    createAuthSecret(database, vault, namespaces[database.product], opts),
+    createAuthSecret(database, vault, namespaces[database.product as InfraNamespaceName], opts),
   );
   const clusters = databases.map((database, index) =>
-    createCluster(database, namespaces[database.product], operator, authSecrets[index], opts),
+    createCluster(
+      database,
+      namespaces[database.product as InfraNamespaceName],
+      operator,
+      authSecrets[index],
+      opts,
+    ),
   );
 
   return { operator, authSecrets, clusters, authSecret: authSecrets[0], cluster: clusters[0] };

@@ -15,12 +15,7 @@
 
 import type * as k8s from "@pulumi/kubernetes";
 import type * as pulumi from "@pulumi/pulumi";
-import {
-  captivePortalProductManifest,
-  controlCenterProductManifest,
-  type DatabaseBackup,
-  defineProduct,
-} from "@www/platform";
+import { controlCenterProductManifest, type DatabaseBackup, defineProduct } from "@www/platform";
 import type { InfraNamespaceName } from "./cluster.ts";
 import type { CronJobSpec } from "./component.ts";
 import { ScheduledJob } from "./component.ts";
@@ -67,7 +62,13 @@ export function postgresBackupCronSpec(
 ): OwnedCronJobSpec {
   return {
     name: backup.name,
-    namespaceName: backup.product,
+    // DatabaseBackup.product is the full platform ProductSlug (still includes
+    // "captive-portal", kept alive in @www/platform until Task 7+8), but
+    // InfraNamespaceName deliberately excludes it post-Task-6 (its namespace
+    // is gone). This adapter stays generic over any product's backup , the
+    // real deploy path (crons.ts's own cronSpecs()) only ever feeds it
+    // control-center's backup now.
+    namespaceName: backup.product as InfraNamespaceName,
     image: backup.image,
     schedule: backup.schedule,
     command: postgresBackupCommand(backup),
@@ -86,7 +87,9 @@ export function postgresBackupCronSpec(
 const controlCenterManifest = controlCenterProductManifest();
 const controlCenterBackup = controlCenterManifest.backup;
 const controlCenterPostgresHost = controlCenterManifest.database.rwServiceName;
-const captivePortalBackup = captivePortalProductManifest().backup;
+// captive-portal's backup CronJob REMOVED (SDD track 0, Task 6) along with
+// its CNPG clusters + namespace; a final pg_dump was taken to the NAS first
+// (captive-portal-final-20260721.dump).
 
 /**
  * @public - the declared CronJob set (pure data). nasNfsServer is threaded into
@@ -143,7 +146,6 @@ export function cronSpecs(nasNfsServer: string): OwnedCronJobSpec[] {
     // Control Center stays on the compatibility backup path until that live path
     // migration gets explicit review. New product backups use the platform path.
     postgresBackupCronSpec(controlCenterBackup, nasNfsServer),
-    postgresBackupCronSpec(captivePortalBackup, nasNfsServer),
   ];
 }
 

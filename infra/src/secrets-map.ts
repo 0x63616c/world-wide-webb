@@ -27,9 +27,10 @@ export type ServiceSecrets = Record<string, string>;
 // SDD track 0): its workload (services.ts) was deleted once the guest
 // listener cutover moved all guest traffic onto control-center-api, so its
 // vault-derived Secret ("captive-portal-secrets-api") is now unused , this
-// next apply deletes it (a Secret holding credentials, not user data; the
-// captive-portal CNPG database itself is a SEPARATE, deliberately untouched
-// concern, see the Task 4 report).
+// next apply deletes it (a Secret holding credentials, not user data). The
+// captive-portal CNPG database + namespace were later torn down entirely in
+// Task 6 (its one live row was copied into control_center + a final pg_dump
+// taken first).
 const controlCenterUsages = controlCenterServiceSecretUsages();
 
 const serviceSecretUsages = {
@@ -57,7 +58,15 @@ export type ServiceSecretTarget = Readonly<{
 }>;
 
 function targetOf(usage: ServiceSecretUsage): ServiceSecretTarget {
-  return { namespaceName: usage.namespaceName, secretName: usage.targetSecretName };
+  // usage.namespaceName is platform-typed broadly (still allows
+  // "captive-portal", kept alive in @www/platform until Task 7+8), but every
+  // usage actually wired below (serviceSecretUsages, all control-center) is
+  // control-center-scoped; InfraNamespaceName excludes "captive-portal" post
+  // Task 6 (its namespace is gone).
+  return {
+    namespaceName: usage.namespaceName as InfraNamespaceName,
+    secretName: usage.targetSecretName,
+  };
 }
 
 /**

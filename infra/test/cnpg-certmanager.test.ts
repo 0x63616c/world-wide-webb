@@ -30,15 +30,15 @@ function get<T>(r: pulumi.Resource, prop: string): Promise<T> {
 
 const provider = () => new k8s.Provider("test", { context: "x" });
 
-// Mock vault with all postgres passwords used by CNPG (CC-k8t7).
+// Mock vault with the postgres password CNPG uses (CC-k8t7). CAPTIVE_PORTAL_*
+// is gone from the mock too , cnpg.ts no longer reads it (SDD track 0, Task 6
+// removed the captive-portal CNPG cluster + namespace).
 const mockVault: Record<string, string> = {
   CONTROL_CENTER_POSTGRES__PASSWORD: "mock-cc-pw",
-  CAPTIVE_PORTAL_POSTGRES__PASSWORD: "mock-cp-pw",
 };
 
 const testNamespaces = {
   "control-center": "control-center",
-  "captive-portal": "captive-portal",
   platform: "platform",
 } as const;
 
@@ -80,7 +80,13 @@ describe("installCnpg", () => {
     expect(stringData.username).toBe("postgres");
   });
 
-  test("installs product databases and retains legacy DBs during local-name migrations", async () => {
+  // Regression (SDD track 0, Task 6): productDatabases() used to also return
+  // captive-portal's database + its retainedLegacyDatabases (2 extra
+  // Clusters), so installCnpg produced 3 clusters/authSecrets. Its CNPG
+  // cluster + namespace were torn down (one live row copied into
+  // control_center, a final pg_dump taken to the NAS first); this pins that
+  // only the control-center database remains.
+  test("installs exactly the control-center product database (captive-portal's CNPG cluster is gone)", async () => {
     const res = cnpg.installCnpg({
       provider: provider(),
       namespaces: testNamespaces,
@@ -88,47 +94,18 @@ describe("installCnpg", () => {
       vault: mockVault,
     });
 
-    expect(res.clusters).toHaveLength(3);
-    expect(res.authSecrets).toHaveLength(3);
+    expect(res.clusters).toHaveLength(1);
+    expect(res.authSecrets).toHaveLength(1);
 
     const clusterSpecs = await Promise.all(
       res.clusters.map((cluster) =>
-        get<{
-          instances: number;
-          bootstrap: { initdb: { database: string } };
-          storage: { size: string; storageClass: string };
-          resources: { limits: { memory: string }; requests: { cpu: string; memory: string } };
-          superuserSecret: { name: string };
-        }>(cluster, "spec"),
+        get<{ bootstrap: { initdb: { database: string } } }>(cluster, "spec"),
       ),
     );
-    expect(clusterSpecs.map((spec) => spec.bootstrap.initdb.database).sort()).toEqual([
-      "captive_portal",
-      "captive_portal",
-      "control_center",
-    ]);
-    expect(
-      clusterSpecs.find(
-        (spec) =>
-          spec.bootstrap.initdb.database === "captive_portal" &&
-          spec.superuserSecret.name === "postgres-auth",
-      ),
-    ).toMatchObject({
-      instances: 1,
-      storage: { size: "2Gi" },
-      resources: { limits: { memory: "768Mi" }, requests: { cpu: "500m", memory: "384Mi" } },
-      superuserSecret: { name: "postgres-auth" },
-    });
-    expect(
-      clusterSpecs.find(
-        (spec) =>
-          spec.bootstrap.initdb.database === "captive_portal" &&
-          spec.superuserSecret.name === "captive-portal-postgres-auth",
-      ),
-    ).toBeDefined();
+    expect(clusterSpecs.map((spec) => spec.bootstrap.initdb.database)).toEqual(["control_center"]);
   });
 
-  test("creates product database resources in their owning namespaces", async () => {
+  test("creates the control-center database resources in its owning namespace", async () => {
     const res = cnpg.installCnpg({
       provider: provider(),
       namespaces: testNamespaces,
@@ -146,17 +123,8 @@ describe("installCnpg", () => {
     expect(clusterMetadata.find((m) => m.name === "control-center")?.namespace).toBe(
       "control-center",
     );
-    expect(
-      clusterMetadata.find((m) => m.name === "postgres" && m.namespace === "captive-portal"),
-    ).toBeDefined();
-    expect(clusterMetadata.find((m) => m.name === "captive-portal")?.namespace).toBe(
-      "captive-portal",
-    );
-    expect(
-      secretMetadata.find((m) => m.name === "postgres-auth" && m.namespace === "captive-portal"),
-    ).toBeDefined();
-    expect(secretMetadata.find((m) => m.name === "captive-portal-postgres-auth")?.namespace).toBe(
-      "captive-portal",
+    expect(secretMetadata.find((m) => m.name === "cc-postgres-auth")?.namespace).toBe(
+      "control-center",
     );
   });
 });
@@ -165,7 +133,6 @@ describe("installCertManager", () => {
   test("the CF-token Secret lives in the cert-manager namespace, not the app ns", async () => {
     const res = cm.installCertManager({
       provider: provider(),
-      namespace: "control-center",
       version: "v1.20.2",
       vault: { CLOUDFLARE_API__CREDENTIAL: "test-token" },
     });
@@ -177,7 +144,6 @@ describe("installCertManager", () => {
   test("the ClusterIssuer is DNS-01 via Cloudflare, no email when unset", async () => {
     const res = cm.installCertManager({
       provider: provider(),
-      namespace: "control-center",
       version: "v1.20.2",
       vault: { CLOUDFLARE_API__CREDENTIAL: "test-token" },
     });
@@ -188,16 +154,26 @@ describe("installCertManager", () => {
     expect(spec.acme.email).toBeUndefined();
   });
 
-  test("the portal Certificate covers the legacy and nested app.cp LAN hosts", async () => {
-    const res = cm.installCertManager({
+  // Regression (SDD track 0, Task 6): installCertManager() used to also issue
+  // the portal Certificate directly, in the (now-deleted) captive-portal
+  // namespace. issuePortalCertificate() is now the only source of a portal
+  // Certificate; this pins that it still covers both LAN hosts, reusing the
+  // shared issuer installCertManager() returns.
+  test("issuePortalCertificate covers the legacy and nested app.cp LAN hosts", async () => {
+    const cmRes = cm.installCertManager({
       provider: provider(),
-      namespace: "captive-portal",
       version: "v1.20.2",
       vault: { CLOUDFLARE_API__CREDENTIAL: "test-token" },
     });
-    const meta = await get<{ namespace: string }>(res.certificate, "metadata");
-    const spec = await get<{ dnsNames: string[]; secretName: string }>(res.certificate, "spec");
-    expect(meta.namespace).toBe("captive-portal");
+    const certificate = cm.issuePortalCertificate({
+      provider: provider(),
+      namespace: "control-center",
+      issuer: cmRes.issuer,
+      resourceName: "control-center-guest-tls",
+    });
+    const meta = await get<{ namespace: string }>(certificate, "metadata");
+    const spec = await get<{ dnsNames: string[]; secretName: string }>(certificate, "spec");
+    expect(meta.namespace).toBe("control-center");
     expect(spec.dnsNames).toEqual(["captive-portal.worldwidewebb.co", "app--cp.worldwidewebb.co"]);
     expect(spec.secretName).toBe("captive-portal-tls");
   });

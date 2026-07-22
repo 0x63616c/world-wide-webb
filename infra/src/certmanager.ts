@@ -29,8 +29,6 @@ const ACME_SERVER = "https://acme-v02.api.letsencrypt.org/directory";
 
 export interface CertManagerArgs {
   provider: k8s.Provider;
-  // Namespace for the portal Certificate.
-  namespace: pulumi.Input<string>;
   // Optional ACME registration email (a non-secret contact address). Omitted by
   // default: today's acme.sh registers anonymously, and a personal email must
   // not be hardcoded in this public repo (no-personal-email guard). Set via
@@ -46,16 +44,20 @@ export interface CertManagerResources {
   install: k8s.yaml.ConfigFile;
   cfTokenSecret: k8s.core.v1.Secret;
   issuer: k8s.apiextensions.CustomResource;
-  certificate: k8s.apiextensions.CustomResource;
 }
 
 /**
- * @public - installs cert-manager, the CF DNS-01 ClusterIssuer, and the portal
- * Certificate. The portal Deployment (www-j934.6) mounts PORTAL_TLS_SECRET. No
- * internal consumer in this ticket yet.
+ * @public - installs cert-manager and the CF DNS-01 ClusterIssuer. Portal TLS
+ * Certificates are issued separately via issuePortalCertificate() (below),
+ * which reuses this issuer , the control-center guest listener's copy
+ * (program.ts's controlCenterGuestCert) is the live consumer. The ORIGINAL
+ * app-namespace Certificate this function used to create directly was removed
+ * (SDD track 0, Task 6) along with the captive-portal namespace it lived in;
+ * nothing mounted PORTAL_TLS_SECRET there anymore after Task 4 deleted the old
+ * portal workloads.
  */
 export function installCertManager(args: CertManagerArgs): CertManagerResources {
-  const { provider, namespace, acmeEmail, version, vault } = args;
+  const { provider, acmeEmail, version, vault } = args;
   const opts = { provider };
 
   // cert-manager controller + webhook + cainjector + CRDs, one manifest.
@@ -128,24 +130,7 @@ export function installCertManager(args: CertManagerArgs): CertManagerResources 
     { ...opts, dependsOn: [install] },
   );
 
-  // The portal Certificate. cert-manager solves DNS-01, then writes the cert +
-  // key into PORTAL_TLS_SECRET; the portal Deployment mounts it (www-j934.6).
-  const certificate = new k8s.apiextensions.CustomResource(
-    "captive-portal-tls",
-    {
-      apiVersion: "cert-manager.io/v1",
-      kind: "Certificate",
-      metadata: { name: "captive-portal-tls", namespace },
-      spec: {
-        secretName: PORTAL_TLS_SECRET,
-        dnsNames: [...PORTAL_HOSTS],
-        issuerRef: { name: "letsencrypt-dns", kind: "ClusterIssuer" },
-      },
-    },
-    { ...opts, dependsOn: [issuer, cfTokenSecret] },
-  );
-
-  return { install, cfTokenSecret, issuer, certificate };
+  return { install, cfTokenSecret, issuer };
 }
 
 export interface PortalCertificateArgs {

@@ -116,10 +116,11 @@ const TZ = "America/Los_Angeles";
 // the default host "postgres" was the Swarm service name and does NOT resolve in
 // k3s, so set it to the CNPG Service explicitly (a live-deploy finding).
 const controlCenterDatabase = controlCenterProductManifest().database;
-// captivePortalProductManifest() (database/secretUsages) is no longer needed
-// here (Task 4 step C removed the captive-portal-api workload that used it);
-// cnpg.ts/crons.ts/secrets-map.ts still call it independently for the DB +
-// backup CronJob, deliberately kept (see the Task 4 report).
+// captivePortalProductManifest() (database/secretUsages) is no longer called
+// anywhere in infra/ (Task 4 step C removed the captive-portal-api workload
+// that used the secretUsages; Task 6 removed the CNPG cluster + backup
+// CronJob that used the database). The function itself still exists in
+// @www/platform , pruned in a later platform-cleanup task (7+8).
 
 // go2rtc: the in-cluster RTSP->MJPEG restreamer for the bedroom camera. It runs
 // in the control-center namespace as a ClusterIP Service on :1984, and the api
@@ -349,21 +350,11 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     // captive-portal-portal and captive-portal-api workloads DELETED (Task 4
     // step C, SDD track 0): both were fully dark (zero ports exposed) after
     // step B's LAN cutover moved all guest traffic onto control-center-api.
-    // Deliberately NOT removed in this pass (needs a separate, explicit
-    // decision , see the Task 4 report for detail):
-    //  - the "captive-portal" namespace, its CNPG Postgres Clusters (cnpg.ts:
-    //    captivePortalProductManifest().database + retainedLegacyDatabases)
-    //    and pg-backup CronJob (crons.ts) , these hold real historical guest
-    //    authorization data with no migration/backup-verification step in
-    //    this task, and captivePortalProductManifest() is called
-    //    independently by cnpg.ts/crons.ts, so it's a live, separate concern
-    //    from these two app workloads, not a mechanical follow-on deletion.
-    //  - the "captive-portal"/"captive-portal-api" digestKey entries in
-    //    IMAGE_REPOSITORIES above: ci.yml's deploy job still unconditionally
-    //    collects and passes both digests every run (Task 5 removes those
-    //    build/collect steps) , removing the keys here NOW would make
-    //    validateImageDigests() reject every future deploy as soon as ci.yml
-    //    supplies an "unknown" key, breaking ALL workloads, not just these two.
+    // The rest of the product followed: products/captive-portal/ + the
+    // "captive-portal"/"captive-portal-api" digestKey entries above (Task 5),
+    // then the "captive-portal" namespace, its CNPG Postgres Clusters, and its
+    // pg-backup CronJob (Task 6 , the one live guest-authorization row was
+    // copied into control_center and a final pg_dump taken to the NAS first).
     {
       logicalName: "control-center-drizzle",
       legacyLogicalName: "drizzle",

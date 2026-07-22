@@ -34,7 +34,6 @@ beforeAll(async () => {
 const NAS = "192.168.0.218";
 const testNamespaces = {
   "control-center": "control-center",
-  "captive-portal": "captive-portal",
   platform: "platform",
 } as const;
 
@@ -57,12 +56,7 @@ describe("cronSpecs: the declared CronJob set", () => {
       .cronSpecs(NAS)
       .map((c) => c.name)
       .sort();
-    expect(names).toEqual([
-      "captive-portal-pg-backup",
-      "map-extract",
-      "pg-backup",
-      "portal-data-purge",
-    ]);
+    expect(names).toEqual(["map-extract", "pg-backup", "portal-data-purge"]);
   });
 
   test("docker-image-prune does NOT exist (kubelet image GC replaces it)", () => {
@@ -217,27 +211,6 @@ describe("pg-backup (NEW nightly logical backup to the NAS)", () => {
   });
 });
 
-describe("captive-portal-pg-backup", () => {
-  const backup = () => byName(crons.cronSpecs(NAS), "captive-portal-pg-backup");
-
-  test("writes a product-owned captive_portal backup under the platform NAS path", () => {
-    const c = backup();
-    const cmd = (c?.command ?? []).join(" ");
-
-    expect(c?.schedule).toBe("15 1 * * *");
-    expect(cmd).toContain("pg_dump -h postgres-rw");
-    expect(cmd).toContain("-d captive_portal");
-    expect(cmd).toContain("captive_portal-");
-    expect(c?.extraSecretMounts?.some((m) => m.secretName === "postgres-auth")).toBe(true);
-    expect(c?.volumes?.[0]).toMatchObject({
-      mountPath: "/backup",
-      nfs: { server: NAS, path: "/volume1/Homelab" },
-      subPath: "backups/world-wide-webb/captive-portal/postgres",
-    });
-    expect(c?.namespaceName).toBe("captive-portal");
-  });
-});
-
 describe("deployCrons (Pulumi wiring)", () => {
   test("instantiates a ScheduledJob per declared cron", async () => {
     const provider = new (await import("@pulumi/kubernetes")).Provider("test", { context: "x" });
@@ -256,8 +229,5 @@ describe("deployCrons (Pulumi wiring)", () => {
 
     expect(metadata.find((m) => m.name === "pg-backup")?.namespace).toBe("control-center");
     expect(metadata.find((m) => m.name === "map-extract")?.namespace).toBe("control-center");
-    expect(metadata.find((m) => m.name === "captive-portal-pg-backup")?.namespace).toBe(
-      "captive-portal",
-    );
   });
 });

@@ -47,28 +47,25 @@ const cnpg = installCnpg({
   vault,
 });
 
-// cert-manager + CF DNS-01 ClusterIssuer + portal TLS Certificate (www-j934.5).
+// cert-manager + CF DNS-01 ClusterIssuer (www-j934.5). No longer issues a
+// Certificate directly (SDD track 0, Task 6 removed the app-namespace copy
+// along with the captive-portal namespace); issuePortalCertificate() below is
+// now the only source of a portal TLS Certificate.
 const certManager = installCertManager({
   provider: cluster.provider,
-  namespace: namespaces["captive-portal"],
   acmeEmail: cfg.get("acmeEmail"),
   version: "v1.20.2",
   vault,
 });
 
-// A SECOND copy of the portal Certificate, in control-center (Task 4 step B,
-// SDD track 0): the guest listener that's about to carry live LAN guest
-// traffic lives in the control-center-api workload, and a k8s Secret mount is
-// always namespace-local to the pod, so the old captive-portal-namespace
-// Secret can't be mounted there. Deliberately ADDITIVE (a new Certificate +
-// Secret, same hostnames, new namespace) rather than moving the existing one:
-// moving would delete the old namespace's live captive-portal-tls Secret
-// (cert-manager owns it via an ownerReference on the Certificate) the moment
-// this applies, breaking the still-live old nginx portal before the new
-// listener is even verified. This one deploys and gets checked internally
-// (still cluster-only ports) BEFORE the LAN port cutover, so cert-issuance
-// latency (DNS-01 propagation) never lands inside the atomic port swap.
-// Step C deletes the OLD Certificate + its captive-portal namespace together.
+// The portal Certificate, in control-center (Task 4 step B, SDD track 0): the
+// guest listener that carries live LAN guest traffic lives in the
+// control-center-api workload, and a k8s Secret mount is always
+// namespace-local to the pod. This was deliberately ADDITIVE alongside the
+// original captive-portal-namespace Certificate during the Task 4 cutover
+// (so cert-issuance latency never landed inside the atomic port swap); Task 6
+// deleted that original Certificate + its namespace once the cutover was
+// live-verified, leaving this as the sole portal Certificate.
 const controlCenterGuestCert = issuePortalCertificate({
   provider: cluster.provider,
   namespace: namespaces["control-center"],
@@ -140,6 +137,5 @@ export const cnpgClusterName = cnpg.cluster.metadata.name;
 export const cnpgClusterNames = cnpg.clusters.map((c) => c.metadata.name);
 export const controlCenterGuestCertName = controlCenterGuestCert.metadata.name;
 export const cnpgAuthSecretNames = cnpg.authSecrets.map((s) => s.metadata.name);
-export const portalCertificateName = certManager.certificate.metadata.name;
 export const workloadNames = services.workloads.map((w) => w.deployment.metadata.name);
 export const cronJobNames = crons.jobs.map((j) => j.cronJob.metadata.name);
