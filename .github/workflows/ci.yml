@@ -174,7 +174,7 @@ jobs:
         # for that wiring (real HTTPS/plain-HTTP sockets, self-signed cert via
         # the system openssl). Task 4 (SDD track 0) cutover note: gates the
         # guest listener that's about to carry live LAN guest traffic.
-        run: bun run --cwd api test:guest-smoke
+        run: bun run --cwd apps/api test:guest-smoke
 
   # Storybook browser suite (Playwright/Chromium play functions). Runs
   # concurrently with test-unit. Kept as its own job because it needs a Chromium
