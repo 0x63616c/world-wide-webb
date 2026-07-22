@@ -172,6 +172,23 @@ describe("boardCamera singleton", () => {
     detach();
   });
 
+  it("freeze suspends glides until unfreeze (layout-edit mode)", () => {
+    const { scrollTo, detach } = attachFake();
+    boardCamera.freeze();
+    boardCamera.glideHome();
+    boardCamera.panTo({ x: 5000, y: 4000 });
+    expect(scrollTo).not.toHaveBeenCalled();
+
+    boardCamera.unfreeze();
+    boardCamera.glideHome();
+    expect(scrollTo).toHaveBeenCalledWith({
+      left: 9000 - 683,
+      top: 8000 - 512,
+      behavior: "smooth",
+    });
+    detach();
+  });
+
   it("isSettling is false at rest and subscribe delivers change notifications", () => {
     const { detach } = attachFake();
     expect(boardCamera.isSettling()).toBe(false);

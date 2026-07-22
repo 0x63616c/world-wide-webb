@@ -540,6 +540,19 @@ export function Board() {
     modalOpenRef.current = modalOpen;
   }, [modalOpen]);
 
+  // The stage style below freezes NATIVE panning while the editor is open, which
+  // says nothing about the JS spring: a glide already in flight (an idle
+  // glide-home landing just as the editor opens) keeps writing scrollLeft/Top
+  // under the overlay, so the board sits somewhere else when the editor closes.
+  // freeze() cancels the running spring and gates new ones for the duration.
+  // Only layout-edit does this , plain modals keep the physics live so a
+  // session-end glide-home still lands behind them.
+  useEffect(() => {
+    if (!layoutEditOpen) return;
+    boardCamera.freeze();
+    return () => boardCamera.unfreeze();
+  }, [layoutEditOpen]);
+
   // Whether a pointer is currently held down (touch or mouse). While held, the
   // user pans freely , no spring engages until they let go.
   const pointerDown = useRef(false);

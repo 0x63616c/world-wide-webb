@@ -63,6 +63,7 @@ vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }))
 // which jsdom cannot load , stub it so taps resolve to no detail entry.
 vi.mock("../tiles/detail/registry", () => ({ getTileDetailEntry: () => undefined }));
 
+import { boardCamera } from "../../lib/board-camera";
 import { Board } from "../Board";
 
 const CLIENT_W = 1366;
@@ -164,5 +165,33 @@ describe("Board , layout edit mode integration", () => {
     rerender(<Board />);
     expect(stage.style.overflow).toBe("hidden");
     expect(stage.style.touchAction).toBe("none");
+  });
+
+  it("suspends the JS camera physics while the editor is open", () => {
+    // overflow:hidden only stops NATIVE panning. A spring already in flight
+    // (idle glide-home landing exactly as the editor opens) keeps writing
+    // scrollLeft/Top underneath the overlay, so the board is somewhere else
+    // when the editor closes. freeze() cancels it and gates new glides.
+    const freeze = vi.spyOn(boardCamera, "freeze");
+    const unfreeze = vi.spyOn(boardCamera, "unfreeze");
+
+    layoutEditOpen = false;
+    const { rerender, unmount } = render(<Board />);
+    expect(freeze).not.toHaveBeenCalled();
+
+    layoutEditOpen = true;
+    rerender(<Board />);
+    expect(freeze).toHaveBeenCalled();
+
+    layoutEditOpen = false;
+    rerender(<Board />);
+    expect(unfreeze).toHaveBeenCalled();
+
+    // A Board torn down mid-edit must not strand the camera frozen.
+    layoutEditOpen = true;
+    rerender(<Board />);
+    unfreeze.mockClear();
+    unmount();
+    expect(unfreeze).toHaveBeenCalled();
   });
 });

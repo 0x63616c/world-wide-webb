@@ -15,7 +15,7 @@
 
 import type { SnapMode } from "../settings";
 import { createStore, type Store } from "../store";
-import { createSpring, type Rect, SNAP_DEADZONE, type Spring } from "./camera";
+import { createSpring, type Rect, SNAP_DEADZONE } from "./camera";
 import { glideTo, jumpTo as nativeJumpTo } from "./glide";
 
 type TileId = string;
@@ -77,9 +77,15 @@ export interface BoardCamera {
   panTo(target: TileId | { x: number; y: number }): void;
   /** The idle glide-home animation, callable on demand. App-driven. */
   glideHome(): void;
-  /** Suspend the JS physics (layout-edit mode). Cancels any running spring. */
+  /**
+   * Suspend camera-driven movement (layout-edit mode): cancels any running
+   * spring and turns panTo/glideHome/jumpTo/settle into no-ops until unfreeze.
+   * Covers the native scroll paths too, not just the JS spring , in the native
+   * snap modes a `scrollTo({behavior:"smooth"})` already dispatched is exactly
+   * the pan a frozen board must not do.
+   */
   freeze(): void;
-  /** Resume the JS physics. */
+  /** Resume camera-driven movement. */
   unfreeze(): void;
   /** True while a snap/glide spring animation is in flight. */
   isSettling(): boolean;
@@ -108,22 +114,14 @@ function createBoardCamera(): BoardCameraInternal {
   let frozen = false;
 
   const springTo = (toLeft: number, toTop: number) => {
-    if (frozen || !host) return;
+    if (!host) return;
     spring.to(host.stage, toLeft, toTop);
-  };
-
-  // A Spring facade routed through `springTo` so the frozen-gate applies to the
-  // spring-mode glide path too (glideTo drives the spring directly).
-  const guardedSpring: Spring = {
-    to: (_stage, toLeft, toTop) => springTo(toLeft, toTop),
-    cancel: () => spring.cancel(),
-    running: () => spring.running(),
   };
 
   const settle = () => {
     // JS spring and mandatory-settle magnetically re-center; pure native
     // scroll-snap modes let the browser handle it (no JS = no trackpad fight).
-    if (!host) return;
+    if (frozen || !host) return;
     if (!SETTLE_MODES.has(host.snapMode())) return;
     if (spring.running() || host.interacting()) return;
     const { stage } = host;
@@ -138,22 +136,22 @@ function createBoardCamera(): BoardCameraInternal {
   };
 
   const jumpTo = (worldX: number, worldY: number, smooth: boolean) => {
-    if (!host) return;
+    if (frozen || !host) return;
     nativeJumpTo(host.stage, worldX, worldY, smooth);
   };
 
   const panTo = (target: TileId | { x: number; y: number }) => {
-    if (!host) return;
+    if (frozen || !host) return;
     const center =
       typeof target === "string" ? host.tileCenter(target) : { cx: target.x, cy: target.y };
     if (!center) return;
     // A tap/keyboard recenter is the user moving the board.
     host.markUser();
-    glideTo(host.stage, host.snapMode(), guardedSpring, center.cx, center.cy);
+    glideTo(host.stage, host.snapMode(), spring, center.cx, center.cy);
   };
 
   const glideHome = () => {
-    if (!host) return;
+    if (frozen || !host) return;
     host.markProgrammatic();
     const { cx, cy } = host.home();
     jumpTo(cx, cy, true);
