@@ -15,9 +15,12 @@ import { formatRecency, WeightTileView } from "./WeightTileView";
 // runtime code.
 export const LB_PER_KG = 2.2046226218;
 
+/** The panel's own IANA zone, e.g. "America/Los_Angeles". */
+const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 export function WeightTile() {
   const tile = useTileQuery(
-    trpc.weight.summary.useQuery({ range: "30d" }, { refetchInterval: POLL.weight }),
+    trpc.weight.summary.useQuery({ range: "30d", tz: TZ }, { refetchInterval: POLL.weight }),
   );
   const now = useNow();
 
@@ -32,7 +35,8 @@ export function WeightTile() {
     <WeightTileView
       status={TileStatus.Populated}
       lb={data.latestKg * LB_PER_KG}
-      recencyLabel={formatRecency(data.latestAt, now)}
+      // day is a local YYYY-MM-DD; parse as local midnight, not UTC.
+      recencyLabel={formatRecency(`${data.latestDay}T00:00:00`, now)}
       // A 1-day window has no change to speak of; hide the badge until 2+ days.
       deltaLb30={data.daily.length >= 2 ? data.change * LB_PER_KG : undefined}
       spark={data.daily.map((d) => d.kg * LB_PER_KG)}

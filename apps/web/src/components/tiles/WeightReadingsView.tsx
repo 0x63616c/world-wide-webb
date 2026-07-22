@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { ConfirmDialog, OverflowMenu, Pill, PillTone, Skeleton, TileStatus } from "@/components/ui";
 
@@ -53,6 +53,9 @@ export interface WeightReadingsViewProps {
   /** Omitted until the tombstone column exists — the menu then hides Delete
    *  rather than offering an action that silently does nothing. */
   onDelete?: (id: string) => void;
+  /** Called when the end of the list scrolls into view. Omit when there is
+   *  nothing more to load — the sentinel is then not rendered at all. */
+  onLoadMore?: () => void;
 }
 
 const MAX_W = 720;
@@ -273,8 +276,25 @@ function DayGroup({
   );
 }
 
-export function WeightReadingsView({ status, days, onToggle, onDelete }: WeightReadingsViewProps) {
+export function WeightReadingsView({
+  status,
+  days,
+  onToggle,
+  onDelete,
+  onLoadMore,
+}: WeightReadingsViewProps) {
   const [pendingDelete, setPendingDelete] = useState<WeightReadingRow | null>(null);
+
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || !onLoadMore) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) onLoadMore();
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [onLoadMore]);
 
   if (status !== TileStatus.Populated || days == null) return <ListSkeleton />;
 
@@ -307,6 +327,7 @@ export function WeightReadingsView({ status, days, onToggle, onDelete }: WeightR
             onRequestDelete={onDelete ? setPendingDelete : undefined}
           />
         ))}
+        {onLoadMore && <div ref={sentinelRef} style={{ height: 1 }} aria-hidden="true" />}
       </div>
       <ConfirmDialog
         open={pendingDelete != null}

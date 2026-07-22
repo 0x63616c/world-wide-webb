@@ -6,10 +6,30 @@
 import "@testing-library/jest-dom";
 import { composeStories } from "@storybook/react-vite";
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as stories from "../WeightReadingsView.stories";
 
-const { Populated, DayExpanded, AutoFlagged, SingleDay, Loading, Empty } = composeStories(stories);
+const { Populated, DayExpanded, AutoFlagged, SingleDay, LoadingMore, Loading, Empty } =
+  composeStories(stories);
+
+// jsdom has no IntersectionObserver; the real one fires only in a real
+// viewport, so this stub reports the sentinel as intersecting immediately,
+// which is all WeightReadingsView's effect needs to call onLoadMore.
+class StubIntersectionObserver {
+  #callback: IntersectionObserverCallback;
+  constructor(callback: IntersectionObserverCallback) {
+    this.#callback = callback;
+  }
+  observe(target: Element) {
+    this.#callback(
+      [{ isIntersecting: true, target } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver,
+    );
+  }
+  unobserve() {}
+  disconnect() {}
+}
+vi.stubGlobal("IntersectionObserver", StubIntersectionObserver);
 
 afterEach(cleanup);
 
@@ -33,6 +53,11 @@ describe("WeightReadingsView stories", () => {
   it("SingleDay: no earlier day, so no day-over-day figure", async () => {
     const { container } = render(<SingleDay />);
     if (SingleDay.play) await SingleDay.play({ canvasElement: container });
+  });
+
+  it("LoadingMore: the sentinel triggers onLoadMore", async () => {
+    const { container } = render(<LoadingMore />);
+    if (LoadingMore.play) await LoadingMore.play({ canvasElement: container });
   });
 
   it("Loading: skeleton only, no medians", async () => {

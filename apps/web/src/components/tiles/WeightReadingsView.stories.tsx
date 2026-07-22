@@ -9,7 +9,7 @@
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { modalDocsParameters } from "./__stories__/factory";
 import type { WeightReadingDay, WeightReadingRow } from "./WeightReadingsView";
 import { WeightReadingsView } from "./WeightReadingsView";
@@ -172,6 +172,18 @@ export const SingleDay: Story = {
     const canvas = within(canvasElement);
     expect(canvas.getByText("Today")).toBeInTheDocument();
     expect(canvas.queryByText("−0.5")).not.toBeInTheDocument();
+  },
+};
+
+/** onLoadMore fires once the sentinel at the end of the list scrolls into
+ *  view; omitting it entirely (as every other story here does) renders no
+ *  sentinel at all. */
+export const LoadingMore: Story = {
+  args: { status: "populated", days: DAYS, onLoadMore: fn() },
+  play: async ({ canvasElement, args }) => {
+    const sentinel = canvasElement.querySelector('[aria-hidden="true"]');
+    expect(sentinel).not.toBeNull();
+    await waitFor(() => expect(args.onLoadMore).toHaveBeenCalled());
   },
 };
 
