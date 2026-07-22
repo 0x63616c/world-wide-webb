@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type Spring, smoothDamp } from "../camera";
 import { centerOffset, glideTo, jumpTo } from "../glide";
-import { attachCamera, type BoardCameraHost, boardCamera } from "../index";
+import { attachCamera, type BoardCameraHost, boardCamera, cameraCancel } from "../index";
 
 // A minimal stage stand-in: just the scroll geometry the camera math reads.
 // clientWidth/Height are fixed at the panel size so the centering assertions
@@ -177,6 +177,30 @@ describe("boardCamera singleton", () => {
     expect(boardCamera.isSettling()).toBe(false);
     const listener = vi.fn();
     const unsub = boardCamera.subscribe(listener);
+    unsub();
+    detach();
+  });
+
+  it("subscribers fire on the spring-mode settling false→true→false transition", () => {
+    // rAF is stubbed so the spring kicks off but never advances itself , the
+    // kickoff (false→true) and cancel (true→false) drive both edges of the
+    // `isSettling` store deterministically, which the panel-session model reads.
+    vi.stubGlobal("requestAnimationFrame", () => 1);
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+    const { detach } = attachFake({ snapMode: () => "spring" });
+    const listener = vi.fn();
+    const unsub = boardCamera.subscribe(listener);
+
+    // Kickoff: a spring-mode glide flips settling false→true.
+    boardCamera.panTo({ x: 5000, y: 4000 });
+    expect(boardCamera.isSettling()).toBe(true);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    // Cancel: the spring aborts, flipping settling true→false.
+    cameraCancel();
+    expect(boardCamera.isSettling()).toBe(false);
+    expect(listener).toHaveBeenCalledTimes(2);
+
     unsub();
     detach();
   });
