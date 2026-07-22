@@ -466,4 +466,97 @@ export function runDeviceStateStoreContract(
       });
     });
   });
+
+  describe("clone discipline", () => {
+    it("mutating a row returned by read() (incl. a nested field) does not affect the store", async () => {
+      const store = await freshStore();
+      await store.seed({
+        id: lampInput.id,
+        kind: lampInput.kind,
+        entityId: lampInput.entityId,
+        domain: lampInput.domain,
+        label: lampInput.label,
+        reported: { on: true, brightness: 128, color: { kelvin: 3000 } },
+        available: true,
+      });
+
+      const row = await store.read(lampInput.id);
+      expect(row).not.toBeNull();
+      // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
+      row!.label = "mutated";
+      // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
+      (row!.reportedState as { color?: { kelvin?: number } }).color!.kelvin = 9999;
+
+      const reRead = await store.read(lampInput.id);
+      expect(reRead?.label).toBe(lampInput.label);
+      expect(reRead?.reportedState).toEqual({ on: true, brightness: 128, color: { kelvin: 3000 } });
+    });
+
+    it("mutating a row returned by list() (incl. a nested field) does not affect the store", async () => {
+      const store = await freshStore();
+      await store.seed({
+        id: lampInput.id,
+        kind: lampInput.kind,
+        entityId: lampInput.entityId,
+        domain: lampInput.domain,
+        label: lampInput.label,
+        reported: { on: true, brightness: 128, color: { kelvin: 3000 } },
+        available: true,
+      });
+
+      const [row] = await store.list();
+      expect(row).toBeDefined();
+      // biome-ignore lint/style/noNonNullAssertion: asserted defined above
+      (row!.reportedState as { color?: { kelvin?: number } }).color!.kelvin = 9999;
+
+      const reRead = await store.read(lampInput.id);
+      expect(reRead?.reportedState).toEqual({ on: true, brightness: 128, color: { kelvin: 3000 } });
+    });
+
+    it("mutating readEffective's state (desired-only path, no reported) does not affect the store", async () => {
+      const store = await freshStore();
+      await store.upsertDesired({
+        ...lampInput,
+        desired: { on: true, brightness: 200, color: { kelvin: 2700 } },
+      });
+
+      const effective = await store.readEffective(lampInput.id);
+      expect(effective?.state).not.toBeNull();
+      const state = effective?.state as { color?: { kelvin?: number } };
+      // biome-ignore lint/style/noNonNullAssertion: asserted not-null above
+      state.color!.kelvin = 9999;
+
+      const reRead = await store.readEffective(lampInput.id);
+      expect(reRead?.state).toEqual({ on: true, brightness: 200, color: { kelvin: 2700 } });
+    });
+
+    it("mutating readEffective's state (overlay path, unoverridden nested field) does not affect the store", async () => {
+      const store = await freshStore();
+      await store.seed({
+        id: lampInput.id,
+        kind: lampInput.kind,
+        entityId: lampInput.entityId,
+        domain: lampInput.domain,
+        label: lampInput.label,
+        reported: { on: false, brightness: 128, color: { kelvin: 3000 } },
+        available: true,
+      });
+      await store.updateDesired({ id: lampInput.id, desired: { on: true } });
+
+      const effective = await store.readEffective(lampInput.id);
+      const state = effective?.state as { color?: { kelvin?: number } };
+      expect(state?.color).toEqual({ kelvin: 3000 });
+      // biome-ignore lint/style/noNonNullAssertion: asserted above via toEqual
+      state.color!.kelvin = 9999;
+
+      const reRead = await store.readEffective(lampInput.id);
+      expect((reRead?.state as { color?: { kelvin?: number } })?.color).toEqual({ kelvin: 3000 });
+      const rawRow = await store.read(lampInput.id);
+      expect(rawRow?.reportedState).toEqual({
+        on: false,
+        brightness: 128,
+        color: { kelvin: 3000 },
+      });
+    });
+  });
 }

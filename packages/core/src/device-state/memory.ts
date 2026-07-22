@@ -165,7 +165,9 @@ export function createInMemoryDeviceStateStore(): DeviceStateStore {
     async readEffective(id) {
       const row = rows.get(id);
       if (!row) return null;
-      return mergeDeviceState(row);
+      // Merge on a clone so `state` (a spread/passthrough of desired/reported)
+      // never carries a reference back into the store's own row objects.
+      return mergeDeviceState(cloneRow(row));
     },
 
     async seed(input: SeedDevice) {
