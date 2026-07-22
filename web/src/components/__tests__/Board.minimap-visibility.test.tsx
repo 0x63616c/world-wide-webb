@@ -45,7 +45,6 @@ vi.mock("../tiles/detail/registry", () => ({ getTileDetailEntry: () => undefined
 
 import { resetSettings, setShowMinimap } from "../../lib/settings";
 import { Board } from "../Board";
-import { IDLE_RESET_MS } from "../hooks/useBoard";
 
 const CLIENT_W = 1366;
 const CLIENT_H = 1024;
@@ -107,28 +106,6 @@ function minimapOpacity() {
 }
 
 describe("Minimap visibility (user-initiated movement only)", () => {
-  it("stays hidden while the idle reset glides back to the home clock", () => {
-    render(<Board />);
-    const stage = document.getElementById("stage") as HTMLElement;
-    stubScrollTo(stage);
-
-    // Pan away like a user, then let the minimap fade back out.
-    userPan(stage, WORLD_W, WORLD_H);
-    act(() => {
-      vi.advanceTimersByTime(2_000);
-    });
-    expect(minimapOpacity()).toBe("0");
-
-    // Idle window elapses → goHome glides the viewport. The glide streams
-    // scroll events exactly like a pan, but it is app-initiated: no minimap.
-    act(() => {
-      vi.advanceTimersByTime(IDLE_RESET_MS);
-    });
-    scrollFrame(stage);
-    scrollFrame(stage);
-    expect(minimapOpacity()).toBe("0");
-  });
-
   it("stays hidden through the mount-centering scroll echo", () => {
     render(<Board />);
     const stage = document.getElementById("stage") as HTMLElement;

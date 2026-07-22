@@ -54,16 +54,6 @@ export function dismissAllModals(): void {
   for (const dismiss of [...dismissers]) dismiss();
 }
 
-/**
- * True while at least one dismissable modal is open, i.e. an idle reset would
- * have something to do. The board's reset otherwise defers whenever the camera
- * is already home , which would strand a modal opened on the home (clock) tile
- * forever, since the reset that closes it never fires.
- */
-export function hasDismissableModal(): boolean {
-  return dismissers.size > 0;
-}
-
 /** True while one or more modals are open. Drives the board's pan freeze. */
 export function useAnyModalOpen(): boolean {
   return useStore(store) > 0;

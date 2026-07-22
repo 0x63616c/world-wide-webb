@@ -14,9 +14,10 @@
  * The variant list is static , `{ loading: false }` always , so the switcher
  * never pops; Countdown renders its own skeleton stack while events load.
  *
- * Idle: the page holds the board's glide-home/dim ONLY while something is live
- * (running timer, ringing timer, running stopwatch, firing alarm) via
- * `useIdleHoldWhile` , a dormant World Clock left open still idles home.
+ * Idle: nothing here defers the panel session (roadmap decision 4 , a running
+ * timer must not hold the panel unlocked). After the idle timeout the session
+ * ends like anywhere else: the panel dims, relocks, and glides home; the timer
+ * suite keeps running in its stores, so waking + reopening shows it live again.
  */
 
 import { ClockModalCountdownHorizon } from "@/components/tiles/views/ClockModalCountdownHorizon";
@@ -24,9 +25,7 @@ import { ClockModalWorldClocks } from "@/components/tiles/views/ClockModalWorldC
 import { Skeleton } from "@/components/ui";
 import { WORLD_CLOCK_ZONES } from "@/config/world-clocks";
 import { useNow } from "@/lib/hooks";
-import { useIdleHoldWhile } from "@/lib/idle-hold-store";
 import { useAlarmFiring } from "@/lib/time-suite/alarm-store";
-import { useTimeSuiteLive } from "@/lib/time-suite/live";
 import { useTimersRinging } from "@/lib/time-suite/timer-store";
 import { trpc } from "@/lib/trpc";
 import { AlarmVariant } from "../clock/AlarmVariant";
@@ -79,10 +78,6 @@ function CountdownVariant() {
 }
 
 function useClockVariants(): { variants: DetailVariant[]; loading: boolean } {
-  // Hold the board's idle reset/dim only while something in the suite is live
-  // (plan §3) , runs only while the page is open (active-only child).
-  useIdleHoldWhile(useTimeSuiteLive(), "clock-detail-live");
-
   // Switcher badges (plan §5.2): a timer finishing , or an alarm firing ,
   // while the user is on ANOTHER variant of the open page must stay visible.
   const timerBadge = useTimersRinging();

@@ -12,7 +12,7 @@ import {
   cameraSettle,
   SNAP_CSS,
 } from "../lib/board-camera";
-import { isNativeDisplay } from "../lib/brightness";
+import { dimTo, isNativeDisplay, wakeTo } from "../lib/brightness";
 import {
   BOARD_H,
   BOARD_W,
@@ -21,18 +21,18 @@ import {
   WORLD_W,
   worldCellRect,
 } from "../lib/grid-constants";
-import { useIdleHeld } from "../lib/idle-hold-store";
 import { useLayoutEditorOpen } from "../lib/layout-edit-store";
 import {
   endInteractionSession,
   interaction,
   startInteractionSession,
 } from "../lib/log/interaction";
-import { dismissAllModals, hasDismissableModal, useAnyModalOpen } from "../lib/modal-open-store";
+import { dismissAllModals, useAnyModalOpen } from "../lib/modal-open-store";
+import { panelSession, registerSessionEffects, setSessionEnabled } from "../lib/panel-session";
 import { bentoFor } from "../lib/placeholder-tiles";
 import { formatRelativeAge } from "../lib/relative-age";
 import { useSettings } from "../lib/settings";
-import { openTileDetail } from "../lib/tile-detail-store";
+import { closeTileDetail, openTileDetail } from "../lib/tile-detail-store";
 import { HOME_TILE, type TileRegistryEntry } from "../lib/tile-registry";
 import { useBoardLayout } from "../lib/useBoardLayout";
 import { captureWakeBurst } from "../lib/wake-capture";
@@ -45,8 +45,6 @@ import {
   useBoardDragPan,
   useBoardSnap,
   useBoardViewport,
-  useIdleDim,
-  useIdleReset,
   useUserPanSignal,
 } from "./hooks/useBoard";
 import { LayoutEditor } from "./layout-editor/LayoutEditor";
@@ -64,11 +62,6 @@ import { TileBoundary } from "./ui/TileBoundary";
 // "More" button). Taps on these drive the tile's own controls and must NOT also
 // open the detail page; taps anywhere else on the tile open it.
 const INTERACTIVE_SELECTOR = 'button, input, a, select, textarea, [role="slider"]';
-
-// How close the viewport center must be to the home tile (Clock) center to count
-// as "already home" , within this the idle reset is a no-op so it never nudges a
-// view that's effectively already on the clock.
-const HOME_DEADZONE_PX = 8;
 
 // The snap-mode CSS map + JS spring physics moved to lib/board-camera; SNAP_CSS
 // is imported above (the board-rendering half of the snap-mode experiment).
@@ -476,11 +469,10 @@ export function Board() {
   // working copy, so a background refetch here is redundant work).
   const layoutEditOpen = useLayoutEditorOpen();
 
-  // Whether anything live (a running timer on the open clock page, per the
-  // conditional-hold rule in lib/idle-hold-store) is suppressing the idle
-  // behaviors. Joins the layoutEditOpen precedent in both `enabled` chains
-  // below , the idle hooks themselves need no changes.
-  const idleHeld = useIdleHeld();
+  // The panel session's current phase. "ended" = the idle timeout elapsed:
+  // the panel is dimmed, relocked, and homed. Drives the DimOverlay wake shield
+  // and the backlight below.
+  const sessionPhase = panelSession.usePhase();
 
   // Server-resolved tile placement (blocking first paint + 5s poll, see
   // useBoardLayout). `layoutStatus` gates the loading-stage render below; every
@@ -555,8 +547,7 @@ export function Board() {
   // their visibility off `panSignal`, which bumps only for scroll frames the
   // user caused. App-driven navigation (mount centering, idle reset) marks
   // itself programmatic so those glides never flash the chrome.
-  const { panSignal, markProgrammatic, markUser, onScrollFrame, isProgrammatic } =
-    useUserPanSignal();
+  const { panSignal, markProgrammatic, markUser, onScrollFrame } = useUserPanSignal();
 
   // Open centered on the home tile (Clock) using the real client size (pre-paint,
   // no flash). Programmatic: the browser echoes this write as a scroll event.
@@ -682,95 +673,90 @@ export function Board() {
     [markUser],
   );
 
-  // After an idle window with no interaction, glide back to the home tile (Clock)
-  // via the same smooth nav the minimap uses , so an unattended wall panel
-  // resettles on the clock. goHome/isHome read the live scroll position; the hook
-  // owns the timer + interaction listeners. The glide is app-initiated, so it is
-  // marked programmatic and never re-shows the minimap (www-5teu).
-  // Idle also tears down whatever is on top of the board: "back to the clock"
-  // means the clock is what the wall shows, and gliding the camera home behind an
-  // open Settings panel left the panel up indefinitely. Modals opt into this by
-  // registering a dismisser , cleaning mode deliberately does not (see
-  // CleanScreenOverlay), so it survives its own idle window.
-  const goHome = useCallback(() => {
-    // The wall going back to the clock is the end of a visit, so close the
-    // interaction session here rather than waiting for its own idle timeout ,
-    // that way the transcript's closing entry carries the real reason.
-    endInteractionSession("idle-reset");
-    dismissAllModals();
-    // glideHome marks the move programmatic + native-glides to the live home
-    // position (read through the camera host).
-    boardCamera.glideHome();
-  }, []);
-  // "Nothing to do" for the idle reset: already parked on the home tile AND
-  // nothing layered on top of it. Without the modal clause a modal opened FROM
-  // the clock would never be closed by idle , the reset defers on isHome and the
-  // window never fires.
-  const isHome = useCallback(() => {
-    if (hasDismissableModal()) return false;
-    const stage = stageRef.current;
-    if (!stage) return true;
-    const cx = stage.scrollLeft + stage.clientWidth / 2;
-    const cy = stage.scrollTop + stage.clientHeight / 2;
-    return Math.hypot(cx - homeCx, cy - homeCy) < HOME_DEADZONE_PX;
-  }, [homeCx, homeCy]);
-  const { poke: pokeReset } = useIdleReset({
-    stage: stageEl,
-    isProgrammatic,
-    goHome,
-    isHome,
-    pointerDown,
-    idleMs: settings.recenterTimeoutMs,
-    // Disabled while the layout editor is open — an idle glide-home mid-edit
-    // would fight the editor's own camera and yank the view out from under a
-    // drag in progress. Also held off while an idle hold is live (a running
-    // timer on the open clock page must not be glided away from).
-    enabled: settings.recenterEnabled && !layoutEditOpen && !idleHeld,
-  });
+  // ── panel session ────────────────────────────────────────────────────────────
+  // ONE activity clock (lib/panel-session) replaces the old idle-reset + idle-dim
+  // timers. Touch is the only activity source; on the idle timeout a single
+  // SESSION END fires (dim → strip overlays → glide home → relock). Native only:
+  // the dim drops the real iPad backlight, so off-device the whole session is
+  // inert (no scrim, no auto-lock) , matching the old idle-dim gate. Disabled
+  // while the layout editor is open (an idle glide-home / dim mid-edit would
+  // fight the editor's own camera and obscure what's being arranged).
+  const sessionEnabled = settings.idleDimEnabled && nativeDisplay && !layoutEditOpen;
 
-  // Dim the panel after its own (configurable) idle window , native only: it
-  // drops the real iPad backlight, so off-device it stays disabled (no-op, no
-  // scrim). Independent of the home-reset window above , same activity model,
-  // different timeout.
-  const { dimmed, wake: wakeDim } = useIdleDim({
-    stage: stageEl,
-    isProgrammatic,
-    pointerDown,
-    // Disabled while the layout editor is open — dimming the backlight mid-edit
-    // would obscure the very thing being arranged. Also held off while an idle
-    // hold is live (a running timer/stopwatch stays readable across the room).
-    enabled: settings.idleDimEnabled && nativeDisplay && !layoutEditOpen && !idleHeld,
-    timeoutMs: settings.idleDimTimeoutMs,
-    level: settings.idleDimLevel,
-    activeBrightness: settings.activeBrightness,
-  });
-
-  // The wake tap: the dim overlay swallows the first touch so it never reaches a
-  // tile, then calls this to un-dim AND rearm BOTH idle windows. While dimmed the
-  // idle timers deliberately IGNORE raw events (shouldIgnoreEvent) , the window-
-  // capture activity listener would otherwise see the tap first, un-dim, and
-  // unmount the shield mid-dispatch so the tap clicked the tile beneath , so this
-  // explicit poke is the only wake path. The next tap lands on the board normally.
-  // Dimming means the room went quiet: end the visit so its transcript closes at
-  // the moment the panel actually gave up, not SESSION_IDLE_MS later.
+  // Feed the clock: the (in-place-renamed) idle-dim timeout is THE session
+  // timeout. Stop the clock on unmount so a torn-down Board never ends a session.
   useEffect(() => {
-    if (dimmed) endInteractionSession("idle-dim");
-  }, [dimmed]);
+    panelSession.setTimeoutMs(settings.idleDimTimeoutMs);
+  }, [settings.idleDimTimeoutMs]);
+  useEffect(() => {
+    setSessionEnabled(sessionEnabled);
+    return () => setSessionEnabled(false);
+  }, [sessionEnabled]);
+
+  // The session-end fan-out (dim + strip overlays + glide home), registered once.
+  // The dim level is read live through a ref so a settings change is picked up
+  // without re-registering. glideHome is fire-and-forget (native smooth scroll);
+  // "strip overlays" means the wall returns to a clean board , gliding home
+  // behind an open Settings panel would leave the panel up indefinitely.
+  const dimLevelRef = useRef(settings.idleDimLevel);
+  dimLevelRef.current = settings.idleDimLevel;
+  useEffect(
+    () =>
+      registerSessionEffects({
+        dim: () => {
+          if (nativeDisplay) void dimTo(dimLevelRef.current);
+        },
+        closeTileDetail: () => closeTileDetail(),
+        clearModals: () => dismissAllModals(),
+        glideHome: () => boardCamera.glideHome(),
+      }),
+    [nativeDisplay],
+  );
+  // The wall going quiet ends the visit: close the interaction session at the
+  // moment the panel actually gave up (so the transcript's closing entry carries
+  // the real reason), not a whole idle window later.
+  useEffect(() => panelSession.onSessionEnd(() => endInteractionSession("session-end")), []);
+
+  // The single activity source: any user touch rearms the clock. While the
+  // session is ended the DimOverlay shield is the ONLY waker (it swallows the tap
+  // and calls wake()); a raw listener firing here would wake mid-dispatch and let
+  // the tap fall through to a tile, so ended touches are ignored here (the
+  // window-capture listener sees the tap before the shield's own handler).
+  useEffect(() => {
+    const onActivity = () => {
+      if (panelSession.phase() === "ended") return;
+      panelSession.touch();
+    };
+    window.addEventListener("pointerdown", onActivity, { passive: true, capture: true });
+    return () => window.removeEventListener("pointerdown", onActivity, { capture: true });
+  }, []);
+
+  // The app always owns the backlight (overriding the OS). While the session is
+  // active (incl. mount) hold the configured active brightness; the session-end
+  // fan-out drops it to the idle level and waking returns it here. Native only.
+  useEffect(() => {
+    if (!nativeDisplay) return;
+    if (sessionPhase === "active") void wakeTo(settings.activeBrightness);
+  }, [sessionPhase, nativeDisplay, settings.activeBrightness]);
+  // Never leave the backlight dimmed if the board unmounts mid-session , read the
+  // live active brightness through a ref so the once-only cleanup uses the latest.
+  const activeBrightnessRef = useRef(settings.activeBrightness);
+  activeBrightnessRef.current = settings.activeBrightness;
+  useEffect(() => () => void wakeTo(activeBrightnessRef.current), []);
 
   const wake = useCallback(() => {
-    // Wake photo: the tap that ends a dim is the "someone approached the
-    // panel" signal, so kick off the front-camera burst (fire-and-forget,
-    // best-effort , see lib/wake-capture). Native panel only: in a browser the
-    // dim overlay never shows, so this path can't fire there anyway.
-    // Order matters: mint the session FIRST so the burst's frames can carry it.
-    // An undim is the physical start of a visit, so it opens a new session
-    // outright rather than resuming , see startInteractionSession.
+    // The tap that ends a dim is the "someone approached the panel" signal, so
+    // kick off the front-camera wake burst (fire-and-forget, best-effort , see
+    // lib/wake-capture). Order matters: mint the session FIRST so the burst's
+    // frames can carry it. An undim is the physical start of a visit, so it opens
+    // a new session outright rather than resuming.
     const sessionId = startInteractionSession();
     if (nativeDisplay) captureWakeBurst(sessionId);
     interaction("session", "wake", "panel");
-    wakeDim();
-    pokeReset();
-  }, [wakeDim, pokeReset, nativeDisplay]);
+    // touch() wakes the session (ended → active) and rearms the clock; the
+    // backlight effect above brightens off the phase flip.
+    panelSession.touch();
+  }, [nativeDisplay]);
 
   // Recenter + open the tile's detail, kicked off together. Shared by the
   // plain-tap and keyboard activation paths. Every tile resolves through the
@@ -999,7 +985,7 @@ export function Board() {
         </div>
         {/* Idle dim tap-shield (native only). Sits above the board + its chrome but
           below modals (which portal to <body>) so it swallows the wake tap. */}
-        <DimOverlay active={dimmed} onWake={wake} />
+        <DimOverlay active={sessionPhase === "ended"} onWake={wake} />
         {/* Full-page detail path (store-driven). Registers with modal-open-store,
           so the existing modalOpen freeze/bail logic covers it automatically. */}
         <TileDetailHost />
