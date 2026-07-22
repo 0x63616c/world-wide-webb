@@ -24,13 +24,27 @@ describe("isOutsideSanityBand", () => {
 describe("dailyMedians", () => {
   it("reduces same-day multiples to the median and sorts by day", () => {
     const rows = [
-      { measuredAt: new Date("2026-07-16T07:41:00Z"), weightKg: 82.2 },
-      { measuredAt: new Date("2026-07-16T07:44:00Z"), weightKg: 82.0 },
-      { measuredAt: new Date("2026-07-15T07:19:00Z"), weightKg: 81.9 },
+      { day: "2026-07-16", weightKg: 82.2 },
+      { day: "2026-07-16", weightKg: 82.0 },
+      { day: "2026-07-15", weightKg: 81.9 },
     ];
     expect(dailyMedians(rows)).toEqual([
       { day: "2026-07-15", kg: 81.9 },
       { day: "2026-07-16", kg: 82.1 },
+    ]);
+  });
+
+  it("trusts the caller's day key rather than re-deriving one", () => {
+    // Both readings are the same UTC instant bucketed into different local
+    // days — exactly what a timezone boundary produces. The domain must not
+    // second-guess the key it was handed.
+    const rows = [
+      { day: "2026-07-15", weightKg: 80.0 },
+      { day: "2026-07-16", weightKg: 90.0 },
+    ];
+    expect(dailyMedians(rows)).toEqual([
+      { day: "2026-07-15", kg: 80.0 },
+      { day: "2026-07-16", kg: 90.0 },
     ]);
   });
 });

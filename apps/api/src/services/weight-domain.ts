@@ -18,23 +18,19 @@ export function isOutsideSanityBand(kg: number, recentIncludedKg: number[]): boo
   return Math.abs(kg - median(recentIncludedKg)) > SANITY_BAND_KG;
 }
 
-// Server-local day; server TZ = house TZ on the homelab, acceptable per spec.
-function localDay(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+/** A reading already bucketed into a local calendar day by the caller. */
+export interface DayKeyedRow {
+  /** YYYY-MM-DD in the requesting client's timezone — see services/weight-sql. */
+  day: string;
+  weightKg: number;
 }
 
-export function dailyMedians(
-  rows: { measuredAt: Date; weightKg: number }[],
-): { day: string; kg: number }[] {
+export function dailyMedians(rows: DayKeyedRow[]): { day: string; kg: number }[] {
   const byDay = new Map<string, number[]>();
   for (const r of rows) {
-    const day = localDay(r.measuredAt);
-    const kgs = byDay.get(day);
+    const kgs = byDay.get(r.day);
     if (kgs) kgs.push(r.weightKg);
-    else byDay.set(day, [r.weightKg]);
+    else byDay.set(r.day, [r.weightKg]);
   }
   return [...byDay.entries()]
     .map(([day, kgs]) => ({ day, kg: median(kgs) }))
