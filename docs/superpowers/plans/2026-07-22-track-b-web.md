@@ -328,6 +328,32 @@ Tests: Board.session.test additions — fire-while-ended wakes (phase active +
 brightness restored), ringing holds past the timeout, dismissal lets the session end
 on the next timeout, session stays locked through an alarm wake.
 
+## Addendum: final-review Minors 3 + 4 closed (2026-07-22, post-landing)
+
+**Minor 3 — `boardCamera.freeze()/unfreeze()` had zero callers.** Wired rather than
+dropped: layout-edit is the case the API was written for, and it had a real (if
+narrow) gap. `overflow:hidden` on `#stage` freezes NATIVE panning only, so a glide
+already in flight when the editor opens keeps writing `scrollLeft/Top` under the
+overlay — the board sits somewhere else when the editor closes. Board now
+`freeze()`s on `layoutEditOpen` with `unfreeze()` in the effect cleanup (a Board torn
+down mid-edit cannot strand a frozen camera).
+
+Wiring it surfaced the other half: the `frozen` gate lived only in `springTo`, so in
+the NATIVE snap modes (the panel's default) `panTo`/`glideHome`/`jumpTo` scrolled
+straight through a frozen camera. The gate moved to the entry points — `panTo`,
+`glideHome`, `jumpTo`, `settle` — which retired the `guardedSpring` facade that
+existed solely to carry it. `freeze()` now means "no camera-driven movement", which
+is what every caller would assume it meant. Tests: camera-level freeze/unfreeze
+gating, Board-level layout-edit wiring incl. unmount cleanup.
+
+**Minor 4 — Task 7 exit grep.** `LogsView` and `WakeCaptureDiagnostic` both
+hand-rolled `useSyncExternalStore(subscribe, getTail)`; both now use one
+`lib/log/useLogTail.ts` seam. The ring is deliberately NOT a `createStore` singleton
+(mutable ring + lazily-materialized snapshot, not replaced state), so the hook is the
+sanctioned `useSyncExternalStore` for it, documented in the file. Task 7's grep now
+returns exactly four call sites: `lib/store.ts` (the primitive), the two sanctioned
+external-system skips (`useIsNarrow`, `useNotifications`), and `useLogTail`.
+
 ## Self-Review Notes (author)
 
 - Spec coverage: hygiene strip (Tasks 1-5) ✔; C4 (6-7) ✔; C5 (9) ✔; C6 (8) ✔; C8 deferred by decision ✔; layout fold (10) per Calum's explicit reopen ✔.
