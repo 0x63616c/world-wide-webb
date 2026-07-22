@@ -1,0 +1,93 @@
+# ble-proxy-bathroom — Seeed XIAO ESP32-C6 running as a *connectable* Bluetooth
+# proxy for Home Assistant.
+#
+# Why this device exists: HA's Renpho scale integration needs a GATT connection
+# to read a weigh-in (`connectable: true` in its manifest). The Shelly BLE
+# proxies in the flat are advertisement-only and can never satisfy that, so this
+# is the only receiver in the house that can actually read the scale.
+#
+# This config is versioned here on purpose. It previously lived only in /tmp on
+# the mini and was lost to a reboot, leaving a load-bearing house device
+# unreproducible.
+#
+# Flash: see infra/esphome/README.md (needs main-WiFi creds from 1Password;
+# the SOPS vault only carries the *guest* WiFi password).
+
+substitutions:
+  device_name: ble-proxy-bathroom
+  friendly_name: BLE Proxy Bathroom
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  on_boot:
+    # 700: after GPIO outputs are set up (HARDWARE, 800) but before the radio
+    # starts (BLUETOOTH 350 / WIFI 250), so the antenna is selected before
+    # anything transmits.
+    priority: 700
+    then:
+      - output.turn_off: rf_switch_en # LOW = enable the FM8625H RF switch
+      - output.turn_off: rf_ant_select # LOW = onboard ceramic antenna
+
+esp32:
+  variant: esp32c6
+  board: esp32-c6-devkitc-1
+  framework:
+    type: esp-idf
+
+# ANTENNA / RF SWITCH — load-bearing, do not remove.
+#
+# This is a Seeed XIAO ESP32-C6 (the `board:` above is a stand-in; ESPHome only
+# gained a XIAO board definition in 2025.12.0). It has an FM8625H RF switch
+# between its onboard ceramic antenna and the u.FL connector. Undriven, the
+# switch never enables and the radio is barely connected to any antenna.
+#
+# Measured A/B on 2026-07-22, same physical location, only this block changed:
+#
+#                        WiFi RSSI    BLE devices seen    median BLE RSSI vs Shellys
+#   without GPIO block     -68 dB           38                    -11 dB
+#   with GPIO block        -46 dB           60                     +4 dB
+#
+# 22 dB on WiFi, a 15 dB swing on BLE. Before this the proxy could not hold a
+# GATT connection to the scale (-99 dBm, zero readings in a month); after it, a
+# weigh-in was ingested on the first attempt.
+#
+# Set rf_ant_select HIGH *only* if a physical u.FL antenna is fitted — HIGH
+# selects the external connector, and with nothing attached that is worse than
+# having never touched the pins.
+output:
+  - platform: gpio
+    id: rf_switch_en
+    pin: GPIO3
+  - platform: gpio
+    id: rf_ant_select
+    pin: GPIO14
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+logger:
+
+# Plaintext API, no encryption — matches the existing HA config entry
+# (noise_psk ""). Changing this would break the entry until re-paired.
+api:
+
+ota:
+  - platform: esphome
+
+mdns:
+
+esp32_ble_tracker:
+  scan_parameters:
+    # The scale advertises in short bursts during a weigh-in and is otherwise
+    # asleep. ESPHome's default window (30ms/320ms) missed those bursts, so this
+    # scans continuously rather than duty-cycling.
+    interval: 1100ms
+    window: 1100ms
+    active: true
+
+bluetooth_proxy:
+  # The whole point of this device: active = proxy GATT connections, not just
+  # advertisements.
+  active: true
