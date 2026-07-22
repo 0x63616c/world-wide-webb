@@ -25,10 +25,18 @@ These override/refine the roadmap text and are settled — do not reopen during 
    not hold the panel unlocked.)
 5. **C6 is a pure refactor**: behavior pinned before extraction; warts found get ticketed,
    never fixed inline.
-6. **Repo layout fold IS in scope** (Calum explicitly reopened placement): `map-provision/`
-   and `storybook/` move under `tools/`. `web/ api/ worker/` stay at root (locked
-   roadmap decision 9 — untouched).
-7. Whole track in this one doc; C8 as deferred stub (Calum chose this shape).
+6. **Repo layout (Calum explicitly reopened + settled 2026-07-22, supersedes the root-level
+   part of roadmap decision 9):** adopt the standard Turborepo taxonomy — `apps/` = things
+   that run/deploy (`web`, `api`, `worker`, `storybook`, `map-provision`), `packages/` =
+   things you import. Track C's per-feature folds RENAME from `apps/<id>/` to
+   `features/<id>/` (ADR-0001/0002 wording amended — no Track C code exists yet, so this is
+   a docs-only rename). No `tools/` directory.
+7. **Storybook deployment is RIPPED** (Calum, 2026-07-22): deployment has sat at 0 replicas
+   for 40 days (`wwwinfra:storybookReplicas: "0"`) while CI builds its image every push.
+   Delete the infra service entry, CI image job, `Dockerfile.storybook`, replicas knob, and
+   digest pin. Storybook remains local-dev-only (`dev:storybook`); storybook-first invariant
+   unaffected. Resurrection = git revert.
+8. Whole track in this one doc; C8 as deferred stub (Calum chose this shape).
 
 ## Global Constraints
 
@@ -58,10 +66,10 @@ web/src/lib/panel-session/              NEW  C5: session module
 web/src/components/tiles/views/         RENAMED from tiles/modals/ (67 files)
 web/src/lib/grid-constants.ts           MOD  single WALL_THICKNESS export
 api/src/config/identity.ts              NEW  cross-service identity constants
-tools/map-provision/                    MOVED from map-provision/
-tools/storybook/                        MOVED from storybook/
+apps/{web,api,worker,storybook,map-provision}/  MOVED from root (Task 10b, last)
 DELETED: 4 concept files (~3951 lines), web/src/lib/open-settings-store.ts,
-         5 double-catch blocks in api/src/trpc/routers/controls.ts
+         5 double-catch blocks in api/src/trpc/routers/controls.ts,
+         web/Dockerfile.storybook + storybook infra service (Task 10a)
 ```
 
 ---
@@ -247,23 +255,39 @@ Session-end fan-out (in `session-effects.ts`, registered once at app mount): dim
 - [ ] **Step 4:** Rewire: idle-dim → session (delete old timer), settings page timeout field targets `setTimeoutMs` (existing idle-dim setting becomes THE session timeout; keep stored settings key or migrate it — check `settings.ts` schema and do a compatible rename), PIN gate (`TileDetailHost`) consumes `useIsUnlocked` + `sensitive` flag, `SettingsButton` loses open-settings-store.
 - [ ] **Step 5:** Storybook story for the ended→wake sequence; full web suite + typecheck + knip green (open-settings-store fully gone). Commit in 2-3 coherent slices (`feat(web): panel-session store (C5)`, `feat(web): session-end effects + wake`, `refactor(web): pin/dim/settings onto panel-session`), push each, watch CI. Verify on the real panel after deploy: idle 60s → dim+home+lock; wake touch swallowed.
 
-### Task 10: Layout fold — `map-provision/` + `storybook/` → `tools/`
+### Task 10a: Rip the storybook deployment
 
 **Files:**
-- Move: `map-provision/` → `tools/map-provision/`; `storybook/` → `tools/storybook/`
-- Modify: root `package.json` workspaces (`"map-provision"` → `"tools/map-provision"`, `"storybook"` → `"tools/storybook"`), `bun.lock` (via `bun install`)
-- Modify: `.github/workflows/*` path filters mentioning `storybook/` or `map-provision/`, `web/Dockerfile.storybook` COPY paths, any `--filter`/`--cwd` scripts, tsconfig path refs
-- **Gate:** root `web/ api/ worker/` do NOT move (locked decision 9)
+- Delete: `web/Dockerfile.storybook`
+- Modify: `infra/src/services.ts:43-45` (digest/repository entry), `:180-199` (`storybookReplicas` knob), `:339-341` (service def) — delete the storybook service entirely
+- Modify: `infra/Pulumi.prod.yaml:4` (drop `wwwinfra:storybookReplicas`), drop the `wwwinfra:imageDigests.storybook` pin
+- Modify: `.github/workflows/*` — delete the `build-storybook` image job + its path-filter entry (keep the storybook TEST job — `test:storybook` still gates)
+- **Gate:** local dev (`bun run dev:storybook`) and the storybook vitest project must still work — only the deploy pipeline dies.
 
-- [ ] **Step 1:** `grep -rn "map-provision\|storybook/" .github package.json web/Dockerfile* infra --include="*" | grep -v node_modules` — build the full rewrite list BEFORE moving.
-- [ ] **Step 2:** `git mv`, rewrite refs, `bun install`, typecheck, knip, storybook build, `bun run test:storybook`.
-- [ ] **Step 3:** Commit `chore: move map-provision + storybook under tools/`, push, watch CI **carefully** — this touches CI path filters themselves; verify the storybook image still builds and per-product filters still trigger (check the run's job list). Recover digest strands per standing risk if a run gets cancelled.
+- [ ] **Step 1:** Delete the pieces above; `grep -rn "Dockerfile.storybook\|build-storybook\|storybookReplicas" . --include="*" | grep -v node_modules` → zero.
+- [ ] **Step 2:** `bun run typecheck` (infra included), `bun run test:storybook` still green locally.
+- [ ] **Step 3:** Run the infra preview via `scripts/secrets.sh pulumi preview` (from `infra/`, prod stack): expect exactly delete of storybook Deployment+Service, nothing else. Apply. Verify: `kubectl get deploy,svc -n control-center | grep storybook` → empty; panel still 302.
+- [ ] **Step 4:** Commit `chore(infra,ci): rip storybook deployment (local-dev-only now)`, push, watch CI — job list must no longer contain build-storybook.
+
+### Task 10b: Layout — `apps/` adoption + `features/` rename (STRICTLY LAST code task)
+
+**Files:**
+- Move: `web/` → `apps/web/`; `api/` → `apps/api/`; `worker/` → `apps/worker/`; `storybook/` → `apps/storybook/`; `map-provision/` → `apps/map-provision/`
+- Modify: root `package.json` workspaces list, `bun.lock` (`bun install`), ALL Dockerfile COPY paths, `.github/workflows/*` path filters + build contexts, `infra/` image build contexts + pulumi digest key paths, lefthook/knip/biome/tsconfig path refs, `CLAUDE.md`/`CODEBASE_OVERVIEW.md` path mentions
+- Modify: ADR-0001/ADR-0002 + roadmap: Track C fold root renamed `apps/<id>/` → `features/<id>/`
+- **Gates:** run this task in a QUIET WINDOW — coordinate with Calum that no parallel sessions have dirty files under the moving dirs (shared checkout; a move under a peer's dirty tree loses their work). Amend roadmap decision 9's record with a pointer to plan decision 6.
+
+- [ ] **Step 1:** Confirm quiet window with Calum + `git status` clean outside this task's scope.
+- [ ] **Step 2:** Build the FULL rewrite list first: `grep -rn "\bweb/\|\bapi/\|\bworker/\|map-provision\|storybook" .github infra package.json lefthook.yml knip.jsonc biome.json* --include="*" | grep -v node_modules`.
+- [ ] **Step 3:** `git mv` the five, rewrite every ref, `bun install`, full verify: typecheck, knip, web+api+worker test suites, placeholder-tiles test.
+- [ ] **Step 4:** ADR/docs rename sweep (`apps/<id>` → `features/<id>` in ADR-0001, ADR-0002, roadmap Track C section).
+- [ ] **Step 5:** ONE commit `chore: adopt apps/ layout; Track C folds become features/ (plan decision 6)`, push, watch CI end-to-end + verify all three prod deploys roll healthy + panel 302. Recover digest strands per standing risk if anything got cancelled.
 
 ### Task 11: C8 stub + track close-out
 
 C8 (settings field-descriptor table) is DEFERRED by roadmap decision 15 until C4 has settled in prod; plan it as an addendum to this doc at that point (Calum approved this shape 2026-07-22). This task is docs-only close-out:
 
-- [ ] **Step 1:** Update `CODEBASE_OVERVIEW.md` (store primitive, panel-session, board-camera, tools/ layout) + roadmap file (Track B status, C5/C6 order swap note, 5-not-7 catch count, C8 addendum pointer).
+- [ ] **Step 1:** Update `CODEBASE_OVERVIEW.md` (store primitive, panel-session, board-camera, apps/ layout) + roadmap file (Track B status, C5/C6 order swap note, 5-not-7 catch count, layout decision 6 supersession note, C8 addendum pointer).
 - [ ] **Step 2:** Commit `docs: track B landed; C8 addendum pending`, push.
 
 ## Self-Review Notes (author)
