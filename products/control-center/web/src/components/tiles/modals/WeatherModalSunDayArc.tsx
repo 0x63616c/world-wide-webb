@@ -118,7 +118,7 @@ export function WeatherModalSunDayArc({
         {/* The semicircle is the primary reading surface , the sun disc position
             answers "where are we in the day" faster than any number.
             idPrefix "wm" namespaces gradient/clip ids so the arc can coexist
-            with ClockModalSolarDayArc (idPrefix "clock") in the same DOM. */}
+            with any other SolarDayArcGraphic instance in the same DOM. */}
         <SolarDayArcGraphic
           sunriseIso={sunriseIso}
           sunsetIso={sunsetIso}

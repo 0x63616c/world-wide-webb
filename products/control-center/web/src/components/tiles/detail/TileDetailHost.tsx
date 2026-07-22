@@ -16,7 +16,7 @@ import { createPortal } from "react-dom";
 import { PageHeader, Skeleton } from "@/components/ui";
 import { interaction } from "../../../lib/log/interaction";
 import { registerOpenModal } from "../../../lib/modal-open-store";
-import { closeTileDetail, useTileDetail } from "../../../lib/tile-detail-store";
+import { closeTileDetail, openTileDetail, useTileDetail } from "../../../lib/tile-detail-store";
 import { PinGateModal } from "../../pin/PinGateModal";
 import { VariantSwitcher } from "../modals/VariantSwitcher";
 import { getTileDetailEntry } from "./registry";
@@ -88,6 +88,20 @@ function TileDetailPage({
   // is mounted only then), so closed tiles never run their queries.
   const { variants, loading } = entry.useVariants();
   const [slug, setSlug] = useState(initialSlug ?? entry.defaultSlug);
+
+  // Deep links while the page is already open: the host keys by tileId, so
+  // retargeting the SAME tile with a variantSlug (e.g. a TimeSuiteBanner tap
+  // while another clock variant is up) re-renders without remounting , the
+  // useState seed above never re-runs. Sync the requested slug from the store
+  // here instead. Depending on the target OBJECT (fresh per openTileDetail
+  // call), not the slug string, means a repeat request for a slug the user has
+  // since switched away from still navigates.
+  const target = useTileDetail();
+  useEffect(() => {
+    if (target?.tileId === entry.tileId && target.variantSlug !== undefined) {
+      setSlug(target.variantSlug);
+    }
+  }, [target, entry.tileId]);
 
   // Freeze the board's pan for the page's lifetime and let the board's idle
   // reset dismiss it. closeTileDetail is module-stable, so unlike SettingsPage
@@ -198,7 +212,18 @@ function TileDetailPage({
         )}
       </div>
       {active && variants.length > 1 && (
-        <VariantSwitcher variants={variants} activeSlug={active.slug} onSelect={setSlug} />
+        <VariantSwitcher
+          variants={variants}
+          activeSlug={active.slug}
+          // Write the hop back to the store as well: consumers of the live
+          // target (e.g. TimeSuiteBanner's open-variant suppression) must see
+          // the variant the page is actually showing, not the open-time slug.
+          // The sync effect above then reads the same value back , a no-op.
+          onSelect={(next) => {
+            setSlug(next);
+            openTileDetail(entry.tileId, next);
+          }}
+        />
       )}
     </div>,
     document.body,

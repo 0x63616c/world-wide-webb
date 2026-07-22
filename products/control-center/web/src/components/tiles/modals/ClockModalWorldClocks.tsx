@@ -11,12 +11,12 @@
  * browser's clock via Intl.DateTimeFormat , no backend call, no loading state,
  * never fails. Ticks every second via a useEffect interval on `now`.
  *
- * WHY 560 wide: this is a narrow agenda concept (tall rows, not wide columns)
- * so the default 640 is unnecessary width. 560 keeps it compact and readable at
- * a glance on the fixed 1366x1024 panel.
+ * Bare page body hosted by TileDetailHost , centered 920 column like the other
+ * clock detail pages; big numerals use tabular-nums so the per-second tick
+ * never makes rows jitter on the fixed 1366x1024 panel.
  *
  * PURE view: `now` (current Date) arrives via props so the component is
- * testable/storied without real timers. The board wires in a live ticking Date.
+ * testable/storied without real timers. The wiring passes a live ticking Date.
  */
 
 import { StatusDot } from "@/components/ui";
@@ -166,7 +166,7 @@ export function ClockModalWorldClocks({ now, zones }: ClockModalWorldClocksProps
 
   return (
     <div style={{ maxWidth: 920, margin: "0 auto" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {sorted.map((zone, idx) => {
           const { hour, weekday, utcOffset, dayProgress, isDaytime } = getTimeParts(zone.tz, now);
           const isHome = !!zone.home;
@@ -174,7 +174,7 @@ export function ClockModalWorldClocks({ now, zones }: ClockModalWorldClocksProps
           return (
             <div key={zone.tz}>
               {/* Divider between home row and the rest */}
-              {idx === 1 && <div className="divider" style={{ marginBottom: 13 }} />}
+              {idx === 1 && <div className="divider" style={{ marginBottom: 14 }} />}
 
               <div
                 style={{
@@ -214,6 +214,7 @@ export function ClockModalWorldClocks({ now, zones }: ClockModalWorldClocksProps
                         fontSize: 10,
                         color: isHome ? "var(--acc-line)" : "var(--ink-3)",
                         letterSpacing: "0.08em",
+                        fontVariantNumeric: "tabular-nums",
                       }}
                     >
                       {utcOffset}
@@ -237,6 +238,7 @@ export function ClockModalWorldClocks({ now, zones }: ClockModalWorldClocksProps
                         color: isHome ? "var(--acc)" : "var(--ink)",
                         letterSpacing: "-0.04em",
                         lineHeight: 1,
+                        fontVariantNumeric: "tabular-nums",
                       }}
                     >
                       {hour}

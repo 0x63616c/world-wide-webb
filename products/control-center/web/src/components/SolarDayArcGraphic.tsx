@@ -1,10 +1,10 @@
 /**
- * SolarDayArcGraphic , shared SVG solar-day arc used by
- * ClockModalSolarDayArc and WeatherModalSunDayArc.
+ * SolarDayArcGraphic , shared SVG solar-day arc used by WeatherModalSunDayArc
+ * (the clock tile's solar pages were retired in the clock-suite rework).
  *
- * WHY a shared component: the two modals render functionally identical SVG
- * solar arcs (gradient sky fill, sun disc riding a bezier horizon arc, horizon
- * baseline, sunrise/sunset markers). The only differences are:
+ * WHY a shared component: callers render functionally identical SVG solar arcs
+ * (gradient sky fill, sun disc riding a bezier horizon arc, horizon baseline,
+ * sunrise/sunset markers), differing only in:
  *   1. SVG viewport dimensions and arc constants (controlled via `dims` prop).
  *   2. Gradient/clip-path id strings , SVG IDs are global in the DOM, so two
  *      instances on the same page would share a gradient if both used "skyGrad".

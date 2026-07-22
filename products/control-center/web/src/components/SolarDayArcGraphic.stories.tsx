@@ -4,7 +4,8 @@ import { type ArcDims, SolarDayArcGraphic } from "./SolarDayArcGraphic";
 
 // ─── dim presets (mirror the real callers) ───────────────────────────────────
 
-/** Matches CLOCK_ARC_DIMS in ClockModalSolarDayArc */
+/** Wide-and-shallow preset (680×200) , the retired clock solar page's geometry,
+ *  kept as a second dims fixture exercising the `dims` prop. */
 const CLOCK_DIMS: ArcDims = {
   svgW: 680,
   svgH: 200,
@@ -132,7 +133,7 @@ export const BelowHorizon: Story = {
   },
 };
 
-/** Clock modal dims , 680×200, matching ClockModalSolarDayArc. */
+/** Wide-and-shallow dims , 680×200, the alternate CLOCK_DIMS preset. */
 export const ClockModalDims: Story = {
   args: {
     idPrefix: "story-clock",
