@@ -176,7 +176,7 @@ function toClimateState(climate: DeviceClimateState): ClimateState {
 }
 
 /** Seed a heat_cool band around a single setpoint, respecting the band + gap. */
-export function rangeFromTarget(target: number): { low: number; high: number } {
+function rangeFromTarget(target: number): { low: number; high: number } {
   let low = Math.max(CLIMATE_MIN, target - 3);
   let high = Math.min(CLIMATE_MAX, target + 3);
   if (high - low < CLIMATE_GAP) {
@@ -187,7 +187,7 @@ export function rangeFromTarget(target: number): { low: number; high: number } {
 }
 
 /** Collapse a heat_cool band to the single setpoint cool/heat needs. */
-export function targetFromRange(low: number, high: number): number {
+function targetFromRange(low: number, high: number): number {
   return Math.round((low + high) / 2);
 }
 

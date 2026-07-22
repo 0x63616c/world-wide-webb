@@ -283,7 +283,7 @@ export function rememberedClimateDesired(
 }
 
 /** True when a climate state carries any setpoint (single or heat_cool range). */
-export function hasClimateSetpoint(state: DeviceClimateState): boolean {
+function hasClimateSetpoint(state: DeviceClimateState): boolean {
   return state.target != null || state.targetLow != null || state.targetHigh != null;
 }
 
