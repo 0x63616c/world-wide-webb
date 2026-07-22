@@ -7,16 +7,16 @@
  * executed (UPnP writes / store writes) only on the right branches, and the
  * mutation path writes desired WITHOUT touching the speaker.
  *
- * `setSpeakerDesiredVolume` still goes through the singleton `deviceStateStore`
- * (a pg-adapter over `../db/index`, unmigrated call site per Task 5/8 scope) ,
- * that one test keeps the raw `db.insert` mock; everything else uses the
- * injectable in-memory store.
+ * `setSpeakerDesiredVolume` calls the module-level `deviceStateStore.upsertDesired`
+ * (the default pg adapter, wrapping `../db/index`) rather than taking a store
+ * param, so that one test keeps the raw `db.insert` mock the pg adapter wraps;
+ * everything else uses the injectable in-memory store.
  */
 import { createInMemoryDeviceStateStore, DeviceKind } from "@www/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// ─── mock DB (only backs the singleton deviceStateStore used by
-// setSpeakerDesiredVolume's still-unmigrated upsertDesired call) ──────────────
+// ─── mock DB (only backs the singleton deviceStateStore's pg adapter, used by
+// setSpeakerDesiredVolume's module-level upsertDesired call) ──────────────────
 
 const { mockDbInsert } = vi.hoisted(() => ({ mockDbInsert: vi.fn() }));
 

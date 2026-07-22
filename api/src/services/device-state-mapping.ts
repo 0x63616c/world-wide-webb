@@ -1,20 +1,18 @@
 import {
   climateSetpointsObservable,
   climateStateConverged,
+  type DeviceClimateState,
   DeviceKind,
+  type DeviceLightState,
+  type DeviceSpeakerState,
+  type DeviceStateValue,
   isClimateState,
   isLightState,
+  type LightColor,
   mergeDeviceState,
   sanitizeClimateDesired,
 } from "@www/core";
 import { findLight } from "../config/lights";
-import type {
-  DeviceClimateState,
-  DeviceLightState,
-  DeviceSpeakerState,
-  DeviceStateValue,
-  LightColor,
-} from "../db/schema";
 import type { HaEntity } from "../integrations/homeassistant/types";
 
 export { DeviceKind } from "@www/core";

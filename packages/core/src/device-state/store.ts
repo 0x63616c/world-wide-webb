@@ -62,8 +62,12 @@ export interface ListFilter {
 
 /**
  * The device-state store: the ONLY code that touches the device_state table.
- * Failure policy is THROW everywhere — a desired write is the mutation's only
- * effect; a swallowed error is fabricated success (carried from desired-state-store).
+ * DB failures always throw — a desired write is the mutation's only effect; a
+ * swallowed error is fabricated success (carried from desired-state-store).
+ * A missing row is NOT a DB failure: updateDesired, clearDesired and
+ * writeReported key on an existing row and are silent no-ops when it isn't
+ * there (mirrors the pg adapter's UPDATE affecting 0 rows). See each method's
+ * doc for its exact semantics.
  */
 export interface DeviceStateStore {
   read(id: string): Promise<DeviceStateRow | null>;
@@ -74,9 +78,11 @@ export interface DeviceStateStore {
   readEffective(id: string): Promise<MergedDeviceState | null>;
   seed(input: SeedDevice): Promise<void>;
   upsertDesired(input: UpsertDesired): Promise<void>;
+  /** In-place update of an existing row's desired, keyed on id. Missing row = silent no-op. */
   updateDesired(input: UpdateDesired): Promise<void>;
-  /** Null the desired triple (state/at/until), keyed on id. Missing row = no-op. */
+  /** Null the desired triple (state/at/until), keyed on id. Missing row = silent no-op. */
   clearDesired(id: string): Promise<void>;
+  /** Persist one reconcile-cycle's observed state, keyed on id. Missing row = silent no-op. */
   writeReported(input: WriteReported): Promise<void>;
 }
 
