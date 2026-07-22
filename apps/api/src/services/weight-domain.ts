@@ -37,16 +37,26 @@ export function dailyMedians(rows: DayKeyedRow[]): { day: string; kg: number }[]
     .sort((a, b) => a.day.localeCompare(b.day));
 }
 
+/**
+ * Window statistics. The two input sets are deliberate, not an oversight:
+ *
+ * - low/high come from RAW readings, because they are read as "the lightest
+ *   and heaviest I have been", and a median can never be either.
+ * - average/change come from DAILY MEDIANS, so a day weighed four times does
+ *   not outvote a day weighed once, and change stays a day-over-day trend
+ *   rather than the gap between two arbitrary weigh-ins.
+ */
 export function summarize(
   daily: { day: string; kg: number }[],
+  rawKg: number[],
 ): { low: number; high: number; average: number; change: number } | null {
   const kgs = daily.map((d) => d.kg);
   const first = kgs[0];
   const last = kgs[kgs.length - 1];
-  if (first === undefined || last === undefined) return null;
+  if (first === undefined || last === undefined || rawKg.length === 0) return null;
   return {
-    low: Math.min(...kgs),
-    high: Math.max(...kgs),
+    low: Math.min(...rawKg),
+    high: Math.max(...rawKg),
     average: kgs.reduce((a, b) => a + b, 0) / kgs.length,
     change: last - first,
   };

@@ -50,15 +50,28 @@ describe("dailyMedians", () => {
 });
 
 describe("summarize", () => {
-  it("low/high/average/change over the window", () => {
-    const s = summarize([
-      { day: "2026-07-15", kg: 82.0 },
-      { day: "2026-07-16", kg: 81.0 },
-      { day: "2026-07-17", kg: 81.5 },
-    ]);
-    expect(s).toEqual({ low: 81.0, high: 82.0, average: 81.5, change: -0.5 });
+  it("low/high come from raw readings, average/change from daily medians", () => {
+    const s = summarize(
+      [
+        { day: "2026-07-15", kg: 82.0 },
+        { day: "2026-07-16", kg: 81.0 },
+        { day: "2026-07-17", kg: 81.5 },
+      ],
+      [82.4, 81.6, 80.6, 81.4, 81.6],
+    );
+    expect(s).toEqual({ low: 80.6, high: 82.4, average: 81.5, change: -0.5 });
   });
+
+  it("a single day still reports a real spread — the shipped bug", () => {
+    // Four readings, one day. low/high/average used to collapse to the median.
+    const s = summarize([{ day: "2026-07-22", kg: 72.85 }], [72.65, 72.75, 72.95, 73.0]);
+    expect(s?.low).toBe(72.65);
+    expect(s?.high).toBe(73.0);
+    expect(s?.average).toBe(72.85);
+    expect(s?.change).toBe(0);
+  });
+
   it("null on empty", () => {
-    expect(summarize([])).toBeNull();
+    expect(summarize([], [])).toBeNull();
   });
 });
