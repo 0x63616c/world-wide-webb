@@ -140,6 +140,17 @@ export const LIGHTS: readonly LightEntry[] = [
     control: "enforce",
   },
   {
+    id: "mirror",
+    entityId: "light.mirror",
+    domain: "light",
+    label: "Mirror",
+    room: "Bedroom",
+    kind: "lamp",
+    capabilities: HUE_CAPABILITIES,
+    // Hue: we win on drift so scenes/party persist (www-7d5b.2.1).
+    control: "enforce",
+  },
+  {
     id: "overhead",
     entityId: "switch.overhead_lights",
     domain: "switch",

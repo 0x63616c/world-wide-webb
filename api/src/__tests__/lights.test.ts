@@ -30,9 +30,9 @@ describe("per-device control policy (www-7d5b.2.1)", () => {
     expect(LightControl.Enforce).toBe("enforce");
   });
 
-  it("marks all 7 Hue lamps as enforce", () => {
+  it("marks all 8 Hue lamps as enforce", () => {
     const lamps = LIGHTS.filter((l) => l.kind === LightKind.Lamp);
-    expect(lamps).toHaveLength(7);
+    expect(lamps).toHaveLength(8);
     for (const lamp of lamps) {
       expect(lightControl(lamp)).toBe(LightControl.Enforce);
     }
