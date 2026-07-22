@@ -8,7 +8,7 @@
  * lb only). Day grouping and all statistics happen server-side.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { WeightRange } from "@/components/tiles/WeightPageView";
 import { WeightPageView } from "@/components/tiles/WeightPageView";
 import type { WeightReadingDay } from "@/components/tiles/WeightReadingsView";
@@ -37,11 +37,11 @@ function windowLabelOf(daily: { day: string }[], now: Date): string | null {
 }
 
 function toViewDays(pages: RouterOutputs["weight"]["days"][], now: Date): WeightReadingDay[] {
-  return pages.flatMap((page) =>
+  const all = pages.flatMap((page) =>
     page.days.map((d) => ({
       key: d.day,
       label: formatRecency(`${d.day}T00:00:00`, now),
-      medianLb: d.medianKg * LB_PER_KG,
+      medianLb: d.medianKg == null ? null : d.medianKg * LB_PER_KG,
       dayDeltaLb: d.dayDeltaKg == null ? null : d.dayDeltaKg * LB_PER_KG,
       readings: d.readings.map((r) => ({
         id: r.id,
@@ -56,6 +56,17 @@ function toViewDays(pages: RouterOutputs["weight"]["days"][], now: Date): Weight
       })),
     })),
   );
+  // A weigh-in landing on a new day shifts every page's cursor by one day, so
+  // a day can appear at the tail of one page AND the head of the next once a
+  // stale page refetches with its original (now-shifted) params. Keep the
+  // first occurrence — pages are ordered newest-first, so that's the copy
+  // with the most complete reading list.
+  const seen = new Set<string>();
+  return all.filter((d) => {
+    if (seen.has(d.key)) return false;
+    seen.add(d.key);
+    return true;
+  });
 }
 
 function useWeightVariants(): { variants: DetailVariant[]; loading: boolean } {
@@ -71,7 +82,11 @@ function useWeightVariants(): { variants: DetailVariant[]; loading: boolean } {
     { tz: TZ },
     {
       getNextPageParam: (last) => last.nextCursor ?? undefined,
-      refetchInterval: POLL.weight,
+      // No polling: pages are keyed by absolute day-string cursors, frozen at
+      // first fetch. A poll refetches every page with those stale params,
+      // which silently drops or duplicates a day whenever a weigh-in shifts
+      // which day falls on a page boundary. The mutations below already
+      // invalidate on their own, which is the only time this list can change.
     },
   );
   const invalidate = () => {
@@ -84,11 +99,21 @@ function useWeightVariants(): { variants: DetailVariant[]; loading: boolean } {
   const summary = summaryQuery.data;
   const pages = daysQuery.data?.pages;
 
-  // Stable identity: the view observes this in an effect, so a new function
-  // every render would re-create the IntersectionObserver on every frame.
+  // Stable identity: the view observes this in an effect, so a function whose
+  // identity changed every time isFetchingNextPage flipped (the old
+  // dependency array) tore down and recreated the IntersectionObserver on
+  // every fetch — and a fresh observer re-fires immediately for a sentinel
+  // that's still on screen, chain-fetching every page back to back. Read the
+  // latest query state from refs instead of closing over it.
+  const hasNextPageRef = useRef(daysQuery.hasNextPage);
+  hasNextPageRef.current = daysQuery.hasNextPage;
+  const isFetchingNextPageRef = useRef(daysQuery.isFetchingNextPage);
+  isFetchingNextPageRef.current = daysQuery.isFetchingNextPage;
+  const fetchNextPageRef = useRef(daysQuery.fetchNextPage);
+  fetchNextPageRef.current = daysQuery.fetchNextPage;
   const loadMore = useCallback(() => {
-    if (daysQuery.hasNextPage && !daysQuery.isFetchingNextPage) void daysQuery.fetchNextPage();
-  }, [daysQuery.hasNextPage, daysQuery.isFetchingNextPage, daysQuery.fetchNextPage]);
+    if (hasNextPageRef.current && !isFetchingNextPageRef.current) void fetchNextPageRef.current();
+  }, []);
 
   const variants: DetailVariant[] = [
     {

@@ -37,8 +37,9 @@ export interface WeightReadingDay {
   key: string;
   /** "Today", "Yesterday", or "Mon Jul 20". */
   label: string;
-  /** Median of the day's included readings — the value the trend line plots. */
-  medianLb: number;
+  /** Median of the day's included readings — the value the trend line plots.
+   *  Null when every reading that day was excluded (nothing left to count). */
+  medianLb: number | null;
   /** vs the previous day's median; null when no earlier day is in range. */
   dayDeltaLb: number | null;
   /** Newest first. */
@@ -96,14 +97,16 @@ function deltaColor(n: number): string {
 }
 
 /** A weight and its unit, centred as one block so it lines up with plain text
- *  in neighbouring columns rather than sitting low on its own baseline. */
+ *  in neighbouring columns rather than sitting low on its own baseline. Null
+ *  renders as an em dash — a day with no counted reading has no weight to
+ *  show, and 0.0 would misreport it as an actual measurement. */
 function Weight({
   lb,
   size,
   struck,
   width,
 }: {
-  lb: number;
+  lb: number | null;
   size: number;
   struck?: boolean;
   width: number;
@@ -119,10 +122,13 @@ function Weight({
         fontSize: size,
         fontWeight: 700,
         textDecoration: struck ? "line-through" : "none",
+        color: lb == null ? "var(--ink-3)" : undefined,
       }}
     >
-      {lb.toFixed(1)}
-      <span style={{ fontSize: 11, fontWeight: 400, color: "var(--ink-2)" }}>lb</span>
+      {lb == null ? "—" : lb.toFixed(1)}
+      {lb != null && (
+        <span style={{ fontSize: 11, fontWeight: 400, color: "var(--ink-2)" }}>lb</span>
+      )}
     </span>
   );
 }
@@ -285,13 +291,21 @@ export function WeightReadingsView({
 }: WeightReadingsViewProps) {
   const [pendingDelete, setPendingDelete] = useState<WeightReadingRow | null>(null);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const node = sentinelRef.current;
     if (!node || !onLoadMore) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) onLoadMore();
-    });
+    // root: the scrolling container itself, not the viewport — the panel is
+    // a fixed 1366x1024 surface and this view can sit inside a shorter
+    // wrapper, where a null root (viewport) would call the sentinel visible
+    // even while its actual scroll ancestor has it scrolled out of view.
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) onLoadMore();
+      },
+      { root: scrollRef.current, rootMargin: "48px" },
+    );
     observer.observe(node);
     return () => observer.disconnect();
   }, [onLoadMore]);
@@ -317,7 +331,7 @@ export function WeightReadingsView({
 
   return (
     // The page shell owns the scroll: fill the height, never grow past it.
-    <div style={{ height: "100%", overflowY: "auto" }}>
+    <div ref={scrollRef} style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ maxWidth: MAX_W, margin: "0 auto" }}>
         {days.map((day) => (
           <DayGroup

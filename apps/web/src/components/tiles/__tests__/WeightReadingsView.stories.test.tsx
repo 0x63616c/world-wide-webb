@@ -9,8 +9,16 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as stories from "../WeightReadingsView.stories";
 
-const { Populated, DayExpanded, AutoFlagged, SingleDay, LoadingMore, Loading, Empty } =
-  composeStories(stories);
+const {
+  Populated,
+  DayExpanded,
+  AutoFlagged,
+  SingleDay,
+  NoCountedReading,
+  LoadingMore,
+  Loading,
+  Empty,
+} = composeStories(stories);
 
 // jsdom has no IntersectionObserver; the real one fires only in a real
 // viewport, so this stub reports the sentinel as intersecting immediately,
@@ -53,6 +61,11 @@ describe("WeightReadingsView stories", () => {
   it("SingleDay: no earlier day, so no day-over-day figure", async () => {
     const { container } = render(<SingleDay />);
     if (SingleDay.play) await SingleDay.play({ canvasElement: container });
+  });
+
+  it("NoCountedReading: an all-excluded day renders an em dash, never 0.0", async () => {
+    const { container } = render(<NoCountedReading />);
+    if (NoCountedReading.play) await NoCountedReading.play({ canvasElement: container });
   });
 
   it("LoadingMore: the sentinel triggers onLoadMore", async () => {

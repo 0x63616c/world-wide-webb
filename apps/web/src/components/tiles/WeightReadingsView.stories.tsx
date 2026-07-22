@@ -175,6 +175,39 @@ export const SingleDay: Story = {
   },
 };
 
+/** A guest weigh-in that got auto-flagged, with nothing else recorded that
+ *  day: no reading counts, so the day has no median to show. */
+export const NoCountedReading: Story = {
+  args: {
+    status: "populated",
+    days: [
+      {
+        key: "2026-07-22",
+        label: "Today",
+        medianLb: null,
+        dayDeltaLb: null,
+        readings: [
+          {
+            id: "wm_guest",
+            timeLabel: "8:15 AM",
+            lb: 184.2,
+            deltaLb: null,
+            excluded: true,
+            auto: true,
+          },
+        ],
+      },
+      ...HISTORY,
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // The day still renders — with an em dash, never "0.0".
+    expect(canvas.getByText("—")).toBeInTheDocument();
+    expect(canvas.queryByText("0.0")).not.toBeInTheDocument();
+  },
+};
+
 /** onLoadMore fires once the sentinel at the end of the list scrolls into
  *  view; omitting it entirely (as every other story here does) renders no
  *  sentinel at all. */
