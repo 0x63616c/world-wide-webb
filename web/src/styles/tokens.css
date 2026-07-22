@@ -77,6 +77,10 @@
      hardcoded #e5484d as a var(--red, …) fallback; the token now resolves). */
   --red: #e5484d;
   --red-rgb: 229 72 77;
+  /* Positive/"good" green. Same story as --red above: NotificationBanner and
+     others carried #7ac48f as a var(--green, …) fallback against a token that
+     was never declared; the token now resolves. */
+  --green: #7ac48f;
   --r: 20px;
   --ui: "Space Grotesk Variable", "Space Grotesk", "SF Pro Display", system-ui, sans-serif;
   --mono: "Space Mono", ui-monospace, monospace;

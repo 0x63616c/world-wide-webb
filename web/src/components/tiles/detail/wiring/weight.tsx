@@ -12,7 +12,7 @@
 import { useState } from "react";
 import type { WeightRange } from "@/components/tiles/WeightPageView";
 import { WeightPageView } from "@/components/tiles/WeightPageView";
-import type { WeightReadingRow } from "@/components/tiles/WeightReadingsView";
+import type { WeightReadingDay, WeightReadingRow } from "@/components/tiles/WeightReadingsView";
 import { WeightReadingsView } from "@/components/tiles/WeightReadingsView";
 import { LB_PER_KG } from "@/components/tiles/WeightTile";
 import { formatRecency } from "@/components/tiles/WeightTileView";
@@ -35,27 +35,67 @@ function windowLabelOf(daily: { day: string }[], now: Date): string | null {
   return `${fmt(first.day)} – ${end}`;
 }
 
-/** Newest-first raw rows → view rows: lb, day-grouped labels, delta vs included. */
-function toReadingRows(
+function medianOf(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  const upper = s[mid] ?? Number.NaN;
+  const lower = s[mid - 1];
+  return s.length % 2 || lower === undefined ? upper : (lower + upper) / 2;
+}
+
+/**
+ * Newest-first raw rows → day groups: each day carries the median of its
+ * included readings and the change against the previous day's median.
+ *
+ * PROTOTYPE: this grouping belongs on the server, where the tRPC input carries
+ * the panel's IANA timezone; grouping here uses the browser's own zone.
+ */
+function toReadingDays(
   readings: RouterOutputs["weight"]["readings"],
   now: Date,
-): WeightReadingRow[] {
-  let prevDay: string | null = null;
-  return readings.map((r) => {
+): WeightReadingDay[] {
+  const byDay = new Map<
+    string,
+    { label: string; rows: WeightReadingRow[]; includedLb: number[] }
+  >();
+
+  for (const r of readings) {
     const at = new Date(r.measuredAt);
-    const day = at.toDateString();
-    const showDate = day !== prevDay;
-    prevDay = day;
-    const time = at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    return {
+    // Local calendar day as YYYY-MM-DD, in the browser's zone.
+    const key = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(
+      at.getDate(),
+    ).padStart(2, "0")}`;
+    let group = byDay.get(key);
+    if (!group) {
+      group = { label: formatRecency(r.measuredAt, now), rows: [], includedLb: [] };
+      byDay.set(key, group);
+    }
+    const lb = r.weightKg * LB_PER_KG;
+    const excluded = r.excludedReason != null;
+    if (!excluded) group.includedLb.push(lb);
+    group.rows.push({
       id: r.id,
-      whenLabel: showDate ? `${formatRecency(r.measuredAt, now)} · ${time}` : time,
-      showDate,
-      lb: r.weightKg * LB_PER_KG,
+      timeLabel: at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+      lb,
       deltaLb: r.deltaKg == null ? null : r.deltaKg * LB_PER_KG,
-      excluded: r.excludedReason != null,
+      excluded,
       auto: r.excludedReason === "sanity_band",
-    };
+    });
+  }
+
+  // readings arrive newest-first, so the map is already newest-day-first.
+  const days = [...byDay.entries()].map(([key, g]) => ({
+    key,
+    label: g.label,
+    medianLb: medianOf(g.includedLb),
+    dayDeltaLb: null as number | null,
+    readings: g.rows,
+  }));
+  // Each day compares against the next entry, which is the older day.
+  return days.map((d, i) => {
+    const older = days[i + 1];
+    const comparable = older && Number.isFinite(d.medianLb) && Number.isFinite(older.medianLb);
+    return { ...d, dayDeltaLb: comparable ? d.medianLb - older.medianLb : null };
   });
 }
 
@@ -110,8 +150,10 @@ function useWeightVariants(): { variants: DetailVariant[]; loading: boolean } {
       render: () => (
         <WeightReadingsView
           status={readings ? TileStatus.Populated : TileStatus.Loading}
-          readings={readings ? toReadingRows(readings, now) : undefined}
+          days={readings ? toReadingDays(readings, now) : undefined}
           onToggle={(id, excluded) => setExcludedMutation.mutate({ id, excluded })}
+          // onDelete is deliberately absent until the tombstone column exists:
+          // ingest re-inserts any hard-deleted row on its next poll.
         />
       ),
     },
