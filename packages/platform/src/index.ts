@@ -2,8 +2,6 @@ export const productSlugs = ["control-center", "captive-portal"] as const;
 
 export type ProductSlug = (typeof productSlugs)[number];
 
-export type DnsCode = "cc" | "cp";
-
 export type ProductLabels = Readonly<{
   "app.kubernetes.io/component": string;
   "app.kubernetes.io/name": ProductSlug;
@@ -15,7 +13,6 @@ export type ProductIdentity = Readonly<{
   slug: ProductSlug;
   folder: `products/${ProductSlug}`;
   namespace: ProductSlug;
-  dnsCode: DnsCode;
   imageNamespace: ProductSlug;
   labels: (component: string) => ProductLabels;
   pulumiName: (component: string) => string;
@@ -26,11 +23,6 @@ export type ProductIdentity = Readonly<{
     component: string,
   ) => readonly ["backups", "world-wide-webb", ProductSlug, string];
 }>;
-
-const dnsCodes = {
-  "control-center": "cc",
-  "captive-portal": "cp",
-} as const satisfies Record<ProductSlug, DnsCode>;
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled platform variant: ${String(value)}`);
@@ -43,7 +35,6 @@ export function defineProduct(slug: ProductSlug): ProductIdentity {
     slug,
     folder: `products/${slug}`,
     namespace: slug,
-    dnsCode: dnsCodes[slug],
     imageNamespace: slug,
     labels: (component) => ({
       "app.kubernetes.io/component": component,
@@ -112,13 +103,13 @@ export function defineTarget(name: ImplementedTargetName): HomelabTarget {
   return assertNever(name);
 }
 
-// Hosts are flattened to a single label (`app--cc`), so the free root wildcard
-// `*.worldwidewebb.co` always covers them. There is exactly one coverage model:
-// the exact single host. (The old `product-wildcard` mode built a 2-label
-// `*.cc.worldwidewebb.co` wildcard that only paid ACM could issue; it was removed
-// with ACM, www-kbiy.) Inlined below (was the separately-exported
-// TlsCoverage/ExactHostTlsCoverage types, ADR-0006): a plurality type with
-// exactly one member and 0 external consumers.
+// Web hosts are a single label under the zone (`app.worldwidewebb.co`), so the
+// free root wildcard `*.worldwidewebb.co` always covers them. There is exactly
+// one coverage model: the exact single host. (The old `product-wildcard` mode
+// built a 2-label `*.cc.worldwidewebb.co` wildcard that only paid ACM could
+// issue; it was removed with ACM, www-kbiy.) Inlined below (was the
+// separately-exported TlsCoverage/ExactHostTlsCoverage types, ADR-0006): a
+// plurality type with exactly one member and 0 external consumers.
 export type WebTlsRequirement = Readonly<{
   required: true;
   coverage: Readonly<{
@@ -155,11 +146,11 @@ export type InternalServiceExposure = Readonly<{
   port: number;
 }>;
 
-function webHostname(product: ProductIdentity, target: HomelabTarget, host: string): string {
-  // Flattened to a SINGLE label `<host>--<dnsCode>` (e.g. `app--cc`) so the free
+function webHostname(target: HomelabTarget, host: string): string {
+  // A SINGLE label under the zone (e.g. `app.worldwidewebb.co`) so the free
   // Cloudflare Universal SSL `*.worldwidewebb.co` (one-label wildcard) covers it.
   // A dotted "app dot cc" host would be two labels deep and would need paid ACM.
-  return `${host}--${product.dnsCode}.${target.domain}`;
+  return `${host}.${target.domain}`;
 }
 
 function webTlsRequirement(hostname: string): WebTlsRequirement {
@@ -173,12 +164,8 @@ function webTlsRequirement(hostname: string): WebTlsRequirement {
   };
 }
 
-export function privateWeb(
-  product: ProductIdentity,
-  target: HomelabTarget,
-  options: WebHostOptions,
-): WebExposure {
-  const hostname = webHostname(product, target, options.host);
+export function privateWeb(target: HomelabTarget, options: WebHostOptions): WebExposure {
+  const hostname = webHostname(target, options.host);
 
   return {
     kind: "private-web",
@@ -191,12 +178,8 @@ export function privateWeb(
   };
 }
 
-export function captivePortalWeb(
-  product: ProductIdentity,
-  target: HomelabTarget,
-  options: WebHostOptions,
-): WebExposure {
-  const hostname = webHostname(product, target, options.host);
+export function captivePortalWeb(target: HomelabTarget, options: WebHostOptions): WebExposure {
+  const hostname = webHostname(target, options.host);
 
   return {
     kind: "captive-portal-web",
@@ -586,7 +569,6 @@ export type ControlCenterProductManifest = Readonly<{
   target: HomelabTarget;
   app: Readonly<{
     exposure: WebExposure;
-    legacyHostname: "dashboard.worldwidewebb.co";
   }>;
   services: Readonly<Record<ControlCenterServiceName, ProductServiceDeclaration>>;
   secretUsages: Readonly<Record<ControlCenterSecretUsageName, ServiceSecretUsage>>;
@@ -612,14 +594,12 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
     nasSubPathParts: ["backups", "postgres"],
     schedule: "0 1 * * *",
   });
-  const captivePortalProduct = defineProduct("captive-portal");
 
   return {
     product,
     target,
     app: {
-      exposure: privateWeb(product, target, { host: "app" }),
-      legacyHostname: "dashboard.worldwidewebb.co",
+      exposure: privateWeb(target, { host: "app" }),
     },
     services: {
       api: {
@@ -634,19 +614,19 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
       },
       web: {
         service: "web",
-        exposure: privateWeb(product, target, { host: "app" }),
+        exposure: privateWeb(target, { host: "app" }),
       },
       storybook: {
         service: "storybook",
-        exposure: privateWeb(product, target, { host: "storybook" }),
+        exposure: privateWeb(target, { host: "storybook" }),
       },
       "captive-portal": {
         service: "captive-portal",
-        exposure: captivePortalWeb(captivePortalProduct, target, { host: "app" }),
+        exposure: captivePortalWeb(target, { host: "app" }),
       },
       drizzle: {
         service: "drizzle",
-        exposure: privateWeb(product, target, { host: "drizzle" }),
+        exposure: privateWeb(target, { host: "drizzle" }),
         secretUsage: secretUsages.drizzle,
       },
       cloudflared: {

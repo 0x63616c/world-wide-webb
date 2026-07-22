@@ -128,9 +128,8 @@ export function accessAppsForPrivateWeb(
  * `includeGate` (default false) toggles ONLY the NOT-YET-LIVE additions of the
  * zone-wide access gate (www-cuuw): the `*.<zone>` default-DENY floor and the
  * `hooks` CI lock. It is OFF by default because the floor's wildcard also catches
- * any currently PUBLIC host that lacks an explicit allow above it, e.g. the live
- * `dashboard` wall panel (until it cuts over to `app--cc`).
- * Enabling it before that has an explicit bypass would lock it out (www-b6ad).
+ * any currently PUBLIC host that lacks an explicit allow above it. Enabling it
+ * before each such host has an explicit bypass would lock it out (www-b6ad).
  *
  * Always returned (safe to apply independent of the floor): the per-product
  * control-center private-route app (it gates the product host itself), and the
@@ -141,18 +140,11 @@ export function desiredAccessApps(zone: string, includeGate = false): DesiredAcc
   const ccManifest = controlCenterProductManifest();
 
   const baseApps: DesiredAccessApp[] = [
-    // Private-web products: the CC dashboard uses a kiosk service-token
-    // (iPad wall panel, not human login).
+    // Private-web products: the CC app (app.worldwidewebb.co, product-derived from
+    // the platform manifest) uses a kiosk service-token (iPad wall panel, not
+    // human login) plus an email-OTP fallback for browser access (CC-d15).
     ...accessAppsForPrivateWeb([
       { exposure: ccManifest.app.exposure, policies: ["kiosk-service-token", "email-otp"] },
-    ]),
-    // Task 7 hostname cutover: `app.worldwidewebb.co` gated identically to the
-    // flattened `app--cc.worldwidewebb.co` product route above (same kiosk
-    // service-token + email-OTP policies), added ALONGSIDE it while the panel +
-    // iOS shell are repointed. Retired once app--cc is retired.
-    accessApp(`app.${zone}`, [
-      { ...serviceTokenPolicy("kiosk-service-token", "kioskTokenId"), precedence: 1 },
-      { ...emailOtpPolicy(), precedence: 2 },
     ]),
     // Already-live tooling protections (kept regardless of the gate flag).
     accessApp(`storybook.${zone}`, [emailOtpPolicy()]),

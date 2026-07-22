@@ -12,7 +12,6 @@ describe("product identity", () => {
     expect(app.slug).toBe("control-center");
     expect(app.folder).toBe("products/control-center");
     expect(app.namespace).toBe("control-center");
-    expect(app.dnsCode).toBe("cc");
     expect(app.imageNamespace).toBe("control-center");
     expect(app.pulumiName("api")).toBe("control-center-api");
     expect(app.serviceName("api")).toBe("control-center-api");
@@ -33,11 +32,10 @@ describe("product identity", () => {
   });
 
   test.each([
-    ["captive-portal", "cp", "ghcr.io/0x63616c/www-captive-portal-api", "captive-portal-api"],
-  ] as const)("derives full-slug global naming and networking-only DNS code for %s", (slug, dnsCode, imageRepository, imageDigestKey) => {
+    ["captive-portal", "ghcr.io/0x63616c/www-captive-portal-api", "captive-portal-api"],
+  ] as const)("derives full-slug global naming for %s", (slug, imageRepository, imageDigestKey) => {
     const app = defineProduct(slug);
 
-    expect(app.dnsCode).toBe(dnsCode);
     expect(app.namespace).toBe(slug);
     expect(app.folder).toBe(`products/${slug}`);
     expect(app.imageRepository("api")).toBe(imageRepository);

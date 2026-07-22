@@ -1,4 +1,4 @@
-import { captivePortalWeb, defineProduct, homelabTarget, privateWeb } from "@www/platform";
+import { captivePortalWeb, homelabTarget, privateWeb } from "@www/platform";
 import { describe, expect, test } from "vitest";
 import { accessAppsForPrivateWeb, desiredAccessApps } from "../src/access.ts";
 
@@ -18,36 +18,39 @@ describe("desiredAccessApps", () => {
       .map((a) => a.domain)
       .sort();
     expect(domains).toEqual([
-      "app--cc.worldwidewebb.co",
       "app.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "storybook.worldwidewebb.co",
     ]);
     expect(domains).not.toContain("*.worldwidewebb.co");
     expect(domains).not.toContain("hooks.worldwidewebb.co");
+    // Task 7 Step C: the flattened app--cc cutover app is retired.
+    expect(domains).not.toContain("app--cc.worldwidewebb.co");
   });
 
-  test("declares the wildcard block floor, app.cc kiosk, hooks CI, and legacy tooling apps", () => {
+  test("declares the wildcard block floor, app kiosk, hooks CI, and legacy tooling apps", () => {
     const domains = desiredAccessApps(ZONE, true)
       .map((a) => a.domain)
       .sort();
     expect(domains).toEqual([
       "*.worldwidewebb.co",
-      "app--cc.worldwidewebb.co",
       "app.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "hooks.worldwidewebb.co",
       "storybook.worldwidewebb.co",
     ]);
+    expect(domains).not.toContain("app--cc.worldwidewebb.co");
   });
 
-  test("supports kiosk service-token access for app.worldwidewebb.co (Task 7 cutover, mirrors app--cc)", () => {
+  test("supports kiosk service-token access for app (+ email-OTP fallback for browser, CC-d15)", () => {
     const app = desiredAccessApps(ZONE, true).find(
       (entry) => entry.domain === "app.worldwidewebb.co",
     );
 
     expect(app?.policies).toEqual([
       {
+        // Service Auth: an "allow" policy is identity-based and redirects a
+        // valid service token to login (auth_status:NONE); non_identity grants it.
         decision: "non_identity",
         include: { configKey: "kioskTokenId", kind: "service-token-config" },
         name: "kiosk-service-token",
@@ -71,29 +74,6 @@ describe("desiredAccessApps", () => {
         include: { kind: "everyone" },
         name: "default-deny",
         precedence: 99,
-      },
-    ]);
-  });
-
-  test("supports kiosk service-token access for app.cc (+ email-OTP fallback for browser, CC-d15)", () => {
-    const dashboard = desiredAccessApps(ZONE, true).find(
-      (app) => app.domain === "app--cc.worldwidewebb.co",
-    );
-
-    expect(dashboard?.policies).toEqual([
-      {
-        // Service Auth: an "allow" policy is identity-based and redirects a
-        // valid service token to login (auth_status:NONE); non_identity grants it.
-        decision: "non_identity",
-        include: { configKey: "kioskTokenId", kind: "service-token-config" },
-        name: "kiosk-service-token",
-        precedence: 1,
-      },
-      {
-        decision: "allow",
-        include: { configKey: "allowedEmail", kind: "email-config" },
-        name: "email-otp",
-        precedence: 2,
       },
     ]);
   });
@@ -132,21 +112,19 @@ describe("desiredAccessApps", () => {
   });
 
   test("derives privateWeb apps without gating non-private exposures", () => {
-    const controlCenter = defineProduct("control-center");
-    const captivePortal = defineProduct("captive-portal");
-
     expect(
       accessAppsForPrivateWeb([
         {
-          exposure: privateWeb(controlCenter, homelabTarget, { host: "app" }),
+          exposure: privateWeb(homelabTarget, { host: "app" }),
           policies: ["email-otp"],
         },
         {
-          exposure: captivePortalWeb(captivePortal, homelabTarget, { host: "app" }),
+          // captive-portal-web is LAN-only, never a Cloudflare Access app.
+          exposure: captivePortalWeb(homelabTarget, { host: "app" }),
           policies: ["email-otp"],
         },
       ]).map((app) => app.domain),
-    ).toEqual(["app--cc.worldwidewebb.co"]);
+    ).toEqual(["app.worldwidewebb.co"]);
   });
 
   test("every app carries the live ownership tag so the import is zero-diff", () => {

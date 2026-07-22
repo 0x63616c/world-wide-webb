@@ -66,9 +66,9 @@ const provider = new cloudflare.Provider(
 );
 const opts: pulumi.CustomResourceOptions = { provider, protect: true };
 
-// Stable Pulumi resource name from a hostname ("app--cc.worldwidewebb.co" →
-// "app--cc"). Strips the zone suffix to a single-label record name (hosts are
-// flattened to one label, so each product route is already distinct, www-kbiy).
+// Stable Pulumi resource name from a hostname ("app.worldwidewebb.co" →
+// "app"). Strips the zone suffix to a single-label record name (each host is a
+// single label under the zone, so each route is already distinct, www-kbiy).
 const sub = (host: string) => host.replace(`.${zoneName}`, "");
 
 const accessName = (host: string) =>
@@ -183,7 +183,7 @@ for (const c of desiredCnames(zoneName)) {
   );
 }
 
-// TLS: product hosts are flattened to a single label (`app--cc.worldwidewebb.co`),
+// TLS: every host is a single label under the zone (`app.worldwidewebb.co`),
 // so Cloudflare's free Universal SSL `*.worldwidewebb.co` (one-level wildcard)
 // covers every product route automatically. No ACM / CertificatePack needed
 // (removed in www-kbiy).

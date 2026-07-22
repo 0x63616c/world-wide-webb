@@ -1,9 +1,11 @@
 // Tunnel ingress + proxied DNS for control-center, a pure Pulumi-friendly
 // declaration.
 //
-// M3 adds product-derived nested hosts while preserving the imported legacy
-// hostnames as an explicit migration matrix. Legacy removals stay reviewable
-// diffs in later cutover tickets, NOT silent drops here.
+// The control-center app route is product-derived (productRoutes(), the
+// `app.worldwidewebb.co` single-label host from the platform manifest). The
+// flattened `app--cc.worldwidewebb.co` cutover host and the `${host}--${dnsCode}`
+// scheme were retired in Task 7 Step C; the imported legacy tooling hosts below
+// (storybook/drizzle/hooks-test) stay explicit as their own removal tickets.
 //
 // Ingress and CNAMEs are SEPARATE lists because the live state isn't symmetric:
 // every ingress host has a CNAME, but `hooks-test` has a CNAME with NO ingress
@@ -69,22 +71,6 @@ const LEGACY_CNAME_COMMENTS: Record<string, string | undefined> = {
   "hooks-test": "EVEE-218 webhook test (apex naming, covered by Universal SSL)",
 };
 
-// Task 7 hostname cutover: `app.worldwidewebb.co` is a NEW single-label host
-// pointed at the same origin as the flattened `app--cc.worldwidewebb.co`
-// product route, added ALONGSIDE it (not replacing it). Once the physical
-// panel + iOS shell are repointed, a follow-up step retires app--cc + the
-// `${host}--${dnsCode}` flattening helper and this map collapses back into
-// productRoutes(). Not "legacy" (nothing live to import) — kept as its own
-// small map rather than mixed into LEGACY_INGRESS/LEGACY_CNAME_COMMENTS above,
-// which document frozen adopt-only import values.
-const NEW_HOSTNAME_INGRESS: Record<string, string> = {
-  app: "http://web.control-center.svc.cluster.local:80",
-};
-
-const NEW_HOSTNAME_CNAME_COMMENTS: Record<string, string | undefined> = {
-  app: "platform:control-center private app route (app.worldwidewebb.co cutover)",
-};
-
 export function cloudflareRoutesForExposures(
   sources: readonly CloudflareExposureSource[],
 ): CloudflareRoutes {
@@ -132,10 +118,6 @@ export function desiredIngressRules(zone: string): DesiredIngressRule[] {
       hostname: `${sub}.${zone}`,
       service,
     })),
-    ...Object.entries(NEW_HOSTNAME_INGRESS).map(([sub, service]) => ({
-      hostname: `${sub}.${zone}`,
-      service,
-    })),
   ];
 }
 
@@ -144,12 +126,6 @@ export function desiredCnames(zone: string): DesiredCname[] {
   return [
     ...productRoutes().cnames,
     ...Object.entries(LEGACY_CNAME_COMMENTS).map(([sub, comment]) => ({
-      hostname: `${sub}.${zone}`,
-      proxied: true as const,
-      target: tunnelCnameTarget,
-      comment,
-    })),
-    ...Object.entries(NEW_HOSTNAME_CNAME_COMMENTS).map(([sub, comment]) => ({
       hostname: `${sub}.${zone}`,
       proxied: true as const,
       target: tunnelCnameTarget,

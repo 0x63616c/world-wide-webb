@@ -1,4 +1,4 @@
-import { defineProduct, homelabTarget, internalService, privateWeb } from "@www/platform";
+import { homelabTarget, internalService, privateWeb } from "@www/platform";
 import { describe, expect, test } from "vitest";
 import {
   cloudflareRoutesForExposures,
@@ -8,29 +8,28 @@ import {
 } from "../src/routes.ts";
 
 // ADOPT-ONLY (www-j934.2): the ingress rules + CNAMEs must mirror the LIVE state
-// exactly. Ingress = 2 legacy hosts (storybook/drizzle) + 4 product hosts;
+// exactly. Ingress = 2 legacy hosts (storybook/drizzle) + the product app host;
 // CNAMEs = the legacy hosts PLUS the stray hooks-test leftover (asymmetric on
-// purpose). dashboard.worldwidewebb.co removed in CC-2ff. The dead portainer +
+// purpose). dashboard.worldwidewebb.co removed in CC-2ff. The flattened
+// app--cc.worldwidewebb.co cutover host was retired in Task 7 Step C (the product
+// app route is now the single-label app.worldwidewebb.co). The dead portainer +
 // hooks routes were pruned in www-oa74. captive-portal is never tunneled (LAN-only).
 
 const ZONE = "worldwidewebb.co";
 
 describe("desiredIngressRules", () => {
-  test("declares product-derived app.cc plus the legacy ingress hosts with their origins", () => {
+  test("declares the product-derived app host plus the legacy ingress hosts with their origins", () => {
     const byHost = Object.fromEntries(
       desiredIngressRules(ZONE).map((r) => [r.hostname, r.service]),
     );
     expect(Object.keys(byHost).sort()).toEqual([
-      "app--cc.worldwidewebb.co",
       "app.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "storybook.worldwidewebb.co",
     ]);
     expect(byHost["dashboard.worldwidewebb.co"]).toBeUndefined();
-    expect(byHost["app--cc.worldwidewebb.co"]).toBe(
-      "http://web.control-center.svc.cluster.local:80",
-    );
-    // Task 7 cutover: app.worldwidewebb.co added alongside app--cc, same origin.
+    // Task 7 Step C: the flattened app--cc cutover host is retired.
+    expect(byHost["app--cc.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["app.worldwidewebb.co"]).toBe("http://web.control-center.svc.cluster.local:80");
     expect(byHost["portainer.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["hooks.worldwidewebb.co"]).toBeUndefined();
@@ -40,6 +39,12 @@ describe("desiredIngressRules", () => {
     const hosts = desiredIngressRules(ZONE).map((r) => r.hostname);
     expect(hosts).not.toContain("captive-portal.worldwidewebb.co");
     expect(hosts).not.toContain("app--cp.worldwidewebb.co");
+  });
+
+  test("the retired app--cc cutover host never reappears in the ingress", () => {
+    const hosts = desiredIngressRules(ZONE).map((r) => r.hostname);
+    expect(hosts).not.toContain("app--cc.worldwidewebb.co");
+    expect(hosts.some((h) => h.includes("--"))).toBe(false);
   });
 
   // .7.4 contract: /trpc is same-origin behind app.cc, so the api service is
@@ -53,46 +58,45 @@ describe("desiredIngressRules", () => {
   });
 
   test("renders private product route shapes without undeclared APIs", () => {
-    const captivePortal = defineProduct("captive-portal");
-    const controlCenter = defineProduct("control-center");
     const routes = cloudflareRoutesForExposures([
       {
-        exposure: privateWeb(captivePortal, homelabTarget, { host: "app" }),
+        exposure: privateWeb(homelabTarget, { host: "app" }),
         origin: "http://cp-web:80",
       },
       {
-        exposure: privateWeb(controlCenter, homelabTarget, { host: "web" }),
+        exposure: privateWeb(homelabTarget, { host: "web" }),
         origin: "http://cc-web:80",
       },
       { exposure: internalService({ port: 4201 }), origin: "http://internal:4201" },
     ]);
 
     expect(routes.ingressRules.map((route) => route.hostname).sort()).toEqual([
-      "app--cp.worldwidewebb.co",
-      "web--cc.worldwidewebb.co",
+      "app.worldwidewebb.co",
+      "web.worldwidewebb.co",
     ]);
     expect(routes.cnames.map((route) => route.hostname).sort()).toEqual([
-      "app--cp.worldwidewebb.co",
-      "web--cc.worldwidewebb.co",
+      "app.worldwidewebb.co",
+      "web.worldwidewebb.co",
     ]);
     expect(routes.ingressRules.map((route) => route.hostname)).not.toContain(
-      "api--cp.worldwidewebb.co",
+      "api.worldwidewebb.co",
     );
   });
 });
 
 describe("desiredCnames", () => {
-  test("declares product-derived app.cc plus legacy proxied CNAMEs incl. stray hooks-test", () => {
+  test("declares the product-derived app CNAME plus legacy proxied CNAMEs incl. stray hooks-test", () => {
     const hosts = desiredCnames(ZONE)
       .map((c) => c.hostname)
       .sort();
     expect(hosts).toEqual([
-      "app--cc.worldwidewebb.co",
       "app.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "hooks-test.worldwidewebb.co",
       "storybook.worldwidewebb.co",
     ]);
+    // Task 7 Step C: the flattened app--cc cutover CNAME is retired.
+    expect(hosts).not.toContain("app--cc.worldwidewebb.co");
   });
 
   test("every CNAME is proxied and targets the tunnel", () => {
@@ -117,11 +121,9 @@ describe("desiredCnames", () => {
       "EVEE-218 webhook test (apex naming, covered by Universal SSL)",
     );
     // product-derived platform route comment (not a frozen legacy value)
-    expect(byHost["app--cc.worldwidewebb.co"]).toBe("platform:control-center private app route");
-    // Task 7 cutover: app.worldwidewebb.co added alongside app--cc.
-    expect(byHost["app.worldwidewebb.co"]).toBe(
-      "platform:control-center private app route (app.worldwidewebb.co cutover)",
-    );
+    expect(byHost["app.worldwidewebb.co"]).toBe("platform:control-center private app route");
+    // Task 7 Step C: the flattened app--cc cutover CNAME is retired.
+    expect(byHost).not.toHaveProperty("app--cc.worldwidewebb.co");
     // pruned dead routes are absent (www-oa74)
     expect(byHost).not.toHaveProperty("hooks.worldwidewebb.co");
     expect(byHost).not.toHaveProperty("portainer.worldwidewebb.co");
