@@ -1,4 +1,3 @@
-import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { LampMode, LampModeSpeed, LampScene } from "../../config/lamp-scenes";
@@ -74,15 +73,7 @@ export const controlsRouter = router({
     .input(z.object({}).optional())
     .output(controlsStateSchema)
     .query(async () => {
-      try {
-        return await getControlsState();
-      } catch (err) {
-        throw new TRPCError({
-          code: "SERVICE_UNAVAILABLE",
-          message: err instanceof Error ? err.message : "Controls unavailable",
-          cause: err,
-        });
-      }
+      return await getControlsState();
     }),
 
   /**
@@ -101,15 +92,7 @@ export const controlsRouter = router({
     )
     .output(controlsStateSchema)
     .mutation(async ({ input }) => {
-      try {
-        return await toggleControl(input.key, input.on);
-      } catch (err) {
-        throw new TRPCError({
-          code: "SERVICE_UNAVAILABLE",
-          message: err instanceof Error ? err.message : "Toggle failed",
-          cause: err,
-        });
-      }
+      return await toggleControl(input.key, input.on);
     }),
 
   /**
@@ -126,15 +109,7 @@ export const controlsRouter = router({
     )
     .output(controlsStateSchema)
     .mutation(async ({ input }) => {
-      try {
-        return await setLampScene(input.scene);
-      } catch (err) {
-        throw new TRPCError({
-          code: "SERVICE_UNAVAILABLE",
-          message: err instanceof Error ? err.message : "Set lamp scene failed",
-          cause: err,
-        });
-      }
+      return await setLampScene(input.scene);
     }),
 
   /**
@@ -148,15 +123,7 @@ export const controlsRouter = router({
     )
     .output(controlsStateSchema)
     .mutation(async ({ input }) => {
-      try {
-        return await setLampBrightness(input.pct);
-      } catch (err) {
-        throw new TRPCError({
-          code: "SERVICE_UNAVAILABLE",
-          message: err instanceof Error ? err.message : "Set lamp brightness failed",
-          cause: err,
-        });
-      }
+      return await setLampBrightness(input.pct);
     }),
 
   /**
@@ -179,14 +146,6 @@ export const controlsRouter = router({
     )
     .output(controlsStateSchema)
     .mutation(async ({ input }) => {
-      try {
-        return await setLampMode(input.mode, input.speed);
-      } catch (err) {
-        throw new TRPCError({
-          code: "SERVICE_UNAVAILABLE",
-          message: err instanceof Error ? err.message : "Set lamp mode failed",
-          cause: err,
-        });
-      }
+      return await setLampMode(input.mode, input.speed);
     }),
 });

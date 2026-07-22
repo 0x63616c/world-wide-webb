@@ -24,6 +24,7 @@ import { db } from "../db/index";
 import type { DeviceClimateState, DeviceLightState, LightColor } from "../db/schema";
 import { type deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
+import { HaError } from "../integrations/homeassistant/types";
 import { DeviceKind, isClimateState, mergeDeviceState } from "./device-state-mapping";
 
 // ─── types ───────────────────────────────────────────────────────────────────
@@ -217,7 +218,7 @@ export async function getControlsState(
   store: DeviceStateStore = deviceStateStore,
 ): Promise<ControlsState> {
   if (!ha.isConfigured()) {
-    throw new Error("Home Assistant is not configured");
+    throw new HaError(0, "Home Assistant is not configured");
   }
 
   // Lamp/light/fan state is all read from device_state (desired-authoritative).
@@ -435,7 +436,7 @@ export async function toggleControl(
   store: DeviceStateStore = deviceStateStore,
 ): Promise<ControlsState> {
   if (!ha.isConfigured()) {
-    throw new Error("Home Assistant is not configured");
+    throw new HaError(0, "Home Assistant is not configured");
   }
 
   switch (key) {
@@ -504,7 +505,7 @@ export async function setLampScene(
   store: DeviceStateStore = deviceStateStore,
 ): Promise<ControlsState> {
   if (!ha.isConfigured()) {
-    throw new Error("Home Assistant is not configured");
+    throw new HaError(0, "Home Assistant is not configured");
   }
 
   // A manual scene is an explicit color intent , end party so its worker stops
@@ -538,7 +539,7 @@ export async function setLampBrightness(
   store: DeviceStateStore = deviceStateStore,
 ): Promise<ControlsState> {
   if (!ha.isConfigured()) {
-    throw new Error("Home Assistant is not configured");
+    throw new HaError(0, "Home Assistant is not configured");
   }
 
   const raw = brightnessPctToRaw(pct);
@@ -571,7 +572,7 @@ export async function setLampMode(
   store: DeviceStateStore = deviceStateStore,
 ): Promise<ControlsState> {
   if (!ha.isConfigured()) {
-    throw new Error("Home Assistant is not configured");
+    throw new HaError(0, "Home Assistant is not configured");
   }
 
   // Starting party with no lamps on has nothing to animate , leave the row as-is.
