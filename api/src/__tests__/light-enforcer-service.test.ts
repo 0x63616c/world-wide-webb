@@ -6,18 +6,20 @@
  * mocking DB+HA chains. A couple of cycle-level tests then mock db+ha to prove
  * the decisions are executed (DB writes / HA calls) only on the right branches.
  */
+import { createInMemoryDeviceStateStore, DeviceKind } from "@www/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// ─── mock DB ──────────────────────────────────────────────────────────────────
+// ─── mock DB (only the tables the enforcer still touches directly: lampMode for
+// isPartyActive, integrationSyncStatus for the heartbeat , device_state now
+// goes through an in-memory DeviceStateStore, not this mock) ──────────────────
 
-const { mockDbSelect, mockDbUpdate, mockDbInsert } = vi.hoisted(() => ({
+const { mockDbSelect, mockDbInsert } = vi.hoisted(() => ({
   mockDbSelect: vi.fn(),
-  mockDbUpdate: vi.fn(),
   mockDbInsert: vi.fn(),
 }));
 
 vi.mock("../db/index", () => ({
-  db: { select: mockDbSelect, update: mockDbUpdate, insert: mockDbInsert },
+  db: { select: mockDbSelect, insert: mockDbInsert },
 }));
 
 // ─── mock HA ─────────────────────────────────────────────────────────────────
@@ -33,6 +35,7 @@ vi.mock("../integrations/homeassistant", () => ({
 
 import { LightControl } from "../config/lights";
 import type { DeviceLightState } from "../db/schema";
+import { integrationSyncStatus, lampMode } from "../db/schema";
 import {
   decideEnforcement,
   lightStateConverged,
@@ -249,38 +252,46 @@ describe("decideEnforcement command window", () => {
   });
 });
 
-// ─── cycle integration (mocked db + ha) ────────────────────────────────────────
+// ─── cycle integration (in-memory DeviceStateStore + mocked HA/lampMode/heartbeat) ──
 
-class Chain {
-  constructor(private readonly rows: unknown[]) {}
-  from() {
-    return this;
-  }
-  where() {
-    return this;
-  }
-  orderBy() {
-    return this;
-  }
-  limit(): Promise<unknown[]> {
-    return Promise.resolve(this.rows);
-  }
-  [Symbol.toStringTag] = "Chain";
-  // biome-ignore lint/suspicious/noThenProperty: intentional thenable for drizzle mock
-  then<R>(onFulfilled: (v: unknown[]) => R | PromiseLike<R>): Promise<R> {
-    return Promise.resolve(this.rows).then(onFulfilled);
-  }
-}
-
-function setBuilder() {
-  const set = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
-  mockDbUpdate.mockReturnValue({ set });
-  return set;
+// A generic thenable/query-builder stand-in for the two tables the enforcer still
+// reads straight off `db`: lampMode (isPartyActive) and integrationSyncStatus
+// (the heartbeat's failure-streak read). Resolves per-table via `resolvers`,
+// keyed by the schema object passed to `.from(...)`.
+function tableChain(resolvers: Map<unknown, unknown[]>) {
+  let table: unknown;
+  const rowsFor = () => resolvers.get(table) ?? [];
+  const chain = {
+    from(t: unknown) {
+      table = t;
+      return chain;
+    },
+    where() {
+      return chain;
+    },
+    limit(): Promise<unknown[]> {
+      return Promise.resolve(rowsFor());
+    },
+    // biome-ignore lint/suspicious/noThenProperty: intentional thenable for drizzle mock
+    then<R>(onFulfilled: (v: unknown[]) => R | PromiseLike<R>): Promise<R> {
+      return Promise.resolve(rowsFor()).then(onFulfilled);
+    },
+  };
+  return chain;
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockCallService.mockResolvedValue(undefined);
+  // lampMode -> not party; integrationSyncStatus -> no prior failure streak.
+  mockDbSelect.mockImplementation(() =>
+    tableChain(
+      new Map<unknown, unknown[]>([
+        [lampMode, []],
+        [integrationSyncStatus, []],
+      ]),
+    ),
+  );
   // markHeartbeat: insert().values().onConflictDoUpdate()
   mockDbInsert.mockReturnValue({
     values: vi.fn().mockReturnValue({ onConflictDoUpdate: vi.fn().mockResolvedValue(undefined) }),
@@ -292,29 +303,39 @@ describe("runEnforcerCycle", () => {
     return { entity_id, state, attributes };
   }
 
-  it("enforce + drift pushes to HA and writes nothing for color drift", async () => {
+  async function seededStore(row: {
+    desiredState: DeviceLightState | null;
+    reportedState: DeviceLightState | null;
+    available: boolean;
+  }) {
+    const store = createInMemoryDeviceStateStore();
+    await store.seed({
+      id: "living-globe",
+      kind: DeviceKind.Light,
+      entityId: "light.living_room_globe",
+      domain: "light",
+      label: "Globe",
+      reported: row.reportedState,
+      desired: row.desiredState,
+      available: row.available,
+    });
+    return store;
+  }
+
+  it("enforce + drift pushes to HA and refreshes reported (desired untouched)", async () => {
     // One enforce lamp whose reported rgb diverges from desired rgb.
-    const managed = [
-      {
-        id: "living-globe",
-        kind: "light",
-        entityId: "light.living_room_globe",
-        domain: "light",
-        desiredState: { on: true, color: { rgb: [255, 0, 0] } },
-        reportedState: { on: true, color: { rgb: [255, 0, 0] } },
-        available: true,
-      },
-    ];
-    // First select = managed devices; subsequent selects (in-flight check) = none.
-    mockDbSelect.mockImplementation(() => new Chain(managed));
-    setBuilder();
+    const store = await seededStore({
+      desiredState: { on: true, color: { rgb: [255, 0, 0] } },
+      reportedState: { on: true, color: { rgb: [255, 0, 0] } },
+      available: true,
+    });
     mockGetEntities.mockImplementation((domain: string) =>
       domain === "light"
         ? Promise.resolve([haEntity("light.living_room_globe", "on", { rgb_color: [0, 0, 255] })])
         : Promise.resolve([]),
     );
 
-    await runEnforcerCycle();
+    await runEnforcerCycle(store);
 
     // enforce -> light.turn_on with the desired rgb pushed.
     const pushed = mockCallService.mock.calls.find((c) => c[0] === "light" && c[1] === "turn_on");
@@ -323,53 +344,47 @@ describe("runEnforcerCycle", () => {
       entity_id: "light.living_room_globe",
       rgb_color: [255, 0, 0],
     });
+
+    const row = await store.read("living-globe");
+    // push never writes desiredState , the enforcer's own push isn't an adopt.
+    expect(row?.desiredState).toEqual({ on: true, color: { rgb: [255, 0, 0] } });
+    expect(row?.reportedState).toEqual({ on: true, color: { rgb: [0, 0, 255] } });
+    expect(row?.available).toBe(true);
   });
 
   it("converged device makes no HA call", async () => {
-    const managed = [
-      {
-        id: "living-globe",
-        kind: "light",
-        entityId: "light.living_room_globe",
-        domain: "light",
-        desiredState: { on: true, color: { rgb: [0, 0, 255] } },
-        reportedState: { on: true, color: { rgb: [0, 0, 255] } },
-        available: true,
-      },
-    ];
-    mockDbSelect.mockImplementation(() => new Chain(managed));
-    setBuilder();
+    const store = await seededStore({
+      desiredState: { on: true, color: { rgb: [0, 0, 255] } },
+      reportedState: { on: true, color: { rgb: [0, 0, 255] } },
+      available: true,
+    });
     mockGetEntities.mockImplementation((domain: string) =>
       domain === "light"
         ? Promise.resolve([haEntity("light.living_room_globe", "on", { rgb_color: [0, 1, 254] })])
         : Promise.resolve([]),
     );
 
-    await runEnforcerCycle();
+    await runEnforcerCycle(store);
 
     const pushed = mockCallService.mock.calls.find(
       (c) => c[1] === "turn_on" || c[1] === "turn_off",
     );
     expect(pushed).toBeUndefined();
+
+    const row = await store.read("living-globe");
+    expect(row?.reportedState).toEqual({ on: true, color: { rgb: [0, 1, 254] } });
+    expect(row?.available).toBe(true);
   });
 
   it("persists FRESH reportedState from HA every cycle (panel never reads stale/zero)", async () => {
     // device-sync is fan-only now, so the enforcer is the sole writer of lamp
     // reportedState. If it doesn't persist it, getControlsState's overlay has no
     // fresh reported to fall back to → brightness 0 / no scene / stuck pending.
-    const managed = [
-      {
-        id: "living-globe",
-        kind: "light",
-        entityId: "light.living_room_globe",
-        domain: "light",
-        desiredState: { on: true }, // bare toggle , no brightness/color intent
-        reportedState: { on: true, brightness: 10 }, // stale
-        available: true,
-      },
-    ];
-    mockDbSelect.mockImplementation(() => new Chain(managed));
-    const set = setBuilder();
+    const store = await seededStore({
+      desiredState: { on: true }, // bare toggle , no brightness/color intent
+      reportedState: { on: true, brightness: 10 }, // stale
+      available: true,
+    });
     mockGetEntities.mockImplementation((domain: string) =>
       domain === "light"
         ? Promise.resolve([
@@ -378,16 +393,49 @@ describe("runEnforcerCycle", () => {
         : Promise.resolve([]),
     );
 
-    await runEnforcerCycle();
+    await runEnforcerCycle(store);
 
-    const persisted = set.mock.calls.find(
-      (c) => (c[0] as { reportedState?: unknown })?.reportedState !== undefined,
-    );
-    expect(persisted).toBeDefined();
-    expect((persisted?.[0] as { reportedState: unknown }).reportedState).toEqual({
+    const row = await store.read("living-globe");
+    expect(row?.reportedState).toEqual({
       on: true,
       brightness: 200,
       color: { rgb: [0, 0, 255] },
     });
+  });
+
+  it("unreachable device marks unavailable and leaves desired untouched", async () => {
+    const store = await seededStore({
+      desiredState: { on: true, brightness: 180 },
+      reportedState: { on: true, brightness: 180 },
+      available: true,
+    });
+    // No entity in the snapshot at all -> unreachable.
+    mockGetEntities.mockResolvedValue([]);
+
+    await runEnforcerCycle(store);
+
+    const row = await store.read("living-globe");
+    expect(row?.available).toBe(false);
+    expect(row?.desiredState).toEqual({ on: true, brightness: 180 });
+  });
+
+  it("seeds desired from reported on first sight (no push, no adopt)", async () => {
+    const store = await seededStore({
+      desiredState: null,
+      reportedState: null,
+      available: true,
+    });
+    mockGetEntities.mockImplementation((domain: string) =>
+      domain === "light"
+        ? Promise.resolve([haEntity("light.living_room_globe", "on", { brightness: 100 })])
+        : Promise.resolve([]),
+    );
+
+    await runEnforcerCycle(store);
+
+    expect(mockCallService).not.toHaveBeenCalled();
+    const row = await store.read("living-globe");
+    expect(row?.desiredState).toEqual({ on: true, brightness: 100 });
+    expect(row?.reportedState).toEqual({ on: true, brightness: 100 });
   });
 });

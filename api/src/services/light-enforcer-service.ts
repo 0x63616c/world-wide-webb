@@ -16,13 +16,15 @@
  * detection) because HA round-trips rgb/kelvin/brightness with small deltas.
  */
 
+import type { DeviceStateStore } from "@www/core";
 import { getLogger } from "@www/logger";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { LampMode } from "../config/lamp-scenes";
 import { findLight, LIGHTS, LightControl, LightKind, lightControl } from "../config/lights";
+import { deviceStateStore } from "../db/device-state-store";
 import { db } from "../db/index";
 import type { DeviceLightState, LightColor } from "../db/schema";
-import { deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
+import { LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 import { windowOpen } from "./command-window";
@@ -164,10 +166,10 @@ function buildTurnOnParams(entityId: string, desired: DeviceLightState): Record<
   return params;
 }
 
-export async function runEnforcerCycle(): Promise<void> {
+export async function runEnforcerCycle(store: DeviceStateStore = deviceStateStore): Promise<void> {
   await runCycle(heartbeat(ENFORCER_INTEGRATION_ID), "light-enforcer", async () => {
     const snapshot = await fetchSnapshot();
-    await reconcile(snapshot);
+    await reconcile(snapshot, store);
   });
 }
 
@@ -178,11 +180,8 @@ async function fetchSnapshot(): Promise<Map<string, HaEntity>> {
   return byEntityId;
 }
 
-async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> {
-  const rows = await db
-    .select()
-    .from(deviceState)
-    .where(inArray(deviceState.entityId, [...MANAGED_ENTITY_IDS]));
+async function reconcile(snapshot: Map<string, HaEntity>, store: DeviceStateStore): Promise<void> {
+  const rows = await store.list({ entityIds: MANAGED_ENTITY_IDS });
   const now = new Date();
   // While party mode is active the party engine owns lamp COLOR; the enforcer
   // yields color (but still enforces on/off) so the two don't fight (www-7d5b.3.3).
@@ -208,7 +207,7 @@ async function reconcile(snapshot: Map<string, HaEntity>): Promise<void> {
     // color, so party never affects them.
     const yieldColor = partyActive && entry.kind === LightKind.Lamp;
     const decision = decideEnforcement(device, mapped, yieldColor, now);
-    await applyDecision(device, decision, mapped, now);
+    await applyDecision(device, decision, mapped, now, store);
   }
 }
 
@@ -227,6 +226,7 @@ async function applyDecision(
   decision: EnforcementDecision,
   mapped: MappedHaState,
   now: Date,
+  store: DeviceStateStore,
 ): Promise<void> {
   const available = mapped.available;
   // The enforcer is the sole owner of lamp state now (device-sync is fan-only),
@@ -234,15 +234,16 @@ async function applyDecision(
   // the overlay base (desired fields override, reported fills the rest). Without
   // this, reported goes stale → the panel reads brightness 0 / no scene / stuck
   // pending (www-7d5b.2.4 follow-up).
-  const reportedFields = { reportedState: mapped.reported, reportedAtUtc: now };
 
   switch (decision.kind) {
     case "unreachable": {
       // Honest availability for the UI; never paint desired as real when down.
-      await db
-        .update(deviceState)
-        .set({ ...reportedFields, available: false, updatedAtUtc: now })
-        .where(eq(deviceState.id, device.id));
+      await store.writeReported({
+        id: device.id,
+        reported: mapped.reported,
+        available: false,
+        now,
+      });
       return;
     }
     case "seed":
@@ -260,16 +261,13 @@ async function applyDecision(
           "light-enforcer adopted reported state",
         );
       }
-      await db
-        .update(deviceState)
-        .set({
-          ...reportedFields,
-          desiredState: decision.desired,
-          desiredAtUtc: now,
-          available,
-          updatedAtUtc: now,
-        })
-        .where(eq(deviceState.id, device.id));
+      await store.writeReported({
+        id: device.id,
+        reported: mapped.reported,
+        available,
+        adoptDesired: decision.desired,
+        now,
+      });
       return;
     }
     case "push": {
@@ -299,18 +297,12 @@ async function applyDecision(
       } else {
         await ha.callService(device.domain, HaLightService.TurnOff, { entity_id: device.entityId });
       }
-      await db
-        .update(deviceState)
-        .set({ ...reportedFields, available, updatedAtUtc: now })
-        .where(eq(deviceState.id, device.id));
+      await store.writeReported({ id: device.id, reported: mapped.reported, available, now });
       return;
     }
     case "noop": {
       // Refresh reported + availability.
-      await db
-        .update(deviceState)
-        .set({ ...reportedFields, available, updatedAtUtc: now })
-        .where(eq(deviceState.id, device.id));
+      await store.writeReported({ id: device.id, reported: mapped.reported, available, now });
       return;
     }
   }
