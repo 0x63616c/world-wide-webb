@@ -28,7 +28,7 @@
  * dynamic import inside a setter would be fine, but we do not log name changes.)
  */
 
-import { useSyncExternalStore } from "react";
+import { createStore, useStore } from "./store";
 
 const USER_KEY = "cc-device-name";
 const AUTO_KEY = "cc-device-name-auto";
@@ -160,6 +160,19 @@ export function isDeviceNameSet(): boolean {
  * Set (or, with empty/whitespace input, clear) the user name. Clearing reverts
  * the effective name to the auto default and re-shows the banner.
  */
+export interface DeviceNameState {
+  name: string;
+  isSet: boolean;
+}
+
+function snapshotNow(): DeviceNameState {
+  return { name: getDeviceName(), isSet: isDeviceNameSet() };
+}
+
+// Recomputed only on a real write so useStore consumers get a referentially
+// stable snapshot between changes (no re-render storm on unrelated updates).
+const store = createStore<DeviceNameState>(snapshotNow());
+
 export function setDeviceName(name: string): void {
   if (name.trim()) {
     writeRaw(USER_KEY, name);
@@ -167,33 +180,7 @@ export function setDeviceName(name: string): void {
     removeRaw(USER_KEY);
   }
   cache = null; // recompute lazily on next getDeviceName()
-  emit();
-}
-
-type Listener = () => void;
-const listeners = new Set<Listener>();
-
-interface DeviceNameState {
-  name: string;
-  isSet: boolean;
-}
-
-// Recomputed only on emit so useSyncExternalStore consumers get a referentially
-// stable snapshot between changes (no re-render storm on unrelated updates).
-let snapshot: DeviceNameState = { name: getDeviceName(), isSet: isDeviceNameSet() };
-
-function subscribe(cb: Listener): () => void {
-  listeners.add(cb);
-  return () => listeners.delete(cb);
-}
-
-function getSnapshot(): DeviceNameState {
-  return snapshot;
-}
-
-function emit(): void {
-  snapshot = { name: getDeviceName(), isSet: isDeviceNameSet() };
-  for (const cb of listeners) cb();
+  store.set(snapshotNow());
 }
 
 /**
@@ -201,11 +188,11 @@ function emit(): void {
  * `isSet` is whether the user has chosen one. Setters are module-level exports.
  */
 export function useDeviceName(): DeviceNameState {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return useStore(store);
 }
 
 /** Test seam: forget the cached name + snapshot so a test can start clean. */
 export function resetDeviceNameForTests(): void {
   cache = null;
-  snapshot = { name: getDeviceName(), isSet: isDeviceNameSet() };
+  store.set(snapshotNow());
 }
