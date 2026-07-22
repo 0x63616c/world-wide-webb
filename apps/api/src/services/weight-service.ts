@@ -12,6 +12,7 @@ import { env } from "../env";
 import { ha } from "../integrations/homeassistant/index";
 import { HaError } from "../integrations/homeassistant/types";
 import { isOutsideSanityBand, LB_PER_KG } from "./weight-domain";
+import { notDeleted } from "./weight-sql";
 
 function newWeightId(): string {
   return `wm_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
@@ -40,7 +41,11 @@ export async function runWeightIngestCycle(): Promise<void> {
     .select({ weightKg: weightMeasurement.weightKg })
     .from(weightMeasurement)
     .where(
-      and(isNull(weightMeasurement.excludedReason), gte(weightMeasurement.measuredAt, cutoff)),
+      and(
+        isNull(weightMeasurement.excludedReason),
+        notDeleted(),
+        gte(weightMeasurement.measuredAt, cutoff),
+      ),
     );
   const excluded = isOutsideSanityBand(
     weightKg,

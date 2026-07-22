@@ -479,6 +479,10 @@ export const weightMeasurement = pgTable(
     source: text("source").notNull(), // 'ha_ble'
     // Non-null = hidden from all reads. 'sanity_band' (auto) | 'manual'.
     excludedReason: text("excluded_reason"),
+    // Tombstone. A hard DELETE is not safe: ingest re-sees the same HA sensor
+    // state on its next poll and re-inserts the row, because the measured_at
+    // unique index is the only thing stopping it.
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("weight_measurement_measured_at_idx").on(t.measuredAt)],
