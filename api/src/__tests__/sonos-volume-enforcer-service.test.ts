@@ -57,9 +57,9 @@ vi.mock("../integrations/sonos", async (importOriginal) => {
 
 // ─── import after mocks ───────────────────────────────────────────────────────
 
+import { TOPOLOGY_ANCHOR_IP } from "../config/identity";
 import type { DeviceSpeakerState } from "../db/schema";
 import { COMMAND_WINDOW_MS } from "../services/command-window";
-import { TOPOLOGY_ANCHOR_IP } from "../services/sonos-sound-system-service";
 import {
   decideSpeakerEnforcement,
   runSonosVolumeEnforcerCycle,

@@ -25,6 +25,7 @@
  */
 
 import type { DeviceStateStore } from "@www/core";
+import { CLIMATE_DEVICE_ID } from "../config/identity";
 import { deviceStateStore } from "../db/device-state-store";
 import type { DeviceClimateState } from "../db/schema";
 import { env } from "../env";
@@ -45,9 +46,6 @@ import {
 import { heartbeat, runCycle } from "./integration-heartbeat";
 
 const CLIMATE_ENFORCER_INTEGRATION_ID = "climate-enforcer";
-
-// Stable device_state.id for the singleton house thermostat row.
-const CLIMATE_DEVICE_ID = "climate-thermostat";
 
 // The thermostat row as the reconciler needs it.
 interface ManagedClimate {
@@ -287,6 +285,3 @@ async function pushToHa(entityId: string, desired: DeviceClimateState): Promise<
     });
   }
 }
-
-/** The stable device_state id of the singleton thermostat row (for reads). */
-export { CLIMATE_DEVICE_ID };

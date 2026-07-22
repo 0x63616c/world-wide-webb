@@ -1,6 +1,7 @@
 import type { DeviceStateStore } from "@www/core";
 import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
+import { CLIMATE_DEVICE_ID } from "../config/identity";
 import {
   assignMoodColors,
   BLUE_RGB,
@@ -23,7 +24,6 @@ import { db } from "../db/index";
 import type { DeviceClimateState, DeviceLightState, LightColor } from "../db/schema";
 import { type deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
-import { CLIMATE_DEVICE_ID } from "./climate-enforcer-service";
 import { DeviceKind, isClimateState, mergeDeviceState } from "./device-state-mapping";
 
 // ─── types ───────────────────────────────────────────────────────────────────

@@ -21,20 +21,11 @@
  */
 
 import type { DeviceStateStore } from "@www/core";
+import { DESK_RF_BONDED_UUID, TOPOLOGY_ANCHOR_IP } from "../config/identity";
 import { deviceStateStore } from "../db/device-state-store";
 import type { ZoneGroup } from "../integrations/sonos";
 import { SonosClient } from "../integrations/sonos";
 import { DeviceKind, isSpeakerState } from "./device-state-mapping";
-
-// Static LAN IP of the topology anchor device (Living Room, verified in INTEGRATION-NOTES.md).
-// Any reachable player works for GetZoneGroupState; we use a fixed anchor so the service has
-// no discovery dependency. Shared with the sonos-volume-enforcer (www-5mek).
-export const TOPOLOGY_ANCHOR_IP = "192.168.0.193";
-
-// UUID of the bonded Desk RF satellite. It is a hidden half of the Desk bonded pair and must
-// never appear as its own room , it is dropped wherever it shows up (member or coordinator).
-// Shared with the sonos-volume-enforcer so the satellite never gets a speaker row.
-export const DESK_RF_BONDED_UUID = "RINCON_804AF288FDBA01400";
 
 // Stable display order for the rooms, so faders never reshuffle between polls. Rooms not in this
 // list (e.g. a new speaker) sort after the known ones, alphabetically.

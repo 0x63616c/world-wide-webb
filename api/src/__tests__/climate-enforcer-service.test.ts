@@ -34,9 +34,9 @@ vi.mock("../integrations/homeassistant", () => ({
   ha: { getEntities: mockGetEntities, callService: mockCallService },
 }));
 
+import { CLIMATE_DEVICE_ID } from "../config/identity";
 import type { DeviceClimateState } from "../db/schema";
 import {
-  CLIMATE_DEVICE_ID,
   decideClimateEnforcement,
   runClimateEnforcerCycle,
 } from "../services/climate-enforcer-service";
