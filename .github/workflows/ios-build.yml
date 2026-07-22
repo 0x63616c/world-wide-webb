@@ -1,5 +1,5 @@
 # Builds the iOS Capacitor kiosk shell (products/control-center/web/ios) and uploads it to TestFlight.
-# The app is a thin native wrapper that loads https://dashboard.worldwidewebb.co at
+# The app is a thin native wrapper that loads https://app.worldwidewebb.co at
 # runtime (products/control-center/web/capacitor.config.ts), so this only needs to ship when the native
 # shell changes , plus a monthly cron to refresh the 90-day TestFlight build expiry.
 # It targets the same bundle id as the original "Evee" app, so builds land as updates
