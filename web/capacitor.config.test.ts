@@ -3,8 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 // www-jtp0.3.7 / Task 7 hostname cutover: the iOS kiosk shell must default to
 // the product host app.worldwidewebb.co (Control Center's private app route),
 // with the local dev-server env override still honoured. The flattened
-// app--cc.worldwidewebb.co route is retired only after a verified TestFlight
-// build confirms the physical panel on the new host.
+// app--cc.worldwidewebb.co route it replaced was retired in Task 7 Step C.
 describe("capacitor kiosk server config", () => {
   beforeEach(() => {
     vi.resetModules();

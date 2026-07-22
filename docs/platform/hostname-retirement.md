@@ -16,35 +16,12 @@ are obsolete.
 
 ---
 
-## Pending retirement
-
-### `app--cc.worldwidewebb.co`
-
-- **Current:** Active alongside `app`. The wall panel's previous home; the iOS shell was
-  repointed to `app.worldwidewebb.co` (TestFlight build shipped 2026-07-21).
-- **Retire when:**
-  - [ ] Calum confirms the physical panel renders on `app.worldwidewebb.co` from the new
-    TestFlight build (Track 0 Task 7 Step C gate)
-- **How to retire:** Remove the `app--cc` DNS/route/Access entries from
-  `infra/cloudflare/src`, delete the `${host}--${dnsCode}` flattening helper + `dnsCode`
-  from `packages/platform`, update `routes.test.ts`, `pulumi up` in `infra/cloudflare`.
-  Also update `scripts/verify-wall-panel.mjs` (default still `app--cc`).
-- **Rollback:** Re-add the entries, `pulumi up`.
-
----
-
-## Abandoned (never went live)
-
-| Hostname | Fate |
-|---|---|
-| `app--cp.worldwidewebb.co` | Abandoned by ADR-0006 (captive-portal product dissolved). Residue to prune with Step C: cert SAN in `infra/src/certmanager.ts`, `applyAppCp` gate in `infra/unifi/src/unifi.ts`, platform `"cp"` references. |
-
----
-
 ## Already retired
 
 | Hostname | Status |
 |---|---|
+| `app--cc.worldwidewebb.co` | **Retired (Task 7 Step C, 2026-07-22).** The wall panel's previous flattened home, superseded by the single-label `app.worldwidewebb.co`. The `${host}--${dnsCode}` flattening helper + `dnsCode` were deleted from `packages/platform`; the CF DNS/route/Access entries were removed from `infra/cloudflare/src` and `pulumi up` applied. `routes.test.ts` / `access.test.ts` assert absence. |
+| `app--cp.worldwidewebb.co` | **Retired (Task 7 Step C, 2026-07-22).** Abandoned by ADR-0006 (captive-portal product dissolved) — never went live. Residue pruned: cert SAN in `infra/src/certmanager.ts`, the `applyAppCp` A-record + guest `portalHostname` in `infra/unifi/src/unifi.ts`, platform `dnsCode` `"cp"`. The UniFi stack's `pulumi up` is deferred (separate project). |
 | `dashboard.worldwidewebb.co` | Retired (pre-Track-0); `routes.test.ts` asserts absence. |
 | `portainer.worldwidewebb.co` | Removed from CF tunnel. |
 | `hooks.worldwidewebb.co` | Removed from CF tunnel. |

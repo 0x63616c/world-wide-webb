@@ -10,9 +10,8 @@ import type { CapacitorConfig } from "@capacitor/cli";
 // www-jtp0.3.7 / Task 7 hostname cutover: production host is the Control Center
 // product route app.worldwidewebb.co (CF route -> web:80 + kiosk service-token
 // Access, both declared in infra/cloudflare). The flattened app--cc.worldwidewebb.co
-// route stays live in parallel until this TestFlight build is verified on the
-// physical wall panel; roll back by reverting this default while app--cc is kept
-// active (retired only in a later step, once the panel is confirmed on app.*).
+// route it replaced was retired in Task 7 Step C once the panel was confirmed on
+// app.worldwidewebb.co.
 // biome-ignore lint/style/noProcessEnv: node-side CLI config, env override is intentional
 const serverUrl = process.env.CAPACITOR_DEV_SERVER_URL || "https://app.worldwidewebb.co";
 
