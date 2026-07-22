@@ -24,9 +24,9 @@ import {
   TIMEOUT_MAX_MS,
   TIMEOUT_MIN_MS,
 } from "@cc/api/settings";
-import { useSyncExternalStore } from "react";
 import { interaction } from "./log/interaction";
 import { log } from "./log/logger";
+import { createStore, useStore } from "./store";
 
 // Every panel setting that changes is a candidate explanation for "why is the
 // board behaving like that" , cheap to record, and the alternative is guessing.
@@ -226,22 +226,7 @@ function loadInitial(): Settings {
 
 // ─── singleton store ──────────────────────────────────────────────────────────
 
-type Listener = () => void;
-const listeners = new Set<Listener>();
-let state: Settings = loadInitial();
-
-function subscribe(cb: Listener): () => void {
-  listeners.add(cb);
-  return () => listeners.delete(cb);
-}
-
-function getSnapshot(): Settings {
-  return state;
-}
-
-function emit(): void {
-  for (const cb of listeners) cb();
-}
+const store = createStore<Settings>(loadInitial());
 
 // Optional server sink: the sync hook (useSettingsSync) registers a pusher so a
 // user edit also persists globally, syncing across every wall panel. Null when
@@ -267,6 +252,7 @@ function shallowEqual(a: Settings, b: Settings): boolean {
 // consumers don't re-render on no-op writes (referential stability). A user edit
 // (patch) also pushes to the server sink so the change syncs to other panels.
 function patch<K extends keyof Settings>(key: K, value: Settings[K], serialized: string): void {
+  const state = store.get();
   if (state[key] === value) return;
   settingsLog.info(`${key} changed`, { from: state[key], to: value });
   // Also on the human-activity channel. `patch` is reached ONLY from the setters
@@ -274,10 +260,10 @@ function patch<K extends keyof Settings>(key: K, value: Settings[K], serialized:
   // call here is genuinely someone touching the Settings panel , which is
   // exactly the human-origin-only rule this channel depends on.
   interaction("settings", "change", `settings.${key}`, { from: state[key], to: value });
-  state = { ...state, [key]: value };
+  const next = { ...state, [key]: value };
   writeRaw(KEYS[key], serialized);
-  emit();
-  serverSink?.(state);
+  store.set(next);
+  serverSink?.(next);
 }
 
 /** Drop explicitly-undefined keys so a spread cannot punch a hole in `state`
@@ -304,6 +290,7 @@ function stripUndefined(next: Partial<Settings>): Partial<Settings> {
  * is the same shape as LOCAL_ONLY_KEYS below and needs no per-field bookkeeping.
  */
 export function hydrateSettings(next: Partial<Settings>): void {
+  const state = store.get();
   const merged: Settings = { ...DEFAULTS, ...state, ...stripUndefined(next) };
   // Local-only fields keep whatever this panel has; the server has no opinion on
   // them, and folding in the DEFAULT here would silently undo a user's choice on
@@ -317,11 +304,10 @@ export function hydrateSettings(next: Partial<Settings>): void {
     assign(key);
   }
   if (shallowEqual(state, merged)) return;
-  state = merged;
   for (const key of Object.keys(KEYS) as (keyof Settings)[]) {
     writeRaw(KEYS[key], String(merged[key]));
   }
-  emit();
+  store.set(merged);
 }
 
 // ─── setters (module-level, stable) ───────────────────────────────────────────
@@ -396,15 +382,15 @@ export function setPushEnabled(v: boolean): void {
  * propagates to other panels (same path as a user edit).
  */
 export function resetSettings(): void {
-  if (shallowEqual(state, DEFAULTS)) return;
+  if (shallowEqual(store.get(), DEFAULTS)) return;
   settingsLog.warn("reset to defaults");
   interaction("settings", "commit", "settings.reset");
-  state = { ...DEFAULTS };
+  const next = { ...DEFAULTS };
   for (const key of Object.keys(KEYS) as (keyof Settings)[]) {
     writeRaw(KEYS[key], String(DEFAULTS[key]));
   }
-  emit();
-  serverSink?.(state);
+  store.set(next);
+  serverSink?.(next);
 }
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
@@ -415,5 +401,5 @@ export function resetSettings(): void {
  * the hook return.
  */
 export function useSettings(): Settings {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return useStore(store);
 }
