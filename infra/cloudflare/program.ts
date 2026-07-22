@@ -75,7 +75,7 @@ const accessName = (host: string) =>
   host.replace(`.${zoneName}`, "").replace("*", "wildcard").replaceAll(".", "-");
 
 function accessPolicyResourceName(appName: string, policyName: string): string {
-  if ((appName === "storybook" || appName === "drizzle") && policyName === "email-otp") {
+  if (appName === "drizzle" && policyName === "email-otp") {
     return `${appName}-policy`;
   }
 
@@ -83,10 +83,7 @@ function accessPolicyResourceName(appName: string, policyName: string): string {
 }
 
 function accessPolicyInputName(appDomain: string, policyName: string): string {
-  if (
-    (appDomain === `storybook.${zoneName}` || appDomain === `drizzle.${zoneName}`) &&
-    policyName === "email-otp"
-  ) {
+  if (appDomain === `drizzle.${zoneName}` && policyName === "email-otp") {
     return appDomain;
   }
 
@@ -152,7 +149,7 @@ new cloudflare.ZeroTrustTunnelCloudflaredConfig(
 
 // --- Proxied DNS CNAMEs -> the tunnel (adopt-only) ---
 // Field set mirrors the imported records EXACTLY so the import is zero-diff:
-// `name` is the SUBDOMAIN only ("storybook", not the FQDN, the v5 provider
+// `name` is the SUBDOMAIN only ("drizzle", not the FQDN, the v5 provider
 // stores the short name and changing it forces a destructive replace), `comment`
 // is each record's exact live value (varies; undefined = no comment), ttl 1 =
 // "automatic", proxied. `content` is the tunnel target (tunnelId from config =

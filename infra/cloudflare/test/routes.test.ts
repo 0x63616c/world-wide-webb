@@ -8,12 +8,13 @@ import {
 } from "../src/routes.ts";
 
 // ADOPT-ONLY (www-j934.2): the ingress rules + CNAMEs must mirror the LIVE state
-// exactly. Ingress = 2 legacy hosts (storybook/drizzle) + the product app host;
-// CNAMEs = the legacy hosts PLUS the stray hooks-test leftover (asymmetric on
-// purpose). dashboard.worldwidewebb.co removed in CC-2ff. The flattened
+// exactly. Ingress = 1 legacy host (drizzle) + the product app host; CNAMEs =
+// the legacy host PLUS the stray hooks-test leftover (asymmetric on purpose).
+// dashboard.worldwidewebb.co removed in CC-2ff. The flattened
 // app--cc.worldwidewebb.co cutover host was retired in Task 7 Step C (the product
 // app route is now the single-label app.worldwidewebb.co). The dead portainer +
-// hooks routes were pruned in www-oa74. captive-portal is never tunneled (LAN-only).
+// hooks routes were pruned in www-oa74; storybook (origin deleted, no live deploy
+// target) was pruned since. captive-portal is never tunneled (LAN-only).
 
 const ZONE = "worldwidewebb.co";
 
@@ -25,9 +26,9 @@ describe("desiredIngressRules", () => {
     expect(Object.keys(byHost).sort()).toEqual([
       "app.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
-      "storybook.worldwidewebb.co",
     ]);
     expect(byHost["dashboard.worldwidewebb.co"]).toBeUndefined();
+    expect(byHost["storybook.worldwidewebb.co"]).toBeUndefined();
     // Task 7 Step C: the flattened app--cc cutover host is retired.
     expect(byHost["app--cc.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["app.worldwidewebb.co"]).toBe("http://web.control-center.svc.cluster.local:80");
@@ -93,7 +94,6 @@ describe("desiredCnames", () => {
       "app.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "hooks-test.worldwidewebb.co",
-      "storybook.worldwidewebb.co",
     ]);
     // Task 7 Step C: the flattened app--cc cutover CNAME is retired.
     expect(hosts).not.toContain("app--cc.worldwidewebb.co");
@@ -109,8 +109,6 @@ describe("desiredCnames", () => {
 
   test("each CNAME carries its EXACT live comment (zero-diff import; varies per record)", () => {
     const byHost = Object.fromEntries(desiredCnames(ZONE).map((c) => [c.hostname, c.comment]));
-    // frozen legacy ownership-tagged route comment (live CF value, kept verbatim)
-    expect(byHost["storybook.worldwidewebb.co"]).toBe("bosun:control-center tunnel route");
     // dashboard.worldwidewebb.co retired in CC-2ff
     expect(byHost).not.toHaveProperty("dashboard.worldwidewebb.co");
     // legacy evee comments (kept verbatim so import is zero-diff)
@@ -124,9 +122,10 @@ describe("desiredCnames", () => {
     expect(byHost["app.worldwidewebb.co"]).toBe("platform:control-center private app route");
     // Task 7 Step C: the flattened app--cc cutover CNAME is retired.
     expect(byHost).not.toHaveProperty("app--cc.worldwidewebb.co");
-    // pruned dead routes are absent (www-oa74)
+    // pruned dead routes are absent (www-oa74; storybook pruned since)
     expect(byHost).not.toHaveProperty("hooks.worldwidewebb.co");
     expect(byHost).not.toHaveProperty("portainer.worldwidewebb.co");
+    expect(byHost).not.toHaveProperty("storybook.worldwidewebb.co");
   });
 });
 

@@ -3,8 +3,8 @@ import { describe, expect, test } from "vitest";
 import { accessAppsForPrivateWeb, desiredAccessApps } from "../src/access.ts";
 
 // M3 moves private exposure toward a default-deny Cloudflare Access contract.
-// Existing Storybook/Drizzle policy resource names stay stable in program.ts so
-// the migration does not delete protected legacy resources.
+// The existing Drizzle policy resource name stays stable in program.ts so the
+// migration does not delete a protected legacy resource.
 
 const ZONE = "worldwidewebb.co";
 
@@ -13,15 +13,11 @@ describe("desiredAccessApps", () => {
     // www-b6ad: the not-yet-live gate additions (the *.<zone> default-deny floor
     // and the hooks CI lock) are off by default, so the floor can never block a
     // currently-public host (live dashboard) before it has an
-    // explicit bypass. Already-live storybook/drizzle protections are kept.
+    // explicit bypass. The already-live drizzle protection is kept.
     const domains = desiredAccessApps(ZONE)
       .map((a) => a.domain)
       .sort();
-    expect(domains).toEqual([
-      "app.worldwidewebb.co",
-      "drizzle.worldwidewebb.co",
-      "storybook.worldwidewebb.co",
-    ]);
+    expect(domains).toEqual(["app.worldwidewebb.co", "drizzle.worldwidewebb.co"]);
     expect(domains).not.toContain("*.worldwidewebb.co");
     expect(domains).not.toContain("hooks.worldwidewebb.co");
     // Task 7 Step C: the flattened app--cc cutover app is retired.
@@ -37,7 +33,6 @@ describe("desiredAccessApps", () => {
       "app.worldwidewebb.co",
       "drizzle.worldwidewebb.co",
       "hooks.worldwidewebb.co",
-      "storybook.worldwidewebb.co",
     ]);
     expect(domains).not.toContain("app--cc.worldwidewebb.co");
   });
@@ -93,19 +88,19 @@ describe("desiredAccessApps", () => {
     ]);
   });
 
-  test("keeps Storybook and Drizzle on email OTP with no literal personal email", () => {
-    for (const domain of ["storybook.worldwidewebb.co", "drizzle.worldwidewebb.co"]) {
-      const app = desiredAccessApps(ZONE, true).find((entry) => entry.domain === domain);
+  test("keeps Drizzle on email OTP with no literal personal email", () => {
+    const app = desiredAccessApps(ZONE, true).find(
+      (entry) => entry.domain === "drizzle.worldwidewebb.co",
+    );
 
-      expect(app?.policies).toEqual([
-        {
-          decision: "allow",
-          include: { configKey: "allowedEmail", kind: "email-config" },
-          name: "email-otp",
-          precedence: 1,
-        },
-      ]);
-    }
+    expect(app?.policies).toEqual([
+      {
+        decision: "allow",
+        include: { configKey: "allowedEmail", kind: "email-config" },
+        name: "email-otp",
+        precedence: 1,
+      },
+    ]);
     expect(JSON.stringify(desiredAccessApps(ZONE, true))).not.toMatch(
       /[A-Z0-9._%+-]+@[A-Z0-9.-]+/i,
     );

@@ -133,8 +133,9 @@ export function accessAppsForPrivateWeb(
  *
  * Always returned (safe to apply independent of the floor): the per-product
  * control-center private-route app (it gates the product host itself), and the
- * already-live `storybook`/`drizzle` email-OTP apps (imported + `protect: true`;
- * omitting them would attempt a blocked delete of live protection).
+ * already-live `drizzle` email-OTP app (imported + `protect: true`; omitting it
+ * would attempt a blocked delete of live protection). The `storybook` app was
+ * pruned here (origin deleted, no live deploy target since the storybook rip).
  */
 export function desiredAccessApps(zone: string, includeGate = false): DesiredAccessApp[] {
   const ccManifest = controlCenterProductManifest();
@@ -147,7 +148,6 @@ export function desiredAccessApps(zone: string, includeGate = false): DesiredAcc
       { exposure: ccManifest.app.exposure, policies: ["kiosk-service-token", "email-otp"] },
     ]),
     // Already-live tooling protections (kept regardless of the gate flag).
-    accessApp(`storybook.${zone}`, [emailOtpPolicy()]),
     accessApp(`drizzle.${zone}`, [emailOtpPolicy()]),
   ];
 
