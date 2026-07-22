@@ -75,10 +75,10 @@
   "overrides": [
     {
       "includes": [
-        "**/products/control-center/api/src/env.ts",
-        "**/products/control-center/api/drizzle.config.ts",
-        "**/products/control-center/web/vite.config.ts",
-        "**/products/control-center/web/e2e-portal/**",
+        "**/api/src/env.ts",
+        "**/api/drizzle.config.ts",
+        "**/web/vite.config.ts",
+        "**/web/e2e-portal/**",
         "**/scripts/**"
       ],
       "linter": { "rules": { "style": { "noProcessEnv": "off" } } }

@@ -1,5 +1,5 @@
 /**
- * Explicit light entity config , mirrors evee's products/control-center/api/src/config/lights.ts.
+ * Explicit light entity config , mirrors evee's api/src/config/lights.ts.
  *
  * Lamps  = Hue bulbs on the "light." domain, full color/brightness capabilities.
  * Fixtures = overhead + cabinet fixtures on the "switch." domain, on/off only.

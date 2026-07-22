@@ -9,7 +9,7 @@ The `.pmtiles` files are **gitignored** (hundreds of MB → too large for GitHub
 ## Production: self-provisioning (www-hn1i)
 
 Prod never serves a file from this directory. The web pod's `map-provision`
-initContainer (`products/control-center/map-provision/`) extracts `socal.pmtiles` into the `maps`
+initContainer (`map-provision/`) extracts `socal.pmtiles` into the `maps`
 PVC before nginx starts (if-missing mode, instant no-op once provisioned), and
 the monthly `map-extract` CronJob re-extracts in force mode. The Protomaps
 build date is **resolved at runtime** from their build-metadata index ,
@@ -32,7 +32,7 @@ recent Protomaps daily planet build (list: <https://maps.protomaps.com/builds/>)
 
 ```bash
 pmtiles extract "https://build.protomaps.com/<YYYYMMDD>.pmtiles" \
-  products/control-center/web/public/maps/socal.pmtiles \
+  web/public/maps/socal.pmtiles \
   --bbox=-121.0,32.4,-114.0,35.9 --maxzoom=15
 ```
 

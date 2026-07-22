@@ -52,7 +52,7 @@ if (env.GUEST_PORT) {
     port: env.GUEST_PORT,
     tlsDir: env.GUEST_TLS_DIR,
     // Dev default: the built guest bundle sits alongside the web product
-    // (products/control-center/web/dist-portal/, relative to this api
+    // (web/dist-portal/, relative to this api
     // product's cwd). The production image sets GUEST_STATIC_DIR explicitly
     // to the path Task 4's Dockerfile COPYs it to.
     staticDir: env.GUEST_STATIC_DIR ?? "../web/dist-portal",

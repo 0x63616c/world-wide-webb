@@ -45,10 +45,10 @@ if (workspaceManifests.length === 0) {
 // relative paths (apps/*), so it is intentionally excluded.
 
 const FULL_INSTALL_DOCKERFILES = [
-  "products/control-center/api/Dockerfile",
-  "products/control-center/worker/Dockerfile",
-  "products/control-center/web/Dockerfile",
-  "products/control-center/web/Dockerfile.storybook",
+  "api/Dockerfile",
+  "worker/Dockerfile",
+  "web/Dockerfile",
+  "web/Dockerfile.storybook",
 ];
 
 // --- 3. Parse each Dockerfile for `COPY <src>/package.json` lines ---

@@ -9,14 +9,13 @@ WORKDIR /app
 # Install all workspace deps. Copy root manifests first so bun can resolve
 # workspace packages before copying source, keeps the layer cache effective.
 COPY package.json bun.lock ./
-COPY products/control-center/package.json ./products/control-center/package.json
-COPY products/control-center/web/package.json ./products/control-center/web/package.json
-COPY products/control-center/api/package.json ./products/control-center/api/package.json
-COPY products/control-center/worker/package.json ./products/control-center/worker/package.json
-COPY products/control-center/drizzle/package.json ./products/control-center/drizzle/package.json
-COPY products/control-center/map-provision/package.json ./products/control-center/map-provision/package.json
-COPY products/control-center/ios/package.json ./products/control-center/ios/package.json
-COPY products/control-center/storybook/package.json ./products/control-center/storybook/package.json
+COPY web/package.json ./web/package.json
+COPY api/package.json ./api/package.json
+COPY worker/package.json ./worker/package.json
+COPY drizzle/package.json ./drizzle/package.json
+COPY map-provision/package.json ./map-provision/package.json
+COPY ios/package.json ./ios/package.json
+COPY storybook/package.json ./storybook/package.json
 COPY packages/api/package.json ./packages/api/package.json
 COPY packages/logger/package.json ./packages/logger/package.json
 COPY packages/platform/package.json ./packages/platform/package.json
@@ -34,9 +33,9 @@ RUN bun install --frozen-lockfile --ignore-scripts
 COPY tsconfig.json ./tsconfig.json
 
 # Copy workspace source. packages/api provides the @cc/api type export.
-COPY products/control-center/api/src ./products/control-center/api/src
-COPY products/control-center/api/tsconfig.json ./products/control-center/api/tsconfig.json
-COPY products/control-center/web ./products/control-center/web
+COPY api/src ./api/src
+COPY api/tsconfig.json ./api/tsconfig.json
+COPY web ./web
 COPY packages ./packages
 
 # Commit SHA baked into the bundle (vite `define`) so the running panel reports
@@ -52,8 +51,8 @@ ENV BUILD_HASH=$BUILD_HASH
 ARG BUILD_TIME
 ENV BUILD_TIME=$BUILD_TIME
 
-# Build the static bundle. Output lands at products/control-center/web/dist.
-RUN bun run --cwd products/control-center/web build
+# Build the static bundle. Output lands at web/dist.
+RUN bun run --cwd web build
 
 
 # Stage 2: nginx serves the static bundle and proxies /trpc to the api.
@@ -62,9 +61,9 @@ FROM nginx:1.27-alpine AS runtime
 # Remove the default nginx config and replace it with ours.
 RUN rm /etc/nginx/conf.d/default.conf
 
-COPY products/control-center/web/nginx.conf /etc/nginx/conf.d/app.conf
+COPY web/nginx.conf /etc/nginx/conf.d/app.conf
 
-COPY --from=builder /app/products/control-center/web/dist /usr/share/nginx/html
+COPY --from=builder /app/web/dist /usr/share/nginx/html
 
 EXPOSE 80
 

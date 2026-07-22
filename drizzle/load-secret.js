@@ -31,7 +31,7 @@ if (masterpass) env.MASTERPASS = masterpass;
 // its store id), naming the slot <name> and storing only a ${DATABASE_URL_...}
 // reference (never the plaintext password in the volume). We build it here from
 // the mounted password file so a clean redeploy auto-connects with no UI step.
-// host/port/db/user mirror products/control-center/api/src/env.ts defaults (the overlay service name).
+// host/port/db/user mirror api/src/env.ts defaults (the overlay service name).
 const pgPassword = readSecret("POSTGRES_PASSWORD");
 if (pgPassword) {
   env.DATABASE_URL_control_center = `postgresql://postgres:${encodeURIComponent(pgPassword)}@postgres:5432/control_center`;

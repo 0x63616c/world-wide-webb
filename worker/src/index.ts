@@ -2,7 +2,7 @@
  * Worker app entrypoint (www-xjba). No HTTP , this is its own deployable package
  * (@control-center/worker) and its own image (control-center-worker), running the
  * continuous reconcile/ingest loops the api used to start in-process. Splitting
- * it out of products/control-center/api keeps the api request-only and lets the loops build, ship,
+ * it out of api keeps the api request-only and lets the loops build, ship,
  * scale, and restart on their own image (www-7d5b.1.2 promoted to a real app).
  *
  * The domain cycles (enforce lights/climate, sync fans, party, ingest weather)

@@ -16,7 +16,7 @@ import { BEAM_UUID, DESK_LINE_IN_UUID } from "./sonos-constants";
 
 export type SoundSystemRoom = RouterOutputs["media"]["soundSystem"]["rooms"][number];
 
-// Duplicated from the service's ROOM_ORDER (products/control-center/api/src/services/
+// Duplicated from the service's ROOM_ORDER (api/src/services/
 // sonos-sound-system-service.ts) , the web cannot import api source, so this stable
 // display-order list is kept as a web constant. Keep the two in sync.
 const ROOM_ORDER = ["Living Room", "Desk", "Bedroom", "Bathroom", "Kitchen"];

@@ -6,7 +6,6 @@ load('ext://uibutton', 'cmd_button', 'location')
 update_settings(max_parallel_updates=4)
 
 repo_root = str(local("git rev-parse --show-toplevel", quiet=True)).strip()
-product_root = repo_root + "/products/control-center"
 
 port_web = 4200
 port_api = 4201
@@ -14,7 +13,7 @@ port_postgres = 5432
 
 os.putenv("POSTGRES_PORT", str(port_postgres))
 
-docker_compose(product_root + "/docker-compose.yml")
+docker_compose(repo_root + "/docker-compose.yml")
 
 # Shared platform infra (not a product): the dev Postgres every product's local
 # stack talks to. Second label `shared` is its product lane for the
@@ -23,7 +22,7 @@ dc_resource("postgres", labels=["backend", "shared"])
 
 # One-shot batch fetch of all dev secrets from SOPS. The helper owns its repo-root
 # resolution so this Tiltfile works from both the product folder and root scripts.
-secrets_raw = str(local(product_root + "/tilt/load-secrets.sh", quiet=True, echo_off=True))
+secrets_raw = str(local(repo_root + "/tilt/load-secrets.sh", quiet=True, echo_off=True))
 secrets = {}
 for line in secrets_raw.strip().split("\n"):
     if "=" in line:
@@ -33,7 +32,7 @@ for line in secrets_raw.strip().split("\n"):
 local_resource(
     "install",
     cmd="cd %s && bun install" % repo_root,
-    deps=[repo_root + "/package.json", repo_root + "/bun.lock", product_root + "/api/package.json", product_root + "/web/package.json", repo_root + "/packages/api/package.json"],
+    deps=[repo_root + "/package.json", repo_root + "/bun.lock", repo_root + "/api/package.json", repo_root + "/web/package.json", repo_root + "/packages/api/package.json"],
     allow_parallel=True,
     labels=["tooling", "shared"],
 )
@@ -45,8 +44,8 @@ local_resource(
 # when the DB is already up to date.
 local_resource(
     "db-migrate",
-    cmd="cd %s && DATABASE_URL='postgresql://cc:cc@localhost:%d/controlcenter' bun run --cwd products/control-center/api db:migrate" % (repo_root, port_postgres),
-    deps=[product_root + "/api/src/db/migrations"],
+    cmd="cd %s && DATABASE_URL='postgresql://cc:cc@localhost:%d/controlcenter' bun run --cwd api db:migrate" % (repo_root, port_postgres),
+    deps=[repo_root + "/api/src/db/migrations"],
     resource_deps=["postgres", "install"],
     labels=["backend", "control-center"],
 )
@@ -56,7 +55,7 @@ local_resource(
 # exits non-zero and Tilt restarts it , no manual UI click on the wall panel.
 local_resource(
     "api",
-    serve_cmd="cd %s && scripts/serve-with-watchdog.sh http://localhost:%d/up 20 15 -- bun --watch products/control-center/api/src/server.ts" % (repo_root, port_api),
+    serve_cmd="cd %s && scripts/serve-with-watchdog.sh http://localhost:%d/up 20 15 -- bun --watch api/src/server.ts" % (repo_root, port_api),
     serve_env={
         "PORT": str(port_api),
         "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
@@ -84,13 +83,13 @@ local_resource(
 
 # worker: the continuous reconcile/ingest loops (device-sync, weather-ingest)
 # that used to run inside the api now live in a dedicated worker app + image
-# (products/control-center/worker, www-xjba), so dev must run it too or those loops never fire locally.
+# (worker, www-xjba), so dev must run it too or those loops never fire locally.
 # Same env as the api (DB + HA token + home location); bun --watch owns the file
 # watch. No readiness probe / watchdog: the worker serves no HTTP, so there is no
 # URL to poll , bun --watch restarts it on a crash, and Tilt surfaces its logs.
 local_resource(
     "worker",
-    serve_cmd="cd %s && bun --watch products/control-center/worker/src/index.ts" % repo_root,
+    serve_cmd="cd %s && bun --watch worker/src/index.ts" % repo_root,
     serve_env={
         "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
         "HA_TOKEN": secrets["HA_TOKEN"],
@@ -111,7 +110,7 @@ local_resource(
 # usually fails to come up). Vite cold start is slower, so a longer grace.
 local_resource(
     "web",
-    serve_cmd="cd %s && scripts/serve-with-watchdog.sh http://localhost:%d/ 30 15 -- bun run --cwd products/control-center/web dev --port %d" % (repo_root, port_web, port_web),
+    serve_cmd="cd %s && scripts/serve-with-watchdog.sh http://localhost:%d/ 30 15 -- bun run --cwd web dev --port %d" % (repo_root, port_web, port_web),
     serve_env={
         "API_PORT": str(port_api),
     },
@@ -129,7 +128,7 @@ local_resource(
 # Storybook , auto-started with the dev stack so it's always available for tile work.
 local_resource(
     "storybook",
-    serve_cmd="cd %s && bun run --cwd products/control-center/web storybook" % repo_root,
+    serve_cmd="cd %s && bun run --cwd web storybook" % repo_root,
     resource_deps=["install"],
     labels=["frontend", "control-center"],
     links=[
@@ -140,7 +139,7 @@ local_resource(
 # Drizzle Studio , manual, opt-in.
 local_resource(
     "drizzle-studio",
-    serve_cmd="cd %s && bun run --cwd products/control-center/api db:studio" % repo_root,
+    serve_cmd="cd %s && bun run --cwd api db:studio" % repo_root,
     resource_deps=["postgres"],
     auto_init=False,
     trigger_mode=TRIGGER_MODE_MANUAL,
@@ -154,7 +153,7 @@ local_resource(
 cmd_button(
     name="db-migrate",
     resource="postgres",
-    argv=["sh", "-c", "cd %s && bun run --cwd products/control-center/api db:migrate" % repo_root],
+    argv=["sh", "-c", "cd %s && bun run --cwd api db:migrate" % repo_root],
     text="Migrate DB",
     icon_name="upgrade",
     location=location.RESOURCE,
@@ -165,7 +164,7 @@ cmd_button(
     resource="postgres",
     argv=[
         "sh", "-c",
-        "cd %s && docker compose -f products/control-center/docker-compose.yml exec -T postgres psql -U cc -d controlcenter -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' && bun run --cwd products/control-center/api db:migrate" % repo_root,
+        "cd %s && docker compose -f docker-compose.yml exec -T postgres psql -U cc -d controlcenter -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' && bun run --cwd api db:migrate" % repo_root,
     ],
     text="Reset DB",
     icon_name="delete_forever",
@@ -175,14 +174,14 @@ cmd_button(
 
 # Boot the iOS kiosk shell in the iPad Pro simulator with live-reload pointing at
 # the local web dev server (port_web). Capacitor config lives in
-# products/control-center/web, so run cap from there. iPad Pro 13-inch (M5) is the
+# web, so run cap from there. iPad Pro 13-inch (M5) is the
 # closest installed sim to the 1366x1024 wall panel.
 cmd_button(
     name="ipad-simulator",
     resource="web",
     argv=[
         "sh", "-c",
-        'cd %s/products/control-center/web && bunx cap run ios --live-reload --host localhost --port %d --target-name "iPad Pro 13-inch (M5)"' % (repo_root, port_web),
+        'cd %s/web && bunx cap run ios --live-reload --host localhost --port %d --target-name "iPad Pro 13-inch (M5)"' % (repo_root, port_web),
     ],
     text="iPad Simulator",
     icon_name="tablet_mac",

@@ -11,6 +11,6 @@ FROM ghcr.io/protomaps/go-pmtiles:v1.30.3 AS pmtiles
 FROM alpine:3.21
 RUN apk add --no-cache curl
 COPY --from=pmtiles /go-pmtiles /usr/local/bin/pmtiles
-COPY products/control-center/map-provision/provision.sh /provision.sh
+COPY map-provision/provision.sh /provision.sh
 RUN chmod +x /provision.sh
 CMD ["/provision.sh"]

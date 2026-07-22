@@ -7,7 +7,7 @@
  * accumulated per worker for failure streaks and the periodic debug snapshot.
  *
  * Shared package (www-rw07) used by the single worker app in
- * products/control-center/worker: the onset-or-ongoing failure logging and
+ * worker: the onset-or-ongoing failure logging and
  * stop() final-stats snapshot are the runtime's shape; the periodic stats
  * cadence is a fixed constant (every-N-runs model).
  */

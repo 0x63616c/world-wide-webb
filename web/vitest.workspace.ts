@@ -1,5 +1,5 @@
 /**
- * Vitest workspace for products/control-center/web , defines both unit (jsdom) and storybook
+ * Vitest workspace for web , defines both unit (jsdom) and storybook
  * (Playwright browser) projects so `bunx vitest --project storybook` works
  * when run from this directory.
  *
@@ -15,10 +15,10 @@ const __dirname = resolve(fileURLToPath(import.meta.url), "..");
 
 export default defineWorkspace([
   // Unit + component tests , jsdom, no browser needed.
-  // This mirrors products/control-center/web/vitest.config.ts so both configs stay in sync.
+  // This mirrors web/vitest.config.ts so both configs stay in sync.
   "./vitest.config.ts",
   // Storybook browser tests , play functions run via Playwright/Chromium.
-  // Run with: bunx vitest --project storybook (from products/control-center/web directory).
+  // Run with: bunx vitest --project storybook (from web directory).
   {
     extends: "./vite.config.ts",
     plugins: [

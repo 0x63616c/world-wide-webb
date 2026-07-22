@@ -15,7 +15,7 @@ adding a `console.*` call to a backend service.
 
 Rejected alternatives and why:
 
-- **A module inside `@control-center/api`** (e.g. `products/control-center/api/src/logger.ts`). `bosun`
+- **A module inside `@control-center/api`** (e.g. `api/src/logger.ts`). `bosun`
   (`@bosun/bosun`) deliberately has **no `@control-center/api` dependency** and must never
   gain one, it is a deploy agent that ships in its own image and would drag the
   entire tRPC/drizzle/pg tree into bosun's bundle. So the logger cannot live
@@ -219,7 +219,7 @@ sites **never** read these themselves; they pass an optional `level` / `env` /
 `pretty` through `createLogger` opts if they need to override.
 
 This matters for the lint gate: biome's `style.noProcessEnv` is `error`
-repo-wide and only disabled (in `biome.json` overrides) for `products/control-center/api/src/env.ts`,
+repo-wide and only disabled (in `biome.json` overrides) for `api/src/env.ts`,
 `packages/bosun/src/cli.ts`, and `scripts/**`. A `process.env.LOG_LEVEL` read in
 `server.ts`, the worker/media-worker `index.ts`, or bosun `serve.ts` would fail
 `bunx biome check .` (a hard gate). Centralising the reads in `packages/logger`
@@ -484,8 +484,8 @@ The **1s worker loops stay silent** in steady state (only transitions + periodic
 
 ## 7. Web (browser), shipped separately
 
-`products/control-center/web` was **not** part of this effort, and is now covered by its
-own stack in `products/control-center/web/src/lib/log/` (design:
+`web` was **not** part of this effort, and is now covered by its
+own stack in `web/src/lib/log/` (design:
 `docs/superpowers/specs/2026-07-13-frontend-debug-logs-design.md`). It follows this
 section's original suggestion , the same `info/warn/error` vocabulary with a
 `child(source)` binding, and **no pino dependency** , but goes further than a

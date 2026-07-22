@@ -20,7 +20,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-// chromium comes from the `playwright` dev dep in products/control-center/web;
+// chromium comes from the `playwright` dev dep in web;
 // install the browser once with `bunx playwright install chromium`.
 import { chromium } from "playwright";
 import { classifyPanel, PANEL_HEIGHT, PANEL_WIDTH } from "./panel-health.mjs";

@@ -6,11 +6,12 @@ Smart-home wall-panel monorepo for the fixed `1366x1024` Control Center panel.
 
 | Path | Purpose |
 | --- | --- |
-| `products/control-center/web` | React board, Storybook, Capacitor iOS shell. Main route: `src/routes/index.tsx`. |
-| `products/control-center/api` | Bun + tRPC API, domain services, schema, migrations. |
-| `products/control-center/worker` | Interval workers for reconciliation and ingest. |
-| `products/control-center/storybook` | Thin wrapper around the web Storybook. |
-| `products/captive-portal` | Split product with `apps/frontend` and `apps/api`. |
+| `web` | React board, Storybook, Capacitor iOS shell. Main route: `src/routes/index.tsx`. |
+| `api` | Bun + tRPC API, domain services, schema, migrations, guest-WiFi listener. |
+| `worker` | Interval workers for reconciliation and ingest. |
+| `storybook` | Thin wrapper around the web Storybook. |
+| `drizzle` | Drizzle Gateway wrapper image. |
+| `map-provision` | Basemap tile provisioner image. |
 | `packages/api` | Browser-safe tRPC type bridge. |
 | `packages/logger` | Shared backend logger. |
 | `packages/platform` | Platform primitives for product identity, secrets, DBs, backups, and manifests. |

@@ -1,8 +1,8 @@
 {
-  "extends": "../../../tsconfig.json",
+  "extends": "../tsconfig.json",
   "compilerOptions": {
     "types": ["bun"],
-    // Mirrors products/control-center/api: the worker runs via `bun src/index.ts` and never emits.
+    // Mirrors api: the worker runs via `bun src/index.ts` and never emits.
     // allowImportingTsExtensions lets it resolve @control-center/api's .ts barrel.
     "allowImportingTsExtensions": true
   },

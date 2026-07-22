@@ -1,6 +1,6 @@
-# Builds the iOS Capacitor kiosk shell (products/control-center/web/ios) and uploads it to TestFlight.
+# Builds the iOS Capacitor kiosk shell (web/ios) and uploads it to TestFlight.
 # The app is a thin native wrapper that loads https://app.worldwidewebb.co at
-# runtime (products/control-center/web/capacitor.config.ts), so this only needs to ship when the native
+# runtime (web/capacitor.config.ts), so this only needs to ship when the native
 # shell changes , plus a monthly cron to refresh the 90-day TestFlight build expiry.
 # It targets the same bundle id as the original "Evee" app, so builds land as updates
 # to the existing TestFlight app (was 1.0, build 48). Signing reuses fastlane match
@@ -11,9 +11,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "products/control-center/web/ios/**"
-      - "products/control-center/web/capacitor.config.ts"
-      - "products/control-center/web/package.json"
+      - "web/ios/**"
+      - "web/capacitor.config.ts"
+      - "web/package.json"
       - ".github/workflows/ios-build.yml"
   schedule:
     - cron: "0 12 1 * *" # 1st of every month at noon UTC , keeps the TestFlight build fresh (90-day expiry)
@@ -41,7 +41,7 @@ jobs:
     environment: prod
     defaults:
       run:
-        working-directory: products/control-center/web/ios
+        working-directory: web/ios
     steps:
       - uses: actions/checkout@v4
 
@@ -94,18 +94,18 @@ jobs:
 
       - name: Build web
         run: bun run build
-        working-directory: products/control-center/web
+        working-directory: web
 
       - name: Capacitor sync
         run: bunx cap sync ios
-        working-directory: products/control-center/web
+        working-directory: web
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
           bundler-cache: true
-          working-directory: products/control-center/web/ios
+          working-directory: web/ios
 
       # The entitlement must be declared in the project, not just permitted by
       # the provisioning profile. Build 77 shipped with a valid push-enabled
@@ -113,7 +113,7 @@ jobs:
       # aps-environment and APNs returned no token - with a fully green build.
       # Fail here rather than discover it on a device again.
       - name: Guard aps-environment entitlement
-        working-directory: products/control-center/web/ios/App
+        working-directory: web/ios/App
         run: |
           set -euo pipefail
           test -f App/App.entitlements \
@@ -152,7 +152,7 @@ jobs:
       # is not an inference. Runs after upload (fastlane builds and uploads in
       # one lane), so it cannot prevent a bad upload - it makes one loud.
       - name: Verify aps-environment in the built binary
-        working-directory: products/control-center/web/ios
+        working-directory: web/ios
         run: |
           set -uo pipefail
           # NOT `set -e`: a failing `find`/`ls` must reach the explicit checks

@@ -1,6 +1,6 @@
 /**
  * Tests for the shared worker runtime (www-7d5b.1.1, consolidated www-rw07).
- * Union of the two former per-app suites (products/control-center/worker's
+ * Union of the two former per-app suites (worker's
  * worker-runtime.test.ts + the former media-worker's runtime.test.ts):
  * await-before-reschedule scheduling (no overlap), per-cycle failure isolation (a
  * throwing worker keeps looping and never kills a sibling), the onset-or-ongoing

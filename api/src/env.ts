@@ -203,7 +203,7 @@ export const envSchema = z.object({
   // guest network yet). GUEST_TLS_DIR points at a cert-manager secret
   // projection (fullchain.pem + key.pem, same names the old nginx portal used);
   // when unset the guest listener runs plain HTTP. GUEST_STATIC_DIR is the
-  // built guest web bundle (products/control-center/web/dist-portal/ in prod).
+  // built guest web bundle (web/dist-portal/ in prod).
   GUEST_PORT: z.coerce.number().int().positive().optional(),
   GUEST_TLS_DIR: z.string().optional(),
   GUEST_STATIC_DIR: z.string().optional(),

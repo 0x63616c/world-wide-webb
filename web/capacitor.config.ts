@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
-// The iOS app (products/control-center/web/ios) is a thin Capacitor "kiosk" shell: it renders the
+// The iOS app (web/ios) is a thin Capacitor "kiosk" shell: it renders the
 // hosted dashboard full-screen rather than bundling it. server.url points at the
 // live, hosted dashboard so the wall panel updates over the air with every
 // deploy, no App Store rebuild required. CAPACITOR_DEV_SERVER_URL overrides it for
@@ -23,12 +23,12 @@ const serverUrl = process.env.CAPACITOR_DEV_SERVER_URL || "https://app.worldwide
 // `URLRequest(url:)` we cannot configure here. So per §5's verify-before-build
 // fallback, the CF-Access service-token headers are injected natively instead:
 // KioskViewController re-issues the initial origin load with the headers and the
-// KioskWatchdog carries them on its probe + reload (products/control-center/web/ios/App/App).
+// KioskWatchdog carries them on its probe + reload (web/ios/App/App).
 // Credentials are baked into Info.plist at build time from repo secrets
 // (Fastfile xcargs + ios-build.yml). Nothing to wire on this config object.
 const config: CapacitorConfig = {
   // Bundle id is intentionally inherited from the original "Evee" TestFlight app so
-  // new builds land as updates to the same app (see products/control-center/web/ios + ios-build.yml).
+  // new builds land as updates to the same app (see web/ios + ios-build.yml).
   appId: "co.worldwidewebb.theworkflowengine",
   appName: "Control Center",
   webDir: "dist",

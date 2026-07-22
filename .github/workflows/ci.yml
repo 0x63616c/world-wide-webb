@@ -65,42 +65,33 @@ jobs:
         with:
           filters: |
             # Shared changes (packages or root lockfile) force a rebuild of everything.
-            # Control Center product-boundary changes rebuild the Control Center
-            # images, but unrelated product folders do not.
-            # NOTE: do NOT use '!negation' list items here. dorny/paths-filter OR-matches
-            # each list entry, and a '!foo/**' pattern matches every file that ISN'T under
-            # foo, so '!products/control-center/web/.storybook/**' matched docs/api/everything and made web
-            # rebuild on every push (it broke ac_ci_selective: docs-only built web). The
-            # web image build already ignores .storybook, so a positive-only list is both
-            # correct and conservative; a rare .storybook-only edit harmlessly rebuilds web.
+            # Single-product repo now (SDD track 0, Task 9: flatten): each app
+            # lane is scoped to its own root directory plus shared packages.
             web:
-              - 'products/control-center/web/**'
-              - 'products/control-center/**'
+              - 'web/**'
               - 'packages/**'
               - 'bun.lock'
             api:
-              - 'products/control-center/api/**'
-              - 'products/control-center/**'
+              - 'api/**'
               - 'packages/**'
               - 'bun.lock'
-            # The worker bundles its domain cycles from @control-center/api, so an products/control-center/api
+            # The worker bundles its domain cycles from @control-center/api, so an api/
             # change must rebuild the worker image too (www-xjba).
             worker:
-              - 'products/control-center/worker/**'
-              - 'products/control-center/api/**'
-              - 'products/control-center/**'
+              - 'worker/**'
+              - 'api/**'
               - 'packages/**'
               - 'bun.lock'
             storybook:
-              - 'products/control-center/web/.storybook/**'
-              - 'products/control-center/web/src/**'
-              - 'products/control-center/web/package.json'
-              - 'products/control-center/**'
+              - 'web/.storybook/**'
+              - 'web/src/**'
+              - 'web/package.json'
+              - 'storybook/**'
               # Serving config: a change to how nginx serves the bundle (cache
               # headers, asset 404 vs index.html fallback) must rebuild the image
               # too, or the fix never ships (www-w4aa).
-              - 'products/control-center/web/nginx-storybook.conf'
-              - 'products/control-center/web/Dockerfile.storybook'
+              - 'web/nginx-storybook.conf'
+              - 'web/Dockerfile.storybook'
               - 'packages/**'
               - 'bun.lock'
             # infra-only changes (the Pulumi program + workload specs) deploy
@@ -109,22 +100,26 @@ jobs:
             infra:
               - 'infra/**'
             # Drizzle Gateway wrapper image, a thin self-contained Dockerfile +
-            # preload. It pins an upstream base and copies only products/control-center/drizzle, so it
+            # preload. It pins an upstream base and copies only drizzle/, so it
             # rebuilds solely on its own changes (no packages/ or bun.lock dep).
             drizzle:
-              - 'products/control-center/drizzle/**'
-              - 'products/control-center/**'
+              - 'drizzle/**'
             # Basemap provisioner (www-hn1i): a self-contained alpine + pmtiles
             # CLI + sh image, no workspace deps, so it rebuilds solely on its
             # own tree (mirrors drizzle).
             mapprovision:
-              - 'products/control-center/map-provision/**'
-              - 'products/control-center/**'
+              - 'map-provision/**'
             # any_app is true when at least one image needs to be built. An
             # infra-only change is handled by the separate `infra` filter above,
             # the deploy job fires on `any_app || infra`.
             any_app:
-              - 'products/control-center/**'
+              - 'web/**'
+              - 'api/**'
+              - 'worker/**'
+              - 'storybook/**'
+              - 'drizzle/**'
+              - 'map-provision/**'
+              - 'ios/**'
               - 'packages/**'
               - 'bun.lock'
 
@@ -170,14 +165,8 @@ jobs:
         # Stubbed curl/pmtiles, no network. Fast (bash), runs before the slow
         # Playwright install. Mirrors the orbstack-watchdog gate above.
         run: bash scripts/test-map-provision.sh
-      - name: Product CI wiring guards
-        run: |
-          bun run test:dockerfile-manifests
-          bun run test:product-workspaces
-          bun run test:control-center-ci-split
-          bun run check:control-center-product-boundary
-          bun run test:tilt-product-lanes
-          bun run test:product-doc-paths
+      - name: Dockerfile manifest coverage guard
+        run: bun run test:dockerfile-manifests
       - name: Control Center cutover tooling tests
         # Hermetic self-tests of the M7 production-cutover tooling (www-jtp0.7):
         # the red-first preflight gate (refuses cutover until rehearsal/snapshot/
@@ -200,7 +189,7 @@ jobs:
         # for that wiring (real HTTPS/plain-HTTP sockets, self-signed cert via
         # the system openssl). Task 4 (SDD track 0) cutover note: gates the
         # guest listener that's about to carry live LAN guest traffic.
-        run: bun run --cwd products/control-center/api test:guest-smoke
+        run: bun run --cwd api test:guest-smoke
 
   # Storybook browser suite (Playwright/Chromium play functions). Runs
   # concurrently with test-unit. Kept as its own job because it needs a Chromium
@@ -289,7 +278,7 @@ jobs:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         with:
           image: www-control-center-web
-          dockerfile: products/control-center/web/Dockerfile
+          dockerfile: web/Dockerfile
           cache-scope: web
           build-args: |
             BUILD_HASH=${{ github.sha }}
@@ -310,7 +299,7 @@ jobs:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         with:
           image: www-control-center-api
-          dockerfile: products/control-center/api/Dockerfile
+          dockerfile: api/Dockerfile
           cache-scope: api
           build-args: |
             BUILD_HASH=${{ github.sha }}
@@ -330,7 +319,7 @@ jobs:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         with:
           image: www-control-center-worker
-          dockerfile: products/control-center/worker/Dockerfile
+          dockerfile: worker/Dockerfile
           cache-scope: worker
 
   build-storybook:
@@ -348,7 +337,7 @@ jobs:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         with:
           image: www-control-center-storybook
-          dockerfile: products/control-center/web/Dockerfile.storybook
+          dockerfile: web/Dockerfile.storybook
           cache-scope: storybook
 
   build-drizzle:
@@ -366,7 +355,7 @@ jobs:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         with:
           image: www-control-center-drizzle
-          dockerfile: products/control-center/drizzle/Dockerfile
+          dockerfile: drizzle/Dockerfile
           cache-scope: drizzle
 
   build-map-provision:
@@ -384,7 +373,7 @@ jobs:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         with:
           image: www-control-center-map-provision
-          dockerfile: products/control-center/map-provision/Dockerfile
+          dockerfile: map-provision/Dockerfile
           cache-scope: map-provision
 
   # After the images build on main, deploy to the homelab k3s cluster with

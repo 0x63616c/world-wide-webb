@@ -25,7 +25,7 @@ control-center-product-identity	^docs/(dashboard-spec|captive-portal/.*)\.md$	.*
 # Build config files (biome.json, tsconfig, vitest) referencing products/control-center paths.
 control-center-product-identity	^(biome\.json|tsconfig.*\.json|vitest\.config\.ts)$	.*\bcontrol-center\b.*	Build/lint config referencing products/control-center sub-paths; product path, not repo identity.
 # Tiltfile dev environment: references products/control-center paths and product lane labels.
-control-center-product-identity	^products/control-center/Tiltfile$	.*\bcontrol-center\b.*	Tilt dev stack references products/control-center paths and product lane labels.
+control-center-product-identity	^Tiltfile$	.*\bcontrol-center\b.*	Tilt dev stack references products/control-center paths and product lane labels.
 # GitHub Actions iOS workflow: all references are products/control-center/web/ios product paths.
 control-center-product-identity	^\.github/workflows/ios-build\.yml$	.*\bcontrol-center\b.*	iOS build workflow references products/control-center/web/ios product path only.
 # Repo-level scripts that reference products/control-center/ paths in their implementation.

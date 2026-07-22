@@ -65,7 +65,7 @@
       // imported by both, so its exports are reached from these entries (www-jtp0.7).
       "entry": ["scripts/*.ts", "scripts/*.mjs"]
     },
-    "products/control-center/api": {
+    "api": {
       // server.ts = Docker CMD; purge.ts = the portal data-hygiene cronJob
       // entrypoint, bundled into the api image + run via command override
       // (www-q002.18); seed.ts = db:seed script. drizzle.config.ts + the exports
@@ -95,7 +95,7 @@
       // test/.
       "entry": ["test/**/*.test.ts"]
     },
-    "products/control-center/drizzle": {
+    "drizzle": {
       // load-secret.js is the drizzle image's `bun --preload` ENTRYPOINT.
       "entry": ["load-secret.js"]
     },
@@ -114,7 +114,7 @@
       // Tests are in test/ - declare explicitly so knip registers them as entries.
       "entry": ["test/**/*.test.ts"]
     },
-    "products/control-center/web": {
+    "web": {
       // Guest portal entry (vite.portal.config.ts -> portal.html -> this file)
       // is a second build knip's vite-plugin auto-detection doesn't see (it
       // only picks up the default vite.config.ts / index.html pair).

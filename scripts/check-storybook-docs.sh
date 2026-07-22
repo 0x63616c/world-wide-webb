@@ -10,7 +10,7 @@
 # A story counts as documented if the file EITHER:
 #   1. references `autodocs` directly (e.g. tags: ["autodocs"]), OR
 #   2. uses a sanctioned meta factory that injects autodocs for us. Today that is
-#      `defineTileMeta` (products/control-center/web/src/components/tiles/__stories__/factory.ts adds
+#      `defineTileMeta` (web/src/components/tiles/__stories__/factory.ts adds
 #      tags: ["autodocs", ...]). Add new factory names to FACTORY_NAMES below.
 #
 # Usage:

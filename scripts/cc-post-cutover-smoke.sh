@@ -29,7 +29,7 @@ EXPECTED_MEDIA_REPLICAS="${CC_EXPECTED_MEDIA_REPLICAS:-0}"
 DRY_RUN="${CC_SMOKE_DRY_RUN:-0}"
 
 # Worker names that MUST appear in the worker deployment's logs (registration
-# lines). Mirrors the registry in products/control-center/worker.
+# lines). Mirrors the registry in worker.
 WORKER_NAMES=(light-enforcer climate-enforcer device-sync party-mode weather-ingest)
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then

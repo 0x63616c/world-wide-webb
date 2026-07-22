@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "ios:sync": "bun run --cwd ../../../products/control-center/web cap:sync",
-    "ios:open": "bun run --cwd ../../../products/control-center/web cap:open",
-    "ios:sim": "bun run --cwd ../../../products/control-center/web ios:sim",
-    "cap:sync": "bun run --cwd ../../../products/control-center/web cap:sync",
-    "cap:open": "bun run --cwd ../../../products/control-center/web cap:open",
-    "cap:sim": "bun run --cwd ../../../products/control-center/web ios:sim",
-    "test:kiosk-health": "bash ../../../products/control-center/web/ios/scripts/test-kiosk-health.sh"
+    "ios:sync": "bun run --cwd ../web cap:sync",
+    "ios:open": "bun run --cwd ../web cap:open",
+    "ios:sim": "bun run --cwd ../web ios:sim",
+    "cap:sync": "bun run --cwd ../web cap:sync",
+    "cap:open": "bun run --cwd ../web cap:open",
+    "cap:sim": "bun run --cwd ../web ios:sim",
+    "test:kiosk-health": "bash ../web/ios/scripts/test-kiosk-health.sh"
   }
 }

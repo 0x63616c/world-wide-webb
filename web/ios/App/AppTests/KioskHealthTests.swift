@@ -2,7 +2,7 @@
 //
 // These exercise KioskHealth , the UIKit-free core that decides whether the
 // hosted dashboard is healthy and how long to wait before the next reload.
-// Run via products/control-center/web/ios/scripts/test-kiosk-health.sh, which compiles this
+// Run via web/ios/scripts/test-kiosk-health.sh, which compiles this
 // alongside KioskHealth.swift with swiftc (no Xcode/simulator needed), so it
 // works as a real red-before/green-after guard for the recovery behavior.
 //

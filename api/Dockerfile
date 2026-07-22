@@ -10,14 +10,13 @@ WORKDIR /app
 
 # Copy every workspace manifest so bun resolves the full graph for the bundler.
 COPY package.json bun.lock ./
-COPY products/control-center/package.json products/control-center/
-COPY products/control-center/api/package.json products/control-center/api/
-COPY products/control-center/web/package.json products/control-center/web/
-COPY products/control-center/worker/package.json products/control-center/worker/
-COPY products/control-center/drizzle/package.json products/control-center/drizzle/
-COPY products/control-center/map-provision/package.json products/control-center/map-provision/
-COPY products/control-center/ios/package.json products/control-center/ios/
-COPY products/control-center/storybook/package.json products/control-center/storybook/
+COPY api/package.json api/
+COPY web/package.json web/
+COPY worker/package.json worker/
+COPY drizzle/package.json drizzle/
+COPY map-provision/package.json map-provision/
+COPY ios/package.json ios/
+COPY storybook/package.json storybook/
 COPY packages/api/package.json packages/api/
 COPY packages/logger/package.json packages/logger/
 COPY packages/platform/package.json packages/platform/
@@ -31,30 +30,30 @@ COPY infra/unifi/package.json infra/unifi/
 # --ignore-scripts skips the lefthook prepare hook (needs git, absent here).
 RUN bun install --frozen-lockfile --ignore-scripts
 
-COPY products/control-center/api products/control-center/api
+COPY api api
 # The guest (captive-portal) SPA bundle (Task 4, SDD track 0): the api image
 # serves it from GUEST_STATIC_DIR via the guest listener (ADR-0006), so the
 # built dist-portal/ output has to be baked in here, not just the web image.
 # Needs the web product's full source + tsconfig (vite.portal.config.ts,
 # portal.html, src/portal/) to build.
-COPY products/control-center/web products/control-center/web
+COPY web web
 COPY tsconfig.json tsconfig.json
 COPY packages packages
 
 # Bundle to a single file. server.ts runs migrations on boot via drizzle-orm's
 # runtime migrator, so drizzle-kit never ships.
-RUN bun build products/control-center/api/src/server.ts --target=bun --outfile dist/server.js
+RUN bun build api/src/server.ts --target=bun --outfile dist/server.js
 
-# Guest SPA bundle -> products/control-center/web/dist-portal/, COPYd into the
+# Guest SPA bundle -> web/dist-portal/, COPYd into the
 # runtime image below at /app/portal-dist (GUEST_STATIC_DIR).
-RUN bun run --cwd products/control-center/web build:portal
+RUN bun run --cwd web build:portal
 
 # Second entrypoint: the portal data-hygiene purge (www-q002.18). Bundled into
 # the same image so the bosun cronJob runs it via a command override
 # (`bun purge.js`); it shares the api's drizzle schema + DATABASE_URL wiring.
-RUN bun build products/control-center/api/src/purge.ts --target=bun --outfile dist/purge.js
+RUN bun build api/src/purge.ts --target=bun --outfile dist/purge.js
 
-# The worker is a SEPARATE app + image now (products/control-center/worker, control-center-worker),
+# The worker is a SEPARATE app + image now (worker, control-center-worker),
 # no longer bundled here (www-xjba). The api ships server.js only.
 
 # ── Stage 2: runtime image ────────────────────────────────────────────────────
@@ -74,9 +73,9 @@ COPY --from=build /app/dist/server.js server.js
 COPY --from=build /app/dist/purge.js purge.js
 # Migrations resolve relative to the bundle's own location (import.meta.url),
 # i.e. /app/migrations at runtime, keep this path in sync with WORKDIR.
-COPY --from=build /app/products/control-center/api/src/db/migrations migrations
+COPY --from=build /app/api/src/db/migrations migrations
 # Guest SPA bundle; GUEST_STATIC_DIR is set to this path in the k8s WorkloadSpec.
-COPY --from=build /app/products/control-center/web/dist-portal portal-dist
+COPY --from=build /app/web/dist-portal portal-dist
 
 EXPOSE 4201
 

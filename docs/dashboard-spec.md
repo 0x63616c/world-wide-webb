@@ -13,10 +13,10 @@ address lives in source. See `scripts/save-home-location.sh` and www-mqp.
 
 ## Stack (mirrors the `evee` repo)
 
-- **products/control-center/web** , Vite, React 19, TypeScript, Tailwind v4, TanStack Router, tRPC client + React Query.
-- **products/control-center/api** , Bun, tRPC v11, Drizzle + Postgres, Zod env. Integrations: Home Assistant, UniFi, Open-Meteo, Tesla (via HA).
+- **web** , Vite, React 19, TypeScript, Tailwind v4, TanStack Router, tRPC client + React Query.
+- **api** , Bun, tRPC v11, Drizzle + Postgres, Zod env. Integrations: Home Assistant, UniFi, Open-Meteo, Tesla (via HA).
 - **packages/api** , shared tRPC `AppRouter` type.
-- **Tilt** , `products/control-center/Tiltfile` starts Postgres (product-local docker compose) + api (`:4201`) + web (`:4200`). Secrets load from SOPS through `products/control-center/tilt/load-secrets.sh`.
+- **Tilt** , `Tiltfile` starts Postgres (product-local docker compose) + api (`:4201`) + web (`:4200`). Secrets load from SOPS through `tilt/load-secrets.sh`.
 
 ## Grid layout (`gridTemplateAreas`)
 

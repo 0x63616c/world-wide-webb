@@ -12,6 +12,6 @@
 # same cwd and entry, only inserting the preload.
 FROM ghcr.io/drizzle-team/gateway:1.2.0
 
-COPY products/control-center/drizzle/load-secret.js /entry/load-secret.js
+COPY drizzle/load-secret.js /entry/load-secret.js
 
 ENTRYPOINT ["bun", "--preload", "/entry/load-secret.js", "index.js"]

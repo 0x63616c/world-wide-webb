@@ -10,7 +10,7 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
-SCRIPT="$REPO/products/control-center/map-provision/provision.sh"
+SCRIPT="$REPO/map-provision/provision.sh"
 
 PASS=0
 FAIL=0
@@ -98,11 +98,11 @@ check "and never extracts" 0 "$(extract_count)"
 unset CURL_HEAD_404
 
 # --- no date pin anywhere (the rot that broke prod, www-hn1i) -----------------
-pins="$(grep -rE 'build\.protomaps\.com/[0-9]{8}' "$REPO/infra/src" "$REPO/products/control-center/map-provision" 2>/dev/null || true)"
+pins="$(grep -rE 'build\.protomaps\.com/[0-9]{8}' "$REPO/infra/src" "$REPO/map-provision" 2>/dev/null || true)"
 check "no hardcoded Protomaps build date in infra/ or the provisioner" "" "$pins"
 
 # --- nginx: /maps/ is a loud 404, never the SPA index.html fallback ----------
-nginx_conf="$REPO/products/control-center/web/nginx.conf"
+nginx_conf="$REPO/web/nginx.conf"
 maps_block="$(awk '/location \/maps\//,/}/' "$nginx_conf")"
 check "nginx has an exact /maps/ location" "yes" "$([ -n "$maps_block" ] && echo yes)"
 check "/maps/ misses return 404, not index.html" "yes" "$(echo "$maps_block" | grep -q 'try_files \$uri =404' && echo yes)"

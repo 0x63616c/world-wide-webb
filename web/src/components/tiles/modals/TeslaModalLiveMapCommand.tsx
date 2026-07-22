@@ -26,8 +26,8 @@ import { buildDarkStyle, createCarPinElement, registerPmtilesProtocol } from "@/
 const HOME_LNG = HOME_LON;
 
 // ─── haversine (inlined) ──────────────────────────────────────────────────────
-// haversineMiles lives in products/control-center/api (separate workspace, not importable from
-// products/control-center/web). Inlined verbatim so the modal has zero cross-workspace deps.
+// haversineMiles lives in api (separate workspace, not importable from
+// web). Inlined verbatim so the modal has zero cross-workspace deps.
 const EARTH_RADIUS_MILES = 3958.8;
 
 function haversineMiles(aLat: number, aLon: number, bLat: number, bLon: number): number {

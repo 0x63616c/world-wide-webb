@@ -37,7 +37,7 @@ function formatIso(iso: string): string {
 }
 
 // WMO weather code → condition string. Mirrors WEATHER_CODES in
-// products/control-center/api/src/services/weather-service.ts (decode table, not invented data).
+// api/src/services/weather-service.ts (decode table, not invented data).
 const WEATHER_CODES: Record<number, string> = {
   0: "Clear Sky",
   1: "Mainly Clear",

@@ -7,7 +7,7 @@ import { expect, type Page, type Route, test } from "@playwright/test";
  * (src/portal/lib/trpc.ts) and effect runner (src/portal/flow/effects.ts)
  * end to end, not a stub of them.
  *
- * Wire shapes are taken from the real server (products/control-center/api/src/trpc/routers/portal.ts
+ * Wire shapes are taken from the real server (api/src/trpc/routers/portal.ts
  * + init.ts's errorFormatter): success is a one-element batch array of
  * `{ result: { data } }`; a typed PortalError is `{ error: { code, message,
  * data: { portalCode } } }` — `data.portalCode` is the STRUCTURAL channel

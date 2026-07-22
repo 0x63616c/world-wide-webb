@@ -6,14 +6,14 @@ This repository is a Bun monorepo for a smart-home wall-panel dashboard. The app
 
 ```text
 iPad / browser
-  -> products/control-center/web React board
+  -> web React board
   -> /trpc same-origin HTTP
-  -> products/control-center/api Bun + tRPC server
-  -> products/control-center/api/src/services domain services
+  -> api Bun + tRPC server
+  -> api/src/services domain services
   -> Home Assistant / UniFi / Spotify / Postgres / media integrations
 
 background loops and jobs
-  -> products/control-center/worker
+  -> worker
   -> @control-center/api/worker domain cycles
   -> desired-state reconciliation, weather ingest, party mode, YouTube/media ingest
 
@@ -26,12 +26,17 @@ deploy
 
 ## Workspace Layout
 
-- `products/control-center/web` - React dashboard, Storybook, and Capacitor iOS shell.
-- `products/control-center/api` - Bun tRPC backend, DB schema, migrations, routers, services, and shared domain logic.
-- `products/control-center/worker` - Continuous interval workers for home-state reconciliation and ingest.
-- `products/control-center` - Product-owned Control Center boundary. Runtime app source now lives under this product folder while production image names, workload names, routes, and namespace stay unchanged.
-- `products/captive-portal/apps/api` - Captive Portal product API boundary, exposing only the portal tRPC surface.
-- `products/captive-portal/apps/frontend` - Guest WiFi captive portal frontend product app.
+Single-product repo (SDD track 0, Task 9 flattened `products/control-center/*`
+to the root; captive-portal was folded into the guest listener inside `api/`
+and its own product folder is gone):
+
+- `web` - React dashboard, Storybook, and Capacitor iOS shell.
+- `api` - Bun tRPC backend, DB schema, migrations, routers, services, shared domain logic, and the guest-WiFi listener.
+- `worker` - Continuous interval workers for home-state reconciliation and ingest.
+- `ios` - Thin wrapper delegating iOS build/sim scripts to `web/ios`.
+- `storybook` - Thin wrapper delegating to the web Storybook.
+- `drizzle` - Drizzle Gateway wrapper image.
+- `map-provision` - Basemap tile provisioner image.
 - `packages/api` - Browser-safe type bridge that re-exports the API router type only.
 - `packages/logger` - Shared pino logger with centralized redaction and runtime-safe config.
 - `packages/platform` - Pure platform foundation package for product identity, target, exposure, secret, database, backup, and Control Center representation primitives.
@@ -40,17 +45,17 @@ deploy
 
 ## Frontend
 
-The main route, `products/control-center/web/src/routes/index.tsx`, renders `Board` from `products/control-center/web/src/components/Board.tsx`.
+The main route, `web/src/routes/index.tsx`, renders `Board` from `web/src/components/Board.tsx`.
 
 The dashboard is not a normal responsive layout. It is a fixed wall-panel world:
 
-- Target panel is `1366x1024`; board content constants are in `products/control-center/web/src/lib/grid-constants.ts`.
+- Target panel is `1366x1024`; board content constants are in `web/src/lib/grid-constants.ts`.
 - `BOARD_W = 1366`, `BOARD_H = 1000`.
 - The board is a large `64x64` square-cell world.
 - Panning uses native scroll, plus windowing so only visible cells mount.
 - Idle reset glides back to the home tile, currently the clock.
 
-Tile placement is centralized in `products/control-center/web/src/lib/tile-registry.ts`. Each tile entry defines its id, label, component, detail view component, world position, and size. The registry's coordinates are *defaults* only: the `board_tile_placement` table holds per-tile overrides (world col/row) that win when present, so a user's saved layout survives registry additions/removals without a migration. `resolveLayout` (`products/control-center/web/src/lib`) merges registry defaults with placement overrides and scanline-places any tile the user has never touched.
+Tile placement is centralized in `web/src/lib/tile-registry.ts`. Each tile entry defines its id, label, component, detail view component, world position, and size. The registry's coordinates are *defaults* only: the `board_tile_placement` table holds per-tile overrides (world col/row) that win when present, so a user's saved layout survives registry additions/removals without a migration. `resolveLayout` (`web/src/lib`) merges registry defaults with placement overrides and scanline-places any tile the user has never touched.
 
 The `layout` tRPC router exposes `get` (merged, revision-tagged layout) and `save` (writes placement rows, prunes rows for tiles no longer in the registry). `useBoardLayout` blocks first paint on the initial `layout.get`, then polls every 5s (`POLL.layout`); a poll response whose revision is unchanged is skipped, so the resolved layout only ever applies on a revision change (last-write-wins).
 
@@ -58,11 +63,11 @@ Layout editing is entered from the Board page of Settings ("Edit layout" row) an
 
 Settings is a full-page (`1366x1024`) body-portal overlay, not a modal: `components/settings-page/` holds the shell (`SettingsPage.tsx`, sidebar + page routing), shared framing (`blocks.tsx`), the page registry (`pages.ts`), and eight presentational pages under `pages/` (Device, Display, Board, Network, Notifications, Debug, About, Security). Live state comes from the module-level settings store (`lib/settings.ts`), which syncs every field across panels through the server's settings singleton. The gear button opens Settings behind a 6-digit PIN gate (`components/pin/`, `PinGateModal` + `PinPadView`); the same gate guards the Wake photos viewer. The PIN is a synced settings field (`pinCode`, default `"000000"`), enforced frontend-only — the API never validates it beyond schema shape. A `showMinimap` setting (Board page) gates the board minimap.
 
-Data access is through tRPC React Query in `products/control-center/web/src/lib/trpc.ts`. Queries retry with bounded exponential backoff; mutations do not retry. Unavailable data should render skeleton/error states, not invented values.
+Data access is through tRPC React Query in `web/src/lib/trpc.ts`. Queries retry with bounded exponential backoff; mutations do not retry. Unavailable data should render skeleton/error states, not invented values.
 
 ## API
 
-The API entrypoint is `products/control-center/api/src/server.ts`. It creates the root logger, runs migrations, then serves with `Bun.serve()`.
+The API entrypoint is `api/src/server.ts`. It creates the root logger, runs migrations, then serves with `Bun.serve()`.
 
 Routes include:
 
@@ -72,15 +77,15 @@ Routes include:
 - `/media/wake-photo` (POST) + `/media/wake-photos/*` - ingests and serves the panel's wake-from-dim front-camera burst frames (stored under `MEDIA_STORAGE_DIR/wake-photos`).
 - `/trpc/*` - tRPC request handling.
 
-The tRPC root router lives in `products/control-center/api/src/trpc/routers/index.ts` and combines routers for health, weather, network, Tesla, climate, controls, camera, events, media, and portal.
+The tRPC root router lives in `api/src/trpc/routers/index.ts` and combines routers for health, weather, network, Tesla, climate, controls, camera, events, media, and portal.
 
-`products/control-center/api/src/trpc/init.ts` adds middleware that remaps `HaError` into tRPC `SERVICE_UNAVAILABLE`, so clients can recover through normal query error handling.
+`api/src/trpc/init.ts` adds middleware that remaps `HaError` into tRPC `SERVICE_UNAVAILABLE`, so clients can recover through normal query error handling.
 
 `packages/api/src/trpc.ts` is intentionally tiny. It re-exports only the `AppRouter` type from `@control-center/api/trpc`, allowing the web app to have typed tRPC without bundling backend runtime code.
 
 ## Domain Services
 
-Most business logic lives in `products/control-center/api/src/services`. Important services include climate, controls, device state/commands, light and climate enforcers, party mode, weather ingest/read, network, Tesla, Apple TV, Spotify, Sonos, playlist polling, YouTube ingest, and captive portal flows.
+Most business logic lives in `api/src/services`. Important services include climate, controls, device state/commands, light and climate enforcers, party mode, weather ingest/read, network, Tesla, Apple TV, Spotify, Sonos, playlist polling, YouTube ingest, and captive portal flows.
 
 The Sonos sound-system query classifies each group's source from the coordinator's `GetMediaInfo` URI (`sourceKind`: line-in/tv/spotify/airplay/other/idle) and carries now-playing metadata. The web Groups modal (patch-bay UX, opened from the Sound System tile) moves speakers between live sources via `sonosGroupJoin`/`sonosGroupLeave`, grabbing TV audio to the Beam first when needed.
 
@@ -97,7 +102,7 @@ This keeps dashboard taps immediately self-consistent and avoids fighting upstre
 
 ## Database
 
-The Drizzle schema is in `products/control-center/api/src/db/schema.ts`.
+The Drizzle schema is in `api/src/db/schema.ts`.
 
 Major tables include:
 
@@ -116,7 +121,7 @@ Both the API and workers run migrations at boot so whichever starts first can sa
 
 ## Workers
 
-`products/control-center/worker` owns the interval runtime and imports domain cycles through the narrow `@control-center/api/worker` barrel at `products/control-center/api/src/worker-deps.ts`. The product-owned wrapper is `products/control-center/worker`.
+`worker` owns the interval runtime and imports domain cycles through the narrow `@control-center/api/worker` barrel at `api/src/worker-deps.ts`. The product-owned wrapper is `worker`.
 
 Registered workers currently include:
 
@@ -131,7 +136,7 @@ Registered workers currently include:
 
 The shared runtime in `packages/worker-runtime` prevents overlapping cycles per worker, isolates failures, logs failure and recovery transitions, warns on slow cycles, and exposes stats.
 
-The media pipeline (playlist poller, ingest queue, NAS media mount) runs inside `products/control-center/worker`: media-worker was merged into it, so there is one worker deployable and one api barrel (`@control-center/api/worker` at `products/control-center/api/src/worker-deps.ts`).
+The media pipeline (playlist poller, ingest queue, NAS media mount) runs inside `worker`: media-worker was merged into it, so there is one worker deployable and one api barrel (`@control-center/api/worker` at `api/src/worker-deps.ts`).
 
 - `queue-worker` every 2s.
 - `playlist-poller` every 2m.
@@ -144,7 +149,7 @@ It checks media storage free space before claiming download work.
 
 Logger behavior is keyed off runtime env like `APP_ENV`, `LOG_LEVEL`, and `LOG_PRETTY`, not `NODE_ENV`, because Bun can inline `NODE_ENV` in single-file bundles.
 
-Frontend logs (the web app's own log store, `products/control-center/web/src/lib/log/`) are shipped to Postgres: a cursor-tracked shipper pushes every entry to the `logs.ingest` tRPC mutation, which writes the `frontend_log` table (30-day retention, purged daily). Every entry carries a stable `deviceId` (`<model-slug>-<idfv8>`), the mutable display `deviceName`, the git `sha`, and the App Store `build` number. To read panel logs from a desk, query Postgres instead of exporting from the device:
+Frontend logs (the web app's own log store, `web/src/lib/log/`) are shipped to Postgres: a cursor-tracked shipper pushes every entry to the `logs.ingest` tRPC mutation, which writes the `frontend_log` table (30-day retention, purged daily). Every entry carries a stable `deviceId` (`<model-slug>-<idfv8>`), the mutable display `deviceName`, the git `sha`, and the App Store `build` number. To read panel logs from a desk, query Postgres instead of exporting from the device:
 
 ```
 kubectl --context cc-homelab -n control-center exec control-center-1 -c postgres -- \
@@ -154,7 +159,7 @@ kubectl --context cc-homelab -n control-center exec control-center-1 -c postgres
 
 Design: `docs/superpowers/specs/2026-07-18-frontend-log-shipping-design.md`.
 
-API config is parsed in `products/control-center/api/src/env.ts`. Production secrets are mounted as files under `/run/secrets/<NAME>` and hydrated at boot. Real credentials and private home-location values live outside git.
+API config is parsed in `api/src/env.ts`. Production secrets are mounted as files under `/run/secrets/<NAME>` and hydrated at boot. Real credentials and private home-location values live outside git.
 
 ## Deployment
 
@@ -187,15 +192,26 @@ Do not add a third-party scheduler for new cron-style tasks.
 
 `scripts/pg-snapshot-restore.sh` is the reusable Postgres snapshot and scratch-restore proof tool. It supports dry-run planning, exact all-schema row-count SQL, custom-format dumps, plain SQL gzip dumps, scratch-only restores, and non-zero row-count mismatch failure. It rejects `production` / `control-center` as scratch targets so restore validation cannot overwrite the live database accidentally.
 
-## Platform Migration
+## Platform History
 
-The repo is moving toward a multi-product platform shape documented in `docs/platform/README.html` and `docs/platform/NORTH_STAR.html`. Read those before touching product/platform split work. The target model is products under `products/<name>` with platform-owned primitives for namespaces, routing/TLS, secrets, CNPG Postgres databases, NAS backups, local dev, CI/deploy, and iOS workflows.
+The repo previously moved toward a multi-product platform shape (Control Center
++ captive-portal as separate products under `products/<name>`). That shape is
+gone: captive-portal's guest-WiFi flow was folded into `api`'s guest listener,
+and SDD track 0 Task 9 flattened `*` to the repo root,
+so this is a single-product repo again. `docs/platform/*.html` are historical
+design notes from that era, not the current layout.
 
-Control Center now has a product boundary at `products/control-center`. For M7 compatibility, the product packages delegate to the legacy `products/control-center/web`, `products/control-center/api`, and `products/control-center/worker` source paths so production behavior does not change until the CI, infra, database, and route cutovers land.
+CI path filters are now scoped per top-level directory (`web/**`, `api/**`,
+`worker/**`, `storybook/**`, `drizzle/**`, `map-provision/**`), all rebuilding
+on `packages/**` or `bun.lock` changes too. The Tiltfile lives at the repo
+root; root `bun run dev` runs `tilt up` directly. Local dev commands
+(`dev:web`, `dev:api`, `dev:worker`, `dev:storybook`, `dev:db`, `ios:*`) live
+on the root `package.json`.
 
-CI path filters treat `products/control-center/**` as a Control Center app change, while unrelated `products/*` folders do not rebuild or deploy Control Center unless shared `packages/**` or `bun.lock` changes. The Control Center Tiltfile lives at `products/control-center/Tiltfile`; root `bun run dev` delegates to the product package. Product-scoped local commands live on `@product/control-center`, including `dev`, `dev:web`, `dev:api`, `dev:worker`, `dev:storybook`, `dev:db`, and `ios:*` aliases.
-
-M1 foundation lives in `packages/platform`. It is representation-only today: `controlCenterProductManifest()` proves Control Center can be expressed through the new model without changing the current Pulumi production path.
+`packages/platform` still holds product-identity, target, exposure, secret,
+database, backup, and Control Center representation primitives consumed by
+`infra/`; `controlCenterProductManifest()` is the live source of truth Pulumi
+reads, not a filesystem-path abstraction.
 
 ## Development Rules To Preserve
 
@@ -203,7 +219,7 @@ M1 foundation lives in `packages/platform`. It is representation-only today: `co
 - Run tests with `bun run test`, never bare `bun test`.
 - Do not add fake, fallback, or placeholder data. Unavailable data should shimmer or error and recover.
 - Backend code uses structured logging through `@repo/logger`, not `console.*`.
-- Tiles should use shared UI primitives from `products/control-center/web/src/components/ui`.
+- Tiles should use shared UI primitives from `web/src/components/ui`.
 - Component work should be Storybook-first where practical.
 - IDs should default to Stripe-style `prefix_<id>`.
 - Deployment and operations changes should update docs in the same change.
@@ -214,22 +230,22 @@ Most product changes follow this vertical slice:
 
 ```text
 UI tile/component
-  -> products/control-center/web/src/components
-  -> tRPC hook from products/control-center/web/src/lib/trpc.ts
+  -> web/src/components
+  -> tRPC hook from web/src/lib/trpc.ts
 
 API router
-  -> products/control-center/api/src/trpc/routers
+  -> api/src/trpc/routers
   -> validates input/output
 
 Domain service
-  -> products/control-center/api/src/services
+  -> api/src/services
   -> talks DB or integration
 
 Persistent state
-  -> products/control-center/api/src/db/schema.ts, if needed
+  -> api/src/db/schema.ts, if needed
 
 Background work
-  -> products/control-center/worker, if needed
+  -> worker, if needed
 
 Deploy shape
   -> infra/src/services.ts or infra/src/crons.ts, if needed
