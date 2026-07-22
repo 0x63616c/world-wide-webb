@@ -9,7 +9,7 @@
  * every test since it lives outside React.
  */
 
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tileWorldRect } from "../../lib/grid-constants";
 
@@ -60,7 +60,11 @@ vi.mock("../../lib/brightness", () => ({
   dimTo: vi.fn(() => Promise.resolve()),
   wakeTo: vi.fn(() => Promise.resolve()),
 }));
-vi.mock("../../lib/wake-capture", () => ({ captureWakeBurst: vi.fn() }));
+vi.mock("../../lib/wake-capture", () => ({
+  captureWakeBurst: vi.fn(),
+  // DevicePage (rendered by the I-1 test below) polls this on mount.
+  cameraPermissionState: vi.fn(() => Promise.resolve("granted")),
+}));
 // jsdom has no AudioContext; the alarm tests below drive the real alarm store,
 // whose fire path plays cues through the sound bus.
 vi.mock("../../lib/sound", () => ({
@@ -71,6 +75,7 @@ vi.mock("../../lib/sound", () => ({
 
 import { __resetSessionForTests, panelSession } from "../../lib/panel-session";
 import { resetSettings, setIdleDimEnabled, setIdleDimTimeoutMs } from "../../lib/settings";
+import { closeSettings, openSettings } from "../../lib/settings-overlay-store";
 import {
   addAlarm,
   dismissAlarmFiring,
@@ -108,6 +113,7 @@ afterEach(() => {
   cleanup();
   __resetSessionForTests();
   resetSettings();
+  closeSettings();
   vi.useRealTimers();
   vi.restoreAllMocks();
   tileTap.mockClear();
@@ -245,6 +251,37 @@ describe("Board panel-session wiring", () => {
       // Wake, not unlock: the session relocked at end and stays locked.
       expect(panelSession.isUnlocked()).toBe(false);
     });
+  });
+
+  it("session end with the Level sub-overlay open drops Settings entirely: no PIN gate on the dimmed board (final-review I-1)", () => {
+    render(<Board />);
+    // Unlocked session, Settings open on the Device page.
+    act(() => {
+      panelSession.unlock();
+      openSettings();
+    });
+    // Open the full-screen Level from the Device page; SettingsPage closes
+    // behind it, so only the Level overlay is registered as a dismissable
+    // modal — exactly the leak path: dismissAllModals alone would close the
+    // Level but strand settings-overlay-store's `open` against a dropped
+    // unlock, mounting the PIN gate over the dimmed board.
+    const levelRow = screen
+      .getByText("Open the full screen level to adjust the mount.")
+      .closest("div") as HTMLElement;
+    fireEvent.click(within(levelRow.parentElement as HTMLElement).getByRole("button"));
+    expect(screen.queryByTestId("pin-gate-backdrop")).toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(TIMEOUT_MS);
+    });
+    expect(panelSession.phase()).toBe("ended");
+    expect(screen.queryByTestId("pin-gate-backdrop")).toBeNull();
+
+    const overlay = screen.getByTestId("dim-overlay");
+    fireEvent.pointerDown(overlay);
+    fireEvent.click(screen.getByTestId("dim-overlay"));
+    expect(panelSession.phase()).toBe("active");
+    expect(screen.queryByTestId("pin-gate-backdrop")).toBeNull();
   });
 
   it("never ends the session while idle-dim is disabled", () => {

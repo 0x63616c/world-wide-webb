@@ -8,7 +8,9 @@
  * dance is gone: a deep link just sets the overlay target here, and
  * SettingsButton renders it behind the SAME session gate (`useIsUnlocked`) it
  * uses for a plain gear tap. No more consume/one-shot , this is a plain live
- * value, and session end resets it by dismissing the overlay (modal-open-store).
+ * value; SettingsButton closes it on session end (an onSessionEnd listener ,
+ * dismissAllModals alone misses the level/clean case where the page is closed
+ * behind a sub-overlay, which would strand `open` and gate a dimmed wake).
  *
  * SettingsButton owns the gate + the level/clean sub-overlays; this store owns
  * only whether Settings is up and where it should land , the single seam a

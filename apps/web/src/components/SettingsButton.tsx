@@ -12,7 +12,7 @@
  * re-opens Settings rather than dumping you on the board.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { panelSession } from "../lib/panel-session";
 import { closeSettings, openSettings, useSettingsOverlay } from "../lib/settings-overlay-store";
 import { CleanScreenOverlay } from "./CleanScreenOverlay";
@@ -31,6 +31,21 @@ export function SettingsButton() {
   // SettingsPage: they close the page behind them, and re-open it on exit.
   const [levelOpen, setLevelOpen] = useState(false);
   const [cleanOpen, setCleanOpen] = useState(false);
+
+  // Session end must drop the overlay TARGET too, not just the mounted page.
+  // While a sub-overlay (level/clean) is up the SettingsPage is unmounted, so
+  // the end fan-out's dismissAllModals only closes the sub-overlay — with
+  // `open` left true and the unlock dropped, the next render would mount the
+  // PIN gate over a dimmed board (decision-1 violation, final-review I-1).
+  useEffect(
+    () =>
+      panelSession.onSessionEnd(() => {
+        closeSettings();
+        setLevelOpen(false);
+        setCleanOpen(false);
+      }),
+    [],
+  );
 
   // Gate shows while Settings is requested but the session is locked; the page
   // shows once unlocked and no sub-overlay is up (those close it behind them).
