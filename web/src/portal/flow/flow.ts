@@ -52,7 +52,7 @@ export type FlowEvent =
 
 export type PortalEffect =
   | { type: "checkPassword"; password: string; mac: string }
-  | { type: "authorize"; mac: string };
+  | { type: "authorize"; password: string; mac: string };
 
 export interface FlowResult {
   state: FlowState;

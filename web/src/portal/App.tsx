@@ -76,13 +76,19 @@ export function App() {
     };
   }, [mac]);
 
-  // Entering "connecting" kicks the (idempotent) authorize call.
+  // Entering "connecting" kicks the (idempotent) authorize call. The password
+  // rides along from state.form.password (set by PASSWORD_SUBMIT right before
+  // this transition); the server re-verifies it itself.
   useEffect(() => {
     if (state.step !== "connecting") return;
-    runEffect(portalClient, { type: "authorize", mac }).then((events) => {
+    runEffect(portalClient, {
+      type: "authorize",
+      mac,
+      password: state.form.password,
+    }).then((events) => {
       for (const e of events) rawDispatch(e);
     });
-  }, [state.step, mac]);
+  }, [state.step, mac, state.form.password]);
 
   const goExternal = () => window.location.assign(originalUrl());
 

@@ -9,7 +9,7 @@ import type { FlowEvent, PortalEffect } from "./flow";
 // GuestRouter, src/portal/lib/trpc.ts) structurally satisfies this; tests inject a mock.
 export interface PortalClient {
   checkPassword(input: { mac: string; password: string }): Promise<{ ok: true }>;
-  authorize(input: { mac: string }): Promise<{ authorized: true }>;
+  authorize(input: { mac: string; password: string }): Promise<{ authorized: true }>;
   status(input: { mac: string }): Promise<{ state: "fresh" | "active" | "expired" }>;
 }
 
@@ -65,8 +65,10 @@ export async function runEffect(client: PortalClient, effect: PortalEffect): Pro
 
     case "authorize":
       try {
-        // Idempotent server-side; safe to re-run on a retry.
-        await client.authorize({ mac: effect.mac });
+        // Idempotent server-side; safe to re-run on a retry. The server
+        // re-verifies the password itself (never trusts a prior checkPassword
+        // call), so it rides along on every authorize attempt.
+        await client.authorize({ mac: effect.mac, password: effect.password });
         return [{ type: "CONNECT_OK" }];
       } catch (err) {
         const code = parsePortalError(err);

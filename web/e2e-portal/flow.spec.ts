@@ -83,11 +83,27 @@ async function mockPortal(
 test.describe("guest portal journey (route-mocked transport)", () => {
   test("happy path: password -> connecting -> success", async ({ page }) => {
     await mockPortal(page, {});
+    // authorize must re-carry the password so the server can re-verify it
+    // (Track-0 fix: authorize no longer trusts a prior checkPassword call).
+    // Observe (not intercept) the request: a second page.route would shadow
+    // mockPortal's fulfillment and let the request escape to the real dev
+    // server, so capture via the request event instead.
+    const authorizeBodies: unknown[] = [];
+    page.on("request", (req) => {
+      if (req.url().includes("/trpc/portal.authorize")) {
+        authorizeBodies.push(req.postDataJSON());
+      }
+    });
     await page.goto(`/portal.html?mac=${MAC}`);
     await page.locator("#w-pass").fill("hunter2!");
     await page.locator("#w-terms").check();
     await page.getByRole("button", { name: "Connect to Wi-Fi" }).click();
     await expect(page.getByRole("heading", { name: "You’re online." })).toBeVisible();
+    expect(authorizeBodies.length).toBeGreaterThan(0);
+    // httpBatchLink's POST body is `{"0": <input>, ...}` (arrayToDict, no
+    // transformer wrapper): the raw input rides at key "0".
+    const body = authorizeBodies[0] as Record<string, { mac: string; password: string }>;
+    expect(body["0"]).toMatchObject({ mac: MAC, password: "hunter2!" });
   });
 
   test("wrong password: inline hint, stays on the password screen (no client lockout)", async ({

@@ -89,11 +89,15 @@ describe("checkPassword effect", () => {
 });
 
 describe("authorize effect", () => {
-  it("ok → CONNECT_OK and passes only the mac (no guestId)", async () => {
+  it("ok → CONNECT_OK and passes the mac + password (server re-verifies)", async () => {
     const authorize = vi.fn(async () => ({ authorized: true as const }));
-    const events = await runEffect(client({ authorize }), { type: "authorize", mac: MAC });
+    const events = await runEffect(client({ authorize }), {
+      type: "authorize",
+      mac: MAC,
+      password: "p",
+    });
     expect(events).toEqual([{ type: "CONNECT_OK" }]);
-    expect(authorize).toHaveBeenCalledWith({ mac: MAC });
+    expect(authorize).toHaveBeenCalledWith({ mac: MAC, password: "p" });
   });
 
   it("RATE_LIMITED → SHOW_RATELIMIT", async () => {
@@ -102,7 +106,7 @@ describe("authorize effect", () => {
         throw withCode("RATE_LIMITED");
       }),
     });
-    expect(await runEffect(c, { type: "authorize", mac: MAC })).toEqual([
+    expect(await runEffect(c, { type: "authorize", mac: MAC, password: "p" })).toEqual([
       { type: "SHOW_RATELIMIT" },
     ]);
   });
@@ -113,7 +117,7 @@ describe("authorize effect", () => {
         throw new Error("boom");
       }),
     });
-    expect(await runEffect(c, { type: "authorize", mac: MAC })).toEqual([
+    expect(await runEffect(c, { type: "authorize", mac: MAC, password: "p" })).toEqual([
       { type: "CONNECT_FAILED" },
     ]);
   });

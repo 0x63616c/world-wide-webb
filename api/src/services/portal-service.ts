@@ -96,6 +96,7 @@ interface CheckPasswordInput {
 }
 interface AuthorizeInput {
   mac: string;
+  password: string;
 }
 interface StatusInput {
   mac: string;
@@ -148,30 +149,45 @@ export function createPortalService(deps: PortalServiceDeps): PortalService {
     return row && row.dateUtc === today ? row.wrongAttempts : 0;
   }
 
-  return {
-    async checkPassword({ mac, password }) {
-      if (!wifiPassword) {
-        throw new PortalError(
-          PortalErrorCode.NotConfigured,
-          "WiFi password is not configured on the server.",
-        );
-      }
-      const today = utcDay(now());
-      if ((await wrongCountToday(today)) >= GLOBAL_MAX_WRONG_PER_DAY) {
+  /**
+   * Verify the guest-supplied password against the configured WiFi password,
+   * under the same global rate limit as checkPassword. Shared by every
+   * procedure that must gate on the password (checkPassword, authorize) so
+   * there is exactly one path that can grant access — authorize can never be
+   * called with an unverified password.
+   */
+  async function verifyPassword(password: string): Promise<void> {
+    if (!wifiPassword) {
+      throw new PortalError(
+        PortalErrorCode.NotConfigured,
+        "WiFi password is not configured on the server.",
+      );
+    }
+    const today = utcDay(now());
+    if ((await wrongCountToday(today)) >= GLOBAL_MAX_WRONG_PER_DAY) {
+      throw new PortalError(PortalErrorCode.RateLimited, "Too many attempts, try again later.");
+    }
+    if (!safeEqual(password, wifiPassword)) {
+      const count = await repo.bumpWrongAttempt(today, now());
+      if (count >= GLOBAL_MAX_WRONG_PER_DAY) {
         throw new PortalError(PortalErrorCode.RateLimited, "Too many attempts, try again later.");
       }
-      if (!safeEqual(password, wifiPassword)) {
-        const count = await repo.bumpWrongAttempt(today, now());
-        if (count >= GLOBAL_MAX_WRONG_PER_DAY) {
-          throw new PortalError(PortalErrorCode.RateLimited, "Too many attempts, try again later.");
-        }
-        throw new PortalError(PortalErrorCode.WrongPassword, "That password is not correct.");
-      }
+      throw new PortalError(PortalErrorCode.WrongPassword, "That password is not correct.");
+    }
+  }
+
+  return {
+    async checkPassword({ mac, password }) {
+      await verifyPassword(password);
       getLogger().info({ mac }, "portal password accepted");
       return { ok: true };
     },
 
-    async authorize({ mac }) {
+    async authorize({ mac, password }) {
+      // Re-verify server-side: authorize must never be reachable without a
+      // correct password, regardless of what the client claims to have
+      // checked (any guest-SSID device can call this procedure directly).
+      await verifyPassword(password);
       const current = now();
       const expiresAtUtc = new Date(current.getTime() + AUTHORIZATION_MS);
       // DB is the source of truth: upsert keeps exactly one row per mac (idempotent).

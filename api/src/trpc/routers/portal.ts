@@ -64,9 +64,13 @@ export const portalRouter = router({
     .output(z.object({ ok: z.literal(true) }))
     .mutation(({ input }) => mapErrors(() => portalService.checkPassword(input))),
 
-  /** Grant the device 30 days of internet (idempotent, keyed by MAC). */
+  /**
+   * Grant the device 30 days of internet (idempotent, keyed by MAC). Re-verifies
+   * the password server-side (same check + rate limit as checkPassword) so a
+   * guest-SSID device can't call this directly without ever passing the gate.
+   */
   authorize: publicProcedure
-    .input(z.object({ mac: macSchema }))
+    .input(z.object({ mac: macSchema, password: z.string() }))
     .output(z.object({ authorized: z.literal(true) }))
     .mutation(({ input }) => mapErrors(() => portalService.authorize(input))),
 

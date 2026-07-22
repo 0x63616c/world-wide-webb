@@ -143,10 +143,10 @@ describe("portal global daily wrong-attempt limit (www-p9hx)", () => {
   });
 });
 
-describe("portal.authorize (idempotent, mac-only)", () => {
+describe("portal.authorize (idempotent, password-verified)", () => {
   it("authorizes the device via UniFi with minutes=43200 and writes a 30-day DB row", async () => {
     const { svc, db, unifi, clock } = setup();
-    const res = await svc.authorize({ mac: MAC });
+    const res = await svc.authorize({ mac: MAC, password: PW });
     expect(res.authorized).toBe(true);
     expect(unifi.authorizeCalls).toEqual([{ mac: MAC, minutes: 43200 }]);
     const row = db.findAuthorization(MAC);
@@ -157,10 +157,54 @@ describe("portal.authorize (idempotent, mac-only)", () => {
 
   it("re-submitting does not double-authorize (one row per mac; idempotent)", async () => {
     const { svc, db, unifi } = setup();
-    await svc.authorize({ mac: MAC });
-    await svc.authorize({ mac: MAC });
+    await svc.authorize({ mac: MAC, password: PW });
+    await svc.authorize({ mac: MAC, password: PW });
     expect(db.authorizationCount(MAC)).toBe(1);
     expect(unifi.authorizeCalls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("rejects a wrong password as WrongPassword and grants nothing (server-side re-verification)", async () => {
+    const { svc, db, unifi } = setup();
+    await expect(svc.authorize({ mac: MAC, password: "nope" })).rejects.toMatchObject({
+      code: PortalErrorCode.WrongPassword,
+    });
+    expect(db.findAuthorization(MAC)).toBeUndefined();
+    expect(unifi.authorizeCalls).toEqual([]);
+  });
+
+  it("throws NotConfigured when the WiFi password is unconfigured, granting nothing", async () => {
+    const { svc, db, unifi } = setup({ wifiPassword: "" });
+    await expect(svc.authorize({ mac: MAC, password: "anything" })).rejects.toMatchObject({
+      code: PortalErrorCode.NotConfigured,
+    });
+    expect(db.findAuthorization(MAC)).toBeUndefined();
+    expect(unifi.authorizeCalls).toEqual([]);
+  });
+
+  it("shares the global rate limit with checkPassword: wrong authorize attempts count toward the cap", async () => {
+    const { svc, db } = setup();
+    for (let i = 0; i < 999; i++) {
+      await svc.authorize({ mac: MAC, password: "wrong" }).catch(() => {});
+    }
+    expect(db.wrongAttemptsToday()).toBe(999);
+    // The 1000th wrong attempt (via authorize) flips to RateLimited.
+    await expect(svc.authorize({ mac: MAC, password: "wrong" })).rejects.toMatchObject({
+      code: PortalErrorCode.RateLimited,
+    });
+    // Even the correct password is now locked out for the rest of the UTC day.
+    await expect(svc.authorize({ mac: MAC, password: PW })).rejects.toMatchObject({
+      code: PortalErrorCode.RateLimited,
+    });
+  });
+
+  it("cannot be brute-forced past checkPassword's cap: wrong checkPassword attempts also lock authorize", async () => {
+    const { svc } = setup();
+    for (let i = 0; i < 1000; i++) {
+      await svc.checkPassword({ mac: MAC, password: "wrong" }).catch(() => {});
+    }
+    await expect(svc.authorize({ mac: MAC, password: PW })).rejects.toMatchObject({
+      code: PortalErrorCode.RateLimited,
+    });
   });
 });
 
@@ -172,20 +216,20 @@ describe("portal.status", () => {
 
   it("returns 'active' (AlreadyConnected) for a live authorization", async () => {
     const { svc } = setup();
-    await svc.authorize({ mac: MAC });
+    await svc.authorize({ mac: MAC, password: PW });
     await expect(svc.status({ mac: MAC })).resolves.toMatchObject({ state: "active" });
   });
 
   it("returns 'expired' (SessionExpired) when the 30-day window lapsed", async () => {
     const { svc, clock } = setup();
-    await svc.authorize({ mac: MAC });
+    await svc.authorize({ mac: MAC, password: PW });
     clock.advance(31 * 86_400_000); // 31 days
     await expect(svc.status({ mac: MAC })).resolves.toMatchObject({ state: "expired" });
   });
 
   it("heals the controller: an active DB row with no controller grant re-fires authorizeGuest", async () => {
     const { svc, unifi } = setup();
-    await svc.authorize({ mac: MAC });
+    await svc.authorize({ mac: MAC, password: PW });
     unifi.setActive(null); // controller lost the grant (reboot)
     const callsBefore = unifi.authorizeCalls.length;
     await svc.status({ mac: MAC });
