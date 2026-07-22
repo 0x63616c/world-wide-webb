@@ -13,17 +13,12 @@
  * on this count (rather than on `activeModal`) closes that hole for every modal.
  */
 
-import { useSyncExternalStore } from "react";
+import { createStore, useStore } from "./store";
 
-let openCount = 0;
-const listeners = new Set<() => void>();
+const store = createStore(0);
 // Dismissers for the currently-open modals, in registration order. Only modals
 // that opt in (by passing onDismiss) appear here — see dismissAllModals.
 const dismissers = new Set<() => void>();
-
-function emit() {
-  for (const listener of listeners) listener();
-}
 
 /**
  * Mark a modal as open. Call on mount/open and invoke the returned disposer on
@@ -36,16 +31,14 @@ function emit() {
  * for its duration).
  */
 export function registerOpenModal(onDismiss?: () => void): () => void {
-  openCount += 1;
   if (onDismiss) dismissers.add(onDismiss);
-  emit();
+  store.set((count) => count + 1);
   let released = false;
   return () => {
     if (released) return; // idempotent: a double-cleanup must not underflow
     released = true;
-    openCount -= 1;
     if (onDismiss) dismissers.delete(onDismiss);
-    emit();
+    store.set((count) => count - 1);
   };
 }
 
@@ -71,16 +64,7 @@ export function hasDismissableModal(): boolean {
   return dismissers.size > 0;
 }
 
-function subscribe(callback: () => void): () => void {
-  listeners.add(callback);
-  return () => listeners.delete(callback);
-}
-
-function getSnapshot(): number {
-  return openCount;
-}
-
 /** True while one or more modals are open. Drives the board's pan freeze. */
 export function useAnyModalOpen(): boolean {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot) > 0;
+  return useStore(store) > 0;
 }
