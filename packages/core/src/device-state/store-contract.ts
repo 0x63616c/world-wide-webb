@@ -173,6 +173,29 @@ export function runDeviceStateStoreContract(
       expect(row?.desiredAtUtc).toBeNull();
     });
 
+    it("mirror: stamps desiredAtUtc only, when only `desired` is provided (no `reported`)", async () => {
+      const store = await freshStore();
+      const now = new Date("2026-01-01T00:00:00Z");
+
+      await store.seed({
+        id: "lgt_seeded",
+        kind: DeviceKind.Light,
+        entityId: "light.seeded",
+        domain: "light",
+        label: "Seeded",
+        desired: { on: false },
+        available: true,
+        now,
+      });
+
+      const row = await store.read("lgt_seeded");
+      expect(row?.desiredState).toEqual({ on: false });
+      expect(row?.desiredAtUtc).toEqual(now);
+      // No `reported` given → reportedState/reportedAtUtc stay null.
+      expect(row?.reportedState).toBeNull();
+      expect(row?.reportedAtUtc).toBeNull();
+    });
+
     it("is a no-op when the entityId already exists (first write wins)", async () => {
       const store = await freshStore();
       await store.seed({

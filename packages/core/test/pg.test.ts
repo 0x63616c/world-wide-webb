@@ -268,6 +268,28 @@ describe("seed", () => {
     expect(row.desiredState).toBeNull();
     expect(row.desiredAtUtc).toBeNull();
   });
+
+  it("mirror: stamps only desiredAtUtc when only desired is provided (no reported)", async () => {
+    const { values } = insertChain();
+    const db = { insert: vi.fn().mockReturnValue({ values }) } as unknown as FakeDb;
+    const now = new Date("2026-01-01T00:00:00Z");
+
+    await createPgDeviceStateStore(db).seed({
+      id: "lgt_seeded",
+      kind: DeviceKind.Light,
+      entityId: "light.seeded",
+      domain: "light",
+      label: "Seeded",
+      desired: { on: false },
+      available: true,
+      now,
+    });
+
+    const row = values.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(row.desiredAtUtc).toEqual(now);
+    expect(row.reportedState).toBeNull();
+    expect(row.reportedAtUtc).toBeNull();
+  });
 });
 
 // ─── upsertDesired ─────────────────────────────────────────────────────────

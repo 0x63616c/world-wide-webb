@@ -347,33 +347,50 @@ describe("runClimateEnforcerCycle", () => {
     // Routed through writeReported's adoptDesired (controller-approved www-dnpj
     // deviation): the self-heal now also bumps desiredAtUtc, which is fine ,
     // nothing enforcement-critical reads it (the command window uses
-    // desiredUntilUtc), and the heal only fires on pre-fix rows.
+    // desiredUntilUtc), and the heal only fires on pre-fix rows. Pin the clock so
+    // the bump is asserted precisely, not just "probably later".
     const store = createInMemoryDeviceStateStore();
-    await store.seed({
-      id: CLIMATE_DEVICE_ID,
-      kind: DeviceKind.Climate,
-      entityId: "climate.home",
-      domain: "climate",
-      label: "Thermostat",
-      desired: { mode: "cool", target: 72, fanMode: "on", ambient: 71, action: "cooling" },
-      reported: { mode: "cool", target: 72, fanMode: "auto", ambient: 73, action: "cooling" },
-      available: true,
-    });
-    mockGetEntities.mockResolvedValue([
-      haClimate({
-        current_temperature: 73,
-        temperature: 72,
-        fan_mode: "auto",
-        hvac_action: "cooling",
-      }),
-    ]);
+    const seededAt = new Date("2026-01-01T00:00:00Z");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(seededAt);
+    try {
+      await store.seed({
+        id: CLIMATE_DEVICE_ID,
+        kind: DeviceKind.Climate,
+        entityId: "climate.home",
+        domain: "climate",
+        label: "Thermostat",
+        desired: { mode: "cool", target: 72, fanMode: "on", ambient: 71, action: "cooling" },
+        reported: { mode: "cool", target: 72, fanMode: "auto", ambient: 73, action: "cooling" },
+        available: true,
+      });
+      const before = await store.read(CLIMATE_DEVICE_ID);
+      expect(before?.desiredAtUtc).toEqual(seededAt);
 
-    await runClimateEnforcerCycle(store);
+      const healedAt = new Date("2026-01-01T00:05:00Z");
+      vi.setSystemTime(healedAt);
+      mockGetEntities.mockResolvedValue([
+        haClimate({
+          current_temperature: 73,
+          temperature: 72,
+          fan_mode: "auto",
+          hvac_action: "cooling",
+        }),
+      ]);
 
-    // Converged on commandable fields (fan yielded while cooling) → no actuation.
-    expect(mockCallService).not.toHaveBeenCalled();
-    const row = await store.read(CLIMATE_DEVICE_ID);
-    expect(row?.desiredState).toEqual({ mode: "cool", target: 72, fanMode: "on" });
+      await runClimateEnforcerCycle(store);
+
+      // Converged on commandable fields (fan yielded while cooling) → no actuation.
+      expect(mockCallService).not.toHaveBeenCalled();
+      const row = await store.read(CLIMATE_DEVICE_ID);
+      expect(row?.desiredState).toEqual({ mode: "cool", target: 72, fanMode: "on" });
+      // The self-heal write bumped desiredAtUtc to this cycle's clock , if the
+      // adoptDesired routing regresses to a bare desiredState write (or is
+      // dropped), this stays pinned at seededAt and the assertion fails.
+      expect(row?.desiredAtUtc).toEqual(healedAt);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("pushes desired→HA on drift inside the command window (set_hvac_mode + set_temperature + set_fan_mode)", async () => {
