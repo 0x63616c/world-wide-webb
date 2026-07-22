@@ -20,7 +20,10 @@ function windowEnd(now: Date, windowMs: number | undefined): Date {
 }
 
 /** The minimal structural surface this adapter needs from a drizzle db instance. */
-export type PgDeviceStateDb = NodePgDatabase<Record<string, unknown>>;
+export type PgDeviceStateDb = Pick<
+  NodePgDatabase<Record<string, unknown>>,
+  "select" | "insert" | "update"
+>;
 
 /** A pg-backed `DeviceStateStore` over the shared `device_state` table (drizzle). */
 export function createPgDeviceStateStore(db: PgDeviceStateDb): DeviceStateStore {

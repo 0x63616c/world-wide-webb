@@ -21,13 +21,12 @@ vi.mock("drizzle-orm", async (importOriginal) => {
 });
 
 import { and, eq, inArray, isNotNull, lt } from "drizzle-orm";
-import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import { COMMAND_WINDOW_MS } from "../src/device-state/command-window";
-import { createPgDeviceStateStore } from "../src/device-state/pg";
+import { createPgDeviceStateStore, type PgDeviceStateDb } from "../src/device-state/pg";
 import { DeviceKind, deviceState } from "../src/device-state/schema";
 
-type FakeDb = NodePgDatabase<Record<string, unknown>>;
+type FakeDb = PgDeviceStateDb;
 
 // ─── chain builders ────────────────────────────────────────────────────────
 
