@@ -8,30 +8,18 @@
  * open-settings-store pattern.
  */
 
-import { useSyncExternalStore } from "react";
+import { createStore, useStore } from "./store";
 
-let open = false;
-const listeners = new Set<() => void>();
-
-function emit(): void {
-  for (const listener of listeners) listener();
-}
+const store = createStore(false);
 
 export function openGuestWifiModal(): void {
-  open = true;
-  emit();
+  store.set(true);
 }
 
 export function closeGuestWifiModal(): void {
-  open = false;
-  emit();
-}
-
-function subscribe(callback: () => void): () => void {
-  listeners.add(callback);
-  return () => listeners.delete(callback);
+  store.set(false);
 }
 
 export function useGuestWifiModalOpen(): boolean {
-  return useSyncExternalStore(subscribe, () => open);
+  return useStore(store);
 }
