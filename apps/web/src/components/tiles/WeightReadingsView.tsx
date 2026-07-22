@@ -13,7 +13,7 @@ import { ConfirmDialog, OverflowMenu, Pill, PillTone, Skeleton, TileStatus } fro
  * collapsed by default, because the readings are evidence you go looking for,
  * not the headline.
  *
- * Down is green and up is red throughout, on the weight-loss reading of the
+ * Down is green and up is amber throughout, on the weight-loss reading of the
  * data; that colour rule is the only place this component editorialises.
  *
  * Grouping and labelling happen upstream in the wiring layer, which owns the
@@ -86,7 +86,7 @@ function signed(n: number): string {
   return `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n).toFixed(1)}`;
 }
 
-/** Down is good, up is bad — green and red respectively. */
+/** Down is good, up is bad — green and amber respectively. */
 function deltaColor(n: number): string {
   if (n < 0) return "var(--green)";
   // Amber, not red: --red is the error/failure colour, and a 0.2 lb overnight
