@@ -33,8 +33,8 @@
  * reload, NO cue evaluation , the writing tab already cued).
  */
 
-import { useSyncExternalStore } from "react";
 import { playCue, warmAudio } from "../sound";
+import { createStore, useStoreSelector } from "../store";
 import { computeNextFireAtMs, validRepeatDays } from "./pure";
 import { onExternalWrite, readJson, writeJson } from "./storage";
 import { startTicks } from "./ticker";
@@ -48,29 +48,10 @@ const FIRE_AUTO_STOP_MS = 10 * 60_000;
 
 // ─── singleton state ──────────────────────────────────────────────────────────
 
-type Listener = () => void;
-const listeners = new Set<Listener>();
-let state: AlarmStoreState = { alarms: [], firing: null };
+const store = createStore<AlarmStoreState>({ alarms: [], firing: null });
 /** Last fire-cue instant , transient, not persisted (a reload restarts the
  *  5 s cadence from load time). */
 let lastFireCueAtMs = 0;
-
-function subscribe(cb: Listener): () => void {
-  listeners.add(cb);
-  return () => listeners.delete(cb);
-}
-
-function alarmsSnapshot(): AlarmRecord[] {
-  return state.alarms;
-}
-
-function firingSnapshot(): AlarmStoreState["firing"] {
-  return state.firing;
-}
-
-function emit(): void {
-  for (const cb of listeners) cb();
-}
 
 // ─── best-effort localStorage IO (shared seam: ./storage) ─────────────────────
 
@@ -108,8 +89,8 @@ function loadStored(): AlarmStoreState {
   return { alarms, firing };
 }
 
-function persist(): void {
-  writeJson(STORAGE_KEY, { v: 1, alarms: state.alarms, firing: state.firing });
+function persist(s: AlarmStoreState): void {
+  writeJson(STORAGE_KEY, { v: 1, alarms: s.alarms, firing: s.firing });
 }
 
 // ─── shared tick ──────────────────────────────────────────────────────────────
@@ -118,6 +99,7 @@ let releaseTick: (() => void) | null = null;
 
 /** A ticker handle is held whenever ≥1 ENABLED alarm exists or one is firing. */
 function tickerNeeded(): boolean {
+  const state = store.get();
   return state.firing !== null || state.alarms.some((a) => a.enabled);
 }
 
@@ -138,6 +120,7 @@ function rollPastFire(alarm: AlarmRecord, nowMs: number): AlarmRecord {
 }
 
 function tick(nowMs: number): void {
+  let state = store.get();
   let changed = false;
 
   // Ring-until-dismissed nag / auto-stop.
@@ -172,8 +155,8 @@ function tick(nowMs: number): void {
   }
 
   if (changed) {
-    persist();
-    emit();
+    persist(state);
+    store.set(state);
     syncTicker();
   }
 }
@@ -198,29 +181,28 @@ function boot(nowMs: number): void {
     // Beyond the grace window: resolve silently, no 24-h-late blares.
     return rollPastFire(a, nowMs);
   });
-  state = { alarms, firing };
+  const state: AlarmStoreState = { alarms, firing };
   if (fired) {
     lastFireCueAtMs = nowMs;
     playCue("alarmFire");
   }
-  persist();
+  persist(state);
+  store.set(state);
   syncTicker();
 }
 
 boot(Date.now());
 
 onExternalWrite(STORAGE_KEY, () => {
-  state = loadStored();
-  emit();
+  store.set(loadStored());
   syncTicker();
 });
 
 // ─── setters (module-level, stable) ───────────────────────────────────────────
 
 function mutate(next: AlarmStoreState): void {
-  state = next;
-  persist();
-  emit();
+  persist(next);
+  store.set(next);
   syncTicker();
 }
 
@@ -258,6 +240,7 @@ export function addAlarm(input: AlarmInput): void {
     nextFireAtMs: 0,
   };
   alarm.nextFireAtMs = computeNextFireAtMs(alarm, now);
+  const state = store.get();
   mutate({ ...state, alarms: [...state.alarms, alarm] });
 }
 
@@ -266,6 +249,7 @@ export function updateAlarm(
   patch: Partial<Pick<AlarmRecord, "label" | "hour" | "minute" | "repeatDays" | "enabled">>,
 ): void {
   warmAudio();
+  const state = store.get();
   if (!state.alarms.some((a) => a.id === id)) return;
   const now = Date.now();
   mutate({
@@ -287,6 +271,7 @@ export function updateAlarm(
 
 export function deleteAlarm(id: string): void {
   warmAudio();
+  const state = store.get();
   if (!state.alarms.some((a) => a.id === id)) return;
   mutate({
     alarms: state.alarms.filter((a) => a.id !== id),
@@ -296,6 +281,7 @@ export function deleteAlarm(id: string): void {
 
 export function toggleAlarm(id: string, enabled: boolean): void {
   warmAudio();
+  const state = store.get();
   if (!state.alarms.some((a) => a.id === id)) return;
   const now = Date.now();
   mutate({
@@ -312,6 +298,7 @@ export function toggleAlarm(id: string, enabled: boolean): void {
 /** Stop the ringing (the alarm itself already rolled/disabled at fire time). */
 export function dismissAlarmFiring(): void {
   warmAudio();
+  const state = store.get();
   if (state.firing === null) return;
   mutate({ ...state, firing: null });
 }
@@ -319,27 +306,26 @@ export function dismissAlarmFiring(): void {
 // ─── hooks ────────────────────────────────────────────────────────────────────
 
 export function useAlarms(): AlarmRecord[] {
-  return useSyncExternalStore(subscribe, alarmsSnapshot, alarmsSnapshot);
+  return useStoreSelector(store, (s) => s.alarms);
 }
 
 export function useAlarmFiring(): AlarmStoreState["firing"] {
-  return useSyncExternalStore(subscribe, firingSnapshot, firingSnapshot);
+  return useStoreSelector(store, (s) => s.firing);
 }
 
 // ─── test seam ────────────────────────────────────────────────────────────────
 
 /** @public , test seam (vitest): the live state without a React render. */
 export function _alarmStateForTests(): AlarmStoreState {
-  return state;
+  return store.get();
 }
 
 /** @public , test seam (vitest); intentionally unused in app code. */
 export function resetAlarmsForTests(): void {
-  state = { alarms: [], firing: null };
+  store.set({ alarms: [], firing: null });
   lastFireCueAtMs = 0;
   if (releaseTick !== null) {
     releaseTick();
     releaseTick = null;
   }
-  emit();
 }
