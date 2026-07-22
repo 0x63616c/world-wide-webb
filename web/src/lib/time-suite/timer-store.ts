@@ -24,8 +24,8 @@
  * evaluation), so the non-writing tab follows along without double cues.
  */
 
-import { useSyncExternalStore } from "react";
 import { playCue, warmAudio } from "../sound";
+import { createStore, useStore, useStoreSelector } from "../store";
 import { onExternalWrite, readJson, writeJson } from "./storage";
 import { startTicks } from "./ticker";
 import { BOOT_GRACE_MS, type TimerRecord } from "./types";
@@ -38,25 +38,10 @@ const NAG_AUTO_SILENCE_MS = 5 * 60_000;
 
 // ─── singleton state ──────────────────────────────────────────────────────────
 
-type Listener = () => void;
-const listeners = new Set<Listener>();
-let timers: TimerRecord[] = [];
+const store = createStore<TimerRecord[]>([]);
 /** Last nag-cue instant per timer , transient, deliberately NOT persisted
  *  (a reload just restarts the 8 s cadence from load time). */
 const lastCueAtMs = new Map<string, number>();
-
-function subscribe(cb: Listener): () => void {
-  listeners.add(cb);
-  return () => listeners.delete(cb);
-}
-
-function getSnapshot(): TimerRecord[] {
-  return timers;
-}
-
-function emit(): void {
-  for (const cb of listeners) cb();
-}
 
 // ─── best-effort localStorage IO (shared seam: ./storage) ─────────────────────
 
@@ -86,7 +71,7 @@ function loadTimers(): TimerRecord[] {
   return list.filter(isTimerRecord);
 }
 
-function persistTimers(): void {
+function persistTimers(timers: TimerRecord[]): void {
   writeJson(STORAGE_KEY, { v: 1, timers });
 }
 
@@ -96,7 +81,7 @@ let releaseTick: (() => void) | null = null;
 
 /** A ticker handle is held only while ≥1 timer is running OR a nag is live. */
 function tickerNeeded(): boolean {
-  return timers.some((t) => t.state === "running" || (t.state === "done" && !t.dismissedCue));
+  return store.get().some((t) => t.state === "running" || (t.state === "done" && !t.dismissedCue));
 }
 
 function syncTicker(): void {
@@ -110,7 +95,7 @@ function syncTicker(): void {
 
 function tick(nowMs: number): void {
   let changed = false;
-  timers = timers.map((t) => {
+  const timers = store.get().map((t) => {
     // Deadline crossing: exactly one initial cue, then the nag takes over.
     if (t.state === "running" && t.endsAtMs !== null && t.endsAtMs <= nowMs) {
       changed = true;
@@ -134,8 +119,8 @@ function tick(nowMs: number): void {
   // Persist + emit on state TRANSITIONS only , steady ticks (and nag replays)
   // write nothing, so a running timer costs zero storage churn.
   if (changed) {
-    persistTimers();
-    emit();
+    persistTimers(timers);
+    store.set(timers);
     syncTicker();
   }
 }
@@ -147,7 +132,7 @@ function tick(nowMs: number): void {
  *  a deploy reload alone restarts ticking with no user mutation. */
 function bootResume(nowMs: number): void {
   let changed = false;
-  timers = loadTimers().map((t) => {
+  const timers = loadTimers().map((t) => {
     if (t.state === "running" && t.endsAtMs !== null && t.endsAtMs <= nowMs) {
       changed = true;
       const done = {
@@ -176,7 +161,8 @@ function bootResume(nowMs: number): void {
     }
     return t;
   });
-  if (changed) persistTimers();
+  store.set(timers);
+  if (changed) persistTimers(timers);
   syncTicker();
 }
 
@@ -185,21 +171,20 @@ bootResume(Date.now());
 // Cross-tab follow (single-tab kiosk assumption above): reload state on an
 // external write, with NO cue evaluation , the writing tab already cued.
 onExternalWrite(STORAGE_KEY, () => {
-  timers = loadTimers();
-  emit();
+  store.set(loadTimers());
   syncTicker();
 });
 
 // ─── setters (module-level, stable) ───────────────────────────────────────────
 
 function mutate(next: TimerRecord[]): void {
-  timers = next;
-  persistTimers();
-  emit();
+  persistTimers(next);
+  store.set(next);
   syncTicker();
 }
 
 function patchTimer(id: string, patch: (t: TimerRecord) => TimerRecord): void {
+  const timers = store.get();
   if (!timers.some((t) => t.id === id)) return;
   mutate(timers.map((t) => (t.id === id ? patch(t) : t)));
 }
@@ -221,7 +206,7 @@ export function addTimer(durationMs: number, label?: string): void {
     dismissedCue: false,
     createdAtMs: now,
   };
-  mutate([...timers, timer]);
+  mutate([...store.get(), timer]);
 }
 
 export function pauseTimer(id: string): void {
@@ -244,6 +229,7 @@ export function resumeTimer(id: string): void {
 
 export function deleteTimer(id: string): void {
   warmAudio();
+  const timers = store.get();
   if (!timers.some((t) => t.id === id)) return;
   lastCueAtMs.delete(id);
   mutate(timers.filter((t) => t.id !== id));
@@ -253,6 +239,7 @@ export function deleteTimer(id: string): void {
  *  removed via deleteTimer. */
 export function dismissTimer(id: string): void {
   warmAudio();
+  const timers = store.get();
   const timer = timers.find((t) => t.id === id);
   if (timer === undefined || timer.state !== "done") return;
   lastCueAtMs.delete(id);
@@ -282,29 +269,26 @@ export function restartTimer(id: string): void {
 // ─── hooks ────────────────────────────────────────────────────────────────────
 
 export function useTimers(): TimerRecord[] {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-}
-
-function ringingSnapshot(): boolean {
-  return timers.some((t) => t.state === "done" && !t.dismissedCue);
+  return useStore(store);
 }
 
 /** True while any done timer is still un-dismissed (ringing/nagging). */
 export function useTimersRinging(): boolean {
-  return useSyncExternalStore(subscribe, ringingSnapshot, ringingSnapshot);
+  return useStoreSelector(store, (timers) =>
+    timers.some((t) => t.state === "done" && !t.dismissedCue),
+  );
 }
 
 // ─── test seams ───────────────────────────────────────────────────────────────
 
 /** @public , test seam (vitest); intentionally unused in app code. */
 export function resetTimersForTests(): void {
-  timers = [];
+  store.set([]);
   lastCueAtMs.clear();
   if (releaseTick !== null) {
     releaseTick();
     releaseTick = null;
   }
-  emit();
 }
 
 /** @public , test seam (vitest); intentionally unused in app code. */
@@ -314,5 +298,5 @@ export function _tickForTests(nowMs: number): void {
 
 /** @public , test seam (vitest): the live list without a React render. */
 export function _timersForTests(): TimerRecord[] {
-  return timers;
+  return store.get();
 }
