@@ -94,6 +94,10 @@
     {
       "includes": ["**/infra/unifi/program.ts", "**/infra/unifi/src/**"],
       "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
+    },
+    {
+      "includes": ["**/packages/core/test/pg-contract.test.ts"],
+      "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
     }
   ]
 }
