@@ -6,14 +6,11 @@
  * activity, so a plain browser / fresh boot just shows the normal empty copy.
  */
 
-import { useSyncExternalStore } from "react";
-import { getTail, subscribe } from "@/lib/log/logger";
+import { useLogTail } from "@/lib/log/useLogTail";
 import { summariseWakeCapture } from "@/lib/wake-log-summary";
 
 export function WakeCaptureDiagnostic() {
-  // useSyncExternalStore keeps this correct under concurrent React; getTail() is
-  // memoized behind a dirty flag so it is a stable snapshot per write.
-  const tail = useSyncExternalStore(subscribe, getTail);
+  const tail = useLogTail();
   const status = summariseWakeCapture(tail);
   if (!status) return null;
   return (

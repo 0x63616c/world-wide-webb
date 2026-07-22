@@ -29,11 +29,11 @@
  */
 
 import { Capacitor } from "@capacitor/core";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BUILD_HASH } from "../../config/build";
 import { getDeviceName } from "../../lib/device-name";
 import { fuzzyMatch } from "../../lib/log/fuzzy";
-import { flushNow, getTail, log, subscribe } from "../../lib/log/logger";
+import { flushNow, log } from "../../lib/log/logger";
 import {
   deleteExportFile,
   getExportFileUri,
@@ -43,6 +43,7 @@ import {
 import * as store from "../../lib/log/store";
 import { MAX_BYTES, MAX_ENTRIES } from "../../lib/log/store";
 import { LOG_LEVELS, type LogEntry, type LogLevel } from "../../lib/log/types";
+import { useLogTail } from "../../lib/log/useLogTail";
 import { formatSha } from "../../lib/short-sha";
 
 const ROW_HEIGHT = 26;
@@ -171,10 +172,9 @@ export interface LogsViewProps {
 }
 
 export function LogsView({ nativeExport = Capacitor.isNativePlatform() }: LogsViewProps = {}) {
-  // Live tail. useSyncExternalStore keeps this correct under concurrent React,
-  // and getTail() is memoized behind a dirty flag so this is not a re-render
-  // storm even while the app is logging steadily.
-  const tail = useSyncExternalStore(subscribe, getTail);
+  // Live tail , the shared ring seam (snapshot-correct under concurrent React,
+  // memoized behind a dirty flag, so no re-render storm while logging steadily).
+  const tail = useLogTail();
 
   // Levels are a SET, not a floor: on a polling dashboard the debug firehose is
   // what you want OFF while still seeing info, which "warn and above" cannot say.
