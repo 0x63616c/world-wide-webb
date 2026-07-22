@@ -13,6 +13,17 @@ const LightDomain = {
 } as const;
 type LightDomain = (typeof LightDomain)[keyof typeof LightDomain];
 
+// The house has exactly three rooms. Declared as a closed union so a typo or a
+// speculative fourth room fails to compile rather than silently creating an
+// orphan UI group. Sonos "rooms" are a DIFFERENT namespace (physical speaker
+// names, which include Desk and Bathroom) , do not conflate the two.
+export const Room = {
+  LivingRoom: "Living Room",
+  Kitchen: "Kitchen",
+  Bedroom: "Bedroom",
+} as const;
+export type Room = (typeof Room)[keyof typeof Room];
+
 export const LightKind = {
   Lamp: "lamp",
   Fixture: "fixture",
@@ -45,7 +56,7 @@ export interface LightEntry {
   entityId: string;
   domain: LightDomain;
   label: string;
-  room: string;
+  room: Room;
   kind: LightKind;
   capabilities: LightCapability[];
   // Optional: omitted means adopt (resolved via lightControl()). Only the Hue
@@ -111,7 +122,7 @@ export const LIGHTS: readonly LightEntry[] = [
     entityId: "light.desk",
     domain: "light",
     label: "Desk",
-    room: "Office",
+    room: "Living Room",
     kind: "lamp",
     capabilities: HUE_CAPABILITIES,
     // Hue: we win on drift so scenes/party persist (www-7d5b.2.1).

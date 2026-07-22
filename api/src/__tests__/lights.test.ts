@@ -7,6 +7,7 @@ import {
   LightControl,
   LightKind,
   lightControl,
+  Room,
 } from "../config/lights";
 
 describe("lights config", () => {
@@ -17,6 +18,22 @@ describe("lights config", () => {
     expect(desk?.kind).toBe(LightKind.Lamp);
     // Hue bulb , must advertise rgb so the scene/brightness controls reach it.
     expect(desk?.capabilities).toContain("rgb");
+  });
+});
+
+describe("rooms", () => {
+  it("places every light in one of the three house rooms", () => {
+    // The house has exactly three rooms. A light landing anywhere else would
+    // render as an orphan group in the UI, so the set is asserted closed here
+    // as well as enforced by the Room union at compile time.
+    const rooms = new Set(LIGHTS.map((l) => l.room));
+    expect([...rooms].sort()).toEqual(["Bedroom", "Kitchen", "Living Room"]);
+  });
+
+  it("keeps the desk lamp in the living room", () => {
+    // The desk sits in the living room , there is no separate office (the Sonos
+    // speaker named "Desk" is a device name, not a room).
+    expect(findLight("light.desk")?.room).toBe(Room.LivingRoom);
   });
 });
 
