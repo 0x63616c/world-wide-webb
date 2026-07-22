@@ -9,6 +9,7 @@
 
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 
+/** @public , callers build their menus from this shape. */
 export interface OverflowMenuItem {
   key: string;
   label: ReactNode;

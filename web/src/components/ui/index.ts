@@ -28,6 +28,8 @@ export { Field, fieldErrorId } from "./Field";
 /** @public , shared tile-author primitive surface; kept though no internal consumer yet (www-k6p1). */
 export type { ModalProps } from "./Modal";
 export { Modal } from "./Modal";
+/** @public , shared tile-author primitive surface; row menus elsewhere will
+ *  declare their items with these types. */
 export type { OverflowMenuItem, OverflowMenuProps } from "./OverflowMenu";
 export { OverflowMenu } from "./OverflowMenu";
 export { PageHeader } from "./PageHeader";
