@@ -52,6 +52,8 @@ export const Populated: Story = {
     expect(canvas.getByText("180.1")).toBeInTheDocument();
     expect(canvas.getByText("Today")).toBeInTheDocument();
     expect(canvas.getByText(/6\.1 lb \/ 30d/)).toBeInTheDocument();
+    // A real series keeps the latest-point marker.
+    expect(canvas.getByTestId("weight-spark-dot")).toBeInTheDocument();
   },
 };
 
@@ -80,7 +82,8 @@ export const Empty: Story = {
   },
 };
 
-// A single weigh-in: no delta window yet, spark of one point.
+// A single weigh-in: no delta window yet, and no sparkline — one point is not a
+// trend, so the chart area stays empty rather than showing a lone floating dot.
 export const FirstReading: Story = {
   args: {
     status: "populated",
@@ -92,6 +95,9 @@ export const FirstReading: Story = {
     const canvas = within(canvasElement);
     expect(canvas.getByText("180.1")).toBeInTheDocument();
     expect(canvas.queryByText(/30d/)).not.toBeInTheDocument();
+    expect(canvas.queryByTestId("weight-spark-dot")).not.toBeInTheDocument();
+    // The chart box is still reserved, so the hero number stays bottom-aligned.
+    expect(canvas.getByTestId("weight-spark")).toBeInTheDocument();
   },
 };
 

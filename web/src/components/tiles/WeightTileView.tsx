@@ -101,7 +101,12 @@ export function WeightTileView(props: WeightTileViewProps) {
     return <WeightSkeleton />;
   }
 
-  const pts = linePoints(spark, SPARK_W, SPARK_H);
+  // One data point is not a trend: the path degenerates to a bare moveto, so the
+  // line is invisible and the latest-point dot floats alone against an empty
+  // box. Reserve the space (keeps the hero number pinned to the bottom) and
+  // draw nothing until there are 2+ days — same rule as the delta badge.
+  const hasTrend = spark.length >= 2;
+  const pts = hasTrend ? linePoints(spark, SPARK_W, SPARK_H) : [];
   const last = pts[pts.length - 1];
 
   return (
@@ -120,34 +125,39 @@ export function WeightTileView(props: WeightTileViewProps) {
           justifyContent: "space-between",
         }}
       >
-        <div style={{ position: "relative" }}>
-          <svg
-            viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
-            preserveAspectRatio="none"
-            style={{ width: "100%", height: SPARK_H, display: "block" }}
-            aria-hidden="true"
-          >
-            <path
-              d={pathFrom(pts)}
-              fill="none"
-              stroke="var(--acc)"
-              strokeWidth={2}
-              strokeLinejoin="round"
-            />
-          </svg>
-          {/* Latest-point dot drawn outside the stretched svg so it stays round */}
-          {last && (
-            <span
-              style={{
-                position: "absolute",
-                right: 4,
-                bottom: SPARK_H - last.y - 4,
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                background: "var(--acc)",
-              }}
-            />
+        <div style={{ position: "relative", height: SPARK_H }} data-testid="weight-spark">
+          {hasTrend && (
+            <>
+              <svg
+                viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+                preserveAspectRatio="none"
+                style={{ width: "100%", height: SPARK_H, display: "block" }}
+                aria-hidden="true"
+              >
+                <path
+                  d={pathFrom(pts)}
+                  fill="none"
+                  stroke="var(--acc)"
+                  strokeWidth={2}
+                  strokeLinejoin="round"
+                />
+              </svg>
+              {/* Latest-point dot drawn outside the stretched svg so it stays round */}
+              {last && (
+                <span
+                  data-testid="weight-spark-dot"
+                  style={{
+                    position: "absolute",
+                    right: 4,
+                    bottom: SPARK_H - last.y - 4,
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    background: "var(--acc)",
+                  }}
+                />
+              )}
+            </>
           )}
         </div>
         {/* lineHeight 1 — the 40px mono's default leading otherwise pads the
