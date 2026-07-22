@@ -5,7 +5,7 @@
  * keep the bare short sha (a field value, not a label), so use `shortSha` there
  * and `formatSha` for anything a human reads on screen.
  */
-export const SHORT_SHA_LEN = 7;
+const SHORT_SHA_LEN = 7;
 
 /** Bare abbreviated sha, no marker. For log fields and keys. */
 export function shortSha(hash: string): string {
