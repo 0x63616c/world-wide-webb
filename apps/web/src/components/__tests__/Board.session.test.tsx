@@ -61,9 +61,21 @@ vi.mock("../../lib/brightness", () => ({
   wakeTo: vi.fn(() => Promise.resolve()),
 }));
 vi.mock("../../lib/wake-capture", () => ({ captureWakeBurst: vi.fn() }));
+// jsdom has no AudioContext; the alarm tests below drive the real alarm store,
+// whose fire path plays cues through the sound bus.
+vi.mock("../../lib/sound", () => ({
+  playCue: vi.fn(),
+  warmAudio: vi.fn(),
+  useSoundReady: () => true,
+}));
 
 import { __resetSessionForTests, panelSession } from "../../lib/panel-session";
 import { resetSettings, setIdleDimEnabled, setIdleDimTimeoutMs } from "../../lib/settings";
+import {
+  addAlarm,
+  dismissAlarmFiring,
+  resetAlarmsForTests,
+} from "../../lib/time-suite/alarm-store";
 import { Board } from "../Board";
 
 beforeEach(() => {
@@ -175,6 +187,64 @@ describe("Board panel-session wiring", () => {
     });
     expect(screen.queryByTestId("dim-overlay")).toBeNull();
     expect(panelSession.phase()).toBe("active");
+  });
+
+  // Alarm-ring coupling (plan addendum): drive the REAL alarm store with fake
+  // timers. Alarms fire on minute boundaries, so tests pin the clock to a fixed
+  // whole minute and use a 90s session timeout to keep the two clocks distinct.
+  describe("alarm-ring coupling", () => {
+    const RING_TIMEOUT_MS = 90_000;
+
+    beforeEach(() => {
+      vi.setSystemTime(new Date(2026, 0, 1, 10, 0, 0));
+      resetAlarmsForTests();
+      setIdleDimTimeoutMs(RING_TIMEOUT_MS);
+    });
+
+    afterEach(() => {
+      resetAlarmsForTests();
+    });
+
+    it("a ringing alarm holds the session open past the timeout; dismissal releases it", () => {
+      render(<Board />);
+      // Fires at 10:01:00, 60s in.
+      act(() => addAlarm({ hour: 10, minute: 1 }));
+      act(() => {
+        vi.advanceTimersByTime(60_000);
+      });
+      // 150s since the last human touch (> 90s timeout), but the ring re-touches.
+      act(() => {
+        vi.advanceTimersByTime(RING_TIMEOUT_MS);
+      });
+      expect(screen.queryByTestId("dim-overlay")).toBeNull();
+      expect(panelSession.phase()).toBe("active");
+
+      act(() => dismissAlarmFiring());
+      act(() => {
+        vi.advanceTimersByTime(RING_TIMEOUT_MS);
+      });
+      expect(screen.queryByTestId("dim-overlay")).toBeTruthy();
+      expect(panelSession.phase()).toBe("ended");
+    });
+
+    it("an alarm firing while dimmed wakes the panel, still locked", () => {
+      render(<Board />);
+      act(() => panelSession.unlock());
+      act(() => {
+        vi.advanceTimersByTime(RING_TIMEOUT_MS);
+      });
+      expect(panelSession.phase()).toBe("ended");
+
+      // Now 10:01:30; the 10:03 alarm fires 90s later, mid-dim.
+      act(() => addAlarm({ hour: 10, minute: 3 }));
+      act(() => {
+        vi.advanceTimersByTime(90_000);
+      });
+      expect(screen.queryByTestId("dim-overlay")).toBeNull();
+      expect(panelSession.phase()).toBe("active");
+      // Wake, not unlock: the session relocked at end and stays locked.
+      expect(panelSession.isUnlocked()).toBe(false);
+    });
   });
 
   it("never ends the session while idle-dim is disabled", () => {

@@ -290,6 +290,36 @@ C8 (settings field-descriptor table) is DEFERRED by roadmap decision 15 until C4
 - [ ] **Step 1:** Update `CODEBASE_OVERVIEW.md` (store primitive, panel-session, board-camera, apps/ layout) + roadmap file (Track B status, C5/C6 order swap note, 5-not-7 catch count, layout decision 6 supersession note, C8 addendum pointer).
 - [ ] **Step 2:** Commit `docs: track B landed; C8 addendum pending`, push.
 
+## Addendum: alarm-ring session coupling (Calum approved 2026-07-22 evening)
+
+A RINGING alarm is **bounded** activity (10-min auto-stop in alarm-store), so treating
+it as session activity does not violate decision 4 — that decision targets unbounded
+holds (a 1000-hour kitchen timer). Two behaviors, one Board wiring effect:
+
+1. **Ring holds the session open**: while `useAlarmFiring()` is non-null, Board calls
+   `panelSession.touch()` immediately and on a 15s interval (safely under
+   `TIMEOUT_MIN_MS` 60s). Dismiss/auto-silence clears `firing` → interval stops → the
+   clock runs from the last touch, session ends normally.
+2. **Fire wakes a dimmed panel**: the same effect's immediate `touch()` flips an ended
+   session back to active; the Board brightness effect (keyed on phase) restores the
+   backlight, DimOverlay unmounts, and the TimeSuiteBanner ring surface is visible.
+   The session stays LOCKED (touch never unlocks). Logged as
+   `interaction("session", "wake", "alarm")`.
+
+Deliberate choices:
+- Wiring lives in Board (the session wiring point), NOT in alarm-store or
+  panel-session — stores stay decoupled; no idle-hold resurrection, no new
+  PanelSession API.
+- An alarm wake does NOT run `startInteractionSession`/`captureWakeBurst` — nobody
+  approached the panel. Known gap: a human arriving during a ring gets no wake burst
+  (phase already active, so the DimOverlay waker never fires); acceptable, ticket
+  later if it matters.
+- Timer "done" state is NOT coupled — alarms only (the approved scope).
+
+Tests: Board.session.test additions — fire-while-ended wakes (phase active +
+brightness restored), ringing holds past the timeout, dismissal lets the session end
+on the next timeout, session stays locked through an alarm wake.
+
 ## Self-Review Notes (author)
 
 - Spec coverage: hygiene strip (Tasks 1-5) ✔; C4 (6-7) ✔; C5 (9) ✔; C6 (8) ✔; C8 deferred by decision ✔; layout fold (10) per Calum's explicit reopen ✔.
