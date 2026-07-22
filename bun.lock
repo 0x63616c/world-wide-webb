@@ -83,10 +83,6 @@
         "vitest": "^3.2.4",
       },
     },
-    "ios": {
-      "name": "@control-center/ios",
-      "version": "0.0.0",
-    },
     "map-provision": {
       "name": "@control-center/map-provision",
       "version": "0.0.0",
@@ -484,8 +480,6 @@
     "@control-center/api": ["@control-center/api@workspace:api"],
 
     "@control-center/drizzle": ["@control-center/drizzle@workspace:drizzle"],
-
-    "@control-center/ios": ["@control-center/ios@workspace:ios"],
 
     "@control-center/map-provision": ["@control-center/map-provision@workspace:map-provision"],
 
