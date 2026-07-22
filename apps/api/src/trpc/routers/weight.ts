@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { getLogger } from "@www/logger";
 import { and, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -63,16 +64,21 @@ export function assembleDays(rows: DayRow[]) {
     });
     return {
       day,
-      medianKg: median(included.map((r) => r.weightKg)),
-      dayDeltaKg: null as number | null,
+      // null, not NaN, when every reading that day was excluded — median([])
+      // is NaN, and there is no superjson transformer on this router, so a
+      // NaN would silently serialise to `null` while the type still claimed
+      // `number` and the client would render "0.0 lb".
+      medianKg: included.length ? median(included.map((r) => r.weightKg)) : null,
       readings: withDeltas.reverse(),
     };
   });
 
   return days.map((d, i) => {
     const older = days[i + 1];
-    const comparable = older && Number.isFinite(d.medianKg) && Number.isFinite(older.medianKg);
-    return { ...d, dayDeltaKg: comparable ? d.medianKg - older.medianKg : null };
+    const dMedian = d.medianKg;
+    const olderMedian = older?.medianKg;
+    const dayDeltaKg = dMedian != null && olderMedian != null ? dMedian - olderMedian : null;
+    return { ...d, dayDeltaKg };
   });
 }
 
@@ -145,10 +151,15 @@ export const weightRouter = router({
         .orderBy(sql`1 desc`)
         .limit(input.limit + 1);
 
-      // The extra row tells us whether another page exists without a count(*).
+      // The extra row tells us whether another page exists without a count(*),
+      // AND doubles as delta context: without it, the oldest day of every page
+      // would have nothing to compare against and lose its day-over-day delta
+      // forever once the next page loads separately.
       const hasMore = dayRows.length > input.limit;
       const pageDays = dayRows.slice(0, input.limit).map((d) => d.day);
       if (pageDays.length === 0) return { days: [], nextCursor: null };
+      const contextDay = hasMore ? dayRows[input.limit]?.day : undefined;
+      const queryDays = contextDay ? [...pageDays, contextDay] : pageDays;
 
       const rows = await db
         .select({
@@ -159,11 +170,17 @@ export const weightRouter = router({
           excludedReason: weightMeasurement.excludedReason,
         })
         .from(weightMeasurement)
-        .where(and(notDeleted(), inArray(day, pageDays)))
+        .where(and(notDeleted(), inArray(day, queryDays)))
         .orderBy(desc(weightMeasurement.measuredAt));
 
+      const assembled = assembleDays(rows);
+      // The context day, if fetched, is the oldest and so always assembles
+      // last — drop it now that it has done its job of giving the last real
+      // page day a delta.
+      const days = contextDay ? assembled.slice(0, -1) : assembled;
+
       return {
-        days: assembleDays(rows),
+        days,
         nextCursor: hasMore ? (pageDays[pageDays.length - 1] ?? null) : null,
       };
     }),
@@ -183,10 +200,14 @@ export const weightRouter = router({
   // Tombstone, never a hard DELETE: ingest re-inserts any row it can still see
   // in the HA sensor's current state (weight-service.ts).
   delete: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
-    await db
+    const [deleted] = await db
       .update(weightMeasurement)
       .set({ deletedAt: new Date() })
-      .where(eq(weightMeasurement.id, input.id));
+      .where(and(eq(weightMeasurement.id, input.id), notDeleted()))
+      .returning({ id: weightMeasurement.id });
+    if (!deleted) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "weight measurement not found" });
+    }
     getLogger().info({ id: input.id }, "weight measurement deleted");
     return { ok: true } as const;
   }),

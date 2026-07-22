@@ -70,4 +70,57 @@ describe("assembleDays", () => {
     expect(today?.readings).toHaveLength(3);
     expect(today?.medianKg).toBeCloseTo(72.8);
   });
+
+  it("a day whose only reading is excluded has a null median, not NaN or 0", () => {
+    const allExcluded = [
+      {
+        id: "wm_guest",
+        day: "2026-07-22",
+        measuredAt: new Date("2026-07-22T15:00:00Z"),
+        weightKg: 95,
+        excludedReason: "sanity_band",
+      },
+      ...rows.filter((r) => r.day === "2026-07-21"),
+    ];
+    const days = assembleDays(allExcluded);
+    const today = days.find((d) => d.day === "2026-07-22");
+    expect(today?.medianKg).toBeNull();
+  });
+
+  it("a neighbour with a null median leaves dayDeltaKg null rather than NaN", () => {
+    const allExcluded = [
+      {
+        id: "wm_guest",
+        day: "2026-07-22",
+        measuredAt: new Date("2026-07-22T15:00:00Z"),
+        weightKg: 95,
+        excludedReason: "sanity_band",
+      },
+      ...rows.filter((r) => r.day === "2026-07-21"),
+    ];
+    const days = assembleDays(allExcluded);
+    const today = days.find((d) => d.day === "2026-07-22");
+    expect(today?.dayDeltaKg).toBeNull();
+  });
+
+  it("the oldest day fetched only as delta context still gives the last real day a delta", () => {
+    // Simulates the router fetching one extra (older) day beyond the page,
+    // purely so the last real day's delta isn't stranded at a page boundary.
+    const withContextDay = [
+      ...rows,
+      {
+        id: "wm_context",
+        day: "2026-07-20",
+        measuredAt: new Date("2026-07-20T15:40:00Z"),
+        weightKg: 73.4,
+        excludedReason: null,
+      },
+    ];
+    const days = assembleDays(withContextDay);
+    // 2026-07-21 is the last day of the "page"; 2026-07-20 is context-only.
+    const lastPageDay = days.find((d) => d.day === "2026-07-21");
+    expect(lastPageDay?.dayDeltaKg).toBeCloseTo(73.1 - 73.4);
+    // The context day itself is the last entry, ready for the caller to drop.
+    expect(days[days.length - 1]?.day).toBe("2026-07-20");
+  });
 });

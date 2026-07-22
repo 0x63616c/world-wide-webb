@@ -7,11 +7,21 @@
  * applies the correct UTC offset per row, which means DST transitions are
  * handled for free and no string interpolation ever touches the query.
  */
+import type { SQL } from "drizzle-orm";
 import { isNull, sql } from "drizzle-orm";
 import { weightMeasurement } from "../db/schema";
 
-/** Local calendar day of a reading, as YYYY-MM-DD in the caller's zone. */
-export function dayExpr(tz: string) {
+/**
+ * Local calendar day of a reading, as YYYY-MM-DD in the caller's zone.
+ *
+ * WARNING: call this once per query and reuse the result. Postgres matches
+ * SELECT DISTINCT / GROUP BY against ORDER BY by expression equality, but each
+ * call to dayExpr() binds its own copy of `tz` as a separate parameter — so a
+ * second call in the same statement (e.g. repeating it in ORDER BY instead of
+ * ordering by the SELECT list's column position) produces two expressions
+ * Postgres considers different, and it rejects the query with 42P10.
+ */
+export function dayExpr(tz: string): SQL<string> {
   return sql<string>`to_char(${weightMeasurement.measuredAt} AT TIME ZONE ${tz}, 'YYYY-MM-DD')`;
 }
 
