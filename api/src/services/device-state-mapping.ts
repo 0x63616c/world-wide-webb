@@ -4,10 +4,10 @@ import {
   type DeviceClimateState,
   DeviceKind,
   type DeviceLightState,
-  type DeviceSpeakerState,
   type DeviceStateValue,
   isClimateState,
   isLightState,
+  isSpeakerState,
   type LightColor,
   mergeDeviceState,
   sanitizeClimateDesired,
@@ -25,6 +25,7 @@ export {
   climateStateConverged,
   isClimateState,
   isLightState,
+  isSpeakerState,
   mergeDeviceState,
   sanitizeClimateDesired,
 };
@@ -77,16 +78,6 @@ export const HaLightService = {
   TurnOn: "turn_on",
   TurnOff: "turn_off",
 } as const;
-
-/** Narrow a DeviceStateValue to a speaker state (has numeric `volume`, never `on`/`mode`). */
-export function isSpeakerState(v: DeviceStateValue | null | undefined): v is DeviceSpeakerState {
-  return (
-    v != null &&
-    typeof (v as DeviceSpeakerState).volume === "number" &&
-    typeof (v as DeviceLightState).on !== "boolean" &&
-    typeof (v as DeviceClimateState).mode !== "string"
-  );
-}
 
 const HaState = {
   On: "on",

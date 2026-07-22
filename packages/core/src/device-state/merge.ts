@@ -1,4 +1,10 @@
-import type { DeviceClimateState, DeviceLightState, DeviceStateValue, LightColor } from "./schema";
+import type {
+  DeviceClimateState,
+  DeviceLightState,
+  DeviceSpeakerState,
+  DeviceStateValue,
+  LightColor,
+} from "./schema";
 import type { MergedDeviceState } from "./store";
 
 /**
@@ -16,6 +22,16 @@ export function isClimateState(v: DeviceStateValue | null | undefined): v is Dev
     v != null &&
     typeof (v as DeviceClimateState).mode === "string" &&
     typeof (v as DeviceLightState).on !== "boolean"
+  );
+}
+
+/** Narrow a DeviceStateValue to a speaker state (has numeric `volume`, never `on`/`mode`). */
+export function isSpeakerState(v: DeviceStateValue | null | undefined): v is DeviceSpeakerState {
+  return (
+    v != null &&
+    typeof (v as DeviceSpeakerState).volume === "number" &&
+    typeof (v as DeviceLightState).on !== "boolean" &&
+    typeof (v as DeviceClimateState).mode !== "string"
   );
 }
 
