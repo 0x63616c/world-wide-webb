@@ -38,6 +38,7 @@ and its own product folder is gone):
 - `drizzle` - Drizzle Gateway wrapper image.
 - `map-provision` - Basemap tile provisioner image.
 - `packages/api` - Browser-safe type bridge that re-exports the API router type only.
+- `packages/core` - Owns the `device_state` table: schema, the `DeviceStateStore` interface, pg + in-memory adapters, and the desired/reported merge logic.
 - `packages/logger` - Shared pino logger with centralized redaction and runtime-safe config.
 - `packages/platform` - Pure platform foundation package for product identity, target, exposure, secret, database, backup, and Control Center representation primitives.
 - `infra` - Pulumi program that declares the production k8s stack.
@@ -212,6 +213,18 @@ on the root `package.json`.
 database, backup, and Control Center representation primitives consumed by
 `infra/`; `controlCenterProductManifest()` is the live source of truth Pulumi
 reads, not a filesystem-path abstraction.
+
+`packages/core` owns the `device_state` table end to end: the drizzle schema,
+the `DeviceStateStore` interface (read/list/listExpiredWindows/readEffective/
+seed/upsertDesired/updateDesired/clearDesired/writeReported), the pure
+desired+reported merge module, and two adapters behind that interface - a pg
+adapter over the real table, and an in-memory adapter for tests. `api`'s five
+device_state writers (light, climate, sonos-volume, device-sync enforcers, plus
+the shared desired-state-store) and its readers all consume the store; services
+take the store as a constructor/function param with the pg-backed singleton as
+the default, so tests inject the in-memory adapter instead of stubbing drizzle.
+`api/src/db/schema.ts` re-exports the device_state types and table from
+`@www/core` so existing `../db/schema` imports keep working.
 
 ## Development Rules To Preserve
 

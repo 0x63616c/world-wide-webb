@@ -45,7 +45,7 @@ workloads/namespace/images); delete `products/captive-portal/`; portal DB teardo
 `products/control-center/*` to repo root.
 
 ### Track A — backend substrate
-- **C1**: create `packages/core` with the device-state store (`readDesired` / `writeDesired` /
+- **C1** (done): created `packages/core` with the device-state store (`readDesired` / `writeDesired` /
   `writeReported` / `readEffective`), owning the `device_state` table. Interface + pg +
   in-memory adapters + default instance (decision 10). Absorbs the 5 bypassing writers
   (climate/light/sonos-volume enforcers, device-sync, desired-state-store) and the 8 direct
