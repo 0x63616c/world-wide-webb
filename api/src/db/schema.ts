@@ -154,8 +154,8 @@ export const lampMode = pgTable("lamp_mode", {
 });
 
 // Global control-center settings, a SINGLETON row (id = SETTINGS_SINGLETON_ID).
-// Holds the wall panel's durable preferences (idle-dim, recenter, dev overlays,
-// snap mode) as a single JSON blob so new fields can be added without a column
+// Holds the wall panel's durable preferences (idle-dim, dev overlays, snap mode)
+// as a single JSON blob so new fields can be added without a column
 // migration. The web client reads/writes the whole Settings object; the shape,
 // defaults, and validation live in services/settings-service.ts. Modeled on the
 // lamp_mode keyed-singleton pattern.
@@ -167,8 +167,6 @@ export interface SettingsValue {
   idleDimEnabled: boolean;
   idleDimTimeoutMs: number;
   idleDimLevel: number;
-  recenterEnabled: boolean;
-  recenterTimeoutMs: number;
   showFps: boolean;
   showBuildBadge: boolean;
   snapMode: "proximity" | "mandatory" | "mandatory-settle" | "none" | "spring";

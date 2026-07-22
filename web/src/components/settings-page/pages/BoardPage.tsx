@@ -1,72 +1,35 @@
 /**
- * Board settings page , idle recenter, board feel (minimap + snap), and the
- * layout editor launcher. Reads/writes the shared settings store through its
- * module setters, mirroring the old SettingsPanel's Board section. The
- * recenter-after slider only renders while recenter is on.
+ * Board settings page , board feel (minimap + snap) and the layout editor
+ * launcher. Reads/writes the shared settings store through its module setters,
+ * mirroring the old SettingsPanel's Board section.
+ *
+ * Idle recenter used to live here (a toggle + interval slider gliding the board
+ * back to the Clock after inactivity). The panel-session module replaced it:
+ * glide-home now happens at session end, gated by idleDimEnabled/idleDimTimeoutMs
+ * on the Display page, so the old recenter settings had no reader left , see
+ * Display's "Dim when idle" section for the surviving control.
  */
 
 import { openLayoutEditor } from "../../../lib/layout-edit-store";
 import {
-  MAX_IDLE_TIMEOUT_MS,
-  MIN_IDLE_TIMEOUT_MS,
   SNAP_MODE_LABEL,
   SNAP_MODES,
-  setRecenterEnabled,
-  setRecenterTimeoutMs,
   setShowMinimap,
   setSnapMode,
   useSettings,
 } from "../../../lib/settings";
 import { Segmented } from "../../ui/Segmented";
-import { Slider } from "../../ui/Slider";
 import { Switch } from "../../ui/Switch";
-import { ActionButton, RowShell, SectionCard, SliderRow } from "../blocks";
+import { ActionButton, RowShell, SectionCard } from "../blocks";
 import type { PageProps } from "../SettingsPage";
-
-const MS_PER_MIN = 60_000;
-const MIN_MINUTES = Math.round(MIN_IDLE_TIMEOUT_MS / MS_PER_MIN);
-const MAX_MINUTES = Math.round(MAX_IDLE_TIMEOUT_MS / MS_PER_MIN);
 
 const SNAP_OPTIONS = SNAP_MODES.map((value) => ({ value, label: SNAP_MODE_LABEL[value] }));
 
 export function BoardPage({ onClose }: PageProps) {
   const settings = useSettings();
-  const recenterMinutes = Math.round(settings.recenterTimeoutMs / MS_PER_MIN);
 
   return (
     <>
-      <SectionCard title="Idle behavior">
-        {[
-          <RowShell
-            key="recenter"
-            label="Recenter when idle"
-            sub="Glide back to the Clock after a period of no interaction."
-            control={
-              <Switch
-                label="Recenter when idle"
-                checked={settings.recenterEnabled}
-                onChange={setRecenterEnabled}
-              />
-            }
-          />,
-          ...(settings.recenterEnabled
-            ? [
-                <SliderRow key="recenter-after">
-                  <Slider
-                    label="Recenter after"
-                    value={recenterMinutes}
-                    min={MIN_MINUTES}
-                    max={MAX_MINUTES}
-                    step={1}
-                    format={(n) => `${n} min`}
-                    onChange={(min) => setRecenterTimeoutMs(min * MS_PER_MIN)}
-                  />
-                </SliderRow>,
-              ]
-            : []),
-        ]}
-      </SectionCard>
-
       <SectionCard title="Feel">
         {[
           <RowShell

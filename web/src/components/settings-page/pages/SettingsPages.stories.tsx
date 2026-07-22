@@ -75,9 +75,6 @@ export const Board: Story = {
   render: () => <BoardPage {...pageProps} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("switch", { name: "Recenter when idle" })).toBeInTheDocument();
-    // Recenter defaults on, so its interval slider renders.
-    await expect(canvas.getByRole("slider", { name: "Recenter after" })).toBeInTheDocument();
     await expect(canvas.getByRole("switch", { name: "Minimap" })).toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: "Edit layout" })).toBeInTheDocument();
   },

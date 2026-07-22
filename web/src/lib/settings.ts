@@ -61,10 +61,6 @@ export interface Settings {
   idleDimTimeoutMs: number;
   /** Dim target as a 0..1 brightness fraction. Clamped to [0.01, 0.99]. */
   idleDimLevel: number;
-  /** When true, the board glides back to the Clock after an idle window. */
-  recenterEnabled: boolean;
-  /** Idle window before recentering, in ms. Clamped to [1min, 60min]. */
-  recenterTimeoutMs: number;
   /** Show the live FPS readout (top-right). */
   showFps: boolean;
   /** Show the build-hash + age badge (bottom-left). */
@@ -118,8 +114,6 @@ const KEYS = {
   idleDimEnabled: "cc-idle-dim-enabled",
   idleDimTimeoutMs: "cc-idle-dim-timeout-ms",
   idleDimLevel: "cc-idle-dim-level",
-  recenterEnabled: "cc-recenter-enabled",
-  recenterTimeoutMs: "cc-recenter-timeout-ms",
   showFps: "cc-show-fps",
   showBuildBadge: "cc-show-build-badge",
   showBuildNumber: "cc-show-build-number",
@@ -186,8 +180,6 @@ function loadInitial(): Settings {
   const level = readRaw(KEYS.idleDimLevel);
   const fps = readRaw(KEYS.showFps);
   const snap = readRaw(KEYS.snapMode);
-  const recenterEnabled = readRaw(KEYS.recenterEnabled);
-  const recenterTimeout = readRaw(KEYS.recenterTimeoutMs);
   const buildBadge = readRaw(KEYS.showBuildBadge);
   const buildNumber = readRaw(KEYS.showBuildNumber);
   const minimap = readRaw(KEYS.showMinimap);
@@ -201,12 +193,6 @@ function loadInitial(): Settings {
     idleDimTimeoutMs:
       timeout === null ? DEFAULTS.idleDimTimeoutMs : clampIdleTimeoutMs(Number(timeout)),
     idleDimLevel: level === null ? DEFAULTS.idleDimLevel : clampDimLevel(Number(level)),
-    recenterEnabled:
-      recenterEnabled === null ? DEFAULTS.recenterEnabled : recenterEnabled === "true",
-    recenterTimeoutMs:
-      recenterTimeout === null
-        ? DEFAULTS.recenterTimeoutMs
-        : clampIdleTimeoutMs(Number(recenterTimeout)),
     showFps: fps === null ? DEFAULTS.showFps : fps === "true",
     showBuildBadge: buildBadge === null ? DEFAULTS.showBuildBadge : buildBadge === "true",
     showBuildNumber: buildNumber === null ? DEFAULTS.showBuildNumber : buildNumber === "true",
@@ -329,15 +315,6 @@ export function setIdleDimTimeoutMs(ms: number): void {
 export function setIdleDimLevel(level: number): void {
   const clamped = clampDimLevel(level);
   patch("idleDimLevel", clamped, String(clamped));
-}
-
-export function setRecenterEnabled(v: boolean): void {
-  patch("recenterEnabled", v, String(v));
-}
-
-export function setRecenterTimeoutMs(ms: number): void {
-  const clamped = clampIdleTimeoutMs(ms);
-  patch("recenterTimeoutMs", clamped, String(clamped));
 }
 
 export function setShowFps(v: boolean): void {

@@ -42,8 +42,8 @@ describe("settings contract", () => {
     expect(DEFAULTS).toBe(SETTINGS_DEFAULTS);
   });
 
-  it("enforces the shared timeout window on both timeout fields", () => {
-    for (const field of ["idleDimTimeoutMs", "recenterTimeoutMs"] as const) {
+  it("enforces the shared timeout window on the idle-dim timeout field", () => {
+    for (const field of ["idleDimTimeoutMs"] as const) {
       expect(settingsSchema.parse({ ...DEFAULTS, [field]: TIMEOUT_MIN_MS })[field]).toBe(
         TIMEOUT_MIN_MS,
       );
@@ -51,7 +51,7 @@ describe("settings contract", () => {
         TIMEOUT_MAX_MS,
       );
       expect(() => settingsSchema.parse({ ...DEFAULTS, [field]: TIMEOUT_MIN_MS - 1 })).toThrow();
-      // The ceiling is what the web sliders offer. It used to be an hour here,
+      // The ceiling is what the web slider offers. It used to be an hour here,
       // which meant the server would happily store a value the panel could not
       // produce or display.
       expect(() => settingsSchema.parse({ ...DEFAULTS, [field]: TIMEOUT_MAX_MS + 1 })).toThrow();

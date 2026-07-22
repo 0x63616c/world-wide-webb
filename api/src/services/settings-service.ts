@@ -35,8 +35,6 @@ export const settingsSchema = z.object({
   idleDimEnabled: z.boolean(),
   idleDimTimeoutMs: z.number().min(TIMEOUT_MIN_MS).max(TIMEOUT_MAX_MS),
   idleDimLevel: z.number().min(DIM_MIN).max(DIM_MAX),
-  recenterEnabled: z.boolean(),
-  recenterTimeoutMs: z.number().min(TIMEOUT_MIN_MS).max(TIMEOUT_MAX_MS),
   showFps: z.boolean(),
   showBuildBadge: z.boolean(),
   showBuildNumber: z.boolean(),

@@ -48,6 +48,19 @@ describe("getSettings", () => {
     expect(s.pinCode).toBe("000000");
   });
 
+  it("silently drops a stored blob's retired recenter fields", async () => {
+    // recenterEnabled/recenterTimeoutMs were retired once the panel-session
+    // module took over glide-home at session end (idleDimEnabled/idleDimTimeoutMs
+    // on the Display page). Rows written before the retirement still carry these
+    // keys; settingsSchema has no `.strict()`, so zod strips them rather than
+    // throwing, and getSettings must not surface them.
+    const legacyWithRecenter = { ...DEFAULTS, recenterEnabled: true, recenterTimeoutMs: 600_000 };
+    const s = await getSettings(fakeDb(legacyWithRecenter));
+    expect(s).toEqual(DEFAULTS);
+    expect(s).not.toHaveProperty("recenterEnabled");
+    expect(s).not.toHaveProperty("recenterTimeoutMs");
+  });
+
   it("falls back to DEFAULTS for a stored timeout above the 10 min cap", async () => {
     // The server used to accept up to an hour while the panel clamped every edit
     // to 10 min, so the looser ceiling could only ever be reached by editing the

@@ -32,9 +32,9 @@ export type Accent = (typeof ACCENTS)[number];
 
 // ─── bounds ───────────────────────────────────────────────────────────────────
 
-/** Idle-dim and recenter timeouts share one valid window: 1 min .. 10 min.
- *  The ceiling matches what the settings sliders have always offered , the
- *  server previously allowed an hour, but nothing could produce such a value. */
+/** Idle-dim timeout's valid window: 1 min .. 10 min. The ceiling matches what
+ *  the settings slider has always offered , the server previously allowed an
+ *  hour, but nothing could produce such a value. */
 export const TIMEOUT_MIN_MS = 60_000;
 export const TIMEOUT_MAX_MS = 600_000;
 
@@ -60,8 +60,6 @@ export const SETTINGS_DEFAULTS = {
   idleDimEnabled: true,
   idleDimTimeoutMs: 600_000,
   idleDimLevel: 0.25,
-  recenterEnabled: true,
-  recenterTimeoutMs: 600_000,
   showFps: false,
   showBuildBadge: true,
   showBuildNumber: false,
