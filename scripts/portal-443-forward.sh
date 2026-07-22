@@ -16,7 +16,7 @@
 # The portal Service terminates TLS itself with the cert-manager-issued
 # captive-portal.worldwidewebb.co cert, so this is a raw TCP passthrough: the LAN
 # client validates the real cert end-to-end.
-export PATH=/opt/homebrew/bin:/usr/bin:/bin:$PATH
+export PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH
 export KUBECONFIG="${KUBECONFIG:-/Users/calum/.kube/config}"
 
 # Resolve the guest listener's LoadBalancer external IP. Since the captive-portal
@@ -24,7 +24,7 @@ export KUBECONFIG="${KUBECONFIG:-/Users/calum/.kube/config}"
 # control-center `api` Service's portal-only listener — the old `captive-portal`
 # Service no longer exists. Hard-fail on resolution errors: a silent fallback here
 # once pointed guest HTTPS at a stale IP with no error (Track 0 final review).
-PORTAL_IP="$(kubectl --context cc-homelab -n control-center get svc api \
+PORTAL_IP="$(kubectl --context orbstack -n control-center get svc api \
   -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
 if [ -z "$PORTAL_IP" ]; then
   echo "portal-443-forward: FATAL: could not resolve control-center/api LoadBalancer IP" >&2
