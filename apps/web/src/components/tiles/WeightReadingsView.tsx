@@ -86,7 +86,9 @@ function signed(n: number): string {
 /** Down is good, up is bad — green and red respectively. */
 function deltaColor(n: number): string {
   if (n < 0) return "var(--green)";
-  if (n > 0) return "var(--red)";
+  // Amber, not red: --red is the error/failure colour, and a 0.2 lb overnight
+  // wobble is a nudge, not a failure.
+  if (n > 0) return "var(--amber)";
   return "var(--ink-2)";
 }
 
