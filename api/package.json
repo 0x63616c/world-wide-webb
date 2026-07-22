@@ -26,6 +26,7 @@
     "db:studio": "bunx drizzle-kit studio"
   },
   "dependencies": {
+    "@www/core": "workspace:*",
     "@www/logger": "*",
     "@www/worker-runtime": "workspace:*",
     "@trpc/server": "^11.17.0",

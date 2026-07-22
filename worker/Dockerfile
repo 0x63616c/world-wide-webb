@@ -19,6 +19,7 @@ COPY map-provision/package.json map-provision/
 COPY ios/package.json ios/
 COPY storybook/package.json storybook/
 COPY packages/api/package.json packages/api/
+COPY packages/core/package.json packages/core/
 COPY packages/logger/package.json packages/logger/
 COPY packages/platform/package.json packages/platform/
 COPY packages/worker-runtime/package.json packages/worker-runtime/

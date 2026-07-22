@@ -1,3 +1,4 @@
+import { DeviceKind } from "@www/core";
 import { findLight } from "../config/lights";
 import type {
   DeviceClimateState,
@@ -8,14 +9,7 @@ import type {
 } from "../db/schema";
 import type { HaEntity } from "../integrations/homeassistant/types";
 
-export const DeviceKind = {
-  Light: "light",
-  Switch: "switch",
-  Climate: "climate",
-  // Sonos players (www-5mek) , owned by the sonos-volume-enforcer, never HA-mapped.
-  Speaker: "speaker",
-} as const;
-export type DeviceKind = (typeof DeviceKind)[keyof typeof DeviceKind];
+export { DeviceKind } from "@www/core";
 
 /**
  * The four reconcile loops that write the `device_state` table. Exactly one of
