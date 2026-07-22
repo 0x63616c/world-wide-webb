@@ -59,20 +59,7 @@ export function defineProduct(slug: ProductSlug): ProductIdentity {
   };
 }
 
-export const targetNames = ["homelab", "cloud"] as const;
-
-export type TargetName = (typeof targetNames)[number];
 export type ImplementedTargetName = "homelab";
-export type UnsupportedTargetName = Exclude<TargetName, ImplementedTargetName>;
-
-export type TargetCapabilities = Readonly<{
-  certManager: boolean;
-  cloudflareTunnel: boolean;
-  cnpg: boolean;
-  externalSecrets: boolean;
-  k8s: boolean;
-  nasBackups: boolean;
-}>;
 
 export type HomelabTarget = Readonly<{
   name: ImplementedTargetName;
@@ -82,16 +69,18 @@ export type HomelabTarget = Readonly<{
     exportPath: "/volume1/Homelab";
     backupRootParts: readonly ["backups", "world-wide-webb"];
   }>;
-  capabilities: TargetCapabilities;
+  // Inlined (was the separately-exported TargetCapabilities type, ADR-0006):
+  // homelab is the only implemented target, so a named plurality type here had
+  // exactly one member and 0 external consumers.
+  capabilities: Readonly<{
+    certManager: boolean;
+    cloudflareTunnel: boolean;
+    cnpg: boolean;
+    externalSecrets: boolean;
+    k8s: boolean;
+    nasBackups: boolean;
+  }>;
 }>;
-
-export type TargetStatus =
-  | Readonly<{ kind: "implemented"; target: HomelabTarget }>
-  | Readonly<{
-      kind: "unsupported";
-      name: UnsupportedTargetName;
-      reason: "Only homelab k8s is implemented in this migration.";
-    }>;
 
 export const implementedTargetNames = [
   "homelab",
@@ -123,36 +112,20 @@ export function defineTarget(name: ImplementedTargetName): HomelabTarget {
   return assertNever(name);
 }
 
-export function targetStatus(name: TargetName): TargetStatus {
-  switch (name) {
-    case "homelab":
-      return { kind: "implemented", target: homelabTarget };
-    case "cloud":
-      return {
-        kind: "unsupported",
-        name,
-        reason: "Only homelab k8s is implemented in this migration.",
-      };
-  }
-  return assertNever(name);
-}
-
 // Hosts are flattened to a single label (`app--cc`), so the free root wildcard
 // `*.worldwidewebb.co` always covers them. There is exactly one coverage model:
 // the exact single host. (The old `product-wildcard` mode built a 2-label
 // `*.cc.worldwidewebb.co` wildcard that only paid ACM could issue; it was removed
-// with ACM, www-kbiy.)
-export type ExactHostTlsCoverage = Readonly<{
-  kind: "exact-host";
-  hostname: string;
-  dnsNames: readonly [string];
-}>;
-
-export type TlsCoverage = ExactHostTlsCoverage;
-
+// with ACM, www-kbiy.) Inlined below (was the separately-exported
+// TlsCoverage/ExactHostTlsCoverage types, ADR-0006): a plurality type with
+// exactly one member and 0 external consumers.
 export type WebTlsRequirement = Readonly<{
   required: true;
-  coverage: TlsCoverage;
+  coverage: Readonly<{
+    kind: "exact-host";
+    hostname: string;
+    dnsNames: readonly [string];
+  }>;
 }>;
 
 export type WebHostOptions = Readonly<{ host: string }>;
@@ -174,10 +147,6 @@ export type WebExposure =
       host: string;
       hostname: string;
       tls: WebTlsRequirement;
-      humanReview: Readonly<{
-        required: true;
-        reason: "Captive portal exposure changes UniFi, LAN forwarding, DNS, and TLS behavior.";
-      }>;
     }>;
 
 export type InternalServiceExposure = Readonly<{
@@ -236,10 +205,6 @@ export function captivePortalWeb(
     host: options.host,
     hostname,
     tls: webTlsRequirement(hostname),
-    humanReview: {
-      required: true,
-      reason: "Captive portal exposure changes UniFi, LAN forwarding, DNS, and TLS behavior.",
-    },
   };
 }
 
@@ -393,33 +358,13 @@ export function controlCenterServiceSecretUsages(): Record<
   ServiceSecretUsage
 > {
   const controlCenter = defineProduct("control-center");
-  const apiSecrets = {
-    HA_TOKEN: secretCatalog.homeAssistant.token,
-    UNIFI_API_KEY: secretCatalog.unifi.localApiKey,
-    // Board display SSID is the MAIN network; the guest SSID/password feed the
-    // guest Wi-Fi QR only and are never rendered as text (design call 2026-07-19).
-    WIFI_SSID: secretCatalog.wifiMain.ssid,
-    WIFI_PASSWORD: secretCatalog.wifiGuest.password,
-    WIFI_GUEST_SSID: secretCatalog.wifiGuest.ssid,
-    POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
-    HOME_LAT: secretCatalog.homeLocation.lat,
-    HOME_LON: secretCatalog.homeLocation.lon,
-    HOME_PLACE_NAME: secretCatalog.homeLocation.placeName,
-    HOME_RADIUS_MILES: secretCatalog.homeLocation.radiusMiles,
-    SPOTIFY_CLIENT_ID: secretCatalog.spotify.clientId,
-    SPOTIFY_CLIENT_SECRET: secretCatalog.spotify.clientSecret,
-    SPOTIFY_REFRESH_TOKEN: secretCatalog.spotify.refreshToken,
-    ASC_KEY_ID: secretCatalog.appStoreConnect.keyId,
-    ASC_ISSUER_ID: secretCatalog.appStoreConnect.issuerId,
-    ASC_KEY_CONTENT: secretCatalog.appStoreConnect.p8Content,
-    // Deploys-tile poller. Only the worker reads it, but api/worker secret sets
-    // are kept in lockstep (www-51hf.35), so it appears in both.
-    GITHUB_ACTIONS_TOKEN: secretCatalog.github.ghcrPat,
-    APNS_KEY_ID: secretCatalog.apns.keyId,
-    APNS_TEAM_ID: secretCatalog.apns.teamId,
-    APNS_KEY_CONTENT: secretCatalog.apns.p8Content,
-  } as const;
-  const workerSecrets = {
+  // api and worker declare the EXACT SAME secret set today (pinned by
+  // secrets.test.ts's "api and worker declare the exact same secret set"
+  // test, ADR-0006): both were hand-kept as two ~25-line lockstep blocks that
+  // never actually diverged, so a single shared base replaces them. If a
+  // future secret is api-only or worker-only, spread this base and add the
+  // delta key(s) on the specific service's object instead of both.
+  const apiWorkerSharedSecrets = {
     HA_TOKEN: secretCatalog.homeAssistant.token,
     UNIFI_API_KEY: secretCatalog.unifi.localApiKey,
     // Board display SSID is the MAIN network; the guest SSID/password feed the
@@ -442,15 +387,16 @@ export function controlCenterServiceSecretUsages(): Record<
     // are kept in lockstep (www-51hf.35), so it appears in both.
     GITHUB_ACTIONS_TOKEN: secretCatalog.github.ghcrPat,
     // The worker is the only queue consumer, so it is the process that actually
-    // signs the APNs JWT and sends the push. api just enqueues.
+    // signs the APNs JWT and sends the push; api just enqueues. Both still
+    // carry the key so the secret sets stay in lockstep.
     APNS_KEY_ID: secretCatalog.apns.keyId,
     APNS_TEAM_ID: secretCatalog.apns.teamId,
     APNS_KEY_CONTENT: secretCatalog.apns.p8Content,
   } as const;
 
   return {
-    api: defineServiceSecretUsage(controlCenter, "api", apiSecrets),
-    worker: defineServiceSecretUsage(controlCenter, "worker", workerSecrets),
+    api: defineServiceSecretUsage(controlCenter, "api", apiWorkerSharedSecrets),
+    worker: defineServiceSecretUsage(controlCenter, "worker", apiWorkerSharedSecrets),
     drizzle: defineServiceSecretUsage(controlCenter, "drizzle", {
       MASTERPASS: secretCatalog.drizzle.masterpass,
       POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
@@ -570,12 +516,11 @@ export type DatabaseBackup = Readonly<{
   nasExportPath: string;
   nasSubPath: string;
   filenamePrefix: string;
-  commandFeatures: Readonly<{
-    compression: "gzip";
-    dateFormat: "%Y%m%d";
-    pipefail: true;
-    passwordSource: "mounted-basic-auth-secret";
-  }>;
+  // Was the separately-exported `commandFeatures` object (compression/pipefail/
+  // passwordSource always the same 3 literals, 0 external consumers, ADR-0006);
+  // dateFormat is the only field infra/src/crons.ts actually reads, so it is
+  // now a flat field instead of a nested single-shape plurality type.
+  dateFormat: "%Y%m%d";
 }>;
 
 export type DatabaseBackupOptions = Readonly<{
@@ -612,12 +557,7 @@ export function defineDatabaseBackup(
     nasExportPath: target.nas.exportPath,
     nasSubPath: nasSubPathParts.join("/"),
     filenamePrefix: `${database.databaseName}-`,
-    commandFeatures: {
-      compression: "gzip",
-      dateFormat: "%Y%m%d",
-      pipefail: true,
-      passwordSource: "mounted-basic-auth-secret",
-    },
+    dateFormat: "%Y%m%d",
   };
 }
 
@@ -630,14 +570,16 @@ export type ControlCenterServiceName =
   | "drizzle"
   | "cloudflared";
 
-export type ProductServiceDeclaration<ServiceName extends string = ControlCenterServiceName> =
-  Readonly<{
-    service: ServiceName;
-    workloadName: string;
-    image: string;
-    exposure: WebExposure | InternalServiceExposure | null;
-    secretUsage?: ServiceSecretUsage;
-  }>;
+// Was `{ service, workloadName, image, exposure, secretUsage? }`: workloadName
+// and image had 0 external consumers (infra/src/services.ts re-derives both
+// independently via ProductIdentity.serviceName/imageRepository, ADR-0006) and
+// captivePortalProductManifest() (the only other user of the generic
+// ServiceName param) was itself dead, so the type is control-center-only now.
+export type ProductServiceDeclaration = Readonly<{
+  service: ControlCenterServiceName;
+  exposure: WebExposure | InternalServiceExposure | null;
+  secretUsage?: ServiceSecretUsage;
+}>;
 
 export type ControlCenterProductManifest = Readonly<{
   product: ProductIdentity;
@@ -651,29 +593,6 @@ export type ControlCenterProductManifest = Readonly<{
   database: ProductDatabase;
   backup: DatabaseBackup;
 }>;
-
-export type CaptivePortalServiceName = "app" | "api";
-export type CaptivePortalSecretUsageName = "api";
-
-export type CaptivePortalProductManifest = Readonly<{
-  product: ProductIdentity;
-  target: HomelabTarget;
-  app: Readonly<{
-    exposure: WebExposure;
-    legacyHostname: "captive-portal.worldwidewebb.co";
-  }>;
-  services: Readonly<
-    Record<CaptivePortalServiceName, ProductServiceDeclaration<CaptivePortalServiceName>>
-  >;
-  secretUsages: Readonly<Record<CaptivePortalSecretUsageName, ServiceSecretUsage>>;
-  database: ProductDatabase;
-  retainedLegacyDatabases: readonly ProductDatabase[];
-  backup: DatabaseBackup;
-}>;
-
-function mainImage(product: ProductIdentity, service: string): string {
-  return `${product.imageRepository(service)}:main`;
-}
 
 export function controlCenterProductManifest(): ControlCenterProductManifest {
   const product = defineProduct("control-center");
@@ -705,112 +624,39 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
     services: {
       api: {
         service: "api",
-        workloadName: "api",
-        image: mainImage(product, "api"),
         exposure: internalService({ port: 4201 }),
         secretUsage: secretUsages.api,
       },
       worker: {
         service: "worker",
-        workloadName: "worker",
-        image: mainImage(product, "worker"),
         exposure: null,
         secretUsage: secretUsages.worker,
       },
       web: {
         service: "web",
-        workloadName: "web",
-        image: mainImage(product, "web"),
         exposure: privateWeb(product, target, { host: "app" }),
       },
       storybook: {
         service: "storybook",
-        workloadName: "storybook",
-        image: mainImage(product, "storybook"),
         exposure: privateWeb(product, target, { host: "storybook" }),
       },
       "captive-portal": {
         service: "captive-portal",
-        workloadName: "captive-portal",
-        image: mainImage(captivePortalProduct, "portal"),
         exposure: captivePortalWeb(captivePortalProduct, target, { host: "app" }),
       },
       drizzle: {
         service: "drizzle",
-        workloadName: "drizzle",
-        image: mainImage(product, "drizzle"),
         exposure: privateWeb(product, target, { host: "drizzle" }),
         secretUsage: secretUsages.drizzle,
       },
       cloudflared: {
         service: "cloudflared",
-        workloadName: "cloudflared",
-        image: "cloudflare/cloudflared:2025.10.1",
         exposure: null,
         secretUsage: secretUsages.cloudflared,
       },
     },
     secretUsages,
     database,
-    backup,
-  };
-}
-
-export function captivePortalProductManifest(): CaptivePortalProductManifest {
-  const product = defineProduct("captive-portal");
-  const target = homelabTarget;
-  const appExposure = captivePortalWeb(product, target, { host: "app" });
-  const database = defineProductDatabase(product, target, {
-    authPassword: secretCatalog.captivePortal.postgresPassword,
-    size: "2Gi",
-  });
-  const retainedLegacyDatabases = [
-    defineProductDatabase(product, target, {
-      authPassword: secretCatalog.captivePortal.postgresPassword,
-      authSecretName: "captive-portal-postgres-auth",
-      clusterName: "captive-portal",
-      readServiceName: "captive-portal-r",
-      roServiceName: "captive-portal-ro",
-      rwServiceName: "captive-portal-rw",
-      size: "2Gi",
-    }),
-  ];
-  const backup = defineDatabaseBackup(database, target, {
-    name: "captive-portal-pg-backup",
-    schedule: "15 1 * * *",
-  });
-  const apiSecretUsage = defineServiceSecretUsage(product, "api", {
-    POSTGRES_PASSWORD: secretCatalog.captivePortal.postgresPassword,
-    UNIFI_API_KEY: secretCatalog.unifi.localApiKey,
-    WIFI_PASSWORD: secretCatalog.wifiGuest.password,
-    WIFI_SSID: secretCatalog.wifiGuest.ssid,
-  });
-
-  return {
-    product,
-    target,
-    app: {
-      exposure: appExposure,
-      legacyHostname: "captive-portal.worldwidewebb.co",
-    },
-    services: {
-      app: {
-        service: "app",
-        workloadName: "captive-portal",
-        image: mainImage(product, "portal"),
-        exposure: appExposure,
-      },
-      api: {
-        service: "api",
-        workloadName: product.serviceName("api"),
-        image: mainImage(product, "api"),
-        exposure: internalService({ port: 4211 }),
-        secretUsage: apiSecretUsage,
-      },
-    },
-    secretUsages: { api: apiSecretUsage },
-    database,
-    retainedLegacyDatabases,
     backup,
   };
 }

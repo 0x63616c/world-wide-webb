@@ -12,13 +12,13 @@ describe("Control Center platform representation", () => {
     expect(manifest.app.legacyHostname).toBe("dashboard.worldwidewebb.co");
   });
 
-  test("declares every Control Center workload with namespace-local names", () => {
+  test("declares every Control Center service the manifest owns", () => {
     const manifest = controlCenterProductManifest();
-    const manifestNames = Object.values(manifest.services)
-      .map((service) => service.workloadName)
+    const serviceNames = Object.values(manifest.services)
+      .map((service) => service.service)
       .sort();
 
-    expect(manifestNames).toEqual([
+    expect(serviceNames).toEqual([
       "api",
       "captive-portal",
       "cloudflared",
@@ -27,14 +27,6 @@ describe("Control Center platform representation", () => {
       "web",
       "worker",
     ]);
-  });
-
-  test("declares full-slug GHCR image intent and keeps external images unchanged", () => {
-    const manifest = controlCenterProductManifest();
-
-    expect(manifest.services.api.image).toBe("ghcr.io/0x63616c/www-control-center-api:main");
-    expect(manifest.services.web.image).toBe("ghcr.io/0x63616c/www-control-center-web:main");
-    expect(manifest.services.cloudflared.image).toBe("cloudflare/cloudflared:2025.10.1");
   });
 
   test("keeps current service secret usage exactly representable (CC-k8t7: env names only, values now vault keys)", () => {

@@ -45,18 +45,13 @@ describe("platform backup primitive", () => {
     );
   });
 
-  test("preserves safe pg_dump command features without secret env literals", () => {
+  test("preserves the pg_dump backup filename date format", () => {
     const database = defineProductDatabase(defineProduct("control-center"), homelabTarget, {
       authSecretName: "cc-postgres-auth",
       size: "5Gi",
     });
     const backup = defineDatabaseBackup(database, homelabTarget);
 
-    expect(backup.commandFeatures).toEqual({
-      compression: "gzip",
-      dateFormat: "%Y%m%d",
-      pipefail: true,
-      passwordSource: "mounted-basic-auth-secret",
-    });
+    expect(backup.dateFormat).toBe("%Y%m%d");
   });
 });

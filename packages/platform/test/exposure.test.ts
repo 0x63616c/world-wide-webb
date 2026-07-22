@@ -54,10 +54,6 @@ describe("exposure intent primitives", () => {
     });
 
     expect(exposure).toMatchObject({
-      humanReview: {
-        required: true,
-        reason: "Captive portal exposure changes UniFi, LAN forwarding, DNS, and TLS behavior.",
-      },
       kind: "captive-portal-web",
       hostname: "app--cp.worldwidewebb.co",
       policy: "captive",

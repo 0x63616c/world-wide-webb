@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { defineTarget, homelabTarget, implementedTargetNames, targetStatus } from "../src/index.ts";
+import { defineTarget, homelabTarget, implementedTargetNames } from "../src/index.ts";
 
 describe("target model", () => {
   test("implements homelab as the only runtime target", () => {
@@ -24,14 +24,6 @@ describe("target model", () => {
         k8s: true,
         nasBackups: true,
       },
-    });
-  });
-
-  test("reports future targets as unsupported instead of silently accepting them", () => {
-    expect(targetStatus("cloud")).toEqual({
-      kind: "unsupported",
-      name: "cloud",
-      reason: "Only homelab k8s is implemented in this migration.",
     });
   });
 });

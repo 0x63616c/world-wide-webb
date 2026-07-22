@@ -45,7 +45,7 @@ function postgresBackupCommand(backup: DatabaseBackup): string[] {
       // never silently "successful".
       "set -eo pipefail",
       `export PGPASSWORD="$(cat ${backup.authMountPath}/password)"`,
-      `out="${backup.backupMountPath}/${backup.filenamePrefix}$(date +${backup.commandFeatures.dateFormat}).sql.gz"`,
+      `out="${backup.backupMountPath}/${backup.filenamePrefix}$(date +${backup.dateFormat}).sql.gz"`,
       `pg_dump -h ${backup.serviceHost} -U ${backup.owner} -d ${backup.databaseName} | gzip -c > "$out"`,
       'echo "wrote $out"',
     ].join("\n"),

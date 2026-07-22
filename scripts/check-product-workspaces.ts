@@ -56,12 +56,14 @@ for (const glob of requiredWorkspaceGlobs) {
 }
 
 // captive-portal's on-disk product folder was deleted (SDD track 0, Task 5:
-// repo + CI teardown) and its CNPG cluster + namespace torn down (Task 6);
-// its @www/platform identity entry (productSlugs, captivePortalProductManifest)
-// deliberately stays alive a while longer regardless , nothing in infra/
-// calls it anymore, but pruning the @www/platform surface itself is a later,
-// separate platform-cleanup task (7+8). Until then this workspace-shape guard
-// only checks products with a real folder on disk.
+// repo + CI teardown) and its CNPG cluster + namespace torn down (Task 6).
+// Its @www/platform identity entry (productSlugs) deliberately stays: dnsCode/
+// legacyHostname/DnsCode still reference "captive-portal" until Task 7's Step C
+// (app--cc retirement) lands, so productSlugs can't drop the slug yet either.
+// captivePortalProductManifest() itself (the dead per-service manifest
+// function, not the identity entry) WAS pruned in Task 7+8 (ADR-0006) , it had
+// 0 real callers left in infra/. This workspace-shape guard only checks
+// products with a real folder on disk.
 const PRODUCTS_WITHOUT_FOLDER = new Set<ProductSlug>(["captive-portal"]);
 
 for (const slug of productSlugs) {

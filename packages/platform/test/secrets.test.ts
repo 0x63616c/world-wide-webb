@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { SERVICE_SECRETS, type ServiceSecrets } from "../../../infra/src/secrets-map.ts";
 import {
-  captivePortalProductManifest,
   controlCenterServiceSecretUsages,
   defineProduct,
   defineServiceSecretUsage,
@@ -35,23 +34,10 @@ describe("secret catalog and service usage", () => {
   test("env-key coverage: platform secret usages and infra SERVICE_SECRETS agree on env names per service (CC-k8t7: values now vault keys not remoteRef)", () => {
     // SERVICE_SECRETS values are now vault keys (ITEM__FIELD), not 1P remoteRef.
     // Assert env-name set coverage only; value format changed in CC-k8t7.
-    //
-    // captive-portal-api is EXCLUDED here (Task 4 step C, SDD track 0): its
-    // workload was deleted from infra/src/services.ts once the guest listener
-    // cutover moved all guest traffic onto control-center-api, so infra's
-    // SERVICE_SECRETS deliberately dropped that key , but
-    // captivePortalProductManifest() still declares the usage (cnpg.ts/
-    // crons.ts still call it independently for the still-live captive-portal
-    // Postgres database + backup CronJob), so it stays a real platform usage
-    // with no infra consumer, not a genuine coverage gap.
-    const captivePortal = captivePortalProductManifest().secretUsages;
-    const captivePortalPrefixed = Object.fromEntries(
-      Object.entries(captivePortal)
-        .filter(([svc]) => svc !== "api")
-        .map(([svc, usage]) => [`captive-portal-${svc}`, usage]),
-    );
-    const allUsages = { ...controlCenterServiceSecretUsages(), ...captivePortalPrefixed };
-    const platformMap = serviceSecretMap(allUsages);
+    // captivePortalProductManifest() itself was pruned (ADR-0006, Task 7+8):
+    // it had 0 real callers left anywhere in infra/ (only stale comments), so
+    // there is no more captive-portal secret usage to reconcile here.
+    const platformMap = serviceSecretMap(controlCenterServiceSecretUsages());
     const infraSecretMap = SERVICE_SECRETS as Record<string, ServiceSecrets>;
     for (const [service, platformSecrets] of Object.entries(platformMap)) {
       const infraKeys = Object.keys(infraSecretMap[service] ?? {}).sort();
@@ -68,11 +54,39 @@ describe("secret catalog and service usage", () => {
     expect("captive-portal" in secrets).toBe(false);
   });
 
+  test("api and worker declare the exact same secret set (base+delta merge target, ADR-0006)", () => {
+    const usages = controlCenterServiceSecretUsages();
+    const expectedKeys = [
+      "APNS_KEY_CONTENT",
+      "APNS_KEY_ID",
+      "APNS_TEAM_ID",
+      "ASC_ISSUER_ID",
+      "ASC_KEY_CONTENT",
+      "ASC_KEY_ID",
+      "GITHUB_ACTIONS_TOKEN",
+      "HA_TOKEN",
+      "HOME_LAT",
+      "HOME_LON",
+      "HOME_PLACE_NAME",
+      "HOME_RADIUS_MILES",
+      "POSTGRES_PASSWORD",
+      "SPOTIFY_CLIENT_ID",
+      "SPOTIFY_CLIENT_SECRET",
+      "SPOTIFY_REFRESH_TOKEN",
+      "UNIFI_API_KEY",
+      "WIFI_GUEST_SSID",
+      "WIFI_PASSWORD",
+      "WIFI_SSID",
+    ].sort();
+
+    expect(Object.keys(usages.api.secrets).sort()).toEqual(expectedKeys);
+    expect(Object.keys(usages.worker.secrets).sort()).toEqual(expectedKeys);
+    // Not just the same key NAMES: the same catalog entries (vaultKey/item/field) too.
+    expect(usages.api.secrets).toEqual(usages.worker.secrets);
+  });
+
   test("product service usages no longer use cc-secrets compatibility names", () => {
-    const usages = {
-      ...controlCenterServiceSecretUsages(),
-      ...captivePortalProductManifest().secretUsages,
-    };
+    const usages = controlCenterServiceSecretUsages();
 
     expect(controlCenterServiceSecretUsages().api.targetSecretName).toBe(
       "control-center-secrets-api",
