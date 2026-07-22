@@ -11,7 +11,7 @@
  * activation, in-tile deep links) calls openTileDetail.
  */
 
-import { useSyncExternalStore } from "react";
+import { createStore, useStore } from "./store";
 
 export interface TileDetailTarget {
   /** Board tile id, e.g. "tile_tesla". */
@@ -20,36 +20,19 @@ export interface TileDetailTarget {
   variantSlug?: string;
 }
 
-let target: TileDetailTarget | null = null;
-const listeners = new Set<() => void>();
-
-function emit(): void {
-  for (const listener of listeners) listener();
-}
+const store = createStore<TileDetailTarget | null>(null);
 
 /** Open (or retarget) the tile detail page for a tile. */
 export function openTileDetail(tileId: string, variantSlug?: string): void {
-  target = { tileId, variantSlug };
-  emit();
+  store.set({ tileId, variantSlug });
 }
 
 /** Close the open tile detail page. No-op when none is open. */
 export function closeTileDetail(): void {
-  if (target === null) return;
-  target = null;
-  emit();
-}
-
-function subscribe(callback: () => void): () => void {
-  listeners.add(callback);
-  return () => listeners.delete(callback);
-}
-
-function getSnapshot(): TileDetailTarget | null {
-  return target;
+  store.set(null);
 }
 
 /** Live open-detail target (null when no detail page is open). */
 export function useTileDetail(): TileDetailTarget | null {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return useStore(store);
 }
