@@ -16,7 +16,7 @@
  * listener below (state reload, no cue evaluation , there are no cues).
  */
 
-import { useSyncExternalStore } from "react";
+import { createStore, useStore } from "../store";
 import { stopwatchElapsedMs } from "./pure";
 import { onExternalWrite, readJson, writeJson } from "./storage";
 import type { StopwatchLap, StopwatchState } from "./types";
@@ -33,22 +33,7 @@ const INITIAL: StopwatchState = {
 
 // ─── singleton state ──────────────────────────────────────────────────────────
 
-type Listener = () => void;
-const listeners = new Set<Listener>();
-let state: StopwatchState = INITIAL;
-
-function subscribe(cb: Listener): () => void {
-  listeners.add(cb);
-  return () => listeners.delete(cb);
-}
-
-function getSnapshot(): StopwatchState {
-  return state;
-}
-
-function emit(): void {
-  for (const cb of listeners) cb();
-}
+const store = createStore<StopwatchState>(INITIAL);
 
 // ─── best-effort localStorage IO (shared seam: ./storage) ─────────────────────
 
@@ -82,31 +67,31 @@ function loadState(): StopwatchState {
   };
 }
 
-function persistState(): void {
+function persistState(state: StopwatchState): void {
   writeJson(STORAGE_KEY, { v: 1, ...state });
 }
 
-state = loadState();
+store.set(loadState());
 
 onExternalWrite(STORAGE_KEY, () => {
-  state = loadState();
-  emit();
+  store.set(loadState());
 });
 
 // ─── setters (module-level, stable) ───────────────────────────────────────────
 
 function mutate(next: StopwatchState): void {
-  state = next;
-  persistState();
-  emit();
+  persistState(next);
+  store.set(next);
 }
 
 export function startStopwatch(): void {
+  const state = store.get();
   if (state.running) return;
   mutate({ ...state, running: true, startedAtMs: Date.now() });
 }
 
 export function stopStopwatch(): void {
+  const state = store.get();
   if (!state.running || state.startedAtMs === null) return;
   const now = Date.now();
   mutate({
@@ -119,6 +104,7 @@ export function stopStopwatch(): void {
 
 /** Slice a lap at the current elapsed. Running only. Laps keep newest first. */
 export function lapStopwatch(): void {
+  const state = store.get();
   if (!state.running) return;
   const elapsed = stopwatchElapsedMs(state, Date.now());
   const lap: StopwatchLap = {
@@ -134,6 +120,7 @@ export function lapStopwatch(): void {
  * running or already at zero.
  */
 export function resetStopwatch(): void {
+  const state = store.get();
   if (state.running || state.accumulatedMs <= 0) return;
   mutate(INITIAL);
 }
@@ -141,18 +128,17 @@ export function resetStopwatch(): void {
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 export function useStopwatch(): StopwatchState {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return useStore(store);
 }
 
 // ─── test seam ────────────────────────────────────────────────────────────────
 
 /** @public , test seam (vitest): the live state without a React render. */
 export function _stateForTests(): StopwatchState {
-  return state;
+  return store.get();
 }
 
 /** @public , test seam (vitest); intentionally unused in app code. */
 export function resetStopwatchForTests(): void {
-  state = INITIAL;
-  emit();
+  store.set(INITIAL);
 }
