@@ -26,8 +26,8 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { ClimateHouseSummaryHeader } from "@/components/ClimateHouseSummaryHeader";
 import { Stat } from "@/components/ui";
+import { ClimateHouseSummaryHeader } from "../ClimateHouseSummaryHeader";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

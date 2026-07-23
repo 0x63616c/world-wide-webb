@@ -12,7 +12,7 @@
  * PURE , no hooks, no trpc. All data arrives via props.
  */
 
-import { Stat } from "./ui";
+import { Stat } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

@@ -17,7 +17,7 @@ const mockInvalidateClimateGet = vi.fn().mockResolvedValue(undefined);
 type MutOpts = { onSettled?: () => void };
 const capturedOpts: { target?: MutOpts; range?: MutOpts; mode?: MutOpts } = {};
 
-vi.mock("../../../lib/trpc", () => ({
+vi.mock("@/lib/trpc", () => ({
   trpc: {
     useUtils: () => ({ climate: { get: { invalidate: mockInvalidateClimateGet } } }),
     climate: {

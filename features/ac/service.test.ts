@@ -1,4 +1,9 @@
-import { createInMemoryDeviceStateStore, DeviceKind, type DeviceStateStore } from "@www/core";
+import {
+  createInMemoryDeviceStateStore,
+  DeviceKind,
+  type DeviceStateStore,
+  type HaEntity,
+} from "@www/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ─── mock the HA singleton ────────────────────────────────────────────────────
@@ -9,7 +14,10 @@ const { mockIsConfigured, mockGetEntities, mockCallService } = vi.hoisted(() => 
   mockCallService: vi.fn<() => Promise<void>>(),
 }));
 
-vi.mock("../integrations/homeassistant", () => ({
+// Only `ha` needs stubbing — every call in this suite injects its own
+// in-memory `store` (createInMemoryDeviceStateStore below), so the default
+// `deviceStateStore` this feature's ./deps also exports is never exercised.
+vi.mock("./deps", () => ({
   ha: {
     isConfigured: mockIsConfigured,
     getEntities: mockGetEntities,
@@ -17,7 +25,6 @@ vi.mock("../integrations/homeassistant", () => ({
   },
 }));
 
-import type { HaEntity } from "../integrations/homeassistant/types";
 import {
   getClimate,
   getClimateZones,
@@ -35,7 +42,7 @@ import {
   setZoneMode,
   setZoneRange,
   setZoneTarget,
-} from "../services/climate-service";
+} from "./service";
 
 function entity(partial: Partial<HaEntity> & { entity_id: string }): HaEntity {
   return { state: "off", attributes: {}, last_updated: "", ...partial };

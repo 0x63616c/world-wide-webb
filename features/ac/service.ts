@@ -1,16 +1,15 @@
 import {
+  CLIMATE_DEVICE_ID,
+  type DeviceClimateState,
   type DeviceStateStore,
+  type HaEntity,
   isClimateState,
   mergeDeviceState,
   sanitizeClimateDesired,
 } from "@www/core";
 
-import { CLIMATE_DEVICE_ID } from "../config/identity";
-import { deviceStateStore } from "../db/device-state-store";
-import type { DeviceClimateState } from "../db/schema";
-import { env } from "../env";
-import { ha } from "../integrations/homeassistant";
-import type { HaEntity } from "../integrations/homeassistant/types";
+import { config } from "./config";
+import { deviceStateStore, ha } from "./deps";
 
 export const HvacMode = {
   Off: "off",
@@ -102,10 +101,10 @@ function num(value: unknown): number {
  */
 export function selectClimateEntity(entities: HaEntity[]): HaEntity | undefined {
   if (entities.length === 0) return undefined;
-  const configured = entities.find((e) => e.entity_id === env.CLIMATE_ENTITY_ID);
+  const configured = entities.find((e) => e.entity_id === config.CLIMATE_ENTITY_ID);
   if (configured) return configured;
   const houseOnly = entities.filter(
-    (e) => !e.entity_id.startsWith(`climate.${env.TESLA_ENTITY_PREFIX}`),
+    (e) => !e.entity_id.startsWith(`climate.${config.TESLA_ENTITY_PREFIX}`),
   );
   const pool = houseOnly.length > 0 ? houseOnly : entities;
   return [...pool].sort((a, b) => a.entity_id.localeCompare(b.entity_id))[0];
@@ -377,7 +376,7 @@ export async function getClimateZones(): Promise<ClimateZone[]> {
   const entities = await ha.getEntities("climate");
   // Same Tesla-exclusion policy as selectClimateEntity: the car is not a zone.
   const houseOnly = entities.filter(
-    (e) => !e.entity_id.startsWith(`climate.${env.TESLA_ENTITY_PREFIX}`),
+    (e) => !e.entity_id.startsWith(`climate.${config.TESLA_ENTITY_PREFIX}`),
   );
   const pool = houseOnly.length > 0 ? houseOnly : entities;
   return [...pool].sort((a, b) => a.entity_id.localeCompare(b.entity_id)).map(toZone);

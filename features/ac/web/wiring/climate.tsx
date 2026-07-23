@@ -21,22 +21,22 @@
  */
 
 import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
-import { ClimateModalComfortPresetsFan } from "@/components/tiles/views/ClimateModalComfortPresetsFan";
+import { POLL, useNow } from "@/lib/hooks";
+import { type RouterOutputs, trpc } from "@/lib/trpc";
+import { ClimateModalComfortPresetsFan } from "../views/ClimateModalComfortPresetsFan";
 import {
   ClimateModalHouseThermalMap,
   type HvacMode as ThermalHvacMode,
-} from "@/components/tiles/views/ClimateModalHouseThermalMap";
+} from "../views/ClimateModalHouseThermalMap";
 import {
   ClimateModalMultiZoneGrid,
   type HvacMode as GridHvacMode,
   type ZoneData,
-} from "@/components/tiles/views/ClimateModalMultiZoneGrid";
+} from "../views/ClimateModalMultiZoneGrid";
 import {
   ClimateModalScheduleTimeline,
   type ScheduleZone,
-} from "@/components/tiles/views/ClimateModalScheduleTimeline";
-import { POLL, useNow } from "@/lib/hooks";
-import { type RouterOutputs, trpc } from "@/lib/trpc";
+} from "../views/ClimateModalScheduleTimeline";
 
 // Derived from the router output so the type stays in sync with the API
 // contract automatically , no hand-maintained shadow type (www-355t.25).
