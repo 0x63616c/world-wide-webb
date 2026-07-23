@@ -13,7 +13,6 @@ COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
-COPY drizzle/package.json drizzle/
 COPY apps/map-provision/package.json apps/map-provision/
 COPY apps/storybook/package.json apps/storybook/
 COPY packages/api/package.json packages/api/

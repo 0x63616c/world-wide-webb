@@ -55,6 +55,15 @@ const featureWebSource = import.meta.glob("../../../../../../features/*/web.tsx"
   import: "default",
   eager: true,
 }) as Record<string, string>;
+// A feature with a full web/ component subtree (weather is the first, Track C
+// Wave 7 , its web.tsx is just a re-export barrel, no inline `export function`)
+// keeps its view components as their own files under features/<dir>/web/, so
+// key those by filename same as tilesSource/nestedTilesSource above.
+const featureWebDirSource = import.meta.glob("../../../../../../features/*/web/*.tsx", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
 
 // Merge, normalising each key to bare "../<Name>.tsx" for lookup by component name.
 const viewSource: Record<string, string> = { ...tilesSource };
@@ -70,6 +79,12 @@ for (const src of Object.values(featureWebSource)) {
   for (const m of (src as string).matchAll(/export function (\w+)/g)) {
     viewSource[`../${m[1]}.tsx`] = src as string;
   }
+}
+// A feature's web/ subtree files are named after their component, same as
+// tilesSource/nestedTilesSource , key by bare filename.
+for (const [path, src] of Object.entries(featureWebDirSource)) {
+  const base = path.split("/").pop();
+  if (base) viewSource[`../${base}`] = src as string;
 }
 
 describe("tile registry , label matches rendered title", () => {

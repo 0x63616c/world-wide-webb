@@ -59,7 +59,13 @@ describe("tile registry , story coverage", () => {
   // components/ , registered tile views are co-located with their domain (e.g.
   // the Sonos/TV media tiles live in components/media/, not components/tiles/),
   // so a tiles-only glob would wrongly report their stories as missing (www-w6ug).
-  const storyFiles = Object.keys(import.meta.glob("../../**/*.stories.tsx"));
+  // Folded features with a full web/ component subtree (weather is the first,
+  // Track C Wave 7) keep their stories under features/<dir>/web/, so that tree
+  // is scanned too.
+  const storyFiles = [
+    ...Object.keys(import.meta.glob("../../**/*.stories.tsx")),
+    ...Object.keys(import.meta.glob("../../../../../../features/*/web/**/*.stories.tsx")),
+  ];
 
   it("every registry view component has a matching *.stories.tsx file", () => {
     for (const { id, viewComponent } of TILE_REGISTRY) {
