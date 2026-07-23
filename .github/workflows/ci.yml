@@ -44,7 +44,6 @@ jobs:
       web: ${{ steps.filter.outputs.web }}
       api: ${{ steps.filter.outputs.api }}
       worker: ${{ steps.filter.outputs.worker }}
-      drizzle: ${{ steps.filter.outputs.drizzle }}
       mapprovision: ${{ steps.filter.outputs.mapprovision }}
       # infra-only changes (Pulumi program / specs) deploy without any image
       # rebuild: a `pulumi up` must still converge the declared stack.
@@ -96,14 +95,9 @@ jobs:
             # converge an infra-only diff (e.g. a resource cap or env change).
             infra:
               - 'infra/**'
-            # Drizzle Gateway wrapper image, a thin self-contained Dockerfile +
-            # preload. It pins an upstream base and copies only drizzle/, so it
-            # rebuilds solely on its own changes (no packages/ or bun.lock dep).
-            drizzle:
-              - 'drizzle/**'
             # Basemap provisioner (www-hn1i): a self-contained alpine + pmtiles
             # CLI + sh image, no workspace deps, so it rebuilds solely on its
-            # own tree (mirrors drizzle).
+            # own tree.
             mapprovision:
               - 'apps/map-provision/**'
             # any_app is true when at least one image needs to be built. An
@@ -113,7 +107,6 @@ jobs:
               - 'apps/web/**'
               - 'apps/api/**'
               - 'apps/worker/**'
-              - 'drizzle/**'
               - 'apps/map-provision/**'
               - 'packages/**'
               - 'app-kit/**'
@@ -326,24 +319,6 @@ jobs:
           dockerfile: apps/worker/Dockerfile
           cache-scope: worker
 
-  build-drizzle:
-    needs: [changes]
-    if: needs.changes.outputs.drizzle == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 25
-    environment: prod
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build and push drizzle image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-control-center-drizzle
-          dockerfile: drizzle/Dockerfile
-          cache-scope: drizzle
-
   build-map-provision:
     needs: [changes]
     if: needs.changes.outputs.mapprovision == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
@@ -372,7 +347,7 @@ jobs:
   # declarative-convergent, so the latest green run always reconciles prod to the
   # committed digests, no deploy marker needed (www-bom8 retired).
   deploy:
-    needs: [changes, test-unit, test-storybook, typecheck, build-web, build-api, build-worker, build-drizzle, build-map-provision]
+    needs: [changes, test-unit, test-storybook, typecheck, build-web, build-api, build-worker, build-map-provision]
     # always() lets us run even when some build jobs were skipped (no changes).
     # We proceed when: on main, an app OR infra changed, and no build failed.
     if: |
@@ -463,7 +438,7 @@ jobs:
           # KEY is product-component scoped and matches the Pulumi imageDigests
           # config key, while repo names use full product slugs.
           declare -A out=()
-          for entry in www-control-center-web:control-center-web www-control-center-api:control-center-api www-control-center-worker:control-center-worker www-control-center-drizzle:control-center-drizzle www-control-center-map-provision:control-center-map-provision; do
+          for entry in www-control-center-web:control-center-web www-control-center-api:control-center-api www-control-center-worker:control-center-worker www-control-center-map-provision:control-center-map-provision; do
             repo="${entry%%:*}"
             name="${entry#*:}"
             d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$repo:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
@@ -569,7 +544,7 @@ jobs:
   # AGE_PRIVATE_KEY, same as deploy. Docs-only pushes (deploy skipped, nothing
   # failed) send nothing.
   notify:
-    needs: [changes, test-unit, test-storybook, typecheck, build-web, build-api, build-worker, build-drizzle, build-map-provision, deploy]
+    needs: [changes, test-unit, test-storybook, typecheck, build-web, build-api, build-worker, build-map-provision, deploy]
     if: always() && github.ref_name == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 5

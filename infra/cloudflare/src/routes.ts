@@ -4,8 +4,8 @@
 // The control-center app route is product-derived (productRoutes(), the
 // `app.worldwidewebb.co` single-label host from the platform manifest). The
 // flattened `app--cc.worldwidewebb.co` cutover host and the `${host}--${dnsCode}`
-// scheme were retired in Task 7 Step C; the imported legacy tooling hosts below
-// (drizzle/hooks-test) stay explicit as their own removal tickets.
+// scheme were retired in Task 7 Step C; the one imported legacy tooling host
+// below (hooks-test) stays explicit as its own removal ticket.
 //
 // Ingress and CNAMEs are SEPARATE lists because the live state isn't symmetric:
 // every ingress host has a CNAME, but `hooks-test` has a CNAME with NO ingress
@@ -34,8 +34,8 @@ export interface DesiredCname {
   proxied: true;
   target: (tunnelId: string) => string;
   // The record's CF `comment`, matching live EXACTLY for a zero-diff import.
-  // These vary per record (frozen legacy values below: drizzle/hooks-test carry
-  // legacy evee comments); `undefined` = no comment.
+  // Frozen legacy value below: `hooks-test` carries a legacy evee comment;
+  // `undefined` = no comment.
   comment?: string;
 }
 
@@ -50,22 +50,18 @@ export type CloudflareRoutes = Readonly<{
   cnames: readonly DesiredCname[];
 }>;
 
-// LIVE tunnel ingress (2 hosts + the implicit catchall 404). Ports match the
-// origins cloudflared forwards to. The dead `portainer` + `hooks` routes (origins
-// removed with bosun) were pruned in www-oa74; `storybook` (origin deleted, no
-// live deploy target since the storybook rip) was pruned here.
-const LEGACY_INGRESS: Record<string, string> = {
-  drizzle: "http://drizzle.control-center.svc.cluster.local:4983",
-};
+// LIVE tunnel ingress: no legacy hosts remain (only the product app host, added
+// by productRoutes below). The dead `portainer` + `hooks` routes (origins removed
+// in the Swarm->k8s migration) were pruned in www-oa74; `storybook` (origin
+// deleted after the storybook rip) and `drizzle` (Drizzle Gateway torn down) were
+// pruned here.
+const LEGACY_INGRESS: Record<string, string> = {};
 
-// LIVE proxied CNAMEs: the 2 ingress hosts PLUS the stray `hooks-test` leftover.
-// Each carries its exact live CF comment (varied; legacy evee comments on
-// drizzle/hooks-test). Frozen legacy CF comment values: drizzle carries an
-// ownership-tagged route comment baked into live Cloudflare state; it is
-// intentionally immutable here. The dead `hooks` + `portainer` CNAMEs were pruned
-// in www-oa74; `storybook` was pruned here.
+// LIVE proxied CNAMEs: the product app host PLUS the stray `hooks-test` leftover,
+// which carries its exact live CF comment for a zero-diff import. The dead `hooks`
+// + `portainer` CNAMEs were pruned in www-oa74; `storybook` and `drizzle` were
+// pruned here.
 const LEGACY_CNAME_COMMENTS: Record<string, string | undefined> = {
-  drizzle: "Drizzle Gateway via evee-webhooks tunnel (www-0ub8)",
   "hooks-test": "EVEE-218 webhook test (apex naming, covered by Universal SSL)",
 };
 

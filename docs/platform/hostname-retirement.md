@@ -41,5 +41,5 @@ are obsolete.
 | Hostname | Backend | Status |
 |---|---|---|
 | `storybook.worldwidewebb.co` | `storybook:6006` | Active; retire whenever decided. |
-| `drizzle.worldwidewebb.co` | `drizzle:4983` | Active; retire whenever decided. |
+| `drizzle.worldwidewebb.co` | none (Drizzle Gateway torn down) | Route + Access app pruned from Pulumi; delete the CNAME/Access records on next `pulumi up`. |
 | `hooks-test.worldwidewebb.co` | none (dangling CNAME) | Safe to remove now. |

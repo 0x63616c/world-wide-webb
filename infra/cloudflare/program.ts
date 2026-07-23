@@ -74,22 +74,6 @@ const sub = (host: string) => host.replace(`.${zoneName}`, "");
 const accessName = (host: string) =>
   host.replace(`.${zoneName}`, "").replace("*", "wildcard").replaceAll(".", "-");
 
-function accessPolicyResourceName(appName: string, policyName: string): string {
-  if (appName === "drizzle" && policyName === "email-otp") {
-    return `${appName}-policy`;
-  }
-
-  return `${appName}-${policyName}`;
-}
-
-function accessPolicyInputName(appDomain: string, policyName: string): string {
-  if (appDomain === `drizzle.${zoneName}` && policyName === "email-otp") {
-    return appDomain;
-  }
-
-  return policyName;
-}
-
 // --- Access apps + policies ---
 // The provider DERIVES selfHostedDomains from `name` and treats sessionDuration /
 // appLauncherVisible / autoRedirectToIdentity as managed defaults, so declaring
@@ -114,12 +98,12 @@ for (const app of desiredAccessApps(zoneName, applyAccessGate)) {
 
   for (const policy of app.policies) {
     new cloudflare.ZeroTrustAccessPolicy(
-      accessPolicyResourceName(name, policy.name),
+      `${name}-${policy.name}`,
       {
         accountId,
         // Live policies are app-scoped; the provider models the link via applicationId.
         applicationId: cfApp.id,
-        name: accessPolicyInputName(app.domain, policy.name),
+        name: policy.name,
         decision: policy.decision,
         precedence: policy.precedence,
         includes: [accessInclude(policy.include)],
@@ -149,7 +133,7 @@ new cloudflare.ZeroTrustTunnelCloudflaredConfig(
 
 // --- Proxied DNS CNAMEs -> the tunnel (adopt-only) ---
 // Field set mirrors the imported records EXACTLY so the import is zero-diff:
-// `name` is the SUBDOMAIN only ("drizzle", not the FQDN, the v5 provider
+// `name` is the SUBDOMAIN only ("hooks-test", not the FQDN, the v5 provider
 // stores the short name and changing it forces a destructive replace), `comment`
 // is each record's exact live value (varies; undefined = no comment), ttl 1 =
 // "automatic", proxied. `content` is the tunnel target (tunnelId from config =

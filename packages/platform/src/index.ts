@@ -221,12 +221,7 @@ export type ServiceSecretUsage = Readonly<{
   secrets: Readonly<Record<string, SecretCatalogEntry>>;
 }>;
 
-export type ControlCenterSecretUsageName =
-  | "api"
-  | "worker"
-  | "drizzle"
-  | "cloudflared"
-  | "portal-data-purge";
+export type ControlCenterSecretUsageName = "api" | "worker" | "cloudflared" | "portal-data-purge";
 
 function secret(item: string, field: string, vaultKey: string): SecretCatalogEntry {
   return { item, field, vaultKey };
@@ -272,9 +267,6 @@ export const secretCatalog = {
       "password",
       "CONTROL_CENTER_POSTGRES__PASSWORD",
     ),
-  },
-  drizzle: {
-    masterpass: secret("Drizzle Gateway", "masterpass", "DRIZZLE_GATEWAY__MASTERPASS"),
   },
   github: {
     ghcrPat: secret("GitHub Personal Access Token", "token", "GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN"),
@@ -380,10 +372,6 @@ export function controlCenterServiceSecretUsages(): Record<
   return {
     api: defineServiceSecretUsage(controlCenter, "api", apiWorkerSharedSecrets),
     worker: defineServiceSecretUsage(controlCenter, "worker", apiWorkerSharedSecrets),
-    drizzle: defineServiceSecretUsage(controlCenter, "drizzle", {
-      MASTERPASS: secretCatalog.drizzle.masterpass,
-      POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
-    }),
     cloudflared: defineServiceSecretUsage(
       controlCenter,
       "cloudflared",
@@ -550,7 +538,6 @@ export type ControlCenterServiceName =
   | "web"
   | "storybook"
   | "captive-portal"
-  | "drizzle"
   | "cloudflared";
 
 // Was `{ service, workloadName, image, exposure, secretUsage? }`: workloadName
@@ -623,11 +610,6 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
       "captive-portal": {
         service: "captive-portal",
         exposure: captivePortalWeb(target, { host: "app" }),
-      },
-      drizzle: {
-        service: "drizzle",
-        exposure: privateWeb(target, { host: "drizzle" }),
-        secretUsage: secretUsages.drizzle,
       },
       cloudflared: {
         service: "cloudflared",

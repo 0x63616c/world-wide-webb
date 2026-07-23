@@ -37,7 +37,6 @@ that run/deploy, `packages/` = things you import):
 - `apps/api` - Bun tRPC backend, DB schema, migrations, routers, services, shared domain logic, and the guest-WiFi listener.
 - `apps/worker` - Continuous interval workers for home-state reconciliation and ingest.
 - `apps/storybook` - Thin wrapper delegating to the web Storybook.
-- `drizzle` - Drizzle Gateway wrapper image.
 - `apps/map-provision` - Basemap tile provisioner image.
 - `packages/api` - Browser-safe type bridge that re-exports the API router type only.
 - `packages/core` - Owns the `device_state` table: schema, the `DeviceStateStore` interface, pg + in-memory adapters, and the desired/reported merge logic.
@@ -213,7 +212,7 @@ so this is a single-product repo again. `docs/platform/*.html` are historical
 design notes from that era, not the current layout.
 
 CI path filters are now scoped per app directory (`apps/web/**`, `apps/api/**`,
-`apps/worker/**`, `drizzle/**`, `apps/map-provision/**`), all rebuilding
+`apps/worker/**`, `apps/map-provision/**`), all rebuilding
 on `packages/**` or `bun.lock` changes too. The Tiltfile lives at the repo
 root; root `bun run dev` runs `tilt up` directly. Local dev commands
 (`dev:web`, `dev:api`, `dev:worker`, `dev:storybook`, `dev:db`, `ios:*`) live

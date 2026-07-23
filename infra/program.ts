@@ -104,10 +104,6 @@ const services = deployServices({
   provider: cluster.provider,
   namespaces,
   cloudflaredReplicas: cfg.getNumber("cloudflaredReplicas") ?? 2,
-  // drizzle defaults to 0: trimmed 8GB steady-state so the control plane
-  // survives a cold reboot (www-j934.9). An Access-gated dev tool; bring up
-  // on demand via `pulumi config set wwwinfra:drizzleReplicas 1`.
-  drizzleReplicas: cfg.getNumber("drizzleReplicas") ?? 0,
   nasNfsServer,
   requireImageDigestPins: shouldRequireImageDigestPins(stackName),
   imageDigests,

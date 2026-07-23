@@ -95,9 +95,8 @@ const REDACT_PATHS = [
   "HOME_PLACE_NAME",
   "*.HOME_PLACE_NAME",
   // Camera RTSP credentials + LAN coordinates. They only ever live inside the
-  // go2rtc config Secret, but if a vault/config object is ever logged (bosun,
-  // Pulumi) these must never reach a log line , the RTSP URL embeds the
-  // password inline.
+  // go2rtc config Secret, but if a vault/config object is ever logged (Pulumi)
+  // these must never reach a log line , the RTSP URL embeds the password inline.
   "EUFY_BEDROOM_CAM__HOST",
   "*.EUFY_BEDROOM_CAM__HOST",
   "EUFY_BEDROOM_CAM__RTSP_USERNAME",

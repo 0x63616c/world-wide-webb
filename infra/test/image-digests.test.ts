@@ -19,7 +19,6 @@ const imageOf = (specs: ReturnType<typeof serviceSpecs>, logicalName: string): s
 const specsWith = (imageDigests?: ImageDigests): ReturnType<typeof serviceSpecs> =>
   serviceSpecs({
     cloudflaredReplicas: 2,
-    drizzleReplicas: 0,
     nasNfsServer: "192.168.0.218",
     imageDigests,
   });
@@ -29,7 +28,6 @@ const ALL_IMAGE_DIGESTS = {
   "control-center-api": VALID,
   "control-center-worker": VALID,
   "control-center-web": VALID,
-  "control-center-drizzle": VALID,
   "control-center-map-provision": VALID,
 } satisfies ImageDigests;
 
@@ -82,7 +80,6 @@ describe("serviceSpecs image digest pinning", () => {
     expect(() =>
       serviceSpecs({
         cloudflaredReplicas: 2,
-        drizzleReplicas: 0,
         nasNfsServer: "192.168.0.218",
         imageDigests: {},
         requireImageDigestPins: shouldRequireImageDigestPins("prod"),
@@ -93,7 +90,6 @@ describe("serviceSpecs image digest pinning", () => {
   test("allows prod app Deployment rendering when every digest pin is present", () => {
     const specs = serviceSpecs({
       cloudflaredReplicas: 2,
-      drizzleReplicas: 0,
       nasNfsServer: "192.168.0.218",
       imageDigests: ALL_IMAGE_DIGESTS,
       requireImageDigestPins: shouldRequireImageDigestPins("prod"),

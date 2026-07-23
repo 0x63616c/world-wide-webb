@@ -8,27 +8,26 @@ import {
 } from "../src/routes.ts";
 
 // ADOPT-ONLY (www-j934.2): the ingress rules + CNAMEs must mirror the LIVE state
-// exactly. Ingress = 1 legacy host (drizzle) + the product app host; CNAMEs =
-// the legacy host PLUS the stray hooks-test leftover (asymmetric on purpose).
+// exactly. Ingress = just the product app host; CNAMEs = the product app host
+// PLUS the stray hooks-test leftover (asymmetric on purpose).
 // dashboard.worldwidewebb.co removed in CC-2ff. The flattened
 // app--cc.worldwidewebb.co cutover host was retired in Task 7 Step C (the product
 // app route is now the single-label app.worldwidewebb.co). The dead portainer +
-// hooks routes were pruned in www-oa74; storybook (origin deleted, no live deploy
-// target) was pruned since. captive-portal is never tunneled (LAN-only).
+// hooks routes were pruned in www-oa74; storybook (origin deleted) and drizzle
+// (Drizzle Gateway torn down) were pruned since. captive-portal is never tunneled
+// (LAN-only).
 
 const ZONE = "worldwidewebb.co";
 
 describe("desiredIngressRules", () => {
-  test("declares the product-derived app host plus the legacy ingress hosts with their origins", () => {
+  test("declares the product-derived app host as the only ingress host", () => {
     const byHost = Object.fromEntries(
       desiredIngressRules(ZONE).map((r) => [r.hostname, r.service]),
     );
-    expect(Object.keys(byHost).sort()).toEqual([
-      "app.worldwidewebb.co",
-      "drizzle.worldwidewebb.co",
-    ]);
+    expect(Object.keys(byHost).sort()).toEqual(["app.worldwidewebb.co"]);
     expect(byHost["dashboard.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["storybook.worldwidewebb.co"]).toBeUndefined();
+    expect(byHost["drizzle.worldwidewebb.co"]).toBeUndefined();
     // Task 7 Step C: the flattened app--cc cutover host is retired.
     expect(byHost["app--cc.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["app.worldwidewebb.co"]).toBe("http://web.control-center.svc.cluster.local:80");
@@ -90,11 +89,7 @@ describe("desiredCnames", () => {
     const hosts = desiredCnames(ZONE)
       .map((c) => c.hostname)
       .sort();
-    expect(hosts).toEqual([
-      "app.worldwidewebb.co",
-      "drizzle.worldwidewebb.co",
-      "hooks-test.worldwidewebb.co",
-    ]);
+    expect(hosts).toEqual(["app.worldwidewebb.co", "hooks-test.worldwidewebb.co"]);
     // Task 7 Step C: the flattened app--cc cutover CNAME is retired.
     expect(hosts).not.toContain("app--cc.worldwidewebb.co");
   });
@@ -111,10 +106,7 @@ describe("desiredCnames", () => {
     const byHost = Object.fromEntries(desiredCnames(ZONE).map((c) => [c.hostname, c.comment]));
     // dashboard.worldwidewebb.co retired in CC-2ff
     expect(byHost).not.toHaveProperty("dashboard.worldwidewebb.co");
-    // legacy evee comments (kept verbatim so import is zero-diff)
-    expect(byHost["drizzle.worldwidewebb.co"]).toBe(
-      "Drizzle Gateway via evee-webhooks tunnel (www-0ub8)",
-    );
+    // legacy evee comment (kept verbatim so import is zero-diff)
     expect(byHost["hooks-test.worldwidewebb.co"]).toBe(
       "EVEE-218 webhook test (apex naming, covered by Universal SSL)",
     );
@@ -122,10 +114,11 @@ describe("desiredCnames", () => {
     expect(byHost["app.worldwidewebb.co"]).toBe("platform:control-center private app route");
     // Task 7 Step C: the flattened app--cc cutover CNAME is retired.
     expect(byHost).not.toHaveProperty("app--cc.worldwidewebb.co");
-    // pruned dead routes are absent (www-oa74; storybook pruned since)
+    // pruned dead routes are absent (www-oa74; storybook + drizzle pruned since)
     expect(byHost).not.toHaveProperty("hooks.worldwidewebb.co");
     expect(byHost).not.toHaveProperty("portainer.worldwidewebb.co");
     expect(byHost).not.toHaveProperty("storybook.worldwidewebb.co");
+    expect(byHost).not.toHaveProperty("drizzle.worldwidewebb.co");
   });
 });
 

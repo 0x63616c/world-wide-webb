@@ -7,7 +7,6 @@
     "apps/api",
     "apps/worker",
     "apps/storybook",
-    "drizzle",
     "apps/map-provision",
     "packages/*",
     "infra",

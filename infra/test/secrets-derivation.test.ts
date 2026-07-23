@@ -39,10 +39,6 @@ const SHARED_API_WORKER_SECRETS = {
 const GOLDEN_SERVICE_SECRETS: Record<string, Record<string, string>> = {
   api: SHARED_API_WORKER_SECRETS,
   worker: SHARED_API_WORKER_SECRETS,
-  drizzle: {
-    MASTERPASS: "DRIZZLE_GATEWAY__MASTERPASS",
-    POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
-  },
   cloudflared: {
     TUNNEL_TOKEN: "CLOUDFLARE_TUNNEL_EVEE_WEBHOOKS__CONNECTOR_TOKEN",
   },
@@ -59,7 +55,6 @@ const GOLDEN_SERVICE_SECRET_TARGETS: Record<string, { namespaceName: string; sec
   {
     api: { namespaceName: "control-center", secretName: "control-center-secrets-api" },
     worker: { namespaceName: "control-center", secretName: "control-center-secrets-worker" },
-    drizzle: { namespaceName: "control-center", secretName: "control-center-secrets-drizzle" },
     cloudflared: { namespaceName: "platform", secretName: "platform-secrets-cloudflared" },
     "portal-data-purge": {
       namespaceName: "control-center",
@@ -100,5 +95,7 @@ describe("secrets derivation (golden equivalence, single-declaration refactor)",
     expect("storybook" in SERVICE_SECRETS).toBe(false);
     expect("captive-portal" in SERVICE_SECRETS).toBe(false);
     expect("captive-portal-api" in SERVICE_SECRETS).toBe(false);
+    // drizzle removed entirely (Drizzle Gateway torn down).
+    expect("drizzle" in SERVICE_SECRETS).toBe(false);
   });
 });

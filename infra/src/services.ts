@@ -40,10 +40,6 @@ const IMAGE_REPOSITORIES = {
     digestKey: controlCenterProduct.imageDigestKey("web"),
     repository: controlCenterProduct.imageRepository("web"),
   },
-  drizzle: {
-    digestKey: controlCenterProduct.imageDigestKey("drizzle"),
-    repository: controlCenterProduct.imageRepository("drizzle"),
-  },
   "map-provision": {
     digestKey: controlCenterProduct.imageDigestKey("map-provision"),
     repository: controlCenterProduct.imageRepository("map-provision"),
@@ -173,14 +169,9 @@ const mountSecrets = (service: ServiceSecretName) =>
  *   non-prod local applies, where every image falls back to the :main tag. www-j934.14.
  * - requireImageDigestPins: prod safety guard. Refuse to render app Deployments
  *   with mutable/private :main images when wwwinfra:imageDigests is incomplete.
- * - drizzleReplicas: trim knob for the 8GB steady-state (www-j934.9). An
- *   Access-gated internal/dev tool, not prod-critical, so it defaults to 0 to
- *   leave the control plane ~1-2GB headroom to survive a cold reboot. Bring it
- *   up on demand with `pulumi config set wwwinfra:drizzleReplicas 1`.
  */
 export interface ServiceSpecOptions {
   cloudflaredReplicas: number;
-  drizzleReplicas: number;
   nasNfsServer: string;
   imageDigests?: ImageDigests;
   requireImageDigestPins?: boolean;
@@ -190,7 +181,6 @@ export interface ServiceSpecOptions {
 export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
   const {
     cloudflaredReplicas,
-    drizzleReplicas,
     nasNfsServer,
     imageDigests: digests = {},
     requireImageDigestPins = false,
@@ -338,21 +328,9 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     // then the "captive-portal" namespace, its CNPG Postgres Clusters, and its
     // pg-backup CronJob (Task 6 , the one live guest-authorization row was
     // copied into control_center and a final pg_dump taken to the NAS first).
-    {
-      logicalName: "control-center-drizzle",
-      legacyLogicalName: "drizzle",
-      name: "drizzle",
-      namespaceName: "control-center",
-      image: ghcr("drizzle", digests),
-      replicas: drizzleReplicas,
-      resources: { memory: "256M" },
-      secrets: mountSecrets("drizzle"),
-      secretName: SERVICE_SECRET_TARGETS.drizzle.secretName,
-      env: { TZ, POSTGRES_HOST: controlCenterDatabase.rwServiceName },
-      ports: [{ containerPort: 4983, expose: "cluster" }],
-      volumes: [{ mountPath: "/app", claim: "drizzle-data" }],
-      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
-    },
+    // control-center-drizzle workload DELETED: the Drizzle Gateway (self-hosted
+    // Studio at drizzle.worldwidewebb.co) was parked at replicas 0 and never
+    // brought back; its folder, CF route, Access app, secret and PVC were pruned.
     {
       // Plex Media Server (third-party). Serves the Synology media share to the
       // Apple TV. Not a control-center product component, but co-located in the
@@ -447,10 +425,6 @@ export interface ServicesArgs {
   // cloudflared replicas: 0 for a pre-cutover bring-up (no live-token split with
   // Swarm), 2 (HA) at the cutover (www-j934.9 / DESIGN §7).
   cloudflaredReplicas: number;
-  // drizzle replicas: 0 by default to trim the 8GB steady-state so the control
-  // plane survives a cold reboot (www-j934.9); an Access-gated dev tool,
-  // brought up on demand.
-  drizzleReplicas: number;
   // NFS server for the media share: NAS LAN IP by default; kubelet mounts the PV
   // from the node netns, which reaches the LAN on homelab (DESIGN 5b/5c, www-j934.17).
   nasNfsServer: string;
@@ -470,11 +444,10 @@ export interface ServicesResources {
   workloads: Workload[];
 }
 
-// The local-path PVCs the workloads mount by claim name: drizzle's data dir and
-// the web basemap dir (map-extract, .7, writes into `maps`). local-path is the
-// OrbStack built-in SSD provisioner (same class CNPG uses).
+// The local-path PVCs the workloads mount by claim name: the web basemap dir
+// (map-extract, .7, writes into `maps`). local-path is the OrbStack built-in SSD
+// provisioner (same class CNPG uses).
 const LOCAL_PATH_CLAIMS: { name: string; size: string }[] = [
-  { name: "drizzle-data", size: "1Gi" },
   { name: "maps", size: "2Gi" },
   // Plex config/metadata/thumbnails on the OrbStack SSD (SQLite must not be on
   // NFS). Mounted at /config by the plex workload above.
@@ -545,7 +518,6 @@ export function deployServices(args: ServicesArgs): ServicesResources {
     provider,
     namespaces,
     cloudflaredReplicas,
-    drizzleReplicas,
     nasNfsServer,
     imageDigests,
     requireImageDigestPins,
@@ -598,7 +570,7 @@ export function deployServices(args: ServicesArgs): ServicesResources {
     opts,
   );
 
-  // local-path PVCs the workloads mount by claim name (web maps, drizzle data).
+  // local-path PVCs the workloads mount by claim name (web maps).
   const pvcs = LOCAL_PATH_CLAIMS.map(
     (c) =>
       new k8s.core.v1.PersistentVolumeClaim(
@@ -617,7 +589,6 @@ export function deployServices(args: ServicesArgs): ServicesResources {
 
   const workloads = serviceSpecs({
     cloudflaredReplicas,
-    drizzleReplicas,
     nasNfsServer,
     imageDigests,
     requireImageDigestPins,
