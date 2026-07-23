@@ -1,3 +1,4 @@
+import { GENERATED_ROUTES } from "@features/_generated/http.gen";
 import { openCameraStream } from "@features/dogcam/service";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { createLogger } from "@www/logger";
@@ -5,6 +6,7 @@ import { db } from "./db/index";
 import { runMigrations } from "./db/migrate";
 import { env } from "./env";
 import { startGuestServer } from "./guest-server";
+import { findRoute } from "./http/route-table";
 import { getTvArtwork } from "./services/apple-tv-service";
 import {
   BOOTH_FILTER_PATTERN,
@@ -101,6 +103,16 @@ const CORS_HEADERS: Record<string, string> = {
 async function handle(req: Request, url: URL): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
+  // Generated route table (S3 seam). Iterated before the residual hand-wired
+  // ladder; CORS is overlaid centrally here (mirrors the /trpc path below), so
+  // route handlers return bare Responses.
+  const route = findRoute(GENERATED_ROUTES, req.method, url.pathname);
+  if (route) {
+    const res = await route.handler(req, url);
+    for (const [k, v] of Object.entries(CORS_HEADERS)) res.headers.set(k, v);
+    return res;
   }
 
   if (url.pathname === "/up") {

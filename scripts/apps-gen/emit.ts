@@ -244,6 +244,39 @@ ${entries}
 `;
 }
 
+/**
+ * The generated HTTP-route barrel (S3). Like `renderJobs` (a real import
+ * barrel, not a data-only listing), this emits REAL imports of each collected
+ * `defineHttp` module's `routes` export, spread into one `GENERATED_ROUTES`
+ * array. `apps/api/src/server.ts`'s `findRoute` iterates it before the residual
+ * hand-wired ladder. `model.httpModules` is already sorted deterministically in
+ * `collect()`.
+ */
+export function renderHttp(model: AppModel): string {
+  const mods = model.httpModules;
+  if (mods.length === 0) {
+    return `${GEN_HEADER}
+
+import type { HttpRoute } from "@app-kit";
+
+export const GENERATED_ROUTES: readonly HttpRoute[] = [];
+`;
+  }
+  const imports = mods
+    .map((m) => `import { routes as ${m.ident} } from "${m.importPath}";`)
+    .join("\n");
+  const spread = mods.map((m) => `...${m.ident}`).join(",\n  ");
+  return `${GEN_HEADER}
+
+import type { HttpRoute } from "@app-kit";
+${imports}
+
+export const GENERATED_ROUTES: readonly HttpRoute[] = [
+  ${spread},
+];
+`;
+}
+
 export function renderCrons(model: AppModel): string {
   const sorted = [...model.crons].sort((a, b) =>
     a.name !== b.name

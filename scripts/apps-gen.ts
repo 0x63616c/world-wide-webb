@@ -31,6 +31,7 @@ import {
   renderCronHandlers,
   renderCrons,
   renderGuestRouter,
+  renderHttp,
   renderJobs,
   renderRouter,
   renderSchema,
@@ -52,6 +53,7 @@ async function main(): Promise<void> {
   writeFileSync(join(GEN_DIR, "crons.gen.ts"), renderCrons(model));
   writeFileSync(join(GEN_DIR, "cron-handlers.gen.ts"), renderCronHandlers(model));
   writeFileSync(join(GEN_DIR, "jobs.gen.ts"), renderJobs(model));
+  writeFileSync(join(GEN_DIR, "http.gen.ts"), renderHttp(model));
 }
 
 main().catch((e) => {

@@ -5,7 +5,12 @@ import { is, Table } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
 // scripts/ has no tsconfig with the @app-kit alias (bun resolves paths from the
 // tsconfig nearest each file), so reach the authoring surface by relative path.
-import { type AppManifest, CRON_BRAND, JOBS_FACET_BRAND } from "../../app-kit/index";
+import {
+  type AppManifest,
+  CRON_BRAND,
+  HTTP_FACET_BRAND,
+  JOBS_FACET_BRAND,
+} from "../../app-kit/index";
 import { TILE_REGISTRY } from "../../apps/web/src/lib/tile-registry";
 
 // scripts/apps-gen/collect.ts -> repo root is two directories up.
@@ -66,6 +71,24 @@ interface CollectedJob {
   source: string;
 }
 
+/** A collected `defineHttp` route (S3), read for the dup-route validator. */
+interface CollectedHttpRoute {
+  method: string | undefined;
+  path: string;
+  match: "exact" | "prefix";
+  source: string;
+}
+
+/**
+ * A collected http facet MODULE (S3), for the `http.gen.ts` emit barrel.
+ * `importPath` is relative from `features/_generated/`.
+ */
+interface CollectedHttpModule {
+  ident: string;
+  importPath: string;
+  source: string;
+}
+
 /**
  * Per-feature emit metadata — everything the emitter needs to render the
  * generated router/guest-router/schema/crons aggregates as deterministic import
@@ -79,6 +102,7 @@ export interface CollectedFeature {
   hasApi: boolean;
   hasSchema: boolean;
   hasJobs: boolean;
+  hasHttp: boolean;
 }
 
 export interface AppModel {
@@ -88,9 +112,54 @@ export interface AppModel {
   routerKeys: CollectedRouterKey[];
   crons: CollectedCron[];
   jobs: CollectedJob[];
+  httpRoutes: CollectedHttpRoute[];
+  httpModules: CollectedHttpModule[];
 }
 
 const APP_BRAND = Symbol.for("app-kit.app");
+
+/**
+ * S3 transitional: booth/wake raw routes live in apps/api until F-booth/F-wakes
+ * fold their tiles (Wave 5). Each fold DELETES its entry here and adds a
+ * features/<id>/http.ts (picked up by the featureDirs() scan above instead).
+ * Empty in commit 1 of S3.
+ *
+ * CODEGEN SAFETY: collect() imports each `file` below (a real import, not a
+ * string scan), which transitively imports apps/api's `../db/index` -> `../env`.
+ * That module runs `hydrateSecretFiles()` + `envSchema.parse(process.env)` at
+ * import time and constructs a `createPool`/`drizzle` handle. This is safe for
+ * `apps:gen`/`apps:check` ONLY because every field in apps/api/src/env.ts is
+ * `.default()`ed (so parsing an empty env never throws) and the pg pool is lazy
+ * (no socket opens until the first query) — verified by running apps:check with
+ * DATABASE_URL and every other var unset (see the S3 commit's verify output).
+ * Adding a non-defaulted required var to apps/api's env.ts would break codegen
+ * for every entry in this list; keep that invariant in mind before editing env.ts.
+ */
+const INTERIM_HTTP_MODULES: readonly {
+  file: string;
+  ident: string;
+  importPath: string;
+  source: string;
+}[] = [
+  // { file: "apps/api/src/http/booth.http.ts", ident: "boothHttp", importPath: "../../apps/api/src/http/booth.http", source: "interim:booth" },
+  // { file: "apps/api/src/http/wake.http.ts",  ident: "wakeHttp",  importPath: "../../apps/api/src/http/wake.http",  source: "interim:wake" },
+];
+
+/**
+ * Read a `defineHttp([...])` facet (an array branded with HTTP_FACET_BRAND) off
+ * an imported module's `routes` export. Reads only `method`/`path`/`match` off
+ * each spec , NEVER invokes `handler` (mirrors the jobs scan's data-only read).
+ */
+function readHttpRoutes(mod: Record<string, unknown>, source: string): CollectedHttpRoute[] {
+  const v = mod.routes;
+  if (!Array.isArray(v) || !(v as Record<symbol, unknown>)[HTTP_FACET_BRAND]) return [];
+  return (v as Array<{ method?: string; path: string; match?: "exact" | "prefix" }>).map((r) => ({
+    method: r.method,
+    path: r.path,
+    match: r.match ?? "exact",
+    source,
+  }));
+}
 
 /** Enumerate feature folders (features/<dir>/manifest.ts), sorted, skipping _generated. */
 function featureDirs(): string[] {
@@ -99,6 +168,11 @@ function featureDirs(): string[] {
     .map((e) => e.name)
     .filter((name) => existsSync(join(FEATURES_DIR, name, "manifest.ts")))
     .sort();
+}
+
+/** features/<dir>/… -> a valid JS identifier base, e.g. "guest-wifi" -> "guestWifi". */
+function ident(dir: string): string {
+  return dir.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
 }
 
 /** Collect every exported drizzle pgTable name from a schema module. */
@@ -128,6 +202,8 @@ export async function collect(): Promise<AppModel> {
   const routerKeys: CollectedRouterKey[] = [];
   const crons: CollectedCron[] = [];
   const jobs: CollectedJob[] = [];
+  const httpRoutes: CollectedHttpRoute[] = [];
+  const httpModules: CollectedHttpModule[] = [];
 
   for (const dir of dirs) {
     const base = join(FEATURES_DIR, dir);
@@ -193,6 +269,23 @@ export async function collect(): Promise<AppModel> {
       }
     }
 
+    // Source A , future feature http facets: features/<dir>/http.ts, collected
+    // the same way api.ts/jobs.ts are (never via the interim list below).
+    let hasHttp = false;
+    if (existsSync(join(base, "http.ts"))) {
+      const httpMod = (await import(join(base, "http.ts"))) as Record<string, unknown>;
+      const routes = readHttpRoutes(httpMod, `feature:${dir}`);
+      if (routes.length > 0) {
+        hasHttp = true;
+        httpRoutes.push(...routes);
+        httpModules.push({
+          ident: `${ident(dir)}Http`,
+          importPath: `../${dir}/http`,
+          source: `feature:${dir}`,
+        });
+      }
+    }
+
     features.push({
       dir,
       id: m.id,
@@ -200,8 +293,32 @@ export async function collect(): Promise<AppModel> {
       hasApi,
       hasSchema,
       hasJobs,
+      hasHttp,
     });
   }
+
+  // Source B , the interim apps/api transitional home (S3 §D2): explicit,
+  // greppable list OUTSIDE featureDirs(), deleted entry-by-entry as each fold
+  // (F-booth/F-wakes) moves its facet into features/<id>/http.ts (Source A).
+  for (const entry of INTERIM_HTTP_MODULES) {
+    const httpMod = (await import(join(REPO_ROOT, entry.file))) as Record<string, unknown>;
+    const routes = readHttpRoutes(httpMod, entry.source);
+    httpRoutes.push(...routes);
+    httpModules.push({ ident: entry.ident, importPath: entry.importPath, source: entry.source });
+  }
+
+  // Deterministic order so `bun run apps:gen` twice is byte-identical.
+  httpModules.sort((a, b) =>
+    a.source !== b.source
+      ? a.source < b.source
+        ? -1
+        : 1
+      : a.importPath < b.importPath
+        ? -1
+        : a.importPath > b.importPath
+          ? 1
+          : 0,
+  );
 
   // Base (apps/api) schema tables ride in the dup-table check too, so a feature
   // can never silently re-declare a table that already lives in the base schema.
@@ -230,5 +347,14 @@ export async function collect(): Promise<AppModel> {
     }),
   );
 
-  return { apps: [...featureApps, ...registryApps], features, tables, routerKeys, crons, jobs };
+  return {
+    apps: [...featureApps, ...registryApps],
+    features,
+    tables,
+    routerKeys,
+    crons,
+    jobs,
+    httpRoutes,
+    httpModules,
+  };
 }

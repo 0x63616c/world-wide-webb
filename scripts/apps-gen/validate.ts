@@ -40,6 +40,9 @@ interface Model {
   /** Collected `defineCron` facets; a duplicate cron name would collide as one
    *  k8s CronJob object AND overwrite each other in CRON_HANDLERS. */
   crons?: { name: string; source: string }[];
+  /** Collected `defineHttp` routes; two routes with the same method+match+path
+   *  would shadow each other in the generated route table. */
+  httpRoutes?: { method?: string; path: string; match: string; source: string }[];
 }
 
 function overlaps(a: Rect, b: Rect): boolean {
@@ -118,6 +121,24 @@ export function validate(model: Model, guestExposed: readonly string[]): void {
         );
       }
       seenCron.set(c.name, c.source);
+    }
+  }
+
+  // Duplicate HTTP route across features/the interim apps/api list. Two routes
+  // with the same method+match+path would shadow each other in the generated
+  // route table (findRoute returns whichever happens to sort first), so this is
+  // a hard fold error (mirrors the dup table/router-key/job/cron checks).
+  if (model.httpRoutes) {
+    const seenRoute = new Map<string, string>();
+    for (const r of model.httpRoutes) {
+      const key = `${r.method ?? "*"} ${r.match} ${r.path}`;
+      const prev = seenRoute.get(key);
+      if (prev) {
+        throw new CodegenError(
+          `duplicate http route '${key}' (declared by ${prev} and ${r.source}) — two routes cannot shadow each other in the generated route table`,
+        );
+      }
+      seenRoute.set(key, r.source);
     }
   }
 
