@@ -1,7 +1,12 @@
-import { findPlace } from "../config/places";
-import { env } from "../env";
-import { ha } from "../integrations/homeassistant";
-import type { HaEntity } from "../integrations/homeassistant/types";
+import type { HaEntity } from "@www/core";
+import { createHomeAssistantClient } from "@www/core";
+import { config } from "./config";
+import { findPlace } from "./places";
+
+// Module-level singleton built from this feature's config (replaces apps/api's
+// env-aware `ha` singleton , each caller builds its own instance from its
+// config slice, per the UniFi/HA hoist precedent).
+const ha = createHomeAssistantClient({ baseUrl: config.HA_URL, token: config.HA_TOKEN });
 
 export interface TeslaData {
   name: string;
@@ -36,7 +41,7 @@ export interface TeslaData {
  * integration names every entity `<prefix>_*` (prefix is the car nickname,
  * "evee"). Overridable via TESLA_ENTITY_PREFIX.
  */
-function teslaEntityIds(prefix = env.TESLA_ENTITY_PREFIX) {
+function teslaEntityIds(prefix = config.TESLA_ENTITY_PREFIX) {
   return {
     battery: `sensor.${prefix}_battery_level`,
     charging: `sensor.${prefix}_charging`,

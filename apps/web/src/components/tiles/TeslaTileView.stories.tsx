@@ -1,7 +1,7 @@
+import { TeslaTileStatus, TeslaTileView } from "@features/tesla/web";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 import { defineTileMeta } from "./__stories__/factory";
-import { TeslaTileStatus, TeslaTileView } from "./TeslaTileView";
 
 // Storybook stories for TeslaTileView covering all visual states.
 // Play functions use storybook/test matchers (browser env); vitest component tests

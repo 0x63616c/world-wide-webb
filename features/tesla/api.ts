@@ -1,12 +1,15 @@
+/**
+ * tRPC `tesla` facet (Track C, Wave 2). The Tesla tile's live vehicle state plus
+ * lock/charge/preconditioning mutations. Reaches the tRPC runtime ONLY through
+ * @app-kit/server and Home Assistant ONLY through the feature's own service ,
+ * never apps/api. Codegen collects the top-level key `tesla` off
+ * `api._def.record`.
+ */
+import { defineApi } from "@app-kit";
+import { publicProcedure, router } from "@app-kit/server";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import {
-  getTeslaData,
-  setTeslaCharging,
-  setTeslaLock,
-  setTeslaPreconditioning,
-} from "../../services/tesla-service";
-import { publicProcedure, router } from "../init";
+import { getTeslaData, setTeslaCharging, setTeslaLock, setTeslaPreconditioning } from "./service";
 
 const teslaOutputSchema = z.object({
   name: z.string(),
@@ -33,7 +36,7 @@ function unavailable(err: unknown, fallback: string): TRPCError {
   });
 }
 
-export const teslaRouter = router({
+const teslaRouter = router({
   get: publicProcedure
     .input(z.object({}).optional())
     .output(teslaOutputSchema)
@@ -78,3 +81,6 @@ export const teslaRouter = router({
       }
     }),
 });
+
+/** The branded `api` facet — single top-level key `tesla`. */
+export const api = defineApi(router({ tesla: teslaRouter }));

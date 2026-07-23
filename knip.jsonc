@@ -57,9 +57,12 @@
     // invisible across this workspace-boundary quirk until a generic fix for
     // the migration lands (Track C, see W0). Storybook stories/story-tests stay
     // under apps/web/src (same precedent as guest-wifi), so they don't need
-    // this treatment.
+    // this treatment. maplibre-gl (features/tesla/tesla-map.tsx) is the same
+    // workspace-boundary quirk — a real apps/web dep the feature folder can't
+    // see resolved against.
     "@testing-library/jest-dom",
-    "@testing-library/react"
+    "@testing-library/react",
+    "maplibre-gl"
   ],
 
   // `tilt` is the dev-stack binary invoked by the root `dev` script; not an npm dep.

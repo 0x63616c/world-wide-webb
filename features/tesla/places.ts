@@ -10,7 +10,7 @@
  * is priority , the FIRST place whose radius contains the point wins, so list
  * smaller/more-specific places before broader ones that might overlap.
  */
-import { env } from "../env";
+import { config } from "./config";
 
 export interface NamedPlace {
   /** Human label shown on the map pill. */
@@ -23,10 +23,10 @@ export interface NamedPlace {
 
 export const PLACES: readonly NamedPlace[] = [
   {
-    name: env.HOME_PLACE_NAME,
-    lat: env.HOME_LAT,
-    lon: env.HOME_LON,
-    radiusMiles: env.HOME_RADIUS_MILES,
+    name: config.HOME_PLACE_NAME,
+    lat: config.HOME_LAT,
+    lon: config.HOME_LON,
+    radiusMiles: config.HOME_RADIUS_MILES,
   },
 ];
 

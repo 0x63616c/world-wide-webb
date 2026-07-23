@@ -5,5 +5,6 @@
 import { mergeRouters } from "@app-kit/server";
 import { api as guestWifiApi } from "../guest-wifi/api";
 import { api as networkApi } from "../network/api";
+import { api as teslaApi } from "../tesla/api";
 
-export const featureAppRouter = mergeRouters(guestWifiApi, networkApi);
+export const featureAppRouter = mergeRouters(guestWifiApi, networkApi, teslaApi);

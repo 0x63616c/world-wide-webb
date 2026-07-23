@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { TeslaTile } from "../TeslaTile";
+import { TeslaTile } from "./web";
 
 // ── Mock MapLibre (WebGL , not available in jsdom) ───────────────────────────
 vi.mock("maplibre-gl", () => {

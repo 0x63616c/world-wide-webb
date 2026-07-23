@@ -5,9 +5,9 @@
 import "@testing-library/jest-dom";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TeslaMap } from "../TeslaMap";
-import type { TeslaTileViewProps } from "../TeslaTileView";
-import { TeslaTileView } from "../TeslaTileView";
+import { TeslaMap } from "./tesla-map";
+import type { TeslaTileViewProps } from "./web";
+import { TeslaTileView } from "./web";
 
 // ── Mock MapLibre (WebGL , not available in jsdom) ───────────────────────────
 vi.mock("maplibre-gl", () => {

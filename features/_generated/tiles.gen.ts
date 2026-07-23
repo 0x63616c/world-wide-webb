@@ -129,7 +129,7 @@ export const GENERATED_TILES: readonly GeneratedApp[] = [
     guestExposed: false,
     home: false,
     sensitive: false,
-    source: "registry",
+    source: "feature",
   },
   {
     id: "tile_tv",

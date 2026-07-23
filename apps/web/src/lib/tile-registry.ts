@@ -1,6 +1,7 @@
 import type { AppManifest } from "@app-kit";
 import guestWifiManifest from "@features/guest-wifi/manifest";
 import networkManifest from "@features/network/manifest";
+import teslaManifest from "@features/tesla/manifest";
 import type { ComponentType } from "react";
 
 import { QuickPlayTile } from "../components/media/QuickPlayTile";
@@ -30,8 +31,6 @@ import { Next12HoursView } from "../components/tiles/Next12HoursView";
 import { NotificationCenterTile } from "../components/tiles/NotificationCenterTile";
 import { NotificationCenterTileView } from "../components/tiles/NotificationCenterTileView";
 import { PhotoBoothTile } from "../components/tiles/photo-booth/PhotoBoothTile";
-import { TeslaTile } from "../components/tiles/TeslaTile";
-import { TeslaTileView } from "../components/tiles/TeslaTileView";
 import { WakesTile } from "../components/tiles/WakesTile";
 import { WakesTileView } from "../components/tiles/WakesTileView";
 import { WeatherNow } from "../components/tiles/WeatherNow";
@@ -104,16 +103,6 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
     worldRow: 24,
     cols: 4,
     rows: 3,
-  },
-  {
-    id: "tile_tesla",
-    label: "Tesla",
-    component: TeslaTile,
-    viewComponent: TeslaTileView,
-    worldCol: 22,
-    worldRow: 27,
-    cols: 4,
-    rows: 4,
   },
   {
     id: "tile_hourly",
@@ -273,7 +262,7 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
 // tile. The codegen (scripts/apps-gen) reads the SAME manifests and dedupes a
 // registry entry whose id a feature already owns, so each tile has exactly one
 // source of truth. Adding a feature = adding its manifest here + the folder.
-const FEATURE_MANIFESTS: AppManifest[] = [guestWifiManifest, networkManifest];
+const FEATURE_MANIFESTS: AppManifest[] = [guestWifiManifest, networkManifest, teslaManifest];
 
 function manifestToEntry(m: AppManifest): TileRegistryEntry {
   const viewComponent = m.tile.viewComponent;

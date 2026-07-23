@@ -14,7 +14,6 @@ import { notificationsRouter } from "./notifications";
 import { sessionsRouter } from "./sessions";
 import { settingsRouter } from "./settings";
 import { systemRouter } from "./system";
-import { teslaRouter } from "./tesla";
 import { wakePhotosRouter } from "./wake-photos";
 import { weatherRouter } from "./weather";
 import { weightRouter } from "./weight";
@@ -27,7 +26,6 @@ const baseRouter = router({
   health: healthRouter,
   weather: weatherRouter,
   notifications: notificationsRouter,
-  tesla: teslaRouter,
   climate: climateRouter,
   controls: controlsRouter,
   camera: cameraRouter,
