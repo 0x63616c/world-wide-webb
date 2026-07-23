@@ -138,6 +138,16 @@
       }
     },
     {
+      "includes": ["**/packages/core/src/db/pool.ts", "**/packages/core/src/secrets/hydrate.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": ["features/**"],
       "linter": {
         "rules": {

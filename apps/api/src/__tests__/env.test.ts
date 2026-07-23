@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { databaseUrlFromSecret, envSchema, hydrateSecretFiles } from "../env";
+import { envSchema, hydrateSecretFiles } from "../env";
 
 // Smoke test: the api must boot with no secrets configured (graceful
 // degradation). Verifies the env schema applies its safe defaults.
@@ -16,35 +16,6 @@ test("env schema parses with empty environment", () => {
   expect(env.HOME_LON).toBe(-118.2428);
   expect(env.HOME_PLACE_NAME).toBe("Home");
   expect(env.HOME_RADIUS_MILES).toBe(1);
-});
-
-// In the Swarm the Postgres password is a mounted docker secret file, not an
-// env var. databaseUrlFromSecret() builds DATABASE_URL from it so the password
-// never lands in the service spec. The resolver takes an explicit env map so
-// the test never touches process.env.
-test("builds DATABASE_URL from a mounted POSTGRES_PASSWORD secret file", () => {
-  const dir = mkdtempSync(join(tmpdir(), "cc-secret-"));
-  const file = join(dir, "POSTGRES_PASSWORD");
-  writeFileSync(file, "s3cr3t/p@ss\n");
-  // Password is URL-encoded; host/db/user fall back to swarm defaults.
-  expect(databaseUrlFromSecret({ POSTGRES_PASSWORD_FILE: file })).toBe(
-    "postgresql://postgres:s3cr3t%2Fp%40ss@postgres:5432/control_center",
-  );
-});
-
-test("explicit DATABASE_URL wins over the secret file", () => {
-  expect(
-    databaseUrlFromSecret({
-      DATABASE_URL: "postgresql://cc:cc@localhost:5432/controlcenter",
-      POSTGRES_PASSWORD_FILE: "/nonexistent",
-    }),
-  ).toBe("postgresql://cc:cc@localhost:5432/controlcenter");
-});
-
-test("returns undefined when no secret file is mounted (dev/test)", () => {
-  expect(databaseUrlFromSecret({ POSTGRES_PASSWORD_FILE: "/nonexistent/POSTGRES_PASSWORD" })).toBe(
-    undefined,
-  );
 });
 
 // hydrateSecretFiles maps mounted docker secret files to env. Without it the
