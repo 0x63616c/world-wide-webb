@@ -1,0 +1,60 @@
+/**
+ * tRPC `weight` facet (Track C, Wave 2 fold), folded from
+ * apps/api/src/trpc/routers/weight.ts. The feature reaches the tRPC runtime
+ * ONLY through `@app-kit/server` (the single sanctioned seam into apps/api's
+ * trpc/init — never a direct apps/api import); its query/mutation bodies live
+ * in ./service against this feature's own db.
+ */
+import { defineApi } from "@app-kit";
+import { publicProcedure, router } from "@app-kit/server";
+import { TRPCError } from "@trpc/server";
+import { getLogger } from "@www/logger";
+import { z } from "zod";
+import * as service from "./service";
+
+export const weightRouter = router({
+  // Daily-median series + window stats for the tile and Trend page. Null until
+  // the first included reading exists (day-one skeleton).
+  summary: publicProcedure
+    .input(z.object({ range: z.enum(["7d", "30d", "all"]), tz: service.tzInput }))
+    .query(({ input }) => service.getSummary(input.range, input.tz)),
+
+  // One page of days, newest first, for the Readings page.
+  days: publicProcedure
+    .input(
+      z.object({
+        tz: service.tzInput,
+        /** Exclusive: return days strictly older than this YYYY-MM-DD. */
+        cursor: z.string().optional(),
+        limit: z.number().int().min(1).max(90).default(14),
+      }),
+    )
+    .query(({ input }) => service.getDays(input.tz, input.cursor, input.limit)),
+
+  // Manual include/exclude toggle from the Readings page; overrides the
+  // auto sanity-band flag in both directions.
+  setExcluded: publicProcedure
+    .input(z.object({ id: z.string(), excluded: z.boolean() }))
+    .mutation(async ({ input }) => {
+      await service.setExcluded(input.id, input.excluded);
+      return { ok: true } as const;
+    }),
+
+  // Tombstone, never a hard DELETE: ingest re-inserts any row it can still see
+  // in the HA sensor's current state (weight-service.ts, apps/api).
+  delete: publicProcedure.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
+    const deleted = await service.deleteReading(input.id);
+    if (!deleted) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "weight measurement not found" });
+    }
+    getLogger().info({ id: input.id }, "weight measurement deleted");
+    return { ok: true } as const;
+  }),
+});
+
+/**
+ * The branded `api` facet. Its single top-level key `weight` is the router
+ * namespace the generated app router mounts. The codegen reads these keys off
+ * `api._def.record`.
+ */
+export const api = defineApi(router({ weight: weightRouter }));

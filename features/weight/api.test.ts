@@ -9,17 +9,17 @@ const { mockDbUpdate } = vi.hoisted(() => ({
   mockDbUpdate: vi.fn(),
 }));
 
-vi.mock("../db/index", () => ({
+vi.mock("./db", () => ({
   db: { update: mockDbUpdate },
 }));
 
+import { router } from "@app-kit/server";
 import type { TRPCError } from "@trpc/server";
-import { router } from "../trpc/init";
-import { weightRouter } from "../trpc/routers/weight";
+import { weightRouter } from "./api";
 
 function buildCaller() {
   const appRouter = router({ weight: weightRouter });
-  // @ts-expect-error - db not needed by weight procedures (they use global db)
+  // @ts-expect-error - db not needed by weight procedures (they use this feature's own db)
   return appRouter.createCaller({ db: null });
 }
 

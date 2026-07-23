@@ -4,3 +4,4 @@
 
 export * from "../../apps/api/src/db/schema";
 export * from "../guest-wifi/schema";
+export * from "../weight/schema";

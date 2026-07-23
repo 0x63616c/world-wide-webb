@@ -15,7 +15,6 @@ import { settingsRouter } from "./settings";
 import { systemRouter } from "./system";
 import { wakePhotosRouter } from "./wake-photos";
 import { weatherRouter } from "./weather";
-import { weightRouter } from "./weight";
 
 // The non-feature (base) router. Feature facets — `portal` now lives in
 // features/guest-wifi — are merged in below from the generated aggregate
@@ -37,7 +36,6 @@ const baseRouter = router({
   system: systemRouter,
   sessions: sessionsRouter,
   wakePhotos: wakePhotosRouter,
-  weight: weightRouter,
 });
 
 export const appRouter = mergeRouters(baseRouter, featureAppRouter);

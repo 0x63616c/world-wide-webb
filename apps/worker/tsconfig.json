@@ -4,7 +4,17 @@
     "types": ["bun"],
     // Mirrors api: the worker runs via `bun src/index.ts` and never emits.
     // allowImportingTsExtensions lets it resolve @control-center/api's .ts barrel.
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    // The worker's own program transitively typechecks apps/api/src files it
+    // imports (worker-deps.ts -> weight-service.ts), which since the weight fold
+    // (Track C, Wave 2) reach @features/weight/* directly (hand-wired ingest
+    // interval, not a feature facet — see AGENTS.md). tsc uses ONE compilerOptions
+    // for the whole program, so this path must be restated here even though
+    // worker itself never imports @features from its own src. Not part of
+    // check-alias-parity.sh's 8 resolvers (worker never imports @app-kit).
+    "paths": {
+      "@features/*": ["../../features/*"]
+    }
   },
   "include": ["src"]
 }

@@ -8,13 +8,12 @@
  * lb only). Day grouping and all statistics happen server-side.
  */
 
+import { formatRecency, LB_PER_KG } from "@features/weight/web";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WeightRange } from "@/components/tiles/WeightPageView";
 import { WeightPageView } from "@/components/tiles/WeightPageView";
 import type { WeightReadingDay } from "@/components/tiles/WeightReadingsView";
 import { WeightReadingsView } from "@/components/tiles/WeightReadingsView";
-import { LB_PER_KG } from "@/components/tiles/WeightTile";
-import { formatRecency } from "@/components/tiles/WeightTileView";
 import { TileStatus } from "@/components/ui";
 import { POLL, useNow } from "@/lib/hooks";
 import type { RouterOutputs } from "@/lib/trpc";

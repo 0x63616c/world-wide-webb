@@ -3,10 +3,10 @@
  * component tests. Fixture numbers are plausible daily weigh-ins (lb).
  */
 
+import { formatRecency, WeightTileView } from "@features/weight/web";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 import { defineTileMeta } from "./__stories__/factory";
-import { formatRecency, WeightTileView } from "./WeightTileView";
 
 const meta = {
   ...defineTileMeta("WeightTileView", WeightTileView),

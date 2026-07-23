@@ -4,15 +4,15 @@
  * is unchanged between weigh-ins, so most cycles insert nothing.
  * Spec: docs/superpowers/specs/2026-07-21-weight-tile-design.md.
  */
+
+import { weightMeasurement } from "@features/weight/schema";
+import { isOutsideSanityBand, LB_PER_KG, notDeleted } from "@features/weight/service";
 import { getLogger } from "@www/logger";
 import { and, gte, isNull } from "drizzle-orm";
 import { db } from "../db/index";
-import { weightMeasurement } from "../db/schema";
 import { env } from "../env";
 import { ha } from "../integrations/homeassistant/index";
 import { HaError } from "../integrations/homeassistant/types";
-import { isOutsideSanityBand, LB_PER_KG } from "./weight-domain";
-import { notDeleted } from "./weight-sql";
 
 function newWeightId(): string {
   return `wm_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;

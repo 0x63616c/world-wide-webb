@@ -3,6 +3,7 @@ import dogcamManifest from "@features/dogcam/manifest";
 import guestWifiManifest from "@features/guest-wifi/manifest";
 import networkManifest from "@features/network/manifest";
 import teslaManifest from "@features/tesla/manifest";
+import weightManifest from "@features/weight/manifest";
 import type { ComponentType } from "react";
 
 import { QuickPlayTile } from "../components/media/QuickPlayTile";
@@ -34,8 +35,6 @@ import { WakesTile } from "../components/tiles/WakesTile";
 import { WakesTileView } from "../components/tiles/WakesTileView";
 import { WeatherNow } from "../components/tiles/WeatherNow";
 import { WeatherNowView } from "../components/tiles/WeatherNowView";
-import { WeightTile } from "../components/tiles/WeightTile";
-import { WeightTileView } from "../components/tiles/WeightTileView";
 export type TileRegistryEntry = {
   id: string;
   // The tile's name, used by the minimap hover label, the centered-tile pan
@@ -79,19 +78,6 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
     cols: 5,
     rows: 3,
     home: true,
-  },
-  // Weight tile (spec 2026-07-21): 3x2 in the rows-22/23 band above the home
-  // cluster, right of Guest Wi-Fi. Col 34 (not 33) — the bento fill needs the
-  // 30-33 gap to tile the band gap-free (placeholder-tiles test enforces it).
-  {
-    id: "tile_weight",
-    label: "Weight",
-    component: WeightTile,
-    viewComponent: WeightTileView,
-    worldCol: 34,
-    worldRow: 22,
-    cols: 3,
-    rows: 2,
   },
   {
     id: "tile_weath",
@@ -256,6 +242,7 @@ const FEATURE_MANIFESTS: AppManifest[] = [
   networkManifest,
   teslaManifest,
   dogcamManifest,
+  weightManifest,
 ];
 
 function manifestToEntry(m: AppManifest): TileRegistryEntry {

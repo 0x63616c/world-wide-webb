@@ -1,12 +1,23 @@
+/**
+ * Weight tile (Track C, Wave 2 fold): container + presentational view, merged
+ * into one file per the tile-inlining convention (network.tsx precedent).
+ * Spec: docs/superpowers/specs/2026-07-21-weight-tile-design.md.
+ */
 import { Icon } from "@/components/Icon";
 import { Skeleton, Tile, TileHeader, TileStatus } from "@/components/ui";
+import { POLL, useNow } from "@/lib/hooks";
+import { trpc } from "@/lib/trpc";
+import { useTileQuery } from "@/lib/useTileQuery";
 
-/**
- * WeightTileView — presentational 3x2 weight tile (spec
- * 2026-07-21-weight-tile-design): 30d sparkline on top, hero lb number +
- * recency label at the bottom, 30d delta badge in the header. Ported from the
- * approved WeightConceptSparkline concept.
- */
+// Duplicated from the feature's own service on purpose: web must not import
+// api runtime code across the feature/web boundary either — this constant is
+// cheap enough to just restate (was already duplicated pre-fold, from
+// apps/api's weight-domain).
+export const LB_PER_KG = 2.2046226218;
+
+/** The panel's own IANA zone, e.g. "America/Los_Angeles". */
+const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 export interface WeightTileViewProps {
   status: TileStatus;
   /** Latest included reading, in lb (converted once at the container boundary). */
@@ -19,7 +30,8 @@ export interface WeightTileViewProps {
   spark?: number[];
 }
 
-/** "Today" for the current local day, "Yesterday" for the previous, else "Jul 12". */
+/** "Today" for the current local day, "Yesterday" for the previous, else "Jul 12".
+ * Also consumed by detail/wiring/weight.tsx (apps/web) via @features/weight/web. */
 export function formatRecency(latestAt: string, now: Date): string {
   const d = new Date(latestAt);
   const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
@@ -179,5 +191,36 @@ export function WeightTileView(props: WeightTileViewProps) {
         </div>
       </div>
     </Tile>
+  );
+}
+
+/**
+ * WeightTile — container for the Weight tile. Polls weight.summary (30d
+ * window) every 60s and maps it onto WeightTileView. kg→lb conversion
+ * happens once here; the view and everything below it speak lb only.
+ */
+export function WeightTile() {
+  const tile = useTileQuery(
+    trpc.weight.summary.useQuery({ range: "30d", tz: TZ }, { refetchInterval: POLL.weight }),
+  );
+  const now = useNow();
+
+  // Loading covers error-with-nothing-cached AND the day-one null summary
+  // (no included readings yet): skeleton, never invented data.
+  if (tile.status !== TileStatus.Populated) {
+    return <WeightTileView status={tile.status} />;
+  }
+
+  const data = tile.data;
+  return (
+    <WeightTileView
+      status={TileStatus.Populated}
+      lb={data.latestKg * LB_PER_KG}
+      // day is a local YYYY-MM-DD; parse as local midnight, not UTC.
+      recencyLabel={formatRecency(`${data.latestDay}T00:00:00`, now)}
+      // A 1-day window has no change to speak of; hide the badge until 2+ days.
+      deltaLb30={data.daily.length >= 2 ? data.change * LB_PER_KG : undefined}
+      spark={data.daily.map((d) => d.kg * LB_PER_KG)}
+    />
   );
 }
