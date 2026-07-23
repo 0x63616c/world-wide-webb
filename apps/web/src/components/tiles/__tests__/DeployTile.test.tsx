@@ -111,7 +111,6 @@ describe("toModalCommits", () => {
 
 // The registry transitively imports maplibre-gl (Tesla tile), which explodes in
 // jsdom , same stub set TvNowPlayingTile.test.tsx uses.
-vi.mock("maplibre-gl", () => ({ default: {} }));
 vi.mock("pmtiles", () => ({ Protocol: vi.fn().mockImplementation(() => ({ tile: vi.fn() })) }));
 vi.mock("@protomaps/basemaps", () => ({ layers: vi.fn(() => []), namedFlavor: vi.fn(() => ({})) }));
 

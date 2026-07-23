@@ -8,21 +8,7 @@
  */
 
 import { renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-
-// MapLibre (via the tesla wiring, imported transitively by the detail
-// registry) calls window.URL.createObjectURL at import time , unavailable in
-// jsdom. Shape mirrors registry-guards.test.ts.
-vi.mock("maplibre-gl", () => ({
-  default: {
-    Map: vi.fn(() => ({
-      addControl: vi.fn(),
-      on: vi.fn(),
-      remove: vi.fn(),
-      setCenter: vi.fn(),
-    })),
-  },
-}));
+import { describe, expect, it } from "vitest";
 
 import { closeSettings, useSettingsOverlay } from "../../../../lib/settings-overlay-store";
 import { TILE_REGISTRY } from "../../../../lib/tile-registry";

@@ -12,6 +12,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    setupFiles: ["./vitest.setup.unit.ts"],
     // Board integration suites exceed the 5s default under CI's higher worker
     // parallelism (maxWorkers: 4 contends for CPU across runs; they pass in
     // well under 5s on an idle machine).

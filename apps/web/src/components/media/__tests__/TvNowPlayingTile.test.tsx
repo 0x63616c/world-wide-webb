@@ -509,7 +509,6 @@ describe("TvNowPlayingTileView , 2x transport buttons (www-d564)", () => {
 // ── Tile registry tests (A31, www-51hf.50) ────────────────────────────────────
 
 // maplibre-gl / pmtiles needed by TeslaTileView imported transitively
-vi.mock("maplibre-gl", () => ({ default: {} }));
 vi.mock("pmtiles", () => ({ Protocol: vi.fn().mockImplementation(() => ({ tile: vi.fn() })) }));
 vi.mock("@protomaps/basemaps", () => ({
   layers: vi.fn().mockReturnValue([]),

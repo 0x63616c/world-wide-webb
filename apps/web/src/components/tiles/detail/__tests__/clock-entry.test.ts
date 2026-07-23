@@ -8,20 +8,6 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-// MapLibre (via the tesla wiring, imported transitively by the detail
-// registry) calls window.URL.createObjectURL at import time , unavailable in
-// jsdom. Shape mirrors registry-guards.test.ts.
-vi.mock("maplibre-gl", () => ({
-  default: {
-    Map: vi.fn(() => ({
-      addControl: vi.fn(),
-      on: vi.fn(),
-      remove: vi.fn(),
-      setCenter: vi.fn(),
-    })),
-  },
-}));
-
 // Importing the clock wiring evaluates the time-suite stores (boot-resume runs
 // at module load); keep any cue path silent , this test pins shape only.
 vi.mock("@/lib/sound", () => ({ playCue: vi.fn(), warmAudio: vi.fn() }));

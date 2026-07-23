@@ -15,7 +15,6 @@ import { describe, expect, it, vi } from "vitest";
 
 // MapLibre (via TeslaTileView, imported transitively by tile-registry) calls
 // window.URL.createObjectURL at import time , unavailable in jsdom.
-vi.mock("maplibre-gl", () => ({ default: {} }));
 vi.mock("pmtiles", () => ({ Protocol: vi.fn().mockImplementation(() => ({ tile: vi.fn() })) }));
 vi.mock("@protomaps/basemaps", () => ({
   layers: vi.fn().mockReturnValue([]),

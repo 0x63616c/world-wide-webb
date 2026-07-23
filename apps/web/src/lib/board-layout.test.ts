@@ -10,26 +10,6 @@ import { describe, expect, it, vi } from "vitest";
 // transitively imports TeslaTile → MapLibre. MapLibre calls
 // window.URL.createObjectURL at import time, which jsdom lacks , stub it the
 // same way placeholder-tiles.test.ts / registry-guards.test.ts do.
-vi.mock("maplibre-gl", () => ({
-  default: {
-    Map: vi.fn(() => ({
-      addControl: vi.fn(),
-      on: vi.fn(),
-      remove: vi.fn(),
-      setCenter: vi.fn(),
-      easeTo: vi.fn(),
-    })),
-    Marker: vi.fn(() => ({
-      setLngLat: vi.fn().mockReturnThis(),
-      addTo: vi.fn().mockReturnThis(),
-      remove: vi.fn().mockReturnThis(),
-      getElement: vi.fn().mockReturnValue(document.createElement("div")),
-    })),
-    NavigationControl: vi.fn(),
-    addProtocol: vi.fn(),
-    removeProtocol: vi.fn(),
-  },
-}));
 vi.mock("pmtiles", () => ({ Protocol: vi.fn().mockImplementation(() => ({ tile: vi.fn() })) }));
 vi.mock("@protomaps/basemaps", () => ({
   layers: vi.fn().mockReturnValue([]),
