@@ -31,6 +31,7 @@
     "identity:audit": "scripts/check-rename-identity.py",
     "measure:ci": "bun scripts/measure-ci-latency.ts",
     "apps:gen": "cd apps/web && bun run ../../scripts/apps-gen.ts",
+    "apps:check": "cd apps/web && bun run ../../scripts/apps-check.ts",
     "format": "bun scripts/quality-gate.ts format",
     "lint": "bun scripts/quality-gate.ts lint",
     "lint:tracked": "bun scripts/quality-gate.ts lint-tracked",

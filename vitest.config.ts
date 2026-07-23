@@ -35,7 +35,14 @@ export default defineConfig({
         },
         test: {
           name: "apps-gen",
-          root: "./scripts/apps-gen",
+          // root stays "./scripts" (not "./scripts/apps-gen") so this project's
+          // default include glob also reaches scripts/apps-check.test.ts, a
+          // sibling of apps-check.ts one level up from apps-gen/ (Task 3.4).
+          // apps-check.ts drives the SAME collect()/validate()/renderTiles()
+          // chain as apps-gen/*.ts, so it needs the identical jsdom + "@" alias
+          // + MapLibre stub environment, not a separate project.
+          root: "./scripts",
+          include: ["apps-gen/**/*.test.ts", "apps-check.test.ts"],
           environment: "jsdom",
           // Same MapLibre stub as apps/web's unit project (www-355t.11):
           // collect() pulls in the real TILE_REGISTRY, which imports
