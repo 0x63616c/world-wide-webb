@@ -1,12 +1,12 @@
 /**
- * DogCamTileView , pure presentational component tests.
+ * DogCamTileView, pure presentational component tests.
  * No trpc mocking needed: all inputs are props.
  */
 import "@testing-library/jest-dom";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { DogCamTileViewProps } from "../DogCamTileView";
-import { DogCamTileView } from "../DogCamTileView";
+import type { DogCamTileViewProps } from "./web";
+import { DogCamTileView } from "./web";
 
 afterEach(() => {
   cleanup();
@@ -24,7 +24,7 @@ const baseProps: DogCamTileViewProps = {
   onToggleLive: vi.fn(),
 };
 
-describe("DogCamTileView , loading state", () => {
+describe("DogCamTileView, loading state", () => {
   it("renders without crashing", () => {
     const { container } = render(
       <DogCamTileView status="loading" live={false} recSecs={0} onToggleLive={vi.fn()} />,
@@ -53,7 +53,7 @@ describe("DogCamTileView , loading state", () => {
   });
 });
 
-describe("DogCamTileView , covered (populated, live=false)", () => {
+describe("DogCamTileView, covered (populated, live=false)", () => {
   it("renders the Living Room Cam header", () => {
     render(<DogCamTileView {...baseProps} />);
     expect(screen.getByText("Living Room Cam")).toBeInTheDocument();
@@ -94,7 +94,7 @@ describe("DogCamTileView , covered (populated, live=false)", () => {
   });
 });
 
-describe("DogCamTileView , snapshot image", () => {
+describe("DogCamTileView, snapshot image", () => {
   it("renders img when snapshotUrl is provided", () => {
     render(<DogCamTileView {...baseProps} snapshotUrl="http://ha.local/cam.jpg" />);
     const img = screen.getByRole("img");
@@ -107,14 +107,14 @@ describe("DogCamTileView , snapshot image", () => {
   });
 });
 
-describe("DogCamTileView , live MJPEG stream", () => {
+describe("DogCamTileView, live MJPEG stream", () => {
   it("mounts the stream img when live and streamUrl is provided", () => {
     render(<DogCamTileView {...baseProps} live={true} streamUrl="/media/camera-stream" />);
     const img = screen.getByRole("img");
     expect((img as HTMLImageElement).getAttribute("src")).toBe("/media/camera-stream");
   });
 
-  it("does NOT mount the stream img while covered , no open MJPEG connection", () => {
+  it("does NOT mount the stream img while covered, no open MJPEG connection", () => {
     render(<DogCamTileView {...baseProps} live={false} streamUrl="/media/camera-stream" />);
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
@@ -125,7 +125,7 @@ describe("DogCamTileView , live MJPEG stream", () => {
   });
 });
 
-describe("DogCamTileView , live state (live=true)", () => {
+describe("DogCamTileView, live state (live=true)", () => {
   it("shows LIVE label", () => {
     render(<DogCamTileView {...baseProps} live={true} recSecs={0} />);
     expect(screen.getByText("LIVE")).toBeInTheDocument();
@@ -167,7 +167,7 @@ describe("DogCamTileView , live state (live=true)", () => {
   });
 });
 
-describe("DogCamTileView , tile structure", () => {
+describe("DogCamTileView, tile structure", () => {
   it("tile wrapper has padding 22", () => {
     const { container } = render(<DogCamTileView {...baseProps} />);
     const tile = container.firstChild as HTMLElement;
@@ -175,7 +175,7 @@ describe("DogCamTileView , tile structure", () => {
   });
 });
 
-describe("DogCamTileView , error state", () => {
+describe("DogCamTileView, error state", () => {
   it("renders the Living Room Cam header", () => {
     render(<DogCamTileView status="error" live={false} recSecs={0} onToggleLive={vi.fn()} />);
     expect(screen.getByText("Living Room Cam")).toBeInTheDocument();

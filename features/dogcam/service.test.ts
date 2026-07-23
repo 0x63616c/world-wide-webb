@@ -1,26 +1,21 @@
+import type { HaEntity } from "@www/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock the ha singleton before any imports that pull it in.
-vi.mock("../integrations/homeassistant", () => {
-  const ha = {
-    isConfigured: vi.fn(() => false),
-    getEntities: vi.fn(async () => []),
-    cameraProxyUrl: vi.fn(
-      (entityId: string) => `http://ha.local:8123/api/camera_proxy/${entityId}`,
-    ),
-  };
-  return { ha, HomeAssistantClient: vi.fn(() => ha) };
+// Mock @www/core's HA client factory before any imports that pull in ./service
+// (which builds its own client from createHomeAssistantClient at module scope).
+// vi.hoisted lifts mockHa's declaration above the hoisted vi.mock call below,
+// which vitest otherwise hoists to the very top of the module.
+const mockHa = vi.hoisted(() => ({
+  isConfigured: vi.fn(() => false),
+  getEntities: vi.fn(async (): Promise<HaEntity[]> => []),
+}));
+vi.mock("@www/core", async () => {
+  const actual = await vi.importActual<typeof import("@www/core")>("@www/core");
+  return { ...actual, createHomeAssistantClient: vi.fn(() => mockHa) };
 });
 
-import { env } from "../env";
-import { ha } from "../integrations/homeassistant";
-import { getCameraInfo } from "../services/camera-service";
-
-const mockedHa = ha as unknown as {
-  isConfigured: ReturnType<typeof vi.fn>;
-  getEntities: ReturnType<typeof vi.fn>;
-  cameraProxyUrl: ReturnType<typeof vi.fn>;
-};
+import { config } from "./config";
+import { getCameraInfo } from "./service";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -30,35 +25,35 @@ describe("getCameraInfo", () => {
   // The tile is driven by go2rtc (direct RTSP), NOT Home Assistant. HA has
   // crashed repeatedly in production, so an HA outage must never blank it.
   it("still populates the tile when HA is not configured", async () => {
-    mockedHa.isConfigured.mockReturnValue(false);
+    mockHa.isConfigured.mockReturnValue(false);
 
     const result = await getCameraInfo();
 
     expect(result).not.toBeNull();
-    expect(result?.label).toBe(env.CAMERA_LABEL);
+    expect(result?.label).toBe(config.CAMERA_LABEL);
     expect(result?.online).toBe(true);
     expect(result?.streamUrl).toBe("/media/camera-stream");
     expect(result?.entityId).toBeNull();
     expect(result?.snapshotUrl).toBeNull();
-    expect(mockedHa.getEntities).not.toHaveBeenCalled();
+    expect(mockHa.getEntities).not.toHaveBeenCalled();
   });
 
   it("still populates the tile when HA is unreachable (getEntities throws)", async () => {
-    mockedHa.isConfigured.mockReturnValue(true);
-    mockedHa.getEntities.mockRejectedValue(new Error("network error"));
+    mockHa.isConfigured.mockReturnValue(true);
+    mockHa.getEntities.mockRejectedValue(new Error("network error"));
 
     const result = await getCameraInfo();
 
     expect(result).not.toBeNull();
-    expect(result?.label).toBe(env.CAMERA_LABEL);
+    expect(result?.label).toBe(config.CAMERA_LABEL);
     expect(result?.online).toBe(true);
     expect(result?.streamUrl).toBe("/media/camera-stream");
     expect(result?.entityId).toBeNull();
   });
 
   it("still populates the tile when HA has no camera entities", async () => {
-    mockedHa.isConfigured.mockReturnValue(true);
-    mockedHa.getEntities.mockResolvedValue([]);
+    mockHa.isConfigured.mockReturnValue(true);
+    mockHa.getEntities.mockResolvedValue([]);
 
     const result = await getCameraInfo();
 
@@ -68,8 +63,8 @@ describe("getCameraInfo", () => {
   });
 
   it("enriches label + entityId from a preferred HA entity", async () => {
-    mockedHa.isConfigured.mockReturnValue(true);
-    mockedHa.getEntities.mockResolvedValue([
+    mockHa.isConfigured.mockReturnValue(true);
+    mockHa.getEntities.mockResolvedValue([
       {
         entity_id: "camera.front_door",
         state: "idle",
@@ -94,8 +89,8 @@ describe("getCameraInfo", () => {
   });
 
   it("prefers entity containing 'dog' in friendly_name", async () => {
-    mockedHa.isConfigured.mockReturnValue(true);
-    mockedHa.getEntities.mockResolvedValue([
+    mockHa.isConfigured.mockReturnValue(true);
+    mockHa.getEntities.mockResolvedValue([
       {
         entity_id: "camera.generic_cam_1",
         state: "idle",
@@ -117,8 +112,8 @@ describe("getCameraInfo", () => {
   });
 
   it("falls back to first entity when no preferred entity matches", async () => {
-    mockedHa.isConfigured.mockReturnValue(true);
-    mockedHa.getEntities.mockResolvedValue([
+    mockHa.isConfigured.mockReturnValue(true);
+    mockHa.getEntities.mockResolvedValue([
       {
         entity_id: "camera.front_door",
         state: "idle",
@@ -137,8 +132,8 @@ describe("getCameraInfo", () => {
   it("stays online even when the HA entity reports 'unavailable'", async () => {
     // go2rtc, not HA, owns liveness. An HA entity going unavailable (a common
     // symptom of HA itself being sick) must not black out a working stream.
-    mockedHa.isConfigured.mockReturnValue(true);
-    mockedHa.getEntities.mockResolvedValue([
+    mockHa.isConfigured.mockReturnValue(true);
+    mockHa.getEntities.mockResolvedValue([
       {
         entity_id: "camera.bedroom",
         state: "unavailable",
@@ -155,8 +150,8 @@ describe("getCameraInfo", () => {
   });
 
   it("keeps the configured label when friendly_name is absent", async () => {
-    mockedHa.isConfigured.mockReturnValue(true);
-    mockedHa.getEntities.mockResolvedValue([
+    mockHa.isConfigured.mockReturnValue(true);
+    mockHa.getEntities.mockResolvedValue([
       {
         entity_id: "camera.bedroom",
         state: "idle",
@@ -167,7 +162,7 @@ describe("getCameraInfo", () => {
 
     const result = await getCameraInfo();
 
-    expect(result?.label).toBe(env.CAMERA_LABEL);
+    expect(result?.label).toBe(config.CAMERA_LABEL);
     expect(result?.entityId).toBe("camera.bedroom");
   });
 });

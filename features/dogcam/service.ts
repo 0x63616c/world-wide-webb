@@ -1,6 +1,10 @@
+import { createHomeAssistantClient, type HaEntity } from "@www/core";
 import { getLogger } from "@www/logger";
-import { env } from "../env";
-import { ha } from "../integrations/homeassistant";
+import { config } from "./config";
+
+// Module-level singleton built from this feature's own config slice (mirrors
+// features/network's createUnifiClient precedent) — never apps/api's `ha`.
+const ha = createHomeAssistantClient({ baseUrl: config.HA_URL, token: config.HA_TOKEN });
 
 export interface CameraInfo {
   label: string;
@@ -11,7 +15,7 @@ export interface CameraInfo {
   entityId: string | null;
 }
 
-/** The api route that proxies go2rtc's MJPEG stream (see src/server.ts). */
+/** The api route that proxies go2rtc's MJPEG stream (see apps/api/src/server.ts). */
 const STREAM_ROUTE = "/media/camera-stream";
 
 /**
@@ -22,14 +26,14 @@ const STREAM_ROUTE = "/media/camera-stream";
  * flaky and blanking the tile every time it falls over is unacceptable. So the
  * populated CameraInfo below is produced unconditionally from go2rtc config.
  *
- * Home Assistant is OPTIONAL ENRICHMENT only , if it happens to answer with a
+ * Home Assistant is OPTIONAL ENRICHMENT only, if it happens to answer with a
  * camera entity we borrow its friendly_name and entity_id. If HA is
  * unconfigured, unreachable, or throws, we swallow it and return the go2rtc
  * view. HA can never blank the tile and can never mark it offline.
  */
 export async function getCameraInfo(): Promise<CameraInfo | null> {
   const info: CameraInfo = {
-    label: env.CAMERA_LABEL,
+    label: config.CAMERA_LABEL,
     online: true,
     // The camera exposes no still endpoint we proxy today; the live MJPEG
     // stream is the tile's only surface.
@@ -50,12 +54,10 @@ export async function getCameraInfo(): Promise<CameraInfo | null> {
 }
 
 /**
- * Best-effort lookup of a camera entity in HA. Never throws , any HA failure
+ * Best-effort lookup of a camera entity in HA. Never throws, any HA failure
  * resolves to null and the caller falls back to the go2rtc-only view.
  */
-async function findHaCameraEntity(): Promise<
-  Awaited<ReturnType<typeof ha.getEntities>>[number] | null
-> {
+async function findHaCameraEntity(): Promise<HaEntity | null> {
   if (!ha.isConfigured()) return null;
 
   try {
@@ -77,7 +79,7 @@ async function findHaCameraEntity(): Promise<
 
     return preferred ?? entities[0];
   } catch {
-    // HA down/misconfigured , the tile does not need it. Stay silent at info
+    // HA down/misconfigured, the tile does not need it. Stay silent at info
     // level; the go2rtc stream is the source of truth.
     return null;
   }
@@ -85,17 +87,18 @@ async function findHaCameraEntity(): Promise<
 
 /**
  * Opens the live MJPEG stream from go2rtc and hands the upstream Response back
- * so the route can pipe its body straight through to the panel.
+ * so apps/api/src/server.ts's raw /media/camera-stream route can pipe its body
+ * straight through to the panel.
  *
  * NO AbortSignal / timeout is attached anywhere on this path: an MJPEG
  * multipart response is a long-lived connection that never "completes", so any
  * timeout would kill the live feed mid-flight.
  *
  * Returns null on a non-ok upstream or a transport error. Never logs the RTSP
- * URL or camera credentials , those live only inside go2rtc's own config.
+ * URL or camera credentials, those live only inside go2rtc's own config.
  */
 export async function openCameraStream(): Promise<Response | null> {
-  const url = `${env.GO2RTC_URL}/api/stream.mjpeg?src=${encodeURIComponent(env.CAMERA_STREAM_NAME)}`;
+  const url = `${config.GO2RTC_URL}/api/stream.mjpeg?src=${encodeURIComponent(config.CAMERA_STREAM_NAME)}`;
   const startedAt = performance.now();
 
   try {

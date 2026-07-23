@@ -1,3 +1,4 @@
+import { openCameraStream } from "@features/dogcam/service";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { createLogger } from "@www/logger";
 import { db } from "./db/index";
@@ -13,7 +14,6 @@ import {
   readBoothPhoto,
   saveBoothPhoto,
 } from "./services/booth-photo-service";
-import { openCameraStream } from "./services/camera-service";
 import { getClimate } from "./services/climate-service";
 import {
   backfillWakePhotoIndex,

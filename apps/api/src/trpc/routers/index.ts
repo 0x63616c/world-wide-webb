@@ -1,7 +1,6 @@
 import { featureAppRouter } from "@features/_generated/router.gen";
 import { mergeRouters, router } from "../init";
 import { boothPhotosRouter } from "./booth-photos";
-import { cameraRouter } from "./camera";
 import { climateRouter } from "./climate";
 import { controlsRouter } from "./controls";
 import { deviceSettingsRouter } from "./device-settings";
@@ -28,7 +27,6 @@ const baseRouter = router({
   notifications: notificationsRouter,
   climate: climateRouter,
   controls: controlsRouter,
-  camera: cameraRouter,
   boothPhotos: boothPhotosRouter,
   events: eventsRouter,
   github: githubRouter,

@@ -9,8 +9,8 @@
  * REC timer the tile always had, just bigger.
  */
 
+import { DogCamTileView } from "@features/dogcam/web";
 import { useEffect, useRef, useState } from "react";
-import { DogCamTileView } from "@/components/tiles/DogCamTileView";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";

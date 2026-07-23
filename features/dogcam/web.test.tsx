@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // We expose a replaceable spy for camera.info.useQuery.
 const mockUseQuery = vi.fn();
 
-vi.mock("../../../lib/trpc", () => ({
+vi.mock("@/lib/trpc", () => ({
   trpc: {
     camera: {
       info: {
@@ -15,14 +15,14 @@ vi.mock("../../../lib/trpc", () => ({
   },
 }));
 
-// The face opens the full-page detail via the tile-detail store , spy on it.
+// The face opens the full-page detail via the tile-detail store, spy on it.
 const mockOpenTileDetail = vi.fn();
-vi.mock("../../../lib/tile-detail-store", () => ({
+vi.mock("@/lib/tile-detail-store", () => ({
   openTileDetail: (...args: unknown[]) => mockOpenTileDetail(...args),
 }));
 
 // Import AFTER the mocks are registered.
-import { DogCamTile } from "../DogCamTile";
+import { DogCamTile } from "./web";
 
 afterEach(() => {
   cleanup();
@@ -94,7 +94,7 @@ describe("DogCamTile", () => {
       expect(screen.getByText(/camera offline/i)).toBeDefined();
     });
 
-    it("never renders LIVE/REC on the face , the live feed lives on the detail page", () => {
+    it("never renders LIVE/REC on the face, the live feed lives on the detail page", () => {
       renderWithData({ data: { streamUrl: "/media/camera-stream" } });
       expect(screen.queryByText("LIVE")).toBeNull();
       expect(screen.queryByText(/^REC /)).toBeNull();
@@ -130,7 +130,7 @@ describe("DogCamTile", () => {
       fireEvent.click(screen.getByRole("button"));
 
       expect(mockOpenTileDetail).toHaveBeenCalledWith("tile_dogcam");
-      // The face stays covered , no inline stream, no LIVE chrome.
+      // The face stays covered, no inline stream, no LIVE chrome.
       expect(screen.queryByText("LIVE")).toBeNull();
       expect(screen.getByText(/tap to view feed/i)).toBeDefined();
     });

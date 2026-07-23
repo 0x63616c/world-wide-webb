@@ -1,5 +1,9 @@
 import { Icon } from "@/components/Icon";
 import { Skeleton, Tile, TileHeader, TileStatus } from "@/components/ui";
+import { POLL } from "@/lib/hooks";
+import { openTileDetail } from "@/lib/tile-detail-store";
+import { trpc } from "@/lib/trpc";
+import { useTileQuery } from "@/lib/useTileQuery";
 
 /** Format elapsed seconds as HH:MM:SS */
 function formatRec(secs: number): string {
@@ -19,13 +23,13 @@ export interface DogCamTileViewProps {
   /**
    * MJPEG stream URL (the api's /media/camera-stream proxy in front of go2rtc).
    * A multipart/x-mixed-replace response renders natively in an <img>, which is
-   * why MJPEG was chosen , an <img> cannot send auth headers, so the old HA
+   * why MJPEG was chosen, an <img> cannot send auth headers, so the old HA
    * camera_proxy approach was unusable.
    */
   streamUrl?: string | null;
-  /** Whether the live feed overlay is currently visible , local presentation state owned by the container */
+  /** Whether the live feed overlay is currently visible, local presentation state owned by the container */
   live: boolean;
-  /** Elapsed recording seconds , driven by the container's interval */
+  /** Elapsed recording seconds, driven by the container's interval */
   recSecs: number;
   onToggleLive: () => void;
 }
@@ -40,14 +44,14 @@ export function DogCamTileView({
   recSecs,
   onToggleLive,
 }: DogCamTileViewProps) {
-  // Error is treated the same as loading , shimmer cover, keep retrying via QueryClient
+  // Error is treated the same as loading, shimmer cover, keep retrying via QueryClient
   const isLoading = status === TileStatus.Loading || status === TileStatus.Error;
 
   return (
     <Tile padding={22}>
-      {/* Title MUST stay in sync with the registry label in lib/tile-registry.ts , the minimap and pan labels read it. */}
+      {/* Title MUST stay in sync with the manifest label in features/dogcam/manifest.ts, the minimap and pan labels read it. */}
       <TileHeader icon="cam" title="Living Room Cam" />
-      {/* Feed shell , fills remaining space */}
+      {/* Feed shell, fills remaining space */}
       <button
         type="button"
         className="feed"
@@ -63,7 +67,7 @@ export function DogCamTileView({
         onClick={onToggleLive}
         aria-label={live ? "Hide camera feed" : "View camera feed"}
       >
-        {/* Dog ghost icon , z-index 0, always behind content */}
+        {/* Dog ghost icon, z-index 0, always behind content */}
         <div
           style={{
             position: "absolute",
@@ -79,7 +83,7 @@ export function DogCamTileView({
           <Icon name="dog" s={58} c="currentColor" sw={1.3} />
         </div>
 
-        {/* Snapshot / placeholder area , z-index 1 */}
+        {/* Snapshot / placeholder area, z-index 1 */}
         {snapshotUrl ? (
           <img
             src={snapshotUrl}
@@ -106,7 +110,7 @@ export function DogCamTileView({
         )}
 
         {/*
-          Live MJPEG stream , z-index 2, above the snapshot poster.
+          Live MJPEG stream, z-index 2, above the snapshot poster.
           Mounted ONLY while live: the browser holds the multipart connection open
           for as long as this <img> exists, so keeping it mounted under the frosted
           cover would pin an open stream to go2rtc forever. Unmounting on !live
@@ -127,7 +131,7 @@ export function DogCamTileView({
           />
         ) : null}
 
-        {/* Scanline overlay , z-index 3 */}
+        {/* Scanline overlay, z-index 3 */}
         <div className="scan" />
 
         {/* Live state: LIVE dot, REC timer, caption */}
@@ -210,5 +214,33 @@ export function DogCamTileView({
         )}
       </button>
     </Tile>
+  );
+}
+
+/**
+ * Thin container for the Living Room Cam tile face. The face stays covered
+ * (frosted snapshot poster), tapping the feed opens the full-page detail via
+ * the tile-detail registry (apps/web/src/components/tiles/detail/wiring/dogcam.tsx),
+ * which owns the live/REC toggle the face used to run inline.
+ */
+export function DogCamTile() {
+  const { status, data } = useTileQuery(
+    trpc.camera.info.useQuery(undefined, {
+      refetchInterval: POLL.dogcam,
+      retry: 2,
+    }),
+  );
+
+  return (
+    <DogCamTileView
+      status={status}
+      label={data?.label ?? null}
+      online={data?.online ?? false}
+      snapshotUrl={data?.snapshotUrl ?? null}
+      streamUrl={data?.streamUrl ?? null}
+      live={false}
+      recSecs={0}
+      onToggleLive={() => openTileDetail("tile_dogcam")}
+    />
   );
 }

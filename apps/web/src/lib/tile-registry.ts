@@ -1,4 +1,5 @@
 import type { AppManifest } from "@app-kit";
+import dogcamManifest from "@features/dogcam/manifest";
 import guestWifiManifest from "@features/guest-wifi/manifest";
 import networkManifest from "@features/network/manifest";
 import teslaManifest from "@features/tesla/manifest";
@@ -20,8 +21,6 @@ import { ControlsTile } from "../components/tiles/ControlsTile";
 import { ControlsTileView } from "../components/tiles/ControlsTileView";
 import { DeployTile } from "../components/tiles/DeployTile";
 import { DeployTileView } from "../components/tiles/DeployTileView";
-import { DogCamTile } from "../components/tiles/DogCamTile";
-import { DogCamTileView } from "../components/tiles/DogCamTileView";
 import { EventsTile } from "../components/tiles/EventsTile";
 import { EventsTileView } from "../components/tiles/EventsTileView";
 import { FrontendLogsTile } from "../components/tiles/FrontendLogsTile";
@@ -120,16 +119,6 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
     component: ControlsTile,
     viewComponent: ControlsTileView,
     worldCol: 31,
-    worldRow: 27,
-    cols: 4,
-    rows: 3,
-  },
-  {
-    id: "tile_dogcam",
-    label: "Living Room Cam",
-    component: DogCamTile,
-    viewComponent: DogCamTileView,
-    worldCol: 38,
     worldRow: 27,
     cols: 4,
     rows: 3,
@@ -262,7 +251,12 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
 // tile. The codegen (scripts/apps-gen) reads the SAME manifests and dedupes a
 // registry entry whose id a feature already owns, so each tile has exactly one
 // source of truth. Adding a feature = adding its manifest here + the folder.
-const FEATURE_MANIFESTS: AppManifest[] = [guestWifiManifest, networkManifest, teslaManifest];
+const FEATURE_MANIFESTS: AppManifest[] = [
+  guestWifiManifest,
+  networkManifest,
+  teslaManifest,
+  dogcamManifest,
+];
 
 function manifestToEntry(m: AppManifest): TileRegistryEntry {
   const viewComponent = m.tile.viewComponent;

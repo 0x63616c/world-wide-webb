@@ -1,7 +1,7 @@
+import { DogCamTileView } from "@features/dogcam/web";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { boolArgType, defineTileMeta } from "./__stories__/factory";
-import { DogCamTileView } from "./DogCamTileView";
 
 /** The api proxies go2rtc's MJPEG stream at this path (see nginx.conf / vite.config.ts). */
 const STREAM_URL = "/media/camera-stream";
