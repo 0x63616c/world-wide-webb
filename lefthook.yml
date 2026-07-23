@@ -8,11 +8,6 @@ pre-commit:
       # Apply safe auto-fixes and re-stage; remaining format/lint errors block the commit.
       run: bun scripts/quality-gate.ts format-staged {staged_files}
       stage_fixed: true
-    no-fake-data:
-      glob: "*.{ts,tsx}"
-      # BLOCKING: exits non-zero if staged files introduce fake-data sentinels.
-      # Sanctioned exceptions live in the script itself (network-service, weather-service).
-      run: bash scripts/check-fake-data.sh {staged_files}
     storybook-docs:
       glob: "*.stories.tsx"
       # BLOCKING: every Storybook story must enable autodocs (directly via

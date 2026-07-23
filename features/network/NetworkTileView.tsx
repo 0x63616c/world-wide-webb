@@ -79,7 +79,7 @@ function NetworkSkeleton() {
   );
 }
 
-export type NetworkTileViewStatus = TileStatus;
+type NetworkTileViewStatus = TileStatus;
 
 interface NetworkTileViewBaseProps {
   status: NetworkTileViewStatus;
