@@ -31,6 +31,14 @@ export default defineConfig({
         resolve: {
           alias: {
             "@": resolve(__dirname, "apps/web/src"),
+            // Authoring-surface aliases (Track C, C7). scripts/alias-parity.test.ts
+            // imports `@app-kit` to prove vitest resolves it identically to tsc,
+            // bun, and vite. `@app-kit/server` precedes `@app-kit` (prefix match).
+            // Kept in sync with the tsconfig `paths`, vite.config.ts, and
+            // check-alias-parity.sh.
+            "@app-kit/server": resolve(__dirname, "app-kit/server.ts"),
+            "@app-kit": resolve(__dirname, "app-kit/index.ts"),
+            "@features": resolve(__dirname, "features"),
           },
         },
         test: {
@@ -42,7 +50,7 @@ export default defineConfig({
           // chain as apps-gen/*.ts, so it needs the identical jsdom + "@" alias
           // + MapLibre stub environment, not a separate project.
           root: "./scripts",
-          include: ["apps-gen/**/*.test.ts", "apps-check.test.ts"],
+          include: ["apps-gen/**/*.test.ts", "apps-check.test.ts", "alias-parity.test.ts"],
           environment: "jsdom",
           // Same MapLibre stub as apps/web's unit project (www-355t.11):
           // collect() pulls in the real TILE_REGISTRY, which imports

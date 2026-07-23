@@ -70,8 +70,16 @@ export default defineConfig({
     __BUILD_TIME__: JSON.stringify(resolveBuildTime()),
   },
   resolve: {
+    // Authoring-surface aliases (Track C, C7). `@app-kit/server` MUST precede
+    // `@app-kit`: vite matches a string alias when the importee equals it or
+    // starts with `alias + "/"`, so a bare `@app-kit` entry first would swallow
+    // `@app-kit/server`. Kept in sync with the root + web tsconfig `paths` and
+    // check-alias-parity.sh.
     alias: {
       "@": resolve(__dirname, "src"),
+      "@app-kit/server": resolve(__dirname, "../../app-kit/server.ts"),
+      "@app-kit": resolve(__dirname, "../../app-kit/index.ts"),
+      "@features": resolve(__dirname, "../../features"),
     },
   },
   // Pre-bundle deps Vite would otherwise discover + optimize MID-RUN during the

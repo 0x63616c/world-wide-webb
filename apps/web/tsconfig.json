@@ -8,7 +8,14 @@
       // gifenc ships no types; under bundler resolution the package physically
       // exists so an ambient `declare module` is shadowed. Point the import at
       // the hand-written shim in src/types instead.
-      "gifenc": ["./src/types/gifenc.d.ts"]
+      "gifenc": ["./src/types/gifenc.d.ts"],
+      // Authoring-surface aliases (Track C, C7). Defining `paths` here overrides
+      // (does not merge with) the root tsconfig's, so the app-kit/features
+      // aliases are restated for web consumers; must stay in sync with the root
+      // tsconfig, vite.config.ts, and check-alias-parity.sh.
+      "@app-kit": ["../../app-kit/index.ts"],
+      "@app-kit/server": ["../../app-kit/server.ts"],
+      "@features/*": ["../../features/*"]
     },
     "types": ["vite/client"]
   },

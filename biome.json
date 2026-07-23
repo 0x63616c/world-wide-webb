@@ -1,6 +1,12 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -20,7 +26,9 @@
         "noExplicitAny": "error",
         "noConsole": {
           "level": "error",
-          "options": { "allow": ["error", "warn"] }
+          "options": {
+            "allow": ["error", "warn"]
+          }
         },
         "noFocusedTests": "error"
       },
@@ -81,23 +89,132 @@
         "**/web/e2e-portal/**",
         "**/scripts/**"
       ],
-      "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "off"
+          }
+        }
+      }
     },
     {
       "includes": ["**/scripts/**"],
-      "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
     },
     {
       "includes": ["**/packages/logger/src/**"],
-      "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "off"
+          }
+        }
+      }
     },
     {
       "includes": ["**/infra/unifi/program.ts", "**/infra/unifi/src/**"],
-      "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "off"
+          }
+        }
+      }
     },
     {
       "includes": ["**/packages/core/test/pg-contract.test.ts"],
-      "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["features/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@control-center/api": "features/ must not import apps/api. Reach the tRPC runtime through @app-kit/server (the only sanctioned seam)."
+                },
+                "patterns": [
+                  {
+                    "group": ["@control-center/api/**", "**/apps/api", "**/apps/api/**"],
+                    "message": "features/ must not import apps/api. Reach the tRPC runtime through @app-kit/server (the only sanctioned seam); use @app-kit for the web-safe authoring surface."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["app-kit/**", "!app-kit/server.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@control-center/api": "The web-safe app-kit surface must not import apps/api. Only app-kit/server.ts may reach apps/api/src/trpc/init.",
+                  "@features": "app-kit is upstream of features and must not import it (that would invert the authoring dependency and create a cycle)."
+                },
+                "patterns": [
+                  {
+                    "group": ["@control-center/api/**", "**/apps/api", "**/apps/api/**"],
+                    "message": "The web-safe app-kit surface must not import apps/api. Only app-kit/server.ts may reach apps/api/src/trpc/init \u2014 the single sanctioned seam."
+                  },
+                  {
+                    "group": ["@features/**", "**/features", "**/features/**"],
+                    "message": "app-kit is upstream of features and must not import it (that would invert the authoring dependency and create a cycle)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/platform/**", "packages/core/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@app-kit": "packages/platform + packages/core are shared substrate, upstream of the authoring layer; they must not import app-kit.",
+                  "@features": "packages/platform + packages/core are shared substrate, upstream of the authoring layer; they must not import features."
+                },
+                "patterns": [
+                  {
+                    "group": ["@app-kit/**", "**/app-kit", "**/app-kit/**"],
+                    "message": "packages/platform + packages/core are shared substrate, upstream of the authoring layer; they must not import app-kit."
+                  },
+                  {
+                    "group": ["@features/**", "**/features", "**/features/**"],
+                    "message": "packages/platform + packages/core are shared substrate, upstream of the authoring layer; they must not import features."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }

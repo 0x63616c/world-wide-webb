@@ -6,7 +6,35 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    // Authoring-surface aliases (Track C, C7) live HERE, not on the root
+    // tsconfig: the root must stay `paths`-free so the apps:gen/apps:check
+    // codegen (run via `bun run` from apps/web) resolves the tile tree's `@/*`
+    // through apps/web/tsconfig.json. This config is what typechecks app-kit/ +
+    // features/ + the alias-parity proof, so it declares the aliases directly.
+    // `@app-kit/server` is the ONLY sanctioned edge into apps/api's tRPC runtime.
+    // Paths resolve relative to THIS file (repo root; no baseUrl, TS 4.1+).
+    "paths": {
+      "@app-kit": ["./app-kit/index.ts"],
+      "@app-kit/server": ["./app-kit/server.ts"],
+      "@features/*": ["./features/*"]
+    }
   },
-  "include": ["vitest.config.ts", "apps/web/vitest.workspace.ts"]
+  // app-kit/ + features/ are root-level source that live OUTSIDE the
+  // apps/*/packages/* workspaces, so `bun run --filter '*' typecheck` never sees
+  // them; typecheck them here. scripts/alias-parity.test.ts is included so tsc
+  // actually EXERCISES the `@app-kit` alias (inherited from tsconfig.json), not
+  // just declares it (Track C, C7).
+  "include": [
+    "vitest.config.ts",
+    "apps/web/vitest.workspace.ts",
+    "app-kit/**/*.ts",
+    "features/**/*.ts",
+    "scripts/alias-parity.test.ts"
+  ],
+  // app-kit's own *.test.ts is exercised by vitest (esbuild, no typecheck) and
+  // uses runtime symbol-brand casts that tsc flags; it was never in a tsc
+  // program before C7, so keep it out here. scripts/alias-parity.test.ts stays
+  // (listed explicitly in `include`) — it is the alias resolution proof.
+  "exclude": ["app-kit/**/*.test.ts"]
 }
