@@ -41,8 +41,10 @@ pre-commit:
       run: bash scripts/check-no-personal-email.sh {staged_files}
     no-plaintext-secrets:
       glob: "secrets/*.yaml"
-      # BLOCKING: rejects any secrets/*.yaml that is not SOPS-encrypted.
-      # Valid SOPS files always contain a `sops:` metadata block.
+      # BLOCKING: rejects any secrets/*.yaml that is not a VALID SOPS file —
+      # both structure (has a `sops:` block, i.e. not plaintext) AND integrity
+      # (actually decrypts; a raw-editor edit leaves the block intact but breaks
+      # the MAC and silently kills decryption). See the script header.
       run: bash scripts/check-sops-encrypted.sh {staged_files}
     gitleaks:
       # BLOCKING: scans the staged diff for secrets (prefixed tokens, private
