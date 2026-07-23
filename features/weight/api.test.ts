@@ -19,7 +19,7 @@ import { weightRouter } from "./api";
 
 function buildCaller() {
   const appRouter = router({ weight: weightRouter });
-  return appRouter.createCaller({ db: null });
+  return appRouter.createCaller({ db: null as never });
 }
 
 // Chainable update mock for db.update().set().where().returning().
