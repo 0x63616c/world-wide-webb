@@ -5,7 +5,7 @@
  * All network calls are stubbed , tests never reach the Spotify API.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SpotifyClient, SpotifyError } from "../integrations/spotify";
+import { SpotifyClient, SpotifyError } from "./index";
 
 const VALID_CREDS = {
   clientId: "test_client_id",

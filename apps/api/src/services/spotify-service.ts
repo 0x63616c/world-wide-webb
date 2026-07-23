@@ -11,9 +11,8 @@
  * API errors , never return fabricated data (A3).
  */
 
+import { type SpotifyBrowseResult, SpotifyClient } from "@www/core";
 import { env } from "../env";
-import type { SpotifyBrowseResult } from "../integrations/spotify";
-import { SpotifyClient } from "../integrations/spotify";
 
 /** Spotify player state returned by the nowPlaying query (A14). */
 export interface SpotifyPlayerState {

@@ -20,7 +20,8 @@ const { mockGetNowPlaying, mockPlay, mockPause, mockNext, mockPrevious, mockSeek
     mockBrowse: vi.fn(),
   }));
 
-vi.mock("../integrations/spotify", () => ({
+vi.mock("@www/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@www/core")>()),
   SpotifyClient: vi.fn().mockImplementation(() => ({
     getNowPlaying: mockGetNowPlaying,
     play: mockPlay,
@@ -155,14 +156,14 @@ describe("spotifyBrowse (A16)", () => {
   });
 
   it("throws SpotifyError when unconfigured (A3)", async () => {
-    const { SpotifyError } = await import("../integrations/spotify");
+    const { SpotifyError } = await import("@www/core");
     mockBrowse.mockRejectedValue(new SpotifyError("Spotify credentials unconfigured"));
 
     await expect(spotifyBrowse()).rejects.toThrow("Spotify credentials unconfigured");
   });
 
   it("throws SpotifyError on upstream API error (A3)", async () => {
-    const { SpotifyError } = await import("../integrations/spotify");
+    const { SpotifyError } = await import("@www/core");
     mockBrowse.mockRejectedValue(new SpotifyError("browse: HTTP 503 , Service Unavailable"));
 
     await expect(spotifyBrowse()).rejects.toThrow("HTTP 503");
@@ -209,7 +210,7 @@ describe("mediaRouter.spotify.browse via tRPC caller (A16)", () => {
   });
 
   it("throws SpotifyError via tRPC when unconfigured (A3)", async () => {
-    const { SpotifyError } = await import("../integrations/spotify");
+    const { SpotifyError } = await import("@www/core");
     mockBrowse.mockRejectedValue(new SpotifyError("Spotify credentials unconfigured"));
 
     const { router } = await import("../trpc/init");

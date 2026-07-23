@@ -9,4 +9,5 @@ export * from "./homeassistant";
 export * from "./media-path";
 export * from "./secrets/hydrate";
 export * from "./sonos";
+export * from "./spotify";
 export * from "./unifi";

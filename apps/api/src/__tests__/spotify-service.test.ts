@@ -21,7 +21,8 @@ const { mockGetNowPlaying, mockPlay, mockPause, mockNext, mockPrevious, mockSeek
   }),
 );
 
-vi.mock("../integrations/spotify", () => ({
+vi.mock("@www/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@www/core")>()),
   SpotifyClient: vi.fn().mockImplementation(() => ({
     getNowPlaying: mockGetNowPlaying,
     play: mockPlay,
@@ -132,14 +133,14 @@ describe("spotifyNowPlaying (A14)", () => {
   });
 
   it("throws SpotifyError when unconfigured (A3)", async () => {
-    const { SpotifyError } = await import("../integrations/spotify");
+    const { SpotifyError } = await import("@www/core");
     mockGetNowPlaying.mockRejectedValue(new SpotifyError("Spotify credentials unconfigured"));
 
     await expect(spotifyNowPlaying()).rejects.toThrow("Spotify credentials unconfigured");
   });
 
   it("throws on upstream Spotify API error (A3)", async () => {
-    const { SpotifyError } = await import("../integrations/spotify");
+    const { SpotifyError } = await import("@www/core");
     mockGetNowPlaying.mockRejectedValue(
       new SpotifyError("getNowPlaying: HTTP 503 -- Service Unavailable"),
     );
@@ -163,14 +164,14 @@ describe("spotifyPlay (A15)", () => {
   });
 
   it("throws SpotifyError when unconfigured (A3)", async () => {
-    const { SpotifyError } = await import("../integrations/spotify");
+    const { SpotifyError } = await import("@www/core");
     mockPlay.mockRejectedValue(new SpotifyError("Spotify credentials unconfigured"));
 
     await expect(spotifyPlay()).rejects.toThrow("Spotify credentials unconfigured");
   });
 
   it("throws on upstream error (A3)", async () => {
-    const { SpotifyError } = await import("../integrations/spotify");
+    const { SpotifyError } = await import("@www/core");
     mockPlay.mockRejectedValue(new SpotifyError("play: HTTP 403"));
 
     await expect(spotifyPlay()).rejects.toThrow("HTTP 403");
@@ -190,7 +191,7 @@ describe("spotifyPause (A15)", () => {
   });
 
   it("throws SpotifyError when unconfigured (A3)", async () => {
-    const { SpotifyError } = await import("../integrations/spotify");
+    const { SpotifyError } = await import("@www/core");
     mockPause.mockRejectedValue(new SpotifyError("Spotify credentials unconfigured"));
 
     await expect(spotifyPause()).rejects.toThrow("Spotify credentials unconfigured");
@@ -210,7 +211,7 @@ describe("spotifyNext (A15)", () => {
   });
 
   it("throws SpotifyError when unconfigured (A3)", async () => {
-    const { SpotifyError } = await import("../integrations/spotify");
+    const { SpotifyError } = await import("@www/core");
     mockNext.mockRejectedValue(new SpotifyError("Spotify credentials unconfigured"));
 
     await expect(spotifyNext()).rejects.toThrow("Spotify credentials unconfigured");
@@ -230,7 +231,7 @@ describe("spotifyPrevious (A15)", () => {
   });
 
   it("throws SpotifyError when unconfigured (A3)", async () => {
-    const { SpotifyError } = await import("../integrations/spotify");
+    const { SpotifyError } = await import("@www/core");
     mockPrevious.mockRejectedValue(new SpotifyError("Spotify credentials unconfigured"));
 
     await expect(spotifyPrevious()).rejects.toThrow("Spotify credentials unconfigured");
@@ -258,14 +259,14 @@ describe("spotifySeek (A15)", () => {
   });
 
   it("throws SpotifyError when unconfigured (A3)", async () => {
-    const { SpotifyError } = await import("../integrations/spotify");
+    const { SpotifyError } = await import("@www/core");
     mockSeek.mockRejectedValue(new SpotifyError("Spotify credentials unconfigured"));
 
     await expect(spotifySeek(0)).rejects.toThrow("Spotify credentials unconfigured");
   });
 
   it("throws on upstream error (A3)", async () => {
-    const { SpotifyError } = await import("../integrations/spotify");
+    const { SpotifyError } = await import("@www/core");
     mockSeek.mockRejectedValue(new SpotifyError("seek: HTTP 403"));
 
     await expect(spotifySeek(5000)).rejects.toThrow("HTTP 403");
