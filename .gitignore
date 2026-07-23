@@ -77,3 +77,7 @@ docs/screenshots/
 
 # Brainstorm mockups (visual companion sessions)
 .superpowers/
+
+# ESPHome per-config WiFi creds — beside the config, never committed (main
+# WiFi pw lives in 1Password, not SOPS). See infra/esphome/README.md.
+infra/esphome/secrets.yaml
