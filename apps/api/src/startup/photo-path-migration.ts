@@ -6,8 +6,8 @@ import { eq, like, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../db/schema";
 import { boothPhoto, wakePhoto } from "../db/schema";
-import { defaultBoothPhotoRoot } from "./booth-photo-service";
-import { defaultWakePhotoRoot } from "./wake-photo-service";
+import { defaultBoothPhotoRoot } from "../services/booth-photo-service";
+import { defaultWakePhotoRoot } from "../services/wake-photo-service";
 
 /**
  * One-way migration from the legacy dated tree to flat ISO-instant names (spec

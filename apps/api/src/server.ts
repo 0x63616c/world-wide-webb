@@ -15,12 +15,12 @@ import {
 } from "./services/booth-photo-service";
 import { openCameraStream } from "./services/camera-service";
 import { getClimate } from "./services/climate-service";
-import { migratePhotoPaths } from "./services/photo-path-migration";
 import {
   backfillWakePhotoIndex,
   readWakePhoto,
   saveWakePhoto,
 } from "./services/wake-photo-service";
+import { migratePhotoPaths } from "./startup/photo-path-migration";
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers/index";
 
