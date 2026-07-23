@@ -7,7 +7,6 @@ import { deviceSettingsRouter } from "./device-settings";
 import { eventsRouter } from "./events";
 import { githubRouter } from "./github";
 import { healthRouter } from "./health";
-import { layoutRouter } from "./layout";
 import { logsRouter } from "./logs";
 import { mediaRouter } from "./media";
 import { networkRouter } from "./network";
@@ -33,7 +32,6 @@ export const appRouter = router({
   boothPhotos: boothPhotosRouter,
   events: eventsRouter,
   github: githubRouter,
-  layout: layoutRouter,
   logs: logsRouter,
   media: mediaRouter,
   portal: portalRouter,

@@ -181,3 +181,9 @@ describe("logs router wiring", () => {
     expect(Object.keys(appRouter._def.procedures)).toContain("logs.ingest");
   });
 });
+
+describe("layout router removal", () => {
+  it("does not expose a layout router", () => {
+    expect(Object.keys(appRouter._def.procedures).some((k) => k.startsWith("layout"))).toBe(false);
+  });
+});

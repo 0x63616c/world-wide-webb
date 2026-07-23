@@ -344,19 +344,6 @@ export const frontendLog = pgTable(
   ],
 );
 
-// Per-tile board placement, where each REAL tile sits in the 64×64 pannable
-// world. Row per tile keyed by the registry tile id (e.g. "tile_clock"). The
-// tile SET (component, size, label) is code-owned in the web tile-registry;
-// this table only overrides positions. A missing row means "use the registry
-// default", so a never-edited board stores nothing. Whole-layout saves replace
-// all rows in one transaction (services/board-layout-service.ts).
-export const boardTilePlacement = pgTable("board_tile_placement", {
-  tileId: text("tile_id").primaryKey(),
-  worldCol: integer("world_col").notNull(),
-  worldRow: integer("world_row").notNull(),
-  updatedAtUtc: timestamp("updated_at_utc", { withTimezone: true }).defaultNow().notNull(),
-});
-
 // Wake photos (spec docs/specs/2026-07-18-interaction-logging-design.md). The
 // front-camera burst frames the panel uploads on every undim. The BYTES stay on
 // disk (<MEDIA_STORAGE_DIR>/wake-photos/YYYY/MM/DD/...); this table is the index
