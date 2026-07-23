@@ -1,3 +1,5 @@
+import type { ComponentType } from "react";
+
 import { QuickPlayTile } from "../components/media/QuickPlayTile";
 import { QuickPlayTileView } from "../components/media/QuickPlayTileView";
 import { SoundSystemTile } from "../components/media/SoundSystemTile";
@@ -37,51 +39,6 @@ import { WeatherNow } from "../components/tiles/WeatherNow";
 import { WeatherNowView } from "../components/tiles/WeatherNowView";
 import { WeightTile } from "../components/tiles/WeightTile";
 import { WeightTileView } from "../components/tiles/WeightTileView";
-
-type TileComponent =
-  | typeof ClockGreeting
-  | typeof FrontendLogsTile
-  | typeof GuestWifiTile
-  | typeof WeatherNow
-  | typeof NetworkTile
-  | typeof TeslaTile
-  | typeof Next12Hours
-  | typeof ControlsTile
-  | typeof DogCamTile
-  | typeof DeployTile
-  | typeof ClimateTile
-  | typeof EventsTile
-  | typeof TvNowPlayingTile
-  | typeof SoundSystemTile
-  | typeof TvAppsTile
-  | typeof QuickPlayTile
-  | typeof NotificationCenterTile
-  | typeof PhotoBoothTile
-  | typeof WakesTile
-  | typeof WeightTile;
-
-type TileViewComponent =
-  | typeof ClockGreetingView
-  | typeof FrontendLogsTileView
-  | typeof GuestWifiTileView
-  | typeof WeatherNowView
-  | typeof NetworkTileView
-  | typeof TeslaTileView
-  | typeof Next12HoursView
-  | typeof ControlsTileView
-  | typeof DogCamTileView
-  | typeof DeployTileView
-  | typeof ClimateTileView
-  | typeof EventsTileView
-  | typeof TvNowPlayingTileView
-  | typeof SoundSystemTileView
-  | typeof TvAppsTileView
-  | typeof QuickPlayTileView
-  | typeof NotificationCenterTileView
-  | typeof PhotoBoothTile
-  | typeof WakesTileView
-  | typeof WeightTileView;
-
 export type TileRegistryEntry = {
   id: string;
   // The tile's name, used by the minimap hover label, the centered-tile pan
@@ -89,8 +46,10 @@ export type TileRegistryEntry = {
   // its TileHeader on the board (e.g. "Weather Now", "Climate · A/C", "Upcoming"),
   // so the minimap label always maps to what the user sees on the tile.
   label: string;
-  component: TileComponent;
-  viewComponent: TileViewComponent;
+  // biome-ignore lint/suspicious/noExplicitAny: components have different prop types
+  component: ComponentType<any>;
+  // biome-ignore lint/suspicious/noExplicitAny: components have different prop types
+  viewComponent: ComponentType<any>;
   // Free position in the ONE world, in 0-indexed world-cell coords. A tile may sit
   // ANYWHERE at any size  --  there is no cluster, no grid to fill, no gap/overlap
   // rule against other real tiles. The decorative bento (placeholder-tiles.ts)
@@ -337,14 +296,16 @@ export const HOME_TILE: TileRegistryEntry = TILE_REGISTRY.find((t) => t.home) ??
 
 // Flat lookup: component or viewComponent → registry entry.
 // Used by the Storybook BoardDecorator to auto-size any tile story.
-const componentMap = new Map<TileComponent | TileViewComponent, TileRegistryEntry>();
+// biome-ignore lint/suspicious/noExplicitAny: components have different prop types
+const componentMap = new Map<ComponentType<any>, TileRegistryEntry>();
 for (const entry of TILE_REGISTRY) {
   componentMap.set(entry.component, entry);
   componentMap.set(entry.viewComponent, entry);
 }
 
 export function registryEntryForComponent(
-  component: TileComponent | TileViewComponent | undefined,
+  // biome-ignore lint/suspicious/noExplicitAny: components have different prop types
+  component: ComponentType<any> | undefined,
 ): TileRegistryEntry | undefined {
   if (!component) return undefined;
   return componentMap.get(component);
