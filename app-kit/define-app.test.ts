@@ -22,7 +22,14 @@ it("defineApp brands and passes through the manifest", () => {
 
 it("facet wrappers brand their payload", () => {
   expect((defineApi({} as never) as Record<symbol, unknown>)[API_FACET_BRAND]).toBe(true);
-  expect((defineJobs([]) as Record<symbol, unknown>)[JOBS_FACET_BRAND]).toBe(true);
+  expect(
+    (
+      defineJobs([{ type: "demo_job" as never, handler: async () => {}, maxMs: 1000 }]) as Record<
+        symbol,
+        unknown
+      >
+    )[JOBS_FACET_BRAND],
+  ).toBe(true);
   expect(
     (
       defineCron({ name: "c", schedule: "* * * * *", run: async () => {} }) as Record<

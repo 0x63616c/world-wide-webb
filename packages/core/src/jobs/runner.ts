@@ -1,5 +1,6 @@
 /**
- * Bridge between the durable job queue and the Worker contract.
+ * Bridge between the durable job queue and the Worker contract (relocated into
+ * @www/core at S1, db-injected like queue.ts).
  *
  * A job type does not need its own dispatch machinery: the worker runtime
  * already guarantees a cycle never overlaps itself (per-type concurrency 1),
@@ -13,15 +14,7 @@
 import { getLogger } from "@www/logger";
 import type { Worker } from "@www/worker-runtime";
 import { sql } from "drizzle-orm";
-import { db } from "../db/index";
-import { claimOne, type JobHandler, type JobType } from "./queue";
-
-/** One job type: what runs it, and how long it may take. */
-export interface JobSpec {
-  type: JobType;
-  handler: JobHandler;
-  maxMs: number;
-}
+import { claimOne, type JobQueueDb, type JobSpec } from "./queue";
 
 /** How often each job type polls for work. */
 const JOB_POLL_INTERVAL_MS = 2_000;
@@ -37,13 +30,13 @@ const REAP_INTERVAL_MS = 5 * 60_000;
 const REAP_GRACE_MS = 5 * 60_000;
 
 /** Wrap a job type as a Worker that drains it, one job per cycle. */
-export function jobWorker(spec: JobSpec): Worker {
+export function jobWorker(db: JobQueueDb, spec: JobSpec): Worker {
   return {
     name: `job:${spec.type}`,
     intervalMs: JOB_POLL_INTERVAL_MS,
     runOnStart: true,
     run: async () => {
-      await claimOne(spec.type, spec.handler, spec.maxMs);
+      await claimOne(db, spec);
     },
   };
 }
@@ -72,7 +65,7 @@ export function jobWorker(spec: JobSpec): Worker {
  *
  * Returns the number of rows requeued (does not count rows failed outright).
  */
-export async function reapStaleJobs(specs: readonly JobSpec[]): Promise<number> {
+export async function reapStaleJobs(db: JobQueueDb, specs: readonly JobSpec[]): Promise<number> {
   let reaped = 0;
   for (const spec of specs) {
     const leaseMs = spec.maxMs + REAP_GRACE_MS;
@@ -111,13 +104,13 @@ export async function reapStaleJobs(specs: readonly JobSpec[]): Promise<number> 
 }
 
 /** The reaper as a Worker, built from the same specs used to build job workers. */
-export function staleJobReaper(specs: readonly JobSpec[]): Worker {
+export function staleJobReaper(db: JobQueueDb, specs: readonly JobSpec[]): Worker {
   return {
     name: "stale-job-reaper",
     intervalMs: REAP_INTERVAL_MS,
     runOnStart: true,
     run: async () => {
-      await reapStaleJobs(specs);
+      await reapStaleJobs(db, specs);
     },
   };
 }

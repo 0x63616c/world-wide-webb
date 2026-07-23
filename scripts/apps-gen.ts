@@ -30,6 +30,7 @@ import { collect } from "./apps-gen/collect";
 import {
   renderCrons,
   renderGuestRouter,
+  renderJobs,
   renderRouter,
   renderSchema,
   renderTiles,
@@ -48,6 +49,7 @@ async function main(): Promise<void> {
   writeFileSync(join(GEN_DIR, "guest-router.gen.ts"), renderGuestRouter(model, GUEST_EXPOSED));
   writeFileSync(join(GEN_DIR, "schema.gen.ts"), renderSchema(model));
   writeFileSync(join(GEN_DIR, "crons.gen.ts"), renderCrons(model));
+  writeFileSync(join(GEN_DIR, "jobs.gen.ts"), renderJobs(model));
 }
 
 main().catch((e) => {

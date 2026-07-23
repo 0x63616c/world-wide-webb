@@ -19,11 +19,16 @@
 export { runGithubPollCycle } from "@features/deploys/service";
 export { runMigrations } from "./db/migrate";
 export { env } from "./env";
-// Durable job queue. Each type is wrapped as its own Worker at the entrypoint.
-export { type JobSpec, jobWorker, staleJobReaper } from "./jobs/job-worker";
+// Durable job queue (now @www/core, bound to apps/api's db behind ./jobs/queue).
+// Each type is wrapped as its own Worker at the entrypoint.
 // Graceful shutdown: hand claimed rows back to `queued` instead of stranding
 // them at `running` until the reaper's lease expires.
-export { releaseInFlightJobsWithTimeout } from "./jobs/queue";
+export {
+  type JobSpec,
+  jobWorker,
+  releaseInFlightJobsWithTimeout,
+  staleJobReaper,
+} from "./jobs/queue";
 export { runAscVersionPollCycle } from "./services/asc-version-service";
 export { runClimateEnforcerCycle } from "./services/climate-enforcer-service";
 export { runDeviceSyncCycle } from "./services/device-sync-service";

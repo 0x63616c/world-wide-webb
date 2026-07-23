@@ -1,3 +1,5 @@
+import type { JobSpec } from "@www/core";
+
 export const API_FACET_BRAND = Symbol.for("app-kit.api");
 export const JOBS_FACET_BRAND = Symbol.for("app-kit.jobs");
 export const CRON_BRAND = Symbol.for("app-kit.cron");
@@ -7,10 +9,7 @@ export interface CronSpec {
   schedule: string;
   run: () => Promise<void>;
 }
-export interface JobSpec {
-  name: string;
-  run: () => Promise<void>;
-}
+export type { JobSpec };
 
 export function defineApi<T>(router: T): T {
   return brand(router, API_FACET_BRAND);

@@ -1,19 +1,31 @@
 /**
- * Unit tests for the generic job queue (www-kp4k.12).
+ * Unit tests for the generic job queue (www-kp4k.12; relocated at S1).
  * Tests: single-flight claim (SKIP LOCKED semantics mocked), single-type claim,
  * the run_after gate, retry+backoff, max_attempts→failed, and the per-job
  * timeout (both the AbortSignal and the promise race that backs it).
  *
- * The DB is fully mocked , no real Postgres needed. We instrument execute()
- * to capture which branch (done/queued/failed) was taken by looking for the
- * literal status strings in the SQL object's raw query chunks.
+ * core has no module-singleton db (queue.ts is db-injected), so this test
+ * builds its own mock `JobQueueDb` and passes it explicitly to every call ,
+ * no module mock needed. A test-local `declare module "@www/core"`
+ * augmentation registers the literal job types this file exercises: core's own
+ * program carries no feature/apps augmentation, so `"notify"` / "my_job" would
+ * otherwise collapse to `never` (see docs/superpowers/plans/units/
+ * 2026-07-23-S1-worker-job-seam.review.md, finding M1).
  *
  * Design note: drizzle sql`` objects have a `queryChunks` array containing
  * `SQLRaw` (strings) and `Param` (values). Status literals like 'done' live
  * in the SQLRaw chunks. We walk them to find the terminal status branch.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { claimOne, enqueueJob, type JobType, releaseInFlightJobs } from "../jobs/queue";
+import { claimOne, enqueueJob, type JobQueueDb, type JobSpec, releaseInFlightJobs } from "./queue";
+
+declare module "@www/core" {
+  interface JobTypeRegistry {
+    notify: { notificationId: string };
+    youtube_ingest: { mediaItemId: string; videoId: string };
+    my_job: { foo?: string };
+  }
+}
 
 // ── DB mock ───────────────────────────────────────────────────────────────────
 
@@ -57,24 +69,12 @@ function sqlText(frag: unknown): string {
   return "";
 }
 
-type MockDb = {
-  transaction: (fn: (tx: MockDb) => Promise<unknown>) => Promise<unknown>;
-  execute: (sqlFrag: unknown) => Promise<{ rows: unknown[] }>;
-  insert: (_table: unknown) => {
-    values: (row: Record<string, unknown>) => {
-      returning: (_fields: unknown) => Promise<Array<{ id: number }>>;
-      onConflictDoNothing: () => {
-        returning: (_fields: unknown) => Promise<Array<{ id: number }>>;
-      };
-    };
-  };
-};
+function makeDb(): JobQueueDb {
+  const db: JobQueueDb = {
+    transaction: (async (fn: (tx: JobQueueDb) => Promise<unknown>) =>
+      fn(db)) as JobQueueDb["transaction"],
 
-vi.mock("../db/index", () => {
-  const db: MockDb = {
-    transaction: async (fn: (tx: MockDb) => Promise<unknown>) => fn(db),
-
-    execute: async (sqlFrag: unknown) => {
+    execute: (async (sqlFrag: unknown) => {
       const text = sqlText(sqlFrag);
       mockState.executeLog.push(text);
 
@@ -83,9 +83,9 @@ vi.mock("../db/index", () => {
         return { rows: mockState.claimedRow ? [mockState.claimedRow] : [] };
       }
       return { rows: [] };
-    },
+    }) as JobQueueDb["execute"],
 
-    insert: (_table: unknown) => ({
+    insert: ((_table: unknown) => ({
       values: (row: Record<string, unknown>) => {
         mockState.inserts.push(row);
         return {
@@ -95,10 +95,10 @@ vi.mock("../db/index", () => {
           }),
         };
       },
-    }),
+    })) as unknown as JobQueueDb["insert"],
   };
-  return { db };
-});
+  return db;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -121,6 +121,10 @@ function makeRow(
   };
 }
 
+function spec(type: JobSpec["type"], handler: JobSpec["handler"], maxMs: number): JobSpec {
+  return { type, handler, maxMs };
+}
+
 /** True if any logged SQL text contains the given keyword. */
 function logContains(keyword: string): boolean {
   return (mockState.executeLog as string[]).some(
@@ -130,10 +134,13 @@ function logContains(keyword: string): boolean {
 
 // ── Setup / teardown ─────────────────────────────────────────────────────────
 
+let db: JobQueueDb;
+
 beforeEach(() => {
   mockState.claimedRow = null;
   mockState.executeLog = [];
   mockState.inserts = [];
+  db = makeDb();
 });
 
 afterEach(() => {
@@ -144,9 +151,7 @@ afterEach(() => {
 
 describe("enqueueJob", () => {
   it("inserts a job row and returns its id", async () => {
-    // Cast: proving the row is stored verbatim doesn't require a real type,
-    // just something enqueueJob's real signature wouldn't otherwise accept.
-    const id = await enqueueJob("my_job" as JobType, { foo: "bar" });
+    const id = await enqueueJob(db, "my_job", { foo: "bar" });
     expect(id).toBeGreaterThan(0);
     expect(mockState.inserts).toHaveLength(1);
     expect(mockState.inserts[0]).toMatchObject({ type: "my_job" });
@@ -154,7 +159,7 @@ describe("enqueueJob", () => {
 
   it("accepts priority and runAfter options", async () => {
     const future = new Date(Date.now() + 60_000);
-    await enqueueJob("my_job" as JobType, {}, { priority: 5, runAfter: future, maxAttempts: 3 });
+    await enqueueJob(db, "my_job", {}, { priority: 5, runAfter: future, maxAttempts: 3 });
     expect(mockState.inserts[0]).toMatchObject({
       priority: 5,
       runAfter: future,
@@ -165,19 +170,28 @@ describe("enqueueJob", () => {
 
 describe("claimOne , empty queue", () => {
   it("returns false when no job of that type is queued", async () => {
-    const result = await claimOne("notify", async () => {}, 1000);
+    const result = await claimOne(
+      db,
+      spec("notify", async () => {}, 1000),
+    );
     expect(result).toBe(false);
   });
 
   it("issues the FOR UPDATE SKIP LOCKED claim query", async () => {
-    await claimOne("notify", async () => {}, 1000);
+    await claimOne(
+      db,
+      spec("notify", async () => {}, 1000),
+    );
     expect(logContains("SKIP LOCKED")).toBe(true);
   });
 });
 
 describe("claimOne , single-type claim", () => {
   it("restricts the claim to the requested type", async () => {
-    await claimOne("notify", async () => {}, 1000);
+    await claimOne(
+      db,
+      spec("notify", async () => {}, 1000),
+    );
     expect(logContains("type =")).toBe(true);
     expect(logContains("notify")).toBe(true);
   });
@@ -185,7 +199,10 @@ describe("claimOne , single-type claim", () => {
   it("never claims a job whose run_after is in the future", async () => {
     // Prod-safety: the youtube_ingest backlog is parked on run_after. Dropping
     // this predicate would immediately start 93 downloads.
-    await claimOne("youtube_ingest", async () => {}, 1000);
+    await claimOne(
+      db,
+      spec("youtube_ingest", async () => {}, 1000),
+    );
     expect(logContains("run_after <= now()")).toBe(true);
   });
 });
@@ -195,7 +212,7 @@ describe("claimOne , dispatch", () => {
     const handler = vi.fn().mockResolvedValue(undefined);
     mockState.claimedRow = makeRow({ type: "notify", payload: { hello: "world" } });
 
-    const result = await claimOne("notify", handler, 1000);
+    const result = await claimOne(db, spec("notify", handler, 1000));
 
     expect(result).toBe(true);
     expect(handler).toHaveBeenCalledOnce();
@@ -205,7 +222,10 @@ describe("claimOne , dispatch", () => {
 
   it("marks the job done on handler success", async () => {
     mockState.claimedRow = makeRow({ type: "notify" });
-    await claimOne("notify", async () => {}, 1000);
+    await claimOne(
+      db,
+      spec("notify", async () => {}, 1000),
+    );
 
     expect(logContains("done")).toBe(true);
     expect(logContains("failed")).toBe(false);
@@ -216,11 +236,14 @@ describe("claimOne , retry + backoff", () => {
   it("requeues with backoff when the handler throws and retries remain", async () => {
     mockState.claimedRow = makeRow({ type: "notify", attempts: 0, max_attempts: 5 });
     await claimOne(
-      "notify",
-      async () => {
-        throw new Error("transient");
-      },
-      1000,
+      db,
+      spec(
+        "notify",
+        async () => {
+          throw new Error("transient");
+        },
+        1000,
+      ),
     );
 
     expect(logContains("run_after")).toBe(true);
@@ -232,11 +255,14 @@ describe("claimOne , retry + backoff", () => {
   it("permanently fails once attempts reach max_attempts", async () => {
     mockState.claimedRow = makeRow({ type: "notify", attempts: 0, max_attempts: 1 });
     await claimOne(
-      "notify",
-      async () => {
-        throw new Error("permanent");
-      },
-      1000,
+      db,
+      spec(
+        "notify",
+        async () => {
+          throw new Error("permanent");
+        },
+        1000,
+      ),
     );
 
     expect(logContains("failed")).toBe(true);
@@ -248,11 +274,14 @@ describe("claimOne , retry + backoff", () => {
     // (claimOne adds one more below), so 4/5 is the final allowed retry.
     mockState.claimedRow = makeRow({ type: "notify", attempts: 4, max_attempts: 5 });
     await claimOne(
-      "notify",
-      async () => {
-        throw new Error("permanent");
-      },
-      1000,
+      db,
+      spec(
+        "notify",
+        async () => {
+          throw new Error("permanent");
+        },
+        1000,
+      ),
     );
 
     expect(logContains("failed")).toBe(true);
@@ -263,7 +292,10 @@ describe("claimOne , retry + backoff", () => {
 describe("claimOne , timeout", () => {
   it("fails the job when the handler exceeds maxMs", async () => {
     mockState.claimedRow = makeRow({ type: "notify", attempts: 0, max_attempts: 1 });
-    await claimOne("notify", () => new Promise((resolve) => setTimeout(resolve, 5_000)), 50);
+    await claimOne(
+      db,
+      spec("notify", () => new Promise((resolve) => setTimeout(resolve, 5_000)), 50),
+    );
 
     expect(logContains("failed")).toBe(true);
     expect(logContains("timed out")).toBe(true);
@@ -274,16 +306,19 @@ describe("claimOne , timeout", () => {
     mockState.claimedRow = makeRow({ type: "notify", attempts: 0, max_attempts: 1 });
     let aborted = false;
     await claimOne(
-      "notify",
-      (_payload, signal) =>
-        new Promise<void>((resolve) => {
-          signal.addEventListener("abort", () => {
-            aborted = true;
-            resolve();
-          });
-          setTimeout(resolve, 5_000);
-        }),
-      50,
+      db,
+      spec(
+        "notify",
+        (_payload, signal) =>
+          new Promise<void>((resolve) => {
+            signal.addEventListener("abort", () => {
+              aborted = true;
+              resolve();
+            });
+            setTimeout(resolve, 5_000);
+          }),
+        50,
+      ),
     );
 
     expect(aborted).toBe(true);
@@ -293,11 +328,14 @@ describe("claimOne , timeout", () => {
     mockState.claimedRow = makeRow({ type: "notify" });
     const signals: AbortSignal[] = [];
     await claimOne(
-      "notify",
-      async (_payload, signal) => {
-        signals.push(signal);
-      },
-      50,
+      db,
+      spec(
+        "notify",
+        async (_payload, signal) => {
+          signals.push(signal);
+        },
+        50,
+      ),
     );
     // The race timer is cleared in `finally`; the signal stays unaborted.
     await new Promise((resolve) => setTimeout(resolve, 120));
@@ -307,7 +345,7 @@ describe("claimOne , timeout", () => {
 
 describe("releaseInFlightJobs", () => {
   it("returns 0 and issues no UPDATE when nothing is in flight", async () => {
-    expect(await releaseInFlightJobs()).toBe(0);
+    expect(await releaseInFlightJobs(db)).toBe(0);
     expect(mockState.executeLog).toHaveLength(0);
   });
 
@@ -319,20 +357,23 @@ describe("releaseInFlightJobs", () => {
     let aborted = false;
 
     const claim = claimOne(
-      "youtube_ingest",
-      (_payload, signal) =>
-        new Promise<void>((_resolve, reject) => {
-          signal.addEventListener("abort", () => {
-            aborted = true;
-            reject(new Error("aborted"));
-          });
-        }),
-      60_000,
+      db,
+      spec(
+        "youtube_ingest",
+        (_payload, signal) =>
+          new Promise<void>((_resolve, reject) => {
+            signal.addEventListener("abort", () => {
+              aborted = true;
+              reject(new Error("aborted"));
+            });
+          }),
+        60_000,
+      ),
     );
 
     // Let claimOne register the in-flight entry and enter the handler.
     await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(await releaseInFlightJobs()).toBe(1);
+    expect(await releaseInFlightJobs(db)).toBe(1);
     await claim;
 
     expect(aborted).toBe(true);
@@ -347,16 +388,19 @@ describe("releaseInFlightJobs", () => {
     mockState.claimedRow = makeRow({ id: 43, type: "notify", attempts: 0, max_attempts: 1 });
 
     const claim = claimOne(
-      "notify",
-      (_payload, signal) =>
-        new Promise<void>((_resolve, reject) => {
-          signal.addEventListener("abort", () => reject(new Error("aborted")));
-        }),
-      60_000,
+      db,
+      spec(
+        "notify",
+        (_payload, signal) =>
+          new Promise<void>((_resolve, reject) => {
+            signal.addEventListener("abort", () => reject(new Error("aborted")));
+          }),
+        60_000,
+      ),
     );
 
     await new Promise((resolve) => setTimeout(resolve, 10));
-    await releaseInFlightJobs();
+    await releaseInFlightJobs(db);
     await claim;
 
     expect(logContains("'failed'")).toBe(false);
@@ -366,10 +410,13 @@ describe("releaseInFlightJobs", () => {
 
   it("forgets the job once claimOne returns, so a later release is a no-op", async () => {
     mockState.claimedRow = makeRow({ id: 44, type: "notify" });
-    await claimOne("notify", async () => {}, 1_000);
+    await claimOne(
+      db,
+      spec("notify", async () => {}, 1_000),
+    );
     mockState.executeLog = [];
 
-    expect(await releaseInFlightJobs()).toBe(0);
+    expect(await releaseInFlightJobs(db)).toBe(0);
     expect(mockState.executeLog).toHaveLength(0);
   });
 });

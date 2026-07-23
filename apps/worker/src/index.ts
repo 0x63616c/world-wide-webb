@@ -31,6 +31,7 @@ import {
   runYoutubeIngest,
   staleJobReaper,
 } from "@control-center/api/worker";
+import { GENERATED_JOBS } from "@features/_generated/jobs.gen";
 import { createLogger } from "@www/logger";
 import { createWorkerRuntime, type Worker } from "@www/worker-runtime";
 import { hasSufficientDisk } from "./disk-guard";
@@ -52,7 +53,14 @@ try {
 // reaper's lease. A timeout only fires while this process is alive, so an OOM
 // kill or eviction still strands a row at `running`; the reaper is what
 // recovers those. Sharing one number keeps the two from drifting apart.
+//
+// GENERATED_JOBS (S1, Track C): every folded feature's `defineJobs` facet,
+// collected by codegen and folded in generically , zero per-feature
+// hand-wiring here. Empty until notif folds (commit 2). `youtube_ingest` stays
+// hand-wired below until media folds (Wave 6); it is a real queue job, not a
+// Worker interval, but its feature isn't a codegen-collected facet yet.
 const JOBS: JobSpec[] = [
+  ...GENERATED_JOBS,
   // APNs delivery is sub-second; a minute means something is badly wrong.
   { type: "notify", handler: runNotifyJob, maxMs: 60_000 },
   // A ceiling for pathological downloads, not a target , sets take minutes.

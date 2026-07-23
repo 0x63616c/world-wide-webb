@@ -40,7 +40,11 @@ COPY features features
 
 # Bundle to a single file. index.ts runs migrations on boot via drizzle-orm's
 # runtime migrator (re-exported from @control-center/api), so drizzle-kit never ships.
-RUN bun build apps/worker/src/index.ts --target=bun --outfile dist/worker.js
+# `cd apps/worker` first: bun build resolves the `@features/*` alias via the
+# nearest tsconfig's `paths`, and the ROOT tsconfig is deliberately paths-free.
+# apps/worker/tsconfig.json carries `@features` (S1: the worker now imports
+# features/_generated/jobs.gen), so build from there. Mirrors apps/api/Dockerfile.
+RUN cd apps/worker && bun build src/index.ts --target=bun --outfile ../../dist/worker.js
 
 # ── Stage 2: runtime image ────────────────────────────────────────────────────
 # The bundle, the SQL migration files, and the media toolchain (yt-dlp +

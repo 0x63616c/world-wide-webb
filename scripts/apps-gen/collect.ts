@@ -5,7 +5,7 @@ import { is, Table } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
 // scripts/ has no tsconfig with the @app-kit alias (bun resolves paths from the
 // tsconfig nearest each file), so reach the authoring surface by relative path.
-import { type AppManifest, CRON_BRAND } from "../../app-kit/index";
+import { type AppManifest, CRON_BRAND, JOBS_FACET_BRAND } from "../../app-kit/index";
 import { TILE_REGISTRY } from "../../apps/web/src/lib/tile-registry";
 
 // scripts/apps-gen/collect.ts -> repo root is two directories up.
@@ -42,6 +42,13 @@ interface CollectedCron {
   source: string;
 }
 
+/** A collected `defineJobs` facet entry , the worker folds these generically. */
+interface CollectedJob {
+  type: string;
+  maxMs: number;
+  source: string;
+}
+
 /**
  * Per-feature emit metadata — everything the emitter needs to render the
  * generated router/guest-router/schema/crons aggregates as deterministic import
@@ -54,6 +61,7 @@ export interface CollectedFeature {
   guestExposed: boolean;
   hasApi: boolean;
   hasSchema: boolean;
+  hasJobs: boolean;
 }
 
 export interface AppModel {
@@ -62,6 +70,7 @@ export interface AppModel {
   tables: CollectedTable[];
   routerKeys: CollectedRouterKey[];
   crons: CollectedCron[];
+  jobs: CollectedJob[];
 }
 
 const APP_BRAND = Symbol.for("app-kit.app");
@@ -101,6 +110,7 @@ export async function collect(): Promise<AppModel> {
   const tables: CollectedTable[] = [];
   const routerKeys: CollectedRouterKey[] = [];
   const crons: CollectedCron[] = [];
+  const jobs: CollectedJob[] = [];
 
   for (const dir of dirs) {
     const base = join(FEATURES_DIR, dir);
@@ -140,6 +150,7 @@ export async function collect(): Promise<AppModel> {
       for (const key of Object.keys(record)) routerKeys.push({ key, source: `feature:${dir}` });
     }
 
+    let hasJobs = false;
     if (existsSync(join(base, "jobs.ts"))) {
       const jobsMod = (await import(join(base, "jobs.ts"))) as Record<string, unknown>;
       for (const v of Object.values(jobsMod)) {
@@ -147,10 +158,25 @@ export async function collect(): Promise<AppModel> {
           const c = v as { name: string; schedule: string };
           crons.push({ name: c.name, schedule: c.schedule, source: `feature:${dir}` });
         }
+        // A `defineJobs([...])` facet: an array branded with JOBS_FACET_BRAND.
+        // Read only `type` + `maxMs` off each spec , never invoke the handler.
+        if (Array.isArray(v) && (v as Record<symbol, unknown>)[JOBS_FACET_BRAND]) {
+          hasJobs = true;
+          for (const spec of v as Array<{ type: string; maxMs: number }>) {
+            jobs.push({ type: spec.type, maxMs: spec.maxMs, source: `feature:${dir}` });
+          }
+        }
       }
     }
 
-    features.push({ dir, id: m.id, guestExposed: Boolean(m.guestExposed), hasApi, hasSchema });
+    features.push({
+      dir,
+      id: m.id,
+      guestExposed: Boolean(m.guestExposed),
+      hasApi,
+      hasSchema,
+      hasJobs,
+    });
   }
 
   // Base (apps/api) schema tables ride in the dup-table check too, so a feature
@@ -177,5 +203,5 @@ export async function collect(): Promise<AppModel> {
     }),
   );
 
-  return { apps: [...featureApps, ...registryApps], features, tables, routerKeys, crons };
+  return { apps: [...featureApps, ...registryApps], features, tables, routerKeys, crons, jobs };
 }

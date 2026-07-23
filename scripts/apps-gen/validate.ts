@@ -31,6 +31,9 @@ interface Model {
   tables?: { name: string; source: string }[];
   /** Collected top-level tRPC router keys across features; a duplicate key is a fold error. */
   routerKeys?: { key: string; source: string }[];
+  /** Collected `defineJobs` facet entries; a duplicate job type would let two
+   *  features both claim the same queue rows. */
+  jobs?: { type: string; source: string }[];
 }
 
 function overlaps(a: Rect, b: Rect): boolean {
@@ -77,6 +80,22 @@ export function validate(model: Model, guestExposed: readonly string[]): void {
         );
       }
       seenKey.set(r.key, r.source);
+    }
+  }
+
+  // Duplicate job type across features. Two features registering the same
+  // `type` would both be claimed against by the worker's single generic drain,
+  // so this is a hard fold error (mirrors the dup table / router-key checks).
+  if (model.jobs) {
+    const seenJob = new Map<string, string>();
+    for (const j of model.jobs) {
+      const prev = seenJob.get(j.type);
+      if (prev) {
+        throw new CodegenError(
+          `duplicate job type '${j.type}' (declared by ${prev} and ${j.source}) — two features cannot register the same worker job type`,
+        );
+      }
+      seenJob.set(j.type, j.source);
     }
   }
 

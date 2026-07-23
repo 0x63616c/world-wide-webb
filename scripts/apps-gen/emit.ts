@@ -149,6 +149,38 @@ ${featureExports}
  * scaffolding — no runtime consumer yet; the real schedule stays in
  * infra/src/crons.ts). Sorted by (name, source) for determinism.
  */
+/**
+ * The generated worker job barrel (S1). Unlike `renderCrons` (a data-only
+ * listing , no runtime consumer yet), this emits REAL imports of each
+ * feature's `jobs` facet, mirroring `renderRouter`: the worker entrypoint
+ * spreads `GENERATED_JOBS` into its `JOBS[]` and folds every handler in
+ * generically, with zero per-feature hand-wiring.
+ */
+export function renderJobs(model: AppModel): string {
+  const withJobs = sortedFeatures(model).filter((f) => f.hasJobs);
+  if (withJobs.length === 0) {
+    return `${GEN_HEADER}
+
+import type { JobSpec } from "@www/core";
+
+export const GENERATED_JOBS: readonly JobSpec[] = [];
+`;
+  }
+  const imports = withJobs
+    .map((f) => `import { jobs as ${ident(f.dir)}Jobs } from "../${f.dir}/jobs";`)
+    .join("\n");
+  const spread = withJobs.map((f) => `...${ident(f.dir)}Jobs`).join(",\n  ");
+  return `${GEN_HEADER}
+
+import type { JobSpec } from "@www/core";
+${imports}
+
+export const GENERATED_JOBS: readonly JobSpec[] = [
+  ${spread},
+];
+`;
+}
+
 export function renderCrons(model: AppModel): string {
   const sorted = [...model.crons].sort((a, b) =>
     a.name !== b.name
