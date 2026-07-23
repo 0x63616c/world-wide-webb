@@ -8,6 +8,12 @@
   // Kept in sync with the other resolvers (check-alias-parity.sh).
   "compilerOptions": {
     "jsx": "react-jsx",
+    // module/target mirror the root tsconfig so opening a feature file in an
+    // editor typechecks it the same way CI does (via tsconfig.config.json).
+    // bun ignores these (reads only `paths`); they exist so tsserver, which
+    // adopts THIS as the nearest project, is not a broken standalone program.
+    "target": "ES2022",
+    "module": "ESNext",
     "moduleResolution": "bundler",
     "paths": {
       "@/*": ["../apps/web/src/*"],
