@@ -8,7 +8,6 @@ import { eventsRouter } from "./events";
 import { healthRouter } from "./health";
 import { logsRouter } from "./logs";
 import { mediaRouter } from "./media";
-import { notificationsRouter } from "./notifications";
 import { sessionsRouter } from "./sessions";
 import { settingsRouter } from "./settings";
 import { systemRouter } from "./system";
@@ -22,7 +21,6 @@ import { weatherRouter } from "./weather";
 const baseRouter = router({
   health: healthRouter,
   weather: weatherRouter,
-  notifications: notificationsRouter,
   climate: climateRouter,
   controls: controlsRouter,
   boothPhotos: boothPhotosRouter,

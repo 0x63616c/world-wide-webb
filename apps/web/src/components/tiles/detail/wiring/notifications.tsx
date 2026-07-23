@@ -8,8 +8,8 @@
  * tile face and this page re-settle together.
  */
 
+import { ExpandedNotificationCenterView } from "@features/notif/web";
 import { useState } from "react";
-import { ExpandedNotificationCenterView } from "@/components/tiles/views/ExpandedNotificationCenterView";
 import { POLL, useNow } from "@/lib/hooks";
 import {
   type NotificationFilter,

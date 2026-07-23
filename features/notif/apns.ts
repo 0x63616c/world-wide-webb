@@ -1,7 +1,7 @@
 /**
- * Apple Push Notification service sender for the Notification Center. The
- * `notify` job (notification-service) calls sendApnsPush once per registered
- * device after a notification row is written.
+ * Apple Push Notification service sender for the Notification Center (Track C,
+ * S1 fold). The `notify` job (service.ts) calls sendApnsPush once per
+ * registered device after a notification row is written.
  *
  * Env-gated exactly like github-actions-service: with no key material
  * isApnsConfigured() is false and every send is a logged no-op, so the api and
@@ -22,8 +22,8 @@ import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
-import * as schema from "../db/schema";
-import { env } from "../env";
+import { config } from "./config";
+import * as schema from "./schema";
 
 /** APNs provider JWTs are valid at most 1h; Apple rejects reuse under ~20min. */
 const JWT_TTL_SECONDS = 30 * 60;
@@ -32,7 +32,9 @@ const JWT_TTL_SECONDS = 30 * 60;
 const REQUEST_TIMEOUT_MS = 8000;
 
 export function isApnsConfigured(): boolean {
-  return Boolean(env.APNS_KEY_ID && env.APNS_TEAM_ID && env.APNS_KEY_CONTENT && env.APNS_BUNDLE_ID);
+  return Boolean(
+    config.APNS_KEY_ID && config.APNS_TEAM_ID && config.APNS_KEY_CONTENT && config.APNS_BUNDLE_ID,
+  );
 }
 
 function base64url(input: string | Uint8Array): string {
@@ -200,13 +202,13 @@ export async function sendApnsPush(
   }
 
   try {
-    const jwt = await signApnsJwt(env.APNS_KEY_ID, env.APNS_TEAM_ID, env.APNS_KEY_CONTENT);
+    const jwt = await signApnsJwt(config.APNS_KEY_ID, config.APNS_TEAM_ID, config.APNS_KEY_CONTENT);
     const res = await postHttp2(
-      env.APNS_HOST,
+      config.APNS_HOST,
       `/3/device/${deviceToken}`,
       {
         authorization: `bearer ${jwt}`,
-        "apns-topic": env.APNS_BUNDLE_ID,
+        "apns-topic": config.APNS_BUNDLE_ID,
         "apns-push-type": "alert",
       },
       JSON.stringify(buildApnsPayload(alert)),

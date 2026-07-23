@@ -33,7 +33,6 @@ export { runAscVersionPollCycle } from "./services/asc-version-service";
 export { runClimateEnforcerCycle } from "./services/climate-enforcer-service";
 export { runDeviceSyncCycle } from "./services/device-sync-service";
 export { runEnforcerCycle } from "./services/light-enforcer-service";
-export { runNotifyJob } from "./services/notification-service";
 export { reconcilePartyMode } from "./services/party-service";
 export { runPlaylistPollerCycle } from "./services/playlist-poller-service";
 export { runSonosVolumeEnforcerCycle } from "./services/sonos-volume-enforcer-service";

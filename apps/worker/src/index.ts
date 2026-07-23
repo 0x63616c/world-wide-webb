@@ -23,7 +23,6 @@ import {
   runEnforcerCycle,
   runGithubPollCycle,
   runMigrations,
-  runNotifyJob,
   runPlaylistPollerCycle,
   runSonosVolumeEnforcerCycle,
   runWeatherIngestCycle,
@@ -56,13 +55,12 @@ try {
 //
 // GENERATED_JOBS (S1, Track C): every folded feature's `defineJobs` facet,
 // collected by codegen and folded in generically , zero per-feature
-// hand-wiring here. Empty until notif folds (commit 2). `youtube_ingest` stays
-// hand-wired below until media folds (Wave 6); it is a real queue job, not a
-// Worker interval, but its feature isn't a codegen-collected facet yet.
+// hand-wiring here. Carries `notify` (features/notif) as of commit 2.
+// `youtube_ingest` stays hand-wired below until media folds (Wave 6); it is a
+// real queue job, not a Worker interval, but its feature isn't a
+// codegen-collected facet yet.
 const JOBS: JobSpec[] = [
   ...GENERATED_JOBS,
-  // APNs delivery is sub-second; a minute means something is badly wrong.
-  { type: "notify", handler: runNotifyJob, maxMs: 60_000 },
   // A ceiling for pathological downloads, not a target , sets take minutes.
   // Registered only when YOUTUBE_INGEST_ENABLED: an unregistered type is never
   // claimed, so the queued backlog parks in place instead of burning attempts

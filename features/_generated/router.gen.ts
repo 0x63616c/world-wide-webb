@@ -7,7 +7,8 @@ import { api as deploysApi } from "../deploys/api";
 import { api as dogcamApi } from "../dogcam/api";
 import { api as guestWifiApi } from "../guest-wifi/api";
 import { api as networkApi } from "../network/api";
+import { api as notifApi } from "../notif/api";
 import { api as teslaApi } from "../tesla/api";
 import { api as weightApi } from "../weight/api";
 
-export const featureAppRouter = mergeRouters(deploysApi, dogcamApi, guestWifiApi, networkApi, teslaApi, weightApi);
+export const featureAppRouter = mergeRouters(deploysApi, dogcamApi, guestWifiApi, networkApi, notifApi, teslaApi, weightApi);

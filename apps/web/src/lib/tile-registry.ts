@@ -3,6 +3,7 @@ import deploysManifest from "@features/deploys/manifest";
 import dogcamManifest from "@features/dogcam/manifest";
 import guestWifiManifest from "@features/guest-wifi/manifest";
 import networkManifest from "@features/network/manifest";
+import notifManifest from "@features/notif/manifest";
 import teslaManifest from "@features/tesla/manifest";
 import weightManifest from "@features/weight/manifest";
 import type { ComponentType } from "react";
@@ -27,8 +28,6 @@ import { FrontendLogsTile } from "../components/tiles/FrontendLogsTile";
 import { FrontendLogsTileView } from "../components/tiles/FrontendLogsTileView";
 import { Next12Hours } from "../components/tiles/Next12Hours";
 import { Next12HoursView } from "../components/tiles/Next12HoursView";
-import { NotificationCenterTile } from "../components/tiles/NotificationCenterTile";
-import { NotificationCenterTileView } from "../components/tiles/NotificationCenterTileView";
 import { PhotoBoothTile } from "../components/tiles/photo-booth/PhotoBoothTile";
 import { WakesTile } from "../components/tiles/WakesTile";
 import { WakesTileView } from "../components/tiles/WakesTileView";
@@ -181,19 +180,9 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
     cols: 2,
     rows: 2,
   },
-  // Notification Center. Sits in the free 4x3 block at cols 38-41 / rows 24-26,
-  // directly above Living Room Cam and right of Deploys , the top-right corner
-  // of the cluster, matching where the board's alert banners already appear.
-  {
-    id: "tile_notif",
-    label: "Notifications",
-    component: NotificationCenterTile,
-    viewComponent: NotificationCenterTileView,
-    worldCol: 38,
-    worldRow: 24,
-    cols: 4,
-    rows: 3,
-  },
+  // Notification Center used to live here as "tile_notif" (cols 38-41 / rows
+  // 24-26, top-right corner of the cluster) but now comes from
+  // features/notif/manifest.ts (Track C, S1).
   {
     id: "tile_felogs",
     label: "Frontend Logs",
@@ -233,6 +222,7 @@ const FEATURE_MANIFESTS: AppManifest[] = [
   dogcamManifest,
   weightManifest,
   deploysManifest,
+  notifManifest,
 ];
 
 function manifestToEntry(m: AppManifest): TileRegistryEntry {

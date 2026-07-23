@@ -3,5 +3,8 @@
 // Re-run `bun run apps:gen` after changing a feature facet; commit the result.
 
 import type { JobSpec } from "@www/core";
+import { jobs as notifJobs } from "../notif/jobs";
 
-export const GENERATED_JOBS: readonly JobSpec[] = [];
+export const GENERATED_JOBS: readonly JobSpec[] = [
+  ...notifJobs,
+];

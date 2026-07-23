@@ -10,9 +10,13 @@
     // (Track C, Wave 2) reach @features/weight/* directly (hand-wired ingest
     // interval, not a feature facet — see AGENTS.md). tsc uses ONE compilerOptions
     // for the whole program, so this path must be restated here even though
-    // worker itself never imports @features from its own src. Not part of
-    // check-alias-parity.sh's 8 resolvers (worker never imports @app-kit).
+    // worker itself never imports @features from its own src.
+    // @app-kit* added at S1: the worker now imports @features/_generated/jobs.gen,
+    // whose generated import of features/notif/jobs.ts pulls in `defineJobs`
+    // from @app-kit transitively (worker still never imports @app-kit itself).
     "paths": {
+      "@app-kit": ["../../app-kit/index.ts"],
+      "@app-kit/server": ["../../app-kit/server.ts"],
       "@features/*": ["../../features/*"]
     }
   },

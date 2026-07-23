@@ -7,11 +7,11 @@
  * content region.
  */
 
+import { ExpandedNotificationCenterView } from "@features/notif/web";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import type { NotificationItem } from "@/lib/notifications";
 import { modalDocsParameters } from "../__stories__/factory";
-import { ExpandedNotificationCenterView } from "./ExpandedNotificationCenterView";
 
 // A fixed "now" so every age label in these stories is stable.
 const NOW = Date.parse("2026-07-18T12:00:00.000Z");

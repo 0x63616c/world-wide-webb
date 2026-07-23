@@ -4,14 +4,11 @@
  * component-test assertions.
  */
 
+import type { NotificationCenterTileViewProps, NotificationRow } from "@features/notif/web";
+import { NotificationCenterTileView } from "@features/notif/web";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 import { defineTileMeta } from "./__stories__/factory";
-import type {
-  NotificationCenterTileViewProps,
-  NotificationRow,
-} from "./NotificationCenterTileView";
-import { NotificationCenterTileView } from "./NotificationCenterTileView";
 
 const rows: NotificationRow[] = [
   {

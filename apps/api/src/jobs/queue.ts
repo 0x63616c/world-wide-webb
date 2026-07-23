@@ -10,15 +10,15 @@ import { db } from "../db/index";
 
 export type { JobHandler, JobSpec } from "@www/core";
 
-// Interim registry augmentation (S1 commit 1). `notify` is registered here only
-// until commit 2 moves the Notification Center into features/notif (it deletes
-// this line atomically with the service move); `youtube_ingest` stays here
-// through Wave 6 (media is not folded yet). Placement matters: worker-deps.ts
-// re-exports through this file, so `youtube_ingest` reaches the apps/worker
-// program transitively via the `@control-center/api/worker` barrel.
+// Registry augmentation for the one queue producer still hand-wired in
+// apps/api: `youtube_ingest` (media is not folded until Wave 6). `notify`
+// registered here through S1 commit 1; relocated to features/notif/jobs.ts +
+// service.ts in commit 2 (this line deleted atomically with the service move).
+// Placement matters: worker-deps.ts re-exports through this file, so
+// `youtube_ingest` reaches the apps/worker program transitively via the
+// `@control-center/api/worker` barrel.
 declare module "@www/core" {
   interface JobTypeRegistry {
-    notify: { notificationId: string };
     youtube_ingest: { mediaItemId: string; videoId: string };
   }
 }

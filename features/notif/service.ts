@@ -1,9 +1,10 @@
 /**
- * Notification Center domain service. Every notification in the system is
- * raised through raiseNotification, which does two things atomically enough for
- * our purposes: writes the feed row, then enqueues a `notify` job that fans the
- * alert out to registered devices over APNs. Producers never talk to APNs
- * directly , they raise, and the queue owns delivery + retry.
+ * Notification Center domain service (Track C, S1 fold). Every notification in
+ * the system is raised through raiseNotification, which does two things
+ * atomically enough for our purposes: writes the feed row, then enqueues a
+ * `notify` job (@www/core's durable queue) that fans the alert out to
+ * registered devices over APNs. Producers never talk to APNs directly , they
+ * raise, and the queue owns delivery + retry.
  *
  * DEDUPE: a producer re-raising the same logical condition (a flapping
  * integration, a deploy that fails on every push) passes a stable `dedupeKey`.
@@ -15,25 +16,42 @@
  * because Postgres treats NULLs as distinct in a unique index, unkeyed rows
  * never collide.
  *
- * Follows the explicit-`ctx.db` style of frontend-log-service (the db is a
+ * Follows the explicit-`db` style of frontend-log-service (the db is a
  * parameter, not a module singleton) so callers control the connection and
  * tests can hand in a mock. The one exception is the job handler at the bottom,
- * which is a process entrypoint and therefore owns its own db reference, the
- * same way youtube-ingest-service's handler does.
+ * which is a process entrypoint and therefore owns its own db reference (the
+ * feature's own singleton, ./db), the same way youtube-ingest-service's handler
+ * does.
  */
 import { randomBytes } from "node:crypto";
+import { enqueueJob, type JobHandler } from "@www/core";
 import { getLogger } from "@www/logger";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { z } from "zod";
 
-import { db as singletonDb } from "../db/index";
-import * as schema from "../db/schema";
-import { enqueueJob, type JobHandler } from "../jobs/queue";
-import { type ApnsAlert, sendApnsPush } from "./apns-service";
+import { type ApnsAlert, sendApnsPush } from "./apns";
+import { db as singletonDb } from "./db";
+import * as schema from "./schema";
 
 /** Job type string for the APNs fan-out job. */
 const NOTIFY_JOB_TYPE = "notify";
+
+/**
+ * Registered here (not only in ./jobs.ts) because this file, not jobs.ts, is
+ * the producer every consuming tsc program actually reaches: apps/api pulls it
+ * in transitively via router.gen -> api.ts -> service.ts, apps/worker via
+ * jobs.gen -> jobs.ts -> service.ts, and the features/** program includes it
+ * directly as a glob root. jobs.ts augments the SAME interface member (see its
+ * own declaration below) purely for local readability at the facet's
+ * definition site; TS interface merging is idempotent across identical
+ * declarations in one program.
+ */
+declare module "@www/core" {
+  interface JobTypeRegistry {
+    notify: { notificationId: string };
+  }
+}
 
 /** Default page size for the feed; the panel renders a bounded list. */
 const DEFAULT_LIST_LIMIT = 50;
@@ -210,7 +228,7 @@ export async function raiseNotification(
   // Delivery is the queue's problem from here. A failure to enqueue must not
   // lose the feed row that already committed, so it is logged, not thrown.
   try {
-    await enqueueJob(NOTIFY_JOB_TYPE, { notificationId: row.id });
+    await enqueueJob(db, NOTIFY_JOB_TYPE, { notificationId: row.id });
   } catch (err) {
     getLogger().error({ err, notificationId: row.id }, "failed to enqueue notify job");
   }
@@ -365,7 +383,7 @@ export async function handleNotifyJob(rawPayload: unknown, db: Db = singletonDb)
   );
 }
 
-/** The `notify` job handler. Wired at the worker entrypoint. */
+/** The `notify` job handler. Wired via the S1 job seam (./jobs.ts). */
 export const runNotifyJob: JobHandler = async (payload) => {
   await handleNotifyJob(payload);
 };
