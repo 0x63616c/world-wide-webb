@@ -18,7 +18,7 @@
  * still enforces on/off), so the two never fight over lamp color.
  */
 
-import type { DeviceStateStore } from "@www/core";
+import { type DeviceStateStore, HaLightService, isLightState } from "@www/core";
 import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
 import {
@@ -33,7 +33,6 @@ import { deviceStateStore } from "../db/device-state-store";
 import { db } from "../db/index";
 import { LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
-import { HaLightService, isLightState } from "./device-state-mapping";
 
 // ─── pure helpers ──────────────────────────────────────────────────────────────
 

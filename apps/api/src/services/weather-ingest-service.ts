@@ -1,9 +1,10 @@
+import { heartbeat } from "@www/core";
 import { z } from "zod";
 
 import { db } from "../db/index";
+import { integrationSyncStore } from "../db/integration-sync-store";
 import { weatherDailyReading, weatherReading } from "../db/schema";
 import { env } from "../env";
-import { heartbeat } from "./integration-heartbeat";
 
 const INGEST_INTEGRATION_ID = "weather";
 
@@ -75,7 +76,7 @@ function hourBoundaryMs(): number {
 }
 
 export async function runWeatherIngestCycle(): Promise<void> {
-  const hb = heartbeat(INGEST_INTEGRATION_ID);
+  const hb = heartbeat(integrationSyncStore, INGEST_INTEGRATION_ID);
   try {
     const bundle = await fetchOpenMeteoBundle();
     const now = new Date();

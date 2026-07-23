@@ -16,25 +16,27 @@
  * detection) because HA round-trips rgb/kelvin/brightness with small deltas.
  */
 
-import type { DeviceStateStore } from "@www/core";
+import {
+  type DeviceStateStore,
+  HaLightService,
+  heartbeat,
+  isLightState,
+  type MappedHaState,
+  mapHaToReported,
+  runCycle,
+  windowOpen,
+} from "@www/core";
 import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
 import { LampMode } from "../config/lamp-scenes";
 import { findLight, LIGHTS, LightControl, LightKind, lightControl } from "../config/lights";
 import { deviceStateStore } from "../db/device-state-store";
 import { db } from "../db/index";
+import { integrationSyncStore } from "../db/integration-sync-store";
 import type { DeviceLightState, LightColor } from "../db/schema";
 import { LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
-import { windowOpen } from "./command-window";
-import {
-  HaLightService,
-  isLightState,
-  type MappedHaState,
-  mapHaToReported,
-} from "./device-state-mapping";
-import { heartbeat, runCycle } from "./integration-heartbeat";
 
 const ENFORCER_INTEGRATION_ID = "light-enforcer";
 const ENFORCER_DOMAINS = ["light", "switch"] as const;
@@ -67,7 +69,7 @@ function colorConverged(a: LightColor | undefined, b: LightColor | undefined): b
 /**
  * Tolerant desired-vs-reported convergence check used for DRIFT detection. On/off
  * must match exactly; brightness and color within tolerance. (Exact equality is
- * stateEquals in device-state-mapping, used for reported-change detection.)
+ * stateEquals in ha-mapping, used for reported-change detection.)
  */
 export function lightStateConverged(
   desired: DeviceLightState,
@@ -167,10 +169,14 @@ function buildTurnOnParams(entityId: string, desired: DeviceLightState): Record<
 }
 
 export async function runEnforcerCycle(store: DeviceStateStore = deviceStateStore): Promise<void> {
-  await runCycle(heartbeat(ENFORCER_INTEGRATION_ID), "light-enforcer", async () => {
-    const snapshot = await fetchSnapshot();
-    await reconcile(snapshot, store);
-  });
+  await runCycle(
+    heartbeat(integrationSyncStore, ENFORCER_INTEGRATION_ID),
+    "light-enforcer",
+    async () => {
+      const snapshot = await fetchSnapshot();
+      await reconcile(snapshot, store);
+    },
+  );
 }
 
 async function fetchSnapshot(): Promise<Map<string, HaEntity>> {

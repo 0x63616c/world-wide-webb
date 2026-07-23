@@ -24,26 +24,28 @@
  * only manages the one configured house thermostat.
  */
 
-import type { DeviceStateStore } from "@www/core";
-import { CLIMATE_DEVICE_ID } from "../config/identity";
-import { deviceStateStore } from "../db/device-state-store";
-import type { DeviceClimateState } from "../db/schema";
-import { env } from "../env";
-import { ha } from "../integrations/homeassistant";
-import type { HaEntity } from "../integrations/homeassistant/types";
-import { windowOpen } from "./command-window";
 import {
   climateSetpointsObservable,
   climateStateConverged,
   DeviceKind,
+  type DeviceStateStore,
+  heartbeat,
   isActivelyConditioning,
   isClimateState,
   type MappedHaState,
   mapHaToReported,
   rememberedClimateDesired,
+  runCycle,
   sanitizeClimateDesired,
-} from "./device-state-mapping";
-import { heartbeat, runCycle } from "./integration-heartbeat";
+  windowOpen,
+} from "@www/core";
+import { CLIMATE_DEVICE_ID } from "../config/identity";
+import { deviceStateStore } from "../db/device-state-store";
+import { integrationSyncStore } from "../db/integration-sync-store";
+import type { DeviceClimateState } from "../db/schema";
+import { env } from "../env";
+import { ha } from "../integrations/homeassistant";
+import type { HaEntity } from "../integrations/homeassistant/types";
 
 const CLIMATE_ENFORCER_INTEGRATION_ID = "climate-enforcer";
 
@@ -128,11 +130,15 @@ export function decideClimateEnforcement(
 export async function runClimateEnforcerCycle(
   store: DeviceStateStore = deviceStateStore,
 ): Promise<void> {
-  await runCycle(heartbeat(CLIMATE_ENFORCER_INTEGRATION_ID), "climate-enforcer", async () => {
-    const entities = await ha.getEntities("climate");
-    const entity = entities.find((e) => e.entity_id === env.CLIMATE_ENTITY_ID);
-    await reconcileClimate(entity, store);
-  });
+  await runCycle(
+    heartbeat(integrationSyncStore, CLIMATE_ENFORCER_INTEGRATION_ID),
+    "climate-enforcer",
+    async () => {
+      const entities = await ha.getEntities("climate");
+      const entity = entities.find((e) => e.entity_id === env.CLIMATE_ENTITY_ID);
+      await reconcileClimate(entity, store);
+    },
+  );
 }
 
 async function reconcileClimate(

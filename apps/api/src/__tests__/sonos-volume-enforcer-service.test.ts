@@ -57,9 +57,9 @@ vi.mock("@www/core", async (importOriginal) => {
 
 // ─── import after mocks ───────────────────────────────────────────────────────
 
+import { COMMAND_WINDOW_MS } from "@www/core";
 import { TOPOLOGY_ANCHOR_IP } from "../config/identity";
 import type { DeviceSpeakerState } from "../db/schema";
-import { COMMAND_WINDOW_MS } from "../services/command-window";
 import {
   decideSpeakerEnforcement,
   runSonosVolumeEnforcerCycle,

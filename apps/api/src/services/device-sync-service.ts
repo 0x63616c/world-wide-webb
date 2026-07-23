@@ -1,9 +1,15 @@
-import type { DeviceStateStore } from "@www/core";
+import {
+  type DeviceStateStore,
+  heartbeat,
+  mapHaToReported,
+  runCycle,
+  stateEquals,
+} from "@www/core";
 import { deviceStateStore } from "../db/device-state-store";
+import { integrationSyncStore } from "../db/integration-sync-store";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
-import { DeviceOwner, mapHaToReported, ownerOf, stateEquals } from "./device-state-mapping";
-import { heartbeat, runCycle } from "./integration-heartbeat";
+import { DeviceOwner, ownerOf } from "./device-ownership";
 
 const SYNC_INTEGRATION_ID = "homeassistant";
 // Fan-only since the M2 cutover (www-7d5b.2.6): the light enforcer
@@ -18,7 +24,7 @@ const SYNC_DOMAINS = ["fan"] as const;
 export async function runDeviceSyncCycle(
   store: DeviceStateStore = deviceStateStore,
 ): Promise<void> {
-  await runCycle(heartbeat(SYNC_INTEGRATION_ID), "device-sync", async () => {
+  await runCycle(heartbeat(integrationSyncStore, SYNC_INTEGRATION_ID), "device-sync", async () => {
     const snapshot = await fetchSnapshot();
     await reconcile(snapshot, store);
   });

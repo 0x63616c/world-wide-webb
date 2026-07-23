@@ -1,4 +1,4 @@
-import type { DeviceStateStore } from "@www/core";
+import { DeviceKind, type DeviceStateStore, isClimateState, mergeDeviceState } from "@www/core";
 import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
 import { CLIMATE_DEVICE_ID } from "../config/identity";
@@ -25,7 +25,6 @@ import type { DeviceClimateState, DeviceLightState, LightColor } from "../db/sch
 import { type deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import { HaError } from "../integrations/homeassistant/types";
-import { DeviceKind, isClimateState, mergeDeviceState } from "./device-state-mapping";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 

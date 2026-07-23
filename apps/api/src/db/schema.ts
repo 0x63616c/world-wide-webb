@@ -68,6 +68,10 @@ export const events = pgTable("events", {
 // The deviceState table + its state types + DeviceKind now live in @www/core
 // (packages/core/src/device-state/schema.ts); re-exported here so existing
 // imports from "../db/schema" keep working unchanged.
+// The integrationSyncStatus table now lives in @www/core
+// (packages/core/src/integration-sync/schema.ts). Re-exported here (an identifier
+// re-export that preserves object identity) so the drizzle relational schema still
+// registers it and existing imports from "../db/schema" keep working unchanged.
 export {
   type DeviceClimateState,
   DeviceKind,
@@ -75,16 +79,9 @@ export {
   type DeviceSpeakerState,
   type DeviceStateValue,
   deviceState,
+  integrationSyncStatus,
   type LightColor,
 } from "@www/core";
-
-export const integrationSyncStatus = pgTable("integration_sync_status", {
-  integrationId: text("integration_id").primaryKey(),
-  lastPolledAtUtc: timestamp("last_polled_at_utc", { withTimezone: true }),
-  lastError: text("last_error"),
-  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
-  updatedAtUtc: timestamp("updated_at_utc", { withTimezone: true }).notNull().defaultNow(),
-});
 
 // Append-only weather readings. The weather-ingest poller inserts a fresh row
 // per forecast hour every cycle (never upserts), so we keep the full history of

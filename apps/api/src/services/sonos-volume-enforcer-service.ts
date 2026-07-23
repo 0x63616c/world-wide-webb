@@ -17,15 +17,20 @@
  * no tolerance band needed, unlike HA color/brightness.
  */
 
-import type { DeviceStateStore } from "@www/core";
-import { SonosClient } from "@www/core";
+import {
+  DeviceKind,
+  type DeviceStateStore,
+  heartbeat,
+  isSpeakerState,
+  runCycle,
+  SonosClient,
+  windowOpen,
+} from "@www/core";
 import { getLogger } from "@www/logger";
 import { DESK_RF_BONDED_UUID, TOPOLOGY_ANCHOR_IP } from "../config/identity";
 import { deviceStateStore } from "../db/device-state-store";
+import { integrationSyncStore } from "../db/integration-sync-store";
 import type { DeviceSpeakerState } from "../db/schema";
-import { windowOpen } from "./command-window";
-import { DeviceKind, isSpeakerState } from "./device-state-mapping";
-import { heartbeat, runCycle } from "./integration-heartbeat";
 
 const ENFORCER_INTEGRATION_ID = "sonos-volume-enforcer";
 const SPEAKER_DOMAIN = "sonos";
@@ -135,8 +140,10 @@ export async function setSpeakerDesiredVolume({
 export async function runSonosVolumeEnforcerCycle(
   store: DeviceStateStore = deviceStateStore,
 ): Promise<void> {
-  await runCycle(heartbeat(ENFORCER_INTEGRATION_ID), "sonos-volume-enforcer", () =>
-    reconcile(store),
+  await runCycle(
+    heartbeat(integrationSyncStore, ENFORCER_INTEGRATION_ID),
+    "sonos-volume-enforcer",
+    () => reconcile(store),
   );
 }
 

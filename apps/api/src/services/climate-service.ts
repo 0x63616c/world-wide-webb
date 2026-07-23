@@ -1,4 +1,9 @@
-import type { DeviceStateStore } from "@www/core";
+import {
+  type DeviceStateStore,
+  isClimateState,
+  mergeDeviceState,
+  sanitizeClimateDesired,
+} from "@www/core";
 
 import { CLIMATE_DEVICE_ID } from "../config/identity";
 import { deviceStateStore } from "../db/device-state-store";
@@ -6,7 +11,6 @@ import type { DeviceClimateState } from "../db/schema";
 import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
-import { isClimateState, mergeDeviceState, sanitizeClimateDesired } from "./device-state-mapping";
 
 export const HvacMode = {
   Off: "off",

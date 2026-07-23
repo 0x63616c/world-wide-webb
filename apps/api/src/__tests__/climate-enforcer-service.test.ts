@@ -34,13 +34,13 @@ vi.mock("../integrations/homeassistant", () => ({
   ha: { getEntities: mockGetEntities, callService: mockCallService },
 }));
 
+import type { MappedHaState } from "@www/core";
 import { CLIMATE_DEVICE_ID } from "../config/identity";
 import type { DeviceClimateState } from "../db/schema";
 import {
   decideClimateEnforcement,
   runClimateEnforcerCycle,
 } from "../services/climate-enforcer-service";
-import type { MappedHaState } from "../services/device-state-mapping";
 
 // ─── pure decision tests ──────────────────────────────────────────────────────
 

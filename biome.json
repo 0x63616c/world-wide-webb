@@ -128,7 +128,10 @@
       }
     },
     {
-      "includes": ["**/packages/core/test/pg-contract.test.ts"],
+      "includes": [
+        "**/packages/core/test/pg-contract.test.ts",
+        "**/packages/core/test/integration-sync-pg-contract.test.ts"
+      ],
       "linter": {
         "rules": {
           "style": {

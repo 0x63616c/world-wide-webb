@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/device-state/store-contract.ts"
+    "./testing": "./src/device-state/store-contract.ts",
+    "./testing/integration-sync": "./src/integration-sync/store-contract.ts"
   },
   "scripts": {
     "test": "vitest run",
