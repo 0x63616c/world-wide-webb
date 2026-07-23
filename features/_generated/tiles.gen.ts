@@ -162,7 +162,7 @@ export const GENERATED_TILES: readonly GeneratedTile[] = [
   },
   {
     id: "tile_quickplay",
-    appId: "tile_quickplay",
+    appId: "tile_sound",
     label: "Quick Play",
     worldCol: 26,
     worldRow: 32,
@@ -171,7 +171,7 @@ export const GENERATED_TILES: readonly GeneratedTile[] = [
     home: false,
     guestExposed: false,
     sensitive: false,
-    source: "registry",
+    source: "feature",
   },
   {
     id: "tile_sound",
@@ -184,7 +184,7 @@ export const GENERATED_TILES: readonly GeneratedTile[] = [
     home: false,
     guestExposed: false,
     sensitive: false,
-    source: "registry",
+    source: "feature",
   },
   {
     id: "tile_tesla",

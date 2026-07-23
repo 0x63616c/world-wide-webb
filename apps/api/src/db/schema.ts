@@ -1,14 +1,5 @@
 // Drizzle schema. Backend agents add tables here.
-import {
-  boolean,
-  index,
-  integer,
-  jsonb,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 // The `job` durable queue table now lives in @www/core
 // (packages/core/src/jobs/schema.ts). Re-exported here (an identifier
@@ -106,48 +97,12 @@ export const ascBuildStatus = pgTable("asc_build_status", {
   fetchedAtUtc: timestamp("fetched_at_utc", { withTimezone: true }).notNull().defaultNow(),
 });
 
-// Media ingest pipeline tables (www-kp4k). media_source tracks YouTube playlists
-// and ad-hoc video collections; media_item is each individual video moving through
-// the download/metadata pipeline. The worker barrel re-exports these for the
-// worker image.
-
-export const mediaSource = pgTable(
-  "media_source",
-  {
-    id: text("id").primaryKey(), // Stripe-style src_<id>
-    externalId: text("external_id"), // YouTube playlist id for playlist sources
-    url: text("url"), // URL for ad-hoc sources
-    title: text("title").notNull(),
-    enabled: boolean("enabled").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [index("media_source_enabled_idx").on(t.enabled)],
-);
-
-export const mediaItem = pgTable(
-  "media_item",
-  {
-    id: text("id").primaryKey(), // Stripe-style mi_<id>
-    sourceId: text("source_id")
-      .notNull()
-      .references(() => mediaSource.id, { onDelete: "cascade" }),
-    ytVideoId: text("yt_video_id").notNull(),
-    rawTitle: text("raw_title").notNull(),
-    uploader: text("uploader"), // YouTube channel that published it; null until downloaded
-    status: text("status").notNull().default("pending"), // 'queued' (poller) | 'ready' (ingest handler)
-    videoPath: text("video_path"),
-    thumbPath: text("thumb_path"),
-    videoBytes: integer("video_bytes"),
-    durationSec: integer("duration_sec"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex("media_item_yt_video_id_idx").on(t.ytVideoId),
-    index("media_item_source_id_idx").on(t.sourceId),
-    index("media_item_status_idx").on(t.status),
-  ],
-);
+// Media ingest pipeline tables (www-kp4k) were FOLDED into the sound feature
+// (Track C, Wave 6): media_source/media_item now live in
+// features/sound/schema.ts and reach drizzle-kit via the generated schema
+// barrel (features/_generated/schema.gen.ts). apps/api/src/services/
+// youtube-ingest-service.ts (the app-level youtube_ingest job handler) imports
+// mediaItem from @features/sound/schema.
 
 // ─── Captive portal (www-q002) ──────────────────────────────────────────────
 // The portal_rate_limit + portal_authorization tables + PORTAL_RATE_LIMIT_ID

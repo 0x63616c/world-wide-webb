@@ -10,6 +10,8 @@ import { controlsDetailEntry } from "@features/ctrl/web/wiring/controls";
 import { clockDetailEntry } from "@features/events/web/wiring/clock";
 import { eventsDetailEntry } from "@features/events/web/wiring/events";
 import { frontendLogsDetailEntry } from "@features/felogs/detail-wiring";
+import { quickPlayDetailEntry } from "@features/sound/web/wiring/quickplay";
+import { soundDetailEntry } from "@features/sound/web/wiring/sound";
 import { tvDetailEntry } from "@features/tv/web/wiring/tv";
 import { tvAppsDetailEntry } from "@features/tv/web/wiring/tv-apps";
 import { activityDetailEntry } from "@features/wakes/web/wiring/activity";
@@ -23,8 +25,6 @@ import { dogCamDetailEntry } from "./wiring/dogcam";
 import { guestWifiDetailEntry } from "./wiring/guest-wifi";
 import { notificationsDetailEntry } from "./wiring/notifications";
 import { photoBoothDetailEntry } from "./wiring/photo-booth";
-import { quickPlayDetailEntry } from "./wiring/quickplay";
-import { soundDetailEntry } from "./wiring/sound";
 import { weightDetailEntry } from "./wiring/weight";
 
 // Grows one entry per migrated tile; final state covers all board tiles

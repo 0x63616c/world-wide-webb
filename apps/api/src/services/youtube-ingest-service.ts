@@ -17,10 +17,10 @@
 import { execFile } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
 import { promisify } from "node:util";
+import { mediaItem } from "@features/sound/schema";
 import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index";
-import { mediaItem } from "../db/schema";
 import { env } from "../env";
 import type { JobHandler } from "../jobs/queue";
 

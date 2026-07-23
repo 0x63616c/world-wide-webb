@@ -8,6 +8,7 @@ import felogsManifest from "@features/felogs/manifest";
 import guestWifiManifest from "@features/guest-wifi/manifest";
 import networkManifest from "@features/network/manifest";
 import notifManifest from "@features/notif/manifest";
+import soundManifest from "@features/sound/manifest";
 import teslaManifest from "@features/tesla/manifest";
 import tvManifest from "@features/tv/manifest";
 import wakesManifest from "@features/wakes/manifest";
@@ -15,10 +16,6 @@ import weatherManifest from "@features/weather/manifest";
 import weightManifest from "@features/weight/manifest";
 import type { ComponentType } from "react";
 
-import { QuickPlayTile } from "../components/media/QuickPlayTile";
-import { QuickPlayTileView } from "../components/media/QuickPlayTileView";
-import { SoundSystemTile } from "../components/media/SoundSystemTile";
-import { SoundSystemTileView } from "../components/media/SoundSystemTileView";
 import { PhotoBoothTile } from "../components/tiles/photo-booth/PhotoBoothTile";
 export type TileRegistryEntry = {
   id: string;
@@ -53,30 +50,9 @@ export type TileRegistryEntry = {
 // the Guest Wi-Fi tile used to live here as `tile_guestwifi` but now comes from
 // features/guest-wifi/manifest.ts.
 const REGISTRY_ENTRIES: TileRegistryEntry[] = [
-  // Media tiles (www-51hf)  --  Sound System, Quick Play, and Frontend Logs.
-  // TV + TV Apps now come from features/tv/manifest.ts (Track C, Wave 6).
-  // Default positions are V4B layout, overridable via board_tile_placement
-  // rows in the database.
-  {
-    id: "tile_sound",
-    label: "Sound System",
-    component: SoundSystemTile,
-    viewComponent: SoundSystemTileView,
-    worldCol: 22,
-    worldRow: 31,
-    cols: 4,
-    rows: 3,
-  },
-  {
-    id: "tile_quickplay",
-    label: "Quick Play",
-    component: QuickPlayTile,
-    viewComponent: QuickPlayTileView,
-    worldCol: 26,
-    worldRow: 32,
-    cols: 4,
-    rows: 2,
-  },
+  // Sound System + Quick Play used to live here (www-51hf) but now come from
+  // features/sound/manifest.ts (Track C, Wave 6). TV + TV Apps now come from
+  // features/tv/manifest.ts (Track C, Wave 6).
   // Activity used to live here as "tile_wakes" (2x2 at col 34 / row 30) but now
   // comes from features/wakes/manifest.ts (Track C, Wave 5).
   // Notification Center used to live here as "tile_notif" (cols 38-41 / rows
@@ -119,6 +95,7 @@ const FEATURE_MANIFESTS: AppManifest[] = [
   eventsManifest,
   acManifest,
   tvManifest,
+  soundManifest,
   ctrlManifest,
   felogsManifest,
 ];

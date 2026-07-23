@@ -23,13 +23,13 @@ import {
   runEnforcerCycle,
   runGithubPollCycle,
   runMigrations,
-  runPlaylistPollerCycle,
-  runSonosVolumeEnforcerCycle,
   runWeightIngestCycle,
   runYoutubeIngest,
   staleJobReaper,
 } from "@control-center/api/worker";
 import { GENERATED_JOBS } from "@features/_generated/jobs.gen";
+import { runSonosVolumeEnforcerCycle } from "@features/sound/enforcer";
+import { runPlaylistPollerCycle } from "@features/sound/poller";
 import { runWeatherIngestCycle } from "@features/weather/ingest";
 import { createLogger } from "@www/logger";
 import { createWorkerRuntime, type Worker } from "@www/worker-runtime";

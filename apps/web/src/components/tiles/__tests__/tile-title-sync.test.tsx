@@ -28,21 +28,17 @@ import { TILE_REGISTRY } from "../../../lib/tile-registry";
 //  - tile_clock renders a live greeting.
 const NO_STATIC_TITLE = new Set(["tile_clock"]);
 
-// View source from tiles/ and its subdirectories, plus media/, keyed by bare
-// filename. Eager + raw so the assertions are pure string checks with no
-// rendering. Tiles may live in components/tiles/, components/tiles/<feature>/,
-// or components/media/ (e.g. the photo-booth face lives in tiles/photo-booth/).
+// View source from tiles/ and its subdirectories, keyed by bare filename.
+// Eager + raw so the assertions are pure string checks with no rendering.
+// Tiles may live in components/tiles/ or components/tiles/<feature>/ (e.g.
+// the photo-booth face lives in tiles/photo-booth/); folded features are
+// covered by featureWebSource/featureWebDirSource below.
 const tilesSource = import.meta.glob("../*.tsx", {
   query: "?raw",
   import: "default",
   eager: true,
 }) as Record<string, string>;
 const nestedTilesSource = import.meta.glob("../*/*.tsx", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
-const mediaSource = import.meta.glob("../../media/*.tsx", {
   query: "?raw",
   import: "default",
   eager: true,
@@ -67,9 +63,8 @@ const featureWebDirSource = import.meta.glob("../../../../../../features/*/web/*
 
 // Merge, normalising each key to bare "../<Name>.tsx" for lookup by component name.
 const viewSource: Record<string, string> = { ...tilesSource };
-for (const [path, src] of [...Object.entries(nestedTilesSource), ...Object.entries(mediaSource)]) {
-  // e.g. "../../media/TvNowPlayingTileView.tsx" or "../photo-booth/PhotoBoothTile.tsx"
-  // → key to "../<base>.tsx".
+for (const [path, src] of Object.entries(nestedTilesSource)) {
+  // e.g. "../photo-booth/PhotoBoothTile.tsx" → key to "../<base>.tsx".
   const base = path.split("/").pop();
   if (base) viewSource[`../${base}`] = src as string;
 }
