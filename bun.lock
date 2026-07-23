@@ -183,6 +183,7 @@
       "name": "@www/core",
       "version": "0.0.0",
       "dependencies": {
+        "@www/logger": "workspace:*",
         "drizzle-orm": "^0.45.2",
         "zod": "^4.4.2",
       },

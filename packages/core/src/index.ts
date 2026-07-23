@@ -5,5 +5,6 @@ export * from "./device-state/merge";
 export * from "./device-state/pg";
 export * from "./device-state/schema";
 export * from "./device-state/store";
+export * from "./homeassistant";
 export * from "./secrets/hydrate";
 export * from "./unifi";

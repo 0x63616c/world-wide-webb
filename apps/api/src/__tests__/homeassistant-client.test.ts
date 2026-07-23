@@ -32,13 +32,13 @@ function errorResponse(status: number, body: string) {
   return { ok: false, status, text: () => Promise.resolve(body) };
 }
 
-/** An HA_TOKEN must be present for getMedia's Authorization header path. */
-function configuredClient() {
-  const client = new HomeAssistantClient();
-  // token is a private readonly field seeded from env; force a value so
-  // isConfigured() and the bearer header behave as they do in prod.
-  Object.defineProperty(client, "token", { value: "test-token" });
-  return client;
+/**
+ * Build a client with explicit config (the env-free `@www/core` constructor).
+ * getMedia's Authorization header path needs a non-empty token; the other
+ * methods do not care, so they default to an empty token.
+ */
+function client(token = "") {
+  return new HomeAssistantClient({ baseUrl: "http://ha.test", token });
 }
 
 describe("HomeAssistantClient.getEntities", () => {
@@ -56,7 +56,7 @@ describe("HomeAssistantClient.getEntities", () => {
       },
     ]);
 
-    const lights = await new HomeAssistantClient().getEntities("light");
+    const lights = await client().getEntities("light");
 
     expect(lights.map((e) => e.entity_id)).toEqual(["light.lamp", "light.desk"]);
     expect(lights[0].attributes.brightness).toBe(200);
@@ -64,7 +64,7 @@ describe("HomeAssistantClient.getEntities", () => {
 
   it("rejects a malformed entity at the edge (missing entity_id)", async () => {
     stubStates([{ state: "on", attributes: {}, last_updated: "t" }]);
-    await expect(new HomeAssistantClient().getEntities("light")).rejects.toThrow();
+    await expect(client().getEntities("light")).rejects.toThrow();
   });
 });
 
@@ -74,13 +74,15 @@ describe("haFetch pipeline: json shape (request via getEntity)", () => {
       ok: true,
       json: () => Promise.resolve({ entity_id: "light.lamp", state: "on", last_updated: "t" }),
     });
-    const entity = await new HomeAssistantClient().getEntity("light.lamp");
+    const entity = await client().getEntity("light.lamp");
     expect(entity.entity_id).toBe("light.lamp");
   });
 
   it("maps a non-2xx to HaError(status) carrying the response body", async () => {
     stubFetch(errorResponse(404, "Entity not found"));
-    const err = await new HomeAssistantClient().getEntity("light.missing").catch((e: unknown) => e);
+    const err = await client()
+      .getEntity("light.missing")
+      .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(HaError);
     expect((err as HaError).status).toBe(404);
     expect((err as HaError).message).toBe("Entity not found");
@@ -88,7 +90,9 @@ describe("haFetch pipeline: json shape (request via getEntity)", () => {
 
   it("maps a network error to HaError(0)", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
-    const err = await new HomeAssistantClient().getEntity("light.lamp").catch((e: unknown) => e);
+    const err = await client()
+      .getEntity("light.lamp")
+      .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(HaError);
     expect((err as HaError).status).toBe(0);
     expect((err as HaError).message).toContain("ECONNREFUSED");
@@ -99,7 +103,9 @@ describe("haFetch pipeline: json shape (request via getEntity)", () => {
       "fetch",
       vi.fn().mockRejectedValue(new DOMException("The operation timed out.", "TimeoutError")),
     );
-    const err = await new HomeAssistantClient().getEntity("light.lamp").catch((e: unknown) => e);
+    const err = await client()
+      .getEntity("light.lamp")
+      .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(HaError);
     expect((err as HaError).status).toBe(0);
   });
@@ -108,13 +114,13 @@ describe("haFetch pipeline: json shape (request via getEntity)", () => {
 describe("haFetch pipeline: text shape (renderTemplate)", () => {
   it("returns the rendered text on success", async () => {
     stubFetch({ ok: true, text: () => Promise.resolve("22.5") });
-    const rendered = await new HomeAssistantClient().renderTemplate("{{ states('x') }}");
+    const rendered = await client().renderTemplate("{{ states('x') }}");
     expect(rendered).toBe("22.5");
   });
 
   it("maps a non-2xx to HaError(status) carrying the response body", async () => {
     stubFetch(errorResponse(400, "invalid template"));
-    const err = await new HomeAssistantClient()
+    const err = await client()
       .renderTemplate("{{ bad }}")
       .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(HaError);
@@ -124,7 +130,9 @@ describe("haFetch pipeline: text shape (renderTemplate)", () => {
 
   it("maps a network error to HaError(0)", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("dns failure")));
-    const err = await new HomeAssistantClient().renderTemplate("{{ x }}").catch((e: unknown) => e);
+    const err = await client()
+      .renderTemplate("{{ x }}")
+      .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(HaError);
     expect((err as HaError).status).toBe(0);
     expect((err as HaError).message).toContain("dns failure");
@@ -135,7 +143,9 @@ describe("haFetch pipeline: text shape (renderTemplate)", () => {
       "fetch",
       vi.fn().mockRejectedValue(new DOMException("The operation timed out.", "TimeoutError")),
     );
-    const err = await new HomeAssistantClient().renderTemplate("{{ x }}").catch((e: unknown) => e);
+    const err = await client()
+      .renderTemplate("{{ x }}")
+      .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(HaError);
     expect((err as HaError).status).toBe(0);
   });
@@ -145,7 +155,7 @@ describe("haFetch pipeline: binary-Response shape (getMedia)", () => {
   it("returns the raw Response on success so callers stream the body", async () => {
     const raw = { ok: true, headers: { get: () => "image/jpeg" } };
     const fetchMock = stubFetch(raw);
-    const res = await configuredClient().getMedia("/api/camera_proxy/camera.door?token=secret");
+    const res = await client("test-token").getMedia("/api/camera_proxy/camera.door?token=secret");
     expect(res).toBe(raw);
     // The full path (with token) is fetched, but only the token-stripped path is
     // available for logging - assert the request URL still carries the token.
@@ -154,7 +164,7 @@ describe("haFetch pipeline: binary-Response shape (getMedia)", () => {
 
   it("maps a non-2xx to HaError(status) carrying the response body", async () => {
     stubFetch(errorResponse(401, "Unauthorized"));
-    const err = await configuredClient()
+    const err = await client("test-token")
       .getMedia("/api/camera_proxy/camera.door?token=secret")
       .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(HaError);
@@ -164,7 +174,7 @@ describe("haFetch pipeline: binary-Response shape (getMedia)", () => {
 
   it("maps a network error to HaError(0)", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("socket hang up")));
-    const err = await configuredClient()
+    const err = await client("test-token")
       .getMedia("/api/camera_proxy/camera.door")
       .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(HaError);
@@ -177,7 +187,7 @@ describe("haFetch pipeline: binary-Response shape (getMedia)", () => {
       "fetch",
       vi.fn().mockRejectedValue(new DOMException("The operation timed out.", "TimeoutError")),
     );
-    const err = await configuredClient()
+    const err = await client("test-token")
       .getMedia("/api/camera_proxy/camera.door")
       .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(HaError);
