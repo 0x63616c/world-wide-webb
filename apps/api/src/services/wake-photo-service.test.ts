@@ -16,7 +16,7 @@ function jpeg(payload = "x"): Uint8Array {
   return new Uint8Array([0xff, 0xd8, 0xff, ...new TextEncoder().encode(payload)]);
 }
 
-// ─── minimal in-memory db harness (mirrors board-layout-service.test.ts: a
+// ─── minimal in-memory db harness (mirrors booth-photo-service.test.ts: a
 // plain object implementing only the drizzle surface this service calls) ─────
 
 type WakePhotoRow = {

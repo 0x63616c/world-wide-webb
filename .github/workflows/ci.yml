@@ -148,6 +148,13 @@ jobs:
         # missing doc blocks the deploy. Fast (grep), runs before the slow
         # Playwright install so it fails early (www-o0ko).
         run: bash scripts/check-storybook-docs.sh
+      - name: Alias parity guard
+        # Static backstop (Track C, C7): the @app-kit / @app-kit/server /
+        # @features authoring-surface aliases must be declared identically
+        # across all 8 resolver configs (tsconfig `paths` + vite/vitest
+        # resolve.alias), or a module resolves in one tool and not another.
+        # Fast (grep), runs alongside the other hermetic guards.
+        run: bash scripts/check-alias-parity.sh
       - name: OrbStack watchdog logic tests
         # Hermetic self-test of the docker-hang watchdog's decide/probe logic
         # (www-sizh), no real docker/OrbStack. Gates the recovery automation so a

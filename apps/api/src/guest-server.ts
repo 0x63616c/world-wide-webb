@@ -173,7 +173,7 @@ export function createGuestFetchHandler(opts: {
 // a Postgres query failure) must never leak column names, file paths, or
 // stack frames to a guest. Typed `PortalError` flows (wrong password, rate
 // limited, not configured) map onto non-5xx tRPC codes (see
-// trpc/routers/portal.ts's `ERROR_CODE_MAP`) and carry guest-safe copy that
+// features/guest-wifi/api.ts's `ERROR_CODE_MAP`) and carry guest-safe copy that
 // must reach the client unchanged; only the >=500 "something broke"
 // path gets redacted here.
 function redactErrorItem(item: unknown): unknown {

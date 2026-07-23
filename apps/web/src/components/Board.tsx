@@ -227,14 +227,14 @@ function BuildNumberBadge() {
 
 // Fixed banner (same visual language as ConnectionLostBanner, one slot below
 // AppUpdateBanner) shown when the resolved layout couldn't place every tile ,
-// e.g. a newly-registered tile with no free space. Points the operator at the
-// editor rather than silently dropping the tile.
+// e.g. a newly-registered tile with no free space. In practice this is
+// unreachable: the codegen validator rejects overlapping rects, so `unplaced`
+// is always empty. Kept as a defensive fallback with neutral copy (no
+// instruction to a layout editor, which no longer exists post-Slice-1).
 function UnplacedTilesBanner({ count }: { count: number }) {
   if (count === 0) return null;
   return (
-    <NotificationBanner tone="amber">
-      New tile has no space — edit layout to place it
-    </NotificationBanner>
+    <NotificationBanner tone="amber">A tile could not be placed on the board</NotificationBanner>
   );
 }
 
