@@ -61,10 +61,13 @@ describe("tile registry , story coverage", () => {
   // so a tiles-only glob would wrongly report their stories as missing (www-w6ug).
   // Folded features with a full web/ component subtree (weather is the first,
   // Track C Wave 7) keep their stories under features/<dir>/web/, so that tree
-  // is scanned too.
+  // is scanned too. Single-tile folds (felogs is the first, Track C Wave 7)
+  // inline the view into a root-level web.tsx and keep the story alongside it
+  // as web.stories.tsx, so the feature root is scanned as well.
   const storyFiles = [
     ...Object.keys(import.meta.glob("../../**/*.stories.tsx")),
     ...Object.keys(import.meta.glob("../../../../../../features/*/web/**/*.stories.tsx")),
+    ...Object.keys(import.meta.glob("../../../../../../features/*/*.stories.tsx")),
   ];
 
   it("every registry view component has a matching *.stories.tsx file", () => {
