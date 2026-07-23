@@ -91,10 +91,12 @@
     "apps/api": {
       // server.ts = Docker CMD; purge.ts = the portal data-hygiene cronJob
       // entrypoint, bundled into the api image + run via command override
-      // (www-q002.18); seed.ts = db:seed script.
+      // (www-q002.18); cron-run.ts = the generic S2 cron dispatcher, same
+      // treatment (bundled to cron.js, run via `bun cron.js <name>`);
+      // seed.ts = db:seed script.
       // drizzle.config.ts + the exports map (., ./trpc, ./worker) are
       // auto-detected.
-      "entry": ["src/server.ts", "src/purge.ts", "src/db/seed.ts"]
+      "entry": ["src/server.ts", "src/purge.ts", "src/cron-run.ts", "src/db/seed.ts"]
     },
     "infra": {
       // program.ts = the Pulumi program (Pulumi.yaml `main`, run by the pulumi

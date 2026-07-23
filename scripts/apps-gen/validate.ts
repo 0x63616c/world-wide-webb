@@ -37,6 +37,9 @@ interface Model {
   /** Collected `defineJobs` facet entries; a duplicate job type would let two
    *  features both claim the same queue rows. */
   jobs?: { type: string; source: string }[];
+  /** Collected `defineCron` facets; a duplicate cron name would collide as one
+   *  k8s CronJob object AND overwrite each other in CRON_HANDLERS. */
+  crons?: { name: string; source: string }[];
 }
 
 function overlaps(a: Rect, b: Rect): boolean {
@@ -99,6 +102,22 @@ export function validate(model: Model, guestExposed: readonly string[]): void {
         );
       }
       seenJob.set(j.type, j.source);
+    }
+  }
+
+  // Duplicate cron name across features. Two features declaring the same
+  // `defineCron` name would collide as one k8s CronJob object AND overwrite
+  // each other's entry in the generated CRON_HANDLERS map.
+  if (model.crons) {
+    const seenCron = new Map<string, string>();
+    for (const c of model.crons) {
+      const prev = seenCron.get(c.name);
+      if (prev) {
+        throw new CodegenError(
+          `duplicate cron name '${c.name}' (declared by ${prev} and ${c.source}) — two features cannot register the same cron`,
+        );
+      }
+      seenCron.set(c.name, c.source);
     }
   }
 

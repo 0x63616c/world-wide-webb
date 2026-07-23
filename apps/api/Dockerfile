@@ -60,6 +60,11 @@ RUN bun run --cwd apps/web build:portal
 # (`bun purge.js`); it shares the api's drizzle schema + DATABASE_URL wiring.
 RUN cd apps/api && bun build src/purge.ts --target=bun --outfile ../../dist/purge.js
 
+# Third entrypoint: the generic cron dispatcher (S2). Bundled the same way as
+# purge.ts; a k8s CronJob runs it via a command override (`bun cron.js <name>`),
+# dispatching through the generated cron-handlers.gen.ts barrel.
+RUN cd apps/api && bun build src/cron-run.ts --target=bun --outfile ../../dist/cron.js
+
 # The worker is a SEPARATE app + image now (worker, control-center-worker),
 # no longer bundled here (www-xjba). The api ships server.js only.
 
@@ -78,6 +83,7 @@ WORKDIR /app
 
 COPY --from=build /app/dist/server.js server.js
 COPY --from=build /app/dist/purge.js purge.js
+COPY --from=build /app/dist/cron.js cron.js
 # Migrations resolve relative to the bundle's own location (import.meta.url),
 # i.e. /app/migrations at runtime, keep this path in sync with WORKDIR.
 COPY --from=build /app/apps/api/src/db/migrations migrations

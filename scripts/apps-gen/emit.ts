@@ -209,6 +209,41 @@ export const GENERATED_JOBS: readonly JobSpec[] = [
 `;
 }
 
+/**
+ * The generated cron handler barrel (S2). Unlike renderCrons (a data-only listing
+ * consumed by infra/src/crons.ts to emit k8s CronJobs), this emits REAL imports of
+ * each feature's defineCron facet and a name -> run() map, consumed by the generic
+ * cron-run entrypoint (apps/api/src/cron-run.ts, bundled to cron.js). One entrypoint
+ * dispatches every collected cron by name; zero per-cron hand-wiring.
+ */
+export function renderCronHandlers(model: AppModel): string {
+  const crons = [...model.crons].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  if (crons.length === 0) {
+    return `${GEN_HEADER}
+
+export const CRON_HANDLERS: Record<string, () => Promise<void>> = {};
+`;
+  }
+  // Alias each import by dir+exportName to avoid collisions across features.
+  const imports = crons
+    .map(
+      (c) =>
+        `import { ${c.exportName} as ${ident(c.dir)}_${c.exportName} } from "../${c.dir}/jobs";`,
+    )
+    .join("\n");
+  const entries = crons
+    .map((c) => `  ${JSON.stringify(c.name)}: ${ident(c.dir)}_${c.exportName}.run,`)
+    .join("\n");
+  return `${GEN_HEADER}
+
+${imports}
+
+export const CRON_HANDLERS: Record<string, () => Promise<void>> = {
+${entries}
+};
+`;
+}
+
 export function renderCrons(model: AppModel): string {
   const sorted = [...model.crons].sort((a, b) =>
     a.name !== b.name

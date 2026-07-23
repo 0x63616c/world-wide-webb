@@ -45,11 +45,18 @@ interface CollectedRouterKey {
   source: string;
 }
 
-/** A collected `defineCron` facet (forward scaffolding; no runtime consumer yet). */
+/**
+ * A collected `defineCron` facet (S2). `dir` + `exportName` let the emitter
+ * render a static named import into the generated handler barrel
+ * (cron-handlers.gen.ts); `renderCrons` (the data listing infra consumes)
+ * ignores both, so crons.gen.ts stays a pure {name, schedule, source} shape.
+ */
 interface CollectedCron {
   name: string;
   schedule: string;
   source: string;
+  dir: string;
+  exportName: string;
 }
 
 /** A collected `defineJobs` facet entry , the worker folds these generically. */
@@ -164,10 +171,16 @@ export async function collect(): Promise<AppModel> {
     let hasJobs = false;
     if (existsSync(join(base, "jobs.ts"))) {
       const jobsMod = (await import(join(base, "jobs.ts"))) as Record<string, unknown>;
-      for (const v of Object.values(jobsMod)) {
+      for (const [exportName, v] of Object.entries(jobsMod)) {
         if (v && typeof v === "object" && (v as Record<symbol, unknown>)[CRON_BRAND]) {
           const c = v as { name: string; schedule: string };
-          crons.push({ name: c.name, schedule: c.schedule, source: `feature:${dir}` });
+          crons.push({
+            name: c.name,
+            schedule: c.schedule,
+            source: `feature:${dir}`,
+            dir,
+            exportName,
+          });
         }
         // A `defineJobs([...])` facet: an array branded with JOBS_FACET_BRAND.
         // Read only `type` + `maxMs` off each spec , never invoke the handler.
