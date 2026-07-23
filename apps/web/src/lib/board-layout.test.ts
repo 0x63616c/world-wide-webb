@@ -1,7 +1,9 @@
-// Pure merge + scanline resolver: saved DB placements (Task 3/4) override the
-// registry defaults, and any collision on a defaulted tile's position is
-// resolved by scanning row-major for the first free slot, wrapping the inner
-// world (wall ring excluded). No React, no network , see board-layout.ts.
+// Pure scanline resolver: tile positions come straight from the TILE_REGISTRY
+// defaults, and any collision between two defaulted tiles is resolved by
+// scanning row-major for the first free slot, wrapping the inner world (wall
+// ring excluded). No React, no network , see board-layout.ts. (The saved
+// board_tile_placement override path was removed in Q4 — position is now
+// registry-only.)
 import { describe, expect, it, vi } from "vitest";
 
 // resolveLayout's default registry param reads TILE_REGISTRY, which
@@ -34,7 +36,7 @@ vi.mock("@protomaps/basemaps", () => ({
   namedFlavor: vi.fn().mockReturnValue({}),
 }));
 
-import { resolveLayout, type TilePlacement, type TileRegistryEntry } from "./board-layout";
+import { resolveLayout, type TileRegistryEntry } from "./board-layout";
 import { TILE_REGISTRY } from "./tile-registry";
 
 // Assertion helper: registry lookups in these tests are for ids that must
@@ -45,75 +47,57 @@ function must<T>(value: T | undefined): T {
 }
 
 describe("resolveLayout", () => {
-  it("uses saved placement over registry default", () => {
-    const saved: TilePlacement[] = [{ tileId: "tile_weath", worldCol: 10, worldRow: 10 }];
-    const result = resolveLayout(saved);
-    const weath = result.tiles.find((t) => t.id === "tile_weath");
-    expect(weath?.worldCol).toBe(10);
-    expect(weath?.worldRow).toBe(10);
-    expect(result.unplaced).toEqual([]);
-  });
-
-  it("falls back to registry default when no row", () => {
-    const result = resolveLayout([]);
+  it("positions each tile at its registry coordinates with no saved override", () => {
+    // Post-Q4: resolveLayout takes no saved-overrides arg (that path is
+    // deleted). The registry is authored collision-free, so every tile lands at
+    // its exact registry coords with no scanline relocation.
+    const layout = resolveLayout();
     for (const entry of TILE_REGISTRY) {
-      const tile = result.tiles.find((t) => t.id === entry.id);
-      expect(tile?.worldCol).toBe(entry.worldCol);
-      expect(tile?.worldRow).toBe(entry.worldRow);
+      const tile = layout.tiles.find((t) => t.id === entry.id);
+      expect(tile).toBeDefined();
+      expect(tile).toMatchObject({ worldCol: entry.worldCol, worldRow: entry.worldRow });
     }
-    expect(result.unplaced).toEqual([]);
+    expect(layout.tiles.length).toBe(TILE_REGISTRY.length);
+    expect(layout.unplaced).toEqual([]);
   });
 
-  it("ignores unknown tile ids", () => {
-    const saved: TilePlacement[] = [{ tileId: "tile_ghost", worldCol: 5, worldRow: 5 }];
-    const result = resolveLayout(saved);
-    expect(result.tiles.some((t) => t.id === "tile_ghost")).toBe(false);
-    expect(result.tiles.length).toBe(TILE_REGISTRY.length);
-    expect(result.unplaced).toEqual([]);
-  });
-
-  it("scanlines a new tile whose default is occupied", () => {
-    const felogsDefault = must(TILE_REGISTRY.find((t) => t.id === "tile_felogs"));
-    // Park tile_clock exactly on tile_felogs's default position/size, so
-    // tile_felogs (defaulted, resolved after all saved rows) must scanline off.
-    const saved: TilePlacement[] = [
-      { tileId: "tile_clock", worldCol: felogsDefault.worldCol, worldRow: felogsDefault.worldRow },
+  it("scanlines a defaulted tile whose registry position collides with another", () => {
+    // Two 1x1 tiles authored on the SAME cell in a synthetic registry: the
+    // first keeps its position, the second must scanline off it. Exercises the
+    // Pass-2 collision resolver that still guards against registry-default
+    // collisions.
+    const registry: TileRegistryEntry[] = [
+      { id: "tile_a", label: "A", worldCol: 3, worldRow: 3, cols: 1, rows: 1 } as TileRegistryEntry,
+      { id: "tile_b", label: "B", worldCol: 3, worldRow: 3, cols: 1, rows: 1 } as TileRegistryEntry,
     ];
-    const result = resolveLayout(saved);
-    const clock = must(result.tiles.find((t) => t.id === "tile_clock"));
-    const felogs = must(result.tiles.find((t) => t.id === "tile_felogs"));
-    expect(clock.worldCol).toBe(felogsDefault.worldCol);
-    expect(clock.worldRow).toBe(felogsDefault.worldRow);
-    // felogs must have moved off its default and not overlap clock (or anything else).
-    expect(
-      felogs.worldCol === felogsDefault.worldCol && felogs.worldRow === felogsDefault.worldRow,
-    ).toBe(false);
+    const world = { worldCols: 8, worldRows: 8, wallThickness: 2 };
+    const result = resolveLayout(registry, world);
+    const a = must(result.tiles.find((t) => t.id === "tile_a"));
+    const b = must(result.tiles.find((t) => t.id === "tile_b"));
+    expect(a.worldCol).toBe(3);
+    expect(a.worldRow).toBe(3);
+    // b must have moved off the shared default and not overlap a.
+    expect(b.worldCol === 3 && b.worldRow === 3).toBe(false);
     const overlaps = (
-      a: { worldCol: number; worldRow: number; cols: number; rows: number },
-      b: { worldCol: number; worldRow: number; cols: number; rows: number },
+      p: { worldCol: number; worldRow: number; cols: number; rows: number },
+      q: { worldCol: number; worldRow: number; cols: number; rows: number },
     ): boolean =>
-      a.worldCol < b.worldCol + b.cols &&
-      a.worldCol + a.cols > b.worldCol &&
-      a.worldRow < b.worldRow + b.rows &&
-      a.worldRow + a.rows > b.worldRow;
-    for (const other of result.tiles) {
-      if (other.id === "tile_felogs") continue;
-      expect(overlaps(felogs, other)).toBe(false);
-    }
+      p.worldCol < q.worldCol + q.cols &&
+      p.worldCol + p.cols > q.worldCol &&
+      p.worldRow < q.worldRow + q.rows &&
+      p.worldRow + p.rows > q.worldRow;
+    expect(overlaps(a, b)).toBe(false);
     expect(result.unplaced).toEqual([]);
   });
 
   it("reports unplaced when the world genuinely has no slot", () => {
-    // Synthetic registry seam: two 1x1 tiles in a 1x1 inner world (via a tiny
-    // registry override), forcing the second (defaulted) tile to find no slot.
+    // Synthetic registry seam: two 1x1 tiles sharing the ONLY valid inner cell
+    // of a 1x1-inner world, forcing the second (defaulted) tile to find no slot.
     const tinyRegistry: TileRegistryEntry[] = [
       { id: "tile_a", label: "A", worldCol: 2, worldRow: 2, cols: 1, rows: 1 } as TileRegistryEntry,
       { id: "tile_b", label: "B", worldCol: 2, worldRow: 2, cols: 1, rows: 1 } as TileRegistryEntry,
     ];
-    // Saved: tile_a placed at the ONLY valid inner cell of a 1x1-inner world
-    // (achieved via the tiny fixture below in board-layout.ts's internal test hook).
-    const saved: TilePlacement[] = [{ tileId: "tile_a", worldCol: 2, worldRow: 2 }];
-    const result = resolveLayout(saved, tinyRegistry, {
+    const result = resolveLayout(tinyRegistry, {
       worldCols: 5,
       worldRows: 5,
       wallThickness: 2,

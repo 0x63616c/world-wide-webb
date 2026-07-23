@@ -119,7 +119,7 @@ export function NotificationBanner({
  * the body-level detail-page/modal overlays (zIndex 100) , a ringing
  * alarm/timer banner (TimeSuiteBanner) and its Stop button would be invisible
  * whenever any detail page is open. Same body context ⇒ 120 > 100 keeps every
- * banner on top of open pages; the LayoutEditor overlay (1000) still covers it.
+ * banner on top of open pages.
  */
 export function NotificationBannerStack({ children }: { children: ReactNode }) {
   return createPortal(

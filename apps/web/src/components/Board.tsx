@@ -12,6 +12,7 @@ import {
   cameraSettle,
   SNAP_CSS,
 } from "../lib/board-camera";
+import { resolveLayout } from "../lib/board-layout";
 import { dimTo, isNativeDisplay, wakeTo } from "../lib/brightness";
 import {
   BOARD_H,
@@ -21,7 +22,6 @@ import {
   WORLD_W,
   worldCellRect,
 } from "../lib/grid-constants";
-import { useLayoutEditorOpen } from "../lib/layout-edit-store";
 import {
   endInteractionSession,
   interaction,
@@ -36,7 +36,6 @@ import { formatSha } from "../lib/short-sha";
 import { closeTileDetail, openTileDetail } from "../lib/tile-detail-store";
 import { HOME_TILE, type TileRegistryEntry } from "../lib/tile-registry";
 import { useAlarmFiring } from "../lib/time-suite/alarm-store";
-import { useBoardLayout } from "../lib/useBoardLayout";
 import { captureWakeBurst } from "../lib/wake-capture";
 import { AppUpdateBanner } from "./AppUpdateBanner";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
@@ -49,7 +48,6 @@ import {
   useBoardViewport,
   useUserPanSignal,
 } from "./hooks/useBoard";
-import { LayoutEditor } from "./layout-editor/LayoutEditor";
 import { MINIMAP_LEFT, MINIMAP_TOP, MINIMAP_WIDTH, Minimap } from "./Minimap";
 import { NotChargingBanner } from "./NotChargingBanner";
 import { PlaceholderTile } from "./PlaceholderTile";
@@ -82,20 +80,18 @@ type BoardCell = { id: string; rect: Rect; entry?: TileRegistryEntry };
 
 // The cell whose rect contains world point (cx, cy), or undefined in a gap.
 // Real tiles and placeholders never overlap, so the first match is unambiguous.
-// Takes the live `cells` list (server-resolved layout) as a parameter rather
-// than closing over a module-load const, since tile placement is no longer
-// fixed at module load (see useBoardLayout).
+// Takes the resolved `cells` list as a parameter rather than closing over a
+// module-load const (real tiles + bento fill merge into it inside Board).
 function cellAt(cells: BoardCell[], cx: number, cy: number): BoardCell | undefined {
   return cells.find(
     ({ rect }) => cx >= rect.x && cx <= rect.x + rect.w && cy >= rect.y && cy <= rect.y + rect.h,
   );
 }
 
-// First-render SEED only, used before the layout has resolved (loading stage
-// renders no tiles at all, so the exact value here never shows). BOARD_W/H
-// center it well enough for the one frame it might be visible during the
-// useLayoutEffect below, which overwrites left/top/vw/vh from the real
-// (full-window) stage size once the home tile's resolved position is known.
+// First-render SEED only. BOARD_W/H center it well enough for the one frame it
+// might be visible before the mount useLayoutEffect below overwrites
+// left/top/vw/vh from the real (full-window) stage size, centered on the home
+// tile's registry position.
 const INITIAL_VIEW = { left: 0, top: 0, vw: BOARD_W, vh: BOARD_H };
 
 // Pairs QueryErrorResetBoundary with TileBoundary via resetKey so a recovered
@@ -229,34 +225,6 @@ function BuildNumberBadge() {
   );
 }
 
-// Full-screen shimmer stage, shown in place of the board while the first
-// `layout.get` is in flight — no tiles, no fake data, just the shared skeleton
-// shimmer gradient (same animation as <Skeleton>) over the board background.
-function BoardLoadingStage() {
-  return (
-    <div
-      data-testid="board-loading"
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "var(--bg)",
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "linear-gradient(90deg, var(--tile-2) 25%, var(--nest) 50%, var(--tile-2) 75%)",
-          backgroundSize: "200%",
-          animation: "shimmer 1.6s linear infinite",
-          opacity: 0.5,
-        }}
-      />
-    </div>
-  );
-}
-
 // Fixed banner (same visual language as ConnectionLostBanner, one slot below
 // AppUpdateBanner) shown when the resolved layout couldn't place every tile ,
 // e.g. a newly-registered tile with no free space. Points the operator at the
@@ -345,48 +313,6 @@ function DimOverlay({ active, onWake }: { active: boolean; onWake: () => void })
   );
 }
 
-// Mounts <LayoutEditor/> (which reads its own open/closed state off the same
-// store) while animating its entrance: a plain opacity/scale mount would snap
-// straight to its final state (no transition plays on first paint), so this
-// defers the "entered" flip to a rAF after mount, giving the browser one frame
-// at the starting values to transition FROM. Unmounts immediately on close ,
-// only the entrance needs to feel soft, per the binding decision (full-screen
-// overlay, no pan while editing).
-function LayoutEditorOverlay({ open }: { open: boolean }) {
-  const [entered, setEntered] = useState(false);
-  useEffect(() => {
-    if (!open) {
-      setEntered(false);
-      return;
-    }
-    const raf = requestAnimationFrame(() => setEntered(true));
-    return () => cancelAnimationFrame(raf);
-  }, [open]);
-
-  if (!open) return null;
-
-  // This wrapper is itself the fixed, viewport-filling box. Its transform (even
-  // the settled scale(1)) makes it the containing block for LayoutEditor's own
-  // `fixed inset: 0` chrome, so it must have real viewport size — an in-flow,
-  // auto-height wrapper would resolve that inset against a 0-height box and
-  // collapse the editor stage.
-  return (
-    <div
-      data-testid="layout-editor-overlay-wrapper"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1000,
-        opacity: entered ? 1 : 0,
-        transform: entered ? "scale(1)" : "scale(0.98)",
-        transition: "opacity 200ms ease, transform 200ms ease",
-      }}
-    >
-      <LayoutEditor />
-    </div>
-  );
-}
-
 // Name of the tile currently under the viewport center, shown as a pill while
 // you pan the board manually (mouse-drag or touch), then fading out like the
 // minimap does. The minimap surfaces tile names on hover; this is the same
@@ -443,18 +369,16 @@ function CenteredTileLabel({ label, panSignal }: { label: string | undefined; pa
  * pan-lab feel test) plus a desktop mouse-drag shim; only tiles near the viewport
  * are mounted (windowing). Zoom is fixed at 1:1 for now.
  *
- * Layout is driven by the server-resolved placement (useBoardLayout →
- * resolveLayout, Task 5/6): tile position comes from a saved placement when one
- * exists, else the registry default, adding a tile to the registry places it
- * on the world with no further changes here.
+ * Layout comes straight from the tile registry (resolveLayout over
+ * TILE_REGISTRY coords, collisions resolved by scanline): adding a tile to the
+ * registry places it on the world with no further changes here.
  */
 export function Board() {
   const stageRef = useRef<HTMLDivElement>(null);
-  // The stage as STATE as well as a ref. The stage is gated behind the
-  // layout-loading screen below, so it mounts on a later commit than this
-  // component: effects that must attach listeners to it (the idle timers) need
-  // a dep that actually changes when it arrives, which a stable ref never does.
-  // The callback ref keeps both in lockstep.
+  // The stage as STATE as well as a ref: effects that must attach listeners to
+  // it (the idle timers, camera binding) need a dep that actually changes when
+  // the element arrives, which a stable ref never does. The callback ref keeps
+  // both in lockstep.
   const [stageEl, setStageEl] = useState<HTMLDivElement | null>(null);
   const setStage = useCallback((el: HTMLDivElement | null) => {
     stageRef.current = el;
@@ -470,29 +394,19 @@ export function Board() {
   // backlight to drop, so the whole feature is a no-op rather than a CSS scrim.
   const nativeDisplay = isNativeDisplay();
 
-  // Whether the layout editor overlay is open (Task 7's store; entry is the
-  // settings panel's "Edit layout" row). While open the board itself is fully
-  // frozen — see the modalOpen OR-chain, idle hooks' `enabled`, and the hidden
-  // chrome below — and its own layout poll pauses (the editor stages its own
-  // working copy, so a background refetch here is redundant work).
-  const layoutEditOpen = useLayoutEditorOpen();
-
   // The panel session's current phase. "ended" = the idle timeout elapsed:
   // the panel is dimmed, relocked, and homed. Drives the DimOverlay wake shield
   // and the backlight below.
   const sessionPhase = panelSession.usePhase();
 
-  // Server-resolved tile placement (blocking first paint + 5s poll, see
-  // useBoardLayout). `layoutStatus` gates the loading-stage render below; every
-  // hook past this point still runs unconditionally (rules of hooks) and simply
-  // operates on the fallback (registry-default) layout until the first settle,
-  // which is never shown — the loading stage covers the whole screen.
-  const { status: layoutStatus, layout } = useBoardLayout({ enabled: !layoutEditOpen });
+  // Tile placement, computed once from the registry defaults (positions come
+  // straight from TILE_REGISTRY coords, collisions resolved by the scanline in
+  // resolveLayout). Static and constant — there is no server layout to poll.
+  const layout = useMemo(() => resolveLayout(), []);
 
   // The single source of truth for every cell this render. Placeholders come
   // FIRST so they paint BENEATH the real tiles (DOM order = paint order); real
-  // tiles overlay. Regenerates only when the resolved tile set changes (a saved
-  // placement moved, or the poll picked up an edit from another device).
+  // tiles overlay. The tile set is constant, so this memoizes once.
   const boardCells: BoardCell[] = useMemo(() => {
     const bento = bentoFor(
       layout.tiles.map((t) => ({ col: t.worldCol, row: t.worldRow, cols: t.cols, rows: t.rows })),
@@ -509,11 +423,9 @@ export function Board() {
   );
 
   // World-pixel center of the home tile (the Clock). The board opens here and
-  // idles back here. Tiles are free-placed, so "home" is wherever the home
-  // tile's RESOLVED position sits (its registry default until a saved
-  // placement moves it), not the geometric world center. Falls back to the
-  // registry's HOME_TILE rect if the resolved list doesn't have it yet (only
-  // during the loading stage, which never renders tiles anyway).
+  // idles back here. "home" is the home tile's resolved registry position, not
+  // the geometric world center. Falls back to the registry's HOME_TILE rect if
+  // the resolved list somehow doesn't have it.
   const homeEntry = useMemo(
     () => layout.tiles.find((t) => t.id === HOME_TILE.id) ?? HOME_TILE,
     [layout.tiles],
@@ -530,28 +442,13 @@ export function Board() {
   // `useAnyModalOpen()` covers every overlay that registers with
   // modal-open-store: the full-page tile detail (TileDetailHost), Settings, and
   // any modal a tile manages on its own, whose portaled backdrop would otherwise
-  // replay presses up the React tree into this stage's drag-pan. The layout
-  // editor is a full-screen overlay too (no pan while editing, per the binding
-  // decision), so it joins the same freeze chain.
+  // replay presses up the React tree into this stage's drag-pan.
   const anyModalOpen = useAnyModalOpen();
-  const modalOpen = anyModalOpen || layoutEditOpen;
+  const modalOpen = anyModalOpen;
   const modalOpenRef = useRef(modalOpen);
   useEffect(() => {
     modalOpenRef.current = modalOpen;
   }, [modalOpen]);
-
-  // The stage style below freezes NATIVE panning while the editor is open, which
-  // says nothing about the JS spring: a glide already in flight (an idle
-  // glide-home landing just as the editor opens) keeps writing scrollLeft/Top
-  // under the overlay, so the board sits somewhere else when the editor closes.
-  // freeze() cancels the running spring and gates new ones for the duration.
-  // Only layout-edit does this , plain modals keep the physics live so a
-  // session-end glide-home still lands behind them.
-  useEffect(() => {
-    if (!layoutEditOpen) return;
-    boardCamera.freeze();
-    return () => boardCamera.unfreeze();
-  }, [layoutEditOpen]);
 
   // Whether a pointer is currently held down (touch or mouse). While held, the
   // user pans freely , no spring engages until they let go.
@@ -572,7 +469,10 @@ export function Board() {
 
   // Open centered on the home tile (Clock) using the real client size (pre-paint,
   // no flash). Programmatic: the browser echoes this write as a scroll event.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: layoutStatus is a deliberate extra dep — see the comment at the bottom of this effect.
+  // The layout is static (resolveLayout is a mount-time const), so homeCx/homeCy
+  // never change — this fires exactly once at mount and never re-centers, which
+  // is the intended behavior: open on the Clock, then leave the board where the
+  // user pans it. (Camera is no longer coupled to any layout-loading signal.)
   useLayoutEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -580,16 +480,7 @@ export function Board() {
     stage.scrollLeft = homeCx - stage.clientWidth / 2;
     stage.scrollTop = homeCy - stage.clientHeight / 2;
     syncView();
-    // Re-centers whenever the resolved home position changes — covers both the
-    // loading→ready transition (default seed → resolved position, before the
-    // shimmer lifts) and a later poll that moves the home tile. `layoutStatus`
-    // is in the deps because the stage div itself is unmounted during loading
-    // (see the shimmer branch below) — without it, a ready-render whose
-    // homeCx/homeCy happen to numerically match the loading-render's defaults
-    // (e.g. empty saved layout, resolveLayout([]) both times) would leave this
-    // effect's deps unchanged, so it would never re-run and the now-mounted
-    // stage would stay uncentered at (0, 0).
-  }, [syncView, markProgrammatic, homeCx, homeCy, layoutStatus]);
+  }, [syncView, markProgrammatic, homeCx, homeCy]);
 
   // rAF-throttle scroll → view state so the mounted-tile set tracks the pan
   // without a setState per scroll event.
@@ -699,13 +590,11 @@ export function Board() {
   // timers. Touch is the only activity source; on the idle timeout a single
   // SESSION END fires (dim → strip overlays → glide home → relock). Native only:
   // the dim drops the real iPad backlight, so off-device the whole session is
-  // inert (no scrim, no auto-lock) , matching the old idle-dim gate. Disabled
-  // while the layout editor is open (an idle glide-home / dim mid-edit would
-  // fight the editor's own camera and obscure what's being arranged).
+  // inert (no scrim, no auto-lock) , matching the old idle-dim gate.
   // NB the PIN relock rides this same gate: idle-dim off (or off-device) means an
   // unlock never expires. Accepted (I-2/ADR-0004) — the client PIN is a courtesy
   // gate; Slice S's server-side session.unlock(pin) is the real enforcement.
-  const sessionEnabled = settings.idleDimEnabled && nativeDisplay && !layoutEditOpen;
+  const sessionEnabled = settings.idleDimEnabled && nativeDisplay;
 
   // Feed the clock: the (in-place-renamed) idle-dim timeout is THE session
   // timeout. Stop the clock on unmount so a torn-down Board never ends a session.
@@ -864,181 +753,161 @@ export function Board() {
   // top-left while panning.
   const centeredLabel = centered?.entry?.label;
 
-  // Blocking first paint: the layout hasn't settled (success OR error) yet, so
-  // no tile geometry is trustworthy — render the shimmer stage only. Every hook
-  // above still ran (rules of hooks), it just drives a screen nobody sees.
-  if (layoutStatus === "loading") return <BoardLoadingStage />;
-
   return (
-    <>
+    <div
+      id="stage"
+      ref={setStage}
+      onScroll={onScroll}
+      onPointerDown={onStagePointerDown}
+      onWheel={markUser}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerLeave={endDrag}
+      // pointercancel fires when the OS steals the touch (edge/system gesture,
+      // multi-touch). Without this the held-pointer ref sticks true, which would
+      // freeze drag-pan AND permanently disable the idle reset (it never fires
+      // mid-interaction). Ending the drag here clears that ref on the panel.
+      onPointerCancel={endDrag}
+      style={{
+        position: "fixed",
+        inset: 0,
+        // Modal open: freeze native scroll so the board can't pan behind it.
+        // Both touch and trackpad scroll route through this element, so killing
+        // overflow + touchAction here stops every panning vector at once.
+        overflow: modalOpen ? "hidden" : "auto",
+        background: "var(--bg)",
+        // Pan is one-finger native scroll; no rubber-band past the world edges.
+        touchAction: modalOpen ? "none" : "pan-x pan-y",
+        // Native settle feel: the browser snaps each tile's center to the
+        // viewport center on the compositor thread (no JS spring → no jitter).
+        // "spring"/"none" disable it; see SNAP_MODES.
+        scrollSnapType: modalOpen ? "none" : SNAP_CSS[snapMode],
+        overscrollBehavior: "none",
+        cursor: "grab",
+        scrollbarWidth: "none",
+      }}
+    >
       <div
-        id="stage"
-        ref={setStage}
-        onScroll={onScroll}
-        onPointerDown={onStagePointerDown}
-        onWheel={markUser}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerLeave={endDrag}
-        // pointercancel fires when the OS steals the touch (edge/system gesture,
-        // multi-touch). Without this the held-pointer ref sticks true, which would
-        // freeze drag-pan AND permanently disable the idle reset (it never fires
-        // mid-interaction). Ending the drag here clears that ref on the panel.
-        onPointerCancel={endDrag}
+        id="world"
+        className="e-root"
         style={{
-          position: "fixed",
-          inset: 0,
-          // Modal open: freeze native scroll so the board can't pan behind it.
-          // Both touch and trackpad scroll route through this element, so killing
-          // overflow + touchAction here stops every panning vector at once.
-          overflow: modalOpen ? "hidden" : "auto",
-          background: "var(--bg)",
-          // Pan is one-finger native scroll; no rubber-band past the world edges.
-          touchAction: modalOpen ? "none" : "pan-x pan-y",
-          // Native settle feel: the browser snaps each tile's center to the
-          // viewport center on the compositor thread (no JS spring → no jitter).
-          // "spring"/"none" disable it; see SNAP_MODES.
-          scrollSnapType: modalOpen ? "none" : SNAP_CSS[snapMode],
-          overscrollBehavior: "none",
-          cursor: "grab",
-          scrollbarWidth: "none",
+          position: "relative",
+          width: WORLD_W,
+          height: WORLD_H,
+          backgroundColor: "var(--bg)",
         }}
       >
-        <div
-          id="world"
-          className="e-root"
-          style={{
-            position: "relative",
-            width: WORLD_W,
-            height: WORLD_H,
-            backgroundColor: "var(--bg)",
-          }}
-        >
-          {/* ONE render path for every cell. Geometry (position, size, snap target,
+        {/* ONE render path for every cell. Geometry (position, size, snap target,
             centered highlight) is written once and shared; a cell with an `entry`
             renders an interactive tile, one without renders inert bento fill.
             Placeholders sort first in boardCells so they paint underneath. */}
-          {visibleCells.map(({ id, rect, entry }) => {
-            const geometry: React.CSSProperties = {
-              position: "absolute",
-              left: rect.x,
-              top: rect.y,
-              width: rect.w,
-              height: rect.h,
-              // Snap target: every cell's center docks to the viewport center.
-              scrollSnapAlign: "center",
-            };
-            const centeredClass = id === centeredId ? "is-centered" : undefined;
+        {visibleCells.map(({ id, rect, entry }) => {
+          const geometry: React.CSSProperties = {
+            position: "absolute",
+            left: rect.x,
+            top: rect.y,
+            width: rect.w,
+            height: rect.h,
+            // Snap target: every cell's center docks to the viewport center.
+            scrollSnapAlign: "center",
+          };
+          const centeredClass = id === centeredId ? "is-centered" : undefined;
 
-            // Decorative bento fill: pointer-transparent so it never intercepts
-            // taps, no component, no interaction.
-            if (!entry) {
-              return (
-                <div
-                  key={id}
-                  className={centeredClass}
-                  style={{ ...geometry, pointerEvents: "none" }}
-                >
-                  <PlaceholderTile />
-                </div>
-              );
-            }
-
-            const TileComponent = entry.component;
+          // Decorative bento fill: pointer-transparent so it never intercepts
+          // taps, no component, no interaction.
+          if (!entry) {
             return (
-              // Not a real <button>: the tile body contains its own buttons
-              // (toggles, sliders, "More"), and nesting interactive elements is
-              // invalid. role+tabIndex give the wrapper button semantics while
-              // keeping inner controls separately operable.
-              // biome-ignore lint/a11y/useSemanticElements: nested interactive content forbids a <button>
               <div
                 key={id}
                 className={centeredClass}
-                style={{ ...geometry, cursor: "pointer" }}
-                role="button"
-                tabIndex={0}
-                aria-label={`Open ${entry.label}`}
-                onClickCapture={(e) => onTileClickCapture(entry, e)}
-                onKeyDown={(e) => {
-                  // Enter/Space open the tile's detail page like a plain tap
-                  // would; keys inside inner controls stay theirs.
-                  if (e.target !== e.currentTarget) return;
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    activateTile(entry);
-                  }
-                }}
+                style={{ ...geometry, pointerEvents: "none" }}
               >
-                <BoundedTile>
-                  <TileComponent />
-                </BoundedTile>
+                <PlaceholderTile />
               </div>
             );
-          })}
-        </div>
+          }
 
-        {/* Viewport-level overlays: a fixed ancestor-free layer keeps the banner,
+          const TileComponent = entry.component;
+          return (
+            // Not a real <button>: the tile body contains its own buttons
+            // (toggles, sliders, "More"), and nesting interactive elements is
+            // invalid. role+tabIndex give the wrapper button semantics while
+            // keeping inner controls separately operable.
+            // biome-ignore lint/a11y/useSemanticElements: nested interactive content forbids a <button>
+            <div
+              key={id}
+              className={centeredClass}
+              style={{ ...geometry, cursor: "pointer" }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Open ${entry.label}`}
+              onClickCapture={(e) => onTileClickCapture(entry, e)}
+              onKeyDown={(e) => {
+                // Enter/Space open the tile's detail page like a plain tap
+                // would; keys inside inner controls stay theirs.
+                if (e.target !== e.currentTarget) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  activateTile(entry);
+                }
+              }}
+            >
+              <BoundedTile>
+                <TileComponent />
+              </BoundedTile>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Viewport-level overlays: a fixed ancestor-free layer keeps the banner,
           FPS readout, and modal anchored to the screen regardless of pan. */}
-        <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 200 }}>
-          {/* One top-right column: banners flow top-down in priority order and
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 200 }}>
+        {/* One top-right column: banners flow top-down in priority order and
             pack tight against the corner, so a lower-priority banner showing
             alone never leaves an empty slot above it. Tapping any banner opens
             the Notification Center and nothing else (see NotificationBanner). */}
-          <NotificationBannerStack>
-            <DeviceNameBanner />
-            <ConnectionLostBanner />
-            <AppUpdateBanner />
-            <UnplacedTilesBanner count={layout.unplaced.length} />
-            <NotChargingBanner />
-            {/* Also what BOOTS the time suite: importing it evaluates the
+        <NotificationBannerStack>
+          <DeviceNameBanner />
+          <ConnectionLostBanner />
+          <AppUpdateBanner />
+          <UnplacedTilesBanner count={layout.unplaced.length} />
+          <NotChargingBanner />
+          {/* Also what BOOTS the time suite: importing it evaluates the
               timer/alarm stores, so deploy-reload boot-resume runs at app
               start with the clock page closed. */}
-            <TimeSuiteBanner />
-          </NotificationBannerStack>
-          {settings.showFps ? <FpsMeter /> : null}
-          {settings.showBuildBadge ? <BuildHashBadge /> : null}
-          {settings.showBuildNumber ? <BuildNumberBadge /> : null}
-          {/* Hidden while the layout editor is open: it's a full-screen overlay
-            with its own camera/chrome, and none of these read on a frozen board
-            underneath it. */}
-          {layoutEditOpen ? null : <SettingsButton />}
-          {/* Minimap + its centered-tile label are one visual unit (the label is
+          <TimeSuiteBanner />
+        </NotificationBannerStack>
+        {settings.showFps ? <FpsMeter /> : null}
+        {settings.showBuildBadge ? <BuildHashBadge /> : null}
+        {settings.showBuildNumber ? <BuildNumberBadge /> : null}
+        <SettingsButton />
+        {/* Minimap + its centered-tile label are one visual unit (the label is
             positioned relative to the minimap box and reads as part of it), so
             the showMinimap setting gates both together. */}
-          {layoutEditOpen || !settings.showMinimap ? null : (
-            <CenteredTileLabel label={centeredLabel} panSignal={panSignal} />
-          )}
-          {layoutEditOpen || !settings.showMinimap ? null : (
-            <Minimap
-              view={view}
-              panSignal={panSignal}
-              // Both layers derive from the one boardCells list: real tiles (with a
-              // label) and placeholder ghosts (no entry). flatMap narrows `entry`.
-              tiles={boardCells.flatMap((c) =>
-                c.entry ? [{ ...c.rect, label: c.entry.label }] : [],
-              )}
-              ghosts={boardCells.flatMap((c) => (c.entry ? [] : [c.rect]))}
-              onJump={userJump}
-            />
-          )}
-        </div>
-        {/* Idle dim tap-shield (native only). Sits above the board + its chrome but
-          below modals (which portal to <body>) so it swallows the wake tap. */}
-        <DimOverlay active={sessionPhase === "ended"} onWake={wake} />
-        {/* Full-page detail path (store-driven). Registers with modal-open-store,
-          so the existing modalOpen freeze/bail logic covers it automatically. */}
-        <TileDetailHost />
+        {settings.showMinimap ? (
+          <CenteredTileLabel label={centeredLabel} panSignal={panSignal} />
+        ) : null}
+        {settings.showMinimap ? (
+          <Minimap
+            view={view}
+            panSignal={panSignal}
+            // Both layers derive from the one boardCells list: real tiles (with a
+            // label) and placeholder ghosts (no entry). flatMap narrows `entry`.
+            tiles={boardCells.flatMap((c) =>
+              c.entry ? [{ ...c.rect, label: c.entry.label }] : [],
+            )}
+            ghosts={boardCells.flatMap((c) => (c.entry ? [] : [c.rect]))}
+            onJump={userJump}
+          />
+        ) : null}
       </div>
-      {/* Mounted as a sibling of #stage, NOT a descendant — #stage is the native
-        scroll container (scrollLeft/Top drive panning), and per spec any
-        transformed ancestor becomes the containing block for position:fixed
-        descendants. LayoutEditorOverlay's own entrance-animation wrapper sets
-        `transform: scale(...)`, so nesting it inside #stage would pin
-        LayoutEditor's internal fixed chrome to that wrapper's in-flow box —
-        which sits at #stage's current (board-world) scroll offset, i.e.
-        completely offscreen. Living outside #stage entirely sidesteps the
-        issue regardless of #stage's scroll position. */}
-      <LayoutEditorOverlay open={layoutEditOpen} />
-    </>
+      {/* Idle dim tap-shield (native only). Sits above the board + its chrome but
+          below modals (which portal to <body>) so it swallows the wake tap. */}
+      <DimOverlay active={sessionPhase === "ended"} onWake={wake} />
+      {/* Full-page detail path (store-driven). Registers with modal-open-store,
+          so the existing modalOpen freeze/bail logic covers it automatically. */}
+      <TileDetailHost />
+    </div>
   );
 }

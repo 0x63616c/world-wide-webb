@@ -1,33 +1,25 @@
-// Pure placement resolver: merges saved board_tile_placement rows (Task 3/4,
-// server-side) over the TILE_REGISTRY defaults, then resolves any collision a
-// defaulted tile lands in via row-major scanline. No React, no network , the
-// caller (Board) feeds this the tRPC-fetched saved rows and renders `tiles`.
+// Pure placement resolver: tile positions come straight from the TILE_REGISTRY
+// defaults, resolving any collision two defaulted tiles land in via row-major
+// scanline. No React, no network , the caller (Board) renders `tiles`.
 //
-// Semantics (binding, see task-5-brief.md):
-//   - A saved row wins over the registry default for that tile id, and is
-//     trusted as-is (no collision check against it).
-//   - Saved rows for ids not in the registry are ignored (pruned server-side
-//     on next save; this resolver just skips them defensively).
-//   - Resolution order is registry order, but ALL saved-position tiles are
-//     placed before ANY defaulted tile scanlines , so a moved tile can never
-//     be displaced by another tile falling back to its default.
-//   - A defaulted tile whose default position collides with an
-//     already-resolved tile scanlines row-major from that default position,
-//     wrapping through the whole inner world (wall ring excluded), for the
-//     first slot the tile fits into fully with no overlap.
-//   - A tile that genuinely finds no slot (unreachable given real registry
-//     sizes; only reachable via the tiny synthetic fixtures in the test) is
-//     reported in `unplaced` and dropped from `tiles`.
+// (The saved board_tile_placement override path — a merge of tRPC-fetched rows
+// over the registry defaults — was removed in Q4. Position is now registry-only;
+// this file keeps the collision resolver that guards against two registry
+// defaults overlapping.)
+//
+// Semantics:
+//   - Every tile defaults to its registry position.
+//   - A tile whose default position collides with an already-resolved tile
+//     scanlines row-major from that default position, wrapping through the
+//     whole inner world (wall ring excluded), for the first slot the tile fits
+//     into fully with no overlap.
+//   - A tile that genuinely finds no slot (unreachable given the real,
+//     collision-free registry; only reachable via the tiny synthetic fixtures
+//     in the test) is reported in `unplaced` and dropped from `tiles`.
 import { WALL_THICKNESS, WORLD_COLS, WORLD_ROWS } from "./grid-constants";
 import { TILE_REGISTRY, type TileRegistryEntry } from "./tile-registry";
 
 export type { TileRegistryEntry };
-
-export type TilePlacement = {
-  tileId: string;
-  worldCol: number;
-  worldRow: number;
-};
 
 export type ResolvedLayout = {
   tiles: (TileRegistryEntry & { worldCol: number; worldRow: number })[];
@@ -118,39 +110,20 @@ function scanlineSlot(
   return undefined;
 }
 
-// Merge saved placements over registry defaults, resolving collisions via
-// scanline. `registry` and `world` default to the real board and only exist
-// as a seam for tests exercising the genuinely-no-slot path.
+// Place every registry tile at its default position, resolving collisions via
+// scanline. `registry` and `world` default to the real board and only exist as
+// a seam for tests exercising the collision + genuinely-no-slot paths.
 export function resolveLayout(
-  saved: TilePlacement[],
   registry: TileRegistryEntry[] = TILE_REGISTRY,
   world: WorldConfig = DEFAULT_WORLD_CONFIG,
 ): ResolvedLayout {
-  const savedById = new Map<string, TilePlacement>();
-  for (const row of saved) savedById.set(row.tileId, row);
-
   const placed: Rect[] = [];
   const tiles: (TileRegistryEntry & { worldCol: number; worldRow: number })[] = [];
   const unplaced: string[] = [];
 
-  // Pass 1: every registry tile with a saved row, in registry order. Saved
-  // positions are trusted as-is , no collision check , so a moved tile can
-  // never be bumped by a defaulted tile placed afterward.
-  const defaulted: TileRegistryEntry[] = [];
+  // Registry tiles default to their registry position, scanlining off it if
+  // that position is already occupied by an earlier tile.
   for (const entry of registry) {
-    const savedRow = savedById.get(entry.id);
-    if (!savedRow) {
-      defaulted.push(entry);
-      continue;
-    }
-    const resolved = { ...entry, worldCol: savedRow.worldCol, worldRow: savedRow.worldRow };
-    tiles.push(resolved);
-    placed.push(resolved);
-  }
-
-  // Pass 2: registry tiles without a saved row, defaulting to their registry
-  // position, scanlining off it if that position is already occupied.
-  for (const entry of defaulted) {
     const defaultRect: Rect = {
       worldCol: entry.worldCol,
       worldRow: entry.worldRow,

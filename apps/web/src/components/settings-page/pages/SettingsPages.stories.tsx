@@ -76,6 +76,6 @@ export const Board: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("switch", { name: "Minimap" })).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Edit layout" })).toBeInTheDocument();
+    await expect(canvas.getByText("Board snap")).toBeInTheDocument();
   },
 };

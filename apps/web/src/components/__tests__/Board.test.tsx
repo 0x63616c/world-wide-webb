@@ -23,22 +23,6 @@ vi.mock("../../lib/tile-registry", () => {
   };
   return { TILE_REGISTRY: [fake], HOME_TILE: fake };
 });
-// Board now reads its layout via useBoardLayout (tRPC), which needs a real
-// TRPCProvider the plain jsdom render here doesn't set up. Stub it to settle
-// immediately on the fake registry above, mirroring the real resolveLayout([])
-// (no saved placements) path , same shape a fresh/empty deployment sees.
-vi.mock("../../lib/useBoardLayout", async () => {
-  const { resolveLayout } = await import("../../lib/board-layout");
-  const { TILE_REGISTRY } = await import("../../lib/tile-registry");
-  return {
-    useBoardLayout: () => ({
-      status: "ready" as const,
-      layout: resolveLayout([], TILE_REGISTRY),
-      revision: null,
-      refetch: () => {},
-    }),
-  };
-});
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
 
 // Fake detail registry: tile_fake opens a single-variant full page. Mocking it

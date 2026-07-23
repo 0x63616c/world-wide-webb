@@ -40,18 +40,6 @@ vi.mock("../../lib/tile-registry", () => {
   };
   return { TILE_REGISTRY: [fake], HOME_TILE: fake };
 });
-vi.mock("../../lib/useBoardLayout", async () => {
-  const { resolveLayout } = await import("../../lib/board-layout");
-  const { TILE_REGISTRY } = await import("../../lib/tile-registry");
-  return {
-    useBoardLayout: () => ({
-      status: "ready" as const,
-      layout: resolveLayout([], TILE_REGISTRY),
-      revision: null,
-      refetch: () => {},
-    }),
-  };
-});
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
 vi.mock("../tiles/detail/registry", () => ({ getTileDetailEntry: () => undefined }));
 // Native so the session is enabled; the backlight calls are inert.

@@ -36,10 +36,6 @@ export const POLL = {
   // while the worker's own idle gate (60s) bounds GitHub traffic , the tile
   // polling faster than the worker only ever re-reads Postgres.
   deploy: 10 * 1000,
-  // Board layout (tile placement) is edited rarely but must propagate fast: the
-  // editor is expected to be used while looking at the panel, so a 5s poll picks
-  // up a save from another device (or the editor itself) with no visible lag.
-  layout: 5 * 1000,
   // Apple TV playback state moves quickly during a session; 5s keeps the
   // now-playing strip's title/transport close to real.
   tvNowPlaying: 5 * 1000,
@@ -52,7 +48,7 @@ export const POLL = {
   // Wake photos land a few times a day; 60s is well inside a "since I looked" gap.
   wakePhotos: 60 * 1000,
   // Notifications are the one surface where lag is the failure: an alert the
-  // panel shows a minute late is an alert nobody acted on. 5s matches the board
-  // layout poll (the fastest cadence already in use) and the payload is small.
+  // panel shows a minute late is an alert nobody acted on. 5s is the fastest
+  // cadence in use and the payload is small.
   notifications: 5 * 1000,
 } as const;
