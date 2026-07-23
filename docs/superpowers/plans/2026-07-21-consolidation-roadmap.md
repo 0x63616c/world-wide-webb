@@ -29,7 +29,7 @@ apps re-architecture (ADR-0001/0002/0005) plus the eight deepening candidates fr
 | 13 | PIN Session semantics | One shared session covers all Sensitive surfaces; expires on the existing idle-reset; explicit close supported; client-only until Slice S (ADR-0004) |
 | 14 | Snap modes | All 5 kept — user preference, not an experiment; board-camera module carries them behind its interface |
 | 15 | C8 settings descriptors | In, as a late Track B slice after settings sits on `createStore` |
-| 16 | First app fold | `guest-wifi` (already repo-seamed, clearly bounded, exercises sensitive/owned-tables/cron/guest-entrypoint machinery) |
+| 16 | First app fold | `guest-wifi` (already repo-seamed, clearly bounded, exercises owned-tables/cron/guest-entrypoint machinery — 3-of-4 canary coverage; guest-wifi is not `sensitive`, so the PIN-gate/`sensitive` manifest flag path is exercised by a later fold instead) |
 
 ## Track sequence
 
@@ -82,7 +82,7 @@ addendum (ring holds session open + wakes dimmed panel) also landed post-plan.
   boilerplate in 18 test files and the two hand-kept 20-member unions).
 - Fold features one slice each, starting with **guest-wifi**, then weather, weight, climate,
   controls, sonos, tesla, … (~19). Each fold: `features/<id>/` folder (manifest, web, api, jobs,
-  schema facets), per-App repo + in-memory fake, consistency test green.
+  schema facets), per-App repo + in-memory fake, codegen validation green.
 - Central registries (`tile-registry.ts`, `appRouter` literal, `Worker[]` array, schema
   barrel, `worker-deps.ts`) delete when their last entry migrates.
 - **Slice S** (ADR-0004): server-side PIN — `session.unlock(pin)`, `requireUnlock`

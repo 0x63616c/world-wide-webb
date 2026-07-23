@@ -7,10 +7,13 @@ today's arrangement where a feature is scattered across the central `TILE_REGIST
 (`web/src/lib/tile-registry.ts`), the `appRouter` object literal, the worker `Worker[]` array, and
 the Drizzle schema barrel, tied together only by convention.
 
-**This deliberately supersedes the `CLAUDE.md` invariant "Tile placement belongs in
-`products/control-center/web/src/lib/tile-registry.ts`."** After the migration, a Tile's default
-placement is declared in its App's `manifest.ts`; `board_tile_placement` rows still override at
-runtime via `resolveLayout`. Update that invariant when the migration lands.
+**This deliberately supersedes the `CLAUDE.md`/`AGENTS.md` invariant "Tile placement belongs in
+`apps/web/src/lib/tile-registry.ts`."** A Tile's placement is declared as registry coords in its
+App's `manifest.ts`, glob-collected and emitted by codegen (`bun run apps:gen`) — there is no
+runtime override; the old `board_tile_placement` custom-placement path was deleted in Slice 1
+(Q4) alongside the central `tile-registry.ts`. **Retired 2026-07-22** with the C7 guest-wifi
+canary fold (commit `8b2a81982`, hotfix `ec8430283`): `AGENTS.md` now states the registry-coords
++ codegen invariant directly (see AGENTS.md Invariants).
 
 ## Why (the trade-off)
 
@@ -18,8 +21,8 @@ The central registries give one obvious place to look but force every new featur
 hand-maintained composition roots, and no single location owns a feature — the deletion test fails
 (you cannot delete a feature by deleting one thing). App folders trade the single-index convenience
 for **locality**: `grep features/weather/` returns the whole feature, and deleting the folder deletes
-the feature. Ownership is enforced by a consistency test (one owning App per router key / table;
-exactly one `home` Tile).
+the feature. Ownership is enforced by codegen validation (`scripts/apps-gen/validate.ts`, one owning
+App per router key / table; exactly one `home` Tile).
 
 ## Why it is recorded
 

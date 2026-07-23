@@ -41,3 +41,20 @@ propose again, so its rejection is recorded explicitly.
 Note: `app-kit/` and `features/` are plain source directories, **not** workspaces — they must never
 contain a `package.json`, or a workspace glob would register them and disturb the
 Dockerfiles and workspace guards.
+
+## Deviation: eager component refs, not lazy (Q10)
+
+The Track C grill (Q10) originally planned lazy component refs (`React.lazy` behind a thunk) for
+the `web.tsx` facet, to kill the MapLibre mock boilerplate in the tile-view test suites. Landed
+C7 uses **eager** refs instead — `ComponentType` / `ComponentType<never>` imported and assigned
+directly in the generated aggregate, matching how `TILE_REGISTRY` already imported components.
+
+Why: the components were already eager imports everywhere they were consumed (board render,
+Tile View host); introducing `React.lazy` would have added a real Suspense/loading-state seam for
+no consumer that needed one, and it does not compose cleanly with the codegen's byte-identical
+emit goal (a lazy thunk is a runtime closure, not a literal the drift-guard can diff structurally).
+The actual simplification the plan was chasing — collapsing the 18 files' hand-kept 20-member
+MapLibre-mock unions — came from the **generated union type aliases** (`TileId`, `RouterKey`, …)
+replacing hand-maintained unions, not from laziness. Keeping refs eager also means a missing/typo'd
+component import is a compile error at `apps:gen` time rather than a runtime Suspense fallback,
+which fits the deploy-safety goal ADR-0002 is already optimizing for.

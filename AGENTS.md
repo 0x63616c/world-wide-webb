@@ -16,7 +16,18 @@
 - Shared primitives live in `packages/platform`, enforced by a Biome rule banning
   the raw escape hatch (see sound bus).
 - Fixed wall panel, `1366x1024`, not responsive.
-- Tile placement belongs in `apps/web/src/lib/tile-registry.ts`.
+- Features are self-contained Apps under `features/<id>/` (manifest + facets:
+  `web.tsx`, `api.ts`, `jobs.ts`, `schema.ts`); the folder existing is the App's
+  registration (ADR-0001). Tile placement is declared as registry coords in the
+  App's `manifest.ts`, glob-collected and emitted to checked-in
+  `features/_generated/*.gen.ts` by `bun run apps:gen` (ADR-0002); never hand-edit
+  `_generated/`. `bun run apps:check` re-runs codegen and fails on drift.
+  `scripts/apps-gen/validate.ts` is the consistency check (dup id/router-key/table,
+  ≠1 `home` tile, overlapping tile rects, `guestExposed` ≠ `GUEST_EXPOSED` all
+  throw). Shared DB/UniFi substrate lives in `packages/core` (`@www/core`).
+- Dependency boundaries between `packages/*`, `features/*`, and `apps/*` are
+  enforced by a Biome `noRestrictedImports` rule, not a separate dependency-graph
+  tool.
 - Use shared UI primitives from `apps/web/src/components/ui/`.
 - Full-screen pages over modals for new tiles' detail views.
 - Panel audio goes through the sound bus: `playCue()` from
