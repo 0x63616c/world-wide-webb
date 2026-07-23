@@ -6,6 +6,7 @@
  */
 
 import { climateDetailEntry } from "@features/ac/web/wiring/climate";
+import { photoBoothDetailEntry } from "@features/booth/web/wiring/photo-booth";
 import { controlsDetailEntry } from "@features/ctrl/web/wiring/controls";
 import { clockDetailEntry } from "@features/events/web/wiring/clock";
 import { eventsDetailEntry } from "@features/events/web/wiring/events";
@@ -24,7 +25,6 @@ import { deploysDetailEntry } from "./wiring/deploys";
 import { dogCamDetailEntry } from "./wiring/dogcam";
 import { guestWifiDetailEntry } from "./wiring/guest-wifi";
 import { notificationsDetailEntry } from "./wiring/notifications";
-import { photoBoothDetailEntry } from "./wiring/photo-booth";
 import { weightDetailEntry } from "./wiring/weight";
 
 // Grows one entry per migrated tile; final state covers all board tiles

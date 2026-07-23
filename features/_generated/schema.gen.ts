@@ -3,6 +3,7 @@
 // Re-run `bun run apps:gen` after changing a feature facet; commit the result.
 
 export * from "../../apps/api/src/db/schema";
+export * from "../booth/schema";
 export * from "../ctrl/schema";
 export * from "../deploys/schema";
 export * from "../events/schema";

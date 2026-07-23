@@ -4,9 +4,9 @@ import { nextFreeName } from "@www/core";
 import { getLogger } from "@www/logger";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import type * as schema from "../db/schema";
-import { boothPhoto } from "../db/schema";
-import { env } from "../env";
+import { config } from "./config";
+import type * as schema from "./schema";
+import { boothPhoto } from "./schema";
 
 /**
  * Photo booth: the wall panel's on-demand camera. A person triggers a capture in
@@ -100,7 +100,7 @@ const MAX_JPEG_BYTES = 4 * 1024 * 1024;
 const MAX_GIF_BYTES = 16 * 1024 * 1024;
 
 export function defaultBoothPhotoRoot(): string {
-  return join(env.MEDIA_STORAGE_DIR, "booth-photos");
+  return join(config.MEDIA_STORAGE_DIR, "booth-photos");
 }
 
 /** New booth-photo id (repo IDs default to prefix_<id>). */

@@ -21,7 +21,7 @@
 
 import { applyPalette, GIFEncoder, quantize } from "gifenc";
 
-import { getDeviceId } from "./device-id";
+import { getDeviceId } from "@/lib/device-id";
 
 // Kept in lockstep with the api's booth_photo.mode column
 // (photo | burst | four_frame | gif). "video" is a disabled placeholder in the

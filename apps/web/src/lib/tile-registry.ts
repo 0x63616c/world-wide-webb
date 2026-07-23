@@ -1,5 +1,6 @@
 import type { AppManifest } from "@app-kit";
 import acManifest from "@features/ac/manifest";
+import boothManifest from "@features/booth/manifest";
 import ctrlManifest from "@features/ctrl/manifest";
 import deploysManifest from "@features/deploys/manifest";
 import dogcamManifest from "@features/dogcam/manifest";
@@ -16,7 +17,6 @@ import weatherManifest from "@features/weather/manifest";
 import weightManifest from "@features/weight/manifest";
 import type { ComponentType } from "react";
 
-import { PhotoBoothTile } from "../components/tiles/photo-booth/PhotoBoothTile";
 export type TileRegistryEntry = {
   id: string;
   // The tile's name, used by the minimap hover label, the centered-tile pan
@@ -49,33 +49,11 @@ export type TileRegistryEntry = {
 // own placement in their manifest and are unioned into TILE_REGISTRY below —
 // the Guest Wi-Fi tile used to live here as `tile_guestwifi` but now comes from
 // features/guest-wifi/manifest.ts.
-const REGISTRY_ENTRIES: TileRegistryEntry[] = [
-  // Sound System + Quick Play used to live here (www-51hf) but now come from
-  // features/sound/manifest.ts (Track C, Wave 6). TV + TV Apps now come from
-  // features/tv/manifest.ts (Track C, Wave 6).
-  // Activity used to live here as "tile_wakes" (2x2 at col 34 / row 30) but now
-  // comes from features/wakes/manifest.ts (Track C, Wave 5).
-  // Notification Center used to live here as "tile_notif" (cols 38-41 / rows
-  // 24-26, top-right corner of the cluster) but now comes from
-  // features/notif/manifest.ts (Track C, S1). Frontend Logs used to live here
-  // as "tile_felogs" but now comes from features/felogs/manifest.ts (Track C,
-  // Wave 7).
-  // Photo booth. A titled 2x2 tile sitting flush along the cluster's top edge:
-  // beside the Guest Wi-Fi QR (cols 28-29) and directly above Climate (col 30),
-  // so it reads as part of the home row without displacing any existing tile. Its
-  // face carries a standard TileHeader ("Photo Booth"), so it is held to the
-  // label↔title guard (tile-title-sync.test.tsx) like every other titled tile.
-  {
-    id: "tile_booth",
-    label: "Photo Booth",
-    component: PhotoBoothTile,
-    viewComponent: PhotoBoothTile,
-    worldCol: 30,
-    worldRow: 22,
-    cols: 2,
-    rows: 2,
-  },
-];
+//
+// EMPTY. Photo Booth was the last hand-placed tile ("tile_booth", 2x2 at col
+// 30 / row 22) — it now comes from features/booth/manifest.ts (Track C, final
+// tile fold). Every board tile now comes from a feature manifest.
+const REGISTRY_ENTRIES: TileRegistryEntry[] = [];
 
 // Folded features (Track C, C7). Each app manifest owns its tile placement; the
 // board renders the UNION of the hand-placed registry entries and every feature
@@ -98,6 +76,7 @@ const FEATURE_MANIFESTS: AppManifest[] = [
   soundManifest,
   ctrlManifest,
   felogsManifest,
+  boothManifest,
 ];
 
 function manifestToEntries(m: AppManifest): TileRegistryEntry[] {

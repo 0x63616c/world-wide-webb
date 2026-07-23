@@ -7,7 +7,7 @@ import {
   formatStampDate,
   orderGifFrames,
   uploadBoothPhoto,
-} from "../booth-capture";
+} from "./booth-capture";
 
 // A recording stand-in for CanvasRenderingContext2D: booth-capture's drawing
 // touches only these members, and jsdom's canvas has no real 2d context, so we

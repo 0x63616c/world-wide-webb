@@ -1,12 +1,20 @@
+/**
+ * tRPC `boothPhotos` facet (Track C, final tile fold), folded from
+ * apps/api/src/trpc/routers/booth-photos.ts. The feature reaches the tRPC
+ * runtime ONLY through `@app-kit/server` (the single sanctioned seam into
+ * apps/api's trpc/init, never a direct apps/api import); its query bodies live
+ * in ./service against this feature's own db.
+ */
+import { defineApi } from "@app-kit";
+import { publicProcedure, router } from "@app-kit/server";
 import { z } from "zod";
-import { db } from "../../db/index";
+import { db } from "./db";
 import {
   BOOTH_PHOTO_MODES,
   clearBoothGroupFilter,
   listBoothPhotos,
   softDeleteBoothGroup,
-} from "../../services/booth-photo-service";
-import { publicProcedure, router } from "../init";
+} from "./service";
 
 const BoothPhotoFrameSchema = z.object({
   id: z.string(),
@@ -31,7 +39,7 @@ const BoothPhotoListingSchema = z.object({
   totalBytes: z.number(),
 });
 
-export const boothPhotosRouter = router({
+const boothPhotosRouter = router({
   // The gallery read: live captures grouped, newest first.
   list: publicProcedure
     .input(z.object({}).optional())
@@ -52,3 +60,10 @@ export const boothPhotosRouter = router({
     .output(z.object({ cleared: z.number() }))
     .mutation(({ input }) => clearBoothGroupFilter(db, input.groupId)),
 });
+
+/**
+ * The branded `api` facet. Its one top-level key, `boothPhotos`, is the router
+ * namespace the generated app router mounts. The codegen reads these keys off
+ * `api._def.record`.
+ */
+export const api = defineApi(router({ boothPhotos: boothPhotosRouter }));

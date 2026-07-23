@@ -1,5 +1,6 @@
 import { GENERATED_ROUTES } from "@features/_generated/http.gen";
 import { getClimate } from "@features/ac/service";
+import { readBoothPhoto } from "@features/booth/service";
 import { openCameraStream } from "@features/dogcam/service";
 import { backfillWakePhotoIndex, readWakePhoto } from "@features/wakes/photos";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
@@ -9,7 +10,6 @@ import { runMigrations } from "./db/migrate";
 import { env } from "./env";
 import { startGuestServer } from "./guest-server";
 import { findRoute } from "./http/route-table";
-import { readBoothPhoto } from "./services/booth-photo-service";
 import { migratePhotoPaths } from "./startup/photo-path-migration";
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers/index";

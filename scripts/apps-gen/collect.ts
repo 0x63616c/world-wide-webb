@@ -119,35 +119,20 @@ export interface AppModel {
 const APP_BRAND = Symbol.for("app-kit.app");
 
 /**
- * S3 transitional: booth/wake raw routes live in apps/api until F-booth/F-wakes
- * fold their tiles (Wave 5). Each fold DELETES its entry here and adds a
+ * S3 transitional: booth/wake raw routes lived in apps/api until F-booth/F-wakes
+ * folded their tiles. Each fold DELETES its entry here and adds a
  * features/<id>/http.ts (picked up by the featureDirs() scan above instead).
- * Empty in commit 1 of S3.
- *
- * CODEGEN SAFETY: collect() imports each `file` below (a real import, not a
- * string scan), which transitively imports apps/api's `../db/index` -> `../env`.
- * That module runs `hydrateSecretFiles()` + `envSchema.parse(process.env)` at
- * import time and constructs a `createPool`/`drizzle` handle. This is safe for
- * `apps:gen`/`apps:check` ONLY because every field in apps/api/src/env.ts is
- * `.default()`ed (so parsing an empty env never throws) and the pg pool is lazy
- * (no socket opens until the first query) — verified by running apps:check with
- * DATABASE_URL and every other var unset (see the S3 commit's verify output).
- * Adding a non-defaulted required var to apps/api's env.ts would break codegen
- * for every entry in this list; keep that invariant in mind before editing env.ts.
+ * PERMANENTLY EMPTY as of F-booth (the last entry, booth, folded) — every http
+ * facet now collects via Source A. Kept (rather than deleted outright) as the
+ * documented escape hatch for a future S3-shaped seam; the loop below is a
+ * no-op over an empty list.
  */
 const INTERIM_HTTP_MODULES: readonly {
   file: string;
   ident: string;
   importPath: string;
   source: string;
-}[] = [
-  {
-    file: "apps/api/src/http/booth.http.ts",
-    ident: "boothHttp",
-    importPath: "../../apps/api/src/http/booth.http",
-    source: "interim:booth",
-  },
-];
+}[] = [];
 
 /**
  * Read a `defineHttp([...])` facet (an array branded with HTTP_FACET_BRAND) off

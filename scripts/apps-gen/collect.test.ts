@@ -18,12 +18,6 @@ it("collect() unions the guest-wifi feature manifest, deduped against the regist
   expect(guest[0].source).toBe("feature");
   expect(guest[0].guestExposed).toBe(true);
 
-  // A hand-placed tile still collects from the registry (tile_clock folded
-  // into features/events; tile_ctrl folded into features/ctrl; tile_tv/tile_sound
-  // folded into features/tv/features/sound (Track C, Wave 6) — a still
-  // hand-placed example is tile_booth).
-  expect(model.apps.find((a) => a.id === "tile_booth")?.source).toBe("registry");
-
   // The fold surfaces: the feature's tables, its router key, and its cron.
   expect(model.features.map((f) => f.dir)).toContain("guest-wifi");
   expect(model.tables.map((t) => t.name)).toEqual(
@@ -36,21 +30,20 @@ it("collect() unions the guest-wifi feature manifest, deduped against the regist
   expect(() => validate(model, ["tile_guestwifi"])).not.toThrow();
 });
 
-// S3 codegen-level proof: the interim apps/api booth http facet collects
-// through Source B (INTERIM_HTTP_MODULES), not featureDirs(), so this asserts
-// the collector's SECOND collection source actually yields the migrated
-// route , the real dispatch proof lives in
-// apps/api/src/http/__tests__/route-table.test.ts.
-it("collect() yields the migrated booth route from the interim http list", async () => {
+// Track C, final tile fold: the booth-photo upload facet moved out of the
+// interim http list into features/booth/http.ts, collected via Source A (the
+// same path api.ts/jobs.ts use), not the interim list — the last entry to
+// leave INTERIM_HTTP_MODULES, which is now permanently empty.
+it("sources the booth-photo route from the booth feature, not the interim list", async () => {
   const model = await collect();
 
   expect(model.httpRoutes).toContainEqual({
     method: "POST",
     path: "/media/booth-photo",
     match: "exact",
-    source: "interim:booth",
+    source: "feature:booth",
   });
-  expect(model.httpModules.map((m) => m.ident)).toEqual(expect.arrayContaining(["boothHttp"]));
+  expect(model.httpModules.map((m) => m.ident)).toContain("boothHttp");
 });
 
 // Track C, Wave 5 fold: the wake-photo upload facet moved out of the interim

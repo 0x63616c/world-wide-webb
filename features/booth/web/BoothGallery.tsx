@@ -24,9 +24,9 @@ import { useEffect, useMemo, useState } from "react";
 import { groupByDay } from "@/components/gallery/group-by-day";
 import { PhotoGrid } from "@/components/gallery/PhotoGrid";
 import { ConfirmDialog, PageHeader } from "@/components/ui";
-import { bakeFilterIntoImage } from "@/lib/booth-capture";
-import { filterCssFor } from "@/lib/booth-filters";
 import type { RouterOutputs } from "@/lib/trpc";
+import { bakeFilterIntoImage } from "./lib/booth-capture";
+import { filterCssFor } from "./lib/booth-filters";
 
 /** One capture group as the gallery reads it (the backend listing contract). */
 export type BoothGroup = RouterOutputs["boothPhotos"]["list"]["groups"][number];

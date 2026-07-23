@@ -1,5 +1,7 @@
 import { readdir, rename, rmdir, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { boothPhoto } from "@features/booth/schema";
+import { defaultBoothPhotoRoot } from "@features/booth/service";
 import { defaultWakePhotoRoot } from "@features/wakes/photos";
 import { wakePhoto } from "@features/wakes/schema";
 import { nextFreeName, parseLegacyPhotoFileName, photoFileName } from "@www/core";
@@ -7,8 +9,6 @@ import { getLogger } from "@www/logger";
 import { eq, like, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../db/schema";
-import { boothPhoto } from "../db/schema";
-import { defaultBoothPhotoRoot } from "../services/booth-photo-service";
 
 /**
  * One-way migration from the legacy dated tree to flat ISO-instant names (spec

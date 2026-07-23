@@ -10,9 +10,9 @@
 
 import { Images, X, Zap, ZapOff } from "lucide-react";
 import type { CSSProperties } from "react";
-import { Icon } from "../../Icon";
-import { Modal } from "../../ui/Modal";
-import { Segmented } from "../../ui/Segmented";
+import { Icon } from "@/components/Icon";
+import { Modal } from "@/components/ui/Modal";
+import { Segmented } from "@/components/ui/Segmented";
 import {
   CAMERA_FILTERS,
   type CameraFilter,

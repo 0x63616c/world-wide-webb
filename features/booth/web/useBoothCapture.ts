@@ -21,14 +21,9 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import {
-  assembleGif,
-  type BoothMode,
-  bakeFrame,
-  uploadBoothPhoto,
-} from "../../../lib/booth-capture";
-import { playCue } from "../../../lib/sound";
+import { playCue } from "@/lib/sound";
 import { type CountdownOption, filterCss } from "./camera-model";
+import { assembleGif, type BoothMode, bakeFrame, uploadBoothPhoto } from "./lib/booth-capture";
 
 // Sequence timing. Burst is a rapid stutter; four_frame is a paced posing
 // interval; the GIF grabs a short window of frames for a smooth boomerang loop.

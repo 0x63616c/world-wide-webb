@@ -16,11 +16,11 @@
  * play surface, not a camera-monitoring one.
  */
 
-import { PhotoBoothPager } from "@/components/tiles/photo-booth/PhotoBoothPager";
+import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
 import { POLL } from "@/lib/hooks";
 import { closeTileDetail } from "@/lib/tile-detail-store";
 import { trpc } from "@/lib/trpc";
-import type { DetailVariant, TileDetailPageEntry } from "../types";
+import { PhotoBoothPager } from "../PhotoBoothPager";
 
 /** The /media/booth-photos/ serve route (mirrors wake photos' /media path). */
 function boothPhotoUrl(path: string): string {

@@ -1,19 +1,20 @@
 import { defineHttp } from "@app-kit";
-import { db } from "../db/index";
+import { db } from "./db";
 import {
   BOOTH_FILTER_PATTERN,
   BOOTH_PHOTO_MODES,
   type BoothPhotoMode,
   newBoothGroupId,
   saveBoothPhoto,
-} from "../services/booth-photo-service";
+} from "./service";
 
 /**
- * Photo-booth ingest (S3 transitional home, see scripts/apps-gen/collect.ts's
- * INTERIM_HTTP_MODULES comment). Moved VERBATIM from server.ts's old
- * `/media/booth-photo` branch , same raw-body handling, same mode/filter/group
- * validation, same 201/400 split. CORS is no longer set here; the S3
- * route-table iterator overlays it centrally (see server.ts).
+ * Photo-booth ingest (Track C, final tile fold, moved out of the interim
+ * apps/api/src/http/booth.http.ts into this feature's own http.ts, collected by
+ * scripts/apps-gen/collect.ts's Source A rather than the INTERIM_HTTP_MODULES
+ * list). Same raw-body handling, same mode/filter/group validation, same
+ * 201/400 split. CORS is not set here; the route-table iterator overlays it
+ * centrally (see server.ts).
  *
  * The panel POSTs each captured frame as a raw image body (JPEG for
  * photo/burst/four_frame, GIF for gif). Validation (format magic vs. mode,

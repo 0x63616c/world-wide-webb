@@ -14,14 +14,14 @@
  * disabled placeholder that never reaches capture.
  */
 
-import type { BoothMode } from "../../../lib/booth-capture";
+import type { BoothMode } from "./lib/booth-capture";
 
 export type { BoothMode };
 
 /* ------------------------------------------------------------------ filters */
 
-export type { CameraFilter } from "../../../lib/booth-filters";
-export { CAMERA_FILTERS, filterById, filterCss } from "../../../lib/booth-filters";
+export type { CameraFilter } from "./lib/booth-filters";
+export { CAMERA_FILTERS, filterById, filterCss } from "./lib/booth-filters";
 
 /* -------------------------------------------------------------------- modes */
 

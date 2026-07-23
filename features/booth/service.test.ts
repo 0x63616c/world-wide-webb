@@ -10,7 +10,7 @@ import {
   readBoothPhoto,
   saveBoothPhoto,
   softDeleteBoothGroup,
-} from "./booth-photo-service";
+} from "./service";
 
 // Minimal valid-enough bodies: the magic-byte prefix each format is sniffed by.
 function jpeg(payload = "x"): Uint8Array {
@@ -20,7 +20,7 @@ function gif(payload = "x"): Uint8Array {
   return new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, ...new TextEncoder().encode(payload)]);
 }
 
-// ─── in-memory db harness (mirrors features/wakes/photos.test.ts): a plain object
+// ─── in-memory db harness (mirrors features/wakes/service.test.ts): a plain object
 // implementing only the drizzle surface this service calls. `update().where()`
 // ignores the (opaque) drizzle predicate and marks every live row, the same
 // trust-drizzle-for-the-WHERE convention portal-purge-service.test.ts uses; the

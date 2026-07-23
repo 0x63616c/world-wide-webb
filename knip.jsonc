@@ -67,7 +67,16 @@
     // subtree move), so it hits the same workspace-boundary quirk as the
     // testing-library deps above.
     "@storybook/react-vite",
-    "storybook"
+    "storybook",
+    // features/booth (Track C, final tile fold) hits the same workspace-boundary
+    // quirk: gifenc (client-side GIF encoder, features/booth/web/lib/booth-capture.ts),
+    // lucide-react and @capacitor/{core,share} (features/booth/web/BoothGallery.tsx,
+    // BoothCameraControls.tsx, CameraStage.tsx) are real apps/web deps the feature
+    // folder can't see resolved against.
+    "gifenc",
+    "lucide-react",
+    "@capacitor/core",
+    "@capacitor/share"
   ],
 
   // `tilt` is the dev-stack binary invoked by the root `dev` script; not an npm dep.
