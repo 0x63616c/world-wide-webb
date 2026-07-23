@@ -11,7 +11,7 @@
  *   TV-grab:       x-sonos-htastream:<BEAM_UUID>:spdif
  */
 
-import { SonosClient } from "../integrations/sonos";
+import { SonosClient } from "@www/core";
 
 /** Sets the mute state on a single device. THROWS on any failure. */
 export async function sonosSetMute({

@@ -3,9 +3,10 @@
  * Verifies A13: sonosFavorites query backed by real Sonos ContentDirectory Browse FV:2.
  * All SonosClient calls are mocked , no network required.
  */
+
+import type { SonosFavorite } from "@www/core";
+import { SonosError } from "@www/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SonosFavorite } from "../integrations/sonos";
-import { SonosError } from "../integrations/sonos";
 
 // ─── mock SonosClient ─────────────────────────────────────────────────────────
 
@@ -21,8 +22,8 @@ function makeMockClient(): MockClient {
   };
 }
 
-vi.mock("../integrations/sonos", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../integrations/sonos")>();
+vi.mock("@www/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@www/core")>();
   return {
     ...actual,
     SonosClient: vi.fn().mockImplementation((ip: string) => {

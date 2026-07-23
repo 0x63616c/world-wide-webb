@@ -3,7 +3,7 @@
  * All network calls are stubbed , tests never reach real hardware.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SonosClient, SonosError, type SonosFavorite, type ZoneGroup } from "../integrations/sonos";
+import { SonosClient, SonosError, type SonosFavorite, type ZoneGroup } from "./index";
 
 // ---- SOAP envelope helpers -------------------------------------------------
 

@@ -6,8 +6,9 @@
  * Verifies A3: THROWS on SonosClient error (never returns fabricated data).
  * All SonosClient instances are mocked , no network required.
  */
+
+import { SonosError } from "@www/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SonosError } from "../integrations/sonos";
 import { classifySourceUri } from "../services/sonos-sound-system-service";
 
 describe("classifySourceUri", () => {
@@ -74,8 +75,8 @@ function makeMockClient(): MockClient {
   return client;
 }
 
-vi.mock("../integrations/sonos", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../integrations/sonos")>();
+vi.mock("@www/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@www/core")>();
   return {
     ...actual,
     SonosClient: vi.fn().mockImplementation((ip: string) => {

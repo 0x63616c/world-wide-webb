@@ -4,8 +4,9 @@
  * group join/leave (x-rincon:<coord>), set line-in source, grab-TV-to-Beam
  * (x-sonos-htastream spdif). All SonosClient calls are mocked , no network.
  */
+
+import { SonosError } from "@www/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SonosError } from "../integrations/sonos";
 
 // ─── mock SonosClient ─────────────────────────────────────────────────────────
 
@@ -35,8 +36,8 @@ function makeMockClient(): MockClient {
   };
 }
 
-vi.mock("../integrations/sonos", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../integrations/sonos")>();
+vi.mock("@www/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@www/core")>();
   return {
     ...actual,
     SonosClient: vi.fn().mockImplementation((ip: string) => {

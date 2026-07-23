@@ -43,8 +43,8 @@ function makeMockClient(): MockClient {
   };
 }
 
-vi.mock("../integrations/sonos", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../integrations/sonos")>();
+vi.mock("@www/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@www/core")>();
   return {
     ...actual,
     SonosClient: vi.fn().mockImplementation((ip: string) => {

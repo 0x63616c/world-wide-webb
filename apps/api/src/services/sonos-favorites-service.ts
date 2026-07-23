@@ -10,8 +10,8 @@
  *  - No caching , favorites are read fresh every call (user may have edited them).
  */
 
-import type { SonosFavorite } from "../integrations/sonos";
-import { SonosClient } from "../integrations/sonos";
+import type { SonosFavorite } from "@www/core";
+import { SonosClient } from "@www/core";
 
 // Same LAN IP used by the sound-system service; any coordinator serves ContentDirectory.
 const FAVORITES_ANCHOR_IP = "192.168.0.193";

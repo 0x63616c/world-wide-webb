@@ -20,11 +20,10 @@
  *    transport state belongs to the group and is read from the coordinator.
  */
 
-import type { DeviceStateStore } from "@www/core";
+import type { DeviceStateStore, ZoneGroup } from "@www/core";
+import { SonosClient } from "@www/core";
 import { DESK_RF_BONDED_UUID, TOPOLOGY_ANCHOR_IP } from "../config/identity";
 import { deviceStateStore } from "../db/device-state-store";
-import type { ZoneGroup } from "../integrations/sonos";
-import { SonosClient } from "../integrations/sonos";
 import { DeviceKind, isSpeakerState } from "./device-state-mapping";
 
 // Stable display order for the rooms, so faders never reshuffle between polls. Rooms not in this

@@ -18,11 +18,11 @@
  */
 
 import type { DeviceStateStore } from "@www/core";
+import { SonosClient } from "@www/core";
 import { getLogger } from "@www/logger";
 import { DESK_RF_BONDED_UUID, TOPOLOGY_ANCHOR_IP } from "../config/identity";
 import { deviceStateStore } from "../db/device-state-store";
 import type { DeviceSpeakerState } from "../db/schema";
-import { SonosClient } from "../integrations/sonos";
 import { windowOpen } from "./command-window";
 import { DeviceKind, isSpeakerState } from "./device-state-mapping";
 import { heartbeat, runCycle } from "./integration-heartbeat";
