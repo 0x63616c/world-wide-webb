@@ -49,7 +49,7 @@ New / moved / deleted, by responsibility:
 - `apps/api/src/integrations/unifi.ts` — apps/api-side configured singleton built from `env`, for the unfolded Network tile.
 
 **Created (canary, Slice 5):**
-- `features/guest-wifi/manifest.ts`, `web.tsx`, `api.ts`, `jobs.ts`, `schema.ts`, `service.ts`, `repo.ts`, `repo.fake.ts`, `config.ts`.
+- `features/guest-wifi/manifest.ts`, `web.tsx`, `modal-store.ts`, `api.ts`, `jobs.ts`, `schema.ts`, `service.ts`, `repo.ts`, `repo.fake.ts`, `config.ts`.
 - `features/guest-wifi/GUEST_EXPOSED` allowlist constant (in `app-kit` or a hand-owned file — see Task 5.1).
 
 **Deleted (Slice 1):**
@@ -156,14 +156,18 @@ git push
 
 - [ ] **Step 1: Write the failing test (positions come straight from the registry)**
 
-In `apps/web/src/lib/board-layout.test.ts` (create if absent):
+The real export is `resolveLayout(saved, registry?, world?)` (with a required
+`saved` overrides arg + merge semantics). After Q4 the override arg goes away —
+positions come straight from the registry. Assert the post-deletion API. In
+`apps/web/src/lib/board-layout.test.ts` (create if absent):
 ```ts
 import { describe, it, expect } from "vitest";
 import { TILE_REGISTRY } from "./tile-registry";
-import { resolveBoardLayout } from "./board-layout";
+import { resolveLayout } from "./board-layout";
 
-it("positions each tile at its registry coordinates with no override", () => {
-  const layout = resolveBoardLayout();
+it("positions each tile at its registry coordinates with no saved override applied", () => {
+  // Post-Q4: resolveLayout takes no saved-overrides arg (that path is deleted).
+  const layout = resolveLayout();
   for (const tile of TILE_REGISTRY) {
     const placed = layout.find((t) => t.id === tile.id);
     expect(placed).toBeDefined();
@@ -171,7 +175,9 @@ it("positions each tile at its registry coordinates with no override", () => {
   }
 });
 ```
-(Adapt property names to the real `board-layout.ts` API found in Task 1.1.)
+(Confirm the exact field names — `worldCol`/`worldRow` vs. the real ones — from
+`board-layout.ts` as found in Task 1.1. The **signature change** — dropping the
+`saved` arg — is itself part of the Q4 deletion, not an incidental rename.)
 
 - [ ] **Step 2: Run it — expect FAIL** (resolveLayout still applies stored overrides)
 
@@ -218,41 +224,41 @@ No codegen, no `features/`. Pure type + test-infra cleanup.
 - Modify: `apps/web/src/lib/tile-registry.ts` (unions at `:41` and `:63`)
 
 **Interfaces:**
-- Produces: `TileRegistryEntry.component: ComponentType` and `.view?: ComponentType` (eager, direct refs). The 20-member `TileComponent`/`TileViewComponent` unions are gone.
+- Produces: `TileRegistryEntry.component: ComponentType` and `.viewComponent?: ComponentType` (eager, direct refs — NOTE the real field is `viewComponent`, not `view`; keep that name). The 20-member `TileComponent`/`TileViewComponent` union type aliases are gone.
 
-- [ ] **Step 1: Write the failing test (eager component refs, no lazy)**
+> Components in `tile-registry.ts` are **already** eager direct imports today — there is no `lazy`/`Suspense` to remove. The real work is deleting the two 20-member union *type aliases* and retyping to `ComponentType`. A runtime "lazy present" test can never go red here, so the red is an assertion-script check that the union aliases are gone (a source-level red), gated by `typecheck`.
 
-In `apps/web/src/lib/tile-registry.test.ts` (create if absent):
-```ts
-import { describe, it, expect } from "vitest";
-import { isValidElementType } from "react-is";
-import { TILE_REGISTRY } from "./tile-registry";
+- [ ] **Step 1: Write the failing check (the union aliases must not exist)**
 
-it("every tile component is an eager component (not a lazy/thenable)", () => {
-  for (const tile of TILE_REGISTRY) {
-    expect(isValidElementType(tile.component)).toBe(true);
-    expect((tile.component as { $$typeof?: symbol }).$$typeof).not.toBe(Symbol.for("react.lazy"));
-  }
-});
+Create `scripts/no-tile-unions.sh`:
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+# The two 20-member unions must be gone after the retype. `type X = ... | ...`
+# declarations named TileComponent/TileViewComponent are the red.
+if rg -n "^\\s*(export )?type (TileComponent|TileViewComponent)\\b" apps/web/src/lib/tile-registry.ts; then
+  echo "FAIL: union type aliases still present"; exit 1
+fi
+echo "OK: no tile component unions"
 ```
 
-- [ ] **Step 2: Run it — expect FAIL or type error** (lazy refs / union mismatch)
+- [ ] **Step 2: Run it — expect FAIL** (unions still declared)
 
-Run: `bun run --cwd apps/web test -- tile-registry` — Expected: FAIL (lazy present) or the file doesn't typecheck against the new assertion.
+Run: `bash scripts/no-tile-unions.sh` — Expected: FAIL (prints the two `type` lines).
 
 - [ ] **Step 3: Retype to `ComponentType` and inline the direct imports**
 
-In `tile-registry.ts`: replace the `TileComponent`/`TileViewComponent` union type aliases with `import type { ComponentType } from "react"`; type the entry fields as `component: ComponentType<Record<string, never>>` (or the existing tile-prop type) and `view?: ComponentType<...>`. Replace any `lazyNamed(...)` / `React.lazy(...)` refs with direct component imports at the top of the file.
+In `tile-registry.ts`: delete the `TileComponent`/`TileViewComponent` union type aliases; `import type { ComponentType } from "react"`; type the entry fields as `component: ComponentType` and `viewComponent?: ComponentType`. The component refs are already direct imports — leave them. This touches every `.viewComponent` consumer only if the field is *renamed*; it is NOT renamed (kept as `viewComponent`), so consumers are untouched — only the type narrows from the union to `ComponentType`.
 
-- [ ] **Step 4: Run tests + typecheck — expect PASS**
+- [ ] **Step 4: Run the check + tests + typecheck — expect PASS**
 
-Run: `bun run --cwd apps/web test -- tile-registry` and `bun run typecheck` — Expected: PASS.
+Run: `bash scripts/no-tile-unions.sh`, `bun run --cwd apps/web test -- tile-registry` (if any test references the tiles), and `bun run typecheck` — Expected: all PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git pull --rebase --autostash
-git add apps/web/src/lib/tile-registry.ts apps/web/src/lib/tile-registry.test.ts
+git add apps/web/src/lib/tile-registry.ts scripts/no-tile-unions.sh
 git commit -m "refactor(track-c): retype tile unions to eager ComponentType (Q10)"
 git show --stat HEAD
 git push
@@ -261,30 +267,31 @@ git push
 ### Task 2.2: Centralize the MapLibre mock to one global stub
 
 **Files:**
-- Modify: `.storybook/vitest.setup.ts` (add global `maplibre-gl` stub)
-- Modify: the ~15 test files carrying the trivial inline mock (remove their local `vi.mock("maplibre-gl", ...)`); leave the ~2–3 functional Tesla map mocks untouched.
+- Create: `apps/web/vitest.setup.unit.ts` (global `maplibre-gl` stub for the jsdom unit project)
+- Modify: `apps/web/vitest.config.ts` (add `test.setupFiles: ["./vitest.setup.unit.ts"]`)
+- Modify: the ~15 unit-test files carrying the trivial inline mock (remove their local `vi.mock("maplibre-gl", ...)`); leave the ~2–3 functional Tesla map mocks untouched.
 
-**Interfaces:**
-- Produces: a single global `vi.mock("maplibre-gl")` in setup; trivial per-file mocks deleted.
+> **Gotcha (from review):** `apps/web/.storybook/vitest.setup.ts` is loaded ONLY by the storybook (browser/Playwright) project in `apps/web/vitest.workspace.ts`. The jsdom unit project (`apps/web/vitest.config.ts`, which `bun run --cwd apps/web test` runs) declares NO `setupFiles`. The trivial MapLibre mocks live in jsdom unit tests, so the global stub MUST be registered on the unit project's config — not the storybook setup — or the unit tests lose the mock and fail.
 
-- [ ] **Step 1: List the trivial vs functional MapLibre mocks**
+- [ ] **Step 1: Confirm the two vitest projects + list the trivial vs functional mocks**
 
 Run:
 ```bash
+cat apps/web/vitest.config.ts apps/web/vitest.workspace.ts   # confirm unit project has no setupFiles
 rg -n "vi.mock\\(['\"]maplibre-gl" apps/web/src -l
 rg -n "vi.mock\\(['\"]maplibre-gl" apps/web/src -A6
 ```
 Record which return `() => ({ default: {} })` (trivial → delete) vs. which define behaviour (Tesla → keep).
 
-- [ ] **Step 2: Add the global stub to setup**
+- [ ] **Step 2: Create the unit-project setup file**
 
-In `.storybook/vitest.setup.ts`:
+`apps/web/vitest.setup.unit.ts`:
 ```ts
 import { vi } from "vitest";
 
-// Global MapLibre stub: jsdom has no WebGL, and most tiles only need the module
-// to import cleanly. Tests that exercise real map behaviour (Tesla) override this
-// with their own local vi.mock, which wins over this global default.
+// Global MapLibre stub for the jsdom unit project: jsdom has no WebGL, and most
+// tiles only need the module to import cleanly. Tests that exercise real map
+// behaviour (Tesla) override this with their own local vi.mock, which wins.
 vi.mock("maplibre-gl", () => ({
   default: {},
   Map: class { on() {} remove() {} addControl() {} },
@@ -294,20 +301,24 @@ vi.mock("maplibre-gl", () => ({
 ```
 (Match the surface the trivial mocks provided — widen only to what importing modules touch at load.)
 
-- [ ] **Step 3: Delete the trivial per-file mocks**
+- [ ] **Step 3: Register it on the unit project**
 
-Remove the local `vi.mock("maplibre-gl", ...)` block from each trivial file found in Step 1. Do NOT touch the Tesla functional mocks.
+In `apps/web/vitest.config.ts`, add to the `test` block: `setupFiles: ["./vitest.setup.unit.ts"]` (merge if `setupFiles` already exists).
 
-- [ ] **Step 4: Run the full web suite — expect PASS**
+- [ ] **Step 4: Delete the trivial per-file mocks**
+
+Remove the local `vi.mock("maplibre-gl", ...)` block from each trivial unit-test file found in Step 1. Do NOT touch the Tesla functional mocks.
+
+- [ ] **Step 5: Run the full web suite — expect PASS**
 
 Run: `bun run --cwd apps/web test` — Expected: green, including Tesla map tests (their local mock still overrides the global).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git pull --rebase --autostash
-git add .storybook/vitest.setup.ts apps/web/src
-git commit -m "test(track-c): centralize trivial MapLibre stub to one setup (Q10)"
+git add apps/web/vitest.setup.unit.ts apps/web/vitest.config.ts apps/web/src
+git commit -m "test(track-c): centralize trivial MapLibre stub on the unit project (Q10)"
 git show --stat HEAD
 git push
 ```
@@ -326,7 +337,7 @@ Stands up the foundation as a **no-op transform**: `apps:gen` reads the existing
 
 **Interfaces:**
 - Produces:
-  - `defineApp(m: AppManifestInput): AppManifest` — returns `m` tagged with a brand symbol; `AppManifest = { id: string; tile: TileSpec; guestExposed?: boolean; home?: boolean; sensitive?: boolean }`, `TileSpec = { label: string; component: ComponentType; view?: ComponentType; worldCol: number; worldRow: number; cols: number; rows: number }`.
+  - `defineApp(m: AppManifestInput): AppManifest` — returns `m` tagged with a brand symbol; `AppManifest = { id: string; tile: TileSpec; guestExposed?: boolean; home?: boolean; sensitive?: boolean }`, `TileSpec = { label: string; component: ComponentType; viewComponent?: ComponentType; worldCol: number; worldRow: number; cols: number; rows: number }`.
   - `defineApi<T>(router: T): ApiFacet<T>` — brands a tRPC router as the feature's api facet.
   - `defineJobs(jobs: JobSpec[]): JobsFacet` — brands a job array.
   - `defineCron(spec: CronSpec): CronSpec` — brands one cron (codegen collects all `defineCron` exports from `jobs.ts`).
@@ -370,7 +381,7 @@ export const APP_BRAND = Symbol.for("app-kit.app");
 export interface TileSpec {
   label: string;
   component: ComponentType;
-  view?: ComponentType;
+  viewComponent?: ComponentType; // matches the real tile-registry field name
   worldCol: number;
   worldRow: number;
   cols: number;
@@ -417,13 +428,20 @@ export { defineApi, defineJobs, defineCron, API_FACET_BRAND, JOBS_FACET_BRAND, C
 export type { CronSpec, JobSpec } from "./define-facets";
 ```
 
-`app-kit/server.ts` (`@app-kit/server` — tRPC primitives for api facets):
+`app-kit/server.ts` (`@app-kit/server` — tRPC primitives for api facets). The real
+tRPC init is `apps/api/src/trpc/init.ts` (exports `router`, `publicProcedure`):
 ```ts
 // Re-export the app's tRPC primitives so feature api.ts files import them from
-// @app-kit/server, never from apps/api (one-way dep rule).
-export { router, publicProcedure } from "../apps/api/src/trpc/trpc";
+// @app-kit/server, never reaching directly into apps/api.
+export { router, publicProcedure } from "../apps/api/src/trpc/init";
 ```
-(Adjust the source path to the real tRPC init module found via `rg -n "initTRPC" apps/api/src`.)
+> **Dep-rule caveat (from review):** this makes `app-kit/server` → `apps/api` a real
+> edge, so a feature's `api.ts` transitively depends on `apps/api`. That is
+> acceptable for `@app-kit/server` specifically (it is the *seam* to the tRPC
+> runtime), but the dep-cruiser rule in Task 3.5 must (a) still forbid `features →
+> apps/api` **directly** and `app-kit/index` (web-safe) → `apps/api`, while (b)
+> explicitly *allowing* the single `app-kit/server → apps/api/src/trpc/init` edge.
+> Confirm `init.ts` exports exactly `router` + `publicProcedure` before wiring.
 
 - [ ] **Step 4: Run test + typecheck — expect PASS**
 
@@ -724,9 +742,16 @@ Add `@app-kit` → `app-kit/index.ts`, `@app-kit/server` → `app-kit/server.ts`
 
 In the CI workflow, add `app-kit/**` and `features/**` to the change-filter globs for **all three** deployables (web, api, worker), so a change under those paths rebuilds every image (memory: ci-cancelled-runs-strand-image-digests, main-push-cancels-queued-runs — a miss ships stale images on green CI).
 
-- [ ] **Step 6: Add the dep-cruiser one-way rule**
+- [ ] **Step 6: Add the dep-cruiser one-way rules**
 
-Add forbidden rules: `platform`/`core` must not import `app-kit`/`features`; `app-kit` must not import `features`. Run `bunx depcruise` (or the repo's dep-lint script) — Expected: clean.
+Add forbidden rules: `platform`/`core` must not import `app-kit`/`features`;
+`app-kit` must not import `features`; **`features` must not import `apps/api`
+directly**; **`app-kit/index.ts` (the web-safe barrel) must not import `apps/api`**.
+Add ONE explicit allow/exception for the seam: `app-kit/server.ts` →
+`apps/api/src/trpc/init` is permitted (it is the only sanctioned edge from the
+authoring surface into the tRPC runtime). Run `bunx depcruise` (or the repo's
+dep-lint script) — Expected: clean, and a test-import of `apps/api` from a
+`features/` file is flagged.
 
 - [ ] **Step 7: Verify all four resolvers + the checks**
 
@@ -883,30 +908,44 @@ git push
 
 **Files:**
 - Create: `packages/core/src/unifi/client.ts`, `packages/core/src/unifi/index.ts` (+ export from core index)
-- Create: `apps/api/src/integrations/unifi.ts` (configured singleton from `env`)
-- Modify: `apps/api/src/services/network-service.ts:3` (import the singleton), `apps/api/src/services/portal-*` only if they referenced the module singleton (they take a `UnifiGuestClient` param, so likely unaffected)
-- Move/Modify tests: `apps/api/src/__tests__/unifi-guest.test.ts`, `network.test.ts`
+- Create: `apps/api/src/integrations/unifi.ts` (configured singleton from `env` + a re-export barrel for the enum/types)
+- Modify: `apps/api/src/services/network-service.ts:3` (import the singleton + `UnifiStatus`/`UnifiClient` from the new barrel)
+- Modify: `apps/api/src/trpc/routers/portal.ts` (imports `{ unifi }` singleton TODAY — rewire to the new barrel; it is NOT moved until Slice 5)
+- Modify tests: `apps/api/src/__tests__/unifi-guest.test.ts`, `network.test.ts`, and any test importing `UnifiGuestClient`/`UnifiGuestAuthorization`
 - Delete: `apps/api/src/integrations/unifi/index.ts` (old singleton + env fallback)
 
 **Interfaces:**
-- Produces: `createUnifiClient({ apiKey, baseUrl, siteId }): UnifiClient` (no env import; `UNIFI_REQUEST_TIMEOUT_MS` stays a module const in core). `UnifiClient` implements both `UnifiGuestClient` (`authorizeGuest`, `findActiveAuthorization`) and `UnifiStatsClient` (traffic/health). `apps/api/src/integrations/unifi.ts` exports `export const unifi = createUnifiClient({ apiKey: env.UNIFI_API_KEY, baseUrl: env.UNIFI_CONTROLLER_URL, siteId: env.UNIFI_SITE_ID })`.
+- Produces: `createUnifiClient({ apiKey, baseUrl, siteId }): UnifiClient` in core (no env import; `UNIFI_REQUEST_TIMEOUT_MS` stays a module const in core). `UnifiClient` implements both `UnifiGuestClient` (`authorizeGuest`, `findActiveAuthorization`) and `UnifiStatsClient` (traffic/health). The new `apps/api/src/integrations/unifi.ts` is a thin **barrel + singleton**:
+  ```ts
+  import { env } from "../env";
+  export { createUnifiClient, UnifiError, UnifiStatus } from "@www/core"; // re-export the value(s) consumers used from the old module
+  export type { UnifiClient, UnifiGuestClient, UnifiStatsClient, UnifiGuestAuthorization } from "@www/core";
+  export const unifi = createUnifiClient({
+    apiKey: env.UNIFI_API_KEY, baseUrl: env.UNIFI_CONTROLLER_URL, siteId: env.UNIFI_SITE_ID,
+  });
+  ```
+  Every current consumer of `../integrations/unifi` (network-service, portal.ts, tests) keeps importing the same names from the same path — only the path resolves to the new barrel instead of the deleted `integrations/unifi/index.ts`.
 
-- [ ] **Step 1: Write the failing test** — move `unifi-guest.test.ts` to construct via `createUnifiClient({ apiKey, baseUrl, siteId })` imported from `@www/core`. Run: `bunx vitest run apps/api/src/__tests__/unifi-guest.test.ts` → FAIL (import path).
+> **Ordering hazard (from review):** `apps/api/src/trpc/routers/portal.ts` imports the `{ unifi }` singleton directly and does NOT move until Slice 5. If Slice 4 deletes the singleton without rewiring `portal.ts`, Slice 4 fails to typecheck and is not the green atomic push it must be. The re-export barrel above keeps `portal.ts` (and every other consumer) compiling in Slice 4 unchanged.
 
-- [ ] **Step 2: Move the client to core** — copy `integrations/unifi/index.ts` to `packages/core/src/unifi/client.ts`; replace the `import { env }` + `env`-fallback constructor with mandatory `{ apiKey, baseUrl, siteId }` args; keep `UNIFI_REQUEST_TIMEOUT_MS` as a module const; split the exported interface into `UnifiGuestClient` + `UnifiStatsClient` in `unifi/index.ts`. Export from `packages/core/src/index.ts`.
+- [ ] **Step 1: Enumerate every importer of the old module** — `rg -n "integrations/unifi" apps/api/src`. Record each imported name (values: `unifi`, `UnifiError`, `UnifiStatus`; types: `UnifiGuestClient`, `UnifiGuestAuthorization`, `UnifiClient`). The new barrel must re-export **all** of them.
 
-- [ ] **Step 3: Add the apps/api singleton + rewire Network** — create `apps/api/src/integrations/unifi.ts` (singleton from `env`); change `network-service.ts:3` to `import { unifi } from "../integrations/unifi"`. Delete the old `integrations/unifi/index.ts`.
+- [ ] **Step 2: Write the failing test** — update `unifi-guest.test.ts` to construct via `createUnifiClient({ apiKey, baseUrl, siteId })` imported from `@www/core`. Run: `bunx vitest run apps/api/src/__tests__/unifi-guest.test.ts` → FAIL (import path).
 
-- [ ] **Step 4: Run tests + typecheck** — `bunx vitest run apps/api/src/__tests__/unifi-guest.test.ts apps/api/src/__tests__/network.test.ts` (adjust path) and `bun run typecheck` → PASS.
+- [ ] **Step 3: Move the client to core** — copy `integrations/unifi/index.ts` to `packages/core/src/unifi/client.ts`; replace the `import { env }` + `env`-fallback constructor with mandatory `{ apiKey, baseUrl, siteId }` args; keep `UNIFI_REQUEST_TIMEOUT_MS` as a module const; split the exported interface into `UnifiGuestClient` + `UnifiStatsClient` in `unifi/index.ts`; carry over `UnifiError` + `UnifiStatus` + `UnifiGuestAuthorization`. Export all from `packages/core/src/index.ts`.
 
-- [ ] **Step 5: Boot both entrypoints** — quick smoke that api + worker import graphs resolve (`bun run typecheck` covers static; optionally `bun run --cwd apps/api <boot>`).
+- [ ] **Step 4: Add the apps/api barrel + rewire consumers** — create `apps/api/src/integrations/unifi.ts` (barrel + singleton, per Interfaces). Delete the old `integrations/unifi/index.ts` directory-module. `network-service.ts` and `portal.ts` need NO edit if they import from `../integrations/unifi` (path still resolves — now to the barrel); confirm via typecheck and fix any name that the barrel doesn't re-export.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Run tests + typecheck** — `bunx vitest run apps/api/src/__tests__/unifi-guest.test.ts apps/api/src/__tests__/network.test.ts` (adjust path), `bun run --cwd apps/api test -- portal`, and `bun run typecheck` → PASS.
+
+- [ ] **Step 6: Boot both entrypoints** — quick smoke that api + worker import graphs resolve (`bun run typecheck` covers static; optionally `bun run --cwd apps/api <boot>`).
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git pull --rebase --autostash
-git add packages/core apps/api/src/integrations apps/api/src/services/network-service.ts apps/api/src/__tests__/unifi-guest.test.ts apps/api/src/__tests__/network.test.ts
-git commit -m "refactor(track-c): move UniFi client to core, add apps/api singleton for Network (D1)"
+git add packages/core apps/api/src/integrations apps/api/src/services/network-service.ts apps/api/src/trpc/routers/portal.ts apps/api/src/__tests__/unifi-guest.test.ts apps/api/src/__tests__/network.test.ts
+git commit -m "refactor(track-c): move UniFi client to core, add apps/api singleton for Network + portal (D1)"
 git show --stat HEAD
 git push
 ```
@@ -923,31 +962,32 @@ git push
 
 One **atomic** push (do the moves, then a single commit for the whole fold; the validator makes any half-move un-pushable). Done inline.
 
-### Task 5.1: Hand-owned `GUEST_EXPOSED` allowlist + guest-wifi in it
+### Task 5.1: Confirm the tile id + stage the `GUEST_EXPOSED` allowlist edit (NOT a standalone commit)
 
 **Files:**
-- Modify: `features/guest-exposed.ts` (add `"guest_wifi"` — match the real tile id)
+- Modify (staged for the Task 5.5 atomic commit, NOT pushed alone): `features/guest-exposed.ts`
 
 **Interfaces:**
-- Produces: `GUEST_EXPOSED: readonly string[] = ["guest_wifi"]` — the single hand-owned, security-reviewed list the validator checks `guestExposed` against.
+- Produces: `GUEST_EXPOSED: readonly string[] = ["tile_guestwifi"]` — the single hand-owned, security-reviewed list the validator checks `guestExposed` against.
 
-- [ ] **Step 1: Confirm the real guest-wifi tile id** — `rg -n "guest.?wifi|guest_wifi" apps/web/src/lib/tile-registry.ts`. Use that exact id.
-- [ ] **Step 2: Add it to the allowlist**
+> **Do NOT push this alone (from review).** Until the manifest with `guestExposed: true`
+> replaces the registry entry (Task 5.4/5.5), `collect.ts` reports `guestExposed: false`
+> for `tile_guestwifi` (registry entries are hardcoded false). Adding it to the
+> allowlist now makes the flag diverge from the list → the validator throws →
+> `apps:gen`/`apps:check` fail → red CI on `main`. The allowlist edit is only
+> consistent *inside* the atomic fold. So this task just confirms the id and makes
+> the edit; the push happens in Task 5.5 Step 7.
+
+- [ ] **Step 1: Confirm the real guest-wifi tile id** — `rg -n "guestwifi|guest.?wifi" apps/web/src/lib/tile-registry.ts`. Expected: `tile_guestwifi` (`:129`). Use that exact id in the manifest AND the allowlist (Global Constraint: feature id = today's tile id).
+- [ ] **Step 2: Make the allowlist edit (leave it uncommitted — it lands in Task 5.5)**
 ```ts
 // SECURITY BOUNDARY (ADR-0006): every id here is reachable by unauthenticated
 // guests on the LAN captive portal. Adding an id widens the guest attack surface
 // — it must be a deliberate, security-reviewed edit. The codegen validator throws
 // if any manifest's guestExposed flag disagrees with this list.
-export const GUEST_EXPOSED: readonly string[] = ["guest_wifi"];
+export const GUEST_EXPOSED: readonly string[] = ["tile_guestwifi"];
 ```
-- [ ] **Step 3: Commit** (with the fold, or standalone — standalone is fine as a reviewable 1-liner):
-```bash
-git pull --rebase --autostash
-git add features/guest-exposed.ts
-git commit -m "feat(track-c): add guest_wifi to GUEST_EXPOSED allowlist (Q8)"
-git show --stat HEAD
-git push
-```
+Do NOT commit or push yet. Proceed to Task 5.2.
 
 ### Task 5.2: Relocate the guest-wifi files into `features/guest-wifi/`
 
@@ -958,8 +998,10 @@ git push
   - `apps/api/src/__tests__/helpers/in-memory-portal-repo.ts` → `features/guest-wifi/repo.fake.ts`
   - `apps/api/src/trpc/routers/portal.ts` → `features/guest-wifi/api.ts` (becomes the branded facet)
   - `apps/api/src/services/portal-purge-service.ts` → `features/guest-wifi/jobs.ts` (branded)
-  - `apps/web/src/tiles/guest-wifi/*` (the tile components) → `features/guest-wifi/web.tsx`
-  - the `portalAuthorization` + `portalRateLimit` tables from `apps/api/src/db/schema.ts` → `features/guest-wifi/schema.ts`
+  - `apps/web/src/components/tiles/GuestWifiTile.tsx` → `features/guest-wifi/web.tsx` (the tile)
+  - `apps/web/src/components/tiles/GuestWifiTileView.tsx` → into `features/guest-wifi/web.tsx` (the full-screen view — co-locate both in one facet file)
+  - `apps/web/src/lib/guest-wifi-modal-store.ts` → `features/guest-wifi/modal-store.ts` (the companion state the tile+view share — the review flagged this as unaccounted; move it too)
+  - the `portalAuthorization` + `portalRateLimit` tables from `apps/api/src/db/schema.ts` (`:291`, `:278`) → `features/guest-wifi/schema.ts`
 
 **Interfaces:**
 - Produces: all guest-wifi code under `features/guest-wifi/`; the portal tests move alongside (or keep importing via the new paths).
@@ -978,7 +1020,7 @@ git push
 
 **Interfaces:**
 - Produces:
-  - `manifest.ts`: `export default defineApp({ id: "guest_wifi", tile: { label, component: GuestWifiTile, view: GuestWifiTileView, worldCol, worldRow, cols, rows }, guestExposed: true })` (coords copied from the old registry entry).
+  - `manifest.ts`: `export default defineApp({ id: "tile_guestwifi", tile: { label, component: GuestWifiTile, viewComponent: GuestWifiTileView, worldCol, worldRow, cols, rows }, guestExposed: true })` (coords + label copied verbatim from the old `tile-registry.ts` entry at `:129`).
   - `config.ts`: `export const config = z.object({ WIFI_PASSWORD: z.string().default(""), UNIFI_API_KEY: z.string().default(""), UNIFI_CONTROLLER_URL: z.string().url().default("https://192.168.0.1"), UNIFI_SITE_ID: z.string().default("default"), DATABASE_URL: z.string().url() }).parse(process.env)`.
   - `api.ts`: `export const api = defineApi(router({ portal: ... }))`.
   - `jobs.ts`: `export const jobs = defineJobs([...])` / `export const purgeCron = defineCron({...})`.
@@ -1024,25 +1066,34 @@ git push
 - [ ] **Step 2: Regen** — `bun run apps:gen && bunx biome format --write features/_generated`.
 - [ ] **Step 3: Prove NO table is dropped** — `bun run --cwd apps/api db:generate` → Expected: **empty diff / no migration**. If it emits `DROP TABLE portal_*`, the barrel is missing those tables — fix `schema.gen.ts`'s union before continuing. This is the BLOCKER guard.
 - [ ] **Step 4: Wire runtime to the generated routers** — point the app-router entry + `guest-server.ts`/`guest-router.ts` at `router.gen.ts` / `guest-router.gen.ts`. Confirm the guest router still mounts only `portal`.
-- [ ] **Step 5: Run everything** — `bun run typecheck`; `bun run --cwd apps/api test` (portal service/router/schema/purge tests pass **unchanged** — they inject fakes); the guest-router mount test shows only `portal`; `bun run apps:check` → clean; `bun run --cwd apps/web test -- placeholder-tiles` → PASS.
-- [ ] **Step 6: Verify on the real panel** — launch, confirm the guest-wifi tile renders and works; screenshot for the record.
-- [ ] **Step 7: Atomic commit — the whole fold in one push**
+- [ ] **Step 5: Wire the purge cron's scheduling side** — the purge cron RUN path moves to `features/guest-wifi/jobs.ts`, but its SCHEDULE registration lives in `infra/src/crons.ts`. Repoint that registration at the collected `crons.gen.ts` (or import the feature's `defineCron` export) so the expired-authorization purge still fires. Confirm the cron is still scheduled (`rg -n "purge|portal" infra/src/crons.ts`), not silently dropped.
+- [ ] **Step 6: Run everything** — `bun run typecheck`; `bun run --cwd apps/api test` (portal service/router/schema/purge tests pass **unchanged** — they inject fakes); the guest-router mount test shows only `portal`; `bun run apps:check` → clean; `bun run --cwd apps/web test -- placeholder-tiles` → PASS.
+- [ ] **Step 7: Verify on the real panel** — launch, confirm the guest-wifi tile renders and works; screenshot for the record.
+- [ ] **Step 8: Atomic commit — the whole fold in one push**
 
 ```bash
 git pull --rebase --autostash
-git add features/guest-wifi features/_generated apps/api/drizzle.config.ts apps/api/src/db/schema.ts apps/web/src/lib/tile-registry.ts scripts/apps-gen apps/api/src/trpc apps/api/src/guest-server.ts
+# explicit paths only (never git add -A). Include the moved web files + their old
+# locations (git mv shows both), the allowlist edit staged in Task 5.1, and crons.
+git add features/guest-wifi features/guest-exposed.ts features/_generated \
+  apps/api/drizzle.config.ts apps/api/src/db/schema.ts apps/api/src/trpc apps/api/src/guest-server.ts \
+  apps/api/src/services apps/api/src/__tests__ \
+  apps/web/src/lib/tile-registry.ts apps/web/src/components/tiles apps/web/src/lib/guest-wifi-modal-store.ts \
+  scripts/apps-gen infra/src/crons.ts
 git commit -m "feat(track-c): fold guest-wifi into features/ — the C7 canary (Q8/Q9/Q11)
 
-- git mv seamed portal files into features/guest-wifi/ + branded facets
+- git mv seamed portal files (service/repo/router/purge/tiles/modal-store) into
+  features/guest-wifi/ + branded facets; move portal_* tables to feature schema
 - feature owns its config slice + db handle + UniFi client (D1)
 - codegen union(features/*, registry leftovers) for tiles AND schema barrel (D2)
 - drizzle.config repointed at schema.gen.ts; db:generate empty diff (no DROP)
-- guestRouter from guestExposed ∩ GUEST_EXPOSED"
-git show --stat HEAD
+- guestRouter from guestExposed ∩ GUEST_EXPOSED; allowlist adds tile_guestwifi
+- purge cron rescheduled via crons.gen"
+git show --stat HEAD   # verify the fold is complete + no stray parallel-session files
 git push
 ```
 
-- [ ] **Step 8: Watch the deploy** — `gh run watch <id> --exit-status`; verify all three pod image ages advanced.
+- [ ] **Step 9: Watch the deploy** — `gh run watch <id> --exit-status`; verify all three pod image ages advanced.
 
 ### Task 5.6: Doc updates owed on land
 
@@ -1073,4 +1124,6 @@ git push
 
 **Type consistency:** `defineApp`/`defineApi`/`defineJobs`/`defineCron` signatures in Task 3.1 match their use in Task 5.3; `collect()`/`validate()`/`renderTiles()` signatures in 3.2–3.3 match their extension in 5.4; `createPool`/`createUnifiClient`/`hydrateSecretFiles`/`databaseUrlFromSecret` signatures in Slice 4 match their consumption in Slice 5. `GUEST_EXPOSED` is defined in 3.3 (empty) and populated in 5.1.
 
-**Known adaptation points** (real names to confirm at execution, flagged inline, not placeholders): the tRPC init module path in `app-kit/server.ts`; the real `TILE_REGISTRY` field accessors in `collect.ts`; the core package import specifier (`@www/core` vs actual); exact camera/session coupling files (mapped in Task 1.1).
+**Review-pinned facts** (verified by the plan-review agent, no longer open): core import specifier is `@www/core`; tRPC init is `apps/api/src/trpc/init.ts` (`router`+`publicProcedure`); the guest-wifi web files are `apps/web/src/components/tiles/GuestWifiTile.tsx` + `GuestWifiTileView.tsx` + `apps/web/src/lib/guest-wifi-modal-store.ts`; the real tile id is `tile_guestwifi`; the tile view field is `viewComponent`; `board-layout.ts` exports `resolveLayout(saved,…)`; the jsdom unit project (`apps/web/vitest.config.ts`) has no `setupFiles`; CI path filters live in `.github/workflows/ci.yml`; `portal.ts` imports the UniFi singleton and is rewired in Slice 4.
+
+**Remaining confirm-at-execution points** (benign — a named file to read, not a blank): the real `TILE_REGISTRY` coord field names in `collect.ts`; the exact camera/session coupling files (mapped in Task 1.1); the precise `.dependency-cruiser` config filename/format.
