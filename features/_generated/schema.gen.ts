@@ -4,6 +4,7 @@
 
 export * from "../../apps/api/src/db/schema";
 export * from "../deploys/schema";
+export * from "../events/schema";
 export * from "../guest-wifi/schema";
 export * from "../notif/schema";
 export * from "../weather/schema";

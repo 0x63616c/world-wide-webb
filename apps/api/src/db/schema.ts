@@ -7,7 +7,6 @@ import {
   jsonb,
   pgTable,
   primaryKey,
-  serial,
   text,
   timestamp,
   uniqueIndex,
@@ -18,16 +17,6 @@ import {
 // re-export that preserves object identity) so the drizzle relational schema
 // still registers it and existing imports from "../db/schema" keep working
 // unchanged (same precedent as deviceState/integrationSyncStatus below).
-export { job } from "@www/core";
-
-export const events = pgTable("events", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  place: text("place").notNull(),
-  date: timestamp("date", { withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
-
 // Device sync: backend owns device state; frontend reads merged (effective) state.
 // Ported from evee device-state-sync pattern. Desired window is 5s for CC.
 // The deviceState table + its state types + DeviceKind now live in @www/core
@@ -45,6 +34,7 @@ export {
   type DeviceStateValue,
   deviceState,
   integrationSyncStatus,
+  job,
   type LightColor,
 } from "@www/core";
 

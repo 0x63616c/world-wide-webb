@@ -1,15 +1,9 @@
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { describe, expect, it, vi } from "vitest";
 
-import type * as schema from "../db/schema";
-import { EventSelectSchema } from "../db/zod-schemas";
-import {
-  createEvent,
-  daysUntil,
-  deleteEvent,
-  listEvents,
-  updateEvent,
-} from "../services/events-service";
+import { EventSelectSchema } from "./api";
+import type * as schema from "./schema";
+import { createEvent, daysUntil, deleteEvent, listEvents, updateEvent } from "./service";
 
 type Db = NodePgDatabase<typeof schema>;
 

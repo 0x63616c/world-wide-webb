@@ -1,7 +1,7 @@
 import { asc, eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
-import * as schema from "../db/schema";
+import * as schema from "./schema";
 
 export interface EventRow {
   /** DB primary key, needed so the manage UI can target edit/delete. */

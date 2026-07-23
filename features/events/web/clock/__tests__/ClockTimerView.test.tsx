@@ -7,7 +7,7 @@
 import "@testing-library/jest-dom";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { TimerRecord } from "../../../../../lib/time-suite/types";
+import type { TimerRecord } from "@/lib/time-suite/types";
 import { ClockTimerView, type ClockTimerViewProps } from "../ClockTimerView";
 
 afterEach(cleanup);

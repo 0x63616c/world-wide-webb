@@ -2,9 +2,10 @@
  * Seeds the events table with upcoming concert data.
  * Run with: bun run api/src/db/seed.ts
  */
+
+import { events } from "@features/events/schema";
 import { createLogger } from "@www/logger";
 import { db, pool } from "./index";
-import { events } from "./schema";
 
 const log = createLogger({ service: "api" });
 

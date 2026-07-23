@@ -18,7 +18,7 @@
  * in Storybook and tests without any query setup.
  */
 
-import type { EventRow } from "@/components/tiles/EventsTileView";
+import type { EventRow } from "../EventsTileView";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

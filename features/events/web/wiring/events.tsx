@@ -16,12 +16,12 @@
  */
 
 import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
-import { EventsModalCountdownSpotlight } from "@/components/tiles/views/EventsModalCountdownSpotlight";
-import { EventsModalFullAgenda } from "@/components/tiles/views/EventsModalFullAgenda";
-import { EventsModalManage } from "@/components/tiles/views/EventsModalManage";
-import { EventsModalMonthGrid } from "@/components/tiles/views/EventsModalMonthGrid";
-import { EventsModalTimelineGaps } from "@/components/tiles/views/EventsModalTimelineGaps";
 import { trpc } from "@/lib/trpc";
+import { EventsModalCountdownSpotlight } from "../views/EventsModalCountdownSpotlight";
+import { EventsModalFullAgenda } from "../views/EventsModalFullAgenda";
+import { EventsModalManage } from "../views/EventsModalManage";
+import { EventsModalMonthGrid } from "../views/EventsModalMonthGrid";
+import { EventsModalTimelineGaps } from "../views/EventsModalTimelineGaps";
 
 function useEventsVariants(): { variants: DetailVariant[]; loading: boolean } {
   // Read variants show what's ahead; manage also needs the stale rows so they

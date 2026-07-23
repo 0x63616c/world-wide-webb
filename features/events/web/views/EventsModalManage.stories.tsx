@@ -7,7 +7,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import { modalDocsParameters } from "../__stories__/factory";
+import { modalDocsParameters } from "@/components/tiles/__stories__/factory";
 import type { ManageEventRow } from "./EventsModalManage";
 import { EventsModalManage } from "./EventsModalManage";
 

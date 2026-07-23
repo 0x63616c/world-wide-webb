@@ -10,8 +10,8 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { modalDocsParameters } from "@/components/tiles/__stories__/factory";
 import type { StopwatchState } from "@/lib/time-suite/types";
-import { modalDocsParameters } from "../../__stories__/factory";
 import { ClockStopwatchView } from "./ClockStopwatchView";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────

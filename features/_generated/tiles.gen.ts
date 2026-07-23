@@ -45,7 +45,7 @@ export const GENERATED_TILES: readonly GeneratedTile[] = [
   },
   {
     id: "tile_clock",
-    appId: "tile_clock",
+    appId: "tile_events",
     label: "Clock",
     worldCol: 26,
     worldRow: 27,
@@ -54,7 +54,7 @@ export const GENERATED_TILES: readonly GeneratedTile[] = [
     home: true,
     guestExposed: false,
     sensitive: false,
-    source: "registry",
+    source: "feature",
   },
   {
     id: "tile_ctrl",
@@ -97,7 +97,7 @@ export const GENERATED_TILES: readonly GeneratedTile[] = [
   },
   {
     id: "tile_event",
-    appId: "tile_event",
+    appId: "tile_events",
     label: "Upcoming",
     worldCol: 30,
     worldRow: 30,
@@ -106,7 +106,7 @@ export const GENERATED_TILES: readonly GeneratedTile[] = [
     home: false,
     guestExposed: false,
     sensitive: false,
-    source: "registry",
+    source: "feature",
   },
   {
     id: "tile_felogs",

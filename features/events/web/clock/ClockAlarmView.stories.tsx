@@ -11,8 +11,8 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
+import { modalDocsParameters } from "@/components/tiles/__stories__/factory";
 import type { AlarmRecord } from "@/lib/time-suite/types";
-import { modalDocsParameters } from "../../__stories__/factory";
 import { ClockAlarmView } from "./ClockAlarmView";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────

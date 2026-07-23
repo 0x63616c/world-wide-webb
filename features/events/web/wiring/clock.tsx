@@ -20,10 +20,8 @@
  * suite keeps running in its stores, so waking + reopening shows it live again.
  */
 
-import { ClockModalCountdownHorizon } from "@/components/tiles/views/ClockModalCountdownHorizon";
-import { ClockModalWorldClocks } from "@/components/tiles/views/ClockModalWorldClocks";
+import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
 import { Skeleton } from "@/components/ui";
-import { WORLD_CLOCK_ZONES } from "@/config/world-clocks";
 import { useNow } from "@/lib/hooks";
 import { useAlarmFiring } from "@/lib/time-suite/alarm-store";
 import { useTimersRinging } from "@/lib/time-suite/timer-store";
@@ -31,7 +29,9 @@ import { trpc } from "@/lib/trpc";
 import { AlarmVariant } from "../clock/AlarmVariant";
 import { StopwatchVariant } from "../clock/StopwatchVariant";
 import { TimerVariant } from "../clock/TimerVariant";
-import type { DetailVariant, TileDetailPageEntry } from "../types";
+import { WORLD_CLOCK_ZONES } from "../config/world-clocks";
+import { ClockModalCountdownHorizon } from "../views/ClockModalCountdownHorizon";
+import { ClockModalWorldClocks } from "../views/ClockModalWorldClocks";
 
 /** World clocks , pure client-side Intl math off the wall clock; 1 s tick
  *  scoped here so only this variant re-renders while mounted. */

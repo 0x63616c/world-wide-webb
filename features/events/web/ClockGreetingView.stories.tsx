@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { Skeleton, Tile } from "../ui";
-import { defineTileMeta } from "./__stories__/factory";
+import { defineTileMeta } from "@/components/tiles/__stories__/factory";
+import { Skeleton, Tile } from "@/components/ui";
 import { ClockGreetingView } from "./ClockGreetingView";
 
 const meta = {

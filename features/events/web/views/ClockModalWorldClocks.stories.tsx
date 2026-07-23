@@ -10,7 +10,7 @@
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { modalDocsParameters } from "../__stories__/factory";
+import { modalDocsParameters } from "@/components/tiles/__stories__/factory";
 import { ClockModalWorldClocks } from "./ClockModalWorldClocks";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────

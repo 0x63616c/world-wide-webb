@@ -18,8 +18,9 @@ it("collect() unions the guest-wifi feature manifest, deduped against the regist
   expect(guest[0].source).toBe("feature");
   expect(guest[0].guestExposed).toBe(true);
 
-  // A hand-placed tile still collects from the registry.
-  expect(model.apps.find((a) => a.id === "tile_clock")?.source).toBe("registry");
+  // A hand-placed tile still collects from the registry (tile_clock folded
+  // into features/events; tile_ctrl remains hand-placed).
+  expect(model.apps.find((a) => a.id === "tile_ctrl")?.source).toBe("registry");
 
   // The fold surfaces: the feature's tables, its router key, and its cron.
   expect(model.features.map((f) => f.dir)).toContain("guest-wifi");
@@ -72,5 +73,21 @@ it("collect() sources both weather tiles once from the two-tile feature manifest
   // The BLOCKER regression guard: neither tile id leaks back in as a registry app.
   expect(model.apps.filter((a) => a.id === "tile_weath")).toHaveLength(0);
   expect(model.apps.filter((a) => a.id === "tile_hourly")).toHaveLength(0);
+  expect(() => validate(model, ["tile_guestwifi"])).not.toThrow();
+});
+
+// Second multi-tile fold: features/events declares TWO tiles (tile_event +
+// tile_clock) under one app id (tile_events). Same collect.ts dedup guard as
+// weather above, plus this is the first fold that moves the board HOME tile —
+// tile_clock's home:true must survive the collect into a single global home.
+it("collect() sources both events tiles once from the two-tile feature manifest", async () => {
+  const model = await collect();
+  const events = model.apps.filter((a) => a.id === "tile_events");
+  expect(events).toHaveLength(1);
+  expect(events[0].source).toBe("feature");
+  expect(events[0].tiles.map((t) => t.id).sort()).toEqual(["tile_clock", "tile_event"]);
+  // Neither tile id leaks back in as a registry app.
+  expect(model.apps.filter((a) => a.id === "tile_clock")).toHaveLength(0);
+  expect(model.apps.filter((a) => a.id === "tile_event")).toHaveLength(0);
   expect(() => validate(model, ["tile_guestwifi"])).not.toThrow();
 });

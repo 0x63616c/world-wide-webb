@@ -29,7 +29,7 @@ export interface ManageEventRow {
 }
 
 /** Writable payload shared by create + update. */
-export interface EventDraft {
+interface EventDraft {
   name: string;
   place: string;
   /** ISO-8601 string ready for the API. Date-only: always local midnight. */

@@ -5,15 +5,15 @@
  * tap silently no-ops , registry-entries.test.ts enforces completeness.
  */
 
+import { clockDetailEntry } from "@features/events/web/wiring/clock";
+import { eventsDetailEntry } from "@features/events/web/wiring/events";
 import { next12HoursDetailEntry } from "@features/weather/web/wiring/next12hours";
 import { weatherDetailEntry } from "@features/weather/web/wiring/weather";
 import { climateDetailEntry } from "../views/wiring/climate";
-import { eventsDetailEntry } from "../views/wiring/events";
 import { networkDetailEntry } from "../views/wiring/network";
 import { teslaDetailEntry } from "../views/wiring/tesla";
 import type { TileDetailEntry } from "./types";
 import { activityDetailEntry } from "./wiring/activity";
-import { clockDetailEntry } from "./wiring/clock";
 import { controlsDetailEntry } from "./wiring/controls";
 import { deploysDetailEntry } from "./wiring/deploys";
 import { dogCamDetailEntry } from "./wiring/dogcam";

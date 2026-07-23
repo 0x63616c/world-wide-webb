@@ -1,6 +1,7 @@
 import type { AppManifest } from "@app-kit";
 import deploysManifest from "@features/deploys/manifest";
 import dogcamManifest from "@features/dogcam/manifest";
+import eventsManifest from "@features/events/manifest";
 import guestWifiManifest from "@features/guest-wifi/manifest";
 import networkManifest from "@features/network/manifest";
 import notifManifest from "@features/notif/manifest";
@@ -19,12 +20,8 @@ import { TvNowPlayingTile } from "../components/media/TvNowPlayingTile";
 import { TvNowPlayingTileView } from "../components/media/TvNowPlayingTileView";
 import { ClimateTile } from "../components/tiles/ClimateTile";
 import { ClimateTileView } from "../components/tiles/ClimateTileView";
-import { ClockGreeting } from "../components/tiles/ClockGreeting";
-import { ClockGreetingView } from "../components/tiles/ClockGreetingView";
 import { ControlsTile } from "../components/tiles/ControlsTile";
 import { ControlsTileView } from "../components/tiles/ControlsTileView";
-import { EventsTile } from "../components/tiles/EventsTile";
-import { EventsTileView } from "../components/tiles/EventsTileView";
 import { FrontendLogsTile } from "../components/tiles/FrontendLogsTile";
 import { FrontendLogsTileView } from "../components/tiles/FrontendLogsTileView";
 import { PhotoBoothTile } from "../components/tiles/photo-booth/PhotoBoothTile";
@@ -64,17 +61,6 @@ export type TileRegistryEntry = {
 // features/guest-wifi/manifest.ts.
 const REGISTRY_ENTRIES: TileRegistryEntry[] = [
   {
-    id: "tile_clock",
-    label: "Clock",
-    component: ClockGreeting,
-    viewComponent: ClockGreetingView,
-    worldCol: 26,
-    worldRow: 27,
-    cols: 5,
-    rows: 3,
-    home: true,
-  },
-  {
     id: "tile_ctrl",
     label: "Controls",
     component: ControlsTile,
@@ -93,16 +79,6 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
     worldRow: 24,
     cols: 4,
     rows: 3,
-  },
-  {
-    id: "tile_event",
-    label: "Upcoming",
-    component: EventsTile,
-    viewComponent: EventsTileView,
-    worldCol: 30,
-    worldRow: 30,
-    cols: 4,
-    rows: 2,
   },
   // Media tiles (www-51hf)  --  TV, Sound System, TV Apps, Quick Play, and
   // Frontend Logs. Default positions are V4B layout, overridable via
@@ -201,6 +177,7 @@ const FEATURE_MANIFESTS: AppManifest[] = [
   deploysManifest,
   notifManifest,
   weatherManifest,
+  eventsManifest,
 ];
 
 function manifestToEntries(m: AppManifest): TileRegistryEntry[] {

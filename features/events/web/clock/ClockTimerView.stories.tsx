@@ -10,8 +10,8 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
+import { modalDocsParameters } from "@/components/tiles/__stories__/factory";
 import type { TimerRecord } from "@/lib/time-suite/types";
-import { modalDocsParameters } from "../../__stories__/factory";
 import { ClockTimerView } from "./ClockTimerView";
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────

@@ -63,6 +63,7 @@
     "bdui": "^0.0.38",
     "@trpc/server": "^11.17.0",
     "drizzle-orm": "^0.45.2",
+    "drizzle-zod": "^0.8.3",
     "zod": "^4.4.2"
   }
 }
