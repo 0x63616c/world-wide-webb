@@ -141,8 +141,18 @@ const INTERIM_HTTP_MODULES: readonly {
   importPath: string;
   source: string;
 }[] = [
-  // { file: "apps/api/src/http/booth.http.ts", ident: "boothHttp", importPath: "../../apps/api/src/http/booth.http", source: "interim:booth" },
-  // { file: "apps/api/src/http/wake.http.ts",  ident: "wakeHttp",  importPath: "../../apps/api/src/http/wake.http",  source: "interim:wake" },
+  {
+    file: "apps/api/src/http/booth.http.ts",
+    ident: "boothHttp",
+    importPath: "../../apps/api/src/http/booth.http",
+    source: "interim:booth",
+  },
+  {
+    file: "apps/api/src/http/wake.http.ts",
+    ident: "wakeHttp",
+    importPath: "../../apps/api/src/http/wake.http",
+    source: "interim:wake",
+  },
 ];
 
 /**

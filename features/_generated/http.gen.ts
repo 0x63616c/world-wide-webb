@@ -3,5 +3,10 @@
 // Re-run `bun run apps:gen` after changing a feature facet; commit the result.
 
 import type { HttpRoute } from "@app-kit";
+import { routes as boothHttp } from "../../apps/api/src/http/booth.http";
+import { routes as wakeHttp } from "../../apps/api/src/http/wake.http";
 
-export const GENERATED_ROUTES: readonly HttpRoute[] = [];
+export const GENERATED_ROUTES: readonly HttpRoute[] = [
+  ...boothHttp,
+  ...wakeHttp,
+];

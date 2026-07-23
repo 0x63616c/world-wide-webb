@@ -32,3 +32,28 @@ it("collect() unions the guest-wifi feature manifest, deduped against the regist
   // And the whole collected model still validates against the real allowlist.
   expect(() => validate(model, ["tile_guestwifi"])).not.toThrow();
 });
+
+// S3 codegen-level proof: the interim apps/api booth/wake http facets collect
+// through Source B (INTERIM_HTTP_MODULES), not featureDirs(), so this asserts
+// the collector's SECOND collection source actually yields the two migrated
+// routes , the real dispatch proof lives in
+// apps/api/src/http/__tests__/route-table.test.ts.
+it("collect() yields the migrated wake + booth routes from the interim http list", async () => {
+  const model = await collect();
+
+  expect(model.httpRoutes).toContainEqual({
+    method: "POST",
+    path: "/media/wake-photo",
+    match: "exact",
+    source: "interim:wake",
+  });
+  expect(model.httpRoutes).toContainEqual({
+    method: "POST",
+    path: "/media/booth-photo",
+    match: "exact",
+    source: "interim:booth",
+  });
+  expect(model.httpModules.map((m) => m.ident)).toEqual(
+    expect.arrayContaining(["wakeHttp", "boothHttp"]),
+  );
+});

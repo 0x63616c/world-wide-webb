@@ -8,20 +8,9 @@ import { env } from "./env";
 import { startGuestServer } from "./guest-server";
 import { findRoute } from "./http/route-table";
 import { getTvArtwork } from "./services/apple-tv-service";
-import {
-  BOOTH_FILTER_PATTERN,
-  BOOTH_PHOTO_MODES,
-  type BoothPhotoMode,
-  newBoothGroupId,
-  readBoothPhoto,
-  saveBoothPhoto,
-} from "./services/booth-photo-service";
+import { readBoothPhoto } from "./services/booth-photo-service";
 import { getClimate } from "./services/climate-service";
-import {
-  backfillWakePhotoIndex,
-  readWakePhoto,
-  saveWakePhoto,
-} from "./services/wake-photo-service";
+import { backfillWakePhotoIndex, readWakePhoto } from "./services/wake-photo-service";
 import { migratePhotoPaths } from "./startup/photo-path-migration";
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers/index";
@@ -168,40 +157,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
     });
   }
 
-  // Wake-photo ingest: the panel POSTs each burst frame as a raw JPEG body.
-  // Validation (JPEG magic, size cap) lives in the service; any rejection is a
-  // 400 so a misbehaving client can't 500-spam the log.
-  //
-  // The attribution headers are UNAUTHENTICATED (as is this whole route , the
-  // panel talks same-origin inside the homelab perimeter, there is no client
-  // auth to check). Shape-validate them so arbitrary header bytes can never
-  // land in wake_photo: a malformed value stores as NULL (unattributed), the
-  // same honest state a headerless upload gets.
-  if (url.pathname === "/media/wake-photo" && req.method === "POST") {
-    const headerTs = Number(req.headers.get("x-captured-at"));
-    const capturedAt = Number.isFinite(headerTs) && headerTs > 0 ? headerTs : Date.now();
-    const frameHeader = Number(req.headers.get("x-frame-idx"));
-    const frameIdx = Number.isFinite(frameHeader) && frameHeader >= 0 ? frameHeader : 0;
-    const rawSession = req.headers.get("x-session-id");
-    const sessionId = rawSession && /^isn_[0-9a-z]{1,32}$/.test(rawSession) ? rawSession : null;
-    const rawDevice = req.headers.get("x-device-id");
-    const deviceId = rawDevice && /^[0-9A-Za-z_-]{1,64}$/.test(rawDevice) ? rawDevice : null;
-    const bytes = new Uint8Array(await req.arrayBuffer());
-    try {
-      const path = await saveWakePhoto(db, bytes, {
-        capturedAt,
-        frameIdx,
-        deviceId,
-        sessionId,
-      });
-      return Response.json({ path }, { status: 201, headers: CORS_HEADERS });
-    } catch (err) {
-      return new Response(err instanceof Error ? err.message : "invalid wake photo", {
-        status: 400,
-        headers: CORS_HEADERS,
-      });
-    }
-  }
+  // Wake-photo ingest moved to apps/api/src/http/wake.http.ts (S3 route seam).
 
   // Wake-photo bytes for the viewer. Stored files never change, so the
   // content is immutable-cacheable; traversal/missing both 404 via the
@@ -222,64 +178,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
     });
   }
 
-  // Photo-booth ingest: the panel POSTs each captured frame as a raw image body
-  // (JPEG for photo/burst/four_frame, GIF for gif). Validation (format magic vs.
-  // mode, size cap) lives in the service; any rejection is a 400 so a
-  // misbehaving client can't 500-spam the log.
-  //
-  // Like the wake-photo route this is UNAUTHENTICATED same-origin ingest. The
-  // attribution headers are shape-validated so arbitrary bytes can never land in
-  // booth_photo: a bad mode 400s, a missing/malformed group id starts a fresh
-  // group (a single-frame capture), a malformed device id stores as NULL. The
-  // optional x-filter (a non-destructive display id) is absent for an unfiltered
-  // shot or a gif (baked in client-side), but a PRESENT malformed value 400s
-  // rather than storing junk.
-  if (url.pathname === "/media/booth-photo" && req.method === "POST") {
-    const rawMode = req.headers.get("x-mode");
-    if (!rawMode || !BOOTH_PHOTO_MODES.includes(rawMode as BoothPhotoMode)) {
-      return new Response(`invalid mode: ${rawMode ?? "<missing>"}`, {
-        status: 400,
-        headers: CORS_HEADERS,
-      });
-    }
-    const mode = rawMode as BoothPhotoMode;
-    const rawFilter = req.headers.get("x-filter");
-    if (rawFilter !== null && !BOOTH_FILTER_PATTERN.test(rawFilter)) {
-      return new Response(`invalid filter: ${rawFilter}`, { status: 400, headers: CORS_HEADERS });
-    }
-    const filter = rawFilter;
-    const headerTs = Number(req.headers.get("x-captured-at"));
-    const capturedAt = Number.isFinite(headerTs) && headerTs > 0 ? headerTs : Date.now();
-    const frameHeader = Number(req.headers.get("x-frame-idx"));
-    const frameIdx = Number.isFinite(frameHeader) && frameHeader >= 0 ? frameHeader : 0;
-    const rawGroup = req.headers.get("x-group-id");
-    const groupId =
-      rawGroup && /^bpg_[0-9a-z]{1,32}$/.test(rawGroup) ? rawGroup : newBoothGroupId();
-    const rawDevice = req.headers.get("x-device-id");
-    const deviceId = rawDevice && /^[0-9A-Za-z_-]{1,64}$/.test(rawDevice) ? rawDevice : null;
-    // A gif's raw source frames upload with x-source-only: 1 so they are stored
-    // but kept out of the gallery. Any other value (or absent) means a normal,
-    // shown frame.
-    const sourceOnly = req.headers.get("x-source-only") === "1";
-    const bytes = new Uint8Array(await req.arrayBuffer());
-    try {
-      const saved = await saveBoothPhoto(db, bytes, {
-        capturedAt,
-        mode,
-        groupId,
-        frameIdx,
-        deviceId,
-        filter,
-        sourceOnly,
-      });
-      return Response.json(saved, { status: 201, headers: CORS_HEADERS });
-    } catch (err) {
-      return new Response(err instanceof Error ? err.message : "invalid booth photo", {
-        status: 400,
-        headers: CORS_HEADERS,
-      });
-    }
-  }
+  // Photo-booth ingest moved to apps/api/src/http/booth.http.ts (S3 route seam).
 
   // Photo-booth bytes for the gallery. Stored files never change, so the content
   // is immutable-cacheable; traversal/missing both 404 via the service's null.
