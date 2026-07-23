@@ -52,11 +52,12 @@
     // Folded features (Track C) have no package.json of their own — they're
     // thin App folders, not workspace packages (AGENTS.md) — so knip resolves
     // their files against the root workspace, which doesn't declare apps/web's
-    // frontend test deps. These ARE real, used-in-apps/web deps; the edge is
-    // just invisible across this workspace-boundary quirk until a generic fix
-    // for the migration lands (Track C, see W0).
-    "@storybook/react-vite",
-    "storybook",
+    // frontend test deps. These ARE real, used-in-apps/web deps (via
+    // web.test.tsx / web-view.test.tsx render calls); the edge is just
+    // invisible across this workspace-boundary quirk until a generic fix for
+    // the migration lands (Track C, see W0). Storybook stories/story-tests stay
+    // under apps/web/src (same precedent as guest-wifi), so they don't need
+    // this treatment.
     "@testing-library/jest-dom",
     "@testing-library/react"
   ],
