@@ -5,11 +5,15 @@
  * pool is lazy (no connection until first query), so importing this module — and
  * therefore the branded facets that use it (api.ts, jobs.ts) — is side-effect
  * free enough for the codegen to load.
+ *
+ * `pool` stays module-private: since S2 moved the portal purge onto the
+ * cron-run seam (a one-shot `process.exit()`, see cron-run.ts), no caller
+ * outside this module needs the raw pool to close it explicitly.
  */
 import { createPool } from "@www/core";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { config } from "./config";
 import * as schema from "./schema";
 
-export const pool = createPool(config.DATABASE_URL);
+const pool = createPool(config.DATABASE_URL);
 export const db = drizzle(pool, { schema });

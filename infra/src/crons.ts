@@ -16,6 +16,7 @@
 import type * as k8s from "@pulumi/kubernetes";
 import type * as pulumi from "@pulumi/pulumi";
 import { controlCenterProductManifest, type DatabaseBackup, defineProduct } from "@www/platform";
+import { GENERATED_CRONS } from "../../features/_generated/crons.gen";
 import type { InfraNamespaceName } from "./cluster.ts";
 import type { CronJobSpec } from "./component.ts";
 import { ScheduledJob } from "./component.ts";
@@ -91,6 +92,24 @@ const controlCenterPostgresHost = controlCenterManifest.database.rwServiceName;
 // its CNPG clusters + namespace; a final pg_dump was taken to the NAS first
 // (captive-portal-final-20260721.dump).
 
+// One k8s CronJob per collected defineCron facet (S2 seam). Each runs the api
+// image's generic cron dispatcher (`bun cron.js <name>`), which invokes the
+// feature's run() via cron-handlers.gen.ts. Replaces per-cron hand-wiring: a new
+// purge-bearing feature declares defineCron and appears here automatically.
+function generatedCronSpecs(): OwnedCronJobSpec[] {
+  return GENERATED_CRONS.map((c) => ({
+    name: c.name,
+    namespaceName: "control-center",
+    image: ghcr("api"),
+    schedule: c.schedule,
+    command: ["bun", "cron.js", c.name],
+    secrets: [{ name: "POSTGRES_PASSWORD", ref: "eso" }],
+    secretName: SERVICE_SECRET_TARGETS["portal-data-purge"].secretName, // shared; both need only POSTGRES_PASSWORD
+    env: { TZ, POSTGRES_HOST: controlCenterPostgresHost },
+    imagePullSecrets: [GHCR_PULL_SECRET_NAME],
+  }));
+}
+
 /**
  * @public - the declared CronJob set (pure data). nasNfsServer is threaded into
  * the pg-backup NFS PV the same way services.ts threads it into the worker
@@ -99,14 +118,21 @@ const controlCenterPostgresHost = controlCenterManifest.database.rwServiceName;
  */
 export function cronSpecs(nasNfsServer: string): OwnedCronJobSpec[] {
   return [
+    // One CronJob per collected defineCron facet (S2 seam), e.g. guest-wifi's
+    // guest-wifi-purge. Runs the api image's generic `bun cron.js <name>`
+    // dispatcher. New purge-bearing features appear here automatically with
+    // zero hand-wiring.
+    ...generatedCronSpecs(),
+
     // Data hygiene (www-q002.18): a daily one-shot running the api IMAGE's
-    // bundled purge.js entrypoint (NOT a worker loop). Deletes portal
-    // authorizations expired >90 days, and weather_reading /
-    // weather_daily_reading rows recorded >30 days ago (both tables are
-    // append-only and would otherwise grow ~55k rows/day). The name stays
-    // "portal-data-purge" so the existing CronJob object isn't orphaned. Needs
-    // only the Postgres password; POSTGRES_HOST points at the CNPG rw Service
-    // because the api default "postgres" host doesn't resolve in k3s. 02:00 LA.
+    // bundled purge.js entrypoint (NOT a worker loop). Deletes weather_reading
+    // / weather_daily_reading rows recorded >30 days ago (both tables are
+    // append-only and would otherwise grow ~55k rows/day), plus frontend log /
+    // wake photo / github run retention. The name stays "portal-data-purge" so
+    // the existing CronJob object isn't orphaned, even though the portal purge
+    // itself moved onto the generated seam above. Needs only the Postgres
+    // password; POSTGRES_HOST points at the CNPG rw Service because the api
+    // default "postgres" host doesn't resolve in k3s. 02:00 LA.
     {
       name: "portal-data-purge",
       namespaceName: "control-center",

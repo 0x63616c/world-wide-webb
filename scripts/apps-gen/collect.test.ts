@@ -27,7 +27,7 @@ it("collect() unions the guest-wifi feature manifest, deduped against the regist
     expect.arrayContaining(["portal_authorization", "portal_rate_limit"]),
   );
   expect(model.routerKeys).toContainEqual({ key: "portal", source: "feature:guest-wifi" });
-  expect(model.crons.map((c) => c.name)).toContain("portal-data-purge");
+  expect(model.crons.map((c) => c.name)).toContain("guest-wifi-purge");
 
   // And the whole collected model still validates against the real allowlist.
   expect(() => validate(model, ["tile_guestwifi"])).not.toThrow();

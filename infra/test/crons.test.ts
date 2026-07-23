@@ -51,12 +51,12 @@ type CronSpec = ReturnType<typeof crons.cronSpecs>[number];
 const byName = (specs: CronSpec[], name: string) => specs.find((s) => s.name === name);
 
 describe("cronSpecs: the declared CronJob set", () => {
-  test("declares product backups plus portal-data-purge and map-extract (no image-prune, no cert-renew)", () => {
+  test("declares product backups plus portal-data-purge, guest-wifi-purge and map-extract (no image-prune, no cert-renew)", () => {
     const names = crons
       .cronSpecs(NAS)
       .map((c) => c.name)
       .sort();
-    expect(names).toEqual(["map-extract", "pg-backup", "portal-data-purge"]);
+    expect(names).toEqual(["guest-wifi-purge", "map-extract", "pg-backup", "portal-data-purge"]);
   });
 
   test("docker-image-prune does NOT exist (kubelet image GC replaces it)", () => {
@@ -100,6 +100,32 @@ describe("portal-data-purge", () => {
   test("disables the serviceaccount token automount", () => {
     const r = renderCronJob(purge() as CronJobSpec);
     expect(r.cronJob.spec.jobTemplate.spec.template.spec.automountServiceAccountToken).toBe(false);
+  });
+});
+
+describe("guest-wifi-purge (S2 generated-cron seam, first consumer)", () => {
+  const purge = () => byName(crons.cronSpecs(NAS), "guest-wifi-purge");
+
+  test("runs the api image's generic cron dispatcher nightly at 02:00 LA", () => {
+    const c = purge();
+    expect(c?.image).toBe("ghcr.io/0x63616c/www-control-center-api:main");
+    expect(c?.schedule).toBe("0 2 * * *");
+    expect(c?.command).toEqual(["bun", "cron.js", "guest-wifi-purge"]);
+    expect(c?.env?.TZ).toBe("America/Los_Angeles");
+  });
+
+  test("points DATABASE at the CNPG rw Service and mounts only POSTGRES_PASSWORD", () => {
+    const c = purge();
+    expect(c?.env?.POSTGRES_HOST).toBe("control-center-rw");
+    expect(c?.namespaceName).toBe("control-center");
+    expect(c?.secrets?.map((s) => s.name)).toEqual(["POSTGRES_PASSWORD"]);
+  });
+
+  test("renders one-shot semantics (Forbid + restartPolicy Never), not suspended", () => {
+    const r = renderCronJob(purge() as CronJobSpec);
+    expect(r.cronJob.spec.concurrencyPolicy).toBe("Forbid");
+    expect(r.cronJob.spec.suspend).toBe(false);
+    expect(r.cronJob.spec.jobTemplate.spec.template.spec.restartPolicy).toBe("Never");
   });
 });
 

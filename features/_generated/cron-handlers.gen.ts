@@ -5,5 +5,5 @@
 import { purgeCron as guestWifi_purgeCron } from "../guest-wifi/jobs";
 
 export const CRON_HANDLERS: Record<string, () => Promise<void>> = {
-  "portal-data-purge": guestWifi_purgeCron.run,
+  "guest-wifi-purge": guestWifi_purgeCron.run,
 };

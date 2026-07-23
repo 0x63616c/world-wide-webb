@@ -63,17 +63,16 @@ export async function purgePortalData(
  * The scheduled purge as a branded {@link defineCron} facet (Track C, C7). The
  * codegen collects every exported `defineCron` into `features/_generated/crons.gen.ts`.
  *
- * NOTE: the ACTUAL scheduling still lives in `infra/src/crons.ts` as the
- * `portal-data-purge` k8s CronJob that runs the api image's bundled `purge.js`
- * (which calls {@link purgePortalData} directly with the api's own db). This
- * facet is forward scaffolding for a future codegen-driven scheduler; it has no
- * runtime consumer yet, so the infra CronJob is deliberately left unchanged.
+ * This facet IS the runtime source (S2): collected into `crons.gen.ts` (schedule
+ * data, consumed by `infra/src/crons.ts`) and `cron-handlers.gen.ts` (the handler
+ * barrel), and run by the `guest-wifi-purge` k8s CronJob via `bun cron.js
+ * guest-wifi-purge`.
  *
  * @public collected by the codegen (dynamic import in scripts/apps-gen/collect.ts,
  * an edge knip can't see) into features/_generated/crons.gen.ts; no static import.
  */
 export const purgeCron = defineCron({
-  name: "portal-data-purge",
+  name: "guest-wifi-purge",
   schedule: "0 2 * * *",
   run: async () => {
     await purgePortalData(db);

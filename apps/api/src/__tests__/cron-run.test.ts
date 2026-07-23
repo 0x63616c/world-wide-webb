@@ -2,7 +2,7 @@
  * Seam-proof test for the S2 cron-run seam (Track C). Proves the generic
  * dispatcher is a REAL invocation path, not just a collection assertion:
  * imports `runCron` from cron-run.ts, mocks the guest-wifi feature's db so no
- * real DB is touched, dispatches "portal-data-purge" through the generated
+ * real DB is touched, dispatches "guest-wifi-purge" through the generated
  * cron-handlers.gen.ts barrel, and asserts the purge path actually ran.
  *
  * Mirrors apps/worker/src/__tests__/jobs-seam.test.ts (the S1 pattern).
@@ -30,7 +30,7 @@ describe("S2 cron-run seam", () => {
   it("dispatches a known cron name through the generated handler barrel", async () => {
     dbMock.deleteCalls = 0;
 
-    await runCron("portal-data-purge");
+    await runCron("guest-wifi-purge");
 
     // Proves the collected cron actually RAN through the generated barrel +
     // generic dispatcher: purgePortalData's delete() fired against the
