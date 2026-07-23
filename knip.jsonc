@@ -48,7 +48,17 @@
     "bdui",
     // quality-gate.ts launches Biome through bunx so every workflow/hook uses the
     // same command path, but knip cannot see stringly CLI edges.
-    "@biomejs/biome"
+    "@biomejs/biome",
+    // Folded features (Track C) have no package.json of their own — they're
+    // thin App folders, not workspace packages (AGENTS.md) — so knip resolves
+    // their files against the root workspace, which doesn't declare apps/web's
+    // frontend test deps. These ARE real, used-in-apps/web deps; the edge is
+    // just invisible across this workspace-boundary quirk until a generic fix
+    // for the migration lands (Track C, see W0).
+    "@storybook/react-vite",
+    "storybook",
+    "@testing-library/jest-dom",
+    "@testing-library/react"
   ],
 
   // `tilt` is the dev-stack binary invoked by the root `dev` script; not an npm dep.
