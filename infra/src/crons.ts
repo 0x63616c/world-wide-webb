@@ -16,7 +16,7 @@
 import type * as k8s from "@pulumi/kubernetes";
 import type * as pulumi from "@pulumi/pulumi";
 import { controlCenterProductManifest, type DatabaseBackup, defineProduct } from "@www/platform";
-import { GENERATED_CRONS } from "../../features/_generated/crons.gen";
+import { GENERATED_CRONS } from "../../features/_generated/crons.gen.ts";
 import type { InfraNamespaceName } from "./cluster.ts";
 import type { CronJobSpec } from "./component.ts";
 import { ScheduledJob } from "./component.ts";
