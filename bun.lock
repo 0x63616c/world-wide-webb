@@ -122,10 +122,6 @@
         "vitest": "^3.2.4",
       },
     },
-    "drizzle": {
-      "name": "@control-center/drizzle",
-      "version": "0.0.0",
-    },
     "infra": {
       "name": "@www/infra",
       "version": "0.0.0",
@@ -485,8 +481,6 @@
     "@chromatic-com/storybook": ["@chromatic-com/storybook@5.2.1", "", { "dependencies": { "@neoconfetti/react": "^1.0.0", "chromatic": "16.10.0", "jsonfile": "^6.1.0", "strip-ansi": "^7.1.0" }, "peerDependencies": { "storybook": "^0.0.0-0 || ^10.1.0 || ^10.1.0-0 || ^10.2.0-0 || ^10.3.0-0 || ^10.4.0-0 || ^10.5.0-0 || ^10.6.0-0" } }, "sha512-z6I7NJk/0VngA64y5TNYaB4Hc2X8+90n4op6lBt9PvWk5TmIlFLDqdX33rlrwbNRkkYijVgA/wO04rVYXi5Mlg=="],
 
     "@control-center/api": ["@control-center/api@workspace:apps/api"],
-
-    "@control-center/drizzle": ["@control-center/drizzle@workspace:drizzle"],
 
     "@control-center/map-provision": ["@control-center/map-provision@workspace:apps/map-provision"],
 
