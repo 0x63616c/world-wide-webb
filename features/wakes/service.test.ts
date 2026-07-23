@@ -5,7 +5,7 @@ import {
   getInteractionSession,
   type InteractionSessionEvent,
   summarise,
-} from "./interaction-session-service";
+} from "./service";
 
 const SID = "isn_aaaaaaaaaaaa";
 

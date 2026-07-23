@@ -9,6 +9,7 @@ import guestWifiManifest from "@features/guest-wifi/manifest";
 import networkManifest from "@features/network/manifest";
 import notifManifest from "@features/notif/manifest";
 import teslaManifest from "@features/tesla/manifest";
+import wakesManifest from "@features/wakes/manifest";
 import weatherManifest from "@features/weather/manifest";
 import weightManifest from "@features/weight/manifest";
 import type { ComponentType } from "react";
@@ -22,8 +23,6 @@ import { TvAppsTileView } from "../components/media/TvAppsTileView";
 import { TvNowPlayingTile } from "../components/media/TvNowPlayingTile";
 import { TvNowPlayingTileView } from "../components/media/TvNowPlayingTileView";
 import { PhotoBoothTile } from "../components/tiles/photo-booth/PhotoBoothTile";
-import { WakesTile } from "../components/tiles/WakesTile";
-import { WakesTileView } from "../components/tiles/WakesTileView";
 export type TileRegistryEntry = {
   id: string;
   // The tile's name, used by the minimap hover label, the centered-tile pan
@@ -100,16 +99,8 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
     cols: 4,
     rows: 2,
   },
-  {
-    id: "tile_wakes",
-    label: "Activity",
-    component: WakesTile,
-    viewComponent: WakesTileView,
-    worldCol: 34,
-    worldRow: 30,
-    cols: 2,
-    rows: 2,
-  },
+  // Activity used to live here as "tile_wakes" (2x2 at col 34 / row 30) but now
+  // comes from features/wakes/manifest.ts (Track C, Wave 5).
   // Notification Center used to live here as "tile_notif" (cols 38-41 / rows
   // 24-26, top-right corner of the cluster) but now comes from
   // features/notif/manifest.ts (Track C, S1). Frontend Logs used to live here
@@ -146,6 +137,7 @@ const FEATURE_MANIFESTS: AppManifest[] = [
   deploysManifest,
   notifManifest,
   weatherManifest,
+  wakesManifest,
   eventsManifest,
   acManifest,
   ctrlManifest,

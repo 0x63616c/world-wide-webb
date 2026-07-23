@@ -3,11 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import {
-  purgeWakePhotos,
-  WAKE_PHOTO_RETENTION_MS,
-  wakePhotoCutoff,
-} from "./wake-photo-purge-service";
+import { purgeWakePhotos, WAKE_PHOTO_RETENTION_MS, wakePhotoCutoff } from "./jobs";
 
 // ─── minimal in-memory db harness: only the query surface the purge calls ────
 

@@ -23,7 +23,7 @@ it("renders the wake + booth http modules as an import barrel, stable across two
   const b = renderHttp(model);
   expect(a).toBe(b);
   expect(a).toContain('import { routes as boothHttp } from "../../apps/api/src/http/booth.http";');
-  expect(a).toContain('import { routes as wakeHttp } from "../../apps/api/src/http/wake.http";');
+  expect(a).toContain('import { routes as wakesHttp } from "../wakes/http";');
   expect(a).toContain("...boothHttp");
-  expect(a).toContain("...wakeHttp");
+  expect(a).toContain("...wakesHttp");
 });

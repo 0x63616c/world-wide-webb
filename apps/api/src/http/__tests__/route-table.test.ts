@@ -15,18 +15,18 @@
  *     `handle()` uses, confirming the S3 centralization (dropping inline
  *     CORS from the migrated handlers) is behaviour-preserving.
  *
- * Mock path note: wake.http.ts imports `../services/wake-photo-service` (one
- * level up from apps/api/src/http/); from this __tests__/ file that same
- * module id is `../../services/wake-photo-service` , the vi.mock path below
- * MUST match that resolved id or the spy silently never fires.
+ * Mock path note: features/wakes/http.ts imports `saveWakePhoto` from its
+ * sibling `./photos`, resolved via the `@features/wakes/photos` alias , the
+ * vi.mock path below MUST match that resolved module id or the spy silently
+ * never fires.
  */
 import type { HttpRoute } from "@app-kit";
 import { describe, expect, it, vi } from "vitest";
 
 const saveWakePhotoMock = vi.hoisted(() => vi.fn());
 
-vi.mock("../../services/wake-photo-service", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../services/wake-photo-service")>();
+vi.mock("@features/wakes/photos", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@features/wakes/photos")>();
   return { ...actual, saveWakePhoto: saveWakePhotoMock };
 });
 

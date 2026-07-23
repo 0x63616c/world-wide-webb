@@ -16,8 +16,8 @@
 import { frontendLog } from "@features/felogs/schema";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import type * as schema from "../db/schema";
-import { wakePhoto } from "../db/schema";
+import type * as schema from "./schema";
+import { wakePhoto } from "./schema";
 
 export interface InteractionSessionSummary {
   id: string;

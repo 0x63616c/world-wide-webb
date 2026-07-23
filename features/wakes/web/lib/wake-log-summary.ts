@@ -9,7 +9,7 @@
  * null), so it is unit-testable and the component around it just subscribes.
  */
 
-import type { LogEntry } from "./log/types";
+import type { LogEntry } from "@/lib/log/types";
 
 export interface WakeCaptureStatus {
   /** A human one-liner, e.g. "Last burst: 0/3 frames uploaded". */

@@ -3,7 +3,7 @@
  * top, then the interaction transcript in order. Purely presentational.
  */
 
-import { formatEventLine } from "../../lib/session-format";
+import { formatEventLine } from "./lib/session-format";
 import { formatSessionDuration, type SessionSummary } from "./SessionListView";
 
 export interface SessionEvent {

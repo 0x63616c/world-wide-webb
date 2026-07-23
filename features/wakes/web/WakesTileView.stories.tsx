@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { defineTileMeta } from "./__stories__/factory";
+import { defineTileMeta } from "@/components/tiles/__stories__/factory";
 import { WakesTileView } from "./WakesTileView";
 
 const meta = {

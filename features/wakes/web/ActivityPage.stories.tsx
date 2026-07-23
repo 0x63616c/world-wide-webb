@@ -8,8 +8,8 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
-import { log } from "../../lib/log/logger";
-import { modalDocsParameters } from "./__stories__/factory";
+import { modalDocsParameters } from "@/components/tiles/__stories__/factory";
+import { log } from "@/lib/log/logger";
 import type { WakePhotoDay } from "./ActivityPage";
 import { ActivityPage } from "./ActivityPage";
 

@@ -9,7 +9,7 @@ import {
   readWakePhoto,
   saveWakePhoto,
   type WakePhotoMeta,
-} from "./wake-photo-service";
+} from "./photos";
 
 // Minimal valid-enough JPEG body: SOI marker prefix + payload.
 function jpeg(payload = "x"): Uint8Array {

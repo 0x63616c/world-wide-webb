@@ -12,11 +12,11 @@
  */
 
 import { useState } from "react";
-import { ActivityPage } from "@/components/tiles/ActivityPage";
+import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
 import { POLL } from "@/lib/hooks";
 import { closeTileDetail } from "@/lib/tile-detail-store";
 import { trpc } from "@/lib/trpc";
-import type { DetailVariant, TileDetailPageEntry } from "../types";
+import { ActivityPage } from "../ActivityPage";
 
 function useActivityVariants(): { variants: DetailVariant[]; loading: boolean } {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);

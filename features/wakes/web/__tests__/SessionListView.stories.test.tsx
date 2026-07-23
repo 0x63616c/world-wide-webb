@@ -7,8 +7,8 @@ import "@testing-library/jest-dom";
 import { composeStories } from "@storybook/react-vite";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import * as detailStories from "../tiles/SessionDetailView.stories";
-import * as listStories from "../tiles/SessionListView.stories";
+import * as detailStories from "../SessionDetailView.stories";
+import * as listStories from "../SessionListView.stories";
 
 const { Default, Live, NoPhotos, Empty } = composeStories(listStories);
 const { Default: DetailDefault } = composeStories(detailStories);

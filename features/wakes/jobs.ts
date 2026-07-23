@@ -1,9 +1,10 @@
 /**
- * Wake-photo retention purge.
+ * Wake-photo retention purge (Track C, Wave 5 fold — was apps/api's
+ * wake-photo-purge-service.ts).
  *
  * Wake photos were the only media the control-center kept with no retention at
  * all , the filesystem tree was the store, and a tree has no cheap "older than"
- * query, so nothing ever deleted them. The index row (see wake-photo-service)
+ * query, so nothing ever deleted them. The index row (see photos.ts)
  * is what makes a cutoff affordable.
  *
  * Retention: KEEP 90 days, cut on `captured_at`. Longer than the 30-day
@@ -14,16 +15,22 @@
  * (nothing lists from disk any more) and is re-indexed by the boot backfill then
  * purged again next run, whereas an orphaned row 404s in the viewer.
  *
- * Runs from the same daily one-shot CronJob as the other purges (see purge.ts),
- * never a worker loop (PRD Backend rule 7).
+ * Runs from the S2 cron seam (a daily one-shot k8s CronJob), never a worker
+ * loop (PRD Backend rule 7). Staggered off guest-wifi (0 2) + weather (0 3) +
+ * felogs.
+ *
+ * jobs.ts exports ONLY this `defineCron` facet , wake capture is a browser-side
+ * best-effort burst, not a worker job, so this feature has no `defineJobs`
+ * facet.
  */
-
+import { defineCron } from "@app-kit";
 import { getLogger } from "@www/logger";
 import { asc, eq, lt } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import type * as schema from "../db/schema";
-import { wakePhoto } from "../db/schema";
-import { defaultWakePhotoRoot, deleteWakePhotoFile } from "./wake-photo-service";
+import { db } from "./db";
+import { defaultWakePhotoRoot, deleteWakePhotoFile } from "./photos";
+import type * as schema from "./schema";
+import { wakePhoto } from "./schema";
 
 /** Wake photos are retained for 90 days, then purged. */
 export const WAKE_PHOTO_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
@@ -41,7 +48,8 @@ export function wakePhotoCutoff(now: Date): Date {
 
 /**
  * Run one wake-photo purge pass: delete index rows past the cutoff and unlink
- * their files. Pure of any scheduling; purge.ts calls this once and exits.
+ * their files. Pure of any scheduling; the CronJob's purge entrypoint calls
+ * this once and exits.
  */
 export async function purgeWakePhotos(
   db: NodePgDatabase<typeof schema>,
@@ -72,3 +80,20 @@ export async function purgeWakePhotos(
   getLogger().info({ deleted }, "wake photo purge hit its batch cap");
   return { photos: deleted, truncated: true };
 }
+
+/**
+ * The scheduled purge as a branded {@link defineCron} facet (Track C, S2). The
+ * codegen collects every exported `defineCron` into `features/_generated/crons.gen.ts`,
+ * run by the generated `wake-photo-purge` k8s CronJob via `bun cron.js wake-photo-purge`.
+ * Staggered off guest-wifi's `0 2 * * *` + weather's `0 3 * * *`.
+ *
+ * @public collected by the codegen (dynamic import in scripts/apps-gen/collect.ts,
+ * an edge knip can't see) into features/_generated/crons.gen.ts; no static import.
+ */
+export const purgeCron = defineCron({
+  name: "wake-photo-purge",
+  schedule: "0 4 * * *",
+  run: async () => {
+    await purgeWakePhotos(db);
+  },
+});

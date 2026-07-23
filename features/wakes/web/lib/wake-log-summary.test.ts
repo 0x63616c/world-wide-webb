@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { LogEntry } from "../log/types";
-import { summariseWakeCapture } from "../wake-log-summary";
+import type { LogEntry } from "@/lib/log/types";
+import { summariseWakeCapture } from "./wake-log-summary";
 
 let seq = 0;
 function entry(source: string, msg: string, level: LogEntry["level"], data?: unknown): LogEntry {

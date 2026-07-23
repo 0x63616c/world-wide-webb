@@ -4,9 +4,9 @@ import { nextFreeName, parsePhotoFileName } from "@www/core";
 import { getLogger } from "@www/logger";
 import { desc } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import type * as schema from "../db/schema";
-import { wakePhoto } from "../db/schema";
-import { env } from "../env";
+import { config } from "./config";
+import type * as schema from "./schema";
+import { wakePhoto } from "./schema";
 
 /**
  * Wake photos: front-camera burst frames the wall panel uploads every time it
@@ -58,7 +58,7 @@ const JPEG_MAGIC = [0xff, 0xd8, 0xff];
 const MAX_BYTES = 2 * 1024 * 1024;
 
 export function defaultWakePhotoRoot(): string {
-  return join(env.MEDIA_STORAGE_DIR, "wake-photos");
+  return join(config.MEDIA_STORAGE_DIR, "wake-photos");
 }
 
 /**
@@ -158,7 +158,14 @@ async function walkPhotoFiles(
  * rather than guessing.
  */
 export async function backfillWakePhotoIndex(
-  db: NodePgDatabase<typeof schema>,
+  // apps/api's server.ts calls this at boot with ITS OWN db handle (typed to
+  // apps/api's schema, which no longer includes wakePhoto now that the table
+  // moved here). The query builder calls below (.insert/.values/
+  // .onConflictDoNothing) only need the `wakePhoto` table object, not the db's
+  // schema generic , that generic only types `db.query.*`, unused here , so
+  // the schema generic is widened to accept either caller's db structurally.
+  // biome-ignore lint/suspicious/noExplicitAny: see comment above
+  db: NodePgDatabase<any>,
   root = defaultWakePhotoRoot(),
 ): Promise<{ inserted: number; scanned: number }> {
   const onDisk = await walkPhotoFiles(root);

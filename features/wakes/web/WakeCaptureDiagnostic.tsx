@@ -7,7 +7,7 @@
  */
 
 import { useLogTail } from "@/lib/log/useLogTail";
-import { summariseWakeCapture } from "@/lib/wake-log-summary";
+import { summariseWakeCapture } from "./lib/wake-log-summary";
 
 export function WakeCaptureDiagnostic() {
   const tail = useLogTail();

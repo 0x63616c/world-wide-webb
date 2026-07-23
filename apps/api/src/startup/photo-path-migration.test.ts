@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { wakePhoto } from "@features/wakes/schema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { wakePhoto } from "../db/schema";
 import { migratePhotoPaths } from "./photo-path-migration";
 
 type Row = { id: string | null; path: string; capturedAt: Date };

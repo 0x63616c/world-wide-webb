@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatEventLine } from "../session-format";
+import { formatEventLine } from "./session-format";
 
 describe("formatEventLine", () => {
   it("tile/tap uses the label when present", () => {

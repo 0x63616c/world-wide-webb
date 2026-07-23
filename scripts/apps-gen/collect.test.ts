@@ -35,29 +35,36 @@ it("collect() unions the guest-wifi feature manifest, deduped against the regist
   expect(() => validate(model, ["tile_guestwifi"])).not.toThrow();
 });
 
-// S3 codegen-level proof: the interim apps/api booth/wake http facets collect
+// S3 codegen-level proof: the interim apps/api booth http facet collects
 // through Source B (INTERIM_HTTP_MODULES), not featureDirs(), so this asserts
-// the collector's SECOND collection source actually yields the two migrated
-// routes , the real dispatch proof lives in
+// the collector's SECOND collection source actually yields the migrated
+// route , the real dispatch proof lives in
 // apps/api/src/http/__tests__/route-table.test.ts.
-it("collect() yields the migrated wake + booth routes from the interim http list", async () => {
+it("collect() yields the migrated booth route from the interim http list", async () => {
   const model = await collect();
 
-  expect(model.httpRoutes).toContainEqual({
-    method: "POST",
-    path: "/media/wake-photo",
-    match: "exact",
-    source: "interim:wake",
-  });
   expect(model.httpRoutes).toContainEqual({
     method: "POST",
     path: "/media/booth-photo",
     match: "exact",
     source: "interim:booth",
   });
-  expect(model.httpModules.map((m) => m.ident)).toEqual(
-    expect.arrayContaining(["wakeHttp", "boothHttp"]),
-  );
+  expect(model.httpModules.map((m) => m.ident)).toEqual(expect.arrayContaining(["boothHttp"]));
+});
+
+// Track C, Wave 5 fold: the wake-photo upload facet moved out of the interim
+// http list into features/wakes/http.ts, collected via Source A (the same path
+// api.ts/jobs.ts use), not the interim list.
+it("collect() sources the wake-photo route from the wakes feature, not the interim list", async () => {
+  const model = await collect();
+
+  expect(model.httpRoutes).toContainEqual({
+    method: "POST",
+    path: "/media/wake-photo",
+    match: "exact",
+    source: "feature:wakes",
+  });
+  expect(model.httpModules.map((m) => m.ident)).toContain("wakesHttp");
 });
 
 // The first multi-tile fold: features/weather declares TWO tiles

@@ -1,13 +1,14 @@
 import { defineHttp } from "@app-kit";
-import { db } from "../db/index";
-import { saveWakePhoto } from "../services/wake-photo-service";
+import { db } from "./db";
+import { saveWakePhoto } from "./photos";
 
 /**
- * Wake-photo ingest (S3 transitional home, see scripts/apps-gen/collect.ts's
- * INTERIM_HTTP_MODULES comment). Moved VERBATIM from server.ts's old
- * `/media/wake-photo` branch , same raw-body handling, same attribution-header
- * shape validation, same 201/400 split. CORS is no longer set here; the S3
- * route-table iterator overlays it centrally (see server.ts).
+ * Wake-photo ingest (Track C, Wave 5 fold , moved out of the interim
+ * apps/api/src/http/wake.http.ts into this feature's own http.ts, collected by
+ * scripts/apps-gen/collect.ts's Source A rather than the INTERIM_HTTP_MODULES
+ * list). Same raw-body handling, same attribution-header shape validation, same
+ * 201/400 split. CORS is not set here; the route-table iterator overlays it
+ * centrally (see server.ts).
  *
  * The panel POSTs each burst frame as a raw JPEG body. Validation (JPEG magic,
  * size cap) lives in the service; any rejection is a 400 so a misbehaving
