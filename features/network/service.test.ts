@@ -1,7 +1,7 @@
+import { createUnifiClient } from "@www/core";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { createUnifiClient } from "../integrations/unifi";
-import { DEMO_NETWORK, getNetworkStatus, NetworkConnectivity } from "../services/network-service";
-import { buildWifiQrPayload } from "../trpc/routers/network";
+import { buildWifiQrPayload } from "./api";
+import { DEMO_NETWORK, getNetworkStatus, NetworkConnectivity } from "./service";
 
 // ---------------------------------------------------------------------------
 // DEMO_NETWORK shape , always-on demo payload for the wall panel

@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { NetworkTile } from "../NetworkTile";
+import { NetworkTile } from "./web";
 import "@testing-library/jest-dom";
 
 // ---------------------------------------------------------------------------
@@ -9,7 +9,7 @@ import "@testing-library/jest-dom";
 
 const mockUseQuery = vi.fn();
 
-vi.mock("../../../lib/trpc", () => ({
+vi.mock("@/lib/trpc", () => ({
   trpc: {
     network: {
       status: {

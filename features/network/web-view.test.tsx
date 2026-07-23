@@ -5,8 +5,8 @@
 import "@testing-library/jest-dom";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { NetworkTileViewProps } from "../NetworkTileView";
-import { NetworkTileView } from "../NetworkTileView";
+import type { NetworkTileViewProps } from "./NetworkTileView";
+import { NetworkTileView } from "./NetworkTileView";
 
 afterEach(cleanup);
 

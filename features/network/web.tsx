@@ -4,6 +4,8 @@ import { trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";
 import { NetworkTileView } from "./NetworkTileView";
 
+export { NetworkTileView } from "./NetworkTileView";
+
 export function NetworkTile() {
   const q = useTileQuery(
     trpc.network.status.useQuery(undefined, {

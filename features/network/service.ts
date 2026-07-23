@@ -1,6 +1,14 @@
-import { env } from "../env";
-import type { UnifiClient } from "../integrations/unifi";
-import { UnifiStatus, unifi } from "../integrations/unifi";
+import type { UnifiClient } from "@www/core";
+import { createUnifiClient, UnifiStatus } from "@www/core";
+import { config } from "./config";
+
+// Module-level singleton built from this feature's config (replaces apps/api's
+// env-aware `unifi`).
+const unifi = createUnifiClient({
+  apiKey: config.UNIFI_API_KEY,
+  baseUrl: config.UNIFI_CONTROLLER_URL,
+  siteId: config.UNIFI_SITE_ID,
+});
 
 // ---------------------------------------------------------------------------
 // Types
@@ -108,7 +116,7 @@ export async function getNetworkStatus(clientOverride?: UnifiClient): Promise<Ne
   return {
     status:
       health.status === UnifiStatus.Ok ? NetworkConnectivity.Online : NetworkConnectivity.Offline,
-    ssid: env.WIFI_SSID || "Home",
+    ssid: config.WIFI_SSID || "Home",
     down: bytesToGbString(totalDown),
     up: bytesToGbString(totalUp),
     ping: health.wanLatencyMs ?? 0,

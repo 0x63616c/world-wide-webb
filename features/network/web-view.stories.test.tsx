@@ -7,7 +7,7 @@ import "@testing-library/jest-dom";
 import { composeStories } from "@storybook/react-vite";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import * as stories from "../NetworkTileView.stories";
+import * as stories from "./NetworkTileView.stories";
 
 const { Populated, Offline, EmptyTraffic, Loading } = composeStories(stories);
 

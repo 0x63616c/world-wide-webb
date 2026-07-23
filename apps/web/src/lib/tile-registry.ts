@@ -1,5 +1,6 @@
 import type { AppManifest } from "@app-kit";
 import guestWifiManifest from "@features/guest-wifi/manifest";
+import networkManifest from "@features/network/manifest";
 import type { ComponentType } from "react";
 
 import { QuickPlayTile } from "../components/media/QuickPlayTile";
@@ -24,8 +25,6 @@ import { EventsTile } from "../components/tiles/EventsTile";
 import { EventsTileView } from "../components/tiles/EventsTileView";
 import { FrontendLogsTile } from "../components/tiles/FrontendLogsTile";
 import { FrontendLogsTileView } from "../components/tiles/FrontendLogsTileView";
-import { NetworkTile } from "../components/tiles/NetworkTile";
-import { NetworkTileView } from "../components/tiles/NetworkTileView";
 import { Next12Hours } from "../components/tiles/Next12Hours";
 import { Next12HoursView } from "../components/tiles/Next12HoursView";
 import { NotificationCenterTile } from "../components/tiles/NotificationCenterTile";
@@ -104,16 +103,6 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
     worldCol: 26,
     worldRow: 24,
     cols: 4,
-    rows: 3,
-  },
-  {
-    id: "tile_wifi",
-    label: "Network",
-    component: NetworkTile,
-    viewComponent: NetworkTileView,
-    worldCol: 35,
-    worldRow: 27,
-    cols: 3,
     rows: 3,
   },
   {
@@ -284,7 +273,7 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
 // tile. The codegen (scripts/apps-gen) reads the SAME manifests and dedupes a
 // registry entry whose id a feature already owns, so each tile has exactly one
 // source of truth. Adding a feature = adding its manifest here + the folder.
-const FEATURE_MANIFESTS: AppManifest[] = [guestWifiManifest];
+const FEATURE_MANIFESTS: AppManifest[] = [guestWifiManifest, networkManifest];
 
 function manifestToEntry(m: AppManifest): TileRegistryEntry {
   const viewComponent = m.tile.viewComponent;

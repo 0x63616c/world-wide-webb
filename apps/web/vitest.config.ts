@@ -26,6 +26,19 @@ export default defineConfig({
     // parallelism (maxWorkers: 4 contends for CPU across runs; they pass in
     // well under 5s on an idle machine).
     testTimeout: 20_000,
+    // Collect this project's own tests PLUS the jsdom-shaped facet tests of every
+    // folded feature (Track C). A feature is self-contained (AGENTS.md), so its
+    // tests live beside it in features/<id>/; collection is by facet filename
+    // convention, mirroring codegen (manifest/api/web): `web.test.tsx`,
+    // `web-view.test.tsx` and `*.stories.test.tsx` are the frontend facet and run
+    // in jsdom here, while `service.test.ts`/`api.test.ts` run under apps/api
+    // (node). Keep this in sync with apps/api/vitest.config.ts. The default glob
+    // is restated first because setting `include` overrides vitest's default.
+    include: [
+      "**/*.{test,spec}.?(c|m)[jt]s?(x)",
+      "../../features/**/web*.test.tsx",
+      "../../features/**/*.stories.test.tsx",
+    ],
     // e2e-portal/*.spec.ts are Playwright specs (run via `bun run e2e:portal`
     // / e2e-portal/playwright.config.ts, not vitest). Vitest's default include
     // glob matches *.spec.ts too, so without an exclude it collects them and

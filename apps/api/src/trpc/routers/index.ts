@@ -10,7 +10,6 @@ import { githubRouter } from "./github";
 import { healthRouter } from "./health";
 import { logsRouter } from "./logs";
 import { mediaRouter } from "./media";
-import { networkRouter } from "./network";
 import { notificationsRouter } from "./notifications";
 import { sessionsRouter } from "./sessions";
 import { settingsRouter } from "./settings";
@@ -27,7 +26,6 @@ import { weightRouter } from "./weight";
 const baseRouter = router({
   health: healthRouter,
   weather: weatherRouter,
-  network: networkRouter,
   notifications: notificationsRouter,
   tesla: teslaRouter,
   climate: climateRouter,

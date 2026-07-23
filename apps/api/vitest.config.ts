@@ -20,5 +20,13 @@ export default defineConfig({
     // Seed the @www/logger root before every test file so that getLogger()
     // never throws in tests that import domain services which call getLogger().
     setupFiles: ["src/__tests__/setup-logger.ts"],
+    // Collect this project's own tests PLUS the node-shaped facet tests of every
+    // folded feature (Track C). A feature is self-contained (AGENTS.md), so its
+    // tests live beside it in features/<id>/; the collection is by facet filename
+    // convention, mirroring codegen (manifest/api/web): `service.test.ts` +
+    // `api.test.ts` are the backend facet and run in node here, while the
+    // `web*.test.tsx` frontend facet runs under apps/web (jsdom). Keep this in
+    // sync with apps/web/vitest.config.ts.
+    include: ["**/*.{test,spec}.?(c|m)[jt]s?(x)", "../../features/**/{service,api}.test.ts"],
   },
 });
