@@ -63,7 +63,11 @@
       // scripts/*.mjs are standalone node CLIs (verify-wall-panel.mjs, run by the
       // operator/CI) + their hermetic node tests (test-*.mjs); panel-health.mjs is
       // imported by both, so its exports are reached from these entries (www-jtp0.7).
-      "entry": ["scripts/*.ts", "scripts/*.mjs"]
+      // app-kit/{index,server}.ts are the web-safe and server barrels of the
+      // codegen authoring surface (Task 3.1): no feature imports them yet
+      // (features + the codegen collector land in later Track C tasks), so they
+      // need an explicit entry until then.
+      "entry": ["scripts/*.ts", "scripts/*.mjs", "app-kit/index.ts", "app-kit/server.ts"]
     },
     "apps/api": {
       // server.ts = Docker CMD; purge.ts = the portal data-hygiene cronJob

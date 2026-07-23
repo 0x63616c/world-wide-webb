@@ -12,6 +12,7 @@
         "knip": "^6.16.1",
         "lefthook": "^2.1.9",
         "playwright": "^1.60.0",
+        "react": "^19.2.5",
         "typescript": "^5.9.3",
         "vitest": "^3.2.4",
       },
