@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { UnifiClient } from "../integrations/unifi";
+import { createUnifiClient } from "../integrations/unifi";
 import { DEMO_NETWORK, getNetworkStatus, NetworkConnectivity } from "../services/network-service";
 import { buildWifiQrPayload } from "../trpc/routers/network";
 
@@ -58,7 +58,7 @@ describe("UnifiClient.getTrafficBuckets", () => {
   });
 
   function makeClient() {
-    return new UnifiClient({
+    return createUnifiClient({
       baseUrl: "https://unifi.local",
       apiKey: "testkey",
       siteId: "default",
@@ -143,7 +143,7 @@ describe("UnifiClient.getWanHealth", () => {
   });
 
   function makeClient() {
-    return new UnifiClient({
+    return createUnifiClient({
       baseUrl: "https://unifi.local",
       apiKey: "testkey",
       siteId: "default",
@@ -201,7 +201,7 @@ describe("UnifiClient.getWanHealth", () => {
 
 describe("getNetworkStatus , no API key", () => {
   test("returns DEMO_NETWORK when client is not configured (not a throw)", async () => {
-    const client = new UnifiClient({ baseUrl: "https://fake", apiKey: "", siteId: "default" });
+    const client = createUnifiClient({ baseUrl: "https://fake", apiKey: "", siteId: "default" });
     const result = await getNetworkStatus(client);
     expect(result).toEqual(DEMO_NETWORK);
   });
@@ -213,7 +213,11 @@ describe("getNetworkStatus , no API key", () => {
 
 describe("getNetworkStatus , configured client", () => {
   function makeConfiguredClient() {
-    return new UnifiClient({ baseUrl: "https://fake-unifi", apiKey: "testkey", siteId: "default" });
+    return createUnifiClient({
+      baseUrl: "https://fake-unifi",
+      apiKey: "testkey",
+      siteId: "default",
+    });
   }
 
   function makeBuckets(count = 24) {

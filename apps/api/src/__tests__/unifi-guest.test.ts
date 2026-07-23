@@ -9,7 +9,7 @@
  * surface as a thrown UnifiError (services throw, never fake success).
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { UnifiClient } from "../integrations/unifi";
+import { createUnifiClient } from "../integrations/unifi";
 
 const KEY = "test-api-key";
 
@@ -30,7 +30,7 @@ describe("UnifiClient.authorizeGuest", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(jsonResponse({ meta: { rc: "ok" }, data: [] }));
 
-    const client = new UnifiClient({
+    const client = createUnifiClient({
       baseUrl: "https://gw.test",
       apiKey: KEY,
       siteId: "default",
@@ -52,7 +52,11 @@ describe("UnifiClient.authorizeGuest", () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(jsonResponse({ meta: { rc: "ok" }, data: [] }));
-    const client = new UnifiClient({ baseUrl: "https://gw.test", apiKey: KEY });
+    const client = createUnifiClient({
+      baseUrl: "https://gw.test",
+      apiKey: KEY,
+      siteId: "default",
+    });
     await client.authorizeGuest("aa:bb:cc:dd:ee:ff", 60);
     const body = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body));
     expect(body.minutes).toBe(60);
@@ -60,13 +64,21 @@ describe("UnifiClient.authorizeGuest", () => {
 
   it("throws UnifiError on a controller outage (never fakes success)", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("ECONNREFUSED"));
-    const client = new UnifiClient({ baseUrl: "https://gw.test", apiKey: KEY });
+    const client = createUnifiClient({
+      baseUrl: "https://gw.test",
+      apiKey: KEY,
+      siteId: "default",
+    });
     await expect(client.authorizeGuest("aa:bb:cc:dd:ee:ff")).rejects.toThrow();
   });
 
   it("throws on a non-ok controller response", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ meta: { rc: "error" } }, 401));
-    const client = new UnifiClient({ baseUrl: "https://gw.test", apiKey: KEY });
+    const client = createUnifiClient({
+      baseUrl: "https://gw.test",
+      apiKey: KEY,
+      siteId: "default",
+    });
     await expect(client.authorizeGuest("aa:bb:cc:dd:ee:ff")).rejects.toThrow();
   });
 });
@@ -83,7 +95,11 @@ describe("UnifiClient.findActiveAuthorization", () => {
         ],
       }),
     );
-    const client = new UnifiClient({ baseUrl: "https://gw.test", apiKey: KEY, siteId: "default" });
+    const client = createUnifiClient({
+      baseUrl: "https://gw.test",
+      apiKey: KEY,
+      siteId: "default",
+    });
     const found = await client.findActiveAuthorization("AA:BB:CC:DD:EE:FF");
 
     const [url, init] = fetchSpy.mock.calls[0];
@@ -95,13 +111,21 @@ describe("UnifiClient.findActiveAuthorization", () => {
 
   it("returns null when no active authorization exists for the mac", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ meta: { rc: "ok" }, data: [] }));
-    const client = new UnifiClient({ baseUrl: "https://gw.test", apiKey: KEY });
+    const client = createUnifiClient({
+      baseUrl: "https://gw.test",
+      apiKey: KEY,
+      siteId: "default",
+    });
     expect(await client.findActiveAuthorization("aa:bb:cc:dd:ee:ff")).toBeNull();
   });
 
   it("throws UnifiError when the controller is unreachable", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("ETIMEDOUT"));
-    const client = new UnifiClient({ baseUrl: "https://gw.test", apiKey: KEY });
+    const client = createUnifiClient({
+      baseUrl: "https://gw.test",
+      apiKey: KEY,
+      siteId: "default",
+    });
     await expect(client.findActiveAuthorization("aa:bb:cc:dd:ee:ff")).rejects.toThrow();
   });
 });

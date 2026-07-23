@@ -1,5 +1,12 @@
 import { z } from "zod";
-import { env } from "../../env";
+import type {
+  UnifiGuestAuthorization,
+  UnifiGuestClient,
+  UnifiHealth,
+  UnifiStatsClient,
+  UnifiTrafficBucket,
+} from "./index";
+import { UnifiError, UnifiStatus } from "./index";
 
 const UNIFI_REQUEST_TIMEOUT_MS = 5_000;
 
@@ -32,82 +39,33 @@ const guestEntrySchema = z.looseObject({
 });
 const guestReportSchema = z.object({ data: z.array(guestEntrySchema).optional() });
 
-/** @public , caught by the captive-portal service (www-q002.9) to map controller
- * outages onto the GenericError path; no internal consumer in this ticket yet. */
-export class UnifiError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = "UnifiError";
-  }
-}
-
-export const UnifiStatus = {
-  Ok: "ok",
-  Error: "error",
-} as const;
-export type UnifiStatus = (typeof UnifiStatus)[keyof typeof UnifiStatus];
-
-export interface UnifiHealth {
-  status: UnifiStatus;
-  /** WAN interface latency ms (gateway ping), if available. */
-  wanLatencyMs: number | null;
-}
-
-export interface UnifiTrafficBucket {
-  /** Download bytes for this 5-minute window. */
-  down: number;
-  /** Upload bytes for this 5-minute window. */
-  up: number;
-}
-
-/** One active guest authorization as reported by the controller (stat/guest). */
-export interface UnifiGuestAuthorization {
-  /** Device MAC, lowercase colon-separated. */
-  mac: string;
-  /** Authorization window start (epoch seconds), if reported. */
-  start: number | null;
-  /** Authorization window end (epoch seconds), if reported. */
-  end: number | null;
-}
-
-/**
- * The guest-authorization surface the captive portal depends on. The portal
- * service takes this interface (not the concrete client) so tests inject a
- * mock and assert no real network call escapes (www-q002.10). `UnifiClient`
- * implements it; the only writes in the system are authorizeGuest.
- *
- * @public , consumed by the captive-portal service (www-q002.9); declared here
- * with the client so the contract lives next to its sole implementation.
- */
-export interface UnifiGuestClient {
-  isConfigured(): boolean;
-  /** Grant the device internet for `minutes` (default 43200 = 30 days). */
-  authorizeGuest(mac: string, minutes?: number): Promise<void>;
-  /** The controller's active authorization for `mac`, or null if none. */
-  findActiveAuthorization(mac: string): Promise<UnifiGuestAuthorization | null>;
-}
-
 /** Controller wants the MAC lowercase, colon-separated. */
 function normalizeMac(mac: string): string {
   return mac.trim().toLowerCase();
 }
 
+export interface UnifiClientOptions {
+  baseUrl: string;
+  apiKey: string;
+  siteId: string;
+}
+
 /**
- * Minimal UniFi Network API v1 client scoped to the data the Network tile
- * needs. Uses X-API-KEY header auth (UniFi OS 4+).
+ * Minimal UniFi Network API v1 client scoped to the data the Network tile and
+ * the captive portal need. Uses X-API-KEY header auth (UniFi OS 4+).
+ *
+ * Env-free: callers (apps/api's singleton, tests) provide `{ baseUrl, apiKey,
+ * siteId }` explicitly. Construct via `createUnifiClient`.
  */
-export class UnifiClient implements UnifiGuestClient {
+export class UnifiClient implements UnifiGuestClient, UnifiStatsClient {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly siteId: string;
 
-  constructor(opts?: { baseUrl?: string; apiKey?: string; siteId?: string }) {
-    this.baseUrl = (opts?.baseUrl ?? env.UNIFI_CONTROLLER_URL).replace(/\/+$/, "");
-    this.apiKey = opts?.apiKey ?? env.UNIFI_API_KEY;
-    this.siteId = opts?.siteId ?? env.UNIFI_SITE_ID;
+  constructor(opts: UnifiClientOptions) {
+    this.baseUrl = opts.baseUrl.replace(/\/+$/, "");
+    this.apiKey = opts.apiKey;
+    this.siteId = opts.siteId;
   }
 
   isConfigured(): boolean {
@@ -214,4 +172,7 @@ export class UnifiClient implements UnifiGuestClient {
   }
 }
 
-export const unifi = new UnifiClient();
+/** Construct a `UnifiClient` from mandatory, explicit config (no env access). */
+export function createUnifiClient(opts: UnifiClientOptions): UnifiClient {
+  return new UnifiClient(opts);
+}
