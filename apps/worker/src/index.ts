@@ -133,8 +133,10 @@ const workers: Worker[] = [
   },
   {
     // Renpho weight ingest (spec 2026-07-21): HA sensor → weight_measurement.
+    // 15s so a weigh-in lands within ~30s end-to-end (matches POLL.weight on
+    // the panel); ~240 HA polls/hr is trivial.
     name: "weight-ingest",
-    intervalMs: 60_000,
+    intervalMs: 15_000,
     runOnStart: true,
     run: runWeightIngestCycle,
   },
