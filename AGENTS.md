@@ -6,7 +6,8 @@
 - **Beads (`bd`) dropped 2026-07-11.** Never create or query `bd` tickets. Archive:
   `docs/beads-archive/` - `OPEN-IDEAS.md` (unfinished ideas), `beads-export.jsonl`
   (raw dump). Pull ideas from there.
-- Use `writing-scalable-typescript` before writing or reviewing TS/TSX.
+- Read the `docs/writing-scalable-typescript/` guide (start at its `README.md`)
+  before writing or reviewing TS/TSX. It is docs, not an invokable skill.
 
 ## Invariants
 
