@@ -194,16 +194,33 @@ every later fold. **F0 must land before any multi-tile fold (Waves 6-7).**
 - **P1.4 · Hoist `media-path`** — `apps/api/src/services/media-path.ts` (+
   `media-path.test.ts`) → `@www/core` (pure `node:fs`+`node:path`). Trivial.
   Unblocks booth + wakes.
-- **P1.5 · Finish device-state trio hoist** — `command-window.ts` (delete shim,
-  already a core re-export), `device-state-mapping.ts`, `integration-heartbeat.ts`
-  (needs db + `integration_sync_status` table) → `@www/core`. Unblocks ac/ctrl/
-  sound enforcer cluster. Touches `packages/core/src/index.ts` + schema.
-  - **Resolved:** `integration-heartbeat` needs db + the `integration_sync_status`
-    table; move the table into `@www/core` behind a store interface, mirroring the
-    device_state precedent (core owns the table + a store interface + pg/memory
-    adapters). Keeps `features/*` off `apps/api` schema and matches the locked
-    roadmap decision that the device-state store stays in `@www/core` behind its
-    store interface.
+- **P1.5 · Finish device-state trio hoist** — plan landed:
+  `docs/superpowers/plans/units/2026-07-23-P1.5-device-state-trio.md`.
+  - (a) `command-window.ts` — delete shim (already a core re-export). Clean.
+  - (b) `device-state-mapping.ts` — **SPLIT (confirmed by planner + master-planner
+    2026-07-23).** It is NOT "mostly re-exports": ~half is original, and
+    `ownerOf()`/`DeviceOwner` depend on `apps/api/src/config/lights.ts` `findLight`
+    (the lighting registry), which is not hoistable this unit. Resolution: pure
+    HA-mapping/comparison fns (`mapHaToReported`, `stateEquals` — no config dep) →
+    new `packages/core/src/device-state/ha-mapping.ts` (`HaEntity` already in core);
+    `DeviceOwner`/`ownerOf` stay in apps/api, renamed
+    `apps/api/src/services/device-ownership.ts`. **Delete the old
+    `device-state-mapping.ts` outright — NO re-export shim (knip zero-tolerance).**
+    Repoint `device-sync-service.ts` (verified the sole `ownerOf` consumer) + the
+    test at `apps/api/src/__tests__/device-state-mapping.test.ts`.
+  - (c) `integration-heartbeat.ts` (+ `integration_sync_status` table) → `@www/core`
+    behind a new `IntegrationSyncStore` interface with pg/memory adapters, mirroring
+    the `DeviceStateStore` precedent (core owns the table + interface + adapters).
+    Keeps `features/*` off `apps/api` schema; matches the locked roadmap decision.
+  - Touches `packages/core/src/index.ts` + schema.
+  - **Deferred follow-up (new dependency for Wave 7 F-devstate):** `config/lights`
+    + `device-ownership.ts` (`ownerOf`/`DeviceOwner`) form a cohesive **device-
+    ownership hoist** for a LATER unit. Until it lands, the ac/ctrl/sound **enforcer
+    cycles stay hand-wired app-level** in apps/api/apps/worker (they may keep
+    importing `ownerOf`/config from apps/api — worker→apps/api is allowed); only
+    each tile's `api.ts`/`web.tsx`/`schema.ts` move to `features/`. This is the
+    roadmap's accepted interim hand-wiring — it does NOT block the folds, but
+    F-devstate's plan MUST note enforcers remain app-level until the ownership hoist.
 - **P1.6 · Relocate `photo-path-migration`** —
   `apps/api/src/services/photo-path-migration.ts` (+ test) imports BOTH booth and
   wake services (welds the two photo tiles) and runs at startup. Move to an
