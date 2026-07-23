@@ -46,10 +46,8 @@ export type TileRegistryEntry = {
   // its TileHeader on the board (e.g. "Weather Now", "Climate · A/C", "Upcoming"),
   // so the minimap label always maps to what the user sees on the tile.
   label: string;
-  // biome-ignore lint/suspicious/noExplicitAny: components have different prop types
-  component: ComponentType<any>;
-  // biome-ignore lint/suspicious/noExplicitAny: components have different prop types
-  viewComponent: ComponentType<any>;
+  component: ComponentType;
+  viewComponent: ComponentType<never>;
   // Free position in the ONE world, in 0-indexed world-cell coords. A tile may sit
   // ANYWHERE at any size  --  there is no cluster, no grid to fill, no gap/overlap
   // rule against other real tiles. The decorative bento (placeholder-tiles.ts)
@@ -296,16 +294,14 @@ export const HOME_TILE: TileRegistryEntry = TILE_REGISTRY.find((t) => t.home) ??
 
 // Flat lookup: component or viewComponent → registry entry.
 // Used by the Storybook BoardDecorator to auto-size any tile story.
-// biome-ignore lint/suspicious/noExplicitAny: components have different prop types
-const componentMap = new Map<ComponentType<any>, TileRegistryEntry>();
+const componentMap = new Map<ComponentType | ComponentType<never>, TileRegistryEntry>();
 for (const entry of TILE_REGISTRY) {
   componentMap.set(entry.component, entry);
   componentMap.set(entry.viewComponent, entry);
 }
 
 export function registryEntryForComponent(
-  // biome-ignore lint/suspicious/noExplicitAny: components have different prop types
-  component: ComponentType<any> | undefined,
+  component: ComponentType | ComponentType<never> | undefined,
 ): TileRegistryEntry | undefined {
   if (!component) return undefined;
   return componentMap.get(component);
