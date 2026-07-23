@@ -1,7 +1,24 @@
-import { DeviceKind, type DeviceStateStore, isClimateState, mergeDeviceState } from "@www/core";
+import {
+  CLIMATE_DEVICE_ID,
+  type DeviceClimateState,
+  DeviceKind,
+  type DeviceLightState,
+  type DeviceStateStore,
+  type deviceState,
+  FIXTURE_ENTITY_IDS,
+  findLight,
+  HaError,
+  isClimateState,
+  LAMP_ENTITY_IDS,
+  type LightColor,
+  type LightEntry,
+  LightKind,
+  mergeDeviceState,
+} from "@www/core";
 import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
-import { CLIMATE_DEVICE_ID } from "../config/identity";
+import { db, deviceStateStore } from "./db";
+import { ha } from "./deps";
 import {
   assignMoodColors,
   BLUE_RGB,
@@ -11,20 +28,8 @@ import {
   MOOD_PALETTE,
   RED_RGB,
   WHITE_SCENE_KELVIN,
-} from "../config/lamp-scenes";
-import {
-  FIXTURE_ENTITY_IDS,
-  findLight,
-  LAMP_ENTITY_IDS,
-  type LightEntry,
-  LightKind,
-} from "../config/lights";
-import { deviceStateStore } from "../db/device-state-store";
-import { db } from "../db/index";
-import type { DeviceClimateState, DeviceLightState, LightColor } from "../db/schema";
-import { type deviceState, LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
-import { ha } from "../integrations/homeassistant";
-import { HaError } from "../integrations/homeassistant/types";
+} from "./lamp-scenes";
+import { LAMP_MODE_SINGLETON_ID, lampMode } from "./schema";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 

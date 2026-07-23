@@ -5,7 +5,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
-import { defineTileMeta } from "./__stories__/factory";
+import { defineTileMeta } from "@/components/tiles/__stories__/factory";
 import type { ControlsTileViewProps, ControlsViewData } from "./ControlsTileView";
 import { ControlsTileView } from "./ControlsTileView";
 

@@ -21,7 +21,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Controls detail through this seam.
 
 const mockOpenTileDetail = vi.fn();
-vi.mock("../../../lib/tile-detail-store", () => ({
+vi.mock("@/lib/tile-detail-store", () => ({
   openTileDetail: (...args: unknown[]) => mockOpenTileDetail(...args),
 }));
 
@@ -57,7 +57,7 @@ let mockQueryReturn: {
   isError: false,
 };
 
-vi.mock("../../../lib/trpc", () => ({
+vi.mock("@/lib/trpc", () => ({
   trpc: {
     controls: {
       list: {
@@ -114,7 +114,7 @@ vi.mock("../../../lib/trpc", () => ({
 // ─── import after mock ────────────────────────────────────────────────────────
 
 import { ControlsTile, makeRefetchInterval as makeRefetchIntervalForTest } from "../ControlsTile";
-import { controlsDetailEntry } from "../detail/wiring/controls";
+import { controlsDetailEntry } from "../wiring/controls";
 
 // Renders the full-page detail variant the way TileDetailHost would , the
 // wiring's useVariants hook plus the active variant's render().

@@ -67,7 +67,7 @@ export const GENERATED_TILES: readonly GeneratedTile[] = [
     home: false,
     guestExposed: false,
     sensitive: false,
-    source: "registry",
+    source: "feature",
   },
   {
     id: "tile_deploys",

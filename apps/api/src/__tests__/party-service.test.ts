@@ -16,7 +16,7 @@ vi.mock("../db/index", () => ({ db: { select: mockDbSelect } }));
 const { mockCallService } = vi.hoisted(() => ({ mockCallService: vi.fn() }));
 vi.mock("../integrations/homeassistant", () => ({ ha: { callService: mockCallService } }));
 
-import { LampMode, LampModeSpeed } from "../config/lamp-scenes";
+import { LampMode, LampModeSpeed } from "@features/ctrl/lamp-scenes";
 import { decidePartyAction, partyTurnOnParams } from "../services/party-service";
 
 // ─── pure tick → HA params ─────────────────────────────────────────────────────

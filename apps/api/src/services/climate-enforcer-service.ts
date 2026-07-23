@@ -25,6 +25,7 @@
  */
 
 import {
+  CLIMATE_DEVICE_ID,
   climateSetpointsObservable,
   climateStateConverged,
   DeviceKind,
@@ -39,7 +40,6 @@ import {
   sanitizeClimateDesired,
   windowOpen,
 } from "@www/core";
-import { CLIMATE_DEVICE_ID } from "../config/identity";
 import { deviceStateStore } from "../db/device-state-store";
 import { integrationSyncStore } from "../db/integration-sync-store";
 import type { DeviceClimateState } from "../db/schema";

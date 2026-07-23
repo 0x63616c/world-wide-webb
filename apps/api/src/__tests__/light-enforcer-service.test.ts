@@ -33,9 +33,10 @@ vi.mock("../integrations/homeassistant", () => ({
   ha: { getEntities: mockGetEntities, callService: mockCallService },
 }));
 
-import { LightControl } from "../config/lights";
+import { lampMode } from "@features/ctrl/schema";
+import { LightControl } from "@www/core";
 import type { DeviceLightState } from "../db/schema";
-import { integrationSyncStatus, lampMode } from "../db/schema";
+import { integrationSyncStatus } from "../db/schema";
 import {
   decideEnforcement,
   lightStateConverged,

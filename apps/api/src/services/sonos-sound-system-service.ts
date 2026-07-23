@@ -21,13 +21,14 @@
  */
 
 import {
+  DESK_RF_BONDED_UUID,
   DeviceKind,
   type DeviceStateStore,
   isSpeakerState,
   SonosClient,
+  TOPOLOGY_ANCHOR_IP,
   type ZoneGroup,
 } from "@www/core";
-import { DESK_RF_BONDED_UUID, TOPOLOGY_ANCHOR_IP } from "../config/identity";
 import { deviceStateStore } from "../db/device-state-store";
 
 // Stable display order for the rooms, so faders never reshuffle between polls. Rooms not in this

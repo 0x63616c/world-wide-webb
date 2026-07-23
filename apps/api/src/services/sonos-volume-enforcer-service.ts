@@ -18,16 +18,17 @@
  */
 
 import {
+  DESK_RF_BONDED_UUID,
   DeviceKind,
   type DeviceStateStore,
   heartbeat,
   isSpeakerState,
   runCycle,
   SonosClient,
+  TOPOLOGY_ANCHOR_IP,
   windowOpen,
 } from "@www/core";
 import { getLogger } from "@www/logger";
-import { DESK_RF_BONDED_UUID, TOPOLOGY_ANCHOR_IP } from "../config/identity";
 import { deviceStateStore } from "../db/device-state-store";
 import { integrationSyncStore } from "../db/integration-sync-store";
 import type { DeviceSpeakerState } from "../db/schema";

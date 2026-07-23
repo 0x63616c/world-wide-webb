@@ -1,6 +1,7 @@
+import { defineApi } from "@app-kit";
+import { publicProcedure, router } from "@app-kit/server";
 import { z } from "zod";
-
-import { LampMode, LampModeSpeed, LampScene } from "../../config/lamp-scenes";
+import { LampMode, LampModeSpeed, LampScene } from "./lamp-scenes";
 import {
   ControlKey,
   getControlsState,
@@ -8,8 +9,7 @@ import {
   setLampMode,
   setLampScene,
   toggleControl,
-} from "../../services/controls-service";
-import { publicProcedure, router } from "../init";
+} from "./service";
 
 // Error mapping is deliberately thinner than the deleted per-procedure catches
 // (Track B hygiene strip): haErrorMiddleware (init.ts) maps HaError to
@@ -155,3 +155,10 @@ export const controlsRouter = router({
       return await setLampMode(input.mode, input.speed);
     }),
 });
+
+/**
+ * The branded `api` facet. Its single top-level key `controls` is the router
+ * namespace the generated app router mounts. The codegen reads these keys off
+ * `api._def.record`.
+ */
+export const api = defineApi(router({ controls: controlsRouter }));

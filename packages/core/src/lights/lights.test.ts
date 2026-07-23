@@ -8,7 +8,7 @@ import {
   LightKind,
   lightControl,
   Room,
-} from "../config/lights";
+} from "./index";
 
 describe("lights config", () => {
   it("includes the desk lamp as a color-capable lamp", () => {

@@ -1,6 +1,4 @@
-import { DeviceKind } from "@www/core";
-
-import { findLight } from "../config/lights";
+import { DeviceKind, findLight } from "@www/core";
 
 /**
  * The four reconcile loops that write the `device_state` table. Exactly one of

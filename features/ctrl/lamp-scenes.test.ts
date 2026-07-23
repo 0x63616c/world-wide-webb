@@ -10,7 +10,7 @@ import {
   partyColorsAtTick,
   RED_RGB,
   WHITE_SCENE_KELVIN,
-} from "../config/lamp-scenes";
+} from "./lamp-scenes";
 
 const key = (c: readonly number[]) => JSON.stringify(c);
 

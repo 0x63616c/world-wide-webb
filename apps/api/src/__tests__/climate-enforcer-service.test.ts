@@ -35,7 +35,7 @@ vi.mock("../integrations/homeassistant", () => ({
 }));
 
 import type { MappedHaState } from "@www/core";
-import { CLIMATE_DEVICE_ID } from "../config/identity";
+import { CLIMATE_DEVICE_ID } from "@www/core";
 import type { DeviceClimateState } from "../db/schema";
 import {
   decideClimateEnforcement,

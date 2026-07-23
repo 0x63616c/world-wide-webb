@@ -1,5 +1,6 @@
 import type { AppManifest } from "@app-kit";
 import acManifest from "@features/ac/manifest";
+import ctrlManifest from "@features/ctrl/manifest";
 import deploysManifest from "@features/deploys/manifest";
 import dogcamManifest from "@features/dogcam/manifest";
 import eventsManifest from "@features/events/manifest";
@@ -19,8 +20,6 @@ import { TvAppsTile } from "../components/media/TvAppsTile";
 import { TvAppsTileView } from "../components/media/TvAppsTileView";
 import { TvNowPlayingTile } from "../components/media/TvNowPlayingTile";
 import { TvNowPlayingTileView } from "../components/media/TvNowPlayingTileView";
-import { ControlsTile } from "../components/tiles/ControlsTile";
-import { ControlsTileView } from "../components/tiles/ControlsTileView";
 import { FrontendLogsTile } from "../components/tiles/FrontendLogsTile";
 import { FrontendLogsTileView } from "../components/tiles/FrontendLogsTileView";
 import { PhotoBoothTile } from "../components/tiles/photo-booth/PhotoBoothTile";
@@ -59,16 +58,6 @@ export type TileRegistryEntry = {
 // the Guest Wi-Fi tile used to live here as `tile_guestwifi` but now comes from
 // features/guest-wifi/manifest.ts.
 const REGISTRY_ENTRIES: TileRegistryEntry[] = [
-  {
-    id: "tile_ctrl",
-    label: "Controls",
-    component: ControlsTile,
-    viewComponent: ControlsTileView,
-    worldCol: 31,
-    worldRow: 27,
-    cols: 4,
-    rows: 3,
-  },
   // Media tiles (www-51hf)  --  TV, Sound System, TV Apps, Quick Play, and
   // Frontend Logs. Default positions are V4B layout, overridable via
   // board_tile_placement rows in the database.
@@ -168,6 +157,7 @@ const FEATURE_MANIFESTS: AppManifest[] = [
   weatherManifest,
   eventsManifest,
   acManifest,
+  ctrlManifest,
 ];
 
 function manifestToEntries(m: AppManifest): TileRegistryEntry[] {

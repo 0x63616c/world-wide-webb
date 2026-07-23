@@ -10,7 +10,7 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
-import { modalDocsParameters } from "./__stories__/factory";
+import { modalDocsParameters } from "@/components/tiles/__stories__/factory";
 import type { ControlsViewData } from "./ControlsTileView";
 import { ExpandedControlsView } from "./ExpandedControlsView";
 

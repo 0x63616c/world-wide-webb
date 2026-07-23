@@ -16,11 +16,18 @@
  * detection) because HA round-trips rgb/kelvin/brightness with small deltas.
  */
 
+import { LampMode } from "@features/ctrl/lamp-scenes";
+import { LAMP_MODE_SINGLETON_ID, lampMode } from "@features/ctrl/schema";
 import {
   type DeviceStateStore,
+  findLight,
   HaLightService,
   heartbeat,
   isLightState,
+  LIGHTS,
+  LightControl,
+  LightKind,
+  lightControl,
   type MappedHaState,
   mapHaToReported,
   runCycle,
@@ -28,13 +35,10 @@ import {
 } from "@www/core";
 import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
-import { LampMode } from "../config/lamp-scenes";
-import { findLight, LIGHTS, LightControl, LightKind, lightControl } from "../config/lights";
 import { deviceStateStore } from "../db/device-state-store";
 import { db } from "../db/index";
 import { integrationSyncStore } from "../db/integration-sync-store";
 import type { DeviceLightState, LightColor } from "../db/schema";
-import { LAMP_MODE_SINGLETON_ID, lampMode } from "../db/schema";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 

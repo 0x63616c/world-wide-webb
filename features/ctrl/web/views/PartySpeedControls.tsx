@@ -11,7 +11,7 @@
  * the canonical display strings the wiring + tests rely on.
  */
 
-import { Slider } from "../../ui/Slider";
+import { Slider } from "@/components/ui/Slider";
 
 // ─── speed model ───────────────────────────────────────────────────────────────
 

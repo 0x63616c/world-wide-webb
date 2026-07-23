@@ -8,7 +8,13 @@
  * `db` mock , that is the one remaining legitimate path to the default param.
  * `db` also still backs the (unrelated) lamp_mode singleton table.
  */
-import { createInMemoryDeviceStateStore, type DeviceKind, type DeviceStateStore } from "@www/core";
+import {
+  createInMemoryDeviceStateStore,
+  type DeviceKind,
+  type DeviceStateStore,
+  FIXTURE_ENTITY_IDS,
+  LAMP_ENTITY_IDS,
+} from "@www/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ─── mock the HA singleton ────────────────────────────────────────────────────
@@ -19,7 +25,7 @@ const { mockIsConfigured, mockGetEntities, mockCallService } = vi.hoisted(() => 
   mockCallService: vi.fn<() => Promise<void>>(),
 }));
 
-vi.mock("../integrations/homeassistant", () => ({
+vi.mock("./deps", () => ({
   ha: {
     isConfigured: mockIsConfigured,
     getEntities: mockGetEntities,
@@ -35,25 +41,37 @@ const { mockDbSelect, mockDbUpdate, mockDbInsert } = vi.hoisted(() => ({
   mockDbInsert: vi.fn(),
 }));
 
-vi.mock("../db/index", () => ({
-  db: {
+// The `db` mock backs both the direct lamp_mode queries AND (via a REAL
+// createPgDeviceStateStore bound to the same mock) the module-default
+// `deviceStateStore` the router-level describes exercise , so `deviceStateStore`
+// itself is never separately mocked, only the underlying `db` calls.
+vi.mock("./db", async () => {
+  const { createPgDeviceStateStore } = await import("@www/core");
+  const mockDb = {
     select: mockDbSelect,
     update: mockDbUpdate,
     insert: mockDbInsert,
-  },
-}));
+  };
+  return {
+    db: mockDb,
+    deviceStateStore: createPgDeviceStateStore(
+      mockDb as unknown as Parameters<typeof createPgDeviceStateStore>[0],
+    ),
+  };
+});
 
 // ─── import after mock ────────────────────────────────────────────────────────
 
+import { router } from "@app-kit/server";
+import { controlsRouter } from "./api";
 import {
   LampMode,
   LampModeSpeed,
   LampScene,
   MOOD_PALETTE,
   WHITE_SCENE_KELVIN,
-} from "../config/lamp-scenes";
-import { FIXTURE_ENTITY_IDS, LAMP_ENTITY_IDS } from "../config/lights";
-import { lampMode } from "../db/schema";
+} from "./lamp-scenes";
+import { lampMode } from "./schema";
 import {
   ControlKey,
   FanMode,
@@ -62,9 +80,7 @@ import {
   setLampMode,
   setLampScene,
   toggleControl,
-} from "../services/controls-service";
-import { router } from "../trpc/init";
-import { controlsRouter } from "../trpc/routers/controls";
+} from "./service";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 //

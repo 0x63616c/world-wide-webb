@@ -6,6 +6,7 @@
  */
 
 import { climateDetailEntry } from "@features/ac/web/wiring/climate";
+import { controlsDetailEntry } from "@features/ctrl/web/wiring/controls";
 import { clockDetailEntry } from "@features/events/web/wiring/clock";
 import { eventsDetailEntry } from "@features/events/web/wiring/events";
 import { next12HoursDetailEntry } from "@features/weather/web/wiring/next12hours";
@@ -14,7 +15,6 @@ import { networkDetailEntry } from "../views/wiring/network";
 import { teslaDetailEntry } from "../views/wiring/tesla";
 import type { TileDetailEntry } from "./types";
 import { activityDetailEntry } from "./wiring/activity";
-import { controlsDetailEntry } from "./wiring/controls";
 import { deploysDetailEntry } from "./wiring/deploys";
 import { dogCamDetailEntry } from "./wiring/dogcam";
 import { frontendLogsDetailEntry } from "./wiring/frontend-logs";

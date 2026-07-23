@@ -7,10 +7,10 @@
  * dedupes the fetch while the page is open.
  */
 
-import { useControls } from "@/components/tiles/ControlsTile";
-import { ExpandedControlsView } from "@/components/tiles/ExpandedControlsView";
+import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
 import { TileStatus } from "@/components/ui";
-import type { DetailVariant, TileDetailPageEntry } from "../types";
+import { useControls } from "../ControlsTile";
+import { ExpandedControlsView } from "../ExpandedControlsView";
 
 function useControlsVariants(): { variants: DetailVariant[]; loading: boolean } {
   const controls = useControls();
