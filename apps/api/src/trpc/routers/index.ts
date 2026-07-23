@@ -1,7 +1,6 @@
 import { featureAppRouter } from "@features/_generated/router.gen";
 import { mergeRouters, router } from "../init";
 import { boothPhotosRouter } from "./booth-photos";
-import { climateRouter } from "./climate";
 import { controlsRouter } from "./controls";
 import { deviceSettingsRouter } from "./device-settings";
 import { healthRouter } from "./health";
@@ -18,7 +17,6 @@ import { wakePhotosRouter } from "./wake-photos";
 // the app router without a hand-edit here.
 const baseRouter = router({
   health: healthRouter,
-  climate: climateRouter,
   controls: controlsRouter,
   boothPhotos: boothPhotosRouter,
   logs: logsRouter,

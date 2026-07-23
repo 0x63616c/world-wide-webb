@@ -3,6 +3,7 @@
 // Re-run `bun run apps:gen` after changing a feature facet; commit the result.
 
 import { mergeRouters } from "@app-kit/server";
+import { api as acApi } from "../ac/api";
 import { api as deploysApi } from "../deploys/api";
 import { api as dogcamApi } from "../dogcam/api";
 import { api as eventsApi } from "../events/api";
@@ -13,4 +14,4 @@ import { api as teslaApi } from "../tesla/api";
 import { api as weatherApi } from "../weather/api";
 import { api as weightApi } from "../weight/api";
 
-export const featureAppRouter = mergeRouters(deploysApi, dogcamApi, eventsApi, guestWifiApi, networkApi, notifApi, teslaApi, weatherApi, weightApi);
+export const featureAppRouter = mergeRouters(acApi, deploysApi, dogcamApi, eventsApi, guestWifiApi, networkApi, notifApi, teslaApi, weatherApi, weightApi);

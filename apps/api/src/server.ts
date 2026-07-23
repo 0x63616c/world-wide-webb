@@ -1,4 +1,5 @@
 import { GENERATED_ROUTES } from "@features/_generated/http.gen";
+import { getClimate } from "@features/ac/service";
 import { openCameraStream } from "@features/dogcam/service";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { createLogger } from "@www/logger";
@@ -9,7 +10,6 @@ import { startGuestServer } from "./guest-server";
 import { findRoute } from "./http/route-table";
 import { getTvArtwork } from "./services/apple-tv-service";
 import { readBoothPhoto } from "./services/booth-photo-service";
-import { getClimate } from "./services/climate-service";
 import { backfillWakePhotoIndex, readWakePhoto } from "./services/wake-photo-service";
 import { migratePhotoPaths } from "./startup/photo-path-migration";
 import { createContext } from "./trpc/context";

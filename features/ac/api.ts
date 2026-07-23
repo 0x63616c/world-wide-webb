@@ -1,3 +1,12 @@
+/**
+ * tRPC `climate` facet (Track C, F-devstate ac slice fold), folded from
+ * apps/api/src/trpc/routers/climate.ts. The feature reaches the tRPC runtime
+ * ONLY through `@app-kit/server` (the single sanctioned seam into apps/api's
+ * trpc/init — never a direct apps/api import); its query/mutation bodies live
+ * in ./service against this feature's own device_state store + HA client.
+ */
+import { defineApi } from "@app-kit";
+import { publicProcedure, router } from "@app-kit/server";
 import { z } from "zod";
 import {
   CLIMATE_GAP,
@@ -16,8 +25,7 @@ import {
   setZoneMode,
   setZoneRange,
   setZoneTarget,
-} from "../../services/climate-service";
-import { publicProcedure, router } from "../init";
+} from "./service";
 
 const ClimateModeSchema = z.enum([HvacMode.Off, HvacMode.Cool, HvacMode.Heat, HvacMode.HeatCool]);
 const ClimateActionSchema = z.enum([HvacAction.Cooling, HvacAction.Heating, HvacAction.Idle]);
@@ -97,7 +105,7 @@ const EntityRangeInput = z
 const EntityPresetInput = z.object({ entityId: z.string(), preset: z.string() });
 const EntityFanInput = z.object({ entityId: z.string(), fanMode: z.string() });
 
-export const climateRouter = router({
+const climateRouter = router({
   get: publicProcedure.output(ClimateStateOutput).query(() => getClimate()),
 
   zones: publicProcedure.output(z.array(ClimateZoneOutput)).query(() => getClimateZones()),
@@ -155,3 +163,10 @@ export const climateRouter = router({
     .output(z.array(ClimateZoneOutput))
     .mutation(({ input }) => setClimateFan(input.entityId, input.fanMode)),
 });
+
+/**
+ * The branded `api` facet. Its single top-level key `climate` is the router
+ * namespace the generated app router mounts. The codegen reads these keys off
+ * `api._def.record`.
+ */
+export const api = defineApi(router({ climate: climateRouter }));

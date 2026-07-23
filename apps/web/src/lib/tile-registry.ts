@@ -1,4 +1,5 @@
 import type { AppManifest } from "@app-kit";
+import acManifest from "@features/ac/manifest";
 import deploysManifest from "@features/deploys/manifest";
 import dogcamManifest from "@features/dogcam/manifest";
 import eventsManifest from "@features/events/manifest";
@@ -18,8 +19,6 @@ import { TvAppsTile } from "../components/media/TvAppsTile";
 import { TvAppsTileView } from "../components/media/TvAppsTileView";
 import { TvNowPlayingTile } from "../components/media/TvNowPlayingTile";
 import { TvNowPlayingTileView } from "../components/media/TvNowPlayingTileView";
-import { ClimateTile } from "../components/tiles/ClimateTile";
-import { ClimateTileView } from "../components/tiles/ClimateTileView";
 import { ControlsTile } from "../components/tiles/ControlsTile";
 import { ControlsTileView } from "../components/tiles/ControlsTileView";
 import { FrontendLogsTile } from "../components/tiles/FrontendLogsTile";
@@ -67,16 +66,6 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
     viewComponent: ControlsTileView,
     worldCol: 31,
     worldRow: 27,
-    cols: 4,
-    rows: 3,
-  },
-  {
-    id: "tile_ac",
-    label: "Climate · A/C",
-    component: ClimateTile,
-    viewComponent: ClimateTileView,
-    worldCol: 30,
-    worldRow: 24,
     cols: 4,
     rows: 3,
   },
@@ -178,6 +167,7 @@ const FEATURE_MANIFESTS: AppManifest[] = [
   notifManifest,
   weatherManifest,
   eventsManifest,
+  acManifest,
 ];
 
 function manifestToEntries(m: AppManifest): TileRegistryEntry[] {
