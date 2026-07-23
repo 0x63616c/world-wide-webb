@@ -19,9 +19,10 @@ it("collect() unions the guest-wifi feature manifest, deduped against the regist
   expect(guest[0].guestExposed).toBe(true);
 
   // A hand-placed tile still collects from the registry (tile_clock folded
-  // into features/events; tile_ctrl folded into features/ctrl (Track C) — a
-  // still hand-placed example is tile_tv).
-  expect(model.apps.find((a) => a.id === "tile_tv")?.source).toBe("registry");
+  // into features/events; tile_ctrl folded into features/ctrl; tile_tv/tile_sound
+  // folded into features/tv/features/sound (Track C, Wave 6) — a still
+  // hand-placed example is tile_booth).
+  expect(model.apps.find((a) => a.id === "tile_booth")?.source).toBe("registry");
 
   // The fold surfaces: the feature's tables, its router key, and its cron.
   expect(model.features.map((f) => f.dir)).toContain("guest-wifi");
