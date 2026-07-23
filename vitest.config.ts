@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 // Root workspace: api + web unit tests. Storybook browser tests run separately via
@@ -16,6 +18,31 @@ export default defineConfig({
       // (UniFi adopt-only stack, www-j934.3), so no separate project entry is
       // needed; a second entry would double-run those tests.
       "infra",
+      // scripts/apps-gen: the codegen collector/validator (Track C Slice 3).
+      // No package.json/vite config of its own (it's a scripts/ subdir, not a
+      // workspace package), so it needs an inline project definition rather
+      // than a directory reference. collect.ts imports apps/web's
+      // TILE_REGISTRY, which transitively imports TSX tile components, so
+      // this project needs apps/web's "@" alias + the react plugin + jsdom
+      // (mirrors apps/web/vitest.config.ts) even though validate.ts itself is
+      // plain Node-shaped.
+      {
+        plugins: [react()],
+        resolve: {
+          alias: {
+            "@": resolve(__dirname, "apps/web/src"),
+          },
+        },
+        test: {
+          name: "apps-gen",
+          root: "./scripts/apps-gen",
+          environment: "jsdom",
+          // Same MapLibre stub as apps/web's unit project (www-355t.11):
+          // collect() pulls in the real TILE_REGISTRY, which imports
+          // maplibre-gl-backed tiles (Tesla), and jsdom has no WebGL.
+          setupFiles: [resolve(__dirname, "apps/web/vitest.setup.unit.ts")],
+        },
+      },
     ],
     // 4 workers: public-repo runners are 4 vCPU / 16GB. Peak RSS was measured at
     // ~1.5GB per worker back when v8 coverage was still instrumented; without it
