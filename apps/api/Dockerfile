@@ -45,7 +45,11 @@ COPY features features
 
 # Bundle to a single file. server.ts runs migrations on boot via drizzle-orm's
 # runtime migrator, so drizzle-kit never ships.
-RUN bun build apps/api/src/server.ts --target=bun --outfile dist/server.js
+# `cd apps/api` first: bun build resolves the `@features/*` alias via the nearest
+# tsconfig's `paths`, and the ROOT tsconfig is deliberately paths-free (so the
+# apps:gen codegen's `@/*` resolution isn't shadowed). apps/api/tsconfig.json
+# carries `@features`, so build from there. Mirrors `apps:gen`'s `cd apps/web`.
+RUN cd apps/api && bun build src/server.ts --target=bun --outfile ../../dist/server.js
 
 # Guest SPA bundle -> apps/web/dist-portal/, COPYd into the
 # runtime image below at /app/portal-dist (GUEST_STATIC_DIR).
@@ -54,7 +58,7 @@ RUN bun run --cwd apps/web build:portal
 # Second entrypoint: the portal data-hygiene purge (www-q002.18). Bundled into
 # the same image so the bosun cronJob runs it via a command override
 # (`bun purge.js`); it shares the api's drizzle schema + DATABASE_URL wiring.
-RUN bun build apps/api/src/purge.ts --target=bun --outfile dist/purge.js
+RUN cd apps/api && bun build src/purge.ts --target=bun --outfile ../../dist/purge.js
 
 # The worker is a SEPARATE app + image now (worker, control-center-worker),
 # no longer bundled here (www-xjba). The api ships server.js only.
