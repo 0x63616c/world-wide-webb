@@ -19,8 +19,9 @@
  * in the background when its grant drifts from the DB. Services THROW on
  * error/unconfigured, never return a fabricated success.
  */
+
+import type { UnifiGuestClient } from "@www/core";
 import { getLogger } from "@www/logger";
-import type { UnifiGuestClient } from "../integrations/unifi";
 
 // ─── domain rows (repo contract; shaped like the drizzle rows the adapter returns)
 

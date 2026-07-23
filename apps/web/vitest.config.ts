@@ -5,8 +5,17 @@ import { configDefaults, defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [react()],
   resolve: {
+    // Authoring-surface aliases (Track C, C7). The unit project's tile-registry
+    // imports a folded feature's manifest (`@features`), which reaches the
+    // authoring surface (`@app-kit`); mirror vite.config.ts (the storybook
+    // project extends that directly). `@app-kit/server` precedes `@app-kit`
+    // (vite matches a string alias by equality or `alias + "/"` prefix, so the
+    // bare `@app-kit` would otherwise swallow `@app-kit/server`).
     alias: {
       "@": resolve(__dirname, "src"),
+      "@app-kit/server": resolve(__dirname, "../../app-kit/server.ts"),
+      "@app-kit": resolve(__dirname, "../../app-kit/index.ts"),
+      "@features": resolve(__dirname, "../../features"),
     },
   },
   test: {

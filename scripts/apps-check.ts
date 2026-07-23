@@ -25,7 +25,13 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GUEST_EXPOSED } from "../features/guest-exposed";
 import { collect } from "./apps-gen/collect";
-import { renderTiles } from "./apps-gen/emit";
+import {
+  renderCrons,
+  renderGuestRouter,
+  renderRouter,
+  renderSchema,
+  renderTiles,
+} from "./apps-gen/emit";
 import { validate } from "./apps-gen/validate";
 
 // scripts/apps-check.ts -> repo root is one directory up from scripts/.
@@ -46,6 +52,22 @@ const AGGREGATES: readonly Aggregate[] = [
       validate(model, GUEST_EXPOSED);
       return renderTiles(model);
     },
+  },
+  {
+    file: "router.gen.ts",
+    render: async () => renderRouter(await collect()),
+  },
+  {
+    file: "guest-router.gen.ts",
+    render: async () => renderGuestRouter(await collect(), GUEST_EXPOSED),
+  },
+  {
+    file: "schema.gen.ts",
+    render: async () => renderSchema(await collect()),
+  },
+  {
+    file: "crons.gen.ts",
+    render: async () => renderCrons(await collect()),
   },
 ];
 

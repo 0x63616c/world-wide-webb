@@ -8,9 +8,9 @@
 import { randomBytes } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import * as schema from "../db/schema";
-import { PORTAL_RATE_LIMIT_ID } from "../db/schema";
-import type { PortalAuthorizationRow, PortalRateLimitRow, PortalRepo } from "./portal-service";
+import * as schema from "./schema";
+import { PORTAL_RATE_LIMIT_ID } from "./schema";
+import type { PortalAuthorizationRow, PortalRateLimitRow, PortalRepo } from "./service";
 
 function newId(prefix: string): string {
   return `${prefix}_${randomBytes(4).toString("hex")}`;

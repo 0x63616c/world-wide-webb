@@ -7,7 +7,7 @@
  * renders GuestWifiQrModal. Mirrors the Frontend Logs action shape.
  */
 
-import { openGuestWifiModal } from "@/lib/guest-wifi-modal-store";
+import { openGuestWifiModal } from "@features/guest-wifi/modal-store";
 import type { TileDetailActionEntry } from "../types";
 
 export const guestWifiDetailEntry: TileDetailActionEntry = {

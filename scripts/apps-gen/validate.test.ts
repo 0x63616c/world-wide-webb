@@ -60,3 +60,49 @@ it("accepts a consistent model", () => {
     validate({ apps: [app({ id: "a", home: true, guestExposed: true })] }, ["a"]),
   ).not.toThrow();
 });
+
+it("throws on a duplicate table name across the feature + base schemas", () => {
+  expect(() =>
+    validate(
+      {
+        apps: [app({ id: "a", home: true })],
+        tables: [
+          { name: "portal_authorization", source: "feature:guest-wifi" },
+          { name: "portal_authorization", source: "base" },
+        ],
+      },
+      [],
+    ),
+  ).toThrow(/duplicate table name/);
+});
+
+it("throws when two features expose the same top-level router key", () => {
+  expect(() =>
+    validate(
+      {
+        apps: [app({ id: "a", home: true })],
+        routerKeys: [
+          { key: "portal", source: "feature:guest-wifi" },
+          { key: "portal", source: "feature:other" },
+        ],
+      },
+      [],
+    ),
+  ).toThrow(/duplicate router key/);
+});
+
+it("accepts distinct table names + router keys", () => {
+  expect(() =>
+    validate(
+      {
+        apps: [app({ id: "a", home: true, guestExposed: true })],
+        tables: [
+          { name: "portal_authorization", source: "feature:guest-wifi" },
+          { name: "job", source: "base" },
+        ],
+        routerKeys: [{ key: "portal", source: "feature:guest-wifi" }],
+      },
+      ["a"],
+    ),
+  ).not.toThrow();
+});

@@ -9,7 +9,6 @@
     "./contract-device-settings": "./src/contract/device-settings.ts",
     "./trpc": "./src/trpc/routers/index.ts",
     "./trpc-guest": "./src/trpc/guest-router.ts",
-    "./portal-router": "./src/trpc/routers/portal.ts",
     "./trpc-context": "./src/trpc/context.ts",
     "./trpc-init": "./src/trpc/init.ts",
     "./worker": "./src/worker-deps.ts"

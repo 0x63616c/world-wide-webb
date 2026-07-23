@@ -1,3 +1,5 @@
+import type { AppManifest } from "@app-kit";
+import guestWifiManifest from "@features/guest-wifi/manifest";
 import type { ComponentType } from "react";
 
 import { QuickPlayTile } from "../components/media/QuickPlayTile";
@@ -22,8 +24,6 @@ import { EventsTile } from "../components/tiles/EventsTile";
 import { EventsTileView } from "../components/tiles/EventsTileView";
 import { FrontendLogsTile } from "../components/tiles/FrontendLogsTile";
 import { FrontendLogsTileView } from "../components/tiles/FrontendLogsTileView";
-import { GuestWifiTile } from "../components/tiles/GuestWifiTile";
-import { GuestWifiTileView } from "../components/tiles/GuestWifiTileView";
 import { NetworkTile } from "../components/tiles/NetworkTile";
 import { NetworkTileView } from "../components/tiles/NetworkTileView";
 import { Next12Hours } from "../components/tiles/Next12Hours";
@@ -67,7 +67,11 @@ export type TileRegistryEntry = {
 // overridden by board_tile_placement rows in the database. Each tile's worldCol/worldRow
 // can be moved by editing these numbers or by creating a board_tile_placement override;
 // the bento fill reflows around them automatically.
-export const TILE_REGISTRY: TileRegistryEntry[] = [
+// The hand-placed, non-feature tiles. Folded features (Track C, C7) own their
+// own placement in their manifest and are unioned into TILE_REGISTRY below —
+// the Guest Wi-Fi tile used to live here as `tile_guestwifi` but now comes from
+// features/guest-wifi/manifest.ts.
+const REGISTRY_ENTRIES: TileRegistryEntry[] = [
   {
     id: "tile_clock",
     label: "Clock",
@@ -78,19 +82,6 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     cols: 5,
     rows: 3,
     home: true,
-  },
-  // Guest Wi-Fi QR. Small 2x2 sitting directly above the Clock/Weather column
-  // (rows 22-23 are otherwise bento fill), so it reads as part of the home
-  // cluster without displacing any existing tile.
-  {
-    id: "tile_guestwifi",
-    label: "Guest",
-    component: GuestWifiTile,
-    viewComponent: GuestWifiTileView,
-    worldCol: 28,
-    worldRow: 22,
-    cols: 2,
-    rows: 2,
   },
   // Weight tile (spec 2026-07-21): 3x2 in the rows-22/23 band above the home
   // cluster, right of Guest Wi-Fi. Col 34 (not 33) — the bento fill needs the
@@ -286,6 +277,36 @@ export const TILE_REGISTRY: TileRegistryEntry[] = [
     cols: 2,
     rows: 2,
   },
+];
+
+// Folded features (Track C, C7). Each app manifest owns its tile placement; the
+// board renders the UNION of the hand-placed registry entries and every feature
+// tile. The codegen (scripts/apps-gen) reads the SAME manifests and dedupes a
+// registry entry whose id a feature already owns, so each tile has exactly one
+// source of truth. Adding a feature = adding its manifest here + the folder.
+const FEATURE_MANIFESTS: AppManifest[] = [guestWifiManifest];
+
+function manifestToEntry(m: AppManifest): TileRegistryEntry {
+  const viewComponent = m.tile.viewComponent;
+  if (!viewComponent) {
+    throw new Error(`feature manifest ${m.id} has no tile.viewComponent`);
+  }
+  return {
+    id: m.id,
+    label: m.tile.label,
+    component: m.tile.component,
+    viewComponent,
+    worldCol: m.tile.worldCol,
+    worldRow: m.tile.worldRow,
+    cols: m.tile.cols,
+    rows: m.tile.rows,
+    ...(m.home ? { home: true as const } : {}),
+  };
+}
+
+export const TILE_REGISTRY: TileRegistryEntry[] = [
+  ...REGISTRY_ENTRIES,
+  ...FEATURE_MANIFESTS.map(manifestToEntry),
 ];
 
 // The tile the board opens on and idles back to (the Clock), or the first entry

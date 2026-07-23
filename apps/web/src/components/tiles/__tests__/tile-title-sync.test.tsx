@@ -47,6 +47,14 @@ const mediaSource = import.meta.glob("../../media/*.tsx", {
   import: "default",
   eager: true,
 }) as Record<string, string>;
+// Folded features (Track C, C7) co-locate their tile face + view in a single
+// features/<dir>/web.tsx (the filename is `web`, not the component name), so key
+// those by every component they `export function`, not by filename.
+const featureWebSource = import.meta.glob("../../../../../../features/*/web.tsx", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
 
 // Merge, normalising each key to bare "../<Name>.tsx" for lookup by component name.
 const viewSource: Record<string, string> = { ...tilesSource };
@@ -55,6 +63,13 @@ for (const [path, src] of [...Object.entries(nestedTilesSource), ...Object.entri
   // → key to "../<base>.tsx".
   const base = path.split("/").pop();
   if (base) viewSource[`../${base}`] = src as string;
+}
+// A feature web.tsx defines several components (its tile + view); register each
+// exported component name so `../<viewComponent.name>.tsx` resolves to its source.
+for (const src of Object.values(featureWebSource)) {
+  for (const m of (src as string).matchAll(/export function (\w+)/g)) {
+    viewSource[`../${m[1]}.tsx`] = src as string;
+  }
 }
 
 describe("tile registry , label matches rendered title", () => {

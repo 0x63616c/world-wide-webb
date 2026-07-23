@@ -1,7 +1,7 @@
+import { PortalError } from "@features/guest-wifi/service";
 import { initTRPC, TRPCError } from "@trpc/server";
 import { getLogger } from "@www/logger";
 import { HaError } from "../integrations/homeassistant/types";
-import { PortalError } from "../services/portal-service";
 import type { Context } from "./context";
 
 const t = initTRPC.context<Context>().create({
@@ -42,4 +42,8 @@ const haErrorMiddleware = t.middleware(async ({ path, next }) => {
 });
 
 export const router = t.router;
+// Merges independently-authored routers (same `t` config) into one. The codegen
+// aggregates (features/_generated/router.gen.ts, guest-router.gen.ts) use this
+// to fold every feature `api` facet into the app + guest routers.
+export const mergeRouters = t.mergeRouters;
 export const publicProcedure = t.procedure.use(haErrorMiddleware);

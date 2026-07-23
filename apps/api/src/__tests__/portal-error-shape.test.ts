@@ -4,9 +4,10 @@
  * frontend branches on the enum, not on parsing the human message string. The
  * message keeps its "CODE: text" prefix for logs/back-compat.
  */
+
+import { PortalError, PortalErrorCode } from "@features/guest-wifi/service";
 import { TRPCError } from "@trpc/server";
 import { describe, expect, it } from "vitest";
-import { PortalError, PortalErrorCode } from "../services/portal-service";
 import { appRouter } from "../trpc/routers/index";
 
 // The configured errorFormatter the HTTP layer runs via getErrorShape.

@@ -1,7 +1,7 @@
+import { GuestWifiTileView } from "@features/guest-wifi/web";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 import { defineTileMeta } from "./__stories__/factory";
-import { GuestWifiTileView } from "./GuestWifiTileView";
 
 const meta = {
   ...defineTileMeta("GuestWifiTileView", GuestWifiTileView),

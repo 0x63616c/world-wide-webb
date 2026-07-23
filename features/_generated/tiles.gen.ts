@@ -86,10 +86,10 @@ export const GENERATED_TILES: readonly GeneratedApp[] = [
   {
     id: "tile_guestwifi",
     tile: { label: "Guest", worldCol: 28, worldRow: 22, cols: 2, rows: 2 },
-    guestExposed: false,
+    guestExposed: true,
     home: false,
     sensitive: false,
-    source: "registry",
+    source: "feature",
   },
   {
     id: "tile_hourly",

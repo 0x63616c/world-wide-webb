@@ -27,7 +27,13 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GUEST_EXPOSED } from "../features/guest-exposed";
 import { collect } from "./apps-gen/collect";
-import { renderTiles } from "./apps-gen/emit";
+import {
+  renderCrons,
+  renderGuestRouter,
+  renderRouter,
+  renderSchema,
+  renderTiles,
+} from "./apps-gen/emit";
 import { validate } from "./apps-gen/validate";
 
 // scripts/apps-gen.ts -> repo root is one directory up from scripts/.
@@ -38,6 +44,10 @@ async function main(): Promise<void> {
   const model = await collect();
   validate(model, GUEST_EXPOSED);
   writeFileSync(join(GEN_DIR, "tiles.gen.ts"), renderTiles(model));
+  writeFileSync(join(GEN_DIR, "router.gen.ts"), renderRouter(model));
+  writeFileSync(join(GEN_DIR, "guest-router.gen.ts"), renderGuestRouter(model, GUEST_EXPOSED));
+  writeFileSync(join(GEN_DIR, "schema.gen.ts"), renderSchema(model));
+  writeFileSync(join(GEN_DIR, "crons.gen.ts"), renderCrons(model));
 }
 
 main().catch((e) => {

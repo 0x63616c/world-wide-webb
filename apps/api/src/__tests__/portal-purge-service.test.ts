@@ -6,11 +6,12 @@
  * were removed with the email/OTP flow; the portal_rate_limit singleton
  * self-resets daily and needs no purge.
  */
+
+import { AUTHORIZATION_GRACE_MS, purgePortalData } from "@features/guest-wifi/jobs";
+import type * as schema from "@features/guest-wifi/schema";
+import { portalAuthorization } from "@features/guest-wifi/schema";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { describe, expect, it } from "vitest";
-import type * as schema from "../db/schema";
-import { portalAuthorization } from "../db/schema";
-import { AUTHORIZATION_GRACE_MS, purgePortalData } from "../services/portal-purge-service";
 
 // A fake drizzle db: db.delete(table).where(cond) resolves to { rowCount }.
 const asDb = (fake: unknown) => fake as unknown as NodePgDatabase<typeof schema>;

@@ -8,10 +8,11 @@
  * limit (cap + day rollover reset), the idempotent mac-only authorize step, and
  * status fresh/active/expired/heal.
  */
+
+import { makeInMemoryPortalRepo } from "@features/guest-wifi/repo.fake";
+import { createPortalService, PortalError, PortalErrorCode } from "@features/guest-wifi/service";
+import type { UnifiGuestAuthorization, UnifiGuestClient } from "@www/core";
 import { describe, expect, it, vi } from "vitest";
-import type { UnifiGuestAuthorization, UnifiGuestClient } from "../integrations/unifi";
-import { createPortalService, PortalError, PortalErrorCode } from "../services/portal-service";
-import { makeInMemoryPortalRepo } from "./helpers/in-memory-portal-repo";
 
 const MAC = "aa:bb:cc:dd:ee:ff";
 const PW = "correct-horse";

@@ -1,6 +1,19 @@
+import { existsSync, readdirSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { is, Table } from "drizzle-orm";
+import { getTableConfig } from "drizzle-orm/pg-core";
+// scripts/ has no tsconfig with the @app-kit alias (bun resolves paths from the
+// tsconfig nearest each file), so reach the authoring surface by relative path.
+import { type AppManifest, CRON_BRAND } from "../../app-kit/index";
 import { TILE_REGISTRY } from "../../apps/web/src/lib/tile-registry";
 
-/** @public shared shape between collect() and validate(); consumed by the codegen emitter (Task 3.3), not yet built. */
+// scripts/apps-gen/collect.ts -> repo root is two directories up.
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const FEATURES_DIR = join(REPO_ROOT, "features");
+const BASE_SCHEMA = join(REPO_ROOT, "apps", "api", "src", "db", "schema.ts");
+
+/** @public shared shape between collect() and validate(); consumed by the codegen emitter. */
 export interface CollectedApp {
   id: string;
   tile: { label: string; worldCol: number; worldRow: number; cols: number; rows: number };
@@ -9,32 +22,160 @@ export interface CollectedApp {
   sensitive: boolean;
   source: "feature" | "registry";
 }
-export interface AppModel {
-  apps: CollectedApp[];
+
+/** A collected pgTable, tagged with where it was declared (feature vs base schema). */
+interface CollectedTable {
+  name: string;
+  source: string;
 }
 
-// Slice 3: features/ is empty, so the model is the registry alone. Slice 5 adds
-// the features/*/manifest.ts glob and unions it with the registry leftovers.
-// TILE_REGISTRY has no `guestExposed`/`sensitive` field today, so every
-// registry-sourced app collects guestExposed=false and sensitive=false (the
-// guest-wifi canary is deliberately not sensitive, roadmap decision 16); the
-// defensive casts below tolerate a future registry shape without changing this
-// slice's behavior.
-/** @public consumed by the codegen emitter (Task 3.3), not yet built. */
+/** A collected top-level tRPC router key, tagged with its owning feature. */
+interface CollectedRouterKey {
+  key: string;
+  source: string;
+}
+
+/** A collected `defineCron` facet (forward scaffolding; no runtime consumer yet). */
+interface CollectedCron {
+  name: string;
+  schedule: string;
+  source: string;
+}
+
+/**
+ * Per-feature emit metadata — everything the emitter needs to render the
+ * generated router/guest-router/schema/crons aggregates as deterministic import
+ * barrels. `dir` is the feature folder name (relative import base from
+ * features/_generated/).
+ */
+export interface CollectedFeature {
+  dir: string;
+  id: string;
+  guestExposed: boolean;
+  hasApi: boolean;
+  hasSchema: boolean;
+}
+
+export interface AppModel {
+  apps: CollectedApp[];
+  features: CollectedFeature[];
+  tables: CollectedTable[];
+  routerKeys: CollectedRouterKey[];
+  crons: CollectedCron[];
+}
+
+const APP_BRAND = Symbol.for("app-kit.app");
+
+/** Enumerate feature folders (features/<dir>/manifest.ts), sorted, skipping _generated. */
+function featureDirs(): string[] {
+  return readdirSync(FEATURES_DIR, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !e.name.startsWith("_"))
+    .map((e) => e.name)
+    .filter((name) => existsSync(join(FEATURES_DIR, name, "manifest.ts")))
+    .sort();
+}
+
+/** Collect every exported drizzle pgTable name from a schema module. */
+function tableNames(mod: Record<string, unknown>): string[] {
+  const names: string[] = [];
+  for (const v of Object.values(mod)) {
+    if (is(v, Table)) names.push(getTableConfig(v).name);
+  }
+  return names;
+}
+
+/**
+ * Collect the whole app model as one consistent whole (Track C). The tile model
+ * is the UNION of every `features/*` /manifest.ts` (source "feature") with the
+ * tile-registry leftovers (source "registry") — a registry entry whose id is
+ * already owned by a feature is deduped, so each tile has exactly one source.
+ * The schema union (feature tables + base apps/api tables), the feature router
+ * keys, and the collected crons ride alongside so validate() can reject
+ * duplicate table names / router keys and the emitter can render the aggregates.
+ */
 export async function collect(): Promise<AppModel> {
-  const apps: CollectedApp[] = TILE_REGISTRY.map((t) => ({
-    id: t.id,
-    tile: {
-      label: t.label,
-      worldCol: t.worldCol,
-      worldRow: t.worldRow,
-      cols: t.cols,
-      rows: t.rows,
-    },
-    guestExposed: false,
-    home: Boolean((t as { home?: boolean }).home),
-    sensitive: Boolean((t as { sensitive?: boolean }).sensitive),
-    source: "registry",
-  }));
-  return { apps };
+  const dirs = featureDirs();
+
+  const featureApps: CollectedApp[] = [];
+  const features: CollectedFeature[] = [];
+  const tables: CollectedTable[] = [];
+  const routerKeys: CollectedRouterKey[] = [];
+  const crons: CollectedCron[] = [];
+
+  for (const dir of dirs) {
+    const base = join(FEATURES_DIR, dir);
+
+    const manifestMod = (await import(join(base, "manifest.ts"))) as { default: AppManifest };
+    const m = manifestMod.default;
+    if (!(m as Record<symbol, unknown>)[APP_BRAND]) {
+      throw new Error(`features/${dir}/manifest.ts default export is not a defineApp() manifest`);
+    }
+    featureApps.push({
+      id: m.id,
+      tile: {
+        label: m.tile.label,
+        worldCol: m.tile.worldCol,
+        worldRow: m.tile.worldRow,
+        cols: m.tile.cols,
+        rows: m.tile.rows,
+      },
+      guestExposed: Boolean(m.guestExposed),
+      home: Boolean(m.home),
+      sensitive: Boolean(m.sensitive),
+      source: "feature",
+    });
+
+    const hasSchema = existsSync(join(base, "schema.ts"));
+    if (hasSchema) {
+      const schemaMod = (await import(join(base, "schema.ts"))) as Record<string, unknown>;
+      for (const name of tableNames(schemaMod)) tables.push({ name, source: `feature:${dir}` });
+    }
+
+    const hasApi = existsSync(join(base, "api.ts"));
+    if (hasApi) {
+      const apiMod = (await import(join(base, "api.ts"))) as {
+        api?: { _def?: { record?: object } };
+      };
+      const record = apiMod.api?._def?.record ?? {};
+      for (const key of Object.keys(record)) routerKeys.push({ key, source: `feature:${dir}` });
+    }
+
+    if (existsSync(join(base, "jobs.ts"))) {
+      const jobsMod = (await import(join(base, "jobs.ts"))) as Record<string, unknown>;
+      for (const v of Object.values(jobsMod)) {
+        if (v && typeof v === "object" && (v as Record<symbol, unknown>)[CRON_BRAND]) {
+          const c = v as { name: string; schedule: string };
+          crons.push({ name: c.name, schedule: c.schedule, source: `feature:${dir}` });
+        }
+      }
+    }
+
+    features.push({ dir, id: m.id, guestExposed: Boolean(m.guestExposed), hasApi, hasSchema });
+  }
+
+  // Base (apps/api) schema tables ride in the dup-table check too, so a feature
+  // can never silently re-declare a table that already lives in the base schema.
+  const baseSchemaMod = (await import(BASE_SCHEMA)) as Record<string, unknown>;
+  for (const name of tableNames(baseSchemaMod)) tables.push({ name, source: "base" });
+
+  // Registry leftovers: every TILE_REGISTRY entry NOT already owned by a feature.
+  const featureIds = new Set(featureApps.map((a) => a.id));
+  const registryApps: CollectedApp[] = TILE_REGISTRY.filter((t) => !featureIds.has(t.id)).map(
+    (t) => ({
+      id: t.id,
+      tile: {
+        label: t.label,
+        worldCol: t.worldCol,
+        worldRow: t.worldRow,
+        cols: t.cols,
+        rows: t.rows,
+      },
+      guestExposed: false,
+      home: Boolean((t as { home?: boolean }).home),
+      sensitive: Boolean((t as { sensitive?: boolean }).sensitive),
+      source: "registry",
+    }),
+  );
+
+  return { apps: [...featureApps, ...registryApps], features, tables, routerKeys, crons };
 }

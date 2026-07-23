@@ -1,27 +1,42 @@
 /**
- * tRPC `portal` router (www-q002.9, password-only since www-p9hx) , the
- * captive-portal backend surface. The frontend talks ONLY to these procedures;
- * it never reaches UniFi. Every call carries the device `mac` (from the UniFi
- * external-portal redirect). There is no email/OTP: the guest types one shared
- * WiFi password (Apple's CNA can't reach Mail pre-auth, so an emailed code is
- * unusable). Typed PortalErrors map onto tRPC error codes so the frontend can
- * branch (wrong vs rate-limited) without parsing messages.
+ * tRPC `portal` facet (www-q002.9, password-only since www-p9hx) , the
+ * captive-portal backend surface, folded into the guest-wifi feature (Track C,
+ * C7). The frontend talks ONLY to these procedures; it never reaches UniFi.
+ * Every call carries the device `mac` (from the UniFi external-portal redirect).
+ * There is no email/OTP: the guest types one shared WiFi password. Typed
+ * PortalErrors map onto tRPC error codes so the frontend can branch (wrong vs
+ * rate-limited) without parsing messages.
+ *
+ * The feature owns its wiring: it builds its own db handle (./db) and UniFi
+ * client from its own config slice (./config), and reaches the tRPC runtime
+ * ONLY through `@app-kit/server` (the single sanctioned seam into apps/api's
+ * trpc/init — never a direct apps/api import). The codegen collects the exported
+ * `api` facet's top-level router keys into the generated app + guest routers.
  */
+import { defineApi } from "@app-kit";
+import { publicProcedure, router } from "@app-kit/server";
 import { TRPCError } from "@trpc/server";
+import { createUnifiClient } from "@www/core";
 import { z } from "zod";
-import { db } from "../../db/index";
-import { env } from "../../env";
-import { unifi } from "../../integrations/unifi";
-import { createDrizzlePortalRepo } from "../../services/portal-repo";
-import { createPortalService, PortalError, PortalErrorCode } from "../../services/portal-service";
-import { publicProcedure, router } from "../init";
+import { config } from "./config";
+import { db } from "./db";
+import { createDrizzlePortalRepo } from "./repo";
+import { createPortalService, PortalError, PortalErrorCode } from "./service";
+
+// The feature's own UniFi client, built from its config slice (D1) rather than
+// apps/api's env-aware singleton.
+const unifi = createUnifiClient({
+  apiKey: config.UNIFI_API_KEY,
+  baseUrl: config.UNIFI_CONTROLLER_URL,
+  siteId: config.UNIFI_SITE_ID,
+});
 
 // Module-level singleton: a stateless password-only service wired to the real
 // drizzle repo + UniFi adapter.
 const portalService = createPortalService({
   repo: createDrizzlePortalRepo(db),
   unifi,
-  wifiPassword: env.WIFI_PASSWORD,
+  wifiPassword: config.WIFI_PASSWORD,
 });
 
 // Map a typed PortalError onto the tRPC wire. Anything else propagates as-is
@@ -57,7 +72,7 @@ const macSchema = z
   .max(17)
   .regex(/^[0-9a-fA-F]{2}([:-][0-9a-fA-F]{2}){5}$/, "invalid MAC address");
 
-export const portalRouter = router({
+const portalRouter = router({
   /** Check the WiFi password against the op-delivered secret. Global daily limit. */
   checkPassword: publicProcedure
     .input(z.object({ mac: macSchema, password: z.string() }))
@@ -80,3 +95,10 @@ export const portalRouter = router({
     .output(z.object({ state: z.enum(["fresh", "active", "expired"]) }))
     .query(({ input }) => mapErrors(() => portalService.status(input))),
 });
+
+/**
+ * The branded `api` facet. Its single top-level key `portal` is the router
+ * namespace the generated app-router + guest-router mount (guest surface =
+ * portal only, ADR-0006). The codegen reads these keys off `api._def.record`.
+ */
+export const api = defineApi(router({ portal: portalRouter }));

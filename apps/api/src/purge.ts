@@ -18,18 +18,21 @@
  * the per-table counts via @www/logger, and closes the pool. A failure exits
  * non-zero so the job is recorded as failed (no silent swallow).
  */
+import { db as guestWifiDb, pool as guestWifiPool } from "@features/guest-wifi/db";
+import { purgePortalData } from "@features/guest-wifi/jobs";
 import { createLogger } from "@www/logger";
 import { db, pool } from "./db/index";
 import { purgeFrontendLogs } from "./services/frontend-log-purge-service";
 import { purgeGithubRuns } from "./services/github-purge-service";
-import { purgePortalData } from "./services/portal-purge-service";
 import { purgeWakePhotos } from "./services/wake-photo-purge-service";
 import { purgeWeatherData } from "./services/weather-purge-service";
 
 const log = createLogger({ service: "api" });
 
 try {
-  const portal = await purgePortalData(db);
+  // The portal purge runs against the guest-wifi feature's own db handle (it
+  // owns the portal_* tables since the C7 fold); the other purges use the api's.
+  const portal = await purgePortalData(guestWifiDb);
   const weather = await purgeWeatherData(db);
   const frontendLogs = await purgeFrontendLogs(db);
   const wakePhotos = await purgeWakePhotos(db);
@@ -55,8 +58,10 @@ try {
     log.warn({}, "wake-photo purge hit its batch cap; a backlog remains for the next run");
   }
   await pool.end();
+  await guestWifiPool.end();
 } catch (err) {
   log.error({ err }, "data purge failed");
   await pool.end().catch(() => {});
+  await guestWifiPool.end().catch(() => {});
   process.exit(1);
 }

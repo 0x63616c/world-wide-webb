@@ -148,6 +148,16 @@
       }
     },
     {
+      "includes": ["features/**/config.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": ["features/**"],
       "linter": {
         "rules": {

@@ -8,7 +8,7 @@
  * open-settings-store pattern.
  */
 
-import { createStore, useStore } from "./store";
+import { createStore, useStore } from "@/lib/store";
 
 const store = createStore(false);
 

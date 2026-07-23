@@ -1,0 +1,19 @@
+{
+  // Bun-runtime module resolution for feature source (Track C, C7). Bun resolves
+  // `paths` from the tsconfig nearest each imported file; feature files live
+  // outside apps/web, so their @app-kit / @app-kit/server / @features / @/ imports
+  // resolve through THIS config when the codegen (bun, cwd apps/web) loads them.
+  // tsc typechecks feature .ts via tsconfig.config.json (its own paths); this file
+  // is bun-only. NOT extended from root: bun did not honor `extends` for paths.
+  // Kept in sync with the other resolvers (check-alias-parity.sh).
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",
+    "paths": {
+      "@/*": ["../apps/web/src/*"],
+      "@app-kit": ["../app-kit/index.ts"],
+      "@app-kit/server": ["../app-kit/server.ts"],
+      "@features/*": ["./*"]
+    }
+  }
+}

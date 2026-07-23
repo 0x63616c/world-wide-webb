@@ -36,5 +36,18 @@
   // uses runtime symbol-brand casts that tsc flags; it was never in a tsc
   // program before C7, so keep it out here. scripts/alias-parity.test.ts stays
   // (listed explicitly in `include`) — it is the alias resolution proof.
-  "exclude": ["app-kit/**/*.test.ts"]
+  //
+  // A folded feature's WEB-coupled files (manifest.ts + modal-store.ts, and the
+  // web.tsx they drag in) use the web app's `@/*` alias + JSX, which this
+  // server-shaped config deliberately does not carry. They are typechecked by
+  // apps/web instead (its tile-registry imports the manifest, its detail-wiring
+  // imports the modal store), so exclude them here. The feature's SERVER facets
+  // (api/service/repo/jobs/schema/config/db) + the generated aggregates stay in
+  // this program.
+  "exclude": [
+    "app-kit/**/*.test.ts",
+    "features/**/manifest.ts",
+    "features/**/modal-store.ts",
+    "features/**/web.tsx"
+  ]
 }

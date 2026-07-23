@@ -7,7 +7,28 @@ import { validate } from "./validate";
 // divergence against an empty allowlist — nothing is guest-exposed yet). The
 // dedicated collect.test.ts suite covering features/*/manifest.ts arrives in
 // Slice 5; this is just the registry-only guard for this slice.
-it("collect() over the real tile registry passes validate() with an empty guest allowlist", async () => {
+it("collect() unions the guest-wifi feature manifest, deduped against the registry", async () => {
   const model = await collect();
-  expect(() => validate(model, [])).not.toThrow();
+
+  // The guest-wifi tile is sourced from features/guest-wifi/manifest.ts (source
+  // "feature"), and appears EXACTLY once — the tile-registry entry that renders
+  // it is deduped by id, so the feature is its only source in the model.
+  const guest = model.apps.filter((a) => a.id === "tile_guestwifi");
+  expect(guest).toHaveLength(1);
+  expect(guest[0].source).toBe("feature");
+  expect(guest[0].guestExposed).toBe(true);
+
+  // A hand-placed tile still collects from the registry.
+  expect(model.apps.find((a) => a.id === "tile_clock")?.source).toBe("registry");
+
+  // The fold surfaces: the feature's tables, its router key, and its cron.
+  expect(model.features.map((f) => f.dir)).toContain("guest-wifi");
+  expect(model.tables.map((t) => t.name)).toEqual(
+    expect.arrayContaining(["portal_authorization", "portal_rate_limit"]),
+  );
+  expect(model.routerKeys).toContainEqual({ key: "portal", source: "feature:guest-wifi" });
+  expect(model.crons.map((c) => c.name)).toContain("portal-data-purge");
+
+  // And the whole collected model still validates against the real allowlist.
+  expect(() => validate(model, ["tile_guestwifi"])).not.toThrow();
 });

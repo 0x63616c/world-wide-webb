@@ -27,6 +27,10 @@ interface ValApp {
 }
 interface Model {
   apps: ValApp[];
+  /** Collected pgTable names (feature + base schema); a duplicate name is a fold error. */
+  tables?: { name: string; source: string }[];
+  /** Collected top-level tRPC router keys across features; a duplicate key is a fold error. */
+  routerKeys?: { key: string; source: string }[];
 }
 
 function overlaps(a: Rect, b: Rect): boolean {
@@ -42,10 +46,40 @@ function overlaps(a: Rect, b: Rect): boolean {
 export function validate(model: Model, guestExposed: readonly string[]): void {
   const allow = new Set(guestExposed);
   const seen = new Set<string>();
-  // extended in Slice 5: duplicate router-key + duplicate table-name checks
-  // land with Task 5.4, once facets (and therefore router keys / table names)
-  // exist. No-op branches here keep validate()'s signature stable across the
-  // slice boundary.
+
+  // Duplicate table name across the union of feature schemas + the base
+  // apps/api schema. Two tables with the same SQL name would make the generated
+  // schema barrel ambiguous (and silently drop one from drizzle's migration
+  // diff), so this is a hard fold error.
+  if (model.tables) {
+    const seenTable = new Map<string, string>();
+    for (const t of model.tables) {
+      const prev = seenTable.get(t.name);
+      if (prev) {
+        throw new CodegenError(
+          `duplicate table name '${t.name}' (declared by ${prev} and ${t.source}) — a folded feature must not re-declare a table`,
+        );
+      }
+      seenTable.set(t.name, t.source);
+    }
+  }
+
+  // Duplicate top-level router key across features. Two features exposing the
+  // same namespace (e.g. both `portal`) would collide when merged into the app
+  // router, so reject it before emit.
+  if (model.routerKeys) {
+    const seenKey = new Map<string, string>();
+    for (const r of model.routerKeys) {
+      const prev = seenKey.get(r.key);
+      if (prev) {
+        throw new CodegenError(
+          `duplicate router key '${r.key}' (exposed by ${prev} and ${r.source}) — two features cannot mount the same tRPC namespace`,
+        );
+      }
+      seenKey.set(r.key, r.source);
+    }
+  }
+
   let homes = 0;
   for (const a of model.apps) {
     if (seen.has(a.id)) throw new CodegenError(`duplicate app id: ${a.id}`);

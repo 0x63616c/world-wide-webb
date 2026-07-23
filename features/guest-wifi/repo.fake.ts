@@ -4,11 +4,7 @@
  * wires in production, with no Postgres. Kept in __tests__ so it never ships in
  * the bundle.
  */
-import type {
-  PortalAuthorizationRow,
-  PortalRateLimitRow,
-  PortalRepo,
-} from "../../services/portal-service";
+import type { PortalAuthorizationRow, PortalRateLimitRow, PortalRepo } from "./service";
 
 let seq = 0;
 const id = (p: string) => `${p}_${(++seq).toString(16).padStart(8, "0")}`;

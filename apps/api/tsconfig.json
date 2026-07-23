@@ -5,7 +5,21 @@
     // The api runs via `bun --watch src/server.ts` and never emits (root sets
     // noEmit), so the old rootDir/outDir were dead config. Dropping rootDir +
     // allowImportingTsExtensions lets modules import siblings by explicit .ts path.
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    // Authoring-surface aliases (Track C, C7). apps/api became a consumer of the
+    // folded features when guest-wifi moved into features/: init.ts imports the
+    // feature's PortalError, purge.ts its purgePortalData, and the app-/guest-
+    // routers source the portal facet from features/_generated/*.gen.ts. Only
+    // `@app-kit/server` reaches apps/api's trpc runtime; here apps/api reaches
+    // BACK into features, which the Biome dep rule permits (features must not
+    // import apps/api, not the reverse). Kept in sync with the other resolvers
+    // (check-alias-parity.sh). Restated in full because `paths` overrides, not
+    // merges with, the extended root config.
+    "paths": {
+      "@app-kit": ["../../app-kit/index.ts"],
+      "@app-kit/server": ["../../app-kit/server.ts"],
+      "@features/*": ["../../features/*"]
+    }
   },
   "include": ["src"]
 }
