@@ -1,4 +1,5 @@
 import type { AppManifest } from "@app-kit";
+import deploysManifest from "@features/deploys/manifest";
 import dogcamManifest from "@features/dogcam/manifest";
 import guestWifiManifest from "@features/guest-wifi/manifest";
 import networkManifest from "@features/network/manifest";
@@ -20,8 +21,6 @@ import { ClockGreeting } from "../components/tiles/ClockGreeting";
 import { ClockGreetingView } from "../components/tiles/ClockGreetingView";
 import { ControlsTile } from "../components/tiles/ControlsTile";
 import { ControlsTileView } from "../components/tiles/ControlsTileView";
-import { DeployTile } from "../components/tiles/DeployTile";
-import { DeployTileView } from "../components/tiles/DeployTileView";
 import { EventsTile } from "../components/tiles/EventsTile";
 import { EventsTileView } from "../components/tiles/EventsTileView";
 import { FrontendLogsTile } from "../components/tiles/FrontendLogsTile";
@@ -182,16 +181,6 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
     cols: 2,
     rows: 2,
   },
-  {
-    id: "tile_deploys",
-    label: "Deploys",
-    component: DeployTile,
-    viewComponent: DeployTileView,
-    worldCol: 34,
-    worldRow: 24,
-    cols: 4,
-    rows: 3,
-  },
   // Notification Center. Sits in the free 4x3 block at cols 38-41 / rows 24-26,
   // directly above Living Room Cam and right of Deploys , the top-right corner
   // of the cluster, matching where the board's alert banners already appear.
@@ -243,6 +232,7 @@ const FEATURE_MANIFESTS: AppManifest[] = [
   teslaManifest,
   dogcamManifest,
   weightManifest,
+  deploysManifest,
 ];
 
 function manifestToEntry(m: AppManifest): TileRegistryEntry {

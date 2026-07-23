@@ -15,6 +15,8 @@
  * packages/core extraction (shared domain) will move these out of api and
  * delete this file; until then, keep the export surface minimal.
  */
+
+export { runGithubPollCycle } from "@features/deploys/service";
 export { runMigrations } from "./db/migrate";
 export { env } from "./env";
 // Durable job queue. Each type is wrapped as its own Worker at the entrypoint.
@@ -25,7 +27,6 @@ export { releaseInFlightJobsWithTimeout } from "./jobs/queue";
 export { runAscVersionPollCycle } from "./services/asc-version-service";
 export { runClimateEnforcerCycle } from "./services/climate-enforcer-service";
 export { runDeviceSyncCycle } from "./services/device-sync-service";
-export { runGithubPollCycle } from "./services/github-actions-service";
 export { runEnforcerCycle } from "./services/light-enforcer-service";
 export { runNotifyJob } from "./services/notification-service";
 export { reconcilePartyMode } from "./services/party-service";

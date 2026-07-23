@@ -2,22 +2,22 @@ import { getLogger } from "@www/logger";
 import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { z } from "zod";
 
-import { db } from "../db/index";
+import { config } from "./config";
+import { db } from "./db";
 import {
   GITHUB_POLL_STATUS_SINGLETON_ID,
   githubPollStatus,
   githubRun,
   githubRunLogTail,
-} from "../db/schema";
-import { env } from "../env";
+} from "./schema";
 
 // GitHub Actions deploy poller (spec 2026-07-18-github-deploy-tile-design).
 // The worker calls runGithubPollCycle on a 10s tick; the cycle self-gates to
 // 60s while no run is in flight so the idle request rate stays at ~60/hr.
 // "Currently deployed" is the newest run whose DEPLOY JOB concluded success,
 // not the newest green run: ci.yml's path filters can skip deploy inside a
-// successful run. The api reads only Postgres (routers/github.ts); this module
-// is the single place that talks to GitHub.
+// successful run. The api reads only Postgres (api.ts); this module is the
+// single place that talks to GitHub.
 
 const GITHUB_BASE_URL = "https://api.github.com";
 /** Name of the deploy job in ci.yml; its conclusion defines "deployed". */
@@ -113,7 +113,7 @@ export interface GithubCommitDetail {
 }
 
 function isGithubConfigured(): boolean {
-  return Boolean(env.GITHUB_ACTIONS_TOKEN);
+  return Boolean(config.GITHUB_ACTIONS_TOKEN);
 }
 
 /** Parse + validate a runs-list response into row-shaped items (newest first). */
@@ -196,7 +196,7 @@ export function shouldPollNow(lastAttemptAtMs: number, hot: boolean, nowMs: numb
 async function ghFetch(path: string, accept = "application/vnd.github+json"): Promise<Response> {
   const res = await fetch(`${GITHUB_BASE_URL}${path}`, {
     headers: {
-      Authorization: `Bearer ${env.GITHUB_ACTIONS_TOKEN}`,
+      Authorization: `Bearer ${config.GITHUB_ACTIONS_TOKEN}`,
       Accept: accept,
       "X-GitHub-Api-Version": "2022-11-28",
     },
@@ -262,7 +262,7 @@ async function runsNeedingJobs(runIds: number[]): Promise<{ id: number; status: 
 }
 
 async function refreshJobs(runId: number): Promise<void> {
-  const res = await ghFetch(`/repos/${env.GITHUB_REPO}/actions/runs/${runId}/jobs?per_page=100`);
+  const res = await ghFetch(`/repos/${config.GITHUB_REPO}/actions/runs/${runId}/jobs?per_page=100`);
   const summary = parseJobsResponse(await res.json());
   await db
     .update(githubRun)
@@ -293,7 +293,7 @@ async function backfillCommitDetails(): Promise<void> {
     .orderBy(desc(githubRun.startedAtUtc))
     .limit(5);
   for (const row of missing) {
-    const res = await ghFetch(`/repos/${env.GITHUB_REPO}/commits/${row.headSha}`);
+    const res = await ghFetch(`/repos/${config.GITHUB_REPO}/commits/${row.headSha}`);
     const detail = parseCommitResponse(await res.json());
     await db
       .update(githubRun)
@@ -329,7 +329,7 @@ async function fetchPendingLogTails(now: Date): Promise<void> {
       : cutoff;
     if (now.getTime() < readyAt.getTime()) continue;
     try {
-      const res = await ghFetch(`/repos/${env.GITHUB_REPO}/actions/jobs/${p.jobId}/logs`, "*/*");
+      const res = await ghFetch(`/repos/${config.GITHUB_REPO}/actions/jobs/${p.jobId}/logs`, "*/*");
       const tail = logTailOf(await res.text());
       await db
         .update(githubRunLogTail)
@@ -366,7 +366,7 @@ async function refreshDeployedPointer(runs: GithubRunListItem[]): Promise<void> 
     // counting them would undercount multi-commit pushes). A compare failure
     // (e.g. force-push made the base unreachable) keeps the previous value.
     const res = await ghFetch(
-      `/repos/${env.GITHUB_REPO}/compare/${deployed.headSha}...${mainHeadSha}`,
+      `/repos/${config.GITHUB_REPO}/compare/${deployed.headSha}...${mainHeadSha}`,
     );
     commitsBehind = parseCompareResponse(await res.json());
   }
@@ -431,7 +431,7 @@ export async function runGithubPollCycle(nowMs = Date.now()): Promise<void> {
     if (!shouldPollNow(lastAttemptAtMs, hot, nowMs)) return;
     lastAttemptAtMs = nowMs;
 
-    const res = await ghFetch(`/repos/${env.GITHUB_REPO}/actions/runs?branch=main&per_page=20`);
+    const res = await ghFetch(`/repos/${config.GITHUB_REPO}/actions/runs?branch=main&per_page=20`);
     const runs = parseRunsResponse(await res.json());
     await upsertRuns(runs);
 
@@ -450,7 +450,7 @@ export async function runGithubPollCycle(nowMs = Date.now()): Promise<void> {
   }
 }
 
-// ─── read side (github tRPC router) ──────────────────────────────────────────
+// ─── read side (deploys tRPC router) ─────────────────────────────────────────
 
 export const CommitDeployState = {
   Deployed: "deployed",
@@ -471,7 +471,7 @@ export function commitStateForRun(run: GithubRunRow): CommitDeployState {
   if (run.status !== "completed") return CommitDeployState.Building;
   if (run.deployJobConclusion === "success") return CommitDeployState.Deployed;
   if (run.conclusion === "failure") return CommitDeployState.Failed;
-  // Green run with deploy skipped by path filters , or jobs not yet resolved.
+  // Green run, deploy skipped by path filters , or jobs not yet resolved.
   return CommitDeployState.Skipped;
 }
 

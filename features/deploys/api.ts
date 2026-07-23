@@ -1,9 +1,14 @@
+/**
+ * tRPC `deploys` facet (Track C, Wave 2). The Deploys tile's read path.
+ * Everything here comes from Postgres (the worker's github-actions poll
+ * writes it via service.ts's runGithubPollCycle); the api never calls GitHub.
+ * Reaches the tRPC runtime ONLY through @app-kit/server. Codegen collects the
+ * top-level key `deploys` off `api._def.record`.
+ */
+import { defineApi } from "@app-kit";
+import { publicProcedure, router } from "@app-kit/server";
 import { z } from "zod";
-import { getGithubDeployStatus } from "../../services/github-actions-service";
-import { publicProcedure, router } from "../init";
-
-// Deploys tile read path. Everything here comes from Postgres (the worker's
-// github-actions poll writes it); the api never calls GitHub.
+import { getGithubDeployStatus } from "./service";
 
 const commitSchema = z.object({
   sha: z.string().describe("Full head SHA of the run's commit"),
@@ -47,9 +52,12 @@ const deployStatusSchema = z.object({
   commits: z.array(commitSchema),
 });
 
-export const githubRouter = router({
+const deployRouter = router({
   status: publicProcedure
     .input(z.object({}).optional())
     .output(deployStatusSchema)
     .query(() => getGithubDeployStatus()),
 });
+
+/** The branded `api` facet — single top-level key `deploys`. */
+export const api = defineApi(router({ deploys: deployRouter }));

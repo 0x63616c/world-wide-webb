@@ -11,7 +11,7 @@ import {
   parseJobsResponse,
   parseRunsResponse,
   shouldPollNow,
-} from "../services/github-actions-service";
+} from "./service";
 
 // Fixtures are shape-real recordings of the GitHub REST payload fields the
 // edge schemas consume (spec §Testing): a green run with deploy SKIPPED by

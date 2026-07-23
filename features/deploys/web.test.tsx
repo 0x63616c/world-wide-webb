@@ -1,11 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  formatAgo,
-  formatElapsed,
-  STALE_AFTER_MS,
-  staleForOf,
-  toModalCommits,
-} from "../DeployTile";
+import { formatAgo, formatElapsed, STALE_AFTER_MS, staleForOf, toModalCommits } from "./web";
 
 const NOW = Date.parse("2026-07-18T12:00:00Z");
 

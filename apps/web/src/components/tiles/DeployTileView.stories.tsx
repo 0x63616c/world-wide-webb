@@ -1,8 +1,8 @@
+import { type DeployCommit, DeployTileView } from "@features/deploys/web";
 import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { createElement } from "react";
 import { tilePixelSize } from "@/lib/grid-constants";
 import { defineTileMeta } from "./__stories__/factory";
-import { type DeployCommit, DeployTileView } from "./DeployTileView";
 
 // The tile is not in TILE_REGISTRY yet (its container and router don't exist),
 // so the global BoardDecorator can't derive its footprint. Size it here to the

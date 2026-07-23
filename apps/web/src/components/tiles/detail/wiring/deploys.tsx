@@ -1,18 +1,14 @@
 /**
  * Deploys tile , live wiring for its single detail-page variant.
  *
- * Data source: trpc.github.status (same endpoint the tile polls), re-queried
+ * Data source: trpc.deploys.status (same endpoint the tile polls), re-queried
  * here at the same cadence while the page is open. Derivation helpers
- * (formatAgo/formatElapsed/staleForOf/toModalCommits) live in DeployTile.tsx ,
- * pure and shared, so the tile face and this page always agree on formatting.
+ * (formatAgo/formatElapsed/staleForOf/toModalCommits) live in
+ * @features/deploys/web , pure and shared, so the tile face and this page
+ * always agree on formatting.
  */
 
-import {
-  formatAgo,
-  formatElapsed,
-  staleForOf,
-  toModalCommits,
-} from "@/components/tiles/DeployTile";
+import { formatAgo, formatElapsed, staleForOf, toModalCommits } from "@features/deploys/web";
 import { DeployModalPipeline } from "@/components/tiles/views/DeployModalPipeline";
 import { POLL, useNow } from "@/lib/hooks";
 import { formatSha } from "@/lib/short-sha";
@@ -20,7 +16,7 @@ import { trpc } from "@/lib/trpc";
 import type { DetailVariant, TileDetailPageEntry } from "../types";
 
 function useDeploysVariants(): { variants: DetailVariant[]; loading: boolean } {
-  const query = trpc.github.status.useQuery(undefined, { refetchInterval: POLL.deploy });
+  const query = trpc.deploys.status.useQuery(undefined, { refetchInterval: POLL.deploy });
   const now = useNow();
 
   const d = query.data;

@@ -5,7 +5,6 @@ import { climateRouter } from "./climate";
 import { controlsRouter } from "./controls";
 import { deviceSettingsRouter } from "./device-settings";
 import { eventsRouter } from "./events";
-import { githubRouter } from "./github";
 import { healthRouter } from "./health";
 import { logsRouter } from "./logs";
 import { mediaRouter } from "./media";
@@ -28,7 +27,6 @@ const baseRouter = router({
   controls: controlsRouter,
   boothPhotos: boothPhotosRouter,
   events: eventsRouter,
-  github: githubRouter,
   logs: logsRouter,
   media: mediaRouter,
   settings: settingsRouter,

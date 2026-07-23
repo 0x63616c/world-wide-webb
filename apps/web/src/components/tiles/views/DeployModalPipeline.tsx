@@ -17,10 +17,10 @@
  * TileDetailHost, which supplies the page shell, header, and scrolling.
  */
 
+import type { DeployCommit, DeployFailure, DeployRun } from "@features/deploys/web";
+import { CommitState } from "@features/deploys/web";
 import { Pill, PillTone, Stat } from "@/components/ui";
 import { openExternalUrl } from "@/lib/external-browser";
-import type { DeployCommit, DeployFailure, DeployRun } from "../DeployTileView";
-import { CommitState } from "../DeployTileView";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
