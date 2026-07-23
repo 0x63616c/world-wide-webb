@@ -1,17 +1,17 @@
 import { mkdir, readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
+import { nextFreeName, parsePhotoFileName } from "@www/core";
 import { getLogger } from "@www/logger";
 import { desc } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../db/schema";
 import { wakePhoto } from "../db/schema";
 import { env } from "../env";
-import { nextFreeName, parsePhotoFileName } from "./media-path";
 
 /**
  * Wake photos: front-camera burst frames the wall panel uploads every time it
  * is woken from its idle dim. The BYTES live on the filesystem at
- * <MEDIA_STORAGE_DIR>/wake-photos/<capturedAt ISO>-<n>.jpg (see media-path.ts);
+ * <MEDIA_STORAGE_DIR>/wake-photos/<capturedAt ISO>-<n>.jpg (see @www/core media-path);
  * the INDEX lives in Postgres (`wake_photo`), one row per frame, carrying the
  * interaction session the frame belongs to (spec
  * docs/specs/2026-07-18-interaction-logging-design.md).

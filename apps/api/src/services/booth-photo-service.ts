@@ -1,19 +1,19 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
+import { nextFreeName } from "@www/core";
 import { getLogger } from "@www/logger";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../db/schema";
 import { boothPhoto } from "../db/schema";
 import { env } from "../env";
-import { nextFreeName } from "./media-path";
 
 /**
  * Photo booth: the wall panel's on-demand camera. A person triggers a capture in
  * one of four modes , a single `photo`, a `burst` of stills, a `four_frame`
  * strip, or an animated `gif` , and the frames land here. Like wake photos the
  * BYTES live on the filesystem at
- * <MEDIA_STORAGE_DIR>/booth-photos/<capturedAt ISO>-<n>.<ext> (see media-path.ts);
+ * <MEDIA_STORAGE_DIR>/booth-photos/<capturedAt ISO>-<n>.<ext> (see @www/core media-path);
  * the INDEX
  * lives in Postgres (`booth_photo`), one row per frame.
  *

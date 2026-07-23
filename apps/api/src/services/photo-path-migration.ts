@@ -1,12 +1,12 @@
 import { readdir, rename, rmdir, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { nextFreeName, parseLegacyPhotoFileName, photoFileName } from "@www/core";
 import { getLogger } from "@www/logger";
 import { eq, like, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../db/schema";
 import { boothPhoto, wakePhoto } from "../db/schema";
 import { defaultBoothPhotoRoot } from "./booth-photo-service";
-import { nextFreeName, parseLegacyPhotoFileName, photoFileName } from "./media-path";
 import { defaultWakePhotoRoot } from "./wake-photo-service";
 
 /**

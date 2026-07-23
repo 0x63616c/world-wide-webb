@@ -8,7 +8,7 @@ import {
   parseLegacyPhotoFileName,
   parsePhotoFileName,
   photoFileName,
-} from "./media-path";
+} from "./index";
 
 describe("media-path", () => {
   it("renders the instant as ISO 8601 with dashes for colons, always UTC", () => {
