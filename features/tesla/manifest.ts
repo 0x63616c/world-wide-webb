@@ -9,13 +9,16 @@ import { TeslaTile, TeslaTileView } from "./web";
  */
 export default defineApp({
   id: "tile_tesla",
-  tile: {
-    label: "Tesla",
-    component: TeslaTile,
-    viewComponent: TeslaTileView,
-    worldCol: 22,
-    worldRow: 27,
-    cols: 4,
-    rows: 4,
-  },
+  tiles: [
+    {
+      id: "tile_tesla",
+      label: "Tesla",
+      component: TeslaTile,
+      viewComponent: TeslaTileView,
+      worldCol: 22,
+      worldRow: 27,
+      cols: 4,
+      rows: 4,
+    },
+  ],
 });

@@ -11,13 +11,16 @@ import { DogCamTile, DogCamTileView } from "./web";
  */
 export default defineApp({
   id: "tile_dogcam",
-  tile: {
-    label: "Living Room Cam",
-    component: DogCamTile,
-    viewComponent: DogCamTileView,
-    worldCol: 38,
-    worldRow: 27,
-    cols: 4,
-    rows: 3,
-  },
+  tiles: [
+    {
+      id: "tile_dogcam",
+      label: "Living Room Cam",
+      component: DogCamTile,
+      viewComponent: DogCamTileView,
+      worldCol: 38,
+      worldRow: 27,
+      cols: 4,
+      rows: 3,
+    },
+  ],
 });

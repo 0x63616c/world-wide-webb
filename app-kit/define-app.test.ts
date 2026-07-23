@@ -14,10 +14,34 @@ const Dummy = () => null;
 it("defineApp brands and passes through the manifest", () => {
   const m = defineApp({
     id: "demo",
-    tile: { label: "Demo", component: Dummy, worldCol: 0, worldRow: 0, cols: 1, rows: 1 },
+    tiles: [
+      { id: "demo", label: "Demo", component: Dummy, worldCol: 0, worldRow: 0, cols: 1, rows: 1 },
+    ],
   });
   expect(m.id).toBe("demo");
   expect((m as Record<symbol, unknown>)[APP_BRAND]).toBe(true);
+});
+
+it("supports multiple tiles per app, with home readable per-tile", () => {
+  const m = defineApp({
+    id: "demo",
+    tiles: [
+      {
+        id: "demo_a",
+        label: "A",
+        component: Dummy,
+        worldCol: 0,
+        worldRow: 0,
+        cols: 1,
+        rows: 1,
+        home: true,
+      },
+      { id: "demo_b", label: "B", component: Dummy, worldCol: 2, worldRow: 0, cols: 1, rows: 1 },
+    ],
+  });
+  expect(m.tiles).toHaveLength(2);
+  expect(m.tiles[0].home).toBe(true);
+  expect(m.tiles[1].home).toBeUndefined();
 });
 
 it("facet wrappers brand their payload", () => {

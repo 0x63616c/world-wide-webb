@@ -18,14 +18,17 @@ import { GuestWifiTile, GuestWifiTileView } from "./web";
  */
 export default defineApp({
   id: "tile_guestwifi",
-  tile: {
-    label: "Guest",
-    component: GuestWifiTile,
-    viewComponent: GuestWifiTileView,
-    worldCol: 28,
-    worldRow: 22,
-    cols: 2,
-    rows: 2,
-  },
+  tiles: [
+    {
+      id: "tile_guestwifi",
+      label: "Guest",
+      component: GuestWifiTile,
+      viewComponent: GuestWifiTileView,
+      worldCol: 28,
+      worldRow: 22,
+      cols: 2,
+      rows: 2,
+    },
+  ],
   guestExposed: true,
 });

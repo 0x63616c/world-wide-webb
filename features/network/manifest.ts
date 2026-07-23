@@ -10,13 +10,16 @@ import { NetworkTile, NetworkTileView } from "./web";
  */
 export default defineApp({
   id: "tile_wifi",
-  tile: {
-    label: "Network",
-    component: NetworkTile,
-    viewComponent: NetworkTileView,
-    worldCol: 35,
-    worldRow: 27,
-    cols: 3,
-    rows: 3,
-  },
+  tiles: [
+    {
+      id: "tile_wifi",
+      label: "Network",
+      component: NetworkTile,
+      viewComponent: NetworkTileView,
+      worldCol: 35,
+      worldRow: 27,
+      cols: 3,
+      rows: 3,
+    },
+  ],
 });

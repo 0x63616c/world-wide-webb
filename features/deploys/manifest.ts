@@ -12,13 +12,16 @@ import { DeployTile, DeployTileView } from "./web";
  */
 export default defineApp({
   id: "tile_deploys",
-  tile: {
-    label: "Deploys",
-    component: DeployTile,
-    viewComponent: DeployTileView,
-    worldCol: 34,
-    worldRow: 24,
-    cols: 4,
-    rows: 3,
-  },
+  tiles: [
+    {
+      id: "tile_deploys",
+      label: "Deploys",
+      component: DeployTile,
+      viewComponent: DeployTileView,
+      worldCol: 34,
+      worldRow: 24,
+      cols: 4,
+      rows: 3,
+    },
+  ],
 });

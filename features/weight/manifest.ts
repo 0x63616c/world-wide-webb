@@ -15,13 +15,16 @@ import { WeightTile, WeightTileView } from "./web";
  */
 export default defineApp({
   id: "tile_weight",
-  tile: {
-    label: "Weight",
-    component: WeightTile,
-    viewComponent: WeightTileView,
-    worldCol: 34,
-    worldRow: 22,
-    cols: 3,
-    rows: 2,
-  },
+  tiles: [
+    {
+      id: "tile_weight",
+      label: "Weight",
+      component: WeightTile,
+      viewComponent: WeightTileView,
+      worldCol: 34,
+      worldRow: 22,
+      cols: 3,
+      rows: 2,
+    },
+  ],
 });

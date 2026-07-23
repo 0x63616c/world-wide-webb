@@ -225,27 +225,29 @@ const FEATURE_MANIFESTS: AppManifest[] = [
   notifManifest,
 ];
 
-function manifestToEntry(m: AppManifest): TileRegistryEntry {
-  const viewComponent = m.tile.viewComponent;
-  if (!viewComponent) {
-    throw new Error(`feature manifest ${m.id} has no tile.viewComponent`);
-  }
-  return {
-    id: m.id,
-    label: m.tile.label,
-    component: m.tile.component,
-    viewComponent,
-    worldCol: m.tile.worldCol,
-    worldRow: m.tile.worldRow,
-    cols: m.tile.cols,
-    rows: m.tile.rows,
-    ...(m.home ? { home: true as const } : {}),
-  };
+function manifestToEntries(m: AppManifest): TileRegistryEntry[] {
+  return m.tiles.map((tile) => {
+    const viewComponent = tile.viewComponent;
+    if (!viewComponent) {
+      throw new Error(`feature manifest ${m.id} tile ${tile.id} has no viewComponent`);
+    }
+    return {
+      id: tile.id,
+      label: tile.label,
+      component: tile.component,
+      viewComponent,
+      worldCol: tile.worldCol,
+      worldRow: tile.worldRow,
+      cols: tile.cols,
+      rows: tile.rows,
+      ...(tile.home ? { home: true as const } : {}),
+    };
+  });
 }
 
 export const TILE_REGISTRY: TileRegistryEntry[] = [
   ...REGISTRY_ENTRIES,
-  ...FEATURE_MANIFESTS.map(manifestToEntry),
+  ...FEATURE_MANIFESTS.flatMap(manifestToEntries),
 ];
 
 // The tile the board opens on and idles back to (the Clock), or the first entry

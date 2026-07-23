@@ -13,12 +13,22 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const FEATURES_DIR = join(REPO_ROOT, "features");
 const BASE_SCHEMA = join(REPO_ROOT, "apps", "api", "src", "db", "schema.ts");
 
+/** A single collected tile (one per TileSpec). */
+interface CollectedTile {
+  id: string;
+  label: string;
+  worldCol: number;
+  worldRow: number;
+  cols: number;
+  rows: number;
+  home: boolean;
+}
+
 /** @public shared shape between collect() and validate(); consumed by the codegen emitter. */
 export interface CollectedApp {
   id: string;
-  tile: { label: string; worldCol: number; worldRow: number; cols: number; rows: number };
+  tiles: CollectedTile[];
   guestExposed: boolean;
-  home: boolean;
   sensitive: boolean;
   source: "feature" | "registry";
 }
@@ -122,15 +132,16 @@ export async function collect(): Promise<AppModel> {
     }
     featureApps.push({
       id: m.id,
-      tile: {
-        label: m.tile.label,
-        worldCol: m.tile.worldCol,
-        worldRow: m.tile.worldRow,
-        cols: m.tile.cols,
-        rows: m.tile.rows,
-      },
+      tiles: m.tiles.map((t) => ({
+        id: t.id,
+        label: t.label,
+        worldCol: t.worldCol,
+        worldRow: t.worldRow,
+        cols: t.cols,
+        rows: t.rows,
+        home: Boolean(t.home),
+      })),
       guestExposed: Boolean(m.guestExposed),
-      home: Boolean(m.home),
       sensitive: Boolean(m.sensitive),
       source: "feature",
     });
@@ -189,15 +200,18 @@ export async function collect(): Promise<AppModel> {
   const registryApps: CollectedApp[] = TILE_REGISTRY.filter((t) => !featureIds.has(t.id)).map(
     (t) => ({
       id: t.id,
-      tile: {
-        label: t.label,
-        worldCol: t.worldCol,
-        worldRow: t.worldRow,
-        cols: t.cols,
-        rows: t.rows,
-      },
+      tiles: [
+        {
+          id: t.id,
+          label: t.label,
+          worldCol: t.worldCol,
+          worldRow: t.worldRow,
+          cols: t.cols,
+          rows: t.rows,
+          home: Boolean((t as { home?: boolean }).home),
+        },
+      ],
       guestExposed: false,
-      home: Boolean((t as { home?: boolean }).home),
       sensitive: Boolean((t as { sensitive?: boolean }).sensitive),
       source: "registry",
     }),

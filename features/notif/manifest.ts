@@ -13,13 +13,16 @@ import { NotificationCenterTile, NotificationCenterTileView } from "./web";
  */
 export default defineApp({
   id: "tile_notif",
-  tile: {
-    label: "Notifications",
-    component: NotificationCenterTile,
-    viewComponent: NotificationCenterTileView,
-    worldCol: 38,
-    worldRow: 24,
-    cols: 4,
-    rows: 3,
-  },
+  tiles: [
+    {
+      id: "tile_notif",
+      label: "Notifications",
+      component: NotificationCenterTile,
+      viewComponent: NotificationCenterTileView,
+      worldCol: 38,
+      worldRow: 24,
+      cols: 4,
+      rows: 3,
+    },
+  ],
 });

@@ -19,11 +19,14 @@ interface Rect {
   cols: number;
   rows: number;
 }
-interface ValApp {
+interface TileRect extends Rect {
   id: string;
   home?: boolean;
+}
+interface ValApp {
+  id: string;
   guestExposed?: boolean;
-  tile: Rect;
+  tiles: TileRect[];
 }
 interface Model {
   apps: ValApp[];
@@ -99,11 +102,9 @@ export function validate(model: Model, guestExposed: readonly string[]): void {
     }
   }
 
-  let homes = 0;
   for (const a of model.apps) {
     if (seen.has(a.id)) throw new CodegenError(`duplicate app id: ${a.id}`);
     seen.add(a.id);
-    if (a.home) homes++;
     const inAllow = allow.has(a.id);
     if (Boolean(a.guestExposed) !== inAllow) {
       throw new CodegenError(
@@ -113,9 +114,31 @@ export function validate(model: Model, guestExposed: readonly string[]): void {
       );
     }
   }
+
+  // Flatten to all tiles of all apps.
+  const tiles = model.apps.flatMap((a) => a.tiles.map((t) => ({ ...t, appId: a.id })));
+
+  // Duplicate TILE id across every tile of every app (board / DB placement key
+  // on this — a multi-tile app's tiles each need their own id).
+  const seenTile = new Map<string, string>();
+  for (const t of tiles) {
+    const prev = seenTile.get(t.id);
+    if (prev) {
+      throw new CodegenError(
+        `duplicate tile id '${t.id}' (declared by app ${prev} and app ${t.appId})`,
+      );
+    }
+    seenTile.set(t.id, t.appId);
+  }
+
+  // Exactly one home tile across ALL tiles of ALL apps.
+  const homes = tiles.filter((t) => t.home).length;
   if (homes !== 1) throw new CodegenError(`expected exactly one home tile, found ${homes}`);
-  for (let i = 0; i < model.apps.length; i++)
-    for (let j = i + 1; j < model.apps.length; j++)
-      if (overlaps(model.apps[i].tile, model.apps[j].tile))
-        throw new CodegenError(`tiles ${model.apps[i].id} and ${model.apps[j].id} overlap`);
+
+  // No tile-rect overlap across every pair of tiles, including two tiles owned
+  // by the same app (a multi-tile app must not self-overlap).
+  for (let i = 0; i < tiles.length; i++)
+    for (let j = i + 1; j < tiles.length; j++)
+      if (overlaps(tiles[i], tiles[j]))
+        throw new CodegenError(`tiles ${tiles[i].id} and ${tiles[j].id} overlap`);
 }
