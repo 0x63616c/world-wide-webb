@@ -7,14 +7,14 @@
  */
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { describe, expect, it } from "vitest";
-import type * as schema from "../db/schema";
 import {
   FRONTEND_LOG_RETENTION_MS,
   frontendLogCutoff,
   logShouldPurge,
   MAX_BATCHES,
   purgeFrontendLogs,
-} from "../services/frontend-log-purge-service";
+} from "./jobs";
+import type * as schema from "./schema";
 
 const asDb = (fake: unknown) => fake as unknown as NodePgDatabase<typeof schema>;
 

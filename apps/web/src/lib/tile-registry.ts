@@ -4,6 +4,7 @@ import ctrlManifest from "@features/ctrl/manifest";
 import deploysManifest from "@features/deploys/manifest";
 import dogcamManifest from "@features/dogcam/manifest";
 import eventsManifest from "@features/events/manifest";
+import felogsManifest from "@features/felogs/manifest";
 import guestWifiManifest from "@features/guest-wifi/manifest";
 import networkManifest from "@features/network/manifest";
 import notifManifest from "@features/notif/manifest";
@@ -20,8 +21,6 @@ import { TvAppsTile } from "../components/media/TvAppsTile";
 import { TvAppsTileView } from "../components/media/TvAppsTileView";
 import { TvNowPlayingTile } from "../components/media/TvNowPlayingTile";
 import { TvNowPlayingTileView } from "../components/media/TvNowPlayingTileView";
-import { FrontendLogsTile } from "../components/tiles/FrontendLogsTile";
-import { FrontendLogsTileView } from "../components/tiles/FrontendLogsTileView";
 import { PhotoBoothTile } from "../components/tiles/photo-booth/PhotoBoothTile";
 import { WakesTile } from "../components/tiles/WakesTile";
 import { WakesTileView } from "../components/tiles/WakesTileView";
@@ -113,17 +112,9 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
   },
   // Notification Center used to live here as "tile_notif" (cols 38-41 / rows
   // 24-26, top-right corner of the cluster) but now comes from
-  // features/notif/manifest.ts (Track C, S1).
-  {
-    id: "tile_felogs",
-    label: "Frontend Logs",
-    component: FrontendLogsTile,
-    viewComponent: FrontendLogsTileView,
-    worldCol: 26,
-    worldRow: 30,
-    cols: 4,
-    rows: 2,
-  },
+  // features/notif/manifest.ts (Track C, S1). Frontend Logs used to live here
+  // as "tile_felogs" but now comes from features/felogs/manifest.ts (Track C,
+  // Wave 7).
   // Photo booth. A titled 2x2 tile sitting flush along the cluster's top edge:
   // beside the Guest Wi-Fi QR (cols 28-29) and directly above Climate (col 30),
   // so it reads as part of the home row without displacing any existing tile. Its
@@ -158,6 +149,7 @@ const FEATURE_MANIFESTS: AppManifest[] = [
   eventsManifest,
   acManifest,
   ctrlManifest,
+  felogsManifest,
 ];
 
 function manifestToEntries(m: AppManifest): TileRegistryEntry[] {

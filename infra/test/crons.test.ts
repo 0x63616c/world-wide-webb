@@ -51,12 +51,13 @@ type CronSpec = ReturnType<typeof crons.cronSpecs>[number];
 const byName = (specs: CronSpec[], name: string) => specs.find((s) => s.name === name);
 
 describe("cronSpecs: the declared CronJob set", () => {
-  test("declares product backups plus portal-data-purge, guest-wifi-purge, weather-purge and map-extract (no image-prune, no cert-renew)", () => {
+  test("declares product backups plus portal-data-purge, guest-wifi-purge, weather-purge, felogs-purge and map-extract (no image-prune, no cert-renew)", () => {
     const names = crons
       .cronSpecs(NAS)
       .map((c) => c.name)
       .sort();
     expect(names).toEqual([
+      "felogs-purge",
       "guest-wifi-purge",
       "map-extract",
       "pg-backup",

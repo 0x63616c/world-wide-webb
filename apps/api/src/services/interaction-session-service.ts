@@ -13,10 +13,11 @@
  * the frontend_log ts index does the heavy lifting. At panel scale (one device,
  * tens of visits a day, 30-day log retention) that cost is noise.
  */
+import { frontendLog } from "@features/felogs/schema";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../db/schema";
-import { frontendLog, wakePhoto } from "../db/schema";
+import { wakePhoto } from "../db/schema";
 
 export interface InteractionSessionSummary {
   id: string;

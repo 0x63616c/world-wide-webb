@@ -3,7 +3,6 @@ import { mergeRouters, router } from "../init";
 import { boothPhotosRouter } from "./booth-photos";
 import { deviceSettingsRouter } from "./device-settings";
 import { healthRouter } from "./health";
-import { logsRouter } from "./logs";
 import { mediaRouter } from "./media";
 import { sessionsRouter } from "./sessions";
 import { settingsRouter } from "./settings";
@@ -17,7 +16,6 @@ import { wakePhotosRouter } from "./wake-photos";
 const baseRouter = router({
   health: healthRouter,
   boothPhotos: boothPhotosRouter,
-  logs: logsRouter,
   media: mediaRouter,
   settings: settingsRouter,
   deviceSettings: deviceSettingsRouter,

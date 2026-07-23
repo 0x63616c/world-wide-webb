@@ -19,7 +19,7 @@ import { getLogger } from "@www/logger";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { z } from "zod";
 
-import * as schema from "../db/schema";
+import * as schema from "./schema";
 
 /** Max serialized size of a single entry's `data` payload; larger entries are dropped. */
 export const MAX_DATA_BYTES = 32 * 1024;

@@ -7,8 +7,8 @@
  * board's tap path runs `run()` for action entries; TileDetailHost ignores them.
  */
 
+import type { TileDetailActionEntry } from "@/components/tiles/detail/types";
 import { openSettings } from "@/lib/settings-overlay-store";
-import type { TileDetailActionEntry } from "../types";
 
 export const frontendLogsDetailEntry: TileDetailActionEntry = {
   kind: "action",

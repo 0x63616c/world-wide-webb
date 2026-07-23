@@ -1,19 +1,69 @@
 /**
- * FrontendLogsTileView , the board's window onto the panel's own log store.
+ * Frontend Logs tile (Track C, Wave 7 fold). Container + presentational view
+ * inlined into one file (tesla/network single-tile shape) — the manifest
+ * imports both `FrontendLogsTile` and `FrontendLogsTileView` from here.
  *
- * The wall panel is a TestFlight Capacitor build with no attachable inspector
- * (see logs/LogsView.tsx); the Logs settings page is the only log viewer, and
- * until now the only way to know it was worth opening was to open it. This tile
- * is the tell: the last 24h of the panel's OWN frontend logs , an hourly
- * histogram of every level (when it got loud) over a full level tally (how loud,
- * how bad). Tapping the tile deep-links into Settings → Logs (behind the PIN).
+ * FrontendLogsTile owns:
+ *  - a periodic summarizeSince(now - 24h) walk over the on-device log store,
+ *    flushed first so the tally includes lines still queued in memory
+ *
+ * Tapping the tile deep-links into Settings → Logs (behind the PIN gate, since
+ * Settings is gated however it is reached) via the board's tile-detail registry
+ * action entry (detail-wiring.tsx); the tile face itself wires no tap handler.
+ *
+ * No tRPC here: the data source is the panel's OWN IndexedDB log store, so
+ * this polls a local summary instead of a query hook. One-minute cadence , the
+ * tile is a 24h tally, so a minute of staleness is invisible, and each tick is
+ * a single cursor walk over just the last day's slice.
+ *
+ * FrontendLogsTileView , the board's window onto the panel's own log store.
+ * The wall panel is a TestFlight Capacitor build with no attachable inspector;
+ * the Logs settings page is the only log viewer, and until now the only way to
+ * know it was worth opening was to open it. This tile is the tell: the last
+ * 24h of the panel's OWN frontend logs , an hourly histogram of every level
+ * (when it got loud) over a full level tally (how loud, how bad).
  *
  * All four levels are charted, stacked error-on-top so the severe end of the
  * scale reads first even when debug volume dominates the bar height.
  */
 
+import { useCallback, useEffect, useState } from "react";
 import { Skeleton, Tile, TileHeader, TileStatus } from "@/components/ui";
-import { LOG_LEVELS, type LogLevel } from "../../lib/log/types";
+import { flushNow } from "@/lib/log/logger";
+import * as store from "@/lib/log/store";
+import { LOG_LEVELS, type LogLevel } from "@/lib/log/types";
+
+const WINDOW_MS = 24 * 60 * 60 * 1000;
+const BUCKETS = 24;
+const REFRESH_MS = 60 * 1000;
+
+type Summary = store.LogSummary;
+
+export function FrontendLogsTile() {
+  const [summary, setSummary] = useState<Summary | null>(null);
+
+  const refresh = useCallback(async () => {
+    await flushNow();
+    const now = Date.now();
+    setSummary(await store.summarizeSince(now - WINDOW_MS, now, BUCKETS));
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+    const timer = setInterval(() => void refresh(), REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [refresh]);
+
+  return summary === null ? (
+    <FrontendLogsTileView status={TileStatus.Loading} />
+  ) : (
+    <FrontendLogsTileView
+      status={TileStatus.Populated}
+      counts={summary.counts}
+      buckets={summary.buckets}
+    />
+  );
+}
 
 /** Same status colors as LogsView , level identity is always color + label. */
 const LEVEL_COLOR: Record<LogLevel, string> = {

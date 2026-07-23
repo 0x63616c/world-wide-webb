@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { defineTileMeta } from "./__stories__/factory";
-import { FrontendLogsTileView } from "./FrontendLogsTileView";
+import { defineTileMeta } from "@/components/tiles/__stories__/factory";
+import { FrontendLogsTileView } from "./web";
 
 /** Quiet day with one incident spike late in the window. */
 const INCIDENT_BUCKETS = [

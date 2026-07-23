@@ -2,10 +2,12 @@
 // Source of truth: features/*/{manifest,api,schema,jobs}.ts + apps/api/src/db/schema.ts.
 // Re-run `bun run apps:gen` after changing a feature facet; commit the result.
 
+import { purgeCron as felogs_purgeCron } from "../felogs/jobs";
 import { purgeCron as guestWifi_purgeCron } from "../guest-wifi/jobs";
 import { purgeCron as weather_purgeCron } from "../weather/jobs";
 
 export const CRON_HANDLERS: Record<string, () => Promise<void>> = {
+  "felogs-purge": felogs_purgeCron.run,
   "guest-wifi-purge": guestWifi_purgeCron.run,
   "weather-purge": weather_purgeCron.run,
 };

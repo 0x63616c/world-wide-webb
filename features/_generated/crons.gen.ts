@@ -9,6 +9,7 @@ export interface GeneratedCron {
 }
 
 export const GENERATED_CRONS: readonly GeneratedCron[] = [
+  { name: "felogs-purge", schedule: "0 4 * * *", source: "feature:felogs" },
   { name: "guest-wifi-purge", schedule: "0 2 * * *", source: "feature:guest-wifi" },
   { name: "weather-purge", schedule: "0 3 * * *", source: "feature:weather" },
 ];

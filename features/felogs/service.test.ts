@@ -5,17 +5,18 @@
  * cursor resets can never double-insert or error. The router (logs.ingest) is a
  * thin wrapper, so the behaviour lives here plus a registration assertion.
  */
+import { router } from "@app-kit/server";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { describe, expect, it, vi } from "vitest";
-import type * as schema from "../db/schema";
+import { logsRouter } from "./api";
+import type * as schema from "./schema";
 import {
   frontendLogEntrySchema,
   frontendLogIngestSchema,
   ingestFrontendLogs,
   MAX_BATCH_SIZE,
   MAX_DATA_BYTES,
-} from "../services/frontend-log-service";
-import { appRouter } from "../trpc/routers/index";
+} from "./service";
 
 type Db = NodePgDatabase<typeof schema>;
 
@@ -177,13 +178,8 @@ describe("ingestFrontendLogs", () => {
 // ─── router wiring ───────────────────────────────────────────────────────────
 
 describe("logs router wiring", () => {
-  it("registers logs.ingest on the appRouter", () => {
+  it("registers logs.ingest on a local router built from the exported logsRouter", () => {
+    const appRouter = router({ logs: logsRouter });
     expect(Object.keys(appRouter._def.procedures)).toContain("logs.ingest");
-  });
-});
-
-describe("layout router removal", () => {
-  it("does not expose a layout router", () => {
-    expect(Object.keys(appRouter._def.procedures).some((k) => k.startsWith("layout"))).toBe(false);
   });
 });

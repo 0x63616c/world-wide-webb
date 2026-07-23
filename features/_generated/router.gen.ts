@@ -8,6 +8,7 @@ import { api as ctrlApi } from "../ctrl/api";
 import { api as deploysApi } from "../deploys/api";
 import { api as dogcamApi } from "../dogcam/api";
 import { api as eventsApi } from "../events/api";
+import { api as felogsApi } from "../felogs/api";
 import { api as guestWifiApi } from "../guest-wifi/api";
 import { api as networkApi } from "../network/api";
 import { api as notifApi } from "../notif/api";
@@ -15,4 +16,4 @@ import { api as teslaApi } from "../tesla/api";
 import { api as weatherApi } from "../weather/api";
 import { api as weightApi } from "../weight/api";
 
-export const featureAppRouter = mergeRouters(acApi, ctrlApi, deploysApi, dogcamApi, eventsApi, guestWifiApi, networkApi, notifApi, teslaApi, weatherApi, weightApi);
+export const featureAppRouter = mergeRouters(acApi, ctrlApi, deploysApi, dogcamApi, eventsApi, felogsApi, guestWifiApi, networkApi, notifApi, teslaApi, weatherApi, weightApi);
