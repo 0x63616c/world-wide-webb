@@ -117,27 +117,62 @@ and let each feature own its own small config slice:
    to the full barrel; in the new world each feature does
    `drizzle(pool, { schema: ownSchema })` over its own tables.
 2. **`hydrateSecretFiles` goes listless.** Today it iterates an explicit 20-name
-   `SECRET_FILE_ENV` array and reads each `/run/secrets/<NAME>`. Replace with a
-   directory glob: hydrate **every** file present in `/run/secrets/*` into
-   `process.env` if that key is unset. This removes the central cross-feature
-   secret list entirely — a feature adding a secret no longer edits a God-list.
-   Behaviour is a superset of today's for any real deployment (the mounted files
-   are exactly the intended secrets); an explicit env var still wins; a missing
-   dir (dev/test) is still a no-op.
+   `SECRET_FILE_ENV` array (`apps/api/src/env.ts:38-59`) and reads each
+   `/run/secrets/<NAME>`. Replace with a directory glob: hydrate **every** file
+   present in `/run/secrets/*` into `process.env` if that key is unset, **except a
+   small deny-list** (see below). This removes the central cross-feature secret
+   list — a feature adding a secret no longer edits a God-list. An explicit env
+   var still wins; a missing dir (dev/test) is still a no-op.
+
+   The glob is NOT a pure superset of the 20-name list — the api's `/run/secrets`
+   mount (platform manifest, `packages/platform/src/index.ts:358`) also projects
+   **`POSTGRES_PASSWORD`**, deliberately absent from the current 20-name list. A
+   naive glob would newly hydrate the raw DB password into `process.env` (and every
+   child process's env). It is functionally inert for DB-URL resolution
+   (`databaseUrlFromSecret` reads the `POSTGRES_PASSWORD_FILE` *file*, not the env
+   var, and runs after hydrate), but leaking a credential into env is a regression.
+   **Decision: deny-list `POSTGRES_PASSWORD` (and any `*_PASSWORD` DB secret
+   resolved via a `_FILE` path) from the glob**, and pin that exclusion with a
+   test. (The reverse case — `MEDIA_STORAGE_DIR` is in the 20-name list but not
+   mounted — is already a no-op today and unaffected.)
 3. **`core/unifi`** — the shared UniFi client moves to core. It is genuinely
    shared: guest-wifi uses `authorizeGuest`/`findActiveAuthorization`; the (not-
-   yet-folded) Network tile uses the traffic/health methods. Q11b case 1 → promote
-   behind an interface (precedent `device_state`). Config arrives via **constructor
-   args** (`createUnifiClient({ apiKey, controllerUrl, siteId, timeoutMs })`),
-   NOT via `import { env }` — core imports no app env.
+   yet-folded) Network tile (`apps/api/src/services/network-service.ts:3`) uses the
+   traffic/health methods. Q11b case 1 → promote behind an interface (precedent
+   `device_state`). Config arrives via **constructor args** — matching the real
+   constructor field names: `createUnifiClient({ apiKey, baseUrl, siteId })` (the
+   client's config field is `baseUrl`, not `controllerUrl`; the request timeout
+   stays the module const `UNIFI_REQUEST_TIMEOUT_MS`, not a ctor arg). NOT via
+   `import { env }` — core imports no app env. Today the module exports a singleton
+   `unifi = new UnifiClient()` that falls back to `env` in its constructor
+   (`integrations/unifi/index.ts:107-110,217`); that env fallback and the implicit
+   singleton **go away**. Both current callers get an explicitly-constructed client:
+   - guest-wifi (folded) builds one from its own config slice.
+   - **The still-in-`apps/api` Network tile gets an `apps/api`-side configured
+     singleton** built from the retained `env` God-schema (a thin
+     `apps/api/src/integrations/unifi.ts` wrapper: `createUnifiClient({ apiKey:
+     env.UNIFI_API_KEY, baseUrl: env.UNIFI_CONTROLLER_URL, siteId: env.UNIFI_SITE_ID })`).
+     Without this the Network import breaks on the canary.
+   - `network.test.ts` / `unifi-guest.test.ts` already construct clients with
+     `baseUrl` — they follow the client to core and keep passing config explicitly.
 
 **Stays in `apps/api` (unchanged this canary):** the `env` God-schema, for the 18
-features not yet folded. guest-wifi parses its **own** config slice
+features not yet folded, **and the full-schema `db` handle** (`db/index.ts`), which
+those 18 features still import. guest-wifi parses its **own** config slice
 (`WIFI_PASSWORD`, `UNIFI_API_KEY`, `UNIFI_CONTROLLER_URL`, `UNIFI_SITE_ID`,
 `DATABASE_URL`) with a tiny feature-local zod object reading the already-hydrated
-`process.env`. This is the pattern the remaining 18 folds inherit: config is
-feature-local; there is no shared env object; each fold claims its slice when it
-lands.
+`process.env`, and builds its own per-feature drizzle handle
+(`drizzle(pool, { schema: guestWifiSchema })`). This is the pattern the remaining
+18 folds inherit: config and db handle are feature-local; there is no shared env
+object; each fold claims its slice when it lands. Q11's "the full-schema barrel is
+never consumed by the runtime handle" is the **end state** (all 19 folded); the
+transitional truth on the canary is: per-feature handles for folded features, the
+full-schema `db` survives for the unfolded ones.
+
+`pool` moves to core; its `apps/api` consumers rewire to import it from core:
+`db/index.ts` (rebuilds `db` over the core pool), `purge.ts:22` (the guest-wifi
+cron facet, in scope), and `db/seed.ts:6` (rewire too — not part of guest-wifi but
+touched by the pool move).
 
 Not a half-move (pool + db-url + hydrator + unifi are taken wholesale) and not an
 over-move (the 20-secret schema stays until each feature claims its slice).
@@ -172,11 +207,38 @@ registry → codegen refuses to emit → the half-move cannot be pushed. The fli
 un-screw-uppable by construction (this is the Q9 "atomicity is emergent" property
 applied to the transition itself).
 
+**The same transitional union applies to the schema barrel — and this one has a
+data-loss trap.** drizzle-kit generates migrations by diffing the DB against a
+schema source. Today `apps/api/drizzle.config.ts` points `schema` at
+`./src/db/schema.ts`. When guest-wifi's tables (`portalAuthorization`,
+`portalRateLimit`, at `apps/api/src/db/schema.ts:278,291`) move to
+`features/guest-wifi/schema.ts`, if drizzle-kit still sees only the old file it
+will diff those tables as **absent** and emit `DROP TABLE portal_authorization /
+portal_rate_limit`. Therefore, in the **same slice** as the table move:
+
+- `apps:gen` emits `features/_generated/schema.gen.ts` = the union
+  `glob(features/*/schema.ts)` ∪ `remaining tables in apps/api/src/db/schema.ts`
+  (exactly parallel to the tile union — folded tables come from folders, unfolded
+  tables stay in the old file).
+- `apps/api/drizzle.config.ts` is **repointed** from `./src/db/schema.ts` to the
+  generated barrel `features/_generated/schema.gen.ts` in that same slice.
+- Verify: `drizzle-kit generate` produces **no** migration (empty diff) right after
+  the move — proof the barrel faithfully re-exports every table and nothing is
+  dropped. This barrel is consumed by drizzle-kit only, never by a runtime handle.
+
 ## Slice-by-slice shape
 
-The work is four slices in strict order. Slices 1–2 are pure preparation in the
+The work is five slices in strict order. Slices 1–2 are pure preparation in the
 existing tree (no `features/`, no `app-kit/`, no codegen). Slice 3 stands up the
-foundation as a no-op transform. Slice 4 folds the canary.
+foundation as a no-op transform. Slice 4 lifts the shared substrate to
+`packages/core` (independent of any feature). Slice 5 folds the canary.
+
+Slice 4 is deliberately its own push: the substrate lift (pool + db-url + hydrator
++ unifi to core, rewiring `network-service.ts`, `purge.ts`, `db/seed.ts`,
+`db/index.ts` + their tests) is cross-cutting and touches files unrelated to
+folding guest-wifi. Bundling it into the guest-wifi atomic push would make one
+large, hard-to-bisect change; splitting it keeps each push independently
+reviewable while both remain atomic (each is green-or-nothing).
 
 ### Slice 1 — delete custom tile placement (Q4)
 
@@ -233,11 +295,34 @@ already effectively uses. Nothing about runtime behaviour changes.
 - **Determinism proof:** committing the generated output after wiring
   `apps:gen` must produce zero diff on a re-run of `apps:gen` (byte-identical).
 
-### Slice 4 — guest-wifi fold (Q8/Q9/Q11) — the canary
+### Slice 4 — substrate lift to `packages/core` (D1)
+
+Its own atomic push, ahead of the fold. No `features/` involved — this is pure
+relocation + rewire of the shared connection substrate, so the canary fold (slice
+5) only has to *consume* core, not build it.
+
+- Move to `packages/core`: `databaseUrlFromSecret`, the dumb `createPool(url)` (no
+  schema binding), the listless `hydrateSecretFiles` (with the `POSTGRES_PASSWORD`
+  deny-list, D1.2), and the UniFi client (`createUnifiClient({ apiKey, baseUrl,
+  siteId })`, no `env` import, D1.3).
+- Rewire `apps/api` consumers to import from core: `db/index.ts` (rebuild `db` over
+  the core pool — the full-schema `db` handle survives for the 18 unfolded
+  features), `purge.ts:22`, `db/seed.ts:6`.
+- Add the `apps/api`-side configured UniFi singleton
+  (`apps/api/src/integrations/unifi.ts`) built from the retained `env` God-schema,
+  for the unfolded Network tile.
+- **Verify:** `env.test.ts`, `network.test.ts`, `unifi-guest.test.ts` pass
+  (updated to construct clients with `baseUrl` explicitly / import from core); a
+  test pins that the listless hydrator does **not** hydrate `POSTGRES_PASSWORD`;
+  the api + worker boot; `drizzle-kit generate` still empty (schema unchanged this
+  slice).
+
+### Slice 5 — guest-wifi fold (Q8/Q9/Q11) — the canary
 
 One **atomic** push, done inline. `git mv` the already-seamed files into place,
-add the manifest + branded facets, pull the substrate down (D1), rewire imports,
-flip codegen input (D2), regen, delete the old registry entry.
+add the manifest + branded facets, consume the core substrate (from slice 4),
+rewire imports, flip codegen input (D2, tiles **and** schema barrel), repoint
+`drizzle.config.ts`, regen, delete the old registry entry.
 
 Target folder shape:
 
@@ -253,11 +338,15 @@ features/guest-wifi/
   repo.fake.ts    in-memory adapter for tests                 (internals)
 ```
 
-- Substrate (D1): move `databaseUrlFromSecret` + dumb `createPool` + listless
-  `hydrateSecretFiles` + shared `unifi` client into `packages/core`; guest-wifi
-  parses its own config slice; `env` God-schema stays in `apps/api`.
-- Codegen flip (D2): move the guest-wifi entry out of `tile-registry.ts`; codegen
-  now globs `features/guest-wifi/manifest.ts` ∪ registry leftovers; regen.
+- Substrate consumption (D1): guest-wifi parses its own config slice and builds
+  its own `drizzle(pool, { schema: guestWifiSchema })` over the core pool (the
+  substrate itself already moved in slice 4).
+- Codegen flip (D2): move the guest-wifi entry out of `tile-registry.ts` **and**
+  its two tables out of `apps/api/src/db/schema.ts`; codegen now globs
+  `features/guest-wifi/manifest.ts` ∪ registry leftovers (tiles) and
+  `features/guest-wifi/schema.ts` ∪ leftover tables (schema barrel); repoint
+  `drizzle.config.ts` at `schema.gen.ts`; regen. `drizzle-kit generate` must
+  produce an empty diff (no table dropped).
 - Guest dual mount (Q8): `guestRouter` codegen'd from `guestExposed` ∩
   `GUEST_EXPOSED`. The guest listener is a separate entrypoint
   (`apps/api/src/guest-server.ts` + `trpc/guest-router.ts` mounting only
@@ -277,9 +366,16 @@ features/guest-wifi/
   `@app-kit`/`@features`; the codegen validator has unit coverage for each throw
   path (dup id, dup router-key, dup table, ≠1 home, overlapping rects,
   `guestExposed`≠`GUEST_EXPOSED`).
-- **Slice 4:** the existing portal service/router/schema/purge tests pass
-  unchanged (they already inject fakes — proof the relocation preserved the
-  seam); guest-router mount test still shows only `portal`; `apps:check` clean.
+- **Slice 4 (substrate lift):** `env.test.ts`, `network.test.ts`,
+  `unifi-guest.test.ts` pass (clients constructed with `baseUrl`, imported from
+  core); a new test pins that the listless hydrator does NOT hydrate
+  `POSTGRES_PASSWORD`; api + worker boot; `drizzle-kit generate` yields an empty
+  diff (schema untouched this slice).
+- **Slice 5 (guest-wifi fold):** the existing portal service/router/schema/purge
+  tests pass unchanged (they already inject fakes — proof the relocation preserved
+  the seam); guest-router mount test still shows only `portal`; `apps:check` clean;
+  `drizzle-kit generate` yields an empty diff (barrel re-exports every table — no
+  `DROP TABLE`).
 
 ## Corrections carried from the grill
 
