@@ -18,6 +18,18 @@ export default defineConfig({
       // (UniFi adopt-only stack, www-j934.3), so no separate project entry is
       // needed; a second entry would double-run those tests.
       "infra",
+      // app-kit: the App authoring surface (defineApp/defineApi/defineJobs/
+      // defineCron brand checks). No package.json/vite config of its own
+      // (like scripts/apps-gen below), and define-app.test.ts only imports
+      // sibling files via relative paths, so a bare inline project (no react
+      // plugin, no jsdom, no aliases) is enough.
+      {
+        test: {
+          name: "app-kit",
+          root: "./app-kit",
+          include: ["**/*.test.ts"],
+        },
+      },
       // scripts/apps-gen: the codegen collector/validator (Track C Slice 3).
       // No package.json/vite config of its own (it's a scripts/ subdir, not a
       // workspace package), so it needs an inline project definition rather
