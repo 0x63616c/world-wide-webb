@@ -7,7 +7,13 @@ function getAbsolutePath(value: string) {
 }
 
 const config: StorybookConfig = {
-  stories: ["../src/**/*.mdx", "../src/**/*.stories.@(ts|tsx)"],
+  stories: [
+    "../src/**/*.mdx",
+    "../src/**/*.stories.@(ts|tsx)",
+    // Folded features (Track C) carry their own stories under features/*/web/;
+    // weather is the first, per docs/superpowers/plans/units/2026-07-23-fold-weather.md.
+    "../../../features/**/*.stories.@(ts|tsx)",
+  ],
   addons: [
     getAbsolutePath("@storybook/addon-docs"),
     getAbsolutePath("@storybook/addon-a11y"),

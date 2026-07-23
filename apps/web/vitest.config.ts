@@ -30,13 +30,19 @@ export default defineConfig({
     // folded feature (Track C). A feature is self-contained (AGENTS.md), so its
     // tests live beside it in features/<id>/; collection is by facet filename
     // convention, mirroring codegen (manifest/api/web): `web.test.tsx` and
-    // `web-view.test.tsx` are the frontend facet and run in jsdom here, while
-    // `service.test.ts`/`api.test.ts` run under apps/api (node). A feature's
-    // Storybook stories + their vitest coverage stay under apps/web/src (same
-    // precedent as guest-wifi), so no extra glob is needed for those. Keep this
-    // in sync with apps/api/vitest.config.ts. The default glob is restated first
-    // because setting `include` overrides vitest's default.
-    include: ["**/*.{test,spec}.?(c|m)[jt]s?(x)", "../../features/**/web*.test.tsx"],
+    // `web-view.test.tsx` are the frontend facet (single-tile features) and run
+    // in jsdom here, `service.test.ts`/`api.test.ts`/etc run under apps/api
+    // (node). A feature with a full web/ component subtree (weather is the
+    // first — the full 33-file move includes its own component/story/test
+    // closure, not just one tile+view pair) keeps its tests beside their
+    // subjects under `web/**`, also collected here. Keep this in sync with
+    // apps/api/vitest.config.ts. The default glob is restated first because
+    // setting `include` overrides vitest's default.
+    include: [
+      "**/*.{test,spec}.?(c|m)[jt]s?(x)",
+      "../../features/**/web*.test.tsx",
+      "../../features/*/web/**/*.test.tsx",
+    ],
     // e2e-portal/*.spec.ts are Playwright specs (run via `bun run e2e:portal`
     // / e2e-portal/playwright.config.ts, not vitest). Vitest's default include
     // glob matches *.spec.ts too, so without an exclude it collects them and

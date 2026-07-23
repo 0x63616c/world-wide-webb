@@ -22,11 +22,11 @@ export default defineConfig({
     setupFiles: ["src/__tests__/setup-logger.ts"],
     // Collect this project's own tests PLUS the node-shaped facet tests of every
     // folded feature (Track C). A feature is self-contained (AGENTS.md), so its
-    // tests live beside it in features/<id>/; the collection is by facet filename
-    // convention, mirroring codegen (manifest/api/web): `service.test.ts` +
-    // `api.test.ts` are the backend facet and run in node here, while the
-    // `web*.test.tsx` frontend facet runs under apps/web (jsdom). Keep this in
-    // sync with apps/web/vitest.config.ts.
-    include: ["**/*.{test,spec}.?(c|m)[jt]s?(x)", "../../features/**/{service,api}.test.ts"],
+    // tests live beside it in features/<id>/; every backend-facet `*.test.ts`
+    // directly under a feature's root (service/api/jobs/ingest/etc — weather is
+    // the first fold with more than service+api) runs in node here, while the
+    // `web*.test.tsx` / `web/**/*.test.tsx` frontend facet runs under apps/web
+    // (jsdom). Keep this in sync with apps/web/vitest.config.ts.
+    include: ["**/*.{test,spec}.?(c|m)[jt]s?(x)", "../../features/*/*.test.ts"],
   },
 });

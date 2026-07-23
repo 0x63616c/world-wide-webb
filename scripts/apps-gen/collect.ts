@@ -336,8 +336,10 @@ export async function collect(): Promise<AppModel> {
   for (const name of tableNames(baseSchemaMod)) tables.push({ name, source: "base" });
 
   // Registry leftovers: every TILE_REGISTRY entry NOT already owned by a feature.
-  const featureIds = new Set(featureApps.map((a) => a.id));
-  const registryApps: CollectedApp[] = TILE_REGISTRY.filter((t) => !featureIds.has(t.id)).map(
+  // Dedup by the union of feature TILE ids, not app ids — a multi-tile app's tile
+  // ids differ from its app id (first case: features/weather).
+  const featureTileIds = new Set(featureApps.flatMap((a) => a.tiles.map((t) => t.id)));
+  const registryApps: CollectedApp[] = TILE_REGISTRY.filter((t) => !featureTileIds.has(t.id)).map(
     (t) => ({
       id: t.id,
       tiles: [

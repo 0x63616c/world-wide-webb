@@ -5,6 +5,7 @@ import guestWifiManifest from "@features/guest-wifi/manifest";
 import networkManifest from "@features/network/manifest";
 import notifManifest from "@features/notif/manifest";
 import teslaManifest from "@features/tesla/manifest";
+import weatherManifest from "@features/weather/manifest";
 import weightManifest from "@features/weight/manifest";
 import type { ComponentType } from "react";
 
@@ -26,13 +27,9 @@ import { EventsTile } from "../components/tiles/EventsTile";
 import { EventsTileView } from "../components/tiles/EventsTileView";
 import { FrontendLogsTile } from "../components/tiles/FrontendLogsTile";
 import { FrontendLogsTileView } from "../components/tiles/FrontendLogsTileView";
-import { Next12Hours } from "../components/tiles/Next12Hours";
-import { Next12HoursView } from "../components/tiles/Next12HoursView";
 import { PhotoBoothTile } from "../components/tiles/photo-booth/PhotoBoothTile";
 import { WakesTile } from "../components/tiles/WakesTile";
 import { WakesTileView } from "../components/tiles/WakesTileView";
-import { WeatherNow } from "../components/tiles/WeatherNow";
-import { WeatherNowView } from "../components/tiles/WeatherNowView";
 export type TileRegistryEntry = {
   id: string;
   // The tile's name, used by the minimap hover label, the centered-tile pan
@@ -76,26 +73,6 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
     cols: 5,
     rows: 3,
     home: true,
-  },
-  {
-    id: "tile_weath",
-    label: "Weather Now",
-    component: WeatherNow,
-    viewComponent: WeatherNowView,
-    worldCol: 26,
-    worldRow: 24,
-    cols: 4,
-    rows: 3,
-  },
-  {
-    id: "tile_hourly",
-    label: "Next 12 Hours",
-    component: Next12Hours,
-    viewComponent: Next12HoursView,
-    worldCol: 22,
-    worldRow: 24,
-    cols: 4,
-    rows: 3,
   },
   {
     id: "tile_ctrl",
@@ -223,6 +200,7 @@ const FEATURE_MANIFESTS: AppManifest[] = [
   weightManifest,
   deploysManifest,
   notifManifest,
+  weatherManifest,
 ];
 
 function manifestToEntries(m: AppManifest): TileRegistryEntry[] {

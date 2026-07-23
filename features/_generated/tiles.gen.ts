@@ -136,7 +136,7 @@ export const GENERATED_TILES: readonly GeneratedTile[] = [
   },
   {
     id: "tile_hourly",
-    appId: "tile_hourly",
+    appId: "tile_weather",
     label: "Next 12 Hours",
     worldCol: 22,
     worldRow: 24,
@@ -145,7 +145,7 @@ export const GENERATED_TILES: readonly GeneratedTile[] = [
     home: false,
     guestExposed: false,
     sensitive: false,
-    source: "registry",
+    source: "feature",
   },
   {
     id: "tile_notif",
@@ -240,7 +240,7 @@ export const GENERATED_TILES: readonly GeneratedTile[] = [
   },
   {
     id: "tile_weath",
-    appId: "tile_weath",
+    appId: "tile_weather",
     label: "Weather Now",
     worldCol: 26,
     worldRow: 24,
@@ -249,7 +249,7 @@ export const GENERATED_TILES: readonly GeneratedTile[] = [
     home: false,
     guestExposed: false,
     sensitive: false,
-    source: "registry",
+    source: "feature",
   },
   {
     id: "tile_weight",

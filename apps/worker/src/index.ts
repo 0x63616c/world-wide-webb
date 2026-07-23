@@ -25,12 +25,12 @@ import {
   runMigrations,
   runPlaylistPollerCycle,
   runSonosVolumeEnforcerCycle,
-  runWeatherIngestCycle,
   runWeightIngestCycle,
   runYoutubeIngest,
   staleJobReaper,
 } from "@control-center/api/worker";
 import { GENERATED_JOBS } from "@features/_generated/jobs.gen";
+import { runWeatherIngestCycle } from "@features/weather/ingest";
 import { createLogger } from "@www/logger";
 import { createWorkerRuntime, type Worker } from "@www/worker-runtime";
 import { hasSufficientDisk } from "./disk-guard";

@@ -5,15 +5,16 @@
  * (PRD Backend rule 7), the scheduler owns the cadence.
  *
  * It runs every retention purge the control-center owns:
- *  - weather: readings recorded more than 30 days ago (both weather tables).
  *  - frontend logs: entries captured more than 30 days ago.
  *  - wake photos: burst frames captured more than 90 days ago (row + file).
  *
  * The portal purge moved onto the S2 cron seam (see
  * `features/guest-wifi/jobs.ts`'s `purgeCron`, run by the `guest-wifi-purge` k8s
- * CronJob via `bun cron.js guest-wifi-purge`). The CronJob that runs THIS bundle
- * keeps its original "portal-data-purge" name so the existing Kubernetes object
- * isn't orphaned, even though it is no longer portal-only.
+ * CronJob via `bun cron.js guest-wifi-purge`); the weather purge moved the same
+ * way (`features/weather/jobs.ts`'s `purgeCron`, `weather-purge` CronJob). The
+ * CronJob that runs THIS bundle keeps its original "portal-data-purge" name so
+ * the existing Kubernetes object isn't orphaned, even though it is no longer
+ * portal-only.
  *
  * It reuses the same DATABASE_URL wiring as the api (env.ts builds it from the
  * mounted POSTGRES_PASSWORD secret), connects, runs one pass of each purge, logs
@@ -25,18 +26,15 @@ import { db, pool } from "./db/index";
 import { purgeFrontendLogs } from "./services/frontend-log-purge-service";
 import { purgeGithubRuns } from "./services/github-purge-service";
 import { purgeWakePhotos } from "./services/wake-photo-purge-service";
-import { purgeWeatherData } from "./services/weather-purge-service";
 
 const log = createLogger({ service: "api" });
 
 try {
-  const weather = await purgeWeatherData(db);
   const frontendLogs = await purgeFrontendLogs(db);
   const wakePhotos = await purgeWakePhotos(db);
   const github = await purgeGithubRuns(db);
   log.info(
     {
-      ...weather,
       frontendLogs: frontendLogs.logs,
       wakePhotos: wakePhotos.photos,
       githubRuns: github.runs,
@@ -44,9 +42,6 @@ try {
     },
     "data purge complete",
   );
-  if (weather.truncated) {
-    log.warn({}, "weather purge hit its batch cap; a backlog remains for the next run");
-  }
   if (frontendLogs.truncated) {
     log.warn({}, "frontend-log purge hit its batch cap; a backlog remains for the next run");
   }

@@ -12,7 +12,6 @@ import { sessionsRouter } from "./sessions";
 import { settingsRouter } from "./settings";
 import { systemRouter } from "./system";
 import { wakePhotosRouter } from "./wake-photos";
-import { weatherRouter } from "./weather";
 
 // The non-feature (base) router. Feature facets — `portal` now lives in
 // features/guest-wifi — are merged in below from the generated aggregate
@@ -20,7 +19,6 @@ import { weatherRouter } from "./weather";
 // the app router without a hand-edit here.
 const baseRouter = router({
   health: healthRouter,
-  weather: weatherRouter,
   climate: climateRouter,
   controls: controlsRouter,
   boothPhotos: boothPhotosRouter,

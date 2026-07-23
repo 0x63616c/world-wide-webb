@@ -57,3 +57,20 @@ it("collect() yields the migrated wake + booth routes from the interim http list
     expect.arrayContaining(["wakeHttp", "boothHttp"]),
   );
 });
+
+// The first multi-tile fold: features/weather declares TWO tiles
+// (tile_weath + tile_hourly) under one app id (tile_weather). This is the
+// regression guard for the collect.ts dedup fix — a multi-tile app's tile ids
+// differ from its app id, so the registry-leftover filter must dedup on the
+// union of feature TILE ids, not app ids, or both tiles double-collect.
+it("collect() sources both weather tiles once from the two-tile feature manifest", async () => {
+  const model = await collect();
+  const weather = model.apps.filter((a) => a.id === "tile_weather");
+  expect(weather).toHaveLength(1);
+  expect(weather[0].source).toBe("feature");
+  expect(weather[0].tiles.map((t) => t.id).sort()).toEqual(["tile_hourly", "tile_weath"]);
+  // The BLOCKER regression guard: neither tile id leaks back in as a registry app.
+  expect(model.apps.filter((a) => a.id === "tile_weath")).toHaveLength(0);
+  expect(model.apps.filter((a) => a.id === "tile_hourly")).toHaveLength(0);
+  expect(() => validate(model, ["tile_guestwifi"])).not.toThrow();
+});

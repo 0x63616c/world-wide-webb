@@ -36,6 +36,5 @@ export { runEnforcerCycle } from "./services/light-enforcer-service";
 export { reconcilePartyMode } from "./services/party-service";
 export { runPlaylistPollerCycle } from "./services/playlist-poller-service";
 export { runSonosVolumeEnforcerCycle } from "./services/sonos-volume-enforcer-service";
-export { runWeatherIngestCycle } from "./services/weather-ingest-service";
 export { runWeightIngestCycle } from "./services/weight-service";
 export { runYoutubeIngest } from "./services/youtube-ingest-service";
