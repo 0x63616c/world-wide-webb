@@ -8,7 +8,7 @@
  * lb only). Day grouping and all statistics happen server-side.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { WeightRange } from "@/components/tiles/WeightPageView";
 import { WeightPageView } from "@/components/tiles/WeightPageView";
 import type { WeightReadingDay } from "@/components/tiles/WeightReadingsView";
@@ -95,6 +95,25 @@ function useWeightVariants(): { variants: DetailVariant[]; loading: boolean } {
   };
   const setExcludedMutation = trpc.weight.setExcluded.useMutation({ onSettled: invalidate });
   const deleteMutation = trpc.weight.delete.useMutation({ onSettled: invalidate });
+
+  // The Readings list can't poll (its day-string cursors are frozen at first
+  // fetch — a timed refetch would drop/dupe a boundary day). Instead, piggyback
+  // on the summary poll: when its freshness token advances, a new reading has
+  // landed, so invalidate the list once. The first observed value only seeds
+  // the ref (the list's own initial fetch is already current).
+  const lastSeenAt = useRef<string | null>(null);
+  const latestMeasuredAt = summaryQuery.data?.latestMeasuredAt ?? null;
+  useEffect(() => {
+    if (latestMeasuredAt === null) return;
+    if (lastSeenAt.current === null) {
+      lastSeenAt.current = latestMeasuredAt;
+      return;
+    }
+    if (lastSeenAt.current !== latestMeasuredAt) {
+      lastSeenAt.current = latestMeasuredAt;
+      void utils.weight.days.invalidate();
+    }
+  }, [latestMeasuredAt, utils]);
 
   const summary = summaryQuery.data;
   const pages = daysQuery.data?.pages;

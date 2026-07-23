@@ -114,12 +114,22 @@ export const weightRouter = router({
       if (!s) return null;
       const latestDay = daily[daily.length - 1];
       if (!latestDay) return null;
+      // A monotonic freshness token for the panel: MAX(measured_at) over all
+      // live rows (exclusion-independent, so an on-ingest sanity-band exclusion
+      // still advances it). The Readings list can't safely poll (its cursors
+      // are frozen day-strings), so it watches this instead and invalidates
+      // only when a genuinely new reading has landed.
+      const [latest] = await db
+        .select({ at: sql<string | null>`max(${weightMeasurement.measuredAt})::text` })
+        .from(weightMeasurement)
+        .where(notDeleted());
       return {
         // The hero number is the latest DAY's median, so it agrees with the
         // chart and the average. It used to be the latest raw reading, which
         // disagreed with every other number on the page.
         latestKg: latestDay.kg,
         latestDay: latestDay.day,
+        latestMeasuredAt: latest?.at ?? null,
         daily,
         ...s,
       };
