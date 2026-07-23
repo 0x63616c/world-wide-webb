@@ -37,6 +37,9 @@ COPY apps/api/src ./apps/api/src
 COPY apps/api/tsconfig.json ./apps/api/tsconfig.json
 COPY apps/web ./apps/web
 COPY packages ./packages
+# C7 authoring surface: web bundles feature tiles + the app-kit surface.
+COPY app-kit ./app-kit
+COPY features ./features
 
 # Commit SHA baked into the bundle (vite `define`) so the running panel reports
 # its build. CI passes --build-arg BUILD_HASH=${github.sha}; absent (local docker

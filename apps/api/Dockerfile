@@ -39,6 +39,9 @@ COPY apps/api apps/api
 COPY apps/web apps/web
 COPY tsconfig.json tsconfig.json
 COPY packages packages
+# C7 authoring surface: api mounts feature routers + schema from the folder tree.
+COPY app-kit app-kit
+COPY features features
 
 # Bundle to a single file. server.ts runs migrations on boot via drizzle-orm's
 # runtime migrator, so drizzle-kit never ships.

@@ -66,13 +66,21 @@ jobs:
             # Shared changes (packages or root lockfile) force a rebuild of everything.
             # Single-product repo now (SDD track 0, Task 9: flatten): each app
             # lane is scoped to its own root directory plus shared packages.
+            # app-kit/ + features/ are the C7 authoring surface: web bundles feature
+            # tiles, api mounts feature routers/schema, worker drains feature jobs.
+            # A change under either must rebuild ALL THREE images (a miss ships stale
+            # images on green CI — www ci-cancelled-runs-strand).
             web:
               - 'apps/web/**'
               - 'packages/**'
+              - 'app-kit/**'
+              - 'features/**'
               - 'bun.lock'
             api:
               - 'apps/api/**'
               - 'packages/**'
+              - 'app-kit/**'
+              - 'features/**'
               - 'bun.lock'
             # The worker bundles its domain cycles from @control-center/api, so an api/
             # change must rebuild the worker image too (www-xjba).
@@ -80,6 +88,8 @@ jobs:
               - 'apps/worker/**'
               - 'apps/api/**'
               - 'packages/**'
+              - 'app-kit/**'
+              - 'features/**'
               - 'bun.lock'
             # infra-only changes (the Pulumi program + workload specs) deploy
             # with NO image rebuild: the deploy job runs `pulumi up`, which must
@@ -106,6 +116,8 @@ jobs:
               - 'drizzle/**'
               - 'apps/map-provision/**'
               - 'packages/**'
+              - 'app-kit/**'
+              - 'features/**'
               - 'bun.lock'
 
   # Unit suite (jsdom) + all the fast hermetic bash guards. Split from the

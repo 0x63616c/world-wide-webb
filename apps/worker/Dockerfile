@@ -34,6 +34,9 @@ RUN bun install --frozen-lockfile --ignore-scripts
 COPY apps/api apps/api
 COPY apps/worker apps/worker
 COPY packages packages
+# C7 authoring surface: worker drains feature jobs from the folder tree.
+COPY app-kit app-kit
+COPY features features
 
 # Bundle to a single file. index.ts runs migrations on boot via drizzle-orm's
 # runtime migrator (re-exported from @control-center/api), so drizzle-kit never ships.

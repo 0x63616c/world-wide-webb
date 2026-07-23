@@ -104,7 +104,44 @@ for (const df of FULL_INSTALL_DOCKERFILES) {
   }
 }
 
+// --- 4c. Assert every full-install Dockerfile COPYs the C7 authoring-surface
+// source dirs (app-kit/ + features/). These are root-level source trees, NOT
+// workspaces (no package.json), so section 4 doesn't cover them; web bundles
+// feature tiles, api mounts feature routers/schema, worker drains feature jobs,
+// so all three images must copy them in. A miss ships an image that can't
+// resolve @app-kit/@features at build time.
+const REQUIRED_SOURCE_DIRS = ["app-kit", "features"];
+const sourceDirOffenders: Array<{ dockerfile: string; missing: string[] }> = [];
+for (const df of FULL_INSTALL_DOCKERFILES) {
+  if (!existsSync(join(ROOT, df))) continue;
+  const content = readFileSync(join(ROOT, df), "utf8");
+  const copiedDirs = new Set<string>();
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("COPY ")) continue;
+    // Matches: COPY <dir> [./]<dir>  (a whole-directory source copy, not a file)
+    const m = trimmed.match(/^COPY\s+(\S+)\s+/);
+    if (m) copiedDirs.add(m[1].replace(/^\.\//, ""));
+  }
+  const missing = REQUIRED_SOURCE_DIRS.filter((d) => !copiedDirs.has(d));
+  if (missing.length > 0) {
+    sourceDirOffenders.push({ dockerfile: df, missing });
+    exitCode = 1;
+  }
+}
+
 // --- 5. Report ---
+
+if (sourceDirOffenders.length > 0) {
+  console.error(
+    "✗ Dockerfile(s) missing C7 authoring-surface source COPYs (app-kit/ + features/):",
+  );
+  for (const { dockerfile, missing } of sourceDirOffenders) {
+    console.error(`  ${dockerfile}:`);
+    for (const d of missing) console.error(`    + COPY ${d} ./${d}`);
+  }
+  console.error("");
+}
 
 if (floatingBunOffenders.length > 0) {
   console.error(
@@ -114,7 +151,7 @@ if (floatingBunOffenders.length > 0) {
 
 if (exitCode === 0) {
   console.log(
-    `✓ All ${FULL_INSTALL_DOCKERFILES.length} frozen-install Dockerfiles cover all ${workspaceManifests.length} workspace manifests from bun.lock, and use pinned bun base tags.`,
+    `✓ All ${FULL_INSTALL_DOCKERFILES.length} frozen-install Dockerfiles cover all ${workspaceManifests.length} workspace manifests from bun.lock, COPY the C7 authoring-surface dirs (${REQUIRED_SOURCE_DIRS.join(", ")}), and use pinned bun base tags.`,
   );
 } else if (allMissing.length > 0) {
   console.error(
