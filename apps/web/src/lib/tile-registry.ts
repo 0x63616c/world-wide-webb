@@ -9,6 +9,7 @@ import guestWifiManifest from "@features/guest-wifi/manifest";
 import networkManifest from "@features/network/manifest";
 import notifManifest from "@features/notif/manifest";
 import teslaManifest from "@features/tesla/manifest";
+import tvManifest from "@features/tv/manifest";
 import wakesManifest from "@features/wakes/manifest";
 import weatherManifest from "@features/weather/manifest";
 import weightManifest from "@features/weight/manifest";
@@ -18,10 +19,6 @@ import { QuickPlayTile } from "../components/media/QuickPlayTile";
 import { QuickPlayTileView } from "../components/media/QuickPlayTileView";
 import { SoundSystemTile } from "../components/media/SoundSystemTile";
 import { SoundSystemTileView } from "../components/media/SoundSystemTileView";
-import { TvAppsTile } from "../components/media/TvAppsTile";
-import { TvAppsTileView } from "../components/media/TvAppsTileView";
-import { TvNowPlayingTile } from "../components/media/TvNowPlayingTile";
-import { TvNowPlayingTileView } from "../components/media/TvNowPlayingTileView";
 import { PhotoBoothTile } from "../components/tiles/photo-booth/PhotoBoothTile";
 export type TileRegistryEntry = {
   id: string;
@@ -56,19 +53,10 @@ export type TileRegistryEntry = {
 // the Guest Wi-Fi tile used to live here as `tile_guestwifi` but now comes from
 // features/guest-wifi/manifest.ts.
 const REGISTRY_ENTRIES: TileRegistryEntry[] = [
-  // Media tiles (www-51hf)  --  TV, Sound System, TV Apps, Quick Play, and
-  // Frontend Logs. Default positions are V4B layout, overridable via
-  // board_tile_placement rows in the database.
-  {
-    id: "tile_tv",
-    label: "TV",
-    component: TvNowPlayingTile,
-    viewComponent: TvNowPlayingTileView,
-    worldCol: 18,
-    worldRow: 24,
-    cols: 4,
-    rows: 3,
-  },
+  // Media tiles (www-51hf)  --  Sound System, Quick Play, and Frontend Logs.
+  // TV + TV Apps now come from features/tv/manifest.ts (Track C, Wave 6).
+  // Default positions are V4B layout, overridable via board_tile_placement
+  // rows in the database.
   {
     id: "tile_sound",
     label: "Sound System",
@@ -78,16 +66,6 @@ const REGISTRY_ENTRIES: TileRegistryEntry[] = [
     worldRow: 31,
     cols: 4,
     rows: 3,
-  },
-  {
-    id: "tile_tvapps",
-    label: "TV Apps",
-    component: TvAppsTile,
-    viewComponent: TvAppsTileView,
-    worldCol: 30,
-    worldRow: 32,
-    cols: 4,
-    rows: 2,
   },
   {
     id: "tile_quickplay",
@@ -140,6 +118,7 @@ const FEATURE_MANIFESTS: AppManifest[] = [
   wakesManifest,
   eventsManifest,
   acManifest,
+  tvManifest,
   ctrlManifest,
   felogsManifest,
 ];

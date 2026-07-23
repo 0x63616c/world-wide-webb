@@ -21,7 +21,7 @@ vi.mock("@/lib/trpc", () => {
   const useMutation = vi.fn(() => ({ mutate: vi.fn() }));
   return {
     trpc: {
-      media: {
+      tv: {
         tvNowPlaying: { useQuery },
         tvPlay: { useMutation },
         tvPause: { useMutation },
@@ -38,7 +38,7 @@ vi.mock("@/lib/trpc", () => {
 
 async function getTvUseQuery() {
   const mod = await import("@/lib/trpc");
-  return mod.trpc.media.tvNowPlaying.useQuery as ReturnType<typeof vi.fn>;
+  return mod.trpc.tv.tvNowPlaying.useQuery as ReturnType<typeof vi.fn>;
 }
 
 // ── TvNowPlayingTileView unit tests ───────────────────────────────────────────

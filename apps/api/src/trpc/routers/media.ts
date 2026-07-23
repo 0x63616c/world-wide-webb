@@ -2,18 +2,6 @@ import { z } from "zod";
 import { db } from "../../db/index";
 import { mediaItem, mediaSource } from "../../db/schema";
 import { enqueueJob } from "../../jobs/queue";
-import {
-  getTvApps,
-  getTvNowPlaying,
-  tvLaunchApp,
-  tvNext,
-  tvPause,
-  tvPlay,
-  tvPrevious,
-  tvRemote,
-  tvSeek,
-  tvStop,
-} from "../../services/apple-tv-service";
 import { getSonosFavorites } from "../../services/sonos-favorites-service";
 import { getSoundSystem } from "../../services/sonos-sound-system-service";
 import { setSpeakerDesiredVolume } from "../../services/sonos-volume-enforcer-service";
@@ -35,18 +23,6 @@ import {
   spotifySeek,
 } from "../../services/spotify-service";
 import { publicProcedure, router } from "../init";
-
-const TvNowPlayingSchema = z.object({
-  state: z.string(),
-  appName: z.string().nullable(),
-  mediaTitle: z.string().nullable(),
-  mediaArtist: z.string().nullable(),
-  mediaPosition: z.number().nullable(),
-  mediaDuration: z.number().nullable(),
-  source: z.enum(["streaming", "line-in", "TV", "idle"]),
-  artworkUrl: z.string().nullable(),
-  mediaPositionUpdatedAt: z.string().nullable(),
-});
 
 // Extract a YouTube video ID from a URL or bare ID string.
 // Handles: https://youtu.be/<id>, https://www.youtube.com/watch?v=<id>,
@@ -171,25 +147,6 @@ const spotifyRouter = router({
 // Procedures are added per milestone; the router is registered in index.ts so
 // typecheck sees it as part of AppRouter from the first milestone (www-51hf.1).
 export const mediaRouter = router({
-  tvNowPlaying: publicProcedure
-    .input(z.object({}).optional())
-    .output(TvNowPlayingSchema)
-    .query(() => getTvNowPlaying()),
-
-  tvPlay: publicProcedure.mutation(() => tvPlay()),
-
-  tvPause: publicProcedure.mutation(() => tvPause()),
-
-  tvNext: publicProcedure.mutation(() => tvNext()),
-
-  tvPrevious: publicProcedure.mutation(() => tvPrevious()),
-
-  tvStop: publicProcedure.mutation(() => tvStop()),
-
-  tvSeek: publicProcedure
-    .input(z.object({ seekPositionSeconds: z.number().nonnegative() }))
-    .mutation(({ input }) => tvSeek(input.seekPositionSeconds)),
-
   // Paste-links-in-chat intake path (www-kp4k.3). Accepts an array of raw
   // YouTube URLs or video IDs; dedupes, creates pending media_items, and
   // enqueues youtube_ingest jobs. Idempotent: URLs already in the DB are
@@ -250,34 +207,6 @@ export const mediaRouter = router({
 
       return { enqueued, skipped: input.urls.length - enqueued };
     }),
-
-  tvRemote: publicProcedure
-    .input(
-      z.object({
-        command: z.enum([
-          "up",
-          "down",
-          "left",
-          "right",
-          "select",
-          "menu",
-          "home",
-          "home_hold",
-          "play_pause",
-          "power",
-        ]),
-      }),
-    )
-    .mutation(({ input }) => tvRemote(input.command)),
-
-  tvApps: publicProcedure
-    .input(z.object({}).optional())
-    .output(z.object({ apps: z.array(z.string()), currentApp: z.string().nullable() }))
-    .query(() => getTvApps()),
-
-  tvLaunchApp: publicProcedure
-    .input(z.object({ app: z.string() }))
-    .mutation(({ input }) => tvLaunchApp(input.app)),
 
   soundSystem: publicProcedure
     .input(z.object({}).optional())

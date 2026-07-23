@@ -9,7 +9,7 @@
  */
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
-import { modalDocsParameters } from "../tiles/__stories__/factory";
+import { modalDocsParameters } from "@/components/tiles/__stories__/factory";
 import { TransportScrubModal } from "./TransportScrubModal";
 
 const meta = {

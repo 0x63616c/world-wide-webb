@@ -15,12 +15,12 @@ import { TvAppsTileView } from "./TvAppsTileView";
 
 export function TvAppsTile() {
   const q = useTileQuery(
-    trpc.media.tvApps.useQuery(undefined, {
+    trpc.tv.tvApps.useQuery(undefined, {
       refetchInterval: POLL.tvApps,
     }),
   );
 
-  const launchMutation = trpc.media.tvLaunchApp.useMutation();
+  const launchMutation = trpc.tv.tvLaunchApp.useMutation();
 
   if (!q.data) {
     return <TvAppsTileView status={q.status} apps={[]} currentApp={null} onLaunchApp={() => {}} />;

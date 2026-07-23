@@ -1,5 +1,5 @@
-import { ha } from "../integrations/homeassistant";
-import { HaError } from "../integrations/homeassistant/types";
+import { HaError } from "@www/core";
+import { ha } from "./deps";
 
 // The HA entity_id for the Apple TV in the living room.
 const TV_ENTITY_ID = "media_player.living_room_tv";

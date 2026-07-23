@@ -8,6 +8,7 @@
  * via media_player/media_seek on media_player.living_room_tv.
  * All HA calls are mocked , no network required.
  */
+import { router } from "@app-kit/server";
 import { describe, expect, it, vi } from "vitest";
 
 // ─── mock the HA singleton ────────────────────────────────────────────────────
@@ -20,7 +21,7 @@ const { mockIsConfigured, mockGetEntity, mockCallService, mockGetMedia } = vi.ho
   mockGetMedia: vi.fn<(path: string) => Promise<Response>>(),
 }));
 
-vi.mock("../integrations/homeassistant", () => ({
+vi.mock("./deps", () => ({
   ha: {
     isConfigured: mockIsConfigured,
     getEntity: mockGetEntity,
@@ -40,7 +41,7 @@ import {
   tvRemote,
   tvSeek,
   tvStop,
-} from "../services/apple-tv-service";
+} from "./service";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -275,7 +276,7 @@ describe("getTvArtwork (www-dhhr)", () => {
   it("throws when HA is not configured", async () => {
     mockIsConfigured.mockReturnValue(false);
 
-    const { getTvArtwork } = await import("../services/apple-tv-service");
+    const { getTvArtwork } = await import("./service");
     await expect(getTvArtwork()).rejects.toThrow("Home Assistant is not configured");
   });
 
@@ -283,7 +284,7 @@ describe("getTvArtwork (www-dhhr)", () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntity.mockResolvedValue(makeHaEntity("idle", {}));
 
-    const { getTvArtwork } = await import("../services/apple-tv-service");
+    const { getTvArtwork } = await import("./service");
     await expect(getTvArtwork()).resolves.toBeNull();
   });
 
@@ -298,7 +299,7 @@ describe("getTvArtwork (www-dhhr)", () => {
       }),
     );
 
-    const { getTvArtwork } = await import("../services/apple-tv-service");
+    const { getTvArtwork } = await import("./service");
     const res = await getTvArtwork();
 
     expect(mockGetMedia).toHaveBeenCalledWith(ENTITY_PICTURE);
@@ -307,7 +308,7 @@ describe("getTvArtwork (www-dhhr)", () => {
   });
 });
 
-describe("mediaRouter.tvNowPlaying output keeps artwork + freshness fields (www-dhhr)", () => {
+describe("tvRouter.tvNowPlaying output keeps artwork + freshness fields (www-dhhr)", () => {
   it("does not strip artworkUrl / mediaPositionUpdatedAt through the output schema", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntity.mockResolvedValue(
@@ -319,13 +320,11 @@ describe("mediaRouter.tvNowPlaying output keeps artwork + freshness fields (www-
       }),
     );
 
-    const { router } = await import("../trpc/init");
-    const { mediaRouter } = await import("../trpc/routers/media");
-    const appRouter = router({ media: mediaRouter });
-    // @ts-expect-error , no db context needed
-    const caller = appRouter.createCaller({});
+    const { tvRouter } = await import("./api");
+    const appRouter = router({ tv: tvRouter });
+    const caller = appRouter.createCaller({ db: null as never });
 
-    const result = await caller.media.tvNowPlaying();
+    const result = await caller.tv.tvNowPlaying();
 
     expect(result.artworkUrl).toMatch(/^\/media\/tv-artwork\?v=/);
     expect(result.mediaPositionUpdatedAt).toBe("2026-06-09T20:00:00.000000+00:00");
@@ -334,7 +333,7 @@ describe("mediaRouter.tvNowPlaying output keeps artwork + freshness fields (www-
 
 // ─── router integration ───────────────────────────────────────────────────────
 
-describe("mediaRouter.tvNowPlaying via tRPC caller", () => {
+describe("tvRouter.tvNowPlaying via tRPC caller", () => {
   it("exposes tvNowPlaying as a query on the media router (A7)", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntity.mockResolvedValue(
@@ -346,13 +345,11 @@ describe("mediaRouter.tvNowPlaying via tRPC caller", () => {
       }),
     );
 
-    const { router } = await import("../trpc/init");
-    const { mediaRouter } = await import("../trpc/routers/media");
-    const appRouter = router({ media: mediaRouter });
-    // @ts-expect-error , no db context needed
-    const caller = appRouter.createCaller({});
+    const { tvRouter } = await import("./api");
+    const appRouter = router({ tv: tvRouter });
+    const caller = appRouter.createCaller({ db: null as never });
 
-    const result = await caller.media.tvNowPlaying();
+    const result = await caller.tv.tvNowPlaying();
 
     expect(result.state).toBe("playing");
     expect(result.appName).toBe("YouTube");
@@ -362,13 +359,11 @@ describe("mediaRouter.tvNowPlaying via tRPC caller", () => {
   it("surfaces SERVICE_UNAVAILABLE when HA is not configured (A3)", async () => {
     mockIsConfigured.mockReturnValue(false);
 
-    const { router } = await import("../trpc/init");
-    const { mediaRouter } = await import("../trpc/routers/media");
-    const appRouter = router({ media: mediaRouter });
-    // @ts-expect-error , no db context needed
-    const caller = appRouter.createCaller({});
+    const { tvRouter } = await import("./api");
+    const appRouter = router({ tv: tvRouter });
+    const caller = appRouter.createCaller({ db: null as never });
 
-    await expect(caller.media.tvNowPlaying()).rejects.toMatchObject({
+    await expect(caller.tv.tvNowPlaying()).rejects.toMatchObject({
       code: "SERVICE_UNAVAILABLE",
     });
   });
@@ -465,43 +460,41 @@ describe("Apple TV transport mutations (A8)", () => {
 
 // ─── media router transport mutations (A8) ────────────────────────────────────
 
-describe("mediaRouter transport mutations via tRPC caller (A8)", () => {
+describe("tvRouter transport mutations via tRPC caller (A8)", () => {
   it("exposes tvPlay, tvPause, tvNext, tvPrevious, tvStop, tvSeek mutations", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockCallService.mockResolvedValue(undefined);
 
-    const { router } = await import("../trpc/init");
-    const { mediaRouter } = await import("../trpc/routers/media");
-    const testRouter = router({ media: mediaRouter });
-    // @ts-expect-error , no db context needed
-    const caller = testRouter.createCaller({});
+    const { tvRouter } = await import("./api");
+    const testRouter = router({ tv: tvRouter });
+    const caller = testRouter.createCaller({ db: null as never });
 
-    await caller.media.tvPlay();
+    await caller.tv.tvPlay();
     expect(mockCallService).toHaveBeenCalledWith("media_player", "media_play", {
       entity_id: "media_player.living_room_tv",
     });
 
-    await caller.media.tvPause();
+    await caller.tv.tvPause();
     expect(mockCallService).toHaveBeenCalledWith("media_player", "media_pause", {
       entity_id: "media_player.living_room_tv",
     });
 
-    await caller.media.tvNext();
+    await caller.tv.tvNext();
     expect(mockCallService).toHaveBeenCalledWith("media_player", "media_next_track", {
       entity_id: "media_player.living_room_tv",
     });
 
-    await caller.media.tvPrevious();
+    await caller.tv.tvPrevious();
     expect(mockCallService).toHaveBeenCalledWith("media_player", "media_previous_track", {
       entity_id: "media_player.living_room_tv",
     });
 
-    await caller.media.tvStop();
+    await caller.tv.tvStop();
     expect(mockCallService).toHaveBeenCalledWith("media_player", "media_stop", {
       entity_id: "media_player.living_room_tv",
     });
 
-    await caller.media.tvSeek({ seekPositionSeconds: 45 });
+    await caller.tv.tvSeek({ seekPositionSeconds: 45 });
     expect(mockCallService).toHaveBeenCalledWith("media_player", "media_seek", {
       entity_id: "media_player.living_room_tv",
       seek_position: 45,
@@ -555,20 +548,18 @@ describe("tvRemote D-pad mutation (A9)", () => {
   });
 });
 
-// ─── mediaRouter tvRemote mutation (A9) ──────────────────────────────────────
+// ─── tvRouter tvRemote mutation (A9) ──────────────────────────────────────
 
-describe("mediaRouter.tvRemote via tRPC caller (A9)", () => {
+describe("tvRouter.tvRemote via tRPC caller (A9)", () => {
   it("exposes tvRemote mutation that calls remote.send_command on remote.living_room_tv", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockCallService.mockResolvedValue(undefined);
 
-    const { router } = await import("../trpc/init");
-    const { mediaRouter } = await import("../trpc/routers/media");
-    const testRouter = router({ media: mediaRouter });
-    // @ts-expect-error , no db context needed
-    const caller = testRouter.createCaller({});
+    const { tvRouter } = await import("./api");
+    const testRouter = router({ tv: tvRouter });
+    const caller = testRouter.createCaller({ db: null as never });
 
-    await caller.media.tvRemote({ command: "home" });
+    await caller.tv.tvRemote({ command: "home" });
 
     expect(mockCallService).toHaveBeenCalledWith("remote", "send_command", {
       entity_id: "remote.living_room_tv",
@@ -579,13 +570,11 @@ describe("mediaRouter.tvRemote via tRPC caller (A9)", () => {
   it("rejects when HA is not configured (A3)", async () => {
     mockIsConfigured.mockReturnValue(false);
 
-    const { router } = await import("../trpc/init");
-    const { mediaRouter } = await import("../trpc/routers/media");
-    const testRouter = router({ media: mediaRouter });
-    // @ts-expect-error , no db context needed
-    const caller = testRouter.createCaller({});
+    const { tvRouter } = await import("./api");
+    const testRouter = router({ tv: tvRouter });
+    const caller = testRouter.createCaller({ db: null as never });
 
-    await expect(caller.media.tvRemote({ command: "up" })).rejects.toMatchObject({
+    await expect(caller.tv.tvRemote({ command: "up" })).rejects.toMatchObject({
       code: "SERVICE_UNAVAILABLE",
     });
   });
@@ -597,7 +586,7 @@ describe("getTvApps (A10)", () => {
   it("throws when HA is not configured (A3)", async () => {
     mockIsConfigured.mockReturnValue(false);
 
-    const { getTvApps } = await import("../services/apple-tv-service");
+    const { getTvApps } = await import("./service");
     await expect(getTvApps()).rejects.toThrow("Home Assistant is not configured");
   });
 
@@ -605,7 +594,7 @@ describe("getTvApps (A10)", () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntity.mockRejectedValue(new Error("HA network error"));
 
-    const { getTvApps } = await import("../services/apple-tv-service");
+    const { getTvApps } = await import("./service");
     await expect(getTvApps()).rejects.toThrow("HA network error");
   });
 
@@ -621,7 +610,7 @@ describe("getTvApps (A10)", () => {
       last_updated: "2024-01-01T00:00:00Z",
     });
 
-    const { getTvApps } = await import("../services/apple-tv-service");
+    const { getTvApps } = await import("./service");
     const result = await getTvApps();
 
     expect(result.apps).toEqual(["Netflix", "YouTube", "Disney+", "Plex", "TV"]);
@@ -639,7 +628,7 @@ describe("getTvApps (A10)", () => {
       last_updated: "2024-01-01T00:00:00Z",
     });
 
-    const { getTvApps } = await import("../services/apple-tv-service");
+    const { getTvApps } = await import("./service");
     const result = await getTvApps();
 
     expect(result.currentApp).toBeNull();
@@ -655,7 +644,7 @@ describe("getTvApps (A10)", () => {
       last_updated: "2024-01-01T00:00:00Z",
     });
 
-    const { getTvApps } = await import("../services/apple-tv-service");
+    const { getTvApps } = await import("./service");
     const result = await getTvApps();
 
     expect(result.apps).toEqual([]);
@@ -671,7 +660,7 @@ describe("getTvApps (A10)", () => {
       last_updated: "2024-01-01T00:00:00Z",
     });
 
-    const { getTvApps } = await import("../services/apple-tv-service");
+    const { getTvApps } = await import("./service");
     await getTvApps();
 
     expect(mockGetEntity).toHaveBeenCalledWith("media_player.living_room_tv");
@@ -684,7 +673,7 @@ describe("tvLaunchApp (A10)", () => {
   it("throws when HA is not configured (A3)", async () => {
     mockIsConfigured.mockReturnValue(false);
 
-    const { tvLaunchApp } = await import("../services/apple-tv-service");
+    const { tvLaunchApp } = await import("./service");
     await expect(tvLaunchApp("Netflix")).rejects.toThrow("Home Assistant is not configured");
   });
 
@@ -692,7 +681,7 @@ describe("tvLaunchApp (A10)", () => {
     mockIsConfigured.mockReturnValue(true);
     mockCallService.mockRejectedValue(new Error("Network error"));
 
-    const { tvLaunchApp } = await import("../services/apple-tv-service");
+    const { tvLaunchApp } = await import("./service");
     await expect(tvLaunchApp("Netflix")).rejects.toThrow("Network error");
   });
 
@@ -700,7 +689,7 @@ describe("tvLaunchApp (A10)", () => {
     mockIsConfigured.mockReturnValue(true);
     mockCallService.mockResolvedValue(undefined);
 
-    const { tvLaunchApp } = await import("../services/apple-tv-service");
+    const { tvLaunchApp } = await import("./service");
     await tvLaunchApp("YouTube");
 
     expect(mockCallService).toHaveBeenCalledWith("media_player", "select_source", {
@@ -713,7 +702,7 @@ describe("tvLaunchApp (A10)", () => {
     mockIsConfigured.mockReturnValue(true);
     mockCallService.mockResolvedValue(undefined);
 
-    const { tvLaunchApp } = await import("../services/apple-tv-service");
+    const { tvLaunchApp } = await import("./service");
     await tvLaunchApp("Disney+");
 
     expect(mockCallService).toHaveBeenCalledWith("media_player", "select_source", {
@@ -723,9 +712,9 @@ describe("tvLaunchApp (A10)", () => {
   });
 });
 
-// ─── mediaRouter tvApps + tvLaunchApp via tRPC caller (A10) ──────────────────
+// ─── tvRouter tvApps + tvLaunchApp via tRPC caller (A10) ──────────────────
 
-describe("mediaRouter.tvApps and tvLaunchApp via tRPC caller (A10)", () => {
+describe("tvRouter.tvApps and tvLaunchApp via tRPC caller (A10)", () => {
   it("exposes tvApps as a query returning apps list and currentApp", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockGetEntity.mockResolvedValue({
@@ -738,13 +727,11 @@ describe("mediaRouter.tvApps and tvLaunchApp via tRPC caller (A10)", () => {
       last_updated: "2024-01-01T00:00:00Z",
     });
 
-    const { router } = await import("../trpc/init");
-    const { mediaRouter } = await import("../trpc/routers/media");
-    const testRouter = router({ media: mediaRouter });
-    // @ts-expect-error , no db context needed
-    const caller = testRouter.createCaller({});
+    const { tvRouter } = await import("./api");
+    const testRouter = router({ tv: tvRouter });
+    const caller = testRouter.createCaller({ db: null as never });
 
-    const result = await caller.media.tvApps();
+    const result = await caller.tv.tvApps();
 
     expect(result.apps).toEqual(["Netflix", "Plex", "YouTube"]);
     expect(result.currentApp).toBe("Plex");
@@ -754,13 +741,11 @@ describe("mediaRouter.tvApps and tvLaunchApp via tRPC caller (A10)", () => {
     mockIsConfigured.mockReturnValue(true);
     mockCallService.mockResolvedValue(undefined);
 
-    const { router } = await import("../trpc/init");
-    const { mediaRouter } = await import("../trpc/routers/media");
-    const testRouter = router({ media: mediaRouter });
-    // @ts-expect-error , no db context needed
-    const caller = testRouter.createCaller({});
+    const { tvRouter } = await import("./api");
+    const testRouter = router({ tv: tvRouter });
+    const caller = testRouter.createCaller({ db: null as never });
 
-    await caller.media.tvLaunchApp({ app: "Netflix" });
+    await caller.tv.tvLaunchApp({ app: "Netflix" });
 
     expect(mockCallService).toHaveBeenCalledWith("media_player", "select_source", {
       entity_id: "media_player.living_room_tv",
@@ -771,13 +756,11 @@ describe("mediaRouter.tvApps and tvLaunchApp via tRPC caller (A10)", () => {
   it("tvApps rejects SERVICE_UNAVAILABLE when HA is not configured (A3)", async () => {
     mockIsConfigured.mockReturnValue(false);
 
-    const { router } = await import("../trpc/init");
-    const { mediaRouter } = await import("../trpc/routers/media");
-    const testRouter = router({ media: mediaRouter });
-    // @ts-expect-error , no db context needed
-    const caller = testRouter.createCaller({});
+    const { tvRouter } = await import("./api");
+    const testRouter = router({ tv: tvRouter });
+    const caller = testRouter.createCaller({ db: null as never });
 
-    await expect(caller.media.tvApps()).rejects.toMatchObject({
+    await expect(caller.tv.tvApps()).rejects.toMatchObject({
       code: "SERVICE_UNAVAILABLE",
     });
   });
@@ -785,13 +768,11 @@ describe("mediaRouter.tvApps and tvLaunchApp via tRPC caller (A10)", () => {
   it("tvLaunchApp rejects SERVICE_UNAVAILABLE when HA is not configured (A3)", async () => {
     mockIsConfigured.mockReturnValue(false);
 
-    const { router } = await import("../trpc/init");
-    const { mediaRouter } = await import("../trpc/routers/media");
-    const testRouter = router({ media: mediaRouter });
-    // @ts-expect-error , no db context needed
-    const caller = testRouter.createCaller({});
+    const { tvRouter } = await import("./api");
+    const testRouter = router({ tv: tvRouter });
+    const caller = testRouter.createCaller({ db: null as never });
 
-    await expect(caller.media.tvLaunchApp({ app: "Netflix" })).rejects.toMatchObject({
+    await expect(caller.tv.tvLaunchApp({ app: "Netflix" })).rejects.toMatchObject({
       code: "SERVICE_UNAVAILABLE",
     });
   });

@@ -3,31 +3,31 @@
  * (TransportScrubModal , artwork + scrubber + transport) and "Remote"
  * (TvRemoteModal , D-pad + playback keys).
  *
- * Data: trpc.media.tvNowPlaying, polled here while the page is open (same
+ * Data: trpc.tv.tvNowPlaying, polled here while the page is open (same
  * query key as the tile face, so react-query dedupes the fetch). Transport,
  * seek, and remote mutations mirror the tile's wiring; useLivePosition ticks
  * the displayed position forward between polls exactly as the tile face does.
  */
 
-import { useLivePosition } from "@/components/media/hooks/useLivePosition";
-import { TransportScrubModal } from "@/components/media/TransportScrubModal";
-import { TvRemoteModal } from "@/components/media/TvRemoteModal";
+import type { DetailVariant, TileDetailPageEntry } from "@/components/tiles/detail/types";
 import { POLL } from "@/lib/hooks";
 import { trpc } from "@/lib/trpc";
-import type { DetailVariant, TileDetailPageEntry } from "../types";
+import { useLivePosition } from "../hooks/useLivePosition";
+import { TransportScrubModal } from "../TransportScrubModal";
+import { TvRemoteModal } from "../TvRemoteModal";
 
 function useTvVariants(): { variants: DetailVariant[]; loading: boolean } {
-  const query = trpc.media.tvNowPlaying.useQuery(undefined, {
+  const query = trpc.tv.tvNowPlaying.useQuery(undefined, {
     refetchInterval: POLL.tvNowPlaying,
   });
   const data = query.data;
 
-  const playMutation = trpc.media.tvPlay.useMutation();
-  const pauseMutation = trpc.media.tvPause.useMutation();
-  const nextMutation = trpc.media.tvNext.useMutation();
-  const prevMutation = trpc.media.tvPrevious.useMutation();
-  const seekMutation = trpc.media.tvSeek.useMutation();
-  const remoteMutation = trpc.media.tvRemote.useMutation();
+  const playMutation = trpc.tv.tvPlay.useMutation();
+  const pauseMutation = trpc.tv.tvPause.useMutation();
+  const nextMutation = trpc.tv.tvNext.useMutation();
+  const prevMutation = trpc.tv.tvPrevious.useMutation();
+  const seekMutation = trpc.tv.tvSeek.useMutation();
+  const remoteMutation = trpc.tv.tvRemote.useMutation();
 
   // HA's media_position is only refreshed on state changes , tick it forward
   // locally while playing so the time/scrubber don't freeze between polls.

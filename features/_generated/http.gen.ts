@@ -3,10 +3,12 @@
 // Re-run `bun run apps:gen` after changing a feature facet; commit the result.
 
 import type { HttpRoute } from "@app-kit";
+import { routes as tvHttp } from "../tv/http";
 import { routes as wakesHttp } from "../wakes/http";
 import { routes as boothHttp } from "../../apps/api/src/http/booth.http";
 
 export const GENERATED_ROUTES: readonly HttpRoute[] = [
+  ...tvHttp,
   ...wakesHttp,
   ...boothHttp,
 ];

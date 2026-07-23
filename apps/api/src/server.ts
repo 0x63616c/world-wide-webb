@@ -9,7 +9,6 @@ import { runMigrations } from "./db/migrate";
 import { env } from "./env";
 import { startGuestServer } from "./guest-server";
 import { findRoute } from "./http/route-table";
-import { getTvArtwork } from "./services/apple-tv-service";
 import { readBoothPhoto } from "./services/booth-photo-service";
 import { migratePhotoPaths } from "./startup/photo-path-migration";
 import { createContext } from "./trpc/context";
@@ -118,23 +117,8 @@ async function handle(req: Request, url: URL): Promise<Response> {
     return Response.json({ ambient }, { status: 200, headers: CORS_HEADERS });
   }
 
-  // Now-playing artwork proxy (www-dhhr). The panel can't reach HA and the
-  // entity_picture URL embeds an HA token, so the api streams the bytes.
-  if (url.pathname === "/media/tv-artwork") {
-    const artwork = await getTvArtwork();
-    if (!artwork) {
-      return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
-    }
-    return new Response(artwork.body, {
-      status: 200,
-      headers: {
-        ...CORS_HEADERS,
-        "Content-Type": artwork.headers.get("content-type") ?? "application/octet-stream",
-        // The ?v= param busts on artwork change, so short caching is safe.
-        "Cache-Control": "public, max-age=300",
-      },
-    });
-  }
+  // Now-playing artwork proxy moved to features/tv/http.ts (Track C, Wave 6),
+  // reached via the generated route table above.
 
   // Live camera MJPEG proxy. go2rtc holds the RTSP credentials and transcodes
   // the bedroom stream to MJPEG; the panel just consumes this same-origin path

@@ -18,17 +18,17 @@ import { TvNowPlayingTileView } from "./TvNowPlayingTileView";
 
 export function TvNowPlayingTile() {
   const q = useTileQuery(
-    trpc.media.tvNowPlaying.useQuery(undefined, {
+    trpc.tv.tvNowPlaying.useQuery(undefined, {
       refetchInterval: POLL.tvNowPlaying,
     }),
   );
   const data = q.data;
 
-  const playMutation = trpc.media.tvPlay.useMutation();
-  const pauseMutation = trpc.media.tvPause.useMutation();
-  const nextMutation = trpc.media.tvNext.useMutation();
-  const prevMutation = trpc.media.tvPrevious.useMutation();
-  const seekMutation = trpc.media.tvSeek.useMutation();
+  const playMutation = trpc.tv.tvPlay.useMutation();
+  const pauseMutation = trpc.tv.tvPause.useMutation();
+  const nextMutation = trpc.tv.tvNext.useMutation();
+  const prevMutation = trpc.tv.tvPrevious.useMutation();
+  const seekMutation = trpc.tv.tvSeek.useMutation();
 
   // HA's media_position is only refreshed on state changes , tick it forward
   // locally while playing so the time/scrubber don't freeze between polls.
