@@ -1,6 +1,6 @@
-import { LIGHTS } from "@www/core";
 import { describe, expect, it } from "vitest";
-import { DeviceOwner, ownerOf } from "../services/device-ownership";
+import { LIGHTS } from "../lights";
+import { DeviceOwner, ownerOf } from "./ownership";
 
 // ─── ownerOf: row ownership as data (www row-ownership) ───────────────────────
 

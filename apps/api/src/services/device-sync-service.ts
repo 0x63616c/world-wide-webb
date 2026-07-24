@@ -1,7 +1,9 @@
 import {
+  DeviceOwner,
   type DeviceStateStore,
   heartbeat,
   mapHaToReported,
+  ownerOf,
   runCycle,
   stateEquals,
 } from "@www/core";
@@ -9,7 +11,6 @@ import { deviceStateStore } from "../db/device-state-store";
 import { integrationSyncStore } from "../db/integration-sync-store";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
-import { DeviceOwner, ownerOf } from "./device-ownership";
 
 const SYNC_INTEGRATION_ID = "homeassistant";
 // Fan-only since the M2 cutover (www-7d5b.2.6): the light enforcer
