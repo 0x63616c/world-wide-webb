@@ -13,6 +13,7 @@ import { installCnpg } from "./src/cnpg.ts";
 import { deployCrons } from "./src/crons.ts";
 import { installEso } from "./src/eso.ts";
 import { verifyLiveGhcrPullSecrets } from "./src/ghcr-pull-secret-preflight.ts";
+import { installMetricsServer } from "./src/metrics-server.ts";
 import { deployServices, shouldRequireImageDigestPins } from "./src/services.ts";
 import { loadVault } from "./src/vault.ts";
 
@@ -45,6 +46,13 @@ const cnpg = installCnpg({
   namespaces,
   operatorVersion: "1.29.1",
   vault,
+});
+
+// Metrics API, so `kubectl top` works. OrbStack's k3s ships without it, which
+// left the cluster with zero memory visibility during the 2026-07-24 outage.
+installMetricsServer({
+  provider: cluster.provider,
+  version: "v0.8.0",
 });
 
 // cert-manager + CF DNS-01 ClusterIssuer (www-j934.5). No longer issues a
