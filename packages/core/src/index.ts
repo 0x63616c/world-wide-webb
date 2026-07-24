@@ -19,7 +19,6 @@ export * from "./jobs/runner";
 export * from "./jobs/schema";
 export * from "./lights";
 export * from "./media-path";
-export * from "./secrets/hydrate";
 export * from "./sonos";
 export * from "./spotify";
 export * from "./unifi";

@@ -1,4 +1,4 @@
-import { databaseUrlFromSecret, hydrateSecretFiles } from "@www/core";
+import { databaseUrlFromSecret, hydrateSecretFiles } from "@www/platform/env";
 import { z } from "zod";
 
 hydrateSecretFiles();

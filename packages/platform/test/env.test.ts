@@ -1,6 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   __resetEnvCache,
+  assertEnv,
   bool,
   defineEnv,
   enumOf,
@@ -14,7 +15,34 @@ import {
 
 // Keys these tests poke into process.env — cleared between cases so one test's
 // late "hydration" never leaks into the next.
-const TOUCHED = ["HA_TOKEN", "HOME_LAT", "PORT", "FLAG", "PICK_A", "PICK_B", "APP_ENV"];
+const TOUCHED = [
+  "HA_TOKEN",
+  "HOME_LAT",
+  "HOME_LON",
+  "PORT",
+  "FLAG",
+  "PICK_A",
+  "PICK_B",
+  "APP_ENV",
+  "DATABASE_URL",
+  "UNIFI_API_KEY",
+  "WIFI_SSID",
+  "WIFI_PASSWORD",
+  "WIFI_GUEST_SSID",
+];
+
+// The full set of api-runtime required keys, with valid values — a prod boot
+// that has all of these must NOT crash.
+const API_REQUIRED: Record<string, string> = {
+  DATABASE_URL: "postgresql://u:p@h:5432/db",
+  HA_TOKEN: "tok",
+  UNIFI_API_KEY: "key",
+  WIFI_SSID: "ssid",
+  WIFI_PASSWORD: "pw",
+  WIFI_GUEST_SSID: "guest",
+  HOME_LAT: "34.0537",
+  HOME_LON: "-118.2428",
+};
 
 function clear() {
   for (const k of TOUCHED) delete process.env[k];
@@ -160,5 +188,66 @@ describe("pick() projection", () => {
     // Mutate env then confirm the view reads the SAME cached value (not a re-read).
     process.env.PICK_A = "changed";
     expect(view.PICK_A).toBe("shared");
+  });
+});
+
+describe("assertEnv fail-fast (against the real manifest)", () => {
+  function setApiRequired() {
+    for (const [k, v] of Object.entries(API_REQUIRED)) process.env[k] = v;
+  }
+
+  it("exits(1) in production when a required key is missing", () => {
+    process.env.APP_ENV = "production";
+    setApiRequired();
+    delete process.env.HA_TOKEN; // one required key absent
+    const exit = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+      throw new Error(`exit:${code}`);
+    }) as never);
+    try {
+      // Reaching process.exit(1) (rather than a "getLogger before createLogger"
+      // throw) proves assertEnv sourced its logger via createLogger (spec §5.5).
+      expect(() => assertEnv("api")).toThrow("exit:1");
+      expect(exit).toHaveBeenCalledWith(1);
+    } finally {
+      exit.mockRestore();
+    }
+  });
+
+  it("does NOT exit when all required keys are present in production", () => {
+    process.env.APP_ENV = "production";
+    setApiRequired();
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    try {
+      expect(() => assertEnv("api")).not.toThrow();
+      expect(exit).not.toHaveBeenCalled();
+    } finally {
+      exit.mockRestore();
+    }
+  });
+
+  it("no-ops outside production even with everything missing", () => {
+    delete process.env.APP_ENV; // dev
+    for (const k of Object.keys(API_REQUIRED)) delete process.env[k];
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    try {
+      expect(() => assertEnv("api")).not.toThrow();
+      expect(exit).not.toHaveBeenCalled();
+    } finally {
+      exit.mockRestore();
+    }
+  });
+
+  it("exits(1) in production when a required key is present but malformed", () => {
+    process.env.APP_ENV = "production";
+    setApiRequired();
+    process.env.DATABASE_URL = "not-a-postgres-url"; // present but invalid
+    const exit = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+      throw new Error(`exit:${code}`);
+    }) as never);
+    try {
+      expect(() => assertEnv("api")).toThrow("exit:1");
+    } finally {
+      exit.mockRestore();
+    }
   });
 });
