@@ -1,15 +1,24 @@
 /**
  * Weight ingest — polls the HA Renpho BLE weight sensor and appends new
- * measurements. Idempotent via the measured_at unique index: the sensor state
- * is unchanged between weigh-ins, so most cycles insert nothing.
+ * measurements. Deduped on TWO axes, because either alone is insufficient:
+ * the measured_at unique index catches the same reading polled twice, and
+ * isRepeatReading() catches an entity that re-emits an unchanged weight under a
+ * fresh last_updated (which the index cannot see). The original claim here —
+ * that the sensor state is simply unchanged between weigh-ins, so most cycles
+ * insert nothing — held only while the entity behaved.
  * Spec: docs/superpowers/specs/2026-07-21-weight-tile-design.md.
  */
 
 import { weightMeasurement } from "@features/weight/schema";
-import { isOutsideSanityBand, LB_PER_KG, notDeleted } from "@features/weight/service";
+import {
+  isOutsideSanityBand,
+  isRepeatReading,
+  LB_PER_KG,
+  notDeleted,
+} from "@features/weight/service";
 import { getLogger } from "@www/logger";
 import { ENV as config } from "@www/platform/env";
-import { and, gte, isNull } from "drizzle-orm";
+import { and, desc, gte, isNull } from "drizzle-orm";
 import { db } from "../db/index";
 import { ha } from "../integrations/homeassistant/index";
 import { HaError } from "../integrations/homeassistant/types";
@@ -34,6 +43,18 @@ export async function runWeightIngestCycle(): Promise<void> {
   const unit = (entity.attributes.unit_of_measurement as string | undefined) ?? "kg";
   const weightKg = unit === "lb" ? raw / LB_PER_KG : raw;
   const measuredAt = new Date(entity.last_updated);
+
+  // Drop a re-emission of the value we already hold. The measured_at unique
+  // index cannot catch this: a flapping entity supplies a FRESH last_updated
+  // with an UNCHANGED weight, so every poll would insert a phantom weigh-in.
+  // See isRepeatReading() for the full signature.
+  const [latest] = await db
+    .select({ weightKg: weightMeasurement.weightKg })
+    .from(weightMeasurement)
+    .where(notDeleted())
+    .orderBy(desc(weightMeasurement.measuredAt))
+    .limit(1);
+  if (isRepeatReading(weightKg, latest?.weightKg)) return;
 
   // 14-day included history feeds the sanity band.
   const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
