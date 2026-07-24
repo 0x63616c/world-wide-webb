@@ -625,7 +625,7 @@ function Sheet({ items, zoom, cols }: { items: typeof FACES; zoom: number; cols:
 }
 
 function FaceShellOrRaw({ node, isFace }: { node: ReactNode; isFace: boolean }) {
-  return isFace ? <FaceShell>{node}</FaceShell> : <>{node}</>;
+  return isFace ? <FaceShell>{node}</FaceShell> : node;
 }
 
 const meta = {

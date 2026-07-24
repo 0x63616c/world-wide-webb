@@ -162,7 +162,9 @@ describe("guest bundle isolation (src/portal/main.tsx import graph)", () => {
       "import( variable )",
       "import({ a })",
       "import(( expr ))",
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: intentional test payload
       "import(`path/${name}`)",
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: intentional test payload
       "import(`template/${x}`)",
       "import(\n  someVar\n)",
     ];

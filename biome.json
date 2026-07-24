@@ -63,6 +63,7 @@
     "includes": [
       "**",
       "!**/node_modules",
+      "!**/.esphome",
       "!**/dist",
       "!**/storybook-static",
       "!**/*.gen.ts",
