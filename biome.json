@@ -151,6 +151,16 @@
       }
     },
     {
+      "includes": ["packages/platform/env/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": ["features/**/config.ts"],
       "linter": {
         "rules": {
