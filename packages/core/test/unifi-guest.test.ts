@@ -9,7 +9,7 @@
  * surface as a thrown UnifiError (services throw, never fake success).
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createUnifiClient } from "../integrations/unifi";
+import { createUnifiClient } from "../src/unifi";
 
 const KEY = "test-api-key";
 
