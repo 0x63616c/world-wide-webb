@@ -1,10 +1,10 @@
-// HYDRATE FIRST: env.ts runs hydrateSecretFiles() + sets DATABASE_URL as an
-// import side effect. It MUST evaluate before any @features/* import below,
-// because each feature's config.ts parses process.env at module-eval time —
-// import it late and features bake in schema defaults (empty HA_TOKEN,
-// localhost DATABASE_URL) and 500 in prod. Biome keeps this side-effect import
-// pinned at top. Superseded by the packages/platform/env registry (lazy config).
-import "./env";
+// BOOT FIRST: boot-env hydrates /run/secrets/* into process.env, derives
+// DATABASE_URL, and fail-fast validates required prod env — all at module-eval.
+// It MUST evaluate before any @features/* import below: feature deps/db modules
+// construct pools + HA clients at module top, so the first lazy config read
+// happens during the static-import phase. Biome's organizeImports keeps this
+// bare side-effect import pinned at top as a leading barrier. See design spec §5.6.
+import "./boot-env";
 import { GENERATED_ROUTES } from "@features/_generated/http.gen";
 import { getClimate } from "@features/ac/service";
 import { readBoothPhoto } from "@features/booth/service";
@@ -12,9 +12,9 @@ import { openCameraStream } from "@features/dogcam/service";
 import { backfillWakePhotoIndex, readWakePhoto } from "@features/wakes/photos";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { createLogger } from "@www/logger";
+import { ENV as config } from "@www/platform/env";
 import { db } from "./db/index";
 import { runMigrations } from "./db/migrate";
-import { env } from "./env";
 import { startGuestServer } from "./guest-server";
 import { findRoute } from "./http/route-table";
 import { migratePhotoPaths } from "./startup/photo-path-migration";
@@ -44,16 +44,16 @@ try {
 // bound to the LAN guest network. Fully optional , GUEST_PORT unset (the
 // default) means this never starts, so dev/test and any deploy that hasn't
 // wired the guest network yet boot exactly as before.
-if (env.GUEST_PORT) {
+if (config.GUEST_PORT) {
   startGuestServer({
-    port: env.GUEST_PORT,
-    tlsDir: env.GUEST_TLS_DIR,
+    port: config.GUEST_PORT,
+    tlsDir: config.GUEST_TLS_DIR,
     // Dev default: the built guest bundle sits alongside the web product
     // (web/dist-portal/, relative to this api
     // product's cwd). The production image sets GUEST_STATIC_DIR explicitly
     // to the path Task 4's Dockerfile COPYs it to.
-    staticDir: env.GUEST_STATIC_DIR ?? "../web/dist-portal",
-    httpPort: env.GUEST_HTTP_PORT,
+    staticDir: config.GUEST_STATIC_DIR ?? "../web/dist-portal",
+    httpPort: config.GUEST_HTTP_PORT,
   });
 }
 
@@ -212,7 +212,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
 }
 
 const server = Bun.serve({
-  port: env.PORT,
+  port: config.PORT,
   async fetch(req) {
     const url = new URL(req.url);
     // Single chokepoint: every network request (OPTIONS, /up, /trpc, 404)
@@ -247,7 +247,7 @@ const server = Bun.serve({
 
 // Startup liveness line (docs/logging.md §6): "api started" with port + env
 // is the operator's first grep after a deploy.
-log.info({ port: server.port, env: env.NODE_ENV }, "api started");
+log.info({ port: server.port, env: config.NODE_ENV }, "api started");
 
 // The api is request-only (www-7d5b.1.2). The device-sync and weather-ingest
 // loops now run in the dedicated worker process (src/worker.ts), so the api no

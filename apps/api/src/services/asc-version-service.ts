@@ -1,10 +1,9 @@
 import { getLogger } from "@www/logger";
+import { ENV as config } from "@www/platform/env";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-
 import { db } from "../db/index";
 import { ASC_BUILD_STATUS_SINGLETON_ID, ascBuildStatus } from "../db/schema";
-import { env } from "../env";
 
 // App Store Connect version poller. Detects when a newer TestFlight build of
 // the wall-panel iOS shell exists than the one installed on the panel. The
@@ -53,7 +52,9 @@ export interface AscBuild {
 }
 
 function isAscConfigured(): boolean {
-  return Boolean(env.ASC_KEY_ID && env.ASC_ISSUER_ID && env.ASC_KEY_CONTENT && env.ASC_APP_ID);
+  return Boolean(
+    config.ASC_KEY_ID && config.ASC_ISSUER_ID && config.ASC_KEY_CONTENT && config.ASC_APP_ID,
+  );
 }
 
 function base64url(input: string | Uint8Array): string {
@@ -130,7 +131,7 @@ export function parseAscBuildsResponse(json: unknown): AscBuild | null {
 export async function getLatestAscBuild(): Promise<AscBuild | null> {
   if (!isAscConfigured()) return null;
   try {
-    const jwt = await signAscJwt(env.ASC_KEY_ID, env.ASC_ISSUER_ID, env.ASC_KEY_CONTENT);
+    const jwt = await signAscJwt(config.ASC_KEY_ID, config.ASC_ISSUER_ID, config.ASC_KEY_CONTENT);
     // processingState=VALID: only count builds that are actually installable,
     // so a build still PROCESSING in TestFlight never shows as an update.
     // sort=-uploadedDate, not -version: ASC's version is a string field, so a
@@ -138,7 +139,7 @@ export async function getLatestAscBuild(): Promise<AscBuild | null> {
     // build order here (fastlane assigns latest_testflight_build_number + 1
     // per upload), so the newest upload is the numeric max.
     const url =
-      `${ASC_BASE_URL}/v1/builds?filter[app]=${env.ASC_APP_ID}` +
+      `${ASC_BASE_URL}/v1/builds?filter[app]=${config.ASC_APP_ID}` +
       `&filter[processingState]=VALID&sort=-uploadedDate&limit=1&include=preReleaseVersion`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${jwt}` },

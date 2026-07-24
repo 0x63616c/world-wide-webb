@@ -7,7 +7,7 @@
  * (`assert.ts` / `initEnv`). See docs/superpowers/specs/2026-07-23-env-config-registry-design.md.
  */
 
-export { assertEnv, type BootRuntime, initEnv } from "./assert.ts";
+export { assertEnv, type BootRuntime, initEnv } from "./assert";
 export {
   bool,
   enumOf,
@@ -19,7 +19,7 @@ export {
   secret,
   str,
   url,
-} from "./fields.ts";
-export { databaseUrlFromSecret, hydrateSecretFiles } from "./hydrate.ts";
-export { ENV } from "./manifest.ts";
-export { __resetEnvCache, defineEnv, type Registry } from "./registry.ts";
+} from "./fields";
+export { databaseUrlFromSecret, hydrateSecretFiles } from "./hydrate";
+export { ENV } from "./manifest";
+export { __resetEnvCache, defineEnv, type Registry } from "./registry";

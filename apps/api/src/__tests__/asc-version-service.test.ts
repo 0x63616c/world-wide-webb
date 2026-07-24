@@ -36,7 +36,7 @@ const envMock = vi.hoisted(() => ({
   ASC_KEY_CONTENT: "",
   ASC_APP_ID: "6762095888",
 }));
-vi.mock("../env", () => ({ env: envMock }));
+vi.mock("@www/platform/env", () => ({ ENV: envMock }));
 
 import {
   getAscBuildStatus,

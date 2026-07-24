@@ -14,20 +14,15 @@
  * Interim: this barrel is the documented seam between worker and api. The planned
  * packages/core extraction (shared domain) will move these out of api and
  * delete this file; until then, keep the export surface minimal.
+ *
+ * No env re-export and no hydrate side-effect import here anymore: the worker
+ * hydrates via its own pinned `./boot-env` (apps/worker/src/index.ts) and reads
+ * config directly from `@www/platform/env`. Feature configs are lazy, so the
+ * deploys re-export below no longer risks baking a pre-hydration default.
  */
-
-// HYDRATE FIRST: ./env runs hydrateSecretFiles() as an import side effect. The
-// re-exports below evaluate their source modules in order, and
-// @features/deploys/service imports deploys/config.ts which parses process.env
-// at module-eval time. Without this line, deploys config parsed BEFORE ./env
-// hydrated (GITHUB_ACTIONS_TOKEN="") so runGithubPollCycle no-oped every tick and
-// the Deploys tile froze (regression from the deploys fold, cd9fe76). Biome pins
-// this side-effect import at top. Superseded by the packages/platform/env registry.
-import "./env";
 
 export { runGithubPollCycle } from "@features/deploys/service";
 export { runMigrations } from "./db/migrate";
-export { env } from "./env";
 // Durable job queue (now @www/core, bound to apps/api's db behind ./jobs/queue).
 // Each type is wrapped as its own Worker at the entrypoint.
 // Graceful shutdown: hand claimed rows back to `queued` instead of stranding

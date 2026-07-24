@@ -1,5 +1,5 @@
+import { ENV as config } from "@www/platform/env";
 import { z } from "zod";
-import { env } from "../../env";
 import { publicProcedure, router } from "../init";
 
 const SERVER_STARTED_AT = new Date().toISOString();
@@ -23,5 +23,5 @@ export const healthRouter = router({
         deployedAt: z.string(),
       }),
     )
-    .query(() => ({ hash: env.BUILD_HASH, deployedAt: SERVER_STARTED_AT })),
+    .query(() => ({ hash: config.BUILD_HASH, deployedAt: SERVER_STARTED_AT })),
 });

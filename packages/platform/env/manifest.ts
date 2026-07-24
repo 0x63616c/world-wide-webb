@@ -18,8 +18,8 @@
  * here — they feed `databaseUrlFromSecret()` in hydrate.ts to derive
  * DATABASE_URL (design spec §4 "Hydration inputs").
  */
-import { bool, enumOf, int, num, pgUrl, secret, str, url } from "./fields.ts";
-import { defineEnv } from "./registry.ts";
+import { bool, enumOf, int, num, pgUrl, secret, str, url } from "./fields";
+import { defineEnv } from "./registry";
 
 export const ENV = defineEnv({
   // ── Infra / process ──────────────────────────────────────────────────────

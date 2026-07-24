@@ -2,7 +2,7 @@
  * DB-authoritative climate enforcer (www-unxz.2).
  *
  * Mirrors the light enforcer for the single house thermostat
- * (`env.CLIMATE_ENTITY_ID`). `device_state.desiredState` is the source of truth
+ * (`config.CLIMATE_ENTITY_ID`). `device_state.desiredState` is the source of truth
  * for the AC's commandable fields (hvac mode, setpoint(s), fan_mode); HA is an
  * actuator. The AC's control policy is ADOPT (www-qktc) , the thermostat has a
  * physical interface (wall unit + ecobee app) just like the Shelly wall
@@ -40,10 +40,10 @@ import {
   sanitizeClimateDesired,
   windowOpen,
 } from "@www/core";
+import { ENV as config } from "@www/platform/env";
 import { deviceStateStore } from "../db/device-state-store";
 import { integrationSyncStore } from "../db/integration-sync-store";
 import type { DeviceClimateState } from "../db/schema";
-import { env } from "../env";
 import { ha } from "../integrations/homeassistant";
 import type { HaEntity } from "../integrations/homeassistant/types";
 
@@ -135,7 +135,7 @@ export async function runClimateEnforcerCycle(
     "climate-enforcer",
     async () => {
       const entities = await ha.getEntities("climate");
-      const entity = entities.find((e) => e.entity_id === env.CLIMATE_ENTITY_ID);
+      const entity = entities.find((e) => e.entity_id === config.CLIMATE_ENTITY_ID);
       await reconcileClimate(entity, store);
     },
   );
@@ -160,7 +160,7 @@ async function reconcileClimate(
     await store.seed({
       id: CLIMATE_DEVICE_ID,
       kind: DeviceKind.Climate,
-      entityId: env.CLIMATE_ENTITY_ID,
+      entityId: config.CLIMATE_ENTITY_ID,
       domain: "climate",
       label: "Thermostat",
       reported: mapped.reported,

@@ -8,7 +8,7 @@
  * `pick()` projection, so a key parsed once is shared. `__resetEnvCache()` is a
  * test-only hook; `registrySpec()` exposes the declared spec to `assert.ts`.
  */
-import type { FieldBuilder } from "./fields.ts";
+import type { FieldBuilder } from "./fields";
 
 type AnySpec = Record<string, FieldBuilder<unknown>>;
 

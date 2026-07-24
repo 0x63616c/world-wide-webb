@@ -103,8 +103,8 @@ vi.mock("../db/index", () => {
 
 // ── env mock ─────────────────────────────────────────────────────────────────
 
-vi.mock("../env", () => ({
-  env: {
+vi.mock("@www/platform/env", () => ({
+  ENV: {
     MEDIA_STORAGE_DIR: "/tmp/test-media",
     NODE_ENV: "test",
   },

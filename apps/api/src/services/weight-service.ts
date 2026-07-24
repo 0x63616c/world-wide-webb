@@ -8,9 +8,9 @@
 import { weightMeasurement } from "@features/weight/schema";
 import { isOutsideSanityBand, LB_PER_KG, notDeleted } from "@features/weight/service";
 import { getLogger } from "@www/logger";
+import { ENV as config } from "@www/platform/env";
 import { and, gte, isNull } from "drizzle-orm";
 import { db } from "../db/index";
-import { env } from "../env";
 import { ha } from "../integrations/homeassistant/index";
 import { HaError } from "../integrations/homeassistant/types";
 
@@ -21,7 +21,7 @@ function newWeightId(): string {
 export async function runWeightIngestCycle(): Promise<void> {
   let entity: Awaited<ReturnType<typeof ha.getEntity>>;
   try {
-    entity = await ha.getEntity(env.HA_WEIGHT_ENTITY_ID);
+    entity = await ha.getEntity(config.HA_WEIGHT_ENTITY_ID);
   } catch (err) {
     // 404 = the scale isn't paired in HA yet (needs a connectable BT proxy).
     // A quiet no-op, not a failing worker: the entity may not exist for days.

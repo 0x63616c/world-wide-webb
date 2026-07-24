@@ -29,6 +29,7 @@
         "@trpc/server": "^11.17.0",
         "@www/core": "workspace:*",
         "@www/logger": "*",
+        "@www/platform": "workspace:*",
         "drizzle-orm": "^0.45.2",
         "pg": "^8.20.0",
         "zod": "^4.4.2",
@@ -114,6 +115,7 @@
       "dependencies": {
         "@control-center/api": "workspace:*",
         "@www/logger": "workspace:*",
+        "@www/platform": "workspace:*",
         "@www/worker-runtime": "workspace:*",
       },
       "devDependencies": {

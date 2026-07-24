@@ -1,5 +1,5 @@
 import { createHomeAssistantClient } from "@www/core";
-import { env } from "../../env";
+import { ENV as config } from "@www/platform/env";
 
 /**
  * The api-side HA singleton. The client itself is env-free in `@www/core`; this
@@ -9,4 +9,4 @@ import { env } from "../../env";
  * this singleton until the HA tiles fold into `features/*` (Track C).
  */
 export { HomeAssistantClient } from "@www/core";
-export const ha = createHomeAssistantClient({ baseUrl: env.HA_URL, token: env.HA_TOKEN });
+export const ha = createHomeAssistantClient({ baseUrl: config.HA_URL, token: config.HA_TOKEN });

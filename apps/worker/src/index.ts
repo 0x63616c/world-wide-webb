@@ -11,8 +11,8 @@
  * which capability runs on what cadence. The eventual packages/core extraction
  * will dissolve the api dependency; until then this is the seam.
  */
+import "./boot-env";
 import {
-  env,
   type JobSpec,
   jobWorker,
   reconcilePartyMode,
@@ -32,6 +32,7 @@ import { runSonosVolumeEnforcerCycle } from "@features/sound/enforcer";
 import { runPlaylistPollerCycle } from "@features/sound/poller";
 import { runWeatherIngestCycle } from "@features/weather/ingest";
 import { createLogger } from "@www/logger";
+import { ENV as config } from "@www/platform/env";
 import { createWorkerRuntime, type Worker } from "@www/worker-runtime";
 import { hasSufficientDisk } from "./disk-guard";
 
@@ -66,7 +67,7 @@ const JOBS: JobSpec[] = [
   // claimed, so the queued backlog parks in place instead of burning attempts
   // against a YouTube block no retry can clear. Same reason it drops out of the
   // reaper's spec list , there is nothing running left to reap.
-  ...(env.YOUTUBE_INGEST_ENABLED
+  ...(config.YOUTUBE_INGEST_ENABLED
     ? [
         {
           type: "youtube_ingest" as const,
@@ -76,7 +77,7 @@ const JOBS: JobSpec[] = [
           // cycle, so a full NAS never blocks `notify` (APNs) delivery, which
           // touches no disk.
           handler: async (payload: unknown, signal: AbortSignal) => {
-            if (!hasSufficientDisk(env.MEDIA_STORAGE_DIR)) {
+            if (!hasSufficientDisk(config.MEDIA_STORAGE_DIR)) {
               throw new Error("insufficient disk space for ingest");
             }
             await runYoutubeIngest(payload, signal);
@@ -167,7 +168,7 @@ const workers: Worker[] = [
   },
   // Paired with the job type above: with ingest off there is nothing to feed,
   // and polling would only grow a backlog of jobs that cannot run.
-  ...(env.YOUTUBE_INGEST_ENABLED
+  ...(config.YOUTUBE_INGEST_ENABLED
     ? [
         {
           // Playlist poller: enumerate each enabled media_source via
@@ -191,7 +192,7 @@ const workers: Worker[] = [
 
 // Startup line: single unmistakable signal in docker service logs that the
 // process booted and configured its logger. See docs/logging.md §6.
-log.info({ workers: workers.map((w) => w.name), env: env.NODE_ENV }, "worker started");
+log.info({ workers: workers.map((w) => w.name), env: config.NODE_ENV }, "worker started");
 
 const runtime = createWorkerRuntime(workers, { logger: log });
 runtime.start();

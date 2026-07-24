@@ -12,6 +12,7 @@
   "dependencies": {
     "@control-center/api": "workspace:*",
     "@www/logger": "workspace:*",
+    "@www/platform": "workspace:*",
     "@www/worker-runtime": "workspace:*"
   },
   "devDependencies": {

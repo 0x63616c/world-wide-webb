@@ -19,9 +19,9 @@ import { existsSync, statSync } from "node:fs";
 import { promisify } from "node:util";
 import { mediaItem } from "@features/sound/schema";
 import { getLogger } from "@www/logger";
+import { ENV as config } from "@www/platform/env";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index";
-import { env } from "../env";
 import type { JobHandler } from "../jobs/queue";
 
 const execFileAsync = promisify(execFile);
@@ -189,7 +189,7 @@ async function handleYoutubeIngest(rawPayload: unknown, signal: AbortSignal): Pr
   // worker app, before this handler is entered. Keeping it there rather than on
   // the shared cycle means a full NAS stops downloads without stopping `notify`.
 
-  const storageDir = env.MEDIA_STORAGE_DIR;
+  const storageDir = config.MEDIA_STORAGE_DIR;
 
   const downloadStart = performance.now();
   getLogger().info({ videoId }, "yt-dlp download start");

@@ -3,8 +3,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createLogger } from "@www/logger";
+import { ENV } from "@www/platform/env";
 import { beforeAll, describe, expect, test } from "vitest";
-import { envSchema } from "../env";
 import {
   createGuestFetchHandler,
   type GuestServer,
@@ -311,10 +311,10 @@ describe("redactGuestErrorBody", () => {
 
 describe("GUEST_PORT env", () => {
   test("is optional and undefined by default , the listener is off unless configured", () => {
-    const parsed = envSchema.parse({});
-    expect(parsed.GUEST_PORT).toBeUndefined();
-    expect(parsed.GUEST_TLS_DIR).toBeUndefined();
-    expect(parsed.GUEST_STATIC_DIR).toBeUndefined();
+    const guest = ENV.pick("GUEST_PORT", "GUEST_TLS_DIR", "GUEST_STATIC_DIR");
+    expect(guest.GUEST_PORT).toBeUndefined();
+    expect(guest.GUEST_TLS_DIR).toBeUndefined();
+    expect(guest.GUEST_STATIC_DIR).toBeUndefined();
   });
 });
 

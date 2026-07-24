@@ -6,9 +6,9 @@
  * entrypoint imports FIRST (design spec §5.6).
  */
 import { createLogger } from "@www/logger";
-import { databaseUrlFromSecret, hydrateSecretFiles } from "./hydrate.ts";
-import { ENV } from "./manifest.ts";
-import { registrySpec } from "./registry.ts";
+import { databaseUrlFromSecret, hydrateSecretFiles } from "./hydrate";
+import { ENV } from "./manifest";
+import { registrySpec } from "./registry";
 
 export type BootRuntime = "api" | "worker";
 
