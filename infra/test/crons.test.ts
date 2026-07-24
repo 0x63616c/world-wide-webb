@@ -9,11 +9,13 @@ import { beforeAll, describe, expect, test } from "vitest";
 import type { CronJobSpec } from "../src/component.ts";
 import { renderCronJob } from "../src/component.ts";
 
-// The k8s CronJobs for the cluster scheduler (www-j934.7): portal-data-purge
-// + map-extract carried over, plus a NEW nightly pg-backup
-// to the NAS. Two things are deliberately ABSENT: docker-image-prune (kubelet
-// image GC replaces it) and portal-cert-renew (cert-manager owns TLS now). These
-// tests pin the declarations (pure data) before the Pulumi wiring.
+// The k8s CronJobs for the cluster scheduler (www-j934.7): map-extract carried
+// over, plus a NEW nightly pg-backup to the NAS. Every retention purge
+// (portal/weather/felogs/wakes/github) runs through the generated S2 seam; the
+// legacy hand-wired portal-data-purge CronJob is retired. Two things are
+// deliberately ABSENT: docker-image-prune (kubelet image GC replaces it) and
+// portal-cert-renew (cert-manager owns TLS now). These tests pin the
+// declarations (pure data) before the Pulumi wiring.
 
 pulumi.runtime.setMocks({
   newResource(args: pulumi.runtime.MockResourceArgs) {
@@ -51,17 +53,17 @@ type CronSpec = ReturnType<typeof crons.cronSpecs>[number];
 const byName = (specs: CronSpec[], name: string) => specs.find((s) => s.name === name);
 
 describe("cronSpecs: the declared CronJob set", () => {
-  test("declares product backups plus portal-data-purge, guest-wifi-purge, weather-purge, felogs-purge, wake-photo-purge and map-extract (no image-prune, no cert-renew)", () => {
+  test("declares product backups plus deploys-purge, guest-wifi-purge, weather-purge, felogs-purge, wake-photo-purge and map-extract (no image-prune, no cert-renew)", () => {
     const names = crons
       .cronSpecs(NAS)
       .map((c) => c.name)
       .sort();
     expect(names).toEqual([
+      "deploys-purge",
       "felogs-purge",
       "guest-wifi-purge",
       "map-extract",
       "pg-backup",
-      "portal-data-purge",
       "wake-photo-purge",
       "weather-purge",
     ]);
@@ -76,14 +78,14 @@ describe("cronSpecs: the declared CronJob set", () => {
   });
 });
 
-describe("portal-data-purge", () => {
-  const purge = () => byName(crons.cronSpecs(NAS), "portal-data-purge");
+describe("deploys-purge (S2 generated-cron seam)", () => {
+  const purge = () => byName(crons.cronSpecs(NAS), "deploys-purge");
 
-  test("runs the api image's purge entrypoint nightly at 02:00 LA", () => {
+  test("runs the api image's generic cron dispatcher nightly at 05:00 LA", () => {
     const c = purge();
     expect(c?.image).toBe("ghcr.io/0x63616c/www-control-center-api:main");
-    expect(c?.schedule).toBe("0 2 * * *");
-    expect(c?.command).toEqual(["bun", "purge.js"]);
+    expect(c?.schedule).toBe("0 5 * * *");
+    expect(c?.command).toEqual(["bun", "cron.js", "deploys-purge"]);
     expect(c?.env?.TZ).toBe("America/Los_Angeles");
   });
 

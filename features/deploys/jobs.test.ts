@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  GITHUB_RUN_RETENTION_MS,
-  githubRunCutoff,
-  purgeGithubRuns,
-  runShouldPurge,
-} from "../services/github-purge-service";
+import { GITHUB_RUN_RETENTION_MS, githubRunCutoff, purgeGithubRuns, runShouldPurge } from "./jobs";
 
 describe("github run retention boundary", () => {
   const now = new Date("2026-07-18T12:00:00Z");

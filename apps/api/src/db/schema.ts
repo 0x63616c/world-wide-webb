@@ -126,9 +126,9 @@ export const ascBuildStatus = pgTable("asc_build_status", {
 // were FOLDED into the deploys feature (Track C, Wave 2): they now live in
 // features/deploys/schema.ts and reach drizzle-kit via the generated schema
 // barrel (features/_generated/schema.gen.ts, which unions this file with every
-// feature's schema.ts). github-purge-service.ts still purges the physical
-// github_run/github_run_log_tail tables via raw SQL (table names unaffected by
-// which schema.ts declares them), so no change was needed there.
+// feature's schema.ts). The retention purge folded too (Track C shell-cleanup):
+// features/deploys/jobs.ts now purges the physical github_run/github_run_log_tail
+// tables via raw SQL as a defineCron facet (deploys-purge, the S2 seam).
 
 // notification + devicePushToken (Notification Center) were FOLDED into the
 // notif feature (Track C, S1): they now live in features/notif/schema.ts and

@@ -1,20 +1,24 @@
 /**
- * GitHub run-history retention purge (spec 2026-07-18-github-deploy-tile-design).
- * `github_run` accumulates one row per main workflow run; 30 days of history is
- * all the Deploys tile ever shows, so older rows (and their log tails) go.
+ * GitHub run-history retention purge (Track C shell-cleanup fold — was
+ * apps/api's github-purge-service.ts, driven by the bundled purge.js
+ * one-shot). `github_run` accumulates one row per main workflow run; 30 days
+ * of history is all the Deploys tile ever shows, so older rows (and their log
+ * tails) go.
  *
  * The github_poll_status singleton is NEVER touched here: it carries the
  * currently-deployed pointer, and purging it when the last deploy is >30 days
  * old would leave the tile unable to say what is deployed at all. Purge the
  * history, keep the pointer.
  *
- * Runs from the same daily one-shot purge CronJob as the other retention
- * sweeps (purge.ts), never a worker loop. Volume is trivial (a few hundred
- * rows a month), so a single bounded DELETE per table is enough , no batching.
+ * Runs from the S2 cron seam (a daily one-shot k8s CronJob), never a worker
+ * loop (PRD Backend rule 7). Volume is trivial (a few hundred rows a month),
+ * so a single bounded DELETE per table is enough, no batching.
  */
+import { defineCron } from "@app-kit";
 import { sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import type * as schema from "../db/schema";
+import { db } from "./db";
+import type * as schema from "./schema";
 
 /** GitHub run history is retained for 30 days, then purged. */
 export const GITHUB_RUN_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -50,3 +54,21 @@ export async function purgeGithubRuns(
   `);
   return { runs: runRes.rowCount ?? 0, logTails: tailRes.rowCount ?? 0 };
 }
+
+/**
+ * The scheduled purge as a branded {@link defineCron} facet (Track C, S2). The
+ * codegen collects every exported `defineCron` into `features/_generated/crons.gen.ts`,
+ * run by the generated `deploys-purge` k8s CronJob via `bun cron.js deploys-purge`.
+ * Staggered off the other generated purges (guest-wifi/weather at 02:00/03:00,
+ * felogs/wakes at 04:00).
+ *
+ * @public collected by the codegen (dynamic import in scripts/apps-gen/collect.ts,
+ * an edge knip can't see) into features/_generated/crons.gen.ts; no static import.
+ */
+export const purgeCron = defineCron({
+  name: "deploys-purge",
+  schedule: "0 5 * * *",
+  run: async () => {
+    await purgeGithubRuns(db);
+  },
+});

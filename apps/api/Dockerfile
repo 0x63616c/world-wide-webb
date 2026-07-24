@@ -54,13 +54,9 @@ RUN cd apps/api && bun build src/server.ts --target=bun --outfile ../../dist/ser
 # runtime image below at /app/portal-dist (GUEST_STATIC_DIR).
 RUN bun run --cwd apps/web build:portal
 
-# Second entrypoint: the portal data-hygiene purge (www-q002.18). Bundled into
-# the same image so the bosun cronJob runs it via a command override
-# (`bun purge.js`); it shares the api's drizzle schema + DATABASE_URL wiring.
-RUN cd apps/api && bun build src/purge.ts --target=bun --outfile ../../dist/purge.js
-
-# Third entrypoint: the generic cron dispatcher (S2). Bundled the same way as
-# purge.ts; a k8s CronJob runs it via a command override (`bun cron.js <name>`),
+# Second entrypoint: the generic cron dispatcher (S2). Every retention purge
+# (portal/weather/felogs/wakes/github) now runs through this as a defineCron
+# facet; a k8s CronJob runs it via a command override (`bun cron.js <name>`),
 # dispatching through the generated cron-handlers.gen.ts barrel.
 RUN cd apps/api && bun build src/cron-run.ts --target=bun --outfile ../../dist/cron.js
 
@@ -81,7 +77,6 @@ ENV BUILD_HASH=$BUILD_HASH
 WORKDIR /app
 
 COPY --from=build /app/dist/server.js server.js
-COPY --from=build /app/dist/purge.js purge.js
 COPY --from=build /app/dist/cron.js cron.js
 # Migrations resolve relative to the bundle's own location (import.meta.url),
 # i.e. /app/migrations at runtime, keep this path in sync with WORKDIR.

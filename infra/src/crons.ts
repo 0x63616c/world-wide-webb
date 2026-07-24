@@ -1,6 +1,8 @@
 // The scheduled jobs for the control-center k3s stack (www-j934.7): the cronJob()
-// declarations for the cluster. Two are re-homed verbatim (portal-data-purge,
-// map-extract) and one is NEW (pg-backup).
+// declarations for the cluster. map-extract is re-homed verbatim and pg-backup
+// is NEW; every retention purge (portal/weather/felogs/wakes/github) now runs
+// through the generated S2 seam (generatedCronSpecs() below) — the legacy
+// hand-wired "portal-data-purge" CronJob (bundled purge.js one-shot) is retired.
 //
 // Deliberately ABSENT vs the prior scheduler set (DESIGN.md §2):
 //  - docker-image-prune: kubelet image GC replaces it (high 85% / low 80%); an
@@ -104,7 +106,11 @@ function generatedCronSpecs(): OwnedCronJobSpec[] {
     schedule: c.schedule,
     command: ["bun", "cron.js", c.name],
     secrets: [{ name: "POSTGRES_PASSWORD", ref: "eso" }],
-    secretName: SERVICE_SECRET_TARGETS["portal-data-purge"].secretName, // shared; both need only POSTGRES_PASSWORD
+    // "portal-data-purge" is now a pure secret-name label (its CronJob was
+    // retired) — kept as the shared POSTGRES_PASSWORD secret-target key for
+    // every generated cron. Do NOT rename/remove this key: secrets-map.ts is
+    // out of scope for this fold, and every generated cron's secret depends on it.
+    secretName: SERVICE_SECRET_TARGETS["portal-data-purge"].secretName,
     env: { TZ, POSTGRES_HOST: controlCenterPostgresHost },
     imagePullSecrets: [GHCR_PULL_SECRET_NAME],
   }));
@@ -123,29 +129,6 @@ export function cronSpecs(nasNfsServer: string): OwnedCronJobSpec[] {
     // dispatcher. New purge-bearing features appear here automatically with
     // zero hand-wiring.
     ...generatedCronSpecs(),
-
-    // Data hygiene (www-q002.18): a daily one-shot running the api IMAGE's
-    // bundled purge.js entrypoint (NOT a worker loop). Deletes weather_reading
-    // / weather_daily_reading rows recorded >30 days ago (both tables are
-    // append-only and would otherwise grow ~55k rows/day), plus frontend log /
-    // wake photo / github run retention. The name stays "portal-data-purge" so
-    // the existing CronJob object isn't orphaned, even though the portal purge
-    // itself moved onto the generated seam above. Needs only the Postgres
-    // password; POSTGRES_HOST points at the CNPG rw Service because the api
-    // default "postgres" host doesn't resolve in k3s. 02:00 LA.
-    {
-      name: "portal-data-purge",
-      namespaceName: "control-center",
-      image: ghcr("api"),
-      schedule: "0 2 * * *",
-      command: ["bun", "purge.js"],
-      secrets: [{ name: "POSTGRES_PASSWORD", ref: "eso" }],
-      secretName: SERVICE_SECRET_TARGETS["portal-data-purge"].secretName,
-      env: { TZ, POSTGRES_HOST: controlCenterPostgresHost },
-      // Carry the GHCR pull secret like the workloads do, rather than leaning
-      // on package visibility staying public (www-hn1i).
-      imagePullSecrets: [GHCR_PULL_SECRET_NAME],
-    },
 
     // Tesla-map basemap refresher (www-gma → www-hn1i). Runs the in-repo
     // map-provision image in FORCE mode: resolve the newest Protomaps planet
