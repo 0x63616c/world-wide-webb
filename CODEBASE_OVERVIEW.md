@@ -2,6 +2,20 @@
 
 This repository is a Bun monorepo for a smart-home wall-panel dashboard. The app is built around a fixed iPad wall panel, a tRPC API, background reconciliation workers, and a Pulumi-managed Kubernetes deployment on `homelab`.
 
+> **Staleness note (2026-07-24):** Parts of the "Runtime Shape", "Domain Services",
+> and end-of-file flow sections below still describe the *pre-fold* architecture,
+> where business logic lived in `apps/api/src/services`. After the Track-C
+> migration, features are self-contained Apps under `features/<id>/` (manifest +
+> `web.tsx`/`api.ts`/`jobs.ts`/`schema.ts`; see `AGENTS.md` invariants and
+> ADR-0001/0002), shared substrate lives in `packages/core` (`@www/core`) and
+> `packages/platform` (`@www/platform`, incl. the env registry — there is no
+> longer an `apps/api/src/env.ts`), and `apps/api` is trending toward
+> routers-only. A residual set of worker enforcer cycles is still hand-wired in
+> `apps/api/src/services` pending hoist. For the current state and open
+> structural debt see `docs/superpowers/reviews/2026-07-23-post-track-c-codebase-review.md`.
+> This narrative is being refreshed; treat `AGENTS.md` + the ADRs as authoritative
+> where they disagree with the sections below.
+
 ## Runtime Shape
 
 ```text
@@ -169,7 +183,7 @@ kubectl --context cc-homelab -n control-center exec control-center-1 -c postgres
 
 Design: `docs/superpowers/specs/2026-07-18-frontend-log-shipping-design.md`.
 
-API config is parsed in `apps/api/src/env.ts`. Production secrets are mounted as files under `/run/secrets/<NAME>` and hydrated at boot. Real credentials and private home-location values live outside git.
+Env/config goes through the central registry at `packages/platform` (`@www/platform/env`): a single key manifest with a lazy, order-proof config Proxy, fail-fast `assertEnv` at boot (via each app's pinned `boot-env` import), and a Biome rule banning raw `process.env` in features. The old `apps/api/src/env.ts` is gone. Production secrets are mounted as files under `/run/secrets/<NAME>` and hydrated at boot. Real credentials and private home-location values live outside git.
 
 ## Deployment
 
