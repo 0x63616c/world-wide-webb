@@ -83,7 +83,6 @@
   "overrides": [
     {
       "includes": [
-        "**/api/src/env.ts",
         "**/api/drizzle.config.ts",
         "**/web/vite.config.ts",
         "**/web/e2e-portal/**",
@@ -141,27 +140,7 @@
       }
     },
     {
-      "includes": ["**/packages/core/src/db/pool.ts", "**/packages/core/src/secrets/hydrate.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noProcessEnv": "off"
-          }
-        }
-      }
-    },
-    {
       "includes": ["packages/platform/env/**", "packages/platform/test/env.test.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noProcessEnv": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["features/**/config.ts"],
       "linter": {
         "rules": {
           "style": {
