@@ -1,3 +1,10 @@
+// HYDRATE FIRST: env.ts runs hydrateSecretFiles() + sets DATABASE_URL as an
+// import side effect. It MUST evaluate before any @features/* import below,
+// because each feature's config.ts parses process.env at module-eval time —
+// import it late and features bake in schema defaults (empty HA_TOKEN,
+// localhost DATABASE_URL) and 500 in prod. Biome keeps this side-effect import
+// pinned at top. Superseded by the packages/platform/env registry (lazy config).
+import "./env";
 import { GENERATED_ROUTES } from "@features/_generated/http.gen";
 import { getClimate } from "@features/ac/service";
 import { readBoothPhoto } from "@features/booth/service";
