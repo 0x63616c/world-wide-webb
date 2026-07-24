@@ -19,6 +19,7 @@ import {
   setIdleDimEnabled,
   setIdleDimLevel,
   setIdleDimTimeoutMs,
+  setTypeface,
   useSettings,
 } from "../../../lib/settings";
 import { Slider } from "../../ui/Slider";
@@ -26,6 +27,7 @@ import { Switch } from "../../ui/Switch";
 import { AccentPicker } from "../AccentPicker";
 import { ActionButton, RowShell, SectionCard, SliderRow } from "../blocks";
 import type { PageProps } from "../SettingsPage";
+import { TypefacePicker } from "../TypefacePicker";
 
 const MS_PER_MIN = 60_000;
 const MIN_MINUTES = Math.round(MIN_IDLE_TIMEOUT_MS / MS_PER_MIN);
@@ -46,6 +48,18 @@ export function DisplayPage({ onOpenClean }: PageProps) {
             label="Accent colour"
             sub="The highlight colour used across the board, including the maps."
             control={<AccentPicker value={settings.accent} onChange={setAccent} />}
+          />,
+        ]}
+      </SectionCard>
+
+      <SectionCard title="Typeface">
+        {[
+          <RowShell
+            key="typeface"
+            label="Type pair"
+            sub="The sans and its mono, used everywhere on the board."
+            control={<TypefacePicker value={settings.typeface} onChange={setTypeface} />}
+            stack
           />,
         ]}
       </SectionCard>

@@ -30,6 +30,15 @@ export type SnapMode = (typeof SNAP_MODES)[number];
 export const ACCENTS = ["blue", "white", "green", "orange"] as const;
 export type Accent = (typeof ACCENTS)[number];
 
+// ─── typeface vocabulary ──────────────────────────────────────────────────────
+// The board's type pair. A key names a SANS AND ITS MONO together (the panel
+// reads --mono for every stat value, log count, sha and timestamp, so the two
+// always travel as one design decision), plus the weights and tracking that
+// face needs. As with accents, only the KEY is wire contract; the families live
+// in web's styles/tokens.css and the labels in web's lib/typeface.ts.
+export const TYPEFACES = ["grotesk", "sf", "geist"] as const;
+export type Typeface = (typeof TYPEFACES)[number];
+
 // ─── bounds ───────────────────────────────────────────────────────────────────
 
 /** Idle-dim timeout's valid window: 1 min .. 10 min. The ceiling matches what
@@ -67,4 +76,5 @@ export const SETTINGS_DEFAULTS = {
   showMinimap: true,
   pinCode: "000000",
   accent: "blue",
+  typeface: "grotesk",
 } as const satisfies Record<string, unknown>;

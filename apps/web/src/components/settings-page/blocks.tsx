@@ -76,23 +76,34 @@ export function SectionCard({ title, children }: { title: string; children: Reac
   );
 }
 
-/** A label (+ optional sub-line) on the left, a control on the right. */
+/**
+ * A label (+ optional sub-line) on the left, a control on the right.
+ *
+ * `stack` drops the control onto its own full-width line below the label
+ * instead. For controls that are a LIST rather than a widget (the typeface
+ * picker's option rows): squeezing those into the right-hand column would leave
+ * the label orphaned against a tall block, and they have their own internal
+ * left edge to align to.
+ */
 export function RowShell({
   label,
   sub,
   control,
+  stack,
 }: {
   label: string;
   sub?: string;
   control: ReactNode;
+  stack?: boolean;
 }) {
   return (
     <div
       style={{
         display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 24,
+        flexDirection: stack ? "column" : "row",
+        alignItems: stack ? "stretch" : "center",
+        justifyContent: stack ? undefined : "space-between",
+        gap: stack ? 12 : 24,
         minHeight: 40,
       }}
     >

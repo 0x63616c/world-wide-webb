@@ -30,8 +30,11 @@ export function TileHeader({
       <span
         style={{
           fontSize: titleSize,
-          fontWeight: 600,
-          letterSpacing: "-0.015em",
+          // Weight and tracking come from the live typeface profile, not a
+          // literal: SF and Geist read lighter than Space Grotesk at a matched
+          // weight, so each pair states its own header weight in tokens.css.
+          fontWeight: "var(--w-title)",
+          letterSpacing: "var(--track-title)",
         }}
       >
         {title}

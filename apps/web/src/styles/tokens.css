@@ -1,6 +1,6 @@
 /* ===== Evee , hi-fi dashboard tokens (ported verbatim from design evee.css) ===== */
 
-/* Fonts , Space Grotesk (UI) + Space Mono (numerals).
+/* Fonts , Space Grotesk (UI) + Space Mono (numerals) by default.
    Self-hosted from /fonts with stable paths so index.html can preload them.
    font-display: block (not swap) so we never paint the fallback then swap to
    the web font , that swap is the visible flash on a kiosk reload. Paired with
@@ -9,7 +9,15 @@
    Lives here (not theme.css) so BOTH the panel bundle (theme.css imports this
    file) and the guest portal bundle (portal.css imports this file directly,
    never theme.css) get the same self-hosted cc typography , one @import
-   chain, no duplication. */
+   chain, no duplication.
+
+   A typeface is a PAIR (sans + its mono), never a lone family: 43 call sites
+   read --mono for the stat values, log counts, shas and timestamps, so mixing
+   Geist with Space Mono would read as two unrelated designs sharing a tile.
+   The three pairs are declared under "typeface profiles" below; the panel picks
+   one in Settings > Display. The guest portal never runs that code, so it stays
+   on the :root default (self-hosted, deterministic on whatever phone loads it,
+   which is the one surface we cannot assume is Apple hardware). */
 @font-face {
   font-family: "Space Grotesk Variable";
   font-style: normal;
@@ -38,6 +46,33 @@
   font-display: block;
   font-weight: 700;
   src: url(/fonts/space-mono-latin-700-normal.woff2) format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Geist + Geist Mono (SIL OFL, vercel/geist-font, vendored from
+   @fontsource-variable/*). Declared unconditionally but only FETCHED when the
+   geist profile is live , a @font-face the page never renders with costs
+   nothing, which is what lets the picker switch without a reload. Both carry a
+   full 100..900 axis, unlike Space Grotesk's 300..700. */
+@font-face {
+  font-family: "Geist Variable";
+  font-style: normal;
+  font-display: block;
+  font-weight: 100 900;
+  src: url(/fonts/geist-latin-wght-normal.woff2) format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Geist Mono Variable";
+  font-style: normal;
+  font-display: block;
+  font-weight: 100 900;
+  src: url(/fonts/geist-mono-latin-wght-normal.woff2) format("woff2-variations");
   unicode-range:
     U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
     U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
@@ -82,8 +117,9 @@
      was never declared; the token now resolves. */
   --green: #7ac48f;
   --r: 20px;
-  --ui: "Space Grotesk Variable", "Space Grotesk", "SF Pro Display", system-ui, sans-serif;
-  --mono: "Space Mono", ui-monospace, monospace;
+  /* --ui / --mono / --w-* / --track-* are NOT here , they belong to a typeface
+     profile (see "typeface profiles" below, where the grotesk one doubles as
+     the :root default). Never hardcode a family in a component. */
 
   /* Aliases , the design JSX (wf-kit.jsx / evee-tiles.jsx) references a second
      naming scheme. Map them onto the canonical tokens above so tiles ported
@@ -99,6 +135,64 @@
   /* Overflow panel surface tokens , layered above the tile surface */
   --bg-2: var(--tile-2);
   --bg-3: var(--nest);
+}
+
+/* ─── typeface profiles ──────────────────────────────────────────────────────
+   One block per pair. Keyed off a `data-typeface` ATTRIBUTE rather than written
+   onto :root from JS (the way lib/accent.ts writes --acc) because nothing
+   outside CSS needs to know the stacks , and an attribute selector that isn't
+   root-anchored also works on a subtree, which is exactly how the Settings
+   picker renders each option in its own face for free.
+
+   lib/typeface.ts sets the attribute on <html>; the inline boot script in
+   index.html sets it BEFORE first paint, so a non-default choice never flashes
+   the default face on a kiosk reload. `grotesk` is the :root default above and
+   therefore needs no block of its own.
+
+   Each profile carries its own weights and tracking, not just families. The
+   three faces do not read as equally heavy at a matched weight: SF and Geist
+   both sit visibly lighter than Space Grotesk at 600, so a tile header that
+   holds its own in Grotesk goes limp in the other two unless it steps up. Both
+   of them have a real 100..900 axis to spend, and Space Grotesk does not.
+
+   The grotesk block carries :root in its selector list rather than being
+   duplicated into it: one set of values, and every surface that never picks
+   (the guest portal, Storybook, a test renderer) lands on it by default. It
+   comes FIRST because all three selectors weigh the same and the later rule
+   would otherwise win. */
+:root,
+[data-typeface="grotesk"] {
+  --ui: "Space Grotesk Variable", "Space Grotesk", system-ui, sans-serif;
+  --mono: "Space Mono", ui-monospace, monospace;
+  --w-title: 600;
+  --w-hero: 700;
+  --track-title: -0.015em;
+  --track-hero: -0.04em;
+}
+[data-typeface="sf"] {
+  /* "SF Pro Display" is here for macOS (where it may be installed as a user
+     font) and as documentation of intent. On the panel itself , an iOS WKWebView
+     , the family name does NOT resolve; `-apple-system` is the keyword that
+     does, and it brings the optical sizing with it (SF Text below 20px, SF
+     Display at 20px and up) for free. Ships zero font bytes. */
+  --ui: -apple-system, "SF Pro Display", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", monospace;
+  --w-title: 700;
+  --w-hero: 800;
+  --track-title: -0.022em;
+  --track-hero: -0.045em;
+  font-optical-sizing: auto;
+}
+[data-typeface="geist"] {
+  --ui: "Geist Variable", system-ui, sans-serif;
+  --mono: "Geist Mono Variable", ui-monospace, monospace;
+  /* 650, not 700: Geist's 700 is heavier than SF's and overpowers a 17.5px tile
+     header on a black board. The variable axis is continuous, so the in-between
+     weight costs nothing. */
+  --w-title: 650;
+  --w-hero: 800;
+  --track-title: -0.02em;
+  --track-hero: -0.045em;
 }
 
 * {

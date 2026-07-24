@@ -14,4 +14,6 @@ export {
   type SnapMode,
   TIMEOUT_MAX_MS,
   TIMEOUT_MIN_MS,
+  TYPEFACES,
+  type Typeface,
 } from "@control-center/api/contract";

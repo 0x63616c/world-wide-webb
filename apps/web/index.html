@@ -11,22 +11,52 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Control Center" />
-    <!-- Preload primary fonts so they're ready by first paint, making the
-         font-display: block window (see theme.css) imperceptible , no FOUT swap. -->
-    <link
-      rel="preload"
-      href="/fonts/space-grotesk-latin-wght-normal.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
-    <link
-      rel="preload"
-      href="/fonts/space-mono-latin-400-normal.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
+    <!-- Typeface boot , runs before the bundle and before first paint.
+         The pair is a stored setting (Settings > Display), so BOTH the profile
+         attribute and the font preloads depend on a value only localStorage
+         knows this early. Doing it here rather than in React is what keeps a
+         kiosk reload from painting Space Grotesk and then swapping: by the time
+         the parser reaches <body>, the right profile is already on <html> and
+         the right two files are already in flight.
+
+         Preloads make the font-display: block window (see tokens.css)
+         imperceptible , no FOUT swap. The sf profile preloads nothing on
+         purpose: it renders in the OS's own SF Pro / SF Mono, which ship no
+         bytes. Keys and paths mirror lib/settings.ts (`cc-typeface`) and
+         tokens.css; if this list drifts the page still renders correctly, just
+         with a visible block window on a cold load. -->
+    <script>
+      (() => {
+        const FONTS = {
+          grotesk: [
+            "/fonts/space-grotesk-latin-wght-normal.woff2",
+            "/fonts/space-mono-latin-400-normal.woff2",
+          ],
+          sf: [],
+          geist: [
+            "/fonts/geist-latin-wght-normal.woff2",
+            "/fonts/geist-mono-latin-wght-normal.woff2",
+          ],
+        };
+        let stored = null;
+        try {
+          stored = window.localStorage.getItem("cc-typeface");
+        } catch {
+          // ignore , blocked storage just means the default face
+        }
+        const typeface = stored && FONTS[stored] ? stored : "grotesk";
+        document.documentElement.dataset.typeface = typeface;
+        for (const href of FONTS[typeface]) {
+          const link = document.createElement("link");
+          link.rel = "preload";
+          link.as = "font";
+          link.type = "font/woff2";
+          link.crossOrigin = "anonymous";
+          link.href = href;
+          document.head.appendChild(link);
+        }
+      })();
+    </script>
     <title>Control Center</title>
   </head>
   <body>

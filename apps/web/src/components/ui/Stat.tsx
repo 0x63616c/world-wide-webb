@@ -18,7 +18,8 @@ export function Stat({ label, value, accent, muted, sub }: StatProps) {
         className="mono"
         style={{
           fontSize: 22,
-          fontWeight: 700,
+          // Per-typeface, same reason as TileHeader's title.
+          fontWeight: "var(--w-hero)",
           color: accent ? "var(--acc)" : muted ? "var(--ink-2)" : undefined,
         }}
       >

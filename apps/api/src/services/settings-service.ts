@@ -13,6 +13,7 @@ import {
   SNAP_MODES,
   TIMEOUT_MAX_MS,
   TIMEOUT_MIN_MS,
+  TYPEFACES,
 } from "../contract/settings";
 import type * as schema from "../db/schema";
 import { SETTINGS_SINGLETON_ID, settings } from "../db/schema";
@@ -46,6 +47,10 @@ export const settingsSchema = z.object({
   // The board's highlight colour. Only the KEY is contract , the hex ramp each
   // key maps to is web's business (lib/accent.ts).
   accent: z.enum(ACCENTS),
+  // The board's type pair (sans + its mono). Only the KEY is contract , the
+  // families, weights and tracking each key maps to are web's business
+  // (styles/tokens.css + lib/typeface.ts).
+  typeface: z.enum(TYPEFACES),
 });
 
 /** A partial patch: any subset of the full settings object. */

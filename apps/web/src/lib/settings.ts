@@ -23,6 +23,8 @@ import {
   type SnapMode,
   TIMEOUT_MAX_MS,
   TIMEOUT_MIN_MS,
+  TYPEFACES,
+  type Typeface,
 } from "@cc/api/settings";
 import { interaction } from "./log/interaction";
 import { log } from "./log/logger";
@@ -80,6 +82,10 @@ export interface Settings {
    *  Synced, not device-local: the accent is how the installation looks, not a
    *  property of one panel. */
   accent: Accent;
+  /** The board's type pair , sans + its mono, plus the weights and tracking
+   *  that face needs (see lib/typeface.ts). Synced for the same reason as the
+   *  accent: it is how the installation looks, not a property of one panel. */
+  typeface: Typeface;
   /** Push notifications requested for THIS device. Drives the OS permission
    *  prompt + APNs token registration (lib/push.ts). Device-local by nature:
    *  a token belongs to one panel, so this must not sync across panels. */
@@ -121,6 +127,7 @@ const KEYS = {
   showMinimap: "cc-show-minimap",
   pinCode: "cc-pin-code",
   accent: "cc-accent",
+  typeface: "cc-typeface",
   pushEnabled: "cc-push-enabled",
 } as const;
 
@@ -193,6 +200,7 @@ function loadInitial(): Settings {
   const minimap = readRaw(KEYS.showMinimap);
   const pin = readRaw(KEYS.pinCode);
   const accent = readRaw(KEYS.accent);
+  const typeface = readRaw(KEYS.typeface);
   const push = readRaw(KEYS.pushEnabled);
   return {
     activeBrightness:
@@ -214,6 +222,10 @@ function loadInitial(): Settings {
       accent && (ACCENTS as readonly string[]).includes(accent)
         ? (accent as Accent)
         : DEFAULTS.accent,
+    typeface:
+      typeface && (TYPEFACES as readonly string[]).includes(typeface)
+        ? (typeface as Typeface)
+        : DEFAULTS.typeface,
     pushEnabled: push === null ? DEFAULTS.pushEnabled : push === "true",
   };
 }
@@ -356,6 +368,11 @@ export function setPinCode(pin: string): void {
  *  lib/useAccentTheme, not here , this stays a plain store write. */
 export function setAccent(accent: Accent): void {
   patch("accent", accent, accent);
+}
+
+/** Pick the board's type pair (see lib/typeface.ts). */
+export function setTypeface(typeface: Typeface): void {
+  patch("typeface", typeface, typeface);
 }
 
 export function setPushEnabled(v: boolean): void {

@@ -7,6 +7,7 @@ import { queryClient, trpc, trpcClient } from "./lib/trpc";
 import { useAccentTheme } from "./lib/useAccentTheme";
 import { useDeviceSettingsSync } from "./lib/useDeviceSettingsSync";
 import { useSettingsSync } from "./lib/useSettingsSync";
+import { useTypefaceTheme } from "./lib/useTypefaceTheme";
 import { useVolumeSync } from "./lib/useVolumeSync";
 import { startVersionCheck } from "./lib/version-check";
 import { routeTree } from "./routeTree.gen";
@@ -50,6 +51,12 @@ function AccentTheme() {
   return null;
 }
 
+// Paints the chosen typeface onto :root, same story as AccentTheme.
+function TypefaceTheme() {
+  useTypefaceTheme();
+  return null;
+}
+
 export function App() {
   // Kiosk auto-refresh (www-ss8s): poll the deployed build stamp and hard-reload
   // once when an OTA deploy ships a new SHA. No-op in local dev (hash "dev").
@@ -60,6 +67,7 @@ export function App() {
       <QueryClientProvider client={queryClient}>
         <SettingsSync />
         <AccentTheme />
+        <TypefaceTheme />
         <DeviceSettingsSync />
         <VolumeSync />
         {/* Persists the board's ephemeral banner alerts into the Notification
