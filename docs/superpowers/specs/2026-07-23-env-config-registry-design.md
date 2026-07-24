@@ -43,9 +43,9 @@ green, and only fail against the real secret mount in prod.
 
 | # | Goal | How this design meets it |
 |---|------|--------------------------|
-| 1 | **Fail-fast on missing secrets** | Prod-required keys are declared `.required()` with **no valid-but-wrong default** (an optional `.devDefault()` covers local dev only). `assertEnv(runtime)` runs at boot, after hydration, and `process.exit(1)` with a structured log listing every missing key when `APP_ENV==="production"`. The band-aid becomes a real guard. |
+| 1 | **Fail-fast on missing secrets** | Prod-required keys are declared `.required()` with **no valid-but-wrong default** (an optional `.devDefault()` covers local dev only). `assertEnv(runtime)` runs at boot, after hydration, and `process.exit(1)` with a structured log listing every missing key when `APP_ENV==="production"`. The bare hydrate-first import (`3db4dde87`) is not deleted — it **evolves** into the sanctioned, validating boot entry (§5.6, §9): same import-time side effect, now registry-owned and fail-fast. |
 | 2 | **One place to see all env** | A single `defineEnv({...})` manifest in `packages/platform/env/registry.ts` declares every key once — name, type, requiredness, owning runtime(s), owning feature. Answers "what does prod need" in one file and cross-checks against the existing `secretCatalog` (§7), feeding the deferred `vault.yaml` cleanup. |
-| 3 | **Order-independent (lazy)** | Config values are read from the hydrated `process.env` on **first property access**, memoized thereafter — never at import. Import order can no longer freeze a value, in any entrypoint. Proven by a regression test that imports a feature config *before* hydration and asserts it still reads the hydrated value (§8). |
+| 3 | **Order-independent (lazy)** | Config values are read from the hydrated `process.env` on **first property access**, memoized thereafter — never eagerly at parse time. This removes the *freeze-at-parse* fault: a config module can be imported before hydration without baking in a default. **One narrow ordering requirement remains and is met by construction, not by laziness alone**: feature `deps.ts`/`db.ts`/`service.ts` modules construct pools and HA clients at *module top* (e.g. `features/ac/deps.ts:22-27`, every `features/*/db.ts`, `apps/api/src/db/index.ts:7`), so the *first access* to a lazy config value happens during the static-import phase, before any executable boot statement runs. Hydration must therefore precede feature imports. That is guaranteed by a **Biome-pinned side-effect boot import** at the very top of each entrypoint (§5.6, §9) — the same mechanism the hotfix used, now registry-owned. Laziness narrows the requirement from "`env` before every feature's `parse()`" to "boot import before feature imports"; it does **not** eliminate it, because module-top construction touches config at import. Proven by a regression test that imports a config *before* hydration and asserts a later access still reads the hydrated value (§8.1). |
 | 4 | **No duplicated defaults** | Each key — shared or feature-owned — is declared exactly once in the registry. Feature configs become typed *projections* (`ENV.pick(...)`), never re-declarations. |
 
 ---
@@ -98,8 +98,35 @@ Requiredness tiers used below:
   `APP_ENV!=="production"` (keeps local dev booting without leaking a real
   value into the repo).
 - **optional-secret** — a secret with **no default**; resolves to `undefined`
-  when absent (not `""`). The owning feature's `isConfigured()` gate no-ops the
-  feature. Honest replacement for today's `.default("")`.
+  at *runtime* when absent (not `""`). Its **static type stays `string`**, not
+  `string | undefined` (decision below). The owning feature's `isConfigured()` /
+  `isApnsConfigured()` gate no-ops the feature before any use, so the value is
+  only ever read when actually present. Honest replacement for today's
+  `.default("")`, and typecheck-compatible with it.
+
+  **Static-type decision (resolves the `string | undefined` typecheck break).**
+  `optionalSecret()` deliberately declares its static type as **`string`** while
+  returning `undefined` at runtime when unset. Rationale: today these keys are
+  `.default("")`, so every consumer already sees `string` and passes the value
+  straight into `string` params —
+  `signApnsJwt(config.APNS_KEY_ID, config.APNS_TEAM_ID, config.APNS_KEY_CONTENT)`
+  (`features/notif/apns.ts:205`; `signApnsJwt(keyId: string, teamId: string,
+  p8Pem: string)` at `apns.ts:68`),
+  `signAscJwt(env.ASC_KEY_ID, env.ASC_ISSUER_ID, env.ASC_KEY_CONTENT)`
+  (`apps/api/src/services/asc-version-service.ts:133`),
+  `features/sound/spotify-service.ts:37-39`, and `features/deploys/service.ts`.
+  A `Boolean(...)` gate (`isConfigured()`/`isApnsConfigured()`) does **not**
+  narrow `string | undefined` to `string` for TypeScript, so widening the type
+  would turn every one of those call sites into a
+  "`string | undefined` not assignable to `string`" error, breaking the
+  independent greenness of Steps 6-8 (which rewrite *only* `config.ts`). Keeping
+  the static type `string` means the config-migration commits touch **only**
+  `config.ts` files — no consumer edits, no re-typing — while runtime behavior
+  (undefined when unmounted, feature self-disables via its gate) is exactly the
+  design's intent and matches today's degraded-feature contract. The `string`
+  type is a documented, gate-guarded convenience (the same shape `.default("")`
+  gave), scoped to `optionalSecret()` only; genuinely-nullable public keys use
+  `.optional()` (below), which **does** widen to `T | undefined`.
 - **default** — safe, public, non-secret default; identical in every env.
 - **optional** — may be absent anywhere → `undefined`.
 
@@ -234,7 +261,10 @@ export const ENV = defineEnv({
 
 `defineEnv(spec)` returns a **lazy, memoized, typed accessor** `ENV`.
 `typeof ENV` is a mapped type `{ readonly [K in keyof spec]: TypeOf<spec[K]> }`
-(where an `.optional()`/`optional-secret` field widens to `T | undefined`).
+where an `.optional()` field widens to `T | undefined`, but an
+`.optionalSecret()` field stays `string` (runtime-`undefined`, gate-guarded — see
+§4 static-type decision). Only `.optional()` widens; `.optionalSecret()` does
+not.
 
 ### 5.3 Lazy access mechanism — **Proxy** (decision)
 
@@ -296,27 +326,85 @@ assertEnv(runtime: "api" | "worker"): void
 - Iterates every `FieldSpec` where `required === true` and the runtime is in
   `runtimes` (or `runtimes` includes `"all"`).
 - Collects keys whose hydrated `process.env` value is absent or empty.
-- If the missing list is non-empty: `getLogger().fatal({ missingKeys, runtime },
-  "required env missing — refusing to boot")` then `process.exit(1)`. Loud,
-  structured, lists every missing key at once (not one-at-a-time).
+- If the missing list is non-empty: log a structured fatal
+  `{ missingKeys, runtime }, "required env missing — refusing to boot"` then
+  `process.exit(1)`. Loud, structured, lists every missing key at once (not
+  one-at-a-time).
+- **Logger sourcing (must not use `getLogger()`).** `assertEnv` runs from the
+  side-effect boot import (§5.6), which executes during the static-import phase —
+  **before** the entrypoint's own `createLogger({ service: "api" })` call runs
+  (`apps/api/src/server.ts:26`). `getLogger()` throws if the root logger is not
+  yet registered (`packages/logger/src/index.ts:157-160`), which would mask the
+  `{missingKeys}` diagnostic behind an opaque "getLogger() called before
+  createLogger()" error — defeating Goal 1. Therefore `assertEnv` builds its
+  **own** logger with `createLogger({ service: "env" })` for the fatal line
+  rather than calling `getLogger()`. This is safe: `createLogger` sets the
+  process `_root`, and the entrypoint's later `createLogger({ service: "api" })`
+  simply re-registers it — but in the fail path the process `exit(1)`s
+  immediately, so the transient root is never observed. The env logger inherits
+  the same redaction paths, so no secret leaks. (`initEnv` sequencing cannot be
+  reordered after `createLogger` instead, because issue-1's fix requires
+  hydration to run as a side-effect import *before* feature imports, which run
+  before any executable `createLogger` statement — §5.6.)
 - Also validates that present required keys *parse* (e.g. `DATABASE_URL` is a
   valid pg URL), surfacing a malformed secret as a boot crash too.
 
-### 5.6 `initEnv(runtime)` — the boot entry
+### 5.6 `initEnv(runtime)` — the boot entry, invoked as a side-effect import
 
 ```
 initEnv(runtime: "api" | "worker"): void
 ```
 
-The single call each entrypoint makes first thing:
+Does, in order:
 
 1. `hydrateSecretFiles()` — read `/run/secrets/*` into `process.env`.
 2. `const url = databaseUrlFromSecret(); if (url) process.env.DATABASE_URL = url;`
 3. `assertEnv(runtime)`.
 
-After `initEnv`, `process.env` is fully hydrated and validated; every
-subsequent lazy `config.X` read is correct regardless of when the config module
-was imported.
+**It must run before feature imports, so it is invoked from a side-effect module
+that each entrypoint imports FIRST — never as an executable statement.** This is
+the crux of issue-1's resolution. Feature `deps.ts`/`db.ts`/`service.ts` modules
+construct pools and HA clients at module top (`features/ac/deps.ts:22-27`, every
+`features/*/db.ts`, `apps/api/src/db/index.ts:7`, `features/dogcam/service.ts`),
+so they perform the *first lazy access* to `config.DATABASE_URL`/`config.HA_TOKEN`
+during the static-import phase. An executable `initEnv("api")` "first statement"
+runs *after* all static imports resolve — i.e. after those module-top accesses
+have already memoized the pre-hydration values. That would reintroduce the exact
+`3db4dde87` prod bug (climate/tv/dogcam/booth 500 on empty `HA_TOKEN` / localhost
+`DATABASE_URL`). Laziness does not save us here because first access *is* at
+import time.
+
+**Mechanism — a thin per-app side-effect boot module** whose body calls
+`initEnv` at module-eval, imported as the pinned first line of each entrypoint
+(before any `@features/*` import):
+
+```
+// apps/api/src/boot-env.ts
+import { initEnv } from "@www/platform/env";
+initEnv("api"); // runs at import: hydrate -> derive DATABASE_URL -> assertEnv
+```
+```
+// apps/api/src/server.ts (Biome-pinned first import)
+import "./boot-env";              // MUST precede every @features/* import
+import { GENERATED_ROUTES } from "@features/_generated/http.gen";
+// ...
+```
+
+The worker gets `apps/worker/src/boot-env.ts` calling `initEnv("worker")`, pinned
+first in `apps/worker/src/index.ts`. (A single per-app module is used rather than
+a shared `@www/platform/env/boot` subpath because the runtime arg — `"api"` vs
+`"worker"` — must be baked into the side-effect; two exported boot subpaths would
+work equally but per-app modules keep the arg local and obvious.)
+
+After the boot import runs, `process.env` is fully hydrated and validated, so
+every subsequent lazy `config.X` read — including the module-top ones in the very
+next feature import — is correct. Import order can still break correctness **iff**
+the boot import is not first. It is pinned by the **same mechanism that pinned the
+hotfix**: Biome's `organizeImports` (`biome.json:6`) treats a bare side-effect
+import as a sort barrier and never reorders named imports above it, so once the
+boot import is written first it stays first (§6). This is the precise, narrowed
+ordering guarantee — not "order-independent in all cases", which is false while
+construction happens at import.
 
 ### 5.7 `hydrate.ts`
 
@@ -356,6 +444,14 @@ Changes for this work:
    moves out, so drop `pool.ts` from the carve-out (or leave it harmless — the
    plan removes it for cleanliness).
 
+**Boot-import ordering (not a `noProcessEnv` change).** The pinned side-effect
+boot import (§5.6) relies on `organizeImports` (`biome.json:6`) keeping a bare
+side-effect import as a leading sort barrier — the identical mechanism that held
+the `import "./env"` hotfix at the top. No new lint rule is needed; the migration
+simply repoints that first side-effect import from `./env` to `./boot-env`. The
+pinned-first invariant is therefore preserved across the migration, not
+re-derived.
+
 **Legitimate lower-layer / build-time carve-outs that stay:**
 
 - `packages/logger/src/**` — the logger is the lowest layer and deliberately
@@ -384,6 +480,18 @@ This is the single source of truth that feeds the deferred `vault.yaml`
 secrets-cleanup (memory: `secrets-cleanup-after-track-c`). The test is
 **recommended, not required** for this work — noted as a follow-up so the two
 manifests are provably in sync.
+
+When written, the parity test should also pin a **known `secretCatalog` oddity**
+so the registry does not silently inherit it: `secretCatalog`
+(`packages/platform/src/index.ts:347-348`) maps `WIFI_SSID → wifiMain.ssid` but
+`WIFI_PASSWORD → wifiGuest.password` (the password comes from the *guest* SOPS
+key, not the main one). The registry declares both as `secret().required()`
+(§4); the parity assertion should assert this exact catalog↔vault mapping so a
+future edit can't drift the two apart unnoticed. (Verified fact: api and worker
+declare the identical secret set — `packages/platform/src/index.ts:336-374` — so
+`assertEnv("worker")` requiring `DATABASE_URL/HA_TOKEN/HOME_LAT/HOME_LON` is
+satisfied by the worker's prod mount; the §4 required-set assumption holds for
+both runtimes.)
 
 ---
 
@@ -421,11 +529,27 @@ layout):
    City Hall in prod).
 8. **secretCatalog parity** (recommended follow-up, §7).
 
-Existing suites that must stay green: `apps/api` tests (env/server),
-`apps/api/src/__tests__/worker-deps.test.ts`, `packages/core` db/hydrate tests
-(update import paths), every feature's own tests, `apps:check` codegen (imports
-the branded facets — must not throw at import, which the lazy config guarantees
-even more strongly than today).
+Existing suites and how they change (plan Steps 4/9/10):
+
+- `apps/api/src/__tests__/env.test.ts` — **rewritten/deleted**: it asserts the
+  old `""`/localhost defaults (`env.HA_TOKEN).toBe("")`, `env.SPOTIFY_*.toBe("")`,
+  `DATABASE_URL).toBe("postgresql://cc:cc@localhost…")`) that this design
+  intentionally reverses, and imports an `envSchema` the registry does not export.
+  Equivalent coverage lives in `packages/platform/test/env.test.ts`.
+- `apps/api/src/__tests__/guest-server.test.ts` and `worker-deps.test.ts` — drop
+  their `envSchema.parse({})` usage (plan Step 10).
+- `apps/api/src/__tests__/asc-version-service.test.ts` +
+  `youtube-ingest-service.test.ts` — retarget `vi.mock("../env")` to
+  `vi.mock("@www/platform/env")` (plan Step 10). Feature `vi.mock("./config")`
+  mocks are unaffected (they replace the whole module, so the read-only `pick()`
+  Proxy is never exercised).
+- `packages/core` hydrate/pool tests — the cases covering the *moved* symbols
+  (`databaseUrlFromSecret`, `hydrateSecretFiles`) **move to
+  `packages/platform/test/`** so no `core` test imports `@www/platform` (plan
+  Step 4); `createPool`-only cases stay in `packages/core`.
+- Every feature's own tests, and `apps:check` codegen (imports the branded facets
+  — must not throw at import, which the lazy config guarantees even more strongly
+  than today) — stay green unchanged.
 
 ---
 
@@ -436,7 +560,8 @@ even more strongly than today).
 | Prod, `HA_TOKEN` secret unmounted | features bake `""`, tiles 500 per-request | `assertEnv("api")` logs `{missingKeys:["HA_TOKEN"]}` + `exit(1)` at boot; deploy crash-loops visibly instead of serving broken tiles |
 | Prod, `DATABASE_URL` underivable (no `POSTGRES_PASSWORD` mount) | localhost default → connection errors | boot crash listing `DATABASE_URL` |
 | Dev, no secrets mounted | works via defaults | works via `devDefault` / defaults; `assertEnv` no-op (`APP_ENV!=="production"`) |
-| Feature imported before hydration | value frozen to default (the bug) | value read lazily post-hydration; correct |
+| Feature imported before hydration, boot import first (the required order) | value frozen to default (the bug) | value read lazily post-hydration; correct |
+| Feature imported before the boot import (boot import not first) | N/A (hotfix forced order) | still wrong — module-top pool/client memoizes pre-hydration value; **this is why the boot import stays pinned first (§5.6) and is not "retired" into an executable statement** |
 | New feature reaches for `process.env` | allowed (carve-out) | Biome lint error (carve-out removed) |
 
 ---
@@ -448,15 +573,22 @@ doc). Order: scaffold registry + fields + tests (regression test RED first) →
 lazy Proxy + pick + memoization (regression GREEN) → move hydration into
 platform + `assertEnv`/`initEnv` → populate the full manifest → migrate the 16
 feature configs in batches (grouped by shared-key cluster) → migrate
-`apps/api` + `apps/worker` entrypoints to `initEnv` + `config`, retire the
-`import "./env"` hotfix → Biome scope change (add platform/env carve-out, remove
-features carve-out) → delete the now-empty `apps/api/src/env.ts` schema, final
-verify.
+`apps/api` + `apps/worker` entrypoints and their internal `env` consumers to
+`config`, and replace the pinned `import "./env"` with a pinned
+`import "./boot-env"` (still a side-effect import; runtime arg baked in) → Biome
+scope change (add platform/env carve-out, remove features carve-out) → delete the
+now-empty `apps/api/src/env.ts` schema, final verify.
 
-The api hotfix stays in place until the entrypoint is wired to `initEnv` and
-the lazy config proves import order irrelevant; only then is the bare
-`import "./env"` line replaced by an explicit `initEnv("api")` boot call
-(retiring the band-aid without a coverage gap).
+The api hotfix stays in place until the boot module exists and the internal `env`
+consumers are migrated; then the bare `import "./env"` is **repointed** to
+`import "./boot-env"` (whose body runs `initEnv("api")` at module-eval). The
+side-effect-import-first ordering is preserved, not removed — module-top pool/HA
+construction in feature `deps.ts`/`db.ts` still reads config during import, so
+hydration must still run first. What changes is that the boot import is now
+registry-owned and fail-fast (`assertEnv`), and the schema/defaults it carried are
+gone. There is **no** version of this that replaces the side-effect import with a
+plain executable `initEnv()` statement (that runs after feature imports → the bug
+returns).
 
 ---
 
@@ -473,10 +605,35 @@ the lazy config proves import order irrelevant; only then is the bare
   `config` — verify `worker-deps.ts`'s `export { env }` is repointed or the
   worker imports `@www/platform/env` directly. Missing this re-breaks worker
   hydration order.
-- **`env.*` call-site surface.** `server.ts` and the worker read `env.PORT`,
-  `env.NODE_ENV`, `env.GUEST_*`, `env.MEDIA_STORAGE_DIR`,
-  `env.YOUTUBE_INGEST_ENABLED`. All must migrate to `config.*`. A missed site
-  that still imports the deleted `env` fails typecheck (caught pre-push).
+- **`env.*` call-site surface (full inventory — larger than server.ts + worker).**
+  `apps/api/src/env.ts` is imported by **nine** runtime modules, all of which must
+  migrate to `@www/platform/env` `config` **before** `env.ts` is deleted (Step
+  10), or root typecheck goes red across them:
+  1. `apps/api/src/server.ts:17` — `env.PORT/NODE_ENV/GUEST_*` (+ the pinned
+     side-effect import at line 7).
+  2. `apps/api/src/worker-deps.ts:21` — `export { env } from "./env"` re-export
+     (repoint or drop; see the worker risk below).
+  3. `apps/api/src/trpc/routers/health.ts:26` — `env.BUILD_HASH`.
+  4. `apps/api/src/integrations/homeassistant/index.ts:12` —
+     `env.HA_URL`, `env.HA_TOKEN`.
+  5. `apps/api/src/db/index.ts:7` — `env.DATABASE_URL` (module-top
+     `createPool` — a first-access-at-import site).
+  6. `apps/api/src/services/climate-enforcer-service.ts:138,163` —
+     `env.CLIMATE_ENTITY_ID` (worker-runtime service living under apps/api).
+  7. `apps/api/src/services/youtube-ingest-service.ts:192` —
+     `env.MEDIA_STORAGE_DIR`.
+  8. `apps/api/src/services/asc-version-service.ts:56,133,141` —
+     `env.ASC_KEY_ID/ASC_ISSUER_ID/ASC_KEY_CONTENT/ASC_APP_ID`.
+  9. `apps/api/src/services/weight-service.ts:24` — `env.HA_WEIGHT_ENTITY_ID`.
+
+  Plus the worker entrypoint (`apps/worker/src/index.ts:69,79,170,194`) reading
+  `env.YOUTUBE_INGEST_ENABLED/MEDIA_STORAGE_DIR/NODE_ENV`. Several of these are
+  worker-runtime services (climate/weight/asc) that happen to live under
+  `apps/api` — the registry keys they read (`CLIMATE_ENTITY_ID`,
+  `HA_WEIGHT_ENTITY_ID`, `ASC_*`) are tagged to the correct runtime in §4. A
+  missed site that still imports the deleted `env` fails typecheck (caught
+  pre-push). The plan migrates all nine within Step 9, before the Step 10
+  deletion.
 - **Proxy vs. static typing.** The `as` cast to the mapped type is the only
   unsound spot; the field-builder tests + a couple of `expectTypeOf` assertions
   pin the inferred types so a wrong builder return can't silently widen.

@@ -16,6 +16,15 @@
  * delete this file; until then, keep the export surface minimal.
  */
 
+// HYDRATE FIRST: ./env runs hydrateSecretFiles() as an import side effect. The
+// re-exports below evaluate their source modules in order, and
+// @features/deploys/service imports deploys/config.ts which parses process.env
+// at module-eval time. Without this line, deploys config parsed BEFORE ./env
+// hydrated (GITHUB_ACTIONS_TOKEN="") so runGithubPollCycle no-oped every tick and
+// the Deploys tile froze (regression from the deploys fold, cd9fe76). Biome pins
+// this side-effect import at top. Superseded by the packages/platform/env registry.
+import "./env";
+
 export { runGithubPollCycle } from "@features/deploys/service";
 export { runMigrations } from "./db/migrate";
 export { env } from "./env";

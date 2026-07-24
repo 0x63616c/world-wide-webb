@@ -79,15 +79,29 @@ memoization + pick-isolation tests GREEN. `typecheck` exit 0.
   `createPool`). Delete `packages/core/src/secrets/hydrate.ts`; drop its dir if
   empty. Update `packages/core/src/index.ts` re-exports (remove the two moved
   symbols).
-- `packages/platform/env/assert.ts`: `assertEnv(runtime)` (spec §5.5) using
-  `getLogger()` + `process.exit`. `initEnv(runtime)` (spec §5.6) =
-  hydrate → derive DATABASE_URL → assertEnv.
+- `packages/platform/env/assert.ts`: `assertEnv(runtime)` (spec §5.5) logging its
+  fatal via its OWN `createLogger({ service: "env" })` (NOT `getLogger()` — it
+  runs from a side-effect import before the app's `createLogger`; spec §5.5) +
+  `process.exit`. `initEnv(runtime)` (spec §5.6) = hydrate → derive DATABASE_URL →
+  assertEnv, invoked at import time from each app's `boot-env.ts` (Step 9).
 - Update the ONE current importer `apps/api/src/env.ts` to import
   hydrate/databaseUrlFromSecret from `@www/platform/env` (temporary — env.ts is
   deleted in Step 10).
 - `packages/platform/test/env.test.ts`: add `assertEnv` fail-fast, parse-fail,
-  and devDefault-gating tests (§8.5–8.7).
-- Grep for any other importer of the moved symbols (core tests) and repoint.
+  and devDefault-gating tests (§8.5–8.7). `assertEnv` must source its fatal-line
+  logger via `createLogger({ service: "env" })`, **not** `getLogger()` (spec
+  §5.5) — the test spies `process.exit` and asserts the `{missingKeys}` fatal was
+  logged without a "getLogger() called before createLogger()" throw.
+- **Move (not repoint) the core tests that exercise the moved symbols.**
+  `packages/core/test/pool.test.ts` and `packages/core/test/hydrate.test.ts`
+  currently import `databaseUrlFromSecret`/`hydrateSecretFiles`. Move the cases
+  covering those two symbols into `packages/platform/test/` (e.g. fold into
+  `env.test.ts` or a new `hydrate.test.ts`) so a `core` test never imports
+  `@www/platform` (keeps layering clean). Any `pool.test.ts` cases that still
+  cover the surviving `createPool` stay in `packages/core/test/pool.test.ts`;
+  confirm that file still has its `noProcessEnv` override coverage if it retains a
+  `process.env` read (it should not once `databaseUrlFromSecret` is gone).
+- Grep for any other importer of the moved symbols and repoint.
 
 **Verify**: `bun run --filter @www/platform test`,
 `bun run --filter @www/core typecheck && test`,
@@ -175,44 +189,120 @@ nothing.)
 
 ---
 
-## Step 9 — Wire entrypoints to `initEnv` + `config`; retire the hotfix
+## Step 9 — Boot each entrypoint via a pinned side-effect `boot-env` import; migrate ALL internal `env` consumers to `config`
+
+**Critical correctness note (why this is NOT an executable `initEnv()` call).**
+Feature `deps.ts`/`db.ts`/`service.ts` modules construct pools + HA clients at
+*module top* (`features/ac/deps.ts:22-27`, every `features/*/db.ts`,
+`apps/api/src/db/index.ts:7`), so the *first lazy access* to
+`config.DATABASE_URL`/`HA_TOKEN` happens during the static-import phase — before
+any executable statement in `server.ts` runs. Hydration must therefore run as a
+**side-effect import placed first**, exactly like the current `import "./env"`
+hotfix. Replacing the hotfix with a plain executable `initEnv("api")` first
+statement would run it *after* those module-top accesses have already memoized
+pre-hydration defaults → the `3db4dde87` prod bug returns (climate/tv/dogcam/booth
+500). Spec §5.6.
 
 **Changes**
-- `apps/api/src/server.ts`: replace the bare `import "./env"` (line 7 hotfix)
-  with an explicit `initEnv("api")` as the FIRST executable statement. Replace
-  `import { env } from "./env"` with `import { ENV as config } from
-  "@www/platform/env"` (or keep an `env` alias re-export from a thin module).
-  Migrate `env.PORT/NODE_ENV/GUEST_*` call sites to `config.*`.
-- `apps/worker/src/index.ts`: call `initEnv("worker")` first thing (before
-  `runMigrations`). Migrate `env.YOUTUBE_INGEST_ENABLED/MEDIA_STORAGE_DIR/
-  NODE_ENV` reads to `config.*` from `@www/platform/env`.
-- `apps/api/src/worker-deps.ts`: repoint `export { env } from "./env"` to the
-  registry (or drop it and have the worker import `@www/platform/env` directly).
-- Confirm no other module imports `apps/api/src/env`'s `env` (grep).
+- New `apps/api/src/boot-env.ts`:
+  ```
+  import { initEnv } from "@www/platform/env";
+  initEnv("api"); // hydrate -> derive DATABASE_URL -> assertEnv, at import time
+  ```
+- New `apps/worker/src/boot-env.ts`: same, `initEnv("worker")`.
+- `apps/api/src/server.ts`: **repoint** the pinned line-7 side-effect import from
+  `import "./env"` to `import "./boot-env"` (still the FIRST import, before any
+  `@features/*` import — `organizeImports` keeps a bare side-effect import as a
+  leading barrier, same as today). Note: `createLogger({ service: "api" })` stays
+  at its current executable position (line 26); it does NOT need to precede the
+  boot import because `assertEnv` uses its own `createLogger({ service: "env" })`,
+  not `getLogger()` (spec §5.5), so the fail-fast fatal works even though it runs
+  during import before the app's `createLogger`.
+- `apps/worker/src/index.ts`: pin `import "./boot-env"` as the FIRST import
+  (before `runMigrations` and any feature import).
+- **Migrate all nine `apps/api` `env` consumers** off `import { env } from
+  "./env"` to `import { ENV as config } from "@www/platform/env"` and rewrite the
+  reads (spec §11 inventory). All nine must be done in THIS step, before Step 10
+  deletes `env.ts`:
+  1. `apps/api/src/server.ts:17` — `env.PORT/NODE_ENV/GUEST_*` → `config.*`.
+  2. `apps/api/src/worker-deps.ts:21` — drop `export { env } from "./env"`
+     (nothing should re-export the deleted schema; the worker gets config via
+     `@www/platform/env` directly).
+  3. `apps/api/src/trpc/routers/health.ts:26` — `env.BUILD_HASH`.
+  4. `apps/api/src/integrations/homeassistant/index.ts:12` —
+     `env.HA_URL/HA_TOKEN`.
+  5. `apps/api/src/db/index.ts:7` — `env.DATABASE_URL` (module-top `createPool`).
+  6. `apps/api/src/services/climate-enforcer-service.ts:138,163` —
+     `env.CLIMATE_ENTITY_ID`.
+  7. `apps/api/src/services/youtube-ingest-service.ts:192` —
+     `env.MEDIA_STORAGE_DIR`.
+  8. `apps/api/src/services/asc-version-service.ts:56,133,141` —
+     `env.ASC_KEY_ID/ASC_ISSUER_ID/ASC_KEY_CONTENT/ASC_APP_ID`. (These are
+     `optionalSecret()` → static `string`, so `signAscJwt(...)` still typechecks;
+     spec §4 static-type decision — no consumer re-typing needed.)
+  9. `apps/api/src/services/weight-service.ts:24` — `env.HA_WEIGHT_ENTITY_ID`.
+- `apps/worker/src/index.ts:69,79,170,194` — migrate
+  `env.YOUTUBE_INGEST_ENABLED/MEDIA_STORAGE_DIR/NODE_ENV` to `config.*`.
+- Grep-confirm the only remaining importers of `./env` are Step-10 test files.
 
-**Why the hotfix can go**: lazy config makes feature-import-order irrelevant,
-and `initEnv` still hydrates at boot before any request — so the ordering the
-`import "./env"` line enforced no longer matters. This satisfies the spec's
-condition for removing the band-aid (registry provably makes ordering
-irrelevant AND boot-time hydration preserved).
+**Why the hotfix line changes but the ordering guarantee does NOT go away**: the
+side-effect-import-first mechanism is preserved (just repointed to `boot-env`);
+what improves is that boot is now registry-owned, fail-fast (`assertEnv`), and no
+longer carries a duplicated Zod schema. Spec §5.6 / §10.
 
-**Verify**: `bun run typecheck`; `apps/api` + `apps/worker` tests;
-`worker-deps.test.ts`; a manual boot smoke if available. Confirm
-`grep -n 'import "./env"' apps/api/src/server.ts` is gone.
+**Verify**: `bun run typecheck` (exit 0 — all nine consumers must compile against
+`config`); `apps/api` + `apps/worker` tests; `worker-deps.test.ts` (see Step 10
+for its `envSchema` import — if it still imports it here, this step keeps it green
+by leaving `env.ts` in place until Step 10). Confirm
+`grep -rn 'from "\./env"\|from "\.\./env"' apps/api/src` returns only test files.
 
-**Commit**: `refactor(api,worker): boot via initEnv + registry config, retire env hotfix`
+**Commit**: `refactor(api,worker): boot via pinned boot-env side-effect import + registry config`
 
 ---
 
-## Step 10 — Delete the legacy `apps/api/src/env.ts` schema
+## Step 10 — Delete the legacy `apps/api/src/env.ts` schema + fix its test dependents
 
 **Changes**
 - Delete `apps/api/src/env.ts` (its schema is now the registry; its hydration
-  moved to platform). If any residual (e.g. `envSchema` type) is imported
-  elsewhere, repoint to the registry first.
-- Grep-verify no dangling imports of `./env` / `apps/api/src/env`.
+  moved to platform in Step 4). There is **no** exported Zod `envSchema` in the
+  registry, so importers of `envSchema` cannot simply be "repointed" — each is
+  handled explicitly:
+  - `apps/api/src/__tests__/env.test.ts` — **rewrite or delete**. It asserts the
+    OLD default behavior the new design intentionally reverses:
+    `env.HA_TOKEN).toBe("")`, `env.DATABASE_URL).toBe("postgresql://cc:cc@localhost…")`,
+    and `SPOTIFY_* .toBe("")` (lines ~9-24). These assertions are now *wrong by
+    design* (fail-fast `required()`; `optionalSecret()` → runtime `undefined`).
+    The equivalent coverage already lives in
+    `packages/platform/test/env.test.ts` (§8). Delete this file, or replace it
+    with a thin api-level boot smoke that imports `boot-env` in a dev-mode env and
+    asserts no throw. Do **not** leave it importing `envSchema`.
+  - `apps/api/src/__tests__/guest-server.test.ts:7,314` — drop the
+    `envSchema.parse({})` usage; construct the guest-server test fixture from
+    literal values (or `ENV.pick(...)` for the GUEST_* keys) instead of the
+    deleted schema.
+  - `apps/api/src/__tests__/worker-deps.test.ts:11,29,34` — same: it calls
+    `envSchema.parse({ MEDIA_STORAGE_DIR: ... })`. Repoint to reading
+    `config.MEDIA_STORAGE_DIR` from `@www/platform/env` (set/unset via
+    `process.env` + `__resetEnvCache()`), or assert against the registry directly.
+- **Retarget the `vi.mock("../env")` mocks** that pointed at the deleted module:
+  - `apps/api/src/__tests__/asc-version-service.test.ts:39`
+    (`vi.mock("../env", () => ({ env: envMock }))`) → `vi.mock("@www/platform/env",
+    () => ({ ENV: envMock }))` (match the `import { ENV as config }` used by the
+    service after Step 9). Because the shared global `ENV` registry is mocked,
+    use a per-test `envMock` object and rely on vitest's module-mock isolation;
+    do **not** mutate the real registry cache across tests (would bleed). Prefer
+    mocking the whole `@www/platform/env` module (as here) over poking
+    `__resetEnvCache()` in these api tests.
+  - `apps/api/src/__tests__/youtube-ingest-service.test.ts:106`
+    (`vi.mock("../env", …)`) → `vi.mock("@www/platform/env", …)` likewise.
+  - Feature tests using `vi.mock("./config")` need **no** change — they replace
+    the whole `config` module, so the read-only `pick()` Proxy is never exercised
+    in those tests.
+- Grep-verify no dangling imports of `./env` / `apps/api/src/env` /
+  `envSchema` anywhere.
 
-**Verify**: `bun run typecheck`; full `bun run test` for api; `apps:check`.
+**Verify**: `bun run typecheck`; full `bun run --filter @control-center/api test`
+(env/guest-server/worker-deps/asc/youtube suites green); `apps:check`.
 
 **Commit**: `chore(api): delete legacy env.ts schema (folded into env registry)`
 
@@ -221,11 +311,21 @@ irrelevant AND boot-time hydration preserved).
 ## Step 11 — Biome scope change + final sweep
 
 **Changes** (`biome.json`)
-- ADD override: `noProcessEnv: off` for `packages/platform/env/**`.
-- REMOVE the `features/**/config.ts` override block (~153-162).
+- ADD override: `noProcessEnv: off` for `packages/platform/env/**` — use the
+  **no-`**/`-prefix** glob style that the neighbouring `packages/platform/**`
+  boundary block uses (biome.json:214), i.e. `"packages/platform/env/**"`, not
+  `"**/packages/platform/env/**"`, for consistency.
+- REMOVE the `features/**/config.ts` override block (biome.json:154-163).
 - REMOVE `packages/core/src/db/pool.ts` from the pool/hydrate carve-out
   (`hydrate.ts` no longer exists there; `pool.ts` no longer reads env). Keep
   the logger / build-config / infra / scripts carve-outs.
+- **Do NOT touch** the test-file overrides this work does not affect — the core
+  pg-contract test carve-out (covers `packages/core/test/pool.test.ts` +
+  `integration-sync-pg-contract.test.ts`) and
+  `apps/web/src/lib/time-suite/__tests__/alarm-store.test.ts` stay as-is; they
+  read `process.env` for unrelated reasons and remain green. If Step 4 left
+  `pool.test.ts` reading no `process.env` at all, its override becomes a harmless
+  no-op — leave it rather than churn an unrelated block.
 - `bun run lint` (mirror CI `biome check .`) — must be clean. Confirm a
   `process.env` in any `features/**/config.ts` would now error (spot-check by
   temporarily adding one, seeing the lint fail, reverting — or reason from the
