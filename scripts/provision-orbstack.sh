@@ -41,7 +41,13 @@ TARGET_CPU="${TARGET_CPU:-8}"
 
 NFS_MOUNT="/Users/calum/control-center/media"
 CHECK_ONLY=0
-[ "${1:-}" = "--check" ] && CHECK_ONLY=1
+FORCE_RESTART=0
+case "${1:-}" in
+  --check)   CHECK_ONLY=1 ;;
+  --restart) FORCE_RESTART=1 ;;
+  "")        ;;
+  *) echo "usage: $(basename "$0") [--check|--restart]" >&2; exit 2 ;;
+esac
 
 [ "$(id -u)" -ne 0 ] || { echo "FATAL: run as calum, NOT sudo (orb config is per-user)" >&2; exit 1; }
 command -v orb >/dev/null || { echo "FATAL: orb (OrbStack CLI) not on PATH" >&2; exit 1; }
@@ -59,10 +65,19 @@ changed=0
 [ "$cur_cpu" = "$TARGET_CPU" ] || { orb config set cpu "$TARGET_CPU"; changed=1; echo "set cpu=$TARGET_CPU"; }
 [ "$cur_mem" = "$TARGET_MEM_MIB" ] || { orb config set memory_mib "$TARGET_MEM_MIB"; changed=1; echo "set memory_mib=$TARGET_MEM_MIB"; }
 
-if [ "$changed" -eq 0 ]; then
+if [ "$changed" -eq 0 ] && [ "$FORCE_RESTART" -eq 0 ]; then
   echo "already in spec , no restart needed"
+  echo "(if the RUNNING VM still has the old sizing, re-run with --restart)"
   exit 0
 fi
+
+# WHY --restart EXISTS: `changed` only tracks whether this run edited the CONFIG,
+# not whether the running VM matches it. Those diverge whenever a previous run set
+# the value but failed to apply it , exactly what the broken `orb restart` bug
+# below caused. Without an explicit way to force the apply, the script would
+# cheerfully report "already in spec" forever while the live VM kept the old size.
+[ "$FORCE_RESTART" -eq 1 ] && [ "$changed" -eq 0 ] && \
+  echo "--restart: config already at target, forcing the apply/restart anyway"
 
 # ORDERING (www-6mz7): OrbStack must establish its file-share of the host NFS mount
 # AFTER that NFS mount is up, or its container bind-mount of $NFS_MOUNT hangs and
