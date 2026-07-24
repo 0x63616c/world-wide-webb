@@ -151,7 +151,7 @@
       }
     },
     {
-      "includes": ["packages/platform/env/**"],
+      "includes": ["packages/platform/env/**", "packages/platform/test/env.test.ts"],
       "linter": {
         "rules": {
           "style": {

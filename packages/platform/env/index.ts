@@ -18,3 +18,4 @@ export {
   str,
   url,
 } from "./fields.ts";
+export { __resetEnvCache, defineEnv, type Registry } from "./registry.ts";
