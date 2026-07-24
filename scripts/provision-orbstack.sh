@@ -79,5 +79,32 @@ fi
 if kill -0 "$p" 2>/dev/null; then kill -9 "$p" 2>/dev/null; echo "FATAL: $NFS_MOUNT hangs on ls , NFS share unhealthy, fix before restarting OrbStack" >&2; exit 1; fi
 
 echo "host NFS healthy , restarting OrbStack to apply config..."
-orb restart
-echo "done. verify: orb config show ; docker run --rm -v $NFS_MOUNT:/m alpine ls /m"
+
+# BUG FIXED 2026-07-24: this used to be a bare `orb restart`, which is invalid ,
+# `orb restart` requires a machine ID/name and exits non-zero with "no machines
+# specified". So this script could set the config value but NEVER apply it, and
+# since the apply step was the last line the failure was easy to miss. That is
+# the likeliest reason the live box sat at memory_mib=6144 while the repo claimed
+# 5120: someone set it by hand, and the script was incapable of correcting it.
+#
+# Bare `orb stop` (no args, no -f) stops the ENTIRE OrbStack service gracefully,
+# which is what applying a VM config change requires. -f is deliberately NOT used:
+# `orb stop --help` warns it "may cause data loss", and postgres lives in here.
+orb stop
+for _ in $(seq 1 30); do
+  orb status 2>/dev/null | grep -qi running || break
+  sleep 2
+done
+orb start
+
+# Don't claim success until docker actually answers again.
+echo "waiting for docker to come back..."
+ok=0
+for _ in $(seq 1 60); do
+  if docker info --format '{{.ServerVersion}}' >/dev/null 2>&1; then ok=1; break; fi
+  sleep 2
+done
+[ "$ok" -eq 1 ] || { echo "FATAL: docker did not recover within 120s of restart" >&2; exit 1; }
+
+echo "docker healthy. now: $(orb config show 2>/dev/null | awk '/memory_mib:|cpu:/{printf "%s%s ", $1, $2}')"
+echo "done. verify: docker run --rm -v $NFS_MOUNT:/m alpine ls /m"
