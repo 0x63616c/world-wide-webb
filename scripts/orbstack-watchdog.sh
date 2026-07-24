@@ -28,20 +28,12 @@ OBW_STATE_FILE="${OBW_STATE_FILE:-$OBW_STATE_DIR/state}"   # "<consec> <last_res
 OBW_LOG="${OBW_LOG:-$OBW_STATE_DIR/watchdog.log}"
 
 # --- pure decision logic (TESTABLE , no side effects) ------------------------
-# obw_decide <consec> <threshold> <secs_since_last_restart> <cooldown>
-#   echoes exactly one of: ok | watch | cooldown | restart
-#   - ok       : last probe healthy (consec == 0)
-#   - watch    : some hangs but below threshold , keep watching, don't act
-#   - cooldown : threshold reached but a restart happened too recently , hold off
-#   - restart  : threshold reached AND cooldown elapsed , recover now
-obw_decide() {
-  local consec="$1" threshold="$2" since="$3" cooldown="$4"
-  if [ "$consec" -lt "$threshold" ]; then
-    [ "$consec" -le 0 ] && echo "ok" || echo "watch"
-    return 0
-  fi
-  if [ "$since" -lt "$cooldown" ]; then echo "cooldown"; else echo "restart"; fi
-}
+# Now shared with scripts/ha-watchdog.sh , see scripts/lib/watchdog-decide.sh for
+# why. obw_decide is kept as a thin alias so this script (and its existing test
+# matrix) read unchanged.
+# shellcheck source=/dev/null
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/watchdog-decide.sh"
+obw_decide() { wd_decide "$@"; }
 
 # --- docker probe (macOS has no `timeout`; background + bounded wait + kill) --
 # Returns 0 if `docker info` answers within OBW_PROBE_TIMEOUT, 1 if it hangs or errors.
