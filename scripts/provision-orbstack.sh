@@ -14,12 +14,24 @@
 set -euo pipefail
 
 # --- target spec -------------------------------------------------------------
-# 5GB VM (memory_mib=5120): the box is 8GB, so this leaves ~3GB for macOS , about
-# the safe ceiling (we already see host pageouts at 4GB; 6GB would thrash the
-# host). The real protection against a single container eating the VM is the
-# per-service memory caps in deploy.config.ts (www-ke9a), NOT VM size , this is
-# headroom, not the fix.
-TARGET_MEM_MIB="${TARGET_MEM_MIB:-5120}"
+# 4GB VM (memory_mib=4096). The box is 8GB and OrbStack is NOT its only tenant:
+#
+#     4096 MiB  OrbStack VM        (this script)
+#   + 2048 MiB  Home Assistant VM  (infra/homelab/haos/start-haos.sh, HAOS_MEM)
+#   + ~2048 MiB macOS itself
+#   = 8192 MiB
+#
+# The previous 5120 target forgot the HAOS guest entirely, so the arithmetic only
+# ever balanced on paper. In practice the live box had ALSO drifted to 6144 with
+# nobody noticing , there was no repo checkout on the mini, so `--check` had never
+# once run there. On 2026-07-24 that left the host with 60MB free and 640MB
+# swapped while HA Core was down. Raising this value means lowering HAOS_MEM by
+# the same amount; the two VMs are not independent.
+#
+# The real protection against a single container eating the VM is the per-service
+# memory caps in deploy.config.ts (www-ke9a), NOT VM size , this is headroom, not
+# the fix.
+TARGET_MEM_MIB="${TARGET_MEM_MIB:-4096}"
 # vCPUs kept at 8 (all cores). Decision: an RCU-stall came from a container
 # pegging all cores AND starving the guest kernel, but the memory caps + watchdog
 # (www-sizh) address that more directly than under-provisioning CPU would; dropping
