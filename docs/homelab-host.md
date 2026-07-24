@@ -46,6 +46,9 @@ Scripts expected to be run *from* this checkout, on the box:
 | `scripts/provision-orbstack.sh` | Size the OrbStack VM. `--check` reports drift; `--restart` forces an apply. |
 | `scripts/install-orbstack-watchdog.sh` | Install the docker-hang watchdog LaunchAgent. |
 | `scripts/mount-homelab-drive.sh` | Mount the Synology NFS share. |
+| `scripts/install-ha-watchdog.sh` | Install the HA Core watchdog LaunchAgent. |
+| `scripts/install-drift-check.sh` | Schedule every `--check` on a 6h interval. |
+| `scripts/drift-check.sh` | Run every `--check` once, now. |
 
 ## Memory budget — the whole point
 
@@ -86,13 +89,16 @@ window was holding a WebContent process at ~12% CPU. It is a headless server.
 | `com.homeassistant.proxy` | `socat *:8123 → 192.168.0.38:8123`, exposing HA on the tailnet host port. |
 | `com.unifi.proxy` | Same pattern for the UniFi controller (`:8444`). |
 | `co.worldwidewebb.orbstack-watchdog` | Probes `docker info`; hard-restarts OrbStack on a sustained hang. See `scripts/orbstack-watchdog.sh`. |
+| `co.worldwidewebb.ha-watchdog` | Probes HA Core on `:8123` every 60s; after 3 consecutive failures restarts the HAOS guest **cleanly**, once per 15min at most. `scripts/ha-watchdog.sh`, log at `~/.local/state/ha-watchdog/watchdog.log` (silent while healthy). |
+| `co.worldwidewebb.drift-check` | Every 6h, pulls the checkout and runs every `--check`. Non-zero `launchctl list` status = drift; log at `~/.local/state/drift-check/drift.log`. |
 | `com.calum.k8s-apiserver-forward` | Forwards the k8s API server port. |
 | `com.0x63616c.zero`, `com.0x63616c.zero.sampler` | Unrelated to this stack; not documented here. |
 
 Because `KeepAlive` is `{SuccessfulExit: false}` and `start-haos.sh` exits **0**
 when the VM is already running, launchd will **not** notice a QEMU that dies
-later. Nothing supervises the HA guest between starts — that gap is what
-`scripts/ha-watchdog.sh` is meant to close.
+later — and it would not have helped on 2026-07-24 anyway, when QEMU stayed
+alive and only *Core inside it* died. `co.worldwidewebb.ha-watchdog` closes that
+gap by probing `:8123` itself.
 
 To restart a job: `launchctl kickstart -k gui/$(id -u)/<label>`.
 
@@ -131,4 +137,12 @@ starts.
 
 Both exit non-zero on drift. This is the only thing standing between the repo's
 description of the host and the host's actual state — the 2026-07-24 outage is
-what it costs when nobody runs it.
+what it costs when nobody runs it. Since then `co.worldwidewebb.drift-check`
+runs exactly this every 6h, so it is no longer something a human has to remember.
+
+## Cluster observability
+
+`metrics-server` is installed by Pulumi (`infra/src/metrics-server.ts`), so
+`kubectl --context cc-homelab top nodes` / `top pods -n control-center` work.
+OrbStack's k3s does not ship it; before 2026-07-24 the cluster had no CPU or
+memory numbers at all. It is a **live** window only — it stores no history.
