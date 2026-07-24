@@ -1,8 +1,15 @@
 /* Guest portal entry styles. Tokens (colors, radii, fonts) only — NEVER
    theme.css or app-shell.css, which carry panel-only globals (board sizing,
-   modal chrome, etc). The guest page is dark-only, pure-black background,
-   self-hosted fonts, no CDN requests — same guarantees the legacy captive
-   portal's smoke spec asserted. */
+   modal chrome, etc). The guest page is dark-only, pure-black background, and
+   fetches no fonts at all — same no-CDN-requests guarantee the legacy captive
+   portal's smoke spec asserted.
+
+   Typography rides the :root profile in tokens.css (SF Pro + SF Mono) rather
+   than overriding it, so the portal wears the same face as the panel's default
+   without a second source of truth. It never runs lib/typeface.ts, so a panel
+   switched to Grotesk or Geist does NOT drag the guest page with it — the
+   portal is a fixed face by construction. An Android guest falls through the
+   stack to system-ui (Roboto); see the sf profile's note. */
 @import "tailwindcss";
 @import "../styles/tokens.css";
 

@@ -75,6 +75,6 @@ export const SETTINGS_DEFAULTS = {
   snapMode: "mandatory-settle",
   showMinimap: true,
   pinCode: "000000",
-  accent: "blue",
-  typeface: "grotesk",
+  accent: "white",
+  typeface: "sf",
 } as const satisfies Record<string, unknown>;

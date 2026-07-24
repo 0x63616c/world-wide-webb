@@ -15,16 +15,17 @@
          The pair is a stored setting (Settings > Display), so BOTH the profile
          attribute and the font preloads depend on a value only localStorage
          knows this early. Doing it here rather than in React is what keeps a
-         kiosk reload from painting Space Grotesk and then swapping: by the time
-         the parser reaches <body>, the right profile is already on <html> and
-         the right two files are already in flight.
+         kiosk reload from painting the default face and then swapping: by the
+         time the parser reaches <body>, the right profile is already on <html>
+         and the right two files are already in flight.
 
          Preloads make the font-display: block window (see tokens.css)
-         imperceptible , no FOUT swap. The sf profile preloads nothing on
-         purpose: it renders in the OS's own SF Pro / SF Mono, which ship no
-         bytes. Keys and paths mirror lib/settings.ts (`cc-typeface`) and
-         tokens.css; if this list drifts the page still renders correctly, just
-         with a visible block window on a cold load. -->
+         imperceptible , no FOUT swap. The sf profile , the default , preloads
+         nothing on purpose: it renders in the OS's own SF Pro / SF Mono, which
+         ship no bytes, so the common case costs zero font requests. Keys and
+         paths mirror lib/settings.ts (`cc-typeface`) and tokens.css; if this
+         list drifts the page still renders correctly, just with a visible block
+         window on a cold load. -->
     <script>
       (() => {
         const FONTS = {
@@ -44,7 +45,7 @@
         } catch {
           // ignore , blocked storage just means the default face
         }
-        const typeface = stored && FONTS[stored] ? stored : "grotesk";
+        const typeface = stored && FONTS[stored] ? stored : "sf";
         document.documentElement.dataset.typeface = typeface;
         for (const href of FONTS[typeface]) {
           const link = document.createElement("link");

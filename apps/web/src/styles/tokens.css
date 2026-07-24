@@ -1,23 +1,25 @@
 /* ===== Evee , hi-fi dashboard tokens (ported verbatim from design evee.css) ===== */
 
-/* Fonts , Space Grotesk (UI) + Space Mono (numerals) by default.
-   Self-hosted from /fonts with stable paths so index.html can preload them.
+/* Fonts , SF Pro + SF Mono by default (the OS's own, shipped as zero bytes);
+   Space Grotesk / Space Mono and Geist / Geist Mono are the two self-hosted
+   alternatives, served from /fonts with stable paths so index.html can preload
+   whichever pair is live.
    font-display: block (not swap) so we never paint the fallback then swap to
    the web font , that swap is the visible flash on a kiosk reload. Paired with
    the preload links in index.html the block window is imperceptible (and zero
    on a warm cache), so first paint is already in the correct font.
    Lives here (not theme.css) so BOTH the panel bundle (theme.css imports this
    file) and the guest portal bundle (portal.css imports this file directly,
-   never theme.css) get the same self-hosted cc typography , one @import
-   chain, no duplication.
+   never theme.css) get the same cc typography , one @import chain, no
+   duplication.
 
    A typeface is a PAIR (sans + its mono), never a lone family: 43 call sites
    read --mono for the stat values, log counts, shas and timestamps, so mixing
    Geist with Space Mono would read as two unrelated designs sharing a tile.
    The three pairs are declared under "typeface profiles" below; the panel picks
-   one in Settings > Display. The guest portal never runs that code, so it stays
-   on the :root default (self-hosted, deterministic on whatever phone loads it,
-   which is the one surface we cannot assume is Apple hardware). */
+   one in Settings > Display. The guest portal never runs that code and so rides
+   the :root default, which is how it stays on the same face as the panel
+   without a portal-only override. */
 @font-face {
   font-family: "Space Grotesk Variable";
   font-style: normal;
@@ -146,8 +148,7 @@
 
    lib/typeface.ts sets the attribute on <html>; the inline boot script in
    index.html sets it BEFORE first paint, so a non-default choice never flashes
-   the default face on a kiosk reload. `grotesk` is the :root default above and
-   therefore needs no block of its own.
+   the default face on a kiosk reload.
 
    Each profile carries its own weights and tracking, not just families. The
    three faces do not read as equally heavy at a matched weight: SF and Geist
@@ -155,26 +156,26 @@
    holds its own in Grotesk goes limp in the other two unless it steps up. Both
    of them have a real 100..900 axis to spend, and Space Grotesk does not.
 
-   The grotesk block carries :root in its selector list rather than being
-   duplicated into it: one set of values, and every surface that never picks
-   (the guest portal, Storybook, a test renderer) lands on it by default. It
-   comes FIRST because all three selectors weigh the same and the later rule
-   would otherwise win. */
+   The sf block carries :root in its selector list rather than being duplicated
+   into it: one set of values, and every surface that never picks , the guest
+   portal, Storybook, a test renderer , lands on the product default. It comes
+   FIRST because all three selectors weigh the same and the later rule would
+   otherwise win. */
 :root,
-[data-typeface="grotesk"] {
-  --ui: "Space Grotesk Variable", "Space Grotesk", system-ui, sans-serif;
-  --mono: "Space Mono", ui-monospace, monospace;
-  --w-title: 600;
-  --w-hero: 700;
-  --track-title: -0.015em;
-  --track-hero: -0.04em;
-}
 [data-typeface="sf"] {
   /* "SF Pro Display" is here for macOS (where it may be installed as a user
      font) and as documentation of intent. On the panel itself , an iOS WKWebView
      , the family name does NOT resolve; `-apple-system` is the keyword that
      does, and it brings the optical sizing with it (SF Text below 20px, SF
-     Display at 20px and up) for free. Ships zero font bytes. */
+     Display at 20px and up) for free. Ships zero font bytes.
+
+     As :root this is also the GUEST PORTAL's face. That surface is the one we
+     cannot assume is Apple hardware: an Android guest falls through to
+     system-ui and lands on Roboto rather than SF. Deliberate , the portal
+     matching the panel on the devices that can is worth more than a guaranteed
+     third face on the ones that cannot, and the stack still resolves to
+     something native everywhere (and still fetches nothing, which is what the
+     portal's zero-external-requests smoke test cares about). */
   --ui: -apple-system, "SF Pro Display", system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", monospace;
   --w-title: 700;
@@ -182,6 +183,14 @@
   --track-title: -0.022em;
   --track-hero: -0.045em;
   font-optical-sizing: auto;
+}
+[data-typeface="grotesk"] {
+  --ui: "Space Grotesk Variable", "Space Grotesk", system-ui, sans-serif;
+  --mono: "Space Mono", ui-monospace, monospace;
+  --w-title: 600;
+  --w-hero: 700;
+  --track-title: -0.015em;
+  --track-hero: -0.04em;
 }
 [data-typeface="geist"] {
   --ui: "Geist Variable", system-ui, sans-serif;

@@ -1,3 +1,4 @@
+import { SETTINGS_DEFAULTS } from "@cc/api/settings";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -9,6 +10,7 @@ import {
   setAccent,
   setPinCode,
   setShowMinimap,
+  setTypeface,
   useSettings,
 } from "../settings";
 
@@ -91,10 +93,26 @@ describe("accent setter", () => {
     expect(read().current.accent).toBe("green");
   });
 
-  it("resets to blue", () => {
+  // Asserts against the CONTRACT's default rather than a literal: the baseline
+  // is a product decision that has already moved once (blue -> white), and a
+  // hardcoded colour here would fail the next time it moves for the wrong reason.
+  it("resets to the default accent", () => {
     act(() => setAccent("orange"));
     act(() => resetSettings());
-    expect(read().current.accent).toBe("blue");
+    expect(read().current.accent).toBe(SETTINGS_DEFAULTS.accent);
+  });
+});
+
+describe("typeface setter", () => {
+  it("stores a chosen typeface", () => {
+    act(() => setTypeface("geist"));
+    expect(read().current.typeface).toBe("geist");
+  });
+
+  it("resets to the default typeface", () => {
+    act(() => setTypeface("grotesk"));
+    act(() => resetSettings());
+    expect(read().current.typeface).toBe(SETTINGS_DEFAULTS.typeface);
   });
 });
 
