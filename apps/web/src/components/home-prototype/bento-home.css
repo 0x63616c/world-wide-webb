@@ -1645,34 +1645,34 @@
   border-color: #5f7f98;
 }
 .bh-theme-dark .bh-sonos {
-  background: #eee9e1;
-  border-color: #eee9e1;
-  color: #302d29;
+  background: #292725;
+  border-color: #373431;
+  color: #f3efea;
 }
 .bh-theme-dark .bh-sonos .bh-audio-stage p,
 .bh-theme-dark .bh-sonos .bh-volume-label {
-  color: #827b72;
+  color: #9f9890;
 }
 .bh-theme-dark .bh-sonos .bh-volume-label > span {
-  color: #4e4943;
+  color: #ddd6cd;
 }
 .bh-theme-dark .bh-sonos .bh-source-choice {
-  --tap-bg: #ded8cf;
-  color: #857e75;
+  --tap-bg: #ffffff0a;
+  color: #a9a198;
 }
 .bh-theme-dark .bh-sonos .bh-source-choice[aria-pressed="true"] {
-  --tap-bg: #393631;
-  color: #f7f3ed;
+  --tap-bg: #ddd5ca;
+  color: #48423b;
 }
 .bh-theme-dark .bh-sonos .bh-volume-step {
-  --tap-bg: #ddd7ce;
-  color: #706960;
+  --tap-bg: #ffffff0a;
+  color: #bbb3aa;
 }
 .bh-theme-dark .bh-sonos .bh-volume input {
-  background: linear-gradient(90deg, #4d4842 0 82%, #cec8bf 82%);
+  background: linear-gradient(90deg, #ddd5ca 0 82%, #4a4642 82%);
 }
 .bh-theme-dark .bh-sonos .bh-volume input::-webkit-slider-thumb {
-  background: #4d4842;
+  background: #eee8df;
 }
 .bh-theme-dark .bh-color-detail {
   background: #15161a;
