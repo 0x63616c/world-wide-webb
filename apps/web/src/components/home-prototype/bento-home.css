@@ -1,35 +1,21 @@
-.bh-tap {
-  width: auto;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 15px;
-  border: 0;
-  background: var(--tap-bg);
-  color: inherit;
-  border-radius: 14px;
-  font:
-    500 16px -apple-system,
-    BlinkMacSystemFont,
-    "Helvetica Neue",
-    sans-serif;
-  letter-spacing: -0.01em;
-}
+/* Fixed panel geometry. The testbed uses the same intrinsic tile dimensions. */
 .bh-screen {
   --tap-bg: #f1f2f2;
-  --bh-ink: #292c2e;
+  --bh-ink: #303135;
+  position: relative;
   box-sizing: border-box;
   width: 1366px;
   height: 1024px;
+  padding: 24px;
   overflow: hidden;
-  background: #f6f7f6;
+  background: #f8f9fb;
   color: var(--bh-ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-  letter-spacing: -0.025em;
-  padding: 36px 40px 24px;
-  font-weight: 400;
+  font:
+    400 15px / 1.25 -apple-system,
+    BlinkMacSystemFont,
+    "Helvetica Neue",
+    sans-serif;
+  letter-spacing: -0.02em;
   -webkit-font-smoothing: antialiased;
 }
 .bh-screen * {
@@ -41,546 +27,135 @@
   margin: 0;
 }
 .bh-screen h2 {
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 500;
-  letter-spacing: -0.035em;
 }
 .bh-screen h3 {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 500;
 }
 .bh-screen p {
-  font-size: 13px;
-  color: #787e80;
-  letter-spacing: -0.015em;
-}
-.bh-header {
-  height: 70px;
-  display: flex;
-  align-items: flex-start;
-  gap: 23px;
-}
-.bh-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 25px;
-  font-weight: 550;
-  letter-spacing: -0.05em;
-}
-.bh-edition {
-  margin-left: auto;
-  font-size: 10px;
-  letter-spacing: 0.17em;
-  color: #969b98;
-  padding-top: 11px;
+  font-size: 12px;
+  color: #8b8e93;
 }
 .bh-grid {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-template-rows: 228px 292px 284px;
-  gap: 20px;
+  position: relative;
+  height: 100%;
 }
 .bh-card {
-  border: 1px solid #e7eae7;
-  border-radius: 27px;
-  background: #fff;
-  padding: 25px;
-  box-shadow: 0 3px 6px #22362a02;
+  position: absolute;
   overflow: hidden;
-  position: relative;
+  border: 1px solid #e9ebee;
+  border-radius: 25px;
+  background: #fff;
+  box-shadow: 0 3px 9px #18233203;
+}
+.bh-full .bh-clock {
+  left: 0;
+  top: 0;
+  width: 456px;
+  height: 216px;
+}
+.bh-full .bh-lamps {
+  left: 470px;
+  top: 0;
+  width: 848px;
+  height: 216px;
+}
+.bh-full .bh-climate {
+  left: 532px;
+  top: 230px;
+  width: 456px;
+  height: 334px;
+}
+.bh-full .bh-sonos {
+  left: 0;
+  top: 230px;
+  width: 518px;
+  height: 334px;
+}
+.bh-full .bh-fan {
+  left: 1002px;
+  top: 230px;
+  width: 316px;
+  height: 334px;
+}
+.bh-full .bh-forecast {
+  left: 0;
+  top: 578px;
+  width: 642px;
+  height: 398px;
+}
+.bh-full .bh-weather {
+  left: 656px;
+  top: 578px;
+  width: 662px;
+  height: 398px;
+}
+.bh-single {
+  padding: 0;
+  background: transparent;
+}
+.bh-single .bh-card {
+  display: none;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+}
+.bh-single[data-tile="clock"] .bh-clock,
+.bh-single[data-tile="lamps"] .bh-lamps,
+.bh-single[data-tile="climate"] .bh-climate,
+.bh-single[data-tile="sonos"] .bh-sonos,
+.bh-single[data-tile="fan"] .bh-fan,
+.bh-single[data-tile="weather"] .bh-weather,
+.bh-single[data-tile="forecast"] .bh-forecast {
+  display: block;
 }
 .bh-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-}
-.bh-heading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 .bh-heading > svg {
-  width: 21px;
-  height: 21px;
-  stroke-width: 1.55;
-  color: #757b79;
+  display: none;
 }
 .bh-eyebrow {
-  font-size: 14px;
-  color: #777d7a;
-  letter-spacing: -0.015em;
-}
-.bh-clock {
-  grid-column: 1 / 5;
-  grid-row: 1;
-  padding: 28px 30px;
-}
-.bh-time {
-  font-size: 89px;
-  letter-spacing: -0.075em;
-  font-weight: 250;
-  line-height: 1.18;
-  white-space: nowrap;
-  margin: 8px 0 10px;
-  font-variant-numeric: tabular-nums;
-}
-.bh-time > span {
-  font-size: 17px;
-  font-weight: 400;
-  letter-spacing: 0;
-  margin-left: 10px;
-  color: #919693;
-}
-.bh-clock-bottom {
-  font-size: 13px;
-  color: #919693;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.bh-dot {
-  height: 5px;
-  width: 5px;
-  border-radius: 50%;
-  background: #8ea896;
-  display: inline-block;
-  flex-shrink: 0;
-}
-.bh-lamps {
-  grid-column: 5 / 10;
-  grid-row: 1;
-  background: #fffefa;
-  padding: 21px 24px;
-}
-.bh-master {
-  display: flex;
-  gap: 5px;
-}
-.bh-master .bh-tap {
-  font-size: 13px;
-  min-height: 38px;
-  padding: 8px 12px;
-  --tap-bg: transparent;
-}
-.bh-master .bh-tap[aria-pressed="true"] {
-  --tap-bg: #eeeee7;
-}
-.bh-room-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 23px;
-  margin-top: 19px;
-}
-.bh-room {
-  position: relative;
-}
-.bh-room > svg {
-  color: #a08c65;
-  margin-bottom: 9px;
-  stroke-width: 1.4;
-}
-.bh-room h3 {
-  margin-bottom: 4px;
-}
-.bh-room p {
   font-size: 12px;
-  white-space: nowrap;
+  color: #999ba0;
 }
-.bh-switch {
-  width: 49px;
-  min-height: 30px;
-  height: 30px;
-  padding: 3px;
-  border-radius: 30px;
-  --tap-bg: #dcdfdc;
-  display: inline-flex;
-  justify-content: flex-start;
-  flex-shrink: 0;
+.bh-temp-unit,
+.bh-forecast-unit {
+  font-size: 11px;
+  color: #a4a8ae;
 }
-.bh-switch > span {
-  display: block;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  border-radius: 100%;
-  background: white;
-  box-shadow: 0 1px 4px #0002;
-  transition: transform 0.18s;
-}
-.bh-switch.is-on {
-  --tap-bg: #8a9d82;
-}
-.bh-switch.is-on > span {
-  transform: translateX(19px);
-}
-.bh-room .bh-switch {
-  position: absolute;
-  right: 0;
-  top: 0;
-}
-.bh-fan {
-  grid-column: 10 / 13;
-  grid-row: 1;
-  background: #f4f7f4;
-}
-.bh-fan .bh-eyebrow {
-  font-size: 12px;
-}
-.bh-fan-art {
-  position: absolute;
-  width: 82px;
-  height: 82px;
-  left: calc(50% - 41px);
-  top: 75px;
-  color: #a2b39e;
-}
-.bh-fan-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: absolute;
-  bottom: 24px;
-  left: 25px;
-  right: 25px;
-}
-.bh-fan-label span {
-  font-size: 14px;
-  color: #758172;
-}
-.bh-climate {
-  grid-column: 1 / 5;
-  grid-row: 2 / 4;
-  background: linear-gradient(160deg, #f9fcfd, #f1f5f8);
-  padding: 28px 27px;
-}
-.bh-temp-unit {
-  font-size: 14px;
-  color: #8b969c;
-}
-.bh-climate-status {
+.bh-tap {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  margin-top: 27px;
-  font-size: 13px;
-  color: #7994a4;
-}
-.bh-climate-status .bh-dot {
-  background: #7ea6be;
-}
-.bh-thermostat {
-  position: relative;
-  width: 292px;
-  height: 292px;
-  margin: 15px auto 0;
-  display: grid;
-  place-items: center;
-}
-.bh-dial-ticks {
-  position: absolute;
-  inset: 7px;
-  border-radius: 50%;
-  background: repeating-conic-gradient(from -130deg, #c9d8e0 0deg 1deg, transparent 1deg 5deg);
-  mask: radial-gradient(transparent 64%, #000 65%, #000 68%, transparent 69%);
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 70% 86%, 50% 69%, 30% 86%, 0 100%);
-}
-.bh-dial-center {
-  text-align: center;
-  position: relative;
-  top: -2px;
-}
-.bh-set-label {
-  font-size: 10px;
-  letter-spacing: 0.15em;
-  color: #83929b;
-}
-.bh-target {
-  font-size: 102px;
-  line-height: 1.06;
-  font-weight: 250;
-  letter-spacing: -0.07em;
-  margin-top: 8px;
-  padding-left: 15px;
-}
-.bh-target sup {
-  font-size: 49px;
-  vertical-align: top;
-  position: relative;
-  top: 8px;
-  font-weight: 200;
-}
-.bh-ambient {
-  display: block;
-  margin-top: 14px;
-  font-size: 14px;
-  color: #83929b;
-}
-.bh-stepper {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: -10px;
-}
-.bh-stepper .bh-tap {
-  width: 52px;
-  height: 52px;
-  --tap-bg: #fff;
-  box-shadow: 0 2px 4px #22334f05;
-  border: 1px solid #e4ebef;
-  border-radius: 50%;
-}
-.bh-stepper > span {
-  font-size: 12px;
-  color: #87969d;
-}
-.bh-modes {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 5px;
-  background: #e8eef1;
-  padding: 5px;
-  border-radius: 17px;
-  margin-top: 26px;
-}
-.bh-modes .bh-tap {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 12px;
-  padding: 10px 0;
-  --tap-bg: transparent;
-  color: #7c8b94;
-}
-.bh-modes .bh-tap[aria-pressed="true"] {
-  --tap-bg: #fff;
-  color: #3a667f;
-  box-shadow: 0 2px 4px #20304408;
-}
-.bh-range {
-  display: flex;
-  gap: 4px;
-}
-.bh-range .bh-tap {
-  display: flex;
-  flex-direction: column;
-  font-size: 38px;
-  letter-spacing: -0.05em;
-  gap: 6px;
-  --tap-bg: transparent;
-  padding: 10px;
-}
-.bh-range .bh-tap[aria-pressed="true"] {
-  --tap-bg: #e4edf3;
-}
-.bh-range small {
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  color: #83929b;
-}
-.bh-sonos {
-  grid-column: 5 / 10;
-  grid-row: 2;
-  padding: 25px;
-  background: linear-gradient(130deg, #343b37, #232a27);
-  border-color: #303733;
-  color: #f1f4ef;
-}
-.bh-group-status {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: #b8c3ba;
-}
-.bh-group-status .bh-dot {
-  background: #b4cbaa;
-}
-.bh-sonos-sources {
+  gap: 8px;
+  width: auto;
+  min-height: 44px;
+  padding: 10px 14px;
   border: 0;
-  padding: 0;
-  margin: 0;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 21px;
-}
-.bh-source-choice {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  text-align: left;
-  gap: 0;
-  padding: 15px 17px;
-  min-height: 114px;
-  --tap-bg: #ffffff07;
-  border: 1px solid #ffffff13;
-  border-radius: 16px;
-}
-.bh-source-choice[aria-pressed="true"] {
-  --tap-bg: #edf2e9;
-  color: #2f3a31;
-  border-color: transparent;
-}
-.bh-source-choice-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 24px;
-  margin-bottom: 12px;
-}
-.bh-source-title {
-  font-size: 19px;
-  font-weight: 500;
-  letter-spacing: -0.035em;
-}
-.bh-source-caption {
-  font-size: 12px;
-  font-weight: 400;
-  color: #a9b6ad;
-  margin-top: 4px;
-}
-.bh-source-choice[aria-pressed="true"] .bh-source-caption {
-  color: #748170;
-}
-.bh-volume-label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #bac5bd;
-  margin-top: 20px;
-}
-.bh-volume-label > span {
-  font-variant-numeric: tabular-nums;
-}
-.bh-volume {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 9px;
-  color: #b2bfb5;
-}
-.bh-volume input {
-  appearance: none;
-  flex: 1;
-  min-width: 0;
-  height: 5px;
-  border-radius: 10px;
+  border-radius: 14px;
+  background: var(--tap-bg);
+  color: inherit;
+  font:
+    500 13px / 1.2 -apple-system,
+    BlinkMacSystemFont,
+    "Helvetica Neue",
+    sans-serif;
+  letter-spacing: -0.01em;
   cursor: pointer;
 }
-.bh-volume input::-webkit-slider-thumb {
-  appearance: none;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: #edf2e9;
-  box-shadow: 0 1px 4px #0003;
+.bh-tap:focus-visible,
+.bh-room-open:focus-visible {
+  outline: 2px solid #8aacc9;
+  outline-offset: 3px;
 }
-.bh-volume input::-moz-range-thumb {
-  width: 15px;
-  height: 15px;
-  border: 0;
-  border-radius: 50%;
-  background: #edf2e9;
-}
-.bh-weather {
-  grid-column: 10 / 13;
-  grid-row: 2;
-  background: linear-gradient(155deg, #edf3f8, #dce9f1);
-  border-color: #dce7ef;
-}
-.bh-weather .bh-eyebrow {
-  color: #748a9b;
-  font-size: 13px;
-}
-.bh-weather .bh-card-head > svg {
-  color: #8ca9bf;
-}
-.bh-weather-temp {
-  font-size: 72px;
-  font-weight: 250;
-  line-height: 1.15;
-  letter-spacing: -0.065em;
-  margin-top: 13px;
-  color: #49677f;
-}
-.bh-weather h3 {
-  font-size: 17px;
-  color: #5f798e;
-}
-.bh-weather-range {
-  display: flex;
-  gap: 12px;
-  margin-top: 9px;
-  font-size: 13px;
-  color: #6e879a;
-}
-.bh-weather-range > span {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-.bh-weather-foot {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: #688196;
-  margin-top: 27px;
-  white-space: nowrap;
-  gap: 7px;
-}
-.bh-forecast {
-  grid-column: 5 / 13;
-  grid-row: 3;
-  padding: 24px 27px;
-}
-.bh-forecast h2 {
-  font-size: 19px;
-  margin-bottom: 5px;
-}
-.bh-forecast p {
-  font-size: 12px;
-}
-.bh-forecast-unit {
-  font-size: 12px;
-  color: #8d9694;
-}
-.bh-chart {
-  display: block;
-  width: 100%;
-  height: 143px;
-  margin-top: 8px;
-  overflow: visible;
-}
-.bh-chart text {
-  font-family: inherit;
-  font-size: 10px;
-  fill: #949d99;
-  letter-spacing: -0.02em;
-}
-.bh-chart text.bh-chart-value {
-  font-size: 12px;
-  fill: #657772;
-}
-.bh-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 53px;
-  font-size: 10px;
-  letter-spacing: 0.03em;
-  color: #929a94;
-}
-.bh-footer > span:first-child {
-  font-size: 9px;
-  letter-spacing: 0.08em;
-}
-.bh-footer-separator {
-  margin: 0 8px;
-  color: #bfc4bf;
+.bh-tap[disabled] {
+  cursor: default;
 }
 .bh-sr {
   position: absolute;
@@ -593,169 +168,258 @@
   white-space: nowrap;
   border: 0;
 }
-.bh-tap:focus-visible {
-  outline: 3px solid #7094ad;
-  outline-offset: 3px;
-}
-.bh-mode-off .bh-target {
-  color: #a3adb2;
-}
-@media (prefers-reduced-motion: reduce) {
-  .bh-screen * {
-    transition: none;
-  }
-}
 
-.bh-switch::before {
-  content: "";
-  position: absolute;
-  inset: -7px 0;
-}
-.bh-switch {
-  position: relative;
-}
-.bh-forecast .bh-chart {
-  margin-top: 22px;
-}
-
-.bh-weather h2 {
-  color: #59748a;
-}
-
-/* Revision 3: quiet widget surfaces; each control has its own composition. */
-.bh-screen {
-  background: #fff;
-  --bh-ink: #303133;
-}
-.bh-card {
-  border-radius: 24px;
-  border-color: #ececed;
-  background: #fff;
-  box-shadow: 0 4px 9px #222b3003;
-}
-.bh-header {
-  align-items: center;
-  padding-bottom: 22px;
-}
-.bh-brand {
-  font-size: 25px;
-  font-weight: 500;
-}
-.bh-brand > svg {
-  width: 21px;
-  height: 21px;
-}
-.bh-edition {
-  padding-top: 0;
-  font-size: 9px;
-}
-.bh-screen h2 {
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-.bh-heading > svg {
-  display: none;
-}
+/* Clock: flat face, continuous hands. */
 .bh-clock {
-  border-color: transparent;
+  padding: 24px;
+  background: #fff;
   box-shadow: none;
-  padding: 25px 28px;
-}
-.bh-clock > .bh-eyebrow {
-  color: #929292;
-  font-size: 13px;
 }
 .bh-time {
-  font-size: 105px;
+  position: absolute;
+  top: 62px;
+  left: 23px;
+  font-size: 97px;
   font-weight: 250;
-  letter-spacing: -0.065em;
-  margin: 5px 0 4px;
-}
-.bh-time > span {
-  font-size: 15px;
-  color: #646566;
+  line-height: 1;
+  letter-spacing: -0.07em;
+  font-variant-numeric: tabular-nums;
 }
 .bh-clock-bottom {
-  font-size: 11px;
-  color: #a2a2a2;
-}
-.bh-clock-bottom .bh-dot {
   display: none;
 }
+.bh-time > span {
+  display: inline-block;
+  margin-left: 12px;
+  font-size: 0.46em;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  vertical-align: 0.13em;
+}
+.bh-analog {
+  position: absolute;
+  right: 23px;
+  top: 58px;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+}
+.bh-analog-marks {
+  position: absolute;
+  inset: 1px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(#8e929b 0deg 1.5deg, transparent 1.5deg 30deg);
+  mask: radial-gradient(transparent 64%, #000 65%);
+  opacity: 0.7;
+}
+.bh-analog > span {
+  position: absolute;
+  bottom: 50%;
+  left: calc(50% - 1px);
+  width: 2px;
+  border-radius: 3px;
+  background: #333740;
+  transform-origin: 50% 100%;
+}
+.bh-analog .bh-hour-hand {
+  height: 26px;
+  width: 3px;
+  left: calc(50% - 1.5px);
+  animation: bh-clock-sweep 43200s linear infinite;
+}
+.bh-analog .bh-minute-hand {
+  height: 36px;
+  animation: bh-clock-sweep 3600s linear infinite;
+}
+.bh-analog .bh-second-hand {
+  height: 43px;
+  width: 1px;
+  left: calc(50% - 0.5px);
+  background: #ee795c;
+  animation: bh-clock-sweep 60s linear infinite;
+}
+.bh-analog .bh-clock-pin {
+  width: 5px;
+  height: 5px;
+  left: calc(50% - 2.5px);
+  bottom: calc(50% - 2.5px);
+  background: #ee795c;
+  border-radius: 50%;
+}
+@keyframes bh-clock-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.bh-variant-b .bh-clock .bh-analog {
+  left: 25px;
+  right: auto;
+  top: 54px;
+  width: 110px;
+  height: 110px;
+}
+.bh-variant-b .bh-clock .bh-time {
+  left: 159px;
+  top: 78px;
+  font-size: 80px;
+}
+.bh-variant-b .bh-clock > .bh-eyebrow {
+  position: absolute;
+  left: 164px;
+  top: 50px;
+}
+.bh-variant-c .bh-clock .bh-analog {
+  display: none;
+}
+.bh-variant-c .bh-clock .bh-time {
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 122px;
+  top: 62px;
+}
+.bh-variant-c .bh-clock > .bh-eyebrow {
+  display: block;
+  text-align: center;
+}
+
+/* Lights: quick switches on the surface; room color opens separately. */
 .bh-lamps {
   padding: 20px 24px;
 }
 .bh-master {
-  gap: 4px;
+  display: flex;
+  gap: 3px;
+  align-items: center;
 }
 .bh-master .bh-tap {
-  font-size: 12px;
-  padding: 8px 13px;
   min-height: 35px;
-  border-radius: 18px;
+  padding: 8px 12px;
+  font-size: 11px;
+  border-radius: 19px;
+  --tap-bg: transparent;
 }
 .bh-master .bh-tap[aria-pressed="true"] {
-  --tap-bg: #f1f0ec;
+  --tap-bg: #f0eeea;
+}
+.bh-master .bh-all-power {
+  width: 36px;
+  min-height: 36px;
+  margin-left: 10px;
+  padding: 0;
+  border-radius: 50%;
+  --tap-bg: #f2f3f1;
+}
+.bh-master .bh-all-power[aria-pressed="true"] {
+  --tap-bg: #d8b36b;
+  color: white;
+}
+.bh-master .bh-all-power[aria-pressed="mixed"] {
+  --tap-bg: #eee4cf;
+  color: #ae8842;
 }
 .bh-room-grid {
-  margin-top: 9px;
-  gap: 24px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px;
+  margin-top: 14px;
 }
 .bh-room {
-  padding-top: 76px;
+  position: relative;
+  height: 122px;
+  border-radius: 18px;
+  padding: 84px 13px 0;
+  background: transparent;
 }
 .bh-room h3 {
-  font-size: 16px;
-  margin-bottom: 4px;
+  font-size: 14px;
 }
-.bh-room p {
-  font-size: 11px;
-  color: #93918a;
+.bh-room-open {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  text-align: left;
+  padding: 0 13px 20px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  font:
+    500 14px -apple-system,
+    BlinkMacSystemFont,
+    "Helvetica Neue",
+    sans-serif;
+  color: inherit;
+  cursor: pointer;
+}
+.bh-switch {
+  position: relative;
+  width: 47px;
+  height: 29px;
+  min-height: 29px;
+  padding: 3px;
+  border-radius: 30px;
+  --tap-bg: #dedfdc;
+  justify-content: flex-start;
+  gap: 0;
+  box-shadow: inset 0 1px 3px #51442813;
+}
+.bh-switch::before {
+  content: "";
+  position: absolute;
+  inset: -8px 0;
+}
+.bh-switch > span {
+  width: 23px;
+  height: 23px;
+  flex-shrink: 0;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 3px #5144281f;
+  transition: transform 0.16s;
+}
+.bh-switch.is-on {
+  --tap-bg: #d7ae60;
+}
+.bh-switch.is-on > span {
+  transform: translateX(18px);
 }
 .bh-room .bh-switch {
-  top: 78px;
-  width: 42px;
-  height: 26px;
-  min-height: 26px;
-  padding: 3px;
+  position: absolute;
+  top: 79px;
+  right: 11px;
+  z-index: 1;
 }
-.bh-room .bh-switch > span {
-  width: 20px;
-  height: 20px;
+.bh-full .bh-room,
+.bh-variant-c .bh-room {
+  background: #f5f3ee;
 }
-.bh-room .bh-switch.is-on {
-  --tap-bg: #bba172;
-}
-.bh-room .bh-switch.is-on > span {
-  transform: translateX(16px);
+.bh-full .bh-room-on,
+.bh-variant-c .bh-room-on {
+  background: #fff4db;
 }
 .bh-bedroom-scene,
-.bh-living-scene {
+.bh-living-scene,
+.bh-kitchen-scene {
   position: absolute;
   left: 0;
   right: 0;
-  top: 0;
-  height: 68px;
-  overflow: hidden;
-  border-radius: 16px;
-  background: radial-gradient(ellipse at 50% 80%, #fff8df00, #e5d1a70d);
-}
-.bh-room-on .bh-bedroom-scene,
-.bh-room-on .bh-living-scene {
-  background: radial-gradient(ellipse at 50% 60%, #ffd57252, #ffd57200 75%);
+  top: 3px;
+  height: 71px;
+  pointer-events: none;
 }
 .bh-bed {
   position: absolute;
   left: calc(50% - 42px);
-  bottom: 9px;
+  bottom: 8px;
   width: 84px;
   height: 37px;
   border-radius: 9px 9px 5px 5px;
   background: linear-gradient(#e3d8c7 0 45%, #f7f2e9 46%);
-  box-shadow:
-    0 5px 7px #8b755c17,
-    inset 0 0 0 1px #c0ac901e;
+  box-shadow: 0 5px 7px #8b755c17;
 }
 .bh-bed::before,
 .bh-bed::after {
@@ -776,7 +440,7 @@
 }
 .bh-bedside {
   position: absolute;
-  bottom: 10px;
+  bottom: 9px;
   width: 18px;
   height: 5px;
   background: #b69e7d;
@@ -808,12 +472,12 @@
   background: #dfd4c0;
 }
 .bh-room-on .bh-bedside::after {
-  background: #fff7d8;
-  box-shadow: 0 0 17px 7px #ffcd595e;
+  background: currentColor;
+  box-shadow: 0 0 15px 5px currentColor;
 }
 .bh-strip {
   position: absolute;
-  bottom: 5px;
+  bottom: 4px;
   width: 83px;
   height: 2px;
   left: calc(50% - 41px);
@@ -821,13 +485,13 @@
   border-radius: 4px;
 }
 .bh-room-on .bh-strip {
-  background: #ffc76b;
-  box-shadow: 0 2px 10px 3px #ffb9363b;
+  background: currentColor;
+  box-shadow: 0 2px 8px 2px currentColor;
 }
 .bh-sofa {
   position: absolute;
   left: calc(50% - 47px);
-  bottom: 9px;
+  bottom: 8px;
   width: 87px;
   height: 35px;
   border-radius: 10px 10px 5px 5px;
@@ -856,7 +520,7 @@
   position: absolute;
   width: 3px;
   height: 38px;
-  bottom: 9px;
+  bottom: 8px;
   right: calc(50% - 72px);
   background: #9d896d;
 }
@@ -871,8 +535,8 @@
   border-radius: 10px 10px 3px 3px;
 }
 .bh-room-on .bh-floor-lamp::before {
-  background: #fff5cd;
-  box-shadow: 0 0 20px 8px #ffcd595e;
+  background: currentColor;
+  box-shadow: 0 0 15px 5px currentColor;
 }
 .bh-floor-lamp::after {
   content: "";
@@ -884,1144 +548,10 @@
   background: #9d896d;
   border-radius: 50%;
 }
-
-.bh-fan {
-  background: #f5f8f6;
-  padding: 23px 25px;
-}
-.bh-fan-status {
-  font-size: 12px;
-  color: #82998a;
-}
-.bh-fan-art {
-  position: absolute;
-  width: 90px;
-  height: 90px;
-  left: calc(50% - 45px);
-  top: 63px;
-  color: #a6bdad;
-}
-.bh-fan-label {
-  bottom: 18px;
-}
-.bh-fan-label > span {
-  font-size: 12px;
-  color: #899b8e;
-}
-.bh-fan-power {
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
-  border-radius: 50%;
-  padding: 0;
-  --tap-bg: #e8eeea;
-  color: #7c9685;
-}
-.bh-fan-power[aria-pressed="true"] {
-  --tap-bg: #fff;
-  color: #5e8d70;
-  box-shadow: 0 2px 6px #4866530c;
-}
-.bh-climate {
-  background: linear-gradient(165deg, #fff, #f6f9fc);
-  padding: 26px 27px;
-}
-.bh-climate-status {
-  font-size: 12px;
-  color: #8da4b3;
-}
-.bh-thermostat {
-  margin-top: 23px;
-}
-.bh-dial-ticks {
-  inset: 14px;
-  opacity: 0.65;
-}
-.bh-target {
-  font-weight: 250;
-  color: #323a42;
-}
-.bh-stepper {
-  margin-top: 0;
-}
-.bh-stepper > span {
-  font-size: 11px;
-}
-.bh-stepper .bh-tap {
-  box-shadow: none;
-}
-.bh-modes {
-  background: #ecf0f3;
-  border-radius: 18px;
-}
-.bh-modes .bh-tap {
-  border-radius: 14px;
-}
-.bh-sonos {
-  background: linear-gradient(145deg, #333b44, #20242a);
-  border-color: #333b44;
-  padding: 25px 27px;
-}
-.bh-group-status {
-  font-size: 11px;
-  color: #a3aeb8;
-}
-.bh-group-status .bh-dot {
-  background: #92aaa0;
-}
-.bh-audio-stage {
-  display: flex;
-  align-items: center;
-  margin-top: 24px;
-  height: 64px;
-}
-.bh-audio-stage h3 {
-  font-size: 32px;
-  font-weight: 400;
-  letter-spacing: -0.035em;
-}
-.bh-audio-stage p {
-  font-size: 12px;
-  color: #a4b1be;
-  margin-top: 5px;
-}
-.bh-sonos-sources {
-  display: flex;
-  gap: 9px;
-  margin-top: 17px;
-}
-.bh-source-choice {
-  flex: 0 1 auto;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 9px 16px;
-  border-radius: 20px;
-  --tap-bg: #ffffff0c;
-  border-color: #ffffff0a;
-}
-.bh-source-choice[aria-pressed="true"] {
-  --tap-bg: #ffffff21;
-  color: #fff;
-  border-color: #ffffff10;
-}
-.bh-source-choice-top {
-  display: contents;
-}
-.bh-source-choice-top > svg {
-  width: 14px;
-  height: 14px;
-}
-.bh-source-choice-top > svg:last-child:not(:first-child) {
-  display: none;
-}
-.bh-source-title {
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0;
-}
-.bh-source-caption {
-  display: none;
-}
-.bh-volume-label {
-  margin-top: 17px;
-  font-size: 10px;
-  color: #a3aeb8;
-}
-.bh-volume {
-  margin-top: 9px;
-  color: #a3aeb8;
-}
-.bh-volume input {
-  height: 4px;
-}
-.bh-volume input::-webkit-slider-thumb {
-  width: 12px;
-  height: 12px;
-  background: #eaf0f5;
-}
-.bh-weather {
-  background: linear-gradient(150deg, #b2d0e2, #81a7c5);
-  border-color: #bfd5e3;
-  padding: 24px 25px;
-}
-.bh-weather h2 {
-  color: #fff;
-  font-size: 14px;
-  font-weight: 400;
-}
-.bh-weather .bh-card-head > svg {
-  position: absolute;
-  right: 24px;
-  top: 68px;
-  width: 64px;
-  height: 64px;
-  color: #edf6fc;
-  stroke-width: 1;
-}
-.bh-weather-temp {
-  color: #fff;
-  font-size: 82px;
-  margin-top: 28px;
-  font-weight: 250;
-}
-.bh-weather h3 {
-  font-size: 16px;
-  color: #f6fafd;
-  font-weight: 400;
-}
-.bh-weather-range {
-  color: #eff7fc;
-}
-.bh-weather-foot {
-  color: #f1f7fb;
-  margin-top: 30px;
-}
-.bh-forecast {
-  padding: 25px 27px;
-  background: #fff;
-}
-.bh-forecast h2 {
-  font-size: 15px;
-}
-.bh-forecast p {
-  color: #999fa4;
-  font-size: 11px;
-  margin-top: 6px;
-}
-.bh-forecast .bh-chart {
-  margin-top: 30px;
-  height: 151px;
-}
-.bh-chart > polyline {
-  stroke: #85abbc;
-  stroke-width: 2px;
-}
-.bh-chart > g > circle {
-  fill: #85abbc;
-}
-.bh-chart text.bh-chart-value {
-  fill: #7f959e;
-}
-.bh-chart text {
-  fill: #a0a5a7;
-}
-
-/* Four-by-four panel, with the clock and weather materials retained. */
-.bh-screen {
-  background:
-    radial-gradient(ellipse at 8% 8%, #f5eee9, transparent 53%),
-    radial-gradient(ellipse at 95% 93%, #edf0f8, transparent 53%), #fcfcfd;
-}
-.bh-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-rows: repeat(4, 196px);
-  gap: 20px;
-}
-.bh-clock {
-  grid-column: 1 / 3;
-  grid-row: 1;
-  padding: 23px 28px;
-  background: linear-gradient(135deg, #ffffffda, #f2f0f978);
-  border: 1px solid #ffffffeb;
-  backdrop-filter: blur(24px);
-  box-shadow:
-    0 4px 16px #5a536708,
-    inset 0 1px 0 #fff;
-}
-.bh-clock > .bh-eyebrow {
-  font-size: 12px;
-}
-.bh-time {
-  position: absolute;
-  top: 35px;
-  left: 25px;
-  margin: 0;
-  font-size: 128px;
-  line-height: 1.05;
-  font-weight: 250;
-}
-.bh-time > span {
-  display: none;
-}
-.bh-clock-bottom {
-  position: absolute;
-  bottom: 15px;
-  left: 30px;
-  font-size: 10px;
-}
-.bh-analog {
-  position: absolute;
-  right: 40px;
-  top: 42px;
-  width: 114px;
-  height: 114px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 25%, #fff, #eeecf2);
-  box-shadow:
-    0 8px 18px #47405212,
-    inset 0 0 0 1px #fff;
-}
-.bh-analog-marks {
-  position: absolute;
-  inset: 8px;
-  border-radius: 50%;
-  background: repeating-conic-gradient(#827c8a 0deg 1.3deg, transparent 1.3deg 30deg);
-  mask: radial-gradient(transparent 60%, #000 61%);
-}
-.bh-analog > span {
-  position: absolute;
-  left: calc(50% - 1.5px);
-  bottom: 50%;
-  transform-origin: 50% 100%;
-  border-radius: 3px;
-  width: 3px;
-  background: #33323d;
-}
-.bh-analog .bh-hour-hand {
-  height: 27px;
-  width: 4px;
-  left: calc(50% - 2px);
-}
-.bh-analog .bh-minute-hand {
-  height: 37px;
-}
-.bh-analog .bh-second-hand {
-  height: 43px;
-  width: 1px;
-  left: calc(50% - 0.5px);
-  background: #ef7544;
-}
-.bh-analog .bh-clock-pin {
-  width: 6px;
-  height: 6px;
-  left: calc(50% - 3px);
-  bottom: calc(50% - 3px);
-  background: #ef7544;
-  border-radius: 50%;
-}
-.bh-lamps {
-  grid-column: 3 / 5;
-  grid-row: 1;
-}
-.bh-room-grid {
-  margin-top: 4px;
-}
-.bh-room {
-  padding-top: 70px;
-}
-.bh-room .bh-switch {
-  top: 66px;
-  width: 50px;
-  height: 30px;
-  min-height: 30px;
-  padding: 3px;
-  box-shadow: inset 0 1px 3px #5a45211a;
-}
-.bh-room .bh-switch > span {
-  width: 24px;
-  height: 24px;
-  box-shadow: 0 2px 4px #5a452124;
-}
-.bh-room .bh-switch.is-on > span {
-  transform: translateX(20px);
-}
-.bh-room .bh-switch.is-on {
-  --tap-bg: #d4ad65;
-}
-.bh-climate {
-  grid-column: 1 / 3;
-  grid-row: 2 / 4;
-  padding: 25px 28px;
-  background: linear-gradient(145deg, #fff, #f5f8fc);
-}
-.bh-climate .bh-temp-unit {
-  display: none;
-}
-.bh-climate-status {
-  position: absolute;
-  right: 29px;
-  top: 29px;
-  margin: 0;
-}
-.bh-thermostat {
-  position: absolute;
-  left: 29px;
-  top: 53px;
-  width: 280px;
-  height: 280px;
-  margin: 0;
-}
-.bh-dial-ticks {
-  inset: 13px;
-}
-.bh-dial-center {
-  top: -3px;
-}
-.bh-target {
-  font-size: 104px;
-}
-.bh-stepper {
-  position: absolute;
-  bottom: 25px;
-  left: 31px;
-  width: 276px;
-  margin: 0;
-}
-.bh-stepper .bh-tap {
-  height: 44px;
-  width: 44px;
-  min-height: 44px;
-}
-.bh-stepper > span {
-  font-size: 11px;
-}
-.bh-modes {
-  position: absolute;
-  right: 28px;
-  top: 102px;
-  width: 213px;
-  margin: 0;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-  padding: 0;
-  background: transparent;
-}
-.bh-modes::before {
-  content: "MODE";
-  position: absolute;
-  top: -24px;
-  left: 15px;
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  color: #a0aab3;
-}
-.bh-modes .bh-tap {
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-start;
-  gap: 12px;
-  padding: 13px 16px;
-  min-height: 44px;
-  border-radius: 14px;
-  font-size: 13px;
-  color: #7c8d9c;
-  --tap-bg: #eaf0f54a;
-}
-.bh-modes .bh-tap[aria-pressed="true"] {
-  --tap-bg: #e5effa;
-  color: #4c7eae;
-  box-shadow: inset 0 0 0 1px #d7e6f2;
-}
-.bh-sonos {
-  grid-column: 3 / 5;
-  grid-row: 2;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 21px 55px 13px 16px;
-  column-gap: 12px;
-  row-gap: 8px;
-  padding: 22px 25px;
-}
-.bh-sonos > .bh-card-head {
-  grid-column: 1 / -1;
-}
-.bh-audio-stage {
-  grid-column: 1;
-  grid-row: 2;
-  height: auto;
-  margin: 0;
-}
-.bh-audio-stage h3 {
-  font-size: 27px;
-}
-.bh-audio-stage p {
-  font-size: 10px;
-}
-.bh-sonos-sources {
-  grid-column: 2;
-  grid-row: 2;
-  align-items: center;
-  justify-content: flex-end;
-  margin: 0;
-  gap: 6px;
-}
-.bh-source-choice {
-  min-height: 38px;
-  padding: 9px 12px;
-}
-.bh-volume-label {
-  grid-column: 1 / -1;
-  grid-row: 3;
-  margin: 0;
-}
-.bh-volume {
-  grid-column: 1 / -1;
-  grid-row: 4;
-  margin: 0;
-}
-.bh-fan {
-  grid-column: 3;
-  grid-row: 3;
-}
-.bh-fan-art {
-  width: 77px;
-  height: 77px;
-  top: 51px;
-  left: calc(50% - 38.5px);
-}
-.bh-fan-label {
-  bottom: 14px;
-}
-.bh-weather {
-  grid-column: 4;
-  grid-row: 3 / 5;
-  padding: 26px;
-  background: linear-gradient(165deg, #a1bfdcf0, #7395b9 62%, #526f92);
-  border-color: #e6f6ff70;
-  color: #fff;
-  box-shadow:
-    0 8px 24px #34506f10,
-    inset 0 1px 0 #ffffff66;
-}
-.bh-weather .bh-card-head > svg {
-  display: none;
-}
-.bh-weather h2 {
-  position: relative;
-  z-index: 1;
-  font-size: 14px;
-  color: #fff;
-}
-.bh-weather-temp {
-  margin-top: 139px;
-  font-size: 88px;
-  color: #fff;
-  position: relative;
-  z-index: 1;
-  line-height: 1.05;
-}
-.bh-weather h3 {
-  position: relative;
-  z-index: 1;
-  color: #f0f7ff;
-  margin-top: 8px;
-}
-.bh-weather-range {
-  position: relative;
-  z-index: 1;
-  color: #e5f1ff;
-  margin-top: 10px;
-}
-.bh-weather-foot {
-  position: absolute;
-  left: 26px;
-  right: 26px;
-  bottom: 25px;
-  color: #e5f1ff;
-  margin: 0;
-}
-.bh-weather-scene {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-.bh-cloud {
-  position: absolute;
-  height: 37px;
-  width: 99px;
-  border-radius: 35px;
-  background: linear-gradient(#fff, #d7e5f3);
-  filter: drop-shadow(0 8px 10px #314b6d1a);
-}
-.bh-cloud::before,
-.bh-cloud::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  background: inherit;
-}
-.bh-cloud::before {
-  width: 53px;
-  height: 53px;
-  left: 15px;
-  top: -29px;
-}
-.bh-cloud::after {
-  width: 44px;
-  height: 44px;
-  right: 8px;
-  top: -18px;
-}
-.bh-cloud-back {
-  right: 37px;
-  top: 118px;
-  transform: scale(1.15);
-  opacity: 0.42;
-  filter: blur(3px);
-}
-.bh-cloud-front {
-  right: 84px;
-  top: 138px;
-  transform: scale(1.15);
-  opacity: 0.95;
-}
-.bh-rain {
-  position: absolute;
-  right: 54px;
-  top: 168px;
-  width: 128px;
-  height: 63px;
-  transform: skewX(-15deg);
-  background: repeating-linear-gradient(
-    90deg,
-    transparent 0 19px,
-    #d8ecff75 20px 21px,
-    transparent 22px 29px
-  );
-  mask: linear-gradient(transparent, #0006, transparent);
-}
-.bh-forecast {
-  grid-column: 1 / 4;
-  grid-row: 4;
-  padding: 23px 26px;
-}
-.bh-forecast .bh-card-head p {
-  display: none;
-}
-.bh-forecast .bh-chart {
-  margin-top: 3px;
-  height: 129px;
-}
-
-/* Full panel canvas: four columns, four rows, closer spacing. */
-.bh-screen {
-  padding: 24px;
-}
-.bh-grid {
-  height: 100%;
-  grid-template-rows: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-}
-.bh-clock {
-  background: linear-gradient(135deg, #ffffffe6, #f0edf878);
-}
-.bh-time {
-  top: 48px;
-  font-size: 140px;
-}
-.bh-analog {
-  top: 57px;
-  width: 120px;
-  height: 120px;
-}
-.bh-clock-bottom {
-  bottom: 18px;
-}
-.bh-room-grid {
-  margin-top: 18px;
-}
-.bh-room {
-  padding-top: 80px;
-}
-.bh-room .bh-switch {
-  top: 75px;
-}
-.bh-bedroom-scene,
-.bh-living-scene {
-  height: 73px;
-}
-.bh-thermostat {
-  top: 78px;
-  left: 34px;
-  width: 294px;
-  height: 294px;
-}
-.bh-dial-ticks {
-  opacity: 0.65;
-}
-.bh-dial-center {
-  width: 216px;
-  height: 216px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: linear-gradient(145deg, #ffffffeb, #eef3f873);
-  box-shadow:
-    0 7px 22px #6a8caf0d,
-    inset 0 1px 0 #fff;
-}
-.bh-set-label {
-  display: none;
-}
-.bh-target {
-  font-size: 108px;
-  margin: 0;
-}
-.bh-target sup {
-  font-size: 44px;
-}
-.bh-ambient {
-  margin-top: 7px;
-  font-size: 12px;
-}
-.bh-stepper {
-  left: 87px;
-  bottom: 35px;
-  width: 187px;
-  justify-content: space-between;
-}
-.bh-stepper .bh-tap {
-  width: 49px;
-  height: 49px;
-  min-height: 49px;
-  box-shadow: 0 3px 7px #586e8510;
-}
-.bh-modes {
-  top: 129px;
-  width: 214px;
-  right: 33px;
-  gap: 10px;
-}
-.bh-modes::before {
-  display: none;
-}
-.bh-modes .bh-tap {
-  min-height: 48px;
-}
-.bh-sonos {
-  grid-template-rows: 23px 73px 13px 20px;
-  row-gap: 10px;
-  padding: 27px;
-}
-.bh-audio-stage h3 {
-  font-size: 30px;
-}
-.bh-fan-art {
-  width: 91px;
-  height: 91px;
-  top: 62px;
-  left: calc(50% - 45.5px);
-}
-.bh-fan-label {
-  bottom: 20px;
-}
-.bh-fan-power {
-  width: 44px;
-  height: 44px;
-}
-.bh-weather-temp {
-  margin-top: 185px;
-}
-.bh-cloud-back {
-  top: 140px;
-}
-.bh-cloud-front {
-  top: 163px;
-}
-.bh-rain {
-  top: 194px;
-}
-.bh-weather-foot {
-  bottom: 28px;
-}
-.bh-forecast .bh-chart {
-  height: 149px;
-  margin-top: 8px;
-}
-
-/* Tile studies keep the exact footprint of each tile on the panel. */
-.bh-single {
-  padding: 0;
-  background: transparent;
-}
-.bh-single .bh-grid {
-  display: block;
-}
-.bh-single .bh-card {
-  display: none;
-  width: 100%;
-  height: 100%;
-}
-.bh-single[data-tile="clock"] .bh-clock,
-.bh-single[data-tile="lamps"] .bh-lamps,
-.bh-single[data-tile="climate"] .bh-climate,
-.bh-single[data-tile="fan"] .bh-fan,
-.bh-single[data-tile="weather"] .bh-weather,
-.bh-single[data-tile="forecast"] .bh-forecast {
-  display: block;
-}
-.bh-single[data-tile="sonos"] .bh-sonos {
-  display: grid;
-}
-
-/* B changes the hierarchy and physical control arrangement. */
-.bh-variant-b .bh-clock .bh-analog {
-  left: 28px;
-  right: auto;
-  width: 156px;
-  height: 156px;
-  top: 39px;
-}
-.bh-variant-b .bh-clock .bh-time {
-  left: 224px;
-  top: 67px;
-  font-size: 103px;
-}
-.bh-variant-b .bh-clock > .bh-eyebrow {
-  position: absolute;
-  left: 230px;
-  top: 43px;
-}
-.bh-variant-b .bh-clock-bottom {
-  left: 230px;
-  bottom: 32px;
-}
-.bh-variant-b .bh-clock .bh-hour-hand {
-  height: 39px;
-}
-.bh-variant-b .bh-clock .bh-minute-hand {
-  height: 51px;
-}
-.bh-variant-b .bh-clock .bh-second-hand {
-  height: 56px;
-}
-.bh-variant-b .bh-room-grid {
-  grid-template-columns: 1fr;
-  gap: 10px;
-  margin-top: 10px;
-}
-.bh-variant-b .bh-room {
-  height: 63px;
-  padding: 21px 0 0;
-  border-top: 1px solid #eeeeee;
-}
-.bh-variant-b .bh-room .bh-switch {
-  top: 17px;
-  right: 0;
-}
-.bh-variant-b .bh-bedroom-scene,
-.bh-variant-b .bh-living-scene {
-  left: 240px;
-  right: 84px;
-  height: 59px;
-}
-.bh-variant-b .bh-climate .bh-thermostat {
-  width: 285px;
-  height: 285px;
-  top: 54px;
-  left: calc(50% - 142.5px);
-}
-.bh-variant-b .bh-climate .bh-stepper {
-  width: 486px;
-  left: 82px;
-  top: 171px;
-  bottom: auto;
-}
-.bh-variant-b .bh-climate .bh-modes {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  width: calc(100% - 64px);
-  left: 32px;
-  right: auto;
-  top: auto;
-  bottom: 34px;
-}
-.bh-variant-b .bh-climate .bh-modes .bh-tap {
-  justify-content: center;
-  min-height: 56px;
-}
-.bh-variant-b .bh-sonos {
-  grid-template-columns: 1fr;
-  grid-template-rows: 20px 64px 37px 19px;
-  padding: 22px 27px;
-  gap: 9px;
-}
-.bh-variant-b .bh-sonos .bh-card-head {
-  grid-row: 1;
-}
-.bh-variant-b .bh-audio-stage {
-  grid-column: 1;
-  grid-row: 2;
-  justify-content: center;
-  text-align: center;
-}
-.bh-variant-b .bh-sonos-sources {
-  grid-row: 3;
-  grid-column: 1;
-  justify-content: center;
-}
-.bh-variant-b .bh-volume-label {
-  display: none;
-}
-.bh-variant-b .bh-volume {
-  grid-row: 4;
-  grid-column: 1;
-}
-.bh-variant-b .bh-fan-art {
-  width: 129px;
-  height: 129px;
-  left: auto;
-  right: 22px;
-  top: 53px;
-}
-.bh-variant-b .bh-fan-label {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 19px;
-  right: auto;
-  bottom: 29px;
-}
-.bh-variant-b .bh-fan-label > span {
-  display: none;
-}
-.bh-variant-b .bh-weather-temp {
-  margin-top: 22px;
-  font-size: 112px;
-}
-.bh-variant-b .bh-cloud-back {
-  top: 302px;
-}
-.bh-variant-b .bh-cloud-front {
-  top: 323px;
-}
-.bh-variant-b .bh-rain {
-  top: 352px;
-}
-.bh-variant-b .bh-weather h3 {
-  margin-top: 3px;
-}
-.bh-variant-b .bh-forecast {
-  padding-left: 190px;
-}
-.bh-variant-b .bh-forecast .bh-card-head {
-  position: absolute;
-  left: 26px;
-  top: 29px;
-  display: block;
-  width: 146px;
-}
-.bh-variant-b .bh-forecast .bh-card-head p {
-  display: block;
-  line-height: 1.6;
-  margin-top: 12px;
-}
-.bh-variant-b .bh-forecast-unit {
-  display: none;
-}
-.bh-variant-b .bh-forecast .bh-chart {
-  height: 177px;
-  margin: 0;
-}
-
-/* C takes each tile down to its essential object or number. */
-.bh-variant-c .bh-clock .bh-analog {
-  display: none;
-}
-.bh-variant-c .bh-clock .bh-time {
-  left: 0;
-  width: 100%;
-  text-align: center;
-  font-size: 151px;
-  top: 33px;
-}
-.bh-variant-c .bh-clock > .bh-eyebrow {
-  display: block;
-  text-align: center;
-}
-.bh-variant-c .bh-clock-bottom {
-  left: 0;
-  width: 100%;
-  justify-content: center;
-}
-.bh-variant-c .bh-room-grid {
-  gap: 12px;
-  margin-top: 14px;
-}
-.bh-variant-c .bh-room {
-  height: 124px;
-  padding: 84px 14px 0;
-  border-radius: 19px;
-  background: #f6f4ee;
-}
-.bh-variant-c .bh-room-on {
-  background: #fff4db;
-}
-.bh-variant-c .bh-room .bh-switch {
-  top: 78px;
-  right: 12px;
-}
-.bh-variant-c .bh-climate .bh-dial-ticks {
-  display: none;
-}
-.bh-variant-c .bh-climate .bh-thermostat {
-  width: 100%;
-  left: 0;
-  top: 49px;
-  height: 210px;
-}
-.bh-variant-c .bh-climate .bh-dial-center {
-  background: transparent;
-  box-shadow: none;
-}
-.bh-variant-c .bh-climate .bh-target {
-  font-size: 130px;
-}
-.bh-variant-c .bh-climate .bh-stepper {
-  left: 104px;
-  top: 133px;
-  bottom: auto;
-  width: 444px;
-}
-.bh-variant-c .bh-climate .bh-modes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  width: calc(100% - 64px);
-  left: 32px;
-  top: auto;
-  bottom: 31px;
-  gap: 10px;
-}
-.bh-variant-c .bh-climate .bh-modes .bh-tap {
-  justify-content: center;
-  min-height: 56px;
-}
-.bh-variant-c .bh-sonos {
-  grid-template-columns: 1.15fr 1fr;
-  grid-template-rows: 21px 80px 36px;
-  gap: 10px 24px;
-}
-.bh-variant-c .bh-sonos-sources {
-  grid-row: 2 / 4;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 9px;
-}
-.bh-variant-c .bh-source-choice {
-  min-height: 50px;
-  border-radius: 15px;
-  justify-content: flex-start;
-}
-.bh-variant-c .bh-audio-stage {
-  grid-row: 2;
-}
-.bh-variant-c .bh-audio-stage h3 {
-  font-size: 35px;
-}
-.bh-variant-c .bh-volume-label {
-  display: none;
-}
-.bh-variant-c .bh-volume {
-  grid-column: 1;
-  grid-row: 3;
-}
-.bh-variant-c .bh-fan-art {
-  width: 52px;
-  height: 52px;
-  left: calc(50% - 26px);
-  top: 55px;
-}
-.bh-variant-c .bh-fan-label {
-  display: flex;
-  justify-content: center;
-  bottom: 25px;
-}
-.bh-variant-c .bh-fan-label > span {
-  display: none;
-}
-.bh-variant-c .bh-fan-power {
-  width: 75px;
-  height: 75px;
-  border-radius: 50%;
-  box-shadow:
-    0 5px 16px #76988024,
-    inset 0 1px 0 #fff;
-}
-.bh-variant-c .bh-weather h2 {
-  text-align: center;
-  width: 100%;
-}
-.bh-variant-c .bh-weather-temp {
-  text-align: center;
-  margin-top: 187px;
-}
-.bh-variant-c .bh-weather h3 {
-  text-align: center;
-}
-.bh-variant-c .bh-weather-range {
-  justify-content: center;
-}
-.bh-variant-c .bh-cloud-back {
-  top: 139px;
-}
-.bh-variant-c .bh-cloud-front {
-  top: 159px;
-}
-.bh-variant-c .bh-forecast .bh-card-head {
-  position: absolute;
-  top: 25px;
-  left: 27px;
-  right: 27px;
-}
-.bh-variant-c .bh-forecast .bh-chart {
-  margin-top: 35px;
-  height: 151px;
-}
-.bh-variant-c .bh-chart > polyline {
-  stroke-width: 0;
-}
-.bh-variant-c .bh-chart > g > circle {
-  r: 4px;
-}
-
-/* Top row gives the three independent room controls more room. */
-.bh-screen:not(.bh-single) .bh-clock {
-  width: calc(100% - 90px);
-}
-.bh-screen:not(.bh-single) .bh-lamps {
-  width: calc(100% + 90px);
-  margin-left: -90px;
-}
-.bh-clock {
-  background: #ffffffcf;
-  border-color: #ffffff;
-  box-shadow:
-    0 4px 20px #30304006,
-    inset 0 1px 0 #fff;
-}
-.bh-clock .bh-analog {
-  right: 28px;
-  width: 112px;
-  height: 112px;
-  top: 62px;
-}
-.bh-time {
-  font-size: 126px;
-  top: 53px;
-}
-.bh-room-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 19px;
-  margin-top: 19px;
-}
-.bh-master .bh-tap {
-  font-size: 11px;
-}
-.bh-kitchen-scene {
-  position: absolute;
-  inset: 0 0 auto;
-  height: 73px;
-}
 .bh-island {
   position: absolute;
   left: calc(50% - 39px);
-  bottom: 6px;
+  bottom: 7px;
   height: 25px;
   width: 78px;
   border-radius: 3px;
@@ -2060,190 +590,33 @@
   background: linear-gradient(#e2d1ac, #fff8d9);
   box-shadow: 0 10px 17px #f5cc6657;
 }
-.bh-fan {
-  background: linear-gradient(145deg, #f7faf8, #eaf2ec);
-}
-.bh-fan-label > span {
-  display: none;
-}
-.bh-fan-label {
-  justify-content: flex-end;
-  bottom: 17px;
-}
-.bh-fan-object {
-  position: absolute;
-  width: 144px;
-  height: 154px;
-  left: calc(50% - 72px);
-  top: 48px;
-}
-.bh-fan-housing {
-  position: absolute;
-  width: 119px;
-  height: 119px;
-  top: 0;
-  left: 12px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #fff, #d5e4d9);
-  border: 4px solid #edf5ef;
-  box-shadow:
-    0 7px 13px #6a897925,
-    inset 0 0 0 1px #c3d5c8,
-    inset 0 4px 10px #7c9c8525;
-}
-.bh-fan .bh-fan-art {
-  position: absolute;
-  width: 77px;
-  height: 77px;
-  inset: 17px;
-  color: #91af9b;
-  filter: drop-shadow(0 2px 2px #58735f20);
-}
-.bh-fan-grille {
-  position: absolute;
-  inset: 4px;
-  border-radius: 50%;
-  background: repeating-radial-gradient(circle, transparent 0 6px, #f9fffa9e 7px 8px);
-  box-shadow: inset 0 0 0 1px #ceddd1;
-}
-.bh-fan-hub {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  left: calc(50% - 10px);
-  top: calc(50% - 10px);
-  border-radius: 50%;
-  background: linear-gradient(#eef7ef, #b8cdbd);
-  box-shadow:
-    0 2px 4px #4b6d5530,
-    inset 0 1px 0 #fff;
-}
-.bh-fan-stand {
-  position: absolute;
-  bottom: 12px;
-  left: calc(50% - 8px);
-  width: 16px;
-  height: 40px;
-  border-radius: 5px;
-  background: linear-gradient(90deg, #c8d9cd, #eff7f1);
-}
-.bh-fan-stand::after {
-  content: "";
-  position: absolute;
-  bottom: -5px;
-  left: -25px;
-  width: 66px;
-  height: 11px;
-  border-radius: 50%;
-  background: linear-gradient(#edf6ef, #c6d9cc);
-  box-shadow: 0 5px 9px #6b897820;
-}
-.bh-fan-power {
-  --tap-bg: #ffffffc9;
-  box-shadow:
-    0 3px 7px #54766215,
-    inset 0 1px 0 #fff;
-}
-.bh-variant-b .bh-room-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-.bh-variant-b .bh-room {
-  height: 124px;
-  border: 0;
-  padding: 90px 0 0;
-}
-.bh-variant-b .bh-bedroom-scene,
-.bh-variant-b .bh-living-scene,
-.bh-variant-b .bh-kitchen-scene {
-  left: 0;
-  right: 0;
-  height: 80px;
-}
-.bh-variant-b .bh-room .bh-switch {
-  top: 87px;
-  right: 0;
-}
-.bh-variant-b .bh-lamps > .bh-card-head {
-  flex-direction: row-reverse;
-}
-.bh-variant-b .bh-room-grid {
-  direction: rtl;
-}
-.bh-variant-b .bh-room {
-  direction: ltr;
-}
-.bh-variant-c .bh-room-grid {
-  gap: 10px;
-}
-.bh-variant-c .bh-room {
-  padding-left: 10px;
-  padding-right: 10px;
-}
-.bh-variant-c .bh-room h3 {
-  font-size: 14px;
-}
-.bh-variant-c .bh-room .bh-switch {
-  right: 9px;
-}
-.bh-variant-b .bh-fan-object {
-  left: auto;
-  right: 17px;
-  top: 47px;
-  transform: scale(1.06);
-}
-.bh-variant-b .bh-fan .bh-fan-art {
-  width: 77px;
-  height: 77px;
-  inset: 17px;
-}
-.bh-variant-c .bh-fan-object {
-  left: 21px;
-  top: 55px;
-  transform: scale(0.85);
-  transform-origin: left top;
-}
-.bh-variant-c .bh-fan .bh-fan-art {
-  width: 77px;
-  height: 77px;
-  inset: 17px;
-}
-.bh-variant-c .bh-fan-label {
-  left: auto;
-  right: 23px;
-  bottom: 58px;
-}
-.bh-variant-c .bh-fan-power {
-  width: 66px;
-  height: 66px;
-}
-.bh-variant-b .bh-lamps > .bh-card-head {
-  flex-direction: row;
-}
 .bh-variant-b .bh-room-grid {
   grid-template-columns: 1fr;
-  direction: ltr;
   gap: 0;
   margin-top: 8px;
 }
 .bh-variant-b .bh-room {
-  display: flex;
-  align-items: center;
-  height: 43px;
-  padding: 0;
+  height: 42px;
+  background: transparent;
   border-top: 1px solid #eee;
+  padding: 13px 0 0;
 }
 .bh-variant-b .bh-room h3 {
-  font-size: 14px;
-  margin: 0;
+  font-size: 13px;
+}
+.bh-variant-b .bh-room-open {
+  padding: 0;
+  align-items: center;
+  font-size: 13px;
 }
 .bh-variant-b .bh-room .bh-switch {
-  top: 7px;
+  top: 6px;
   right: 0;
 }
 .bh-variant-b .bh-bedroom-scene,
 .bh-variant-b .bh-living-scene,
 .bh-variant-b .bh-kitchen-scene {
-  left: calc(50% - 70px);
+  left: calc(50% - 80px);
   right: auto;
   top: -13px;
   width: 160px;
@@ -2251,9 +624,1077 @@
   transform: scale(0.6);
   transform-origin: center top;
 }
+.bh-color-detail {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  background: #fff;
+}
+.bh-color-detail h2 {
+  font-size: 24px;
+}
+.bh-color-back {
+  position: absolute;
+  left: 22px;
+  top: 18px;
+  --tap-bg: transparent;
+}
+.bh-color-well input {
+  width: 110px;
+  height: 110px;
+  border: 0;
+  border-radius: 50%;
+  background: #fafafa;
+  padding: 7px;
+  cursor: pointer;
+}
+.bh-color-well input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.bh-color-well input::-webkit-color-swatch {
+  border: 0;
+  border-radius: 50%;
+}
+.bh-color-presets {
+  display: flex;
+  gap: 8px;
+}
+.bh-single .bh-color-detail {
+  gap: 10px;
+}
+.bh-single .bh-color-detail h2 {
+  font-size: 18px;
+}
+.bh-single .bh-color-well input {
+  width: 68px;
+  height: 68px;
+}
+.bh-single .bh-color-presets .bh-tap {
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: 11px;
+}
+
+/* Climate: solid white, native keyboard slider with circular pointer mapping. */
+.bh-climate {
+  --climate-accent: #6e98bd;
+  --climate-soft: #eaf2f9;
+  --climate-border: #dce8f2;
+  padding: 24px;
+  background: #fff;
+}
+.bh-climate.bh-mode-heat {
+  --climate-accent: #c66d64;
+  --climate-soft: #faeeeb;
+  --climate-border: #f1d9d4;
+}
+.bh-climate.bh-mode-heat_cool {
+  --climate-accent: #9289b2;
+  --climate-soft: #f0edf8;
+  --climate-border: #e4deef;
+}
+.bh-climate.bh-mode-off {
+  --climate-accent: #a1a5ab;
+  --climate-soft: #f0f1f3;
+  --climate-border: #e7e8eb;
+}
+.bh-climate .bh-temp-unit {
+  display: none;
+}
+.bh-thermostat {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  left: 12px;
+  top: 54px;
+  display: grid;
+  place-items: center;
+}
+.bh-dial-ticks {
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 135deg,
+    transparent 0deg 105deg,
+    var(--climate-accent) 105deg 145deg,
+    transparent 145deg 360deg
+  );
+  mask: radial-gradient(transparent 68%, #000 69%, #000 72%, transparent 73%);
+}
+.bh-dial-center {
+  position: relative;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  width: 154px;
+  height: 154px;
+}
+.bh-set-label {
+  display: none;
+}
+.bh-target {
+  font-size: 88px;
+  font-weight: 300;
+  letter-spacing: -0.075em;
+  color: #24272a;
+  padding-left: 12px;
+  line-height: 1;
+}
+.bh-target sup {
+  font-size: 22px;
+  position: relative;
+  top: 9px;
+  margin-left: 3px;
+  vertical-align: top;
+}
+.bh-ambient {
+  display: block;
+  font-size: 11px;
+  color: #a0a6ae;
+  margin-top: 9px;
+}
+.bh-dial-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  z-index: 3;
+  cursor: grab;
+  touch-action: none;
+}
+.bh-dial-input:disabled {
+  cursor: default;
+}
+.bh-dial-input:active {
+  cursor: grabbing;
+}
+.bh-thermostat:has(.bh-dial-input:focus-visible) {
+  outline: 2px solid var(--climate-accent);
+  outline-offset: 4px;
+  border-radius: 50%;
+}
+.bh-dial-position {
+  display: none;
+}
+.bh-dial-position > span {
+  position: absolute;
+  top: 0;
+  left: calc(50% - 3px);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--climate-accent);
+  box-shadow: 0 0 0 4px #fff;
+}
+.bh-range {
+  display: flex;
+  gap: 3px;
+  position: relative;
+  z-index: 4;
+}
+.bh-range .bh-tap {
+  pointer-events: auto;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 28px;
+  padding: 7px;
+  --tap-bg: transparent;
+  color: var(--climate-accent);
+}
+.bh-range .bh-tap[aria-pressed="true"] {
+  --tap-bg: var(--climate-soft);
+}
+.bh-range small {
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  color: #9198a2;
+}
 .bh-stepper {
+  position: absolute;
+  left: 55px;
+  bottom: 24px;
+  width: 135px;
+  display: flex;
+  justify-content: space-between;
   pointer-events: none;
 }
 .bh-stepper .bh-tap {
   pointer-events: auto;
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid #ecedef;
+  --tap-bg: #fff;
+  box-shadow: 0 2px 5px #172a4205;
+  color: #767f89;
+}
+.bh-stepper svg {
+  width: 20px;
+  height: 20px;
+}
+.bh-modes {
+  position: absolute;
+  top: 83px;
+  right: 22px;
+  width: 178px;
+  display: grid;
+  gap: 7px;
+}
+.bh-modes .bh-tap {
+  min-height: 40px;
+  padding: 10px 13px;
+  justify-content: flex-start;
+  font-size: 12px;
+  gap: 10px;
+  --tap-bg: #f6f7f8;
+  color: #979da4;
+}
+.bh-modes .bh-tap[aria-pressed="true"] {
+  --tap-bg: var(--climate-soft);
+  color: var(--climate-accent);
+  box-shadow: inset 0 0 0 1px var(--climate-border);
+}
+.bh-modes svg {
+  width: 15px;
+  height: 15px;
+}
+:is(.bh-variant-b, .bh-full) .bh-climate .bh-thermostat {
+  width: 224px;
+  height: 224px;
+  top: 40px;
+  left: calc(50% - 112px);
+}
+:is(.bh-variant-b, .bh-full) .bh-climate .bh-stepper {
+  left: 28px;
+  top: 129px;
+  bottom: auto;
+  width: calc(100% - 56px);
+}
+:is(.bh-variant-b, .bh-full) .bh-climate .bh-modes {
+  top: auto;
+  bottom: 18px;
+  left: 23px;
+  right: 23px;
+  width: auto;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  padding: 3px;
+  border-radius: 15px;
+  background: #f4f5f6;
+}
+:is(.bh-variant-b, .bh-full) .bh-climate .bh-modes .bh-tap {
+  justify-content: center;
+  padding: 9px 5px;
+  gap: 5px;
+  font-size: 11px;
+  min-height: 37px;
+  --tap-bg: transparent;
+}
+.bh-mode-heat_cool .bh-dial-ticks {
+  background: conic-gradient(
+    from 135deg,
+    transparent 0deg 55deg,
+    #d87366 55deg 90deg,
+    transparent 90deg 180deg,
+    #6497c4 180deg 215deg,
+    transparent 215deg 360deg
+  );
+}
+.bh-mode-heat_cool.bh-range-low .bh-dial-position > span {
+  background: #d87366;
+}
+.bh-mode-heat_cool.bh-range-high .bh-dial-position > span {
+  background: #6497c4;
+}
+.bh-mode-heat_cool .bh-range .bh-tap:first-child {
+  color: #d87366;
+}
+.bh-mode-heat_cool .bh-range .bh-tap:last-child {
+  color: #6497c4;
+}
+.bh-variant-c .bh-climate .bh-thermostat {
+  top: 43px;
+  left: calc(50% - 105px);
+  width: 210px;
+  height: 177px;
+}
+.bh-variant-c .bh-climate .bh-dial-ticks,
+.bh-variant-c .bh-climate .bh-dial-position {
+  display: none;
+}
+.bh-variant-c .bh-climate .bh-target {
+  font-size: 94px;
+}
+.bh-variant-c .bh-climate .bh-stepper {
+  left: 25px;
+  top: 112px;
+  bottom: auto;
+  width: calc(100% - 50px);
+}
+.bh-variant-c .bh-climate .bh-modes {
+  left: 23px;
+  right: 23px;
+  bottom: 21px;
+  top: auto;
+  width: auto;
+  grid-template-columns: 1fr 1fr;
+}
+.bh-variant-c .bh-climate .bh-modes .bh-tap {
+  justify-content: center;
+  min-height: 37px;
+}
+
+/* Sonos: warm graphite, source choice and a genuine master control in the preview. */
+.bh-sonos {
+  padding: 26px;
+  background: #302e2d;
+  color: #f6f2ee;
+  border-color: #302e2d;
+  box-shadow: none;
+}
+.bh-audio-stage {
+  margin-top: 28px;
+}
+.bh-audio-stage h3 {
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: -0.04em;
+}
+.bh-audio-stage p {
+  font-size: 11px;
+  color: #a8a29c;
+  margin-top: 6px;
+}
+.bh-sonos-sources {
+  display: flex;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  margin: 22px 0 0;
+  min-width: 0;
+}
+.bh-source-choice {
+  min-height: 40px;
+  min-width: 105px;
+  padding: 10px 15px;
+  border-radius: 21px;
+  --tap-bg: #ffffff0a;
+  color: #aba59e;
+  font-size: 12px;
+  gap: 9px;
+}
+.bh-source-choice[aria-pressed="true"] {
+  --tap-bg: #e7dfd4;
+  color: #554a3c;
+}
+.bh-source-choice-top {
+  display: contents;
+}
+.bh-source-choice-top > svg {
+  width: 16px;
+  height: 16px;
+}
+.bh-source-choice-top > svg:last-child:not(:first-child),
+.bh-source-caption {
+  display: none;
+}
+.bh-source-title {
+  font-size: 12px;
+}
+.bh-volume-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 27px;
+  font-size: 11px;
+  color: #b1a99f;
+}
+.bh-volume-label > span {
+  font-variant-numeric: tabular-nums;
+  color: #e6ded4;
+}
+.bh-volume {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-top: 5px;
+}
+.bh-volume input {
+  appearance: none;
+  min-width: 0;
+  flex: 1;
+  height: 5px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.bh-volume input::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #eae3d9;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px #0002;
+}
+.bh-volume input::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #eae3d9;
+  border: 0;
+  border-radius: 50%;
+}
+.bh-volume-step {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  --tap-bg: #ffffff09;
+  color: #c7beb1;
+  border-radius: 50%;
+}
+.bh-variant-b .bh-sonos {
+  background: #303239;
+  border-color: #303239;
+}
+.bh-variant-b .bh-audio-stage {
+  text-align: center;
+  margin-top: 24px;
+}
+.bh-variant-b .bh-audio-stage h3 {
+  font-size: 36px;
+}
+.bh-variant-b .bh-sonos-sources {
+  justify-content: center;
+  margin-top: 24px;
+}
+.bh-variant-b .bh-volume-label {
+  margin-top: 25px;
+}
+.bh-variant-b .bh-source-choice[aria-pressed="true"] {
+  --tap-bg: #e0e3ec;
+  color: #535e74;
+}
+.bh-variant-c .bh-sonos,
+.bh-full .bh-sonos {
+  background: #302e2d;
+  border-color: #302e2d;
+  color: #f6f2ee;
+}
+:is(.bh-variant-c, .bh-full) .bh-sonos-sources {
+  position: absolute;
+  right: 25px;
+  top: 78px;
+  display: flex;
+  flex-direction: column;
+  width: 145px;
+  margin: 0;
+}
+:is(.bh-variant-c, .bh-full) .bh-source-choice {
+  border-radius: 14px;
+  --tap-bg: #ffffff0a;
+  color: #aba59e;
+  justify-content: flex-start;
+}
+:is(.bh-variant-c, .bh-full) .bh-source-choice[aria-pressed="true"] {
+  --tap-bg: #e7dfd4;
+  color: #554a3c;
+}
+:is(.bh-variant-c, .bh-full) .bh-audio-stage {
+  width: calc(100% - 165px);
+}
+:is(.bh-variant-c, .bh-full) .bh-audio-stage h3 {
+  font-size: 27px;
+}
+:is(.bh-variant-c, .bh-full) .bh-volume-label {
+  margin-top: 86px;
+  color: #b1a99f;
+}
+:is(.bh-variant-c, .bh-full) .bh-volume-label > span {
+  color: #e6ded4;
+}
+:is(.bh-variant-c, .bh-full) .bh-volume-step {
+  --tap-bg: #ffffff09;
+  color: #c7beb1;
+}
+
+/* Fan: one direct control, no fictional appliance illustration. */
+.bh-fan {
+  padding: 24px;
+  background: #f4f7f7;
+}
+.bh-fan-status,
+.bh-airflow {
+  display: none;
+}
+.bh-fan-label {
+  position: absolute;
+  inset: 63px 24px 29px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bh-fan-label > span {
+  display: none;
+}
+.bh-fan-power {
+  width: 164px;
+  height: 164px;
+  min-height: 164px;
+  border-radius: 42px;
+  flex-direction: column;
+  gap: 18px;
+  --tap-bg: #e9eeef;
+  color: #a1acaf;
+  border: 1px solid #e0e7e8;
+  box-shadow: none;
+}
+.bh-fan-power > svg {
+  width: 39px;
+  height: 39px;
+  stroke-width: 1.5;
+}
+.bh-fan-power > span {
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+.bh-fan-power[aria-pressed="true"] {
+  --tap-bg: #e3efef;
+  color: #609292;
+  border-color: #d2e5e5;
+}
+.bh-variant-b .bh-fan {
+  background: #fff;
+}
+.bh-variant-b .bh-fan-power {
+  width: 225px;
+  height: 78px;
+  min-height: 78px;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-radius: 40px;
+  --tap-bg: #f0f3f4;
+  border: 0;
+}
+.bh-variant-b .bh-fan-power[aria-pressed="true"] {
+  --tap-bg: #deeded;
+}
+.bh-variant-b .bh-fan-power > svg {
+  width: 30px;
+  height: 30px;
+}
+.bh-variant-c .bh-fan-power {
+  border-radius: 50%;
+  width: 145px;
+  height: 145px;
+  min-height: 145px;
+  --tap-bg: #fff;
+  border: 1px solid #e5ebed;
+  gap: 13px;
+}
+.bh-variant-c .bh-fan-power[aria-pressed="true"] {
+  color: #72928b;
+  --tap-bg: #fff;
+}
+
+/* Weather: temperature first; clouds and real rain condition get restrained motion. */
+.bh-weather {
+  padding: 28px;
+  background: linear-gradient(155deg, #b0ccdf, #8baac8 54%, #6e8dac);
+  color: #fff;
+  border-color: #c7d9e6;
+  box-shadow: inset 0 1px 0 #ffffff70;
+}
+.bh-weather h2 {
+  color: #fff;
+  position: relative;
+  z-index: 1;
+  font-size: 14px;
+}
+.bh-weather .bh-card-head > svg {
+  display: none;
+}
+.bh-weather-temp {
+  position: relative;
+  z-index: 1;
+  margin-top: 150px;
+  font-size: 102px;
+  line-height: 1;
+  font-weight: 250;
+  letter-spacing: -0.075em;
+}
+.bh-weather h3 {
+  position: relative;
+  z-index: 1;
+  font-size: 17px;
+  color: #f1f7fc;
+  font-weight: 400;
+  margin-top: 9px;
+}
+.bh-weather-range {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 14px;
+  margin-top: 11px;
+  color: #e9f3fb;
+  font-size: 13px;
+}
+.bh-weather-range > span {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+.bh-weather-foot {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  bottom: 27px;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  color: #e7f0f9;
+  font-size: 11px;
+}
+.bh-weather-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.bh-cloud {
+  position: absolute;
+  height: 49px;
+  width: 132px;
+  border-radius: 45px;
+  background: linear-gradient(#fff, #dce9f4);
+  filter: drop-shadow(0 8px 12px #35537214);
+}
+.bh-cloud::before,
+.bh-cloud::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: inherit;
+}
+.bh-cloud::before {
+  width: 71px;
+  height: 71px;
+  left: 20px;
+  top: -39px;
+}
+.bh-cloud::after {
+  width: 59px;
+  height: 59px;
+  right: 10px;
+  top: -24px;
+}
+.bh-cloud-back {
+  right: 140px;
+  top: 124px;
+  opacity: 0.35;
+  filter: blur(4px);
+  transform: scale(1.2);
+}
+.bh-cloud-front {
+  right: 205px;
+  top: 149px;
+  opacity: 0.95;
+}
+.bh-rain {
+  position: absolute;
+  right: 172px;
+  top: 176px;
+  width: 142px;
+  height: 80px;
+  transform: skewX(-13deg);
+  overflow: hidden;
+}
+.bh-rain i {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 15px;
+  border-radius: 2px;
+  background: #e5f3ff91;
+  animation: bh-rainfall 1.6s linear infinite;
+}
+@keyframes bh-rainfall {
+  0% {
+    transform: translateY(-18px);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.8;
+  }
+  80% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(79px);
+    opacity: 0;
+  }
+}
+:is(.bh-variant-b, .bh-full) .bh-weather-temp {
+  margin-top: 38px;
+  font-size: 124px;
+}
+:is(.bh-variant-b, .bh-full) .bh-cloud-back {
+  right: 42px;
+  top: 190px;
+  transform: scale(1.4);
+}
+:is(.bh-variant-b, .bh-full) .bh-cloud-front {
+  right: 109px;
+  top: 218px;
+  transform: scale(1.35);
+}
+:is(.bh-variant-b, .bh-full) .bh-rain {
+  right: 75px;
+  top: 256px;
+  width: 168px;
+  height: 75px;
+}
+.bh-variant-c .bh-weather .bh-card-head {
+  justify-content: center;
+}
+.bh-variant-c .bh-weather-temp {
+  text-align: center;
+  margin-top: 149px;
+  font-size: 98px;
+}
+.bh-variant-c .bh-weather h3 {
+  text-align: center;
+}
+.bh-variant-c .bh-weather-range {
+  justify-content: center;
+}
+.bh-variant-c .bh-cloud-back {
+  right: calc(50% - 101px);
+  top: 112px;
+}
+.bh-variant-c .bh-cloud-front {
+  right: calc(50% - 34px);
+  top: 137px;
+}
+.bh-variant-c .bh-rain {
+  right: calc(50% - 63px);
+  top: 166px;
+}
+
+/* Forecast: header and legend share a row, plot starts directly below. */
+.bh-forecast {
+  padding: 26px 25px;
+}
+.bh-forecast .bh-card-head {
+  height: 21px;
+}
+.bh-forecast .bh-card-head p {
+  display: none;
+}
+.bh-forecast-unit {
+  margin-left: auto;
+}
+.bh-forecast-legend {
+  position: absolute;
+  right: 48px;
+  top: 28px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  font-size: 9px;
+  color: #959fa6;
+  height: 17px;
+}
+.bh-forecast-legend > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.bh-forecast-legend i {
+  width: 11px;
+  height: 2px;
+  background: #7ea1b2;
+}
+.bh-forecast-legend > span:nth-child(2) i {
+  background: repeating-linear-gradient(90deg, #c4a08b 0 3px, transparent 3px 5px);
+}
+.bh-chart {
+  display: block;
+  width: 100%;
+  height: 310px;
+  margin-top: 4px;
+  overflow: visible;
+}
+.bh-chart text {
+  font-family: inherit;
+  font-size: 10px;
+  fill: #9ba6ad;
+  letter-spacing: -0.02em;
+}
+.bh-chart text.bh-chart-value {
+  font-size: 11px;
+  fill: #7893a0;
+}
+.bh-chart text.bh-chart-feels-value {
+  font-size: 10px;
+  fill: #b78f78;
+}
+.bh-chart .bh-chart-grid text {
+  font-size: 8px;
+  fill: #b0b8bd;
+}
+.bh-line-actual {
+  stroke: #7ea1b2;
+  stroke-width: 2.5px;
+}
+.bh-line-feels {
+  stroke: #c4a08b;
+  stroke-width: 2px;
+}
+.bh-forecast-hitareas {
+  position: absolute;
+  top: 64px;
+  left: 47px;
+  right: 38px;
+  bottom: 28px;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+}
+.bh-forecast-hitareas button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: crosshair;
+  border-radius: 6px;
+}
+.bh-forecast-hitareas button:hover,
+.bh-forecast-hitareas button:focus-visible {
+  background: #8da6b50a;
+  outline: 1px solid #8da6b518;
+}
+.bh-variant-b .bh-forecast .bh-card-head {
+  height: 38px;
+  align-items: flex-start;
+}
+.bh-variant-b .bh-forecast .bh-card-head p {
+  display: block;
+  margin-top: 6px;
+  font-size: 10px;
+  color: #a0a6ac;
+}
+.bh-variant-b .bh-chart {
+  height: 262px;
+}
+.bh-variant-c .bh-line-actual {
+  stroke-width: 0;
+}
+.bh-variant-c .bh-line-feels {
+  stroke-dasharray: none;
+  stroke-width: 1;
+  opacity: 0.55;
+}
+.bh-variant-c .bh-chart > g:not(.bh-chart-grid) > circle {
+  r: 4px;
+}
+
+/* Dark appearance uses tuned surfaces and contrast for each tile. */
+.bh-theme-dark {
+  --bh-ink: #f4f4f6;
+  --tap-bg: #2d2e33;
+  background: #111216;
+  color: var(--bh-ink);
+}
+.bh-theme-dark .bh-card {
+  background: #1c1d21;
+  border-color: #ffffff0d;
+  box-shadow: 0 3px 12px #0000002e;
+}
+.bh-theme-dark .bh-eyebrow,
+.bh-theme-dark .bh-card p,
+.bh-theme-dark .bh-temp-unit,
+.bh-theme-dark .bh-forecast-unit {
+  color: #8f919a;
+}
+.bh-theme-dark .bh-clock-time,
+.bh-theme-dark .bh-target {
+  color: #f5f5f7;
+}
+.bh-theme-dark .bh-analog {
+  color: #898b94;
+}
+.bh-theme-dark .bh-analog::after {
+  background: #f5f5f7;
+}
+.bh-theme-dark .bh-hour-hand,
+.bh-theme-dark .bh-minute-hand {
+  background: #f5f5f7;
+}
+.bh-theme-dark .bh-lamps {
+  background: #1b1c20;
+}
+.bh-theme-dark .bh-room {
+  background: #28251f;
+  border-color: #393329;
+}
+.bh-theme-dark .bh-room.bh-room-on {
+  background: #332b1d;
+}
+.bh-theme-dark .bh-lamp-scene[aria-pressed="true"] {
+  --tap-bg: #35363b;
+  color: #f2f2f4;
+}
+.bh-theme-dark .bh-master > .bh-tap[aria-pressed="true"] {
+  --tap-bg: #35363b;
+  color: #f2f2f4;
+}
+.bh-theme-dark .bh-lamp-scene-all {
+  --tap-bg: #cfa44c;
+  color: #221b0d;
+}
+.bh-theme-dark .bh-climate {
+  background: #1b1c20;
+}
+.bh-theme-dark .bh-climate .bh-dial-ticks {
+  --climate-track: #34363c;
+}
+.bh-theme-dark .bh-mode-cool .bh-dial-ticks {
+  background: conic-gradient(
+    from 135deg,
+    transparent 0deg 105deg,
+    var(--climate-accent) 105deg 145deg,
+    transparent 145deg 360deg
+  );
+}
+.bh-theme-dark .bh-mode-heat_cool .bh-dial-ticks {
+  background: conic-gradient(
+    from 135deg,
+    transparent 0deg 55deg,
+    #e3796d 55deg 90deg,
+    transparent 90deg 180deg,
+    #6da6da 180deg 215deg,
+    transparent 215deg 360deg
+  );
+}
+.bh-theme-dark .bh-dial-position > span {
+  box-shadow: 0 0 0 4px #1b1c20;
+}
+.bh-theme-dark .bh-stepper .bh-tap {
+  --tap-bg: #24252a;
+  border-color: #ffffff10;
+  color: #c6c7ce;
+}
+.bh-theme-dark:is(.bh-variant-b, .bh-full) .bh-climate .bh-modes {
+  background: #24252a;
+}
+.bh-theme-dark .bh-modes .bh-tap {
+  --tap-bg: transparent;
+}
+.bh-theme-dark .bh-modes .bh-tap[aria-pressed="true"] {
+  --tap-bg: #303136;
+  box-shadow: inset 0 0 0 1px #ffffff0d;
+}
+.bh-theme-dark .bh-mode-cool .bh-modes .bh-tap[aria-pressed="true"] {
+  color: #78afe0;
+}
+.bh-theme-dark .bh-mode-heat .bh-modes .bh-tap[aria-pressed="true"] {
+  color: #e88578;
+}
+.bh-theme-dark .bh-mode-heat_cool .bh-modes .bh-tap[aria-pressed="true"] {
+  color: #b1a7d5;
+}
+.bh-theme-dark .bh-fan {
+  background: #1b2224;
+}
+.bh-theme-dark .bh-fan-power {
+  --tap-bg: #24383b;
+  color: #88c3c7;
+  border-color: #315055;
+}
+.bh-theme-dark .bh-forecast {
+  background: #191b1f;
+}
+.bh-theme-dark .bh-chart-grid line {
+  stroke: #ffffff0d;
+}
+.bh-theme-dark .bh-chart text,
+.bh-theme-dark .bh-chart .bh-chart-grid text {
+  fill: #747983;
+}
+.bh-theme-dark .bh-chart text.bh-chart-value {
+  fill: #9ab8c8;
+}
+.bh-theme-dark .bh-chart text.bh-chart-feels-value {
+  fill: #d0a68d;
+}
+.bh-theme-dark .bh-weather {
+  background: #47657d;
+  border-color: #5f7f98;
+}
+.bh-theme-dark .bh-sonos {
+  background: #eee9e1;
+  border-color: #eee9e1;
+  color: #302d29;
+}
+.bh-theme-dark .bh-sonos .bh-audio-stage p,
+.bh-theme-dark .bh-sonos .bh-volume-label {
+  color: #827b72;
+}
+.bh-theme-dark .bh-sonos .bh-volume-label > span {
+  color: #4e4943;
+}
+.bh-theme-dark .bh-sonos .bh-source-choice {
+  --tap-bg: #ded8cf;
+  color: #857e75;
+}
+.bh-theme-dark .bh-sonos .bh-source-choice[aria-pressed="true"] {
+  --tap-bg: #393631;
+  color: #f7f3ed;
+}
+.bh-theme-dark .bh-sonos .bh-volume-step {
+  --tap-bg: #ddd7ce;
+  color: #706960;
+}
+.bh-theme-dark .bh-sonos .bh-volume input {
+  background: linear-gradient(90deg, #4d4842 0 82%, #cec8bf 82%);
+}
+.bh-theme-dark .bh-sonos .bh-volume input::-webkit-slider-thumb {
+  background: #4d4842;
+}
+.bh-theme-dark .bh-color-detail {
+  background: #15161a;
+  color: #f4f4f6;
+}
+.bh-theme-dark .bh-color-back {
+  color: #a6a7af;
+}
+.bh-theme-dark .bh-color-well input {
+  background: #24252a;
+  box-shadow: 0 0 0 1px #ffffff0d;
+}
+.bh-theme-dark .bh-color-presets .bh-tap {
+  --tap-bg: #2b2c31;
+  color: #e6e6e9;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bh-analog > span,
+  .bh-rain i {
+    animation-play-state: paused;
+  }
+  .bh-switch > span {
+    transition: none;
+  }
 }

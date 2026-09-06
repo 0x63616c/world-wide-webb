@@ -8,21 +8,68 @@ const NAMES = {
   lamps: ["Room scenes", "Room list", "Room buttons"],
   climate: ["Dial + modes", "Central dial", "Temperature first"],
   sonos: ["Source + shortcuts", "Now playing", "Source rail"],
-  fan: ["Desk fan", "Side control", "Power dial"],
+  fan: ["Airflow", "Quick switch", "Power tile"],
   weather: ["Cloud study", "Temperature first", "Centered sky"],
   forecast: ["Hourly line", "Side caption", "Hourly points"],
 } as const;
+const REVIEW: Record<
+  TileId,
+  { pick: "a" | "b" | "c"; yours?: boolean; keep: string; change: string }
+> = {
+  clock: {
+    pick: "a",
+    yours: true,
+    keep: "Large time and the simple sweeping face.",
+    change: "Keep the date quiet and the face free of shadows.",
+  },
+  lamps: {
+    pick: "c",
+    yours: true,
+    keep: "Room buttons make each zone distinct.",
+    change: "Color stays in Bedroom and Living room; the power button covers everything.",
+  },
+  climate: {
+    pick: "b",
+    keep: "A compact dial with temperature controls close together.",
+    change: "Heat is red, Cool is blue, and the ring now responds to dragging.",
+  },
+  sonos: {
+    pick: "b",
+    keep: "Desk / TV and one master volume control.",
+    change: "Use the softer inverted palette; omit grouping metadata.",
+  },
+  fan: {
+    pick: "a",
+    keep: "Airflow represents the built-in fan.",
+    change: "Keep it to one action; the freestanding fan is gone.",
+  },
+  weather: {
+    pick: "b",
+    yours: true,
+    keep: "Temperature first, with soft clouds as the illustration.",
+    change: "Let the illustration fill the extra width without adding text.",
+  },
+  forecast: {
+    pick: "a",
+    keep: "Temperature and feels-like on the same scale.",
+    change: "The taller, narrower card gives both lines space. Hover or tap an hour.",
+  },
+};
 const LAYOUT_URL = "/iframe.html?id=prototypes-bento-home--white&viewMode=story";
+const DARK_URL = "/iframe.html?id=prototypes-bento-home--dark&viewMode=story";
 const STUDIES_URL = "/iframe.html?id=prototypes-bento-home--tile-studies&viewMode=story";
-function PreviewNav({ studies = false }: { studies?: boolean }) {
+function PreviewNav({ studies = false, dark = false }: { studies?: boolean; dark?: boolean }) {
   return (
     <header className="bp-nav">
       <span className="bp-brand">
         Home studies<span>Interactive design preview</span>
       </span>
       <nav aria-label="Preview pages">
-        <a href={LAYOUT_URL} aria-current={!studies ? "page" : undefined}>
-          iPad layout
+        <a href={LAYOUT_URL} aria-current={!studies && !dark ? "page" : undefined}>
+          Light
+        </a>
+        <a href={DARK_URL} aria-current={dark ? "page" : undefined}>
+          Dark
         </a>
         <a href={STUDIES_URL} aria-current={studies ? "page" : undefined}>
           All tiles
@@ -74,16 +121,16 @@ function Fit({
     </div>
   );
 }
-export function DevicePreview() {
+export function DevicePreview({ dark = false }: { dark?: boolean }) {
   return (
-    <div className="bp-page bp-device-page">
-      <PreviewNav />
+    <div className={`bp-page bp-device-page ${dark ? "bp-dark" : ""}`}>
+      <PreviewNav dark={dark} />
       <div className="bp-device-stage">
         <Fit width={1406} height={1064} device>
           <div className="bp-ipad">
             <span className="bp-camera" />
             <div className="bp-display">
-              <BentoHome />
+              <BentoHome theme={dark ? "dark" : "light"} />
             </div>
           </div>
         </Fit>
@@ -119,10 +166,18 @@ export function TileStudiesPreview() {
               </div>
               <div className="bp-study-grid">
                 {VARIATIONS.map((variation, index) => (
-                  <article key={variation} className="bp-example">
+                  <article
+                    key={variation}
+                    className={`bp-example ${REVIEW[tileId].pick === variation ? "bp-recommended" : ""}`}
+                  >
                     <div className="bp-example-label">
                       <span>{variation.toUpperCase()}</span>
                       <h3>{NAMES[tileId][index]}</h3>
+                      {REVIEW[tileId].pick === variation && (
+                        <strong className="bp-pick">
+                          {REVIEW[tileId].yours ? "Your pick" : "My pick"}
+                        </strong>
+                      )}
                       <a
                         href={`/iframe.html?id=prototypes-bento-home--tile-focus&viewMode=story&tile=${tileId}&variant=${variation}`}
                         aria-label={`Open ${tile.name} ${variation.toUpperCase()}`}
@@ -135,6 +190,14 @@ export function TileStudiesPreview() {
                     </Fit>
                   </article>
                 ))}
+              </div>
+              <div className="bp-review">
+                <p>
+                  <strong>Keep</strong> {REVIEW[tileId].keep}
+                </p>
+                <p>
+                  <strong>Refine</strong> {REVIEW[tileId].change}
+                </p>
               </div>
             </section>
           );

@@ -5,6 +5,25 @@
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+.bp-page.bp-dark {
+  background: #151619;
+  color: #f1f1f4;
+}
+.bp-dark .bp-brand > span {
+  color: #85868e;
+}
+.bp-dark .bp-nav nav {
+  border-color: #ffffff12;
+  background: #25262b;
+}
+.bp-dark .bp-nav a {
+  color: #999aa3;
+}
+.bp-dark .bp-nav a[aria-current="page"] {
+  background: #3a3b41;
+  color: #fff;
+  box-shadow: none;
+}
 .bp-page * {
   box-sizing: border-box;
 }
@@ -256,4 +275,41 @@
   background: #fff;
   color: #34343c;
   border-color: #fff;
+}
+.bp-pick {
+  margin-left: auto;
+  font-size: 9px;
+  color: #608579;
+  background: #e0ece5;
+  padding: 4px 7px;
+  border-radius: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.bp-example-label > a {
+  margin-left: auto;
+}
+.bp-pick + a {
+  margin-left: 0;
+}
+.bp-recommended .bp-fit-space {
+  outline: 2px solid #9cb4a580;
+  outline-offset: 5px;
+  border-radius: 18px;
+}
+.bp-review {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  margin-top: 25px;
+  font-size: 11px;
+  color: #9395a0;
+}
+.bp-review p {
+  margin: 0;
+}
+.bp-review strong {
+  font-weight: 500;
+  color: #6f7480;
+  margin-right: 6px;
 }

@@ -11,6 +11,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const White: Story = { name: "iPad layout", render: () => <DevicePreview /> };
+export const Dark: Story = { name: "iPad layout · Dark", render: () => <DevicePreview dark /> };
 export const TileStudies: Story = { name: "All tiles", render: () => <TileStudiesPreview /> };
 export const PanelCanvas: Story = { name: "Panel at actual size" };
 
