@@ -5,24 +5,21 @@
 import {
   ArrowDown,
   ArrowUp,
-  BedDouble,
   Check,
   CloudRain,
   Fan,
-  House,
   Lamp,
   Minus,
   Plug,
   Plus,
   Power,
   Snowflake,
-  Sofa,
   Sun,
   Tv,
   Volume2,
   Wind,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useId, useState } from "react";
 import { Button } from "../ui/Button";
 import "./bento-home.css";
 
@@ -95,10 +92,29 @@ function Switch({ on, onClick, label }: { on: boolean; onClick: () => void; labe
     </Tap>
   );
 }
-export function BentoHome() {
+export const TILE_SIZES = {
+  clock: { name: "Clock", width: 562, height: 233.5 },
+  lamps: { name: "Lights", width: 742, height: 233.5 },
+  climate: { name: "Climate", width: 652, height: 481 },
+  sonos: { name: "Sonos", width: 652, height: 233.5 },
+  fan: { name: "Fan", width: 319, height: 233.5 },
+  weather: { name: "Weather", width: 319, height: 481 },
+  forecast: { name: "Forecast", width: 985, height: 233.5 },
+} as const;
+export type TileId = keyof typeof TILE_SIZES;
+export function BentoHome({
+  tile,
+  variation = "a",
+}: {
+  tile?: TileId;
+  variation?: "a" | "b" | "c";
+}) {
+  const volumeId = useId();
+  const chartId = useId();
   const [now, setNow] = useState(new Date());
   const [bedroom, setBedroom] = useState(true);
   const [living, setLiving] = useState(true);
+  const [kitchen, setKitchen] = useState(true);
   const [fan, setFan] = useState(true);
   const [mode, setMode] = useState<Mode>("cool");
   const [target, setTarget] = useState(73);
@@ -129,6 +145,16 @@ export function BentoHome() {
     hour12: true,
     timeZone: "America/Los_Angeles",
   }).format(now);
+  const pacificClock = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hour12: false,
+    timeZone: "America/Los_Angeles",
+  }).formatToParts(now);
+  const hour = Number(pacificClock.find((part) => part.type === "hour")?.value ?? 0);
+  const minute = Number(pacificClock.find((part) => part.type === "minute")?.value ?? 0);
+  const second = Number(pacificClock.find((part) => part.type === "second")?.value ?? 0);
   const date = new Intl.DateTimeFormat("en-US", {
     weekday: "long",
     month: "long",
@@ -136,18 +162,24 @@ export function BentoHome() {
     timeZone: "America/Los_Angeles",
   }).format(now);
   return (
-    <main className="bh-screen">
-      <header className="bh-header">
-        <div className="bh-brand">
-          <House size={23} strokeWidth={1.6} />
-          <span>Home</span>
-        </div>
-
-        <span className="bh-edition">CONTROL PANEL</span>
-      </header>
+    <main
+      className={`bh-screen bh-variant-${variation} ${tile ? "bh-single" : ""}`}
+      data-tile={tile}
+      style={tile ? { width: TILE_SIZES[tile].width, height: TILE_SIZES[tile].height } : undefined}
+    >
       <div className="bh-grid">
         <section className="bh-card bh-clock" aria-label="Time and date">
           <span className="bh-eyebrow">{date}</span>
+          <div className="bh-analog" aria-hidden="true">
+            <div className="bh-analog-marks" />
+            <span
+              className="bh-hour-hand"
+              style={{ transform: `rotate(${hour * 30 + minute / 2}deg)` }}
+            />
+            <span className="bh-minute-hand" style={{ transform: `rotate(${minute * 6}deg)` }} />
+            <span className="bh-second-hand" style={{ transform: `rotate(${second * 6}deg)` }} />
+            <span className="bh-clock-pin" />
+          </div>
           <div className="bh-time">
             {clock.replace(/\s[AP]M/, "")}
             <span>{clock.includes("AM") ? "AM" : "PM"}</span>
@@ -160,7 +192,7 @@ export function BentoHome() {
           <div className="bh-card-head">
             <div className="bh-heading">
               <Lamp />
-              <h2>Lamps</h2>
+              <h2>Lights</h2>
             </div>
             <div className="bh-master">
               <Tap
@@ -171,7 +203,7 @@ export function BentoHome() {
                   preview("All lamps on");
                 }}
               >
-                All on
+                Lamps on
               </Tap>
               <Tap
                 selected={!bedroom && !living}
@@ -181,13 +213,18 @@ export function BentoHome() {
                   preview("All lamps off");
                 }}
               >
-                All off
+                Lamps off
               </Tap>
             </div>
           </div>
           <div className="bh-room-grid">
-            <div className="bh-room">
-              <BedDouble size={25} />
+            <div className={`bh-room bh-bedroom ${bedroom ? "bh-room-on" : ""}`}>
+              <div className="bh-bedroom-scene" aria-hidden="true">
+                <span className="bh-bed" />
+                <span className="bh-bedside bh-left" />
+                <span className="bh-bedside bh-right" />
+                <span className="bh-strip" />
+              </div>
               <Switch
                 on={bedroom}
                 label="Bedroom lamps"
@@ -197,10 +234,12 @@ export function BentoHome() {
                 }}
               />
               <h3>Bedroom</h3>
-              <p>Strip + two bedside lamps</p>
             </div>
-            <div className="bh-room">
-              <Sofa size={25} />
+            <div className={`bh-room bh-living ${living ? "bh-room-on" : ""}`}>
+              <div className="bh-living-scene" aria-hidden="true">
+                <span className="bh-sofa" />
+                <span className="bh-floor-lamp" />
+              </div>
               <Switch
                 on={living}
                 label="Living room lamps"
@@ -210,26 +249,50 @@ export function BentoHome() {
                 }}
               />
               <h3>Living room</h3>
-              <p>The rest of the house lamps</p>
+            </div>
+            <div className={`bh-room bh-kitchen ${kitchen ? "bh-room-on" : ""}`}>
+              <div className="bh-kitchen-scene" aria-hidden="true">
+                <span className="bh-pendant" />
+                <span className="bh-island" />
+              </div>
+              <Switch
+                on={kitchen}
+                label="Kitchen lights"
+                onClick={() => {
+                  setKitchen(!kitchen);
+                  preview(`Kitchen lights ${kitchen ? "off" : "on"}`);
+                }}
+              />
+              <h3>Kitchen</h3>
             </div>
           </div>
         </section>
         <section className={`bh-card bh-fan ${fan ? "bh-fan-on" : ""}`}>
           <div className="bh-card-head">
             <h2>Fan</h2>
-            <Switch
-              on={fan}
+            <span className="bh-fan-status">{fan ? "On" : "Off"}</span>
+          </div>
+          <div className="bh-fan-object" aria-hidden="true">
+            <span className="bh-fan-stand" />
+            <div className="bh-fan-housing">
+              <Fan className="bh-fan-art" strokeWidth={1.8} />
+              <span className="bh-fan-grille" />
+              <span className="bh-fan-hub" />
+            </div>
+          </div>
+          <div className="bh-fan-label">
+            <span>Air circulation</span>
+            <Tap
+              className="bh-fan-power"
+              selected={fan}
               label="Fan"
               onClick={() => {
                 setFan(!fan);
                 preview(`Fan ${fan ? "off" : "on"}`);
               }}
-            />
-          </div>
-          <Fan className="bh-fan-art" strokeWidth={1.2} />
-          <div className="bh-fan-label">
-            <span>Air circulation</span>
-            <span>{fan ? "On" : "Off"}</span>
+            >
+              <Power size={20} />
+            </Tap>
           </div>
         </section>
         <section className={`bh-card bh-climate bh-mode-${mode}`}>
@@ -239,16 +302,6 @@ export function BentoHome() {
               <h2>Climate</h2>
             </div>
             <span className="bh-temp-unit">°F</span>
-          </div>
-          <div className="bh-climate-status">
-            <span className="bh-dot" />
-            {mode === "off"
-              ? "System off"
-              : mode === "cool"
-                ? "Cool mode"
-                : mode === "heat"
-                  ? "Heat mode"
-                  : "Automatic comfort"}
           </div>
           <div className="bh-thermostat">
             <div className="bh-dial-ticks" />
@@ -288,11 +341,6 @@ export function BentoHome() {
             <Tap disabled={mode === "off"} onClick={() => step(-1)} label="Decrease temperature">
               <Minus size={26} />
             </Tap>
-            <span>
-              {mode === "heat_cool"
-                ? `Adjust ${rangeSide === "low" ? "heating" : "cooling"} limit`
-                : "Target temperature"}
-            </span>
             <Tap disabled={mode === "off"} onClick={() => step(1)} label="Increase temperature">
               <Plus size={26} />
             </Tap>
@@ -331,6 +379,12 @@ export function BentoHome() {
               <span className="bh-dot" />5 rooms together
             </span>
           </div>
+          <div className="bh-audio-stage">
+            <div>
+              <h3>{source === "line-in" ? "Desk line-in" : "TV audio"}</h3>
+              <p>{source === "line-in" ? "Paused · All 5 rooms" : "All rooms · Preview"}</p>
+            </div>
+          </div>
           <fieldset className="bh-sonos-sources" aria-label="Play across all rooms">
             <Tap
               className="bh-source-choice"
@@ -345,7 +399,7 @@ export function BentoHome() {
                 <Plug size={22} strokeWidth={1.5} />
                 {source === "line-in" && <Check size={16} />}
               </span>
-              <span className="bh-source-title">Desk line-in</span>
+              <span className="bh-source-title">Join line-in</span>
               <span className="bh-source-caption">
                 {source === "line-in" ? "All rooms · Paused" : "Join all rooms"}
               </span>
@@ -363,20 +417,20 @@ export function BentoHome() {
                 <Tv size={22} strokeWidth={1.5} />
                 {source === "tv" && <Check size={16} />}
               </span>
-              <span className="bh-source-title">TV audio</span>
+              <span className="bh-source-title">Join TV</span>
               <span className="bh-source-caption">
                 {source === "tv" ? "All rooms · Preview" : "Join all rooms"}
               </span>
             </Tap>
           </fieldset>
           <div className="bh-volume-label">
-            <label htmlFor="bh-volume">Desk volume</label>
+            <label htmlFor={volumeId}>Desk volume</label>
             <span>{volume}%</span>
           </div>
           <div className="bh-volume">
             <Volume2 size={18} strokeWidth={1.5} />
             <input
-              id="bh-volume"
+              id={volumeId}
               aria-label="Desk volume"
               type="range"
               min="0"
@@ -393,6 +447,11 @@ export function BentoHome() {
           </div>
         </section>
         <section className="bh-card bh-weather">
+          <div className="bh-weather-scene" aria-hidden="true">
+            <span className="bh-cloud bh-cloud-back" />
+            <span className="bh-cloud bh-cloud-front" />
+            <span className="bh-rain" />
+          </div>
           <div className="bh-card-head">
             <h2>Weather</h2>
             <CloudRain size={26} strokeWidth={1.5} />
@@ -416,8 +475,8 @@ export function BentoHome() {
         <section className="bh-card bh-forecast">
           <div className="bh-card-head">
             <div>
-              <h2>Hourly forecast</h2>
-              <p>The next 12 hours</p>
+              <h2>Forecast</h2>
+              <p>Warming to 77° by 4 PM</p>
             </div>
             <span className="bh-forecast-unit">°F</span>
           </div>
@@ -428,14 +487,14 @@ export function BentoHome() {
             aria-label="Hourly forecast: 67 degrees now, rising to 77 at 4 PM, then falling to 72 by 10 PM"
           >
             <defs>
-              <linearGradient id="bh-area" x1="0" x2="0" y1="0" y2="1">
+              <linearGradient id={chartId} x1="0" x2="0" y1="0" y2="1">
                 <stop offset="0" stopColor="#a8c7c7" stopOpacity=".25" />
                 <stop offset="1" stopColor="#a8c7c7" stopOpacity="0" />
               </linearGradient>
             </defs>
             <path
               d={`M 25 109 ${HOURS.map((h, i) => `L ${25 + i * 67} ${95 - (h.temp - 65) * 5}`).join(" ")} L 762 109 Z`}
-              fill="url(#bh-area)"
+              fill={`url(#${chartId})`}
             />
             <line x1="25" y1="108" x2="762" y2="108" stroke="#e9edec" />
             <polyline
@@ -447,6 +506,9 @@ export function BentoHome() {
             />
             {HOURS.map((h, i) => (
               <g key={h.label}>
+                <title>
+                  {h.label}: {h.temp}°F
+                </title>
                 <circle
                   cx={25 + i * 67}
                   cy={95 - (h.temp - 65) * 5}
@@ -469,13 +531,9 @@ export function BentoHome() {
           </svg>
         </section>
       </div>
-      <footer className="bh-footer">
-        <span>
-          DESIGN STUDY <span className="bh-footer-separator">/</span> 02 — Soft white
-        </span>
-        <span aria-live="polite">{notice}</span>
-        <span>Preview controls only</span>
-      </footer>
+      <span className="bh-sr" aria-live="polite">
+        {notice}
+      </span>
     </main>
   );
 }
