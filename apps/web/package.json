@@ -40,7 +40,7 @@
     "@www/theme": "workspace:*",
     "gifenc": "^1.0.3",
     "lucide-react": "^1.17.0",
-    "maplibre-gl": "^5.24.0",
+    "maplibre-gl": "^6.4.1",
     "pmtiles": "^4.4.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
