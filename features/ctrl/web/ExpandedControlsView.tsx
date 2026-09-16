@@ -4,7 +4,7 @@
  * so it composes trivially in Storybook and component tests.
  *
  * Reuses ControlsGridView (hideMore) for the Lamps/Lights/Fan toggles rather than
- * re-inlining them, then adds lamp-specific controls: four scene presets and a
+ * re-inlining them, then adds lamp-specific controls: scene presets and a
  * brightness slider. The slider is disabled when lamps are off because HA rejects
  * brightness changes on an off light , surfacing that as a dead control is clearer
  * than firing a request that silently no-ops.
@@ -48,8 +48,6 @@ const SCENES: { scene: LampScene; label: string; swatch: string }[] = [
     label: "Mood",
     swatch: "linear-gradient(135deg, #a855f7, #3b82f6 55%, #ec4899)",
   },
-  { scene: LampScene.Red, label: "Red", swatch: "#ff3b3b" },
-  { scene: LampScene.Blue, label: "Blue", swatch: "#2b6bff" },
 ];
 
 const DEFAULT_SAVED_COLORS: SavedLampColorView[] = [
@@ -90,6 +88,7 @@ export function ExpandedControlsView({
   const activeScene = data.lamps.activeScene ?? null;
   const partyActive = activeScene === "party";
   const savedColors = data.lamps.savedColors ?? DEFAULT_SAVED_COLORS;
+  const [editingColors, setEditingColors] = useState(false);
   const [editingColor, setEditingColor] = useState<SavedLampColorView | null>(null);
   const [draftColor, setDraftColor] = useState("");
 
@@ -118,13 +117,22 @@ export function ExpandedControlsView({
             we surface a dead control rather than a silent no-op). Thick track
             (range-lg) with the label + live % readout on one row above it. */}
         <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              justifyContent: "space-between",
+            }}
+          >
             <span className="cap">Lamp brightness</span>
             {/* Live percentage so the slider visibly reflects the value as it moves. */}
             <span
               className="mono"
               data-brightness-readout=""
-              style={{ fontSize: 15, color: lampsOff ? "var(--ink-3)" : "var(--acc)" }}
+              style={{
+                fontSize: 15,
+                color: lampsOff ? "var(--ink-3)" : "var(--acc)",
+              }}
             >
               {brightness}%
             </span>
@@ -188,47 +196,61 @@ export function ExpandedControlsView({
 
         {onColor && onSaveColor && (
           <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <span className="cap">Saved colors</span>
-            <div style={{ display: "flex", justifyContent: "space-around", gap: 20 }}>
-              {savedColors.map((color) => (
-                <div
-                  key={color.slot}
-                  style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}
-                >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between",
+              }}
+            >
+              <span className="cap">Colors</span>
+              <button
+                type="button"
+                aria-pressed={editingColors}
+                onClick={() => setEditingColors((editing) => !editing)}
+                style={{
+                  padding: 0,
+                  border: 0,
+                  background: "none",
+                  color: "var(--ink-2)",
+                  cursor: "pointer",
+                  font: "inherit",
+                  fontSize: 13,
+                }}
+              >
+                {editingColors ? "Done" : "Edit"}
+              </button>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-around",
+                gap: 20,
+              }}
+            >
+              {savedColors.map((color) => {
+                const editColor = () => {
+                  setEditingColor(color);
+                  setDraftColor(color.hex);
+                };
+                return (
                   <button
+                    key={color.slot}
                     type="button"
-                    aria-label={`Use ${color.label}`}
-                    onClick={() => onColor(color.slot)}
+                    aria-label={`${editingColors ? "Edit" : "Use"} ${color.label}`}
+                    onClick={() => (editingColors ? editColor() : onColor(color.slot))}
                     style={{
                       width: 86,
                       height: 86,
                       borderRadius: "50%",
-                      border: "3px solid var(--hair-2)",
+                      border: editingColors ? "3px solid var(--acc)" : "3px solid var(--hair-2)",
                       background: color.hex,
                       boxShadow: "inset 0 0 0 1px rgba(255,255,255,.35)",
                       cursor: "pointer",
                     }}
                   />
-                  <button
-                    type="button"
-                    aria-label={`Edit ${color.label}`}
-                    onClick={() => {
-                      setEditingColor(color);
-                      setDraftColor(color.hex);
-                    }}
-                    style={{
-                      border: 0,
-                      background: "none",
-                      color: "var(--ink-2)",
-                      cursor: "pointer",
-                      font: "inherit",
-                      fontSize: 13,
-                    }}
-                  >
-                    Edit {color.label}
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         )}
@@ -275,10 +297,21 @@ export function ExpandedControlsView({
               gap: 18,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
               <span className="cap">Edit {editingColor.label}</span>
               <span
-                style={{ width: 32, height: 32, borderRadius: "50%", background: draftColor }}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  background: draftColor,
+                }}
               />
             </div>
             <HexColorPicker
@@ -303,7 +336,13 @@ export function ExpandedControlsView({
                 fontSize: 18,
               }}
             />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+              }}
+            >
               <button
                 type="button"
                 onClick={() => setEditingColor(null)}

@@ -37,11 +37,6 @@ const lampsOffAtLevel: ControlsViewData = {
   fan: { on: false, pending: false },
 };
 
-const blueActive: ControlsViewData = {
-  ...allOn,
-  lamps: { ...allOn.lamps, activeScene: "blue" },
-};
-
 const partyActive: ControlsViewData = {
   ...allOn,
   lamps: { ...allOn.lamps, activeScene: "party" },
@@ -61,6 +56,8 @@ const meta = {
     onToggle: fn(),
     onScene: fn(),
     onBrightness: fn(),
+    onColor: fn(),
+    onSaveColor: fn(),
     onPartySelect: fn(),
   },
 } satisfies Meta<typeof ExpandedControlsView>;
@@ -77,11 +74,12 @@ export const Open: Story = {
     // Grid toggles are reused, no "More" button inside the modal
     await expect(canvas.getByLabelText("Lamps")).toBeInTheDocument();
     expect(canvas.queryByLabelText("More")).toBeNull();
-    // All four scene tiles present, laid out as a 2-col ControlTap grid.
+    // White and Mood scenes are laid out as a 2-col ControlTap grid. Colors are
+    // managed in their own row below, so Red and Blue are not duplicated here.
     const sceneGrid = canvas.getByRole("button", { name: "White" }).parentElement as HTMLElement;
     expect(sceneGrid.style.display).toBe("grid");
     expect(sceneGrid.style.gridTemplateColumns).toBe("1fr 1fr");
-    for (const name of ["White", "Mood", "Red", "Blue"]) {
+    for (const name of ["White", "Mood"]) {
       const tile = canvas.getByRole("button", { name });
       expect(tile).toBeInTheDocument();
       // Each tile carries a ControlTap color swatch so the scene reads at a glance.
@@ -91,7 +89,9 @@ export const Open: Story = {
     expect(canvas.getByRole("tablist", { name: "Party" })).toBeInTheDocument();
     expect(canvas.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "true");
     // No scene is active in this fixture → no tile highlighted.
-    expect(canvas.getByRole("button", { name: "Blue" })).toHaveAttribute("aria-pressed", "false");
+    expect(canvas.getByRole("button", { name: "Mood" })).toHaveAttribute("aria-pressed", "false");
+    expect(canvas.getByRole("button", { name: "Use Red" })).toBeInTheDocument();
+    expect(canvas.getByRole("button", { name: "Edit" })).toBeInTheDocument();
     // Brightness enabled when lamps on, seeded from data.lamps.brightness (72%).
     const slider = canvas.getByLabelText("Brightness") as HTMLInputElement;
     expect(slider).not.toBeDisabled();
@@ -142,28 +142,8 @@ export const SceneInteraction: Story = {
     expect(args.onScene).toHaveBeenCalledWith("white");
     await userEvent.click(canvas.getByRole("button", { name: "Mood" }));
     expect(args.onScene).toHaveBeenCalledWith("mood");
-    await userEvent.click(canvas.getByRole("button", { name: "Red" }));
-    expect(args.onScene).toHaveBeenCalledWith("red");
-    await userEvent.click(canvas.getByRole("button", { name: "Blue" }));
-    expect(args.onScene).toHaveBeenCalledWith("blue");
-  },
-};
-
-// ─── Active scene highlight ─────────────────────────────────────────────────
-
-export const BlueActive: Story = {
-  name: "Active scene , Blue highlighted",
-  args: { data: blueActive },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement.ownerDocument.body);
-    // The Blue scene tile is highlighted (on); the others are not.
-    await expect(canvas.getByRole("button", { name: "Blue" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    for (const name of ["White", "Mood", "Red"]) {
-      expect(canvas.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
-    }
+    await userEvent.click(canvas.getByRole("button", { name: "Use Red" }));
+    expect(args.onColor).toHaveBeenCalledWith("red");
   },
 };
 
@@ -178,7 +158,7 @@ export const PartyActive: Story = {
     await expect(canvas.getByRole("tab", { name: "Med" })).toHaveAttribute("aria-selected", "true");
     expect(canvas.getByRole("tab", { name: "Off" })).toHaveAttribute("aria-selected", "false");
     // No scene tile is active while party runs.
-    for (const name of ["White", "Mood", "Red", "Blue"]) {
+    for (const name of ["White", "Mood"]) {
       expect(canvas.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
     }
     // Picking a new speed fires onPartySelect with that speed.
