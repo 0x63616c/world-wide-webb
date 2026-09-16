@@ -513,7 +513,8 @@ function sceneColors(scene: LampScene): LightColor[] {
 
 /**
  * Apply a color scene to every lamp: writes the color into device_state DESIRED
- * (on=true) AND actuates HA immediately. activeScene then reflects the scene from
+ * (on=true) AND actuates HA immediately. Red also sets full brightness so it
+ * reads as a vivid red instead of inheriting a dim prior level. activeScene then reflects the scene from
  * desired , including "mood", where each lamp gets a distinct random palette
  * color and palette membership is the signature (www-vhht). Throws when HA is
  * unconfigured.
@@ -540,6 +541,7 @@ export async function setLampScene(
     (entry) => ({
       on: true,
       color: colorByEntity.get(entry.entityId),
+      ...(scene === LampScene.Red ? { brightness: 255 } : {}),
     }),
     store,
   );
