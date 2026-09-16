@@ -371,7 +371,12 @@ async function clearLampMode(): Promise<void> {
   try {
     await db
       .insert(lampMode)
-      .values({ id: LAMP_MODE_SINGLETON_ID, mode: LampMode.None, speed: null, updatedAtUtc: now })
+      .values({
+        id: LAMP_MODE_SINGLETON_ID,
+        mode: LampMode.None,
+        speed: null,
+        updatedAtUtc: now,
+      })
       .onConflictDoUpdate({
         target: lampMode.id,
         set: { mode: LampMode.None, speed: null, updatedAtUtc: now },
@@ -541,7 +546,9 @@ export async function toggleControl(
 function sceneColors(scene: LampScene): LightColor[] {
   switch (scene) {
     case LampScene.Mood:
-      return assignMoodColors(LAMP_ENTITY_IDS.length).map((rgb) => ({ xy: rgbToXy(rgb) }));
+      return assignMoodColors(LAMP_ENTITY_IDS.length).map((rgb) => ({
+        xy: rgbToXy(rgb),
+      }));
     case LampScene.White:
       return LAMP_ENTITY_IDS.map(() => ({ kelvin: WHITE_SCENE_KELVIN }));
     case LampScene.Red:
@@ -589,7 +596,7 @@ export async function setLampScene(
   return getControlsState(store);
 }
 
-/** Apply a saved color and optionally replace its stored value first. */
+/** Apply a saved color at full brightness and optionally replace its stored value first. */
 export async function setLampColor(
   slot: LampColorSlot,
   hex: string | undefined,
@@ -606,7 +613,12 @@ export async function setLampColor(
   if (hex) {
     await db
       .insert(lampMode)
-      .values({ id: lampColorRowId(slot), mode: chosen, speed: null, updatedAtUtc: new Date() })
+      .values({
+        id: lampColorRowId(slot),
+        mode: chosen,
+        speed: null,
+        updatedAtUtc: new Date(),
+      })
       .onConflictDoUpdate({
         target: lampMode.id,
         set: { mode: chosen, speed: null, updatedAtUtc: new Date() },
@@ -614,7 +626,14 @@ export async function setLampColor(
   }
 
   await clearLampMode();
-  await writeDesired(lampEntries(), () => ({ on: true, color: { xy: rgbToXy(rgb) } }), store);
+  // Saturated channels, particularly red, emit noticeably less perceived light
+  // than white. A color selection therefore resets the lamps to their available
+  // maximum instead of preserving a possibly dim previous scene level.
+  await writeDesired(
+    lampEntries(),
+    () => ({ on: true, brightness: 255, color: { xy: rgbToXy(rgb) } }),
+    store,
+  );
   return getControlsState(store);
 }
 
@@ -673,7 +692,12 @@ export async function setLampMode(
   try {
     await db
       .insert(lampMode)
-      .values({ id: LAMP_MODE_SINGLETON_ID, mode, speed: speed ?? null, updatedAtUtc: now })
+      .values({
+        id: LAMP_MODE_SINGLETON_ID,
+        mode,
+        speed: speed ?? null,
+        updatedAtUtc: now,
+      })
       .onConflictDoUpdate({
         target: lampMode.id,
         set: { mode, speed: speed ?? null, updatedAtUtc: now },

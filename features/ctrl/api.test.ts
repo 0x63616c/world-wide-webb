@@ -95,7 +95,10 @@ function makeFan(id: string, state: "on" | "off", percentage?: number) {
   return {
     entity_id: `fan.${id}`,
     state,
-    attributes: { friendly_name: id, ...(percentage !== undefined ? { percentage } : {}) },
+    attributes: {
+      friendly_name: id,
+      ...(percentage !== undefined ? { percentage } : {}),
+    },
     last_updated: new Date().toISOString(),
   };
 }
@@ -388,7 +391,10 @@ describe("getControlsState", () => {
     mockIsConfigured.mockReturnValue(true);
     // desired brightness is HA raw 0..255: 255 → 100%, 128 → 50%; off lamp excluded.
     await seedRows(store, [
-      lampRow("lamp-1", "light.living_room_globe", { on: true, brightness: 255 }),
+      lampRow("lamp-1", "light.living_room_globe", {
+        on: true,
+        brightness: 255,
+      }),
       lampRow("lamp-2", "light.bed_lamp_left", { on: true, brightness: 128 }),
       lampRow("lamp-3", "light.kitchen_lamp", { on: false, brightness: 64 }),
     ]);
@@ -405,7 +411,10 @@ describe("getControlsState", () => {
     // Both lamps OFF but desired brightness persists (255→100%, 128→50%): the bar
     // must show the level it will resume to (avg 75%), NOT drop to 0%.
     await seedRows(store, [
-      lampRow("lamp-1", "light.living_room_globe", { on: false, brightness: 255 }),
+      lampRow("lamp-1", "light.living_room_globe", {
+        on: false,
+        brightness: 255,
+      }),
       lampRow("lamp-2", "light.bed_lamp_left", { on: false, brightness: 128 }),
     ]);
 
@@ -565,8 +574,14 @@ describe("getControlsState", () => {
   it("activeScene='blue' when every on-lamp's desired color is BLUE_RGB", async () => {
     mockIsConfigured.mockReturnValue(true);
     await seedRows(store, [
-      lampRow("lamp-1", "light.living_room_globe", { on: true, color: { rgb: [0, 0, 255] } }),
-      lampRow("lamp-2", "light.bed_lamp_left", { on: true, color: { rgb: [0, 0, 255] } }),
+      lampRow("lamp-1", "light.living_room_globe", {
+        on: true,
+        color: { rgb: [0, 0, 255] },
+      }),
+      lampRow("lamp-2", "light.bed_lamp_left", {
+        on: true,
+        color: { rgb: [0, 0, 255] },
+      }),
     ]);
 
     const state = await getControlsState(store);
@@ -591,8 +606,14 @@ describe("getControlsState", () => {
   it("activeScene=null when on-lamps disagree on non-palette colors", async () => {
     mockIsConfigured.mockReturnValue(true);
     await seedRows(store, [
-      lampRow("lamp-1", "light.living_room_globe", { on: true, color: { rgb: [255, 0, 0] } }),
-      lampRow("lamp-2", "light.bed_lamp_left", { on: true, color: { rgb: [0, 0, 255] } }),
+      lampRow("lamp-1", "light.living_room_globe", {
+        on: true,
+        color: { rgb: [255, 0, 0] },
+      }),
+      lampRow("lamp-2", "light.bed_lamp_left", {
+        on: true,
+        color: { rgb: [0, 0, 255] },
+      }),
     ]);
 
     const state = await getControlsState(store);
@@ -607,8 +628,14 @@ describe("getControlsState", () => {
         on: true,
         color: { rgb: [...MOOD_PALETTE[0]] },
       }),
-      lampRow("lamp-2", "light.bed_lamp_left", { on: true, color: { rgb: [...MOOD_PALETTE[3]] } }),
-      lampRow("lamp-3", "light.bed_lamp_right", { on: true, color: { rgb: [...MOOD_PALETTE[5]] } }),
+      lampRow("lamp-2", "light.bed_lamp_left", {
+        on: true,
+        color: { rgb: [...MOOD_PALETTE[3]] },
+      }),
+      lampRow("lamp-3", "light.bed_lamp_right", {
+        on: true,
+        color: { rgb: [...MOOD_PALETTE[5]] },
+      }),
     ]);
 
     const state = await getControlsState(store);
@@ -683,7 +710,10 @@ describe("toggleControl", () => {
     mockIsConfigured.mockReturnValue(true);
     // One lamp already has a blue desired color; turning lamps on must keep it.
     await seedRows(store, [
-      lampRow("lamp-1", "light.living_room_globe", { on: false, color: { rgb: [0, 0, 255] } }),
+      lampRow("lamp-1", "light.living_room_globe", {
+        on: false,
+        color: { rgb: [0, 0, 255] },
+      }),
     ]);
 
     await toggleControl(ControlKey.Lamps, true, store);
@@ -839,7 +869,10 @@ describe("controlsRouter.toggle", () => {
     }));
 
     const caller = buildCaller();
-    const result = await caller.controls.toggle({ key: ControlKey.Fan, on: true });
+    const result = await caller.controls.toggle({
+      key: ControlKey.Fan,
+      on: true,
+    });
 
     // Result should be the merged controls state shape, not { success: true }
     expect(result).toHaveProperty("fan");
@@ -992,6 +1025,7 @@ describe("setLampColor", () => {
     for (const entityId of LAMP_ENTITY_IDS) {
       expect(writes.get(entityId)?.desiredState).toMatchObject({
         on: true,
+        brightness: 255,
         color: { xy: rgbToXy([0, 255, 0]) },
       });
     }
@@ -1026,7 +1060,10 @@ describe("setLampBrightness", () => {
     expect(mockDbInsert).toHaveBeenCalledTimes(LAMP_ENTITY_IDS.length);
     expect(mockCallService).not.toHaveBeenCalled();
     for (const entityId of LAMP_ENTITY_IDS) {
-      expect(writes.get(entityId)?.desiredState).toMatchObject({ on: true, brightness: 153 });
+      expect(writes.get(entityId)?.desiredState).toMatchObject({
+        on: true,
+        brightness: 153,
+      });
     }
   });
 
@@ -1036,7 +1073,9 @@ describe("setLampBrightness", () => {
 
     await setLampBrightness(150);
 
-    expect(writes.get(LAMP_ENTITY_IDS[0])?.desiredState).toMatchObject({ brightness: 255 });
+    expect(writes.get(LAMP_ENTITY_IDS[0])?.desiredState).toMatchObject({
+      brightness: 255,
+    });
   });
 
   it("clamps negative brightness up to 0 (raw 0)", async () => {
@@ -1045,7 +1084,9 @@ describe("setLampBrightness", () => {
 
     await setLampBrightness(-20);
 
-    expect(writes.get(LAMP_ENTITY_IDS[0])?.desiredState).toMatchObject({ brightness: 0 });
+    expect(writes.get(LAMP_ENTITY_IDS[0])?.desiredState).toMatchObject({
+      brightness: 0,
+    });
   });
 
   it("returns the merged controls state after dispatching", async () => {
@@ -1204,7 +1245,12 @@ describe("getControlsState activeScene='party'", () => {
     mockIsConfigured.mockReturnValue(true);
     // Lamps are blue, but the party mode row overrides the color-derived scene.
     mockSelectWithMode(
-      [lampRow("lamp-1", "light.living_room_globe", { on: true, color: { rgb: [0, 0, 255] } })],
+      [
+        lampRow("lamp-1", "light.living_room_globe", {
+          on: true,
+          color: { rgb: [0, 0, 255] },
+        }),
+      ],
       LampMode.Party,
     );
 
@@ -1216,7 +1262,12 @@ describe("getControlsState activeScene='party'", () => {
   it("falls back to the color-derived scene when the lamp_mode row is none", async () => {
     mockIsConfigured.mockReturnValue(true);
     mockSelectWithMode(
-      [lampRow("lamp-1", "light.living_room_globe", { on: true, color: { rgb: [0, 0, 255] } })],
+      [
+        lampRow("lamp-1", "light.living_room_globe", {
+          on: true,
+          color: { rgb: [0, 0, 255] },
+        }),
+      ],
       LampMode.None,
     );
 
@@ -1242,7 +1293,10 @@ describe("controlsRouter.setLampMode", () => {
     );
 
     const caller = buildCaller();
-    const result = await caller.controls.setLampMode({ mode: "party", speed: "medium" });
+    const result = await caller.controls.setLampMode({
+      mode: "party",
+      speed: "medium",
+    });
 
     expect(result).toHaveProperty("lamps");
     expect(result.lamps.activeScene).toBe(LampMode.Party);

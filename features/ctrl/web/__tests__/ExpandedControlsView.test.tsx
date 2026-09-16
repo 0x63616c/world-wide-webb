@@ -13,7 +13,13 @@ import { ExpandedControlsView } from "../ExpandedControlsView";
 afterEach(cleanup);
 
 const allOn: ControlsViewData = {
-  lamps: { on: true, sub: "On", pending: false, brightness: 72, activeScene: null },
+  lamps: {
+    on: true,
+    sub: "On",
+    pending: false,
+    brightness: 72,
+    activeScene: null,
+  },
   lights: { on: true, pending: false },
   fan: { on: true, sub: "Medium", pending: false },
 };
@@ -73,12 +79,10 @@ describe("ExpandedControlsView , reuses ControlsGridView", () => {
 // ─── scene buttons ────────────────────────────────────────────────────────────
 
 describe("ExpandedControlsView , scene tiles (ControlTap)", () => {
-  it("renders all four scene tiles with exact accessible names", () => {
+  it("renders the two non-custom scene tiles", () => {
     render(<ExpandedControlsView {...baseProps()} />);
     expect(screen.getByRole("button", { name: "White" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mood" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Red" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Blue" })).toBeInTheDocument();
   });
 
   it("each scene tile calls onScene with its scene id", () => {
@@ -86,17 +90,13 @@ describe("ExpandedControlsView , scene tiles (ControlTap)", () => {
     render(<ExpandedControlsView {...baseProps({ onScene })} />);
     fireEvent.click(screen.getByRole("button", { name: "White" }));
     fireEvent.click(screen.getByRole("button", { name: "Mood" }));
-    fireEvent.click(screen.getByRole("button", { name: "Red" }));
-    fireEvent.click(screen.getByRole("button", { name: "Blue" }));
     expect(onScene).toHaveBeenNthCalledWith(1, "white");
     expect(onScene).toHaveBeenNthCalledWith(2, "mood");
-    expect(onScene).toHaveBeenNthCalledWith(3, "red");
-    expect(onScene).toHaveBeenNthCalledWith(4, "blue");
   });
 
   it("each scene tile renders a ControlTap color swatch (no Icon svg)", () => {
     render(<ExpandedControlsView {...baseProps()} />);
-    for (const name of ["White", "Mood", "Red", "Blue"]) {
+    for (const name of ["White", "Mood"]) {
       const tile = screen.getByRole("button", { name });
       const swatch = tile.querySelector("[data-swatch]") as HTMLElement | null;
       expect(swatch).not.toBeNull();
@@ -108,18 +108,21 @@ describe("ExpandedControlsView , scene tiles (ControlTap)", () => {
   });
 
   it("highlights only the active scene tile (on=activeScene===scene)", () => {
-    const data: ControlsViewData = { ...allOn, lamps: { ...allOn.lamps, activeScene: "blue" } };
+    const data: ControlsViewData = {
+      ...allOn,
+      lamps: { ...allOn.lamps, activeScene: "mood" },
+    };
     render(<ExpandedControlsView {...baseProps({ data })} />);
-    expect(screen.getByRole("button", { name: "Blue" })).toHaveClass("on");
-    expect(screen.getByRole("button", { name: "Blue" })).toHaveAttribute("aria-pressed", "true");
-    for (const name of ["White", "Mood", "Red"]) {
+    expect(screen.getByRole("button", { name: "Mood" })).toHaveClass("on");
+    expect(screen.getByRole("button", { name: "Mood" })).toHaveAttribute("aria-pressed", "true");
+    for (const name of ["White"]) {
       expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
     }
   });
 
   it("highlights no scene tile when activeScene is null", () => {
     render(<ExpandedControlsView {...baseProps()} />);
-    for (const name of ["White", "Mood", "Red", "Blue"]) {
+    for (const name of ["White", "Mood"]) {
       expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
     }
   });
@@ -130,7 +133,7 @@ describe("ExpandedControlsView , scene tiles (ControlTap)", () => {
     const grid = screen.getByRole("button", { name: "White" }).parentElement as HTMLElement;
     expect(grid.style.display).toBe("grid");
     expect(grid.style.gridTemplateColumns).toBe("1fr 1fr");
-    for (const name of ["White", "Mood", "Red", "Blue"]) {
+    for (const name of ["White", "Mood"]) {
       expect(screen.getByRole("button", { name }).parentElement).toBe(grid);
     }
   });
@@ -153,6 +156,7 @@ describe("ExpandedControlsView , saved colors", () => {
   it("opens a large picker and saves the edited color", () => {
     const onSaveColor = vi.fn();
     render(<ExpandedControlsView {...baseProps({ onSaveColor })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("button", { name: "Edit Blue" }));
     expect(screen.getByRole("dialog", { name: "Edit Blue color" })).toBeInTheDocument();
     const input = screen.getByRole("textbox", { name: "Hex color" });
@@ -211,7 +215,9 @@ describe("ExpandedControlsView , party control", () => {
   it("disables the party control when lamps are off", () => {
     const onPartySelect = vi.fn();
     render(<ExpandedControlsView {...baseProps({ data: lampsOff, onPartySelect })} />);
-    expect(screen.getByRole("tablist", { name: "Party" })).toHaveStyle({ pointerEvents: "none" });
+    expect(screen.getByRole("tablist", { name: "Party" })).toHaveStyle({
+      pointerEvents: "none",
+    });
     expect(screen.getByRole("tab", { name: "Fast" })).toBeDisabled();
   });
 
@@ -254,7 +260,10 @@ describe("ExpandedControlsView , brightness slider", () => {
   });
 
   it("defaults to 0 when brightness is absent", () => {
-    const data: ControlsViewData = { ...allOn, lamps: { on: true, sub: "On", pending: false } };
+    const data: ControlsViewData = {
+      ...allOn,
+      lamps: { on: true, sub: "On", pending: false },
+    };
     render(<ExpandedControlsView {...baseProps({ data })} />);
     expect((screen.getByLabelText("Brightness") as HTMLInputElement).value).toBe("0");
     expect(screen.getByText("0%")).toBeInTheDocument();
@@ -305,7 +314,10 @@ describe("ExpandedControlsView , brightness slider", () => {
   it("resyncs the slider when data.lamps.brightness changes upstream", () => {
     const { rerender } = render(<ExpandedControlsView {...baseProps()} />);
     expect((screen.getByLabelText("Brightness") as HTMLInputElement).value).toBe("72");
-    const next: ControlsViewData = { ...allOn, lamps: { ...allOn.lamps, brightness: 30 } };
+    const next: ControlsViewData = {
+      ...allOn,
+      lamps: { ...allOn.lamps, brightness: 30 },
+    };
     rerender(<ExpandedControlsView {...baseProps({ data: next })} />);
     expect((screen.getByLabelText("Brightness") as HTMLInputElement).value).toBe("30");
     expect(screen.getByText("30%")).toBeInTheDocument();

@@ -547,7 +547,13 @@ describe("ControlsTile", () => {
     beforeEach(() => {
       mockQueryReturn = {
         data: {
-          lamps: { on: true, count: 2, sub: "On", pending: false, brightness: 72 },
+          lamps: {
+            on: true,
+            count: 2,
+            sub: "On",
+            pending: false,
+            brightness: 72,
+          },
           lights: { on: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },
@@ -580,8 +586,8 @@ describe("ControlsTile", () => {
       render(<ControlsDetailPage />);
       expect(screen.getByRole("button", { name: "White" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Mood" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Red" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Blue" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Use Red" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Use Blue" })).toBeInTheDocument();
       expect(screen.getByLabelText("Brightness")).toBeInTheDocument();
     });
 
@@ -604,7 +610,9 @@ describe("ControlsTile", () => {
 
     it("brightness slider fires setLampBrightness mutation with the pct", async () => {
       render(<ControlsDetailPage />);
-      fireEvent.change(screen.getByLabelText("Brightness"), { target: { value: "55" } });
+      fireEvent.change(screen.getByLabelText("Brightness"), {
+        target: { value: "55" },
+      });
       // onBrightness is debounced 400ms in the page, so the mutation fires on the
       // trailing edge , wait for it rather than asserting synchronously.
       await waitFor(() => expect(mockBrightnessMutate).toHaveBeenCalledWith({ pct: 55 }));
@@ -612,7 +620,9 @@ describe("ControlsTile", () => {
 
     it("brightness drag optimistically writes the pct into the cache (no snap-back)", async () => {
       render(<ControlsDetailPage />);
-      fireEvent.change(screen.getByLabelText("Brightness"), { target: { value: "40" } });
+      fireEvent.change(screen.getByLabelText("Brightness"), {
+        target: { value: "40" },
+      });
 
       // The mutation is debounced 400ms; its onMutate then cancels + writes the
       // optimistic value. Wait for that trailing-edge work to land.
@@ -622,7 +632,13 @@ describe("ControlsTile", () => {
         lamps: { brightness: number };
       };
       const next = updater({
-        lamps: { on: true, count: 2, sub: "On", pending: false, brightness: 72 },
+        lamps: {
+          on: true,
+          count: 2,
+          sub: "On",
+          pending: false,
+          brightness: 72,
+        },
         lights: { on: false, pending: false },
         fan: { on: false, sub: "", pending: false },
       });
@@ -649,7 +665,7 @@ describe("ControlsTile", () => {
 
   // ── www-7d5b.3.7: setLampMode (party) wiring + speed ──────────────────────────
   describe("www-7d5b.3.7: party mode + speed wiring", () => {
-    it("threads activeScene into the detail page so the active scene tile highlights", () => {
+    it("does not confuse a saved color with a scene tile", () => {
       mockQueryReturn = {
         data: {
           lamps: {
@@ -667,7 +683,11 @@ describe("ControlsTile", () => {
         isError: false,
       };
       render(<ControlsDetailPage />);
-      expect(screen.getByRole("button", { name: "Blue" })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByRole("button", { name: "White" })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+      expect(screen.getByRole("button", { name: "Mood" })).toHaveAttribute("aria-pressed", "false");
     });
 
     it("tapping a speed when none active starts party at that speed", () => {
@@ -689,7 +709,10 @@ describe("ControlsTile", () => {
       };
       render(<ControlsDetailPage />);
       fireEvent.click(screen.getByRole("tab", { name: "Fast" }));
-      expect(mockModeMutate).toHaveBeenCalledWith({ mode: "party", speed: "fast" });
+      expect(mockModeMutate).toHaveBeenCalledWith({
+        mode: "party",
+        speed: "fast",
+      });
     });
 
     it("tapping Off when party active stops it (mode: none)", () => {
@@ -757,13 +780,22 @@ describe("ControlsTile", () => {
       };
       render(<ControlsDetailPage />);
       fireEvent.click(screen.getByRole("tab", { name: "Slow" }));
-      expect(mockModeMutate).toHaveBeenCalledWith({ mode: "party", speed: "slow" });
+      expect(mockModeMutate).toHaveBeenCalledWith({
+        mode: "party",
+        speed: "slow",
+      });
     });
 
     it("party control is disabled when lamps are off", () => {
       mockQueryReturn = {
         data: {
-          lamps: { on: false, count: 0, sub: "Off", pending: false, activeScene: null },
+          lamps: {
+            on: false,
+            count: 0,
+            sub: "Off",
+            pending: false,
+            activeScene: null,
+          },
           lights: { on: false, pending: false },
           fan: { on: false, sub: "", pending: false },
         },

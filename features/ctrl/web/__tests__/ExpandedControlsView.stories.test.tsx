@@ -9,7 +9,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import * as stories from "../ExpandedControlsView.stories";
 
-const { Open, LampsOff, SceneInteraction, BlueActive, PartyActive, BrightnessInteraction } =
+const { Open, LampsOff, SceneInteraction, PartyActive, BrightnessInteraction } =
   composeStories(stories);
 
 afterEach(cleanup);
@@ -33,11 +33,6 @@ describe("ExpandedControlsView stories", () => {
   it("SceneInteraction: each scene button fires onScene with its id", async () => {
     const { container } = render(<SceneInteraction />);
     if (SceneInteraction.play) await SceneInteraction.play({ canvasElement: container });
-  });
-
-  it("BlueActive: Blue scene tile highlighted, others not", async () => {
-    const { container } = render(<BlueActive />);
-    if (BlueActive.play) await BlueActive.play({ canvasElement: container });
   });
 
   it("PartyActive: Party tile highlighted + tappable", async () => {
