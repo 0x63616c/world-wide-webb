@@ -893,7 +893,7 @@ describe("setLampScene", () => {
     }
   });
 
-  it("writes a uniform red xy desired on every lamp, NO HA call", async () => {
+  it("writes a uniform, full-brightness red xy desired on every lamp, NO HA call", async () => {
     mockIsConfigured.mockReturnValue(true);
     const writes = captureDesiredWrites();
 
@@ -904,6 +904,7 @@ describe("setLampScene", () => {
     for (const entityId of LAMP_ENTITY_IDS) {
       expect(writes.get(entityId)?.desiredState).toMatchObject({
         on: true,
+        brightness: 255,
         color: { xy: rgbToXy([255, 0, 0]) },
       });
     }
