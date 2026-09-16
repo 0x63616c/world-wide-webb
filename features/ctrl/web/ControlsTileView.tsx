@@ -24,6 +24,13 @@ export type ControlKey = (typeof ControlKey)[keyof typeof ControlKey];
  */
 export type ActiveScene = "white" | "mood" | "red" | "blue" | "party" | null;
 
+export type SavedColorSlot = "red" | "blue" | "custom";
+export interface SavedLampColorView {
+  slot: SavedColorSlot;
+  label: string;
+  hex: string;
+}
+
 export interface ControlEntry {
   on: boolean;
   sub?: string;
@@ -34,6 +41,8 @@ export interface ControlEntry {
   /** Active scene/mode , only the lamps entry carries this; drives the detail
    *  page's scene + Party tile highlight. Undefined treated as null (no active scene). */
   activeScene?: ActiveScene;
+  /** Three user-editable colors shown in the full lamp controls page. */
+  savedColors?: SavedLampColorView[];
 }
 
 export interface ControlsViewData {

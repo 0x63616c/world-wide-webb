@@ -72,12 +72,13 @@ import {
   MOOD_PALETTE,
   WHITE_SCENE_KELVIN,
 } from "./lamp-scenes";
-import { lampMode } from "./schema";
+import { LampColorSlot, lampMode } from "./schema";
 import {
   ControlKey,
   FanMode,
   getControlsState,
   setLampBrightness,
+  setLampColor,
   setLampMode,
   setLampScene,
   toggleControl,
@@ -972,6 +973,28 @@ describe("setLampScene", () => {
 
     // The lamp_mode singleton is upserted (to 'none') so party yields the color.
     expect(mockDbInsert).toHaveBeenCalledWith(lampMode);
+  });
+});
+
+describe("setLampColor", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockIsConfigured.mockReturnValue(true);
+    mockDbSelect.mockReturnValue(makeSelectChain([]));
+    mockDbInsert.mockReturnValue(makeInsertChain());
+  });
+
+  it("saves and applies an edited color across every lamp", async () => {
+    const writes = captureDesiredWrites();
+
+    await setLampColor(LampColorSlot.Blue, "#00ff00");
+
+    for (const entityId of LAMP_ENTITY_IDS) {
+      expect(writes.get(entityId)?.desiredState).toMatchObject({
+        on: true,
+        color: { xy: rgbToXy([0, 255, 0]) },
+      });
+    }
   });
 });
 

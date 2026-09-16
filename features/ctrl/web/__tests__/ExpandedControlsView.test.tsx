@@ -30,6 +30,8 @@ function baseProps(over: Partial<ExpandedControlsViewProps> = {}): ExpandedContr
     onToggle: vi.fn(),
     onScene: vi.fn(),
     onBrightness: vi.fn(),
+    onColor: vi.fn(),
+    onSaveColor: vi.fn(),
     onPartySelect: vi.fn(),
     ...over,
   };
@@ -137,6 +139,26 @@ describe("ExpandedControlsView , scene tiles (ControlTap)", () => {
     render(<ExpandedControlsView {...baseProps()} />);
     // Party is now a tab, not a scene ControlTap with a swatch.
     expect(screen.queryByRole("button", { name: "Party" })).not.toBeInTheDocument();
+  });
+});
+
+describe("ExpandedControlsView , saved colors", () => {
+  it("applies a saved color from its large circle", () => {
+    const onColor = vi.fn();
+    render(<ExpandedControlsView {...baseProps({ onColor })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Use Red" }));
+    expect(onColor).toHaveBeenCalledWith("red");
+  });
+
+  it("opens a large picker and saves the edited color", () => {
+    const onSaveColor = vi.fn();
+    render(<ExpandedControlsView {...baseProps({ onSaveColor })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Blue" }));
+    expect(screen.getByRole("dialog", { name: "Edit Blue color" })).toBeInTheDocument();
+    const input = screen.getByRole("textbox", { name: "Hex color" });
+    fireEvent.change(input, { target: { value: "#00ff00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save & use" }));
+    expect(onSaveColor).toHaveBeenCalledWith("blue", "#00ff00");
   });
 });
 

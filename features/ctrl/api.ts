@@ -2,10 +2,12 @@ import { defineApi } from "@app-kit";
 import { publicProcedure, router } from "@app-kit/server";
 import { z } from "zod";
 import { LampMode, LampModeSpeed, LampScene } from "./lamp-scenes";
+import { LampColorSlot } from "./schema";
 import {
   ControlKey,
   getControlsState,
   setLampBrightness,
+  setLampColor,
   setLampMode,
   setLampScene,
   toggleControl,
@@ -40,6 +42,13 @@ const lampStateSchema = z.object({
     .describe(
       "The active lamp scene: 'party' when the lamp_mode row is set, else the color scene every on-lamp agrees on (from desired colors; a MOOD_PALETTE color on every lamp reads as 'mood'); null when no mode and lamps disagree, are off, or show a custom color",
     ),
+  savedColors: z.array(
+    z.object({
+      slot: z.enum([LampColorSlot.Red, LampColorSlot.Blue, LampColorSlot.Custom]),
+      label: z.string(),
+      hex: z.string().regex(/^#[0-9a-f]{6}$/i),
+    }),
+  ),
 });
 
 const lightStateSchema = z.object({
@@ -116,6 +125,22 @@ export const controlsRouter = router({
     .output(controlsStateSchema)
     .mutation(async ({ input }) => {
       return await setLampScene(input.scene);
+    }),
+
+  /** Apply one of the three saved colors, optionally saving a replacement first. */
+  setLampColor: publicProcedure
+    .input(
+      z.object({
+        slot: z.enum([LampColorSlot.Red, LampColorSlot.Blue, LampColorSlot.Custom]),
+        hex: z
+          .string()
+          .regex(/^#[0-9a-f]{6}$/i)
+          .optional(),
+      }),
+    )
+    .output(controlsStateSchema)
+    .mutation(async ({ input }) => {
+      return await setLampColor(input.slot, input.hex);
     }),
 
   /**
