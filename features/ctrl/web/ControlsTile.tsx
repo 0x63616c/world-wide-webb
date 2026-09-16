@@ -25,7 +25,7 @@ import { openTileDetail } from "@/lib/tile-detail-store";
 import type { RouterOutputs } from "@/lib/trpc";
 import { trpc } from "@/lib/trpc";
 import { useTileQuery } from "@/lib/useTileQuery";
-import type { ControlKey, ControlsViewData } from "./ControlsTileView";
+import type { ControlKey, ControlsViewData, SavedColorSlot } from "./ControlsTileView";
 import { ControlsTileView } from "./ControlsTileView";
 import type { LampScene } from "./ExpandedControlsView";
 import type { PartySelection } from "./views/PartySpeedControls";
@@ -67,6 +67,8 @@ export type UseControlsResult =
       onToggle: (key: ControlKey, currentOn: boolean) => void;
       onScene: (scene: LampScene) => void;
       onBrightness: (pct: number) => void;
+      onColor: (slot: SavedColorSlot) => void;
+      onSaveColor: (slot: SavedColorSlot, hex: string) => void;
       speed: PartySpeed;
       onPartySelect: (value: PartySelection) => void;
     };
@@ -128,6 +130,9 @@ export function useControls(): UseControlsResult {
     },
     onSettled: () => utils.controls.list.invalidate({}),
   });
+  const colorMutation = trpc.controls.setLampColor.useMutation({
+    onSettled: () => utils.controls.list.invalidate({}),
+  });
 
   // Lamp mode (party). The party worker owns the animation loop and the lamp_mode
   // row is authoritative, so activeScene='party' comes back from getControlsState.
@@ -167,6 +172,7 @@ export function useControls(): UseControlsResult {
       pending: data.lamps.pending,
       brightness: data.lamps.brightness,
       activeScene: data.lamps.activeScene,
+      savedColors: data.lamps.savedColors,
     },
     lights: { on: data.lights.on, pending: data.lights.pending },
     fan: { on: data.fan.on, sub: data.fan.sub, pending: data.fan.pending },
@@ -178,6 +184,8 @@ export function useControls(): UseControlsResult {
     onToggle: handleToggle,
     onScene: (scene) => sceneMutation.mutate({ scene }),
     onBrightness: (pct) => brightnessMutation.mutate({ pct }),
+    onColor: (slot) => colorMutation.mutate({ slot }),
+    onSaveColor: (slot, hex) => colorMutation.mutate({ slot, hex }),
     speed: partySpeed,
     onPartySelect: handlePartySelect,
   };

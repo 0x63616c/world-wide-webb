@@ -30,7 +30,7 @@ import {
   RED_RGB,
   WHITE_SCENE_KELVIN,
 } from "./lamp-scenes";
-import { LAMP_MODE_SINGLETON_ID, lampMode } from "./schema";
+import { LAMP_MODE_SINGLETON_ID, LampColorSlot, lampColorRowId, lampMode } from "./schema";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -51,7 +51,20 @@ interface LampState {
    * disagree, are off, or show a custom color (www-7d5b.3.4).
    */
   activeScene: ActiveScene | null;
+  savedColors: SavedLampColor[];
 }
+
+interface SavedLampColor {
+  slot: LampColorSlot;
+  label: string;
+  hex: string;
+}
+
+const DEFAULT_SAVED_COLORS: readonly SavedLampColor[] = [
+  { slot: LampColorSlot.Red, label: "Red", hex: "#ff0000" },
+  { slot: LampColorSlot.Blue, label: "Blue", hex: "#0066ff" },
+  { slot: LampColorSlot.Custom, label: "Custom", hex: "#8b5cf6" },
+];
 
 /**
  * The active lamp scene reported to the UI: one of the color scenes, or an
@@ -103,6 +116,31 @@ function brightnessRawToPct(raw: number | undefined): number {
 function brightnessPctToRaw(pct: number): number {
   const clamped = Math.min(100, Math.max(0, pct));
   return Math.round((clamped / 100) * 255);
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!match) throw new Error("color must be a six-digit hex value");
+  const value = Number.parseInt(match[1], 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+async function readSavedLampColors(): Promise<SavedLampColor[]> {
+  const defaults = new Map(
+    DEFAULT_SAVED_COLORS.map((color) => [lampColorRowId(color.slot), color]),
+  );
+  try {
+    const rows = await db.select({ id: lampMode.id, mode: lampMode.mode }).from(lampMode);
+    for (const row of rows) {
+      const fallback = defaults.get(row.id);
+      if (fallback && /^#[0-9a-f]{6}$/i.test(row.mode)) {
+        defaults.set(row.id, { ...fallback, hex: row.mode.toLowerCase() });
+      }
+    }
+  } catch {
+    // Defaults keep the picker useful while the saved values are temporarily unavailable.
+  }
+  return DEFAULT_SAVED_COLORS.map((color) => defaults.get(lampColorRowId(color.slot)) ?? color);
 }
 
 /**
@@ -274,6 +312,7 @@ export async function getControlsState(
   const anyLightOn = fixtureEffectives.some((e) => e.on);
 
   const activeScene = await resolveActiveScene(lampsOn.map((e) => e.state));
+  const savedColors = await readSavedLampColors();
 
   // Fan = the climate row's desired.fanMode (www-unxz.2), desired-authoritative
   // with a real `pending` from desired-vs-reported convergence.
@@ -292,6 +331,7 @@ export async function getControlsState(
       // pending cue (a genuine HA fan_mode convergence).
       pending: false,
       activeScene,
+      savedColors,
     },
     lights: {
       on: anyLightOn,
@@ -546,6 +586,35 @@ export async function setLampScene(
     store,
   );
 
+  return getControlsState(store);
+}
+
+/** Apply a saved color and optionally replace its stored value first. */
+export async function setLampColor(
+  slot: LampColorSlot,
+  hex: string | undefined,
+  store: DeviceStateStore = deviceStateStore,
+): Promise<ControlsState> {
+  if (!ha.isConfigured()) throw new HaError(0, "Home Assistant is not configured");
+
+  const savedColors = await readSavedLampColors();
+  const current = savedColors.find((color) => color.slot === slot);
+  const chosen = (hex ?? current?.hex)?.toLowerCase();
+  if (!chosen) throw new Error("unknown saved color");
+  const rgb = hexToRgb(chosen);
+
+  if (hex) {
+    await db
+      .insert(lampMode)
+      .values({ id: lampColorRowId(slot), mode: chosen, speed: null, updatedAtUtc: new Date() })
+      .onConflictDoUpdate({
+        target: lampMode.id,
+        set: { mode: chosen, speed: null, updatedAtUtc: new Date() },
+      });
+  }
+
+  await clearLampMode();
+  await writeDesired(lampEntries(), () => ({ on: true, color: { xy: rgbToXy(rgb) } }), store);
   return getControlsState(store);
 }
 

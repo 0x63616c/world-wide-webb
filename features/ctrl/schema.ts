@@ -8,6 +8,19 @@ import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 // modes. Modeled on integration_sync_status's keyed-singleton shape (www-7d5b.3.2).
 export const LAMP_MODE_SINGLETON_ID = "singleton";
 
+/** Three durable, user-editable lamp colors. Their values share lamp_mode's
+ * keyed storage without adding another singleton table. */
+export const LampColorSlot = {
+  Red: "red",
+  Blue: "blue",
+  Custom: "custom",
+} as const;
+export type LampColorSlot = (typeof LampColorSlot)[keyof typeof LampColorSlot];
+
+export function lampColorRowId(slot: LampColorSlot): string {
+  return `color:${slot}`;
+}
+
 export const lampMode = pgTable("lamp_mode", {
   id: text("id").primaryKey(),
   mode: text("mode").notNull().default("none"),

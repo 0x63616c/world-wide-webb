@@ -30,6 +30,7 @@ vi.mock("@/lib/tile-detail-store", () => ({
 const mockMutate = vi.fn();
 const mockSceneMutate = vi.fn();
 const mockBrightnessMutate = vi.fn();
+const mockColorMutate = vi.fn();
 const mockModeMutate = vi.fn();
 let capturedBrightnessOpts: { onMutate?: (vars: { pct: number }) => unknown } | undefined;
 
@@ -93,6 +94,9 @@ vi.mock("@/lib/trpc", () => ({
             },
           };
         },
+      },
+      setLampColor: {
+        useMutation: () => ({ mutate: mockColorMutate }),
       },
       setLampMode: {
         useMutation: () => ({ mutate: mockModeMutate }),
