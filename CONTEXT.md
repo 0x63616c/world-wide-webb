@@ -18,6 +18,14 @@ The single pannable world that fills the Panel and hosts every Tile, plus the al
 Chrome. Panning is frozen whenever an Overlay is open.
 _Avoid_: canvas, grid, desktop, home screen.
 
+**Phone view**:
+The separate screen the app renders when it is opened on a phone instead of the Panel: a
+scroll column of the two Tiles worth reaching for a phone to use (quick Controls, Climate ·
+A/C), plus the Settings gear. It is not a resized Board and shares none of the Board's
+Chrome; a phone is detected by narrow viewport or phone user agent (an iPad is always the
+Panel, never a phone).
+_Avoid_: mobile board, responsive board, small screen.
+
 **Chrome**:
 The always-on, board-level surfaces that belong to no single Tile — status banners and update
 prompts drawn directly on the Board rather than through a Tile.
@@ -26,6 +34,8 @@ _Avoid_: HUD, shell, overlay (an Overlay is a different thing — see below).
 **Banner**:
 One piece of Chrome: a persistent notice strip on the Board (e.g. device-name, connection-lost,
 update-available, unplaced-tiles, not-charging). A Banner is not a Tile and has no detail view.
+Banners are Panel chrome: the device-name and not-charging Banners never appear in the Phone
+view (a phone runs on battery by design, and its auto-derived device name is already correct).
 _Avoid_: toast, alert, notification (a Notification is a queued user message — different).
 
 ## Tiles and their detail surfaces

@@ -10,6 +10,10 @@
  * needed the same wrapper , a tile that throws must degrade to the boundary
  * rather than taking the whole screen down, and that is true wherever the tile is
  * mounted, not just on the board.
+ *
+ * Imported by path, and deliberately NOT re-exported from ui/index.ts: that
+ * barrel is the shared tile-author surface, and this is app plumbing that wraps
+ * tiles from the outside. Both call sites take the direct path.
  */
 
 import { QueryErrorResetBoundary } from "@tanstack/react-query";

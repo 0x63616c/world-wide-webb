@@ -3,7 +3,6 @@ export type { AlertProps } from "./Alert";
 /** @public , guest bundle groundwork; ported from captive-portal (www-2nrj). */
 export { Alert } from "./Alert";
 export { BorderProgressRing } from "./BorderProgressRing";
-export { BoundedTile } from "./BoundedTile";
 /** @public , guest bundle groundwork; ported from captive-portal (www-2nrj). */
 export type { ButtonProps } from "./Button";
 /** @public , guest bundle groundwork; ported from captive-portal (www-2nrj). */
