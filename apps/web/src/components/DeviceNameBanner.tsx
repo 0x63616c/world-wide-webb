@@ -1,4 +1,5 @@
 import { useDeviceName } from "../lib/device-name";
+import { useIsMobile } from "../lib/mobile";
 import { NotificationBanner } from "./ui/NotificationBanner";
 
 // Single source of truth for the copy shown in the view below.
@@ -18,11 +19,22 @@ const MESSAGE = "Please set your device name in settings";
  * There is intentionally NO dismiss control and no clear path other than the
  * name becoming set , the banner exists to force the one-time setup, so it must
  * not be silence-able.
+ *
+ * Which is exactly why it must never fire on a phone. The name exists to label
+ * a PANEL's log lines ("which wall panel wrote this?"), and every panel gets set
+ * up once by hand. A phone opening the same app is a transient visitor: the
+ * auto-derived default ("iPhone", see lib/device-name.ts deriveDefaultName) is
+ * already the right answer, so demanding a hand-typed name gave an
+ * un-dismissable red banner for a setup step there is no reason to perform. The
+ * name stays editable in Settings > Device from a phone , it is just no longer
+ * required. Guarded here, not only in the phone view, so the nag cannot return
+ * by being mounted somewhere else.
  */
 export function DeviceNameBanner() {
   const { isSet } = useDeviceName();
+  const isMobile = useIsMobile();
 
-  if (isSet) return null;
+  if (isMobile || isSet) return null;
 
   return <DeviceNameBannerView />;
 }

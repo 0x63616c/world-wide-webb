@@ -108,7 +108,7 @@ Biome `noRestrictedImports` rule, not a separate dependency-graph tool.
 
 ## Frontend
 
-The main route, `apps/web/src/routes/index.tsx`, renders `Board` from `apps/web/src/components/Board.tsx`.
+The main route, `apps/web/src/routes/index.tsx`, renders `Board` from `apps/web/src/components/Board.tsx` on the panel, or `MobileBoard` from `apps/web/src/components/MobileBoard.tsx` when the same bundle is opened on a phone (`useIsMobile()` in `apps/web/src/lib/mobile.ts`). The phone view is a deliberately tiny, responsive screen , a scroll column holding the quick Controls and Climate · A/C tile faces, the Settings gear and the tile detail host, and none of the board's camera, minimap, idle-dim session or banner stack. `PanelFrame` passes through there, as it does on native.
 
 The dashboard is not a normal responsive layout. It is a fixed wall-panel world:
 

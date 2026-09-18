@@ -3,7 +3,6 @@ import {
   HOME_TILE,
   type TileRegistryEntry,
 } from "@features/_generated/web.gen";
-import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -58,8 +57,8 @@ import { SettingsButton } from "./SettingsButton";
 import { TimeSuiteBanner } from "./TimeSuiteBanner";
 import { TileDetailHost } from "./tiles/detail/TileDetailHost";
 import { UpdateReloadBanner } from "./UpdateReloadBanner";
+import { BoundedTile } from "./ui/BoundedTile";
 import { NotificationBanner, NotificationBannerStack } from "./ui/NotificationBanner";
-import { TileBoundary } from "./ui/TileBoundary";
 
 // Interactive descendants a tap may land on (toggles, sliders, the Controls
 // "More" button). Taps on these drive the tile's own controls and must NOT also
@@ -96,27 +95,6 @@ function cellAt(cells: BoardCell[], cx: number, cy: number): BoardCell | undefin
 // left/top/vw/vh from the real (full-window) stage size, centered on the home
 // tile's registry position.
 const INITIAL_VIEW = { left: 0, top: 0, vw: BOARD_W, vh: BOARD_H };
-
-// Pairs QueryErrorResetBoundary with TileBoundary via resetKey so a recovered
-// query resets the boundary without unmounting or a full page reload.
-function BoundedTile({ children }: { children: React.ReactNode }) {
-  const [resetKey, setResetKey] = useState(0);
-  return (
-    <QueryErrorResetBoundary>
-      {({ reset }) => (
-        <TileBoundary
-          resetKey={resetKey}
-          onReset={() => {
-            reset();
-            setResetKey((k) => k + 1);
-          }}
-        >
-          {children}
-        </TileBoundary>
-      )}
-    </QueryErrorResetBoundary>
-  );
-}
 
 // Fixed banner (same visual language as ConnectionLostBanner, one slot below
 // AppUpdateBanner) shown when the resolved layout couldn't place every tile ,

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useDeviceName } from "../lib/device-name";
+import { useIsMobile } from "../lib/mobile";
 import { useBatteryInfo } from "../lib/useBatteryInfo";
 import { useNotifications } from "../lib/useNotifications";
 import { NotificationBanner } from "./ui/NotificationBanner";
@@ -28,17 +29,32 @@ const detail = "Running on battery. Check the dock cable and power adapter.";
  * battery never raises a false positive. Feeds the shared notifications store
  * (same seam as the other banners) so notification-bridge mirrors it into the
  * persistent Notification Center.
+ *
+ * Never on a phone. "Not charging" is a fault statement about the WALL PANEL ,
+ * it is docked and meant to be on power forever, so running on battery means
+ * someone knocked the cable out. A phone runs on battery by design, and the
+ * native build installed on an iPhone reported exactly this banner (plus a push,
+ * via notification-bridge) for the entirely normal state of being unplugged.
+ * The guard is here rather than only in the phone view so the banner cannot
+ * fire from a phone wherever it is mounted , and, because it gates
+ * useBatteryInfo's `enabled`, a phone does not even poll the battery for it.
  */
 export function NotChargingBanner() {
+  const isMobile = useIsMobile();
   // Mounted for the panel's whole lifetime (unlike the settings-page battery
-  // row), so this polls every 60s continuously.
-  const battery = useBatteryInfo(true);
+  // row), so this polls every 60s continuously , but never on a phone.
+  const battery = useBatteryInfo(!isMobile);
   const { raiseNotification, clearNotification } = useNotifications();
   // Effective name, never empty (falls back to the platform default).
   const { name: deviceName } = useDeviceName();
 
   // null = unknown (off-device / unreadable battery) → treat as NOT a warning.
-  const notCharging = battery !== null && battery.isCharging === false;
+  // `isMobile` is folded in here rather than only into the poll above so the
+  // phone guard holds on the RENDER path too, not just by starving it of data:
+  // notCharging false is also what makes the effect below clear the shared
+  // notification, so a phone that raised it before this shipped cleans up on
+  // its next launch.
+  const notCharging = !isMobile && battery !== null && battery.isCharging === false;
 
   useEffect(() => {
     if (notCharging) {

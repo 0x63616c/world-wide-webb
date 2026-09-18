@@ -35,6 +35,16 @@
   device instead of letting the board stretch to fill the window. `PanelFrame`
   is a no-op passthrough on native, so this never touches the panel/native
   behavior above.
+  - **The Board is the non-responsive surface; the app is not the Board.** A
+    PHONE gets a different screen, not a scaled board:
+    `apps/web/src/components/MobileBoard.tsx`, a scroll column of the two tiles
+    worth reaching for a phone to use (quick Controls + Climate · A/C), chosen
+    by the route (`routes/index.tsx`), not by a branch inside Board. Ask
+    `useIsMobile()` (`apps/web/src/lib/mobile.ts`) , the one place that decides
+    what a phone is (narrow viewport per `lib/useIsNarrow.ts`, OR a phone UA;
+    iPad never counts, it IS the panel). `PanelFrame` is a passthrough there for
+    the same reason it is on native. Panel-only chrome must not fire on a phone:
+    the device-name nag and not-charging banner self-guard on `useIsMobile()`.
 - Features are self-contained Apps under `features/<id>/` (manifest + facets:
   `web.tsx`, `detail.ts`, `api.ts`, `jobs.ts`, `worker.ts`, `schema.ts`, `temporal.ts`); the folder existing is the App's
   registration (ADR-0001). Tile placement is declared as registry coords in the
