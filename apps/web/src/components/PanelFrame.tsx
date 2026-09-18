@@ -45,11 +45,20 @@
  * completely unwrapped , no extra DOM node, no transform, no `document.body`
  * mutation, no behavior change. The physical panel and the native build are
  * untouched by this file.
+ *
+ * Phone passthrough: same unwrapped render when the app is opened on a phone
+ * (lib/mobile.ts). The phone view (MobileBoard.tsx) is the one screen here that
+ * IS responsive, and capping `document.body` to a 1366x1024 box positioned at a
+ * negative offset would push it off a 390px-wide viewport entirely , the cap
+ * exists to stop the PANEL board stretching, which is not a thing the phone view
+ * does. Everything below this line is a no-op on a phone for the same reason it
+ * is on native.
  */
 
 import { Capacitor } from "@capacitor/core";
 import { type CSSProperties, type ReactNode, useEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import { useIsMobile } from "../lib/mobile";
 
 // The physical wall panel's resolution. Intentionally NOT imported from
 // grid-constants , BOARD_W there is this same 1366, but BOARD_H is 1000 (a
@@ -157,7 +166,14 @@ function Bezel() {
 
 export function PanelFrame({ children }: { children: ReactNode }) {
   const { width, height } = useViewportSize();
-  const isNative = Capacitor.isNativePlatform();
+  // Two independent reasons to render `children` untouched , the kiosk shell
+  // (the OS already constrains the viewport) and a phone (the phone view owns
+  // its own responsive layout). Both want the exact same nothing from this
+  // component, so they share one flag rather than two parallel bail-outs.
+  // Called unconditionally , `||` would short-circuit the hook on native and
+  // change the hook order between platforms.
+  const isMobile = useIsMobile();
+  const passthrough = Capacitor.isNativePlatform() || isMobile;
 
   // A sibling of `document.body`, appended straight to `<html>`. This is where
   // the Bezel lives (see file header) , NOT a descendant of body, so body's
@@ -166,7 +182,7 @@ export function PanelFrame({ children }: { children: ReactNode }) {
   // this element is a portal TARGET, not something React itself should ever
   // re-render around.
   const bezelRootRef = useRef<HTMLDivElement | null>(null);
-  if (!isNative && bezelRootRef.current === null) {
+  if (!passthrough && bezelRootRef.current === null) {
     bezelRootRef.current = document.createElement("div");
     bezelRootRef.current.setAttribute("data-panel-bezel-root", "");
   }
@@ -177,7 +193,7 @@ export function PanelFrame({ children }: { children: ReactNode }) {
   // Storybook stories, other routes, or a later test in the same jsdom
   // document once PanelFrame unmounts.
   useEffect(() => {
-    if (isNative) return;
+    if (passthrough) return;
     const bezelRoot = bezelRootRef.current;
     if (!bezelRoot) return;
 
@@ -194,7 +210,7 @@ export function PanelFrame({ children }: { children: ReactNode }) {
       if (prevHtmlStyle === null) html.removeAttribute("style");
       else html.setAttribute("style", prevHtmlStyle);
     };
-  }, [isNative]);
+  }, [passthrough]);
 
   // Every resize: recompute the panel's centered position and push it onto
   // both `body` (the containing block every `position:fixed` descendant ,
@@ -204,7 +220,7 @@ export function PanelFrame({ children }: { children: ReactNode }) {
   // block; translate3d(0,0,0) is the smallest no-op transform that still
   // counts for that purpose (same trick panelStyle already uses).
   useEffect(() => {
-    if (isNative) return;
+    if (passthrough) return;
     const bezelRoot = bezelRootRef.current;
     if (!bezelRoot) return;
 
@@ -230,14 +246,15 @@ export function PanelFrame({ children }: { children: ReactNode }) {
       height: `${PANEL_HEIGHT}px`,
       pointerEvents: "none",
     });
-  }, [isNative, width, height]);
+  }, [passthrough, width, height]);
 
-  // Native kiosk shell: the OS already constrains the viewport to the panel's
-  // own resolution and there's no desktop chrome to frame it against.
-  // Unwrapped passthrough keeps the native build byte-for-byte unaffected , no
-  // body mutation, no bezel-root, nothing above this line has any effect
-  // when native (both effects bail out via the `isNative` check first).
-  if (isNative) return <>{children}</>;
+  // Native kiosk shell (the OS already constrains the viewport to the panel's
+  // own resolution and there's no desktop chrome to frame it against) or a
+  // phone (the phone view is responsive and must keep the real viewport).
+  // Unwrapped passthrough keeps both byte-for-byte unaffected , no body
+  // mutation, no bezel-root, nothing above this line has any effect in either
+  // case (both effects bail out via the `passthrough` check first).
+  if (passthrough) return <>{children}</>;
 
   const hasRoom =
     width - PANEL_WIDTH >= MIN_BEZEL_MARGIN && height - PANEL_HEIGHT >= MIN_BEZEL_MARGIN;
