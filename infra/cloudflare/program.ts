@@ -84,7 +84,7 @@ const opts: pulumi.CustomResourceOptions = { provider, protect: true };
 const sub = (host: string) => host.replace(`.${zoneName}`, "");
 
 const accessName = (host: string) =>
-  host.replace(`.${zoneName}`, "").replace("*", "wildcard").replaceAll(".", "-");
+  host.replace(`.${zoneName}`, "").replaceAll("*", "wildcard").replaceAll(".", "-");
 
 // --- Access apps + policies ---
 // The provider derives selfHostedDomains from `name` for single-domain apps, so

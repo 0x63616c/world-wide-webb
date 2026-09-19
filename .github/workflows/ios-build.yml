@@ -34,6 +34,12 @@ on:
         type: boolean
         default: false
 
+# Least privilege: neither job writes to the repo. The TestFlight upload
+# authenticates to App Store Connect and to the certificates repo with its own
+# credentials from the vault, never with GITHUB_TOKEN.
+permissions:
+  contents: read
+
 concurrency:
   # Keyed by ref so a PR's verify job cannot cancel a main upload in flight.
   group: ios-build-${{ github.ref }}
