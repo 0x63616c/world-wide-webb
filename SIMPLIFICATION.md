@@ -293,6 +293,34 @@ software-factory). Keep only what still describes the living system.
 **Rewrite from scratch at the end:** `AGENTS.md`, `CLAUDE.md`, `CODEBASE_OVERVIEW.md`,
 `CONTEXT.md`, `README.md`. The existing AGENTS.md is majority rules about deleted things.
 
+### 12a. The Simplification ADR — the one thing this PR must ADD to `docs/adr/`
+
+The PR does not finish until it adds a permanent ADR at the next free number in
+`docs/adr/` (**`0013-`** — `0008`, `0011` and `0012` were Temporal and
+software-factory ADRs deleted by this PR, so those numbers are burned and must not be
+reused), titled **"The Simplification: what was deleted and why"**.
+
+Unlike every other doc touched here, this one is **keep-forever**. It is the only
+record left in the tree of what this repo used to be, once `SIMPLIFICATION.md` and the
+deleted subsystems' own docs are gone. It must:
+
+- **List every subsystem removed**: the products (`dont-text-your-ex`, software-factory,
+  Plex, db-ui, go2rtc, agent-sandbox/kata, webhook-relay, map-provision, the UniFi
+  Pulumi project), Temporal, the durable job queue, the 15 features, Storybook, the lock
+  screen, the six deleted settings pages, the 25 dropped DB tables, and the deleted
+  `infra/` modules.
+- **State why.** The measured footprint said the product was a rounding error: the panel
+  itself was **~4%** of it. Kubernetes plus Temporal plus the observability stack cost
+  **~4.3 GB** of RAM before the product rendered a single pixel. Temporal alone cost
+  roughly **4x the product's own footprint** to run what amounted to one daily
+  row-delete — which is now a worker cycle.
+- **Note that none of it is lost**: every deleted subsystem is recoverable from git
+  history at the commit before this PR merged, including `secrets/vault.yaml` keys
+  (SOPS-encrypted in git, still decryptable with the unchanged age key).
+
+Write it last, once the deletions have settled, so its inventory matches what actually
+happened rather than what was planned.
+
 ## 13. Also delete
 
 - `apps/web/src/components/concepts3/` (3,467) — design concepts shipped in the bundle.
@@ -444,6 +472,15 @@ Run against the finished `simplify` branch. Each item is independently checkable
 - [ ] `docs/` contains no directory listed as deleted in §12.
 - [ ] Every ADR remaining in `docs/adr/` describes a subsystem that still exists.
 - [ ] `docs/logging.md` no longer describes the frontend log pipeline.
+- [ ] **The Simplification ADR exists** at the next free number in `docs/adr/`
+      (`0013-`, not reusing `0008`/`0011`/`0012`), titled "The Simplification: what was
+      deleted and why". It inventories every removed subsystem (products, Temporal, the
+      job queue, the 15 features, Storybook, the lock screen, the settings pages, the
+      dropped DB tables, the infra modules), states the footprint rationale (panel = ~4%
+      of the measured footprint; k8s + Temporal + observability = ~4.3 GB before a pixel
+      rendered; Temporal = ~4x the product to run one daily row-delete), and records that
+      everything is recoverable from git history. It is keep-forever — it is NOT deleted
+      with the rest of the docs.
 - [ ] This file (`SIMPLIFICATION.md`) is deleted in the final commit, or explicitly kept
       as the record — state which.
 
